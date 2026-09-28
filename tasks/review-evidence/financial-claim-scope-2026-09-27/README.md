@@ -23,5 +23,7 @@ archives) and are committed here under the new suffix, byte-identical.
 - `hosted-run-36386298431-eval-job.log.txt` — the fourth-round eval job log (peak tariff, USD 0.357), the run that took cumulative hosted telemetry to about USD 1.017.
 - `local-gate-round6.log.txt`, `mutation-proof-round6.log.txt` — sixth-round gate tail and the counted fault/restored proof (introduction grammar disabled).
 - `hosted-run-36392603589-eval-job.log.txt` — the fifth-round eval job log (the authorized measurement under the USD 1.65 ceiling; peak tariff, USD 0.354).
+- `hosted-run-36403130259-eval-job.log.txt` — the eighth-round eval job log for head `5936fc4` (the authorized measurement under the USD 2.10 ceiling; peak tariff, USD 0.349; 70/70 scored, PASS).
+- `hosted-run-36404908264-copilot-job.log.txt` — the Copilot filing-fidelity job log for head `5936fc4` (root's ready-for-review check; 18/18 cases, 35 calls, USD 0.015).
 - `local-gate-round7.log.txt`, `mutation-proof-round7.log.txt` — seventh-round gate tail and the counted fault/restored proof (context identity reduced to its period end).
 - `local-gate-round8.log.txt`, `mutation-proof-round8.log.txt` — eighth-round gate tail and the counted fault/restored proof (repeated context ID resolving to its last definition).

@@ -1,0 +1,754 @@
+﻿2026-09-28T09:39:41.2961703Z Current runner version: '2.337.0'
+2026-09-28T09:39:41.2997567Z ##[group]Runner Image Provisioner
+2026-09-28T09:39:41.2999478Z Hosted Compute Agent
+2026-09-28T09:39:41.3000570Z Version: 20260828.587
+2026-09-28T09:39:41.3001784Z Commit: abac92662cab4cc7352de4f9f9d2e2419aad9c29
+2026-09-28T09:39:41.3003059Z Build Date: 2026-08-28T16:44:25Z
+2026-09-28T09:39:41.3004796Z Worker ID: {c47033fb-b105-401f-a7d5-476b01761060}
+2026-09-28T09:39:41.3006066Z Azure Region: eastus
+2026-09-28T09:39:41.3007051Z ##[endgroup]
+2026-09-28T09:39:41.3009888Z ##[group]Operating System
+2026-09-28T09:39:41.3010986Z Ubuntu
+2026-09-28T09:39:41.3011999Z 24.04.5
+2026-09-28T09:39:41.3012847Z LTS
+2026-09-28T09:39:41.3014098Z ##[endgroup]
+2026-09-28T09:39:41.3015208Z ##[group]Runner Image
+2026-09-28T09:39:41.3016284Z Image: ubuntu-24.04
+2026-09-28T09:39:41.3017324Z Version: 20260920.314.1
+2026-09-28T09:39:41.3019501Z Included Software: https://github.com/actions/runner-images/blob/ubuntu24/20260920.314/images/ubuntu/Ubuntu2404-Readme.md
+2026-09-28T09:39:41.3022260Z Image Release: https://github.com/actions/runner-images/releases/tag/ubuntu24%2F20260920.314
+2026-09-28T09:39:41.3024269Z ##[endgroup]
+2026-09-28T09:39:41.3026291Z ##[group]GITHUB_TOKEN Permissions
+2026-09-28T09:39:41.3029032Z Contents: read
+2026-09-28T09:39:41.3030032Z Metadata: read
+2026-09-28T09:39:41.3030924Z ##[endgroup]
+2026-09-28T09:39:41.3034411Z Secret source: Actions
+2026-09-28T09:39:41.3035971Z Cache mode: write
+2026-09-28T09:39:41.3037304Z Prepare workflow directory
+2026-09-28T09:39:41.3606143Z Prepare all required actions
+2026-09-28T09:39:41.3679447Z Getting action download info
+2026-09-28T09:39:41.5873025Z Download action repository 'actions/checkout@v7' (SHA:3d3c42e5aac5ba805825da76410c181273ba90b1)
+2026-09-28T09:39:41.6705030Z Download action repository 'actions/setup-python@v7' (SHA:5fda3b95a4ea91299a34e894583c3862153e4b97)
+2026-09-28T09:39:41.7552739Z Download action repository 'actions/upload-artifact@v7' (SHA:043fb46d1a93c77aae656e7c1c64a875d1fc6a0a)
+2026-09-28T09:39:41.9305648Z Complete job name: copilot-eval
+2026-09-28T09:39:42.0103571Z ##[group]Run actions/checkout@v7
+2026-09-28T09:39:42.0104542Z with:
+2026-09-28T09:39:42.0104998Z   repository: neilmac91/EarningsNerd
+2026-09-28T09:39:42.0108787Z   token: ***
+2026-09-28T09:39:42.0109221Z   ssh-strict: true
+2026-09-28T09:39:42.0109667Z   ssh-user: git
+2026-09-28T09:39:42.0110123Z   persist-credentials: true
+2026-09-28T09:39:42.0110625Z   clean: true
+2026-09-28T09:39:42.0111070Z   sparse-checkout-cone-mode: true
+2026-09-28T09:39:42.0111598Z   fetch-depth: 1
+2026-09-28T09:39:42.0112027Z   fetch-tags: false
+2026-09-28T09:39:42.0112461Z   show-progress: true
+2026-09-28T09:39:42.0112921Z   lfs: false
+2026-09-28T09:39:42.0113539Z   submodules: false
+2026-09-28T09:39:42.0113991Z   set-safe-directory: true
+2026-09-28T09:39:42.0114593Z   allow-unsafe-pr-checkout: false
+2026-09-28T09:39:42.0115386Z env:
+2026-09-28T09:39:42.0115803Z   SKIP_REDIS_INIT: true
+2026-09-28T09:39:42.0116393Z   SECRET_KEY: copilot-eval-secret-key-for-ci-0123456789
+2026-09-28T09:39:42.0117120Z   STRIPE_SECRET_KEY: sk_test_ci_copilot_eval
+2026-09-28T09:39:42.0117751Z   STRIPE_WEBHOOK_SECRET: whsec_ci_copilot_eval
+2026-09-28T09:39:42.0118351Z   PWNED_PASSWORD_CHECK_ENABLED: false
+2026-09-28T09:39:42.0118907Z   USE_STATEMENT_FINANCIALS: true
+2026-09-28T09:39:42.0119426Z   AI_FALLBACK_MODEL: 
+2026-09-28T09:39:42.0119889Z   AI_FALLBACK_BASE_URL: 
+2026-09-28T09:39:42.0120348Z ##[endgroup]
+2026-09-28T09:39:42.1155581Z Syncing repository: neilmac91/EarningsNerd
+2026-09-28T09:39:42.1158529Z ##[group]Getting Git version info
+2026-09-28T09:39:42.1159887Z Working directory is '/home/runner/work/EarningsNerd/EarningsNerd'
+2026-09-28T09:39:42.1161813Z [command]/usr/bin/git version
+2026-09-28T09:39:42.1238245Z git version 2.55.0
+2026-09-28T09:39:42.1267534Z ##[endgroup]
+2026-09-28T09:39:42.1279787Z Temporarily overriding HOME='/home/runner/work/_temp/6c09bd76-be02-47a6-b8db-dd59e4cece43' before making global git config changes
+2026-09-28T09:39:42.1282551Z Adding repository directory to the temporary git global config as a safe directory
+2026-09-28T09:39:42.1286940Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/EarningsNerd/EarningsNerd
+2026-09-28T09:39:42.1337739Z Deleting the contents of '/home/runner/work/EarningsNerd/EarningsNerd'
+2026-09-28T09:39:42.1341301Z ##[group]Determining repository object format
+2026-09-28T09:39:42.1343577Z ##[endgroup]
+2026-09-28T09:39:42.1345154Z ##[group]Initializing the repository
+2026-09-28T09:39:42.1348879Z [command]/usr/bin/git init /home/runner/work/EarningsNerd/EarningsNerd
+2026-09-28T09:39:42.1458789Z hint: Using 'master' as the name for the initial branch. This default branch name
+2026-09-28T09:39:42.1460762Z hint: will change to "main" in Git 3.0. To configure the initial branch name
+2026-09-28T09:39:42.1462519Z hint: to use in all of your new repositories, which will suppress this warning,
+2026-09-28T09:39:42.1464231Z hint: call:
+2026-09-28T09:39:42.1464974Z hint:
+2026-09-28T09:39:42.1465844Z hint: 	git config --global init.defaultBranch <name>
+2026-09-28T09:39:42.1466964Z hint:
+2026-09-28T09:39:42.1467976Z hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+2026-09-28T09:39:42.1469824Z hint: 'development'. The just-created branch can be renamed via this command:
+2026-09-28T09:39:42.1471210Z hint:
+2026-09-28T09:39:42.1471984Z hint: 	git branch -m <name>
+2026-09-28T09:39:42.1472859Z hint:
+2026-09-28T09:39:42.1474211Z hint: Disable this message with "git config set advice.defaultBranchName false"
+2026-09-28T09:39:42.1475959Z Initialized empty Git repository in /home/runner/work/EarningsNerd/EarningsNerd/.git/
+2026-09-28T09:39:42.1479183Z [command]/usr/bin/git remote add origin https://github.com/neilmac91/EarningsNerd
+2026-09-28T09:39:42.1526391Z ##[endgroup]
+2026-09-28T09:39:42.1527874Z ##[group]Disabling automatic garbage collection
+2026-09-28T09:39:42.1530298Z [command]/usr/bin/git config --local gc.auto 0
+2026-09-28T09:39:42.1571702Z ##[endgroup]
+2026-09-28T09:39:42.1573712Z ##[group]Setting up auth
+2026-09-28T09:39:42.1575175Z Removing SSH command configuration
+2026-09-28T09:39:42.1579571Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+2026-09-28T09:39:42.1621011Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+2026-09-28T09:39:42.1986694Z Removing HTTP extra header
+2026-09-28T09:39:42.1994771Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-09-28T09:39:42.2042002Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+2026-09-28T09:39:42.2262852Z Removing includeIf entries pointing to credentials config files
+2026-09-28T09:39:42.2268868Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-09-28T09:39:42.2304021Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+2026-09-28T09:39:42.2529488Z [command]/usr/bin/git config --file /home/runner/work/_temp/git-credentials-9d8f9def-5a6f-4752-9de8-2dc867f8781a.config http.https://github.com/.extraheader AUTHORIZATION: basic ***
+2026-09-28T09:39:42.2575619Z [command]/usr/bin/git config --local includeIf.gitdir:/home/runner/work/EarningsNerd/EarningsNerd/.git.path /home/runner/work/_temp/git-credentials-9d8f9def-5a6f-4752-9de8-2dc867f8781a.config
+2026-09-28T09:39:42.2613418Z [command]/usr/bin/git config --local includeIf.gitdir:/home/runner/work/EarningsNerd/EarningsNerd/.git/worktrees/*.path /home/runner/work/_temp/git-credentials-9d8f9def-5a6f-4752-9de8-2dc867f8781a.config
+2026-09-28T09:39:42.2654974Z [command]/usr/bin/git config --local includeIf.gitdir:/github/workspace/.git.path /github/runner_temp/git-credentials-9d8f9def-5a6f-4752-9de8-2dc867f8781a.config
+2026-09-28T09:39:42.2695866Z [command]/usr/bin/git config --local includeIf.gitdir:/github/workspace/.git/worktrees/*.path /github/runner_temp/git-credentials-9d8f9def-5a6f-4752-9de8-2dc867f8781a.config
+2026-09-28T09:39:42.2727734Z ##[endgroup]
+2026-09-28T09:39:42.2728497Z ##[group]Fetching the repository
+2026-09-28T09:39:42.2735066Z [command]/usr/bin/git -c protocol.version=2 fetch --no-tags --prune --no-recurse-submodules --depth=1 origin +cb169e1c993c09b385883a7b723a854accc110d2:refs/remotes/pull/992/merge
+2026-09-28T09:39:43.7154141Z From https://github.com/neilmac91/EarningsNerd
+2026-09-28T09:39:43.7156358Z  * [new ref]         cb169e1c993c09b385883a7b723a854accc110d2 -> pull/992/merge
+2026-09-28T09:39:43.7162305Z ##[endgroup]
+2026-09-28T09:39:43.7164091Z ##[group]Determining the checkout info
+2026-09-28T09:39:43.7165692Z ##[endgroup]
+2026-09-28T09:39:43.7169307Z [command]/usr/bin/git sparse-checkout disable
+2026-09-28T09:39:43.7316139Z [command]/usr/bin/git config --local --unset-all extensions.worktreeConfig
+2026-09-28T09:39:43.7319699Z ##[group]Checking out the ref
+2026-09-28T09:39:43.7321141Z [command]/usr/bin/git checkout --progress --force refs/remotes/pull/992/merge
+2026-09-28T09:39:43.9917549Z Note: switching to 'refs/remotes/pull/992/merge'.
+2026-09-28T09:39:43.9918947Z 
+2026-09-28T09:39:43.9920143Z You are in 'detached HEAD' state. You can look around, make experimental
+2026-09-28T09:39:43.9922039Z changes and commit them, and you can discard any commits you make in this
+2026-09-28T09:39:43.9923826Z state without impacting any branches by switching back to a branch.
+2026-09-28T09:39:43.9925135Z 
+2026-09-28T09:39:43.9925718Z If you want to create a new branch to retain commits you create, you may
+2026-09-28T09:39:43.9926964Z do so (now or later) by using -c with the switch command. Example:
+2026-09-28T09:39:43.9927705Z 
+2026-09-28T09:39:43.9928067Z   git switch -c <new-branch-name>
+2026-09-28T09:39:43.9928621Z 
+2026-09-28T09:39:43.9929203Z Or undo this operation with:
+2026-09-28T09:39:43.9930143Z 
+2026-09-28T09:39:43.9930789Z   git switch -
+2026-09-28T09:39:43.9931355Z 
+2026-09-28T09:39:43.9932027Z Turn off this advice by setting config variable advice.detachedHead to false
+2026-09-28T09:39:43.9933023Z 
+2026-09-28T09:39:43.9934702Z HEAD is now at cb169e1 Merge 5936fc4fb5fb8336e6fc3b016b7be9abf05172e3 into c98ba7a0dc71fadd72f979d0da6472ce919242ea
+2026-09-28T09:39:43.9938742Z ##[endgroup]
+2026-09-28T09:39:43.9980741Z [command]/usr/bin/git log -1 --format=%H
+2026-09-28T09:39:44.0010236Z cb169e1c993c09b385883a7b723a854accc110d2
+2026-09-28T09:39:44.0282299Z ##[group]Run grep -v '^#' .github/ai-model.env >> "$GITHUB_ENV"
+2026-09-28T09:39:44.0284528Z [36;1mgrep -v '^#' .github/ai-model.env >> "$GITHUB_ENV"[0m
+2026-09-28T09:39:44.0559155Z shell: /usr/bin/bash -e {0}
+2026-09-28T09:39:44.0560448Z env:
+2026-09-28T09:39:44.0561472Z   SKIP_REDIS_INIT: true
+2026-09-28T09:39:44.0562936Z   SECRET_KEY: copilot-eval-secret-key-for-ci-0123456789
+2026-09-28T09:39:44.0564912Z   STRIPE_SECRET_KEY: sk_test_ci_copilot_eval
+2026-09-28T09:39:44.0566425Z   STRIPE_WEBHOOK_SECRET: whsec_ci_copilot_eval
+2026-09-28T09:39:44.0567863Z   PWNED_PASSWORD_CHECK_ENABLED: false
+2026-09-28T09:39:44.0569171Z   USE_STATEMENT_FINANCIALS: true
+2026-09-28T09:39:44.0570372Z   AI_FALLBACK_MODEL: 
+2026-09-28T09:39:44.0571438Z   AI_FALLBACK_BASE_URL: 
+2026-09-28T09:39:44.0572513Z ##[endgroup]
+2026-09-28T09:39:44.0912864Z ##[group]Run actions/setup-python@v7
+2026-09-28T09:39:44.0914403Z with:
+2026-09-28T09:39:44.0915285Z   python-version: 3.11
+2026-09-28T09:39:44.0916429Z   check-latest: false
+2026-09-28T09:39:44.0925274Z   token: ***
+2026-09-28T09:39:44.0926236Z   update-environment: true
+2026-09-28T09:39:44.0927301Z   allow-prereleases: false
+2026-09-28T09:39:44.0928344Z   freethreaded: false
+2026-09-28T09:39:44.0929291Z env:
+2026-09-28T09:39:44.0930123Z   SKIP_REDIS_INIT: true
+2026-09-28T09:39:44.0931323Z   SECRET_KEY: copilot-eval-secret-key-for-ci-0123456789
+2026-09-28T09:39:44.0932742Z   STRIPE_SECRET_KEY: sk_test_ci_copilot_eval
+2026-09-28T09:39:44.0934609Z   STRIPE_WEBHOOK_SECRET: whsec_ci_copilot_eval
+2026-09-28T09:39:44.0935909Z   PWNED_PASSWORD_CHECK_ENABLED: false
+2026-09-28T09:39:44.0937080Z   USE_STATEMENT_FINANCIALS: true
+2026-09-28T09:39:44.0938143Z   AI_FALLBACK_MODEL: 
+2026-09-28T09:39:44.0939118Z   AI_FALLBACK_BASE_URL: 
+2026-09-28T09:39:44.0940191Z   AI_DEFAULT_MODEL: deepseek-flash
+2026-09-28T09:39:44.0941444Z   OPENAI_BASE_URL: https://api.deepseek.com/v1
+2026-09-28T09:39:44.0942694Z ##[endgroup]
+2026-09-28T09:39:44.2156744Z ##[group]Installed versions
+2026-09-28T09:39:44.2243850Z Successfully set up CPython (3.11.16)
+2026-09-28T09:39:44.2245840Z ##[endgroup]
+2026-09-28T09:39:44.2422070Z ##[group]Run pip install -r backend/requirements.txt -r backend/requirements-dev.txt
+2026-09-28T09:39:44.2424522Z [36;1mpip install -r backend/requirements.txt -r backend/requirements-dev.txt[0m
+2026-09-28T09:39:44.2522430Z shell: /usr/bin/bash -e {0}
+2026-09-28T09:39:44.2524354Z env:
+2026-09-28T09:39:44.2525281Z   SKIP_REDIS_INIT: true
+2026-09-28T09:39:44.2526586Z   SECRET_KEY: copilot-eval-secret-key-for-ci-0123456789
+2026-09-28T09:39:44.2528162Z   STRIPE_SECRET_KEY: sk_test_ci_copilot_eval
+2026-09-28T09:39:44.2529457Z   STRIPE_WEBHOOK_SECRET: whsec_ci_copilot_eval
+2026-09-28T09:39:44.2530708Z   PWNED_PASSWORD_CHECK_ENABLED: false
+2026-09-28T09:39:44.2531921Z   USE_STATEMENT_FINANCIALS: true
+2026-09-28T09:39:44.2532978Z   AI_FALLBACK_MODEL: 
+2026-09-28T09:39:44.2534247Z   AI_FALLBACK_BASE_URL: 
+2026-09-28T09:39:44.2535289Z   AI_DEFAULT_MODEL: deepseek-flash
+2026-09-28T09:39:44.2537154Z   OPENAI_BASE_URL: https://api.deepseek.com/v1
+2026-09-28T09:39:44.2539638Z   pythonLocation: /opt/hostedtoolcache/Python/3.11.16/x64
+2026-09-28T09:39:44.2541481Z   PKG_CONFIG_PATH: /opt/hostedtoolcache/Python/3.11.16/x64/lib/pkgconfig
+2026-09-28T09:39:44.2543917Z   Python_ROOT_DIR: /opt/hostedtoolcache/Python/3.11.16/x64
+2026-09-28T09:39:44.2545489Z   Python2_ROOT_DIR: /opt/hostedtoolcache/Python/3.11.16/x64
+2026-09-28T09:39:44.2547026Z   Python3_ROOT_DIR: /opt/hostedtoolcache/Python/3.11.16/x64
+2026-09-28T09:39:44.2548600Z   LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.11.16/x64/lib
+2026-09-28T09:39:44.2549933Z ##[endgroup]
+2026-09-28T09:39:45.0998537Z Collecting aiofiles==25.1.0 (from -r backend/requirements.txt (line 7))
+2026-09-28T09:39:45.1485872Z   Downloading aiofiles-25.1.0-py3-none-any.whl.metadata (6.3 kB)
+2026-09-28T09:39:45.1595801Z Collecting annotated-doc==0.0.4 (from -r backend/requirements.txt (line 9))
+2026-09-28T09:39:45.1638096Z   Downloading annotated_doc-0.0.4-py3-none-any.whl.metadata (6.6 kB)
+2026-09-28T09:39:45.1839969Z Collecting annotated-types==0.7.0 (from -r backend/requirements.txt (line 11))
+2026-09-28T09:39:45.1878962Z   Downloading annotated_types-0.7.0-py3-none-any.whl.metadata (15 kB)
+2026-09-28T09:39:45.2074619Z Collecting anyio==4.14.2 (from -r backend/requirements.txt (line 13))
+2026-09-28T09:39:45.2116287Z   Downloading anyio-4.14.2-py3-none-any.whl.metadata (4.6 kB)
+2026-09-28T09:39:45.2232850Z Collecting backoff==2.2.1 (from -r backend/requirements.txt (line 20))
+2026-09-28T09:39:45.2268800Z   Downloading backoff-2.2.1-py3-none-any.whl.metadata (14 kB)
+2026-09-28T09:39:45.2642682Z Collecting bcrypt==5.0.0 (from -r backend/requirements.txt (line 22))
+2026-09-28T09:39:45.2684266Z   Downloading bcrypt-5.0.0-cp39-abi3-manylinux_2_34_x86_64.whl.metadata (10 kB)
+2026-09-28T09:39:45.2828592Z Collecting beautifulsoup4==4.15.0 (from -r backend/requirements.txt (line 24))
+2026-09-28T09:39:45.2870974Z   Downloading beautifulsoup4-4.15.0-py3-none-any.whl.metadata (3.8 kB)
+2026-09-28T09:39:45.3153077Z Collecting brotli==1.2.0 (from -r backend/requirements.txt (line 28))
+2026-09-28T09:39:45.3194517Z   Downloading brotli-1.2.0-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.whl.metadata (6.1 kB)
+2026-09-28T09:39:45.3340322Z Collecting certifi==2026.5.20 (from -r backend/requirements.txt (line 30))
+2026-09-28T09:39:45.3380276Z   Downloading certifi-2026.5.20-py3-none-any.whl.metadata (2.5 kB)
+2026-09-28T09:39:45.4314602Z Collecting cffi==2.0.0 (from -r backend/requirements.txt (line 36))
+2026-09-28T09:39:45.4355617Z   Downloading cffi-2.0.0-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.whl.metadata (2.6 kB)
+2026-09-28T09:39:45.5377275Z Collecting charset-normalizer==3.4.7 (from -r backend/requirements.txt (line 40))
+2026-09-28T09:39:45.5419760Z   Downloading charset_normalizer-3.4.7-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl.metadata (40 kB)
+2026-09-28T09:39:45.5588983Z Collecting click==8.4.1 (from -r backend/requirements.txt (line 42))
+2026-09-28T09:39:45.5627687Z   Downloading click-8.4.1-py3-none-any.whl.metadata (2.6 kB)
+2026-09-28T09:39:45.7374359Z Collecting cryptography==50.0.0 (from -r backend/requirements.txt (line 44))
+2026-09-28T09:39:45.7418133Z   Downloading cryptography-50.0.0-cp311-abi3-manylinux_2_34_x86_64.whl.metadata (4.3 kB)
+2026-09-28T09:39:45.7525469Z Collecting cssselect2==0.9.0 (from -r backend/requirements.txt (line 46))
+2026-09-28T09:39:45.7562204Z   Downloading cssselect2-0.9.0-py3-none-any.whl.metadata (2.9 kB)
+2026-09-28T09:39:45.7665817Z Collecting distro==1.9.0 (from -r backend/requirements.txt (line 48))
+2026-09-28T09:39:45.7706476Z   Downloading distro-1.9.0-py3-none-any.whl.metadata (6.8 kB)
+2026-09-28T09:39:45.7820469Z Collecting dnspython==2.8.0 (from -r backend/requirements.txt (line 50))
+2026-09-28T09:39:45.7857535Z   Downloading dnspython-2.8.0-py3-none-any.whl.metadata (5.7 kB)
+2026-09-28T09:39:45.8302608Z Collecting edgartools==5.58.0 (from -r backend/requirements.txt (line 52))
+2026-09-28T09:39:45.8351817Z   Downloading edgartools-5.58.0-py3-none-any.whl.metadata (18 kB)
+2026-09-28T09:39:45.8493137Z Collecting email-validator==2.3.0 (from -r backend/requirements.txt (line 54))
+2026-09-28T09:39:45.8535379Z   Downloading email_validator-2.3.0-py3-none-any.whl.metadata (26 kB)
+2026-09-28T09:39:45.8650713Z Collecting et-xmlfile==2.0.0 (from -r backend/requirements.txt (line 56))
+2026-09-28T09:39:45.8697479Z   Downloading et_xmlfile-2.0.0-py3-none-any.whl.metadata (2.7 kB)
+2026-09-28T09:39:45.9017399Z Collecting fastapi==0.141.1 (from -r backend/requirements.txt (line 58))
+2026-09-28T09:39:45.9065871Z   Downloading fastapi-0.141.1-py3-none-any.whl.metadata (27 kB)
+2026-09-28T09:39:45.9270474Z Collecting filelock==3.29.4 (from -r backend/requirements.txt (line 62))
+2026-09-28T09:39:45.9316763Z   Downloading filelock-3.29.4-py3-none-any.whl.metadata (2.0 kB)
+2026-09-28T09:39:46.0616807Z Collecting fonttools==4.63.0 (from -r backend/requirements.txt (line 64))
+2026-09-28T09:39:46.0667775Z   Downloading fonttools-4.63.0-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.whl.metadata (118 kB)
+2026-09-28T09:39:46.2284735Z Collecting greenlet==3.5.6 (from -r backend/requirements.txt (line 66))
+2026-09-28T09:39:46.2330091Z   Downloading greenlet-3.5.6-cp311-cp311-manylinux_2_24_x86_64.manylinux_2_28_x86_64.whl.metadata (3.8 kB)
+2026-09-28T09:39:46.2435327Z Collecting h11==0.16.0 (from -r backend/requirements.txt (line 70))
+2026-09-28T09:39:46.2473690Z   Downloading h11-0.16.0-py3-none-any.whl.metadata (8.3 kB)
+2026-09-28T09:39:46.2627334Z Collecting httpcore==1.0.9 (from -r backend/requirements.txt (line 75))
+2026-09-28T09:39:46.2665053Z   Downloading httpcore-1.0.9-py3-none-any.whl.metadata (21 kB)
+2026-09-28T09:39:46.2809230Z Collecting httpcore2==2.13.0 (from -r backend/requirements.txt (line 77))
+2026-09-28T09:39:46.2844944Z   Downloading httpcore2-2.13.0-py3-none-any.whl.metadata (26 kB)
+2026-09-28T09:39:46.3155995Z Collecting httptools==0.8.0 (from -r backend/requirements.txt (line 79))
+2026-09-28T09:39:46.3197759Z   Downloading httptools-0.8.0-cp311-cp311-manylinux1_x86_64.manylinux_2_28_x86_64.manylinux_2_5_x86_64.whl.metadata (3.5 kB)
+2026-09-28T09:39:46.3374651Z Collecting httpx==0.28.1 (from -r backend/requirements.txt (line 81))
+2026-09-28T09:39:46.3411459Z   Downloading httpx-0.28.1-py3-none-any.whl.metadata (7.1 kB)
+2026-09-28T09:39:46.3525194Z Collecting httpx2==2.13.0 (from -r backend/requirements.txt (line 86))
+2026-09-28T09:39:46.3563639Z   Downloading httpx2-2.13.0-py3-none-any.whl.metadata (10 kB)
+2026-09-28T09:39:46.3758155Z Collecting httpxthrottlecache==0.6.1 (from -r backend/requirements.txt (line 88))
+2026-09-28T09:39:46.3814791Z   Downloading httpxthrottlecache-0.6.1-py3-none-any.whl.metadata (7.8 kB)
+2026-09-28T09:39:46.3995327Z Collecting humanize==4.15.0 (from -r backend/requirements.txt (line 90))
+2026-09-28T09:39:46.4037321Z   Downloading humanize-4.15.0-py3-none-any.whl.metadata (7.8 kB)
+2026-09-28T09:39:46.4191983Z Collecting idna==3.18 (from -r backend/requirements.txt (line 92))
+2026-09-28T09:39:46.4231776Z   Downloading idna-3.18-py3-none-any.whl.metadata (6.1 kB)
+2026-09-28T09:39:46.4330768Z Collecting iniconfig==2.3.0 (from -r backend/requirements.txt (line 99))
+2026-09-28T09:39:46.4368236Z   Downloading iniconfig-2.3.0-py3-none-any.whl.metadata (2.5 kB)
+2026-09-28T09:39:46.4503214Z Collecting jinja2==3.1.6 (from -r backend/requirements.txt (line 101))
+2026-09-28T09:39:46.4539807Z   Downloading jinja2-3.1.6-py3-none-any.whl.metadata (2.9 kB)
+2026-09-28T09:39:46.5361964Z Collecting jiter==0.16.0 (from -r backend/requirements.txt (line 103))
+2026-09-28T09:39:46.5403238Z   Downloading jiter-0.16.0-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl.metadata (5.2 kB)
+2026-09-28T09:39:46.5643808Z Collecting json-repair==0.63.4 (from -r backend/requirements.txt (line 105))
+2026-09-28T09:39:46.5698821Z   Downloading json_repair-0.63.4-py3-none-any.whl.metadata (20 kB)
+2026-09-28T09:39:46.7841404Z Collecting lxml==6.1.3 (from -r backend/requirements.txt (line 107))
+2026-09-28T09:39:46.7881494Z   Downloading lxml-6.1.3-cp311-cp311-manylinux_2_26_x86_64.manylinux_2_28_x86_64.whl.metadata (3.3 kB)
+2026-09-28T09:39:46.8020103Z Collecting markdown-it-py==4.2.0 (from -r backend/requirements.txt (line 111))
+2026-09-28T09:39:46.8059284Z   Downloading markdown_it_py-4.2.0-py3-none-any.whl.metadata (7.4 kB)
+2026-09-28T09:39:46.8723835Z Collecting markupsafe==3.0.3 (from -r backend/requirements.txt (line 113))
+2026-09-28T09:39:46.8764495Z   Downloading markupsafe-3.0.3-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl.metadata (2.7 kB)
+2026-09-28T09:39:46.8856764Z Collecting mdurl==0.1.2 (from -r backend/requirements.txt (line 115))
+2026-09-28T09:39:46.8896042Z   Downloading mdurl-0.1.2-py3-none-any.whl.metadata (1.6 kB)
+2026-09-28T09:39:46.9009791Z Collecting nest-asyncio==1.6.0 (from -r backend/requirements.txt (line 117))
+2026-09-28T09:39:46.9047818Z   Downloading nest_asyncio-1.6.0-py3-none-any.whl.metadata (2.8 kB)
+2026-09-28T09:39:47.0816989Z Collecting numpy==2.4.6 (from -r backend/requirements.txt (line 119))
+2026-09-28T09:39:47.0861344Z   Downloading numpy-2.4.6-cp311-cp311-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl.metadata (6.6 kB)
+2026-09-28T09:39:47.1260208Z Collecting openai==3.16.2 (from -r backend/requirements.txt (line 123))
+2026-09-28T09:39:47.1298367Z   Downloading openai-3.16.2-py3-none-any.whl.metadata (43 kB)
+2026-09-28T09:39:47.1457424Z Collecting openpyxl==3.1.5 (from -r backend/requirements.txt (line 125))
+2026-09-28T09:39:47.1494946Z   Downloading openpyxl-3.1.5-py2.py3-none-any.whl.metadata (2.5 kB)
+2026-09-28T09:39:47.3980253Z Collecting orjson==3.11.9 (from -r backend/requirements.txt (line 127))
+2026-09-28T09:39:47.4023143Z   Downloading orjson-3.11.9-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl.metadata (41 kB)
+2026-09-28T09:39:47.4182615Z Collecting packaging==26.2 (from -r backend/requirements.txt (line 129))
+2026-09-28T09:39:47.4232087Z   Downloading packaging-26.2-py3-none-any.whl.metadata (3.5 kB)
+2026-09-28T09:39:47.5235614Z Collecting pandas==3.0.6 (from -r backend/requirements.txt (line 131))
+2026-09-28T09:39:47.5281430Z   Downloading pandas-3.0.6-cp311-cp311-manylinux_2_24_x86_64.manylinux_2_28_x86_64.whl.metadata (79 kB)
+2026-09-28T09:39:47.5610979Z Collecting passlib==1.7.4 (from -r backend/requirements.txt (line 135))
+2026-09-28T09:39:47.5650533Z   Downloading passlib-1.7.4-py2.py3-none-any.whl.metadata (1.7 kB)
+2026-09-28T09:39:47.7189368Z Collecting pillow==12.3.0 (from -r backend/requirements.txt (line 137))
+2026-09-28T09:39:47.7235660Z   Downloading pillow-12.3.0-cp311-cp311-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl.metadata (9.1 kB)
+2026-09-28T09:39:47.7366910Z Collecting pluggy==1.6.0 (from -r backend/requirements.txt (line 139))
+2026-09-28T09:39:47.7415200Z   Downloading pluggy-1.6.0-py3-none-any.whl.metadata (4.8 kB)
+2026-09-28T09:39:47.8074938Z Collecting posthog==7.58.0 (from -r backend/requirements.txt (line 141))
+2026-09-28T09:39:47.8127759Z   Downloading posthog-7.58.0-py3-none-any.whl.metadata (5.6 kB)
+2026-09-28T09:39:47.8766609Z Collecting psycopg2-binary==2.9.13 (from -r backend/requirements.txt (line 143))
+2026-09-28T09:39:47.8810935Z   Downloading psycopg2_binary-2.9.13-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.whl.metadata (4.9 kB)
+2026-09-28T09:39:47.9566620Z Collecting pyarrow==24.0.0 (from -r backend/requirements.txt (line 145))
+2026-09-28T09:39:47.9617697Z   Downloading pyarrow-24.0.0-cp311-cp311-manylinux_2_28_x86_64.whl.metadata (3.0 kB)
+2026-09-28T09:39:47.9720079Z Collecting pycparser==3.0 (from -r backend/requirements.txt (line 147))
+2026-09-28T09:39:47.9757192Z   Downloading pycparser-3.0-py3-none-any.whl.metadata (8.2 kB)
+2026-09-28T09:39:48.0720135Z Collecting pydantic==2.13.5 (from -r backend/requirements.txt (line 149))
+2026-09-28T09:39:48.0761386Z   Downloading pydantic-2.13.5-py3-none-any.whl.metadata (110 kB)
+2026-09-28T09:39:48.8042306Z Collecting pydantic-core==2.46.5 (from -r backend/requirements.txt (line 156))
+2026-09-28T09:39:48.8083252Z   Downloading pydantic_core-2.46.5-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl.metadata (6.6 kB)
+2026-09-28T09:39:48.8214365Z Collecting pydantic-settings==2.15.0 (from -r backend/requirements.txt (line 158))
+2026-09-28T09:39:48.8251724Z   Downloading pydantic_settings-2.15.0-py3-none-any.whl.metadata (3.9 kB)
+2026-09-28T09:39:48.8363026Z Collecting pydyf==0.12.1 (from -r backend/requirements.txt (line 160))
+2026-09-28T09:39:48.8399859Z   Downloading pydyf-0.12.1-py3-none-any.whl.metadata (2.5 kB)
+2026-09-28T09:39:48.8553717Z Collecting pygments==2.20.0 (from -r backend/requirements.txt (line 162))
+2026-09-28T09:39:48.8592264Z   Downloading pygments-2.20.0-py3-none-any.whl.metadata (2.5 kB)
+2026-09-28T09:39:48.8731991Z Collecting pyjwt==2.14.0 (from -r backend/requirements.txt (line 166))
+2026-09-28T09:39:48.8769879Z   Downloading pyjwt-2.14.0-py3-none-any.whl.metadata (3.4 kB)
+2026-09-28T09:39:48.8891481Z Collecting pyphen==0.17.2 (from -r backend/requirements.txt (line 170))
+2026-09-28T09:39:48.8927123Z   Downloading pyphen-0.17.2-py3-none-any.whl.metadata (3.2 kB)
+2026-09-28T09:39:48.9056261Z Collecting pyrate-limiter==4.3.0 (from -r backend/requirements.txt (line 172))
+2026-09-28T09:39:48.9122193Z   Downloading pyrate_limiter-4.3.0-py3-none-any.whl.metadata (29 kB)
+2026-09-28T09:39:48.9369928Z Collecting pytest==9.1.1 (from -r backend/requirements.txt (line 176))
+2026-09-28T09:39:48.9416721Z   Downloading pytest-9.1.1-py3-none-any.whl.metadata (7.6 kB)
+2026-09-28T09:39:48.9579746Z Collecting pytest-asyncio==1.4.0 (from -r backend/requirements.txt (line 180))
+2026-09-28T09:39:48.9619098Z   Downloading pytest_asyncio-1.4.0-py3-none-any.whl.metadata (4.1 kB)
+2026-09-28T09:39:48.9740075Z Collecting python-dateutil==2.9.0.post0 (from -r backend/requirements.txt (line 182))
+2026-09-28T09:39:48.9777649Z   Downloading python_dateutil-2.9.0.post0-py2.py3-none-any.whl.metadata (8.4 kB)
+2026-09-28T09:39:48.9909303Z Collecting python-dotenv==1.2.3 (from -r backend/requirements.txt (line 186))
+2026-09-28T09:39:48.9946769Z   Downloading python_dotenv-1.2.3-py3-none-any.whl.metadata (29 kB)
+2026-09-28T09:39:49.0075035Z Collecting python-multipart==0.0.32 (from -r backend/requirements.txt (line 191))
+2026-09-28T09:39:49.0116343Z   Downloading python_multipart-0.0.32-py3-none-any.whl.metadata (2.1 kB)
+2026-09-28T09:39:49.0445248Z Collecting pyyaml==6.0.3 (from -r backend/requirements.txt (line 193))
+2026-09-28T09:39:49.0486457Z   Downloading pyyaml-6.0.3-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl.metadata (2.4 kB)
+2026-09-28T09:39:49.0614526Z Collecting rank-bm25==0.2.2 (from -r backend/requirements.txt (line 195))
+2026-09-28T09:39:49.0650914Z   Downloading rank_bm25-0.2.2-py3-none-any.whl.metadata (3.2 kB)
+2026-09-28T09:39:49.5619939Z Collecting rapidfuzz==3.14.5 (from -r backend/requirements.txt (line 197))
+2026-09-28T09:39:49.5672532Z   Downloading rapidfuzz-3.14.5-cp311-cp311-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl.metadata (12 kB)
+2026-09-28T09:39:49.5888943Z Collecting redis==8.1.0 (from -r backend/requirements.txt (line 199))
+2026-09-28T09:39:49.5931389Z   Downloading redis-8.1.0-py3-none-any.whl.metadata (16 kB)
+2026-09-28T09:39:49.6179014Z Collecting requests==2.34.2 (from -r backend/requirements.txt (line 201))
+2026-09-28T09:39:49.6220476Z   Downloading requests-2.34.2-py3-none-any.whl.metadata (4.8 kB)
+2026-09-28T09:39:49.6488256Z Collecting rich==15.0.0 (from -r backend/requirements.txt (line 205))
+2026-09-28T09:39:49.6528509Z   Downloading rich-15.0.0-py3-none-any.whl.metadata (18 kB)
+2026-09-28T09:39:49.6920262Z Collecting sentry-sdk==2.69.2 (from -r backend/requirements.txt (line 207))
+2026-09-28T09:39:49.6965812Z   Downloading sentry_sdk-2.69.2-py3-none-any.whl.metadata (11 kB)
+2026-09-28T09:39:49.7176569Z Collecting six==1.17.0 (from -r backend/requirements.txt (line 209))
+2026-09-28T09:39:49.7214248Z   Downloading six-1.17.0-py2.py3-none-any.whl.metadata (1.7 kB)
+2026-09-28T09:39:49.7310273Z Collecting sniffio==1.3.1 (from -r backend/requirements.txt (line 211))
+2026-09-28T09:39:49.7348925Z   Downloading sniffio-1.3.1-py3-none-any.whl.metadata (3.9 kB)
+2026-09-28T09:39:49.7484495Z Collecting soupsieve==2.9 (from -r backend/requirements.txt (line 213))
+2026-09-28T09:39:49.7528759Z   Downloading soupsieve-2.9-py3-none-any.whl.metadata (4.6 kB)
+2026-09-28T09:39:50.0795349Z Collecting sqlalchemy==2.0.54 (from -r backend/requirements.txt (line 215))
+2026-09-28T09:39:50.0839543Z   Downloading sqlalchemy-2.0.54-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl.metadata (9.7 kB)
+2026-09-28T09:39:50.0991156Z Collecting stamina==26.1.0 (from -r backend/requirements.txt (line 217))
+2026-09-28T09:39:50.1038896Z   Downloading stamina-26.1.0-py3-none-any.whl.metadata (4.6 kB)
+2026-09-28T09:39:50.1240029Z Collecting starlette==1.3.1 (from -r backend/requirements.txt (line 219))
+2026-09-28T09:39:50.1279263Z   Downloading starlette-1.3.1-py3-none-any.whl.metadata (6.4 kB)
+2026-09-28T09:39:50.1827942Z Collecting stripe==15.6.1 (from -r backend/requirements.txt (line 221))
+2026-09-28T09:39:50.1868734Z   Downloading stripe-15.6.1-py3-none-any.whl.metadata (22 kB)
+2026-09-28T09:39:50.1983960Z Collecting tabulate==0.10.0 (from -r backend/requirements.txt (line 223))
+2026-09-28T09:39:50.2021730Z   Downloading tabulate-0.10.0-py3-none-any.whl.metadata (40 kB)
+2026-09-28T09:39:50.2181876Z Collecting tenacity==9.1.4 (from -r backend/requirements.txt (line 225))
+2026-09-28T09:39:50.2220028Z   Downloading tenacity-9.1.4-py3-none-any.whl.metadata (1.2 kB)
+2026-09-28T09:39:50.2325330Z Collecting textdistance==4.6.3 (from -r backend/requirements.txt (line 227))
+2026-09-28T09:39:50.2376016Z   Downloading textdistance-4.6.3-py3-none-any.whl.metadata (18 kB)
+2026-09-28T09:39:50.2551478Z Collecting tinycss2==1.5.1 (from -r backend/requirements.txt (line 229))
+2026-09-28T09:39:50.2589005Z   Downloading tinycss2-1.5.1-py3-none-any.whl.metadata (3.0 kB)
+2026-09-28T09:39:50.2688056Z Collecting tinyhtml5==2.1.0 (from -r backend/requirements.txt (line 233))
+2026-09-28T09:39:50.2725607Z   Downloading tinyhtml5-2.1.0-py3-none-any.whl.metadata (2.9 kB)
+2026-09-28T09:39:50.2954586Z Collecting tqdm==4.68.2 (from -r backend/requirements.txt (line 235))
+2026-09-28T09:39:50.3012793Z   Downloading tqdm-4.68.2-py3-none-any.whl.metadata (58 kB)
+2026-09-28T09:39:50.3166245Z Collecting truststore==0.10.4 (from -r backend/requirements.txt (line 237))
+2026-09-28T09:39:50.3205757Z   Downloading truststore-0.10.4-py3-none-any.whl.metadata (4.4 kB)
+2026-09-28T09:39:50.3347291Z Collecting typing-extensions==4.15.0 (from -r backend/requirements.txt (line 242))
+2026-09-28T09:39:50.3385366Z   Downloading typing_extensions-4.15.0-py3-none-any.whl.metadata (3.3 kB)
+2026-09-28T09:39:50.3480887Z Collecting typing-inspection==0.4.2 (from -r backend/requirements.txt (line 257))
+2026-09-28T09:39:50.3517596Z   Downloading typing_inspection-0.4.2-py3-none-any.whl.metadata (2.6 kB)
+2026-09-28T09:39:50.3623269Z Collecting unidecode==1.4.0 (from -r backend/requirements.txt (line 262))
+2026-09-28T09:39:50.3662211Z   Downloading Unidecode-1.4.0-py3-none-any.whl.metadata (13 kB)
+2026-09-28T09:39:50.4398950Z Collecting urllib3==2.7.0 (from -r backend/requirements.txt (line 264))
+2026-09-28T09:39:50.4442800Z   Downloading urllib3-2.7.0-py3-none-any.whl.metadata (6.9 kB)
+2026-09-28T09:39:50.4661364Z Collecting uvicorn==0.53.0 (from -r backend/requirements.txt (line 268))
+2026-09-28T09:39:50.4701366Z   Downloading uvicorn-0.53.0-py3-none-any.whl.metadata (6.6 kB)
+2026-09-28T09:39:50.5073781Z Collecting uvloop==0.22.1 (from -r backend/requirements.txt (line 270))
+2026-09-28T09:39:50.5115560Z   Downloading uvloop-0.22.1-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl.metadata (4.9 kB)
+2026-09-28T09:39:50.5847108Z Collecting watchfiles==1.2.0 (from -r backend/requirements.txt (line 272))
+2026-09-28T09:39:50.5902003Z   Downloading watchfiles-1.2.0-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl.metadata (4.9 kB)
+2026-09-28T09:39:50.6071381Z Collecting weasyprint==70.0 (from -r backend/requirements.txt (line 274))
+2026-09-28T09:39:50.6112423Z   Downloading weasyprint-70.0-py3-none-any.whl.metadata (3.8 kB)
+2026-09-28T09:39:50.6207678Z Collecting webencodings==0.5.1 (from -r backend/requirements.txt (line 276))
+2026-09-28T09:39:50.6244017Z   Downloading webencodings-0.5.1-py2.py3-none-any.whl.metadata (2.1 kB)
+2026-09-28T09:39:50.7245710Z Collecting websockets==16.0 (from -r backend/requirements.txt (line 281))
+2026-09-28T09:39:50.7294510Z   Downloading websockets-16.0-cp311-cp311-manylinux1_x86_64.manylinux_2_28_x86_64.manylinux_2_5_x86_64.whl.metadata (6.8 kB)
+2026-09-28T09:39:50.7663956Z Collecting zopfli==0.4.3 (from -r backend/requirements.txt (line 283))
+2026-09-28T09:39:50.7705517Z   Downloading zopfli-0.4.3-cp310-abi3-manylinux2014_x86_64.manylinux_2_17_x86_64.whl.metadata (3.5 kB)
+2026-09-28T09:39:51.1620952Z Collecting ruff==0.16.8 (from -r backend/requirements-dev.txt (line 5))
+2026-09-28T09:39:51.1660297Z   Downloading ruff-0.16.8-py3-none-manylinux_2_17_x86_64.manylinux2014_x86_64.whl.metadata (20 kB)
+2026-09-28T09:39:51.1800475Z Collecting bandit==1.9.4 (from -r backend/requirements-dev.txt (line 6))
+2026-09-28T09:39:51.1838673Z   Downloading bandit-1.9.4-py3-none-any.whl.metadata (7.1 kB)
+2026-09-28T09:39:51.1994761Z Collecting pip-audit==2.10.1 (from -r backend/requirements-dev.txt (line 9))
+2026-09-28T09:39:51.2034399Z   Downloading pip_audit-2.10.1-py3-none-any.whl.metadata (28 kB)
+2026-09-28T09:39:51.3646438Z Collecting stevedore>=1.20.0 (from bandit==1.9.4->-r backend/requirements-dev.txt (line 6))
+2026-09-28T09:39:51.3685176Z   Downloading stevedore-5.9.1-py3-none-any.whl.metadata (2.3 kB)
+2026-09-28T09:39:51.3825809Z Collecting CacheControl>=0.13.0 (from CacheControl[filecache]>=0.13.0->pip-audit==2.10.1->-r backend/requirements-dev.txt (line 9))
+2026-09-28T09:39:51.3863021Z   Downloading cachecontrol-0.14.4-py3-none-any.whl.metadata (3.1 kB)
+2026-09-28T09:39:51.4126717Z Collecting cyclonedx-python-lib<12,>=5 (from pip-audit==2.10.1->-r backend/requirements-dev.txt (line 9))
+2026-09-28T09:39:51.4167536Z   Downloading cyclonedx_python_lib-11.12.0-py3-none-any.whl.metadata (6.9 kB)
+2026-09-28T09:39:51.4298310Z Collecting pip-api>=0.0.28 (from pip-audit==2.10.1->-r backend/requirements-dev.txt (line 9))
+2026-09-28T09:39:51.4338740Z   Downloading pip_api-0.0.35-py3-none-any.whl.metadata (17 kB)
+2026-09-28T09:39:51.4450901Z Collecting pip-requirements-parser>=32.0.0 (from pip-audit==2.10.1->-r backend/requirements-dev.txt (line 9))
+2026-09-28T09:39:51.4488938Z   Downloading pip_requirements_parser-32.0.1-py3-none-any.whl.metadata (9.3 kB)
+2026-09-28T09:39:51.4717731Z Collecting tomli>=2.2.1 (from pip-audit==2.10.1->-r backend/requirements-dev.txt (line 9))
+2026-09-28T09:39:51.4759307Z   Downloading tomli-2.4.1-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl.metadata (10 kB)
+2026-09-28T09:39:51.4858064Z Collecting tomli-w>=1.2.0 (from pip-audit==2.10.1->-r backend/requirements-dev.txt (line 9))
+2026-09-28T09:39:51.4895708Z   Downloading tomli_w-1.2.0-py3-none-any.whl.metadata (5.7 kB)
+2026-09-28T09:39:51.5076741Z Collecting platformdirs>=4.2.0 (from pip-audit==2.10.1->-r backend/requirements-dev.txt (line 9))
+2026-09-28T09:39:51.5118148Z   Downloading platformdirs-4.12.1-py3-none-any.whl.metadata (5.5 kB)
+2026-09-28T09:39:51.5265991Z Collecting license-expression<31,>=30 (from cyclonedx-python-lib<12,>=5->pip-audit==2.10.1->-r backend/requirements-dev.txt (line 9))
+2026-09-28T09:39:51.5304471Z   Downloading license_expression-30.4.4-py3-none-any.whl.metadata (11 kB)
+2026-09-28T09:39:51.5461842Z Collecting packageurl-python<2,>=0.11 (from cyclonedx-python-lib<12,>=5->pip-audit==2.10.1->-r backend/requirements-dev.txt (line 9))
+2026-09-28T09:39:51.5500472Z   Downloading packageurl_python-0.17.6-py3-none-any.whl.metadata (5.1 kB)
+2026-09-28T09:39:51.5647004Z Collecting py-serializable<3.0.0,>=2.1.0 (from cyclonedx-python-lib<12,>=5->pip-audit==2.10.1->-r backend/requirements-dev.txt (line 9))
+2026-09-28T09:39:51.5685492Z   Downloading py_serializable-2.1.0-py3-none-any.whl.metadata (4.3 kB)
+2026-09-28T09:39:51.5800522Z Collecting sortedcontainers<3.0.0,>=2.4.0 (from cyclonedx-python-lib<12,>=5->pip-audit==2.10.1->-r backend/requirements-dev.txt (line 9))
+2026-09-28T09:39:51.5837293Z   Downloading sortedcontainers-2.4.0-py2.py3-none-any.whl.metadata (10 kB)
+2026-09-28T09:39:51.5969474Z Collecting boolean.py>=4.0 (from license-expression<31,>=30->cyclonedx-python-lib<12,>=5->pip-audit==2.10.1->-r backend/requirements-dev.txt (line 9))
+2026-09-28T09:39:51.6006462Z   Downloading boolean_py-5.0-py3-none-any.whl.metadata (2.3 kB)
+2026-09-28T09:39:51.6132346Z Collecting defusedxml<0.8.0,>=0.7.1 (from py-serializable<3.0.0,>=2.1.0->cyclonedx-python-lib<12,>=5->pip-audit==2.10.1->-r backend/requirements-dev.txt (line 9))
+2026-09-28T09:39:51.6170295Z   Downloading defusedxml-0.7.1-py2.py3-none-any.whl.metadata (32 kB)
+2026-09-28T09:39:51.6912113Z Collecting msgpack<2.0.0,>=0.5.2 (from CacheControl>=0.13.0->CacheControl[filecache]>=0.13.0->pip-audit==2.10.1->-r backend/requirements-dev.txt (line 9))
+2026-09-28T09:39:51.6958994Z   Downloading msgpack-1.2.2-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl.metadata (8.3 kB)
+2026-09-28T09:39:51.7074140Z Requirement already satisfied: pip in /opt/hostedtoolcache/Python/3.11.16/x64/lib/python3.11/site-packages (from pip-api>=0.0.28->pip-audit==2.10.1->-r backend/requirements-dev.txt (line 9)) (26.2.1)
+2026-09-28T09:39:51.7280063Z Collecting pyparsing (from pip-requirements-parser>=32.0.0->pip-audit==2.10.1->-r backend/requirements-dev.txt (line 9))
+2026-09-28T09:39:51.7342343Z   Downloading pyparsing-3.3.3-py3-none-any.whl.metadata (5.9 kB)
+2026-09-28T09:39:51.7496094Z Downloading aiofiles-25.1.0-py3-none-any.whl (14 kB)
+2026-09-28T09:39:51.7550639Z Downloading annotated_doc-0.0.4-py3-none-any.whl (5.3 kB)
+2026-09-28T09:39:51.7606561Z Downloading annotated_types-0.7.0-py3-none-any.whl (13 kB)
+2026-09-28T09:39:51.7662209Z Downloading anyio-4.14.2-py3-none-any.whl (125 kB)
+2026-09-28T09:39:51.7720057Z Downloading backoff-2.2.1-py3-none-any.whl (15 kB)
+2026-09-28T09:39:51.7777453Z Downloading bcrypt-5.0.0-cp39-abi3-manylinux_2_34_x86_64.whl (278 kB)
+2026-09-28T09:39:51.7853106Z Downloading beautifulsoup4-4.15.0-py3-none-any.whl (109 kB)
+2026-09-28T09:39:51.7916059Z Downloading brotli-1.2.0-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.whl (1.4 MB)
+2026-09-28T09:39:51.8064431Z    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1.4/1.4 MB 111.2 MB/s  0:00:00
+2026-09-28T09:39:51.8105479Z Downloading certifi-2026.5.20-py3-none-any.whl (134 kB)
+2026-09-28T09:39:51.8168298Z Downloading cffi-2.0.0-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.whl (215 kB)
+2026-09-28T09:39:51.8238772Z Downloading charset_normalizer-3.4.7-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl (214 kB)
+2026-09-28T09:39:51.8326324Z Downloading click-8.4.1-py3-none-any.whl (116 kB)
+2026-09-28T09:39:51.8392597Z Downloading cryptography-50.0.0-cp311-abi3-manylinux_2_34_x86_64.whl (4.7 MB)
+2026-09-28T09:39:51.8612283Z    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 4.7/4.7 MB 229.2 MB/s  0:00:00
+2026-09-28T09:39:51.8656542Z Downloading cssselect2-0.9.0-py3-none-any.whl (15 kB)
+2026-09-28T09:39:51.8710259Z Downloading distro-1.9.0-py3-none-any.whl (20 kB)
+2026-09-28T09:39:51.8765287Z Downloading dnspython-2.8.0-py3-none-any.whl (331 kB)
+2026-09-28T09:39:51.8831628Z Downloading edgartools-5.58.0-py3-none-any.whl (3.5 MB)
+2026-09-28T09:39:51.8972612Z    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 3.5/3.5 MB 276.3 MB/s  0:00:00
+2026-09-28T09:39:51.9010887Z Downloading httpx-0.28.1-py3-none-any.whl (73 kB)
+2026-09-28T09:39:51.9066077Z Downloading httpcore-1.0.9-py3-none-any.whl (78 kB)
+2026-09-28T09:39:51.9120645Z Downloading email_validator-2.3.0-py3-none-any.whl (35 kB)
+2026-09-28T09:39:51.9197448Z Downloading et_xmlfile-2.0.0-py3-none-any.whl (18 kB)
+2026-09-28T09:39:51.9250307Z Downloading fastapi-0.141.1-py3-none-any.whl (131 kB)
+2026-09-28T09:39:51.9309416Z Downloading filelock-3.29.4-py3-none-any.whl (42 kB)
+2026-09-28T09:39:51.9369323Z Downloading fonttools-4.63.0-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.whl (5.1 MB)
+2026-09-28T09:39:51.9777722Z    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 5.1/5.1 MB 135.0 MB/s  0:00:00
+2026-09-28T09:39:51.9820093Z Downloading greenlet-3.5.6-cp311-cp311-manylinux_2_24_x86_64.manylinux_2_28_x86_64.whl (624 kB)
+2026-09-28T09:39:51.9865946Z    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 624.4/624.4 kB 138.6 MB/s  0:00:00
+2026-09-28T09:39:51.9907736Z Downloading h11-0.16.0-py3-none-any.whl (37 kB)
+2026-09-28T09:39:51.9964003Z Downloading httpcore2-2.13.0-py3-none-any.whl (83 kB)
+2026-09-28T09:39:52.0024198Z Downloading httptools-0.8.0-cp311-cp311-manylinux1_x86_64.manylinux_2_28_x86_64.manylinux_2_5_x86_64.whl (464 kB)
+2026-09-28T09:39:52.0092413Z Downloading httpx2-2.13.0-py3-none-any.whl (95 kB)
+2026-09-28T09:39:52.0162939Z Downloading httpxthrottlecache-0.6.1-py3-none-any.whl (14 kB)
+2026-09-28T09:39:52.0219509Z Downloading humanize-4.15.0-py3-none-any.whl (132 kB)
+2026-09-28T09:39:52.0317006Z Downloading idna-3.18-py3-none-any.whl (65 kB)
+2026-09-28T09:39:52.0373548Z Downloading iniconfig-2.3.0-py3-none-any.whl (7.5 kB)
+2026-09-28T09:39:52.0429431Z Downloading jinja2-3.1.6-py3-none-any.whl (134 kB)
+2026-09-28T09:39:52.0492624Z Downloading jiter-0.16.0-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl (347 kB)
+2026-09-28T09:39:52.0591936Z Downloading json_repair-0.63.4-py3-none-any.whl (51 kB)
+2026-09-28T09:39:52.0652772Z Downloading lxml-6.1.3-cp311-cp311-manylinux_2_26_x86_64.manylinux_2_28_x86_64.whl (5.2 MB)
+2026-09-28T09:39:52.0835913Z    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 5.2/5.2 MB 315.1 MB/s  0:00:00
+2026-09-28T09:39:52.0876192Z Downloading markdown_it_py-4.2.0-py3-none-any.whl (91 kB)
+2026-09-28T09:39:52.0933503Z Downloading mdurl-0.1.2-py3-none-any.whl (10.0 kB)
+2026-09-28T09:39:52.0989455Z Downloading markupsafe-3.0.3-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl (22 kB)
+2026-09-28T09:39:52.1044677Z Downloading nest_asyncio-1.6.0-py3-none-any.whl (5.2 kB)
+2026-09-28T09:39:52.1102017Z Downloading numpy-2.4.6-cp311-cp311-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl (16.9 MB)
+2026-09-28T09:39:52.1666321Z    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 16.9/16.9 MB 308.6 MB/s  0:00:00
+2026-09-28T09:39:52.1709490Z Downloading openai-3.16.2-py3-none-any.whl (2.1 MB)
+2026-09-28T09:39:52.1849934Z    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 2.1/2.1 MB 201.6 MB/s  0:00:00
+2026-09-28T09:39:52.1891443Z Downloading pydantic-2.13.5-py3-none-any.whl (472 kB)
+2026-09-28T09:39:52.1957178Z Downloading typing_extensions-4.15.0-py3-none-any.whl (44 kB)
+2026-09-28T09:39:52.2019666Z Downloading openpyxl-3.1.5-py2.py3-none-any.whl (250 kB)
+2026-09-28T09:39:52.2080269Z Downloading orjson-3.11.9-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl (133 kB)
+2026-09-28T09:39:52.2150917Z Downloading packaging-26.2-py3-none-any.whl (100 kB)
+2026-09-28T09:39:52.2212670Z Downloading pandas-3.0.6-cp311-cp311-manylinux_2_24_x86_64.manylinux_2_28_x86_64.whl (11.1 MB)
+2026-09-28T09:39:52.3372584Z    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 11.1/11.1 MB 328.0 MB/s  0:00:00
+2026-09-28T09:39:52.3415799Z Downloading passlib-1.7.4-py2.py3-none-any.whl (525 kB)
+2026-09-28T09:39:52.3464728Z    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 525.6/525.6 kB 100.1 MB/s  0:00:00
+2026-09-28T09:39:52.3506180Z Downloading pillow-12.3.0-cp311-cp311-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl (6.9 MB)
+2026-09-28T09:39:52.3749718Z    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 6.9/6.9 MB 303.8 MB/s  0:00:00
+2026-09-28T09:39:52.3788536Z Downloading pluggy-1.6.0-py3-none-any.whl (20 kB)
+2026-09-28T09:39:52.3860841Z Downloading posthog-7.58.0-py3-none-any.whl (781 kB)
+2026-09-28T09:39:52.3910856Z    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 781.6/781.6 kB 178.0 MB/s  0:00:00
+2026-09-28T09:39:52.3948318Z Downloading requests-2.34.2-py3-none-any.whl (73 kB)
+2026-09-28T09:39:52.4003746Z Downloading urllib3-2.7.0-py3-none-any.whl (131 kB)
+2026-09-28T09:39:52.4060259Z Downloading psycopg2_binary-2.9.13-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.whl (4.3 MB)
+2026-09-28T09:39:52.4204494Z    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 4.3/4.3 MB 334.0 MB/s  0:00:00
+2026-09-28T09:39:52.4246413Z Downloading pyarrow-24.0.0-cp311-cp311-manylinux_2_28_x86_64.whl (48.8 MB)
+2026-09-28T09:39:52.6747574Z    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 48.8/48.8 MB 196.6 MB/s  0:00:00
+2026-09-28T09:39:52.6788208Z Downloading pycparser-3.0-py3-none-any.whl (48 kB)
+2026-09-28T09:39:52.6847404Z Downloading pydantic_core-2.46.5-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl (2.1 MB)
+2026-09-28T09:39:52.6948159Z    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 2.1/2.1 MB 226.8 MB/s  0:00:00
+2026-09-28T09:39:52.6987517Z Downloading pydantic_settings-2.15.0-py3-none-any.whl (69 kB)
+2026-09-28T09:39:52.7044142Z Downloading pydyf-0.12.1-py3-none-any.whl (8.0 kB)
+2026-09-28T09:39:52.7102995Z Downloading pygments-2.20.0-py3-none-any.whl (1.2 MB)
+2026-09-28T09:39:52.7162184Z    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1.2/1.2 MB 253.9 MB/s  0:00:00
+2026-09-28T09:39:52.7199901Z Downloading pyjwt-2.14.0-py3-none-any.whl (32 kB)
+2026-09-28T09:39:52.7275792Z Downloading pyphen-0.17.2-py3-none-any.whl (2.1 MB)
+2026-09-28T09:39:52.7365261Z    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 2.1/2.1 MB 274.9 MB/s  0:00:00
+2026-09-28T09:39:52.7419039Z Downloading pyrate_limiter-4.3.0-py3-none-any.whl (39 kB)
+2026-09-28T09:39:52.7475761Z Downloading pytest-9.1.1-py3-none-any.whl (386 kB)
+2026-09-28T09:39:52.7535970Z Downloading pytest_asyncio-1.4.0-py3-none-any.whl (16 kB)
+2026-09-28T09:39:52.7589196Z Downloading python_dateutil-2.9.0.post0-py2.py3-none-any.whl (229 kB)
+2026-09-28T09:39:52.7647774Z Downloading python_dotenv-1.2.3-py3-none-any.whl (22 kB)
+2026-09-28T09:39:52.7699873Z Downloading python_multipart-0.0.32-py3-none-any.whl (30 kB)
+2026-09-28T09:39:52.7754358Z Downloading pyyaml-6.0.3-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl (806 kB)
+2026-09-28T09:39:52.7805041Z    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 806.6/806.6 kB 187.0 MB/s  0:00:00
+2026-09-28T09:39:52.7841380Z Downloading rank_bm25-0.2.2-py3-none-any.whl (8.6 kB)
+2026-09-28T09:39:52.7897467Z Downloading rapidfuzz-3.14.5-cp311-cp311-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl (3.2 MB)
+2026-09-28T09:39:52.8092923Z    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 3.2/3.2 MB 173.5 MB/s  0:00:00
+2026-09-28T09:39:52.8130933Z Downloading redis-8.1.0-py3-none-any.whl (560 kB)
+2026-09-28T09:39:52.8175574Z    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 560.6/560.6 kB 121.4 MB/s  0:00:00
+2026-09-28T09:39:52.8211871Z Downloading rich-15.0.0-py3-none-any.whl (310 kB)
+2026-09-28T09:39:52.8344780Z Downloading sentry_sdk-2.69.2-py3-none-any.whl (528 kB)
+2026-09-28T09:39:52.8405796Z    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 528.8/528.8 kB 82.2 MB/s  0:00:00
+2026-09-28T09:39:52.8445408Z Downloading six-1.17.0-py2.py3-none-any.whl (11 kB)
+2026-09-28T09:39:52.8497947Z Downloading sniffio-1.3.1-py3-none-any.whl (10 kB)
+2026-09-28T09:39:52.8550806Z Downloading soupsieve-2.9-py3-none-any.whl (37 kB)
+2026-09-28T09:39:52.8604986Z Downloading sqlalchemy-2.0.54-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl (3.4 MB)
+2026-09-28T09:39:52.8844323Z    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 3.4/3.4 MB 174.0 MB/s  0:00:00
+2026-09-28T09:39:52.8895792Z Downloading stamina-26.1.0-py3-none-any.whl (18 kB)
+2026-09-28T09:39:52.8947952Z Downloading starlette-1.3.1-py3-none-any.whl (73 kB)
+2026-09-28T09:39:52.9003840Z Downloading stripe-15.6.1-py3-none-any.whl (2.2 MB)
+2026-09-28T09:39:52.9135524Z    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 2.2/2.2 MB 196.2 MB/s  0:00:00
+2026-09-28T09:39:52.9173656Z Downloading tabulate-0.10.0-py3-none-any.whl (39 kB)
+2026-09-28T09:39:52.9229798Z Downloading tenacity-9.1.4-py3-none-any.whl (28 kB)
+2026-09-28T09:39:52.9283382Z Downloading textdistance-4.6.3-py3-none-any.whl (31 kB)
+2026-09-28T09:39:52.9336720Z Downloading tinycss2-1.5.1-py3-none-any.whl (28 kB)
+2026-09-28T09:39:52.9391659Z Downloading tinyhtml5-2.1.0-py3-none-any.whl (39 kB)
+2026-09-28T09:39:52.9445146Z Downloading tqdm-4.68.2-py3-none-any.whl (78 kB)
+2026-09-28T09:39:52.9506020Z Downloading truststore-0.10.4-py3-none-any.whl (18 kB)
+2026-09-28T09:39:52.9561138Z Downloading typing_inspection-0.4.2-py3-none-any.whl (14 kB)
+2026-09-28T09:39:52.9618303Z Downloading Unidecode-1.4.0-py3-none-any.whl (235 kB)
+2026-09-28T09:39:52.9674224Z Downloading uvicorn-0.53.0-py3-none-any.whl (87 kB)
+2026-09-28T09:39:52.9731125Z Downloading uvloop-0.22.1-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl (3.8 MB)
+2026-09-28T09:39:52.9866747Z    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 3.8/3.8 MB 311.1 MB/s  0:00:00
+2026-09-28T09:39:52.9906740Z Downloading watchfiles-1.2.0-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl (456 kB)
+2026-09-28T09:39:52.9994541Z Downloading weasyprint-70.0-py3-none-any.whl (328 kB)
+2026-09-28T09:39:53.0071325Z Downloading webencodings-0.5.1-py2.py3-none-any.whl (11 kB)
+2026-09-28T09:39:53.0124651Z Downloading websockets-16.0-cp311-cp311-manylinux1_x86_64.manylinux_2_28_x86_64.manylinux_2_5_x86_64.whl (184 kB)
+2026-09-28T09:39:53.0202293Z Downloading zopfli-0.4.3-cp310-abi3-manylinux2014_x86_64.manylinux_2_17_x86_64.whl (829 kB)
+2026-09-28T09:39:53.0302280Z    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 829.4/829.4 kB 175.3 MB/s  0:00:00
+2026-09-28T09:39:53.0339530Z Downloading ruff-0.16.8-py3-none-manylinux_2_17_x86_64.manylinux2014_x86_64.whl (10.3 MB)
+2026-09-28T09:39:53.0659056Z    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 10.3/10.3 MB 339.5 MB/s  0:00:00
+2026-09-28T09:39:53.0699884Z Downloading bandit-1.9.4-py3-none-any.whl (134 kB)
+2026-09-28T09:39:53.0758414Z Downloading pip_audit-2.10.1-py3-none-any.whl (62 kB)
+2026-09-28T09:39:53.0814157Z Downloading cyclonedx_python_lib-11.12.0-py3-none-any.whl (529 kB)
+2026-09-28T09:39:53.0959297Z    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 529.5/529.5 kB 21.6 MB/s  0:00:00
+2026-09-28T09:39:53.0996699Z Downloading license_expression-30.4.4-py3-none-any.whl (120 kB)
+2026-09-28T09:39:53.1053846Z Downloading packageurl_python-0.17.6-py3-none-any.whl (36 kB)
+2026-09-28T09:39:53.1115575Z Downloading py_serializable-2.1.0-py3-none-any.whl (23 kB)
+2026-09-28T09:39:53.1169178Z Downloading defusedxml-0.7.1-py2.py3-none-any.whl (25 kB)
+2026-09-28T09:39:53.1225576Z Downloading sortedcontainers-2.4.0-py2.py3-none-any.whl (29 kB)
+2026-09-28T09:39:53.1291207Z Downloading boolean_py-5.0-py3-none-any.whl (26 kB)
+2026-09-28T09:39:53.1346015Z Downloading cachecontrol-0.14.4-py3-none-any.whl (22 kB)
+2026-09-28T09:39:53.1401398Z Downloading msgpack-1.2.2-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl (422 kB)
+2026-09-28T09:39:53.1468285Z Downloading pip_api-0.0.35-py3-none-any.whl (123 kB)
+2026-09-28T09:39:53.1525929Z Downloading pip_requirements_parser-32.0.1-py3-none-any.whl (35 kB)
+2026-09-28T09:39:53.1580794Z Downloading platformdirs-4.12.1-py3-none-any.whl (33 kB)
+2026-09-28T09:39:53.1637813Z Downloading stevedore-5.9.1-py3-none-any.whl (54 kB)
+2026-09-28T09:39:53.1728533Z Downloading tomli-2.4.1-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl (243 kB)
+2026-09-28T09:39:53.1795713Z Downloading tomli_w-1.2.0-py3-none-any.whl (6.7 kB)
+2026-09-28T09:39:53.1849729Z Downloading pyparsing-3.3.3-py3-none-any.whl (126 kB)
+2026-09-28T09:39:53.8211920Z Installing collected packages: webencodings, sortedcontainers, passlib, brotli, boolean.py, zopfli, websockets, uvloop, urllib3, unidecode, typing-extensions, truststore, tqdm, tomli-w, tomli, tinyhtml5, tinycss2, textdistance, tenacity, tabulate, stevedore, soupsieve, sniffio, six, ruff, redis, rapidfuzz, pyyaml, python-multipart, python-dotenv, pyrate-limiter, pyphen, pyparsing, pyjwt, pygments, pydyf, pycparser, pyarrow, psycopg2-binary, pluggy, platformdirs, pip-api, pillow, packaging, packageurl-python, orjson, numpy, nest-asyncio, msgpack, mdurl, markupsafe, lxml, license-expression, json-repair, jiter, iniconfig, idna, humanize, httptools, h11, greenlet, fonttools, filelock, et-xmlfile, dnspython, distro, defusedxml, click, charset-normalizer, certifi, bcrypt, backoff, annotated-types, annotated-doc, aiofiles, uvicorn, typing-inspection, stamina, sqlalchemy, sentry-sdk, requests, rank-bm25, python-dateutil, pytest, pydantic-core, py-serializable, pip-requirements-parser, openpyxl, markdown-it-py, jinja2, httpxthrottlecache, httpcore2, httpcore, email-validator, cssselect2, cffi, beautifulsoup4, anyio, weasyprint, watchfiles, stripe, starlette, rich, pytest-asyncio, pydantic, posthog, pandas, httpx2, httpx, cyclonedx-python-lib, cryptography, CacheControl, pydantic-settings, openai, fastapi, bandit, pip-audit, edgartools
+2026-09-28T09:40:14.3740080Z 
+2026-09-28T09:40:14.3790636Z Successfully installed CacheControl-0.14.4 aiofiles-25.1.0 annotated-doc-0.0.4 annotated-types-0.7.0 anyio-4.14.2 backoff-2.2.1 bandit-1.9.4 bcrypt-5.0.0 beautifulsoup4-4.15.0 boolean.py-5.0 brotli-1.2.0 certifi-2026.5.20 cffi-2.0.0 charset-normalizer-3.4.7 click-8.4.1 cryptography-50.0.0 cssselect2-0.9.0 cyclonedx-python-lib-11.12.0 defusedxml-0.7.1 distro-1.9.0 dnspython-2.8.0 edgartools-5.58.0 email-validator-2.3.0 et-xmlfile-2.0.0 fastapi-0.141.1 filelock-3.29.4 fonttools-4.63.0 greenlet-3.5.6 h11-0.16.0 httpcore-1.0.9 httpcore2-2.13.0 httptools-0.8.0 httpx-0.28.1 httpx2-2.13.0 httpxthrottlecache-0.6.1 humanize-4.15.0 idna-3.18 iniconfig-2.3.0 jinja2-3.1.6 jiter-0.16.0 json-repair-0.63.4 license-expression-30.4.4 lxml-6.1.3 markdown-it-py-4.2.0 markupsafe-3.0.3 mdurl-0.1.2 msgpack-1.2.2 nest-asyncio-1.6.0 numpy-2.4.6 openai-3.16.2 openpyxl-3.1.5 orjson-3.11.9 packageurl-python-0.17.6 packaging-26.2 pandas-3.0.6 passlib-1.7.4 pillow-12.3.0 pip-api-0.0.35 pip-audit-2.10.1 pip-requirements-parser-32.0.1 platformdirs-4.12.1 pluggy-1.6.0 posthog-7.58.0 psycopg2-binary-2.9.13 py-serializable-2.1.0 pyarrow-24.0.0 pycparser-3.0 pydantic-2.13.5 pydantic-core-2.46.5 pydantic-settings-2.15.0 pydyf-0.12.1 pygments-2.20.0 pyjwt-2.14.0 pyparsing-3.3.3 pyphen-0.17.2 pyrate-limiter-4.3.0 pytest-9.1.1 pytest-asyncio-1.4.0 python-dateutil-2.9.0.post0 python-dotenv-1.2.3 python-multipart-0.0.32 pyyaml-6.0.3 rank-bm25-0.2.2 rapidfuzz-3.14.5 redis-8.1.0 requests-2.34.2 rich-15.0.0 ruff-0.16.8 sentry-sdk-2.69.2 six-1.17.0 sniffio-1.3.1 sortedcontainers-2.4.0 soupsieve-2.9 sqlalchemy-2.0.54 stamina-26.1.0 starlette-1.3.1 stevedore-5.9.1 stripe-15.6.1 tabulate-0.10.0 tenacity-9.1.4 textdistance-4.6.3 tinycss2-1.5.1 tinyhtml5-2.1.0 tomli-2.4.1 tomli-w-1.2.0 tqdm-4.68.2 truststore-0.10.4 typing-extensions-4.15.0 typing-inspection-0.4.2 unidecode-1.4.0 urllib3-2.7.0 uvicorn-0.53.0 uvloop-0.22.1 watchfiles-1.2.0 weasyprint-70.0 webencodings-0.5.1 websockets-16.0 zopfli-0.4.3
+2026-09-28T09:40:14.8684332Z ##[group]Run mkdir -p evals/reports/copilot
+2026-09-28T09:40:14.8684733Z [36;1mmkdir -p evals/reports/copilot[0m
+2026-09-28T09:40:14.8685494Z [36;1mpython -m evals.copilot_bootstrap --database "$RUNNER_TEMP/copilot-fidelity.db" --output evals/reports/copilot 2>&1 | tee evals/reports/copilot/preparation.log[0m
+2026-09-28T09:40:14.8754781Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
+2026-09-28T09:40:14.8755162Z env:
+2026-09-28T09:40:14.8755376Z   SKIP_REDIS_INIT: true
+2026-09-28T09:40:14.8755695Z   SECRET_KEY: copilot-eval-secret-key-for-ci-0123456789
+2026-09-28T09:40:14.8756086Z   STRIPE_SECRET_KEY: sk_test_ci_copilot_eval
+2026-09-28T09:40:14.8756433Z   STRIPE_WEBHOOK_SECRET: whsec_ci_copilot_eval
+2026-09-28T09:40:14.8756772Z   PWNED_PASSWORD_CHECK_ENABLED: false
+2026-09-28T09:40:14.8757095Z   USE_STATEMENT_FINANCIALS: true
+2026-09-28T09:40:14.8757381Z   AI_FALLBACK_MODEL: 
+2026-09-28T09:40:14.8757620Z   AI_FALLBACK_BASE_URL: 
+2026-09-28T09:40:14.8757916Z   AI_DEFAULT_MODEL: deepseek-flash
+2026-09-28T09:40:14.8758268Z   OPENAI_BASE_URL: https://api.deepseek.com/v1
+2026-09-28T09:40:14.8758676Z   pythonLocation: /opt/hostedtoolcache/Python/3.11.16/x64
+2026-09-28T09:40:14.8759162Z   PKG_CONFIG_PATH: /opt/hostedtoolcache/Python/3.11.16/x64/lib/pkgconfig
+2026-09-28T09:40:14.8759652Z   Python_ROOT_DIR: /opt/hostedtoolcache/Python/3.11.16/x64
+2026-09-28T09:40:14.8760094Z   Python2_ROOT_DIR: /opt/hostedtoolcache/Python/3.11.16/x64
+2026-09-28T09:40:14.8760538Z   Python3_ROOT_DIR: /opt/hostedtoolcache/Python/3.11.16/x64
+2026-09-28T09:40:14.8760975Z   LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.11.16/x64/lib
+2026-09-28T09:40:14.8761341Z ##[endgroup]
+2026-09-28T09:40:29.5694932Z Segment revenue sum 302302000000 not coherent with consolidated 1023670000000; dropping segment table
+2026-09-28T09:40:39.9568444Z Segment revenue sum 440943000000 not coherent with consolidated 996347000000; dropping segment table
+2026-09-28T09:41:09.4218764Z {"status": "complete", "prepared": 6}
+2026-09-28T09:41:10.3505704Z ##[group]Run python -m evals.copilot_runner --preparation evals/reports/copilot/preparation.json --output evals/reports/copilot --runs 3 2>&1 | tee evals/reports/copilot/runner.log
+2026-09-28T09:41:10.3507006Z [36;1mpython -m evals.copilot_runner --preparation evals/reports/copilot/preparation.json --output evals/reports/copilot --runs 3 2>&1 | tee evals/reports/copilot/runner.log[0m
+2026-09-28T09:41:10.3571681Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
+2026-09-28T09:41:10.3572049Z env:
+2026-09-28T09:41:10.3572252Z   SKIP_REDIS_INIT: true
+2026-09-28T09:41:10.3572568Z   SECRET_KEY: copilot-eval-secret-key-for-ci-0123456789
+2026-09-28T09:41:10.3572949Z   STRIPE_SECRET_KEY: sk_test_ci_copilot_eval
+2026-09-28T09:41:10.3573573Z   STRIPE_WEBHOOK_SECRET: whsec_ci_copilot_eval
+2026-09-28T09:41:10.3573928Z   PWNED_PASSWORD_CHECK_ENABLED: false
+2026-09-28T09:41:10.3574220Z   USE_STATEMENT_FINANCIALS: true
+2026-09-28T09:41:10.3574480Z   AI_FALLBACK_MODEL: 
+2026-09-28T09:41:10.3574741Z   AI_FALLBACK_BASE_URL: 
+2026-09-28T09:41:10.3574988Z   AI_DEFAULT_MODEL: deepseek-flash
+2026-09-28T09:41:10.3575305Z   OPENAI_BASE_URL: https://api.deepseek.com/v1
+2026-09-28T09:41:10.3575703Z   pythonLocation: /opt/hostedtoolcache/Python/3.11.16/x64
+2026-09-28T09:41:10.3576151Z   PKG_CONFIG_PATH: /opt/hostedtoolcache/Python/3.11.16/x64/lib/pkgconfig
+2026-09-28T09:41:10.3576608Z   Python_ROOT_DIR: /opt/hostedtoolcache/Python/3.11.16/x64
+2026-09-28T09:41:10.3577007Z   Python2_ROOT_DIR: /opt/hostedtoolcache/Python/3.11.16/x64
+2026-09-28T09:41:10.3577409Z   Python3_ROOT_DIR: /opt/hostedtoolcache/Python/3.11.16/x64
+2026-09-28T09:41:10.3577816Z   LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.11.16/x64/lib
+2026-09-28T09:41:10.3578350Z   OPENAI_API_KEY: ***
+2026-09-28T09:41:10.3578573Z ##[endgroup]
+2026-09-28T09:41:14.0330006Z ai_call {"operation":"copilot_chat","provider":"primary","trigger":"eval","requested_model":"deepseek-flash","actual_model":"deepseek-flash","system_fingerprint":"aeb56401ca74e127821c4f9126dcb669","outcome":"success","latency_ms":1542,"first_token_ms":864,"usage":{"prompt_tokens":30704,"completion_tokens":169,"total_tokens":30873,"cache_hit_tokens":30464,"cache_miss_tokens":240,"reasoning_tokens":null},"estimated_cost_usd":0.000458,"peak":true}
+2026-09-28T09:41:15.9306263Z ai_call {"operation":"copilot_chat","provider":"primary","trigger":"eval","requested_model":"deepseek-flash","actual_model":"deepseek-flash","system_fingerprint":"aeb56401ca74e127821c4f9126dcb669","outcome":"success","latency_ms":1892,"first_token_ms":791,"usage":{"prompt_tokens":31100,"completion_tokens":174,"total_tokens":31274,"cache_hit_tokens":30848,"cache_miss_tokens":252,"reasoning_tokens":null},"estimated_cost_usd":0.000469,"peak":true}
+2026-09-28T09:41:15.9312514Z copilot: answer shipped 1 uncited figure(s) of 4 total
+2026-09-28T09:41:17.6640076Z ai_call {"operation":"copilot_chat","provider":"primary","trigger":"eval","requested_model":"deepseek-flash","actual_model":"deepseek-flash","system_fingerprint":"aeb56401ca74e127821c4f9126dcb669","outcome":"success","latency_ms":1694,"first_token_ms":733,"usage":{"prompt_tokens":30704,"completion_tokens":169,"total_tokens":30873,"cache_hit_tokens":30464,"cache_miss_tokens":240,"reasoning_tokens":null},"estimated_cost_usd":0.000458,"peak":true}
+2026-09-28T09:41:19.4850435Z ai_call {"operation":"copilot_chat","provider":"primary","trigger":"eval","requested_model":"deepseek-flash","actual_model":"deepseek-flash","system_fingerprint":"aeb56401ca74e127821c4f9126dcb669","outcome":"success","latency_ms":1818,"first_token_ms":685,"usage":{"prompt_tokens":31100,"completion_tokens":167,"total_tokens":31267,"cache_hit_tokens":30848,"cache_miss_tokens":252,"reasoning_tokens":null},"estimated_cost_usd":0.000461,"peak":true}
+2026-09-28T09:41:21.3628768Z ai_call {"operation":"copilot_chat","provider":"primary","trigger":"eval","requested_model":"deepseek-flash","actual_model":"deepseek-flash","system_fingerprint":"aeb56401ca74e127821c4f9126dcb669","outcome":"success","latency_ms":1840,"first_token_ms":716,"usage":{"prompt_tokens":30704,"completion_tokens":169,"total_tokens":30873,"cache_hit_tokens":30464,"cache_miss_tokens":240,"reasoning_tokens":null},"estimated_cost_usd":0.000458,"peak":true}
+2026-09-28T09:41:23.1701177Z ai_call {"operation":"copilot_chat","provider":"primary","trigger":"eval","requested_model":"deepseek-flash","actual_model":"deepseek-flash","system_fingerprint":"aeb56401ca74e127821c4f9126dcb669","outcome":"success","latency_ms":1804,"first_token_ms":724,"usage":{"prompt_tokens":31100,"completion_tokens":172,"total_tokens":31272,"cache_hit_tokens":30848,"cache_miss_tokens":252,"reasoning_tokens":null},"estimated_cost_usd":0.000467,"peak":true}
+2026-09-28T09:41:25.1325445Z ai_call {"operation":"copilot_chat","provider":"primary","trigger":"eval","requested_model":"deepseek-flash","actual_model":"deepseek-flash","system_fingerprint":"aeb56401ca74e127821c4f9126dcb669","outcome":"success","latency_ms":1919,"first_token_ms":876,"usage":{"prompt_tokens":28472,"completion_tokens":167,"total_tokens":28639,"cache_hit_tokens":28288,"cache_miss_tokens":184,"reasoning_tokens":null},"estimated_cost_usd":0.000425,"peak":true}
+2026-09-28T09:41:26.9386266Z ai_call {"operation":"copilot_chat","provider":"primary","trigger":"eval","requested_model":"deepseek-flash","actual_model":"deepseek-flash","system_fingerprint":"aeb56401ca74e127821c4f9126dcb669","outcome":"success","latency_ms":1803,"first_token_ms":963,"usage":{"prompt_tokens":28858,"completion_tokens":168,"total_tokens":29026,"cache_hit_tokens":28672,"cache_miss_tokens":186,"reasoning_tokens":null},"estimated_cost_usd":0.000429,"peak":true}
+2026-09-28T09:41:28.5296011Z ai_call {"operation":"copilot_chat","provider":"primary","trigger":"eval","requested_model":"deepseek-flash","actual_model":"deepseek-flash","system_fingerprint":"aeb56401ca74e127821c4f9126dcb669","outcome":"success","latency_ms":1543,"first_token_ms":721,"usage":{"prompt_tokens":28472,"completion_tokens":169,"total_tokens":28641,"cache_hit_tokens":28288,"cache_miss_tokens":184,"reasoning_tokens":null},"estimated_cost_usd":0.000428,"peak":true}
+2026-09-28T09:41:30.2940668Z ai_call {"operation":"copilot_chat","provider":"primary","trigger":"eval","requested_model":"deepseek-flash","actual_model":"deepseek-flash","system_fingerprint":"aeb56401ca74e127821c4f9126dcb669","outcome":"success","latency_ms":1762,"first_token_ms":725,"usage":{"prompt_tokens":28860,"completion_tokens":174,"total_tokens":29034,"cache_hit_tokens":28672,"cache_miss_tokens":188,"reasoning_tokens":null},"estimated_cost_usd":0.000437,"peak":true}
+2026-09-28T09:41:31.8532265Z ai_call {"operation":"copilot_chat","provider":"primary","trigger":"eval","requested_model":"deepseek-flash","actual_model":"deepseek-flash","system_fingerprint":"aeb56401ca74e127821c4f9126dcb669","outcome":"success","latency_ms":1510,"first_token_ms":720,"usage":{"prompt_tokens":28472,"completion_tokens":169,"total_tokens":28641,"cache_hit_tokens":28288,"cache_miss_tokens":184,"reasoning_tokens":null},"estimated_cost_usd":0.000428,"peak":true}
+2026-09-28T09:41:33.8646530Z ai_call {"operation":"copilot_chat","provider":"primary","trigger":"eval","requested_model":"deepseek-flash","actual_model":"deepseek-flash","system_fingerprint":"aeb56401ca74e127821c4f9126dcb669","outcome":"success","latency_ms":2009,"first_token_ms":782,"usage":{"prompt_tokens":28860,"completion_tokens":179,"total_tokens":29039,"cache_hit_tokens":28672,"cache_miss_tokens":188,"reasoning_tokens":null},"estimated_cost_usd":0.000443,"peak":true}
+2026-09-28T09:41:35.7442735Z ai_call {"operation":"copilot_chat","provider":"primary","trigger":"eval","requested_model":"deepseek-flash","actual_model":"deepseek-flash","system_fingerprint":"aeb56401ca74e127821c4f9126dcb669","outcome":"success","latency_ms":1832,"first_token_ms":1001,"usage":{"prompt_tokens":29098,"completion_tokens":169,"total_tokens":29267,"cache_hit_tokens":28928,"cache_miss_tokens":170,"reasoning_tokens":null},"estimated_cost_usd":0.000427,"peak":true}
+2026-09-28T09:41:37.5064983Z ai_call {"operation":"copilot_chat","provider":"primary","trigger":"eval","requested_model":"deepseek-flash","actual_model":"deepseek-flash","system_fingerprint":"aeb56401ca74e127821c4f9126dcb669","outcome":"success","latency_ms":1759,"first_token_ms":772,"usage":{"prompt_tokens":29494,"completion_tokens":167,"total_tokens":29661,"cache_hit_tokens":29312,"cache_miss_tokens":182,"reasoning_tokens":null},"estimated_cost_usd":0.000431,"peak":true}
+2026-09-28T09:41:37.5068606Z copilot: answer shipped 1 uncited figure(s) of 3 total
+2026-09-28T09:41:39.1433663Z ai_call {"operation":"copilot_chat","provider":"primary","trigger":"eval","requested_model":"deepseek-flash","actual_model":"deepseek-flash","system_fingerprint":"aeb56401ca74e127821c4f9126dcb669","outcome":"success","latency_ms":1590,"first_token_ms":719,"usage":{"prompt_tokens":29098,"completion_tokens":161,"total_tokens":29259,"cache_hit_tokens":28928,"cache_miss_tokens":170,"reasoning_tokens":null},"estimated_cost_usd":0.000418,"peak":true}
+2026-09-28T09:41:40.7464937Z ai_call {"operation":"copilot_chat","provider":"primary","trigger":"eval","requested_model":"deepseek-flash","actual_model":"deepseek-flash","system_fingerprint":"aeb56401ca74e127821c4f9126dcb669","outcome":"success","latency_ms":1600,"first_token_ms":701,"usage":{"prompt_tokens":29486,"completion_tokens":169,"total_tokens":29655,"cache_hit_tokens":29312,"cache_miss_tokens":174,"reasoning_tokens":null},"estimated_cost_usd":0.000431,"peak":true}
+2026-09-28T09:41:40.7468885Z copilot: answer shipped 1 uncited figure(s) of 3 total
+2026-09-28T09:41:42.2825754Z ai_call {"operation":"copilot_chat","provider":"primary","trigger":"eval","requested_model":"deepseek-flash","actual_model":"deepseek-flash","system_fingerprint":"aeb56401ca74e127821c4f9126dcb669","outcome":"success","latency_ms":1490,"first_token_ms":713,"usage":{"prompt_tokens":29098,"completion_tokens":161,"total_tokens":29259,"cache_hit_tokens":28928,"cache_miss_tokens":170,"reasoning_tokens":null},"estimated_cost_usd":0.000418,"peak":true}
+2026-09-28T09:41:43.8581769Z ai_call {"operation":"copilot_chat","provider":"primary","trigger":"eval","requested_model":"deepseek-flash","actual_model":"deepseek-flash","system_fingerprint":"aeb56401ca74e127821c4f9126dcb669","outcome":"success","latency_ms":1573,"first_token_ms":759,"usage":{"prompt_tokens":29486,"completion_tokens":165,"total_tokens":29651,"cache_hit_tokens":29312,"cache_miss_tokens":174,"reasoning_tokens":null},"estimated_cost_usd":0.000426,"peak":true}
+2026-09-28T09:41:43.8585600Z copilot: answer shipped 1 uncited figure(s) of 3 total
+2026-09-28T09:41:45.1262897Z ai_call {"operation":"copilot_chat","provider":"primary","trigger":"eval","requested_model":"deepseek-flash","actual_model":"deepseek-flash","system_fingerprint":"aeb56401ca74e127821c4f9126dcb669","outcome":"success","latency_ms":1212,"first_token_ms":750,"usage":{"prompt_tokens":30192,"completion_tokens":89,"total_tokens":30281,"cache_hit_tokens":29952,"cache_miss_tokens":240,"reasoning_tokens":null},"estimated_cost_usd":0.000359,"peak":true}
+2026-09-28T09:41:47.1098858Z ai_call {"operation":"copilot_chat","provider":"primary","trigger":"eval","requested_model":"deepseek-flash","actual_model":"deepseek-flash","system_fingerprint":"aeb56401ca74e127821c4f9126dcb669","outcome":"success","latency_ms":1981,"first_token_ms":730,"usage":{"prompt_tokens":30397,"completion_tokens":167,"total_tokens":30564,"cache_hit_tokens":30208,"cache_miss_tokens":189,"reasoning_tokens":null},"estimated_cost_usd":0.000438,"peak":true}
+2026-09-28T09:41:48.9750600Z ai_call {"operation":"copilot_chat","provider":"primary","trigger":"eval","requested_model":"deepseek-flash","actual_model":"deepseek-flash","system_fingerprint":"aeb56401ca74e127821c4f9126dcb669","outcome":"success","latency_ms":1799,"first_token_ms":739,"usage":{"prompt_tokens":30192,"completion_tokens":145,"total_tokens":30337,"cache_hit_tokens":29952,"cache_miss_tokens":240,"reasoning_tokens":null},"estimated_cost_usd":0.000426,"peak":true}
+2026-09-28T09:41:48.9754564Z copilot: answer shipped 1 uncited figure(s) of 2 total
+2026-09-28T09:41:50.3523457Z ai_call {"operation":"copilot_chat","provider":"primary","trigger":"eval","requested_model":"deepseek-flash","actual_model":"deepseek-flash","system_fingerprint":"aeb56401ca74e127821c4f9126dcb669","outcome":"success","latency_ms":1311,"first_token_ms":743,"usage":{"prompt_tokens":30192,"completion_tokens":89,"total_tokens":30281,"cache_hit_tokens":29952,"cache_miss_tokens":240,"reasoning_tokens":null},"estimated_cost_usd":0.000359,"peak":true}
+2026-09-28T09:41:51.8539836Z ai_call {"operation":"copilot_chat","provider":"primary","trigger":"eval","requested_model":"deepseek-flash","actual_model":"deepseek-flash","system_fingerprint":"aeb56401ca74e127821c4f9126dcb669","outcome":"success","latency_ms":1500,"first_token_ms":674,"usage":{"prompt_tokens":30397,"completion_tokens":180,"total_tokens":30577,"cache_hit_tokens":30208,"cache_miss_tokens":189,"reasoning_tokens":null},"estimated_cost_usd":0.000454,"peak":true}
+2026-09-28T09:41:51.8542830Z copilot: answer shipped 1 uncited figure(s) of 4 total
+2026-09-28T09:41:53.4335353Z ai_call {"operation":"copilot_chat","provider":"primary","trigger":"eval","requested_model":"deepseek-flash","actual_model":"deepseek-flash","system_fingerprint":"aeb56401ca74e127821c4f9126dcb669","outcome":"success","latency_ms":1504,"first_token_ms":864,"usage":{"prompt_tokens":36815,"completion_tokens":101,"total_tokens":36916,"cache_hit_tokens":36608,"cache_miss_tokens":207,"reasoning_tokens":null},"estimated_cost_usd":0.000403,"peak":true}
+2026-09-28T09:41:55.0906396Z ai_call {"operation":"copilot_chat","provider":"primary","trigger":"eval","requested_model":"deepseek-flash","actual_model":"deepseek-flash","system_fingerprint":"aeb56401ca74e127821c4f9126dcb669","outcome":"success","latency_ms":1655,"first_token_ms":734,"usage":{"prompt_tokens":37031,"completion_tokens":156,"total_tokens":37187,"cache_hit_tokens":36864,"cache_miss_tokens":167,"reasoning_tokens":null},"estimated_cost_usd":0.000458,"peak":true}
+2026-09-28T09:41:56.8540550Z ai_call {"operation":"copilot_chat","provider":"primary","trigger":"eval","requested_model":"deepseek-flash","actual_model":"deepseek-flash","system_fingerprint":"aeb56401ca74e127821c4f9126dcb669","outcome":"success","latency_ms":1676,"first_token_ms":940,"usage":{"prompt_tokens":36815,"completion_tokens":95,"total_tokens":36910,"cache_hit_tokens":36608,"cache_miss_tokens":207,"reasoning_tokens":null},"estimated_cost_usd":0.000396,"peak":true}
+2026-09-28T09:41:58.5757217Z ai_call {"operation":"copilot_chat","provider":"primary","trigger":"eval","requested_model":"deepseek-flash","actual_model":"deepseek-flash","system_fingerprint":"aeb56401ca74e127821c4f9126dcb669","outcome":"success","latency_ms":1720,"first_token_ms":750,"usage":{"prompt_tokens":37025,"completion_tokens":159,"total_tokens":37184,"cache_hit_tokens":36864,"cache_miss_tokens":161,"reasoning_tokens":null},"estimated_cost_usd":0.00046,"peak":true}
+2026-09-28T09:41:59.8888286Z ai_call {"operation":"copilot_chat","provider":"primary","trigger":"eval","requested_model":"deepseek-flash","actual_model":"deepseek-flash","system_fingerprint":"aeb56401ca74e127821c4f9126dcb669","outcome":"success","latency_ms":1227,"first_token_ms":728,"usage":{"prompt_tokens":36815,"completion_tokens":101,"total_tokens":36916,"cache_hit_tokens":36608,"cache_miss_tokens":207,"reasoning_tokens":null},"estimated_cost_usd":0.000403,"peak":true}
+2026-09-28T09:42:01.2256357Z ai_call {"operation":"copilot_chat","provider":"primary","trigger":"eval","requested_model":"deepseek-flash","actual_model":"deepseek-flash","system_fingerprint":"aeb56401ca74e127821c4f9126dcb669","outcome":"success","latency_ms":1335,"first_token_ms":731,"usage":{"prompt_tokens":37031,"completion_tokens":123,"total_tokens":37154,"cache_hit_tokens":36864,"cache_miss_tokens":167,"reasoning_tokens":null},"estimated_cost_usd":0.000419,"peak":true}
+2026-09-28T09:42:03.1140018Z ai_call {"operation":"copilot_chat","provider":"primary","trigger":"eval","requested_model":"deepseek-flash","actual_model":"deepseek-flash","system_fingerprint":"aeb56401ca74e127821c4f9126dcb669","outcome":"success","latency_ms":1805,"first_token_ms":718,"usage":{"prompt_tokens":31787,"completion_tokens":168,"total_tokens":31955,"cache_hit_tokens":31616,"cache_miss_tokens":171,"reasoning_tokens":null},"estimated_cost_usd":0.000443,"peak":true}
+2026-09-28T09:42:04.9841570Z ai_call {"operation":"copilot_chat","provider":"primary","trigger":"eval","requested_model":"deepseek-flash","actual_model":"deepseek-flash","system_fingerprint":"aeb56401ca74e127821c4f9126dcb669","outcome":"success","latency_ms":1868,"first_token_ms":928,"usage":{"prompt_tokens":32189,"completion_tokens":195,"total_tokens":32384,"cache_hit_tokens":32000,"cache_miss_tokens":189,"reasoning_tokens":null},"estimated_cost_usd":0.000483,"peak":true}
+2026-09-28T09:42:06.7306952Z ai_call {"operation":"copilot_chat","provider":"primary","trigger":"eval","requested_model":"deepseek-flash","actual_model":"deepseek-flash","system_fingerprint":"aeb56401ca74e127821c4f9126dcb669","outcome":"success","latency_ms":1666,"first_token_ms":736,"usage":{"prompt_tokens":31787,"completion_tokens":168,"total_tokens":31955,"cache_hit_tokens":31616,"cache_miss_tokens":171,"reasoning_tokens":null},"estimated_cost_usd":0.000443,"peak":true}
+2026-09-28T09:42:08.6940118Z ai_call {"operation":"copilot_chat","provider":"primary","trigger":"eval","requested_model":"deepseek-flash","actual_model":"deepseek-flash","system_fingerprint":"aeb56401ca74e127821c4f9126dcb669","outcome":"success","latency_ms":1961,"first_token_ms":705,"usage":{"prompt_tokens":32189,"completion_tokens":191,"total_tokens":32380,"cache_hit_tokens":32000,"cache_miss_tokens":189,"reasoning_tokens":null},"estimated_cost_usd":0.000478,"peak":true}
+2026-09-28T09:42:10.7468253Z ai_call {"operation":"copilot_chat","provider":"primary","trigger":"eval","requested_model":"deepseek-flash","actual_model":"deepseek-flash","system_fingerprint":"aeb56401ca74e127821c4f9126dcb669","outcome":"success","latency_ms":1972,"first_token_ms":758,"usage":{"prompt_tokens":31787,"completion_tokens":168,"total_tokens":31955,"cache_hit_tokens":31616,"cache_miss_tokens":171,"reasoning_tokens":null},"estimated_cost_usd":0.000443,"peak":true}
+2026-09-28T09:42:12.4385812Z ai_call {"operation":"copilot_chat","provider":"primary","trigger":"eval","requested_model":"deepseek-flash","actual_model":"deepseek-flash","system_fingerprint":"aeb56401ca74e127821c4f9126dcb669","outcome":"success","latency_ms":1689,"first_token_ms":768,"usage":{"prompt_tokens":32189,"completion_tokens":202,"total_tokens":32391,"cache_hit_tokens":32000,"cache_miss_tokens":189,"reasoning_tokens":null},"estimated_cost_usd":0.000491,"peak":true}
+2026-09-28T09:42:12.4389167Z copilot: answer shipped 1 uncited figure(s) of 5 total
+2026-09-28T09:42:12.5256155Z {"accepted": true, "summary": {"expected": 18, "completed": 18, "scored": 18, "errors": 0, "passed": 18, "pass_rate": 1.0}, "report": "evals/reports/copilot/copilot-eval.json"}
+2026-09-28T09:42:12.9411987Z ##[group]Run actions/upload-artifact@v7
+2026-09-28T09:42:12.9412311Z with:
+2026-09-28T09:42:12.9412525Z   name: copilot-fidelity-36404908264
+2026-09-28T09:42:12.9412806Z   path: backend/evals/reports/copilot/
+2026-09-28T09:42:12.9413078Z   if-no-files-found: warn
+2026-09-28T09:42:12.9413569Z   compression-level: 6
+2026-09-28T09:42:12.9413787Z   overwrite: false
+2026-09-28T09:42:12.9414000Z   include-hidden-files: false
+2026-09-28T09:42:12.9414237Z   archive: true
+2026-09-28T09:42:12.9414429Z env:
+2026-09-28T09:42:12.9414619Z   SKIP_REDIS_INIT: true
+2026-09-28T09:42:12.9414906Z   SECRET_KEY: copilot-eval-secret-key-for-ci-0123456789
+2026-09-28T09:42:12.9415254Z   STRIPE_SECRET_KEY: sk_test_ci_copilot_eval
+2026-09-28T09:42:12.9415559Z   STRIPE_WEBHOOK_SECRET: whsec_ci_copilot_eval
+2026-09-28T09:42:12.9415867Z   PWNED_PASSWORD_CHECK_ENABLED: false
+2026-09-28T09:42:12.9416141Z   USE_STATEMENT_FINANCIALS: true
+2026-09-28T09:42:12.9416580Z   AI_FALLBACK_MODEL: 
+2026-09-28T09:42:12.9416833Z   AI_FALLBACK_BASE_URL: 
+2026-09-28T09:42:12.9417069Z   AI_DEFAULT_MODEL: deepseek-flash
+2026-09-28T09:42:12.9417371Z   OPENAI_BASE_URL: https://api.deepseek.com/v1
+2026-09-28T09:42:12.9417730Z   pythonLocation: /opt/hostedtoolcache/Python/3.11.16/x64
+2026-09-28T09:42:12.9418152Z   PKG_CONFIG_PATH: /opt/hostedtoolcache/Python/3.11.16/x64/lib/pkgconfig
+2026-09-28T09:42:12.9418584Z   Python_ROOT_DIR: /opt/hostedtoolcache/Python/3.11.16/x64
+2026-09-28T09:42:12.9418966Z   Python2_ROOT_DIR: /opt/hostedtoolcache/Python/3.11.16/x64
+2026-09-28T09:42:12.9419348Z   Python3_ROOT_DIR: /opt/hostedtoolcache/Python/3.11.16/x64
+2026-09-28T09:42:12.9419730Z   LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.11.16/x64/lib
+2026-09-28T09:42:12.9420052Z ##[endgroup]
+2026-09-28T09:42:13.1177123Z With the provided path, there will be 76 files uploaded
+2026-09-28T09:42:13.1178068Z Artifact name is valid!
+2026-09-28T09:42:13.1178513Z Root directory input is valid!
+2026-09-28T09:42:13.3384961Z Uploading artifact: copilot-fidelity-36404908264.zip
+2026-09-28T09:42:13.3442356Z Beginning upload of artifact content to blob storage
+2026-09-28T09:42:14.5391746Z Uploaded bytes 8388608
+2026-09-28T09:42:14.7493755Z Uploaded bytes 16777216
+2026-09-28T09:42:14.9814439Z Uploaded bytes 25165824
+2026-09-28T09:42:15.3024373Z Uploaded bytes 33554432
+2026-09-28T09:42:15.5878119Z Uploaded bytes 41943040
+2026-09-28T09:42:15.7743548Z Uploaded bytes 50331648
+2026-09-28T09:42:16.0199581Z Uploaded bytes 58720256
+2026-09-28T09:42:16.3072757Z Uploaded bytes 67108864
+2026-09-28T09:42:16.5213554Z Uploaded bytes 75497472
+2026-09-28T09:42:16.6308814Z Uploaded bytes 78683246
+2026-09-28T09:42:16.6636927Z Finished uploading artifact content to blob storage!
+2026-09-28T09:42:16.6640493Z SHA256 digest of uploaded artifact is 6d122ea01d2a8ac85fa608e123340322a86bb8e636d8fcc78f84f53bd9120623
+2026-09-28T09:42:16.6642586Z Finalizing artifact upload
+2026-09-28T09:42:16.9258076Z Artifact copilot-fidelity-36404908264 successfully finalized. Artifact ID 10961568757
+2026-09-28T09:42:16.9259286Z Artifact copilot-fidelity-36404908264 has been successfully uploaded! Final size is 78683246 bytes. Artifact ID is 10961568757
+2026-09-28T09:42:16.9263956Z Artifact download URL: https://github.com/neilmac91/EarningsNerd/actions/runs/36404908264/artifacts/10961568757
+2026-09-28T09:42:16.9449374Z Post job cleanup.
+2026-09-28T09:42:17.0842229Z Post job cleanup.
+2026-09-28T09:42:17.1850386Z [command]/usr/bin/git version
+2026-09-28T09:42:17.1904303Z git version 2.55.0
+2026-09-28T09:42:17.2014505Z Temporarily overriding HOME='/home/runner/work/_temp/28361a8e-99b9-4859-8246-2f29369b7d20' before making global git config changes
+2026-09-28T09:42:17.2015918Z Adding repository directory to the temporary git global config as a safe directory
+2026-09-28T09:42:17.2017078Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/EarningsNerd/EarningsNerd
+2026-09-28T09:42:17.2024353Z Removing SSH command configuration
+2026-09-28T09:42:17.2025190Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+2026-09-28T09:42:17.2045558Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+2026-09-28T09:42:17.2329720Z Removing HTTP extra header
+2026-09-28T09:42:17.2337938Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-09-28T09:42:17.2385007Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+2026-09-28T09:42:17.2675651Z Removing includeIf entries pointing to credentials config files
+2026-09-28T09:42:17.2676723Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-09-28T09:42:17.2732829Z includeif.gitdir:/home/runner/work/EarningsNerd/EarningsNerd/.git.path
+2026-09-28T09:42:17.2734940Z includeif.gitdir:/home/runner/work/EarningsNerd/EarningsNerd/.git/worktrees/*.path
+2026-09-28T09:42:17.2736208Z includeif.gitdir:/github/workspace/.git.path
+2026-09-28T09:42:17.2737043Z includeif.gitdir:/github/workspace/.git/worktrees/*.path
+2026-09-28T09:42:17.2746428Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/home/runner/work/EarningsNerd/EarningsNerd/.git.path
+2026-09-28T09:42:17.2786852Z /home/runner/work/_temp/git-credentials-9d8f9def-5a6f-4752-9de8-2dc867f8781a.config
+2026-09-28T09:42:17.2799080Z [command]/usr/bin/git config --local --unset includeif.gitdir:/home/runner/work/EarningsNerd/EarningsNerd/.git.path \/home\/runner\/work\/_temp\/git\-credentials\-9d8f9def\-5a6f\-4752\-9de8\-2dc867f8781a\.config
+2026-09-28T09:42:17.2903088Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/home/runner/work/EarningsNerd/EarningsNerd/.git/worktrees/*.path
+2026-09-28T09:42:17.2966274Z /home/runner/work/_temp/git-credentials-9d8f9def-5a6f-4752-9de8-2dc867f8781a.config
+2026-09-28T09:42:17.2969668Z [command]/usr/bin/git config --local --unset includeif.gitdir:/home/runner/work/EarningsNerd/EarningsNerd/.git/worktrees/*.path \/home\/runner\/work\/_temp\/git\-credentials\-9d8f9def\-5a6f\-4752\-9de8\-2dc867f8781a\.config
+2026-09-28T09:42:17.3016232Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/github/workspace/.git.path
+2026-09-28T09:42:17.3048238Z /github/runner_temp/git-credentials-9d8f9def-5a6f-4752-9de8-2dc867f8781a.config
+2026-09-28T09:42:17.3058068Z [command]/usr/bin/git config --local --unset includeif.gitdir:/github/workspace/.git.path \/github\/runner_temp\/git\-credentials\-9d8f9def\-5a6f\-4752\-9de8\-2dc867f8781a\.config
+2026-09-28T09:42:17.3117340Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/github/workspace/.git/worktrees/*.path
+2026-09-28T09:42:17.3151875Z /github/runner_temp/git-credentials-9d8f9def-5a6f-4752-9de8-2dc867f8781a.config
+2026-09-28T09:42:17.3164899Z [command]/usr/bin/git config --local --unset includeif.gitdir:/github/workspace/.git/worktrees/*.path \/github\/runner_temp\/git\-credentials\-9d8f9def\-5a6f\-4752\-9de8\-2dc867f8781a\.config
+2026-09-28T09:42:17.3210340Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+2026-09-28T09:42:17.3476467Z Removing credentials config '/home/runner/work/_temp/git-credentials-9d8f9def-5a6f-4752-9de8-2dc867f8781a.config'
+2026-09-28T09:42:17.3626431Z Cleaning up orphan processes

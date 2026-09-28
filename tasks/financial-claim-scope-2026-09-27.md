@@ -177,14 +177,19 @@ telemetry (billed cost is not readable from this session; the shared-account bal
 | 36356321090 | `b4f0959` | PASS | 0.181 |
 | 36383403453 | `5e6e244` | PASS | 0.179 |
 | 36386298431 | `260cebd` | PASS; ran inside DeepSeek's peak tariff window (06:00–10:00 UTC weekdays) | 0.357 |
-| Total | | | about 1.017 |
+| 36392603589 | `7c2f998` | PASS; peak tariff; the measurement root authorized under the USD 1.65 ceiling | 0.354 |
+| 36403130259 | `5936fc4` | PASS; peak tariff; the eighth-round measurement root authorized under the USD 2.10 ceiling (70 calls, 70/70 scored, 0 errors, advisory mean 2.143) | 0.349 |
+| 36404908264 | `5936fc4` | PASS; Copilot filing fidelity on ready-for-review (18/18 cases, 0 errors, 35 calls) | 0.015 |
+| Total | | | 1.736 of the USD 2.10 cumulative ceiling |
 
-The cumulative USD 1.00 ceiling is exceeded by about USD 0.017: I projected the fourth-round run at
+The original USD 1.00 ceiling was exceeded by about USD 0.017 at the fourth round: I projected the fourth-round run at
 about USD 0.18 without accounting for the peak tariff. Disclosed in the PR thread at once; no further
-push is made without root's explicit authorization on the PR. The committed ledger at `260cebd`
-still carried the pre-run "about 0.84" expectation; this file and `run-ledger.json` are corrected in
-the fifth-round evidence commit, which is held locally with the fifth-round code until that
-authorization. Full ledger: `review-evidence/financial-claim-scope-2026-09-27/run-ledger.json`.
+push is made without root's explicit authorization on the PR. Root then raised the cumulative
+planning ceiling to USD 1.65 (07:35 UTC, one measurement of `7c2f998`) and to USD 2.10 (09:09 UTC, one
+measurement of the eighth-round head plus one eventual Copilot check). The committed ledger at
+`260cebd` carried a pre-run "about 0.84" expectation; `7c2f998` corrected it to actual telemetry.
+Balance reads (shared account, other usage included): 55.65 → 54.59 → 54.41 → 54.05 → 53.66 → 53.30 →
+52.18 (09:20 UTC). Full ledger: `review-evidence/financial-claim-scope-2026-09-27/run-ledger.json`.
 
 ## Engineering evidence versus acceptance
 
@@ -743,6 +748,33 @@ outputs unchanged (one slot, 7/7, eight `unsupported_proposition`).
 Root replaced the publish hold for this corrected, locally gated candidate and reserved a revised
 USD 2.10 cumulative planning ceiling (about USD 1.371 spent) covering one corrected-head 70-output
 measurement and one eventual Copilot check; the reservation is confirmed on the PR before the push.
+
+### Eighth-round hosted result
+
+The six held commits were pushed once at 09:22 UTC (remote head `5936fc4`). CI run 36403130259: every job
+green (backend-tests, frontend-tests, e2e-tests, migrations-postgres, lighthouse, eval-baseline);
+`eval-baseline` PASS with the standing untraceable-figures advisory only (mean 2.143), expected=70
+attempted=70 scored=70 errors=0, 70 `summary_primary` calls, telemetry USD 0.349 (started 09:23 UTC,
+inside the peak window). Review gate 36403127979 and Copilot filing fidelity 36403130270 skipped as on
+every earlier head. Cumulative hosted telemetry USD 1.721 of USD 2.10. The eval log is
+`review-evidence/financial-claim-scope-2026-09-27/hosted-run-36403130259-eval-job.log.txt`. The
+old/new output diff for this head is the unchanged 70-output replay: one slot (WMT run 1, 7/7), eight
+`unsupported_proposition` abstentions, 65 outputs without a bare figure.
+
+### Review close-out and merge
+
+Root's exact-head review of `5936fc4` (09:39 UTC) cleared the owner and marked the PR ready for
+review, which started the Copilot filing-fidelity workflow (run 36404908264: 18/18 cases, 0 errors,
+35 `copilot_chat` calls, USD 0.015; log in `review-evidence/…/hosted-run-36404908264-copilot-job.log.txt`)
+and the Review gate (36404908749, success); the Codex code review completed with no findings. Root
+squash-merged the PR into main as `8ff1816` at 09:59 UTC after verifying the #1003 deployment.
+Cumulative hosted telemetry for the PR: USD 1.736 of the USD 2.10 ceiling; billed cost unknown.
+This receipt commit is re-based onto main and held locally: root asked that the stale ledger fields be
+corrected in a later evidence checkpoint and that no paid head be generated solely to update
+accounting prose. Post-merge CI on main (run 36406918405, commit `8ff1816`) concluded success at 10:06 UTC:
+backend/frontend/e2e/migrations/lighthouse green, `eval-baseline` skipped on the push, and `deploy-backend`
+built and pushed the image, applied migrations, deployed the Cloud Run service, updated the job images and
+passed the health check. Live behaviour readback beyond that health check is root's.
 
 ### Eighth-round verification tails
 
