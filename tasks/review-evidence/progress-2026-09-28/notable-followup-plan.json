@@ -1,0 +1,23 @@
+{
+  "reserved_at": "2026-09-28T07:56:43.015721+00:00",
+  "script_sha256": "e17d83f28ccba3f5787d845bf7b9099b676d67176defce563367cf8c3a230b53",
+  "source_packet_sha256": "f9b1b32f74ac79c003dba1ddfd442a4783d49b5382c57d715aece752378669ee",
+  "scope": "Explicit follow-up to source acquisition pre-response failures, not replacement of sample or verdicts",
+  "rows": [
+    "INBP",
+    "SGMOQ",
+    "CD",
+    "AETN",
+    "OPTU"
+  ],
+  "max_calls": 10,
+  "max_retries": 1,
+  "stop_first_failure": true,
+  "transport": "unchanged app SEC attachment service and shared limiter",
+  "network_permission_requested": true,
+  "database_writes": 0,
+  "model_calls": 0,
+  "feature_flag_changes": 0,
+  "paid_api_calls": 0,
+  "prior_evidence_preserved": true
+}

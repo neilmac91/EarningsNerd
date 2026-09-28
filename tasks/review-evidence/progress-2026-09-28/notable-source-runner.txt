@@ -1,0 +1,341 @@
+#!/usr/bin/env python3
+"""Acquire the frozen Notable review packet through EarningsNerd's SEC transport.
+
+This runner is intentionally one-shot and bounded. It requests one filing index for
+each frozen row and, only for 8-K rows, the primary document. Every transport call
+uses ``SECEdgarServiceCompat.get_filing_attachment_bytes`` with ``max_retries=1``;
+that method owns the circuit breaker, shared SEC limiter, identity header, bounded
+entity read, and redirect rejection.
+"""
+
+from __future__ import annotations
+
+import argparse
+import asyncio
+import hashlib
+import json
+import os
+import re
+import sys
+from datetime import datetime, timezone
+from pathlib import Path
+from typing import Any
+from urllib.parse import parse_qs, urlparse
+
+from bs4 import BeautifulSoup
+
+
+HERE = Path(__file__).resolve().parent
+WORKSPACE = HERE.parent
+PACKET = WORKSPACE / "notable-acceptance-db" / "source-packet.json"
+FOLLOWUP = WORKSPACE / "notable-acceptance-db" / "source-read-followup.md"
+REPO = Path("/Users/neilmacaogain/.codex/earningsnerd-checkouts/release-20260928")
+BACKEND = REPO / "backend"
+LEDGER = HERE / "acquisition.json"
+SOURCE_DIR = HERE / "sources"
+MAX_TRANSPORT_CALLS = 24
+EXPECTED_ROWS = 12
+EXPECTED_PACKET_SHA256 = "f9b1b32f74ac79c003dba1ddfd442a4783d49b5382c57d715aece752378669ee"
+EXPECTED_FOLLOWUP_SHA256 = "626476b00ef5622188fe3bd008c7d2c72e9a915788b4307d0d16d03878bfa50b"
+
+
+def utc_now() -> str:
+    return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+
+
+def sha256_bytes(value: bytes) -> str:
+    return hashlib.sha256(value).hexdigest()
+
+
+def source_hash(path: Path) -> str:
+    return sha256_bytes(path.read_bytes())
+
+
+def write_json(path: Path, value: Any) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary = path.with_suffix(path.suffix + ".tmp")
+    temporary.write_text(json.dumps(value, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    temporary.replace(path)
+
+
+def clean_text(value: str) -> str:
+    return " ".join(value.split())
+
+
+def parse_index(content: bytes, expected_form: str) -> dict[str, Any]:
+    soup = BeautifulSoup(content, "html.parser")
+    metadata: dict[str, str] = {}
+    for group in soup.select("div.formGrouping"):
+        label = group.select_one("div.infoHead")
+        value = group.select_one("div.info")
+        if label and value:
+            metadata[clean_text(label.get_text(" ", strip=True))] = clean_text(
+                value.get_text(" ", strip=True)
+            )
+
+    documents: list[dict[str, str]] = []
+    for row in soup.select("table.tableFile tr"):
+        cells = row.find_all("td")
+        if len(cells) < 4:
+            continue
+        anchor = cells[2].find("a")
+        href = str(anchor.get("href", "")) if anchor else ""
+        filename = clean_text(anchor.get_text(" ", strip=True)) if anchor else ""
+        if not filename and href:
+            parsed = urlparse(href)
+            target = parse_qs(parsed.query).get("doc", [parsed.path])[0]
+            filename = Path(target).name
+        documents.append(
+            {
+                "sequence": clean_text(cells[0].get_text(" ", strip=True)),
+                "description": clean_text(cells[1].get_text(" ", strip=True)),
+                "filename": filename,
+                "href": href,
+                "type": clean_text(cells[3].get_text(" ", strip=True)),
+            }
+        )
+
+    primary = next((row for row in documents if row["type"] == expected_form), None)
+    if primary is None:
+        primary = next((row for row in documents if row["sequence"] == "1"), None)
+
+    title = clean_text(soup.title.get_text(" ", strip=True)) if soup.title else None
+    visible_heading = soup.select_one("div.companyInfo span.companyName")
+    return {
+        "title": title,
+        "visible_company_heading": clean_text(visible_heading.get_text(" ", strip=True))
+        if visible_heading
+        else None,
+        "metadata": metadata,
+        "documents": documents,
+        "primary_document": primary,
+    }
+
+
+def validate_leaf(filename: str) -> str:
+    if not filename or Path(filename).name != filename or "/" in filename or "\\" in filename:
+        raise ValueError(f"unsafe or missing primary filename: {filename!r}")
+    return filename
+
+
+async def main() -> int:
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--acquire",
+        action="store_true",
+        help="perform the bounded SEC acquisition; otherwise only validate inputs",
+    )
+    args = parser.parse_args()
+
+    packet_hash = source_hash(PACKET)
+    followup_hash = source_hash(FOLLOWUP)
+    if packet_hash != EXPECTED_PACKET_SHA256 or followup_hash != EXPECTED_FOLLOWUP_SHA256:
+        raise SystemExit("frozen input hash mismatch; refusing source acquisition")
+    packet = json.loads(PACKET.read_text(encoding="utf-8"))
+    candidates = packet.get("candidates")
+    if not isinstance(candidates, list) or len(candidates) != EXPECTED_ROWS:
+        raise SystemExit("frozen packet must contain exactly 12 candidates")
+
+    if not args.acquire:
+        print(
+            json.dumps(
+                {
+                    "packet_sha256": packet_hash,
+                    "followup_sha256": followup_hash,
+                    "candidate_count": len(candidates),
+                    "planned_transport_calls": len(candidates)
+                    + sum(row.get("form") == "8-K" for row in candidates),
+                    "max_transport_calls": MAX_TRANSPORT_CALLS,
+                },
+                sort_keys=True,
+            )
+        )
+        return 0
+
+    if LEDGER.exists():
+        raise SystemExit(
+            f"{LEDGER} already exists; this runner never retries or replaces a recorded acquisition"
+        )
+
+    os.environ.setdefault("SKIP_REDIS_INIT", "true")
+    os.environ.setdefault("SECRET_KEY", "notable-source-review-local-only-key-2026")
+    sys.path.insert(0, str(BACKEND))
+    from app.services.edgar.compat import sec_edgar_service
+
+    SOURCE_DIR.mkdir(parents=True, exist_ok=False)
+    ledger: dict[str, Any] = {
+        "schema_version": 1,
+        "kind": "notable_source_only_acquisition",
+        "started_at": utc_now(),
+        "completed_at": None,
+        "status": "running",
+        "input": {
+            "packet_path": str(PACKET),
+            "packet_sha256": packet_hash,
+            "followup_path": str(FOLLOWUP),
+            "followup_sha256": followup_hash,
+            "candidate_count": len(candidates),
+        },
+        "transport": {
+            "repository": str(REPO),
+            "repository_head": "1c8a017e49e2dbe98a7612a0d445b4b883d9b80d",
+            "owner": "app.services.edgar.compat.SECEdgarServiceCompat.get_filing_attachment_bytes",
+            "shared_limiter": "app.services.sec_rate_limiter.sec_rate_limiter.execute",
+            "max_retries_per_call": 1,
+            "follow_redirects": False,
+            "max_transport_calls": MAX_TRANSPORT_CALLS,
+            "planned_transport_calls": len(candidates)
+            + sum(row.get("form") == "8-K" for row in candidates),
+        },
+        "requests": [],
+        "candidates": [],
+    }
+    write_json(LEDGER, ledger)
+
+    async def fetch(
+        candidate: dict[str, Any], kind: str, filename: str
+    ) -> tuple[bytes | None, dict[str, Any]]:
+        if len(ledger["requests"]) >= MAX_TRANSPORT_CALLS:
+            raise RuntimeError("transport-call cap reached")
+        cik_match = re.search(r"/data/(\d+)/", candidate["sec_url"])
+        if not cik_match:
+            raise ValueError("candidate sec_url lacks a CIK path segment")
+        cik = cik_match.group(1)
+        ordinal = len(ledger["requests"]) + 1
+        request = {
+            "ordinal": ordinal,
+            "accession_number": candidate["accession_number"],
+            "kind": kind,
+            "filename": filename,
+            "requested_url": candidate["sec_url"] + filename,
+            "started_at": utc_now(),
+            "finished_at": None,
+            "outcome": "started_no_response_recorded",
+            "transport_call_count": 1,
+            "physical_attempt_cap": 1,
+        }
+        ledger["requests"].append(request)
+        write_json(LEDGER, ledger)
+        try:
+            content, source = await sec_edgar_service.get_filing_attachment_bytes(
+                cik,
+                candidate["accession_number"],
+                filename,
+                timeout=30.0,
+                max_retries=1,
+            )
+            destination = SOURCE_DIR / candidate["accession_number"] / filename
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            destination.write_bytes(content)
+            request.update(
+                {
+                    "finished_at": utc_now(),
+                    "outcome": "success",
+                    "source_path": str(destination.relative_to(HERE)),
+                    "source_sha256": sha256_bytes(content),
+                    "source_bytes": len(content),
+                    "source": source,
+                }
+            )
+            write_json(LEDGER, ledger)
+            return content, request
+        except Exception as exc:  # recorded exactly once; no retry in this runner
+            request.update(
+                {
+                    "finished_at": utc_now(),
+                    "outcome": "failure",
+                    "error_type": type(exc).__name__,
+                    "error": str(exc),
+                }
+            )
+            write_json(LEDGER, ledger)
+            return None, request
+
+    for candidate in candidates:
+        accession = candidate["accession_number"]
+        candidate_record: dict[str, Any] = {
+            "accession_number": accession,
+            "ticker": candidate["ticker"],
+            "form": candidate["form"],
+            "reason": candidate["reason"],
+            "index": None,
+            "primary": None,
+        }
+        ledger["candidates"].append(candidate_record)
+        index_filename = f"{accession}-index.htm"
+        index_content, index_request = await fetch(candidate, "index", index_filename)
+        candidate_record["index"] = {
+            "request_ordinal": index_request["ordinal"],
+            "outcome": index_request["outcome"],
+        }
+        if index_content is None:
+            candidate_record["primary"] = {"outcome": "not_attempted_index_failure"}
+            write_json(LEDGER, ledger)
+            continue
+
+        try:
+            parsed = parse_index(index_content, candidate["form"])
+            candidate_record["index"]["parsed"] = parsed
+        except Exception as exc:
+            candidate_record["index"]["parse_error"] = {
+                "type": type(exc).__name__,
+                "message": str(exc),
+            }
+            candidate_record["primary"] = {"outcome": "not_attempted_index_parse_failure"}
+            write_json(LEDGER, ledger)
+            continue
+
+        if candidate["form"] != "8-K":
+            candidate_record["primary"] = {
+                "outcome": "not_needed_form_derived_reason",
+                "reason": candidate["reason"],
+            }
+            write_json(LEDGER, ledger)
+            continue
+
+        primary = parsed.get("primary_document")
+        try:
+            primary_filename = validate_leaf(primary["filename"] if primary else "")
+        except Exception as exc:
+            candidate_record["primary"] = {
+                "outcome": "not_attempted_primary_filename_unavailable",
+                "error_type": type(exc).__name__,
+                "error": str(exc),
+            }
+            write_json(LEDGER, ledger)
+            continue
+        primary_content, primary_request = await fetch(candidate, "primary", primary_filename)
+        candidate_record["primary"] = {
+            "request_ordinal": primary_request["ordinal"],
+            "outcome": primary_request["outcome"],
+            "filename": primary_filename,
+        }
+        if primary_content is not None:
+            primary_soup = BeautifulSoup(primary_content, "html.parser")
+            primary_title = primary_soup.title
+            candidate_record["primary"]["title"] = (
+                clean_text(primary_title.get_text(" ", strip=True)) if primary_title else None
+            )
+        write_json(LEDGER, ledger)
+
+    ledger["completed_at"] = utc_now()
+    ledger["status"] = "complete"
+    ledger["accounting"] = {
+        "transport_calls": len(ledger["requests"]),
+        "successful_responses": sum(
+            row["outcome"] == "success" for row in ledger["requests"]
+        ),
+        "failed_calls": sum(row["outcome"] == "failure" for row in ledger["requests"]),
+        "unresolved_started_calls": sum(
+            row["outcome"] == "started_no_response_recorded" for row in ledger["requests"]
+        ),
+        "cap_remaining": MAX_TRANSPORT_CALLS - len(ledger["requests"]),
+        "cap_respected": len(ledger["requests"]) <= MAX_TRANSPORT_CALLS,
+    }
+    write_json(LEDGER, ledger)
+    print(json.dumps(ledger["accounting"], sort_keys=True))
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(asyncio.run(main()))

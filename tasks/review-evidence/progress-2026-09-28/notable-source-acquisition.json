@@ -1,0 +1,360 @@
+{
+  "accounting": {
+    "cap_remaining": 12,
+    "cap_respected": true,
+    "failed_calls": 12,
+    "successful_responses": 0,
+    "transport_calls": 12,
+    "unresolved_started_calls": 0
+  },
+  "candidates": [
+    {
+      "accession_number": "0001493152-26-043599",
+      "form": "8-K",
+      "index": {
+        "outcome": "failure",
+        "request_ordinal": 1
+      },
+      "primary": {
+        "outcome": "not_attempted_index_failure"
+      },
+      "reason": "acquisition",
+      "ticker": "RIME"
+    },
+    {
+      "accession_number": "0001437749-26-031241",
+      "form": "10-K",
+      "index": {
+        "outcome": "failure",
+        "request_ordinal": 2
+      },
+      "primary": {
+        "outcome": "not_attempted_index_failure"
+      },
+      "reason": "annual_report",
+      "ticker": "INBP"
+    },
+    {
+      "accession_number": "0001193125-26-396644",
+      "form": "8-K",
+      "index": {
+        "outcome": "failure",
+        "request_ordinal": 3
+      },
+      "primary": {
+        "outcome": "not_attempted_index_failure"
+      },
+      "reason": "bankruptcy",
+      "ticker": "SGMOQ"
+    },
+    {
+      "accession_number": "0001493152-26-043498",
+      "form": "8-K",
+      "index": {
+        "outcome": "failure",
+        "request_ordinal": 4
+      },
+      "primary": {
+        "outcome": "not_attempted_index_failure"
+      },
+      "reason": "earnings_results",
+      "ticker": "MGLD"
+    },
+    {
+      "accession_number": "0001680247-26-000110",
+      "form": "8-K",
+      "index": {
+        "outcome": "failure",
+        "request_ordinal": 5
+      },
+      "primary": {
+        "outcome": "not_attempted_index_failure"
+      },
+      "reason": "executive_change",
+      "ticker": "PUMP"
+    },
+    {
+      "accession_number": "0001213900-26-102276",
+      "form": "S-1",
+      "index": {
+        "outcome": "failure",
+        "request_ordinal": 6
+      },
+      "primary": {
+        "outcome": "not_attempted_index_failure"
+      },
+      "reason": "ipo_filing",
+      "ticker": "BOXL"
+    },
+    {
+      "accession_number": "0001493152-26-043456",
+      "form": "8-K",
+      "index": {
+        "outcome": "failure",
+        "request_ordinal": 7
+      },
+      "primary": {
+        "outcome": "not_attempted_index_failure"
+      },
+      "reason": "material_agreement",
+      "ticker": "AIAI"
+    },
+    {
+      "accession_number": "0001193125-26-395997",
+      "form": "8-K",
+      "index": {
+        "outcome": "failure",
+        "request_ordinal": 8
+      },
+      "primary": {
+        "outcome": "not_attempted_index_failure"
+      },
+      "reason": "material_agreement",
+      "ticker": "AXON"
+    },
+    {
+      "accession_number": "0001493152-26-043815",
+      "form": "8-K",
+      "index": {
+        "outcome": "failure",
+        "request_ordinal": 9
+      },
+      "primary": {
+        "outcome": "not_attempted_index_failure"
+      },
+      "reason": "material_agreement",
+      "ticker": "GRNQ"
+    },
+    {
+      "accession_number": "0001493152-26-044115",
+      "form": "8-K",
+      "index": {
+        "outcome": "failure",
+        "request_ordinal": 10
+      },
+      "primary": {
+        "outcome": "not_attempted_index_failure"
+      },
+      "reason": "material_agreement",
+      "ticker": "CD"
+    },
+    {
+      "accession_number": "0001493152-26-044256",
+      "form": "8-K",
+      "index": {
+        "outcome": "failure",
+        "request_ordinal": 11
+      },
+      "primary": {
+        "outcome": "not_attempted_index_failure"
+      },
+      "reason": "material_agreement",
+      "ticker": "AETN"
+    },
+    {
+      "accession_number": "0001702780-26-000057",
+      "form": "8-K",
+      "index": {
+        "outcome": "failure",
+        "request_ordinal": 12
+      },
+      "primary": {
+        "outcome": "not_attempted_index_failure"
+      },
+      "reason": "restatement",
+      "ticker": "OPTU"
+    }
+  ],
+  "completed_at": "2026-09-28T07:33:28.509728Z",
+  "input": {
+    "candidate_count": 12,
+    "followup_path": "/Users/neilmacaogain/Documents/Codex/2026-09-19/github-plugin-github-openai-curated-remote/outputs/takeover-2026-09-28/notable-acceptance-db/source-read-followup.md",
+    "followup_sha256": "626476b00ef5622188fe3bd008c7d2c72e9a915788b4307d0d16d03878bfa50b",
+    "packet_path": "/Users/neilmacaogain/Documents/Codex/2026-09-19/github-plugin-github-openai-curated-remote/outputs/takeover-2026-09-28/notable-acceptance-db/source-packet.json",
+    "packet_sha256": "f9b1b32f74ac79c003dba1ddfd442a4783d49b5382c57d715aece752378669ee"
+  },
+  "kind": "notable_source_only_acquisition",
+  "requests": [
+    {
+      "accession_number": "0001493152-26-043599",
+      "error": "Failed to fetch SEC attachment: SEC attachment transport failed [requested_url=https://www.sec.gov/Archives/edgar/data/923601/000149315226043599/0001493152-26-043599-index.htm, physical_attempts=1]",
+      "error_type": "EdgarError",
+      "filename": "0001493152-26-043599-index.htm",
+      "finished_at": "2026-09-28T07:33:28.473992Z",
+      "kind": "index",
+      "ordinal": 1,
+      "outcome": "failure",
+      "physical_attempt_cap": 1,
+      "requested_url": "https://www.sec.gov/Archives/edgar/data/923601/000149315226043599/0001493152-26-043599-index.htm",
+      "started_at": "2026-09-28T07:33:28.457731Z",
+      "transport_call_count": 1
+    },
+    {
+      "accession_number": "0001437749-26-031241",
+      "error": "Failed to fetch SEC attachment: SEC attachment transport failed [requested_url=https://www.sec.gov/Archives/edgar/data/1016504/000143774926031241/0001437749-26-031241-index.htm, physical_attempts=1]",
+      "error_type": "EdgarError",
+      "filename": "0001437749-26-031241-index.htm",
+      "finished_at": "2026-09-28T07:33:28.480167Z",
+      "kind": "index",
+      "ordinal": 2,
+      "outcome": "failure",
+      "physical_attempt_cap": 1,
+      "requested_url": "https://www.sec.gov/Archives/edgar/data/1016504/000143774926031241/0001437749-26-031241-index.htm",
+      "started_at": "2026-09-28T07:33:28.474999Z",
+      "transport_call_count": 1
+    },
+    {
+      "accession_number": "0001193125-26-396644",
+      "error": "Failed to fetch SEC attachment: SEC attachment transport failed [requested_url=https://www.sec.gov/Archives/edgar/data/1001233/000119312526396644/0001193125-26-396644-index.htm, physical_attempts=1]",
+      "error_type": "EdgarError",
+      "filename": "0001193125-26-396644-index.htm",
+      "finished_at": "2026-09-28T07:33:28.485569Z",
+      "kind": "index",
+      "ordinal": 3,
+      "outcome": "failure",
+      "physical_attempt_cap": 1,
+      "requested_url": "https://www.sec.gov/Archives/edgar/data/1001233/000119312526396644/0001193125-26-396644-index.htm",
+      "started_at": "2026-09-28T07:33:28.480877Z",
+      "transport_call_count": 1
+    },
+    {
+      "accession_number": "0001493152-26-043498",
+      "error": "Failed to fetch SEC attachment: SEC attachment transport failed [requested_url=https://www.sec.gov/Archives/edgar/data/1005101/000149315226043498/0001493152-26-043498-index.htm, physical_attempts=1]",
+      "error_type": "EdgarError",
+      "filename": "0001493152-26-043498-index.htm",
+      "finished_at": "2026-09-28T07:33:28.492747Z",
+      "kind": "index",
+      "ordinal": 4,
+      "outcome": "failure",
+      "physical_attempt_cap": 1,
+      "requested_url": "https://www.sec.gov/Archives/edgar/data/1005101/000149315226043498/0001493152-26-043498-index.htm",
+      "started_at": "2026-09-28T07:33:28.486505Z",
+      "transport_call_count": 1
+    },
+    {
+      "accession_number": "0001680247-26-000110",
+      "error": "Failed to fetch SEC attachment: SEC attachment transport failed [requested_url=https://www.sec.gov/Archives/edgar/data/1680247/000168024726000110/0001680247-26-000110-index.htm, physical_attempts=1]",
+      "error_type": "EdgarError",
+      "filename": "0001680247-26-000110-index.htm",
+      "finished_at": "2026-09-28T07:33:28.498426Z",
+      "kind": "index",
+      "ordinal": 5,
+      "outcome": "failure",
+      "physical_attempt_cap": 1,
+      "requested_url": "https://www.sec.gov/Archives/edgar/data/1680247/000168024726000110/0001680247-26-000110-index.htm",
+      "started_at": "2026-09-28T07:33:28.493708Z",
+      "transport_call_count": 1
+    },
+    {
+      "accession_number": "0001213900-26-102276",
+      "error": "SEC EDGAR circuit breaker is open: Circuit breaker 'sec_edgar' is open (recovery in 30.0s)",
+      "error_type": "EdgarError",
+      "filename": "0001213900-26-102276-index.htm",
+      "finished_at": "2026-09-28T07:33:28.499978Z",
+      "kind": "index",
+      "ordinal": 6,
+      "outcome": "failure",
+      "physical_attempt_cap": 1,
+      "requested_url": "https://www.sec.gov/Archives/edgar/data/1624512/000121390026102276/0001213900-26-102276-index.htm",
+      "started_at": "2026-09-28T07:33:28.499512Z",
+      "transport_call_count": 1
+    },
+    {
+      "accession_number": "0001493152-26-043456",
+      "error": "SEC EDGAR circuit breaker is open: Circuit breaker 'sec_edgar' is open (recovery in 30.0s)",
+      "error_type": "EdgarError",
+      "filename": "0001493152-26-043456-index.htm",
+      "finished_at": "2026-09-28T07:33:28.501068Z",
+      "kind": "index",
+      "ordinal": 7,
+      "outcome": "failure",
+      "physical_attempt_cap": 1,
+      "requested_url": "https://www.sec.gov/Archives/edgar/data/2096362/000149315226043456/0001493152-26-043456-index.htm",
+      "started_at": "2026-09-28T07:33:28.500692Z",
+      "transport_call_count": 1
+    },
+    {
+      "accession_number": "0001193125-26-395997",
+      "error": "SEC EDGAR circuit breaker is open: Circuit breaker 'sec_edgar' is open (recovery in 30.0s)",
+      "error_type": "EdgarError",
+      "filename": "0001193125-26-395997-index.htm",
+      "finished_at": "2026-09-28T07:33:28.502205Z",
+      "kind": "index",
+      "ordinal": 8,
+      "outcome": "failure",
+      "physical_attempt_cap": 1,
+      "requested_url": "https://www.sec.gov/Archives/edgar/data/1069183/000119312526395997/0001193125-26-395997-index.htm",
+      "started_at": "2026-09-28T07:33:28.501792Z",
+      "transport_call_count": 1
+    },
+    {
+      "accession_number": "0001493152-26-043815",
+      "error": "SEC EDGAR circuit breaker is open: Circuit breaker 'sec_edgar' is open (recovery in 30.0s)",
+      "error_type": "EdgarError",
+      "filename": "0001493152-26-043815-index.htm",
+      "finished_at": "2026-09-28T07:33:28.503749Z",
+      "kind": "index",
+      "ordinal": 9,
+      "outcome": "failure",
+      "physical_attempt_cap": 1,
+      "requested_url": "https://www.sec.gov/Archives/edgar/data/1597846/000149315226043815/0001493152-26-043815-index.htm",
+      "started_at": "2026-09-28T07:33:28.503259Z",
+      "transport_call_count": 1
+    },
+    {
+      "accession_number": "0001493152-26-044115",
+      "error": "SEC EDGAR circuit breaker is open: Circuit breaker 'sec_edgar' is open (recovery in 30.0s)",
+      "error_type": "EdgarError",
+      "filename": "0001493152-26-044115-index.htm",
+      "finished_at": "2026-09-28T07:33:28.505533Z",
+      "kind": "index",
+      "ordinal": 10,
+      "outcome": "failure",
+      "physical_attempt_cap": 1,
+      "requested_url": "https://www.sec.gov/Archives/edgar/data/1527762/000149315226044115/0001493152-26-044115-index.htm",
+      "started_at": "2026-09-28T07:33:28.504994Z",
+      "transport_call_count": 1
+    },
+    {
+      "accession_number": "0001493152-26-044256",
+      "error": "SEC EDGAR circuit breaker is open: Circuit breaker 'sec_edgar' is open (recovery in 30.0s)",
+      "error_type": "EdgarError",
+      "filename": "0001493152-26-044256-index.htm",
+      "finished_at": "2026-09-28T07:33:28.507246Z",
+      "kind": "index",
+      "ordinal": 11,
+      "outcome": "failure",
+      "physical_attempt_cap": 1,
+      "requested_url": "https://www.sec.gov/Archives/edgar/data/764630/000149315226044256/0001493152-26-044256-index.htm",
+      "started_at": "2026-09-28T07:33:28.506674Z",
+      "transport_call_count": 1
+    },
+    {
+      "accession_number": "0001702780-26-000057",
+      "error": "SEC EDGAR circuit breaker is open: Circuit breaker 'sec_edgar' is open (recovery in 30.0s)",
+      "error_type": "EdgarError",
+      "filename": "0001702780-26-000057-index.htm",
+      "finished_at": "2026-09-28T07:33:28.508730Z",
+      "kind": "index",
+      "ordinal": 12,
+      "outcome": "failure",
+      "physical_attempt_cap": 1,
+      "requested_url": "https://www.sec.gov/Archives/edgar/data/1702780/000170278026000057/0001702780-26-000057-index.htm",
+      "started_at": "2026-09-28T07:33:28.508213Z",
+      "transport_call_count": 1
+    }
+  ],
+  "schema_version": 1,
+  "started_at": "2026-09-28T07:33:28.457260Z",
+  "status": "complete",
+  "transport": {
+    "follow_redirects": false,
+    "max_retries_per_call": 1,
+    "max_transport_calls": 24,
+    "owner": "app.services.edgar.compat.SECEdgarServiceCompat.get_filing_attachment_bytes",
+    "planned_transport_calls": 22,
+    "repository": "/Users/neilmacaogain/.codex/earningsnerd-checkouts/release-20260928",
+    "repository_head": "1c8a017e49e2dbe98a7612a0d445b4b883d9b80d",
+    "shared_limiter": "app.services.sec_rate_limiter.sec_rate_limiter.execute"
+  }
+}

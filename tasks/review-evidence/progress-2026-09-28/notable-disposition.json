@@ -1,0 +1,50 @@
+{
+  "schema_version": 1,
+  "decided_at": "2026-09-28T07:45:44.849611+00:00",
+  "owner": "Codex as delegated chief engineer",
+  "implementation": "retain",
+  "activation": "defer",
+  "flag_changed": false,
+  "current_visible_card_evidence": {
+    "sample": 12,
+    "source_supported_current_labels": 6,
+    "unsupported_overclaims": 2,
+    "indeterminate": 4,
+    "unsupported_examples": {
+      "BOXL": "IPO filing is not established by S-1 registration alone",
+      "OPTU": "Restatement is not established by readable Item4.02 non-reliance metadata alone"
+    },
+    "qualification": "Six cards have supported current labels for these exact filings. Their regulatory-item classifiers do not establish broader semantic precision."
+  },
+  "source_worksheet_original": {
+    "passes_with_wording_limits": 8,
+    "false_positive": 0,
+    "indeterminate": 4,
+    "unaltered": true,
+    "qualification": "These source verdicts describe claims the evidence can support; two pass only under narrower proposed wording, not the current displayed badge."
+  },
+  "operational_interval": {
+    "start": "2026-09-21T00:00:00Z",
+    "end": "2026-09-28T00:00:00Z",
+    "expected_scheduled_slots": 14,
+    "eventual_successful_slots": 14,
+    "missing_slots": 0,
+    "first_attempt_successful_slots": 10,
+    "total_attempts": 18,
+    "successful_attempts": 14,
+    "failed_attempts": 4,
+    "failed_slots": [
+      "2026-09-22T12:30:00Z",
+      "2026-09-23T12:30:00Z",
+      "2026-09-25T12:30:00Z",
+      "2026-09-26T12:30:00Z"
+    ],
+    "failed_attempts_recovered_by_automatic_retry": true
+  },
+  "remaining_before_activation": [
+    "Release and verify reason labels faithful to the regulatory form/item; do not imply events absent corroboration.",
+    "Resolve the four inaccessible exact-source cards without replacing the frozen sample, or establish a separately reviewed policy that withholds unverifiable cards.",
+    "Document bounded beta usefulness decision and enablement/rollback observation; dark-section CTR is not evidence."
+  ],
+  "cohort_or_quality_acceptance_claim": false
+}

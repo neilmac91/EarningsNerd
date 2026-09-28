@@ -1,0 +1,713 @@
+{
+  "started_at": "2026-09-28T07:57:42.703821+00:00",
+  "scope": "complete four unread frozen cards and the previously unread OPTU primary; originals preserved",
+  "maximum_calls": 10,
+  "max_retries_per_call": 1,
+  "stop_at_first_transport_failure": true,
+  "requests": [
+    {
+      "accession_number": "0001437749-26-031241",
+      "filename": "0001437749-26-031241-index.htm",
+      "state": "complete",
+      "bytes": 12436,
+      "sha256": "4974bf4fa14a1f88d0a6feb43d28b9d90a270a60a06505e77b27b083390234b2",
+      "path": "sources/0001437749-26-031241/0001437749-26-031241-index.htm",
+      "source": {
+        "schema_version": 1,
+        "representation": "httpx_identity_entity_bytes",
+        "sha256": "4974bf4fa14a1f88d0a6feb43d28b9d90a270a60a06505e77b27b083390234b2",
+        "bytes": 12436,
+        "cik": "1016504",
+        "accession_number": "000143774926031241",
+        "filename": "0001437749-26-031241-index.htm",
+        "requested_url": "https://www.sec.gov/Archives/edgar/data/1016504/000143774926031241/0001437749-26-031241-index.htm",
+        "final_url": "https://www.sec.gov/Archives/edgar/data/1016504/000143774926031241/0001437749-26-031241-index.htm",
+        "status_code": 200,
+        "content_type": "text/html; charset=UTF-8",
+        "content_encoding": null,
+        "content_length": "12436",
+        "etag": null,
+        "last_modified": "Fri, 25 Sep 2026 20:36:14 GMT",
+        "physical_attempts": 1
+      }
+    },
+    {
+      "accession_number": "0001193125-26-396644",
+      "filename": "0001193125-26-396644-index.htm",
+      "state": "complete",
+      "bytes": 9637,
+      "sha256": "8772b47cd962cb8d84aae9ad157f48552ffce78e9884d775bff6ebe436fecbd1",
+      "path": "sources/0001193125-26-396644/0001193125-26-396644-index.htm",
+      "source": {
+        "schema_version": 1,
+        "representation": "httpx_identity_entity_bytes",
+        "sha256": "8772b47cd962cb8d84aae9ad157f48552ffce78e9884d775bff6ebe436fecbd1",
+        "bytes": 9637,
+        "cik": "1001233",
+        "accession_number": "000119312526396644",
+        "filename": "0001193125-26-396644-index.htm",
+        "requested_url": "https://www.sec.gov/Archives/edgar/data/1001233/000119312526396644/0001193125-26-396644-index.htm",
+        "final_url": "https://www.sec.gov/Archives/edgar/data/1001233/000119312526396644/0001193125-26-396644-index.htm",
+        "status_code": 200,
+        "content_type": "text/html; charset=UTF-8",
+        "content_encoding": null,
+        "content_length": "9637",
+        "etag": null,
+        "last_modified": "Mon, 21 Sep 2026 20:01:07 GMT",
+        "physical_attempts": 1
+      }
+    },
+    {
+      "accession_number": "0001193125-26-396644",
+      "filename": "d178611d8k.htm",
+      "state": "complete",
+      "bytes": 31449,
+      "sha256": "746bf7dd1dffeb172aff45e92e93ec56f6c7fb316b15017a0fac64e2385ace7b",
+      "path": "sources/0001193125-26-396644/d178611d8k.htm",
+      "source": {
+        "schema_version": 1,
+        "representation": "httpx_identity_entity_bytes",
+        "sha256": "746bf7dd1dffeb172aff45e92e93ec56f6c7fb316b15017a0fac64e2385ace7b",
+        "bytes": 31449,
+        "cik": "1001233",
+        "accession_number": "000119312526396644",
+        "filename": "d178611d8k.htm",
+        "requested_url": "https://www.sec.gov/Archives/edgar/data/1001233/000119312526396644/d178611d8k.htm",
+        "final_url": "https://www.sec.gov/Archives/edgar/data/1001233/000119312526396644/d178611d8k.htm",
+        "status_code": 200,
+        "content_type": "text/html",
+        "content_encoding": null,
+        "content_length": "31449",
+        "etag": null,
+        "last_modified": "Mon, 21 Sep 2026 20:01:34 GMT",
+        "physical_attempts": 1
+      }
+    },
+    {
+      "accession_number": "0001493152-26-044115",
+      "filename": "0001493152-26-044115-index.htm",
+      "state": "complete",
+      "bytes": 11358,
+      "sha256": "fbdf3aa85d236ac6e14fff532ebffef6f2c4d7904bb4ebf18bb75ddde9d2750e",
+      "path": "sources/0001493152-26-044115/0001493152-26-044115-index.htm",
+      "source": {
+        "schema_version": 1,
+        "representation": "httpx_identity_entity_bytes",
+        "sha256": "fbdf3aa85d236ac6e14fff532ebffef6f2c4d7904bb4ebf18bb75ddde9d2750e",
+        "bytes": 11358,
+        "cik": "1527762",
+        "accession_number": "000149315226044115",
+        "filename": "0001493152-26-044115-index.htm",
+        "requested_url": "https://www.sec.gov/Archives/edgar/data/1527762/000149315226044115/0001493152-26-044115-index.htm",
+        "final_url": "https://www.sec.gov/Archives/edgar/data/1527762/000149315226044115/0001493152-26-044115-index.htm",
+        "status_code": 200,
+        "content_type": "text/html; charset=UTF-8",
+        "content_encoding": null,
+        "content_length": "11358",
+        "etag": null,
+        "last_modified": "Thu, 24 Sep 2026 17:45:22 GMT",
+        "physical_attempts": 1
+      }
+    },
+    {
+      "accession_number": "0001493152-26-044115",
+      "filename": "form8-k.htm",
+      "state": "complete",
+      "bytes": 41668,
+      "sha256": "ddbabdab675fd3230032ff2c8e8b03406c262e7c81d21173b887206c2642af19",
+      "path": "sources/0001493152-26-044115/form8-k.htm",
+      "source": {
+        "schema_version": 1,
+        "representation": "httpx_identity_entity_bytes",
+        "sha256": "ddbabdab675fd3230032ff2c8e8b03406c262e7c81d21173b887206c2642af19",
+        "bytes": 41668,
+        "cik": "1527762",
+        "accession_number": "000149315226044115",
+        "filename": "form8-k.htm",
+        "requested_url": "https://www.sec.gov/Archives/edgar/data/1527762/000149315226044115/form8-k.htm",
+        "final_url": "https://www.sec.gov/Archives/edgar/data/1527762/000149315226044115/form8-k.htm",
+        "status_code": 200,
+        "content_type": "text/html",
+        "content_encoding": null,
+        "content_length": "41668",
+        "etag": null,
+        "last_modified": "Thu, 24 Sep 2026 17:45:49 GMT",
+        "physical_attempts": 1
+      }
+    },
+    {
+      "accession_number": "0001493152-26-044256",
+      "filename": "0001493152-26-044256-index.htm",
+      "state": "complete",
+      "bytes": 10982,
+      "sha256": "68bf967deb455d879c98242fc4fe588f8ccbca6c873754ffb1b44ee309a1d31e",
+      "path": "sources/0001493152-26-044256/0001493152-26-044256-index.htm",
+      "source": {
+        "schema_version": 1,
+        "representation": "httpx_identity_entity_bytes",
+        "sha256": "68bf967deb455d879c98242fc4fe588f8ccbca6c873754ffb1b44ee309a1d31e",
+        "bytes": 10982,
+        "cik": "764630",
+        "accession_number": "000149315226044256",
+        "filename": "0001493152-26-044256-index.htm",
+        "requested_url": "https://www.sec.gov/Archives/edgar/data/764630/000149315226044256/0001493152-26-044256-index.htm",
+        "final_url": "https://www.sec.gov/Archives/edgar/data/764630/000149315226044256/0001493152-26-044256-index.htm",
+        "status_code": 200,
+        "content_type": "text/html; charset=UTF-8",
+        "content_encoding": null,
+        "content_length": "10982",
+        "etag": null,
+        "last_modified": "Fri, 25 Sep 2026 13:20:39 GMT",
+        "physical_attempts": 1
+      }
+    },
+    {
+      "accession_number": "0001493152-26-044256",
+      "filename": "form8-k.htm",
+      "state": "complete",
+      "bytes": 44305,
+      "sha256": "a3bd26ccaa42476ccd324919df694edc865fbef22b834d297d0fb5fe483fe4d3",
+      "path": "sources/0001493152-26-044256/form8-k.htm",
+      "source": {
+        "schema_version": 1,
+        "representation": "httpx_identity_entity_bytes",
+        "sha256": "a3bd26ccaa42476ccd324919df694edc865fbef22b834d297d0fb5fe483fe4d3",
+        "bytes": 44305,
+        "cik": "764630",
+        "accession_number": "000149315226044256",
+        "filename": "form8-k.htm",
+        "requested_url": "https://www.sec.gov/Archives/edgar/data/764630/000149315226044256/form8-k.htm",
+        "final_url": "https://www.sec.gov/Archives/edgar/data/764630/000149315226044256/form8-k.htm",
+        "status_code": 200,
+        "content_type": "text/html",
+        "content_encoding": null,
+        "content_length": "44305",
+        "etag": null,
+        "last_modified": "Fri, 25 Sep 2026 13:21:09 GMT",
+        "physical_attempts": 1
+      }
+    },
+    {
+      "accession_number": "0001702780-26-000057",
+      "filename": "0001702780-26-000057-index.htm",
+      "state": "complete",
+      "bytes": 10090,
+      "sha256": "203c46e83885af3072ce66369ae0936a05507f3b59370bf51a67c39b59f6696c",
+      "path": "sources/0001702780-26-000057/0001702780-26-000057-index.htm",
+      "source": {
+        "schema_version": 1,
+        "representation": "httpx_identity_entity_bytes",
+        "sha256": "203c46e83885af3072ce66369ae0936a05507f3b59370bf51a67c39b59f6696c",
+        "bytes": 10090,
+        "cik": "1702780",
+        "accession_number": "000170278026000057",
+        "filename": "0001702780-26-000057-index.htm",
+        "requested_url": "https://www.sec.gov/Archives/edgar/data/1702780/000170278026000057/0001702780-26-000057-index.htm",
+        "final_url": "https://www.sec.gov/Archives/edgar/data/1702780/000170278026000057/0001702780-26-000057-index.htm",
+        "status_code": 200,
+        "content_type": "text/html; charset=UTF-8",
+        "content_encoding": null,
+        "content_length": "10090",
+        "etag": null,
+        "last_modified": "Mon, 21 Sep 2026 21:00:26 GMT",
+        "physical_attempts": 1
+      }
+    },
+    {
+      "accession_number": "0001702780-26-000057",
+      "filename": "optu-20260916.htm",
+      "state": "complete",
+      "bytes": 39988,
+      "sha256": "870642679b7043cccb33c8ac6fc675dd6c4f5201b5e50ce049038ae655b7d5a5",
+      "path": "sources/0001702780-26-000057/optu-20260916.htm",
+      "source": {
+        "schema_version": 1,
+        "representation": "httpx_identity_entity_bytes",
+        "sha256": "870642679b7043cccb33c8ac6fc675dd6c4f5201b5e50ce049038ae655b7d5a5",
+        "bytes": 39988,
+        "cik": "1702780",
+        "accession_number": "000170278026000057",
+        "filename": "optu-20260916.htm",
+        "requested_url": "https://www.sec.gov/Archives/edgar/data/1702780/000170278026000057/optu-20260916.htm",
+        "final_url": "https://www.sec.gov/Archives/edgar/data/1702780/000170278026000057/optu-20260916.htm",
+        "status_code": 200,
+        "content_type": "text/html",
+        "content_encoding": null,
+        "content_length": "39988",
+        "etag": null,
+        "last_modified": "Mon, 21 Sep 2026 21:01:14 GMT",
+        "physical_attempts": 1
+      }
+    }
+  ],
+  "rows": [
+    {
+      "ticker": "INBP",
+      "accession_number": "0001437749-26-031241",
+      "form": "10-K",
+      "reason": "annual_report",
+      "index": {
+        "title": "EDGAR Filing Documents for 0001437749-26-031241",
+        "visible_company_heading": "INTEGRATED BIOPHARMA INC (Filer) CIK : 0001016504 (see all company filings)",
+        "metadata": {
+          "Filing Date": "2026-09-25",
+          "Period of Report": "2026-06-30"
+        },
+        "documents": [
+          {
+            "sequence": "1",
+            "description": "FORM 10-K",
+            "filename": "inbp20260630_10k.htm",
+            "href": "/ix?doc=/Archives/edgar/data/1016504/000143774926031241/inbp20260630_10k.htm",
+            "type": "10-K"
+          },
+          {
+            "sequence": "2",
+            "description": "EXHIBIT 21 SUBSIDIARIES OF REGISTRANT",
+            "filename": "ex_1017801.htm",
+            "href": "/Archives/edgar/data/1016504/000143774926031241/ex_1017801.htm",
+            "type": "EX-21"
+          },
+          {
+            "sequence": "3",
+            "description": "EXHIBIT 23 CONSENT OF INDEPENDENT REGISTERED PUBLIC ACCOUNTING FIRM",
+            "filename": "ex_1017802.htm",
+            "href": "/Archives/edgar/data/1016504/000143774926031241/ex_1017802.htm",
+            "type": "EX-23"
+          },
+          {
+            "sequence": "4",
+            "description": "EXHIBIT 31.1 CERTIFICATION PURSUANT TO SECTION 302 CEO",
+            "filename": "ex_1017803.htm",
+            "href": "/Archives/edgar/data/1016504/000143774926031241/ex_1017803.htm",
+            "type": "EX-31.1"
+          },
+          {
+            "sequence": "5",
+            "description": "EXHIBIT 31.2 CERTIFICATION PURSUANT TO SECTION 302 CFO",
+            "filename": "ex_1017804.htm",
+            "href": "/Archives/edgar/data/1016504/000143774926031241/ex_1017804.htm",
+            "type": "EX-31.2"
+          },
+          {
+            "sequence": "6",
+            "description": "EXHIBIT 32.1 CERTIFICATION OF PERIODIC REPORT CEO",
+            "filename": "ex_1017805.htm",
+            "href": "/Archives/edgar/data/1016504/000143774926031241/ex_1017805.htm",
+            "type": "EX-32.1"
+          },
+          {
+            "sequence": "7",
+            "description": "EXHIBIT 32.2 CERTIFICATION OF PERIODIC REPORT CFO",
+            "filename": "ex_1017806.htm",
+            "href": "/Archives/edgar/data/1016504/000143774926031241/ex_1017806.htm",
+            "type": "EX-32.2"
+          },
+          {
+            "sequence": "",
+            "description": "Complete submission text file",
+            "filename": "0001437749-26-031241.txt",
+            "href": "/Archives/edgar/data/1016504/000143774926031241/0001437749-26-031241.txt",
+            "type": ""
+          },
+          {
+            "sequence": "8",
+            "description": "XBRL TAXONOMY EXTENSION SCHEMA",
+            "filename": "inbp-20260630.xsd",
+            "href": "/Archives/edgar/data/1016504/000143774926031241/inbp-20260630.xsd",
+            "type": "EX-101.SCH"
+          },
+          {
+            "sequence": "9",
+            "description": "XBRL TAXONOMY EXTENSION CALCULATION LINKBASE",
+            "filename": "inbp-20260630_cal.xml",
+            "href": "/Archives/edgar/data/1016504/000143774926031241/inbp-20260630_cal.xml",
+            "type": "EX-101.CAL"
+          },
+          {
+            "sequence": "10",
+            "description": "XBRL TAXONOMY EXTENSION DEFINITION LINKBASE",
+            "filename": "inbp-20260630_def.xml",
+            "href": "/Archives/edgar/data/1016504/000143774926031241/inbp-20260630_def.xml",
+            "type": "EX-101.DEF"
+          },
+          {
+            "sequence": "11",
+            "description": "XBRL TAXONOMY EXTENSION LABEL LINKBASE",
+            "filename": "inbp-20260630_lab.xml",
+            "href": "/Archives/edgar/data/1016504/000143774926031241/inbp-20260630_lab.xml",
+            "type": "EX-101.LAB"
+          },
+          {
+            "sequence": "12",
+            "description": "XBRL TAXONOMY EXTENSION PRESENTATION LINKBASE",
+            "filename": "inbp-20260630_pre.xml",
+            "href": "/Archives/edgar/data/1016504/000143774926031241/inbp-20260630_pre.xml",
+            "type": "EX-101.PRE"
+          },
+          {
+            "sequence": "77",
+            "description": "EXTRACTED XBRL INSTANCE DOCUMENT",
+            "filename": "inbp20260630_10k_htm.xml",
+            "href": "/Archives/edgar/data/1016504/000143774926031241/inbp20260630_10k_htm.xml",
+            "type": "XML"
+          }
+        ],
+        "primary_document": {
+          "sequence": "1",
+          "description": "FORM 10-K",
+          "filename": "inbp20260630_10k.htm",
+          "href": "/ix?doc=/Archives/edgar/data/1016504/000143774926031241/inbp20260630_10k.htm",
+          "type": "10-K"
+        }
+      }
+    },
+    {
+      "ticker": "SGMOQ",
+      "accession_number": "0001193125-26-396644",
+      "form": "8-K",
+      "reason": "bankruptcy",
+      "index": {
+        "title": "EDGAR Filing Documents for 0001193125-26-396644",
+        "visible_company_heading": "SANGAMO THERAPEUTICS, INC (Filer) CIK : 0001001233 (see all company filings)",
+        "metadata": {
+          "Filing Date": "2026-09-21",
+          "Period of Report": "2026-09-17",
+          "Items": "Item 1.03: Bankruptcy or Receivership Item 2.01: Completion of Acquisition or Disposition of Assets Item 9.01: Financial Statements and Exhibits"
+        },
+        "documents": [
+          {
+            "sequence": "1",
+            "description": "8-K",
+            "filename": "d178611d8k.htm",
+            "href": "/ix?doc=/Archives/edgar/data/1001233/000119312526396644/d178611d8k.htm",
+            "type": "8-K"
+          },
+          {
+            "sequence": "",
+            "description": "Complete submission text file",
+            "filename": "0001193125-26-396644.txt",
+            "href": "/Archives/edgar/data/1001233/000119312526396644/0001193125-26-396644.txt",
+            "type": ""
+          },
+          {
+            "sequence": "2",
+            "description": "XBRL TAXONOMY EXTENSION SCHEMA",
+            "filename": "sgmo-20260917.xsd",
+            "href": "/Archives/edgar/data/1001233/000119312526396644/sgmo-20260917.xsd",
+            "type": "EX-101.SCH"
+          },
+          {
+            "sequence": "3",
+            "description": "XBRL TAXONOMY EXTENSION LABEL LINKBASE",
+            "filename": "sgmo-20260917_lab.xml",
+            "href": "/Archives/edgar/data/1001233/000119312526396644/sgmo-20260917_lab.xml",
+            "type": "EX-101.LAB"
+          },
+          {
+            "sequence": "4",
+            "description": "XBRL TAXONOMY EXTENSION PRESENTATION LINKBASE",
+            "filename": "sgmo-20260917_pre.xml",
+            "href": "/Archives/edgar/data/1001233/000119312526396644/sgmo-20260917_pre.xml",
+            "type": "EX-101.PRE"
+          },
+          {
+            "sequence": "15",
+            "description": "EXTRACTED XBRL INSTANCE DOCUMENT",
+            "filename": "d178611d8k_htm.xml",
+            "href": "/Archives/edgar/data/1001233/000119312526396644/d178611d8k_htm.xml",
+            "type": "XML"
+          }
+        ],
+        "primary_document": {
+          "sequence": "1",
+          "description": "8-K",
+          "filename": "d178611d8k.htm",
+          "href": "/ix?doc=/Archives/edgar/data/1001233/000119312526396644/d178611d8k.htm",
+          "type": "8-K"
+        }
+      },
+      "primary_filename": "d178611d8k.htm"
+    },
+    {
+      "ticker": "CD",
+      "accession_number": "0001493152-26-044115",
+      "form": "8-K",
+      "reason": "material_agreement",
+      "index": {
+        "title": "EDGAR Filing Documents for 0001493152-26-044115",
+        "visible_company_heading": "Chaince Digital Holdings Inc. (Filer) CIK : 0001527762 (see all company filings)",
+        "metadata": {
+          "Filing Date": "2026-09-24",
+          "Period of Report": "2026-09-21",
+          "Items": "Item 1.01: Entry into a Material Definitive Agreement Item 8.01: Other Events Item 9.01: Financial Statements and Exhibits"
+        },
+        "documents": [
+          {
+            "sequence": "1",
+            "description": "8-K",
+            "filename": "form8-k.htm",
+            "href": "/ix?doc=/Archives/edgar/data/1527762/000149315226044115/form8-k.htm",
+            "type": "8-K"
+          },
+          {
+            "sequence": "2",
+            "description": "EX-10.1",
+            "filename": "ex10-1.htm",
+            "href": "/Archives/edgar/data/1527762/000149315226044115/ex10-1.htm",
+            "type": "EX-10.1"
+          },
+          {
+            "sequence": "3",
+            "description": "EX-99.1",
+            "filename": "ex99-1.htm",
+            "href": "/Archives/edgar/data/1527762/000149315226044115/ex99-1.htm",
+            "type": "EX-99.1"
+          },
+          {
+            "sequence": "4",
+            "description": "GRAPHIC",
+            "filename": "ex10-1_001.jpg",
+            "href": "/Archives/edgar/data/1527762/000149315226044115/ex10-1_001.jpg",
+            "type": "GRAPHIC"
+          },
+          {
+            "sequence": "5",
+            "description": "GRAPHIC",
+            "filename": "ex10-1_002.jpg",
+            "href": "/Archives/edgar/data/1527762/000149315226044115/ex10-1_002.jpg",
+            "type": "GRAPHIC"
+          },
+          {
+            "sequence": "6",
+            "description": "GRAPHIC",
+            "filename": "ex10-1_003.jpg",
+            "href": "/Archives/edgar/data/1527762/000149315226044115/ex10-1_003.jpg",
+            "type": "GRAPHIC"
+          },
+          {
+            "sequence": "7",
+            "description": "GRAPHIC",
+            "filename": "ex10-1_004.jpg",
+            "href": "/Archives/edgar/data/1527762/000149315226044115/ex10-1_004.jpg",
+            "type": "GRAPHIC"
+          },
+          {
+            "sequence": "",
+            "description": "Complete submission text file",
+            "filename": "0001493152-26-044115.txt",
+            "href": "/Archives/edgar/data/1527762/000149315226044115/0001493152-26-044115.txt",
+            "type": ""
+          },
+          {
+            "sequence": "8",
+            "description": "XBRL SCHEMA FILE",
+            "filename": "cd-20260921.xsd",
+            "href": "/Archives/edgar/data/1527762/000149315226044115/cd-20260921.xsd",
+            "type": "EX-101.SCH"
+          },
+          {
+            "sequence": "9",
+            "description": "XBRL LABEL FILE",
+            "filename": "cd-20260921_lab.xml",
+            "href": "/Archives/edgar/data/1527762/000149315226044115/cd-20260921_lab.xml",
+            "type": "EX-101.LAB"
+          },
+          {
+            "sequence": "10",
+            "description": "XBRL PRESENTATION FILE",
+            "filename": "cd-20260921_pre.xml",
+            "href": "/Archives/edgar/data/1527762/000149315226044115/cd-20260921_pre.xml",
+            "type": "EX-101.PRE"
+          },
+          {
+            "sequence": "20",
+            "description": "EXTRACTED XBRL INSTANCE DOCUMENT",
+            "filename": "form8-k_htm.xml",
+            "href": "/Archives/edgar/data/1527762/000149315226044115/form8-k_htm.xml",
+            "type": "XML"
+          }
+        ],
+        "primary_document": {
+          "sequence": "1",
+          "description": "8-K",
+          "filename": "form8-k.htm",
+          "href": "/ix?doc=/Archives/edgar/data/1527762/000149315226044115/form8-k.htm",
+          "type": "8-K"
+        }
+      },
+      "primary_filename": "form8-k.htm"
+    },
+    {
+      "ticker": "AETN",
+      "accession_number": "0001493152-26-044256",
+      "form": "8-K",
+      "reason": "material_agreement",
+      "index": {
+        "title": "EDGAR Filing Documents for 0001493152-26-044256",
+        "visible_company_heading": "AETERNUM HEALTH, INC. (Filer) CIK : 0000764630 (see all company filings)",
+        "metadata": {
+          "Filing Date": "2026-09-25",
+          "Period of Report": "2026-09-21",
+          "Items": "Item 1.01: Entry into a Material Definitive Agreement Item 3.02: Unregistered Sales of Equity Securities Item 7.01: Regulation FD Disclosure Item 9.01: Financial Statements and Exhibits"
+        },
+        "documents": [
+          {
+            "sequence": "1",
+            "description": "8-K",
+            "filename": "form8-k.htm",
+            "href": "/ix?doc=/Archives/edgar/data/764630/000149315226044256/form8-k.htm",
+            "type": "8-K"
+          },
+          {
+            "sequence": "2",
+            "description": "EX-10.1",
+            "filename": "ex10-1.htm",
+            "href": "/Archives/edgar/data/764630/000149315226044256/ex10-1.htm",
+            "type": "EX-10.1"
+          },
+          {
+            "sequence": "3",
+            "description": "EX-10.2",
+            "filename": "ex10-2.htm",
+            "href": "/Archives/edgar/data/764630/000149315226044256/ex10-2.htm",
+            "type": "EX-10.2"
+          },
+          {
+            "sequence": "4",
+            "description": "EX-99.1",
+            "filename": "ex99-1.htm",
+            "href": "/Archives/edgar/data/764630/000149315226044256/ex99-1.htm",
+            "type": "EX-99.1"
+          },
+          {
+            "sequence": "5",
+            "description": "GRAPHIC",
+            "filename": "ex99-1_001.jpg",
+            "href": "/Archives/edgar/data/764630/000149315226044256/ex99-1_001.jpg",
+            "type": "GRAPHIC"
+          },
+          {
+            "sequence": "",
+            "description": "Complete submission text file",
+            "filename": "0001493152-26-044256.txt",
+            "href": "/Archives/edgar/data/764630/000149315226044256/0001493152-26-044256.txt",
+            "type": ""
+          },
+          {
+            "sequence": "6",
+            "description": "XBRL SCHEMA FILE",
+            "filename": "aetn-20260921.xsd",
+            "href": "/Archives/edgar/data/764630/000149315226044256/aetn-20260921.xsd",
+            "type": "EX-101.SCH"
+          },
+          {
+            "sequence": "7",
+            "description": "XBRL LABEL FILE",
+            "filename": "aetn-20260921_lab.xml",
+            "href": "/Archives/edgar/data/764630/000149315226044256/aetn-20260921_lab.xml",
+            "type": "EX-101.LAB"
+          },
+          {
+            "sequence": "8",
+            "description": "XBRL PRESENTATION FILE",
+            "filename": "aetn-20260921_pre.xml",
+            "href": "/Archives/edgar/data/764630/000149315226044256/aetn-20260921_pre.xml",
+            "type": "EX-101.PRE"
+          },
+          {
+            "sequence": "18",
+            "description": "EXTRACTED XBRL INSTANCE DOCUMENT",
+            "filename": "form8-k_htm.xml",
+            "href": "/Archives/edgar/data/764630/000149315226044256/form8-k_htm.xml",
+            "type": "XML"
+          }
+        ],
+        "primary_document": {
+          "sequence": "1",
+          "description": "8-K",
+          "filename": "form8-k.htm",
+          "href": "/ix?doc=/Archives/edgar/data/764630/000149315226044256/form8-k.htm",
+          "type": "8-K"
+        }
+      },
+      "primary_filename": "form8-k.htm"
+    },
+    {
+      "ticker": "OPTU",
+      "accession_number": "0001702780-26-000057",
+      "form": "8-K",
+      "reason": "restatement",
+      "index": {
+        "title": "EDGAR Filing Documents for 0001702780-26-000057",
+        "visible_company_heading": "Optimum Communications, Inc. (Filer) CIK : 0001702780 (see all company filings)",
+        "metadata": {
+          "Filing Date": "2026-09-21",
+          "Period of Report": "2026-09-16",
+          "Items": "Item 2.02: Results of Operations and Financial Condition Item 4.02: Non-Reliance on Previously Issued Financial Statements or a Related Audit Report or Completed Interim Review Item 9.01: Financial Statements and Exhibits"
+        },
+        "documents": [
+          {
+            "sequence": "1",
+            "description": "8-K",
+            "filename": "optu-20260916.htm",
+            "href": "/ix?doc=/Archives/edgar/data/1702780/000170278026000057/optu-20260916.htm",
+            "type": "8-K"
+          },
+          {
+            "sequence": "5",
+            "description": "",
+            "filename": "optu-20260916_g1.jpg",
+            "href": "/Archives/edgar/data/1702780/000170278026000057/optu-20260916_g1.jpg",
+            "type": "GRAPHIC"
+          },
+          {
+            "sequence": "",
+            "description": "Complete submission text file",
+            "filename": "0001702780-26-000057.txt",
+            "href": "/Archives/edgar/data/1702780/000170278026000057/0001702780-26-000057.txt",
+            "type": ""
+          },
+          {
+            "sequence": "2",
+            "description": "XBRL TAXONOMY EXTENSION SCHEMA DOCUMENT",
+            "filename": "optu-20260916.xsd",
+            "href": "/Archives/edgar/data/1702780/000170278026000057/optu-20260916.xsd",
+            "type": "EX-101.SCH"
+          },
+          {
+            "sequence": "3",
+            "description": "XBRL TAXONOMY EXTENSION LABEL LINKBASE DOCUMENT",
+            "filename": "optu-20260916_lab.xml",
+            "href": "/Archives/edgar/data/1702780/000170278026000057/optu-20260916_lab.xml",
+            "type": "EX-101.LAB"
+          },
+          {
+            "sequence": "4",
+            "description": "XBRL TAXONOMY EXTENSION PRESENTATION LINKBASE DOCUMENT",
+            "filename": "optu-20260916_pre.xml",
+            "href": "/Archives/edgar/data/1702780/000170278026000057/optu-20260916_pre.xml",
+            "type": "EX-101.PRE"
+          },
+          {
+            "sequence": "15",
+            "description": "EXTRACTED XBRL INSTANCE DOCUMENT",
+            "filename": "optu-20260916_htm.xml",
+            "href": "/Archives/edgar/data/1702780/000170278026000057/optu-20260916_htm.xml",
+            "type": "XML"
+          }
+        ],
+        "primary_document": {
+          "sequence": "1",
+          "description": "8-K",
+          "filename": "optu-20260916.htm",
+          "href": "/ix?doc=/Archives/edgar/data/1702780/000170278026000057/optu-20260916.htm",
+          "type": "8-K"
+        }
+      },
+      "primary_filename": "optu-20260916.htm"
+    }
+  ],
+  "status": "complete",
+  "finished_at": "2026-09-28T07:57:43.695545+00:00"
+}

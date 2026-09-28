@@ -1,0 +1,202 @@
+{
+  "candidates": [
+    {
+      "accession_number": "0001493152-26-043599",
+      "company_name": "Algorhythm Holdings, Inc.",
+      "filed_date": "2026-09-21",
+      "form": "8-K",
+      "items": [
+        "1.01",
+        "2.01",
+        "2.03",
+        "3.02",
+        "3.03",
+        "5.02",
+        "5.03",
+        "7.01",
+        "9.01"
+      ],
+      "reason": "acquisition",
+      "sec_url": "https://www.sec.gov/Archives/edgar/data/923601/000149315226043599/",
+      "ticker": "RIME"
+    },
+    {
+      "accession_number": "0001437749-26-031241",
+      "company_name": "INTEGRATED BIOPHARMA INC",
+      "filed_date": "2026-09-25",
+      "form": "10-K",
+      "items": null,
+      "reason": "annual_report",
+      "sec_url": "https://www.sec.gov/Archives/edgar/data/1016504/000143774926031241/",
+      "ticker": "INBP"
+    },
+    {
+      "accession_number": "0001193125-26-396644",
+      "company_name": "SANGAMO THERAPEUTICS, INC",
+      "filed_date": "2026-09-21",
+      "form": "8-K",
+      "items": [
+        "1.03",
+        "2.01",
+        "9.01"
+      ],
+      "reason": "bankruptcy",
+      "sec_url": "https://www.sec.gov/Archives/edgar/data/1001233/000119312526396644/",
+      "ticker": "SGMOQ"
+    },
+    {
+      "accession_number": "0001493152-26-043498",
+      "company_name": "Marygold Companies, Inc.",
+      "filed_date": "2026-09-21",
+      "form": "8-K",
+      "items": [
+        "2.02",
+        "9.01"
+      ],
+      "reason": "earnings_results",
+      "sec_url": "https://www.sec.gov/Archives/edgar/data/1005101/000149315226043498/",
+      "ticker": "MGLD"
+    },
+    {
+      "accession_number": "0001680247-26-000110",
+      "company_name": "ProPetro Holding Corp.",
+      "filed_date": "2026-09-21",
+      "form": "8-K",
+      "items": [
+        "5.02"
+      ],
+      "reason": "executive_change",
+      "sec_url": "https://www.sec.gov/Archives/edgar/data/1680247/000168024726000110/",
+      "ticker": "PUMP"
+    },
+    {
+      "accession_number": "0001213900-26-102276",
+      "company_name": "Boxlight Corp",
+      "filed_date": "2026-09-22",
+      "form": "S-1",
+      "items": null,
+      "reason": "ipo_filing",
+      "sec_url": "https://www.sec.gov/Archives/edgar/data/1624512/000121390026102276/",
+      "ticker": "BOXL"
+    },
+    {
+      "accession_number": "0001493152-26-043456",
+      "company_name": "AIAI Holdings Corp",
+      "filed_date": "2026-09-21",
+      "form": "8-K",
+      "items": [
+        "1.01",
+        "3.02",
+        "9.01"
+      ],
+      "reason": "material_agreement",
+      "sec_url": "https://www.sec.gov/Archives/edgar/data/2096362/000149315226043456/",
+      "ticker": "AIAI"
+    },
+    {
+      "accession_number": "0001193125-26-395997",
+      "company_name": "AXON ENTERPRISE, INC.",
+      "filed_date": "2026-09-21",
+      "form": "8-K",
+      "items": [
+        "1.01",
+        "2.03",
+        "7.01",
+        "9.01"
+      ],
+      "reason": "material_agreement",
+      "sec_url": "https://www.sec.gov/Archives/edgar/data/1069183/000119312526395997/",
+      "ticker": "AXON"
+    },
+    {
+      "accession_number": "0001493152-26-043815",
+      "company_name": "Greenpro Capital Corp.",
+      "filed_date": "2026-09-23",
+      "form": "8-K",
+      "items": [
+        "1.01",
+        "8.01",
+        "9.01"
+      ],
+      "reason": "material_agreement",
+      "sec_url": "https://www.sec.gov/Archives/edgar/data/1597846/000149315226043815/",
+      "ticker": "GRNQ"
+    },
+    {
+      "accession_number": "0001493152-26-044115",
+      "company_name": "Chaince Digital Holdings Inc.",
+      "filed_date": "2026-09-24",
+      "form": "8-K",
+      "items": [
+        "1.01",
+        "8.01",
+        "9.01"
+      ],
+      "reason": "material_agreement",
+      "sec_url": "https://www.sec.gov/Archives/edgar/data/1527762/000149315226044115/",
+      "ticker": "CD"
+    },
+    {
+      "accession_number": "0001493152-26-044256",
+      "company_name": "AETERNUM HEALTH, INC.",
+      "filed_date": "2026-09-25",
+      "form": "8-K",
+      "items": [
+        "1.01",
+        "3.02",
+        "7.01",
+        "9.01"
+      ],
+      "reason": "material_agreement",
+      "sec_url": "https://www.sec.gov/Archives/edgar/data/764630/000149315226044256/",
+      "ticker": "AETN"
+    },
+    {
+      "accession_number": "0001702780-26-000057",
+      "company_name": "Optimum Communications, Inc.",
+      "filed_date": "2026-09-21",
+      "form": "8-K",
+      "items": [
+        "2.02",
+        "4.02",
+        "9.01"
+      ],
+      "reason": "restatement",
+      "sec_url": "https://www.sec.gov/Archives/edgar/data/1702780/000170278026000057/",
+      "ticker": "OPTU"
+    }
+  ],
+  "sample_coverage": {
+    "distinct_issuers": 12,
+    "observed_days": [
+      "2026-09-21",
+      "2026-09-22",
+      "2026-09-23",
+      "2026-09-24",
+      "2026-09-25",
+      "2026-09-26"
+    ],
+    "reasons": [
+      "acquisition",
+      "annual_report",
+      "bankruptcy",
+      "earnings_results",
+      "executive_change",
+      "ipo_filing",
+      "material_agreement",
+      "restatement"
+    ],
+    "rows": 12
+  },
+  "sample_maximum": 20,
+  "sample_target": 12,
+  "schema_version": 1,
+  "sec_requests_in_this_step": 0,
+  "selection_rule": "selection-rule.md",
+  "source_execution": "earningsnerd-backfill-facts-v7rps",
+  "source_review_completed": false,
+  "title_field": "unavailable_in_notable_filings_schema; company_name retained",
+  "visibility": "public_sec_candidate_metadata",
+  "window_end": "2026-09-28T00:00:00Z",
+  "window_start": "2026-09-21T00:00:00Z"
+}

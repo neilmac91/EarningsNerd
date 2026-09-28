@@ -5835,3 +5835,27 @@ A fresh Claude Code web container restored the E8 kit (12 attachments verified, 
 
 - [x] Current H25 complete-submission entity matches the frozen 297,209,475-byte capture; one authoritative terminal-case GIF matches its retained diagnostic identity. Two SEC requests total across these successful observations, no model calls, no decoder repair or admission.
 - [ ] Finish the [remaining quality corrections](review-evidence/source-view-streaming-2026-09-27/next-quality-candidate.md) before the next paid candidate corpus. The reviewed local r date/coexistence commit remains unpushed and unaccepted.
+
+
+## September 28 execution closure
+
+- [x] Verify #996 release and the first natural weekly facts backfill against its business ledger; retain zero-backlog and unchanged-job readback.
+- [x] Complete H28 independent source briefs, source-reading reconciliation and bounded custody validation; preserve all 55 current/adverse identities (3/30 source-preparation dossiers).
+- [x] Complete Notable seven-day operational and frozen 12-card source/UI readout; retain implementation and defer activation under delegated authority.
+- [ ] Release #997 neutral Analysis source wording after exact-head gates and verify deployment.
+- [ ] Correct Notable regulatory labels without changing internal keys/ranking/flag, then resolve four remaining source gaps before activation.
+- [ ] Review Fable's finite source-owned maturity repair; keep #992 draft until source-measure ownership and exact-head evidence pass.
+- [ ] Execute the remaining 27 source dossiers using measured complete partitions, then the unchanged E7 programme on an accepted configuration.
+
+Evidence and current ownership: [September 28 execution update](continuation-plan-2026-09-26.md#september-28-execution-update).
+
+### September 28 verified release and additive review
+
+- [x] Release #997 source-entry wording at revision `00408-9b6`; main CI `36395595444`, migrations 0/40, all eight job images and independent healthy readback verified.
+- [x] Resolve the four frozen Notable acquisition gaps without resampling; preserve initial verdicts and UI overclaims. Complete source support is limited to the corrected labels for twelve examples.
+- [x] Verify H20 current ZIP relationships: six exact HTML children and five exact terminal-newline XML/XSD transforms. Historical archive equality and semantic preparation remain unproved.
+- [ ] Complete #1002 responsive label correction and serial release, then reviewed Notable activation and public readback.
+- [ ] Close #992's retained entity/dimension source-ownership defect before another paid head. Existing quality holds remain.
+- [ ] Complete #998 patch review; keep Sentry major and SQLAlchemy driver migration separate.
+
+See the [September 28 evidence](review-evidence/progress-2026-09-28/README.md). These closures do not replace E7 or real-user acceptance.

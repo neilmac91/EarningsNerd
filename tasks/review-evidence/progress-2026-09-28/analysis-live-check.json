@@ -1,0 +1,36 @@
+{
+  "checked_at": "2026-09-28T06:26:45.247130+00:00",
+  "cases": [
+    {
+      "ticker": "AAPL",
+      "mode": "annual",
+      "period_key": "FY2024..FY2025",
+      "narrative_completed": true,
+      "citation_count": 14,
+      "unverified_references_database": 0
+    },
+    {
+      "ticker": "AAPL",
+      "mode": "quarterly",
+      "period_key": "2026Q2..2026Q3",
+      "narrative_completed": true,
+      "citation_count": 10,
+      "unverified_references_database": 0
+    }
+  ],
+  "max_user_narrative_requests": 2,
+  "observed_requests": 2,
+  "force_refresh": false,
+  "current_prompt_version": "trends-v7-observations",
+  "rows_updated_during_requests": true,
+  "cache_repeat_verified": false,
+  "pdf_annual_pages": 3,
+  "pdf_visual_layout": "all3pagesreadable_no_clipping",
+  "pdf_sha256": "2aa2a4070e5d12c504e0986fa2bf97832bac12781ffa3d21226fc99a2f88866c",
+  "pdf_copy_finding": "Source footer absolute guarantee conflicts with provenance limit; corrective PR being prepared",
+  "excel_live_download": "Chrome requested multiple-download permission; dismissed without changing permission; notverified",
+  "source_warnings_visible": true,
+  "formal_quality_verdict": false,
+  "planning_ceiling_usd": 0.25,
+  "billed_cost_usd": null
+}
