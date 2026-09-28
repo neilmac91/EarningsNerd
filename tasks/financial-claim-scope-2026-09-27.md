@@ -99,15 +99,15 @@ percentage form are non-candidates by construction.
 
 ### Gate and mutation proof
 
-`backend/tests/unit/test_table_cell_units.py` (26 cases): the retained WMT lines restored 7/7 including
+`backend/tests/unit/test_table_cell_units.py` (30 cases after three review rounds): the retained WMT lines restored 7/7 including
 year-glued cells ("20283,237"); cells at either end of a line under the two other edgartools table
 flattenings; prose-bare (BA), missing, mixed-scale, percent, non-dollar banner,
 banner-above-prose, share-count and XBRL-literal cases untouched with the documented reason; verbatim
 evidence untouched; recovered section skipped; audit vocabulary; and the actual consumer
 (`OpenAIService.summarize_filing` final path, `_partial_markdown_preview` with and without the index,
-recovered path) rendering the same text into `business_overview`.
+recovered path) rendering the same text into `business_overview`; the review-adverse sources (short prose, undelimited cell, detached per-share label, unit-token header, heading run, unit-less new table, two-line label) abstain; a capitalised statement heading keeps its rows; repeat application is a no-op.
 
-Gate tails, the single deliberate fault/restored proof and hosted findings are recorded below.
+Gate tails, the single deliberate fault/restored proof (re-run on each committed round) and hosted findings are recorded below.
 
 ## Overlaps with the unmerged r branch (#942, head `47d040aa`)
 
@@ -149,16 +149,18 @@ r was cherry-picked and no r adoption claim is revived.
 - **Reconciliation sign (FIGS run 0) and aggregate-vs-component (PLTR run 0).** Need a structured
   reconciliation-row owner and the statement-line owner respectively; not bounded enough for this
   handoff.
-- **Banner inheritance (narrowed after review).** The chief engineer's review of `d7f5ce0` showed
-  three false insertions the first owner allowed: a short sentence under a banner, a per-share row
-  whose label sits on the line above its value, and a new table whose header carries "Fee ($)".
-  The owner now binds a scale only to a demonstrated cell (delimited or value-only), reads the
-  detached label of a value-only row, and stops the banner walk at any prose line, any other
-  unit/scope token, or a run of more than three heading lines; single-space prose figures and
-  plural scale words ("$3,237 millions") are never candidates. Undelimited single-cell rows
-  ("Total$38,166" with no trailing separator) are a narrowed, abstaining shape. The residual risk
-  is a banner-less table of at most three short headings following a bannered one with a
-  different scale and no unit token; the 70-output replay still changes exactly one slot.
+- **Banner inheritance (narrowed twice after review).** The chief engineer's review of `d7f5ce0`
+  showed three false insertions the first owner allowed: a short sentence under a banner, a per-share
+  row whose label sits on the line above its value, and a new table whose header carries "Fee ($)".
+  The second round bound a scale only to a demonstrated cell, read detached labels, and stopped the
+  banner walk at prose, any other unit/scope token, or a run of more than three heading lines. The
+  third round replaces the heading count with block ownership: the banner, a header block of at most
+  three text lines, then rows, with a later text line admitted only as a capitalised statement heading
+  or the label directly above a row or value line; a unit-less new table's title and header now
+  sever the row from the banner (see "Third review round"). Undelimited single-cell rows and mixed-case
+  statement sub-headings followed by more text are narrowed, abstaining shapes. The remaining
+  limitation is a unit-less dollar table titled entirely in capitals inside a bannered statement's
+  block; the 70-output replay still changes exactly one slot.
 - **Hosted measurement.** The draft PR triggers the advisory `eval-baseline` job (about USD 0.19–0.38
   per run at recent telemetry). Scorers read rendered prose, so the restored "$3,542 million" is now a
   scaled figure visible to numeric dims; expected neutral (it grounds via the excerpt), to be read from
@@ -238,7 +240,7 @@ restored_exit=0
 
 A first, weaker fault (removing the prose-occurrence abstention) also failed the gate (reason
 vocabulary changed, 1 failed / 17 passed) but produced no false insertion; it is retained as
-superseded in `review-evidence/financial-claim-scope-2026-09-27/mutation-proof-superseded.log`, not
+superseded in `review-evidence/financial-claim-scope-2026-09-27/mutation-proof-superseded.log.txt`, not
 counted as the proof.
 
 ## Second review round (chief engineer, 22:26 and 22:30 UTC)
@@ -265,5 +267,105 @@ FAILED tests/unit/test_table_cell_units.py::test_bare_figures_the_source_does_no
 26 passed in 3.14s             restored_exit=0
 ```
 
-The intermediate P1/P2-only gate (3,726 passed) is retained as `local-gate-p1p2.log`. Offline replay of
+The intermediate P1/P2-only gate (3,726 passed) is retained as `local-gate-p1p2.log.txt`. Offline replay of
 the 70 retained outputs after both rounds: one slot changed (WMT run 1, 7/7), eight abstentions.
+
+## Third review round (source ownership by table block, 28 September)
+
+The residual left by the second round — a banner-less table of a few short headings following a
+bannered one, with no unit token of its own — is closed by validating the table block itself rather
+than counting heading lines. `_governing_table_scale` now collects every line between a cell and the
+nearest banner above it and reads that block top-down against the flattening's own structure:
+
+- the banner may be followed by a header block of at most three text lines (column headers, period
+  labels, a glued year line counts as a value line);
+- after the first row, a text line is admitted only as a statement section heading set in capitals
+  (`ASSETS`, `LIABILITIES AND EQUITY` — the statements' own convention) or as the label directly
+  above a row or value-only line (one-value-per-line flattening);
+- any other text line — a heading run, a new table's title and header with or without a unit token,
+  a label with nothing numeric beneath it — severs the row from the banner and the figure abstains
+  with `no_governing_banner`.
+
+Prose lines, scope tokens and non-dollar banners abstain exactly as before, and the same-line row label,
+detached label and plural-scale rules from the second round are unchanged.
+
+Effect measured on the retained sources (read-only, no generation; `ownership-measure-round3.txt`
+in the evidence directory): across the 70 retained excerpts there are 35,714 demonstrated comma-grouped
+cells. The second-round rule owned 8,294 of them; this rule owns 7,732. 974 cells the second round
+owned now abstain (26 excerpts) — sampled, they are mixed-case statement sub-headings (`Liabilities`
+/ `Current liabilities:`), wrapped labels (`Adjustments to reconcile net income to non-GAAP net` /
+`income:`), one-value-per-line rows whose label carries a footnote digit, and stray flattening
+fragments (`)`, `%`, `*`) — genuine statement structure that the flattened representation cannot
+tell apart from a new table's title, so ownership is treated as ambiguous and the figure is left as
+written. 412 cells the second round abstained on are now owned: dash-only value lines and glued
+year-value lines (`2029610`) that the old heading counter mistook for headings, and header blocks
+under a capitalised statement heading. The output-level replay over the 70 retained outputs is
+identical to the second round: one slot changed (WMT run 1, 7/7), eight abstentions with the same
+reasons (`offline-replay-70.json`, regenerated).
+
+Gate additions (`test_table_cell_units.py`, now 30 cases): the unit-less new table
+(`Other fees` / `Name  Fee` / `Smith  3,237`) and a two-line label above a value line both abstain
+with `no_governing_banner`; a capitalised statement heading with its colon sub-heading keeps the rows
+beneath it owned (`$3,542 million`); repeat application on an already-restored slot is a no-op
+(first pass 7/0, second pass returns None, text unchanged).
+
+Remaining limitation of this shape: a unit-less dollar table whose title is set entirely in capitals,
+placed inside a bannered statement's block with no prose, scope token or banner between, would still
+inherit the banner. Table boundaries are not present in the offered excerpt; carrying them from the
+structured source is E7 source orchestration (Codex-owned) and is not attempted here.
+
+### Original PR promises checked against the final behavior
+
+| Promise | Final behavior |
+| --- | --- |
+| Primary/recovery ownership | Recovered sections are skipped with reason `recovered`; only the primary model prose is edited (`test_recovered_sections_verbatim_fields_and_missing_source_are_untouched`, `test_actual_consumer_restores_once_and_renders_the_same_text[recovered]`). |
+| Preview/final parity | Both paths call the owner after the three source binders with the same excerpt index (`test_owner_runs_after_the_source_binders_on_final_and_preview`, `test_actual_consumer_restores_once_and_renders_the_same_text[final|preview]`). |
+| Shared prose allowlist | `figure_trace.policed_prose_slots` is the one slot list for the dollar gate and this owner; `_prose_blob` is built from it. |
+| Untouched verbatim evidence | `supporting_evidence` and quote fields are outside the policed slots; the gate asserts them byte-identical while the sibling `impact` is restored. |
+| Repeat application | Restored text is unit-bound and never a candidate again (`test_repeat_application_is_a_no_op`). |
+| Cache/version limitation | Stamp `summary-2026-09-s` marks old rows stale; no regeneration or drain; cached summaries keep bare figures until a separately bounded refresh. Unchanged from the second round. |
+| Audit truncation vs counts | `restored_count`/`unresolved_count` are exact; the detail lists are capped at 40; the pipeline counter reads the totals (`test_audit_totals_are_exact_while_detail_lists_are_capped`). |
+| Every occurrence, not any occurrence | Every occurrence of the digits in the excerpt must be a demonstrated cell owned by the same declared scale; a single prose, percent, undelimited, unscaled-row or unowned occurrence abstains. |
+
+JPM period transfer, FIGS reconciliation sign and comparison basis, and PLTR component/causal transfer
+remain explicitly unresolved (see Remaining risks).
+
+### Third-round verification tails
+
+Local gate from `backend/` on the tree committed as `554d3c7` (pinned toolchain, isolated virtualenv;
+`local-gate-round3.log.txt`):
+
+```
+== ruff check . ==            All checks passed!   ruff_exit=0
+== bandit -r app -ll ==                             bandit_exit=0
+== python -m pytest ==        3732 passed, 39 skipped, 2 deselected, 40 warnings in 284.67s (0:04:44)   EXIT=0
+```
+
+The `--- Logging error ---` line in the raw log is the pre-existing interpreter-exit Yahoo client close, as
+in every earlier run.
+
+### Third-round mutation proof (one deliberate implementation fault, committed state `554d3c7`)
+
+Fault: after a table's first row every text line is admitted as if it were a statement heading, so an
+adjacent unbannered table inherits the banner (the `_is_statement_heading` guard replaced by `True`).
+The gate fails on exactly the ownership cases with false `$3,237 million` insertions, and passes once
+`git checkout --` restores the file (`mutation-proof-round3.log.txt`):
+
+```
+== committed HEAD: 554d3c7 ==
+fault applied: text lines after the first row no longer need a row beneath them
+== gate under fault ==
+E         At index 0 diff: 'Smith paid $3,237 million.' != 'Smith paid $3,237.'
+E         At index 0 diff: 'Other obligations were $3,237 million.' != 'Other obligations were $3,237.'
+FAILED …test_review_adverse_sources_abstain[$3,237-no_governing_banner-… Part II … Other matters … Smith  3,237-…]
+FAILED …test_review_adverse_sources_abstain[$3,237-no_governing_banner-… Other fees … Name  Fee … Smith  3,237-…]
+FAILED …test_review_adverse_sources_abstain[$3,237-no_governing_banner-… Other long-term … obligations … 3,237-…]
+3 failed, 27 passed in 3.59s
+fault_exit=1
+== restored: clean ==
+30 passed in 3.25s
+restored_exit=0
+```
+
+The earlier proofs (prose no longer ending a banner's scope, on `ce72481` and `ffdf371`) are retained
+as history in `mutation-proof.log.txt`; this round's proof is the one counted for the corrected head.

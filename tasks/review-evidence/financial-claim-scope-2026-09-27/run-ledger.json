@@ -1,130 +1,219 @@
 {
-  "scope": "Fable engineering handoff, 2026-09-27, branch codex/wave3-financial-claim-scope",
-  "planning_ceiling_usd": 1.0,
-  "model_calls_made_locally": 0,
-  "paid_measurements_triggered_by_this_engineer": "none locally; hosted CI eval-baseline runs on the draft PR (see hosted section, appended after push)",
-  "attempts": [
-    {
-      "id": 1,
-      "kind": "provider_balance_read",
-      "endpoint": "GET https://api.deepseek.com/user/balance",
-      "outcome": "http 200, total_balance USD 55.65, is_available true",
-      "cost_usd": 0.0,
-      "file": "balance-before-push.json"
-    },
-    {
-      "id": 2,
-      "kind": "sec_corroboration_read",
-      "endpoint": "GET https://data.sec.gov/api/xbrl/companyconcept/CIK0000104169/us-gaap/LongTermDebtMaturitiesRepaymentsOfPrincipalInYearTwo.json",
-      "outcome": "http 200; FY2026 (end 2026-01-31, accn 0000104169-26-000055) val 3237000000 USD",
-      "cost_usd": 0.0,
-      "note": "single manual read with a descriptive User-Agent; not app code"
-    },
-    {
-      "id": 3,
-      "kind": "offline_replay",
-      "outcome": "70/70 retained rows replayed; 1 slot changed (WMT-10-K-run1 maturities), 7 restored, 8 abstained",
-      "cost_usd": 0.0,
-      "file": "offline-replay-70.json"
-    },
-    {
-      "id": 4,
-      "kind": "local_gate",
-      "outcome": "first pass on pre-fix tree: ruff/bandit clean, 3718 passed, 39 skipped, 2 deselected",
-      "cost_usd": 0.0,
-      "file": "local-gate-first-pass.log"
-    },
-    {
-      "id": 5,
-      "kind": "local_gate",
-      "outcome": "aborted by this engineer after the cell-boundary fix superseded it (pytest_exit=143); not counted",
-      "cost_usd": 0.0
-    },
-    {
-      "id": 6,
-      "kind": "local_gate",
-      "outcome": "final on committed ce72481: ruff/bandit clean, 3720 passed, 39 skipped, 2 deselected",
-      "cost_usd": 0.0,
-      "file": "local-gate.log"
-    },
-    {
-      "id": 7,
-      "kind": "mutation_proof",
-      "outcome": "superseded weaker fault (prose-occurrence abstention removed): 1 failed/17 passed, no false insertion; restored 18 passed",
-      "cost_usd": 0.0,
-      "file": "mutation-proof-superseded.log"
-    },
-    {
-      "id": 8,
-      "kind": "mutation_proof",
-      "outcome": "counted fault (prose no longer ends banner scope): false '$3,237 million' insertion caught, 1 failed/17 passed; restored 18 passed",
-      "cost_usd": 0.0,
-      "file": "mutation-proof.log"
-    },
-    {
-      "id": 9,
-      "kind": "hosted_eval_baseline",
-      "run_id": 36354356433,
-      "job_id": 108718982686,
-      "head": "b65bfe7",
-      "outcome": "cancelled by this engineer's documentation push (concurrency group); 47/70 summary_primary calls succeeded, 0 errors, 22 'Persisted XBRL read failed' warnings with fallback",
-      "estimated_cost_usd": 0.119453,
-      "billed_cost_usd": "unknown",
-      "counted": "wasted spend, this engineer's error"
-    },
-    {
-      "id": 10,
-      "kind": "hosted_eval_baseline",
-      "run_id": 36354819301,
-      "head": "d7f5ce0",
-      "outcome": "completed 22:29:02 UTC; report eval_20260927T222858Z.json; regression gate PASS, no hard regressions, 1 standing advisory (mean_untraceable_dollar_figures 2.6286); 70/70 attempted/scored, 0 errors; 71 ai_call telemetry entries, actual model deepseek-flash; pass_rate 1.0, numeric_accuracy 1.0, numeric_precision 1.0, coverage 1.0, delta_consistency 0.9917, citation_fidelity 0.9682, currency_consistency 1.0, redundancy 0.9264, financial_depth 0.7857; 32 'Persisted XBRL read failed' warnings with fallback (pre-existing CI condition)",
-      "estimated_cost_usd": 0.181092,
-      "billed_cost_usd": "unknown"
-    },
-    {
-      "id": 11,
-      "kind": "offline_replay",
-      "outcome": "review-corrected owner over 70 retained rows: 1 slot changed (WMT run 1, 7/7), 8 abstained (COST prose_occurrence x6, BYND no_governing_banner x2)",
-      "cost_usd": 0.0,
-      "file": "offline-replay-70.json"
-    },
-    {
-      "id": 12,
-      "kind": "local_gate",
-      "outcome": "P1/P2-corrected tree: ruff/bandit clean, 3726 passed, 39 skipped, 2 deselected",
-      "cost_usd": 0.0,
-      "file": "local-gate-p1p2.log"
-    },
-    {
-      "id": 13,
-      "kind": "local_gate",
-      "outcome": "second-round tree (owner after binders, exact totals, stamp -s): ruff/bandit clean, 3728 passed, 39 skipped, 2 deselected",
-      "cost_usd": 0.0,
-      "file": "local-gate.log"
-    },
-    {
-      "id": 14,
-      "kind": "mutation_proof",
-      "outcome": "re-run on committed ffdf371: false '$3,237 million' insertion caught, 1 failed/25 passed; restored 26 passed",
-      "cost_usd": 0.0,
-      "file": "mutation-proof.log"
-    },
-    {
-      "id": 15,
-      "kind": "hosted_eval_baseline",
-      "head": "post-ffdf371 push",
-      "outcome": "triggered by the single push carrying the second-round head; result recorded in the PR thread",
-      "estimated_cost_usd": "expected about 0.18",
-      "billed_cost_usd": "unknown"
-    }
+ "scope": "Fable engineering handoff, 2026-09-27, branch codex/wave3-financial-claim-scope",
+ "planning_ceiling_usd": 1.0,
+ "model_calls_made_locally": 0,
+ "paid_measurements_triggered_by_this_engineer": "none locally; hosted CI eval-baseline runs on the draft PR (see hosted section, appended after push)",
+ "attempts": [
+  {
+   "id": 1,
+   "kind": "provider_balance_read",
+   "endpoint": "GET https://api.deepseek.com/user/balance",
+   "outcome": "http 200, total_balance USD 55.65, is_available true",
+   "cost_usd": 0.0,
+   "file": "balance-before-push.json"
+  },
+  {
+   "id": 2,
+   "kind": "sec_corroboration_read",
+   "endpoint": "GET https://data.sec.gov/api/xbrl/companyconcept/CIK0000104169/us-gaap/LongTermDebtMaturitiesRepaymentsOfPrincipalInYearTwo.json",
+   "outcome": "http 200; FY2026 (end 2026-01-31, accn 0000104169-26-000055) val 3237000000 USD",
+   "cost_usd": 0.0,
+   "note": "single manual read with a descriptive User-Agent; not app code"
+  },
+  {
+   "id": 3,
+   "kind": "offline_replay",
+   "outcome": "70/70 retained rows replayed; 1 slot changed (WMT-10-K-run1 maturities), 7 restored, 8 abstained",
+   "cost_usd": 0.0,
+   "file": "offline-replay-70.json"
+  },
+  {
+   "id": 4,
+   "kind": "local_gate",
+   "outcome": "first pass on pre-fix tree: ruff/bandit clean, 3718 passed, 39 skipped, 2 deselected",
+   "cost_usd": 0.0,
+   "file": "local-gate-first-pass.log.txt"
+  },
+  {
+   "id": 5,
+   "kind": "local_gate",
+   "outcome": "aborted by this engineer after the cell-boundary fix superseded it (pytest_exit=143); not counted",
+   "cost_usd": 0.0
+  },
+  {
+   "id": 6,
+   "kind": "local_gate",
+   "outcome": "final on committed ce72481: ruff/bandit clean, 3720 passed, 39 skipped, 2 deselected",
+   "cost_usd": 0.0,
+   "file": "local-gate.log.txt"
+  },
+  {
+   "id": 7,
+   "kind": "mutation_proof",
+   "outcome": "superseded weaker fault (prose-occurrence abstention removed): 1 failed/17 passed, no false insertion; restored 18 passed",
+   "cost_usd": 0.0,
+   "file": "mutation-proof-superseded.log.txt"
+  },
+  {
+   "id": 8,
+   "kind": "mutation_proof",
+   "outcome": "counted fault (prose no longer ends banner scope): false '$3,237 million' insertion caught, 1 failed/17 passed; restored 18 passed",
+   "cost_usd": 0.0,
+   "file": "mutation-proof.log.txt"
+  },
+  {
+   "id": 9,
+   "kind": "hosted_eval_baseline",
+   "run_id": 36354356433,
+   "job_id": 108718982686,
+   "head": "b65bfe7",
+   "outcome": "cancelled by this engineer's documentation push (concurrency group); 47/70 summary_primary calls succeeded, 0 errors, 22 'Persisted XBRL read failed' warnings with fallback",
+   "estimated_cost_usd": 0.119453,
+   "billed_cost_usd": "unknown",
+   "counted": "wasted spend, this engineer's error"
+  },
+  {
+   "id": 10,
+   "kind": "hosted_eval_baseline",
+   "run_id": 36354819301,
+   "head": "d7f5ce0",
+   "outcome": "completed 22:29:02 UTC; report eval_20260927T222858Z.json; regression gate PASS, no hard regressions, 1 standing advisory (mean_untraceable_dollar_figures 2.6286); 70/70 attempted/scored, 0 errors; 71 ai_call telemetry entries, actual model deepseek-flash; pass_rate 1.0, numeric_accuracy 1.0, numeric_precision 1.0, coverage 1.0, delta_consistency 0.9917, citation_fidelity 0.9682, currency_consistency 1.0, redundancy 0.9264, financial_depth 0.7857; 32 'Persisted XBRL read failed' warnings with fallback (pre-existing CI condition)",
+   "estimated_cost_usd": 0.181092,
+   "billed_cost_usd": "unknown"
+  },
+  {
+   "id": 11,
+   "kind": "offline_replay",
+   "outcome": "review-corrected owner over 70 retained rows: 1 slot changed (WMT run 1, 7/7), 8 abstained (COST prose_occurrence x6, BYND no_governing_banner x2)",
+   "cost_usd": 0.0,
+   "file": "offline-replay-70.json"
+  },
+  {
+   "id": 12,
+   "kind": "local_gate",
+   "outcome": "P1/P2-corrected tree: ruff/bandit clean, 3726 passed, 39 skipped, 2 deselected",
+   "cost_usd": 0.0,
+   "file": "local-gate-p1p2.log.txt"
+  },
+  {
+   "id": 13,
+   "kind": "local_gate",
+   "outcome": "second-round tree (owner after binders, exact totals, stamp -s): ruff/bandit clean, 3728 passed, 39 skipped, 2 deselected",
+   "cost_usd": 0.0,
+   "file": "local-gate.log.txt"
+  },
+  {
+   "id": 14,
+   "kind": "mutation_proof",
+   "outcome": "re-run on committed ffdf371: false '$3,237 million' insertion caught, 1 failed/25 passed; restored 26 passed",
+   "cost_usd": 0.0,
+   "file": "mutation-proof.log.txt"
+  },
+  {
+   "id": 15,
+   "kind": "hosted_eval_baseline",
+   "head": "b4f0959ead1c442022c1741de5b5b0b9e2183216",
+   "outcome": "CI success; eval-baseline PASS (1 standing warning: mean_untraceable_dollar_figures 2.4714); 70/70 scored, 0 errors",
+   "estimated_cost_usd": 0.180502,
+   "billed_cost_usd": "unknown",
+   "run_id": 36356321090,
+   "job_id": 108724654633,
+   "calls": 70
+  },
+  {
+   "id": 16,
+   "kind": "offline_replay",
+   "head": "round-3 tree (committed 554d3c7)",
+   "outcome": "70 retained outputs replayed twice (strict top-down rule: WMT 6/7 with $3,542 abstaining; final rule with capitalised statement headings: 7/7, identical to round 2); no model call",
+   "cost_usd": 0.0,
+   "file": "offline-replay-70.json"
+  },
+  {
+   "id": 17,
+   "kind": "read_only_measurement",
+   "head": "round-3 tree",
+   "outcome": "ownership of 35,714 demonstrated cells across the 70 retained excerpts compared across the round-2, strict and final rules (8,294 / 7,410 / 7,732 owned); no model call",
+   "cost_usd": 0.0,
+   "file": "ownership-measure-round3.txt"
+  },
+  {
+   "id": 18,
+   "kind": "local_gate",
+   "head": "round-3 tree (committed 554d3c7)",
+   "outcome": "ruff/bandit clean, 3732 passed, 39 skipped, 2 deselected",
+   "cost_usd": 0.0,
+   "file": "local-gate-round3.log.txt"
+  },
+  {
+   "id": 19,
+   "kind": "mutation_proof",
+   "head": "554d3c7",
+   "outcome": "fault (any text line admitted after the first row) caught: 3 failed/27 passed with false '$3,237 million' insertions; restored 30 passed",
+   "cost_usd": 0.0,
+   "file": "mutation-proof-round3.log.txt"
+  },
+  {
+   "id": 20,
+   "kind": "balance_read",
+   "outcome": "DeepSeek balance USD 54.59 at 2026-09-28T05:44:20Z (55.65 on 27 Sep 21:41 UTC); delta covers the shared account, attribution beyond this PR's telemetry unknown",
+   "cost_usd": 0.0,
+   "file": "balance-before-round3-push.json"
+  },
+  {
+   "id": 21,
+   "kind": "hosted_eval_baseline",
+   "head": "third-round push (554d3c7 + evidence commit)",
+   "outcome": "triggered by the single third-round push; result to be recorded in the PR thread",
+   "estimated_cost_usd": "expected about 0.18",
+   "billed_cost_usd": "unknown"
+  }
+ ],
+ "unknowns": [
+  "Billed provider cost of any hosted CI eval-baseline run is not readable from this session; the run's own telemetry estimate is recorded when available.",
+  "The cached XBRL metrics dict used in production may predate this change for some companies; the owner then still works because it needs only the excerpt (XBRL is corroboration/abstention only)."
+ ],
+ "cancelled_or_superseded": [
+  "attempt 5 (aborted local gate)",
+  "attempt 7 (superseded mutation fault)",
+  "hosted run 36354356433 (cancelled by own docs push, USD 0.119 wasted)",
+  "strict top-down replay (attempt 16, first pass) superseded by the final rule in the same commit"
+ ],
+ "ceiling_note": "Planning ceiling USD 1.00 for hosted CI caused by this PR, cumulative across all rounds: about USD 0.48 spent by telemetry through run 36356321090; the third-round push adds one run (about USD 0.18) for an expected total of about USD 0.66; no further pushes are planned.",
+ "hosted_runs_cumulative": {
+  "runs": [
+   {
+    "run_id": 36354356433,
+    "head": "b65bfe7 (first push)",
+    "status": "cancelled by own docs push",
+    "calls": 47,
+    "telemetry_usd": 0.119453
+   },
+   {
+    "run_id": 36354819301,
+    "head": "d7f5ce0",
+    "status": "PASS",
+    "calls": 71,
+    "telemetry_usd": 0.181092
+   },
+   {
+    "run_id": 36356321090,
+    "head": "b4f0959",
+    "status": "PASS",
+    "calls": 70,
+    "telemetry_usd": 0.180502
+   },
+   {
+    "run_id": "pending",
+    "head": "third-round push",
+    "status": "pending",
+    "calls": "about 70 expected",
+    "telemetry_usd": "about 0.18 expected"
+   }
   ],
-  "unknowns": [
-    "Billed provider cost of any hosted CI eval-baseline run is not readable from this session; the run's own telemetry estimate is recorded when available.",
-    "The cached XBRL metrics dict used in production may predate this change for some companies; the owner then still works because it needs only the excerpt (XBRL is corroboration/abstention only)."
-  ],
-  "cancelled_or_superseded": [
-    "attempt 5 (aborted local gate)",
-    "attempt 7 (superseded mutation fault)"
-  ],
-  "ceiling_note": "Planning ceiling USD 1.00 for hosted CI caused by this PR; expected total after the review-corrected push is about USD 0.12 (cancelled) + up to 0.19 (run 2) + about 0.19 (run 3) = about 0.50 at the observed cache-hit rates; no further pushes are planned."
+  "telemetry_usd_spent_before_third_round_push": 0.481047,
+  "expected_after_third_round_push": "about 0.66",
+  "ceiling_usd": 1.0,
+  "ceiling_is_cumulative": true,
+  "billed_cost": "unknown from this session; the shared-account balance fell USD 1.06 between the two reads and includes non-PR usage"
+ }
 }

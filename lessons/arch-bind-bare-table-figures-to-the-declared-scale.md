@@ -14,7 +14,9 @@ figure ("$3,542") matches a whole source table cell, the visible text must carry
 table declares, and the owner that restores it must abstain whenever the source itself is
 ambiguous: the issuer's own prose writes the figure bare (COST-style section conventions), the
 digits occur under different banners, the row is excluded from the scale (per-share, counts), the
-banner is not in dollars, or a literal reading is supported by standardized XBRL. Never rescale the
+banner is not in dollars, the cell cannot be bound to its banner through the table's own block
+(header block, rows, capitalised statement headings, labels directly above their values — never a
+heading count), or a literal reading is supported by standardized XBRL. Never rescale the
 digits, never touch verbatim evidence, and record every abstention so an untouched figure is
 visible in the audit rather than silently accepted.
 

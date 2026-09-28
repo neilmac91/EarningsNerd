@@ -1,6 +1,6 @@
 {
- "generated_at_utc": "2026-09-27T22:37:53.898292+00:00",
- "code_state": "second review round: demonstrated cells, detached labels, scope tokens, plural scale words, owner after source binders, exact audit totals; commit recorded in the handback",
+ "generated_at_utc": "2026-09-28T05:39:55.273124+00:00",
+ "code_state": "third review round: top-down table-block ownership (banner, header block of at most three text lines, rows; a later text line only as a capitalised statement heading or the label directly above a row or value line); commit recorded in the handback",
  "method": "Offline replay of app.services.ai.source_units.restore_table_cell_units over each retained row's raw_sections (retained after the eval's own binders), grounding_excerpt and xbrl_grounding; no provider call, no generation.",
  "report_path": "retained-r/eval_20260927T141938Z.json",
  "report_sha256": "deaa1b52c85bbab1bbcd19b7e55ab483b58ec465d6523272931cbd67e6c7f80b",

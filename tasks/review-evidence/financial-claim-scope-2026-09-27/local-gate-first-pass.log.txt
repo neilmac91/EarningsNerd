@@ -1,0 +1,32 @@
+== ruff check . ==
+All checks passed!
+ruff_exit=0
+== bandit -r app -ll ==
+bandit_exit=0
+== python -m pytest ==
+3718 passed, 39 skipped, 2 deselected in 279.08s (0:04:39)
+--- Logging error ---
+Traceback (most recent call last):
+  File "/usr/lib/python3.11/logging/__init__.py", line 1113, in emit
+    stream.write(msg + self.terminator)
+ValueError: I/O operation on closed file.
+Call stack:
+  File "/home/user/EarningsNerd/backend/app/routers/companies.py", line 117, in _close_yahoo_client_sync
+    asyncio.run(_async_close())
+  File "/usr/lib/python3.11/asyncio/runners.py", line 189, in run
+    with Runner(debug=debug) as runner:
+  File "/usr/lib/python3.11/asyncio/runners.py", line 59, in __enter__
+    self._lazy_init()
+  File "/usr/lib/python3.11/asyncio/runners.py", line 137, in _lazy_init
+    self._loop = events.new_event_loop()
+  File "/usr/lib/python3.11/asyncio/events.py", line 810, in new_event_loop
+    return get_event_loop_policy().new_event_loop()
+  File "/usr/lib/python3.11/asyncio/events.py", line 699, in new_event_loop
+    return self._loop_factory()
+  File "/usr/lib/python3.11/asyncio/unix_events.py", line 64, in __init__
+    super().__init__(selector)
+  File "/usr/lib/python3.11/asyncio/selector_events.py", line 54, in __init__
+    logger.debug('Using selector: %s', selector.__class__.__name__)
+Message: 'Using selector: %s'
+Arguments: ('EpollSelector',)
+pytest_exit=0

@@ -1,0 +1,21 @@
+== committed HEAD: 554d3c79e7cce4f4adfe9035f0ecbf4aab097a74 ==
+fault applied: text lines after the first row no longer need a row beneath them
+== gate under fault ==
+E         At index 0 diff: 'Smith paid $3,237 million.' != 'Smith paid $3,237.'
+E         Use -v to get more diff
+E       AssertionError: assert ['Smith paid $3,237 million.'] == ['Smith paid $3,237.']
+E         
+E         At index 0 diff: 'Smith paid $3,237 million.' != 'Smith paid $3,237.'
+E         Use -v to get more diff
+E       AssertionError: assert ['Other oblig...237 million.'] == ['Other oblig...were $3,237.']
+E         
+E         At index 0 diff: 'Other obligations were $3,237 million.' != 'Other obligations were $3,237.'
+E         Use -v to get more diff
+FAILED tests/unit/test_table_cell_units.py::test_review_adverse_sources_abstain[$3,237-no_governing_banner-(Amounts in millions)\n\nDebt  9,000\n\nPart II\n\nItem 5\n\nMarket information\n\nOther matters\n\nSmith  3,237-Smith paid $3,237.]
+FAILED tests/unit/test_table_cell_units.py::test_review_adverse_sources_abstain[$3,237-no_governing_banner-(Amounts in millions)\n\nDebt  9,000\n\nOther fees\n\nName  Fee\n\nSmith  3,237-Smith paid $3,237.]
+FAILED tests/unit/test_table_cell_units.py::test_review_adverse_sources_abstain[$3,237-no_governing_banner-(Amounts in millions)\n\nDebt  9,000\n\nOther long-term\n\nobligations\n\n3,237-Other obligations were $3,237.]
+3 failed, 27 passed in 3.59s
+fault_exit=1
+== restored: clean ==
+30 passed in 3.25s
+restored_exit=0

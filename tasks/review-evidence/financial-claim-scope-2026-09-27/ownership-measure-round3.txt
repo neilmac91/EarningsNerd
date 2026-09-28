@@ -1,0 +1,9 @@
+demonstrated comma-grouped cells across 70 retained excerpts: 35714
+  round2_owned=False strict_topdown_owned=False round3_owned=False -> 27008
+  round2_owned=False strict_topdown_owned=False round3_owned=True -> 68
+  round2_owned=False strict_topdown_owned=True round3_owned=True -> 344
+  round2_owned=True strict_topdown_owned=False round3_owned=False -> 974
+  round2_owned=True strict_topdown_owned=False round3_owned=True -> 254
+  round2_owned=True strict_topdown_owned=True round3_owned=True -> 7066
+round2-owned cells now abstaining: 974 in 26 excerpts
+cells owned only by round 3 (not round 2): 412
