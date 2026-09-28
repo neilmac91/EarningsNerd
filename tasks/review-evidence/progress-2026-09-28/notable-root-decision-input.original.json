@@ -1,14 +1,8 @@
 {
-  "publication": {
-    "derivative": true,
-    "original_path": "notable-root-decision-input.original.json",
-    "original_sha256": "808b7071c838d1ea8ff668a120ee771028ec451adf5abcc812052b7a0cc49558",
-    "transformation": "Only frozen_verdicts.path was rewritten to the committed filename; publication metadata was added. Original source judgments and historical activation decision are unchanged."
-  },
   "schema_version": 1,
   "reviewed_release_head": "e2df7031edc3e01088f2cdb8866fc49ae9a0e54c",
   "frozen_verdicts": {
-    "path": "notable-verdicts.json",
+    "path": "verdicts.json",
     "sha256": "a9297db4fb5a346e2b3ef2893c9146c0f2e38cf9f751b0f1500ac51b06a90ce5",
     "changed": false,
     "reason": "The source worksheet and current-card claim review answer different questions."

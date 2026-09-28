@@ -1,6 +1,6 @@
 # Notable source verdicts against the production card contract
 
-Reviewed read-only at release checkout commit `e2df7031edc3e01088f2cdb8866fc49ae9a0e54c`. The frozen source verdicts in `verdicts.json` are unchanged. This review asks a different question: what claim would the current product actually show for those rows?
+Reviewed read-only at release checkout commit `e2df7031edc3e01088f2cdb8866fc49ae9a0e54c`. The frozen source verdicts in [the committed source verdicts](notable-verdicts.json) are unchanged. This review asks a different question: what claim would the current product actually show for those rows?
 
 ## Actual data flow
 
