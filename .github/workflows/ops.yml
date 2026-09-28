@@ -37,6 +37,7 @@ on:
           - describe-jobs
           - detection-sql
           - logs-probe
+          - capacity-readout
           - jobs-channel-noop-probe
           - repair-ticker-dry-run
           - repair-ticker-apply
@@ -46,6 +47,14 @@ on:
           - reset-filing-summary-dry-run
           - reset-filing-summary-apply
           - rollback-traffic
+      capacity_start:
+        description: "Capacity window start (UTC YYYY-MM-DDTHH:MM:SSZ; maximum two hours)"
+        required: false
+        default: ""
+      capacity_end:
+        description: "Capacity window end (UTC YYYY-MM-DDTHH:MM:SSZ; must be in the past)"
+        required: false
+        default: ""
       tickers:
         description: 'Comma-separated tickers (sync-companyfacts / backfill-filing-history); a SINGLE ticker for reset-filing-summary'
         required: false
@@ -86,7 +95,7 @@ jobs:
           TICKERS="${{ inputs.tickers }}"
           REVISION="${{ inputs.revision }}"
           case "$OP" in
-            describe-service|describe-jobs|detection-sql|logs-probe|jobs-channel-noop-probe|repair-ticker-dry-run|repair-ticker-apply|sync-companyfacts|backfill-filing-history|data-quality-report|reset-filing-summary-dry-run|reset-filing-summary-apply|rollback-traffic) ;;
+            describe-service|describe-jobs|detection-sql|logs-probe|capacity-readout|jobs-channel-noop-probe|repair-ticker-dry-run|repair-ticker-apply|sync-companyfacts|backfill-filing-history|data-quality-report|reset-filing-summary-dry-run|reset-filing-summary-apply|rollback-traffic) ;;
             *) echo "::error::unknown operation '$OP'"; exit 1 ;;
           esac
           case "$OP" in
@@ -143,6 +152,13 @@ jobs:
             exit 1
           fi
           echo "No main push in flight."
+
+      - name: Validate bounded capacity window
+        if: steps.request.outputs.operation == 'capacity-readout'
+        env:
+          CAPACITY_START: ${{ inputs.capacity_start }}
+          CAPACITY_END: ${{ inputs.capacity_end }}
+        run: python3 ops/capacity/readout.py --start "$CAPACITY_START" --end "$CAPACITY_END" --validate-only
 
       - name: Authenticate to Google Cloud
         uses: google-github-actions/auth@v3
@@ -353,9 +369,19 @@ jobs:
             --args="-c,print('ops jobs-channel noop probe OK')" --wait
           echo "jobs-channel probe: execute --args --wait PERMITTED"
 
+      - name: Read historical capacity evidence
+        if: steps.request.outputs.operation == 'capacity-readout'
+        timeout-minutes: 12
+        env:
+          CAPACITY_START: ${{ inputs.capacity_start }}
+          CAPACITY_END: ${{ inputs.capacity_end }}
+        run: |
+          python3 ops/capacity/readout.py --start "$CAPACITY_START" --end "$CAPACITY_END" \
+            --region "$REGION" --output capacity-receipt/cloud.json
+
       # ------------------------------------------------------------------ Cloud SQL access
       - name: Start Cloud SQL proxy and export connection env
-        if: contains('detection-sql repair-ticker-dry-run repair-ticker-apply', steps.request.outputs.operation)
+        if: contains('detection-sql repair-ticker-dry-run repair-ticker-apply capacity-readout', steps.request.outputs.operation)
         # Mirrors the deploy-backend migrations step (ci.yml) — same secret, same masking.
         run: |
           set -euo pipefail
@@ -383,6 +409,30 @@ jobs:
             sleep 1
           done
           pg_isready -h 127.0.0.1 -p 5432
+
+      - name: Read current connection reserve and bounded job ledger
+        if: steps.request.outputs.operation == 'capacity-readout'
+        timeout-minutes: 2
+        env:
+          CAPACITY_START: ${{ inputs.capacity_start }}
+          CAPACITY_END: ${{ inputs.capacity_end }}
+          PGOPTIONS: -c lock_timeout=2s -c statement_timeout=15s -c default_transaction_read_only=on
+        run: |
+          set -euo pipefail
+          umask 077
+          mkdir -p capacity-receipt
+          psql -X -q -t -A -v ON_ERROR_STOP=1 \
+            -v readout_start="$CAPACITY_START" -v readout_end="$CAPACITY_END" \
+            -f ops/capacity/snapshot.sql > capacity-receipt/database.jsonl
+
+      - name: Retain capacity readout
+        if: always() && steps.request.outputs.operation == 'capacity-readout'
+        uses: actions/upload-artifact@v7
+        with:
+          name: capacity-readout-${{ github.run_id }}
+          path: capacity-receipt/
+          retention-days: 14
+          if-no-files-found: error
 
       - name: Run committed detection SQL (read-only snapshots)
         if: steps.request.outputs.operation == 'detection-sql'

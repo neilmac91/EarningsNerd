@@ -1,3 +1,8 @@
+# September 28 — bounded operational capacity readout
+
+- [x] Add a read-only, two-hour UTC-window Ops inspection using existing WIF, Monitoring/Logging and the pinned Cloud SQL proxy. Retain missing permissions, partial pages and sample intervals explicitly.
+- [ ] Complete local/hosted gates and exact-head review; measure the September 28 natural job overlap after release. Current snapshots and sampled connections do not establish peak headroom, SEC egress, provider capacity or a safe beta invitation count.
+
 # September 28 — isolated non-ORM dependency maintenance
 
 - [x] Split eight dependency updates from held #1000; retain SQLAlchemy 2.0.54, narrow its source constraint to `<2.1`, and preserve psycopg2-binary 2.9.13 and greenlet 3.5.6. Exclude SQLAlchemy only from the backend version-update group so its driver migration is reviewed separately; security grouping is unchanged.
