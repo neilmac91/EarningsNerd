@@ -76,3 +76,12 @@ full lint, TypeScript, Vitest and Next build gates remain required. A committed-
 of the JSON-LD amount must fail the cross-surface gate, then pass after exact restoration.
 These checks establish frontend consistency; effective Stripe configuration remains an
 operator verification at activation.
+
+Local verification on application commit `21099253d4f61224c0c5d4f02de44c39cd276713` passed
+with Node 22.23.2 / npm 10.9.8: lint, TypeScript, 114 Vitest files / 652 tests (zero skips),
+and Next build. The built homepage and pricing HTML contain the approved amounts, annual
+savings and corrected billing FAQ; the built JSON-LD offers are 23/month and 190/year.
+The one mutation proof ran on committed `3ea5bc13`: replacing only the JSON-LD monthly
+amount with 29 failed the cross-surface assertion, and exact restoration passed. Its layout
+and test are byte-identical in the final application commit. No Stripe activation, live
+checkout, customer operation or hosted release is claimed by these local results.
