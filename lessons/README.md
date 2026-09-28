@@ -98,6 +98,8 @@ what applies to your task. Filenames are greppable: `arch-*`, `sec-*`, `test-*`,
 
 ## Operations & workflow
 
+- [`ops-release-cached-filing-reads-before-yield.md`](ops-release-cached-filing-reads-before-yield.md) — Close completed filing-list reads before async dependency cleanup can be blocked by a competing checkout
+
 - [`ops-ai-evidence-is-not-human-acceptance.md`](ops-ai-evidence-is-not-human-acceptance.md) — Use explicit model/source evidence when the founder cannot supply a human panel
 
 - [`ops-continue-approved-engineering.md`](./ops-continue-approved-engineering.md) — Continue the approved queue after verified releases and preserve specific founder holds

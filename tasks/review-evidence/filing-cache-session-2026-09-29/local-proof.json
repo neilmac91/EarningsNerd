@@ -1,0 +1,201 @@
+{
+  "runtime_head": "de0dcdc706ad4f19616c34dab9d4ec3cc12f4e0a",
+  "base": "4db8f46a1a35eca7e71194919eefafb29c29e50d",
+  "source_sha256": {
+    "backend/app/routers/filings.py": "af2436b28ad2e8b5ab2a0e9574f92be383cd2faeeb18b49d8e2180976369e00a",
+    "backend/tests/unit/test_cached_filings_pool_lifetime.py": "bcff969abcce037e7cb59e923361dc1ddebfef2db26cb96e755a7973c2189c30"
+  },
+  "full_gate": {
+    "head": "de0dcdc706ad4f19616c34dab9d4ec3cc12f4e0a",
+    "results": [
+      {
+        "name": "ruff",
+        "exit_code": 0,
+        "seconds": 0.2,
+        "sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18"
+      },
+      {
+        "name": "bandit",
+        "exit_code": 0,
+        "seconds": 2.54,
+        "sha256": "13869743dd9f941d12e3c248a3dde9d7001d1f6bc187514513add277981d29cc"
+      },
+      {
+        "name": "pytest",
+        "exit_code": 0,
+        "seconds": 165.88,
+        "sha256": "b8f6e90cfa4323bb015f207b47d9eeb793b5eb22a77636da94f93639c3a34fa8"
+      }
+    ]
+  },
+  "pytest_tail": "3808 passed, 39 skipped, 2 deselected, 40 warnings in 162.66s (0:02:42)",
+  "skip_scope": "39 opt-in PostgreSQL transaction tests lack their separate database URLs; two performance tests deselected by the normal pytest configuration. The separate local PostgreSQL endpoint exercise below did execute.",
+  "mutation": {
+    "head": "de0dcdc706ad4f19616c34dab9d4ec3cc12f4e0a",
+    "fault": "Restore pre-fix route, removing synchronous completed-read closes",
+    "original_sha256": "af2436b28ad2e8b5ab2a0e9574f92be383cd2faeeb18b49d8e2180976369e00a",
+    "fault_sha256": "bbeeb56775ae98953b4e3f63cfd2554f7928879eaab131256df572b39233136d",
+    "restored_byte_identical": true,
+    "results": [
+      {
+        "phase": "fault",
+        "exit_code": 1,
+        "log_sha256": "5e6ea8ce7dfb76d8ee73079f2f94824f9bf6d2b8fc0644ce212eca28c7d9a6c5"
+      },
+      {
+        "phase": "restored",
+        "exit_code": 0,
+        "log_sha256": "d4859fd0688d1152fd0ade6d38f25b0285b1612fd022e2991b558f57dc8b9f55"
+      }
+    ]
+  },
+  "measurement_scope": "Private PostgreSQL 15.15; non-superuser app role; pool size 4, overflow 0, timeout 10 seconds. Synthetic data and controlled upstream boundaries; no customer or production requests.",
+  "measurements": {
+    "local-run-3-full-app": {
+      "source_head": "4db8f46a1a35eca7e71194919eefafb29c29e50d",
+      "app_mode": "full",
+      "request_count": 8,
+      "http_200": 0,
+      "error": "TimeoutError",
+      "pool": {
+        "size": 4,
+        "overflow": 0,
+        "timeout_seconds": 10,
+        "observed_checked_out_highwater": 4
+      },
+      "longest_lease_seconds": 40.051034,
+      "phases": [],
+      "upstream_fixture_calls": {
+        "facts": 0,
+        "search": 0,
+        "quote": 0
+      },
+      "blocked_external_socket_attempts": [],
+      "observer_errors": [],
+      "postgres_stopped": true,
+      "http_server_stopped": null
+    },
+    "local-run-4-real-http": {
+      "source_head": "ed2527f018adc4fd716655b65b91782c912fa51c",
+      "app_mode": "http",
+      "request_count": 8,
+      "http_200": 0,
+      "error": "TimeoutError",
+      "pool": {
+        "size": 4,
+        "overflow": 0,
+        "timeout_seconds": 10,
+        "observed_checked_out_highwater": 4
+      },
+      "longest_lease_seconds": 40.063172,
+      "phases": [],
+      "upstream_fixture_calls": {
+        "facts": 0,
+        "search": 0,
+        "quote": 0
+      },
+      "blocked_external_socket_attempts": [],
+      "observer_errors": [],
+      "postgres_stopped": true,
+      "http_server_stopped": true
+    },
+    "local-run-5-http-fixed": {
+      "source_head": "de0dcdc706ad4f19616c34dab9d4ec3cc12f4e0a",
+      "app_mode": "http",
+      "request_count": 8,
+      "http_200": 8,
+      "error": null,
+      "pool": {
+        "size": 4,
+        "overflow": 0,
+        "timeout_seconds": 10,
+        "observed_checked_out_highwater": 1
+      },
+      "longest_lease_seconds": 0.004746,
+      "phases": [
+        {
+          "name": "cached_baseline",
+          "completed_reads": 8
+        }
+      ],
+      "upstream_fixture_calls": {
+        "facts": 0,
+        "search": 0,
+        "quote": 0
+      },
+      "blocked_external_socket_attempts": [],
+      "observer_errors": [],
+      "postgres_stopped": true,
+      "http_server_stopped": true
+    },
+    "local-run-6-mixed-fixed": {
+      "source_head": "de0dcdc706ad4f19616c34dab9d4ec3cc12f4e0a",
+      "app_mode": "full",
+      "request_count": 44,
+      "http_200": 44,
+      "error": null,
+      "pool": {
+        "size": 4,
+        "overflow": 0,
+        "timeout_seconds": 10,
+        "observed_checked_out_highwater": 4
+      },
+      "longest_lease_seconds": 0.011815,
+      "phases": [
+        {
+          "name": "cached_baseline",
+          "completed_reads": 8
+        },
+        {
+          "name": "mixed_external_stall",
+          "pending_external_requests": 8,
+          "checked_out_at_blocked_barrier": 0,
+          "competing_reads_completed": 8,
+          "external_released_during_reads": false
+        },
+        {
+          "name": "quote_stall",
+          "checked_out_at_blocked_barrier": 0,
+          "competing_reads_completed": 8
+        },
+        {
+          "name": "warm_coverage",
+          "completed": 4,
+          "extra_external_calls": 0,
+          "persisted_synthetic_facts": 54
+        },
+        {
+          "name": "failed_upstream",
+          "coverage_responses": 4,
+          "competing_reads": 4,
+          "missing_sync_stamp_preserved": true
+        }
+      ],
+      "upstream_fixture_calls": {
+        "facts": 4,
+        "search": 4,
+        "quote": 4
+      },
+      "blocked_external_socket_attempts": [],
+      "observer_errors": [],
+      "postgres_stopped": true,
+      "http_server_stopped": null
+    }
+  },
+  "private_receipts": {
+    "local-run-3-full-app/controller-receipt.json": "daae3c631f4ffc4fe8127f4948cb0fdec336bc213c3e107fd6f20da7ccec60a4",
+    "local-run-3-full-app/application-receipt.json": "5005d8984b9d6b95d70b5342867e65fdb9720a930b56461c63e53492c5ad77a0",
+    "local-run-3-full-app/postgres-samples.json": "25988e431e653b187dbff8b585ce98724b0d260a4fc0bcdb49896652bd13eb3c",
+    "local-run-4-real-http/controller-receipt.json": "ec2d405e388a02a62dff58ebab6ebec21dac97dd0e63811fa83ab17bf93c9fb3",
+    "local-run-4-real-http/application-receipt.json": "041544b605b04caa5aff9bb0316b71c4ea3a8ef53ba4ef475c4505ec5ee7750d",
+    "local-run-4-real-http/postgres-samples.json": "e6f57d1755ff6c6823eb6ffe04dc4698585fdbdd565dd32f12ef49a339297e8b",
+    "local-run-5-http-fixed/controller-receipt.json": "94090ac4938059676602d409eee1cfbc5a23a66b4ed3ba1fc07a3901fb7c7be6",
+    "local-run-5-http-fixed/application-receipt.json": "33aa895372fa21c5472d8de76b1fd13c3b6dd26ea1ab773e4647659619d96479",
+    "local-run-5-http-fixed/postgres-samples.json": "6e57945f106567b9f196b8ae3faf8e174034a1511886d695a9940b42b96bd5e0",
+    "local-run-6-mixed-fixed/controller-receipt.json": "0236d88ff6eb870ac9da2a745d29c3a24c5d7ad94916fbfc14b9bdd177e34f74",
+    "local-run-6-mixed-fixed/application-receipt.json": "53dbf42f910fe553604c9af2d413e54afbd18bf25caabfbdfaba2c1353178a91",
+    "local-run-6-mixed-fixed/postgres-samples.json": "74b82ad8000dc487aa6593e7ee5b7d222d898f1e4203d42ffa36d395ea68333e"
+  },
+  "harness_final_sha256": "dc27c2676ec81d01650208233bcd3b52ebb886cdab57559d706e53c0fa5410bf",
+  "harness_custody_limit": "The private runner gained full-app/HTTP modes between runs; earlier runner byte snapshots were not retained. Each run pins the backend source commit and checked a clean backend tree. The HTTP failing source ed2527f0 has backend bytes identical to base 4db8f46a."
+}
