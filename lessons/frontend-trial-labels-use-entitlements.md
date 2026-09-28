@@ -33,3 +33,10 @@ invariant has one committed-state mutation proof recorded with the implementatio
 The guest stash covers the existing email/password login fallback, including verification in
 a new tab. Google/Apple callbacks currently return to the homepage; this frontend routing change
 does not establish OAuth destination preservation or change authentication policy.
+
+**Completed-login cleanup (2026-09-28):** Consume the pending signup destination after an
+accepted email login even when an explicit `redirect` parameter wins. A nullish fallback that
+calls the consumer only when the parameter is absent leaves the old destination for the next
+login. `LoginRedirect.spec.tsx` submits the real login page twice to guard this cleanup, explicit
+destination precedence and unsafe-path rejection, with a failed-login/retry control. Its one
+committed-state fault proof restores the old short-circuit and must fail the second-login check.
