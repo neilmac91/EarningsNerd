@@ -80,7 +80,10 @@ function LoginContent() {
       // ("/\\evil") values, which some browsers normalise into open redirects to external sites.
       // Fallback: the signup gate's stashed destination (consume-once, validated, 1h TTL) — it
       // survives the verification email's new-tab hop, which the ?redirect= thread cannot.
-      const dest = searchParams.get('redirect') ?? consumePostAuthRedirect()
+      // Consume even when the explicit destination wins, so a completed login cannot leave a
+      // stale signup destination waiting for a later, unrelated login.
+      const stashedDestination = consumePostAuthRedirect()
+      const dest = searchParams.get('redirect') ?? stashedDestination
       const safe =
         dest && dest.startsWith('/') && !dest.startsWith('//') && !dest.startsWith('/\\')
           ? dest

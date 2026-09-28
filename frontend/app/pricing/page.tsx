@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, Suspense, useRef, useEffect } from 'react'
+import { useState, Suspense, useRef, useEffect, useCallback } from 'react'
 import { useQuery, useMutation } from '@tanstack/react-query'
 import { createCheckoutSession, getSubscriptionStatus, getUsage } from '@/features/subscriptions/api/subscriptions-api'
 import { getCurrentUserSafe } from '@/features/auth/api/auth-api'
@@ -14,6 +14,8 @@ import { ENABLE_PRO_TRIAL } from '@/lib/featureFlags'
 import { queryKeys } from '@/lib/queryKeys'
 import { FREE_SUMMARY_LIMIT } from '@/lib/planLimits'
 import { PRO_PRICING } from './prices'
+import { billingCycleFromQuery, pricingHref, type BillingCycle } from '@/features/subscriptions/lib/pricingRoute'
+import { registerHrefWithRedirect, stashPostAuthRedirect } from '@/lib/postAuthRedirect'
 
 interface CurrentUser {
   id: number
@@ -28,11 +30,16 @@ interface CurrentUser {
 // The ONLY consumer of useSearchParams() on this page, isolated so it is the only thing inside the
 // Suspense boundary. useSearchParams() bails its nearest Suspense subtree out of the server HTML;
 // while it lived in PricingContent the whole body (H1, plans, prices, FAQ) shipped as the spinner
-// fallback and crawlers saw no content. Renders nothing — it only reacts to Stripe's
-// ?success / ?canceled return params.
-function PricingQueryEffects() {
+// fallback and crawlers saw no content. Renders nothing — it resolves the incoming billing cycle
+// and reacts to Stripe's return params without removing the plans from server HTML.
+function PricingQueryEffects({ onBillingResolved }: { onBillingResolved: (cycle: BillingCycle) => void }) {
   const router = useRouter()
   const searchParams = useSearchParams()
+  const requestedBilling = searchParams.get('billing')
+
+  useEffect(() => {
+    onBillingResolved(billingCycleFromQuery(requestedBilling))
+  }, [requestedBilling, onBillingResolved])
 
   useEffect(() => {
     // Handle success/cancel from Stripe
@@ -48,10 +55,12 @@ function PricingQueryEffects() {
   return null
 }
 
-function PricingContent() {
+function PricingContent({ billingCycle, setBillingCycle, billingResolved }: {
+  billingCycle: BillingCycle
+  setBillingCycle: (cycle: BillingCycle) => void
+  billingResolved: boolean
+}) {
   const router = useRouter()
-  // Default to annual — it offers a lower effective monthly cost.
-  const [billingCycle, setBillingCycle] = useState<'monthly' | 'yearly'>('yearly')
   const [isLoadingCheckout, setIsLoadingCheckout] = useState<string | null>(null)
   const hasTrackedPricingView = useRef(false)
 
@@ -88,17 +97,17 @@ function PricingContent() {
   // alone does not un-know the plan (the server re-checks entitlement at checkout). A usage
   // failure never blocks a plan decision.
   const subscriptionResolved = subscription !== undefined
-  const accountResolved = isGuest || (isAuthenticated && subscriptionResolved)
+  const accountResolved = billingResolved && (isGuest || (isAuthenticated && subscriptionResolved))
   const accountFailed = !accountResolved && (identityError || (isAuthenticated && subscriptionError))
   const identityUnavailable = identityError && !identityResolved
   const subscriptionStale = subscriptionError && subscriptionResolved
 
   useEffect(() => {
-    if (!hasTrackedPricingView.current) {
+    if (billingResolved && !hasTrackedPricingView.current) {
       analytics.pricingViewed(billingCycle)
       hasTrackedPricingView.current = true
     }
-  }, [billingCycle])
+  }, [billingCycle, billingResolved])
 
   const checkoutMutation = useMutation({
     mutationFn: createCheckoutSession,
@@ -119,10 +128,12 @@ function PricingContent() {
   const handleUpgrade = async (priceId: string) => {
     // Decide from resolved data only, before any loading state, analytics event or request: an
     // unresolved identity or a missing subscription snapshot is not a purchase decision.
-    if (!identityResolved) return
+    if (!billingResolved || !identityResolved) return
     // Guests can't create a checkout session (401) — send them to sign up, then back here.
     if (isGuest) {
-      router.push('/register?redirect=%2Fpricing')
+      const destination = pricingHref(billingCycle)
+      stashPostAuthRedirect(destination)
+      router.push(registerHrefWithRedirect(destination))
       return
     }
     if (!subscription || subscription.is_pro) return
@@ -490,12 +501,21 @@ function PricingContent() {
 }
 
 export default function PricingPage() {
+  // Keep the annual server-rendered default. Only the isolated query reader may override it;
+  // until it resolves, do not record a view or offer a checkout for the wrong incoming cycle.
+  const [billingCycle, setBillingCycle] = useState<BillingCycle>('yearly')
+  const [billingResolved, setBillingResolved] = useState(false)
+  const resolveBilling = useCallback((cycle: BillingCycle) => {
+    setBillingCycle(cycle)
+    setBillingResolved(true)
+  }, [])
+
   return (
     <>
       <Suspense fallback={null}>
-        <PricingQueryEffects />
+        <PricingQueryEffects onBillingResolved={resolveBilling} />
       </Suspense>
-      <PricingContent />
+      <PricingContent billingCycle={billingCycle} setBillingCycle={setBillingCycle} billingResolved={billingResolved} />
     </>
   )
 }

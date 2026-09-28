@@ -4,6 +4,15 @@
 - [x] Revised-offer proof on committed `c72f0caa`: JSON-LD 19→29 failed and exact restoration passed. Full frontend gate on `1f3b910e` passed lint, TypeScript, 114 Vitest files / 652 tests (zero skips), and Next build. Built homepage/pricing HTML and JSON-LD show $19/$190 and two months free. Retained final receipts are separate from the historical $23-candidate checks.
 - [ ] Keep activation held for quality and controlled-beta readiness. Follow the backend-first configuration and safe rollback sequence in [the approved offer checklist](../docs/PRICING_OFFER.md); inactive catalog preparation is not activation.
 
+## September 28 — trial billing routing, separate from held pricing activation
+
+- [x] Preserve the selected monthly/yearly cycle from homepage and trial paywall through pricing; retain the existing server-rendered pricing boundary and record the resolved initial cycle once.
+- [x] Preserve guest cycle choice through registration and the existing email-login redirect stash; keep backend eligibility, active subscriptions and beta offers unchanged. The routing tranche preserved prices and the experiment; the combined offer tranche retires the display experiment. OAuth callbacks still return to the homepage.
+- [x] Resolve the reviewed stale-stash defect: accepted email login consumes the signup destination even when an explicit redirect wins; a later login cannot replay that completed return. Failed login retains the pending destination for retry.
+- [x] Preserve the beta offer's neutral pricing entry until account eligibility resolves; verify the actual homepage link in guest pricing, alongside the selected monthly paid-offer trial control. This corrects presentation without changing billing or beta entitlements.
+- [ ] Complete committed-state mutation proofs, full frontend gates and independent review before push; verify the preview in both themes before release.
+- [ ] The separately approved $19/month and $190/year offer remains held until accepted quality readiness and coordinated price activation; this routing fix does not activate it or migrate any subscriber.
+
 ## September 28 — summary request evidence
 
 - [ ] Deliver one consent-gated request lifecycle across cached/shared/generated summaries and automatic/auth retries; retain server account/request identity, terminal unknowns and legacy semantics.

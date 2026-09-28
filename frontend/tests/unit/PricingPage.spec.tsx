@@ -6,6 +6,7 @@ import PricingLayout from '@/app/pricing/layout'
 import PricingSection from '@/features/marketing/components/PricingSection'
 import { queryKeys } from '@/lib/queryKeys'
 import type { SubscriptionStatus, Usage } from '@/features/subscriptions/api/subscriptions-api'
+import { consumePostAuthRedirect } from '@/lib/postAuthRedirect'
 
 const mockGetSubscriptionStatus = vi.fn<[], Promise<SubscriptionStatus>>()
 const mockGetUsage = vi.fn<[], Promise<Usage>>()
@@ -14,7 +15,11 @@ const mockCreateCheckoutSession = vi.fn()
 // A stale pricing flag must never change the approved offer.
 const mockUseFeatureFlagVariantKey = vi.fn<[], string | boolean | undefined>()
 const mockCheckoutStarted = vi.fn()
+const mockPricingViewed = vi.fn()
 const mockPush = vi.fn()
+const mockSearchParams = new URLSearchParams()
+const flags = vi.hoisted(() => ({ ENABLE_PRO_TRIAL: false }))
+vi.mock('@/lib/featureFlags', () => flags)
 // Test-only capture of the real onClick each card Button was rendered with, keyed by
 // `${variant}:${label}` (Free = secondary, Pro = primary; both cards share a label while the
 // account is unresolved), so each card's actual handler can be exercised independently of
@@ -35,7 +40,7 @@ vi.mock('@/features/auth/api/auth-api', () => ({
 
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: mockPush, refresh: vi.fn() }),
-  useSearchParams: () => ({ get: () => null }),
+  useSearchParams: () => mockSearchParams,
 }))
 
 vi.mock('@/components/ui/Button', async (importOriginal) => {
@@ -51,7 +56,7 @@ vi.mock('posthog-js/react', () => ({ useFeatureFlagVariantKey: () => mockUseFeat
 vi.mock('posthog-js', () => ({ default: { capture: vi.fn() } }))
 vi.mock('@/lib/analytics', () => ({
   default: {
-    pricingViewed: vi.fn(),
+    pricingViewed: (...args: unknown[]) => mockPricingViewed(...args),
     homepageSectionViewed: vi.fn(),
     billingCycleToggled: vi.fn(),
     checkoutStarted: (...args: unknown[]) => mockCheckoutStarted(...args),
@@ -94,7 +99,11 @@ describe('PricingPage', () => {
     mockCreateCheckoutSession.mockReset()
     mockUseFeatureFlagVariantKey.mockReset()
     mockCheckoutStarted.mockReset()
+    mockPricingViewed.mockReset()
     mockPush.mockReset()
+    Array.from(mockSearchParams.keys()).forEach((key) => mockSearchParams.delete(key))
+    flags.ENABLE_PRO_TRIAL = false
+    localStorage.clear()
     capturedOnClick.clear()
     mockGetCurrentUserSafe.mockResolvedValue({ id: 1, email: 'u@example.com' })
     mockGetUsage.mockResolvedValue(baseUsage)
@@ -347,8 +356,99 @@ describe('PricingPage', () => {
     fireEvent.click(free)
     expect(mockPush).toHaveBeenCalledWith('/register')
     fireEvent.click(screen.getByRole('button', { name: /upgrade to pro/i }))
-    expect(mockPush).toHaveBeenCalledWith('/register?redirect=%2Fpricing')
+    expect(mockPush).toHaveBeenCalledWith('/register?redirect=%2Fpricing%3Fbilling%3Dyearly')
     expect(mockGetSubscriptionStatus).not.toHaveBeenCalled()
     expect(mockCheckoutStarted).not.toHaveBeenCalled()
+  })
+
+  it.each([
+    ['monthly', 'monthly', 19],
+    ['yearly', 'yearly', 190],
+    ['annual', 'yearly', 190],
+    ['https://example.com', 'yearly', 190],
+    [null, 'yearly', 190],
+  ] as const)('incoming billing=%s records the resolved cycle and checks out %s', async (requested, cycle, price) => {
+    if (requested !== null) mockSearchParams.set('billing', requested)
+    flags.ENABLE_PRO_TRIAL = true
+    mockGetSubscriptionStatus.mockResolvedValue({ ...baseSub })
+    renderPricing()
+
+    const label = cycle === 'monthly' ? 'Start 7-day free trial' : 'Upgrade to Pro'
+    const checkout = await screen.findByRole('button', { name: label })
+    expect(screen.getByRole('switch', { name: /billing cycle/i })).toHaveAttribute('aria-checked', String(cycle === 'yearly'))
+    expect(mockPricingViewed.mock.calls).toEqual([[cycle]])
+    if (cycle === 'yearly') expect(screen.queryByRole('button', { name: /start 7-day/i })).not.toBeInTheDocument()
+    fireEvent.click(checkout)
+    await waitFor(() => expect(mockCreateCheckoutSession).toHaveBeenCalledWith(`price_pro_${cycle}`))
+    expect(mockCheckoutStarted).toHaveBeenCalledWith('pro', price, cycle)
+  })
+
+  it('keeps a later manual cycle choice instead of reapplying the incoming trial link', async () => {
+    mockSearchParams.set('billing', 'monthly')
+    flags.ENABLE_PRO_TRIAL = true
+    mockGetSubscriptionStatus.mockResolvedValue({ ...baseSub })
+    renderPricing()
+
+    await screen.findByRole('button', { name: 'Start 7-day free trial' })
+    fireEvent.click(screen.getByRole('switch', { name: /billing cycle/i }))
+    const checkout = await screen.findByRole('button', { name: 'Upgrade to Pro' })
+    expect(screen.getByText('$15.83')).toBeInTheDocument()
+    fireEvent.click(checkout)
+    await waitFor(() => expect(mockCreateCheckoutSession).toHaveBeenCalledWith('price_pro_yearly'))
+    expect(mockCheckoutStarted).toHaveBeenCalledWith('pro', 190, 'yearly')
+    expect(mockPricingViewed.mock.calls).toEqual([['monthly']])
+  })
+
+  it.each(['monthly', 'yearly'] as const)('preserves the guest %s choice in the registration query and email-login stash', async (cycle) => {
+    mockSearchParams.set('billing', cycle)
+    flags.ENABLE_PRO_TRIAL = true
+    mockGetCurrentUserSafe.mockResolvedValue(null)
+    renderPricing()
+
+    fireEvent.click(await screen.findByRole('button', { name: cycle === 'monthly' ? 'Start 7-day free trial' : 'Upgrade to Pro' }))
+    const registration = new URL(mockPush.mock.calls[0][0], 'https://www.earningsnerd.io')
+    expect(registration.pathname).toBe('/register')
+    expect(registration.searchParams.get('redirect')).toBe(`/pricing?billing=${cycle}`)
+    expect(consumePostAuthRedirect()).toBe(`/pricing?billing=${cycle}`)
+    expect(consumePostAuthRedirect()).toBeNull()
+    expect(mockCreateCheckoutSession).not.toHaveBeenCalled()
+    expect(mockCheckoutStarted).not.toHaveBeenCalled()
+  })
+
+  it('a monthly trial link keeps beta checkout separate from trial eligibility', async () => {
+    mockSearchParams.set('billing', 'monthly')
+    flags.ENABLE_PRO_TRIAL = true
+    mockGetCurrentUserSafe.mockResolvedValue({ id: 1, email: 'beta@example.com', is_beta: true })
+    mockGetSubscriptionStatus.mockResolvedValue({ ...baseSub })
+    renderPricing()
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Claim Pro' }))
+    expect(screen.queryByRole('button', { name: 'Start 7-day free trial' })).not.toBeInTheDocument()
+    await waitFor(() => expect(mockCreateCheckoutSession).toHaveBeenCalledWith('price_pro_monthly'))
+  })
+
+  it.each([true, false])('the actual homepage link preserves its offer at guest pricing (beta=%s)', async (showBeta) => {
+    flags.ENABLE_PRO_TRIAL = true
+    mockGetCurrentUserSafe.mockResolvedValue(null)
+    const landing = render(<PricingSection accessMode={showBeta ? 'invite' : 'public'} showBeta={showBeta} />)
+    const label = showBeta ? 'Upgrade to Pro' : 'Start 7-day free trial'
+    const href = screen.getByRole('link', { name: label }).getAttribute('href')!
+    landing.unmount()
+
+    // Follow the rendered link instead of inventing a destination independent of the homepage.
+    const destination = new URL(href, 'https://www.earningsnerd.io')
+    expect(destination.pathname).toBe('/pricing')
+    destination.searchParams.forEach((value, key) => mockSearchParams.set(key, value))
+    renderPricing()
+    expect(await screen.findByRole('button', { name: label })).toBeEnabled()
+    expect(screen.getByRole('switch', { name: /billing cycle/i })).toHaveAttribute('aria-checked', String(showBeta))
+    const trialNote = 'First 7 days free · cancel anytime, no charge'
+    if (showBeta) {
+      expect(screen.queryByRole('button', { name: 'Start 7-day free trial' })).not.toBeInTheDocument()
+      expect(screen.queryByText(trialNote)).not.toBeInTheDocument()
+    } else {
+      expect(screen.getByText(trialNote)).toBeInTheDocument()
+    }
+    expect(mockPricingViewed.mock.calls).toEqual([[showBeta ? 'yearly' : 'monthly']])
   })
 })
