@@ -7,7 +7,8 @@ from typing import Any, Sequence
 from lxml import etree, html
 
 from app.services.ai.recovery_context import clean_filing_source, recovery_blocks
-from app.services.edgar.statement_relationship_source import _cells, _nearby, _text
+from app.services.edgar.statement_context import source_report_period
+from app.services.edgar.statement_relationship_source import _text
 from app.services.provenance_service import _MIN_VERIFIABLE_LEN
 
 # Deliberately narrow: a declaration immediately below the actual MD&A title, not a
@@ -147,43 +148,24 @@ def restore_authored_plan_units(
 # --- declared table-cell scale restoration ------------------------------------------------------
 #
 # A model copies a cell ("3,542") from a table whose banner declares "(Amounts in millions)" and
-# writes "$3,542": the VALUE is source-exact while the UNIT is one million times too small
+# writes "2027: $3,542": the VALUE is source-exact while the UNIT is one million times too small
 # (retained candidate-r WMT 10-K run 1, maturities bullet). ``figure_trace`` deliberately ignores
 # unit-less dollar figures, so the class was invisible to the dollar gate. This owner restores ONLY
-# the scale word the SOURCE DOCUMENT declares for that figure, and only when every occurrence of
-# the exact digits in the filing's own HTML is owned by a structured declaration: an inline-XBRL
-# fact whose ``scale`` attribute and USD unit declare the number's own measure, or a ``<td>`` that
-# holds exactly that amount inside a ``<table>`` whose own cells (or the one node immediately
-# before it) declare the scale, on a row whose label and column headers are not excluded from it.
-# Flattened excerpt text carries no table boundary, so it never owns anything: a list item, a short
-# sentence or an adjacent unbannered table cannot inherit a banner because they are not cells of
-# the declaring table. It abstains when the issuer's prose writes the digits bare anywhere in the
-# document, when a fact declares the bare reading (``scale="0"``), when occurrences disagree, when
-# the row, column or fact unit is per-share/count/percent, when the table has no declaration of
-# its own, when the source document is unavailable (cached-excerpt generations), or when a literal
-# reading is supported by standardized XBRL. The figure's digits are never changed.
+# the scale word the SOURCE DOCUMENT declares for THAT proposition: the authored statement must
+# pair the figure with a label ("2027: $3,542", "Total: $38,166"), and the filing's own HTML must
+# hold an inline-XBRL fact with exactly those digits, in a table row whose label is that label,
+# whose unit is USD alone, whose ``scale`` attribute declares a multiplier, and whose context ends
+# on the filing's own DEI report period. That is a row/period/amount mapping between the authored
+# claim and one source cell; a matching digit string elsewhere establishes nothing. Everything else
+# abstains, byte-identical and with a reason: no label beside the figure, no tagged fact, no row
+# with that label, a non-dollar or per-share unit, a fact that declares the bare reading
+# (``scale="0"``), another period, disagreeing scales, no source document (cached-excerpt
+# generations), or a literal reading supported by standardized XBRL. Banners, flattened excerpt
+# lines, header geometry and typography are never read: four review rounds showed each such
+# heuristic moving the counterexample instead of removing it. The figure's digits are never changed.
 
-_TABLE_SCALE_WORD = {
-    "thousand": "thousand", "thousands": "thousand",
-    "million": "million", "millions": "million",
-    "billion": "billion", "billions": "billion",
-}
 # Inline-XBRL ``scale`` attribute → the fact's own unit multiplier (``0``/absent = as written).
 _FACT_SCALE_WORD = {"3": "thousand", "6": "million", "9": "billion"}
-# A scale declaration inside a table's own cells or caption, or as the whole text of the node
-# immediately before the table: "(Amounts in millions)", "(Dollars in millions)", "($ in millions)",
-# "(In millions, except per share amounts)", "Expected Maturity Date (Amounts in millions)".
-_TABLE_DECLARATION = re.compile(
-    r"\((?:(?:amounts?|dollars?|figures|values|usd|us\$|\$)\s*)?(?:in\s+)?"
-    r"(thousands?|millions?|billions?)\b[^)]*\)",
-    re.I,
-)
-# A declaration naming another currency is not a dollar scale; the bare "$" is a separate defect.
-_NON_DOLLAR_BANNER = re.compile(
-    r"\b(?:euros?|eur|rmb|cny|yen|jpy|dkk|sek|nok|chf|gbp|pounds?|krw|inr|brl|twd|hkd|sgd|aud|cad)\b"
-    r"|nt\$|hk\$|€|£|¥",
-    re.I,
-)
 # A model-authored bare dollar figure: "$" + comma-grouped integer, no scale word (singular or
 # plural), no decimals, not a currency-prefixed form ("US$", "NT$") and not a percentage.
 _BARE_DOLLAR_FIGURE = re.compile(
@@ -191,60 +173,48 @@ _BARE_DOLLAR_FIGURE = re.compile(
     r"(?![\d,]|\.\d|\s*(?:thousands?|millions?|billions?|trillions?|bn|mn|tn|[kmbt])\b|\s*%)",
     re.I,
 )
-# Rows a "(… in millions, except …)" declaration does not scale, or that are not dollar amounts.
-# "due within one year" names a maturity band, so "year" alone never excludes a row.
-_UNSCALED_ROW_LABEL = re.compile(
-    r"\b(?:per[\s-]+(?:share|unit|adr|ads)|shares?|units?|counts?|number of|employees|associates|"
-    r"stores|clubs|warehouses|square|percent|percentage|ratio|basis points)\b|\((?:in )?years?\)",
-    re.I,
-)
-# A parenthesised unit, currency, per-unit or scope token on a label ("Fee ($)", "(in dollars)",
-# "(per share)", "(%)") declares a scope this owner does not resolve.
-_SCOPE_TOKEN = re.compile(
-    r"\(\s*(?:\$|%|us\$|in\s+[a-z]|per\s+[a-z]|amounts?\b|dollars?\b|thousands?\b|millions?\b|billions?\b)",
-    re.I,
-)
-# A column header that declares a non-dollar or unscaled column ("Shares", "Per share", "Rate", "%");
-# a scope token on a header ("Fee ($)") is checked with the same ``_SCOPE_TOKEN`` as row labels.
-_UNSCALED_COLUMN = re.compile(
-    r"\b(?:shares?|units?|per[\s-]+(?:share|unit|adr|ads)|rate|percent|percentage|counts?|number)\b|%",
-    re.I,
-)
-# A cell that is exactly one comma-grouped amount, optionally in parentheses or after "$".
-_CELL_AMOUNT = re.compile(r"^\(?\s*\$?\s*(\d{1,3}(?:,\d{3})+)\s*\)?$")
+# The authored label a figure is paired with: the text between the previous delimiter and the
+# colon immediately before the figure ("… as follows: 2027: $3,542; Thereafter: $23,255").
+_AUTHORED_LABEL = re.compile(r"(?:^|[;:(—–])\s*([^;:()—–]{1,80}?)\s*:\s*$")
 _SKIP_TAGS = frozenset({"script", "style", "title"})
 _AUDIT_CAP = 40
 
 
-def _ancestor(node: Any, tags: frozenset[str]) -> Any:
-    for candidate in (node, *node.iterancestors()):
-        if isinstance(candidate.tag, str) and candidate.tag.lower() in tags:
-            return candidate
-    return None
+def _normalize_label(label: str) -> str:
+    return " ".join(label.replace("\xa0", " ").split()).rstrip(":").strip().lower()
+
+
+def authored_label(text: str, end: int) -> str | None:
+    """The label the authored text pairs with the figure starting at ``end``, or None."""
+    match = _AUTHORED_LABEL.search(text[:end])
+    return match.group(1) if match else None
 
 
 class TableUnitIndex:
-    """The filing's own source document, parsed on first use; per-figure resolutions cached.
+    """The filing's own source document, parsed on first use; per-proposition resolutions cached.
 
-    Ownership evidence is structural: inline-XBRL facts (``ix:nonFraction`` scale + unit) and
-    ``<table>`` cells under the table's own declaration. Text outside a cell is prose."""
+    Ownership evidence is one inline-XBRL fact bound to the authored label through its table row,
+    to the filing through its DEI report period, and to a unit through its own attributes."""
 
     def __init__(self, source_html: str) -> None:
         self._html = source_html
-        self._cache: dict[str, tuple[str | None, str]] = {}
+        self._cache: dict[tuple[str, str | None], tuple[str | None, str]] = {}
         self._document: Any = None
         self._parsed = False
-        self._chunks: list[tuple[str, Any]] | None = None
+        self._facts: dict[str, list[Any]] | None = None
         self._units: dict[str, list[str]] | None = None
-        self._tables: dict[int, tuple[Any, tuple[str | None, str]]] = {}
+        self._contexts: dict[str, str | None] | None = None
+        self._period: str | None = None
+        self._period_read = False
 
-    def resolve(self, figure: str) -> tuple[str | None, str]:
-        """``(scale word, reason)``: the one declared scale every occurrence of ``figure`` in the
-        source document shares, else ``(None, why)``. Reasons are audit vocabulary, not user text."""
-        if figure in self._cache:
-            return self._cache[figure]
-        result = self._resolve(figure)
-        self._cache[figure] = result
+    def resolve(self, figure: str, label: str | None) -> tuple[str | None, str]:
+        """``(scale word, reason)``: the one scale the source declares for ``label: $figure``, else
+        ``(None, why)``. Reasons are audit vocabulary, not user text."""
+        key = (figure, label)
+        if key in self._cache:
+            return self._cache[key]
+        result = self._resolve(figure, label)
+        self._cache[key] = result
         return result
 
     # -- document access -------------------------------------------------------------------------
@@ -261,143 +231,96 @@ class TableUnitIndex:
                 self._document = None
         return self._document
 
-    def _digit_chunks(self) -> list[tuple[str, Any]]:
-        """Every text node carrying a digit, with the element that owns it (tails belong to the
-        parent). Built once; a figure lookup is then a substring scan, not a document walk."""
-        if self._chunks is None:
-            chunks: list[tuple[str, Any]] = []
-            document = self._parse()
-            for node in (document.iter() if document is not None else ()):
-                if not isinstance(node.tag, str) or node.tag.lower() in _SKIP_TAGS:
-                    continue
-                if node.text and any(ch.isdigit() for ch in node.text):
-                    chunks.append((node.text, node))
-                for child in node:
-                    if child.tail and any(ch.isdigit() for ch in child.tail):
-                        chunks.append((child.tail, node))
-            self._chunks = chunks
-        return self._chunks
+    def _index(self) -> None:
+        """One walk: facts by their exact text, unit measures, and each context's period end."""
+        if self._facts is not None:
+            return
+        facts: dict[str, list[Any]] = {}
+        units: dict[str, list[str]] = {}
+        contexts: dict[str, str | None] = {}
+        document = self._parse()
+        for node in (document.iter() if document is not None else ()):
+            if not isinstance(node.tag, str):
+                continue
+            tag = node.tag.lower()
+            if tag == "ix:nonfraction":
+                facts.setdefault(_text(node), []).append(node)
+            elif tag.endswith(":unit") and node.get("id"):
+                units[node.get("id")] = [
+                    _text(m).lower() for m in node.iter()
+                    if isinstance(m.tag, str) and m.tag.lower().endswith(":measure")
+                ]
+            elif tag.endswith(":context") and node.get("id"):
+                ends = [_text(m) for m in node.iter() if isinstance(m.tag, str)
+                        and m.tag.lower().split(":")[-1] in ("instant", "enddate")]
+                contexts[node.get("id")] = ends[0] if len(ends) == 1 else None
+        self._facts, self._units, self._contexts = facts, units, contexts
 
-    def _unit_measures(self) -> dict[str, list[str]]:
-        if self._units is None:
-            units: dict[str, list[str]] = {}
+    def _report_period(self) -> str | None:
+        if not self._period_read:
+            self._period_read = True
             document = self._parse()
-            for node in (document.iter() if document is not None else ()):
-                if isinstance(node.tag, str) and node.tag.lower().endswith(":unit") and node.get("id"):
-                    units[node.get("id")] = [
-                        _text(m).lower() for m in node.iter()
-                        if isinstance(m.tag, str) and m.tag.lower().endswith(":measure")
-                    ]
-            self._units = units
-        return self._units
+            self._period = source_report_period(document) if document is not None else None
+        return self._period
 
     # -- ownership -------------------------------------------------------------------------------
 
-    def _resolve(self, figure: str) -> tuple[str | None, str]:
+    def _resolve(self, figure: str, label: str | None) -> tuple[str | None, str]:
+        if label is None:
+            return None, "no_authored_label"
         if self._parse() is None:
             return None, "no_source_document"
+        self._index()
+        assert self._facts is not None and self._units is not None and self._contexts is not None
+        facts = self._facts.get(figure, [])
+        if not facts:
+            return None, "no_tagged_fact"
+        wanted = _normalize_label(label)
+        bound = [fact for fact in facts if self._row_label(fact) == wanted]
+        if not bound:
+            return None, "no_matching_row"
+        period = self._report_period()
+        if period is None:
+            return None, "no_report_period"
         scales: set[str] = set()
-        found = False
-        for text, node in self._digit_chunks():
-            if figure not in text:
-                continue
-            found = True
-            fact = _ancestor(node, frozenset({"ix:nonfraction"}))
-            scale, reason = (
-                self._fact_scale(fact, figure) if fact is not None else self._cell_scale(node, figure)
-            )
-            if scale is None:
-                return None, reason
-            scales.add(scale)
-        if not found:
-            return None, "no_occurrence"
+        for fact in bound:
+            if self._units.get(fact.get("unitref") or "", []) != ["iso4217:usd"]:
+                return None, "non_dollar_unit"
+            if self._contexts.get(fact.get("contextref") or "") != period:
+                return None, "period_mismatch"
+            scale = (fact.get("scale") or "0").strip()
+            if scale == "0":
+                return None, "declared_unscaled"
+            word = _FACT_SCALE_WORD.get(scale)
+            if word is None:
+                return None, "unsupported_scale"
+            scales.add(word)
         if len(scales) == 1:
             return next(iter(scales)), "declared"
         return None, "mixed_scales"
 
-    def _fact_scale(self, fact: Any, figure: str) -> tuple[str | None, str]:
-        """An inline-XBRL fact declares its own multiplier and unit; the digits must be the whole fact."""
-        if _text(fact) != figure:
-            return None, "prose_occurrence"
-        measures = self._unit_measures().get(fact.get("unitref") or "", [])
-        if measures != ["iso4217:usd"]:
-            return None, "non_dollar_unit"
-        scale = (fact.get("scale") or "0").strip()
-        if scale == "0":
-            return None, "declared_unscaled"
-        word = _FACT_SCALE_WORD.get(scale)
-        return (word, "declared") if word else (None, "unsupported_scale")
-
-    def _cell_scale(self, node: Any, figure: str) -> tuple[str | None, str]:
-        """An untagged cell is owned by its table's own declaration, its row label and its column."""
-        cell = _ancestor(node, frozenset({"td", "th"}))
-        if cell is None:
-            return None, "prose_occurrence"
-        text = _text(cell)
-        match = _CELL_AMOUNT.match(text)
-        if not match or match.group(1) != figure:
-            return None, ("percent_occurrence" if text.rstrip().endswith("%") else "prose_occurrence")
-        row = _ancestor(cell, frozenset({"tr"}))
-        table = _ancestor(cell, frozenset({"table"}))
-        if row is None or table is None:
-            return None, "prose_occurrence"
-        scale, reason = self._table_scale(table)
-        if scale is None:
-            return None, reason
-        row_cells = row.xpath("./td|./th")
-        cells = _cells(row)
-        if cells is None or cell not in row_cells:
-            return None, "unsupported_row"
-        index = row_cells.index(cell)
-        first = next((i for i, c in enumerate(cells) if c["text"]), None)
-        if first is None or first >= index:
-            return None, "no_row_label"
-        label = cells[first]["text"]
-        if _UNSCALED_ROW_LABEL.search(label) or _SCOPE_TOKEN.search(label):
-            return None, "unscaled_row"
-        following = next((c["text"] for c in cells[index + 1:] if c["text"]), "")
-        if following.startswith("%"):
-            return None, "percent_occurrence"
-        start, end = cells[index]["column"], cells[index]["column"] + cells[index]["colspan"]
-        rows = table.xpath("./tr|./thead/tr|./tbody/tr")
-        matrix = [_cells(r) for r in rows]
-        width = max((c["column"] + c["colspan"] for cs in matrix if cs for c in cs), default=0)
-        for above in matrix[:rows.index(row)] if row in rows else []:
-            for header in above or []:
-                if (header["text"] and header["colspan"] < width
-                        and header["column"] < end and header["column"] + header["colspan"] > start
-                        and not _TABLE_DECLARATION.search(header["text"])
-                        and (_UNSCALED_COLUMN.search(header["text"]) or _SCOPE_TOKEN.search(header["text"]))):
-                    return None, "unscaled_column"
-        return scale, "declared"
-
-    def _table_scale(self, table: Any) -> tuple[str | None, str]:
-        """The one dollar scale a table declares in its own cells or caption, else in the single
-        text node immediately before it; anything else abstains."""
-        key = id(table)
-        if key in self._tables:
-            return self._tables[key][1]
-        words: set[str] = set()
-        non_dollar = False
-        texts = [_text(c) for c in table.xpath("./caption|./tr/td|./tr/th|./thead/tr/th|./thead/tr/td|"
-                                               "./tbody/tr/td|./tbody/tr/th")]
-        if not any(_TABLE_DECLARATION.search(t) for t in texts):
-            preceding = next((n for n in _nearby(table) if _text(n)), None)
-            declaration = _TABLE_DECLARATION.fullmatch(_text(preceding)) if preceding is not None else None
-            texts = [declaration.group(0)] if declaration else []
-        for text in texts:
-            for match in _TABLE_DECLARATION.finditer(text):
-                if _NON_DOLLAR_BANNER.search(match.group(0)):
-                    non_dollar = True
-                words.add(_TABLE_SCALE_WORD[match.group(1).lower()])
-        if non_dollar:
-            result: tuple[str | None, str] = (None, "non_dollar_banner")
-        elif len(words) == 1:
-            result = (next(iter(words)), "declared")
-        else:
-            result = (None, "mixed_scales" if words else "no_governing_banner")
-        self._tables[key] = (table, result)
-        return result
+    @staticmethod
+    def _row_label(fact: Any) -> str | None:
+        """The leftmost text cell of the fact's own table row, when it precedes the fact's cell."""
+        cell = row = None
+        for ancestor in fact.iterancestors():
+            if not isinstance(ancestor.tag, str):
+                continue
+            tag = ancestor.tag.lower()
+            if tag in ("td", "th") and cell is None:
+                cell = ancestor
+            elif tag == "tr":
+                row = ancestor
+                break
+        if cell is None or row is None:
+            return None
+        for candidate in row.xpath("./td|./th"):
+            if candidate is cell:
+                return None
+            text = _text(candidate)
+            if text:
+                return _normalize_label(text)
+        return None
 
 
 def build_table_unit_index(source_html: str = "") -> TableUnitIndex | None:
@@ -418,7 +341,8 @@ def restore_table_cell_units(
     xbrl_metrics: dict | None = None,
     recovered: Any = (),
 ) -> dict[str, Any] | None:
-    """Insert the declared scale word after each bare dollar figure the source table owns.
+    """Insert the declared scale word after each bare dollar figure whose authored proposition
+    ("label: $figure") one source fact owns.
 
     Mutates the policed model-prose slots in place (``figure_trace.policed_prose_slots``); recovered
     sections are skipped because their context was separately selected. Callers run it after the
@@ -447,7 +371,7 @@ def restore_table_cell_units(
         edited = text
         for match in reversed(matches):
             figure = match.group(1)
-            scale, reason = index.resolve(figure)
+            scale, reason = index.resolve(figure, authored_label(text, match.start()))
             value = float(figure.replace(",", ""))
             if scale is not None and _literal_supported(value, grounded):
                 scale, reason = None, "literal_xbrl_match"
