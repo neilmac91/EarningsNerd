@@ -23,9 +23,10 @@ cycle amount, while the server remains authoritative for the actual charge.
 
 ## Retained catalog state
 
-The earlier September 28 Stripe readback staged **inactive** $23/month and $190/year live-catalog
-prices. The $23 monthly catalog entry is superseded by the final $19 decision; the operator is
-staging and verifying its replacement. Re-read the final $19/month and $190/year pair before activation. Production checkout bindings still point to
+The final September 28 Stripe readback confirmed **inactive** live-catalog prices at
+**1,900 USD cents/month and 19,000 USD cents/year**. The earlier inactive $23 monthly entry
+is explicitly marked superseded; its receipt remains historical. Re-read the final pair
+before activation. Production checkout bindings still point to
 the old $39/month and $390/year offer. The beta promotion's valid 100%-off-forever linkage and
 the account's enabled charges/payouts with no currently-due requirements were also read back.
 The dated operator receipt retains the exact catalog identifiers; none belong in frontend code.
