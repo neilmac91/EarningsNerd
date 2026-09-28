@@ -84,7 +84,10 @@ def _fact_value(fact: Any, units: dict) -> tuple[int, int] | None:
             or fact.xpath("ancestor::*[name()='ix:hidden']")):
         return None
     scale = 10 ** int(fact.get("scale"))
-    value = int(_text(fact).replace(",", "")) * scale
+    try:
+        value = int(_text(fact).replace(",", "")) * scale
+    except ValueError:  # Numeric text may exceed Python's integer digit limit.
+        return None
     return (-value if fact.get("sign") == "-" else value), scale
 
 
@@ -154,9 +157,11 @@ def _table(table: Any, *, document: Any, report: date, issuer_name: str,
             fact = found[0]
             duration = contexts.get(fact.get("contextref"))
             value = _fact_value(fact, units)
+            if value is None:
+                return None  # Do not reparse an invalid fact through the visible-amount owner.
             visible = _amount(cells, start_col, end_col, scale)
             if (fact.get("name") != concept or not fact.get("id") or ids.get(fact.get("id")) is not fact
-                    or duration is None or value is None or value[1] != scale
+                    or duration is None or value[1] != scale
                     or visible is None or visible["value"] != value[0]):
                 return None
             durations.add(duration)

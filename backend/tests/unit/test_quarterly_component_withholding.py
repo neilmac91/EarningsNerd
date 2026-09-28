@@ -78,6 +78,8 @@ def test_actual_source_has_signed_aggregate_facts_and_full_duration():
     "namespace", "nested_namespace", "different_report", "wrong_form",
     "prose_before_bridge", "prose_after_bridge", "prose_in_other_row",
     "one_row_header", "two_row_header", "leap_day_comparison",
+    "oversized_current_fact", "oversized_prior_fact", "oversized_repeat", "oversized_component",
+    "oversized_visible_same_cell", "oversized_visible_other_cell",
 ])
 def test_actual_source_adverse_boundaries_abstain(change):
     document = html.fromstring(original().encode())
@@ -117,6 +119,27 @@ def test_actual_source_adverse_boundaries_abstain(change):
         extra.set("id", "adverse-repeat")
         extra.text = "99,999"
         document.xpath("//body")[0].append(extra)
+    elif change == "oversized_visible_same_cell":
+        fact.tail = " " + OVERSIZED_AMOUNT[1:]
+    elif change == "oversized_visible_other_cell":
+        fact.xpath("ancestor::td")[0].getnext().text = OVERSIZED_AMOUNT[1:]
+    elif change in {"oversized_current_fact", "oversized_prior_fact", "oversized_repeat", "oversized_component"}:
+        if change == "oversized_prior_fact":
+            fact = node(document, "f-130")
+        elif change in {"oversized_repeat", "oversized_component"}:
+            fact = copy.deepcopy(fact)
+            fact.set("id", "oversized-fact")
+            if change == "oversized_component":
+                fact.set("name", "us-gaap:GainLossOnSaleOfInvestments")
+            document.xpath("//body")[0].append(fact)
+        fact.text = OVERSIZED_AMOUNT[1:]
+        if change == "oversized_component":
+            # Optional components already ignore invalid fact values. Preserve
+            # that contract while declining the oversized component itself.
+            source = acquire(html.tostring(document).decode())
+            assert source is not None
+            assert source["separate_investment_component_amounts"] == []
+            return
     elif change == "retracted_title":
         table.getparent().getprevious().append(html.fromstring("<p>The above statement is withdrawn.</p>"))
     elif change == "caption":

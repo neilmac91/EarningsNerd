@@ -54,3 +54,13 @@ and preserve the whole authored field; do not let optional withholding abort fin
 generation. The existing unsupported-claim gate covers all three amount positions,
 and the existing real-service consumer gate carries the oversized control through
 both aliases, final, preview and exports. No interpreter-global limit is changed.
+
+Apply the same conversion boundary to the new quarterly source parser. Oversized
+tagged amounts must return no fact value; selected statement rows must stop before
+the shared visible-amount parser can retry that rejected number. Repeated selected
+facts then abstain through their existing mismatch rule, while invalid optional
+components retain their existing ignore behavior. Extend the existing actual-source
+adverse gate across all three routes, preserving the shared annual amount owner.
+Also exercise extra visible digits beside a valid fact: same-cell additions fail
+the visible number grammar, and a second numeric cell fails its one-amount rule.
+Trace the actual quarterly call rather than assuming the fact check owns that text.
