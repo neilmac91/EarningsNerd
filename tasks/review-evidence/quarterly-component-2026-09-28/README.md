@@ -205,3 +205,45 @@ Exact receipts are in `outputs/overnight-2026-09-28/quality/integer-review-corre
 All prior proofs and the completed reconciliation gate are preserved. Hosted run
 36496560757 at the earlier head was left untouched. No push, PR/provider/cloud
 action or fresh semantic acceptance is claimed; publication and release stay with root.
+
+## Oversized SEC-source amount correction
+
+The clean sibling-main reconciliation `fc7f74aa4ce98e368a9c2b39675bb7fe1e4d0e77`
+includes main `0863a4b299b9f066b12a98852caa205857628656`. Its completed pinned
+backend gate (3,918 passed, 39 skipped, two deselected, 166.57s) is preserved in
+`outputs/overnight-2026-09-28/quality/sibling-base-reconciliation/`. Source work
+began only after that gate finished.
+
+Fresh review and two refutations showed that `_DIGITS` admits more than Python's
+integer-conversion limit, including selected current/prior facts, repeated facts
+and optional investment components. The public acquisition seam dispatched this
+parser outside its HTML-parse catch. Synthetic mutations of the actual fixture
+reproduced four failures; this does not allege malformed amounts in the filing.
+
+Correction `8997002bdcb8cc3f0add453c9af60e3d91d9f603` catches only conversion ValueError
+in the quarterly fact parser. Selected invalid facts stop before the shared visible
+amount parser can retry them. Existing repeated-fact abstention and optional
+invalid-component ignore behavior remain. The annual owner, original fixture,
+grammar and model-side claim/alias/continuation behavior are unchanged.
+
+The separate visible-text route was inspected and exercised explicitly. With the
+selected tagged fact still valid, extra oversized digits in the same cell reach
+the shared parser and fail its whole-number grammar; digits in another owned cell
+reach it and fail the one-amount rule. Traced calls return None without raising.
+Both controls also pass with the old quarterly parser during the fault proof.
+The annual helper remains byte-identical; it was not changed to mask this route.
+
+The one existing source-adverse gate covers all six controls and passes all 34
+cases. The committed old-parser fault fails four controls (30 pass); exact
+restoration passes all 34. The final pinned full backend gate passed Ruff 0.16.9
+and Bandit 1.9.4 with no medium/high findings: **3,924 passed,
+39 skipped, 2 deselected**, 40 warnings in
+161.14 seconds, pytest exit 0. Fresh caches, the macOS library
+loader and one test process per checkout were used. The known unchanged Yahoo
+shutdown logging tail is retained after the passing summary.
+
+All prior evidence and the completed base gate remain preserved. Exact receipts,
+the visible-only call audit and refutations are under
+`outputs/overnight-2026-09-28/quality/source-integer-review-correction/`.
+No locked test changed and no duplicate gate was added. Hosted e2 run 36499006777 was untouched;
+no push, PR/provider/cloud action or fresh semantic acceptance is claimed.
