@@ -1,87 +1,144 @@
 {
-  "base": "4db8f46a1a35eca7e71194919eefafb29c29e50d",
-  "workflow_sha256": "dd80307c109060c7744da48433c6c0a69d261586efd5510fda929c7519a615f2",
-  "embedded_python_sha256": "319d99f48fa867363ecc5f06ee0d6b367423296667c7334aaf93b9e7b026736f",
-  "offline_projection_cases": [
-    {
-      "fixture": "normal",
-      "arbitrary_private_values_absent": true,
-      "effective_worker_count": null,
-      "egress_ip_identity": null
+  "initial_4dcac632_evidence": {
+    "base": "4db8f46a1a35eca7e71194919eefafb29c29e50d",
+    "workflow_sha256": "dd80307c109060c7744da48433c6c0a69d261586efd5510fda929c7519a615f2",
+    "embedded_python_sha256": "319d99f48fa867363ecc5f06ee0d6b367423296667c7334aaf93b9e7b026736f",
+    "offline_projection_cases": [
+      {
+        "fixture": "normal",
+        "arbitrary_private_values_absent": true,
+        "effective_worker_count": null,
+        "egress_ip_identity": null
+      },
+      {
+        "fixture": "missing",
+        "arbitrary_private_values_absent": true,
+        "effective_worker_count": null,
+        "egress_ip_identity": null
+      },
+      {
+        "fixture": "secret_ref",
+        "arbitrary_private_values_absent": true,
+        "effective_worker_count": null,
+        "egress_ip_identity": null
+      },
+      {
+        "fixture": "unrecognized",
+        "arbitrary_private_values_absent": true,
+        "effective_worker_count": null,
+        "egress_ip_identity": null
+      },
+      {
+        "fixture": "text_fields",
+        "arbitrary_private_values_absent": true,
+        "effective_worker_count": null,
+        "egress_ip_identity": null
+      },
+      {
+        "fixture": "bool_fields",
+        "arbitrary_private_values_absent": true,
+        "effective_worker_count": null,
+        "egress_ip_identity": null
+      },
+      {
+        "fixture": "mapping_fields",
+        "arbitrary_private_values_absent": true,
+        "effective_worker_count": null,
+        "egress_ip_identity": null
+      },
+      {
+        "fixture": "below_min",
+        "arbitrary_private_values_absent": true,
+        "effective_worker_count": null,
+        "egress_ip_identity": null
+      },
+      {
+        "fixture": "above_max",
+        "arbitrary_private_values_absent": true,
+        "effective_worker_count": null,
+        "egress_ip_identity": null
+      },
+      {
+        "fixture": "max_valid",
+        "arbitrary_private_values_absent": true,
+        "effective_worker_count": null,
+        "egress_ip_identity": null
+      }
+    ],
+    "verification": {
+      "yaml": "parsed",
+      "workflow_readers": {
+        "passed": 138,
+        "warnings": 16,
+        "exit_code": 0
+      },
+      "frontend_lockstep": {
+        "passed": 3,
+        "exit_code": 0
+      }
     },
-    {
-      "fixture": "missing",
-      "arbitrary_private_values_absent": true,
-      "effective_worker_count": null,
-      "egress_ip_identity": null
+    "gate_log_sha256": {
+      "workflow-readers-v2": "b5a3ba54cd3b750bb9942e7bd1226661de66169a23acd63dc038d9c9f68312eb",
+      "frontend-lockstep-v2": "5f86dae650264a5b4b5be2e99e3d6927efbf4e3e5305bd609b55d8138108cb26"
     },
-    {
-      "fixture": "secret_ref",
-      "arbitrary_private_values_absent": true,
-      "effective_worker_count": null,
-      "egress_ip_identity": null
-    },
-    {
-      "fixture": "unrecognized",
-      "arbitrary_private_values_absent": true,
-      "effective_worker_count": null,
-      "egress_ip_identity": null
-    },
-    {
-      "fixture": "text_fields",
-      "arbitrary_private_values_absent": true,
-      "effective_worker_count": null,
-      "egress_ip_identity": null
-    },
-    {
-      "fixture": "bool_fields",
-      "arbitrary_private_values_absent": true,
-      "effective_worker_count": null,
-      "egress_ip_identity": null
-    },
-    {
-      "fixture": "mapping_fields",
-      "arbitrary_private_values_absent": true,
-      "effective_worker_count": null,
-      "egress_ip_identity": null
-    },
-    {
-      "fixture": "below_min",
-      "arbitrary_private_values_absent": true,
-      "effective_worker_count": null,
-      "egress_ip_identity": null
-    },
-    {
-      "fixture": "above_max",
-      "arbitrary_private_values_absent": true,
-      "effective_worker_count": null,
-      "egress_ip_identity": null
-    },
-    {
-      "fixture": "max_valid",
-      "arbitrary_private_values_absent": true,
-      "effective_worker_count": null,
-      "egress_ip_identity": null
-    }
-  ],
-  "verification": {
-    "yaml": "parsed",
-    "workflow_readers": {
-      "passed": 138,
-      "warnings": 16,
-      "exit_code": 0
-    },
-    "frontend_lockstep": {
-      "passed": 3,
-      "exit_code": 0
-    }
+    "production_dispatches": 0,
+    "production_mutations": 0,
+    "provider_calls": 0,
+    "refutation_disposition": "Both passes upheld raw concurrency/timeout projection risk for malformed API documents; exact integers in documented bounds now retained, all other values null."
   },
-  "gate_log_sha256": {
-    "workflow-readers-v2": "b5a3ba54cd3b750bb9942e7bd1226661de66169a23acd63dc038d9c9f68312eb",
-    "frontend-lockstep-v2": "5f86dae650264a5b4b5be2e99e3d6927efbf4e3e5305bd609b55d8138108cb26"
-  },
-  "production_dispatches": 0,
-  "production_mutations": 0,
-  "provider_calls": 0,
-  "refutation_disposition": "Both passes upheld raw concurrency/timeout projection risk for malformed API documents; exact integers in documented bounds now retained, all other values null."
+  "current": {
+    "implementation_head": "c071acef714a3ab16d44db02d91199cb8e27c9fa",
+    "workflow_sha256": "d5d57dcd1404e356c2efedbb5a962d193e146847899276d3b44ee4357e51efaa",
+    "command_policy": "presence only; raw command/argument values always withheld",
+    "enduring_gate": "backend/tests/unit/test_capacity_projection_privacy.py",
+    "focused_cases": 20,
+    "full_backend_gate": {
+      "head": "c071acef714a3ab16d44db02d91199cb8e27c9fa",
+      "results": [
+        {
+          "name": "ruff",
+          "exit_code": 0,
+          "seconds": 0.113,
+          "sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18"
+        },
+        {
+          "name": "bandit",
+          "exit_code": 0,
+          "seconds": 2.466,
+          "sha256": "eea320156d6442b12141a712942f2ac23bee2f5003450d5e35054fb3bf8015fd"
+        },
+        {
+          "name": "pytest",
+          "exit_code": 0,
+          "seconds": 162.527,
+          "sha256": "e1749e90b6c7f253aace2719862ba87b82eecc1d0f4901419834dec7515c375a"
+        }
+      ]
+    },
+    "pytest_tail": "3827 passed, 39 skipped, 2 deselected, 40 warnings in 159.78s",
+    "frontend_lockstep": "3 passed in 2.15s, Node22.14.0, Vitest5.0.1",
+    "mutation": {
+      "head": "c071acef714a3ab16d44db02d91199cb8e27c9fa",
+      "source_sha256": "d5d57dcd1404e356c2efedbb5a962d193e146847899276d3b44ee4357e51efaa",
+      "fault_exit": 1,
+      "restored_exit": 0,
+      "restored_byte_identical": true
+    },
+    "mutation_tails": [
+      "15 failed, 5 passed, 2 warnings in 1.17s",
+      "20 passed, 2 warnings in 0.43s"
+    ],
+    "refutations": {
+      "numeric_argument_disclosure": [
+        "A standalone numeric argument has no capacity meaning without an option position; initial all-token filter nevertheless emitted it.",
+        "Concrete python/123 and worker-command fixture execution demonstrated raw array emission; current state-only output omits all arrays."
+      ],
+      "enduring_gate_missing": [
+        "Required workflow readers exercise unrelated workflow invariants; none executes safe_tokens/container_command.",
+        "The initial ten fixture receipts were not an executable hosted regression; the new gate executes the real workflow projection."
+      ]
+    },
+    "existing_locked_tests_changed": false,
+    "backend_touch_requires_serial_deploy": true
+  }
 }
