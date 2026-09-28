@@ -5934,3 +5934,21 @@ H15 historical equality, logo and 78 dispositions remain unresolved. Quality, be
   committed fault/restored proofs and the full backend gate (3,866 passed, 39
   skipped, 2 deselected). Annual/absent full-message hashes are preserved. The
   candidate remains held for independent re-review; no release action is taken.
+
+## September 28 overnight authority and provider-cost correction
+
+The founder requested independent overnight implementation with agents and explicitly authorized
+necessary changes and DeepSeek spend. Continue the quality/source/capacity critical path with
+normal review and serial release gates. The local overnight checkpoint records an initial USD 5
+discretionary ceiling against a fresh USD 51.36 available balance (readout 36488471935); formal
+E7/E8 contracts and customer-consent/quality prerequisites remain unchanged. This supersedes
+earlier blanket account/spend waiting states, not the retained specific quality boundaries.
+
+The official DeepSeek notice and the existing ADR-0008 addendum both say Pro service continued
+after September 14. Correct its per-call telemetry rates to USD 0.022/0.66/1.98 per million
+cache-hit input/cache-miss input/output tokens off peak, with the existing peak multiplier.
+Preserve Flash rates, model/default/flag/prompt/baseline settings and historical measurements.
+One dedicated tariff gate and its stale-rate fault prove the rates. Separate actual-model
+routing and completion-accounting gates use estimator sentinels; completion telemetry preserves
+recorded per-call costs, mixed models and unknown usage through retries and tool rounds.
+Full local and hosted verification plus independent exact-head review precede release.
