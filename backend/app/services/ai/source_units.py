@@ -7,6 +7,7 @@ from typing import Any, Sequence
 from lxml import etree, html
 
 from app.services.ai.recovery_context import clean_filing_source, recovery_blocks
+from app.services.edgar.debt_concepts import DEBT_MATURITY_SEQUENCE, DEBT_MATURITY_TOTAL
 from app.services.edgar.statement_context import source_report_period
 from app.services.edgar.statement_relationship_source import _text
 from app.services.provenance_service import _MIN_VERIFIABLE_LEN
@@ -147,25 +148,38 @@ def restore_authored_plan_units(
 
 # --- declared table-cell scale restoration ------------------------------------------------------
 #
-# A model copies a cell ("3,542") from a table whose banner declares "(Amounts in millions)" and
-# writes "2027: $3,542": the VALUE is source-exact while the UNIT is one million times too small
-# (retained candidate-r WMT 10-K run 1, maturities bullet). ``figure_trace`` deliberately ignores
-# unit-less dollar figures, so the class was invisible to the dollar gate. This owner restores ONLY
-# the scale word the SOURCE DOCUMENT declares for THAT proposition: the authored statement must
-# pair the figure with a label ("2027: $3,542", "Total: $38,166"), and the filing's own HTML must
-# hold an inline-XBRL fact with exactly those digits, in a table row whose label is that label,
-# whose unit is USD alone, whose ``scale`` attribute declares a multiplier, and whose context ends
-# on the filing's own DEI report period. That is a row/period/amount mapping between the authored
-# claim and one source cell; a matching digit string elsewhere establishes nothing. Everything else
-# abstains, byte-identical and with a reason: no label beside the figure, no tagged fact, no row
-# with that label, a non-dollar or per-share unit, a fact that declares the bare reading
-# (``scale="0"``), another period, disagreeing scales, no source document (cached-excerpt
-# generations), or a literal reading supported by standardized XBRL. Banners, flattened excerpt
-# lines, header geometry and typography are never read: four review rounds showed each such
-# heuristic moving the counterexample instead of removing it. The figure's digits are never changed.
+# A model copies the long-term debt maturity schedule ("3,542", "3,237", …) from a table whose
+# banner declares "(Amounts in millions)" and writes "2027: $3,542; 2028: $3,237; …": every VALUE
+# is source-exact while every UNIT is one million times too small (retained candidate-r WMT 10-K
+# run 1, maturities bullet). ``figure_trace`` deliberately ignores unit-less dollar figures, so the
+# class was invisible to the dollar gate. This owner repairs exactly ONE finite proposition, the
+# complete long-term-debt maturity sequence, and nothing else:
+#
+#   the authored text is the affirmative introduction "[Annual|Contractual|Scheduled] maturities of
+#   [our] long-term debt [during|for|over the next five [fiscal] years and thereafter] [are|were] as
+#   follows:" followed by exactly five consecutive fiscal-year pairs, "Thereafter" and "Total",
+#   each a bare "$N,NNN", and nothing after the total;
+#
+#   the filing's own inline XBRL carries, on the validated DEI report period, exactly one fact for
+#   each of the six schedule concepts of ``debt_concepts.DEBT_MATURITY_SEQUENCE`` and one for the
+#   schedule total concept, each in a table row labelled with that year / "Thereafter" / "Total",
+#   in USD alone, with one shared ``scale`` of 3/6/9, whose digits equal the authored amounts in
+#   order, whose first year is the fiscal year after the report period, and whose six amounts sum
+#   to the total.
+#
+# Every part of that mapping (measure by concept, reporting basis by the sum identity, period by
+# context, unit and scale by the fact's own attributes, row by label, order by position) is read
+# from the source; the digits are never changed. Any other bare figure — an unlabelled amount, a
+# different subject ("registration fees"), a reordered, partial or already-scaled sequence, a
+# qualifier the grammar does not know, trailing text, a missing, conflicting, non-USD, scale-0 or
+# other-period fact, a mismatched amount, row or year, a schedule that does not sum — is left
+# unchanged with a recorded reason. Five review rounds showed every broader mechanism (banners,
+# flattened lines, table geometry, cell ownership, digit-and-label binding) moving the
+# counterexample rather than removing it; this owner does not read any of them.
 
 # Inline-XBRL ``scale`` attribute → the fact's own unit multiplier (``0``/absent = as written).
 _FACT_SCALE_WORD = {"3": "thousand", "6": "million", "9": "billion"}
+_SCALE_FACTOR = {"thousand": 1e3, "million": 1e6, "billion": 1e9}
 # A model-authored bare dollar figure: "$" + comma-grouped integer, no scale word (singular or
 # plural), no decimals, not a currency-prefixed form ("US$", "NT$") and not a percentage.
 _BARE_DOLLAR_FIGURE = re.compile(
@@ -173,32 +187,63 @@ _BARE_DOLLAR_FIGURE = re.compile(
     r"(?![\d,]|\.\d|\s*(?:thousands?|millions?|billions?|trillions?|bn|mn|tn|[kmbt])\b|\s*%)",
     re.I,
 )
-# The authored label a figure is paired with: the text between the previous delimiter and the
-# colon immediately before the figure ("… as follows: 2027: $3,542; Thereafter: $23,255").
-_AUTHORED_LABEL = re.compile(r"(?:^|[;:(—–])\s*([^;:()—–]{1,80}?)\s*:\s*$")
+# The one supported introduction, with its supported qualifiers only.
+_MATURITY_INTRO = re.compile(
+    r"^(?:(?:annual|contractual|scheduled)\s+)?maturities\s+of\s+(?:our\s+)?long-term\s+debt"
+    r"(?:\s+(?:during|for|over)\s+the\s+next\s+five\s+(?:fiscal\s+)?years\s+and\s+thereafter)?"
+    r"(?:\s+(?:are|were))?\s+as\s+follows:$",
+    re.I,
+)
+_AMOUNT = r"\$(\d{1,3}(?:,\d{3})+)"
+_YEAR_PAIR = r"(\d{4}):\s*" + _AMOUNT
+# Exactly five year pairs, Thereafter and Total, ";"-separated, an optional final period, nothing else.
+_MATURITY_SEQUENCE = re.compile(
+    r"^\s*" + r";\s*".join([_YEAR_PAIR] * 5)
+    + r";\s*thereafter:\s*" + _AMOUNT + r";\s*total:\s*" + _AMOUNT + r"\.?\s*$",
+    re.I,
+)
 _SKIP_TAGS = frozenset({"script", "style", "title"})
 _AUDIT_CAP = 40
+_SEQUENCE_LABELS = ("thereafter", "total")
 
 
 def _normalize_label(label: str) -> str:
     return " ".join(label.replace("\xa0", " ").split()).rstrip(":").strip().lower()
 
 
-def authored_label(text: str, end: int) -> str | None:
-    """The label the authored text pairs with the figure starting at ``end``, or None."""
-    match = _AUTHORED_LABEL.search(text[:end])
-    return match.group(1) if match else None
+def maturity_proposition(text: str) -> dict[str, Any] | None:
+    """Parse ``text`` as the one supported proposition, or return None.
+
+    Result: ``{"years": [int x5], "amounts": [str x7] (digits, in order), "ends": [int x7] (the
+    index just after each "$N,NNN", in order)}``. The introduction grammar and the sequence shape
+    are both exact; a reordered, partial, already-scaled or trailing-text form is not a proposition."""
+    head, sep, tail = text.partition("as follows:")
+    if not sep:
+        return None
+    intro = " ".join(head.split()) + " as follows:"
+    if not _MATURITY_INTRO.match(intro):
+        return None
+    match = _MATURITY_SEQUENCE.match(tail)
+    if not match:
+        return None
+    years = [int(match.group(i)) for i in (1, 3, 5, 7, 9)]
+    if any(years[i + 1] != years[i] + 1 for i in range(4)):
+        return None
+    groups = (2, 4, 6, 8, 10, 11, 12)
+    offset = len(head) + len(sep)
+    return {"years": years, "amounts": [match.group(i) for i in groups],
+            "ends": [offset + match.end(i) for i in groups]}
 
 
 class TableUnitIndex:
-    """The filing's own source document, parsed on first use; per-proposition resolutions cached.
+    """The filing's own source document, parsed on first use; the proposition's resolution cached.
 
-    Ownership evidence is one inline-XBRL fact bound to the authored label through its table row,
-    to the filing through its DEI report period, and to a unit through its own attributes."""
+    Ownership evidence is the filing's tagged maturity sequence: concept, row label, DEI report
+    period, unit, scale, amounts and their sum, all read from the source."""
 
     def __init__(self, source_html: str) -> None:
         self._html = source_html
-        self._cache: dict[tuple[str, str | None], tuple[str | None, str]] = {}
+        self._cache: dict[tuple[Any, ...], tuple[str | None, str]] = {}
         self._document: Any = None
         self._parsed = False
         self._facts: dict[str, list[Any]] | None = None
@@ -207,13 +252,12 @@ class TableUnitIndex:
         self._period: str | None = None
         self._period_read = False
 
-    def resolve(self, figure: str, label: str | None) -> tuple[str | None, str]:
-        """``(scale word, reason)``: the one scale the source declares for ``label: $figure``, else
-        ``(None, why)``. Reasons are audit vocabulary, not user text."""
-        key = (figure, label)
+    def resolve_maturity_sequence(self, years: Sequence[int], amounts: Sequence[str]) -> tuple[str | None, str]:
+        """``(scale word, reason)`` for the authored sequence, else ``(None, why)``."""
+        key = (tuple(years), tuple(amounts))
         if key in self._cache:
             return self._cache[key]
-        result = self._resolve(figure, label)
+        result = self._resolve(list(years), list(amounts))
         self._cache[key] = result
         return result
 
@@ -232,7 +276,7 @@ class TableUnitIndex:
         return self._document
 
     def _index(self) -> None:
-        """One walk: facts by their exact text, unit measures, and each context's period end."""
+        """One walk: facts by qualified concept, unit measures, and each context's period end."""
         if self._facts is not None:
             return
         facts: dict[str, list[Any]] = {}
@@ -244,7 +288,7 @@ class TableUnitIndex:
                 continue
             tag = node.tag.lower()
             if tag == "ix:nonfraction":
-                facts.setdefault(_text(node), []).append(node)
+                facts.setdefault((node.get("name") or "").strip(), []).append(node)
             elif tag.endswith(":unit") and node.get("id"):
                 units[node.get("id")] = [
                     _text(m).lower() for m in node.iter()
@@ -265,39 +309,48 @@ class TableUnitIndex:
 
     # -- ownership -------------------------------------------------------------------------------
 
-    def _resolve(self, figure: str, label: str | None) -> tuple[str | None, str]:
-        if label is None:
-            return None, "no_authored_label"
+    def _resolve(self, years: list[int], amounts: list[str]) -> tuple[str | None, str]:
         if self._parse() is None:
             return None, "no_source_document"
-        self._index()
-        assert self._facts is not None and self._units is not None and self._contexts is not None
-        facts = self._facts.get(figure, [])
-        if not facts:
-            return None, "no_tagged_fact"
-        wanted = _normalize_label(label)
-        bound = [fact for fact in facts if self._row_label(fact) == wanted]
-        if not bound:
-            return None, "no_matching_row"
         period = self._report_period()
         if period is None:
             return None, "no_report_period"
+        if years[0] != int(period[:4]) + 1:
+            return None, "year_mismatch"
+        self._index()
+        assert self._facts is not None and self._units is not None and self._contexts is not None
+        concepts = (*DEBT_MATURITY_SEQUENCE, DEBT_MATURITY_TOTAL)
+        labels = [*(str(year) for year in years), *_SEQUENCE_LABELS]
         scales: set[str] = set()
-        for fact in bound:
-            if self._units.get(fact.get("unitref") or "", []) != ["iso4217:usd"]:
-                return None, "non_dollar_unit"
-            if self._contexts.get(fact.get("contextref") or "") != period:
-                return None, "period_mismatch"
-            scale = (fact.get("scale") or "0").strip()
-            if scale == "0":
-                return None, "declared_unscaled"
-            word = _FACT_SCALE_WORD.get(scale)
-            if word is None:
-                return None, "unsupported_scale"
-            scales.add(word)
-        if len(scales) == 1:
-            return next(iter(scales)), "declared"
-        return None, "mixed_scales"
+        for concept, label, amount in zip(concepts, labels, amounts):
+            on_period = [fact for fact in self._facts.get(concept, [])
+                         if self._contexts.get(fact.get("contextref") or "") == period]
+            if not on_period:
+                return None, "missing_fact"
+            # Inline XBRL may repeat one fact in several tables (the retained WMT total appears in
+            # the debt table and the schedule); repeats must agree, and one must sit in the schedule row.
+            if len({_text(fact) for fact in on_period}) > 1:
+                return None, "conflicting_facts"
+            if _text(on_period[0]) != amount:
+                return None, "amount_mismatch"
+            if not any(self._row_label(fact) == label for fact in on_period):
+                return None, "row_label_mismatch"
+            for fact in on_period:
+                if self._units.get(fact.get("unitref") or "", []) != ["iso4217:usd"]:
+                    return None, "non_dollar_unit"
+                scale = (fact.get("scale") or "0").strip()
+                if scale == "0":
+                    return None, "declared_unscaled"
+                word = _FACT_SCALE_WORD.get(scale)
+                if word is None:
+                    return None, "unsupported_scale"
+                scales.add(word)
+        if len(scales) != 1:
+            return None, "mixed_scales"
+        values = [int(amount.replace(",", "")) for amount in amounts]
+        if sum(values[:6]) != values[6]:
+            return None, "sequence_does_not_sum"
+        return next(iter(scales)), "declared"
 
     @staticmethod
     def _row_label(fact: Any) -> str | None:
@@ -341,8 +394,8 @@ def restore_table_cell_units(
     xbrl_metrics: dict | None = None,
     recovered: Any = (),
 ) -> dict[str, Any] | None:
-    """Insert the declared scale word after each bare dollar figure whose authored proposition
-    ("label: $figure") one source fact owns.
+    """Insert the declared scale word after each figure of a complete, source-owned long-term-debt
+    maturity proposition; leave every other bare dollar figure exactly as written.
 
     Mutates the policed model-prose slots in place (``figure_trace.policed_prose_slots``); recovered
     sections are skipped because their context was separately selected. Callers run it after the
@@ -368,24 +421,26 @@ def restore_table_cell_units(
         if section in recovered_keys:
             unresolved.extend({"slot": slot, "figure": m.group(0), "reason": "recovered"} for m in matches)
             continue
+        proposition = maturity_proposition(text)
+        if proposition is None:
+            unresolved.extend({"slot": slot, "figure": m.group(0), "reason": "unsupported_proposition"}
+                              for m in matches)
+            continue
+        scale, reason = index.resolve_maturity_sequence(proposition["years"], proposition["amounts"])
+        values = [float(a.replace(",", "")) for a in proposition["amounts"]]
+        if scale is not None and any(_literal_supported(v, grounded) for v in values):
+            scale, reason = None, "literal_xbrl_match"
+        figures = ["$" + a for a in proposition["amounts"]]
+        if scale is None:
+            unresolved.extend({"slot": slot, "figure": f, "reason": reason} for f in figures)
+            continue
         edited = text
-        for match in reversed(matches):
-            figure = match.group(1)
-            scale, reason = index.resolve(figure, authored_label(text, match.start()))
-            value = float(figure.replace(",", ""))
-            if scale is not None and _literal_supported(value, grounded):
-                scale, reason = None, "literal_xbrl_match"
-            if scale is None:
-                unresolved.append({"slot": slot, "figure": match.group(0), "reason": reason})
-                continue
-            corroborated = _literal_supported(
-                value * {"thousand": 1e3, "million": 1e6, "billion": 1e9}[scale], grounded,
-            )
-            edited = edited[:match.end()] + " " + scale + edited[match.end():]
-            restored.append({"slot": slot, "figure": match.group(0), "unit": scale,
-                             "xbrl_corroborated": corroborated})
-        if edited != text:
-            container[key] = edited
+        for end in reversed(proposition["ends"]):
+            edited = edited[:end] + " " + scale + edited[end:]
+        for figure, value in zip(figures, values):
+            restored.append({"slot": slot, "figure": figure, "unit": scale,
+                             "xbrl_corroborated": _literal_supported(value * _SCALE_FACTOR[scale], grounded)})
+        container[key] = edited
     if not found:
         return None
     # Totals are exact; the detail lists are capped so a pathological summary cannot bloat the row.

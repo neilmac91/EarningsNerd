@@ -158,6 +158,25 @@ COMPLETE_BORROWING_PARTITIONS: Tuple[FrozenSet[str], ...] = (
 # alternative spellings of one another.
 DEBT_COMPONENT_CONCEPTS: Tuple[str, ...] = tuple(DEBT_CONCEPTS)
 
+# The contractual long-term-debt MATURITY SCHEDULE, a different measure from the carrying balances
+# above (see ``EXCLUDED_DEBT_CONCEPTS``): principal repayments due in each of the next five fiscal
+# years and thereafter, in the taxonomy's own order. The only consumer is the declared-scale owner
+# in ``app/services/ai/source_units.py``, which repairs a bare authored "2027: $3,542; …" sequence
+# solely when the filing tags every one of these six concepts and the total on the report period
+# and the six sum to the total. Order is part of the meaning; never reorder or extend by name.
+DEBT_MATURITY_SEQUENCE: Tuple[str, ...] = (
+    "us-gaap:LongTermDebtMaturitiesRepaymentsOfPrincipalInNextTwelveMonths",
+    "us-gaap:LongTermDebtMaturitiesRepaymentsOfPrincipalInYearTwo",
+    "us-gaap:LongTermDebtMaturitiesRepaymentsOfPrincipalInYearThree",
+    "us-gaap:LongTermDebtMaturitiesRepaymentsOfPrincipalInYearFour",
+    "us-gaap:LongTermDebtMaturitiesRepaymentsOfPrincipalInYearFive",
+    "us-gaap:LongTermDebtMaturitiesRepaymentsOfPrincipalAfterYearFive",
+)
+# The schedule's total row is tagged with the long-term debt balance including current maturities
+# (retained WMT source). The sum identity over the six schedule facts is what admits it as the
+# schedule's total; a total that the schedule does not sum to is not this proposition.
+DEBT_MATURITY_TOTAL = "us-gaap:LongTermDebt"
+
 
 def classify_debt_concept(qualified_concept: Optional[str]) -> Optional[DebtIdentity]:
     """The admissible identity for an EXACT qualified concept, or None when it is not admissible.
