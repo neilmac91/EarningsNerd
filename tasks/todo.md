@@ -5928,5 +5928,7 @@ The official DeepSeek notice and the existing ADR-0008 addendum both say Pro ser
 after September 14. Correct its per-call telemetry rates to USD 0.022/0.66/1.98 per million
 cache-hit input/cache-miss input/output tokens off peak, with the existing peak multiplier.
 Preserve Flash rates, model/default/flag/prompt/baseline settings and historical measurements.
-The existing integrated actual-model cost gate and one stale-rate fault prove the correction;
-full local and hosted verification plus independent exact-head review precede release.
+One dedicated tariff gate and its stale-rate fault prove the rates. Separate actual-model
+routing and completion-accounting gates use estimator sentinels; completion telemetry preserves
+recorded per-call costs, mixed models and unknown usage through retries and tool rounds.
+Full local and hosted verification plus independent exact-head review precede release.
