@@ -63,6 +63,11 @@ the `PRO_TRIAL_DAYS` / `NEXT_PUBLIC_ENABLE_PRO_TRIAL` lockstep are separate deci
 price change does not flip them. The controlled beta's email response commitment is not a
 new paid-plan SLA.
 
+Existing display limitation: the pricing page shows the public offer alongside “Current Plan”
+for paid users; it does not read their actual Stripe subscription amount. That pre-existing
+behavior is retained. Verify the subscription's billing details separately when checking
+customer preservation; the public price is not evidence of that customer's renewal amount.
+
 ## Rollback
 
 A frontend rollback must retain the lower backend bindings while a lower-price page or cached
@@ -81,6 +86,11 @@ of the JSON-LD amount must fail the cross-surface gate, then pass after exact re
 These checks establish frontend consistency; effective Stripe configuration remains an
 operator verification at activation.
 
-Final local verification must identify the revised $19/month candidate. Earlier $23-candidate
-gate and mutation receipts remain historical; rerun the committed-state amount-drift proof
-and full frontend gate for the approved $19/$190 offer before draft review.
+Final $19/$190 local verification passed on `1f3b910e26b3c5b87e6bc5f206884c2a39ea66f7` with
+Node 22.23.2 / npm 10.9.8: lint, TypeScript, 114 Vitest files / 652 tests (zero skips), and Next
+build. Built homepage/pricing HTML and Product/Offer JSON-LD contain the approved offer and
+two-month saving. The single revised-offer mutation ran on committed `c72f0caa`: replacing
+only the JSON-LD monthly amount with 29 failed against the expected 19; exact restoration
+passed with an empty working tree. Its frontend source is unchanged in the gate commit.
+Earlier $23-candidate receipts remain historical. No activation, live checkout, customer
+operation or hosted release is claimed by these local results.
