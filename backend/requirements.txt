@@ -64,9 +64,7 @@ filelock==3.29.4
 fonttools==4.63.0
     # via weasyprint
 greenlet==3.5.6
-    # via
-    #   -r requirements.in
-    #   sqlalchemy
+    # via -r requirements.in
 h11==0.16.0
     # via
     #   httpcore
@@ -102,7 +100,7 @@ jinja2==3.1.6
     # via edgartools
 jiter==0.16.0
     # via openai
-json-repair==0.63.4
+json-repair==0.63.5
     # via -r requirements.in
 lxml==6.1.3
     # via
@@ -120,7 +118,7 @@ numpy==2.4.6
     # via
     #   pandas
     #   rank-bm25
-openai==3.16.2
+openai==3.19.2
     # via -r requirements.in
 openpyxl==3.1.5
     # via -r requirements.in
@@ -138,7 +136,7 @@ pillow==12.3.0
     # via weasyprint
 pluggy==1.6.0
     # via pytest
-posthog==7.58.0
+posthog==7.60.0
     # via -r requirements.in
 psycopg2-binary==2.9.13
     # via -r requirements.in
@@ -163,7 +161,7 @@ pygments==2.20.0
     # via
     #   pytest
     #   rich
-pyjwt==2.14.0
+pyjwt==2.15.0
     # via
     #   -r requirements.in
     #   pyjwt
@@ -204,7 +202,7 @@ requests==2.34.2
     #   stripe
 rich==15.0.0
     # via edgartools
-sentry-sdk==2.69.2
+sentry-sdk==2.70.0
     # via -r requirements.in
 six==1.17.0
     # via python-dateutil
@@ -265,7 +263,7 @@ urllib3==2.7.0
     # via
     #   requests
     #   sentry-sdk
-uvicorn==0.53.0
+uvicorn==0.54.0
     # via -r requirements.in
 uvloop==0.22.1
     # via uvicorn
