@@ -104,8 +104,9 @@ def bind_statement_relationship(sections: dict, source: dict | None) -> bool:
     if source.get("kind") == QUARTERLY_KIND:
         authored = section.get("operating_vs_one_time")
         alternate = section.get("operatingVsOneTime")
-        if alternate is not None and alternate != authored:
+        if authored and alternate and alternate != authored:
             return False
+        authored = authored or alternate
         if not isinstance(authored, str) or (match := _quarterly_claim(authored, source)) is None:
             return False
         suffix = match["suffix"]

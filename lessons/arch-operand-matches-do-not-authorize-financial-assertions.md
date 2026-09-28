@@ -37,3 +37,13 @@ Unsupported source layouts and calendar comparisons must abstain without crashin
 the optional source seam. The existing source-boundary gate includes matching
 one-/two-row headers and a valid leap-ending quarter whose prior day cannot match
 the finite grammar. These controls require no broader fiscal-calendar inference.
+
+Resolve the supported earnings-quality aliases using the renderer's same populated
+value selection before matching a quarterly claim. An absent or empty companion
+is not an independent proposition; distinct populated values remain outside the
+withholder. Successful binding removes both aliases so the original claim cannot
+leak beside the owned limitation. The existing native-source consumer gate covers
+both sole aliases, empty companions and equal aliases through actual JSON assembly,
+final, preview, compatibility, shared Markdown, PDF and CSV. The existing conflict
+gate preserves different populated aliases in either direction; no second invariant
+gate is added.

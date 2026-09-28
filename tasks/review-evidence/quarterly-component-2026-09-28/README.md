@@ -132,3 +132,22 @@ receipt, not a new replay at this correction commit.
 
 The candidate remains held for independent re-review. Passing finite controls is
 not semantic source authority, and no E7 acceptance/progress credit is claimed.
+
+## Supported-alias review correction
+
+Review of merged-main head `8e47f893ae02927621b26ee0c8666f52ae6b64a2`
+found that a sole `operatingVsOneTime` field stayed visible: the quarterly binder
+required the snake-case field while the actual renderer accepts either alias.
+Two fresh refutation passes found no earlier normalization or later consumer
+that prevents this path. A provider-stubbed run through actual JSON assembly,
+binding and the final/preview/shared consumers reproduced the escaped claim.
+
+The binder now chooses the same populated alias as the renderer and declines only
+when both populated aliases differ. Empty strings are intentionally treated like
+absent values because the renderer already falls through them; whitespace remains
+populated and cannot bypass the whole-field grammar. Successful binding still
+removes both aliases. The grammar, compensation continuation, source qualification
+boundaries and annual owner are unchanged. Existing consumer and conflict gates are
+extended instead of adding a duplicate rule. Verification receipts are retained in
+`outputs/overnight-2026-09-28/quality/alias-review-correction/` and will be recorded
+after committed-state mutation and full backend checks. Prior evidence is preserved.

@@ -188,14 +188,27 @@ def test_complete_authored_boundary_preserves_unsupported_claims(claim):
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("claim,corrected", [(CLAIM, True), ("Hypothetical example: " + CLAIM, False)])
-async def test_native_source_to_final_preview_shared_exports_preserves_suffix(monkeypatch, claim, corrected):
+@pytest.mark.parametrize("alias_layout", ["snake_only", "camel_only", "empty_snake", "empty_camel", "equal"])
+async def test_native_source_to_final_preview_shared_exports_preserves_suffix(monkeypatch, claim, corrected, alias_layout):
     for flag in ("AI_ATTRIBUTION_VERIFY", "AI_ATTRIBUTION_GATE", "AI_FORWARD_QUOTE_GATE", "AI_FIGURE_TRACE_GATE"):
         monkeypatch.setattr(settings, flag, False)
     monkeypatch.setattr(settings, "AI_EVIDENCE_SNAP", True)
     source = acquire()
     supplied = {"sections": sections(claim), "metadata": {}, "schema_version": SUMMARY_SCHEMA_VERSION}
+    quality = supplied["sections"]["earnings_quality"]
+    if alias_layout in {"camel_only", "empty_snake", "equal"}:
+        quality["operatingVsOneTime"] = claim
+    if alias_layout == "camel_only":
+        quality.pop("operating_vs_one_time")
+    elif alias_layout == "empty_snake":
+        quality["operating_vs_one_time"] = ""
+    elif alias_layout == "empty_camel":
+        quality["operatingVsOneTime"] = ""
     service = OpenAIService()
-    service.generate_structured_summary = AsyncMock(return_value=copy.deepcopy(supplied))
+    # Enter through the model-response seam so real JSON assembly and fallbacks
+    # cannot silently normalize an alias before final binding.
+    monkeypatch.setattr(service, "_request_content", AsyncMock(return_value=json.dumps(supplied)))
+    monkeypatch.setattr(service, "_recover_missing_sections", AsyncMock(return_value={}))
     result = await service.summarize_filing(original(), "Palantir", "10-Q", statement_source=source)
     raw = result["raw_summary"]
     raw["schema_version"] = SUMMARY_SCHEMA_VERSION
@@ -221,6 +234,9 @@ async def test_native_source_to_final_preview_shared_exports_preserves_suffix(mo
         else:
             assert claim in visible
     assert (raw.get(CONTEXT_KEY) == 1) is corrected
+    if corrected:
+        quality = raw["sections"]["earnings_quality"]
+        assert "operating_vs_one_time" not in quality and "operatingVsOneTime" not in quality
 
 
 def test_missing_native_source_keeps_existing_contract_and_clears_model_envelope():
@@ -257,16 +273,22 @@ def test_complete_claim_without_suffix_is_withheld_without_fabricated_continuati
     assert "preserved_authored_suffix" not in owned
 
 
-@pytest.mark.parametrize("alternate", ["Independent alternate claim.", "", None])
-def test_conflicting_alias_does_not_hide_an_independent_claim(alternate):
+@pytest.mark.parametrize("alternate", ["Independent alternate claim.", " ", "", None, CLAIM])
+@pytest.mark.parametrize("authored_key", ["operating_vs_one_time", "operatingVsOneTime"])
+def test_conflicting_alias_does_not_hide_an_independent_claim(alternate, authored_key):
     supplied = sections()
-    supplied["earnings_quality"]["operatingVsOneTime"] = alternate
-    if alternate is None:
+    quality = supplied["earnings_quality"]
+    quality.pop("operating_vs_one_time")
+    alternate_key = "operatingVsOneTime" if authored_key == "operating_vs_one_time" else "operating_vs_one_time"
+    quality[authored_key], quality[alternate_key] = CLAIM, alternate
+    if not alternate or alternate == CLAIM:
         assert bind_statement_relationship(supplied, acquire()) is True
+        assert "operating_vs_one_time" not in quality and "operatingVsOneTime" not in quality
     else:
         assert bind_statement_relationship(supplied, acquire()) is False
-        assert supplied["earnings_quality"]["operating_vs_one_time"] == CLAIM
-        assert supplied["earnings_quality"]["operatingVsOneTime"] == alternate
+        assert quality[authored_key] == CLAIM
+        assert quality[alternate_key] == alternate
+        assert OWNED_FIELD not in quality
 
 
 @pytest.mark.asyncio
