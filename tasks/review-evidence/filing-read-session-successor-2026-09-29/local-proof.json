@@ -285,6 +285,27 @@
   "pytest_tail": "3817 passed, 39 skipped, 2 deselected, 40 warnings in 160.02s (0:02:40)",
   "gate_scope": "39 opt-in PostgreSQL transaction tests skipped without their separate database URLs; two performance tests deselected by normal pytest configuration. Local PostgreSQL/HTTP measurements actually executed separately.",
   "existing_locked_tests_unchanged": true,
-  "release_status": "Local-only successor; awaiting coordinator base reconciliation, exact-head hosted review/checks and serial release.",
-  "unchanged_company_list_function_sha256": "9c53fe338271fb5ae89aed38f307addea99f1be716e0e49975a5bc54212efc37"
+  "release_status": "Dated coordination snapshot below; PR1018 is the live source. Local-only status is superseded. No production release claimed.",
+  "unchanged_company_list_function_sha256": "9c53fe338271fb5ae89aed38f307addea99f1be716e0e49975a5bc54212efc37",
+  "local_verification_identity_note": "Original local heads retained as historical evidence; see release_coordination_snapshot for subsequent reconciliation.",
+  "release_coordination_snapshot": {
+    "as_of_utc": "2026-09-28T23:07:00Z",
+    "pr": "https://github.com/neilmac91/EarningsNerd/pull/1018",
+    "live_status_source": "PR conversation and checks, not this immutable snapshot",
+    "reconciled_head": "0a0e83d2e059d81264fc04129f096b28bdbab996",
+    "base_main": "367a70fa474a43b0da03a8901b6c63f720d261c1",
+    "tree_identical_to_locally_gated_head": "57a5e4c7c28eab2e4d22b9aaeafdad6b8050d360",
+    "hosted_ci": 36494549922,
+    "synthetic_merge": "7aa5f282adf3dfe63086be47312677180bce7aad",
+    "initial_independent_review": "cleared exact0a0e83d2",
+    "ready_copilot": 36495768049,
+    "ready_review_workflow": 36495768083,
+    "ready_review_finding": "stale documentation status; corrected by this documentation-only update",
+    "remaining_at_snapshot": [
+      "independent review of documentation correction",
+      "merge",
+      "serial production release verification"
+    ],
+    "runtime_and_gate_bytes_changed": false
+  }
 }

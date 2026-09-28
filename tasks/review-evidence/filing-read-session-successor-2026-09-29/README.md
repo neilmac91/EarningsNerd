@@ -2,7 +2,7 @@
 
 The specific-filing, recent-filings, content and fundamentals handlers can exhaust the four-slot synchronous pool before async dependency cleanup releases completed reads. Each now materializes its existing DTO or primitive payload inside `try` and synchronously closes the session in `finally`. Missing filings still return 404; empty content and fundamentals retain their response shapes.
 
-Runtime and gate bytes were verified at `a92dff9edae4228268f69ef1b77883950f4ca118`, based exactly on PR1016 head `d4798aa219dc6578396d6195bfd457dcd827e3d6`. The company-list function remains byte-identical to that predecessor. No global dependency, pool setting, asynchronous SQL architecture, other router, response schema or locked test changed. The successor is local only, awaiting coordinator base reconciliation and hosted review/checks before serial release.
+Runtime and gate bytes were verified at `a92dff9edae4228268f69ef1b77883950f4ca118`, based exactly on PR1016 head `d4798aa219dc6578396d6195bfd457dcd827e3d6`. The company-list function remains byte-identical to that predecessor. No global dependency, pool setting, asynchronous SQL architecture, other router, response schema or locked test changed. These are the original local verification identities. The release coordination snapshot below records the subsequent reconciliation and hosted checks; the linked PR is the live release-status source.
 
 See [machine-readable proof](local-proof.json), [the shared regression](../../../backend/tests/unit/test_cached_filings_pool_lifetime.py), [the updated lesson](../../../lessons/ops-release-cached-filing-reads-before-yield.md), and [predecessor evidence](../filing-cache-session-2026-09-29/README.md).
 
@@ -42,6 +42,17 @@ The 39 skipped tests need their separate opt-in PostgreSQL transaction databases
 
 ## Review scope and limits
 
-Correctness review traced successful, empty and missing paths before cleanup; fundamentals payloads contain no ORM objects. Rules-and-brief review preserves the predecessor scope and every locked contract. Tests-and-gates review binds one failing/restored mutation and the full gate to exact source hashes. Coordinating independent review and exact-head hosted clearance are still required.
+Correctness review traced successful, empty and missing paths before cleanup; fundamentals payloads contain no ORM objects. Rules-and-brief review preserves the predecessor scope and every locked contract. Tests-and-gates review binds one failing/restored mutation and the full gate to exact source hashes. Root completed the coordinating review. Independent hosted outcomes are recorded against their exact tested head below.
 
 This resolves demonstrated local read-session starvation, not production capacity admission. Fleet reserve, effective workers, rollout overlap, shared SEC egress/per-wire admission, representative production useful work and consenting-user readouts remain separate. Detailed private receipts are retained in the coordinating workspace under `outputs/overnight-2026-09-28/capacity/sibling-successor/`; sanitized result fields and hashes are committed here.
+
+
+## Release coordination snapshot — 2026-09-28 23:07 UTC
+
+[PR #1018](https://github.com/neilmac91/EarningsNerd/pull/1018) is the live source for later review and release status. This dated snapshot is evidence, not an instruction to repeat completed gates.
+
+The unpublished successor-only commits were rebased onto verified main `367a70fa474a43b0da03a8901b6c63f720d261c1`, producing reviewed head `0a0e83d2e059d81264fc04129f096b28bdbab996`. Its entire tree `57a5e4c7c28eab2e4d22b9aaeafdad6b8050d360` is byte-identical to the fully gated local `39d6b879` tree. Reconciliation therefore changed identities, not source or test content.
+
+[Hosted CI 36494549922](https://github.com/neilmac91/EarningsNerd/actions/runs/36494549922) passed on synthetic merge `7aa5f282` with parents main `367a70fa` and candidate `0a0e83d2`: 70/70 scored, zero errors/retries, and 100% deterministic gate pass. [Independent exact-head review](https://github.com/neilmac91/EarningsNerd/pull/1018#issuecomment-5880162648) cleared `0a0e83d2`. Ready-stage Copilot run `36495768049` and review workflow `36495768083` completed successfully; the actual ready-stage review raised a documentation-status finding despite the workflow result. This correction records those completed steps and their identities.
+
+At this snapshot, the documentation correction still requires independent review, and merge plus serial production verification remain outstanding. The source/runtime, shared gate and prior fault/restoration evidence are unchanged. Passing these engineering gates does not establish source-quality or cohort-capacity acceptance.
