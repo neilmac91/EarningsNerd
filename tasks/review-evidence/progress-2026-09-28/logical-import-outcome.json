@@ -1,0 +1,116 @@
+{
+  "started_at": "2026-09-28T05:42:21.373631+00:00",
+  "finished_at": "2026-09-28T05:42:26.186306+00:00",
+  "result": "pass_with_local_owner_role_prerequisite",
+  "isolation": {
+    "tcp_disabled": true,
+    "application_environment_absent": true,
+    "fresh_database_no_migrations_applied": true
+  },
+  "attempts": [
+    {
+      "attempt": 1,
+      "prerequisite_placeholder_roles": 0,
+      "psql_exit": 3,
+      "gzip_exit": 0,
+      "seconds": 0.781,
+      "log_sha256": "304c80560f4c9adbb933e00efce9f579e9eecc3a1dc99d34ad15e984baa2c002",
+      "failure_class": "missing_owner_role"
+    },
+    {
+      "attempt": 2,
+      "prerequisite_placeholder_roles": 1,
+      "psql_exit": 0,
+      "gzip_exit": 0,
+      "seconds": 0.826,
+      "log_sha256": "ee3b698582153a5ae52e4b00e841be4b59e66b4cc51d043845fb919399724d36"
+    }
+  ],
+  "limits": [
+    "Local PostgreSQL 15 import only, not Cloud SQL managed import or application boot.",
+    "No current live-row parity or recovery-time/recovery-point guarantee.",
+    "No verification of future scheduled exports.",
+    "Destination locale was C; source collation parity and application query semantics were not tested."
+  ],
+  "transfer": {
+    "archive_bytes": 4848767,
+    "archive_sha256": "3da4f387a7317d8366637e4282f6595908a4d188b4146045728e56064558f91e",
+    "provider_md5_matches": true,
+    "provider_crc32c_matches": true,
+    "gzip_valid": true,
+    "uncompressed_bytes": 29035053,
+    "uncompressed_sha256": "942217615c7288c53d875fee0941f674086f3f1b723084736899c9ad34a5a31e",
+    "dump_versions": [
+      "15.19",
+      "15.19"
+    ],
+    "psql_meta_command_names": [
+      "\\restrict",
+      "\\unrestrict"
+    ],
+    "copy_sections": 36,
+    "create_tables": 36,
+    "create_functions": 0,
+    "create_triggers": 0,
+    "has_create_database": false
+  },
+  "psql_version": "psql (PostgreSQL) 15.15 (Homebrew)",
+  "server_version": "15.15 (Homebrew)",
+  "schema": {
+    "expected_orm_tables": 33,
+    "present_and_readable_orm_tables": 33,
+    "public_tables": 36
+  },
+  "migration_ledger": {
+    "entries": 40,
+    "exact_file_hash_matches": 40,
+    "missing": 0,
+    "unexpected": 0,
+    "hash_mismatches": 0
+  },
+  "integrity": {
+    "companies_nonempty": true,
+    "filings_nonempty": true,
+    "summaries_nonempty": true,
+    "filings_without_company": 0,
+    "summaries_without_filing": 0,
+    "filings_missing_identity": 0,
+    "recent_filing_rows": 10,
+    "invalid_indexes": 0,
+    "unvalidated_constraints": 0,
+    "user_defined_functions": 0,
+    "user_triggers": 0
+  },
+  "local_owner_role_prerequisites": 1,
+  "cleanup": {
+    "running_clusters": 0,
+    "temporary_cluster_removed": true,
+    "local_archive_and_private_logs_removed": true
+  },
+  "source_export_run": 36349655416,
+  "source_export_head": "b67e643ba495379242d7b5b51cad7d02e64fe413",
+  "source_object_unchanged": true,
+  "execution_notes": [
+    "Initial sandbox initialization failed before SQL import because System V shared memory was unavailable; no restore was counted.",
+    "After local process permission, stock fresh PG15 import failed on one missing owner role. A separate pristine cluster with one NOLOGIN placeholder imported the unchanged dump successfully.",
+    "Dump header reports PostgreSQL15.19; local client/server15.15. This proves only the observed major15 import, not identical patch versions.",
+    "Read-only integrity checks use aggregate outcomes; no customer rows or SQL contents published.",
+    "No trigger/function statements are present in this export. Their absence in the source database was not verified."
+  ],
+  "cost": {
+    "download_count": 2,
+    "planning_ceiling_usd": "0.10",
+    "billed_cost": "unknown",
+    "new_cloud_resources": 0,
+    "new_exports": 0,
+    "production_database_connections": 0
+  },
+  "private_evidence_sha256": {
+    "import-receipt.json": "a2379f66a1a1df89fae4a2295ffae3d8136c9ecafe925faba4269f32980707d9",
+    "transfer-verification.json": "5fd37d5045d38128202edfb94c0e488e017a14c1386fb9bb430b665be16f7c78",
+    "final-custody.json": "f04807f88c51d7f4c14da9c5cbf37ae8a1b8e3aa51cbeb6b5a6c380ea7ae75f3",
+    "initial-sandbox-receipt.json": "7501f239452ef380b299e349216d091ca2f55084e3cf7b931846151d65816208"
+  },
+  "executed_runner_sha256": "791c9050d90a7c39204d0659785dcbd67bcc1c25e8d4e8a36d6dd2ec8dbe50c0",
+  "checked_repository_head": "1b1b810dbe7f70d35ac2949f2b1ec049ba1da723"
+}

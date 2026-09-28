@@ -415,6 +415,28 @@ on the schedule. The workflow publishes no artifacts. The bucket keeps objects l
 plus its configured soft-delete window; this is short-overlap evidence, not an import proof or a
 long-term archive.
 
+For a local import rehearsal, download the exact retained object generation into a private
+mode-0700 directory, verify its size/provider checksums and gzip stream, then import the unchanged
+plain SQL with `gzip -dc` piped to `psql -X -v ON_ERROR_STOP=1` using shell `pipefail`. Use a fresh
+PostgreSQL 15 cluster with a private Unix socket, TCP disabled, and no application environment.
+Do not run startup, `create_all` or migrations before checking the restored schema. `pg_restore`
+is not the reader for this plain SQL export.
+
+If the only import error is a missing owner role, discard that local test database, create a
+pristine cluster with only the required local `NOLOGIN` placeholder role, and retry the unchanged
+archive. Record the role prerequisite; do not filter SQL, suppress errors or treat other failures
+as success. Require all ORM tables readable, exact migration filename/hash agreement, nonempty
+core tables, and zero orphan/missing-identity/invalid-index/unvalidated-constraint findings. Retain
+aggregate outcomes and log hashes, then stop and remove the temporary cluster, SQL and private
+logs. Never target the live database or publish customer rows or SQL contents.
+
+The [September 28 result](../tasks/review-evidence/progress-2026-09-28/README.md) proves this bounded
+local import with one owner-role prerequisite. It does not establish managed Cloud SQL import,
+source trigger/function completeness, collation parity, application boot, current-live count parity or recovery-time
+objectives. The export contains no trigger/function statements; [Google's SQL export guidance](https://docs.cloud.google.com/sql/docs/postgres/import-export/import-export-sql)
+distinguishes those from the contents of `gcloud sql export sql`. Future recovery planning must
+check whether separately managed database routines need their own backup coverage.
+
 **One-shot maintenance runs (repair / re-sweep):** `gcloud run jobs execute --args=…` overrides the
 arguments for THAT execution only — the job definition keeps `--command=python`, and the next
 scheduled run is unaffected. Since the DB is only reachable from Cloud Run, this is also the way to
