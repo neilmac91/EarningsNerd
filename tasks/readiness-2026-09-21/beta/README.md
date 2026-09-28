@@ -2,6 +2,8 @@
 
 Prepared 21 September 2026. September 28 implementation adds [versioned event-time summary-view evidence](event-glossary.md#summary-view-evidence-v1-september-28-implementation); the queries below retain their historical diagnostic semantics until explicitly replaced and verified against live data. This is a query and review contract, not an observed cohort result or an invitation to run production operations. Use the existing [beta telemetry map](../../archive/beta-monitoring.md), [alert-return query](../../../docs/OPERATIONS.md#alert-to-return-measurement-e11c), and [billing observation report](../../../backend/scripts/billing_revenue_report.py); do not create parallel dashboards or payment ledgers.
 
+Current request measurement uses [summary request evidence v1](summary-request-evidence.md): server-owned request/account identity, consent-gated terminal observations and explicit cached/shared/generation paths. The existing HogQL queries and the identity/request descriptions below are the original unversioned diagnostic baseline; do not apply them as the semantics of either new v1 contract. Live receipt and the consenting cohort remain unverified.
+
 ## Freeze before each readout
 
 Record the UTC half-open window `[window_start, window_end)`, exact invite `cohort`, the immutable list of founder/staff/agent/automation/test **user IDs**, any test invite IDs, data-source availability, and query version/SHA. A pending invite without a user ID cannot be classified as internal from this filter; exclude its invite ID explicitly if known. Record any unresolved identity as unknown and resolve it before claiming a rate. Use a separate copy of this parameter sheet for each weekly readout; never silently revise a past denominator.
