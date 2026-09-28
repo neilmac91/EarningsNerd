@@ -307,6 +307,36 @@
    "kind": "push_withheld",
    "outcome": "sixth-round commit held locally; root asked for the exact diff and proof before another head measurement",
    "cost_usd": 0.0
+  },
+  {
+   "id": 40,
+   "kind": "offline_replay",
+   "head": "round-7 tree (context-identity guard)",
+   "outcome": "70 retained outputs replayed with the source documents: 1 slot changed (WMT run 1, 7/7), 8 abstentions (all unsupported_proposition); no model call",
+   "cost_usd": 0.0,
+   "file": "offline-replay-70.json"
+  },
+  {
+   "id": 41,
+   "kind": "local_gate",
+   "head": "round-7 tree",
+   "outcome": "round-7 tree (committed locally as 1667523), attempt 3 from backend/: ruff/bandit clean, 3759 passed, 39 skipped, 2 deselected, 40 warnings in 316.45s (0:05:16)",
+   "cost_usd": 0.0,
+   "file": "local-gate-round7.log.txt"
+  },
+  {
+   "id": 42,
+   "kind": "mutation_proof",
+   "head": "1667523",
+   "outcome": "fault (context identity reduced to its period end) caught: 5 failed/52 passed with the dimensional, alternating, foreign-CIK and duration cases falsely restored; restored 57 passed",
+   "cost_usd": 0.0,
+   "file": "mutation-proof-round7.log.txt"
+  },
+  {
+   "id": 43,
+   "kind": "push_withheld",
+   "outcome": "seventh-round commit held locally; root asked for the exact diff, hash and proof before another paid push; no measurement authorized",
+   "cost_usd": 0.0
   }
  ],
  "unknowns": [
@@ -317,7 +347,9 @@
   "attempt 5 (aborted local gate)",
   "attempt 7 (superseded mutation fault)",
   "hosted run 36354356433 (cancelled by own docs push, USD 0.119 wasted)",
-  "strict top-down replay (attempt 16, first pass) superseded by the final rule in the same commit"
+  "strict top-down replay (attempt 16, first pass) superseded by the final rule in the same commit",
+  "round-7 full gate attempt 1 (local-gate-10): 1 failed — the sec.gov CIK-scheme literal placed in source_units.py tripped test_sec_gov_importers_allowlist; the helper was moved into the EDGAR layer (statement_context.source_context_identity) and the commit amended",
+  "round-7 full gate attempt 2 (local-gate-11): ruff ran at the repository root because of a shell cwd reset (27 pre-existing findings under tasks/fable-e8-repin-2026-09-22), not a backend failure; rerun from backend/ as attempt 3"
  ],
  "ceiling_note": "Original planning ceiling USD 1.00, exceeded at run 36386298431 (peak tariff); root raised the PR's cumulative hosted planning ceiling to USD 1.65 at 07:35 UTC on 28 September and authorized one measurement (run 36392603589, USD 0.354). Cumulative telemetry USD 1.371. No further push without root's explicit authorization.",
  "hosted_runs_cumulative": {

@@ -15,8 +15,10 @@ dollar figure only inside a finite, named proposition whose every part the filin
 today the one supported proposition is the complete long-term-debt maturity sequence ("[Annual]
 maturities of long-term debt … as follows: 2027: $3,542; …; Thereafter: $N; Total: $N"), bound to
 the filing's tagged schedule concepts and total (`debt_concepts.DEBT_MATURITY_SEQUENCE`) on the DEI
-report period — measure by concept, basis by the sum identity, period by context, unit and scale by
-the fact's own attributes, row by label, order by position. Anything else abstains, byte-identical
+issuer's own consolidated report-date instant (CIK, period kind, date, no dimension member, all
+normalized from the context itself) — measure by concept, basis by the sum identity, period and
+entity by context identity, unit and scale by the fact's own attributes, row by label, order by
+position. Anything else abstains, byte-identical
 and with a reason: another subject or qualifier, a reordered, partial or already-scaled sequence,
 trailing text, a missing, conflicting, non-USD, scale-0 or other-period fact, a mismatched amount,
 row or year, a schedule that does not sum, no source document, or a literal reading supported by

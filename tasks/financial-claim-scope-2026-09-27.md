@@ -646,3 +646,74 @@ restored_exit=0
 
 Root's own two reproductions abstain even under this fault because their sequences are partial; the
 sequence grammar and the introduction grammar are independent guards.
+
+## Seventh review round (context identity, 28 September; local, not pushed)
+
+Root reconstructed the sixth-round owner to its hash and confirmed the grammar closes the fee /
+year / `Total` counterexamples, but isolated the source-context half of the same P1: `_index`
+reduced every maturity fact's context to a period end, and `source_report_period` validated only the
+DEI fact's own context, so seven facts on a same-CIK context carrying
+`us-gaap:SubsidiaryAxis=example:SubsidiaryMember`, seven facts alternating between two such
+contexts, or seven facts on another entity's context all still repaired the consolidated prose 7/7.
+
+The finite correction is one context-ownership guard in the existing owner:
+
+- `statement_context.source_report_identity` returns the validated DEI `(report date, issuer CIK)`
+  (CIK normalized, leading zeros dropped); `source_report_period` keeps its contract on top of it.
+- `statement_context.source_context_identity(context)` (the EDGAR layer, where the CIK scheme
+  literal is sanctioned) normalizes every context to `(CIK, period kind, period end, dimensional)`: exactly one `identifier` under the SEC CIK scheme, a numeric CIK, exactly one
+  `instant` or exactly one `startDate`/`endDate` pair, and whether any `segment` / `scenario` /
+  `explicitMember` / `typedMember` is present. Anything else is malformed and owns nothing.
+- The proposition may draw only on facts whose context signature is `(issuer CIK, "instant",
+  report date, non-dimensional)`. Facts on any other signature — a subsidiary member, another
+  entity, a duration ending on the date, a malformed context — neither authorize the repair nor
+  poison a complete consolidated sequence. Context IDs may differ when their normalized identities
+  agree (`0000104169` and `104169` are one entity).
+
+Root's reproductions abstain (`missing_fact`: no fact of the concept on the consolidated signature);
+a consolidated schedule beside a subsidiary's own dimensional schedule still restores 7/7; the WMT
+control's seven facts are all on `c-16` (`0000104169`, instant `2026-01-31`, no members) and restore
+7/7 on the fixture and the full document. Gate: 57 cases (the sixth round's 51 plus one dimensional
+context, two alternating dimensional contexts, a foreign CIK, a duration period, a malformed
+context, a dimensional duplicate beside the consolidated schedule, and same-identity context IDs).
+Mutation proof: the context identity reduced to its period end again. Replay over the 70 retained
+outputs unchanged (one slot, 7/7, eight `unsupported_proposition`).
+
+Not pushed; root asked for the exact owner/context-helper diff, hash and proof before another paid
+push. Cumulative hosted telemetry USD 1.371 of USD 1.65.
+
+### Seventh-round verification tails
+
+Local gate from `backend/` on the tree committed locally as `1667523` (`local-gate-round7.log.txt`;
+two earlier attempts are recorded as superseded in the ledger — a CIK-scheme literal first placed in
+`source_units.py` tripped the `sec.gov` allow-list gate and the helper was moved into the EDGAR layer,
+then a shell working-directory reset ran ruff at the repository root):
+
+```
+== ruff check . ==            All checks passed!   ruff_exit=0
+== bandit -r app -ll ==                             bandit_exit=0
+== python -m pytest ==        3759 passed, 39 skipped, 2 deselected, 40 warnings in 316.45s (0:05:16)   EXIT=0
+```
+
+### Seventh-round mutation proof (one deliberate implementation fault, committed state `1667523`)
+
+Fault: the context identity is reduced to its period end again (any context ending on the report
+date authorizes — the sixth-round behaviour). The gate fails on exactly the context-ownership cases
+with the retained bullet falsely restored, and passes once `git checkout --` restores the file
+(`mutation-proof-round7.log.txt`):
+
+```
+== committed HEAD: 1667523 ==
+fault applied: the context identity is reduced to its period end
+== gate under fault ==
+FAILED …test_facts_outside_the_issuers_consolidated_instant_own_nothing[one dimensional context]
+FAILED …test_facts_outside_the_issuers_consolidated_instant_own_nothing[two dimensional contexts]
+FAILED …test_facts_outside_the_issuers_consolidated_instant_own_nothing[foreign CIK]
+FAILED …test_facts_outside_the_issuers_consolidated_instant_own_nothing[duration period]
+FAILED …test_a_dimensional_duplicate_never_poisons_the_consolidated_schedule
+5 failed, 52 passed in 4.33s
+fault_exit=1
+== restored: clean ==
+57 passed in 3.70s
+restored_exit=0
+```
