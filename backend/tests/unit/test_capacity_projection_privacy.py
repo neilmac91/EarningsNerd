@@ -72,7 +72,8 @@ def test_capacity_projection_withholds_commands_and_private_values(capsys, monke
     monkeypatch.setattr(subprocess, "check_output", describe)
     service_json = mock_open(read_data=json.dumps(svc))
     exec(projection, {"open": service_json})
-    output = capsys.readouterr().out
+    captured = capsys.readouterr()
+    output = captured.out + captured.err
     service_json.assert_called_once_with("/tmp/svc.json")
     assert calls == list(readbacks)
     assert "PRIVATE_" not in output
