@@ -1,3 +1,8 @@
+## 2026-09-29 — release completed sibling filing reads
+
+- Separate actual-HTTP/PostgreSQL controls reproduced pool starvation in specific-filing, recent-filing, content and fundamentals reads. Retain two fresh refutation passes and the original failures.
+- Materialize existing DTOs or primitive payloads before synchronous `finally` cleanup. Extend the single filing-read burst gate to populated, empty and 404 responses; preserve global dependencies, pool settings and locked tests. Committed mutation, full gates and exact-head review remain required before coordinated integration.
+
 ## 2026-09-29 — release completed filing-list database sessions
 
 - Isolated PostgreSQL measurement reproduced four-slot pool starvation from eight concurrent cached HTTP reads, including full middleware and local Uvicorn. Close materialized cached/live/fallback reads synchronously; retain original response, cache and background-refresh behavior.

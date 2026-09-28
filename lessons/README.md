@@ -98,7 +98,7 @@ what applies to your task. Filenames are greppable: `arch-*`, `sec-*`, `test-*`,
 
 ## Operations & workflow
 
-- [`ops-release-cached-filing-reads-before-yield.md`](ops-release-cached-filing-reads-before-yield.md) — Close completed filing-list reads before async dependency cleanup can be blocked by a competing checkout
+- [`ops-release-cached-filing-reads-before-yield.md`](ops-release-cached-filing-reads-before-yield.md) — Close completed filing reads before async dependency cleanup can be blocked by a competing checkout
 
 - [`ops-ai-evidence-is-not-human-acceptance.md`](ops-ai-evidence-is-not-human-acceptance.md) — Use explicit model/source evidence when the founder cannot supply a human panel
 
