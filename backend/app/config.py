@@ -293,7 +293,7 @@ class Settings(BaseSettings):
     STRUCTURED_EXTRACTION_CACHE_TTL_SECONDS: int = 3600  # 1 hour for retry window
 
     # AI Model Settings
-    AI_DEFAULT_MODEL: str = "deepseek-flash"  # Primary model (DeepSeek V4.1 Flash, non-thinking; ADR-0008 — V4 Pro retired 2026-09-14). Prod sets this + OPENAI_BASE_URL + OPENAI_API_KEY via env/Secret Manager.
+    AI_DEFAULT_MODEL: str = "deepseek-flash"  # Primary model (DeepSeek V4.1 Flash, non-thinking; ADR-0008). Prod sets this + OPENAI_BASE_URL + OPENAI_API_KEY via env/Secret Manager.
     # Optional fallback: same origin may reuse primary auth; other origins require their own key.
     AI_FALLBACK_BASE_URL: str = ""
     AI_FALLBACK_MODEL: str = ""
