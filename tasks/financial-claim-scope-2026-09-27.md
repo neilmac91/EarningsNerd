@@ -149,16 +149,16 @@ r was cherry-picked and no r adoption claim is revived.
 - **Reconciliation sign (FIGS run 0) and aggregate-vs-component (PLTR run 0).** Need a structured
   reconciliation-row owner and the statement-line owner respectively; not bounded enough for this
   handoff.
-- **Banner inheritance (resolved by source-bound ownership).** Three rounds of review showed
-  flattened-text heuristics (prose detection, heading counts, capitalised headings) each moving the
-  counterexample: a short sentence, a detached per-share label, a unit-token header, an adjacent
-  unbannered table, and finally a list item after a bannered table all inherited a banner. The
-  fourth round stops reading the flattened excerpt for ownership: a figure is owned only by an
-  inline-XBRL fact's own `scale`/USD unit, or by a `<td>` holding exactly that amount inside a
-  `<table>` that declares its own scale, on a row and column not excluded from it (see "Fourth
-  review round"). Remaining shapes are abstentions, never insertions: cached-excerpt generations
-  (no source document), a declaration separated from its table by a title, a statement split over
-  several `<table>` elements, plain-text sources, unrecognised declaration forms.
+- **Banner inheritance (closed by proposition-bound ownership).** Four rounds of review showed
+  every heuristic over flattened text, banners, cells and header geometry moving the counterexample:
+  a short sentence, a detached per-share label, a unit-token header, an adjacent unbannered table, a
+  list item, a later in-table declaration, `rowspan`/`tfoot`/full-width headers, an unknown banner
+  exception, and finally a "Revenue" row scaling a registration fee. The fifth round binds the
+  authored proposition itself: the label the text pairs with the figure must be the row label of an
+  inline-XBRL fact with those digits, in USD, with a declared `scale`, on the filing's DEI report
+  period (see "Fifth review round"). Everything else is left unchanged with a reason. Remaining
+  narrowing, all abstentions: unlabelled prose figures, untagged cells, prior-period columns,
+  plain-text sources, cached-excerpt generations, and labels the model paraphrases.
 - **Hosted measurement.** The draft PR triggers the advisory `eval-baseline` job (about USD 0.19–0.38
   per run at recent telemetry). Scorers read rendered prose, so the restored "$3,542 million" is now a
   scaled figure visible to numeric dims; expected neutral (it grounds via the excerpt), to be read from
@@ -166,14 +166,27 @@ r was cherry-picked and no r adoption claim is revived.
 
 ## Accounting ledger
 
-DeepSeek balance read before push: USD 55.65 available (`balance-before-push.json`, 21:41:07 UTC).
-No model call was made locally; the two network reads (balance, one SEC companyconcept corroboration)
-cost nothing. Hosted `eval-baseline` runs are the only paid measurements: the first (run
-36354356433, job 108718982686) was cancelled by my own documentation push after 47 successful
-summary calls, USD 0.119453 by the run's telemetry, wasted; its replacement (run 36354819301) and
-the run for the review-corrected head are recorded in `run-ledger.json` and in the PR thread, since a
-further docs push would itself retrigger the paid job. Billed provider cost is not readable from this
-session. Full ledger: `review-evidence/financial-claim-scope-2026-09-27/run-ledger.json`.
+No model call was made locally in any round; the network reads (DeepSeek balance reads, one SEC
+companyconcept corroboration, five SEC document reads for the offline replay) cost nothing. Hosted
+`eval-baseline` runs are the only paid measurements, all estimated from the runs' own per-call
+telemetry (billed cost is not readable from this session; the shared-account balance moved
+55.65 → 54.59 → 54.41 → 54.05 across the reads, the last two steps matching the runs they bracket):
+
+| Run | Head | Result | USD (telemetry) |
+| --- | --- | --- | --- |
+| 36354356433 | first push | cancelled by my own docs push after 47/70 calls; wasted | 0.119 |
+| 36354819301 | `d7f5ce0` | PASS, standing advisory only | 0.181 |
+| 36356321090 | `b4f0959` | PASS | 0.181 |
+| 36383403453 | `5e6e244` | PASS | 0.179 |
+| 36386298431 | `260cebd` | PASS; ran inside DeepSeek's peak tariff window (06:00–10:00 UTC weekdays) | 0.357 |
+| Total | | | about 1.017 |
+
+The cumulative USD 1.00 ceiling is exceeded by about USD 0.017: I projected the fourth-round run at
+about USD 0.18 without accounting for the peak tariff. Disclosed in the PR thread at once; no further
+push is made without root's explicit authorization on the PR. The committed ledger at `260cebd`
+still carried the pre-run "about 0.84" expectation; this file and `run-ledger.json` are corrected in
+the fifth-round evidence commit, which is held locally with the fifth-round code until that
+authorization. Full ledger: `review-evidence/financial-claim-scope-2026-09-27/run-ledger.json`.
 
 ## Engineering evidence versus acceptance
 
@@ -470,3 +483,84 @@ restored_exit=0
 
 The earlier rounds' proofs are retained as history in `mutation-proof.log.txt` and
 `mutation-proof-round3.log.txt`; this round's proof is the one counted for the corrected head.
+
+## Fifth review round (proposition-bound ownership, 28 September; local, not pushed)
+
+Root's review of `260cebd` held generic adoption on three findings: a declaration row later in the
+same table scaled an earlier explicit-dollar row; explicit per-share scope disappeared under
+full-width, `rowspan` or `tfoot` header geometry and unknown banner exceptions; and the resolver
+bound digits, not the authored claim, to a source cell. The instruction was to stop expanding the
+banner/typography heuristic and narrow the mutation to a source-owned proposition whose exact
+row/period/amount mapping matches the authored statement, or leave the statement unchanged.
+
+The owner now reads none of banners, cells, geometry or flattened text. A bare figure is restored
+only when all of the following hold, otherwise it abstains with the stated reason:
+
+| Requirement | Abstention |
+| --- | --- |
+| the authored text pairs the figure with a label by a colon (`2027: $3,542`, `Total: $38,166`) | `no_authored_label` |
+| the filing's HTML carries an `ix:nonFraction` fact whose text is exactly those digits | `no_tagged_fact` |
+| that fact sits in a table row whose leftmost text cell is that label (case, spacing and a trailing colon ignored) | `no_matching_row` |
+| the filing's DEI `DocumentPeriodEndDate` validates (`statement_context.source_report_period`) | `no_report_period` |
+| the fact's context ends on that period | `period_mismatch` |
+| the fact's `unitRef` resolves to `iso4217:USD` alone | `non_dollar_unit` |
+| the fact's `scale` is 3, 6 or 9 (`0`/absent declares the bare reading) | `declared_unscaled`, `unsupported_scale` |
+| every such bound fact agrees | `mixed_scales` |
+| a source document exists (cached-excerpt generations have none) | `no_source_document` |
+| standardized XBRL does not support the literal reading | `literal_xbrl_match` |
+
+Root's three findings under this contract: the later in-table declaration is never read (an untagged
+`$3,237` cell → `no_tagged_fact`; a tagged `scale="0"` one → `declared_unscaled`); per-share scope is
+the fact's own unit (`usdPerShare` → `non_dollar_unit`) whatever the heading geometry — full-width
+`Per Share Data`, a `rowspan="2"` header, a `tfoot` row and the unknown "except registration fees"
+exception all abstain; and a `Revenue | 3,237` row never scales `Registration fee: $3,237`
+(`no_matching_row`). The retained WMT sequence is exactly the supported shape: each authored pair
+(`2027: $3,542` … `Total: $38,166`) binds to the maturities-table row of the same label, whose
+fact (`us-gaap:LongTermDebtMaturitiesRepaymentsOfPrincipal…`, `us-gaap:LongTermDebt`) is USD,
+`scale="6"`, on the 2026-01-31 DEI period → 7/7 restored.
+
+Coverage is deliberately narrower than every earlier round: unlabelled prose figures, untagged
+cells, prior-period columns and plain-text sources are all left unchanged. The 70-output replay
+with today's fetched WMT/COST/BYND/BA documents is unchanged at the output level (one slot, 7/7,
+eight abstentions, now all `no_authored_label`). The BA `$10,550` prose fact restored in the
+fourth round is no longer restored (no label pairs it).
+
+Gate: `test_table_cell_units.py`, 43 cases over a fixture that now carries the WMT DEI period
+element, the facts' contexts, a prior-period context and the unit definitions beside the five debt
+tables (`tests/fixtures/table_units/wmt-20260131-debt-tables.html.gz`, rebuilt). Mutation proof:
+the row-label binding removed (any fact with the same digits owns the proposition).
+
+Ceiling: cumulative hosted telemetry is about USD 1.017 after the fourth-round run landed in the
+peak tariff window, so this round is committed locally and NOT pushed; the push is requested from
+root on the PR with this evidence, and happens only on explicit authorization.
+
+### Fifth-round verification tails
+
+Local gate from `backend/` on the tree committed locally as `acee6d9` (`local-gate-round5.log.txt`):
+
+```
+== ruff check . ==            All checks passed!   ruff_exit=0
+== bandit -r app -ll ==                             bandit_exit=0
+== python -m pytest ==        3745 passed, 39 skipped, 2 deselected, 40 warnings in 299.50s (0:04:59)   EXIT=0
+```
+
+### Fifth-round mutation proof (one deliberate implementation fault, committed state `acee6d9`)
+
+Fault: the row-label binding is removed, so any inline-XBRL fact with the same digits owns the
+proposition whatever its row says. The gate fails on exactly the source-to-proposition cases (a
+"Revenue" row scaling `Registration fee: $3,237`, a bullet label, a prose fact, a value-first row)
+with false `$3,237 million` insertions, and passes once `git checkout --` restores the file
+(`mutation-proof-round5.log.txt`):
+
+```
+== committed HEAD: acee6d9 ==
+fault applied: the authored label no longer has to match the fact's row label
+== gate under fault ==
+FAILED …test_bare_figures_the_source_does_not_own_stay_as_written[$3,237-no_matching_row-…]  (x4)
+FAILED …test_the_source_document_is_parsed_once_and_only_on_demand
+5 failed, 38 passed in 3.95s
+fault_exit=1
+== restored: clean ==
+43 passed in 3.87s
+restored_exit=0
+```

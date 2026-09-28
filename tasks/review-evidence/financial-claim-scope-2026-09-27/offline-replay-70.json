@@ -1,6 +1,6 @@
 {
- "generated_at_utc": "2026-09-28T06:19:24.177181+00:00",
- "code_state": "fourth review round: source-bound ownership (inline-XBRL fact scale/unit, or a <td> holding exactly the amount inside a <table> that declares its own scale, row label and column headers checked); the flattened excerpt owns nothing; commit recorded in the handback",
+ "generated_at_utc": "2026-09-28T06:47:18.618321+00:00",
+ "code_state": "fifth review round: proposition-bound ownership (the authored label paired with the figure by a colon must be the leftmost cell of the row of an inline-XBRL fact with exactly those digits, USD unit, scale 3/6/9 and a context ending on the filing DEI report period); banners, cells and flattened text own nothing; commit recorded in the handback",
  "method": "Offline replay of app.services.ai.source_units.restore_table_cell_units over each retained row's raw_sections (retained after the eval's own binders) and xbrl_grounding, with the filing's source HTML (fetched 28 Sep 2026 through the app's SEC transport for the four tickers whose outputs or fixtures carry bare figures; other rows carry no bare figure and receive no document); no provider call, no generation.",
  "source_documents": {
   "WMT": {
@@ -460,27 +460,27 @@
      {
       "slot": "the_print.what_changed",
       "figure": "$6,055",
-      "reason": "prose_occurrence"
+      "reason": "no_authored_label"
      },
      {
       "slot": "the_print.what_changed",
       "figure": "$7,189",
-      "reason": "prose_occurrence"
+      "reason": "no_authored_label"
      },
      {
       "slot": "forward_signals.guidance",
       "figure": "$6,500",
-      "reason": "prose_occurrence"
+      "reason": "no_authored_label"
      },
      {
       "slot": "notable_footnotes[1].impact",
       "figure": "$1,359",
-      "reason": "prose_occurrence"
+      "reason": "no_authored_label"
      },
      {
       "slot": "notable_footnotes[1].impact",
       "figure": "$4,000",
-      "reason": "prose_occurrence"
+      "reason": "no_authored_label"
      }
     ]
    },
@@ -500,7 +500,7 @@
      {
       "slot": "forward_signals.guidance",
       "figure": "$6,500",
-      "reason": "prose_occurrence"
+      "reason": "no_authored_label"
      }
     ]
    },
@@ -610,7 +610,7 @@
      {
       "slot": "notable_footnotes[3].impact",
       "figure": "$130,000",
-      "reason": "declared_unscaled"
+      "reason": "no_authored_label"
      }
     ]
    },
@@ -630,7 +630,7 @@
      {
       "slot": "notable_footnotes[3].impact",
       "figure": "$130,000",
-      "reason": "declared_unscaled"
+      "reason": "no_authored_label"
      }
     ]
    },

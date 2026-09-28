@@ -1,0 +1,1029 @@
+﻿2026-09-28T06:24:27.9560384Z Current runner version: '2.337.0'
+2026-09-28T06:24:27.9589571Z ##[group]Runner Image Provisioner
+2026-09-28T06:24:27.9591074Z Hosted Compute Agent
+2026-09-28T06:24:27.9592560Z Version: 20260828.587
+2026-09-28T06:24:27.9593997Z Commit: abac92662cab4cc7352de4f9f9d2e2419aad9c29
+2026-09-28T06:24:27.9595325Z Build Date: 2026-08-28T16:44:25Z
+2026-09-28T06:24:27.9596806Z Worker ID: {45355b67-15fa-4017-bd3f-78971db9bbb8}
+2026-09-28T06:24:27.9598110Z Azure Region: centralus
+2026-09-28T06:24:27.9599188Z ##[endgroup]
+2026-09-28T06:24:27.9602643Z ##[group]Operating System
+2026-09-28T06:24:27.9603795Z Ubuntu
+2026-09-28T06:24:27.9604927Z 24.04.5
+2026-09-28T06:24:27.9605835Z LTS
+2026-09-28T06:24:27.9606737Z ##[endgroup]
+2026-09-28T06:24:27.9608007Z ##[group]Runner Image
+2026-09-28T06:24:27.9609179Z Image: ubuntu-24.04
+2026-09-28T06:24:27.9610497Z Version: 20260920.314.1
+2026-09-28T06:24:27.9613101Z Included Software: https://github.com/actions/runner-images/blob/ubuntu24/20260920.314/images/ubuntu/Ubuntu2404-Readme.md
+2026-09-28T06:24:27.9616038Z Image Release: https://github.com/actions/runner-images/releases/tag/ubuntu24%2F20260920.314
+2026-09-28T06:24:27.9617758Z ##[endgroup]
+2026-09-28T06:24:27.9619984Z ##[group]GITHUB_TOKEN Permissions
+2026-09-28T06:24:27.9623361Z Contents: read
+2026-09-28T06:24:27.9624586Z Metadata: read
+2026-09-28T06:24:27.9625628Z Packages: read
+2026-09-28T06:24:27.9626737Z ##[endgroup]
+2026-09-28T06:24:27.9629626Z Secret source: Actions
+2026-09-28T06:24:27.9631740Z Cache mode: write
+2026-09-28T06:24:27.9633538Z Prepare workflow directory
+2026-09-28T06:24:28.0023230Z Prepare all required actions
+2026-09-28T06:24:28.0072219Z Getting action download info
+2026-09-28T06:24:28.3074027Z Download action repository 'actions/checkout@v7' (SHA:3d3c42e5aac5ba805825da76410c181273ba90b1)
+2026-09-28T06:24:28.4052458Z Download action repository 'actions/setup-python@v7' (SHA:5fda3b95a4ea91299a34e894583c3862153e4b97)
+2026-09-28T06:24:28.4842874Z Download action repository 'actions/upload-artifact@v7' (SHA:043fb46d1a93c77aae656e7c1c64a875d1fc6a0a)
+2026-09-28T06:24:28.6627774Z Complete job name: eval-baseline
+2026-09-28T06:24:28.7477677Z ##[group]Run actions/checkout@v7
+2026-09-28T06:24:28.7478611Z with:
+2026-09-28T06:24:28.7479051Z   fetch-depth: 2
+2026-09-28T06:24:28.7479533Z   repository: neilmac91/EarningsNerd
+2026-09-28T06:24:28.7483703Z   token: ***
+2026-09-28T06:24:28.7484158Z   ssh-strict: true
+2026-09-28T06:24:28.7484622Z   ssh-user: git
+2026-09-28T06:24:28.7485081Z   persist-credentials: true
+2026-09-28T06:24:28.7485573Z   clean: true
+2026-09-28T06:24:28.7486023Z   sparse-checkout-cone-mode: true
+2026-09-28T06:24:28.7486546Z   fetch-tags: false
+2026-09-28T06:24:28.7486987Z   show-progress: true
+2026-09-28T06:24:28.7487456Z   lfs: false
+2026-09-28T06:24:28.7487876Z   submodules: false
+2026-09-28T06:24:28.7488334Z   set-safe-directory: true
+2026-09-28T06:24:28.7488851Z   allow-unsafe-pr-checkout: false
+2026-09-28T06:24:28.7489712Z ##[endgroup]
+2026-09-28T06:24:28.8580508Z Syncing repository: neilmac91/EarningsNerd
+2026-09-28T06:24:28.8583602Z ##[group]Getting Git version info
+2026-09-28T06:24:28.8584904Z Working directory is '/home/runner/work/EarningsNerd/EarningsNerd'
+2026-09-28T06:24:28.8586649Z [command]/usr/bin/git version
+2026-09-28T06:24:28.8689693Z git version 2.55.0
+2026-09-28T06:24:28.8718925Z ##[endgroup]
+2026-09-28T06:24:28.8727449Z Temporarily overriding HOME='/home/runner/work/_temp/388b982d-7542-4839-b4dd-6d9111e1e262' before making global git config changes
+2026-09-28T06:24:28.8730052Z Adding repository directory to the temporary git global config as a safe directory
+2026-09-28T06:24:28.8732862Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/EarningsNerd/EarningsNerd
+2026-09-28T06:24:28.8786305Z Deleting the contents of '/home/runner/work/EarningsNerd/EarningsNerd'
+2026-09-28T06:24:28.8802754Z ##[group]Determining repository object format
+2026-09-28T06:24:28.8804565Z ##[endgroup]
+2026-09-28T06:24:28.8805760Z ##[group]Initializing the repository
+2026-09-28T06:24:28.8806739Z [command]/usr/bin/git init /home/runner/work/EarningsNerd/EarningsNerd
+2026-09-28T06:24:28.8907348Z hint: Using 'master' as the name for the initial branch. This default branch name
+2026-09-28T06:24:28.8911426Z hint: will change to "main" in Git 3.0. To configure the initial branch name
+2026-09-28T06:24:28.8913974Z hint: to use in all of your new repositories, which will suppress this warning,
+2026-09-28T06:24:28.8915317Z hint: call:
+2026-09-28T06:24:28.8916051Z hint:
+2026-09-28T06:24:28.8917039Z hint: 	git config --global init.defaultBranch <name>
+2026-09-28T06:24:28.8918173Z hint:
+2026-09-28T06:24:28.8919165Z hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+2026-09-28T06:24:28.8920770Z hint: 'development'. The just-created branch can be renamed via this command:
+2026-09-28T06:24:28.8922409Z hint:
+2026-09-28T06:24:28.8923270Z hint: 	git branch -m <name>
+2026-09-28T06:24:28.8924130Z hint:
+2026-09-28T06:24:28.8925303Z hint: Disable this message with "git config set advice.defaultBranchName false"
+2026-09-28T06:24:28.8927621Z Initialized empty Git repository in /home/runner/work/EarningsNerd/EarningsNerd/.git/
+2026-09-28T06:24:28.8931055Z [command]/usr/bin/git remote add origin https://github.com/neilmac91/EarningsNerd
+2026-09-28T06:24:28.8988927Z ##[endgroup]
+2026-09-28T06:24:28.8990768Z ##[group]Disabling automatic garbage collection
+2026-09-28T06:24:28.8993227Z [command]/usr/bin/git config --local gc.auto 0
+2026-09-28T06:24:28.9035637Z ##[endgroup]
+2026-09-28T06:24:28.9037408Z ##[group]Setting up auth
+2026-09-28T06:24:28.9038669Z Removing SSH command configuration
+2026-09-28T06:24:28.9047469Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+2026-09-28T06:24:28.9088175Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+2026-09-28T06:24:28.9504588Z Removing HTTP extra header
+2026-09-28T06:24:28.9510868Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-09-28T06:24:28.9551717Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+2026-09-28T06:24:28.9791067Z Removing includeIf entries pointing to credentials config files
+2026-09-28T06:24:28.9799006Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-09-28T06:24:28.9845272Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+2026-09-28T06:24:29.0112345Z [command]/usr/bin/git config --file /home/runner/work/_temp/git-credentials-e7515646-d243-4c18-93f3-ac4d46a7cf6c.config http.https://github.com/.extraheader AUTHORIZATION: basic ***
+2026-09-28T06:24:29.0164778Z [command]/usr/bin/git config --local includeIf.gitdir:/home/runner/work/EarningsNerd/EarningsNerd/.git.path /home/runner/work/_temp/git-credentials-e7515646-d243-4c18-93f3-ac4d46a7cf6c.config
+2026-09-28T06:24:29.0208485Z [command]/usr/bin/git config --local includeIf.gitdir:/home/runner/work/EarningsNerd/EarningsNerd/.git/worktrees/*.path /home/runner/work/_temp/git-credentials-e7515646-d243-4c18-93f3-ac4d46a7cf6c.config
+2026-09-28T06:24:29.0255904Z [command]/usr/bin/git config --local includeIf.gitdir:/github/workspace/.git.path /github/runner_temp/git-credentials-e7515646-d243-4c18-93f3-ac4d46a7cf6c.config
+2026-09-28T06:24:29.0303788Z [command]/usr/bin/git config --local includeIf.gitdir:/github/workspace/.git/worktrees/*.path /github/runner_temp/git-credentials-e7515646-d243-4c18-93f3-ac4d46a7cf6c.config
+2026-09-28T06:24:29.0342725Z ##[endgroup]
+2026-09-28T06:24:29.0343542Z ##[group]Fetching the repository
+2026-09-28T06:24:29.0354050Z [command]/usr/bin/git -c protocol.version=2 fetch --no-tags --prune --no-recurse-submodules --depth=2 origin +a9ca63ca4313022d69b075208d5b5798bda14266:refs/remotes/pull/992/merge
+2026-09-28T06:24:30.7898490Z From https://github.com/neilmac91/EarningsNerd
+2026-09-28T06:24:30.7901725Z  * [new ref]         a9ca63ca4313022d69b075208d5b5798bda14266 -> pull/992/merge
+2026-09-28T06:24:30.7905904Z ##[endgroup]
+2026-09-28T06:24:30.7907674Z ##[group]Determining the checkout info
+2026-09-28T06:24:30.7909612Z ##[endgroup]
+2026-09-28T06:24:30.7910732Z [command]/usr/bin/git sparse-checkout disable
+2026-09-28T06:24:30.7970463Z [command]/usr/bin/git config --local --unset-all extensions.worktreeConfig
+2026-09-28T06:24:30.8010231Z ##[group]Checking out the ref
+2026-09-28T06:24:30.8015007Z [command]/usr/bin/git checkout --progress --force refs/remotes/pull/992/merge
+2026-09-28T06:24:31.0481243Z Note: switching to 'refs/remotes/pull/992/merge'.
+2026-09-28T06:24:31.0482905Z 
+2026-09-28T06:24:31.0483723Z You are in 'detached HEAD' state. You can look around, make experimental
+2026-09-28T06:24:31.0485169Z changes and commit them, and you can discard any commits you make in this
+2026-09-28T06:24:31.0486616Z state without impacting any branches by switching back to a branch.
+2026-09-28T06:24:31.0487430Z 
+2026-09-28T06:24:31.0488033Z If you want to create a new branch to retain commits you create, you may
+2026-09-28T06:24:31.0489435Z do so (now or later) by using -c with the switch command. Example:
+2026-09-28T06:24:31.0490263Z 
+2026-09-28T06:24:31.0490657Z   git switch -c <new-branch-name>
+2026-09-28T06:24:31.0491256Z 
+2026-09-28T06:24:31.0491816Z Or undo this operation with:
+2026-09-28T06:24:31.0492398Z 
+2026-09-28T06:24:31.0492739Z   git switch -
+2026-09-28T06:24:31.0493192Z 
+2026-09-28T06:24:31.0493959Z Turn off this advice by setting config variable advice.detachedHead to false
+2026-09-28T06:24:31.0495249Z 
+2026-09-28T06:24:31.0497100Z HEAD is now at a9ca63c Merge 260cebd29abd35116e5a3f96a92f2709f05e4cfa into 025a6fbcd45037263bbef4ebf0aa72298df4185a
+2026-09-28T06:24:31.0502274Z ##[endgroup]
+2026-09-28T06:24:31.0581028Z [command]/usr/bin/git log -1 --format=%H
+2026-09-28T06:24:31.0615878Z a9ca63ca4313022d69b075208d5b5798bda14266
+2026-09-28T06:24:31.0903006Z ##[group]Run set -euo pipefail
+2026-09-28T06:24:31.0904443Z [36;1mset -euo pipefail[0m
+2026-09-28T06:24:31.0905836Z [36;1mif [ "$EVENT_NAME" = "workflow_dispatch" ]; then[0m
+2026-09-28T06:24:31.0907960Z [36;1m  echo "run=true" >> "$GITHUB_OUTPUT"; exit 0[0m
+2026-09-28T06:24:31.0909377Z [36;1mfi[0m
+2026-09-28T06:24:31.0910502Z [36;1mif [ "$EVENT_NAME" != "pull_request" ]; then[0m
+2026-09-28T06:24:31.0912469Z [36;1m  echo "::error::Cannot determine evaluation scope for this event."[0m
+2026-09-28T06:24:31.0914183Z [36;1m  exit 1[0m
+2026-09-28T06:24:31.0915192Z [36;1mfi[0m
+2026-09-28T06:24:31.0916468Z [36;1mCHECKED_SHA=$(git rev-parse --verify 'HEAD^{commit}')[0m
+2026-09-28T06:24:31.0918156Z [36;1mif [ "$CHECKED_SHA" != "$GITHUB_SHA" ]; then[0m
+2026-09-28T06:24:31.0919948Z [36;1m  echo "::error::Checked source does not match the workflow commit."[0m
+2026-09-28T06:24:31.0921748Z [36;1m  exit 1[0m
+2026-09-28T06:24:31.0922775Z [36;1mfi[0m
+2026-09-28T06:24:31.0924134Z [36;1mread -r -a PARENTS <<< "$(git show -s --format=%P HEAD)"[0m
+2026-09-28T06:24:31.0926026Z [36;1mif [ "${#PARENTS[@]}" -ne 2 ] || [ "${PARENTS[1]}" != "$PR_HEAD_SHA" ]; then[0m
+2026-09-28T06:24:31.0928138Z [36;1m  echo "::error::Expected the checked PR merge and its exact head parent."[0m
+2026-09-28T06:24:31.0929870Z [36;1m  exit 1[0m
+2026-09-28T06:24:31.0930862Z [36;1mfi[0m
+2026-09-28T06:24:31.0932112Z [36;1mfor PARENT in "${PARENTS[@]}"; do[0m
+2026-09-28T06:24:31.0933518Z [36;1m  git cat-file -e "$PARENT^{commit}"[0m
+2026-09-28T06:24:31.0934834Z [36;1mdone[0m
+2026-09-28T06:24:31.0935870Z [36;1mBASE_PARENT=${PARENTS[0]}[0m
+2026-09-28T06:24:31.0937340Z [36;1mCHANGED_PATHS="$RUNNER_TEMP/eval-changed-paths"[0m
+2026-09-28T06:24:31.0939335Z [36;1mgit diff --no-renames --name-only -z "$BASE_PARENT" HEAD > "$CHANGED_PATHS"[0m
+2026-09-28T06:24:31.0941130Z [36;1mRUN=false[0m
+2026-09-28T06:24:31.0942482Z [36;1mwhile IFS= read -r -d '' CHANGED_PATH; do[0m
+2026-09-28T06:24:31.0944199Z [36;1m  case "$CHANGED_PATH" in[0m
+2026-09-28T06:24:31.0945787Z [36;1m    backend/app/*|backend/evals/*|backend/prompts/*) RUN=true ;;[0m
+2026-09-28T06:24:31.0947391Z [36;1m  esac[0m
+2026-09-28T06:24:31.0948424Z [36;1mdone < "$CHANGED_PATHS"[0m
+2026-09-28T06:24:31.0949708Z [36;1mecho "run=$RUN" >> "$GITHUB_OUTPUT"[0m
+2026-09-28T06:24:31.0951036Z [36;1mif [ "$RUN" = "false" ]; then[0m
+2026-09-28T06:24:31.0952777Z [36;1m  echo "No AI-relevant backend changes — skipping eval-baseline."[0m
+2026-09-28T06:24:31.0954354Z [36;1mfi[0m
+2026-09-28T06:24:31.1223149Z shell: /usr/bin/bash -e {0}
+2026-09-28T06:24:31.1224465Z env:
+2026-09-28T06:24:31.1225480Z   EVENT_NAME: pull_request
+2026-09-28T06:24:31.1226761Z   PR_HEAD_SHA: 260cebd29abd35116e5a3f96a92f2709f05e4cfa
+2026-09-28T06:24:31.1228133Z ##[endgroup]
+2026-09-28T06:24:31.1610402Z ##[group]Run if [ -n "$DEEPSEEK_API_KEY" ]; then
+2026-09-28T06:24:31.1612356Z [36;1mif [ -n "$DEEPSEEK_API_KEY" ]; then[0m
+2026-09-28T06:24:31.1613937Z [36;1m  echo "have=true" >> "$GITHUB_OUTPUT"[0m
+2026-09-28T06:24:31.1615353Z [36;1melse[0m
+2026-09-28T06:24:31.1616584Z [36;1m  echo "have=false" >> "$GITHUB_OUTPUT"[0m
+2026-09-28T06:24:31.1619580Z [36;1m  echo "::notice::DEEPSEEK_API_KEY GitHub Actions secret not set — eval-baseline skipped. Add it under Settings → Secrets and variables → Actions to arm the gate."[0m
+2026-09-28T06:24:31.1622669Z [36;1mfi[0m
+2026-09-28T06:24:31.1690989Z shell: /usr/bin/bash -e {0}
+2026-09-28T06:24:31.1692444Z env:
+2026-09-28T06:24:31.1694250Z   DEEPSEEK_API_KEY: ***
+2026-09-28T06:24:31.1695446Z ##[endgroup]
+2026-09-28T06:24:31.1999967Z ##[group]Run actions/setup-python@v7
+2026-09-28T06:24:31.2001130Z with:
+2026-09-28T06:24:31.2002239Z   python-version: 3.11
+2026-09-28T06:24:31.2003209Z   check-latest: false
+2026-09-28T06:24:31.2011108Z   token: ***
+2026-09-28T06:24:31.2012341Z   update-environment: true
+2026-09-28T06:24:31.2013386Z   allow-prereleases: false
+2026-09-28T06:24:31.2014405Z   freethreaded: false
+2026-09-28T06:24:31.2015380Z ##[endgroup]
+2026-09-28T06:24:31.3252387Z ##[group]Installed versions
+2026-09-28T06:24:31.3339841Z Successfully set up CPython (3.11.16)
+2026-09-28T06:24:31.3342201Z ##[endgroup]
+2026-09-28T06:24:31.3570330Z ##[group]Run pip install -r backend/requirements.txt
+2026-09-28T06:24:31.3572945Z [36;1mpip install -r backend/requirements.txt[0m
+2026-09-28T06:24:31.3688919Z shell: /usr/bin/bash -e {0}
+2026-09-28T06:24:31.3690789Z env:
+2026-09-28T06:24:31.3692880Z   pythonLocation: /opt/hostedtoolcache/Python/3.11.16/x64
+2026-09-28T06:24:31.3695673Z   PKG_CONFIG_PATH: /opt/hostedtoolcache/Python/3.11.16/x64/lib/pkgconfig
+2026-09-28T06:24:31.3698431Z   Python_ROOT_DIR: /opt/hostedtoolcache/Python/3.11.16/x64
+2026-09-28T06:24:31.3701257Z   Python2_ROOT_DIR: /opt/hostedtoolcache/Python/3.11.16/x64
+2026-09-28T06:24:31.3704058Z   Python3_ROOT_DIR: /opt/hostedtoolcache/Python/3.11.16/x64
+2026-09-28T06:24:31.3706647Z   LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.11.16/x64/lib
+2026-09-28T06:24:31.3709057Z ##[endgroup]
+2026-09-28T06:24:32.5440090Z Collecting aiofiles==25.1.0 (from -r backend/requirements.txt (line 7))
+2026-09-28T06:24:32.6140355Z   Downloading aiofiles-25.1.0-py3-none-any.whl.metadata (6.3 kB)
+2026-09-28T06:24:32.6408989Z Collecting annotated-doc==0.0.4 (from -r backend/requirements.txt (line 9))
+2026-09-28T06:24:32.6518925Z   Downloading annotated_doc-0.0.4-py3-none-any.whl.metadata (6.6 kB)
+2026-09-28T06:24:32.6793159Z Collecting annotated-types==0.7.0 (from -r backend/requirements.txt (line 11))
+2026-09-28T06:24:32.6905305Z   Downloading annotated_types-0.7.0-py3-none-any.whl.metadata (15 kB)
+2026-09-28T06:24:32.7348664Z Collecting anyio==4.14.2 (from -r backend/requirements.txt (line 13))
+2026-09-28T06:24:32.7452125Z   Downloading anyio-4.14.2-py3-none-any.whl.metadata (4.6 kB)
+2026-09-28T06:24:32.7728599Z Collecting backoff==2.2.1 (from -r backend/requirements.txt (line 20))
+2026-09-28T06:24:32.7831952Z   Downloading backoff-2.2.1-py3-none-any.whl.metadata (14 kB)
+2026-09-28T06:24:32.8494608Z Collecting bcrypt==5.0.0 (from -r backend/requirements.txt (line 22))
+2026-09-28T06:24:32.8602139Z   Downloading bcrypt-5.0.0-cp39-abi3-manylinux_2_34_x86_64.whl.metadata (10 kB)
+2026-09-28T06:24:32.8883038Z Collecting beautifulsoup4==4.15.0 (from -r backend/requirements.txt (line 24))
+2026-09-28T06:24:32.8989419Z   Downloading beautifulsoup4-4.15.0-py3-none-any.whl.metadata (3.8 kB)
+2026-09-28T06:24:32.9436986Z Collecting brotli==1.2.0 (from -r backend/requirements.txt (line 28))
+2026-09-28T06:24:32.9549357Z   Downloading brotli-1.2.0-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.whl.metadata (6.1 kB)
+2026-09-28T06:24:32.9871226Z Collecting certifi==2026.5.20 (from -r backend/requirements.txt (line 30))
+2026-09-28T06:24:32.9985685Z   Downloading certifi-2026.5.20-py3-none-any.whl.metadata (2.5 kB)
+2026-09-28T06:24:33.1335899Z Collecting cffi==2.0.0 (from -r backend/requirements.txt (line 36))
+2026-09-28T06:24:33.1441705Z   Downloading cffi-2.0.0-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.whl.metadata (2.6 kB)
+2026-09-28T06:24:33.2759004Z Collecting charset-normalizer==3.4.7 (from -r backend/requirements.txt (line 40))
+2026-09-28T06:24:33.2870915Z   Downloading charset_normalizer-3.4.7-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl.metadata (40 kB)
+2026-09-28T06:24:33.3201770Z Collecting click==8.4.1 (from -r backend/requirements.txt (line 42))
+2026-09-28T06:24:33.3309922Z   Downloading click-8.4.1-py3-none-any.whl.metadata (2.6 kB)
+2026-09-28T06:24:33.5352052Z Collecting cryptography==50.0.0 (from -r backend/requirements.txt (line 44))
+2026-09-28T06:24:33.5456718Z   Downloading cryptography-50.0.0-cp311-abi3-manylinux_2_34_x86_64.whl.metadata (4.3 kB)
+2026-09-28T06:24:33.5706417Z Collecting cssselect2==0.9.0 (from -r backend/requirements.txt (line 46))
+2026-09-28T06:24:33.5810171Z   Downloading cssselect2-0.9.0-py3-none-any.whl.metadata (2.9 kB)
+2026-09-28T06:24:33.6051901Z Collecting distro==1.9.0 (from -r backend/requirements.txt (line 48))
+2026-09-28T06:24:33.6155646Z   Downloading distro-1.9.0-py3-none-any.whl.metadata (6.8 kB)
+2026-09-28T06:24:33.6406079Z Collecting dnspython==2.8.0 (from -r backend/requirements.txt (line 50))
+2026-09-28T06:24:33.6512361Z   Downloading dnspython-2.8.0-py3-none-any.whl.metadata (5.7 kB)
+2026-09-28T06:24:33.7114379Z Collecting edgartools==5.58.0 (from -r backend/requirements.txt (line 52))
+2026-09-28T06:24:33.7233824Z   Downloading edgartools-5.58.0-py3-none-any.whl.metadata (18 kB)
+2026-09-28T06:24:33.7517740Z Collecting email-validator==2.3.0 (from -r backend/requirements.txt (line 54))
+2026-09-28T06:24:33.7622257Z   Downloading email_validator-2.3.0-py3-none-any.whl.metadata (26 kB)
+2026-09-28T06:24:33.7862717Z Collecting et-xmlfile==2.0.0 (from -r backend/requirements.txt (line 56))
+2026-09-28T06:24:33.7968108Z   Downloading et_xmlfile-2.0.0-py3-none-any.whl.metadata (2.7 kB)
+2026-09-28T06:24:33.8458813Z Collecting fastapi==0.141.1 (from -r backend/requirements.txt (line 58))
+2026-09-28T06:24:33.8566969Z   Downloading fastapi-0.141.1-py3-none-any.whl.metadata (27 kB)
+2026-09-28T06:24:33.8932782Z Collecting filelock==3.29.4 (from -r backend/requirements.txt (line 62))
+2026-09-28T06:24:33.9041887Z   Downloading filelock-3.29.4-py3-none-any.whl.metadata (2.0 kB)
+2026-09-28T06:24:34.0526830Z Collecting fonttools==4.63.0 (from -r backend/requirements.txt (line 64))
+2026-09-28T06:24:34.0636762Z   Downloading fonttools-4.63.0-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.whl.metadata (118 kB)
+2026-09-28T06:24:34.2543451Z Collecting greenlet==3.5.6 (from -r backend/requirements.txt (line 66))
+2026-09-28T06:24:34.2668371Z   Downloading greenlet-3.5.6-cp311-cp311-manylinux_2_24_x86_64.manylinux_2_28_x86_64.whl.metadata (3.8 kB)
+2026-09-28T06:24:34.2913711Z Collecting h11==0.16.0 (from -r backend/requirements.txt (line 70))
+2026-09-28T06:24:34.3027273Z   Downloading h11-0.16.0-py3-none-any.whl.metadata (8.3 kB)
+2026-09-28T06:24:34.3325432Z Collecting httpcore==1.0.9 (from -r backend/requirements.txt (line 75))
+2026-09-28T06:24:34.3432196Z   Downloading httpcore-1.0.9-py3-none-any.whl.metadata (21 kB)
+2026-09-28T06:24:34.3737874Z Collecting httpcore2==2.13.0 (from -r backend/requirements.txt (line 77))
+2026-09-28T06:24:34.3845069Z   Downloading httpcore2-2.13.0-py3-none-any.whl.metadata (26 kB)
+2026-09-28T06:24:34.4292909Z Collecting httptools==0.8.0 (from -r backend/requirements.txt (line 79))
+2026-09-28T06:24:34.4402489Z   Downloading httptools-0.8.0-cp311-cp311-manylinux1_x86_64.manylinux_2_28_x86_64.manylinux_2_5_x86_64.whl.metadata (3.5 kB)
+2026-09-28T06:24:34.4688308Z Collecting httpx==0.28.1 (from -r backend/requirements.txt (line 81))
+2026-09-28T06:24:34.4798772Z   Downloading httpx-0.28.1-py3-none-any.whl.metadata (7.1 kB)
+2026-09-28T06:24:34.5075609Z Collecting httpx2==2.13.0 (from -r backend/requirements.txt (line 86))
+2026-09-28T06:24:34.5183898Z   Downloading httpx2-2.13.0-py3-none-any.whl.metadata (10 kB)
+2026-09-28T06:24:34.5460294Z Collecting httpxthrottlecache==0.6.1 (from -r backend/requirements.txt (line 88))
+2026-09-28T06:24:34.5586298Z   Downloading httpxthrottlecache-0.6.1-py3-none-any.whl.metadata (7.8 kB)
+2026-09-28T06:24:34.5866595Z Collecting humanize==4.15.0 (from -r backend/requirements.txt (line 90))
+2026-09-28T06:24:34.5974007Z   Downloading humanize-4.15.0-py3-none-any.whl.metadata (7.8 kB)
+2026-09-28T06:24:34.6226431Z Collecting idna==3.18 (from -r backend/requirements.txt (line 92))
+2026-09-28T06:24:34.6332964Z   Downloading idna-3.18-py3-none-any.whl.metadata (6.1 kB)
+2026-09-28T06:24:34.6561589Z Collecting iniconfig==2.3.0 (from -r backend/requirements.txt (line 99))
+2026-09-28T06:24:34.6667171Z   Downloading iniconfig-2.3.0-py3-none-any.whl.metadata (2.5 kB)
+2026-09-28T06:24:34.6932642Z Collecting jinja2==3.1.6 (from -r backend/requirements.txt (line 101))
+2026-09-28T06:24:34.7039603Z   Downloading jinja2-3.1.6-py3-none-any.whl.metadata (2.9 kB)
+2026-09-28T06:24:34.8038910Z Collecting jiter==0.16.0 (from -r backend/requirements.txt (line 103))
+2026-09-28T06:24:34.8147939Z   Downloading jiter-0.16.0-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl.metadata (5.2 kB)
+2026-09-28T06:24:34.8527988Z Collecting json-repair==0.63.4 (from -r backend/requirements.txt (line 105))
+2026-09-28T06:24:34.8664382Z   Downloading json_repair-0.63.4-py3-none-any.whl.metadata (20 kB)
+2026-09-28T06:24:35.0985431Z Collecting lxml==6.1.3 (from -r backend/requirements.txt (line 107))
+2026-09-28T06:24:35.1096779Z   Downloading lxml-6.1.3-cp311-cp311-manylinux_2_26_x86_64.manylinux_2_28_x86_64.whl.metadata (3.3 kB)
+2026-09-28T06:24:35.1366956Z Collecting markdown-it-py==4.2.0 (from -r backend/requirements.txt (line 111))
+2026-09-28T06:24:35.1471058Z   Downloading markdown_it_py-4.2.0-py3-none-any.whl.metadata (7.4 kB)
+2026-09-28T06:24:35.2351502Z Collecting markupsafe==3.0.3 (from -r backend/requirements.txt (line 113))
+2026-09-28T06:24:35.2460768Z   Downloading markupsafe-3.0.3-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl.metadata (2.7 kB)
+2026-09-28T06:24:35.2692394Z Collecting mdurl==0.1.2 (from -r backend/requirements.txt (line 115))
+2026-09-28T06:24:35.2796635Z   Downloading mdurl-0.1.2-py3-none-any.whl.metadata (1.6 kB)
+2026-09-28T06:24:35.3045831Z Collecting nest-asyncio==1.6.0 (from -r backend/requirements.txt (line 117))
+2026-09-28T06:24:35.3152189Z   Downloading nest_asyncio-1.6.0-py3-none-any.whl.metadata (2.8 kB)
+2026-09-28T06:24:35.5120452Z Collecting numpy==2.4.6 (from -r backend/requirements.txt (line 119))
+2026-09-28T06:24:35.5253237Z   Downloading numpy-2.4.6-cp311-cp311-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl.metadata (6.6 kB)
+2026-09-28T06:24:35.5783999Z Collecting openai==3.16.2 (from -r backend/requirements.txt (line 123))
+2026-09-28T06:24:35.5891372Z   Downloading openai-3.16.2-py3-none-any.whl.metadata (43 kB)
+2026-09-28T06:24:35.6195255Z Collecting openpyxl==3.1.5 (from -r backend/requirements.txt (line 125))
+2026-09-28T06:24:35.6304157Z   Downloading openpyxl-3.1.5-py2.py3-none-any.whl.metadata (2.5 kB)
+2026-09-28T06:24:35.9056610Z Collecting orjson==3.11.9 (from -r backend/requirements.txt (line 127))
+2026-09-28T06:24:35.9165956Z   Downloading orjson-3.11.9-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl.metadata (41 kB)
+2026-09-28T06:24:35.9533080Z Collecting packaging==26.2 (from -r backend/requirements.txt (line 129))
+2026-09-28T06:24:35.9638879Z   Downloading packaging-26.2-py3-none-any.whl.metadata (3.5 kB)
+2026-09-28T06:24:36.0872524Z Collecting pandas==3.0.6 (from -r backend/requirements.txt (line 131))
+2026-09-28T06:24:36.0982820Z   Downloading pandas-3.0.6-cp311-cp311-manylinux_2_24_x86_64.manylinux_2_28_x86_64.whl.metadata (79 kB)
+2026-09-28T06:24:36.1445814Z Collecting passlib==1.7.4 (from -r backend/requirements.txt (line 135))
+2026-09-28T06:24:36.1552270Z   Downloading passlib-1.7.4-py2.py3-none-any.whl.metadata (1.7 kB)
+2026-09-28T06:24:36.3268558Z Collecting pillow==12.3.0 (from -r backend/requirements.txt (line 137))
+2026-09-28T06:24:36.3376884Z   Downloading pillow-12.3.0-cp311-cp311-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl.metadata (9.1 kB)
+2026-09-28T06:24:36.3647557Z Collecting pluggy==1.6.0 (from -r backend/requirements.txt (line 139))
+2026-09-28T06:24:36.3754019Z   Downloading pluggy-1.6.0-py3-none-any.whl.metadata (4.8 kB)
+2026-09-28T06:24:36.5032044Z Collecting posthog==7.58.0 (from -r backend/requirements.txt (line 141))
+2026-09-28T06:24:36.5145245Z   Downloading posthog-7.58.0-py3-none-any.whl.metadata (5.6 kB)
+2026-09-28T06:24:36.5937542Z Collecting psycopg2-binary==2.9.13 (from -r backend/requirements.txt (line 143))
+2026-09-28T06:24:36.6046043Z   Downloading psycopg2_binary-2.9.13-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.whl.metadata (4.9 kB)
+2026-09-28T06:24:36.6955012Z Collecting pyarrow==24.0.0 (from -r backend/requirements.txt (line 145))
+2026-09-28T06:24:36.7062898Z   Downloading pyarrow-24.0.0-cp311-cp311-manylinux_2_28_x86_64.whl.metadata (3.0 kB)
+2026-09-28T06:24:36.7295810Z Collecting pycparser==3.0 (from -r backend/requirements.txt (line 147))
+2026-09-28T06:24:36.7399967Z   Downloading pycparser-3.0-py3-none-any.whl.metadata (8.2 kB)
+2026-09-28T06:24:36.8535438Z Collecting pydantic==2.13.5 (from -r backend/requirements.txt (line 149))
+2026-09-28T06:24:36.8645702Z   Downloading pydantic-2.13.5-py3-none-any.whl.metadata (110 kB)
+2026-09-28T06:24:37.6349188Z Collecting pydantic-core==2.46.5 (from -r backend/requirements.txt (line 156))
+2026-09-28T06:24:37.6465541Z   Downloading pydantic_core-2.46.5-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl.metadata (6.6 kB)
+2026-09-28T06:24:38.3516390Z Collecting pydantic-settings==2.15.0 (from -r backend/requirements.txt (line 158))
+2026-09-28T06:24:38.3623628Z   Downloading pydantic_settings-2.15.0-py3-none-any.whl.metadata (3.9 kB)
+2026-09-28T06:24:38.3882841Z Collecting pydyf==0.12.1 (from -r backend/requirements.txt (line 160))
+2026-09-28T06:24:38.3988591Z   Downloading pydyf-0.12.1-py3-none-any.whl.metadata (2.5 kB)
+2026-09-28T06:24:38.4278581Z Collecting pygments==2.20.0 (from -r backend/requirements.txt (line 162))
+2026-09-28T06:24:38.4384306Z   Downloading pygments-2.20.0-py3-none-any.whl.metadata (2.5 kB)
+2026-09-28T06:24:38.4667040Z Collecting pyjwt==2.14.0 (from -r backend/requirements.txt (line 166))
+2026-09-28T06:24:38.4775756Z   Downloading pyjwt-2.14.0-py3-none-any.whl.metadata (3.4 kB)
+2026-09-28T06:24:38.5022505Z Collecting pyphen==0.17.2 (from -r backend/requirements.txt (line 170))
+2026-09-28T06:24:38.5127545Z   Downloading pyphen-0.17.2-py3-none-any.whl.metadata (3.2 kB)
+2026-09-28T06:24:38.5407624Z Collecting pyrate-limiter==4.3.0 (from -r backend/requirements.txt (line 172))
+2026-09-28T06:24:38.5524038Z   Downloading pyrate_limiter-4.3.0-py3-none-any.whl.metadata (29 kB)
+2026-09-28T06:24:38.5918791Z Collecting pytest==9.1.1 (from -r backend/requirements.txt (line 176))
+2026-09-28T06:24:38.6030474Z   Downloading pytest-9.1.1-py3-none-any.whl.metadata (7.6 kB)
+2026-09-28T06:24:38.6344988Z Collecting pytest-asyncio==1.4.0 (from -r backend/requirements.txt (line 180))
+2026-09-28T06:24:38.6455275Z   Downloading pytest_asyncio-1.4.0-py3-none-any.whl.metadata (4.1 kB)
+2026-09-28T06:24:38.6709698Z Collecting python-dateutil==2.9.0.post0 (from -r backend/requirements.txt (line 182))
+2026-09-28T06:24:38.6812407Z   Downloading python_dateutil-2.9.0.post0-py2.py3-none-any.whl.metadata (8.4 kB)
+2026-09-28T06:24:38.7068941Z Collecting python-dotenv==1.2.3 (from -r backend/requirements.txt (line 186))
+2026-09-28T06:24:38.7171899Z   Downloading python_dotenv-1.2.3-py3-none-any.whl.metadata (29 kB)
+2026-09-28T06:24:38.7435823Z Collecting python-multipart==0.0.32 (from -r backend/requirements.txt (line 191))
+2026-09-28T06:24:38.7539811Z   Downloading python_multipart-0.0.32-py3-none-any.whl.metadata (2.1 kB)
+2026-09-28T06:24:38.8013255Z Collecting pyyaml==6.0.3 (from -r backend/requirements.txt (line 193))
+2026-09-28T06:24:38.8121065Z   Downloading pyyaml-6.0.3-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl.metadata (2.4 kB)
+2026-09-28T06:24:38.8416271Z Collecting rank-bm25==0.2.2 (from -r backend/requirements.txt (line 195))
+2026-09-28T06:24:38.8521267Z   Downloading rank_bm25-0.2.2-py3-none-any.whl.metadata (3.2 kB)
+2026-09-28T06:24:39.3635665Z Collecting rapidfuzz==3.14.5 (from -r backend/requirements.txt (line 197))
+2026-09-28T06:24:39.3742278Z   Downloading rapidfuzz-3.14.5-cp311-cp311-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl.metadata (12 kB)
+2026-09-28T06:24:39.4084670Z Collecting redis==8.1.0 (from -r backend/requirements.txt (line 199))
+2026-09-28T06:24:39.4192071Z   Downloading redis-8.1.0-py3-none-any.whl.metadata (16 kB)
+2026-09-28T06:24:39.4512628Z Collecting requests==2.34.2 (from -r backend/requirements.txt (line 201))
+2026-09-28T06:24:39.4616587Z   Downloading requests-2.34.2-py3-none-any.whl.metadata (4.8 kB)
+2026-09-28T06:24:39.5001153Z Collecting rich==15.0.0 (from -r backend/requirements.txt (line 205))
+2026-09-28T06:24:39.5105207Z   Downloading rich-15.0.0-py3-none-any.whl.metadata (18 kB)
+2026-09-28T06:24:39.5609624Z Collecting sentry-sdk==2.69.2 (from -r backend/requirements.txt (line 207))
+2026-09-28T06:24:39.5726065Z   Downloading sentry_sdk-2.69.2-py3-none-any.whl.metadata (11 kB)
+2026-09-28T06:24:39.6048724Z Collecting six==1.17.0 (from -r backend/requirements.txt (line 209))
+2026-09-28T06:24:39.6153913Z   Downloading six-1.17.0-py2.py3-none-any.whl.metadata (1.7 kB)
+2026-09-28T06:24:39.6366292Z Collecting sniffio==1.3.1 (from -r backend/requirements.txt (line 211))
+2026-09-28T06:24:39.6469772Z   Downloading sniffio-1.3.1-py3-none-any.whl.metadata (3.9 kB)
+2026-09-28T06:24:39.6745221Z Collecting soupsieve==2.9 (from -r backend/requirements.txt (line 213))
+2026-09-28T06:24:39.6849883Z   Downloading soupsieve-2.9-py3-none-any.whl.metadata (4.6 kB)
+2026-09-28T06:24:40.0376240Z Collecting sqlalchemy==2.0.54 (from -r backend/requirements.txt (line 215))
+2026-09-28T06:24:40.0480878Z   Downloading sqlalchemy-2.0.54-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl.metadata (9.7 kB)
+2026-09-28T06:24:40.0762492Z Collecting stamina==26.1.0 (from -r backend/requirements.txt (line 217))
+2026-09-28T06:24:40.0867276Z   Downloading stamina-26.1.0-py3-none-any.whl.metadata (4.6 kB)
+2026-09-28T06:24:40.1198330Z Collecting starlette==1.3.1 (from -r backend/requirements.txt (line 219))
+2026-09-28T06:24:40.1304346Z   Downloading starlette-1.3.1-py3-none-any.whl.metadata (6.4 kB)
+2026-09-28T06:24:40.2005728Z Collecting stripe==15.6.1 (from -r backend/requirements.txt (line 221))
+2026-09-28T06:24:40.2115370Z   Downloading stripe-15.6.1-py3-none-any.whl.metadata (22 kB)
+2026-09-28T06:24:40.2361830Z Collecting tabulate==0.10.0 (from -r backend/requirements.txt (line 223))
+2026-09-28T06:24:40.2466172Z   Downloading tabulate-0.10.0-py3-none-any.whl.metadata (40 kB)
+2026-09-28T06:24:40.2761650Z Collecting tenacity==9.1.4 (from -r backend/requirements.txt (line 225))
+2026-09-28T06:24:40.2867535Z   Downloading tenacity-9.1.4-py3-none-any.whl.metadata (1.2 kB)
+2026-09-28T06:24:40.3118600Z Collecting textdistance==4.6.3 (from -r backend/requirements.txt (line 227))
+2026-09-28T06:24:40.3225376Z   Downloading textdistance-4.6.3-py3-none-any.whl.metadata (18 kB)
+2026-09-28T06:24:40.3535434Z Collecting tinycss2==1.5.1 (from -r backend/requirements.txt (line 229))
+2026-09-28T06:24:40.3641749Z   Downloading tinycss2-1.5.1-py3-none-any.whl.metadata (3.0 kB)
+2026-09-28T06:24:40.3861803Z Collecting tinyhtml5==2.1.0 (from -r backend/requirements.txt (line 233))
+2026-09-28T06:24:40.3966315Z   Downloading tinyhtml5-2.1.0-py3-none-any.whl.metadata (2.9 kB)
+2026-09-28T06:24:40.4326572Z Collecting tqdm==4.68.2 (from -r backend/requirements.txt (line 235))
+2026-09-28T06:24:40.4435755Z   Downloading tqdm-4.68.2-py3-none-any.whl.metadata (58 kB)
+2026-09-28T06:24:40.4719721Z Collecting truststore==0.10.4 (from -r backend/requirements.txt (line 237))
+2026-09-28T06:24:40.4824470Z   Downloading truststore-0.10.4-py3-none-any.whl.metadata (4.4 kB)
+2026-09-28T06:24:40.5092630Z Collecting typing-extensions==4.15.0 (from -r backend/requirements.txt (line 242))
+2026-09-28T06:24:40.5265100Z   Downloading typing_extensions-4.15.0-py3-none-any.whl.metadata (3.3 kB)
+2026-09-28T06:24:40.5502367Z Collecting typing-inspection==0.4.2 (from -r backend/requirements.txt (line 257))
+2026-09-28T06:24:40.5608517Z   Downloading typing_inspection-0.4.2-py3-none-any.whl.metadata (2.6 kB)
+2026-09-28T06:24:40.5858368Z Collecting unidecode==1.4.0 (from -r backend/requirements.txt (line 262))
+2026-09-28T06:24:40.5967466Z   Downloading Unidecode-1.4.0-py3-none-any.whl.metadata (13 kB)
+2026-09-28T06:24:40.6323958Z Collecting urllib3==2.7.0 (from -r backend/requirements.txt (line 264))
+2026-09-28T06:24:40.6432754Z   Downloading urllib3-2.7.0-py3-none-any.whl.metadata (6.9 kB)
+2026-09-28T06:24:40.6785645Z Collecting uvicorn==0.53.0 (from -r backend/requirements.txt (line 268))
+2026-09-28T06:24:40.6891677Z   Downloading uvicorn-0.53.0-py3-none-any.whl.metadata (6.6 kB)
+2026-09-28T06:24:40.7390200Z Collecting uvloop==0.22.1 (from -r backend/requirements.txt (line 270))
+2026-09-28T06:24:40.7500380Z   Downloading uvloop-0.22.1-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl.metadata (4.9 kB)
+2026-09-28T06:24:40.8337724Z Collecting watchfiles==1.2.0 (from -r backend/requirements.txt (line 272))
+2026-09-28T06:24:40.8444937Z   Downloading watchfiles-1.2.0-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl.metadata (4.9 kB)
+2026-09-28T06:24:40.8755064Z Collecting weasyprint==70.0 (from -r backend/requirements.txt (line 274))
+2026-09-28T06:24:40.8862122Z   Downloading weasyprint-70.0-py3-none-any.whl.metadata (3.8 kB)
+2026-09-28T06:24:40.9097041Z Collecting webencodings==0.5.1 (from -r backend/requirements.txt (line 276))
+2026-09-28T06:24:40.9199157Z   Downloading webencodings-0.5.1-py2.py3-none-any.whl.metadata (2.1 kB)
+2026-09-28T06:24:41.0337176Z Collecting websockets==16.0 (from -r backend/requirements.txt (line 281))
+2026-09-28T06:24:41.0445490Z   Downloading websockets-16.0-cp311-cp311-manylinux1_x86_64.manylinux_2_28_x86_64.manylinux_2_5_x86_64.whl.metadata (6.8 kB)
+2026-09-28T06:24:41.0963651Z Collecting zopfli==0.4.3 (from -r backend/requirements.txt (line 283))
+2026-09-28T06:24:41.1069971Z   Downloading zopfli-0.4.3-cp310-abi3-manylinux2014_x86_64.manylinux_2_17_x86_64.whl.metadata (3.5 kB)
+2026-09-28T06:24:41.2681786Z Downloading aiofiles-25.1.0-py3-none-any.whl (14 kB)
+2026-09-28T06:24:41.2809062Z Downloading annotated_doc-0.0.4-py3-none-any.whl (5.3 kB)
+2026-09-28T06:24:41.2933873Z Downloading annotated_types-0.7.0-py3-none-any.whl (13 kB)
+2026-09-28T06:24:41.3062582Z Downloading anyio-4.14.2-py3-none-any.whl (125 kB)
+2026-09-28T06:24:41.3203571Z Downloading backoff-2.2.1-py3-none-any.whl (15 kB)
+2026-09-28T06:24:41.3330135Z Downloading bcrypt-5.0.0-cp39-abi3-manylinux_2_34_x86_64.whl (278 kB)
+2026-09-28T06:24:41.3575954Z Downloading beautifulsoup4-4.15.0-py3-none-any.whl (109 kB)
+2026-09-28T06:24:41.3708870Z Downloading brotli-1.2.0-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.whl (1.4 MB)
+2026-09-28T06:24:41.3947250Z    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1.4/1.4 MB 56.9 MB/s  0:00:00
+2026-09-28T06:24:41.4054365Z Downloading certifi-2026.5.20-py3-none-any.whl (134 kB)
+2026-09-28T06:24:41.4192793Z Downloading cffi-2.0.0-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.whl (215 kB)
+2026-09-28T06:24:41.4321052Z Downloading charset_normalizer-3.4.7-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl (214 kB)
+2026-09-28T06:24:41.4447438Z Downloading click-8.4.1-py3-none-any.whl (116 kB)
+2026-09-28T06:24:41.4572055Z Downloading cryptography-50.0.0-cp311-abi3-manylinux_2_34_x86_64.whl (4.7 MB)
+2026-09-28T06:24:41.4924401Z    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 4.7/4.7 MB 138.3 MB/s  0:00:00
+2026-09-28T06:24:41.5037041Z Downloading cssselect2-0.9.0-py3-none-any.whl (15 kB)
+2026-09-28T06:24:41.5170776Z Downloading distro-1.9.0-py3-none-any.whl (20 kB)
+2026-09-28T06:24:41.5299026Z Downloading dnspython-2.8.0-py3-none-any.whl (331 kB)
+2026-09-28T06:24:41.5451920Z Downloading edgartools-5.58.0-py3-none-any.whl (3.5 MB)
+2026-09-28T06:24:41.5587542Z    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 3.5/3.5 MB 298.0 MB/s  0:00:00
+2026-09-28T06:24:41.5695367Z Downloading httpx-0.28.1-py3-none-any.whl (73 kB)
+2026-09-28T06:24:41.5827865Z Downloading httpcore-1.0.9-py3-none-any.whl (78 kB)
+2026-09-28T06:24:41.5962681Z Downloading email_validator-2.3.0-py3-none-any.whl (35 kB)
+2026-09-28T06:24:41.6091316Z Downloading et_xmlfile-2.0.0-py3-none-any.whl (18 kB)
+2026-09-28T06:24:41.6219950Z Downloading fastapi-0.141.1-py3-none-any.whl (131 kB)
+2026-09-28T06:24:41.6348761Z Downloading filelock-3.29.4-py3-none-any.whl (42 kB)
+2026-09-28T06:24:41.6479606Z Downloading fonttools-4.63.0-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.whl (5.1 MB)
+2026-09-28T06:24:41.6660017Z    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 5.1/5.1 MB 311.5 MB/s  0:00:00
+2026-09-28T06:24:41.6785260Z Downloading greenlet-3.5.6-cp311-cp311-manylinux_2_24_x86_64.manylinux_2_28_x86_64.whl (624 kB)
+2026-09-28T06:24:41.6840877Z    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 624.4/624.4 kB 130.5 MB/s  0:00:00
+2026-09-28T06:24:41.6947309Z Downloading h11-0.16.0-py3-none-any.whl (37 kB)
+2026-09-28T06:24:41.7071837Z Downloading httpcore2-2.13.0-py3-none-any.whl (83 kB)
+2026-09-28T06:24:41.7204337Z Downloading httptools-0.8.0-cp311-cp311-manylinux1_x86_64.manylinux_2_28_x86_64.manylinux_2_5_x86_64.whl (464 kB)
+2026-09-28T06:24:41.7336959Z Downloading httpx2-2.13.0-py3-none-any.whl (95 kB)
+2026-09-28T06:24:41.7466384Z Downloading httpxthrottlecache-0.6.1-py3-none-any.whl (14 kB)
+2026-09-28T06:24:41.7593975Z Downloading humanize-4.15.0-py3-none-any.whl (132 kB)
+2026-09-28T06:24:41.7725353Z Downloading idna-3.18-py3-none-any.whl (65 kB)
+2026-09-28T06:24:41.7852481Z Downloading iniconfig-2.3.0-py3-none-any.whl (7.5 kB)
+2026-09-28T06:24:41.7978341Z Downloading jinja2-3.1.6-py3-none-any.whl (134 kB)
+2026-09-28T06:24:41.8107201Z Downloading jiter-0.16.0-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl (347 kB)
+2026-09-28T06:24:41.8238750Z Downloading json_repair-0.63.4-py3-none-any.whl (51 kB)
+2026-09-28T06:24:41.8366344Z Downloading lxml-6.1.3-cp311-cp311-manylinux_2_26_x86_64.manylinux_2_28_x86_64.whl (5.2 MB)
+2026-09-28T06:24:41.8535554Z    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 5.2/5.2 MB 345.9 MB/s  0:00:00
+2026-09-28T06:24:41.8644744Z Downloading markdown_it_py-4.2.0-py3-none-any.whl (91 kB)
+2026-09-28T06:24:41.8778490Z Downloading mdurl-0.1.2-py3-none-any.whl (10.0 kB)
+2026-09-28T06:24:41.8903920Z Downloading markupsafe-3.0.3-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl (22 kB)
+2026-09-28T06:24:41.9024743Z Downloading nest_asyncio-1.6.0-py3-none-any.whl (5.2 kB)
+2026-09-28T06:24:41.9149715Z Downloading numpy-2.4.6-cp311-cp311-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl (16.9 MB)
+2026-09-28T06:24:41.9641367Z    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 16.9/16.9 MB 358.3 MB/s  0:00:00
+2026-09-28T06:24:41.9751952Z Downloading openai-3.16.2-py3-none-any.whl (2.1 MB)
+2026-09-28T06:24:41.9843258Z    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 2.1/2.1 MB 272.3 MB/s  0:00:00
+2026-09-28T06:24:41.9952327Z Downloading pydantic-2.13.5-py3-none-any.whl (472 kB)
+2026-09-28T06:24:42.0088784Z Downloading typing_extensions-4.15.0-py3-none-any.whl (44 kB)
+2026-09-28T06:24:42.0214296Z Downloading openpyxl-3.1.5-py2.py3-none-any.whl (250 kB)
+2026-09-28T06:24:42.0345461Z Downloading orjson-3.11.9-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl (133 kB)
+2026-09-28T06:24:42.0478709Z Downloading packaging-26.2-py3-none-any.whl (100 kB)
+2026-09-28T06:24:42.0608924Z Downloading pandas-3.0.6-cp311-cp311-manylinux_2_24_x86_64.manylinux_2_28_x86_64.whl (11.1 MB)
+2026-09-28T06:24:42.0972287Z    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 11.1/11.1 MB 324.0 MB/s  0:00:00
+2026-09-28T06:24:42.1082487Z Downloading passlib-1.7.4-py2.py3-none-any.whl (525 kB)
+2026-09-28T06:24:42.1136138Z    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 525.6/525.6 kB 97.4 MB/s  0:00:00
+2026-09-28T06:24:42.1245697Z Downloading pillow-12.3.0-cp311-cp311-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl (6.9 MB)
+2026-09-28T06:24:42.1473981Z    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 6.9/6.9 MB 330.5 MB/s  0:00:00
+2026-09-28T06:24:42.1582606Z Downloading pluggy-1.6.0-py3-none-any.whl (20 kB)
+2026-09-28T06:24:42.1726810Z Downloading posthog-7.58.0-py3-none-any.whl (781 kB)
+2026-09-28T06:24:42.1782175Z    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 781.6/781.6 kB 156.3 MB/s  0:00:00
+2026-09-28T06:24:42.1892943Z Downloading requests-2.34.2-py3-none-any.whl (73 kB)
+2026-09-28T06:24:42.2021157Z Downloading urllib3-2.7.0-py3-none-any.whl (131 kB)
+2026-09-28T06:24:42.2157099Z Downloading psycopg2_binary-2.9.13-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.whl (4.3 MB)
+2026-09-28T06:24:42.2304593Z    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 4.3/4.3 MB 328.0 MB/s  0:00:00
+2026-09-28T06:24:42.2412765Z Downloading pyarrow-24.0.0-cp311-cp311-manylinux_2_28_x86_64.whl (48.8 MB)
+2026-09-28T06:24:42.3727010Z    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 48.8/48.8 MB 377.8 MB/s  0:00:00
+2026-09-28T06:24:42.3836421Z Downloading pycparser-3.0-py3-none-any.whl (48 kB)
+2026-09-28T06:24:42.3964140Z Downloading pydantic_core-2.46.5-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl (2.1 MB)
+2026-09-28T06:24:42.4052315Z    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 2.1/2.1 MB 283.0 MB/s  0:00:00
+2026-09-28T06:24:42.4159886Z Downloading pydantic_settings-2.15.0-py3-none-any.whl (69 kB)
+2026-09-28T06:24:42.4289503Z Downloading pydyf-0.12.1-py3-none-any.whl (8.0 kB)
+2026-09-28T06:24:42.4416693Z Downloading pygments-2.20.0-py3-none-any.whl (1.2 MB)
+2026-09-28T06:24:42.4483474Z    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1.2/1.2 MB 223.4 MB/s  0:00:00
+2026-09-28T06:24:42.4592629Z Downloading pyjwt-2.14.0-py3-none-any.whl (32 kB)
+2026-09-28T06:24:42.4722892Z Downloading pyphen-0.17.2-py3-none-any.whl (2.1 MB)
+2026-09-28T06:24:42.4813039Z    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 2.1/2.1 MB 283.0 MB/s  0:00:00
+2026-09-28T06:24:42.4927248Z Downloading pyrate_limiter-4.3.0-py3-none-any.whl (39 kB)
+2026-09-28T06:24:42.5053388Z Downloading pytest-9.1.1-py3-none-any.whl (386 kB)
+2026-09-28T06:24:42.5241849Z Downloading pytest_asyncio-1.4.0-py3-none-any.whl (16 kB)
+2026-09-28T06:24:42.5367558Z Downloading python_dateutil-2.9.0.post0-py2.py3-none-any.whl (229 kB)
+2026-09-28T06:24:42.5501119Z Downloading python_dotenv-1.2.3-py3-none-any.whl (22 kB)
+2026-09-28T06:24:42.5627159Z Downloading python_multipart-0.0.32-py3-none-any.whl (30 kB)
+2026-09-28T06:24:42.5753202Z Downloading pyyaml-6.0.3-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl (806 kB)
+2026-09-28T06:24:42.5808731Z    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 806.6/806.6 kB 175.3 MB/s  0:00:00
+2026-09-28T06:24:42.5915657Z Downloading rank_bm25-0.2.2-py3-none-any.whl (8.6 kB)
+2026-09-28T06:24:42.6042849Z Downloading rapidfuzz-3.14.5-cp311-cp311-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl (3.2 MB)
+2026-09-28T06:24:42.6162733Z    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 3.2/3.2 MB 308.4 MB/s  0:00:00
+2026-09-28T06:24:42.6270481Z Downloading redis-8.1.0-py3-none-any.whl (560 kB)
+2026-09-28T06:24:42.6323846Z    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 560.6/560.6 kB 111.0 MB/s  0:00:00
+2026-09-28T06:24:42.6429535Z Downloading rich-15.0.0-py3-none-any.whl (310 kB)
+2026-09-28T06:24:42.6567806Z Downloading sentry_sdk-2.69.2-py3-none-any.whl (528 kB)
+2026-09-28T06:24:42.6625139Z    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 528.8/528.8 kB 84.7 MB/s  0:00:00
+2026-09-28T06:24:42.6734236Z Downloading six-1.17.0-py2.py3-none-any.whl (11 kB)
+2026-09-28T06:24:42.6862252Z Downloading sniffio-1.3.1-py3-none-any.whl (10 kB)
+2026-09-28T06:24:42.6992770Z Downloading soupsieve-2.9-py3-none-any.whl (37 kB)
+2026-09-28T06:24:42.7120461Z Downloading sqlalchemy-2.0.54-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl (3.4 MB)
+2026-09-28T06:24:42.7248172Z    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 3.4/3.4 MB 311.3 MB/s  0:00:00
+2026-09-28T06:24:42.7360317Z Downloading stamina-26.1.0-py3-none-any.whl (18 kB)
+2026-09-28T06:24:42.7489613Z Downloading starlette-1.3.1-py3-none-any.whl (73 kB)
+2026-09-28T06:24:42.7623593Z Downloading stripe-15.6.1-py3-none-any.whl (2.2 MB)
+2026-09-28T06:24:42.7726993Z    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 2.2/2.2 MB 257.1 MB/s  0:00:00
+2026-09-28T06:24:42.7836071Z Downloading tabulate-0.10.0-py3-none-any.whl (39 kB)
+2026-09-28T06:24:42.7963896Z Downloading tenacity-9.1.4-py3-none-any.whl (28 kB)
+2026-09-28T06:24:42.8098197Z Downloading textdistance-4.6.3-py3-none-any.whl (31 kB)
+2026-09-28T06:24:42.8231936Z Downloading tinycss2-1.5.1-py3-none-any.whl (28 kB)
+2026-09-28T06:24:42.8364322Z Downloading tinyhtml5-2.1.0-py3-none-any.whl (39 kB)
+2026-09-28T06:24:42.8497963Z Downloading tqdm-4.68.2-py3-none-any.whl (78 kB)
+2026-09-28T06:24:42.8630734Z Downloading truststore-0.10.4-py3-none-any.whl (18 kB)
+2026-09-28T06:24:42.8763126Z Downloading typing_inspection-0.4.2-py3-none-any.whl (14 kB)
+2026-09-28T06:24:42.8905709Z Downloading Unidecode-1.4.0-py3-none-any.whl (235 kB)
+2026-09-28T06:24:42.9038754Z Downloading uvicorn-0.53.0-py3-none-any.whl (87 kB)
+2026-09-28T06:24:42.9174947Z Downloading uvloop-0.22.1-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl (3.8 MB)
+2026-09-28T06:24:42.9305411Z    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 3.8/3.8 MB 340.1 MB/s  0:00:00
+2026-09-28T06:24:42.9414595Z Downloading watchfiles-1.2.0-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl (456 kB)
+2026-09-28T06:24:42.9552185Z Downloading weasyprint-70.0-py3-none-any.whl (328 kB)
+2026-09-28T06:24:42.9687901Z Downloading webencodings-0.5.1-py2.py3-none-any.whl (11 kB)
+2026-09-28T06:24:42.9815924Z Downloading websockets-16.0-cp311-cp311-manylinux1_x86_64.manylinux_2_28_x86_64.manylinux_2_5_x86_64.whl (184 kB)
+2026-09-28T06:24:42.9949099Z Downloading zopfli-0.4.3-cp310-abi3-manylinux2014_x86_64.manylinux_2_17_x86_64.whl (829 kB)
+2026-09-28T06:24:43.0009632Z    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 829.4/829.4 kB 153.6 MB/s  0:00:00
+2026-09-28T06:24:43.6795746Z Installing collected packages: webencodings, passlib, brotli, zopfli, websockets, uvloop, urllib3, unidecode, typing-extensions, truststore, tqdm, tinyhtml5, tinycss2, textdistance, tenacity, tabulate, soupsieve, sniffio, six, redis, rapidfuzz, pyyaml, python-multipart, python-dotenv, pyrate-limiter, pyphen, pyjwt, pygments, pydyf, pycparser, pyarrow, psycopg2-binary, pluggy, pillow, packaging, orjson, numpy, nest-asyncio, mdurl, markupsafe, lxml, json-repair, jiter, iniconfig, idna, humanize, httptools, h11, greenlet, fonttools, filelock, et-xmlfile, dnspython, distro, click, charset-normalizer, certifi, bcrypt, backoff, annotated-types, annotated-doc, aiofiles, uvicorn, typing-inspection, stamina, sqlalchemy, sentry-sdk, requests, rank-bm25, python-dateutil, pytest, pydantic-core, openpyxl, markdown-it-py, jinja2, httpxthrottlecache, httpcore2, httpcore, email-validator, cssselect2, cffi, beautifulsoup4, anyio, weasyprint, watchfiles, stripe, starlette, rich, pytest-asyncio, pydantic, posthog, pandas, httpx2, httpx, cryptography, pydantic-settings, openai, fastapi, edgartools
+2026-09-28T06:25:03.5063213Z 
+2026-09-28T06:25:03.5109060Z Successfully installed aiofiles-25.1.0 annotated-doc-0.0.4 annotated-types-0.7.0 anyio-4.14.2 backoff-2.2.1 bcrypt-5.0.0 beautifulsoup4-4.15.0 brotli-1.2.0 certifi-2026.5.20 cffi-2.0.0 charset-normalizer-3.4.7 click-8.4.1 cryptography-50.0.0 cssselect2-0.9.0 distro-1.9.0 dnspython-2.8.0 edgartools-5.58.0 email-validator-2.3.0 et-xmlfile-2.0.0 fastapi-0.141.1 filelock-3.29.4 fonttools-4.63.0 greenlet-3.5.6 h11-0.16.0 httpcore-1.0.9 httpcore2-2.13.0 httptools-0.8.0 httpx-0.28.1 httpx2-2.13.0 httpxthrottlecache-0.6.1 humanize-4.15.0 idna-3.18 iniconfig-2.3.0 jinja2-3.1.6 jiter-0.16.0 json-repair-0.63.4 lxml-6.1.3 markdown-it-py-4.2.0 markupsafe-3.0.3 mdurl-0.1.2 nest-asyncio-1.6.0 numpy-2.4.6 openai-3.16.2 openpyxl-3.1.5 orjson-3.11.9 packaging-26.2 pandas-3.0.6 passlib-1.7.4 pillow-12.3.0 pluggy-1.6.0 posthog-7.58.0 psycopg2-binary-2.9.13 pyarrow-24.0.0 pycparser-3.0 pydantic-2.13.5 pydantic-core-2.46.5 pydantic-settings-2.15.0 pydyf-0.12.1 pygments-2.20.0 pyjwt-2.14.0 pyphen-0.17.2 pyrate-limiter-4.3.0 pytest-9.1.1 pytest-asyncio-1.4.0 python-dateutil-2.9.0.post0 python-dotenv-1.2.3 python-multipart-0.0.32 pyyaml-6.0.3 rank-bm25-0.2.2 rapidfuzz-3.14.5 redis-8.1.0 requests-2.34.2 rich-15.0.0 sentry-sdk-2.69.2 six-1.17.0 sniffio-1.3.1 soupsieve-2.9 sqlalchemy-2.0.54 stamina-26.1.0 starlette-1.3.1 stripe-15.6.1 tabulate-0.10.0 tenacity-9.1.4 textdistance-4.6.3 tinycss2-1.5.1 tinyhtml5-2.1.0 tqdm-4.68.2 truststore-0.10.4 typing-extensions-4.15.0 typing-inspection-0.4.2 unidecode-1.4.0 urllib3-2.7.0 uvicorn-0.53.0 uvloop-0.22.1 watchfiles-1.2.0 weasyprint-70.0 webencodings-0.5.1 websockets-16.0 zopfli-0.4.3
+2026-09-28T06:25:04.0489768Z ##[group]Run grep -v '^#' .github/ai-model.env >> "$GITHUB_ENV"
+2026-09-28T06:25:04.0490240Z [36;1mgrep -v '^#' .github/ai-model.env >> "$GITHUB_ENV"[0m
+2026-09-28T06:25:04.0557714Z shell: /usr/bin/bash -e {0}
+2026-09-28T06:25:04.0557990Z env:
+2026-09-28T06:25:04.0558267Z   pythonLocation: /opt/hostedtoolcache/Python/3.11.16/x64
+2026-09-28T06:25:04.0558743Z   PKG_CONFIG_PATH: /opt/hostedtoolcache/Python/3.11.16/x64/lib/pkgconfig
+2026-09-28T06:25:04.0559175Z   Python_ROOT_DIR: /opt/hostedtoolcache/Python/3.11.16/x64
+2026-09-28T06:25:04.0559550Z   Python2_ROOT_DIR: /opt/hostedtoolcache/Python/3.11.16/x64
+2026-09-28T06:25:04.0559931Z   Python3_ROOT_DIR: /opt/hostedtoolcache/Python/3.11.16/x64
+2026-09-28T06:25:04.0560308Z   LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.11.16/x64/lib
+2026-09-28T06:25:04.0560638Z ##[endgroup]
+2026-09-28T06:25:04.0737788Z ##[group]Run if [ "pull_request" = "workflow_dispatch" ]; then
+2026-09-28T06:25:04.0738274Z [36;1mif [ "pull_request" = "workflow_dispatch" ]; then[0m
+2026-09-28T06:25:04.0738607Z [36;1m  LIMIT="$EVAL_LIMIT"[0m
+2026-09-28T06:25:04.0738842Z [36;1melse[0m
+2026-09-28T06:25:04.0739034Z [36;1m  LIMIT=""[0m
+2026-09-28T06:25:04.0739236Z [36;1mfi[0m
+2026-09-28T06:25:04.0739596Z [36;1m# Bound spend and avoid interpolating dispatch text into executable shell.[0m
+2026-09-28T06:25:04.0740329Z [36;1mcase "$EVAL_RUNS" in 2|3) ;; *) echo "eval_runs must be 2 or 3"; exit 1 ;; esac[0m
+2026-09-28T06:25:04.0740783Z [36;1mif [ -n "$LIMIT" ] && ! [[ "$LIMIT" =~ ^[1-9][0-9]*$ ]]; then[0m
+2026-09-28T06:25:04.0741199Z [36;1m  echo "limit must be blank or a positive integer"; exit 1[0m
+2026-09-28T06:25:04.0741892Z [36;1mfi[0m
+2026-09-28T06:25:04.0742286Z [36;1mARGS=(--candidates baseline --runs "$EVAL_RUNS")[0m
+2026-09-28T06:25:04.0742682Z [36;1m[ -n "$LIMIT" ] && ARGS+=(--limit "$LIMIT")[0m
+2026-09-28T06:25:04.0742978Z [36;1mEVAL_CONCURRENCY=2[0m
+2026-09-28T06:25:04.0743250Z [36;1mARGS+=(--concurrency "$EVAL_CONCURRENCY")[0m
+2026-09-28T06:25:04.0743707Z [36;1m# Scheduling evidence stays outside the unchanged report harness/baseline identity.[0m
+2026-09-28T06:25:04.0744151Z [36;1mmkdir -p evals/reports[0m
+2026-09-28T06:25:04.0744397Z [36;1m{[0m
+2026-09-28T06:25:04.0744740Z [36;1m  printf 'source_sha=%s\nfiling_concurrency=%s\n' "$GITHUB_SHA" "$EVAL_CONCURRENCY"[0m
+2026-09-28T06:25:04.0745209Z [36;1m  printf 'invocation=python -m evals.runner'[0m
+2026-09-28T06:25:04.0745515Z [36;1m  printf ' %q' "${ARGS[@]}"[0m
+2026-09-28T06:25:04.0745766Z [36;1m  printf '\n'[0m
+2026-09-28T06:25:04.0746020Z [36;1m} > evals/reports/ci-execution.txt[0m
+2026-09-28T06:25:04.0746355Z [36;1mecho "Running: python -m evals.runner ${ARGS[*]}"[0m
+2026-09-28T06:25:04.0746690Z [36;1mpython -m evals.runner "${ARGS[@]}"[0m
+2026-09-28T06:25:04.0814461Z shell: /usr/bin/bash -e {0}
+2026-09-28T06:25:04.0814747Z env:
+2026-09-28T06:25:04.0815025Z   pythonLocation: /opt/hostedtoolcache/Python/3.11.16/x64
+2026-09-28T06:25:04.0815482Z   PKG_CONFIG_PATH: /opt/hostedtoolcache/Python/3.11.16/x64/lib/pkgconfig
+2026-09-28T06:25:04.0815913Z   Python_ROOT_DIR: /opt/hostedtoolcache/Python/3.11.16/x64
+2026-09-28T06:25:04.0816320Z   Python2_ROOT_DIR: /opt/hostedtoolcache/Python/3.11.16/x64
+2026-09-28T06:25:04.0816707Z   Python3_ROOT_DIR: /opt/hostedtoolcache/Python/3.11.16/x64
+2026-09-28T06:25:04.0817089Z   LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.11.16/x64/lib
+2026-09-28T06:25:04.0817438Z   AI_DEFAULT_MODEL: deepseek-flash
+2026-09-28T06:25:04.0817783Z   OPENAI_BASE_URL: https://api.deepseek.com/v1
+2026-09-28T06:25:04.0818104Z   SKIP_REDIS_INIT: true
+2026-09-28T06:25:04.0818401Z   SECRET_KEY: eval-baseline-secret-key-for-ci-0123456789
+2026-09-28T06:25:04.0818747Z   STRIPE_SECRET_KEY: sk_test_ci_eval
+2026-09-28T06:25:04.0819019Z   STRIPE_WEBHOOK_SECRET: whsec_ci_eval
+2026-09-28T06:25:04.0819306Z   PWNED_PASSWORD_CHECK_ENABLED: false
+2026-09-28T06:25:04.0819862Z   OPENAI_API_KEY: ***
+2026-09-28T06:25:04.0820084Z   AI_FALLBACK_MODEL: 
+2026-09-28T06:25:04.0820292Z   AI_FALLBACK_BASE_URL: 
+2026-09-28T06:25:04.0820514Z   AI_EVIDENCE_SNAP: true
+2026-09-28T06:25:04.0820737Z   AI_FIGURE_TRACE_GATE: false
+2026-09-28T06:25:04.0820987Z   AI_FORWARD_QUOTE_GATE: false
+2026-09-28T06:25:04.0821224Z   AI_ATTRIBUTION_GATE: false
+2026-09-28T06:25:04.0821804Z   AI_ATTRIBUTION_VERIFY: false
+2026-09-28T06:25:04.0822121Z   USE_STRUCTURED_OUTPUT: false
+2026-09-28T06:25:04.0822378Z   USE_STATEMENT_FINANCIALS: true
+2026-09-28T06:25:04.0822625Z   STREAM_SECTION_REVEAL: true
+2026-09-28T06:25:04.0822851Z   EVAL_RUNS: 2
+2026-09-28T06:25:04.0823041Z   EVAL_LIMIT: 
+2026-09-28T06:25:04.0823229Z ##[endgroup]
+2026-09-28T06:25:04.0934954Z Running: python -m evals.runner --candidates baseline --runs 2 --concurrency 2
+2026-09-28T06:25:17.8942660Z app.services.ai_metrics ai_call {"operation":"summary_primary","provider":"primary","trigger":"eval","requested_model":"deepseek-flash","actual_model":"deepseek-flash","system_fingerprint":"aeb56401ca74e127821c4f9126dcb669","outcome":"success","latency_ms":10193,"first_token_ms":951,"usage":{"prompt_tokens":7745,"completion_tokens":2993,"total_tokens":10738,"cache_hit_tokens":7552,"cache_miss_tokens":193,"reasoning_tokens":null},"estimated_cost_usd":0.003695,"peak":true}
+2026-09-28T06:25:17.9139305Z app.services.ai_metrics ai_summary {"outcome":"complete","calls":1,"usage":{"prompt_tokens":{"known_total":7745,"known_calls":1,"unknown_calls":0},"completion_tokens":{"known_total":2993,"known_calls":1,"unknown_calls":0},"total_tokens":{"known_total":10738,"known_calls":1,"unknown_calls":0},"cache_hit_tokens":{"known_total":7552,"known_calls":1,"unknown_calls":0},"cache_miss_tokens":{"known_total":193,"known_calls":1,"unknown_calls":0},"reasoning_tokens":{"known_total":null,"known_calls":0,"unknown_calls":1}}}
+2026-09-28T06:25:24.1210935Z app.services.ai_metrics ai_call {"operation":"summary_primary","provider":"primary","trigger":"eval","requested_model":"deepseek-flash","actual_model":"deepseek-flash","system_fingerprint":"aeb56401ca74e127821c4f9126dcb669","outcome":"success","latency_ms":16651,"first_token_ms":1452,"usage":{"prompt_tokens":14356,"completion_tokens":5000,"total_tokens":19356,"cache_hit_tokens":14208,"cache_miss_tokens":148,"reasoning_tokens":null},"estimated_cost_usd":0.00613,"peak":true}
+2026-09-28T06:25:24.1218007Z JSON decode failed, attempting repair: Unterminated string starting at: line 222 column 19 (char 20266)
+2026-09-28T06:25:24.1822119Z app.services.ai_metrics ai_summary {"outcome":"complete","calls":1,"usage":{"prompt_tokens":{"known_total":14356,"known_calls":1,"unknown_calls":0},"completion_tokens":{"known_total":5000,"known_calls":1,"unknown_calls":0},"total_tokens":{"known_total":19356,"known_calls":1,"unknown_calls":0},"cache_hit_tokens":{"known_total":14208,"known_calls":1,"unknown_calls":0},"cache_miss_tokens":{"known_total":148,"known_calls":1,"unknown_calls":0},"reasoning_tokens":{"known_total":null,"known_calls":0,"unknown_calls":1}}}
+2026-09-28T06:25:27.5920160Z app.services.ai_metrics ai_call {"operation":"summary_primary","provider":"primary","trigger":"eval","requested_model":"deepseek-flash","actual_model":"deepseek-flash","system_fingerprint":"aeb56401ca74e127821c4f9126dcb669","outcome":"success","latency_ms":9652,"first_token_ms":912,"usage":{"prompt_tokens":7745,"completion_tokens":2956,"total_tokens":10701,"cache_hit_tokens":7552,"cache_miss_tokens":193,"reasoning_tokens":null},"estimated_cost_usd":0.00365,"peak":true}
+2026-09-28T06:25:27.6094536Z app.services.ai_metrics ai_summary {"outcome":"complete","calls":1,"usage":{"prompt_tokens":{"known_total":7745,"known_calls":1,"unknown_calls":0},"completion_tokens":{"known_total":2956,"known_calls":1,"unknown_calls":0},"total_tokens":{"known_total":10701,"known_calls":1,"unknown_calls":0},"cache_hit_tokens":{"known_total":7552,"known_calls":1,"unknown_calls":0},"cache_miss_tokens":{"known_total":193,"known_calls":1,"unknown_calls":0},"reasoning_tokens":{"known_total":null,"known_calls":0,"unknown_calls":1}}}
+2026-09-28T06:25:38.2807086Z app.services.ai_metrics ai_call {"operation":"summary_primary","provider":"primary","trigger":"eval","requested_model":"deepseek-flash","actual_model":"deepseek-flash","system_fingerprint":"aeb56401ca74e127821c4f9126dcb669","outcome":"success","latency_ms":14047,"first_token_ms":1023,"usage":{"prompt_tokens":14356,"completion_tokens":4436,"total_tokens":18792,"cache_hit_tokens":14208,"cache_miss_tokens":148,"reasoning_tokens":null},"estimated_cost_usd":0.005453,"peak":true}
+2026-09-28T06:25:38.3292011Z app.services.ai_metrics ai_summary {"outcome":"complete","calls":1,"usage":{"prompt_tokens":{"known_total":14356,"known_calls":1,"unknown_calls":0},"completion_tokens":{"known_total":4436,"known_calls":1,"unknown_calls":0},"total_tokens":{"known_total":18792,"known_calls":1,"unknown_calls":0},"cache_hit_tokens":{"known_total":14208,"known_calls":1,"unknown_calls":0},"cache_miss_tokens":{"known_total":148,"known_calls":1,"unknown_calls":0},"reasoning_tokens":{"known_total":null,"known_calls":0,"unknown_calls":1}}}
+2026-09-28T06:25:40.0820484Z app.services.ai_metrics ai_call {"operation":"summary_primary","provider":"primary","trigger":"eval","requested_model":"deepseek-flash","actual_model":"deepseek-flash","system_fingerprint":"aeb56401ca74e127821c4f9126dcb669","outcome":"success","latency_ms":12022,"first_token_ms":1078,"usage":{"prompt_tokens":11170,"completion_tokens":3501,"total_tokens":14671,"cache_hit_tokens":11008,"cache_miss_tokens":162,"reasoning_tokens":null},"estimated_cost_usd":0.004316,"peak":true}
+2026-09-28T06:25:40.1198053Z app.services.ai_metrics ai_summary {"outcome":"complete","calls":1,"usage":{"prompt_tokens":{"known_total":11170,"known_calls":1,"unknown_calls":0},"completion_tokens":{"known_total":3501,"known_calls":1,"unknown_calls":0},"total_tokens":{"known_total":14671,"known_calls":1,"unknown_calls":0},"cache_hit_tokens":{"known_total":11008,"known_calls":1,"unknown_calls":0},"cache_miss_tokens":{"known_total":162,"known_calls":1,"unknown_calls":0},"reasoning_tokens":{"known_total":null,"known_calls":0,"unknown_calls":1}}}
+2026-09-28T06:25:47.8071948Z Persisted XBRL read failed for 0001193125-26-051453: OperationalError
+2026-09-28T06:25:54.3874465Z app.services.ai_metrics ai_call {"operation":"summary_primary","provider":"primary","trigger":"eval","requested_model":"deepseek-flash","actual_model":"deepseek-flash","system_fingerprint":"aeb56401ca74e127821c4f9126dcb669","outcome":"success","latency_ms":14231,"first_token_ms":1215,"usage":{"prompt_tokens":11170,"completion_tokens":4062,"total_tokens":15232,"cache_hit_tokens":11008,"cache_miss_tokens":162,"reasoning_tokens":null},"estimated_cost_usd":0.004989,"peak":true}
+2026-09-28T06:25:54.4287427Z app.services.ai_metrics ai_summary {"outcome":"complete","calls":1,"usage":{"prompt_tokens":{"known_total":11170,"known_calls":1,"unknown_calls":0},"completion_tokens":{"known_total":4062,"known_calls":1,"unknown_calls":0},"total_tokens":{"known_total":15232,"known_calls":1,"unknown_calls":0},"cache_hit_tokens":{"known_total":11008,"known_calls":1,"unknown_calls":0},"cache_miss_tokens":{"known_total":162,"known_calls":1,"unknown_calls":0},"reasoning_tokens":{"known_total":null,"known_calls":0,"unknown_calls":1}}}
+2026-09-28T06:25:56.8309902Z Persisted XBRL read failed for 0000753308-26-000060: OperationalError
+2026-09-28T06:26:03.7594097Z app.services.ai_metrics ai_call {"operation":"summary_primary","provider":"primary","trigger":"eval","requested_model":"deepseek-flash","actual_model":"deepseek-flash","system_fingerprint":"aeb56401ca74e127821c4f9126dcb669","outcome":"success","latency_ms":12488,"first_token_ms":1637,"usage":{"prompt_tokens":59861,"completion_tokens":3453,"total_tokens":63314,"cache_hit_tokens":59648,"cache_miss_tokens":213,"reasoning_tokens":null},"estimated_cost_usd":0.004565,"peak":true}
+2026-09-28T06:26:04.3533030Z app.services.ai_metrics ai_summary {"outcome":"complete","calls":1,"usage":{"prompt_tokens":{"known_total":59861,"known_calls":1,"unknown_calls":0},"completion_tokens":{"known_total":3453,"known_calls":1,"unknown_calls":0},"total_tokens":{"known_total":63314,"known_calls":1,"unknown_calls":0},"cache_hit_tokens":{"known_total":59648,"known_calls":1,"unknown_calls":0},"cache_miss_tokens":{"known_total":213,"known_calls":1,"unknown_calls":0},"reasoning_tokens":{"known_total":null,"known_calls":0,"unknown_calls":1}}}
+2026-09-28T06:26:10.2677493Z app.services.ai_metrics ai_call {"operation":"summary_primary","provider":"primary","trigger":"eval","requested_model":"deepseek-flash","actual_model":"deepseek-flash","system_fingerprint":"aeb56401ca74e127821c4f9126dcb669","outcome":"success","latency_ms":12409,"first_token_ms":1099,"usage":{"prompt_tokens":29873,"completion_tokens":3767,"total_tokens":33640,"cache_hit_tokens":29696,"cache_miss_tokens":177,"reasoning_tokens":null},"estimated_cost_usd":0.004752,"peak":true}
+2026-09-28T06:26:10.4271126Z app.services.ai_metrics ai_summary {"outcome":"complete","calls":1,"usage":{"prompt_tokens":{"known_total":29873,"known_calls":1,"unknown_calls":0},"completion_tokens":{"known_total":3767,"known_calls":1,"unknown_calls":0},"total_tokens":{"known_total":33640,"known_calls":1,"unknown_calls":0},"cache_hit_tokens":{"known_total":29696,"known_calls":1,"unknown_calls":0},"cache_miss_tokens":{"known_total":177,"known_calls":1,"unknown_calls":0},"reasoning_tokens":{"known_total":null,"known_calls":0,"unknown_calls":1}}}
+2026-09-28T06:26:15.3166911Z app.services.ai_metrics ai_call {"operation":"summary_primary","provider":"primary","trigger":"eval","requested_model":"deepseek-flash","actual_model":"deepseek-flash","system_fingerprint":"aeb56401ca74e127821c4f9126dcb669","outcome":"success","latency_ms":10832,"first_token_ms":1495,"usage":{"prompt_tokens":59861,"completion_tokens":2902,"total_tokens":62763,"cache_hit_tokens":59648,"cache_miss_tokens":213,"reasoning_tokens":null},"estimated_cost_usd":0.003904,"peak":true}
+2026-09-28T06:26:15.6985506Z app.services.ai_metrics ai_summary {"outcome":"complete","calls":1,"usage":{"prompt_tokens":{"known_total":59861,"known_calls":1,"unknown_calls":0},"completion_tokens":{"known_total":2902,"known_calls":1,"unknown_calls":0},"total_tokens":{"known_total":62763,"known_calls":1,"unknown_calls":0},"cache_hit_tokens":{"known_total":59648,"known_calls":1,"unknown_calls":0},"cache_miss_tokens":{"known_total":213,"known_calls":1,"unknown_calls":0},"reasoning_tokens":{"known_total":null,"known_calls":0,"unknown_calls":1}}}
+2026-09-28T06:26:17.8049871Z Persisted XBRL read failed for 0000080661-26-000086: OperationalError
+2026-09-28T06:26:22.3710424Z app.services.ai_metrics ai_call {"operation":"summary_primary","provider":"primary","trigger":"eval","requested_model":"deepseek-flash","actual_model":"deepseek-flash","system_fingerprint":"aeb56401ca74e127821c4f9126dcb669","outcome":"success","latency_ms":11884,"first_token_ms":1198,"usage":{"prompt_tokens":29873,"completion_tokens":3337,"total_tokens":33210,"cache_hit_tokens":29696,"cache_miss_tokens":177,"reasoning_tokens":null},"estimated_cost_usd":0.004236,"peak":true}
+2026-09-28T06:26:22.4862492Z app.services.ai_metrics ai_summary {"outcome":"complete","calls":1,"usage":{"prompt_tokens":{"known_total":29873,"known_calls":1,"unknown_calls":0},"completion_tokens":{"known_total":3337,"known_calls":1,"unknown_calls":0},"total_tokens":{"known_total":33210,"known_calls":1,"unknown_calls":0},"cache_hit_tokens":{"known_total":29696,"known_calls":1,"unknown_calls":0},"cache_miss_tokens":{"known_total":177,"known_calls":1,"unknown_calls":0},"reasoning_tokens":{"known_total":null,"known_calls":0,"unknown_calls":1}}}
+2026-09-28T06:26:23.8202801Z Persisted XBRL read failed for 0001628280-26-054342: OperationalError
+2026-09-28T06:26:29.7410547Z app.services.ai_metrics ai_call {"operation":"summary_primary","provider":"primary","trigger":"eval","requested_model":"deepseek-flash","actual_model":"deepseek-flash","system_fingerprint":"aeb56401ca74e127821c4f9126dcb669","outcome":"success","latency_ms":9961,"first_token_ms":1535,"usage":{"prompt_tokens":40304,"completion_tokens":2643,"total_tokens":42947,"cache_hit_tokens":40064,"cache_miss_tokens":240,"reasoning_tokens":null},"estimated_cost_usd":0.003484,"peak":true}
+2026-09-28T06:26:30.0133645Z app.services.ai_metrics ai_summary {"outcome":"complete","calls":1,"usage":{"prompt_tokens":{"known_total":40304,"known_calls":1,"unknown_calls":0},"completion_tokens":{"known_total":2643,"known_calls":1,"unknown_calls":0},"total_tokens":{"known_total":42947,"known_calls":1,"unknown_calls":0},"cache_hit_tokens":{"known_total":40064,"known_calls":1,"unknown_calls":0},"cache_miss_tokens":{"known_total":240,"known_calls":1,"unknown_calls":0},"reasoning_tokens":{"known_total":null,"known_calls":0,"unknown_calls":1}}}
+2026-09-28T06:26:34.2614438Z app.services.ai_metrics ai_call {"operation":"summary_primary","provider":"primary","trigger":"eval","requested_model":"deepseek-flash","actual_model":"deepseek-flash","system_fingerprint":"aeb56401ca74e127821c4f9126dcb669","outcome":"success","latency_ms":9549,"first_token_ms":1301,"usage":{"prompt_tokens":30836,"completion_tokens":2777,"total_tokens":33613,"cache_hit_tokens":30592,"cache_miss_tokens":244,"reasoning_tokens":null},"estimated_cost_usd":0.003589,"peak":true}
+2026-09-28T06:26:34.4819734Z app.services.ai_metrics ai_summary {"outcome":"complete","calls":1,"usage":{"prompt_tokens":{"known_total":30836,"known_calls":1,"unknown_calls":0},"completion_tokens":{"known_total":2777,"known_calls":1,"unknown_calls":0},"total_tokens":{"known_total":33613,"known_calls":1,"unknown_calls":0},"cache_hit_tokens":{"known_total":30592,"known_calls":1,"unknown_calls":0},"cache_miss_tokens":{"known_total":244,"known_calls":1,"unknown_calls":0},"reasoning_tokens":{"known_total":null,"known_calls":0,"unknown_calls":1}}}
+2026-09-28T06:26:42.3284531Z app.services.ai_metrics ai_call {"operation":"summary_primary","provider":"primary","trigger":"eval","requested_model":"deepseek-flash","actual_model":"deepseek-flash","system_fingerprint":"aeb56401ca74e127821c4f9126dcb669","outcome":"success","latency_ms":12238,"first_token_ms":1155,"usage":{"prompt_tokens":40304,"completion_tokens":3513,"total_tokens":43817,"cache_hit_tokens":40064,"cache_miss_tokens":240,"reasoning_tokens":null},"estimated_cost_usd":0.004528,"peak":true}
+2026-09-28T06:26:42.6279189Z app.services.ai_metrics ai_summary {"outcome":"complete","calls":1,"usage":{"prompt_tokens":{"known_total":40304,"known_calls":1,"unknown_calls":0},"completion_tokens":{"known_total":3513,"known_calls":1,"unknown_calls":0},"total_tokens":{"known_total":43817,"known_calls":1,"unknown_calls":0},"cache_hit_tokens":{"known_total":40064,"known_calls":1,"unknown_calls":0},"cache_miss_tokens":{"known_total":240,"known_calls":1,"unknown_calls":0},"reasoning_tokens":{"known_total":null,"known_calls":0,"unknown_calls":1}}}
+2026-09-28T06:26:44.9737453Z Persisted XBRL read failed for 0001500435-26-000006: OperationalError
+2026-09-28T06:26:46.4260876Z app.services.ai_metrics ai_call {"operation":"summary_primary","provider":"primary","trigger":"eval","requested_model":"deepseek-flash","actual_model":"deepseek-flash","system_fingerprint":"aeb56401ca74e127821c4f9126dcb669","outcome":"success","latency_ms":11864,"first_token_ms":1357,"usage":{"prompt_tokens":30836,"completion_tokens":3582,"total_tokens":34418,"cache_hit_tokens":30592,"cache_miss_tokens":244,"reasoning_tokens":null},"estimated_cost_usd":0.004555,"peak":true}
+2026-09-28T06:26:46.7484223Z app.services.ai_metrics ai_summary {"outcome":"complete","calls":1,"usage":{"prompt_tokens":{"known_total":30836,"known_calls":1,"unknown_calls":0},"completion_tokens":{"known_total":3582,"known_calls":1,"unknown_calls":0},"total_tokens":{"known_total":34418,"known_calls":1,"unknown_calls":0},"cache_hit_tokens":{"known_total":30592,"known_calls":1,"unknown_calls":0},"cache_miss_tokens":{"known_total":244,"known_calls":1,"unknown_calls":0},"reasoning_tokens":{"known_total":null,"known_calls":0,"unknown_calls":1}}}
+2026-09-28T06:26:47.9904555Z Persisted XBRL read failed for 0000320193-25-000079: OperationalError
+2026-09-28T06:27:01.4331369Z app.services.ai_metrics ai_call {"operation":"summary_primary","provider":"primary","trigger":"eval","requested_model":"deepseek-flash","actual_model":"deepseek-flash","system_fingerprint":"aeb56401ca74e127821c4f9126dcb669","outcome":"success","latency_ms":15597,"first_token_ms":1664,"usage":{"prompt_tokens":42861,"completion_tokens":4433,"total_tokens":47294,"cache_hit_tokens":42624,"cache_miss_tokens":237,"reasoning_tokens":null},"estimated_cost_usd":0.005646,"peak":true}
+2026-09-28T06:27:01.9502590Z app.services.ai_metrics ai_summary {"outcome":"complete","calls":1,"usage":{"prompt_tokens":{"known_total":42861,"known_calls":1,"unknown_calls":0},"completion_tokens":{"known_total":4433,"known_calls":1,"unknown_calls":0},"total_tokens":{"known_total":47294,"known_calls":1,"unknown_calls":0},"cache_hit_tokens":{"known_total":42624,"known_calls":1,"unknown_calls":0},"cache_miss_tokens":{"known_total":237,"known_calls":1,"unknown_calls":0},"reasoning_tokens":{"known_total":null,"known_calls":0,"unknown_calls":1}}}
+2026-09-28T06:27:04.4113097Z app.services.ai_metrics ai_call {"operation":"summary_primary","provider":"primary","trigger":"eval","requested_model":"deepseek-flash","actual_model":"deepseek-flash","system_fingerprint":"aeb56401ca74e127821c4f9126dcb669","outcome":"success","latency_ms":15753,"first_token_ms":1032,"usage":{"prompt_tokens":34252,"completion_tokens":4887,"total_tokens":39139,"cache_hit_tokens":34048,"cache_miss_tokens":204,"reasoning_tokens":null},"estimated_cost_usd":0.00613,"peak":true}
+2026-09-28T06:27:04.6323986Z app.services.ai_metrics ai_summary {"outcome":"complete","calls":1,"usage":{"prompt_tokens":{"known_total":34252,"known_calls":1,"unknown_calls":0},"completion_tokens":{"known_total":4887,"known_calls":1,"unknown_calls":0},"total_tokens":{"known_total":39139,"known_calls":1,"unknown_calls":0},"cache_hit_tokens":{"known_total":34048,"known_calls":1,"unknown_calls":0},"cache_miss_tokens":{"known_total":204,"known_calls":1,"unknown_calls":0},"reasoning_tokens":{"known_total":null,"known_calls":0,"unknown_calls":1}}}
+2026-09-28T06:27:16.5708590Z app.services.ai_metrics ai_call {"operation":"summary_primary","provider":"primary","trigger":"eval","requested_model":"deepseek-flash","actual_model":"deepseek-flash","system_fingerprint":"aeb56401ca74e127821c4f9126dcb669","outcome":"success","latency_ms":14495,"first_token_ms":1337,"usage":{"prompt_tokens":42861,"completion_tokens":4123,"total_tokens":46984,"cache_hit_tokens":42624,"cache_miss_tokens":237,"reasoning_tokens":null},"estimated_cost_usd":0.005274,"peak":true}
+2026-09-28T06:27:17.0323157Z app.services.ai_metrics ai_summary {"outcome":"complete","calls":1,"usage":{"prompt_tokens":{"known_total":42861,"known_calls":1,"unknown_calls":0},"completion_tokens":{"known_total":4123,"known_calls":1,"unknown_calls":0},"total_tokens":{"known_total":46984,"known_calls":1,"unknown_calls":0},"cache_hit_tokens":{"known_total":42624,"known_calls":1,"unknown_calls":0},"cache_miss_tokens":{"known_total":237,"known_calls":1,"unknown_calls":0},"reasoning_tokens":{"known_total":null,"known_calls":0,"unknown_calls":1}}}
+2026-09-28T06:27:20.1255814Z app.services.ai_metrics ai_call {"operation":"summary_primary","provider":"primary","trigger":"eval","requested_model":"deepseek-flash","actual_model":"deepseek-flash","system_fingerprint":"aeb56401ca74e127821c4f9126dcb669","outcome":"success","latency_ms":15408,"first_token_ms":1268,"usage":{"prompt_tokens":34252,"completion_tokens":4667,"total_tokens":38919,"cache_hit_tokens":34048,"cache_miss_tokens":204,"reasoning_tokens":null},"estimated_cost_usd":0.005866,"peak":true}
+2026-09-28T06:27:20.3082298Z app.services.ai_metrics ai_summary {"outcome":"complete","calls":1,"usage":{"prompt_tokens":{"known_total":34252,"known_calls":1,"unknown_calls":0},"completion_tokens":{"known_total":4667,"known_calls":1,"unknown_calls":0},"total_tokens":{"known_total":38919,"known_calls":1,"unknown_calls":0},"cache_hit_tokens":{"known_total":34048,"known_calls":1,"unknown_calls":0},"cache_miss_tokens":{"known_total":204,"known_calls":1,"unknown_calls":0},"reasoning_tokens":{"known_total":null,"known_calls":0,"unknown_calls":1}}}
+2026-09-28T06:27:21.6697823Z Persisted XBRL read failed for 0000950170-25-100235: OperationalError
+2026-09-28T06:27:22.6386777Z Persisted XBRL read failed for 0001045810-26-000052: OperationalError
+2026-09-28T06:27:36.4595002Z app.services.ai_metrics ai_call {"operation":"summary_primary","provider":"primary","trigger":"eval","requested_model":"deepseek-flash","actual_model":"deepseek-flash","system_fingerprint":"aeb56401ca74e127821c4f9126dcb669","outcome":"success","latency_ms":12569,"first_token_ms":1416,"usage":{"prompt_tokens":39655,"completion_tokens":3638,"total_tokens":43293,"cache_hit_tokens":39424,"cache_miss_tokens":231,"reasoning_tokens":null},"estimated_cost_usd":0.004671,"peak":true}
+2026-09-28T06:27:36.7147227Z app.services.ai_metrics ai_summary {"outcome":"complete","calls":1,"usage":{"prompt_tokens":{"known_total":39655,"known_calls":1,"unknown_calls":0},"completion_tokens":{"known_total":3638,"known_calls":1,"unknown_calls":0},"total_tokens":{"known_total":43293,"known_calls":1,"unknown_calls":0},"cache_hit_tokens":{"known_total":39424,"known_calls":1,"unknown_calls":0},"cache_miss_tokens":{"known_total":231,"known_calls":1,"unknown_calls":0},"reasoning_tokens":{"known_total":null,"known_calls":0,"unknown_calls":1}}}
+2026-09-28T06:27:37.6530163Z app.services.ai_metrics ai_call {"operation":"summary_primary","provider":"primary","trigger":"eval","requested_model":"deepseek-flash","actual_model":"deepseek-flash","system_fingerprint":"aeb56401ca74e127821c4f9126dcb669","outcome":"success","latency_ms":14071,"first_token_ms":1146,"usage":{"prompt_tokens":29610,"completion_tokens":4269,"total_tokens":33879,"cache_hit_tokens":29440,"cache_miss_tokens":170,"reasoning_tokens":null},"estimated_cost_usd":0.00535,"peak":true}
+2026-09-28T06:27:37.8601323Z app.services.ai_metrics ai_summary {"outcome":"complete","calls":1,"usage":{"prompt_tokens":{"known_total":29610,"known_calls":1,"unknown_calls":0},"completion_tokens":{"known_total":4269,"known_calls":1,"unknown_calls":0},"total_tokens":{"known_total":33879,"known_calls":1,"unknown_calls":0},"cache_hit_tokens":{"known_total":29440,"known_calls":1,"unknown_calls":0},"cache_miss_tokens":{"known_total":170,"known_calls":1,"unknown_calls":0},"reasoning_tokens":{"known_total":null,"known_calls":0,"unknown_calls":1}}}
+2026-09-28T06:27:47.2286240Z app.services.ai_metrics ai_call {"operation":"summary_primary","provider":"primary","trigger":"eval","requested_model":"deepseek-flash","actual_model":"deepseek-flash","system_fingerprint":"aeb56401ca74e127821c4f9126dcb669","outcome":"success","latency_ms":10433,"first_token_ms":1312,"usage":{"prompt_tokens":39655,"completion_tokens":2936,"total_tokens":42591,"cache_hit_tokens":39424,"cache_miss_tokens":231,"reasoning_tokens":null},"estimated_cost_usd":0.003829,"peak":true}
+2026-09-28T06:27:47.6222198Z app.services.ai_metrics ai_summary {"outcome":"complete","calls":1,"usage":{"prompt_tokens":{"known_total":39655,"known_calls":1,"unknown_calls":0},"completion_tokens":{"known_total":2936,"known_calls":1,"unknown_calls":0},"total_tokens":{"known_total":42591,"known_calls":1,"unknown_calls":0},"cache_hit_tokens":{"known_total":39424,"known_calls":1,"unknown_calls":0},"cache_miss_tokens":{"known_total":231,"known_calls":1,"unknown_calls":0},"reasoning_tokens":{"known_total":null,"known_calls":0,"unknown_calls":1}}}
+2026-09-28T06:27:52.8451975Z app.services.ai_metrics ai_call {"operation":"summary_primary","provider":"primary","trigger":"eval","requested_model":"deepseek-flash","actual_model":"deepseek-flash","system_fingerprint":"aeb56401ca74e127821c4f9126dcb669","outcome":"success","latency_ms":14922,"first_token_ms":1214,"usage":{"prompt_tokens":29610,"completion_tokens":4360,"total_tokens":33970,"cache_hit_tokens":29440,"cache_miss_tokens":170,"reasoning_tokens":null},"estimated_cost_usd":0.00546,"peak":true}
+2026-09-28T06:27:52.9828568Z app.services.ai_metrics ai_summary {"outcome":"complete","calls":1,"usage":{"prompt_tokens":{"known_total":29610,"known_calls":1,"unknown_calls":0},"completion_tokens":{"known_total":4360,"known_calls":1,"unknown_calls":0},"total_tokens":{"known_total":33970,"known_calls":1,"unknown_calls":0},"cache_hit_tokens":{"known_total":29440,"known_calls":1,"unknown_calls":0},"cache_miss_tokens":{"known_total":170,"known_calls":1,"unknown_calls":0},"reasoning_tokens":{"known_total":null,"known_calls":0,"unknown_calls":1}}}
+2026-09-28T06:27:54.9093111Z Persisted XBRL read failed for 0001628280-26-028802: OperationalError
+2026-09-28T06:27:58.3137522Z Persisted XBRL read failed for 0001628280-26-008131: OperationalError
+2026-09-28T06:28:09.2575316Z app.services.ai_metrics ai_call {"operation":"summary_primary","provider":"primary","trigger":"eval","requested_model":"deepseek-flash","actual_model":"deepseek-flash","system_fingerprint":"aeb56401ca74e127821c4f9126dcb669","outcome":"success","latency_ms":13575,"first_token_ms":1517,"usage":{"prompt_tokens":27230,"completion_tokens":4092,"total_tokens":31322,"cache_hit_tokens":27008,"cache_miss_tokens":222,"reasoning_tokens":null},"estimated_cost_usd":0.005139,"peak":true}
+2026-09-28T06:28:09.4280910Z app.services.ai_metrics ai_summary {"outcome":"complete","calls":1,"usage":{"prompt_tokens":{"known_total":27230,"known_calls":1,"unknown_calls":0},"completion_tokens":{"known_total":4092,"known_calls":1,"unknown_calls":0},"total_tokens":{"known_total":31322,"known_calls":1,"unknown_calls":0},"cache_hit_tokens":{"known_total":27008,"known_calls":1,"unknown_calls":0},"cache_miss_tokens":{"known_total":222,"known_calls":1,"unknown_calls":0},"reasoning_tokens":{"known_total":null,"known_calls":0,"unknown_calls":1}}}
+2026-09-28T06:28:15.0439822Z app.services.ai_metrics ai_call {"operation":"summary_primary","provider":"primary","trigger":"eval","requested_model":"deepseek-flash","actual_model":"deepseek-flash","system_fingerprint":"aeb56401ca74e127821c4f9126dcb669","outcome":"success","latency_ms":12577,"first_token_ms":1566,"usage":{"prompt_tokens":44620,"completion_tokens":3706,"total_tokens":48326,"cache_hit_tokens":44416,"cache_miss_tokens":204,"reasoning_tokens":null},"estimated_cost_usd":0.004775,"peak":true}
+2026-09-28T06:28:15.3334567Z app.services.ai_metrics ai_summary {"outcome":"complete","calls":1,"usage":{"prompt_tokens":{"known_total":44620,"known_calls":1,"unknown_calls":0},"completion_tokens":{"known_total":3706,"known_calls":1,"unknown_calls":0},"total_tokens":{"known_total":48326,"known_calls":1,"unknown_calls":0},"cache_hit_tokens":{"known_total":44416,"known_calls":1,"unknown_calls":0},"cache_miss_tokens":{"known_total":204,"known_calls":1,"unknown_calls":0},"reasoning_tokens":{"known_total":null,"known_calls":0,"unknown_calls":1}}}
+2026-09-28T06:28:25.4922390Z app.services.ai_metrics ai_call {"operation":"summary_primary","provider":"primary","trigger":"eval","requested_model":"deepseek-flash","actual_model":"deepseek-flash","system_fingerprint":"aeb56401ca74e127821c4f9126dcb669","outcome":"success","latency_ms":16007,"first_token_ms":1217,"usage":{"prompt_tokens":27230,"completion_tokens":4768,"total_tokens":31998,"cache_hit_tokens":27008,"cache_miss_tokens":222,"reasoning_tokens":null},"estimated_cost_usd":0.00595,"peak":true}
+2026-09-28T06:28:25.6240035Z app.services.ai_metrics ai_summary {"outcome":"complete","calls":1,"usage":{"prompt_tokens":{"known_total":27230,"known_calls":1,"unknown_calls":0},"completion_tokens":{"known_total":4768,"known_calls":1,"unknown_calls":0},"total_tokens":{"known_total":31998,"known_calls":1,"unknown_calls":0},"cache_hit_tokens":{"known_total":27008,"known_calls":1,"unknown_calls":0},"cache_miss_tokens":{"known_total":222,"known_calls":1,"unknown_calls":0},"reasoning_tokens":{"known_total":null,"known_calls":0,"unknown_calls":1}}}
+2026-09-28T06:28:27.2703956Z app.services.ai_metrics ai_call {"operation":"summary_primary","provider":"primary","trigger":"eval","requested_model":"deepseek-flash","actual_model":"deepseek-flash","system_fingerprint":"aeb56401ca74e127821c4f9126dcb669","outcome":"success","latency_ms":11829,"first_token_ms":1383,"usage":{"prompt_tokens":44620,"completion_tokens":3492,"total_tokens":48112,"cache_hit_tokens":44416,"cache_miss_tokens":204,"reasoning_tokens":null},"estimated_cost_usd":0.004518,"peak":true}
+2026-09-28T06:28:27.5068172Z app.services.ai_metrics ai_summary {"outcome":"complete","calls":1,"usage":{"prompt_tokens":{"known_total":44620,"known_calls":1,"unknown_calls":0},"completion_tokens":{"known_total":3492,"known_calls":1,"unknown_calls":0},"total_tokens":{"known_total":48112,"known_calls":1,"unknown_calls":0},"cache_hit_tokens":{"known_total":44416,"known_calls":1,"unknown_calls":0},"cache_miss_tokens":{"known_total":204,"known_calls":1,"unknown_calls":0},"reasoning_tokens":{"known_total":null,"known_calls":0,"unknown_calls":1}}}
+2026-09-28T06:28:27.9287920Z Persisted XBRL read failed for 0001628280-26-003952: OperationalError
+2026-09-28T06:28:29.8967039Z Persisted XBRL read failed for 0001018724-26-000004: OperationalError
+2026-09-28T06:28:42.0772474Z app.services.ai_metrics ai_call {"operation":"summary_primary","provider":"primary","trigger":"eval","requested_model":"deepseek-flash","actual_model":"deepseek-flash","system_fingerprint":"aeb56401ca74e127821c4f9126dcb669","outcome":"success","latency_ms":12489,"first_token_ms":1068,"usage":{"prompt_tokens":39941,"completion_tokens":3646,"total_tokens":43587,"cache_hit_tokens":39807,"cache_miss_tokens":134,"reasoning_tokens":null},"estimated_cost_usd":0.004654,"peak":true}
+2026-09-28T06:28:42.3733362Z app.services.ai_metrics ai_summary {"outcome":"complete","calls":1,"usage":{"prompt_tokens":{"known_total":39941,"known_calls":1,"unknown_calls":0},"completion_tokens":{"known_total":3646,"known_calls":1,"unknown_calls":0},"total_tokens":{"known_total":43587,"known_calls":1,"unknown_calls":0},"cache_hit_tokens":{"known_total":39807,"known_calls":1,"unknown_calls":0},"cache_miss_tokens":{"known_total":134,"known_calls":1,"unknown_calls":0},"reasoning_tokens":{"known_total":null,"known_calls":0,"unknown_calls":1}}}
+2026-09-28T06:28:46.4517570Z app.services.ai_metrics ai_call {"operation":"summary_primary","provider":"primary","trigger":"eval","requested_model":"deepseek-flash","actual_model":"deepseek-flash","system_fingerprint":"aeb56401ca74e127821c4f9126dcb669","outcome":"success","latency_ms":15755,"first_token_ms":1469,"usage":{"prompt_tokens":39010,"completion_tokens":4835,"total_tokens":43845,"cache_hit_tokens":38784,"cache_miss_tokens":226,"reasoning_tokens":null},"estimated_cost_usd":0.006103,"peak":true}
+2026-09-28T06:28:46.8484837Z app.services.ai_metrics ai_summary {"outcome":"complete","calls":1,"usage":{"prompt_tokens":{"known_total":39010,"known_calls":1,"unknown_calls":0},"completion_tokens":{"known_total":4835,"known_calls":1,"unknown_calls":0},"total_tokens":{"known_total":43845,"known_calls":1,"unknown_calls":0},"cache_hit_tokens":{"known_total":38784,"known_calls":1,"unknown_calls":0},"cache_miss_tokens":{"known_total":226,"known_calls":1,"unknown_calls":0},"reasoning_tokens":{"known_total":null,"known_calls":0,"unknown_calls":1}}}
+2026-09-28T06:28:56.3595301Z app.services.ai_metrics ai_call {"operation":"summary_primary","provider":"primary","trigger":"eval","requested_model":"deepseek-flash","actual_model":"deepseek-flash","system_fingerprint":"aeb56401ca74e127821c4f9126dcb669","outcome":"success","latency_ms":13905,"first_token_ms":1457,"usage":{"prompt_tokens":39941,"completion_tokens":3766,"total_tokens":43707,"cache_hit_tokens":39807,"cache_miss_tokens":134,"reasoning_tokens":null},"estimated_cost_usd":0.004798,"peak":true}
+2026-09-28T06:28:56.5888205Z app.services.ai_metrics ai_summary {"outcome":"complete","calls":1,"usage":{"prompt_tokens":{"known_total":39941,"known_calls":1,"unknown_calls":0},"completion_tokens":{"known_total":3766,"known_calls":1,"unknown_calls":0},"total_tokens":{"known_total":43707,"known_calls":1,"unknown_calls":0},"cache_hit_tokens":{"known_total":39807,"known_calls":1,"unknown_calls":0},"cache_miss_tokens":{"known_total":134,"known_calls":1,"unknown_calls":0},"reasoning_tokens":{"known_total":null,"known_calls":0,"unknown_calls":1}}}
+2026-09-28T06:29:03.3752995Z app.services.ai_metrics ai_call {"operation":"summary_primary","provider":"primary","trigger":"eval","requested_model":"deepseek-flash","actual_model":"deepseek-flash","system_fingerprint":"aeb56401ca74e127821c4f9126dcb669","outcome":"success","latency_ms":16428,"first_token_ms":1229,"usage":{"prompt_tokens":39010,"completion_tokens":4903,"total_tokens":43913,"cache_hit_tokens":38784,"cache_miss_tokens":226,"reasoning_tokens":null},"estimated_cost_usd":0.006184,"peak":true}
+2026-09-28T06:29:05.0404818Z app.services.ai_metrics ai_summary {"outcome":"complete","calls":1,"usage":{"prompt_tokens":{"known_total":39010,"known_calls":1,"unknown_calls":0},"completion_tokens":{"known_total":4903,"known_calls":1,"unknown_calls":0},"total_tokens":{"known_total":43913,"known_calls":1,"unknown_calls":0},"cache_hit_tokens":{"known_total":38784,"known_calls":1,"unknown_calls":0},"cache_miss_tokens":{"known_total":226,"known_calls":1,"unknown_calls":0},"reasoning_tokens":{"known_total":null,"known_calls":0,"unknown_calls":1}}}
+2026-09-28T06:29:06.2812261Z Persisted XBRL read failed for 0001193125-26-083899: OperationalError
+2026-09-28T06:29:11.7426680Z Persisted XBRL read failed for 0000034088-26-000045: OperationalError
+2026-09-28T06:29:24.7125464Z app.services.ai_metrics ai_call {"operation":"summary_primary","provider":"primary","trigger":"eval","requested_model":"deepseek-flash","actual_model":"deepseek-flash","system_fingerprint":"aeb56401ca74e127821c4f9126dcb669","outcome":"success","latency_ms":15213,"first_token_ms":2017,"usage":{"prompt_tokens":37486,"completion_tokens":4252,"total_tokens":41738,"cache_hit_tokens":37248,"cache_miss_tokens":238,"reasoning_tokens":null},"estimated_cost_usd":0.005397,"peak":true}
+2026-09-28T06:29:25.0036782Z app.services.ai_metrics ai_summary {"outcome":"complete","calls":1,"usage":{"prompt_tokens":{"known_total":37486,"known_calls":1,"unknown_calls":0},"completion_tokens":{"known_total":4252,"known_calls":1,"unknown_calls":0},"total_tokens":{"known_total":41738,"known_calls":1,"unknown_calls":0},"cache_hit_tokens":{"known_total":37248,"known_calls":1,"unknown_calls":0},"cache_miss_tokens":{"known_total":238,"known_calls":1,"unknown_calls":0},"reasoning_tokens":{"known_total":null,"known_calls":0,"unknown_calls":1}}}
+2026-09-28T06:29:25.1836837Z app.services.ai_metrics ai_call {"operation":"summary_primary","provider":"primary","trigger":"eval","requested_model":"deepseek-flash","actual_model":"deepseek-flash","system_fingerprint":"aeb56401ca74e127821c4f9126dcb669","outcome":"success","latency_ms":11825,"first_token_ms":1431,"usage":{"prompt_tokens":41829,"completion_tokens":3352,"total_tokens":45181,"cache_hit_tokens":41600,"cache_miss_tokens":229,"reasoning_tokens":null},"estimated_cost_usd":0.004341,"peak":true}
+2026-09-28T06:29:25.4568501Z app.services.ai_metrics ai_summary {"outcome":"complete","calls":1,"usage":{"prompt_tokens":{"known_total":41829,"known_calls":1,"unknown_calls":0},"completion_tokens":{"known_total":3352,"known_calls":1,"unknown_calls":0},"total_tokens":{"known_total":45181,"known_calls":1,"unknown_calls":0},"cache_hit_tokens":{"known_total":41600,"known_calls":1,"unknown_calls":0},"cache_miss_tokens":{"known_total":229,"known_calls":1,"unknown_calls":0},"reasoning_tokens":{"known_total":null,"known_calls":0,"unknown_calls":1}}}
+2026-09-28T06:29:39.7747948Z app.services.ai_metrics ai_call {"operation":"summary_primary","provider":"primary","trigger":"eval","requested_model":"deepseek-flash","actual_model":"deepseek-flash","system_fingerprint":"aeb56401ca74e127821c4f9126dcb669","outcome":"success","latency_ms":14234,"first_token_ms":1091,"usage":{"prompt_tokens":41829,"completion_tokens":4250,"total_tokens":46079,"cache_hit_tokens":41600,"cache_miss_tokens":229,"reasoning_tokens":null},"estimated_cost_usd":0.005418,"peak":true}
+2026-09-28T06:29:40.0074225Z app.services.ai_metrics ai_summary {"outcome":"complete","calls":1,"usage":{"prompt_tokens":{"known_total":41829,"known_calls":1,"unknown_calls":0},"completion_tokens":{"known_total":4250,"known_calls":1,"unknown_calls":0},"total_tokens":{"known_total":46079,"known_calls":1,"unknown_calls":0},"cache_hit_tokens":{"known_total":41600,"known_calls":1,"unknown_calls":0},"cache_miss_tokens":{"known_total":229,"known_calls":1,"unknown_calls":0},"reasoning_tokens":{"known_total":null,"known_calls":0,"unknown_calls":1}}}
+2026-09-28T06:29:42.6595335Z Persisted XBRL read failed for 0000078003-26-000054: OperationalError
+2026-09-28T06:29:42.6804876Z app.services.ai_metrics ai_call {"operation":"summary_primary","provider":"primary","trigger":"eval","requested_model":"deepseek-flash","actual_model":"deepseek-flash","system_fingerprint":"aeb56401ca74e127821c4f9126dcb669","outcome":"success","latency_ms":17572,"first_token_ms":1253,"usage":{"prompt_tokens":37486,"completion_tokens":4978,"total_tokens":42464,"cache_hit_tokens":37248,"cache_miss_tokens":238,"reasoning_tokens":null},"estimated_cost_usd":0.006268,"peak":true}
+2026-09-28T06:29:42.8797756Z app.services.ai_metrics ai_summary {"outcome":"complete","calls":1,"usage":{"prompt_tokens":{"known_total":37486,"known_calls":1,"unknown_calls":0},"completion_tokens":{"known_total":4978,"known_calls":1,"unknown_calls":0},"total_tokens":{"known_total":42464,"known_calls":1,"unknown_calls":0},"cache_hit_tokens":{"known_total":37248,"known_calls":1,"unknown_calls":0},"cache_miss_tokens":{"known_total":238,"known_calls":1,"unknown_calls":0},"reasoning_tokens":{"known_total":null,"known_calls":0,"unknown_calls":1}}}
+2026-09-28T06:29:45.1360743Z Persisted XBRL read failed for 0000037996-26-000086: OperationalError
+2026-09-28T06:29:56.6254548Z app.services.ai_metrics ai_call {"operation":"summary_primary","provider":"primary","trigger":"eval","requested_model":"deepseek-flash","actual_model":"deepseek-flash","system_fingerprint":"aeb56401ca74e127821c4f9126dcb669","outcome":"success","latency_ms":12158,"first_token_ms":1502,"usage":{"prompt_tokens":51213,"completion_tokens":3380,"total_tokens":54593,"cache_hit_tokens":51072,"cache_miss_tokens":141,"reasoning_tokens":null},"estimated_cost_usd":0.004405,"peak":true}
+2026-09-28T06:29:56.8849463Z app.services.ai_metrics ai_summary {"outcome":"complete","calls":1,"usage":{"prompt_tokens":{"known_total":51213,"known_calls":1,"unknown_calls":0},"completion_tokens":{"known_total":3380,"known_calls":1,"unknown_calls":0},"total_tokens":{"known_total":54593,"known_calls":1,"unknown_calls":0},"cache_hit_tokens":{"known_total":51072,"known_calls":1,"unknown_calls":0},"cache_miss_tokens":{"known_total":141,"known_calls":1,"unknown_calls":0},"reasoning_tokens":{"known_total":null,"known_calls":0,"unknown_calls":1}}}
+2026-09-28T06:30:01.1574317Z app.services.ai_metrics ai_call {"operation":"summary_primary","provider":"primary","trigger":"eval","requested_model":"deepseek-flash","actual_model":"deepseek-flash","system_fingerprint":"aeb56401ca74e127821c4f9126dcb669","outcome":"success","latency_ms":15347,"first_token_ms":1400,"usage":{"prompt_tokens":30850,"completion_tokens":4643,"total_tokens":35493,"cache_hit_tokens":30716,"cache_miss_tokens":134,"reasoning_tokens":null},"estimated_cost_usd":0.005796,"peak":true}
+2026-09-28T06:30:01.3228810Z app.services.ai_metrics ai_summary {"outcome":"complete","calls":1,"usage":{"prompt_tokens":{"known_total":30850,"known_calls":1,"unknown_calls":0},"completion_tokens":{"known_total":4643,"known_calls":1,"unknown_calls":0},"total_tokens":{"known_total":35493,"known_calls":1,"unknown_calls":0},"cache_hit_tokens":{"known_total":30716,"known_calls":1,"unknown_calls":0},"cache_miss_tokens":{"known_total":134,"known_calls":1,"unknown_calls":0},"reasoning_tokens":{"known_total":null,"known_calls":0,"unknown_calls":1}}}
+2026-09-28T06:30:08.7548727Z app.services.ai_metrics ai_call {"operation":"summary_primary","provider":"primary","trigger":"eval","requested_model":"deepseek-flash","actual_model":"deepseek-flash","system_fingerprint":"aeb56401ca74e127821c4f9126dcb669","outcome":"success","latency_ms":11779,"first_token_ms":1544,"usage":{"prompt_tokens":51213,"completion_tokens":3349,"total_tokens":54562,"cache_hit_tokens":51072,"cache_miss_tokens":141,"reasoning_tokens":null},"estimated_cost_usd":0.004368,"peak":true}
+2026-09-28T06:30:09.1666932Z app.services.ai_metrics ai_summary {"outcome":"complete","calls":1,"usage":{"prompt_tokens":{"known_total":51213,"known_calls":1,"unknown_calls":0},"completion_tokens":{"known_total":3349,"known_calls":1,"unknown_calls":0},"total_tokens":{"known_total":54562,"known_calls":1,"unknown_calls":0},"cache_hit_tokens":{"known_total":51072,"known_calls":1,"unknown_calls":0},"cache_miss_tokens":{"known_total":141,"known_calls":1,"unknown_calls":0},"reasoning_tokens":{"known_total":null,"known_calls":0,"unknown_calls":1}}}
+2026-09-28T06:30:11.0246144Z Persisted XBRL read failed for 0000104169-26-000055: OperationalError
+2026-09-28T06:30:16.5090034Z app.services.ai_metrics ai_call {"operation":"summary_primary","provider":"primary","trigger":"eval","requested_model":"deepseek-flash","actual_model":"deepseek-flash","system_fingerprint":"aeb56401ca74e127821c4f9126dcb669","outcome":"success","latency_ms":15110,"first_token_ms":1319,"usage":{"prompt_tokens":30850,"completion_tokens":4620,"total_tokens":35470,"cache_hit_tokens":30716,"cache_miss_tokens":134,"reasoning_tokens":null},"estimated_cost_usd":0.005768,"peak":true}
+2026-09-28T06:30:16.6454369Z app.services.ai_metrics ai_summary {"outcome":"complete","calls":1,"usage":{"prompt_tokens":{"known_total":30850,"known_calls":1,"unknown_calls":0},"completion_tokens":{"known_total":4620,"known_calls":1,"unknown_calls":0},"total_tokens":{"known_total":35470,"known_calls":1,"unknown_calls":0},"cache_hit_tokens":{"known_total":30716,"known_calls":1,"unknown_calls":0},"cache_miss_tokens":{"known_total":134,"known_calls":1,"unknown_calls":0},"reasoning_tokens":{"known_total":null,"known_calls":0,"unknown_calls":1}}}
+2026-09-28T06:30:17.6495778Z Persisted XBRL read failed for 0000909832-26-000051: OperationalError
+2026-09-28T06:30:27.7217479Z app.services.ai_metrics ai_call {"operation":"summary_primary","provider":"primary","trigger":"eval","requested_model":"deepseek-flash","actual_model":"deepseek-flash","system_fingerprint":"aeb56401ca74e127821c4f9126dcb669","outcome":"success","latency_ms":15881,"first_token_ms":1540,"usage":{"prompt_tokens":42356,"completion_tokens":4705,"total_tokens":47061,"cache_hit_tokens":42112,"cache_miss_tokens":244,"reasoning_tokens":null},"estimated_cost_usd":0.005972,"peak":true}
+2026-09-28T06:30:28.0513735Z app.services.ai_metrics ai_summary {"outcome":"complete","calls":1,"usage":{"prompt_tokens":{"known_total":42356,"known_calls":1,"unknown_calls":0},"completion_tokens":{"known_total":4705,"known_calls":1,"unknown_calls":0},"total_tokens":{"known_total":47061,"known_calls":1,"unknown_calls":0},"cache_hit_tokens":{"known_total":42112,"known_calls":1,"unknown_calls":0},"cache_miss_tokens":{"known_total":244,"known_calls":1,"unknown_calls":0},"reasoning_tokens":{"known_total":null,"known_calls":0,"unknown_calls":1}}}
+2026-09-28T06:30:31.6653574Z app.services.ai_metrics ai_call {"operation":"summary_primary","provider":"primary","trigger":"eval","requested_model":"deepseek-flash","actual_model":"deepseek-flash","system_fingerprint":"aeb56401ca74e127821c4f9126dcb669","outcome":"success","latency_ms":13230,"first_token_ms":1240,"usage":{"prompt_tokens":23003,"completion_tokens":4016,"total_tokens":27019,"cache_hit_tokens":22784,"cache_miss_tokens":219,"reasoning_tokens":null},"estimated_cost_usd":0.005022,"peak":true}
+2026-09-28T06:30:31.8244001Z app.services.ai_metrics ai_summary {"outcome":"complete","calls":1,"usage":{"prompt_tokens":{"known_total":23003,"known_calls":1,"unknown_calls":0},"completion_tokens":{"known_total":4016,"known_calls":1,"unknown_calls":0},"total_tokens":{"known_total":27019,"known_calls":1,"unknown_calls":0},"cache_hit_tokens":{"known_total":22784,"known_calls":1,"unknown_calls":0},"cache_miss_tokens":{"known_total":219,"known_calls":1,"unknown_calls":0},"reasoning_tokens":{"known_total":null,"known_calls":0,"unknown_calls":1}}}
+2026-09-28T06:30:39.3065280Z app.services.ai_metrics ai_call {"operation":"summary_primary","provider":"primary","trigger":"eval","requested_model":"deepseek-flash","actual_model":"deepseek-flash","system_fingerprint":"aeb56401ca74e127821c4f9126dcb669","outcome":"success","latency_ms":11144,"first_token_ms":1422,"usage":{"prompt_tokens":42356,"completion_tokens":3253,"total_tokens":45609,"cache_hit_tokens":42112,"cache_miss_tokens":244,"reasoning_tokens":null},"estimated_cost_usd":0.004229,"peak":true}
+2026-09-28T06:30:39.5549777Z app.services.ai_metrics ai_summary {"outcome":"complete","calls":1,"usage":{"prompt_tokens":{"known_total":42356,"known_calls":1,"unknown_calls":0},"completion_tokens":{"known_total":3253,"known_calls":1,"unknown_calls":0},"total_tokens":{"known_total":45609,"known_calls":1,"unknown_calls":0},"cache_hit_tokens":{"known_total":42112,"known_calls":1,"unknown_calls":0},"cache_miss_tokens":{"known_total":244,"known_calls":1,"unknown_calls":0},"reasoning_tokens":{"known_total":null,"known_calls":0,"unknown_calls":1}}}
+2026-09-28T06:30:42.0790644Z Persisted XBRL read failed for 0001628280-26-004357: OperationalError
+2026-09-28T06:30:44.7494892Z app.services.ai_metrics ai_call {"operation":"summary_primary","provider":"primary","trigger":"eval","requested_model":"deepseek-flash","actual_model":"deepseek-flash","system_fingerprint":"aeb56401ca74e127821c4f9126dcb669","outcome":"success","latency_ms":12873,"first_token_ms":1461,"usage":{"prompt_tokens":23003,"completion_tokens":3843,"total_tokens":26846,"cache_hit_tokens":22784,"cache_miss_tokens":219,"reasoning_tokens":null},"estimated_cost_usd":0.004814,"peak":true}
+2026-09-28T06:30:44.8699674Z app.services.ai_metrics ai_summary {"outcome":"complete","calls":1,"usage":{"prompt_tokens":{"known_total":23003,"known_calls":1,"unknown_calls":0},"completion_tokens":{"known_total":3843,"known_calls":1,"unknown_calls":0},"total_tokens":{"known_total":26846,"known_calls":1,"unknown_calls":0},"cache_hit_tokens":{"known_total":22784,"known_calls":1,"unknown_calls":0},"cache_miss_tokens":{"known_total":219,"known_calls":1,"unknown_calls":0},"reasoning_tokens":{"known_total":null,"known_calls":0,"unknown_calls":1}}}
+2026-09-28T06:30:46.8632717Z Persisted XBRL read failed for 0000050863-26-000079: OperationalError
+2026-09-28T06:30:57.4648943Z app.services.ai_metrics ai_call {"operation":"summary_primary","provider":"primary","trigger":"eval","requested_model":"deepseek-flash","actual_model":"deepseek-flash","system_fingerprint":"aeb56401ca74e127821c4f9126dcb669","outcome":"success","latency_ms":13996,"first_token_ms":1460,"usage":{"prompt_tokens":41696,"completion_tokens":4058,"total_tokens":45754,"cache_hit_tokens":41472,"cache_miss_tokens":224,"reasoning_tokens":null},"estimated_cost_usd":0.005186,"peak":true}
+2026-09-28T06:30:57.7853405Z app.services.ai_metrics ai_summary {"outcome":"complete","calls":1,"usage":{"prompt_tokens":{"known_total":41696,"known_calls":1,"unknown_calls":0},"completion_tokens":{"known_total":4058,"known_calls":1,"unknown_calls":0},"total_tokens":{"known_total":45754,"known_calls":1,"unknown_calls":0},"cache_hit_tokens":{"known_total":41472,"known_calls":1,"unknown_calls":0},"cache_miss_tokens":{"known_total":224,"known_calls":1,"unknown_calls":0},"reasoning_tokens":{"known_total":null,"known_calls":0,"unknown_calls":1}}}
+2026-09-28T06:31:03.9718801Z app.services.ai_metrics ai_call {"operation":"summary_primary","provider":"primary","trigger":"eval","requested_model":"deepseek-flash","actual_model":"deepseek-flash","system_fingerprint":"aeb56401ca74e127821c4f9126dcb669","outcome":"success","latency_ms":16451,"first_token_ms":1577,"usage":{"prompt_tokens":47865,"completion_tokens":4822,"total_tokens":52687,"cache_hit_tokens":47616,"cache_miss_tokens":249,"reasoning_tokens":null},"estimated_cost_usd":0.006147,"peak":true}
+2026-09-28T06:31:04.3569873Z app.services.ai_metrics ai_summary {"outcome":"complete","calls":1,"usage":{"prompt_tokens":{"known_total":47865,"known_calls":1,"unknown_calls":0},"completion_tokens":{"known_total":4822,"known_calls":1,"unknown_calls":0},"total_tokens":{"known_total":52687,"known_calls":1,"unknown_calls":0},"cache_hit_tokens":{"known_total":47616,"known_calls":1,"unknown_calls":0},"cache_miss_tokens":{"known_total":249,"known_calls":1,"unknown_calls":0},"reasoning_tokens":{"known_total":null,"known_calls":0,"unknown_calls":1}}}
+2026-09-28T06:31:13.0034345Z app.services.ai_metrics ai_call {"operation":"summary_primary","provider":"primary","trigger":"eval","requested_model":"deepseek-flash","actual_model":"deepseek-flash","system_fingerprint":"aeb56401ca74e127821c4f9126dcb669","outcome":"success","latency_ms":15103,"first_token_ms":1416,"usage":{"prompt_tokens":41696,"completion_tokens":4369,"total_tokens":46065,"cache_hit_tokens":41472,"cache_miss_tokens":224,"reasoning_tokens":null},"estimated_cost_usd":0.005559,"peak":true}
+2026-09-28T06:31:13.4388602Z app.services.ai_metrics ai_summary {"outcome":"complete","calls":1,"usage":{"prompt_tokens":{"known_total":41696,"known_calls":1,"unknown_calls":0},"completion_tokens":{"known_total":4369,"known_calls":1,"unknown_calls":0},"total_tokens":{"known_total":46065,"known_calls":1,"unknown_calls":0},"cache_hit_tokens":{"known_total":41472,"known_calls":1,"unknown_calls":0},"cache_miss_tokens":{"known_total":224,"known_calls":1,"unknown_calls":0},"reasoning_tokens":{"known_total":null,"known_calls":0,"unknown_calls":1}}}
+2026-09-28T06:31:14.9541790Z Persisted XBRL read failed for 0001321655-26-000028: OperationalError
+2026-09-28T06:31:18.4576487Z app.services.ai_metrics ai_call {"operation":"summary_primary","provider":"primary","trigger":"eval","requested_model":"deepseek-flash","actual_model":"deepseek-flash","system_fingerprint":"aeb56401ca74e127821c4f9126dcb669","outcome":"success","latency_ms":13991,"first_token_ms":1091,"usage":{"prompt_tokens":47865,"completion_tokens":4027,"total_tokens":51892,"cache_hit_tokens":47616,"cache_miss_tokens":249,"reasoning_tokens":null},"estimated_cost_usd":0.005193,"peak":true}
+2026-09-28T06:31:18.7135503Z app.services.ai_metrics ai_summary {"outcome":"complete","calls":1,"usage":{"prompt_tokens":{"known_total":47865,"known_calls":1,"unknown_calls":0},"completion_tokens":{"known_total":4027,"known_calls":1,"unknown_calls":0},"total_tokens":{"known_total":51892,"known_calls":1,"unknown_calls":0},"cache_hit_tokens":{"known_total":47616,"known_calls":1,"unknown_calls":0},"cache_miss_tokens":{"known_total":249,"known_calls":1,"unknown_calls":0},"reasoning_tokens":{"known_total":null,"known_calls":0,"unknown_calls":1}}}
+2026-09-28T06:31:20.4750367Z Persisted XBRL read failed for 0001874178-26-000008: OperationalError
+2026-09-28T06:31:28.3086370Z app.services.ai_metrics ai_call {"operation":"summary_primary","provider":"primary","trigger":"eval","requested_model":"deepseek-flash","actual_model":"deepseek-flash","system_fingerprint":"aeb56401ca74e127821c4f9126dcb669","outcome":"success","latency_ms":12545,"first_token_ms":1279,"usage":{"prompt_tokens":31049,"completion_tokens":3536,"total_tokens":34585,"cache_hit_tokens":30848,"cache_miss_tokens":201,"reasoning_tokens":null},"estimated_cost_usd":0.004489,"peak":true}
+2026-09-28T06:31:28.5219244Z app.services.ai_metrics ai_summary {"outcome":"complete","calls":1,"usage":{"prompt_tokens":{"known_total":31049,"known_calls":1,"unknown_calls":0},"completion_tokens":{"known_total":3536,"known_calls":1,"unknown_calls":0},"total_tokens":{"known_total":34585,"known_calls":1,"unknown_calls":0},"cache_hit_tokens":{"known_total":30848,"known_calls":1,"unknown_calls":0},"cache_miss_tokens":{"known_total":201,"known_calls":1,"unknown_calls":0},"reasoning_tokens":{"known_total":null,"known_calls":0,"unknown_calls":1}}}
+2026-09-28T06:31:36.7079507Z app.services.ai_metrics ai_call {"operation":"summary_primary","provider":"primary","trigger":"eval","requested_model":"deepseek-flash","actual_model":"deepseek-flash","system_fingerprint":"aeb56401ca74e127821c4f9126dcb669","outcome":"success","latency_ms":15189,"first_token_ms":1247,"usage":{"prompt_tokens":33707,"completion_tokens":4304,"total_tokens":38011,"cache_hit_tokens":33536,"cache_miss_tokens":171,"reasoning_tokens":null},"estimated_cost_usd":0.005417,"peak":true}
+2026-09-28T06:31:36.9627313Z app.services.ai_metrics ai_summary {"outcome":"complete","calls":1,"usage":{"prompt_tokens":{"known_total":33707,"known_calls":1,"unknown_calls":0},"completion_tokens":{"known_total":4304,"known_calls":1,"unknown_calls":0},"total_tokens":{"known_total":38011,"known_calls":1,"unknown_calls":0},"cache_hit_tokens":{"known_total":33536,"known_calls":1,"unknown_calls":0},"cache_miss_tokens":{"known_total":171,"known_calls":1,"unknown_calls":0},"reasoning_tokens":{"known_total":null,"known_calls":0,"unknown_calls":1}}}
+2026-09-28T06:31:39.5889816Z app.services.ai_metrics ai_call {"operation":"summary_primary","provider":"primary","trigger":"eval","requested_model":"deepseek-flash","actual_model":"deepseek-flash","system_fingerprint":"aeb56401ca74e127821c4f9126dcb669","outcome":"success","latency_ms":10990,"first_token_ms":980,"usage":{"prompt_tokens":31049,"completion_tokens":3259,"total_tokens":34308,"cache_hit_tokens":30848,"cache_miss_tokens":201,"reasoning_tokens":null},"estimated_cost_usd":0.004156,"peak":true}
+2026-09-28T06:31:39.7319880Z app.services.ai_metrics ai_summary {"outcome":"complete","calls":1,"usage":{"prompt_tokens":{"known_total":31049,"known_calls":1,"unknown_calls":0},"completion_tokens":{"known_total":3259,"known_calls":1,"unknown_calls":0},"total_tokens":{"known_total":34308,"known_calls":1,"unknown_calls":0},"cache_hit_tokens":{"known_total":30848,"known_calls":1,"unknown_calls":0},"cache_miss_tokens":{"known_total":201,"known_calls":1,"unknown_calls":0},"reasoning_tokens":{"known_total":null,"known_calls":0,"unknown_calls":1}}}
+2026-09-28T06:31:48.7614404Z Persisted XBRL read failed for 0001679788-26-000054: OperationalError
+2026-09-28T06:31:49.8584513Z app.services.ai_metrics ai_call {"operation":"summary_primary","provider":"primary","trigger":"eval","requested_model":"deepseek-flash","actual_model":"deepseek-flash","system_fingerprint":"aeb56401ca74e127821c4f9126dcb669","outcome":"success","latency_ms":12804,"first_token_ms":1125,"usage":{"prompt_tokens":33707,"completion_tokens":3870,"total_tokens":37577,"cache_hit_tokens":33536,"cache_miss_tokens":171,"reasoning_tokens":null},"estimated_cost_usd":0.004897,"peak":true}
+2026-09-28T06:31:50.0955282Z app.services.ai_metrics ai_summary {"outcome":"complete","calls":1,"usage":{"prompt_tokens":{"known_total":33707,"known_calls":1,"unknown_calls":0},"completion_tokens":{"known_total":3870,"known_calls":1,"unknown_calls":0},"total_tokens":{"known_total":37577,"known_calls":1,"unknown_calls":0},"cache_hit_tokens":{"known_total":33536,"known_calls":1,"unknown_calls":0},"cache_miss_tokens":{"known_total":171,"known_calls":1,"unknown_calls":0},"reasoning_tokens":{"known_total":null,"known_calls":0,"unknown_calls":1}}}
+2026-09-28T06:31:52.0708348Z Persisted XBRL read failed for 0001655210-26-000037: OperationalError
+2026-09-28T06:32:04.3850983Z app.services.ai_metrics ai_call {"operation":"summary_primary","provider":"primary","trigger":"eval","requested_model":"deepseek-flash","actual_model":"deepseek-flash","system_fingerprint":"aeb56401ca74e127821c4f9126dcb669","outcome":"success","latency_ms":14714,"first_token_ms":1438,"usage":{"prompt_tokens":28146,"completion_tokens":4056,"total_tokens":32202,"cache_hit_tokens":27904,"cache_miss_tokens":242,"reasoning_tokens":null},"estimated_cost_usd":0.005107,"peak":true}
+2026-09-28T06:32:04.5431869Z app.services.ai_metrics ai_summary {"outcome":"complete","calls":1,"usage":{"prompt_tokens":{"known_total":28146,"known_calls":1,"unknown_calls":0},"completion_tokens":{"known_total":4056,"known_calls":1,"unknown_calls":0},"total_tokens":{"known_total":32202,"known_calls":1,"unknown_calls":0},"cache_hit_tokens":{"known_total":27904,"known_calls":1,"unknown_calls":0},"cache_miss_tokens":{"known_total":242,"known_calls":1,"unknown_calls":0},"reasoning_tokens":{"known_total":null,"known_calls":0,"unknown_calls":1}}}
+2026-09-28T06:32:07.6275363Z app.services.ai_metrics ai_call {"operation":"summary_primary","provider":"primary","trigger":"eval","requested_model":"deepseek-flash","actual_model":"deepseek-flash","system_fingerprint":"aeb56401ca74e127821c4f9126dcb669","outcome":"success","latency_ms":14884,"first_token_ms":1430,"usage":{"prompt_tokens":45119,"completion_tokens":4437,"total_tokens":49556,"cache_hit_tokens":44928,"cache_miss_tokens":191,"reasoning_tokens":null},"estimated_cost_usd":0.005651,"peak":true}
+2026-09-28T06:32:08.3736739Z app.services.ai_metrics ai_summary {"outcome":"complete","calls":1,"usage":{"prompt_tokens":{"known_total":45119,"known_calls":1,"unknown_calls":0},"completion_tokens":{"known_total":4437,"known_calls":1,"unknown_calls":0},"total_tokens":{"known_total":49556,"known_calls":1,"unknown_calls":0},"cache_hit_tokens":{"known_total":44928,"known_calls":1,"unknown_calls":0},"cache_miss_tokens":{"known_total":191,"known_calls":1,"unknown_calls":0},"reasoning_tokens":{"known_total":null,"known_calls":0,"unknown_calls":1}}}
+2026-09-28T06:32:18.7020432Z app.services.ai_metrics ai_call {"operation":"summary_primary","provider":"primary","trigger":"eval","requested_model":"deepseek-flash","actual_model":"deepseek-flash","system_fingerprint":"aeb56401ca74e127821c4f9126dcb669","outcome":"success","latency_ms":14086,"first_token_ms":1371,"usage":{"prompt_tokens":28146,"completion_tokens":4278,"total_tokens":32424,"cache_hit_tokens":27904,"cache_miss_tokens":242,"reasoning_tokens":null},"estimated_cost_usd":0.005374,"peak":true}
+2026-09-28T06:32:18.8287393Z app.services.ai_metrics ai_summary {"outcome":"complete","calls":1,"usage":{"prompt_tokens":{"known_total":28146,"known_calls":1,"unknown_calls":0},"completion_tokens":{"known_total":4278,"known_calls":1,"unknown_calls":0},"total_tokens":{"known_total":32424,"known_calls":1,"unknown_calls":0},"cache_hit_tokens":{"known_total":27904,"known_calls":1,"unknown_calls":0},"cache_miss_tokens":{"known_total":242,"known_calls":1,"unknown_calls":0},"reasoning_tokens":{"known_total":null,"known_calls":0,"unknown_calls":1}}}
+2026-09-28T06:32:21.9883259Z app.services.ai_metrics ai_call {"operation":"summary_primary","provider":"primary","trigger":"eval","requested_model":"deepseek-flash","actual_model":"deepseek-flash","system_fingerprint":"aeb56401ca74e127821c4f9126dcb669","outcome":"success","latency_ms":13489,"first_token_ms":1377,"usage":{"prompt_tokens":45119,"completion_tokens":3938,"total_tokens":49057,"cache_hit_tokens":44928,"cache_miss_tokens":191,"reasoning_tokens":null},"estimated_cost_usd":0.005052,"peak":true}
+2026-09-28T06:32:23.2334566Z app.services.ai_metrics ai_summary {"outcome":"complete","calls":1,"usage":{"prompt_tokens":{"known_total":45119,"known_calls":1,"unknown_calls":0},"completion_tokens":{"known_total":3938,"known_calls":1,"unknown_calls":0},"total_tokens":{"known_total":49057,"known_calls":1,"unknown_calls":0},"cache_hit_tokens":{"known_total":44928,"known_calls":1,"unknown_calls":0},"cache_miss_tokens":{"known_total":191,"known_calls":1,"unknown_calls":0},"reasoning_tokens":{"known_total":null,"known_calls":0,"unknown_calls":1}}}
+2026-09-28T06:32:28.5346101Z Persisted XBRL read failed for 0001193125-26-231755: OperationalError
+2026-09-28T06:32:29.9592492Z Segment revenue sum 302302000000 not coherent with consolidated 1023670000000; dropping segment table
+2026-09-28T06:32:45.9078286Z app.services.ai_metrics ai_call {"operation":"summary_primary","provider":"primary","trigger":"eval","requested_model":"deepseek-flash","actual_model":"deepseek-flash","system_fingerprint":"aeb56401ca74e127821c4f9126dcb669","outcome":"success","latency_ms":15493,"first_token_ms":1926,"usage":{"prompt_tokens":60265,"completion_tokens":4451,"total_tokens":64716,"cache_hit_tokens":60032,"cache_miss_tokens":233,"reasoning_tokens":null},"estimated_cost_usd":0.005771,"peak":true}
+2026-09-28T06:32:52.1087187Z Persisted XBRL read failed for 0001628280-26-011378: OperationalError
+2026-09-28T06:32:52.2635193Z app.services.ai_metrics ai_summary {"outcome":"complete","calls":1,"usage":{"prompt_tokens":{"known_total":60265,"known_calls":1,"unknown_calls":0},"completion_tokens":{"known_total":4451,"known_calls":1,"unknown_calls":0},"total_tokens":{"known_total":64716,"known_calls":1,"unknown_calls":0},"cache_hit_tokens":{"known_total":60032,"known_calls":1,"unknown_calls":0},"cache_miss_tokens":{"known_total":233,"known_calls":1,"unknown_calls":0},"reasoning_tokens":{"known_total":null,"known_calls":0,"unknown_calls":1}}}
+2026-09-28T06:33:10.0841896Z app.services.ai_metrics ai_call {"operation":"summary_primary","provider":"primary","trigger":"eval","requested_model":"deepseek-flash","actual_model":"deepseek-flash","system_fingerprint":"aeb56401ca74e127821c4f9126dcb669","outcome":"success","latency_ms":17699,"first_token_ms":1172,"usage":{"prompt_tokens":60265,"completion_tokens":5318,"total_tokens":65583,"cache_hit_tokens":60032,"cache_miss_tokens":233,"reasoning_tokens":null},"estimated_cost_usd":0.006812,"peak":true}
+2026-09-28T06:33:10.4024814Z app.services.ai_metrics ai_summary {"outcome":"complete","calls":1,"usage":{"prompt_tokens":{"known_total":60265,"known_calls":1,"unknown_calls":0},"completion_tokens":{"known_total":5318,"known_calls":1,"unknown_calls":0},"total_tokens":{"known_total":65583,"known_calls":1,"unknown_calls":0},"cache_hit_tokens":{"known_total":60032,"known_calls":1,"unknown_calls":0},"cache_miss_tokens":{"known_total":233,"known_calls":1,"unknown_calls":0},"reasoning_tokens":{"known_total":null,"known_calls":0,"unknown_calls":1}}}
+2026-09-28T06:33:12.1064146Z app.services.ai_metrics ai_call {"operation":"summary_primary","provider":"primary","trigger":"eval","requested_model":"deepseek-flash","actual_model":"deepseek-flash","system_fingerprint":"aeb56401ca74e127821c4f9126dcb669","outcome":"success","latency_ms":17173,"first_token_ms":1551,"usage":{"prompt_tokens":70554,"completion_tokens":5060,"total_tokens":75614,"cache_hit_tokens":70400,"cache_miss_tokens":154,"reasoning_tokens":null},"estimated_cost_usd":0.006541,"peak":true}
+2026-09-28T06:33:12.4546611Z app.services.ai_metrics ai_summary {"outcome":"complete","calls":1,"usage":{"prompt_tokens":{"known_total":70554,"known_calls":1,"unknown_calls":0},"completion_tokens":{"known_total":5060,"known_calls":1,"unknown_calls":0},"total_tokens":{"known_total":75614,"known_calls":1,"unknown_calls":0},"cache_hit_tokens":{"known_total":70400,"known_calls":1,"unknown_calls":0},"cache_miss_tokens":{"known_total":154,"known_calls":1,"unknown_calls":0},"reasoning_tokens":{"known_total":null,"known_calls":0,"unknown_calls":1}}}
+2026-09-28T06:33:21.1185808Z Persisted XBRL read failed for 0001628280-26-025362: OperationalError
+2026-09-28T06:33:27.9506822Z app.services.ai_metrics ai_call {"operation":"summary_primary","provider":"primary","trigger":"eval","requested_model":"deepseek-flash","actual_model":"deepseek-flash","system_fingerprint":"aeb56401ca74e127821c4f9126dcb669","outcome":"success","latency_ms":15346,"first_token_ms":1746,"usage":{"prompt_tokens":70554,"completion_tokens":4412,"total_tokens":74966,"cache_hit_tokens":70400,"cache_miss_tokens":154,"reasoning_tokens":null},"estimated_cost_usd":0.005763,"peak":true}
+2026-09-28T06:33:28.2792226Z app.services.ai_metrics ai_summary {"outcome":"complete","calls":1,"usage":{"prompt_tokens":{"known_total":70554,"known_calls":1,"unknown_calls":0},"completion_tokens":{"known_total":4412,"known_calls":1,"unknown_calls":0},"total_tokens":{"known_total":74966,"known_calls":1,"unknown_calls":0},"cache_hit_tokens":{"known_total":70400,"known_calls":1,"unknown_calls":0},"cache_miss_tokens":{"known_total":154,"known_calls":1,"unknown_calls":0},"reasoning_tokens":{"known_total":null,"known_calls":0,"unknown_calls":1}}}
+2026-09-28T06:33:35.4906461Z Persisted XBRL read failed for 0001193125-26-157870: OperationalError
+2026-09-28T06:33:37.3688227Z Segment revenue sum 80314000000 not coherent with consolidated 1309085000000; dropping segment table
+2026-09-28T06:33:37.6871679Z app.services.ai_metrics ai_call {"operation":"summary_primary","provider":"primary","trigger":"eval","requested_model":"deepseek-flash","actual_model":"deepseek-flash","system_fingerprint":"aeb56401ca74e127821c4f9126dcb669","outcome":"success","latency_ms":13896,"first_token_ms":986,"usage":{"prompt_tokens":71040,"completion_tokens":4103,"total_tokens":75143,"cache_hit_tokens":70784,"cache_miss_tokens":256,"reasoning_tokens":null},"estimated_cost_usd":0.005425,"peak":true}
+2026-09-28T06:33:37.8789833Z app.services.ai_metrics ai_summary {"outcome":"complete","calls":1,"usage":{"prompt_tokens":{"known_total":71040,"known_calls":1,"unknown_calls":0},"completion_tokens":{"known_total":4103,"known_calls":1,"unknown_calls":0},"total_tokens":{"known_total":75143,"known_calls":1,"unknown_calls":0},"cache_hit_tokens":{"known_total":70784,"known_calls":1,"unknown_calls":0},"cache_miss_tokens":{"known_total":256,"known_calls":1,"unknown_calls":0},"reasoning_tokens":{"known_total":null,"known_calls":0,"unknown_calls":1}}}
+2026-09-28T06:33:50.4236948Z app.services.ai_metrics ai_call {"operation":"summary_primary","provider":"primary","trigger":"eval","requested_model":"deepseek-flash","actual_model":"deepseek-flash","system_fingerprint":"aeb56401ca74e127821c4f9126dcb669","outcome":"success","latency_ms":12461,"first_token_ms":1654,"usage":{"prompt_tokens":71040,"completion_tokens":3742,"total_tokens":74782,"cache_hit_tokens":70784,"cache_miss_tokens":256,"reasoning_tokens":null},"estimated_cost_usd":0.004992,"peak":true}
+2026-09-28T06:33:50.6034737Z app.services.ai_metrics ai_summary {"outcome":"complete","calls":1,"usage":{"prompt_tokens":{"known_total":71040,"known_calls":1,"unknown_calls":0},"completion_tokens":{"known_total":3742,"known_calls":1,"unknown_calls":0},"total_tokens":{"known_total":74782,"known_calls":1,"unknown_calls":0},"cache_hit_tokens":{"known_total":70784,"known_calls":1,"unknown_calls":0},"cache_miss_tokens":{"known_total":256,"known_calls":1,"unknown_calls":0},"reasoning_tokens":{"known_total":null,"known_calls":0,"unknown_calls":1}}}
+2026-09-28T06:33:54.1112728Z app.services.ai_metrics ai_call {"operation":"summary_primary","provider":"primary","trigger":"eval","requested_model":"deepseek-flash","actual_model":"deepseek-flash","system_fingerprint":"aeb56401ca74e127821c4f9126dcb669","outcome":"success","latency_ms":16428,"first_token_ms":1834,"usage":{"prompt_tokens":63932,"completion_tokens":4353,"total_tokens":68285,"cache_hit_tokens":63744,"cache_miss_tokens":188,"reasoning_tokens":null},"estimated_cost_usd":0.005662,"peak":true}
+2026-09-28T06:33:54.5350713Z app.services.ai_metrics ai_summary {"outcome":"complete","calls":1,"usage":{"prompt_tokens":{"known_total":63932,"known_calls":1,"unknown_calls":0},"completion_tokens":{"known_total":4353,"known_calls":1,"unknown_calls":0},"total_tokens":{"known_total":68285,"known_calls":1,"unknown_calls":0},"cache_hit_tokens":{"known_total":63744,"known_calls":1,"unknown_calls":0},"cache_miss_tokens":{"known_total":188,"known_calls":1,"unknown_calls":0},"reasoning_tokens":{"known_total":null,"known_calls":0,"unknown_calls":1}}}
+2026-09-28T06:33:56.1496035Z Persisted XBRL read failed for 0001140361-26-015366: OperationalError
+2026-09-28T06:34:07.2706245Z app.services.ai_metrics ai_call {"operation":"summary_primary","provider":"primary","trigger":"eval","requested_model":"deepseek-flash","actual_model":"deepseek-flash","system_fingerprint":"aeb56401ca74e127821c4f9126dcb669","outcome":"success","latency_ms":9141,"first_token_ms":1411,"usage":{"prompt_tokens":28840,"completion_tokens":2755,"total_tokens":31595,"cache_hit_tokens":28672,"cache_miss_tokens":168,"reasoning_tokens":null},"estimated_cost_usd":0.003528,"peak":true}
+2026-09-28T06:34:07.3772643Z app.services.ai_metrics ai_summary {"outcome":"complete","calls":1,"usage":{"prompt_tokens":{"known_total":28840,"known_calls":1,"unknown_calls":0},"completion_tokens":{"known_total":2755,"known_calls":1,"unknown_calls":0},"total_tokens":{"known_total":31595,"known_calls":1,"unknown_calls":0},"cache_hit_tokens":{"known_total":28672,"known_calls":1,"unknown_calls":0},"cache_miss_tokens":{"known_total":168,"known_calls":1,"unknown_calls":0},"reasoning_tokens":{"known_total":null,"known_calls":0,"unknown_calls":1}}}
+2026-09-28T06:34:11.5150414Z app.services.ai_metrics ai_call {"operation":"summary_primary","provider":"primary","trigger":"eval","requested_model":"deepseek-flash","actual_model":"deepseek-flash","system_fingerprint":"aeb56401ca74e127821c4f9126dcb669","outcome":"success","latency_ms":16895,"first_token_ms":1487,"usage":{"prompt_tokens":63932,"completion_tokens":4721,"total_tokens":68653,"cache_hit_tokens":63744,"cache_miss_tokens":188,"reasoning_tokens":null},"estimated_cost_usd":0.006104,"peak":true}
+2026-09-28T06:34:11.8867842Z app.services.ai_metrics ai_summary {"outcome":"complete","calls":1,"usage":{"prompt_tokens":{"known_total":63932,"known_calls":1,"unknown_calls":0},"completion_tokens":{"known_total":4721,"known_calls":1,"unknown_calls":0},"total_tokens":{"known_total":68653,"known_calls":1,"unknown_calls":0},"cache_hit_tokens":{"known_total":63744,"known_calls":1,"unknown_calls":0},"cache_miss_tokens":{"known_total":188,"known_calls":1,"unknown_calls":0},"reasoning_tokens":{"known_total":null,"known_calls":0,"unknown_calls":1}}}
+2026-09-28T06:34:16.5340095Z app.services.ai_metrics ai_call {"operation":"summary_primary","provider":"primary","trigger":"eval","requested_model":"deepseek-flash","actual_model":"deepseek-flash","system_fingerprint":"aeb56401ca74e127821c4f9126dcb669","outcome":"success","latency_ms":9103,"first_token_ms":1176,"usage":{"prompt_tokens":28840,"completion_tokens":2752,"total_tokens":31592,"cache_hit_tokens":28672,"cache_miss_tokens":168,"reasoning_tokens":null},"estimated_cost_usd":0.003525,"peak":true}
+2026-09-28T06:34:16.7094859Z app.services.ai_metrics ai_summary {"outcome":"complete","calls":1,"usage":{"prompt_tokens":{"known_total":28840,"known_calls":1,"unknown_calls":0},"completion_tokens":{"known_total":2752,"known_calls":1,"unknown_calls":0},"total_tokens":{"known_total":31592,"known_calls":1,"unknown_calls":0},"cache_hit_tokens":{"known_total":28672,"known_calls":1,"unknown_calls":0},"cache_miss_tokens":{"known_total":168,"known_calls":1,"unknown_calls":0},"reasoning_tokens":{"known_total":null,"known_calls":0,"unknown_calls":1}}}
+2026-09-28T06:34:17.4664499Z Persisted XBRL read failed for 0000353278-26-000012: OperationalError
+2026-09-28T06:34:23.3681075Z Persisted XBRL read failed for 0001104659-26-050727: OperationalError
+2026-09-28T06:34:38.0589747Z app.services.ai_metrics ai_call {"operation":"summary_primary","provider":"primary","trigger":"eval","requested_model":"deepseek-flash","actual_model":"deepseek-flash","system_fingerprint":"aeb56401ca74e127821c4f9126dcb669","outcome":"success","latency_ms":11502,"first_token_ms":1076,"usage":{"prompt_tokens":15902,"completion_tokens":3434,"total_tokens":19336,"cache_hit_tokens":15744,"cache_miss_tokens":158,"reasoning_tokens":null},"estimated_cost_usd":0.004263,"peak":true}
+2026-09-28T06:34:38.1664989Z app.services.ai_metrics ai_summary {"outcome":"complete","calls":1,"usage":{"prompt_tokens":{"known_total":15902,"known_calls":1,"unknown_calls":0},"completion_tokens":{"known_total":3434,"known_calls":1,"unknown_calls":0},"total_tokens":{"known_total":19336,"known_calls":1,"unknown_calls":0},"cache_hit_tokens":{"known_total":15744,"known_calls":1,"unknown_calls":0},"cache_miss_tokens":{"known_total":158,"known_calls":1,"unknown_calls":0},"reasoning_tokens":{"known_total":null,"known_calls":0,"unknown_calls":1}}}
+2026-09-28T06:34:42.3214798Z app.services.ai_metrics ai_call {"operation":"summary_primary","provider":"primary","trigger":"eval","requested_model":"deepseek-flash","actual_model":"deepseek-flash","system_fingerprint":"aeb56401ca74e127821c4f9126dcb669","outcome":"success","latency_ms":16614,"first_token_ms":1668,"usage":{"prompt_tokens":65990,"completion_tokens":5120,"total_tokens":71110,"cache_hit_tokens":65792,"cache_miss_tokens":198,"reasoning_tokens":null},"estimated_cost_usd":0.006598,"peak":true}
+2026-09-28T06:34:42.9662653Z app.services.ai_metrics ai_summary {"outcome":"complete","calls":1,"usage":{"prompt_tokens":{"known_total":65990,"known_calls":1,"unknown_calls":0},"completion_tokens":{"known_total":5120,"known_calls":1,"unknown_calls":0},"total_tokens":{"known_total":71110,"known_calls":1,"unknown_calls":0},"cache_hit_tokens":{"known_total":65792,"known_calls":1,"unknown_calls":0},"cache_miss_tokens":{"known_total":198,"known_calls":1,"unknown_calls":0},"reasoning_tokens":{"known_total":null,"known_calls":0,"unknown_calls":1}}}
+2026-09-28T06:34:50.6113174Z app.services.ai_metrics ai_call {"operation":"summary_primary","provider":"primary","trigger":"eval","requested_model":"deepseek-flash","actual_model":"deepseek-flash","system_fingerprint":"aeb56401ca74e127821c4f9126dcb669","outcome":"success","latency_ms":12401,"first_token_ms":1259,"usage":{"prompt_tokens":15902,"completion_tokens":3770,"total_tokens":19672,"cache_hit_tokens":15744,"cache_miss_tokens":158,"reasoning_tokens":null},"estimated_cost_usd":0.004666,"peak":true}
+2026-09-28T06:34:50.6619097Z app.services.ai_metrics ai_summary {"outcome":"complete","calls":1,"usage":{"prompt_tokens":{"known_total":15902,"known_calls":1,"unknown_calls":0},"completion_tokens":{"known_total":3770,"known_calls":1,"unknown_calls":0},"total_tokens":{"known_total":19672,"known_calls":1,"unknown_calls":0},"cache_hit_tokens":{"known_total":15744,"known_calls":1,"unknown_calls":0},"cache_miss_tokens":{"known_total":158,"known_calls":1,"unknown_calls":0},"reasoning_tokens":{"known_total":null,"known_calls":0,"unknown_calls":1}}}
+2026-09-28T06:34:55.4430852Z Persisted XBRL read failed for 0001099590-26-000006: OperationalError
+2026-09-28T06:35:01.0730939Z app.services.ai_metrics ai_call {"operation":"summary_primary","provider":"primary","trigger":"eval","requested_model":"deepseek-flash","actual_model":"deepseek-flash","system_fingerprint":"aeb56401ca74e127821c4f9126dcb669","outcome":"success","latency_ms":17948,"first_token_ms":1815,"usage":{"prompt_tokens":65990,"completion_tokens":5390,"total_tokens":71380,"cache_hit_tokens":65792,"cache_miss_tokens":198,"reasoning_tokens":null},"estimated_cost_usd":0.006922,"peak":true}
+2026-09-28T06:35:01.5085855Z app.services.ai_metrics ai_summary {"outcome":"complete","calls":1,"usage":{"prompt_tokens":{"known_total":65990,"known_calls":1,"unknown_calls":0},"completion_tokens":{"known_total":5390,"known_calls":1,"unknown_calls":0},"total_tokens":{"known_total":71380,"known_calls":1,"unknown_calls":0},"cache_hit_tokens":{"known_total":65792,"known_calls":1,"unknown_calls":0},"cache_miss_tokens":{"known_total":198,"known_calls":1,"unknown_calls":0},"reasoning_tokens":{"known_total":null,"known_calls":0,"unknown_calls":1}}}
+2026-09-28T06:35:11.1264501Z app.services.ai_metrics ai_call {"operation":"summary_primary","provider":"primary","trigger":"eval","requested_model":"deepseek-flash","actual_model":"deepseek-flash","system_fingerprint":"aeb56401ca74e127821c4f9126dcb669","outcome":"success","latency_ms":13535,"first_token_ms":1371,"usage":{"prompt_tokens":55619,"completion_tokens":3757,"total_tokens":59376,"cache_hit_tokens":55424,"cache_miss_tokens":195,"reasoning_tokens":null},"estimated_cost_usd":0.004899,"peak":true}
+2026-09-28T06:35:11.5476910Z app.services.ai_metrics ai_summary {"outcome":"complete","calls":1,"usage":{"prompt_tokens":{"known_total":55619,"known_calls":1,"unknown_calls":0},"completion_tokens":{"known_total":3757,"known_calls":1,"unknown_calls":0},"total_tokens":{"known_total":59376,"known_calls":1,"unknown_calls":0},"cache_hit_tokens":{"known_total":55424,"known_calls":1,"unknown_calls":0},"cache_miss_tokens":{"known_total":195,"known_calls":1,"unknown_calls":0},"reasoning_tokens":{"known_total":null,"known_calls":0,"unknown_calls":1}}}
+2026-09-28T06:35:26.1750022Z app.services.ai_metrics ai_call {"operation":"summary_primary","provider":"primary","trigger":"eval","requested_model":"deepseek-flash","actual_model":"deepseek-flash","system_fingerprint":"aeb56401ca74e127821c4f9126dcb669","outcome":"success","latency_ms":14507,"first_token_ms":1888,"usage":{"prompt_tokens":55619,"completion_tokens":4111,"total_tokens":59730,"cache_hit_tokens":55424,"cache_miss_tokens":195,"reasoning_tokens":null},"estimated_cost_usd":0.005324,"peak":true}
+2026-09-28T06:35:26.5764453Z app.services.ai_metrics ai_summary {"outcome":"complete","calls":1,"usage":{"prompt_tokens":{"known_total":55619,"known_calls":1,"unknown_calls":0},"completion_tokens":{"known_total":4111,"known_calls":1,"unknown_calls":0},"total_tokens":{"known_total":59730,"known_calls":1,"unknown_calls":0},"cache_hit_tokens":{"known_total":55424,"known_calls":1,"unknown_calls":0},"cache_miss_tokens":{"known_total":195,"known_calls":1,"unknown_calls":0},"reasoning_tokens":{"known_total":null,"known_calls":0,"unknown_calls":1}}}
+2026-09-28T06:35:26.8754829Z Running ['baseline'] over 35 filings x 2 run(s), concurrency=2...
+2026-09-28T06:35:26.8755606Z     excerpt[SE 6-K]: 57,809 chars (source=regex_fallback)
+2026-09-28T06:35:26.8756160Z   baseline :: SE 6-K run 1/2
+2026-09-28T06:35:26.8756678Z     excerpt[ASML 6-K]: 12,957 chars (source=regex_fallback)
+2026-09-28T06:35:26.8757288Z   baseline :: ASML 6-K run 1/2
+2026-09-28T06:35:26.8757735Z   baseline :: ASML 6-K run 2/2
+2026-09-28T06:35:26.8758493Z   baseline :: SE 6-K run 2/2
+2026-09-28T06:35:26.8758858Z     excerpt[PDD 6-K]: 40,750 chars (source=regex_fallback)
+2026-09-28T06:35:26.8759202Z   baseline :: PDD 6-K run 1/2
+2026-09-28T06:35:26.8759447Z   baseline :: PDD 6-K run 2/2
+2026-09-28T06:35:26.8759731Z     excerpt[PLD 10-K]: 231,325 chars (source=edgartools)
+2026-09-28T06:35:26.8760044Z   baseline :: PLD 10-K run 1/2
+2026-09-28T06:35:26.8760316Z     excerpt[NEE 10-Q]: 96,406 chars (source=edgartools)
+2026-09-28T06:35:26.8760624Z   baseline :: NEE 10-Q run 1/2
+2026-09-28T06:35:26.8761052Z   baseline :: PLD 10-K run 2/2
+2026-09-28T06:35:26.8761283Z   baseline :: NEE 10-Q run 2/2
+2026-09-28T06:35:26.8761963Z     excerpt[PGR 10-K]: 175,835 chars (source=edgartools)
+2026-09-28T06:35:26.8762300Z   baseline :: PGR 10-K run 1/2
+2026-09-28T06:35:26.8762584Z     excerpt[FIGS 10-Q]: 112,432 chars (source=edgartools)
+2026-09-28T06:35:26.8762892Z   baseline :: FIGS 10-Q run 1/2
+2026-09-28T06:35:26.8763133Z   baseline :: PGR 10-K run 2/2
+2026-09-28T06:35:26.8763380Z   baseline :: FIGS 10-Q run 2/2
+2026-09-28T06:35:26.8763664Z     excerpt[GPRO 10-K]: 170,233 chars (source=edgartools)
+2026-09-28T06:35:26.8763966Z   baseline :: GPRO 10-K run 1/2
+2026-09-28T06:35:26.8764241Z     excerpt[AAPL 10-K]: 124,125 chars (source=edgartools)
+2026-09-28T06:35:26.8764644Z   baseline :: AAPL 10-K run 1/2
+2026-09-28T06:35:26.8764880Z   baseline :: GPRO 10-K run 2/2
+2026-09-28T06:35:26.8765116Z   baseline :: AAPL 10-K run 2/2
+2026-09-28T06:35:26.8765449Z     excerpt[MSFT 10-K]: 164,767 chars (source=edgartools)
+2026-09-28T06:35:26.8765793Z     excerpt[NVDA 10-Q]: 102,206 chars (source=edgartools)
+2026-09-28T06:35:26.8766093Z   baseline :: NVDA 10-Q run 1/2
+2026-09-28T06:35:26.8766323Z   baseline :: MSFT 10-K run 1/2
+2026-09-28T06:35:26.8766549Z   baseline :: MSFT 10-K run 2/2
+2026-09-28T06:35:26.8766781Z   baseline :: NVDA 10-Q run 2/2
+2026-09-28T06:35:26.8767045Z     excerpt[KO 10-Q]: 95,851 chars (source=edgartools)
+2026-09-28T06:35:26.8767340Z   baseline :: KO 10-Q run 1/2
+2026-09-28T06:35:26.8767623Z     excerpt[JPM 10-K]: 170,233 chars (source=edgartools)
+2026-09-28T06:35:26.8767920Z   baseline :: JPM 10-K run 1/2
+2026-09-28T06:35:26.8768153Z   baseline :: KO 10-Q run 2/2
+2026-09-28T06:35:26.8768383Z   baseline :: JPM 10-K run 2/2
+2026-09-28T06:35:26.8768649Z     excerpt[TSLA 10-K]: 170,233 chars (source=edgartools)
+2026-09-28T06:35:26.8768971Z   baseline :: TSLA 10-K run 1/2
+2026-09-28T06:35:26.8769247Z     excerpt[AMZN 10-K]: 161,529 chars (source=edgartools)
+2026-09-28T06:35:26.8769554Z   baseline :: AMZN 10-K run 1/2
+2026-09-28T06:35:26.8769805Z   baseline :: TSLA 10-K run 2/2
+2026-09-28T06:35:26.8770081Z   baseline :: AMZN 10-K run 2/2
+2026-09-28T06:35:26.8770359Z     excerpt[BRK.B 10-K]: 147,121 chars (source=edgartools)
+2026-09-28T06:35:26.8770671Z   baseline :: BRK.B 10-K run 1/2
+2026-09-28T06:35:26.8770958Z     excerpt[XOM 10-K]: 160,904 chars (source=edgartools)
+2026-09-28T06:35:26.8771255Z   baseline :: XOM 10-K run 1/2
+2026-09-28T06:35:26.8771753Z   baseline :: BRK.B 10-K run 2/2
+2026-09-28T06:35:26.8772035Z   baseline :: XOM 10-K run 2/2
+2026-09-28T06:35:26.8772330Z     excerpt[PFE 10-Q]: 181,166 chars (source=edgartools)
+2026-09-28T06:35:26.8772645Z   baseline :: PFE 10-Q run 1/2
+2026-09-28T06:35:26.8772931Z     excerpt[F 10-Q]: 98,293 chars (source=edgartools)
+2026-09-28T06:35:26.8773233Z   baseline :: F 10-Q run 1/2
+2026-09-28T06:35:26.8773464Z   baseline :: PFE 10-Q run 2/2
+2026-09-28T06:35:26.8773693Z   baseline :: F 10-Q run 2/2
+2026-09-28T06:35:26.8773958Z     excerpt[WMT 10-K]: 170,233 chars (source=edgartools)
+2026-09-28T06:35:26.8774262Z   baseline :: WMT 10-K run 1/2
+2026-09-28T06:35:26.8774537Z     excerpt[COST 10-Q]: 68,765 chars (source=edgartools)
+2026-09-28T06:35:26.8774863Z   baseline :: COST 10-Q run 1/2
+2026-09-28T06:35:26.8775103Z   baseline :: WMT 10-K run 2/2
+2026-09-28T06:35:26.8775334Z   baseline :: COST 10-Q run 2/2
+2026-09-28T06:35:26.8775604Z     excerpt[BA 10-K]: 170,233 chars (source=edgartools)
+2026-09-28T06:35:26.8775897Z   baseline :: BA 10-K run 1/2
+2026-09-28T06:35:26.8776357Z     excerpt[INTC 10-Q]: 181,072 chars (source=edgartools)
+2026-09-28T06:35:26.8776679Z   baseline :: INTC 10-Q run 1/2
+2026-09-28T06:35:26.8776914Z   baseline :: BA 10-K run 2/2
+2026-09-28T06:35:26.8777145Z   baseline :: INTC 10-Q run 2/2
+2026-09-28T06:35:26.8777419Z     excerpt[PLTR 10-Q]: 116,850 chars (source=edgartools)
+2026-09-28T06:35:26.8777753Z   baseline :: PLTR 10-Q run 1/2
+2026-09-28T06:35:26.8778041Z     excerpt[RIVN 10-K]: 129,484 chars (source=edgartools)
+2026-09-28T06:35:26.8778349Z   baseline :: RIVN 10-K run 1/2
+2026-09-28T06:35:26.8778718Z   baseline :: PLTR 10-Q run 2/2
+2026-09-28T06:35:26.8778950Z   baseline :: RIVN 10-K run 2/2
+2026-09-28T06:35:26.8779220Z     excerpt[COIN 10-Q]: 91,192 chars (source=edgartools)
+2026-09-28T06:35:26.8779523Z   baseline :: COIN 10-Q run 1/2
+2026-09-28T06:35:26.8779799Z     excerpt[BYND 10-Q]: 177,945 chars (source=edgartools)
+2026-09-28T06:35:26.8780099Z   baseline :: BYND 10-Q run 1/2
+2026-09-28T06:35:26.8780335Z   baseline :: COIN 10-Q run 2/2
+2026-09-28T06:35:26.8780567Z   baseline :: BYND 10-Q run 2/2
+2026-09-28T06:35:26.8780837Z     excerpt[BABA 20-F]: 231,089 chars (source=edgartools)
+2026-09-28T06:35:26.8781145Z   baseline :: BABA 20-F run 1/2
+2026-09-28T06:35:26.8781711Z     excerpt[ASML 20-F]: 260,154 chars (source=regex_fallback)
+2026-09-28T06:35:26.8782179Z   baseline :: BABA 20-F run 2/2
+2026-09-28T06:35:26.8782437Z   baseline :: ASML 20-F run 1/2
+2026-09-28T06:35:26.8782673Z   baseline :: ASML 20-F run 2/2
+2026-09-28T06:35:26.8782950Z     excerpt[TSM 20-F]: 217,082 chars (source=edgartools)
+2026-09-28T06:35:26.8783276Z   baseline :: TSM 20-F run 1/2
+2026-09-28T06:35:26.8783570Z     excerpt[JD 20-F]: 230,528 chars (source=edgartools)
+2026-09-28T06:35:26.8783867Z   baseline :: JD 20-F run 1/2
+2026-09-28T06:35:26.8784096Z   baseline :: TSM 20-F run 2/2
+2026-09-28T06:35:26.8784330Z   baseline :: JD 20-F run 2/2
+2026-09-28T06:35:26.8784591Z     excerpt[SE 20-F]: 109,573 chars (source=edgartools)
+2026-09-28T06:35:26.8784884Z   baseline :: SE 20-F run 1/2
+2026-09-28T06:35:26.8785109Z   baseline :: SE 20-F run 2/2
+2026-09-28T06:35:26.8785370Z     excerpt[NVO 20-F]: 40,972 chars (source=edgartools)
+2026-09-28T06:35:26.8785699Z     excerpt[PDD 20-F]: 226,630 chars (source=edgartools)
+2026-09-28T06:35:26.8786001Z   baseline :: PDD 20-F run 1/2
+2026-09-28T06:35:26.8786235Z   baseline :: NVO 20-F run 1/2
+2026-09-28T06:35:26.8786468Z   baseline :: NVO 20-F run 2/2
+2026-09-28T06:35:26.8786697Z   baseline :: PDD 20-F run 2/2
+2026-09-28T06:35:26.8786973Z     excerpt[MELI 10-K]: 230,682 chars (source=edgartools)
+2026-09-28T06:35:26.8787282Z   baseline :: MELI 10-K run 1/2
+2026-09-28T06:35:26.8787521Z   baseline :: MELI 10-K run 2/2
+2026-09-28T06:35:26.8787669Z 
+2026-09-28T06:35:26.8787752Z === SUMMARY ===
+2026-09-28T06:35:26.8787944Z {
+2026-09-28T06:35:26.8788111Z   "baseline": {
+2026-09-28T06:35:26.8788335Z     "mean_untraceable_dollar_figures": 2.4143,
+2026-09-28T06:35:26.8788628Z     "figure_trace_measured": 70,
+2026-09-28T06:35:26.8788892Z     "figure_trace_unavailable": 0,
+2026-09-28T06:35:26.8789149Z     "figure_trace_errors": 0,
+2026-09-28T06:35:26.8789373Z     "n": 70,
+2026-09-28T06:35:26.8789554Z     "scored": 70,
+2026-09-28T06:35:26.8789742Z     "errors": 0,
+2026-09-28T06:35:26.8789933Z     "retried": 0,
+2026-09-28T06:35:26.8790132Z     "mean_aggregate": 1.0,
+2026-09-28T06:35:26.8790366Z     "aggregate_stdev": 0.0,
+2026-09-28T06:35:26.8790593Z     "pass_rate": 1.0,
+2026-09-28T06:35:26.8790802Z     "gate_fail_rate": 0.0,
+2026-09-28T06:35:26.8791025Z     "schema_valid_rate": 1.0,
+2026-09-28T06:35:26.8791261Z     "repaired_rate": 0.0,
+2026-09-28T06:35:26.8791729Z     "mean_numeric_accuracy": 1.0,
+2026-09-28T06:35:26.8792104Z     "mean_numeric_precision": 1.0,
+2026-09-28T06:35:26.8792362Z     "mean_coverage": 1.0,
+2026-09-28T06:35:26.8792597Z     "mean_financial_depth": 0.7952,
+2026-09-28T06:35:26.8792849Z     "mean_specificity": 0.9967,
+2026-09-28T06:35:26.8793191Z     "mean_currency_consistency": 0.9998,
+2026-09-28T06:35:26.8793663Z     "mean_redundancy": 0.9273,
+2026-09-28T06:35:26.8793935Z     "mean_delta_consistency": 0.9964,
+2026-09-28T06:35:26.8794216Z     "mean_forward_quote_fidelity": 1.0,
+2026-09-28T06:35:26.8794489Z     "mean_citation_fidelity": 0.9663,
+2026-09-28T06:35:26.8794755Z     "mean_citation_checked": 7.3286,
+2026-09-28T06:35:26.8795012Z     "judge_pass_rate": null,
+2026-09-28T06:35:26.8795244Z     "total_cost_usd": 0.0,
+2026-09-28T06:35:26.8795481Z     "incurred_usage_attempts": 70,
+2026-09-28T06:35:26.8795737Z     "incurred_provider_usage": {
+2026-09-28T06:35:26.8796110Z       "calls": 70,
+2026-09-28T06:35:26.8796310Z       "unknown_calls": 0,
+2026-09-28T06:35:26.8796532Z       "operations": {
+2026-09-28T06:35:26.8796746Z         "summary_primary": 70
+2026-09-28T06:35:26.8796965Z       },
+2026-09-28T06:35:26.8797156Z       "actual_models": [
+2026-09-28T06:35:26.8797374Z         "deepseek-flash"
+2026-09-28T06:35:26.8797579Z       ],
+2026-09-28T06:35:26.8797770Z       "prompt_tokens": 2755570,
+2026-09-28T06:35:26.8798015Z       "completion_tokens": 280287,
+2026-09-28T06:35:26.8798263Z       "cache_hit_tokens": 2741494,
+2026-09-28T06:35:26.8798505Z       "cache_miss_tokens": 14076,
+2026-09-28T06:35:26.8798750Z       "reasoning_tokens": null
+2026-09-28T06:35:26.8798972Z     },
+2026-09-28T06:35:26.8799154Z     "usage_attempts": 70,
+2026-09-28T06:35:26.8799393Z     "mean_completion_tokens": 4004.1,
+2026-09-28T06:35:26.8799653Z     "mean_prompt_tokens": 39365.3,
+2026-09-28T06:35:26.8799907Z     "total_completion_tokens": 280287,
+2026-09-28T06:35:26.8800175Z     "total_prompt_tokens": 2755570,
+2026-09-28T06:35:26.8800428Z     "total_cache_hit_tokens": 2741494,
+2026-09-28T06:35:26.8800688Z     "total_cache_miss_tokens": 14076,
+2026-09-28T06:35:26.8800941Z     "provider_calls": 70,
+2026-09-28T06:35:26.8801161Z     "actual_models": [
+2026-09-28T06:35:26.8801372Z       "deepseek-flash"
+2026-09-28T06:35:26.8801856Z     ],
+2026-09-28T06:35:26.8802053Z     "mean_latency_seconds": 14.093
+2026-09-28T06:35:26.8802291Z   }
+2026-09-28T06:35:26.8802452Z }
+2026-09-28T06:35:26.8802570Z 
+2026-09-28T06:35:26.8802888Z Report: /home/runner/work/EarningsNerd/EarningsNerd/backend/evals/reports/eval_20260928T063526Z.md
+2026-09-28T06:35:27.3602609Z ##[group]Run python -m evals.regression_gate --latest
+2026-09-28T06:35:27.3603051Z [36;1mpython -m evals.regression_gate --latest[0m
+2026-09-28T06:35:27.3666239Z shell: /usr/bin/bash -e {0}
+2026-09-28T06:35:27.3666491Z env:
+2026-09-28T06:35:27.3666768Z   pythonLocation: /opt/hostedtoolcache/Python/3.11.16/x64
+2026-09-28T06:35:27.3667219Z   PKG_CONFIG_PATH: /opt/hostedtoolcache/Python/3.11.16/x64/lib/pkgconfig
+2026-09-28T06:35:27.3667654Z   Python_ROOT_DIR: /opt/hostedtoolcache/Python/3.11.16/x64
+2026-09-28T06:35:27.3668039Z   Python2_ROOT_DIR: /opt/hostedtoolcache/Python/3.11.16/x64
+2026-09-28T06:35:27.3668427Z   Python3_ROOT_DIR: /opt/hostedtoolcache/Python/3.11.16/x64
+2026-09-28T06:35:27.3668811Z   LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.11.16/x64/lib
+2026-09-28T06:35:27.3669161Z   AI_DEFAULT_MODEL: deepseek-flash
+2026-09-28T06:35:27.3669467Z   OPENAI_BASE_URL: https://api.deepseek.com/v1
+2026-09-28T06:35:27.3669768Z ##[endgroup]
+2026-09-28T06:35:27.5015804Z Regression gate: eval_20260928T063526Z.json vs baseline_scores.json (baseline: 35 filings × 3 runs)
+2026-09-28T06:35:27.5016940Z   note: baseline: expected=70 attempted=70 scored=70 errors=0; quality means use scored outputs only
+2026-09-28T06:35:27.5018018Z   note: baseline: figure trace measured=70 unavailable=0 errors=0; unavailable is not measured zero
+2026-09-28T06:35:27.5019433Z   [WARN] baseline: mean_untraceable_dollar_figures = 2.414 — absolute advisory: untraceable dollar figures in measured raw prose
+2026-09-28T06:35:27.5020203Z 
+2026-09-28T06:35:27.5020471Z PASS — no hard regressions (1 warning(s)).
+2026-09-28T06:35:27.5194001Z ##[group]Run actions/upload-artifact@v7
+2026-09-28T06:35:27.5194292Z with:
+2026-09-28T06:35:27.5194490Z   name: eval-report-36386298431
+2026-09-28T06:35:27.5194981Z   path: backend/evals/reports/eval_*.json
+backend/evals/reports/eval_*.md
+backend/evals/reports/ci-execution.txt
+
+2026-09-28T06:35:27.5195483Z   retention-days: 14
+2026-09-28T06:35:27.5195707Z   if-no-files-found: warn
+2026-09-28T06:35:27.5195947Z   compression-level: 6
+2026-09-28T06:35:27.5196161Z   overwrite: false
+2026-09-28T06:35:27.5196372Z   include-hidden-files: false
+2026-09-28T06:35:27.5196602Z   archive: true
+2026-09-28T06:35:27.5196794Z env:
+2026-09-28T06:35:27.5197044Z   pythonLocation: /opt/hostedtoolcache/Python/3.11.16/x64
+2026-09-28T06:35:27.5197482Z   PKG_CONFIG_PATH: /opt/hostedtoolcache/Python/3.11.16/x64/lib/pkgconfig
+2026-09-28T06:35:27.5198079Z   Python_ROOT_DIR: /opt/hostedtoolcache/Python/3.11.16/x64
+2026-09-28T06:35:27.5198474Z   Python2_ROOT_DIR: /opt/hostedtoolcache/Python/3.11.16/x64
+2026-09-28T06:35:27.5198881Z   Python3_ROOT_DIR: /opt/hostedtoolcache/Python/3.11.16/x64
+2026-09-28T06:35:27.5199261Z   LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.11.16/x64/lib
+2026-09-28T06:35:27.5199598Z   AI_DEFAULT_MODEL: deepseek-flash
+2026-09-28T06:35:27.5199900Z   OPENAI_BASE_URL: https://api.deepseek.com/v1
+2026-09-28T06:35:27.5200187Z ##[endgroup]
+2026-09-28T06:35:27.6644498Z With the provided path, there will be 3 files uploaded
+2026-09-28T06:35:27.6650753Z Artifact name is valid!
+2026-09-28T06:35:27.6651743Z Root directory input is valid!
+2026-09-28T06:35:27.9458994Z Uploading artifact: eval-report-36386298431.zip
+2026-09-28T06:35:27.9532436Z Beginning upload of artifact content to blob storage
+2026-09-28T06:35:28.8911778Z Uploaded bytes 3714180
+2026-09-28T06:35:28.9353484Z Finished uploading artifact content to blob storage!
+2026-09-28T06:35:28.9359399Z SHA256 digest of uploaded artifact is 4aba3f35057f303197167ad877c2f73f3560860bd846a5b11ac59f1f9cecd847
+2026-09-28T06:35:28.9360546Z Finalizing artifact upload
+2026-09-28T06:35:29.2264759Z Artifact eval-report-36386298431 successfully finalized. Artifact ID 10954947428
+2026-09-28T06:35:29.2266445Z Artifact eval-report-36386298431 has been successfully uploaded! Final size is 3714180 bytes. Artifact ID is 10954947428
+2026-09-28T06:35:29.2270406Z Artifact download URL: https://github.com/neilmac91/EarningsNerd/actions/runs/36386298431/artifacts/10954947428
+2026-09-28T06:35:29.2462025Z Post job cleanup.
+2026-09-28T06:35:29.3840236Z Post job cleanup.
+2026-09-28T06:35:29.4863558Z [command]/usr/bin/git version
+2026-09-28T06:35:29.4922329Z git version 2.55.0
+2026-09-28T06:35:29.4955583Z Temporarily overriding HOME='/home/runner/work/_temp/c12a2ce3-dc3a-4b41-b1f5-ab727d62aae8' before making global git config changes
+2026-09-28T06:35:29.4972490Z Adding repository directory to the temporary git global config as a safe directory
+2026-09-28T06:35:29.4973391Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/EarningsNerd/EarningsNerd
+2026-09-28T06:35:29.5013744Z Removing SSH command configuration
+2026-09-28T06:35:29.5018460Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+2026-09-28T06:35:29.5066550Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+2026-09-28T06:35:29.5423975Z Removing HTTP extra header
+2026-09-28T06:35:29.5425634Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-09-28T06:35:29.5460366Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+2026-09-28T06:35:29.5765564Z Removing includeIf entries pointing to credentials config files
+2026-09-28T06:35:29.5775784Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-09-28T06:35:29.5803754Z includeif.gitdir:/home/runner/work/EarningsNerd/EarningsNerd/.git.path
+2026-09-28T06:35:29.5804881Z includeif.gitdir:/home/runner/work/EarningsNerd/EarningsNerd/.git/worktrees/*.path
+2026-09-28T06:35:29.5805890Z includeif.gitdir:/github/workspace/.git.path
+2026-09-28T06:35:29.5806810Z includeif.gitdir:/github/workspace/.git/worktrees/*.path
+2026-09-28T06:35:29.5813880Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/home/runner/work/EarningsNerd/EarningsNerd/.git.path
+2026-09-28T06:35:29.5840098Z /home/runner/work/_temp/git-credentials-e7515646-d243-4c18-93f3-ac4d46a7cf6c.config
+2026-09-28T06:35:29.5851090Z [command]/usr/bin/git config --local --unset includeif.gitdir:/home/runner/work/EarningsNerd/EarningsNerd/.git.path \/home\/runner\/work\/_temp\/git\-credentials\-e7515646\-d243\-4c18\-93f3\-ac4d46a7cf6c\.config
+2026-09-28T06:35:29.5910916Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/home/runner/work/EarningsNerd/EarningsNerd/.git/worktrees/*.path
+2026-09-28T06:35:29.5939977Z /home/runner/work/_temp/git-credentials-e7515646-d243-4c18-93f3-ac4d46a7cf6c.config
+2026-09-28T06:35:29.5948940Z [command]/usr/bin/git config --local --unset includeif.gitdir:/home/runner/work/EarningsNerd/EarningsNerd/.git/worktrees/*.path \/home\/runner\/work\/_temp\/git\-credentials\-e7515646\-d243\-4c18\-93f3\-ac4d46a7cf6c\.config
+2026-09-28T06:35:29.5992939Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/github/workspace/.git.path
+2026-09-28T06:35:29.6023675Z /github/runner_temp/git-credentials-e7515646-d243-4c18-93f3-ac4d46a7cf6c.config
+2026-09-28T06:35:29.6031840Z [command]/usr/bin/git config --local --unset includeif.gitdir:/github/workspace/.git.path \/github\/runner_temp\/git\-credentials\-e7515646\-d243\-4c18\-93f3\-ac4d46a7cf6c\.config
+2026-09-28T06:35:29.6069279Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/github/workspace/.git/worktrees/*.path
+2026-09-28T06:35:29.6095163Z /github/runner_temp/git-credentials-e7515646-d243-4c18-93f3-ac4d46a7cf6c.config
+2026-09-28T06:35:29.6106112Z [command]/usr/bin/git config --local --unset includeif.gitdir:/github/workspace/.git/worktrees/*.path \/github\/runner_temp\/git\-credentials\-e7515646\-d243\-4c18\-93f3\-ac4d46a7cf6c\.config
+2026-09-28T06:35:29.6146020Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+2026-09-28T06:35:29.6373065Z Removing credentials config '/home/runner/work/_temp/git-credentials-e7515646-d243-4c18-93f3-ac4d46a7cf6c.config'
+2026-09-28T06:35:29.6529843Z Cleaning up orphan processes
