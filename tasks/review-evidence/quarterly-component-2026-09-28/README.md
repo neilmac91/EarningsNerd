@@ -168,3 +168,40 @@ tests. Root independently reviewed the committed minimal patch and extended
 existing gates with no new finding. No locked contract test changed. The prior
 retained-70 replay was not rerun and remains historical evidence; no fresh provider
 generation or semantic acceptance is claimed. Publication and release remain with root.
+
+## Accounting-base reconciliation and oversized-amount correction
+
+Merge `bd72ca06089201d35fa794e221909508414f4f1f` brings accounting main
+`f288f1a6b54f88a30b183c2bc53074ab19a3f289` into the candidate. All 12 non-shared
+accounting files equal main; all 15 non-shared quarterly files, 401 non-accounting
+test/fixture files and 12 locked anchors/shared stream fixture were preserved.
+Both lesson entries and complete task-ledger additions survive. Its full backend
+gate passed 3,901 tests before the subsequent correction; receipts are retained in
+`outputs/overnight-2026-09-28/quality/accounting-base-reconciliation/`.
+
+Fresh review found that comma groups in a matched amount can exceed Python's
+integer digit limit. Two fresh refutations failed: the grammar does not bound the
+whole number, and final binding runs outside the extraction exception handler.
+The actual service probe reproduced the uncaught conversion error and empty
+preview with a 4,501-digit operand. No provider call was made.
+
+Correction `0345b3ba93245797a1ab5f60aa63f1c79bc6344c` catches only conversion ValueError
+in the existing money parser and treats it as a non-match. The whole authored
+field survives without an ownership marker; valid clauses, alias behavior,
+continuations, source/annual rules and the interpreter's global limit are unchanged.
+The existing unsupported-claim gate now covers all three operand positions; the
+existing actual-service consumer gate covers the oversized control across its five
+alias layouts, final, preview, compatibility, shared Markdown, PDF and CSV.
+
+Focused controls passed 97 tests. The one committed conversion mutation failed
+8 controls (19 passed); byte-identical restoration passed all 27. The full pinned
+backend gate passed Ruff 0.16.9 and Bandit 1.9.4 with no medium/high findings:
+**3,909 passed, 39 skipped, 2 deselected**, 40 warnings in
+162.89 seconds. All checks used fresh caches and the macOS library loader;
+pytest exited 0. The known unchanged Yahoo-client shutdown logging error follows
+the passing summary. No locked test changed or duplicate invariant gate was added.
+
+Exact receipts are in `outputs/overnight-2026-09-28/quality/integer-review-correction/`.
+All prior proofs and the completed reconciliation gate are preserved. Hosted run
+36496560757 at the earlier head was left untouched. No push, PR/provider/cloud
+action or fresh semantic acceptance is claimed; publication and release stay with root.
