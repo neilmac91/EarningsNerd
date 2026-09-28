@@ -2,8 +2,7 @@
 
 import { useRef, useState, type KeyboardEvent } from 'react'
 import Link from 'next/link'
-import { useFeatureFlagVariantKey } from 'posthog-js/react'
-import { PRICE_VARIANTS } from '@/app/pricing/prices'
+import { PRO_PRICING } from '@/app/pricing/prices'
 import { Badge } from '@/components/ui/Badge'
 import { buttonVariants } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
@@ -21,8 +20,7 @@ import {
 
 /**
  * Marketing pricing section (design section 7). Two plan cards under a "Monthly / Annual" billing
- * toggle. The design's copy is the spec; the numbers are not: prices come from app/pricing/prices
- * (the same `pricing-experiment` PostHog arm the pricing page reads), free-tier caps from the
+ * toggle. The approved offer comes from app/pricing/prices, free-tier caps from the
  * planLimits mirror, the account CTA from the page's ONE access decision, and the trial copy from
  * ENABLE_PRO_TRIAL, which the repo flips in lockstep with the backend's PRO_TRIAL_DAYS. Both Pro
  * CTAs land on /pricing, where checkout (and the account-state logic around it) lives.
@@ -53,9 +51,6 @@ const PRO_FEATURES = [
 
 const BILLING_OPTIONS = ['monthly', 'annual'] as const
 type Billing = (typeof BILLING_OPTIONS)[number]
-
-// Same display rule as the pricing page's local fmtUsd: whole dollars stay whole, otherwise cents.
-const fmtUsd = (n: number): string => (Number.isInteger(n) ? `$${n}` : `$${n.toFixed(2)}`)
 
 const PRICE_CLASS =
   'font-data tnum text-[40px] font-semibold leading-[1.1] tracking-[-0.02em] text-text-primary-light dark:text-text-primary-dark'
@@ -92,15 +87,13 @@ export default function PricingSection({
   const [billing, setBilling] = useState<Billing>('monthly')
   const radioRefs = useRef<Record<Billing, HTMLButtonElement | null>>({ monthly: null, annual: null })
 
-  const variant = useFeatureFlagVariantKey('pricing-experiment')
-  const prices = variant === 'price_29' ? PRICE_VARIANTS.price_29 : PRICE_VARIANTS.control
   const access = ACCESS_COPY[accessMode]
 
   const monthly = billing === 'monthly'
-  const proPrice = monthly ? prices.monthlyDisplay : fmtUsd(prices.yearly / 12)
+  const proPrice = monthly ? PRO_PRICING.monthlyDisplay : PRO_PRICING.yearlyMonthlyDisplay
   const billingNote = monthly
-    ? `Billed monthly. Or ${prices.yearlyDisplay} a year, 2 months free.`
-    : `Billed annually at ${prices.yearlyDisplay}. Two months free against monthly.`
+    ? `Billed monthly. Or ${PRO_PRICING.yearlyDisplay} a year, saving ${PRO_PRICING.annualSavingsDisplay} (${PRO_PRICING.annualSavingsPercent}%).`
+    : `Billed annually at ${PRO_PRICING.yearlyDisplay}. Save ${PRO_PRICING.annualSavingsDisplay} a year (${PRO_PRICING.annualSavingsPercent}%) compared with monthly.`
 
   // The pricing page's Switch speaks 'monthly' | 'yearly'; keep the funnel event's vocabulary.
   const cycleName = (option: Billing) => (option === 'monthly' ? 'monthly' : 'yearly')
@@ -184,7 +177,7 @@ export default function PricingSection({
                 className={radioClass('annual')}
               >
                 Annual{' '}
-                <span className="font-medium text-brand-strong dark:text-brand-strong-dark">· 2 months free</span>
+                <span className="font-medium text-brand-strong dark:text-brand-strong-dark">· save {PRO_PRICING.annualSavingsPercent}%</span>
               </button>
             </div>
           </div>

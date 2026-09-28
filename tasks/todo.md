@@ -1,4 +1,10 @@
-# September 28 — summary request evidence
+# September 28 — approved Pro offer, activation held
+
+- [x] Implement the approved $23/month / $190/year offer from one shared frontend source; retire the live price experiment and replace obsolete annual-savings copy. Preserve account, beta and trial semantics.
+- [ ] Complete the committed-state mutation proof and full frontend gate; retain exact commit and log receipts before draft review.
+- [ ] Keep activation held for quality and controlled-beta readiness. Follow the backend-first configuration and safe rollback sequence in [the approved offer checklist](../docs/PRICING_OFFER.md); inactive catalog preparation is not activation.
+
+## September 28 — summary request evidence
 
 - [ ] Deliver one consent-gated request lifecycle across cached/shared/generated summaries and automatic/auth retries; retain server account/request identity, terminal unknowns and legacy semantics.
 - [ ] Verify new adverse controls, mutation proofs, full backend/frontend gates and unchanged locked contracts; review exact head before a bounded metered push/release.

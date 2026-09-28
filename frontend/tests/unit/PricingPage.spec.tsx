@@ -1,7 +1,9 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest'
-import { render, screen, waitFor, fireEvent } from '@testing-library/react'
+import { render, screen, waitFor, fireEvent, within } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import PricingPage from '@/app/pricing/page'
+import PricingLayout from '@/app/pricing/layout'
+import PricingSection from '@/features/marketing/components/PricingSection'
 import { queryKeys } from '@/lib/queryKeys'
 import type { SubscriptionStatus, Usage } from '@/features/subscriptions/api/subscriptions-api'
 
@@ -9,7 +11,7 @@ const mockGetSubscriptionStatus = vi.fn<[], Promise<SubscriptionStatus>>()
 const mockGetUsage = vi.fn<[], Promise<Usage>>()
 const mockGetCurrentUserSafe = vi.fn()
 const mockCreateCheckoutSession = vi.fn()
-// Controls the pricing A/B arm per test (roadmap 2.3). Default (undefined) = the $39 control.
+// A stale pricing flag must never change the approved offer.
 const mockUseFeatureFlagVariantKey = vi.fn<[], string | boolean | undefined>()
 const mockCheckoutStarted = vi.fn()
 const mockPush = vi.fn()
@@ -50,6 +52,7 @@ vi.mock('posthog-js', () => ({ default: { capture: vi.fn() } }))
 vi.mock('@/lib/analytics', () => ({
   default: {
     pricingViewed: vi.fn(),
+    homepageSectionViewed: vi.fn(),
     billingCycleToggled: vi.fn(),
     checkoutStarted: (...args: unknown[]) => mockCheckoutStarted(...args),
   },
@@ -96,7 +99,7 @@ describe('PricingPage', () => {
     mockGetCurrentUserSafe.mockResolvedValue({ id: 1, email: 'u@example.com' })
     mockGetUsage.mockResolvedValue(baseUsage)
     mockCreateCheckoutSession.mockResolvedValue({ url: '' }) // falsy url → no navigation in onSuccess
-    mockUseFeatureFlagVariantKey.mockReturnValue(undefined) // default arm = $39 control
+    mockUseFeatureFlagVariantKey.mockReturnValue(undefined)
   })
 
   it('treats a trialing user as current-plan: disabled "Current Plan (trial)" + no billing toggle', async () => {
@@ -138,7 +141,7 @@ describe('PricingPage', () => {
     expect(screen.getByRole('switch', { name: /billing cycle/i })).toBeInTheDocument()
     fireEvent.click(upgrade)
     await waitFor(() => expect(mockCreateCheckoutSession).toHaveBeenCalledWith('price_pro_yearly'))
-    expect(mockCheckoutStarted).toHaveBeenCalledWith('pro', 390, 'yearly', 'control')
+    expect(mockCheckoutStarted).toHaveBeenCalledWith('pro', 190, 'yearly')
   })
 
   it('treats a paid (active, non-trial) subscriber as Current Plan with no toggle', async () => {
@@ -178,43 +181,39 @@ describe('PricingPage', () => {
     expect(screen.queryByText(/processing/i)).not.toBeInTheDocument()
   })
 
-  // --- Fake-door $39-vs-$29 price test (roadmap 2.3) ---
-
-  it('control arm (flag unset) shows the $32.50/mo anchor', async () => {
-    mockGetSubscriptionStatus.mockResolvedValue({ ...baseSub })
-    renderPricing()
-
-    // Default billing cycle is yearly; the card now shows the effective MONTHLY cost.
-    // Control $390/yr → $32.50/mo. The $29 arm's $24.17/mo must not appear.
-    expect(await screen.findByText('$32.50')).toBeInTheDocument()
-    expect(screen.queryByText('$24.17')).not.toBeInTheDocument()
-  })
-
-  it('price_29 arm lowers the displayed anchor to $24.17/mo', async () => {
+  it('keeps the approved offer aligned across pricing, homepage and JSON-LD despite a stale price flag', async () => {
     mockUseFeatureFlagVariantKey.mockReturnValue('price_29')
     mockGetSubscriptionStatus.mockResolvedValue({ ...baseSub })
-    renderPricing()
+    const pricing = renderPricing()
+    const page = within(pricing.container)
+    const landing = render(<PricingSection accessMode="public" showBeta={false} />)
+    const home = within(landing.container)
+    const layout = render(<PricingLayout><div /></PricingLayout>)
+    const structuredData = JSON.parse(layout.container.querySelector('script[type="application/ld+json"]')!.textContent!)
 
-    // $290/yr → $24.17/mo.
-    expect(await screen.findByText('$24.17')).toBeInTheDocument()
-    expect(screen.queryByText('$32.50')).not.toBeInTheDocument()
-  })
+    // Annual is charged once at $190; $15.83 is the rounded monthly equivalent, not a charge.
+    expect(page.getByText('$15.83')).toBeInTheDocument()
+    expect(page.getByText('Billed annually at $190. Save $86 a year (31%) compared with monthly.')).toBeInTheDocument()
+    expect(page.getByText('(save 31%)')).toBeInTheDocument()
+    expect(home.getByText('$23')).toBeInTheDocument()
+    expect(home.getByText('Billed monthly. Or $190 a year, saving $86 (31%).')).toBeInTheDocument()
+    expect(structuredData.offers).toEqual([
+      expect.objectContaining({ name: 'Pro (monthly)', price: 23, priceCurrency: 'USD' }),
+      expect.objectContaining({ name: 'Pro (annual)', price: 190, priceCurrency: 'USD' }),
+    ])
 
-  it('checkout_started carries the arm price + variant when Upgrade is clicked', async () => {
-    mockUseFeatureFlagVariantKey.mockReturnValue('price_29')
-    mockGetSubscriptionStatus.mockResolvedValue({ ...baseSub })
-    renderPricing()
+    fireEvent.click(home.getByRole('radio', { name: /annual/i }))
+    expect(home.getByText('$15.83')).toBeInTheDocument()
+    expect(home.getByText('Billed annually at $190. Save $86 a year (31%) compared with monthly.')).toBeInTheDocument()
+    fireEvent.click(page.getByRole('switch', { name: /billing cycle/i }))
+    expect(page.getByText('$23')).toBeInTheDocument()
+    expect(page.getByText('Billed monthly')).toBeInTheDocument()
+    expect(mockUseFeatureFlagVariantKey).not.toHaveBeenCalled()
 
-    // Wait until auth resolves (the Free card flips to "Current Plan") — otherwise the click is
-    // treated as a guest and redirects to /register instead of starting checkout.
-    await screen.findByRole('button', { name: /current plan/i })
-    fireEvent.click(screen.getByRole('button', { name: /upgrade to pro/i }))
-
-    // ('pro', yearly price for the $29 arm = 290, billing cycle, variant key)
-    await waitFor(() =>
-      expect(mockCheckoutStarted).toHaveBeenCalledWith('pro', 290, 'yearly', 'price_29'),
-    )
-    expect(mockCreateCheckoutSession).toHaveBeenCalledWith('price_pro_yearly')
+    await page.findByRole('button', { name: /current plan/i })
+    fireEvent.click(page.getByRole('button', { name: /upgrade to pro/i }))
+    await waitFor(() => expect(mockCheckoutStarted).toHaveBeenCalledWith('pro', 23, 'monthly'))
+    expect(mockCreateCheckoutSession).toHaveBeenCalledWith('price_pro_monthly')
   })
 
   // --- Honest account states (billing-state-honesty): absent account data is not a decision ---
@@ -285,7 +284,7 @@ describe('PricingPage', () => {
     // Positive control through the same captured handler: resolved Free may check out.
     invokeCard('pro', 'Upgrade to Pro')
     await waitFor(() => expect(mockCreateCheckoutSession).toHaveBeenCalledWith('price_pro_yearly'))
-    expect(mockCheckoutStarted).toHaveBeenCalledWith('pro', 390, 'yearly', 'control')
+    expect(mockCheckoutStarted).toHaveBeenCalledWith('pro', 190, 'yearly')
   })
 
   it('a failed initial subscription read offers retry and keeps checkout unavailable; usage failure alone blocks nothing', async () => {

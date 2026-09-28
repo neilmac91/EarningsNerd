@@ -11,11 +11,9 @@ import SecondaryHeader from '@/components/SecondaryHeader'
 import { Badge, Button, Card, Notice, Switch } from '@/components/ui'
 import analytics from '@/lib/analytics'
 import { ENABLE_PRO_TRIAL } from '@/lib/featureFlags'
-import { useFeatureFlagVariantKey } from 'posthog-js/react'
-import posthog from 'posthog-js'
 import { queryKeys } from '@/lib/queryKeys'
 import { FREE_SUMMARY_LIMIT } from '@/lib/planLimits'
-import { PRICE_VARIANTS } from './prices'
+import { PRO_PRICING } from './prices'
 
 interface CurrentUser {
   id: number
@@ -25,7 +23,7 @@ interface CurrentUser {
   email_verified?: boolean
 }
 
-// Price anchor + the $39-vs-$29 A/B arms live in ./prices (shared with the layout's Product JSON-LD).
+// The approved offer lives in ./prices, shared with the homepage and Product JSON-LD.
 
 // The ONLY consumer of useSearchParams() on this page, isolated so it is the only thing inside the
 // Suspense boundary. useSearchParams() bails its nearest Suspense subtree out of the server HTML;
@@ -52,14 +50,10 @@ function PricingQueryEffects() {
 
 function PricingContent() {
   const router = useRouter()
-  // Default to annual — it's the better value (2 months free) and the plan's preferred cycle.
+  // Default to annual — it offers a lower effective monthly cost.
   const [billingCycle, setBillingCycle] = useState<'monthly' | 'yearly'>('yearly')
   const [isLoadingCheckout, setIsLoadingCheckout] = useState<string | null>(null)
-  const pricingVariant = useFeatureFlagVariantKey('pricing-experiment')
-  // Declared up here (before handleUpgrade, which reads it) so there's no forward reference.
-  const priceConfig = pricingVariant === 'price_29' ? PRICE_VARIANTS.price_29 : PRICE_VARIANTS.control
   const hasTrackedPricingView = useRef(false)
-  const hasTrackedVariantExposure = useRef(false)
 
   // The pricing page is publicly reachable; only fetch account-scoped data for
   // signed-in users so guests see the plain guest/free-tier view, not a 401 error card.
@@ -106,15 +100,6 @@ function PricingContent() {
     }
   }, [billingCycle])
 
-  useEffect(() => {
-    if (pricingVariant && !hasTrackedVariantExposure.current) {
-      posthog.capture('pricing_experiment_exposed', {
-        variant: pricingVariant,
-      })
-      hasTrackedVariantExposure.current = true
-    }
-  }, [pricingVariant])
-
   const checkoutMutation = useMutation({
     mutationFn: createCheckoutSession,
     onSuccess: (data) => {
@@ -144,10 +129,8 @@ function PricingContent() {
     if (isLoadingCheckout) return
     setIsLoadingCheckout(priceId)
     try {
-      const priceValue = billingCycle === 'monthly' ? priceConfig.monthly : priceConfig.yearly
-      // Tag the checkout with the A/B arm ('control' when the flag is unset) so the funnel splits cleanly.
-      const variant = typeof pricingVariant === 'string' ? pricingVariant : 'control'
-      analytics.checkoutStarted('pro', priceValue, billingCycle, variant)
+      const priceValue = billingCycle === 'monthly' ? PRO_PRICING.monthly : PRO_PRICING.yearly
+      analytics.checkoutStarted('pro', priceValue, billingCycle)
       await checkoutMutation.mutateAsync(priceId)
     } catch {
       // Error handled in mutation
@@ -165,7 +148,7 @@ function PricingContent() {
   const isPaidPro = Boolean(subscription?.is_pro) && !isTrialing
 
   // Beta members get Pro free via the 100%-off forever promo (applied server-side at checkout).
-  // Reframe the Pro card so they don't bounce off the $390 sticker — they pay $0 with no card.
+  // Reframe the Pro card around their $0 total with no card.
   // Waits for the subscription snapshot: "Claim Pro" must not appear before Pro is ruled out.
   const showBetaOffer = Boolean(currentUser?.is_beta) && subscriptionResolved && !isPaidPro
 
@@ -185,13 +168,11 @@ function PricingContent() {
     !isTrialing &&
     (isGuest || Boolean(subscription && !subscription.status))
 
-  // Claude-style pricing: always surface the effective MONTHLY cost, with a "Billed monthly/annually"
-  // sub-note. The actual charge (priceConfig.monthly/.yearly + the priceId) is unchanged — this only
-  // reframes the DISPLAY so users compare one per-month number across cycles.
-  const fmtUsd = (n: number) => (Number.isInteger(n) ? `$${n}` : `$${n.toFixed(2)}`)
-  const proMonthlyEquivalent = billingCycle === 'monthly' ? priceConfig.monthly : priceConfig.yearly / 12
-  const proPriceDisplay = fmtUsd(proMonthlyEquivalent)
-  const billingNote = billingCycle === 'monthly' ? 'Billed monthly' : 'Billed annually'
+  // Compare per-month costs while making the full annual charge and saving explicit.
+  const proPriceDisplay = billingCycle === 'monthly' ? PRO_PRICING.monthlyDisplay : PRO_PRICING.yearlyMonthlyDisplay
+  const billingNote = billingCycle === 'monthly'
+    ? 'Billed monthly'
+    : `Billed annually at ${PRO_PRICING.yearlyDisplay}. Save ${PRO_PRICING.annualSavingsDisplay} a year (${PRO_PRICING.annualSavingsPercent}%) compared with monthly.`
 
   // Shared label while account data is absent; neither card may claim a current plan or a
   // purchase decision until the account resolves (or the visitor is a confirmed guest).
@@ -235,7 +216,7 @@ function PricingContent() {
       period: 'per month',
       betaOriginal: showBetaOffer ? proPriceDisplay : null,
       billingNote: showBetaOffer ? null : billingNote,
-      description: 'For professionals who need unlimited access',
+      description: 'For deeper filing research',
       features: [
         'Unlimited summaries',
         'Unlimited Multi-Period Analysis: 10-year trends, quarterly deltas & AI narrative',
@@ -342,7 +323,7 @@ function PricingContent() {
                 }}
               />
               <span className={`text-sm font-medium ${billingCycle === 'yearly' ? 'text-text-primary-light dark:text-text-primary-dark' : 'text-text-secondary-light dark:text-text-secondary-dark'}`}>
-                Yearly <span className="text-success-light dark:text-success-dark">(2 months free)</span>
+                Yearly <span className="text-brand-strong dark:text-brand-strong-dark">(save {PRO_PRICING.annualSavingsPercent}%)</span>
               </span>
             </div>
           )}
@@ -377,8 +358,7 @@ function PricingContent() {
           </div>
         )}
 
-        {/* Beta member: Pro is free via the 100%-off forever promo. Make that unmistakable so a
-            beta user doesn't bounce off the $390 sticker and settle for Free. */}
+        {/* Beta member: Pro is free via the 100%-off forever promo. Make their $0 total clear. */}
         {showBetaOffer && (
           <div className="mb-8 mx-auto max-w-2xl rounded-2xl border border-brand-strong/40 bg-brand-strong/10 p-5 text-center dark:border-brand-strong-dark/40 dark:bg-brand-strong-dark/15">
             <p className="text-base font-semibold text-text-heading-light dark:text-text-heading-dark">
@@ -518,4 +498,3 @@ export default function PricingPage() {
     </>
   )
 }
-
