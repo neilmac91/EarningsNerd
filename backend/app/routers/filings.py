@@ -415,12 +415,13 @@ async def get_company_filings(
 async def get_filing(filing_id: int, db: Session = Depends(get_db)):
     """Get a specific filing"""
     from sqlalchemy.orm import joinedload
-    filing = db.query(Filing).options(joinedload(Filing.company)).filter(Filing.id == filing_id).first()
-    
-    if not filing:
-        raise HTTPException(status_code=404, detail="Filing not found")
-    
-    return FilingResponse.from_orm(filing)
+    try:
+        filing = db.query(Filing).options(joinedload(Filing.company)).filter(Filing.id == filing_id).first()
+        if not filing:
+            raise HTTPException(status_code=404, detail="Filing not found")
+        return FilingResponse.from_orm(filing)
+    finally:
+        db.close()
 
 
 class FilingContentResponse(BaseModel):
@@ -441,22 +442,25 @@ async def get_filing_content(filing_id: int, db: Session = Depends(get_db)):
     """
     from sqlalchemy.orm import joinedload
 
-    filing = (
-        db.query(Filing)
-        .options(joinedload(Filing.content_cache))
-        .filter(Filing.id == filing_id)
-        .first()
-    )
-    if not filing:
-        raise HTTPException(status_code=404, detail="Filing not found")
+    try:
+        filing = (
+            db.query(Filing)
+            .options(joinedload(Filing.content_cache))
+            .filter(Filing.id == filing_id)
+            .first()
+        )
+        if not filing:
+            raise HTTPException(status_code=404, detail="Filing not found")
 
-    cache = filing.content_cache
-    markdown = getattr(cache, "markdown_content", None) if cache else None
-    return FilingContentResponse(
-        filing_id=filing_id,
-        has_content=bool(markdown),
-        markdown_content=markdown or None,
-    )
+        cache = filing.content_cache
+        markdown = getattr(cache, "markdown_content", None) if cache else None
+        return FilingContentResponse(
+            filing_id=filing_id,
+            has_content=bool(markdown),
+            markdown_content=markdown or None,
+        )
+    finally:
+        db.close()
 
 
 @router.get("/{filing_id}/fundamentals", response_model=FundamentalsResponse)
@@ -469,10 +473,13 @@ async def get_filing_fundamentals(filing_id: int, db: Session = Depends(get_db))
     """
     from app.services import facts_service
 
-    data = facts_service.get_filing_fundamentals(db, filing_id)
-    if data is None:
-        raise HTTPException(status_code=404, detail="Filing not found")
-    return data
+    try:
+        data = facts_service.get_filing_fundamentals(db, filing_id)
+        if data is None:
+            raise HTTPException(status_code=404, detail="Filing not found")
+        return data
+    finally:
+        db.close()
 
 
 @router.get("/recent/latest", response_model=List[FilingResponse])
@@ -484,6 +491,8 @@ async def get_recent_filings(
     from sqlalchemy import desc
     from sqlalchemy.orm import joinedload
     # Use joinedload to eagerly load company relationship, avoiding N+1 queries
-    filings = db.query(Filing).options(joinedload(Filing.company)).order_by(desc(Filing.filing_date)).limit(limit).all()
-
-    return [FilingResponse.from_orm(filing) for filing in filings]
+    try:
+        filings = db.query(Filing).options(joinedload(Filing.company)).order_by(desc(Filing.filing_date)).limit(limit).all()
+        return [FilingResponse.from_orm(filing) for filing in filings]
+    finally:
+        db.close()
