@@ -7,7 +7,7 @@ An absent terminal (for example process loss) remains unknown in the readout.
 from __future__ import annotations
 
 import asyncio
-from collections.abc import AsyncGenerator, AsyncIterator
+from collections.abc import AsyncGenerator
 import time
 from typing import Any
 from uuid import UUID, uuid4
@@ -66,7 +66,7 @@ class SummaryRequestEvidence:
             outcome = "timed_out" if self.reason == "pipeline_timeout" else kind
             self.finish(outcome, summary_id=event.get("summary_id"))
 
-    async def wrap_stream(self, stream: AsyncGenerator[str, None]) -> AsyncIterator[str]:
+    async def wrap_stream(self, stream: AsyncGenerator[str, None]) -> AsyncGenerator[str, None]:
         """Own stream closure, including suspension at a yielded frame on disconnect."""
         self.start()
         try:

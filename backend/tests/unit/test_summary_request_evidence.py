@@ -211,3 +211,74 @@ async def test_stream_exit_conserves_terminal_and_closes_producer(boundary, mode
     result = terminal(boundary)
     assert result["outcome"] == {"closed": "cancelled", "complete_then_closed": "complete"}.get(mode, mode)
     assert closed
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("spec", ["2.3", "2.4"])
+@pytest.mark.parametrize("stop", ["start", "body", "terminal_body", "unexpected_error"])
+async def test_actual_response_closes_at_send_boundary_before_return(boundary, spec, stop):
+    from app.routers.summaries import SummaryStreamResponse
+    from starlette.requests import ClientDisconnect
+
+    item = evidence(1)
+    item.start()
+    send_blocked = asyncio.Event()
+    producer_closed, provider_closed = [], []
+    provider = None
+
+    async def provider_work():
+        try:
+            await asyncio.Event().wait()
+        finally:
+            provider_closed.append(True)
+
+    async def producer():
+        nonlocal provider
+        provider = asyncio.create_task(provider_work())
+        await asyncio.sleep(0)
+        try:
+            if stop == "terminal_body":
+                item.observe_terminal({"type": "complete", "summary_id": 3})
+            yield "data: {}\n\n"
+            await asyncio.Event().wait()
+        finally:
+            provider.cancel()
+            await asyncio.gather(provider, return_exceptions=True)
+            producer_closed.append(True)
+
+    async def send(message):
+        target = "http.response.start" if stop == "start" else "http.response.body"
+        if message["type"] == target:
+            send_blocked.set()
+            if stop == "unexpected_error":
+                raise RuntimeError("offline unexpected send failure")
+            if spec == "2.4":
+                raise OSError("offline disconnected socket")
+            await asyncio.Event().wait()
+
+    async def receive():
+        await send_blocked.wait()
+        return {"type": "http.disconnect"}
+
+    response = SummaryStreamResponse(producer(), item)
+    try:
+        call = response({"type": "http", "asgi": {"spec_version": spec}}, receive, send)
+        if stop == "unexpected_error":
+            with pytest.raises(RuntimeError, match="offline unexpected"):
+                await asyncio.wait_for(call, 2)
+        elif spec == "2.4":
+            with pytest.raises(ClientDisconnect):
+                await asyncio.wait_for(call, 2)
+        else:
+            await asyncio.wait_for(call, 2)
+        result = terminal(boundary)
+        expected = {"terminal_body": "complete", "unexpected_error": "error"}.get(stop, "cancelled")
+        assert result["outcome"] == expected
+        if stop != "start":
+            assert provider_closed == producer_closed == [True]
+            assert provider.done()
+        else:
+            assert provider is None
+    finally:
+        # Fault injection must also clean up; assertions above run before this cleanup.
+        await response.owned_stream.aclose()

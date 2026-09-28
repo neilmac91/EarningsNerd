@@ -2,6 +2,7 @@ from fastapi import APIRouter, HTTPException, Depends, status, Request, Query
 from sqlalchemy.orm import Session, joinedload
 from typing import Annotated, Optional
 from contextlib import aclosing
+from collections.abc import AsyncGenerator
 from uuid import UUID
 import asyncio
 import json
@@ -11,6 +12,8 @@ from pydantic import BaseModel, Field, field_validator
 import logging
 from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import Response, StreamingResponse
+from starlette.requests import ClientDisconnect
+from starlette.types import Receive, Scope, Send
 from app.services.posthog_client import capture_copilot_inference
 from app.services.llm_pricing import estimate_inference_cost_usd
 
@@ -55,6 +58,37 @@ SUMMARY_LIMITER = RateLimiter(limit=5, window_seconds=60)
 # Copilot Q&A is cheaper per call than a summary but still hits the model — allow a higher
 # burst than summaries while still throttling abuse (per IP, sliding window).
 ASK_LIMITER = RateLimiter(limit=10, window_seconds=60)
+
+
+class SummaryStreamResponse(StreamingResponse):
+    """Close the owned iterator even when disconnect occurs during ASGI send."""
+
+    def __init__(self, content: AsyncGenerator[str, None], evidence: SummaryRequestEvidence) -> None:
+        self.evidence = evidence
+        self.owned_stream = evidence.wrap_stream(content)
+        super().__init__(
+            self.owned_stream, media_type="text/event-stream",
+            headers={"Cache-Control": "no-cache", "Connection": "keep-alive", "X-Accel-Buffering": "no"},
+        )
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        try:
+            await super().__call__(scope, receive, send)
+        except (asyncio.CancelledError, ClientDisconnect, OSError):
+            self.evidence.finish("cancelled")
+            raise
+        except Exception:
+            self.evidence.finish("error")
+            raise
+        finally:
+            # Starlette can return on disconnect while our iterator is suspended at yield,
+            # or fail response.start before ever entering it. Closing an unstarted generator
+            # does not run its finally, so the response also owns unfinished observations.
+            with anyio.CancelScope(shield=True):
+                try:
+                    await self.owned_stream.aclose()
+                finally:
+                    self.evidence.finish("cancelled")
 
 
 class AskRequest(BaseModel):
@@ -242,15 +276,7 @@ async def generate_summary_stream(
                 async def existing_summary():
                     evidence.observe_terminal(payload)
                     yield f"data: {json.dumps(payload)}\n\n"
-                return StreamingResponse(
-                    evidence.wrap_stream(existing_summary()),
-                    media_type="text/event-stream",
-                    headers={
-                        "Cache-Control": "no-cache",
-                        "Connection": "keep-alive",
-                        "X-Accel-Buffering": "no",  # Disable buffering for Cloud Run/nginx
-                    }
-                )
+                return SummaryStreamResponse(existing_summary(), evidence)
 
         user_id = current_user.id
         logger.info(f"[stream:{filing_id}] Starting summary stream for user {user_id}")
@@ -294,15 +320,7 @@ async def generate_summary_stream(
                     evidence.observe_terminal(event)
                     yield to_sse(event)
 
-        return StreamingResponse(
-            evidence.wrap_stream(event_stream()),
-            media_type="text/event-stream",
-            headers={
-                "Cache-Control": "no-cache",
-                "Connection": "keep-alive",
-                "X-Accel-Buffering": "no",  # Disable buffering for Cloud Run/nginx
-            }
-        )
+        return SummaryStreamResponse(event_stream(), evidence)
     except HTTPException as exc:
         evidence.reason = f"http_{exc.status_code}"
         evidence.finish("rejected")
