@@ -1,0 +1,173 @@
+{
+  "schema_version": 1,
+  "decision": "HELD_FOR_FRESH_INDEPENDENT_ENGINEERING_REVIEW",
+  "recorded_at": "2026-09-28T22:09:16.902720+00:00",
+  "base": "4db8f46a1a35eca7e71194919eefafb29c29e50d",
+  "implementation_head": "329a67a510939d76e75e4dbce0010248631e0995",
+  "branch": "codex/wave3-quarterly-source-preservation",
+  "checkout": "/private/tmp/earningsnerd-quarterly-source-20260928",
+  "scope": "Replace one completely matched ambiguous aggregate/component proposition with an explicit capability limitation; preserve compensation continuation and other fields; no reconstructed quarterly facts.",
+  "verification": {
+    "required_backend_gate": {
+      "ruff_exit": 0,
+      "bandit_exit": 0,
+      "pytest_exit": 0,
+      "passed": 3856,
+      "skipped": 39,
+      "deselected": 2,
+      "warnings": 40,
+      "elapsed_seconds": 161.66,
+      "command": "ruff check . && bandit -r app -ll && python -m pytest",
+      "cwd": "backend",
+      "fresh_python_bytecode_prefix": true,
+      "DYLD_FALLBACK_LIBRARY_PATH": "/opt/homebrew/lib",
+      "parallel_pytest_processes": false
+    },
+    "initial_focused_selection": {
+      "passed": 115,
+      "elapsed_seconds": 24.47,
+      "note": "Before adding the active same-authored-grammar component-source positive."
+    },
+    "active_component_positive": {
+      "passed": 1,
+      "elapsed_seconds": 5.22,
+      "synthetic_source_control": true,
+      "authored_field_byte_identical": true
+    },
+    "mutation_proofs": [
+      {
+        "name": "unconditional-output",
+        "committed_head": "329a67a510939d76e75e4dbce0010248631e0995",
+        "file": "/private/tmp/earningsnerd-quarterly-source-20260928/backend/app/services/ai/statement_relationship.py",
+        "original_sha256": "e70bff293d8e93e2726c557049bb8c1112c8fd79566a4a9b215d0296c6c46bb4",
+        "fault_exit": 1,
+        "restored_exit": 0,
+        "restored_byte_identical": true,
+        "tests": [
+          "tests/unit/test_quarterly_component_source_scope.py"
+        ]
+      },
+      {
+        "name": "separate-component-exclusion",
+        "committed_head": "329a67a510939d76e75e4dbce0010248631e0995",
+        "file": "/private/tmp/earningsnerd-quarterly-source-20260928/backend/app/services/ai/statement_relationship.py",
+        "original_sha256": "e70bff293d8e93e2726c557049bb8c1112c8fd79566a4a9b215d0296c6c46bb4",
+        "fault_exit": 1,
+        "restored_exit": 0,
+        "restored_byte_identical": true,
+        "tests": [
+          "tests/unit/test_quarterly_component_withholding.py::test_same_authored_grammar_is_preserved_when_source_separately_quantifies_component"
+        ]
+      }
+    ],
+    "existing_tests_changed": [],
+    "extra_live_postgres_performance_or_browser_gates_run": false
+  },
+  "replay": {
+    "report_sha256": "deaa1b52c85bbab1bbcd19b7e55ab483b58ec465d6523272931cbd67e6c7f80b",
+    "report_modified": false,
+    "rows": 70,
+    "current_native_supplement_rows": [
+      46,
+      47
+    ],
+    "changed_rows": [
+      46
+    ],
+    "unchanged_rows": 69,
+    "historical_native_descriptors": 4,
+    "scope": "Both arms use the candidate implementation and retained postbinding sections; historical source versus current-native supplement. Not an independent main binary comparison, fresh generation, original historical ingestion or semantic acceptance."
+  },
+  "source_format_coverage": {
+    "receipt": "source-format-inventory.json",
+    "actual_native_fixture_count": 4,
+    "quarterly_matching": [
+      "PLTR"
+    ],
+    "quarterly_unsupported": [
+      "F"
+    ],
+    "annual_eligible": [
+      "MELI",
+      "SE"
+    ],
+    "complete_cohort_coverage": false
+  },
+  "source_identity": {
+    "current_native_sha256": "b8702d982190b1815c6bcb450fd337273c1b104d187328b05012a1ddf0c852a1",
+    "historical_sha256": "5717f40dc3593bae801b4054d47c5bd560fea335fd43968b9419023afdc80dca",
+    "historical_equality": false
+  },
+  "held_snapshot": {
+    "path": "/private/tmp/earningsnerd-quarterly-statement-20260928",
+    "head": "9e65e74c3d91e4e88cbbe89114266aff58685a2f",
+    "clean": true,
+    "original_five_scope_tests_unchanged": true
+  },
+  "review_open": [
+    "Frozen optional judge/acceptance wrapper describes statement_source as application-owned primary-statement evidence. Explicit assertion_scope/use fields have not independently cleared that consumer implication.",
+    "Larger 870-line implementation/test/doc candidate requires fresh engineering review of source/assertion contract and all consumers.",
+    "Unsupported untagged or extension-tag component disclosures may be withheld despite being source-supported; no universal factual-error classification is claimed.",
+    "SBC continuation is byte-preserved authored content, not newly source-verified.",
+    "Only actual row46 has changed in this current-source supplement; row47 causal transfer, FIGS/JPM and E7 remain open."
+  ],
+  "actions": {
+    "paid_or_provider_calls": 0,
+    "new_SEC_document_calls": 0,
+    "pushes": 0,
+    "pull_requests": 0,
+    "deployments": 0,
+    "prompt_model_flag_schema_stamp_pin_changes": false,
+    "public_documentation_reads": true
+  },
+  "evidence_files": {
+    "ruff.log": {
+      "path": "/Users/neilmacaogain/Documents/Codex/2026-09-28/github-plugin-github-openai-curated-remote/outputs/overnight-2026-09-28/quality/ruff.log",
+      "sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18"
+    },
+    "bandit.log": {
+      "path": "/Users/neilmacaogain/Documents/Codex/2026-09-28/github-plugin-github-openai-curated-remote/outputs/overnight-2026-09-28/quality/bandit.log",
+      "sha256": "e0f19656da54dd3fe289c802ab5facd873659b5e26dbee2548578907bdd58c52"
+    },
+    "backend-gate.log": {
+      "path": "/Users/neilmacaogain/Documents/Codex/2026-09-28/github-plugin-github-openai-curated-remote/outputs/overnight-2026-09-28/quality/backend-gate.log",
+      "sha256": "2a61bfcf07060b2b196acccadb6d2d6554149cc6b47fe5f0c3b78e21304a14da"
+    },
+    "mutation-proof.json": {
+      "path": "/Users/neilmacaogain/Documents/Codex/2026-09-28/github-plugin-github-openai-curated-remote/outputs/overnight-2026-09-28/quality/mutation-proof.json",
+      "sha256": "74bb9d1dd9050279c89344550f057b9563daaaacaa100d0e96fba191b6312b4e"
+    },
+    "mutation-unconditional-output-fault.log": {
+      "path": "/Users/neilmacaogain/Documents/Codex/2026-09-28/github-plugin-github-openai-curated-remote/outputs/overnight-2026-09-28/quality/mutation-unconditional-output-fault.log",
+      "sha256": "ee80f1ce00afa25602e06836324ce2469c65f20d75a7bef372687eec50949e52"
+    },
+    "mutation-unconditional-output-restored.log": {
+      "path": "/Users/neilmacaogain/Documents/Codex/2026-09-28/github-plugin-github-openai-curated-remote/outputs/overnight-2026-09-28/quality/mutation-unconditional-output-restored.log",
+      "sha256": "cb9500aabfe481ed568d6220848a55506b848df2be55da5befd9ef94d135bde4"
+    },
+    "mutation-separate-component-exclusion-fault.log": {
+      "path": "/Users/neilmacaogain/Documents/Codex/2026-09-28/github-plugin-github-openai-curated-remote/outputs/overnight-2026-09-28/quality/mutation-separate-component-exclusion-fault.log",
+      "sha256": "a79ca5ce58636a40fe4406ccda4786dd8a93874be6648f856d2c706e27ed804d"
+    },
+    "mutation-separate-component-exclusion-restored.log": {
+      "path": "/Users/neilmacaogain/Documents/Codex/2026-09-28/github-plugin-github-openai-curated-remote/outputs/overnight-2026-09-28/quality/mutation-separate-component-exclusion-restored.log",
+      "sha256": "af49f19d07cbb9f4472913cf321a67e34b5175f91bc3fa27b8e767ebfd9d3500"
+    },
+    "retained-70-replay.json": {
+      "path": "/Users/neilmacaogain/Documents/Codex/2026-09-28/github-plugin-github-openai-curated-remote/outputs/overnight-2026-09-28/quality/retained-70-replay.json",
+      "sha256": "927384477bb3d1522b57a78ed7c3aa5970141d57377693add45bd34376a50fea"
+    },
+    "retained-70-replay.log": {
+      "path": "/Users/neilmacaogain/Documents/Codex/2026-09-28/github-plugin-github-openai-curated-remote/outputs/overnight-2026-09-28/quality/retained-70-replay.log",
+      "sha256": "4fe42e012d16c1af733241b6026aaa85fff769246a6fa587068ca384723380b4"
+    },
+    "replay-retained.py": {
+      "path": "/Users/neilmacaogain/Documents/Codex/2026-09-28/github-plugin-github-openai-curated-remote/outputs/overnight-2026-09-28/quality/replay-retained.py",
+      "sha256": "0a3398e92a7bf5fbf2d984f9e19e570af57feee66d118d82b048e74b1c9f0f9b"
+    },
+    "source-format-inventory.json": {
+      "path": "/Users/neilmacaogain/Documents/Codex/2026-09-28/github-plugin-github-openai-curated-remote/outputs/overnight-2026-09-28/quality/source-format-inventory.json",
+      "sha256": "8cf050f241c798bba9b9884e6caa86b8ffe1c7ffab4ae5764904b48327439ebd"
+    }
+  }
+}

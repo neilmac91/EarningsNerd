@@ -1,5 +1,7 @@
 # Quarterly component-withholding candidate
 
+**HELD for fresh independent engineering review.** No push or paid measurement.
+
 This isolated candidate reduces one observed ambiguity by withholding the complete
 matched proposition. It does not reconstruct quarterly financial facts. The user
 sees: “This summary could not independently verify the stated component breakdown
@@ -56,7 +58,9 @@ establish original historical byte equality, ingestion or fresh-generation quali
 The private `outputs/overnight-2026-09-28/quality/` receipts replay all 70 retained
 postbinding sections through the new owner and current final/preview/shared
 consumers. The current native supplement is associated only with the same selected
-URL in PLTR rows 46 and 47. Only row 46 changes; all other 69 remain identical,
+URL in PLTR rows 46 and 47. Both replay arms execute this candidate, comparing historical source context with
+the current supplement; they do not execute separate main/candidate binaries.
+Only row 46 changes; all other 69 remain identical,
 including four retained annual descriptors. Row 47's causal transfer and other
 FIGS/JPM findings remain open. Cached-only PLTR with no native descriptor remains
 legacy. This is explicit, narrow risk reduction, not an E7 acceptance.
@@ -77,3 +81,25 @@ call, SEC retrieval, push, PR, model/prompt/flag/schema/content-stamp change or
 production operation was performed. The fixture is retained from the earlier
 existing-transport acquisition. Independent root review and any authorized live
 measurement/release remain outstanding.
+
+
+## Committed verification and remaining review
+
+Implementation `329a67a510939d76e75e4dbce0010248631e0995` passed the required backend
+Ruff, Bandit and pytest gate: **3,856 passed, 39 skipped, 2 deselected**, 40 warnings,
+161.66 seconds. Each Python check used a fresh bytecode prefix; the full gate used
+`DYLD_FALLBACK_LIBRARY_PATH=/opt/homebrew/lib`. Existing tests are byte-identical to
+the base. No extra live-PostgreSQL, performance or browser gate was run.
+
+The committed unconditional-output mutation failed all five scope controls and
+restored to five passing. Removing the explicit-component exclusion failed the
+unchanged-authored positive and restored to one passing. Both source files were
+restored byte-identically. Exact receipts and private artifact hashes are in
+[verification.json](verification.json).
+
+The frozen optional judge/acceptance wrapper still calls `statement_source`
+application-owned primary-statement evidence. The new descriptor's explicit
+`assertion_scope=not_established` and withholding-only use have **not** independently
+cleared that consumer implication. The candidate remains held for source/assertion
+contract and all-consumer review. Passing finite controls is not semantic source
+authority, and no E7 acceptance/progress credit is claimed.
