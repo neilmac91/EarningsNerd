@@ -1,3 +1,8 @@
+# September 28 — bounded operational capacity readout
+
+- [x] Add a read-only, two-hour UTC-window Ops inspection using existing WIF, Monitoring/Logging and the pinned Cloud SQL proxy. Retain missing permissions, partial pages and sample intervals explicitly.
+- [ ] Complete local/hosted gates and exact-head review; measure the September 28 natural job overlap after release. Current snapshots and sampled connections do not establish peak headroom, SEC egress, provider capacity or a safe beta invitation count.
+
 # September 28 — trial billing routing, separate from held pricing activation
 
 - [x] Preserve the selected monthly/yearly cycle from homepage and trial paywall through pricing; retain the existing server-rendered pricing boundary and record the resolved initial cycle once.
