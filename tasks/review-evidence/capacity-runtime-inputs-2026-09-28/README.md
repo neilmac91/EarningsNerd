@@ -17,3 +17,15 @@ The initial token allowlist admitted standalone numeric arguments outside recogn
 `backend/tests/unit/test_capacity_projection_privacy.py` executes the exact embedded projection over 20 normal/adverse combinations, including numeric command arguments, valid worker commands, arbitrary text, secret references, malformed bounded numbers and missing overrides. It is the one enduring confidentiality gate. A committed-state fault/restored proof and the full backend gate are recorded after this correction. Because the new test is under `backend/`, merging this PR deploys the backend and requires serial deployment verification.
 
 Correction gates on `c071acef`: Ruff/Bandit passed; full backend **3827 passed, 39 skipped, 2 deselected, 40 warnings in 159.78s**. Node lockstep **3 passed**. One committed fault added raw command/args to the projection: **15 failed, 5 passed**; exact-byte restoration: **20 passed**. Both independent Codex findings survived two fresh refutations and are resolved in the current projection/gate.
+
+## Whole-readback gate correction
+
+A subsequent review found that the 20-case gate executed only the capacity-comment suffix,
+omitting earlier `show()` output. Both fresh refutation passes upheld the gap. The same gate now
+executes the entire describe-service Python heredoc with service-file and gcloud JSON reads
+stubbed, captures all Python stdout, and constrains the fixed shell wrapper to its redirected
+read. All 20 cases and capacity/unknown assertions remain; service and job private sentinels are
+withheld while allowlisted model/image output remains visible. The workflow, runtime code and
+output schema are unchanged. Earlier fault/CI receipts above remain historical evidence, not
+proof of whole-readback coverage. The new committed mutation is a command emission in `show()`,
+before the capacity marker.

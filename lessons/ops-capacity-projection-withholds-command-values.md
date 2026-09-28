@@ -11,6 +11,9 @@ echo raw command/argument arrays or resolve private environment references. Miss
 runtime worker and egress identity remain unknown.
 
 **Evidence**: `backend/tests/unit/test_capacity_projection_privacy.py` executes the
-exact committed projection with private sentinels, numeric arguments, malformed
-configuration and valid capacity values. A deliberate raw-command emission fails
-that gate; exact restoration passes.
+entire committed describe-service Python heredoc with private service/job sentinels,
+numeric arguments, malformed configuration and valid capacity values. Stub only the
+external JSON reads, capture all Python stdout, and constrain the surrounding shell
+to its redirected read. Slicing at the capacity comment skipped earlier `show()`
+emissions and falsely narrowed this rule. A deliberate pre-marker raw-command emission
+fails the same gate; exact restoration passes.
