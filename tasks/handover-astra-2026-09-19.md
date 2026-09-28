@@ -153,7 +153,7 @@ next generation is Monday 2026-09-21.
 
 Quality acceptance, wider generation, invite-only beta and natural Stripe evidence remain held under the current continuation.
 
-**September 28 pricing supersession:** the founder approved $23/month and $190/year, conditional
+**September 28 pricing supersession:** the founder approved $19/month and $190/year, conditional
 on quality acceptance and controlled-beta readiness. The [approved offer checklist](../docs/PRICING_OFFER.md)
 records the staged inactive catalog, backend-first activation and rollback boundaries. The older
 price-decision hold below is superseded; the remaining launch and production-change holds remain.

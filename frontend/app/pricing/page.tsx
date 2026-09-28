@@ -172,7 +172,7 @@ function PricingContent() {
   const proPriceDisplay = billingCycle === 'monthly' ? PRO_PRICING.monthlyDisplay : PRO_PRICING.yearlyMonthlyDisplay
   const billingNote = billingCycle === 'monthly'
     ? 'Billed monthly'
-    : `Billed annually at ${PRO_PRICING.yearlyDisplay}. Save ${PRO_PRICING.annualSavingsDisplay} a year (${PRO_PRICING.annualSavingsPercent}%) compared with monthly.`
+    : `Billed annually at ${PRO_PRICING.yearlyDisplay}. Two months free, saving ${PRO_PRICING.annualSavingsDisplay} a year (${PRO_PRICING.annualSavingsPercent}%).`
 
   // Shared label while account data is absent; neither card may claim a current plan or a
   // purchase decision until the account resolves (or the visitor is a confirmed guest).
@@ -323,7 +323,7 @@ function PricingContent() {
                 }}
               />
               <span className={`text-sm font-medium ${billingCycle === 'yearly' ? 'text-text-primary-light dark:text-text-primary-dark' : 'text-text-secondary-light dark:text-text-secondary-dark'}`}>
-                Yearly <span className="text-brand-strong dark:text-brand-strong-dark">(save {PRO_PRICING.annualSavingsPercent}%)</span>
+                Yearly <span className="text-brand-strong dark:text-brand-strong-dark">(2 months free)</span>
               </span>
             </div>
           )}

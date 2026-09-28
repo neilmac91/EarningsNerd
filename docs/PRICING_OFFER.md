@@ -1,17 +1,19 @@
 # Pro offer — approved September 28, 2026; activation held
 
-The founder approved **$23/month or $190/year** for the focused individual-investor offer,
+The founder approved **$19/month or $190/year** for the focused individual-investor offer,
 conditional on quality acceptance and controlled-beta readiness. This supersedes the historical
 price-decision hold in [handover §5](../tasks/handover-astra-2026-09-19.md#5-what-remains--reconciled-open-list).
 The amount decision is complete; implementation and catalog preparation do not establish launch readiness.
 
 | Cycle | USD charge | Display |
 | --- | --- | --- |
-| Monthly | $23 each month (2,300 cents) | $23/month |
+| Monthly | $19 each month (1,900 cents) | $19/month |
 | Annual | $190 once per year (19,000 cents) | $15.83/month equivalent, billed $190 annually |
 
-Twelve monthly payments total $276. Annual saves **$86**, or **31%** rounded from 31.159%.
-The rounded monthly equivalent is not a monthly installment. “Two months free” is retired.
+Twelve monthly payments total $228. Annual saves **$38**, or **17%** rounded from 16.667%.
+Annual costs exactly ten monthly payments: **two months free**. The rounded monthly equivalent
+is not a monthly installment. This supersedes the unpublished $23/month candidate; its earlier
+verification and inactive-catalog receipts remain historical.
 
 The plain [price module](../frontend/app/pricing/prices.ts) is shared by the pricing page,
 homepage section and server Product/Offer JSON-LD. The live `pricing-experiment`/`price_29`
@@ -21,8 +23,9 @@ cycle amount, while the server remains authoritative for the actual charge.
 
 ## Retained catalog state
 
-The September 28 Stripe readback confirmed staged **inactive** live-catalog prices at the
-approved USD amounts and monthly/yearly cadence. Production checkout bindings still point to
+The earlier September 28 Stripe readback staged **inactive** $23/month and $190/year live-catalog
+prices. The $23 monthly catalog entry is superseded by the final $19 decision; the operator is
+staging and verifying its replacement. Re-read the final $19/month and $190/year pair before activation. Production checkout bindings still point to
 the old $39/month and $390/year offer. The beta promotion's valid 100%-off-forever linkage and
 the account's enabled charges/payouts with no currently-due requirements were also read back.
 The dated operator receipt retains the exact catalog identifiers; none belong in frontend code.
@@ -39,7 +42,7 @@ recorded. The approved price does not waive those gates or authorize customer re
 
 1. Record quality acceptance and controlled-beta readiness, reconcile the separate trial-routing
    work, and review the final combined source and deployment gates.
-2. Re-read the staged prices: correct product, USD, 2,300/month and 19,000/year, recurring cadence
+2. Re-read the staged prices: correct product, USD, 1,900/month and 19,000/year, recurring cadence
    and intended tax treatment. Preserve existing subscriptions, old prices and the beta promotion.
 3. Activate the new catalog prices and update the backend's `STRIPE_PRICE_MONTHLY_ID` and
    `STRIPE_PRICE_YEARLY_ID` through the normal deployment/configuration process. Retain the
@@ -77,11 +80,6 @@ of the JSON-LD amount must fail the cross-surface gate, then pass after exact re
 These checks establish frontend consistency; effective Stripe configuration remains an
 operator verification at activation.
 
-Local verification on application commit `21099253d4f61224c0c5d4f02de44c39cd276713` passed
-with Node 22.23.2 / npm 10.9.8: lint, TypeScript, 114 Vitest files / 652 tests (zero skips),
-and Next build. The built homepage and pricing HTML contain the approved amounts, annual
-savings and corrected billing FAQ; the built JSON-LD offers are 23/month and 190/year.
-The one mutation proof ran on committed `3ea5bc13`: replacing only the JSON-LD monthly
-amount with 29 failed the cross-surface assertion, and exact restoration passed. Its layout
-and test are byte-identical in the final application commit. No Stripe activation, live
-checkout, customer operation or hosted release is claimed by these local results.
+Final local verification must identify the revised $19/month candidate. Earlier $23-candidate
+gate and mutation receipts remain historical; rerun the committed-state amount-drift proof
+and full frontend gate for the approved $19/$190 offer before draft review.

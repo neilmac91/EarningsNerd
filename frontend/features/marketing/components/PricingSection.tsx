@@ -92,8 +92,8 @@ export default function PricingSection({
   const monthly = billing === 'monthly'
   const proPrice = monthly ? PRO_PRICING.monthlyDisplay : PRO_PRICING.yearlyMonthlyDisplay
   const billingNote = monthly
-    ? `Billed monthly. Or ${PRO_PRICING.yearlyDisplay} a year, saving ${PRO_PRICING.annualSavingsDisplay} (${PRO_PRICING.annualSavingsPercent}%).`
-    : `Billed annually at ${PRO_PRICING.yearlyDisplay}. Save ${PRO_PRICING.annualSavingsDisplay} a year (${PRO_PRICING.annualSavingsPercent}%) compared with monthly.`
+    ? `Billed monthly. Or ${PRO_PRICING.yearlyDisplay} a year, with two months free.`
+    : `Billed annually at ${PRO_PRICING.yearlyDisplay}. Two months free, saving ${PRO_PRICING.annualSavingsDisplay} a year (${PRO_PRICING.annualSavingsPercent}%).`
 
   // The pricing page's Switch speaks 'monthly' | 'yearly'; keep the funnel event's vocabulary.
   const cycleName = (option: Billing) => (option === 'monthly' ? 'monthly' : 'yearly')
@@ -177,7 +177,7 @@ export default function PricingSection({
                 className={radioClass('annual')}
               >
                 Annual{' '}
-                <span className="font-medium text-brand-strong dark:text-brand-strong-dark">· save {PRO_PRICING.annualSavingsPercent}%</span>
+                <span className="font-medium text-brand-strong dark:text-brand-strong-dark">· 2 months free</span>
               </button>
             </div>
           </div>

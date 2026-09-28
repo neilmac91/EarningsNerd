@@ -1,7 +1,7 @@
 # September 28 — approved Pro offer, activation held
 
-- [x] Implement the approved $23/month / $190/year offer from one shared frontend source; retire the live price experiment and replace obsolete annual-savings copy. Preserve account, beta and trial semantics.
-- [x] Full frontend gate on `21099253` passed: lint, TypeScript, 114 Vitest files / 652 tests (no skips), and Next build. The single committed-state JSON-LD drift mutation on `3ea5bc13` failed, exact restoration passed, and its source/test remained byte-identical in the final application commit. Built homepage/pricing HTML and JSON-LD show the approved offer; retained receipts precede draft review.
+- [x] Implement the final approved $19/month / $190/year offer from one shared frontend source; retire the live price experiment and show two months free, $38 saved and 17% rounded. Preserve account, beta and trial semantics. The unpublished $23 candidate is superseded.
+- [ ] Rerun the committed-state amount-drift proof and full frontend gate on the revised $19 candidate. Preserve the earlier $23-candidate receipts as historical; retain the final source and logs before draft review.
 - [ ] Keep activation held for quality and controlled-beta readiness. Follow the backend-first configuration and safe rollback sequence in [the approved offer checklist](../docs/PRICING_OFFER.md); inactive catalog preparation is not activation.
 
 ## September 28 — summary request evidence

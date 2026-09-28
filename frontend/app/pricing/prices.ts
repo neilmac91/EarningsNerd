@@ -1,7 +1,7 @@
 // Approved Pro offer. Publish only after the backend checkout prices match these amounts;
 // see docs/PRICING_OFFER.md for the held activation sequence and existing-customer protections.
 // Keep this a plain module: the client pages and server Product/Offer JSON-LD share it.
-const monthly = 23
+const monthly = 19
 const yearly = 190
 const annualSavings = monthly * 12 - yearly
 

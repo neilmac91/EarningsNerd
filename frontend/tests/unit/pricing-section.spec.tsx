@@ -36,14 +36,14 @@ describe('PricingSection', () => {
   it('defaults to monthly and shows the full annual charge and saving when selected', () => {
     renderSection()
 
-    expect(screen.getByText('$23')).toBeInTheDocument()
-    expect(screen.getByText('Billed monthly. Or $190 a year, saving $86 (31%).')).toBeInTheDocument()
+    expect(screen.getByText('$19')).toBeInTheDocument()
+    expect(screen.getByText('Billed monthly. Or $190 a year, with two months free.')).toBeInTheDocument()
 
     fireEvent.click(screen.getByRole('radio', { name: /annual/i }))
     expect(screen.getByText('$15.83')).toBeInTheDocument()
-    expect(screen.queryByText('$23')).not.toBeInTheDocument()
+    expect(screen.queryByText('$19')).not.toBeInTheDocument()
     expect(
-      screen.getByText('Billed annually at $190. Save $86 a year (31%) compared with monthly.'),
+      screen.getByText('Billed annually at $190. Two months free, saving $38 a year (17%).'),
     ).toBeInTheDocument()
   })
 

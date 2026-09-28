@@ -193,26 +193,26 @@ describe('PricingPage', () => {
 
     // Annual is charged once at $190; $15.83 is the rounded monthly equivalent, not a charge.
     expect(page.getByText('$15.83')).toBeInTheDocument()
-    expect(page.getByText('Billed annually at $190. Save $86 a year (31%) compared with monthly.')).toBeInTheDocument()
-    expect(page.getByText('(save 31%)')).toBeInTheDocument()
-    expect(home.getByText('$23')).toBeInTheDocument()
-    expect(home.getByText('Billed monthly. Or $190 a year, saving $86 (31%).')).toBeInTheDocument()
+    expect(page.getByText('Billed annually at $190. Two months free, saving $38 a year (17%).')).toBeInTheDocument()
+    expect(page.getByText('(2 months free)')).toBeInTheDocument()
+    expect(home.getByText('$19')).toBeInTheDocument()
+    expect(home.getByText('Billed monthly. Or $190 a year, with two months free.')).toBeInTheDocument()
     expect(structuredData.offers).toEqual([
-      expect.objectContaining({ name: 'Pro (monthly)', price: 23, priceCurrency: 'USD' }),
+      expect.objectContaining({ name: 'Pro (monthly)', price: 19, priceCurrency: 'USD' }),
       expect.objectContaining({ name: 'Pro (annual)', price: 190, priceCurrency: 'USD' }),
     ])
 
     fireEvent.click(home.getByRole('radio', { name: /annual/i }))
     expect(home.getByText('$15.83')).toBeInTheDocument()
-    expect(home.getByText('Billed annually at $190. Save $86 a year (31%) compared with monthly.')).toBeInTheDocument()
+    expect(home.getByText('Billed annually at $190. Two months free, saving $38 a year (17%).')).toBeInTheDocument()
     fireEvent.click(page.getByRole('switch', { name: /billing cycle/i }))
-    expect(page.getByText('$23')).toBeInTheDocument()
+    expect(page.getByText('$19')).toBeInTheDocument()
     expect(page.getByText('Billed monthly')).toBeInTheDocument()
     expect(mockUseFeatureFlagVariantKey).not.toHaveBeenCalled()
 
     await page.findByRole('button', { name: /current plan/i })
     fireEvent.click(page.getByRole('button', { name: /upgrade to pro/i }))
-    await waitFor(() => expect(mockCheckoutStarted).toHaveBeenCalledWith('pro', 23, 'monthly'))
+    await waitFor(() => expect(mockCheckoutStarted).toHaveBeenCalledWith('pro', 19, 'monthly'))
     expect(mockCreateCheckoutSession).toHaveBeenCalledWith('price_pro_monthly')
   })
 
