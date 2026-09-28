@@ -1,6 +1,6 @@
 # Controlled beta measurement and operations kit v1
 
-Prepared 21 September 2026. This is a query and review contract, not an observed cohort result or an invitation to run production operations. Use the existing [beta telemetry map](../../archive/beta-monitoring.md), [alert-return query](../../../docs/OPERATIONS.md#alert-to-return-measurement-e11c), and [billing observation report](../../../backend/scripts/billing_revenue_report.py); do not create parallel dashboards or payment ledgers.
+Prepared 21 September 2026. September 28 implementation adds [versioned event-time summary-view evidence](event-glossary.md#summary-view-evidence-v1-september-28-implementation); the queries below retain their historical diagnostic semantics until explicitly replaced and verified against live data. This is a query and review contract, not an observed cohort result or an invitation to run production operations. Use the existing [beta telemetry map](../../archive/beta-monitoring.md), [alert-return query](../../../docs/OPERATIONS.md#alert-to-return-measurement-e11c), and [billing observation report](../../../backend/scripts/billing_revenue_report.py); do not create parallel dashboards or payment ledgers.
 
 ## Freeze before each readout
 

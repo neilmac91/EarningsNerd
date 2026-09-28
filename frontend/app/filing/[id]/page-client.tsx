@@ -70,7 +70,7 @@ function FilingDetailView({ filingId, initialFiling, initialSummary }: { filingI
   const viewStartedAt = useRef<number>(Date.now())
   const entryPoint = useMemo(() => getEntryPoint(), [])
 
-  const { data: currentUser, isPending: authPending } = useQuery({
+  const { data: currentUser, isPending: authPending, isError: authError } = useQuery({
     queryKey: queryKeys.currentUser(),
     queryFn: getCurrentUserSafe,
     retry: false,
@@ -226,6 +226,12 @@ function FilingDetailView({ filingId, initialFiling, initialSummary }: { filingI
   useEffect(() => {
     if (!hasTrackedSummaryViewed.current && hasSummaryContent && filing && summary) {
       analytics.summaryViewed({
+        identity: authPending || authError || currentUser === undefined
+          ? { state: 'unknown', accountId: null }
+          : currentUser
+            ? { state: 'authenticated', accountId: String(currentUser.id) }
+            : { state: 'anonymous', accountId: null },
+        summaryId: summary.id,
         filingId: filing.id,
         ticker: filing.company?.ticker ?? null,
         filingType: filing.filing_type,
@@ -236,7 +242,7 @@ function FilingDetailView({ filingId, initialFiling, initialSummary }: { filingI
       })
       hasTrackedSummaryViewed.current = true
     }
-  }, [hasSummaryContent, filing, summary, entryPoint])
+  }, [hasSummaryContent, filing, summary, entryPoint, authPending, authError, currentUser])
 
   if (filingLoading) {
     return (

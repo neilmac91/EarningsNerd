@@ -52,3 +52,20 @@ Repeat this sheet for week 1 and week 2. Use counts and exact denominators; for 
 | Failed/degraded outputs; known missing telemetry | `[ ]` | `[ ]` | fresh generation failure/partial counts; account for best-effort capture |
 
 Weekly interview prompts: “What question brought you to this filing?”, “What did you read or check against the source?”, “What part helped or misled you?”, “What did you do next?”, and “Would you return for another filing, and what would prevent it?” Record exact session alias and time so a reviewed usefulness judgment can be linked without publishing participant identity. Summarize strongest/weakest examples and unresolved failures. The founder sets expansion thresholds after these two observed reviews; a fabricated zero or conversion percentage is not a decision rule.
+
+## Concrete usefulness evidence to retain per beta session
+
+Use the existing feedback queue and private cohort sheet. Ask: “Did this summary help
+you answer the question you brought to this filing: yes, partly, or no? What helped
+or was missing?” Keep the participant's exact answer, not an inferred rating. Record
+cohort/session alias, authenticated feedback author (when submitted through the app),
+filing ID, summary ID, session UTC time, and feedback ID. If analytics was consented
+and observed, also retain the exact `summary_viewed` event UUID and timestamp; without
+it, label the linkage as facilitator-observed rather than an analytics join. Record
+permission for any quoted feedback separately. Never synthesize a participant response.
+
+A reviewer checks that the answer addresses the actual summary and session before
+counting it. Retain yes/partly/no separately, plus unknown/no response, and the full
+eligible denominator. The first useful time is the participant's recorded session
+time, not registration, pageview, generic feedback, export, or generation success.
+No cohort, invitation, consent, or useful result is established by this worksheet.

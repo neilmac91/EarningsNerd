@@ -5,11 +5,12 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import api from '@/lib/api/client'
 import { queryKeys } from '@/lib/queryKeys'
 import FilingPageClient from '@/app/filing/[id]/page-client'
+import analytics from '@/lib/analytics'
 
-const state = vi.hoisted(() => ({ user: { id: 7 } as { id: number } | null, summary: { id: 91, filing_id: 42 } as { id: number; filing_id: number } | null, saved: false }))
+const state = vi.hoisted(() => ({ user: { id: 7 } as { id: number } | null, summary: { id: 91, filing_id: 42 } as { id: number; filing_id: number } | null, saved: false, authPending: false }))
 vi.mock('next/navigation', () => ({ useParams: () => ({ id: '42' }), useRouter: () => ({ back: vi.fn(), push: vi.fn() }) }))
 vi.mock('@/lib/api/client', () => ({ default: { get: vi.fn(), post: vi.fn() }, getApiUrl: vi.fn() }))
-vi.mock('@/features/auth/api/auth-api', () => ({ getCurrentUserSafe: () => Promise.resolve(state.user) }))
+vi.mock('@/features/auth/api/auth-api', () => ({ getCurrentUserSafe: () => state.authPending ? new Promise(() => {}) : Promise.resolve(state.user) }))
 vi.mock('@/features/subscriptions/api/subscriptions-api', () => ({ getSubscriptionStatus: () => Promise.resolve({ is_pro: false }) }))
 vi.mock('@/features/filings/api/filings-api', () => ({ getFiling: () => Promise.resolve({ id: 42, filing_type: '10-K', filing_date: '2026-09-01' }) }))
 vi.mock('@/features/summaries/hooks/useSummaryGeneration', () => ({ useSummaryGeneration: () => ({ summary: state.summary, hasSummaryContent: !!state.summary, summaryLoading: false }) }))
@@ -23,8 +24,9 @@ vi.mock('@/features/summaries/components/SummaryDisplay', () => ({ SummaryDispla
   <button disabled={isSaved || !isAuthenticated} onClick={() => saveMutation.mutate(summary.id)}>{isSaved ? 'Saved' : 'Save'}</button>
 ) }))
 
-function mount() {
+function mount(identity?: { id: number } | null) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: Infinity }, mutations: { retry: false } } })
+  if (identity !== undefined) client.setQueryData(queryKeys.currentUser(), identity)
   render(<QueryClientProvider client={client}><FilingPageClient /></QueryClientProvider>)
   return client
 }
@@ -35,6 +37,7 @@ beforeEach(() => {
   state.user = { id: 7 }
   state.summary = { id: 91, filing_id: 42 }
   state.saved = false
+  state.authPending = false
   vi.mocked(api.get).mockImplementation(async (url) => {
     if (url === '/api/saved-summaries/status/91') return { data: { is_saved: state.saved } }
     throw new Error(`Filing page fetched unexpected library endpoint: ${url}`)
@@ -83,6 +86,23 @@ describe('filing saved status consumer', () => {
     client.setQueryData(queryKeys.currentUser(), { id: 8 })
     await waitFor(() => expect(screen.getByRole('button', { name: 'Save' })).toBeEnabled())
     await waitFor(() => expect(api.get).toHaveBeenCalledTimes(2))
+    client.clear()
+  })
+})
+
+// A later person merge or account transition cannot rewrite the identity of a past view.
+describe('summary view event-time identity', () => {
+  it.each([{ id: 7 }, null, undefined])('records the current route identity and summary for %j', async (identity) => {
+    state.authPending = identity === undefined
+    const client = mount(identity)
+    await waitFor(() => expect(analytics.summaryViewed).toHaveBeenCalledTimes(1))
+    expect(analytics.summaryViewed).toHaveBeenCalledWith(expect.objectContaining({
+      identity: identity ? { state: 'authenticated', accountId: '7' } : { state: identity === undefined ? 'unknown' : 'anonymous', accountId: null },
+      summaryId: 91, filingId: 42,
+    }))
+    client.setQueryData(queryKeys.currentUser(), { id: 8 })
+    await waitFor(() => expect(client.getQueryData(queryKeys.currentUser())).toEqual({ id: 8 }))
+    expect(analytics.summaryViewed).toHaveBeenCalledTimes(1)
     client.clear()
   })
 })
