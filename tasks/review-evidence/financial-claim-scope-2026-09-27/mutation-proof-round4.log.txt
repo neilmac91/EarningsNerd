@@ -1,0 +1,21 @@
+== committed HEAD: 595344c1ac8c02a9cac359db2a2cb353262b3866 ==
+fault applied: an undeclared table inherits any earlier sibling's declaration, bannered tables included
+== gate under fault ==
+E         Use -v to get more diff
+E       AssertionError: assert ['Smith paid $3,237 million.'] == ['Smith paid $3,237.']
+E         
+E         At index 0 diff: 'Smith paid $3,237 million.' != 'Smith paid $3,237.'
+E         Use -v to get more diff
+E       AssertionError: assert ['Smith paid $3,237 million.'] == ['Smith paid $3,237.']
+E         
+E         At index 0 diff: 'Smith paid $3,237 million.' != 'Smith paid $3,237.'
+E         Use -v to get more diff
+FAILED tests/unit/test_table_cell_units.py::test_bare_figures_the_source_does_not_own_stay_as_written[$3,237-no_governing_banner-<table><tr><td>(Amounts in millions)</td></tr><tr><td>Debt</td><td>9,000</td></tr></table><table><tr><td>Other<
+FAILED tests/unit/test_table_cell_units.py::test_bare_figures_the_source_does_not_own_stay_as_written[$3,237-no_governing_banner-<p>(In millions)</p><p>Schedule of other amounts</p><table><tr><td>Other</td><td>3,237</td></tr></table>]
+FAILED tests/unit/test_table_cell_units.py::test_review_adverse_sources_abstain[$3,237-no_governing_banner-<table><tr><td>(Amounts in millions)</td></tr><tr><td>Debt</td><td>9,000</td></tr></table><p>DIRECTOR COMPENSATION</p><table><tr><td>
+FAILED tests/unit/test_table_cell_units.py::test_review_adverse_sources_abstain[$3,237-no_governing_banner-<table><tr><td>(Amounts in millions)</td></tr><tr><td>Debt</td><td>9,000</td></tr></table><table><tr><td>Name</td><td>Fee</td></tr><t
+4 failed, 39 passed in 3.74s
+fault_exit=1
+== restored: clean ==
+43 passed in 3.46s
+restored_exit=0

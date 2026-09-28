@@ -162,8 +162,56 @@
   {
    "id": 21,
    "kind": "hosted_eval_baseline",
-   "head": "third-round push (554d3c7 + evidence commit)",
-   "outcome": "triggered by the single third-round push; result to be recorded in the PR thread",
+   "head": "5e6e244108297af03d3134aac30a90247e159799",
+   "outcome": "CI success; eval-baseline PASS (1 standing warning: mean_untraceable_dollar_figures 2.5286); 70/70 scored, 0 errors",
+   "estimated_cost_usd": 0.179044,
+   "billed_cost_usd": "unknown; the shared-account balance fell 54.59 -> 54.41 (USD 0.18) between the reads bracketing this run",
+   "run_id": 36383403453,
+   "job_id": 108803648057,
+   "calls": 70
+  },
+  {
+   "id": 22,
+   "kind": "sec_document_reads",
+   "outcome": "five free SEC EDGAR document GETs through the app transport (WMT, COST, BYND, BA source documents; WMT once more with provenance observation) for the offline replay and the WMT fixture; served bytes differ from the retained provenance hashes by ten characters each",
+   "cost_usd": 0.0
+  },
+  {
+   "id": 23,
+   "kind": "offline_replay",
+   "head": "round-4 tree (source-bound ownership)",
+   "outcome": "70 retained outputs replayed with the source documents: 1 slot changed (WMT run 1, 7/7), 8 abstentions (COST prose_occurrence x6, BYND declared_unscaled x2); no model call",
+   "cost_usd": 0.0,
+   "file": "offline-replay-70.json"
+  },
+  {
+   "id": 24,
+   "kind": "local_gate",
+   "head": "round-4 tree",
+   "outcome": "round-4 tree (committed 595344c): ruff/bandit clean, 3745 passed, 39 skipped, 2 deselected",
+   "cost_usd": 0.0,
+   "file": "local-gate-round4.log.txt"
+  },
+  {
+   "id": 25,
+   "kind": "mutation_proof",
+   "head": "595344c",
+   "outcome": "fault (an undeclared table inherits any earlier sibling's declaration) caught: 4 failed/39 passed with false '$3,237 million' insertions; restored 43 passed",
+   "cost_usd": 0.0,
+   "file": "mutation-proof-round4.log.txt"
+  },
+  {
+   "id": 26,
+   "kind": "balance_read",
+   "outcome": "DeepSeek balance USD 54.41 at 2026-09-28T06:19:59Z (54.59 at 05:44 UTC; the USD 0.18 fall matches run 36383403453's telemetry)",
+   "cost_usd": 0.0,
+   "file": "balance-before-round4-push.json"
+  },
+  {
+   "id": 27,
+   "kind": "hosted_eval_baseline",
+   "head": "fourth-round push",
+   "outcome": "triggered by the single fourth-round push; result to be recorded in the PR thread",
    "estimated_cost_usd": "expected about 0.18",
    "billed_cost_usd": "unknown"
   }
@@ -178,7 +226,7 @@
   "hosted run 36354356433 (cancelled by own docs push, USD 0.119 wasted)",
   "strict top-down replay (attempt 16, first pass) superseded by the final rule in the same commit"
  ],
- "ceiling_note": "Planning ceiling USD 1.00 for hosted CI caused by this PR, cumulative across all rounds: about USD 0.48 spent by telemetry through run 36356321090; the third-round push adds one run (about USD 0.18) for an expected total of about USD 0.66; no further pushes are planned.",
+ "ceiling_note": "Planning ceiling USD 1.00 for hosted CI caused by this PR, cumulative across all rounds and including the cancelled run: about USD 0.66 spent by telemetry through run 36383403453; the fourth-round push adds one run (about USD 0.18) for an expected total of about USD 0.84; no further pushes are planned.",
  "hosted_runs_cumulative": {
   "runs": [
    {
@@ -203,8 +251,15 @@
     "telemetry_usd": 0.180502
    },
    {
+    "run_id": 36383403453,
+    "head": "5e6e244",
+    "status": "PASS",
+    "calls": 70,
+    "telemetry_usd": 0.179044
+   },
+   {
     "run_id": "pending",
-    "head": "third-round push",
+    "head": "fourth-round push",
     "status": "pending",
     "calls": "about 70 expected",
     "telemetry_usd": "about 0.18 expected"
@@ -214,6 +269,8 @@
   "expected_after_third_round_push": "about 0.66",
   "ceiling_usd": 1.0,
   "ceiling_is_cumulative": true,
-  "billed_cost": "unknown from this session; the shared-account balance fell USD 1.06 between the two reads and includes non-PR usage"
+  "billed_cost": "unknown from this session; the shared-account balance fell USD 1.06 between the first two reads (includes non-PR usage) and USD 0.18 between the reads bracketing run 36383403453 (matches its telemetry)",
+  "telemetry_usd_spent_before_fourth_round_push": 0.660091,
+  "expected_after_fourth_round_push": "about 0.84"
  }
 }
