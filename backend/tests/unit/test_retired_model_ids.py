@@ -1,6 +1,8 @@
-"""Gate: retired DeepSeek model ids never reappear as literals (CLAUDE.md rule 12; ADR-0008).
+"""Gate: historical DeepSeek defaults never reappear as literals (CLAUDE.md rule 12; ADR-0008).
 
-`deepseek-v4-pro` was retired on 2026-09-14 and `deepseek-v4-flash*` are withdrawable aliases.
+Pro service continued after 2026-09-14, as the ADR-0008 addendum records; Flash remains our
+selected default. `deepseek-v4-flash*` are withdrawable aliases. This legacy-named gate still
+guards both nonselected identifiers; legitimate per-model pricing is explicitly ADR-linked.
 The live model id is configuration (`AI_DEFAULT_MODEL`), but it is written as a literal in the
 deploy/eval workflows and a few reference files; this test keeps every such site on the canonical
 id so a routing change is never silently re-introduced by a stale copy.
