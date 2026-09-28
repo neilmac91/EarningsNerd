@@ -1,0 +1,164 @@
+{
+  "aggregate": [
+    {
+      "age_days_max": "1.521",
+      "age_days_p50": "0.938",
+      "age_days_p95": "1.521",
+      "candidates": 312,
+      "distinct_accessions": 312,
+      "distinct_issuers": 291,
+      "duplicate_accessions": 0,
+      "newest_filing": "2026-09-25",
+      "oldest_filing": "2026-09-21",
+      "reason": "ALL REASONS"
+    },
+    {
+      "age_days_max": "0.938",
+      "age_days_p50": "0.938",
+      "age_days_p95": "0.938",
+      "candidates": 146,
+      "distinct_accessions": 146,
+      "distinct_issuers": 142,
+      "duplicate_accessions": 0,
+      "newest_filing": "2026-09-25",
+      "oldest_filing": "2026-09-21",
+      "reason": "executive_change"
+    },
+    {
+      "age_days_max": "1.521",
+      "age_days_p50": "0.938",
+      "age_days_p95": "1.521",
+      "candidates": 120,
+      "distinct_accessions": 120,
+      "distinct_issuers": 114,
+      "duplicate_accessions": 0,
+      "newest_filing": "2026-09-25",
+      "oldest_filing": "2026-09-21",
+      "reason": "material_agreement"
+    },
+    {
+      "age_days_max": "1.521",
+      "age_days_p50": "0.938",
+      "age_days_p95": "0.938",
+      "candidates": 27,
+      "distinct_accessions": 27,
+      "distinct_issuers": 26,
+      "duplicate_accessions": 0,
+      "newest_filing": "2026-09-25",
+      "oldest_filing": "2026-09-21",
+      "reason": "earnings_results"
+    },
+    {
+      "age_days_max": "1.521",
+      "age_days_p50": "0.938",
+      "age_days_p95": "1.230",
+      "candidates": 11,
+      "distinct_accessions": 11,
+      "distinct_issuers": 11,
+      "duplicate_accessions": 0,
+      "newest_filing": "2026-09-23",
+      "oldest_filing": "2026-09-21",
+      "reason": "acquisition"
+    },
+    {
+      "age_days_max": "0.938",
+      "age_days_p50": "0.938",
+      "age_days_p95": "0.938",
+      "candidates": 3,
+      "distinct_accessions": 3,
+      "distinct_issuers": 3,
+      "duplicate_accessions": 0,
+      "newest_filing": "2026-09-25",
+      "oldest_filing": "2026-09-25",
+      "reason": "annual_report"
+    },
+    {
+      "age_days_max": "0.938",
+      "age_days_p50": "0.938",
+      "age_days_p95": "0.938",
+      "candidates": 3,
+      "distinct_accessions": 3,
+      "distinct_issuers": 3,
+      "duplicate_accessions": 0,
+      "newest_filing": "2026-09-22",
+      "oldest_filing": "2026-09-22",
+      "reason": "ipo_filing"
+    },
+    {
+      "age_days_max": "1.521",
+      "age_days_p50": "1.521",
+      "age_days_p95": "1.521",
+      "candidates": 1,
+      "distinct_accessions": 1,
+      "distinct_issuers": 1,
+      "duplicate_accessions": 0,
+      "newest_filing": "2026-09-21",
+      "oldest_filing": "2026-09-21",
+      "reason": "bankruptcy"
+    },
+    {
+      "age_days_max": "1.521",
+      "age_days_p50": "1.521",
+      "age_days_p95": "1.521",
+      "candidates": 1,
+      "distinct_accessions": 1,
+      "distinct_issuers": 1,
+      "duplicate_accessions": 0,
+      "newest_filing": "2026-09-21",
+      "oldest_filing": "2026-09-21",
+      "reason": "restatement"
+    }
+  ],
+  "business_data_writes": 0,
+  "interpretation_limits": [
+    "Rows are candidates first observed in the interval; the table is pruned after 14 days.",
+    "Age is first_seen_at minus public filed_date, not publication latency measured at the SEC edge.",
+    "Aggregate freshness and uniqueness do not establish semantic reason precision."
+  ],
+  "model_calls": 0,
+  "observed_days": [
+    {
+      "candidates": 64,
+      "distinct_issuers": 62,
+      "distinct_reasons": 4,
+      "observed_day": "2026-09-21"
+    },
+    {
+      "candidates": 58,
+      "distinct_issuers": 56,
+      "distinct_reasons": 7,
+      "observed_day": "2026-09-22"
+    },
+    {
+      "candidates": 59,
+      "distinct_issuers": 59,
+      "distinct_reasons": 4,
+      "observed_day": "2026-09-23"
+    },
+    {
+      "candidates": 70,
+      "distinct_issuers": 68,
+      "distinct_reasons": 3,
+      "observed_day": "2026-09-24"
+    },
+    {
+      "candidates": 37,
+      "distinct_issuers": 36,
+      "distinct_reasons": 4,
+      "observed_day": "2026-09-25"
+    },
+    {
+      "candidates": 24,
+      "distinct_issuers": 23,
+      "distinct_reasons": 1,
+      "observed_day": "2026-09-26"
+    }
+  ],
+  "schema_version": 1,
+  "sec_requests": 0,
+  "source_execution": "earningsnerd-backfill-facts-v7rps",
+  "transaction_read_only": "on",
+  "visibility": "sanitized_operational_aggregate",
+  "window_end": "2026-09-28T00:00:00Z",
+  "window_start": "2026-09-21T00:00:00Z"
+}

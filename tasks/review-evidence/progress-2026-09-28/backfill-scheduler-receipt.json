@@ -1,0 +1,92 @@
+{
+  "verified_at": "2026-09-28T07:36:22.437817+00:00",
+  "pr": 996,
+  "merge_commit": "e2df7031edc3e01088f2cdb8866fc49ae9a0e54c",
+  "scheduler": {
+    "name": "backfill-facts-weekly",
+    "schedule": "0 7 * * 1",
+    "timezone": "Etc/UTC",
+    "enabled": true,
+    "created_after_verified_release": true,
+    "existing_identity_and_iam": true,
+    "new_iam_grants": 0,
+    "last_attempt_utc": "2026-09-28T07:00:00.712544Z",
+    "next_utc": "2026-10-05T07:00:00.580799Z",
+    "scheduler_retries": 0
+  },
+  "natural_execution": {
+    "name": "earningsnerd-backfill-facts-vlnbg",
+    "created_at": "2026-09-28T07:00:00.796870Z",
+    "completed_at": "2026-09-28T07:00:32.607756Z",
+    "succeeded_tasks": 1,
+    "manually_triggered": false,
+    "business_ledger": {
+      "counters": {
+        "extract_errors": 0,
+        "facts_inserted": 0,
+        "facts_rejected": 0,
+        "facts_skipped": 0,
+        "filings_processed": 0
+      },
+      "finished_at": "2026-09-28 07:00:28.131375+00:00",
+      "started_at": "2026-09-28 07:00:15.158179+00:00",
+      "status": "succeeded"
+    }
+  },
+  "verification_probe": {
+    "execution": "earningsnerd-backfill-facts-hpph4",
+    "status": "succeeded",
+    "succeeded_tasks": 1,
+    "read_only": "on",
+    "database_writes": 0,
+    "model_calls": 0,
+    "planning_ceiling_usd": 0.1,
+    "billed_cost_usd": null
+  },
+  "backlog_after": {
+    "companies": 0,
+    "filings": 0
+  },
+  "capacity_snapshot": {
+    "connections": 12,
+    "max_connections": 25,
+    "transaction_read_only": "on"
+  },
+  "health": {
+    "status": "healthy",
+    "checks": {
+      "database": {
+        "healthy": true,
+        "latency_ms": 6.41
+      },
+      "redis": {
+        "healthy": true,
+        "disabled": true,
+        "latency_ms": 0.0
+      },
+      "sec_edgar_circuit": {
+        "state": "closed",
+        "healthy": true,
+        "stats": {
+          "total_requests": 4,
+          "success_rate": 100.0,
+          "rejected_requests": 0
+        }
+      }
+    },
+    "timestamp": 1790580936.0651994
+  },
+  "persistent_job_spec_unchanged_after_probe": true,
+  "job_generation": 220,
+  "canonical_args": [
+    "scripts/backfill_facts.py",
+    "--only-new"
+  ],
+  "first_natural_execution_planning_reservation_usd": 1,
+  "budget_limit_note": "Planning reservations, not enforced billing caps. Normal weekly operational cost continues.",
+  "limits": [
+    "No pending cached-XBRL work existed; this proves the real scheduled no-work outcome, not a nonempty backfill.",
+    "The capacity snapshot is not a stress test or future headroom guarantee.",
+    "No summary generation or historical summary drain occurred."
+  ]
+}

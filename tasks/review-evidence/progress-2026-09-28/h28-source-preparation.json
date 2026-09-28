@@ -1,0 +1,138 @@
+{
+  "schema_version": 1,
+  "recorded_at": "2026-09-28T07:44:51.099285+00:00",
+  "holdout_id": "H28",
+  "accession_number": "0001104659-25-070159",
+  "status": "completed_source_preparation_dossier",
+  "scope": "Two independently dispatched complete source briefs and a separate source-reading reconciliation, with prior partial adverse history retained. Technical custody checked; not programme admission.",
+  "source_capsule_manifest_sha256": "ac31856008909313fd80100aeb9a3c757e6c88147473d0edbcb3e74056c8a364",
+  "source_children_verified": 58,
+  "source_coverage_per_context": {
+    "reader_bytes": 203558,
+    "native_images": 35,
+    "members": 36,
+    "image_references": 40
+  },
+  "source_contexts": [
+    "/root/h28_source_a_attempt2",
+    "/root/h28_source_b_attempt2",
+    "/root/h28_source_reconciliation"
+  ],
+  "counts": {
+    "current_a_issues": 18,
+    "current_b_issues": 17,
+    "adverse_partial_a_issues": 10,
+    "adverse_partial_b_issues": 10,
+    "unique_input_dispositions": 55,
+    "reconciled_material_issues": 20,
+    "disagreement_or_correction_records": 13,
+    "unresolved_material_source_disputes": 0
+  },
+  "completed_source_preparation_count": 3,
+  "total_approved_filings": 30,
+  "formal_programme_admission": false,
+  "candidate_generation_or_judging": false,
+  "limitations": [
+    "Current authoritative JPEGs supplement invalid historical encodings; historical-byte equality is unproved. The later programme freeze must bind this supplemental ledger.",
+    "No observed context compaction in the current A/B or reconciliation. The reconciler resumed the same intact context after a Codex usage-limit interruption; original compacted A/B opinions remain adverse history.",
+    "Provider build/context capacity are not exposed; technical custody does not certify hidden attention.",
+    "The complete 30-filing protocol inventory, source-context exclusions, execution binding and blinded decision boundary remain to be frozen and verified. No formal E7 output is authorized by this dossier alone."
+  ],
+  "artifacts": [
+    {
+      "path": "outputs/takeover-2026-09-28/h28-source-reference-retry/dispatch-a-attempt-2.json",
+      "bytes": 1958,
+      "sha256": "a0fbef09b665d3facb59570232dac4eb97debeb3424f2673fa15c6d967a957af"
+    },
+    {
+      "path": "outputs/takeover-2026-09-28/h28-source-reference-retry/dispatch-b-attempt-2.json",
+      "bytes": 1497,
+      "sha256": "8be43fccc263473dfe21d0e8a2701b497f44d174f6d60788118267bc6492a622"
+    },
+    {
+      "path": "outputs/takeover-2026-09-28/h28-source-reference-retry/dispatch-reconciliation-attempt-1.json",
+      "bytes": 1663,
+      "sha256": "d3fe63df1ce58dab431125091ff1762aac2b099c8b6f5810520d448ba8046b21"
+    },
+    {
+      "path": "outputs/takeover-2026-09-28/h28-source-reference-retry/reference-a-attempt-2/brief-draft.json",
+      "bytes": 89011,
+      "sha256": "f3d66f6404ff04bbea27bfda15c6964c3e3bc71eaccacc61f51ef492010f39f9"
+    },
+    {
+      "path": "outputs/takeover-2026-09-28/h28-source-reference-retry/reference-a-attempt-2/brief-draft.md",
+      "bytes": 32370,
+      "sha256": "ff8cf812b89a16355eda670bdb0f1c6caf147f85fb7567c02181ea0e966a5ba5"
+    },
+    {
+      "path": "outputs/takeover-2026-09-28/h28-source-reference-retry/reference-a-attempt-2/read-log.json",
+      "bytes": 210840,
+      "sha256": "71adc475c0bf8ab113b323cd01481ee23b8f6de918b201b8439b54b769dd5a87"
+    },
+    {
+      "path": "outputs/takeover-2026-09-28/h28-source-reference-retry/reference-b-attempt-2/brief-draft.json",
+      "bytes": 104652,
+      "sha256": "d358e1ef7b80702941c45470498ea0c27763e88f63dde4043bedfaba1d3ed957"
+    },
+    {
+      "path": "outputs/takeover-2026-09-28/h28-source-reference-retry/reference-b-attempt-2/brief-draft.md",
+      "bytes": 30488,
+      "sha256": "7ff0c58e8f0008f3fbc9f2352b44220d3a8c19df449d0d3b962560e9b768f164"
+    },
+    {
+      "path": "outputs/takeover-2026-09-28/h28-source-reference-retry/reference-b-attempt-2/read-log.json",
+      "bytes": 192602,
+      "sha256": "b2852cee129b86340c8a3f0ad7978a99ec0be05258c309cec18ab48f2e65b8ec"
+    },
+    {
+      "path": "outputs/takeover-2026-09-28/h28-source-reference-retry/reconciliation-inputs/manifest.json",
+      "bytes": 2099,
+      "sha256": "05c60cabe95531d77ef87272b33b54c5f1207136fcb25611490706808202ee29"
+    },
+    {
+      "path": "outputs/takeover-2026-09-28/h28-source-reference-retry/reconciliation-inputs/reference-a-current.json",
+      "bytes": 89011,
+      "sha256": "f3d66f6404ff04bbea27bfda15c6964c3e3bc71eaccacc61f51ef492010f39f9"
+    },
+    {
+      "path": "outputs/takeover-2026-09-28/h28-source-reference-retry/reconciliation-inputs/reference-b-current.json",
+      "bytes": 104652,
+      "sha256": "d358e1ef7b80702941c45470498ea0c27763e88f63dde4043bedfaba1d3ed957"
+    },
+    {
+      "path": "outputs/takeover-2026-09-28/h28-source-reference-retry/reconciliation-inputs/adverse-a-partial.json",
+      "bytes": 20812,
+      "sha256": "1477b497d857806d88ef3dec9cfb0d1e22b7d98d2c05e827203dba60a72f4958"
+    },
+    {
+      "path": "outputs/takeover-2026-09-28/h28-source-reference-retry/reconciliation-inputs/adverse-b-partial.json",
+      "bytes": 17882,
+      "sha256": "d64b02877db61ac44e96506e0fabcfdd921778fe34fae54aa9692904ac64a6dc"
+    },
+    {
+      "path": "outputs/takeover-2026-09-28/h28-source-reference-retry/reconciliation-attempt-1/reconciliation-draft.json",
+      "bytes": 315134,
+      "sha256": "eab2b66b435ecec40024f0ceb43985b928ac3f2248979825f597e0b0a75763e6"
+    },
+    {
+      "path": "outputs/takeover-2026-09-28/h28-source-reference-retry/reconciliation-attempt-1/reconciliation-draft.md",
+      "bytes": 58919,
+      "sha256": "88f4e249502ff00275309e2cee14507dbfac763561b69dcc3021d2a224542073"
+    },
+    {
+      "path": "outputs/takeover-2026-09-28/h28-source-reference-retry/reconciliation-attempt-1/read-log.json",
+      "bytes": 91535,
+      "sha256": "88b67488b2011ff1bb9497920da83ea9a81996a50fa0e19a1af8b69ec3aba1c8"
+    },
+    {
+      "path": "outputs/takeover-2026-09-28/h28-source-reference-retry/custody-check/validation.json",
+      "bytes": 7509,
+      "sha256": "ff0dd587874336002cd5ef72a23df1911ba3be4b5cf534b2879c433ead748c4d"
+    },
+    {
+      "path": "outputs/takeover-2026-09-28/h28-source-reference-retry/custody-check/custody-review.md",
+      "bytes": 4102,
+      "sha256": "f5643c645ef87dddc7b0466f1f22ac938c3f14bc64e656f8faabc8b974ec4c67"
+    }
+  ]
+}

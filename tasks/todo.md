@@ -5835,3 +5835,16 @@ A fresh Claude Code web container restored the E8 kit (12 attachments verified, 
 
 - [x] Current H25 complete-submission entity matches the frozen 297,209,475-byte capture; one authoritative terminal-case GIF matches its retained diagnostic identity. Two SEC requests total across these successful observations, no model calls, no decoder repair or admission.
 - [ ] Finish the [remaining quality corrections](review-evidence/source-view-streaming-2026-09-27/next-quality-candidate.md) before the next paid candidate corpus. The reviewed local r date/coexistence commit remains unpushed and unaccepted.
+
+
+## September 28 execution closure
+
+- [x] Verify #996 release and the first natural weekly facts backfill against its business ledger; retain zero-backlog and unchanged-job readback.
+- [x] Complete H28 independent source briefs, source-reading reconciliation and bounded custody validation; preserve all 55 current/adverse identities (3/30 source-preparation dossiers).
+- [x] Complete Notable seven-day operational and frozen 12-card source/UI readout; retain implementation and defer activation under delegated authority.
+- [ ] Release #997 neutral Analysis source wording after exact-head gates and verify deployment.
+- [ ] Correct Notable regulatory labels without changing internal keys/ranking/flag, then resolve four remaining source gaps before activation.
+- [ ] Review Fable's finite source-owned maturity repair; keep #992 draft until source-measure ownership and exact-head evidence pass.
+- [ ] Execute the remaining 27 source dossiers using measured complete partitions, then the unchanged E7 programme on an accepted configuration.
+
+Evidence and current ownership: [September 28 execution update](continuation-plan-2026-09-26.md#september-28-execution-update).

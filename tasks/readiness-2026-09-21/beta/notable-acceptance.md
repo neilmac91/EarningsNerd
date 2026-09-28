@@ -1,18 +1,21 @@
-# Notable filings retain/kill worksheet v1 — blank
+# Notable filings acceptance worksheet — September 28 readout
 
-The scanner, job, stored candidates, homepage mount and client events already exist. Current server flag is off, so zero section impressions/clicks cannot decide utility. Under the founder’s September 27 delegation, engineering owns the evidence readout and recommendation; Codex as chief engineer owns retain/defer/kill and any later bounded release. This explicitly supersedes the earlier founder-ownership labels, as recorded in the [authoritative handover](../../handover-astra-2026-09-19.md). The worksheet remains blank; ownership does not satisfy its evidence requirements. This worksheet asks for at least seven consecutive scheduled days of job and source evidence before that decision.
+Codex's authorized disposition is **retain the implementation, defer activation**. The scanner's seven-day operational observation is complete, while source and visible-label acceptance remain open. The founder’s September 27 delegation makes Codex responsible for the evidence-based retain/defer/kill decision and any later bounded release, as recorded in the [authoritative handover](../../handover-astra-2026-09-19.md).
 
-| Control | Receipt to fill |
+| Control | Observed evidence |
 |---|---|
-| Candidate deployment SHA / service flag observation | `[ ]` / `[enabled or dark; UTC time]` |
-| Seven-day UTC interval and expected scheduled slots | `[ ]` / `[ ]` |
-| Observed successful / failed / missing job runs | `[ ] / [ ] / [ ]`; list every missing/failed slot |
-| Stored distinct accessions / issuers; age p50/p95/max | `[ ]`; `[ ]` |
-| Duplicate accessions / reason mix / source errors | `[ ] / [ ] / [ ]` |
-| Editorial sample size and selection rule | `[bounded sample across reasons, days and issuers]` |
-| EDGAR source checks | `[accession, form, filing date, reason evidence, false-positive disposition per card]` |
-| Section impressions / card clicks / CTR | `[ ] / [ ] / [ ]`, only if section enabled and impressions observed |
-| Reviewer recommendation; authorized Codex disposition/date | `[retain/kill/pending with rationale]`; `[ ]` |
+| Deployment / flag | Merge `e2df7031edc3e01088f2cdb8866fc49ae9a0e54c`; revision `00407-vv2`; retained 06:42 UTC release readback has `NOTABLE_FILINGS_ENABLED=false`. No flag changed. |
+| Seven-day interval / expected slots | `[2026-09-21 00:00, 2026-09-28 00:00)` UTC; 14 twice-daily slots. |
+| Successful / failed / missing | All 14 slots eventually succeeded; 0 missing. 18 ledger attempts: 14 succeeded, 4 failed. First attempts failed at 12:30 UTC on Sep 22, 23, 25 and 26; automatic retries recovered each. First-attempt slot success is 10/14. |
+| Distinct accessions / issuers / age | 312 / 291; first-observed age p50 0.938 days, p95 and max 1.521 days. This age uses filing-date midnight, not SEC publication latency. |
+| Duplicates / reason mix / source errors | 0 duplicates; 146 executive-change, 120 material-agreement, 27 earnings, 11 acquisition, 3 annual-report, 3 registration, 1 bankruptcy and 1 non-reliance candidate. Four failed job attempts reported source errors. |
+| Sample / selection | Frozen 12 rows covering all 8 reasons, 6 first-seen days and 12 issuers; no replacement. |
+| EDGAR source checks | 8 sources support bounded wording, 4 remain inaccessible. All 8 readable indices matched accession, form and filed date. The application transport returned no source bytes; official SEC web fallback rendered 14 pages with normalized text/locators. |
+| Actual visible-card acceptance | 6 supported current labels, **2 unsupported overclaims**, 4 indeterminate. BOXL’s S-1 is labeled “IPO filing”; OPTU’s Item 4.02 is labeled “Restatement.” The source worksheet's eight qualified passes are not eight current-product passes. |
+| Impressions / clicks / CTR | Not measured; section remains dark, so zero exposure cannot decide utility. |
+| Decision / next action | Codex, Sep 28: retain/defer. Correct the regulatory labels, resolve the four frozen source gaps or verify a withholding policy, then decide bounded beta activation. No founder reapproval is needed for this engineering work. |
+
+The [decision receipt](../../review-evidence/progress-2026-09-28/notable-disposition.json), [cohort aggregate](../../review-evidence/progress-2026-09-28/notable-cohort-aggregate.json), [per-card source review](../../review-evidence/progress-2026-09-28/notable-review.md) and [current-UI integration review](../../review-evidence/progress-2026-09-28/notable-integration-review.md) preserve the different denominators and limits. INBP, SGMOQ, CD and AETN are indeterminate because the exact official SEC index pages were inaccessible. The single reviewed PUMP executive change and RIME acquisition do not validate those category labels for all Item 5.02 or 2.01 filings.
 
 Read-only source queries below are candidate diagnostics; they require an authorized DB read and are not a substitute for inspecting EDGAR source documents. Replace the two UTC bounds and read actual job outcome semantics before running. Use the `ALL REASONS` row for the worksheet's cohort-wide distinct counts and age p50/p95/max; the other rows show the reason mix. The job-ledger role may lack `SELECT`; record `unavailable` rather than retrying or broadening that grant. `notable_filings` is pruned after 14 days, so the table cannot reconstruct missing older runs.
 

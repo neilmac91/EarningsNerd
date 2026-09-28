@@ -1,0 +1,218 @@
+{
+  "schema_version": "1.0",
+  "kind": "bounded_technical_custody_check",
+  "reviewed_on": "2026-09-28",
+  "accession_number": "0001104659-25-070159",
+  "status": "pass",
+  "scope": {
+    "source_capsule": "outputs/takeover-2026-09-27/h28-source-review-preparation/dispatch-capsule",
+    "retry_root": "outputs/takeover-2026-09-28/h28-source-reference-retry",
+    "semantic_source_redraw_performed": false,
+    "network_or_model_calls_performed": false,
+    "repository_code_changed": false,
+    "github_posts_made": false
+  },
+  "checks": {
+    "source_capsule": {
+      "pass": true,
+      "manifest_sha256": "ac31856008909313fd80100aeb9a3c757e6c88147473d0edbcb3e74056c8a364",
+      "manifest_child_entries": 58,
+      "unique_child_paths": 58,
+      "verified_child_hashes": 58,
+      "verified_child_byte_counts": 58,
+      "mismatches": []
+    },
+    "reconciliation_inputs": {
+      "pass": true,
+      "manifest_sha256": "05c60cabe95531d77ef87272b33b54c5f1207136fcb25611490706808202ee29",
+      "source_capsule_manifest_hash_matches": true,
+      "inputs": [
+        {
+          "path": "reconciliation-inputs/reference-a-current.json",
+          "sha256": "f3d66f6404ff04bbea27bfda15c6964c3e3bc71eaccacc61f51ef492010f39f9",
+          "bytes": 89011,
+          "material_issues": 18,
+          "original_byte_identical": true,
+          "history_role": "eligible_current_reference"
+        },
+        {
+          "path": "reconciliation-inputs/reference-b-current.json",
+          "sha256": "d358e1ef7b80702941c45470498ea0c27763e88f63dde4043bedfaba1d3ed957",
+          "bytes": 104652,
+          "material_issues": 17,
+          "original_byte_identical": true,
+          "history_role": "eligible_current_reference"
+        },
+        {
+          "path": "reconciliation-inputs/adverse-a-partial.json",
+          "sha256": "1477b497d857806d88ef3dec9cfb0d1e22b7d98d2c05e827203dba60a72f4958",
+          "bytes": 20812,
+          "material_issues": 10,
+          "original_byte_identical": true,
+          "history_role": "partial_adverse_history"
+        },
+        {
+          "path": "reconciliation-inputs/adverse-b-partial.json",
+          "sha256": "d64b02877db61ac44e96506e0fabcfdd921778fe34fae54aa9692904ac64a6dc",
+          "bytes": 17882,
+          "material_issues": 10,
+          "original_byte_identical": true,
+          "history_role": "partial_adverse_history"
+        }
+      ],
+      "both_partial_adverse_histories_preserved": true,
+      "mismatches": []
+    },
+    "input_identity_dispositions": {
+      "pass": true,
+      "expected_unique_identities": 55,
+      "actual_dispositions": 55,
+      "unique_disposition_identities": 55,
+      "missing_identities": [],
+      "unexpected_identities": [],
+      "duplicate_identities": [],
+      "disposition_counts": {
+        "retained": 37,
+        "merged": 15,
+        "corrected": 3,
+        "not_material": 0,
+        "unsupported": 0,
+        "unresolved": 0
+      },
+      "all_mapped_final_issue_ids_exist": true
+    },
+    "reconciled_inventory": {
+      "pass": true,
+      "material_issue_count": 20,
+      "unique_issue_ids": 20,
+      "required_fields": [
+        "issue_id",
+        "issue",
+        "source_role",
+        "source_sha256",
+        "source_locator",
+        "amounts_and_bases",
+        "qualifiers",
+        "importance",
+        "disclosure_limits"
+      ],
+      "issues_with_exact_nine_field_shape": 20,
+      "shape_mismatches": [],
+      "json_markdown_identity_coverage_matches": true
+    },
+    "accession_source_and_locator_consistency": {
+      "pass": true,
+      "accession_matches_capsule": true,
+      "issue_records_checked": 75,
+      "source_role_hash_mismatches": [],
+      "structured_current_and_final_locator_mismatches": [],
+      "final_locators_checked": 20,
+      "current_reference_locators_checked": 35,
+      "adverse_history_locator_strings_preserved": 20,
+      "frozen_member_and_current_attachment_bindings_match_ledgers": true
+    },
+    "disputes_and_limits": {
+      "pass": true,
+      "recorded_disagreements": 13,
+      "disagreements_with_source_resolution": 13,
+      "disagreements_with_remaining_limits": 13,
+      "unresolved_material_source_disputes": 0,
+      "unresolved_items": [
+        {
+          "item_id": "U01",
+          "classification": "custody_limit_not_unread_current_visual"
+        },
+        {
+          "item_id": "U02",
+          "classification": "custodian_matter"
+        },
+        {
+          "item_id": "U03",
+          "classification": "disclosure_limit"
+        }
+      ]
+    },
+    "reader_interval_coverage": {
+      "pass": true,
+      "expected_reader_bytes": 203558,
+      "reader_files": [
+        {
+          "path": "views/member-001/reader.txt",
+          "bytes": 192603,
+          "required_interval": [0, 192603]
+        },
+        {
+          "path": "views/packet-index/reader.txt",
+          "bytes": 10955,
+          "required_interval": [0, 10955]
+        }
+      ],
+      "read_logs": [
+        {
+          "path": "reference-a-attempt-2/read-log.json",
+          "union_bytes": 203558,
+          "complete_without_gaps": true
+        },
+        {
+          "path": "reference-b-attempt-2/read-log.json",
+          "union_bytes": 203558,
+          "complete_without_gaps": true
+        },
+        {
+          "path": "reconciliation-attempt-1/read-log.json",
+          "union_bytes": 203558,
+          "complete_without_gaps": true
+        }
+      ]
+    },
+    "members_images_and_references": {
+      "pass": true,
+      "native_attachment_files": 35,
+      "native_inventory_entries": 35,
+      "filing_members": 36,
+      "filing_image_reference_occurrences": 40,
+      "unique_filing_image_filenames": 35,
+      "logs_checked": 3,
+      "each_log_has_35_unique_image_hash_receipts": true,
+      "each_log_has_36_unique_member_dispositions": true,
+      "each_log_has_40_image_reference_occurrences": true,
+      "attachment_hash_mismatches": [],
+      "reconciliation_frozen_member_binding_mismatches": []
+    },
+    "dispatch_metadata": {
+      "pass": true,
+      "dispatch_records": 3,
+      "prompt_hashes_match": true,
+      "manifest_hashes_match": true,
+      "returned_artifact_hashes_and_bytes_match": true,
+      "states": {
+        "dispatch-a-attempt-2.json": "returned_complete_draft",
+        "dispatch-b-attempt-2.json": "returned_complete_draft",
+        "dispatch-reconciliation-attempt-1.json": "returned_complete_draft"
+      }
+    },
+    "runtime_separation": {
+      "pass": true,
+      "reference_a_self_reported_compaction": false,
+      "reference_b_self_reported_compaction": false,
+      "reconciliation_self_reported_compaction": false,
+      "reconciliation_runtime_interruption_recorded": "Codex usage-limit failure; work preserved and same-agent resume are custodian metadata",
+      "hidden_attention_certified": false,
+      "provider_capacity_certified": false
+    }
+  },
+  "actual_inconsistencies": [],
+  "retained_limits": [
+    "Historical equality between the current authoritative JPEGs and the frozen invalid encodings is not established.",
+    "Runtime provenance, hidden attention, provider identity and provider capacity are custodian matters, not source conclusions.",
+    "Future or omitted information identified in U03 remains outside the supplied interim-report evidence."
+  ],
+  "not_certified": [
+    "programme admission",
+    "candidate quality",
+    "historical image equality",
+    "formal seals",
+    "hidden model attention",
+    "provider capacity"
+  ]
+}

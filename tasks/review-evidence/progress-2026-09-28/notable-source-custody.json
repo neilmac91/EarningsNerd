@@ -1,0 +1,58 @@
+{
+  "schema_version": 1,
+  "status": "official_web_fallback_complete_with_retrieval_gaps",
+  "frozen_inputs": [
+    {
+      "path": "../notable-acceptance-db/source-packet.json",
+      "sha256": "f9b1b32f74ac79c003dba1ddfd442a4783d49b5382c57d715aece752378669ee"
+    },
+    {
+      "path": "../notable-acceptance-db/source-read-followup.md",
+      "sha256": "626476b00ef5622188fe3bd008c7d2c72e9a915788b4307d0d16d03878bfa50b"
+    },
+    {
+      "path": "../notable-acceptance-db/aggregate.json",
+      "sha256": "4de0805187b146794b355d2c6812053e19fd5c77a07249e5dd1341d5ccf91aa2"
+    }
+  ],
+  "runner": {
+    "path": "acquire_sources.py",
+    "sha256": "90387fa2d9c3501278556c132ed4fe2d59dd55d11b64d67a3c8b4023520d8cb4",
+    "release_repository_head": "1c8a017e49e2dbe98a7612a0d445b4b883d9b80d"
+  },
+  "existing_transport_attempt": {
+    "path": "acquisition.json",
+    "sha256": "64fd56be878e29e786010dc1f4e84b5f0d543dd20d43f7a6cb0ed5de001fd936",
+    "transport_calls_recorded": 12,
+    "physical_network_attempts": 5,
+    "successful_sec_responses": 0,
+    "local_circuit_breaker_rejections": 7,
+    "failure": "The first five physical calls failed before an HTTP response; the shared sec_edgar breaker then opened. No call was retried."
+  },
+  "official_web_fallback": {
+    "constraint": "Used only after the repository transport was unavailable. Direct official www.sec.gov URLs only; no search, proxy, alternate SEC client, exhibit, or related filing.",
+    "index_opens": 12,
+    "index_pages_rendered": 8,
+    "index_tool_errors": 4,
+    "primary_opens": 7,
+    "primary_pages_rendered": 6,
+    "primary_tool_errors": 1,
+    "confirmed_rendered_sec_pages": 14,
+    "maximum_sec_responses": 24,
+    "bound_respected": true,
+    "cached_ref_reopens": 4,
+    "cached_find_operations": 4,
+    "note": "Cached-ref reopens and find operations inspected already-returned pages and are not additional SEC page requests. The web opener reports crawl timing and may serve cached renders."
+  },
+  "retained_source_files": {
+    "count": 0,
+    "hashes": [],
+    "status": "none_retained",
+    "reason": "The repository transport returned no response bytes. The permitted official web opener exposed normalized page text and line locators, not exact response bytes or headers. No raw-source SHA-256 is claimed."
+  },
+  "limitations": [
+    "Four filing indices and one primary document were inaccessible through the official web opener; those rows or claims remain indeterminate where the index did not independently establish the reason.",
+    "Official web line numbers identify the normalized SEC page render, not byte offsets in a retained filing.",
+    "No source byte hash can be produced for a page that was rendered but not returned as bytes."
+  ]
+}
