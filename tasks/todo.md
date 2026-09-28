@@ -1,3 +1,9 @@
+# September 28 — summary request evidence
+
+- [ ] Deliver one consent-gated request lifecycle across cached/shared/generated summaries and automatic/auth retries; retain server account/request identity, terminal unknowns and legacy semantics.
+- [ ] Verify new adverse controls, mutation proofs, full backend/frontend gates and unchanged locked contracts; review exact head before a bounded metered push/release.
+- [ ] Verify actual backend migration/revision/traffic/jobs and exact-SHA frontend production after merge; live analytics ingestion is a separate access-dependent check.
+
 ## September 27 — seven verified releases and H30 review hold
 
 - [x] Engineering releases #963–#969 are verified; current backend is `00393-6m9` from main `e39b475e13a0599d037303aacc75a82d51b053b8`. The [current continuation](continuation-plan-2026-09-26.md) and its evidence index contain actual output, deployment and independent-health receipts.

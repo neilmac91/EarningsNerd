@@ -43,6 +43,7 @@ from app.services.metric_delta_service import (
     bind_exact_xbrl_deltas,
 )
 from app.services.openai_service import openai_service
+from app.services.summary_request_evidence import SummaryRequestEvidence
 from app.services.posthog_client import (
     EVENT_GENERATION_STARTED,
     EVENT_GENERATION_SUCCEEDED,
@@ -371,6 +372,7 @@ async def stream_filing_summary(
     telemetry_ctx: dict,
     emit_funnel_telemetry: bool = True,
     force_regenerate: bool = False,
+    request_evidence: SummaryRequestEvidence | None = None,
 ) -> AsyncIterator[dict]:
     """Run the summary pipeline for ``filing_id``, yielding event dicts.
 
@@ -460,11 +462,15 @@ async def stream_filing_summary(
             filing_fields, summary_fields = await run_sync_db(get_filing_and_summary_sync)
 
             if not filing_fields:
+                if request_evidence is not None:
+                    request_evidence.reason = "filing_not_found"
                 logger.warning(f"[stream:{filing_id}] Filing not found during stream generation.")
                 yield {'type': 'error', 'message': 'Filing not found'}
                 return
 
             if summary_fields and not force_regenerate:
+                if request_evidence is not None:
+                    request_evidence.delivery_path = "pipeline_cache"
                 logger.info(f"[stream:{filing_id}] Existing summary found. Returning it.")
                 yield {
                     'type': 'complete',
@@ -499,10 +505,14 @@ async def stream_filing_summary(
                         # replacement cannot finish between our absence check and admission.
                         summary_fields = await run_sync_db(get_persisted_summary_fields)
                         if summary_fields:
+                            if request_evidence is not None:
+                                request_evidence.delivery_path = "coalesced"
                             yield {'type': 'complete', 'summary': summary_fields["business_overview"], 'summary_id': summary_fields["id"]}
                             return
                     break
                 joined_generation = True
+                if request_evidence is not None:
+                    request_evidence.delivery_path = "coalesced"
                 logger.info(f"[stream:{filing_id}] Joining in-flight generation (dedup).")
                 yield {'type': 'progress', 'stage': 'queued', 'message': 'Another request is already generating this analysis — joining it...', 'percent': 3, 'elapsed_seconds': int(time.time() - pipeline_started_at)}
                 while not existing_generation.is_set() and waited < INFLIGHT_WAIT_CAP_SECONDS:
@@ -568,6 +578,8 @@ async def stream_filing_summary(
                     # A Pro user is billing-unlimited, so a block here means the INVISIBLE fair-use
                     # ceiling (PRO_SUMMARY_MONTHLY_CAP) tripped — degrade with a generic message,
                     # never an upsell, and skip the paywall funnel event (a Pro user isn't paywalled).
+                    if request_evidence is not None:
+                        request_evidence.reason = "fair_use" if user_is_unlimited else "monthly_quota"
                     if user_is_unlimited:
                         logger.warning(
                             f"[stream:{filing_id}] Pro user {user_id} hit summary fair-use ceiling ({limit})."
@@ -600,6 +612,9 @@ async def stream_filing_summary(
                 # current_user=None is only reachable from the internal drains now (cron
                 # pregenerate / admin refresh) — the user-facing route requires an account.
                 logger.info(f"[stream:{filing_id}] Internal caller (no user) — per-user quota not applicable.")
+
+            if request_evidence is not None:
+                request_evidence.delivery_path = "generation"
 
             # Bound concurrent generations per process (protects the single vCPU). Acquired here —
             # AFTER the usage/fair-use gate so rejected/abusive requests never occupy a slot, and only
@@ -909,6 +924,8 @@ async def stream_filing_summary(
                 # text arrives as the excerpt) so a cached or regenerated 6-K is classified too.
                 sixk = classify_sixk_text(filing_text or excerpt)
                 sixk_class, sixk_class_audit = sixk.sixk_class, sixk.as_audit()
+            if request_evidence is not None:
+                request_evidence.summary_service_invoked = True
             summary_task = asyncio.create_task(openai_service.summarize_filing(
                 filing_text,
                 company_name,
@@ -1316,6 +1333,8 @@ async def stream_filing_summary(
             else:
                 yield {'type': 'complete', 'summary_id': saved_summary_id, 'percent': 100}
     except TimeoutError:
+        if request_evidence is not None:
+            request_evidence.reason = "pipeline_timeout"
         # Pipeline hard timeout reached
         logger.warning(f"[stream:{filing_id}] Pipeline timeout after {PIPELINE_TIMEOUT_SECONDS}s")
         emit_funnel(
