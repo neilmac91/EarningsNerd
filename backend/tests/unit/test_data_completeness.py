@@ -1,5 +1,7 @@
 """WS-7 periods, amendment identity, persisted XBRL, and complete quality provenance."""
 import asyncio
+import re
+import shlex
 from datetime import date, datetime, timezone
 from io import BytesIO
 from pathlib import Path
@@ -8,6 +10,7 @@ from unittest.mock import AsyncMock
 
 import pandas as pd
 import pytest
+import yaml
 from openpyxl import load_workbook
 from sqlalchemy import create_engine, inspect
 from sqlalchemy.orm import sessionmaker
@@ -290,6 +293,32 @@ def test_weekly_pregenerate_runs_quarters_and_foreign_annual(sessions, monkeypat
     workflow = (Path(__file__).parents[3] / ".github/workflows/ci.yml").read_text()
     step = workflow.split("- name: Update pregenerate job image")[1].split("- name:")[0]
     assert "ENABLE_FPI_FILINGS=true" in step
+
+
+def test_backfill_deploy_restores_only_its_scheduled_entrypoint():
+    workflow = yaml.load(
+        (Path(__file__).parents[3] / ".github/workflows/ci.yml").read_text(),
+        Loader=yaml.BaseLoader,
+    )
+    steps = workflow["jobs"]["deploy-backend"]["steps"]
+    generic = next(step for step in steps if step.get("name", "").startswith("Update filing-scan"))
+    backfill = next(step for step in steps if step.get("name", "").startswith("Update backfill-facts"))
+
+    assert "earningsnerd-backfill-facts" not in generic["run"]
+    executable = "\n".join(
+        line for line in backfill["run"].splitlines() if not line.lstrip().startswith("#")
+    )
+    normalized = re.sub(r"\\\s*\n\s*", " ", executable)
+    updates = re.findall(
+        r"gcloud run jobs update earningsnerd-backfill-facts .*? --quiet", normalized
+    )
+    assert len(updates) == 1
+    tokens = shlex.split(updates[0])
+    assert "--image=$IMAGE:${GITHUB_SHA::7}" in tokens
+    assert "--update-env-vars=DB_POOL_SIZE=1,DB_MAX_OVERFLOW=0" in tokens
+    assert "--command=python" in tokens
+    assert "--args=scripts/backfill_facts.py,--only-new" in tokens
+    assert "--dry-run" not in tokens
 
 
 def test_older_filing_facts_never_replace_newer_amendment_or_untied_companyfacts(sessions):

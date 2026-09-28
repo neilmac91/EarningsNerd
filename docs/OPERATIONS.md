@@ -353,7 +353,9 @@ Located in `backend/scripts/`:
 - `verify_startup_config.py` - Detailed startup configuration verification
 - `debug_extraction.py` - Debug regex patterns for extraction
 - `fix_null_sec_urls.py` - Repair filings with NULL sec_url values (see docs/TROUBLESHOOTING.md)
-- `backfill_facts.py` - Backfill the `financial_fact` table from cached/parsed XBRL
+- `backfill_facts.py` - Backfill the `financial_fact` table from cached/parsed XBRL. Its normal and
+  `--only-new` modes write; `--dry-run` is valid only with `--remediate-financials` or
+  `--backfill-company-sic` and otherwise exits before application initialization.
 - `audit_reconciliation_flags.py` - Audit/repair stored `financial_fact.reconciled` flags on
   value-identical rows, flag columns only (unstored identities are counted, never inserted; dry
   run by default; `--apply` writes; `--tickers`, `--limit`)
