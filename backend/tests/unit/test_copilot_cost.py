@@ -128,6 +128,13 @@ def test_per_model_price_table_and_peak_multiplier(monkeypatch):
     assert flash == {"cost_usd": round(0.5 * 0.003 + 0.5 * 0.15 + 0.60, 6), "peak": False}
     doubled = llm_pricing.estimate_call_cost_usd("deepseek-flash", usage, at=peak)
     assert doubled["peak"] is True and doubled["cost_usd"] == round(flash["cost_usd"] * 2, 6)
+    # Pro service continued after September 14; its actual-model tariff differs from Flash.
+    for model in ("deepseek-v4-pro", "deepseek-v4-pro-0813"):
+        pro = llm_pricing.estimate_call_cost_usd(model, usage, at=off_peak)
+        assert pro == {"cost_usd": round(0.5 * 0.022 + 0.5 * 0.66 + 1.98, 6), "peak": False}
+        assert llm_pricing.estimate_call_cost_usd(model, usage, at=peak) == {
+            "cost_usd": round(pro["cost_usd"] * 2, 6), "peak": True,
+        }
     monkeypatch.setattr(settings, "AI_PEAK_PRICE_MULTIPLIER", 3.0)
     assert llm_pricing.estimate_call_cost_usd("deepseek-flash", usage, at=peak)["cost_usd"] == round(flash["cost_usd"] * 3, 6)
     # Unknown model: the Settings constants (the configured default's rates); no split → all miss.
