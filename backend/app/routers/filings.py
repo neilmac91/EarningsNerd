@@ -243,11 +243,17 @@ async def get_company_filings(
         # Default serves the recent cap (unchanged behaviour); an explicit ?limit= (P1-6 "show full
         # history") raises it so the deep-backfilled rows surface.
         row_cap = limit or CACHED_FILINGS_LIMIT
-        cached = db.query(Filing).options(joinedload(Filing.company)).filter(
-            Filing.company_id == company_id,
-            Filing.filing_type.in_(types_list)
-        ).order_by(Filing.filing_date.desc()).limit(row_cap).all()
-        return [FilingResponse.from_orm(f) for f in cached]
+        try:
+            cached = db.query(Filing).options(joinedload(Filing.company)).filter(
+                Filing.company_id == company_id,
+                Filing.filing_type.in_(types_list)
+            ).order_by(Filing.filing_date.desc()).limit(row_cap).all()
+            return [FilingResponse.from_orm(f) for f in cached]
+        finally:
+            # A sync dependency's finalizer runs in the thread pool after this async route yields.
+            # Release completed reads now so a competing synchronous checkout cannot block the
+            # event loop while waiting for those very finalizers to return the serving slots.
+            db.close()
 
     # P1-6: enqueue a one-time deep-history backfill the first time this company is viewed. Guarded
     # by the stamp so it never re-walks a company; runs in the background so the page never waits on
@@ -401,6 +407,9 @@ async def get_company_filings(
             logger.info(f"Returning {len(cached)} cached filings for {ticker_upper} after error")
             return cached
         raise HTTPException(status_code=500, detail=f"Error fetching filings: {str(e)}") from e
+    finally:
+        # Live results and error fallbacks also finish their DTOs before dependency cleanup.
+        db.close()
 
 @router.get("/{filing_id}", response_model=FilingResponse)
 async def get_filing(filing_id: int, db: Session = Depends(get_db)):
@@ -478,4 +487,3 @@ async def get_recent_filings(
     filings = db.query(Filing).options(joinedload(Filing.company)).order_by(desc(Filing.filing_date)).limit(limit).all()
 
     return [FilingResponse.from_orm(filing) for filing in filings]
-
