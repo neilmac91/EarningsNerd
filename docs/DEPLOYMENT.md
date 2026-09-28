@@ -626,39 +626,31 @@ gcloud scheduler jobs create http notable-filings-scan --location=us-west1 \
   --http-method=POST --oauth-service-account-email="${SA}"
 ```
 
-First rollout (**founder executes** job creation, Scheduler creation, smoke and seed; the section ships dark):
-```bash
-# 1. Smoke-test, then seed a full week so the section isn't empty on day one:
-gcloud run jobs execute earningsnerd-notable-filings --region=us-west1 --wait
-gcloud run jobs execute earningsnerd-notable-filings --region=us-west1 \
-  --args="scripts/notable_filings_job.py,--days,7" --wait
-# Stop here: keep serving dark during the founder's one-week quality review.
-# The scan runs regardless of NOTABLE_FILINGS_ENABLED; a successful seed is not launch approval.
-```
+The existing production scanner and scheduler are provisioned. The September 21–27 ledger now
+contains all fourteen expected successful slots, including four automatic retry recoveries. The
+September 28 source readout preserves twelve frozen examples, the initial label defects and the
+additive source reads. Under the founder's delegation, Codex owns the retain/enable decision in
+[the bounded rollout](../tasks/notable-rollout-2026-09-28.md); no new seed or job dispatch is needed.
 
-W3-2 explicitly pins `NOTABLE_FILINGS_ENABLED=false` in both the service and pregenerate
-deploy env. At this source-preparation checkpoint, merge/deployment verification is pending;
-this is a visibility change, not activation. W3-1 observed the flag absent with the verified
-image default false.
+The reviewed activation pins `NOTABLE_FILINGS_ENABLED=true` in both service and pregenerate
+`--update-env-vars` lists in `.github/workflows/ci.yml`, preserving the existing production-pin
+parity gate. The application default remains false and the scanner runs regardless of this flag.
+The corresponding backend production-pin test is updated as an intentional production override;
+that backend change makes the normal deploy path apply the reviewed setting. The operations
+inspector continues to report the actual code default separately from the live pin.
 
-After a full week of job output, the founder records the reviewed date range, representative
-accessions/reasons, duplicate/noise observations and the retain-or-kill decision. Engineering
-then proposes `NOTABLE_FILINGS_ENABLED=true` in the **service** `--update-env-vars` list in
-`.github/workflows/ci.yml`, in a reviewed PR with the readout linked and an independently
-required `backend/` change. The deploy path filter ignores workflow/docs-only changes; a flag-only
-PR would leave the service unchanged. If no backend change is ready, hold the flip rather than
-claiming a skipped deploy applied it. Do not flip it through a
-console command: D3 requires the serving state to be visible in the repository. A killed slot
-stays dark. Job creation, seed completion and the week of review are still outstanding as of
-2026-09-05; the last verified deployment log reports the job absent.
+Merge the activation only after #1002's source-faithful reason labels and responsive card layout
+are released and independently verified. After the activation deployment, verify the migration
+summary, detailed health, live flag, `GET /api/notable_filings?limit=8`, issuer diversity, canonical
+SEC URLs, filing freshness and the homepage after revalidation. The homepage ISR interval is
+**3,600 seconds**, distinct from the backend's fifteen-minute serve-cache TTL. An API flag change
+does not immediately purge existing homepage HTML. An empty feed is legitimate when fewer than
+three companies qualify; do not infer success or failure from HTTP status alone.
 
-After that backend-touching flag PR merges, verify the service deployment step actually ran
-inside `deploy-backend`, its migration summary, detailed health,
-`GET /api/notable_filings?limit=8`, and the homepage after revalidation (approximately 15 minutes).
-The endpoint legitimately returns an empty list with too few qualifying companies; assess
-accession validity, reason accuracy, company diversity and freshness against the stored output,
-not merely HTTP status. See [the wave-2 rollout checklist](../tasks/dark-surfaces-rollout-2026-09.md)
-for the evidence record and Analysis prerequisites.
+For rollback, restore the service flag and both workflow pins to false and verify an empty API
+feed, recording the remaining homepage cache interval. Source errors or poor observed utility can
+justify keeping the slot dark. Operator requests are not customer engagement, and this discovery
+rollout does not release any summary-quality, wider-generation or invitation hold.
 
 ---
 

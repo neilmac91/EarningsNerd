@@ -134,7 +134,7 @@ code default. Production cache policy remains Redis-off/L1-only (ADR-0004).
 | `EVIDENCE_SNAP_MIN_SCORE` | `72.0` | Figure-bearing evidence similarity floor; no-figure evidence uses the separate in-module floor of 88. |
 | `ENABLE_FPI_FILINGS` | `false` | Page-scoped 20-F/6-K/40-F discovery; CI explicitly enables it on the service. Other job form sets are separate. |
 | `CALENDAR_INDEX_FILTER_ENABLED` | `false` | Restrict public calendar serve/ingest to committed index universe; watchlist exceptions remain; missing/short universe fails open. Settings default stays false. Founder-approved intentional service override is true; pregenerate is false, both explicit in `ci.yml`. This does not activate the Calendar UI. |
-| `NOTABLE_FILINGS_ENABLED` | `false` | Serving gate only; scan job can populate while this is false. Arm only after the seed/quality rollout checklist. Pinned explicitly in the `ci.yml` service and pregenerate deploy env. |
+| `NOTABLE_FILINGS_ENABLED` | `false` | Serving gate only; scan job populates independently. Code default stays false; the [bounded September 28 rollout](../tasks/notable-rollout-2026-09-28.md) pins true in service and pregenerate deployment settings after the corrected labels release. This adds no model generation. |
 | `NOTABLE_FILINGS_SCAN_DAYS` | `2` | Scheduled scan trailing window, days; manual seed --days overrides it. |
 | `RICHER_FINANCIALS_ENABLED` | `true` | Expanded cash-flow and working-capital facts; false restores legacy concept set. |
 | `USE_STATEMENT_FINANCIALS` | `true` | Financial institutions use reported income-statement revenue; explicit false overrides the default. SIC backfill and persisted-fact remediation remain separate operator runs (see below). Pinned explicitly in the `ci.yml` service and pregenerate deploy env. |
@@ -199,7 +199,7 @@ AI_FORWARD_QUOTE_GATE=false                   # T5.4 forward-quote hard gate: wh
 AI_EVIDENCE_SNAP=false                        # Evidence auto-snap (post-#631): when on, non-verifying P&L-takeaway/footnote supporting_evidence is REPLACED at generation time by the best-matching REAL excerpt sentence (which then earns the Verified badge). Code default off (advisory: audit + greppable evidence_snap counter always emitted, recording original + candidate per would-snap); production deploys pin true since 2026-09-15 (founder decision after the first complete strong-judge readout)
 EVIDENCE_SNAP_MIN_SCORE=72.0                  # Snap floor for FIGURE-BEARING evidence (rapidfuzz max(token_set, partial) on normalized text; the shared non-year-figure guard supplies the precision). No-figure evidence uses a stricter in-module floor (88)
 ENABLE_FPI_FILINGS=false                      # Foreign private issuer (ADR) filings: list 20-F/6-K/40-F on the company page (page-scoped; default off — see tasks/archive/fpi-support-roadmap.md)
-NOTABLE_FILINGS_ENABLED=false                 # Serve /api/notable_filings (scan job populates regardless; flip after the seed run — DEPLOYMENT.md §12)
+NOTABLE_FILINGS_ENABLED=false                 # Local default; production serving pin is true under tasks/notable-rollout-2026-09-28.md (scan populates independently)
 NOTABLE_FILINGS_SCAN_DAYS=2                   # Trailing window (days) per scheduled notable-filings scan; seed run overrides via --days
 
 # Copilot ("Ask this Filing" — Pro-only grounded Q&A)

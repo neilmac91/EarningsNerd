@@ -17,7 +17,7 @@ from scripts import pin_baseline
 
 ROOT = Path(__file__).resolve().parents[3]
 PROD_ENV_PINS = {
-    "NOTABLE_FILINGS_ENABLED": "false", "AI_EVIDENCE_SNAP": "true",
+    "NOTABLE_FILINGS_ENABLED": "true", "AI_EVIDENCE_SNAP": "true",
     "AI_FIGURE_TRACE_GATE": "false", "AI_FORWARD_QUOTE_GATE": "false", "AI_ATTRIBUTION_GATE": "false",
     "AI_ATTRIBUTION_VERIFY": "false",
     "USE_STRUCTURED_OUTPUT": "false", "USE_STATEMENT_FINANCIALS": "true",
@@ -26,6 +26,9 @@ PROD_ENV_PINS = {
     "STREAM_SECTION_REVEAL": "true", "REGISTRATION_MODE": "invite_only",
 }
 INTENTIONAL_PROD_OVERRIDES = {
+    # Delegated Sep28 rollout: source-faithful labels and seven observed scheduled days.
+    # This serving-only feature stays off by default in local/dev.
+    "NOTABLE_FILINGS_ENABLED",
     "ENABLE_FPI_FILINGS", "STREAM_SECTION_REVEAL", "REGISTRATION_MODE",
     "CALENDAR_INDEX_FILTER_ENABLED",
     # Founder armed evidence auto-snap on 2026-09-15 after the first complete strong-judge readout
