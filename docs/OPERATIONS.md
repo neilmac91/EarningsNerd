@@ -243,9 +243,13 @@ lookup after an uncertain submission result. It never redraws that request. A fa
 is a state hold and never permits an implicit same-month retry. It may leave the deterministic
 object name occupied; cleanup requires a separately authorized operator because the workflow
 identities have no delete permission. Public database health is
-checked before and after the export. This proves recurrence and custody of a compressed logical
-export; it does not read the SQL contents or prove restoration. See `docs/DEPLOYMENT.md` for the
-dedicated identity, IAM, secret, and bucket-lifecycle setup.
+checked before and after the export. This verifies an individual execution or same-month reuse
+and custody of a compressed logical export; it does not read SQL contents or prove restoration
+or a natural scheduled trigger. The separate [September 28 import rehearsal](../tasks/review-evidence/progress-2026-09-28/README.md)
+restored the retained monthly object into local PostgreSQL 15 with one `NOLOGIN` owner-role
+prerequisite, 33/33 application tables and 40/40 migration hashes. See
+[deployment setup and import procedure](DEPLOYMENT.md#monthly-cloud-sql-logical-export) for the
+dedicated identity, IAM, secret, bucket lifecycle and recovery limits.
 
 ### Durable alert delivery: reconciling `ambiguous` batches (E11b-1)
 

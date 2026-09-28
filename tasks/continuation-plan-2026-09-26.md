@@ -102,7 +102,7 @@ No production model, prompt, quality threshold or judge contract changed.
   This establishes excerpt matching and serving behavior, not complete risk coverage or semantic
   acceptance of other sections.
 - Keep operations and beta preparation parallel to quality work. The isolated restore and one
-  private lifecycle-managed logical export are now verified. The [monthly export path](review-evidence/progress-2026-09-27/monthly-export-proof.json) is bootstrapped: one export completed and the same-month repeat created no new export or changed object. Its scheduled trigger, export importability and two real weekly cohort readouts remain separate outcomes. Neither CI nor an account login substitutes for user evidence. Existing
+  private lifecycle-managed logical export are now verified. The [monthly export path](review-evidence/progress-2026-09-27/monthly-export-proof.json) is bootstrapped: one export completed and the same-month repeat created no new export or changed object. The [September 28 isolated local import](review-evidence/progress-2026-09-28/README.md) now verifies the retained monthly dump with one local owner-role prerequisite, 33/33 application tables and 40/40 migration hashes. The natural monthly trigger, managed Cloud SQL import path and two real weekly cohort readouts remain separate outcomes. Neither CI nor an account login substitutes for user evidence. Existing
   customer-consent and invitation boundaries remain in force.
 
 The isolated [recovery rehearsal](review-evidence/progress-2026-09-27/recovery-outcome.json) has
