@@ -1,5 +1,6 @@
 import { afterEach, expect, it } from 'vitest'
 import * as Sentry from '@sentry/nextjs'
+import { SENTRY_BROWSER_SESSION_LIFECYCLE, SENTRY_CONSOLE_LOG_LEVELS, SENTRY_DATA_COLLECTION, SENTRY_REPLAY_SAMPLE_RATES } from '@/lib/sentryConfig'
 
 afterEach(async () => {
   Sentry.setUser(null)
@@ -12,6 +13,12 @@ it('loads the real browser SDK and captures an exception with user context', asy
     dsn: 'https://public@example.invalid/1',
     defaultIntegrations: false,
     autoSessionTracking: false,
+    dataCollection: SENTRY_DATA_COLLECTION,
+    ...SENTRY_REPLAY_SAMPLE_RATES,
+    integrations: [
+      Sentry.browserSessionIntegration({ lifecycle: SENTRY_BROWSER_SESSION_LIFECYCLE }),
+      Sentry.consoleLoggingIntegration({ levels: [...SENTRY_CONSOLE_LOG_LEVELS] }),
+    ],
     transport: () => ({
       send: async (envelope) => {
         envelopes.push(envelope)
@@ -20,7 +27,14 @@ it('loads the real browser SDK and captures an exception with user context', asy
       flush: async () => true,
     }),
   })
-  expect(Sentry.getClient()).toBeInstanceOf(Sentry.BrowserClient)
+  const client = Sentry.getClient()
+  expect(client).toBeInstanceOf(Sentry.BrowserClient)
+  expect(client?.getOptions()).toMatchObject({
+    dataCollection: SENTRY_DATA_COLLECTION,
+    ...SENTRY_REPLAY_SAMPLE_RATES,
+  })
+  expect(client?.getIntegrationByName('BrowserSession')).toBeDefined()
+  expect(client?.getIntegrationByName('ConsoleLogs')).toBeDefined()
   Sentry.setUser({ id: 'browser-sdk-regression' })
   const eventId = Sentry.captureException(new Error('browser-sdk-capture-sentinel'))
   expect(await Sentry.flush(2000)).toBe(true)
