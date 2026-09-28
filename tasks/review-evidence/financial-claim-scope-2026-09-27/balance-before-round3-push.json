@@ -1,0 +1,17 @@
+{
+  "read_at_utc": "2026-09-28T05:44:20Z",
+  "endpoint": "GET https://api.deepseek.com/user/balance",
+  "http_status": 200,
+  "response": {
+    "is_available": true,
+    "balance_infos": [
+      {
+        "currency": "USD",
+        "total_balance": "54.59",
+        "granted_balance": "0.00",
+        "topped_up_balance": "54.59"
+      }
+    ]
+  },
+  "note": "Read before the third-round push. Delta since the 27 Sep 21:41 UTC read (55.65 -> 54.59, USD 1.06) covers every call on the shared account in that window, not only this PR's three hosted runs (telemetry about USD 0.48); attribution of the remainder is unknown from this session."
+}

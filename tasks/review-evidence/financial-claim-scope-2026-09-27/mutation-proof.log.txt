@@ -1,0 +1,13 @@
+== committed HEAD: ffdf3716f27d5da5c408693caeb0add6b691b8ee ==
+fault applied: prose no longer terminates a banner's table scope
+== gate under fault ==
+E       AssertionError: assert ['The filing ... the period.'] == ['The filing ... the period.']
+E         
+E         At index 0 diff: 'The filing reports $3,237 million for the period.' != 'The filing reports $3,237 for the period.'
+E         Use -v to get more diff
+FAILED tests/unit/test_table_cell_units.py::test_bare_figures_the_source_does_not_own_stay_as_written[$3,237-no_governing_banner-(Amounts in millions)\n\nThe Company reports the following amounts in its annual filing.\n\nOther3,237\xa0]
+1 failed, 25 passed in 3.14s
+fault_exit=1
+== restored: clean ==
+26 passed in 3.14s
+restored_exit=0

@@ -1,0 +1,16 @@
+== committed HEAD: ce72481dff3613a3500e426ff3a2b43271deae9a ==
+fault applied: prose-occurrence abstention removed
+== gate under fault ==
+E         
+E         At index 0 diff: {'slot': 'balance_sheet_liquidity.maturities_covenants[0]', 'figure': '$10,550', 'reason': 'no_occurrence'} != {'slot': 'balance_sheet_liquidity.maturities_covenants[0]', 'figure': '$10,550', 'reason': 'prose_occurrence'}
+E         Use -v to get more diff
+
+tests/unit/test_table_cell_units.py:115: AssertionError
+=========================== short test summary info ============================
+FAILED tests/unit/test_table_cell_units.py::test_bare_figures_the_source_does_not_own_stay_as_written[$10,550-prose_occurrence-On October 31, 2025, we closed on the sale of portions of our BGS segment\u2019s Digital Aviation Solutions business (Digital Aviation Solutions Divestiture) to Thoma Bravo for proceeds of $10,550. The sale included Jeppesen, ForeFlight, AerData and OzRunways.]
+1 failed, 17 passed in 3.26s
+fault_exit=1
+== restored: clean ==
+..................                                                       [100%]
+18 passed in 3.32s
+restored_exit=0

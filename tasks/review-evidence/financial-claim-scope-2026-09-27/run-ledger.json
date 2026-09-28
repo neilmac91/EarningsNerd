@@ -1,0 +1,441 @@
+{
+ "scope": "Fable engineering handoff, 2026-09-27, branch codex/wave3-financial-claim-scope",
+ "planning_ceiling_usd": 1.0,
+ "model_calls_made_locally": 0,
+ "paid_measurements_triggered_by_this_engineer": "none locally; hosted CI eval-baseline runs on the draft PR (see hosted section, appended after push)",
+ "attempts": [
+  {
+   "id": 1,
+   "kind": "provider_balance_read",
+   "endpoint": "GET https://api.deepseek.com/user/balance",
+   "outcome": "http 200, total_balance USD 55.65, is_available true",
+   "cost_usd": 0.0,
+   "file": "balance-before-push.json"
+  },
+  {
+   "id": 2,
+   "kind": "sec_corroboration_read",
+   "endpoint": "GET https://data.sec.gov/api/xbrl/companyconcept/CIK0000104169/us-gaap/LongTermDebtMaturitiesRepaymentsOfPrincipalInYearTwo.json",
+   "outcome": "http 200; FY2026 (end 2026-01-31, accn 0000104169-26-000055) val 3237000000 USD",
+   "cost_usd": 0.0,
+   "note": "single manual read with a descriptive User-Agent; not app code"
+  },
+  {
+   "id": 3,
+   "kind": "offline_replay",
+   "outcome": "70/70 retained rows replayed; 1 slot changed (WMT-10-K-run1 maturities), 7 restored, 8 abstained",
+   "cost_usd": 0.0,
+   "file": "offline-replay-70.json"
+  },
+  {
+   "id": 4,
+   "kind": "local_gate",
+   "outcome": "first pass on pre-fix tree: ruff/bandit clean, 3718 passed, 39 skipped, 2 deselected",
+   "cost_usd": 0.0,
+   "file": "local-gate-first-pass.log.txt"
+  },
+  {
+   "id": 5,
+   "kind": "local_gate",
+   "outcome": "aborted by this engineer after the cell-boundary fix superseded it (pytest_exit=143); not counted",
+   "cost_usd": 0.0
+  },
+  {
+   "id": 6,
+   "kind": "local_gate",
+   "outcome": "final on committed ce72481: ruff/bandit clean, 3720 passed, 39 skipped, 2 deselected",
+   "cost_usd": 0.0,
+   "file": "local-gate.log.txt"
+  },
+  {
+   "id": 7,
+   "kind": "mutation_proof",
+   "outcome": "superseded weaker fault (prose-occurrence abstention removed): 1 failed/17 passed, no false insertion; restored 18 passed",
+   "cost_usd": 0.0,
+   "file": "mutation-proof-superseded.log.txt"
+  },
+  {
+   "id": 8,
+   "kind": "mutation_proof",
+   "outcome": "counted fault (prose no longer ends banner scope): false '$3,237 million' insertion caught, 1 failed/17 passed; restored 18 passed",
+   "cost_usd": 0.0,
+   "file": "mutation-proof.log.txt"
+  },
+  {
+   "id": 9,
+   "kind": "hosted_eval_baseline",
+   "run_id": 36354356433,
+   "job_id": 108718982686,
+   "head": "b65bfe7",
+   "outcome": "cancelled by this engineer's documentation push (concurrency group); 47/70 summary_primary calls succeeded, 0 errors, 22 'Persisted XBRL read failed' warnings with fallback",
+   "estimated_cost_usd": 0.119453,
+   "billed_cost_usd": "unknown",
+   "counted": "wasted spend, this engineer's error"
+  },
+  {
+   "id": 10,
+   "kind": "hosted_eval_baseline",
+   "run_id": 36354819301,
+   "head": "d7f5ce0",
+   "outcome": "completed 22:29:02 UTC; report eval_20260927T222858Z.json; regression gate PASS, no hard regressions, 1 standing advisory (mean_untraceable_dollar_figures 2.6286); 70/70 attempted/scored, 0 errors; 71 ai_call telemetry entries, actual model deepseek-flash; pass_rate 1.0, numeric_accuracy 1.0, numeric_precision 1.0, coverage 1.0, delta_consistency 0.9917, citation_fidelity 0.9682, currency_consistency 1.0, redundancy 0.9264, financial_depth 0.7857; 32 'Persisted XBRL read failed' warnings with fallback (pre-existing CI condition)",
+   "estimated_cost_usd": 0.181092,
+   "billed_cost_usd": "unknown"
+  },
+  {
+   "id": 11,
+   "kind": "offline_replay",
+   "outcome": "review-corrected owner over 70 retained rows: 1 slot changed (WMT run 1, 7/7), 8 abstained (COST prose_occurrence x6, BYND no_governing_banner x2)",
+   "cost_usd": 0.0,
+   "file": "offline-replay-70.json"
+  },
+  {
+   "id": 12,
+   "kind": "local_gate",
+   "outcome": "P1/P2-corrected tree: ruff/bandit clean, 3726 passed, 39 skipped, 2 deselected",
+   "cost_usd": 0.0,
+   "file": "local-gate-p1p2.log.txt"
+  },
+  {
+   "id": 13,
+   "kind": "local_gate",
+   "outcome": "second-round tree (owner after binders, exact totals, stamp -s): ruff/bandit clean, 3728 passed, 39 skipped, 2 deselected",
+   "cost_usd": 0.0,
+   "file": "local-gate.log.txt"
+  },
+  {
+   "id": 14,
+   "kind": "mutation_proof",
+   "outcome": "re-run on committed ffdf371: false '$3,237 million' insertion caught, 1 failed/25 passed; restored 26 passed",
+   "cost_usd": 0.0,
+   "file": "mutation-proof.log.txt"
+  },
+  {
+   "id": 15,
+   "kind": "hosted_eval_baseline",
+   "head": "b4f0959ead1c442022c1741de5b5b0b9e2183216",
+   "outcome": "CI success; eval-baseline PASS (1 standing warning: mean_untraceable_dollar_figures 2.4714); 70/70 scored, 0 errors",
+   "estimated_cost_usd": 0.180502,
+   "billed_cost_usd": "unknown",
+   "run_id": 36356321090,
+   "job_id": 108724654633,
+   "calls": 70
+  },
+  {
+   "id": 16,
+   "kind": "offline_replay",
+   "head": "round-3 tree (committed 554d3c7)",
+   "outcome": "70 retained outputs replayed twice (strict top-down rule: WMT 6/7 with $3,542 abstaining; final rule with capitalised statement headings: 7/7, identical to round 2); no model call",
+   "cost_usd": 0.0,
+   "file": "offline-replay-70.json"
+  },
+  {
+   "id": 17,
+   "kind": "read_only_measurement",
+   "head": "round-3 tree",
+   "outcome": "ownership of 35,714 demonstrated cells across the 70 retained excerpts compared across the round-2, strict and final rules (8,294 / 7,410 / 7,732 owned); no model call",
+   "cost_usd": 0.0,
+   "file": "ownership-measure-round3.txt"
+  },
+  {
+   "id": 18,
+   "kind": "local_gate",
+   "head": "round-3 tree (committed 554d3c7)",
+   "outcome": "ruff/bandit clean, 3732 passed, 39 skipped, 2 deselected",
+   "cost_usd": 0.0,
+   "file": "local-gate-round3.log.txt"
+  },
+  {
+   "id": 19,
+   "kind": "mutation_proof",
+   "head": "554d3c7",
+   "outcome": "fault (any text line admitted after the first row) caught: 3 failed/27 passed with false '$3,237 million' insertions; restored 30 passed",
+   "cost_usd": 0.0,
+   "file": "mutation-proof-round3.log.txt"
+  },
+  {
+   "id": 20,
+   "kind": "balance_read",
+   "outcome": "DeepSeek balance USD 54.59 at 2026-09-28T05:44:20Z (55.65 on 27 Sep 21:41 UTC); delta covers the shared account, attribution beyond this PR's telemetry unknown",
+   "cost_usd": 0.0,
+   "file": "balance-before-round3-push.json"
+  },
+  {
+   "id": 21,
+   "kind": "hosted_eval_baseline",
+   "head": "5e6e244108297af03d3134aac30a90247e159799",
+   "outcome": "CI success; eval-baseline PASS (1 standing warning: mean_untraceable_dollar_figures 2.5286); 70/70 scored, 0 errors",
+   "estimated_cost_usd": 0.179044,
+   "billed_cost_usd": "unknown; the shared-account balance fell 54.59 -> 54.41 (USD 0.18) between the reads bracketing this run",
+   "run_id": 36383403453,
+   "job_id": 108803648057,
+   "calls": 70
+  },
+  {
+   "id": 22,
+   "kind": "sec_document_reads",
+   "outcome": "five free SEC EDGAR document GETs through the app transport (WMT, COST, BYND, BA source documents; WMT once more with provenance observation) for the offline replay and the WMT fixture; served bytes differ from the retained provenance hashes by ten characters each",
+   "cost_usd": 0.0
+  },
+  {
+   "id": 23,
+   "kind": "offline_replay",
+   "head": "round-4 tree (source-bound ownership)",
+   "outcome": "70 retained outputs replayed with the source documents: 1 slot changed (WMT run 1, 7/7), 8 abstentions (COST prose_occurrence x6, BYND declared_unscaled x2); no model call",
+   "cost_usd": 0.0,
+   "file": "offline-replay-70.json"
+  },
+  {
+   "id": 24,
+   "kind": "local_gate",
+   "head": "round-4 tree",
+   "outcome": "round-4 tree (committed 595344c): ruff/bandit clean, 3745 passed, 39 skipped, 2 deselected",
+   "cost_usd": 0.0,
+   "file": "local-gate-round4.log.txt"
+  },
+  {
+   "id": 25,
+   "kind": "mutation_proof",
+   "head": "595344c",
+   "outcome": "fault (an undeclared table inherits any earlier sibling's declaration) caught: 4 failed/39 passed with false '$3,237 million' insertions; restored 43 passed",
+   "cost_usd": 0.0,
+   "file": "mutation-proof-round4.log.txt"
+  },
+  {
+   "id": 26,
+   "kind": "balance_read",
+   "outcome": "DeepSeek balance USD 54.41 at 2026-09-28T06:19:59Z (54.59 at 05:44 UTC; the USD 0.18 fall matches run 36383403453's telemetry)",
+   "cost_usd": 0.0,
+   "file": "balance-before-round4-push.json"
+  },
+  {
+   "id": 27,
+   "kind": "hosted_eval_baseline",
+   "head": "260cebd29abd35116e5a3f96a92f2709f05e4cfa",
+   "outcome": "CI success; eval-baseline PASS (1 standing warning: mean_untraceable_dollar_figures 2.4143); 70/70 scored, 0 errors; ran inside DeepSeek's peak tariff window (every call peak=true)",
+   "estimated_cost_usd": 0.357014,
+   "billed_cost_usd": "unknown; balance fell 54.41 -> 54.05 (USD 0.36) between the bracketing reads",
+   "run_id": 36386298431,
+   "job_id": 108812281769,
+   "calls": 70
+  },
+  {
+   "id": 28,
+   "kind": "balance_read",
+   "outcome": "DeepSeek balance USD 54.05 at 2026-09-28T06:37:46Z (54.41 at 06:19 UTC)",
+   "cost_usd": 0.0
+  },
+  {
+   "id": 29,
+   "kind": "offline_replay",
+   "head": "round-5 tree (proposition-bound ownership)",
+   "outcome": "70 retained outputs replayed with the source documents: 1 slot changed (WMT run 1, 7/7), 8 abstentions (all no_authored_label); no model call",
+   "cost_usd": 0.0,
+   "file": "offline-replay-70.json"
+  },
+  {
+   "id": 30,
+   "kind": "local_gate",
+   "head": "round-5 tree",
+   "outcome": "round-5 tree (committed locally as acee6d9): ruff/bandit clean, 3745 passed, 39 skipped, 2 deselected",
+   "cost_usd": 0.0,
+   "file": "local-gate-round5.log.txt"
+  },
+  {
+   "id": 31,
+   "kind": "mutation_proof",
+   "head": "acee6d9",
+   "outcome": "fault (row-label binding removed) caught: 5 failed/38 passed with false '$3,237 million' insertions on the source-to-proposition cases; restored 43 passed",
+   "cost_usd": 0.0,
+   "file": "mutation-proof-round5.log.txt"
+  },
+  {
+   "id": 32,
+   "kind": "push_withheld",
+   "outcome": "fifth-round commit held locally; the cumulative hosted ceiling is exceeded (about USD 1.017), so the push is requested from root on the PR and not made without explicit authorization",
+   "cost_usd": 0.0
+  },
+  {
+   "id": 33,
+   "kind": "push_authorized",
+   "head": "7c2f998",
+   "outcome": "root raised the PR ceiling to USD 1.65 and authorized one push (07:35 UTC); pushed 07:36:46 UTC after tree/gate receipt checks",
+   "cost_usd": 0.0
+  },
+  {
+   "id": 34,
+   "kind": "balance_read",
+   "outcome": "DeepSeek balance USD 53.66 at 2026-09-28T07:36:31Z before the authorized push (54.05 at 06:37; the USD 0.39 fall was other usage on the shared account)",
+   "cost_usd": 0.0
+  },
+  {
+   "id": 35,
+   "kind": "hosted_eval_baseline",
+   "head": "7c2f99897350eb8a871f2e8ec4bdaac0d8fa8792",
+   "run_id": 36392603589,
+   "job_id": 108831586306,
+   "outcome": "CI success; eval-baseline PASS (1 standing warning: mean_untraceable_dollar_figures 2.3286); 70/70 scored, 0 errors; 71 calls (one bounded retry), every call peak=true; Copilot filing fidelity run 36392603616 and Review gate run 36392600878 skipped",
+   "estimated_cost_usd": 0.353955,
+   "calls": 71,
+   "billed_cost_usd": "unknown; balance fell 53.66 -> 53.30 (USD 0.36) across the run"
+  },
+  {
+   "id": 36,
+   "kind": "offline_replay",
+   "head": "round-6 tree (finite maturity proposition)",
+   "outcome": "70 retained outputs replayed with the source documents: 1 slot changed (WMT run 1, 7/7), 8 abstentions (all unsupported_proposition); no model call",
+   "cost_usd": 0.0,
+   "file": "offline-replay-70.json"
+  },
+  {
+   "id": 37,
+   "kind": "local_gate",
+   "head": "round-6 tree",
+   "outcome": "round-6 tree (committed locally as d32e4e8): ruff/bandit clean, 3753 passed, 39 skipped, 2 deselected",
+   "cost_usd": 0.0,
+   "file": "local-gate-round6.log.txt"
+  },
+  {
+   "id": 38,
+   "kind": "mutation_proof",
+   "head": "d32e4e8",
+   "outcome": "fault (introduction grammar disabled) caught: 3 failed/48 passed with false '$3,542 million' insertions on the subject/qualifier cases; restored 51 passed",
+   "cost_usd": 0.0,
+   "file": "mutation-proof-round6.log.txt"
+  },
+  {
+   "id": 39,
+   "kind": "push_withheld",
+   "outcome": "sixth-round commit held locally; root asked for the exact diff and proof before another head measurement",
+   "cost_usd": 0.0
+  },
+  {
+   "id": 40,
+   "kind": "offline_replay",
+   "head": "round-7 tree (context-identity guard)",
+   "outcome": "70 retained outputs replayed with the source documents: 1 slot changed (WMT run 1, 7/7), 8 abstentions (all unsupported_proposition); no model call",
+   "cost_usd": 0.0,
+   "file": "offline-replay-70.json"
+  },
+  {
+   "id": 41,
+   "kind": "local_gate",
+   "head": "round-7 tree",
+   "outcome": "round-7 tree (committed locally as 1667523), attempt 3 from backend/: ruff/bandit clean, 3759 passed, 39 skipped, 2 deselected, 40 warnings in 316.45s (0:05:16)",
+   "cost_usd": 0.0,
+   "file": "local-gate-round7.log.txt"
+  },
+  {
+   "id": 42,
+   "kind": "mutation_proof",
+   "head": "1667523",
+   "outcome": "fault (context identity reduced to its period end) caught: 5 failed/52 passed with the dimensional, alternating, foreign-CIK and duration cases falsely restored; restored 57 passed",
+   "cost_usd": 0.0,
+   "file": "mutation-proof-round7.log.txt"
+  },
+  {
+   "id": 43,
+   "kind": "push_withheld",
+   "outcome": "seventh-round commit held locally; root asked for the exact diff, hash and proof before another paid push; no measurement authorized",
+   "cost_usd": 0.0
+  },
+  {
+   "id": 44,
+   "kind": "offline_replay",
+   "head": "round-8 tree (repeated IDs, DEI duration)",
+   "outcome": "70 retained outputs replayed with the source documents: 1 slot changed (WMT run 1, 7/7), 8 abstentions (all unsupported_proposition); no model call",
+   "cost_usd": 0.0,
+   "file": "offline-replay-70.json"
+  },
+  {
+   "id": 45,
+   "kind": "local_gate",
+   "head": "round-8 tree",
+   "outcome": "round-8 tree (committed locally as f4ead2f): ruff/bandit clean, 3768 passed, 39 skipped, 2 deselected",
+   "cost_usd": 0.0,
+   "file": "local-gate-round8.log.txt"
+  },
+  {
+   "id": 46,
+   "kind": "mutation_proof",
+   "head": "f4ead2f",
+   "outcome": "fault (repeated context ID resolves to its last definition) caught: 3 failed/63 passed on the dimension/foreign/duration-then-consolidated orders; restored 66 passed",
+   "cost_usd": 0.0,
+   "file": "mutation-proof-round8.log.txt"
+  },
+  {
+   "id": 47,
+   "kind": "push_authorized",
+   "head": "eighth-round head",
+   "outcome": "root replaced the publish hold for the corrected, locally gated candidate (09:09 UTC) under a revised USD 2.10 cumulative planning ceiling; reservation confirmed on the PR before dispatch; one push",
+   "cost_usd": 0.0
+  }
+ ],
+ "unknowns": [
+  "Billed provider cost of any hosted CI eval-baseline run is not readable from this session; the run's own telemetry estimate is recorded when available.",
+  "The cached XBRL metrics dict used in production may predate this change for some companies; the owner then still works because it needs only the excerpt (XBRL is corroboration/abstention only)."
+ ],
+ "cancelled_or_superseded": [
+  "attempt 5 (aborted local gate)",
+  "attempt 7 (superseded mutation fault)",
+  "hosted run 36354356433 (cancelled by own docs push, USD 0.119 wasted)",
+  "strict top-down replay (attempt 16, first pass) superseded by the final rule in the same commit",
+  "round-7 full gate attempt 1 (local-gate-10): 1 failed — the sec.gov CIK-scheme literal placed in source_units.py tripped test_sec_gov_importers_allowlist; the helper was moved into the EDGAR layer (statement_context.source_context_identity) and the commit amended",
+  "round-7 full gate attempt 2 (local-gate-11): ruff ran at the repository root because of a shell cwd reset (27 pre-existing findings under tasks/fable-e8-repin-2026-09-22), not a backend failure; rerun from backend/ as attempt 3"
+ ],
+ "ceiling_note": "Original planning ceiling USD 1.00, exceeded at run 36386298431 (peak tariff); raised to USD 1.65 at 07:35 UTC (one authorized measurement, run 36392603589); revised to USD 2.10 at 09:09 UTC for the corrected eighth-round head (one 70-output measurement plus one eventual Copilot check). Cumulative telemetry USD 1.371 before the eighth-round push.",
+ "hosted_runs_cumulative": {
+  "runs": [
+   {
+    "run_id": 36354356433,
+    "head": "b65bfe7 (first push)",
+    "status": "cancelled by own docs push",
+    "calls": 47,
+    "telemetry_usd": 0.119453
+   },
+   {
+    "run_id": 36354819301,
+    "head": "d7f5ce0",
+    "status": "PASS",
+    "calls": 71,
+    "telemetry_usd": 0.181092
+   },
+   {
+    "run_id": 36356321090,
+    "head": "b4f0959",
+    "status": "PASS",
+    "calls": 70,
+    "telemetry_usd": 0.180502
+   },
+   {
+    "run_id": 36383403453,
+    "head": "5e6e244",
+    "status": "PASS",
+    "calls": 70,
+    "telemetry_usd": 0.179044
+   },
+   {
+    "run_id": 36386298431,
+    "head": "260cebd",
+    "status": "PASS (peak tariff)",
+    "calls": 70,
+    "telemetry_usd": 0.357014
+   },
+   {
+    "run_id": 36392603589,
+    "head": "7c2f998",
+    "status": "PASS (peak tariff)",
+    "calls": 71,
+    "telemetry_usd": 0.353955
+   }
+  ],
+  "telemetry_usd_spent_before_third_round_push": 0.481047,
+  "expected_after_third_round_push": "about 0.66",
+  "ceiling_usd": 2.1,
+  "ceiling_is_cumulative": true,
+  "billed_cost": "unknown from this session; the shared-account balance fell USD 1.06 between the first two reads (includes non-PR usage) and USD 0.18 between the reads bracketing run 36383403453 (matches its telemetry)",
+  "telemetry_usd_spent_before_fourth_round_push": 0.660091,
+  "expected_after_fourth_round_push": "about 0.84",
+  "telemetry_usd_spent_total": 1.37106,
+  "ceiling_status": "USD 1.371 spent of the revised USD 2.10 cumulative planning ceiling root reserved at 09:09 UTC for one corrected-head measurement and one eventual Copilot check"
+ }
+}

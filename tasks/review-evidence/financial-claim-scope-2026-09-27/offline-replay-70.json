@@ -1,0 +1,784 @@
+{
+ "generated_at_utc": "2026-09-28T09:12:14.696444+00:00",
+ "code_state": "eighth review round: repeated context or unit IDs permanently unavailable in every order, DEI context validated as a non-dimensional duration by the shared normalizer; seventh review round: context-identity guard (only the DEI issuer CIK, report-date instant, non-dimensional context signature owns the schedule; other signatures neither authorize nor poison) on the sixth round: one finite proposition only, the complete long-term-debt maturity sequence (supported introduction, five consecutive years, Thereafter, Total) bound to the filing tagged schedule concepts and total on the DEI report period (row label, USD, one 3/6/9 scale, amounts, sum identity); everything else abstains as unsupported_proposition; commit recorded in the handback",
+ "method": "Offline replay of app.services.ai.source_units.restore_table_cell_units over each retained row's raw_sections (retained after the eval's own binders) and xbrl_grounding, with the filing's source HTML (fetched 28 Sep 2026 through the app's SEC transport for the four tickers whose outputs or fixtures carry bare figures; other rows carry no bare figure and receive no document); no provider call, no generation.",
+ "source_documents": {
+  "WMT": {
+   "sha256": "f7fcd37eded9f9a9567767e1bb63a69119097286616c190643b657cce8d610cf",
+   "characters": 2324091
+  },
+  "COST": {
+   "sha256": "6ba04824026ddb22fe1406709137f560e0137e68a3cbed17085f57ea5cde3b31",
+   "characters": 897736
+  },
+  "BYND": {
+   "sha256": "5a4fd95bc8ad92ff783c17e67e273209e303c74eabcae17b70841e1710ec5f84",
+   "characters": 1663129
+  },
+  "BA": {
+   "sha256": "57f29434e20b44e92c33dab9de4430f6a2bba977c42a3da7ed67a2a38274b413",
+   "characters": 3439584
+  }
+ },
+ "source_document_note": "Today's served bytes differ from the retained run's provenance hashes by exactly ten characters per document; the retained bytes are not available to this session for a byte comparison. The seven WMT maturity cells, the COST prose mentions and the BYND salary fact read the same values as the retained, hash-verified grounding excerpts.",
+ "report_path": "retained-r/eval_20260927T141938Z.json",
+ "report_sha256": "deaa1b52c85bbab1bbcd19b7e55ab483b58ec465d6523272931cbd67e6c7f80b",
+ "expected_report_sha256": "deaa1b52c85bbab1bbcd19b7e55ab483b58ec465d6523272931cbd67e6c7f80b",
+ "rows": 70,
+ "rows_with_bare_figures": 5,
+ "rows_changed": 1,
+ "figures_restored": 7,
+ "figures_unresolved": 8,
+ "changed_slots": [
+  {
+   "row": "WMT-10-K-run1",
+   "slot": "balance_sheet_liquidity.maturities_covenants[0]",
+   "before": "Annual maturities of long-term debt during the next five years and thereafter are as follows: 2027: $3,542; 2028: $3,237; 2029: $3,389; 2030: $2,143; 2031: $2,600; Thereafter: $23,255; Total: $38,166.",
+   "after": "Annual maturities of long-term debt during the next five years and thereafter are as follows: 2027: $3,542 million; 2028: $3,237 million; 2029: $3,389 million; 2030: $2,143 million; 2031: $2,600 million; Thereafter: $23,255 million; Total: $38,166 million."
+  }
+ ],
+ "per_row": [
+  {
+   "row": "ASML-6-K-run0",
+   "policed_slots": 21,
+   "source_document": null,
+   "retained_provenance_sha256": null,
+   "excerpt_sha256": "bd5584b78d7c13fb5db9a32ac419c8a1089f26d4b9c48067522bcbb9f7e09444",
+   "audit": null,
+   "changed_slots": 0
+  },
+  {
+   "row": "ASML-6-K-run1",
+   "policed_slots": 21,
+   "source_document": null,
+   "retained_provenance_sha256": null,
+   "excerpt_sha256": "bd5584b78d7c13fb5db9a32ac419c8a1089f26d4b9c48067522bcbb9f7e09444",
+   "audit": null,
+   "changed_slots": 0
+  },
+  {
+   "row": "SE-6-K-run0",
+   "policed_slots": 21,
+   "source_document": null,
+   "retained_provenance_sha256": null,
+   "excerpt_sha256": "5f90e79025c47b4760e463cdf3230575799251611ba2482b24e290cecf6d00d3",
+   "audit": null,
+   "changed_slots": 0
+  },
+  {
+   "row": "SE-6-K-run1",
+   "policed_slots": 21,
+   "source_document": null,
+   "retained_provenance_sha256": null,
+   "excerpt_sha256": "5f90e79025c47b4760e463cdf3230575799251611ba2482b24e290cecf6d00d3",
+   "audit": null,
+   "changed_slots": 0
+  },
+  {
+   "row": "PDD-6-K-run0",
+   "policed_slots": 21,
+   "source_document": null,
+   "retained_provenance_sha256": null,
+   "excerpt_sha256": "f93f7083dd07ed977c5153adf49b485af2a48461eb64b526a0882587cefc33fe",
+   "audit": null,
+   "changed_slots": 0
+  },
+  {
+   "row": "PDD-6-K-run1",
+   "policed_slots": 21,
+   "source_document": null,
+   "retained_provenance_sha256": null,
+   "excerpt_sha256": "f93f7083dd07ed977c5153adf49b485af2a48461eb64b526a0882587cefc33fe",
+   "audit": null,
+   "changed_slots": 0
+  },
+  {
+   "row": "PLD-10-K-run0",
+   "policed_slots": 23,
+   "source_document": null,
+   "retained_provenance_sha256": "c8e869bfb605a2f89a9a188948f430a64a0b24590feacf3d45feed7665b603b7",
+   "excerpt_sha256": "2054c50233e8574e6be93f443bf2031625cc34a93832c038338c2f4179f02914",
+   "audit": null,
+   "changed_slots": 0
+  },
+  {
+   "row": "PLD-10-K-run1",
+   "policed_slots": 18,
+   "source_document": null,
+   "retained_provenance_sha256": "c8e869bfb605a2f89a9a188948f430a64a0b24590feacf3d45feed7665b603b7",
+   "excerpt_sha256": "2054c50233e8574e6be93f443bf2031625cc34a93832c038338c2f4179f02914",
+   "audit": null,
+   "changed_slots": 0
+  },
+  {
+   "row": "NEE-10-Q-run0",
+   "policed_slots": 23,
+   "source_document": null,
+   "retained_provenance_sha256": "1a8e3d47a5d66cfef46ba61676f23b768eb546ec84bfcb6144d995520a522998",
+   "excerpt_sha256": "0b4f8575014572cc4028b0f1c425ffb80be1ac33e66c77bf26bd10583c44b66d",
+   "audit": null,
+   "changed_slots": 0
+  },
+  {
+   "row": "NEE-10-Q-run1",
+   "policed_slots": 21,
+   "source_document": null,
+   "retained_provenance_sha256": "1a8e3d47a5d66cfef46ba61676f23b768eb546ec84bfcb6144d995520a522998",
+   "excerpt_sha256": "0b4f8575014572cc4028b0f1c425ffb80be1ac33e66c77bf26bd10583c44b66d",
+   "audit": null,
+   "changed_slots": 0
+  },
+  {
+   "row": "PGR-10-K-run0",
+   "policed_slots": 20,
+   "source_document": null,
+   "retained_provenance_sha256": "8a0c0eb690c5f49a7b776cdb61620f28f69c3e42e3785004f1c037b764491b56",
+   "excerpt_sha256": "5d3093c2c3e4a3f5db868a5ad9f0fc76ed379add6c5cb3520546dbfdc6e9fe83",
+   "audit": null,
+   "changed_slots": 0
+  },
+  {
+   "row": "PGR-10-K-run1",
+   "policed_slots": 18,
+   "source_document": null,
+   "retained_provenance_sha256": "8a0c0eb690c5f49a7b776cdb61620f28f69c3e42e3785004f1c037b764491b56",
+   "excerpt_sha256": "5d3093c2c3e4a3f5db868a5ad9f0fc76ed379add6c5cb3520546dbfdc6e9fe83",
+   "audit": null,
+   "changed_slots": 0
+  },
+  {
+   "row": "FIGS-10-Q-run0",
+   "policed_slots": 25,
+   "source_document": null,
+   "retained_provenance_sha256": "e0dc4f2fd5842b621567d079fbb8164fe81dbdbcc5afea2745613dd519049754",
+   "excerpt_sha256": "7e6c85de3f4e88d5d3266827b2d2b570b90dbac642699e34ba400a143d34398e",
+   "audit": null,
+   "changed_slots": 0
+  },
+  {
+   "row": "FIGS-10-Q-run1",
+   "policed_slots": 24,
+   "source_document": null,
+   "retained_provenance_sha256": "e0dc4f2fd5842b621567d079fbb8164fe81dbdbcc5afea2745613dd519049754",
+   "excerpt_sha256": "7e6c85de3f4e88d5d3266827b2d2b570b90dbac642699e34ba400a143d34398e",
+   "audit": null,
+   "changed_slots": 0
+  },
+  {
+   "row": "GPRO-10-K-run0",
+   "policed_slots": 27,
+   "source_document": null,
+   "retained_provenance_sha256": "6673c62859203916a3124c980465a12c3a17df92e807534404baff14b0e1ba9a",
+   "excerpt_sha256": "9589fe772dd89dc09da7ca68d571f984732a6bbf449173ac462f1b4fe63a7c5b",
+   "audit": null,
+   "changed_slots": 0
+  },
+  {
+   "row": "GPRO-10-K-run1",
+   "policed_slots": 28,
+   "source_document": null,
+   "retained_provenance_sha256": "6673c62859203916a3124c980465a12c3a17df92e807534404baff14b0e1ba9a",
+   "excerpt_sha256": "9589fe772dd89dc09da7ca68d571f984732a6bbf449173ac462f1b4fe63a7c5b",
+   "audit": null,
+   "changed_slots": 0
+  },
+  {
+   "row": "AAPL-10-K-run0",
+   "policed_slots": 31,
+   "source_document": null,
+   "retained_provenance_sha256": "5e29ae1bebf678d48a617d74ff65fb6f66ea14262bb834b662fafa560516aa12",
+   "excerpt_sha256": "dfa1fbf6509bbb5f77f65aa61446b4d1df5d68007d625651a3ba8e8cb8d9864c",
+   "audit": null,
+   "changed_slots": 0
+  },
+  {
+   "row": "AAPL-10-K-run1",
+   "policed_slots": 31,
+   "source_document": null,
+   "retained_provenance_sha256": "5e29ae1bebf678d48a617d74ff65fb6f66ea14262bb834b662fafa560516aa12",
+   "excerpt_sha256": "dfa1fbf6509bbb5f77f65aa61446b4d1df5d68007d625651a3ba8e8cb8d9864c",
+   "audit": null,
+   "changed_slots": 0
+  },
+  {
+   "row": "MSFT-10-K-run0",
+   "policed_slots": 29,
+   "source_document": null,
+   "retained_provenance_sha256": "868268f937f89cb7e2804f120bd7d01119b3aeaf86eeace8c6f60b33e4c8085f",
+   "excerpt_sha256": "1a68ae4883502ec5d346dffe230cdb3d20ad144aac0191c01219c72391fed666",
+   "audit": null,
+   "changed_slots": 0
+  },
+  {
+   "row": "MSFT-10-K-run1",
+   "policed_slots": 29,
+   "source_document": null,
+   "retained_provenance_sha256": "868268f937f89cb7e2804f120bd7d01119b3aeaf86eeace8c6f60b33e4c8085f",
+   "excerpt_sha256": "1a68ae4883502ec5d346dffe230cdb3d20ad144aac0191c01219c72391fed666",
+   "audit": null,
+   "changed_slots": 0
+  },
+  {
+   "row": "NVDA-10-Q-run0",
+   "policed_slots": 28,
+   "source_document": null,
+   "retained_provenance_sha256": "68d302b3b691cf90d5afca61a8aef8a799d0df29f7ba5d9d559e941b60e8ce62",
+   "excerpt_sha256": "5064f0672a5dda672d45849c3c1414074e42c1e3dcb19daa240b74aaf07548d0",
+   "audit": null,
+   "changed_slots": 0
+  },
+  {
+   "row": "NVDA-10-Q-run1",
+   "policed_slots": 28,
+   "source_document": null,
+   "retained_provenance_sha256": "68d302b3b691cf90d5afca61a8aef8a799d0df29f7ba5d9d559e941b60e8ce62",
+   "excerpt_sha256": "5064f0672a5dda672d45849c3c1414074e42c1e3dcb19daa240b74aaf07548d0",
+   "audit": null,
+   "changed_slots": 0
+  },
+  {
+   "row": "JPM-10-K-run0",
+   "policed_slots": 24,
+   "source_document": null,
+   "retained_provenance_sha256": "781c714da059aa223f31d568ee7ab205e9720c676598deb457b1e69b58a67b8f",
+   "excerpt_sha256": "0eb585c15287788dbbd0b2abf98896f1484da29306409305a9c9f7cb954f7a97",
+   "audit": null,
+   "changed_slots": 0
+  },
+  {
+   "row": "JPM-10-K-run1",
+   "policed_slots": 27,
+   "source_document": null,
+   "retained_provenance_sha256": "781c714da059aa223f31d568ee7ab205e9720c676598deb457b1e69b58a67b8f",
+   "excerpt_sha256": "0eb585c15287788dbbd0b2abf98896f1484da29306409305a9c9f7cb954f7a97",
+   "audit": null,
+   "changed_slots": 0
+  },
+  {
+   "row": "KO-10-Q-run0",
+   "policed_slots": 28,
+   "source_document": null,
+   "retained_provenance_sha256": "08dd735004a8035a9e8c9c839adb15dfef020e5454390453c007b5d5afca78c5",
+   "excerpt_sha256": "e3ae3569f70bb6337b37ecc1c66c704beb7ab59706ccecb392e93f5ad8f47d9b",
+   "audit": null,
+   "changed_slots": 0
+  },
+  {
+   "row": "KO-10-Q-run1",
+   "policed_slots": 28,
+   "source_document": null,
+   "retained_provenance_sha256": "08dd735004a8035a9e8c9c839adb15dfef020e5454390453c007b5d5afca78c5",
+   "excerpt_sha256": "e3ae3569f70bb6337b37ecc1c66c704beb7ab59706ccecb392e93f5ad8f47d9b",
+   "audit": null,
+   "changed_slots": 0
+  },
+  {
+   "row": "TSLA-10-K-run0",
+   "policed_slots": 27,
+   "source_document": null,
+   "retained_provenance_sha256": "6a707e9903292360d1c61ae93250ffb2a2ff8604b05e322ad956d3665520836f",
+   "excerpt_sha256": "44300b8bc6c977f6de6392f8ef9ca5c927343a0b049019d4ca55c7f90fed2471",
+   "audit": null,
+   "changed_slots": 0
+  },
+  {
+   "row": "TSLA-10-K-run1",
+   "policed_slots": 28,
+   "source_document": null,
+   "retained_provenance_sha256": "6a707e9903292360d1c61ae93250ffb2a2ff8604b05e322ad956d3665520836f",
+   "excerpt_sha256": "44300b8bc6c977f6de6392f8ef9ca5c927343a0b049019d4ca55c7f90fed2471",
+   "audit": null,
+   "changed_slots": 0
+  },
+  {
+   "row": "AMZN-10-K-run0",
+   "policed_slots": 24,
+   "source_document": null,
+   "retained_provenance_sha256": "a2b84adb7ec9f6ea9474a798244f5b9a2ca7773092e1d233ba4db9d131ec1f3b",
+   "excerpt_sha256": "325868836bd0c74df66599dbe92c1bd7793cf4ca1f6e0688593e2503b0c2b5aa",
+   "audit": null,
+   "changed_slots": 0
+  },
+  {
+   "row": "AMZN-10-K-run1",
+   "policed_slots": 24,
+   "source_document": null,
+   "retained_provenance_sha256": "a2b84adb7ec9f6ea9474a798244f5b9a2ca7773092e1d233ba4db9d131ec1f3b",
+   "excerpt_sha256": "325868836bd0c74df66599dbe92c1bd7793cf4ca1f6e0688593e2503b0c2b5aa",
+   "audit": null,
+   "changed_slots": 0
+  },
+  {
+   "row": "BRK.B-10-K-run0",
+   "policed_slots": 25,
+   "source_document": null,
+   "retained_provenance_sha256": "c2347e1c514ba1e51a65a97726d8a634d3625a7a49241318ebf23bd6d3634dda",
+   "excerpt_sha256": "d4a2e2e4259c58577186c29511249dba4c29d893258b27c9d5afe417557a8fe9",
+   "audit": null,
+   "changed_slots": 0
+  },
+  {
+   "row": "BRK.B-10-K-run1",
+   "policed_slots": 25,
+   "source_document": null,
+   "retained_provenance_sha256": "c2347e1c514ba1e51a65a97726d8a634d3625a7a49241318ebf23bd6d3634dda",
+   "excerpt_sha256": "d4a2e2e4259c58577186c29511249dba4c29d893258b27c9d5afe417557a8fe9",
+   "audit": null,
+   "changed_slots": 0
+  },
+  {
+   "row": "XOM-10-K-run0",
+   "policed_slots": 19,
+   "source_document": null,
+   "retained_provenance_sha256": "607dd0f7294201d40006034dcf38ebc1c496e098e920041a05a79fff0d906742",
+   "excerpt_sha256": "df0a0fdf0001cb4869bff5145a0dc54ce513efd9d28f0988341a8e005e648e8c",
+   "audit": null,
+   "changed_slots": 0
+  },
+  {
+   "row": "XOM-10-K-run1",
+   "policed_slots": 19,
+   "source_document": null,
+   "retained_provenance_sha256": "607dd0f7294201d40006034dcf38ebc1c496e098e920041a05a79fff0d906742",
+   "excerpt_sha256": "df0a0fdf0001cb4869bff5145a0dc54ce513efd9d28f0988341a8e005e648e8c",
+   "audit": null,
+   "changed_slots": 0
+  },
+  {
+   "row": "PFE-10-Q-run0",
+   "policed_slots": 25,
+   "source_document": null,
+   "retained_provenance_sha256": "046fbac130047352c47383fa4e1d32f86d2cf3e3969ab06701a9df20e7f43108",
+   "excerpt_sha256": "071c1e13c2144258bfb5fc0c686132a3e3eb8d676f83c7a6b70f51fa092bf90a",
+   "audit": null,
+   "changed_slots": 0
+  },
+  {
+   "row": "PFE-10-Q-run1",
+   "policed_slots": 24,
+   "source_document": null,
+   "retained_provenance_sha256": "046fbac130047352c47383fa4e1d32f86d2cf3e3969ab06701a9df20e7f43108",
+   "excerpt_sha256": "071c1e13c2144258bfb5fc0c686132a3e3eb8d676f83c7a6b70f51fa092bf90a",
+   "audit": null,
+   "changed_slots": 0
+  },
+  {
+   "row": "F-10-Q-run0",
+   "policed_slots": 28,
+   "source_document": null,
+   "retained_provenance_sha256": "d0d50ec8c5111a7cdeb8a6741ab58161fe2cb4ff3f2b14ff0f024abe9fcaa6a4",
+   "excerpt_sha256": "c01bf0c2cabfa1b06824e706b28d4ff5f0e1e9da322fcd2ec178c17bd7a8676a",
+   "audit": null,
+   "changed_slots": 0
+  },
+  {
+   "row": "F-10-Q-run1",
+   "policed_slots": 25,
+   "source_document": null,
+   "retained_provenance_sha256": "d0d50ec8c5111a7cdeb8a6741ab58161fe2cb4ff3f2b14ff0f024abe9fcaa6a4",
+   "excerpt_sha256": "c01bf0c2cabfa1b06824e706b28d4ff5f0e1e9da322fcd2ec178c17bd7a8676a",
+   "audit": null,
+   "changed_slots": 0
+  },
+  {
+   "row": "WMT-10-K-run0",
+   "policed_slots": 23,
+   "source_document": "f7fcd37eded9f9a9567767e1bb63a69119097286616c190643b657cce8d610cf",
+   "retained_provenance_sha256": "60c7be42607e9d81253edee671a3e121970fe31239251ae55d1d15d5bba9ad83",
+   "excerpt_sha256": "9dc278401d957be1417c71b84d4534b5b8f248ff058677c2a327354c8f88854c",
+   "audit": null,
+   "changed_slots": 0
+  },
+  {
+   "row": "WMT-10-K-run1",
+   "policed_slots": 23,
+   "source_document": "f7fcd37eded9f9a9567767e1bb63a69119097286616c190643b657cce8d610cf",
+   "retained_provenance_sha256": "60c7be42607e9d81253edee671a3e121970fe31239251ae55d1d15d5bba9ad83",
+   "excerpt_sha256": "9dc278401d957be1417c71b84d4534b5b8f248ff058677c2a327354c8f88854c",
+   "audit": {
+    "restored_count": 7,
+    "unresolved_count": 0,
+    "restored": [
+     {
+      "slot": "balance_sheet_liquidity.maturities_covenants[0]",
+      "figure": "$3,542",
+      "unit": "million",
+      "xbrl_corroborated": false
+     },
+     {
+      "slot": "balance_sheet_liquidity.maturities_covenants[0]",
+      "figure": "$3,237",
+      "unit": "million",
+      "xbrl_corroborated": false
+     },
+     {
+      "slot": "balance_sheet_liquidity.maturities_covenants[0]",
+      "figure": "$3,389",
+      "unit": "million",
+      "xbrl_corroborated": false
+     },
+     {
+      "slot": "balance_sheet_liquidity.maturities_covenants[0]",
+      "figure": "$2,143",
+      "unit": "million",
+      "xbrl_corroborated": false
+     },
+     {
+      "slot": "balance_sheet_liquidity.maturities_covenants[0]",
+      "figure": "$2,600",
+      "unit": "million",
+      "xbrl_corroborated": false
+     },
+     {
+      "slot": "balance_sheet_liquidity.maturities_covenants[0]",
+      "figure": "$23,255",
+      "unit": "million",
+      "xbrl_corroborated": false
+     },
+     {
+      "slot": "balance_sheet_liquidity.maturities_covenants[0]",
+      "figure": "$38,166",
+      "unit": "million",
+      "xbrl_corroborated": false
+     }
+    ],
+    "unresolved": []
+   },
+   "changed_slots": 1
+  },
+  {
+   "row": "COST-10-Q-run0",
+   "policed_slots": 25,
+   "source_document": "6ba04824026ddb22fe1406709137f560e0137e68a3cbed17085f57ea5cde3b31",
+   "retained_provenance_sha256": "86aed42070d900a43ad5ec030ce1536bb7f6a21226c94de8e776bce295172159",
+   "excerpt_sha256": "16af92436b2c012894f074cb92c36530bcdc5024dbb132158b92431f3675a097",
+   "audit": {
+    "restored_count": 0,
+    "unresolved_count": 5,
+    "restored": [],
+    "unresolved": [
+     {
+      "slot": "the_print.what_changed",
+      "figure": "$7,189",
+      "reason": "unsupported_proposition"
+     },
+     {
+      "slot": "the_print.what_changed",
+      "figure": "$6,055",
+      "reason": "unsupported_proposition"
+     },
+     {
+      "slot": "forward_signals.guidance",
+      "figure": "$6,500",
+      "reason": "unsupported_proposition"
+     },
+     {
+      "slot": "notable_footnotes[1].impact",
+      "figure": "$4,000",
+      "reason": "unsupported_proposition"
+     },
+     {
+      "slot": "notable_footnotes[1].impact",
+      "figure": "$1,359",
+      "reason": "unsupported_proposition"
+     }
+    ]
+   },
+   "changed_slots": 0
+  },
+  {
+   "row": "COST-10-Q-run1",
+   "policed_slots": 24,
+   "source_document": "6ba04824026ddb22fe1406709137f560e0137e68a3cbed17085f57ea5cde3b31",
+   "retained_provenance_sha256": "86aed42070d900a43ad5ec030ce1536bb7f6a21226c94de8e776bce295172159",
+   "excerpt_sha256": "16af92436b2c012894f074cb92c36530bcdc5024dbb132158b92431f3675a097",
+   "audit": {
+    "restored_count": 0,
+    "unresolved_count": 1,
+    "restored": [],
+    "unresolved": [
+     {
+      "slot": "forward_signals.guidance",
+      "figure": "$6,500",
+      "reason": "unsupported_proposition"
+     }
+    ]
+   },
+   "changed_slots": 0
+  },
+  {
+   "row": "BA-10-K-run0",
+   "policed_slots": 28,
+   "source_document": "57f29434e20b44e92c33dab9de4430f6a2bba977c42a3da7ed67a2a38274b413",
+   "retained_provenance_sha256": "65da8f058c2f9debe911229a289091d444046b579f814994964d0eca126abf6c",
+   "excerpt_sha256": "5938be154354eea6ca2b85f3c8ab995d0ff85daba79d197d0179acb8bd705a60",
+   "audit": null,
+   "changed_slots": 0
+  },
+  {
+   "row": "BA-10-K-run1",
+   "policed_slots": 25,
+   "source_document": "57f29434e20b44e92c33dab9de4430f6a2bba977c42a3da7ed67a2a38274b413",
+   "retained_provenance_sha256": "65da8f058c2f9debe911229a289091d444046b579f814994964d0eca126abf6c",
+   "excerpt_sha256": "5938be154354eea6ca2b85f3c8ab995d0ff85daba79d197d0179acb8bd705a60",
+   "audit": null,
+   "changed_slots": 0
+  },
+  {
+   "row": "INTC-10-Q-run0",
+   "policed_slots": 31,
+   "source_document": null,
+   "retained_provenance_sha256": "772c03209fed7cd97f2bd7141d6af5ae7210cb7ff2bb17f60c57e083564d1a70",
+   "excerpt_sha256": "3f3cd2619f30b2efaf228863f777a3001ebc71081de5304179dbaf83be2aa335",
+   "audit": null,
+   "changed_slots": 0
+  },
+  {
+   "row": "INTC-10-Q-run1",
+   "policed_slots": 31,
+   "source_document": null,
+   "retained_provenance_sha256": "772c03209fed7cd97f2bd7141d6af5ae7210cb7ff2bb17f60c57e083564d1a70",
+   "excerpt_sha256": "3f3cd2619f30b2efaf228863f777a3001ebc71081de5304179dbaf83be2aa335",
+   "audit": null,
+   "changed_slots": 0
+  },
+  {
+   "row": "PLTR-10-Q-run0",
+   "policed_slots": 25,
+   "source_document": null,
+   "retained_provenance_sha256": "5717f40dc3593bae801b4054d47c5bd560fea335fd43968b9419023afdc80dca",
+   "excerpt_sha256": "ec9b60144ae701cfdc2f65a0b089116dd199a765827fa511e28cfc34b8a8c8f3",
+   "audit": null,
+   "changed_slots": 0
+  },
+  {
+   "row": "PLTR-10-Q-run1",
+   "policed_slots": 25,
+   "source_document": null,
+   "retained_provenance_sha256": "5717f40dc3593bae801b4054d47c5bd560fea335fd43968b9419023afdc80dca",
+   "excerpt_sha256": "ec9b60144ae701cfdc2f65a0b089116dd199a765827fa511e28cfc34b8a8c8f3",
+   "audit": null,
+   "changed_slots": 0
+  },
+  {
+   "row": "RIVN-10-K-run0",
+   "policed_slots": 28,
+   "source_document": null,
+   "retained_provenance_sha256": "1b038da2ff0dcf6b13cd794fc4467175318450dc4c1952f8732ece2a15772c14",
+   "excerpt_sha256": "11884363f8ad99928dc50b436f15e7fe278a6e41c4ed3f1194cafd59b10b57db",
+   "audit": null,
+   "changed_slots": 0
+  },
+  {
+   "row": "RIVN-10-K-run1",
+   "policed_slots": 25,
+   "source_document": null,
+   "retained_provenance_sha256": "1b038da2ff0dcf6b13cd794fc4467175318450dc4c1952f8732ece2a15772c14",
+   "excerpt_sha256": "11884363f8ad99928dc50b436f15e7fe278a6e41c4ed3f1194cafd59b10b57db",
+   "audit": null,
+   "changed_slots": 0
+  },
+  {
+   "row": "COIN-10-Q-run0",
+   "policed_slots": 19,
+   "source_document": null,
+   "retained_provenance_sha256": "04bc4609468631b3e97e4525afb9b7500f7873a19785cce3bcd213c656c4211d",
+   "excerpt_sha256": "56a62db08972a06d4c50aacd6832eb0f33a1b16ed94ed65c4b86d3126b32506b",
+   "audit": null,
+   "changed_slots": 0
+  },
+  {
+   "row": "COIN-10-Q-run1",
+   "policed_slots": 24,
+   "source_document": null,
+   "retained_provenance_sha256": "04bc4609468631b3e97e4525afb9b7500f7873a19785cce3bcd213c656c4211d",
+   "excerpt_sha256": "56a62db08972a06d4c50aacd6832eb0f33a1b16ed94ed65c4b86d3126b32506b",
+   "audit": null,
+   "changed_slots": 0
+  },
+  {
+   "row": "BYND-10-Q-run0",
+   "policed_slots": 31,
+   "source_document": "5a4fd95bc8ad92ff783c17e67e273209e303c74eabcae17b70841e1710ec5f84",
+   "retained_provenance_sha256": "eb5c245a078e2c9ed32eb7d352d94b8fca9962920f7eb57066b5f36ba9fade40",
+   "excerpt_sha256": "f1b570e44272220caba695d12b8c4bc54843133dd33f14c0e9b4280716799ff0",
+   "audit": {
+    "restored_count": 0,
+    "unresolved_count": 1,
+    "restored": [],
+    "unresolved": [
+     {
+      "slot": "notable_footnotes[3].impact",
+      "figure": "$130,000",
+      "reason": "unsupported_proposition"
+     }
+    ]
+   },
+   "changed_slots": 0
+  },
+  {
+   "row": "BYND-10-Q-run1",
+   "policed_slots": 31,
+   "source_document": "5a4fd95bc8ad92ff783c17e67e273209e303c74eabcae17b70841e1710ec5f84",
+   "retained_provenance_sha256": "eb5c245a078e2c9ed32eb7d352d94b8fca9962920f7eb57066b5f36ba9fade40",
+   "excerpt_sha256": "f1b570e44272220caba695d12b8c4bc54843133dd33f14c0e9b4280716799ff0",
+   "audit": {
+    "restored_count": 0,
+    "unresolved_count": 1,
+    "restored": [],
+    "unresolved": [
+     {
+      "slot": "notable_footnotes[3].impact",
+      "figure": "$130,000",
+      "reason": "unsupported_proposition"
+     }
+    ]
+   },
+   "changed_slots": 0
+  },
+  {
+   "row": "BABA-20-F-run0",
+   "policed_slots": 27,
+   "source_document": null,
+   "retained_provenance_sha256": "1ceefc0b6b4df8022fabed48c64c7db068f9b7eb493d798394a0fa367501a8c8",
+   "excerpt_sha256": "5387d3a77820f83597bfcaab2d625cb2be687f7cefe5165e3eca915614124d7d",
+   "audit": null,
+   "changed_slots": 0
+  },
+  {
+   "row": "BABA-20-F-run1",
+   "policed_slots": 27,
+   "source_document": null,
+   "retained_provenance_sha256": "1ceefc0b6b4df8022fabed48c64c7db068f9b7eb493d798394a0fa367501a8c8",
+   "excerpt_sha256": "5387d3a77820f83597bfcaab2d625cb2be687f7cefe5165e3eca915614124d7d",
+   "audit": null,
+   "changed_slots": 0
+  },
+  {
+   "row": "ASML-20-F-run0",
+   "policed_slots": 25,
+   "source_document": null,
+   "retained_provenance_sha256": "a1f889bf1dcecfcac0065ccb822ef23ec5bcd81f17fea150e2e379ae505d9261",
+   "excerpt_sha256": "3d5c91eb152d94789624c607b0dd0adff8a92ef022ffc9f63bf6648522365a80",
+   "audit": null,
+   "changed_slots": 0
+  },
+  {
+   "row": "ASML-20-F-run1",
+   "policed_slots": 23,
+   "source_document": null,
+   "retained_provenance_sha256": "a1f889bf1dcecfcac0065ccb822ef23ec5bcd81f17fea150e2e379ae505d9261",
+   "excerpt_sha256": "3d5c91eb152d94789624c607b0dd0adff8a92ef022ffc9f63bf6648522365a80",
+   "audit": null,
+   "changed_slots": 0
+  },
+  {
+   "row": "TSM-20-F-run0",
+   "policed_slots": 19,
+   "source_document": null,
+   "retained_provenance_sha256": "34fa2710eb10bedb9124207598569e43fe9f68ce7f2d263d09e96d340f4e3532",
+   "excerpt_sha256": "84be2cfba0adc96838353869fd55fab43c5226a0fdb01ff179745eb2eaa37042",
+   "audit": null,
+   "changed_slots": 0
+  },
+  {
+   "row": "TSM-20-F-run1",
+   "policed_slots": 22,
+   "source_document": null,
+   "retained_provenance_sha256": "34fa2710eb10bedb9124207598569e43fe9f68ce7f2d263d09e96d340f4e3532",
+   "excerpt_sha256": "84be2cfba0adc96838353869fd55fab43c5226a0fdb01ff179745eb2eaa37042",
+   "audit": null,
+   "changed_slots": 0
+  },
+  {
+   "row": "JD-20-F-run0",
+   "policed_slots": 21,
+   "source_document": null,
+   "retained_provenance_sha256": "aa8dd0e633e11c795eb770da90554ddfaddb48fb3e23dd05fe2a0d2178d7e873",
+   "excerpt_sha256": "39bd48032cd1e851ffd9c94ea99a82f8346597c0caef2244c677aea57a91373c",
+   "audit": null,
+   "changed_slots": 0
+  },
+  {
+   "row": "JD-20-F-run1",
+   "policed_slots": 27,
+   "source_document": null,
+   "retained_provenance_sha256": "aa8dd0e633e11c795eb770da90554ddfaddb48fb3e23dd05fe2a0d2178d7e873",
+   "excerpt_sha256": "39bd48032cd1e851ffd9c94ea99a82f8346597c0caef2244c677aea57a91373c",
+   "audit": null,
+   "changed_slots": 0
+  },
+  {
+   "row": "SE-20-F-run0",
+   "policed_slots": 23,
+   "source_document": null,
+   "retained_provenance_sha256": "c0b8683f475bbc5cd35a792fecc6f8301dedffd71a03a1884a55b3b818a0022a",
+   "excerpt_sha256": "7694e07c35a5e69018f99d38ba5f3bde095cf96addf6d2e6d9ea177e0521d84d",
+   "audit": null,
+   "changed_slots": 0
+  },
+  {
+   "row": "SE-20-F-run1",
+   "policed_slots": 22,
+   "source_document": null,
+   "retained_provenance_sha256": "c0b8683f475bbc5cd35a792fecc6f8301dedffd71a03a1884a55b3b818a0022a",
+   "excerpt_sha256": "7694e07c35a5e69018f99d38ba5f3bde095cf96addf6d2e6d9ea177e0521d84d",
+   "audit": null,
+   "changed_slots": 0
+  },
+  {
+   "row": "NVO-20-F-run0",
+   "policed_slots": 19,
+   "source_document": null,
+   "retained_provenance_sha256": "9a4c5432ea2bb827727dd417d809e02b7f00d0386daf6c7b9055cebffb1f4772",
+   "excerpt_sha256": "896fec3ca2365b036bcf0ed312d6bf9e4f81e59d8e6231ababa3a429d8158832",
+   "audit": null,
+   "changed_slots": 0
+  },
+  {
+   "row": "NVO-20-F-run1",
+   "policed_slots": 22,
+   "source_document": null,
+   "retained_provenance_sha256": "9a4c5432ea2bb827727dd417d809e02b7f00d0386daf6c7b9055cebffb1f4772",
+   "excerpt_sha256": "896fec3ca2365b036bcf0ed312d6bf9e4f81e59d8e6231ababa3a429d8158832",
+   "audit": null,
+   "changed_slots": 0
+  },
+  {
+   "row": "PDD-20-F-run0",
+   "policed_slots": 24,
+   "source_document": null,
+   "retained_provenance_sha256": "c8422c3fdc883ec2e65df93a7cd9cd7d97bc8a3ee6771b3f2bef47ba22b0a5fe",
+   "excerpt_sha256": "bf86e9e03b655473afb365ba5f0b3b1252de04762b7fa360768c5d5518507a0a",
+   "audit": null,
+   "changed_slots": 0
+  },
+  {
+   "row": "PDD-20-F-run1",
+   "policed_slots": 24,
+   "source_document": null,
+   "retained_provenance_sha256": "c8422c3fdc883ec2e65df93a7cd9cd7d97bc8a3ee6771b3f2bef47ba22b0a5fe",
+   "excerpt_sha256": "bf86e9e03b655473afb365ba5f0b3b1252de04762b7fa360768c5d5518507a0a",
+   "audit": null,
+   "changed_slots": 0
+  },
+  {
+   "row": "MELI-10-K-run0",
+   "policed_slots": 24,
+   "source_document": null,
+   "retained_provenance_sha256": "47d6cae2e07011cb9a35d7adf490c05ef9da206ebcc8a13f47de75c99ff2e665",
+   "excerpt_sha256": "f426e9f88ea6b0597d42b9b6ee5dd4bdb560298c1ea994317d34f620c76b98f0",
+   "audit": null,
+   "changed_slots": 0
+  },
+  {
+   "row": "MELI-10-K-run1",
+   "policed_slots": 23,
+   "source_document": null,
+   "retained_provenance_sha256": "47d6cae2e07011cb9a35d7adf490c05ef9da206ebcc8a13f47de75c99ff2e665",
+   "excerpt_sha256": "f426e9f88ea6b0597d42b9b6ee5dd4bdb560298c1ea994317d34f620c76b98f0",
+   "audit": null,
+   "changed_slots": 0
+  }
+ ]
+}

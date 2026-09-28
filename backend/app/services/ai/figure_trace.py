@@ -32,7 +32,7 @@ parallel copies, exactly like ``_xbrl_value_appears``).
 from __future__ import annotations
 
 import re
-from typing import Any, Optional
+from typing import Any, Iterator, Optional, Tuple
 
 _FIGURE_RE = re.compile(
     r"\$?\s*\d[\d,]*(?:\.\d+)?\s*"
@@ -208,46 +208,52 @@ def _grounded(value: float, key: str, grounded_vals: list[float]) -> bool:
     return any(abs(value - g) <= tol for g in grounded_vals)
 
 
-def _prose_blob(sections: Any) -> str:
-    """Model-authored analytical prose (per the allowlists) — never tables, verbatim quotes, or
-    machine-authored fields. Defensive: a malformed section must not crash the gate."""
+def policed_prose_slots(sections: Any) -> Iterator[Tuple[str, Any, Any, str]]:
+    """``(slot label, container, key, text)`` for every MODEL-authored prose field this gate polices.
+
+    One allowlist, two consumers: the dollar gate below reads the text; ``source_units`` restores a
+    declared table-cell scale in place through ``container[key]``. Sharing the iterator keeps
+    "what counts as model-authored dollar prose" a single predicate (the guard-every-surface
+    lesson) rather than two lists that drift. Never tables, verbatim quotes, or machine-authored
+    fields. Defensive: a malformed section must not crash either consumer."""
     if not isinstance(sections, dict):
-        return ""
-    parts: list[str] = []
+        return
 
-    def _add(value: Any) -> None:
+    def _slot(label: str, container: Any, key: Any) -> Iterator[Tuple[str, Any, Any, str]]:
+        # Schema-loose payloads: a string field may arrive as a list of strings and a list field
+        # as one bare string; both shapes were always policed, so both are yielded.
+        value = container.get(key) if isinstance(container, dict) else None
         if isinstance(value, str):
-            parts.append(value)
+            yield label, container, key, value
         elif isinstance(value, list):
-            for item in value:
+            for i, item in enumerate(value):
                 if isinstance(item, str):
-                    parts.append(item)
+                    yield f"{label}[{i}]", value, i, item
 
-    for key, fields in _PROSE_STRING_FIELDS.items():
-        data = sections.get(key)
-        if isinstance(data, dict):
-            for field in fields:
-                _add(data.get(field))
-    for key, fields in _PROSE_LIST_FIELDS.items():
-        data = sections.get(key)
-        if isinstance(data, dict):
-            for field in fields:
-                _add(data.get(field))
+    for fields_by_section in (_PROSE_STRING_FIELDS, _PROSE_LIST_FIELDS):
+        for key, fields in fields_by_section.items():
+            data = sections.get(key)
+            if isinstance(data, dict):
+                for field in fields:
+                    yield from _slot(f"{key}.{field}", data, field)
     # segments[].commentary carries MODEL prose again (T5.2b: a qualitative driver merged onto the
     # machine-authored rows), so its model-written dollar amounts are checked. Segment FIGURES (revenue /
     # operating income columns) stay machine-authored and excluded.
     segments = sections.get("segments")
     if isinstance(segments, list):
-        for seg in segments:
-            if isinstance(seg, dict):
-                _add(seg.get("commentary"))
+        for i, seg in enumerate(segments):
+            yield from _slot(f"segments[{i}].commentary", seg, "commentary")
     footnotes = sections.get("notable_footnotes")
     if isinstance(footnotes, list):
-        for note in footnotes:
-            if isinstance(note, dict):
-                _add(note.get("item"))
-                _add(note.get("impact"))
-    return "\n".join(parts)
+        for i, note in enumerate(footnotes):
+            for field in ("item", "impact"):
+                yield from _slot(f"notable_footnotes[{i}].{field}", note, field)
+
+
+def _prose_blob(sections: Any) -> str:
+    """Model-authored analytical prose (per the allowlists) — never tables, verbatim quotes, or
+    machine-authored fields."""
+    return "\n".join(text for _slot, _container, _key, text in policed_prose_slots(sections))
 
 
 def untraceable_figures(

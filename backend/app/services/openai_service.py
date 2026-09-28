@@ -47,7 +47,8 @@ from app.services.ai.financing_comparison import (
     CAPITAL_CONTEXT_KEY, CAPITAL_CONTEXT_VERSION, bind_capital_allocation,
 )
 from app.services.ai.source_units import (
-    attach_quote_unit_context, capital_plan_proposition, restore_authored_plan_units,
+    attach_quote_unit_context, build_table_unit_index, capital_plan_proposition,
+    restore_authored_plan_units, restore_table_cell_units,
 )
 from app.services.ai.json_repair import _JsonRepairMixin
 from app.services.ai.markdown_render import _MarkdownRenderMixin
@@ -446,10 +447,14 @@ Rules:
         # Only the supplied excerpt owns this correction on both preview and final paths.
         layout = self._SECTION_LAYOUT.get(filing_type_key.removesuffix("/A"), self._SECTION_LAYOUT["10-K"])
         plan = capital_plan_proposition(filing_excerpt or "", layout)
+        # Declared table-cell scales: the filing's own source document (inline-XBRL facts and
+        # <table> cells) owns previews and the final render; a cached-excerpt generation has none.
+        unit_index = build_table_unit_index(filing_text or "")
         content = await self._request_content(
             create_kwargs, stream_cb=stream_cb, filing_type_key=filing_type_key,
             xbrl_metrics=xbrl_metrics, **({"capital_plan": plan} if plan else {}),
             **({"statement_source": statement_source} if statement_source else {}),
+            **({"unit_index": unit_index} if unit_index else {}),
         )
         return await self._assemble_structured_summary(
             content, filing_type_key, filing_sample, xbrl_metrics, recovery_sources
@@ -550,7 +555,7 @@ Rules:
         filing_type_key: str,
         xbrl_metrics: Optional[Dict],
         *, _client=None, _observation=None, capital_plan: tuple[str, str] | None = None,
-        statement_source: Optional[Dict] = None,
+        statement_source: Optional[Dict] = None, unit_index: Any = None,
     ) -> str:
         """Stream a structured-extraction call, awaiting ``stream_cb(partial_markdown)`` with throttled
         preview renders as the JSON fills in, and return the COMPLETE accumulated content. Preview
@@ -585,6 +590,7 @@ Rules:
                     preview = self._partial_markdown_preview(
                         "".join(parts), xbrl_metrics, **({"capital_plan": capital_plan} if capital_plan else {}),
                         **({"statement_source": statement_source} if statement_source else {}),
+                        **({"unit_index": unit_index} if unit_index else {}),
                     )
                     if preview:
                         try:
@@ -597,7 +603,7 @@ Rules:
 
     def _partial_markdown_preview(
         self, partial_content: str, xbrl_metrics: Optional[Dict], *, capital_plan: tuple[str, str] | None = None,
-        statement_source: Optional[Dict] = None,
+        statement_source: Optional[Dict] = None, unit_index: Any = None,
     ) -> Optional[str]:
         """Render only originally complete sections with the current summary projection.
 
@@ -639,6 +645,9 @@ Rules:
             bind_statement_relationship(sections, statement_source)
             bind_capital_allocation(sections, xbrl_metrics)
             bind_issuer_cash_disclosure(sections)
+            # Same table-cell owner as the final render, over the same source document, after the
+            # same binders, so preview and final restore the same surviving prose.
+            restore_table_cell_units(sections, unit_index, xbrl_metrics=xbrl_metrics)
             rendered = render_sections({
                 "schema_version": SUMMARY_SCHEMA_VERSION, "sections": sections,
                 CAPITAL_CONTEXT_KEY: CAPITAL_CONTEXT_VERSION,
@@ -818,12 +827,23 @@ Rules:
             restore_authored_plan_units(
                 sections_info, capital_plan_proposition(filing_excerpt or "", layout),
             )
-
         capital_source = structured_summary.pop("_capital_allocation_grounding", "")
         bind_statement_relationship(sections_info, statement_source)
         bind_capital_allocation(sections_info, xbrl_metrics, capital_source)
         issuer_cash_owned = bind_issuer_cash_disclosure(
             sections_info, structured_summary.pop(ISSUER_CASH_SOURCE_KEY, ""),
+        )
+        # Declared table-cell scales for bare model dollar figures (source_units): the filing's own
+        # source document, in place on sections_info AFTER the source binders above have replaced
+        # or removed the model prose they own (statement relationship, capital allocation,
+        # issuer cash) and before the coverage snapshot and render, so the audit describes only
+        # prose that survives into the stored sections, exports and persisted markdown. Verified
+        # source-envelope bytes are not policed slots. Recovery-authored sections are skipped
+        # (separately selected context). Measure-always: the audit carries total counts beside its
+        # capped detail lists.
+        table_cell_unit_audit = restore_table_cell_units(
+            sections_info, build_table_unit_index(filing_text or ""),
+            xbrl_metrics=xbrl_metrics, recovered=recovered_keys,
         )
 
         coverage_keys = set(_TRACKED_STRUCTURED_SECTIONS)
@@ -955,6 +975,8 @@ Rules:
             raw_summary_payload["attribution_audit"] = attribution_audit
         if evidence_snap_audit:
             raw_summary_payload["evidence_snap_audit"] = evidence_snap_audit
+        if table_cell_unit_audit:
+            raw_summary_payload["table_cell_unit_audit"] = table_cell_unit_audit
         if writer_result:
             raw_summary_payload["writer"] = writer_result
         if writer_fallback_reason:

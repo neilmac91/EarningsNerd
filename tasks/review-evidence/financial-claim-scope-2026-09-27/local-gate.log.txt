@@ -1,0 +1,9 @@
+== ruff check . ==
+All checks passed!
+ruff_exit=0
+== bandit -r app -ll ==
+bandit_exit=0
+== python -m pytest ==
+3728 passed, 39 skipped, 2 deselected in 277.04s (0:04:37)
+--- Logging error ---
+pytest_exit=0
