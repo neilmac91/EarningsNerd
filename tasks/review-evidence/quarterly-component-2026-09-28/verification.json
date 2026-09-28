@@ -325,6 +325,66 @@
     "independent-review-probes.json": {
       "path": "/Users/neilmacaogain/Documents/Codex/2026-09-28/github-plugin-github-openai-curated-remote/outputs/overnight-2026-09-28/quality/independent-review-probes.json",
       "sha256": "81e4fc531d8a9c286fb071129587ab898d13e45539992ab30a5d900a9cd473a8"
+    },
+    "alias-review-correction/backend-gate.log": {
+      "path": "/Users/neilmacaogain/Documents/Codex/2026-09-28/github-plugin-github-openai-curated-remote/outputs/overnight-2026-09-28/quality/alias-review-correction/backend-gate.log",
+      "sha256": "6c1376d0f1b7950edd5746eca3f5f52b7a4f9a95247593175dba6c23986ad327"
+    },
+    "alias-review-correction/bandit.log": {
+      "path": "/Users/neilmacaogain/Documents/Codex/2026-09-28/github-plugin-github-openai-curated-remote/outputs/overnight-2026-09-28/quality/alias-review-correction/bandit.log",
+      "sha256": "1144d562834a163afc3bd0ce4f3aa1d89c919fc33f2ae6585ef739ae39068f09"
+    },
+    "alias-review-correction/correction-verification.json": {
+      "path": "/Users/neilmacaogain/Documents/Codex/2026-09-28/github-plugin-github-openai-curated-remote/outputs/overnight-2026-09-28/quality/alias-review-correction/correction-verification.json",
+      "sha256": "29bccf444f48a9eb24ef0a49d793edd0d8c8d34102a41af03b10b98630707d68"
+    },
+    "alias-review-correction/finalize-evidence.py": {
+      "path": "/Users/neilmacaogain/Documents/Codex/2026-09-28/github-plugin-github-openai-curated-remote/outputs/overnight-2026-09-28/quality/alias-review-correction/finalize-evidence.py",
+      "sha256": "b07068a7db108af251862838410da0cbff12c2f8339e0ecc277454f108533d10"
+    },
+    "alias-review-correction/focused.log": {
+      "path": "/Users/neilmacaogain/Documents/Codex/2026-09-28/github-plugin-github-openai-curated-remote/outputs/overnight-2026-09-28/quality/alias-review-correction/focused.log",
+      "sha256": "b4f438e172799d7ee961ed0dbc038ad190d3052bf756fcec4f7ac66606c3e0af"
+    },
+    "alias-review-correction/full-gate.json": {
+      "path": "/Users/neilmacaogain/Documents/Codex/2026-09-28/github-plugin-github-openai-curated-remote/outputs/overnight-2026-09-28/quality/alias-review-correction/full-gate.json",
+      "sha256": "35636997bd5896bc159d6fcf5da0227c0a5dbd470396ab407765200fe9b33feb"
+    },
+    "alias-review-correction/full-gate.py": {
+      "path": "/Users/neilmacaogain/Documents/Codex/2026-09-28/github-plugin-github-openai-curated-remote/outputs/overnight-2026-09-28/quality/alias-review-correction/full-gate.py",
+      "sha256": "f6db9fe2cfcd3f2e613d37b75fd43cd5bae80f458a58f0bba68b74c488825845"
+    },
+    "alias-review-correction/mutation-proof.json": {
+      "path": "/Users/neilmacaogain/Documents/Codex/2026-09-28/github-plugin-github-openai-curated-remote/outputs/overnight-2026-09-28/quality/alias-review-correction/mutation-proof.json",
+      "sha256": "d69b52c734fd26ada1e6e79aa0c5d2ef6d84de52f97c6fa534c971aa83b1340e"
+    },
+    "alias-review-correction/mutation-proof.py": {
+      "path": "/Users/neilmacaogain/Documents/Codex/2026-09-28/github-plugin-github-openai-curated-remote/outputs/overnight-2026-09-28/quality/alias-review-correction/mutation-proof.py",
+      "sha256": "ad62f3531a75ab3134e917ba05838af027099d622b58c392d6f81d7b91c8e818"
+    },
+    "alias-review-correction/mutation-selector-fault.log": {
+      "path": "/Users/neilmacaogain/Documents/Codex/2026-09-28/github-plugin-github-openai-curated-remote/outputs/overnight-2026-09-28/quality/alias-review-correction/mutation-selector-fault.log",
+      "sha256": "85491683c9024f6848b93281292e891e8a969fe16c73276eea344c824ca049dc"
+    },
+    "alias-review-correction/mutation-selector-restored.log": {
+      "path": "/Users/neilmacaogain/Documents/Codex/2026-09-28/github-plugin-github-openai-curated-remote/outputs/overnight-2026-09-28/quality/alias-review-correction/mutation-selector-restored.log",
+      "sha256": "58e3fb3d60de6b1ee24cb2ef5283e2ac24af0ce215ab6203b88635acaf550147"
+    },
+    "alias-review-correction/pre-correction-consumer.log": {
+      "path": "/Users/neilmacaogain/Documents/Codex/2026-09-28/github-plugin-github-openai-curated-remote/outputs/overnight-2026-09-28/quality/alias-review-correction/pre-correction-consumer.log",
+      "sha256": "1a58a7335e61540950a4b3aa04e76717288dd5bb5aa9f1e48ecbe1a4dc7d1e8f"
+    },
+    "alias-review-correction/prior-repository-verification.json": {
+      "path": "/Users/neilmacaogain/Documents/Codex/2026-09-28/github-plugin-github-openai-curated-remote/outputs/overnight-2026-09-28/quality/alias-review-correction/prior-repository-verification.json",
+      "sha256": "29b149c6d29a0b63eb569a208f74b09d3f6aedb6c2c5f7426d891753b9ca1808"
+    },
+    "alias-review-correction/refutations.md": {
+      "path": "/Users/neilmacaogain/Documents/Codex/2026-09-28/github-plugin-github-openai-curated-remote/outputs/overnight-2026-09-28/quality/alias-review-correction/refutations.md",
+      "sha256": "8a1bf8aefe1585cdc3af809b4ac0ffdc1946df82c350534d226c6b1ccacbbb6e"
+    },
+    "alias-review-correction/ruff.log": {
+      "path": "/Users/neilmacaogain/Documents/Codex/2026-09-28/github-plugin-github-openai-curated-remote/outputs/overnight-2026-09-28/quality/alias-review-correction/ruff.log",
+      "sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18"
     }
   },
   "prior_implementation_head": "329a67a510939d76e75e4dbce0010248631e0995",
@@ -383,5 +443,97 @@
       "backend/evals/runner.py": "2150865d983f8b38cb45fdd054b5b7b8caf0eba26f72c379deac1b33d399167f",
       "backend/evals/acceptance_ai_decision.py": "b5b420799f6f62067b3d9a7138790d55a60f7dc7e7f949bedc10add3f65113f6"
     }
+  },
+  "alias_review_correction": {
+    "reviewed_head": "8e47f893ae02927621b26ee0c8666f52ae6b64a2",
+    "implementation_head": "ea884255df9011099059fe6bb9e3c46830cef5c2",
+    "finding": "Supported sole camelCase operatingVsOneTime escaped quarterly withholding and remained visible.",
+    "refutations": "Two fresh reachability/consumer passes failed to refute; root independently upheld both. See refutations.md.",
+    "disposition": "Use the renderer selection snake or camel; preserve distinct truthy aliases; successful binding removes both keys.",
+    "empty_alias_decision": "Empty strings have no independent rendered content; whitespace remains populated and conflicting.",
+    "root_committed_patch_review": "Root reviewed committed runtime and extended existing consumer/conflict gates with no new finding.",
+    "extended_existing_gates": [
+      "test_native_source_to_final_preview_shared_exports_preserves_suffix",
+      "test_conflicting_alias_does_not_hide_an_independent_claim"
+    ],
+    "pre_correction_consumers": {
+      "failed": 6,
+      "passed": 14,
+      "warnings": 9,
+      "elapsed_seconds": 8.73
+    },
+    "focused": {
+      "passed": 89,
+      "warnings": 9,
+      "elapsed_seconds": 26.74
+    },
+    "mutation": {
+      "name": "supported-alias-selector",
+      "committed_head": "ea884255df9011099059fe6bb9e3c46830cef5c2",
+      "file": "backend/app/services/ai/statement_relationship.py",
+      "tests": [
+        "tests/unit/test_quarterly_component_withholding.py::test_native_source_to_final_preview_shared_exports_preserves_suffix",
+        "tests/unit/test_quarterly_component_withholding.py::test_conflicting_alias_does_not_hide_an_independent_claim"
+      ],
+      "original_sha256": "67d323708ed760bf0d5f900991fa77da2edeaa00c2db12389d31516695772b62",
+      "fault_sha256": "e70bff293d8e93e2726c557049bb8c1112c8fd79566a4a9b215d0296c6c46bb4",
+      "fresh_caches": true,
+      "DYLD_FALLBACK_LIBRARY_PATH": "/opt/homebrew/lib",
+      "parallel_test_processes": false,
+      "fault_exit": 1,
+      "restored_byte_identical": true,
+      "restored_exit": 0,
+      "restored_clean_status": true
+    },
+    "mutation_fault_summary": "6 failed, 14 passed, 9 warnings in 8.77s",
+    "mutation_restored_summary": "20 passed, 9 warnings in 8.07s",
+    "required_backend_gate": {
+      "committed_head": "ea884255df9011099059fe6bb9e3c46830cef5c2",
+      "versions": {
+        "ruff": "0.16.9",
+        "bandit": "1.9.4",
+        "pytest": "9.1.1"
+      },
+      "checks": [
+        {
+          "name": "ruff",
+          "exit": 0,
+          "elapsed_seconds": 0.13
+        },
+        {
+          "name": "bandit",
+          "exit": 0,
+          "elapsed_seconds": 2.55
+        },
+        {
+          "name": "backend-gate",
+          "exit": 0,
+          "elapsed_seconds": 166.9
+        }
+      ],
+      "fresh_caches": true,
+      "DYLD_FALLBACK_LIBRARY_PATH": "/opt/homebrew/lib",
+      "parallel_test_processes": false,
+      "pytest_summary": {
+        "passed": 3882,
+        "skipped": 39,
+        "deselected": 2,
+        "warnings": 40,
+        "elapsed_seconds": 164.06
+      },
+      "post_summary_logging_error": {
+        "observed": true,
+        "detail": "Existing Yahoo-client shutdown logs to a closed stream after the passing pytest summary; process exit 0.",
+        "unrelated_path_changed": false
+      }
+    },
+    "locked_tests_changed": [],
+    "source_parser_and_annual_runtime_changed": false,
+    "qualifications_and_whole_proposition_grammar_changed": false,
+    "prior_evidence_preserved": true,
+    "retained_70_replay_rerun": false,
+    "fresh_provider_generation_or_semantic_acceptance": false,
+    "paid_provider_SEC_push_PR_cloud_actions": 0,
+    "release_disposition": "Local correction verified; root owns publication and any exact-head external review/release."
   }
 }

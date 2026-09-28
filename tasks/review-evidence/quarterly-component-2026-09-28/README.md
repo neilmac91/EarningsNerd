@@ -149,5 +149,22 @@ populated and cannot bypass the whole-field grammar. Successful binding still
 removes both aliases. The grammar, compensation continuation, source qualification
 boundaries and annual owner are unchanged. Existing consumer and conflict gates are
 extended instead of adding a duplicate rule. Verification receipts are retained in
-`outputs/overnight-2026-09-28/quality/alias-review-correction/` and will be recorded
-after committed-state mutation and full backend checks. Prior evidence is preserved.
+`outputs/overnight-2026-09-28/quality/alias-review-correction/` with committed-state
+mutation and full backend checks recorded below. Prior evidence is preserved.
+
+Correction commit `ea884255df9011099059fe6bb9e3c46830cef5c2` passed the pinned
+required backend gate: Ruff 0.16.9 clean, Bandit 1.9.4 with no medium/high findings,
+**3,882 passed, 39 skipped, 2 deselected**, 40 warnings in 164.06 seconds. Each
+check used a fresh bytecode prefix and `DYLD_FALLBACK_LIBRARY_PATH=/opt/homebrew/lib`;
+no concurrent test process ran in the checkout. The prior known Yahoo-client
+shutdown logging error appears after the passing summary; pytest exited 0 and
+that path was not changed.
+
+The single committed selector mutation restored the exact pre-correction runtime
+bytes and failed 6 controls (14 passed); restoring the committed implementation
+passed all 20. The runtime file was restored byte-identically and git status was
+empty. The focused quarterly/source-scope/annual integration selection passed 89
+tests. Root independently reviewed the committed minimal patch and extended
+existing gates with no new finding. No locked contract test changed. The prior
+retained-70 replay was not rerun and remains historical evidence; no fresh provider
+generation or semantic acceptance is claimed. Publication and release remain with root.
