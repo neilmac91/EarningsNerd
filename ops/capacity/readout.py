@@ -52,7 +52,8 @@ class Api:
                           headers={"Authorization": "Bearer " + self.token,
                                    "Content-Type": "application/json"})
         try:
-            with urlopen(request, timeout=10) as response:
+            # HTTPS endpoints are code-owned; project/region cannot supply a URL scheme.
+            with urlopen(request, timeout=10) as response:  # nosec B310
                 raw = response.read(MAX_RESPONSE + 1)
             if len(raw) > MAX_RESPONSE:
                 return None, "response_size_limit"
