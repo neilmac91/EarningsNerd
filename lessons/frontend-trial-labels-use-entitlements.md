@@ -16,3 +16,20 @@ label/countdown and both customer-ID routing cases. Existing entitled-trial case
 `backend/tests/unit/test_checkout_session.py::test_expired_trial_remnant_can_resubscribe_without_trial`
 locks the unchanged backend behavior. Both frontend predicates are exercised by one coordinated
 original-predicate mutation proof.
+
+**Billing-route follow-up (2026-09-28):** A monthly-trial CTA must arrive on the monthly offer,
+and a selected annual offer must not advertise a trial. Carry only the bounded billing cycle
+through the homepage/paywall link, pricing selection and guest registration destination; the
+server still owns eligibility and the price ID mapping. Resolve the incoming cycle before the
+once-per-mount `pricing_viewed` event. Keep the query reader isolated from server-rendered plans.
+The free-beta presentation must not simultaneously advertise a card-required trial.
+
+**Gate mapping:** `pricing-section.spec.tsx` covers selected-cycle links and monthly/non-beta
+trial copy; `PricingPage.spec.tsx` covers query selection, initial analytics, later user selection,
+and guest query/stash preservation; `StreamingSummaryDisplay.spec.tsx` covers the trial paywall
+link. `pricing-server-render-guard.spec.ts` retains the existing Suspense boundary gate. Each new
+invariant has one committed-state mutation proof recorded with the implementation evidence.
+
+The guest stash covers the existing email/password login fallback, including verification in
+a new tab. Google/Apple callbacks currently return to the homepage; this frontend routing change
+does not establish OAuth destination preservation or change authentication policy.

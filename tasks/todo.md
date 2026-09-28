@@ -1,3 +1,10 @@
+# September 28 — trial billing routing, separate from held pricing activation
+
+- [x] Preserve the selected monthly/yearly cycle from homepage and trial paywall through pricing; retain the existing server-rendered pricing boundary and record the resolved initial cycle once.
+- [x] Preserve guest cycle choice through registration and the existing email-login redirect stash; keep backend eligibility, active subscriptions, beta offers, prices and the pricing experiment unchanged. OAuth callbacks still return to the homepage.
+- [ ] Complete committed-state mutation proofs, full frontend gates and independent review before push; verify the preview in both themes before release.
+- [ ] The separately approved $23/month and $190/year offer remains held until accepted quality readiness and coordinated price activation; this routing fix does not activate it or migrate any subscriber.
+
 # September 28 — summary request evidence
 
 - [ ] Deliver one consent-gated request lifecycle across cached/shared/generated summaries and automatic/auth retries; retain server account/request identity, terminal unknowns and legacy semantics.

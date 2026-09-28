@@ -101,18 +101,32 @@ describe('PricingSection', () => {
     expect(screen.queryByRole('link', { name: ACCESS_COPY.public.cta })).not.toBeInTheDocument()
   })
 
-  it('advertises the trial only when ENABLE_PRO_TRIAL is on, and always sends Pro to /pricing', () => {
+  it('preserves the selected cycle and advertises a trial only on monthly when enabled', () => {
     const { unmount } = renderSection()
-    expect(screen.getByRole('link', { name: 'Upgrade to Pro' })).toHaveAttribute('href', '/pricing')
+    expect(screen.getByRole('link', { name: 'Upgrade to Pro' })).toHaveAttribute('href', '/pricing?billing=monthly')
     expect(screen.queryByRole('link', { name: 'Start 7-day free trial' })).not.toBeInTheDocument()
     expect(screen.queryByText(TRIAL_LINE)).not.toBeInTheDocument()
     unmount()
 
     flags.ENABLE_PRO_TRIAL = true
     renderSection()
-    expect(screen.getByRole('link', { name: 'Start 7-day free trial' })).toHaveAttribute('href', '/pricing')
+    expect(screen.getByRole('link', { name: 'Start 7-day free trial' })).toHaveAttribute('href', '/pricing?billing=monthly')
     expect(screen.queryByRole('link', { name: 'Upgrade to Pro' })).not.toBeInTheDocument()
     expect(screen.getByText(TRIAL_LINE)).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('radio', { name: /annual/i }))
+    expect(screen.getByRole('link', { name: 'Upgrade to Pro' })).toHaveAttribute('href', '/pricing?billing=yearly')
+    expect(screen.queryByRole('link', { name: 'Start 7-day free trial' })).not.toBeInTheDocument()
+    expect(screen.queryByText(TRIAL_LINE)).not.toBeInTheDocument()
+  })
+
+  it('does not pair the free beta offer with a card-required trial promise', () => {
+    flags.ENABLE_PRO_TRIAL = true
+    renderSection({ showBeta: true })
+    expect(screen.getByText('Free for beta members')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Upgrade to Pro' })).toHaveAttribute('href', '/pricing?billing=monthly')
+    expect(screen.queryByRole('link', { name: 'Start 7-day free trial' })).not.toBeInTheDocument()
+    expect(screen.queryByText(TRIAL_LINE)).not.toBeInTheDocument()
   })
 
   it('lowers the displayed price on the price_29 arm, in both billing periods', () => {
