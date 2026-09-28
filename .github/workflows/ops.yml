@@ -255,22 +255,9 @@ jobs:
           container = revision["spec"]["containers"][0]
           command = container.get("command") or []
           args = container.get("args") or []
-          safe_tokens = {
-              "uvicorn", "python", "python3", "-m", "main:app", "--host", "0.0.0.0",
-              "--port", "8080", "${PORT}", "$PORT", "--proxy-headers",
-              "--forwarded-allow-ips=*", "--forwarded-allow-ips", "*", "--workers",
-          }
-          def safe_token(value):
-              return isinstance(value, str) and (
-                  value in safe_tokens or re.fullmatch(r"[1-9][0-9]{0,2}", value)
-                  or re.fullmatch(r"--workers=[1-9][0-9]{0,2}", value)
-              )
           command_evidence = {"state": "image_default_unresolved"}
           if command or args:
-              if len(command) + len(args) <= 30 and all(safe_token(v) for v in command + args):
-                  command_evidence = {"state": "explicit_allowlisted_tokens", "command": command, "args": args}
-              else:
-                  command_evidence = {"state": "override_present_values_withheld"}
+              command_evidence = {"state": "override_present_values_withheld"}
           env_by_name = {entry.get("name"): entry for entry in container.get("env", [])}
           worker_env = {}
           for name in ("WEB_CONCURRENCY", "UVICORN_WORKERS"):
