@@ -1,3 +1,9 @@
+# September 28 — isolated non-ORM dependency maintenance
+
+- [x] Split eight dependency updates from held #1000; retain SQLAlchemy 2.0.54, narrow its source constraint to `<2.1`, and preserve psycopg2-binary 2.9.13 and greenlet 3.5.6. Exclude SQLAlchemy only from the backend version-update group so its driver migration is reviewed separately; security grouping is unchanged.
+- [ ] Verify the exact compiled candidate, full backend gate, disposable PostgreSQL 15 migration/concurrency lanes, and existing performance lane; retain results in [dependency split evidence](review-evidence/dependency-split-2026-09-28/README.md).
+- [ ] Open an independently reviewable draft replacement. Leave #1000 open and the paid ready-for-review workflow, merge/release, quality programme and held pricing #1009 outside this tranche.
+
 # September 28 — trial billing routing, separate from held pricing activation
 
 - [x] Preserve the selected monthly/yearly cycle from homepage and trial paywall through pricing; retain the existing server-rendered pricing boundary and record the resolved initial cycle once.
