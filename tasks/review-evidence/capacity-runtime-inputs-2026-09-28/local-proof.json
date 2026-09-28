@@ -1,0 +1,50 @@
+{
+  "base": "4db8f46a1a35eca7e71194919eefafb29c29e50d",
+  "workflow_sha256": "e38cb711c87a9d0740415eeff1ef5949f40dd25f1e101ba01a9d4d59fed88b51",
+  "embedded_python_sha256": "21208a47018563ba44512f63840e6e3889a26e558724a2217681bcd665586320",
+  "offline_projection_cases": [
+    {
+      "fixture": "normal",
+      "arbitrary_private_values_absent": true,
+      "effective_worker_count": null,
+      "egress_ip_identity": null
+    },
+    {
+      "fixture": "missing",
+      "arbitrary_private_values_absent": true,
+      "effective_worker_count": null,
+      "egress_ip_identity": null
+    },
+    {
+      "fixture": "secret_ref",
+      "arbitrary_private_values_absent": true,
+      "effective_worker_count": null,
+      "egress_ip_identity": null
+    },
+    {
+      "fixture": "unrecognized",
+      "arbitrary_private_values_absent": true,
+      "effective_worker_count": null,
+      "egress_ip_identity": null
+    }
+  ],
+  "verification": {
+    "yaml": "parsed",
+    "workflow_readers": {
+      "passed": 138,
+      "warnings": 16,
+      "exit_code": 0
+    },
+    "frontend_lockstep": {
+      "passed": 3,
+      "exit_code": 0
+    }
+  },
+  "gate_log_sha256": {
+    "workflow-readers": "32ea77a2111195dc3841605cd3e1865df524840877dfae88ca3ff1aa4597773d",
+    "frontend-lockstep": "c65d698bc72424cfdb653dbd893fe07c5befcbffb1f7fba59c47cc01602d0e0a"
+  },
+  "production_dispatches": 0,
+  "production_mutations": 0,
+  "provider_calls": 0
+}
