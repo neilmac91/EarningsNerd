@@ -12,6 +12,8 @@ what applies to your task. Filenames are greppable: `arch-*`, `sec-*`, `test-*`,
 
 ## Architecture
 
+- [`arch-operand-matches-do-not-authorize-financial-assertions.md`](./arch-operand-matches-do-not-authorize-financial-assertions.md) — Use tagged operands for bounded withholding without promoting them to assertion authority
+
 - [`arch-source-supplements-preserve-existing-context.md`](./arch-source-supplements-preserve-existing-context.md) — Retain complete bounded omitted source without displacing existing context
 - [`arch-capital-comparisons-need-source-ownership.md`](./arch-capital-comparisons-need-source-ownership.md) — Own qualified comparisons and source-attributed capital passages in code
 - [`arch-bind-bare-table-figures-to-the-declared-scale.md`](./arch-bind-bare-table-figures-to-the-declared-scale.md) — Bind a bare dollar figure copied from a scaled table to the table's declared scale
