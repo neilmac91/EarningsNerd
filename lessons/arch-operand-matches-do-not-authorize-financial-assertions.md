@@ -47,3 +47,10 @@ both sole aliases, empty companions and equal aliases through actual JSON assemb
 final, preview, compatibility, shared Markdown, PDF and CSV. The existing conflict
 gate preserves different populated aliases in either direction; no second invariant
 gate is added.
+
+A complete matching sentence does not bound the length of a comma-grouped amount.
+If integer conversion rejects a model-authored operand, treat it as a non-match
+and preserve the whole authored field; do not let optional withholding abort final
+generation. The existing unsupported-claim gate covers all three amount positions,
+and the existing real-service consumer gate carries the oversized control through
+both aliases, final, preview and exports. No interpreter-global limit is changed.

@@ -25,9 +25,12 @@ _AGGREGATE_CLAIM = re.compile(
 )
 
 
-def _claim_amount(text: str, scale: int) -> int:
+def _claim_amount(text: str, scale: int) -> int | None:
     amount = text[1:]
-    return int(amount.strip("()").replace(",", "")) * scale * (-1 if amount.startswith("(") else 1)
+    try:
+        return int(amount.strip("()").replace(",", "")) * scale * (-1 if amount.startswith("(") else 1)
+    except ValueError:  # Matched tokens can still exceed Python's integer digit limit.
+        return None
 
 
 def _quarterly_claim(text: str, source: dict) -> re.Match | None:

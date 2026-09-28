@@ -27,6 +27,7 @@ URL = build_sec_archive_url("1321655", ACCESSION) + "pltr-20260331.htm"
 SOURCE_SHA = "b8702d982190b1815c6bcb450fd337273c1b104d187328b05012a1ddf0c852a1"
 CLAIM = json.loads((FIXTURES / "retained-claim.json").read_text())["operating_vs_one_time"]
 SUFFIX = CLAIM[CLAIM.index(" Stock-based compensation"):]
+OVERSIZED_AMOUNT = "$9" + ",999" * 1500
 
 
 def original():
@@ -175,6 +176,9 @@ def test_actual_source_adverse_boundaries_abstain(change):
     CLAIM.replace("Net income of", "Subsidiary net income of"),
     CLAIM.replace("prior-year period", "2024 period"),
     CLAIM.replace("$68,209 thousand", "$68,210 thousand"),
+    pytest.param(CLAIM.replace("$876,402", OVERSIZED_AMOUNT), id="oversized-net"),
+    pytest.param(CLAIM.replace("$68,209", OVERSIZED_AMOUNT), id="oversized-other"),
+    pytest.param(CLAIM.replace("$(3,173)", "$(" + OVERSIZED_AMOUNT[1:] + ")"), id="oversized-prior"),
     CLAIM.replace("privately-held equity securities", "privately-held equity securities and caused profit growth"),
     CLAIM.replace("Stock-based compensation expense was", "The Company denies that stock-based compensation expense was"),
     "A tax benefit of $774 million increased net income.",
@@ -187,7 +191,10 @@ def test_complete_authored_boundary_preserves_unsupported_claims(claim):
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("claim,corrected", [(CLAIM, True), ("Hypothetical example: " + CLAIM, False)])
+@pytest.mark.parametrize("claim,corrected", [
+    (CLAIM, True), ("Hypothetical example: " + CLAIM, False),
+    pytest.param(CLAIM.replace("$876,402", OVERSIZED_AMOUNT), False, id="oversized-net"),
+])
 @pytest.mark.parametrize("alias_layout", ["snake_only", "camel_only", "empty_snake", "empty_camel", "equal"])
 async def test_native_source_to_final_preview_shared_exports_preserves_suffix(monkeypatch, claim, corrected, alias_layout):
     for flag in ("AI_ATTRIBUTION_VERIFY", "AI_ATTRIBUTION_GATE", "AI_FORWARD_QUOTE_GATE", "AI_FIGURE_TRACE_GATE"):
