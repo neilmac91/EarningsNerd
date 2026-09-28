@@ -1,3 +1,8 @@
+## 2026-09-29 — release completed filing-list database sessions
+
+- Isolated PostgreSQL measurement reproduced four-slot pool starvation from eight concurrent cached HTTP reads, including full middleware and local Uvicorn. Close materialized cached/live/fallback reads synchronously; retain original response, cache and background-refresh behavior.
+- One full-app regression guards the reported burst, with a failing/restored mutation proof. Full backend gate: 3,808 passed; separate PostgreSQL/HTTP checks: eight cached reads and 44 mixed requests passed. [Local evidence](review-evidence/filing-cache-session-2026-09-29/README.md) retains limits. Exact-head hosted review and serial release remain required.
+
 # September 28 — bounded operational capacity readout
 
 - [x] Add a read-only, two-hour UTC-window Ops inspection using existing WIF, Monitoring/Logging and the pinned Cloud SQL proxy. Retain missing permissions, partial pages and sample intervals explicitly.
