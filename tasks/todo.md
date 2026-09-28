@@ -5923,3 +5923,7 @@ H15 historical equality, logo and 78 dispositions remain unresolved. Quality, be
 - This is offline candidate work pending independent root review. Native-source
   supplements are separate from the unchanged retained-70 cached-source evidence.
   No provider call, push, PR, production change, E7 credit or content-stamp adoption.
+- Independent engineering review requested three fixes: quarterly-only omission
+  from both optional judge annexes, short-header abstention and exception-safe
+  leap-date abstention. These are implemented with 59 focused tests passing;
+  committed mutation proofs, the full backend gate and re-review remain required.

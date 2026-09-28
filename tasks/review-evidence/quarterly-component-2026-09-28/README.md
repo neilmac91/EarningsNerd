@@ -97,9 +97,18 @@ unchanged-authored positive and restored to one passing. Both source files were
 restored byte-identically. Exact receipts and private artifact hashes are in
 [verification.json](verification.json).
 
-The frozen optional judge/acceptance wrapper still calls `statement_source`
-application-owned primary-statement evidence. The new descriptor's explicit
-`assertion_scope=not_established` and withholding-only use have **not** independently
-cleared that consumer implication. The candidate remains held for source/assertion
-contract and all-consumer review. Passing finite controls is not semantic source
-authority, and no E7 acceptance/progress credit is claimed.
+Independent engineering review requested three corrections: omit the new quarterly
+descriptor from both optional primary-statement annex paths, reject short matching
+headers before indexed access, and abstain on unsupported prior leap-date
+comparisons without constructing an invalid date. The corrections use one shared
+annex eligibility decision and leave frozen wrapper wording, message construction,
+caps and judge contract unchanged. Only the new quarterly kind is omitted; annual,
+absent and legacy descriptor inputs retain their previous treatment.
+
+The existing source-boundary gate now covers both short headers and the leap-date
+case. One actual-consumer parity gate exercises runner and acceptance paths with
+quarterly, qualified-quarterly, actual annual, absent, unknown-kind, no-kind and
+empty descriptors. The focused candidate gate passed 59 tests. Committed mutation
+proofs and the full backend gate for these corrections are pending. The candidate
+remains held for independent re-review. Passing finite controls is not semantic
+source authority, and no E7 acceptance/progress credit is claimed.

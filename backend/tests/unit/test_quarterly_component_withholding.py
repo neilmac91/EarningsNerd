@@ -76,11 +76,13 @@ def test_actual_source_has_signed_aggregate_facts_and_full_duration():
     "conflicting_repeat", "retracted_title", "caption", "wrapper_prose", "extra_bridge_row", "period_header",
     "namespace", "nested_namespace", "different_report", "wrong_form",
     "prose_before_bridge", "prose_after_bridge", "prose_in_other_row",
+    "one_row_header", "two_row_header", "leap_day_comparison",
 ])
 def test_actual_source_adverse_boundaries_abstain(change):
     document = html.fromstring(original().encode())
     table = document.xpath('/html/body/div[56]/table')[0]
     fact = node(document, "f-129")
+    report_period = "2026-03-31"
     if change in {"different_start", "different_entity", "dimension"}:
         context = copy.deepcopy(node(document, "c-1"))
         context.set("id", "adverse-context")
@@ -139,9 +141,31 @@ def test_actual_source_adverse_boundaries_abstain(change):
     elif change == "different_report":
         assert acquire(period="2025-03-31") is None
         return
+    elif change in {"one_row_header", "two_row_header"}:
+        # The expected tokens do not establish the required three-row header.
+        table.clear()
+        header = ("<tr><td>Three Months Ended March 31,</td>"
+                  + ("</tr><tr>" if change == "two_row_header" else "")
+                  + "<td>2026</td><td>2025</td></tr>")
+        table.extend(html.fragments_fromstring(header))
+    elif change == "leap_day_comparison":
+        # Valid source dates, but the finite grammar cannot match the same
+        # prior-year day. Decline without constructing the invalid 2023-02-29.
+        replacements = {"2026-03-31": "2024-02-29", "2026-01-01": "2023-12-01",
+                        "2025-03-31": "2023-02-28", "2025-01-01": "2022-12-01",
+                        "March 31, 2026": "February 29, 2024",
+                        "Three Months Ended March 31,": "Three Months Ended February 29,"}
+        for part in document.iter():
+            if part.text:
+                for old, new in replacements.items():
+                    part.text = part.text.replace(old, new)
+        for part in table.iter():
+            if part.text in {"2026", "2025"}:
+                part.text = {"2026": "2024", "2025": "2023"}[part.text]
+        report_period = "2024-02-29"
     else:
         node(document, "f-1").text = "10-K"
-    assert acquire(html.tostring(document).decode()) is None
+    assert acquire(html.tostring(document).decode(), period=report_period) is None
 
 
 @pytest.mark.parametrize("claim", [

@@ -111,7 +111,7 @@ def _table(table: Any, *, document: Any, report: date, issuer_name: str,
     scale = 1000 if title[1] == "thousands" else 1000000
     rows = table.xpath("./tr|./tbody/tr")
     matrix = [_cells(row) for row in rows]
-    if any(cells is None for cells in matrix):
+    if len(matrix) < 3 or any(cells is None for cells in matrix):
         return None
     labels = [cells[0]["text"] if cells else "" for cells in matrix]
     # The entire demonstrated face-table grammar is closed. Prose before or after
@@ -167,7 +167,7 @@ def _table(table: Any, *, document: Any, report: date, issuer_name: str,
             return None
         start, end = next(iter(durations))
         begin, finish = date.fromisoformat(start), date.fromisoformat(end)
-        if (finish != date(year, report.month, report.day) or begin.day != 1
+        if ((finish.year, finish.month, finish.day) != (year, report.month, report.day) or begin.day != 1
                 or finish.day != calendar.monthrange(year, finish.month)[1]
                 or (finish.year * 12 + finish.month) - (begin.year * 12 + begin.month) != 2):
             return None

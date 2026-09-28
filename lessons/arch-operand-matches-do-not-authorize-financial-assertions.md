@@ -25,3 +25,15 @@ without turning its numeric identity into permission to render a financial fact.
 qualifications through final and preview rendering and rejects unconditional
 replacement. This is a narrow risk reduction; matching is not semantic acceptance,
 unsupported legacy behavior remains, and E7 acceptance is separate.
+
+That separation must also hold at evaluation consumers. The optional judge and
+acceptance hash reconstruction omit only the new quarterly operand descriptor
+from their primary-statement annex. One shared eligibility function keeps those
+paths aligned; the actual-consumer parity gate in the same source-scope test file
+preserves annual, absent and legacy descriptor messages. Explicit metadata saying
+assertion scope is unknown does not make a contradictory evidence label safe.
+
+Unsupported source layouts and calendar comparisons must abstain without crashing
+the optional source seam. The existing source-boundary gate includes matching
+one-/two-row headers and a valid leap-ending quarter whose prior day cannot match
+the finite grammar. These controls require no broader fiscal-calendar inference.
