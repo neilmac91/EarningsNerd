@@ -155,7 +155,7 @@ async def test_native_sdk_tool_wire_carries_viewed_scope_and_currency(monkeypatc
                     'name': 'get_financial_fact', 'arguments': json.dumps({'concept': 'revenue', 'accession_number': OTHER})}}]},
                 'finish_reason': 'tool_calls'}])
         else:
-            data = chunk('Revenue was RMB996.347 billion [F1].')
+            data = chunk('Revenue was RMB996.347 billion [F1].\n===CITATIONS===\n[]')
         return httpx2.Response(200, headers={'content-type': 'text/event-stream'},
                                content=event(data) + b'data: [DONE]\n\n')
     def lookup(name, args, company_id, **scope):

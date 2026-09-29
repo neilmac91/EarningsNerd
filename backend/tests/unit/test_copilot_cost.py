@@ -154,7 +154,7 @@ async def test_completion_telemetry_preserves_physical_call_accounting(monkeypat
             }]}}]
             content = chunk(model=model, choices=choices)
         else:
-            answer = "The filing describes its business." if surface == "copilot" else (
+            answer = "The filing describes its business.\n===CITATIONS===\n[]" if surface == "copilot" else (
                 _selection() if last else "rejected selection"
             )
             content = chunk(answer, model=model)
