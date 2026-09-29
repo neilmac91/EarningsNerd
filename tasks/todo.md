@@ -1,3 +1,9 @@
+## 2026-09-30 — clarify Copilot evidence ownership
+
+- Apply the reviewed lead-directive correction for completed numeric-only answers: retain tool markers, exact filing-text evidence and the existing citation/follow-up protocol; omit redundant cross-check prose.
+- Complete the full backend gate and exact-head independent review before separately authorized metered measurements and release. Preserve all locked tests, models, tools, scorers and acceptance criteria.
+- Retain PR #1021's original ASML run-0 citation failure and 17/18 result. Local checks and publication containment do not certify improved generation or release that held candidate.
+
 ## 2026-09-29 — release completed sibling filing reads
 
 - Separate actual-HTTP/PostgreSQL controls reproduced pool starvation in specific-filing, recent-filing, content and fundamentals reads. Retain two fresh refutation passes and the original failures.
