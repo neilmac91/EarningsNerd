@@ -247,3 +247,42 @@ the visible-only call audit and refutations are under
 `outputs/overnight-2026-09-28/quality/source-integer-review-correction/`.
 No locked test changed and no duplicate gate was added. Hosted e2 run 36499006777 was untouched;
 no push, PR/provider/cloud action or fresh semantic acceptance is claimed.
+
+## Scaled source integer JSON correction
+
+The completed 3,924-pass source correction and clean evidence head `b6fbbdec0f739f2b5d8197f7551c985a9b9a32b3`
+remain preserved. A further read-only audit found that exactly 4,300 input digits
+can convert successfully but grow beyond Python's decimal encoding limit after
+the supported scale is applied. Two fresh refutations failed: neither the exact
+input grammar nor the actual persistence consumer removes this route. A synthetic
+optional component on the actual fixture preserves normal claim matching and
+binds its descriptor, then fails both descriptor JSON and the actual Summary
+raw-summary column encoder. No DB connection or provider call was used.
+
+Correction `b0bdbdb2c8a05fdded02c4186935576ecf1441c1` checks decimal encoding after scaling
+inside the existing quarterly ValueError guard. Optional invalid components are
+still ignored; selected/repeated invalid facts keep their existing abstention.
+The existing source-adverse gate gains four controls: scales three and six whose
+input is exactly 4,300 digits, plus values that scale to exactly the accepted
+4,300-digit limit. Scale six is negative to preserve signed boundary behavior.
+Accepted descriptors and bound raw-summary shapes are actually JSON encoded.
+No new gate, global limit change or shared annual owner change was introduced.
+
+The committed old-helper proof fails only the two over-limit scaled controls
+(36 pass); exact restoration passes all 38. The focused quarterly files pass 92
+cases. The corrected persistence probe encodes all four cases, ignoring only the
+two invalid optional values. Negation does not increase decimal digit count;
+later sums/differences only compare values and do not store derived larger ints.
+The earlier visible-only parser audit and all original fixture bytes remain.
+
+Pinned Ruff 0.16.9 and Bandit 1.9.4 pass. Full pytest: **3,928 passed,
+39 skipped, 2 deselected**, 40 warnings,
+164.63s, exit 0. Fresh caches, the macOS library loader and
+one test process per checkout were used. The unchanged Yahoo logging shutdown
+tail is retained. Evidence and hashes are under
+`outputs/overnight-2026-09-28/quality/scaled-source-integer-review-correction/`.
+
+The previously existing annual visible-amount overflow was reported separately;
+the annual owner remains byte-identical to main. All prior receipt hashes and the
+3,924-pass gate were revalidated. No locked tests or fixtures changed; no push,
+PR, provider, database, cloud, SEC or hosted-CI action is claimed.
