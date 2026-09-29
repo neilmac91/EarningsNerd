@@ -5,7 +5,7 @@ from datetime import date
 import re
 from typing import Any
 
-from app.services.edgar.tax_rate_comparison import RATE_LEXEME
+from app.services.edgar.tax_rate_comparison import RATE_LEXEME, prior_year_period_end
 from app.services.provenance_service import normalize_for_match
 
 LIMITATION = "This summary could not independently verify the explanation of the tax-rate change."
@@ -71,7 +71,7 @@ def withhold_tax_rate_explanation(sections: dict[str, Any], index: Any) -> list[
         return []
     rates = {r["period_end"]: r["percent_lexical"] for r in selected["rates"]}
     end = date.fromisoformat(selected["report_end"])
-    expected = (end.isoformat(), rates[end.isoformat()], rates[end.replace(year=end.year - 1).isoformat()])
+    expected = (end.isoformat(), rates[end.isoformat()], rates[prior_year_period_end(end).isoformat()])
     # A complete source explanation conservatively excludes withholding; this is
     # not a verification badge. Unknown formulations remain outside this contract.
     if any(_operands(normalize_for_match(p), source=True) == expected for p in selected["paragraphs"]):
