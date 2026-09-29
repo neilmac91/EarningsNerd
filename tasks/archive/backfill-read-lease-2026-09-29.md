@@ -26,3 +26,18 @@ Each run used a fresh bytecode cache and no concurrent pytest. The checkout was 
 restoration. The operator retains exact committed identities, fault patches, logs and pinned full-gate results
 under `outputs/overnight-2026-09-28/capacity/backfill-read-lease-candidate/`. No live job, additional
 capacity experiment, provider call, push or publication is authorized by this record.
+
+
+## Root review and draft publication
+
+Pinned Ruff0.16.9 and Bandit1.9.4 passed at `066c023f`. Full pytest9.1.1 passed
+3,946 tests, with39 skipped,2 deselected and40 warnings in167.79 seconds, exit0.
+Root verified all19 retained evidence files and completed correctness, repository-rule
+and gate reviews with no remaining actionable finding. The final documentation commit
+keeps the tested backend bytes.
+
+Root authorized draft publication to obtain independent hosted review while main
+remains `904ca43b`. This supersedes the earlier local-candidate publication boundary
+only. Any intervening main changes require integration and appropriate verification
+before readiness. Ready-stage fidelity and serial deployment verification remain
+required. This change establishes job-local lease behavior, not fleet capacity.
