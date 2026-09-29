@@ -716,11 +716,13 @@ it decorates**. The layers below protect that promise; audit them together whene
 `copilot_service` resolver change touches the Q&A path (field precedent: legit revenue fact chips
 reused as year labels on gross-profit/net-income figures).
 
-**What's enforced automatically, per answer, in production** (`copilot_service._resolve_citations`):
+**What's enforced automatically, per answer, in production** (`copilot_service` admission and resolver):
 
 | Layer | Citation kind | Check | On failure |
 |---|---|---|---|
-| Excerpt verification | text `[n]` | excerpt found verbatim in the filing (`verify_excerpt_in_text`) | chip renders unverified ("Cited", no badge) |
+| Publication admission | text `[n]` | a declared citation array must parse completely with unambiguous referenced identities; every referenced excerpt must pass the existing source matcher | whole answer withheld with an application error; no draft prose is published |
+| Excerpt verification | text `[n]` | excerpt matches the normalized filing (`verify_excerpt_in_text`) | referenced failed evidence prevents completion; unused failed declarations remain omitted |
+| Final numbering | both | an unresolved literal numeric marker must not acquire an unrelated citation's number | whole answer withheld with an application error |
 | Marker resolution | both | every inline marker resolves to a declared source | unresolvable F-marker stripped from prose |
 | Value adjacency | fact `[Fn]` | a figure matching the fact's value (display-rounding tolerance) must sit in the claim span before the marker — bounded by the previous marker | occurrence stripped, counted as misplaced |
 | Concept adjacency | fact `[Fn]` | the claim span must not name a *different* curated metric while never naming the fact's own (right value, wrong label — `_CONCEPT_SYNONYMS`) | occurrence stripped, counted as misplaced |
@@ -730,6 +732,18 @@ reused as year labels on gross-profit/net-income figures).
 | Uncited-claim repair | fact `[Fn]` | `_repair_uncited_fact_claim`: an answer that cites NOTHING and states one complete reported annual figure (subject, full fiscal end date, native currency, amount) gets a server-initiated DB lookup on the viewed accession; the marker is attached only when the filing's own fact matches concept, `period_end`, the filing's period of report, currency, value at the stated display precision, and carries its OWN reported duration inside the annual window (320–390 days) | abstains — the answer ships unchanged and still uncited |
 | Figure coverage | — | `count_uncited_figures`: financial figures outside every citation's claim span (the misplacement guards convert wrong chips into *uncited* prose — this counts what shipped naked) | counted, never modified |
 | Telemetry | — | `misplaced_fact_markers` / `figure_count` / `uncited_figures` on the complete event, both warning logs, and the same trio on the PostHog `copilot_inference_cost` event | — |
+
+Copilot publishes answer prose only in its final admitted completion. Fixed progress and tool
+activity remain live. The browser rejects malformed or known-unverified completion payloads,
+including those from an older backend revision, and treats EOF or timeout without completion as
+an error. Closing the rail cancels only its pending response. Failed or cancelled requests do
+not consume successful-answer quota; physical provider usage remains recorded by the provider
+wrapper, including unknown cost. A rejected answerable evaluation attempt remains a failure.
+
+This boundary prevents publication of known failed referenced evidence. Source matching does
+not establish the meaning, period, entity or cause of the surrounding claim. Uncited legacy
+output and pure not-disclosed answers retain their existing semantics; neither is promoted to
+financial-quality acceptance. Existing fact-marker removal and repair behavior below is unchanged.
 
 The repair row is the only layer that ADDS a citation, so it is positive certification rather than
 falsification: a missing, ambiguous or partly matching fact abstains and the answer stays uncited.

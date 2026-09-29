@@ -1,8 +1,8 @@
 import { getApiUrl } from '@/lib/api/client'
 import { postStreamWithRefresh } from '@/lib/api/streamRefresh'
 
-// Idle timeout for the SSE stream. Mirrors STREAM_TIMEOUT_MS in summaries-api.ts: any
-// activity (token/progress/heartbeat) resets the clock; only true silence aborts.
+// Idle bound covers the initial POST, shared refresh, headers and stream reads.
+// Received bytes reset it; candidate prose is held until an admitted completion.
 const STREAM_TIMEOUT_MS = 120000
 
 // --- Types (mirror the P1 backend contract) ---
@@ -79,15 +79,47 @@ const parseErrorDetail = async (response: Response, fallback: string): Promise<s
   return fallback
 }
 
-/**
- * Stream an answer for "Ask this Filing".
- *
- * Mirrors runStreamAttempt in summaries-api.ts (fetch POST + credentials:'include' +
- * AbortController with an idle resetTimeout, response.body.getReader() + TextDecoder, split on
- * '\n', parse `data:` lines, switch on data.type) — but deliberately simpler: no auto-retry.
- * HTTP errors and AbortError/network failures are surfaced via handlers.onError; the caller
- * shows an inline error bubble (with a Retry button, or an Upgrade link for paywall errors).
- */
+const PUBLICATION_ERROR = "I couldn't verify the cited evidence, so I couldn't provide this answer."
+const STREAM_ERROR = 'The answer could not be completed. Please try again.'
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null && !Array.isArray(value)
+
+// This is the network boundary, including responses from an older backend revision during a
+// deployment. It admits a complete wire payload; it does not reverify source meaning in the UI.
+const parseCompletion = (data: Record<string, unknown>): CopilotCompletion | null => {
+  if (
+    typeof data.answer !== 'string' || !data.answer.trim() ||
+    (data.kind !== 'answer' && data.kind !== 'not_disclosed') ||
+    typeof data.grounded !== 'number' || !Number.isSafeInteger(data.grounded) ||
+    data.grounded < 0 ||
+    !Array.isArray(data.citations) ||
+    !Array.isArray(data.followups) || !data.followups.every((f) => typeof f === 'string')
+  ) return null
+
+  const citations: CopilotCitation[] = []
+  const markers = new Set<string>()
+  for (const citation of data.citations) {
+    if (!isRecord(citation)) return null
+    const { n, excerpt, section_ref, verified, fragment_url } = citation
+    const validMarker = typeof n === 'number'
+      ? Number.isSafeInteger(n) && n > 0
+      : typeof n === 'string' && /^f\s*[1-9]\d*$/i.test(n)
+    if (
+      !validMarker || typeof excerpt !== 'string' || !excerpt.trim() || verified !== true ||
+      (section_ref !== null && typeof section_ref !== 'string') ||
+      (fragment_url !== null && typeof fragment_url !== 'string')
+    ) return null
+    const marker = String(n).replace(/\s/g, '').toUpperCase()
+    if (markers.has(marker)) return null
+    markers.add(marker)
+    citations.push({ n: n as number | string, excerpt, section_ref, verified, fragment_url })
+  }
+  if (data.kind === 'not_disclosed' && (citations.length !== 0 || data.grounded !== 0)) return null
+  return { answer: data.answer, citations, grounded: data.grounded, kind: data.kind, followups: data.followups }
+}
+
+/** Publish only the first admitted completion; intermediate model prose never reaches the UI. */
 export const askFilingStream = async (
   filingId: number,
   question: string,
@@ -95,195 +127,126 @@ export const askFilingStream = async (
   handlers: CopilotHandlers,
   signal?: AbortSignal
 ): Promise<void> => {
-  const apiUrl = getApiUrl()
-  const url = `${apiUrl}/api/summaries/filing/${filingId}/ask-stream`
-
+  const url = `${getApiUrl()}/api/summaries/filing/${filingId}/ask-stream`
   const controller = new AbortController()
-  const onAbort = () => controller.abort()
-  // Bridge an externally-provided signal (component unmount / panel close) to our controller.
-  if (signal) {
-    if (signal.aborted) {
-      controller.abort()
-    } else {
-      signal.addEventListener('abort', onAbort, { once: true })
-    }
-  }
+  let terminal = false
+  let reader: ReadableStreamDefaultReader<Uint8Array> | undefined
+  let timeoutId: ReturnType<typeof setTimeout> | undefined
+  let wakeCancellation!: () => void
+  const cancelled = new Promise<null>((resolve) => { wakeCancellation = () => resolve(null) })
 
-  let timeoutId: ReturnType<typeof setTimeout> | null = null
+  const finish = () => {
+    if (terminal) return false
+    terminal = true
+    clearTimeout(timeoutId)
+    wakeCancellation()
+    controller.abort()
+    return true
+  }
+  const fail = (message: string) => {
+    if (finish()) handlers.onError(message)
+  }
+  const onAbort = () => { finish() } // Explicit caller cancellation is quiet.
   const resetTimeout = () => {
-    if (timeoutId) clearTimeout(timeoutId)
-    timeoutId = setTimeout(() => controller.abort(), STREAM_TIMEOUT_MS)
+    clearTimeout(timeoutId)
+    timeoutId = setTimeout(() => fail('The answer timed out. Please try again.'), STREAM_TIMEOUT_MS)
   }
-  const clearTimeoutSafely = () => {
-    if (timeoutId) {
-      clearTimeout(timeoutId)
-      timeoutId = null
-    }
+  const cancelBody = (body: ReadableStream<Uint8Array> | null) => {
+    void body?.cancel().catch(() => { /* The transport may already have aborted. */ })
   }
 
-  // Coalesce token deliveries to at most one per animation frame. A fast stream can emit dozens of
-  // tokens per frame; delivering each one separately forced a React re-render — and, in the message
-  // view, a full markdown re-parse — per token, which was O(n²) jank on long answers. We buffer
-  // incoming token text and flush it once per frame. Terminal events (complete/not_disclosed/error)
-  // replace the whole answer, so their handlers discard any unflushed buffer; a graceful stream-end
-  // flushes the tail so a malformed stream (tokens, no `complete`) never drops its final words.
-  let tokenBuffer = ''
-  let rafId: number | null = null
-  const canRaf = typeof requestAnimationFrame === 'function'
-
-  const deliverBuffer = () => {
-    rafId = null
-    if (!tokenBuffer) return
-    const text = tokenBuffer
-    tokenBuffer = ''
-    try {
-      handlers.onToken(text)
-    } catch (error) {
-      // deliverBuffer runs inside a requestAnimationFrame callback, outside this function's
-      // try/catch — a throw here would be an unhandled exception and leave the reader loop
-      // running. Abort the stream (the loop's pending read rejects with AbortError and exits
-      // quietly) and surface the failure once.
-      controller.abort()
-      handlers.onError(error instanceof Error ? error.message : 'Something went wrong displaying the answer.')
-    }
-  }
-  const enqueueToken = (text: string) => {
-    if (!canRaf) {
-      handlers.onToken(text)
-      return
-    }
-    tokenBuffer += text
-    if (rafId === null) rafId = requestAnimationFrame(deliverBuffer)
-  }
-  const cancelScheduledFlush = () => {
-    if (rafId !== null) {
-      cancelAnimationFrame(rafId)
-      rafId = null
-    }
-  }
-  const flushTokensNow = () => {
-    cancelScheduledFlush()
-    deliverBuffer()
-  }
-  const discardBufferedTokens = () => {
-    cancelScheduledFlush()
-    tokenBuffer = ''
-  }
-
+  signal?.addEventListener('abort', onAbort, { once: true })
   try {
-    // Raw SSE POST bypasses the axios client, so refresh an expired access cookie the same way
-    // (a Pro user 30+ min into a filing must not be told to "sign in" when their session is live).
-    const response = await postStreamWithRefresh(() =>
-      fetch(url, {
+    if (signal?.aborted) { finish(); return }
+    resetTimeout()
+    // Race our wait against cancellation without cancelling the shared refresh promise. A refresh
+    // that resolves later must not replay this obsolete request or publish a late response.
+    const pendingResponse = postStreamWithRefresh(() => {
+      if (terminal) return Promise.reject(new DOMException('Request cancelled', 'AbortError'))
+      return fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
         body: JSON.stringify({ question, history }),
         signal: controller.signal,
-      }),
-    )
+      })
+    }).then((response) => {
+      if (terminal) cancelBody(response.body)
+      return response
+    })
+    const response = await Promise.race([pendingResponse, cancelled])
+    if (!response || terminal) return
 
     if (!response.ok) {
-      let errorMessage: string
-      if (response.status === 401) {
-        errorMessage = 'Sign in to use the Copilot.'
-      } else if (response.status === 403) {
-        errorMessage = await parseErrorDetail(response, 'This is a Pro feature.')
-      } else if (response.status === 429) {
-        // Surface the server detail (the monthly cap message) verbatim when present.
-        errorMessage = await parseErrorDetail(response, 'Monthly limit reached. Please try again later.')
-      } else if (response.status >= 500) {
-        errorMessage = await parseErrorDetail(response, 'Server error. Please try again.')
-      } else {
-        errorMessage = await parseErrorDetail(response, `Request failed with status ${response.status}`)
-      }
-      handlers.onError(errorMessage)
+      let message: string | null
+      if (response.status === 401) message = 'Sign in to use the Copilot.'
+      else if (response.status === 403 || response.status === 429) {
+        // Preserve application-owned entitlement/rate-limit details and their existing upgrade UI.
+        message = await Promise.race([
+          parseErrorDetail(response, response.status === 403
+            ? 'This is a Pro feature.' : 'Monthly limit reached. Please try again later.'),
+          cancelled,
+        ])
+      } else message = STREAM_ERROR
+      if (message !== null) fail(message)
+      cancelBody(response.body)
       return
     }
 
-    const reader = response.body?.getReader()
-    if (!reader) {
-      handlers.onError('No response stream available.')
-      return
-    }
-
+    reader = response.body?.getReader()
+    if (!reader) { fail(STREAM_ERROR); return }
     const decoder = new TextDecoder()
     let buffer = ''
-    resetTimeout()
-
-    while (true) {
-      const { done, value } = await reader.read()
-      if (done) break
-
+    while (!terminal) {
+      const chunk = await Promise.race([reader.read(), cancelled])
+      if (!chunk || terminal) return
+      if (chunk.done) { fail(STREAM_ERROR); return }
       resetTimeout()
-      buffer += decoder.decode(value, { stream: true })
+      buffer += decoder.decode(chunk.value, { stream: true })
       const lines = buffer.split('\n')
       buffer = lines.pop() || ''
-
       for (const line of lines) {
+        if (terminal) break
         if (!line.startsWith('data:')) continue
-        const payload = line.slice(line.indexOf(':') + 1).trim()
+        const payload = line.slice(5).trim()
         if (!payload) continue
-        let data: Record<string, unknown>
-        try {
-          data = JSON.parse(payload)
-        } catch (e) {
-          console.error('[copilot] failed to parse SSE data:', e)
-          continue
-        }
-
+        let data: unknown
+        try { data = JSON.parse(payload) } catch { fail(STREAM_ERROR); break }
+        if (!isRecord(data)) { fail(STREAM_ERROR); break }
         switch (data.type) {
           case 'progress':
-            handlers.onProgress?.(typeof data.stage === 'string' ? data.stage : 'reading')
+            handlers.onProgress?.('reading')
             break
           case 'token':
-            if (typeof data.text === 'string') enqueueToken(data.text)
-            break
           case 'not_disclosed':
-            // Replaces the whole answer — drop any buffered tokens it would overwrite.
-            discardBufferedTokens()
-            handlers.onNotDisclosed(typeof data.answer === 'string' ? data.answer : '')
+          case 'activity':
+            // Intermediate events may contain candidate prose from an older backend. They are
+            // liveness only; no token, reason, label or tool metadata is forwarded to the UI.
             break
-          case 'complete':
-            // The completion carries the authoritative answer; buffered tokens are superseded.
-            discardBufferedTokens()
-            handlers.onComplete({
-              answer: typeof data.answer === 'string' ? data.answer : '',
-              citations: Array.isArray(data.citations) ? (data.citations as CopilotCitation[]) : [],
-              grounded: typeof data.grounded === 'number' ? data.grounded : 0,
-              kind: data.kind === 'not_disclosed' ? 'not_disclosed' : 'answer',
-              followups: Array.isArray(data.followups)
-                ? (data.followups as unknown[]).filter((f): f is string => typeof f === 'string')
-                : [],
-            })
+          case 'complete': {
+            const completion = parseCompletion(data)
+            if (!completion) fail(PUBLICATION_ERROR)
+            else if (finish()) handlers.onComplete(completion)
             break
+          }
           case 'error':
-            discardBufferedTokens()
-            handlers.onError(typeof data.message === 'string' ? data.message : 'Something went wrong.')
+            fail(STREAM_ERROR)
             break
           default:
             break
         }
       }
     }
-
-    // Graceful end-of-stream: deliver any tail the rAF batch hasn't flushed yet. In the normal
-    // case a `complete` event already discarded the buffer, so this is a no-op; it only matters
-    // for a stream that ends after tokens without a terminal event.
-    flushTokensNow()
-  } catch (error: unknown) {
-    const errObj = error as { name?: string; message?: string }
-    if (errObj?.name === 'AbortError') {
-      // Aborted because the caller closed the panel/unmounted: stay quiet. A timeout abort is
-      // indistinguishable here, but the user has navigated away either way.
-      return
-    }
-    handlers.onError(errObj?.message || 'Network error. Please check your connection and try again.')
+  } catch {
+    fail(STREAM_ERROR)
   } finally {
-    clearTimeoutSafely()
-    // Drop any frame scheduled for token delivery so an abort/throw can't fire it after teardown.
-    cancelScheduledFlush()
-    // Drop the bridge listener on normal completion (the {once:true} only auto-removes if it fired).
+    clearTimeout(timeoutId)
     signal?.removeEventListener('abort', onAbort)
+    if (reader) {
+      // A stalled transport must not keep the caller pending while teardown waits for cancellation.
+      void reader.cancel().catch(() => {}).finally(() => {
+        try { reader?.releaseLock() } catch { /* A transport read may still be settling. */ }
+      })
+    }
   }
 }
