@@ -1,0 +1,422 @@
+{
+  "tested_head": "47371ffadd58648a006fd32b890411255adcf607",
+  "base": "0863a4b299b9f066b12a98852caa205857628656",
+  "scope": [
+    "backend/app/services/ai/acquisition_period.py",
+    "backend/app/services/ai/provider_requests.py",
+    "backend/app/services/openai_service.py",
+    "backend/app/services/summary_sections.py",
+    "backend/evals/runner.py",
+    "backend/tests/fixtures/acquisition_period/README.md",
+    "backend/tests/fixtures/acquisition_period/boundary-controls.json.gz",
+    "backend/tests/unit/acquisition_period_cases.py",
+    "backend/tests/unit/test_table_cell_units.py",
+    "lessons/README.md",
+    "lessons/arch-acquisition-period-withholding-needs-whole-claims.md"
+  ],
+  "backend_sha256": {
+    "backend/app/services/ai/acquisition_period.py": "c16b477e48c022ece96b332a2a726761d573ecd5418075f659c2ebc58116503e",
+    "backend/app/services/ai/provider_requests.py": "8a536e68c09998cb176d203151cb4dc47e2e4beeb0e9b8bf1cecfcf15596b5bd",
+    "backend/app/services/openai_service.py": "52ce04f14471e17bcf6b34838e60b4fd280f22de281c25b5dd664dac92294694",
+    "backend/app/services/summary_sections.py": "e2894c287bb0522ce32bbffb3575672c1bdb8b9a7a735ac4884f737bc7b9d195",
+    "backend/evals/runner.py": "49a18b7988610427bfb07812009a11c4fc2fd244d607e259932a510a7d04f5b4",
+    "backend/tests/fixtures/acquisition_period/README.md": "a9393c3f0ca0d2a0fa2ed40fc58465d08b3268049db5733ad2c82785500e9e2e",
+    "backend/tests/fixtures/acquisition_period/boundary-controls.json.gz": "2996b10ad89f714aec29f192bf4d8014a87b2122f65b582f62c3531bc48d6247",
+    "backend/tests/unit/acquisition_period_cases.py": "2b1294ef65b5749e8feffb936f0c0ed6f392fdd2f4031d0cab2085857eeebeab",
+    "backend/tests/unit/test_table_cell_units.py": "bbf601f10004147f9fd3e001d6faa26cbe421fdf6d083437a2b466d5fd86f2c3"
+  },
+  "full_gate": {
+    "head": "47371ffadd58648a006fd32b890411255adcf607",
+    "base": "0863a4b299b9f066b12a98852caa205857628656",
+    "started": "2026-09-29T00:48:31.099881+00:00",
+    "checks": [
+      {
+        "name": "ruff",
+        "command": [
+          "/Users/neilmacaogain/.codex/dependency-prep/pr1000-20260928-amv02xyc/validation-venv/bin/ruff",
+          "check",
+          "."
+        ],
+        "exit_code": 0,
+        "duration_seconds": 0.07,
+        "log": "full-ruff.log",
+        "log_sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18",
+        "python_cache": "/private/tmp/jpm-full-pycache-0d2_dqsf",
+        "ruff_cache": "/private/tmp/jpm-full-ruff-1w1kd9f5"
+      },
+      {
+        "name": "bandit",
+        "command": [
+          "/Users/neilmacaogain/.codex/dependency-prep/pr1000-20260928-amv02xyc/validation-venv/bin/bandit",
+          "-r",
+          "app",
+          "-ll"
+        ],
+        "exit_code": 0,
+        "duration_seconds": 2.64,
+        "log": "full-bandit.log",
+        "log_sha256": "ae2738e67a91508ad99404325a7eddeb8af00121332bee6662dfa461f2cc1d16",
+        "python_cache": "/private/tmp/jpm-full-pycache-p0g0c7to",
+        "ruff_cache": "/private/tmp/jpm-full-ruff-u4ofbuep"
+      },
+      {
+        "name": "pytest",
+        "command": [
+          "/Users/neilmacaogain/.codex/dependency-prep/pr1000-20260928-amv02xyc/validation-venv/bin/python",
+          "-m",
+          "pytest",
+          "-o",
+          "cache_dir=/private/tmp/jpm-full-pytest-ud9ut_jm"
+        ],
+        "exit_code": 0,
+        "duration_seconds": 173.14,
+        "log": "full-pytest.log",
+        "log_sha256": "29868b2319d3e9e80ed6f325c821c96b0f3c6faf418faf8864f6e43c9ebd8a05",
+        "python_cache": "/private/tmp/jpm-full-pycache-012x_h45",
+        "ruff_cache": "/private/tmp/jpm-full-ruff-tnzhw9jv"
+      }
+    ],
+    "versions": {
+      "ruff": "ruff 0.16.9",
+      "bandit": "bandit 1.9.4\n  python version = 3.11.16 (main, Sep  1 2026, 14:08:22) [Clang 22.1.3 ]",
+      "pytest": "pytest 9.1.1"
+    },
+    "finished": "2026-09-29T00:51:27.740307+00:00",
+    "final_head": "47371ffadd58648a006fd32b890411255adcf607",
+    "final_status": ""
+  },
+  "pytest_tail": "3922 passed, 39 skipped, 2 deselected, 40 warnings in 170.23s",
+  "focused_tail": "214 passed, 9 warnings in 17.58s",
+  "mutation_tails": {
+    "replacement": [
+      "12 failed, 60 passed",
+      "72 passed"
+    ],
+    "annual_frame": [
+      "5 failed",
+      "5 passed"
+    ],
+    "nested_metadata": [
+      "2 failed",
+      "2 passed"
+    ],
+    "combined_exploratory_preserved": [
+      "86 failed, 4 passed",
+      "90 passed"
+    ]
+  },
+  "receipts": {
+    "mutation-proof.json": {
+      "head": "0cba2e1c494bc91429116a70c71d125d7de95207",
+      "rule": "A selected complete relative-period proposition must be withheld across the existing consumer surfaces.",
+      "original_sha256": "6c580a830d52c1becc3a4a88a8ec1bf9919b29280d90bf483ff66f6ff246b674",
+      "fault_sha256": "453606091e52ed4b6ac677fca87f1c43e5643d6ebd3827d6dd140a197623e0f8",
+      "fault": {
+        "exit_code": 1,
+        "command": [
+          "/Users/neilmacaogain/.codex/dependency-prep/pr1000-20260928-amv02xyc/validation-venv/bin/python",
+          "-m",
+          "pytest",
+          "-q",
+          "-o",
+          "cache_dir=/private/tmp/jpm-pytest-ttky79qg",
+          "tests/unit/test_table_cell_units.py::test_actual_consumer_restores_once_and_renders_the_same_text"
+        ],
+        "log": "mutation-fault.log",
+        "python_cache": "/private/tmp/jpm-proof-cjiwq5ep"
+      },
+      "restored": {
+        "exit_code": 0,
+        "command": [
+          "/Users/neilmacaogain/.codex/dependency-prep/pr1000-20260928-amv02xyc/validation-venv/bin/python",
+          "-m",
+          "pytest",
+          "-q",
+          "-o",
+          "cache_dir=/private/tmp/jpm-pytest-f2kr9h5y",
+          "tests/unit/test_table_cell_units.py::test_actual_consumer_restores_once_and_renders_the_same_text"
+        ],
+        "log": "mutation-restored.log",
+        "python_cache": "/private/tmp/jpm-proof-80qp8mc3"
+      },
+      "restored_sha256": "6c580a830d52c1becc3a4a88a8ec1bf9919b29280d90bf483ff66f6ff246b674",
+      "final_head": "0cba2e1c494bc91429116a70c71d125d7de95207",
+      "final_status": ""
+    },
+    "annual-frame-mutation.json": {
+      "head": "47371ffadd58648a006fd32b890411255adcf607",
+      "rule": "annual-frame",
+      "original_sha256": "c16b477e48c022ece96b332a2a726761d573ecd5418075f659c2ebc58116503e",
+      "fault_sha256": "53ad2d3e0d03ff417762f8ed91a5f343870b074f59771a9d3a179c49a6257e65",
+      "fault": {
+        "exit_code": 1,
+        "command": [
+          "/Users/neilmacaogain/.codex/dependency-prep/pr1000-20260928-amv02xyc/validation-venv/bin/python",
+          "-m",
+          "pytest",
+          "-q",
+          "-o",
+          "cache_dir=/private/tmp/jpm-pytest-c8xhhmq3",
+          "tests/unit/test_table_cell_units.py::test_actual_consumer_restores_once_and_renders_the_same_text[acquisition:quarterly_call]",
+          "tests/unit/test_table_cell_units.py::test_actual_consumer_restores_once_and_renders_the_same_text[acquisition:quarterly_points]",
+          "tests/unit/test_table_cell_units.py::test_actual_consumer_restores_once_and_renders_the_same_text[acquisition:missing_duration]",
+          "tests/unit/test_table_cell_units.py::test_actual_consumer_restores_once_and_renders_the_same_text[acquisition:mixed_form]",
+          "tests/unit/test_table_cell_units.py::test_actual_consumer_restores_once_and_renders_the_same_text[acquisition:quarter_label]"
+        ],
+        "log": "annual-frame-fault.log",
+        "python_cache": "/private/tmp/jpm-causal-pjada99v"
+      },
+      "restored": {
+        "exit_code": 0,
+        "command": [
+          "/Users/neilmacaogain/.codex/dependency-prep/pr1000-20260928-amv02xyc/validation-venv/bin/python",
+          "-m",
+          "pytest",
+          "-q",
+          "-o",
+          "cache_dir=/private/tmp/jpm-pytest-u3its8f5",
+          "tests/unit/test_table_cell_units.py::test_actual_consumer_restores_once_and_renders_the_same_text[acquisition:quarterly_call]",
+          "tests/unit/test_table_cell_units.py::test_actual_consumer_restores_once_and_renders_the_same_text[acquisition:quarterly_points]",
+          "tests/unit/test_table_cell_units.py::test_actual_consumer_restores_once_and_renders_the_same_text[acquisition:missing_duration]",
+          "tests/unit/test_table_cell_units.py::test_actual_consumer_restores_once_and_renders_the_same_text[acquisition:mixed_form]",
+          "tests/unit/test_table_cell_units.py::test_actual_consumer_restores_once_and_renders_the_same_text[acquisition:quarter_label]"
+        ],
+        "log": "annual-frame-restored.log",
+        "python_cache": "/private/tmp/jpm-causal-c7gjc5jw"
+      },
+      "restored_sha256": "c16b477e48c022ece96b332a2a726761d573ecd5418075f659c2ebc58116503e",
+      "final_head": "47371ffadd58648a006fd32b890411255adcf607",
+      "final_status": ""
+    },
+    "nested-metadata-mutation.json": {
+      "head": "47371ffadd58648a006fd32b890411255adcf607",
+      "rule": "nested-metadata",
+      "original_sha256": "c16b477e48c022ece96b332a2a726761d573ecd5418075f659c2ebc58116503e",
+      "fault_sha256": "081702ea320595ca1ff0cbb5b6e1f75fc18041809037322149cd18b2967c367a",
+      "fault": {
+        "exit_code": 1,
+        "command": [
+          "/Users/neilmacaogain/.codex/dependency-prep/pr1000-20260928-amv02xyc/validation-venv/bin/python",
+          "-m",
+          "pytest",
+          "-q",
+          "-o",
+          "cache_dir=/private/tmp/jpm-pytest-81th9066",
+          "tests/unit/test_table_cell_units.py::test_actual_consumer_restores_once_and_renders_the_same_text[acquisition:retained_target]",
+          "tests/unit/test_table_cell_units.py::test_actual_consumer_restores_once_and_renders_the_same_text[acquisition:quarterly_call]"
+        ],
+        "log": "nested-metadata-fault.log",
+        "python_cache": "/private/tmp/jpm-causal-ud2w6iwm"
+      },
+      "restored": {
+        "exit_code": 0,
+        "command": [
+          "/Users/neilmacaogain/.codex/dependency-prep/pr1000-20260928-amv02xyc/validation-venv/bin/python",
+          "-m",
+          "pytest",
+          "-q",
+          "-o",
+          "cache_dir=/private/tmp/jpm-pytest-nynuvod4",
+          "tests/unit/test_table_cell_units.py::test_actual_consumer_restores_once_and_renders_the_same_text[acquisition:retained_target]",
+          "tests/unit/test_table_cell_units.py::test_actual_consumer_restores_once_and_renders_the_same_text[acquisition:quarterly_call]"
+        ],
+        "log": "nested-metadata-restored.log",
+        "python_cache": "/private/tmp/jpm-causal-u5jez0k8"
+      },
+      "restored_sha256": "c16b477e48c022ece96b332a2a726761d573ecd5418075f659c2ebc58116503e",
+      "final_head": "47371ffadd58648a006fd32b890411255adcf607",
+      "final_status": ""
+    },
+    "review-mutation-proof.json": {
+      "head": "47371ffadd58648a006fd32b890411255adcf607",
+      "rules": [
+        "Annual selection requires original annual filing/source scope, not same-day dates a year apart.",
+        "Reserved model metadata must be removed throughout the parsed tree before binding/judging."
+      ],
+      "fault": {
+        "exit_code": 1,
+        "command": [
+          "/Users/neilmacaogain/.codex/dependency-prep/pr1000-20260928-amv02xyc/validation-venv/bin/python",
+          "-m",
+          "pytest",
+          "-q",
+          "-o",
+          "cache_dir=/private/tmp/jpm-pytest-gwa0z77m",
+          "tests/unit/test_table_cell_units.py::test_actual_consumer_restores_once_and_renders_the_same_text"
+        ],
+        "log": "review-mutation-fault.log",
+        "python_cache": "/private/tmp/jpm-review-proof-pp2crre8"
+      },
+      "original_sha256": "c16b477e48c022ece96b332a2a726761d573ecd5418075f659c2ebc58116503e",
+      "fault_sha256": "e8740bc5343234bc904993b5b0f8fc83d7e603ed127f42459b79a0baed536b19",
+      "restored": {
+        "exit_code": 0,
+        "command": [
+          "/Users/neilmacaogain/.codex/dependency-prep/pr1000-20260928-amv02xyc/validation-venv/bin/python",
+          "-m",
+          "pytest",
+          "-q",
+          "-o",
+          "cache_dir=/private/tmp/jpm-pytest-ux_fvff0",
+          "tests/unit/test_table_cell_units.py::test_actual_consumer_restores_once_and_renders_the_same_text"
+        ],
+        "log": "review-mutation-restored.log",
+        "python_cache": "/private/tmp/jpm-review-proof-5m8q59p7"
+      },
+      "restored_sha256": "c16b477e48c022ece96b332a2a726761d573ecd5418075f659c2ebc58116503e",
+      "final_head": "47371ffadd58648a006fd32b890411255adcf607",
+      "final_status": ""
+    },
+    "annual-frame-refutations.json": {
+      "head": "0cba2e1c494bc91429116a70c71d125d7de95207",
+      "pass1": "Attempt to refute by standardized metric metadata: current/prior each has form 10-Q, fiscal_period Q3 and 90-day duration; selector still returned a record.",
+      "pass1_selected": true,
+      "pass2": "Attempt to refute through actual generation filing_type_key: summarize_filing 10-Q passes through real request/stream/assembly; final and preview still withhold.",
+      "pass2_final_selected": true,
+      "pass2_final_limitation": true,
+      "pass2_preview_limitation": true,
+      "provider_calls": 1
+    },
+    "metadata-refutations.json": {
+      "pass1_nested_private_record_in_judge": true,
+      "pass2_actual_final_to_judge_private_record": true,
+      "pass2_nested_marker_grants_authority": false,
+      "pass2_structured_metadata_retained": true
+    },
+    "integrity-audit.json": {
+      "head": "47371ffadd58648a006fd32b890411255adcf607",
+      "retained_assessment_files": {
+        "ASSESSMENT.md": true,
+        "BOUNDARY-BRIEF.md": true,
+        "assess_boundary.py": true,
+        "assessment-initial-frame-shape.log": true,
+        "assessment.log": true,
+        "boundary-assessment.json": true,
+        "current-main-reproduction.json": true,
+        "current-main-row22-csv.txt": true,
+        "current-main-row22-final.txt": true,
+        "current-main-row22-pdf_html.txt": true,
+        "current-main-row22-preview.txt": true,
+        "current-main-row22-shared_markdown.txt": true,
+        "current-main-row23-csv.txt": true,
+        "current-main-row23-final.txt": true,
+        "current-main-row23-pdf_html.txt": true,
+        "current-main-row23-preview.txt": true,
+        "current-main-row23-shared_markdown.txt": true,
+        "reproduce.log": true,
+        "reproduce.py": true
+      },
+      "held_positive_rewrite_evidence": {
+        "/Users/neilmacaogain/Documents/Codex/2026-09-28/github-plugin-github-openai-curated-remote/outputs/astra-handover-2026-09-28/evidence/jpm/jpm-source-first-presentation-recommendation.md": true,
+        "/Users/neilmacaogain/Documents/Codex/2026-09-28/github-plugin-github-openai-curated-remote/outputs/astra-handover-2026-09-28/evidence/jpm/jpm-period-claim-prototype.md": true,
+        "/Users/neilmacaogain/Documents/Codex/2026-09-28/github-plugin-github-openai-curated-remote/outputs/astra-handover-2026-09-28/evidence/jpm/next-defect-priority.md": true,
+        "/Users/neilmacaogain/Documents/Codex/2026-09-28/github-plugin-github-openai-curated-remote/outputs/astra-handover-2026-09-28/evidence/jpm/prototype_jpm_period_claim.py": true,
+        "/Users/neilmacaogain/Documents/Codex/2026-09-28/github-plugin-github-openai-curated-remote/outputs/astra-handover-2026-09-28/evidence/jpm/jpm-prototype-root-adverse-review.json": true,
+        "/Users/neilmacaogain/Documents/Codex/2026-09-28/github-plugin-github-openai-curated-remote/outputs/astra-handover-2026-09-28/evidence/jpm/prior-year-date-audit.json": true,
+        "/Users/neilmacaogain/Documents/Codex/2026-09-28/github-plugin-github-openai-curated-remote/outputs/astra-handover-2026-09-28/evidence/jpm/jpm-period-claim-prototype.json": true,
+        "/Users/neilmacaogain/Documents/Codex/2026-09-28/github-plugin-github-openai-curated-remote/outputs/astra-handover-2026-09-28/evidence/jpm/prior-year-date-audit.md": true
+      },
+      "report_sha256": "deaa1b52c85bbab1bbcd19b7e55ab483b58ec465d6523272931cbd67e6c7f80b",
+      "report_rows": 70,
+      "selected": [
+        {
+          "row": 22,
+          "note": 2,
+          "result": {
+            "authored_continuation": " the current year included a $588 million First Republic-related gain recorded in the first quarter of 2025.",
+            "audit": {
+              "kind": "unverified_acquisition_period",
+              "source_offset": 94532,
+              "source_length": 145,
+              "current": "2025-12-31",
+              "prior": "2024-12-31"
+            }
+          }
+        }
+      ],
+      "unchanged_rows": 69,
+      "fixture_source_sha256": "0eb585c15287788dbbd0b2abf98896f1484da29306409305a9c9f7cb954f7a97",
+      "locked_contract_sha256": {
+        "backend/tests/integration/test_summary_stream_contract.py": "4b10582387ed68ad1564bbcbb54017d7d153c1447da8fb39bb73523512b3b57a",
+        "backend/tests/unit/test_background_generation_characterization.py": "5a6b7024605bfe712c42b34e51900d6009f99db58ab1694c4c2ffb4d6bb316f9",
+        "backend/tests/unit/test_auth_flow.py": "4a927487d44c77549abcb3e5f4843e064ddc63827ecb725fa25f3e513a3dbba9",
+        "backend/tests/unit/test_auth_cookies.py": "1299c8444c3e895502bb83f216daff257af0b64755c3b5b013f6e7fcf235f86c",
+        "backend/tests/unit/test_stripe_webhook.py": "ca02207aaa71e8845e7f883b5c0316342525cc713b7a25028ff0cd18ab59cb78"
+      },
+      "external_calls": 0,
+      "semantic_judgment": false
+    }
+  },
+  "root_review": {
+    "reviewed_at": "2026-09-29T00:48:28.199260+00:00",
+    "head": "47371ffadd58648a006fd32b890411255adcf607",
+    "files": [
+      "backend/app/services/ai/acquisition_period.py",
+      "backend/app/services/ai/provider_requests.py",
+      "backend/app/services/openai_service.py",
+      "backend/app/services/summary_sections.py",
+      "backend/evals/runner.py",
+      "backend/tests/fixtures/acquisition_period/README.md",
+      "backend/tests/fixtures/acquisition_period/boundary-controls.json.gz",
+      "backend/tests/unit/acquisition_period_cases.py",
+      "backend/tests/unit/test_table_cell_units.py",
+      "lessons/README.md",
+      "lessons/arch-acquisition-period-withholding-needs-whole-claims.md"
+    ],
+    "state": "root_code_review_clear_pending_final_gates_and_current_main_integration",
+    "resolved_findings": {
+      "annual_scope": "Existing actual filing_type_key now independently restricts annual form; every standardized point validates matching annual form/FY when supplied, strict full dates, consistent year frame, all supplied duration pairs annual, at least one paired annual duration anchor. Reuses source extractor window; no Dec31 literal. Quarterly/instant-only contexts abstain.",
+      "model_metadata": "Iterative removal of three reserved fields from complete untrusted model tree before ownership and partial preview before binding; recovered notes still abstain. Existing ordinary metadata and evidence survive, actual judge projection covers nested controls."
+    },
+    "correctness": "Whole two-proposition grammar, exact first evidence and unique subject, independently authored continuation retained byte-for-byte in separate record. Constant capability limitation alone replaces first statement. Original evidence before snap, recovered abstention, default missing context abstains. Shared final/read/export/eval projection excludes private audit.",
+    "rules": "No second orchestrator, transport, prompt/model/flag/cache/baseline change. WMT existing test body retained; only existing consumer gate expanded. No locked contracts modified.",
+    "tests": "214 focused cases reported; per-finding committed mutation/restoration and final full pinned gate pending. Original adverse/combined exploratory faults must remain.",
+    "limits": [
+      "Retained evidence replay, no fresh generation or blind semantic judging.",
+      "Source fragment and metric frame select inability to verify; no reconstruction or source-absence claim.",
+      "This closes a finite authored form, not all acquisition-period errors."
+    ],
+    "open_should_fix_findings": []
+  },
+  "artifact_directory": "/Users/neilmacaogain/Documents/Codex/2026-09-28/github-plugin-github-openai-curated-remote/outputs/overnight-2026-09-28/quality/jpm-period-withholding/implementation",
+  "artifact_sha256": {
+    "separate-review-mutations.py": "5b15c63c18326dde090d90189384ca88cc3e97fc3e85e02002d6bc8b9d086753",
+    "metadata-refutations.py": "64a0c674e00371949629e96c6fa8b43a736823f3234bff7cec47388407ddffdb",
+    "build-review-evidence.py": "8e4db96a9a430fe9934148d5792b36dafcd2ec7bf4ca641319f4383fc6f8fcd8",
+    "nested-metadata-restored.log": "917a5d079c509a40c7ac83faea44a82b4fe6c57c33449f9c7e7aae95cdd95c47",
+    "integrity-audit.json": "a7588317dea7e6ac082e5f5cf12fbc22b4f1b7bc9b2925f4a281c8bb471c5a56",
+    "nested-metadata-mutation.json": "aea2277ecf37d7e47770aeaca527f0df524cd43bdca63052fdb5802ae0fd2c5a",
+    "annual-frame-refutations.json": "3efc4119c8647a4786ed9a30593dc943c04d9ba0bb3d456c1c176c80a4699264",
+    "corrected-focused.log": "6603a8c479c21dc3f7d6a6acebdcd33e6db87ffa07620bc27583e272156ed617",
+    "full-gate.py": "e28ab5e51d99de1d4358d95d2c9f45a6e0fdfc0cdf25e914ea6bedb5bf171520",
+    "review-mutation-proof.py": "1bfa65f3d1c93a6d4619716443b6eeae098f2c3bbe9fd4a250f7c066c39fb4a8",
+    "full-bandit.log": "ae2738e67a91508ad99404325a7eddeb8af00121332bee6662dfa461f2cc1d16",
+    "full-pytest.log": "29868b2319d3e9e80ed6f325c821c96b0f3c6faf418faf8864f6e43c9ebd8a05",
+    "full-gate.json": "edeefb9cf382d28086a53e32ae98163f5a2e60c63f72c4b1c149549550804884",
+    "consumer-first.log": "b70a6c06052d66a473c333b3612c8c1c44db9c26a86d535266851432b7ab39c2",
+    "mutation-restored.log": "b4ba52f5d528d0c0df5a42b66fe046e8298764776e05e09b490bb7ce59365027",
+    "annual-frame-mutation.json": "1678de84ed183f1d7b0d9c0eac849ba483f59fdec7011c65ab12deb82600ede9",
+    "review-mutation-proof.json": "81026805ca301dbbba9fa4178bb9170b1dbc1700992744107b656130fb7e8e2a",
+    "integrity-audit.log": "663a091e684dea783b28005e192f6a78e72875c6f7187cae47b7e12ba7d6ef4f",
+    "annual-frame-refutations.log": "3efc4119c8647a4786ed9a30593dc943c04d9ba0bb3d456c1c176c80a4699264",
+    "metadata-refutations.json": "2a962f5577880066aa5e12d30ada070aeec503eec4125451ef60351b5450b287",
+    "review-mutation-fault.log": "5bff58bb9301852a678502e15b749836f357823c2dd95e6b95a30007a0f0b261",
+    "nested-metadata-fault.log": "d4748ae02e0389881b103334ef87e678734abe18ade792196d60d10b894ea09c",
+    "mutation-proof.json": "811c455c253f4ae99a85c0fd01684dd44766dcd4ef398e6fd0ad9920695f7d7e",
+    "boundary-assessment.json": "5b9b12025d7cfdaa2ede72e1c64c246971057c597139cb104c1453a74a67014c",
+    "annual-frame-fault.log": "96176aa9d32a2e208547aa1e2dcfb27480bae986fa64c84894720016d2d3ba5c",
+    "review-mutation-restored.log": "876a01f618a97f3ba9946937e59b53ed8ff3235905298e75813bd640cc0002e9",
+    "annual-frame-refutations.py": "6b7b5d35cf5552b384d4534114270b5bdd7b929cf935ecafaf281a3878dada82",
+    "integrity-audit.py": "ac1de0b953901a3c705303f6b64a62ee2eaf64594bcad49f912035151fcd2de8",
+    "annual-frame-restored.log": "eb527c457138d11ed71e3ad5f2847b1ebf06c6e91abd0f4170875b11edf02e21",
+    "mutation-fault.log": "cb2ebf973808446fbdad29c29aeceb8e3b59efb0a8ce9b7f3c1a8d789a587734",
+    "metadata-refutations.log": "2a962f5577880066aa5e12d30ada070aeec503eec4125451ef60351b5450b287",
+    "mutation-proof.py": "c83e9b0e88ff81f404488eabd5a23ef15a258e7d17ab9d90f45395e38021dc64",
+    "integrity-audit-initial-env.log": "efc2bce7d6f0ddb69355f41e7e5c3f221171fa773a1cafa4ac266cd0a9bf59ff",
+    "focused.log": "90bd6573e8104ca6b8ea78518da401e91108115f16dba0ff3baa065721d771a0",
+    "full-ruff.log": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18"
+  },
+  "network_provider_calls": 0,
+  "semantic_acceptance_claim": false,
+  "current_main_integration": "Root-owned; not performed in this isolated candidate."
+}
