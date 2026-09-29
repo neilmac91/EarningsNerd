@@ -11,7 +11,7 @@ from app.services.edgar.instance_extractor import duration_in_window
 CONTEXT_KEY = "acquisition_period_context_version"
 CONTEXT_VERSION = 1
 OWNED_FIELD = "acquisition_period_limitation"
-LIMITATION = "This summary could not independently verify the period attribution of the estimated acquisition gain."
+LIMITATION = "This summary could not independently verify the period attribution of the estimated acquisition gain;"
 
 # Closed complete shapes, bounded lexical tokens, no issuer/amount/year literal.
 MONTH = r"(?:January|February|March|April|May|June|July|August|September|October|November|December)"
