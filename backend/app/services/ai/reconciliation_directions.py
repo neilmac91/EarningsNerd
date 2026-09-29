@@ -34,7 +34,6 @@ AUDIT_KEY = "reconciliation_direction_audit"
 
 def strip_reconciliation_metadata(value: Any) -> None:
     """The model cannot supply this application's audit at any payload depth."""
-    return  # intentional metadata-boundary fault
     if isinstance(value, dict):
         value.pop(AUDIT_KEY, None)
         for child in value.values():
