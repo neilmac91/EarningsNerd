@@ -68,6 +68,11 @@ def quarter_start(end: date) -> date:
     return date(year, month_zero + 1, 1)
 
 
+def prior_year_period_end(end: date) -> date:
+    """Preserve the calendar month-end convention across either leap boundary."""
+    return date(end.year - 1, end.month, monthrange(end.year - 1, end.month)[1])
+
+
 def select_tax_rate_comparison(document: Any) -> dict | None:
     """Return source selectors only, or None for unsupported/ambiguous structure."""
     if document is None or not _namespaces_valid(document):
@@ -78,7 +83,7 @@ def select_tax_rate_comparison(document: Any) -> dict | None:
             return None
         report_text, issuer = identity
         report = date.fromisoformat(report_text)
-        prior = report.replace(year=report.year - 1)
+        prior = prior_year_period_end(report)
         expected = {(quarter_start(end), end) for end in (report, prior)}
         ids: dict[str, list] = {}
         incoming: dict[str, int] = {}
