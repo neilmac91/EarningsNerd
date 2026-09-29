@@ -50,6 +50,9 @@ from app.services.ai.source_units import (
     attach_quote_unit_context, build_table_unit_index, capital_plan_proposition,
     restore_authored_plan_units, restore_table_cell_units,
 )
+from app.services.ai.reconciliation_directions import (
+    AUDIT_KEY as RECONCILIATION_AUDIT_KEY, strip_reconciliation_metadata, withhold_reconciliation_directions,
+)
 from app.services.ai.tax_rate_explanation import (
     AUDIT_KEY as TAX_EXPLANATION_AUDIT_KEY, strip_tax_explanation_metadata, withhold_tax_rate_explanation,
 )
@@ -591,7 +594,8 @@ Rules:
                 if total - emitted_at >= 1500:
                     emitted_at = total
                     preview = self._partial_markdown_preview(
-                        "".join(parts), xbrl_metrics, **({"capital_plan": capital_plan} if capital_plan else {}),
+                        "".join(parts), xbrl_metrics, filing_type_key=filing_type_key,
+                        **({"capital_plan": capital_plan} if capital_plan else {}),
                         **({"statement_source": statement_source} if statement_source else {}),
                         **({"unit_index": unit_index} if unit_index else {}),
                     )
@@ -605,7 +609,8 @@ Rules:
         return "".join(parts)
 
     def _partial_markdown_preview(
-        self, partial_content: str, xbrl_metrics: Optional[Dict], *, capital_plan: tuple[str, str] | None = None,
+        self, partial_content: str, xbrl_metrics: Optional[Dict], *, filing_type_key: str = "",
+        capital_plan: tuple[str, str] | None = None,
         statement_source: Optional[Dict] = None, unit_index: Any = None,
     ) -> Optional[str]:
         """Render only originally complete sections with the current summary projection.
@@ -649,6 +654,7 @@ Rules:
             bind_capital_allocation(sections, xbrl_metrics)
             bind_issuer_cash_disclosure(sections)
             withhold_tax_rate_explanation(sections, unit_index)
+            withhold_reconciliation_directions(sections, unit_index, filing_type=filing_type_key)
             # Same table-cell owner as the final render, over the same source document, after the
             # same binders, so preview and final restore the same surviving prose.
             restore_table_cell_units(sections, unit_index, xbrl_metrics=xbrl_metrics)
@@ -716,6 +722,7 @@ Rules:
             }
 
         strip_tax_explanation_metadata(structured_summary)
+        strip_reconciliation_metadata(structured_summary)
         sections_info = structured_summary.get("sections", {}) or {}
         # Deterministic taxonomy guard: the model has a strong prior for "standard" sections and will
         # emit legacy/extra keys (executive_snapshot, three_year_trend, …) alongside the v2 schema no
@@ -816,6 +823,10 @@ Rules:
         # The selector uses the complete native document, including for recovered notes;
         # it neither assumes the primary excerpt nor emits a source assertion.
         tax_explanation_audit = withhold_tax_rate_explanation(sections_info, unit_index)
+        reconciliation_audit = withhold_reconciliation_directions(
+            sections_info, unit_index, filing_type=filing_type_key,
+            recovered="earnings_quality" in recovered_keys,
+        )
         evidence_snap_audit = await run_in_threadpool(
             snap_evidence,
             sections_info,
@@ -989,6 +1000,8 @@ Rules:
             raw_summary_payload["table_cell_unit_audit"] = table_cell_unit_audit
         if tax_explanation_audit:
             raw_summary_payload[TAX_EXPLANATION_AUDIT_KEY] = tax_explanation_audit
+        if reconciliation_audit:
+            raw_summary_payload[RECONCILIATION_AUDIT_KEY] = reconciliation_audit
         if writer_result:
             raw_summary_payload["writer"] = writer_result
         if writer_fallback_reason:

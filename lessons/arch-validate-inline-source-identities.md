@@ -24,3 +24,11 @@ each outgoing target does not validate the initial root's ownership. Hosted revi
 an omitted predecessor while all downstream IDs remained unique; two fresh refutations upheld
 the finding. The same source and real-consumer gates cover both nonnumeric and continuation
 predecessors. The correction stays in the quarterly selector, preserving the annual helper.
+
+The reconciliation successor also exposed invalid or reversed DEI start dates:
+matching the issuer and end date does not validate a complete duration. Reuse the
+reviewed qualified-duration validator, including calendar parsing and ordering,
+before admitting any DEI context. Its same consumer gate includes both controls.
+Period and unit captions must geometrically govern their selected table columns;
+known caption words at the wrong colspan are insufficient. Preserve the unchanged
+annual helpers and the existing tax owner while adding the bounded selector.

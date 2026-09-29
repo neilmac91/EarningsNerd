@@ -73,3 +73,14 @@ source-adverse gate covers scales three and six, including signed values that
 scale to exactly the accepted limit, and JSON-encodes accepted source/bound-summary
 shapes. Negation preserves the decimal digit count; later source arithmetic only
 compares values and does not store larger derived integers.
+
+For the reconciliation-direction successor, own the complete three-sentence
+shape before removing its middle interpretation. Preserve the first and third
+as separate, exact authored sentences; a dependent third sentence or unknown
+prefix/tail must abstain. Untagged operands may select only a nonassertive
+capability limitation after bounded identity, period, unit, geometry, and complete
+local-context checks. Global source assertion status remains unestablished.
+The existing complete-interpretation consumer gate retains all 87 assessment
+controls through actual final/preview/shared/PDF/CSV, plus metadata privacy,
+recovery, alias and original-admission-before-repair controls. Assessment failures
+are retained; the old positive reconstruction and formal E7 decision remain held.

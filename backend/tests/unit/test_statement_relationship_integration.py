@@ -17,6 +17,8 @@ from tests.unit.test_statement_relationship_source import original, SOURCES
 from tests.unit.test_statement_disclosures import tax_original, tax_document, node as tax_node, subelement
 from app.services.ai.tax_rate_explanation import AUDIT_KEY as TAX_AUDIT_KEY, LIMITATION
 
+from tests.unit.reconciliation_cases import CONTROLS as RECONCILIATION_CONTROLS
+
 FALSE = "Operating income included the gain on debt extinguishment and foreign currency losses."
 
 
@@ -34,9 +36,15 @@ FALSE = "Operating income included the gain on debt extinguishment and foreign c
     "root_incoming_nonnumeric", "root_incoming_continuation",
     "evidence_empty_canonical", "evidence_null_canonical", "evidence_empty_camel",
     "evidence_whitespace_conflict", "evidence_whitespace_canonical", "snapped_near_evidence",
+] + ["reconciliation:" + case for case in RECONCILIATION_CONTROLS] + [
+    "reconciliation:" + case for case in ("nonstring_canonical", "evidence_aliases", "unsupported_section_alias",
+                                         "before_repair", "recovery_forged", "invalid_dei_start", "reversed_dei_start")
 ])
-async def test_complete_tax_cause_withholding_boundary_all_consumers(monkeypatch, change):
+async def test_complete_interpretation_withholding_boundary_all_consumers(monkeypatch, change):
     """One complete interpretation boundary, source exclusion and unchanged independent bytes."""
+    if change.startswith("reconciliation:"):
+        await _reconciliation_consumers(monkeypatch, change.removeprefix("reconciliation:"))
+        return
     from app.services.ai.source_units import build_table_unit_index
     from app.services.ai.tax_rate_explanation import withhold_tax_rate_explanation
 
@@ -211,6 +219,173 @@ async def test_complete_tax_cause_withholding_boundary_all_consumers(monkeypatch
         stable = copy.deepcopy(raw["sections"])
         assert withhold_tax_rate_explanation(stable, build_table_unit_index(source_html)) == []
         assert stable == raw["sections"]
+
+
+async def _reconciliation_consumers(monkeypatch, change):
+    """The same consumer gate owns the finite reconciliation withholding family."""
+    from html import unescape
+    from tests.unit.reconciliation_cases import RETAINED, CONTROLS, mutate_source
+    from app.config import settings
+    from app.services.ai.source_units import build_table_unit_index
+    from app.services.ai.reconciliation_directions import (
+        AUDIT_KEY, LIMITATION as RECONCILIATION_LIMITATION, withhold_reconciliation_directions,
+    )
+    from app.services import openai_service as service_module
+    from app.services.provenance_service import enrich_summary_provenance
+    from app.services.copilot_service import _build_context_message
+    from evals import runner
+
+    case = copy.deepcopy(CONTROLS.get(change, CONTROLS["retained_target"]))
+    source_html, tax_retained = tax_original()
+    if case["source_mutation"]:
+        source_html = mutate_source(source_html, case["source_mutation"])
+    if change in {"invalid_dei_start", "reversed_dei_start"}:
+        document = html.fromstring(source_html.encode(), parser=html.HTMLParser(encoding="utf-8", no_network=True))
+        context = document.xpath('//*[@id="c-1"]')[0]
+        next(n for n in context.iter() if n.tag == "xbrli:startdate").text = (
+            "2026-02-30" if change == "invalid_dei_start" else "2027-01-01"
+        )
+        source_html = html.tostring(document, encoding="unicode")
+        case["expected_selected"] = False
+    if change == "missing_native":
+        source_html = ""
+    sections = copy.deepcopy(RETAINED["raw_sections"])
+    target = sections["earnings_quality"]
+    target.pop("operating_vs_one_time", None)
+    target.update(case["authored"])
+    if change == "nonstring_canonical":
+        target["operating_vs_one_time"] = {"not": "authored prose"}
+        target["operatingVsOneTime"] = CONTROLS["retained_target"]["authored"]["operating_vs_one_time"]
+        case["expected_selected"] = False
+    if change == "evidence_aliases":
+        target.update(supporting_evidence="Independent authored evidence.", supportingEvidence="Different evidence.",
+                      source_section_ref="Own authored reference.", sourceSectionRef="Different reference.")
+    if change == "unsupported_section_alias":
+        sections["earningsQuality"] = sections.pop("earnings_quality")
+        case["expected_selected"] = False
+    if change == "before_repair":
+        snap_note = copy.deepcopy(next(n for n in tax_retained["raw_sections"]["notable_footnotes"]
+                                       if n["item"] == "Income Taxes"))
+        snap_original = snap_note["supporting_evidence"]
+        snap_note["supporting_evidence"] = snap_original.replace("the Company's effective tax rate", "the effective tax rate")
+        assert snap_note["supporting_evidence"] != snap_original
+        sections["notable_footnotes"].append(snap_note)
+    before = copy.deepcopy(target)
+    # Recursive model metadata removal must cover raw sections, structured metadata,
+    # and the notable-footnote fields which actually enter the judge payload.
+    forged = {"owned": 1, "text": "FORGED RECONCILIATION AUTHORITY"}
+    target[AUDIT_KEY] = copy.deepcopy(forged)
+    sections["notable_footnotes"][0][AUDIT_KEY] = copy.deepcopy(forged)
+    supplied = {"sections": sections, AUDIT_KEY: 1,
+                "metadata": {AUDIT_KEY: copy.deepcopy(forged), "nested": [{AUDIT_KEY: 1}], "padding": "x" * 1700}}
+    recovery = change in {"recovery", "recovery_forged"}
+    if recovery:
+        case["expected_selected"] = False
+    recovered = {"earnings_quality": sections.pop("earnings_quality")} if recovery else {}
+    encoded = json.dumps(supplied)
+    service = OpenAIService()
+    async def chunks():
+        yield SimpleNamespace(choices=[SimpleNamespace(delta=SimpleNamespace(content=encoded))])
+    create = AsyncMock(return_value=chunks())
+    service.client = SimpleNamespace(chat=SimpleNamespace(completions=SimpleNamespace(create=create)))
+    service.fallback_client = None
+    monkeypatch.setattr(service, "_recover_missing_sections", AsyncMock(return_value=recovered))
+    for flag in ("AI_ATTRIBUTION_VERIFY", "AI_ATTRIBUTION_GATE", "AI_FIGURE_TRACE_GATE", "AI_FORWARD_QUOTE_GATE", "AI_EVIDENCE_SNAP"):
+        monkeypatch.setattr(settings, flag, flag == "AI_EVIDENCE_SNAP" and change == "before_repair")
+    # Observe the real repair boundary; the owner must have decided already, while
+    # evidence fields retain their independently authored values.
+    real_snap = service_module.snap_evidence
+    seen = []
+    def snap(*args, **kwargs):
+        seen.append(copy.deepcopy(args[0].get("earnings_quality")))
+        return real_snap(*args, **kwargs)
+    monkeypatch.setattr(service_module, "snap_evidence", snap)
+    frames = []
+    async def receive(text):
+        frames.append(text)
+    form = "10-K" if change == "annual_call" else "10-Q"
+    result = await service.summarize_filing(source_html, "Issuer", form,
+                                          filing_excerpt=tax_retained["grounding_excerpt"], stream_cb=receive)
+    raw = result["raw_summary"]
+    raw["schema_version"] = SUMMARY_SCHEMA_VERSION
+    selected = case["expected_selected"]
+    assert bool(raw.get(AUDIT_KEY)) == selected
+    if change == "before_repair":
+        assert raw["evidence_snap_audit"]["snapped"]
+        repaired = next(n for n in raw["sections"]["notable_footnotes"] if n["item"] == "Income Taxes")
+        assert repaired["supporting_evidence"] == snap_original
+        assert repaired["impact"] == snap_note["impact"]
+    assert AUDIT_KEY not in json.dumps(raw["structured"])
+    assert "FORGED RECONCILIATION AUTHORITY" not in json.dumps(raw)
+    if change == "unsupported_section_alias":
+        after = raw["sections"].get("earnings_quality", {})
+        assert "operating_vs_one_time" not in after
+        expected = None
+    else:
+        expected_fields = copy.deepcopy(before)
+        expected = before.get("operating_vs_one_time") or before.get("operatingVsOneTime")
+        if selected:
+            expected = case["projection"]
+            expected_fields.pop("operatingVsOneTime", None)
+            expected_fields["operating_vs_one_time"] = expected
+            audit = raw[AUDIT_KEY]
+            assert audit["source_operands"]["assertion_scope"] == "not_established"
+            assert audit["preserved_authored"]["first"] + " " + RECONCILIATION_LIMITATION + " " + audit["preserved_authored"]["third"] == expected
+        assert raw["sections"]["earnings_quality"] == expected_fields
+        assert seen == [expected_fields]
+    assert frames
+    if recovery:
+        assert all(RECONCILIATION_LIMITATION not in frame for frame in frames)
+    summary = SimpleNamespace(raw_summary=raw, id=1, filing_id=1, business_overview=result["business_overview"],
+                              financial_highlights={}, risk_factors=[], management_discussion=result["management_discussion"],
+                              key_changes="", schema_version=SUMMARY_SCHEMA_VERSION, prompt_version=None)
+    filing = SimpleNamespace(company=SimpleNamespace(name="Issuer"), filing_type=form, filing_date=None,
+                             period_end_date=None, sec_url="", document_url="",
+                             content_cache=SimpleNamespace(critical_excerpt=tax_retained["grounding_excerpt"]),
+                             summary=summary)
+    export = ExportService()
+    web = enrich_summary_provenance(summary, filing)["rendered_sections"]
+    surfaces = [result["business_overview"], *(frames if not recovery else []),
+                sections_to_markdown(render_sections(raw)), export.generate_pdf_html(summary, filing),
+                export.generate_csv(summary, filing), json.dumps(web, ensure_ascii=False)]
+    for visible in surfaces:
+        visible = unescape(visible).replace('""', '"')
+        assert "FORGED RECONCILIATION AUTHORITY" not in visible
+        assert AUDIT_KEY not in visible and "source_operands" not in visible
+        assert (RECONCILIATION_LIMITATION in visible) == selected
+        if isinstance(expected, str) and expected.strip() and change != "nonstring_canonical":
+            assert expected in visible
+        if selected:
+            assert "deducts that" not in visible
+    # Complete/unfinished section behavior uses the actual preview callback.
+    partial = '{"sections":{"earnings_quality":{"operating_vs_one_time":' + json.dumps(before.get("operating_vs_one_time", ""))[:-4]
+    assert RECONCILIATION_LIMITATION not in (service._partial_markdown_preview(
+        partial, None, unit_index=build_table_unit_index(source_html), filing_type_key=form,
+    ) or "")
+    if change == "retained_target":
+        legacy_preview = service._partial_markdown_preview(encoded, None, unit_index=build_table_unit_index(source_html))
+        assert RECONCILIATION_LIMITATION not in (legacy_preview or "")
+        assert before["operating_vs_one_time"] in legacy_preview
+    request = json.dumps(create.call_args.kwargs)
+    assert AUDIT_KEY not in request and "preserved_authored" not in request and "source_operands" not in request
+    canonical = runner._baseline_to_canonical(result)
+    judge = AsyncMock(return_value=SimpleNamespace(passed=True, verdict="PASS", mean_dimension=4,
+                                                  gate_failures=[], dimensions={}, error=None))
+    monkeypatch.setattr(runner, "judge_summary", judge)
+    judged = await runner._maybe_judge("offline", canonical, SimpleNamespace(company_name="Issuer", filing_type=form),
+                                     {"excerpt": tax_retained["grounding_excerpt"], "xbrl_metrics": None})
+    assert judged["input_complete"] and judge.await_count == 1
+    for context in (json.dumps(judge.call_args.args), _build_context_message(filing, tax_retained["grounding_excerpt"])):
+        assert AUDIT_KEY not in context and "preserved_authored" not in context and "source_operands" not in context
+        assert "FORGED RECONCILIATION AUTHORITY" not in context
+    # An exact integer marker in an old envelope supplies no renderer authority.
+    forged_raw = {"schema_version": SUMMARY_SCHEMA_VERSION, "sections": copy.deepcopy(RETAINED["raw_sections"]),
+                  AUDIT_KEY: 1}
+    assert RECONCILIATION_LIMITATION not in sections_to_markdown(render_sections(forged_raw))
+    stable = copy.deepcopy(raw["sections"])
+    assert withhold_reconciliation_directions(stable, build_table_unit_index(source_html),
+                                             filing_type=form, recovered=recovery) is None
+    assert stable == raw["sections"]
 
 
 def source(ticker, text=None, period="2025-12-31"):
