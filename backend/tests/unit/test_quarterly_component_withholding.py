@@ -247,13 +247,34 @@ def test_complete_authored_boundary_preserves_unsupported_claims(claim):
 @pytest.mark.parametrize("claim,corrected", [
     (CLAIM, True), ("Hypothetical example: " + CLAIM, False),
     pytest.param(CLAIM.replace("$876,402", OVERSIZED_AMOUNT), False, id="oversized-net"),
+    pytest.param(CLAIM.replace("thousand", "million").replace("$201,592", "$987,654,321"),
+                 True, id="million-authored-suffix"),
 ])
 @pytest.mark.parametrize("alias_layout", ["snake_only", "camel_only", "empty_snake", "empty_camel", "equal"])
 async def test_native_source_to_final_preview_shared_exports_preserves_suffix(monkeypatch, claim, corrected, alias_layout):
     for flag in ("AI_ATTRIBUTION_VERIFY", "AI_ATTRIBUTION_GATE", "AI_FORWARD_QUOTE_GATE", "AI_FIGURE_TRACE_GATE"):
         monkeypatch.setattr(settings, flag, False)
     monkeypatch.setattr(settings, "AI_EVIDENCE_SNAP", True)
-    source = acquire()
+    text = original()
+    source = acquire(text)
+    million_control = "million" in claim
+    if million_control:
+        # Scale-consistent mutation of the actual native fixture, not a new real
+        # filing claim or a placeholder descriptor. Only its authored suffix is
+        # given an unsupported amount; the source operands still admit binding.
+        document = html.fromstring(text.encode(), parser=html.HTMLParser(encoding="utf-8", no_network=True))
+        for part in document.xpath(source["heading_path"])[0].iter():
+            if part.text:
+                part.text = part.text.replace("thousands", "millions")
+            if part.tail:
+                part.tail = part.tail.replace("thousands", "millions")
+        for fact in document.iter():
+            if fact.get("scale") == "3":
+                fact.set("scale", "6")
+        text = html.tostring(document, encoding="ascii").decode()
+        source = acquire(text)
+        assert source is not None
+    suffix = claim[claim.index(" Stock-based compensation"):]
     supplied = {"sections": sections(claim), "metadata": {}, "schema_version": SUMMARY_SCHEMA_VERSION}
     quality = supplied["sections"]["earnings_quality"]
     if alias_layout in {"camel_only", "empty_snake", "equal"}:
@@ -269,7 +290,7 @@ async def test_native_source_to_final_preview_shared_exports_preserves_suffix(mo
     # cannot silently normalize an alias before final binding.
     monkeypatch.setattr(service, "_request_content", AsyncMock(return_value=json.dumps(supplied)))
     monkeypatch.setattr(service, "_recover_missing_sections", AsyncMock(return_value={}))
-    result = await service.summarize_filing(original(), "Palantir", "10-Q", statement_source=source)
+    result = await service.summarize_filing(text, "Palantir", "10-Q", statement_source=source)
     raw = result["raw_summary"]
     raw["schema_version"] = SUMMARY_SCHEMA_VERSION
     preview = service._partial_markdown_preview(json.dumps(supplied), None, statement_source=source)
@@ -284,7 +305,7 @@ async def test_native_source_to_final_preview_shared_exports_preserves_suffix(mo
                 exporter.generate_csv(summary, filing)]
     for visible in surfaces:
         assert "FORGED SOURCE" not in visible
-        assert SUFFIX.strip() in visible
+        assert suffix.strip() in visible
         assert "Preserve this separate risk disclosure." in visible
         if corrected:
             assert claim not in visible
@@ -297,6 +318,34 @@ async def test_native_source_to_final_preview_shared_exports_preserves_suffix(mo
     if corrected:
         quality = raw["sections"]["earnings_quality"]
         assert "operating_vs_one_time" not in quality and "operatingVsOneTime" not in quality
+        assert quality[OWNED_FIELD]["preserved_authored_suffix"] == suffix
+    if million_control:
+        from app.services.ai.figure_trace import untraceable_figures
+        from app.services.ai.source_units import build_table_unit_index, restore_table_cell_units
+        from app.services.summary_generation_service import assess_quality
+        from evals.figure_measurement import measure_figures
+
+        basis = " ".join(document.itertext())
+        metrics = {key: {"current": {"value": value["value"]}} for key, value in source["current"]["rows"].items()}
+        sentinel = "987654321m"
+        # The legacy unbound tracer recognizes the canonical field only;
+        # alias handling is exercised by real assembly/binding above. Compare
+        # the canonical authored input with its actual bound display channel.
+        before = untraceable_figures(sections(claim), metrics, basis)
+        after = untraceable_figures(raw["sections"], metrics, basis)
+        assert sentinel in before and sentinel in after
+        measured = measure_figures(result, metrics, basis)
+        assert measured == {"status": "measured", "reason": "", "count": len(after), "figures": after}
+        restored = copy.deepcopy(raw["sections"])
+        assert restore_table_cell_units(restored, build_table_unit_index(text)) is None
+        assert restored == raw["sections"]
+        for armed in (False, True):
+            monkeypatch.setattr(settings, "AI_FIGURE_TRACE_GATE", armed)
+            verdict = assess_quality(result, metrics, excerpt=basis)
+            assert verdict["figures_untraceable"] == after
+            assert any("not traceable to filing data" in reason for reason in verdict["reasons"]) is armed
+            if armed:
+                assert verdict["tier"] == "partial"
 
 
 def test_missing_native_source_keeps_existing_contract_and_clears_model_envelope():

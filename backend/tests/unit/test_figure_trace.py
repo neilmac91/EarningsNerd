@@ -3,6 +3,8 @@
 The gate is conservative by design (false positives turn off billing via AI_QUALITY_GATE), so most of
 these cases pin what it must NOT flag.
 """
+import pytest
+
 from app.services.ai import figure_trace as ft
 
 _XBRL = {
@@ -27,8 +29,22 @@ def test_grounded_figures_are_not_flagged():
     assert ft.untraceable_figures(_sections(), _XBRL, _EXCERPT) == []
 
 
-def test_fabricated_prose_figure_is_flagged():
-    s = _sections(earnings_quality={"operating_vs_one_time": "A one-time gain of $55.5B flattered results."})
+@pytest.mark.parametrize("slot", ["original", "statement_suffix", "acquisition_continuation"])
+def test_fabricated_prose_figure_is_flagged(slot):
+    authored = "A one-time gain of $55.5B flattered results."
+    s = _sections(earnings_quality={"operating_vs_one_time": authored})
+    if slot != "original":
+        s["earnings_quality"].pop("operating_vs_one_time")
+        # App/source/audit paragraphs must stay outside the prose iterator even
+        # when they contain a dollar figure that would otherwise be untraceable.
+        record = {"paragraphs": ["Application text $77.7B."], "source": {"text": "$88.8B"},
+                  "audit": {"text": "$99.9B"}}
+        if slot == "statement_suffix":
+            record["preserved_authored_suffix"] = authored
+            s["earnings_quality"]["reported_statement_relationship"] = record
+        else:
+            record["authored_continuation"] = authored
+            s["notable_footnotes"] = [{"acquisition_period_limitation": record}]
     assert ft.untraceable_figures(s, _XBRL, _EXCERPT) == ["55.5b"]
 
 
@@ -226,3 +242,7 @@ def test_malformed_sections_do_not_crash():
     assert ft.untraceable_figures(["not", "a", "dict"], _XBRL, _EXCERPT) == []
     assert ft.untraceable_figures({"the_print": "a string not a dict"}, _XBRL, _EXCERPT) == []
     assert ft.untraceable_figures(None, _XBRL, _EXCERPT) == []
+    for malformed in (None, 1, "text", [], {"authored_continuation": 1, "preserved_authored_suffix": {}}):
+        sections = {"earnings_quality": {"reported_statement_relationship": malformed},
+                    "notable_footnotes": [None, "text", {"acquisition_period_limitation": malformed}]}
+        assert ft.untraceable_figures(sections, _XBRL, _EXCERPT) == []
