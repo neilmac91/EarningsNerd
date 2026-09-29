@@ -34,7 +34,7 @@ from app.services.ai.extraction import _ExtractionMixin
 from app.services.ai.evidence_snap import snap_evidence
 from app.services.ai.acquisition_period import (
     CONTEXT_KEY as ACQUISITION_CONTEXT_KEY, CONTEXT_VERSION as ACQUISITION_CONTEXT_VERSION,
-    bind_acquisition_period,
+    bind_acquisition_period, clear_model_acquisition_context,
 )
 from app.services.ai.attribution_gate import apply_attributions, find_attributions
 from app.services.ai import attribution_verify
@@ -597,6 +597,7 @@ Rules:
                         **({"statement_source": statement_source} if statement_source else {}),
                         **({"unit_index": unit_index} if unit_index else {}),
                         **({"primary_excerpt": primary_excerpt} if primary_excerpt else {}),
+                        **({"filing_type_key": filing_type_key} if primary_excerpt else {}),
                     )
                     if preview:
                         try:
@@ -610,6 +611,7 @@ Rules:
     def _partial_markdown_preview(
         self, partial_content: str, xbrl_metrics: Optional[Dict], *, capital_plan: tuple[str, str] | None = None,
         statement_source: Optional[Dict] = None, unit_index: Any = None, primary_excerpt: str = "",
+        filing_type_key: str = "",
     ) -> Optional[str]:
         """Render only originally complete sections with the current summary projection.
 
@@ -618,6 +620,7 @@ Rules:
         """
         try:
             sections = self._complete_preview_sections(partial_content or "")
+            clear_model_acquisition_context(sections)
             # Preview may own a capital-plan proposition, but never a quote-unit badge.
             attach_quote_unit_context(sections)
             restore_authored_plan_units(sections, capital_plan)
@@ -648,7 +651,7 @@ Rules:
             # A partial provider response has no source text at this callback boundary. Risks wait
             # for the final same-filing source projection rather than streaming model-authored text.
             sections.pop("risks", None)
-            acquisition_owned = bind_acquisition_period(sections, primary_excerpt, xbrl_metrics)
+            acquisition_owned = bind_acquisition_period(sections, primary_excerpt, xbrl_metrics, filing_type=filing_type_key)
             bind_statement_relationship(sections, statement_source)
             bind_capital_allocation(sections, xbrl_metrics)
             bind_issuer_cash_disclosure(sections)
@@ -815,8 +818,10 @@ Rules:
 
         recovered_keys = frozenset(structured_summary.pop("_recovered_sections", []) or [])
         # Bind original primary evidence before auto-snap can replace its bytes.
+        clear_model_acquisition_context(structured_summary)
         acquisition_owned = bind_acquisition_period(
-            sections_info, filing_excerpt or "", xbrl_metrics, recovered="notable_footnotes" in recovered_keys,
+            sections_info, filing_excerpt or "", xbrl_metrics, filing_type=filing_type_key,
+            recovered="notable_footnotes" in recovered_keys,
         )
         evidence_snap_audit = await run_in_threadpool(
             snap_evidence,

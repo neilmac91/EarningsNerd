@@ -6,6 +6,8 @@ from datetime import date, datetime
 import re
 from typing import Any
 
+from app.services.edgar.instance_extractor import duration_in_window
+
 CONTEXT_KEY = "acquisition_period_context_version"
 CONTEXT_VERSION = 1
 OWNED_FIELD = "acquisition_period_limitation"
@@ -37,10 +39,24 @@ def _norm(text: str) -> str:
     return text.replace("\xa0", " ")
 
 
-def _frame(metrics: dict | None) -> tuple[date, date] | None:
-    if not isinstance(metrics, dict):
+def _annual_form(value: Any) -> str | None:
+    if isinstance(value, str) and value.removesuffix("/A") in {"10-K", "20-F", "40-F"}:
+        return value.removesuffix("/A")
+    return None
+
+
+def _date(value: Any) -> date:
+    if not isinstance(value, str) or not re.fullmatch("[0-9]{4}-[0-9]{2}-[0-9]{2}", value):
+        raise ValueError("Unknown metric date")
+    return date.fromisoformat(value)
+
+
+def _frame(metrics: dict | None, filing_type: str) -> tuple[date, date] | None:
+    form = _annual_form(filing_type)
+    if not isinstance(metrics, dict) or form is None:
         return None
     pairs = set()
+    annual_duration = False
     for metric in metrics.values():
         if not isinstance(metric, dict) or not {"current", "prior"} & metric.keys():
             continue
@@ -50,13 +66,23 @@ def _frame(metrics: dict | None) -> tuple[date, date] | None:
         # Source provenance envelopes use period_end; standardized metric points use period.
         if all(("period" not in point and "period_end" in point for point in (current, prior))):
             continue
+        if any(_annual_form(point.get("form")) != form for point in (current, prior)):
+            return None
+        if any("fiscal_period" in point and point["fiscal_period"] != "FY" for point in (current, prior)):
+            return None
         try:
-            raw = (current.get("period"), prior.get("period"))
-            if any(
-                (not isinstance(value, str) or not re.fullmatch("[0-9]{4}-[0-9]{2}-[0-9]{2}", value) for value in raw)
-            ):
-                return None
-            current_date, prior_date = map(date.fromisoformat, raw)
+            current_date, prior_date = (_date(point.get("period")) for point in (current, prior))
+            if any("period_start" in point for point in (current, prior)):
+                starts = [_date(point.get("period_start")) for point in (current, prior)]
+                # Reuse the source extractor's annual duration window, after validating exact
+                # standardized ISO dates. Missing starts never manufacture an annual anchor.
+                if not all(
+                    duration_in_window(point["period_start"], point["period"], form) for point in (current, prior)
+                ):
+                    return None
+                if abs((current_date - starts[0]).days - (prior_date - starts[1]).days) > 8:
+                    return None
+                annual_duration = True
         except ValueError:
             return None
         if current_date.year != prior_date.year + 1 or (current_date.month, current_date.day) != (
@@ -65,10 +91,12 @@ def _frame(metrics: dict | None) -> tuple[date, date] | None:
         ):
             return None
         pairs.add((current_date, prior_date))
-    return next(iter(pairs)) if len(pairs) == 1 else None
+    return next(iter(pairs)) if len(pairs) == 1 and annual_duration else None
 
 
-def _select(note: dict, excerpt: str, metrics: dict | None, *, recovered: bool = False) -> dict | None:
+def _select(
+    note: dict, excerpt: str, metrics: dict | None, *, filing_type: str = "", recovered: bool = False
+) -> dict | None:
     """Return a capability-only selection record, never affirmative financial prose."""
     if recovered:
         return None
@@ -105,7 +133,7 @@ def _select(note: dict, excerpt: str, metrics: dict | None, *, recovered: bool =
     matching_subjects = [found for found in SOURCE_FIND.finditer(excerpt) if found["subject"] == match["subject"]]
     if len(matching_subjects) != 1:
         return None
-    periods = _frame(metrics)
+    periods = _frame(metrics, filing_type)
     if periods is None:
         return None
     current, prior = periods
@@ -125,7 +153,22 @@ def _select(note: dict, excerpt: str, metrics: dict | None, *, recovered: bool =
     }
 
 
-def bind_acquisition_period(sections: dict, excerpt: str, metrics: dict | None, *, recovered: bool = False) -> bool:
+def clear_model_acquisition_context(value: Any) -> None:
+    """Remove only this owner's reserved keys from the untrusted parsed model tree."""
+    pending = [value]
+    while pending:
+        node = pending.pop()
+        if isinstance(node, dict):
+            for key in (CONTEXT_KEY, OWNED_FIELD, "primary_excerpt"):
+                node.pop(key, None)
+            pending.extend(node.values())
+        elif isinstance(node, list):
+            pending.extend(node)
+
+
+def bind_acquisition_period(
+    sections: dict, excerpt: str, metrics: dict | None, *, filing_type: str = "", recovered: bool = False
+) -> bool:
     """Select only original primary evidence; erase untrusted model-owned metadata on every path."""
     notes = sections.get("notable_footnotes")
     if not isinstance(notes, list):
@@ -135,7 +178,7 @@ def bind_acquisition_period(sections: dict, excerpt: str, metrics: dict | None, 
         if not isinstance(note, dict):
             continue
         note.pop(OWNED_FIELD, None)
-        selected = _select(note, excerpt, metrics, recovered=recovered)
+        selected = _select(note, excerpt, metrics, filing_type=filing_type, recovered=recovered)
         if selected is not None:
             note.pop("impact")
             note[OWNED_FIELD] = selected

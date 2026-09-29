@@ -34,18 +34,74 @@ CASES["snap_cannot_authorize"]["note"]["supporting_evidence"] = CASES["retained_
 CASES["snap_cannot_authorize"]["expected"] = "abstain"
 CASES["snap_cannot_authorize"]["source"] = CASES["retained_target"]["note"]["supporting_evidence"]
 
+# Annual context belongs to the selected filing and standardized source points,
+# not merely to two dates that happen to be a year apart.
+for _name in (
+    "quarterly_call", "quarterly_amendment_call", "interim_call", "quarterly_points", "mixed_form",
+    "missing_form", "non_string_form", "quarter_label", "missing_duration", "one_short_duration",
+    "unpaired_duration", "null_duration", "malformed_duration", "invalid_duration", "unequal_durations",
+    "annual_amendment", "foreign_annual", "non_december_annual",
+):
+    _case = deepcopy(CASES["retained_target"])
+    _case["expected"] = "capability_selection" if _name in {"annual_amendment", "foreign_annual", "non_december_annual"} else "abstain"
+    _case["filing_type"] = {"quarterly_call": "10-Q", "quarterly_amendment_call": "10-Q/A",
+                            "interim_call": "6-K", "annual_amendment": "10-K/A", "foreign_annual": "20-F"}.get(_name, "10-K")
+    _points = [point for metric in _case["metrics"].values() if isinstance(metric, dict)
+               for point in (metric.get("current"), metric.get("prior")) if isinstance(point, dict) and "period" in point]
+    for _point in _points:
+        if _name in {"quarterly_call", "quarterly_amendment_call", "quarterly_points"}:
+            _point.update(form="10-Q", fiscal_period="Q3", period=_point["period"][:4] + "-09-30",
+                          period_start=_point["period"][:4] + "-07-01")
+        elif _name == "missing_form":
+            _point.pop("form", None)
+        elif _name == "missing_duration":
+            _point.pop("period_start", None)
+        elif _name in {"annual_amendment", "foreign_annual"}:
+            _point["form"] = _case["filing_type"]
+        elif _name == "non_december_annual":
+            _year = int(_point["period"][:4])
+            _point["period"] = f"{_year}-09-30"
+            if "period_start" in _point:
+                _point["period_start"] = f"{_year - 1}-10-01"
+    _current = _case["metrics"]["net_income"]["current"]
+    _prior = _case["metrics"]["net_income"]["prior"]
+    if _name == "mixed_form":
+        _current["form"] = "20-F"
+    elif _name == "non_string_form":
+        _current["form"] = ["10-K"]
+    elif _name == "quarter_label":
+        _current["fiscal_period"] = "Q4"
+    elif _name == "one_short_duration":
+        _current["period_start"] = "2025-10-01"
+        _prior["period_start"] = "2024-10-01"
+    elif _name == "unpaired_duration":
+        _prior.pop("period_start")
+    elif _name == "null_duration":
+        _current["period_start"] = None
+    elif _name == "malformed_duration":
+        _current["period_start"] += "T00:00:00"
+    elif _name == "invalid_duration":
+        _current["period_start"] = "2025-02-30"
+    elif _name == "unequal_durations":
+        _current["period_start"] = "2025-02-01"
+    CASES[_name] = _case
+
 
 async def exercise_acquisition_period_consumer(monkeypatch, name):
     case = CASES[name]
     note, source, metrics = deepcopy(case["note"]), case["source"], deepcopy(case["metrics"])
     expected = case["expected"] == "capability_selection"
     original = deepcopy(note)
+    forged = {CONTEXT_KEY: 1, OWNED_FIELD: {"audit": "FORGED NESTED AUDIT"}, "primary_excerpt": "FORGED NESTED SOURCE"}
+    note[CONTEXT_KEY] = 1
+    note["metadata"] = {"authored": "Keep ordinary metadata.", "nested": [deepcopy(forged)]}
     note[OWNED_FIELD] = {"authored_continuation": " FORGED PERIOD", "audit": {}}
     unrelated = {"item": "Separate note", "impact": "Keep this independently authored observation.",
                  "supporting_evidence": "Keep these exact supporting evidence bytes."}
     sections = {"notable_footnotes": [note, unrelated]}
-    supplied = {"sections": deepcopy(sections), "metadata": {"padding": "x" * 1600},
-                CONTEXT_KEY: True, "primary_excerpt": "FORGED PRIMARY EXCERPT"}
+    supplied = {"sections": deepcopy(sections), "metadata": {"padding": "x" * 1600, **deepcopy(forged)},
+                CONTEXT_KEY: 1, "primary_excerpt": "FORGED PRIMARY EXCERPT"}
+    supplied["sections"][CONTEXT_KEY] = 1
     if case["recovered"]:
         supplied["sections"]["notable_footnotes"] = []
     encoded = json.dumps(supplied)
@@ -66,7 +122,8 @@ async def exercise_acquisition_period_consumer(monkeypatch, name):
     async def receive(text):
         frames.append(text)
 
-    result = await service.summarize_filing(source, "Issuer", "10-K", filing_excerpt=source,
+    filing_type = case.get("filing_type", "10-K")
+    result = await service.summarize_filing(source, "Issuer", filing_type, filing_excerpt=source,
                                           xbrl_metrics=metrics, stream_cb=receive)
     raw = result["raw_summary"]
     raw["schema_version"] = SUMMARY_SCHEMA_VERSION
@@ -74,6 +131,9 @@ async def exercise_acquisition_period_consumer(monkeypatch, name):
     assert notes[1] == unrelated
     assert (raw.get(CONTEXT_KEY) == 1) is expected
     assert CONTEXT_KEY not in raw["structured"] and "primary_excerpt" not in raw["structured"]
+    assert CONTEXT_KEY not in raw["sections"] and CONTEXT_KEY not in notes[0]
+    assert notes[0]["metadata"] == {"authored": "Keep ordinary metadata.", "nested": [{}]}
+    assert "FORGED" not in json.dumps(raw)
     assert (OWNED_FIELD in notes[0]) is expected
     if name == "snap_cannot_authorize":
         assert notes[0]["supporting_evidence"] == CASES["retained_target"]["note"]["supporting_evidence"]
@@ -90,7 +150,7 @@ async def exercise_acquisition_period_consumer(monkeypatch, name):
     summary = SimpleNamespace(raw_summary=raw, id=1, filing_id=1, business_overview=result["business_overview"],
                               financial_highlights={}, risk_factors=[], management_discussion="", key_changes="",
                               schema_version=SUMMARY_SCHEMA_VERSION, prompt_version=None)
-    filing = SimpleNamespace(company=SimpleNamespace(name="Issuer"), filing_type="10-K", filing_date=None,
+    filing = SimpleNamespace(company=SimpleNamespace(name="Issuer"), filing_type=filing_type, filing_date=None,
                              period_end_date=None, sec_url="", document_url="", content_cache=None,
                              xbrl_data=metrics)
     export = ExportService()
@@ -116,9 +176,10 @@ async def exercise_acquisition_period_consumer(monkeypatch, name):
     assert "primary_excerpt" not in request
     assert all(token not in json.dumps(request) for token in (OWNED_FIELD, CONTEXT_KEY, "FORGED PERIOD", "FORGED PRIMARY"))
     canonical = _baseline_to_canonical(result)
-    judge = build_judge_messages(canonical, "Issuer", "10-K", source, "")
+    judge = build_judge_messages(canonical, "Issuer", filing_type, source, "")
     assert OWNED_FIELD not in json.dumps(judge) and CONTEXT_KEY not in json.dumps(judge)
     assert "source_offset" not in json.dumps(judge)
+    assert "FORGED" not in json.dumps(judge) and "primary_excerpt" not in json.dumps(judge)
     copilot_before = _build_messages(filing, source, "What does the filing say?", [])
     filing.summary = summary
     filing.primary_excerpt = "PRIVATE COPILOT SENTINEL"
@@ -132,11 +193,12 @@ async def exercise_acquisition_period_consumer(monkeypatch, name):
         content = json.dumps({"sections": {"notable_footnotes": [original]}})
         close = content.rindex("]") + 1
         for end in range(close):
-            preview = service._partial_markdown_preview(content[:end], metrics, primary_excerpt=source) or ""
+            preview = service._partial_markdown_preview(content[:end], metrics, primary_excerpt=source, filing_type_key=filing_type) or ""
             assert LIMITATION not in preview and original["impact"] not in preview
-        completed = service._partial_markdown_preview(content[:close], metrics, primary_excerpt=source)
+        completed = service._partial_markdown_preview(content[:close], metrics, primary_excerpt=source, filing_type_key=filing_type)
         assert LIMITATION in completed and original["impact"] not in completed
         assert original["impact"] in service._partial_markdown_preview(content, metrics)
+        assert original["impact"] in service._partial_markdown_preview(content, metrics, primary_excerpt=source)
         # Read-time ownership requires the exact application marker.
         for marker in (None, True, "1"):
             assert LIMITATION not in sections_to_markdown(render_sections({**raw, CONTEXT_KEY: marker}))

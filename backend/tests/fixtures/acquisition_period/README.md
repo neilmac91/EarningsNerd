@@ -12,7 +12,9 @@ truthy evidence-alias fallback and whitespace conflicts. Source patches replace
 one exact character interval of the shared base excerpt, avoiding repeated large
 copies. Optional per-case metrics override the shared baseline. The consumer gate
 adds one armed auto-snap control with a synthetic source containing only the
-original evidence sentence. These cases are synthetic boundary challenges, not
+original evidence sentence and 18 annual source/call-context controls. Every
+consumer case challenges exact integer ownership markers and nested reserved
+metadata while preserving ordinary metadata. These cases are synthetic boundary challenges, not
 claims that the original filing was hypothetical, retracted or malformed.
 
 The old positive period-rewrite prototype remains held. Expected selection means
