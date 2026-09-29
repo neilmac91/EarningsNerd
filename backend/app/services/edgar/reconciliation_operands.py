@@ -257,7 +257,7 @@ def _select(document: Any) -> tuple[dict | None, str | None]:
         if identity2 != (entity, "duration", end, False) or len(starts2) != 1:
             continue
         try:
-            if date.fromisoformat(starts2[0]) != quarter_start(report):
+            if not 75 <= (report - date.fromisoformat(starts2[0])).days <= 105:
                 continue
         except ValueError:
             continue
