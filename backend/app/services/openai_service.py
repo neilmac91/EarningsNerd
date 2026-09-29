@@ -37,7 +37,7 @@ from app.services.ai import attribution_verify
 from app.services.ai.forward_quote_gate import gate_forward_quotes
 from app.services.ai.statement_relationship import (
     CONTEXT_KEY as STATEMENT_CONTEXT_KEY, CONTEXT_VERSION as STATEMENT_CONTEXT_VERSION,
-    OWNED_FIELD as STATEMENT_OWNED_FIELD, bind_statement_relationship,
+    OWNED_FIELD as STATEMENT_OWNED_FIELD, bind_statement_relationship, display_statement_paragraphs,
 )
 from app.services.ai.issuer_cash_disclosure import (
     CONTEXT_KEY as ISSUER_CASH_CONTEXT_KEY, CONTEXT_VERSION as ISSUER_CASH_CONTEXT_VERSION,
@@ -642,7 +642,7 @@ Rules:
             # A partial provider response has no source text at this callback boundary. Risks wait
             # for the final same-filing source projection rather than streaming model-authored text.
             sections.pop("risks", None)
-            bind_statement_relationship(sections, statement_source)
+            statement_owned = bind_statement_relationship(sections, statement_source)
             bind_capital_allocation(sections, xbrl_metrics)
             bind_issuer_cash_disclosure(sections)
             # Same table-cell owner as the final render, over the same source document, after the
@@ -652,7 +652,7 @@ Rules:
                 "schema_version": SUMMARY_SCHEMA_VERSION, "sections": sections,
                 CAPITAL_CONTEXT_KEY: CAPITAL_CONTEXT_VERSION,
                 METRIC_DELTA_CONTEXT_KEY: METRIC_DELTA_CONTEXT_VERSION,
-                **({STATEMENT_CONTEXT_KEY: STATEMENT_CONTEXT_VERSION} if statement_source else {}),
+                **({STATEMENT_CONTEXT_KEY: STATEMENT_CONTEXT_VERSION} if statement_owned else {}),
             })
             return sections_to_markdown(rendered) or None
         except Exception:  # noqa: BLE001 — optional malformed previews must not abort generation
@@ -828,7 +828,7 @@ Rules:
                 sections_info, capital_plan_proposition(filing_excerpt or "", layout),
             )
         capital_source = structured_summary.pop("_capital_allocation_grounding", "")
-        bind_statement_relationship(sections_info, statement_source)
+        statement_owned = bind_statement_relationship(sections_info, statement_source)
         bind_capital_allocation(sections_info, xbrl_metrics, capital_source)
         issuer_cash_owned = bind_issuer_cash_disclosure(
             sections_info, structured_summary.pop(ISSUER_CASH_SOURCE_KEY, ""),
@@ -911,9 +911,9 @@ Rules:
         if isinstance(management_section_structured, dict):
             management_for_compat = dict(management_section_structured)
             management_for_compat.pop(ISSUER_CASH_OWNED_FIELD, None)
-            if statement_source:
+            if statement_owned:
                 owned_statement = management_for_compat.pop(STATEMENT_OWNED_FIELD, {})
-                management_for_compat["operating_vs_one_time"] = "\n".join(owned_statement.get("paragraphs", []))
+                management_for_compat["operating_vs_one_time"] = "\n".join(display_statement_paragraphs(owned_statement))
         management_section = _stringify(management_for_compat)
         guidance_structured = sections_info.get("forward_signals")
         guidance_section = _stringify(guidance_structured)
@@ -950,7 +950,7 @@ Rules:
             METRIC_DELTA_CONTEXT_KEY: METRIC_DELTA_CONTEXT_VERSION,
             RISK_SOURCE_CONTEXT_KEY: RISK_SOURCE_CONTEXT_VERSION,
             **({ISSUER_CASH_CONTEXT_KEY: ISSUER_CASH_CONTEXT_VERSION} if issuer_cash_owned else {}),
-            **({STATEMENT_CONTEXT_KEY: STATEMENT_CONTEXT_VERSION} if statement_source else {}),
+            **({STATEMENT_CONTEXT_KEY: STATEMENT_CONTEXT_VERSION} if statement_owned else {}),
         }
         rendered = render_sections(render_envelope)
         final_markdown = (
@@ -959,7 +959,7 @@ Rules:
         )
 
         raw_summary_payload = {
-            **({STATEMENT_CONTEXT_KEY: STATEMENT_CONTEXT_VERSION} if statement_source else {}),
+            **({STATEMENT_CONTEXT_KEY: STATEMENT_CONTEXT_VERSION} if statement_owned else {}),
             SOURCE_UNIT_CONTEXT_KEY: SOURCE_UNIT_CONTEXT_VERSION,
             CAPITAL_CONTEXT_KEY: CAPITAL_CONTEXT_VERSION,
             METRIC_DELTA_CONTEXT_KEY: METRIC_DELTA_CONTEXT_VERSION,

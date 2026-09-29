@@ -1,0 +1,1422 @@
+{
+  "schema_version": 1,
+  "decision": "HELD_FOR_INDEPENDENT_RE_REVIEW",
+  "recorded_at": "2026-09-28T22:31:19.827188+00:00",
+  "base": "4db8f46a1a35eca7e71194919eefafb29c29e50d",
+  "implementation_head": "5274fc7ec9da66048b475a98fbb1fe38e7a7f174",
+  "branch": "codex/wave3-quarterly-source-preservation",
+  "checkout": "/private/tmp/earningsnerd-quarterly-source-20260928",
+  "scope": "Replace one completely matched ambiguous aggregate/component proposition with an explicit capability limitation; preserve compensation continuation and other fields; no reconstructed quarterly facts.",
+  "verification": {
+    "required_backend_gate": {
+      "ruff_exit": 0,
+      "bandit_exit": 0,
+      "pytest_exit": 0,
+      "passed": 3866,
+      "skipped": 39,
+      "deselected": 2,
+      "warnings": 40,
+      "elapsed_seconds": 165.07,
+      "command": "ruff check . && bandit -r app -ll && python -m pytest",
+      "cwd": "backend",
+      "fresh_python_bytecode_prefix": true,
+      "DYLD_FALLBACK_LIBRARY_PATH": "/opt/homebrew/lib",
+      "parallel_pytest_processes": false,
+      "committed_head": "5274fc7ec9da66048b475a98fbb1fe38e7a7f174",
+      "post_summary_logging_error": "After the passing summary, unchanged companies.py Yahoo-client shutdown logged a closed-stream error. Pytest exit remained 0; log retained; unrelated teardown path not changed."
+    },
+    "initial_focused_selection": {
+      "passed": 115,
+      "elapsed_seconds": 24.47,
+      "note": "Before adding the active same-authored-grammar component-source positive."
+    },
+    "active_component_positive": {
+      "passed": 1,
+      "elapsed_seconds": 5.22,
+      "synthetic_source_control": true,
+      "authored_field_byte_identical": true
+    },
+    "mutation_proofs": [
+      {
+        "name": "unconditional-output",
+        "committed_head": "329a67a510939d76e75e4dbce0010248631e0995",
+        "file": "/private/tmp/earningsnerd-quarterly-source-20260928/backend/app/services/ai/statement_relationship.py",
+        "original_sha256": "e70bff293d8e93e2726c557049bb8c1112c8fd79566a4a9b215d0296c6c46bb4",
+        "fault_exit": 1,
+        "restored_exit": 0,
+        "restored_byte_identical": true,
+        "tests": [
+          "tests/unit/test_quarterly_component_source_scope.py"
+        ]
+      },
+      {
+        "name": "separate-component-exclusion",
+        "committed_head": "329a67a510939d76e75e4dbce0010248631e0995",
+        "file": "/private/tmp/earningsnerd-quarterly-source-20260928/backend/app/services/ai/statement_relationship.py",
+        "original_sha256": "e70bff293d8e93e2726c557049bb8c1112c8fd79566a4a9b215d0296c6c46bb4",
+        "fault_exit": 1,
+        "restored_exit": 0,
+        "restored_byte_identical": true,
+        "tests": [
+          "tests/unit/test_quarterly_component_withholding.py::test_same_authored_grammar_is_preserved_when_source_separately_quantifies_component"
+        ]
+      },
+      {
+        "name": "short-header",
+        "committed_head": "5274fc7ec9da66048b475a98fbb1fe38e7a7f174",
+        "file": "backend/app/services/edgar/quarterly_statement_source.py",
+        "tests": [
+          "tests/unit/test_quarterly_component_withholding.py::test_actual_source_adverse_boundaries_abstain[one_row_header]",
+          "tests/unit/test_quarterly_component_withholding.py::test_actual_source_adverse_boundaries_abstain[two_row_header]"
+        ],
+        "original_sha256": "047ec5d67d432a8789df040b679d0a4ac51606ea36bf311c9e12abed443f43fb",
+        "fault_sha256": "bb6626dec6446c83b3787d8971ca00c7e0d00de0edbd0aa0fd8fbd879455a666",
+        "fault_exit": 1,
+        "restored_byte_identical": true,
+        "restored_exit": 0
+      },
+      {
+        "name": "leap-date",
+        "committed_head": "5274fc7ec9da66048b475a98fbb1fe38e7a7f174",
+        "file": "backend/app/services/edgar/quarterly_statement_source.py",
+        "tests": [
+          "tests/unit/test_quarterly_component_withholding.py::test_actual_source_adverse_boundaries_abstain[leap_day_comparison]"
+        ],
+        "original_sha256": "047ec5d67d432a8789df040b679d0a4ac51606ea36bf311c9e12abed443f43fb",
+        "fault_sha256": "fc7a3bfb2c49cd4beef0c25832b0a843b8726328dae428f3c90a945353c3a818",
+        "fault_exit": 1,
+        "restored_byte_identical": true,
+        "restored_exit": 0
+      },
+      {
+        "name": "quarterly-judge-annex",
+        "committed_head": "5274fc7ec9da66048b475a98fbb1fe38e7a7f174",
+        "file": "backend/evals/runner.py",
+        "tests": [
+          "tests/unit/test_quarterly_component_source_scope.py::test_actual_judge_and_acceptance_consumers_omit_only_quarterly_operands"
+        ],
+        "original_sha256": "2150865d983f8b38cb45fdd054b5b7b8caf0eba26f72c379deac1b33d399167f",
+        "fault_sha256": "d8290a3b8602a7b5af8ab9d76d2945db37cf6424de010988fb7af87bae0c8a31",
+        "fault_exit": 1,
+        "restored_byte_identical": true,
+        "restored_exit": 0
+      }
+    ],
+    "existing_tests_changed": [],
+    "extra_live_postgres_performance_or_browser_gates_run": false,
+    "prior_required_backend_gate": {
+      "committed_head": "329a67a510939d76e75e4dbce0010248631e0995",
+      "ruff_exit": 0,
+      "bandit_exit": 0,
+      "pytest_exit": 0,
+      "passed": 3856,
+      "skipped": 39,
+      "deselected": 2,
+      "warnings": 40,
+      "elapsed_seconds": 161.66,
+      "command": "ruff check . && bandit -r app -ll && python -m pytest",
+      "cwd": "backend",
+      "fresh_python_bytecode_prefix": true,
+      "DYLD_FALLBACK_LIBRARY_PATH": "/opt/homebrew/lib",
+      "parallel_pytest_processes": false
+    },
+    "correction_focused_selection": {
+      "passed": 59,
+      "warnings": 9,
+      "elapsed_seconds": 10.39
+    }
+  },
+  "replay": {
+    "report_sha256": "deaa1b52c85bbab1bbcd19b7e55ab483b58ec465d6523272931cbd67e6c7f80b",
+    "report_modified": false,
+    "rows": 70,
+    "current_native_supplement_rows": [
+      46,
+      47
+    ],
+    "changed_rows": [
+      46
+    ],
+    "unchanged_rows": 69,
+    "historical_native_descriptors": 4,
+    "scope": "Both arms use the candidate implementation and retained postbinding sections; historical source versus current-native supplement. Not an independent main binary comparison, fresh generation, original historical ingestion or semantic acceptance.",
+    "implementation_head": "329a67a510939d76e75e4dbce0010248631e0995",
+    "not_rerun_for_review_corrections": true,
+    "correction_scope_note": "The retained replay remains the prior implementation receipt; correction tests cover unsupported-source abstention and optional judge inputs, with no change to the claim withholder or renderer."
+  },
+  "source_format_coverage": {
+    "receipt": "source-format-inventory.json",
+    "actual_native_fixture_count": 4,
+    "quarterly_matching": [
+      "PLTR"
+    ],
+    "quarterly_unsupported": [
+      "F"
+    ],
+    "annual_eligible": [
+      "MELI",
+      "SE"
+    ],
+    "complete_cohort_coverage": false
+  },
+  "source_identity": {
+    "current_native_sha256": "b8702d982190b1815c6bcb450fd337273c1b104d187328b05012a1ddf0c852a1",
+    "historical_sha256": "5717f40dc3593bae801b4054d47c5bd560fea335fd43968b9419023afdc80dca",
+    "historical_equality": false
+  },
+  "held_snapshot": {
+    "path": "/private/tmp/earningsnerd-quarterly-statement-20260928",
+    "head": "9e65e74c3d91e4e88cbbe89114266aff58685a2f",
+    "clean": true,
+    "original_five_scope_tests_unchanged": true
+  },
+  "review_open": [
+    "Independent engineering re-review of the three corrections and full candidate is pending.",
+    "Unsupported untagged or extension-tag component disclosures may be withheld despite being source-supported; no universal factual-error classification is claimed.",
+    "SBC continuation is byte-preserved authored content, not newly source-verified.",
+    "Only actual row46 has changed in this current-source supplement; row47 causal transfer, FIGS/JPM and E7 remain open."
+  ],
+  "actions": {
+    "paid_or_provider_calls": 0,
+    "new_SEC_document_calls": 0,
+    "pushes": 0,
+    "pull_requests": 0,
+    "deployments": 0,
+    "prompt_model_flag_schema_stamp_pin_changes": false,
+    "public_documentation_reads": true
+  },
+  "evidence_files": {
+    "ruff.log": {
+      "path": "/Users/neilmacaogain/Documents/Codex/2026-09-28/github-plugin-github-openai-curated-remote/outputs/overnight-2026-09-28/quality/ruff.log",
+      "sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18"
+    },
+    "bandit.log": {
+      "path": "/Users/neilmacaogain/Documents/Codex/2026-09-28/github-plugin-github-openai-curated-remote/outputs/overnight-2026-09-28/quality/bandit.log",
+      "sha256": "e0f19656da54dd3fe289c802ab5facd873659b5e26dbee2548578907bdd58c52"
+    },
+    "backend-gate.log": {
+      "path": "/Users/neilmacaogain/Documents/Codex/2026-09-28/github-plugin-github-openai-curated-remote/outputs/overnight-2026-09-28/quality/backend-gate.log",
+      "sha256": "2a61bfcf07060b2b196acccadb6d2d6554149cc6b47fe5f0c3b78e21304a14da"
+    },
+    "mutation-proof.json": {
+      "path": "/Users/neilmacaogain/Documents/Codex/2026-09-28/github-plugin-github-openai-curated-remote/outputs/overnight-2026-09-28/quality/mutation-proof.json",
+      "sha256": "74bb9d1dd9050279c89344550f057b9563daaaacaa100d0e96fba191b6312b4e"
+    },
+    "mutation-unconditional-output-fault.log": {
+      "path": "/Users/neilmacaogain/Documents/Codex/2026-09-28/github-plugin-github-openai-curated-remote/outputs/overnight-2026-09-28/quality/mutation-unconditional-output-fault.log",
+      "sha256": "ee80f1ce00afa25602e06836324ce2469c65f20d75a7bef372687eec50949e52"
+    },
+    "mutation-unconditional-output-restored.log": {
+      "path": "/Users/neilmacaogain/Documents/Codex/2026-09-28/github-plugin-github-openai-curated-remote/outputs/overnight-2026-09-28/quality/mutation-unconditional-output-restored.log",
+      "sha256": "cb9500aabfe481ed568d6220848a55506b848df2be55da5befd9ef94d135bde4"
+    },
+    "mutation-separate-component-exclusion-fault.log": {
+      "path": "/Users/neilmacaogain/Documents/Codex/2026-09-28/github-plugin-github-openai-curated-remote/outputs/overnight-2026-09-28/quality/mutation-separate-component-exclusion-fault.log",
+      "sha256": "a79ca5ce58636a40fe4406ccda4786dd8a93874be6648f856d2c706e27ed804d"
+    },
+    "mutation-separate-component-exclusion-restored.log": {
+      "path": "/Users/neilmacaogain/Documents/Codex/2026-09-28/github-plugin-github-openai-curated-remote/outputs/overnight-2026-09-28/quality/mutation-separate-component-exclusion-restored.log",
+      "sha256": "af49f19d07cbb9f4472913cf321a67e34b5175f91bc3fa27b8e767ebfd9d3500"
+    },
+    "retained-70-replay.json": {
+      "path": "/Users/neilmacaogain/Documents/Codex/2026-09-28/github-plugin-github-openai-curated-remote/outputs/overnight-2026-09-28/quality/retained-70-replay.json",
+      "sha256": "927384477bb3d1522b57a78ed7c3aa5970141d57377693add45bd34376a50fea"
+    },
+    "retained-70-replay.log": {
+      "path": "/Users/neilmacaogain/Documents/Codex/2026-09-28/github-plugin-github-openai-curated-remote/outputs/overnight-2026-09-28/quality/retained-70-replay.log",
+      "sha256": "4fe42e012d16c1af733241b6026aaa85fff769246a6fa587068ca384723380b4"
+    },
+    "replay-retained.py": {
+      "path": "/Users/neilmacaogain/Documents/Codex/2026-09-28/github-plugin-github-openai-curated-remote/outputs/overnight-2026-09-28/quality/replay-retained.py",
+      "sha256": "0a3398e92a7bf5fbf2d984f9e19e570af57feee66d118d82b048e74b1c9f0f9b"
+    },
+    "source-format-inventory.json": {
+      "path": "/Users/neilmacaogain/Documents/Codex/2026-09-28/github-plugin-github-openai-curated-remote/outputs/overnight-2026-09-28/quality/source-format-inventory.json",
+      "sha256": "8cf050f241c798bba9b9884e6caa86b8ffe1c7ffab4ae5764904b48327439ebd"
+    },
+    "review-corrections/absent-judge-user.txt": {
+      "path": "/Users/neilmacaogain/Documents/Codex/2026-09-28/github-plugin-github-openai-curated-remote/outputs/overnight-2026-09-28/quality/review-corrections/absent-judge-user.txt",
+      "sha256": "ace29168c61363eccb2ec5d070505625f1878cc63015536c79dd73564f33101c"
+    },
+    "review-corrections/annual-judge-user.txt": {
+      "path": "/Users/neilmacaogain/Documents/Codex/2026-09-28/github-plugin-github-openai-curated-remote/outputs/overnight-2026-09-28/quality/review-corrections/annual-judge-user.txt",
+      "sha256": "2bbd117c318b877e1f26836bfd40dfbb5c489570e97e6cab089b6690f5364c1c"
+    },
+    "review-corrections/backend-gate.log": {
+      "path": "/Users/neilmacaogain/Documents/Codex/2026-09-28/github-plugin-github-openai-curated-remote/outputs/overnight-2026-09-28/quality/review-corrections/backend-gate.log",
+      "sha256": "8f6f9fc654af4e0a6e5d664fdb54aed9adfa00d3ec1a68302e0d9cc2d423cb0e"
+    },
+    "review-corrections/bandit.log": {
+      "path": "/Users/neilmacaogain/Documents/Codex/2026-09-28/github-plugin-github-openai-curated-remote/outputs/overnight-2026-09-28/quality/review-corrections/bandit.log",
+      "sha256": "a5680731d101a43aa41cd100bc5821d99f48530b20ef40849ce06f11d0af4ba3"
+    },
+    "review-corrections/focused.log": {
+      "path": "/Users/neilmacaogain/Documents/Codex/2026-09-28/github-plugin-github-openai-curated-remote/outputs/overnight-2026-09-28/quality/review-corrections/focused.log",
+      "sha256": "c1ff22910d2afaf6474c717d44f196b4340b38e62143c4de602ab6fcf5bd3f5f"
+    },
+    "review-corrections/message-parity.json": {
+      "path": "/Users/neilmacaogain/Documents/Codex/2026-09-28/github-plugin-github-openai-curated-remote/outputs/overnight-2026-09-28/quality/review-corrections/message-parity.json",
+      "sha256": "3b446a8251b45d08a6a949bad955de4479391e7a1886fa0d4b3122d0f53e2c93"
+    },
+    "review-corrections/message-parity.log": {
+      "path": "/Users/neilmacaogain/Documents/Codex/2026-09-28/github-plugin-github-openai-curated-remote/outputs/overnight-2026-09-28/quality/review-corrections/message-parity.log",
+      "sha256": "3b446a8251b45d08a6a949bad955de4479391e7a1886fa0d4b3122d0f53e2c93"
+    },
+    "review-corrections/message-parity.py": {
+      "path": "/Users/neilmacaogain/Documents/Codex/2026-09-28/github-plugin-github-openai-curated-remote/outputs/overnight-2026-09-28/quality/review-corrections/message-parity.py",
+      "sha256": "1f81672449086b09c8ff8748127e25c83376822b78b188cec2c9c7bf94d4418c"
+    },
+    "review-corrections/mutation-leap-date-fault.log": {
+      "path": "/Users/neilmacaogain/Documents/Codex/2026-09-28/github-plugin-github-openai-curated-remote/outputs/overnight-2026-09-28/quality/review-corrections/mutation-leap-date-fault.log",
+      "sha256": "7874797ce13dfbcbc2ed446a6ef27dd2c400772c0f3b3fc9537b217aaccf84ce"
+    },
+    "review-corrections/mutation-leap-date-restored.log": {
+      "path": "/Users/neilmacaogain/Documents/Codex/2026-09-28/github-plugin-github-openai-curated-remote/outputs/overnight-2026-09-28/quality/review-corrections/mutation-leap-date-restored.log",
+      "sha256": "75113cda7d6b2ddaf33656b4e12fadc5db4965a534bd174b3f37f0891ab7646e"
+    },
+    "review-corrections/mutation-proof.json": {
+      "path": "/Users/neilmacaogain/Documents/Codex/2026-09-28/github-plugin-github-openai-curated-remote/outputs/overnight-2026-09-28/quality/review-corrections/mutation-proof.json",
+      "sha256": "ce4745442d36b9874eacc0317809e4f933bdea10f0caba84871228c3be6e4e51"
+    },
+    "review-corrections/mutation-proof.py": {
+      "path": "/Users/neilmacaogain/Documents/Codex/2026-09-28/github-plugin-github-openai-curated-remote/outputs/overnight-2026-09-28/quality/review-corrections/mutation-proof.py",
+      "sha256": "ec61bcac9c7b9119d0bc2f765dc709787e4df7f37c12aa69a8ea787eee0266ff"
+    },
+    "review-corrections/mutation-quarterly-judge-annex-fault.log": {
+      "path": "/Users/neilmacaogain/Documents/Codex/2026-09-28/github-plugin-github-openai-curated-remote/outputs/overnight-2026-09-28/quality/review-corrections/mutation-quarterly-judge-annex-fault.log",
+      "sha256": "e367ca7f80c9e70842163fa72908b127e4520931c0f170be079f9c45a77e1ef6"
+    },
+    "review-corrections/mutation-quarterly-judge-annex-restored.log": {
+      "path": "/Users/neilmacaogain/Documents/Codex/2026-09-28/github-plugin-github-openai-curated-remote/outputs/overnight-2026-09-28/quality/review-corrections/mutation-quarterly-judge-annex-restored.log",
+      "sha256": "498c628eb0f4c7677dee375a70986bf93d47847a4137b25df5dbfaa73edeb11c"
+    },
+    "review-corrections/mutation-short-header-fault.log": {
+      "path": "/Users/neilmacaogain/Documents/Codex/2026-09-28/github-plugin-github-openai-curated-remote/outputs/overnight-2026-09-28/quality/review-corrections/mutation-short-header-fault.log",
+      "sha256": "06b91bde3b81566605ca5c78d269578f813ff8334e31bd577c439380591b7bda"
+    },
+    "review-corrections/mutation-short-header-restored.log": {
+      "path": "/Users/neilmacaogain/Documents/Codex/2026-09-28/github-plugin-github-openai-curated-remote/outputs/overnight-2026-09-28/quality/review-corrections/mutation-short-header-restored.log",
+      "sha256": "9c058224f56ea4b5fff78401a2e71e7a9f02553c3b7107801a4b1ddc423007e5"
+    },
+    "review-corrections/prior-repository-verification.json": {
+      "path": "/Users/neilmacaogain/Documents/Codex/2026-09-28/github-plugin-github-openai-curated-remote/outputs/overnight-2026-09-28/quality/review-corrections/prior-repository-verification.json",
+      "sha256": "28326313586bbe6955cdfa341d963087fde3ed3bfdd9c4b613108ac18f32901d"
+    },
+    "review-corrections/quarterly-qualified-judge-user.txt": {
+      "path": "/Users/neilmacaogain/Documents/Codex/2026-09-28/github-plugin-github-openai-curated-remote/outputs/overnight-2026-09-28/quality/review-corrections/quarterly-qualified-judge-user.txt",
+      "sha256": "a291ae4debfab792ab97e9fbfb6e5a145d57e359e25c57b6a276220d74fc2ac6"
+    },
+    "review-corrections/ruff.log": {
+      "path": "/Users/neilmacaogain/Documents/Codex/2026-09-28/github-plugin-github-openai-curated-remote/outputs/overnight-2026-09-28/quality/review-corrections/ruff.log",
+      "sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18"
+    },
+    "independent-review.md": {
+      "path": "/Users/neilmacaogain/Documents/Codex/2026-09-28/github-plugin-github-openai-curated-remote/outputs/overnight-2026-09-28/quality/independent-review.md",
+      "sha256": "e7883bb64c8df19425975ea31ab30b61a596dacac718d3934827c79482a7cca2"
+    },
+    "independent-review.json": {
+      "path": "/Users/neilmacaogain/Documents/Codex/2026-09-28/github-plugin-github-openai-curated-remote/outputs/overnight-2026-09-28/quality/independent-review.json",
+      "sha256": "782e2474dc8b9d464aaf42aa0785c86954ffff73f9225f11cc25bfae6809ce98"
+    },
+    "independent-review-probes.py": {
+      "path": "/Users/neilmacaogain/Documents/Codex/2026-09-28/github-plugin-github-openai-curated-remote/outputs/overnight-2026-09-28/quality/independent-review-probes.py",
+      "sha256": "027a2f561e256e8f5a3a6e0db493083d747dad7656dccaa79e0e9196a80277de"
+    },
+    "independent-review-probes.json": {
+      "path": "/Users/neilmacaogain/Documents/Codex/2026-09-28/github-plugin-github-openai-curated-remote/outputs/overnight-2026-09-28/quality/independent-review-probes.json",
+      "sha256": "81e4fc531d8a9c286fb071129587ab898d13e45539992ab30a5d900a9cd473a8"
+    },
+    "alias-review-correction/backend-gate.log": {
+      "path": "/Users/neilmacaogain/Documents/Codex/2026-09-28/github-plugin-github-openai-curated-remote/outputs/overnight-2026-09-28/quality/alias-review-correction/backend-gate.log",
+      "sha256": "6c1376d0f1b7950edd5746eca3f5f52b7a4f9a95247593175dba6c23986ad327"
+    },
+    "alias-review-correction/bandit.log": {
+      "path": "/Users/neilmacaogain/Documents/Codex/2026-09-28/github-plugin-github-openai-curated-remote/outputs/overnight-2026-09-28/quality/alias-review-correction/bandit.log",
+      "sha256": "1144d562834a163afc3bd0ce4f3aa1d89c919fc33f2ae6585ef739ae39068f09"
+    },
+    "alias-review-correction/correction-verification.json": {
+      "path": "/Users/neilmacaogain/Documents/Codex/2026-09-28/github-plugin-github-openai-curated-remote/outputs/overnight-2026-09-28/quality/alias-review-correction/correction-verification.json",
+      "sha256": "29bccf444f48a9eb24ef0a49d793edd0d8c8d34102a41af03b10b98630707d68"
+    },
+    "alias-review-correction/finalize-evidence.py": {
+      "path": "/Users/neilmacaogain/Documents/Codex/2026-09-28/github-plugin-github-openai-curated-remote/outputs/overnight-2026-09-28/quality/alias-review-correction/finalize-evidence.py",
+      "sha256": "b07068a7db108af251862838410da0cbff12c2f8339e0ecc277454f108533d10"
+    },
+    "alias-review-correction/focused.log": {
+      "path": "/Users/neilmacaogain/Documents/Codex/2026-09-28/github-plugin-github-openai-curated-remote/outputs/overnight-2026-09-28/quality/alias-review-correction/focused.log",
+      "sha256": "b4f438e172799d7ee961ed0dbc038ad190d3052bf756fcec4f7ac66606c3e0af"
+    },
+    "alias-review-correction/full-gate.json": {
+      "path": "/Users/neilmacaogain/Documents/Codex/2026-09-28/github-plugin-github-openai-curated-remote/outputs/overnight-2026-09-28/quality/alias-review-correction/full-gate.json",
+      "sha256": "35636997bd5896bc159d6fcf5da0227c0a5dbd470396ab407765200fe9b33feb"
+    },
+    "alias-review-correction/full-gate.py": {
+      "path": "/Users/neilmacaogain/Documents/Codex/2026-09-28/github-plugin-github-openai-curated-remote/outputs/overnight-2026-09-28/quality/alias-review-correction/full-gate.py",
+      "sha256": "f6db9fe2cfcd3f2e613d37b75fd43cd5bae80f458a58f0bba68b74c488825845"
+    },
+    "alias-review-correction/mutation-proof.json": {
+      "path": "/Users/neilmacaogain/Documents/Codex/2026-09-28/github-plugin-github-openai-curated-remote/outputs/overnight-2026-09-28/quality/alias-review-correction/mutation-proof.json",
+      "sha256": "d69b52c734fd26ada1e6e79aa0c5d2ef6d84de52f97c6fa534c971aa83b1340e"
+    },
+    "alias-review-correction/mutation-proof.py": {
+      "path": "/Users/neilmacaogain/Documents/Codex/2026-09-28/github-plugin-github-openai-curated-remote/outputs/overnight-2026-09-28/quality/alias-review-correction/mutation-proof.py",
+      "sha256": "ad62f3531a75ab3134e917ba05838af027099d622b58c392d6f81d7b91c8e818"
+    },
+    "alias-review-correction/mutation-selector-fault.log": {
+      "path": "/Users/neilmacaogain/Documents/Codex/2026-09-28/github-plugin-github-openai-curated-remote/outputs/overnight-2026-09-28/quality/alias-review-correction/mutation-selector-fault.log",
+      "sha256": "85491683c9024f6848b93281292e891e8a969fe16c73276eea344c824ca049dc"
+    },
+    "alias-review-correction/mutation-selector-restored.log": {
+      "path": "/Users/neilmacaogain/Documents/Codex/2026-09-28/github-plugin-github-openai-curated-remote/outputs/overnight-2026-09-28/quality/alias-review-correction/mutation-selector-restored.log",
+      "sha256": "58e3fb3d60de6b1ee24cb2ef5283e2ac24af0ce215ab6203b88635acaf550147"
+    },
+    "alias-review-correction/pre-correction-consumer.log": {
+      "path": "/Users/neilmacaogain/Documents/Codex/2026-09-28/github-plugin-github-openai-curated-remote/outputs/overnight-2026-09-28/quality/alias-review-correction/pre-correction-consumer.log",
+      "sha256": "1a58a7335e61540950a4b3aa04e76717288dd5bb5aa9f1e48ecbe1a4dc7d1e8f"
+    },
+    "alias-review-correction/prior-repository-verification.json": {
+      "path": "/Users/neilmacaogain/Documents/Codex/2026-09-28/github-plugin-github-openai-curated-remote/outputs/overnight-2026-09-28/quality/alias-review-correction/prior-repository-verification.json",
+      "sha256": "29b149c6d29a0b63eb569a208f74b09d3f6aedb6c2c5f7426d891753b9ca1808"
+    },
+    "alias-review-correction/refutations.md": {
+      "path": "/Users/neilmacaogain/Documents/Codex/2026-09-28/github-plugin-github-openai-curated-remote/outputs/overnight-2026-09-28/quality/alias-review-correction/refutations.md",
+      "sha256": "8a1bf8aefe1585cdc3af809b4ac0ffdc1946df82c350534d226c6b1ccacbbb6e"
+    },
+    "alias-review-correction/ruff.log": {
+      "path": "/Users/neilmacaogain/Documents/Codex/2026-09-28/github-plugin-github-openai-curated-remote/outputs/overnight-2026-09-28/quality/alias-review-correction/ruff.log",
+      "sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18"
+    },
+    "accounting-base-reconciliation/README.md": {
+      "path": "/Users/neilmacaogain/Documents/Codex/2026-09-28/github-plugin-github-openai-curated-remote/outputs/overnight-2026-09-28/quality/accounting-base-reconciliation/README.md",
+      "sha256": "20eeab77cd580dad845046835ee25757cc1256ee4c9d44e25acb0b68c1fd4d48"
+    },
+    "accounting-base-reconciliation/audit-committed.json": {
+      "path": "/Users/neilmacaogain/Documents/Codex/2026-09-28/github-plugin-github-openai-curated-remote/outputs/overnight-2026-09-28/quality/accounting-base-reconciliation/audit-committed.json",
+      "sha256": "24c998388b5c42e6d8bcc362e6489791d5705a069f89c3ed10439eff97758d9e"
+    },
+    "accounting-base-reconciliation/audit-reconciliation.py": {
+      "path": "/Users/neilmacaogain/Documents/Codex/2026-09-28/github-plugin-github-openai-curated-remote/outputs/overnight-2026-09-28/quality/accounting-base-reconciliation/audit-reconciliation.py",
+      "sha256": "9b65229243c78856ad7194d3cc8bccdae1e7355cafdfec4f2aed15830f2ea851"
+    },
+    "accounting-base-reconciliation/audit-staged.json": {
+      "path": "/Users/neilmacaogain/Documents/Codex/2026-09-28/github-plugin-github-openai-curated-remote/outputs/overnight-2026-09-28/quality/accounting-base-reconciliation/audit-staged.json",
+      "sha256": "afdbeced016e57d484fc76dd66685339504ec432a142729f56d44a9822ac1c9f"
+    },
+    "accounting-base-reconciliation/backend-gate.log": {
+      "path": "/Users/neilmacaogain/Documents/Codex/2026-09-28/github-plugin-github-openai-curated-remote/outputs/overnight-2026-09-28/quality/accounting-base-reconciliation/backend-gate.log",
+      "sha256": "bdf647f9a68867eb9114a2126a5210190ff449ac25a6d1f0735f243650a2e33a"
+    },
+    "accounting-base-reconciliation/bandit.log": {
+      "path": "/Users/neilmacaogain/Documents/Codex/2026-09-28/github-plugin-github-openai-curated-remote/outputs/overnight-2026-09-28/quality/accounting-base-reconciliation/bandit.log",
+      "sha256": "7ecf7157a051f5c608686b5ba0f118e625d91e079846c1d5b615b2a802d50f7a"
+    },
+    "accounting-base-reconciliation/finalize-receipts.py": {
+      "path": "/Users/neilmacaogain/Documents/Codex/2026-09-28/github-plugin-github-openai-curated-remote/outputs/overnight-2026-09-28/quality/accounting-base-reconciliation/finalize-receipts.py",
+      "sha256": "96500570a42a16ec999516fd14a5a0823a594dcaa18d9cb23600275f5778b6d2"
+    },
+    "accounting-base-reconciliation/full-gate.json": {
+      "path": "/Users/neilmacaogain/Documents/Codex/2026-09-28/github-plugin-github-openai-curated-remote/outputs/overnight-2026-09-28/quality/accounting-base-reconciliation/full-gate.json",
+      "sha256": "4aa5c4eb710aca78ac150046c5894de50f6121dbcfd4b1c34785396853bc56f2"
+    },
+    "accounting-base-reconciliation/full-gate.py": {
+      "path": "/Users/neilmacaogain/Documents/Codex/2026-09-28/github-plugin-github-openai-curated-remote/outputs/overnight-2026-09-28/quality/accounting-base-reconciliation/full-gate.py",
+      "sha256": "4b854894980e284e1ae3e2d53cc59a310938bf2d2afdbf8df5b810a297ff66b9"
+    },
+    "accounting-base-reconciliation/ruff.log": {
+      "path": "/Users/neilmacaogain/Documents/Codex/2026-09-28/github-plugin-github-openai-curated-remote/outputs/overnight-2026-09-28/quality/accounting-base-reconciliation/ruff.log",
+      "sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18"
+    },
+    "accounting-base-reconciliation/sha256.json": {
+      "path": "/Users/neilmacaogain/Documents/Codex/2026-09-28/github-plugin-github-openai-curated-remote/outputs/overnight-2026-09-28/quality/accounting-base-reconciliation/sha256.json",
+      "sha256": "c26fd39910ee9a39878c89203f819bb52560c3facd58a124824d953d3c9688d1"
+    },
+    "accounting-base-reconciliation/verification.json": {
+      "path": "/Users/neilmacaogain/Documents/Codex/2026-09-28/github-plugin-github-openai-curated-remote/outputs/overnight-2026-09-28/quality/accounting-base-reconciliation/verification.json",
+      "sha256": "a87bbb30d45ceb8db309c3365757eae3c8deead38f2551b624335377e1467583"
+    },
+    "integer-review-correction/backend-gate.log": {
+      "path": "/Users/neilmacaogain/Documents/Codex/2026-09-28/github-plugin-github-openai-curated-remote/outputs/overnight-2026-09-28/quality/integer-review-correction/backend-gate.log",
+      "sha256": "7f6cfe3296bb12eeebad91702d78f833988ce233d12539e36a2f1d7787fc8600"
+    },
+    "integer-review-correction/bandit.log": {
+      "path": "/Users/neilmacaogain/Documents/Codex/2026-09-28/github-plugin-github-openai-curated-remote/outputs/overnight-2026-09-28/quality/integer-review-correction/bandit.log",
+      "sha256": "55afdc725894f412e658e44a7ff915562521c7322d97b577e57d536920bfb4c6"
+    },
+    "integer-review-correction/correction-verification.json": {
+      "path": "/Users/neilmacaogain/Documents/Codex/2026-09-28/github-plugin-github-openai-curated-remote/outputs/overnight-2026-09-28/quality/integer-review-correction/correction-verification.json",
+      "sha256": "938b7803f9d26d4483d34c044e3ac23495dca280cce37bed117fb5b4b5a0ff85"
+    },
+    "integer-review-correction/finalize-evidence.py": {
+      "path": "/Users/neilmacaogain/Documents/Codex/2026-09-28/github-plugin-github-openai-curated-remote/outputs/overnight-2026-09-28/quality/integer-review-correction/finalize-evidence.py",
+      "sha256": "756cc1f201301524f8faaaf6a529d28f1261572232746bbe6696a41e104ad9dc"
+    },
+    "integer-review-correction/focused.log": {
+      "path": "/Users/neilmacaogain/Documents/Codex/2026-09-28/github-plugin-github-openai-curated-remote/outputs/overnight-2026-09-28/quality/integer-review-correction/focused.log",
+      "sha256": "ddab4ac07a2d2454c7e9f0fe536be0ffb3ab4f7b73105af627f3716e32a9a429"
+    },
+    "integer-review-correction/full-gate.json": {
+      "path": "/Users/neilmacaogain/Documents/Codex/2026-09-28/github-plugin-github-openai-curated-remote/outputs/overnight-2026-09-28/quality/integer-review-correction/full-gate.json",
+      "sha256": "4252e1bf5f914f0d392b3a65569c4a53adc8f0c8e680d83e105810aaf63d64e0"
+    },
+    "integer-review-correction/full-gate.py": {
+      "path": "/Users/neilmacaogain/Documents/Codex/2026-09-28/github-plugin-github-openai-curated-remote/outputs/overnight-2026-09-28/quality/integer-review-correction/full-gate.py",
+      "sha256": "3491d411b5dbf0695ee73dc2396459222056e555c3e184fe775a815bdccb25c3"
+    },
+    "integer-review-correction/generation-after.json": {
+      "path": "/Users/neilmacaogain/Documents/Codex/2026-09-28/github-plugin-github-openai-curated-remote/outputs/overnight-2026-09-28/quality/integer-review-correction/generation-after.json",
+      "sha256": "d97ef15bc126b341fc814b7e434d22b986dbd3be0c14bc027c87b1666d174031"
+    },
+    "integer-review-correction/generation-after.log": {
+      "path": "/Users/neilmacaogain/Documents/Codex/2026-09-28/github-plugin-github-openai-curated-remote/outputs/overnight-2026-09-28/quality/integer-review-correction/generation-after.log",
+      "sha256": "39468412541eb14bb77bfec7f12af031f5ef4d512f5b90e65431fc928fe5e72b"
+    },
+    "integer-review-correction/generation-before.json": {
+      "path": "/Users/neilmacaogain/Documents/Codex/2026-09-28/github-plugin-github-openai-curated-remote/outputs/overnight-2026-09-28/quality/integer-review-correction/generation-before.json",
+      "sha256": "8abbc4bf32ce68d8a08ab94ff8566fb517f8fc0fea1178d6f272230a4aecb4e0"
+    },
+    "integer-review-correction/generation-before.log": {
+      "path": "/Users/neilmacaogain/Documents/Codex/2026-09-28/github-plugin-github-openai-curated-remote/outputs/overnight-2026-09-28/quality/integer-review-correction/generation-before.log",
+      "sha256": "8bbe16668c8c212700769cda7e39be472ed7e54854350a0b81c43fa23185ffd9"
+    },
+    "integer-review-correction/mutation-integer-fault.log": {
+      "path": "/Users/neilmacaogain/Documents/Codex/2026-09-28/github-plugin-github-openai-curated-remote/outputs/overnight-2026-09-28/quality/integer-review-correction/mutation-integer-fault.log",
+      "sha256": "90b9a7f4ad06ecd2a66e83b36d3ea495b5b8e3e64f22b22645804dfc1cecea26"
+    },
+    "integer-review-correction/mutation-integer-restored.log": {
+      "path": "/Users/neilmacaogain/Documents/Codex/2026-09-28/github-plugin-github-openai-curated-remote/outputs/overnight-2026-09-28/quality/integer-review-correction/mutation-integer-restored.log",
+      "sha256": "d4afff4286728cee668f855b00e9e3d7c75400958d896d986cd06abe6aa44ddb"
+    },
+    "integer-review-correction/mutation-proof.json": {
+      "path": "/Users/neilmacaogain/Documents/Codex/2026-09-28/github-plugin-github-openai-curated-remote/outputs/overnight-2026-09-28/quality/integer-review-correction/mutation-proof.json",
+      "sha256": "149c9bf260447faf4e7f490ebdc081a0d782048a6d8b1248e330471fdc923010"
+    },
+    "integer-review-correction/mutation-proof.py": {
+      "path": "/Users/neilmacaogain/Documents/Codex/2026-09-28/github-plugin-github-openai-curated-remote/outputs/overnight-2026-09-28/quality/integer-review-correction/mutation-proof.py",
+      "sha256": "a207bbe7055f3f25aa2695f8556a77cf7764758cbbfcb7746f8af00930fcfd7b"
+    },
+    "integer-review-correction/pre-correction-amounts.log": {
+      "path": "/Users/neilmacaogain/Documents/Codex/2026-09-28/github-plugin-github-openai-curated-remote/outputs/overnight-2026-09-28/quality/integer-review-correction/pre-correction-amounts.log",
+      "sha256": "cb79a4470f17ae7d5df36b0e1e55338c375be4b47bd95489cdcac648a70295a7"
+    },
+    "integer-review-correction/prior-repository-verification.json": {
+      "path": "/Users/neilmacaogain/Documents/Codex/2026-09-28/github-plugin-github-openai-curated-remote/outputs/overnight-2026-09-28/quality/integer-review-correction/prior-repository-verification.json",
+      "sha256": "9f12926e349d23e4ee46744891de1e4bb5eec24904b7b0f32b00aef16e4be184"
+    },
+    "integer-review-correction/probe-generation.py": {
+      "path": "/Users/neilmacaogain/Documents/Codex/2026-09-28/github-plugin-github-openai-curated-remote/outputs/overnight-2026-09-28/quality/integer-review-correction/probe-generation.py",
+      "sha256": "406dedfef0d637b3a3994b65366e7b2173fcd8f4f5031c3babf7797923e690f7"
+    },
+    "integer-review-correction/refutations.md": {
+      "path": "/Users/neilmacaogain/Documents/Codex/2026-09-28/github-plugin-github-openai-curated-remote/outputs/overnight-2026-09-28/quality/integer-review-correction/refutations.md",
+      "sha256": "208ffe0f9cee7515cd8ed2db6cbc71070dce9050d76faa374db17ba798cf35d1"
+    },
+    "integer-review-correction/ruff.log": {
+      "path": "/Users/neilmacaogain/Documents/Codex/2026-09-28/github-plugin-github-openai-curated-remote/outputs/overnight-2026-09-28/quality/integer-review-correction/ruff.log",
+      "sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18"
+    },
+    "sibling-base-reconciliation/bandit.log": {
+      "path": "/Users/neilmacaogain/Documents/Codex/2026-09-28/github-plugin-github-openai-curated-remote/outputs/overnight-2026-09-28/quality/sibling-base-reconciliation/bandit.log",
+      "sha256": "d5b162ed2f8ff62f5e57126fefddda372d9c21725355318456a8cea664782082"
+    },
+    "sibling-base-reconciliation/pytest.log": {
+      "path": "/Users/neilmacaogain/Documents/Codex/2026-09-28/github-plugin-github-openai-curated-remote/outputs/overnight-2026-09-28/quality/sibling-base-reconciliation/pytest.log",
+      "sha256": "323b0bae3b82723621f224cbbee107d8dadb5ab8b9d71193adbb65e912e49783"
+    },
+    "sibling-base-reconciliation/receipt.json": {
+      "path": "/Users/neilmacaogain/Documents/Codex/2026-09-28/github-plugin-github-openai-curated-remote/outputs/overnight-2026-09-28/quality/sibling-base-reconciliation/receipt.json",
+      "sha256": "2469cd6c3adec1824f76a7d8f95cedec494e49b8b42686d08faab0ac0b86e46f"
+    },
+    "sibling-base-reconciliation/ruff.log": {
+      "path": "/Users/neilmacaogain/Documents/Codex/2026-09-28/github-plugin-github-openai-curated-remote/outputs/overnight-2026-09-28/quality/sibling-base-reconciliation/ruff.log",
+      "sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18"
+    },
+    "source-integer-review-correction/backend-gate.log": {
+      "path": "/Users/neilmacaogain/Documents/Codex/2026-09-28/github-plugin-github-openai-curated-remote/outputs/overnight-2026-09-28/quality/source-integer-review-correction/backend-gate.log",
+      "sha256": "83aba0719ff1dca956aeed30be1ee3111efd6b633afac22bd3322da75651f11b"
+    },
+    "source-integer-review-correction/bandit.log": {
+      "path": "/Users/neilmacaogain/Documents/Codex/2026-09-28/github-plugin-github-openai-curated-remote/outputs/overnight-2026-09-28/quality/source-integer-review-correction/bandit.log",
+      "sha256": "57e68565e0e6fe3b22550393a0afad8f05e9abcadba155718691516a91e2e88e"
+    },
+    "source-integer-review-correction/correction-verification.json": {
+      "path": "/Users/neilmacaogain/Documents/Codex/2026-09-28/github-plugin-github-openai-curated-remote/outputs/overnight-2026-09-28/quality/source-integer-review-correction/correction-verification.json",
+      "sha256": "04a00dd002badb689bd3b62a86164d3cdc4122ae590b3a4a9853feddd8c49bfe"
+    },
+    "source-integer-review-correction/finalize-evidence.py": {
+      "path": "/Users/neilmacaogain/Documents/Codex/2026-09-28/github-plugin-github-openai-curated-remote/outputs/overnight-2026-09-28/quality/source-integer-review-correction/finalize-evidence.py",
+      "sha256": "a350daed5421f0424bd87910fc6388660e862b509cef99cb05260783208645af"
+    },
+    "source-integer-review-correction/focused.log": {
+      "path": "/Users/neilmacaogain/Documents/Codex/2026-09-28/github-plugin-github-openai-curated-remote/outputs/overnight-2026-09-28/quality/source-integer-review-correction/focused.log",
+      "sha256": "60f5c7cae4b5e9152e06fcf8df2cc97061c2bb66955308b9e10e4a0ec4dfcd0f"
+    },
+    "source-integer-review-correction/full-gate.json": {
+      "path": "/Users/neilmacaogain/Documents/Codex/2026-09-28/github-plugin-github-openai-curated-remote/outputs/overnight-2026-09-28/quality/source-integer-review-correction/full-gate.json",
+      "sha256": "baf3f4cf5665c65ad839786525d6a2e6137afbd8a34a21e432e6183f5cbcf1a4"
+    },
+    "source-integer-review-correction/full-gate.py": {
+      "path": "/Users/neilmacaogain/Documents/Codex/2026-09-28/github-plugin-github-openai-curated-remote/outputs/overnight-2026-09-28/quality/source-integer-review-correction/full-gate.py",
+      "sha256": "256c558d082b64e11f8a78c94fdbd30bcad1c1c4b14a8ade1701737e9af3bbb1"
+    },
+    "source-integer-review-correction/mutation-proof.json": {
+      "path": "/Users/neilmacaogain/Documents/Codex/2026-09-28/github-plugin-github-openai-curated-remote/outputs/overnight-2026-09-28/quality/source-integer-review-correction/mutation-proof.json",
+      "sha256": "c6284e9a00e241cdf66d88c8e552eb4974660c81c339e8289e26f7e087fa3587"
+    },
+    "source-integer-review-correction/mutation-proof.py": {
+      "path": "/Users/neilmacaogain/Documents/Codex/2026-09-28/github-plugin-github-openai-curated-remote/outputs/overnight-2026-09-28/quality/source-integer-review-correction/mutation-proof.py",
+      "sha256": "4c9c9df7c50a46d1561da21ca702683178817d298cc58d62cb7124afb20be3d5"
+    },
+    "source-integer-review-correction/mutation-source-fault.log": {
+      "path": "/Users/neilmacaogain/Documents/Codex/2026-09-28/github-plugin-github-openai-curated-remote/outputs/overnight-2026-09-28/quality/source-integer-review-correction/mutation-source-fault.log",
+      "sha256": "9f49c138e22f3e39aee4ec8c48a8ceb404ad0e8aa56e31ad657a1cddd298194a"
+    },
+    "source-integer-review-correction/mutation-source-restored.log": {
+      "path": "/Users/neilmacaogain/Documents/Codex/2026-09-28/github-plugin-github-openai-curated-remote/outputs/overnight-2026-09-28/quality/source-integer-review-correction/mutation-source-restored.log",
+      "sha256": "709047adf641b5f58a7c7048faf23912fb3d0bada9142eaf95ca58f6c41e8134"
+    },
+    "source-integer-review-correction/pre-correction-source.log": {
+      "path": "/Users/neilmacaogain/Documents/Codex/2026-09-28/github-plugin-github-openai-curated-remote/outputs/overnight-2026-09-28/quality/source-integer-review-correction/pre-correction-source.log",
+      "sha256": "ee8aa18d8038fb0bd92526fa92668703d38f664a04f69f7169692fd8195c439d"
+    },
+    "source-integer-review-correction/prior-repository-verification.json": {
+      "path": "/Users/neilmacaogain/Documents/Codex/2026-09-28/github-plugin-github-openai-curated-remote/outputs/overnight-2026-09-28/quality/source-integer-review-correction/prior-repository-verification.json",
+      "sha256": "cbad551eb02b298dab3367128b200e461fbae4d888d5bdb34dc64a5eb41bf11f"
+    },
+    "source-integer-review-correction/refutations.md": {
+      "path": "/Users/neilmacaogain/Documents/Codex/2026-09-28/github-plugin-github-openai-curated-remote/outputs/overnight-2026-09-28/quality/source-integer-review-correction/refutations.md",
+      "sha256": "f8fa5bb469c4824dc066d062e2684176d9a917134513d93a6278af634200e5a2"
+    },
+    "source-integer-review-correction/ruff.log": {
+      "path": "/Users/neilmacaogain/Documents/Codex/2026-09-28/github-plugin-github-openai-curated-remote/outputs/overnight-2026-09-28/quality/source-integer-review-correction/ruff.log",
+      "sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18"
+    },
+    "source-integer-review-correction/source-boundaries.log": {
+      "path": "/Users/neilmacaogain/Documents/Codex/2026-09-28/github-plugin-github-openai-curated-remote/outputs/overnight-2026-09-28/quality/source-integer-review-correction/source-boundaries.log",
+      "sha256": "de3b4187a8d881dcc8f7aaefad4905640605ee77a3bb6076b0186ae8acd706ae"
+    },
+    "source-integer-review-correction/visible-only-probe.json": {
+      "path": "/Users/neilmacaogain/Documents/Codex/2026-09-28/github-plugin-github-openai-curated-remote/outputs/overnight-2026-09-28/quality/source-integer-review-correction/visible-only-probe.json",
+      "sha256": "51f9b221ab8c6f13e3f177164350d5bec6bbdd386f15d6291e7434b89a5744e2"
+    },
+    "source-integer-review-correction/visible-only-probe.log": {
+      "path": "/Users/neilmacaogain/Documents/Codex/2026-09-28/github-plugin-github-openai-curated-remote/outputs/overnight-2026-09-28/quality/source-integer-review-correction/visible-only-probe.log",
+      "sha256": "3a0e7bd9634f75b29a3842af2ae2b2ec27086a6960ddc94c2fb021f2297d4905"
+    },
+    "source-integer-review-correction/visible-only-probe.py": {
+      "path": "/Users/neilmacaogain/Documents/Codex/2026-09-28/github-plugin-github-openai-curated-remote/outputs/overnight-2026-09-28/quality/source-integer-review-correction/visible-only-probe.py",
+      "sha256": "bc28f811fe11e59b9a12ab2fc902f722dabf6c3a34e54e5d6b6b93a25abf4294"
+    },
+    "scaled-source-integer-review-correction/backend-gate.log": {
+      "path": "/Users/neilmacaogain/Documents/Codex/2026-09-28/github-plugin-github-openai-curated-remote/outputs/overnight-2026-09-28/quality/scaled-source-integer-review-correction/backend-gate.log",
+      "sha256": "53d62d78df3ee1626d42c8d4b3d8d99a8cfde33c94fb0b1f2a5473b2509fc177"
+    },
+    "scaled-source-integer-review-correction/bandit.log": {
+      "path": "/Users/neilmacaogain/Documents/Codex/2026-09-28/github-plugin-github-openai-curated-remote/outputs/overnight-2026-09-28/quality/scaled-source-integer-review-correction/bandit.log",
+      "sha256": "a92b33a40df99b3df5f5234809c5d2e16cb74d7a09ad6e19635fe4d80e913cb6"
+    },
+    "scaled-source-integer-review-correction/correction-verification.json": {
+      "path": "/Users/neilmacaogain/Documents/Codex/2026-09-28/github-plugin-github-openai-curated-remote/outputs/overnight-2026-09-28/quality/scaled-source-integer-review-correction/correction-verification.json",
+      "sha256": "d66b7800e62f478e7b29bf4407496a78de68851c2415996400485dfb5e693d2c"
+    },
+    "scaled-source-integer-review-correction/finalize-evidence.py": {
+      "path": "/Users/neilmacaogain/Documents/Codex/2026-09-28/github-plugin-github-openai-curated-remote/outputs/overnight-2026-09-28/quality/scaled-source-integer-review-correction/finalize-evidence.py",
+      "sha256": "8e8f6224e062317e08d8f5f297047dc5de9c51fa2da171e42288e1ec7837736a"
+    },
+    "scaled-source-integer-review-correction/focused.log": {
+      "path": "/Users/neilmacaogain/Documents/Codex/2026-09-28/github-plugin-github-openai-curated-remote/outputs/overnight-2026-09-28/quality/scaled-source-integer-review-correction/focused.log",
+      "sha256": "fe85254004bef289d1a280355564c9b06e2eebacd4192d8b46afd48f74f6be68"
+    },
+    "scaled-source-integer-review-correction/full-gate.json": {
+      "path": "/Users/neilmacaogain/Documents/Codex/2026-09-28/github-plugin-github-openai-curated-remote/outputs/overnight-2026-09-28/quality/scaled-source-integer-review-correction/full-gate.json",
+      "sha256": "d6e108e7e9acc6f5a48b2417fc9f11622a207099940d998edfce0617d87a6e85"
+    },
+    "scaled-source-integer-review-correction/full-gate.py": {
+      "path": "/Users/neilmacaogain/Documents/Codex/2026-09-28/github-plugin-github-openai-curated-remote/outputs/overnight-2026-09-28/quality/scaled-source-integer-review-correction/full-gate.py",
+      "sha256": "db0428f138bc64cb768bb208ae4cd0529287cb84affcaf567858f0814d6be5bc"
+    },
+    "scaled-source-integer-review-correction/mutation-proof.json": {
+      "path": "/Users/neilmacaogain/Documents/Codex/2026-09-28/github-plugin-github-openai-curated-remote/outputs/overnight-2026-09-28/quality/scaled-source-integer-review-correction/mutation-proof.json",
+      "sha256": "b5f9776edbce1fb83fabbe10fb8f62b3ee0c667e0b3fe224741539e7eb733b72"
+    },
+    "scaled-source-integer-review-correction/mutation-proof.py": {
+      "path": "/Users/neilmacaogain/Documents/Codex/2026-09-28/github-plugin-github-openai-curated-remote/outputs/overnight-2026-09-28/quality/scaled-source-integer-review-correction/mutation-proof.py",
+      "sha256": "0117bd0849805991b6354120eb5d88d3da2fa90aae9ee88ce193a97c2cee9394"
+    },
+    "scaled-source-integer-review-correction/mutation-source-fault.log": {
+      "path": "/Users/neilmacaogain/Documents/Codex/2026-09-28/github-plugin-github-openai-curated-remote/outputs/overnight-2026-09-28/quality/scaled-source-integer-review-correction/mutation-source-fault.log",
+      "sha256": "52274e8bc01a840ec5e747ad87186d8673b644d266869e93c92e6c6347034643"
+    },
+    "scaled-source-integer-review-correction/mutation-source-restored.log": {
+      "path": "/Users/neilmacaogain/Documents/Codex/2026-09-28/github-plugin-github-openai-curated-remote/outputs/overnight-2026-09-28/quality/scaled-source-integer-review-correction/mutation-source-restored.log",
+      "sha256": "0bc9a597305a95139148101bd25884235ef645ab46c2379f5f084bde6ab73ad7"
+    },
+    "scaled-source-integer-review-correction/prior-repository-verification.json": {
+      "path": "/Users/neilmacaogain/Documents/Codex/2026-09-28/github-plugin-github-openai-curated-remote/outputs/overnight-2026-09-28/quality/scaled-source-integer-review-correction/prior-repository-verification.json",
+      "sha256": "8eb5089f55061167dbe7ad0b1378c5b50c16733890f2106bfb293c9c59f0b35c"
+    },
+    "scaled-source-integer-review-correction/probe-after.json": {
+      "path": "/Users/neilmacaogain/Documents/Codex/2026-09-28/github-plugin-github-openai-curated-remote/outputs/overnight-2026-09-28/quality/scaled-source-integer-review-correction/probe-after.json",
+      "sha256": "da0932878b994f977fea1fbf52256d7f4c0eb7ad947ac0088376930cc4df9b7e"
+    },
+    "scaled-source-integer-review-correction/probe-after.log": {
+      "path": "/Users/neilmacaogain/Documents/Codex/2026-09-28/github-plugin-github-openai-curated-remote/outputs/overnight-2026-09-28/quality/scaled-source-integer-review-correction/probe-after.log",
+      "sha256": "da0932878b994f977fea1fbf52256d7f4c0eb7ad947ac0088376930cc4df9b7e"
+    },
+    "scaled-source-integer-review-correction/probe-before.json": {
+      "path": "/Users/neilmacaogain/Documents/Codex/2026-09-28/github-plugin-github-openai-curated-remote/outputs/overnight-2026-09-28/quality/scaled-source-integer-review-correction/probe-before.json",
+      "sha256": "240f9ad68f8ed6ffaf90499a1fb74f7b622ddb43d4d36bbfda931dab5b01d8bd"
+    },
+    "scaled-source-integer-review-correction/probe-before.log": {
+      "path": "/Users/neilmacaogain/Documents/Codex/2026-09-28/github-plugin-github-openai-curated-remote/outputs/overnight-2026-09-28/quality/scaled-source-integer-review-correction/probe-before.log",
+      "sha256": "240f9ad68f8ed6ffaf90499a1fb74f7b622ddb43d4d36bbfda931dab5b01d8bd"
+    },
+    "scaled-source-integer-review-correction/probe.py": {
+      "path": "/Users/neilmacaogain/Documents/Codex/2026-09-28/github-plugin-github-openai-curated-remote/outputs/overnight-2026-09-28/quality/scaled-source-integer-review-correction/probe.py",
+      "sha256": "93d9c1fce1fb0e8ecfb6a8f670ea9bc57badbc2860d9d0c4de2aa5953c824d69"
+    },
+    "scaled-source-integer-review-correction/refutations.md": {
+      "path": "/Users/neilmacaogain/Documents/Codex/2026-09-28/github-plugin-github-openai-curated-remote/outputs/overnight-2026-09-28/quality/scaled-source-integer-review-correction/refutations.md",
+      "sha256": "2a610cf03f0dcf81d0637a3afe75f2e833046f1189f1cbea26d2f0eaec8297b7"
+    },
+    "scaled-source-integer-review-correction/ruff.log": {
+      "path": "/Users/neilmacaogain/Documents/Codex/2026-09-28/github-plugin-github-openai-curated-remote/outputs/overnight-2026-09-28/quality/scaled-source-integer-review-correction/ruff.log",
+      "sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18"
+    }
+  },
+  "prior_implementation_head": "329a67a510939d76e75e4dbce0010248631e0995",
+  "review_corrections": {
+    "reviewed_head": "de5f157b3d200eabee7530f4de1011c79ee0d9dc",
+    "implementation_head": "5274fc7ec9da66048b475a98fbb1fe38e7a7f174",
+    "disposition": "Implemented and verified offline; independent re-review pending.",
+    "findings": {
+      "R1": "One shared exact-KIND eligibility predicate omits the new quarterly operand-only descriptor from both optional judge/acceptance annexes. Legacy truthiness and frozen wrapper bytes remain unchanged.",
+      "R2": "Require at least three rows before header indexing; unsupported one-/two-row tables return None at the public source seam.",
+      "R3": "Compare date fields without constructing an impossible prior leap-date comparator; the finite fiscal grammar is unchanged and the mismatch returns None."
+    },
+    "message_parity": {
+      "committed_head": "5274fc7ec9da66048b475a98fbb1fe38e7a7f174",
+      "provider_calls": 0,
+      "judge_module_byte_identical_to_pre_correction": true,
+      "source": "Actual retained native PLTR with a synthetic governing qualification; actual MELI; absent source.",
+      "reference_receipt": "independent-review-probes.json",
+      "messages": [
+        {
+          "case": "quarterly-qualified",
+          "current_user_sha256": "a291ae4debfab792ab97e9fbfb6e5a145d57e359e25c57b6a276220d74fc2ac6",
+          "prior_user_sha256": "ff96d6d78cc953974c5767c3c131465e00e34c0e47b51691e45b400ac3b51a46",
+          "prior_user_bytes_preserved": false,
+          "acceptance_reconstruction_sha256": "a291ae4debfab792ab97e9fbfb6e5a145d57e359e25c57b6a276220d74fc2ac6",
+          "system_sha256": "5d056312082700aeb959a53fa1ff323e569bacdb69822e8817534daa5f31546b",
+          "annex_present": false
+        },
+        {
+          "case": "annual",
+          "current_user_sha256": "2bbd117c318b877e1f26836bfd40dfbb5c489570e97e6cab089b6690f5364c1c",
+          "prior_user_sha256": "2bbd117c318b877e1f26836bfd40dfbb5c489570e97e6cab089b6690f5364c1c",
+          "prior_user_bytes_preserved": true,
+          "acceptance_reconstruction_sha256": "2bbd117c318b877e1f26836bfd40dfbb5c489570e97e6cab089b6690f5364c1c",
+          "system_sha256": "5d056312082700aeb959a53fa1ff323e569bacdb69822e8817534daa5f31546b",
+          "annex_present": true
+        },
+        {
+          "case": "absent",
+          "current_user_sha256": "ace29168c61363eccb2ec5d070505625f1878cc63015536c79dd73564f33101c",
+          "prior_user_sha256": "ace29168c61363eccb2ec5d070505625f1878cc63015536c79dd73564f33101c",
+          "prior_user_bytes_preserved": true,
+          "acceptance_reconstruction_sha256": "ace29168c61363eccb2ec5d070505625f1878cc63015536c79dd73564f33101c",
+          "system_sha256": "5d056312082700aeb959a53fa1ff323e569bacdb69822e8817534daa5f31546b",
+          "annex_present": false
+        }
+      ]
+    },
+    "source_parser_controls": "Three synthetic adverse mutations of the retained actual native fixture; no claim that these malformed or leap-date cases occur in the original filing.",
+    "new_machine_gate": "test_actual_judge_and_acceptance_consumers_omit_only_quarterly_operands",
+    "reused_machine_gate": "test_actual_source_adverse_boundaries_abstain",
+    "locked_and_all_preexisting_base_tests_changed": [],
+    "original_five_scope_controls_preserved": true,
+    "runtime_files": {
+      "backend/app/services/edgar/quarterly_statement_source.py": "047ec5d67d432a8789df040b679d0a4ac51606ea36bf311c9e12abed443f43fb",
+      "backend/evals/runner.py": "2150865d983f8b38cb45fdd054b5b7b8caf0eba26f72c379deac1b33d399167f",
+      "backend/evals/acceptance_ai_decision.py": "b5b420799f6f62067b3d9a7138790d55a60f7dc7e7f949bedc10add3f65113f6"
+    }
+  },
+  "alias_review_correction": {
+    "reviewed_head": "8e47f893ae02927621b26ee0c8666f52ae6b64a2",
+    "implementation_head": "ea884255df9011099059fe6bb9e3c46830cef5c2",
+    "finding": "Supported sole camelCase operatingVsOneTime escaped quarterly withholding and remained visible.",
+    "refutations": "Two fresh reachability/consumer passes failed to refute; root independently upheld both. See refutations.md.",
+    "disposition": "Use the renderer selection snake or camel; preserve distinct truthy aliases; successful binding removes both keys.",
+    "empty_alias_decision": "Empty strings have no independent rendered content; whitespace remains populated and conflicting.",
+    "root_committed_patch_review": "Root reviewed committed runtime and extended existing consumer/conflict gates with no new finding.",
+    "extended_existing_gates": [
+      "test_native_source_to_final_preview_shared_exports_preserves_suffix",
+      "test_conflicting_alias_does_not_hide_an_independent_claim"
+    ],
+    "pre_correction_consumers": {
+      "failed": 6,
+      "passed": 14,
+      "warnings": 9,
+      "elapsed_seconds": 8.73
+    },
+    "focused": {
+      "passed": 89,
+      "warnings": 9,
+      "elapsed_seconds": 26.74
+    },
+    "mutation": {
+      "name": "supported-alias-selector",
+      "committed_head": "ea884255df9011099059fe6bb9e3c46830cef5c2",
+      "file": "backend/app/services/ai/statement_relationship.py",
+      "tests": [
+        "tests/unit/test_quarterly_component_withholding.py::test_native_source_to_final_preview_shared_exports_preserves_suffix",
+        "tests/unit/test_quarterly_component_withholding.py::test_conflicting_alias_does_not_hide_an_independent_claim"
+      ],
+      "original_sha256": "67d323708ed760bf0d5f900991fa77da2edeaa00c2db12389d31516695772b62",
+      "fault_sha256": "e70bff293d8e93e2726c557049bb8c1112c8fd79566a4a9b215d0296c6c46bb4",
+      "fresh_caches": true,
+      "DYLD_FALLBACK_LIBRARY_PATH": "/opt/homebrew/lib",
+      "parallel_test_processes": false,
+      "fault_exit": 1,
+      "restored_byte_identical": true,
+      "restored_exit": 0,
+      "restored_clean_status": true
+    },
+    "mutation_fault_summary": "6 failed, 14 passed, 9 warnings in 8.77s",
+    "mutation_restored_summary": "20 passed, 9 warnings in 8.07s",
+    "required_backend_gate": {
+      "committed_head": "ea884255df9011099059fe6bb9e3c46830cef5c2",
+      "versions": {
+        "ruff": "0.16.9",
+        "bandit": "1.9.4",
+        "pytest": "9.1.1"
+      },
+      "checks": [
+        {
+          "name": "ruff",
+          "exit": 0,
+          "elapsed_seconds": 0.13
+        },
+        {
+          "name": "bandit",
+          "exit": 0,
+          "elapsed_seconds": 2.55
+        },
+        {
+          "name": "backend-gate",
+          "exit": 0,
+          "elapsed_seconds": 166.9
+        }
+      ],
+      "fresh_caches": true,
+      "DYLD_FALLBACK_LIBRARY_PATH": "/opt/homebrew/lib",
+      "parallel_test_processes": false,
+      "pytest_summary": {
+        "passed": 3882,
+        "skipped": 39,
+        "deselected": 2,
+        "warnings": 40,
+        "elapsed_seconds": 164.06
+      },
+      "post_summary_logging_error": {
+        "observed": true,
+        "detail": "Existing Yahoo-client shutdown logs to a closed stream after the passing pytest summary; process exit 0.",
+        "unrelated_path_changed": false
+      }
+    },
+    "locked_tests_changed": [],
+    "source_parser_and_annual_runtime_changed": false,
+    "qualifications_and_whole_proposition_grammar_changed": false,
+    "prior_evidence_preserved": true,
+    "retained_70_replay_rerun": false,
+    "fresh_provider_generation_or_semantic_acceptance": false,
+    "paid_provider_SEC_push_PR_cloud_actions": 0,
+    "release_disposition": "Local correction verified; root owns publication and any exact-head external review/release."
+  },
+  "accounting_base_reconciliation": {
+    "committed_head": "bd72ca06089201d35fa794e221909508414f4f1f",
+    "prior_candidate": "2a741756bf462b25cdce8b6f6b53c0968476ab55",
+    "main": "f288f1a6b54f88a30b183c2bc53074ab19a3f289",
+    "scope": [
+      "backend/app/config.py",
+      "backend/app/routers/analysis.py",
+      "backend/app/routers/summaries.py",
+      "backend/app/services/ai/copilot_chat.py",
+      "backend/app/services/copilot_service.py",
+      "backend/app/services/llm_pricing.py",
+      "backend/app/services/trend_analysis_service.py",
+      "backend/tests/unit/test_ai_metrics.py",
+      "backend/tests/unit/test_copilot_cost.py",
+      "backend/tests/unit/test_provider_resilience.py",
+      "backend/tests/unit/test_retired_model_ids.py",
+      "lessons/README.md",
+      "lessons/ops-price-the-actual-provider-model.md",
+      "tasks/todo.md"
+    ],
+    "imported_nonshared_files_equal_main": 12,
+    "quarterly_nonshared_files_preserved": 15,
+    "all_non_accounting_test_and_fixture_files_preserved": 401,
+    "locked_anchors_and_shared_fixture_preserved": 12,
+    "lesson_index_retains_both_entries": true,
+    "ledger_retains_exact_both_sections": true,
+    "full_gate": {
+      "committed_head": "bd72ca06089201d35fa794e221909508414f4f1f",
+      "versions": {
+        "ruff": "0.16.9",
+        "bandit": "1.9.4",
+        "pytest": "9.1.1"
+      },
+      "checks": [
+        {
+          "name": "ruff",
+          "exit": 0,
+          "elapsed_seconds": 0.8
+        },
+        {
+          "name": "bandit",
+          "exit": 0,
+          "elapsed_seconds": 2.87
+        },
+        {
+          "name": "backend-gate",
+          "exit": 0,
+          "elapsed_seconds": 177.78
+        }
+      ],
+      "fresh_caches": true,
+      "DYLD_FALLBACK_LIBRARY_PATH": "/opt/homebrew/lib",
+      "parallel_test_processes": false,
+      "ran_after_reconciliation_audit": true
+    },
+    "pytest_summary": {
+      "passed": 3901,
+      "skipped": 39,
+      "deselected": 2,
+      "warnings": 40,
+      "elapsed_seconds": 174.88,
+      "known_yahoo_shutdown_closed_stream_error": true
+    },
+    "hosted_run_36496560757_left_untouched": true
+  },
+  "integer_review_correction": {
+    "reviewed_published_head": "2a741756bf462b25cdce8b6f6b53c0968476ab55",
+    "base_head": "bd72ca06089201d35fa794e221909508414f4f1f",
+    "implementation_head": "0345b3ba93245797a1ab5f60aa63f1c79bc6344c",
+    "finding": "Unbounded matched decimal token can exceed Python integer conversion limit and abort final generation.",
+    "refutations": "Fresh grammar-bound and final-exception-boundary refutations both failed; actual service probe reproduced. Root independently upheld both.",
+    "disposition": "Catch only ValueError in existing amount parser and return None, preserving the complete unmatched authored field.",
+    "extended_existing_gates": [
+      "test_complete_authored_boundary_preserves_unsupported_claims",
+      "test_native_source_to_final_preview_shared_exports_preserves_suffix"
+    ],
+    "pre_correction_amount_gate": {
+      "failed": 3,
+      "passed": 9,
+      "warnings": 9,
+      "elapsed_seconds": 5.75
+    },
+    "focused": {
+      "passed": 97,
+      "warnings": 9,
+      "elapsed_seconds": 27.58
+    },
+    "generation_before": {
+      "phase": "before",
+      "head": "bd72ca06089201d35fa794e221909508414f4f1f",
+      "model_amount_decimal_digits": 4501,
+      "interpreter_max_str_digits": 4300,
+      "provider_response_json_chars": 6649,
+      "provider_calls": 0,
+      "generation_error": "Exceeds the limit (4300 digits) for integer string conversion: value has 4501 digits; use sys.set_int_max_str_digits() to increase the limit",
+      "preview_returns_content": false,
+      "actual_generation_request_max_tokens": 8000,
+      "request_stub_calls": 1
+    },
+    "generation_after": {
+      "phase": "after",
+      "head": "0345b3ba93245797a1ab5f60aa63f1c79bc6344c",
+      "model_amount_decimal_digits": 4501,
+      "interpreter_max_str_digits": 4300,
+      "provider_response_json_chars": 6649,
+      "provider_calls": 0,
+      "preserved_full_authored_claim_surfaces": [
+        "compatibility",
+        "csv",
+        "final",
+        "pdf",
+        "shared_markdown"
+      ],
+      "preview_returns_content": true,
+      "actual_generation_request_max_tokens": 8000,
+      "request_stub_calls": 1
+    },
+    "mutation": {
+      "name": "oversized-integer-nonmatch",
+      "committed_head": "0345b3ba93245797a1ab5f60aa63f1c79bc6344c",
+      "file": "backend/app/services/ai/statement_relationship.py",
+      "tests": [
+        "tests/unit/test_quarterly_component_withholding.py::test_complete_authored_boundary_preserves_unsupported_claims",
+        "tests/unit/test_quarterly_component_withholding.py::test_native_source_to_final_preview_shared_exports_preserves_suffix"
+      ],
+      "original_sha256": "f7771206773be8fc1a5351c4e8cf82d8a9de1fac712f8359eccb68cbc7c99bfb",
+      "fault_sha256": "67d323708ed760bf0d5f900991fa77da2edeaa00c2db12389d31516695772b62",
+      "fresh_caches": true,
+      "DYLD_FALLBACK_LIBRARY_PATH": "/opt/homebrew/lib",
+      "parallel_test_processes": false,
+      "fault_exit": 1,
+      "restored_byte_identical": true,
+      "restored_exit": 0,
+      "restored_clean_status": true
+    },
+    "fault_summary": "8 failed, 19 passed, 9 warnings in 10.79s",
+    "restored_summary": "27 passed, 9 warnings in 10.79s",
+    "required_backend_gate": {
+      "committed_head": "0345b3ba93245797a1ab5f60aa63f1c79bc6344c",
+      "versions": {
+        "ruff": "0.16.9",
+        "bandit": "1.9.4",
+        "pytest": "9.1.1"
+      },
+      "checks": [
+        {
+          "name": "ruff",
+          "exit": 0,
+          "elapsed_seconds": 0.11
+        },
+        {
+          "name": "bandit",
+          "exit": 0,
+          "elapsed_seconds": 2.25
+        },
+        {
+          "name": "backend-gate",
+          "exit": 0,
+          "elapsed_seconds": 165.79
+        }
+      ],
+      "fresh_caches": true,
+      "DYLD_FALLBACK_LIBRARY_PATH": "/opt/homebrew/lib",
+      "parallel_test_processes": false,
+      "pytest_summary": {
+        "passed": 3909,
+        "skipped": 39,
+        "deselected": 2,
+        "warnings": 40,
+        "elapsed_seconds": 162.89
+      },
+      "known_unchanged_yahoo_shutdown_logging_error_after_summary": true
+    },
+    "locked_tests_changed": [],
+    "interpreter_global_limit_changed": false,
+    "grammar_alias_qualifier_source_annual_and_continuation_rules_changed": false,
+    "prior_reconciliation_alias_and_original_evidence_preserved": true,
+    "paid_provider_SEC_push_PR_cloud_or_hosted_CI_actions": 0,
+    "fresh_semantic_acceptance_claimed": false
+  },
+  "sibling_base_reconciliation": {
+    "head": "fc7f74aa4ce98e368a9c2b39675bb7fe1e4d0e77",
+    "base": "0863a4b299b9f066b12a98852caa205857628656",
+    "gates": [
+      {
+        "gate": "ruff",
+        "exit": 0,
+        "seconds": 0.02,
+        "command": [
+          "/Users/neilmacaogain/.codex/dependency-prep/pr1000-20260928-amv02xyc/validation-venv/bin/ruff",
+          "check",
+          "."
+        ]
+      },
+      {
+        "gate": "bandit",
+        "exit": 0,
+        "seconds": 2.57,
+        "command": [
+          "/Users/neilmacaogain/.codex/dependency-prep/pr1000-20260928-amv02xyc/validation-venv/bin/bandit",
+          "-r",
+          "app",
+          "-ll"
+        ]
+      },
+      {
+        "gate": "pytest",
+        "exit": 0,
+        "seconds": 169.67,
+        "command": [
+          "/Users/neilmacaogain/.codex/dependency-prep/pr1000-20260928-amv02xyc/validation-venv/bin/python",
+          "-m",
+          "pytest"
+        ]
+      }
+    ],
+    "pytest_summary": {
+      "passed": 3918,
+      "skipped": 39,
+      "deselected": 2,
+      "warnings": 40,
+      "elapsed_seconds": 166.57,
+      "known_unchanged_yahoo_shutdown_logging_error_after_summary": true
+    }
+  },
+  "source_integer_review_correction": {
+    "reviewed_published_head": "e2a19112d321055f2ff08e9a086291e3e386f3b2",
+    "base_head": "fc7f74aa4ce98e368a9c2b39675bb7fe1e4d0e77",
+    "implementation_head": "8997002bdcb8cc3f0add453c9af60e3d91d9f603",
+    "finding": "Unbounded selected, repeated or optional quarterly source fact can exceed Python integer conversion limit.",
+    "refutations": "Fresh grammar-bound and source-seam exception-boundary refutations failed; root independently upheld both.",
+    "disposition": "Catch only ValueError in quarterly fact conversion; decline invalid selected fact before shared visible parsing.",
+    "repeated_fact_behavior": "Existing mismatch rule declines the descriptor when the repeated fact has no valid value.",
+    "optional_component_behavior": "Existing invalid-value ignore behavior retained; no oversized component entry is created.",
+    "visible_only_audit": {
+      "head": "8997002bdcb8cc3f0add453c9af60e3d91d9f603",
+      "annual_helper_byte_identical_to_base": true,
+      "annual_sha256": "60c3fc183a45104be5bcc9ef2e475bbff625994a0f73d6285cbc649034979632",
+      "provider_and_SEC_calls": 0,
+      "cases": [
+        {
+          "layout": "same_cell",
+          "valid_selected_fact_value": [
+            68209000,
+            1000
+          ],
+          "source_abstained": true,
+          "oversized_visible_calls": [
+            {
+              "owned_numeric_cell_count": 1,
+              "contains_oversized_visible_amount": true,
+              "result_is_none": true,
+              "exception": null
+            }
+          ]
+        },
+        {
+          "layout": "other_cell",
+          "valid_selected_fact_value": [
+            68209000,
+            1000
+          ],
+          "source_abstained": true,
+          "oversized_visible_calls": [
+            {
+              "owned_numeric_cell_count": 2,
+              "contains_oversized_visible_amount": true,
+              "result_is_none": true,
+              "exception": null
+            }
+          ]
+        }
+      ]
+    },
+    "visible_only_rule": "Valid selected fact uses the same owned cells; same-cell extra digits fail internal-space grammar; other-cell digits fail the one-amount rule before int.",
+    "extended_existing_gate": "test_actual_source_adverse_boundaries_abstain",
+    "new_controls": [
+      "oversized_current_fact",
+      "oversized_prior_fact",
+      "oversized_repeat",
+      "oversized_component",
+      "oversized_visible_same_cell",
+      "oversized_visible_other_cell"
+    ],
+    "pre_correction_gate": {
+      "failed": 4,
+      "deselected": 28,
+      "warnings": 9,
+      "elapsed_seconds": 4.6
+    },
+    "focused_before_two_visible_controls": {
+      "passed": 101,
+      "warnings": 9,
+      "elapsed_seconds": 22.73
+    },
+    "final_source_boundary_gate": {
+      "passed": 34,
+      "warnings": 9,
+      "elapsed_seconds": 6.66
+    },
+    "mutation": {
+      "name": "oversized-source-integer",
+      "committed_head": "8997002bdcb8cc3f0add453c9af60e3d91d9f603",
+      "file": "backend/app/services/edgar/quarterly_statement_source.py",
+      "tests": [
+        "tests/unit/test_quarterly_component_withholding.py::test_actual_source_adverse_boundaries_abstain"
+      ],
+      "original_sha256": "7aa6fa4fa3caa123b91a813cbb231ccc80f761cdd2d184edc6b356ff50807b14",
+      "fault_sha256": "047ec5d67d432a8789df040b679d0a4ac51606ea36bf311c9e12abed443f43fb",
+      "fault_is_exact_pre_correction_source": true,
+      "fresh_caches": true,
+      "DYLD_FALLBACK_LIBRARY_PATH": "/opt/homebrew/lib",
+      "parallel_test_processes": false,
+      "fault_exit": 1,
+      "restored_byte_identical": true,
+      "restored_exit": 0,
+      "restored_clean_status": true
+    },
+    "fault_summary": "4 failed, 30 passed, 9 warnings in 6.97s",
+    "restored_summary": "34 passed, 9 warnings in 6.53s",
+    "required_backend_gate": {
+      "committed_head": "8997002bdcb8cc3f0add453c9af60e3d91d9f603",
+      "versions": {
+        "ruff": "0.16.9",
+        "bandit": "1.9.4",
+        "pytest": "9.1.1"
+      },
+      "checks": [
+        {
+          "name": "ruff",
+          "exit": 0,
+          "elapsed_seconds": 0.14
+        },
+        {
+          "name": "bandit",
+          "exit": 0,
+          "elapsed_seconds": 2.5
+        },
+        {
+          "name": "backend-gate",
+          "exit": 0,
+          "elapsed_seconds": 163.84
+        }
+      ],
+      "fresh_caches": true,
+      "DYLD_FALLBACK_LIBRARY_PATH": "/opt/homebrew/lib",
+      "parallel_test_processes": false,
+      "pytest_summary": {
+        "passed": 3924,
+        "skipped": 39,
+        "deselected": 2,
+        "warnings": 40,
+        "elapsed_seconds": 161.14,
+        "known_unchanged_yahoo_shutdown_logging_error_after_summary": true
+      }
+    },
+    "locked_tests_changed": [],
+    "shared_annual_owner_changed": false,
+    "interpreter_global_limit_changed": false,
+    "fixtures_and_model_amount_alias_qualifier_continuation_rules_changed": false,
+    "prior_evidence_and_completed_sibling_base_gate_preserved": true,
+    "paid_provider_SEC_push_PR_cloud_or_hosted_CI_actions": 0,
+    "hosted_e2_run_36499006777_untouched": true,
+    "fresh_semantic_acceptance_claimed": false
+  },
+  "scaled_source_integer_review_correction": {
+    "base_head": "b6fbbdec0f739f2b5d8197f7551c985a9b9a32b3",
+    "implementation_head": "b0bdbdb2c8a05fdded02c4186935576ecf1441c1",
+    "main_ancestor": "0863a4b299b9f066b12a98852caa205857628656",
+    "finding": "Successful decimal input conversion can grow beyond the JSON integer encoding limit after unit scaling.",
+    "two_fresh_refutations": [
+      "Exact input and scale grammar still admit an over-limit scaled value.",
+      "Normal claim binding retains the descriptor and the actual raw_summary JSON column encoder fails."
+    ],
+    "disposition": "Validate decimal encoding of the scaled integer inside the existing quarterly ValueError guard.",
+    "before_probe": {
+      "head": "b6fbbdec0f739f2b5d8197f7551c985a9b9a32b3",
+      "integer_digit_limit": 4300,
+      "provider_SEC_or_database_calls": 0,
+      "cases": [
+        {
+          "scale": "3",
+          "boundary": "overflow",
+          "input_digits": 4300,
+          "source_available": true,
+          "binding_succeeded": true,
+          "retained_components": 1,
+          "descriptor_json": {
+            "encoded": false,
+            "error": "Exceeds the limit (4300 digits) for integer string conversion; use sys.set_int_max_str_digits() to increase the limit"
+          },
+          "raw_summary_column": {
+            "encoded": false,
+            "error": "Exceeds the limit (4300 digits) for integer string conversion; use sys.set_int_max_str_digits() to increase the limit"
+          }
+        },
+        {
+          "scale": "3",
+          "boundary": "limit",
+          "input_digits": 4297,
+          "source_available": true,
+          "binding_succeeded": true,
+          "retained_components": 1,
+          "descriptor_json": {
+            "encoded": true
+          },
+          "raw_summary_column": {
+            "encoded": true
+          }
+        },
+        {
+          "scale": "6",
+          "boundary": "overflow",
+          "input_digits": 4300,
+          "source_available": true,
+          "binding_succeeded": true,
+          "retained_components": 1,
+          "descriptor_json": {
+            "encoded": false,
+            "error": "Exceeds the limit (4300 digits) for integer string conversion; use sys.set_int_max_str_digits() to increase the limit"
+          },
+          "raw_summary_column": {
+            "encoded": false,
+            "error": "Exceeds the limit (4300 digits) for integer string conversion; use sys.set_int_max_str_digits() to increase the limit"
+          }
+        },
+        {
+          "scale": "6",
+          "boundary": "limit",
+          "input_digits": 4294,
+          "source_available": true,
+          "binding_succeeded": true,
+          "retained_components": 1,
+          "descriptor_json": {
+            "encoded": true
+          },
+          "raw_summary_column": {
+            "encoded": true
+          }
+        }
+      ]
+    },
+    "after_probe": {
+      "head": "b0bdbdb2c8a05fdded02c4186935576ecf1441c1",
+      "integer_digit_limit": 4300,
+      "provider_SEC_or_database_calls": 0,
+      "cases": [
+        {
+          "scale": "3",
+          "boundary": "overflow",
+          "input_digits": 4300,
+          "source_available": true,
+          "binding_succeeded": true,
+          "retained_components": 0,
+          "descriptor_json": {
+            "encoded": true
+          },
+          "raw_summary_column": {
+            "encoded": true
+          }
+        },
+        {
+          "scale": "3",
+          "boundary": "limit",
+          "input_digits": 4297,
+          "source_available": true,
+          "binding_succeeded": true,
+          "retained_components": 1,
+          "descriptor_json": {
+            "encoded": true
+          },
+          "raw_summary_column": {
+            "encoded": true
+          }
+        },
+        {
+          "scale": "6",
+          "boundary": "overflow",
+          "input_digits": 4300,
+          "source_available": true,
+          "binding_succeeded": true,
+          "retained_components": 0,
+          "descriptor_json": {
+            "encoded": true
+          },
+          "raw_summary_column": {
+            "encoded": true
+          }
+        },
+        {
+          "scale": "6",
+          "boundary": "limit",
+          "input_digits": 4294,
+          "source_available": true,
+          "binding_succeeded": true,
+          "retained_components": 1,
+          "descriptor_json": {
+            "encoded": true
+          },
+          "raw_summary_column": {
+            "encoded": true
+          }
+        }
+      ]
+    },
+    "later_arithmetic_audit": "Sign negation preserves digit count; sums/differences and component sign multiplication are only comparisons; stored fields retain checked fact integers.",
+    "existing_visible_only_audit_preserved": true,
+    "extended_existing_gate": "test_actual_source_adverse_boundaries_abstain",
+    "new_controls": [
+      "scaled_component_3_overflow",
+      "scaled_component_6_overflow",
+      "scaled_component_3_limit",
+      "scaled_component_6_limit"
+    ],
+    "focused_gate": "92 passed, 9 warnings in 16.56s",
+    "mutation": {
+      "name": "scaled-source-integer-json-encoding",
+      "committed_head": "b0bdbdb2c8a05fdded02c4186935576ecf1441c1",
+      "file": "backend/app/services/edgar/quarterly_statement_source.py",
+      "tests": [
+        "tests/unit/test_quarterly_component_withholding.py::test_actual_source_adverse_boundaries_abstain"
+      ],
+      "original_sha256": "6209f7548ca03a6b2eadaf76f34530f342f78f8cffece13634777214d2f5e441",
+      "fault_sha256": "7aa6fa4fa3caa123b91a813cbb231ccc80f761cdd2d184edc6b356ff50807b14",
+      "fault_is_exact_pre_correction_source": true,
+      "fresh_caches": true,
+      "DYLD_FALLBACK_LIBRARY_PATH": "/opt/homebrew/lib",
+      "parallel_test_processes": false,
+      "fault_exit": 1,
+      "restored_byte_identical": true,
+      "restored_exit": 0,
+      "restored_clean_status": true
+    },
+    "fault_summary": "2 failed, 36 passed, 9 warnings in 7.75s",
+    "restored_summary": "38 passed, 9 warnings in 6.86s",
+    "required_backend_gate": {
+      "committed_head": "b0bdbdb2c8a05fdded02c4186935576ecf1441c1",
+      "versions": {
+        "ruff": "0.16.9",
+        "bandit": "1.9.4",
+        "pytest": "9.1.1"
+      },
+      "checks": [
+        {
+          "name": "ruff",
+          "exit": 0,
+          "elapsed_seconds": 0.13
+        },
+        {
+          "name": "bandit",
+          "exit": 0,
+          "elapsed_seconds": 2.41
+        },
+        {
+          "name": "backend-gate",
+          "exit": 0,
+          "elapsed_seconds": 167.62
+        }
+      ],
+      "fresh_caches": true,
+      "DYLD_FALLBACK_LIBRARY_PATH": "/opt/homebrew/lib",
+      "parallel_test_processes": false,
+      "pytest_summary": {
+        "passed": 3928,
+        "skipped": 39,
+        "deselected": 2,
+        "warnings": 40,
+        "elapsed_seconds": 164.63,
+        "known_unchanged_yahoo_shutdown_logging_error_after_summary": true
+      }
+    },
+    "implementation_scope": [
+      "backend/app/services/edgar/quarterly_statement_source.py",
+      "backend/tests/unit/test_quarterly_component_withholding.py",
+      "lessons/arch-operand-matches-do-not-authorize-financial-assertions.md"
+    ],
+    "locked_tests_changed": [],
+    "fixtures_changed": [],
+    "shared_annual_owner_changed": false,
+    "shared_annual_sha256": "60c3fc183a45104be5bcc9ef2e475bbff625994a0f73d6285cbc649034979632",
+    "annual_oversized_visible_amount_concern": "Pre-existing unguarded shared _amount annual path reported separately; not changed here.",
+    "interpreter_global_limit_changed": false,
+    "prior_evidence_and_completed_3924_gate_preserved": true,
+    "prior_indexed_evidence_hashes_revalidated": 105,
+    "provider_SEC_database_push_PR_cloud_or_hosted_CI_actions": 0,
+    "fresh_semantic_acceptance_claimed": false
+  }
+}
