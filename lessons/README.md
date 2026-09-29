@@ -12,6 +12,8 @@ what applies to your task. Filenames are greppable: `arch-*`, `sec-*`, `test-*`,
 
 ## Architecture
 
+- [`arch-acquisition-period-withholding-needs-whole-claims.md`](./arch-acquisition-period-withholding-needs-whole-claims.md) — Preserve closed authored continuations when withholding ambiguous acquisition-period claims
+
 - [`arch-source-supplements-preserve-existing-context.md`](./arch-source-supplements-preserve-existing-context.md) — Retain complete bounded omitted source without displacing existing context
 - [`arch-capital-comparisons-need-source-ownership.md`](./arch-capital-comparisons-need-source-ownership.md) — Own qualified comparisons and source-attributed capital passages in code
 - [`arch-bind-bare-table-figures-to-the-declared-scale.md`](./arch-bind-bare-table-figures-to-the-declared-scale.md) — Bind a bare dollar figure copied from a scaled table to the table's declared scale

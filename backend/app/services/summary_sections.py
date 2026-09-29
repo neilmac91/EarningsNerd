@@ -27,6 +27,9 @@ from app.services.ai.issuer_cash_disclosure import (
     OWNED_FIELD as ISSUER_CASH_OWNED_FIELD,
 )
 from app.services.ai.financing_comparison import CAPITAL_CONTEXT_KEY, CAPITAL_CONTEXT_VERSION, OWNED_FIELD
+from app.services.ai.acquisition_period import (
+    CONTEXT_KEY as ACQUISITION_CONTEXT_KEY, CONTEXT_VERSION as ACQUISITION_CONTEXT_VERSION, project_footnotes,
+)
 from app.services import metric_delta_service
 from app.services.summary_schema import (
     RISK_SOURCE_CONTEXT_KEY,
@@ -561,7 +564,7 @@ def _guidance_outlook(sections: dict) -> Section:
     return section
 
 
-def _footnotes_table_block(data: Any) -> Optional[Block]:
+def _footnotes_table_block(data: Any, *, acquisition_owned: bool = False) -> Optional[Block]:
     """Build the footnotes table Block (shared by v1 and v2 ``notable_footnotes`` — same shape). v2 rows
     carry a read-time ``evidence`` dict (T4), collected into ``row_evidence`` parallel to ``rows`` so the
     web shows a per-footnote Trace-to-Source chip; v1 rows have none (row_evidence stays all-None)."""
@@ -569,7 +572,7 @@ def _footnotes_table_block(data: Any) -> Optional[Block]:
         return None
     rows: List[List[str]] = []
     row_evidence: List[Optional[dict]] = []
-    for fn in data:
+    for fn in project_footnotes(data, owned=acquisition_owned):
         if isinstance(fn, dict):
             item = _clean(fn.get("item"))
             impact = _clean(fn.get("impact"))
@@ -587,9 +590,9 @@ def _footnotes_table_block(data: Any) -> Optional[Block]:
     return Block("table", headers=["Item", "Impact"], rows=rows, row_evidence=row_evidence)
 
 
-def _notable_footnotes(sections: dict) -> Section:
+def _notable_footnotes(sections: dict, *, acquisition_owned: bool = False) -> Section:
     section = Section("Notable Footnotes")
-    block = _footnotes_table_block(sections.get("notable_footnotes"))
+    block = _footnotes_table_block(sections.get("notable_footnotes"), acquisition_owned=acquisition_owned)
     if block:
         section.blocks.append(block)
     return section
@@ -857,9 +860,9 @@ def _v2_balance_sheet_liquidity(sections: dict) -> Section:
     return section
 
 
-def _v2_notable_footnotes(sections: dict) -> Section:
+def _v2_notable_footnotes(sections: dict, *, acquisition_owned: bool = False) -> Section:
     section = Section(SECTION_META["notable_footnotes"]["title"])
-    block = _footnotes_table_block(sections.get("notable_footnotes"))
+    block = _footnotes_table_block(sections.get("notable_footnotes"), acquisition_owned=acquisition_owned)
     if block:
         section.blocks.append(block)
     return section
@@ -915,9 +918,13 @@ def render_sections(raw_summary: Optional[dict]) -> List[Section]:
     exact_delta_owned = type(delta_marker) is int and delta_marker == metric_delta_service.EXACT_CONTEXT_VERSION
     risk_marker = raw_summary.get(RISK_SOURCE_CONTEXT_KEY)
     risk_source_owned = type(risk_marker) is int and risk_marker == RISK_SOURCE_CONTEXT_VERSION
+    acquisition_marker = raw_summary.get(ACQUISITION_CONTEXT_KEY)
+    acquisition_owned = type(acquisition_marker) is int and acquisition_marker == ACQUISITION_CONTEXT_VERSION
     rendered: List[Section] = []
     for builder in _builders_for(raw_summary.get("schema_version")):
         section = (
+            builder(sections, acquisition_owned=acquisition_owned)
+            if builder in (_notable_footnotes, _v2_notable_footnotes) else
             builder(sections, source_units_owned=source_units_owned)
             if builder is _v2_forward_signals else
             builder(sections, capital_owned=capital_owned)
