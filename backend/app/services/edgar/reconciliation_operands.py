@@ -183,7 +183,7 @@ def _select(document: Any) -> tuple[dict | None, str | None]:
                 for c in (caption_cells[group], unit_cells[group])
             )
         ):
-            pass  # intentional caption-ownership fault
+            return (None, "caption_geometry")
         if any(
             (
                 not periods[i][0] <= year_cells[i]["column"]
