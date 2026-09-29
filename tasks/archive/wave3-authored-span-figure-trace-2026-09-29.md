@@ -74,3 +74,17 @@ three-slot mutation proof and full gate; neither ran on this standalone patch.
 `replay.json` SHA256: `149c00995470be63cf3396540d34895fe3ba1381a88d3aa1a07605ea0e222e3d`.
 
 `committed-source-proof.json` SHA256: `0229e8125682e9b800b3001056dc9e6effca091c52c16dd6eb9088fdd9b095fd`.
+
+## Final combined proof and gate
+
+The composed candidate adds the PLTR authored prefix to the two paths above.
+Root and independent review cleared `18972a9f`; committed omission `2179538f`
+failed 20 checks with six passing, and exact restoration `cb3f7d96` passed all
+26 selected checks. The single combined full gate then passed Ruff/Bandit and
+reported 4,368 passed / 39 skipped / two deselected in 231.50s. Both native
+million-scaled row46 and row47 controls participate; actual aliases retain their
+separate zero-before observations. No extra standalone proof or full run was added.
+
+[Combined archive](wave3-combined-claim-withholding-2026-09-29.md) records the exact
+backend identity, prior evidence and pending hosted checks. Earlier entries above
+remain the historical two-slot handoff.
