@@ -84,3 +84,21 @@ The existing complete-interpretation consumer gate retains all 87 assessment
 controls through actual final/preview/shared/PDF/CSV, plus metadata privacy,
 recovery, alias and original-admission-before-repair controls. Assessment failures
 are retained; the old positive reconstruction and formal E7 decision remain held.
+
+A relative causal clause can follow an independent authored numeric statement.
+Withhold only the complete recognized interpretation while preserving that prefix
+and its original terminal punctuation in a separate authored channel, just as the
+existing continuation is preserved. The shared display helper orders both authored
+channels around the application capability limitation. Do not relabel preserved
+financial text as verified source prose. Whole-field admission still rejects unknown
+prefixes, tails, qualifications and conflicting populated aliases.
+
+For the separate current-level explanation branch, a complete same-form native
+paragraph with matching operands conservatively excludes withholding. This is an
+exclusion only: qualified or hypothetical enclosing text does not become assertion
+authority. Store only finite component/asset selectors under the existing quarterly
+kind, which stays excluded from generator, judge, acceptance and Copilot evidence.
+The existing owner/consumer and source-scope gates cover exact authored spans,
+recovered assembly, forged ownership, complete-source preservation and context
+projection. Fullmatch-to-search and source-exclusion-omission are distinct fault
+proofs; unchanged annual and earlier quarterly cases remain in the same gates.

@@ -18,6 +18,26 @@ from app.services.edgar.statement_relationship_source import _amount, _cells, _t
 from app.utils.sec_urls import build_sec_archive_url
 
 KIND = "tagged_quarterly_component_match"
+MONEY_LEXEME = r"\$(?:\d{1,3}(?:,\d{3})*|\(\d{1,3}(?:,\d{3})*\))"
+# Shared closed sentence grammar. A native match only excludes withholding; it
+# never establishes assertion authority, even inside a qualified source wrapper.
+OTHER_INCOME_CAUSE_SENTENCE = (
+    rf"(?P<prefix>Net income of (?P<net>{MONEY_LEXEME}) (?P<unit>thousand|million) includes "
+    rf"other income \(expense\), net of (?P<other>{MONEY_LEXEME}) (?P=unit))"
+    r", which management attributed primarily to a realized (?P<component>gain|loss) "
+    r"on (?P<asset>privately-held|publicly-held) equity securities\."
+)
+_COMPLETE_CAUSE_SENTENCE = re.compile(OTHER_INCOME_CAUSE_SENTENCE, re.IGNORECASE)
+
+
+def claim_amount(text: str, scale: int) -> int | None:
+    amount = text[1:]
+    try:
+        return int(amount.strip("()").replace(",", "")) * scale * (-1 if amount.startswith("(") else 1)
+    except ValueError:  # Matched tokens can still exceed Python's integer digit limit.
+        return None
+
+
 _ROWS = (
     ("operating", "us-gaap:OperatingIncomeLoss", {"Income from operations", "Operating income"}),
     ("interest", "us-gaap:InvestmentIncomeInterest", {"Interest income"}),
@@ -256,9 +276,23 @@ def extract_quarterly_statement(document: Any, source_html: str, *, accession: s
             component_amounts.append({"concept": fact.get("name"), "value": value[0],
                                       "fact_id": fact.get("id"), "context_id": fact.get("contextref"),
                                       "unit_id": fact.get("unitref")})
+    # Whole native paragraphs only. Presence conservatively preserves the authored
+    # explanation; unknown governing context never licenses a financial assertion.
+    explanations = []
+    for paragraph in document.xpath("//div|//p"):
+        match = _COMPLETE_CAUSE_SENTENCE.fullmatch(_text(paragraph))
+        if match is None:
+            continue
+        scale = {"thousand": 1000, "million": 1000000}[match["unit"].lower()]
+        if (claim_amount(match["net"], scale) == current["rows"]["net"]["value"]
+                and claim_amount(match["other"], scale) == current["rows"]["other"]["value"]):
+            record = {"component": match["component"].lower(), "asset": match["asset"].lower()}
+            if record not in explanations:
+                explanations.append(record)
     return {"version": 1, "accession": accession, "document_url": document_url,
             "document_sha256": hashlib.sha256(source_html.encode()).hexdigest(),
             "issuer_cik": identity[1], "issuer_name": issuer_name, "period_of_report": report_period,
             "assertion_scope": "not_established", "use": "operand_match_for_withholding_only",
             "separate_investment_component_amounts": component_amounts,
+            "complete_other_income_explanations": explanations,
             **candidates[0]}

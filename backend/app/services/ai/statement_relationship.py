@@ -3,13 +3,17 @@ from __future__ import annotations
 
 import re
 
-from app.services.edgar.quarterly_statement_source import KIND as QUARTERLY_KIND
+from app.services.edgar.quarterly_statement_source import (
+    KIND as QUARTERLY_KIND,
+    MONEY_LEXEME as _MONEY,
+    OTHER_INCOME_CAUSE_SENTENCE,
+    claim_amount as _claim_amount,
+)
 
 CONTEXT_KEY = "statement_relationship_context_version"
 CONTEXT_VERSION = 1
 OWNED_FIELD = "reported_statement_relationship"
 
-_MONEY = r"\$(?:\d{1,3}(?:,\d{3})*|\(\d{1,3}(?:,\d{3})*\))"
 # A whole proposition, plus one separately preserved, finite continuation. No
 # arbitrary prefix, suffix, entity, qualification or independent predicate can
 # disappear into a regex capture. This grammar does not certify the continuation.
@@ -25,12 +29,33 @@ _AGGREGATE_CLAIM = re.compile(
 )
 
 
-def _claim_amount(text: str, scale: int) -> int | None:
-    amount = text[1:]
-    try:
-        return int(amount.strip("()").replace(",", "")) * scale * (-1 if amount.startswith("(") else 1)
-    except ValueError:  # Matched tokens can still exceed Python's integer digit limit.
+_CAUSE_CLAIM = re.compile(
+    OTHER_INCOME_CAUSE_SENTENCE
+    + rf"(?P<suffix> Income from operations was {_MONEY} (?P=unit)\. "
+    rf"The filing defines adjusted income from operations of {_MONEY} (?P=unit) "
+    rf"as income from operations excluding stock-based compensation of {_MONEY} (?P=unit) "
+    rf"and employer payroll taxes related to stock-based compensation of {_MONEY} (?P=unit)\.)?"
+)
+
+
+def _quarterly_cause_claim(text: str, source: dict) -> re.Match | None:
+    match = _CAUSE_CLAIM.fullmatch(text)
+    if match is None:
         return None
+    scale = {"thousand": 1000, "million": 1000000}[match["unit"]]
+    current = source["current"]["rows"]
+    if (_claim_amount(match["net"], scale) != current["net"]["value"]
+            or _claim_amount(match["other"], scale) != current["other"]["value"]):
+        return None
+    if {"component": match["component"], "asset": match["asset"]} in source.get(
+            "complete_other_income_explanations", []):
+        return None
+    component_sign = 1 if match["component"] == "gain" else -1
+    if any(item["value"] == current["other"]["value"]
+           and item["value"] * component_sign > 0
+           for item in source.get("separate_investment_component_amounts", [])):
+        return None
+    return match
 
 
 def _quarterly_claim(text: str, source: dict) -> re.Match | None:
@@ -55,8 +80,9 @@ def _quarterly_claim(text: str, source: dict) -> re.Match | None:
 
 
 def display_statement_paragraphs(owned: dict) -> list[str]:
-    """Render application paragraphs and an unchanged authored continuation."""
-    paragraphs = list(owned.get("paragraphs", []))
+    """Render preserved authored clauses around the application limitation."""
+    prefix = owned.get("preserved_authored_prefix")
+    paragraphs = ([prefix] if prefix else []) + list(owned.get("paragraphs", []))
     suffix = owned.get("preserved_authored_suffix")
     if suffix:
         paragraphs.append(suffix)
@@ -66,6 +92,10 @@ def display_statement_paragraphs(owned: dict) -> list[str]:
 COMPONENT_LIMITATION = (
     "This summary could not independently verify the stated component breakdown "
     "or its contribution to net income."
+)
+
+CAUSE_LIMITATION = (
+    "This summary could not independently verify the stated explanation of other income (expense), net."
 )
 
 
@@ -103,21 +133,35 @@ def bind_statement_relationship(sections: dict, source: dict | None) -> bool:
     section.pop(OWNED_FIELD, None)  # the model cannot supply a trusted source channel
     if source is None:
         return False
-    suffix = None
+    prefix = suffix = None
+    paragraphs = None
+    kind = "unverified_component_breakdown"
     if source.get("kind") == QUARTERLY_KIND:
         authored = section.get("operating_vs_one_time")
         alternate = section.get("operatingVsOneTime")
         if authored and alternate and alternate != authored:
             return False
         authored = authored or alternate
-        if not isinstance(authored, str) or (match := _quarterly_claim(authored, source)) is None:
+        if not isinstance(authored, str):
             return False
+        match = _quarterly_claim(authored, source)
+        if match is None:
+            match = _quarterly_cause_claim(authored, source)
+            if match is None:
+                return False
+            # Retain every financial word and the original sentence-final period.
+            # These bytes remain authored; matching operands does not verify them.
+            prefix = match["prefix"] + "."
+            paragraphs = [CAUSE_LIMITATION]
+            kind = "unverified_other_income_explanation"
         suffix = match["suffix"]
     section.pop("operating_vs_one_time", None)
     section.pop("operatingVsOneTime", None)
-    section[OWNED_FIELD] = {"paragraphs": statement_paragraphs(source), "source": source}
+    section[OWNED_FIELD] = {"paragraphs": paragraphs if paragraphs is not None else statement_paragraphs(source), "source": source}
     if source.get("kind") == QUARTERLY_KIND:
-        section[OWNED_FIELD]["kind"] = "unverified_component_breakdown"
+        section[OWNED_FIELD]["kind"] = kind
+    if prefix:
+        section[OWNED_FIELD]["preserved_authored_prefix"] = prefix
     if suffix:
         # Retained text has its own channel and is never labelled as source-owned evidence.
         section[OWNED_FIELD]["preserved_authored_suffix"] = suffix
