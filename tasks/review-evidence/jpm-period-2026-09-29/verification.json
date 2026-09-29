@@ -418,7 +418,7 @@
   },
   "network_provider_calls": 0,
   "semantic_acceptance_claim": false,
-  "current_main_integration": "Provisional d56 + pending tax9ffd merge at b69, punctuation correction at30c. Tax release and exact accepted-main history reconciliation remain root-owned and incomplete at recording.",
+  "current_main_integration": "Provisional 730b + tax 90c merge at 5dad. Both reviewed changes and the passing combined backend are retained; root must import verified tax release actual-main history before JPM publication.",
   "historical_record_scope": {
     "description": "Original fields listed here retain the original JPM implementation/gate record; latest_candidate and subsequent integration fields supersede its current-state interpretation only. Original receipts and hashes are not rewritten.",
     "keys": [
@@ -441,8 +441,8 @@
     "original_verified_record_sha256": "dc22f2642b4e9e2d4e39fb4da4fd1d1ec6d30825e7dbac1555a95ba133a5202c"
   },
   "latest_candidate": {
-    "tested_head": "30c1d6ca30143b8c91e1c848424daf4ff4b29f62",
-    "backend_git_tree": "b68ab83ccf9d253c28edf7b2fa732e651cbebd6d",
+    "tested_head": "5dadabe54d9a0177703c0ac0f880e5a95b671352",
+    "backend_git_tree": "e89dabf4bf1745c4865c8d42e381a7e11de0a67e",
     "backend_sha256": {
       "backend/app/services/ai/acquisition_period.py": "8cde97a54f7167ffb6802129c5e3ca1a03b70441c9615ece4e333982c19026f2",
       "backend/app/services/ai/provider_requests.py": "8a536e68c09998cb176d203151cb4dc47e2e4beeb0e9b8bf1cecfcf15596b5bd",
@@ -454,7 +454,7 @@
       "backend/tests/unit/acquisition_period_cases.py": "2b1294ef65b5749e8feffb936f0c0ed6f392fdd2f4031d0cab2085857eeebeab",
       "backend/tests/unit/test_table_cell_units.py": "bbf601f10004147f9fd3e001d6faa26cbe421fdf6d083437a2b466d5fd86f2c3"
     },
-    "post_gate_changes": "Documentation only; final docs commit identity and backend-equality proof retained privately after commit."
+    "post_gate_changes": "Documentation only; final docs commit and backend equality are recorded in the private documentation receipt."
   },
   "provisional_integration": {
     "head": "b69eb4ea61cbc88ed8ffb24ef4213c2887dda21b",
@@ -478,53 +478,70 @@
     "actual_main_merged": false
   },
   "latest_gate": {
-    "head": "30c1d6ca30143b8c91e1c848424daf4ff4b29f62",
-    "toolchain": {
-      "ruff": "0.16.9",
-      "bandit": "1.9.4",
-      "pytest": "9.1.1"
-    },
-    "results": {
-      "ruff": "passed",
-      "bandit": "passed at configured -ll threshold; no medium/high severity issues",
-      "pytest": {
-        "passed": 4114,
-        "skipped": 39,
-        "deselected": 2,
-        "warnings": 40,
-        "seconds": 182.46
-      }
-    },
-    "process_exit": {
-      "code": 0,
-      "attribution": "Executing root reported completed success; terminal summary item was truncated, full local log retained."
-    },
-    "logs": {
-      "pytest.log": {
-        "path": "outputs/overnight-2026-09-28/quality/jpm-integrated-punctuation/pytest.log",
-        "bytes": 36845,
-        "sha256": "611b4132a002483073c08d78399cb1f7c753d7dc178ba9d9553414abcdf4031c"
+    "head": "5dadabe54d9a0177703c0ac0f880e5a95b671352",
+    "base": "90c52bc14f8aa9e9e86cd70c0afda737b64ef6f4",
+    "started": "2026-09-29T01:54:50.201135+00:00",
+    "checks": [
+      {
+        "name": "ruff",
+        "command": [
+          "/Users/neilmacaogain/.codex/dependency-prep/pr1000-20260928-amv02xyc/validation-venv/bin/ruff",
+          "check",
+          "."
+        ],
+        "exit_code": 0,
+        "duration_seconds": 0.47,
+        "log": "full-ruff.log",
+        "log_sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18",
+        "python_cache": "/private/tmp/jpm-tax-leap-full-pycache-agdjlza0",
+        "ruff_cache": "/private/tmp/jpm-tax-leap-full-ruff-ndj710xw"
       },
-      "bandit.log": {
-        "path": "outputs/overnight-2026-09-28/quality/jpm-integrated-punctuation/bandit.log",
-        "bytes": 770,
-        "sha256": "c17f44b7e3aa38dbc9c1201e8deb7e68e60aa5a65d34b298b63483df2d2c517b"
+      {
+        "name": "bandit",
+        "command": [
+          "/Users/neilmacaogain/.codex/dependency-prep/pr1000-20260928-amv02xyc/validation-venv/bin/bandit",
+          "-r",
+          "app",
+          "-ll"
+        ],
+        "exit_code": 0,
+        "duration_seconds": 2.62,
+        "log": "full-bandit.log",
+        "log_sha256": "313a071d9747d36912b72856cfab76ba3f0a91c30d979ac663c39ee5bf8055e6",
+        "python_cache": "/private/tmp/jpm-tax-leap-full-pycache-w2fcq5mg",
+        "ruff_cache": "/private/tmp/jpm-tax-leap-full-ruff-y7df_ps7"
       },
-      "ruff.log": {
-        "path": "outputs/overnight-2026-09-28/quality/jpm-integrated-punctuation/ruff.log",
-        "bytes": 19,
-        "sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18"
+      {
+        "name": "pytest",
+        "command": [
+          "/Users/neilmacaogain/.codex/dependency-prep/pr1000-20260928-amv02xyc/validation-venv/bin/python",
+          "-m",
+          "pytest",
+          "-o",
+          "cache_dir=/private/tmp/jpm-tax-leap-full-pytest-10z_si45"
+        ],
+        "exit_code": 0,
+        "duration_seconds": 189.3,
+        "log": "full-pytest.log",
+        "log_sha256": "8cb859691c98be6b807e1bd315e3c8ee10430634097102702c20540286cccfee",
+        "python_cache": "/private/tmp/jpm-tax-leap-full-pycache-y361hl9s",
+        "ruff_cache": "/private/tmp/jpm-tax-leap-full-ruff-0fob_xys"
       }
+    ],
+    "backend_tree": "e89dabf4bf1745c4865c8d42e381a7e11de0a67e",
+    "versions": {
+      "ruff": "ruff 0.16.9",
+      "bandit": "bandit 1.9.4\n  python version = 3.11.16 (main, Sep  1 2026, 14:08:22) [Clang 22.1.3 ]",
+      "pytest": "pytest 9.1.1"
     },
-    "cleanup_diagnostic": {
-      "observed": true,
-      "location": "After passing pytest summary",
-      "owner": "Yahoo-client cleanup logger",
-      "message": "ValueError: I/O operation on closed file.",
-      "preserved_in": "pytest.log"
-    },
+    "finished": "2026-09-29T01:58:03.869267+00:00",
+    "final_head": "5dadabe54d9a0177703c0ac0f880e5a95b671352",
+    "final_status": "",
+    "final_backend_tree": "e89dabf4bf1745c4865c8d42e381a7e11de0a67e",
+    "pytest_summary": "4118 passed, 39 skipped, 2 deselected, 40 warnings in 186.34s",
+    "cleanup_diagnostic_preserved": true,
     "rerun_for_documentation": false,
-    "command_detail_limit": "Root reused the pinned full-backend gate; these logs do not contain a complete standalone argv/cache-directory receipt. No missing invocation details have been reconstructed."
+    "artifact_directory": "outputs/overnight-2026-09-28/quality/jpm-integrated-tax-leap"
   },
   "latest_independent_review": {
     "recorded_at_utc": "2026-09-29T01:41:13.597173+00:00",
@@ -548,5 +565,111 @@
       "Still pending verified tax release/main-history integration; no push/PR/publication clearance"
     ],
     "external_actions": []
+  },
+  "previous_integrated_gates": [
+    {
+      "head": "30c1d6ca30143b8c91e1c848424daf4ff4b29f62",
+      "toolchain": {
+        "ruff": "0.16.9",
+        "bandit": "1.9.4",
+        "pytest": "9.1.1"
+      },
+      "results": {
+        "ruff": "passed",
+        "bandit": "passed at configured -ll threshold; no medium/high severity issues",
+        "pytest": {
+          "passed": 4114,
+          "skipped": 39,
+          "deselected": 2,
+          "warnings": 40,
+          "seconds": 182.46
+        }
+      },
+      "process_exit": {
+        "code": 0,
+        "attribution": "Executing root reported completed success; terminal summary item was truncated, full local log retained."
+      },
+      "logs": {
+        "pytest.log": {
+          "path": "outputs/overnight-2026-09-28/quality/jpm-integrated-punctuation/pytest.log",
+          "bytes": 36845,
+          "sha256": "611b4132a002483073c08d78399cb1f7c753d7dc178ba9d9553414abcdf4031c"
+        },
+        "bandit.log": {
+          "path": "outputs/overnight-2026-09-28/quality/jpm-integrated-punctuation/bandit.log",
+          "bytes": 770,
+          "sha256": "c17f44b7e3aa38dbc9c1201e8deb7e68e60aa5a65d34b298b63483df2d2c517b"
+        },
+        "ruff.log": {
+          "path": "outputs/overnight-2026-09-28/quality/jpm-integrated-punctuation/ruff.log",
+          "bytes": 19,
+          "sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18"
+        }
+      },
+      "cleanup_diagnostic": {
+        "observed": true,
+        "location": "After passing pytest summary",
+        "owner": "Yahoo-client cleanup logger",
+        "message": "ValueError: I/O operation on closed file.",
+        "preserved_in": "pytest.log"
+      },
+      "rerun_for_documentation": false,
+      "command_detail_limit": "Root reused the pinned full-backend gate; these logs do not contain a complete standalone argv/cache-directory receipt. No missing invocation details have been reconstructed."
+    }
+  ],
+  "latest_provisional_integration": {
+    "recorded_at_utc": "2026-09-29T01:54:49.743034+00:00",
+    "integrated_head": "5dadabe54d9a0177703c0ac0f880e5a95b671352",
+    "parents": [
+      "730b9fead206145c6a154a5183d8e73ca9351b95",
+      "90c52bc14f8aa9e9e86cd70c0afda737b64ef6f4"
+    ],
+    "backend_tree": "e89dabf4bf1745c4865c8d42e381a7e11de0a67e",
+    "conflicts": [],
+    "changed_paths": [
+      "backend/app/services/ai/tax_rate_explanation.py",
+      "backend/app/services/edgar/tax_rate_comparison.py",
+      "backend/tests/unit/test_statement_disclosures.py",
+      "backend/tests/unit/test_statement_relationship_integration.py"
+    ],
+    "tax_files_exactly_equal_reviewed_tax_head": true,
+    "preserved_paths_sha256": {
+      "backend/app/services/ai/acquisition_period.py": "8cde97a54f7167ffb6802129c5e3ca1a03b70441c9615ece4e333982c19026f2",
+      "backend/app/services/ai/provider_requests.py": "8a536e68c09998cb176d203151cb4dc47e2e4beeb0e9b8bf1cecfcf15596b5bd",
+      "backend/app/services/openai_service.py": "c66110c1f2eff79bec838d7489695f592c76baf22ef234783ef3b7bb270e83dd",
+      "backend/app/services/summary_sections.py": "3b0c1bed707065509d58375a56eac4faf7da46fa13f18360fd6a7441a984222c",
+      "backend/evals/runner.py": "8fed477ac50f9c8df502fff2bdc94048fe497014fc20ae5d8dacc8ea4057972f",
+      "backend/app/services/ai/statement_relationship.py": "f7771206773be8fc1a5351c4e8cf82d8a9de1fac712f8359eccb68cbc7c99bfb",
+      "backend/app/services/edgar/statement_relationship_source.py": "60c3fc183a45104be5bcc9ef2e475bbff625994a0f73d6285cbc649034979632",
+      "backend/app/services/edgar/statement_disclosures.py": "0bdb0be3f5a9ad295ecca54a0c2fb8852217e01a813ecb527dd31ad22b218f09",
+      "backend/tests/unit/acquisition_period_cases.py": "2b1294ef65b5749e8feffb936f0c0ed6f392fdd2f4031d0cab2085857eeebeab",
+      "backend/tests/unit/test_table_cell_units.py": "bbf601f10004147f9fd3e001d6faa26cbe421fdf6d083437a2b466d5fd86f2c3",
+      "backend/tests/fixtures/acquisition_period/boundary-controls.json.gz": "2996b10ad89f714aec29f192bf4d8014a87b2122f65b582f62c3531bc48d6247",
+      "backend/tests/integration/test_summary_stream_contract.py": "4b10582387ed68ad1564bbcbb54017d7d153c1447da8fb39bb73523512b3b57a",
+      "backend/tests/unit/test_background_generation_characterization.py": "5a6b7024605bfe712c42b34e51900d6009f99db58ab1694c4c2ffb4d6bb316f9",
+      "backend/tests/unit/test_auth_flow.py": "4a927487d44c77549abcb3e5f4843e064ddc63827ecb725fa25f3e513a3dbba9",
+      "backend/tests/unit/test_auth_cookies.py": "1299c8444c3e895502bb83f216daff257af0b64755c3b5b013f6e7fcf235f86c",
+      "backend/tests/unit/test_stripe_webhook.py": "ca02207aaa71e8845e7f883b5c0316342525cc713b7a25028ff0cd18ab59cb78"
+    },
+    "changed_paths_sha256": {
+      "backend/app/services/ai/tax_rate_explanation.py": "a92fba8d584996375338cbd3a591c6998fceb72009a6e8cf4b52c6b44fc8fe92",
+      "backend/app/services/edgar/tax_rate_comparison.py": "5cf6925407317b19473ef8ae836a5a68a531d19bc1ba5c9887ba0bf090cf85c1",
+      "backend/tests/unit/test_statement_disclosures.py": "dba291b82944e3816d05964505b81224cc1217470ceefebc842d8954473bb3f2",
+      "backend/tests/unit/test_statement_relationship_integration.py": "7e9f737efece78894565c140295f5f3d594e0cff980ba017b0ef281ce9612e5b"
+    },
+    "current_main_integration": "Not performed;90c remains provisional pending root verified tax release/main history.",
+    "network": "Only fetch from local filesystem clone; no remote/provider/cloud"
+  },
+  "latest_merge_review": {
+    "head": "5dadabe54d9a0177703c0ac0f880e5a95b671352",
+    "scope": "Clean automatic merge of reviewed tax leap correction into reviewed JPM candidate. Exactly four imported files equal tax 90c; all other tracked files equal prior 730b except generated merge identity.",
+    "conflicts": [],
+    "annual_and_locked_contracts_unchanged": true,
+    "tax_correction_review": "Independent static review of 90c recorded in quality/figs-tax-leap-review/independent; existing source and native consumer leap cases retain their committed fault/restoration proof.",
+    "publication": "Still pending verified tax main-history integration; no publication or release claim.",
+    "unchanged_binders": [
+      "JPM acquisition_period",
+      "quarterly statement_relationship"
+    ]
   }
 }

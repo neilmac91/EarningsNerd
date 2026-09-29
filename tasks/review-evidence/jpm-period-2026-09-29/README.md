@@ -37,33 +37,42 @@ the independently reviewed quarterly and tax boundaries from its pending base.
 
 ## Current local integration and verification
 
-Merge `b69eb4ea61cbc88ed8ffb24ef4213c2887dda21b` has original JPM parent
-`d56d5376eaaa976977d179c3c3b69ec036835775` and pending tax parent
-`9ffd444ca991c07e71f7aba152dd4d9d4e529e94`. Its only manual conflicts were the
-shared `openai_service.py` facade and lesson index. The resolution preserves the
-acquisition binder, tax selection before auto-snap, conditional `statement_owned`
-markers, quarterly authored suffix handling and all lesson entries.
+Latest provisional merge `5dadabe54d9a0177703c0ac0f880e5a95b671352` has reviewed JPM parent
+`730b9fead206145c6a154a5183d8e73ca9351b95` and reviewed tax leap correction
+`90c52bc14f8aa9e9e86cd70c0afda737b64ef6f4`. The local merge had no conflicts. Its only four changes relative to
+JPM are the two tax runtime files and two existing source/consumer gate files;
+each is byte-identical to tax `90c52bc1`. The JPM acquisition and quarterly
+statement binders, shared facade, quarterly authored suffix handling, annual
+owner and all five locked contracts remain unchanged from the reviewed JPM parent.
 
-Independent static review found no additional integration regression, but upheld
-one display issue after two fresh refutations: a period before the exact
-lower-case continuation. Commit
-`30c1d6ca30143b8c91e1c848424daf4ff4b29f62` changes only that application-owned
-period to a semicolon. The original authored continuation, selector, private
-record and financial content are byte-identical. Independent re-review clears
-that finding at this head; it does not adjudicate source truth or authorize
-publication.
+Tax's shared prior-year month-end helper covers both February leap directions
+without relaxing exact three-calendar-month windows. The two added cases use
+the existing native source and actual final/preview/export gates; their committed
+failure/restoration proof belongs to the reviewed tax correction. This integration
+adds no test or runtime behavior beyond that reviewed delta.
 
-The full pinned local gate at `30c1d6ca` passes Ruff and Bandit and reports
-**4,114 passed, 39 skipped, two deselected**, 40 warnings, **182.46 seconds**.
-The retained pytest log includes a subsequent Yahoo-client cleanup logging
-diagnostic (`I/O operation on closed file`); the gate process completed with exit
-zero as reported by the executing root. The earlier integrated gate at `b69eb4ea`
-also passed 4,114 / 39 / two in 186.09 seconds. Logs were inspected and hashed for
-this documentation update, not rerun. All five locked contracts remain unchanged.
+The full pinned local gate at `5dadabe5` passes Ruff and Bandit and reports
+**4,118 passed, 39 skipped, 2 deselected**, 40 warnings,
+**186.34 seconds**. Exact commands, source tree, fresh-cache locations, tool
+versions, process exits and log hashes are retained in `verification.json`.
+The known post-summary Yahoo cleanup logger diagnostic remains in the log;
+all three gate processes exit zero. Evidence updates after this gate change
+only documentation, with the complete backend tree pinned unchanged.
 
-Tax `9ffd444c` is still an unreleased provisional base at this recording. Root
-must reconcile the verified tax release's actual main history before publishing
-JPM. No main integration, push, PR or release is claimed here.
+The prior integration `b69eb4ea61cbc88ed8ffb24ef4213c2887dda21b` joined original
+JPM `d56d5376eaaa976977d179c3c3b69ec036835775` with pending tax
+`9ffd444ca991c07e71f7aba152dd4d9d4e529e94`. Only its shared facade and lesson
+index conflicted; the resolution preserved both boundaries. Independent review
+upheld one display issue after two refutations. Correction
+`30c1d6ca30143b8c91e1c848424daf4ff4b29f62` changes only the application-owned
+period to a semicolon before the exact authored continuation; that finding is
+closed. Previous green integrated gates (4,114 passed / 39 skipped / two
+deselected at both `b69` and `30c`) remain historical evidence.
+
+Tax `90c52bc1` is still a provisional base for this integration record. Root must
+reconcile the verified tax release's actual main history before publishing JPM.
+This local merge and gate do not claim a released tax base, accepted-main
+integration, push, PR, source-semantic acceptance or publication.
 
 ## Original JPM verification (retained)
 
@@ -107,9 +116,9 @@ causal proof receipts, integrity checks and artifact locations. Original logs
 remain under the root workspace's
 `outputs/overnight-2026-09-28/quality/jpm-period-withholding/implementation/`.
 The latest integrated logs are retained in the same root workspace under
-`outputs/overnight-2026-09-28/quality/jpm-integrated-punctuation/`; the provisional
-merge and independent-review receipts are under `quality/jpm-integrated-9ffd/`
-within that overnight directory. Only review evidence is added after the latest
+`outputs/overnight-2026-09-28/quality/jpm-integrated-tax-leap/`. Earlier punctuation
+and provisional-merge receipts remain under `quality/jpm-integrated-punctuation/`
+and `quality/jpm-integrated-9ffd/` within that overnight directory. Only review evidence is added after the latest
 tested implementation; the complete backend Git tree identity pins it. Root
-owns verified-main history reconciliation and publication. This documentation
-update performed no tests, push, PR, cloud, provider or paid action.
+owns verified-main history reconciliation and publication. This integration ran one full local backend gate, with no push, PR, cloud,
+provider or paid action. The subsequent documentation update reran no tests.
