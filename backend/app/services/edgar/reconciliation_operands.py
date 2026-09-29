@@ -90,7 +90,7 @@ def _select(document: Any) -> tuple[dict | None, str | None]:
         if node is None:
             return False
         try:
-            _duration(ids, node.get("id"), entity)
+            source_context_identity(node)  # intentional context fault
         except (ValueError, TypeError, OverflowError):
             return False
         return True
@@ -232,7 +232,7 @@ def _select(document: Any) -> tuple[dict | None, str | None]:
             or unit.tag != "xbrli:unit"
             or len(list(unit)) != 1
             or (list(unit)[0].tag != "xbrli:measure")
-            or len(unit[0])
+            # intentional leaf-measure fault
         ):
             return (None, "anchor_currency")
         if (
