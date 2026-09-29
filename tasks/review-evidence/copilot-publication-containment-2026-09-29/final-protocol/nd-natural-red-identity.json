@@ -1,0 +1,10 @@
+{
+  "base_head": "2dae5338554560bf3008082843cedd5f34bd0ad3",
+  "service_equals_base": true,
+  "service_sha256": "5ef52df4c80fe1f9b1218329e331c7ce596c06338e6c2b20f4ec482d80a37aa2",
+  "test_sha256": "4396f3cce11c58ed09dbd5d17d2ac9c97acc062b32ddc4aab0816615bf129f46",
+  "log_sha256": "638f9e5c49745b65254b23bfc3b9b4a8ae8e29db307d3ccde067b4d4870ecb5d",
+  "exit_code": 1,
+  "tail": "19 failed, 7 passed, 109 deselected, 17 warnings in 7.21s",
+  "scope": "Existing publication owner extended; original service unchanged. No synthetic mutation."
+}

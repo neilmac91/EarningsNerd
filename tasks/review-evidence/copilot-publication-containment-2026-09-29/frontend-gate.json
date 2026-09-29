@@ -1,0 +1,15 @@
+{
+  "head": "fd8bdee04edcac4efdac182e035d2cc4eca28d5d",
+  "frontend_tree": "771220558cdbb481f92bd67da7b721adbb272090",
+  "node": "22.23.2",
+  "exit": 0,
+  "lint": "passed",
+  "typecheck": "passed",
+  "test_files": 115,
+  "tests_passed": 703,
+  "build": "passed",
+  "log_sha256": "eb0e7c025d2f25736b5ba60ffa3e72387b264defadbb4957fa75b804bf20ada7",
+  "local_build_limitation": "No Sentry auth token present; local build does not create a release or upload source maps.",
+  "normalized_text_sha256": "3aa28e641ce39c620a35eb9a28e8c7b6a6da6f99af3eea8cfa3444f8055355b2",
+  "hash_note": "log_sha256 hashes original bytes; initial receipt hashed universal-newline-normalized text, retained separately. Gate outcome unchanged."
+}

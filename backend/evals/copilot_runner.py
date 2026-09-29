@@ -6,7 +6,7 @@ DB inference, unverified-case promotion, or answered-only denominator is accepte
 from __future__ import annotations
 
 import argparse
-from contextlib import nullcontext
+from contextlib import AsyncExitStack, aclosing, nullcontext
 from copy import deepcopy
 from unittest.mock import patch
 import asyncio
@@ -169,6 +169,8 @@ def _snapshot_for_case(case: CopilotGoldenCase):
 
 async def _answer(filing_snap, question: str, *, trace: dict | None = None) -> tuple[str, list[dict], str, int]:
     from app.services.copilot_service import answer_filing_question, openai_service
+    from app.services.openai_service import STREAM_ACTIVITY_SENTINEL, STREAM_ERROR_SENTINEL
+
     original_stream = openai_service.stream_chat_with_tools
     def observed_stream(messages, tools, run_tool, **kwargs):
         trace['initial_messages'] = deepcopy(messages)
@@ -178,29 +180,56 @@ async def _answer(filing_snap, question: str, *, trace: dict | None = None) -> t
             result = run_tool(name, args)
             trace['tool_results'].append({'name': name, 'args': deepcopy(args), 'result': deepcopy(result)})
             return result
-        return original_stream(messages, tools, observed_tool, **kwargs)
+
+        async def observed_deltas():
+            # These are candidate deltas from the existing wrapper, not a native HTTP trace.
+            # Preserve rejected candidates exactly; provider control payloads may carry private
+            # failure details and are recorded by type only. Nothing here changes public SSE.
+            async with aclosing(original_stream(messages, tools, observed_tool, **kwargs)) as provider:
+                async for delta in provider:
+                    if delta.startswith(STREAM_ERROR_SENTINEL):
+                        trace['provider_controls'].append({'type': 'error'})
+                    elif delta.startswith(STREAM_ACTIVITY_SENTINEL):
+                        trace['provider_controls'].append({'type': 'activity'})
+                    else:
+                        trace['candidate_deltas'].append(delta)
+                    yield delta
+
+        observed = observed_deltas()
+        # The service can return immediately on a provider error. Closing its generator alone
+        # does not guarantee that an async iterator nested in its loop has been awaited closed.
+        streams.push_async_callback(observed.aclose)
+        return observed
+
     if trace is not None:
         trace['tool_results'] = []
+        trace['candidate_deltas'] = []
+        trace['provider_controls'] = []
+        trace['service_events'] = []
     observer = patch.object(openai_service, 'stream_chat_with_tools', observed_stream) if trace is not None else nullcontext()
     complete = None
-    with observer:
-        async for event in answer_filing_question(filing=filing_snap, question=question):
-            if not isinstance(event, dict):
-                raise ValueError('malformed stream event')
-            if complete is not None:
-                raise ValueError('event after terminal completion')
-            if event.get('type') == 'error':
-                raise ValueError('provider error event')
-            if event.get('type') == 'complete':
-                # The real refusal producer has no strip-count field. Only that omission is zero.
-                stripped = event.get('misplaced_fact_markers', 0 if event.get('kind') == 'not_disclosed' else None)
-                if (not isinstance(event.get('answer'), str) or not event['answer'].strip()
-                        or event.get('kind') not in {'answer', 'not_disclosed'}
-                        or not isinstance(event.get('citations'), list)
-                        or any(not isinstance(c, dict) for c in event['citations'])
-                        or type(stripped) is not int or stripped < 0):
-                    raise ValueError('malformed terminal completion')
-                complete = {**event, 'misplaced_fact_markers': stripped}
+    async with AsyncExitStack() as streams:
+        with observer:
+            service = await streams.enter_async_context(aclosing(answer_filing_question(filing=filing_snap, question=question)))
+            async for event in service:
+                if not isinstance(event, dict):
+                    raise ValueError('malformed stream event')
+                if trace is not None and event.get('type') in {'error', 'complete'}:
+                    trace['service_events'].append(deepcopy(event))
+                if complete is not None:
+                    raise ValueError('event after terminal completion')
+                if event.get('type') == 'error':
+                    raise ValueError('provider error event')
+                if event.get('type') == 'complete':
+                    # The real refusal producer has no strip-count field. Only that omission is zero.
+                    stripped = event.get('misplaced_fact_markers', 0 if event.get('kind') == 'not_disclosed' else None)
+                    if (not isinstance(event.get('answer'), str) or not event['answer'].strip()
+                            or event.get('kind') not in {'answer', 'not_disclosed'}
+                            or not isinstance(event.get('citations'), list)
+                            or any(not isinstance(c, dict) for c in event['citations'])
+                            or type(stripped) is not int or stripped < 0):
+                        raise ValueError('malformed terminal completion')
+                    complete = {**event, 'misplaced_fact_markers': stripped}
     if complete is None:
         raise ValueError('stream ended without terminal completion')
     return complete['answer'], complete['citations'], complete['kind'], complete['misplaced_fact_markers']

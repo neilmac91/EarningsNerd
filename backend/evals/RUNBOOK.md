@@ -716,11 +716,13 @@ it decorates**. The layers below protect that promise; audit them together whene
 `copilot_service` resolver change touches the Q&A path (field precedent: legit revenue fact chips
 reused as year labels on gross-profit/net-income figures).
 
-**What's enforced automatically, per answer, in production** (`copilot_service._resolve_citations`):
+**What's enforced automatically, per answer, in production** (`copilot_service` admission and resolver):
 
 | Layer | Citation kind | Check | On failure |
 |---|---|---|---|
-| Excerpt verification | text `[n]` | excerpt found verbatim in the filing (`verify_excerpt_in_text`) | chip renders unverified ("Cited", no badge) |
+| Publication admission | text `[n]` | an answer must contain a complete citation envelope and array with unambiguous referenced identities; every referenced excerpt must pass the existing source matcher | whole answer withheld with an application error; no draft prose is published |
+| Excerpt verification | text `[n]` | excerpt matches the normalized filing (`verify_excerpt_in_text`) | referenced failed evidence prevents completion; unused failed declarations remain omitted |
+| Final numbering | both | an unresolved literal numeric marker must not acquire an unrelated citation's number | whole answer withheld with an application error |
 | Marker resolution | both | every inline marker resolves to a declared source | unresolvable F-marker stripped from prose |
 | Value adjacency | fact `[Fn]` | a figure matching the fact's value (display-rounding tolerance) must sit in the claim span before the marker — bounded by the previous marker | occurrence stripped, counted as misplaced |
 | Concept adjacency | fact `[Fn]` | the claim span must not name a *different* curated metric while never naming the fact's own (right value, wrong label — `_CONCEPT_SYNONYMS`) | occurrence stripped, counted as misplaced |
@@ -730,6 +732,36 @@ reused as year labels on gross-profit/net-income figures).
 | Uncited-claim repair | fact `[Fn]` | `_repair_uncited_fact_claim`: an answer that cites NOTHING and states one complete reported annual figure (subject, full fiscal end date, native currency, amount) gets a server-initiated DB lookup on the viewed accession; the marker is attached only when the filing's own fact matches concept, `period_end`, the filing's period of report, currency, value at the stated display precision, and carries its OWN reported duration inside the annual window (320–390 days) | abstains — the answer ships unchanged and still uncited |
 | Figure coverage | — | `count_uncited_figures`: financial figures outside every citation's claim span (the misplacement guards convert wrong chips into *uncited* prose — this counts what shipped naked) | counted, never modified |
 | Telemetry | — | `misplaced_fact_markers` / `figure_count` / `uncited_figures` on the complete event, both warning logs, and the same trio on the PostHog `copilot_inference_cost` event | — |
+
+Copilot publishes answer prose only in its final admitted completion. Fixed progress and tool
+activity remain live. The browser rejects malformed or known-unverified completion payloads,
+including those from an older backend revision, and treats EOF or timeout without completion as
+an error. Closing the rail cancels only its pending response. Failed or cancelled requests do
+not consume successful-answer quota; physical provider usage remains recorded by the provider
+wrapper, including unknown cost. A rejected answerable evaluation attempt remains a failure.
+
+This boundary prevents publication of known failed referenced evidence. Source matching does
+not establish the meaning, period, entity or cause of the surrounding claim. An explicit empty
+citation array preserves uncited answers; an absent citation envelope is an incomplete response
+and cannot consume successful-answer quota. A not-disclosed response requires a nonempty reason
+and a complete, strictly parsed followups array of two or three nonblank strings. Missing or
+malformed envelopes reject without inventing a reason, repairing JSON or discarding extra
+trailing content. Accepted questions retain stripping and the 140-character bound. Ordinary
+answers retain their optional-followups behavior. The browser validates the corresponding
+not-disclosed completion shape; it cannot reconstruct a prior server's raw envelope or reverse
+quota that server already charged. Neither path is promoted to financial-quality acceptance. Existing fact-marker removal
+and repair behavior below is unchanged. Rejection logs identify the application-owned reason
+without logging candidate prose; the client receives the same generic error.
+
+Output-format step 3 of `SYSTEM_PROMPT` distinguishes the two citation namespaces explicitly:
+the JSON array contains only positive-integer filing-text IDs, never tool `F#` objects. An answer
+using only tool markers supplies an explicit empty array. The retained `2dae5338` MSFT draw 0
+violated this format with string `F1`/`F2` declarations and remains a failed attempt. The earlier
+`097b2fdb` MSFT failure lacks its raw candidate and precise rejection reason; it is not assigned
+the same cause. This clarification changes no other financial instruction, model, source
+selection, scorer, baseline or acceptance criterion. It still requires the fresh aggregate
+prompt-change gate below; syntax admission does not establish the semantic truth of an answer
+or a not-disclosed assertion.
 
 The repair row is the only layer that ADDS a citation, so it is positive certification rather than
 falsification: a missing, ambiguous or partly matching fact abstains and the answer stays uncited.
@@ -804,8 +836,12 @@ inventing dates. No production backfill is needed for this gate.
 
 Artifacts always retain preparation evidence, complete emitted answers/citations, initial input
 messages, every actual tool name/arguments/result (including unused or rejected results), elapsed
-times, and denominator counts, including failures. This semantic tool trace is not claimed to be
-a full native HTTP conversation transcript. `requested_model` is configured;
+times, and denominator counts, including failures. The evaluation observer also retains exact
+wrapper candidate deltas for rejected answers, type-only provider control markers, and service
+error/completion events. Provider error payloads are excluded. Both service and provider generators
+close on rejection or cancellation, and the observer patch is restored. This adds diagnostic
+custody without changing the scorer or admitting failed attempts. This semantic tool trace is not
+claimed to be a full native HTTP conversation transcript or native finish-reason evidence. `requested_model` is configured;
 `actual_model` remains unavailable in the report and per-call actual model/usage is recorded only by
 sanitized provider telemetry. Unknown cost is not free. Source-preparation failure means zero
 provider calls and requires diagnosis. No live acceptance result is claimed by implementation or

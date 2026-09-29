@@ -425,8 +425,9 @@ async def ask_filing_stream(
     Open to Pro (full "copilot" entitlement) and to Free users within their lifetime free-taste
     allowance (roadmap 2.2); the dependency 403s a Free user once the taste is spent. The model
     answers using only this filing's cached content; the server verifies each cited excerpt against
-    the filing text (reusing the Trace-to-Source provenance helpers) and emits honest verified/cited
-    labels plus ``#:~:text=`` deep links. Excluded from the timeout middleware by the ``*stream*``
+    the filing text (reusing the Trace-to-Source provenance helpers) before publishing a completed
+    answer with source-match labels and ``#:~:text=`` deep links. Known failed referenced evidence
+    yields an error without draft prose. Excluded from the timeout middleware by the ``*stream*``
     name rule. Metering: Pro counts against the monthly fair-use cap; Free decrements the lifetime
     free-taste counter — both only on a successful answer.
     """

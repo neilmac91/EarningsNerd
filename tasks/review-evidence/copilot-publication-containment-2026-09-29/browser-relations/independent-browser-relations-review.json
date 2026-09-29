@@ -1,0 +1,47 @@
+{
+  "reviewed_at_utc": "2026-09-29T21:54:12.089851+00:00",
+  "reviewer": "containment_backend_restore",
+  "base_head": "9d60e1e713be454e33e9e3695423cab4bc815d3d",
+  "mode": "independent read-only static review, no browser or tests",
+  "file_sha256": {
+    "frontend/features/filings/api/copilot-api.ts": "a514af5e1c54c3e0af075cd25256ae5a0405184bcc5a10ba57a917f6115aaf47",
+    "frontend/tests/unit/copilotStream.spec.ts": "8d31caa2421ff294a4537c36d5d5a7d2dac508b4d0b0415d94d145cff0e1be3d"
+  },
+  "scope": "Only the two-file frontend diff; observed additional lesson/archive documentation edits outside this review.",
+  "runtime_findings": [],
+  "conclusion": "CLEAR: no blocking or should-fix findings remain in the reviewed two-file diff. Count equality and returned-source subset checks enforce production wire relationships without changing publication/timeout/cancellation paths. Existing duplicate test isolation is corrected.",
+  "checked_invariants": [
+    "grounded equals admitted citation count; backend resolves unique citations and rejects any final verified!=true",
+    "returned source IDs normalize whitespace/case and must occur in answer; duplicate source guard remains",
+    "repeated answer references do not inflate source count",
+    "uncited numeric [14] remains literal because only returned IDs must be referenced",
+    "[F2], [f2], [F 2], [1], [ 1] use the same regex grammar as backend and shared renderer",
+    "leading-zero [01] does not normalize into [1]; grouped numeric literals are not promoted",
+    "valid not-disclosed shape continues to require zero sources/count and complete followups",
+    "stream/refresh/cancellation and renderer code are unchanged"
+  ],
+  "coverage_finding": {
+    "severity": "should-fix test isolation",
+    "file": "frontend/tests/unit/copilotStream.spec.ts",
+    "line": 66,
+    "finding": "Existing duplicate source case has grounded=1 and two citations, so the new cardinality guard masks the duplicate-ID guard. Removing markers.has(marker) would no longer fail that case.",
+    "proposed_minimal_adjustment": "Set grounded:2 in the existing duplicate-source patch. No new test or framework.",
+    "refutation_attempt_this_reviewer": "Searched frontend/tests for other duplicate marker/citation/source owners; only this case covers it. Read full test and base parser; the cardinality check now precedes marker iteration. No second independent refutation claimed; root notified.",
+    "status": "RESOLVED",
+    "second_independent_refutation": "Root independently upheld the masking concern before author correction.",
+    "resolution": "Author set grounded:2 in the existing duplicate-source fixture. Final static reread confirms count2 equals array length2; both returned IDs occur as [1], so the duplicate-ID guard is now the rejecting predicate."
+  },
+  "preexisting_note": {
+    "scope": "Not introduced by this diff; no new blocking finding asserted.",
+    "detail": "String citation IDs with internal whitespace are accepted and preserved by existing parser, while shared renderer normalizes answer markers but not byN map keys. New valid control uses n=f2 (case-only), so it exercises expected working answer-marker whitespace tolerance. Canonical production output is numeric."
+  },
+  "limitations": [
+    "Static review only; no test execution performed by this reviewer. Author reports final required frontend gates running; their final receipt remains separate.",
+    "This checks wire consistency, not financial meaning, source entailment or visible Markdown chip placement."
+  ],
+  "status": "CLEAR_STATIC_REVIEW",
+  "previous_review": {
+    "path": "independent-browser-relations-review-before-fixture-correction.json",
+    "sha256": "48d7544c13fe0041a9f183289aed8609a2d7fc665627248a246bff5a89d63450"
+  }
+}

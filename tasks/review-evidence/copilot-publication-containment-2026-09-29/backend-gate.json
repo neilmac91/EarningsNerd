@@ -1,0 +1,14 @@
+{
+  "head": "fd8bdee04edcac4efdac182e035d2cc4eca28d5d",
+  "backend_tree": "113f124e42c8b76d48efb1f4164954322c359e2a",
+  "exit": 0,
+  "ruff": "0.16.9",
+  "bandit": "1.9.4",
+  "python": "3.11.16",
+  "passed": 4124,
+  "skipped": 39,
+  "deselected": 2,
+  "warnings": 40,
+  "seconds": 193.05,
+  "log_sha256": "563cbab0a5907d4be064d26be288fcadecb739f057cf006a282c5212f81edf1f"
+}

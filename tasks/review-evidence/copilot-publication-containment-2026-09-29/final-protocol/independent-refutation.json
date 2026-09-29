@@ -1,0 +1,176 @@
+{
+  "recorded_at_utc": "2026-09-29T21:11:08.643531+00:00",
+  "reviewer": "/root/containment_frontend_restore",
+  "scope": "Independent read-only static refutation and exact retained trace review. No tests, provider calls, code edits, score changes, resource actions or reconstructed missing original trace.",
+  "head": "2dae5338554560bf3008082843cedd5f34bd0ad3",
+  "sources": {
+    "backend/app/services/copilot_service.py": {
+      "sha256": "5ef52df4c80fe1f9b1218329e331c7ce596c06338e6c2b20f4ec482d80a37aa2",
+      "git_head": "2dae5338554560bf3008082843cedd5f34bd0ad3"
+    },
+    "backend/app/services/ai/copilot_chat.py": {
+      "sha256": "2f7ca99c904e4509b0f8f74099c63529c1e30c5488cdc0058f820cae811299f5",
+      "git_head": "2dae5338554560bf3008082843cedd5f34bd0ad3"
+    },
+    "backend/app/routers/summaries.py": {
+      "sha256": "82c6640f5a03010b3f64172c7fa98f53c6145a391676b8136696353a4b97c7fe",
+      "git_head": "2dae5338554560bf3008082843cedd5f34bd0ad3"
+    },
+    "frontend/features/filings/api/copilot-api.ts": {
+      "sha256": "aeb4f06372849fd1a6b539e52afaae7c61318dd1a72ae14ea82794ce9bf60b4b",
+      "git_head": "2dae5338554560bf3008082843cedd5f34bd0ad3"
+    },
+    "frontend/features/filings/components/copilot/AskCopilotRail.tsx": {
+      "sha256": "7f0283f7dc3e68dc3d4c8411c5e6bd6282963c9e0d2c6336a2e49a9ff3b36abc",
+      "git_head": "2dae5338554560bf3008082843cedd5f34bd0ad3"
+    },
+    "backend/tests/unit/test_copilot.py": {
+      "sha256": "868c90494c694c5acea835296ccbeb07b06816737c1cc167ccebbd10bf236595",
+      "git_head": "2dae5338554560bf3008082843cedd5f34bd0ad3"
+    }
+  },
+  "evidence": {
+    "corrected-ready-review/check-2/inline.json": {
+      "sha256": "96b37edc086dfa969cd5d9e2c951d7ad687d2b484c37b00c262da4696001ab6e",
+      "bytes": 9276
+    },
+    "copilot-2dae5338/artifact/copilot-eval.json": {
+      "sha256": "bf1d3b3462e650f9e55e9a44d17d44cf1d9bec6669dcb4bf4e49b457d88ab252",
+      "bytes": 10051307
+    },
+    "copilot-2dae5338/artifact/runner.log": {
+      "sha256": "e3290803dd021f2739b6abbef6fb3f30b85c6d1b67a9816cf5d1d2ee6ac4802b",
+      "bytes": 16696
+    },
+    "copilot-2dae5338/receipt.json": {
+      "sha256": "c49c2d8e8517f1ec4f969c4878540d46780178ecaa57dcde05676747a31ca733",
+      "bytes": 1249
+    }
+  },
+  "finding": {
+    "id": 4138318099,
+    "priority": "P1",
+    "disposition": "upheld",
+    "method": "independent code/upstream/downstream trace; no execution in this lane",
+    "causal_path": [
+      {
+        "path": "backend/app/services/ai/copilot_chat.py",
+        "lines": "256-316",
+        "observation": "The provider wrapper closes the stream in finally and flushes a no-tool final round, then returns. It does not prove a protocol-complete ND envelope or require a successful finish_reason."
+      },
+      {
+        "path": "backend/app/services/copilot_service.py",
+        "lines": "1253-1277",
+        "observation": "No preceding prose is necessary but insufficient: missing FOLLOWUPS is permitted; blank reason is replaced with a default; partial nonblank reason is retained; an ND event and complete are emitted."
+      },
+      {
+        "path": "backend/app/services/copilot_service.py",
+        "lines": "407-434",
+        "observation": "The shared optional followup parser slices first [ through last ], permits JSON repair, drops invalid elements, and returns [] on parse failure. Neither complete JSON nor absence of a trailing payload is required."
+      },
+      {
+        "path": "backend/app/routers/summaries.py",
+        "lines": "481-516",
+        "observation": "The first complete invokes quota conversion and cost handling. Without complete, the held reservation is released in shielded finally. Current malformed ND therefore reaches metering; no downstream source-envelope check exists."
+      },
+      {
+        "path": "frontend/features/filings/api/copilot-api.ts",
+        "lines": "90-119,217-230",
+        "observation": "Frontend ignores intermediate ND but admits a terminal nonempty answer with ND kind, no citations, grounded0 and any string-array followups, including []."
+      },
+      {
+        "path": "frontend/features/filings/components/copilot/AskCopilotRail.tsx",
+        "lines": "287-315",
+        "observation": "Accepted completion stores the ND answer, marks the assistant done, reports completion analytics and refreshes usage."
+      }
+    ],
+    "counterarguments_rejected": [
+      "No preceding prose protects against a mixed answer/ND envelope, not ND truncation.",
+      "Provider EOF is not proof of the required reason and followups; the wrapper has no such check.",
+      "Frontend buffering prevents early display but trusts the accepted complete shape and cannot recover the raw provider envelope.",
+      "Optional/repaired followups are UI compatibility behavior, not a completeness certificate for an ND verdict.",
+      "Existing positive ND owner fixtures omit followups; they encode the current permissive behavior rather than refuting the defect."
+    ],
+    "static_examples_not_executed": [
+      {
+        "input": "===NOT_DISCLOSED===",
+        "current_prediction": "Default reason, empty followups, ND then complete; metered."
+      },
+      {
+        "input": "===NOT_DISCLOSED===\\nThis filing does not dis",
+        "current_prediction": "Partial reason, empty followups, ND then complete; metered."
+      },
+      {
+        "input": "===NOT_DISCLOSED===\\nA nonempty reason.\\n===FOLLOWUPS===\\n[\"First?\", \"Second?\"",
+        "current_prediction": "Incomplete array may be repaired; otherwise empty followups. Either path still completes."
+      },
+      {
+        "input": "===NOT_DISCLOSED===\\nA nonempty reason.\\n===FOLLOWUPS===\\n[\"First?\", \"Second?\"] extra prose",
+        "current_prediction": "Followup substring extraction discards the suffix, then completes."
+      }
+    ],
+    "minimal_server_fix": [
+      "In ND mode, before yielding either ND or complete, require a nonblank actual reason; remove the invented fallback.",
+      "Require the followups envelope and parse its entire payload strictly as JSON, without repair, prefix/suffix slicing or silent failure.",
+      "Require exactly 2 or 3 nonblank string questions, consistent with the existing prompt; preserve existing trimming/display bound after structural validation.",
+      "Retain existing preceding-prose and contradictory ND/citation-envelope rejection. Invalid structure raises an application-owned _UnpublishableAnswer, producing one safe error and no completion.",
+      "Keep optional followups behavior for ordinary answered citations outside this narrow correction; do not loosen citation parsing, source verification, accepted identities or scoring."
+    ],
+    "wire_hardening_option": "An ND-only frontend guard requiring 2-3 nonblank strings would reject old-backend bare/missing-tail terminal payloads. It cannot prove an old backend did not repair a valid-looking array or that a reason is factually correct. Backend structural admission is primary.",
+    "validation_required_by_author_not_run_here": [
+      "Bare/blank/partial reason; absent/empty/malformed/repairable followups; wrong array type or nonstring/blank members; prefix/suffix; repeated/contradictory envelope all yield no ND prose or complete and a safe error.",
+      "Valid 2- and 3-question ND retains exact reason/questions and no citations; arbitrary sentinel/JSON chunk splits preserve the same outcome.",
+      "Real router free-taste and Pro reservation paths do not meter invalid ND and release their lease; valid ND meters once.",
+      "Retain cancellation/timeout/provider-error teardown owners; this parser change should add no awaits or new cleanup ownership."
+    ]
+  },
+  "current_msft_failure": {
+    "workflow_run": 36630506944,
+    "artifact_summary": {
+      "expected": 18,
+      "completed": 18,
+      "scored": 17,
+      "errors": 1,
+      "passed": 17,
+      "pass_rate": 0.9444444444444444
+    },
+    "ticker": "MSFT",
+    "accession": "0000950170-25-100235",
+    "question_id": "sales-diluted-eps-2025",
+    "run_index": 0,
+    "terminal_complete": false,
+    "error": {
+      "type": "ValueError",
+      "stage": "answer_or_score"
+    },
+    "tool_markers": [
+      "F1",
+      "F2"
+    ],
+    "declaration_n": [
+      "F1",
+      "F2"
+    ],
+    "candidate_sha256": "dbed0153438a20c113f65044b1985fd8042ede800e953f437d658f7e8af09e9f",
+    "candidate_utf8_bytes": 497,
+    "service_events": [
+      {
+        "type": "error",
+        "message": "I couldn't verify the cited evidence, so I couldn't provide this answer."
+      }
+    ],
+    "runner_observation": "runner.log line15: Copilot candidate withheld at citation publication boundary: Invalid citation declaration",
+    "exact_rejection": "_parse_citations at lines398-403 rejects n string F1/F2 because type(n) must be int and n positive. This happens before citation/source resolution; used tool facts do not exempt malformed model declarations.",
+    "prompt_inconsistency": "SYSTEM_PROMPT step1 distinguishes plain excerpt markers from F tool markers, but step3 says one citation object per marker used without limiting the array to plain markers. The wording is ambiguous relative to the positive-integer-only text-declaration parser. Provider adherence to that ambiguity is a plausible mechanism, not proof of its internal reason.",
+    "minimal_prompt_fix": "Specify that the JSON array contains only filing-text excerpt declarations for [1], [2], etc.; n is a positive JSON integer; never include F-marker entries; emit exactly [] when no plain text markers were used. F markers remain inline and resolve only against successful server-registered tool facts. Keep all verbatim-excerpt rules for text declarations.",
+    "do_not_change": [
+      "Do not accept/coerce F strings as text-citation IDs.",
+      "Do not silently drop malformed declarations because a successful fact exists.",
+      "Do not lower scorer thresholds or reclassify this retained error as a passed/scorable draw.",
+      "Do not rerun an unchanged completed negative slot. Any necessary changed-candidate evaluation retains all originals and actual spend."
+    ],
+    "historical_limit": "The 097b2fdb original MSFT failure has no raw candidate/precise reason in its retained evidence. No same-cause inference or original-root-cause-fixed claim is supported.",
+    "truth_limit": "Correct structure and source-match admission do not independently establish semantic citation faithfulness; the separate ASML/PR1021 hold remains."
+  },
+  "recommendation": "Hold readiness. Correct the ND structural publication path and clarify the existing text/tool citation contract; independently review and run the required unchanged gates on the changed candidate with bounded spend. Preserve both ready failures and all earlier evidence."
+}

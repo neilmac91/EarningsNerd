@@ -1,8 +1,8 @@
 """Tests for the "Ask this Filing" Copilot (A2 / P1).
 
 Covers:
-* Service grounding — token events carry only prose; citations are verified against the source and
-  get a ``#:~:text=`` fragment URL when found (``verified=True``) / base URL when not.
+* Publication boundary — only completed, admitted answers carry prose; referenced failed citations
+  withhold the whole answer, while valid source citations keep their deep links.
 * Not-disclosed path — model emits the sentinel → a ``not_disclosed`` event, no fabricated citations.
 * Endpoint gating — FREE user 403, PRO user 200 + streams.
 * Metering — a PRO user's ``qa_count`` increments; exceeding the monthly cap → 429.
@@ -12,8 +12,10 @@ entitlements resolve to FREE vs PRO via ``is_pro`` (the ``require_entitlement`` 
 ``get_current_user``). Mirrors ``test_notification_preferences_api.py``.
 """
 import asyncio
+import json
 import uuid
 from contextlib import contextmanager
+from itertools import count
 from types import SimpleNamespace
 
 import pytest
@@ -98,13 +100,9 @@ async def test_service_grounds_verified_citation(monkeypatch):
     assert types[0] == "progress"
     assert "complete" in types
 
-    token_text = "".join(e["text"] for e in events if e["type"] == "token")
-    assert "Apple's revenue grew strongly [1]." in token_text
-    # No sentinel/citation JSON leaked into the streamed prose.
-    assert "===CITATIONS===" not in token_text
-    assert "excerpt" not in token_text
-
+    assert all(e["type"] != "token" for e in events)
     complete = next(e for e in events if e["type"] == "complete")
+    assert complete["answer"] == "Apple's revenue grew strongly [1]."
     assert complete["kind"] == "answer"
     assert complete["grounded"] == 1
     assert len(complete["citations"]) == 1
@@ -114,25 +112,249 @@ async def test_service_grounds_verified_citation(monkeypatch):
     assert "#:~:text=" in cite["fragment_url"]
 
 
-@pytest.mark.unit
+def _publication_case(name):
+    """Cases share the real service → router → SSE publication and quota boundary."""
+    name = name.removesuffix("_pro")
+    good = {"n": 7, "excerpt": _KNOWN_SENTENCE, "section": "Item 7 — MD&A"}
+    bad = {**good, "excerpt": "A fabricated special dividend was announced for all shareholders."}
+    answer = "Private candidate detail. " * 12 + "The filing describes its revenue [7]."
+    declarations = [bad]
+    expected, kind, followups, source = None, "answer", [], _FAKE_SOURCE
+    trailer = None
+    if name == "valid":
+        declarations, expected = [good], answer.replace("[7]", "[1]")
+    elif name == "mixed_fact_valid":
+        answer = "Revenue was $391B [F1]. The filing describes its revenue [7]."
+        declarations, expected = [good], answer.replace("[F1]", "[1]").replace("[7]", "[2]")
+    elif name == "mixed_fact_invalid":
+        answer = "Revenue was $391B [F1]. " + answer
+    elif name == "short_excerpt":
+        declarations = [{**good, "excerpt": "Revenue"}]
+    elif name == "absent_excerpt":
+        declarations = [{**good, "excerpt": ""}]
+    elif name.startswith("identity_"):
+        declarations = [{**good, "n": {"bool": True, "zero": 0, "negative": -7,
+                                       "string": "7", "missing": None}[name[9:]]}]
+        if name == "identity_missing":
+            declarations[0].pop("n")
+    elif name == "excerpt_type":
+        declarations = [{**good, "excerpt": 37}]
+    elif name == "section_type":
+        declarations = [{**good, "section": ["Item 7"]}]
+    elif name == "nonobject_record":
+        declarations = [good, "invalid"]
+    elif name in ("duplicate_bad_good", "duplicate_good_bad", "duplicate_conflict", "duplicate_identical"):
+        declarations = {"duplicate_bad_good": [bad, good], "duplicate_good_bad": [good, bad],
+                        "duplicate_conflict": [good, {**good, "section": "Different section"}],
+                        "duplicate_identical": [good, dict(good)]}[name]
+        if name == "duplicate_identical":
+            expected = answer.replace("[7]", "[1]")
+    elif name in ("literal_fact_collision", "literal_text_collision"):
+        answer = "Unrelated original reference [1]. " + (
+            "Revenue was $391B [F1]." if name == "literal_fact_collision" else "Revenue grew [7]."
+        )
+        declarations = [] if name == "literal_fact_collision" else [good]
+    elif name == "group_invalid":
+        answer = "Revenue was $391B [F1, 7]."
+    elif name in ("literal_noncolliding", "leading_zero", "numeric_group"):
+        marker = {"literal_noncolliding": "[14]", "leading_zero": "[01]", "numeric_group": "[1,234]"}[name]
+        answer = f"Original reference {marker}. Revenue grew [7]."
+        declarations, expected = [good], answer.replace("[7]", "[1]")
+    elif name == "unused_failed":
+        declarations, expected = [good, {**bad, "n": 8}], answer.replace("[7]", "[1]")
+    elif name in ("empty_response", "whitespace_response", "empty_citations", "stripped_empty"):
+        draft = {"empty_response": "", "whitespace_response": " \n\t",
+                 "empty_citations": " ===CITA", "stripped_empty": "[F999] ===CITA"}[name]
+        trailer = "TIONS===[]" if name in ("empty_citations", "stripped_empty") else ""
+        return draft, trailer, None, kind, followups, source
+    elif name in ("empty_array", "no_declaration"):
+        answer = "The filing describes its business and an original reference [14]."
+        declarations, expected = [], answer if name == "empty_array" else None
+    elif name == "semantic_limit":
+        answer = "This proves the company will dominate every future market [7]."
+        declarations, expected = [good], answer.replace("[7]", "[1]")
+    elif name in ("fenced", "followups", "embedded_followups"):
+        declarations, expected = [good], answer.replace("[7]", "[1]")
+        if name == "embedded_followups":
+            excerpt = "The filing prints ===FOLLOWUPS=== as part of its source description."
+            declarations = [{**good, "excerpt": excerpt}]
+            source += " " + excerpt
+        if name in ("followups", "embedded_followups"):
+            followups = ["What changed in margins?", "What are the risk factors?"]
+            trailer = json.dumps(declarations) + "\n=== Follow-Ups ===\n" + json.dumps(followups)
+        else:
+            trailer = "```json\n" + json.dumps(declarations) + "\n```"
+    elif name in ("truncated", "missing_array", "object", "repairable", "prefix", "suffix",
+                  "duplicate_field", "unclosed_fence", "non_json_constant"):
+        raw = json.dumps([good])
+        trailer = {"truncated": raw[:-2], "missing_array": "", "object": json.dumps(good),
+                   "repairable": str([good]), "prefix": "Here are sources: " + raw,
+                   "suffix": raw + " Contradictory extra prose.",
+                   "duplicate_field": raw.replace('"n": 7', '"n": 8, "n": 7'),
+                   "unclosed_fence": "```json\n" + raw,
+                   "non_json_constant": raw.replace('"n": 7', '"extra": NaN, "n": 7')}[name]
+    elif name in ("not_disclosed", "mixed_not_disclosed") or name.startswith("nd_"):
+        reason = "This filing does not disclose forward guidance."
+        questions = ["What changed in margins?", "What are the risk factors?"]
+        raw_questions = json.dumps(questions)
+        before = answer if name == "mixed_not_disclosed" else ""
+        if name == "nd_citations":
+            reason += "\n===CITATIONS===\n" + json.dumps([bad])
+        elif name == "nd_repeated":
+            reason += "\n===NOT_DISCLOSED===\nContradictory second verdict."
+        elif name == "nd_blank_reason":
+            reason = " \n\t"
+        elif name == "nd_three_questions":
+            questions = ["  " + "Q" * 150 + "  ", *questions]
+            raw_questions = json.dumps(questions)
+        raw_questions = {
+            "nd_empty_followups": "", "nd_truncated_array": raw_questions[:-1],
+            "nd_truncated_question": '["What changed in margins?", "What are the risk',
+            "nd_repairable": str(questions), "nd_object": "{}", "nd_empty_array": "[]",
+            "nd_one_question": json.dumps(questions[:1]),
+            "nd_four_questions": json.dumps(questions * 2),
+            "nd_nonstring": json.dumps([questions[0], 42]),
+            "nd_blank_question": json.dumps([questions[0], " \n\t"]),
+            "nd_prefix": "Questions: " + raw_questions,
+            "nd_suffix": raw_questions + " Contradictory extra prose.",
+            "nd_followup_citations": raw_questions + "\n===CITATIONS===\n[]",
+        }.get(name, raw_questions)
+        payload = reason + "\n===FOLLOWUPS===\n" + raw_questions
+        payload = {
+            "nd_bare": "", "nd_missing_followups": reason,
+            "nd_partial_reason": "This filing does not disclose",
+            "nd_partial_sentinel": reason + "\n===FOLLOWU",
+        }.get(name, payload)
+        valid = name in ("not_disclosed", "nd_normal", "nd_three_questions")
+        draft, trailer = before + "===NOT_DIS", "CLOSED===\n" + payload
+        if name == "nd_normal":
+            draft, trailer = "===NOT_DISCLOSED===\n" + payload, ""
+        return draft, trailer, reason if valid else None, "not_disclosed", (
+            [question.strip()[:140] for question in questions] if valid else []
+        ), source
+    elif name.startswith("markdown_"):
+        answer = {
+            "heading": "# Private candidate [7]", "list": "- Private candidate [7]",
+            "table": "| Claim |\n| --- |\n| Private candidate [7] |",
+            "emphasis": "**Private candidate [7]**", "link": "[Private candidate [7]](https://example.test)",
+            "code": "`Private candidate [7]`",
+        }[name[9:]]
+    elif name != "unverifiable":
+        raise AssertionError(name)
+    if name == "no_declaration":
+        return answer, "", expected, kind, followups, source
+    trailer = json.dumps(declarations) if trailer is None else trailer
+    return answer + " ===CITA", "TIONS===\n" + trailer, expected, kind, followups, source
+
+
+@pytest.mark.requires_db
 @pytest.mark.asyncio
-async def test_service_marks_unverifiable_citation_false(monkeypatch):
-    """An excerpt not present in the source is surfaced as verified=False (base URL, no fragment)."""
-    fabricated = "The company announced a special dividend of 5 dollars per share this quarter."
-    citations_json = '[{"n":1,"excerpt":"' + fabricated + '","section":"Item 7 — MD&A"}]'
-    chunks = ["A dividend was announced [1]. ===CITATIONS===\n" + citations_json]
-    monkeypatch.setattr(
-        copilot_service.openai_service, "stream_chat_with_tools", _chunks_to_async_gen(chunks)
-    )
+@pytest.mark.parametrize("case", [
+    "unverifiable", "mixed_fact_invalid", "short_excerpt", "absent_excerpt",
+    "identity_bool", "identity_zero", "identity_negative", "identity_string", "identity_missing",
+    "excerpt_type", "section_type", "nonobject_record", "duplicate_bad_good", "duplicate_good_bad",
+    "duplicate_conflict", "literal_fact_collision", "literal_text_collision", "group_invalid",
+    "truncated", "missing_array", "object", "repairable", "prefix", "suffix", "duplicate_field",
+    "unclosed_fence", "non_json_constant", "mixed_not_disclosed", "markdown_heading", "markdown_list", "markdown_table",
+    "markdown_emphasis", "markdown_link", "markdown_code", "valid", "mixed_fact_valid",
+    "duplicate_identical", "literal_noncolliding", "leading_zero", "numeric_group", "unused_failed",
+    "empty_array", "no_declaration", "semantic_limit", "fenced", "followups", "embedded_followups",
+    "not_disclosed", "nd_citations", "nd_repeated", "empty_response", "whitespace_response",
+    "empty_citations", "stripped_empty",
+    "nd_bare", "nd_missing_followups", "nd_partial_reason", "nd_partial_sentinel", "nd_blank_reason",
+    "nd_empty_followups", "nd_truncated_array", "nd_truncated_question", "nd_repairable", "nd_object",
+    "nd_empty_array", "nd_one_question", "nd_four_questions", "nd_nonstring", "nd_blank_question",
+    "nd_prefix", "nd_suffix", "nd_followup_citations", "nd_normal", "nd_three_questions",
+    "nd_bare_pro", "not_disclosed_pro",
+])
+async def test_service_publication_boundary(client, monkeypatch, case):
+    """Nothing candidate-authored crosses the real SSE wire before final citation admission.
 
-    events = await _collect(_fake_filing(), "Any dividend?")
-    complete = next(e for e in events if e["type"] == "complete")
+    The paused provider makes an early-token regression observable even if final rejection
+    still occurs. Source-matched but semantically overbroad prose is a deliberate limit.
+    """
+    import app.routers.summaries as summaries_router
+    from app.services.openai_service import STREAM_ACTIVITY_SENTINEL
 
-    assert complete["grounded"] == 0
-    cite = complete["citations"][0]
-    assert cite["verified"] is False
-    assert "#:~:text=" not in cite["fragment_url"]
-    assert cite["fragment_url"] == _fake_filing().document_url
+    draft, trailer, expected, kind, followups, source = _publication_case(case)
+    is_pro = case.endswith("_pro")
+    paused, release, closed = asyncio.Event(), asyncio.Event(), asyncio.Event()
+    sent, completed_cost = [], []
+    ticks = count(0, 3)
+    monkeypatch.setattr(copilot_service, "monotonic", lambda: next(ticks))
+    usage = {"model": "mixed", "prompt_tokens": None, "completion_tokens": 17,
+             "estimated_cost_usd": None, "call_count": 2}
+    def fake_tool(_name, _args, _company_id, **scope):
+        return {**_revenue_fact(391_000_000_000.0, 2024), "accession": scope["accession_number"]}
+
+    async def stream(_messages, _tools, run_tool, **kwargs):
+        try:
+            run_tool("get_financial_fact", {"concept": "revenue"})
+            for info in (
+                {"name": "MODEL PRIVATE TOOL NAME", "args": {}, "phase": "MODEL PRIVATE PHASE"},
+                {"name": "get_financial_fact", "args": {"concept": "MODEL PRIVATE CONCEPT"}},
+                {"name": "compute_metric", "args": {"concept": "revenue", "kind": "MODEL PRIVATE KIND"}},
+                {"name": "get_financial_fact", "args": {"concept": "revenue"}, "phase": "done", "ok": True},
+            ):
+                yield STREAM_ACTIVITY_SENTINEL + json.dumps(info)
+            yield draft
+            paused.set()
+            await release.wait()
+            # Split the remaining sentinel and citation JSON across arbitrary transport chunks.
+            for start in range(0, len(trailer), 11):
+                yield trailer[start:start + 11]
+            kwargs["usage_sink"].update(usage)
+        finally:
+            closed.set()
+
+    monkeypatch.setattr(copilot_service.openai_service, "stream_chat_with_tools", stream)
+    monkeypatch.setattr(copilot_service.copilot_tools, "run_tool", fake_tool)
+    monkeypatch.setattr(summaries_router, "capture_copilot_inference", lambda **kw: completed_cost.append(kw))
+    with _as_user(is_pro=is_pro, free_taste_used=2) as uid, _seed_filing(
+        source=source, accession="0000000001-26-000001",
+    ) as fid:
+        task = asyncio.create_task(_asgi_post(
+            f"/api/summaries/filing/{fid}/ask-stream", {"question": "What does the filing say?"},
+            disconnect_after=asyncio.Event(), sent=sent,
+        ))
+        try:
+            await asyncio.wait_for(paused.wait(), 10)
+            before = _wire_events(sent)
+            pending_quota = _qa_state(uid)[1:]
+        finally:
+            release.set()
+            await asyncio.wait_for(task, 10)
+        assert closed.is_set()
+        events = _wire_events(sent)
+        terminal = [event for event in events if event["type"] in ("complete", "error")]
+        assert len(terminal) == 1
+        if expected is None:
+            assert terminal == [{"type": "error", "message": copilot_service._PUBLICATION_ERROR}]
+            assert _qa_state(uid) == ([], 0, 2)
+            assert completed_cost == []
+        else:
+            complete = terminal[0]
+            assert complete["type"] == "complete"
+            assert complete["answer"] == expected
+            assert complete["kind"] == kind
+            assert complete["followups"] == followups
+            assert complete["usage"] == usage
+            assert all(cite["verified"] is True for cite in complete["citations"])
+            assert complete["grounded"] == len(complete["citations"])
+            assert _qa_state(uid) == (([], 1, 2) if is_pro else ([], 0, 3))
+            assert len(completed_cost) == 1
+            if case == "mixed_fact_valid":
+                assert [cite["n"] for cite in complete["citations"]] == [1, 2]
+                assert complete["citations"][0]["section_ref"].startswith("XBRL ·")
+                assert complete["citations"][1]["excerpt"] == _KNOWN_SENTENCE
+        # The final verdict is checked first: the mutation must still reject while leaking a
+        # draft. Retain both observed phases in the assertion diagnostic for its committed proof.
+        assert before and all(event["type"] in ("progress", "activity") for event in before), {
+            "before": before, "terminal": terminal,
+        }
+        assert all(event["type"] != "token" for event in events)
+        assert "MODEL PRIVATE" not in json.dumps(events)
+        assert pending_quota == (0, 2)
 
 
 @pytest.mark.unit
@@ -142,6 +364,7 @@ async def test_service_not_disclosed_path(monkeypatch):
     chunks = [
         "===NOT_DIS",
         "CLOSED===\nThis 10-K does not disclose forward revenue guidance.",
+        '\n===FOLLOWUPS===\n["What changed in margins?", "What are the risk factors?"]',
     ]
     monkeypatch.setattr(
         copilot_service.openai_service, "stream_chat_with_tools", _chunks_to_async_gen(chunks)
@@ -211,7 +434,7 @@ def _as_user(is_pro, free_taste_used=0):
 
 
 @contextmanager
-def _seed_filing():
+def _seed_filing(source=_FAKE_SOURCE, accession=None):
     """Insert a Company + Filing (+ content cache) so the endpoint can load a real filing."""
     from app.database import SessionLocal
     from app.models import Company, Filing, FilingContentCache
@@ -224,7 +447,7 @@ def _seed_filing():
     db.refresh(company)
     filing = Filing(
         company_id=company.id,
-        accession_number=f"acc-{suffix}",
+        accession_number=accession or f"acc-{suffix}",
         filing_type="10-K",
         filing_date=__import__("datetime").datetime(2026, 1, 1),
         document_url="https://www.sec.gov/Archives/edgar/data/1/000000000100000001/doc.htm",
@@ -233,7 +456,7 @@ def _seed_filing():
     db.add(filing)
     db.commit()
     db.refresh(filing)
-    db.add(FilingContentCache(filing_id=filing.id, critical_excerpt=_FAKE_SOURCE))
+    db.add(FilingContentCache(filing_id=filing.id, critical_excerpt=source))
     db.commit()
     fid = filing.id
     cid = company.id
@@ -762,22 +985,25 @@ async def test_service_stream_error_becomes_error_event(monkeypatch):
     assert "complete" not in types
     assert all(e["type"] != "token" for e in events)  # nothing leaked as prose
     err = next(e for e in events if e["type"] == "error")
-    assert "upstream 503" in err["message"]
+    assert err["message"] == copilot_service._STREAM_FAILURE
+    assert "upstream 503" not in err["message"]
     assert STREAM_ERROR_SENTINEL not in err["message"]
 
 
 @pytest.mark.unit
 @pytest.mark.asyncio
-async def test_service_stream_error_after_prose_becomes_error_event(monkeypatch):
-    """If the failure arrives mid-answer, prose already streamed but the stream still ends in an
-    ``error`` event (not a ``complete``), so the client surfaces the failure rather than a partial
-    answer dressed up as final."""
+@pytest.mark.parametrize("failure", ["sentinel", "exception"])
+async def test_service_stream_error_after_prose_becomes_error_event(monkeypatch, failure):
+    """A mid-answer failure yields only a safe application error, without any candidate prose."""
     from app.services.openai_service import STREAM_ERROR_SENTINEL
 
-    chunks = ["Apple's revenue was strong ", f"{STREAM_ERROR_SENTINEL}connection reset"]
-    monkeypatch.setattr(
-        copilot_service.openai_service, "stream_chat_with_tools", _chunks_to_async_gen(chunks)
-    )
+    async def stream(*_args, **_kwargs):
+        yield "Apple's private draft revenue was strong " * 12
+        if failure == "exception":
+            raise RuntimeError("Private candidate inside a transport exception")
+        yield f"{STREAM_ERROR_SENTINEL}Private candidate inside a provider error"
+
+    monkeypatch.setattr(copilot_service.openai_service, "stream_chat_with_tools", stream)
 
     events = await _collect(_fake_filing(), "How did revenue do?")
     types = [e["type"] for e in events]
@@ -785,7 +1011,8 @@ async def test_service_stream_error_after_prose_becomes_error_event(monkeypatch)
     assert types[-1] == "error"
     assert "complete" not in types
     token_text = "".join(e["text"] for e in events if e["type"] == "token")
-    assert "[Error" not in token_text  # the old bracketed marker never reaches the user
+    assert token_text == ""
+    assert events[-1]["message"] == copilot_service._STREAM_FAILURE
 
 
 @pytest.mark.unit
@@ -1598,7 +1825,7 @@ def test_endpoint_expired_free_taste_lease_does_not_block(client, monkeypatch):
         assert _qa_state(uid) == ([], 0, 3)  # stale lease swept, the last unit consumed
 
 
-def _asgi_post(path: str, body: dict, *, disconnect_after: asyncio.Event):
+def _asgi_post(path: str, body: dict, *, disconnect_after: asyncio.Event, sent=None):
     """Drive the real ASGI app the way uvicorn does (ASGI spec 2.3): Starlette then runs the
     stream and a disconnect listener in one task group and CANCELS the stream when the client
     leaves. TestClient never exercises that path, so the disconnect cases speak raw ASGI."""
@@ -1620,7 +1847,7 @@ def _asgi_post(path: str, body: dict, *, disconnect_after: asyncio.Event):
         await disconnect_after.wait()
         return {"type": "http.disconnect"}
 
-    sent: list[dict] = []
+    sent = [] if sent is None else sent
 
     async def send(message):
         sent.append(message)
@@ -1632,32 +1859,36 @@ def _asgi_post(path: str, body: dict, *, disconnect_after: asyncio.Event):
     return run()
 
 
+def _wire_events(sent):
+    wire = b"".join(message.get("body", b"") for message in sent).decode()
+    return [json.loads(line[5:].strip()) for line in wire.splitlines() if line.startswith("data:")]
+
+
 @pytest.mark.requires_db
 @pytest.mark.asyncio
 async def test_endpoint_client_disconnect_mid_answer_releases_the_lease(client, monkeypatch):
-    """The user navigates away while the model is still answering: Starlette cancels the stream
-    task, and the lease must still be given back now rather than after the 300 s TTL — for a
-    Free user that TTL would otherwise show the 'used your free questions' upsell."""
-    import asyncio
+    """Disconnect while the real service buffers prose closes the upstream and releases quota."""
+    streaming, closed = asyncio.Event(), asyncio.Event()
 
-    import app.routers.summaries as summaries_router
+    async def _slow_stream(*_args, **_kwargs):
+        try:
+            yield "This private candidate is still being generated and has no final citations. " * 12
+            streaming.set()
+            await asyncio.sleep(30)
+            yield "===CITATIONS===[]"
+        finally:
+            closed.set()
 
-    streaming = asyncio.Event()
-
-    async def _slow_answer(*, filing, question, history=None):
-        yield {"type": "progress", "stage": "reading"}
-        streaming.set()
-        await asyncio.sleep(30)  # still answering when the client leaves
-        yield {"type": "complete", "answer": "late", "citations": [], "grounded": 0, "kind": "answer"}
-
-    monkeypatch.setattr(summaries_router, "answer_filing_question", _slow_answer)
+    monkeypatch.setattr(copilot_service.openai_service, "stream_chat_with_tools", _slow_stream)
     with _as_user(is_pro=False, free_taste_used=2) as uid, _seed_filing() as fid:
         sent = await asyncio.wait_for(
             _asgi_post(f"/api/summaries/filing/{fid}/ask-stream", {"question": "Q?"}, disconnect_after=streaming),
             timeout=10,
         )
         assert sent[0]["status"] == 200
-        assert _qa_state(uid) == ([], 0, 2)  # released, not counted
+        assert closed.is_set()
+        assert all(event["type"] == "progress" for event in _wire_events(sent))
+        assert _qa_state(uid) == ([], 0, 2)
 
 
 @pytest.mark.requires_db
