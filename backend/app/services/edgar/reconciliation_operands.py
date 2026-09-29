@@ -44,7 +44,7 @@ def _table_amount(row: list[dict], start: int, end: int) -> int | None:
     tokens = [c["text"] for c in cells if c["text"]]
     # Separate currency/parenthesis cells may format one amount. Independent
     # numeric cells must never be concatenated into an invented operand.
-    if False:  # intentional adjacent-numeric concatenation fault
+    if sum(bool(re.search(r"[0-9]", token)) or token == "—" for token in tokens) != 1:
         return None
     text = "".join(tokens).replace(" ", "")
     if text.startswith("$"):
