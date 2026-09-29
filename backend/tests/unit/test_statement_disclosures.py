@@ -1,5 +1,7 @@
 """Complete retained audited source, with identity and preservation counterexamples."""
 import copy
+from calendar import monthrange
+from datetime import date
 import gzip
 import hashlib
 import json
@@ -31,7 +33,36 @@ def tax_document(change="original"):
     source, _ = tax_original()
     root = html.fromstring(source.encode())
     fact, context, continuation = node(root, "f-566"), node(root, "c-10"), node(root, "f-565-1")
-    if change in {"missing_fact", "missing_continuation"}:
+    if change in {"leap_current", "leap_prior"}:
+        year = 2024 if change == "leap_current" else 2025
+        current = date(year, 2, monthrange(year, 2)[1])
+        prior = date(year - 1, 2, monthrange(year - 1, 2)[1])
+        for ident, start, end in (
+            ("c-1", date(year - 1, 9, 1), current),
+            ("c-10", date(year - 1, 12, 1), current),
+            ("c-11", date(year - 2, 12, 1), prior),
+            ("c-12", date(year - 2, 9, 1), prior),
+        ):
+            for child in node(root, ident).iter():
+                if child.tag == "xbrli:startdate":
+                    child.text = start.isoformat()
+                elif child.tag == "xbrli:enddate":
+                    child.text = end.isoformat()
+        for child in root.iter():
+            if child.get("name") == "dei:DocumentPeriodEndDate":
+                for nested in list(child):
+                    child.remove(nested)
+                child.attrib.pop("format", None)
+                child.text = current.isoformat()
+        for child in continuation.iter():
+            for attribute in ("text", "tail"):
+                text = getattr(child, attribute)
+                if text:
+                    setattr(child, attribute, text.replace(
+                        "June 30, 2026 and 2025",
+                        f"February {current.day}, {year} and February {prior.day}, {year - 1}",
+                    ))
+    elif change in {"missing_fact", "missing_continuation"}:
         target = fact if change == "missing_fact" else continuation
         target.getparent().remove(target)
     elif change in {"duplicate_fact", "duplicate_context", "duplicate_unit", "duplicate_root"}:
@@ -257,7 +288,7 @@ def test_actual_comparative_rate_never_loses_source_qualification(change):
 
 
 @pytest.mark.parametrize("change", [
-    "original", "missing_fact", "missing_continuation", "duplicate_fact", "duplicate_context",
+    "original", "leap_current", "leap_prior", "missing_fact", "missing_continuation", "duplicate_fact", "duplicate_context",
     "duplicate_unit", "duplicate_root", "cycle", "shared_continuation", "wrong_scale", "wrong_unit",
     "root_incoming_nonnumeric", "root_incoming_continuation",
     "nil", "fact_continuation", "wrong_sign", "wrong_decimals", "huge_number", "unknown_number",
@@ -270,12 +301,17 @@ def test_actual_comparative_rate_never_loses_source_qualification(change):
 ])
 def test_complete_tax_note_selects_operands_without_assertion_authority(change):
     selected = select_tax_rate_comparison(tax_document(change))
-    if change != "original":
+    if change not in {"original", "leap_current", "leap_prior"}:
         assert selected is None
         return
     assert selected["assertion_scope"] == "not_established"
     assert selected["chain_ids"] == ["f-565", "f-565-1"]
-    assert [(r["period_start"], r["period_end"], r["percent_lexical"]) for r in selected["rates"]] == [
+    expected = [
         ("2026-04-01", "2026-06-30", "23.1"), ("2025-04-01", "2025-06-30", "41.0"),
     ]
+    if change in {"leap_current", "leap_prior"}:
+        year = 2024 if change == "leap_current" else 2025
+        expected = [(f"{y - 1}-12-01", f"{y}-02-{monthrange(y, 2)[1]}", rate)
+                    for y, rate in ((year, "23.1"), (year - 1, "41.0"))]
+    assert [(r["period_start"], r["period_end"], r["percent_lexical"]) for r in selected["rates"]] == expected
     assert "differed from the U.S. statutory tax rate primarily due to" in selected["text"]
