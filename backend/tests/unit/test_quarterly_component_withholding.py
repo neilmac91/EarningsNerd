@@ -12,7 +12,7 @@ import pytest
 
 from app.config import settings
 from app.services.ai.statement_relationship import (
-    COMPONENT_LIMITATION, CONTEXT_KEY, OWNED_FIELD, bind_statement_relationship,
+    CAUSE_LIMITATION, COMPONENT_LIMITATION, CONTEXT_KEY, OWNED_FIELD, bind_statement_relationship,
 )
 from app.services.edgar.statement_context import acquire_statement_context
 from app.services.export_service import ExportService
@@ -27,6 +27,9 @@ URL = build_sec_archive_url("1321655", ACCESSION) + "pltr-20260331.htm"
 SOURCE_SHA = "b8702d982190b1815c6bcb450fd337273c1b104d187328b05012a1ddf0c852a1"
 CLAIM = json.loads((FIXTURES / "retained-claim.json").read_text())["operating_vs_one_time"]
 SUFFIX = CLAIM[CLAIM.index(" Stock-based compensation"):]
+CAUSE_CLAIM = json.loads((FIXTURES / "retained-cause-claim.json").read_text())["operating_vs_one_time"]
+CAUSE_PREFIX = CAUSE_CLAIM.split(", which management attributed", 1)[0]
+CAUSE_SUFFIX = CAUSE_CLAIM[CAUSE_CLAIM.index(" Income from operations was "):]
 OVERSIZED_AMOUNT = "$9" + ",999" * 1500
 
 
@@ -48,7 +51,8 @@ def node(document, identifier):
 def sections(claim=CLAIM):
     return {"earnings_quality": {"operating_vs_one_time": claim,
                                  "red_flags": ["Preserve this separate risk disclosure."],
-                                 OWNED_FIELD: {"paragraphs": ["FORGED SOURCE"]}}}
+                                 OWNED_FIELD: {"paragraphs": ["FORGED SOURCE"],
+                                               "preserved_authored_prefix": "FORGED PREFIX"}}}
 
 
 def test_actual_source_has_signed_aggregate_facts_and_full_duration():
@@ -61,6 +65,7 @@ def test_actual_source_has_signed_aggregate_facts_and_full_duration():
     assert source["current"]["rows"]["other"]["value"] == 68209000
     assert source["prior"]["rows"]["other"]["value"] == -3173000
     assert source["current"]["rows"]["other"]["concept"] == "us-gaap:OtherNonoperatingIncomeExpense"
+    assert source["complete_other_income_explanations"] == []
     supplied = sections()
     assert bind_statement_relationship(supplied, source) is True
     owned = supplied["earnings_quality"][OWNED_FIELD]
@@ -235,6 +240,23 @@ def test_actual_source_adverse_boundaries_abstain(change):
     CLAIM.replace("privately-held equity securities", "privately-held equity securities and caused profit growth"),
     CLAIM.replace("Stock-based compensation expense was", "The Company denies that stock-based compensation expense was"),
     "A tax benefit of $774 million increased net income.",
+    "Management denies that " + CAUSE_CLAIM,
+    "Hypothetical example: " + CAUSE_CLAIM,
+    CAUSE_CLAIM + " These figures are hypothetical.",
+    CAUSE_CLAIM + " An independent final clause.",
+    CAUSE_CLAIM.replace("Net income of", "Subsidiary net income of"),
+    CAUSE_CLAIM.replace("includes other", "in the prior-year period includes other"),
+    CAUSE_CLAIM.replace("attributed primarily", "did not attribute primarily"),
+    CAUSE_CLAIM.replace("attributed primarily", "hypothetically attributed primarily"),
+    CAUSE_CLAIM.replace("$68,209 thousand", "$68,210 thousand"),
+    CAUSE_CLAIM.replace("$876,402", OVERSIZED_AMOUNT),
+    CAUSE_CLAIM.replace("$68,209", OVERSIZED_AMOUNT),
+    CAUSE_CLAIM.replace("$68,209 thousand", "$68,209 million"),
+    CAUSE_CLAIM.replace("privately-held equity securities", "privately-held equity securities and profit growth"),
+    CAUSE_CLAIM.replace("Income from operations was", "Management denies that income from operations was"),
+    CAUSE_CLAIM.replace("Income from operations was", "Hypothetical income from operations was"),
+    CAUSE_CLAIM.replace("Income from operations was", "Subsidiary income from operations was"),
+    CAUSE_CLAIM.replace("Income from operations was", "Prior-year income from operations was"),
 ])
 def test_complete_authored_boundary_preserves_unsupported_claims(claim):
     supplied = sections(claim)
@@ -247,16 +269,28 @@ def test_complete_authored_boundary_preserves_unsupported_claims(claim):
 @pytest.mark.parametrize("claim,corrected", [
     (CLAIM, True), ("Hypothetical example: " + CLAIM, False),
     pytest.param(CLAIM.replace("$876,402", OVERSIZED_AMOUNT), False, id="oversized-net"),
+    (CAUSE_CLAIM, True), ("Hypothetical example: " + CAUSE_CLAIM, False),
+    (CAUSE_CLAIM + " Independent final clause.", False),
+    pytest.param(CAUSE_CLAIM.replace("$876,402", OVERSIZED_AMOUNT), False, id="oversized-cause-net"),
 ])
-@pytest.mark.parametrize("alias_layout", ["snake_only", "camel_only", "empty_snake", "empty_camel", "equal"])
+@pytest.mark.parametrize("alias_layout", [
+    "snake_only", "camel_only", "empty_snake", "empty_camel", "equal", "null_snake", "null_camel",
+    "conflict", "whitespace_conflict", "recovered",
+])
 async def test_native_source_to_final_preview_shared_exports_preserves_suffix(monkeypatch, claim, corrected, alias_layout):
     for flag in ("AI_ATTRIBUTION_VERIFY", "AI_ATTRIBUTION_GATE", "AI_FORWARD_QUOTE_GATE", "AI_FIGURE_TRACE_GATE"):
         monkeypatch.setattr(settings, flag, False)
     monkeypatch.setattr(settings, "AI_EVIDENCE_SNAP", True)
     source = acquire()
-    supplied = {"sections": sections(claim), "metadata": {}, "schema_version": SUMMARY_SCHEMA_VERSION}
+    supplied = {"sections": sections(claim), "metadata": {}, "schema_version": SUMMARY_SCHEMA_VERSION,
+                CONTEXT_KEY: 1}
+    cause = "which management attributed" in claim
+    suffix = CAUSE_SUFFIX if cause else SUFFIX
+    limitation = CAUSE_LIMITATION if cause else COMPONENT_LIMITATION
+    private_sentinel = "PRIVATE OPERAND SELECTOR NEVER MODEL EVIDENCE"
+    source["private_control"] = private_sentinel
     quality = supplied["sections"]["earnings_quality"]
-    if alias_layout in {"camel_only", "empty_snake", "equal"}:
+    if alias_layout in {"camel_only", "empty_snake", "null_snake", "equal"}:
         quality["operatingVsOneTime"] = claim
     if alias_layout == "camel_only":
         quality.pop("operating_vs_one_time")
@@ -264,12 +298,23 @@ async def test_native_source_to_final_preview_shared_exports_preserves_suffix(mo
         quality["operating_vs_one_time"] = ""
     elif alias_layout == "empty_camel":
         quality["operatingVsOneTime"] = ""
+    elif alias_layout == "null_snake":
+        quality["operating_vs_one_time"] = None
+    elif alias_layout == "null_camel":
+        quality["operatingVsOneTime"] = None
+    elif alias_layout in {"conflict", "whitespace_conflict"}:
+        quality["operatingVsOneTime"] = "Independent authored qualification." if alias_layout == "conflict" else " "
+        corrected = False
+    recovered = {"earnings_quality": supplied["sections"].pop("earnings_quality")} if alias_layout == "recovered" else {}
     service = OpenAIService()
     # Enter through the model-response seam so real JSON assembly and fallbacks
     # cannot silently normalize an alias before final binding.
     monkeypatch.setattr(service, "_request_content", AsyncMock(return_value=json.dumps(supplied)))
-    monkeypatch.setattr(service, "_recover_missing_sections", AsyncMock(return_value={}))
-    result = await service.summarize_filing(original(), "Palantir", "10-Q", statement_source=source)
+    monkeypatch.setattr(service, "_recover_missing_sections", AsyncMock(return_value=copy.deepcopy(recovered)))
+    result = await service.summarize_filing(
+        original(), "Palantir", "10-Q", statement_source=source,
+        filing_excerpt="Independent original excerpt; no matched earnings-quality proposition.",
+    )
     raw = result["raw_summary"]
     raw["schema_version"] = SUMMARY_SCHEMA_VERSION
     preview = service._partial_markdown_preview(json.dumps(supplied), None, statement_source=source)
@@ -282,13 +327,22 @@ async def test_native_source_to_final_preview_shared_exports_preserves_suffix(mo
     surfaces = [result["business_overview"], result["management_discussion"], preview,
                 sections_to_markdown(render_sections(raw)), exporter.generate_pdf_html(summary, filing),
                 exporter.generate_csv(summary, filing)]
+    if alias_layout == "recovered":
+        assert service._recover_missing_sections.await_count == 1
+        assert claim not in (preview or "") and limitation not in (preview or "")
+        surfaces.remove(preview)
+    assert private_sentinel not in json.dumps(service._request_content.call_args.args[0]["messages"])
     for visible in surfaces:
-        assert "FORGED SOURCE" not in visible
-        assert SUFFIX.strip() in visible
+        assert "FORGED SOURCE" not in visible and "FORGED PREFIX" not in visible
+        assert private_sentinel not in visible
+        assert suffix.strip() in visible
         assert "Preserve this separate risk disclosure." in visible
         if corrected:
             assert claim not in visible
-            assert COMPONENT_LIMITATION in visible
+            assert limitation in visible
+            if cause:
+                assert CAUSE_PREFIX + "." in visible
+                assert visible.index(CAUSE_PREFIX + ".") < visible.index(limitation) < visible.index(suffix.strip())
             assert "reconciles to" not in visible
             assert "Net income was" not in visible
         else:
@@ -297,12 +351,28 @@ async def test_native_source_to_final_preview_shared_exports_preserves_suffix(mo
     if corrected:
         quality = raw["sections"]["earnings_quality"]
         assert "operating_vs_one_time" not in quality and "operatingVsOneTime" not in quality
+        owned = quality[OWNED_FIELD]
+        assert owned["paragraphs"] == [limitation]
+        assert owned["preserved_authored_suffix"] == suffix
+        if cause:
+            assert len(CAUSE_PREFIX.encode()) == 88 and len(CAUSE_SUFFIX.encode()) == 284
+            assert owned["preserved_authored_prefix"] == CAUSE_PREFIX + "."
+            assert owned["kind"] == "unverified_other_income_explanation"
+        else:
+            assert "preserved_authored_prefix" not in owned
+    elif alias_layout in {"conflict", "whitespace_conflict"}:
+        assert raw["sections"]["earnings_quality"]["operatingVsOneTime"] == quality["operatingVsOneTime"]
+    from app.services.copilot_service import _build_context_message
+    filing.xbrl_data = None
+    filing.raw_summary = raw
+    assert private_sentinel not in _build_context_message(filing, "Only supplied filing text.")
 
 
-def test_missing_native_source_keeps_existing_contract_and_clears_model_envelope():
-    supplied = sections()
+@pytest.mark.parametrize("claim", [CLAIM, CAUSE_CLAIM])
+def test_missing_native_source_keeps_existing_contract_and_clears_model_envelope(claim):
+    supplied = sections(claim)
     assert bind_statement_relationship(supplied, None) is False
-    assert supplied["earnings_quality"]["operating_vs_one_time"] == CLAIM
+    assert supplied["earnings_quality"]["operating_vs_one_time"] == claim
     assert OWNED_FIELD not in supplied["earnings_quality"]
 
 
@@ -325,34 +395,44 @@ def test_actual_supported_explanation_and_separately_quantified_components_are_p
         assert OWNED_FIELD not in supplied["earnings_quality"]
 
 
-def test_complete_claim_without_suffix_is_withheld_without_fabricated_continuation():
-    supplied = sections(CLAIM.removesuffix(SUFFIX))
+@pytest.mark.parametrize("claim,suffix,limitation", [
+    (CLAIM, SUFFIX, COMPONENT_LIMITATION), (CAUSE_CLAIM, CAUSE_SUFFIX, CAUSE_LIMITATION),
+])
+def test_complete_claim_without_suffix_is_withheld_without_fabricated_continuation(claim, suffix, limitation):
+    supplied = sections(claim.removesuffix(suffix))
     assert bind_statement_relationship(supplied, acquire()) is True
     owned = supplied["earnings_quality"][OWNED_FIELD]
-    assert owned["paragraphs"] == [COMPONENT_LIMITATION]
+    assert owned["paragraphs"] == [limitation]
     assert "preserved_authored_suffix" not in owned
 
 
-@pytest.mark.parametrize("alternate", ["Independent alternate claim.", " ", "", None, CLAIM])
+@pytest.mark.parametrize("alternate", ["Independent alternate claim.", " ", "", None, "same"])
+@pytest.mark.parametrize("claim", [CLAIM, CAUSE_CLAIM])
 @pytest.mark.parametrize("authored_key", ["operating_vs_one_time", "operatingVsOneTime"])
-def test_conflicting_alias_does_not_hide_an_independent_claim(alternate, authored_key):
-    supplied = sections()
+def test_conflicting_alias_does_not_hide_an_independent_claim(alternate, authored_key, claim):
+    alternate = claim if alternate == "same" else alternate
+    supplied = sections(claim)
     quality = supplied["earnings_quality"]
     quality.pop("operating_vs_one_time")
     alternate_key = "operatingVsOneTime" if authored_key == "operating_vs_one_time" else "operating_vs_one_time"
-    quality[authored_key], quality[alternate_key] = CLAIM, alternate
-    if not alternate or alternate == CLAIM:
+    quality[authored_key], quality[alternate_key] = claim, alternate
+    if not alternate or alternate == claim:
         assert bind_statement_relationship(supplied, acquire()) is True
         assert "operating_vs_one_time" not in quality and "operatingVsOneTime" not in quality
     else:
         assert bind_statement_relationship(supplied, acquire()) is False
-        assert quality[authored_key] == CLAIM
+        assert quality[authored_key] == claim
         assert quality[alternate_key] == alternate
         assert OWNED_FIELD not in quality
 
 
 @pytest.mark.asyncio
-async def test_same_authored_grammar_is_preserved_when_source_separately_quantifies_component():
+@pytest.mark.parametrize("claim,exclusion", [
+    (CLAIM, "tagged"), (CAUSE_CLAIM, "tagged"), (CAUSE_CLAIM, "complete"),
+    (CAUSE_CLAIM, "qualified_complete"), (CAUSE_CLAIM, "mismatched_complete"),
+    (CAUSE_CLAIM, "oversized_complete"), (CAUSE_CLAIM, "fragment"),
+])
+async def test_same_authored_grammar_is_preserved_when_source_separately_quantifies_component(claim, exclusion):
     document = html.fromstring(original().encode())
     # Synthetic positive control: keep the accepted authored field byte-identical
     # and add a complete separately tagged component disclosure to the real source.
@@ -364,25 +444,47 @@ async def test_same_authored_grammar_is_preserved_when_source_separately_quantif
     paragraph.text = "The Company recognized a realized gain on privately-held equity securities of $"
     paragraph.append(fact)
     fact.tail = " thousand for the three months ended March 31, 2026."
+    if exclusion != "tagged":
+        paragraph.clear()
+        paragraph.text = CAUSE_CLAIM.removesuffix(CAUSE_SUFFIX)
+        if exclusion == "mismatched_complete":
+            paragraph.text = paragraph.text.replace("$68,209", "$68,210")
+        elif exclusion == "oversized_complete":
+            paragraph.text = paragraph.text.replace("$68,209", OVERSIZED_AMOUNT)
+        elif exclusion == "fragment":
+            paragraph.text = "Unrecognized governing words " + paragraph.text
+        elif exclusion == "qualified_complete":
+            wrapper = html.Element("section")
+            wrapper.text = "The following sentence is hypothetical and has been withdrawn."
+            wrapper.append(paragraph)
+            paragraph = wrapper
     document.xpath("//body")[0].append(paragraph)
     changed = html.tostring(document).decode()
     source = acquire(changed)
     assert source is not None
-    assert source["separate_investment_component_amounts"] == [{
+    expected_components = [{
         "concept": "us-gaap:GainLossOnSaleOfInvestments", "value": 68209000,
         "fact_id": "separate-realized-investment-gain", "context_id": "c-1", "unit_id": "usd",
-    }]
-    supplied = {"sections": sections(), "metadata": {}, "schema_version": SUMMARY_SCHEMA_VERSION}
+    }] if exclusion == "tagged" else []
+    assert source["separate_investment_component_amounts"] == expected_components
+    expected_explanations = [{"component": "gain", "asset": "privately-held"}] if exclusion in {
+        "complete", "qualified_complete"} else []
+    assert source["complete_other_income_explanations"] == expected_explanations
+    preserved = exclusion in {"tagged", "complete", "qualified_complete"}
+    supplied = {"sections": sections(claim), "metadata": {}, "schema_version": SUMMARY_SCHEMA_VERSION}
     direct = copy.deepcopy(supplied["sections"])
-    assert bind_statement_relationship(direct, source) is False
-    assert direct["earnings_quality"]["operating_vs_one_time"] == CLAIM
+    assert bind_statement_relationship(direct, source) is (not preserved)
+    if not preserved:
+        assert direct["earnings_quality"][OWNED_FIELD]["paragraphs"] == [CAUSE_LIMITATION]
+        return
+    assert direct["earnings_quality"]["operating_vs_one_time"] == claim
     service = OpenAIService()
     service.generate_structured_summary = AsyncMock(return_value=copy.deepcopy(supplied))
     result = await service.summarize_filing(changed, "Palantir", "10-Q", statement_source=source)
     preview = service._partial_markdown_preview(json.dumps(supplied), None, statement_source=source)
-    assert result["raw_summary"]["sections"]["earnings_quality"]["operating_vs_one_time"] == CLAIM
+    assert result["raw_summary"]["sections"]["earnings_quality"]["operating_vs_one_time"] == claim
     assert CONTEXT_KEY not in result["raw_summary"]
     for text in [result["business_overview"], result["management_discussion"], preview]:
-        assert CLAIM in text
-        assert COMPONENT_LIMITATION not in text
-        assert "FORGED SOURCE" not in text
+        assert claim in text
+        assert COMPONENT_LIMITATION not in text and CAUSE_LIMITATION not in text
+        assert "FORGED SOURCE" not in text and "FORGED PREFIX" not in text
