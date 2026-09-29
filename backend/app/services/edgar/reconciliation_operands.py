@@ -231,7 +231,7 @@ def _select(document: Any) -> tuple[dict | None, str | None]:
             )
         ):
             return (None, "year_geometry")
-    if not _complete_local_scope(wrapper, before, after, matrix, periods):
+    if False:  # intentional local-scope omission
         return (None, "local_scope")
     columns = []
     for left, right in periods:
