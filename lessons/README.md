@@ -100,6 +100,8 @@ what applies to your task. Filenames are greppable: `arch-*`, `sec-*`, `test-*`,
 
 ## Operations & workflow
 
+- [`ops-finish-only-job-owned-read-transactions.md`](./ops-finish-only-job-owned-read-transactions.md) — Finish the CLI's read transaction before transport while preserving attached inputs
+
 - [`ops-price-the-actual-provider-model.md`](./ops-price-the-actual-provider-model.md) — Price each actual returned model at its own published tariff
 - [`ops-release-cached-filing-reads-before-yield.md`](ops-release-cached-filing-reads-before-yield.md) — Close completed filing reads before async dependency cleanup can be blocked by a competing checkout
 
