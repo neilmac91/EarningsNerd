@@ -2,6 +2,7 @@
 
 Base: `0863a4b299b9f066b12a98852caa205857628656`. Implementation: `c8a0011fe4252d0ee0cfe31a243f87da997ce0a5`.
 Namespace correction: `d0d44929790d723990cc44187e0bb7790385032a`. No publication authorization is implied.
+Evidence-consumer correction: `137b56906994c884de93402752662a980f420aa0`.
 
 The retained FIGS run-1 impact transfers a statutory-rate explanation to a year comparison. The
 new owner replaces only the complete admitted authored sentence with:
@@ -96,6 +97,15 @@ Both mutations used fresh bytecode caches, restored byte-for-byte, and ended wit
 Full logs, exact fault patches and replay artifacts are in the operator's
 `outputs/overnight-2026-09-28/quality/figs-tax-withholding-candidate/`.
 
+The later committed consumer gate on `137b5690` passed **143** cases. Replacing its actual
+truthy alias fallback with `get(default)` failed both empty/null canonical controls:
+`2 failed, 57 deselected`; byte-identical restoration: `2 passed, 57 deselected`.
+Restored binder SHA-256: `860a9fa26a90831ab188e3caa8c445e613dbaba0111abd4e144412ccb78caaa4`.
+Moving the eligibility call after the existing armed evidence snap failed the real near-evidence
+control: `1 failed, 58 deselected`; restoration: `1 passed, 58 deselected`.
+Restored facade SHA-256: `bf414c4815271f14d4db3214c3d4251f905c3d30c22d0f879faa3e656f83dea0`.
+These faults and restorations also used fresh caches and ended with a clean checkout.
+
 ## Review and refutations
 
 - Whole-impact deletion risk: first trace the sole mutation (`note["impact"]`) and complete
@@ -110,6 +120,12 @@ Full logs, exact fault patches and replay artifacts are in the operator's
 - Alias/recovery risk: first inspect the actual renderer/provenance selectors; then exercise sole,
   equal and conflicting real evidence aliases and actual recovery through final/preview/exports.
   Unsupported aliases remain outside the owner, and recovery supplies no new assertion authority.
+- Empty-alias refutations: the actual provenance selector uses truthiness, not key presence;
+  independently, JSON assembly preserves null/empty values rather than normalizing them away.
+  Both attempts support matching the real fallback, including truthy whitespace conflicts.
+- Repaired-evidence refutations: the real snapper can repair a near-match to the exact source
+  sentence; independently, preview has no such repair, so post-snap admission would diverge.
+  The actual ordered-consumer fault proves the final now decides on original evidence only.
 
 The candidate has no flag/cache-stamp change, provider call, paid evaluation, PR or deployment.
 Root owns independent review and any publication. Full pinned backend gate results are recorded
