@@ -418,5 +418,135 @@
   },
   "network_provider_calls": 0,
   "semantic_acceptance_claim": false,
-  "current_main_integration": "Root-owned; not performed in this isolated candidate."
+  "current_main_integration": "Provisional d56 + pending tax9ffd merge at b69, punctuation correction at30c. Tax release and exact accepted-main history reconciliation remain root-owned and incomplete at recording.",
+  "historical_record_scope": {
+    "description": "Original fields listed here retain the original JPM implementation/gate record; latest_candidate and subsequent integration fields supersede its current-state interpretation only. Original receipts and hashes are not rewritten.",
+    "keys": [
+      "tested_head",
+      "base",
+      "scope",
+      "backend_sha256",
+      "full_gate",
+      "pytest_tail",
+      "focused_tail",
+      "mutation_tails",
+      "receipts",
+      "root_review",
+      "artifact_directory",
+      "artifact_sha256",
+      "network_provider_calls",
+      "semantic_acceptance_claim"
+    ],
+    "original_tested_head": "47371ffadd58648a006fd32b890411255adcf607",
+    "original_verified_record_sha256": "dc22f2642b4e9e2d4e39fb4da4fd1d1ec6d30825e7dbac1555a95ba133a5202c"
+  },
+  "latest_candidate": {
+    "tested_head": "30c1d6ca30143b8c91e1c848424daf4ff4b29f62",
+    "backend_git_tree": "b68ab83ccf9d253c28edf7b2fa732e651cbebd6d",
+    "backend_sha256": {
+      "backend/app/services/ai/acquisition_period.py": "8cde97a54f7167ffb6802129c5e3ca1a03b70441c9615ece4e333982c19026f2",
+      "backend/app/services/ai/provider_requests.py": "8a536e68c09998cb176d203151cb4dc47e2e4beeb0e9b8bf1cecfcf15596b5bd",
+      "backend/app/services/openai_service.py": "c66110c1f2eff79bec838d7489695f592c76baf22ef234783ef3b7bb270e83dd",
+      "backend/app/services/summary_sections.py": "3b0c1bed707065509d58375a56eac4faf7da46fa13f18360fd6a7441a984222c",
+      "backend/evals/runner.py": "8fed477ac50f9c8df502fff2bdc94048fe497014fc20ae5d8dacc8ea4057972f",
+      "backend/tests/fixtures/acquisition_period/README.md": "a9393c3f0ca0d2a0fa2ed40fc58465d08b3268049db5733ad2c82785500e9e2e",
+      "backend/tests/fixtures/acquisition_period/boundary-controls.json.gz": "2996b10ad89f714aec29f192bf4d8014a87b2122f65b582f62c3531bc48d6247",
+      "backend/tests/unit/acquisition_period_cases.py": "2b1294ef65b5749e8feffb936f0c0ed6f392fdd2f4031d0cab2085857eeebeab",
+      "backend/tests/unit/test_table_cell_units.py": "bbf601f10004147f9fd3e001d6faa26cbe421fdf6d083437a2b466d5fd86f2c3"
+    },
+    "post_gate_changes": "Documentation only; final docs commit identity and backend-equality proof retained privately after commit."
+  },
+  "provisional_integration": {
+    "head": "b69eb4ea61cbc88ed8ffb24ef4213c2887dda21b",
+    "parents": [
+      "d56d5376eaaa976977d179c3c3b69ec036835775",
+      "9ffd444ca991c07e71f7aba152dd4d9d4e529e94"
+    ],
+    "conflict_files": [
+      "backend/app/services/openai_service.py",
+      "lessons/README.md"
+    ],
+    "resolution": "Preserve acquisition binder plus current statement_owned markers, pre-snap tax selection and all lesson entries.",
+    "previous_gate": {
+      "passed": 4114,
+      "skipped": 39,
+      "deselected": 2,
+      "warnings": 40,
+      "seconds": 186.09
+    },
+    "tax_base_state_at_recording": "Pending release; root must reconcile the verified tax release actual-main history before JPM publication.",
+    "actual_main_merged": false
+  },
+  "latest_gate": {
+    "head": "30c1d6ca30143b8c91e1c848424daf4ff4b29f62",
+    "toolchain": {
+      "ruff": "0.16.9",
+      "bandit": "1.9.4",
+      "pytest": "9.1.1"
+    },
+    "results": {
+      "ruff": "passed",
+      "bandit": "passed at configured -ll threshold; no medium/high severity issues",
+      "pytest": {
+        "passed": 4114,
+        "skipped": 39,
+        "deselected": 2,
+        "warnings": 40,
+        "seconds": 182.46
+      }
+    },
+    "process_exit": {
+      "code": 0,
+      "attribution": "Executing root reported completed success; terminal summary item was truncated, full local log retained."
+    },
+    "logs": {
+      "pytest.log": {
+        "path": "outputs/overnight-2026-09-28/quality/jpm-integrated-punctuation/pytest.log",
+        "bytes": 36845,
+        "sha256": "611b4132a002483073c08d78399cb1f7c753d7dc178ba9d9553414abcdf4031c"
+      },
+      "bandit.log": {
+        "path": "outputs/overnight-2026-09-28/quality/jpm-integrated-punctuation/bandit.log",
+        "bytes": 770,
+        "sha256": "c17f44b7e3aa38dbc9c1201e8deb7e68e60aa5a65d34b298b63483df2d2c517b"
+      },
+      "ruff.log": {
+        "path": "outputs/overnight-2026-09-28/quality/jpm-integrated-punctuation/ruff.log",
+        "bytes": 19,
+        "sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18"
+      }
+    },
+    "cleanup_diagnostic": {
+      "observed": true,
+      "location": "After passing pytest summary",
+      "owner": "Yahoo-client cleanup logger",
+      "message": "ValueError: I/O operation on closed file.",
+      "preserved_in": "pytest.log"
+    },
+    "rerun_for_documentation": false,
+    "command_detail_limit": "Root reused the pinned full-backend gate; these logs do not contain a complete standalone argv/cache-directory receipt. No missing invocation details have been reconstructed."
+  },
+  "latest_independent_review": {
+    "recorded_at_utc": "2026-09-29T01:41:13.597173+00:00",
+    "reviewer": "/root/beta_measurement",
+    "reviewed_head": "30c1d6ca30143b8c91e1c848424daf4ff4b29f62",
+    "status": "No remaining should-fix finding in the bounded reviewed JPM integration and punctuation correction.",
+    "finding_closed": "JPM-DISPLAY-1",
+    "correction": "Only the application-owned LIMITATION terminal period changes to semicolon; exact authored continuation is preserved.",
+    "proof": {
+      "only_changed_path_since_integration": "backend/app/services/ai/acquisition_period.py",
+      "before_sha256": "c16b477e48c022ece96b332a2a726761d573ecd5418075f659c2ebc58116503e",
+      "after_sha256": "8cde97a54f7167ffb6802129c5e3ca1a03b70441c9615ece4e333982c19026f2",
+      "entire_file_equals_single_literal_replacement": true,
+      "backend_tree": "b68ab83ccf9d253c28edf7b2fa732e651cbebd6d"
+    },
+    "review_basis": "Exact committed diff plus retained integrated review, original closed-claim contract and existing full gate logs; no new application execution/tests.",
+    "refutations_retained": "Original shared-render normalization and export-normalization refutations remain in jpm-integrated-9ffd/independent-review/review.json. Correction directly removes their demonstrated punctuation defect.",
+    "limits": [
+      "Engineering correctness review only; no source-role or financial semantic acceptance",
+      "Root-supplied exact tested-head/process-success attribution; local logs independently inspected and hashed",
+      "Still pending verified tax release/main-history integration; no push/PR/publication clearance"
+    ],
+    "external_actions": []
+  }
 }

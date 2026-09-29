@@ -4,7 +4,7 @@ The retained JPM row 22 / note 2 joins a relative “prior year” statement to 
 explicit date outside the standardized annual frame. This candidate withholds
 only a completely matched first proposition and displays: “This summary could
 not independently verify the period attribution of the estimated acquisition
-gain.” It preserves the exact independently authored semicolon continuation in
+gain;” followed by the exact independently authored continuation held in
 a separate record; that continuation remains model authorship, not verified
 financial evidence. The prior positive date-rewrite prototype remains held.
 
@@ -31,10 +31,41 @@ before evidence auto-snap. Recovered notes abstain. Only the owner's three
 reserved keys are removed throughout the untrusted parsed tree, preserving
 ordinary authored fields. Shared Markdown, PDF, CSV and eval projection render
 the constant limitation and exact continuation while omitting private audit.
-TableUnitIndex, annual statement ownership, prompts, models, flags and baselines
-are unchanged. Quarterly and FIGS clones were not edited.
+Within the JPM delta, TableUnitIndex, annual statement ownership, prompts, models,
+flags and baselines are unchanged. The provisional integration below also contains
+the independently reviewed quarterly and tax boundaries from its pending base.
 
-## Verification
+## Current local integration and verification
+
+Merge `b69eb4ea61cbc88ed8ffb24ef4213c2887dda21b` has original JPM parent
+`d56d5376eaaa976977d179c3c3b69ec036835775` and pending tax parent
+`9ffd444ca991c07e71f7aba152dd4d9d4e529e94`. Its only manual conflicts were the
+shared `openai_service.py` facade and lesson index. The resolution preserves the
+acquisition binder, tax selection before auto-snap, conditional `statement_owned`
+markers, quarterly authored suffix handling and all lesson entries.
+
+Independent static review found no additional integration regression, but upheld
+one display issue after two fresh refutations: a period before the exact
+lower-case continuation. Commit
+`30c1d6ca30143b8c91e1c848424daf4ff4b29f62` changes only that application-owned
+period to a semicolon. The original authored continuation, selector, private
+record and financial content are byte-identical. Independent re-review clears
+that finding at this head; it does not adjudicate source truth or authorize
+publication.
+
+The full pinned local gate at `30c1d6ca` passes Ruff and Bandit and reports
+**4,114 passed, 39 skipped, two deselected**, 40 warnings, **182.46 seconds**.
+The retained pytest log includes a subsequent Yahoo-client cleanup logging
+diagnostic (`I/O operation on closed file`); the gate process completed with exit
+zero as reported by the executing root. The earlier integrated gate at `b69eb4ea`
+also passed 4,114 / 39 / two in 186.09 seconds. Logs were inspected and hashed for
+this documentation update, not rerun. All five locked contracts remain unchanged.
+
+Tax `9ffd444c` is still an unreleased provisional base at this recording. Root
+must reconcile the verified tax release's actual main history before publishing
+JPM. No main integration, push, PR or release is claimed here.
+
+## Original JPM verification (retained)
 
 The existing actual-consumer gate retains its four WMT cases and now includes
 86 JPM cases: all 62 frozen assessment controls, five alias controls, one armed
@@ -75,6 +106,10 @@ financial generation, a semantic verdict, fleet precision or E7 credit.
 causal proof receipts, integrity checks and artifact locations. Original logs
 remain under the root workspace's
 `outputs/overnight-2026-09-28/quality/jpm-period-withholding/implementation/`.
-Only review evidence is added after the tested implementation; backend hashes
-pin it. Root owns current-main/FIGS hook reconciliation and publication. This
-candidate performed no push, PR, cloud, provider or paid action.
+The latest integrated logs are retained in the same root workspace under
+`outputs/overnight-2026-09-28/quality/jpm-integrated-punctuation/`; the provisional
+merge and independent-review receipts are under `quality/jpm-integrated-9ffd/`
+within that overnight directory. Only review evidence is added after the latest
+tested implementation; the complete backend Git tree identity pins it. Root
+owns verified-main history reconciliation and publication. This documentation
+update performed no tests, push, PR, cloud, provider or paid action.
