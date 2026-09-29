@@ -12,7 +12,7 @@ identical to their reviewed parents, and all five locked contracts remain unchan
 
 The final diff against released main contains the CLI-owned lease closure plus the
 [bounded Ops capacity projection and confidentiality gate](../review-evidence/capacity-runtime-inputs-2026-09-28/README.md).
-All application and frontend bytes equal that main. No pool, worker, production flag, model,
+All `backend/app` and frontend bytes equal that main. No pool, worker, production flag, model,
 prompt, source acceptance or fleet-capacity claim changes are included.
 
 One full pinned gate on the integration passed: Ruff 0.16.9; Bandit 1.9.4; pytest 9.1.1,
@@ -23,7 +23,7 @@ Node 22.23.2 / Vitest 5.0.1 passed **three Node lockstep tests**. Fresh bytecode
 post-summary shutdown logging diagnostic; the process exited successfully. No tests or
 fault proofs were duplicated. The final documentation commit preserves the tested backend.
 
-The unchanged component proofs remain: privacy child-output omission, **20 failed → 20 passed**;
+The unchanged component proofs remain: raw child-output emission, **20 failed → 20 passed**;
 backfill read-completion omission, **4 failed → 4 passed**; pending-state guard omission,
 **8 failed → 8 passed**. Root and a fresh independent reviewer cleared the exact integration
 for these gates. Hosted exact-head review and readiness remain separate publication steps.
