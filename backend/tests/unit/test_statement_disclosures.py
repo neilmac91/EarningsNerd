@@ -1,11 +1,75 @@
 """Complete retained audited source, with identity and preservation counterexamples."""
 import copy
+import gzip
+import hashlib
+import json
+from pathlib import Path
 
 from lxml import html
 import pytest
 
 from app.services.edgar.statement_disclosures import extract_statement_disclosures
+from app.services.edgar.tax_rate_comparison import select_tax_rate_comparison
 from tests.unit.test_statement_relationship_source import original, SOURCES
+
+
+def tax_original():
+    folder = Path(__file__).parents[1] / "fixtures/tax_rate_comparison"
+    retained = json.loads((folder / "retained-output.json").read_text())
+    raw = gzip.decompress((folder / "figs-20260630.html.gz").read_bytes())
+    assert hashlib.sha256(raw).hexdigest() == retained["source_sha256"]
+    return raw.decode(), retained
+
+
+def subelement(parent, tag, **attributes):
+    child = html.Element(tag, **attributes)
+    parent.append(child)
+    return child
+
+
+def tax_document(change="original"):
+    source, _ = tax_original()
+    root = html.fromstring(source.encode())
+    fact, context, continuation = node(root, "f-566"), node(root, "c-10"), node(root, "f-565-1")
+    if change in {"missing_fact", "missing_continuation"}:
+        target = fact if change == "missing_fact" else continuation
+        target.getparent().remove(target)
+    elif change in {"duplicate_fact", "duplicate_context", "duplicate_unit", "duplicate_root"}:
+        target = {"duplicate_fact": fact, "duplicate_context": context,
+                  "duplicate_unit": node(root, "number"), "duplicate_root": node(root, "f-565")}[change]
+        target.getparent().append(copy.deepcopy(target))
+    elif change in {"cycle", "shared_continuation"}:
+        target = continuation if change == "cycle" else subelement(root, "div", id="other")
+        target.set("continuedat", "f-565-1")
+    elif change in {"wrong_scale", "wrong_unit", "nil", "fact_continuation", "wrong_sign", "wrong_decimals"}:
+        key, value = {"wrong_scale": ("scale", "0"), "wrong_unit": ("unitref", "usd"),
+                      "nil": ("nil", "true"), "fact_continuation": ("continuedat", "missing"),
+                      "wrong_sign": ("sign", "-"), "wrong_decimals": ("decimals", "0")}[change]
+        fact.set(key, value)
+    elif change in {"huge_number", "unknown_number"}:
+        fact.text = "1" * 5000 + ".1" if change == "huge_number" else "23,1"
+    elif change in {"instant", "dimensions"}:
+        subelement(context, "xbrli:instant" if change == "instant" else "xbrli:scenario").text = "2026-06-30"
+    elif change in {"wrong_entity", "wrong_start", "invalid_start", "prior_wrong_start", "prior_wrong_end", "root_end", "dei_start"}:
+        if change.startswith("prior"):
+            context = node(root, "c-11")
+        elif change in {"root_end", "dei_start"}:
+            context = node(root, "c-1")
+        tag, value = {"wrong_entity": ("identifier", "0000000001"), "wrong_start": ("startdate", "2026-01-01"),
+                      "invalid_start": ("startdate", "2026-02-30"), "prior_wrong_start": ("startdate", "2025-01-01"),
+                      "prior_wrong_end": ("enddate", "2024-06-30"), "root_end": ("enddate", "2026-06-29"),
+                      "dei_start": ("startdate", "2027-01-01")}[change]
+        next(n for n in context.iter() if str(n.tag).endswith(tag)).text = value
+    elif change == "unit_divide":
+        subelement(node(root, "number"), "xbrli:divide")
+    elif change == "exclude":
+        subelement(continuation, "ix:exclude").text = "Qualified text"
+    elif change == "root_context":
+        node(root, "f-565").set("contextref", "c-11")
+    elif change == "missing_dei":
+        dei = next(n for n in root.iter() if n.get("name") == "dei:DocumentPeriodEndDate")
+        dei.getparent().remove(dei)
+    return root
 
 
 def document():
@@ -174,3 +238,23 @@ def test_actual_comparative_rate_never_loses_source_qualification(change):
         last.tail = (last.tail or '').rstrip('.')
         last.text = (last.text or '').rstrip('.')
     assert extract(root) is None
+
+
+@pytest.mark.parametrize("change", [
+    "original", "missing_fact", "missing_continuation", "duplicate_fact", "duplicate_context",
+    "duplicate_unit", "duplicate_root", "cycle", "shared_continuation", "wrong_scale", "wrong_unit",
+    "nil", "fact_continuation", "wrong_sign", "wrong_decimals", "huge_number", "unknown_number",
+    "instant", "dimensions", "wrong_entity", "wrong_start", "invalid_start", "prior_wrong_start",
+    "prior_wrong_end", "root_end", "dei_start", "unit_divide", "exclude", "root_context", "missing_dei",
+])
+def test_complete_tax_note_selects_operands_without_assertion_authority(change):
+    selected = select_tax_rate_comparison(tax_document(change))
+    if change != "original":
+        assert selected is None
+        return
+    assert selected["assertion_scope"] == "not_established"
+    assert selected["chain_ids"] == ["f-565", "f-565-1"]
+    assert [(r["period_start"], r["period_end"], r["percent_lexical"]) for r in selected["rates"]] == [
+        ("2026-04-01", "2026-06-30", "23.1"), ("2025-04-01", "2025-06-30", "41.0"),
+    ]
+    assert "differed from the U.S. statutory tax rate primarily due to" in selected["text"]

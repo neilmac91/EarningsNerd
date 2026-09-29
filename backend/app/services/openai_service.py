@@ -50,6 +50,9 @@ from app.services.ai.source_units import (
     attach_quote_unit_context, build_table_unit_index, capital_plan_proposition,
     restore_authored_plan_units, restore_table_cell_units,
 )
+from app.services.ai.tax_rate_explanation import (
+    AUDIT_KEY as TAX_EXPLANATION_AUDIT_KEY, strip_tax_explanation_metadata, withhold_tax_rate_explanation,
+)
 from app.services.ai.json_repair import _JsonRepairMixin
 from app.services.ai.markdown_render import _MarkdownRenderMixin
 from app.services.ai.section_recovery import _SectionRecoveryMixin
@@ -645,6 +648,7 @@ Rules:
             bind_statement_relationship(sections, statement_source)
             bind_capital_allocation(sections, xbrl_metrics)
             bind_issuer_cash_disclosure(sections)
+            withhold_tax_rate_explanation(sections, unit_index)
             # Same table-cell owner as the final render, over the same source document, after the
             # same binders, so preview and final restore the same surviving prose.
             restore_table_cell_units(sections, unit_index, xbrl_metrics=xbrl_metrics)
@@ -711,6 +715,7 @@ Rules:
                 "raw_summary": {"error": "structured_extraction_failed", "detail": error_msg[:500]},
             }
 
+        strip_tax_explanation_metadata(structured_summary)
         sections_info = structured_summary.get("sections", {}) or {}
         # Deterministic taxonomy guard: the model has a strong prior for "standard" sections and will
         # emit legacy/extra keys (executive_snapshot, three_year_trend, …) alongside the v2 schema no
@@ -833,6 +838,11 @@ Rules:
         issuer_cash_owned = bind_issuer_cash_disclosure(
             sections_info, structured_summary.pop(ISSUER_CASH_SOURCE_KEY, ""),
         )
+        unit_index = build_table_unit_index(filing_text or "")
+        # The tax selector uses the complete native document and exact independent evidence,
+        # including recovered notes. It neither assumes a primary prompt excerpt nor emits a
+        # source assertion. Primary preview never displays a not-yet-recovered note.
+        tax_explanation_audit = withhold_tax_rate_explanation(sections_info, unit_index)
         # Declared table-cell scales for bare model dollar figures (source_units): the filing's own
         # source document, in place on sections_info AFTER the source binders above have replaced
         # or removed the model prose they own (statement relationship, capital allocation,
@@ -842,7 +852,7 @@ Rules:
         # (separately selected context). Measure-always: the audit carries total counts beside its
         # capped detail lists.
         table_cell_unit_audit = restore_table_cell_units(
-            sections_info, build_table_unit_index(filing_text or ""),
+            sections_info, unit_index,
             xbrl_metrics=xbrl_metrics, recovered=recovered_keys,
         )
 
@@ -977,6 +987,8 @@ Rules:
             raw_summary_payload["evidence_snap_audit"] = evidence_snap_audit
         if table_cell_unit_audit:
             raw_summary_payload["table_cell_unit_audit"] = table_cell_unit_audit
+        if tax_explanation_audit:
+            raw_summary_payload[TAX_EXPLANATION_AUDIT_KEY] = tax_explanation_audit
         if writer_result:
             raw_summary_payload["writer"] = writer_result
         if writer_fallback_reason:
