@@ -69,6 +69,18 @@ def tax_document(change="original"):
     elif change == "missing_dei":
         dei = next(n for n in root.iter() if n.get("name") == "dei:DocumentPeriodEndDate")
         dei.getparent().remove(dei)
+    elif change.startswith("namespace_root_"):
+        root.set("xmlns:" + change.removeprefix("namespace_root_"), "https://example.test/impostor")
+    elif change.startswith("namespace_local_"):
+        fact.set("xmlns:" + change.removeprefix("namespace_local_"), "https://example.test/impostor")
+    elif change.startswith("namespace_tag_"):
+        kind = change.removeprefix("namespace_tag_")
+        target = {"fact": fact, "root": node(root, "f-565"), "continuation": continuation,
+                  "context": context, "unit": node(root, "number"), "measure": node(root, "number")[0],
+                  "entity": context[0], "period": context[1], "identifier": context[0][0],
+                  "start": context[1][0], "end": context[1][1],
+                  "dei": next(n for n in root.iter() if n.get("name") == "dei:DocumentPeriodEndDate")}[kind]
+        target.tag = "other:" + target.tag.split(":")[-1]
     return root
 
 
@@ -246,6 +258,10 @@ def test_actual_comparative_rate_never_loses_source_qualification(change):
     "nil", "fact_continuation", "wrong_sign", "wrong_decimals", "huge_number", "unknown_number",
     "instant", "dimensions", "wrong_entity", "wrong_start", "invalid_start", "prior_wrong_start",
     "prior_wrong_end", "root_end", "dei_start", "unit_divide", "exclude", "root_context", "missing_dei",
+    *["namespace_root_" + p for p in ("ix", "xbrli", "us-gaap", "dei", "ixt")],
+    *["namespace_local_" + p for p in ("ix", "xbrli", "us-gaap", "dei", "ixt")],
+    *["namespace_tag_" + p for p in ("fact", "root", "continuation", "context", "unit", "measure",
+                                    "entity", "period", "identifier", "start", "end", "dei")],
 ])
 def test_complete_tax_note_selects_operands_without_assertion_authority(change):
     selected = select_tax_rate_comparison(tax_document(change))

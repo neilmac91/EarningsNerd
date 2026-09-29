@@ -15,10 +15,40 @@ from .statement_disclosures import _chain, _tag, _Unavailable, _unique
 from .statement_relationship_source import _text
 
 RATE_LEXEME = r"[0-9]{1,3}\.[0-9]"
+_NAMESPACES = {
+    "ix": r"http://www\.xbrl\.org/2013/inlineXBRL",
+    "xbrli": r"http://www\.xbrl\.org/2003/instance",
+    "us-gaap": r"http://fasb\.org/us-gaap/[0-9]{4}",
+    "dei": r"http://xbrl\.sec\.gov/dei/[0-9]{4}",
+    "ixt": r"http://www\.xbrl\.org/inlineXBRL/transformation/2020-02-12",
+}
+
+
+def _qualified_tag(node: Any) -> str:
+    return node.tag.lower() if isinstance(node.tag, str) else ""
+
+
+def _namespaces_valid(document: Any) -> bool:
+    # HTML parsing retains lexical prefixes rather than expanded XML QNames.
+    # Validate their bindings before interpreting those names, including local rebindings.
+    for prefix, pattern in _NAMESPACES.items():
+        attribute = f"xmlns:{prefix}"
+        namespace = document.get(attribute, "")
+        if (re.fullmatch(pattern, namespace) is None
+                or any(n.get(attribute) not in {None, namespace} for n in document.iter())):
+            return False
+    return True
 
 
 def _duration(ids: dict, ident: str, issuer: str) -> tuple[date, date]:
     context = _unique(ids.get(ident, []))
+    children = list(context)
+    if (_qualified_tag(context) != "xbrli:context"
+            or [_qualified_tag(n) for n in children] != ["xbrli:entity", "xbrli:period"]
+            or [_qualified_tag(n) for n in children[0]] != ["xbrli:identifier"]
+            or [_qualified_tag(n) for n in children[1]] != ["xbrli:startdate", "xbrli:enddate"]
+            or any(len(n) for n in [children[0][0], *children[1]])):
+        raise _Unavailable("unsupported qualified context structure")
     identity = source_context_identity(context)
     if _tag(context) != "context" or identity is None or identity[0] != issuer or identity[1] != "duration" or identity[3]:
         raise _Unavailable("unqualified same-issuer duration required")
@@ -40,7 +70,7 @@ def quarter_start(end: date) -> date:
 
 def select_tax_rate_comparison(document: Any) -> dict | None:
     """Return source selectors only, or None for unsupported/ambiguous structure."""
-    if document is None:
+    if document is None or not _namespaces_valid(document):
         return None
     try:
         identity = source_report_identity(document)
@@ -64,12 +94,14 @@ def select_tax_rate_comparison(document: Any) -> dict | None:
         # Check complete DEI durations as well as its identity helper's period shape.
         for node in document.iter():
             if (node.get("name") or "").lower() == "dei:documentperiodenddate":
-                if _duration(ids, node.get("contextref"), issuer)[1] != report:
+                if _qualified_tag(node) != "ix:nonnumeric" or _duration(ids, node.get("contextref"), issuer)[1] != report:
                     raise _Unavailable("DEI duration mismatch")
         root = _unique(roots)
-        if _tag(root) != "nonnumeric" or _duration(ids, root.get("contextref"), issuer)[1] != report:
+        if _qualified_tag(root) != "ix:nonnumeric" or _duration(ids, root.get("contextref"), issuer)[1] != report:
             raise _Unavailable("tax-root identity mismatch")
         chain = _chain(root, ids, incoming)
+        if any(_qualified_tag(part) != "ix:continuation" for part in chain[1:]):
+            raise _Unavailable("unsupported continuation namespace")
         if any(_tag(n) in {"exclude", "table"} for part in chain for n in part.iter()):
             raise _Unavailable("unsupported note layout")
         rates = []
@@ -77,7 +109,7 @@ def select_tax_rate_comparison(document: Any) -> dict | None:
             for fact in part.iter():
                 if fact.get("name") != "us-gaap:EffectiveIncomeTaxRateContinuingOperations":
                     continue
-                if (_tag(fact) != "nonfraction" or not fact.get("id")
+                if (_qualified_tag(fact) != "ix:nonfraction" or not fact.get("id")
                         or len(ids.get(fact.get("id"), [])) != 1
                         or fact.get("scale") != "-2" or fact.get("decimals") != "3"
                         or any(fact.get(key) for key in ("sign", "continuedat", "xsi:nil", "nil"))
@@ -86,7 +118,8 @@ def select_tax_rate_comparison(document: Any) -> dict | None:
                     raise _Unavailable("unsupported rate fact")
                 duration = _duration(ids, fact.get("contextref"), issuer)
                 unit = _unique(ids.get(fact.get("unitref"), []))
-                if (_tag(unit) != "unit" or [_tag(n) for n in unit if isinstance(n.tag, str)] != ["measure"]
+                if (_qualified_tag(unit) != "xbrli:unit"
+                        or [_qualified_tag(n) for n in unit] != ["xbrli:measure"]
                         or _text(unit[0]) != "xbrli:pure" or len(unit[0])):
                     raise _Unavailable("rate unit mismatch")
                 if duration in expected:

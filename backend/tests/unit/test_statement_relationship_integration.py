@@ -30,6 +30,7 @@ FALSE = "Operating income included the gain on debt extinguishment and foreign c
     "before_continuation_withdrawal", "before_continuation_hypothesis",
     "after_continuation_withdrawal", "after_continuation_hypothesis", "same_aliases", "generic_operands",
     "recovered", "recovered_missing_source", "recovered_denial",
+    "namespace_root_us-gaap", "namespace_tag_fact",
 ])
 async def test_complete_tax_cause_withholding_boundary_all_consumers(monkeypatch, change):
     """One complete interpretation boundary, source exclusion and unchanged independent bytes."""
@@ -66,7 +67,7 @@ async def test_complete_tax_cause_withholding_boundary_all_consumers(monkeypatch
         target["supportingEvidence"] = target["supporting_evidence"]
         if change == "evidence_camel_only":
             target.pop("supporting_evidence")
-    root = tax_document()
+    root = tax_document(change if change.startswith("namespace_") else "original")
     if change == "generic_operands":
         for n in root.iter():
             if str(n.tag).endswith("identifier"):
