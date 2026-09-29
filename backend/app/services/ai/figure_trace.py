@@ -236,6 +236,11 @@ def policed_prose_slots(sections: Any) -> Iterator[Tuple[str, Any, Any, str]]:
             if isinstance(data, dict):
                 for field in fields:
                     yield from _slot(f"{key}.{field}", data, field)
+    # Preserved statement prefixes remain model prose after ownership binding.
+    quality = sections.get("earnings_quality")
+    if isinstance(quality, dict):
+        yield from _slot("earnings_quality.reported_statement_relationship.preserved_authored_prefix",
+                         quality.get("reported_statement_relationship"), "preserved_authored_prefix")
     # segments[].commentary carries MODEL prose again (T5.2b: a qualitative driver merged onto the
     # machine-authored rows), so its model-written dollar amounts are checked. Segment FIGURES (revenue /
     # operating income columns) stay machine-authored and excluded.

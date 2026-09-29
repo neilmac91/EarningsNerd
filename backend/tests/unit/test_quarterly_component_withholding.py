@@ -269,7 +269,7 @@ def test_complete_authored_boundary_preserves_unsupported_claims(claim):
 @pytest.mark.parametrize("claim,corrected", [
     (CLAIM, True), ("Hypothetical example: " + CLAIM, False),
     pytest.param(CLAIM.replace("$876,402", OVERSIZED_AMOUNT), False, id="oversized-net"),
-    (CAUSE_CLAIM, True), ("Hypothetical example: " + CAUSE_CLAIM, False),
+    pytest.param(CAUSE_CLAIM, True, id="cause-original"), ("Hypothetical example: " + CAUSE_CLAIM, False),
     (CAUSE_CLAIM + " Independent final clause.", False),
     pytest.param(CAUSE_CLAIM.replace("$876,402", OVERSIZED_AMOUNT), False, id="oversized-cause-net"),
 ])
@@ -358,6 +358,30 @@ async def test_native_source_to_final_preview_shared_exports_preserves_suffix(mo
             assert len(CAUSE_PREFIX.encode()) == 88 and len(CAUSE_SUFFIX.encode()) == 284
             assert owned["preserved_authored_prefix"] == CAUSE_PREFIX + "."
             assert owned["kind"] == "unverified_other_income_explanation"
+            # The actual bound prefix stays in the shared model-prose allowlist.
+            # Binding source-correlated operands does not grant an exemption.
+            from app.services.ai.figure_trace import policed_prose_slots, untraceable_figures
+            from app.services.ai.source_units import build_table_unit_index, restore_table_cell_units
+            prefix_label = "earnings_quality.reported_statement_relationship.preserved_authored_prefix"
+            prefix_slots = [slot for slot in policed_prose_slots(raw["sections"]) if slot[0] == prefix_label]
+            assert len(prefix_slots) == 1
+            assert prefix_slots[0][1] is owned and prefix_slots[0][2:] == (
+                "preserved_authored_prefix", CAUSE_PREFIX + ".",
+            )
+            # Audit, source and application paragraphs are separate from authored prose.
+            probe = {"earnings_quality": copy.deepcopy(quality)}
+            probe_owned = probe["earnings_quality"][OWNED_FIELD]
+            private_amounts = ["$999,999,991 billion", "$999,999,992 billion", "$999,999,993 billion"]
+            probe_owned["source"]["trace_control"] = private_amounts[0]
+            probe_owned["audit"] = {"text": private_amounts[1]}
+            probe_owned["paragraphs"].append(private_amounts[2])
+            assert all(amount not in text for _, _, _, text in policed_prose_slots(probe)
+                       for amount in private_amounts)
+            native_text = " ".join(html.fromstring(original().encode()).itertext())
+            assert untraceable_figures(probe, None, native_text) == []
+            assert restore_table_cell_units(probe, build_table_unit_index(original())) is None
+            assert probe_owned["preserved_authored_prefix"] == CAUSE_PREFIX + "."
+            assert probe_owned["preserved_authored_suffix"] == suffix
         else:
             assert "preserved_authored_prefix" not in owned
     elif alias_layout in {"conflict", "whitespace_conflict"}:

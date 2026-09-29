@@ -102,3 +102,8 @@ The existing owner/consumer and source-scope gates cover exact authored spans,
 recovered assembly, forged ownership, complete-source preservation and context
 projection. Fullmatch-to-search and source-exclusion-omission are distinct fault
 proofs; unchanged annual and earlier quarterly cases remain in the same gates.
+
+Preserved model-authored prefixes remain in the explicit prose-slot allowlist used
+by figure tracing and scale restoration after binding. Source-correlated operands
+do not exempt their displayed prose. Keep source records, audits and application
+paragraphs outside that allowlist; never replace it with a recursive record scan.
