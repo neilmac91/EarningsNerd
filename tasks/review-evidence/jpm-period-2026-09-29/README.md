@@ -69,6 +69,12 @@ period to a semicolon before the exact authored continuation; that finding is
 closed. Previous green integrated gates (4,114 passed / 39 skipped / two
 deselected at both `b69` and `30c`) remain historical evidence.
 
+Tax documentation head `a13b46a85f5d873ad67f19733c721983c86fffcb` was subsequently imported by
+local merge `3acc09fdaa63457986eb4c0435a2a0b62d1469b5` without conflicts. That import adds only the tax review
+archive; its backend is byte-identical to the passing `5dadabe5` integration.
+Root reports tax PR #1019 remains in draft with checks/review pending; its
+verified release and actual-main history are not claimed by this receipt.
+
 Tax `90c52bc1` is still a provisional base for this integration record. Root must
 reconcile the verified tax release's actual main history before publishing JPM.
 This local merge and gate do not claim a released tax base, accepted-main

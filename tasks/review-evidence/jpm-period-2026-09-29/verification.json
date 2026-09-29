@@ -671,5 +671,22 @@
       "JPM acquisition_period",
       "quarterly statement_relationship"
     ]
+  },
+  "tax_documentation_import": {
+    "recorded_at_utc": "2026-09-29T02:00:35.462464+00:00",
+    "merge_head": "3acc09fdaa63457986eb4c0435a2a0b62d1469b5",
+    "parents": [
+      "d7572f7d517e78e2916f2449bbfe33eea4f3c837",
+      "a13b46a85f5d873ad67f19733c721983c86fffcb"
+    ],
+    "tax_documentation_head": "a13b46a85f5d873ad67f19733c721983c86fffcb",
+    "changes": [
+      "tasks/archive/figs-tax-cause-withholding-2026-09-29.md"
+    ],
+    "conflicts": [],
+    "backend_tree": "e89dabf4bf1745c4865c8d42e381a7e11de0a67e",
+    "byte_equal_to_tested_integration": "5dadabe54d9a0177703c0ac0f880e5a95b671352",
+    "gate_rerun": false,
+    "root_reported_tax_state": "Published as draft PR #1019; CI and exact-head review ongoing at notification. No verified release/main-history integration claimed."
   }
 }
