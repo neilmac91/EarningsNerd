@@ -38,3 +38,24 @@ shared Markdown, PDF, CSV, eval/judge and Copilot context. Its acquisition helpe
 contains the original 62 controls, five alias controls, the armed-snap case and
 18 annual-source/call-context controls, with nested metadata challenges throughout;
 no duplicate invariant test is introduced.
+
+Preserving authored continuation bytes inside an application-owned record does not
+make those bytes application-authored. Keep each rendered authored span in the
+shared `figure_trace.policed_prose_slots` iterator so advisory measurement,
+`assess_quality` and eval `measure_figures` still inspect its dollar amounts after
+binding. Enumerate the acquisition continuation and statement-owned suffix
+explicitly; do not recurse through source, audit or application paragraphs. The
+same iterator also feeds table-unit restoration, so explicit scales and exact
+preserved bytes must survive that consumer unchanged. No dollar-scale vocabulary
+or live gate setting is changed by this correction.
+
+The existing fabricated-figure gate now covers both nested authored slots while
+excluding adjacent application/source/audit amounts. Existing acquisition and
+quarterly consumer gates use admitted native/retained source and unsupported
+continuation amounts, real final/export projections, production quality and eval
+measurement with default/off and test-armed settings. The quarterly million-scale
+control is a synthetic scale-consistent mutation of the retained native filing,
+not a new real disclosure; original thousand-scale behavior stays outside the
+tracer's existing vocabulary. Unbound sole-camel earnings-quality text was already
+unmeasured and remains outside this bounded correction. Do not report its actual
+zero-before/one-after result as a canonical one-before/one-after comparison.

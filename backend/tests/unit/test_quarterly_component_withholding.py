@@ -267,6 +267,10 @@ def test_complete_authored_boundary_preserves_unsupported_claims(claim):
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("claim,corrected", [
+    pytest.param(CLAIM.replace("thousand", "million").replace("$201,592", "$987,654,321"),
+                 True, id="million-authored-suffix"),
+    pytest.param(CAUSE_CLAIM.replace("thousand", "million").replace("$753,998", "$987,654,321"),
+                 True, id="million-cause-authored-suffix"),
     (CLAIM, True), ("Hypothetical example: " + CLAIM, False),
     pytest.param(CLAIM.replace("$876,402", OVERSIZED_AMOUNT), False, id="oversized-net"),
     pytest.param(CAUSE_CLAIM, True, id="cause-original"), ("Hypothetical example: " + CAUSE_CLAIM, False),
@@ -281,11 +285,33 @@ async def test_native_source_to_final_preview_shared_exports_preserves_suffix(mo
     for flag in ("AI_ATTRIBUTION_VERIFY", "AI_ATTRIBUTION_GATE", "AI_FORWARD_QUOTE_GATE", "AI_FIGURE_TRACE_GATE"):
         monkeypatch.setattr(settings, flag, False)
     monkeypatch.setattr(settings, "AI_EVIDENCE_SNAP", True)
-    source = acquire()
+    text = original()
+    source = acquire(text)
+    original_net = source["current"]["rows"]["net"]["value"]
+    million_control = "million" in claim
+    if million_control:
+        # Scale-consistent mutation of the actual native fixture, not a new real
+        # filing claim or a placeholder descriptor. Only its authored suffix is
+        # given an unsupported amount; the source operands still admit binding.
+        document = html.fromstring(text.encode(), parser=html.HTMLParser(encoding="utf-8", no_network=True))
+        for part in document.xpath(source["heading_path"])[0].iter():
+            if part.text:
+                part.text = part.text.replace("thousands", "millions")
+            if part.tail:
+                part.tail = part.tail.replace("thousands", "millions")
+        for fact in document.iter():
+            if fact.get("scale") == "3":
+                fact.set("scale", "6")
+        text = html.tostring(document, encoding="ascii").decode()
+        source = acquire(text)
+        assert source is not None
+        assert source["current"]["rows"]["net"]["value"] == original_net * 1000
     supplied = {"sections": sections(claim), "metadata": {}, "schema_version": SUMMARY_SCHEMA_VERSION,
                 CONTEXT_KEY: 1}
     cause = "which management attributed" in claim
-    suffix = CAUSE_SUFFIX if cause else SUFFIX
+    prefix = claim.split(", which management attributed", 1)[0] + "." if cause else None
+    suffix_start = " Income from operations was " if cause else " Stock-based compensation"
+    suffix = claim[claim.index(suffix_start):]
     limitation = CAUSE_LIMITATION if cause else COMPONENT_LIMITATION
     private_sentinel = "PRIVATE OPERAND SELECTOR NEVER MODEL EVIDENCE"
     source["private_control"] = private_sentinel
@@ -312,7 +338,7 @@ async def test_native_source_to_final_preview_shared_exports_preserves_suffix(mo
     monkeypatch.setattr(service, "_request_content", AsyncMock(return_value=json.dumps(supplied)))
     monkeypatch.setattr(service, "_recover_missing_sections", AsyncMock(return_value=copy.deepcopy(recovered)))
     result = await service.summarize_filing(
-        original(), "Palantir", "10-Q", statement_source=source,
+        text, "Palantir", "10-Q", statement_source=source,
         filing_excerpt="Independent original excerpt; no matched earnings-quality proposition.",
     )
     raw = result["raw_summary"]
@@ -341,8 +367,8 @@ async def test_native_source_to_final_preview_shared_exports_preserves_suffix(mo
             assert claim not in visible
             assert limitation in visible
             if cause:
-                assert CAUSE_PREFIX + "." in visible
-                assert visible.index(CAUSE_PREFIX + ".") < visible.index(limitation) < visible.index(suffix.strip())
+                assert prefix in visible
+                assert visible.index(prefix) < visible.index(limitation) < visible.index(suffix.strip())
             assert "reconciles to" not in visible
             assert "Net income was" not in visible
         else:
@@ -355,8 +381,9 @@ async def test_native_source_to_final_preview_shared_exports_preserves_suffix(mo
         assert owned["paragraphs"] == [limitation]
         assert owned["preserved_authored_suffix"] == suffix
         if cause:
-            assert len(CAUSE_PREFIX.encode()) == 88 and len(CAUSE_SUFFIX.encode()) == 284
-            assert owned["preserved_authored_prefix"] == CAUSE_PREFIX + "."
+            if claim == CAUSE_CLAIM:
+                assert len(CAUSE_PREFIX.encode()) == 88 and len(CAUSE_SUFFIX.encode()) == 284
+            assert owned["preserved_authored_prefix"] == prefix
             assert owned["kind"] == "unverified_other_income_explanation"
             # The actual bound prefix stays in the shared model-prose allowlist.
             # Binding source-correlated operands does not grant an exemption.
@@ -366,7 +393,7 @@ async def test_native_source_to_final_preview_shared_exports_preserves_suffix(mo
             prefix_slots = [slot for slot in policed_prose_slots(raw["sections"]) if slot[0] == prefix_label]
             assert len(prefix_slots) == 1
             assert prefix_slots[0][1] is owned and prefix_slots[0][2:] == (
-                "preserved_authored_prefix", CAUSE_PREFIX + ".",
+                "preserved_authored_prefix", prefix,
             )
             # Audit, source and application paragraphs are separate from authored prose.
             probe = {"earnings_quality": copy.deepcopy(quality)}
@@ -377,10 +404,10 @@ async def test_native_source_to_final_preview_shared_exports_preserves_suffix(mo
             probe_owned["paragraphs"].append(private_amounts[2])
             assert all(amount not in text for _, _, _, text in policed_prose_slots(probe)
                        for amount in private_amounts)
-            native_text = " ".join(html.fromstring(original().encode()).itertext())
-            assert untraceable_figures(probe, None, native_text) == []
-            assert restore_table_cell_units(probe, build_table_unit_index(original())) is None
-            assert probe_owned["preserved_authored_prefix"] == CAUSE_PREFIX + "."
+            native_text = " ".join(html.fromstring(text.encode()).itertext())
+            assert untraceable_figures(probe, None, native_text) == (["987654321m"] if million_control else [])
+            assert restore_table_cell_units(probe, build_table_unit_index(text)) is None
+            assert probe_owned["preserved_authored_prefix"] == prefix
             assert probe_owned["preserved_authored_suffix"] == suffix
         else:
             assert "preserved_authored_prefix" not in owned
@@ -390,6 +417,38 @@ async def test_native_source_to_final_preview_shared_exports_preserves_suffix(mo
     filing.xbrl_data = None
     filing.raw_summary = raw
     assert private_sentinel not in _build_context_message(filing, "Only supplied filing text.")
+
+    if million_control:
+        from app.services.ai.figure_trace import untraceable_figures
+        from app.services.ai.source_units import build_table_unit_index, restore_table_cell_units
+        from app.services.summary_generation_service import assess_quality
+        from evals.figure_measurement import measure_figures
+
+        basis = " ".join(document.itertext())
+        metrics = {key: {"current": {"value": value["value"]}} for key, value in source["current"]["rows"].items()}
+        sentinel = "987654321m"
+        # The legacy unbound tracer recognizes the canonical field only;
+        # alias handling is exercised by real assembly/binding above. Compare
+        # the canonical authored input with its actual bound display channel.
+        before = untraceable_figures(sections(claim), metrics, basis)
+        after = untraceable_figures(raw["sections"], metrics, basis)
+        actual_before = untraceable_figures(supplied["sections"], metrics, basis)
+        assert (sentinel in actual_before) is (alias_layout not in {
+            "camel_only", "empty_snake", "null_snake", "recovered",
+        })
+        assert sentinel in before and sentinel in after
+        measured = measure_figures(result, metrics, basis)
+        assert measured == {"status": "measured", "reason": "", "count": len(after), "figures": after}
+        restored = copy.deepcopy(raw["sections"])
+        assert restore_table_cell_units(restored, build_table_unit_index(text)) is None
+        assert restored == raw["sections"]
+        for armed in (False, True):
+            monkeypatch.setattr(settings, "AI_FIGURE_TRACE_GATE", armed)
+            verdict = assess_quality(result, metrics, excerpt=basis)
+            assert verdict["figures_untraceable"] == after
+            assert any("not traceable to filing data" in reason for reason in verdict["reasons"]) is armed
+            if armed:
+                assert verdict["tier"] == "partial"
 
 
 @pytest.mark.parametrize("claim", [CLAIM, CAUSE_CLAIM])

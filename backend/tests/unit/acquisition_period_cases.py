@@ -86,6 +86,15 @@ for _name in (
         _current["period_start"] = "2025-02-01"
     CASES[_name] = _case
 
+# Keep the admitted first proposition/source identity unchanged; only the
+# independently authored continuation gets a deliberately unsupported magnitude.
+for _name in ("untraceable_continuation", "grounded_continuation"):
+    _case = deepcopy(CASES["retained_target"])
+    _case["note"]["impact"] = _case["note"]["impact"].replace("$588 million", "$912345678901 million")
+    if _name == "grounded_continuation":
+        _case["source"] += " An independent disclosure reports $912345678901 million."
+    CASES[_name] = _case
+
 
 async def exercise_acquisition_period_consumer(monkeypatch, name):
     case = CASES[name]
@@ -186,6 +195,38 @@ async def exercise_acquisition_period_consumer(monkeypatch, name):
     assert _build_messages(filing, source, "What does the filing say?", []) == copilot_before
     assert OWNED_FIELD not in json.dumps(copilot_before) and "PRIVATE COPILOT SENTINEL" not in json.dumps(copilot_before)
     assert metrics == case["metrics"]
+
+    if name in {"untraceable_continuation", "grounded_continuation"}:
+        from app.services.ai.figure_trace import untraceable_figures
+        from app.services.ai.source_units import build_table_unit_index, restore_table_cell_units
+        from app.services.summary_generation_service import assess_quality
+        from evals.figure_measurement import measure_figures
+        from tests.unit.test_table_cell_units import WMT_SOURCE
+
+        # Production final has already bound, restored units and rendered. The
+        # same authored magnitude remains observable both before and after binding.
+        sentinel = "912345678901m"
+        should_flag = name == "untraceable_continuation"
+        assert (sentinel in untraceable_figures(sections, metrics, source)) is should_flag
+        expected_figures = untraceable_figures(raw["sections"], metrics, source)
+        assert (sentinel in expected_figures) is should_flag
+        measured = measure_figures(result, metrics, source)
+        assert measured == {"status": "measured", "reason": "", "count": len(expected_figures),
+                            "figures": expected_figures}
+        # Explicit scales are already authored: exposing the span must not make
+        # the other iterator consumer change any bytes, even with a valid index.
+        restored = deepcopy(raw["sections"])
+        assert restore_table_cell_units(restored, build_table_unit_index(WMT_SOURCE)) is None
+        assert restored == raw["sections"]
+        assert settings.AI_FIGURE_TRACE_GATE is False  # deployment default, unchanged
+        for armed in (False, True):
+            monkeypatch.setattr(settings, "AI_FIGURE_TRACE_GATE", armed)
+            verdict = assess_quality(result, metrics, excerpt=source)
+            assert verdict["figures_untraceable"] == expected_figures
+            assert any("not traceable to filing data" in reason for reason in verdict["reasons"]) is (
+                bool(expected_figures) and armed)
+            if armed and expected_figures:
+                assert verdict["tier"] == "partial"
 
     if name == "retained_target":
         # The same complete-container rule applies: no repaired partial note can
