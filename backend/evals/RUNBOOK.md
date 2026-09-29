@@ -821,8 +821,12 @@ inventing dates. No production backfill is needed for this gate.
 
 Artifacts always retain preparation evidence, complete emitted answers/citations, initial input
 messages, every actual tool name/arguments/result (including unused or rejected results), elapsed
-times, and denominator counts, including failures. This semantic tool trace is not claimed to be
-a full native HTTP conversation transcript. `requested_model` is configured;
+times, and denominator counts, including failures. The evaluation observer also retains exact
+wrapper candidate deltas for rejected answers, type-only provider control markers, and service
+error/completion events. Provider error payloads are excluded. Both service and provider generators
+close on rejection or cancellation, and the observer patch is restored. This adds diagnostic
+custody without changing the scorer or admitting failed attempts. This semantic tool trace is not
+claimed to be a full native HTTP conversation transcript or native finish-reason evidence. `requested_model` is configured;
 `actual_model` remains unavailable in the report and per-call actual model/usage is recorded only by
 sanitized provider telemetry. Unknown cost is not free. Source-preparation failure means zero
 provider calls and requires diagnosis. No live acceptance result is claimed by implementation or

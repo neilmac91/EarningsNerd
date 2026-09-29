@@ -1,0 +1,31 @@
+{
+  "recorded_at_utc": "2026-09-29T20:43:48.123654+00:00",
+  "reviewer": "containment_frontend_restore",
+  "head": "a8fd5e40da9a3e1b9d75dc0b76552723663fe67c",
+  "backend_tree": "98a27162f814456f38cabd9ac882b6295e61618f",
+  "frontend_tree": "771220558cdbb481f92bd67da7b721adbb272090",
+  "prior_review": "ready-review/independent-envelope-diagnostics-review.json",
+  "prior_review_sha256": "bb116a79c6f1091827e930e4e12c10be2bb72f607d33d7d4dffed25dbe8d1a2c",
+  "prior_review_diff_matches_committed_097_to_e802": true,
+  "fixture_tail_diff_sha256": "11d5d6f340ee1e5d6edc9bf0b50c40d63f6fcf867c24d2be843a61d497e381e9",
+  "tail_review": "Exactly two existing native SDK success fixtures append explicit ===CITATIONS=== empty-array framing. No assertion, runtime, scoring, prompt/model, or locked-contract change. Cost fixture preserves physical-call scenarios; provenance fixture preserves currency/accession/tool facts.",
+  "verdict": "No blocking or should-fix finding; prior exact diff review plus this fixture-only tail covers this code head.",
+  "gate_evidence": {
+    "receipt": "backend-corrected-gate.json",
+    "receipt_sha256": "6da35f2b0de0b763c0da5adbb47a8a7bf0e3eb628efa174af35ab3ef9e246ee7",
+    "log": "full-backend-a8fd5e40.log",
+    "log_sha256": "50d3e25d446af359f75d0aa881165d0b8e30c7339d2c99f0a8dbe7554c2f1444",
+    "result": "4129 passed,39 skipped,2 deselected,40 warnings in182.02s",
+    "ruff": "passed",
+    "bandit": "no medium/high issues",
+    "exit_code_from_root_receipt": 0,
+    "limitation": "Existing closed-stream shutdown logging error retained after passing pytest; not hidden. Reviewer read/hash-checked evidence and did not run tests."
+  },
+  "frontend_gate": "Existing 115 files /703 tests full gate applies to unchanged frontend tree771220558cdbb481f92bd67da7b721adbb272090.",
+  "scope_limits": [
+    "No source edits/tests/provider calls/release actions by reviewer",
+    "Root upcoming docs-only tail is not yet reviewed by this receipt",
+    "Original failed MSFT measurement remains unresolved; this does not prove its missing raw cause fixed",
+    "No formal E7/E8, beta or pricing clearance inferred"
+  ]
+}

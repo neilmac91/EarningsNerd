@@ -1,0 +1,16 @@
+{
+  "at": "2026-09-29T20:28:54.848257+00:00",
+  "reviewed_candidate": "04c2c37ef9eea47362a43184158dde6db69cd15a",
+  "fault": "e3e33e37e9272b020d853112edead74b98dc6579",
+  "restored": "e802acf3854f78c193976e904f86321e787733f1",
+  "candidate_and_restored_tree": "39b39f61ea791ed75435d5d76759b9ea75040e70",
+  "backend_tree": "dfb021434b4d6bf178e2758bb1ff1a3770d63b3d",
+  "case": "tests/unit/test_copilot_gate.py::test_attempt_trace_retains_candidate_and_closes_provider[rejected]",
+  "fault_result": "1 failed; expected real service error still observed, exact candidate-delta custody assertion failed",
+  "restored_result": "1 passed",
+  "logs": {
+    "diagnostic-committed-fault.log": "1de2e44c689b2683d017536618d5bec6c9f03217ba6c452b2cffaee0c83ae27e",
+    "diagnostic-committed-restored.log": "cb42cf41740384d2e8adb271f97d87c3734f2b131d4f62d7e51cb25f0a22486a"
+  },
+  "scope": "One new committed omit-delta fault/restoration for evaluation failure custody; original early-token proof retained separately. No paid calls or scorer changes."
+}
