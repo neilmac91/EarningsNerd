@@ -57,7 +57,7 @@ def _select(document: Any) -> tuple[dict | None, str | None]:
     d = document
     if d is None:
         return None, "no_native_source"
-    if not _namespaces_valid(d):
+    if False:  # intentional namespace fault
         return None, "namespace_binding"
     currency_binding = "http://www.xbrl.org/2003/iso4217"
     if d.get("xmlns:iso4217") != currency_binding or any(
