@@ -71,7 +71,7 @@ controls were added. The numeric-layout and legacy-preview correction passed all
 has already occurred before repair, while the original unsupported tax impact
 retains its own separate boundary.
 
-Final pinned gate at `c7d4bc7e3e0c58e0815e532ed194172999abc9a3`, using the validation
+Isolated pinned gate at `c7d4bc7e3e0c58e0815e532ed194172999abc9a3`, using the validation
 venv and `DYLD_FALLBACK_LIBRARY_PATH=/opt/homebrew/lib` with fresh Python caches:
 
 - Ruff 0.16.9: `All checks passed!`
@@ -145,3 +145,32 @@ Operator receipts are under
 `closed-full-gate.json`, `closed-scope-audit.json`, `closed-replay/native-replay.json`,
 all fault/restoration logs and the preserved initial failed gate. The assessment
 and every adverse prototype remain in the parent directory.
+
+## Provisional integration with JPM
+
+Local merge `29e6f8b07be4b6b197d4374272e87c32ec8d3baf` combines the clean
+reconciliation handoff `04d087ca` with reviewed JPM head
+`88ebef2756437c311988ccd7f65caab05df63738`. The latter includes actual tax main
+`b3ca84b266e75ddcedba922f464268e90bdca743`; its backend equals reviewed JPM full-gate
+head `5dadabe5`, and the tax main backend equals reviewed tax head `a13b46a8`.
+This is local dependency integration; accepted JPM main history and publication
+remain root-owned release steps.
+
+The only conflict was the preview signature in `openai_service.py`. Resolution
+retains both optional defaults and forwards `filing_type_key` once when either
+the native index or the original primary excerpt is available. Both original-source
+binders remain before evidence repair, with distinct sections, recursive metadata
+removal and independent acquisition context/reconciliation audit ownership. All
+22 non-shared changed files match their owning parent exactly. Root and an
+independent reviewer cleared the immutable integration before its combined gate.
+No tests, source fixtures, parser or binder implementations changed during this merge.
+
+The combined pinned gate at `29e6f8b0` passed Ruff 0.16.9 and Bandit 1.9.4;
+pytest 9.1.1 reported **4,247 passed, 39 skipped, 2 deselected, 40 warnings in 220.98s**, exit 0, with the same loader
+setting and a fresh Python cache. The following documentation-only commit preserves
+that gated backend tree. The isolated `c7d4bc7e` gate, proofs and replay remain
+preserved separately.
+
+Exact conflicts, resolution diffs, dependency identities, both review receipts,
+combined gate logs and the final identity receipt are under the operator evidence
+subdirectory `implementation/provisional-jpm-integration/`.
