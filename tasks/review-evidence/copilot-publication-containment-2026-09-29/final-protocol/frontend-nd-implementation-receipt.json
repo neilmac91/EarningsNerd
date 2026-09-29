@@ -1,0 +1,55 @@
+{
+  "at_utc": "2026-09-29T21:17:29.477421+00:00",
+  "base_head": "2dae5338554560bf3008082843cedd5f34bd0ad3",
+  "status": "implementation frozen; lint/typecheck/tests pass; default build environment blocked",
+  "files": {
+    "frontend/features/filings/api/copilot-api.ts": "a01afe65c85a7315b86afe081f1ea7e1905aec4de4f1aae307bc5ca39819f97a",
+    "frontend/tests/unit/copilotStream.spec.ts": "e9b691ffef2d8c276a22e3077fb50513a0a5a5efbf05c3a42a176ee1a5909c33"
+  },
+  "patch_sha256": "29dee91d835520098caa988f6e6c7e70c377f85d09d7561b656b62b76a7ee517",
+  "behavior": "At the external complete-wire boundary, require not_disclosed followups to have2\u20133 nonblank strings. Preserve ordinary answer optional followups and all lifecycle/cleanup semantics.",
+  "owner": "Existing copilotStream.spec.ts rejection and positive tables only; no new test owner, UI/theme/auth/endpoint changes.",
+  "natural_control": {
+    "against": "unchanged2dae runtime",
+    "summary": "5failed/32passed",
+    "receipt": "frontend-nd-natural-red.json"
+  },
+  "focused": {
+    "summary": "37passed",
+    "receipt": "frontend-nd-focused-green.json"
+  },
+  "required_gate": {
+    "lint": "passed",
+    "typecheck": "passed",
+    "tests": "709passed/115files",
+    "build": "default Turbopack failed: CSS worker internal local-port bind EPERM",
+    "receipt": "frontend-nd-full-gate.json"
+  },
+  "isolated_build_retry": {
+    "command": "same npm run build with explicit sandbox escalation",
+    "outcome": "Command executed, but Turbopack still failed internal port EPERM; no automatic approval rejection reported.",
+    "receipt": "frontend-nd-build-capability-retry.json"
+  },
+  "unchanged_across_gates": true,
+  "diff_check": "passed",
+  "limitations": [
+    "Complete wire shape cannot prove whether an older backend repaired a valid-looking array or whether its non-disclosure reason is true.",
+    "Frontend rejection cannot reverse quota already consumed by an older server; the independent server guard is required.",
+    "Production build cannot be reported passed on this new source until the environment capability is resolved or the release owner records an explicit fallback gate."
+  ],
+  "no_commit_or_push": true,
+  "artifacts": {
+    "frontend-nd-focused-green.log": "e880a74e612409384b2b5cc0dcb3bff0e573256606877abf54598d7f1cd11cc0",
+    "frontend-nd-full-typecheck.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "frontend-nd-full-lint.log": "491911b16c7ec9c53a997784351f00988be31dc0172b42df597f74800cff2d3f",
+    "frontend-nd-full-build.log": "02236f1f4729f3ce565797d0cc2a0cb67ee74a1532278da4f1971f09a27f34db",
+    "frontend-nd-build-capability-retry.json": "147d0824520b601fe0212f5284d3bfa2ca2d3501d20cea31f8b5c331971715e3",
+    "frontend-nd-fix.patch": "29dee91d835520098caa988f6e6c7e70c377f85d09d7561b656b62b76a7ee517",
+    "frontend-nd-full-test.log": "6639467fb83b2b49f1930f9d0cc72fb468309bcdc6babd7a3bb183d661b4f896",
+    "frontend-nd-full-gate.json": "5f3457f611155b7559b0c9ef60aea3ee19084a788b0be751acb9021110cfca0c",
+    "frontend-nd-focused-green.json": "a20f39b6fa48ab65d5fbd4ada21a3d2a6ca5ac133775e15d8c05b41aaed5ec4c",
+    "frontend-nd-natural-red.log": "73209743aa11565aa9f7c60d243cab8f356c5a6667bbe339f47fbf1ae76828c2",
+    "frontend-nd-natural-red.json": "ee4a5b586bb79f6e0fa30483a5fa01825233fbd63003471376ea0d8ff3957d36",
+    "frontend-nd-build-capability-retry.log": "66c1b08448be931626daf1323f9ccd47278f70b00699f2c644276f7b5c4e26c1"
+  }
+}

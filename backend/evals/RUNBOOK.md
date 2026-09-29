@@ -743,10 +743,25 @@ wrapper, including unknown cost. A rejected answerable evaluation attempt remain
 This boundary prevents publication of known failed referenced evidence. Source matching does
 not establish the meaning, period, entity or cause of the surrounding claim. An explicit empty
 citation array preserves uncited answers; an absent citation envelope is an incomplete response
-and cannot consume successful-answer quota. Pure not-disclosed answers retain their existing
-semantics. Neither path is promoted to financial-quality acceptance. Existing fact-marker removal
+and cannot consume successful-answer quota. A not-disclosed response requires a nonempty reason
+and a complete, strictly parsed followups array of two or three nonblank strings. Missing or
+malformed envelopes reject without inventing a reason, repairing JSON or discarding extra
+trailing content. Accepted questions retain stripping and the 140-character bound. Ordinary
+answers retain their optional-followups behavior. The browser validates the corresponding
+not-disclosed completion shape; it cannot reconstruct a prior server's raw envelope or reverse
+quota that server already charged. Neither path is promoted to financial-quality acceptance. Existing fact-marker removal
 and repair behavior below is unchanged. Rejection logs identify the application-owned reason
 without logging candidate prose; the client receives the same generic error.
+
+Output-format step 3 of `SYSTEM_PROMPT` distinguishes the two citation namespaces explicitly:
+the JSON array contains only positive-integer filing-text IDs, never tool `F#` objects. An answer
+using only tool markers supplies an explicit empty array. The retained `2dae5338` MSFT draw 0
+violated this format with string `F1`/`F2` declarations and remains a failed attempt. The earlier
+`097b2fdb` MSFT failure lacks its raw candidate and precise rejection reason; it is not assigned
+the same cause. This clarification changes no other financial instruction, model, source
+selection, scorer, baseline or acceptance criterion. It still requires the fresh aggregate
+prompt-change gate below; syntax admission does not establish the semantic truth of an answer
+or a not-disclosed assertion.
 
 The repair row is the only layer that ADDS a citation, so it is positive certification rather than
 falsification: a missing, ambiguous or partly matching fact abstains and the answer stays uncited.

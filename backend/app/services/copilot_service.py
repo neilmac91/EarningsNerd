@@ -105,7 +105,11 @@ OUTPUT FORMAT (follow exactly):
 support: [1], [2] for filing-text excerpts, and [F1], [F2] for tool-provided figures.
 2. Then output a line containing exactly:
 {_CITATIONS_SENTINEL}
-3. Then output a JSON array of citation objects, one per marker you used, e.g.:
+3. Then output a JSON array of citation objects for ONLY the plain numeric filing-text markers
+   ([1], [2], ...) used in the answer. Each "n" must be that marker's positive JSON integer,
+   never a string or an F marker. Tool [F#] markers already reference their returned facts;
+   never include objects for them in this array. If there are no filing-text markers, output []
+   after the citations line, including when all cited figures use tool markers. Example:
 [{{"n": 1, "excerpt": "<verbatim quote copied exactly from the filing>", "section": "Item 7 — MD&A"}}]
    - "excerpt" MUST be copied verbatim from the filing content (so it can be verified). Keep each
      excerpt to the SHORTEST contiguous span that supports the claim — one sentence, at most ~30 words.
@@ -1253,17 +1257,25 @@ async def answer_filing_question(
         if mode == "not_disclosed":
             if "".join(answer_parts).strip():
                 raise _UnpublishableAnswer("Answer prose precedes not-disclosed verdict")
-            # The not-disclosed verdict may carry a trailing followups block (questions this
-            # filing CAN answer) — a dead end without a next step just strands the user.
+            # A complete not-disclosed verdict needs its reason and the whole required
+            # followups envelope. Provider EOF or repaired JSON cannot establish completion.
             nd_raw = "".join(not_disclosed_parts)
-            nd_followups: list[str] = []
             nd_match = _FOLLOWUPS_RE.search(nd_raw)
-            if nd_match:
-                nd_followups = _parse_followups(nd_raw[nd_match.end():])
-                nd_raw = nd_raw[: nd_match.start()]
-            if _CITATIONS_SENTINEL in nd_raw or _NOT_DISCLOSED_SENTINEL in nd_raw:
+            if not nd_match:
+                raise _UnpublishableAnswer("Missing not-disclosed followups envelope")
+            answer = nd_raw[:nd_match.start()].strip()
+            if not answer:
+                raise _UnpublishableAnswer("Empty not-disclosed reason")
+            if _CITATIONS_SENTINEL in answer or _NOT_DISCLOSED_SENTINEL in answer:
                 raise _UnpublishableAnswer("Contradictory not-disclosed envelope")
-            answer = nd_raw.strip() or "This filing does not disclose the requested information."
+            try:
+                nd_followups = json.loads(nd_raw[nd_match.end():].strip())
+            except (ValueError, TypeError) as exc:
+                raise _UnpublishableAnswer("Incomplete not-disclosed followups array") from exc
+            if (not isinstance(nd_followups, list) or not 2 <= len(nd_followups) <= 3
+                    or any(not isinstance(item, str) or not item.strip() for item in nd_followups)):
+                raise _UnpublishableAnswer("Invalid not-disclosed followups array")
+            nd_followups = [item.strip()[:140] for item in nd_followups]
             yield {"type": "not_disclosed", "answer": answer}
             yield {
                 "type": "complete",

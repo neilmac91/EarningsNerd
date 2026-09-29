@@ -114,6 +114,7 @@ async def test_service_grounds_verified_citation(monkeypatch):
 
 def _publication_case(name):
     """Cases share the real service → router → SSE publication and quota boundary."""
+    name = name.removesuffix("_pro")
     good = {"n": 7, "excerpt": _KNOWN_SENTENCE, "section": "Item 7 — MD&A"}
     bad = {**good, "excerpt": "A fabricated special dividend was announced for all shareholders."}
     answer = "Private candidate detail. " * 12 + "The filing describes its revenue [7]."
@@ -192,16 +193,45 @@ def _publication_case(name):
                    "duplicate_field": raw.replace('"n": 7', '"n": 8, "n": 7'),
                    "unclosed_fence": "```json\n" + raw,
                    "non_json_constant": raw.replace('"n": 7', '"extra": NaN, "n": 7')}[name]
-    elif name in ("not_disclosed", "mixed_not_disclosed", "nd_citations", "nd_repeated"):
+    elif name in ("not_disclosed", "mixed_not_disclosed") or name.startswith("nd_"):
         reason = "This filing does not disclose forward guidance."
+        questions = ["What changed in margins?", "What are the risk factors?"]
+        raw_questions = json.dumps(questions)
         before = answer if name == "mixed_not_disclosed" else ""
         if name == "nd_citations":
             reason += "\n===CITATIONS===\n" + json.dumps([bad])
         elif name == "nd_repeated":
             reason += "\n===NOT_DISCLOSED===\nContradictory second verdict."
-        return before + "===NOT_DIS", "CLOSED===\n" + reason, (
-            reason if name == "not_disclosed" else None
-        ), "not_disclosed", [], source
+        elif name == "nd_blank_reason":
+            reason = " \n\t"
+        elif name == "nd_three_questions":
+            questions = ["  " + "Q" * 150 + "  ", *questions]
+            raw_questions = json.dumps(questions)
+        raw_questions = {
+            "nd_empty_followups": "", "nd_truncated_array": raw_questions[:-1],
+            "nd_truncated_question": '["What changed in margins?", "What are the risk',
+            "nd_repairable": str(questions), "nd_object": "{}", "nd_empty_array": "[]",
+            "nd_one_question": json.dumps(questions[:1]),
+            "nd_four_questions": json.dumps(questions * 2),
+            "nd_nonstring": json.dumps([questions[0], 42]),
+            "nd_blank_question": json.dumps([questions[0], " \n\t"]),
+            "nd_prefix": "Questions: " + raw_questions,
+            "nd_suffix": raw_questions + " Contradictory extra prose.",
+            "nd_followup_citations": raw_questions + "\n===CITATIONS===\n[]",
+        }.get(name, raw_questions)
+        payload = reason + "\n===FOLLOWUPS===\n" + raw_questions
+        payload = {
+            "nd_bare": "", "nd_missing_followups": reason,
+            "nd_partial_reason": "This filing does not disclose",
+            "nd_partial_sentinel": reason + "\n===FOLLOWU",
+        }.get(name, payload)
+        valid = name in ("not_disclosed", "nd_normal", "nd_three_questions")
+        draft, trailer = before + "===NOT_DIS", "CLOSED===\n" + payload
+        if name == "nd_normal":
+            draft, trailer = "===NOT_DISCLOSED===\n" + payload, ""
+        return draft, trailer, reason if valid else None, "not_disclosed", (
+            [question.strip()[:140] for question in questions] if valid else []
+        ), source
     elif name.startswith("markdown_"):
         answer = {
             "heading": "# Private candidate [7]", "list": "- Private candidate [7]",
@@ -231,6 +261,11 @@ def _publication_case(name):
     "empty_array", "no_declaration", "semantic_limit", "fenced", "followups", "embedded_followups",
     "not_disclosed", "nd_citations", "nd_repeated", "empty_response", "whitespace_response",
     "empty_citations", "stripped_empty",
+    "nd_bare", "nd_missing_followups", "nd_partial_reason", "nd_partial_sentinel", "nd_blank_reason",
+    "nd_empty_followups", "nd_truncated_array", "nd_truncated_question", "nd_repairable", "nd_object",
+    "nd_empty_array", "nd_one_question", "nd_four_questions", "nd_nonstring", "nd_blank_question",
+    "nd_prefix", "nd_suffix", "nd_followup_citations", "nd_normal", "nd_three_questions",
+    "nd_bare_pro", "not_disclosed_pro",
 ])
 async def test_service_publication_boundary(client, monkeypatch, case):
     """Nothing candidate-authored crosses the real SSE wire before final citation admission.
@@ -242,6 +277,7 @@ async def test_service_publication_boundary(client, monkeypatch, case):
     from app.services.openai_service import STREAM_ACTIVITY_SENTINEL
 
     draft, trailer, expected, kind, followups, source = _publication_case(case)
+    is_pro = case.endswith("_pro")
     paused, release, closed = asyncio.Event(), asyncio.Event(), asyncio.Event()
     sent, completed_cost = [], []
     ticks = count(0, 3)
@@ -274,7 +310,7 @@ async def test_service_publication_boundary(client, monkeypatch, case):
     monkeypatch.setattr(copilot_service.openai_service, "stream_chat_with_tools", stream)
     monkeypatch.setattr(copilot_service.copilot_tools, "run_tool", fake_tool)
     monkeypatch.setattr(summaries_router, "capture_copilot_inference", lambda **kw: completed_cost.append(kw))
-    with _as_user(is_pro=False, free_taste_used=2) as uid, _seed_filing(
+    with _as_user(is_pro=is_pro, free_taste_used=2) as uid, _seed_filing(
         source=source, accession="0000000001-26-000001",
     ) as fid:
         task = asyncio.create_task(_asgi_post(
@@ -305,7 +341,7 @@ async def test_service_publication_boundary(client, monkeypatch, case):
             assert complete["usage"] == usage
             assert all(cite["verified"] is True for cite in complete["citations"])
             assert complete["grounded"] == len(complete["citations"])
-            assert _qa_state(uid) == ([], 0, 3)
+            assert _qa_state(uid) == (([], 1, 2) if is_pro else ([], 0, 3))
             assert len(completed_cost) == 1
             if case == "mixed_fact_valid":
                 assert [cite["n"] for cite in complete["citations"]] == [1, 2]
@@ -328,6 +364,7 @@ async def test_service_not_disclosed_path(monkeypatch):
     chunks = [
         "===NOT_DIS",
         "CLOSED===\nThis 10-K does not disclose forward revenue guidance.",
+        '\n===FOLLOWUPS===\n["What changed in margins?", "What are the risk factors?"]',
     ]
     monkeypatch.setattr(
         copilot_service.openai_service, "stream_chat_with_tools", _chunks_to_async_gen(chunks)

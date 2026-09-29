@@ -18,6 +18,10 @@ const completion: CopilotCompletion = {
   citations: [{ n: 1, excerpt: 'Revenue was $10 million.', section_ref: 'MD&A', verified: true, fragment_url: null }],
   grounded: 1, kind: 'answer', followups: ['What were the costs?'],
 }
+const notDisclosed: CopilotCompletion = {
+  answer: 'The filing does not disclose this.', citations: [], grounded: 0, kind: 'not_disclosed',
+  followups: ['What were the costs?', 'How did revenue change?'],
+}
 function stream() {
   let control!: ReadableStreamDefaultController<Uint8Array>
   const cancel = vi.fn()
@@ -65,6 +69,11 @@ describe('askFilingStream completion-only publication and lifecycle', () => {
     ['unknown verdict', { kind: 'maybe' }],
     ['nonfinite count', { grounded: Infinity }],
     ['mixed non-disclosure', { kind: 'not_disclosed' }],
+    ['empty non-disclosure followups', { ...notDisclosed, followups: [] }],
+    ['one non-disclosure followup', { ...notDisclosed, followups: ['What were the costs?'] }],
+    ['too many non-disclosure followups', { ...notDisclosed, followups: ['First?', 'Second?', 'Third?', 'Fourth?'] }],
+    ['blank non-disclosure followup', { ...notDisclosed, followups: ['What were the costs?', ''] }],
+    ['whitespace non-disclosure followup', { ...notDisclosed, followups: ['What were the costs?', ' \n\t '] }],
   ])('rejects a %s completion with no candidate content', async (_label, patch) => {
     const wire = stream()
     global.fetch = async () => wire.response
@@ -74,12 +83,16 @@ describe('askFilingStream completion-only publication and lifecycle', () => {
     await task
     expect(h.onComplete).not.toHaveBeenCalled()
     expect(h.onToken).not.toHaveBeenCalled()
+    expect(h.onNotDisclosed).not.toHaveBeenCalled()
     expect(h.onError).toHaveBeenCalledExactlyOnceWith("I couldn't verify the cited evidence, so I couldn't provide this answer.")
+    expect(wire.cancel).toHaveBeenCalledOnce()
+    expect(vi.getTimerCount()).toBe(0)
   })
 
   it.each([
     { answer: 'Ordinary uncited answer [14].', citations: [], grounded: 0, kind: 'answer', followups: [] },
-    { answer: 'The filing does not disclose this.', citations: [], grounded: 0, kind: 'not_disclosed', followups: [] },
+    notDisclosed,
+    { ...notDisclosed, followups: [...notDisclosed.followups, 'What are the risk factors?'] },
     { ...completion, answer: 'Revenue $10 million [1], costs $5 million [F2].', grounded: 2,
       citations: [...completion.citations, { n: 'F2', excerpt: 'Costs: USD 5000000', section_ref: 'XBRL · Costs', verified: true, fragment_url: null }] },
   ])('preserves valid final payload $kind with $grounded matched sources', async (payload) => {

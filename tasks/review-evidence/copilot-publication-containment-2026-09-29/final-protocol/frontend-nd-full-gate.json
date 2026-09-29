@@ -1,0 +1,68 @@
+{
+  "started_at_utc": "2026-09-29T21:13:50.295869+00:00",
+  "cwd": "/private/tmp/earningsnerd-containment-resume-20260929/frontend",
+  "node": "v22.23.2",
+  "base_head": "2dae5338554560bf3008082843cedd5f34bd0ad3",
+  "files": {
+    "frontend/features/filings/api/copilot-api.ts": "a01afe65c85a7315b86afe081f1ea7e1905aec4de4f1aae307bc5ca39819f97a",
+    "frontend/tests/unit/copilotStream.spec.ts": "e9b691ffef2d8c276a22e3077fb50513a0a5a5efbf05c3a42a176ee1a5909c33",
+    "frontend/package-lock.json": "fc8bc41c635009f3cc3620f432bc76b21689c7577467237afd15c5d3c9c63b0b"
+  },
+  "steps": [
+    {
+      "name": "lint",
+      "command": [
+        "npm",
+        "run",
+        "lint"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 8.452,
+      "log": "/Users/neilmacaogain/Documents/Codex/2026-09-28/github-plugin-github-openai-curated-remote/outputs/resumption-2026-09-29/containment/final-protocol-review/frontend-nd-full-lint.log",
+      "log_sha256": "491911b16c7ec9c53a997784351f00988be31dc0172b42df597f74800cff2d3f"
+    },
+    {
+      "name": "typecheck",
+      "command": [
+        "npx",
+        "--no-install",
+        "tsc",
+        "-p",
+        "tsconfig.ci.json"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 6.865,
+      "log": "/Users/neilmacaogain/Documents/Codex/2026-09-28/github-plugin-github-openai-curated-remote/outputs/resumption-2026-09-29/containment/final-protocol-review/frontend-nd-full-typecheck.log",
+      "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "test",
+      "command": [
+        "npm",
+        "run",
+        "test",
+        "--",
+        "--run"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 35.127,
+      "log": "/Users/neilmacaogain/Documents/Codex/2026-09-28/github-plugin-github-openai-curated-remote/outputs/resumption-2026-09-29/containment/final-protocol-review/frontend-nd-full-test.log",
+      "log_sha256": "6639467fb83b2b49f1930f9d0cc72fb468309bcdc6babd7a3bb183d661b4f896"
+    },
+    {
+      "name": "build",
+      "command": [
+        "npm",
+        "run",
+        "build"
+      ],
+      "exit_code": 1,
+      "elapsed_seconds": 19.612,
+      "log": "/Users/neilmacaogain/Documents/Codex/2026-09-28/github-plugin-github-openai-curated-remote/outputs/resumption-2026-09-29/containment/final-protocol-review/frontend-nd-full-build.log",
+      "log_sha256": "02236f1f4729f3ce565797d0cc2a0cb67ee74a1532278da4f1971f09a27f34db"
+    }
+  ],
+  "status": "failed",
+  "finished_at_utc": "2026-09-29T21:15:00.436149+00:00",
+  "files_unchanged": true
+}

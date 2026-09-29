@@ -115,7 +115,11 @@ const parseCompletion = (data: Record<string, unknown>): CopilotCompletion | nul
     markers.add(marker)
     citations.push({ n: n as number | string, excerpt, section_ref, verified, fragment_url })
   }
-  if (data.kind === 'not_disclosed' && (citations.length !== 0 || data.grounded !== 0)) return null
+  if (data.kind === 'not_disclosed' && (
+    citations.length !== 0 || data.grounded !== 0 ||
+    data.followups.length < 2 || data.followups.length > 3 ||
+    data.followups.some((question) => !question.trim())
+  )) return null
   return { answer: data.answer, citations, grounded: data.grounded, kind: data.kind, followups: data.followups }
 }
 

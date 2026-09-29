@@ -1,0 +1,89 @@
+{
+  "recorded_at": "2026-09-29T20:59:26.295947+00:00",
+  "run_id": 36628721585,
+  "pr": 1022,
+  "kind": "ci",
+  "reviewed_head": "2dae5338554560bf3008082843cedd5f34bd0ad3",
+  "base": "68c56a084a49e6a973632a19d4983040e8adb149",
+  "source_sha": "005aacaaa9e73514bcef17884cb5c7882aa087d3",
+  "synthetic_tree": "37cad14273fac0f8f1f5f8e4d358ea7bac2969f1",
+  "conclusion": "success",
+  "job_conclusion": "success",
+  "summary": {
+    "mean_untraceable_dollar_figures": 2.3286,
+    "figure_trace_measured": 70,
+    "figure_trace_unavailable": 0,
+    "figure_trace_errors": 0,
+    "n": 70,
+    "scored": 70,
+    "errors": 0,
+    "retried": 0,
+    "mean_aggregate": 1.0,
+    "aggregate_stdev": 0.0,
+    "pass_rate": 1.0,
+    "gate_fail_rate": 0.0,
+    "schema_valid_rate": 1.0,
+    "repaired_rate": 0.0,
+    "mean_numeric_accuracy": 1.0,
+    "mean_numeric_precision": 1.0,
+    "mean_coverage": 1.0,
+    "mean_financial_depth": 0.7762,
+    "mean_specificity": 0.9969,
+    "mean_currency_consistency": 0.9998,
+    "mean_redundancy": 0.9206,
+    "mean_delta_consistency": 1.0,
+    "mean_forward_quote_fidelity": 0.9929,
+    "mean_citation_fidelity": 0.9647,
+    "mean_citation_checked": 7.3857,
+    "judge_pass_rate": null,
+    "total_cost_usd": 0.0,
+    "incurred_usage_attempts": 70,
+    "incurred_provider_usage": {
+      "calls": 70,
+      "unknown_calls": 0,
+      "operations": {
+        "summary_primary": 70
+      },
+      "actual_models": [
+        "deepseek-flash"
+      ],
+      "prompt_tokens": 2755570,
+      "completion_tokens": 285923,
+      "cache_hit_tokens": 2741494,
+      "cache_miss_tokens": 14076,
+      "reasoning_tokens": null
+    },
+    "usage_attempts": 70,
+    "mean_completion_tokens": 4084.6,
+    "mean_prompt_tokens": 39365.3,
+    "total_completion_tokens": 285923,
+    "total_prompt_tokens": 2755570,
+    "total_cache_hit_tokens": 2741494,
+    "total_cache_miss_tokens": 14076,
+    "provider_calls": 70,
+    "actual_models": [
+      "deepseek-flash"
+    ],
+    "mean_latency_seconds": 13.854
+  },
+  "calls": 70,
+  "unknown_calls": 0,
+  "actual_models": [
+    "deepseek-flash"
+  ],
+  "operations": {
+    "summary_primary": 70
+  },
+  "outcomes": {
+    "success": 70
+  },
+  "peak_counts": {
+    "False": 70
+  },
+  "estimated_cost_usd": 0.181887,
+  "estimator": "Sum of retained per-physical-call estimates using each recorded actual model and peak flag; not invoice cost",
+  "report_sha256": "93804a08af60c9b04574fe4a07cd38a971f6bbed41de919c7a3b9d66902b5164",
+  "log_sha256": "6c1c5f7ead3c4b05f0b2956d30fe42dfd98bb3e11744a9fc7a8c92e7cca820bc",
+  "invoice_cost": null,
+  "scope": "Hosted regression/completeness evidence only; no semantic E7 acceptance or automatic merge authorization"
+}

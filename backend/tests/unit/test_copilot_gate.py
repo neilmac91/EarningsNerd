@@ -345,7 +345,8 @@ def test_nullable_raw_tag_is_preserved_without_inventing_provenance():
 async def test_actual_service_refusal_terminal_is_accepted_without_invented_counter(monkeypatch):
     from app.services import copilot_service
     async def stream(*args, **kwargs):
-        yield '===NOT_DISCLOSED===This filing does not disclose that information.'
+        yield ('===NOT_DISCLOSED===This filing does not disclose that information.'
+               '\n===FOLLOWUPS===["What did revenue total?", "What risks were disclosed?"]')
     monkeypatch.setattr(copilot_service.openai_service, 'stream_chat_with_tools', stream)
     result = None
     try:
