@@ -1,0 +1,41 @@
+{
+  "source_hashes": {
+    "frontend/features/filings/api/copilot-api.ts": "7a98c5f6cf97d5a851ced90dd2b03fa05366b7f56a5026b48e6de038ed02d3e0",
+    "frontend/tests/unit/copilotStream.spec.ts": "df3dd3b1302ae5ca6cca3e0826ff8e57b57d0500f2f8ee261bb02fb45ee7ca07"
+  },
+  "backend_tree_unchanged": "57eb8340e148b9db6edaab77338c57214b5af8c3",
+  "files": {
+    "f189-manual-review.json": {
+      "sha256": "66b3b78cf28b4a582dab97ad5ded27033b2b174c43107e93414fc41a2695adca",
+      "bytes": 1335
+    },
+    "focused-green.json": {
+      "sha256": "f41ba6409dc7d6bd62060c54ca7f087dfcaa95db2f42450fe57c0c64c833e375",
+      "bytes": 793
+    },
+    "full-gate.json": {
+      "sha256": "9191e6bc9706748da76cbf83c527961b2033d28a2b9defdbf0cb7e122ef253cb",
+      "bytes": 2347
+    },
+    "implementation-receipt.json": {
+      "sha256": "2ef0cdcbf367315647ff501b3f0f3fd7803e2140b61862b8e33b186bab891d17",
+      "bytes": 3953
+    },
+    "independent-refutation.json": {
+      "sha256": "8f53057692e8f75a672405946416b97b7d0862a2a07db7b5a9f10b1e3f66d2f7",
+      "bytes": 2660
+    },
+    "independent-review.json": {
+      "sha256": "720a9a65dba0099bb16f775bb54a247a7cc7c0621975c5f52177d646c934e1c8",
+      "bytes": 4014
+    },
+    "natural-red.json": {
+      "sha256": "3212c606599193c95964732716da2a9b27304fe7448f05c981bf3d6769e2481e",
+      "bytes": 878
+    },
+    "root-review.json": {
+      "sha256": "a43dace5975db6955965d001c05fc8cc3331f09ab8fafc64df2d4a25d283dbc5",
+      "bytes": 1318
+    }
+  }
+}

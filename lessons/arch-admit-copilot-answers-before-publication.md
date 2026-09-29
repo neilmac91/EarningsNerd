@@ -23,6 +23,10 @@ At the browser's external completion boundary, require the matched-source count 
 admitted citation count and each returned citation ID to occur in the answer. Repeated references
 count once; unmatched numeric brackets can remain ordinary filing text. This checks wire
 consistency without certifying the financial meaning or truth of a source.
+Return the admitted identity in the form the consumer uses: remove whitespace from accepted
+tool citation IDs before storing them. A normalized comparison alone is insufficient if the raw
+ID is then forwarded to a renderer that normalizes only answer markers. The existing stream owner
+must prove this handoff through the shared citation renderer.
 
 **Evidence.** `backend/tests/unit/test_copilot.py::test_service_publication_boundary` pauses the
 provider and inspects the real service→ASGI SSE wire before and after admission, including quota,

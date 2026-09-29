@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { askFilingStream, type CopilotHandlers, type CopilotCompletion } from '@/features/filings/api/copilot-api'
+import { injectCitationMarkers } from '@/lib/citationMarkers'
 
 const auth = vi.hoisted(() => ({ active: false, refresh: async () => {} }))
 vi.mock('@/lib/api/client', () => ({ getApiUrl: () => 'https://api.example.test', ensureRefreshed: () => auth.refresh() }))
@@ -112,6 +113,28 @@ describe('askFilingStream completion-only publication and lifecycle', () => {
     await task
     expect(h.onComplete).toHaveBeenCalledExactlyOnceWith(payload)
     expect(h.onNotDisclosed).not.toHaveBeenCalled()
+  })
+
+  it.each([['F 2', 'F2'], ['f \t2', 'f2']])('normalizes source ID %s for the shared marker renderer', async (n, canonical) => {
+    const source = { n, excerpt: 'Costs: USD 5000000', section_ref: 'XBRL · Costs', verified: true, fragment_url: null }
+    const payload = { ...completion, answer: 'Costs [F2], repeated [f 2], with literal [14].', citations: [source] }
+    const wire = stream()
+    global.fetch = async () => wire.response
+    const h = handlers()
+    const task = askFilingStream(1, 'q', [], h)
+    wire.send(sse({ type: 'complete', ...payload }))
+    await task
+    expect(h.onComplete).toHaveBeenCalledOnce()
+    const admitted = vi.mocked(h.onComplete).mock.calls[0][0]
+    const renderChip = vi.fn(() => null)
+    injectCitationMarkers(admitted.answer, admitted.citations, renderChip)
+    expect(renderChip).toHaveBeenCalledTimes(2)
+    expect(renderChip).toHaveBeenNthCalledWith(1, { ...source, n: canonical }, expect.any(String))
+    expect(renderChip).toHaveBeenNthCalledWith(2, { ...source, n: canonical }, expect.any(String))
+    expect(h.onComplete).toHaveBeenCalledExactlyOnceWith({ ...payload, citations: [{ ...source, n: canonical }] })
+    expect(h.onError).not.toHaveBeenCalled()
+    expect(wire.cancel).toHaveBeenCalledOnce()
+    expect(vi.getTimerCount()).toBe(0)
   })
 
   it.each(['complete', 'error'])('uses the first terminal %s and ignores later frames in the same chunk', async (first) => {

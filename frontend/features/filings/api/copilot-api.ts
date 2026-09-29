@@ -119,7 +119,8 @@ const parseCompletion = (data: Record<string, unknown>): CopilotCompletion | nul
     const marker = String(n).replace(/\s/g, '').toUpperCase()
     if (markers.has(marker) || !referenced.has(marker)) return null
     markers.add(marker)
-    citations.push({ n: n as number | string, excerpt, section_ref, verified, fragment_url })
+    const normalizedN = typeof n === 'string' ? n.replace(/\s/g, '') : n as number
+    citations.push({ n: normalizedN, excerpt, section_ref, verified, fragment_url })
   }
   if (data.kind === 'not_disclosed' && (
     citations.length !== 0 || data.grounded !== 0 ||
