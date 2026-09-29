@@ -45,3 +45,32 @@ Root instructed one final three-slot mutation/restoration proof and one full gat
 only after combined integration and review. No standalone mutation/full gate,
 push, provider, PR or live flag change is authorized here. Focused verification
 and the immutable handoff will be recorded before transfer to the combined owner.
+
+## Committed correction receipt
+
+Runtime correction: `94f1acb8176dfd335481eeb0488531b564319d52`.
+Backend tree: `476c2ded3bc5079977c5c456e95b8e2dcb9f4c25`.
+Focused existing figure, production quality, eval measurement, quarterly and table
+consumer gates: **337 passed, 9 warnings in28.18s**. Focused Ruff passed.
+Initial335pass/2test-assumption failures remain in `focused-initial.log`.
+
+The committed offline replay has eight cases: retained acquisition, unsupported
+continuation, grounded continuation and five actual quarterly aliases. Actual
+unbound canonical/equal/empty-camel counts are1; sole-camel/empty-snake counts are0.
+All five bound suffix counts are1. The separately labeled canonical comparison
+reports1 throughout. Adequate-coverage quality controls keep the default/off tier
+full with the residual visible, and the test-armed tier partial. Source-unit
+restoration leaves every explicit-scale preserved suffix byte unchanged. This
+replay uses actual binders/rendering/quality/eval; real JSON assembly, streaming,
+final and export paths are separately exercised by the focused consumer gate.
+No provider/network calls occurred and the default flag is unchanged.
+
+No owner, source-unit restorer, orchestrator, quality function, eval measurement,
+flag configuration or summary version changed; the sole app edit is13 iterator
+lines. Locked contract tests remain unchanged. Frozen PLTR head remains
+`23a4c9e396d3720c816ba705d0576709e9a69d08`. Root reserves the final composed
+three-slot mutation proof and full gate; neither ran on this standalone patch.
+
+`replay.json` SHA256: `149c00995470be63cf3396540d34895fe3ba1381a88d3aa1a07605ea0e222e3d`.
+
+`committed-source-proof.json` SHA256: `0229e8125682e9b800b3001056dc9e6effca091c52c16dd6eb9088fdd9b095fd`.
