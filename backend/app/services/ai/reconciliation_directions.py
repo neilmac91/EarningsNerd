@@ -91,7 +91,7 @@ def withhold_reconciliation_directions(
     preserved = {"first": match["first"], "third": match["third"]}
     section.pop("operatingVsOneTime", None)
     section["operating_vs_one_time"] = (
-        preserved["first"] + match["gap1"] + LIMITATION + match["gap2"] + preserved["third"]
+        LIMITATION  # intentional independent-sentence loss
     )
     return {
         "slot": "earnings_quality.operating_vs_one_time",
