@@ -19,6 +19,11 @@ a safe application error.
 Live progress and activity labels must contain only application-owned text. Preserve cancellation,
 provider accounting and the router's completion-only quota conversion.
 
+At the browser's external completion boundary, require the matched-source count to equal the
+admitted citation count and each returned citation ID to occur in the answer. Repeated references
+count once; unmatched numeric brackets can remain ordinary filing text. This checks wire
+consistency without certifying the financial meaning or truth of a source.
+
 **Evidence.** `backend/tests/unit/test_copilot.py::test_service_publication_boundary` pauses the
 provider and inspects the real service→ASGI SSE wire before and after admission, including quota,
 valid tool provenance, duplicates, malformed envelopes, numeric literals and Markdown. The existing

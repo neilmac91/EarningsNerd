@@ -97,6 +97,12 @@ const parseCompletion = (data: Record<string, unknown>): CopilotCompletion | nul
     !Array.isArray(data.followups) || !data.followups.every((f) => typeof f === 'string')
   ) return null
 
+  if (data.grounded !== data.citations.length) return null
+  // Unmatched numeric brackets may be filing literals; only returned sources must be referenced.
+  const referenced = new Set(Array.from(
+    data.answer.matchAll(/\[(F?\s*\d+)\]/gi),
+    (match) => match[1].replace(/\s/g, '').toUpperCase()
+  ))
   const citations: CopilotCitation[] = []
   const markers = new Set<string>()
   for (const citation of data.citations) {
@@ -111,7 +117,7 @@ const parseCompletion = (data: Record<string, unknown>): CopilotCompletion | nul
       (fragment_url !== null && typeof fragment_url !== 'string')
     ) return null
     const marker = String(n).replace(/\s/g, '').toUpperCase()
-    if (markers.has(marker)) return null
+    if (markers.has(marker) || !referenced.has(marker)) return null
     markers.add(marker)
     citations.push({ n: n as number | string, excerpt, section_ref, verified, fragment_url })
   }
