@@ -192,7 +192,7 @@ async def _answer(filing_snap, question: str, *, trace: dict | None = None) -> t
                     elif delta.startswith(STREAM_ACTIVITY_SENTINEL):
                         trace['provider_controls'].append({'type': 'activity'})
                     else:
-                        pass  # Controlled proof: lose the rejected candidate diagnostic.
+                        trace['candidate_deltas'].append(delta)
                     yield delta
 
         observed = observed_deltas()
