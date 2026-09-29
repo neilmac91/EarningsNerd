@@ -12,6 +12,8 @@ what applies to your task. Filenames are greppable: `arch-*`, `sec-*`, `test-*`,
 
 ## Architecture
 
+- [`arch-admit-authored-evidence-before-repair.md`](./arch-admit-authored-evidence-before-repair.md) — Match the real evidence selector and admit authored evidence before fuzzy repair
+
 - [`arch-validate-inline-source-identities.md`](./arch-validate-inline-source-identities.md) — Validate namespace bindings and qualified tags before selecting inline source facts
 
 - [`arch-source-supplements-preserve-existing-context.md`](./arch-source-supplements-preserve-existing-context.md) — Retain complete bounded omitted source without displacing existing context

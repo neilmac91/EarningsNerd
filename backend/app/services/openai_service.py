@@ -811,6 +811,11 @@ Rules:
         from fastapi.concurrency import run_in_threadpool
 
         recovered_keys = frozenset(structured_summary.pop("_recovered_sections", []) or [])
+        unit_index = build_table_unit_index(filing_text or "")
+        # Like preview, decide from authored evidence before any fuzzy evidence repair.
+        # The selector uses the complete native document, including for recovered notes;
+        # it neither assumes the primary excerpt nor emits a source assertion.
+        tax_explanation_audit = withhold_tax_rate_explanation(sections_info, unit_index)
         evidence_snap_audit = await run_in_threadpool(
             snap_evidence,
             sections_info,
@@ -838,11 +843,6 @@ Rules:
         issuer_cash_owned = bind_issuer_cash_disclosure(
             sections_info, structured_summary.pop(ISSUER_CASH_SOURCE_KEY, ""),
         )
-        unit_index = build_table_unit_index(filing_text or "")
-        # The tax selector uses the complete native document and exact independent evidence,
-        # including recovered notes. It neither assumes a primary prompt excerpt nor emits a
-        # source assertion. Primary preview never displays a not-yet-recovered note.
-        tax_explanation_audit = withhold_tax_rate_explanation(sections_info, unit_index)
         # Declared table-cell scales for bare model dollar figures (source_units): the filing's own
         # source document, in place on sections_info AFTER the source binders above have replaced
         # or removed the model prose they own (statement relationship, capital allocation,

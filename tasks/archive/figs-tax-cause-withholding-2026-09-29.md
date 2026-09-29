@@ -36,11 +36,17 @@ may still produce the capability limitation, which must not be presented as a so
 finding. Missing, malformed or ambiguous source stays authored.
 
 Only canonical `impact` is rendered by production. Both real independent-evidence aliases are
-supported; conflicting `supporting_evidence`/`supportingEvidence` bytes abstain. No unsupported
+supported with the same truthy fallback as read-time provenance; two populated conflicting
+`supporting_evidence`/`supportingEvidence` values abstain. Whitespace remains truthy. No unsupported
 section/impact alias was added. Evidence bytes, source references and other notes survive.
 Application audit records are stripped from model payloads at every depth. The new audit is
 constructed only in the final outer envelope and has no render authority. The source selector
 and audit do not enter provider requests, canonical judge payloads or Copilot context.
+
+Admission uses originally authored evidence before evidence snapping, in both preview and final.
+A near-match repaired to a real source sentence by the existing armed snap gate cannot newly admit
+the impact. That independent gate retains its existing evidence behavior; the tax owner changes
+only impact and does not use repaired evidence as original source selection.
 
 Recovery notes use the same independent complete-native-source contract. They need no assumption
 about the primary prompt excerpt. The primary preview does not display a note that has not yet

@@ -60,10 +60,10 @@ def withhold_tax_rate_explanation(sections: dict[str, Any], index: Any) -> list[
         if not isinstance(note, dict) or not isinstance(note.get("impact"), str):
             continue
         operands = _operands(note["impact"])
-        evidence = note.get("supporting_evidence", note.get("supportingEvidence"))
+        canonical, camel = note.get("supporting_evidence"), note.get("supportingEvidence")
+        evidence = canonical or camel  # same real selector as read-time footnote provenance
         if (operands is None or not isinstance(evidence, str) or not evidence.strip()
-                or ("supporting_evidence" in note and "supportingEvidence" in note
-                    and note["supporting_evidence"] != note["supportingEvidence"])):
+                or (canonical and camel and canonical != camel)):
             continue
         candidates.append((position, note, operands, evidence))
     selected = index.tax_rate_comparison() if candidates and index is not None else None

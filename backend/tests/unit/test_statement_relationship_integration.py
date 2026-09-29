@@ -31,6 +31,8 @@ FALSE = "Operating income included the gain on debt extinguishment and foreign c
     "after_continuation_withdrawal", "after_continuation_hypothesis", "same_aliases", "generic_operands",
     "recovered", "recovered_missing_source", "recovered_denial",
     "namespace_root_us-gaap", "namespace_tag_fact",
+    "evidence_empty_canonical", "evidence_null_canonical", "evidence_empty_camel",
+    "evidence_whitespace_conflict", "evidence_whitespace_canonical", "snapped_near_evidence",
 ])
 async def test_complete_tax_cause_withholding_boundary_all_consumers(monkeypatch, change):
     """One complete interpretation boundary, source exclusion and unchanged independent bytes."""
@@ -41,6 +43,7 @@ async def test_complete_tax_cause_withholding_boundary_all_consumers(monkeypatch
     sections = copy.deepcopy(retained["raw_sections"])
     target = next(n for n in sections["notable_footnotes"] if n["item"] == "Income Taxes")
     original_impact = target["impact"]
+    original_evidence = target["supporting_evidence"]
     transformations = {
         "denial": "It is false that " + original_impact,
         "hypothesis": "Assume for illustration that " + original_impact,
@@ -67,6 +70,14 @@ async def test_complete_tax_cause_withholding_boundary_all_consumers(monkeypatch
         target["supportingEvidence"] = target["supporting_evidence"]
         if change == "evidence_camel_only":
             target.pop("supporting_evidence")
+    if change in {"evidence_empty_canonical", "evidence_null_canonical", "evidence_whitespace_canonical"}:
+        target["supportingEvidence"] = original_evidence
+        target["supporting_evidence"] = {"evidence_empty_canonical": "", "evidence_null_canonical": None,
+                                         "evidence_whitespace_canonical": " "}[change]
+    if change in {"evidence_empty_camel", "evidence_whitespace_conflict"}:
+        target["supportingEvidence"] = "" if change == "evidence_empty_camel" else " "
+    if change == "snapped_near_evidence":
+        target["supporting_evidence"] = original_evidence.replace("the Company's effective tax rate", "the effective tax rate")
     root = tax_document(change if change.startswith("namespace_") else "original")
     if change == "generic_operands":
         for n in root.iter():
@@ -107,6 +118,7 @@ async def test_complete_tax_cause_withholding_boundary_all_consumers(monkeypatch
         "inside_withdrawal", "inside_hypothesis", "before_root_withdrawal", "before_root_hypothesis",
         "before_continuation_withdrawal", "before_continuation_hypothesis",
         "after_continuation_withdrawal", "after_continuation_hypothesis", "recovered",
+        "evidence_empty_canonical", "evidence_null_canonical", "evidence_empty_camel",
     }
     before = copy.deepcopy(sections)
     # Attempt model-owned authority at every accepted payload depth.
@@ -127,7 +139,7 @@ async def test_complete_tax_cause_withholding_boundary_all_consumers(monkeypatch
     # This owner is independent of mutable verification/snapping feature flags.
     from app.config import settings
     for flag in ("AI_ATTRIBUTION_VERIFY", "AI_ATTRIBUTION_GATE", "AI_FIGURE_TRACE_GATE", "AI_FORWARD_QUOTE_GATE", "AI_EVIDENCE_SNAP"):
-        monkeypatch.setattr(settings, flag, False)
+        monkeypatch.setattr(settings, flag, change == "snapped_near_evidence" and flag == "AI_EVIDENCE_SNAP")
     frames = []
 
     async def receive(text):
@@ -142,8 +154,15 @@ async def test_complete_tax_cause_withholding_boundary_all_consumers(monkeypatch
     after_target = next(n for n in after_notes if n["item"] == "Income Taxes")
     expected = LIMITATION if expected_change else before_target["impact"]
     assert after_target["impact"] == expected
+    expected_fields = copy.deepcopy(before_target)
+    if change == "snapped_near_evidence":
+        # Exercise the real armed repair: it changes evidence, but cannot grant source admission
+        # to an impact whose originally authored evidence did not exactly match the source.
+        assert raw["evidence_snap_audit"]["snapped"]
+        assert after_target["supporting_evidence"] == original_evidence
+        expected_fields["supporting_evidence"] = original_evidence
     assert {k: v for k, v in after_target.items() if k not in {"impact", "Impact"}} == {
-        k: v for k, v in before_target.items() if k not in {"impact", "Impact"}}
+        k: v for k, v in expected_fields.items() if k not in {"impact", "Impact"}}
     assert [n for n in after_notes if n["item"] != "Income Taxes"] == [
         n for n in before["notable_footnotes"] if n["item"] != "Income Taxes"]
     assert bool(raw.get(TAX_AUDIT_KEY)) == expected_change
@@ -187,9 +206,10 @@ async def test_complete_tax_cause_withholding_boundary_all_consumers(monkeypatch
     assert "FORGED TAX AUTHORITY" not in sections_to_markdown(render_sections(forged_raw))
     assert LIMITATION not in sections_to_markdown(render_sections(forged_raw))
     # Direct invocation is idempotent and cannot re-own the capability statement.
-    stable = copy.deepcopy(raw["sections"])
-    assert withhold_tax_rate_explanation(stable, build_table_unit_index(source_html)) == []
-    assert stable == raw["sections"]
+    if change != "snapped_near_evidence":
+        stable = copy.deepcopy(raw["sections"])
+        assert withhold_tax_rate_explanation(stable, build_table_unit_index(source_html)) == []
+        assert stable == raw["sections"]
 
 
 def source(ticker, text=None, period="2025-12-31"):
