@@ -9,3 +9,11 @@ Independent review additionally found contradictory not-disclosed/citation frami
 The existing service-to-ASGI publication gate covers malformed declarations, duplicate IDs, literal-number collisions, valid text/tool provenance, safe activity labels, cancellation and quota release. Its single committed fault proof restores an early draft-token yield while leaving final rejection intact. Existing frontend owners cover actual wire delivery and mounted rail behavior. Final gate tails and commit identities are recorded with the PR evidence.
 
 This preserves prompts, model, provider wrapper, financial tools, scorer, baseline, formal E7/E8 contracts and five locked tests. Source matching does not establish semantic accuracy. Uncited output remains possible. The original PR1021 quotation failure remains held and unchanged; rejected benchmark answers do not become passes. The pricing and consenting-beta gates remain separate.
+
+## Local verification
+
+Reviewed candidate `3f3678345c2a5f4836ce8a660daf5dc59177b4fb` has tree `86ad588438b447e08f1e4d8c6798d62b4ab103ef`. Committed fault `14fad2a8a4ae72a1a077e1a1b39fe26de645c1a4` fails the mixed-valid/invalid wire case only after its final error and unconsumed quota assertions pass. Restoration `fd8bdee04edcac4efdac182e035d2cc4eca28d5d` restores the exact reviewed tree and the same case passes.
+
+Pinned full backend gate: Ruff0.16.9 and Bandit1.9.4 clean; Python3.11.16, **4,124passed,39skipped,2deselected,40warnings in193.05s**, exit0. Full frontend gate on Node22.23.2: lint/typecheck, **115files/703tests passed**, production build passed, exit0. The local build has no Sentry upload credential; it does not prove a hosted release. The five locked contracts remain byte-identical to main.
+
+[Receipts](../review-evidence/copilot-publication-containment-2026-09-29/) bind the committed identities and complete retained log hashes. Hosted CI, exact-head reviews, complete ready-stage measurement and production readbacks remain required before release.

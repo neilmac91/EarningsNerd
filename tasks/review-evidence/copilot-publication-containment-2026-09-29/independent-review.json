@@ -1,0 +1,34 @@
+{
+  "at": "2026-09-29T19:43:23.589054+00:00",
+  "head": "fd8bdee04edcac4efdac182e035d2cc4eca28d5d",
+  "tree": "86ad588438b447e08f1e4d8c6798d62b4ab103ef",
+  "code_review": "code-review-3f367834.json",
+  "code_review_sha256": "fb89fcb31a825416f92c2b2cb8697e6af5e32a3f9af91fdcd2d94a231168a087",
+  "code_review_transfers_by_exact_tree_equality": true,
+  "outstanding_findings": [],
+  "verdict": "exact-head code review and committed publication fault/restoration complete; full backend/frontend gates pending",
+  "proof_receipt_sha256": "a110aab8d66621e10b1657cc9fc48fbcd96c4fca9aa2782d9246f9499c913bf7",
+  "proof": {
+    "candidate": "3f3678345c2a5f4836ce8a660daf5dc59177b4fb",
+    "candidate_tree": "86ad588438b447e08f1e4d8c6798d62b4ab103ef",
+    "fault": "14fad2a8a4ae72a1a077e1a1b39fe26de645c1a4",
+    "restored": "fd8bdee04edcac4efdac182e035d2cc4eca28d5d",
+    "restored_tree": "86ad588438b447e08f1e4d8c6798d62b4ab103ef",
+    "case": "test_service_publication_boundary[mixed_fact_invalid]",
+    "fault_result": "1 failed; final error and unconsumed quota asserted before early-wire failure",
+    "restored_result": "1 passed",
+    "logs": {
+      "fault-publication.log": "a74ba2e8db7445790fa592122d79615a5142910296606f1ad98f25e8791b9950",
+      "restored-publication.log": "566288cd23e2d252e155cd56b3c1419e2b90bd20bccc6ad26b29d3c8c9742d2f"
+    }
+  },
+  "proof_independent_checks": [
+    "Git parent chain is candidate\u2192fault\u2192restoration; fault adds exactly one early token yield.",
+    "Restored diff is empty and tree exactly matches reviewed candidate.",
+    "Fault and restored log hashes independently match receipt.",
+    "Actual failure occurs at no-early-wire assertion after final application-error, unchanged quota and no completion-cost assertions; restore passes identical test."
+  ],
+  "no_tests_executed_by_reviewer": true,
+  "full_backend": "pending root",
+  "full_frontend": "pending root"
+}
