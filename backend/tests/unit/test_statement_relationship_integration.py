@@ -38,7 +38,8 @@ FALSE = "Operating income included the gain on debt extinguishment and foreign c
     "evidence_whitespace_conflict", "evidence_whitespace_canonical", "snapped_near_evidence",
 ] + ["reconciliation:" + case for case in RECONCILIATION_CONTROLS] + [
     "reconciliation:" + case for case in ("nonstring_canonical", "evidence_aliases", "unsupported_section_alias",
-                                         "before_repair", "recovery_forged", "invalid_dei_start", "reversed_dei_start")
+                                         "before_repair", "recovery_forged", "invalid_dei_start", "reversed_dei_start",
+                                         "adjacent_net", "adjacent_tax", "adjacent_total", "separate_parentheses")
 ])
 async def test_complete_interpretation_withholding_boundary_all_consumers(monkeypatch, change):
     """One complete interpretation boundary, source exclusion and unchanged independent bytes."""
@@ -239,6 +240,32 @@ async def _reconciliation_consumers(monkeypatch, change):
     source_html, tax_retained = tax_original()
     if case["source_mutation"]:
         source_html = mutate_source(source_html, case["source_mutation"])
+    if change.startswith("adjacent_") or change == "separate_parentheses":
+        from app.services.edgar.statement_relationship_source import _text
+        document = html.fromstring(source_html.encode(), parser=html.HTMLParser(encoding="utf-8", no_network=True))
+        table = next(t for t in document.xpath("//table") if "Add (deduct):" in _text(t))
+        row = table.xpath("./tr|./tbody/tr")[{"adjacent_net": 4, "adjacent_tax": 7,
+                                                   "adjacent_total": 11, "separate_parentheses": 6}[change]]
+        def replace(cell, text):
+            for child in list(cell):
+                cell.remove(child)
+            cell.text = text
+        if change == "separate_parentheses":
+            row[1].set("colspan", "1")
+            replace(row[1], "(")
+            row[2].set("colspan", "4")
+            replace(row[2], ")")
+            number = html.Element("td", colspan="1")
+            number.text = "1,619"
+            row.insert(2, number)
+        else:
+            amount_index = 1 if change == "adjacent_tax" else 2
+            first, second = {"adjacent_net": ("28", "379"), "adjacent_tax": ("8", "502"),
+                             "adjacent_total": ("36", "586")}[change]
+            replace(row[amount_index], first)
+            replace(row[amount_index + 1], second)
+            case["expected_selected"] = False
+        source_html = html.tostring(document, encoding="unicode")
     if change in {"invalid_dei_start", "reversed_dei_start"}:
         document = html.fromstring(source_html.encode(), parser=html.HTMLParser(encoding="utf-8", no_network=True))
         context = document.xpath('//*[@id="c-1"]')[0]

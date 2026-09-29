@@ -32,3 +32,11 @@ before admitting any DEI context. Its same consumer gate includes both controls.
 Period and unit captions must geometrically govern their selected table columns;
 known caption words at the wrong colspan are insufficient. Preserve the unchanged
 annual helpers and the existing tax owner while adding the bounded selector.
+
+Each selected amount region must contain exactly one numeric token (or one dash
+zero). Adjacent cells containing `8` and `502` can otherwise fabricate `8,502` and
+still pass a complete bridge and tagged net-income anchor. The reconciliation
+selector now rejects that ambiguity locally while retaining separately formatted
+currency and parentheses; the annual amount helper remains unchanged. The existing
+consumer gate covers net income, a component and the total, with a separate-symbol
+positive control and a committed guard-removal proof.

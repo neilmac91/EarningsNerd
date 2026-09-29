@@ -41,7 +41,12 @@ def _table_amount(row: list[dict], start: int, end: int) -> int | None:
         (c["text"] and c not in cells and (c["column"] < end) and (c["column"] + c["colspan"] > start) for c in row)
     ):
         return None
-    text = "".join((c["text"] for c in cells)).replace(" ", "")
+    tokens = [c["text"] for c in cells if c["text"]]
+    # Separate currency/parenthesis cells may format one amount. Independent
+    # numeric cells must never be concatenated into an invented operand.
+    if sum(bool(re.search(r"[0-9]", token)) or token == "—" for token in tokens) != 1:
+        return None
+    text = "".join(tokens).replace(" ", "")
     if text.startswith("$"):
         text = text[1:]
     if text == "—":

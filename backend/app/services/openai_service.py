@@ -594,7 +594,8 @@ Rules:
                 if total - emitted_at >= 1500:
                     emitted_at = total
                     preview = self._partial_markdown_preview(
-                        "".join(parts), xbrl_metrics, filing_type_key=filing_type_key,
+                        "".join(parts), xbrl_metrics,
+                        **({"filing_type_key": filing_type_key} if unit_index is not None else {}),
                         **({"capital_plan": capital_plan} if capital_plan else {}),
                         **({"statement_source": statement_source} if statement_source else {}),
                         **({"unit_index": unit_index} if unit_index else {}),
