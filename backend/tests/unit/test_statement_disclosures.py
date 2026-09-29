@@ -41,6 +41,10 @@ def tax_document(change="original"):
     elif change in {"cycle", "shared_continuation"}:
         target = continuation if change == "cycle" else subelement(root, "div", id="other")
         target.set("continuedat", "f-565-1")
+    elif change.startswith("root_incoming_"):
+        tag = change.removeprefix("root_incoming_")
+        predecessor = subelement(root, "ix:" + tag, id="tax-predecessor", continuedat="f-565")
+        predecessor.text = "Governing predecessor content."
     elif change in {"wrong_scale", "wrong_unit", "nil", "fact_continuation", "wrong_sign", "wrong_decimals"}:
         key, value = {"wrong_scale": ("scale", "0"), "wrong_unit": ("unitref", "usd"),
                       "nil": ("nil", "true"), "fact_continuation": ("continuedat", "missing"),
@@ -255,6 +259,7 @@ def test_actual_comparative_rate_never_loses_source_qualification(change):
 @pytest.mark.parametrize("change", [
     "original", "missing_fact", "missing_continuation", "duplicate_fact", "duplicate_context",
     "duplicate_unit", "duplicate_root", "cycle", "shared_continuation", "wrong_scale", "wrong_unit",
+    "root_incoming_nonnumeric", "root_incoming_continuation",
     "nil", "fact_continuation", "wrong_sign", "wrong_decimals", "huge_number", "unknown_number",
     "instant", "dimensions", "wrong_entity", "wrong_start", "invalid_start", "prior_wrong_start",
     "prior_wrong_end", "root_end", "dei_start", "unit_divide", "exclude", "root_context", "missing_dei",

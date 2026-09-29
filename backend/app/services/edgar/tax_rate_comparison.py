@@ -99,6 +99,8 @@ def select_tax_rate_comparison(document: Any) -> dict | None:
         root = _unique(roots)
         if _qualified_tag(root) != "ix:nonnumeric" or _duration(ids, root.get("contextref"), issuer)[1] != report:
             raise _Unavailable("tax-root identity mismatch")
+        if incoming.get(root.get("id"), 0):
+            raise _Unavailable("tax root is a continuation target")
         chain = _chain(root, ids, incoming)
         if any(_qualified_tag(part) != "ix:continuation" for part in chain[1:]):
             raise _Unavailable("unsupported continuation namespace")

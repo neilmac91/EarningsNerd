@@ -31,6 +31,7 @@ FALSE = "Operating income included the gain on debt extinguishment and foreign c
     "after_continuation_withdrawal", "after_continuation_hypothesis", "same_aliases", "generic_operands",
     "recovered", "recovered_missing_source", "recovered_denial",
     "namespace_root_us-gaap", "namespace_tag_fact",
+    "root_incoming_nonnumeric", "root_incoming_continuation",
     "evidence_empty_canonical", "evidence_null_canonical", "evidence_empty_camel",
     "evidence_whitespace_conflict", "evidence_whitespace_canonical", "snapped_near_evidence",
 ])
@@ -78,7 +79,7 @@ async def test_complete_tax_cause_withholding_boundary_all_consumers(monkeypatch
         target["supportingEvidence"] = "" if change == "evidence_empty_camel" else " "
     if change == "snapped_near_evidence":
         target["supporting_evidence"] = original_evidence.replace("the Company's effective tax rate", "the effective tax rate")
-    root = tax_document(change if change.startswith("namespace_") else "original")
+    root = tax_document(change if change.startswith(("namespace_", "root_incoming_")) else "original")
     if change == "generic_operands":
         for n in root.iter():
             if str(n.tag).endswith("identifier"):

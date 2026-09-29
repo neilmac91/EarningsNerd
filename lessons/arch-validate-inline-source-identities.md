@@ -18,3 +18,9 @@ The existing disclosure source gate
 now includes root bindings, local rebindings and selected tag impostors. The existing integration
 gate also covers two such invalid sources through final, preview and exports. The committed
 namespace mutation proof and restoration are recorded in the task's review artifact.
+
+The selected tax root must also have no inbound continuation edge. A shared helper's check on
+each outgoing target does not validate the initial root's ownership. Hosted review reproduced
+an omitted predecessor while all downstream IDs remained unique; two fresh refutations upheld
+the finding. The same source and real-consumer gates cover both nonnumeric and continuation
+predecessors. The correction stays in the quarterly selector, preserving the annual helper.
