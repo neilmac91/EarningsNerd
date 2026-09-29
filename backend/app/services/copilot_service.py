@@ -1241,7 +1241,6 @@ async def answer_filing_question(
                     pending = pending[-_SENTINEL_TAIL:]
                     if emit:
                         answer_parts.append(emit)
-                        yield {"type": "token", "text": emit}
                 break
 
         # Preserve the per-call accounting, including unknown values and mixed-model totals.
