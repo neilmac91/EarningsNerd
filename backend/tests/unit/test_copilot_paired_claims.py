@@ -45,6 +45,8 @@ async def complete(monkeypatch, tmp_path, *, changes=None, answer=ANSWER, row_ch
         if call_revenue:
             args[2]("get_financial_fact", {"concept": "revenue"})
         yield answer  # model made no tool calls in all three retained ASML draws
+        if '===CITATIONS===' not in answer:
+            yield '\n===CITATIONS===\n[]'
 
     monkeypatch.setattr(service.openai_service, "stream_chat_with_tools", stream)
     original_resolve = service._resolve_citations

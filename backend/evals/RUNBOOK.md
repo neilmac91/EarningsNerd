@@ -720,7 +720,7 @@ reused as year labels on gross-profit/net-income figures).
 
 | Layer | Citation kind | Check | On failure |
 |---|---|---|---|
-| Publication admission | text `[n]` | a declared citation array must parse completely with unambiguous referenced identities; every referenced excerpt must pass the existing source matcher | whole answer withheld with an application error; no draft prose is published |
+| Publication admission | text `[n]` | an answer must contain a complete citation envelope and array with unambiguous referenced identities; every referenced excerpt must pass the existing source matcher | whole answer withheld with an application error; no draft prose is published |
 | Excerpt verification | text `[n]` | excerpt matches the normalized filing (`verify_excerpt_in_text`) | referenced failed evidence prevents completion; unused failed declarations remain omitted |
 | Final numbering | both | an unresolved literal numeric marker must not acquire an unrelated citation's number | whole answer withheld with an application error |
 | Marker resolution | both | every inline marker resolves to a declared source | unresolvable F-marker stripped from prose |
@@ -741,9 +741,12 @@ not consume successful-answer quota; physical provider usage remains recorded by
 wrapper, including unknown cost. A rejected answerable evaluation attempt remains a failure.
 
 This boundary prevents publication of known failed referenced evidence. Source matching does
-not establish the meaning, period, entity or cause of the surrounding claim. Uncited legacy
-output and pure not-disclosed answers retain their existing semantics; neither is promoted to
-financial-quality acceptance. Existing fact-marker removal and repair behavior below is unchanged.
+not establish the meaning, period, entity or cause of the surrounding claim. An explicit empty
+citation array preserves uncited answers; an absent citation envelope is an incomplete response
+and cannot consume successful-answer quota. Pure not-disclosed answers retain their existing
+semantics. Neither path is promoted to financial-quality acceptance. Existing fact-marker removal
+and repair behavior below is unchanged. Rejection logs identify the application-owned reason
+without logging candidate prose; the client receives the same generic error.
 
 The repair row is the only layer that ADDS a citation, so it is positive certification rather than
 falsification: a missing, ambiguous or partly matching fact abstains and the answer stays uncited.

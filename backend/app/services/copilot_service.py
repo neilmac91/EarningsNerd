@@ -1277,7 +1277,9 @@ async def answer_filing_question(
             return
 
         full_answer = "".join(answer_parts).strip()
-        citations, followups = _parse_citations("".join(citation_buffer)) if mode == "citations" else ([], [])
+        if mode != "citations":
+            raise _UnpublishableAnswer("Missing citation envelope")
+        citations, followups = _parse_citations("".join(citation_buffer))
 
         # Multi-reference bracket groups the model emits despite the one-marker-per-bracket
         # contract — "[F1, F2]", "[F1, 2]", "[F1 vs F2]" — previously stayed LITERAL in the
@@ -1365,8 +1367,9 @@ async def answer_filing_question(
             "uncited_figures": uncited_figures,
             "usage": usage_payload,
         }
-    except _UnpublishableAnswer:
-        logger.warning("Copilot candidate withheld at citation publication boundary")
+    except _UnpublishableAnswer as exc:
+        # These reasons are application-owned constants, never candidate prose or excerpts.
+        logger.warning("Copilot candidate withheld at citation publication boundary: %s", exc)
         yield {"type": "error", "message": _PUBLICATION_ERROR}
     except Exception:  # noqa: BLE001 — never raise ordinary failures out of the SSE generator
         logger.exception("Copilot answer_filing_question failed")

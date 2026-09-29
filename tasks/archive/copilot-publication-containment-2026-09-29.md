@@ -17,3 +17,9 @@ Reviewed candidate `3f3678345c2a5f4836ce8a660daf5dc59177b4fb` has tree `86ad5884
 Pinned full backend gate: Ruff0.16.9 and Bandit1.9.4 clean; Python3.11.16, **4,124passed,39skipped,2deselected,40warnings in193.05s**, exit0. Full frontend gate on Node22.23.2: lint/typecheck, **115files/703tests passed**, production build passed, exit0. The local build has no Sentry upload credential; it does not prove a hosted release. The five locked contracts remain byte-identical to main.
 
 [Receipts](../review-evidence/copilot-publication-containment-2026-09-29/) bind the committed identities and complete retained log hashes. Hosted CI, exact-head reviews, complete ready-stage measurement and production readbacks remain required before release.
+
+## Ready-stage findings and correction
+
+At `097b2fdb`, CI36622390411 passed70/70 with70 physical calls (estimatedUSD0.182087), but ready Copilot36624149908 completed18 and scored/passed17 with one MSFT draw1 execution error (36 physical calls, estimatedUSD0.007758). The service withheld that answer. The original artifact lacks its raw rejected candidate and precise reason, so its cause remains unresolved. It is retained as a failed run, not retried or reclassified.
+
+Ready review4137842319 separately identified that missing citation envelopes still completed through the legacy empty-list fallback. Two independent code/consumer refutations upheld this: the wrapper can end without a trailer, and the router charges every completion. The correction requires a complete envelope after the validated not-disclosed path; explicit empty arrays preserve uncited answers. The existing ASGI no-declaration control naturally failed on the old runtime and the corrected service owner passed113 tests. Existing positive provenance/repair fixtures now supply complete empty envelopes without changing their financial assertions. Server rejection warnings expose only application-owned reason text; user errors remain generic.

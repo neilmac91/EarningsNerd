@@ -168,7 +168,7 @@ def _publication_case(name):
         return draft, trailer, None, kind, followups, source
     elif name in ("empty_array", "no_declaration"):
         answer = "The filing describes its business and an original reference [14]."
-        declarations, expected = [], answer
+        declarations, expected = [], answer if name == "empty_array" else None
     elif name == "semantic_limit":
         answer = "This proves the company will dominate every future market [7]."
         declarations, expected = [good], answer.replace("[7]", "[1]")
