@@ -86,7 +86,8 @@ def _fact_value(fact: Any, units: dict) -> tuple[int, int] | None:
     scale = 10 ** int(fact.get("scale"))
     try:
         value = int(_text(fact).replace(",", "")) * scale
-    except ValueError:  # Numeric text may exceed Python's integer digit limit.
+        str(value)  # The scaled integer must also survive the descriptor's JSON encoding.
+    except ValueError:  # Input or scaled output may exceed Python's integer digit limit.
         return None
     return (-value if fact.get("sign") == "-" else value), scale
 

@@ -80,6 +80,8 @@ def test_actual_source_has_signed_aggregate_facts_and_full_duration():
     "one_row_header", "two_row_header", "leap_day_comparison",
     "oversized_current_fact", "oversized_prior_fact", "oversized_repeat", "oversized_component",
     "oversized_visible_same_cell", "oversized_visible_other_cell",
+    "scaled_component_3_overflow", "scaled_component_6_overflow",
+    "scaled_component_3_limit", "scaled_component_6_limit",
 ])
 def test_actual_source_adverse_boundaries_abstain(change):
     document = html.fromstring(original().encode())
@@ -140,6 +142,34 @@ def test_actual_source_adverse_boundaries_abstain(change):
             assert source is not None
             assert source["separate_investment_component_amounts"] == []
             return
+    elif change.startswith("scaled_component_"):
+        _, _, scale, boundary = change.split("_")
+        fact = copy.deepcopy(fact)
+        fact.set("id", "scaled-optional-component")
+        fact.set("name", "us-gaap:GainLossOnSaleOfInvestments")
+        fact.set("scale", scale)
+        if scale == "6":
+            fact.set("sign", "-")
+        # The lexical input fits Python's default limit in both cases. Scaling
+        # either exceeds that limit or lands exactly on its encoding boundary.
+        digits = 4300 if boundary == "overflow" else 4300 - int(scale)
+        fact.text = "9" * digits
+        document.xpath("//body")[0].append(fact)
+        source = acquire(html.tostring(document).decode())
+        assert source is not None
+        json.dumps(source)
+        components = source["separate_investment_component_amounts"]
+        if boundary == "overflow":
+            assert components == []
+        else:
+            assert len(components) == 1
+            assert components[0]["value"] == int(fact.text) * 10 ** int(scale) * (-1 if scale == "6" else 1)
+            assert len(str(abs(components[0]["value"]))) == 4300
+        supplied = sections()
+        assert bind_statement_relationship(supplied, source) is True
+        assert supplied["earnings_quality"][OWNED_FIELD]["source"] is source
+        json.dumps({CONTEXT_KEY: 1, "sections": supplied, "structured": {"sections": supplied}})
+        return
     elif change == "retracted_title":
         table.getparent().getprevious().append(html.fromstring("<p>The above statement is withdrawn.</p>"))
     elif change == "caption":

@@ -64,3 +64,12 @@ adverse gate across all three routes, preserving the shared annual amount owner.
 Also exercise extra visible digits beside a valid fact: same-cell additions fail
 the visible number grammar, and a second numeric cell fails its one-amount rule.
 Trace the actual quarterly call rather than assuming the fact check owns that text.
+
+Successful input conversion is insufficient for source values that are later
+serialized. Check decimal encoding after scaling within that same quarterly
+conversion boundary: an accepted 4,300-digit input can grow beyond the encoder's
+limit. Invalid optional components keep their existing ignore behavior. The same
+source-adverse gate covers scales three and six, including signed values that
+scale to exactly the accepted limit, and JSON-encodes accepted source/bound-summary
+shapes. Negation preserves the decimal digit count; later source arithmetic only
+compares values and does not store larger derived integers.
