@@ -65,7 +65,7 @@ def withhold_reconciliation_directions(
     authored = canonical or camel
     if not isinstance(authored, str):
         return None
-    match = WHOLE.fullmatch(authored.removeprefix("It is false that "))
+    match = WHOLE.fullmatch(authored)
     if match is None:
         return None
     try:
