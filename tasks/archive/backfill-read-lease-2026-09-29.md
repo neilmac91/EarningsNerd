@@ -16,8 +16,13 @@ read connection, while exact facts/stamps/order/idempotence/cache and durable le
 remain correct. Both expiration policies, unavailable source, completion/transport errors and
 no-active-transaction behavior are covered. Original tests and all locked contracts are intact.
 
-The two required mutations run only after this candidate is committed: bypass read completion,
-then omit the pending-state guard. Each must fail its own gate before byte-identical restoration.
-The operator retains exact committed identities, fault patches, logs and pinned full-gate results
+The two required mutations ran on committed `19f867386c8a38f7d4c0d3aba9bcf8f58c37ad25`:
+the focused preservation gate first passed 129 cases. Bypassing read completion failed all four
+lease cases at the real transport boundary (`4 failed, 55 deselected`); byte-identical restoration
+passed all four. Omitting the pending-state guard failed all eight refusal cases
+(`8 failed, 51 deselected`); restoration passed all eight. The script SHA-256 before and after
+both faults is `ed5eaa6024de977452c8b5d82a39f5e22ec5a90765d664442e659882ebfe8faf`.
+Each run used a fresh bytecode cache and no concurrent pytest. The checkout was clean after each
+restoration. The operator retains exact committed identities, fault patches, logs and pinned full-gate results
 under `outputs/overnight-2026-09-28/capacity/backfill-read-lease-candidate/`. No live job, additional
 capacity experiment, provider call, push or publication is authorized by this record.
