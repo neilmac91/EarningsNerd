@@ -178,6 +178,7 @@ jobs:
           python3 - <<'PY'
           import json
           import os
+          import re
           import subprocess
           svc = json.load(open("/tmp/svc.json"))
           status = svc["status"]
@@ -249,6 +250,47 @@ jobs:
           revision_max = revision.get("metadata", {}).get("annotations", {}).get("autoscaling.knative.dev/maxScale")
           print("Service maxScale:", service_max)
           print("Revision maxScale:", revision_max)
+          # Capacity inputs only: never print arbitrary command arguments or worker env text.
+          # An absent override is not evidence of the image's effective command or worker count.
+          container = revision["spec"]["containers"][0]
+          command = container.get("command") or []
+          args = container.get("args") or []
+          command_evidence = {"state": "image_default_unresolved"}
+          if command or args:
+              command_evidence = {"state": "override_present_values_withheld"}
+          env_by_name = {entry.get("name"): entry for entry in container.get("env", [])}
+          worker_env = {}
+          for name in ("WEB_CONCURRENCY", "UVICORN_WORKERS"):
+              entry = env_by_name.get(name)
+              if entry is None:
+                  worker_env[name] = {"state": "not_set"}
+              elif "valueFrom" in entry or "valueSource" in entry:
+                  worker_env[name] = {"state": "secret_ref_unresolved"}
+              elif re.fullmatch(r"[1-9][0-9]{0,2}", str(entry.get("value", ""))):
+                  worker_env[name] = {"state": "literal", "value": int(entry["value"])}
+              else:
+                  worker_env[name] = {"state": "present_unresolved_value_withheld"}
+          annotations = revision.get("metadata", {}).get("annotations", {})
+          egress = annotations.get("run.googleapis.com/vpc-access-egress")
+          ingress = svc.get("metadata", {}).get("annotations", {}).get("run.googleapis.com/ingress")
+          def bounded_integer(value, maximum):
+              return value if type(value) is int and 1 <= value <= maximum else None
+          capacity_config = {
+              "revision": latest,
+              "container_command": command_evidence,
+              "worker_environment": worker_env,
+              "gunicorn_args_present_value_withheld": "GUNICORN_CMD_ARGS" in env_by_name,
+              "container_concurrency": bounded_integer(revision["spec"].get("containerConcurrency"), 1000),
+              "request_timeout_seconds": bounded_integer(revision["spec"].get("timeoutSeconds"), 3600),
+              "vpc_egress": egress if egress in ("all-traffic", "private-ranges-only") else "unset_or_unresolved",
+              "vpc_connector_annotation_present": "run.googleapis.com/vpc-access-connector" in annotations,
+              "direct_vpc_annotation_present": "run.googleapis.com/network-interfaces" in annotations,
+              "ingress": ingress if ingress in ("all", "internal", "internal-and-cloud-load-balancing") else "unset_or_unresolved",
+              "effective_worker_count": None,
+              "egress_ip_identity": None,
+              "limit": "Configured inputs only; image defaults, running process count, egress IP and instantaneous rollout overlap are not measured.",
+          }
+          print("Capacity configuration:", json.dumps(capacity_config, sort_keys=True))
           PY
 
       - name: Describe expected job release configuration
