@@ -182,3 +182,38 @@ Pinned Ruff 0.16.9 and Bandit 1.9.4 passed. Full pytest 9.1.1 passed **4,028 tes
 diagnostics remain in the full log. No locked contract, annual owner, prompt, model, flag or
 stored summary changed. Root's correctness, rules and gate reviews clear this exact narrow
 repair; fresh hosted exact-head review and automatic checks still precede release.
+
+
+## Ready-review leap-year correction
+
+Corrected head `9ffd444c` passed CI36507471618 (70/70 scored, zero errors/retries)
+and ready Copilot36508918411 (18/18, zero errors). All105 physical peak Flash calls
+remain retained, estimated USD0.368495 in total; invoice cost is unknown. The prior
+measurement and incoming-root finding also remain. Actual ready review
+[4128771501](https://github.com/neilmac91/EarningsNerd/pull/1019#discussion_r4128771501)
+then identified a valid February29 comparison omitted by direct year replacement.
+The PR returned to draft before release.
+
+Two independent refutations upheld both directions: current February29 with prior
+February28, and current February28 with prior February29. Complete native contexts
+have valid source identity and exact three-calendar-month windows, but the selector
+returned unavailable. A separate coherently dated descriptor probe exposed the
+consumer's latent ValueError/KeyError; these are not crashes reached through the
+rejecting native selector. Initial synthetic-identity setup errors are retained and
+excluded from native-path evidence. The independent replay preserved YTD contexts
+and checked ordinary February, May and June controls.
+
+Runtime `90c52bc14f8aa9e9e86cd70c0afda737b64ef6f4` uses one prior-year calendar
+month-end helper in both the source selector and consumer lookup. It retains exact
+calendar-quarter validation; week-based fiscal periods are not inferred. The same
+existing source and actual-consumer gates add both leap directions. Committed
+fault `77ea45ba` has **4 failed, 147 deselected**; the correction has **4 passed,
+147 deselected**, including final, preview and shared exports.
+
+Pinned Ruff0.16.9 and Bandit1.9.4 passed. Full pytest9.1.1: **4,032 passed,
+39 skipped, 2 deselected**, 40 warnings in178.77 seconds, exit0. The passing summary
+and existing cleanup-logger diagnostic are retained. Root's correctness, rules and
+gate review and an independent exact-runtime review found no further actionable
+issue. Final evidence commit keeps these backend bytes. Hosted exact-head review
+and automatic checks remain required; this record does not claim release or E7
+acceptance. No locked contract, annual owner, prompt, model, flag or stamp changed.
