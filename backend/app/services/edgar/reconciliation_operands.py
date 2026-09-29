@@ -32,7 +32,9 @@ NOTE4 = re.compile(
 N1 = "(1) Excludes amortization of debt issuance costs included in “Other income, net.”"
 N2 = "(2) Includes stock-based compensation expense, payroll taxes and costs related to equity award activity."
 N5 = "(5) Net income margin represents net income as a percentage of net revenues."
-INTEGER = re.compile("\\A(?:[0-9]{1,3}(?:,[0-9]{3}){1,3}|[0-9]{1,12})\\Z")
+DIGITS = r"(?:[0-9]{1,3}(?:,[0-9]{3}){1,3}|[0-9]{1,12})"
+INTEGER = re.compile(rf"\A{DIGITS}\Z")
+NUMERIC_CELL = re.compile(rf"\$?\s*\(?\s*{DIGITS}\s*\)?")
 
 
 def _table_amount(row: list[dict], start: int, end: int) -> int | None:
@@ -44,7 +46,12 @@ def _table_amount(row: list[dict], start: int, end: int) -> int | None:
     tokens = [c["text"] for c in cells if c["text"]]
     # Separate currency/parenthesis cells may format one amount. Independent
     # numeric cells must never be concatenated into an invented operand.
-    if sum(bool(re.search(r"[0-9]", token)) or token == "—" for token in tokens) != 1:
+    amounts = [token for token in tokens if re.search(r"[0-9]", token) or token == "—"]
+    if len(amounts) != 1:
+        return None
+    # Validate the single cell before compacting only supported symbol spacing.
+    # Neither separate numeric cells nor digit chunks inside one cell form an amount.
+    if amounts[0] != "—" and NUMERIC_CELL.fullmatch(amounts[0]) is None:
         return None
     text = "".join(tokens).replace(" ", "")
     if text.startswith("$"):

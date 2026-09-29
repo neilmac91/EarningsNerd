@@ -40,3 +40,9 @@ selector now rejects that ambiguity locally while retaining separately formatted
 currency and parentheses; the annual amount helper remains unchanged. The existing
 consumer gate covers net income, a component and the total, with a separate-symbol
 positive control and a committed guard-removal proof.
+
+Apply the same numeric-token invariant before whitespace compaction inside a cell:
+`8 502`, including normalized tabs/newlines/NBSP, is outside the bounded digit/comma
+lexeme. Permit whitespace around supported currency/parenthesis symbols only after
+that single raw amount passes validation. The same existing consumer cases and
+numeric-token proof cover these forms while retaining `$ 8,502` as a positive.

@@ -40,7 +40,9 @@ FALSE = "Operating income included the gain on debt extinguishment and foreign c
 ] + ["reconciliation:" + case for case in RECONCILIATION_CONTROLS] + [
     "reconciliation:" + case for case in ("nonstring_canonical", "evidence_aliases", "unsupported_section_alias",
                                          "before_repair", "recovery_forged", "invalid_dei_start", "reversed_dei_start",
-                                         "adjacent_net", "adjacent_tax", "adjacent_total", "separate_parentheses")
+                                         "adjacent_net", "adjacent_tax", "adjacent_total", "separate_parentheses",
+                                         "cell_space", "cell_tab", "cell_nbsp", "cell_newline", "cell_comma_space",
+                                         "cell_currency_space", "cell_parentheses_space")
 ])
 async def test_complete_interpretation_withholding_boundary_all_consumers(monkeypatch, change):
     """One complete interpretation boundary, source exclusion and unchanged independent bytes."""
@@ -247,6 +249,19 @@ async def _reconciliation_consumers(monkeypatch, change):
     source_html, tax_retained = tax_original()
     if case["source_mutation"]:
         source_html = mutate_source(source_html, case["source_mutation"])
+    if change.startswith("cell_"):
+        from app.services.edgar.statement_relationship_source import _text
+        document = html.fromstring(source_html.encode(), parser=html.HTMLParser(encoding="utf-8", no_network=True))
+        table = next(t for t in document.xpath("//table") if "Add (deduct):" in _text(t))
+        row = table.xpath("./tr|./tbody/tr")[6 if change == "cell_parentheses_space" else 7]
+        cell = row[1]
+        for child in list(cell):
+            cell.remove(child)
+        cell.text = {"cell_space": "8 502", "cell_tab": "8\t502", "cell_nbsp": "8\xa0502",
+                     "cell_newline": "8\n502", "cell_comma_space": "8, 502",
+                     "cell_currency_space": "$ 8,502", "cell_parentheses_space": "( 1,619 )"}[change]
+        case["expected_selected"] = change in {"cell_currency_space", "cell_parentheses_space"}
+        source_html = html.tostring(document, encoding="unicode")
     if change.startswith("adjacent_") or change == "separate_parentheses":
         from app.services.edgar.statement_relationship_source import _text
         document = html.fromstring(source_html.encode(), parser=html.HTMLParser(encoding="utf-8", no_network=True))
