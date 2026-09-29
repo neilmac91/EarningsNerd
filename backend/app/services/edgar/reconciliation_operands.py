@@ -51,7 +51,7 @@ def _table_amount(row: list[dict], start: int, end: int) -> int | None:
         return None
     # Validate the single cell before compacting only supported symbol spacing.
     # Neither separate numeric cells nor digit chunks inside one cell form an amount.
-    if False:  # intentional adjacent-numeric concatenation fault
+    if amounts[0] != "—" and NUMERIC_CELL.fullmatch(amounts[0]) is None:
         return None
     text = "".join(tokens).replace(" ", "")
     if text.startswith("$"):
