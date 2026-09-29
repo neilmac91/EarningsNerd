@@ -8,7 +8,7 @@ from typing import Any
 
 from app.services.edgar.statement_context import source_context_identity, source_report_identity
 from app.services.edgar.statement_relationship_source import _cells, _text
-from app.services.edgar.tax_rate_comparison import _duration, _namespaces_valid
+from app.services.edgar.tax_rate_comparison import _duration, _namespaces_valid, quarter_start
 
 MONTH = "(?:January|February|March|April|May|June|July|August|September|October|November|December)"
 DATE = f"{MONTH} [0-9]{{1,2}}, [0-9]{{4}}"
@@ -63,6 +63,33 @@ def _table_amount(row: list[dict], start: int, end: int) -> int | None:
     if INTEGER.fullmatch(digits) is None:
         return None
     return int(digits.replace(",", "")) * 1000 * (-1 if negative else 1)
+
+
+def _complete_local_scope(wrapper: Any, before: list, after: list, matrix: list, periods: list) -> bool:
+    # Every visible word inside the native wrapper must belong to a parsed cell.
+    if _text(wrapper) != " ".join(c["text"] for row in matrix for c in row if c["text"]):
+        return False
+    # Bare text between otherwise complete sibling nodes also governs this scope.
+    siblings = list(wrapper.getparent())
+    local = siblings[siblings.index(before[1]):siblings.index(after[5])]
+    if any((node.tail or "").strip() for node in local):
+        return False
+    if any(matrix[i][0]["colspan"] != periods[0][0] for i in (*range(4, 12), 13, 14, 15)):
+        return False
+    if any(c["text"] for c in matrix[5][1:]):
+        return False
+    for left, right in periods:
+        if _table_amount(matrix[13], left, right) is None:
+            return False
+        for row in matrix[14:16]:
+            cells = [c for c in row if c["text"] and c["column"] < right
+                     and c["column"] + c["colspan"] > left]
+            if any(c["column"] < left or c["column"] + c["colspan"] > right for c in cells):
+                return False
+            tokens = [c["text"] for c in cells]
+            if len(tokens) != 2 or tokens[1] != "%" or re.fullmatch(r"[0-9]{1,3}\.[0-9]", tokens[0]) is None:
+                return False
+    return True
 
 
 def _select(document: Any) -> tuple[dict | None, str | None]:
@@ -204,6 +231,8 @@ def _select(document: Any) -> tuple[dict | None, str | None]:
             )
         ):
             return (None, "year_geometry")
+    if not _complete_local_scope(wrapper, before, after, matrix, periods):
+        return (None, "local_scope")
     columns = []
     for left, right in periods:
         amounts = [_table_amount(matrix[i], left, right) for i in (4, 6, 7, 8, 9, 10, 11)]
@@ -228,10 +257,9 @@ def _select(document: Any) -> tuple[dict | None, str | None]:
         if identity2 != (entity, "duration", end, False) or len(starts2) != 1:
             continue
         try:
-            days = (report - date.fromisoformat(starts2[0])).days
+            if date.fromisoformat(starts2[0]) != quarter_start(report):
+                continue
         except ValueError:
-            continue
-        if not 75 <= days <= 105:
             continue
         unit = unique(fact.get("unitref"))
         measures = (

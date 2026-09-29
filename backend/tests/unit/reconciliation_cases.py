@@ -26,7 +26,45 @@ def mutate_source(text, kind):
             node.remove(child)
         node.text = text
 
-    if kind in {"misparented_context", "nested_measure"}:
+    if kind.startswith("scope_"):
+        rows = t.xpath("./tr|./tbody/tr")
+        qualifier = "All adjustments below exclude amounts already included in net income."
+        if kind == "scope_whitespace":
+            before.tail = w.tail = after[0].tail = " \n\t"
+        elif kind == "scope_after_heading":
+            after[5].tail = qualifier
+        elif kind == "scope_row5":
+            plain(rows[5][1], qualifier)
+        elif kind in {"scope_revenue_spacer", "scope_income_margin_spacer", "scope_ebitda_margin_spacer"}:
+            row = rows[{"scope_revenue_spacer": 13, "scope_income_margin_spacer": 14,
+                        "scope_ebitda_margin_spacer": 15}[kind]]
+            plain(next(c for c in row if not _text(c)), qualifier)
+        elif kind in {"scope_revenue_number", "scope_margin_number"}:
+            plain(rows[13][2] if kind == "scope_revenue_number" else rows[14][1], qualifier)
+        elif kind == "scope_label_gap":
+            rows[7][0].set("colspan", "2")
+            cell = html.Element("td", colspan="1")
+            cell.text = qualifier
+            rows[7].insert(1, cell)
+        elif kind in {"scope_table_text", "scope_row_text", "scope_wrapper_text"}:
+            node = {"scope_table_text": t, "scope_row_text": rows[5], "scope_wrapper_text": w}[kind]
+            node.text = qualifier
+        elif kind == "scope_blank_sibling_tail":
+            node = html.Element("span")
+            node.tail = qualifier
+            w.addnext(node)
+        else:
+            node = {"scope_cell_tail": rows[5][0], "scope_table_tail": t, "scope_wrapper_tail": w,
+                    "scope_intro_tail": before, "scope_note_tail": after[0],
+                    "scope_toc_tail": next(n for n in before.itersiblings(preceding=True) if _text(n))}[kind]
+            node.tail = qualifier
+    elif kind in {"period_early", "period_late", "period_range_early", "period_range_late", "period_outside"}:
+        start = {"period_early": "2026-03-31", "period_late": "2026-04-02",
+                 "period_range_early": "2026-03-17", "period_range_late": "2026-04-15",
+                 "period_outside": "2026-02-01"}[kind]
+        context = next(n for n in d.iter() if n.get("id") == "c-10")
+        next(n for n in context.iter() if n.tag == "xbrli:startdate").text = start
+    elif kind in {"misparented_context", "nested_measure"}:
         if kind == "misparented_context":
             ctx = next((n for n in d.iter() if n.get("id") == "c-10"))
             ctx[0].append(ctx[1][0])

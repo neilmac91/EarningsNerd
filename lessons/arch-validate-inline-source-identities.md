@@ -46,3 +46,13 @@ Apply the same numeric-token invariant before whitespace compaction inside a cel
 lexeme. Permit whitespace around supported currency/parenthesis symbols only after
 that single raw amount passes validation. The same existing consumer cases and
 numeric-token proof cover these forms while retaining `$ 8,502` as a positive.
+
+The finite reconciliation layout must account for every local word: unparsed
+Add/deduct companions, trailing revenue/margin cells, label gaps and bare text
+between exact siblings can otherwise bypass the same scope boundary. Validate
+bounded tail lexemes and all text from the preceding Table of Contents through
+the following heading, preserving abstention for unknown local content. This does
+not infer global source assertion status. Match a selected tagged anchor's exact
+three-calendar-month start using the reviewed calendar helper; a 75–105 day range
+does not establish identity with a three-month table. Both invariants reuse the
+existing complete-interpretation consumer gate and independent mutation proofs.

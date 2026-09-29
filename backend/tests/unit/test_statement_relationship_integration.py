@@ -42,7 +42,15 @@ FALSE = "Operating income included the gain on debt extinguishment and foreign c
                                          "before_repair", "recovery_forged", "invalid_dei_start", "reversed_dei_start",
                                          "adjacent_net", "adjacent_tax", "adjacent_total", "separate_parentheses",
                                          "cell_space", "cell_tab", "cell_nbsp", "cell_newline", "cell_comma_space",
-                                         "cell_currency_space", "cell_parentheses_space")
+                                         "cell_currency_space", "cell_parentheses_space",
+                                         "scope_row5", "scope_revenue_spacer", "scope_income_margin_spacer",
+                                         "scope_ebitda_margin_spacer", "scope_revenue_number", "scope_margin_number",
+                                         "scope_label_gap", "scope_table_text", "scope_row_text", "scope_cell_tail",
+                                         "scope_wrapper_text", "scope_table_tail", "scope_wrapper_tail", "scope_intro_tail",
+                                         "scope_note_tail", "scope_toc_tail", "scope_blank_sibling_tail",
+                                         "scope_after_heading", "scope_whitespace",
+                                         "period_early", "period_late", "period_range_early", "period_range_late",
+                                         "period_outside")
 ])
 async def test_complete_interpretation_withholding_boundary_all_consumers(monkeypatch, change):
     """One complete interpretation boundary, source exclusion and unchanged independent bytes."""
@@ -249,6 +257,9 @@ async def _reconciliation_consumers(monkeypatch, change):
     source_html, tax_retained = tax_original()
     if case["source_mutation"]:
         source_html = mutate_source(source_html, case["source_mutation"])
+    if change.startswith(("scope_", "period_")):
+        source_html = mutate_source(source_html, change)
+        case["expected_selected"] = change in {"scope_after_heading", "scope_whitespace"}
     if change.startswith("cell_"):
         from app.services.edgar.statement_relationship_source import _text
         document = html.fromstring(source_html.encode(), parser=html.HTMLParser(encoding="utf-8", no_network=True))
