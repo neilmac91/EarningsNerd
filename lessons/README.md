@@ -14,6 +14,12 @@ what applies to your task. Filenames are greppable: `arch-*`, `sec-*`, `test-*`,
 
 - [`arch-acquisition-period-withholding-needs-whole-claims.md`](./arch-acquisition-period-withholding-needs-whole-claims.md) — Preserve closed authored continuations when withholding ambiguous acquisition-period claims
 
+- [`arch-admit-authored-evidence-before-repair.md`](./arch-admit-authored-evidence-before-repair.md) — Match the real evidence selector and admit authored evidence before fuzzy repair
+
+- [`arch-validate-inline-source-identities.md`](./arch-validate-inline-source-identities.md) — Validate namespace bindings and qualified tags before selecting inline source facts
+
+- [`arch-operand-matches-do-not-authorize-financial-assertions.md`](./arch-operand-matches-do-not-authorize-financial-assertions.md) — Use tagged operands for bounded withholding without promoting them to assertion authority
+
 - [`arch-source-supplements-preserve-existing-context.md`](./arch-source-supplements-preserve-existing-context.md) — Retain complete bounded omitted source without displacing existing context
 - [`arch-capital-comparisons-need-source-ownership.md`](./arch-capital-comparisons-need-source-ownership.md) — Own qualified comparisons and source-attributed capital passages in code
 - [`arch-bind-bare-table-figures-to-the-declared-scale.md`](./arch-bind-bare-table-figures-to-the-declared-scale.md) — Bind a bare dollar figure copied from a scaled table to the table's declared scale

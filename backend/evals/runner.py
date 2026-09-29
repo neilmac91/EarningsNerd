@@ -196,6 +196,13 @@ def _baseline_to_canonical(summary: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 
+def _include_statement_evidence(source: Any) -> bool:
+    """Keep legacy annex eligibility; the new operand-only descriptor is not evidence."""
+    from app.services.edgar.quarterly_statement_source import KIND
+
+    return bool(source) and (not isinstance(source, dict) or source.get("kind") != KIND)
+
+
 async def _maybe_judge(
     judge_model: Optional[str], payload: Optional[Dict[str, Any]],
     filing: GoldenFiling, grounding: Dict[str, Any],
@@ -210,7 +217,7 @@ async def _maybe_judge(
     xbrl_text = json.dumps(_model_metrics(grounding["xbrl_metrics"]), default=str) if grounding["xbrl_metrics"] else ""
     judge_excerpt = grounding["excerpt"] or ""
     statement_evidence = grounding.get("statement_source")
-    if statement_evidence:
+    if _include_statement_evidence(statement_evidence):
         # Independent application evidence, not a claim that the model saw these passages.
         judge_excerpt += ("\n\n[APPLICATION-OWNED PRIMARY-STATEMENT EVIDENCE; "
                           "independent of the generator excerpt]\n"

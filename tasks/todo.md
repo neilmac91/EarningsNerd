@@ -5920,6 +5920,26 @@ H15 historical equality, logo and 78 dispositions remain unresolved. Quality, be
   `outputs/execution-2026-09-28/`: source-bound candidate stop, beta readout fixtures and
   retained fleet arithmetic. No E7/E8 generation or claim of a completed fourth dossier.
 
+
+## 2026-09-28 — isolated quarterly component-withholding candidate
+
+- Verified remote base `4db8f46a1a35eca7e71194919eefafb29c29e50d`; implementation stays
+  on `codex/wave3-quarterly-source-preservation`. Held `9e65e74c` and its five red
+  source-scope regressions remain untouched in their original checkout.
+- Replace only a complete matching ambiguous aggregate/component proposition with
+  an explicit application verification limitation. Preserve the complete separate
+  compensation continuation and all other fields. No quarterly financial fact is
+  reconstructed from the operand descriptor.
+- This is offline candidate work pending independent root review. Native-source
+  supplements are separate from the unchanged retained-70 cached-source evidence.
+  No provider call, push, PR, production change, E7 credit or content-stamp adoption.
+- Independent engineering review requested three fixes: quarterly-only omission
+  from both optional judge annexes, short-header abstention and exception-safe
+  leap-date abstention. Correction commit `5274fc7e` passes 59 focused tests, three
+  committed fault/restored proofs and the full backend gate (3,866 passed, 39
+  skipped, 2 deselected). Annual/absent full-message hashes are preserved. The
+  candidate remains held for independent re-review; no release action is taken.
+
 ## September 28 overnight authority and provider-cost correction
 
 The founder requested independent overnight implementation with agents and explicitly authorized

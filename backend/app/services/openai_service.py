@@ -41,7 +41,7 @@ from app.services.ai import attribution_verify
 from app.services.ai.forward_quote_gate import gate_forward_quotes
 from app.services.ai.statement_relationship import (
     CONTEXT_KEY as STATEMENT_CONTEXT_KEY, CONTEXT_VERSION as STATEMENT_CONTEXT_VERSION,
-    OWNED_FIELD as STATEMENT_OWNED_FIELD, bind_statement_relationship,
+    OWNED_FIELD as STATEMENT_OWNED_FIELD, bind_statement_relationship, display_statement_paragraphs,
 )
 from app.services.ai.issuer_cash_disclosure import (
     CONTEXT_KEY as ISSUER_CASH_CONTEXT_KEY, CONTEXT_VERSION as ISSUER_CASH_CONTEXT_VERSION,
@@ -53,6 +53,9 @@ from app.services.ai.financing_comparison import (
 from app.services.ai.source_units import (
     attach_quote_unit_context, build_table_unit_index, capital_plan_proposition,
     restore_authored_plan_units, restore_table_cell_units,
+)
+from app.services.ai.tax_rate_explanation import (
+    AUDIT_KEY as TAX_EXPLANATION_AUDIT_KEY, strip_tax_explanation_metadata, withhold_tax_rate_explanation,
 )
 from app.services.ai.json_repair import _JsonRepairMixin
 from app.services.ai.markdown_render import _MarkdownRenderMixin
@@ -652,9 +655,10 @@ Rules:
             # for the final same-filing source projection rather than streaming model-authored text.
             sections.pop("risks", None)
             acquisition_owned = bind_acquisition_period(sections, primary_excerpt, xbrl_metrics, filing_type=filing_type_key)
-            bind_statement_relationship(sections, statement_source)
+            statement_owned = bind_statement_relationship(sections, statement_source)
             bind_capital_allocation(sections, xbrl_metrics)
             bind_issuer_cash_disclosure(sections)
+            withhold_tax_rate_explanation(sections, unit_index)
             # Same table-cell owner as the final render, over the same source document, after the
             # same binders, so preview and final restore the same surviving prose.
             restore_table_cell_units(sections, unit_index, xbrl_metrics=xbrl_metrics)
@@ -663,7 +667,7 @@ Rules:
                 CAPITAL_CONTEXT_KEY: CAPITAL_CONTEXT_VERSION,
                 METRIC_DELTA_CONTEXT_KEY: METRIC_DELTA_CONTEXT_VERSION,
                 **({ACQUISITION_CONTEXT_KEY: ACQUISITION_CONTEXT_VERSION} if acquisition_owned else {}),
-                **({STATEMENT_CONTEXT_KEY: STATEMENT_CONTEXT_VERSION} if statement_source else {}),
+                **({STATEMENT_CONTEXT_KEY: STATEMENT_CONTEXT_VERSION} if statement_owned else {}),
             })
             return sections_to_markdown(rendered) or None
         except Exception:  # noqa: BLE001 — optional malformed previews must not abort generation
@@ -722,6 +726,7 @@ Rules:
                 "raw_summary": {"error": "structured_extraction_failed", "detail": error_msg[:500]},
             }
 
+        strip_tax_explanation_metadata(structured_summary)
         sections_info = structured_summary.get("sections", {}) or {}
         # Deterministic taxonomy guard: the model has a strong prior for "standard" sections and will
         # emit legacy/extra keys (executive_snapshot, three_year_trend, …) alongside the v2 schema no
@@ -823,6 +828,11 @@ Rules:
             sections_info, filing_excerpt or "", xbrl_metrics, filing_type=filing_type_key,
             recovered="notable_footnotes" in recovered_keys,
         )
+        unit_index = build_table_unit_index(filing_text or "")
+        # Like preview, decide from authored evidence before any fuzzy evidence repair.
+        # The selector uses the complete native document, including for recovered notes;
+        # it neither assumes the primary excerpt nor emits a source assertion.
+        tax_explanation_audit = withhold_tax_rate_explanation(sections_info, unit_index)
         evidence_snap_audit = await run_in_threadpool(
             snap_evidence,
             sections_info,
@@ -845,7 +855,7 @@ Rules:
                 sections_info, capital_plan_proposition(filing_excerpt or "", layout),
             )
         capital_source = structured_summary.pop("_capital_allocation_grounding", "")
-        bind_statement_relationship(sections_info, statement_source)
+        statement_owned = bind_statement_relationship(sections_info, statement_source)
         bind_capital_allocation(sections_info, xbrl_metrics, capital_source)
         issuer_cash_owned = bind_issuer_cash_disclosure(
             sections_info, structured_summary.pop(ISSUER_CASH_SOURCE_KEY, ""),
@@ -859,7 +869,7 @@ Rules:
         # (separately selected context). Measure-always: the audit carries total counts beside its
         # capped detail lists.
         table_cell_unit_audit = restore_table_cell_units(
-            sections_info, build_table_unit_index(filing_text or ""),
+            sections_info, unit_index,
             xbrl_metrics=xbrl_metrics, recovered=recovered_keys,
         )
 
@@ -928,9 +938,9 @@ Rules:
         if isinstance(management_section_structured, dict):
             management_for_compat = dict(management_section_structured)
             management_for_compat.pop(ISSUER_CASH_OWNED_FIELD, None)
-            if statement_source:
+            if statement_owned:
                 owned_statement = management_for_compat.pop(STATEMENT_OWNED_FIELD, {})
-                management_for_compat["operating_vs_one_time"] = "\n".join(owned_statement.get("paragraphs", []))
+                management_for_compat["operating_vs_one_time"] = "\n".join(display_statement_paragraphs(owned_statement))
         management_section = _stringify(management_for_compat)
         guidance_structured = sections_info.get("forward_signals")
         guidance_section = _stringify(guidance_structured)
@@ -969,7 +979,7 @@ Rules:
             METRIC_DELTA_CONTEXT_KEY: METRIC_DELTA_CONTEXT_VERSION,
             RISK_SOURCE_CONTEXT_KEY: RISK_SOURCE_CONTEXT_VERSION,
             **({ISSUER_CASH_CONTEXT_KEY: ISSUER_CASH_CONTEXT_VERSION} if issuer_cash_owned else {}),
-            **({STATEMENT_CONTEXT_KEY: STATEMENT_CONTEXT_VERSION} if statement_source else {}),
+            **({STATEMENT_CONTEXT_KEY: STATEMENT_CONTEXT_VERSION} if statement_owned else {}),
             **({ACQUISITION_CONTEXT_KEY: ACQUISITION_CONTEXT_VERSION} if acquisition_owned else {}),
         }
         rendered = render_sections(render_envelope)
@@ -980,7 +990,7 @@ Rules:
 
         raw_summary_payload = {
             **({ACQUISITION_CONTEXT_KEY: ACQUISITION_CONTEXT_VERSION} if acquisition_owned else {}),
-            **({STATEMENT_CONTEXT_KEY: STATEMENT_CONTEXT_VERSION} if statement_source else {}),
+            **({STATEMENT_CONTEXT_KEY: STATEMENT_CONTEXT_VERSION} if statement_owned else {}),
             SOURCE_UNIT_CONTEXT_KEY: SOURCE_UNIT_CONTEXT_VERSION,
             CAPITAL_CONTEXT_KEY: CAPITAL_CONTEXT_VERSION,
             METRIC_DELTA_CONTEXT_KEY: METRIC_DELTA_CONTEXT_VERSION,
@@ -998,6 +1008,8 @@ Rules:
             raw_summary_payload["evidence_snap_audit"] = evidence_snap_audit
         if table_cell_unit_audit:
             raw_summary_payload["table_cell_unit_audit"] = table_cell_unit_audit
+        if tax_explanation_audit:
+            raw_summary_payload[TAX_EXPLANATION_AUDIT_KEY] = tax_explanation_audit
         if writer_result:
             raw_summary_payload["writer"] = writer_result
         if writer_fallback_reason:
