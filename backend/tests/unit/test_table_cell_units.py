@@ -24,6 +24,7 @@ from app.services.edgar.debt_concepts import DEBT_MATURITY_SEQUENCE, DEBT_MATURI
 from app.services.openai_service import OpenAIService
 from app.services.summary_sections import render_sections, sections_to_markdown
 from app.services.summary_versioning import SUMMARY_SCHEMA_VERSION
+from tests.unit.acquisition_period_cases import CASES as ACQUISITION_CASES, exercise_acquisition_period_consumer
 
 WMT_SOURCE = gzip.open(
     Path(__file__).parents[1] / "fixtures" / "table_units" / "wmt-20260131-debt-tables.html.gz", "rt",
@@ -447,8 +448,12 @@ async def test_owner_runs_after_the_source_binders_on_final_and_preview(monkeypa
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("case", ["final", "preview", "recovered", "cached_excerpt"])
+@pytest.mark.parametrize("case", ["final", "preview", "recovered", "cached_excerpt",
+                                  *("acquisition:" + name for name in ACQUISITION_CASES)])
 async def test_actual_consumer_restores_once_and_renders_the_same_text(monkeypatch, case):
+    if case.startswith("acquisition:"):
+        await exercise_acquisition_period_consumer(monkeypatch, case.split(":", 1)[1])
+        return
     service = OpenAIService()
     sections = _sections()
     structured = {"schema_version": SUMMARY_SCHEMA_VERSION, "sections": deepcopy(sections), "metadata": {}}

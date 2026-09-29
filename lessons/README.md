@@ -12,6 +12,8 @@ what applies to your task. Filenames are greppable: `arch-*`, `sec-*`, `test-*`,
 
 ## Architecture
 
+- [`arch-acquisition-period-withholding-needs-whole-claims.md`](./arch-acquisition-period-withholding-needs-whole-claims.md) — Preserve closed authored continuations when withholding ambiguous acquisition-period claims
+
 - [`arch-admit-authored-evidence-before-repair.md`](./arch-admit-authored-evidence-before-repair.md) — Match the real evidence selector and admit authored evidence before fuzzy repair
 
 - [`arch-validate-inline-source-identities.md`](./arch-validate-inline-source-identities.md) — Validate namespace bindings and qualified tags before selecting inline source facts
