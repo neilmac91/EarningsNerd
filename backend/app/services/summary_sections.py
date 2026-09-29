@@ -20,7 +20,7 @@ from typing import Any, Callable, List, Optional
 
 from app.services.ai.statement_relationship import (
     CONTEXT_KEY as STATEMENT_CONTEXT_KEY, CONTEXT_VERSION as STATEMENT_CONTEXT_VERSION,
-    OWNED_FIELD as STATEMENT_OWNED_FIELD,
+    OWNED_FIELD as STATEMENT_OWNED_FIELD, display_statement_paragraphs,
 )
 from app.services.ai.issuer_cash_disclosure import (
     CONTEXT_KEY as ISSUER_CASH_CONTEXT_KEY, CONTEXT_VERSION as ISSUER_CASH_CONTEXT_VERSION,
@@ -684,7 +684,7 @@ def _v2_earnings_quality(
     for key, alt in (("operating_vs_one_time", "operatingVsOneTime"), ("cash_conversion", "cashConversion")):
         if key == "operating_vs_one_time" and statement_owned:
             owned = data.get(STATEMENT_OWNED_FIELD, {})
-            for paragraph in _str_list(owned.get("paragraphs") if isinstance(owned, dict) else []):
+            for paragraph in _str_list(display_statement_paragraphs(owned) if isinstance(owned, dict) else []):
                 section.blocks.append(Block("paragraph", text=paragraph))
             continue
         text = _clean(data.get(key) or data.get(alt))
