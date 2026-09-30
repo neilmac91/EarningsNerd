@@ -854,6 +854,10 @@ def test_selected_cash_conversion_basis_survives_source_to_visible(monkeypatch, 
 
     frames = {income_tag: frame(income), cash_tag: frame(5_024_523_000),
               "us-gaap:PaymentsToAcquirePropertyPlantAndEquipment": frame(513_809_000)}
+    for concept, value in (("us-gaap:StockholdersEquity", 20_000_000_000),
+                           ("us-gaap:Assets", 50_000_000_000)):
+        frames[concept] = pd.DataFrame([{"period_end": "2025-12-31", "currency": "USD",
+                                         "is_dimensioned": False, "numeric_value": value}])
     if income_tag == "us-gaap:NetIncomeLoss":
         # Both exist in source; do not switch to total income to match model prose.
         frames["us-gaap:ProfitLoss"] = frame(1_610_894_000)
@@ -874,7 +878,9 @@ def test_selected_cash_conversion_basis_survives_source_to_visible(monkeypatch, 
     monkeypatch.setattr(settings, "USE_STATEMENT_FINANCIALS", False)
     selected = {key: DURATION_CONCEPTS[key] for key in ("net_income", "operating_cash_flow", "capital_expenditures")}
     monkeypatch.setattr(xbrl_module, "DURATION_CONCEPTS", selected)
-    monkeypatch.setattr(xbrl_module, "INSTANT_CONCEPTS", {})
+    monkeypatch.setattr(xbrl_module, "INSTANT_CONCEPTS", {
+        key: xbrl_module.INSTANT_CONCEPTS[key] for key in ("shareholders_equity", "total_assets")
+    })
     monkeypatch.setattr(xbrl_module, "dividend_component_sum_series", lambda *a: ([], None))
     monkeypatch.setattr(xbrl_module, "_extract_segments", lambda *a: [])
     monkeypatch.setattr(xbrl_module, "debt_component_observations", lambda *a, **k: [])
@@ -883,6 +889,16 @@ def test_selected_cash_conversion_basis_survives_source_to_visible(monkeypatch, 
     assert raw["net_income"][0]["raw_tag"] == income_tag
     assert raw["operating_cash_flow"][0]["raw_tag"] == cash_tag
     assert raw["net_income"][0]["value"] == income
+    # Exercise the real producer: synthetic standardized metadata cannot prove ratio custody.
+    selected_metrics = EdgarXBRLService().extract_standardized_metrics(raw)
+    for ratio, key in (("return_on_equity", "shareholders_equity"), ("return_on_assets", "total_assets")):
+        # Raw instance points (persisted as Filing.xbrl_data, which Copilot reads) keep main's shape.
+        assert "raw_tag" not in raw[key][0]
+        point = selected_metrics[ratio]["current"]
+        assert point["numerator"] == selected_metrics["net_income"]["current"]
+        assert point["numerator"]["raw_tag"] == income_tag
+        assert point["denominator"]["period"] == raw[key][0]["period"]
+        assert point["denominator"]["value"] == raw[key][0]["value"]
     if income_tag == "us-gaap:NetIncomeLoss":
         assert "us-gaap:ProfitLoss" not in calls  # Preserve first-candidate precedence.
     ni, ocf = raw["net_income"][0], raw["operating_cash_flow"][0]
@@ -923,6 +939,11 @@ def test_selected_cash_conversion_basis_survives_source_to_visible(monkeypatch, 
     raw_summary = {"schema_version": 2, "sections": sections}
     line = sections["earnings_quality"]["cash_conversion"]
     expected = f"{5_024_523_000 / income:.1f}x net income {basis} (cash conversion)"
+    if defect is None:
+        # The rendered return ratios name the same selected income concept the extractor chose.
+        returns = sections_to_markdown(render_sections(raw_summary)).lower()
+        assert f"period net income {basis} / period-end equity, not annualized: " in returns
+        assert f"period net income {basis} / period-end assets, not annualized: " in returns
     assert (expected in line) is (basis is not None)
     assert preview is not None
     for text in (preview, sections_to_markdown(render_sections(raw_summary)), json.dumps(render_sections_json(raw_summary))):
