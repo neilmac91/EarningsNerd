@@ -35,12 +35,12 @@ handover package `earningsnerd-opus-5-5-handover` (SHA256SUMS verified). Checked
 | PR | Disposition target | Branch / worktree | Head | Status |
 | --- | --- | --- | --- | --- |
 | #1013 | review, validate, merge | dependabot branch (main merged: `0113e9c9`) | `2cd639fd`→`0113e9c9` | **merged** `e1914ea4`; prod serves posthog-js 1.434.14 |
-| #1012 | maintainer replacement, merge, close original | replacement [#1030](https://github.com/neilmac91/EarningsNerd/pull/1030) `claude/pr1012-posthog-7.60.1` `c8c56cee` | `1e56f3d2` | draft; review pending |
+| #1012 | maintainer replacement, merge, close original | replacement [#1030](https://github.com/neilmac91/EarningsNerd/pull/1030) `claude/pr1012-posthog-7.60.1` `c8c56cee` | `1e56f3d2` | **#1030 merged** `c13b069a`, deployed `00423-wrg`; #1012 closed superseded |
 | #952 | repair current-inspection binding, merge tooling | `claude/attached-file-review-any8xz` | `1d48eb33` | analysis |
 | #1021 | integrate main, qualify or hold draft | `codex/wave3-acquisition-period-withholding` | `55e89142` | analysis |
 | #942 | fresh successor, close original | tbd | `47d040aa` | analysis |
 | #1023 | close with successor, diagnose | tbd | `d58c1a59` | analysis |
-| #1009 | retain draft hold, document prerequisites | `codex/wave3-launch-pricing-offer` | `561dc2b8` | analysis |
+| #1009 | retain draft hold, document prerequisites | `codex/wave3-launch-pricing-offer` | `561dc2b8` | **held draft**; hold record comment 5920001935 |
 
 Merge-tree conflicts vs main at start: #1013/#1012 none; #952, #1023, #1009 `tasks/todo.md`;
 #1021 `lessons/README.md`; #942 `summary_versioning.py`, `continuation-plan-2026-09-26.md`,
@@ -100,3 +100,15 @@ Merge-tree conflicts vs main at start: #1013/#1012 none; #952, #1023, #1009 `tas
 - 21:11Z — D1 readiness artifact (sha256 `f2aca82f…`): accepted, 18 expected/completed/scored/passed, 0 errors;
   30 deepseek-flash calls all success; telemetry USD 0.005827, 0 unknown-cost; 4 advisory uncited-figure lines retained.
 - 21:18Z — #1030 body records the review and founder-approved override; review-gate run 36778562740 pass.
+- 21:23Z — **#1030 squash-merged as `c13b069a`** (head re-read `c8c56cee`, mergeable clean, no main run in
+  progress). Main CI 36779080311 success; deploy job 110106288262: `apply_migrations: applied=0 skipped=40`,
+  revision `earningsnerd-backend-00423-wrg` 100% traffic, deploy health healthy. Independent readback
+  2026-09-30T21:37:20Z `/health/detailed` healthy (db 6.32 ms, SEC circuit closed), homepage 200.
+  Release comment on #1030 (5920169618); #1012 closed as superseded with comment 5920170891.
+- 21:20Z — #1013 main CI 36778453187 success (deploy-backend change-detection: frontend only).
+- 21:26Z — #1009 hold record posted (comment 5920001935): conflicts (todo.md only), no pricing drift on main,
+  ordered release prerequisites incl. beta $0/no-card readback and pinned-revision binding switch.
+- Lane analysis workflow wf_48c9735d-5d8 (10 agents, skeptic-verified) complete; per-lane findings retained
+  outside git (scratchpad `analysis/lane-*.md`). Implementation workflow wf_49b4c816-489 started 21:27Z for
+  #952, #1021, #942-successor (`claude/pr942-successor`), #1023-diagnostic (`claude/pr1023-diagnostic`);
+  local commits only, no pushes.
