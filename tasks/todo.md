@@ -6000,7 +6000,8 @@ Full local and hosted verification plus independent exact-head review precede re
   output with input hashes. Synthetic view/request pairing works; absent provider
   pagination metadata keeps export completeness false.
 - Replace the stale runbook claim that no live synthetic query ran. Document the
-  supported file-download export prerequisite, missing connector scopes and
-  unproven team HogQL availability; a new export format still needs explicit review.
+  supported file-download export prerequisite. After the founder reconnected, one
+  literal-only attempt confirmed that team HogQL export access is disabled; no
+  unchanged retry or broader export followed. A new input format still needs review.
 - Documentation and synthetic evidence only. No customer query, source-role work,
   E7/E8 admission, production flag, price change, invitation or model call.

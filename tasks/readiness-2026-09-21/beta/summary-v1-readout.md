@@ -131,11 +131,15 @@ query endpoint supports the small literal diagnostic above; do not build a beta
 export pipeline around repeated query calls or inferred pagination flags.
 
 For the supported [one-off file export](https://posthog.com/docs/cdp/file-download-exports),
-the installed connector currently lacks `batch_export:read` and `batch_export:write`.
-Its HogQL export mode also requires per-team beta access; that availability has not
-been established. Reconnecting with the needed scopes is the next operator action,
-followed by a tiny literal-only export if the team supports the mode. Do not request
-broader data or infer that reconnecting alone grants the team feature.
+the founder reconnected with the needed `batch_export:read` and `batch_export:write`
+scopes on September 30. The export tools became available, but the single
+[literal-only export attempt](../../review-evidence/beta-readout-2026-09-30/export-capability.json)
+returned HTTP 403: `HogQL batch exports are not enabled for this team.` No run ID,
+completed record count or files were returned. This is a team-feature restriction,
+not a reason to request broader connector scopes. The next operator action is to
+request HogQL batch-export beta access from PostHog support for project 117863,
+then verify one tiny literal-only export when access is confirmed. No unchanged
+retry or broader events/persons export was attempted.
 
 Retain the exact requested query, run identity/status, reported row count and every
 returned part before proposing an adapter. JSONLines rows and a completed file-export

@@ -25,13 +25,19 @@ No runtime, consumer, contract test, flag or pricing behavior changed here.
 
 ## Next executable step
 
-The connector currently lacks `batch_export:read` and `batch_export:write`.
-After reconnecting with these scopes, inspect the available file-download export
-tools and confirm whether this team can use the HogQL model. Its documented closed
-beta availability is not established by scope access alone. Test only a tiny
-literal export before considering customer data. Retain the actual run status,
-record count and every downloaded part; design and independently review an
-explicit input format for those artifacts before using them for a cohort readout.
+After the founder reconnected, the export tools became available. One exact-query
+literal export was submitted in confirmed EarningsNerd project 117863. PostHog
+returned HTTP 403: `HogQL batch exports are not enabled for this team.` The
+[capability receipt](export-capability.json) retains the scope, configuration,
+private request/response custody hashes and outcome. No run ID, completed record
+count or files were returned, and no download or unchanged retry followed.
+
+Request HogQL batch-export beta access from PostHog support for project 117863.
+Once access is confirmed, verify a tiny literal export before considering customer
+data. Retain the actual run status, record count and every downloaded part; design
+and independently review an explicit input format for those artifacts before
+using them for a cohort readout. Broader events/persons exports are not a substitute
+for the precisely scoped query.
 
 PostHog directs bulk, recurring and third-party-connector exports to its
 [supported export paths](https://posthog.com/docs/api/queries). The
