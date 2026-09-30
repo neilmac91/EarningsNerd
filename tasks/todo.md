@@ -1,3 +1,10 @@
+## 2026-09-30 — native-evidence delivery adapter candidate (engineering-only)
+
+- Capability preflight in the implementer's container: Claude Code CLI 2.1.285 present, `codex` absent, Anthropic SDK not installed, credentials and network policy not inspected. Documented, statically measured and unknown facts are kept separate in the handback's capability inventory; no model, API or paid call was made.
+- New `backend/evals/acceptance_source_review_delivery.py` dispatches exactly the reserved `prompt.bin` bytes through one route (`claude -p`, stdin, `stream-json`, no tools), with an allow-listed child environment, create-once ledger as the redispatch lock, file-backed raw streams, group kill on timeout, fail-closed classification (`unknown` > `compacted` > `truncated` > `failed` > `complete`; `complete` needs an observed `end_turn`), per-member native dispositions by exact bytes, and a settlement proposal for the unchanged journal. Contract: `tasks/readiness-2026-09-21/acceptance/source-review-native-delivery.md`. The six owner modules and their tests are byte-identical to the handoff snapshot.
+- Offline owner tests cover exact stdin/output binding, each reason code the classifier emits, unknown delivery left pending with same-root redispatch refused (the lock is per delivery root; one root per journal is the operator rule), pre-dispatch refusals with no ledger (including user memory/rules/plugins in HOME), the frozen argv/env allow-list with no path or value disclosure, native-member honesty, a re-labelled ledger refused against the journal contract, the status matrix (unknown never admits eligible; operator retirement after failed/unknown), and one real subprocess run against a fake CLI. `backend/scripts/native_delivery_probe.py` prepares the single bounded probe (synthetic packet, one dispatch, no retry; `plan` runs the adapter's preflight with no side effects) for Codex to release after inspection.
+- [ ] Codex: bind the base, run the probe `plan` on the releasing machine, then `run` once; adopt the retained `stdout.raw` as the first real stream fixture before any second call. Opening a PR runs the paid `eval-baseline` job and merging deploys the backend service; neither is authorised by this task.
+
 ## 2026-09-30 — recover incomplete Analysis streams
 
 - Two independent refutations upheld a conditional EOF/idle-timeout lifecycle defect on main `0dcc4ee3`: the client omitted a terminal callback and the mounted Run flow stayed busy. No production incident or deployed feature-flag observation is inferred.
@@ -5979,3 +5986,9 @@ Full local and hosted verification plus independent exact-head review precede re
 - Full frontend lint, TypeScript, tests and production build passed on Node22.23.2.
   No backend, provider, prompt, flag, price or locked-contract change. Exact-head review,
   hosted checks and frontend release verification follow separately.
+
+- 2026-09-30 native-delivery integration: preserved all pinned owners; independently reproduced
+  and fixed assistant-model mismatch admission and pre-settlement stdin/journal binding. The
+  single subscription probe returned four exact lines but was retained as failed for absent
+  assistant finish metadata. No retry, source dispatch, or E7/E8 admission; classifier 2 keeps
+  the measured failure closed. Paid CI awaits a fresh balance after Google Cloud reauthentication.
