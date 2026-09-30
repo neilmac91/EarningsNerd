@@ -7,13 +7,17 @@ or unmatched receipt is exported rather than refused (a refusal lost the evidenc
 forbids retrying a refused step), a readback that records the absent ``active`` key as null is
 read as "no owners" only when the live key is absent, the copy is verified against its source,
 empty ``.pending-*`` markers are listed, and ``git add`` keeps the per-slot ``run.log`` files.
-Nothing here touches a real guard, bundle or CLI.
+Eligibility rests only on the read-only inspection the export runs itself (Codex P1 on #952: a
+restored old success receipt outvoted a current refusal): these tests replace that subprocess
+with a stand-in whose verdict is derived from the bundle's current bytes, and one test runs a
+real stub interpreter. Nothing here touches a real guard, bundle, venv or CLI.
 """
 from __future__ import annotations
 
 import hashlib
 import importlib.util
 import json
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -21,15 +25,35 @@ from pathlib import Path
 import pytest
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
-SCRIPT = REPO_ROOT / "tasks" / "fable-e8-repin-2026-09-22" / "export_e8_state.py"
+PACKAGE = REPO_ROOT / "tasks" / "fable-e8-repin-2026-09-22"
+SCRIPT = PACKAGE / "export_e8_state.py"
+KIT = REPO_ROOT / "tasks" / "fable-e8-launch-kit.md"
 
 
-@pytest.fixture
-def export(monkeypatch):
-    spec = importlib.util.spec_from_file_location("export_e8_state_under_test", SCRIPT)
+def _load(name: str, path: Path):
+    spec = importlib.util.spec_from_file_location(name, path)
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
+
+
+@pytest.fixture
+def raw_export(tmp_path):
+    """The export with its real subprocess runner, reading a copy of the package and a fake frozen checkout."""
+    module = _load("export_e8_state_under_test", SCRIPT)
+    module.PACKAGE = tmp_path / "package"
+    shutil.copytree(PACKAGE, module.PACKAGE, ignore=shutil.ignore_patterns("__pycache__"))
+    module.FROZEN_REPO = tmp_path / "frozen"
+    for name in module.FROZEN_EVAL_FILES:
+        _write(module.FROZEN_REPO / "backend" / "evals" / name, f"frozen {name}\n")
+    return module
+
+
+@pytest.fixture
+def export(raw_export):
+    """The export with the step 2 inspection replaced by ``SealedInspection``, which accepts an unchanged bundle."""
+    raw_export.run_inspection = SealedInspection()
+    return raw_export
 
 
 def _write(path: Path, value) -> None:
@@ -38,10 +62,22 @@ def _write(path: Path, value) -> None:
 
 
 def make_bundle(root: Path, stage: str = "pristine", *, active: dict | None = None) -> Path:
-    """A bundle whose guard is pristine, template-configured or initialized (count 287)."""
+    """A bundle whose guard is pristine, template-configured or initialized (count 287).
+
+    Like a restored bundle it carries the sealed shim beside the guard files (never exported) and,
+    once setup has run, the ``state.lock`` guard_setup creates; an immutable manifest listing one
+    file; the E3 candidate 2 prerequisite index; and the E8 index's reused control slots.
+    """
     bundle = root.resolve() / "bundle"
     guard = bundle / "e8" / "guard"
     initialized = stage == "initialized"
+    _write(guard / "claude", "#!/bin/sh\n# frozen shim\n")
+    if stage != "pristine":
+        _write(guard / "state.lock", "")
+    _write(bundle / "preserved" / "e2" / "judged.json", {"results": []})
+    _write(bundle / "immutable-sha256.json",
+           {"preserved/e2/judged.json": hashlib.sha256((bundle / "preserved/e2/judged.json").read_bytes()).hexdigest()})
+    _write(bundle / "stages" / "e3-candidate2" / "index.json", PREREQUISITE_INDEX)
     state = {"accounting_reconciled": initialized, "real_cli_invocations": 287 if initialized else 0,
              "stop_reason": None, "completed": []}
     if active is not None:
@@ -57,7 +93,7 @@ def make_bundle(root: Path, stage: str = "pristine", *, active: dict | None = No
         _write(guard / "initialization.json", {"status": "complete", "prior_count": 287,
                                                "state_path": str(guard / "state.json"),
                                                "real_cli": "/opt/claude-code/bin/claude"})
-    _write(bundle / "stages" / "e8" / "index.json", {"programme": "e8", "packets": PACKETS})
+    _write(bundle / "stages" / "e8" / "index.json", {"programme": "e8", "packets": PACKETS, "reused_main_slots": REUSED})
     return bundle
 
 
@@ -68,6 +104,11 @@ def _digest(text: str) -> str:
 # The frozen 160-slot panel, with the packet bindings a ledger row must repeat.
 PACKETS = [{"slot": f"{n:03d}", "packet_sha256": _digest(f"packet {n}"), "request_sha256": _digest(f"request {n}"),
             "row_sha256": _digest(f"row {n}")} for n in range(1, 161)]
+REUSED = [{"slot": f"c{n:03d}", "slot_kind": "main", "condition": "o"} for n in range(1, 141)]
+PREREQUISITE_INDEX = {"programme": "e3-candidate2", "packets": []}
+# What the sealed admission pins, as the stand-in below checks it: the prerequisite's bytes and the reused panel.
+PINNED_PREREQUISITE = _digest(json.dumps(PREREQUISITE_INDEX, indent=2) + "\n")
+PINNED_REUSED = _digest(json.dumps(REUSED, sort_keys=True))
 
 
 def inspection(bundle: Path) -> dict:
@@ -77,6 +118,33 @@ def inspection(bundle: Path) -> dict:
     missing = [p["slot"] for p in PACKETS if p["slot"] not in done]
     return {"stage": "e8", "reused_control_mains": 140, "new_planned": 160, "new_complete": len(done),
             "new_missing": len(missing), "missing_slots": missing}
+
+
+def _refused(argv: list[str], message: str) -> subprocess.CompletedProcess:
+    return subprocess.CompletedProcess(argv, 2, "", message + "\n")
+
+
+class SealedInspection:
+    """Stands in for ``tools/e8_resume.py`` without ``--execute``: its verdict comes from the bytes under --bundle.
+
+    It refuses as the sealed admission does when the E3 candidate 2 prerequisite or the E8 index's
+    reused control panel differs from its pinned value, and otherwise prints the inspection JSON for
+    the slots actually present. Every call is recorded.
+    """
+
+    def __init__(self) -> None:
+        self.calls: list[list[str]] = []
+
+    def __call__(self, argv: list[str]) -> subprocess.CompletedProcess:
+        self.calls.append(list(argv))
+        bundle = Path(argv[argv.index("--bundle") + 1])
+        prerequisite = bundle / "stages" / "e3-candidate2" / "index.json"
+        if not prerequisite.is_file() or hashlib.sha256(prerequisite.read_bytes()).hexdigest() != PINNED_PREREQUISITE:
+            return _refused(argv, "ValueError: E3 candidate 2 is incomplete")
+        index = json.loads((bundle / "stages" / "e8" / "index.json").read_text())
+        if _digest(json.dumps(index.get("reused_main_slots"), sort_keys=True)) != PINNED_REUSED:
+            return _refused(argv, "ValueError: E8 reused controls changed")
+        return subprocess.CompletedProcess(argv, 0, json.dumps(inspection(bundle), indent=2) + "\n", "")
 
 
 def attestation(export, guard: Path) -> dict:
@@ -486,19 +554,288 @@ def _other_slots(bundle: Path) -> dict:
     return {**value, "missing_slots": ["001"] + [slot for slot in value["missing_slots"] if slot != "002"]}
 
 
-ADMISSION_EVIDENCE = [
-    ("no saved inspection", None),
-    ("an inspection with other counts", _wrong_counts),
-    ("the pre-run inspection only", _pre_run),
-    ("an inspection of other slots", _other_slots),
+INSPECTION_RECORD_KEYS = {"argv", "timeout_seconds", "started_at_utc", "finished_at_utc", "exit_status", "error",
+                          "stdout", "stderr", "inputs_before_sha256", "inputs_after_sha256", "inputs_changed"}
+
+
+def assert_evidence_exported(export, out: Path, code: int, summary: dict) -> None:
+    """A5: a refused state is exported in full, with its failure evidence, and is never eligible."""
+    assert code == 0 and summary["recovery_eligible"] is False and summary["recovery_blockers"]
+    assert (out / "export-summary.json").is_file() and (out / "sha256-inventory.json").is_file()
+    inputs_bytes = (out / "admission-inputs.json").read_bytes()
+    assert summary["admission_inputs_sha256"] == hashlib.sha256(inputs_bytes).hexdigest()
+    assert set(json.loads(inputs_bytes)) == {"before", "after"}
+    assert set(summary["current_inspection"]) == INSPECTION_RECORD_KEYS
+    assert summary["current_inspection"]["argv"] == export.inspection_argv(Path(summary["bundle"]))
+    inventory = json.loads((out / "sha256-inventory.json").read_text())
+    assert {"stages/e8/index.json", "e8/guard/state.json", "receipts/attestation.json"} <= set(inventory)
+
+
+def test_a_historical_success_receipt_never_outvotes_a_current_refusal(export, monkeypatch, tmp_path) -> None:
+    """A1 (Codex P1 r4085294704): the restored success has this export's exact slots and counts; the run refuses."""
+    bundle = _ledger_bundle(tmp_path)
+    _write(tmp_path / "receipts" / "inspection-post-run.json", inspection(bundle))
+    monkeypatch.setattr(export, "run_inspection",
+                        lambda argv: _refused(argv, "ValueError: E8 unknown or incomplete slot directory"))
+    summary = _run_with_receipts(export, monkeypatch, tmp_path, bundle, with_inspection=False)
+    assert summary["recovery_blockers"] == [
+        "current read-only inspection refused (exit 2): ValueError: E8 unknown or incomplete slot directory"]
+    assert summary["current_inspection"]["exit_status"] == 2
+    assert "receipts/inspection-post-run.json" in json.loads((tmp_path / "out" / "sha256-inventory.json").read_text())
+    assert_evidence_exported(export, tmp_path / "out", 0, summary)
+
+
+def _edit_reused_panel(bundle: Path) -> None:
+    _edit_json(bundle / "stages/e8/index.json", reused_main_slots=REUSED[:-1] + [{**REUSED[-1], "condition": "n"}])
+
+
+def _edit_prerequisite(bundle: Path) -> None:
+    _write(bundle / "stages/e3-candidate2/index.json", {**PREREQUISITE_INDEX, "packets": [{"slot": "x"}]})
+
+
+CURRENT_STATE_REFUSALS = [
+    ("E8 reused control panel edited", _edit_reused_panel, "ValueError: E8 reused controls changed"),
+    ("E3 prerequisite changed", _edit_prerequisite, "ValueError: E3 candidate 2 is incomplete"),
 ]
 
 
-@pytest.mark.parametrize(("name", "make_inspection"), ADMISSION_EVIDENCE, ids=[case[0] for case in ADMISSION_EVIDENCE])
-def test_eligibility_needs_the_sealed_admissions_own_post_run_verdict(export, monkeypatch, tmp_path, name, make_inspection) -> None:
-    """The export cannot validate judged outputs against their packets; the saved step 7 inspection did."""
+@pytest.mark.parametrize(("name", "edit", "refusal"), CURRENT_STATE_REFUSALS, ids=[c[0] for c in CURRENT_STATE_REFUSALS])
+def test_the_verdict_is_taken_on_the_current_bytes_not_on_matching_counts(
+        export, monkeypatch, tmp_path, name, edit, refusal) -> None:
+    """A2a: counts and slots are unchanged and a historical success sits in the receipts; only a run on the
+    current bundle sees the change, and the export makes exactly one such run."""
     bundle = _ledger_bundle(tmp_path)
-    saved = make_inspection(bundle) if make_inspection else False
-    summary = _run_with_receipts(export, monkeypatch, tmp_path, bundle, with_inspection=saved)
+    historical = inspection(bundle)
+    edit(bundle)
+    assert inspection(bundle) == historical
+    _write(tmp_path / "receipts" / "inspection-post-run.json", historical)
+    summary = _run_with_receipts(export, monkeypatch, tmp_path, bundle, with_inspection=False)
+    assert export.run_inspection.calls == [export.inspection_argv(bundle)]
+    assert export.run_inspection.calls[0][export.run_inspection.calls[0].index("--bundle") + 1] == str(bundle)
+    assert summary["recovery_blockers"] == [f"current read-only inspection refused (exit 2): {refusal}"]
+    assert_evidence_exported(export, tmp_path / "out", 0, summary)
+
+
+def _append(path: Path) -> None:
+    with path.open("a") as stream:
+        stream.write("\n")
+
+
+# Admission inputs inside and outside stages/e8, the package and the frozen checkout, and the shim, which
+# is hashed as an input but never exported.
+INPUTS_EDITED_DURING_THE_RUN = [
+    "bundle/stages/e8/index.json",
+    "bundle/stages/e3-candidate2/index.json",
+    "bundle/preserved/e2/judged.json",
+    "bundle/e8/guard/claude",
+    "frozen/backend/evals/golden_set.json",
+    "package/tools/e8_resume.py",
+]
+
+
+@pytest.mark.parametrize("label", INPUTS_EDITED_DURING_THE_RUN)
+def test_inputs_that_change_while_the_inspection_runs_void_its_verdict(export, monkeypatch, tmp_path, label) -> None:
+    """A2b: the run printed a valid success, but on inputs that are no longer the ones it read."""
+    bundle = _ledger_bundle(tmp_path)
+    kind, rel = label.split("/", 1)
+    target = {"bundle": bundle, "frozen": export.FROZEN_REPO, "package": export.PACKAGE}[kind] / rel
+    accepting = export.run_inspection
+
+    def racing(argv):
+        result = accepting(argv)
+        _append(target)
+        return result
+
+    monkeypatch.setattr(export, "run_inspection", racing)
+    summary = _run_with_receipts(export, monkeypatch, tmp_path, bundle)
+    assert summary["current_inspection"]["exit_status"] == 0
+    assert summary["current_inspection"]["inputs_changed"] == [label]
+    assert summary["recovery_blockers"] == [f"admission inputs changed during the current inspection: ['{label}']"]
+    inputs = json.loads((tmp_path / "out" / "admission-inputs.json").read_text())
+    assert inputs["before"][label] != inputs["after"][label]
+    assert_evidence_exported(export, tmp_path / "out", 0, summary)
+
+
+EDITED_BEFORE_THE_COPY = [
+    ("stages/e8/index.json", lambda b: _append(b / "stages/e8/index.json")),
+    ("e8/guard/state.json", lambda b: _append(b / "e8/guard/state.json")),
+    ("stages/e8/notes.txt", lambda b: _write(b / "stages/e8/notes.txt", "written after the inspection")),
+]
+
+
+@pytest.mark.parametrize(("rel", "edit"), EDITED_BEFORE_THE_COPY, ids=[c[0] for c in EDITED_BEFORE_THE_COPY])
+def test_the_exported_bytes_must_be_the_inspected_bytes(export, monkeypatch, tmp_path, rel, edit) -> None:
+    """A2c: the source is quiescent during the copy, but it is not the state the inspection accepted."""
+    bundle = _ledger_bundle(tmp_path)
+    real_listing = export.source_listing
+    edited = []
+
+    def edit_then_list(*args):
+        if not edited:
+            edited.append(edit(bundle))
+        return real_listing(*args)
+
+    monkeypatch.setattr(export, "source_listing", edit_then_list)
+    summary = _run_with_receipts(export, monkeypatch, tmp_path, bundle)
+    assert summary["source_unchanged"] is True and summary["current_inspection"]["inputs_changed"] == []
+    assert summary["recovery_blockers"] == [f"exported state differs from the inspected admission inputs: ['{rel}']"]
+    assert_evidence_exported(export, tmp_path / "out", 0, summary)
+
+
+def test_a_current_success_on_unchanged_inputs_is_an_eligible_checkpoint(export, monkeypatch, tmp_path) -> None:
+    """A3: no refusal record is present; a stale pre-run success receipt is evidence and changes nothing."""
+    bundle = _ledger_bundle(tmp_path)
+    _write(tmp_path / "receipts" / "inspection-pre-run.json", _pre_run(bundle))
+    summary = _run_with_receipts(export, monkeypatch, tmp_path, bundle, with_inspection=False)
+    assert summary["recovery_blockers"] == [] and summary["recovery_eligible"] is True
+    record = summary["current_inspection"]
+    assert record["exit_status"] == 0 and record["error"] is None and record["inputs_changed"] == []
+    assert json.loads(record["stdout"]) == inspection(bundle)
+    assert record["inputs_before_sha256"] == record["inputs_after_sha256"]
+    assert summary["inspection_refusal_records"] == []
+    inputs_bytes = (tmp_path / "out" / "admission-inputs.json").read_bytes()
+    assert summary["admission_inputs_sha256"] == hashlib.sha256(inputs_bytes).hexdigest()
+    after = json.loads(inputs_bytes)["after"]
+    assert {"package/code-sha256.json", "package/supplement-sha256.json", "package/tools/e8_resume.py",
+            "bundle/immutable-sha256.json", "bundle/preserved/e2/judged.json", "bundle/stages/e3-candidate2/index.json",
+            "bundle/stages/e8/index.json", "bundle/e8/guard/claude", "bundle/e8/guard/state.lock",
+            "frozen/backend/evals/golden_set.json"} <= set(after)
+    # The shim and state.lock are inputs, not exports: the guard comparison covers only the copied files.
+    inventory = json.loads((tmp_path / "out" / "sha256-inventory.json").read_text())
+    assert not {"e8/guard/claude", "e8/guard/state.lock"} & set(inventory)
+
+
+REFUSAL_RECORDS = [
+    ("a saved refusal", "inspection-post-run.txt", "ValueError: E8 ledger has an unresolved execution\n"),
+    ("a saved non-verdict JSON", "inspection-post-run.json", {"error": "ValueError: E8 frozen order changed"}),
+    ("a nested restored refusal", "restored/inspection-post-run.txt", "ValueError: E8 frozen order changed\n"),
+]
+
+
+@pytest.mark.parametrize(("name", "rel", "content"), REFUSAL_RECORDS, ids=[c[0] for c in REFUSAL_RECORDS])
+def test_a_restored_refusal_record_remains_a_stop(export, monkeypatch, tmp_path, name, rel, content) -> None:
+    """A3b: README condition 6, a prior stop remains a stop: a current success cannot clear it."""
+    bundle = _ledger_bundle(tmp_path)
+    _write(tmp_path / "receipts" / rel, content)
+    summary = _run_with_receipts(export, monkeypatch, tmp_path, bundle, with_inspection=False)
+    assert summary["current_inspection"]["exit_status"] == 0
+    assert summary["inspection_refusal_records"] == [rel]
     assert summary["recovery_blockers"] == [
-        "no saved post-run inspection (launch kit step 7) in which the sealed admission accepted this state"]
+        f"receipts hold a refusal record of an earlier inspection, and a prior stop remains a stop (README condition 6): {rel}"]
+    assert_evidence_exported(export, tmp_path / "out", 0, summary)
+
+
+def _prints(make, code: int = 0, stderr: str = ""):
+    """A stand-in run that prints ``make(bundle)`` (a dict is printed as the sealed tool prints it)."""
+    def run(argv):
+        value = make(Path(argv[argv.index("--bundle") + 1]))
+        stdout = value if isinstance(value, str) else json.dumps(value, indent=2) + "\n"
+        return subprocess.CompletedProcess(argv, code, stdout, stderr)
+    return run
+
+
+def _raises(exc: BaseException):
+    def run(argv):
+        raise exc
+    return run
+
+
+_KEYS = sorted(["stage", "reused_control_mains", "new_planned", "new_complete", "new_missing", "missing_slots"])
+_NO_VERDICT = "current read-only inspection printed no single JSON verdict object"
+_COUNTS = "current read-only inspection counts ({!r} complete, {!r} missing) differ from this export (2 complete, 158 missing)"
+_SLOTS = "current read-only inspection missing slots differ from this export"
+_VENV = "/home/user/fable-judging/venv/bin/python"
+
+VERDICT_REFUSALS = [
+    ("interpreter missing", _raises(FileNotFoundError(2, "No such file or directory", _VENV)),
+     [f"current read-only inspection did not run: FileNotFoundError: [Errno 2] No such file or directory: '{_VENV}'"]),
+    ("timed out", _raises(subprocess.TimeoutExpired([_VENV], 540, output=b'{"stage": "e8"', stderr=b"")),
+     ["current read-only inspection did not run: TimeoutExpired: no verdict within 540 s"]),
+    ("exit 2 with a success JSON on stdout", _prints(inspection, code=2), ["current read-only inspection refused (exit 2): (no stderr)"]),
+    ("killed by a signal", _prints(inspection, code=-9), ["current read-only inspection refused (exit -9): (no stderr)"]),
+    ("empty stdout", _prints(lambda b: ""), [_NO_VERDICT]),
+    ("truncated JSON", _prints(lambda b: json.dumps(inspection(b))[:40]), [_NO_VERDICT]),
+    ("two JSON objects", _prints(lambda b: json.dumps(inspection(b)) + "\n" + json.dumps(inspection(b)) + "\n"), [_NO_VERDICT]),
+    ("a JSON list", _prints(lambda b: "[]\n"), [_NO_VERDICT]),
+    ("an extra key", _prints(lambda b: {**inspection(b), "note": "x"}),
+     [f"current read-only inspection verdict has keys {sorted([*_KEYS, 'note'])}, not {_KEYS}"]),
+    ("another panel", _prints(lambda b: {**inspection(b), "reused_control_mains": 139}),
+     ["current read-only inspection verdict is not for the frozen E8 panel (140 reused, 160 planned)"]),
+    ("the pre-run counts", _prints(_pre_run), [_COUNTS.format(0, 160), _SLOTS]),
+    ("other counts", _prints(_wrong_counts), [_COUNTS.format(1, 159)]),
+    ("a float count", _prints(lambda b: {**inspection(b), "new_complete": 2.0}), [_COUNTS.format(2.0, 158)]),
+    ("other slots", _prints(_other_slots), [_SLOTS]),
+]
+
+
+@pytest.mark.parametrize(("name", "run_it", "blockers"), VERDICT_REFUSALS, ids=[c[0] for c in VERDICT_REFUSALS])
+def test_a_missing_malformed_or_ambiguous_current_verdict_is_a_named_blocker(
+        export, monkeypatch, tmp_path, name, run_it, blockers) -> None:
+    """A4 and A5: each is exported in full with its evidence, never a crash and never eligible."""
+    bundle = _ledger_bundle(tmp_path)
+    monkeypatch.setattr(export, "run_inspection", run_it)
+    summary = _run_with_receipts(export, monkeypatch, tmp_path, bundle)
+    assert summary["recovery_blockers"] == blockers
+    assert_evidence_exported(export, tmp_path / "out", 0, summary)
+    record = summary["current_inspection"]
+    if name == "timed out":
+        assert record["stdout"] == '{"stage": "e8"' and record["exit_status"] is None
+    elif record["error"] is None:
+        assert record["stdout"] == run_it(export.inspection_argv(bundle)).stdout
+
+
+def _kit_step_2() -> list[str]:
+    """The launch kit's step 2 command: its only sh-block line running e8_resume.py without --execute."""
+    lines, inside = [], False
+    for raw in KIT.read_text().splitlines():
+        if raw.startswith("```"):
+            inside = raw.strip() == "```sh"
+            continue
+        if inside and "tools/e8_resume.py" in raw and "--execute" not in raw:
+            lines.append(raw.strip())
+    assert len(lines) == 1, lines
+    return lines[0].split(" ")
+
+
+def test_the_inspection_is_exactly_the_kit_step_2_command(raw_export, monkeypatch) -> None:
+    """A6: the export runs the kit's own step 2 argv, at the kit's and the restore script's fixed paths."""
+    restore = _load("restore_e8_session_for_export_test", PACKAGE / "restore_e8_session.py")
+    fresh = _load("export_e8_state_defaults", SCRIPT)
+    assert fresh.PACKAGE == PACKAGE.resolve()
+    assert fresh.VENV_PYTHON == restore.VENV / "bin" / "python"
+    assert fresh.FROZEN_REPO == restore.FROZEN_REPO
+    assert fresh.INSPECTION_TIMEOUT < 600  # inside the Bash tool's 600000 ms limit, with room to finish
+    monkeypatch.setattr(fresh, "PACKAGE", Path("/home/user/EarningsNerd/tasks/fable-e8-repin-2026-09-22"))
+    assert fresh.inspection_argv(restore.BUNDLE) == _kit_step_2()
+
+
+STUBS = [
+    ("refusal", "import sys; print('partial'); print('ValueError: E8 frozen order changed', file=sys.stderr); sys.exit(2)",
+     2, "partial\n", ["current read-only inspection refused (exit 2): ValueError: E8 frozen order changed"]),
+    ("success", "import sys; sys.stdout.write(open(sys.argv[1]).read())", 0, None, []),
+]
+
+
+@pytest.mark.parametrize(("name", "code", "status", "stdout", "blockers"), STUBS, ids=[c[0] for c in STUBS])
+def test_the_real_runner_records_a_real_process(raw_export, monkeypatch, tmp_path, name, code, status, stdout, blockers) -> None:
+    """A7: the unpatched subprocess runner, with a stub interpreter in place of the sealed tool."""
+    bundle = _ledger_bundle(tmp_path)
+    verdict = tmp_path / "verdict.json"
+    verdict.write_text(json.dumps(inspection(bundle), indent=2) + "\n")
+    monkeypatch.setattr(raw_export, "inspection_argv", lambda b: [sys.executable, "-c", code, str(verdict)])
+    summary = _run_with_receipts(raw_export, monkeypatch, tmp_path, bundle, with_inspection=False)
+    record = summary["current_inspection"]
+    assert record["exit_status"] == status and record["error"] is None
+    assert record["stdout"] == (verdict.read_text() if stdout is None else stdout)
+    assert summary["recovery_blockers"] == blockers
+
+
+def test_the_real_runner_turns_a_timeout_into_a_named_blocker(raw_export, monkeypatch, tmp_path) -> None:
+    """A7: a hung inspection is killed at the timeout and recorded; the export is still written."""
+    bundle = _ledger_bundle(tmp_path)
+    monkeypatch.setattr(raw_export, "INSPECTION_TIMEOUT", 0.5)
+    monkeypatch.setattr(raw_export, "inspection_argv",
+                        lambda b: [sys.executable, "-c", "import sys, time; print('started', flush=True); time.sleep(30)"])
+    summary = _run_with_receipts(raw_export, monkeypatch, tmp_path, bundle, with_inspection=False)
+    assert summary["recovery_blockers"] == ["current read-only inspection did not run: TimeoutExpired: no verdict within 0.5 s"]
+    assert summary["current_inspection"]["stdout"] == "started\n"

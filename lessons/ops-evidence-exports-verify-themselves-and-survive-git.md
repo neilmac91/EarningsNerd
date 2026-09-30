@@ -1,6 +1,6 @@
 # An evidence export copies everything, verifies its copy, states its own eligibility, and survives `git add`
 
-**Date:** 2026-09-23 · **Area:** ops / evals / judging sessions
+**Date:** 2026-09-23 (updated 2026-09-30) · **Area:** ops / evals / judging sessions
 
 ## Context
 
@@ -19,6 +19,13 @@ ways the export could lose that record without anyone noticing:
   the export's inventory still listed them. A later restore would have failed against its own
   inventory, with the container gone.
 
+On 23 September Codex found a fifth (P1, #952 review thread r4085294704). The export's eligibility
+depended on the sealed admission's verdict, and it read that verdict from any saved inspection
+JSON in the receipts whose counts and slots matched. A recovery restores prior receipts, and the
+kit saved a refusal as `.txt`, so an old success receipt could outvote a current refusal. The
+sealed tool writes no receipt itself: the model transcribed it, so no saved copy could carry a
+trustworthy exit status or bind the state it judged.
+
 ## Rule
 
 A tool that exports evidence for commit refuses only on structural errors: no source, or a
@@ -29,11 +36,26 @@ directories and terminal markers explicitly. A gate proves that git keeps every 
 inventory lists (`git check-ignore --no-index` on representative paths). Ignore rules and
 exporters change separately, so the gate belongs with the exporter's tests.
 
+A verdict that depends on another tool's verdict runs that tool on the current inputs and binds
+the result to a digest of them: record the argv, UTC start and finish, exit status, stdout and
+stderr, hash every input the tool reads before and after the run, and require exit 0, unchanged
+inputs, exactly one well-formed verdict that matches the state exported, and exported bytes equal
+to the inspected bytes. A receipt found on disk is evidence only. It can never grant the verdict;
+under a "prior stop remains a stop" policy a saved refusal can still withhold it. A run that did
+not happen, timed out or printed anything ambiguous is a named blocker, and the evidence is
+exported anyway.
+
 Gate (rule 12): `backend/tests/unit/test_e8_export_state.py`. It covers each stop stage, the
-readback encodings, copy and source verification, pending markers and the ignore rule.
+readback encodings, copy and source verification, pending markers and the ignore rule. It also
+covers the current inspection: a historical success against a current refusal, a verdict derived
+from changed bytes with unchanged counts, inputs changing during the run, exported bytes differing
+from inspected ones, restored refusal records, malformed or missing verdicts, the pinned kit argv
+and a real subprocess.
 
 ## Evidence
 
 - `tasks/review-evidence/e8-launch-readiness-2026-09-23/README.md` (findings F05, F08, F09, F10, F30)
 - `.gitignore` (`!tasks/review-evidence/**/*.log`)
-- `tasks/fable-e8-repin-2026-09-22/README.md`, sole-guard recovery conditions 1, 3 and 6
+- `tasks/fable-e8-repin-2026-09-22/README.md`, sole-guard recovery conditions 1, 3, 5 and 6
+- `tasks/fable-e8-repin-2026-09-22/export_e8_state.py` (`current_inspection`, `admission_blockers`,
+  `refusal_records`); `tools/e8_resume.py` `main()` prints the verdict and exits 0, or exits 2

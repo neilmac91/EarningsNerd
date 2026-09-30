@@ -14,6 +14,8 @@ Exported, with relative paths and a SHA-256 inventory:
                                                               STOP/failed/pending, slot outputs)
   receipts/**                                                (attestations, readbacks, restore
                                                               receipts written by the operator)
+  admission-inputs.json                                      (SHA-256 of every admission input,
+                                                              before and after the inspection)
 
 Evidence is never withheld. Every stop is exported, including a partial guard setup, a missing
 receipt or a STOP: README.md says to export after every stop. Whether the export can serve as a
@@ -25,10 +27,33 @@ initialization record bound to the config) except the CLI identity check, which 
 binary; ``attest()``'s prior count 287 and its accounting continuity (the supplement ledger chains
 from 287 to the counter in steps of one or two, and the completed history is 288..counter);
 ``inspect_e8``'s ledger, index and output-binding rules; e8_resume's quota and owner-loss markers;
-README condition 6's terminal states (STOP, pending, failed); and the receipts, including the saved
-post-run read-only inspection, the sealed admission's own verdict, which validates every output
-against its packet through the frozen checkout, something this tool cannot do. Only a missing bundle or ``stages/e8/index.json``,
-an existing output directory or a ``--receipts`` path that is not a directory refuses outright.
+and README condition 6's terminal states (STOP, pending, failed). Only a missing bundle or
+``stages/e8/index.json``, an existing output directory or a ``--receipts`` path that is not a
+directory refuses outright.
+
+The sealed admission's own verdict, which validates every output against its packet through the
+frozen checkout, is something this tool cannot recompute, so it runs it: before copying, the
+export runs the launch kit's step 2 read-only inspection unchanged (``tools/e8_resume.py``
+without ``--execute``, the exact step 2 argv, at most ``INSPECTION_TIMEOUT`` seconds) and
+records its argv, UTC start and finish, exit status, stdout and stderr as ``current_inspection``.
+Around that run it hashes every admission input (the package manifests and the files they pin,
+``immutable-sha256.json`` and every file it lists, ``stages/`` ko-corrected, e3-candidate1,
+e3-candidate2 and e8, the E8 panel files, every indexed packet inside the bundle, the frozen
+``backend/evals`` files and every file in ``e8/guard``, the shim and ``state.lock`` included) and
+writes both maps to ``admission-inputs.json``. An eligible checkpoint needs that run to have
+happened and exited 0 with inputs unchanged during it, its stdout to be exactly one inspection
+JSON whose counts and missing slots are this export's, and the exported ``stages/e8/**`` and
+guard files to be the inspected bytes. A missing interpreter or frozen checkout, a timeout or any
+malformed or ambiguous output is a named blocker, never a crash; the export is still written.
+
+Receipts on disk are evidence only and never grant eligibility: a saved inspection, however
+recent it looks, is not bound to the state being exported. They can only take it away: README
+condition 6 says a prior stop remains a stop, so any restored inspection receipt that is not a
+success JSON (a saved refusal ``inspection-*.txt``, for example) blocks recovery.
+
+The verdict is advisory. It is not the admission: README condition 5 still requires a new
+readback and attestation, and the sealed ``admit()`` and ``attest()`` to pass on the restored
+state, before any continuation dispatches a slot.
 
 README.md condition 1 requires the copied files to be verified against the inventory and the
 unchanged source before the checkpoint is committed. This tool does that itself: each file is
@@ -43,9 +68,10 @@ Restore is governed by README.md's sole-guard recovery policy. ``attest()`` chec
 ledger continuity; it cannot distinguish a consistent stale checkpoint or fork. This copier
 takes no lock: keep the source quiescent throughout export, and establish latest-checkpoint
 provenance and source retirement externally. A failed-stop export is evidence, not permission
-to resume. This tool only exports.
+to resume. This tool only exports; the inspection it runs is read-only and makes no model call.
 
-Usage (the launch kit's step 7 command; the stamp placeholders are defined there):
+Usage (the launch kit's step 7 command; the stamp placeholders are defined there; give the Bash
+tool its 600000 ms timeout, because the inspection alone may take up to ``INSPECTION_TIMEOUT``):
 
   python3 tasks/fable-e8-repin-2026-09-22/export_e8_state.py \
       --bundle /home/user/fable-judging/fable-resume-corrected-2026-09-20 \
@@ -58,6 +84,7 @@ import argparse
 import hashlib
 import json
 import shutil
+import subprocess
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
@@ -109,6 +136,24 @@ PACKET_BINDINGS = ('packet_sha256', 'request_sha256', 'row_sha256')
 # What the read-only inspection (e8_resume.py without --execute) prints once full admission passes.
 INSPECTION_KEYS = frozenset({'stage', 'reused_control_mains', 'new_planned', 'new_complete', 'new_missing',
                              'missing_slots'})
+# The launch kit's step 2 inspection, run by this export: this package (the sealed add-on and the E3
+# supplement), the judging venv's interpreter and the frozen checkout, at their kit fixed values
+# (restore_e8_session.VENV and FROZEN_REPO).
+PACKAGE = Path(__file__).resolve().parent
+VENV_PYTHON = Path('/home/user/fable-judging/venv/bin/python')
+FROZEN_REPO = Path('/home/user/earningsnerd-fable-frozen')
+# Leaves room under the Bash tool's 600 s limit for hashing, copying and writing the summary.
+INSPECTION_TIMEOUT = 540
+# Everything the inspection's admit() reads (tools/e8_resume.py verify_addon, trusted_common,
+# verify_panel, inspect_e8; tools/resume.py verify_bundle, admit, inspect_stage; tools/binding.py).
+ADDON_FILES = ('code-sha256.json', 'tools/e8_resume.py', 'README.md', 'founder-history-attestation.md',
+               'tests/test_e8_addon.py', 'verification.md')
+SUPPLEMENT_FILES = ('supplement-sha256.json', 'tools/binding.py', 'tools/guard_setup.py', 'tools/readout.py',
+                    'tools/resume.py')
+FROZEN_EVAL_FILES = ('judge_report.py', 'judge.py', 'runner.py', 'weekly_readout.py', 'golden_set.json')
+ADMISSION_STAGES = ('ko-corrected', 'e3-candidate1', 'e3-candidate2', 'e8')
+E8_PANEL_FILES = ('e8/frozen/e8-judge-order.json', 'e8/e8-control-main-reuse-2026-09-19.json',
+                  'preserved/e2/judged.json', 'preserved/e2-control2/judged.json')
 
 
 def utc_timestamp(value: object) -> bool:
@@ -374,30 +419,205 @@ def ledger_blockers(stages: Path, state: dict, packets: dict) -> tuple[list[str]
     return blockers, {name for name in outputs if (slot_dir / name / 'judged.json').is_file()}
 
 
-def admission_blockers(receipts: Path | None, packets: dict, done: set) -> list[str]:
-    """The sealed admission's own verdict on this state, which the export cannot recompute.
+def _input_digest(path: Path) -> str:
+    """A file's SHA-256, ``dir`` for a directory, ``absent`` when nothing is there; never raises."""
+    try:
+        if path.is_dir():
+            return 'dir'
+        if not path.exists():
+            return 'absent'
+        return sha(path)
+    except OSError as exc:
+        return f'unreadable: {type(exc).__name__}'
 
-    Full admission also validates every judged.json against its packet through the frozen checkout.
-    The launch kit's step 7 therefore saves the post-run read-only inspection (e8_resume.py without
-    --execute), which prints this JSON only after that admission passes. An eligible checkpoint needs
-    one whose counts and missing slots are exactly this export's.
+
+def _inside(bundle: Path, value: object) -> str | None:
+    """The bundle-relative path the sealed ``inside()`` would accept for ``value``, or None."""
+    if not isinstance(value, str) or not value:
+        return None
+    try:
+        resolved = (bundle / value).resolve()
+    except (OSError, RuntimeError):
+        return None
+    return resolved.relative_to(bundle).as_posix() if resolved.is_relative_to(bundle) else None
+
+
+def _tree(root: Path, bundle: Path, errors: dict) -> dict:
+    """Every entry under ``root`` by bundle-relative path; a listing error is recorded as an input value."""
+    if not root.is_dir():
+        return {}
+    try:
+        return {p.relative_to(bundle).as_posix(): p for p in sorted(root.rglob('*'))}
+    except OSError as exc:
+        errors[f'bundle/{root.relative_to(bundle).as_posix()}/**'] = f'unlistable: {type(exc).__name__}'
+        return {}
+
+
+def admission_inputs(bundle: Path) -> dict:
+    """{label: sha256 | 'dir' | 'absent' | 'unreadable: …' | 'unlistable: …'} for every input the inspection reads.
+
+    Labels are ``package/<path>``, ``frozen/backend/evals/<name>`` and ``bundle/<path>``. The guard
+    directory is not read by the inspection (only ``--execute`` checks it), but it is hashed too,
+    the shim and ``state.lock`` included, so the copied guard files are provably the inspected ones.
     """
-    if receipts is not None and packets:
-        expected_missing = sorted(set(packets) - done)
-        for path in sorted(receipts.rglob('*.json')):
-            value = read_json(path)
-            missing = value.get('missing_slots')
-            if (set(value) == INSPECTION_KEYS and value.get('stage') == 'e8'
-                    and value.get('reused_control_mains') == REUSED_CONTROLS and value.get('new_planned') == E8_PACKETS
-                    and value.get('new_complete') == len(done) and value.get('new_missing') == E8_PACKETS - len(done)
-                    and isinstance(missing, list) and all(isinstance(s, str) for s in missing)
-                    and sorted(missing) == expected_missing):
-                return []
-    return ['no saved post-run inspection (launch kit step 7) in which the sealed admission accepted this state']
+    paths = {f'package/{name}': PACKAGE / name for name in ADDON_FILES + SUPPLEMENT_FILES}
+    paths.update({f'frozen/backend/evals/{name}': FROZEN_REPO / 'backend/evals' / name for name in FROZEN_EVAL_FILES})
+    listed = {rel: bundle / rel for rel in ('immutable-sha256.json', 'e8/guard', *E8_PANEL_FILES)}
+    errors: dict = {}
+    for name in read_json(bundle / 'immutable-sha256.json'):
+        rel = _inside(bundle, name)
+        if rel:
+            listed[rel] = bundle / rel
+    for stage in ADMISSION_STAGES:
+        root = bundle / 'stages' / stage
+        listed[f'stages/{stage}'] = root
+        listed.update(_tree(root, bundle, errors))
+        index = read_json(root / 'index.json')
+        for key in ('packets', 'reused_main_slots'):
+            entries = index.get(key)
+            for entry in entries if isinstance(entries, list) else []:
+                rel = _inside(bundle, entry.get('packet_path')) if isinstance(entry, dict) else None
+                if rel:
+                    listed[rel] = bundle / rel
+    listed.update(_tree(bundle / 'e8/guard', bundle, errors))
+    paths.update({f'bundle/{rel}': path for rel, path in listed.items()})
+    digests = {label: _input_digest(path) for label, path in paths.items()} | errors
+    return dict(sorted(digests.items()))
 
 
-def recovery_blockers(guard: Path, stages: Path, stage: str, state: dict, receipts: Path | None,
-                      classes: dict | None, markers: dict) -> list[str]:
+def inspection_argv(bundle: Path) -> list[str]:
+    """The launch kit's step 2 read-only inspection for ``bundle``, argument by argument."""
+    return [str(VENV_PYTHON), str(PACKAGE / 'tools' / 'e8_resume.py'), '--bundle', str(bundle),
+            '--supplement', str(PACKAGE), '--repo', str(FROZEN_REPO)]
+
+
+def run_inspection(argv: list[str]) -> subprocess.CompletedProcess:
+    """Run the sealed inspection: one JSON on stdout and exit 0, or ``Type: msg`` on stderr and exit 2."""
+    return subprocess.run(argv, capture_output=True, text=True, timeout=INSPECTION_TIMEOUT, check=False)
+
+
+def _text(value: object) -> str:
+    """Captured output as text; a timeout hands back bytes, or nothing."""
+    if isinstance(value, bytes):
+        return value.decode(errors='replace')
+    return value if isinstance(value, str) else ''
+
+
+def _map_sha256(inputs: dict) -> str:
+    return hashlib.sha256(json.dumps(inputs, sort_keys=True).encode()).hexdigest()
+
+
+def current_inspection(bundle: Path) -> tuple[dict, dict]:
+    """Run the step 2 inspection now, between two digests of its inputs; never raises.
+
+    Returns the record for ``export-summary.json`` and both input maps for ``admission-inputs.json``.
+    """
+    argv = inspection_argv(bundle)
+    before = admission_inputs(bundle)
+    record: dict = {'argv': argv, 'timeout_seconds': INSPECTION_TIMEOUT,
+                    'started_at_utc': datetime.now(timezone.utc).isoformat(), 'finished_at_utc': None,
+                    'exit_status': None, 'error': None, 'stdout': '', 'stderr': ''}
+    try:
+        result = run_inspection(argv)
+        record.update(exit_status=result.returncode, stdout=_text(result.stdout), stderr=_text(result.stderr))
+    except subprocess.TimeoutExpired as exc:
+        record.update(error=f'TimeoutExpired: no verdict within {INSPECTION_TIMEOUT} s',
+                      stdout=_text(exc.stdout), stderr=_text(exc.stderr))
+    except Exception as exc:  # a missing interpreter or checkout is evidence, not a crash
+        record['error'] = f'{type(exc).__name__}: {exc}'
+    record['finished_at_utc'] = datetime.now(timezone.utc).isoformat()
+    after = admission_inputs(bundle)
+    record.update(inputs_before_sha256=_map_sha256(before), inputs_after_sha256=_map_sha256(after),
+                  inputs_changed=sorted(k for k in before.keys() | after.keys() if before.get(k) != after.get(k)))
+    return record, {'before': before, 'after': after}
+
+
+def _is(value: object, expected: int) -> bool:
+    return type(value) is int and value == expected
+
+
+def verdict_blockers(stdout: str, packets: dict, done: set) -> list[str]:
+    """Why the inspection's stdout is not exactly one verdict on this export's slots."""
+    try:
+        verdict = json.loads(stdout)
+    except ValueError:
+        verdict = None
+    if not isinstance(verdict, dict):
+        return ['current read-only inspection printed no single JSON verdict object']
+    if set(verdict) != INSPECTION_KEYS:
+        return [f'current read-only inspection verdict has keys {sorted(verdict)}, not {sorted(INSPECTION_KEYS)}']
+    if (verdict['stage'] != 'e8' or not _is(verdict['reused_control_mains'], REUSED_CONTROLS)
+            or not _is(verdict['new_planned'], E8_PACKETS)):
+        return [f'current read-only inspection verdict is not for the frozen E8 panel ({REUSED_CONTROLS} reused, '
+                f'{E8_PACKETS} planned)']
+    if not packets:
+        return []  # the frozen-index blocker already says why no slot comparison is possible
+    blockers = []
+    if not _is(verdict['new_complete'], len(done)) or not _is(verdict['new_missing'], E8_PACKETS - len(done)):
+        blockers.append(f'current read-only inspection counts ({verdict["new_complete"]!r} complete, '
+                        f'{verdict["new_missing"]!r} missing) differ from this export '
+                        f'({len(done)} complete, {E8_PACKETS - len(done)} missing)')
+    missing = verdict['missing_slots']
+    if not (isinstance(missing, list) and all(isinstance(s, str) for s in missing)
+            and sorted(missing) == sorted(set(packets) - done)):
+        blockers.append('current read-only inspection missing slots differ from this export')
+    return blockers
+
+
+def exported_differences(inventory: dict, inputs: dict) -> list[str]:
+    """Paths whose exported bytes are not the inspected bytes, in either direction.
+
+    Compared: ``stages/e8/**`` and the guard files this export copies. The shim and ``state.lock``
+    are hashed as inputs but never copied, so they cannot be compared.
+    """
+    copied_guard = {f'e8/guard/{name}' for name in GUARD_FILES}
+
+    def compared(rel: str) -> bool:
+        return rel.startswith('stages/e8/') or rel in copied_guard
+
+    inspected = {label.removeprefix('bundle/'): value for label, value in inputs.items()
+                 if label.startswith('bundle/') and compared(label.removeprefix('bundle/'))
+                 and value not in ('dir', 'absent')}
+    exported = {rel: entry.get('sha256') for rel, entry in inventory.items() if compared(rel)}
+    return sorted(rel for rel in inspected.keys() | exported.keys() if inspected.get(rel) != exported.get(rel))
+
+
+def _last_line(text: str) -> str:
+    lines = [line.strip() for line in text.splitlines() if line.strip()]
+    return lines[-1] if lines else '(no stderr)'
+
+
+def admission_blockers(inspection: dict, packets: dict, done: set, inventory: dict, inputs: dict) -> list[str]:
+    """The sealed admission's verdict on the exported state, from the inspection this export ran.
+
+    Nothing on disk substitutes for that run. Eligibility needs it to have run and exited 0 on
+    inputs that did not change while it ran, to have printed exactly one inspection JSON whose
+    counts and missing slots are this export's, and the exported bytes to be the inspected ones.
+    """
+    blockers = []
+    if inspection.get('error'):
+        blockers.append(f'current read-only inspection did not run: {inspection["error"]}')
+    elif inspection.get('exit_status') != 0:
+        blockers.append(f'current read-only inspection refused (exit {inspection.get("exit_status")!r}): '
+                        f'{_last_line(inspection.get("stderr") or "")}')
+    else:
+        blockers += verdict_blockers(inspection.get('stdout') or '', packets, done)
+    if inspection.get('inputs_changed'):
+        blockers.append(f'admission inputs changed during the current inspection: {inspection["inputs_changed"]}')
+    differing = exported_differences(inventory, inputs)
+    if differing:
+        blockers.append(f'exported state differs from the inspected admission inputs: {differing}')
+    return blockers
+
+
+def refusal_records(receipts: Path) -> list[str]:
+    """Restored inspection receipts that are not a success JSON: an earlier stop, which remains one."""
+    return [path.relative_to(receipts).as_posix() for path in sorted(receipts.rglob('inspection*'))
+            if path.is_file() and set(read_json(path) if path.suffix == '.json' else {}) != INSPECTION_KEYS]
+
+
+def recovery_blockers(guard: Path, stages: Path, stage: str, state: dict, classes: dict | None, markers: dict,
+                      inspection: dict, inputs: dict, inventory: dict, refusals: list[str] | None) -> list[str]:
     """Every reason this export cannot serve as a sole-guard recovery checkpoint (README.md)."""
     if stage == 'pristine':
         return ['guard never initialized: nothing to recover; a new session starts from the sealed template']
@@ -454,7 +674,9 @@ def recovery_blockers(guard: Path, stages: Path, stage: str, state: dict, receip
     if stage == 'initialized':
         packets, index_blockers = frozen_packets(stages)
         continuity, done = ledger_blockers(stages, state, packets)
-        blockers += index_blockers + continuity + admission_blockers(receipts, packets, done)
+        blockers += index_blockers + continuity + admission_blockers(inspection, packets, done, inventory, inputs)
+        blockers += [f'receipts hold a refusal record of an earlier inspection, and a prior stop remains a stop '
+                     f'(README condition 6): {name}' for name in refusals or []]
     return blockers
 
 
@@ -476,6 +698,8 @@ def main() -> int:
         raise SystemExit(f'REFUSE: --receipts path is not a directory: {receipts}')
     stage = guard_stage(guard, read_json(guard / 'state.json'))
     missing = [name for name in STAGE_FILES[stage] if not (guard / name).is_file()]
+    # The sealed admission's verdict on the state about to be copied, bound to digests of its inputs.
+    inspection, inputs = current_inspection(bundle)
 
     inventory: dict = {}
     mismatches: list = []
@@ -494,8 +718,10 @@ def main() -> int:
     state = read_json(out / 'e8/guard/state.json')
     markers = terminal_markers(stages)
     classes = receipt_classes(receipts, guard) if receipts is not None else None
+    refusals = refusal_records(receipts) if receipts is not None else None
     blockers = [f'guard file missing for a {stage} guard: {name}' for name in missing]
-    blockers += [b for b in recovery_blockers(guard, stages, stage, state, receipts, classes, markers) if b not in blockers]
+    blockers += [b for b in recovery_blockers(guard, stages, stage, state, classes, markers, inspection,
+                                              inputs['after'], inventory, refusals) if b not in blockers]
     destination_verified = not mismatches
     source_unchanged = not source_changes
     if not destination_verified:
@@ -504,6 +730,8 @@ def main() -> int:
         blockers.append('source changed during export: it was not quiescent (see source_changes)')
     inventory_bytes = (json.dumps(inventory, indent=2, sort_keys=True) + '\n').encode()
     (out / 'sha256-inventory.json').write_bytes(inventory_bytes)
+    inputs_bytes = (json.dumps(inputs, indent=2, sort_keys=True) + '\n').encode()
+    (out / 'admission-inputs.json').write_bytes(inputs_bytes)
     summary = {
         'exported_at_utc': datetime.now(timezone.utc).isoformat(),
         'bundle': str(bundle),
@@ -520,6 +748,9 @@ def main() -> int:
         'mismatches': mismatches,
         'source_changes': source_changes,
         'receipt_classes': classes,
+        'inspection_refusal_records': refusals,
+        'current_inspection': inspection,
+        'admission_inputs_sha256': hashlib.sha256(inputs_bytes).hexdigest(),
         **markers,
         'recovery_eligible': not blockers,
         'recovery_blockers': blockers,
