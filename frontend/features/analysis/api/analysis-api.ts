@@ -221,6 +221,9 @@ export const streamAnalysis = async (
   const url = `${getApiUrl()}/api/analysis/${encodeURIComponent(ticker)}/stream`
 
   const controller = new AbortController()
+  let terminal = false
+  let timedOut = false
+  let reader: ReadableStreamDefaultReader<Uint8Array> | undefined
   const onAbort = () => controller.abort()
   if (signal) {
     if (signal.aborted) {
@@ -233,7 +236,10 @@ export const streamAnalysis = async (
   let timeoutId: ReturnType<typeof setTimeout> | null = null
   const resetTimeout = () => {
     if (timeoutId) clearTimeout(timeoutId)
-    timeoutId = setTimeout(() => controller.abort(), STREAM_TIMEOUT_MS)
+    timeoutId = setTimeout(() => {
+      timedOut = true
+      controller.abort()
+    }, STREAM_TIMEOUT_MS)
   }
   const clearTimeoutSafely = () => {
     if (timeoutId) {
@@ -249,6 +255,10 @@ export const streamAnalysis = async (
   const canRaf = typeof requestAnimationFrame === 'function'
   const deliverBuffer = () => {
     rafId = null
+    if (terminal || controller.signal.aborted) {
+      tokenBuffer = ''
+      return
+    }
     if (!tokenBuffer) return
     const text = tokenBuffer
     tokenBuffer = ''
@@ -256,7 +266,7 @@ export const streamAnalysis = async (
       handlers.onToken(text)
     } catch (error) {
       controller.abort()
-      handlers.onError(error instanceof Error ? error.message : 'Something went wrong displaying the analysis.')
+      fail(error instanceof Error ? error.message : 'Something went wrong displaying the analysis.')
     }
   }
   const enqueueToken = (text: string) => {
@@ -277,8 +287,15 @@ export const streamAnalysis = async (
     cancelScheduledFlush()
     tokenBuffer = ''
   }
+  const fail = (message: string) => {
+    if (terminal || signal?.aborted) return
+    terminal = true
+    discardBufferedTokens()
+    handlers.onError(message)
+  }
 
   try {
+    if (signal?.aborted) return
     // Raw SSE POST bypasses the axios client, so refresh an expired access cookie the same way
     // (a Pro user reading a long analysis for 30+ min must not be told to "sign in" mid-session).
     const response = await postStreamWithRefresh(() =>
@@ -296,6 +313,7 @@ export const streamAnalysis = async (
       }),
     )
 
+    if (signal?.aborted) return
     if (!response.ok) {
       let errorMessage: string
       if (response.status === 401) {
@@ -309,13 +327,13 @@ export const streamAnalysis = async (
       } else {
         errorMessage = await parseErrorDetail(response, `Request failed with status ${response.status}`)
       }
-      handlers.onError(errorMessage)
+      fail(errorMessage)
       return
     }
 
-    const reader = response.body?.getReader()
+    reader = response.body?.getReader()
     if (!reader) {
-      handlers.onError('No response stream available.')
+      fail('No response stream available.')
       return
     }
 
@@ -325,6 +343,11 @@ export const streamAnalysis = async (
 
     while (true) {
       const { done, value } = await reader.read()
+      if (terminal || signal?.aborted) return
+      if (timedOut) {
+        fail('The analysis timed out. Please try again.')
+        return
+      }
       if (done) break
 
       resetTimeout()
@@ -333,6 +356,7 @@ export const streamAnalysis = async (
       buffer = lines.pop() || ''
 
       for (const line of lines) {
+        if (terminal || signal?.aborted) return
         if (!line.startsWith('data:')) continue
         const payload = line.slice(line.indexOf(':') + 1).trim()
         if (!payload) continue
@@ -355,6 +379,7 @@ export const streamAnalysis = async (
             // The completion carries the authoritative (renumbered) narrative — buffered raw
             // tokens are superseded.
             discardBufferedTokens()
+            terminal = true
             handlers.onComplete({
               kind: data.kind === 'not_enough_data' ? 'not_enough_data' : 'analysis',
               analysis_id: typeof data.analysis_id === 'number' ? data.analysis_id : null,
@@ -366,30 +391,32 @@ export const streamAnalysis = async (
               cached: data.cached === true,
               n_periods: typeof data.n_periods === 'number' ? data.n_periods : 0,
             })
-            break
+            return
           case 'error':
-            discardBufferedTokens()
-            handlers.onError(typeof data.message === 'string' ? data.message : 'Something went wrong.')
-            break
+            fail(typeof data.message === 'string' ? data.message : 'Something went wrong.')
+            return
           default:
             break
         }
       }
     }
 
-    // Graceful end-of-stream: flush any tail (only matters if the stream ended without a
-    // terminal event — complete/error already discarded the buffer).
-    cancelScheduledFlush()
-    deliverBuffer()
+    fail('The analysis stream ended before it was complete. Please try again.')
   } catch (error: unknown) {
     const errObj = error as { name?: string; message?: string }
     if (errObj?.name === 'AbortError') {
+      if (timedOut) fail('The analysis timed out. Please try again.')
       return
     }
-    handlers.onError(errObj?.message || 'Network error. Please check your connection and try again.')
+    fail(errObj?.message || 'Network error. Please check your connection and try again.')
   } finally {
     clearTimeoutSafely()
-    cancelScheduledFlush()
+    discardBufferedTokens()
     signal?.removeEventListener('abort', onAbort)
+    if (reader) {
+      // Stop delivery after the first terminal event without waiting for remote EOF.
+      void reader.cancel().catch(() => {})
+      reader.releaseLock()
+    }
   }
 }

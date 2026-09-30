@@ -3,6 +3,18 @@
  * (progress/token/complete/error, mirroring trend_analysis_service.stream_trend_narrative).
  */
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { createElement } from 'react'
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import api from '@/lib/api/client'
+import { queryKeys } from '@/lib/queryKeys'
+import AnalysisPageClient from '@/features/analysis/components/AnalysisPageClient'
+
+vi.mock('@/features/companies/components/CompanySearch', () => ({
+  default: ({ onSelect }: { onSelect: (ticker: string) => void }) =>
+    createElement('button', { onClick: () => onSelect('AAPL') }, 'Select Apple'),
+}))
+vi.mock('@/lib/analytics', () => ({ default: { analysisRun: vi.fn() } }))
 import { streamAnalysis } from '@/features/analysis/api/analysis-api'
 
 const originalFetch = global.fetch
@@ -12,6 +24,8 @@ const streamOf = (frames: Array<Record<string, unknown>>) => {
   const chunks = frames.map((f) => encoder.encode(`data: ${JSON.stringify(f)}\n\n`))
   let readIndex = 0
   return {
+    cancel: vi.fn(async () => {}),
+    releaseLock: vi.fn(),
     read: vi.fn(async () =>
       readIndex < chunks.length
         ? { value: chunks[readIndex++], done: false }
@@ -31,6 +45,9 @@ const RANGE = { mode: 'annual' as const, start_period: 'FY2021', end_period: 'FY
 
 describe('streamAnalysis', () => {
   afterEach(() => {
+    cleanup()
+    vi.useRealTimers()
+    vi.unstubAllGlobals()
     vi.restoreAllMocks()
     global.fetch = originalFetch
   })
@@ -81,21 +98,149 @@ describe('streamAnalysis', () => {
     })
   })
 
-  it('flushes buffered tokens when a stream ends without a terminal event', async () => {
-    // A terminal `complete` supersedes buffered tokens (the resolved narrative replaces the raw
-    // stream), so live token delivery is asserted on a tokens-only stream: the graceful
-    // end-of-stream flush must deliver the tail rather than dropping the final words.
-    mockFetch([
-      { type: 'token', text: 'Revenue grew ' },
-      { type: 'token', text: 'steadily [F3].' },
-    ])
-    const tokens: string[] = []
+  it.each([{ frames: [] }, { frames: [{ type: 'token', text: 'Incomplete draft' }] }])(
+    'reports EOF without a terminal event once: $frames',
+    async ({ frames }) => {
+      mockFetch(frames)
+      const complete = vi.fn()
+      const error = vi.fn()
+      await streamAnalysis('AAPL', RANGE, { onToken: vi.fn(), onComplete: complete, onError: error })
+      expect(error).toHaveBeenCalledTimes(1)
+      expect(error).toHaveBeenCalledWith(expect.stringMatching(/ended before.*complete/i))
+      expect(complete).not.toHaveBeenCalled()
+    },
+  )
+
+  it.each(['timeout', 'caller'] as const)('settles an idle stream on %s abort', async (cause) => {
+    vi.useFakeTimers()
+    const caller = new AbortController()
+    let rejectRead: (error: Error) => void = () => {}
+    const reader = {
+      read: vi.fn(() => new Promise<ReadableStreamReadResult<Uint8Array>>((_resolve, reject) => {
+        rejectRead = reject
+      })),
+      cancel: vi.fn(async () => {}),
+      releaseLock: vi.fn(),
+    }
+    global.fetch = vi.fn(async (_url, init) => {
+      init?.signal?.addEventListener('abort', () => rejectRead(new DOMException('Aborted', 'AbortError')))
+      return { ok: true, body: { getReader: () => reader } }
+    }) as unknown as typeof fetch
+    const error = vi.fn()
+    const complete = vi.fn()
+    const request = streamAnalysis('AAPL', RANGE, {
+      onToken: vi.fn(), onComplete: complete, onError: error,
+    }, caller.signal)
+    await vi.advanceTimersByTimeAsync(0)
+    expect(reader.read).toHaveBeenCalledTimes(1)
+    if (cause === 'caller') caller.abort()
+    else await vi.advanceTimersByTimeAsync(120_000)
+    await request
+    expect(complete).not.toHaveBeenCalled()
+    if (cause === 'caller') expect(error).not.toHaveBeenCalled()
+    else {
+      expect(error).toHaveBeenCalledTimes(1)
+      expect(error).toHaveBeenCalledWith(expect.stringMatching(/timed out/i))
+    }
+    expect(reader.cancel).toHaveBeenCalledTimes(1)
+    expect(reader.releaseLock).toHaveBeenCalledTimes(1)
+    expect(vi.getTimerCount()).toBe(0)
+  })
+
+  it.each(['complete', 'error'] as const)('stops after the first %s terminal event', async (type) => {
+    const first = type === 'complete'
+      ? { type, kind: 'analysis', narrative: 'Final answer', citations: [], grounded: 0, n_periods: 2 }
+      : { type, message: 'Generation failed.' }
+    const reader = streamOf([first, { type: 'token', text: 'Late draft' }, first])
+    global.fetch = vi.fn(async () => ({ ok: true, body: { getReader: () => reader } })) as unknown as typeof fetch
+    const complete = vi.fn()
+    const error = vi.fn()
+    const token = vi.fn()
+    await streamAnalysis('AAPL', RANGE, { onToken: token, onComplete: complete, onError: error })
+    expect(complete).toHaveBeenCalledTimes(type === 'complete' ? 1 : 0)
+    expect(error).toHaveBeenCalledTimes(type === 'error' ? 1 : 0)
+    expect(token).not.toHaveBeenCalled()
+    expect(reader.read).toHaveBeenCalledTimes(1)
+    expect(reader.cancel).toHaveBeenCalledTimes(1)
+    expect(reader.releaseLock).toHaveBeenCalledTimes(1)
+  })
+
+  it('stops callbacks when the caller cancels within a received chunk', async () => {
+    const caller = new AbortController()
+    const reader = streamOf([])
+    reader.read.mockResolvedValueOnce({ done: false, value: new TextEncoder().encode([
+      { type: 'progress', stage: 'assembling' },
+      { type: 'token', text: 'Late draft' },
+      { type: 'complete', narrative: 'Late completion' },
+    ].map((event) => `data: ${JSON.stringify(event)}\n\n`).join('')) })
+    global.fetch = vi.fn(async () => ({ ok: true, body: { getReader: () => reader } })) as unknown as typeof fetch
+    const token = vi.fn()
+    const complete = vi.fn()
+    const error = vi.fn()
     await streamAnalysis('AAPL', RANGE, {
-      onToken: (t) => tokens.push(t),
-      onComplete: vi.fn(),
-      onError: vi.fn(),
+      onProgress: () => caller.abort(), onToken: token, onComplete: complete, onError: error,
+    }, caller.signal)
+    expect(token).not.toHaveBeenCalled()
+    expect(complete).not.toHaveBeenCalled()
+    expect(error).not.toHaveBeenCalled()
+    expect(reader.read).toHaveBeenCalledTimes(1)
+    expect(reader.cancel).toHaveBeenCalledTimes(1)
+    expect(reader.releaseLock).toHaveBeenCalledTimes(1)
+  })
+
+  it('delivers live previews before a successful authoritative completion', async () => {
+    let frame: FrameRequestCallback = () => {}
+    vi.stubGlobal('requestAnimationFrame', vi.fn((callback: FrameRequestCallback) => { frame = callback; return 1 }))
+    vi.stubGlobal('cancelAnimationFrame', vi.fn())
+    let finishRead: (result: ReadableStreamReadResult<Uint8Array>) => void = () => {}
+    const reader = streamOf([{ type: 'token', text: 'Live preview' }])
+    reader.read.mockImplementationOnce(async () => ({
+      done: false, value: new TextEncoder().encode('data: {"type":"token","text":"Live preview"}\n\n'),
+    })).mockImplementationOnce(() => new Promise((resolve) => { finishRead = resolve }))
+    global.fetch = vi.fn(async () => ({ ok: true, body: { getReader: () => reader } })) as unknown as typeof fetch
+    const token = vi.fn()
+    const complete = vi.fn()
+    const error = vi.fn()
+    const request = streamAnalysis('AAPL', RANGE, { onToken: token, onComplete: complete, onError: error })
+    await waitFor(() => expect(reader.read).toHaveBeenCalledTimes(2))
+    frame(0)
+    expect(token).toHaveBeenCalledWith('Live preview')
+    finishRead({ done: false, value: new TextEncoder().encode('data: {"type":"complete","narrative":"Final answer"}\n\n') })
+    await request
+    expect(complete).toHaveBeenCalledTimes(1)
+    expect(complete.mock.calls[0][0].narrative).toBe('Final answer')
+    expect(error).not.toHaveBeenCalled()
+  })
+
+  it('releases the actual mounted Run control after incomplete EOF', async () => {
+    const queryClient = new QueryClient({ defaultOptions: { queries: { staleTime: Infinity, retry: false } } })
+    queryClient.setQueryData(queryKeys.currentUser(), { id: 7 })
+    queryClient.setQueryData(queryKeys.subscription.byUser(7), { is_pro: true })
+    queryClient.setQueryData(queryKeys.analysisCoverage('AAPL'), {
+      ticker: 'AAPL', company_name: 'Apple', supported: true, syncing: false,
+      annual: [{ key: 'FY2023', fiscal_year: 2023, period_end: '2023-09-30', has_core: true }],
+      quarterly: [], limits: { annual: 10, quarterly: 12 },
     })
-    expect(tokens.join('')).toBe('Revenue grew steadily [F3].')
+    vi.spyOn(api, 'post').mockResolvedValue({ data: {
+      ticker: 'AAPL', company_name: 'Apple', mode: 'annual', period_key: 'FY2023..FY2023',
+      periods: [], series: [], inflections: [],
+    } })
+    let end: (result: ReadableStreamReadResult<Uint8Array>) => void = () => {}
+    const reader = streamOf([])
+    reader.read.mockImplementationOnce(() => new Promise((resolve) => { end = resolve }))
+    global.fetch = vi.fn(async () => ({ ok: true, body: { getReader: () => reader } })) as unknown as typeof fetch
+    render(createElement(QueryClientProvider, { client: queryClient }, createElement(AnalysisPageClient)))
+    fireEvent.click(screen.getByRole('button', { name: 'Select Apple' }))
+    const run = await screen.findByRole('button', { name: 'Run analysis' })
+    await waitFor(() => expect(run).toBeEnabled())
+    fireEvent.click(run)
+    await waitFor(() => expect(reader.read).toHaveBeenCalledTimes(1))
+    expect(run).toBeDisabled()
+    await act(async () => { end({ done: true, value: undefined }) })
+    await waitFor(() => expect(run).toBeEnabled())
+    expect(screen.getByRole('alert')).toHaveTextContent(/ended before.*complete/i)
+    expect(screen.queryByText('Assembling the numbers…')).not.toBeInTheDocument()
+    queryClient.clear()
   })
 
   it('routes an error event to onError and drops buffered tokens', async () => {
