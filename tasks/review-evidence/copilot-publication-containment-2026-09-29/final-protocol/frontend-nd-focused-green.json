@@ -1,0 +1,17 @@
+{
+  "command": [
+    "npm",
+    "run",
+    "test",
+    "--",
+    "--run",
+    "tests/unit/copilotStream.spec.ts"
+  ],
+  "cwd": "/private/tmp/earningsnerd-containment-resume-20260929/frontend",
+  "node": "22.23.2",
+  "exit_code": 0,
+  "elapsed_seconds": 1.28,
+  "runtime_sha256": "a01afe65c85a7315b86afe081f1ea7e1905aec4de4f1aae307bc5ca39819f97a",
+  "test_sha256": "e9b691ffef2d8c276a22e3077fb50513a0a5a5efbf05c3a42a176ee1a5909c33",
+  "log_sha256": "e880a74e612409384b2b5cc0dcb3bff0e573256606877abf54598d7f1cd11cc0"
+}

@@ -1,5 +1,6 @@
 """Full-cohort, terminal and provenance acceptance boundaries for the real runner."""
 from copy import deepcopy
+import asyncio
 import json
 from pathlib import Path
 
@@ -92,6 +93,73 @@ async def test_single_terminal_not_disclosed_and_guard_count_are_retained(monkey
         yield completion(answer='Not disclosed.', kind='not_disclosed', misplaced_fact_markers=2)
     monkeypatch.setattr(copilot_service, 'answer_filing_question', stream)
     assert await runner._answer(filing(), 'Future?') == ('Not disclosed.', [], 'not_disclosed', 2)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize('outcome', ['complete', 'rejected', 'no_envelope', 'provider_error', 'cancelled'])
+async def test_attempt_trace_retains_candidate_and_closes_provider(outcome, monkeypatch):
+    """Rejected candidates remain diagnosable without storing provider error payloads."""
+    from app.services import copilot_service
+    from app.services.openai_service import STREAM_ACTIVITY_SENTINEL, STREAM_ERROR_SENTINEL
+
+    source = 'The company sells products to retail and enterprise customers around the world.'
+    snap = filing()
+    snap.content_cache.critical_excerpt = source
+    candidate = ['  The company serves ', 'retail customers [7].\n']
+    if outcome in {'complete', 'rejected'}:
+        declarations = [{'n': 7, 'excerpt': source, 'section': 'Business'}]
+        candidate += ['===CITA', 'TIONS===\n', json.dumps(declarations) if outcome == 'complete' else '[broken]']
+    started = asyncio.Event()
+    closed = []
+    private_error = 'provider-private-error-detail'
+    activity = STREAM_ACTIVITY_SENTINEL + json.dumps({'name': 'get_financial_fact', 'phase': 'done'})
+    monkeypatch.setattr(copilot_service.copilot_tools, 'run_tool', lambda *args, **kwargs: fact())
+
+    async def stream(messages, tools, run_tool, **kwargs):
+        try:
+            run_tool('get_financial_fact', {'concept': 'revenue', 'fiscal_year': 2025})
+            yield activity
+            for delta in candidate:
+                yield delta
+            started.set()
+            if outcome == 'cancelled':
+                await asyncio.Event().wait()
+            if outcome == 'provider_error':
+                yield STREAM_ERROR_SENTINEL + private_error
+        finally:
+            closed.append(True)
+
+    monkeypatch.setattr(copilot_service.openai_service, 'stream_chat_with_tools', stream)
+    trace = {}
+    if outcome == 'cancelled':
+        task = asyncio.create_task(runner._answer(snap, 'Describe the business.', trace=trace))
+        await started.wait()
+        task.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await task
+    elif outcome == 'complete':
+        answer, cites, kind, _ = await runner._answer(snap, 'Describe the business.', trace=trace)
+        assert answer == 'The company serves retail customers [1].' and len(cites) == 1 and kind == 'answer'
+    else:
+        with pytest.raises(ValueError, match='provider error event'):
+            await runner._answer(snap, 'Describe the business.', trace=trace)
+
+    assert trace['candidate_deltas'] == candidate
+    assert trace['provider_controls'] == [{'type': 'activity'}] + (
+        [{'type': 'error'}] if outcome == 'provider_error' else [])
+    assert private_error not in json.dumps(trace)
+    assert trace['tool_results'][0]['name'] == 'get_financial_fact'
+    assert trace['tool_results'][0]['result']['cite'] == 'F1'
+    if outcome == 'cancelled':
+        assert trace['service_events'] == []
+    elif outcome == 'complete':
+        assert trace['service_events'][0]['type'] == 'complete'
+        assert trace['service_events'][0]['answer'] == answer
+    else:
+        message = copilot_service._STREAM_FAILURE if outcome == 'provider_error' else copilot_service._PUBLICATION_ERROR
+        assert trace['service_events'] == [{'type': 'error', 'message': message}]
+    assert closed == [True]
+    assert copilot_service.openai_service.stream_chat_with_tools is stream
 
 
 def complete_report():
@@ -277,7 +345,8 @@ def test_nullable_raw_tag_is_preserved_without_inventing_provenance():
 async def test_actual_service_refusal_terminal_is_accepted_without_invented_counter(monkeypatch):
     from app.services import copilot_service
     async def stream(*args, **kwargs):
-        yield '===NOT_DISCLOSED===This filing does not disclose that information.'
+        yield ('===NOT_DISCLOSED===This filing does not disclose that information.'
+               '\n===FOLLOWUPS===["What did revenue total?", "What risks were disclosed?"]')
     monkeypatch.setattr(copilot_service.openai_service, 'stream_chat_with_tools', stream)
     result = None
     try:
@@ -317,7 +386,7 @@ async def test_trace_retains_uncited_and_rejected_tools_and_restores_provider(st
         if stop == 'error':
             yield STREAM_ERROR_SENTINEL + 'offline failure'
         else:
-            yield 'Revenue was RMB996.347 billion.'
+            yield 'Revenue was RMB996.347 billion.\n===CITATIONS===\n[]'
     monkeypatch.setattr(copilot_service.openai_service, 'stream_chat_with_tools', stream)
     trace = {}
     if stop == 'complete':

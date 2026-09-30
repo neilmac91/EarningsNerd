@@ -44,6 +44,29 @@ _TOOL_ROUND_HOLDBACK_CHARS = 240
 _CHAT_SECONDS = 75.0
 
 
+def merge_chat_usage(total: dict[str, Any], attempt: dict[str, Any]) -> None:
+    """Merge recorded call totals without pricing again or turning unknowns into zero.
+
+    A missing counter/cost makes that aggregate unknown. A model is attributed only when every
+    call reported it; differing known models are labelled ``mixed`` rather than the last model.
+    """
+    if not attempt:
+        return
+    if not total:
+        total.update(attempt)
+        return
+    for key in total.keys() | attempt.keys():
+        previous, value = total.get(key), attempt.get(key)
+        if previous is None or value is None:
+            total[key] = None
+        elif key == "model":
+            total[key] = previous if previous == value else "mixed"
+        else:
+            total[key] = previous + value
+            if key == "estimated_cost_usd":
+                total[key] = round(total[key], 6)
+
+
 class _CopilotChatMixin:
     """Streaming chat + tool-use wrappers for the copilot path, mixed into OpenAIService."""
 
@@ -103,9 +126,11 @@ class _CopilotChatMixin:
                                         latency_ms=(asyncio.get_running_loop().time() - started) * 1000,
                                         first_token_ms=first_token_ms)
                 if usage_sink is not None:
-                    for key, value in record["usage"].items():
-                        if value is not None:
-                            usage_sink[key] = usage_sink.get(key, 0) + value
+                    merge_chat_usage(usage_sink, {
+                        **record["usage"],
+                        "model": record["actual_model"],
+                        "estimated_cost_usd": record["estimated_cost_usd"],
+                    })
             remaining = deadline - asyncio.get_running_loop().time()
             if remaining <= 0:
                 raise TimeoutError("Chat deadline exhausted")
@@ -118,7 +143,7 @@ class _CopilotChatMixin:
         model: Optional[str] = None,
         max_tokens: int = 1200,
         temperature: float = 0.2,
-        usage_sink: Optional[Dict[str, int]] = None,
+        usage_sink: Optional[Dict[str, Any]] = None,
     ) -> AsyncGenerator[str, None]:
         """Stream raw assistant delta content for an arbitrary chat completion.
 
@@ -173,7 +198,7 @@ class _CopilotChatMixin:
         max_tokens: int = 1200,
         temperature: float = 0.2,
         max_rounds: int = 4,
-        usage_sink: Optional[Dict[str, int]] = None,
+        usage_sink: Optional[Dict[str, Any]] = None,
     ) -> AsyncGenerator[str, None]:
         """Stream a chat completion that may call tools, executing them server-side between rounds.
 

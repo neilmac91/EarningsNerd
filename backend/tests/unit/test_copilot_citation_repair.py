@@ -70,6 +70,8 @@ async def _complete(monkeypatch, answer, *, lookup=None, view=None, model_calls=
             yield f"{service.STREAM_ACTIVITY_SENTINEL}{{}}"
             run_tool(name, args)
         yield answer
+        if '===CITATIONS===' not in answer:
+            yield '\n===CITATIONS===\n[]'
 
     monkeypatch.setattr(service.openai_service, 'stream_chat_with_tools', stream)
     events = [e async for e in service.answer_filing_question(
@@ -349,6 +351,7 @@ async def test_server_lookup_is_labelled_and_never_becomes_model_tool_history(mo
         # The eval harness observes model tool calls by wrapping exactly this closure.
         seen_by_harness.append('stream-started')
         yield UNCITED
+        yield '\n===CITATIONS===\n[]'
 
     monkeypatch.setattr(service.copilot_tools, 'run_tool', lookup)
     monkeypatch.setattr(service.openai_service, 'stream_chat_with_tools', stream)

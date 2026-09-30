@@ -1,0 +1,47 @@
+{
+  "recorded_at": "2026-09-29T21:08:08.231880+00:00",
+  "head": "2dae5338554560bf3008082843cedd5f34bd0ad3",
+  "base": "68c56a084a49e6a973632a19d4983040e8adb149",
+  "trigger": "Draft marked ready at21:01:55UTC",
+  "capture": "outputs/resumption-2026-09-29/containment/corrected-ready-review/check-2",
+  "capture_receipt_sha256": "2601663b46969d497b49deeacdb7ba4ea8f154223e42d94dd172e61fc91ae07f",
+  "captured_files": {
+    "pr.json": "274a1221ea23e68a729fce24f20a2aa6df7c31687daae0deca9384789e80023b",
+    "comments.json": "9908c1f651ce3b27e0e711487569e3cd17043cdca34e63d846075d8513881f1c",
+    "inline.json": "96b37edc086dfa969cd5d9e2c951d7ad687d2b484c37b00c262da4696001ab6e",
+    "reviews.json": "9d9e7945faa5570e96a3d8e633f9868822ad80ae8dda3a667af52b86f72cac25"
+  },
+  "pr_draft_at_capture": true,
+  "summary_comment": {
+    "id": 5897562654,
+    "updated_at": "2026-09-29T21:05:06Z",
+    "body": "<!-- codex-pull-request-review-summary -->\n\n## Codex Review Summary\n\nThis comment shows the latest Codex review activity on this pull request.\n\n| Review | Status | Commit | Review trigger |\n| --- | --- | --- | --- |\n| \ud83d\udcdd **Code Review** | \u2705 **Completed** <relative-time datetime=\"2026-09-29T21:05:03.698713Z\">2026-09-29T21:05:03.698713Z</relative-time> | `2dae533` | Draft marked ready |\n\n\n\n<details> <summary>\u2139\ufe0f About Codex in GitHub</summary>\n<br/>\n\n[Your team has set up Codex to review pull requests in this repo](https://chatgpt.com/codex/cloud/settings/general). Reviews are triggered when you\n- Open a pull request for review\n- Mark a draft as ready\n- Comment \"@codex review\" or \"@codex security review\".\n\nCodex reacts with \ud83d\udc40 while any review is running, comments if it has suggestions, and reacts with \ud83d\udc4d once all reviews finish with no findings.\n\n</details>"
+  },
+  "exact_head_reviews": [
+    {
+      "id": 5358454541,
+      "commit_id": "2dae5338554560bf3008082843cedd5f34bd0ad3",
+      "submitted_at": "2026-09-29T21:05:00Z",
+      "state": "COMMENTED",
+      "body": "\n### \ud83d\udca1 Codex Review\n\nHere are some automated review suggestions for this pull request.\n\n**Reviewed commit:** `2dae533855`\n    \n\n<details> <summary>\u2139\ufe0f About Codex in GitHub</summary>\n<br/>\n\n[Your team has set up Codex to review pull requests in this repo](https://chatgpt.com/codex/cloud/settings/general). Reviews are triggered when you\n- Open a pull request for review\n- Mark a draft as ready\n- Comment \"@codex review\".\n\nIf Codex has suggestions, it will comment; otherwise it will react with \ud83d\udc4d.\n\n\n\n\nCodex can also answer questions or update the PR. Try commenting \"@codex address that feedback\".\n            \n</details>",
+      "html_url": "https://github.com/neilmac91/EarningsNerd/pull/1022#pullrequestreview-5358454541"
+    }
+  ],
+  "exact_head_inline_findings": [
+    {
+      "id": 4138318099,
+      "commit_id": "2dae5338554560bf3008082843cedd5f34bd0ad3",
+      "pull_request_review_id": 5358454541,
+      "path": "backend/app/services/copilot_service.py",
+      "line": 1255,
+      "start_line": 1254,
+      "body": "**<sub><sub>![P1 Badge](https://img.shields.io/badge/P1-orange?style=flat)</sub></sub>  Require a complete not-disclosed envelope**\n\nWhen the provider ends immediately after `===NOT_DISCLOSED===` or midway through its reason/followups, this check passes because no answer prose preceded the sentinel; the branch then substitutes the default reason or accepts the partial text and emits `complete`, causing the router to consume quota. Even after the new answer-mode missing-envelope guard, this separate path therefore still treats provider EOF as a valid publication boundary and can present truncation as a definitive \u201cnot disclosed\u201d answer. Require a nonempty reason plus a complete, parseable followups envelope before completing this path.\n\nUseful? React with \ud83d\udc4d\u00a0/ \ud83d\udc4e.",
+      "html_url": "https://github.com/neilmac91/EarningsNerd/pull/1022#discussion_r4138318099"
+    }
+  ],
+  "historical_inline_ids": [
+    4137842319
+  ],
+  "status": "Completed with one new P1 finding; independent refutation not yet performed in this capture.",
+  "scope": "Actual ready-triggered evidence, distinct from earlier clear manual review and from failed18 evaluation."
+}

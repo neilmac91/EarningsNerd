@@ -27,6 +27,7 @@ from sqlalchemy.orm import Session
 from app.config import settings
 from app.models import Company, FinancialFact
 from app.services import citation_markers
+from app.services.ai.copilot_chat import merge_chat_usage
 
 logger = logging.getLogger(__name__)
 
@@ -1612,15 +1613,6 @@ def _retry_instruction(illegal: list[str], mismatched_details: list[str]) -> str
     )
 
 
-def _merge_usage(total: dict[str, Any], attempt: dict[str, Any]) -> None:
-    """Sum per-attempt token usage so cost telemetry reflects every model call of a retried run."""
-    for key, value in attempt.items():
-        if isinstance(value, (int, float)):
-            total[key] = total.get(key, 0) + value
-        else:
-            total.setdefault(key, value)
-
-
 def _load_cached_analysis(db: Session, company_id: int, mode: str, key: str):
     from app.models import TrendAnalysis
 
@@ -1849,7 +1841,7 @@ async def stream_trend_narrative(
                 "percent": 80,
             }
 
-        usage_sink: dict[str, int] = {}
+        usage_sink: dict[str, Any] = {}
         parts: list[str] = []
         stream_failed = False
         async for chunk in openai_service.stream_chat(
@@ -1871,7 +1863,7 @@ async def stream_trend_narrative(
                     "message": "Selecting grounded observations…",
                     "percent": 60 if attempt == 0 else 85,
                 }
-        _merge_usage(total_usage, usage_sink)
+        merge_chat_usage(total_usage, usage_sink)
         if stream_failed:
             yield {"type": "error", "message": "The analysis could not be generated. Please try again."}
             return
@@ -1927,5 +1919,5 @@ async def stream_trend_narrative(
         "cached": False,
         "invalidated": invalidated,
         "n_periods": len(dataset["periods"]),
-        "usage": {**total_usage, "model": model_name},
+        "usage": total_usage,
     }

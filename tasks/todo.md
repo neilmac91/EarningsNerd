@@ -1,3 +1,32 @@
+## 2026-09-30 — native-evidence delivery adapter candidate (engineering-only)
+
+- Capability preflight in the implementer's container: Claude Code CLI 2.1.285 present, `codex` absent, Anthropic SDK not installed, credentials and network policy not inspected. Documented, statically measured and unknown facts are kept separate in the handback's capability inventory; no model, API or paid call was made.
+- New `backend/evals/acceptance_source_review_delivery.py` dispatches exactly the reserved `prompt.bin` bytes through one route (`claude -p`, stdin, `stream-json`, no tools), with an allow-listed child environment, create-once ledger as the redispatch lock, file-backed raw streams, group kill on timeout, fail-closed classification (`unknown` > `compacted` > `truncated` > `failed` > `complete`; `complete` needs an observed `end_turn`), per-member native dispositions by exact bytes, and a settlement proposal for the unchanged journal. Contract: `tasks/readiness-2026-09-21/acceptance/source-review-native-delivery.md`. The six owner modules and their tests are byte-identical to the handoff snapshot.
+- Offline owner tests cover exact stdin/output binding, each reason code the classifier emits, unknown delivery left pending with same-root redispatch refused (the lock is per delivery root; one root per journal is the operator rule), pre-dispatch refusals with no ledger (including user memory/rules/plugins in HOME), the frozen argv/env allow-list with no path or value disclosure, native-member honesty, a re-labelled ledger refused against the journal contract, the status matrix (unknown never admits eligible; operator retirement after failed/unknown), and one real subprocess run against a fake CLI. `backend/scripts/native_delivery_probe.py` prepares the single bounded probe (synthetic packet, one dispatch, no retry; `plan` runs the adapter's preflight with no side effects) for Codex to release after inspection.
+- [ ] Codex: bind the base, run the probe `plan` on the releasing machine, then `run` once; adopt the retained `stdout.raw` as the first real stream fixture before any second call. Opening a PR runs the paid `eval-baseline` job and merging deploys the backend service; neither is authorised by this task.
+
+## 2026-09-30 — recover incomplete Analysis streams
+
+- Two independent refutations upheld a conditional EOF/idle-timeout lifecycle defect on main `0dcc4ee3`: the client omitted a terminal callback and the mounted Run flow stayed busy. No production incident or deployed feature-flag observation is inferred.
+- The Analysis client now reports incomplete EOF and idle timeout once, keeps caller cancellation quiet, stops after the first terminal event and releases the reader/timer. Progressive previews, completion/error/not-enough-data mappings and shared auth refresh are preserved.
+- The existing owner includes actual mounted Run recovery. Corrected fixtures fail against the original runtime (8 failed / 5 passed) and pass after the correction (13/13); earlier fixture failures are retained. Node 22.23.2 lint, TypeScript and all 726 tests/115 files pass. The unchanged default build passes with 27/27 generated pages outside the sandbox; its earlier stalled attempt, process diagnostic and cache are retained.
+- Local evidence: `outputs/resumption-2026-09-30/analysis-stream/`. No backend, model, scorer, locked contract, feature-flag, account or pricing change.
+
+## 2026-09-29 — release completed sibling filing reads
+
+- Separate actual-HTTP/PostgreSQL controls reproduced pool starvation in specific-filing, recent-filing, content and fundamentals reads. Retain two fresh refutation passes and the original failures.
+- Materialize existing DTOs or primitive payloads before synchronous `finally` cleanup. Extend the single filing-read burst gate to populated, empty and 404 responses; preserve global dependencies, pool settings and locked tests. One committed mutation failed 9/10 and restored 10/10; the full backend gate passed 3,817 tests. [Evidence](review-evidence/filing-read-session-successor-2026-09-29/README.md) retains actual-HTTP bounds and remaining limits. Base reconciliation to main `367a70fa`, exact-head independent review at `0a0e83d2`, hosted CI70 and ready-stage Copilot completed. The evidence contains a dated coordination snapshot; [PR #1018](https://github.com/neilmac91/EarningsNerd/pull/1018) is the live source for the documentation correction and subsequent serial release, not a request to redo those completed gates.
+
+## 2026-09-29 — release completed filing-list database sessions
+
+- Isolated PostgreSQL measurement reproduced four-slot pool starvation from eight concurrent cached HTTP reads, including full middleware and local Uvicorn. Close materialized cached/live/fallback reads synchronously; retain original response, cache and background-refresh behavior.
+- One full-app regression guards the reported burst, with a failing/restored mutation proof. Full backend gate: 3,808 passed; separate PostgreSQL/HTTP checks: eight cached reads and 44 mixed requests passed. [Local evidence](review-evidence/filing-cache-session-2026-09-29/README.md) retains limits. Exact-head hosted review and serial release remain required.
+
+# September 28 — bounded operational capacity readout
+
+- [x] Add a read-only, two-hour UTC-window Ops inspection using existing WIF, Monitoring/Logging and the pinned Cloud SQL proxy. Retain missing permissions, partial pages and sample intervals explicitly.
+- [ ] Complete local/hosted gates and exact-head review; measure the September 28 natural job overlap after release. Current snapshots and sampled connections do not establish peak headroom, SEC egress, provider capacity or a safe beta invitation count.
+
 # September 28 — isolated non-ORM dependency maintenance
 
 - [x] Split eight dependency updates from held #1000; retain SQLAlchemy 2.0.54, narrow its source constraint to `<2.1`, and preserve psycopg2-binary 2.9.13 and greenlet 3.5.6. Exclude SQLAlchemy only from the backend version-update group so its driver migration is reviewed separately; security grouping is unchanged.
@@ -5904,3 +5933,75 @@ H15 historical equality, logo and 78 dispositions remain unresolved. Quality, be
 - Local evidence is under the September 28 workspace
   `outputs/execution-2026-09-28/`: source-bound candidate stop, beta readout fixtures and
   retained fleet arithmetic. No E7/E8 generation or claim of a completed fourth dossier.
+
+
+## 2026-09-28 — isolated quarterly component-withholding candidate
+
+- Verified remote base `4db8f46a1a35eca7e71194919eefafb29c29e50d`; implementation stays
+  on `codex/wave3-quarterly-source-preservation`. Held `9e65e74c` and its five red
+  source-scope regressions remain untouched in their original checkout.
+- Replace only a complete matching ambiguous aggregate/component proposition with
+  an explicit application verification limitation. Preserve the complete separate
+  compensation continuation and all other fields. No quarterly financial fact is
+  reconstructed from the operand descriptor.
+- This is offline candidate work pending independent root review. Native-source
+  supplements are separate from the unchanged retained-70 cached-source evidence.
+  No provider call, push, PR, production change, E7 credit or content-stamp adoption.
+- Independent engineering review requested three fixes: quarterly-only omission
+  from both optional judge annexes, short-header abstention and exception-safe
+  leap-date abstention. Correction commit `5274fc7e` passes 59 focused tests, three
+  committed fault/restored proofs and the full backend gate (3,866 passed, 39
+  skipped, 2 deselected). Annual/absent full-message hashes are preserved. The
+  candidate remains held for independent re-review; no release action is taken.
+
+## September 28 overnight authority and provider-cost correction
+
+The founder requested independent overnight implementation with agents and explicitly authorized
+necessary changes and DeepSeek spend. Continue the quality/source/capacity critical path with
+normal review and serial release gates. The local overnight checkpoint records an initial USD 5
+discretionary ceiling against a fresh USD 51.36 available balance (readout 36488471935); formal
+E7/E8 contracts and customer-consent/quality prerequisites remain unchanged. This supersedes
+earlier blanket account/spend waiting states, not the retained specific quality boundaries.
+
+The official DeepSeek notice and the existing ADR-0008 addendum both say Pro service continued
+after September 14. Correct its per-call telemetry rates to USD 0.022/0.66/1.98 per million
+cache-hit input/cache-miss input/output tokens off peak, with the existing peak multiplier.
+Preserve Flash rates, model/default/flag/prompt/baseline settings and historical measurements.
+One dedicated tariff gate and its stale-rate fault prove the rates. Separate actual-model
+routing and completion-accounting gates use estimator sentinels; completion telemetry preserves
+recorded per-call costs, mixed models and unknown usage through retries and tool rounds.
+Full local and hosted verification plus independent exact-head review precede release.
+
+## September 30 — Analysis request ownership
+
+- A pending dataset response could restart an obsolete company/mode analysis after a
+  selection reset or unmount, aborting a newer stream; an old failure could clear newer state.
+- Own and cancel the dataset request before awaiting it, and check ownership before
+  publishing either phase. Changing the period range now clears the previous result and
+  cancels its request, matching company/mode changes. Refresh holds the Run control busy.
+- The existing mounted Analysis test owner reproduces company/mode/range/unmount and
+  older-success/older-error races even when the mocked transport ignores cancellation.
+  Corrected base: 6 failed / 13 passed; fixed focused suite: 19 passed. The initial range
+  fixture selected an unchanged endpoint; its failure and corrected proof remain retained.
+- Full frontend lint, TypeScript, tests and production build passed on Node22.23.2.
+  No backend, provider, prompt, flag, price or locked-contract change. Exact-head review,
+  hosted checks and frontend release verification follow separately.
+
+- 2026-09-30 native-delivery integration: preserved all pinned owners; independently reproduced
+  and fixed assistant-model mismatch admission and pre-settlement stdin/journal binding. The
+  single subscription probe returned four exact lines but was retained as failed for absent
+  assistant finish metadata. No retry, source dispatch, or E7/E8 admission; classifier 2 keeps
+  the measured failure closed. Paid CI awaits a fresh balance after Google Cloud reauthentication.
+
+
+## September 30 — beta export readiness receipt
+
+- Retain the actual three-row PostHog literal projection and unchanged v1 consumer
+  output with input hashes. Synthetic view/request pairing works; absent provider
+  pagination metadata keeps export completeness false.
+- Replace the stale runbook claim that no live synthetic query ran. Document the
+  supported file-download export prerequisite. After the founder reconnected, one
+  literal-only attempt confirmed that team HogQL export access is disabled; no
+  unchanged retry or broader export followed. A new input format still needs review.
+- Documentation and synthetic evidence only. No customer query, source-role work,
+  E7/E8 admission, production flag, price change, invitation or model call.

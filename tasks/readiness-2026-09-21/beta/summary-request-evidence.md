@@ -70,3 +70,5 @@ Offline unit/consumer controls cover fresh and cached routes, server identity, u
 shared generation, usage gates, timeout, generated error, premature end, cancellation, closure after
 success, consent and automatic/auth retries. Locked stream/auth/background contracts remain intact.
 Live PostHog receipt and a real consenting cohort still require their own evidence.
+
+The executable prospective consumer and its observed-versus-unknown boundaries are in [summary v1 readout](summary-v1-readout.md).

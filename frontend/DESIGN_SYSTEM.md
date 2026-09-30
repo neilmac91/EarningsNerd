@@ -144,7 +144,9 @@ Ask answer       <AskFilingAnswer>  — the SHIPPED copilot contract: status rea
                  stay literal text — never a dead button. CopilotCitation = { n, excerpt, section_ref,
                  verified, fragment_url } — `verified` drives source attribution: checked sources show
                  “Source match found” with its scope (not whole-answer verification); unmatched sources
-                 stay “Cited”. Numeric/text visual grouping is a display convention, not a separate
+                 stay “Cited” in legacy/reference rendering. New Ask-this-Filing responses wait for
+                 an admitted completion; failed referenced citations and draft answer text are
+                 withheld before reaching this renderer. Numeric/text grouping is not a separate
                  attestation. Never conflate source matching with support for every answer claim.
                  REPO REALITY: this file is the design-system REFERENCE implementation (0 importers).
                  The wired production renderer is features/filings/components/copilot/CopilotMessage.tsx,

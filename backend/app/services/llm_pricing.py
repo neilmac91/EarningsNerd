@@ -1,7 +1,7 @@
 """Best-effort LLM inference-cost estimation for telemetry (roadmap 2.1).
 
 Turns token counts into an estimated USD cost using env-configurable per-1M-token rates. DeepSeek
-prices INPUT tokens far cheaper on a context-cache HIT than a MISS (~120x), so when the response
+prices INPUT tokens cheaper on a context-cache HIT than a MISS, so when the response
 reports the hit/miss split we price each bucket separately; otherwise we conservatively treat all
 input as a cache miss. This is telemetry only — it must never raise on the request path.
 """
@@ -20,7 +20,7 @@ from app.config import settings
 _MODEL_PRICES_PER_1M: dict[str, tuple[float, float, float]] = {
     "deepseek-flash": (0.003, 0.15, 0.60),
     "deepseek-v4-flash": (0.003, 0.15, 0.60),   # retired alias, billed at Flash rates
-    "deepseek-v4-pro": (0.003, 0.15, 0.60),     # retired 2026-09-14: routed to V4.1 Flash, billed at Flash rates
+    "deepseek-v4-pro": (0.022, 0.66, 1.98),    # Pro remains available at its own tariff; ADR-0008 addendum.
 }
 _PEAK_WINDOWS_UTC = ((1, 4), (6, 10))  # [start, end) hours, Monday-Friday
 

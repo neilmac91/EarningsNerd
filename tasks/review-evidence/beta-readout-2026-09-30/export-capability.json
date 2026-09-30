@@ -1,0 +1,30 @@
+{
+  "kind": "synthetic_file_export_capability_attempt",
+  "recorded_at": "2026-09-30T19:48:58.665821+00:00",
+  "project_id": 117863,
+  "organization": "EarningsNerd",
+  "connector_scope_tools_available_after_reconnect": true,
+  "model": "hogql",
+  "query_sha256": "87c47aa644ef127eb8189db6e56cf0755d3158be59dcdadb74cecb33c253b3e4",
+  "query_scope": "3 invented rows only; no events/persons table",
+  "file": {
+    "format": "JSONLines",
+    "compression": null,
+    "max_size_mb": 1
+  },
+  "hogql_modifiers": {
+    "convertToProjectTimezone": false
+  },
+  "create_calls": 1,
+  "http_status": 403,
+  "error": "HogQL batch exports are not enabled for this team.",
+  "run_id": null,
+  "records_completed": null,
+  "files_returned": false,
+  "download_calls": 0,
+  "customer_query": false,
+  "model_calls": 0,
+  "private_request_sha256": "407853e6433e51ccc42beeb1bdc4323ff0ba67a7d289c6a90898c43dccae7468",
+  "private_tool_response_sha256": "c89c9caef282a583e5c476b38b1134e3ec25fc397b5f2e78f9c7345ca8e891e4",
+  "next_step": "Request team HogQL batch-export beta access from PostHog support; do not retry unchanged or use broader events/persons export as a substitute."
+}

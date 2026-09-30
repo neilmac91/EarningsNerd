@@ -1,0 +1,64 @@
+{
+  "started_at": "2026-09-29T22:05:07.432033+00:00",
+  "node": "v22.23.2",
+  "preserved_cache": "/private/tmp/earningsnerd-next-before-browser-id-gate-20260930",
+  "build_command_unchanged": true,
+  "stages": [
+    {
+      "name": "lint",
+      "command": [
+        "npm",
+        "run",
+        "lint"
+      ],
+      "started_at": "2026-09-29T22:05:07.513559+00:00",
+      "log": "/Users/neilmacaogain/Documents/Codex/2026-09-28/github-plugin-github-openai-curated-remote/outputs/resumption-2026-09-29/containment/browser-id-normalization/lint.log",
+      "exit_code": 0,
+      "finished_at": "2026-09-29T22:05:15.917162+00:00",
+      "sha256": "491911b16c7ec9c53a997784351f00988be31dc0172b42df597f74800cff2d3f"
+    },
+    {
+      "name": "typecheck",
+      "command": [
+        "npx",
+        "tsc",
+        "-p",
+        "tsconfig.ci.json"
+      ],
+      "started_at": "2026-09-29T22:05:15.917774+00:00",
+      "log": "/Users/neilmacaogain/Documents/Codex/2026-09-28/github-plugin-github-openai-curated-remote/outputs/resumption-2026-09-29/containment/browser-id-normalization/typecheck.log",
+      "exit_code": 0,
+      "finished_at": "2026-09-29T22:05:18.995296+00:00",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "tests",
+      "command": [
+        "npm",
+        "run",
+        "test",
+        "--",
+        "--run"
+      ],
+      "started_at": "2026-09-29T22:05:18.995863+00:00",
+      "log": "/Users/neilmacaogain/Documents/Codex/2026-09-28/github-plugin-github-openai-curated-remote/outputs/resumption-2026-09-29/containment/browser-id-normalization/tests.log",
+      "exit_code": 0,
+      "finished_at": "2026-09-29T22:05:55.826794+00:00",
+      "sha256": "8700ee30dcfcaedaead961942d1dad8c6bcf0781bdeafbd768825c8afd5229dd"
+    },
+    {
+      "name": "build",
+      "command": [
+        "npm",
+        "run",
+        "build"
+      ],
+      "started_at": "2026-09-29T22:05:55.827504+00:00",
+      "log": "/Users/neilmacaogain/Documents/Codex/2026-09-28/github-plugin-github-openai-curated-remote/outputs/resumption-2026-09-29/containment/browser-id-normalization/build.log",
+      "exit_code": 0,
+      "finished_at": "2026-09-29T22:06:16.614595+00:00",
+      "sha256": "aac68e9d92cf06524696d5f6110ca3d8f5e00608833c3ef5cfca0bdfb64f5728"
+    }
+  ],
+  "status": "passed"
+}

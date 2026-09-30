@@ -45,7 +45,7 @@ interface AskCopilotRailProps {
   variant?: 'overlay' | 'pane'
   // When true, render body-only (no launcher, no dialog wrapper, no header): FilingWorkspace provides
   // the secondary-pane shell + the [Answer · Filing] tabs + close. The component stays mounted while
-  // hidden so the conversation/stream survives view switches and close/reopen.
+  // hidden so the conversation survives view switches and close/reopen; closing cancels pending work.
   embedded?: boolean
 }
 
@@ -104,16 +104,28 @@ export default function AskCopilotRail({
   }
 
   // Abort any in-flight stream when the panel closes or the component unmounts.
-  const abortStream = () => {
-    abortRef.current?.abort()
-    abortRef.current = null
-  }
+  const abortStream = useCallback((clearPending = false) => {
+    const controller = abortRef.current
+    abortRef.current = null // Invalidate callbacks before abort dispatches synchronously.
+    controller?.abort()
+    if (clearPending && controller) {
+      const next = messagesRef.current.map((m): CopilotMessageData =>
+        m.role === 'assistant' && (m.status === 'reading' || m.status === 'streaming')
+          ? { ...m, content: '', citations: [], followups: [], grounded: undefined, kind: undefined,
+              status: 'error', error: 'The question was cancelled. Please try again.' }
+          : m,
+      )
+      messagesRef.current = next
+      setMessages(next)
+      setIsStreaming(false)
+    }
+  }, [])
   useEffect(() => {
-    if (!open) abortStream()
-  }, [open])
+    if (!open) abortStream(true)
+  }, [open, abortStream])
   useEffect(() => {
     return () => abortStream()
-  }, [])
+  }, [abortStream])
 
   // Copilot question usage (roadmap 2.2). Fetched for any signed-in user while the panel is open:
   // PRO shows the monthly fair-use count; a FREE user shows their lifetime "free taste" balance.
@@ -239,8 +251,13 @@ export default function AskCopilotRail({
     lastQuestionRef.current = question
     // Build history from finalized turns only (user + completed assistant answers).
     const history: CopilotTurn[] = priorMessages
-      .filter((m) => (m.role === 'user' || m.status === 'done') && m.content.trim().length > 0)
-      .map((m) => ({ role: m.role, content: m.content }))
+      .flatMap((m, index): CopilotTurn[] => {
+        const answer = priorMessages[index + 1]
+        return m.role === 'user' && answer?.role === 'assistant' && answer.status === 'done'
+          && m.content.trim() && answer.content.trim()
+          ? [{ role: 'user', content: m.content }, { role: 'assistant', content: answer.content }]
+          : []
+      })
       .slice(-HISTORY_LIMIT)
 
     const assistantId = nextId()
@@ -261,22 +278,15 @@ export default function AskCopilotRail({
       history,
       {
         onProgress: () => {
+          if (abortRef.current !== controller) return
           updateAssistant(assistantId, (m) => (m.status === 'reading' ? { status: 'reading' } : {}))
         },
-        onToken: (text) => {
-          updateAssistant(assistantId, (m) => ({
-            content: m.content + text,
-            status: 'streaming',
-          }))
-        },
-        onNotDisclosed: (answer) => {
-          updateAssistant(assistantId, {
-            content: answer,
-            kind: 'not_disclosed',
-            status: 'done',
-          })
-        },
+        // The API waits for a validated completion. These legacy callbacks cannot publish prose.
+        onToken: () => {},
+        onNotDisclosed: () => {},
         onComplete: (c: CopilotCompletion) => {
+          if (abortRef.current !== controller) return
+          abortRef.current = null
           updateAssistant(assistantId, {
             content: c.answer,
             citations: c.citations,
@@ -302,7 +312,12 @@ export default function AskCopilotRail({
           queryClient.invalidateQueries({ queryKey: queryKeys.usage.all() })
         },
         onError: (msg) => {
-          updateAssistant(assistantId, { status: 'error', error: msg })
+          if (abortRef.current !== controller) return
+          abortRef.current = null
+          updateAssistant(assistantId, {
+            content: '', citations: [], followups: [], grounded: undefined, kind: undefined,
+            status: 'error', error: msg,
+          })
           analytics.copilotAnswerErrored({ filingId, message: msg })
           setIsStreaming(false)
           abortRef.current = null

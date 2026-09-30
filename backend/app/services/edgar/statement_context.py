@@ -177,7 +177,7 @@ def _expense_notes(document: Any, table: Any) -> list[dict] | None:
 def acquire_statement_context(source_html: str, *, accession: str, document_url: str,
                               form: str, report_period: str | None = None) -> dict | None:
     """Same fresh-source seam for production and eval; unavailable sources remain legacy."""
-    if form not in {"10-K", "20-F"} or not source_html:
+    if form not in {"10-K", "20-F", "10-Q"} or not source_html:
         return None
     try:
         document = html.fromstring(source_html.encode("utf-8"), parser=html.HTMLParser(no_network=True))
@@ -186,6 +186,11 @@ def acquire_statement_context(source_html: str, *, accession: str, document_url:
     period = source_report_period(document)
     if period is None or (report_period is not None and period != report_period):
         return None
+    if form == "10-Q":
+        from .quarterly_statement_source import extract_quarterly_statement
+
+        return extract_quarterly_statement(document, source_html, accession=accession,
+                                           document_url=document_url, report_period=period)
     source = extract_operating_to_pretax_source(source_html, accession=accession,
                                                document_url=document_url, period_of_report=period)
     if source is None:
