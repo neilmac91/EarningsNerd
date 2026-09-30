@@ -28,13 +28,13 @@ handover package `earningsnerd-opus-5-5-handover` (SHA256SUMS verified). Checked
 
 | # | Dispatch | Reserved | Telemetry actual | Status |
 | --- | --- | --- | --- | --- |
-| D1 | #1030 ready → copilot-eval [36777581481](https://github.com/neilmac91/EarningsNerd/actions/runs/36777581481) at `c8c56cee` (balance 46.17 at 21:09:23Z) | 0.05 | pending | running |
+| D1 | #1030 ready → copilot-eval [36777581481](https://github.com/neilmac91/EarningsNerd/actions/runs/36777581481) at `c8c56cee` (balance 46.17 at 21:09:23Z) | 0.05 | 0.005827 (30 calls, 0 unknown) | done: accepted 18/18 |
 
 ## Lanes
 
 | PR | Disposition target | Branch / worktree | Head | Status |
 | --- | --- | --- | --- | --- |
-| #1013 | review, validate, merge | dependabot branch (main merged: `0113e9c9`) | `2cd639fd`→`0113e9c9` | CI running; review blocked (Codex quota) |
+| #1013 | review, validate, merge | dependabot branch (main merged: `0113e9c9`) | `2cd639fd`→`0113e9c9` | **merged** `e1914ea4`; prod serves posthog-js 1.434.14 |
 | #1012 | maintainer replacement, merge, close original | replacement [#1030](https://github.com/neilmac91/EarningsNerd/pull/1030) `claude/pr1012-posthog-7.60.1` `c8c56cee` | `1e56f3d2` | draft; review pending |
 | #952 | repair current-inspection binding, merge tooling | `claude/attached-file-review-any8xz` | `1d48eb33` | analysis |
 | #1021 | integrate main, qualify or hold draft | `codex/wave3-acquisition-period-withholding` | `55e89142` | analysis |
@@ -91,3 +91,12 @@ Merge-tree conflicts vs main at start: #1013/#1012 none; #952, #1023, #1009 `tas
   session's permission system classified that route as a CI bypass. The transient gate pass (run
   36777635165) is superseded by run 36777744371. #1013 is held unmerged pending a Codex code-review
   summary or a founder decision; no override is in place.
+- 21:13Z — Founder approved review overrides (live instruction). Override lines record the completed
+  independent review of each exact head (plus the Codex task review on #1013).
+- 21:17Z — **#1013 squash-merged as `e1914ea4`** (head re-read `0113e9c9`, mergeable clean, review-gate run
+  36778019333 pass). Main CI 36778453187 running. Vercel connector is 403 for this team scope; independent
+  production readback at ~21:20Z: `https://www.earningsnerd.io/` HTTP 200, chunk
+  `/_next/static/immutable/chunks/0n45awmes39vd.js` carries posthog-js `1.434.14` (pre-merge build: 1.434.13).
+- 21:11Z — D1 readiness artifact (sha256 `f2aca82f…`): accepted, 18 expected/completed/scored/passed, 0 errors;
+  30 deepseek-flash calls all success; telemetry USD 0.005827, 0 unknown-cost; 4 advisory uncited-figure lines retained.
+- 21:18Z — #1030 body records the review and founder-approved override; review-gate run 36778562740 pass.
