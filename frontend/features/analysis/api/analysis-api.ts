@@ -167,9 +167,10 @@ export const getAnalysisCoverage = async (ticker: string): Promise<AnalysisCover
 
 export const getAnalysisDataset = async (
   ticker: string,
-  range: AnalysisRange
+  range: AnalysisRange,
+  signal?: AbortSignal,
 ): Promise<AnalysisDataset> => {
-  const response = await api.post(`/api/analysis/${encodeURIComponent(ticker)}/dataset`, range)
+  const response = await api.post(`/api/analysis/${encodeURIComponent(ticker)}/dataset`, range, { signal })
   return response.data
 }
 

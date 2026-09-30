@@ -5964,3 +5964,18 @@ One dedicated tariff gate and its stale-rate fault prove the rates. Separate act
 routing and completion-accounting gates use estimator sentinels; completion telemetry preserves
 recorded per-call costs, mixed models and unknown usage through retries and tool rounds.
 Full local and hosted verification plus independent exact-head review precede release.
+
+## September 30 — Analysis request ownership
+
+- A pending dataset response could restart an obsolete company/mode analysis after a
+  selection reset or unmount, aborting a newer stream; an old failure could clear newer state.
+- Own and cancel the dataset request before awaiting it, and check ownership before
+  publishing either phase. Changing the period range now clears the previous result and
+  cancels its request, matching company/mode changes. Refresh holds the Run control busy.
+- The existing mounted Analysis test owner reproduces company/mode/range/unmount and
+  older-success/older-error races even when the mocked transport ignores cancellation.
+  Corrected base: 6 failed / 13 passed; fixed focused suite: 19 passed. The initial range
+  fixture selected an unchanged endpoint; its failure and corrected proof remain retained.
+- Full frontend lint, TypeScript, tests and production build passed on Node22.23.2.
+  No backend, provider, prompt, flag, price or locked-contract change. Exact-head review,
+  hosted checks and frontend release verification follow separately.
