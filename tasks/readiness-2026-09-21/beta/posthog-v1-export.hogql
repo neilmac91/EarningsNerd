@@ -1,0 +1,36 @@
+-- Prospective summary evidence export v1. Historical posthog.hogql is unchanged.
+-- Replace ONLY the exact eligible account IDs and UTC half-open window; save the
+-- executed query with the private roster and complete JSON query response.
+-- No person joins, legacy identity backfill, consent inference, or provider calls.
+-- JSONExtractRaw preserves JSON types (true is not 1 or "true"). Only these known
+-- fields are exported; never replace this projection with SELECT * / properties.
+-- Missing/unattributable account snapshots cannot be assigned to this cohort;
+-- they are outside this export, not a measured zero. Never widen to all customers.
+-- LIMIT is a safety cap, not pagination. A capped/hasMore/unknown response remains
+-- incomplete; do not silently truncate, concatenate overlapping windows, or retry.
+SELECT toString(uuid) AS uuid, event, toUnixTimestamp(timestamp) AS timestamp_s,
+       JSONExtractRaw(properties, 'evidence_version') AS evidence_version_json,
+       JSONExtractRaw(properties, 'auth_state_at_event') AS auth_state_at_event_json,
+       JSONExtractRaw(properties, 'account_id_at_event') AS account_id_at_event_json,
+       JSONExtractRaw(properties, 'analytics_consent_at_event') AS analytics_consent_at_event_json,
+       JSONExtractRaw(properties, 'filing_id') AS filing_id_json,
+       JSONExtractRaw(properties, 'summary_id') AS summary_id_json,
+       JSONExtractRaw(properties, 'request_id') AS request_id_json,
+       JSONExtractRaw(properties, 'logical_request_id') AS logical_request_id_json,
+       JSONExtractRaw(properties, 'client_attempt') AS client_attempt_json,
+       JSONExtractRaw(properties, 'transport_attempt') AS transport_attempt_json,
+       JSONExtractRaw(properties, 'identity_evidence') AS identity_evidence_json,
+       JSONExtractRaw(properties, 'consent_evidence') AS consent_evidence_json,
+       JSONExtractRaw(properties, 'outcome') AS outcome_json,
+       JSONExtractRaw(properties, 'delivery_path') AS delivery_path_json,
+       JSONExtractRaw(properties, 'summary_service_invoked') AS summary_service_invoked_json,
+       JSONExtractRaw(properties, 'duration_ms') AS duration_ms_json,
+       JSONExtractRaw(properties, 'reason') AS reason_json,
+       JSONExtractRaw(properties, 'entry_point') AS entry_point_json
+FROM events
+WHERE event IN ('summary_viewed', 'summary_request_started', 'summary_request_finished')
+  AND toString(properties.account_id_at_event) IN ('1001', '1002')
+  AND timestamp >= toDateTime('2026-09-28 00:00:00', 'UTC')
+  AND timestamp < toDateTime('2026-10-12 00:00:00', 'UTC')
+ORDER BY timestamp, uuid
+LIMIT 10000
