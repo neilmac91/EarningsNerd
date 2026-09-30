@@ -1,3 +1,10 @@
+## 2026-09-30 — recover incomplete Analysis streams
+
+- Two independent refutations upheld a conditional EOF/idle-timeout lifecycle defect on main `0dcc4ee3`: the client omitted a terminal callback and the mounted Run flow stayed busy. No production incident or deployed feature-flag observation is inferred.
+- The Analysis client now reports incomplete EOF and idle timeout once, keeps caller cancellation quiet, stops after the first terminal event and releases the reader/timer. Progressive previews, completion/error/not-enough-data mappings and shared auth refresh are preserved.
+- The existing owner includes actual mounted Run recovery. Corrected fixtures fail against the original runtime (8 failed / 5 passed) and pass after the correction (13/13); earlier fixture failures are retained. Node 22.23.2 lint, TypeScript and all 726 tests/115 files pass. The unchanged default build passes with 27/27 generated pages outside the sandbox; its earlier stalled attempt, process diagnostic and cache are retained.
+- Local evidence: `outputs/resumption-2026-09-30/analysis-stream/`. No backend, model, scorer, locked contract, feature-flag, account or pricing change.
+
 ## 2026-09-29 — release completed sibling filing reads
 
 - Separate actual-HTTP/PostgreSQL controls reproduced pool starvation in specific-filing, recent-filing, content and fundamentals reads. Retain two fresh refutation passes and the original failures.
