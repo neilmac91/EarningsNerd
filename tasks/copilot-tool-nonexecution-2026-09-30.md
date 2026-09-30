@@ -157,9 +157,10 @@ does not remove it.
 ## Latent production risks
 
 - **Uncited figures when tools are skipped.** Coverage is advisory, and repair certifies only annual
-  revenue and the explicit revenue/net-income pair, each in one exact sentence shape. A skipped tool
-  call on gross profit, operating income, EPS or any other concept always ships the figure uncited;
-  revenue and net income ship uncited whenever the sentence differs from the shape. The documented
+  revenue and the explicit revenue/net-income pair, each in one exact sentence shape. Unless the
+  model cites a filing-text excerpt instead, a skipped tool call on gross profit, operating income,
+  EPS or any other concept ships the figure uncited, and revenue and net income ship uncited whenever
+  the sentence differs from the certified shape. The documented
   production alert (RUNBOOK) fires only above 5 uncited figures per hour. The eval accepted 13 such
   rows under #1023 (9 of them on non-revenue questions) and one on main (ASML, an uncertified shape).
 - **Unverified prose quotations.** Text in quotation marks is published without verification; on
