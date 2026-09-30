@@ -784,6 +784,38 @@ def test_a_missing_malformed_or_ambiguous_current_verdict_is_a_named_blocker(
         assert record["stdout"] == run_it(export.inspection_argv(bundle)).stdout
 
 
+def _index_packet_path(value: str):
+    return lambda b: _edit_json(b / "stages/e8/index.json", packets=[{**PACKETS[0], "packet_path": value}, *PACKETS[1:]])
+
+
+# Paths the sealed inside() refuses: Path.resolve() raises ValueError on an embedded NUL, and an escaping path
+# leaves the bundle. The sealed inspection exits 2 on either; the export hashes neither and never crashes.
+INSIDE_REFUSALS = [
+    ("NUL in an immutable-manifest key", "preserved/a\u0000b.json",
+     lambda b: _edit_json(b / "immutable-sha256.json", **{"preserved/a\u0000b.json": "0" * 64}),
+     "ValueError: embedded null byte"),
+    ("NUL in an indexed packet_path", "e8/packets/a\u0000b.json", _index_packet_path("e8/packets/a\u0000b.json"),
+     "ValueError: embedded null byte"),
+    ("an indexed packet_path leaving the bundle", "../outside/001.json", _index_packet_path("../outside/001.json"),
+     "ValueError: Path leaves bundle: ../outside/001.json"),
+]
+
+
+@pytest.mark.parametrize(("name", "value", "edit", "refusal"), INSIDE_REFUSALS, ids=[c[0] for c in INSIDE_REFUSALS])
+def test_a_path_the_sealed_inside_refuses_is_exported_not_hashed_and_never_a_crash(
+        export, monkeypatch, tmp_path, name, value, edit, refusal) -> None:
+    """A5: the export records the sealed refusal with its evidence rather than dying before ``--out`` exists."""
+    bundle = _ledger_bundle(tmp_path)
+    _write(tmp_path / "outside" / "001.json", "packet 1")
+    edit(bundle)
+    monkeypatch.setattr(export, "run_inspection", lambda argv: _refused(argv, refusal))
+    summary = _run_with_receipts(export, monkeypatch, tmp_path, bundle, with_inspection=False)
+    assert summary["recovery_blockers"] == [f"current read-only inspection refused (exit 2): {refusal}"]
+    inputs = json.loads((tmp_path / "out" / "admission-inputs.json").read_text())
+    assert not [label for label in inputs["before"].keys() | inputs["after"].keys() if value in label]
+    assert_evidence_exported(export, tmp_path / "out", 0, summary)
+
+
 def _kit_step_2() -> list[str]:
     """The launch kit's step 2 command: its only sh-block line running e8_resume.py without --execute."""
     lines, inside = [], False

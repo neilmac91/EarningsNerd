@@ -432,12 +432,16 @@ def _input_digest(path: Path) -> str:
 
 
 def _inside(bundle: Path, value: object) -> str | None:
-    """The bundle-relative path the sealed ``inside()`` would accept for ``value``, or None."""
+    """The bundle-relative path the sealed ``inside()`` would accept for ``value``, or None; never raises.
+
+    ``resolve()`` raises ValueError on an embedded NUL, which the sealed ``inside()`` turns into a
+    refusal; here it is a path nothing can read, so it is not hashed and the export is still written.
+    """
     if not isinstance(value, str) or not value:
         return None
     try:
         resolved = (bundle / value).resolve()
-    except (OSError, RuntimeError):
+    except (OSError, RuntimeError, ValueError):
         return None
     return resolved.relative_to(bundle).as_posix() if resolved.is_relative_to(bundle) else None
 
