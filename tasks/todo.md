@@ -5,6 +5,12 @@
 - Offline owner tests cover exact stdin/output binding, each reason code the classifier emits, unknown delivery left pending with same-root redispatch refused (the lock is per delivery root; one root per journal is the operator rule), pre-dispatch refusals with no ledger (including user memory/rules/plugins in HOME), the frozen argv/env allow-list with no path or value disclosure, native-member honesty, a re-labelled ledger refused against the journal contract, the status matrix (unknown never admits eligible; operator retirement after failed/unknown), and one real subprocess run against a fake CLI. `backend/scripts/native_delivery_probe.py` prepares the single bounded probe (synthetic packet, one dispatch, no retry; `plan` runs the adapter's preflight with no side effects) for Codex to release after inspection.
 - [ ] Codex: bind the base, run the probe `plan` on the releasing machine, then `run` once; adopt the retained `stdout.raw` as the first real stream fixture before any second call. Opening a PR runs the paid `eval-baseline` job and merging deploys the backend service; neither is authorised by this task.
 
+## 2026-09-30 — native-delivery completion capability integration
+
+- Apply Fable's return to released base `bc07c885`, verifying its exact tree and all 13 pinned owners. Schema 2 requests partial stream events; classifier 3 binds finish, model, message identity and text without promoting result-level completion. Preserve schema 1 compatibility and the stated whole-ledger rewrite limit.
+- Keep the real stream and sanitized derivative in private custody. The existing owner's synthetic missing-bracket rows explicitly carry result-level `end_turn` and retain their failed expectations.
+- Full pinned backend gate, committed-state mutation proofs and fresh independent review are required before a draft PR. This tranche authorizes neither merge/deployment nor probe 2; complete native capacity beyond the current stdin route remains unmeasured. H20 24/19/5, dossiers 3/30 and staged pricing remain unchanged.
+
 ## 2026-09-30 — recover incomplete Analysis streams
 
 - Two independent refutations upheld a conditional EOF/idle-timeout lifecycle defect on main `0dcc4ee3`: the client omitted a terminal callback and the mounted Run flow stayed busy. No production incident or deployed feature-flag observation is inferred.

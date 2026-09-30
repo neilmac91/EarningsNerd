@@ -1,13 +1,19 @@
 # Native-evidence delivery adapter (route `claude_code_cli_print`)
 
-**Status:** engineering candidate (`schema_version` 1; kinds `e7_native_delivery_request`,
-`e7_native_delivery_receipt`, `e7_native_delivery_validation`). Non-admitting. It has no readiness,
-protocol, executor or decision call site, dispatches nothing on import, and cannot admit evidence.
-Its first live use was one synthetic probe on CLI 2.1.273 (version-confounded from the
-implementer's 2.1.285 pin). The reply matched all four requested lines, but classifier 1 settled
-`failed: stop_reason_unobserved`: the assistant finish field was null although the result event
-reported `end_turn`. Classifier 2 retains that failure criterion and additionally checks every
-assistant-reported model against the frozen contract. No second dispatch has run.
+**Status:** engineering candidate (`schema_version` 2, `classifier_version` 3; kinds
+`e7_native_delivery_request`, `e7_native_delivery_receipt`, `e7_native_delivery_validation`).
+Non-admitting. It has no readiness, protocol, executor or decision call site, dispatches nothing on
+import, and cannot admit evidence. Its first live use was one synthetic probe on CLI 2.1.273
+(version-confounded from the implementer's 2.1.285 pin), under schema 1. The reply matched all four
+requested lines, but classifier 1 settled `failed: stop_reason_unobserved`: the assistant finish
+field was null although the result event reported `end_turn`. Classifier 2 retains that failure
+criterion and additionally checks every assistant-reported model against the frozen contract.
+Schema 2 adds `--include-partial-messages` to the argv so the CLI forwards the raw API stream
+events, and classifier 3 takes the finish from that bracket, bound to the identified assistant
+message (below). The result event's `stop_reason` is never consulted. Schema 1 ledgers remain
+readable and are re-derived with classifier 2. Schema 2 has **not** been dispatched: the bracket
+shape is documentation-derived (`code.claude.com/docs/en/headless`, "Stream responses";
+`platform.claude.com/docs/en/api/messages-streaming`, event flow) and unmeasured on any build.
 
 `backend/evals/acceptance_source_review_delivery.py` fills the gap the
 [execution-custody slice](source-review-execution.md) left at step 3: `reserve_attempt` retains the
@@ -65,9 +71,13 @@ the machine, scan it for absolute home paths, `sk-ant-`/bearer/OAuth token shape
 and proxy userinfo; the receipt hashes remain the custody proof. argv is fixed:
 
 ```
-<cli> -p --output-format stream-json --verbose --model <contract model> --system-prompt <ROUTE_SYSTEM_PROMPT>
-      --tools "" --strict-mcp-config --no-session-persistence --permission-prompts none [--max-budget-usd N]
+<cli> -p --output-format stream-json --verbose --include-partial-messages --model <contract model>
+      --system-prompt <ROUTE_SYSTEM_PROMPT> --tools "" --strict-mcp-config --no-session-persistence
+      --permission-prompts none [--max-budget-usd N]
 ```
+
+(Schema 1 ledgers were dispatched without `--include-partial-messages`; the recorded `argv` in each
+`request.json` is the authority for what ran.)
 
 ## Outcome classification (pure, re-runnable on the retained stream)
 
@@ -77,20 +87,59 @@ Precedence: `unknown` > `compacted` > `truncated` > `failed` > `complete`.
   the reservation stays pending, `redispatch_permitted` is `false`, and the operator settles or
   retires it through the journal after inspecting the ledger.
 - `compacted`: a `system`/`compact_boundary` event was observed.
-- `truncated`: any assistant `stop_reason` is `max_tokens`.
+- `truncated`: the bound finish (or any assistant `stop_reason`) is `max_tokens`.
 - `failed`: any of — non-zero exit; `is_error` not `false`; result `subtype` not `success`;
   `num_turns` absent or not 1; more than one result event (`result_ambiguous`); unparseable lines
   (including NaN/Infinity constants and pathologically nested lines); init event absent, tools not
   `[]`, model absent or not the contract model, or a reported CLI version that differs; no assistant
   event; an assistant model absent or different from the contract; an assistant message without a string id (`stream_schema:message_id`) or more than one
-  message id; any assistant `stop_reason` absent (`stop_reason_unobserved`) or not `end_turn`; a
+  message id; the finish unobserved (`stop_reason_unobserved`) or not `end_turn`; a
   `tool_use` block; empty, non-text or non-encodable `result`; result text not equal to the
-  assistant text blocks.
+  assistant text blocks; and, under classifier 3, any broken binding listed next.
 - `complete`: none of the above, which requires an **observed** `end_turn`.
+
+**Identified-assistant completion (classifier 3).** The finish is read from the `stream_event`
+lines the CLI forwards with `--include-partial-messages`: exactly one `message_start`
+(`stream_schema:message_start_count:N` otherwise) whose `message.id` is a string equal to the
+assistant event's message id (`stream_schema:message_start_id`, `stream_binding:message_id_mismatch`)
+and whose `message.model` equals the contract model (`stream_schema:message_start_model`,
+`stream_binding:model_mismatch`); exactly one `message_delta` carrying a `stop_reason`
+(`stop_reason_unobserved` when none, `stream_schema:stop_reason_ambiguous` when several,
+`stream_schema:message_delta_stop_reason` when not a string); an assistant-level `stop_reason`, when
+present, equal to it (`stream_binding:stop_reason_conflict`); exactly one `message_stop`
+(`stream_schema:message_stop_count:N`); the documented order `message_start` < content-block events
+< `message_delta` < `message_stop`, with every assistant event inside the bracket and `message_stop`
+the last non-ping stream event (`stream_schema:stream_event_order`); no `parent_tool_use_id`
+(`stream_schema:stream_event_parent`), no untyped stream event (`stream_schema:stream_event_type`),
+no `error` event (`stream_error_event`); the text block's initial text plus the concatenated
+`text_delta` text equal to the assistant text (`stream_binding:text_mismatch`); every content block,
+on the stream and in the assistant event, one of `text`/`thinking`/`redacted_thinking`/`tool_use`
+(`stream_schema:content_block_type:<type>`); and no server-side fallback signal — no `fallback` block
+and no `input_transformations` on `message_start`/`message_delta` (`stream_binding:server_side_fallback`),
+because a server-side model switch would otherwise bind to the contract model named in `message_start`.
+The receipt records the result as `assistant_completion` (`source`, `message_id`, `model`,
+`stop_reason`, `observed`); `observed` is true only when the finish is a string and no identity,
+finish or text binding reason was recorded. The result event's `stop_reason` is recorded but never
+used. A stream with no bracket at all (the retained 2.1.273 stream) is `failed` with
+`stream_schema:message_start_count:0` and `stop_reason_unobserved`;
+the real stream and its sanitized derivative remain in the private custody ledger. Synthetic
+`partial=False` rows in the delivery owner test preserve this regression without publishing
+session metadata. Classifier 2
+gains one rule: any `stream_event` line makes a schema 1 stream `failed`
+(`stream_schema:unexpected_stream_events`), so a schema 2 ledger cannot be re-read as schema 1.
 
 Every reason is recorded verbatim, so a `failed:stream_schema/*` outcome on a real run is
 diagnosable from `stdout.raw` without a second call; `classify_stream` can be re-applied to that
-retained stream after a classifier revision (`classifier_version` is in the receipt).
+retained stream after a classifier revision (`classifier_version` is in the receipt). A ledger is
+re-derived by the classifier its schema pairs with (schema 1 ↔ classifier 2, schema 2 ↔ classifier
+3, integers only); any other pairing is refused as an unsupported receipt, and so are classifier 1
+receipts (previously refused later, in the re-derivation). The receipt must also match the
+`request.json` published before the spawn (kind, schema, argv), and for schema 2 the
+`assistant_completion` record is part of the receipt/stream agreement, so neither field can be edited
+on its own. This is consistency validation, not authentication against an editor who controls
+all retained files: a bracket-less ledger rewritten consistently as schema 1 cannot be
+distinguished from a legitimate schema 1 dispatch because the journal does not pin argv.
+Historical ledger bytes must remain sealed; compatibility does not authorize rewriting them.
 
 ## Settlement and validation
 
@@ -116,7 +165,7 @@ output bytes. Supplying the member bytes re-derives dispositions from `stdin.bin
 The receipt and validation carry these strings with every attestation flag `false`:
 
 1. Delivery is process-level: the bytes written to the route's standard input equal the reserved prompt; provider ingestion, model attention and the CLI's own wrapper tokens are not verified.
-2. Stream finish metadata (stop_reason, usage, subtype, compaction) is recorded as the route reported it; a required field that is absent classifies the attempt as failed, never complete.
+2. Stream finish metadata (stop_reason, usage, subtype, compaction) is recorded as the route reported it; the assistant finish is the message_delta stop_reason of the single message_start whose id equals the assistant message id, never the result event's stop_reason; a required field that is absent classifies the attempt as failed, never complete.
 3. A native member counts as delivered only when its exact bytes occur inside the reserved prompt; attachments, tool-mediated file reads and binary modalities are unsupported by this route, so members above the operator stdin cap are retained_not_delivered.
 4. Usage and cost are route-reported estimates, not billing; the journal context_id is operator-chosen and the CLI session_id is retained only as route evidence.
 5. No source review, source-role readiness, E7 coverage_status or E7 admission is attested; an unknown outcome stays pending with no automatic retirement or redispatch.
@@ -125,11 +174,19 @@ The receipt and validation carry these strings with every attestation flag `fals
 Consequences stated plainly: through this route the complete H20 native bundle cannot be
 `complete_native_delivery: true` — `source-view.json` (26,445,997 bytes) exceeds the documented 10 MB
 stdin cap and `reader.txt` (277,045 bytes) exceeds any conservative probe cap, so both are
-`retained_not_delivered` by construction. The stream shapes the classifier expects (assistant
-`stop_reason`, result `subtype` names, `compact_boundary`) were initially documentation- and
-precedent-derived. The retained 2.1.273 probe is the first real stream fixture; it confirms the safe failure above,
-not compatibility of the assistant finish schema. Its init metadata reports discovered skills,
-while `tools` is empty. That discovery list alone does not prove model-visible skill content.
+`retained_not_delivered` by construction. The documented context window of `claude-fable-5-1`
+is 1M tokens (approximately 2.5M Unicode characters), while the minimum bundle (raw M001 plus
+four projections) is 27,864,007 bytes. That approximation raises a capacity concern; it does not
+establish a token lower bound or prove every transport impossible. The exact token count and
+complete native delivery through other routes remain unmeasured. The current stdin route is
+NO_GO for this bundle; alternative-route capacity is not established, and no source readiness
+or dispatch authorization follows. The stream shapes the classifier expects
+(the `stream_event` bracket, assistant `stop_reason`, result `subtype` names, `compact_boundary`)
+were documentation- and precedent-derived. The retained 2.1.273 probe is the first real stream
+fixture; it confirms the safe failure above, not compatibility of the assistant finish schema, and
+it ran without `--include-partial-messages`, so it says nothing about the bracket. Its init metadata
+reports discovered skills, while `tools` is empty. That discovery list alone does not prove
+model-visible skill content.
 Its route-reported cost estimate was USD 0.162903 across Fable and auxiliary Haiku usage; one CLI
 dispatch is established, while the number of physical provider requests and cash charge are
 unobserved. The raw stream stays local because it contains an absolute home path. Classifier 1

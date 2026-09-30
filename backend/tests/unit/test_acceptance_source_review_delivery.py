@@ -128,6 +128,11 @@ def _reserve(root: Path, node_id: str = "l1", context_id: str = "ctx-l1", *, acc
                            render_inputs={"template": TEMPLATES["leaf"], "unit_id": _unit_id(accession)})
 
 
+def _stream_event(inner: dict[str, Any], *, parent: Any = None) -> dict[str, Any]:
+    """One ``stream_event`` line as ``--include-partial-messages`` forwards a raw API event."""
+    return {"type": "stream_event", "event": inner, "session_id": STREAM_SESSION, "parent_tool_use_id": parent}
+
+
 def _stream(
     *, result_text: str = "echo", stop_reason: Any = "end_turn", tools: Any = (), model: Any = MODEL,
     version: Any = f"{VERSION} (Claude Code)", subtype: str = "success", is_error: Any = False,
@@ -135,8 +140,23 @@ def _stream(
     assistant_text: str | None = None, omit_result: bool = False, omit_init: bool = False,
     omit_assistant: bool = False, garbage: bool = False, api_retry: bool = False,
     result_value: Any = "text", duplicate_result: bool = False, message_id: Any = "msg_1",
-    nan_usage: bool = False,
+    nan_usage: bool = False, result_stop_reason: Any = None, partial: bool = True, delta_stop_reason: Any = "same", start_id: Any = "same",
+    start_model: Any = "same", delta_text: str | None = None, duplicate_start: bool = False,
+    omit_message_delta: bool = False, omit_message_stop: bool = False, duplicate_delta_stop: bool = False,
+    reorder: bool = False, stream_error: bool = False, stream_parent: bool = False, ping: bool = False,
+    assistant_after_stop: bool = False, invalid_stream_event: bool = False, initial_text: str = "",
+    fallback_block: bool = False, input_transformations: bool = False, server_tool_block: bool = False,
+    stream_tool_block: bool = False, extra_null_delta: bool = False, block_after_delta: bool = False,
+    trailing_stream_event: bool = False, assistant_extra_block: str | None = None,
 ) -> bytes:
+    """A synthetic ``claude -p --output-format stream-json --verbose --include-partial-messages`` stream.
+
+    By default the assistant event sits inside the documented bracket
+    (``message_start`` < content block events < ``message_delta`` < ``message_stop``) and the
+    message finish (``stop_reason``) is reported both on the assistant event and in ``message_delta``;
+    ``delta_stop_reason`` diverges the two, ``partial=False`` drops the bracket (the schema 1 shape
+    of the retained 2.1.273 stream), and the remaining knobs break one bracket rule each.
+    """
     init = {"type": "system", "subtype": "init", "model": model, "tools": None if tools is None else list(tools),
             "session_id": STREAM_SESSION, "cwd": "/elsewhere", "apiKeySource": "none"}
     if version is not None:
@@ -147,26 +167,91 @@ def _stream(
     if compact:
         events.append({"type": "system", "subtype": "compact_boundary", "session_id": STREAM_SESSION,
                        "compact_metadata": {"trigger": "auto", "pre_tokens": 12}})
-    content: list[dict[str, Any]] = [{"type": "text", "text": result_text if assistant_text is None else assistant_text}]
+    text = result_text if assistant_text is None else assistant_text
+    content: list[dict[str, Any]] = [{"type": "text", "text": text}]
     if tool_use:
         content.append({"type": "tool_use", "id": "tu_1", "name": "Read", "input": {"file_path": "/x"}})
+    if assistant_extra_block is not None:
+        content.append({"type": assistant_extra_block, "thinking": "opaque", "signature": "sig"})
     message = {"model": model, "usage": {"input_tokens": 12, "output_tokens": 3}, "content": content}
     if message_id is not None:
         message["id"] = message_id
     if stop_reason != "absent":
         message["stop_reason"] = stop_reason
-    if not omit_assistant:
-        events.append({"type": "assistant", "message": message, "session_id": STREAM_SESSION})
-    if second_message:
-        events.append({"type": "assistant", "session_id": STREAM_SESSION,
-                       "message": {"id": "msg_2", "model": model, "stop_reason": "end_turn",
-                                   "usage": {"input_tokens": 1, "output_tokens": 1},
-                                   "content": [{"type": "text", "text": ""}]}})
+    assistant = {"type": "assistant", "message": message, "session_id": STREAM_SESSION}
+    second = {"type": "assistant", "session_id": STREAM_SESSION,
+              "message": {"id": "msg_2", "model": model, "stop_reason": "end_turn",
+                          "usage": {"input_tokens": 1, "output_tokens": 1},
+                          "content": [{"type": "text", "text": ""}]}}
+    if partial:
+        started = {"id": message_id if start_id == "same" else start_id,
+                   "model": model if start_model == "same" else start_model,
+                   "type": "message", "role": "assistant", "content": [], "stop_reason": None}
+        start = _stream_event({"type": "message_start", "message": started})
+        events.append(start)
+        if duplicate_start:
+            events.append(dict(start))
+        if ping:
+            events.append(_stream_event({"type": "ping"}))
+        if invalid_stream_event:
+            events.append(_stream_event({"kind": "no type field"}))
+        if stream_error:
+            events.append(_stream_event({"type": "error", "error": {"type": "overloaded_error", "message": "Overloaded"}}))
+        events.append(_stream_event({"type": "content_block_start", "index": 0, "content_block": {"type": "text", "text": initial_text}}))
+        streamed = text if delta_text is None else delta_text
+        if initial_text and delta_text is None:
+            assert streamed.startswith(initial_text)
+            streamed = streamed[len(initial_text):]
+        halves = (streamed[: len(streamed) // 2], streamed[len(streamed) // 2:])
+        for chunk in halves:
+            events.append(_stream_event({"type": "content_block_delta", "index": 0,
+                                         "delta": {"type": "text_delta", "text": chunk}}, parent="tu_0" if stream_parent else None))
+        if not omit_assistant and not assistant_after_stop:
+            events.append(assistant)  # the CLI emits the complete block before that block's content_block_stop
+        if second_message:
+            events.append(second)
+        events.append(_stream_event({"type": "content_block_stop", "index": 0}))
+        for extra_type, present in (("fallback", fallback_block), ("server_tool_use", server_tool_block), ("tool_use", stream_tool_block)):
+            if present:  # a second block with no deltas, as the docs describe a fallback boundary
+                events.append(_stream_event({"type": "content_block_start", "index": 1, "content_block": {"type": extra_type}}))
+                events.append(_stream_event({"type": "content_block_stop", "index": 1}))
+        finish = stop_reason if delta_stop_reason == "same" else delta_stop_reason
+        delta: dict[str, Any] = {"stop_sequence": None}
+        if finish != "absent":
+            delta["stop_reason"] = finish
+        message_delta = _stream_event({"type": "message_delta", "delta": delta, "usage": {"output_tokens": 3}})
+        if input_transformations:
+            message_delta["event"]["input_transformations"] = [{"type": "model_fallback", "from": model, "to": "claude-other"}]
+        message_stop = _stream_event({"type": "message_stop"})
+        tail = [] if omit_message_delta else [message_delta]
+        if extra_null_delta:  # "one or more message_delta events": a usage-only delta before the finish
+            tail.insert(0, _stream_event({"type": "message_delta", "delta": {"stop_sequence": None}, "usage": {"output_tokens": 1}}))
+        if duplicate_delta_stop:
+            tail.append(dict(message_delta))
+        if block_after_delta:
+            tail.append(_stream_event({"type": "content_block_stop", "index": 0}))
+        if not omit_message_stop:
+            tail.append(message_stop)
+        if reorder:
+            tail.reverse()
+        events.extend(tail)
+        if ping:
+            events.append(_stream_event({"type": "ping"}))
+        if trailing_stream_event:
+            events.append(_stream_event({"type": "future_event_kind"}))
+        if assistant_after_stop and not omit_assistant:
+            events.append(assistant)
+    else:
+        if not omit_assistant:
+            events.append(assistant)
+        if second_message:
+            events.append(second)
     if not omit_result:
         result = {"type": "result", "subtype": subtype, "is_error": is_error,
                   "result": result_text if result_value == "text" else result_value,
                   "num_turns": num_turns, "usage": {"input_tokens": 12, "output_tokens": 3},
-                  "total_cost_usd": 0.0, "session_id": STREAM_SESSION, "permission_denials": []}
+                  "total_cost_usd": 0.0, "session_id": STREAM_SESSION, "permission_denials": [],
+                  "stop_reason": result_stop_reason}
         events.append(result)
         if duplicate_result:
             events.append(dict(result))
@@ -323,6 +408,52 @@ def test_dispatch_binds_exact_stdin_and_output_and_settles_through_the_journal(t
         (dict(omit_assistant=True), "failed", "failed", "stream_schema:assistant_missing"),
         (dict(garbage=True), "failed", "failed", "stream_schema:unparseable_lines"),
         (dict(api_retry=True), "complete", "eligible", None),
+        # Classifier 3: the finish is the message_delta stop_reason bound to the one message_start
+        # whose id is the assistant message. A synthetic stream with the 2.1.273 assistant shape
+        # (stop_reason null) PLUS the documented bracket is complete; the real 2.1.273 stream has no
+        # bracket and stays failed (private retained fixture). The result event's own stop_reason is never consulted.
+        (dict(stop_reason=None, delta_stop_reason="end_turn"), "complete", "eligible", None),
+        (dict(stop_reason="absent", delta_stop_reason="end_turn"), "complete", "eligible", None),
+        (dict(ping=True), "complete", "eligible", None),
+        (dict(initial_text="ec"), "complete", "eligible", None),
+        (dict(extra_null_delta=True), "complete", "eligible", None),
+        (dict(assistant_extra_block="thinking"), "complete", "eligible", None),
+        (dict(fallback_block=True), "failed", "failed",
+         ("stream_schema:content_block_type:fallback", "stream_binding:server_side_fallback")),
+        (dict(input_transformations=True), "failed", "failed", "stream_binding:server_side_fallback"),
+        (dict(server_tool_block=True), "failed", "failed", "stream_schema:content_block_type:server_tool_use"),
+        (dict(assistant_extra_block="web_search_tool_result"), "failed", "failed",
+         "stream_schema:content_block_type:web_search_tool_result"),
+        (dict(stream_tool_block=True), "failed", "failed", "tool_use_observed"),
+        (dict(block_after_delta=True), "failed", "failed", "stream_schema:stream_event_order"),
+        (dict(trailing_stream_event=True), "failed", "failed", "stream_schema:stream_event_order"),
+        (dict(partial=False, stop_reason=None, result_stop_reason="end_turn"), "failed", "failed",
+         ("stream_schema:message_start_count:0", "stop_reason_unobserved")),
+        (dict(partial=False, stop_reason="end_turn", result_stop_reason="end_turn"), "failed", "failed",
+         ("stream_schema:message_start_count:0", "stop_reason_unobserved")),
+        (dict(omit_message_delta=True), "failed", "failed", ("stop_reason_unobserved", "stream_schema:stream_event_order")),
+        (dict(delta_stop_reason=None), "failed", "failed", "stop_reason_unobserved"),
+        (dict(delta_stop_reason="absent"), "failed", "failed", "stop_reason_unobserved"),
+        (dict(delta_stop_reason=7), "failed", "failed", ("stream_schema:message_delta_stop_reason", "stop_reason:7")),
+        (dict(delta_stop_reason="max_tokens"), "truncated", "truncated",
+         ("stop_reason:max_tokens", "stream_binding:stop_reason_conflict")),
+        (dict(stop_reason=None, delta_stop_reason="max_tokens"), "truncated", "truncated", "stop_reason:max_tokens"),
+        (dict(delta_stop_reason="refusal"), "failed", "failed", ("stop_reason:refusal", "stream_binding:stop_reason_conflict")),
+        (dict(delta_stop_reason="model_context_window_exceeded"), "failed", "failed",
+         "stop_reason:model_context_window_exceeded"),
+        (dict(duplicate_delta_stop=True), "failed", "failed", ("stream_schema:stop_reason_ambiguous", "stop_reason_unobserved")),
+        (dict(start_id="msg_other"), "failed", "failed", "stream_binding:message_id_mismatch"),
+        (dict(start_id=None), "failed", "failed", "stream_schema:message_start_id"),
+        (dict(start_model="claude-other"), "failed", "failed", "stream_binding:model_mismatch"),
+        (dict(start_model=None), "failed", "failed", "stream_schema:message_start_model"),
+        (dict(duplicate_start=True), "failed", "failed", ("stream_schema:message_start_count:2", "stream_schema:stream_event_order")),
+        (dict(omit_message_stop=True), "failed", "failed", ("stream_schema:message_stop_count:0", "stream_schema:stream_event_order")),
+        (dict(reorder=True), "failed", "failed", "stream_schema:stream_event_order"),
+        (dict(assistant_after_stop=True), "failed", "failed", "stream_schema:stream_event_order"),
+        (dict(delta_text="not what the assistant said"), "failed", "failed", "stream_binding:text_mismatch"),
+        (dict(stream_error=True), "failed", "failed", "stream_error_event"),
+        (dict(stream_parent=True), "failed", "failed", "stream_schema:stream_event_parent"),
+        (dict(invalid_stream_event=True), "failed", "failed", "stream_schema:stream_event_type"),
     ],
 )
 def test_outcomes_classify_fail_closed_and_settle_only_terminal_statuses(
@@ -445,9 +576,9 @@ def test_route_environment_and_argv_are_frozen_and_leak_no_values(tmp_path: Path
     assert delivery.BILLING_ENV == JUDGE_BILLING_ENV == judge_runner.BILLING_ENV
     assert delivery.SAFE_ENV == judge_runner.SAFE_ENV
     assert dispatched.argv == (
-        str(user_cli.resolve()), "-p", "--output-format", "stream-json", "--verbose", "--model", MODEL,
-        "--system-prompt", ROUTE_SYSTEM_PROMPT, "--tools", "", "--strict-mcp-config", "--no-session-persistence",
-        "--permission-prompts", "none",
+        str(user_cli.resolve()), "-p", "--output-format", "stream-json", "--verbose", "--include-partial-messages",
+        "--model", MODEL, "--system-prompt", ROUTE_SYSTEM_PROMPT, "--tools", "", "--strict-mcp-config",
+        "--no-session-persistence", "--permission-prompts", "none",
     )
     assert dispatched.cwd == Path(outcome["ledger_path"]) / "cwd" and dispatched.timeout_seconds == 30
     receipt = outcome["receipt"]
@@ -591,11 +722,21 @@ def test_default_runner_delivers_exact_stdin_and_preserves_partial_output_on_tim
         "    open('pids', 'w').write(f'{os.getpid()} {child.pid}')\n"
         "    time.sleep(60)\n"
         "text = 'sha256:' + hashlib.sha256(data).hexdigest()\n"
+        "def ev(inner):\n"
+        "    print(json.dumps({'type': 'stream_event', 'event': inner, 'session_id': 'real-1', 'parent_tool_use_id': None}))\n"
+        "assert '--include-partial-messages' in sys.argv\n"
+        "ev({'type': 'message_start', 'message': {'id': 'm1', 'model': 'claude-fable-5-1', 'stop_reason': None, 'content': []}})\n"
+        "ev({'type': 'content_block_start', 'index': 0, 'content_block': {'type': 'text', 'text': ''}})\n"
+        "ev({'type': 'content_block_delta', 'index': 0, 'delta': {'type': 'text_delta', 'text': text}})\n"
         "print(json.dumps({'type': 'assistant', 'session_id': 'real-1', 'message': {'id': 'm1', 'model': 'claude-fable-5-1',\n"
-        "                  'stop_reason': 'end_turn', 'usage': {'input_tokens': 1, 'output_tokens': 1},\n"
+        "                  'stop_reason': None, 'usage': {'input_tokens': 1, 'output_tokens': 1},\n"
         "                  'content': [{'type': 'text', 'text': text}]}}))\n"
+        "ev({'type': 'content_block_stop', 'index': 0})\n"
+        "ev({'type': 'message_delta', 'delta': {'stop_reason': 'end_turn', 'stop_sequence': None}, 'usage': {'output_tokens': 1}})\n"
+        "ev({'type': 'message_stop'})\n"
         "print(json.dumps({'type': 'result', 'subtype': 'success', 'is_error': False, 'result': text, 'num_turns': 1,\n"
-        "                  'usage': {'input_tokens': 1, 'output_tokens': 1}, 'total_cost_usd': 0, 'session_id': 'real-1'}))\n"
+        "                  'stop_reason': 'end_turn', 'usage': {'input_tokens': 1, 'output_tokens': 1}, 'total_cost_usd': 0,\n"
+        "                  'session_id': 'real-1'}))\n"
     )
     fake_cli.chmod(fake_cli.stat().st_mode | stat.S_IXUSR)
     environment = {"HOME": str(tmp_path / "home"), "PATH": os.environ.get("PATH", "/usr/bin:/bin"), "LANG": "C.UTF-8"}
@@ -742,7 +883,16 @@ def test_classifier_precedence_is_deterministic_on_the_same_stream() -> None:
     clean = classify_stream(_stream(result_text="k" * 10), exit_code=0, timed_out=False,
                             model_requested=MODEL, provider_version=VERSION)
     assert clean["outcome"] == "complete" and clean["output_bytes"] == b"k" * 10
-    assert clean["observed"]["event_type_counts"] == {"system/init": 1, "assistant": 1, "result/success": 1}
+    assert clean["observed"]["event_type_counts"] == {"system/init": 1, "stream_event": 7, "assistant": 1, "result/success": 1}
+    assert clean["observed"]["stream_events"]["counts"] == {"message_start": 1, "content_block_start": 1,
+                                                            "content_block_delta": 2, "content_block_stop": 1,
+                                                            "message_delta": 1, "message_stop": 1}
+    assert clean["assistant_completion"] == {"source": "stream_event:message_delta", "message_id": "msg_1",
+                                             "model": MODEL, "stop_reason": "end_turn", "observed": True}
+    assert "text_delta_text" not in clean["observed"] and "assistant_text" not in clean["observed"]
+    with pytest.raises(ValueError, match="unsupported classifier_version"):
+        classify_stream(_stream(), exit_code=0, timed_out=False, model_requested=MODEL, provider_version=VERSION,
+                        classifier_version=4)
     # A pathologically nested line is unparseable, never a crash.
     nested = _stream() + b"[" * 200000 + b"\n"
     deep = classify_stream(nested, exit_code=0, timed_out=False, model_requested=MODEL, provider_version=VERSION)
@@ -775,3 +925,141 @@ def test_settlement_rejects_rehashed_stdin_before_journal_mutation(tmp_path: Pat
     pending = recover_pending_attempt(journal_root)
     assert pending["reservation_id"] == reservation["reservation_id"]
     assert pending["prompt_bytes"] == reservation["prompt_bytes"]
+
+
+def test_schema_2_receipt_binds_completion_and_schema_1_ledgers_stay_readable(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    journal_root, delivery_root, reservation, common = _setup(tmp_path)
+    # The 2.1.273 assistant shape (stop_reason null) completes only through the bound message_delta.
+    outcome = deliver_reserved_attempt(journal_root, delivery_root,
+                                       runner=FakeRoute(_stream(stop_reason=None, delta_stop_reason="end_turn")), **common)
+    receipt = outcome["receipt"]
+    assert receipt["schema_version"] == 2 and receipt["classifier_version"] == 3 and receipt["outcome"] == "complete"
+    assert receipt["assistant_completion"] == {"source": "stream_event:message_delta", "message_id": "msg_1", "model": MODEL,
+                                               "stop_reason": "end_turn", "observed": True}
+    assert receipt["finish_metadata_observed"] is True and receipt["stream"]["stop_reasons"] == [None]
+    assert receipt["stream"]["results"][0]["stop_reason"] is None  # the synthetic result carries none; unused either way
+    assert "--include-partial-messages" in receipt["argv"] and receipt["limitations"] == list(LIMITATIONS)
+    assert "never the result event's stop_reason" in LIMITATIONS[1]
+    request = json.loads((Path(outcome["ledger_path"]) / "request.json").read_bytes())
+    assert request["schema_version"] == 2 and "--include-partial-messages" in request["argv"]
+    settle_delivery(journal_root, delivery_root, reservation_id=reservation["reservation_id"])
+    validation = validate_delivery_binding(journal_root, delivery_root, reservation_id=reservation["reservation_id"])
+    assert validation["schema_version"] == 2 and validation["ledger_schema_version"] == 2
+    assert validation["classifier_version"] == 3 and validation["journal_status"] == "eligible"
+
+    # A schema 1 ledger written by the released adapter (no partial messages, classifier 2) is still
+    # settled and validated by the classifier it was written with; it is never re-read as schema 2.
+    legacy_root = tmp_path / "legacy-journal"
+    _journal(legacy_root, programme_id="engineering-probe-legacy")
+    legacy = _reserve(legacy_root)
+    legacy_ledger = tmp_path / "legacy-ledger"
+    legacy_ledger.mkdir()
+    released_argv = delivery._argv
+
+    def argv_without_partial(executable: Path, model: str, limits: dict[str, Any]) -> tuple[str, ...]:
+        return tuple(argument for argument in released_argv(executable, model, limits) if argument != "--include-partial-messages")
+
+    with monkeypatch.context() as patched:
+        patched.setattr(delivery, "SCHEMA_VERSION", 1)
+        patched.setattr(delivery, "CLASSIFIER_VERSION", 2)
+        patched.setattr(delivery, "_argv", argv_without_partial)
+        legacy_outcome = deliver_reserved_attempt(legacy_root, legacy_ledger, runner=FakeRoute(_stream(partial=False)),
+                                                  **{**common, "reservation_id": legacy["reservation_id"],
+                                                     "prompt_bytes": legacy["prompt_bytes"]})
+    legacy_receipt = legacy_outcome["receipt"]
+    assert legacy_receipt["schema_version"] == 1 and legacy_receipt["classifier_version"] == 2
+    assert legacy_receipt["outcome"] == "complete" and "--include-partial-messages" not in legacy_receipt["argv"]
+    assert legacy_receipt["assistant_completion"]["source"] == "assistant:stop_reason"
+    assert delivery.SCHEMA_VERSION == 2 and delivery.CLASSIFIER_VERSION == 3
+    settled = settle_delivery(legacy_root, legacy_ledger, reservation_id=legacy["reservation_id"])
+    assert settled["status"] == "eligible"
+    legacy_validation = validate_delivery_binding(legacy_root, legacy_ledger, reservation_id=legacy["reservation_id"])
+    assert legacy_validation["ledger_schema_version"] == 1 and legacy_validation["classifier_version"] == 2
+    assert legacy_validation["schema_version"] == 2 and legacy_validation["journal_status"] == "eligible"
+    # The same old-shaped stream is failed under the current contract: schema 2 requires the bracket.
+    current = classify_stream(_stream(partial=False), exit_code=0, timed_out=False, model_requested=MODEL, provider_version=VERSION)
+    assert current["outcome"] == "failed" and "stream_schema:message_start_count:0" in current["reasons"]
+
+    # Schema/classifier pairs are fixed and integer-typed: a schema 1 receipt claiming classifier 3
+    # (or the reverse), or a float/str/list version, is refused before anything is re-derived.
+    ledger_dir = Path(legacy_outcome["ledger_path"])
+    original = (ledger_dir / "receipt.json").read_bytes()
+    for schema, classifier in ((1, 3), (2, 2), (3, 3), ("1", 2), ([1], 2), (None, 2), (1, 2.0), (1.0, 2)):
+        forged = json.loads(original)
+        forged.update({"schema_version": schema, "classifier_version": classifier})
+        (ledger_dir / "receipt.json").write_bytes(_canonical(forged))
+        with pytest.raises(ValueError, match="unsupported delivery receipt"):
+            validate_delivery_binding(legacy_root, legacy_ledger, reservation_id=legacy["reservation_id"])
+    (ledger_dir / "receipt.json").write_bytes(original)
+    assert validate_delivery_binding(legacy_root, legacy_ledger, reservation_id=legacy["reservation_id"])["outcome"] == "complete"
+
+    # The completion record is part of the receipt/stream agreement: it cannot be edited on its own.
+    forged = json.loads((Path(outcome["ledger_path"]) / "receipt.json").read_bytes())
+    forged["assistant_completion"] = {**forged["assistant_completion"], "message_id": "msg_forged"}
+    (Path(outcome["ledger_path"]) / "receipt.json").write_bytes(_canonical(forged))
+    with pytest.raises(ValueError, match="disagrees with its retained stream"):
+        validate_delivery_binding(journal_root, delivery_root, reservation_id=reservation["reservation_id"])
+    (Path(outcome["ledger_path"]) / "receipt.json").write_bytes(_canonical(receipt))
+
+    # A schema 2 ledger cannot be downgraded to schema 1 to have classifier 2 re-label it. First the
+    # receipt alone: it no longer matches the request published before the spawn. Then request and
+    # receipt together: classifier 2 refuses a stream that carries the bracket, so the re-derivation
+    # disagrees with the forged "complete". The reservation stays pending throughout.
+    downgrade_root = tmp_path / "downgrade-journal"
+    _journal(downgrade_root, programme_id="engineering-probe-downgrade")
+    downgrade = _reserve(downgrade_root)
+    downgrade_ledger = tmp_path / "downgrade-ledger"
+    downgrade_ledger.mkdir()
+    truncated = deliver_reserved_attempt(downgrade_root, downgrade_ledger,
+                                         runner=FakeRoute(_stream(stop_reason="end_turn", delta_stop_reason="max_tokens")),
+                                         **{**common, "reservation_id": downgrade["reservation_id"], "prompt_bytes": downgrade["prompt_bytes"]})
+    assert truncated["outcome"] == "truncated"
+    forged_dir = Path(truncated["ledger_path"])
+    forged_receipt = json.loads((forged_dir / "receipt.json").read_bytes())
+    forged_receipt.update({"schema_version": 1, "classifier_version": 2, "outcome": "complete", "reasons": [],
+                           "settlement_proposal": {"status": "eligible", "artifact_sha256": _sha(b"echo"), "receipt_kind": "v1_eligible"}})
+    forged_receipt.pop("assistant_completion")
+    (forged_dir / "receipt.json").write_bytes(_canonical(forged_receipt))
+    with pytest.raises(ValueError, match="does not match its retained request"):
+        settle_delivery(downgrade_root, downgrade_ledger, reservation_id=downgrade["reservation_id"])
+    forged_request = json.loads((forged_dir / "request.json").read_bytes())
+    forged_request.update({"schema_version": 1, "argv": [a for a in forged_request["argv"] if a != "--include-partial-messages"]})
+    (forged_dir / "request.json").write_bytes(_canonical(forged_request))
+    forged_receipt.update({"argv": forged_request["argv"], "request_sha256": _sha(_canonical(forged_request))})
+    (forged_dir / "receipt.json").write_bytes(_canonical(forged_receipt))
+    with pytest.raises(ValueError, match="disagrees with its retained stream"):
+        settle_delivery(downgrade_root, downgrade_ledger, reservation_id=downgrade["reservation_id"])
+    with pytest.raises(ValueError, match="disagrees with its retained stream"):
+        validate_delivery_binding(downgrade_root, downgrade_ledger, reservation_id=downgrade["reservation_id"])
+    assert recover_pending_attempt(downgrade_root)["reservation_id"] == downgrade["reservation_id"]
+
+
+def test_assistant_completion_is_coherent_and_classifier_2_refuses_the_bracket() -> None:
+    def classify(stream: bytes, version: Any = None) -> dict[str, Any]:
+        return classify_stream(stream, exit_code=0, timed_out=False, model_requested=MODEL, provider_version=VERSION,
+                               classifier_version=version)
+
+    bound = classify(_stream(stop_reason=None, delta_stop_reason="end_turn"))
+    assert bound["outcome"] == "complete" and bound["finish_metadata_observed"] is True
+    assert bound["assistant_completion"] == {"source": "stream_event:message_delta", "message_id": "msg_1", "model": MODEL,
+                                             "stop_reason": "end_turn", "observed": True}
+    # A finish without an intact identity/text binding is recorded but never "observed".
+    for broken in (_stream(start_id="msg_other"), _stream(start_id=None), _stream(start_model="claude-other"),
+                   _stream(delta_text="differs"), _stream(duplicate_delta_stop=True), _stream(delta_stop_reason=7),
+                   _stream(duplicate_start=True), _stream(fallback_block=True)):
+        classified = classify(broken)
+        assert classified["outcome"] == "failed", classified["reasons"]
+        assert classified["assistant_completion"]["observed"] is False and classified["finish_metadata_observed"] is False
+    conflict = classify(_stream(delta_stop_reason="max_tokens"))
+    assert conflict["outcome"] == "truncated" and "stream_binding:stop_reason_conflict" in conflict["reasons"]
+    assert conflict["assistant_completion"] == {"source": "stream_event:message_delta", "message_id": "msg_1", "model": MODEL,
+                                                "stop_reason": "max_tokens", "observed": False}
+    # Classifier 2 never reads the bracket, and refuses a stream that carries one.
+    legacy = classify(_stream(partial=False), 2)
+    assert legacy["outcome"] == "complete" and legacy["assistant_completion"]["source"] == "assistant:stop_reason"
+    bracketed = classify(_stream(), 2)
+    assert bracketed["outcome"] == "failed" and "stream_schema:unexpected_stream_events" in bracketed["reasons"]
+    with pytest.raises(ValueError, match="unsupported classifier_version"):
+        classify(_stream(), 3.0)
