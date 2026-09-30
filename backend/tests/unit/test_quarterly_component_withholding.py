@@ -513,6 +513,7 @@ def test_conflicting_alias_does_not_hide_an_independent_claim(alternate, authore
 @pytest.mark.parametrize("claim,exclusion", [
     (CLAIM, "tagged"), (CAUSE_CLAIM, "tagged"), (CAUSE_CLAIM, "complete"),
     (CAUSE_CLAIM, "qualified_complete"), (CAUSE_CLAIM, "mismatched_complete"),
+    (CAUSE_CLAIM, "mismatched_net_complete"), (CAUSE_CLAIM, "mismatched_unit_complete"),
     (CAUSE_CLAIM, "oversized_complete"), (CAUSE_CLAIM, "fragment"),
 ])
 async def test_same_authored_grammar_is_preserved_when_source_separately_quantifies_component(claim, exclusion):
@@ -532,6 +533,11 @@ async def test_same_authored_grammar_is_preserved_when_source_separately_quantif
         paragraph.text = CAUSE_CLAIM.removesuffix(CAUSE_SUFFIX)
         if exclusion == "mismatched_complete":
             paragraph.text = paragraph.text.replace("$68,209", "$68,210")
+        elif exclusion == "mismatched_net_complete":
+            paragraph.text = paragraph.text.replace("$876,402", "$876,403")
+        elif exclusion == "mismatched_unit_complete":
+            # Same digits at a different authored scale are different operands.
+            paragraph.text = paragraph.text.replace("thousand", "million")
         elif exclusion == "oversized_complete":
             paragraph.text = paragraph.text.replace("$68,209", OVERSIZED_AMOUNT)
         elif exclusion == "fragment":
