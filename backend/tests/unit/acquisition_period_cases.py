@@ -167,10 +167,13 @@ async def exercise_acquisition_period_consumer(monkeypatch, name):
     # Web read path: the stored row is re-rendered on read through provenance enrichment.
     web = enrich_summary_provenance(summary, filing)["rendered_sections"]
     assert "FORGED" not in json.dumps(web) and OWNED_FIELD not in json.dumps(web)
+    # Eval/judge read path: the canonical must carry the same visible projection, not only hide privates.
+    canonical = _baseline_to_canonical(result)
     visible = [result["business_overview"], sections_to_markdown(render_sections(raw)),
                export.generate_pdf_html(summary, filing), export.generate_csv(summary, filing),
                "\n".join(" | ".join(row) for section in web if section["title"] == "Notable Footnotes"
-                         for block in section["blocks"] for row in block.get("rows") or [])]
+                         for block in section["blocks"] for row in block.get("rows") or []),
+               "\n".join(note.get("impact", "") for note in canonical["notable_footnotes"])]
     if not case["recovered"]:
         assert frames
         visible.extend(frames)
@@ -190,7 +193,6 @@ async def exercise_acquisition_period_consumer(monkeypatch, name):
     request = create.call_args.kwargs
     assert "primary_excerpt" not in request
     assert all(token not in json.dumps(request) for token in (OWNED_FIELD, CONTEXT_KEY, "FORGED PERIOD", "FORGED PRIMARY"))
-    canonical = _baseline_to_canonical(result)
     judge = build_judge_messages(canonical, "Issuer", filing_type, source, "")
     assert OWNED_FIELD not in json.dumps(judge) and CONTEXT_KEY not in json.dumps(judge)
     assert "source_offset" not in json.dumps(judge)
