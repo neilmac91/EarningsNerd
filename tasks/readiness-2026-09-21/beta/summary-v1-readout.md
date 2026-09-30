@@ -12,11 +12,17 @@ people and support target is within two business days; those decisions do not su
 individual consent, eligible IDs, actual usefulness or a start date. No participant
 names are required for preparing these tools.
 
-1. Copy the query and replace its synthetic account IDs and UTC window. Export only
-   the three named events and selected fields for that exact roster. Do not scan all
-   customers or join current person identities to fill missing event-time identities.
-   Retain the raw JSON query response (`columns`, `results`, `hasMore` and warnings),
-   not a screenshot, CSV with coerced types or manually inferred event set.
+The steps below describe the existing v1 query-response input contract. The live
+export route is still a prerequisite; see [Supported export route remains a
+prerequisite](#supported-export-route-remains-a-prerequisite) before collecting data.
+
+1. Prepare the exact query by replacing its synthetic account IDs and UTC window.
+   Scope it to the three named events and selected fields for that roster. Do not
+   scan all customers or join current person identities to fill missing event-time
+   identities. The v1 consumer accepts a retained raw JSON query response
+   (`columns`, `results`, `hasMore` and warnings); a screenshot, coerced CSV or
+   manually inferred event set cannot substitute. A batch export needs a separately
+   reviewed input contract before it can supply this consumer.
 2. Save a private parameter file, for example:
 
    ```json
@@ -108,7 +114,32 @@ and retain actual receipt/limitations. The [PostHog query response schema](https
 records columns/results and optional pagination/warning fields; absence of those
 fields is not silently interpreted as complete.
 
-Live syntax/result-shape verification is currently held: the PostHog connector's
-required `learn` operation was unavailable for this client, and Chrome tab selection
-timed out before a query could be submitted. No PostHog query or cohort observation
-was performed. The offline fixtures do not close that prerequisite.
+The [September 30 literal-only live check](../../review-evidence/beta-readout-2026-09-30/README.md)
+verified the 21-column projection and unchanged consumer against three actual
+provider-returned synthetic rows. The connector omitted query-response pagination
+metadata, so `export_complete_observed` correctly remained false. Saved-insight
+metadata and the UI's row-count label do not fill that gap. This does not verify
+the production predicate/roster, event capture, customer consent or a beta cohort.
+The earlier connector/browser failures remain historical failures, not evidence
+that the current connector is unavailable.
+
+## Supported export route remains a prerequisite
+
+PostHog's current [API guidance](https://posthog.com/docs/api/queries) directs bulk,
+recurring and third-party connector exports to batch/file-download exports. The
+query endpoint supports the small literal diagnostic above; do not build a beta
+export pipeline around repeated query calls or inferred pagination flags.
+
+For the supported [one-off file export](https://posthog.com/docs/cdp/file-download-exports),
+the installed connector currently lacks `batch_export:read` and `batch_export:write`.
+Its HogQL export mode also requires per-team beta access; that availability has not
+been established. Reconnecting with the needed scopes is the next operator action,
+followed by a tiny literal-only export if the team supports the mode. Do not request
+broader data or infer that reconnecting alone grants the team feature.
+
+Retain the exact requested query, run identity/status, reported row count and every
+returned part before proposing an adapter. JSONLines rows and a completed file-export
+run are a different evidence contract from this consumer's query-response JSON.
+Do not manufacture `hasMore=false` or concatenate file parts into a v1 response and
+call it a completed export. Review and validate an explicit input format before any
+customer readout; keep the current consumer and its unknowns unchanged meanwhile.

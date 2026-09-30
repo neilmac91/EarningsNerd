@@ -5992,3 +5992,15 @@ Full local and hosted verification plus independent exact-head review precede re
   single subscription probe returned four exact lines but was retained as failed for absent
   assistant finish metadata. No retry, source dispatch, or E7/E8 admission; classifier 2 keeps
   the measured failure closed. Paid CI awaits a fresh balance after Google Cloud reauthentication.
+
+
+## September 30 — beta export readiness receipt
+
+- Retain the actual three-row PostHog literal projection and unchanged v1 consumer
+  output with input hashes. Synthetic view/request pairing works; absent provider
+  pagination metadata keeps export completeness false.
+- Replace the stale runbook claim that no live synthetic query ran. Document the
+  supported file-download export prerequisite, missing connector scopes and
+  unproven team HogQL availability; a new export format still needs explicit review.
+- Documentation and synthetic evidence only. No customer query, source-role work,
+  E7/E8 admission, production flag, price change, invitation or model call.
