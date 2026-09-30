@@ -36,9 +36,9 @@ handover package `earningsnerd-opus-5-5-handover` (SHA256SUMS verified). Checked
 | --- | --- | --- | --- | --- |
 | #1013 | review, validate, merge | dependabot branch (main merged: `0113e9c9`) | `2cd639fd`→`0113e9c9` | **merged** `e1914ea4`; prod serves posthog-js 1.434.14 |
 | #1012 | maintainer replacement, merge, close original | replacement [#1030](https://github.com/neilmac91/EarningsNerd/pull/1030) `claude/pr1012-posthog-7.60.1` `c8c56cee` | `1e56f3d2` | **#1030 merged** `c13b069a`, deployed `00423-wrg`; #1012 closed superseded |
-| #952 | repair current-inspection binding, merge tooling | `claude/attached-file-review-any8xz` | `1d48eb33`→`8e8c6f83` | pushed (draft); CI 36784862944 running; review pending |
-| #1021 | integrate main, qualify or hold draft | `codex/wave3-acquisition-period-withholding` | `55e89142` | analysis |
-| #942 | fresh successor, close original | tbd | `47d040aa` | analysis |
+| #952 | repair current-inspection binding, merge tooling | `claude/attached-file-review-any8xz` | `1d48eb33`→`8e8c6f83` | pushed (draft); CI 36784862944 green (eval-baseline no-op, USD 0); exact-head review running |
+| #1021 | integrate main, qualify or hold draft | `codex/wave3-acquisition-period-withholding` (local integrated `d1c321eb`, unpushed) | `55e89142` | integrated + local gate 4533 passed; exact-head review running |
+| #942 | fresh successor, close original | `claude/pr942-successor` (local `19928d2f`, unpushed; stamp `summary-2026-09-t`) | `47d040aa` | built + offline replay 70/70; exact-head review running |
 | #1023 | close with successor, diagnose | successor draft [#1036](https://github.com/neilmac91/EarningsNerd/pull/1036) `claude/pr1023-diagnostic` `fdfb3844` | `d58c1a59` | **#1023 closed** (comment 5920729833); #1036 draft, review pending |
 | #1009 | retain draft hold, document prerequisites | `codex/wave3-launch-pricing-offer` | `561dc2b8` | **held draft**; hold record comment 5920001935 |
 
@@ -128,3 +128,9 @@ Merge-tree conflicts vs main at start: #1013/#1012 none; #952, #1023, #1009 `tas
   spend of up to 10USD if you need it." Ceiling now USD 10.00 total (inclusive of the USD 0.005827 spent).
   All other boundaries of the launch prompt stand (no pricing/Stripe activation, no production flags, no
   E7/E8 judging, no locked contracts/baselines/threshold changes, no retained-evidence deletion).
+- 22:41Z — Container restart killed the four per-lane review workflows; worktrees, commits, venv and scratchpad
+  survived (heads `8e8c6f83`, `d1c321eb`, `19928d2f`, `fdfb3844`, all clean). Reviews relaunched 22:42Z
+  (3 lenses per lane, 2 refutations per material finding, ≤2 local fix rounds, no push).
+- 22:44Z — Balance USD 45.98 (−0.19 since 20:20Z; this session's telemetry spend is 0.005827, the rest is
+  other agents on the shared account). #952 CI 36784862944 all green on `8e8c6f83`; its eval-baseline job
+  was a no-op (8 s; no `backend/app|evals|prompts` change), so USD 0.
