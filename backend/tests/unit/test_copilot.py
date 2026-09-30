@@ -941,12 +941,13 @@ async def test_stream_chat_with_tools_assembles_tool_call_deltas():
         captured["args"] = args
         return {"concept": "revenue", "value": 391035000000.0}
 
+    tools = [{"type": "function", "function": {"name": "get_financial_fact"}}]
     import unittest.mock as mock
     with mock.patch.object(openai_service.client.chat.completions, "create", _fake_create):
         out = []
         async for piece in openai_service.stream_chat_with_tools(
             [{"role": "user", "content": "revenue?"}],
-            tools=[{"type": "function", "function": {"name": "get_financial_fact"}}],
+            tools=tools,
             run_tool=_run_tool,
         ):
             out.append(piece)
@@ -962,6 +963,8 @@ async def test_stream_chat_with_tools_assembles_tool_call_deltas():
     assert len(activity) == 2
     # Two create() calls: round 1 (tool call) + round 2 (answer).
     assert len(calls) == 2
+    # Every round offers the tools for the model to choose (live runs record neither).
+    assert [(c.get("tools"), c.get("tool_choice")) for c in calls] == [(tools, "auto")] * 2
 
 
 # --- Audit fixes: stream-error handling, metering-on-success, history bounding ------------------
