@@ -12,7 +12,9 @@ import AnalysisPageClient from '@/features/analysis/components/AnalysisPageClien
 
 vi.mock('@/features/companies/components/CompanySearch', () => ({
   default: ({ onSelect }: { onSelect: (ticker: string) => void }) =>
-    createElement('button', { onClick: () => onSelect('AAPL') }, 'Select Apple'),
+    createElement('div', null,
+      createElement('button', { onClick: () => onSelect('AAPL') }, 'Select Apple'),
+      createElement('button', { onClick: () => onSelect('MSFT') }, 'Select Microsoft')),
 }))
 vi.mock('@/lib/analytics', () => ({ default: { analysisRun: vi.fn() } }))
 import { streamAnalysis } from '@/features/analysis/api/analysis-api'
@@ -42,6 +44,34 @@ const mockFetch = (frames: Array<Record<string, unknown>>) => {
 }
 
 const RANGE = { mode: 'annual' as const, start_period: 'FY2021', end_period: 'FY2023' }
+
+function deferred<T>() {
+  let resolve!: (value: T) => void
+  let reject!: (reason: Error) => void
+  const promise = new Promise<T>((yes, no) => { resolve = yes; reject = no })
+  return { promise, resolve, reject }
+}
+
+const datasetResponse = (ticker: string) => ({ data: {
+  ticker, company_name: ticker, mode: 'annual', period_key: 'FY2021..FY2023',
+  periods: [], series: [], inflections: [],
+} })
+
+function mountAnalysis() {
+  const client = new QueryClient({ defaultOptions: { queries: { staleTime: Infinity, retry: false } } })
+  client.setQueryData(queryKeys.currentUser(), { id: 7 })
+  client.setQueryData(queryKeys.subscription.byUser(7), { is_pro: true })
+  for (const ticker of ['AAPL', 'MSFT']) {
+    client.setQueryData(queryKeys.analysisCoverage(ticker), {
+      ticker, company_name: ticker, supported: true, syncing: false,
+      annual: [2021, 2022, 2023].map((year) => ({ key: `FY${year}`, fiscal_year: year, period_end: `${year}-12-31`, has_core: true })),
+      quarterly: [{ key: 'Q1-2023', fiscal_year: 2023, fiscal_period: 'Q1', period_end: '2023-03-31', derived: false }],
+      limits: { annual: 10, quarterly: 12 },
+    })
+  }
+  const view = render(createElement(QueryClientProvider, { client }, createElement(AnalysisPageClient)))
+  return { ...view, client }
+}
 
 describe('streamAnalysis', () => {
   afterEach(() => {
@@ -241,6 +271,65 @@ describe('streamAnalysis', () => {
     expect(screen.getByRole('alert')).toHaveTextContent(/ended before.*complete/i)
     expect(screen.queryByText('Assembling the numbers…')).not.toBeInTheDocument()
     queryClient.clear()
+  })
+
+  it.each(['company', 'mode', 'range', 'unmount'] as const)(
+    'does not launch an obsolete narrative after %s changes during dataset loading', async (change) => {
+      const pending = deferred<ReturnType<typeof datasetResponse>>()
+      const post = vi.spyOn(api, 'post').mockReturnValue(pending.promise)
+      mockFetch([])
+      const view = mountAnalysis()
+      fireEvent.click(screen.getByRole('button', { name: 'Select Apple' }))
+      const run = await screen.findByRole('button', { name: 'Run analysis' })
+      await waitFor(() => expect(run).toBeEnabled())
+      fireEvent.click(run)
+      await waitFor(() => expect(post).toHaveBeenCalledTimes(1))
+      if (change === 'company') fireEvent.click(screen.getByRole('button', { name: 'Select Microsoft' }))
+      if (change === 'mode') fireEvent.click(screen.getByRole('button', { name: 'Quarterly' }))
+      if (change === 'range') fireEvent.click(screen.getByRole('button', { name: 'FY2022' }))
+      if (change === 'unmount') view.unmount()
+      // Deliberately resolve despite cancellation: stale-result ownership must not depend
+      // on a transport honoring AbortSignal before it settles.
+      await act(async () => { pending.resolve(datasetResponse('AAPL')) })
+      expect(global.fetch).not.toHaveBeenCalled()
+      expect(screen.queryByRole('heading', { name: 'AI trend analysis' })).not.toBeInTheDocument()
+      expect(post.mock.calls[0][2]?.signal?.aborted).toBe(true)
+      view.client.clear()
+    },
+  )
+
+  it.each(['success', 'error'] as const)('ignores an old dataset %s while the new company is streaming', async (outcome) => {
+    const old = deferred<ReturnType<typeof datasetResponse>>()
+    vi.spyOn(api, 'post').mockReturnValueOnce(old.promise).mockResolvedValueOnce(datasetResponse('MSFT'))
+    const nextFrame = deferred<ReadableStreamReadResult<Uint8Array>>()
+    const reader = streamOf([])
+    reader.read.mockImplementationOnce(() => nextFrame.promise)
+    global.fetch = vi.fn(async () => ({ ok: true, body: { getReader: () => reader } })) as unknown as typeof fetch
+    const view = mountAnalysis()
+    fireEvent.click(screen.getByRole('button', { name: 'Select Apple' }))
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Run analysis' })).toBeEnabled())
+    fireEvent.click(screen.getByRole('button', { name: 'Run analysis' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Select Microsoft' }))
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Run analysis' })).toBeEnabled())
+    fireEvent.click(screen.getByRole('button', { name: 'Run analysis' }))
+    await waitFor(() => expect(reader.read).toHaveBeenCalledTimes(1))
+    const fetchMock = vi.mocked(global.fetch)
+    const activeSignal = fetchMock.mock.calls[0][1]?.signal
+    expect(String(fetchMock.mock.calls[0][0])).toContain('/MSFT/stream')
+    await act(async () => {
+      if (outcome === 'success') old.resolve(datasetResponse('AAPL'))
+      else old.reject(new Error('Old request failed'))
+    })
+    expect(global.fetch).toHaveBeenCalledTimes(1)
+    expect(activeSignal?.aborted).toBe(false)
+    expect(screen.getByRole('button', { name: 'Run analysis' })).toBeDisabled()
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+    await act(async () => { nextFrame.resolve({ done: false, value: new TextEncoder().encode(
+      'data: {"type":"complete","kind":"analysis","narrative":"Current Microsoft result","citations":[],"grounded":0,"cached":true,"n_periods":2}\n\n',
+    ) }) })
+    expect(await screen.findByText('Current Microsoft result')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Run analysis' })).toBeEnabled()
+    view.client.clear()
   })
 
   it('routes an error event to onError and drops buffered tokens', async () => {
