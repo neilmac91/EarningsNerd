@@ -36,10 +36,10 @@ handover package `earningsnerd-opus-5-5-handover` (SHA256SUMS verified). Checked
 | --- | --- | --- | --- | --- |
 | #1013 | review, validate, merge | dependabot branch (main merged: `0113e9c9`) | `2cd639fd`→`0113e9c9` | **merged** `e1914ea4`; prod serves posthog-js 1.434.14 |
 | #1012 | maintainer replacement, merge, close original | replacement [#1030](https://github.com/neilmac91/EarningsNerd/pull/1030) `claude/pr1012-posthog-7.60.1` `c8c56cee` | `1e56f3d2` | **#1030 merged** `c13b069a`, deployed `00423-wrg`; #1012 closed superseded |
-| #952 | repair current-inspection binding, merge tooling | `claude/attached-file-review-any8xz` | `1d48eb33` | analysis |
+| #952 | repair current-inspection binding, merge tooling | `claude/attached-file-review-any8xz` | `1d48eb33`→`8e8c6f83` | pushed (draft); CI 36784862944 running; review pending |
 | #1021 | integrate main, qualify or hold draft | `codex/wave3-acquisition-period-withholding` | `55e89142` | analysis |
 | #942 | fresh successor, close original | tbd | `47d040aa` | analysis |
-| #1023 | close with successor, diagnose | tbd | `d58c1a59` | analysis |
+| #1023 | close with successor, diagnose | successor draft [#1036](https://github.com/neilmac91/EarningsNerd/pull/1036) `claude/pr1023-diagnostic` `fdfb3844` | `d58c1a59` | **#1023 closed** (comment 5920729833); #1036 draft, review pending |
 | #1009 | retain draft hold, document prerequisites | `codex/wave3-launch-pricing-offer` | `561dc2b8` | **held draft**; hold record comment 5920001935 |
 
 Merge-tree conflicts vs main at start: #1013/#1012 none; #952, #1023, #1009 `tasks/todo.md`;
@@ -112,3 +112,15 @@ Merge-tree conflicts vs main at start: #1013/#1012 none; #952, #1023, #1009 `tas
   outside git (scratchpad `analysis/lane-*.md`). Implementation workflow wf_49b4c816-489 started 21:27Z for
   #952, #1021, #942-successor (`claude/pr942-successor`), #1023-diagnostic (`claude/pr1023-diagnostic`);
   local commits only, no pushes.
+- 22:19Z — #952 integrated repair pushed (draft, zero spend): merge of main `91cd146d`, addenda dropped
+  `afd4f54e`, P1 repair `8e8c6f83` (export runs kit step-2 inspection itself; digest-bound verdict;
+  receipts evidence only; restored refusal records remain a stop; 11 mutation proofs M1–M11). Local
+  gate 4329 passed / 39 skipped / 2 deselected.
+- 22:20Z — #1023 successor draft #1036 opened at `fdfb3844` (diagnosis doc + one tools/tool_choice
+  assertion with 2 mutation proofs; zero spend). #1023 closed unmerged with evidence comment.
+  Offline audit of 10 retained Copilot artifacts (246 calls): composed prose quotations in passing
+  answers pre-#1022 17/108 rows, main 2/54 (incl. #1030's own run 36777581481 BABA d0); main-code ASML
+  d1 in 36777581481 skipped tools and shipped 2/2 figures uncited while the run passed 18/18.
+- Other concurrent activity (not in this assignment): Dependabot #1031–#1034 and Codex draft #1035
+  (`codex/wave3-native-delivery-capability`) opened 21:18–21:54Z. Check main for in-progress deploys
+  before every backend merge.
