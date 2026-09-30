@@ -65,8 +65,9 @@ def make_bundle(root: Path, stage: str = "pristine", *, active: dict | None = No
     """A bundle whose guard is pristine, template-configured or initialized (count 287).
 
     Like a restored bundle it carries the sealed shim beside the guard files (never exported) and,
-    once setup has run, the ``state.lock`` guard_setup creates; an immutable manifest listing one
-    file; the E3 candidate 2 prerequisite index; and the E8 index's reused control slots.
+    once setup has run, the ``state.lock`` guard_setup creates; an immutable manifest listing an E8
+    panel file and a file only the manifest names; slot 001's packet file, outside ``stages/``; the
+    E3 candidate 2 prerequisite index; and the E8 index's reused control slots.
     """
     bundle = root.resolve() / "bundle"
     guard = bundle / "e8" / "guard"
@@ -75,8 +76,10 @@ def make_bundle(root: Path, stage: str = "pristine", *, active: dict | None = No
     if stage != "pristine":
         _write(guard / "state.lock", "")
     _write(bundle / "preserved" / "e2" / "judged.json", {"results": []})
-    _write(bundle / "immutable-sha256.json",
-           {"preserved/e2/judged.json": hashlib.sha256((bundle / "preserved/e2/judged.json").read_bytes()).hexdigest()})
+    _write(bundle / "preserved" / "e1" / "judged.json", {"results": [], "programme": "e1"})
+    _write(bundle / "immutable-sha256.json", {rel: hashlib.sha256((bundle / rel).read_bytes()).hexdigest()
+                                              for rel in ("preserved/e1/judged.json", "preserved/e2/judged.json")})
+    _write(bundle / PACKETS[0]["packet_path"], "packet 1")
     _write(bundle / "stages" / "e3-candidate2" / "index.json", PREREQUISITE_INDEX)
     state = {"accounting_reconciled": initialized, "real_cli_invocations": 287 if initialized else 0,
              "stop_reason": None, "completed": []}
@@ -104,7 +107,9 @@ def _digest(text: str) -> str:
 # The frozen 160-slot panel, with the packet bindings a ledger row must repeat.
 PACKETS = [{"slot": f"{n:03d}", "packet_sha256": _digest(f"packet {n}"), "request_sha256": _digest(f"request {n}"),
             "row_sha256": _digest(f"row {n}")} for n in range(1, 161)]
-REUSED = [{"slot": f"c{n:03d}", "slot_kind": "main", "condition": "o"} for n in range(1, 141)]
+# Slot 001's packet file is indexed by path (its bytes are ``packet 1``, matching its packet_sha256).
+PACKETS[0]["packet_path"] = "e8/packets/001.json"
+REUSED =[{"slot": f"c{n:03d}", "slot_kind": "main", "condition": "o"} for n in range(1, 141)]
 PREREQUISITE_INDEX = {"programme": "e3-candidate2", "packets": []}
 # What the sealed admission pins, as the stand-in below checks it: the prerequisite's bytes and the reused panel.
 PINNED_PREREQUISITE = _digest(json.dumps(PREREQUISITE_INDEX, indent=2) + "\n")
@@ -446,6 +451,7 @@ def _ledger_bundle(tmp_path: Path) -> Path:
 
     rows = [row("001", 287, 288), row("005", 288, 290)]
     _write(stages / "execution-ledger.supplement.jsonl", "".join(json.dumps(r) + "\n" for r in rows))
+    _write(stages / "environment.supplement.json", {"observed_at": "2026-09-23T13:31:00+00:00"})
     state_path = bundle / "e8" / "guard" / "state.json"
     _write(state_path, {**json.loads(state_path.read_text()), "real_cli_invocations": 290,
                         "completed": [{"invocation": n} for n in (288, 289, 290)]})
@@ -622,11 +628,14 @@ def _append(path: Path) -> None:
 
 
 # Admission inputs inside and outside stages/e8, the package and the frozen checkout, and the shim, which
-# is hashed as an input but never exported.
+# is hashed as an input but never exported. preserved/e1 reaches the digest only through the immutable
+# manifest (it is no E8 panel file) and e8/packets/001.json only through its index packet_path.
 INPUTS_EDITED_DURING_THE_RUN = [
     "bundle/stages/e8/index.json",
     "bundle/stages/e3-candidate2/index.json",
     "bundle/preserved/e2/judged.json",
+    "bundle/preserved/e1/judged.json",
+    "bundle/e8/packets/001.json",
     "bundle/e8/guard/claude",
     "frozen/backend/evals/golden_set.json",
     "package/tools/e8_resume.py",
@@ -660,6 +669,8 @@ EDITED_BEFORE_THE_COPY = [
     ("stages/e8/index.json", lambda b: _append(b / "stages/e8/index.json")),
     ("e8/guard/state.json", lambda b: _append(b / "e8/guard/state.json")),
     ("stages/e8/notes.txt", lambda b: _write(b / "stages/e8/notes.txt", "written after the inspection")),
+    # Inspected, then gone before the copy: no ledger, slot or marker rule and no source re-listing sees it.
+    ("stages/e8/environment.supplement.json", lambda b: (b / "stages/e8/environment.supplement.json").unlink()),
 ]
 
 
@@ -697,7 +708,8 @@ def test_a_current_success_on_unchanged_inputs_is_an_eligible_checkpoint(export,
     assert summary["admission_inputs_sha256"] == hashlib.sha256(inputs_bytes).hexdigest()
     after = json.loads(inputs_bytes)["after"]
     assert {"package/code-sha256.json", "package/supplement-sha256.json", "package/tools/e8_resume.py",
-            "bundle/immutable-sha256.json", "bundle/preserved/e2/judged.json", "bundle/stages/e3-candidate2/index.json",
+            "bundle/immutable-sha256.json", "bundle/preserved/e2/judged.json", "bundle/preserved/e1/judged.json",
+            "bundle/e8/packets/001.json", "bundle/stages/e3-candidate2/index.json",
             "bundle/stages/e8/index.json", "bundle/e8/guard/claude", "bundle/e8/guard/state.lock",
             "frozen/backend/evals/golden_set.json"} <= set(after)
     # The shim and state.lock are inputs, not exports: the guard comparison covers only the copied files.
