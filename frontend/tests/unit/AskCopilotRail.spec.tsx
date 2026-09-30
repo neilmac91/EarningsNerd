@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { fireEvent, render, screen, within } from '@testing-library/react'
+import { act, fireEvent, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 
 vi.mock('@/features/auth/api/auth-api', () => ({ getCurrentUserSafe: async () => ({ id: 1 }) }))
@@ -77,16 +77,23 @@ function renderRail(overrides: Partial<React.ComponentProps<typeof AskCopilotRai
   const onOpenChange = vi.fn()
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   queryClient.setQueryData(queryKeys.currentUser(), overrides.isAuthenticated === false ? null : { id: 1 })
-  const utils = render(
+  let props = overrides
+  const view = () => (
     <QueryClientProvider client={queryClient}>
-      <AskCopilotRail {...baseProps} open={false} onOpenChange={onOpenChange} {...overrides} />
-    </QueryClientProvider>,
+      <AskCopilotRail {...baseProps} open={false} onOpenChange={onOpenChange} {...props} />
+    </QueryClientProvider>
   )
-  return { onOpenChange, ...utils }
+  const utils = render(view())
+  return { onOpenChange, ...utils, rerenderRail: (patch: typeof overrides) => {
+    props = { ...props, ...patch }
+    utils.rerender(view())
+  } }
+
 }
 
 describe('AskCopilotRail', () => {
   beforeEach(() => {
+    vi.clearAllMocks()
     vi.mocked(askFilingStream).mockReset()
     mockGetUsage.mockReset()
     mockGetUsage.mockResolvedValue(PRO_USAGE)
@@ -153,7 +160,7 @@ describe('AskCopilotRail', () => {
     expect(screen.getByRole('button', { name: /what are the top risks/i })).toBeInTheDocument()
   })
 
-  it('streams tokens and renders the source-check footer + a source row on complete', async () => {
+  it('holds intermediate prose and renders the source-check footer + a source row on complete', async () => {
     let captured: CopilotHandlers | null = null
     vi.mocked(askFilingStream).mockImplementation(async (_id, _q, _h, handlers) => {
       captured = handlers
@@ -175,9 +182,13 @@ describe('AskCopilotRail', () => {
 
     // Drive the streamed answer synchronously via the captured handlers.
     const handlers = captured!
-    handlers.onProgress?.('reading')
-    handlers.onToken('Revenue ')
-    handlers.onToken('grew 8%.')
+    act(() => {
+      handlers.onProgress?.('reading')
+      handlers.onToken('UNADMITTED REVENUE')
+      handlers.onNotDisclosed('UNADMITTED ABSENCE')
+    })
+    expect(screen.queryByText(/UNADMITTED/)).not.toBeInTheDocument()
+    expect(analytics.copilotAnswerCompleted).not.toHaveBeenCalled()
     handlers.onComplete({
       answer: 'Revenue grew 8%.',
       citations: [
@@ -239,7 +250,10 @@ describe('AskCopilotRail', () => {
     await user.type(screen.getByLabelText(/ask about this filing/i), 'What is the CEO salary?')
     await user.click(screen.getByRole('button', { name: /^send$/i }))
 
-    captured!.onNotDisclosed('The filing does not disclose the CEO salary.')
+    act(() => captured!.onNotDisclosed('UNADMITTED ABSENCE'))
+    expect(screen.queryByText('UNADMITTED ABSENCE')).not.toBeInTheDocument()
+    captured!.onComplete({ answer: 'The filing does not disclose the CEO salary.', citations: [],
+      grounded: 0, kind: 'not_disclosed', followups: [] })
 
     expect(await screen.findByText(/not disclosed in this filing/i)).toBeInTheDocument()
     expect(
@@ -272,4 +286,92 @@ describe('AskCopilotRail', () => {
     )
     expect(screen.getByRole('button', { name: /see plans/i })).toBeInTheDocument()
   })
+
+  it('clears a cancelled pending turn, preserves completed history, and ignores obsolete callbacks after reopening', async () => {
+    const requests: { handlers: CopilotHandlers; signal?: AbortSignal }[] = []
+    vi.mocked(askFilingStream).mockImplementation(async (_id, _q, _h, handlers, signal) => {
+      requests.push({ handlers, signal })
+    })
+    const user = userEvent.setup()
+    const rail = renderRail({ open: true })
+    const ask = async (question: string) => {
+      await user.type(screen.getByLabelText(/ask about this filing/i), question)
+      await user.click(screen.getByRole('button', { name: /^send$/i }))
+    }
+    await ask('Completed question')
+    act(() => requests[0].handlers.onComplete({ answer: 'Retained completed answer.', citations: [],
+      grounded: 0, kind: 'answer', followups: [] }))
+    await ask('Cancelled question')
+    act(() => requests[1].handlers.onToken('REJECTED DRAFT'))
+    rail.rerenderRail({ open: false })
+    expect(requests[1].signal?.aborted).toBe(true)
+    rail.rerenderRail({ open: true })
+    expect(screen.getByText('Retained completed answer.')).toBeInTheDocument()
+    expect(screen.getByText('The question was cancelled. Please try again.')).toBeInTheDocument()
+    expect(screen.getByLabelText(/ask about this filing/i)).not.toBeDisabled()
+    expect(screen.queryByText('REJECTED DRAFT')).not.toBeInTheDocument()
+    await ask('New question')
+    act(() => {
+      requests[1].handlers.onComplete({ answer: 'OBSOLETE ANSWER', citations: [], grounded: 0, kind: 'answer', followups: ['OBSOLETE FOLLOWUP'] })
+      requests[1].handlers.onError('OBSOLETE ERROR')
+    })
+    expect(screen.queryByText(/OBSOLETE/)).not.toBeInTheDocument()
+    await user.type(screen.getByLabelText(/ask about this filing/i), 'Queued next question')
+    expect(screen.getByRole('button', { name: /^send$/i })).toBeDisabled()
+    expect(vi.mocked(askFilingStream).mock.calls[2][2]).toEqual([
+      { role: 'user', content: 'Completed question' }, { role: 'assistant', content: 'Retained completed answer.' },
+    ])
+    act(() => requests[2].handlers.onComplete({ answer: 'New admitted answer.', citations: [], grounded: 0, kind: 'answer', followups: [] }))
+    expect(screen.getByText('New admitted answer.')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /^send$/i })).not.toBeDisabled()
+    expect(analytics.copilotAnswerCompleted).toHaveBeenCalledTimes(2)
+    rail.unmount()
+  })
+
+  it('uses the real wire consumer to reject draft-bearing false citations without a completed event', async () => {
+    const actual = await vi.importActual<typeof import('@/features/filings/api/copilot-api')>('@/features/filings/api/copilot-api')
+    vi.mocked(askFilingStream).mockImplementation(actual.askFilingStream)
+    let control!: ReadableStreamDefaultController<Uint8Array>
+    const body = new ReadableStream<Uint8Array>({ start(c) { control = c } })
+    const originalFetch = global.fetch
+    global.fetch = async () => new Response(body)
+    const encoder = new TextEncoder()
+    const emit = async (event: unknown) => {
+      await act(async () => {
+        control.enqueue(encoder.encode(`data: ${JSON.stringify(event)}\n\n`))
+        for (let i = 0; i < 12; i++) await Promise.resolve()
+      })
+    }
+    const user = userEvent.setup()
+    const rail = renderRail({ open: true })
+    try {
+      await user.type(screen.getByLabelText(/ask about this filing/i), 'What changed?')
+      await user.click(screen.getByRole('button', { name: /^send$/i }))
+      await emit({ type: 'token', text: 'UNVERIFIED FINANCIAL DRAFT' })
+      expect(screen.queryByText('UNVERIFIED FINANCIAL DRAFT')).not.toBeInTheDocument()
+      await emit({ type: 'complete', answer: 'UNVERIFIED FINANCIAL DRAFT [1]', citations: [
+        { n: 1, excerpt: 'absent excerpt', section_ref: null, verified: false, fragment_url: null },
+      ], grounded: 0, kind: 'answer', followups: ['UNVERIFIED FOLLOWUP'] })
+      expect(screen.getByText("I couldn't verify the cited evidence, so I couldn't provide this answer.")).toBeInTheDocument()
+      expect(screen.queryByText(/UNVERIFIED|absent excerpt/)).not.toBeInTheDocument()
+      expect(analytics.copilotAnswerCompleted).not.toHaveBeenCalled()
+      expect(analytics.copilotAnswerErrored).toHaveBeenCalledOnce()
+      expect(screen.getByLabelText(/ask about this filing/i)).not.toBeDisabled()
+    } finally { rail.unmount(); global.fetch = originalFetch }
+  })
+
+  it('invalidates callbacks on unmount without accepting a late completion', async () => {
+    let captured!: CopilotHandlers
+    let signal!: AbortSignal
+    vi.mocked(askFilingStream).mockImplementation(async (_id, _q, _h, handlers, s) => { captured = handlers; signal = s! })
+    const user = userEvent.setup()
+    const rail = renderRail({ open: true })
+    await user.type(screen.getByLabelText(/ask about this filing/i), 'Pending question')
+    await user.click(screen.getByRole('button', { name: /^send$/i }))
+    rail.unmount()
+    expect(signal.aborted).toBe(true)
+    act(() => captured.onComplete({ answer: 'LATE ANSWER', citations: [], grounded: 0, kind: 'answer', followups: [] }))
+    expect(analytics.copilotAnswerCompleted).not.toHaveBeenCalled()
+  })
+
 })

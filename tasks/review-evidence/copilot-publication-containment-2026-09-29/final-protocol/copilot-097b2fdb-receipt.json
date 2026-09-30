@@ -1,0 +1,40 @@
+{
+  "recorded_at": "2026-09-29T20:12:02.421690+00:00",
+  "run_id": 36624149908,
+  "pr": 1022,
+  "kind": "copilot",
+  "reviewed_head": "097b2fdbb696d4c5009bcf46b6e9189536cca375",
+  "base": "68c56a084a49e6a973632a19d4983040e8adb149",
+  "source_sha": "11674704d555e6008973469c73b98691f8f70d1e",
+  "synthetic_tree": "029f279567f8420058a882e83cd4767a3b45bb02",
+  "conclusion": "failure",
+  "job_conclusion": "failure",
+  "summary": {
+    "expected": 18,
+    "completed": 18,
+    "scored": 17,
+    "errors": 1,
+    "passed": 17,
+    "pass_rate": 0.9444444444444444
+  },
+  "calls": 36,
+  "unknown_calls": 0,
+  "actual_models": [
+    "deepseek-flash"
+  ],
+  "operations": {
+    "copilot_chat": 36
+  },
+  "outcomes": {
+    "success": 36
+  },
+  "peak_counts": {
+    "False": 36
+  },
+  "estimated_cost_usd": 0.007758,
+  "estimator": "Sum of retained per-physical-call estimates using each recorded actual model and peak flag; not invoice cost",
+  "report_sha256": "dd051e3b16a2b503eb9e8a99833616c6f2b52223e90de24b6c51ba8891400e5d",
+  "log_sha256": "a8fe183f11d78296711f90b8dd7663ae1f7c05976755d83a27d57e54c8babc60",
+  "invoice_cost": null,
+  "scope": "Hosted regression/completeness evidence only; no semantic E7 acceptance or automatic merge authorization"
+}

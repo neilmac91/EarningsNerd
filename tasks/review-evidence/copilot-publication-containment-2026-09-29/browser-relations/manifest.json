@@ -1,0 +1,46 @@
+{
+  "source_hashes": {
+    "frontend/features/filings/api/copilot-api.ts": "a514af5e1c54c3e0af075cd25256ae5a0405184bcc5a10ba57a917f6115aaf47",
+    "frontend/tests/unit/copilotStream.spec.ts": "8d31caa2421ff294a4537c36d5d5a7d2dac508b4d0b0415d94d145cff0e1be3d"
+  },
+  "backend_tree_unchanged": "57eb8340e148b9db6edaab77338c57214b5af8c3",
+  "files": {
+    "ci-9d60-receipt.json": {
+      "sha256": "3684b8a1c7b69bb36a28ffa4612da54173428f8fb022f72f255c122727d5877c",
+      "bytes": 2700
+    },
+    "frontend-relation-focused-green.json": {
+      "sha256": "4b867ae9a513adb0f5b4d32aec4e92091b53447aeb15d8fa708aa6e681f7019b",
+      "bytes": 923
+    },
+    "frontend-relation-full-gate.json": {
+      "sha256": "3de595220b9c6cc7bc870830191dbe8cae0f68e0c831a4d9b544d596e87c60eb",
+      "bytes": 2436
+    },
+    "frontend-relation-implementation-receipt.json": {
+      "sha256": "feff16b41c408ca80799a808535f6ae9cdfcafa539254482fa6ab677294bf510",
+      "bytes": 4262
+    },
+    "frontend-relation-natural-red.json": {
+      "sha256": "27bb5767c89f312b2566f3478a72d116efdab6604f5b8c7f7a2d846aba54c9f0",
+      "bytes": 963
+    },
+    "frontend-relation-refutation.json": {
+      "sha256": "6a4b1fe6a4714890bf34ecb9134393528e7f49631c896e3a39abcdc65d39c567",
+      "bytes": 3357
+    },
+    "independent-browser-relations-review.json": {
+      "sha256": "ce5a2c90adbea491d0a153c86c2446755a83c342349563da8d3dc8ea54e9e147",
+      "bytes": 3787
+    },
+    "manual-review-receipt.json": {
+      "sha256": "80eb57efaa162fb5ffc61588b96bbbe6123f2e03f47940da177f0cbb1a4d81f2",
+      "bytes": 1443
+    },
+    "root-browser-relations-review.json": {
+      "sha256": "c357a58d624b6f98e3edd88acd290731d5b699a9106d69921afe43ddaff089fb",
+      "bytes": 1398
+    }
+  },
+  "scope": "Local final frontend correction; prior9d CI retained, not successor acceptance."
+}

@@ -1,0 +1,23 @@
+{
+  "at_utc": "2026-09-29T21:14:42.240619+00:00",
+  "reviewer": "/root/containment_frontend_restore",
+  "scope": "Independent static review of the frozen ND-only author patch against exact2dae; no new backend tests or code edits. Does not bind later prompt edits to the same file.",
+  "base": "2dae5338554560bf3008082843cedd5f34bd0ad3",
+  "patch_sha256": "70009bcd4c92e00da74912168870fafc0be799db7a31049d500fece5df60ad61",
+  "author_receipt_sha256": "8db08ea4b890f48a85d62e19979ad672f7be0af5a4450eda9052808471abf7c6",
+  "decision": "No blocking findings in the ND-only patch.",
+  "checked": [
+    "Both ND and complete events follow nonblank-reason and mandatory whole-tail JSON validation; default invented reason removed.",
+    "json.loads consumes the whole tail; missing, malformed, repairable, prefixed/suffixed or extra-envelope payloads cannot be silently truncated/repaired.",
+    "Exactly2\u20133 nonblank string members required; strings inside valid JSON remain data, and existing strip/140-character UI bound is retained.",
+    "Preceding prose and contradictory ND/citation reason envelopes still reject. Optional ordinary-answer followup parser is unchanged.",
+    "No new await, resource ownership, request endpoint, quota path, provider instrumentation, model, prompt or scoring change in this patch. _UnpublishableAnswer remains application-owned safeerror; no complete means existing router finally releases lease.",
+    "Existing service\u2192ASGI gate extended, not a new test owner. Both free/pro valid/error quota paths and paused-generation no-prose/cleanup checks retained. Existing positive no-followups fixture is explicitly made complete, without weakening its assertions."
+  ],
+  "author_test_evidence_not_rerun": "Natural19FAIL/7PASS/109deselected; corrected owner135PASS/17warnings, pinned Ruff clean, logs retained in author receipt.",
+  "limits": [
+    "Structural completeness does not establish truth of a not-disclosed reason or faithfulness of its suggested questions.",
+    "CurrentMSFT F-string declarations remain a separate prompt/parser mismatch; this ND patch does not make that retained draw pass.",
+    "Full backend and changed exact-head hosted gates remain root-owned."
+  ]
+}

@@ -1,0 +1,21 @@
+{
+  "started_at_utc": "2026-09-29T21:15:51.132273+00:00",
+  "finished_at_utc": "2026-09-29T21:15:53.307068+00:00",
+  "command": [
+    "npm",
+    "run",
+    "build"
+  ],
+  "cwd": "/private/tmp/earningsnerd-containment-resume-20260929/frontend",
+  "node": "22.23.2",
+  "exit_code": 1,
+  "elapsed_seconds": 2.175,
+  "scope": "Same exact source and default build; isolated retry permits Turbopack local worker port previously denied by sandbox. Original failed attempt retained.",
+  "files": {
+    "frontend/features/filings/api/copilot-api.ts": "a01afe65c85a7315b86afe081f1ea7e1905aec4de4f1aae307bc5ca39819f97a",
+    "frontend/tests/unit/copilotStream.spec.ts": "e9b691ffef2d8c276a22e3077fb50513a0a5a5efbf05c3a42a176ee1a5909c33",
+    "frontend/package-lock.json": "fc8bc41c635009f3cc3620f432bc76b21689c7577467237afd15c5d3c9c63b0b"
+  },
+  "files_unchanged": true,
+  "log_sha256": "66c1b08448be931626daf1323f9ccd47278f70b00699f2c644276f7b5c4e26c1"
+}

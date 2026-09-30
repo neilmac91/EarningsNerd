@@ -1,0 +1,16 @@
+{
+  "observed_at": "2026-09-29T22:05:03.487937+00:00",
+  "base_head": "f1890ff66d8d9c6fb77c42d805899bbc8faa2b28",
+  "files": {
+    "frontend/features/filings/api/copilot-api.ts": "7a98c5f6cf97d5a851ced90dd2b03fa05366b7f56a5026b48e6de038ed02d3e0",
+    "frontend/tests/unit/copilotStream.spec.ts": "df3dd3b1302ae5ca6cca3e0826ff8e57b57d0500f2f8ee261bb02fb45ee7ca07"
+  },
+  "command": "npm run test -- --run tests/unit/copilotStream.spec.ts",
+  "node": "v22.23.2",
+  "exit_code": 0,
+  "result": "46 passed",
+  "log": {
+    "path": "/Users/neilmacaogain/Documents/Codex/2026-09-28/github-plugin-github-openai-curated-remote/outputs/resumption-2026-09-29/containment/browser-id-normalization/focused-green.log",
+    "sha256": "9b0b450253dd0e328953cd039041823e3e884c17fe79caae00210d7c50c4cb4c"
+  }
+}

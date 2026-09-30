@@ -1,0 +1,19 @@
+{
+  "observed_at": "2026-09-29T21:49:12.882379+00:00",
+  "head": "9d60e1e713be454e33e9e3695423cab4bc815d3d",
+  "runtime_unchanged_from_committed_head": true,
+  "command": "npm run test -- --run tests/unit/copilotStream.spec.ts",
+  "node": "v22.23.2",
+  "exit_code": 1,
+  "result": {
+    "failed": 5,
+    "passed": 39
+  },
+  "runtime_sha256": "a01afe65c85a7315b86afe081f1ea7e1905aec4de4f1aae307bc5ca39819f97a",
+  "test_sha256": "b4e81f7dfae1477e90a3adbd0a2c0a3d5ab8f7b8de00f24d482340c4cf078b21",
+  "log": {
+    "path": "/Users/neilmacaogain/Documents/Codex/2026-09-28/github-plugin-github-openai-curated-remote/outputs/resumption-2026-09-29/containment/final-protocol-manual-review/frontend-relation-natural-red.log",
+    "sha256": "087ba74e49b4329dba8865612ab2d65c273bc9829f97dbb5fa67792861afea8a"
+  },
+  "meaning": "All five new malformed-completion relationship cases naturally fail on the committed runtime; existing and new valid compatibility cases pass."
+}

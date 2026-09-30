@@ -1,0 +1,35 @@
+{
+  "observed_at": "2026-09-29T22:03:42.277641+00:00",
+  "head": "f1890ff66d8d9c6fb77c42d805899bbc8faa2b28",
+  "finding": "4138791730",
+  "restatement_without_rationale": "A completion source ID F 2 is accepted and then its inline marker does not become a citation chip.",
+  "method": "Independent fresh static refutation against actual committed parser, producer and renderer before edits/tests.",
+  "refutation_attempts": [
+    {
+      "counterexample": "Could the boundary reject whitespace inside source IDs?",
+      "result": "No. /^f\\s*[1-9]\\d*$/i explicitly accepts it; duplicate/reference checks remove whitespace, then citations.push stores raw n."
+    },
+    {
+      "counterexample": "Could the rail or renderer normalize source IDs later?",
+      "result": "No. Rail forwards citations unchanged. injectCitationMarkers keys source IDs by uppercase only, while answer markers remove whitespace and uppercase. F 2 therefore cannot match normalized F2."
+    },
+    {
+      "counterexample": "Could current server numeric-only final IDs make this outside the boundary contract?",
+      "result": "No. Current resolver emits numeric final IDs, but the explicit external-network/older-revision frontend contract deliberately accepts F string forms. Every admitted form must be usable downstream."
+    }
+  ],
+  "conclusion": "upheld",
+  "minimal_fix": "Store validated string citation IDs with whitespace removed, preserving their case. Keep numeric IDs unchanged; retain existing normalized comparison, duplicate checks and answer-literal contract.",
+  "proof_plan": "Extend the existing stream owner with uppercase/lowercase spaced IDs; feed the actual admitted payload to the existing shared renderer and assert its chip callback receives the canonical source for both marker variants while unmatched numeric literals remain literal.",
+  "limits": [
+    "Wire/render identity consistency does not establish source faithfulness.",
+    "No backend, prompt, model, scorer, endpoint, lifecycle or shared-renderer changes required."
+  ],
+  "files": {
+    "frontend/features/filings/api/copilot-api.ts": "a514af5e1c54c3e0af075cd25256ae5a0405184bcc5a10ba57a917f6115aaf47",
+    "frontend/lib/citationMarkers.tsx": "b8e6c58da0735983eb6c0903e6adca1b2fca829a48a9fcc7f42ae5e2c6815f8e",
+    "frontend/features/filings/components/copilot/AskCopilotRail.tsx": "7f0283f7dc3e68dc3d4c8411c5e6bd6282963c9e0d2c6336a2e49a9ff3b36abc",
+    "backend/app/services/copilot_service.py": "f890ac8002a727b1f6f5174aaeee3b62d79ab78168bde1f1158f44be0acc0626",
+    "frontend/tests/unit/copilotStream.spec.ts": "8d31caa2421ff294a4537c36d5d5a7d2dac508b4d0b0415d94d145cff0e1be3d"
+  }
+}

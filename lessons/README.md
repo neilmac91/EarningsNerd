@@ -14,6 +14,8 @@ what applies to your task. Filenames are greppable: `arch-*`, `sec-*`, `test-*`,
 
 - [`arch-acquisition-period-withholding-needs-whole-claims.md`](./arch-acquisition-period-withholding-needs-whole-claims.md) — Preserve closed authored continuations when withholding ambiguous acquisition-period claims
 
+- [`arch-admit-copilot-answers-before-publication.md`](./arch-admit-copilot-answers-before-publication.md) — Hold answer prose until citation admission and preserve truthful request completion
+
 - [`arch-admit-authored-evidence-before-repair.md`](./arch-admit-authored-evidence-before-repair.md) — Match the real evidence selector and admit authored evidence before fuzzy repair
 
 - [`arch-validate-inline-source-identities.md`](./arch-validate-inline-source-identities.md) — Validate namespace bindings and qualified tags before selecting inline source facts
@@ -105,6 +107,9 @@ what applies to your task. Filenames are greppable: `arch-*`, `sec-*`, `test-*`,
 - [`frontend-verify-chart-annotations-on-dense-data.md`](./frontend-verify-chart-annotations-on-dense-data.md) — Acceptance-test chart annotations on a dense real-world series, never only fixtures
 
 ## Operations & workflow
+
+- [`ops-capacity-projection-withholds-command-values.md`](./ops-capacity-projection-withholds-command-values.md) — Withhold command values and execute the real readback projection in a privacy gate
+- [`ops-finish-only-job-owned-read-transactions.md`](./ops-finish-only-job-owned-read-transactions.md) — Finish the CLI's read transaction before transport while preserving attached inputs
 
 - [`ops-price-the-actual-provider-model.md`](./ops-price-the-actual-provider-model.md) — Price each actual returned model at its own published tariff
 - [`ops-release-cached-filing-reads-before-yield.md`](ops-release-cached-filing-reads-before-yield.md) — Close completed filing reads before async dependency cleanup can be blocked by a competing checkout

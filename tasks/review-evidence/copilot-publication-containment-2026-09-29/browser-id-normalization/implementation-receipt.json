@@ -1,0 +1,48 @@
+{
+  "completed_at": "2026-09-29T22:06:50.214215+00:00",
+  "finding": "4138791730",
+  "base_head": "f1890ff66d8d9c6fb77c42d805899bbc8faa2b28",
+  "status": "implemented_and_full_frontend_gate_passed",
+  "change": "Stored validated string source IDs have whitespace removed. Their original case is retained; numeric IDs stay unchanged. Existing duplicate/reference comparison and strict shape validation are unchanged.",
+  "scope": [
+    "frontend/features/filings/api/copilot-api.ts",
+    "frontend/tests/unit/copilotStream.spec.ts"
+  ],
+  "proof": "New parameterized cases in the existing stream owner consume real SSE and feed the admitted citations directly to the shared injectCitationMarkers helper. Uppercase and lowercase spaced source IDs must each produce two source-bound chip callbacks; unmatched numeric literal is not a chip. No duplicate rendering framework or new test owner.",
+  "natural_red": "2 failed / 44 passed on byte-identical committed f189 runtime; actual shared-renderer chip callback absent.",
+  "focused_green": "46 passed",
+  "full_gate": "Lint + TypeScript + 718 tests/115 files + unchanged default npm run build passed (27/27 static pages). Node v22.23.2, fresh generated cache, required local loopback capability.",
+  "previous_cache_preserved": "/private/tmp/earningsnerd-next-before-browser-id-gate-20260930",
+  "retained_warnings": "Build lacks a local Sentry auth token, so local release/source-map upload skipped. Actual raw logs retained; build is not a production deployment receipt.",
+  "files": {
+    "frontend/features/filings/api/copilot-api.ts": "7a98c5f6cf97d5a851ced90dd2b03fa05366b7f56a5026b48e6de038ed02d3e0",
+    "frontend/tests/unit/copilotStream.spec.ts": "df3dd3b1302ae5ca6cca3e0826ff8e57b57d0500f2f8ee261bb02fb45ee7ca07"
+  },
+  "unchanged_from_base": {
+    "frontend/lib/citationMarkers.tsx": "b8e6c58da0735983eb6c0903e6adca1b2fca829a48a9fcc7f42ae5e2c6815f8e",
+    "frontend/features/filings/components/copilot/AskCopilotRail.tsx": "7f0283f7dc3e68dc3d4c8411c5e6bd6282963c9e0d2c6336a2e49a9ff3b36abc",
+    "frontend/tests/unit/summaryStream.contract.spec.ts": "4a27aa5d94c8af518016624e2159cd48b6bab6f8b76f2a58b0edf63ce59c3aaf",
+    "frontend/package-lock.json": "fc8bc41c635009f3cc3620f432bc76b21689c7577467237afd15c5d3c9c63b0b",
+    "frontend/package.json": "77eec16ad4d2a29f0e01b8355d11d817f67290b4d009782e1c93a21633d47b2b",
+    "frontend/next.config.js": "350a6ecaa29c6d455aa8d8cccdbaa934bc3b53e9f88fa5af757cbd2d34e3b4f4",
+    "backend/app/services/copilot_service.py": "f890ac8002a727b1f6f5174aaeee3b62d79ab78168bde1f1158f44be0acc0626"
+  },
+  "artifacts": {
+    "independent-refutation.json": "8f53057692e8f75a672405946416b97b7d0862a2a07db7b5a9f10b1e3f66d2f7",
+    "natural-red.json": "3212c606599193c95964732716da2a9b27304fe7448f05c981bf3d6769e2481e",
+    "natural-red.log": "a831da1f7c1daadda782dbfb309f36e25e61a4af344f79870df38ea9e117baf3",
+    "focused-green.json": "f41ba6409dc7d6bd62060c54ca7f087dfcaa95db2f42450fe57c0c64c833e375",
+    "focused-green.log": "9b0b450253dd0e328953cd039041823e3e884c17fe79caae00210d7c50c4cb4c",
+    "full-gate.json": "9191e6bc9706748da76cbf83c527961b2033d28a2b9defdbf0cb7e122ef253cb",
+    "lint.log": "491911b16c7ec9c53a997784351f00988be31dc0172b42df597f74800cff2d3f",
+    "typecheck.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "tests.log": "8700ee30dcfcaedaead961942d1dad8c6bcf0781bdeafbd768825c8afd5229dd",
+    "build.log": "aac68e9d92cf06524696d5f6110ca3d8f5e00608833c3ef5cfca0bdfb64f5728",
+    "normalization.patch": "f48e1ea26d358cec3183c851a87a82be894c3c641dba242cd51de6a5aa48acb5"
+  },
+  "limits": [
+    "Wire/render identity consistency does not establish source faithfulness, claim entailment or ND truth.",
+    "No backend, prompts, models, scorer, acceptance criteria, endpoint, lifecycle, renderer or locked-test changes.",
+    "No commit, push, CI cancellation, provider call or production mutation performed."
+  ]
+}

@@ -1,3 +1,17 @@
+## 2026-09-30 — native-evidence delivery adapter candidate (engineering-only)
+
+- Capability preflight in the implementer's container: Claude Code CLI 2.1.285 present, `codex` absent, Anthropic SDK not installed, credentials and network policy not inspected. Documented, statically measured and unknown facts are kept separate in the handback's capability inventory; no model, API or paid call was made.
+- New `backend/evals/acceptance_source_review_delivery.py` dispatches exactly the reserved `prompt.bin` bytes through one route (`claude -p`, stdin, `stream-json`, no tools), with an allow-listed child environment, create-once ledger as the redispatch lock, file-backed raw streams, group kill on timeout, fail-closed classification (`unknown` > `compacted` > `truncated` > `failed` > `complete`; `complete` needs an observed `end_turn`), per-member native dispositions by exact bytes, and a settlement proposal for the unchanged journal. Contract: `tasks/readiness-2026-09-21/acceptance/source-review-native-delivery.md`. The six owner modules and their tests are byte-identical to the handoff snapshot.
+- Offline owner tests cover exact stdin/output binding, each reason code the classifier emits, unknown delivery left pending with same-root redispatch refused (the lock is per delivery root; one root per journal is the operator rule), pre-dispatch refusals with no ledger (including user memory/rules/plugins in HOME), the frozen argv/env allow-list with no path or value disclosure, native-member honesty, a re-labelled ledger refused against the journal contract, the status matrix (unknown never admits eligible; operator retirement after failed/unknown), and one real subprocess run against a fake CLI. `backend/scripts/native_delivery_probe.py` prepares the single bounded probe (synthetic packet, one dispatch, no retry; `plan` runs the adapter's preflight with no side effects) for Codex to release after inspection.
+- [ ] Codex: bind the base, run the probe `plan` on the releasing machine, then `run` once; adopt the retained `stdout.raw` as the first real stream fixture before any second call. Opening a PR runs the paid `eval-baseline` job and merging deploys the backend service; neither is authorised by this task.
+
+## 2026-09-30 — recover incomplete Analysis streams
+
+- Two independent refutations upheld a conditional EOF/idle-timeout lifecycle defect on main `0dcc4ee3`: the client omitted a terminal callback and the mounted Run flow stayed busy. No production incident or deployed feature-flag observation is inferred.
+- The Analysis client now reports incomplete EOF and idle timeout once, keeps caller cancellation quiet, stops after the first terminal event and releases the reader/timer. Progressive previews, completion/error/not-enough-data mappings and shared auth refresh are preserved.
+- The existing owner includes actual mounted Run recovery. Corrected fixtures fail against the original runtime (8 failed / 5 passed) and pass after the correction (13/13); earlier fixture failures are retained. Node 22.23.2 lint, TypeScript and all 726 tests/115 files pass. The unchanged default build passes with 27/27 generated pages outside the sandbox; its earlier stalled attempt, process diagnostic and cache are retained.
+- Local evidence: `outputs/resumption-2026-09-30/analysis-stream/`. No backend, model, scorer, locked contract, feature-flag, account or pricing change.
+
 ## 2026-09-29 — release completed sibling filing reads
 
 - Separate actual-HTTP/PostgreSQL controls reproduced pool starvation in specific-filing, recent-filing, content and fundamentals reads. Retain two fresh refutation passes and the original failures.
@@ -5957,3 +5971,37 @@ One dedicated tariff gate and its stale-rate fault prove the rates. Separate act
 routing and completion-accounting gates use estimator sentinels; completion telemetry preserves
 recorded per-call costs, mixed models and unknown usage through retries and tool rounds.
 Full local and hosted verification plus independent exact-head review precede release.
+
+## September 30 — Analysis request ownership
+
+- A pending dataset response could restart an obsolete company/mode analysis after a
+  selection reset or unmount, aborting a newer stream; an old failure could clear newer state.
+- Own and cancel the dataset request before awaiting it, and check ownership before
+  publishing either phase. Changing the period range now clears the previous result and
+  cancels its request, matching company/mode changes. Refresh holds the Run control busy.
+- The existing mounted Analysis test owner reproduces company/mode/range/unmount and
+  older-success/older-error races even when the mocked transport ignores cancellation.
+  Corrected base: 6 failed / 13 passed; fixed focused suite: 19 passed. The initial range
+  fixture selected an unchanged endpoint; its failure and corrected proof remain retained.
+- Full frontend lint, TypeScript, tests and production build passed on Node22.23.2.
+  No backend, provider, prompt, flag, price or locked-contract change. Exact-head review,
+  hosted checks and frontend release verification follow separately.
+
+- 2026-09-30 native-delivery integration: preserved all pinned owners; independently reproduced
+  and fixed assistant-model mismatch admission and pre-settlement stdin/journal binding. The
+  single subscription probe returned four exact lines but was retained as failed for absent
+  assistant finish metadata. No retry, source dispatch, or E7/E8 admission; classifier 2 keeps
+  the measured failure closed. Paid CI awaits a fresh balance after Google Cloud reauthentication.
+
+
+## September 30 — beta export readiness receipt
+
+- Retain the actual three-row PostHog literal projection and unchanged v1 consumer
+  output with input hashes. Synthetic view/request pairing works; absent provider
+  pagination metadata keeps export completeness false.
+- Replace the stale runbook claim that no live synthetic query ran. Document the
+  supported file-download export prerequisite. After the founder reconnected, one
+  literal-only attempt confirmed that team HogQL export access is disabled; no
+  unchanged retry or broader export followed. A new input format still needs review.
+- Documentation and synthetic evidence only. No customer query, source-role work,
+  E7/E8 admission, production flag, price change, invitation or model call.
