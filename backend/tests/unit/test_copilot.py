@@ -12,6 +12,7 @@ entitlements resolve to FREE vs PRO via ``is_pro`` (the ``require_entitlement`` 
 ``get_current_user``). Mirrors ``test_notification_preferences_api.py``.
 """
 import asyncio
+import copy
 import json
 import uuid
 from contextlib import contextmanager
@@ -931,7 +932,8 @@ async def test_stream_chat_with_tools_assembles_tool_call_deltas():
         async def _aiter():
             for c in chunks:
                 yield c
-        calls.append(kwargs)
+        # Snapshot the offered tools: kwargs hold the caller's live list, which may change later.
+        calls.append({**kwargs, "tools": copy.deepcopy(kwargs.get("tools"))})
         return _aiter()
 
     captured = {}
@@ -941,13 +943,12 @@ async def test_stream_chat_with_tools_assembles_tool_call_deltas():
         captured["args"] = args
         return {"concept": "revenue", "value": 391035000000.0}
 
-    tools = [{"type": "function", "function": {"name": "get_financial_fact"}}]
     import unittest.mock as mock
     with mock.patch.object(openai_service.client.chat.completions, "create", _fake_create):
         out = []
         async for piece in openai_service.stream_chat_with_tools(
             [{"role": "user", "content": "revenue?"}],
-            tools=tools,
+            tools=[{"type": "function", "function": {"name": "get_financial_fact"}}],
             run_tool=_run_tool,
         ):
             out.append(piece)
@@ -963,8 +964,11 @@ async def test_stream_chat_with_tools_assembles_tool_call_deltas():
     assert len(activity) == 2
     # Two create() calls: round 1 (tool call) + round 2 (answer).
     assert len(calls) == 2
-    # Every round offers the tools for the model to choose (live runs record neither).
-    assert [(c.get("tools"), c.get("tool_choice")) for c in calls] == [(tools, "auto")] * 2
+    # Every round offers the tools for the model to choose (live runs record neither). The expected
+    # list is built independently of the passed one, so an in-place change to the caller's list
+    # (production passes the module-global TOOLS) cannot also change the expectation.
+    offered = [{"type": "function", "function": {"name": "get_financial_fact"}}]
+    assert [(c.get("tools"), c.get("tool_choice")) for c in calls] == [(offered, "auto")] * 2
 
 
 # --- Audit fixes: stream-error handling, metering-on-success, history bounding ------------------
