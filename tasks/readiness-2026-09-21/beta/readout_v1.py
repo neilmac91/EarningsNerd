@@ -86,6 +86,7 @@ def _request_error(row: dict) -> str | None:
         if (not isinstance(row["outcome"], str) or row["outcome"] not in OUTCOMES or
                 not isinstance(row["delivery_path"], str) or row["delivery_path"] not in PATHS or
                 type(row["summary_service_invoked"]) is not bool or not _integer(row["duration_ms"], 0) or
+                (row["summary_id"] is None and row["outcome"] in ("complete", "partial")) or
                 (row["summary_id"] is not None and not _integer(row["summary_id"]))):
             return "malformed_terminal"
     return None

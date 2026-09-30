@@ -69,7 +69,10 @@ or out-of-roster row with a recognizable request ID cannot rescue its otherwise
 valid pair. Missing start/finish is separate from ambiguity. A finish without a
 start retains its observed outcome but contributes no paired duration or paired
 outcome count. `complete`, `partial`, `error`, `timed_out`, `rejected`, `cancelled`
-and `incomplete` remain distinct. Delivery path and summary-service invocation are
+and `incomplete` remain distinct. `complete` and `partial` require a positive integer
+`summary_id`; a missing or null ID makes the request ambiguous. Other outcomes may
+have an absent ID, but any supplied ID must still be a positive integer.
+Delivery path and summary-service invocation are
 observations, not fresh content, provider calls or billing receipts. Duration is the
 server-emitted `duration_ms` for valid pairs, not a browser/network latency estimate.
 
@@ -92,7 +95,8 @@ exact cached-view count, provider-cost, payment or usefulness claim.
 `fixture_check.py --v1-only` exercises the actual consumer and CLI using synthetic
 producer-shaped JSON rows, including anonymous/legacy/type confusion, duplicate and
 conflicting UUIDs/terminals, shared client labels, missing sides, window boundaries,
-all seven outcomes, empty exports and incomplete export metadata. It requires only
+all seven outcomes, missing/null IDs on complete/partial, valid null-ID errors and
+rejections, empty exports and incomplete export metadata. It requires only
 Python's standard library. It does not execute HogQL or read customer data. Historical
 SQL and fixture modes remain available unchanged.
 

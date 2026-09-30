@@ -207,6 +207,18 @@ def check_v1_readout() -> dict:
         pair(n, outcome=outcome, delivery_path="coalesced")
     emit("summary_request_started", request=30, offset=4)
     emit("summary_request_finished", request=30, offset=3)
+    # Complete/partial frames identify persisted summaries; absent IDs cannot
+    # become positive request outcomes. Other terminal kinds may legitimately
+    # finish before a summary exists.
+    missing_summary_requests = {}
+    for n, outcome in enumerate(("complete", "partial"), 40):
+        pair(n, outcome=outcome, summary_id=None)
+        missing_summary_requests[f"{outcome}_null"] = uuid(1000 + n)
+        pair(n + 2, outcome=outcome)
+        rows[-1][COLUMNS.index("summary_id_json")] = ""  # absent JSON property
+        missing_summary_requests[f"{outcome}_missing"] = uuid(1002 + n)
+    pair(50, outcome="error", summary_id=None, delivery_path="route")
+    pair(51, outcome="rejected", summary_id=None, delivery_path="route", reason="http_404")
 
     response = {"columns": COLUMNS, "results": rows, "hasMore": False}
     result = build_readout(response, parameters)
@@ -229,9 +241,21 @@ def check_v1_readout() -> dict:
         assert requests[uuid(1000+n)]["status"] == "ambiguous", (n, requests[uuid(1000+n)])
         assert requests[uuid(1000+n)]["observed_terminal"] is None
     assert requests[uuid(1012)]["account_id"] == "4"
+    missing_summary_statuses = {label: requests[request_id]["status"]
+                                for label, request_id in missing_summary_requests.items()}
+    assert set(missing_summary_statuses.values()) == {"ambiguous"}, missing_summary_statuses
+    for request_id in missing_summary_requests.values():
+        assert "malformed_terminal" in requests[request_id]["errors"]
+        assert requests[request_id]["observed_terminal"] is None
+        assert requests[request_id]["paired_duration_ms"] is None
+    for n, outcome in ((50, "error"), (51, "rejected")):
+        assert requests[uuid(1000 + n)]["status"] == "paired"
+        assert requests[uuid(1000 + n)]["observed_terminal"]["outcome"] == outcome
+        assert requests[uuid(1000 + n)]["observed_terminal"]["summary_id"] is None
+        assert requests[uuid(1000 + n)]["paired_duration_ms"] == 12
     assert result["paired_outcome_counts"] == {
-        "complete": 3, "error": 1, "partial": 1, "timed_out": 1,
-        "rejected": 1, "cancelled": 1, "incomplete": 1,
+        "complete": 3, "error": 2, "partial": 1, "timed_out": 1,
+        "rejected": 2, "cancelled": 1, "incomplete": 1,
     }
     assert result["export_complete_observed"] is True
     for changed in ({"hasMore": True}, {"warnings": ["partial access"]}, {"hasMore": None},
@@ -260,6 +284,7 @@ def check_v1_readout() -> dict:
         assert subprocess.run(command, capture_output=True, check=False).returncode != 0  # no overwrite
     return {"v1_fixture_rows": len(rows), "eligible_denominator": 5,
             "paired_outcomes": result["paired_outcome_counts"], "request_statuses": result["request_status_counts"],
+            "missing_success_summary_id_statuses": missing_summary_statuses,
             "actual_cli_roundtrip": "passed", "hogql_live_execution": "not performed"}
 
 
