@@ -1,0 +1,226 @@
+{
+  "admission_approved": false,
+  "disk_free_bytes_after": 90756804608,
+  "disk_free_bytes_before": 92236754944,
+  "finished_at": "2026-09-27T12:21:49.548586Z",
+  "held": [],
+  "kind": "e7_linux_source_view_serialized_export_receipt",
+  "limits": {
+    "child_address_space_bytes": 3221225472,
+    "child_wall_seconds": 180,
+    "minimum_free_bytes": 4294967296
+  },
+  "manifest": {
+    "admission_approved": false,
+    "claims": {
+      "measures_only": "candidate public build_source_view serialized-export resource feasibility",
+      "model_calls": 0,
+      "network_calls": 0,
+      "provider_calls": 0
+    },
+    "execution_order": [
+      "H25",
+      "H02"
+    ],
+    "expected_output_leaves": [
+      "compact.txt",
+      "manifest.json",
+      "reader.txt",
+      "source-view.json"
+    ],
+    "kind": "e7_linux_source_view_serialized_export_capsule",
+    "limits": {
+      "child_address_space_bytes": 3221225472,
+      "child_wall_seconds": 180,
+      "minimum_free_bytes": 4294967296,
+      "minimum_python": "3.11",
+      "platform": "linux"
+    },
+    "module": {
+      "bytes": 59273,
+      "path": "acceptance_source_view.py",
+      "sha256": "9ab8afb151dd1c2c7fe0e3017267777ffcc89236ec92ef90e1869d3b12d2dabd"
+    },
+    "schema_version": 1,
+    "semantic_review_attested": false,
+    "sources": {
+      "H02": {
+        "bytes": 16080286,
+        "path": "sources/H02/duk-20251231.htm",
+        "sha256": "25141df6945a6def54f02ecda3705ea44823a9624761c01571dd040b1e61e5f9"
+      },
+      "H25": {
+        "bytes": 57158558,
+        "path": "sources/H25/hsbc-20251231.htm",
+        "sgml_member_byte_difference": 111,
+        "sha256": "08f3a9c524be807db51302faffee034992d9c00c90013bb239b3a940e973539c",
+        "source_form": "frozen direct primary"
+      }
+    },
+    "stop_after_failure": true
+  },
+  "manifest_sha256": "dc03eb3b0910a01e302f8f965e53619f6fe646b6fc38175359e00f805baad364",
+  "model_calls": 0,
+  "network_calls": 0,
+  "operation": "acceptance_source_view.build_source_view",
+  "platform": "linux",
+  "provider_calls": 0,
+  "python": "3.11.16",
+  "results": [
+    {
+      "disk_free_bytes_after": 91169402880,
+      "disk_free_bytes_before": 92236750848,
+      "elapsed_seconds_parent": 117.495992,
+      "elapsed_seconds_worker": 117.437874,
+      "exit_code": 0,
+      "export": {
+        "inventory": {
+          "entries": [
+            {
+              "bytes": 3108507,
+              "name": "compact.txt",
+              "sha256": "b4bf8fd6e353f22cd9ba56128003d4e5a2f1ecab96f6d68f2d96cda57f44fae0",
+              "type": "file"
+            },
+            {
+              "bytes": 792,
+              "name": "manifest.json",
+              "sha256": "6c45294b21f44e9f8bb283056efb4be9f00a80a1cbdf859b367ed75711e894be",
+              "type": "file"
+            },
+            {
+              "bytes": 7065959,
+              "name": "reader.txt",
+              "sha256": "1c5f3c819e344fc658d5b075f5f640487f8425c6685f7c42dc77e7b42c179424",
+              "type": "file"
+            },
+            {
+              "bytes": 1057261406,
+              "name": "source-view.json",
+              "sha256": "930d3b34df0bde42f55d37205e2e0aeaa6d657ebc49d127aeaa95c400e16de0b",
+              "type": "file"
+            }
+          ],
+          "path": "H25",
+          "type": "directory"
+        },
+        "manifest": {
+          "files": {
+            "compact_text": {
+              "bytes": 3108507,
+              "path": "compact.txt",
+              "sha256": "b4bf8fd6e353f22cd9ba56128003d4e5a2f1ecab96f6d68f2d96cda57f44fae0"
+            },
+            "projection": {
+              "bytes": 1057261406,
+              "path": "source-view.json",
+              "sha256": "930d3b34df0bde42f55d37205e2e0aeaa6d657ebc49d127aeaa95c400e16de0b"
+            },
+            "reader": {
+              "bytes": 7065959,
+              "path": "reader.txt",
+              "sha256": "1c5f3c819e344fc658d5b075f5f640487f8425c6685f7c42dc77e7b42c179424"
+            }
+          },
+          "kind": "e7_offline_html_source_view_bundle",
+          "schema_version": 1,
+          "semantic_coverage_attested": false,
+          "source": {
+            "bytes": 57158558,
+            "path": "sources/H25/hsbc-20251231.htm",
+            "sha256": "08f3a9c524be807db51302faffee034992d9c00c90013bb239b3a940e973539c"
+          }
+        }
+      },
+      "last_phase_from_stderr": "complete",
+      "max_rss_bytes": 3170091008,
+      "phase": "complete",
+      "rlimit_as_hard_bytes": 3221225472,
+      "rlimit_as_soft_bytes": 3221225472,
+      "source": "H25",
+      "status": "ok",
+      "stderr_bytes": 103,
+      "stderr_sha256": "ad53f1da13e758bf9fdb3ca59b8682dd00f075f71227537eb2cfa8a9e41e6f4c"
+    },
+    {
+      "disk_free_bytes_after": 90756804608,
+      "disk_free_bytes_before": 91169402880,
+      "elapsed_seconds_parent": 43.445342,
+      "elapsed_seconds_worker": 43.387908,
+      "exit_code": 0,
+      "export": {
+        "inventory": {
+          "entries": [
+            {
+              "bytes": 1299811,
+              "name": "compact.txt",
+              "sha256": "02f18bca83e53d35e287c34a79ebce07a5b207bd223566b163130cbff81e411e",
+              "type": "file"
+            },
+            {
+              "bytes": 790,
+              "name": "manifest.json",
+              "sha256": "4132cccc70b7acad0073b0b57b83e9ef7991f7b45eeff8466016dbcb30426596",
+              "type": "file"
+            },
+            {
+              "bytes": 2823855,
+              "name": "reader.txt",
+              "sha256": "42883bccef0427db1e062ee61a8f5d84871379dd9a21af4d977171662cc21c51",
+              "type": "file"
+            },
+            {
+              "bytes": 408457004,
+              "name": "source-view.json",
+              "sha256": "dee84935c4b83af8af0ea98f10259a9e0ec63d16d100171518d9f37080ddfe6b",
+              "type": "file"
+            }
+          ],
+          "path": "H02",
+          "type": "directory"
+        },
+        "manifest": {
+          "files": {
+            "compact_text": {
+              "bytes": 1299811,
+              "path": "compact.txt",
+              "sha256": "02f18bca83e53d35e287c34a79ebce07a5b207bd223566b163130cbff81e411e"
+            },
+            "projection": {
+              "bytes": 408457004,
+              "path": "source-view.json",
+              "sha256": "dee84935c4b83af8af0ea98f10259a9e0ec63d16d100171518d9f37080ddfe6b"
+            },
+            "reader": {
+              "bytes": 2823855,
+              "path": "reader.txt",
+              "sha256": "42883bccef0427db1e062ee61a8f5d84871379dd9a21af4d977171662cc21c51"
+            }
+          },
+          "kind": "e7_offline_html_source_view_bundle",
+          "schema_version": 1,
+          "semantic_coverage_attested": false,
+          "source": {
+            "bytes": 16080286,
+            "path": "sources/H02/duk-20251231.htm",
+            "sha256": "25141df6945a6def54f02ecda3705ea44823a9624761c01571dd040b1e61e5f9"
+          }
+        }
+      },
+      "last_phase_from_stderr": "complete",
+      "max_rss_bytes": 1244389376,
+      "phase": "complete",
+      "rlimit_as_hard_bytes": 3221225472,
+      "rlimit_as_soft_bytes": 3221225472,
+      "source": "H02",
+      "status": "ok",
+      "stderr_bytes": 103,
+      "stderr_sha256": "ad53f1da13e758bf9fdb3ca59b8682dd00f075f71227537eb2cfa8a9e41e6f4c"
+    }
+  ],
+  "retries": 0,
+  "schema_version": 1,
+  "semantic_review_attested": false,
+  "started_at": "2026-09-27T12:19:07.460586Z",
+  "status": "ok"
+}

@@ -1,0 +1,396 @@
+{
+  "actual_h30": {
+    "admission_approved": false,
+    "filing_source_rows": 51,
+    "history_rows": 52,
+    "manifest_children": 9,
+    "origin_artifacts": 4,
+    "provider_calls": 0,
+    "source_contexts": 8,
+    "technical_attempts": 2,
+    "technical_children": 6,
+    "unresolved_custody_rows": 1
+  },
+  "external_raw": {
+    "corrected_full_gate": {
+      "bytes": 16473,
+      "path": "outputs/takeover-2026-09-26/h30-history-binding/full-backend-gate-hosted-fixes.log",
+      "sha256": "d746ad227d6639749caccf9fd090b6872a68f230b1a28e1aa494d28e9c653987"
+    },
+    "corrected_smoke": {
+      "bytes": 3226,
+      "path": "outputs/takeover-2026-09-26/h30-history-binding/actual-smoke-hosted-fixes.json",
+      "sha256": "10b6cc45a3510af55d036b00b77afeb65197e44ac60643c8166365fc0bb6e403"
+    },
+    "final_alias_full_gate": {
+      "bytes": 16473,
+      "path": "outputs/takeover-2026-09-26/h30-history-binding/full-backend-gate-final-alias.log",
+      "sha256": "6dde39cf8bee2de1b9847198a4e0359bdc6e002d5f0fc37e6822613b235920ab"
+    },
+    "final_alias_smoke": {
+      "bytes": 3674,
+      "path": "outputs/takeover-2026-09-26/h30-history-binding/actual-smoke-final-alias.json",
+      "sha256": "92bb48f5a357e22b42adbb891e103e307db07774d06d71f933934efb27ba1902"
+    },
+    "final_digest_full_gate": {
+      "bytes": 35687,
+      "path": "outputs/takeover-2026-09-26/h30-history-binding/full-backend-gate-final-digest.log",
+      "sha256": "58351c4dc359fdb5357a7e27e13a6f4d901c3beac991b41cf9ce72f8ec43cdca"
+    },
+    "final_digest_smoke": {
+      "bytes": 3471,
+      "path": "outputs/takeover-2026-09-26/h30-history-binding/actual-smoke-final-digest.json",
+      "sha256": "96ded169c5adb620ddf91377328f2081dc7c2a4cdc54dfa76dea11b7206163d4"
+    },
+    "final_full_gate": {
+      "bytes": 16473,
+      "path": "outputs/takeover-2026-09-26/h30-history-binding/full-backend-gate-final-mechanical.log",
+      "sha256": "896c11dcf9f5cc2b8914cc6dcca8c37f580d003d18b913283ecb99891b5616ae"
+    },
+    "final_origin_alias_fault_fail": {
+      "bytes": 18269,
+      "path": "outputs/takeover-2026-09-26/h30-history-binding/fault-proof-final-origin-alias-fail.log",
+      "sha256": "871ff06b781a25009b2a0ab3c2a39462996b9bfccba573cd4798290ae8ef37c1"
+    },
+    "final_origin_alias_fault_restored": {
+      "bytes": 1109,
+      "path": "outputs/takeover-2026-09-26/h30-history-binding/fault-proof-final-origin-alias-restored.log",
+      "sha256": "29904870ff3e1f43def311395a27f983b3d2d3e27da03109e4fa77f4df33594b"
+    },
+    "final_smoke": {
+      "bytes": 3325,
+      "path": "outputs/takeover-2026-09-26/h30-history-binding/actual-smoke-final-mechanical.json",
+      "sha256": "eec53b83370e7942f344c62dd1ed4296b1ac9e691a6dcafc11cfb708656ea4ff"
+    },
+    "final_technical_child_fault_fail": {
+      "bytes": 13636,
+      "path": "outputs/takeover-2026-09-26/h30-history-binding/fault-proof-final-technical-child-fail.log",
+      "sha256": "6861b0d9b001d82faa4dd538b169983cfb237e64bfe442a7d7dfa94b88e40fc1"
+    },
+    "final_technical_child_fault_restored": {
+      "bytes": 1109,
+      "path": "outputs/takeover-2026-09-26/h30-history-binding/fault-proof-final-technical-child-restored.log",
+      "sha256": "b97d25d95acf54f025063ce6091b769f553b6d6fb198be2a06114c4e975b822b"
+    },
+    "location": "outputs/takeover-2026-09-26/h30-history-binding/",
+    "smoke": {
+      "bytes": 3028,
+      "path": "outputs/takeover-2026-09-26/h30-history-binding/actual-smoke.json",
+      "sha256": "b5e2810f8c742fc5e5889dc3ba64a0bcb2d61f2f0fa391aa8da10197d5bbb5e0"
+    },
+    "wrapper": {
+      "bytes": 5079,
+      "path": "outputs/takeover-2026-09-26/h30-history-binding/actual-wrapper.json",
+      "sha256": "5e228c7a7fb6ceffd235c1bb825daa418129ca2451daf4df76c1f6ec8672db20"
+    }
+  },
+  "fault_proof": {
+    "expected_failure": "coherent two-origin provenance swap was accepted",
+    "mutated_result": "1 failed",
+    "mutation": "remove exact history identity-to-origin predicate",
+    "restored_result": "1 passed"
+  },
+  "fault_proof_final_alias": {
+    "origin_alias": {
+      "mutated_result": "1 failed because coherently resealed alias returned zero validation issues",
+      "mutation": "remove only same-context current-eligible origin alias predicate",
+      "restored_result": "1 passed"
+    },
+    "technical_child_alias": {
+      "mutated_result": "1 failed because copied eligible bytes returned zero validation issues",
+      "mutation": "remove only current-eligible technical-child SHA predicate",
+      "restored_result": "1 passed in dedicated restored focused run"
+    }
+  },
+  "fault_proof_final_digest": {
+    "mutated_result": "1 failed at coherently resealed reservation and dispatch digest mutation",
+    "mutation": "remove only exact actual_prompt_sha256 syntax predicate",
+    "restored_result": "1 passed"
+  },
+  "fault_proof_final_technical_closure": {
+    "mutated_result": "1 failed at coherently resealed omitted-artifact mutation",
+    "mutation": "remove only the exact technical child leaf-set predicate",
+    "restored_result": "1 passed"
+  },
+  "fault_proof_hosted_context_owner": {
+    "mutated_result": "1 failed at coherent cross-accession context mutation",
+    "mutation": "remove only exact origin current-context ownership predicate",
+    "restored_result": "1 passed"
+  },
+  "files": {
+    "README.md": {
+      "bytes": 8101,
+      "path": "tasks/review-evidence/h30-history-binding-2026-09-27/README.md",
+      "sha256": "b00b0c2b7b21cb62425b1a98a92e892225d25b306349c03a8254dc6bbda1d914"
+    },
+    "actual-smoke-final-alias.json": {
+      "bytes": 3674,
+      "path": "tasks/review-evidence/h30-history-binding-2026-09-27/actual-smoke-final-alias.json",
+      "sha256": "92bb48f5a357e22b42adbb891e103e307db07774d06d71f933934efb27ba1902"
+    },
+    "actual-smoke-final-digest.json": {
+      "bytes": 3471,
+      "path": "tasks/review-evidence/h30-history-binding-2026-09-27/actual-smoke-final-digest.json",
+      "sha256": "96ded169c5adb620ddf91377328f2081dc7c2a4cdc54dfa76dea11b7206163d4"
+    },
+    "actual-smoke-final-mechanical.json": {
+      "bytes": 3325,
+      "path": "tasks/review-evidence/h30-history-binding-2026-09-27/actual-smoke-final-mechanical.json",
+      "sha256": "eec53b83370e7942f344c62dd1ed4296b1ac9e691a6dcafc11cfb708656ea4ff"
+    },
+    "actual-smoke-hosted-fixes.json": {
+      "bytes": 3226,
+      "path": "tasks/review-evidence/h30-history-binding-2026-09-27/actual-smoke-hosted-fixes.json",
+      "sha256": "10b6cc45a3510af55d036b00b77afeb65197e44ac60643c8166365fc0bb6e403"
+    },
+    "actual-smoke.json": {
+      "bytes": 3028,
+      "path": "tasks/review-evidence/h30-history-binding-2026-09-27/actual-smoke.json",
+      "sha256": "b5e2810f8c742fc5e5889dc3ba64a0bcb2d61f2f0fa391aa8da10197d5bbb5e0"
+    },
+    "fault-proof-fail.log": {
+      "bytes": 7421,
+      "path": "tasks/review-evidence/h30-history-binding-2026-09-27/fault-proof-fail.log",
+      "sha256": "a5e40881ad68133204d73551a7f909049113a753d0ce1bcd945f751c795572f4"
+    },
+    "fault-proof-final-digest-fail.log": {
+      "bytes": 11081,
+      "path": "tasks/review-evidence/h30-history-binding-2026-09-27/fault-proof-final-digest-fail.log",
+      "sha256": "5d7d55791ad9ba75e56721630d3989e9e4dcf22f0e2e4fb0f54db08a03aa7a30"
+    },
+    "fault-proof-final-digest-restored.log": {
+      "bytes": 1109,
+      "path": "tasks/review-evidence/h30-history-binding-2026-09-27/fault-proof-final-digest-restored.log",
+      "sha256": "39a3bc42cea62a44f756da3d737e4533d09ed5c81f009bfcefbb19e5d138aaa6"
+    },
+    "fault-proof-final-origin-alias-fail.log": {
+      "bytes": 18181,
+      "path": "tasks/review-evidence/h30-history-binding-2026-09-27/fault-proof-final-origin-alias-fail.log",
+      "sha256": "9be041785fb5b01201fb74b68de939fee4fc73cd4e981f07383a8406ad9a1f29"
+    },
+    "fault-proof-final-origin-alias-restored.log": {
+      "bytes": 1109,
+      "path": "tasks/review-evidence/h30-history-binding-2026-09-27/fault-proof-final-origin-alias-restored.log",
+      "sha256": "29904870ff3e1f43def311395a27f983b3d2d3e27da03109e4fa77f4df33594b"
+    },
+    "fault-proof-final-technical-child-fail.log": {
+      "bytes": 13568,
+      "path": "tasks/review-evidence/h30-history-binding-2026-09-27/fault-proof-final-technical-child-fail.log",
+      "sha256": "92ded32aa7970dc4a4e3e710c087b2f521b171db046ca2eca2e2d74fa3e92b46"
+    },
+    "fault-proof-final-technical-child-restored.log": {
+      "bytes": 1109,
+      "path": "tasks/review-evidence/h30-history-binding-2026-09-27/fault-proof-final-technical-child-restored.log",
+      "sha256": "b97d25d95acf54f025063ce6091b769f553b6d6fb198be2a06114c4e975b822b"
+    },
+    "fault-proof-final-technical-closure-fail.log": {
+      "bytes": 11212,
+      "path": "tasks/review-evidence/h30-history-binding-2026-09-27/fault-proof-final-technical-closure-fail.log",
+      "sha256": "6f60f886d94ccce24d314effb68e93b1742ffaa8a201f2089b7a826f92bcaab9"
+    },
+    "fault-proof-final-technical-closure-restored.log": {
+      "bytes": 1109,
+      "path": "tasks/review-evidence/h30-history-binding-2026-09-27/fault-proof-final-technical-closure-restored.log",
+      "sha256": "85d4787e1d0cb7a88a10b92d603f668f2da0a07f0722e09d2c94adc597bbf241"
+    },
+    "fault-proof-hosted-context-owner-fail.log": {
+      "bytes": 14088,
+      "path": "tasks/review-evidence/h30-history-binding-2026-09-27/fault-proof-hosted-context-owner-fail.log",
+      "sha256": "f11fb92e36e2f8fb27550f2ffc7eed82636d76ea994b464a28d31d08cedf9903"
+    },
+    "fault-proof-hosted-context-owner-restored.log": {
+      "bytes": 1109,
+      "path": "tasks/review-evidence/h30-history-binding-2026-09-27/fault-proof-hosted-context-owner-restored.log",
+      "sha256": "abec68bb3b70c0d27de7a520d57ccb3c0badff0eadd376a27c3b1673bdd922e4"
+    },
+    "fault-proof-restored.log": {
+      "bytes": 1109,
+      "path": "tasks/review-evidence/h30-history-binding-2026-09-27/fault-proof-restored.log",
+      "sha256": "e5794912827b9247c7a94da63c7f944f13d2618e0fdfae80826f37c62057d798"
+    },
+    "full-backend-gate-final-alias.log": {
+      "bytes": 16473,
+      "path": "tasks/review-evidence/h30-history-binding-2026-09-27/full-backend-gate-final-alias.log",
+      "sha256": "6dde39cf8bee2de1b9847198a4e0359bdc6e002d5f0fc37e6822613b235920ab"
+    },
+    "full-backend-gate-final-digest.log": {
+      "bytes": 35687,
+      "path": "tasks/review-evidence/h30-history-binding-2026-09-27/full-backend-gate-final-digest.log",
+      "sha256": "58351c4dc359fdb5357a7e27e13a6f4d901c3beac991b41cf9ce72f8ec43cdca"
+    },
+    "full-backend-gate-final-mechanical.log": {
+      "bytes": 16473,
+      "path": "tasks/review-evidence/h30-history-binding-2026-09-27/full-backend-gate-final-mechanical.log",
+      "sha256": "896c11dcf9f5cc2b8914cc6dcca8c37f580d003d18b913283ecb99891b5616ae"
+    },
+    "full-backend-gate-hosted-fixes.log": {
+      "bytes": 16473,
+      "path": "tasks/review-evidence/h30-history-binding-2026-09-27/full-backend-gate-hosted-fixes.log",
+      "sha256": "d746ad227d6639749caccf9fd090b6872a68f230b1a28e1aa494d28e9c653987"
+    },
+    "full-backend-gate.log": {
+      "bytes": 16473,
+      "path": "tasks/review-evidence/h30-history-binding-2026-09-27/full-backend-gate.log",
+      "sha256": "94f1a71321c63f9848a827e684fa33401bd00acc47d59b05efa634aac9bac111"
+    },
+    "independent-review.md": {
+      "bytes": 4880,
+      "path": "tasks/review-evidence/h30-history-binding-2026-09-27/independent-review.md",
+      "sha256": "38abc92bcd5016774dfa11d96b1a0e05cec6a507e27133a3338f0a84e1df4e15"
+    }
+  },
+  "final_alias_full_gate": {
+    "bandit": "pass",
+    "exit_code": 0,
+    "head": "cc8fa102af25ed01c5bba01e7004c2a6375808b6",
+    "performance_included": true,
+    "post_pass_diagnostic": "inherited closed-stream logging diagnostic after pytest summary",
+    "postgres_lanes": 4,
+    "postgres_version": "15.15",
+    "pytest_passed": 3732,
+    "pytest_warnings": 40,
+    "ruff": "pass",
+    "seconds": 178.02
+  },
+  "final_digest_full_gate": {
+    "bandit": "pass",
+    "exit_code": 0,
+    "head": "3755d1139abbd94de79c4314849d5772ebbeb351",
+    "performance_included": true,
+    "post_summary_diagnostic": "inherited closed-stream logging diagnostic after successful pytest summary",
+    "postgres_lanes": 4,
+    "postgres_version": "15.15",
+    "pytest_passed": 3732,
+    "result": "pass",
+    "ruff": "pass",
+    "seconds": 169.89,
+    "warnings": 40
+  },
+  "full_gate": {
+    "bandit": "pass",
+    "exit_code": 0,
+    "head": "3755d1139abbd94de79c4314849d5772ebbeb351",
+    "performance_included": true,
+    "post_summary_diagnostic": "inherited closed-stream logging diagnostic after successful pytest summary",
+    "postgres_lanes": 4,
+    "postgres_version": "15.15",
+    "pytest_passed": 3732,
+    "result": "pass",
+    "ruff": "pass",
+    "seconds": 169.89,
+    "warnings": 40
+  },
+  "hosted_review_alias_corrections": {
+    "boundary": "adverse-source artifacts remain retired custody and are not classified as current eligible artifacts",
+    "comment_id": 4114041776,
+    "focused_result": "1 passed, 2 warnings",
+    "implementation_commit": "cc8fa102af25ed01c5bba01e7004c2a6375808b6",
+    "independent_review": "clear",
+    "resolution": [
+      "current eligible bytes cannot serve as a same-context retired origin",
+      "origin artifact SHA is globally unique across history records",
+      "technical reservation, dispatch, and settlement are distinct by SHA and resolved path",
+      "no current eligible bytes can serve as an ineligible technical settlement child"
+    ],
+    "review_id": 5328777865,
+    "reviewed_head": "ab2ad39823e17f7bc52d7fa666c878d6ebdd270f"
+  },
+  "hosted_review_corrections": {
+    "corrected_commit": "2f3fbdee5128c3bf997541d6039062d869283e76",
+    "findings": [
+      {
+        "comment_id": 4113927632,
+        "resolution": "bind every current context to its accession before accepting history origins or technical attempts"
+      },
+      {
+        "comment_id": 4113927637,
+        "resolution": "require all three canonical manifest count keys before derived comparisons"
+      }
+    ],
+    "focused_result": "1 passed, 2 warnings",
+    "related_result": "27 passed, 2 warnings",
+    "review_id": 5328669508,
+    "reviewed_head": "16d2271027ddff11c336cbb848ee1b73fcf1204a"
+  },
+  "hosted_review_digest_correction": {
+    "bounded_sha_field_audit": "all other new helper SHA fields are directly validated or equal a validated or recomputed SHA",
+    "comment_id": 4113994083,
+    "focused_result": "1 passed, 2 warnings",
+    "implementation_commit": "3755d1139abbd94de79c4314849d5772ebbeb351",
+    "independent_review": "clear",
+    "resolution": "require exact lowercase 64-hex actual_prompt_sha256 before dispatch equality",
+    "review_id": 5328732624,
+    "reviewed_head": "d5ec63f86c412f2a33af5351fb2231e502915644"
+  },
+  "hosted_review_final_mechanical_corrections": {
+    "actual_h30": "52 rows / 51 filing-source / 1 custody, 8 contexts",
+    "findings": [
+      {
+        "comment_id": 4113966790,
+        "resolution": "bind byte-resolved adverse-source contexts into the shared accession ownership map"
+      },
+      {
+        "comment_id": 4113966792,
+        "resolution": "require exact draft.json, brief.md, and read-log.json technical settlement leaves"
+      }
+    ],
+    "focused_result": "1 passed, 2 warnings",
+    "implementation_commit": "cfdfa19751a22fe1d0d1f7d6a9d3bc799ae9ecb7",
+    "related_result": "27 passed, 2 warnings",
+    "review_id": 5328706659,
+    "reviewed_head": "c08370000f4b6cfac853d2597f3e79a633da6382"
+  },
+  "hosted_review_fix_full_gate": {
+    "bandit": "pass",
+    "exit_code": 0,
+    "head": "2f3fbdee5128c3bf997541d6039062d869283e76",
+    "performance_included": true,
+    "post_summary_diagnostic": "inherited closed-stream logging diagnostic after successful pytest summary",
+    "postgres_lanes": 4,
+    "postgres_version": "15.15",
+    "pytest_passed": 3732,
+    "result": "pass",
+    "ruff": "pass",
+    "seconds": 164.31,
+    "warnings": 40
+  },
+  "implementation_commit": "cc8fa102af25ed01c5bba01e7004c2a6375808b6",
+  "implementation_files": {
+    "guide": {
+      "bytes": 11496,
+      "path": "tasks/readiness-2026-09-21/acceptance/ai-assisted/README.md",
+      "sha256": "6b70a143ca0f7498c056317fc45a8931188f14f8a75d8ce9539438966155c252"
+    },
+    "protocol": {
+      "bytes": 54989,
+      "path": "backend/evals/acceptance_ai_protocol.py",
+      "sha256": "2cc0c205e46f025cd2dc1cd16083889b44d06e4292f46c6faefdffe94222ed95"
+    },
+    "test": {
+      "bytes": 56367,
+      "path": "backend/tests/unit/test_acceptance_ai_protocol.py",
+      "sha256": "795f1556711ca6e65cd0e7b710f1ecb0585be32fbab1ae3cf366455ec85fcfdf"
+    }
+  },
+  "implementation_tree": "500a381ca89d5f684e21146a0eabcd4a8b80b7de",
+  "initial_full_gate": {
+    "bandit": "pass",
+    "exit_code": 0,
+    "performance_included": true,
+    "postgres_lanes": 4,
+    "postgres_version": "15.15",
+    "pytest_passed": 3732,
+    "result": "pass",
+    "ruff": "pass",
+    "seconds": 158.13,
+    "warnings": 40
+  },
+  "limitations": [
+    "Structural validation does not prove financial-versus-runtime semantics.",
+    "No provider call, financial re-judgment, production flag, or programme admission.",
+    "Prompt digest syntax and retained custody do not prove the original provider runtime."
+  ],
+  "main_parent": "e39b475e13a0599d037303aacc75a82d51b053b8",
+  "schema_version": 1,
+  "scope": "H30 cross-role history custody and context exclusion; no source re-judgment or admission"
+}

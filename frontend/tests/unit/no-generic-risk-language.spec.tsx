@@ -26,24 +26,24 @@ describe('Risk factors include supporting evidence', () => {
     const summary = {
       business_overview: 'x',
       raw_summary: {
+        risk_source_context_version: 1,
         sections: {
-          risk_factors: [
+          risks: [
             {
-              summary: 'Supply chain disruption remains elevated.',
+              summary: 'Filing excerpt',
               supporting_evidence: 'Item 1A: “Supply chain constraints persisted through Q3.”',
             },
-            {
-              summary: 'Generic statement with no evidence.',
-            },
           ],
+          _risk_source_projection: { version: 1, verified_count: 1, withheld_count: 1 },
         },
       },
     } as unknown as Summary
 
     render(<SummaryBlocks sections={sections} summary={summary} />)
 
-    expect(screen.getByText('Supply chain disruption remains elevated.')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { level: 4, name: 'Filing excerpt 1' })).toBeInTheDocument()
     expect(screen.getByText(/Item 1A:/i)).toBeInTheDocument()
+    expect(screen.getByText(/1 item withheld/)).toBeInTheDocument()
     expect(screen.queryByText('Generic statement with no evidence.')).not.toBeInTheDocument()
   })
 })

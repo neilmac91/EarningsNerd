@@ -1,0 +1,130 @@
+{
+  "reviewed_at": "2026-09-29T21:25:39.520513+00:00",
+  "reviewer": "/root/release_1020_reverification",
+  "base_head": "2dae5338554560bf3008082843cedd5f34bd0ad3",
+  "worktree": "/private/tmp/earningsnerd-containment-resume-20260929",
+  "scope": "Independent read-only review of frontend ND completion shape, root-authored SYSTEM_PROMPT step3 clarification and positive runner fixture; authored backend ND branch excluded from independent clearance. No tests, edits, commits, cloud or paid calls.",
+  "source_files": {
+    "frontend/features/filings/api/copilot-api.ts": {
+      "sha256": "a01afe65c85a7315b86afe081f1ea7e1905aec4de4f1aae307bc5ca39819f97a",
+      "base_sha256": "aeb4f06372849fd1a6b539e52afaae7c61318dd1a72ae14ea82794ce9bf60b4b"
+    },
+    "frontend/tests/unit/copilotStream.spec.ts": {
+      "sha256": "e9b691ffef2d8c276a22e3077fb50513a0a5a5efbf05c3a42a176ee1a5909c33",
+      "base_sha256": "da3319af2c2bcf1a13085f2b8ef126be93edf5d7dad4b1b1e7b839ecc9f7c00f"
+    },
+    "backend/app/services/copilot_service.py": {
+      "sha256": "f890ac8002a727b1f6f5174aaeee3b62d79ab78168bde1f1158f44be0acc0626",
+      "base_sha256": "5ef52df4c80fe1f9b1218329e331c7ce596c06338e6c2b20f4ec482d80a37aa2"
+    },
+    "backend/tests/unit/test_copilot_gate.py": {
+      "sha256": "65d4facf28fb26997189fbcfcc8fe28b9ff5446f93ed1491fb36cdab2c5dfefa",
+      "base_sha256": "c51ab8d400017913384b82965922aa33ba60ed5ccbefffa17e8c1a6a7f1cf62e"
+    }
+  },
+  "findings": [],
+  "correctness_checks": [
+    {
+      "area": "Frontend ND branch",
+      "conclusion": "Existing boundary rejects empty/non-string answers and non-array/non-string followups before new trim calls; ND additionally requires no citations, zero grounded,2\u20133 nonblank questions. Typed wire values cannot cause question.trim failure. Valid ordinary answers remain outside the new condition.",
+      "lines": "frontend/features/filings/api/copilot-api.ts:90\u2013124"
+    },
+    {
+      "area": "Lifecycle",
+      "conclusion": "No new await/callback/cleanup ownership; invalid completion reaches existing fail(PUBLICATION_ERROR), terminal abort/cancel and timer cleanup. Intermediate ND remains ignored; only accepted complete reaches onComplete.",
+      "lines": "frontend/features/filings/api/copilot-api.ts:217\u2013258"
+    },
+    {
+      "area": "Existing frontend test owner",
+      "conclusion": "Five malformed ND shapes use real stream consumer and assert no token/ND/complete, one safe error, one cancel and no timers. Positive2/3-question cases preserve exact payload; ordinary empty-followups positive remains. No assertions weakened."
+    },
+    {
+      "area": "Prompt",
+      "conclusion": "Byte comparison confirms SYSTEM_PROMPT changes only step3. It now reflects parser-positive-integer text declaration identities and existing server-owned F fact registry/resolver; [] for tool-only prose. Verbatim excerpt, financial tools, provenance, meaning, model and safety instructions remain byte-identical. This is a format clarification whose efficacy needs changed-head aggregate evaluation; not proof of provider-internal cause."
+    },
+    {
+      "area": "Positive runner fixture",
+      "conclusion": "Adds complete two-question FOLLOWUPS only. Every assertion and remainder after monkeypatch assignment is byte-identical; same reason remains expected."
+    }
+  ],
+  "test_evidence": {
+    "red_receipt_sha256": "ee4a5b586bb79f6e0fa30483a5fa01825233fbd63003471376ea0d8ff3957d36",
+    "green_receipt_sha256": "a20f39b6fa48ab65d5fbd4ada21a3d2a6ca5ac133775e15d8c05b41aaed5ec4c",
+    "red_log_sha_verified": "73209743aa11565aa9f7c60d243cab8f356c5a6667bbe339f47fbf1ae76828c2",
+    "green_log_sha_verified": "e880a74e612409384b2b5cc0dcb3bff0e573256606877abf54598d7f1cd11cc0",
+    "red_summary": "5 failed,32 passed; unchanged exact2dae frontend source hash verified",
+    "green_summary": "37 passed; exact current runtime/test hashes verified",
+    "tests_run_by_reviewer": false
+  },
+  "retained_failures": [
+    {
+      "head": "097b2fdbb696d4c5009bcf46b6e9189536cca375",
+      "run_id": 36624149908,
+      "report_sha256": "dd051e3b16a2b503eb9e8a99833616c6f2b52223e90de24b6c51ba8891400e5d",
+      "source_sha": "11674704d555e6008973469c73b98691f8f70d1e",
+      "synthetic_parents": [
+        "68c56a084a49e6a973632a19d4983040e8adb149",
+        "097b2fdbb696d4c5009bcf46b6e9189536cca375"
+      ],
+      "synthetic_tree": "029f279567f8420058a882e83cd4767a3b45bb02",
+      "summary": {
+        "expected": 18,
+        "completed": 18,
+        "scored": 17,
+        "errors": 1,
+        "passed": 17,
+        "pass_rate": 0.9444444444444444
+      },
+      "failed_run_index": 1,
+      "error": {
+        "type": "ValueError",
+        "stage": "answer_or_score"
+      },
+      "raw_candidate_retained": false
+    },
+    {
+      "head": "2dae5338554560bf3008082843cedd5f34bd0ad3",
+      "run_id": 36630506944,
+      "report_sha256": "bf1d3b3462e650f9e55e9a44d17d44cf1d9bec6669dcb4bf4e49b457d88ab252",
+      "source_sha": "005aacaaa9e73514bcef17884cb5c7882aa087d3",
+      "synthetic_parents": [
+        "68c56a084a49e6a973632a19d4983040e8adb149",
+        "2dae5338554560bf3008082843cedd5f34bd0ad3"
+      ],
+      "synthetic_tree": "37cad14273fac0f8f1f5f8e4d358ea7bac2969f1",
+      "summary": {
+        "expected": 18,
+        "completed": 18,
+        "scored": 17,
+        "errors": 1,
+        "passed": 17,
+        "pass_rate": 0.9444444444444444
+      },
+      "failed_run_index": 0,
+      "error": {
+        "type": "ValueError",
+        "stage": "answer_or_score"
+      },
+      "raw_candidate_retained": true,
+      "candidate_sha256": "dbed0153438a20c113f65044b1985fd8042ede800e953f437d658f7e8af09e9f",
+      "declaration_ids": [
+        "F1",
+        "F2"
+      ],
+      "service_events": [
+        {
+          "type": "error",
+          "message": "I couldn't verify the cited evidence, so I couldn't provide this answer."
+        }
+      ]
+    }
+  ],
+  "run_specific_diagnosis": "Current2dae MSFT run0 JSON uses n=F1/F2 strings and is rejected before resolution; the retained owned warning and raw deltas support this current cause. Original097 MSFT run1 lacks raw candidate and specific reason; no same-cause or fixed-original claim is made.",
+  "rules_and_acceptance": [
+    "Both failed ready runs stay failed; no scorer/golden/source identity/acceptance threshold or formal E7/E8 change.",
+    "RUNBOOK requires deterministic guard evidence plus changed-head3-repeat Copilot aggregate and separate full summary baseline result; old/manual clears cannot certify the successor.",
+    "The prompt clarification does not certify financial entailment or ND truth and does not lift the original separate quality hold."
+  ],
+  "refutation_requirement": "No new should-fix/blocker finding raised in this independent review, so no unsupported finding is promoted. Prior ND finding has separate two-pass receipts.",
+  "status": "No actionable correctness/rules/test issue found in the independently reviewed delta. Root full backend and frontend gates, immutable head binding, fresh hosted reviews/measurements remain release prerequisites."
+}

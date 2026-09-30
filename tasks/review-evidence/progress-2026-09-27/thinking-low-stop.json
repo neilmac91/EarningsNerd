@@ -1,0 +1,30 @@
+{
+  "billed_cost": "unknown",
+  "completed_outputs": 2,
+  "completed_pair": "RIVN-10-K-run0",
+  "confirmed_target": "RIVN identity conflation: unnamed principal-stockholder affiliate joined to Chase Bank sales",
+  "continuation_sha256": "00a002427dd48f2242f8c00bbb8453874051334bc33124408ca5050aadde78ff",
+  "decision_at_utc": "2026-09-27T16:13:26.377380+00:00",
+  "effect_size_established": false,
+  "hard_cap_usd": "0.95",
+  "next_dispatch_authorized": false,
+  "production_changed": false,
+  "provider_calls": 2,
+  "raw_artifacts_modified": false,
+  "receipt_provenance": {
+    "kind": "repository summary copy; raw records retained locally",
+    "operator_original": "outputs/takeover-2026-09-27/financial-candidate/thinking-low-pilot/run-36332023558/STOP.json",
+    "operator_original_sha256": "a34477f559b8c8c008382f834294f2fcd9734bf82e40dc972b51cd93943f4100",
+    "relative_path_scope": "Paths in this receipt refer to retained operator files unless explicitly qualified; they are not repository siblings."
+  },
+  "reserved_usd": "0.071674800",
+  "review": "rivn-identity-review.md",
+  "review_kind": "AI diagnostic, not Fable or formal acceptance",
+  "root_review": "concur after direct source and output inspection; benign independent-semicolon reading and other retained-source identity checked",
+  "run_id": 36332023558,
+  "schema": "root-pilot-semantic-disposition-v1",
+  "status": "STOP",
+  "unknown_outcomes": 0,
+  "unrun_outputs": 14,
+  "usage_derived_uncached_upper_estimate_usd": "0.018610650"
+}

@@ -219,7 +219,15 @@ def test_nested_cache_split_and_reasoning_tokens_are_read_when_top_level_fields_
 def test_record_carries_requested_vs_actual_model_fingerprint_latency_trigger_and_cost(monkeypatch):
     from app.services import llm_pricing
 
-    monkeypatch.setattr(llm_pricing, "is_peak_hour", lambda at=None: False)
+    priced_models = []
+
+    def estimator(model, usage):
+        priced_models.append(model)
+        # Model-specific sentinels separate routing coverage from the tariff-table gate.
+        cost = {"deepseek-v4-pro": 7.25, "deepseek-flash": 1.5}[model]
+        return {"cost_usd": cost if usage["prompt_tokens"] is not None else None, "peak": False}
+
+    monkeypatch.setattr(llm_pricing, "estimate_call_cost_usd", estimator)
     result = record({"prompt_tokens": 1_000_000, "completion_tokens": 1_000_000,
                      "prompt_cache_hit_tokens": 1_000_000, "prompt_cache_miss_tokens": 0},
                     requested_model="deepseek-flash", system_fingerprint="fp_abc123", latency_ms=1234.9,
@@ -228,14 +236,15 @@ def test_record_carries_requested_vs_actual_model_fingerprint_latency_trigger_an
     assert result["system_fingerprint"] == "fp_abc123"
     assert result["latency_ms"] == 1234 and result["first_token_ms"] == 210
     assert result["trigger"] == "user"
-    # actual model prices the call: deepseek-v4-pro is billed at Flash rates after the retirement.
-    assert result["estimated_cost_usd"] == round(0.003 + 0.60, 6) and result["peak"] is False
+    # Price the actual returned model, even when the request asked for Flash.
+    assert result["estimated_cost_usd"] == 7.25 and result["peak"] is False
+    assert priced_models == ["deepseek-v4-pro"]
     # Malformed provider metadata never reaches the log.
     junk = record(None, system_fingerprint="x" * 100, latency_ms="fast", first_token_ms=-1)
     assert junk["system_fingerprint"] is None and junk["latency_ms"] is None and junk["first_token_ms"] is None
     assert junk["estimated_cost_usd"] is None  # no token counts: unknown, never a claimed zero
     bucket = [c for c in ai_metrics.get_ai_metrics()["calls"] if c["count"] == 2][0]
-    assert bucket["estimated_cost_usd"] == round(0.003 + 0.60, 6)
+    assert bucket["estimated_cost_usd"] == 7.25
 
 
 def test_trigger_label_is_context_scoped():
@@ -251,3 +260,16 @@ def test_trigger_label_is_context_scoped():
         assert record(None)["trigger"] == "user"
     finally:
         ai_metrics.reset_trigger(bogus)
+
+
+def test_isolation_probe_leaves_the_trigger_set_like_a_script_entrypoint():
+    # Entrypoints such as `python -m evals.runner` set the trigger for the whole process and never
+    # reset it; tests run some of them in-process. This probe does the same on purpose.
+    ai_metrics.set_trigger("eval")
+    assert ai_metrics._trigger.get() == "eval"
+
+
+def test_isolation_next_test_starts_from_the_default_trigger():
+    # Runs after the probe above (definition order). conftest's autouse isolation must undo the
+    # probe, or tests asserting the default trigger pass or fail by collection order.
+    assert ai_metrics._trigger.get() == "user"

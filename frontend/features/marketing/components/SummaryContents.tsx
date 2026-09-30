@@ -35,8 +35,8 @@ export default function SummaryContents() {
               What a summary contains
             </h2>
             <p className="mt-4 text-lg text-text-secondary-light dark:text-text-secondary-dark">
-              Nine sections, in the order the summary renders them. A fresh filing streams in section by
-              section in about half a minute. A filing someone has already read loads at once.
+              The summary follows a nine-part structure. Fresh results appear section by section while
+              generation runs. A cached filing loads at once.
             </p>
           </div>
 

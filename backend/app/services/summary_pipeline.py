@@ -31,12 +31,19 @@ from app.config import settings
 from app.models import Filing, Summary, User, Subscription
 from app.schemas import attach_normalized_facts
 from app.services.content_cache import upsert_content_cache
+from app.services.ai.normalize import _section_has_content
 from app.services.edgar.compat import sec_edgar_service, xbrl_service
 from app.services.edgar.sixk_extractor import get_sixk_text
 from app.services.edgar.sixk_classifier import classify_sixk_text
 from app.services.edgar.statement_context import acquire_statement_context
 from app.services.fallback_summary import generate_xbrl_summary
+from app.services.metric_delta_service import (
+    EXACT_CONTEXT_KEY,
+    EXACT_CONTEXT_VERSION,
+    bind_exact_xbrl_deltas,
+)
 from app.services.openai_service import openai_service
+from app.services.summary_request_evidence import SummaryRequestEvidence
 from app.services.posthog_client import (
     EVENT_GENERATION_STARTED,
     EVENT_GENERATION_SUCCEEDED,
@@ -60,7 +67,16 @@ from app.services.summary_generation_service import (
     record_progress,
     get_or_cache_excerpt,
 )
+from app.services.provenance_service import (
+    RISK_PROJECTION_KEY,
+    RISK_SOURCE_CONTEXT_KEY,
+    RISK_SOURCE_CONTEXT_VERSION,
+    project_risk_list,
+    replace_business_overview_risks,
+    source_safe_business_overview,
+)
 from app.services.summary_versioning import SUMMARY_PROMPT_VERSION, SUMMARY_SCHEMA_VERSION
+from app.services.summary_schema import TRACKED_SECTIONS_V2
 
 logger = logging.getLogger(__name__)
 
@@ -71,6 +87,132 @@ logger = logging.getLogger(__name__)
 # this does not prevent duplicate provider work across processes while Redis stays off.
 _inflight_generations: dict[int, asyncio.Event] = {}
 INFLIGHT_WAIT_CAP_SECONDS = 110.0  # just under PIPELINE_TIMEOUT_SECONDS (120s)
+
+
+def _finalized_section_coverage(
+    sections_info: dict, previous_snapshot: object,
+) -> dict:
+    """Align Risks coverage with the finalized source projection.
+
+    Producers own the non-Risks coverage booleans because they know which placeholder rules they
+    applied. This shared persistence/progress boundary preserves those values, recounts Risks from
+    its finalized source-bound list, and then rebuilds the canonical aggregate fields.
+    """
+    prior_per_section = (
+        previous_snapshot.get("per_section")
+        if isinstance(previous_snapshot, dict)
+        else None
+    )
+    # Aggregate-only snapshots predate the canonical per-section contract. Their non-Risks
+    # contributions cannot be reconstructed from compatibility columns without changing historical
+    # quality semantics. Current primary and timeout producers both provide per_section, so retain
+    # this legacy shape unchanged rather than guessing.
+    if isinstance(previous_snapshot, dict) and not isinstance(prior_per_section, dict):
+        return dict(previous_snapshot)
+    coverage_map = {
+        section: (
+            bool(prior_per_section.get(section))
+            if isinstance(prior_per_section, dict)
+            else _section_has_content(sections_info.get(section))
+        )
+        for section in TRACKED_SECTIONS_V2
+    }
+    # Risks are the section this finalizer projects. Recount it from the finalized source-bound
+    # list even when an earlier producer supplied a complete non-risk coverage map.
+    coverage_map["risks"] = _section_has_content(sections_info.get("risks"))
+    covered = [section for section, has_content in coverage_map.items() if has_content]
+    missing = [section for section, has_content in coverage_map.items() if not has_content]
+    total_count = len(coverage_map)
+    covered_count = len(covered)
+    prior_not_applicable = (
+        previous_snapshot.get("not_applicable", [])
+        if isinstance(previous_snapshot, dict)
+        else []
+    )
+    not_applicable = [
+        section for section in prior_not_applicable
+        if section in coverage_map and not coverage_map[section]
+    ]
+    return {
+        "per_section": coverage_map,
+        "covered": covered,
+        "missing": missing,
+        "covered_count": covered_count,
+        "total_count": total_count,
+        "coverage_ratio": (covered_count / total_count) if total_count else None,
+        "not_applicable": not_applicable,
+    }
+
+
+def _finalize_summary_projection(
+    summary_payload: dict,
+    xbrl_metrics: Optional[dict],
+    summary_status: str,
+    source_text: str = "",
+    filing_document_url: Optional[str] = None,
+) -> tuple[str, dict, dict, Optional[dict]]:
+    """Build the one persisted/streamed projection after any generator has returned.
+
+    The provider normally arrives with exact deltas already bound.  The timeout fallback does not,
+    so this shared boundary repeats the idempotent binding before persistence and stamps ownership
+    only after every metric row has passed through it.  Existing generated markdown is preserved;
+    cached reads and PDF/CSV exports consume the corrected structured projection.
+    """
+    markdown = summary_payload.get("business_overview") or ""
+    raw_summary = summary_payload.get("raw_summary") or {}
+    sections_info = (raw_summary.get("sections") or {}) or {}
+
+    financial_section = sections_info.get("results_that_matter")
+    normalized_financial_section = attach_normalized_facts(financial_section, xbrl_metrics)
+    has_metric_table = (
+        isinstance(normalized_financial_section, dict)
+        and isinstance(normalized_financial_section.get("table"), list)
+    )
+    if has_metric_table:
+        normalized_financial_section = bind_exact_xbrl_deltas(
+            normalized_financial_section, xbrl_metrics
+        )
+        sections_info["results_that_matter"] = normalized_financial_section
+
+    # Risks compose at this same shared post-generator boundary. Reserved producer metadata and the
+    # nonselected alias are discarded before the candidate list is matched to this generation's
+    # filing source; only code then stamps renderer ownership.
+    sections_info.pop(RISK_PROJECTION_KEY, None)
+    sections_info.pop("risk_factors", None)
+    raw_summary.pop(RISK_SOURCE_CONTEXT_KEY, None)
+    summary_payload.pop("_risk_source_candidate_count", None)
+    private_candidates = summary_payload.pop("_risk_source_candidates", None)
+    private_source = summary_payload.pop("_risk_source_grounding", None)
+    risk_candidates = (
+        private_candidates if isinstance(private_candidates, list)
+        else summary_payload.get("risk_factors") or []
+    )
+    risk_section, risk_projection = project_risk_list(
+        risk_candidates,
+        sources=(
+            [private_source]
+            if isinstance(private_source, str) and private_source.strip()
+            else [source_text] if isinstance(source_text, str) and source_text.strip() else []
+        ),
+        base_url=filing_document_url,
+    )
+    sections_info["risks"] = risk_section
+    sections_info[RISK_PROJECTION_KEY] = risk_projection
+    raw_summary["sections"] = sections_info
+    raw_summary["section_coverage"] = _finalized_section_coverage(
+        sections_info, raw_summary.get("section_coverage")
+    )
+    raw_summary["status"] = summary_status
+    raw_summary["schema_version"] = SUMMARY_SCHEMA_VERSION
+
+    if has_metric_table:
+        raw_summary[EXACT_CONTEXT_KEY] = EXACT_CONTEXT_VERSION
+    raw_summary[RISK_SOURCE_CONTEXT_KEY] = RISK_SOURCE_CONTEXT_VERSION
+
+    markdown = replace_business_overview_risks(markdown, raw_summary)
+    summary_payload["business_overview"] = markdown
+    summary_payload["raw_summary"] = raw_summary
+    return markdown, raw_summary, sections_info, normalized_financial_section
 
 
 @dataclass(frozen=True)
@@ -230,6 +372,7 @@ async def stream_filing_summary(
     telemetry_ctx: dict,
     emit_funnel_telemetry: bool = True,
     force_regenerate: bool = False,
+    request_evidence: SummaryRequestEvidence | None = None,
 ) -> AsyncIterator[dict]:
     """Run the summary pipeline for ``filing_id``, yielding event dicts.
 
@@ -312,18 +455,22 @@ async def stream_filing_summary(
                         "cache_created_at": cache.created_at if cache else None,
                     } if filing else None
                     summary_fields = {
-                        "business_overview": summary.business_overview, "id": summary.id,
+                        "business_overview": source_safe_business_overview(summary, filing), "id": summary.id,
                     } if summary else None
                     return filing_fields, summary_fields
 
             filing_fields, summary_fields = await run_sync_db(get_filing_and_summary_sync)
 
             if not filing_fields:
+                if request_evidence is not None:
+                    request_evidence.reason = "filing_not_found"
                 logger.warning(f"[stream:{filing_id}] Filing not found during stream generation.")
                 yield {'type': 'error', 'message': 'Filing not found'}
                 return
 
             if summary_fields and not force_regenerate:
+                if request_evidence is not None:
+                    request_evidence.delivery_path = "pipeline_cache"
                 logger.info(f"[stream:{filing_id}] Existing summary found. Returning it.")
                 yield {
                     'type': 'complete',
@@ -337,7 +484,13 @@ async def stream_filing_summary(
             def get_persisted_summary_fields():
                 with database.SessionLocal() as s:
                     summ = s.query(Summary).filter(Summary.filing_id == filing_id).first()
-                    return {"business_overview": summ.business_overview, "id": summ.id} if summ else None
+                    persisted_filing = s.query(Filing).options(
+                        joinedload(Filing.content_cache)
+                    ).filter(Filing.id == filing_id).first()
+                    return {
+                        "business_overview": source_safe_business_overview(summ, persisted_filing),
+                        "id": summ.id,
+                    } if summ else None
 
             waited = 0.0
             joined_generation = False
@@ -352,10 +505,14 @@ async def stream_filing_summary(
                         # replacement cannot finish between our absence check and admission.
                         summary_fields = await run_sync_db(get_persisted_summary_fields)
                         if summary_fields:
+                            if request_evidence is not None:
+                                request_evidence.delivery_path = "coalesced"
                             yield {'type': 'complete', 'summary': summary_fields["business_overview"], 'summary_id': summary_fields["id"]}
                             return
                     break
                 joined_generation = True
+                if request_evidence is not None:
+                    request_evidence.delivery_path = "coalesced"
                 logger.info(f"[stream:{filing_id}] Joining in-flight generation (dedup).")
                 yield {'type': 'progress', 'stage': 'queued', 'message': 'Another request is already generating this analysis — joining it...', 'percent': 3, 'elapsed_seconds': int(time.time() - pipeline_started_at)}
                 while not existing_generation.is_set() and waited < INFLIGHT_WAIT_CAP_SECONDS:
@@ -421,6 +578,8 @@ async def stream_filing_summary(
                     # A Pro user is billing-unlimited, so a block here means the INVISIBLE fair-use
                     # ceiling (PRO_SUMMARY_MONTHLY_CAP) tripped — degrade with a generic message,
                     # never an upsell, and skip the paywall funnel event (a Pro user isn't paywalled).
+                    if request_evidence is not None:
+                        request_evidence.reason = "fair_use" if user_is_unlimited else "monthly_quota"
                     if user_is_unlimited:
                         logger.warning(
                             f"[stream:{filing_id}] Pro user {user_id} hit summary fair-use ceiling ({limit})."
@@ -453,6 +612,9 @@ async def stream_filing_summary(
                 # current_user=None is only reachable from the internal drains now (cron
                 # pregenerate / admin refresh) — the user-facing route requires an account.
                 logger.info(f"[stream:{filing_id}] Internal caller (no user) — per-user quota not applicable.")
+
+            if request_evidence is not None:
+                request_evidence.delivery_path = "generation"
 
             # Bound concurrent generations per process (protects the single vCPU). Acquired here —
             # AFTER the usage/fair-use gate so rejected/abusive requests never occupy a slot, and only
@@ -762,6 +924,8 @@ async def stream_filing_summary(
                 # text arrives as the excerpt) so a cached or regenerated 6-K is classified too.
                 sixk = classify_sixk_text(filing_text or excerpt)
                 sixk_class, sixk_class_audit = sixk.sixk_class, sixk.as_audit()
+            if request_evidence is not None:
+                request_evidence.summary_service_invoked = True
             summary_task = asyncio.create_task(openai_service.summarize_filing(
                 filing_text,
                 company_name,
@@ -860,9 +1024,19 @@ async def stream_filing_summary(
                 yield {'type': 'error', 'message': error_message}
                 return
 
-            markdown = summary_payload.get("business_overview") or ""
-            raw_summary = summary_payload.get("raw_summary") or {}
-            sections_info = (raw_summary.get("sections") or {}) or {}
+            # The application-prepared degraded source is private and will be popped by the shared
+            # finalizer. Retain it separately so the cache owner can preserve the same decoded-text
+            # view for later API/export projection when no critical excerpt exists.
+            risk_source_for_cache = summary_payload.get("_risk_source_grounding")
+            markdown, raw_summary, sections_info, normalized_financial_section = (
+                _finalize_summary_projection(
+                    summary_payload,
+                    xbrl_metrics,
+                    summary_status,
+                    source_text=excerpt or filing_text,
+                    filing_document_url=filing_document_url,
+                )
+            )
 
             section_coverage = (
                 raw_summary.get("section_coverage")
@@ -877,15 +1051,7 @@ async def stream_filing_summary(
                     section_coverage=section_coverage,
                 )
 
-            # v2 (Tier-3.1): enrich the P&L table (results_that_matter) with normalized XBRL facts for
-            # the metrics block's provenance chips, and surface risks under the v2 key.
-            financial_section = sections_info.get("results_that_matter")
-            normalized_financial_section = attach_normalized_facts(financial_section, xbrl_metrics)
-            if normalized_financial_section is not None:
-                sections_info["results_that_matter"] = normalized_financial_section
-
-            risk_section = summary_payload.get("risk_factors") or []
-            sections_info["risks"] = risk_section
+            risk_section = sections_info.get("risks") or []
             # Legacy compat columns on the Summary row (management_discussion / key_changes) still get
             # the v2-mapped prose (earnings_quality / forward_signals, re-pointed in summarize_filing).
             management_section = summary_payload.get("management_discussion")
@@ -895,13 +1061,6 @@ async def stream_filing_summary(
             # carries earnings_quality + forward_signals, and the web reads the render_sections output
             # (rendered_sections), not these keys. Injecting management_discussion_insights /
             # guidance_outlook here would only decorate every v2 row with phantom v1 nodes.
-
-            raw_summary["sections"] = sections_info
-            raw_summary["status"] = summary_status
-            # Embed the schema version so the render projection (summary_sections) can version-
-            # dispatch on raw_summary["schema_version"]; the Summary columns below carry the same
-            # stamps for querying/refreshing stale rows.
-            raw_summary["schema_version"] = SUMMARY_SCHEMA_VERSION
 
             # S4: deterministic quality verdict (always attached as metadata for the UI badge).
             # sic feeds the bank-aware revenue-grounding rule (P0-2) as the flag-independent
@@ -973,6 +1132,20 @@ async def stream_filing_summary(
                     filing_id,
                     company_sic or "",
                     "|".join(str(u.get("slot") or "?") for u in attribution_audit["unverified"]),
+                )
+            unit_audit = (raw_summary or {}).get("table_cell_unit_audit") or {}
+            if unit_audit.get("restored_count") or unit_audit.get("unresolved_count"):
+                # Declared table-cell scale owner (source_units) measurement channel, count-first:
+                # bare model dollar figures whose declared scale was restored, and those left
+                # untouched with the abstention reason. Totals are exact even when the audit's
+                # detail lists are capped. Unresolved figures stay visible as written.
+                logger.info(
+                    "table_cell_units restored=%d unresolved=%d filing_id=%s sic=%s reasons=%s",
+                    int(unit_audit.get("restored_count") or 0),
+                    int(unit_audit.get("unresolved_count") or 0),
+                    filing_id,
+                    company_sic or "",
+                    "|".join(sorted({str(u.get("reason") or "?") for u in unit_audit.get("unresolved") or []})),
                 )
             quote_audit = (raw_summary or {}).get("forward_quote_audit") or {}
             if quote_audit.get("unverified"):
@@ -1057,6 +1230,12 @@ async def stream_filing_summary(
                                 upsert_content_cache(
                                     session, filing_id, filing_for_cache.content_cache,
                                     excerpt=excerpt, sections_payload=sections_info,
+                                    risk_source_text=(
+                                        risk_source_for_cache
+                                        if isinstance(risk_source_for_cache, str)
+                                        else None
+                                    ),
+                                    replace_risk_source=True,
                                 )
                             session.commit()
                             return existing.id
@@ -1082,6 +1261,15 @@ async def stream_filing_summary(
                             filing_for_cache.content_cache,
                             excerpt=excerpt,
                             sections_payload=sections_info,
+                            risk_source_text=(
+                                risk_source_for_cache
+                                if (
+                                    isinstance(risk_source_for_cache, str)
+                                    and (force_regenerate or not excerpt)
+                                )
+                                else None
+                            ),
+                            replace_risk_source=force_regenerate,
                         )
 
                     try:
@@ -1145,6 +1333,8 @@ async def stream_filing_summary(
             else:
                 yield {'type': 'complete', 'summary_id': saved_summary_id, 'percent': 100}
     except TimeoutError:
+        if request_evidence is not None:
+            request_evidence.reason = "pipeline_timeout"
         # Pipeline hard timeout reached
         logger.warning(f"[stream:{filing_id}] Pipeline timeout after {PIPELINE_TIMEOUT_SECONDS}s")
         emit_funnel(

@@ -1,0 +1,149 @@
+{
+  "actions_not_taken": [
+    "no rerun",
+    "no push",
+    "no merge",
+    "no deployment",
+    "no provider calls initiated by this audit"
+  ],
+  "audit_kind": "compact ready-head hosted review and Copilot regression receipt",
+  "base_advance_limit": {
+    "current_pr_state": "MERGEABLE/CLEAN on unchanged head",
+    "hosted_synthetic_merge_base": "c98ba7a0dc71fadd72f979d0da6472ce919242ea",
+    "later_changes_summary": "Sentry frontend files, ops/CI workflows, deployment/config docs, one unrelated production-flag test, and a Notable rollout task.",
+    "later_main_commits": [
+      "7e2d4e799a7725cb18a827e25b2adae8da1da9fa",
+      "e70b8a4043b3b5809fa3d3b01be4eca569e178fd",
+      "c31667344e8eeeb30b8e0f38f5591a4dd5089769"
+    ],
+    "main_observed_after_run": "c31667344e8eeeb30b8e0f38f5591a4dd5089769",
+    "overlap_with_pr_changed_app_source_or_focused_test_fixture": false
+  },
+  "codex_review": {
+    "finding_comment_id": 5867405782,
+    "formal_pull_reviews": 0,
+    "inline_comments": 0,
+    "note": "The transient eyes reaction was removed when review completed; GitHub exposed no final +1 reaction. The bot posted an explicit no-major-issues comment instead.",
+    "request_comment_id": 5867369038,
+    "request_reactions_after_completion": {
+      "eyes": 0,
+      "plus_one": 0,
+      "total": 0
+    },
+    "request_reactions_during_review": {
+      "eyes": 1
+    },
+    "result": "Completed; Did not find any major issues.",
+    "reviewed_commit_short": "5936fc4fb5",
+    "summary_comment_id": 5867373211
+  },
+  "copilot_regression": {
+    "artifact": {
+      "archive_sha256": "6d122ea01d2a8ac85fa608e123340322a86bb8e636d8fcc78f84f53bd9120623",
+      "id": 10961568757,
+      "name": "copilot-fidelity-36404908264",
+      "report_sha256": "7689fb094ad176a44c033e2691c153c989cdeea88166ebd72257d69740148125",
+      "runner_log_sha256": "ea7e5a8cd1da294f48ede1791056b8002fe36cd26bc7c8d49c8608eb8aaef50a",
+      "size_bytes": 78683246
+    },
+    "completed_at": "2026-09-28T09:42:19Z",
+    "conclusion": "success",
+    "created_at": "2026-09-28T09:39:37Z",
+    "job_id": 108871197038,
+    "questions": 6,
+    "report": {
+      "accepted": true,
+      "completed": 18,
+      "errors": 0,
+      "expected": 18,
+      "pass_rate": 1.0,
+      "passed": 18,
+      "scored": 18
+    },
+    "run_id": 36404908264,
+    "runs_per_question": 3,
+    "score_integrity": {
+      "citation_faithfulness_1_count": 18,
+      "contradictory_currency_count": 0,
+      "fact_adjacency_1_count": 18,
+      "gate_failure_count": 0,
+      "invalid_provenance_count": 0,
+      "missing_metric_count": 0,
+      "numeric_recall_1_count": 18,
+      "uncited_figure_outputs": 7,
+      "unverified_excerpt_count": 0
+    },
+    "status": "completed"
+  },
+  "cumulative_budget": {
+    "billed_cost": "unknown",
+    "new_cumulative_telemetry_estimate_usd": 1.735815,
+    "planning_ceiling_usd": 2.1,
+    "prior_telemetry_estimate_usd": 1.720547,
+    "ready_copilot_telemetry_estimate_usd": 0.015268,
+    "remaining_headroom_usd": 0.364185
+  },
+  "decision": "ready-head hosted checks clear; no Codex findings or Copilot regression failures",
+  "head": "5936fc4fb5fb8336e6fc3b016b7be9abf05172e3",
+  "pr": 992,
+  "provider_telemetry": {
+    "actual_models": {
+      "deepseek-flash": 35
+    },
+    "billed_cost": "unknown",
+    "cache_hit_tokens": 1091072,
+    "cache_miss_tokens": 6924,
+    "completion_tokens": 5535,
+    "estimated_cost_usd": 0.015268,
+    "integrity": "GitHub job log and retained artifact runner.log independently contain the same 35 calls, token totals, and cost sum.",
+    "operations": {
+      "copilot_chat": 35
+    },
+    "outcomes": {
+      "success": 35
+    },
+    "peak_calls": 35,
+    "physical_calls": 35,
+    "prompt_tokens": 1097996,
+    "providers": {
+      "primary": 35
+    },
+    "reasoning_tokens": {
+      "known_calls": 0,
+      "unknown_calls": 35
+    },
+    "requested_models": {
+      "deepseek-flash": 35
+    },
+    "system_fingerprints": {
+      "aeb56401ca74e127821c4f9126dcb669": 35
+    },
+    "total_tokens": 1103531
+  },
+  "ready": true,
+  "review_gate": {
+    "completed_exact_head": true,
+    "conclusion": "success",
+    "job_id": 108871199755,
+    "run_id": 36404908749,
+    "status": "completed"
+  },
+  "source_integrity": {
+    "golden_matches_source_commit": true,
+    "golden_sha256": "15f8e7f92f934a5b040d905e8f684896cb11b2309d41737bbb58d59d0127b3c0",
+    "prepared_database_hash_matches": true,
+    "prepared_database_sha256": "895993d22f815b867329405a0ce485a352332c48d4a7253b54b0fce1a4c0b610",
+    "prepared_source_errors": 0,
+    "prepared_sources": 6,
+    "report_source_sha": "cb169e1c993c09b385883a7b723a854accc110d2",
+    "source_artifact_hash_mismatches": 0,
+    "source_artifacts_verified": 24,
+    "source_kind": "GitHub synthetic merge commit",
+    "source_manifest_matches_source_commit": true,
+    "source_manifest_sha256": "8960e1bbeaa95680cafa46762134a6bb573a8bd265992204a6c9e82fc7c52a16",
+    "source_parents": [
+      "c98ba7a0dc71fadd72f979d0da6472ce919242ea",
+      "5936fc4fb5fb8336e6fc3b016b7be9abf05172e3"
+    ]
+  }
+}

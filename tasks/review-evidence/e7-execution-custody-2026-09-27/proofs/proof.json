@@ -1,0 +1,77 @@
+{
+  "code_commit": "b79b936f9c9782f40ae91095625f384ba2696442",
+  "faults": [
+    {
+      "rule": "exact-leaf-bytes",
+      "target": "tests/unit/test_acceptance_source_review_prompts.py::test_leaf_prompt_binds_validated_unit_and_exact_utf8_parts",
+      "exit": 1,
+      "failed_cases": 1,
+      "restored_sha256": "5c0ab0382d2caad8c2eeeb9f3a71d886edb240e576d95e9459b50ec717741720"
+    },
+    {
+      "rule": "nontext-modality",
+      "target": "tests/unit/test_acceptance_source_review_prompts.py::test_leaf_rejects_non_text_modalities_even_when_the_bytes_are_utf8",
+      "exit": 1,
+      "failed_cases": 3,
+      "restored_sha256": "5c0ab0382d2caad8c2eeeb9f3a71d886edb240e576d95e9459b50ec717741720"
+    },
+    {
+      "rule": "strict-utf8",
+      "target": "tests/unit/test_acceptance_source_review_prompts.py::test_leaf_rejects_non_utf8_source_even_when_byte_custody_is_valid",
+      "exit": 1,
+      "failed_cases": 1,
+      "restored_sha256": "5c0ab0382d2caad8c2eeeb9f3a71d886edb240e576d95e9459b50ec717741720"
+    },
+    {
+      "rule": "exact-child-bytes",
+      "target": "tests/unit/test_acceptance_source_review_prompts.py::test_parent_prompt_binds_ordered_exact_utf8_child_artifacts",
+      "exit": 1,
+      "failed_cases": 1,
+      "restored_sha256": "5c0ab0382d2caad8c2eeeb9f3a71d886edb240e576d95e9459b50ec717741720"
+    },
+    {
+      "rule": "complete-adverse-history",
+      "target": "tests/unit/test_acceptance_source_review_execution.py::test_sealed_journal_binds_exact_prompts_graph_and_complete_adverse_history",
+      "exit": 1,
+      "failed_cases": 1,
+      "restored_sha256": "9ceb5fc50ccd8a34b3ca3aeba46efca80c3f8c386f8dbc58cfb7694c9d8cf70f"
+    },
+    {
+      "rule": "no-eligible-redraw",
+      "target": "tests/unit/test_acceptance_source_review_execution.py::test_retry_rules_pending_state_and_seal_are_fail_closed",
+      "exit": 1,
+      "failed_cases": 1,
+      "restored_sha256": "9ceb5fc50ccd8a34b3ca3aeba46efca80c3f8c386f8dbc58cfb7694c9d8cf70f"
+    },
+    {
+      "rule": "eligible-child-before-parent",
+      "target": "tests/unit/test_acceptance_source_review_execution.py::test_parent_requires_prior_eligible_journal_children_and_retained_bytes",
+      "exit": 1,
+      "failed_cases": 1,
+      "restored_sha256": "9ceb5fc50ccd8a34b3ca3aeba46efca80c3f8c386f8dbc58cfb7694c9d8cf70f"
+    },
+    {
+      "rule": "durable-terminal-intent",
+      "target": "tests/unit/test_acceptance_source_review_execution.py::test_identical_files_recover_precommit_settle_and_seal_crashes",
+      "exit": 1,
+      "failed_cases": 1,
+      "restored_sha256": "9ceb5fc50ccd8a34b3ca3aeba46efca80c3f8c386f8dbc58cfb7694c9d8cf70f"
+    },
+    {
+      "rule": "journal-unit-scope",
+      "target": "tests/unit/test_acceptance_source_review_execution.py::test_initialization_freezes_real_source_and_rejects_foreign_unit_before_dispatch",
+      "exit": 1,
+      "failed_cases": 1,
+      "restored_sha256": "9ceb5fc50ccd8a34b3ca3aeba46efca80c3f8c386f8dbc58cfb7694c9d8cf70f"
+    },
+    {
+      "rule": "context-id-grammar",
+      "target": "tests/unit/test_acceptance_source_review_graph.py::test_every_node_runs_in_its_own_latest_eligible_context",
+      "exit": 1,
+      "failed_cases": 1,
+      "restored_sha256": "298fcd8b14e1ab08eb336ac0c004823017b45ff1c1dc5599a1d517d0c97e678e"
+    }
+  ],
+  "restored_exit": 0,
+  "restored_tail": "25 passed, 2 warnings in 0.87s"
+}

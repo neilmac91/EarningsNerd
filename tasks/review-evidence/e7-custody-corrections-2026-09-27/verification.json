@@ -1,0 +1,76 @@
+{
+  "code_commit": "9abd0a2b681d7af7eed27f50b145c48616259e77",
+  "base_commit": "b53455bb3b13817d44cf089f3280ced143998583",
+  "backend_tree": "abc56aab98691a9091c9113330c0180ce6bd20f4",
+  "full_gate_exit": 0,
+  "full_gate_tail": "3718 passed, 40 warnings in 171.82s (0:02:51)",
+  "focused_restored_tail": "58 passed, 2 warnings in 0.97s",
+  "locked_files": [
+    {
+      "path": "backend/tests/integration/test_summary_stream_contract.py",
+      "sha256": "4b10582387ed68ad1564bbcbb54017d7d153c1447da8fb39bb73523512b3b57a",
+      "unchanged": true
+    },
+    {
+      "path": "backend/tests/unit/test_background_generation_characterization.py",
+      "sha256": "5a6b7024605bfe712c42b34e51900d6009f99db58ab1694c4c2ffb4d6bb316f9",
+      "unchanged": true
+    },
+    {
+      "path": "backend/tests/unit/test_generation_requires_account.py",
+      "sha256": "1360430fb3a884800ddb962651d6c9369198b89fdcd0ef671d1726934389f22a",
+      "unchanged": true
+    },
+    {
+      "path": "backend/tests/unit/test_subscription_webhook_sync.py",
+      "sha256": "a00853b94d4bb7127a82d987af8f9a57395fa2789ff638ed9c4febaaf78aaf02",
+      "unchanged": true
+    },
+    {
+      "path": "backend/tests/unit/test_expired_trial_gating.py",
+      "sha256": "6daf082a0a098431cd664730418277e1c237adaf50c614fb48654587d6be8413",
+      "unchanged": true
+    },
+    {
+      "path": "backend/tests/unit/test_filing_scan.py",
+      "sha256": "fab53148fcdac656dd8b28dffa976420cec2b655d2b1186843599a2e065cc5b1",
+      "unchanged": true
+    },
+    {
+      "path": "backend/tests/unit/test_refresh_replay.py",
+      "sha256": "b57d1f662628e1febbe7d9eeef1928da80c177422fb5584e65b59d29a430e6c3",
+      "unchanged": true
+    },
+    {
+      "path": "backend/tests/unit/test_companyfacts_fixture.py",
+      "sha256": "a2b20e66828f605bbabbd6b604a001d22943c1044a83776d4445e04c3e644794",
+      "unchanged": true
+    },
+    {
+      "path": "backend/tests/unit/test_auth_flow.py",
+      "sha256": "4a927487d44c77549abcb3e5f4843e064ddc63827ecb725fa25f3e513a3dbba9",
+      "unchanged": true
+    },
+    {
+      "path": "backend/tests/unit/test_stripe_webhook.py",
+      "sha256": "ca02207aaa71e8845e7f883b5c0316342525cc713b7a25028ff0cd18ab59cb78",
+      "unchanged": true
+    },
+    {
+      "path": "frontend/tests/unit/summaryStream.contract.spec.ts",
+      "sha256": "4a27aa5d94c8af518016624e2159cd48b6bab6f8b76f2a58b0edf63ce59c3aaf",
+      "unchanged": true
+    }
+  ],
+  "evidence_files": {
+    "correction-mutation-proof.json": "0847853f360a3fbd7497c716af3ea3b85b539235055c40cd6a4e7f8f52ba5357",
+    "correction-review.md": "e0a321a527fa9cf43396ee9a3789da6b9250b422c89b3c18a0cbb0df728a012f",
+    "corrections-full-gate-runtime-failure.txt": "d80a84409f1f4415f50e98b7b6e28c074efcad8c3a74e4bc7594c1b37f53ce92",
+    "full-gate.txt": "c563769923bf11f0a42e2d4419c526005b5eef8bb8b991b6c645b97550faaef5",
+    "mutation-bare-inline-xbrl.txt": "1fd4a89d760081292d1edc2e0ab2768432f0de596ce16be11e991cd941aa2f84",
+    "mutation-context-before-hash.txt": "43418608fc60473ddaf60411f0eaaed980d5037862eefb194dd5dc4291799b71",
+    "mutation-coverage-before-hash.txt": "685a717f8b0621bb046dd8093aa529fc8daacf0b78c69567effe587220949800",
+    "mutation-restored.txt": "2c6437e18cb7480f54005e55fa716d238efa2af60563630316f3e32bee345f0f",
+    "mutation-unused-template-alias.txt": "e6165ff380ca93a6f609bcac906034d3a6cf8c386a5e461fd5f136c775f762fb"
+  }
+}

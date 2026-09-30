@@ -1,0 +1,20 @@
+{
+  "code_commit": "daf9a32a9e2b4325fa42ae7997a732a1ac710193",
+  "backend_tree": "1edb739a8bb008d9ea01b65127938a0f44cb14c4",
+  "full_gate_exit": 0,
+  "full_gate_tail": "3729 passed, 40 warnings in 157.93s (0:02:37)",
+  "restored_focused": "25 passed, 2 warnings in 0.97s",
+  "files": {
+    "pending-recovery-fault.txt": "e3a8af04c5828c48e2cf027e73284ca7155a8459f4548ffaed5e50c30a0895c7",
+    "pending-recovery-proof.json": "716f6211ef9c88cd344a8c0834d3b671e7e4224f8a69b2ec8b29b1757cc97c34",
+    "pending-recovery-restored.txt": "7d517a5282b147d9ec6fd625f4f6e230277aaa3f0986eb7161be2a9cb27f54d9",
+    "pending-recovery-runner.py.txt": "aa7a18b51c33281f37cb19faf0f0a400d9da0fbf779ad2041cef81809054b264",
+    "recovery-api-review.md": "be046ec4e68109f9f23f6a2a4c537f25582f2f7b5e0da5b2cb5a1c6812b0644d",
+    "recovery-final-full-gate.txt": "be63db4f260af21c3e0a817a03e8e0b5fac029d9c2115c69cda140cf67148e5e",
+    "recovery-path-fault.txt": "88a03c7126d0c272b45cf83e73e793905409be173633eb98f74848bcd20a28f1",
+    "recovery-path-proof.json": "a8900374b7db82fd83d8e8716bc8c8e0932a3d379173bf0904c446ca2a5f19fc",
+    "recovery-path-restored.txt": "f44ee923d15eff3c76e85a58cb10c59bd0f82a9afff7d84ea3055d2fb456a576",
+    "recovery-path-runner.py.txt": "827b22d83eaa41fe57ae1ba523c2bebf4646e9db6dfd9da94ffefec01981d7d0"
+  },
+  "locked_files_unchanged": 11
+}

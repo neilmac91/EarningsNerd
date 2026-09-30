@@ -1,10 +1,149 @@
+## 2026-09-30 — native-evidence delivery adapter candidate (engineering-only)
+
+- Capability preflight in the implementer's container: Claude Code CLI 2.1.285 present, `codex` absent, Anthropic SDK not installed, credentials and network policy not inspected. Documented, statically measured and unknown facts are kept separate in the handback's capability inventory; no model, API or paid call was made.
+- New `backend/evals/acceptance_source_review_delivery.py` dispatches exactly the reserved `prompt.bin` bytes through one route (`claude -p`, stdin, `stream-json`, no tools), with an allow-listed child environment, create-once ledger as the redispatch lock, file-backed raw streams, group kill on timeout, fail-closed classification (`unknown` > `compacted` > `truncated` > `failed` > `complete`; `complete` needs an observed `end_turn`), per-member native dispositions by exact bytes, and a settlement proposal for the unchanged journal. Contract: `tasks/readiness-2026-09-21/acceptance/source-review-native-delivery.md`. The six owner modules and their tests are byte-identical to the handoff snapshot.
+- Offline owner tests cover exact stdin/output binding, each reason code the classifier emits, unknown delivery left pending with same-root redispatch refused (the lock is per delivery root; one root per journal is the operator rule), pre-dispatch refusals with no ledger (including user memory/rules/plugins in HOME), the frozen argv/env allow-list with no path or value disclosure, native-member honesty, a re-labelled ledger refused against the journal contract, the status matrix (unknown never admits eligible; operator retirement after failed/unknown), and one real subprocess run against a fake CLI. `backend/scripts/native_delivery_probe.py` prepares the single bounded probe (synthetic packet, one dispatch, no retry; `plan` runs the adapter's preflight with no side effects) for Codex to release after inspection.
+- [ ] Codex: bind the base, run the probe `plan` on the releasing machine, then `run` once; adopt the retained `stdout.raw` as the first real stream fixture before any second call. Opening a PR runs the paid `eval-baseline` job and merging deploys the backend service; neither is authorised by this task.
+
+## 2026-09-30 — recover incomplete Analysis streams
+
+- Two independent refutations upheld a conditional EOF/idle-timeout lifecycle defect on main `0dcc4ee3`: the client omitted a terminal callback and the mounted Run flow stayed busy. No production incident or deployed feature-flag observation is inferred.
+- The Analysis client now reports incomplete EOF and idle timeout once, keeps caller cancellation quiet, stops after the first terminal event and releases the reader/timer. Progressive previews, completion/error/not-enough-data mappings and shared auth refresh are preserved.
+- The existing owner includes actual mounted Run recovery. Corrected fixtures fail against the original runtime (8 failed / 5 passed) and pass after the correction (13/13); earlier fixture failures are retained. Node 22.23.2 lint, TypeScript and all 726 tests/115 files pass. The unchanged default build passes with 27/27 generated pages outside the sandbox; its earlier stalled attempt, process diagnostic and cache are retained.
+- Local evidence: `outputs/resumption-2026-09-30/analysis-stream/`. No backend, model, scorer, locked contract, feature-flag, account or pricing change.
+
+## 2026-09-29 — release completed sibling filing reads
+
+- Separate actual-HTTP/PostgreSQL controls reproduced pool starvation in specific-filing, recent-filing, content and fundamentals reads. Retain two fresh refutation passes and the original failures.
+- Materialize existing DTOs or primitive payloads before synchronous `finally` cleanup. Extend the single filing-read burst gate to populated, empty and 404 responses; preserve global dependencies, pool settings and locked tests. One committed mutation failed 9/10 and restored 10/10; the full backend gate passed 3,817 tests. [Evidence](review-evidence/filing-read-session-successor-2026-09-29/README.md) retains actual-HTTP bounds and remaining limits. Base reconciliation to main `367a70fa`, exact-head independent review at `0a0e83d2`, hosted CI70 and ready-stage Copilot completed. The evidence contains a dated coordination snapshot; [PR #1018](https://github.com/neilmac91/EarningsNerd/pull/1018) is the live source for the documentation correction and subsequent serial release, not a request to redo those completed gates.
+
+## 2026-09-29 — release completed filing-list database sessions
+
+- Isolated PostgreSQL measurement reproduced four-slot pool starvation from eight concurrent cached HTTP reads, including full middleware and local Uvicorn. Close materialized cached/live/fallback reads synchronously; retain original response, cache and background-refresh behavior.
+- One full-app regression guards the reported burst, with a failing/restored mutation proof. Full backend gate: 3,808 passed; separate PostgreSQL/HTTP checks: eight cached reads and 44 mixed requests passed. [Local evidence](review-evidence/filing-cache-session-2026-09-29/README.md) retains limits. Exact-head hosted review and serial release remain required.
+
+# September 28 — bounded operational capacity readout
+
+- [x] Add a read-only, two-hour UTC-window Ops inspection using existing WIF, Monitoring/Logging and the pinned Cloud SQL proxy. Retain missing permissions, partial pages and sample intervals explicitly.
+- [ ] Complete local/hosted gates and exact-head review; measure the September 28 natural job overlap after release. Current snapshots and sampled connections do not establish peak headroom, SEC egress, provider capacity or a safe beta invitation count.
+
+# September 28 — isolated non-ORM dependency maintenance
+
+- [x] Split eight dependency updates from held #1000; retain SQLAlchemy 2.0.54, narrow its source constraint to `<2.1`, and preserve psycopg2-binary 2.9.13 and greenlet 3.5.6. Exclude SQLAlchemy only from the backend version-update group so its driver migration is reviewed separately; security grouping is unchanged.
+- [x] Verify the exact compiled candidate on committed `20e0855d`: full backend gate passed 3,806 tests; both performance tests passed; disposable PostgreSQL 15.15 seeded 33 tables with psycopg2, passed migration counts 40/0, 0/40, 40/0 and all four concurrency lanes (24/29/6/5 passes). Retain the initial macOS locale setup failure and successful retry in [dependency split evidence](review-evidence/dependency-split-2026-09-28/README.md).
+- [x] Prepare an independently reviewable draft replacement with unchanged application code and contract tests. Leave #1000 open and the paid ready-for-review workflow, merge/release, quality programme and held pricing #1009 outside this tranche.
+- [ ] Complete exact-head hosted checks and independent review before the coordinating release owner decides readiness and serial deployment.
+
+# September 28 — trial billing routing, separate from held pricing activation
+
+- [x] Preserve the selected monthly/yearly cycle from homepage and trial paywall through pricing; retain the existing server-rendered pricing boundary and record the resolved initial cycle once.
+- [x] Preserve guest cycle choice through registration and the existing email-login redirect stash; keep backend eligibility, active subscriptions, beta offers, prices and the pricing experiment unchanged. OAuth callbacks still return to the homepage.
+- [x] Resolve the reviewed stale-stash defect: accepted email login consumes the signup destination even when an explicit redirect wins; a later login cannot replay that completed return. Failed login retains the pending destination for retry.
+- [x] Preserve the beta offer's neutral pricing entry until account eligibility resolves; verify the actual homepage link in guest pricing, alongside the selected monthly paid-offer trial control. This corrects presentation without changing billing or beta entitlements.
+- [ ] Complete committed-state mutation proofs, full frontend gates and independent review before push; verify the preview in both themes before release.
+- [ ] The separately approved $19/month and $190/year offer remains held until accepted quality readiness and coordinated price activation; this routing fix does not activate it or migrate any subscriber.
+
+# September 28 — summary request evidence
+
+- [ ] Deliver one consent-gated request lifecycle across cached/shared/generated summaries and automatic/auth retries; retain server account/request identity, terminal unknowns and legacy semantics.
+- [ ] Verify new adverse controls, mutation proofs, full backend/frontend gates and unchanged locked contracts; review exact head before a bounded metered push/release.
+- [ ] Verify actual backend migration/revision/traffic/jobs and exact-SHA frontend production after merge; live analytics ingestion is a separate access-dependent check.
+
+## September 27 — seven verified releases and H30 review hold
+
+- [x] Engineering releases #963–#969 are verified; current backend is `00393-6m9` from main `e39b475e13a0599d037303aacc75a82d51b053b8`. The [current continuation](continuation-plan-2026-09-26.md) and its evidence index contain actual output, deployment and independent-health receipts.
+- [ ] #970 remains draft at `68e8ff1f29a3ec844d595cfce93b72225d46dba3`: complete technical-attempt omission evades its self-declared closure. Bind the complete retained attempt/context set independently, first examining #964’s existing authority; do not fabricate legacy dispatches. See the [bounded correction plan](review-evidence/takeover-2026-09-26/h30-next-integration-plan.md).
+- [ ] Complete same-Fable #942 judging, corpus capacity/source references and E7 acceptance; correct Analysis ratio precision, prove recovery and collect real controlled-beta evidence. None is established by ordinary CI or the seven releases.
+
+## September 27 — verified overnight implementation and remaining gates
+
+The founder gave Codex full authority for necessary Master Plan changes and explicitly approved
+DeepSeek spend while unavailable overnight. Continue engineering, bounded measurements and verified
+releases without repeating approval requests. Preserve existing quality criteria, evaluator identities,
+specific universe-generation prerequisites and evidence; do not infer customer consent.
+
+- [x] All A/B/C checkpoints reconciled; 80 archive checksum entries verified. No active branch ownership remains outside Codex.
+- [x] Custody corrections implemented in [#963](https://github.com/neilmac91/EarningsNerd/pull/963): full local gate 3,718 passed; four failing/restored regression proofs; 58 focused passes; independent review clear; eleven locked files unchanged.
+- [x] #963 hosted checks and serial release verified: main `5554bc87`, revision `00388-6z4` at 100%, migrations 0/39, independent healthy readback.
+- [x] #964 exact prompt construction, durable pre-dispatch history and recovery released: 3,729 local tests; final hosted 70/70 summaries and 18/18 Copilot draws; revision `00390-q8b` at 100%; migrations 0/39; independent healthy readback. Semantic acceptance remains separate.
+- [x] #965 releases request/background sessions before SEC waits: 3,719 tests, real one-connection regression, hosted 70/70 summaries and 18/18 Copilot draws, revision `00389-c6j` at 100%, and independent health verified before #964.
+- [x] #966 merged at `eea26d2f` after #968 deployment. Hosted default builds, Vercel deployment and main CI 36287670902 are verified; the backend deploy step skipped. Signed-in annual/quarterly cached repeats retained 17 source links and one/two visible warnings.
+- [x] #967 merged as `537bf59b923922d2215ae1399920756e014bd4e5` at 2026-09-27 01:16:36 UTC. Final code `1bc5a9f9` plus `ac60` evidence passed 3,730 tests and five fault proofs, including leaf-name/hash pairing; the final hosted 70+18 telemetry audit is in [final hosted audit](review-evidence/takeover-2026-09-26/pr967-hosted-final.md). Release verified: main CI 36285042203, revision 00391-rgl at 100%, migrations 0/39 and independent healthy readback.
+- [x] #968 cached numeric warnings released: 3,731 local tests, actual hosted 70/70 summaries and 18/18 Copilot draws; main `2dce80c4`, revision `00392-zph` at 100%, migrations 0/39 and independent healthy readback.
+- [x] H29 eligible pair and reconciliation retained: 25 current plus 15 adverse dispositions, 13 material reference issues and 11 resolved disagreements. This does not certify candidate-output quality.
+- [x] H30 current A/B briefs and source-only reconciliation retained: A has 9 issues and B has 10; the reconciliation has 10 material issues, all 19 current dispositions and 12 resolved source disagreements. All 52 historical identities remain separate, with 51 source-supported and one runtime-only claim unresolved for custodian classification. Old A/B/reconciliation contexts remain retired; the partial A3 artifact is historical while its later current source-only brief is retained. All eight known contexts must remain excluded from blind roles; no programme admission is claimed.
+- [x] #969 corrected head `c3a10d01` merged as `e39b475e` after [3,731 local tests on the exact corrected head](review-evidence/takeover-2026-09-26/pr969-final-local-gate.json), 70/70 summaries, 18/18 Copilot draws and exact-head review. Main CI 36289833641, revision `00393-6m9` at 100%, migrations 0/39 and independent healthy readback are verified. Eight readable H01 members construct locally; H02 primary projection/verification completes with observed 1.87 GB RSS. H25 full projection is held for a memory-limited worker; all-member/modality/semantic/provider-capacity proof remains open.
+- [x] #942 current-main integration and fresh q2/q3 evidence retained: 70/70 and 105/105, zero recorded harness errors/retries, all deterministic gates pass; p/q2 source parity verified. Backend floor remains unchanged.
+- [ ] Run the prepared matched Fable comparison (140 slots, up to 280 actual CLI invocations, durable checkpointing) before q release/pin; E7 candidate freeze follows that disposition.
+- [ ] Correct Analysis ratio precision in model input, preserving display formatting and versioning the prompt/cache stamp. Verify the captured just-above-one case and a bounded matched before/after response; existing deterministic checks alone do not prove narrative quality. [Bounded follow-up](review-evidence/takeover-2026-09-26/analysis-ratio-precision-followup.md).
+- [x] Notable ownership/disposition reviewed: retain implementation and keep activation deferred. Engineering owns the missing seven-day job/source-quality readout; the original seed/scheduler evidence does not establish acceptance. [Disposition](review-evidence/takeover-2026-09-26/notable-disposition-review.md).
+- [ ] Recovery: local cloud reauthentication remains unavailable. Existing WIF can supply an allowlisted read, but automatic approval review rejected the proposed GitHub Actions metadata destination; explicit storage approval is pending. No workflow patch, permission grant, SQL query or cloud mutation occurred. Codex owns pricing/cap and bounded rehearsal/cleanup after access is resolved.
+
+## September 26 — chief-engineer takeover
+
+Reconciled merged #940/#951/#953–#961, current open #942/draft #952, actual regression/Copilot
+executions and release logs. Three independently reproduced offline graph-custody gaps remain
+after #961; no E7 acceptance result or beta/recovery outcome follows from the source tooling.
+The [current continuation](continuation-plan-2026-09-26.md) assigns the minimum correction,
+H29 reconciliation/integration, candidate freeze, E7 execution, recovery and cohort sequence.
+All three agent checkpoints are now reconciled; their sessions are idle and Codex owns the
+remaining work. Agent B's original fixtures and follow-up findings are retained. This update
+changes documentation only.
+
+## September 23 — bounded source-review implementation
+
+The subsequent [markup-boundary correction](review-evidence/e7-source-view-2026-09-23/markup-closure-fix/README.md) at `30dfce4c` rejects unsupported implicit closes, fixes the exporter guide and removes an introduced repeated ancestry scan. Final full gate: **3655 passed, 40 warnings in 157.12s (0:02:37)**, zero failures/errors/skips. One guard fault/restoration proof and independent review pass; all 24 H29 artifacts remain unchanged.
+
+Hosted review found a missing inline `!important` hidden-text annotation; corrected at `a0fea57b`. Full revalidation passed **3655 passed, 40 warnings in 166.33s (0:02:46)** with zero failures/errors/skips. Exact old-matcher mutation failed and restoration passed; independent review found no actionable issue, and all six H29 views remain byte-identical. [Correction evidence](review-evidence/e7-source-view-2026-09-23/important-style-fix/README.md).
+
+Integrated verified main `ebdc4c44` into #940 and added an offline source reader that preserves text, table relationships, attributes, image/exclusion inventories and exact raw byte locators. Six H29 views passed independent text/count checks and byte-identical regeneration. Full local validation passed 3,655 tests with all PostgreSQL and performance lanes; the new dropped-text mutation failed and exact restoration passed. [Implementation evidence](review-evidence/e7-source-view-2026-09-23/README.md).
+
+The founder-account ready-for-review action on #940 is preserved. The PR remains unmerged; the two earlier denied guard-removal proof requirements remain unresolved and were not retried. The [actual H29 pilot](review-evidence/e7-source-view-2026-09-23/source-pilot.md) has one individually frozen A brief; B is partial/ineligible after context compaction, with no complete pair/reconciliation. Hierarchical evidence work is next. No E7 holdout generation or Fable call was made in this source-method tranche. [Updated continuation and master-plan position](continuation-plan-2026-09-23.md).
+
+## September 23 — reconciled Fable work and E7 document mapping
+
+Latest Fable ZIPs contain no new judgments; E3/KO completion is retained and E8 remains 140 reused / 0 new / 160 missing. Current main #947 deployment is verified at revision 00378-jlg, migrations 0/39, independent healthy response. Closed obsolete draft #943 as superseded by #945 without deleting its branch. [Current continuation and master-plan position](continuation-plan-2026-09-23.md).
+
+Integrated current main into E7 draft #940. The new offline mapper verifies the existing fixed archive and accounts for all 4,330 embedded documents across 30 complete submissions. All 92 packets/60 supplements/30 embedding contracts are hash-bound; two real-archive runs produced 31 identical JSON files in about 19 seconds. The [source-map receipt](review-evidence/e7-source-map-2026-09-23/README.md) preserves scope and limits. No semantic coverage, paid generation, model call or quality acceptance follows. The source-only review capacity tranche is next; the prior denied proof blockers remain, with no alternate-route retry.
+
 ## September 23 — E8 launch readiness: attached add-on verified, kit revision 3, export and restore hardened
 
 - [x] Session `session_016Pp5bKtWb43ugUV1QfPtr6` (iOS, Auto mode) received only `fable-e8-continuation-2026-09-22.zip` (SHA-256 `5298a21e…0909`, equal to the kit table; manifest 5/5; the re-pin package derives from it by the one documented line). One of nine attachments and an Auto-mode session: no judging, by the kit and by the 22 September founder decision. Container CLI still `2.1.280`, same binary hash as 22 September; no drift. [Receipt and review](review-evidence/e8-launch-readiness-2026-09-23/README.md).
 - [x] Offline readiness review of the whole launch path (56 agents, 37 findings, each adversarially verified). Launch-blocking: the kit said only "non-Auto", but Plan still sends shell commands to the classifier by default, so revision 3 names **Accept edits**. The harness starts cloud sessions with a session-level allow list that includes Bash, which Auto drops: that is why both 22 September sessions met the classifier, and why a silent step 0 in Accept edits proves the route open but not the project rules.
 - [x] Fixed without touching anything sealed: `export_e8_state.py` never withholds evidence (partial setup, unmatched receipts, STOP) and records `recovery_eligible` with blockers; it verifies its copy and lists pending markers. `.gitignore` keeps `run.log` files under `tasks/review-evidence/`, which `git add` had been dropping silently. `restore_e8_session.py` checks all nine attachments, the manifest schema and the CLI before writing, logs the frozen commit and prints its log on refusal. The gates pin all seven kit commands, the attestation template (against sealed `attest()` constants), the attachment table and the mode, and a new seal gate pins the re-pin manifests. 162 E8 gate cases, mutation-proved; a second adversarial review of the diff found eleven minor issues, the pre-merge review five should-fix items and Codex two P1s and a P2 (export ledger continuity, frozen-index binding, malformed slot names), all fixed; an eligible export now also requires the saved post-run inspection, the sealed admission's own verdict. Records #947 (`<UTC stamp>` / `<post-run stamp>` split) and #948 (placeholder commands pinned whole), which had no entry. Corrects the #946 receipt's claim that the pristine-guard snapshot was never committed (it was, in #945).
-- [ ] Merge, then launch per [revision 3](fable-e8-launch-kit.md). Founder decisions, none blocking: F35 unused allow rules, F29 no mid-run checkpoint, F06 judge outside the venv (recorded), sealed rebuild for F07/F18. E8 remains 140 reused / 0 new / 160 missing. No quality or activation claim.
+- [ ] Merge the tooling only; E8 judging stays parked ("#952 — E8 launch/recovery … Park it while E7 progresses", [continuation plan of 26 September](continuation-plan-2026-09-26.md)). The [revision 3 kit](fable-e8-launch-kit.md) applies only if the founder resumes E8. Founder decisions, none blocking: F35 unused allow rules, F29 no mid-run checkpoint, F06 judge outside the venv (recorded), sealed rebuild for F07/F18. E8 remains 140 reused / 0 new / 160 missing. No quality or activation claim.
 
+## September 22 — E7 exact runtime dependency inventory
+
+The hosted review found that required pins alone allowed a candidate-only package to remain importable in the comparator. Runtime admission now rejects any installed distribution absent from either selected lock; the child rechecks the inventory before claiming its request. A single shared interpreter cannot run arms with different dependency sets. The pinned Python 3.11 runtime has exactly all 99 locked packages and no extras. The existing runtime gate now proves rejection of a comparator missing a candidate dependency and acceptance once that extra package is removed. The existing executor suite passed 26 tests. Removing only the new comparison failed the targeted gate; exact restoration passed it. Full pre-push verification and independent review follow.
+
+## September 22 — E7 actual review contexts and deterministic findings
+
+The version 3 role protocol freezes model/prompt identity while version 2 source evidence records a fresh actual context per filing and role. All 60 brief and 30 reconciliation contexts must be unique. Output reviews bind their observed contexts to raw responses and cannot reuse source contexts or cross quality/challenge roles. This removes the earlier five-global-context limitation before any formal review seal.
+
+The latest hosted review finding is corrected: rejected findings cannot clear deterministic quote, citation or arithmetic failures. The matching finding must be confirmed; existing material-defect and fabricated-quote vetoes remain. An offline mutation reproduces the former false pass. Source-context reuse, cross-role reuse and response-context mismatches have fail/restore proofs too.
+
+Two fresh independent Sol contexts have produced source-only drafts for NIO holdout H30 (12 and 11 material-issue entries). A third source-only context reconciled all 23 original entries into 11 draft issues, with 12 disagreement records. The drafts retain coverage/runtime-observation limits and are not counted as readiness-eligible completed references. No candidate/comparator output, paid E7 generation, Fable call, E8 queue change or production activation occurred. The remaining 29 filings, formal reference custody, frozen execution arms, provider evidence and metered smoke remain engineering work.
+
+## E7 solo-founder direction — 2026-09-22
+
+The founder clarified that full human review has not occurred and is not feasible. [AI-assisted plan](readiness-2026-09-21/acceptance/ai-assisted-plan.md) replaces the expectation that the founder supplies a full human panel with an engineering-owned alternative, explicitly weaker than independent expert review. Version 2 AI-assisted review validation, exact checks, retained CLI-call verification and decision reporting are now implemented. The explicit revised-source adapter is now integrated across readiness, both-arm measurement instrumentation, collection and review packets; its all-30 parser canary passes in the pinned Python 3.11 runtime. Real source reviews and execution prerequisites remain pending; no completed review/acceptance is claimed. Preserve the 30/90+30 identities, USD 10 generator cap, 243 Fable-call cap and material-defect rules. New reference-evidence binding prevents coherent post-output edits without freezing renewable provider observations.
+
+The [explicit Fable call runner](readiness-2026-09-21/acceptance/ai-assisted/judge-runner.md) now reserves each call durably before launch, retains raw evidence, verifies the pinned CLI locally, rejects inherited project context and stops on uncertain transport or a failed optional probe. Its tests use fake executables only. Source challenges now bind a real passage from the selected filing, while semantic relevance remains an AI review responsibility. These additions do not dispatch the E7 programme. Source validation now uses the explicit [frozen-source contract](readiness-2026-09-21/acceptance/frozen-source-contract.md); independent AI reference evidence and the remaining execution prerequisites still hold paid admission.
+
+## September 22 — E7 completion artifacts bound to durable digests
+
+The worker now records final-byte digests for every declared output/evidence artifact, including raw preview callbacks, before completion. The controller binds the result SHA256 to its one-time completed slot; the collector verifies that digest and the exact artifact inventory before materializing previews or publishing output records. [Execution evidence limits](readiness-2026-09-21/acceptance/execution.md) prohibit retroactive re-sealing and distinguish change detection against the retained ledger from coordinated rewriting of all evidence. The source-binding hold, budget and human prerequisites remain intact; no E7 generation or live provider call occurred.
+
+## September 22 — E7 balance and Fable claims bound to hashed observations
+
+The draft readiness gate now validates typed balance/Fable receipt contents, matches inline claims and observation times, rejects nonfinite or boolean balances and mismatched model/contract/quota, and evaluates freshness from the receipt. [Receipt formats and limits](readiness-2026-09-21/acceptance/README.md) distinguish content/hash agreement from authenticated provider evidence; real retained readbacks remain required before use. The unconditional archive-binding hold, USD 10 admission and human-brief safeguards are unchanged. No live balance/quota inspection or provider call was made.
+
+## September 22 — E7 draft source-binding hold and collector evidence protection
+
+PR #940 remains draft. The current worker does not bind every section/XBRL channel to the frozen archive; the 6-K text adapter does not bind its separate structured path, and the manifest has no frozen companyfacts response. A non-configurable engineering hold now rejects the whole programme before smoke/slot dispatch or claim, direct worker database/provider work, and reviewer packet creation. [Unblock criteria](readiness-2026-09-21/acceptance/execution.md#source-binding-unblock-criteria) require original archive recovery, production-path provenance and independent review, without dropping source channels or filings.
+
+The collector now refuses any output destination inside the permanent programme and refuses unrelated existing external files before inspecting/materializing evidence. Recollection may replace only an index associated with that same programme. Offline targeted acceptance checks: 57 passed, 9 warnings; changed-file Ruff passed. Full gate and hosted review follow. No provider call, budget/brief safeguard change, holdout exposure, flag change or acceptance decision occurred.
 ## September 22 — E8 re-pin judging session stopped before restore (permission denial)
 
 - [x] Session `session_01DJicvUd1iyrfzFjCPxV6f4` on `claude/new-session-8v1cg4` (based on main `3d836ad`; receipt and verification corrections committed and pushed, draft PR [#946](https://github.com/neilmac91/EarningsNerd/pull/946)) received all nine kit attachments with matching hashes and verified the re-pin manifests; the auto-mode classifier then denied `restore_e8_session.py` in the exact allow-listed form (`[Auto-Mode Bypass]`) and afterwards its `--help`. Stopped at kit step 1. [Receipt](review-evidence/e8-repin-restore-2026-09-22/receipt.md).
@@ -695,7 +834,7 @@ See [the handover](handover-astra-2026-09-09.md) for verified releases, exact pr
 
 ## September 9 verified quality release
 
-- [x] Working-capital comparator dates: [#784](https://github.com/neilmac91/EarningsNerd/pull/784) merged and production-verified on `earningsnerd-backend-00312-7jp`, main CI34286869418, migrations0/39, healthy CI/independent detailed health.
+- [x] Working-capital comparator dates: [#784](https://github.com/neilmac91/EarningsNerd/pull/784) merged and production-verified on `earningsnerd-backend-00312-7jp`, main CI34286869418, migrations 0/39, healthy CI/independent detailed health.
 - [ ] Complete source-identity fallback, chat cleanup, segment-share and return-basis releases; each has its own gate/review and serial deploy verification.
 - [ ] Account observations remain access-blocked: controllable in-app browser has no Stripe/Google session; existing Chrome PostHog session is readable but Chrome browser automation is unavailable in this task. No account setting changed. Resume with an authenticated controllable session; continue engineering meanwhile.
 
@@ -5101,7 +5240,7 @@ local preparation. The ordinary review and serial production verification remain
 
 This addition supersedes conflicting current-state instructions above without rewriting their history. [Migration audit](audit-astra-2026-09-11.md) is in progress at main `8e9ad24cb643688b7cbc146e0ecd1cfe4a2d069f` (#815).
 
-- [x] Reconcile #809–#815 against GitHub. Latest backend is #814 revision `earningsnerd-backend-00329-cx2`, migrations0/39,100% and healthy CI detailed health; #815 skips deployment. September12 independent detailed health is healthy. The #812 production attribution in the launch handover is superseded.
+- [x] Reconcile #809–#815 against GitHub. Latest backend is #814 revision `earningsnerd-backend-00329-cx2`, migrations 0/39,100% and healthy CI detailed health; #815 skips deployment. September12 independent detailed health is healthy. The #812 production attribution in the launch handover is superseded.
 - [x] Confirm #796 error-outcome and #799 reported-metric d are already merged and verified. Do not reimplement either or launch a third #799 assessment. #805 is the genuinely unfinished explanation candidate, held after its first failed financial assessment.
 - [x] Verify current official Flash prices and peak schedule. DeepSeek now states V4 Pro continues after September14 at its own unchanged rates; the old retirement premise is superseded. Flash with thinking off remains the approved configuration.
 - [ ] Finish clean current-main backend (four PostgreSQL lanes/performance) and frontend lint/TypeScript/Vitest/build gates. Local database recovery and cold file reads delayed startup; no partial pass is claimed.
@@ -5733,3 +5872,143 @@ A fresh Claude Code web container restored the E8 kit (12 attachments verified, 
 - [ ] Separately authorized E8 session remains outstanding: 140 controls reused under 2.1.278,
   zero new judgments, 160 slots planned under 2.1.280. Every readout must state that CLI-version
   confound. No quality conclusion, production change or universe-wide generation authorized here.
+
+### September 23 — nesting and ratio review corrections
+
+- PR940 source reader `2f59c73b` rejects unsupported nested controls and table foster parenting; 3655 passed, 40 warnings in 160.73s (0:02:40), all PostgreSQL/performance lanes, Ruff/Bandit/dependency checks pass. Six H29 views/24 artifacts are unchanged.
+- PR942 `aab234fb` aligns the actual generator instruction with shared formula labels; 3,500 tests pass. Same-contract generated-output comparison remains required.
+- Hierarchy implementation is sequenced as custody, reconciliation and downstream admission. No E7 generation, Fable call, production flag or deployment; earlier denied proof holds remain.
+
+### September 23 — offline source-event capacity
+
+- Implemented the non-admitting capacity CLI and one invariant on a separate branch stacked on #940. Corrective code `abf4ca64` passes 3,656 tests, all four PostgreSQL lanes, performance, Ruff/Bandit/dependency checks.
+- Measured revised H01/H02/H25 primary identities: largest raw events 1,499/2,186/941 bytes; H25 is 57,158,558 bytes, 1,278,811 events, 3.49 seconds and about 142 MiB preflight peak RSS. [Receipts](review-evidence/e7-source-capacity-2026-09-23/README.md) preserve the skipped-prefix correction, both guard proofs and bounded independent review.
+- Source custody, issue propagation/reconciliation, admission integration and actual quality evidence remain next. No E7 generation, Fable calls or production deployment; prior denied proof holds remain.
+
+### September 27 — bounded serialized source export
+
+- [x] Reproduced the remaining H25 public-export failure in Linux run 36311408531: projection returned, whole JSON encoding exhausted memory, H02 held. Implemented byte-preserving streamed export with a public-API memory gate and exact Unicode/manifest parity checks.
+- [x] Both direct-primary exports passed the unchanged H25/H02 Linux contract (run 36318572864); full local gate passed 3,734 tests.
+- [x] #974 hosted review/70-summary/18-Copilot measurements cleared; merged `a7983ddc`, main CI `36320062558` passed, revision `00396-p2f` serves 100%, migrations 0/39 and independent health passed. [Evidence and limits](review-evidence/source-view-streaming-2026-09-27/README.md). Ratio candidate #942 remains draft and unpinned; source capacity is not E7 acceptance.
+
+- [x] Current H25 complete-submission entity matches the frozen 297,209,475-byte capture; one authoritative terminal-case GIF matches its retained diagnostic identity. Two SEC requests total across these successful observations, no model calls, no decoder repair or admission.
+- [ ] Finish the [remaining quality corrections](review-evidence/source-view-streaming-2026-09-27/next-quality-candidate.md) before the next paid candidate corpus. The reviewed local r date/coexistence commit remains unpushed and unaccepted.
+
+
+## September 28 initial execution snapshot
+
+- [x] Verify #996 release and the first natural weekly facts backfill against its business ledger; retain zero-backlog and unchanged-job readback.
+- [x] Complete H28 independent source briefs, source-reading reconciliation and bounded custody validation; preserve all 55 current/adverse identities (3/30 source-preparation dossiers).
+- [x] Complete Notable seven-day operational and frozen 12-card source/UI readout; retain implementation and defer activation under delegated authority.
+- [ ] Release #997 neutral Analysis source wording after exact-head gates and verify deployment.
+- [ ] Correct Notable regulatory labels without changing internal keys/ranking/flag, then resolve four remaining source gaps before activation.
+- [ ] Review Fable's finite source-owned maturity repair; keep #992 draft until source-measure ownership and exact-head evidence pass.
+- [ ] Execute the remaining 27 source dossiers using measured complete partitions, then the unchanged E7 programme on an accepted configuration.
+
+Evidence and current ownership: [September 28 execution update](continuation-plan-2026-09-26.md#september-28-execution-update).
+
+### September 28 verified release and additive review
+
+- [x] Release #997 source-entry wording at revision `00408-9b6`; main CI `36395595444`, migrations 0/40, all eight job images and independent healthy readback verified.
+- [x] Resolve the four frozen Notable acquisition gaps without resampling; preserve initial verdicts and UI overclaims. Complete source support is limited to the corrected labels for twelve examples.
+- [x] Verify H20 current ZIP relationships: six exact HTML children and five exact terminal-newline XML/XSD transforms. Historical archive equality and semantic preparation remain unproved.
+- [x] Complete #1002 responsive label correction and serial release, then reviewed Notable activation and public readback.
+- [x] Close #992's retained entity/dimension source-ownership defect and release the reviewed repair. Existing quality holds remain.
+- [x] Complete #998 patch review and #999 Sentry migration; keep SQLAlchemy driver migration separate.
+
+See the [September 28 evidence](review-evidence/progress-2026-09-28/README.md). These closures do not replace E7 or real-user acceptance.
+
+### September 28 final release checkpoint
+
+- [x] Verify final #992/#1003 WIF, health and homepage evidence.
+- [x] Prepare H15’s 67 readers plus index and bind the current ZIP’s ten children.
+- [x] Retain one JPM flag and eight initial controls; record two unresolved source-context counterexamples without mutation or paid calls.
+- [ ] Resolve source-context ownership or choose source-first presentation before integration; no further paid draw.
+
+H15 historical equality, logo and 78 dispositions remain unresolved. Quality, beta and source work remain open; progress is 57.5%, dossiers 3/30. Stripe remains blocked; no credential was copied into project files.
+
+
+## September 28 — prospective beta event evidence
+
+- Implemented versioned, consent-gated summary-view identity snapshots from the existing
+  current-user query, with explicit unknown/anonymous states and summary identity. Later
+  person merges cannot substitute for the event's recorded account. Client state remains
+  weaker than server-authenticated consumption.
+- Added focused producer/capture tests, plus concrete reviewed usefulness intake instructions
+  in the existing beta support kit. Generation lifecycle completion, actual consent/cohort
+  observations, offered-scope acceptance and measured fleet headroom remain open.
+- Local evidence is under the September 28 workspace
+  `outputs/execution-2026-09-28/`: source-bound candidate stop, beta readout fixtures and
+  retained fleet arithmetic. No E7/E8 generation or claim of a completed fourth dossier.
+
+
+## 2026-09-28 — isolated quarterly component-withholding candidate
+
+- Verified remote base `4db8f46a1a35eca7e71194919eefafb29c29e50d`; implementation stays
+  on `codex/wave3-quarterly-source-preservation`. Held `9e65e74c` and its five red
+  source-scope regressions remain untouched in their original checkout.
+- Replace only a complete matching ambiguous aggregate/component proposition with
+  an explicit application verification limitation. Preserve the complete separate
+  compensation continuation and all other fields. No quarterly financial fact is
+  reconstructed from the operand descriptor.
+- This is offline candidate work pending independent root review. Native-source
+  supplements are separate from the unchanged retained-70 cached-source evidence.
+  No provider call, push, PR, production change, E7 credit or content-stamp adoption.
+- Independent engineering review requested three fixes: quarterly-only omission
+  from both optional judge annexes, short-header abstention and exception-safe
+  leap-date abstention. Correction commit `5274fc7e` passes 59 focused tests, three
+  committed fault/restored proofs and the full backend gate (3,866 passed, 39
+  skipped, 2 deselected). Annual/absent full-message hashes are preserved. The
+  candidate remains held for independent re-review; no release action is taken.
+
+## September 28 overnight authority and provider-cost correction
+
+The founder requested independent overnight implementation with agents and explicitly authorized
+necessary changes and DeepSeek spend. Continue the quality/source/capacity critical path with
+normal review and serial release gates. The local overnight checkpoint records an initial USD 5
+discretionary ceiling against a fresh USD 51.36 available balance (readout 36488471935); formal
+E7/E8 contracts and customer-consent/quality prerequisites remain unchanged. This supersedes
+earlier blanket account/spend waiting states, not the retained specific quality boundaries.
+
+The official DeepSeek notice and the existing ADR-0008 addendum both say Pro service continued
+after September 14. Correct its per-call telemetry rates to USD 0.022/0.66/1.98 per million
+cache-hit input/cache-miss input/output tokens off peak, with the existing peak multiplier.
+Preserve Flash rates, model/default/flag/prompt/baseline settings and historical measurements.
+One dedicated tariff gate and its stale-rate fault prove the rates. Separate actual-model
+routing and completion-accounting gates use estimator sentinels; completion telemetry preserves
+recorded per-call costs, mixed models and unknown usage through retries and tool rounds.
+Full local and hosted verification plus independent exact-head review precede release.
+
+## September 30 — Analysis request ownership
+
+- A pending dataset response could restart an obsolete company/mode analysis after a
+  selection reset or unmount, aborting a newer stream; an old failure could clear newer state.
+- Own and cancel the dataset request before awaiting it, and check ownership before
+  publishing either phase. Changing the period range now clears the previous result and
+  cancels its request, matching company/mode changes. Refresh holds the Run control busy.
+- The existing mounted Analysis test owner reproduces company/mode/range/unmount and
+  older-success/older-error races even when the mocked transport ignores cancellation.
+  Corrected base: 6 failed / 13 passed; fixed focused suite: 19 passed. The initial range
+  fixture selected an unchanged endpoint; its failure and corrected proof remain retained.
+- Full frontend lint, TypeScript, tests and production build passed on Node22.23.2.
+  No backend, provider, prompt, flag, price or locked-contract change. Exact-head review,
+  hosted checks and frontend release verification follow separately.
+
+- 2026-09-30 native-delivery integration: preserved all pinned owners; independently reproduced
+  and fixed assistant-model mismatch admission and pre-settlement stdin/journal binding. The
+  single subscription probe returned four exact lines but was retained as failed for absent
+  assistant finish metadata. No retry, source dispatch, or E7/E8 admission; classifier 2 keeps
+  the measured failure closed. Paid CI awaits a fresh balance after Google Cloud reauthentication.
+
+
+## September 30 — beta export readiness receipt
+
+- Retain the actual three-row PostHog literal projection and unchanged v1 consumer
+  output with input hashes. Synthetic view/request pairing works; absent provider
+  pagination metadata keeps export completeness false.
+- Replace the stale runbook claim that no live synthetic query ran. Document the
+  supported file-download export prerequisite. After the founder reconnected, one
+  literal-only attempt confirmed that team HogQL export access is disabled; no
+  unchanged retry or broader export followed. A new input format still needs review.
+- Documentation and synthetic evidence only. No customer query, source-role work,
+  E7/E8 admission, production flag, price change, invitation or model call.

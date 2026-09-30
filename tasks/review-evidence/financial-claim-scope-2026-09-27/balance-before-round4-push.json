@@ -1,0 +1,17 @@
+{
+  "read_at_utc": "2026-09-28T06:19:59Z",
+  "endpoint": "GET https://api.deepseek.com/user/balance",
+  "http_status": 200,
+  "response": {
+    "is_available": true,
+    "balance_infos": [
+      {
+        "currency": "USD",
+        "total_balance": "54.41",
+        "granted_balance": "0.00",
+        "topped_up_balance": "54.41"
+      }
+    ]
+  },
+  "note": "Read before the fourth-round push. Cumulative hosted telemetry for this PR before the push: USD 0.660 (0.119 cancelled + 0.181 + 0.181 + 0.179); the push adds one run of about USD 0.18 for about USD 0.84 of the cumulative USD 1.00 ceiling."
+}

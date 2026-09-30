@@ -301,7 +301,7 @@ async def test_serve_window_dedupe_and_ranking(monkeypatch):
         tickers = [f["ticker"] for f in result["filings"]]
         assert tickers == ["AAPL", "MSFT", "DOOM"]
         by_ticker = {f["ticker"]: f for f in result["filings"]}
-        assert by_ticker["AAPL"]["reason_label"] == "Earnings results"
+        assert by_ticker["AAPL"]["reason_label"] == "Results or financial condition"
         assert by_ticker["MSFT"]["filed_date"] == (today - timedelta(days=1)).isoformat()
     finally:
         db.close()

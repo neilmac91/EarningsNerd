@@ -1,0 +1,79 @@
+{
+  "schema_version": 1,
+  "status": "clear",
+  "scope": "bootstrap plus one monthly export and one same-month idempotence check",
+  "bootstrap": {
+    "dedicated_export_identity": true,
+    "cloud_sql_permissions": [
+      "cloudsql.instances.export",
+      "cloudsql.instances.get",
+      "cloudsql.instances.list"
+    ],
+    "github_identity_boundary": "repository main-branch subject only",
+    "bucket_reader_scope": "private export bucket",
+    "cloud_sql_writer_scope": "create-only on the private export bucket",
+    "masked_configuration_secrets": 2,
+    "unexpected_broad_bindings": 0
+  },
+  "first_export": {
+    "workflow_run_id": 36349655416,
+    "workflow_conclusion": "success",
+    "new_export_operations": 1,
+    "operation_status": "DONE",
+    "operation_error": null,
+    "operation_binding": {
+      "approved_source_and_database": true,
+      "sql_format": true,
+      "offload": true,
+      "clean": true,
+      "if_exists": true,
+      "exact_month_object": true
+    },
+    "object": {
+      "bytes": 4848767,
+      "storage_class": "STANDARD",
+      "gzip_prefix_verified": true,
+      "contents_downloaded_or_printed": false
+    }
+  },
+  "same_month_idempotence": {
+    "workflow_run_id": 36350328859,
+    "workflow_head": "3178b1b91d3a83a0da3496c764c701abb91ab6cd",
+    "reviewed_workflow_blob": "c5a545a2038f2fec45c64f83816cdd98b3397ec3",
+    "workflow_conclusion": "success",
+    "new_export_operations": 0,
+    "object_generation_unchanged": true,
+    "object_size_and_hashes_unchanged": true
+  },
+  "postconditions": {
+    "source_instance_state": "RUNNABLE",
+    "source_material_configuration_unchanged": true,
+    "dedicated_iam_boundaries_unchanged": true,
+    "public_database_health": true
+  },
+  "schedule_and_retention": {
+    "cadence": "04:15 UTC on the first day of each month",
+    "same_month_keying": "one deterministic object per calendar month",
+    "object_expiration_days": 35,
+    "storage_soft_delete_days": 7,
+    "planning_storage_window_days": 45
+  },
+  "cost": {
+    "authorized_planning_ceiling_usd": 1.0,
+    "database_disk_precondition_gib_max": 10,
+    "planning_estimate_only": true,
+    "provider_invoice_available": false,
+    "provider_enforced_workflow_cost_cap": false
+  },
+  "limitations": [
+    "The export has not been imported, so this does not prove SQL restore compatibility.",
+    "The scheduled trigger and 35-day lifecycle deletion have not yet been observed in production.",
+    "This is one successful monthly object plus one same-month replay; it is not evidence for every future month.",
+    "Private project, database, instance, bucket, service-account, IAM-member, operation and object identities remain only in the local custody receipts."
+  ],
+  "private_receipt_sha256": {
+    "bootstrap": "1e09e7cee5d9ab148927da82bd1085dd9b59236218671b34b839454a6853b13",
+    "first_export": "75a12caba594a3ad619d0610c0a3b74c09b46622cab19192b08fb54291043d17",
+    "idempotence": "f9cdf4fa4015e73c83a465a49b35ba2838992a22854ca14ee373f2b5cc226957"
+  }
+}

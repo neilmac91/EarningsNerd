@@ -1,0 +1,109 @@
+{
+  "dossier": "/Users/neilmacaogain/Documents/Codex/2026-09-19/github-plugin-github-openai-curated-remote/outputs/e7-method-implementation-2026-09-23/pilot-inputs-final",
+  "source_view_code_sha256": "75ee1827581cec1b82d934e13888ab1ce2cb2fc37bf3ffa67e10484fd0cd6d9f",
+  "results": [
+    {
+      "view_id": "member-001",
+      "reader_bytes": 5345,
+      "reader_sha256": "9ab8b32b3f7553fdce9fb83a746322ffab4c71e8f7ff73aaa55dd2b31aa04e03",
+      "checks": {
+        "exact_text_roundtrip": true,
+        "independent_text_match": true,
+        "table_markers_match": true,
+        "row_markers_match": true,
+        "image_markers_match": true,
+        "exclusion_markers_match": true
+      },
+      "tables": 2,
+      "rows": 10,
+      "cells": 26,
+      "images": 0
+    },
+    {
+      "view_id": "member-002",
+      "reader_bytes": 80256,
+      "reader_sha256": "d86e48d34aa20a5aa658526782d96494a348a42578aef4560540a73a81354ab1",
+      "checks": {
+        "exact_text_roundtrip": true,
+        "independent_text_match": true,
+        "table_markers_match": true,
+        "row_markers_match": true,
+        "image_markers_match": true,
+        "exclusion_markers_match": true
+      },
+      "tables": 30,
+      "rows": 216,
+      "cells": 3253,
+      "images": 13
+    },
+    {
+      "view_id": "member-003",
+      "reader_bytes": 121641,
+      "reader_sha256": "a6349b420524776fa9ef5dd035d73dd207109c314d5c38c1f4e8113b17cc109f",
+      "checks": {
+        "exact_text_roundtrip": true,
+        "independent_text_match": true,
+        "table_markers_match": true,
+        "row_markers_match": true,
+        "image_markers_match": true,
+        "exclusion_markers_match": true
+      },
+      "tables": 62,
+      "rows": 360,
+      "cells": 3648,
+      "images": 1
+    },
+    {
+      "view_id": "packet-earnings_exhibit",
+      "reader_bytes": 80365,
+      "reader_sha256": "72879f37ce3110e248b836f143e5dd1ee6a62afe268c2cfe506e1ebdfbc78593",
+      "checks": {
+        "exact_text_roundtrip": true,
+        "independent_text_match": true,
+        "table_markers_match": true,
+        "row_markers_match": true,
+        "image_markers_match": true,
+        "exclusion_markers_match": true
+      },
+      "tables": 30,
+      "rows": 216,
+      "cells": 3253,
+      "images": 13
+    },
+    {
+      "view_id": "packet-index",
+      "reader_bytes": 7371,
+      "reader_sha256": "ea820d45793be421d3d876584473527669967b70f38d379670dc38dc15cde898",
+      "checks": {
+        "exact_text_roundtrip": true,
+        "independent_text_match": true,
+        "table_markers_match": true,
+        "row_markers_match": true,
+        "image_markers_match": true,
+        "exclusion_markers_match": true
+      },
+      "tables": 1,
+      "rows": 7,
+      "cells": 35,
+      "images": 1
+    },
+    {
+      "view_id": "packet-primary",
+      "reader_bytes": 5454,
+      "reader_sha256": "3b663837f1807cf72a2ab11234a998504e74955133e9e4d6e607f3cee2f829aa",
+      "checks": {
+        "exact_text_roundtrip": true,
+        "independent_text_match": true,
+        "table_markers_match": true,
+        "row_markers_match": true,
+        "image_markers_match": true,
+        "exclusion_markers_match": true
+      },
+      "tables": 2,
+      "rows": 10,
+      "cells": 26,
+      "images": 0
+    }
+  ],
+  "semantic_coverage_attested": false
+}

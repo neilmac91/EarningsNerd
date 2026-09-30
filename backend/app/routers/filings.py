@@ -75,12 +75,13 @@ async def _refresh_company_filings(
     if key in _refreshing_keys:
         return  # a refresh for this exact key is already in flight in this process
     _refreshing_keys.add(key)
-    db = SessionLocal()
+    db = None
     try:
         sec_filings = await asyncio.wait_for(
             sec_edgar_service.get_filings(cik, types_list),
             timeout=SEC_REQUEST_TIMEOUT_SECONDS,
         )
+        db = SessionLocal()
         company = db.get(Company, company_id)
         if company is None:
             return
@@ -93,9 +94,11 @@ async def _refresh_company_filings(
             ticker_upper,
             exc_info=True,
         )
-        db.rollback()
+        if db is not None:
+            db.rollback()
     finally:
-        db.close()
+        if db is not None:
+            db.close()
         _refreshing_keys.discard(key)
 
 
@@ -107,18 +110,14 @@ async def _run_history_backfill_on_visit(company_id: int) -> None:
     if company_id in _history_backfilling_ids:
         return  # a backfill for this company is already in flight in this process
     _history_backfilling_ids.add(company_id)
-    db = SessionLocal()
     try:
-        company = db.get(Company, company_id)
-        if company is None or company.history_backfilled_at is not None:
-            return  # already backfilled by a prior visit
         from app.services import filing_history_service
-        await filing_history_service.backfill_company(db, company)
+        await filing_history_service.backfill_company_by_id(
+            company_id, session_factory=SessionLocal
+        )
     except Exception:
         logger.warning("On-visit history backfill failed for company %s", company_id, exc_info=True)
-        db.rollback()
     finally:
-        db.close()
         _history_backfilling_ids.discard(company_id)
 
 
@@ -175,7 +174,7 @@ async def get_company_filings(
     background: BackgroundTasks,
     filing_types: Optional[str] = Query(None, description="Comma-separated filing types (e.g., '10-K,10-Q')"),
     limit: Optional[int] = Query(None, ge=1, le=500, description="Max filings to return; default serves the recent cap"),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db, scope="function")
 ):
     """Get filings for a company.
 
@@ -189,6 +188,9 @@ async def get_company_filings(
 
     if not company:
         # Try to fetch company from SEC and create it
+        # The initial lookup opened a read transaction. Release it before SEC network I/O; this
+        # Session remains reusable for the short persistence unit after the await.
+        db.close()
         try:
             sec_results = await sec_edgar_service.search_company(ticker)
             if sec_results:
@@ -231,6 +233,9 @@ async def get_company_filings(
 
     from app.services.filing_amendment_service import expand_amendment_forms
     types_list = expand_amendment_forms(types_list)
+    company_id = company.id
+    company_cik = company.cik
+    needs_history_backfill = company.history_backfilled_at is None
 
     # Helper to get cached filings from database. joinedload(company) so FilingResponse.from_orm
     # doesn't lazy-load the company per row (this is now the primary serving path, not just fallback).
@@ -238,18 +243,24 @@ async def get_company_filings(
         # Default serves the recent cap (unchanged behaviour); an explicit ?limit= (P1-6 "show full
         # history") raises it so the deep-backfilled rows surface.
         row_cap = limit or CACHED_FILINGS_LIMIT
-        cached = db.query(Filing).options(joinedload(Filing.company)).filter(
-            Filing.company_id == company.id,
-            Filing.filing_type.in_(types_list)
-        ).order_by(Filing.filing_date.desc()).limit(row_cap).all()
-        return [FilingResponse.from_orm(f) for f in cached]
+        try:
+            cached = db.query(Filing).options(joinedload(Filing.company)).filter(
+                Filing.company_id == company_id,
+                Filing.filing_type.in_(types_list)
+            ).order_by(Filing.filing_date.desc()).limit(row_cap).all()
+            return [FilingResponse.from_orm(f) for f in cached]
+        finally:
+            # A sync dependency's finalizer runs in the thread pool after this async route yields.
+            # Release completed reads now so a competing synchronous checkout cannot block the
+            # event loop while waiting for those very finalizers to return the serving slots.
+            db.close()
 
     # P1-6: enqueue a one-time deep-history backfill the first time this company is viewed. Guarded
     # by the stamp so it never re-walks a company; runs in the background so the page never waits on
     # the EFTS round-trips. Serving still uses whatever rows exist now; the backfill surfaces on the
     # next full-history fetch.
-    if settings.ENABLE_HISTORY_BACKFILL_ON_VISIT and company.history_backfilled_at is None:
-        background.add_task(_run_history_backfill_on_visit, company.id)
+    if settings.ENABLE_HISTORY_BACKFILL_ON_VISIT and needs_history_backfill:
+        background.add_task(_run_history_backfill_on_visit, company_id)
 
     # B2 fast path: a recently-synced ticker serves its list from the DB (already populated by a
     # prior live fetch) without the 3-5s SEC round-trip. Falls through to the DB-first / live paths
@@ -268,14 +279,16 @@ async def get_company_filings(
     cached = get_cached_filings()
     if cached:
         background.add_task(
-            _refresh_company_filings, company.cik, ticker_upper, types_list, company.id
+            _refresh_company_filings, company_cik, ticker_upper, types_list, company_id
         )
         return cached
 
     try:
         # Try to fetch from SEC with a timeout to ensure we respond within frontend's limit
+        # Both DB reads above are complete. Do not retain their connection during the bounded fetch.
+        db.close()
         sec_filings = await asyncio.wait_for(
-            sec_edgar_service.get_filings(company.cik, types_list),
+            sec_edgar_service.get_filings(company_cik, types_list),
             timeout=SEC_REQUEST_TIMEOUT_SECONDS
         )
 
@@ -323,7 +336,7 @@ async def get_company_filings(
                     continue
 
                 filing = Filing(
-                    company_id=company.id,
+                    company_id=company_id,
                     accession_number=accession_number,
                     filing_type=sec_filing["filing_type"],
                     filing_date=datetime.fromisoformat(sec_filing["filing_date"]),
@@ -352,7 +365,7 @@ async def get_company_filings(
         if new_filings or db.dirty:
             from app.services.filing_amendment_service import mark_superseded_filings
             db.flush()
-            mark_superseded_filings(db, company.id)
+            mark_superseded_filings(db, company_id)
             db.commit()
             # Refresh new filings to get generated IDs
             for filing in new_filings:
@@ -394,17 +407,21 @@ async def get_company_filings(
             logger.info(f"Returning {len(cached)} cached filings for {ticker_upper} after error")
             return cached
         raise HTTPException(status_code=500, detail=f"Error fetching filings: {str(e)}") from e
+    finally:
+        # Live results and error fallbacks also finish their DTOs before dependency cleanup.
+        db.close()
 
 @router.get("/{filing_id}", response_model=FilingResponse)
 async def get_filing(filing_id: int, db: Session = Depends(get_db)):
     """Get a specific filing"""
     from sqlalchemy.orm import joinedload
-    filing = db.query(Filing).options(joinedload(Filing.company)).filter(Filing.id == filing_id).first()
-    
-    if not filing:
-        raise HTTPException(status_code=404, detail="Filing not found")
-    
-    return FilingResponse.from_orm(filing)
+    try:
+        filing = db.query(Filing).options(joinedload(Filing.company)).filter(Filing.id == filing_id).first()
+        if not filing:
+            raise HTTPException(status_code=404, detail="Filing not found")
+        return FilingResponse.from_orm(filing)
+    finally:
+        db.close()
 
 
 class FilingContentResponse(BaseModel):
@@ -425,22 +442,25 @@ async def get_filing_content(filing_id: int, db: Session = Depends(get_db)):
     """
     from sqlalchemy.orm import joinedload
 
-    filing = (
-        db.query(Filing)
-        .options(joinedload(Filing.content_cache))
-        .filter(Filing.id == filing_id)
-        .first()
-    )
-    if not filing:
-        raise HTTPException(status_code=404, detail="Filing not found")
+    try:
+        filing = (
+            db.query(Filing)
+            .options(joinedload(Filing.content_cache))
+            .filter(Filing.id == filing_id)
+            .first()
+        )
+        if not filing:
+            raise HTTPException(status_code=404, detail="Filing not found")
 
-    cache = filing.content_cache
-    markdown = getattr(cache, "markdown_content", None) if cache else None
-    return FilingContentResponse(
-        filing_id=filing_id,
-        has_content=bool(markdown),
-        markdown_content=markdown or None,
-    )
+        cache = filing.content_cache
+        markdown = getattr(cache, "markdown_content", None) if cache else None
+        return FilingContentResponse(
+            filing_id=filing_id,
+            has_content=bool(markdown),
+            markdown_content=markdown or None,
+        )
+    finally:
+        db.close()
 
 
 @router.get("/{filing_id}/fundamentals", response_model=FundamentalsResponse)
@@ -453,10 +473,13 @@ async def get_filing_fundamentals(filing_id: int, db: Session = Depends(get_db))
     """
     from app.services import facts_service
 
-    data = facts_service.get_filing_fundamentals(db, filing_id)
-    if data is None:
-        raise HTTPException(status_code=404, detail="Filing not found")
-    return data
+    try:
+        data = facts_service.get_filing_fundamentals(db, filing_id)
+        if data is None:
+            raise HTTPException(status_code=404, detail="Filing not found")
+        return data
+    finally:
+        db.close()
 
 
 @router.get("/recent/latest", response_model=List[FilingResponse])
@@ -468,8 +491,8 @@ async def get_recent_filings(
     from sqlalchemy import desc
     from sqlalchemy.orm import joinedload
     # Use joinedload to eagerly load company relationship, avoiding N+1 queries
-    filings = db.query(Filing).options(joinedload(Filing.company)).order_by(desc(Filing.filing_date)).limit(limit).all()
-
-    return [FilingResponse.from_orm(filing) for filing in filings]
-
-
+    try:
+        filings = db.query(Filing).options(joinedload(Filing.company)).order_by(desc(Filing.filing_date)).limit(limit).all()
+        return [FilingResponse.from_orm(filing) for filing in filings]
+    finally:
+        db.close()

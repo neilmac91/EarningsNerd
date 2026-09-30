@@ -1,0 +1,73 @@
+{
+  "ci": {
+    "conclusion": "success",
+    "eval_baseline_provider_calls": 0,
+    "eval_baseline_reason": "no AI-relevant app/evals/prompts changes",
+    "run_id": 36346040195
+  },
+  "copilot": {
+    "actual_models": {
+      "deepseek-flash": 36
+    },
+    "artifact_archive_bytes": 78698208,
+    "artifact_crc": "passed",
+    "artifact_id": 10939734722,
+    "completed_outputs": 18,
+    "conclusion": "success",
+    "draws_per_identity": 3,
+    "errors": 0,
+    "expected_outputs": 18,
+    "failures": 0,
+    "known_estimated_cost_usd": 0.007749,
+    "passed_outputs": 18,
+    "physical_provider_calls": 36,
+    "provider_outcomes": {
+      "success": 36
+    },
+    "question_identities": 6,
+    "reasoning_tokens_unreported_calls": 36,
+    "retry_or_error_calls": 0,
+    "run_id": 36346040201,
+    "scored_outputs": 18,
+    "soft_advisory": "Figure coverage is advisory; this is not the weekly strong-judge readout.",
+    "system_fingerprints": {
+      "aeb56401ca74e127821c4f9126dcb669": 36
+    },
+    "terminal_outputs": 18,
+    "truncations_or_nonterminal": 0,
+    "unique_identities": 18,
+    "unknown_cost_calls": 0,
+    "usage": {
+      "cache_hit_tokens": 1121280,
+      "cache_miss_tokens": 7072,
+      "completion_tokens": 5539,
+      "prompt_tokens": 1128352,
+      "total_tokens": 1133891
+    }
+  },
+  "head_sha": "b36f7baf7b378b91f55b46d85cf4cf3ef928dba3",
+  "pr": 984,
+  "provenance": {
+    "golden_sha256": "15f8e7f92f934a5b040d905e8f684896cb11b2309d41737bbb58d59d0127b3c0",
+    "pr_file_blob_parity": 4,
+    "preparation_errors": [],
+    "prepared_accessions": 6,
+    "prepared_database_sha256": "9e4d0317baa80c8bd200acf11a5eb70274f4d02774d0d2943156566d04e77107",
+    "prepared_source_manifest_sha256": "8960e1bbeaa95680cafa46762134a6bb573a8bd265992204a6c9e82fc7c52a16",
+    "report_source_sha": "b02f60d8d10213d96418eee4e8e577c31d1d8a01",
+    "synthetic_merge_parents": [
+      "20938d0e4a654aa553ec930c256a66158fab7202",
+      "b36f7baf7b378b91f55b46d85cf4cf3ef928dba3"
+    ]
+  },
+  "recorded_at": "2026-09-27T20:09:07.995318+00:00",
+  "review": {
+    "clear_comment_id": 5859322247,
+    "conclusion": "success",
+    "new_head_inline_comments": 0,
+    "prior_head_inline_comments": 1,
+    "reviewed_head": "b36f7baf7b378b91f55b46d85cf4cf3ef928dba3",
+    "run_id": 36346076244
+  },
+  "scope": "Hosted workflow evidence only; does not prove monthly export runtime, cloud IAM bootstrap, or SQL import restoration."
+}

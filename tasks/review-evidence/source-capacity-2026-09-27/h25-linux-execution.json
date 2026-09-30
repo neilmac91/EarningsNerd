@@ -1,0 +1,54 @@
+{
+  "kind": "bounded_offline_capacity_execution",
+  "run_id": 36306402349,
+  "workflow_head_sha": "feb8a59183aa66db2b833221bff70b4cd91fcc79",
+  "source_view_sha256": "578455e33fd20d9f973f4fac79866bc29fbae2987e79e089b5094053e1f78e97",
+  "capsule_sha256": "b739ee3a04f2a3f29de8bd0435948036611c31358955baebe1a61be44b59ea3d",
+  "workflow_conclusion": "failure",
+  "classification": "actual_memory_limit_exceeded_not_preflight_failure",
+  "source": "H25",
+  "source_identity": {
+    "bytes": 57158558,
+    "path": "sources/H25/hsbc-20251231.htm",
+    "sgml_member_byte_difference": 111,
+    "sha256": "08f3a9c524be807db51302faffee034992d9c00c90013bb239b3a940e973539c",
+    "source_form": "frozen direct primary"
+  },
+  "memory_limit_bytes": 3221225472,
+  "observed_peak_rss_bytes": 3182571520,
+  "worker_seconds": 20.037433,
+  "result": "memory_limit_exceeded",
+  "H02": "held_without_execution",
+  "provider_calls": 0,
+  "model_calls": 0,
+  "production_changes": false,
+  "scope": "Frozen direct primary only; 111 bytes different from extracted SGML member. No full member or semantic/model capacity pass. Failure stage within project_html/verify_projection was not separately instrumented.",
+  "preflight_attempts": [
+    {
+      "run_id": 36305951697,
+      "result": "draft tag lookup not found",
+      "measurement_step": "skipped"
+    },
+    {
+      "run_id": 36306197958,
+      "result": "draft asset read forbidden to integration (403)",
+      "measurement_step": "skipped"
+    }
+  ],
+  "verification": {
+    "backend_workflow_tests": 136,
+    "backend_warnings": 16,
+    "frontend_node_lockstep_tests": 3,
+    "yaml_and_shell_syntax": "pass",
+    "independent_workflow_review": "clear",
+    "workflow_sha256": "ddd2dca909137a925b5163a23c316b05af2b061d948a3e9225e5187375d47442"
+  },
+  "files": {
+    "run-36306402349/artifact/h25-capacity-36306402349/capacity-receipt.json": "3485dea0d501c10b82b3a11a743706130795bbd6652edafcc68bab9c885b3d82",
+    "run-36306402349/artifact/h25-capacity-36306402349/exit-code.txt": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865",
+    "run-36306402349/artifact/h25-capacity-36306402349/input-stage-status.txt": "4cfc92b9f20946a13265d783653b39fb391625bd03cfe94b19c1976f420009ce",
+    "run-36306402349/artifact/h25-capacity-36306402349/runner.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "run-36306402349/run.json": "5a00e6e468e7da439c6f24a4e171070789985412e4be5a91ddb9dd96a48433d6",
+    "run-36306402349/run.log": "dc23b6a5a47c4d92911f6d91d4f875deb9a59a8d58da6382458965c863538921"
+  }
+}

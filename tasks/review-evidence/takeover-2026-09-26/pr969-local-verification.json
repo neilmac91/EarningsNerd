@@ -1,0 +1,76 @@
+{
+  "admission_approved": false,
+  "base_head": "537bf59b923922d2215ae1399920756e014bd4e5",
+  "candidate_head": "6c0e7fcb6e8111aad79575b668e30880c53aa4e9",
+  "candidate_tree": "164a1dc881cd07090a155414f97579084edc7b88",
+  "checks": {
+    "bandit_app_ll": {
+      "bytes": 770,
+      "high_findings": 0,
+      "medium_findings": 0,
+      "passed": true,
+      "path": "workspace/outputs/takeover-2026-09-26/h01-capacity/strict-xhtml-implementation/full-gate-current-main-final/bandit.log",
+      "sha256": "36a7c3d807f4e89b227be68f83edb3fdfd25215cfdaf8abba202f77460ae7d4b"
+    },
+    "pytest_unfiltered": {
+      "bytes": 35508,
+      "elapsed_seconds": 161.74,
+      "passed": true,
+      "passed_count": 3730,
+      "path": "workspace/outputs/takeover-2026-09-26/h01-capacity/strict-xhtml-implementation/full-gate-current-main-final/pytest.log",
+      "performance_included": true,
+      "postgres_lanes": {
+        "delivery": true,
+        "login": true,
+        "stripe": true,
+        "usage": true
+      },
+      "sha256": "f4e918be8c05d3e6101268614182238be5978f351a4373aaf73072337f519a67",
+      "skipped_count": 0,
+      "warning_count": 40
+    },
+    "ruff": {
+      "bytes": 19,
+      "passed": true,
+      "path": "workspace/outputs/takeover-2026-09-26/h01-capacity/strict-xhtml-implementation/full-gate-current-main-final/ruff.log",
+      "sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18"
+    }
+  },
+  "code": {
+    "backend/evals/acceptance_source_view.py": {
+      "bytes": 52343,
+      "path": "source-reader-checkout/backend/evals/acceptance_source_view.py",
+      "sha256": "bbe747624efb6b3f28c2b84ae8fc27469ae61b952ff83ed182286849106f7cad"
+    },
+    "backend/tests/unit/test_acceptance_source_view.py": {
+      "bytes": 18332,
+      "path": "source-reader-checkout/backend/tests/unit/test_acceptance_source_view.py",
+      "sha256": "81577afe757e4257600467a22b2960d46db906eec8604f35b4e3e36621bed271"
+    },
+    "tasks/readiness-2026-09-21/acceptance/source-review-views.md": {
+      "bytes": 5885,
+      "path": "source-reader-checkout/tasks/readiness-2026-09-21/acceptance/source-review-views.md",
+      "sha256": "6ac714cdb477fec861379388fa4a67871954d5fbd3587861716d78eab9c9c12c"
+    }
+  },
+  "fault_proof": {
+    "bytes": 1880,
+    "path": "workspace/outputs/takeover-2026-09-26/h01-capacity/strict-xhtml-implementation/fault-proof-final/receipt.json",
+    "sha256": "4676a227af8909e2856fad78c690429b0fe7693be08201c84fe10161a54a3445"
+  },
+  "independent_review": "clear: no further finding within bounded strict-XHTML change",
+  "kind": "strict_xhtml_current_main_final_gate",
+  "provider_calls": 0,
+  "provider_fit_claimed": false,
+  "python": "3.11.16",
+  "regeneration": {
+    "all_outputs_byte_identical": true,
+    "all_projection_verifiers_passed": true,
+    "bytes": 23033,
+    "generated_files": 76,
+    "path": "workspace/outputs/takeover-2026-09-26/h01-capacity/strict-xhtml-implementation/post-review-regeneration-final2/receipt.json",
+    "sha256": "457c8441abae69bfc87a6df7744b5957d10aad6ee3fc53030d46e434fbc16696",
+    "views": 19
+  },
+  "semantic_review": false
+}

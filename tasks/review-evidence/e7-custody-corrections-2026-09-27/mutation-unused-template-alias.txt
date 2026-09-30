@@ -1,0 +1,47 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+______ test_unused_contract_templates_are_frozen_and_cannot_alias_outputs ______
+
+    def test_unused_contract_templates_are_frozen_and_cannot_alias_outputs() -> None:
+        shape = [SHAPE[0], SHAPE[1], SHAPE[3], ("s", "role_synthesis", ["l1", "l2", "l3"])]
+        registry = [entry for entry in REGISTRY if entry["node_id"] != "r1"]
+        graph, artifacts = _graph(shape=shape, registry=registry)
+        summary = _validate(graph, artifacts)
+        assert summary["node_counts"]["reducer"] == 0
+        reducer_template = _sha(TEMPLATES["reducer"])
+        assert reducer_template in summary["frozen_artifact_sha256s"]
+        _rejected(graph, {key: data for key, data in artifacts.items() if key != reducer_template}, "artifacts missing")
+    
+        aliased = {**CONTRACT, "node_kinds": {**CONTRACT["node_kinds"],
+                                             "reducer": {"template_sha256": _sha(b"artifact:l1")}}}
+        graph, artifacts = _graph(shape=shape, registry=registry, contract=aliased)
+        artifacts.pop(reducer_template)
+>       _rejected(graph, artifacts, "l1 artifact must be distinct", role_contract=aliased)
+
+tests/unit/test_acceptance_source_review_graph.py:278: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+graph = {'schema_version': 1, 'kind': 'e7_offline_source_review_graph', 'accession_number': '0000000000-26-000001', 'role': 'role-b', ...}
+artifacts = {'9ad70a0ca1f99a023c229f5f07c15e0dc8d68e7e243efd1dadde2d0a48ede21e': b'template:leaf', '61620df65a37ef5605b22ca0e13994...7412a2e389a4a7': b'artifact:l1', '502010369f97ac69b56566fafbeecb899c895047bae30acd3d386a010cdabfbd': b'prompt:l1', ...}
+message = 'l1 artifact must be distinct'
+overrides = {'role_contract': {'schema_version': 1, 'kind': 'e7_offline_source_role_contract', 'role': 'role-b', 'node_kinds': {'l...a7'}, 'role_synthesis': {'template_sha256': '61620df65a37ef5605b22ca0e1399445dff2e642059113f27ddefd6d3718a5d7'}}, ...}}
+
+    def _rejected(graph: Any, artifacts: Any, message: str, **overrides: Any) -> None:
+        before = copy.deepcopy(graph)
+>       with pytest.raises(ValueError, match=message):
+E       Failed: DID NOT RAISE ValueError
+
+tests/unit/test_acceptance_source_review_graph.py:116: Failed
+=============================== warnings summary ===============================
+tests/unit/test_acceptance_source_review_graph.py::test_unused_contract_templates_are_frozen_and_cannot_alias_outputs
+  /private/tmp/earningsnerd-takeover-20260926/backend/app/config.py:21: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.13/migration/
+    class Settings(BaseSettings):
+
+tests/unit/test_acceptance_source_review_graph.py::test_unused_contract_templates_are_frozen_and_cannot_alias_outputs
+  /private/tmp/earningsnerd-takeover-20260926/backend/app/database.py:44: MovedIn20Warning: The ``declarative_base()`` function is now available as sqlalchemy.orm.declarative_base(). (deprecated since: 2.0) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
+    Base = declarative_base()
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED tests/unit/test_acceptance_source_review_graph.py::test_unused_contract_templates_are_frozen_and_cannot_alias_outputs
+1 failed, 2 warnings in 0.78s

@@ -1,0 +1,9 @@
+{
+  "head_before_changes": "2dae5338554560bf3008082843cedd5f34bd0ad3",
+  "scope": "Current uncommitted service/prompt and positive fixtures",
+  "command": "ruff check . && bandit -r app -ll && python -m pytest",
+  "exit_code": 0,
+  "result": "4151 passed, 39 skipped, 2 deselected, 40 warnings in 180.27s",
+  "log_sha256": "bfe1e0b1623a685a558afaa2c1515216439bf2840bc9c8d8676d874be475f359",
+  "shutdown_logging_warning_retained": true
+}

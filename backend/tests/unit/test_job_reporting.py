@@ -9,11 +9,12 @@ from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
-from sqlalchemy import Column, Integer, MetaData, Table, create_engine, inspect
+from sqlalchemy import Column, Integer, MetaData, Table, create_engine, event, inspect
 from sqlalchemy.orm import sessionmaker
+from sqlalchemy.pool import QueuePool
 
 from app import database
-from app.models import Base, Company, Filing, JobRun, Summary, User, Watchlist
+from app.models import Base, Company, Filing, FinancialFact, JobRun, Summary, User, Watchlist
 from app.services import data_quality_service, email_service, index_membership_service
 from app.services import job_run_service as jobs
 from app.utils.datetimes import utcnow
@@ -137,6 +138,213 @@ def test_every_scheduled_entrypoint_records_swallowed_failures(sessions, monkeyp
     with sessions() as db:
         row = db.query(JobRun).one()
         assert row.job_name == expected and row.status == "failed"
+
+
+def test_facts_cli_rejects_unsupported_dry_run_before_application_work(monkeypatch, capsys):
+    argv = ["backfill_facts.py", "--only-new", "--dry-run"]
+    monkeypatch.setattr(sys, "argv", argv)
+    monkeypatch.setattr(sys, "path", list(sys.path))
+    app_imports = []
+    original_import = builtins.__import__
+
+    def observe_import(name, *args, **kwargs):
+        if name == "app" or name.startswith("app."):
+            app_imports.append(name)
+        return original_import(name, *args, **kwargs)
+
+    monkeypatch.setattr(builtins, "__import__", observe_import)
+    with pytest.raises(SystemExit) as exc_info:
+        runpy.run_path(
+            str(Path(__file__).resolve().parents[2] / "scripts/backfill_facts.py"),
+            run_name="__main__",
+        )
+
+    assert exc_info.value.code == 2
+    assert app_imports == [], "Unsupported dry-run must reject before importing the application"
+    assert (
+        "error: --dry-run is supported only with --remediate-financials or "
+        "--backfill-company-sic"
+    ) in capsys.readouterr().err
+
+
+@pytest.fixture
+def facts_job_sessions(tmp_path, monkeypatch):
+    engine = create_engine(f"sqlite:///{tmp_path / 'facts-job.sqlite'}", poolclass=QueuePool,
+                           pool_size=1, max_overflow=0, pool_timeout=0.05)
+    Base.metadata.create_all(engine)
+    factory = sessionmaker(bind=engine, autoflush=False)
+    monkeypatch.setattr(jobs, "SessionLocal", factory)
+    monkeypatch.setattr(database, "SessionLocal", factory)
+    with factory() as db:
+        companies = [Company(cik=str(81001+i), ticker=f"LEASE{i}", name=f"Lease {i}") for i in range(2)]
+        db.add_all(companies)
+        db.flush()
+        filings = [Filing(company_id=companies[i // 2].id, accession_number=f"LEASE-{i}", filing_type="10-K",
+                          filing_date=utcnow()-timedelta(days=3-i), period_end_date=date(2024, 12, 31),
+                          document_url="https://example.test/primary.htm", sec_url="https://example.test/",
+                          xbrl_data={"revenue": [{"period": "2024-12-31", "value": 100,
+                                                 "form": "10-K", "currency": "USD"}]}) for i in range(3)]
+        db.add_all(reversed(filings))  # Query ordering must not accidentally be insertion order.
+        db.commit()
+    yield factory, engine
+    engine.dispose()
+
+
+@pytest.mark.parametrize("available", [True, False], ids=["available", "unavailable"])
+@pytest.mark.parametrize("expire", [True, False], ids=["expire", "keep-loaded"])
+def test_facts_job_returns_read_lease_preserving_real_work(facts_job_sessions, monkeypatch, available, expire):
+    from scripts import backfill_facts
+    from app.services import facts_service
+    from tests.unit.test_facts_service import _COMPANYFACTS
+
+    factory, engine = facts_job_sessions
+    factory.configure(expire_on_commit=expire)
+    original_backfill = facts_service.backfill_facts
+    original_process = facts_service.process_filing_facts
+    business, snapshots, fetches, order, read_commits = [], [], [], [], []
+
+    def run_service(db, **kwargs):
+        business.append(db)
+        job_fetch = kwargs["companyfacts_fetcher"]
+        def capture_inputs(cik):
+            snapshot = [(obj, dict(inspect(obj).dict)) for obj in db.identity_map.values()
+                        if not inspect(obj).expired]
+            assert any(isinstance(obj, Filing) for obj, _ in snapshot)
+            snapshots.append(snapshot)
+            return job_fetch(cik)
+        kwargs["companyfacts_fetcher"] = capture_inputs
+        def before_commit(session):
+            if not session.new and not session.dirty and not session.deleted:
+                assert session.expire_on_commit is False
+                read_commits.append(True)
+        event.listen(db, "before_commit", before_commit)
+        return original_backfill(db, **kwargs)
+
+    def fetch(cik):
+        db = business[-1]
+        assert engine.pool.checkedout() == 0, "Companyfacts transport must not hold the job read lease"
+        assert not db.in_transaction() and db.expire_on_commit is expire
+        for obj, state in snapshots[-1]:
+            assert inspect(obj).session is db and not inspect(obj).expired
+            assert inspect(obj).dict == state
+        # A competing checkout succeeds with just one slot; no sleep or fake connection counter.
+        with factory() as competitor:
+            assert competitor.query(Company).count() == 2
+        fetches.append(cik)
+        return _COMPANYFACTS if available else None
+
+    def process(db, filing, **kwargs):
+        assert db.expire_on_commit is expire
+        order.append(filing.accession_number)
+        return original_process(db, filing, **kwargs)
+
+    monkeypatch.setattr(facts_service, "backfill_facts", run_service)
+    monkeypatch.setattr(facts_service, "process_filing_facts", process)
+    monkeypatch.setattr(facts_service, "_fetch_companyfacts_sync", fetch)
+    backfill_facts._main(only_unprocessed=True, limit=2)
+    assert order == ["LEASE-0", "LEASE-1"] and fetches == ["81001"]
+    backfill_facts._main(only_unprocessed=True, limit=1)
+    assert order == ["LEASE-0", "LEASE-1", "LEASE-2"] and fetches == ["81001", "81002"]
+    with factory() as db:
+        stamps = {row.accession_number: row.processed_facts_at for row in db.query(Filing)}
+        assert all(stamps.values())
+        identities = {r.accession_number: (r.id, r.company_id) for r in db.query(Filing)}
+        assert [(r.filing_id, r.company_id, r.concept, r.period_start, r.period_end, r.fiscal_period, r.unit)
+                for r in db.query(FinancialFact).order_by(FinancialFact.accession)] == [
+                    (*identities[f"LEASE-{i}"], "revenue", None, date(2024, 12, 31), "FY", "USD")
+                    for i in range(3)]
+        before = [(r.id, r.accession, float(r.value), r.source, r.reconciled, r.is_latest)
+                  for r in db.query(FinancialFact).order_by(FinancialFact.accession)]
+    backfill_facts._main(only_unprocessed=True, limit=None)
+    with factory() as db:
+        assert {r.accession_number: r.processed_facts_at for r in db.query(Filing)} == stamps
+    backfill_facts._main(only_unprocessed=False, limit=None)
+    assert order == ["LEASE-0", "LEASE-1", "LEASE-2"] * 2
+    assert fetches == ["81001", "81002", "81001", "81002"]
+    assert len(read_commits) == (4 if expire else 3)
+    with factory() as db:
+        after = [(r.id, r.accession, float(r.value), r.source, r.reconciled, r.is_latest)
+                 for r in db.query(FinancialFact).order_by(FinancialFact.accession)]
+        assert after == before
+        assert [(r[1], *r[2:]) for r in after] == [
+            (f"LEASE-{i}", 1000.0 if available else 100.0,
+             "companyfacts" if available else "edgar_xbrl", True, i != 0) for i in range(3)]
+        rows = db.query(JobRun).order_by(JobRun.started_at).all()
+        assert all(r.status == "succeeded" and r.job_name == "backfill-facts" for r in rows)
+        assert [r.counters for r in rows] == [
+            {"filings_processed": n, "facts_inserted": inserted, "facts_skipped": skipped,
+             "facts_rejected": 0, "extract_errors": 0}
+            for n, inserted, skipped in [(2, 2, 0), (1, 1, 0), (0, 0, 0), (3, 0, 3)]]
+    assert engine.pool.checkedout() == 0
+    assert all(not s.in_transaction() and not s.identity_map for s in business)
+
+
+@pytest.mark.parametrize("case", ["new", "dirty", "deleted", "nested", "commit_error", "transport_error", "no_transaction"])
+@pytest.mark.parametrize("expire", [True, False], ids=["expire", "keep-loaded"])
+def test_facts_job_fetch_refuses_pending_state_and_restores_policy(facts_job_sessions, monkeypatch, case, expire):
+    from scripts import backfill_facts
+    from app.services import facts_service
+
+    factory, engine = facts_job_sessions
+    factory.configure(expire_on_commit=expire)
+    real_backfill = facts_service.backfill_facts
+    business, calls, commits = [], [], []
+
+    def transport(cik):
+        assert engine.pool.checkedout() == 0
+        assert business[-1].expire_on_commit is expire
+        calls.append(cik)
+        if case == "transport_error":
+            raise RuntimeError("transport sentinel")
+        return None
+
+    def run_service(db, **kwargs):
+        business.append(db)
+        event.listen(db, "before_commit", lambda _: commits.append(True))
+        if case == "no_transaction":
+            assert not db.in_transaction()
+            kwargs["companyfacts_fetcher"]("81001")
+            assert commits == [] and not db.in_transaction()
+        elif case == "new":
+            db.add(Company(cik="99999", ticker="PENDING", name="Pending"))
+        elif case in {"dirty", "deleted"}:
+            row = db.query(Company).filter_by(cik="81001").one()
+            if case == "dirty":
+                row.name = "Pending"
+            else:
+                db.delete(row)
+        elif case == "nested":
+            db.begin_nested()
+        elif case == "commit_error":
+            def failed_commit():
+                assert db.expire_on_commit is False
+                raise RuntimeError("read commit sentinel")
+            monkeypatch.setattr(db, "commit", failed_commit)
+        return real_backfill(db, **kwargs)
+
+    monkeypatch.setattr(facts_service, "backfill_facts", run_service)
+    monkeypatch.setattr(facts_service, "_fetch_companyfacts_sync", transport)
+    if case == "no_transaction":
+        backfill_facts._main(only_unprocessed=True, limit=1)
+        assert calls == ["81001", "81001"]
+    else:
+        message = {"commit_error": "read commit sentinel", "transport_error": "transport sentinel"}.get(
+            case, "pending business state")
+        with pytest.raises(RuntimeError, match=message):
+            backfill_facts._main(only_unprocessed=True, limit=1)
+        assert calls == (["81001"] if case == "transport_error" else [])
+        assert commits == ([True] if case == "transport_error" else [])
+    assert all(s.expire_on_commit is expire and not s.in_transaction() and not s.identity_map for s in business)
+    assert engine.pool.checkedout() == 0
+    with factory() as db:
+        assert db.query(Company).count() == 2
+        assert {r.name for r in db.query(Company)} == {"Lease 0", "Lease 1"}
+        row = db.query(JobRun).one()
+        assert row.status == ("succeeded" if case == "no_transaction" else "failed")
+        if case != "no_transaction":
+            assert row.error_type == "RuntimeError"
+            assert db.query(FinancialFact).count() == 0
+            assert all(r.processed_facts_at is None for r in db.query(Filing))
 
 
 

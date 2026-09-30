@@ -228,6 +228,29 @@ carries `<target>_purged` counts and `dry_run`. Nothing user-facing changes: eve
 row is already invisible or unusable. Account deletion for inactivity, waitlist and referral
 rows, audit logs, usage counters and billing rows are outside this job by design.
 
+### Monthly Cloud SQL export
+
+The `Monthly Cloud SQL export` Actions workflow is the scheduled owner for one logical PostgreSQL
+export each month. A green run means either that its one exact export operation reached `DONE`
+without an error and the bound object passed metadata and gzip-prefix checks, or that the same
+month already had both that successful bound operation and that verified object. Object shape
+alone is never success. If the provider no longer returns the operation that created an existing
+object, the workflow stops at `state-hold`; a privileged operator must inspect the retained cloud
+history rather than overwrite it.
+
+The workflow submits at most once, adopts one exact active operation, and performs only one
+lookup after an uncertain submission result. It never redraws that request. A failed operation
+is a state hold and never permits an implicit same-month retry. It may leave the deterministic
+object name occupied; cleanup requires a separately authorized operator because the workflow
+identities have no delete permission. Public database health is
+checked before and after the export. This verifies an individual execution or same-month reuse
+and custody of a compressed logical export; it does not read SQL contents or prove restoration
+or a natural scheduled trigger. The separate [September 28 import rehearsal](../tasks/review-evidence/progress-2026-09-28/README.md)
+restored the retained monthly object into local PostgreSQL 15 with one `NOLOGIN` owner-role
+prerequisite, 33/33 application tables and 40/40 migration hashes. See
+[deployment setup and import procedure](DEPLOYMENT.md#monthly-cloud-sql-logical-export) for the
+dedicated identity, IAM, secret, bucket lifecycle and recovery limits.
+
 ### Durable alert delivery: reconciling `ambiguous` batches (E11b-1)
 
 New-filing alerts and daily digests are persisted in `earningsnerd_delivery_batches` (one row per
@@ -330,7 +353,9 @@ Located in `backend/scripts/`:
 - `verify_startup_config.py` - Detailed startup configuration verification
 - `debug_extraction.py` - Debug regex patterns for extraction
 - `fix_null_sec_urls.py` - Repair filings with NULL sec_url values (see docs/TROUBLESHOOTING.md)
-- `backfill_facts.py` - Backfill the `financial_fact` table from cached/parsed XBRL
+- `backfill_facts.py` - Backfill the `financial_fact` table from cached/parsed XBRL. Its normal and
+  `--only-new` modes write; `--dry-run` is valid only with `--remediate-financials` or
+  `--backfill-company-sic` and otherwise exits before application initialization.
 - `audit_reconciliation_flags.py` - Audit/repair stored `financial_fact.reconciled` flags on
   value-identical rows, flag columns only (unstored identities are counted, never inserted; dry
   run by default; `--apply` writes; `--tickers`, `--limit`)

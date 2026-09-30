@@ -37,13 +37,13 @@ const doneState = (overrides: Partial<NarrativeState> = {}): NarrativeState => (
 })
 
 describe('NarrativePane citation chips', () => {
-  it('keeps citation grounding separate from an unreconciled source value', () => {
+  it('keeps source-entry resolution separate from an unreconciled dataset value', () => {
     const state = doneState({ completion: doneCompletion({ citations: [{ ...citation, reconciled: false }] }) })
     const { rerender } = render(<NarrativePane state={state} />)
-    expect(screen.getByText('1 verified citations')).toBeInTheDocument()
+    expect(screen.getByText('1 source entry')).toBeInTheDocument()
     expect(screen.getByText('Includes unverified figures')).toBeInTheDocument()
     expect(screen.getByText('Unverified').closest('li')).toHaveTextContent(citation.excerpt)
-    expect(screen.getByText('Sources · cited figures matched to SEC XBRL data')).toBeInTheDocument()
+    expect(screen.getByText('Sources · SEC XBRL values and computed figures')).toBeInTheDocument()
     rerender(<NarrativePane state={doneState()} />)
     expect(screen.queryByText('Includes unverified figures')).not.toBeInTheDocument()
     expect(screen.queryByText('Unverified')).not.toBeInTheDocument()
@@ -87,20 +87,26 @@ describe('NarrativePane citation chips', () => {
     expect(screen.queryByRole('button', { name: /citation 1/i })).not.toBeInTheDocument()
   })
 
-  it('surfaces the unverified count in the verified-citations badge tooltip', () => {
-    const state = doneState({ completion: doneCompletion({ unverified: 2 }) })
+  it('shows mismatch and removed-reference warnings without calling source entries verified', () => {
+    const state = doneState({ completion: doneCompletion({ unverified: 2, mismatched: 1 }) })
     render(<NarrativePane state={state} />)
-    const badge = screen.getByText('1 verified citations')
+    const badge = screen.getByText('1 source entry')
     expect(badge).toHaveAttribute(
       'title',
-      expect.stringContaining('2 references the model emitted could not be verified')
+      expect.stringContaining('1 figure printed next to a source entry could not be reconciled')
     )
+    expect(screen.getByText('Some source references need attention')).toBeInTheDocument()
+    expect(
+      screen.getByText(/2 model source references did not resolve to the analysis dataset and were removed/)
+    ).toHaveTextContent('Check the Sources list before relying on the narrative figure')
+    expect(screen.queryByText(/verified citations/)).not.toBeInTheDocument()
   })
 
   it('omits the unverified caveat from the tooltip when nothing was stripped', () => {
     render(<NarrativePane state={doneState()} />)
-    const badge = screen.getByText('1 verified citations')
-    expect(badge.getAttribute('title')).not.toContain('could not be verified')
+    const badge = screen.getByText('1 source entry')
+    expect(badge.getAttribute('title')).not.toContain('did not resolve')
+    expect(screen.queryByText('Some source references need attention')).not.toBeInTheDocument()
   })
 
   it('replaces the verified/cached badges with a Sample badge in teaser mode (F3)', () => {
@@ -108,7 +114,7 @@ describe('NarrativePane citation chips', () => {
     render(<NarrativePane state={state} sample />)
     // Approximate demo figures must never wear the "verified" claim.
     expect(screen.getByText('Sample data')).toBeInTheDocument()
-    expect(screen.queryByText(/verified citations/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/source entr(?:y|ies)/)).not.toBeInTheDocument()
     expect(screen.queryByText('Cached')).not.toBeInTheDocument()
     expect(screen.getByText(/Sources · sample data/)).toBeInTheDocument()
   })

@@ -716,11 +716,13 @@ it decorates**. The layers below protect that promise; audit them together whene
 `copilot_service` resolver change touches the Q&A path (field precedent: legit revenue fact chips
 reused as year labels on gross-profit/net-income figures).
 
-**What's enforced automatically, per answer, in production** (`copilot_service._resolve_citations`):
+**What's enforced automatically, per answer, in production** (`copilot_service` admission and resolver):
 
 | Layer | Citation kind | Check | On failure |
 |---|---|---|---|
-| Excerpt verification | text `[n]` | excerpt found verbatim in the filing (`verify_excerpt_in_text`) | chip renders unverified ("Cited", no badge) |
+| Publication admission | text `[n]` | an answer must contain a complete citation envelope and array with unambiguous referenced identities; every referenced excerpt must pass the existing source matcher | whole answer withheld with an application error; no draft prose is published |
+| Excerpt verification | text `[n]` | excerpt matches the normalized filing (`verify_excerpt_in_text`) | referenced failed evidence prevents completion; unused failed declarations remain omitted |
+| Final numbering | both | an unresolved literal numeric marker must not acquire an unrelated citation's number | whole answer withheld with an application error |
 | Marker resolution | both | every inline marker resolves to a declared source | unresolvable F-marker stripped from prose |
 | Value adjacency | fact `[Fn]` | a figure matching the fact's value (display-rounding tolerance) must sit in the claim span before the marker — bounded by the previous marker | occurrence stripped, counted as misplaced |
 | Concept adjacency | fact `[Fn]` | the claim span must not name a *different* curated metric while never naming the fact's own (right value, wrong label — `_CONCEPT_SYNONYMS`) | occurrence stripped, counted as misplaced |
@@ -730,6 +732,36 @@ reused as year labels on gross-profit/net-income figures).
 | Uncited-claim repair | fact `[Fn]` | `_repair_uncited_fact_claim`: an answer that cites NOTHING and states one complete reported annual figure (subject, full fiscal end date, native currency, amount) gets a server-initiated DB lookup on the viewed accession; the marker is attached only when the filing's own fact matches concept, `period_end`, the filing's period of report, currency, value at the stated display precision, and carries its OWN reported duration inside the annual window (320–390 days) | abstains — the answer ships unchanged and still uncited |
 | Figure coverage | — | `count_uncited_figures`: financial figures outside every citation's claim span (the misplacement guards convert wrong chips into *uncited* prose — this counts what shipped naked) | counted, never modified |
 | Telemetry | — | `misplaced_fact_markers` / `figure_count` / `uncited_figures` on the complete event, both warning logs, and the same trio on the PostHog `copilot_inference_cost` event | — |
+
+Copilot publishes answer prose only in its final admitted completion. Fixed progress and tool
+activity remain live. The browser rejects malformed or known-unverified completion payloads,
+including those from an older backend revision, and treats EOF or timeout without completion as
+an error. Closing the rail cancels only its pending response. Failed or cancelled requests do
+not consume successful-answer quota; physical provider usage remains recorded by the provider
+wrapper, including unknown cost. A rejected answerable evaluation attempt remains a failure.
+
+This boundary prevents publication of known failed referenced evidence. Source matching does
+not establish the meaning, period, entity or cause of the surrounding claim. An explicit empty
+citation array preserves uncited answers; an absent citation envelope is an incomplete response
+and cannot consume successful-answer quota. A not-disclosed response requires a nonempty reason
+and a complete, strictly parsed followups array of two or three nonblank strings. Missing or
+malformed envelopes reject without inventing a reason, repairing JSON or discarding extra
+trailing content. Accepted questions retain stripping and the 140-character bound. Ordinary
+answers retain their optional-followups behavior. The browser validates the corresponding
+not-disclosed completion shape; it cannot reconstruct a prior server's raw envelope or reverse
+quota that server already charged. Neither path is promoted to financial-quality acceptance. Existing fact-marker removal
+and repair behavior below is unchanged. Rejection logs identify the application-owned reason
+without logging candidate prose; the client receives the same generic error.
+
+Output-format step 3 of `SYSTEM_PROMPT` distinguishes the two citation namespaces explicitly:
+the JSON array contains only positive-integer filing-text IDs, never tool `F#` objects. An answer
+using only tool markers supplies an explicit empty array. The retained `2dae5338` MSFT draw 0
+violated this format with string `F1`/`F2` declarations and remains a failed attempt. The earlier
+`097b2fdb` MSFT failure lacks its raw candidate and precise rejection reason; it is not assigned
+the same cause. This clarification changes no other financial instruction, model, source
+selection, scorer, baseline or acceptance criterion. It still requires the fresh aggregate
+prompt-change gate below; syntax admission does not establish the semantic truth of an answer
+or a not-disclosed assertion.
 
 The repair row is the only layer that ADDS a citation, so it is positive certification rather than
 falsification: a missing, ambiguous or partly matching fact abstains and the answer stays uncited.
@@ -804,8 +836,12 @@ inventing dates. No production backfill is needed for this gate.
 
 Artifacts always retain preparation evidence, complete emitted answers/citations, initial input
 messages, every actual tool name/arguments/result (including unused or rejected results), elapsed
-times, and denominator counts, including failures. This semantic tool trace is not claimed to be
-a full native HTTP conversation transcript. `requested_model` is configured;
+times, and denominator counts, including failures. The evaluation observer also retains exact
+wrapper candidate deltas for rejected answers, type-only provider control markers, and service
+error/completion events. Provider error payloads are excluded. Both service and provider generators
+close on rejection or cancellation, and the observer patch is restored. This adds diagnostic
+custody without changing the scorer or admitting failed attempts. This semantic tool trace is not
+claimed to be a full native HTTP conversation transcript or native finish-reason evidence. `requested_model` is configured;
 `actual_model` remains unavailable in the report and per-call actual model/usage is recorded only by
 sanitized provider telemetry. Unknown cost is not free. Source-preparation failure means zero
 provider calls and requires diagnosis. No live acceptance result is claimed by implementation or
@@ -847,18 +883,21 @@ Ten minutes, catches what the automated checks still can't: a mislabel phrased o
 
 ---
 
-## Multi-Period Analysis narrative gate — bumping `trends-v1`
+## Multi-Period Analysis observation-selector gate
 
 The Multi-Period Analysis narrative (`trend_analysis_service.stream_trend_narrative`, prompt
-`prompts/trends-analyst-agent.md`) shares the Copilot grounding philosophy with a stricter input:
-the model receives ONLY the pre-computed dataset (every value pre-marked `[F#]`), so any number
-outside the dataset is a fabrication by construction.
+`prompts/trends-analyst-agent.md`) uses the model only to rank request-local observation IDs. The
+application builds each allowed observation from the pre-computed dataset and owns every displayed
+word, number, period, comparison and `[F#]` marker. The model returns one strict six-key JSON object;
+its raw chunks are never emitted to the user.
 
-**What's enforced automatically, per generation, in production** (`resolve_narrative_citations`):
-every inline `[F#]` must resolve to a dataset marker (unresolvable markers are stripped from the
-prose); resolved markers renumber into one continuous `[1]..[n]` sequence that always agrees with
-the citations list; `grounded` (resolved-citation count) rides the complete event and the PostHog
-`analysis_inference_cost` event.
+**What's enforced automatically, per generation, in production:**
+`parse_observation_selection` accepts only all six section keys, known IDs in their declared
+section, unique IDs and the per-section/total limits. One malformed reply may retry; a second fails
+closed without narrative persistence. `render_observation_selection` adds required observations and
+deterministic signals before `resolve_narrative_citations` and the numeric-fidelity scan verify the
+code-owned prose. Resolved markers renumber into one continuous `[1]..[n]` sequence, and `grounded`
+rides the complete event and `analysis_inference_cost` event.
 
 **Offline gate (CI, free, every PR):** `pytest tests/unit/test_analysis_stream.py tests/unit/test_trend_analysis_service.py -q`
 — pins the event contract, marker resolution, and the D4 cache semantics.
@@ -867,15 +906,18 @@ the citations list; `grounded` (resolved-citation count) rides the complete even
 regenerates on demand):
 1. Run the offline gate above.
 2. Manual spot-check protocol: generate fresh analyses for 3 diverse real companies (a calendar-FY
-   tech, a Jan-FYE retailer like WMT, a bank like JPM) in both modes. For each: (a) every figure in
-   the prose carries a chip and the chip's metric+period matches the sentence; (b) the Red flags
-   section addresses each deterministic signal in the dataset (or reasonably dismisses it); (c) no
-   number appears that isn't in the dataset (spot-check 5 per narrative against the metrics table).
-3. Watch `analysis_inference_cost.grounded` for a step-change after rollout — a drop means the new
-   prompt is citing less; treat like the Copilot marker alerts.
+   tech, a Jan-FYE retailer like WMT, a bank like JPM) in both modes. For each: (a) the captured
+   event stream completes without an invalid-selection retry or error; (b) every displayed figure
+   has a chip whose metric and period match the code-owned sentence; (c) every deterministic signal
+   is rendered, even when the selector omits it; and (d) selected optional observations are useful
+   and date older-period fallbacks explicitly. Spot-check five figures per narrative against the
+   metrics table.
+3. Re-serve each result from cache and confirm narrative/citation identity without another model
+   call. Watch `analysis_inference_cost` grounding, cost and latency after rollout; investigate a
+   grounding drop or cost/latency step-change as a possible selection-retry regression.
 
-A future `trends_golden_set.json` + scorer (re-verifying every `[F#]`-adjacent number against the
-dataset, the `copilot_scorers` pattern) is the intended automation of step 2.
+A future `trends_golden_set.json` + scorer (validating selected IDs, rendered observations and every
+`[F#]`-adjacent number against the dataset) is the intended automation of step 2.
 
 ## Gotchas
 | Issue | Mitigation |

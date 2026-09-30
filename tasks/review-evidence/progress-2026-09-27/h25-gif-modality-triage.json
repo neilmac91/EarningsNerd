@@ -1,0 +1,23 @@
+{
+  "schema_version": 1,
+  "kind": "h25_gif_modality_triage",
+  "status": "bounded_visual_triage_complete",
+  "classification_counts": {
+    "chart": 38,
+    "legend_or_axis_fragment": 47
+  },
+  "inspection_method": "Every GIF was opened individually with native view_image at high detail; no contact sheet or transformed image was used.",
+  "limitations": [
+    "Chart means visible plot geometry only; it does not attest the chart's labels, values, subject, or semantic interpretation.",
+    "Legend or axis fragment means the image is incomplete outside its frozen HTML composition; it is not decorative by implication.",
+    "No GIF was classified as decoration, and no source reader-role label or exclusion was changed.",
+    "The 109 narrative-bearing JPEGs, 56 decorative JPEGs, 1 ZIP, and full visual or semantic review are outside this triage.",
+    "This receipt does not attest source completeness, modality coverage, issue propagation, or E7 admission."
+  ],
+  "network_calls": 0,
+  "model_api_calls": 0,
+  "retained_receipt_sha256": "cab85dc25649a968644decbbb4b5b445ea529437bd00ce5fe8e33c8aae577f5e",
+  "inspected_members": 85,
+  "scope": "Agent-authored modality triage only; no semantic source review or E7 admission.",
+  "source_role_labels_changed": false
+}

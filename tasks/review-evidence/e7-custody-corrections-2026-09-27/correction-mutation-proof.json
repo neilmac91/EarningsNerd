@@ -1,0 +1,31 @@
+{
+  "code_commit": "9abd0a2b681d7af7eed27f50b145c48616259e77",
+  "faults": [
+    {
+      "rule": "coverage-before-hash",
+      "target": "tests/unit/test_acceptance_source_units.py::test_units_partition_declared_packets_and_bind_recomputable_identities",
+      "exit": 1,
+      "restored_sha256": "392752e55458d179ca301ca214ffa33c4ca63475a13db280e10760f9bb48921b"
+    },
+    {
+      "rule": "context-before-hash",
+      "target": "tests/unit/test_acceptance_source_units.py::test_declared_context_is_bounded_before_it_is_hashed",
+      "exit": 1,
+      "restored_sha256": "392752e55458d179ca301ca214ffa33c4ca63475a13db280e10760f9bb48921b"
+    },
+    {
+      "rule": "bare-inline-xbrl",
+      "target": "tests/unit/test_acceptance_source_modalities.py::test_every_table_fact_and_image_is_enumerated_and_dispositioned_once",
+      "exit": 1,
+      "restored_sha256": "81bb63bd998b525cd921227382d968bb2b322926d4c08b0f2941c3ef77bde679"
+    },
+    {
+      "rule": "unused-template-alias",
+      "target": "tests/unit/test_acceptance_source_review_graph.py::test_unused_contract_templates_are_frozen_and_cannot_alias_outputs",
+      "exit": 1,
+      "restored_sha256": "af893354824e5eea444d40f8f8520be8bd44fb89cce4c1a6cd2c2cc9b1d21f79"
+    }
+  ],
+  "restored_exit": 0,
+  "restored_tail": "58 passed, 2 warnings in 0.97s"
+}

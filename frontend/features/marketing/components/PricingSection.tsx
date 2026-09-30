@@ -12,6 +12,7 @@ import { ACCESS_COPY, type AccessMode } from '@/features/marketing/lib/access'
 import analytics from '@/lib/analytics'
 import { ENABLE_PRO_TRIAL } from '@/lib/featureFlags'
 import { CheckIcon, SealCheckIcon } from '@/lib/icons'
+import { pricingHref } from '@/features/subscriptions/lib/pricingRoute'
 import {
   FREE_COPILOT_QUESTIONS,
   FREE_EARNINGS_ALERT_LIMIT,
@@ -25,13 +26,14 @@ import {
  * (the same `pricing-experiment` PostHog arm the pricing page reads), free-tier caps from the
  * planLimits mirror, the account CTA from the page's ONE access decision, and the trial copy from
  * ENABLE_PRO_TRIAL, which the repo flips in lockstep with the backend's PRO_TRIAL_DAYS. Both Pro
- * CTAs land on /pricing, where checkout (and the account-state logic around it) lives.
+ * Paid-offer CTAs preserve the selected cycle on /pricing. The beta offer keeps the neutral
+ * entry until pricing can resolve account eligibility, rather than selecting a guest trial.
  */
 
 // Free-tier caps are never bare literals (tests/unit/planLimitsLockstep.spec.ts).
 const FREE_FEATURES = [
   `${FREE_SUMMARY_LIMIT} AI summaries a month`,
-  'Every 10-K, 10-Q and 20-F on SEC EDGAR',
+  'Supported 10-K, 10-Q and 20-F filings from SEC EDGAR',
   'Company search and historical filings',
   `${FREE_COPILOT_QUESTIONS} Ask this Filing questions`,
   `${FREE_EARNINGS_ALERT_LIMIT} earnings-day alerts`,
@@ -97,6 +99,7 @@ export default function PricingSection({
   const access = ACCESS_COPY[accessMode]
 
   const monthly = billing === 'monthly'
+  const showTrial = ENABLE_PRO_TRIAL && monthly && !showBeta
   const proPrice = monthly ? prices.monthlyDisplay : fmtUsd(prices.yearly / 12)
   const billingNote = monthly
     ? `Billed monthly. Or ${prices.yearlyDisplay} a year, 2 months free.`
@@ -229,12 +232,12 @@ export default function PricingSection({
                 </p>
               )}
               <Link
-                href="/pricing"
+                href={showBeta ? '/pricing' : pricingHref(cycleName(billing))}
                 className={buttonVariants({ variant: 'primary', size: 'md', className: CTA_CLASS })}
               >
-                {ENABLE_PRO_TRIAL ? 'Start 7-day free trial' : 'Upgrade to Pro'}
+                {showTrial ? 'Start 7-day free trial' : 'Upgrade to Pro'}
               </Link>
-              {ENABLE_PRO_TRIAL && (
+              {showTrial && (
                 <p className={`mt-2 text-xs ${MUTED_CLASS}`}>
                   Card required. One trial per account. Cancel any time in the 7 days at no charge.
                 </p>

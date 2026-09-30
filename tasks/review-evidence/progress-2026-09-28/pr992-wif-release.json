@@ -1,0 +1,146 @@
+{
+  "evidence_dispatches": 2,
+  "evidence_kind": "github_ops_wif_logs",
+  "expected": {
+    "notable_filings_enabled": "true",
+    "release_sha": "8ff1816cc2964d8b3ad3f5455c095640f12572a8",
+    "revision": "earningsnerd-backend-00411-wb5",
+    "workflow_sha": "8ff1816cc2964d8b3ad3f5455c095640f12572a8"
+  },
+  "jobs": {
+    "jobs": {
+      "earningsnerd-backfill-facts": {
+        "image": "us-west1-docker.pkg.dev/earnings-nerd/earningsnerd/backend:8ff1816",
+        "max_overflow": 0,
+        "pool_size": 1,
+        "task_count": 1
+      },
+      "earningsnerd-earnings-calendar-refresh": {
+        "image": "us-west1-docker.pkg.dev/earnings-nerd/earningsnerd/backend:8ff1816",
+        "max_overflow": 0,
+        "pool_size": 1,
+        "task_count": 1
+      },
+      "earningsnerd-earnings-day-alerts": {
+        "image": "us-west1-docker.pkg.dev/earnings-nerd/earningsnerd/backend:8ff1816",
+        "max_overflow": 0,
+        "pool_size": 1,
+        "task_count": 1
+      },
+      "earningsnerd-filing-digest": {
+        "image": "us-west1-docker.pkg.dev/earnings-nerd/earningsnerd/backend:8ff1816",
+        "max_overflow": 0,
+        "pool_size": 1,
+        "task_count": 1
+      },
+      "earningsnerd-filing-scan": {
+        "image": "us-west1-docker.pkg.dev/earnings-nerd/earningsnerd/backend:8ff1816",
+        "max_overflow": 0,
+        "pool_size": 1,
+        "task_count": 1
+      },
+      "earningsnerd-notable-filings": {
+        "image": "us-west1-docker.pkg.dev/earnings-nerd/earningsnerd/backend:8ff1816",
+        "max_overflow": 0,
+        "pool_size": 1,
+        "task_count": 1
+      },
+      "earningsnerd-pregenerate": {
+        "image": "us-west1-docker.pkg.dev/earnings-nerd/earningsnerd/backend:8ff1816",
+        "max_overflow": 0,
+        "pool_size": 3,
+        "task_count": 1
+      },
+      "earningsnerd-retention-purge": {
+        "image": "us-west1-docker.pkg.dev/earnings-nerd/earningsnerd/backend:8ff1816",
+        "max_overflow": 0,
+        "pool_size": 1,
+        "task_count": 1
+      }
+    },
+    "log_sha256": "5c655a4911a9b783e12ffaf284a91210c4058e544fde0e044567d816ceeec580",
+    "shared_image": "us-west1-docker.pkg.dev/earnings-nerd/earningsnerd/backend:8ff1816"
+  },
+  "limits": [
+    "This receipt verifies retained GitHub Ops workflow output and run metadata, not retained full gcloud JSON.",
+    "The successful describe-service workflow guard establishes latest-created equals latest-ready and 100% traffic; the retained log exposes the accepted target.",
+    "The serving revision image is digest-resolved, so exact release identity is bound by SENTRY_RELEASE and all eight job image tags.",
+    "Deploy and public-health inputs are separately labeled supporting evidence; they are not WIF configuration readback."
+  ],
+  "schema_version": 1,
+  "service": {
+    "log_sha256": "d8e056995594698af5fd432cab2b8c4f89b2c616aae7a2dd83f1ae5a3d8f915c",
+    "notable_filings_enabled": "true",
+    "pregenerate_image": "us-west1-docker.pkg.dev/earnings-nerd/earningsnerd/backend:8ff1816",
+    "pregenerate_pool": {
+      "max_overflow": 0,
+      "size": 3
+    },
+    "revision_max_scale": 2,
+    "sentry_release": "8ff1816cc2964d8b3ad3f5455c095640f12572a8",
+    "service_max_scale": 2,
+    "service_pool": {
+      "max_overflow": 0,
+      "size": 4
+    },
+    "serving_revision": "earningsnerd-backend-00411-wb5",
+    "serving_revision_image": "us-west1-docker.pkg.dev/earnings-nerd/earningsnerd/backend@sha256:ab183255cfecd65f98d8dbc3807bba8b873228f85c8dcb9d2e9bc8ec1b463aa0",
+    "traffic": {
+      "latest_revision": true,
+      "percent": 100,
+      "revision": "earningsnerd-backend-00411-wb5"
+    },
+    "workflow_ready_guard_passed": true
+  },
+  "status": "verified",
+  "supporting_deploy": {
+    "deploy_log_sha256": "e838934c7844a6bbed6113649735c27e364cde943faa8508299ed94eda604f0b",
+    "migrations": {
+      "applied": 0,
+      "skipped": 40
+    },
+    "release_sha": "8ff1816cc2964d8b3ad3f5455c095640f12572a8",
+    "revision": "earningsnerd-backend-00411-wb5",
+    "run_metadata_sha256": "bf192dfb0f00c8ff2b00ee44397529a9563ff9ea291118ed37eeff52e83591aa",
+    "scope": "separate release evidence, not WIF readback",
+    "status": "verified"
+  },
+  "supporting_public_health": {
+    "database_healthy": true,
+    "input_sha256": "bd56f95eaa57013c5f911b1b6d01c2aa729951846eec5f27fd92a806bd3294dc",
+    "scope": "separate public HTTP evidence, not WIF readback",
+    "sec_circuit": "closed",
+    "status": "verified_healthy"
+  },
+  "verified_at": "2026-09-28T10:11:36.891683+00:00",
+  "verifier_actions": {
+    "database_calls": 0,
+    "model_calls": 0,
+    "network_calls": 0,
+    "workflow_dispatches": 0
+  },
+  "wif_runs": {
+    "describe_jobs": {
+      "conclusion": "success",
+      "metadata_sha256": "22060bbe51c543a56f9a9d28221227b03cf048f2f15cb67f19e78f9e7e7cc605",
+      "non_read_only_steps_skipped": true,
+      "run_id": 36408084715,
+      "status": "completed",
+      "target_step": "Describe expected job release configuration",
+      "target_step_conclusion": "success",
+      "url": "https://github.com/neilmac91/EarningsNerd/actions/runs/36408084715",
+      "workflow_sha": "8ff1816cc2964d8b3ad3f5455c095640f12572a8"
+    },
+    "describe_service": {
+      "conclusion": "success",
+      "metadata_sha256": "6ba9f21652c6c4cb8f69a0c6b4d2480907528d4f83d57493a4d5982f46481df8",
+      "non_read_only_steps_skipped": true,
+      "run_id": 36407933672,
+      "status": "completed",
+      "target_step": "Describe service env (values only for known feature flags)",
+      "target_step_conclusion": "success",
+      "url": "https://github.com/neilmac91/EarningsNerd/actions/runs/36407933672",
+      "workflow_sha": "8ff1816cc2964d8b3ad3f5455c095640f12572a8"
+    }
+  }
+}

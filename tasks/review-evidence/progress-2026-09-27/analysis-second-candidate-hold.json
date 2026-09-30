@@ -1,0 +1,184 @@
+{
+  "candidate_commit": "a87de702fce943fdb04eb5dedaf4dfc22c85cfca",
+  "logical_outputs": 12,
+  "physical_calls": 24,
+  "all_complete": true,
+  "all_models": [
+    "deepseek-flash"
+  ],
+  "conservative_reservations_usd": 0.22064250000000002,
+  "uncached_peak_usage_estimate_usd": 0.043784699999999996,
+  "actual_billed_cost_known": false,
+  "unknown_usage_calls": 0,
+  "complete_event_errors": 0,
+  "all_finish_stop": true,
+  "disposition": "HOLD; no release and no further paid prompt iteration in this tranche",
+  "threshold_direction_only": {
+    "correct": 6,
+    "total": 6,
+    "reviewer": "Codex/Astra agent; not independent Fable or human acceptance"
+  },
+  "private_audit_sha256": "b48fe911dd4886cdee133c12f3718985d26115e7ee02995e38d23f50819b4242",
+  "private_disposition_sha256": "7e8c281b80eaed5ab413cfe336d9f5bc4ba016589eeb15766c123aeb7a703c97",
+  "retained_slots": [
+    {
+      "slot": "diagnostic-AAPL-reconstructed-above-candidate-draw1",
+      "dataset_sha256": "73d16e078b4f2bd6b6598076b34c945f087392c7b613d8cb41af93b23156d7cf",
+      "events_sha256": "76f85f44bc271259e95a603c0238fdc66f3f64bb5c92e908b8c00c69ab8204ba",
+      "calls": 2,
+      "counters": {
+        "grounded": 8,
+        "unverified": 0,
+        "mismatched": 0,
+        "uncited_figures": 3,
+        "absence_citation_mismatches": 0
+      }
+    },
+    {
+      "slot": "diagnostic-AAPL-reconstructed-above-candidate-draw2",
+      "dataset_sha256": "73d16e078b4f2bd6b6598076b34c945f087392c7b613d8cb41af93b23156d7cf",
+      "events_sha256": "04afa7c274fa33aaca395134a6107e4601fad7c588c1eb644d6409dd26f131e1",
+      "calls": 2,
+      "counters": {
+        "grounded": 8,
+        "unverified": 0,
+        "mismatched": 0,
+        "uncited_figures": 1,
+        "absence_citation_mismatches": 0
+      }
+    },
+    {
+      "slot": "diagnostic-SYNTH-below-candidate-draw1",
+      "dataset_sha256": "98fe6cd25bc47862f42f43528899b48174c6ecdb3ceaf4b9b2abfe5c72f39832",
+      "events_sha256": "2a5280b485d5ba6d49652e5f85f4d26aca1affa8a501c9a71f3dad14b7861317",
+      "calls": 2,
+      "counters": {
+        "grounded": 6,
+        "unverified": 0,
+        "mismatched": 1,
+        "uncited_figures": 1,
+        "absence_citation_mismatches": 0
+      }
+    },
+    {
+      "slot": "diagnostic-SYNTH-below-candidate-draw2",
+      "dataset_sha256": "98fe6cd25bc47862f42f43528899b48174c6ecdb3ceaf4b9b2abfe5c72f39832",
+      "events_sha256": "996a766e4d4d9c0e1f03c9d915c7467788490f41f24af5eaed94dd7745b7c1fd",
+      "calls": 2,
+      "counters": {
+        "grounded": 6,
+        "unverified": 0,
+        "mismatched": 3,
+        "uncited_figures": 2,
+        "absence_citation_mismatches": 0
+      }
+    },
+    {
+      "slot": "diagnostic-SYNTH-equal-candidate-draw1",
+      "dataset_sha256": "f47ce7779b5f181fa20ac5d5c2fc6773cd9df2186071d3e4874d79481ca134a7",
+      "events_sha256": "dd98f25eece976842bc015396dfe5caa21c9e98a18afc9c9434f5fdd9adaa472",
+      "calls": 2,
+      "counters": {
+        "grounded": 6,
+        "unverified": 0,
+        "mismatched": 1,
+        "uncited_figures": 0,
+        "absence_citation_mismatches": 0
+      }
+    },
+    {
+      "slot": "diagnostic-SYNTH-equal-candidate-draw2",
+      "dataset_sha256": "f47ce7779b5f181fa20ac5d5c2fc6773cd9df2186071d3e4874d79481ca134a7",
+      "events_sha256": "8ed78ca0c2e37bf93de547e2f80e427c0fbf0476ac067b6114e2460f30ecc975",
+      "calls": 2,
+      "counters": {
+        "grounded": 6,
+        "unverified": 0,
+        "mismatched": 1,
+        "uncited_figures": 0,
+        "absence_citation_mismatches": 0
+      }
+    },
+    {
+      "slot": "runbook-GOOGL-annual-candidate",
+      "dataset_sha256": "95d1fe8ef6721730fb4141bc9e56b40ac57bd3b6591217f1f7838a0c1c0f436b",
+      "events_sha256": "e7cf4421a1653cd2abcf0f9912a9c24914598abe17b5b221d0e6b704bdce3a7b",
+      "calls": 2,
+      "counters": {
+        "grounded": 17,
+        "unverified": 0,
+        "mismatched": 1,
+        "uncited_figures": 0,
+        "absence_citation_mismatches": 0
+      }
+    },
+    {
+      "slot": "runbook-GOOGL-quarterly-candidate",
+      "dataset_sha256": "792e01b637b82d87cfbfe15631d04af80ba3b8cca5d2670be123319fc373fe19",
+      "events_sha256": "1bd9c006a02b4e8e795044c55886fc52533a3505f9ab4f3afb30f86d7e766b8e",
+      "calls": 2,
+      "counters": {
+        "grounded": 36,
+        "unverified": 0,
+        "mismatched": 2,
+        "uncited_figures": 0,
+        "absence_citation_mismatches": 0
+      }
+    },
+    {
+      "slot": "runbook-JPM-annual-candidate",
+      "dataset_sha256": "ed91247f804cc01908e6649d3f18010d01f37cae9ea472ed466f63e88f1a0b50",
+      "events_sha256": "491965f2d49171aecf212d6573a0e1bd73f58496632724ce43c7fbdc336afec9",
+      "calls": 2,
+      "counters": {
+        "grounded": 19,
+        "unverified": 0,
+        "mismatched": 1,
+        "uncited_figures": 1,
+        "absence_citation_mismatches": 0
+      }
+    },
+    {
+      "slot": "runbook-JPM-quarterly-candidate",
+      "dataset_sha256": "303c6debddd8372b3eb7ce828e0668ec70f1de2eaadb83565fa4196df3a8fab3",
+      "events_sha256": "6405dab4ab13dd6a5b40556df4e2ac23c32e46ef76d04f1e7bbf20effe23e6ac",
+      "calls": 2,
+      "counters": {
+        "grounded": 23,
+        "unverified": 0,
+        "mismatched": 0,
+        "uncited_figures": 0,
+        "absence_citation_mismatches": 0
+      }
+    },
+    {
+      "slot": "runbook-WMT-annual-candidate",
+      "dataset_sha256": "c310f0b34f5eb9c9672e824c35ad1f24d85017a5a1256cea2ed6a0b3fc62aec2",
+      "events_sha256": "ba8e278321199249721cbda3b331382fbe2474235761b3972b2cbcda37689fb6",
+      "calls": 2,
+      "counters": {
+        "grounded": 18,
+        "unverified": 0,
+        "mismatched": 1,
+        "uncited_figures": 0,
+        "absence_citation_mismatches": 0
+      }
+    },
+    {
+      "slot": "runbook-WMT-quarterly-candidate",
+      "dataset_sha256": "2088ed66a25f6816db31c382c9f5adc68e02a0b32af9ac509e923a237ccc729a",
+      "events_sha256": "3730da1fd9df115bfffa073b6d4bc5bed805e148abb4d77a31bd2b54a72a6808",
+      "calls": 2,
+      "counters": {
+        "grounded": 33,
+        "unverified": 0,
+        "mismatched": 1,
+        "uncited_figures": 0,
+        "absence_citation_mismatches": 0
+      }
+    }
+  ],
+  "production_prompt_version": "trends-v4",
+  "candidate_released": false,
+  "fable_or_e7_verdict": false
+}

@@ -10,8 +10,9 @@ provenance primitives that already power Trace-to-Source:
 * The server then **verifies** each emitted excerpt against the (once-normalized) cached filing text
   via :func:`~app.services.provenance_service.verify_excerpt_in_text`, and builds a ``#:~:text=``
   deep-link via :func:`~app.services.provenance_service.build_text_fragment_url`. A citation the model
-  invents but that does not appear verbatim in the filing is surfaced as ``verified=False`` rather
-  than silently trusted — the same honest-labelling contract as the summary path.
+  references but that fails verification prevents publication of the entire answer. Answer prose
+  remains private until citation admission and numbering finish; source matching does not prove
+  the interpretation or establish that every uncited claim is supported.
 
 This module is transport-agnostic: it yields plain ``dict`` events. The SSE router formats them for
 the wire. Numeric tools use the viewed filing's accession and native currency; narrative
@@ -24,6 +25,7 @@ import logging
 import math
 from datetime import date
 import re
+from time import monotonic
 from types import SimpleNamespace
 from typing import Any, AsyncGenerator, Callable, Optional
 
@@ -59,6 +61,15 @@ _SENTINEL_TAIL = max(len(_CITATIONS_SENTINEL), len(_NOT_DISCLOSED_SENTINEL))
 # Optional trailer after the citations JSON carrying 2-3 suggested follow-up questions. It only ever
 # appears inside the (buffered) citations phase, so it's parsed post-hoc — no cross-chunk tail needed.
 _FOLLOWUPS_SENTINEL = "===FOLLOWUPS==="
+_FOLLOWUPS_RE = re.compile(r"===\s*FOLLOW-?UPS\s*===", re.IGNORECASE)
+_COPILOT_MARKER_RE = re.compile(r"\[(F?\s*\d+)\]", re.IGNORECASE)
+_PUBLICATION_ERROR = "I couldn't verify the cited evidence, so I couldn't provide this answer."
+_STREAM_FAILURE = "I couldn't complete this answer. Please try again."
+
+
+class _UnpublishableAnswer(ValueError):
+    """A candidate cannot cross the publication boundary."""
+
 
 SYSTEM_PROMPT = f"""You are EarningsNerd's "Ask this Filing" assistant. You answer questions about a \
 SINGLE SEC filing using ONLY the filing content provided in this conversation. You are scoped to \
@@ -94,7 +105,11 @@ OUTPUT FORMAT (follow exactly):
 support: [1], [2] for filing-text excerpts, and [F1], [F2] for tool-provided figures.
 2. Then output a line containing exactly:
 {_CITATIONS_SENTINEL}
-3. Then output a JSON array of citation objects, one per marker you used, e.g.:
+3. Then output a JSON array of citation objects for ONLY the plain numeric filing-text markers
+   ([1], [2], ...) used in the answer. Each "n" must be that marker's positive JSON integer,
+   never a string or an F marker. Tool [F#] markers already reference their returned facts;
+   never include objects for them in this array. If there are no filing-text markers, output []
+   after the citations line, including when all cited figures use tool markers. Example:
 [{{"n": 1, "excerpt": "<verbatim quote copied exactly from the filing>", "section": "Item 7 — MD&A"}}]
    - "excerpt" MUST be copied verbatim from the filing content (so it can be verified). Keep each
      excerpt to the SHORTEST contiguous span that supports the claim — one sentence, at most ~30 words.
@@ -342,29 +357,55 @@ def _build_messages(filing: Any, source_text: str, question: str, history: Optio
     return _merge_consecutive_roles(messages)
 
 
-def _parse_citations(raw: str) -> list[dict]:
-    """Parse the model's citation JSON array, repairing malformed JSON when needed."""
-    text = (raw or "").strip()
-    if not text:
-        return []
-    # The model may wrap the array in stray prose/fences; isolate the array span.
-    start = text.find("[")
-    end = text.rfind("]")
-    if start != -1 and end != -1 and end > start:
-        text = text[start : end + 1]
+def _parse_citations(raw: str) -> tuple[list[dict], list[str]]:
+    """Admit one complete citation array, then the optional followups envelope.
+
+    Decode before looking for FOLLOWUPS: sentinel text inside a JSON excerpt is data.
+    Never repair incomplete JSON or discard a malformed declaration as if it were absent.
+    """
+    text = raw.strip()
+    fenced = re.match(r"^```(?:json)?\s*\n", text, re.IGNORECASE)
+    if fenced:
+        text = text[fenced.end():].lstrip()
+
+    def unique_fields(pairs: list[tuple[str, Any]]) -> dict:
+        result: dict = {}
+        for key, value in pairs:
+            if key in result:
+                raise _UnpublishableAnswer("Duplicate citation field")
+            result[key] = value
+        return result
+
+    def reject_constant(_value: str) -> None:
+        raise _UnpublishableAnswer("Non-JSON citation value")
+
     try:
-        data = json.loads(text)
-    except (ValueError, TypeError):
-        if _HAS_JSON_REPAIR and _repair_json is not None:
-            try:
-                data = json.loads(_repair_json(text))
-            except (ValueError, TypeError):
-                return []
-        else:
-            return []
+        data, end = json.JSONDecoder(
+            object_pairs_hook=unique_fields, parse_constant=reject_constant,
+        ).raw_decode(text)
+    except (ValueError, TypeError) as exc:
+        raise _UnpublishableAnswer("Incomplete citation array") from exc
+    trailer = text[end:].strip()
+    if fenced:
+        if not trailer.startswith("```"):
+            raise _UnpublishableAnswer("Unclosed citation fence")
+        trailer = trailer[3:].strip()
+    followups: list[str] = []
+    if trailer:
+        followups_match = _FOLLOWUPS_RE.match(trailer)
+        if not followups_match:
+            raise _UnpublishableAnswer("Unexpected citation trailer")
+        followups = _parse_followups(trailer[followups_match.end():])
     if not isinstance(data, list):
-        return []
-    return [item for item in data if isinstance(item, dict)]
+        raise _UnpublishableAnswer("Citation declaration is not an array")
+    for item in data:
+        if (not isinstance(item, dict)
+                or type(item.get("n")) is not int or item["n"] <= 0
+                or not isinstance(item.get("excerpt"), str)
+                or any(item.get(key) is not None and not isinstance(item[key], str)
+                       for key in ("section", "section_ref"))):
+            raise _UnpublishableAnswer("Invalid citation declaration")
+    return data, followups
 
 
 def _parse_followups(raw: str) -> list[str]:
@@ -397,35 +438,50 @@ def _parse_followups(raw: str) -> list[str]:
     return out
 
 
-def _verify_citations(citations: list[dict], filing: Any, normalized_source: str) -> dict[str, dict]:
-    """Verify each declared citation's excerpt; return a lookup keyed by its declared marker.
+def _verify_citations(
+    citations: list[dict], filing: Any, normalized_source: str, referenced: set[str],
+) -> dict[str, dict]:
+    """Verify original declarations before duplicate IDs can overwrite rejected evidence.
 
-    Keyed by the citation's own ``n`` (stringified, e.g. ``"1"``), falling back to its 1-based
-    position in the array when ``n`` isn't a valid int. This is a *candidate* pool only — a citation
-    the model declares here but never actually places inline is never surfaced: the caller's unified
-    :func:`_resolve_citations` pass looks entries up by the markers it finds in the answer text, not
-    the other way around.
+    Unused valid declarations remain a candidate pool only. A referenced ID must have an
+    unambiguous declaration and every declaration for it must pass the existing verifier.
     """
     base_url = getattr(filing, "document_url", None) or getattr(filing, "sec_url", None) or ""
     by_marker: dict[str, dict] = {}
-    for idx, cite in enumerate(citations, start=1):
-        excerpt = str(cite.get("excerpt") or "").strip()
+    declared: dict[str, dict] = {}
+    for cite in citations:
+        excerpt = cite["excerpt"].strip()
         section_ref = cite.get("section") or cite.get("section_ref")
-        n = cite.get("n")
-        if not isinstance(n, int):
-            n = idx
+        key = str(cite["n"])
         verified = verify_excerpt_in_text(excerpt, normalized_source)
-        if verified:
-            fragment_url = build_text_fragment_url(base_url, excerpt) if base_url else base_url
-        else:
-            fragment_url = base_url
-        by_marker[str(n)] = {
+        if key in referenced and (
+            not verified or (key in declared and declared[key] != cite)
+        ):
+            raise _UnpublishableAnswer("Unverified or ambiguous referenced citation")
+        declared[key] = cite
+        fragment_url = build_text_fragment_url(base_url, excerpt) if verified and base_url else base_url
+        by_marker[key] = {
             "excerpt": excerpt,
             "section_ref": section_ref,
             "verified": verified,
             "fragment_url": fragment_url,
         }
     return by_marker
+
+
+def _safe_activity_label(info: dict) -> str:
+    """Keep model-controlled tool names and concept strings out of publication events."""
+    name = info.get("name")
+    if name not in ("list_available_concepts", "get_financial_fact", "compute_metric"):
+        return "Reading financial information"
+    args = info.get("args")
+    args = args if isinstance(args, dict) else {}
+    concept = args.get("concept")
+    safe_args = {
+        "concept": concept if isinstance(concept, str) and concept in copilot_tools._CONCEPT_LABELS else None,
+        "kind": args.get("kind") if args.get("kind") in ("yoy_growth", "margin") else None,
+    }
+    return copilot_tools.describe_tool_call(name, safe_args)
 
 
 # How far back (chars) to look for the figure a fact marker claims to support.
@@ -967,7 +1023,7 @@ def _resolve_citations(
     misplaced = 0
     prev_marker_end = 0
 
-    for match in re.finditer(r"\[(F?\s*\d+)\]", full_answer, re.IGNORECASE):
+    for match in _COPILOT_MARKER_RE.finditer(full_answer):
         key = re.sub(r"\s+", "", match.group(1)).upper()
 
         # Adjacency guards for FACT-backed markers, on EVERY occurrence: the model reusing a
@@ -1055,13 +1111,13 @@ async def answer_filing_question(
     Yields (in order):
     * ``{"type": "progress", "stage": "reading"}`` before the model call.
     * ``{"type": "activity", "label", "phase", "ok"}`` as numeric tools run (live "show the work").
-    * ``{"type": "token", "text": ...}`` for answer prose only (never the citation JSON / sentinels).
+    * Fixed reading progress while candidate prose is buffered privately.
     * ``{"type": "not_disclosed", "answer": ...}`` if the model emits the not-disclosed sentinel.
     * ``{"type": "complete", "answer", "citations", "grounded", "kind", "followups"}`` at the end.
     * ``{"type": "error", "message": ...}`` on any failure.
 
-    The generator never raises — all exceptions become an ``error`` event so the SSE stream stays
-    well-formed. The filing source text is normalized **once** here and reused for every excerpt.
+    Ordinary failures become safe ``error`` events; cancellation still propagates. The filing source
+    text is normalized **once** here and reused for every excerpt.
     """
     try:
         source_text = _select_source_text(filing) or ""
@@ -1102,16 +1158,15 @@ async def answer_filing_question(
 
         yield {"type": "progress", "stage": "reading"}
 
-        answer_parts: list[str] = []          # emitted prose (before any sentinel)
+        answer_parts: list[str] = []          # private candidate prose (before any sentinel)
         citation_buffer: list[str] = []       # text after ===CITATIONS===
         not_disclosed_parts: list[str] = []   # text after ===NOT_DISCLOSED===
         pending = ""                          # carry-over tail for cross-chunk sentinel detection
         mode = "answer"                        # answer | citations | not_disclosed
+        last_progress = monotonic()
 
-        # Token usage is accumulated here across tool rounds (opt-in via usage_sink) so the router
-        # can emit per-answer inference cost from the `complete` event; empty if the provider
-        # returns no usage.
-        usage_sink: dict[str, int] = {}
+        # The wrapper accumulates actual model, usage and recorded call costs across tool rounds.
+        usage_sink: dict[str, Any] = {}
         model_name = openai_service.model
         async for delta in openai_service.stream_chat_with_tools(
             messages,
@@ -1130,8 +1185,7 @@ async def answer_filing_question(
             # bracketed text stream out as the answer body — a model outage must not look like a
             # confident, zero-grounded answer.
             if delta.startswith(STREAM_ERROR_SENTINEL):
-                message = delta[len(STREAM_ERROR_SENTINEL):].strip() or "model stream failed"
-                yield {"type": "error", "message": message[:300]}
+                yield {"type": "error", "message": _STREAM_FAILURE}
                 return
 
             # Tool-activity signal from the wrapper → a live "show the work" event. Translate the raw
@@ -1145,11 +1199,15 @@ async def answer_filing_question(
                     info = {}
                 yield {
                     "type": "activity",
-                    "label": copilot_tools.describe_tool_call(info.get("name", ""), info.get("args")),
-                    "phase": info.get("phase", "start"),
+                    "label": _safe_activity_label(info),
+                    "phase": "done" if info.get("phase") == "done" else "start",
                     "ok": bool(info.get("ok", True)),
                 }
                 continue
+
+            if monotonic() - last_progress >= 3:
+                yield {"type": "progress", "stage": "reading"}
+                last_progress = monotonic()
 
             if mode == "citations":
                 citation_buffer.append(delta)
@@ -1158,7 +1216,7 @@ async def answer_filing_question(
                 not_disclosed_parts.append(delta)
                 continue
 
-            # mode == "answer": scan the accumulated buffer for a sentinel, emitting safe prose and
+            # mode == "answer": scan the accumulated buffer for a sentinel, holding prose privately and
             # holding back a tail so a sentinel split across chunks is still caught.
             pending += delta
             while True:
@@ -1171,7 +1229,6 @@ async def answer_filing_question(
                     prose = pending[:cut]
                     if prose:
                         answer_parts.append(prose)
-                        yield {"type": "token", "text": prose}
                     if cut == cit_at:
                         mode = "citations"
                         citation_buffer.append(pending[cut + len(_CITATIONS_SENTINEL):])
@@ -1181,35 +1238,44 @@ async def answer_filing_question(
                     pending = ""
                     break
 
-                # No complete sentinel: emit everything except a held-back tail that could be the
+                # No complete sentinel: buffer everything except a held-back tail that could be the
                 # start of a sentinel spanning into the next chunk.
                 if len(pending) > _SENTINEL_TAIL:
                     emit = pending[:-_SENTINEL_TAIL]
                     pending = pending[-_SENTINEL_TAIL:]
                     if emit:
                         answer_parts.append(emit)
-                        yield {"type": "token", "text": emit}
                 break
 
-        # Stream finished. Build the usage payload (tokens + model) for the per-answer cost
-        # telemetry the router emits from the `complete` event; None if the provider gave no usage.
-        usage_payload = {"model": model_name, **usage_sink} if usage_sink else None
+        # Preserve the per-call accounting, including unknown values and mixed-model totals.
+        usage_payload = usage_sink or None
 
         # Flush any held-back tail that turned out to be plain prose.
         if mode == "answer" and pending:
             answer_parts.append(pending)
-            yield {"type": "token", "text": pending}
 
         if mode == "not_disclosed":
-            # The not-disclosed verdict may carry a trailing followups block (questions this
-            # filing CAN answer) — a dead end without a next step just strands the user.
+            if "".join(answer_parts).strip():
+                raise _UnpublishableAnswer("Answer prose precedes not-disclosed verdict")
+            # A complete not-disclosed verdict needs its reason and the whole required
+            # followups envelope. Provider EOF or repaired JSON cannot establish completion.
             nd_raw = "".join(not_disclosed_parts)
-            nd_followups: list[str] = []
-            nd_match = re.search(r"===\s*FOLLOW-?UPS\s*===", nd_raw, re.IGNORECASE)
-            if nd_match:
-                nd_followups = _parse_followups(nd_raw[nd_match.end():])
-                nd_raw = nd_raw[: nd_match.start()]
-            answer = nd_raw.strip() or "This filing does not disclose the requested information."
+            nd_match = _FOLLOWUPS_RE.search(nd_raw)
+            if not nd_match:
+                raise _UnpublishableAnswer("Missing not-disclosed followups envelope")
+            answer = nd_raw[:nd_match.start()].strip()
+            if not answer:
+                raise _UnpublishableAnswer("Empty not-disclosed reason")
+            if _CITATIONS_SENTINEL in answer or _NOT_DISCLOSED_SENTINEL in answer:
+                raise _UnpublishableAnswer("Contradictory not-disclosed envelope")
+            try:
+                nd_followups = json.loads(nd_raw[nd_match.end():].strip())
+            except (ValueError, TypeError) as exc:
+                raise _UnpublishableAnswer("Incomplete not-disclosed followups array") from exc
+            if (not isinstance(nd_followups, list) or not 2 <= len(nd_followups) <= 3
+                    or any(not isinstance(item, str) or not item.strip() for item in nd_followups)):
+                raise _UnpublishableAnswer("Invalid not-disclosed followups array")
+            nd_followups = [item.strip()[:140] for item in nd_followups]
             yield {"type": "not_disclosed", "answer": answer}
             yield {
                 "type": "complete",
@@ -1223,19 +1289,9 @@ async def answer_filing_question(
             return
 
         full_answer = "".join(answer_parts).strip()
-        # The citations buffer may carry a trailing ===FOLLOWUPS=== block; split it off before parsing
-        # the citation JSON so suggested next-questions can be surfaced as tappable chips. The match is
-        # case/dash/space-tolerant: if a mis-cased sentinel slipped through, the followups JSON would
-        # otherwise be left in the buffer and corrupt the citation parse (zero citations) — so this is
-        # deliberately forgiving.
-        citation_raw = "".join(citation_buffer)
-        followups: list[str] = []
-        followups_match = re.search(r"===\s*FOLLOW-?UPS\s*===", citation_raw, re.IGNORECASE)
-        if followups_match:
-            followups = _parse_followups(citation_raw[followups_match.end():])
-            citation_raw = citation_raw[: followups_match.start()]
-        citations = _parse_citations(citation_raw)
-        text_citations_by_marker = _verify_citations(citations, filing, normalized_source)
+        if mode != "citations":
+            raise _UnpublishableAnswer("Missing citation envelope")
+        citations, followups = _parse_citations("".join(citation_buffer))
 
         # Multi-reference bracket groups the model emits despite the one-marker-per-bracket
         # contract — "[F1, F2]", "[F1, 2]", "[F1 vs F2]" — previously stayed LITERAL in the
@@ -1253,6 +1309,15 @@ async def answer_filing_question(
             # (pinned resolver behavior, and "[1,234]" could be a bracketed thousands figure).
             require_re=citation_markers.MARKER_REF_RE,
         )
+        referenced = {
+            re.sub(r"\s+", "", match.group(1)).upper()
+            for match in _COPILOT_MARKER_RE.finditer(full_answer)
+        }
+        text_citations_by_marker = _verify_citations(citations, filing, normalized_source, referenced)
+        # Keep literal identities before repair/numbering; a later citation must not capture
+        # an unrelated original [1]. Leading-zero markers keep their original identity.
+        unresolved_literals = {key for key in referenced if not key.startswith("F")
+                               and key not in text_citations_by_marker}
         # Supported uncited annual claims need positive certification, beyond marker removal.
         # Look up each claimed figure in the viewed filing and attach separate markers only
         # after every operand certifies; preserve every other byte of the answer.
@@ -1283,6 +1348,11 @@ async def answer_filing_question(
                     repaired, {}, used_facts, filing_url,
                 )
                 misplaced += additional_misplaced
+        if not full_answer:
+            raise _UnpublishableAnswer("Empty resolved answer")
+        if any(str(cite["n"]) in unresolved_literals or cite["verified"] is not True
+               for cite in verified_citations):
+            raise _UnpublishableAnswer("Unverified or colliding final citation")
         if misplaced:
             # Trust telemetry: a nonzero rate here means the model is attaching fact markers to
             # figures they don't support — watch this after any prompt/model change.
@@ -1309,6 +1379,10 @@ async def answer_filing_question(
             "uncited_figures": uncited_figures,
             "usage": usage_payload,
         }
-    except Exception as e:  # noqa: BLE001 — never raise out of the SSE generator
+    except _UnpublishableAnswer as exc:
+        # These reasons are application-owned constants, never candidate prose or excerpts.
+        logger.warning("Copilot candidate withheld at citation publication boundary: %s", exc)
+        yield {"type": "error", "message": _PUBLICATION_ERROR}
+    except Exception:  # noqa: BLE001 — never raise ordinary failures out of the SSE generator
         logger.exception("Copilot answer_filing_question failed")
-        yield {"type": "error", "message": str(e)[:300]}
+        yield {"type": "error", "message": _STREAM_FAILURE}

@@ -20,7 +20,7 @@ from typing import Any, Callable, List, Optional
 
 from app.services.ai.statement_relationship import (
     CONTEXT_KEY as STATEMENT_CONTEXT_KEY, CONTEXT_VERSION as STATEMENT_CONTEXT_VERSION,
-    OWNED_FIELD as STATEMENT_OWNED_FIELD,
+    OWNED_FIELD as STATEMENT_OWNED_FIELD, display_statement_paragraphs,
 )
 from app.services.ai.issuer_cash_disclosure import (
     CONTEXT_KEY as ISSUER_CASH_CONTEXT_KEY, CONTEXT_VERSION as ISSUER_CASH_CONTEXT_VERSION,
@@ -28,7 +28,13 @@ from app.services.ai.issuer_cash_disclosure import (
 )
 from app.services.ai.financing_comparison import CAPITAL_CONTEXT_KEY, CAPITAL_CONTEXT_VERSION, OWNED_FIELD
 from app.services import metric_delta_service
-from app.services.summary_schema import SECTION_META, SOURCE_UNIT_CONTEXT_KEY, SOURCE_UNIT_CONTEXT_VERSION
+from app.services.summary_schema import (
+    RISK_SOURCE_CONTEXT_KEY,
+    RISK_SOURCE_CONTEXT_VERSION,
+    SECTION_META,
+    SOURCE_UNIT_CONTEXT_KEY,
+    SOURCE_UNIT_CONTEXT_VERSION,
+)
 
 # Mirror frontend SummarySections.tsx PLACEHOLDER_PATTERNS so exports drop the same
 # "data unavailable" filler the page hides.
@@ -146,6 +152,9 @@ class Block:
     # Per-row citations for a "table" kind, parallel to ``rows`` (T4 — e.g. footnotes). Each entry is an
     # evidence dict or None. Web-only, like ``metric_rows``; the export/markdown string ``rows`` ignore it.
     row_evidence: List[Optional[dict]] = field(default_factory=list)
+    # Internal renderer hint: rows are authoritative retained-source text. The markdown projection
+    # escapes syntax characters for literal display; JSON/PDF/CSV keep the exact source characters.
+    literal_cells: bool = False
 
     @property
     def is_empty(self) -> bool:
@@ -245,7 +254,7 @@ def _executive_snapshot(sections: dict) -> Section:
     return section
 
 
-def _metrics_block(table: Any) -> Optional[Block]:
+def _metrics_block(table: Any, *, exact_delta_owned: bool = False) -> Optional[Block]:
     """Build the financial-metrics ``Block`` from a list of P&L row dicts.
 
     Shared by v1 ``financial_highlights`` and v2 ``results_that_matter`` (identical row shape).
@@ -263,7 +272,7 @@ def _metrics_block(table: Any) -> Optional[Block]:
         metric = _clean(row.get("metric"))
         if not metric:
             continue
-        _delta = metric_delta_service.delta_for_row(row)
+        _delta = metric_delta_service.delta_for_row(row, exact_owned=exact_delta_owned)
         change_cell = _delta.display if _delta and _delta.display else "—"
         rows.append(
             [
@@ -285,12 +294,17 @@ def _metrics_block(table: Any) -> Optional[Block]:
         typed = {
             key: (_strip_inline_markdown(val) if isinstance(val, str) else val)
             for key, val in row.items()
-            if key not in ("supporting_evidence", "supportingEvidence")
+            if key not in (
+                "supporting_evidence", "supportingEvidence",
+                "change_display", "change_direction", "change_tone",
+            )
         }
         if _delta and _delta.display:
-            typed.setdefault("change_display", _delta.display)
-            typed.setdefault("change_direction", _delta.direction)
-            typed.setdefault("change_tone", _delta.tone)
+            typed.update({
+                "change_display": _delta.display,
+                "change_direction": _delta.direction,
+                "change_tone": _delta.tone,
+            })
         metric_rows.append(typed)
     if not rows:
         return None
@@ -302,13 +316,13 @@ def _metrics_block(table: Any) -> Optional[Block]:
     )
 
 
-def _financial_highlights(sections: dict) -> Section:
+def _financial_highlights(sections: dict, *, exact_delta_owned: bool = False) -> Section:
     section = Section("Financial Highlights")
     data = sections.get("financial_highlights")
     if not isinstance(data, dict):
         return section
 
-    block = _metrics_block(data.get("table"))
+    block = _metrics_block(data.get("table"), exact_delta_owned=exact_delta_owned)
     if block:
         section.blocks.append(block)
 
@@ -328,7 +342,7 @@ def _financial_highlights(sections: dict) -> Section:
     return section
 
 
-def _risks_table_block(risks: Any) -> Optional[Block]:
+def _risks_table_block(risks: Any, *, source_owned: bool = False) -> Optional[Block]:
     """Build the risks table Block (shared by v1 ``risk_factors`` and v2 ``risks``). Each risk must
     carry non-placeholder supporting evidence (mirrors the page filter). Returns ``None`` if none
     qualify."""
@@ -336,6 +350,16 @@ def _risks_table_block(risks: Any) -> Optional[Block]:
         return None
     rows: List[List[str]] = []
     for risk in risks:
+        if source_owned:
+            if not isinstance(risk, dict) or not isinstance(risk.get("supporting_evidence"), str):
+                continue
+            evidence = risk["supporting_evidence"]
+            if not evidence:
+                continue
+            # Provenance already returned an authoritative retained-source slice. Do not run the
+            # model-output placeholder or inline-markdown cleaners over those source characters.
+            rows.append([str(len(rows) + 1), "Filing excerpt", evidence])
+            continue
         normalized = _normalize_risk(risk)
         if not normalized:
             continue
@@ -343,13 +367,53 @@ def _risks_table_block(risks: Any) -> Optional[Block]:
         rows.append([str(len(rows) + 1), risk_text, evidence])
     if not rows:
         return None
-    return Block("table", headers=["#", "Risk", "Supporting Evidence"], rows=rows)
+    return Block(
+        "table",
+        headers=["#", "Risk", "Supporting Evidence"],
+        rows=rows,
+        literal_cells=source_owned,
+    )
 
 
-def _risk_factors(sections: dict) -> Section:
+def _risk_projection_notice(sections: dict, *, risk_source_owned: bool = False) -> Optional[Block]:
+    """Render the source-first coverage statement computed by provenance_service."""
+    metadata = sections.get("_risk_source_projection")
+    if (
+        not risk_source_owned
+        or not isinstance(metadata, dict)
+        or type(metadata.get("version")) is not int
+        or metadata.get("version") != 1
+    ):
+        return None
+    verified = metadata.get("verified_count")
+    withheld = metadata.get("withheld_count")
+    if type(verified) is not int or type(withheld) is not int:
+        return None
+    if verified:
+        noun = "excerpt" if verified == 1 else "excerpts"
+        text = f"{verified} source-verified filing {noun}."
+        if withheld:
+            item_noun = "item" if withheld == 1 else "items"
+            text += f" {withheld} {item_noun} withheld because the evidence could not be matched."
+        text += " Selected excerpts are not a complete risk inventory."
+    else:
+        text = "Source-verified risk excerpts are unavailable. Review the filing."
+        if withheld:
+            item_noun = "item" if withheld == 1 else "items"
+            text += f" {withheld} {item_noun} withheld because the evidence could not be matched."
+        text += " Selected excerpts are not a complete risk inventory."
+    return Block("paragraph", text=text)
+
+
+def _risk_factors(sections: dict, *, risk_source_owned: bool = False) -> Section:
     """Risks, filtered to match the page: each must have non-placeholder supporting evidence."""
     section = Section("Investment Risks & Concerns", role="risks")
-    block = _risks_table_block(sections.get("risk_factors"))
+    notice = _risk_projection_notice(sections, risk_source_owned=risk_source_owned)
+    if notice:
+        section.blocks.append(notice)
+    block = _risks_table_block(
+        sections.get("risk_factors"), source_owned=True
+    ) if risk_source_owned else None
     if block:
         section.blocks.append(block)
     return section
@@ -600,11 +664,11 @@ def _v2_the_print(sections: dict) -> Section:
     return section
 
 
-def _v2_results_that_matter(sections: dict) -> Section:
+def _v2_results_that_matter(sections: dict, *, exact_delta_owned: bool = False) -> Section:
     section = Section(SECTION_META["results_that_matter"]["title"])
     data = sections.get("results_that_matter")
     if isinstance(data, dict):
-        block = _metrics_block(data.get("table"))
+        block = _metrics_block(data.get("table"), exact_delta_owned=exact_delta_owned)
         if block:
             section.blocks.append(block)
     return section
@@ -620,7 +684,7 @@ def _v2_earnings_quality(
     for key, alt in (("operating_vs_one_time", "operatingVsOneTime"), ("cash_conversion", "cashConversion")):
         if key == "operating_vs_one_time" and statement_owned:
             owned = data.get(STATEMENT_OWNED_FIELD, {})
-            for paragraph in _str_list(owned.get("paragraphs") if isinstance(owned, dict) else []):
+            for paragraph in _str_list(display_statement_paragraphs(owned) if isinstance(owned, dict) else []):
                 section.blocks.append(Block("paragraph", text=paragraph))
             continue
         text = _clean(data.get(key) or data.get(alt))
@@ -719,10 +783,15 @@ def _v2_forward_signals(sections: dict, *, source_units_owned: bool = False) -> 
     return section
 
 
-def _v2_risks(sections: dict) -> Section:
+def _v2_risks(sections: dict, *, risk_source_owned: bool = False) -> Section:
     meta = SECTION_META["risks"]
     section = Section(meta["title"], role=meta.get("role", ""))
-    block = _risks_table_block(sections.get("risks"))
+    notice = _risk_projection_notice(sections, risk_source_owned=risk_source_owned)
+    if notice:
+        section.blocks.append(notice)
+    block = _risks_table_block(
+        sections.get("risks"), source_owned=True
+    ) if risk_source_owned else None
     if block:
         section.blocks.append(block)
     return section
@@ -842,6 +911,10 @@ def render_sections(raw_summary: Optional[dict]) -> List[Section]:
     capital_owned = type(capital_marker) is int and capital_marker == CAPITAL_CONTEXT_VERSION
     issuer_cash_marker = raw_summary.get(ISSUER_CASH_CONTEXT_KEY)
     issuer_cash_owned = type(issuer_cash_marker) is int and issuer_cash_marker == ISSUER_CASH_CONTEXT_VERSION
+    delta_marker = raw_summary.get(metric_delta_service.EXACT_CONTEXT_KEY)
+    exact_delta_owned = type(delta_marker) is int and delta_marker == metric_delta_service.EXACT_CONTEXT_VERSION
+    risk_marker = raw_summary.get(RISK_SOURCE_CONTEXT_KEY)
+    risk_source_owned = type(risk_marker) is int and risk_marker == RISK_SOURCE_CONTEXT_VERSION
     rendered: List[Section] = []
     for builder in _builders_for(raw_summary.get("schema_version")):
         section = (
@@ -850,7 +923,11 @@ def render_sections(raw_summary: Optional[dict]) -> List[Section]:
             builder(sections, capital_owned=capital_owned)
             if builder is _v2_value_drivers else
             builder(sections, statement_owned=statement_owned, issuer_cash_owned=issuer_cash_owned)
-            if builder is _v2_earnings_quality else builder(sections)
+            if builder is _v2_earnings_quality else
+            builder(sections, exact_delta_owned=exact_delta_owned)
+            if builder in (_financial_highlights, _v2_results_that_matter) else
+            builder(sections, risk_source_owned=risk_source_owned)
+            if builder in (_risk_factors, _v2_risks) else builder(sections)
         )
         if section.has_content:
             rendered.append(section)
@@ -867,7 +944,13 @@ def _md_cell(text: Any) -> str:
     return str(text).replace("|", "\\|").replace("\n", " ").strip()
 
 
-def _markdown_table(headers: List[str], rows: List[List[str]]) -> str:
+def _md_literal_cell(text: Any) -> str:
+    """Escape retained-source text once so GFM displays its characters literally."""
+    value = str(text).replace("\\", "\\\\").replace("|", "\\|").replace("\n", " ").strip()
+    return re.sub(r"([`*_\[\]<>])", r"\\\1", value)
+
+
+def _markdown_table(headers: List[str], rows: List[List[str]], *, literal_cells: bool = False) -> str:
     if not rows:
         return ""
     cols = len(headers) if headers else max((len(r) for r in rows), default=0)
@@ -876,7 +959,9 @@ def _markdown_table(headers: List[str], rows: List[List[str]]) -> str:
 
     def _line(cells: List[str]) -> str:
         padded = list(cells) + [""] * (cols - len(cells))
-        return "| " + " | ".join(_md_cell(c) for c in padded[:cols]) + " |"
+        render_cell = _md_literal_cell if literal_cells else _md_cell
+        rendered = [render_cell(c) for c in padded[:cols]]
+        return "| " + " | ".join(rendered) + " |"
 
     head = headers if headers else [""] * cols
     out = [_line(head), "| " + " | ".join(["---"] * cols) + " |"]
@@ -899,7 +984,7 @@ def _block_to_markdown(block: Block) -> str:
         lines += [f"- {item}" for item in block.items if str(item).strip()]
         return "\n".join(lines)
     if block.kind in ("table", "metrics"):
-        return _markdown_table(block.headers, block.rows)
+        return _markdown_table(block.headers, block.rows, literal_cells=block.literal_cells)
     if block.kind == "callout":
         label = f"**{block.label.strip()}:** " if block.label else ""
         return f"{label}{block.text.strip()}"

@@ -1,0 +1,63 @@
+.....................                                                    [100%]
+=============================== warnings summary ===============================
+app/config.py:21
+  /private/tmp/earningsnerd-filings-session-20260927/backend/app/config.py:21: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.13/migration/
+    class Settings(BaseSettings):
+
+app/database.py:44
+  /private/tmp/earningsnerd-filings-session-20260927/backend/app/database.py:44: MovedIn20Warning: The ``declarative_base()`` function is now available as sqlalchemy.orm.declarative_base(). (deprecated since: 2.0) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
+    Base = declarative_base()
+
+app/schemas/summary.py:110
+  /private/tmp/earningsnerd-filings-session-20260927/backend/app/schemas/summary.py:110: PydanticDeprecatedSince212: Using `@model_validator` with mode='after' on a classmethod is deprecated. Instead, use an instance method. See the documentation at https://docs.pydantic.dev/2.13/concepts/validators/#model-after-validator. Deprecated in Pydantic V2.12 to be removed in V3.0.
+    @model_validator(mode="after")
+
+../../earningsnerd-e7-corrections-venv/lib/python3.11/site-packages/pydantic/_internal/_generate_schema.py:325
+../../earningsnerd-e7-corrections-venv/lib/python3.11/site-packages/pydantic/_internal/_generate_schema.py:325
+../../earningsnerd-e7-corrections-venv/lib/python3.11/site-packages/pydantic/_internal/_generate_schema.py:325
+../../earningsnerd-e7-corrections-venv/lib/python3.11/site-packages/pydantic/_internal/_generate_schema.py:325
+  /private/tmp/earningsnerd-e7-corrections-venv/lib/python3.11/site-packages/pydantic/_internal/_generate_schema.py:325: PydanticDeprecatedSince20: `json_encoders` is deprecated. See https://docs.pydantic.dev/2.13/concepts/serialization/#custom-serializers for alternatives. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.13/migration/
+    warnings.warn(
+
+app/schemas/summary.py:168
+  /private/tmp/earningsnerd-filings-session-20260927/backend/app/schemas/summary.py:168: PydanticDeprecatedSince212: Using `@model_validator` with mode='after' on a classmethod is deprecated. Instead, use an instance method. See the documentation at https://docs.pydantic.dev/2.13/concepts/validators/#model-after-validator. Deprecated in Pydantic V2.12 to be removed in V3.0.
+    @model_validator(mode="after")
+
+app/schemas/contact.py:47
+  /private/tmp/earningsnerd-filings-session-20260927/backend/app/schemas/contact.py:47: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.13/migration/
+    class ContactSubmissionResponse(BaseModel):
+
+app/routers/companies.py:133
+  /private/tmp/earningsnerd-filings-session-20260927/backend/app/routers/companies.py:133: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.13/migration/
+    class CompanyResponse(BaseModel):
+
+app/routers/filings.py:133
+  /private/tmp/earningsnerd-filings-session-20260927/backend/app/routers/filings.py:133: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.13/migration/
+    class FilingResponse(BaseModel):
+
+app/routers/saved_summaries.py:16
+  /private/tmp/earningsnerd-filings-session-20260927/backend/app/routers/saved_summaries.py:16: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.13/migration/
+    class SavedSummaryResponse(BaseModel):
+
+app/routers/summaries.py:85
+  /private/tmp/earningsnerd-filings-session-20260927/backend/app/routers/summaries.py:85: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.13/migration/
+    class SummaryResponse(BaseModel):
+
+app/routers/users.py:121
+  /private/tmp/earningsnerd-filings-session-20260927/backend/app/routers/users.py:121: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.13/migration/
+    class NotificationPreferencesResponse(BaseModel):
+
+app/routers/users.py:208
+  /private/tmp/earningsnerd-filings-session-20260927/backend/app/routers/users.py:208: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.13/migration/
+    class NotificationItem(BaseModel):
+
+app/routers/watchlist.py:38
+  /private/tmp/earningsnerd-filings-session-20260927/backend/app/routers/watchlist.py:38: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.13/migration/
+    class WatchlistResponse(BaseModel):
+
+app/schemas/feedback.py:34
+  /private/tmp/earningsnerd-filings-session-20260927/backend/app/schemas/feedback.py:34: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.13/migration/
+    class FeedbackResponse(BaseModel):
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+21 passed, 17 warnings in 12.54s

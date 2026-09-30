@@ -23,7 +23,7 @@ const SITE_URL = 'https://www.earningsnerd.io'
 const SHOW_QUOTE_SLOT = false
 
 const DESCRIPTION =
-  'AI summaries of 10-Ks and 10-Qs for investors who read the source. Every figure grounded in SEC XBRL, every claim linked to the passage it came from.'
+  'AI summaries of 10-Ks and 10-Qs built from selected SEC filing text and available filed XBRL data, with source labels where matches are found.'
 
 // <title> / og:title follow the default headline variant (A). The client-side experiment may swap
 // the H1 to B or C and retitles the document to match (HeroHeadline); crawlers always see A.
@@ -41,10 +41,10 @@ export const metadata: Metadata = {
     images: [
       {
         // Same card as the root layout (a nested `openGraph` replaces the layout's, not merges).
-        url: '/og-image.png?v=2',
+        url: '/og-image.png?v=3',
         width: 1200,
         height: 630,
-        alt: 'EarningsNerd - SEC filing summaries in minutes',
+        alt: 'EarningsNerd - SEC filing summaries with source context',
       },
     ],
   },
@@ -52,7 +52,7 @@ export const metadata: Metadata = {
     card: 'summary_large_image',
     title: pageTitleFor(DEFAULT_HEADLINE),
     description: DESCRIPTION,
-    images: ['/og-image.png?v=2'],
+    images: ['/og-image.png?v=3'],
   },
 }
 
@@ -117,7 +117,7 @@ export default async function Home() {
         {/* 2. Hero: headline (LCP), primary CTA + access line, company search, live example */}
         <LandingHero example={example} accessMode={accessMode} />
 
-        {/* 3. Measured claims strip */}
+        {/* 3. Product capabilities strip */}
         <MeasuredClaims />
 
         {/* 4. Evidence: where the numbers come from */}

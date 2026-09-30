@@ -1,0 +1,16 @@
+{
+  "initial_gate_head": "e802acf3854f78c193976e904f86321e787733f1",
+  "initial_result": "14 failed,4115 passed,39 skipped,2 deselected,40 warnings; Ruff/Bandit passed",
+  "failures": {
+    "native_copilot_positive_fixtures": 12,
+    "local_pdf_loader": 2
+  },
+  "fixture_correction": "Append complete CITATIONS[] to two native SDK success producers; preserve all usage/provenance assertions. Ten accounting scenarios and two provenance cases covered.",
+  "environment_correction": "Set DYLD_FALLBACK_LIBRARY_PATH inside invoking shell/direct interpreter; the prior nested protected /bin/zsh dropped the inherited DYLD value. No PDF/application/test changes.",
+  "focused_validation": "95 passed,17 warnings in11.83s",
+  "focused_log_sha256": "40b05bc10654cf120d6a42d6e13bcca8b2d89f5d2c14e1fa604378bcc43e0344",
+  "corrected_head": "a8fd5e40da9a3e1b9d75dc0b76552723663fe67c",
+  "corrected_backend_tree": "98a27162f814456f38cabd9ac882b6295e61618f",
+  "full_gate_status": "in_progress",
+  "at": "2026-09-29T20:36:05.931646+00:00"
+}

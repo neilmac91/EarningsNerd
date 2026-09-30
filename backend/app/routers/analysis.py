@@ -37,7 +37,6 @@ from app.schemas.analysis import (
     StreamRequest,
 )
 from app.services import facts_service, trend_analysis_service
-from app.services.llm_pricing import estimate_inference_cost_usd
 from app.services.posthog_client import capture_analysis_inference
 from app.services.rate_limiter import RateLimiter, enforce_rate_limit
 from app.services.subscription_service import (
@@ -86,18 +85,12 @@ def _get_company(db: Session, ticker: str) -> Company:
 
 
 async def _ingest_with_own_session(company_id: int) -> dict:
-    """Run the companyfacts ingest on a dedicated session so it can safely outlive the request
-    (the coverage endpoint answers `syncing: true` after 20s and lets this finish)."""
+    """Run companyfacts ingest in short DB units so it can safely outlive the request."""
     from app.database import SessionLocal
 
-    db = SessionLocal()
-    try:
-        company = db.get(Company, company_id)
-        if company is None:
-            return {"synced": False}
-        return await facts_service.ingest_companyfacts(db, company)
-    finally:
-        db.close()
+    return await facts_service.ingest_companyfacts_by_id(
+        company_id, session_factory=SessionLocal
+    )
 
 
 @router.get("/{ticker}/coverage", response_model=CoverageResponse)
@@ -115,8 +108,16 @@ async def get_coverage(
         error_detail="Too many coverage requests. Please retry in a minute.",
     )
     company = _get_company(db, ticker)
+    company_id = company.id
+    company_ticker = company.ticker
+    company_name = company.name
 
-    task = asyncio.create_task(_ingest_with_own_session(company.id))
+    # The dependency session otherwise survives the external SEC wait (and, on timeout, the
+    # continuing background task). Everything below uses immutable identity fields plus fresh,
+    # short reads after the wait.
+    db.close()
+
+    task = asyncio.create_task(_ingest_with_own_session(company_id))
     _background_syncs.add(task)
     task.add_done_callback(_background_syncs.discard)
     done, _pending = await asyncio.wait({task}, timeout=COVERAGE_SYNC_WAIT_SECONDS)
@@ -126,13 +127,13 @@ async def get_coverage(
         try:
             sync = task.result()
         except Exception:  # noqa: BLE001 - a failed sync degrades to whatever the DB already has
-            logger.exception("companyfacts sync failed inside coverage for %s", company.ticker)
+            logger.exception("companyfacts sync failed inside coverage for %s", company_ticker)
     else:
         # First-touch sync still running — serve what exists and tell the client to retry.
-        periods = trend_analysis_service.available_periods(db, company.id)
+        periods = trend_analysis_service.available_periods(db, company_id)
         return CoverageResponse(
-            ticker=company.ticker,
-            company_name=company.name,
+            ticker=company_ticker,
+            company_name=company_name,
             supported=True,
             syncing=True,
             synced_at=None,
@@ -141,19 +142,19 @@ async def get_coverage(
             limits=_limits(),
         )
 
-    db.expire(company)  # the ingest wrote facts_synced_at through its own session
-    periods = trend_analysis_service.available_periods(db, company.id)
+    periods = trend_analysis_service.available_periods(db, company_id)
+    synced_at = db.query(Company.facts_synced_at).filter(Company.id == company_id).scalar()
     has_any = bool(periods["annual"] or periods["quarterly"])
     reason = None
     if not has_any:
         reason = "ifrs_filer" if sync.get("unsupported_ifrs") else "no_facts"
     return CoverageResponse(
-        ticker=company.ticker,
-        company_name=company.name,
+        ticker=company_ticker,
+        company_name=company_name,
         supported=has_any,
         reason=reason,
         syncing=False,
-        synced_at=company.facts_synced_at.isoformat() if company.facts_synced_at else None,
+        synced_at=synced_at.isoformat() if synced_at else None,
         annual=periods["annual"],
         quarterly=periods["quarterly"],
         limits=_limits(),
@@ -274,12 +275,7 @@ def _emit_analysis_cost_best_effort(user_id: int, ticker: str, mode: str, event:
             total_tokens=usage.get("total_tokens"),
             cache_hit_tokens=usage.get("cache_hit_tokens"),
             cache_miss_tokens=usage.get("cache_miss_tokens"),
-            cost_usd=estimate_inference_cost_usd(
-                usage.get("prompt_tokens"),
-                usage.get("completion_tokens"),
-                cache_hit_tokens=usage.get("cache_hit_tokens"),
-                cache_miss_tokens=usage.get("cache_miss_tokens"),
-            ),
+            cost_usd=usage.get("estimated_cost_usd"),
             ticker=ticker,
             mode=mode,
             n_periods=event.get("n_periods"),

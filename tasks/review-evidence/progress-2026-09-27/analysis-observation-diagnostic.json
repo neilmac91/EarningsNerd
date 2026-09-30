@@ -1,0 +1,40 @@
+{
+  "schema_version": 1,
+  "candidate_commit": "a2c9a5e3ce8d58738823864146ef17f1e4b0dc64",
+  "result": "bounded_candidate_diagnostic_clear",
+  "production_prompt_unchanged_at_receipt": "trends-v4",
+  "logical_outputs": 14,
+  "physical_calls": 14,
+  "max_calls": 56,
+  "budget_usd": 1,
+  "reserved_usd": 0.1061463,
+  "usage": {
+    "completion_tokens": 3067,
+    "prompt_cache_hit_tokens": 7424,
+    "prompt_cache_miss_tokens": 8553,
+    "prompt_tokens": 15977,
+    "total_tokens": 19044
+  },
+  "conservative_token_estimate_usd": 0.0084735,
+  "billed_cost": "unknown",
+  "model": "deepseek-flash",
+  "all_outputs_reviewed_against_frozen_inputs": true,
+  "material_candidate_rendering_findings": 0,
+  "limitations": [
+    "The six real outputs were checked against frozen datasets and citation bindings, not independently revalidated end-to-end against SEC financial truth.",
+    "GOOGL 2026Q2 net income and derived net margin are conspicuous; the separate retained-companyfacts provenance receipt determines duration and source identity.",
+    "Current-ratio citation excerpts round to two decimals while deterministic narratives preserve more precision. No reviewed case reverses its threshold direction, but the display mismatch remains a limitation.",
+    "Quarterly source gaps remain advisory; older cash-flow comparisons were explicitly dated.",
+    "This is an ordinary candidate diagnostic, not E7/Fable or a full release verdict."
+  ],
+  "follow_up": "Retained SEC companyfacts confirms the unusual GOOGL Q2 values share a three-month duration and accession; no quarter/YTD mismatch was found. This does not establish their financial cause.",
+  "evidence_hashes": {
+    "diagnostic-plan-revised.json": "f3ba198634f5a4f25e3458da38c94476c1018c21929c38454aec57f889186752",
+    "first-pass-audit.json": "3a971d5e88c4903c772f8c5f734b5ab81d1815b1d43adc733d19ad724f47a008",
+    "first-pass-root-review.json": "e9a3881ad9859d3e7c3f363ec19daa96eb4b8a44719bf5121a2ea42392bfad7e",
+    "second-pass-audit.json": "77d4ff3ad1e3cbf67839e67a3068288f879a6d79d28924224a60245373840016",
+    "second-pass-root-review.json": "8da34307249335a129a74b0fbea37d2f6d48f4b467425f94b1cfe280de07222e",
+    "googl-2026q2-provenance.json": "d12713241bf16772323b6a4b8aebdb465ec4890e02727e92ced6c55f601bb8d4",
+    "independent-code-review.md": "0b55dec6459db3af5d9e08a60c08ab8179cd2c7731b4f8e6e550cfe8ee13880b"
+  }
+}

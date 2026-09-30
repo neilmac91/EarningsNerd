@@ -1,0 +1,40 @@
+{
+  "status": "api_verified",
+  "verified_at": "2026-09-28T10:11:37.821698+00:00",
+  "release_sha": "8ff1816cc2964d8b3ad3f5455c095640f12572a8",
+  "revision": "earningsnerd-backend-00411-wb5",
+  "service_and_pregenerate_flag": true,
+  "configuration_evidence": {
+    "kind": "github_ops_wif_logs",
+    "receipt": "outputs/takeover-2026-09-28/readonly-release-audit/pr992/wif-verification-receipt.json",
+    "receipt_sha256": "5de018ec10930b89a0cfabcc1df20c47b926f657c188aef9067c2ba38721ed0a"
+  },
+  "feed_rows": 8,
+  "distinct_issuers": 8,
+  "label_mapping_valid": true,
+  "canonical_sec_urls": true,
+  "sec_url_owner_sha256": "90ae28781084c9c0eb764e24aa40be9aae46587a034bf57a39285748c46c6197",
+  "url_convention": "Released SEC archive URL owner accepts canonical filing directory indexes.",
+  "seven_day_window_valid": true,
+  "feed_sha256": "e7b21d6dcf49ec9181d378dcdbced31adc9eb10bd75298a3169786d0fd28c4c7",
+  "homepage": {
+    "http_status": 200,
+    "section_present": true,
+    "visible_label_matches": {
+      "Results or financial condition": true
+    },
+    "response_sha256": "3c54f512eb9edc957e7181a9af9c0fe9cde2e2c036cd7b89831a70978ae73933",
+    "cache_headers": {
+      "Age": "253",
+      "Cache-Control": "public, max-age=0, must-revalidate",
+      "X-Vercel-Cache": "HIT"
+    }
+  },
+  "limits": [
+    "HTTP HTML observation is not a live interactive or visual browser check.",
+    "Operator requests are not customer engagement.",
+    "This does not establish all-cohort precision, beta usefulness or E7 quality acceptance."
+  ],
+  "model_calls": 0,
+  "job_dispatches": 0
+}

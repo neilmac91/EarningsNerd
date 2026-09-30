@@ -1,0 +1,44 @@
+{
+  "date": "2026-09-27T20:26:44.112734+00:00",
+  "pr": 985,
+  "head": "3cf55aa2c5283d3c9cff7cdee8f50ad4862c502f",
+  "merge": "98df9673a10fa89cf975e2be7c56fd1eace61a5d",
+  "merged_at": "2026-09-27T20:24:47Z",
+  "local": {
+    "lint": "pass",
+    "typecheck": "pass",
+    "vitest": 641,
+    "build": "Webpack pass; hosted normal Vercel build passed"
+  },
+  "ci": {
+    "id": 36347302451,
+    "status": "success",
+    "baseline_generation_calls": 0,
+    "reason": "generation steps skipped for frontend-only diff"
+  },
+  "review": {
+    "reviewed_commit": "3cf55aa2c5283d3c9cff7cdee8f50ad4862c502f",
+    "clear_comment": 5859517338,
+    "inline_findings": 0
+  },
+  "preview": {
+    "light": "inspected",
+    "dark": "inspected",
+    "original_light_restored": true
+  },
+  "production": {
+    "vercel_status": "success",
+    "url": "https://www.earningsnerd.io/login",
+    "observed_copy": [
+      "Example \u00b7 AAPL \u00b7 FY2023 \u00b7 10-K",
+      "$383.3B",
+      "\u22122.8% YoY",
+      "Filing-sourced figures"
+    ],
+    "main_backend_deploy": "all authentication, build, migration, deploy, job-image and health steps skipped for frontend-only diff",
+    "main_ci": 36347933765,
+    "main_ci_conclusion": "success"
+  },
+  "source": "https://www.sec.gov/Archives/edgar/data/320193/000032019323000106/aapl-20230930.htm",
+  "scope": "Frontend example accuracy and copy only; no generation, authentication flow or quality acceptance change."
+}

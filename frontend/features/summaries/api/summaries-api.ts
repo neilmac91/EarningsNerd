@@ -2,7 +2,7 @@ import api, { getApiUrl } from '@/lib/api/client'
 import { postStreamWithRefresh } from '@/lib/api/streamRefresh'
 import type { FinancialHighlights, MetricItem, RiskFactor } from '@/types/summary'
 import { isApiError, getErrorStatus } from '@/lib/api/types'
-import posthog from 'posthog-js'
+import { getCookiePreferences } from '@/components/CookieConsent'
 
 // --- Structured content projection (T2) ---------------------------------------------------------
 // `rendered_sections` mirrors the backend's single source of truth
@@ -58,18 +58,6 @@ export interface RenderedSection {
   tone?: string
 }
 
-// Forwarded with the stream request so server-side funnel events
-// (generation_started/succeeded/failed/timed_out) attach to the same PostHog
-// person as the frontend events (summary_viewed, search, etc.).
-const getPosthogDistinctId = (): string | null => {
-  if (typeof window === 'undefined') return null
-  try {
-    return posthog.get_distinct_id() || null
-  } catch {
-    return null
-  }
-}
-
 // Bound the connect/refresh handshake and each period without stream activity.
 // Heartbeats reset the read deadline; this is not a total generation deadline.
 const STREAM_TIMEOUT_MS = 120000
@@ -83,6 +71,7 @@ export interface Summary {
   management_discussion?: string
   key_changes?: string
   raw_summary?: {
+    risk_source_context_version?: number
     sections?: Record<string, unknown>
     section_coverage?: {
       covered_count?: number
@@ -172,6 +161,9 @@ export const generateSummaryStream = async (
   options?: { force?: boolean; entryPoint?: string }
 ): Promise<void> => {
   const MAX_ATTEMPTS = 2 // one automatic retry before surfacing the error to the user
+  // A random, in-memory action label; never used as an authorization or idempotency key.
+  const logicalRequestId = typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+    ? crypto.randomUUID() : undefined
 
   // Track whether the user has already seen real output. Once content is delivered we must
   // never silently retry (it would duplicate or reset their summary) — surface the error.
@@ -180,7 +172,7 @@ export const generateSummaryStream = async (
   for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
     const result = await runStreamAttempt(filingId, onChunk, onProgress, onComplete, options, () => {
       deliveredContent = true
-    })
+    }, logicalRequestId, attempt)
 
     if (result.ok) return
 
@@ -213,16 +205,14 @@ const runStreamAttempt = async (
   onProgress: (stage: string, message: string, data?: ProgressData) => void,
   onComplete: (summaryId: number) => void,
   options: { force?: boolean; entryPoint?: string } | undefined,
-  markContentDelivered: () => void
+  markContentDelivered: () => void,
+  logicalRequestId: string | undefined,
+  clientAttempt: number,
 ): Promise<StreamAttemptResult> => {
   const apiUrl = getApiUrl()
   const params = new URLSearchParams()
   if (options?.force) params.set('force', 'true')
   if (options?.entryPoint) params.set('entry_point', options.entryPoint)
-  const phId = getPosthogDistinctId()
-  if (phId) params.set('ph_id', phId)
-  const query = params.toString()
-  const url = `${apiUrl}/api/summaries/filing/${filingId}/generate-stream${query ? `?${query}` : ''}`
 
   const controller = new AbortController()
   const streamStart = performance.now()
@@ -256,8 +246,20 @@ const runStreamAttempt = async (
     }
   }
 
-  const postStream = () =>
-    fetch(url, {
+  let transportAttempt = 0
+  const postStream = () => {
+    transportAttempt += 1
+    // Re-read consent on every physical handshake, including an auth-refresh replay.
+    const requestParams = new URLSearchParams(params)
+    if (typeof window !== 'undefined' && getCookiePreferences()?.analytics === true) {
+      requestParams.set('analytics_consent', 'true')
+      if (logicalRequestId) requestParams.set('logical_request_id', logicalRequestId)
+      requestParams.set('client_attempt', String(clientAttempt))
+      requestParams.set('transport_attempt', String(transportAttempt))
+    }
+    const query = requestParams.toString()
+    const url = `${apiUrl}/api/summaries/filing/${filingId}/generate-stream${query ? `?${query}` : ''}`
+    return fetch(url, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -265,6 +267,7 @@ const runStreamAttempt = async (
       credentials: 'include',
       signal: controller.signal,
     })
+  }
 
   // A refresh is shared with other requests and cannot be cancelled by this reader. Race the
   // whole handshake against our signal so a stalled refresh cannot strand this attempt; any

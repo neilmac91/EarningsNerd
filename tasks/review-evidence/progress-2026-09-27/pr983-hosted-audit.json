@@ -1,0 +1,108 @@
+{
+  "schema_version": 1,
+  "pr": 983,
+  "head_sha": "556ab3e1f45a29a12ffcda1dfeb7dcbb416d9090",
+  "ci": {
+    "run_id": 36344083228,
+    "conclusion": "SUCCESS",
+    "successful_jobs": [
+      "backend-tests",
+      "frontend-tests",
+      "lighthouse",
+      "migrations-postgres",
+      "e2e-tests",
+      "eval-baseline"
+    ],
+    "deploy_backend": "SKIPPED because the workflow deploy job is push-to-main only",
+    "eval_baseline": {
+      "expected": 70,
+      "attempted": 70,
+      "scored": 70,
+      "errors": 0,
+      "retried": 0,
+      "provider_calls": 70,
+      "figure_trace_measured": 70,
+      "report_total_cost_usd": 0.0,
+      "telemetry_estimated_cost_usd_sum": 0.175299,
+      "billed_cost": "unknown; the telemetry value is an estimate and the report aggregate zero is not treated as proof of zero billing",
+      "usage": {
+        "prompt_tokens": 2755570,
+        "completion_tokens": 274936,
+        "cache_hit_tokens": 2741494,
+        "cache_miss_tokens": 14076
+      },
+      "gate": "PASS with one advisory warning: mean_untraceable_dollar_figures=2.2"
+    }
+  },
+  "copilot": {
+    "run": 36345368626,
+    "conclusion": "SUCCESS",
+    "report_source_sha": "5afc2731c05ddeeccb535d5728728216c4d01aa0",
+    "report_source_note": "GitHub pull-request merge commit whose second parent is the exact PR head",
+    "expected_outputs": 18,
+    "completed_outputs": 18,
+    "scored_outputs": 18,
+    "passed_outputs": 18,
+    "errors": 0,
+    "terminal_complete": 18,
+    "questions": 6,
+    "runs_per_question": 3,
+    "provider_telemetry": {
+      "physical_calls": 36,
+      "successful_calls": 36,
+      "operation": "copilot_chat",
+      "actual_model": "deepseek-flash",
+      "estimated_cost_usd_sum": 0.007831,
+      "billed_cost": "unknown",
+      "prompt_tokens": 1128380,
+      "completion_tokens": 5665,
+      "cache_hit_tokens": 1121280,
+      "cache_miss_tokens": 7100
+    },
+    "score_truth": {
+      "gate_failures": 0,
+      "numeric_recall_1": 18,
+      "citation_faithfulness_1": 18,
+      "outputs_with_uncited_figures": 5,
+      "uncited_figures_total": 5,
+      "figure_coverage_below_1": 5,
+      "figure_count_total": 48,
+      "note": "The gate accepted all outputs despite these advisory uncited-figure/coverage observations."
+    },
+    "artifact": {
+      "id": 10940700558,
+      "files": 76,
+      "bytes": 78698313,
+      "uploaded_archive_sha256": "d1048503a46324b54db23fb616a86b5df54450e96a1aed0482b6ad825bc977bf",
+      "report_sha256": "3464be8a7e45d63a87ffbb804314aac1cc0acfe1d9e58614bd0c84c0c28d3240"
+    }
+  },
+  "review": {
+    "manual_trigger": "@codex review",
+    "codex_status": "completed",
+    "codex_reviewed_commit": "556ab3e1f4",
+    "codex_result": "Didn't find any major issues. Swish!",
+    "pull_review_api_records": 0,
+    "inline_review_comment_api_records": 0,
+    "note": "The Codex result is recorded in issue comments; both pull-review and inline-comment APIs were independently read."
+  },
+  "ready_state": {
+    "draft": false,
+    "mergeable": "MERGEABLE",
+    "merge_state_status": "CLEAN",
+    "review_gate_run": 36345368942,
+    "review_gate_conclusion": "SUCCESS",
+    "pull_review_api_records": 0,
+    "inline_review_comment_api_records": 0,
+    "prior_exact_head_codex_review": "clear at 556ab3e1f4"
+  },
+  "limits": [
+    "Configured CI gates passed; five accepted Copilot outputs retain an uncited figure.",
+    "Cost values are application estimates, not provider invoices.",
+    "This source-validation change does not establish E7 semantic acceptance."
+  ],
+  "private_receipt_sha256": {
+    "pr983-release-audit.json": "120a3fcfed0f0b6ddd6c744af15cbeae419986475a4659922228699d118601c8",
+    "pr983-ready-release-preflight.json": "2134ed93c32d0746b206cba0c7b155cb2faada061dad3d060e08d723e17e0a7a"
+  }
+}

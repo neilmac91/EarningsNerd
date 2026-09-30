@@ -1,0 +1,14 @@
+{
+  "candidate": "3f3678345c2a5f4836ce8a660daf5dc59177b4fb",
+  "candidate_tree": "86ad588438b447e08f1e4d8c6798d62b4ab103ef",
+  "fault": "14fad2a8a4ae72a1a077e1a1b39fe26de645c1a4",
+  "restored": "fd8bdee04edcac4efdac182e035d2cc4eca28d5d",
+  "restored_tree": "86ad588438b447e08f1e4d8c6798d62b4ab103ef",
+  "case": "test_service_publication_boundary[mixed_fact_invalid]",
+  "fault_result": "1 failed; final error and unconsumed quota asserted before early-wire failure",
+  "restored_result": "1 passed",
+  "logs": {
+    "fault-publication.log": "a74ba2e8db7445790fa592122d79615a5142910296606f1ad98f25e8791b9950",
+    "restored-publication.log": "566288cd23e2d252e155cd56b3c1419e2b90bd20bccc6ad26b29d3c8c9742d2f"
+  }
+}

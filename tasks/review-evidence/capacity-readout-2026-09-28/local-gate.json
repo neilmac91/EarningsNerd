@@ -1,0 +1,39 @@
+{
+  "source_head": "2787aff087",
+  "code_head": "3b129d068f739e2caedbf0d4b04c36eab2dd6158",
+  "full_backend": "3807 passed, 39 skipped, 2 deselected",
+  "mutation": "First-page-only fault: 1 failed (assert pages 1 == 2); exact restoration: 1 passed",
+  "postgres": "15.15 disposable loopback fixture: read_only on, missing PG16 setting null, allowlisted numeric counters, 1000 rows plus truncation, out-of-fleet exclusion; local server stopped",
+  "frontend_workflow_gate": "3 passed",
+  "annotation": "Bandit B310 found no user-controlled endpoint/scheme in two refutation passes; targeted nosec comment is AST-identical to tested code",
+  "evidence": {
+    "final-ruff.log": {
+      "sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18"
+    },
+    "final-bandit.log": {
+      "sha256": "8bd7e44c0bb4bb9f630ef789cb89e2748dc2fb66cfae3017399e04d77e4f3a00"
+    },
+    "final-pytest.log": {
+      "sha256": "f2b550c51e67a0dd94e3d0eb6c7696e88440d11380cbc1c4f9854db3fc2709a8"
+    },
+    "mutation.log": {
+      "sha256": "bcdf6da141b3f9728cbf4af7a7752028a53f14dc2f2271174676817d81bd2642"
+    },
+    "restored.log": {
+      "sha256": "f3a956e108956fd346a8b00c24eaf7a34d8ecdedfcd29e230e61827d00ba0355"
+    },
+    "pg-final-small.jsonl": {
+      "sha256": "1492682bdf7474783ca3e57ac19f464b01be09b9822f375818e8350f68bb1563"
+    },
+    "pg-final-limit.jsonl": {
+      "sha256": "0d4361b366553af5915073944a17864d5cd1e65e308880f6e6aab10ca4f3e8fc"
+    },
+    "node-workflow.log": {
+      "sha256": "4df9a8fa5a3fb215c7a6dde0146f436002bb11116a5fe1a6143aa72ecc505d94"
+    },
+    "ops-bandit.log": {
+      "sha256": "4437a434bb0de343f42ef25a9a5a448e69d2163a8004bea3fdc0640af08897dc"
+    }
+  },
+  "limits": "Hosted checks/review and actual readout not yet completed. Default39 PostgreSQL-specific skips remain; collector SQL separately verified in real PostgreSQL."
+}

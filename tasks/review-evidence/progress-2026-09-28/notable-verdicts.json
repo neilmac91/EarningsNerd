@@ -1,0 +1,224 @@
+{
+  "schema_version": 1,
+  "sample": {
+    "rows": 12,
+    "selection_changed": false,
+    "pass": 8,
+    "false_positive": 0,
+    "indeterminate": 4,
+    "all_row_pass_rate": 0.6667,
+    "determinate_precision": 1.0
+  },
+  "rows": [
+    {
+      "accession_number": "0001493152-26-043599",
+      "ticker": "RIME",
+      "stored_reason": "acquisition",
+      "disposition": "pass",
+      "metadata": {"accession": true, "form": true, "filed_date": true},
+      "reason_supported": true,
+      "source_locator": "index lines 9-15 and 30-38; primary Item 1.01 lines 96-100 and Item 2.01 lines 142-143",
+      "source_urls": [
+        "https://www.sec.gov/Archives/edgar/data/923601/000149315226043599/0001493152-26-043599-index.htm",
+        "https://www.sec.gov/Archives/edgar/data/923601/000149315226043599/form8-k.htm"
+      ],
+      "evidence": "The 8-K says signing and closing occurred simultaneously and the buyer acquired substantially all seller assets; Item 2.01 reports completion.",
+      "candidate_wording": "Completed asset acquisition",
+      "ux_limit": "Describe the completed asset purchase; do not collapse the filing's separate future equity-option transaction into the completed acquisition."
+    },
+    {
+      "accession_number": "0001437749-26-031241",
+      "ticker": "INBP",
+      "stored_reason": "annual_report",
+      "disposition": "indeterminate",
+      "metadata": {"accession": null, "form": null, "filed_date": null},
+      "reason_supported": null,
+      "source_locator": "official SEC index URL returned an inaccessible-page tool error",
+      "source_urls": [
+        "https://www.sec.gov/Archives/edgar/data/1016504/000143774926031241/0001437749-26-031241-index.htm"
+      ],
+      "evidence": "No official source page was rendered, so the packet's 10-K metadata and annual-report reason were not promoted to source-confirmed facts.",
+      "candidate_wording": null,
+      "ux_limit": "Suppress or use neutral filing language until the 10-K source is readable."
+    },
+    {
+      "accession_number": "0001193125-26-396644",
+      "ticker": "SGMOQ",
+      "stored_reason": "bankruptcy",
+      "disposition": "indeterminate",
+      "metadata": {"accession": null, "form": null, "filed_date": null},
+      "reason_supported": null,
+      "source_locator": "official SEC index URL returned an inaccessible-page tool error",
+      "source_urls": [
+        "https://www.sec.gov/Archives/edgar/data/1001233/000119312526396644/0001193125-26-396644-index.htm"
+      ],
+      "evidence": "The packet's Item 1.03 label was not echoed as proof; no official page was rendered to verify the event.",
+      "candidate_wording": null,
+      "ux_limit": "Do not show bankruptcy language without readable Item 1.03 source evidence."
+    },
+    {
+      "accession_number": "0001493152-26-043498",
+      "ticker": "MGLD",
+      "stored_reason": "earnings_results",
+      "disposition": "pass",
+      "metadata": {"accession": true, "form": true, "filed_date": true},
+      "reason_supported": true,
+      "source_locator": "index lines 9-15 and 31-32; primary Item 2.02 lines 88-90",
+      "source_urls": [
+        "https://www.sec.gov/Archives/edgar/data/1005101/000149315226043498/0001493152-26-043498-index.htm",
+        "https://www.sec.gov/Archives/edgar/data/1005101/000149315226043498/form8-k.htm"
+      ],
+      "evidence": "Item 2.02 says the company issued a press release announcing fiscal-year and fourth-quarter financial results.",
+      "candidate_wording": "Fiscal-year and fourth-quarter results announced",
+      "ux_limit": "Call the release furnished, as the filing does; do not imply the exhibit was filed under Section 18."
+    },
+    {
+      "accession_number": "0001680247-26-000110",
+      "ticker": "PUMP",
+      "stored_reason": "executive_change",
+      "disposition": "pass",
+      "metadata": {"accession": true, "form": true, "filed_date": true},
+      "reason_supported": true,
+      "source_locator": "index lines 9-15 and 29-31; primary Item 5.02 lines 63-69",
+      "source_urls": [
+        "https://www.sec.gov/Archives/edgar/data/1680247/000168024726000110/0001680247-26-000110-index.htm",
+        "https://www.sec.gov/Archives/edgar/data/1680247/000168024726000110/pump-20260916.htm"
+      ],
+      "evidence": "The Chief Accounting Officer notified the company of her resignation and the CFO will serve as interim principal accounting officer.",
+      "candidate_wording": "Chief accounting officer resignation; interim principal accounting officer named",
+      "ux_limit": "This Item 5.02 is an actual officer change. Other Item 5.02 filings must not be assumed to be executive changes without body evidence."
+    },
+    {
+      "accession_number": "0001213900-26-102276",
+      "ticker": "BOXL",
+      "stored_reason": "ipo_filing",
+      "disposition": "pass",
+      "metadata": {"accession": true, "form": true, "filed_date": true},
+      "reason_supported": true,
+      "source_locator": "index lines 9-15, 27-30, and 50-52",
+      "source_urls": [
+        "https://www.sec.gov/Archives/edgar/data/1624512/000121390026102276/0001213900-26-102276-index.htm"
+      ],
+      "newly_observed_source_title": "REGISTRATION STATEMENT",
+      "evidence": "The SEC index identifies Form S-1 and the primary document description as Registration Statement.",
+      "candidate_wording": "S-1 registration statement filed",
+      "ux_limit": "The form supports a registration-filing event only. It does not prove that this is a traditional initial public offering, that an offering priced, or that an IPO completed."
+    },
+    {
+      "accession_number": "0001493152-26-043456",
+      "ticker": "AIAI",
+      "stored_reason": "material_agreement",
+      "disposition": "pass",
+      "metadata": {"accession": true, "form": true, "filed_date": true},
+      "reason_supported": true,
+      "source_locator": "index lines 9-15 and 31-33; primary Item 1.01 lines 82-88",
+      "source_urls": [
+        "https://www.sec.gov/Archives/edgar/data/2096362/000149315226043456/0001493152-26-043456-index.htm",
+        "https://www.sec.gov/Archives/edgar/data/2096362/000149315226043456/form8-k.htm"
+      ],
+      "evidence": "The company entered a common-stock purchase agreement and a related registration-rights agreement for a discretionary equity facility.",
+      "candidate_wording": "Entered stock-purchase and registration-rights agreements",
+      "ux_limit": "The company has a discretionary right to sell shares; do not present the full $200 million commitment as proceeds already raised."
+    },
+    {
+      "accession_number": "0001193125-26-395997",
+      "ticker": "AXON",
+      "stored_reason": "material_agreement",
+      "disposition": "pass",
+      "metadata": {"accession": true, "form": true, "filed_date": true},
+      "reason_supported": true,
+      "source_locator": "index lines 9-15 and 30-33; primary Item 1.01 lines 89-94 and 136-146",
+      "source_urls": [
+        "https://www.sec.gov/Archives/edgar/data/1069183/000119312526395997/0001193125-26-395997-index.htm",
+        "https://www.sec.gov/Archives/edgar/data/1069183/000119312526395997/d476163d8k.htm"
+      ],
+      "evidence": "Item 1.01 describes the indenture and notes plus an underwriting agreement; the notes offering closed on September 18.",
+      "candidate_wording": "Convertible-notes and underwriting agreements disclosed",
+      "ux_limit": "Prefer the financing-specific description over the generic material-agreement label."
+    },
+    {
+      "accession_number": "0001493152-26-043815",
+      "ticker": "GRNQ",
+      "stored_reason": "material_agreement",
+      "disposition": "pass",
+      "metadata": {"accession": true, "form": true, "filed_date": true},
+      "reason_supported": true,
+      "source_locator": "index lines 9-15 and 31-33; primary Item 1.01 lines 93-104",
+      "source_urls": [
+        "https://www.sec.gov/Archives/edgar/data/1597846/000149315226043815/0001493152-26-043815-index.htm",
+        "https://www.sec.gov/Archives/edgar/data/1597846/000149315226043815/form8-k.htm"
+      ],
+      "evidence": "The company entered a share-sale agreement to dispose of six subsidiaries; closing remained subject to conditions.",
+      "candidate_wording": "Entered agreement to sell six subsidiaries",
+      "ux_limit": "Describe a signed, pending transaction. Do not say the disposition completed."
+    },
+    {
+      "accession_number": "0001493152-26-044115",
+      "ticker": "CD",
+      "stored_reason": "material_agreement",
+      "disposition": "indeterminate",
+      "metadata": {"accession": null, "form": null, "filed_date": null},
+      "reason_supported": null,
+      "source_locator": "official SEC index URL returned an inaccessible-page tool error",
+      "source_urls": [
+        "https://www.sec.gov/Archives/edgar/data/1527762/000149315226044115/0001493152-26-044115-index.htm"
+      ],
+      "evidence": "No official source page was rendered, so the packet's Item 1.01 label was not treated as semantic agreement evidence.",
+      "candidate_wording": null,
+      "ux_limit": "Suppress or use neutral 8-K language until source content is readable."
+    },
+    {
+      "accession_number": "0001493152-26-044256",
+      "ticker": "AETN",
+      "stored_reason": "material_agreement",
+      "disposition": "indeterminate",
+      "metadata": {"accession": null, "form": null, "filed_date": null},
+      "reason_supported": null,
+      "source_locator": "official SEC index URL returned an inaccessible-page tool error",
+      "source_urls": [
+        "https://www.sec.gov/Archives/edgar/data/764630/000149315226044256/0001493152-26-044256-index.htm"
+      ],
+      "evidence": "No official source page was rendered, so the packet's Item 1.01 label was not treated as semantic agreement evidence.",
+      "candidate_wording": null,
+      "ux_limit": "Suppress or use neutral 8-K language until source content is readable."
+    },
+    {
+      "accession_number": "0001702780-26-000057",
+      "ticker": "OPTU",
+      "stored_reason": "restatement",
+      "disposition": "pass",
+      "metadata": {"accession": true, "form": true, "filed_date": true},
+      "reason_supported": true,
+      "source_locator": "index lines 9-15 and 29-33; primary URL returned an inaccessible-page tool error",
+      "source_urls": [
+        "https://www.sec.gov/Archives/edgar/data/1702780/000170278026000057/0001702780-26-000057-index.htm",
+        "https://www.sec.gov/Archives/edgar/data/1702780/000170278026000057/optu-20260916.htm"
+      ],
+      "evidence": "The official index identifies Item 4.02, Non-Reliance on Previously Issued Financial Statements or a Related Audit Report or Completed Interim Review.",
+      "candidate_wording": "Non-reliance on previously issued financial statements disclosed",
+      "ux_limit": "The readable source supports non-reliance, not a claim that amended statements were filed or that a restatement was completed."
+    }
+  ],
+  "by_reason": {
+    "acquisition": {"rows": 1, "pass": 1, "false_positive": 0, "indeterminate": 0},
+    "annual_report": {"rows": 1, "pass": 0, "false_positive": 0, "indeterminate": 1},
+    "bankruptcy": {"rows": 1, "pass": 0, "false_positive": 0, "indeterminate": 1},
+    "earnings_results": {"rows": 1, "pass": 1, "false_positive": 0, "indeterminate": 0},
+    "executive_change": {"rows": 1, "pass": 1, "false_positive": 0, "indeterminate": 0},
+    "ipo_filing": {"rows": 1, "pass": 1, "false_positive": 0, "indeterminate": 0},
+    "material_agreement": {"rows": 5, "pass": 3, "false_positive": 0, "indeterminate": 2},
+    "restatement": {"rows": 1, "pass": 1, "false_positive": 0, "indeterminate": 0}
+  },
+  "metadata_by_form": {
+    "8-K": {"rows": 10, "all_metadata_match": 7, "mismatch": 0, "indeterminate": 3},
+    "10-K": {"rows": 1, "all_metadata_match": 0, "mismatch": 0, "indeterminate": 1},
+    "S-1": {"rows": 1, "all_metadata_match": 1, "mismatch": 0, "indeterminate": 0}
+  },
+  "metadata_by_filed_date": {
+    "2026-09-21": {"rows": 7, "all_metadata_match": 6, "mismatch": 0, "indeterminate": 1},
+    "2026-09-22": {"rows": 1, "all_metadata_match": 1, "mismatch": 0, "indeterminate": 0},
+    "2026-09-23": {"rows": 1, "all_metadata_match": 1, "mismatch": 0, "indeterminate": 0},
+    "2026-09-24": {"rows": 1, "all_metadata_match": 0, "mismatch": 0, "indeterminate": 1},
+    "2026-09-25": {"rows": 2, "all_metadata_match": 0, "mismatch": 0, "indeterminate": 2}
+  }
+}

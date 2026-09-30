@@ -1,0 +1,163 @@
+{
+  "actions_not_taken": [
+    "no Ops dispatch",
+    "no merge",
+    "no deployment mutation",
+    "no code change",
+    "no financial-model rerun",
+    "no visual check",
+    "no customer-engagement claim"
+  ],
+  "backend_deployment": {
+    "conclusion": "success",
+    "exact_merge_sha": "8ff1816cc2964d8b3ad3f5455c095640f12572a8",
+    "job_id": 108879284595,
+    "log_release_confirmation": "Deployed 8ff1816 and verified healthy.",
+    "migrations": {
+      "applied": 0,
+      "expected": {
+        "applied": 0,
+        "skipped": 40
+      },
+      "matches_expected": true,
+      "skipped": 40
+    },
+    "revision": "earningsnerd-backend-00411-wb5",
+    "traffic_percent": 100
+  },
+  "canonical_homepage_http": {
+    "age_seconds": 34,
+    "body_bytes": 268742,
+    "corrected_label": "Notable filings",
+    "corrected_label_occurrences": 2,
+    "etag": "\"41458c972526561918f32b974b8da43c\"",
+    "final_http_status": 200,
+    "http_status_chain": [
+      307,
+      200
+    ],
+    "interpretation": "HTTP body inspection only. The response contains the section id and corrected label; no visual rendering or customer-engagement claim is made.",
+    "notable_filings_id_present": true,
+    "old_title_case_label_occurrences": 0,
+    "url": "https://earningsnerd.io/",
+    "x_vercel_cache": "HIT"
+  },
+  "independent_public_health": {
+    "body": {
+      "checks": {
+        "database": {
+          "healthy": true,
+          "latency_ms": 4.93
+        },
+        "redis": {
+          "disabled": true,
+          "healthy": true,
+          "latency_ms": 0.0
+        },
+        "sec_edgar_circuit": {
+          "healthy": true,
+          "state": "closed",
+          "stats": {
+            "rejected_requests": 0,
+            "success_rate": 100.0,
+            "total_requests": 6
+          }
+        }
+      },
+      "status": "healthy",
+      "timestamp": 1790590048.6501892
+    },
+    "database_healthy": true,
+    "http_status_chain": [
+      200
+    ],
+    "requested_once_after_deploy": true,
+    "status": "healthy",
+    "url": "https://api.earningsnerd.io/health/detailed"
+  },
+  "limits": [
+    "No Cloud Run or job configuration readback was performed; root retains live configuration verification.",
+    "The Vercel deployment API production_environment boolean is false despite its Production environment name. Exact SHA, success status, and canonical homepage body are recorded without inferring customer visibility beyond the observed HTTP response."
+  ],
+  "merge": {
+    "merge_sha": "8ff1816cc2964d8b3ad3f5455c095640f12572a8",
+    "merged_at": "2026-09-28T09:59:11Z",
+    "pr": 992,
+    "reviewed_head_sha": "5936fc4fb5fb8336e6fc3b016b7be9abf05172e3"
+  },
+  "raw_retention_hashes": {
+    "deploy.log": {
+      "bytes": 226856,
+      "sha256": "e838934c7844a6bbed6113649735c27e364cde943faa8508299ed94eda604f0b"
+    },
+    "health.headers": {
+      "bytes": 451,
+      "sha256": "1dacc987d0cf07ebe0e0e1633e58eada6582faea26e76dc78abddd158bde640f"
+    },
+    "health.json": {
+      "bytes": 292,
+      "sha256": "c70b4cfd7a59dac62f5049171136faa59852acb375084e0bdf5a132f935e66ce"
+    },
+    "pr.json": {
+      "bytes": 174,
+      "sha256": "c2561d886382fec46d93c21f3e21387d26f106578a4bcb981b662605eca76fba"
+    },
+    "public-homepage.headers": {
+      "bytes": 1029,
+      "sha256": "67c439cc8b59d48bbd8281dd5611377da9bfdc1ee16665f4df6d5a9608e3c027"
+    },
+    "public-homepage.html": {
+      "bytes": 268742,
+      "sha256": "3c54f512eb9edc957e7181a9af9c0fe9cde2e2c036cd7b89831a70978ae73933"
+    },
+    "run.json": {
+      "bytes": 15863,
+      "sha256": "bf192dfb0f00c8ff2b00ee44397529a9563ff9ea291118ed37eeff52e83591aa"
+    },
+    "vercel-deployment-statuses.json": {
+      "bytes": 1788,
+      "sha256": "bbf62693988e78f0ca03c5acea352b2704372e6b9c48a3ae81aff022830c0a8d"
+    },
+    "vercel-deployments.json": {
+      "bytes": 1702,
+      "sha256": "e29f9883a16f3169a2065aac04e08a89cc9a96f8a1ea1e61e0d1c9bf076c74dd"
+    }
+  },
+  "schema_version": 1,
+  "status": "deployment_ready_for_root_config_readback",
+  "vercel": {
+    "created_at": "2026-09-28T09:59:48Z",
+    "deployment_id": 6707217332,
+    "description": "Deployment has completed",
+    "environment": "Production",
+    "environment_url": "https://earnings-nerd-hd2nok6qk-neil-mac-aogains-projects.vercel.app",
+    "interpretation": "GitHub records an exact-merge-SHA Vercel deployment named Production with success. Its production_environment boolean is false, so that metadata is retained verbatim.",
+    "original_environment": "Production",
+    "production_environment_boolean": false,
+    "ref": "8ff1816cc2964d8b3ad3f5455c095640f12572a8",
+    "sha": "8ff1816cc2964d8b3ad3f5455c095640f12572a8",
+    "state": "success"
+  },
+  "workflow": {
+    "conclusion": "success",
+    "head_sha": "8ff1816cc2964d8b3ad3f5455c095640f12572a8",
+    "id": 36406918405,
+    "jobs": {
+      "backend-tests": "success",
+      "deploy-backend": "success",
+      "e2e-tests": "success",
+      "eval-baseline": "skipped",
+      "frontend-tests": "success",
+      "lighthouse": "success",
+      "migrations-postgres": "success"
+    },
+    "main_summary_eval": {
+      "conclusion": "skipped",
+      "interpretation": "skipped as expected because the PR head already carried the authorized measurement",
+      "physical_model_calls": 0
+    },
+    "status": "completed",
+    "updated_at": "2026-09-28T10:06:47Z",
+    "url": "https://github.com/neilmac91/EarningsNerd/actions/runs/36406918405"
+  }
+}

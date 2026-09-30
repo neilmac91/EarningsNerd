@@ -1,0 +1,54 @@
+"""Bounded synthetic tests of committed offline source-review custody; always restore bytes."""
+from pathlib import Path
+import subprocess, os, json, hashlib
+repo=Path('/private/tmp/earningsnerd-takeover-20260926'); backend=repo/'backend'
+out=Path('/Users/neilmacaogain/Documents/Codex/2026-09-19/github-plugin-github-openai-curated-remote/outputs/takeover-2026-09-26/execution-proofs');out.mkdir(exist_ok=True)
+python='/private/tmp/earningsnerd-e7-corrections-venv/bin/python'
+assert not subprocess.check_output(['git','status','--porcelain'],cwd=repo).strip()
+sha=subprocess.check_output(['git','rev-parse','HEAD'],cwd=repo,text=True).strip()
+p=backend/'evals/acceptance_source_review_prompts.py'; e=backend/'evals/acceptance_source_review_execution.py';g=backend/'evals/acceptance_source_review_graph.py'
+original={path:path.read_bytes() for path in (p,e,g)}
+for path,b in original.items():assert b==subprocess.check_output(['git','show',f'HEAD:{path.relative_to(repo)}'],cwd=repo)
+def once(s,a,b):
+ assert s.count(a)==1,(a,s.count(a))
+ return s.replace(a,b)
+pt='tests/unit/test_acceptance_source_review_prompts.py::';et='tests/unit/test_acceptance_source_review_execution.py::'
+parent='''            _validate_journal_children(
+                root,
+                db,
+                parent_node_id=node_id,
+                children=render_inputs["children"],
+                child_artifacts=render_inputs["child_artifacts"],
+            )'''
+faults=[
+ ('exact-leaf-bytes',p,lambda s:once(s,'            parts.append(part)','            parts.append(part[:-1])'),pt+'test_leaf_prompt_binds_validated_unit_and_exact_utf8_parts',1),
+ ('nontext-modality',p,lambda s:once(s,'    if structural_kind not in TEXT_STRUCTURAL_KINDS:','    if False:'),pt+'test_leaf_rejects_non_text_modalities_even_when_the_bytes_are_utf8',3),
+ ('strict-utf8',p,lambda s:once(s,'data.decode("utf-8", errors="strict")','data.decode("utf-8", errors="replace")'),pt+'test_leaf_rejects_non_utf8_source_even_when_byte_custody_is_valid',1),
+ ('exact-child-bytes',p,lambda s:once(s,'        parts.append(artifact)','        parts.append(artifact[:-1])'),pt+'test_parent_prompt_binds_ordered_exact_utf8_child_artifacts',1),
+ ('complete-adverse-history',e,lambda s:once(s,'    if graph.get("context_registry") != registry_projection:\n        raise ValueError("graph context registry omits, renumbers or changes sealed attempt history")\n',''),et+'test_sealed_journal_binds_exact_prompts_graph_and_complete_adverse_history',1),
+ ('no-eligible-redraw',e,lambda s:once(s,'        if prior and prior[-1]["status"] == "eligible":\n            raise ValueError("an eligible node cannot be redrawn")\n',''),et+'test_retry_rules_pending_state_and_seal_are_fail_closed',1),
+ ('eligible-child-before-parent',e,lambda s:once(s,parent,'            pass'),et+'test_parent_requires_prior_eligible_journal_children_and_retained_bytes',1),
+ ('durable-terminal-intent',e,lambda s:once(s,'        "status": status,\n        "artifact_sha256": artifact_sha256,','        "status": "failed",\n        "artifact_sha256": artifact_sha256,'),et+'test_identical_files_recover_precommit_settle_and_seal_crashes',1),
+ ('journal-unit-scope',e,lambda s:once(s,'            unit_id=render_inputs["unit_id"],','            unit_id=source.units[0].unit_id,'),et+'test_initialization_freezes_real_source_and_rejects_foreign_unit_before_dispatch',1),
+ ('context-id-grammar',g,lambda s:once(s,'    if (\n        type(value) is not str\n        or len(value) > 128','    if (\n        False and type(value) is not str\n        or len(value) > 128').replace('            and _ABSOLUTE_CONTEXT_ID.fullmatch(value) is None','            and False'), 'tests/unit/test_acceptance_source_review_graph.py::test_every_node_runs_in_its_own_latest_eligible_context',1),
+]
+results=[]
+try:
+ for name,path,mutate,target,count in faults:
+  path.write_text(mutate(original[path].decode()))
+  env={**os.environ,'PYTHONPYCACHEPREFIX':f'/private/tmp/e7-exec-proof-{name}-20260927','DYLD_FALLBACK_LIBRARY_PATH':'/opt/homebrew/lib'}
+  run=subprocess.run([python,'-m','pytest',target,'-q','-p','no:cacheprovider'],cwd=backend,env=env,text=True,stdout=subprocess.PIPE,stderr=subprocess.STDOUT)
+  (out/f'{name}.txt').write_text(run.stdout)
+  path.write_bytes(original[path])
+  assert run.returncode==1 and f'{count} failed' in run.stdout,(name,run.returncode,run.stdout[-1800:])
+  results.append({'rule':name,'target':target,'exit':run.returncode,'failed_cases':count,'restored_sha256':hashlib.sha256(original[path]).hexdigest()})
+  print(name,'failed as expected; exact bytes restored',flush=True)
+ env={**os.environ,'PYTHONPYCACHEPREFIX':'/private/tmp/e7-exec-proof-restored-20260927','DYLD_FALLBACK_LIBRARY_PATH':'/opt/homebrew/lib'}
+ run=subprocess.run([python,'-m','pytest','tests/unit/test_acceptance_source_review_prompts.py','tests/unit/test_acceptance_source_review_execution.py','tests/unit/test_acceptance_source_review_graph.py','-q','-p','no:cacheprovider'],cwd=backend,env=env,text=True,stdout=subprocess.PIPE,stderr=subprocess.STDOUT)
+ (out/'restored.txt').write_text(run.stdout)
+ assert run.returncode==0,run.stdout[-2500:]
+ assert not subprocess.check_output(['git','status','--porcelain'],cwd=repo).strip()
+ (out/'proof.json').write_text(json.dumps({'code_commit':sha,'faults':results,'restored_exit':0,'restored_tail':run.stdout.splitlines()[-1]},indent=2)+'\n')
+ print(run.stdout.splitlines()[-1],flush=True)
+finally:
+ for path,b in original.items():path.write_bytes(b)

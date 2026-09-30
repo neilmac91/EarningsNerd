@@ -1,0 +1,83 @@
+{
+  "publication": {
+    "derivative": true,
+    "original_path": "notable-root-decision-input.original.json",
+    "original_sha256": "808b7071c838d1ea8ff668a120ee771028ec451adf5abcc812052b7a0cc49558",
+    "transformation": "Only frozen_verdicts.path was rewritten to the committed filename; publication metadata was added. Original source judgments and historical activation decision are unchanged."
+  },
+  "schema_version": 1,
+  "reviewed_release_head": "e2df7031edc3e01088f2cdb8866fc49ae9a0e54c",
+  "frozen_verdicts": {
+    "path": "notable-verdicts.json",
+    "sha256": "a9297db4fb5a346e2b3ef2893c9146c0f2e38cf9f751b0f1500ac51b06a90ce5",
+    "changed": false,
+    "reason": "The source worksheet and current-card claim review answer different questions."
+  },
+  "production_contract": {
+    "title_field": false,
+    "description_field": false,
+    "visible_fields": [
+      "ticker",
+      "company_name",
+      "form",
+      "filed_date",
+      "reason_label"
+    ],
+    "reason_label_source": "backend/app/services/notable_filings_service.py:80-92",
+    "api_projection": "backend/app/services/notable_filings_service.py:505-516",
+    "card_render": "frontend/features/filings/components/NotableFilingCard.tsx:57-72"
+  },
+  "targeted_cards": [
+    {
+      "ticker": "BOXL",
+      "accession_number": "0001213900-26-102276",
+      "frozen_source_disposition": "pass",
+      "current_visible_label": "IPO filing",
+      "current_card_source_status": "unsupported_overclaim",
+      "source_supported_wording": "S-1 registration statement filed",
+      "limitation": "Form S-1 does not by itself establish a traditional IPO, pricing, or completion."
+    },
+    {
+      "ticker": "OPTU",
+      "accession_number": "0001702780-26-000057",
+      "frozen_source_disposition": "pass",
+      "current_visible_label": "Restatement",
+      "current_card_source_status": "unsupported_overclaim",
+      "source_supported_wording": "Non-reliance disclosed",
+      "limitation": "Readable evidence established Item 4.02 non-reliance; the inaccessible primary prevented confirmation of completed restatement work or amended statements."
+    },
+    {
+      "ticker": "PUMP",
+      "accession_number": "0001680247-26-000110",
+      "frozen_source_disposition": "pass",
+      "current_visible_label": "Executive change",
+      "current_card_source_status": "supported_for_this_card",
+      "source_supported_wording": "Chief accounting officer resignation; interim principal accounting officer named",
+      "limitation": "The production classifier uses Item 5.02 alone; other Item 5.02 events can concern directors or compensation rather than an executive change."
+    },
+    {
+      "ticker": "RIME",
+      "accession_number": "0001493152-26-043599",
+      "frozen_source_disposition": "pass",
+      "current_visible_label": "Acquisition completed",
+      "current_card_source_status": "supported_for_this_card",
+      "source_supported_wording": "Completed asset acquisition",
+      "limitation": "The production classifier uses Item 2.01 alone; the item also covers dispositions, so this card does not validate the label for the whole cohort."
+    }
+  ],
+  "decision_signal": {
+    "implementation": "retain",
+    "activation": "defer",
+    "release_blockers": [
+      "BOXL would display IPO filing although the source review established only an S-1 registration statement.",
+      "OPTU would display Restatement although the readable source established only Item 4.02 non-reliance.",
+      "Item 5.02 and Item 2.01 are mapped to semantic labels without filing-body corroboration."
+    ],
+    "acceptable_resolution_shapes": [
+      "Narrow visible labels to claims supported by the form or item heading.",
+      "Add source-backed semantic corroboration before emitting stronger labels.",
+      "Suppress cards whose stronger claim cannot be corroborated."
+    ],
+    "feature_flag_authorized": false
+  }
+}

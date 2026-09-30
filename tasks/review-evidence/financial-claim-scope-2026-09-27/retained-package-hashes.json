@@ -1,0 +1,32 @@
+{
+ "attachment_zip_sha256": "3d294469ff922f24e24f44812c07bfa12114fb9bfd268a749ecb2f2c4dc49ebf",
+ "SHA256SUMS.json_sha256": "cf5b92213ad78a18984582d03159265da38607f537e1be33aef32810251ca115",
+ "members_verified": 60,
+ "members_mismatched": 0,
+ "hand_check_manifest_sha256": "73801df7b807e0a939e9cf5cd07d2a3f119c2915ee695ae7ae668112817095fd",
+ "report_sha256": "deaa1b52c85bbab1bbcd19b7e55ab483b58ec465d6523272931cbd67e6c7f80b",
+ "packets_used": {
+  "retained-r/hand-check/BA-10-K-run0.json": "b73fbade3084c62c49f475e2db92ac5536d88ebfe893d07ac42efd548b435ef7",
+  "retained-r/hand-check/BA-10-K-run1.json": "483ee3cda50a73dd6d0f907cd56ee13ee31c97ba19d62c921a15fb31817a8411",
+  "retained-r/hand-check/FIGS-10-Q-run0-output.md": "c0bb04bb46ed7837160d6e81ab70ad1ffc394cfc688de5533d6f1b0447253419",
+  "retained-r/hand-check/FIGS-10-Q-run0-source.txt": "65c546a992d4288b0c62874fa299dab2839bf403fb9b96f9be9bc58352667901",
+  "retained-r/hand-check/FIGS-10-Q-run0.json": "653885693b0e43d16b67717c7e598b12b67d69d76786014a51ae2332d5aabdc0",
+  "retained-r/hand-check/FIGS-10-Q-run1-output.md": "8e0c398358019709937bf3a14d7b711d97641d2c6b6bc55839a3e28148f0be30",
+  "retained-r/hand-check/FIGS-10-Q-run1-source.txt": "65c546a992d4288b0c62874fa299dab2839bf403fb9b96f9be9bc58352667901",
+  "retained-r/hand-check/FIGS-10-Q-run1.json": "491d194bde60d75d146b54903704405c0b0a461d99c2bf53e1dd15f390a542ab",
+  "retained-r/hand-check/JPM-10-K-run0-output.md": "744a73a476de01c6377bcef85dc92d72e5aa8326d87ffbd5ca0b2fe375d3c9e5",
+  "retained-r/hand-check/JPM-10-K-run0-source.txt": "1a78df24fb365b810ed478b30bb01e49d48be94038e3c7ae973602a78c78a219",
+  "retained-r/hand-check/JPM-10-K-run0.json": "0dc8e1f1378e2da13f35bc9ca4b508e0928447f92a86b7d87848149e82598e9b",
+  "retained-r/hand-check/JPM-10-K-run1-output.md": "aa2261e328ba7b99869e45a276a1a8e692677b1ef161c742b2864a47fd7d6e77",
+  "retained-r/hand-check/JPM-10-K-run1-source.txt": "1a78df24fb365b810ed478b30bb01e49d48be94038e3c7ae973602a78c78a219",
+  "retained-r/hand-check/JPM-10-K-run1.json": "9d03443daa54acf29cf3358b67ec0f9d57ccf92515e9a49669c9e97ddae35f4f",
+  "retained-r/hand-check/PLTR-10-Q-run0.json": "8058965602067fe30d7440d4b10321df9e5d8cef43d17d8fc9255deaa313e732",
+  "retained-r/hand-check/PLTR-10-Q-run1.json": "f81f266e4f0de78725c5b4563f4bbe693efdee7e78fc6727f9b14303bfd27cdd",
+  "retained-r/hand-check/WMT-10-K-run0-output.md": "cd91422d9748b2e11538324a89a456afe5f3bb39b82f1f779fcdec67dce8e2d4",
+  "retained-r/hand-check/WMT-10-K-run0-source.txt": "813579cfb80e5e9682b9c18fe688de4d2b7d5fb250db3c5eeac1f679eab5e7d4",
+  "retained-r/hand-check/WMT-10-K-run0.json": "ab55c9b0547007069e4af3b87c7b915e042b809871fa20500351232002d3302e",
+  "retained-r/hand-check/WMT-10-K-run1-output.md": "d6a808c0405f99f85b817f9f4cdb2c7856d8af913cfa079a00494f79a8114a60",
+  "retained-r/hand-check/WMT-10-K-run1-source.txt": "813579cfb80e5e9682b9c18fe688de4d2b7d5fb250db3c5eeac1f679eab5e7d4",
+  "retained-r/hand-check/WMT-10-K-run1.json": "5a73b6a76b4b6182910b972b80d74d10325aeb65959f1014d5b1fa910230f51f"
+ }
+}

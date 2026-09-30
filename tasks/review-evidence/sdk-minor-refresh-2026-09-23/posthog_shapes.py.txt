@@ -1,0 +1,64 @@
+"""Offline PostHog SDK shape check: the app's exact call shapes against the installed SDK.
+
+No event leaves the process: the consumer's transports are replaced with recorders and any
+requests.Session.send raises. Host is a reserved .invalid name as a second guard.
+"""
+import inspect
+import json
+import sys
+import threading
+
+import requests
+
+import posthog
+import posthog.consumer as consumer
+from posthog import Posthog
+from posthog.version import VERSION
+
+sent = []
+
+def _forbid(*a, **k):
+    raise AssertionError("network send attempted")
+
+requests.Session.send = _forbid
+consumer.batch_post = lambda api_key, host, **kw: sent.append(("v0", host, kw["batch"]))
+if hasattr(consumer, "_send_v1_batch"):
+    consumer._send_v1_batch = lambda api_key, host, batch, **kw: sent.append(("v1", host, batch))
+
+HOST = "https://offline.invalid"
+threads_before = {t.name for t in threading.enumerate()}
+
+# 1. app/services/posthog_client.py::get_posthog_client — positional key + host keyword.
+svc_client = Posthog("phc_offline_positional", host=HOST)
+# 2. app/routers/users.py — keyword project_api_key + host.
+users_client = Posthog(project_api_key="phc_offline_keyword", host=HOST)
+assert svc_client.api_key == "phc_offline_positional" and users_client.api_key == "phc_offline_keyword"
+
+# capture_event shape: capture(event, distinct_id=..., properties=...)
+svc_client.capture("generation_succeeded", distinct_id="user-1", properties={"duration_ms": 12})
+svc_client.capture("copilot_inference_cost", distinct_id="user-1", properties={"usd": 0.001, "tokens": 10})
+# account-deletion shape: all-keyword capture(distinct_id=, event='$delete', properties=) then flush()
+users_client.capture(distinct_id="42", event="$delete", properties={"deletion_timestamp": "2026-09-23T00:00:00+00:00"})
+users_client.flush()
+svc_client.flush()
+
+events = [(lane, host, m.get("event"), m.get("distinct_id"), sorted((m.get("properties") or {}).keys() & {"duration_ms", "usd", "tokens", "deletion_timestamp"}))
+          for lane, host, batch in sent for m in batch]
+new_threads = sorted({t.name for t in threading.enumerate()} - threads_before)
+traces_attr = getattr(svc_client, "_traces_config", "absent")
+result = {
+    "posthog": VERSION,
+    "init_params": [p for p in inspect.signature(Posthog.__init__).parameters][:3],
+    "capture_sig": str(inspect.signature(Posthog.capture)),
+    "flush_sig": str(inspect.signature(Posthog.flush)),
+    "delivered": events,
+    "traces_config_default": traces_attr,
+    "new_threads": new_threads,
+}
+print(json.dumps(result, indent=1, default=str))
+expected = {("generation_succeeded", "user-1"), ("copilot_inference_cost", "user-1"), ("$delete", "42")}
+got = {(e[2], e[3]) for e in events}
+assert got == expected, got
+assert all(e[1] == HOST for e in events)
+svc_client.shutdown(); users_client.shutdown()
+print("POSTHOG_SHAPES_OK", VERSION)

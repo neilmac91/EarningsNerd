@@ -1,0 +1,136 @@
+{
+  "module_sha256": "642be47584b580c89d73d0686e08b915bc38ea5b5f199f8876e0fca4fd860ff9",
+  "dei_cik": "104169",
+  "schedule_cik": "104169",
+  "same_issuer_single_subsidiary": {
+    "before": {
+      "balance_sheet_liquidity": {
+        "maturities_covenants": [
+          "Annual maturities of long-term debt during the next five years and thereafter are as follows: 2027: $3,542; 2028: $3,237; 2029: $3,389; 2030: $2,143; 2031: $2,600; Thereafter: $23,255; Total: $38,166."
+        ]
+      }
+    },
+    "after": {
+      "balance_sheet_liquidity": {
+        "maturities_covenants": [
+          "Annual maturities of long-term debt during the next five years and thereafter are as follows: 2027: $3,542 million; 2028: $3,237 million; 2029: $3,389 million; 2030: $2,143 million; 2031: $2,600 million; Thereafter: $23,255 million; Total: $38,166 million."
+        ]
+      }
+    },
+    "audit": {
+      "restored_count": 7,
+      "unresolved_count": 0,
+      "restored": [
+        {
+          "slot": "balance_sheet_liquidity.maturities_covenants[0]",
+          "figure": "$3,542",
+          "unit": "million",
+          "xbrl_corroborated": false
+        },
+        {
+          "slot": "balance_sheet_liquidity.maturities_covenants[0]",
+          "figure": "$3,237",
+          "unit": "million",
+          "xbrl_corroborated": false
+        },
+        {
+          "slot": "balance_sheet_liquidity.maturities_covenants[0]",
+          "figure": "$3,389",
+          "unit": "million",
+          "xbrl_corroborated": false
+        },
+        {
+          "slot": "balance_sheet_liquidity.maturities_covenants[0]",
+          "figure": "$2,143",
+          "unit": "million",
+          "xbrl_corroborated": false
+        },
+        {
+          "slot": "balance_sheet_liquidity.maturities_covenants[0]",
+          "figure": "$2,600",
+          "unit": "million",
+          "xbrl_corroborated": false
+        },
+        {
+          "slot": "balance_sheet_liquidity.maturities_covenants[0]",
+          "figure": "$23,255",
+          "unit": "million",
+          "xbrl_corroborated": false
+        },
+        {
+          "slot": "balance_sheet_liquidity.maturities_covenants[0]",
+          "figure": "$38,166",
+          "unit": "million",
+          "xbrl_corroborated": false
+        }
+      ],
+      "unresolved": []
+    }
+  },
+  "same_issuer_cross_dimension": {
+    "before": {
+      "balance_sheet_liquidity": {
+        "maturities_covenants": [
+          "Annual maturities of long-term debt during the next five years and thereafter are as follows: 2027: $3,542; 2028: $3,237; 2029: $3,389; 2030: $2,143; 2031: $2,600; Thereafter: $23,255; Total: $38,166."
+        ]
+      }
+    },
+    "after": {
+      "balance_sheet_liquidity": {
+        "maturities_covenants": [
+          "Annual maturities of long-term debt during the next five years and thereafter are as follows: 2027: $3,542 million; 2028: $3,237 million; 2029: $3,389 million; 2030: $2,143 million; 2031: $2,600 million; Thereafter: $23,255 million; Total: $38,166 million."
+        ]
+      }
+    },
+    "audit": {
+      "restored_count": 7,
+      "unresolved_count": 0,
+      "restored": [
+        {
+          "slot": "balance_sheet_liquidity.maturities_covenants[0]",
+          "figure": "$3,542",
+          "unit": "million",
+          "xbrl_corroborated": false
+        },
+        {
+          "slot": "balance_sheet_liquidity.maturities_covenants[0]",
+          "figure": "$3,237",
+          "unit": "million",
+          "xbrl_corroborated": false
+        },
+        {
+          "slot": "balance_sheet_liquidity.maturities_covenants[0]",
+          "figure": "$3,389",
+          "unit": "million",
+          "xbrl_corroborated": false
+        },
+        {
+          "slot": "balance_sheet_liquidity.maturities_covenants[0]",
+          "figure": "$2,143",
+          "unit": "million",
+          "xbrl_corroborated": false
+        },
+        {
+          "slot": "balance_sheet_liquidity.maturities_covenants[0]",
+          "figure": "$2,600",
+          "unit": "million",
+          "xbrl_corroborated": false
+        },
+        {
+          "slot": "balance_sheet_liquidity.maturities_covenants[0]",
+          "figure": "$23,255",
+          "unit": "million",
+          "xbrl_corroborated": false
+        },
+        {
+          "slot": "balance_sheet_liquidity.maturities_covenants[0]",
+          "figure": "$38,166",
+          "unit": "million",
+          "xbrl_corroborated": false
+        }
+      ],
+      "unresolved": []
+    }
+  },
+  "difference_from_independent_probe": "Both probes use the DEI issuer CIK, isolating dimensions from foreign-entity acceptance."
+}

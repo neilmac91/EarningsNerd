@@ -1,0 +1,19 @@
+{
+  "source_head": "a0fea57bb981ae55f21bb3aa72146fbc19eacb20",
+  "exit_code": 1,
+  "suites": [
+    {
+      "name": "pytest",
+      "errors": "39",
+      "failures": "0",
+      "skipped": "0",
+      "tests": "3655",
+      "time": "167.307",
+      "timestamp": "2026-09-23T08:56:30.336598+02:00",
+      "hostname": "Charlottes-MacBook-Pro.local"
+    }
+  ],
+  "log_sha256": "7d340e2e81a197e7241896e50489e3621bb05514b672d36aefe64eaee4c7a62e",
+  "xml_sha256": "d749ce1050199bbe87be09e88402226ef089c01248944ce15b1e87584e28608e",
+  "disposition": "Failed sandbox attempt retained. Local PostgreSQL TCP access was denied by filesystem/network sandbox; escalated read-only pg_isready confirmed database accepts connections. Retry uses authorized local database access without changing tests."
+}

@@ -1,0 +1,21 @@
+== committed HEAD: 16675238c1606065cdb2b8784052ff87b337b16e ==
+fault applied: the context identity is reduced to its period end
+== gate under fault ==
+E       assert ['Annual matu...166 million.'] == ['Annual matu...al: $38,166.']
+E         
+E         At index 0 diff: 'Annual maturities of long-term debt during the next five years and thereafter are as follows: 2027: $3,542 million; 2028: $3,237 million; 2029: $3,389 million; 2030: $2,143 million; 2031: $2,600 million; Thereaft
+E         Use -v to get more diff
+E       AssertionError: assert ['Annual matu...al: $38,166.'] == ['Annual matu...166 million.']
+E         
+E         At index 0 diff: 'Annual maturities of long-term debt during the next five years and thereafter are as follows: 2027: $3,542; 2028: $3,237; 2029: $3,389; 2030: $2,143; 2031: $2,600; Thereafter: $23,255; Total: $38,166.' != 'Annual
+E         Use -v to get more diff
+FAILED tests/unit/test_table_cell_units.py::test_facts_outside_the_issuers_consolidated_instant_own_nothing[one dimensional context-<html><body><div style="display:none"><ix:header><ix:nonNumeric contextRef="c-dei" name="dei:DocumentPeriodE
+FAILED tests/unit/test_table_cell_units.py::test_facts_outside_the_issuers_consolidated_instant_own_nothing[two dimensional contexts-<html><body><div style="display:none"><ix:header><ix:nonNumeric contextRef="c-dei" name="dei:DocumentPeriod
+FAILED tests/unit/test_table_cell_units.py::test_facts_outside_the_issuers_consolidated_instant_own_nothing[foreign CIK-<html><body><div style="display:none"><ix:header><ix:nonNumeric contextRef="c-dei" name="dei:DocumentPeriodEndDate">2026
+FAILED tests/unit/test_table_cell_units.py::test_facts_outside_the_issuers_consolidated_instant_own_nothing[duration period-<html><body><div style="display:none"><ix:header><ix:nonNumeric contextRef="c-dei" name="dei:DocumentPeriodEndDate">
+FAILED tests/unit/test_table_cell_units.py::test_a_dimensional_duplicate_never_poisons_the_consolidated_schedule
+5 failed, 52 passed in 4.33s
+fault_exit=1
+== restored: clean ==
+57 passed in 3.70s
+restored_exit=0

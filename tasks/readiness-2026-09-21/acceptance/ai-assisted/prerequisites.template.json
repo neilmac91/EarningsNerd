@@ -1,0 +1,19 @@
+{
+  "schema_version": 2,
+  "review_protocol": "ai_assisted",
+  "approved_manifest_sha256": "68242a2c1c57da8d445bc4e1aca104017cffaffe8bbebf131228cde8ea94ba66",
+  "ai_assisted": {
+    "protocol": {"path": "", "sha256": ""},
+    "source_briefs": [],
+    "reconciled_references": [],
+    "exposure_review": {"path": "", "sha256": ""}
+  },
+  "candidate_config": {"path": "", "sha256": ""},
+  "comparator_config": {"path": "", "sha256": ""},
+  "pricing": {"path": "", "sha256": "", "observed_at": "", "official_url": ""},
+  "balance": {"path": "", "sha256": "", "observed_at": "", "available_usd": 0},
+  "fable": {"path": "", "sha256": "", "observed_at": "", "contract_version": "2", "model": "cli:claude-fable-5-1", "quota_available": false},
+  "development_source": {"path": "", "sha256": ""},
+  "development_smoke": {"path": "", "sha256": "", "completed": false, "accession_number": ""},
+  "budget_control": {"path": "", "sha256": "", "verified": false, "reviewed_commit": "", "full_run_worst_case_usd": 0, "incomplete_stop_risk_accepted_by": "", "incomplete_stop_risk_accepted_at": null}
+}

@@ -1,0 +1,12 @@
+{
+  "committed_head": "b73492dddf4224bafa96e174e66ff72f59e5f1e9",
+  "mutation": "Disable only the new offline parser-event size rejection; all other checks remain intact",
+  "failed_exit": 1,
+  "restored_exit": 0,
+  "failed_summary": "1 failed, 2 warnings in 4.88s",
+  "restored_summary": "1 passed, 2 warnings in 0.76s",
+  "source_sha256": "94be9dfd19d0e64f62ed72e1fc0267327b1994fc176a3f4e788c62cab9922391",
+  "byte_identical_restoration": true,
+  "provider_or_fable_call": false,
+  "e7_admission_or_spend_guard_changed": false
+}

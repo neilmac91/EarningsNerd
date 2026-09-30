@@ -1,0 +1,84 @@
+{
+  "code_commit": "b79b936f9c9782f40ae91095625f384ba2696442",
+  "base_commit": "5554bc87495dbb76e70ab10e32236260936080e8",
+  "backend_tree": "cf75d82f5c1a70e97a9d637c562f5b4fdb726963",
+  "full_gate_exit": 0,
+  "full_gate_tail": "3729 passed, 40 warnings in 159.60s (0:02:39)",
+  "focused_restored_tail": "25 passed, 2 warnings in 0.87s",
+  "locked_files": [
+    {
+      "path": "backend/tests/integration/test_summary_stream_contract.py",
+      "sha256": "4b10582387ed68ad1564bbcbb54017d7d153c1447da8fb39bb73523512b3b57a",
+      "unchanged": true
+    },
+    {
+      "path": "backend/tests/unit/test_background_generation_characterization.py",
+      "sha256": "5a6b7024605bfe712c42b34e51900d6009f99db58ab1694c4c2ffb4d6bb316f9",
+      "unchanged": true
+    },
+    {
+      "path": "backend/tests/unit/test_generation_requires_account.py",
+      "sha256": "1360430fb3a884800ddb962651d6c9369198b89fdcd0ef671d1726934389f22a",
+      "unchanged": true
+    },
+    {
+      "path": "backend/tests/unit/test_subscription_webhook_sync.py",
+      "sha256": "a00853b94d4bb7127a82d987af8f9a57395fa2789ff638ed9c4febaaf78aaf02",
+      "unchanged": true
+    },
+    {
+      "path": "backend/tests/unit/test_expired_trial_gating.py",
+      "sha256": "6daf082a0a098431cd664730418277e1c237adaf50c614fb48654587d6be8413",
+      "unchanged": true
+    },
+    {
+      "path": "backend/tests/unit/test_filing_scan.py",
+      "sha256": "fab53148fcdac656dd8b28dffa976420cec2b655d2b1186843599a2e065cc5b1",
+      "unchanged": true
+    },
+    {
+      "path": "backend/tests/unit/test_refresh_replay.py",
+      "sha256": "b57d1f662628e1febbe7d9eeef1928da80c177422fb5584e65b59d29a430e6c3",
+      "unchanged": true
+    },
+    {
+      "path": "backend/tests/unit/test_companyfacts_fixture.py",
+      "sha256": "a2b20e66828f605bbabbd6b604a001d22943c1044a83776d4445e04c3e644794",
+      "unchanged": true
+    },
+    {
+      "path": "backend/tests/unit/test_auth_flow.py",
+      "sha256": "4a927487d44c77549abcb3e5f4843e064ddc63827ecb725fa25f3e513a3dbba9",
+      "unchanged": true
+    },
+    {
+      "path": "backend/tests/unit/test_stripe_webhook.py",
+      "sha256": "ca02207aaa71e8845e7f883b5c0316342525cc713b7a25028ff0cd18ab59cb78",
+      "unchanged": true
+    },
+    {
+      "path": "frontend/tests/unit/summaryStream.contract.spec.ts",
+      "sha256": "4a27aa5d94c8af518016624e2159cd48b6bab6f8b76f2a58b0edf63ce59c3aaf",
+      "unchanged": true
+    }
+  ],
+  "files": {
+    "README.md": "0323de717d61f6eb22da3c1296d30e3ef054fd8ca734ff7dd87e230f4afbe435",
+    "execution-full-gate.txt": "18ba44344e4601743e2a032c2631957953c6a9071a5280015c944e0a7db0c04c",
+    "h29-render-rehearsal.json": "1eee0fa1e780e026275478f5af258e6a7c265bd81c3069029ba10ac82836d09a",
+    "mutation-runner.py.txt": "2060ead478793bfd86df30f3bdc34c7290f1da00790051002c6447639066aa71",
+    "proofs/complete-adverse-history.txt": "3f32d7fc7b33f78bfc3e3e2aea95f0d0fa1d278a1c057f9aa19df2fa88db65a8",
+    "proofs/context-id-grammar.txt": "7266cb23118f36b52cf56e7459cff635b470eb3c9feb9cd3080fb252e98f23ce",
+    "proofs/durable-terminal-intent.txt": "b9b3f9c62bb58a06143471482830ae7648b1d2a2f949e4b618f7582855c652e5",
+    "proofs/eligible-child-before-parent.txt": "f7341493898cfff0b9ad7a34806487a1705f0bdf736914f8822feff158812bac",
+    "proofs/exact-child-bytes.txt": "20d63272be76cae473838c9091600c81701ad85915f76e1b6b202bcc1611c414",
+    "proofs/exact-leaf-bytes.txt": "ba5b7c750a7f1f17b4b11ed6634c8983b91f790704c598e33e9621b385bd1284",
+    "proofs/journal-unit-scope.txt": "a1a19a55dd5bf7f5a4880b0aa621c1750a165c2295e5c7ca884cd749ed70ba98",
+    "proofs/no-eligible-redraw.txt": "a926c92299be4eb5733cc0eed4b01d9e71b0f9d01a2289807d0b779c430f6da9",
+    "proofs/nontext-modality.txt": "ee0cbd8e17404dfc5891a68c70804ccc7261f44e51bd768a303fcb54734930f2",
+    "proofs/proof.json": "05d542fae01806e1fc25809be720a0b861a183932081114fceb831e4431ca7fa",
+    "proofs/restored.txt": "640df62846ece828a3a95a506aafacd2c10988107627088a16d33bc961adaacd",
+    "proofs/strict-utf8.txt": "843fbcf59c25b53a02885a53619bd61da919b521f03dbd1d90c78e0f251f34cd",
+    "review-execution-independent.md": "25f4c6d3dc8be568dd0cb6066a41b336fc2edbcb843fa1962ac58cf1a670c312"
+  }
+}

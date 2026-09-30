@@ -1,0 +1,64 @@
+{
+  "started_at": "2026-09-29T21:53:35.126638+00:00",
+  "node": "v22.23.2",
+  "preserved_cache": "/private/tmp/earningsnerd-next-before-relation-gate-v2-20260929",
+  "build_command_unchanged": true,
+  "stages": [
+    {
+      "name": "lint",
+      "command": [
+        "npm",
+        "run",
+        "lint"
+      ],
+      "started_at": "2026-09-29T21:53:35.252477+00:00",
+      "log": "/Users/neilmacaogain/Documents/Codex/2026-09-28/github-plugin-github-openai-curated-remote/outputs/resumption-2026-09-29/containment/final-protocol-manual-review/frontend-relation-lint.log",
+      "exit_code": 0,
+      "finished_at": "2026-09-29T21:53:44.115574+00:00",
+      "sha256": "491911b16c7ec9c53a997784351f00988be31dc0172b42df597f74800cff2d3f"
+    },
+    {
+      "name": "typecheck",
+      "command": [
+        "npx",
+        "tsc",
+        "-p",
+        "tsconfig.ci.json"
+      ],
+      "started_at": "2026-09-29T21:53:44.116525+00:00",
+      "log": "/Users/neilmacaogain/Documents/Codex/2026-09-28/github-plugin-github-openai-curated-remote/outputs/resumption-2026-09-29/containment/final-protocol-manual-review/frontend-relation-typecheck.log",
+      "exit_code": 0,
+      "finished_at": "2026-09-29T21:53:47.020668+00:00",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "tests",
+      "command": [
+        "npm",
+        "run",
+        "test",
+        "--",
+        "--run"
+      ],
+      "started_at": "2026-09-29T21:53:47.021166+00:00",
+      "log": "/Users/neilmacaogain/Documents/Codex/2026-09-28/github-plugin-github-openai-curated-remote/outputs/resumption-2026-09-29/containment/final-protocol-manual-review/frontend-relation-tests.log",
+      "exit_code": 0,
+      "finished_at": "2026-09-29T21:54:21.930435+00:00",
+      "sha256": "c2aaa820514632106104e1f74b19707fca8c7ec5b44f5a8e9e15f30fca7f2b1e"
+    },
+    {
+      "name": "build",
+      "command": [
+        "npm",
+        "run",
+        "build"
+      ],
+      "started_at": "2026-09-29T21:54:21.931171+00:00",
+      "log": "/Users/neilmacaogain/Documents/Codex/2026-09-28/github-plugin-github-openai-curated-remote/outputs/resumption-2026-09-29/containment/final-protocol-manual-review/frontend-relation-build.log",
+      "exit_code": 0,
+      "finished_at": "2026-09-29T21:54:41.851547+00:00",
+      "sha256": "7ce0dda797e3ecff20774e63be50b0ca318bc8327bb8ce8a8b1dfe506eda9c0c"
+    }
+  ],
+  "status": "passed"
+}

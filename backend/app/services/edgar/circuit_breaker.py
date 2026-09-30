@@ -95,12 +95,13 @@ class CircuitBreakerStats:
         self.consecutive_successes += 1
         self.consecutive_failures = 0
 
-    def record_failure(self) -> None:
-        """Record a failed request."""
+    def record_failure(self, *, count_for_breaker: bool = True) -> None:
+        """Count every failed request, but only outages toward the circuit threshold."""
         self.total_requests += 1
         self.failed_requests += 1
         self.last_failure_time = time.time()
-        self.consecutive_failures += 1
+        if count_for_breaker:
+            self.consecutive_failures += 1
         self.consecutive_successes = 0
 
     def record_rejection(self) -> None:
@@ -246,10 +247,11 @@ class CircuitBreaker:
     async def record_failure(self, exc: Exception) -> None:
         """Record a failed call and potentially open the circuit."""
         async with self._lock:
-            self._stats.record_failure()
+            tripping = isinstance(exc, self.config.trip_exceptions)
+            self._stats.record_failure(count_for_breaker=tripping)
 
             # Only trip on specific exception types
-            if not isinstance(exc, self.config.trip_exceptions):
+            if not tripping:
                 logger.debug(
                     f"Circuit breaker '{self.name}' ignoring non-tripping exception: "
                     f"{type(exc).__name__}"

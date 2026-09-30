@@ -1,0 +1,15 @@
+HEAD=31b88458ec19a2ff28f17a4c15a6c88868d8f403 python=Python 3.11.15 openai=3.16.2 posthog=7.58.0
+== gate: ruff check . && bandit -r app -ll && python -m pytest
+All checks passed!
+	No issues identified.
+		Medium: 0
+		High: 0
+tests/integration/test_login_lockout_transactions.py ......              [  0%]
+tests/integration/test_notification_delivery_transactions.py .....       [  0%]
+tests/integration/test_subscription_event_transactions.py .............. [  1%]
+tests/integration/test_usage_counter_transactions.py ................... [  2%]
+========= 3497 passed, 2 deselected, 29 warnings in 180.52s (0:03:00) ==========
+GATE_EXIT=0
+== CI performance step: python -m pytest -o addopts= -m performance tests/performance
+======================= 2 passed, 18 warnings in 22.44s ========================
+PERF_EXIT=0

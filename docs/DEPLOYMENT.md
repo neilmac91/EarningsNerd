@@ -49,6 +49,18 @@ default. Auth is keyless via Workload Identity Federation (repo variables `GCP_W
 
 **Nothing manual is required for routine releases** — merge to `main` and the pipeline ships it.
 
+### Read-only release configuration audit
+
+Dispatch the `Ops` workflow with `describe-service`, then `describe-jobs`, when an operator needs
+independent release evidence through the repository's existing keyless WIF identity. The first
+operation reports the serving revision image, `SENTRY_RELEASE`, service pool values, and both
+service and revision `maxScale` for operator comparison. The second reports image, task count, and
+pool values for all eight expected jobs, and fails when their release or connection budget
+invariants drift. `describe-jobs` also fails if any expected job, including
+`earningsnerd-retention-purge`, is missing or unreadable.
+They only call Cloud Run describe APIs and do not access the database, application HTTP endpoints,
+or model providers.
+
 ### Rollback (when a bad revision is live)
 
 The pipeline routes 100% of traffic to the newest revision (`update-traffic --to-latest`) **before**
@@ -177,7 +189,7 @@ gcloud projects add-iam-policy-binding earnings-nerd \
 ```
 
 ### 6. Deploy
-> Sizing flags (`--cpu/--memory/--min-instances/--max-instances/--concurrency/--timeout`) are now
+> Sizing flags (`--cpu/--memory/--min-instances/--max/--max-instances/--concurrency/--timeout`) are now
 > **re-asserted by CI on every backend deploy** (`.github/workflows/ci.yml`, deploy-backend step),
 > so they can't drift from these values. `--min-instances=1` keeps one warm instance (no cold
 > starts; per-process caches survive). This bootstrap command still creates the service.
@@ -186,7 +198,7 @@ gcloud run deploy earningsnerd-backend \
   --image=us-west1-docker.pkg.dev/earnings-nerd/earningsnerd/backend:latest \
   --region=us-west1 --allow-unauthenticated \
   --add-cloudsql-instances=earnings-nerd:us-west1:earningsnerd-db \
-  --cpu=1 --memory=1Gi --cpu-boost --min-instances=1 --max-instances=2 --concurrency=40 --timeout=600 \
+  --cpu=1 --memory=1Gi --cpu-boost --min-instances=1 --max=2 --max-instances=2 --concurrency=40 --timeout=600 \
   --set-secrets=DATABASE_URL=DATABASE_URL:latest,OPENAI_API_KEY=OPENAI_API_KEY:latest,SECRET_KEY=SECRET_KEY:latest,STRIPE_SECRET_KEY=STRIPE_SECRET_KEY:latest,STRIPE_PUBLISHABLE_KEY=STRIPE_PUBLISHABLE_KEY:latest,STRIPE_WEBHOOK_SECRET=STRIPE_WEBHOOK_SECRET:latest,RESEND_API_KEY=RESEND_API_KEY:latest,RESEND_FROM_EMAIL=RESEND_FROM_EMAIL:latest \
   --set-env-vars="^@^ENVIRONMENT=production@SKIP_REDIS_INIT=true@OPENAI_BASE_URL=https://api.deepseek.com/v1@SEC_EDGAR_BASE_URL=https://data.sec.gov@CORS_ORIGINS_STR=https://earningsnerd.io,https://www.earningsnerd.io@COOKIE_DOMAIN=.earningsnerd.io"
 ```
@@ -374,11 +386,80 @@ gcloud scheduler jobs create http retention-purge-weekly --location=us-west1 \
 CI updates this job's image with the others once it exists; until then the deploy logs
 "not found — create it once per DEPLOYMENT.md. Skipping."
 
+### Monthly Cloud SQL logical export
+
+`.github/workflows/monthly-sql-export.yml` runs at 04:15 UTC on the first day of each month and
+also supports manual dispatch from `main`. Its job refuses every other repository or ref. It uses
+the existing repository-scoped Workload Identity provider,
+but authenticates as a dedicated export-only service account. Do not reuse or widen the deployer
+service account. Bootstrap the dedicated account with a custom project role containing exactly:
+
+```text
+cloudsql.instances.get
+cloudsql.instances.list
+cloudsql.instances.export
+```
+
+Copy the deployer's existing repository-scoped `roles/iam.workloadIdentityUser` member to the new
+service account without broadening its principal. At the dedicated private export bucket, grant
+the workflow account `roles/storage.objectViewer`. Grant the Cloud SQL instance service account
+`roles/storage.objectCreator`. The export writes one nonparallel object, so the documented
+`storage.objects.create` permission is sufficient; do not grant object admin, list, or delete to
+the Cloud SQL service account.
+
+Configure two masked GitHub Actions secrets:
+
+- `GCP_SQL_EXPORTER_SA`: the dedicated service-account email.
+- `GCP_SQL_EXPORT_CONFIG_JSON`: an object with exactly `project`, `region`, `instance`, `database`,
+  `bucket`, and integer `max_disk_gib` keys. Keep the authorized ceiling at or below 10 GiB.
+
+The existing `GCP_WIF_PROVIDER` repository variable remains the provider selector. Resource IDs
+stay in the masked JSON secret; do not move them to workflow or job environment variables or
+dispatch inputs.
+
+The workflow writes `monthly/YYYY-MM/earningsnerd-YYYY-MM.sql.gz` with offload, clean, and
+if-exists enabled. It submits at most once. Same-month reuse requires a retained successful
+operation bound to the exact source, database, options, and URI, plus matching object metadata
+and gzip bytes. If operation history has expired, the workflow holds rather than overwriting the
+object. It adopts one matching active operation, refuses any other active export, and never
+resubmits an uncertain request. Run it manually once and rerun it in the same month before relying
+on the schedule. The workflow publishes no artifacts. The bucket keeps objects live for 35 days
+plus its configured soft-delete window; this is short-overlap evidence, not an import proof or a
+long-term archive.
+
+For a local import rehearsal, download the exact retained object generation into a private
+mode-0700 directory, verify its size/provider checksums and gzip stream, then import the unchanged
+plain SQL with `gzip -dc` piped to `psql -X -v ON_ERROR_STOP=1` using shell `pipefail`. Use a fresh
+PostgreSQL 15 cluster with a private Unix socket, TCP disabled, and no application environment.
+Do not run startup, `create_all` or migrations before checking the restored schema. `pg_restore`
+is not the reader for this plain SQL export.
+
+If the only import error is a missing owner role, discard that local test database, create a
+pristine cluster with only the required local `NOLOGIN` placeholder role, and retry the unchanged
+archive. Record the role prerequisite; do not filter SQL, suppress errors or treat other failures
+as success. Require all ORM tables readable, exact migration filename/hash agreement, nonempty
+core tables, and zero orphan/missing-identity/invalid-index/unvalidated-constraint findings. Retain
+aggregate outcomes and log hashes, then stop and remove the temporary cluster, SQL and private
+logs. Never target the live database or publish customer rows or SQL contents.
+
+The [September 28 result](../tasks/review-evidence/progress-2026-09-28/README.md) proves this bounded
+local import with one owner-role prerequisite. It does not establish managed Cloud SQL import,
+source trigger/function completeness, collation parity, application boot, current-live count parity or recovery-time
+objectives. The export contains no trigger/function statements; [Google's SQL export guidance](https://docs.cloud.google.com/sql/docs/postgres/import-export/import-export-sql)
+distinguishes those from the contents of `gcloud sql export sql`. Future recovery planning must
+check whether separately managed database routines need their own backup coverage.
+
 **One-shot maintenance runs (repair / re-sweep):** `gcloud run jobs execute --args=…` overrides the
 arguments for THAT execution only — the job definition keeps `--command=python`, and the next
-scheduled run is unaffected. Since the DB is only reachable from Cloud Run, this is also the way to
-run any `backend/scripts/*` maintenance script against prod. Used for the 2026-07 false-"reported"
-cleanup (unguarded 8-K 2.02 flips — BIIB shown as reported on its pre-announcement day):
+scheduled run is unaffected. Do not use `gcloud run jobs update --args=…` for one-shot work. The
+backend deploy owns the persistent `earningsnerd-backfill-facts` contract and restores
+`python scripts/backfill_facts.py --only-new` while updating its image. Since the DB is only
+reachable from Cloud Run, execution-scoped arguments are also the way to run any
+`backend/scripts/*` maintenance script against prod. `backfill_facts.py --dry-run` is accepted only
+with `--remediate-financials` or `--backfill-company-sic`; the normal and `--only-new` paths write,
+so combining either with `--dry-run` exits before application initialization. Used for the 2026-07
+false-"reported" cleanup (unguarded 8-K 2.02 flips — BIIB shown as reported on its pre-announcement
+day):
 
 ```bash
 # 1. Re-classify the poisoned window (dry-run first; add ,--execute to apply)
@@ -545,39 +626,31 @@ gcloud scheduler jobs create http notable-filings-scan --location=us-west1 \
   --http-method=POST --oauth-service-account-email="${SA}"
 ```
 
-First rollout (**founder executes** job creation, Scheduler creation, smoke and seed; the section ships dark):
-```bash
-# 1. Smoke-test, then seed a full week so the section isn't empty on day one:
-gcloud run jobs execute earningsnerd-notable-filings --region=us-west1 --wait
-gcloud run jobs execute earningsnerd-notable-filings --region=us-west1 \
-  --args="scripts/notable_filings_job.py,--days,7" --wait
-# Stop here: keep serving dark during the founder's one-week quality review.
-# The scan runs regardless of NOTABLE_FILINGS_ENABLED; a successful seed is not launch approval.
-```
+The existing production scanner and scheduler are provisioned. The September 21–27 ledger now
+contains all fourteen expected successful slots, including four automatic retry recoveries. The
+September 28 source readout preserves twelve frozen examples, the initial label defects and the
+additive source reads. Under the founder's delegation, Codex owns the retain/enable decision in
+[the bounded rollout](../tasks/notable-rollout-2026-09-28.md); no new seed or job dispatch is needed.
 
-W3-2 explicitly pins `NOTABLE_FILINGS_ENABLED=false` in both the service and pregenerate
-deploy env. At this source-preparation checkpoint, merge/deployment verification is pending;
-this is a visibility change, not activation. W3-1 observed the flag absent with the verified
-image default false.
+The reviewed activation pins `NOTABLE_FILINGS_ENABLED=true` in both service and pregenerate
+`--update-env-vars` lists in `.github/workflows/ci.yml`, preserving the existing production-pin
+parity gate. The application default remains false and the scanner runs regardless of this flag.
+The corresponding backend production-pin test is updated as an intentional production override;
+that backend change makes the normal deploy path apply the reviewed setting. The operations
+inspector continues to report the actual code default separately from the live pin.
 
-After a full week of job output, the founder records the reviewed date range, representative
-accessions/reasons, duplicate/noise observations and the retain-or-kill decision. Engineering
-then proposes `NOTABLE_FILINGS_ENABLED=true` in the **service** `--update-env-vars` list in
-`.github/workflows/ci.yml`, in a reviewed PR with the readout linked and an independently
-required `backend/` change. The deploy path filter ignores workflow/docs-only changes; a flag-only
-PR would leave the service unchanged. If no backend change is ready, hold the flip rather than
-claiming a skipped deploy applied it. Do not flip it through a
-console command: D3 requires the serving state to be visible in the repository. A killed slot
-stays dark. Job creation, seed completion and the week of review are still outstanding as of
-2026-09-05; the last verified deployment log reports the job absent.
+Merge the activation only after #1002's source-faithful reason labels and responsive card layout
+are released and independently verified. After the activation deployment, verify the migration
+summary, detailed health, live flag, `GET /api/notable_filings?limit=8`, issuer diversity, canonical
+SEC URLs, filing freshness and the homepage after revalidation. The homepage ISR interval is
+**3,600 seconds**, distinct from the backend's fifteen-minute serve-cache TTL. An API flag change
+does not immediately purge existing homepage HTML. An empty feed is legitimate when fewer than
+three companies qualify; do not infer success or failure from HTTP status alone.
 
-After that backend-touching flag PR merges, verify the service deployment step actually ran
-inside `deploy-backend`, its migration summary, detailed health,
-`GET /api/notable_filings?limit=8`, and the homepage after revalidation (approximately 15 minutes).
-The endpoint legitimately returns an empty list with too few qualifying companies; assess
-accession validity, reason accuracy, company diversity and freshness against the stored output,
-not merely HTTP status. See [the wave-2 rollout checklist](../tasks/dark-surfaces-rollout-2026-09.md)
-for the evidence record and Analysis prerequisites.
+For rollback, restore the service flag and both workflow pins to false and verify an empty API
+feed, recording the remaining homepage cache interval. Source errors or poor observed utility can
+justify keeping the slot dark. Operator requests are not customer engagement, and this discovery
+rollout does not release any summary-quality, wider-generation or invitation hold.
 
 ---
 
@@ -587,11 +660,13 @@ for the evidence record and Analysis prerequisites.
   `gcloud run services logs read earningsnerd-backend --region=us-west1`.
 - **`could not connect to server` / socket errors:** confirm `--add-cloudsql-instances` matches the
   instance connection name and the service account has `roles/cloudsql.client`.
-- **Raising capacity:** bump `--max-instances` (and size up Cloud SQL); keep
-  `max-instances × concurrency` comfortably under the DB's `max_connections`.
-- **Cold starts:** the deploy sets `--cpu-boost` (startup CPU boost) to shorten them while keeping
-  scale-to-zero (negligible cost). To *eliminate* them entirely (always-warm cost):
-  `gcloud run services update earningsnerd-backend --region=us-west1 --min-instances=1`.
+- **Raising capacity:** review database and workload headroom, then change both the service-level
+  `--max` and per-revision `--max-instances` controls (and size up Cloud SQL). Budget the sum of
+  `pool_size + max_overflow` for every service instance and overlapping job execution, with an
+  operational reserve below the database's usable connection limit. Cloud Run can briefly exceed a
+  configured maximum, and Cloud Run jobs are outside the service-level limit.
+- **Cold starts:** the deploy sets `--cpu-boost` (startup CPU boost) and `--min-instances=1`, keeping
+  one instance warm to avoid routine cold starts. Raising the minimum adds always-warm cost.
 
 > Migrated off Render.com (June 2026). Superseded Render/Vercel/Firebase deployment notes are
 > archived under [`docs/history/`](./history/) for provenance.

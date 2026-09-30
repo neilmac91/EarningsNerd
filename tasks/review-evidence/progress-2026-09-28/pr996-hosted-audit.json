@@ -1,0 +1,68 @@
+{
+  "head": "1c8a017e49e2dbe98a7612a0d445b4b883d9b80d",
+  "ci_run": 36386082852,
+  "ci_conclusion": "success",
+  "summary_generation": "skipped_by_AI_relevance_filter",
+  "copilot_run": 36386547088,
+  "copilot_telemetry": {
+    "provider_attempts": 33,
+    "operations": {
+      "copilot_chat": 33
+    },
+    "outcomes": {
+      "success": 33
+    },
+    "actual_models": {
+      "deepseek-flash": 33
+    },
+    "system_fingerprints": {
+      "aeb56401ca74e127821c4f9126dcb669": 33
+    },
+    "known_usage": {
+      "prompt_tokens": 1037169,
+      "completion_tokens": 5201,
+      "total_tokens": 1042370,
+      "cache_hit_tokens": 1030528,
+      "cache_miss_tokens": 6641,
+      "reasoning_tokens": 0
+    },
+    "unknown_usage_calls": {
+      "prompt_tokens": 0,
+      "completion_tokens": 0,
+      "total_tokens": 0,
+      "cache_hit_tokens": 0,
+      "cache_miss_tokens": 0,
+      "reasoning_tokens": 33
+    },
+    "estimated_cost_usd_known": 0.01442,
+    "estimated_cost_unknown_calls": 0,
+    "billed_cost_usd": null
+  },
+  "copilot_source_integrity": {
+    "sources": 6,
+    "artifact_checks": 24,
+    "artifact_mismatches": [],
+    "errors": [],
+    "status": "complete",
+    "manifest_sha256": "8960e1bbeaa95680cafa46762134a6bb573a8bd265992204a6c9e82fc7c52a16",
+    "database_sha256": "ff58868fb2741cdcad6b2e6f5398943e4177d061381acf9fa9aff2441cc9f80f"
+  },
+  "review_summary_comment": 5864639176,
+  "review_head": "1c8a017",
+  "review_pr_reaction": "Codex +1",
+  "inline_findings": 0,
+  "copilot_summary": {
+    "expected": 18,
+    "completed": 18,
+    "scored": 18,
+    "errors": 0,
+    "passed": 18
+  },
+  "copilot_source_sha": "ee6bc0aecc4bb77abd25cc5906f3c0e7dd303760",
+  "limits": [
+    "Ordinary summary baseline correctly skipped: no AI-relevant backend change.",
+    "Copilot33providercalls for18results; not18calls."
+  ],
+  "synthetic_merge_tree_equals_head": true,
+  "tree_sha": "a73c2331b2f2e7c2569a13dde1f745062b3f80f1"
+}

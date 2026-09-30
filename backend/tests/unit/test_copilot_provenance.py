@@ -62,6 +62,7 @@ async def test_real_closure_rejects_bad_provenance_before_marker(monkeypatch, ch
     async def stream(messages, tools, run_tool, **kwargs):
         observed.append(run_tool('get_financial_fact', {'concept': 'revenue', 'accession_number': OTHER}))
         yield 'Revenue was 996.347 billion [F1].'
+        yield '\n===CITATIONS===\n[]'
     monkeypatch.setattr(service.openai_service, 'stream_chat_with_tools', stream)
     events = [e async for e in service.answer_filing_question(filing=filing(), question='Revenue?')]
     assert observed == [{'error': 'invalid_filing_provenance'}]
@@ -87,6 +88,7 @@ async def test_snapshot_trusted_scope_and_currency_survive_context_cap(monkeypat
         result = run_tool('get_financial_fact', {'accession_number': OTHER})
         assert result['cite'] == 'F1'
         yield 'Revenue was RMB996.347 billion [F1].'
+        yield '\n===CITATIONS===\n[]'
     monkeypatch.setattr(service.openai_service, 'stream_chat_with_tools', stream)
     events = [e async for e in service.answer_filing_question(filing=snap, question='Revenue?')]
     assert observed == [(9, {'accession_number': ACC, 'reporting_currency': 'CNY'})]
@@ -123,6 +125,7 @@ async def test_actual_closure_distinguishes_denominators_and_reuses_exact_expres
         for _ in range(3):
             markers.append(run_tool('compute_metric', {'kind': 'margin'})['cite'])
         yield 'Gross margin was 50% [F1]. Gross margin was 50% [F2]. Again gross margin 50% [F1].'
+        yield '\n===CITATIONS===\n[]'
     monkeypatch.setattr(service.openai_service, 'stream_chat_with_tools', stream)
     final = [e async for e in service.answer_filing_question(filing=filing(), question='Margins?')][-1]
     assert markers == ['F1', 'F2', 'F1']
@@ -152,7 +155,7 @@ async def test_native_sdk_tool_wire_carries_viewed_scope_and_currency(monkeypatc
                     'name': 'get_financial_fact', 'arguments': json.dumps({'concept': 'revenue', 'accession_number': OTHER})}}]},
                 'finish_reason': 'tool_calls'}])
         else:
-            data = chunk('Revenue was RMB996.347 billion [F1].')
+            data = chunk('Revenue was RMB996.347 billion [F1].\n===CITATIONS===\n[]')
         return httpx2.Response(200, headers={'content-type': 'text/event-stream'},
                                content=event(data) + b'data: [DONE]\n\n')
     def lookup(name, args, company_id, **scope):

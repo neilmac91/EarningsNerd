@@ -1,0 +1,12 @@
+{
+  "committed_head": "abf4ca640d48b35be5099b2b6883c3298cf2d3b3",
+  "mutation": "Disable only the new offline callback-position rejection; all other checks remain intact",
+  "failed_exit": 1,
+  "restored_exit": 0,
+  "failed_summary": "1 failed, 2 warnings in 0.77s",
+  "restored_summary": "1 passed, 2 warnings in 4.90s",
+  "source_sha256": "ff5b92d41a9860bf08065496905f24659349a9521d9ca40905d1e0f79d55e1c7",
+  "byte_identical_restoration": true,
+  "provider_or_fable_call": false,
+  "e7_admission_or_spend_guard_changed": false
+}

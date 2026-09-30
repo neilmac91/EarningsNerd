@@ -45,7 +45,24 @@ def _main(*, only_unprocessed: bool, limit: int | None) -> None:
     with track_job("backfill-facts", dry_run=False) as attempt:
         db = SessionLocal()
         try:
-            stats = facts_service.backfill_facts(db, limit=limit, only_unprocessed=only_unprocessed)
+            def fetch_companyfacts(cik: str) -> dict | None:
+                # This private job session has only selected/extracted inputs here; previous
+                # filings committed in the existing writer. Never finish a caller's transaction.
+                if db.new or db.dirty or db.deleted or db.in_nested_transaction():
+                    raise RuntimeError("Backfill fetch reached pending business state")
+                if db.in_transaction():
+                    expire = db.expire_on_commit
+                    try:
+                        db.expire_on_commit = False
+                        db.commit()  # Return the read lease without detaching/expiring its inputs.
+                    finally:
+                        db.expire_on_commit = expire
+                return facts_service._fetch_companyfacts_sync(cik)
+
+            stats = facts_service.backfill_facts(
+                db, limit=limit, only_unprocessed=only_unprocessed,
+                companyfacts_fetcher=fetch_companyfacts,
+            )
             attempt.record(stats)
             logger.info("Facts backfill complete: %s", stats)
         finally:
@@ -160,6 +177,11 @@ if __name__ == "__main__":
         help="With --remediate-financials or --backfill-company-sic: report scope without writing.",
     )
     args = parser.parse_args()
+
+    if args.dry_run and not (args.remediate_financials or args.backfill_company_sic):
+        parser.error(
+            "--dry-run is supported only with --remediate-financials or --backfill-company-sic"
+        )
 
     tickers = [t.strip() for t in args.tickers.split(",")] if args.tickers else None
     if args.backfill_company_sic:

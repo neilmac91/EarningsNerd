@@ -1,0 +1,22 @@
+{
+  "head": "a8fd5e40da9a3e1b9d75dc0b76552723663fe67c",
+  "tree": "4676b4a2cc86432f11b2fe184713c42e506ef8e1",
+  "backend_tree": "98a27162f814456f38cabd9ac882b6295e61618f",
+  "frontend_tree": "771220558cdbb481f92bd67da7b721adbb272090",
+  "commands": "ruff check . && bandit -r app -ll && python -m pytest",
+  "result": "4129 passed,39 skipped,2 deselected,40 warnings in182.02s",
+  "exit_code": 0,
+  "ruff": "0.16.9 passed",
+  "bandit": "1.9.4 no medium/high issues",
+  "python": "3.11.16",
+  "log": "full-backend-a8fd5e40.log",
+  "log_sha256": "50d3e25d446af359f75d0aa881165d0b8e30c7339d2c99f0a8dbe7554c2f1444",
+  "limitations": [
+    "40 warnings retained",
+    "After pytest passed, existing shutdown logging reported I/O on a closed stream; exit0 retained",
+    "Frontend703-test full gate remains applicable to identical frontend tree"
+  ],
+  "initial_failed_gate": "full-backend-e802-initial-failed.log",
+  "initial_failed_gate_sha256": "26ab53af42075e4c6ca57adc269f76ff9cf39559c2cf3b7a599d835ae1cf5f56",
+  "at": "2026-09-29T20:42:37.299671+00:00"
+}

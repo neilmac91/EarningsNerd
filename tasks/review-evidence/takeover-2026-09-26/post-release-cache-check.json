@@ -1,0 +1,45 @@
+{
+  "kind": "post_release_cached_analysis_ui_observation",
+  "observed_url": "https://www.earningsnerd.io/analysis",
+  "observer": "root",
+  "session": "founder-signed-in Chrome",
+  "release": {
+    "frontend_main_sha": "eea26d2f6845dbea2cd19feb007afe00efa7bfd5",
+    "frontend_vercel_status_at": "2026-09-27T02:09:46Z",
+    "backend_revision": "earningsnerd-backend-00392-zph",
+    "backend_release_pr": 968
+  },
+  "checks": [
+    {
+      "company": "AAPL",
+      "periods": [
+        "FY2024",
+        "FY2025"
+      ],
+      "observed_at_utc_approx": "2026-09-27T02:14:00Z",
+      "cached": true,
+      "source_links": 17,
+      "numeric_mismatch_count": 1,
+      "visible_mismatch_paragraph": true
+    },
+    {
+      "company": "AAPL",
+      "periods": [
+        "2026Q2",
+        "2026Q3"
+      ],
+      "observed_at_utc_approx": "2026-09-27T02:18:00Z",
+      "cached": true,
+      "source_links": 17,
+      "numeric_mismatch_count": 2,
+      "visible_mismatch_paragraph": true
+    }
+  ],
+  "disposition": "The released frontend labels the 17 references as source links and displays the backend-reconstructed mismatch count in normal visible content on both cached results.",
+  "separation_from_pre_release_checks": "Earlier PDF, workbook, citation-navigation and source-warning checks inspected pre-release artifacts and fresh/cached states. These two observations are the bounded post-release cached production UI check.",
+  "limitations": [
+    "Observation times are approximate timestamps reported by the root UI observer.",
+    "The receipt writer independently verified the GitHub/Vercel release state but did not repeat the browser interaction.",
+    "No screenshot, new model call, force refresh, backend test, financial-source audit or E7 verdict is claimed."
+  ]
+}

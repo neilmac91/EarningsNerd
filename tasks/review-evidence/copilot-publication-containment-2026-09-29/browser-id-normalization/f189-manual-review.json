@@ -1,0 +1,16 @@
+{
+  "recorded_at_utc": "2026-09-29T22:03:49.345887+00:00",
+  "head": "f1890ff66d8d9c6fb77c42d805899bbc8faa2b28",
+  "review_id": 5359074021,
+  "inline_id": 4138791730,
+  "completed_at_utc": "2026-09-29T22:01:27.564952Z",
+  "decision": "P2 upheld; draft held, no ready trigger",
+  "root_fresh_refutation": "Permitted string IDs match F followed by whitespace and positive digits. Count and marker admission normalize whitespace, but returned citations retain raw n. Rail forwards it. Renderer byN uppercases n only and answer lookup strips whitespace, so a spaced admitted ID never becomes a chip. This is within the complete PR boundary even though the immediately previous incremental diff did not introduce it.",
+  "correction_scope": "Strip whitespace from accepted stored string IDs, preserve numeric IDs and current lowercase return semantics. Existing stream owner controls natural failure and corrected renderer handoff; no backend/prompt/scorer change.",
+  "capture_files": {
+    "pr.json": "48e8779af32e26e80523887c0aad6400066414d8a2caafbcb01c6af12267f96a",
+    "comments.json": "52221890d868844dd80af39da68335e2606139ba4b7cad7db49503a7789eb543",
+    "inline.json": "e575880e96ecce411a25bb27d6bf62fcfd16ea31d2af7be4ed668e467976d610",
+    "reviews.json": "fe7e76c4f1783a4f29e868fdf8b38fa95627211245ca83b626baa1c16021545f"
+  }
+}

@@ -1,0 +1,275 @@
+{
+  "publication": {
+    "derivative": true,
+    "original_path": "notable-followup-verdicts.original.json",
+    "original_sha256": "e447631db3688f3dc61d3b40a47a36192601599160a5d2e57e3dca8b71c5c17a",
+    "transformation": "Only frozen_inputs path strings were rewritten to committed flattened names; publication metadata was added. All row judgments, evidence, qualifications, and review limits are unchanged."
+  },
+  "additive_effect": {
+    "aggregate_precision_recomputed": false,
+    "prior_indeterminate_resolved_to_pass": 4,
+    "prior_pass_with_new_primary_qualification": 1,
+    "rows_reviewed": 5,
+    "sample_selection_changed": false
+  },
+  "claims_not_made": [
+    "The five row dispositions do not establish full-cohort reason precision.",
+    "No general current-card quality conclusion is drawn.",
+    "No feature-flag activation, rollout, or approval is authorized.",
+    "No opinion is offered on H28 or H20."
+  ],
+  "frozen_inputs": {
+    "acquisition_ledger": {
+      "bytes": 28837,
+      "failures": 0,
+      "path": "notable-followup-acquisition.json",
+      "requests": 9,
+      "rows": 5,
+      "sha256": "41d9e5399a24042a9fcaa6f31c53c735d3e9635e9f9bc3c6917434a03fab43af",
+      "status": "complete"
+    },
+    "original_source_packet": {
+      "bytes": 5504,
+      "path": "notable-source-packet.json",
+      "rows": 12,
+      "selection_changed": false,
+      "sha256": "f9b1b32f74ac79c003dba1ddfd442a4783d49b5382c57d715aece752378669ee"
+    },
+    "plan": {
+      "bytes": 743,
+      "path": "notable-followup-plan.json",
+      "sha256": "4c36ad5b760f45be0be5a6afefee3fa2cda6adecde3436bc6cf6918d457da288"
+    },
+    "prior_verdicts": {
+      "bytes": 12404,
+      "path": "notable-verdicts.json",
+      "rewritten": false,
+      "sha256": "a9297db4fb5a346e2b3ef2893c9146c0f2e38cf9f751b0f1500ac51b06a90ce5"
+    }
+  },
+  "hash_verification": {
+    "all_bytes_match": true,
+    "all_sha256_match": true,
+    "failures": [],
+    "files_checked": 9
+  },
+  "kind": "notable_source_followup_additive_verdicts",
+  "retained_unsupported_visible_label_issues": [
+    {
+      "accession_number": "0001213900-26-102276",
+      "current_visible_label": "IPO filing",
+      "limit": "Form S-1 alone does not establish a traditional IPO, pricing, or completion.",
+      "status": "unchanged_out_of_scope_prior_finding",
+      "supported_wording": "S-1 registration statement filed",
+      "ticker": "BOXL"
+    },
+    {
+      "accession_number": "0001702780-26-000057",
+      "current_visible_label": "Restatement",
+      "limit": "The primary says amended 10-K and 10-Q filings are intended future work and the effects remain preliminary and unaudited.",
+      "status": "unsupported_overclaim_reconfirmed",
+      "supported_wording": "Non-reliance disclosed; restatements planned",
+      "ticker": "OPTU"
+    }
+  ],
+  "review_limits": {
+    "annual_report_body_read": false,
+    "code_edits": 0,
+    "database_writes": 0,
+    "exhibits_followed": false,
+    "feature_flag_approval_inferred": false,
+    "full_cohort_precision_inferred": false,
+    "github_actions": 0,
+    "model_calls": 0,
+    "network_calls": 0,
+    "product_quality_inferred": false,
+    "replacement_filings_read": false
+  },
+  "rows": [
+    {
+      "accession_number": "0001437749-26-031241",
+      "candidate_wording": "Annual report filed",
+      "current_card_source_status": "supported_for_this_card",
+      "current_visible_label": "Annual report",
+      "disposition": "pass",
+      "evidence": "The official SEC index identifies accession 0001437749-26-031241, filing date 2026-09-25, and a sequence-1 Form 10-K primary document. That form is adequate evidence for the form-derived annual-report label; the annual report itself was not needed or reviewed.",
+      "metadata": {
+        "accession": true,
+        "filed_date": true,
+        "form": true
+      },
+      "prior_disposition": "indeterminate",
+      "reason_supported": true,
+      "sources": [
+        {
+          "bytes": 12436,
+          "hash_verified": true,
+          "locator": "raw HTML lines 72, 78-79, and 108-113",
+          "path": "sources/0001437749-26-031241/0001437749-26-031241-index.htm",
+          "sha256": "4974bf4fa14a1f88d0a6feb43d28b9d90a270a60a06505e77b27b083390234b2",
+          "url": "https://www.sec.gov/Archives/edgar/data/1016504/000143774926031241/0001437749-26-031241-index.htm"
+        }
+      ],
+      "stored_filed_date": "2026-09-25",
+      "stored_form": "10-K",
+      "stored_reason": "annual_report",
+      "ticker": "INBP",
+      "ux_limit": "Do not infer financial performance or any annual-report content from the index-only review."
+    },
+    {
+      "accession_number": "0001193125-26-396644",
+      "candidate_wording": "Chapter 11 asset-sale update",
+      "current_card_source_status": "supported_as_category_with_timing_limit",
+      "current_visible_label": "Bankruptcy filing",
+      "disposition": "pass",
+      "evidence": "The index lists Item 1.03 and the primary incorporates Item 2.01 into Item 1.03. The primary says Sangamo had filed a voluntary Chapter 11 petition on 2026-06-23, remained a debtor in possession, and completed a court-authorized sale of ST-920-related assets on 2026-09-17 for $111 million cash at closing plus up to $100 million contingent consideration and assumed liabilities.",
+      "metadata": {
+        "accession": true,
+        "filed_date": true,
+        "form": true
+      },
+      "prior_disposition": "indeterminate",
+      "reason_supported": true,
+      "sources": [
+        {
+          "bytes": 9637,
+          "hash_verified": true,
+          "locator": "raw HTML lines 72, 78-91, and 112-117",
+          "path": "sources/0001193125-26-396644/0001193125-26-396644-index.htm",
+          "sha256": "8772b47cd962cb8d84aae9ad157f48552ffce78e9884d775bff6ebe436fecbd1",
+          "url": "https://www.sec.gov/Archives/edgar/data/1001233/000119312526396644/0001193125-26-396644-index.htm"
+        },
+        {
+          "bytes": 31449,
+          "hash_verified": true,
+          "locator": "raw HTML lines 74-79; Item 1.03 incorporation and Item 2.01 paragraphs 1-4",
+          "path": "sources/0001193125-26-396644/d178611d8k.htm",
+          "sha256": "746bf7dd1dffeb172aff45e92e93ec56f6c7fb316b15017a0fac64e2385ace7b",
+          "url": "https://www.sec.gov/Archives/edgar/data/1001233/000119312526396644/d178611d8k.htm"
+        }
+      ],
+      "stored_filed_date": "2026-09-21",
+      "stored_form": "8-K",
+      "stored_reason": "bankruptcy",
+      "ticker": "SGMOQ",
+      "ux_limit": "Do not imply that the bankruptcy petition was newly filed on the 8-K filing date or that the Chapter 11 case concluded."
+    },
+    {
+      "accession_number": "0001493152-26-044115",
+      "candidate_wording": "Warrants repurchased and canceled for $2.0 million",
+      "current_card_source_status": "supported_for_this_card",
+      "current_visible_label": "Material agreement",
+      "disposition": "pass",
+      "evidence": "Item 1.01 says Chaince entered a Warrant Repurchase Cancellation and Release Agreement on 2026-09-21, repurchased and permanently canceled all holder warrants for $2.0 million cash, issued no ordinary shares, and closed the transaction that day; it reports no warrants outstanding afterward.",
+      "metadata": {
+        "accession": true,
+        "filed_date": true,
+        "form": true
+      },
+      "prior_disposition": "indeterminate",
+      "reason_supported": true,
+      "sources": [
+        {
+          "bytes": 11358,
+          "hash_verified": true,
+          "locator": "raw HTML lines 72, 78-91, and 112-117",
+          "path": "sources/0001493152-26-044115/0001493152-26-044115-index.htm",
+          "sha256": "fbdf3aa85d236ac6e14fff532ebffef6f2c4d7904bb4ebf18bb75ddde9d2750e",
+          "url": "https://www.sec.gov/Archives/edgar/data/1527762/000149315226044115/0001493152-26-044115-index.htm"
+        },
+        {
+          "bytes": 41668,
+          "hash_verified": true,
+          "locator": "raw HTML lines 245-266, Item 1.01",
+          "path": "sources/0001493152-26-044115/form8-k.htm",
+          "sha256": "ddbabdab675fd3230032ff2c8e8b03406c262e7c81d21173b887206c2642af19",
+          "url": "https://www.sec.gov/Archives/edgar/data/1527762/000149315226044115/form8-k.htm"
+        }
+      ],
+      "stored_filed_date": "2026-09-24",
+      "stored_form": "8-K",
+      "stored_reason": "material_agreement",
+      "ticker": "CD",
+      "ux_limit": "The 8-K summary is qualified by the exhibit, which was not followed under this bounded review."
+    },
+    {
+      "accession_number": "0001493152-26-044256",
+      "candidate_wording": "ARM membership interests acquired under milestone-based share agreement",
+      "current_card_source_status": "supported_for_this_card",
+      "current_visible_label": "Material agreement",
+      "disposition": "pass",
+      "evidence": "Item 1.01 says Aeternum acquired ARR\u2019s membership interests in American Renaissance Minerals under a 2026-09-21 Membership Interest Purchase Agreement. The stated consideration is up to 133,333,333 pre-split common shares or, if required by a beneficial-ownership limit, pre-funded warrants, issued in stages against project milestones. ARM has a right to acquire the Nkamouna Nickel-Cobalt project.",
+      "metadata": {
+        "accession": true,
+        "filed_date": true,
+        "form": true
+      },
+      "prior_disposition": "indeterminate",
+      "reason_supported": true,
+      "sources": [
+        {
+          "bytes": 10982,
+          "hash_verified": true,
+          "locator": "raw HTML lines 72, 78-91, and 112-117",
+          "path": "sources/0001493152-26-044256/0001493152-26-044256-index.htm",
+          "sha256": "68bf967deb455d879c98242fc4fe588f8ccbca6c873754ffb1b44ee309a1d31e",
+          "url": "https://www.sec.gov/Archives/edgar/data/764630/000149315226044256/0001493152-26-044256-index.htm"
+        },
+        {
+          "bytes": 44305,
+          "hash_verified": true,
+          "locator": "raw HTML lines 236-262, Item 1.01; lines 266-272, Item 3.02 incorporation",
+          "path": "sources/0001493152-26-044256/form8-k.htm",
+          "sha256": "a3bd26ccaa42476ccd324919df694edc865fbef22b834d297d0fb5fe483fe4d3",
+          "url": "https://www.sec.gov/Archives/edgar/data/764630/000149315226044256/form8-k.htm"
+        }
+      ],
+      "stored_filed_date": "2026-09-25",
+      "stored_form": "8-K",
+      "stored_reason": "material_agreement",
+      "ticker": "AETN",
+      "ux_limit": "Do not say Aeternum acquired the Nkamouna project itself, and do not present the maximum shares as already issued. The filing says ARM has a right to acquire the project and consideration is milestone-staged. The agreement summaries are qualified by unreviewed exhibits."
+    },
+    {
+      "accession_number": "0001702780-26-000057",
+      "candidate_wording": "Non-reliance disclosed; restatements planned",
+      "current_card_source_status": "unsupported_overclaim_retained",
+      "current_visible_label": "Restatement",
+      "disposition": "pass",
+      "evidence": "Item 4.02(a) says the Audit Committee concluded specified prior annual and quarterly financial statements should no longer be relied upon because deferred-tax benefits were understated and a related deferred-tax liability was overstated. The company says it intends to restate those statements through future amended 10-K and 10-Q filings. The identified effects are preliminary and unaudited, may change, and the source warns the company might not complete the restatement as planned.",
+      "metadata": {
+        "accession": true,
+        "filed_date": true,
+        "form": true
+      },
+      "prior_disposition": "pass",
+      "reason_supported": true,
+      "sources": [
+        {
+          "bytes": 10090,
+          "hash_verified": true,
+          "locator": "raw HTML lines 72, 78-91, and 112-117",
+          "path": "sources/0001702780-26-000057/0001702780-26-000057-index.htm",
+          "sha256": "203c46e83885af3072ce66369ae0936a05507f3b59370bf51a67c39b59f6696c",
+          "url": "https://www.sec.gov/Archives/edgar/data/1702780/000170278026000057/0001702780-26-000057-index.htm"
+        },
+        {
+          "bytes": 39988,
+          "hash_verified": true,
+          "locator": "raw HTML line 7; Item 2.02 paragraphs 1-2; Item 4.02(a) paragraphs 1-6; Controls and Procedures paragraph 1",
+          "path": "sources/0001702780-26-000057/optu-20260916.htm",
+          "sha256": "870642679b7043cccb33c8ac6fc675dd6c4f5201b5e50ce049038ae655b7d5a5",
+          "url": "https://www.sec.gov/Archives/edgar/data/1702780/000170278026000057/optu-20260916.htm"
+        }
+      ],
+      "stored_filed_date": "2026-09-21",
+      "stored_form": "8-K",
+      "stored_reason": "restatement",
+      "ticker": "OPTU",
+      "ux_limit": "Do not state that the restatements were completed or that amended statements were filed. The source describes intended future Restated Filings and preliminary, unaudited effects."
+    }
+  ],
+  "schema_version": 1,
+  "scope": "Five frozen follow-up rows only; additive to the earlier verdicts and not a replacement.",
+  "status": "complete"
+}

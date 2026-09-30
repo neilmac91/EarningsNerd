@@ -1,0 +1,84 @@
+{
+  "admission_approved": false,
+  "base_commit": "108a815e9db8078cdc3a93a5a27cec04612d7e68",
+  "checks": {
+    "actual_bundle": "52 rows; 8 contexts; 6 coherent omissions rejected",
+    "bandit_medium_high_findings": 0,
+    "focused_protocol_executor_passed": 40,
+    "mutation": "origin-set equality removed: invariant failed; exact restoration passed",
+    "pytest": {
+      "passed": 3732,
+      "performance_included": true,
+      "postgres_lanes": 4,
+      "seconds": 169.48,
+      "skipped": 0,
+      "warnings": 40
+    },
+    "ruff": "pass",
+    "synthetic_decision_fixture_passed": 1
+  },
+  "files": {
+    "actual-smoke": {
+      "path": "authority-actual-smoke.json",
+      "sha256": "0c35642f8e2e6ffa228fc3f75f5e65bdde8864109c37fa4884b84d4faa347a18"
+    },
+    "full-backend-gate": {
+      "original_bytes": 17169,
+      "original_path": "outputs/takeover-2026-09-26/h30-independent-history/full-backend-gate.log",
+      "original_sha256": "0f7a35c10c1f525b091ceaf8fcbb02e2fe00daf127bc7cf1fb78268a92d86061",
+      "published_bytes": 16240,
+      "published_path": "authority-full-backend-gate.log",
+      "published_sha256": "ce0357217ed97eaa1c83c01c2e41f87764a21ff288d860ad7ca30520ea81a261"
+    },
+    "mutation-fail": {
+      "original_bytes": 15907,
+      "original_path": "outputs/takeover-2026-09-26/h30-independent-history/mutation-fail.log",
+      "original_sha256": "9a2779e0e67624806dfaa2d459c9fd7cbc76f5af244d1c75df7684482ff25850",
+      "published_bytes": 15849,
+      "published_path": "authority-mutation-fail.log",
+      "published_sha256": "e9e9b8b5a9dd622085e7638953fcc77ff3f5b2913715deb3a8a74f24f59130f0"
+    },
+    "mutation-restored": {
+      "original_bytes": 1109,
+      "original_path": "outputs/takeover-2026-09-26/h30-independent-history/mutation-restored.log",
+      "original_sha256": "7346b8fd68b71da8548a10a134a0cb2cac630ae5a025a15a429e606904ad2d71",
+      "published_bytes": 1051,
+      "published_path": "authority-mutation-restored.log",
+      "published_sha256": "e15562be7a951a1268c999496f854b0c243000cfe5ea587dabae4e290e54358d"
+    },
+    "mutation-technical-equality-redundant-guard": {
+      "original_bytes": 1109,
+      "original_path": "outputs/takeover-2026-09-26/h30-independent-history/mutation-technical-equality-redundant-guard.log",
+      "original_sha256": "92f70cd791433e355bd3a05a3389aa434af170f51d697cd2d4f733baa932def3",
+      "published_bytes": 1051,
+      "published_path": "authority-mutation-technical-equality-redundant-guard.log",
+      "published_sha256": "7594e3a52825f8f1dd45cdc8e2dfdf3232c5c571f63979e78c83c99b30e8c358"
+    }
+  },
+  "implementation_commit": "e4424f348e3ce2c7f292c98ddf8f21235ec63620",
+  "kind": "h30_independent_authority_local_gate",
+  "limitations": [
+    "Local structural and regression checks do not establish E7 admission or financial quality.",
+    "Published logs replace three local runtime roots with named placeholders; original and normalized hashes are distinguished."
+  ],
+  "prior_gate": {
+    "commit": "e4424f348e3ce2c7f292c98ddf8f21235ec63620",
+    "failed": 1,
+    "original_path": "outputs/takeover-2026-09-26/h30-independent-history/full-backend-gate-fixture-failure.log",
+    "passed": 3731,
+    "reason": "Synthetic decision graph borrowed real H30 accession with invented evidence; fixture registry isolated, production validation unchanged."
+  },
+  "provider_calls": 0,
+  "result": "pass",
+  "schema_version": 1,
+  "source_sha256": {
+    "backend/evals/acceptance_ai_protocol.py": "272754162817ef1121e43645955a109a9e1e309564ced5a09ba64830c720232d",
+    "backend/evals/acceptance_executor.py": "2a11081596cbdcd535fc1e7ba240ecb3e63489720858df7c46f8e70eb440f2c0",
+    "backend/evals/acceptance_legacy_history.py": "a12a17610ed3203aae9274722cf6d478479361d822e13d3db92d24c22438a892",
+    "backend/tests/unit/test_acceptance_ai_decision_integration.py": "8db928986614c9d2bbc24561aa29f519fd6398f9af30461902758d9ea435e168",
+    "backend/tests/unit/test_acceptance_ai_protocol.py": "d5b6e80d378c8ae8eb02f095300ed17160b6bea28e62aa06364c396d80dbe03c",
+    "backend/tests/unit/test_acceptance_executor.py": "879ce23b64a197b56437f12548ca816d2445d45b3a95d10fc88eeaf8224d52d0"
+  },
+  "tested_commit": "b62ca437b05eac1b6e9e4494acfc6f499de313e7",
+  "tested_tree": "895e7b99579d16fb03cfaba75bfb4ae6bae6bad9"
+}

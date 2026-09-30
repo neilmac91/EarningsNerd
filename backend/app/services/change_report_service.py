@@ -1,8 +1,7 @@
 """A5 — "What Changed": a deterministic, narrated period-over-period change report for a filing.
 
 Reuses the existing LLM-free diff engine (`dashboard_feed_service.compute_what_changed` and
-`_prior_same_form`) for financial deltas and **adds** risk-factor diffing (new / resolved / carried) —
-assembled into one report for the filing page. The lead framing is the deterministic
+`_prior_same_form`) for financial deltas, assembled into one report for the filing page. The lead framing is the deterministic
 `metrics.headline`; `Summary.key_changes` is deprecated (still written for API compat, no longer
 surfaced here — it duplicated the Outlook section verbatim; T1.6 / plan §2.3). Pure where it counts
 (risk diffing + report assembly are unit-testable); only the prior-filing/summary lookups touch the DB.
@@ -151,11 +150,9 @@ def assemble_report(
         getattr(current_filing, "xbrl_data", None),
         getattr(prior_filing, "xbrl_data", None) if prior_filing is not None else None,
     )
+    # Stored risk labels are model-authored. Until there is a source-projected cross-period
+    # contract, omit this portion of What Changed rather than re-expose them through a side door.
     risks = None
-    if prior_summary is not None:
-        risks = diff_risk_factors(_extract_risks(current_summary), _extract_risks(prior_summary))
-
-    has_risk_changes = bool(risks and (risks["new"] or risks["resolved"]))
     return {
         "has_prior": prior_filing is not None,
         "comparison_basis": _comparison_basis(getattr(current_filing, "filing_type", None)),
@@ -166,7 +163,7 @@ def assemble_report(
         # metrics.headline, not the summary's own outlook narrative (which duplicated the Outlook
         # section verbatim). Summary.key_changes is still written for API compat; nothing surfaces it.
         "key_changes": None,
-        "has_changes": bool(metrics or has_risk_changes),
+        "has_changes": bool(metrics),
     }
 
 

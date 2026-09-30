@@ -1,0 +1,24 @@
+{
+  "schema_version": 1,
+  "status": "verified_healthy",
+  "recorded_at": "2026-09-27T20:01:52.221600+00:00",
+  "authorization": "Explicit founder approval of service maximum 2 after capacity-risk explanation.",
+  "scope": "Service-level Cloud Run maximum only; no application revision, template, environment or traffic change.",
+  "outcome": {
+    "active_main_push_runs": 0,
+    "database_health": "healthy",
+    "latest_revision_unchanged": true,
+    "public_health": "healthy",
+    "revision_spec_unchanged": true,
+    "service_max_after": 2,
+    "service_max_before": 20,
+    "template_image_env_scaling_unchanged": true,
+    "traffic_unchanged": true
+  },
+  "private_receipt_sha256": "675dd4c8b5956ae255eb40fb71f39a12da3e6177249d3d7e41ab39d44f8cc2a6",
+  "limits": [
+    "A service maximum is not a hard bound on instantaneous instance count during exceptional/platform transitions.",
+    "Cloud Run jobs are separate; per-process database pools do not provide distributed fleet admission.",
+    "Workflow persistence of the approved maximum is a separate follow-up."
+  ]
+}

@@ -72,6 +72,8 @@ _ADDITIVE_COLUMNS: list[tuple[str, str, str]] = [
     # serializer/prompt change can mark and refresh stale rows. NULL = legacy/pre-stamp = stale.
     ("summaries", "schema_version", "SMALLINT"),
     ("summaries", "prompt_version", "TEXT"),
+    # Bounded application-prepared decoded source for source-first Risks on degraded filings.
+    ("filing_content_cache", "risk_source_text", "TEXT"),
 ]
 
 
@@ -108,4 +110,3 @@ def ensure_additive_columns(bind=None, specs: list[tuple[str, str, str]] | None 
             logger.info("ensure_additive_columns: added %s.%s", table, column)
         except Exception as e:  # noqa: BLE001 — never block startup on a single column
             logger.warning("ensure_additive_columns: could not add %s.%s: %s", table, column, e)
-

@@ -1,0 +1,49 @@
+{
+  "deploy_job": 108655183106,
+  "exact_review_comment": 5857385018,
+  "full_local_gate": "3740 passed, 40 warnings in 186.64s",
+  "hosted_audit": "hosted/head-1a209a7/audit.json",
+  "independent_health": {
+    "checks": {
+      "database": {
+        "healthy": true,
+        "latency_ms": 6.14
+      },
+      "redis": {
+        "disabled": true,
+        "healthy": true,
+        "latency_ms": 0.0
+      },
+      "sec_edgar_circuit": {
+        "healthy": true,
+        "state": "closed",
+        "stats": {
+          "rejected_requests": 0,
+          "success_rate": 100.0,
+          "total_requests": 4
+        }
+      }
+    },
+    "status": "healthy",
+    "timestamp": 1790525343.6142778
+  },
+  "main_ci": 36331571526,
+  "merge_commit": "4b9515f96defb627644ca026a43fa1a147b737da",
+  "migrations": {
+    "applied": 0,
+    "skipped": 39
+  },
+  "pr": 976,
+  "production_flags_changed": false,
+  "quality_adoption_claim": false,
+  "receipt_provenance": {
+    "kind": "repository summary copy; raw records retained locally",
+    "operator_original": "outputs/takeover-2026-09-27/sec-attachment-bytes/release.json",
+    "operator_original_sha256": "9a4d1d4cc488edaa98bd5c0d001e9f33b53ad64d71f2a09b7576d9f3a5a43ec1",
+    "relative_path_scope": "Paths in this receipt refer to retained operator files unless explicitly qualified; they are not repository siblings."
+  },
+  "revision": "earningsnerd-backend-00397-l8h",
+  "schema": "verified-backend-release-v1",
+  "tested_head": "1a209a7fcabd57a0513d3174bf7284fb3dab62d3",
+  "traffic_percent": 100
+}

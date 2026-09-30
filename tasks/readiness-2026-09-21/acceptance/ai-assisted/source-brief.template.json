@@ -1,0 +1,15 @@
+{
+  "schema_version": 2,
+  "review_protocol": "ai_assisted",
+  "accession_number": "",
+  "context_id": "",
+  "frozen_at": "",
+  "source_only": true,
+  "candidate_outputs_seen": false,
+  "source_packets": [{"role": "primary", "sha256": ""}],
+  "coverage_status": "partial",
+  "context_window_truncated": true,
+  "coverage_limits": "State actual gaps and extraction limits",
+  "context_evidence": {"path": "", "sha256": ""},
+  "material_issues": [{"issue_id": "", "issue": "", "source_role": "", "source_sha256": "", "source_locator": "", "amounts_and_bases": "", "qualifiers": "", "importance": "", "disclosure_limits": ""}]
+}

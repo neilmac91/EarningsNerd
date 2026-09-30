@@ -9,13 +9,15 @@ from app.services import provenance_service as prov
 
 def _filing(document_url="https://www.sec.gov/Archives/edgar/data/320193/000.../aapl.htm",
             sec_url="https://www.sec.gov/Archives/edgar/data/320193/000.../",
-            critical_excerpt=None, markdown_content=None):
+            critical_excerpt=None, markdown_content=None, filing_id=42):
     cache = None
     if critical_excerpt is not None or markdown_content is not None:
         cache = SimpleNamespace(
-            critical_excerpt=critical_excerpt, markdown_content=markdown_content
+            filing_id=filing_id,
+            critical_excerpt=critical_excerpt,
+            markdown_content=markdown_content,
         )
-    return SimpleNamespace(document_url=document_url, sec_url=sec_url, content_cache=cache)
+    return SimpleNamespace(id=filing_id, document_url=document_url, sec_url=sec_url, content_cache=cache)
 
 
 class TestExtractQuotedSpan:
@@ -119,44 +121,6 @@ class TestBuildTextFragmentUrl:
         assert prov.build_text_fragment_url("", "anything") == ""
 
 
-class TestBuildRiskSource:
-    SOURCE = "Supply chain constraints persisted through Q3 of fiscal 2024."
-
-    def test_verified_builds_text_fragment_link(self):
-        risk = {
-            "summary": "Supply concentration",
-            "supporting_evidence": 'Item 1A: "Supply chain constraints persisted through Q3"',
-            "source_section_ref": "Item 1A. Risk Factors",
-        }
-        out = prov.build_risk_source(risk, _filing(), prov.normalize_for_match(self.SOURCE))
-        assert out["source_verified"] is True
-        assert "#:~:text=" in out["source_url"]
-        assert out["source_section_ref"] == "Item 1A. Risk Factors"
-
-    def test_unverified_links_to_plain_document(self):
-        risk = {
-            "summary": "Some risk",
-            "supporting_evidence": '"This sentence is not anywhere in the filing text at all"',
-            "source_section_ref": "Item 1A. Risk Factors",
-        }
-        out = prov.build_risk_source(risk, _filing(), prov.normalize_for_match(self.SOURCE))
-        assert out["source_verified"] is False
-        assert "#:~:text=" not in out["source_url"]
-        assert out["source_url"].endswith("aapl.htm")
-
-    def test_falls_back_to_sec_url_when_no_document_url(self):
-        risk = {"summary": "r", "supporting_evidence": "x", "source_section_ref": None}
-        filing = _filing(document_url=None)
-        out = prov.build_risk_source(risk, filing, None)
-        assert out["source_url"] == filing.sec_url
-
-    def test_no_url_when_filing_has_no_links(self):
-        out = prov.build_risk_source(
-            {"supporting_evidence": "x"}, _filing(document_url=None, sec_url=None), None
-        )
-        assert out["source_url"] is None
-
-
 class TestEnrichRawSummary:
     def _raw(self):
         return {
@@ -164,7 +128,7 @@ class TestEnrichRawSummary:
                 "risk_factors": [
                     {
                         "summary": "Supply concentration",
-                        "supporting_evidence": 'Item 1A: "Supply chain constraints persisted through Q3"',
+                        "supporting_evidence": "Supply chain constraints persisted through Q3",
                         "source_section_ref": "Item 1A. Risk Factors",
                     }
                 ],
@@ -175,7 +139,7 @@ class TestEnrichRawSummary:
     def test_enriches_and_does_not_mutate_input(self):
         raw = self._raw()
         filing = _filing(critical_excerpt="Supply chain constraints persisted through Q3 of 2024.")
-        out = prov.enrich_raw_summary(raw, filing)
+        out = prov.enrich_raw_summary(raw, filing, summary_filing_id=filing.id)
 
         risk = out["sections"]["risk_factors"][0]
         assert risk["source_verified"] is True
@@ -188,12 +152,15 @@ class TestEnrichRawSummary:
     def test_tolerates_missing_sections(self):
         assert prov.enrich_raw_summary({"foo": "bar"}, _filing()) == {"foo": "bar"}
         assert prov.enrich_raw_summary(None, _filing()) is None
-        assert prov.enrich_raw_summary({"sections": {}}, _filing()) == {"sections": {}}
+        filing = _filing()
+        empty = prov.enrich_raw_summary({"sections": {}}, filing, summary_filing_id=filing.id)
+        assert empty["sections"]["risk_factors"] == []
+        assert empty["sections"][prov.RISK_PROJECTION_KEY]["verified_count"] == 0
 
     def test_uses_markdown_when_no_critical_excerpt(self):
         raw = self._raw()
         filing = _filing(markdown_content="...Supply chain constraints persisted through Q3...")
-        out = prov.enrich_raw_summary(raw, filing)
+        out = prov.enrich_raw_summary(raw, filing, summary_filing_id=filing.id)
         assert out["sections"]["risk_factors"][0]["source_verified"] is True
 
     def test_enriches_v2_sections_via_schema_version(self):
@@ -210,14 +177,16 @@ class TestEnrichRawSummary:
                 },
                 "risks": [{
                     "summary": "Supply concentration",
-                    "supporting_evidence": 'Item 1A: "Supply chain constraints persisted through Q3"',
+                    "supporting_evidence": "Supply chain constraints persisted through Q3",
                     "source_section_ref": "Item 1A. Risk Factors",
                 }],
             },
         }
         filing = _filing(critical_excerpt="Supply chain constraints persisted through Q3 of 2024.")
         xbrl = {"revenue": {"current": {"value": 391035000000.0}}}
-        out = prov.enrich_raw_summary(raw, filing, xbrl_standardized=xbrl)
+        out = prov.enrich_raw_summary(
+            raw, filing, xbrl_standardized=xbrl, summary_filing_id=filing.id
+        )
 
         row = out["sections"]["results_that_matter"]["table"][0]
         assert row["source_verified"] is True and row["xbrl_concept"] == "Revenue"
@@ -231,7 +200,7 @@ class TestEnrichSummaryProvenance:
     def test_shapes_response_and_enriches_both_paths(self):
         risk = {
             "summary": "r",
-            "supporting_evidence": 'Item 1A: "Supply chain constraints persisted through Q3"',
+            "supporting_evidence": "Supply chain constraints persisted through Q3",
             "source_section_ref": "Item 1A. Risk Factors",
         }
         fh = {

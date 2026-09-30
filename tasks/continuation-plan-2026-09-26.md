@@ -1,0 +1,389 @@
+# EarningsNerd takeover and completion path — 26 September 2026
+
+EarningsNerd remains at **quality acceptance before controlled beta**. The engineering
+foundation is strong, and a bounded database recovery is now demonstrated. The next evidence
+needed is that complete filing summaries are correct and useful, and that real users return for another analysis.
+Shipping more evaluation infrastructure does not establish those outcomes.
+
+This checkpoint supersedes the current-state/queue descriptions in the
+[September 23 continuation](continuation-plan-2026-09-23.md), through main
+`b53455bb3b13817d44cf089f3280ced143998583` (#961). The overnight release reached
+`a7983ddc04f5991462367b6d97222d3726430d93` (#974), with backend revision `00396-p2f`;
+the [September 27 execution update](#september-27-execution-update) records subsequent releases. The [source-export release receipt](review-evidence/source-view-streaming-2026-09-27/pr974-release.json) records passing main CI, migrations 0/39, 100% traffic and independent healthy readback. Historical results, approvals, budgets and
+specific holds remain in force except for the [explicit September 27 Notable ownership supersession](handover-astra-2026-09-19.md). The subsequently returned
+[agent checkpoints](review-evidence/takeover-2026-09-26/agent-checkpoint-reconciliation.md)
+confirm that Agents A, B and C are idle, with no uncommitted work, commands, reserved files or
+active automation at that checkpoint. Codex owns the remaining engineering and integration;
+the subsequent Fable assignment and its separate branch are recorded below. Agent B's original independent fixtures are preserved and verified.
+
+**September 27 overnight authority:** the founder delegated necessary implementation and account
+changes toward the Master Plan and explicitly approved DeepSeek API spend. Codex may execute
+the remaining engineering/release work and choose bounded operational actions under that authority;
+no repeated approval is needed. Retain the numerical E7/E8 contracts, quality evidence, locked-test
+discipline and the specific quality prerequisite for universe-wide generation. Authorization is
+not a quality verdict. Record spend and live changes; do not infer customer consent or send invitations.
+
+The first corrective tranche is [#963](https://github.com/neilmac91/EarningsNerd/pull/963):
+the full local gate passed 3,718 tests and all four regression faults were detected, followed by
+58 restored focused passes. Its hosted measurements and exact-head review passed; the
+[verified release](review-evidence/takeover-2026-09-26/pr963-release.json) serves revision
+`00388-6z4` at 100%, migrations 0/39 and independent healthy readback.
+[#964](https://github.com/neilmac91/EarningsNerd/pull/964) constructs exact source/child prompts and
+records attempts before dispatch against an externally retained sealed history. Its local gate
+passed 3,729 tests; hosted review prompted an additional pending-reservation recovery correction,
+plus atomic payload retention and committed-seal recovery. Final hosted measurements passed: 70/70 ordinary summaries and 18/18 Copilot draws, with real retained provider telemetry. The [verified release](review-evidence/takeover-2026-09-26/pr964-release.json) serves revision 00390-q8b at 100%, migrations 0/39 and healthy independent database readback. PR #942 has current-runtime p/q2 (70 each) and q3 (105) measurements;
+its existing backend floor and draft semantic-release hold remain unchanged. No E7 holdout run has started.
+
+[#967](https://github.com/neilmac91/EarningsNerd/pull/967) has since merged as
+`537bf59b923922d2215ae1399920756e014bd4e5` at 2026-09-27 01:16:36 UTC. Final code `1bc5a9f9`
+plus the `ac60` evidence update passed the full 3,730-test gate and five fault proofs, including
+leaf-name/hash pairing. The final hosted 70-summary/18-Copilot telemetry audit is retained in
+[final hosted audit](review-evidence/takeover-2026-09-26/pr967-hosted-final.md). The [verified release](review-evidence/takeover-2026-09-26/pr967-release.json) serves revision `00391-rgl` at 100%, migrations 0/39, main CI `36285042203` and independent healthy database readback at 01:24:30 UTC.
+
+## September 27 execution update
+
+The [latest execution receipts](review-evidence/progress-2026-09-27/README.md) record three additional
+verified releases: #976 delivers bounded SEC attachment bytes with correct circuit-breaker
+accounting, #978 binds current authoritative attachments to invalid frozen members without
+claiming a successful historical decode, and #977 corrects filing-summary changes using exact,
+period-bound XBRL operands. Latest verified backend revision is `00406-9nz` (#988; [release receipt](review-evidence/progress-2026-09-27/pr988-release.json)),
+100% traffic, migrations 0 applied / 40 skipped, and independent healthy database readback. The preceding #981 applied the source-excerpt migration (1 applied / 39 skipped).
+
+H01 now has exact byte assignments for all 162 members: 156 frozen content members plus six
+current authoritative supplements. The subsequent [H02/H25 assignment](review-evidence/progress-2026-09-27/h02-h25-byte-assignment.json)
+accounts for all 268 Duke and 550 HSBC members as well. H02's supplied archive identity is one of
+the joint filers in the exact SEC header; #983 corrects the earlier singleton-only check without
+accepting an absent CIK or weakening URL/accession/hash binding. Across these three difficult
+filings, all 980 members now have byte assignments. This is not all 30 filings, complete modality
+interpretation, the independent role briefs or E7 source acceptance. Current attachments retain
+their separate provenance; an invalid frozen encoding has not been retrospectively decoded.
+The subsequent [native inspection](review-evidence/progress-2026-09-27/h01-native-inspection.md)
+validated the syntax of eight structured members and inspected the two report assets. All 138
+report HTML members reference assets that control hidden or expandable content; semantic readers
+must inspect that content. Syntax and packaging inspection do not establish factual correctness
+or complete role-input coverage.
+
+The bounded thinking-low diagnostic stopped at its first fresh RIVN pair: the candidate repeated
+the known customer-identity conflation. Two provider calls completed; the other fourteen planned
+outputs were not run. The source-based finding and unchanged retained state are recorded in the
+[stop disposition](review-evidence/progress-2026-09-27/thinking-low-stop.json). Conservative
+reservations were USD 0.071674800; reported usage at uncached input prices gives an upper estimate
+of USD 0.018610650. Billed cost is unknown. This was an AI diagnostic, not a Fable or E7 verdict.
+No production model, prompt, quality threshold or judge contract changed.
+
+### Acceleration decisions
+
+- Close deterministic product defects independently when complete request-byte parity shows the
+  writer did not change. #977 has passed its fallback, cached-read and export reviews and the
+  [serial release verification](review-evidence/progress-2026-09-27/pr977-release.json). Its exact
+  XBRL correction applies to filing summaries. The separate Analysis current-ratio precision
+  comparison now passes its narrow diagnostic (6/6 candidate versus 2/6 old outputs), but its
+  six-company/mode narrative checks exposed additional defects. The [retained measurement](review-evidence/progress-2026-09-27/analysis-ratio-measurement.json)
+  remains retained. The subsequent [12-output candidate](review-evidence/progress-2026-09-27/analysis-second-candidate-hold.md)
+  also fails the broader narrative gate: correct operands are joined by false comparisons, and
+  period/absence claims remain wrong. Stop paid prompt iteration. The next bounded candidate
+  makes the model select code-rendered, period-bound observations; offline replay must eliminate
+  the five retained failures before another paid measurement. Production stayed `trends-v4` during that hold. The code-rendered observation candidate passed offline replay,
+  independent code review and the full local gate. The founder explicitly approved its bounded
+  DeepSeek diagnostic. All [14 outputs in two stages](review-evidence/progress-2026-09-27/analysis-observation-diagnostic.json)
+  completed in 14 calls with no material candidate rendering findings against the frozen inputs.
+  Reserved USD 0.1061463; conservative token estimate USD 0.0084735; billed cost unknown.
+  The [final #988 audit](review-evidence/progress-2026-09-27/pr988-hosted-audit.json) records corrected comparison, required-signal and citation precision, 3,710 local passes, performance and PostgreSQL gates, clear exact-head review, and 70/70 summary plus 18/18 Copilot regression. Retained evidence replay uses 13 unchanged selectors and one explicitly adapted synthetic probe after an obsolete no-signals ID is rejected; this is not 14 fresh draws. The candidate is [verified live](review-evidence/progress-2026-09-27/pr988-release.json) as `trends-v7-observations`, revision `00406-9nz`, migrations 0/40 and healthy independent readback. All eight jobs match the release image; service maximum remains 2. The subsequent [September 28 authenticated check](review-evidence/progress-2026-09-28/analysis-live-check.json) completed two bounded annual/quarterly requests and displayed 14/10 source entries with the current stamp. The annual three-page PDF rendered cleanly but exposed an overbroad source guarantee, now corrected in [released #997](review-evidence/progress-2026-09-28/pr997-release.json). Excel download was not verified because Chrome requested multiple-download permission; the permission was left unchanged. No E7/Fable verdict or full-product acceptance is inferred.
+- Freeze the completed custody interfaces. Execute the remaining source work against actual
+  filings rather than adding hypothetical review infrastructure.
+- Prefer small source-checked diagnostics with a prewritten stop rule over another full paid
+  candidate batch when known material defects remain. Do not redraw the failed thinking-low pair.
+- Source-first Risks is released in #981. Its exact-head 70-output measurement contains 271 matched
+  excerpts and 27 withheld items; all 70 outputs expose source availability. The authenticated
+  cached Apple view and CSV show four matched excerpts and the incomplete-inventory notice.
+  The [live check](review-evidence/progress-2026-09-27/pr981-product-check.json) also identified a
+  speculative empty-state explanation on initial legacy server data. [Released #987](review-evidence/progress-2026-09-27/pr987-release.json)
+  corrects that notice; production shows the truthful fallback and the normal four excerpts after hydration.
+  This establishes excerpt matching and serving behavior, not complete risk coverage or semantic
+  acceptance of other sections.
+- Keep operations and beta preparation parallel to quality work. The isolated restore and one
+  private lifecycle-managed logical export are now verified. The [monthly export path](review-evidence/progress-2026-09-27/monthly-export-proof.json) is bootstrapped: one export completed and the same-month repeat created no new export or changed object. The [September 28 isolated local import](review-evidence/progress-2026-09-28/README.md) now verifies the retained monthly dump with one local owner-role prerequisite, 33/33 application tables and 40/40 migration hashes. The natural monthly trigger, managed Cloud SQL import path and two real weekly cohort readouts remain separate outcomes. Neither CI nor an account login substitutes for user evidence. Existing
+  customer-consent and invitation boundaries remain in force.
+
+The isolated [recovery rehearsal](review-evidence/progress-2026-09-27/recovery-outcome.json) has
+now passed its read-only integrity checks and confirmed clone cleanup. Production configuration
+and users remained unchanged. The whole-plan estimate therefore moves from 53.5% to **57.5%,
+about 58%**, under the same weighted calculation below. A current production pool timeout exposed an Analysis coverage path that can retain two
+connections per request across SEC waits. The [short-session repair is released](review-evidence/progress-2026-09-27/pr989-release.json), with [70-summary/18-Copilot regression evidence](review-evidence/progress-2026-09-27/pr989-hosted-audit.json). Its real four-connection regression exercises failed and successful same-company fetches, concurrent reads and fresh-cache reuse. The subsequent [company-route repair is released as #991](review-evidence/progress-2026-09-27/pr991-release.json): lookup, search and trending requests release their database connection before SEC or quote waits. A real four-connection regression, full local gates, clear review and [70-summary/18-Copilot measurements](review-evidence/progress-2026-09-27/pr991-hosted-audit.json) passed. The 106 provider calls have an estimated USD 0.185997 cost; billed cost is unknown. Healthy point-in-time readback does not close fleet headroom. Quality acceptance and real-user
+evidence still control progression; new PRs and byte-valid packets do not count as acceptance.
+
+## September 28 execution update
+
+The [September 28 evidence index](review-evidence/progress-2026-09-28/README.md) records additional closed work:
+
+- #995 verified the retained logical export in an isolated local PostgreSQL import, with 33 application tables and 40 matching migration hashes after the documented local owner-role prerequisite.
+- [#996](https://github.com/neilmac91/EarningsNerd/pull/996) restored the durable incremental facts job command and its missing weekly scheduler. Revision `00407-vv2`, main CI `36387105805`, migrations 0/40 and independent health are verified. The genuine 07:00 UTC Monday run completed and its business ledger confirmed success with no extraction errors; the follow-up found zero pending cached-XBRL filings. This was a no-work run, not proof of a nonempty batch or peak headroom.
+- H28 completed its independent source-preparation dossier and custody check, bringing the preparation count to **3/30**. The full 30-filing admission and E7 candidate/comparator generation remain unopened.
+- The authenticated annual and quarterly Analysis requests completed; [#997 is released](review-evidence/progress-2026-09-28/pr997-release.json) at revision `00408-9b6` with healthy independent readback. Browser/PDF wording now distinguishes source entries from verification of narrative conclusions; a fresh authenticated post-release UI check is still unverified while the Mac is locked. The bounded Notable review supports **retain** with corrected regulatory labels: the additive source follow-up has now resolved all four initial acquisition gaps. The label release and bounded activation readback remain before enablement.
+
+Fable's #992 now has the narrower iXBRL row/period/unit candidate at `7c2f99897350eb8a871f2e8ec4bdaac0d8fa8792`. Codex authorized one additional measured head under a cumulative USD 1.65 planning ceiling. Independent exact-code review reproduced a remaining P1: generic year/`Total` labels let debt scale modify unrelated registration-fee prose. Fable's unpushed round-six complete-debt-sequence grammar closes that example, but [exact-code root refutation](review-evidence/progress-2026-09-28/pr992-round6-context-refutation.json) shows it still admits same-issuer subsidiary and cross-dimension schedules as company-wide debt. A focused context-identity correction is requested before another paid push; adoption remains held. Ordinary CI evidence is not an independent semantic acceptance. Existing JPM/FIGS/PLTR findings, #942's draft/pin hold and the parked E8 queue are unchanged.
+
+The weighted whole-plan estimate remains **57.5%, about 58%**. These receipts close concrete tasks within already partially credited milestones; they do not manufacture quality acceptance or real-user evidence. The next work is the corrected product-copy releases, the finite source-owned table repair, complete bounded source partitions for the remaining 27 filings, E7 on the eventual accepted configuration, and the consenting beta cohort with two weekly readouts.
+
+**Historical snapshot:** superseded by the final checkpoint below.
+
+## September 28 release checkpoint
+
+The [final checkpoint](review-evidence/progress-2026-09-28/execution-checkpoint.json) records #998/#999 releases, #1001/#1004 actual backend deployment skips and #1002 readback showing Notable disabled before #1003 activation. [#992 release](review-evidence/progress-2026-09-28/pr992-release.json) verifies run `36406918405`, revision `00411-wb5` and exact-SHA Vercel success; [WIF](review-evidence/progress-2026-09-28/pr992-wif-release.json) binds the service and eight jobs. [Serving evidence](review-evidence/progress-2026-09-28/serving-receipt.json) verifies eight API rows and the refreshed homepage section/label. The [URL correction](review-evidence/progress-2026-09-28/url-verifier-correction.json) confirms canonical archive-directory indexes without a product change.
+
+H15 prepares 67 readers plus index: 3,150,219 reader bytes and 3,000,984 raw bytes. Its current ZIP has ten verified children; historical equality is unproved, the logo unsupported and all 78 dispositions unresolved. The [JPM prototype](review-evidence/progress-2026-09-28/jpm-period-claim-prototype-summary.json) retains one flag and passed eight initial controls, but its [adverse review](review-evidence/progress-2026-09-28/jpm-prototype-adverse-review.json) finds two unresolved enclosing-source counterexamples; it is not integration-ready. Dossiers remain **3/30**, weighted progress **57.5%**, and quality, beta and remaining source work stay open. Stripe inspection remains blocked; no credential was copied into project files.
+
+## What the agents delivered
+
+| Work | Verified position | What it does not establish |
+| --- | --- | --- |
+| SDK refresh #953, replacing #950 | Merged and deployed; real exact-head 70/70 summary regression and accepted 18/18 Copilot measurement. | E7 quality acceptance or a new model's quality. |
+| E7 preparation #940, including #951/#954 | Merged and deployed; frozen-source preparation, document mapping, source views, capacity preflight and source-unit custody exist. | Complete semantic coverage of the filing corpus. |
+| Member dispositions #956, contract/context bounds #957, modality inventory #959 | Merged and deployed; offline validators bind declared source bytes and make unresolved evidence visible. | Table/graphic interpretation, complete role reviews or source reconciliation. |
+| Test isolation #958 | Merged and deployed; isolates the process-wide AI-call ContextVar between tests. | A product-quality improvement. |
+| Review graph #961 | Merged during this audit at 21:29:29 UTC. Tree, current-node receipt and declared-context validation exist. | Complete attempt history, deterministic prompt construction, issue preservation or admission. Three independently reproduced gaps were confirmed and are tracked below. |
+| Documentation #955/#960 | Release record and lesson organization merged. | Additional production behavior. |
+
+The [takeover evidence](review-evidence/takeover-2026-09-26/README.md) records release runs,
+migrations, revisions, health, actual measurement denominators and their limits. One serial-merge
+rule breach is established: #959 merged before #958's deployment was verified. The actual deploy
+jobs were serialized and subsequently healthy. Several historical independent health observations
+were not retained; a current health response cannot reconstruct them.
+
+## E7 custody corrections and remaining integration
+
+The [custody review](review-evidence/takeover-2026-09-26/e7-custody-review.md) independently
+reproduces three defects in #961. They affect an offline, non-admitting validator; no current
+production generation call site or serving failure was found.
+
+1. An arbitrary prompt can be substituted while preserving the declared template and input
+   hashes. Validate the actual prompt construction against the frozen template and complete
+   declared inputs before trusting the receipt.
+2. A compacted/failed attempt can be deleted and the successful attempt renumbered. The
+   resulting source-context list is incomplete. Admission needs a separately retained authority
+   for the complete attempt history; a self-declared list or a self-recomputed hash chain alone
+   cannot prove that history was preserved.
+3. A leaf output can alias the template of an allowed but unused reducer kind. Check outputs
+   against all templates declared by the frozen contract, including unused kinds.
+
+The latter two were also raised by the completed exact-head Codex review before the merge.
+The PR body's review-quota explanation is not evidence that no review occurred. Founder merge
+authority reported in the PR is separate from whether findings were resolved.
+
+Agent B's handback independently confirmed these findings and added overlapping-coverage hashing,
+a weak context-before-hash test, and silently omitted unprefixed inline-XBRL facts. #963 closed
+those small validator gaps and unused-template aliasing. Merged #964 implements exact prompt rendering and
+complete journal-dispatched history, including adverse attempts; it remains non-admitting. Its
+H29 byte-delivery rehearsal verifies six retained views (794,260 input bytes, 805,424 prompt bytes),
+with both binary images explicitly held. It does not certify the four-source contract or semantic
+coverage, and neither legacy A nor compacted B was rerun or recertified.
+
+The initial integration blockers were measured provider input ceilings and delivery, source-bound
+issue/disagreement propagation, modality composition, reconciliation, and the existing downstream
+inventory/context-exclusion/blinded-projection boundaries. The bounded H29 path now has retained
+references and a real-artifact structural smoke. H30 now binds cross-role historical custody to an independently pinned retrospective authority in #970. The corrected origin and technical identity sets reject coherent whole-entry omissions. The [local gate and review](review-evidence/h30-history-binding-2026-09-27/README.md), final hosted measurements and [verified release](review-evidence/source-capacity-2026-09-27/README.md) are complete. Freeze this bounded interface and move to the measured corpus/capacity constraints. Full-programme
+readiness and blinded decision execution still require the complete accepted inputs. A September 27 source audit identified a smaller existing schema-2 route:
+three nonduplicated complete member readers plus the index, both decoded images, exact wrapper
+relations and all source-member/envelope identities. The four readers total 214,613 bytes instead
+of 300,432. One fresh source-only B attempt and a separate source-reading reconciliation have
+completed without reported context compaction; provider build and capacity remain unexposed.
+The prior compacted B and its 15 adverse findings remain retained outside the reviewer context.
+The separate source-backed ledger now resolves every prior finding. No hierarchy
+capability or positive verdict is inferred from the smaller input. The actual retained H29
+pair and reconciliation pass the existing schema-2 protocol, inventory and context boundaries
+under a one-accession smoke fixture. PR #967 now contains the merged implementation and final
+hosted audit and verified production release. Full-programme readiness and
+blinded decision boundaries remain unexecuted. Preserve required gates and the two previously
+denied E7 proof holds.
+
+### Source-reference progress clarification
+
+H28, H29 and H30 count as **3 of 30 completed source-preparation dossiers**, with their existing
+independent briefs, source-reading reconciliations and adverse history preserved. The [H28 completion receipt](review-evidence/progress-2026-09-28/h28-source-preparation.json) records the latest source work and its limits. The schema-2
+single-context route remains available; the optional hierarchy's text-prompt/journal requirements
+are not prerequisites for those dossiers. Their eligible opinions must not be redrawn to fit the
+hierarchy. The later programme freeze must bind the unchanged artifacts to the approved 30-filing
+manifest and all source-context exclusions. This is a progress count, not partial programme
+admission, candidate acceptance or permission to generate the holdout.
+
+The initial H28 A/B attempts compacted and remain [partial adverse history](review-evidence/progress-2026-09-27/h28-source-partial-checkpoint.json). Subsequent bounded source-only contexts each completed the two nonduplicated readers (203,558 bytes) and all 35 native JPEGs without reported compaction. Independent A/B briefs contain 18/17 issues. The separate source-reading reconciliation retains 20 final issues, resolves all 55 current/adverse input identities and records 13 disagreements or corrections. A [technical custody check](review-evidence/progress-2026-09-28/h28-custody-validation.json) passed. Current attachments remain supplements to invalid frozen encodings, with historical equality unproved; the later programme freeze must bind that ledger. This is completed source preparation, not programme admission or a candidate verdict. H20's existing complete inventory remains too large for a single context; partition the actual distinct inputs and structured/visual routes before dispatching its source opinions.
+
+The [#992 review history](https://github.com/neilmac91/EarningsNerd/pull/992) retains the unsafe scale-inheritance, duplicate-unit and audit/count findings that blocked earlier heads. The source-owned repair is now [released](review-evidence/progress-2026-09-28/pr992-release.json) at `8ff1816c`, revision `00411-wb5`, under deterministic content stamp `summary-2026-09-s`; prompt text, schema, flags and baseline pins remain unchanged. The stamp neither adopts the held q/r candidates nor authorizes an automatic historical drain. Historical period, sign and causal-transfer defects remain open, and release does not establish quality acceptance.
+
+## Ordered completion path and ownership
+
+Ownership reconciliation is complete. Codex owns implementation, delegating bounded file-local
+fixes to internal agents and retaining final design, review and release responsibility. Use a cheaper model when a new bounded task and available capacity permit it; reused sessions retain their existing model.
+Agent B can independently review the next corrective PR; Agents A and C need no new assignment.
+Existing approvals and release gates, rather than the priority ordering, govern execution.
+
+| Stage | Owner and next deliverable | Observable exit condition |
+| --- | --- | --- |
+| 1. Reconcile active work | Complete: all three handbacks received, Agent B's archive and 80 manifest entries verified. | No active external ownership or evaluation queue; SDK assignment closed. Codex owns the next branch. |
+| 2. Close the candidate configuration | The [returned Fable comparison and disposition](review-evidence/pr942-fable-2026-09-27/README.md) complete the 140-slot queue. q does not meet the grounding-candidate bar; #942 stays draft and its q3 pin stays unapplied. Codex owns corrections to the evidenced financial statements and causal transfers. | Measure and accept the actual corrected configuration before freezing its stamp. The generator prompt/baseline arm remains `p`; the released deterministic content stamp is `summary-2026-09-s`. Neither is a quality acceptance, and `s` is not q/r adoption. Do not assume `q` is the eventual E7 candidate or begin the paid holdout prematurely. |
+| 3. Complete bounded source-review integration | Complete for the named H29/H30 path: #970 released with exact-head review, actual 70/18 measurements and verified deployment. | Four origins and two technical attempts independently pinned; successor contexts retained; authority module frozen in both trees. Freeze this bounded interface. Full-corpus readiness and programme admission remain Stages 4–5. |
+| 4. Prove corpus capacity and finish references | Codex owns the [measured source blockers](review-evidence/source-capacity-2026-09-27/README.md): all 980 byte identities validate, but 264 encoded members fail strict decoding. The subsequent [ASCII-offset correction](review-evidence/source-view-ascii-2026-09-27/README.md) lets the H25 and H02 direct primaries complete projection and verification under the unchanged 3 GiB/180-second limits; full serialized export is now [released and measured](review-evidence/source-view-streaming-2026-09-27/README.md), while full member and role-input coverage remain unproved. | Resolve acquisition/encoding provenance and bounded structural capacity, then establish real member/modality and role-input coverage. The unchanged 30 filings still require 60 independent source briefs and 30 reconciliations, with no unresolved material coverage/issue holds. |
+| 5. Execute E7 | Codex owns the frozen run and evidence dossier under existing approvals. | Preflight and metered non-holdout smoke; exactly 90 candidate + 30 comparator identities, source-based blind reviews, retained Fable judgments, and pass/fail/incomplete report within ceilings. |
+| 6. Prove recoverability | Complete for one bounded rehearsal: [restore, integrity checks and cleanup](review-evidence/progress-2026-09-27/recovery-outcome.json) verified. | Retain the private evidence and cost limits. This single rehearsal does not establish guaranteed recovery-time/recovery-point objectives; periodic operational practice and export verification remain separate. |
+| 7. Controlled beta | Founder supplies recruitment/commitments; Codex owns engineering acceptance, evidence-based product-scope recommendation and support readouts. | 5–10 consenting target users, two dated weekly readouts of useful analysis, different-filing return, misleading outputs, support burden and observed cost; explicit expand/hold/narrow decision. |
+
+A live production audit also identified request/background database sessions retained across SEC
+network waits. The bounded correction passed independent review and a real one-connection pool
+regression gate and is [released as #965](review-evidence/takeover-2026-09-26/pr965-release.json): revision 00389-c6j, migrations 0/39 and independent healthy database readback. It was verified before #964 merged. It changes session lifetime, not pool limits or feature
+flags. Batch-job session ownership is preserved.
+
+Stage 3 is the stopping point for speculative infrastructure. The #970 correction uses a reviewed external digest and truthful retrospective custody, without fabricating past journal dispatches. The release is verified; move to the named corpus and provider-capacity constraints. Implement only the issue/evidence
+propagation, source-bound reconciliation, modality composition and downstream binding needed for
+the actual H29 path and named full-corpus constraints. Follow the existing
+[integration requirements](readiness-2026-09-21/acceptance/source-review-hierarchy-integration.md):
+preserve schema-2 inventory bytes, the final nine-field issue shape, all source-context exclusions
+and blinded coverage-limit projection. A source-free reducer cannot resolve a dispute that needs
+fresh source inspection. Every added capability should identify the concrete execution blocker it
+removes. After the real path works, freeze the interfaces and execute the evidence programme.
+
+E7 retains the approved 30 accessions, USD 10 generator ceiling, 243 Fable-invocation ceiling,
+zero confirmed critical/material defects and 86/90 joint completeness/usefulness scores of at
+least 4/5. Preserve the [AI-assisted protocol](readiness-2026-09-21/acceptance/ai-assisted-plan.md)
+and its weaker assurance. Do not ask for the unavailable human panel again. Do not silently change
+the judge/CLI contract, redraw negative verdicts, or treat a partial result as a pass.
+
+The retained H29 record now has an unchanged eligible A brief, a fresh individually frozen B
+brief and a reconciliation of their 25 issues, plus all 15 adverse findings from the ineligible
+compacted B. The reconciliation retains 13 material reference issues and resolves 11 disagreements.
+One governance issue missing from both eligible briefs was recovered from the adverse history
+and independently source-confirmed. Two tool-display truncations during reconciliation were
+resolved by complete bounded rereads. Individual artifact checks and the real-artifact schema-2 protocol/inventory/context-exclusion smoke passed at code 1604f0ff. The smoke contains a non-approved one-accession manifest and undispatched fixture contracts; it is not the 30-filing admission or final-decision execution. This is one source-reference
+result, not a candidate quality verdict. No E7 acceptance outputs or decision dossier were found.
+No new E7/E8 judge call was made by this takeover. Overnight ordinary CI generation is recorded
+separately from those acceptance programmes. All three external agents report zero additional
+E7/E8/judge calls or guard changes. Their ordinary hosted CI measurements remain separate; a
+cancelled ordinary CI generation has an unknown call count and must not be reported as zero spend.
+
+H30 is the current bounded source reference. Its two HTML members and index reduce to three exact
+nonduplicated readers totaling 122,883 bytes; standalone packet differences are proven SEC
+wrappers/scripts. Filing content has no image references; the index's unfetched SEC logo is an
+explicit limit. The current A/B briefs retain nine and ten material issues. Their completed
+source-only reconciliation retains 10 material issues, all 19 current dispositions and 12 resolved
+source disagreements. All 52 historical identities remain separate: 51 are freshly source-supported,
+and one runtime-only execution claim remains unresolved for custodian classification. The old
+A/B/reconciliation contexts remain retired and ineligible for current source roles; the same-context partial A3 artifact remains historical while its later current source-only brief is retained; no older artifact was overwritten or
+promoted. The revised reconciliation was individually frozen after an independent 29/29 structural custody audit ([freeze receipt](review-evidence/takeover-2026-09-26/h30-freeze-receipt.json), [audit](review-evidence/takeover-2026-09-26/h30-custody-audit.json)); the original draft and clarification remain retained. The bounded cross-role history binding is implemented in #970: H29’s retired-B-only schema could not represent these 52 identities and technical attempts. The actual eight-context smoke and the 3,732-test local gate pass, but final independent review on `68e8ff1f29a3ec844d595cfce93b72225d46dba3` confirmed [whole technical-attempt omission](https://github.com/neilmac91/EarningsNerd/pull/970#discussion_r4114089923). Deleting one attempt and recomputing the closure passes validation and removes its context from downstream exclusion. Both refutations failed: the seal is based on the same editable list, and child-custody checks are never reached for an omitted entry. That head remained draft. The subsequent [independent-authority correction](review-evidence/h30-history-binding-2026-09-27/README.md) fixes the omission and the analogous six-row partial-A3 omission; all 3,732 local tests and final independent review pass. The final corrected head subsequently passed actual hosted 70/18 measurements and exact-head review; [release verification](review-evidence/source-capacity-2026-09-27/pr970-release.json) records healthy revision `00394-m56` at 100% traffic, migrations 0/39. The [bounded integration record](review-evidence/takeover-2026-09-26/h30-next-integration-plan.md) specifies its custody scope and existing-gate path. Do not discard that history or regenerate source opinions to fit the schema. The financial dispositions are source evidence; the runtime-only row remains unresolved custody history. Neither establishes programme admission or a candidate-quality verdict.
+
+H01/H02/H25 remain the named all-member/modality/capacity blockers, and no generic context-fit
+claim is made for them. The initial narrow H01 parser experiment stopped at the next self-closing `<td>` and remains retained as an unreleased experiment. A subsequent strict-XHTML implementation validates the entire XML document and its encoding before allowing explicit XML empty-element boundaries; it leaves ordinary HTML behavior unchanged. All eight readable H01 members now construct and verify locally, including the 6,100,468-byte primary with 67,242 elements and 150 tables. Six H29 and five H30 views remain byte-identical. The final corrected head passed review and #969 is verified in production. This closes a specific parser blocker; the other H01 members, all modalities, semantic completeness and provider/context capacity remain unproved. The [bounded large-primary measurement](review-evidence/takeover-2026-09-26/large-source-capacity.json) also constructs and verifies H02’s 16,080,286-byte primary: 600 tables, 66,074 units, 1,299,810 compact bytes, about 15.1 seconds and 1,871,659,008-byte peak RSS. H25’s 57,158,558-byte primary passes XML grammar validation. Its first full-projection attempt was held because macOS did not enforce the requested 3 GiB cap; the subsequent [isolated Linux measurement](review-evidence/source-capacity-2026-09-27/h25-capacity-receipt.json) reached processing and failed at that enforced boundary. Address the measured resource constraint before expanding the batch; XML validity does not establish provider fit or complete filing coverage.
+
+## Recent releases, open PRs and deferred work
+
+- **#966 — visible source warnings and accurate landing claims:** exact head `5440fff0` has passing hosted checks and final review. Local 641 unit tests, lint/typecheck and webpack build pass; default local Turbopack is environment-blocked; [raw hosted E2E and Lighthouse logs](review-evidence/takeover-2026-09-26/pr966-hosted-build.md) independently confirm default Turbopack builds with all 27 pages. Its cache-warning finding is resolved by #968. The [verified frontend release](review-evidence/takeover-2026-09-26/pr966-release.json) merged as `eea26d2f` at 02:09:06 UTC, with Vercel success at 02:09:46 and main CI 36287670902 passing. The backend deploy step correctly skipped this frontend-only change. Signed-in annual and quarterly cached repeats retained one and two visible numeric warnings respectively.
+- **#967 — adverse source custody:** merged as `537bf59b923922d2215ae1399920756e014bd4e5`
+  at 2026-09-27 01:16:36 UTC. Final code `1bc5a9f9` plus `ac60` evidence passed 3,730 tests and
+  five fault proofs, including leaf-name/hash pairing; the final hosted 70+18 telemetry audit is
+  retained in [final hosted audit](review-evidence/takeover-2026-09-26/pr967-hosted-final.md). [Release verification](review-evidence/takeover-2026-09-26/pr967-release.json) is complete at revision `00391-rgl`, migrations 0/39 and independent healthy readback.
+- **#968 — cached numeric warnings:** deterministic recomputation preserves warnings on the same narrative without another model call or schema change. Full local gate 3,731 passed and the missing-field fault failed/restored. [Hosted audit](review-evidence/takeover-2026-09-26/pr968-hosted-final.md) passed 70/70 summaries and 18/18 Copilot draws with 105 successful telemetry events, estimated $0.187215 and no exact-head review findings. [Verified release](review-evidence/takeover-2026-09-26/pr968-release.json): merged at `2dce80c4` on September 27 02:00:07 UTC, revision `00392-zph` at 100%, migrations 0/39, main CI 36287214542 and independent healthy readback at 02:08:15 UTC.
+
+- **#969 — strict XHTML source boundaries:** corrected final head `c3a10d017d1b220783ceca8dcc7e3a6177fbf069` passed the [3,731-test corrected-head local gate](review-evidence/takeover-2026-09-26/pr969-final-local-gate.json) and exact-head review, including BOM, XML references, processing instructions, attribute whitespace and shared capacity/parser boundary corrections. All 19 verified views / 76 outputs remain byte-identical. The [actual hosted audit](review-evidence/takeover-2026-09-26/pr969-hosted-final.md) records 70/70 summaries and 18/18 Copilot draws, 107 successful provider calls, $0.184127 estimated cost, no recorded retries/errors/judge calls, and retained soft advisories. Merged as `e39b475e13a0599d037303aacc75a82d51b053b8` at 02:53:46 UTC; the [verified release](review-evidence/takeover-2026-09-26/pr969-release.json) records main CI 36289833641 passing, revision `00393-6m9` at 100%, migrations 0/39 and independent healthy database readback at 03:01:52 UTC. The narrower accepted XML subset fails closed on unsupported constructs; all-member/modality and provider capacity are separate gates.
+
+- **#970 — H30 history binding:** corrected implementation `e4424f34` plus synthetic-fixture isolation `b62ca437` bind the complete retained origin and technical sets to authority SHA `836403b0…19678c6`. The [new receipt](review-evidence/h30-history-binding-2026-09-27/authority-local-gate-receipt.json) records 3,732 passing tests, four PostgreSQL lanes, performance, the real 52-row/eight-context smoke and a failing/restored omission proof. Independent review is clear. The final hosted 70/18 measurements and exact-head review passed; [release verification](review-evidence/source-capacity-2026-09-27/pr970-release.json) confirms revision `00394-m56`, migrations 0/39 and healthy readback. E7 admission remains separate. The [earlier design record](review-evidence/takeover-2026-09-26/h30-independent-history-design.md) remains historical.
+
+- **#972 — ASCII source offsets:** [released and independently health-checked](review-evidence/source-view-ascii-2026-09-27/pr972-release.json) at `c53c7361`, revision `00395-cqg`, migrations 0/39 and 100% traffic. The exact measured module completes H25/H02 projection and verification under the existing Linux 3 GiB/180-second limits. The subsequent full-export Linux run 36311408531 failed in whole-payload JSON serialization after projection returned; H02 was held. The [byte-preserving streaming correction](review-evidence/source-view-streaming-2026-09-27/README.md) now completes both full exports in Linux run 36318572864 under the unchanged bounds (H25 117.44s, H02 43.39s). The correction is now [released as #974](review-evidence/source-view-streaming-2026-09-27/pr974-release.json), revision `00396-p2f` at 100%, migrations 0/39 and healthy independent readback. Its local 3,734-test gate, hosted 70/18 audit and exact-head review passed. This direct-primary pass does not establish full member, modality, provider or E7 coverage. Local 3,733 tests and hosted 70-summary/18-Copilot hard gates passed; soft quality advisories remain.
+
+- **#942 — formula labels:** the [independent Fable comparison](review-evidence/pr942-fable-2026-09-27/README.md) is complete: p 48/70 negative and q 40/70, with zero judge errors. The narrow ratio-label mechanism is supported in two issuer-name-collision cases, but q still fails five of 18 negative controls on G4/G5 and introduces G2/G3 findings. It does not meet the existing grounding-candidate adoption rule. Codex's disposition is to keep #942 draft and decline the prospective q3 pin (citation fidelity 0.9648 → 0.9532). Preserve the original reports, judgments and agent hand-checks; do not redraw completed slots or relax the bar. Correct source-supported financial wording and the distinct causal-transfer defects before the next measured candidate; resolve that candidate before E7 freeze. The held generator prompt/baseline comparison remains `p`; released deterministic content stamp `summary-2026-09-s` leaves prompt/schema/flags/baseline pins unchanged and does not adopt q/r. Neither state is semantic-quality acceptance. The [earlier local r preparation](review-evidence/source-view-streaming-2026-09-27/next-quality-candidate.md) was subsequently integrated and measured at head `47d040aa53e89d2e1fa78c26ee688d5a49338133`. Its [measurement and hold record](https://github.com/neilmac91/EarningsNerd/pull/942#issuecomment-5856807917) retains 70 summaries / 18 Copilot outputs, 105 calls and a USD 0.382361 telemetry estimate. Targeted source review still found material entity, unit, period and causal-comparator defects; #942 remains draft, with no Fable rerun, re-pin or adoption. Subsequent #977 corrects the numeric rendering defect and #981 replaces speculative Risks with source excerpts; those changes do not waive the remaining financial explanations.
+- **#952 — E8 launch/recovery:** remains draft at
+  `1d48eb336a8a22427d466966b1814fce2e94c3f2`. Park it while E7 progresses; all three checkpoints
+  report no running E8 work. E8 remains 140 reused
+  controls / zero new judgments / 160 missing slots in retained evidence, with prior charge 287
+  of 601. No new calls were reported by these three sessions. No permission-route redesign or judge
+  continuation is needed for E7: retain prompt `o` while E8 is inconclusive.
+- **#710 — index publication:** next natural monthly refresh is scheduled for October 1 at
+  08:00 UTC; the latest run remains the successful September 6 no-change run. Keep the issue
+  open for genuine changed-list draft-PR publication. Do not manufacture a change.
+- **Dependency alerts #270/#283:** two high-severity `extract-zip` advisories in the development
+  Lighthouse chain remain open, with no patched version reported by GitHub. The #270 hold and
+  direct-major holds stand; no forced downgrade or unrelated upgrade belongs in this tranche.
+- **E8, attribution activation, fleet expansion, optional features and dependency majors:**
+  remain outside the quality/recovery/beta critical path. Keep production attribution flags off.
+
+## September 27 source acquisition and modality update
+
+[H02 native inspection](review-evidence/progress-2026-09-27/h02-native-inspection.md) locates the
+six images and the footnote/issuer-scope context they require. [H25 GIF triage](review-evidence/progress-2026-09-27/h25-gif-modality-triage.json)
+inspected all 85 GIFs: 38 chart bodies and 47 detached legend/axis fragments. Those fragments must
+be combined with their exact HTML locations; image-only reading would omit their labels or
+scope. These are source-preparation outcomes, not independent semantic briefs or acceptance.
+
+PR #983 is [released](review-evidence/progress-2026-09-27/pr983-release.json) at
+`20938d0e4a654aa553ec930c256a66158fab7202`, revision `00400-dv7`, 100% traffic, migrations 0/39
+and independently healthy database readback. Its exact-head hosted baseline scored 70/70 with zero errors and
+the Copilot run completed 18/18. Five accepted Copilot outputs still had an uncited figure;
+configured gate success is not perfect figure coverage. The same backend deployment applies
+#980's already-merged pool recipe; live readback confirms API 4/0, pregenerate 3/0, and the seven other jobs 1/0, all on the new image.
+
+The monthly logical-export workflow in #984 has passed its failure-alert correction, exact-head review and [serial release verification](review-evidence/progress-2026-09-27/pr984-release.json). Its [hosted audit](review-evidence/progress-2026-09-27/pr984-hosted-audit.json) records zero baseline-generation calls (those steps were skipped) and 18 completed Copilot outputs across 36 successful calls. The [operational proof](review-evidence/progress-2026-09-27/monthly-export-proof.json) now records dedicated main-branch identity bootstrap, one completed 4,848,767-byte private SQL gzip export (run 36349655416), and a same-month repeat (36350328859) with zero new export operations and unchanged object identity. The first-of-month schedule is armed. The [September 28 local import](review-evidence/progress-2026-09-28/README.md) passed with one owner-role prerequisite; natural scheduled execution and managed Cloud SQL import remain unproved. The service-level maximum change was separately
+approved after automatic review required an explicit capacity-risk decision; its [completed
+readback](review-evidence/progress-2026-09-27/service-maximum-outcome.json) confirms maximum 2,
+unchanged serving revision/template/traffic and healthy public/database checks. [Released #986](review-evidence/progress-2026-09-27/pr986-release.json) now persists both service and revision maximum 2 in the executable deploy command; [hosted evidence](review-evidence/progress-2026-09-27/pr986-hosted-audit.json) records 18 Copilot outputs and zero baseline-generation calls. Neither the setting nor per-process pools establishes a
+demonstrated fleet-wide connection cap.
+
+## September 27 corpus execution result
+
+The [source-capacity checkpoint](review-evidence/source-capacity-2026-09-27/README.md) supersedes earlier unexecuted-capacity statements for the work it actually measured. The released member API validates all 980 member identities and spans, with every disposition still unresolved. All 264 encoded members fail the strict decoder; allowing only a terminal blank would recover five and leave 259 additional line-width/alphabet defects. No decoder or source bytes were changed. The acquisition trace found HTTPX decoded text re-encoded as UTF-8, without an identified line-trimming site; it does not establish raw-wire identity. Compare authoritative bytes before adopting a repair or recapture policy.
+
+The isolated Linux H25 direct-primary probe reached source processing and failed with MemoryError while constrained to a hard 3 GiB address-space limit after 20.04 seconds (observed peak RSS 3,182,571,520 bytes). H02 did not run. This is an actual resource failure, not a successful projection or a provider-context measurement. The test does not identify whether allocation failed in projection or subsequent verification. Two prior workflow preflight failures and the diagnostic source branch remain separate from production; the temporary staging draft was removed after result retention. No model/provider call was made by the census or capacity diagnostic. The next engineering work should address these observed source constraints, not add general review infrastructure. The [September 27 current H25 entity comparison](review-evidence/source-view-streaming-2026-09-27/h25-current-source-comparison.json) now confirms that the present 297,209,475-byte SEC entity exactly equals the frozen source before application text conversion; upstream provenance remains distinct from permission to reconstruct malformed encoded members.
+
+## Founder inputs that actually remain
+
+The local Claude CLI is unauthenticated. A [bounded Chrome access check](review-evidence/takeover-2026-09-26/claude-login-access-check.json) could not establish the normal Claude homepage through the connected browser, so it did not unblock CLI sign-in. No credential change or judging call occurred. This does not establish that the account or required model is unavailable elsewhere; the founder has since returned the completed PR942 Fable comparison. The [ingestion and disposition](review-evidence/pr942-fable-2026-09-27/README.md) record the evidence and hold decision; local CLI access is not a blocker to accepting this handback.
+
+No clarification is needed to accept the three handbacks and proceed with the corrective engineering.
+The following access and product inputs remain unavailable; they are not requests to repeat
+the overnight engineering/spend approval.
+
+The founder completed Google reauthentication. The earlier rejected proposal to retain private
+Cloud SQL metadata in GitHub Actions artifacts was not used; those observations remain local.
+The [restore procedure](readiness-2026-09-21/operations/restore-rehearsal.md) has now been executed
+within a USD 1 planning ceiling, with successful read-only validation and confirmed deletion of
+the new drill clone. A separate zero-cost patch enabled database deletion protection. A subsequent
+[one-export proof](review-evidence/progress-2026-09-27/logical-export-outcome.json) retained a private,
+compressed SQL object with a 35-day lifecycle and seven-day soft-delete retention; its temporary
+bucket writer was revoked and production configuration and users remained unchanged. No SQL
+contents were published. The [monthly workflow](review-evidence/progress-2026-09-27/monthly-export-proof.json) is now bootstrapped and its first export plus same-month replay are verified. The [local logical-import test](review-evidence/progress-2026-09-28/README.md) subsequently passed with one owner-role prerequisite. Natural schedule execution and managed Cloud SQL re-import remain unproved.
+Daily backups and PITR approval are settled; no further sign-in was pending for that historical operation. Current local gcloud authentication is blocked, while release/configuration verification was supplied separately by GitHub Ops WIF. Separate Stripe browser inspection remains blocked by the Chrome extension and locked Mac. These local access issues do not negate the completed release readbacks.
+
+The [live acceptance observations](review-evidence/takeover-2026-09-26/live-analysis-acceptance.md) record that the signed-in founder account supported AAPL FY2024–FY2025 and 2026Q2–2026Q3 analyses, internal source-entry navigation, both PDF downloads and both Excel exports. The five-page annual and four-page quarterly PDFs were rendered and visually inspected; unreconciled warnings were retained. Workbook inspection preserved numeric precision, percentage-point formats, missing-data blanks and unreconciled-value comments; no spreadsheet error cells or external workbook links were found. Native Excel rendering and independent financial-source truth were not established. A fresh Chrome tab restored browser control after the original tab lost its debugger attachment.
+
+A cached repeat of the annual result lost the numeric warning while retaining the same narrative: #968 corrects this. Fresh annual/quarterly results reported one/two numeric mismatches. #966 exposes these in normal content and replaces unsupported verification claims. Post-release cached repeats of both windows showed 17 source links and retained one/two warnings as ordinary visible paragraphs ([observations](review-evidence/takeover-2026-09-26/post-release-cache-check.json)). The quarterly narrative also treats a displayed `1.00x` current ratio as exact equality/no cushion, although the exported raw value is `1.003294804655586` and the stated assets exceed liabilities by $492 million. The [bounded follow-up](review-evidence/takeover-2026-09-26/analysis-ratio-precision-followup.md) locates the cause in display rounding reused for model input and specifies the correction/evidence path. Preserve this ordinary product-quality example for the next bounded narrative correction and evaluation; do not count it as a formal E7 verdict or redraw it away. NVO showed the explicit IFRS unsupported message and no narrative was requested. Free-tier/payment behavior, external SEC-link navigation, Notable source-quality acceptance and cohort recruitment/commitments remain unverified. The [September 28 disposition](review-evidence/progress-2026-09-28/notable-disposition.json) is the historical pre-activation decision: all 14 expected seven-day slots eventually succeeded, with four recovered failed first attempts, while twelve frozen source checks initially yielded six supported labels, two overclaims and four acquisition gaps. The later source follow-up preserved those original verdicts and resolved the gaps under narrower regulatory labels. The final [checkpoint](review-evidence/progress-2026-09-28/execution-checkpoint.json) and [serving receipt](review-evidence/progress-2026-09-28/serving-receipt.json) now record activation, eight API rows and the refreshed homepage label. This does not establish full-cohort precision, usefulness, source-quality acceptance or customer commitment. Do not invent a test payment or customer consent.
+
+The subsequent [bounded ASCII-offset measurement](review-evidence/source-view-ascii-2026-09-27/README.md)
+completed H25 and H02 projection plus verification with the same source hashes and 3 GiB/180-second
+limits. H25 completed in 63.12 seconds with 3.17 GB peak RSS; this clears the named direct-primary
+execution blocker for the measured code without establishing comfortable headroom, SGML-member
+coverage, decoded modalities or provider context fit. The 264 strict decoding holds remain.
+The source-view correction preserves the measured module exactly and retains the original failure.
+
+## Retained spend
+
+The subsequent #972 hosted measurements add USD 0.184669 in known application estimates across 105 successful recorded calls, with zero retry/error attempts. Billed provider cost remains unknown; this is separate from the historical subtotal.
+
+The subsequent final #970 hosted measurements add USD 0.186447 in known estimates across 111 recorded attempts, including five transient failures with unknown cost; see the [separate audit](review-evidence/source-capacity-2026-09-27/pr970-hosted-audit.json). Do not rewrite the historical subtotal below or treat either as a complete provider invoice.
+
+The [overnight audit](review-evidence/takeover-2026-09-26/overnight-spend-audit.md) deduplicates ordinary hosted runs and the separate #942 measurements. Known application cost estimates total USD 3.440169 across those distinct subtotals; 141 recorded calls have unknown cost. This is not an invoice. Missing-cost events, unknown in-flight or hidden SDK attempts and the two fresh live Analysis requests remain explicit unknowns; no reported zero is used as proof of free usage. Formal E7/E8 generation and Fable judging did not run in that historical overnight tranche. The subsequent independent PR942 handback contains 140 completed Fable slots / 140 recorded physical calls against its separate 280-call ceiling. Its CLI nominal cost field is not a provider invoice or proof of incremental API billing; keep it separate from DeepSeek estimates and E7/E8 accounting.
+
+## Master-plan position
+
+This is a **new, explicit planning estimate**, dated September 27, rather than a percentage taken from the original plan or a count of PRs. The [September 8 checkpoint](master-plan-status-2026-09-08.md) correctly declined an unweighted percentage. To answer the founder’s later request, the table below groups the [CEO plan’s deliverables](ceo-implementation-plan-2026-09-08.md#prioritized-delivery-sequence), assigns judgmental importance weights totaling 100%, and scores five milestones within each group. Completed milestones receive one point, materially advanced but unaccepted milestones receive half a point, and open milestones receive zero. This is a planning convention, not a measure of elapsed effort, quality or launch probability.
+
+| Outcome group | Weight | Milestone evidence and unfinished work | Score / 5 | Weighted contribution |
+| --- | --- | --- | --- | --- |
+| Core product and engineering foundation | 35% | Four complete: auth/billing/quota plumbing; filing ingestion/grounding; summary/Copilot delivery; automated regression and release discipline. Analysis/Notable product acceptance is partial (0.5); configuration or a smoke run does not close it. | 4.5 | 31.5 points |
+| Independent quality acceptance | 25% | Protocol/budget frozen (1); source tooling/capacity materially advanced (0.5). Complete 30-filing references, candidate semantic disposition, and blind holdout/adjudication remain open. | 1.5 | 7.5 points |
+| Operational readiness | 20% | Verified deployment/health, quota/payment/alert reliability, configured backup/PITR protection, and one isolated recovery with confirmed cleanup are complete (4). Measured fleet/headroom evidence remains open. | 4 | 16 points |
+| Controlled-beta usefulness and retention | 15% | Measurement preparation is partial (0.5). Consenting cohort, first weekly readout, second weekly readout, and expansion/hold decision remain open. | 0.5 | 1.5 points |
+| Safe scale and wider rollout | 5% | Bounded coordination design is prepared (1). Effective fleet budgets, implemented/proven coordination, quality-cleared canary, and approved wider rollout remain open. | 1 | 1 point |
+
+Arithmetic: `31.5 + 7.5 + 16 + 1.5 + 1 = 57.5%`. Report this as **about 58%, with a rough 55–65% planning range**. The four-point increase from the previous 53.5% checkpoint comes solely from the completed recovery rehearsal. The foundation bucket alone scores 90%; that is not a claim that 90% of the whole implementation or beta-to-scale effort is complete. Weights and partial credit are chief-engineer judgment and should change if scope or evidence changes. Quality acceptance and real cohort evidence remain explicit exit gates regardless of the percentage.
+
+The shortest route is therefore: correct and finish one E7 path, freeze the candidate, execute
+the quality programme, and observe a small controlled cohort. Recovery is demonstrated for the
+bounded rehearsal above; the remaining export and fleet evidence is separate. Two weekly cohort
+readouts impose elapsed observation time that faster implementation cannot remove. Fleet scaling
+follows demonstrated demand and its separate capacity/design decision.

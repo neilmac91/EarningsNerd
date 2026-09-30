@@ -1,0 +1,12 @@
+{
+  "recorded_at_utc": "2026-09-29T21:34:05.533553+00:00",
+  "command": "npm run build",
+  "bundler": "default Next16.3.6 Turbopack",
+  "node": "22.23.2",
+  "exit_code": 0,
+  "log_sha256": "9e0ca2493944539821ee774164d8d565f965a5704e0b9193d6200cc6b33367fc",
+  "preserved_failed_cache": "/private/tmp/earningsnerd-next-nd-failed-cache-20260929-2137",
+  "source_or_build_config_change": false,
+  "resolution": "127.0.0.1 port capability proved under escalation; full generated cache retained and fresh default build passed. Previous failed logs preserved.",
+  "local_sentry_upload": "No authentication token configured; build logs retained."
+}

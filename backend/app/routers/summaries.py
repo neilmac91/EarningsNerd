@@ -1,6 +1,10 @@
-from fastapi import APIRouter, HTTPException, Depends, status, Request
+from fastapi import APIRouter, HTTPException, Depends, status, Request, Query
 from sqlalchemy.orm import Session, joinedload
-from typing import Optional
+from typing import Annotated, Optional
+from contextlib import aclosing
+from collections.abc import AsyncGenerator
+from uuid import UUID
+import asyncio
 import json
 
 import anyio
@@ -8,8 +12,9 @@ from pydantic import BaseModel, Field, field_validator
 import logging
 from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import Response, StreamingResponse
+from starlette.requests import ClientDisconnect
+from starlette.types import Receive, Scope, Send
 from app.services.posthog_client import capture_copilot_inference
-from app.services.llm_pricing import estimate_inference_cost_usd
 
 from app.config import settings
 from app.database import get_db, SessionLocal
@@ -39,10 +44,11 @@ from app.services.summary_generation_service import (
     mark_stale_progress_as_error,
     progress_as_dict,
 )
+from app.services.summary_request_evidence import SummaryRequestEvidence
 from app.services.summary_pipeline import (
     stream_filing_summary, to_sse, snapshot_generation_user, load_generation_user,
 )
-from app.services.provenance_service import enrich_summary_provenance
+from app.services.provenance_service import enrich_summary_provenance, source_safe_business_overview
 from app.services.change_report_service import build_change_report
 
 router = APIRouter()
@@ -51,6 +57,37 @@ SUMMARY_LIMITER = RateLimiter(limit=5, window_seconds=60)
 # Copilot Q&A is cheaper per call than a summary but still hits the model — allow a higher
 # burst than summaries while still throttling abuse (per IP, sliding window).
 ASK_LIMITER = RateLimiter(limit=10, window_seconds=60)
+
+
+class SummaryStreamResponse(StreamingResponse):
+    """Close the owned iterator even when disconnect occurs during ASGI send."""
+
+    def __init__(self, content: AsyncGenerator[str, None], evidence: SummaryRequestEvidence) -> None:
+        self.evidence = evidence
+        self.owned_stream = evidence.wrap_stream(content)
+        super().__init__(
+            self.owned_stream, media_type="text/event-stream",
+            headers={"Cache-Control": "no-cache", "Connection": "keep-alive", "X-Accel-Buffering": "no"},
+        )
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        try:
+            await super().__call__(scope, receive, send)
+        except (asyncio.CancelledError, ClientDisconnect, OSError):
+            self.evidence.finish("cancelled")
+            raise
+        except Exception:
+            self.evidence.finish("error")
+            raise
+        finally:
+            # Starlette can return on disconnect while our iterator is suspended at yield,
+            # or fail response.start before ever entering it. Closing an unstarted generator
+            # does not run its finally, so the response also owns unfinished observations.
+            with anyio.CancelScope(shield=True):
+                try:
+                    await self.owned_stream.aclose()
+                finally:
+                    self.evidence.finish("cancelled")
 
 
 class AskRequest(BaseModel):
@@ -136,6 +173,10 @@ async def generate_summary_stream(
     force: bool = False,
     entry_point: Optional[str] = None,
     ph_id: Optional[str] = None,
+    analytics_consent: bool = False,
+    logical_request_id: Optional[UUID] = None,
+    client_attempt: Annotated[Optional[int], Query(ge=1, le=2)] = None,
+    transport_attempt: Annotated[Optional[int], Query(ge=1, le=2)] = None,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
@@ -151,130 +192,145 @@ async def generate_summary_stream(
                Use this for "Regenerate Analysis" functionality.
         entry_point: Where the visitor entered the funnel (forwarded by the
                      frontend for activation analytics, e.g. "homepage").
-        ph_id: The client's PostHog distinct_id, so server-side funnel events
-               join with frontend events on the same person.
+        ph_id: Legacy client hint, accepted for compatibility but never used as account identity.
+        analytics_consent: Explicit client declaration; absent/false suppresses request/funnel events.
+        logical_request_id: Client action label shared across automatic retries.
+        client_attempt: Client outer attempt (untrusted correlation hint).
+        transport_attempt: Handshake attempt, including an auth-refresh replay (untrusted).
     """
-    client_host = request.client.host if request.client else "unknown"
-    logger.info(f"[stream:{filing_id}] Incoming stream request from {current_user.id} (IP: {client_host}, force={force})")
-
-    rate_limit_key = f"summary:{current_user.id}"
-
-    enforce_rate_limit(
-        request,
-        SUMMARY_LIMITER,
-        rate_limit_key,
-        error_detail="Too many summary requests. Please try again shortly.",
+    evidence = SummaryRequestEvidence(
+        consent=analytics_consent, account_id=current_user.id, filing_id=filing_id,
+        logical_request_id=logical_request_id, client_attempt=client_attempt,
+        transport_attempt=transport_attempt, entry_point=entry_point,
     )
+    evidence.start()
+    try:
+        client_host = request.client.host if request.client else "unknown"
+        logger.info(f"[stream:{filing_id}] Incoming stream request from {current_user.id} (IP: {client_host}, force={force})")
 
-    # Eagerly load content_cache and company relationship to avoid detached session issues
-    filing = db.query(Filing).options(
-        joinedload(Filing.content_cache),
-        joinedload(Filing.company)
-    ).filter(Filing.id == filing_id).first()
+        rate_limit_key = f"summary:{current_user.id}"
 
-    if not filing:
-        raise HTTPException(status_code=404, detail="Filing not found")
+        enforce_rate_limit(
+            request,
+            SUMMARY_LIMITER,
+            rate_limit_key,
+            error_detail="Too many summary requests. Please try again shortly.",
+        )
 
-    # Check if summary already exists
-    summary = db.query(Summary).filter(Summary.filing_id == filing_id).first()
-    if summary:
-        if force:
-            # Force regeneration triggers a fresh, paid LLM run, so it's Pro-only (Free 403; anyone
-            # unauthenticated already got 401 at the endpoint) — otherwise it's a denial-of-wallet /
-            # "wipe a popular filing for everyone" vector. Resolved via the entitlements SSoT (not
-            # the is_pro mirror) so a lagging mirror can't wrongly grant/deny it. NB this gate sits
-            # inside `if summary`: when no summary exists yet, force is a harmless no-op, so a
-            # failed-generation retry stays open to Free users.
-            if not is_pro_user(current_user):
-                raise HTTPException(
-                    status_code=status.HTTP_403_FORBIDDEN,
-                    detail="Regenerating an analysis is a Pro feature.",
-                )
-            # Regenerate IN PLACE (force_regenerate below): the pipeline's save step UPDATEs the
-            # existing summary row rather than delete+insert, so the summaries.id — and any
-            # saved_summaries bookmark FK'd to it — survives (T1.4). Deleting the row here would
-            # both destroy the bookmark and raise an FK violation on any bookmarked summary in
-            # Postgres. Keep-better applies: a fresh run that comes back below the stored tier keeps
-            # the stored summary. We still clear XBRL + progress so regeneration re-fetches fresh data.
-            logger.info(f"[stream:{filing_id}] Force regeneration requested - refreshing in place")
+        # Eagerly load content_cache and company relationship to avoid detached session issues
+        filing = db.query(Filing).options(
+            joinedload(Filing.content_cache),
+            joinedload(Filing.company)
+        ).filter(Filing.id == filing_id).first()
 
-            if filing.xbrl_data is not None:
-                filing.xbrl_data = None
-                logger.info(f"[stream:{filing_id}] Cleared XBRL data for regeneration")
+        if not filing:
+            raise HTTPException(status_code=404, detail="Filing not found")
 
-            # Clear progress record
-            progress = db.query(SummaryGenerationProgress).filter(
-                SummaryGenerationProgress.filing_id == filing_id
-            ).first()
-            if progress:
-                db.delete(progress)
+        # Check if summary already exists
+        summary = db.query(Summary).filter(Summary.filing_id == filing_id).first()
+        if summary:
+            if force:
+                # Force regeneration triggers a fresh, paid LLM run, so it's Pro-only (Free 403; anyone
+                # unauthenticated already got 401 at the endpoint) — otherwise it's a denial-of-wallet /
+                # "wipe a popular filing for everyone" vector. Resolved via the entitlements SSoT (not
+                # the is_pro mirror) so a lagging mirror can't wrongly grant/deny it. NB this gate sits
+                # inside `if summary`: when no summary exists yet, force is a harmless no-op, so a
+                # failed-generation retry stays open to Free users.
+                if not is_pro_user(current_user):
+                    raise HTTPException(
+                        status_code=status.HTTP_403_FORBIDDEN,
+                        detail="Regenerating an analysis is a Pro feature.",
+                    )
+                # Regenerate IN PLACE (force_regenerate below): the pipeline's save step UPDATEs the
+                # existing summary row rather than delete+insert, so the summaries.id — and any
+                # saved_summaries bookmark FK'd to it — survives (T1.4). Deleting the row here would
+                # both destroy the bookmark and raise an FK violation on any bookmarked summary in
+                # Postgres. Keep-better applies: a fresh run that comes back below the stored tier keeps
+                # the stored summary. We still clear XBRL + progress so regeneration re-fetches fresh data.
+                logger.info(f"[stream:{filing_id}] Force regeneration requested - refreshing in place")
 
-            db.commit()
-        else:
-            # Capture the response before closing the dependency's read transaction.
-            payload = {
-                'type': 'complete',
-                'summary': summary.business_overview,
-                'summary_id': summary.id,
-            }
-            db.close()
+                if filing.xbrl_data is not None:
+                    filing.xbrl_data = None
+                    logger.info(f"[stream:{filing_id}] Cleared XBRL data for regeneration")
 
-            async def existing_summary():
-                yield f"data: {json.dumps(payload)}\n\n"
-            return StreamingResponse(
-                existing_summary(),
-                media_type="text/event-stream",
-                headers={
-                    "Cache-Control": "no-cache",
-                    "Connection": "keep-alive",
-                    "X-Accel-Buffering": "no",  # Disable buffering for Cloud Run/nginx
+                # Clear progress record
+                progress = db.query(SummaryGenerationProgress).filter(
+                    SummaryGenerationProgress.filing_id == filing_id
+                ).first()
+                if progress:
+                    db.delete(progress)
+
+                db.commit()
+            else:
+                # Capture the response before closing the dependency's read transaction.
+                payload = {
+                    'type': 'complete',
+                    'summary': source_safe_business_overview(summary, filing),
+                    'summary_id': summary.id,
                 }
-            )
+                db.close()
 
-    user_id = current_user.id
-    logger.info(f"[stream:{filing_id}] Starting summary stream for user {user_id}")
+                evidence.delivery_path = "router_cache"
 
-    # Activation funnel telemetry context. Plain values are captured eagerly here —
-    # this route releases its request session before streaming. Prefer the client's PostHog
-    # distinct_id so server events join frontend events on the same person.
-    telemetry_distinct_id = (ph_id or "")[:200] or str(current_user.id)
-    telemetry_entry_point = (entry_point or "")[:64] or None
-    telemetry_ctx = {
-        "filing_id": filing_id,
-        "filing_type": filing.filing_type,
-        "ticker": filing.company.ticker if filing.company else None,
-        "user_type": "authenticated",
-        "forced": force,
-    }
+                async def existing_summary():
+                    evidence.observe_terminal(payload)
+                    yield f"data: {json.dumps(payload)}\n\n"
+                return SummaryStreamResponse(existing_summary(), evidence)
 
-    # Copy loaded identity inputs without lazy SQL, then release the request connection.
-    # Resolve missing subscription inputs in a separate worker-owned transaction; neither
-    # the request session nor any ORM object crosses into that worker or the stream.
-    generation_user = snapshot_generation_user(current_user, user_id)
-    db.close()
-    generation_user = await run_in_threadpool(load_generation_user, generation_user)
+        user_id = current_user.id
+        logger.info(f"[stream:{filing_id}] Starting summary stream for user {user_id}")
 
-    async def event_stream():
-        async for event in stream_filing_summary(
-            filing_id=filing_id,
-            current_user=generation_user,
-            user_id=user_id,
-            telemetry_distinct_id=telemetry_distinct_id,
-            telemetry_entry_point=telemetry_entry_point,
-            telemetry_ctx=telemetry_ctx,
-            force_regenerate=force,
-        ):
-            yield to_sse(event)
-
-    return StreamingResponse(
-        event_stream(),
-        media_type="text/event-stream",
-        headers={
-            "Cache-Control": "no-cache",
-            "Connection": "keep-alive",
-            "X-Accel-Buffering": "no",  # Disable buffering for Cloud Run/nginx
+        # Only the authenticated account owns server event identity. Client ph_id is not authority.
+        telemetry_distinct_id = str(current_user.id)
+        telemetry_entry_point = (entry_point or "")[:64] or None
+        telemetry_ctx = {
+            "filing_id": filing_id,
+            "filing_type": filing.filing_type,
+            "ticker": filing.company.ticker if filing.company else None,
+            "user_type": "authenticated",
+            "forced": force,
+            "account_id_at_event": str(current_user.id),
+            "identity_evidence": "server_authenticated",
+            "analytics_consent_at_event": True,
+            "request_id": evidence.properties["request_id"],
         }
-    )
+
+        # Copy loaded identity inputs without lazy SQL, then release the request connection.
+        # Resolve missing subscription inputs in a separate worker-owned transaction; neither
+        # the request session nor any ORM object crosses into that worker or the stream.
+        generation_user = snapshot_generation_user(current_user, user_id)
+        db.close()
+        generation_user = await run_in_threadpool(load_generation_user, generation_user)
+
+        async def event_stream():
+            evidence.delivery_path = "pipeline"
+            async with aclosing(stream_filing_summary(
+                filing_id=filing_id,
+                current_user=generation_user,
+                user_id=user_id,
+                telemetry_distinct_id=telemetry_distinct_id,
+                telemetry_entry_point=telemetry_entry_point,
+                telemetry_ctx=telemetry_ctx,
+                emit_funnel_telemetry=analytics_consent,
+                force_regenerate=force,
+                request_evidence=evidence,
+            )) as events:
+                async for event in events:
+                    evidence.observe_terminal(event)
+                    yield to_sse(event)
+
+        return SummaryStreamResponse(event_stream(), evidence)
+    except HTTPException as exc:
+        evidence.reason = f"http_{exc.status_code}"
+        evidence.finish("rejected")
+        raise
+    except asyncio.CancelledError:
+        evidence.finish("cancelled")
+        raise
+    except Exception:
+        evidence.reason = "route_error"
+        evidence.finish("error")
+        raise
 
 
 def _meter_qa_best_effort(user_id: int, is_free_taste: bool = False, token: Optional[str] = None) -> bool:
@@ -323,8 +379,8 @@ def _emit_copilot_cost_best_effort(
     """Emit a Copilot answer's token usage + estimated inference cost to PostHog (roadmap 2.1).
 
     Keyed on ``str(user_id)`` — the same id the frontend identifies on — so it joins the person's
-    journey without a separate alias. Best-effort: telemetry must never break the answer stream, so
-    a missing-usage answer (provider returned none) is a quiet no-op and any failure is swallowed.
+    journey without a separate alias. Use the wrapper's recorded call-cost total; unknown totals
+    stay unknown. An absent accounting payload is a no-op and telemetry failures are swallowed.
     """
     try:
         usage = event.get("usage") or {}
@@ -342,12 +398,7 @@ def _emit_copilot_cost_best_effort(
             total_tokens=usage.get("total_tokens"),
             cache_hit_tokens=cache_hit_tokens,
             cache_miss_tokens=cache_miss_tokens,
-            cost_usd=estimate_inference_cost_usd(
-                prompt_tokens,
-                completion_tokens,
-                cache_hit_tokens=cache_hit_tokens,
-                cache_miss_tokens=cache_miss_tokens,
-            ),
+            cost_usd=usage.get("estimated_cost_usd"),
             filing_id=filing_id,
             ticker=ticker,
             kind=event.get("kind"),
@@ -374,8 +425,9 @@ async def ask_filing_stream(
     Open to Pro (full "copilot" entitlement) and to Free users within their lifetime free-taste
     allowance (roadmap 2.2); the dependency 403s a Free user once the taste is spent. The model
     answers using only this filing's cached content; the server verifies each cited excerpt against
-    the filing text (reusing the Trace-to-Source provenance helpers) and emits honest verified/cited
-    labels plus ``#:~:text=`` deep links. Excluded from the timeout middleware by the ``*stream*``
+    the filing text (reusing the Trace-to-Source provenance helpers) before publishing a completed
+    answer with source-match labels and ``#:~:text=`` deep links. Known failed referenced evidence
+    yields an error without draft prose. Excluded from the timeout middleware by the ``*stream*``
     name rule. Metering: Pro counts against the monthly fair-use cap; Free decrements the lifetime
     free-taste counter — both only on a successful answer.
     """
@@ -559,7 +611,7 @@ async def export_summary_pdf(
     if not summary:
         raise HTTPException(status_code=404, detail="Summary not found")
 
-    filing = db.query(Filing).filter(Filing.id == filing_id).first()
+    filing = db.query(Filing).options(joinedload(Filing.content_cache)).filter(Filing.id == filing_id).first()
     if not filing:
         raise HTTPException(status_code=404, detail="Filing not found")
 
@@ -605,7 +657,7 @@ async def export_summary_csv(
     if not summary:
         raise HTTPException(status_code=404, detail="Summary not found")
 
-    filing = db.query(Filing).filter(Filing.id == filing_id).first()
+    filing = db.query(Filing).options(joinedload(Filing.content_cache)).filter(Filing.id == filing_id).first()
     if not filing:
         raise HTTPException(status_code=404, detail="Filing not found")
 

@@ -1,0 +1,10 @@
+{
+  "workflow_run_id": 35830941825,
+  "workflow_url": "https://github.com/neilmac91/EarningsNerd/actions/runs/35830941825",
+  "head_sha": "ebdc4c44c5c6aa01c94587646a4c365f84fe26ec",
+  "observed_at": "2026-09-23T07:17:33.6819386Z",
+  "is_available": true,
+  "currency": "USD",
+  "total_balance": "67.98",
+  "purpose": "Standing-authorized bounded PR regression for confirmed parser and ratio-stamp corrections; not E7 programme admission."
+}

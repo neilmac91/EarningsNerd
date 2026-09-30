@@ -1,0 +1,476 @@
+"""The offline HTML aid retains one exact, structured text projection."""
+
+from __future__ import annotations
+
+import copy
+import hashlib
+import json
+from pathlib import Path
+import tracemalloc
+import xml.etree.ElementTree as ET
+
+import pytest
+
+from evals import acceptance_source_view as source_view
+
+
+def test_ascii_source_view_peak_memory_is_bounded() -> None:
+    raw = b'<html><body><p data-x="1">' + b"a" * (512 * 1024) + b"</p></body></html>"
+    already_tracing = tracemalloc.is_tracing()
+    if not already_tracing:
+        tracemalloc.start()
+    baseline, _ = tracemalloc.get_traced_memory()
+    tracemalloc.reset_peak()
+    try:
+        projection = source_view.project_html(raw)
+        _, peak = tracemalloc.get_traced_memory()
+    finally:
+        if not already_tracing:
+            tracemalloc.stop()
+
+    assert projection["source_bytes"] == len(raw)
+    assert peak - baseline < 16 * 1024 * 1024
+
+
+def test_source_view_export_peak_memory_is_bounded(tmp_path: Path) -> None:
+    # Many small records exercise JSON serialization, rather than one text node.
+    raw = (
+        "<html><body>" + '<p data-x="é">Financial text 123.45</p>' * 1500 + "</body></html>"
+    ).encode("utf-8")
+    source = tmp_path / "source.htm"
+    source.write_bytes(raw)
+    already_tracing = tracemalloc.is_tracing()
+    if not already_tracing:
+        tracemalloc.start()
+    baseline, _ = tracemalloc.get_traced_memory()
+    tracemalloc.reset_peak()
+    try:
+        manifest = source_view.build_source_view(
+            source, hashlib.sha256(raw).hexdigest(), len(raw), tmp_path / "view",
+        )
+        _, peak = tracemalloc.get_traced_memory()
+    finally:
+        if not already_tracing:
+            tracemalloc.stop()
+
+    assert manifest["files"]["projection"]["bytes"] > 3 * 1024 * 1024
+    assert peak - baseline < 20 * 1024 * 1024
+
+
+def test_source_view_invariants_and_mutation_proofs(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    raw = (
+        '<!doctype html><html><head><title>Résultats</title>'
+        '<style media="screen">.secret { display:none }</style>'
+        '<script type="text/javascript">window.secret="never display";</script></head>'
+        '<body><h1 data-owner="A&amp;B">Quarterly € report</h1><!-- retained note -->'
+        '<p hidden style="color:red">Hidden <em>but retained</em></p>'
+        '<ix:hidden contextRef="Q2" name="us-gaap:Revenue">Inline fact</ix:hidden>'
+        '<table id="outer"><caption>Financial footnote</caption><tr class="heading">'
+        '<th scope="col" rowspan="2">Metric<img src="cell.png" alt=""></th><th colspan="2">Period</th></tr>'
+        '<tr><td headers="metric">Revenue</td><td><table aria-label="nested"><tr>'
+        '<td style="visibility:hidden">Nested hidden value</td></tr></table></td></tr>'
+        '<tr><td>A</td><td>B</td></tr></table>'
+        '<img src="chart.png" alt="Revenue chart" style="width:10px" data-x="1">'
+        '<footer><sup id="fn1">1</sup> Footnote text</footer></body></html>'
+    ).encode("utf-8")
+
+    projected = source_view.project_html(raw)
+    source_view.verify_projection(raw, projected)
+    assert projected["source_bytes"] == len(raw)
+    assert projected["source_sha256"] == hashlib.sha256(raw).hexdigest()
+    assert projected["semantic_coverage_attested"] is False
+    assert projected["markup_is_reviewed_content"] is False
+    assert projected["compact_text"] == (
+        "RésultatsQuarterly € reportHidden but retainedInline factFinancial footnote"
+        "MetricPeriodRevenueNested hidden valueAB1 Footnote text"
+    )
+    review = source_view.render_review(projected)
+    assert source_view.review_text(review) == projected["compact_text"]
+    reader = source_view.render_reader(projected)
+    assert source_view.review_text(reader) == projected["compact_text"]
+    assert len(reader.encode()) < len(review.encode())
+    assert reader.count("@IMAGE ") == 2
+    assert "@CELL T00001-R0001-C0001" in reader
+    assert "@ROW T00002-R0001\t" in reader
+    assert "@ROW T00001-R0003\t" in reader
+    assert "@TABLE T00001" in review
+    assert "@TABLE T00002 parent_table=T00001 parent_cell=T00001-R0002-C0002" in review
+    assert "rowspan=2 colspan=1" in review
+    assert "rowspan=1 colspan=2" in review
+    assert "@IMAGE I00001" in review
+
+    assert len(projected["tables"]) == 2
+    outer, nested = projected["tables"]
+    assert nested["parent_table_id"] == outer["id"]
+    assert nested["parent_cell_id"] == outer["rows"][1]["cells"][1]["id"]
+    assert [cell["rowspan"] for cell in outer["rows"][0]["cells"]] == [2, 1]
+    assert [cell["colspan"] for cell in outer["rows"][0]["cells"]] == [1, 2]
+    images = {image["src"]: image for image in projected["images"]}
+    assert images["chart.png"]["alt"] == "Revenue chart"
+    assert images["cell.png"]["alt"] == ""
+    assert {item["kind"] for item in projected["exclusions"]} == {"style", "script", "comment"}
+    for excluded in projected["exclusions"]:
+        span = excluded["content"]
+        assert span["sha256"] == hashlib.sha256(raw[span["start"] : span["end"]]).hexdigest()
+        assert excluded["included_in_compact_text"] is False
+    names = [item["name"] for item in projected["attributes"]]
+    for expected in ("hidden", "style", "contextref", "name", "rowspan", "colspan", "src", "alt", "data-x"):
+        assert expected in names
+    hidden_units = [unit for unit in projected["units"] if unit["hidden_reasons"]]
+    assert {reason for unit in hidden_units for reason in unit["hidden_reasons"]} >= {
+        "hidden_attribute",
+        "inline_xbrl_hidden",
+        "inline_style_hidden",
+    }
+    assert "Hidden but retained" in projected["compact_text"]
+    assert "Inline fact" in projected["compact_text"]
+    assert "Nested hidden value" in projected["compact_text"]
+    for unit in projected["units"]:
+        span = unit["span"]
+        assert span["sha256"] == hashlib.sha256(raw[span["start"] : span["end"]]).hexdigest()
+
+    # Later duplicate attributes are ignored by HTML tree construction: semantics follow the first.
+    duplicate_raw = (
+        b'<div aria-hidden="false" aria-hidden="true">Visible first</div>'
+        b'<p style="color:red" style="display:none">Visible style</p>'
+        b'<img src="first.png" src="second.png" alt="a" alt="b">'
+        b'<table><tr><td rowspan="1" rowspan="3" colspan="2" colspan="4">c</td></tr></table>'
+    )
+    duplicate_projected = source_view.project_html(duplicate_raw)
+    assert all(unit["hidden_reasons"] == [] for unit in duplicate_projected["units"])
+    assert [(image["src"], image["alt"]) for image in duplicate_projected["images"]] == [("first.png", "a")]
+    duplicate_cell = duplicate_projected["tables"][0]["rows"][0]["cells"][0]
+    assert (duplicate_cell["rowspan"], duplicate_cell["colspan"]) == (1, 2)
+    assert [item["name"] for item in duplicate_projected["attributes"]].count("aria-hidden") == 2
+
+    style_raw = (
+        '<section style=" DISPLAY : none!important ; color:red"><span>Important display descendant</span></section>'
+        '<div style="visibility:hidden ! IMPORTANT"><strong>Important visibility descendant</strong></div>'
+        '<aside style="display : none"><span>Plain hidden descendant</span></aside>'
+        '<p style="display:block!important;visibility:visible !important;xdisplay:none;visibility:hiddenly;display:none!importantx;color:red display:none">Near miss visible</p>'
+    ).encode("utf-8")
+    style_projected = source_view.project_html(style_raw)
+    source_view.verify_projection(style_raw, style_projected)
+    assert style_projected["compact_text"] == (
+        "Important display descendantImportant visibility descendant"
+        "Plain hidden descendantNear miss visible"
+    )
+    style_units = {unit["decoded"]: unit for unit in style_projected["units"]}
+    for inherited_hidden in (
+        "Important display descendant",
+        "Important visibility descendant",
+        "Plain hidden descendant",
+    ):
+        assert "inline_style_hidden" in style_units[inherited_hidden]["hidden_reasons"]
+    assert style_units["Near miss visible"]["hidden_reasons"] == []
+    style_values = {item["value"] for item in style_projected["attributes"] if item["name"] == "style"}
+    assert style_values == {
+        " DISPLAY : none!important ; color:red",
+        "visibility:hidden ! IMPORTANT",
+        "display : none",
+        "display:block!important;visibility:visible !important;xdisplay:none;visibility:hiddenly;display:none!importantx;color:red display:none",
+    }
+    style_reader = source_view.render_reader(style_projected)
+    important_line = next(line for line in style_reader.splitlines() if "Important display descendant" in line)
+    near_miss_line = next(line for line in style_reader.splitlines() if "Near miss visible" in line)
+    assert "hidden=inline_style_hidden" in important_line
+    assert "hidden=-" in near_miss_line
+
+    dropped = copy.deepcopy(projected)
+    dropped["units"] = [unit for unit in dropped["units"] if "Quarterly" not in unit["decoded"]]
+    with pytest.raises(ValueError, match="events and units differ"):
+        source_view.verify_projection(raw, dropped)
+    shifted = copy.deepcopy(projected)
+    shifted["units"][0]["span"]["start"] += 1
+    with pytest.raises(ValueError, match="text-unit locator mismatch"):
+        source_view.verify_projection(raw, shifted)
+    coherent = copy.deepcopy(projected)
+    changed_unit = next(unit for unit in coherent["units"] if "Quarterly" in unit["decoded"])
+    changed_unit["decoded"] = changed_unit["decoded"].replace("Quarterly", "Changed")
+    coherent["compact_text"] = source_view._normalize_units(coherent["units"])
+    coherent["compact_text_sha256"] = hashlib.sha256(coherent["compact_text"].encode()).hexdigest()
+    with pytest.raises(ValueError, match="decoding mismatch"):
+        source_view.verify_projection(raw, coherent)
+    false_empty_element = copy.deepcopy(projected)
+    heading = next(element for element in false_empty_element["elements"] if element["tag"] == "h1")
+    heading["end_event_id"] = heading["start_event_id"]
+    with pytest.raises(ValueError, match="same-event closure is not an XML empty element"):
+        source_view.verify_projection(raw, false_empty_element)
+    false_empty_cell = copy.deepcopy(projected)
+    first_cell = false_empty_cell["tables"][0]["rows"][0]["cells"][0]
+    first_cell["end_event_id"] = first_cell["event_id"]
+    with pytest.raises(ValueError, match="same-event closure is not an XML empty element"):
+        source_view.verify_projection(raw, false_empty_cell)
+
+    for malformed in (
+        b"<table><tr><td>truncated",
+        b"<p>text</table>",
+        b'<p title="unterminated>text</p>',
+        b"<p>text<!-- truncated</p>",
+        b"<html><body><![CDATA[Material obligation: 10]]></body></html>",
+    ):
+        with pytest.raises(ValueError):
+            source_view.project_html(malformed)
+    with pytest.raises(ValueError, match="invalid rowspan"):
+        source_view.project_html(b'<table><tr><td rowspan="all">x</td></tr></table>')
+    monkeypatch.setattr(source_view, "MAX_UNIT_BYTES", 8)
+    with pytest.raises(ValueError, match="oversized single parser unit"):
+        source_view.project_html(b"<p>123456789</p>")
+    monkeypatch.setattr(source_view, "MAX_UNIT_BYTES", 2 * 1024 * 1024)
+
+    for implicit_boundary in (
+        b"<div><p hidden>A<p>B</p></p></div>",
+        b"<p hidden>A<div>B</div></p>",
+        b"<p hidden>A<dialog>B</dialog></p>",
+        b"<p hidden>A<center>B</center></p>",
+        b"<p hidden>A<li>B</li></p>",
+        b"<ul><li hidden>A<li>B</li></li></ul>",
+        b"<dl><dt hidden>A<dd>B</dd></dt></dl>",
+        b"<ruby><rt hidden>A<rp>B</rp></rt></ruby>",
+        b"<ruby><rb hidden>A<rt>B</rt></rb></ruby>",
+        b"<ruby><rtc hidden>A<rb>B</rb></rtc></ruby>",
+        b"<select><option hidden>A<option>B</option></option></select>",
+        b"<select><optgroup hidden><hr></optgroup></select>",
+        b"<table><tr><td hidden>A<td>B</td></td></tr></table>",
+        b"<table><tr hidden><tr></tr></tr></table>",
+        b"<table><tbody><tr><td>A</td></tr><tfoot></tfoot></tbody></table>",
+        b"<table><caption>A<tbody></tbody></caption></table>",
+        b"<table><colgroup hidden><tbody></tbody></colgroup></table>",
+        b"<a hidden>A<a>B</a></a>",
+        b"<a hidden>A<em>B<a>C</a></em></a>",
+        b"<button hidden>A<button>B</button></button>",
+        b"<nobr hidden>A<nobr>B</nobr></nobr>",
+        b"<form hidden>A<form>B</form>C</form>",
+        b"<select><option>A</option></select>",
+        b"<select hidden>A<select>B</select>C</select>",
+        b"<h1 hidden>A<h2>B</h2></h1>",
+        b"<table hidden>A<tr><td>B</td></tr></table>",
+        b"<table>&nbsp;<tr><td>A</td></tr></table>",
+        b"<table hidden><div>A</div></table>",
+        b"<table hidden><table><tr><td>A</td></tr></table></table>",
+        b"<table><tbody><tr><div>A</div></tr></tbody></table>",
+        b"<table><tbody><tr><td>A<caption>B</caption></td></tr></tbody></table>",
+        b"<table><tbody><tr>A<caption>B</caption></tr></tbody></table>",
+        b"<table><tbody>A<caption>B</caption></tbody></table>",
+        b"<tr><td>A</td></tr>",
+        b"<div><span>A</div></span>",
+        b"<div>A",
+        b"<div hidden/>B",
+        b"<ix:hidden/>",
+        b'<html xmlns="http://www.w3.org/1999/xhtml" xmlns:link="urn:example"><link:schemaRef/></html>',
+    ):
+        with pytest.raises(ValueError, match="unsupported implicit HTML boundary"):
+            source_view.project_html(implicit_boundary)
+
+    explicit_nested = (
+        b"<html><body><ul><li hidden>outer<ul><li>inner</li></ul></li></ul>"
+        b"<table><style>.excluded{}</style><script>excluded()</script><tbody><tr>"
+        b"<td>outer<table><tbody><tr><td>inner</td></tr></tbody>"
+        b"</table></td></tr></tbody></table>"
+    )
+    explicit_projected = source_view.project_html(explicit_nested)
+    source_view.verify_projection(explicit_nested, explicit_projected)
+    assert explicit_projected["compact_text"] == "outerinnerouterinner"
+    inner_list_unit = next(unit for unit in explicit_projected["units"] if unit["decoded"] == "inner")
+    assert inner_list_unit["hidden_reasons"] == ["hidden_attribute"]
+    void_self_closing = source_view.project_html(b"<p>A<br/>B</p>")
+    assert void_self_closing["compact_text"] == "AB"
+    ordinary_bom = source_view.project_html(source_view.UTF8_BOM + b"<p>A</p>")
+    assert ordinary_bom["compact_text"] == "\ufeffA"
+    xhtml_raw = (
+        b'<?xml version="1.0" encoding="UTF-8"?>'
+        b'<html xmlns="http://www.w3.org/1999/xhtml" '
+        b'xmlns:link="http://www.xbrl.org/2003/linkbase" '
+        b'xmlns:xlink="http://www.w3.org/1999/xlink">'
+        b'<head><link:schemaRef xlink:type="simple" xlink:href="example.xsd"/></head>'
+        b'<body><custom/><table><tr><td/><td>Cell</td></tr></table>'
+        b'<p>After empty element</p></body></html>'
+    )
+    xhtml_projected = source_view.project_html(xhtml_raw)
+    source_view.verify_projection(xhtml_raw, xhtml_projected)
+    bom_xhtml_raw = source_view.UTF8_BOM + xhtml_raw
+    bom_xhtml_projected = source_view.project_html(bom_xhtml_raw)
+    source_view.verify_projection(bom_xhtml_raw, bom_xhtml_projected)
+    assert bom_xhtml_projected["compact_text"] == xhtml_projected["compact_text"]
+    assert all(unit["decoded"] != "\ufeff" for unit in bom_xhtml_projected["units"])
+    bom_first_event = bom_xhtml_projected["events"][0]
+    assert bom_first_event["start"] == 0
+    assert bom_xhtml_raw[: bom_first_event["end"]].startswith(source_view.UTF8_BOM + b"<?xml")
+    assert bom_xhtml_raw[: bom_first_event["end"]].endswith(b"?>")
+    ascii_bom_raw = source_view.UTF8_BOM + xhtml_raw.replace(b'encoding="UTF-8"', b'encoding="ASCII"')
+    ascii_bom_projected = source_view.project_html(ascii_bom_raw)
+    source_view.verify_projection(ascii_bom_raw, ascii_bom_projected)
+    assert ascii_bom_projected["compact_text"] == xhtml_projected["compact_text"]
+    strict_reference_raw = (
+        b'<?xml version="1.0"?><html xmlns="http://www.w3.org/1999/xhtml"><body>'
+        b'<p title="&#x80; &amp; &apos; &quot; &lt; &gt;" '
+        b'data-whitespace="a\tb\r\nc&#x9;d">'
+        b'&#x80; &amp; &apos; &quot; &lt; &gt;</p></body></html>'
+    )
+    strict_reference_projected = source_view.project_html(strict_reference_raw)
+    source_view.verify_projection(strict_reference_raw, strict_reference_projected)
+    expected_reference_text = '\x80 & \' " < >'
+    assert strict_reference_projected["compact_text"] == expected_reference_text
+    title = next(
+        attribute
+        for attribute in strict_reference_projected["attributes"]
+        if attribute["name"] == "title"
+    )
+    assert title["value"] == expected_reference_text
+    whitespace_value = next(
+        attribute["value"]
+        for attribute in strict_reference_projected["attributes"]
+        if attribute["name"] == "data-whitespace"
+    )
+    assert whitespace_value == "a b c\td"
+    xml_paragraph = next(element for element in ET.fromstring(strict_reference_raw).iter() if element.tag.endswith("}p"))
+    assert title["value"] == xml_paragraph.attrib["title"]
+    assert whitespace_value == xml_paragraph.attrib["data-whitespace"]
+    forged_reference = copy.deepcopy(strict_reference_projected)
+    next(
+        attribute for attribute in forged_reference["attributes"] if attribute["name"] == "title"
+    )["value"] = "€ & ' \" < >"
+    with pytest.raises(ValueError, match="XML attribute decoding mismatch"):
+        source_view.verify_projection(strict_reference_raw, forged_reference)
+    strict_pi_raw = (
+        b'<?xml version="1.0"?><html xmlns="http://www.w3.org/1999/xhtml"><body>'
+        b'<?audit a><div/>?><p>After PI</p></body></html>'
+    )
+    strict_pi_projected = source_view.project_html(strict_pi_raw)
+    source_view.verify_projection(strict_pi_raw, strict_pi_projected)
+    assert strict_pi_projected["compact_text"] == "After PI"
+    assert all(element["tag"] != "div" for element in strict_pi_projected["elements"])
+    audit_pi = next(
+        event
+        for event in strict_pi_projected["events"]
+        if event["kind"] == "processing_instruction" and event["start"] > 0
+    )
+    assert strict_pi_raw[audit_pi["start"] : audit_pi["end"]] == b"<?audit a><div/>?>"
+    declaration_end = xhtml_raw.index(b"?>") + 2
+    ordinary_html = b" " * declaration_end + xhtml_raw[declaration_end:]
+    forged_html_projection = copy.deepcopy(xhtml_projected)
+    forged_html_projection["source_sha256"] = hashlib.sha256(ordinary_html).hexdigest()
+    first_event = forged_html_projection["events"][0]
+    first_event["sha256"] = hashlib.sha256(
+        ordinary_html[first_event["start"] : first_event["end"]]
+    ).hexdigest()
+    with pytest.raises(ValueError, match="same-event closure is not an XML empty element"):
+        source_view.verify_projection(ordinary_html, forged_html_projection)
+    missing_cell_end = copy.deepcopy(xhtml_projected)
+    missing_cell_end["tables"][0]["rows"][0]["cells"][0].pop("end_event_id")
+    with pytest.raises(ValueError, match="strict XML structure is missing an end boundary"):
+        source_view.verify_projection(xhtml_raw, missing_cell_end)
+    missing_element_end = copy.deepcopy(xhtml_projected)
+    next(
+        element
+        for element in missing_element_end["elements"]
+        if element["tag"] == "link:schemaref"
+    ).pop("end_event_id")
+    with pytest.raises(ValueError, match="strict XML structure is missing an end boundary"):
+        source_view.verify_projection(xhtml_raw, missing_element_end)
+    missing_elements = copy.deepcopy(xhtml_projected)
+    missing_elements["elements"] = []
+    with pytest.raises(ValueError, match="strict XML start-tag element mapping mismatch"):
+        source_view.verify_projection(xhtml_raw, missing_elements)
+    schema_ref = next(element for element in xhtml_projected["elements"] if element["tag"] == "link:schemaref")
+    assert schema_ref["end_event_id"] == schema_ref["start_event_id"]
+    empty_cell = xhtml_projected["tables"][0]["rows"][0]["cells"][0]
+    assert empty_cell["end_event_id"] == empty_cell["event_id"]
+    events = {event["id"]: event for event in xhtml_projected["events"]}
+    cell_event = events[empty_cell["event_id"]]
+    assert xhtml_raw[cell_event["start"] : cell_event["end"]] == b"<td/>"
+    after_unit = next(unit for unit in xhtml_projected["units"] if unit["decoded"] == "After empty element")
+    element_tags = {element["id"]: element["tag"] for element in xhtml_projected["elements"]}
+    assert [element_tags[node_id] for node_id in after_unit["element_path"]] == ["html", "body", "p"]
+    for malformed_xhtml, message in (
+        (
+            b'<?xml version="1.0"?><html xmlns="http://www.w3.org/1999/xhtml"><a></html>',
+            "not well formed",
+        ),
+        (
+            b'<?xml version="1.0"?><!DOCTYPE html [<!ENTITY x "expanded">]>'
+            b'<html xmlns="http://www.w3.org/1999/xhtml">&x;</html>',
+            "must not contain a DTD",
+        ),
+        (
+            b'<?xml version="1.0"?><html xmlns="http://www.w3.org/1999/xhtml">&custom;</html>',
+            "not well formed",
+        ),
+        (
+            b'<?xml version="1.0"?><html xmlns="http://www.w3.org/1999/xhtml">'
+            b'<body><![CDATA[unsupported]]></body></html>',
+            "unknown declaration",
+        ),
+        (
+            b'<?xml version="1.0"?><html xmlns="http://www.w3.org/1999/xhtml">'
+            b'<SCRIPT>text</SCRIPT></html>',
+            "case-sensitive XHTML element name",
+        ),
+        (
+            b'<?xml version="1.0"?><html xmlns="http://www.w3.org/1999/xhtml">'
+            b'<p A="one" a="two"/></html>',
+            "case-distinct strict XML names",
+        ),
+        (
+            b'<?xml version="1.0"?><html xmlns="http://www.w3.org/1999/xhtml">'
+            b'<table><tr><td ROWSPAN="2"/></tr></table></html>',
+            "case-sensitive XHTML semantic attribute",
+        ),
+        (
+            b'<?xml version="1.0"?><html xmlns="http://www.w3.org/1999/xhtml">'
+            b'<script><custom/></script></html>',
+            "strict XML raw-text markup",
+        ),
+        (
+            b'<?xml version="1.0" encoding="iso-8859-1"?>'
+            b'<html xmlns="http://www.w3.org/1999/xhtml"><p>\xc3\xa9</p></html>',
+            "declaration encoding must be UTF-8 or byte-valid ASCII",
+        ),
+        (b'<?xml version="1.0"?><html><custom/></html>', "root is not XHTML html"),
+        (
+            b'<?xml version="1.0"?><meta/><html xmlns="http://www.w3.org/1999/xhtml"/>',
+            "not well formed",
+        ),
+    ):
+        with pytest.raises(ValueError, match=message):
+            source_view.project_html(malformed_xhtml)
+    explicit_ruby = source_view.project_html(b"<ruby><rtc><rt>A</rt><rp>B</rp></rtc></ruby>")
+    assert explicit_ruby["compact_text"] == "AB"
+
+    source = tmp_path / "source.htm"
+    source.write_bytes(raw)
+    output = tmp_path / "view"
+    manifest = source_view.build_source_view(source, hashlib.sha256(raw).hexdigest(), len(raw), output)
+    assert json.loads((output / "manifest.json").read_text()) == manifest
+    expected_projection = (
+        json.dumps(source_view.project_html(raw), ensure_ascii=False, indent=2, sort_keys=True) + "\n"
+    ).encode("utf-8")
+    assert (output / "source-view.json").read_bytes() == expected_projection
+    for entry in manifest["files"].values():
+        content = (output / entry["path"]).read_bytes()
+        assert len(content) == entry["bytes"]
+        assert hashlib.sha256(content).hexdigest() == entry["sha256"]
+    stored = json.loads((output / "source-view.json").read_text())
+    assert source_view.review_text((output / "reader.txt").read_text()) == stored["compact_text"]
+    with pytest.raises(ValueError, match="must not already exist"):
+        source_view.build_source_view(source, hashlib.sha256(raw).hexdigest(), len(raw), output)
+    with pytest.raises(ValueError, match="source size/hash mismatch"):
+        source_view.build_source_view(source, "0" * 64, len(raw), tmp_path / "wrong")
+
+    original_read = Path.read_bytes
+    reads = 0
+
+    def mutate_between_checks(path: Path) -> bytes:
+        nonlocal reads
+        data = original_read(path)
+        if path == source:
+            reads += 1
+            if reads == 2:
+                return data + b" "
+        return data
+
+    monkeypatch.setattr(Path, "read_bytes", mutate_between_checks)
+    changed_output = tmp_path / "changed"
+    with pytest.raises(ValueError, match="source changed during view construction"):
+        source_view.build_source_view(source, hashlib.sha256(raw).hexdigest(), len(raw), changed_output)
+    assert not changed_output.exists()

@@ -1,0 +1,177 @@
+{
+  "assigned_frozen_content_bytes": 29291263,
+  "assigned_frozen_content_members": 156,
+  "coverage_or_admission_modified": false,
+  "existing_canary_modified": false,
+  "frozen_sources_modified": false,
+  "inputs": {
+    "acquisition": {
+      "bytes": 15420,
+      "path": "outputs/takeover-2026-09-27/h01-authoritative-attachments/receipt-v3.json",
+      "sha256": "585390c57369fcd792b9e26415ffcebb7ded98c5bdaa8985a02b22c4db92b244"
+    },
+    "canary_member_ledger_v2": {
+      "bytes": 113940,
+      "path": "outputs/takeover-2026-09-27/h01-authoritative-attachments/h01-v2-canary/member-ledger-v2.json",
+      "sha256": "3d935d03feaaba39507fcf325387add699a662133a7518c0218d956ece37a7b6"
+    },
+    "canary_unit_manifest": {
+      "bytes": 4815,
+      "path": "outputs/takeover-2026-09-27/h01-authoritative-attachments/h01-v2-canary/unit-manifest.json",
+      "sha256": "814eddeada3e969104269952b3f63260beec0d76df5918c53f1f44fb34effde4"
+    },
+    "document_map": {
+      "bytes": 394019,
+      "path": "outputs/overnight-2026-09-23/source-map-final/H01.json",
+      "sha256": "a00268b95da8b69d0f7a63ba86e287c90868e6b5394ca80f316ad93efa1c114b"
+    },
+    "member_code": {
+      "bytes": 28286,
+      "path": "/private/tmp/earningsnerd-source-capacity-20260923/backend/evals/acceptance_source_members.py",
+      "sha256": "54e424cb32f5e01e294029349371f9afecdaefae98315d98ef94894a7b7ac42d"
+    },
+    "submission": {
+      "bytes": 33197476,
+      "path": "work/e7-ai-source-snapshot-2026-09-22/e7-sources/H01/0000018230-26-000008.txt",
+      "sha256": "1aade6920a2dcda891c91c4ff774d311be6d98963e497e305c0f729a00f8d972"
+    },
+    "unit_code": {
+      "bytes": 20886,
+      "path": "/private/tmp/earningsnerd-source-capacity-20260923/backend/evals/acceptance_source_units.py",
+      "sha256": "392752e55458d179ca301ca214ffa33c4ca63475a13db280e10760f9bb48921b"
+    },
+    "v1_member_ledger": {
+      "bytes": 108753,
+      "path": "outputs/takeover-2026-09-26/corpus-member-census/H01-member-ledger.json",
+      "sha256": "af0a4000e825b6b339b46aeec7e296ef49df04315878082a3155e5856a5e7fa5"
+    }
+  },
+  "kind": "h01_all_member_byte_assignment_receipt",
+  "limitations": [
+    "All 162 member byte representations are assigned to exact packets, but assignment is not review.",
+    "The 156 frozen members use their existing content spans without repair, decoding, normalization, or reordering.",
+    "The six authoritative supplements remain current bytes and do not prove a successful decode or historical equality with the frozen encoded members.",
+    "Route-derived structural labels and registrant scope remain unverified declarations under the unit format.",
+    "Semantic review, modalities, issue propagation, coverage status, and E7 admission remain held."
+  ],
+  "member_validation": {
+    "accession_number": "0000018230-26-000008",
+    "admission_approved": false,
+    "authoritative_supplement_count": 6,
+    "disposition_counts": {
+      "assigned_to_review_units": 162,
+      "declared_non_content_packaging": 0,
+      "exact_duplicate": 0,
+      "unresolved": 0
+    },
+    "encoded_member_count": 6,
+    "every_member_dispositioned": true,
+    "kind": "e7_offline_source_member_validation",
+    "ledger_sha256": "08aeecea981b8b5b9e2d271bef74a4ffeb12c54fac4215dea7e23d86479e3e8a",
+    "limitations": [
+      "Member enumeration follows the existing document map's SGML parse; only the mapped byte spans are re-verified here.",
+      "A member assigned to review units names a unit-manifest packet with its exact bytes; review of that packet is not attested.",
+      "Declared non-content packaging and every label are unverified declarations and hold completion; only exact duplicates are hash-proven.",
+      "Tables, inline-XBRL facts (including hidden facts) and images inside members are not inventoried or dispositioned.",
+      "No source review, E7 coverage_status or E7 admission is attested; unresolved members hold completion.",
+      "Current authoritative attachment bytes are a supplement, not a successful decode of the frozen encoded member or proof that SEC served identical bytes at freeze time.",
+      "The recorded transport-owner SHA-256 is provenance only; it does not establish source review, correctness, completeness or admission."
+    ],
+    "member_count": 162,
+    "modality_completeness_attested": false,
+    "schema_version": 2,
+    "semantic_labels_verified": false,
+    "semantic_review_attested": false,
+    "submission_sha256": "1aade6920a2dcda891c91c4ff774d311be6d98963e497e305c0f729a00f8d972",
+    "unproven_packaging_member_ids": [],
+    "unresolved_member_ids": []
+  },
+  "modality_completeness_attested": false,
+  "model_calls": 0,
+  "network_calls": 0,
+  "outputs": {
+    "member_ledger_v2_sha256": "08aeecea981b8b5b9e2d271bef74a4ffeb12c54fac4215dea7e23d86479e3e8a",
+    "unit_manifest_156_sha256": "cff5d4e63c2fd0e8e4b8bde76aea63196aca86e384256e2ab1dc71985eff0b87"
+  },
+  "preserved_authoritative_supplement_members": 6,
+  "preserved_canary_unit_validation": {
+    "accession_number": "0000018230-26-000008",
+    "admission_approved": false,
+    "context_span_bytes_not_counted_as_coverage": 0,
+    "context_span_count": 0,
+    "coverage_bytes": 2822096,
+    "declared_packet_byte_partition": "exact",
+    "declared_packet_bytes": 2822096,
+    "expected_packet_contract": "exact",
+    "kind": "e7_offline_source_unit_validation",
+    "limitations": [
+      "Byte custody only: the declared accession, packet roles, structural kinds and registrant scopes are unverified declarations.",
+      "The declared packets are not every source in the filing; other exhibits, submission members, supplements and graphics remain separate obligations.",
+      "A byte-valid span boundary is not a semantically safe text, table, footnote or UTF-8 character split.",
+      "Tables, hidden inline-XBRL facts, images, encoded archives and decoded members are neither inventoried nor dispositioned.",
+      "No source review, model-context custody, issue propagation, E7 coverage_status or E7 admission is attested."
+    ],
+    "manifest_sha256": "814eddeada3e969104269952b3f63260beec0d76df5918c53f1f44fb34effde4",
+    "max_total_context_bytes": 67108864,
+    "max_unit_context_bytes": 65536,
+    "member_modality_completeness_attested": false,
+    "packet_count": 6,
+    "schema_version": 2,
+    "semantic_labels_verified": false,
+    "semantic_review_attested": false,
+    "source_set_completeness_attested": false,
+    "unit_count": 6
+  },
+  "receipt_provenance": {
+    "kind": "repository summary copy; raw records retained locally",
+    "operator_original": "outputs/takeover-2026-09-27/h01-authoritative-attachments/h01-all-member-byte-assignment/receipt.json",
+    "operator_original_sha256": "0bb370e5a0d571ab29a4c1185a4d65e6ba304d839a48217c963d74268436c646",
+    "relative_path_scope": "Paths in this receipt refer to retained operator files unless explicitly qualified; they are not repository siblings."
+  },
+  "route_content_bytes": {
+    "readable_document_review_required": 6654226,
+    "structured_data_review_required": 13314539,
+    "structured_rendering_review_required": 9318875,
+    "unclassified_review_required": 3623
+  },
+  "route_counts": {
+    "readable_document_review_required": 8,
+    "structured_data_review_required": 8,
+    "structured_rendering_review_required": 138,
+    "unclassified_review_required": 2
+  },
+  "schema_version": 1,
+  "scope": "Complete member byte assignment only; no semantic review, modality completion, coverage status, or E7 admission.",
+  "semantic_labels_verified": false,
+  "semantic_review_attested": false,
+  "status": "ok",
+  "total_assigned_members": 162,
+  "unit_validation": {
+    "accession_number": "0000018230-26-000008",
+    "admission_approved": false,
+    "context_span_bytes_not_counted_as_coverage": 0,
+    "context_span_count": 0,
+    "coverage_bytes": 29291263,
+    "declared_packet_byte_partition": "exact",
+    "declared_packet_bytes": 29291263,
+    "expected_packet_contract": "exact",
+    "kind": "e7_offline_source_unit_validation",
+    "limitations": [
+      "Byte custody only: the declared accession, packet roles, structural kinds and registrant scopes are unverified declarations.",
+      "The declared packets are not every source in the filing; other exhibits, submission members, supplements and graphics remain separate obligations.",
+      "A byte-valid span boundary is not a semantically safe text, table, footnote or UTF-8 character split.",
+      "Tables, hidden inline-XBRL facts, images, encoded archives and decoded members are neither inventoried nor dispositioned.",
+      "No source review, model-context custody, issue propagation, E7 coverage_status or E7 admission is attested."
+    ],
+    "manifest_sha256": "cff5d4e63c2fd0e8e4b8bde76aea63196aca86e384256e2ab1dc71985eff0b87",
+    "max_total_context_bytes": 67108864,
+    "max_unit_context_bytes": 65536,
+    "member_modality_completeness_attested": false,
+    "packet_count": 156,
+    "schema_version": 2,
+    "semantic_labels_verified": false,
+    "semantic_review_attested": false,
+    "source_set_completeness_attested": false,
+    "unit_count": 156
+  }
+}

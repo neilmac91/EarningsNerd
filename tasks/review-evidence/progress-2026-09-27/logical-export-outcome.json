@@ -1,0 +1,36 @@
+{
+  "schema_version": 1,
+  "date": "2026-09-27",
+  "status": "passed",
+  "scope": "One offloaded logical export to a dedicated private lifecycle-managed bucket; no recurrence or import test.",
+  "object": {
+    "bytes": 4848124,
+    "provider_checksums_retained": true,
+    "gzip_signature_verified": true
+  },
+  "protection": {
+    "uniform_bucket_level_access": true,
+    "public_access_prevention": true,
+    "live_object_lifecycle_days": 35,
+    "soft_delete_days": 7,
+    "temporary_writer_revoked": true
+  },
+  "production": {
+    "source_configuration_unchanged": true,
+    "source_users_unchanged": true,
+    "health_before": "healthy",
+    "health_after": "healthy"
+  },
+  "cost": {
+    "authorized_planning_cap_usd": 1.0,
+    "actual_object_planning_estimate_usd": 0.10113359820236102,
+    "invoice_cost_known": false,
+    "provider_enforced_cap": false
+  },
+  "private_receipt_sha256": "f6edd7c35c907f1c54aa00b350ad60f227781e8009d255329b6d4cada340ebbb",
+  "limits": [
+    "No logical import test or recurring schedule has been executed.",
+    "No SQL contents were downloaded or printed.",
+    "Private resource identities, IAM principals and raw cloud metadata are excluded from this public summary."
+  ]
+}

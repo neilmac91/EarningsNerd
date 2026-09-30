@@ -1,5 +1,10 @@
 import posthog from 'posthog-js'
 import * as Sentry from '@sentry/nextjs'
+import { getCookiePreferences } from '@/components/CookieConsent'
+
+export type SummaryViewIdentity =
+  | { state: 'authenticated'; accountId: string }
+  | { state: 'anonymous' | 'unknown'; accountId: null }
 
 const safeCapture = (event: string, properties?: Record<string, unknown>) => {
   if (typeof window === 'undefined') {
@@ -119,10 +124,12 @@ export const analytics = {
   },
 
   // Activation funnel: fired when a visitor actually sees summary content.
-  // Generation outcomes (generation_started/succeeded/failed/timed_out) are
-  // captured server-side with the same distinct_id (forwarded on the stream
-  // request) so the funnel joins on one person without double counting.
+  // Snapshot the route's /me state into the event itself. PostHog person merges
+  // must never turn an earlier anonymous/unknown view into signed-in activation.
+  // This is client-observed identity, not a server authentication receipt.
   summaryViewed: (props: {
+    identity: SummaryViewIdentity
+    summaryId: number
     filingId: number
     ticker: string | null
     filingType: string
@@ -131,7 +138,14 @@ export const analytics = {
     qualityVerdict?: string
     durationMs?: number
   }) => {
+    // Do not queue an identity-bearing view before consent or replay it after opt-in.
+    if (typeof window === 'undefined' || getCookiePreferences()?.analytics !== true) return
     safeCapture('summary_viewed', {
+      evidence_version: 1,
+      auth_state_at_event: props.identity.state,
+      account_id_at_event: props.identity.accountId,
+      analytics_consent_at_event: true,
+      summary_id: props.summaryId,
       filing_id: props.filingId,
       ticker: props.ticker,
       filing_type: props.filingType,

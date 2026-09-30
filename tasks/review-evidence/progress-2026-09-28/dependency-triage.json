@@ -1,0 +1,184 @@
+{
+  "schema_version": 1,
+  "reviewed_at": "2026-09-28",
+  "repository": "neilmac91/EarningsNerd",
+  "base": {
+    "ref": "main",
+    "sha": "67b9be8e9e5b6f9d533d2ed9fbdf20671f795ce7",
+    "commit_message": "Use neutral Analysis source copy in browser and PDF (#997)",
+    "dependency_release_overlap_with_997": false
+  },
+  "scope": {
+    "mode": "read-only dependency triage",
+    "actions_not_taken": [
+      "dependency installation",
+      "repository edits",
+      "push or merge",
+      "workflow trigger",
+      "GitHub message"
+    ]
+  },
+  "priority_order": [998, 1000, 999],
+  "pull_requests": [
+    {
+      "number": 998,
+      "url": "https://github.com/neilmac91/EarningsNerd/pull/998",
+      "head_sha": "24e6ec9d75c312c7a5dbb14c3505aa547d2ff8a1",
+      "kind": "frontend grouped patch updates",
+      "updates": [
+        {"package": "@tanstack/react-query", "from": "5.103.1", "to": "5.103.2"},
+        {"package": "next", "from": "16.3.5", "to": "16.3.6"},
+        {"package": "posthog-js", "from": "1.434.0", "to": "1.434.13"},
+        {"package": "@types/node", "from": "26.6.1", "to": "26.6.2"},
+        {"package": "eslint-config-next", "from": "16.3.5", "to": "16.3.6"},
+        {"package": "jsdom", "from": "30.1.0", "to": "30.1.1"}
+      ],
+      "files": ["frontend/package.json", "frontend/package-lock.json"],
+      "ci": {
+        "functional": "all passed",
+        "passed": ["backend-tests", "migrations-postgres", "frontend-tests", "lighthouse", "eval-baseline", "e2e-tests", "Vercel", "Vercel Preview Comments"],
+        "failed": [
+          {
+            "check": "review-gate",
+            "cause": "timed out after 20 minutes waiting for a Codex review summary for this head; procedural rather than a dependency test failure",
+            "url": "https://github.com/neilmac91/EarningsNerd/actions/runs/36393406232/job/108834093672"
+          }
+        ],
+        "skipped": ["deploy-backend", "rerun-on-review-request"]
+      },
+      "security_relevance": {
+        "direct": true,
+        "advisory": "GHSA-vcvr-r3jv-pc5j / CVE-2026-94545",
+        "severity": "critical, CVSS 9.5",
+        "affected": ">=16.2.0 <16.3.6",
+        "patched": "16.3.6",
+        "repository_exposure_observed": false,
+        "exposure_basis": "GitHub code search on current default branch returned zero occurrences of ImageResponse, next/og, or opengraph-image. This reduces evidenced reachability but does not replace the patch.",
+        "source": "https://github.com/vercel/next.js/security/advisories/GHSA-vcvr-r3jv-pc5j"
+      },
+      "major_migration": false,
+      "disposition": "ready after required review gate",
+      "minimal_safe_next_action": "After the #997 deployment is observed stable, obtain the required review result for this exact head and merge/rebase as needed before the other frontend dependency PR. No code migration is indicated by CI."
+    },
+    {
+      "number": 999,
+      "url": "https://github.com/neilmac91/EarningsNerd/pull/999",
+      "head_sha": "9088e1844d061240147bc08f63db4379814d6c73",
+      "kind": "frontend major update",
+      "updates": [
+        {"package": "@sentry/nextjs", "from": "10.75.0", "to": "11.0.0"}
+      ],
+      "files": ["frontend/package.json", "frontend/package-lock.json"],
+      "ci": {
+        "passed": ["backend-tests", "migrations-postgres", "eval-baseline", "Vercel Preview Comments"],
+        "failed": [
+          {
+            "check": "frontend-tests",
+            "cause": "TypeScript rejects enableLogs in instrumentation-client.ts:9 and instrumentation.ts:11 because Sentry 11 removed the option",
+            "url": "https://github.com/neilmac91/EarningsNerd/actions/runs/36393437138/job/108834194003"
+          },
+          {
+            "check": "lighthouse",
+            "cause": "same build/typecheck failure",
+            "url": "https://github.com/neilmac91/EarningsNerd/actions/runs/36393437138/job/108834194199"
+          },
+          {
+            "check": "e2e-tests",
+            "cause": "same build/typecheck failure",
+            "url": "https://github.com/neilmac91/EarningsNerd/actions/runs/36393437138/job/108834194156"
+          },
+          {
+            "check": "Vercel",
+            "cause": "preview build failed; consistent with the repository build/typecheck failure",
+            "url": "https://vercel.com/neil-mac-aogains-projects/earnings-nerd/8VbRNBzfzMZ3XHhkttQobBfshVuG"
+          },
+          {
+            "check": "review-gate",
+            "cause": "timed out waiting for a Codex review summary; procedural",
+            "url": "https://github.com/neilmac91/EarningsNerd/actions/runs/36393435139/job/108834189424"
+          }
+        ],
+        "skipped": ["deploy-backend", "rerun-on-review-request"]
+      },
+      "security_relevance": {
+        "direct_advisory_update": false,
+        "migration_risk": "Sentry 11 enables more permissive data-collection defaults; review dataCollection and scrubbing rather than accepting defaults implicitly."
+      },
+      "major_migration": {
+        "required": true,
+        "confirmed_changes": [
+          "remove enableLogs from both Sentry.init calls; consoleLoggingIntegration remains the opt-in mechanism",
+          "review Sentry 11 dataCollection defaults",
+          "Node minimum is 20.19.0; current repository pin 22.23.2 satisfies it",
+          "TypeScript minimum is 5.0.4; current 6.0.3 satisfies it",
+          "Next minimum is 14 and React minimum is 17; current Next 16.3.5 and React 18.2.0 satisfy them"
+        ],
+        "source": "https://github.com/getsentry/sentry-javascript/blob/develop/MIGRATION.md#upgrading-from-10x-to-11x"
+      },
+      "disposition": "blocked on explicit migration",
+      "minimal_safe_next_action": "Hold this PR. Land #998 first, then rebase or recreate #999; remove both enableLogs fields, make an explicit dataCollection decision, and rerun build/typecheck, frontend, Lighthouse, E2E, and Vercel checks."
+    },
+    {
+      "number": 1000,
+      "url": "https://github.com/neilmac91/EarningsNerd/pull/1000",
+      "head_sha": "284795e06330aa17177efc09907841adc8758ad3",
+      "kind": "backend grouped updates containing a migration boundary",
+      "updates": [
+        {"package": "ruff", "from": "0.16.8", "to": "0.16.9"},
+        {"package": "anthropic", "from": "1.7.0", "to": "1.8.0"},
+        {"package": "json-repair", "from": "0.63.4", "to": "0.63.5"},
+        {"package": "openai", "from": "3.16.2", "to": "3.19.2"},
+        {"package": "posthog", "from": "7.58.0", "to": "7.60.0"},
+        {"package": "PyJWT", "from": "2.14.0", "to": "2.15.0"},
+        {"package": "sentry-sdk", "from": "2.69.2", "to": "2.70.0"},
+        {"package": "SQLAlchemy", "from": "2.0.54", "to": "2.1.0"},
+        {"package": "uvicorn", "from": "0.53.0", "to": "0.54.0"}
+      ],
+      "files": ["backend/requirements-dev.txt", "backend/requirements-eval.txt", "backend/requirements.in", "backend/requirements.txt"],
+      "ci": {
+        "passed": ["backend-tests", "frontend-tests", "lighthouse", "eval-baseline", "e2e-tests", "Vercel", "Vercel Preview Comments"],
+        "failed": [
+          {
+            "check": "migrations-postgres",
+            "cause": "ModuleNotFoundError: No module named 'psycopg'. SQLAlchemy 2.1 resolves bare postgresql:// URLs to psycopg 3, while requirements retain psycopg2-binary and CI uses a bare PostgreSQL URL.",
+            "url": "https://github.com/neilmac91/EarningsNerd/actions/runs/36393541809/job/108834532036"
+          },
+          {
+            "check": "copilot-eval",
+            "cause": "OPENAI_API_KEY was blank and the evaluation returned accepted=false with no summary; this run is credential/environment-gated and does not diagnose an OpenAI SDK regression",
+            "url": "https://github.com/neilmac91/EarningsNerd/actions/runs/36393541608/job/108834531111"
+          },
+          {
+            "check": "review-gate",
+            "cause": "timed out waiting for a Codex review summary; procedural",
+            "url": "https://github.com/neilmac91/EarningsNerd/actions/runs/36393539794/job/108834526944"
+          }
+        ],
+        "skipped": ["deploy-backend", "rerun-on-review-request"]
+      },
+      "security_relevance": {
+        "direct_advisory_update": false,
+        "note": "No specific security advisory was identified in the PR update material; the observed blocker is compatibility."
+      },
+      "major_migration": {
+        "required": true,
+        "package": "SQLAlchemy",
+        "reason": "2.1 is a new migration series even though the semver digit is minor; it changes the default PostgreSQL driver and drops Python 3.10.",
+        "repository_fit": "CI uses Python 3.11, so the Python floor is satisfied. Driver selection is not: the repo pins psycopg2-binary and uses bare postgresql:// URLs.",
+        "options": [
+          "retain psycopg2 by explicitly normalizing PostgreSQL URLs to postgresql+psycopg2://",
+          "migrate deliberately to psycopg 3 and install/test psycopg[binary]"
+        ],
+        "source": "https://docs.sqlalchemy.org/en/21/changelog/migration_21.html#default-postgresql-driver-changed-to-psycopg-psycopg-3"
+      },
+      "disposition": "blocked; split the group",
+      "minimal_safe_next_action": "Regenerate or split the group with SQLAlchemy constrained below 2.1 so the other eight updates can be evaluated independently. Handle SQLAlchemy 2.1 in a dedicated migration PR with an explicit psycopg2-versus-psycopg3 choice and PostgreSQL migration tests. Diagnose the credential-gated copilot check separately."
+    }
+  ],
+  "overlap": {
+    "998_and_999": "Both edit frontend/package.json and frontend/package-lock.json but update different direct packages. Land #998 first, then rebase/recreate #999.",
+    "1000_with_frontend_prs": "No package or file overlap.",
+    "997": "Current main #997 changed source copy and leaves the dependency baselines at the versions listed above; no dependency release overlap."
+  },
+  "overall_next_action": "Observe #997 deployment stability, then prioritize #998 because it carries the Next.js security fix and has green functional CI. Do not merge #999 or #1000 as-is."
+}

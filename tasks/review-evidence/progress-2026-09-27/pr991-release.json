@@ -1,0 +1,143 @@
+{
+  "schema_version": 1,
+  "status": "verified_healthy",
+  "verified_at": "2026-09-27T22:07:54.943697+00:00",
+  "merge": {
+    "pr": 991,
+    "sha": "c962c33fb543ce043ae09b6fe57421e8ce360d34",
+    "merged_at": "2026-09-27T21:58:54Z"
+  },
+  "workflow": {
+    "id": 36353657614,
+    "url": "https://github.com/neilmac91/EarningsNerd/actions/runs/36353657614",
+    "conclusion": "success"
+  },
+  "deployment": {
+    "job_id": 108717888798,
+    "revision": "earningsnerd-backend-00405-6hm",
+    "traffic_percent": 100,
+    "migrations": {
+      "applied": 0,
+      "skipped": 40
+    },
+    "release_environment_matches_merge": true
+  },
+  "connection_pool_recipe": {
+    "api_pool_size": 4,
+    "api_overflow": 0,
+    "revision_max_instances": 2,
+    "service_max_instances": 2,
+    "service_max_changed_by_this_release": false,
+    "pregenerate_pool_size": 3,
+    "other_job_pool_size": 1,
+    "all_eight_jobs_match_release_image": true,
+    "all_job_task_counts": 1,
+    "limits": [
+      "Configured pool sizes are per process. This does not prove a fleet-wide hard cap or eliminate rolling-revision overlap.",
+      "Service-level maximum is independently read back; any operator change is recorded in its separate receipt."
+    ]
+  },
+  "independent_public_health": {
+    "url": "https://api.earningsnerd.io/health/detailed",
+    "http_status": 200,
+    "body": {
+      "status": "healthy",
+      "checks": {
+        "database": {
+          "healthy": true,
+          "latency_ms": 5.89
+        },
+        "redis": {
+          "healthy": true,
+          "disabled": true,
+          "latency_ms": 0.0
+        },
+        "sec_edgar_circuit": {
+          "state": "closed",
+          "healthy": true,
+          "stats": {
+            "total_requests": 0,
+            "success_rate": 0,
+            "rejected_requests": 0
+          }
+        }
+      },
+      "timestamp": 1790546874.9312131
+    },
+    "verified_after_deploy": true
+  },
+  "raw_retention_hashes": {
+    "comments.json": {
+      "bytes": 16581,
+      "sha256": "56e6d9491168fbe4c331336a76094b2abd809ddf622e5428799714e92775c061"
+    },
+    "deploy.log": {
+      "bytes": 221920,
+      "sha256": "199f90e670ebcf7418403ea06f1f50882e5b2e74fa9376689cb03e19d2b5da94"
+    },
+    "earningsnerd-backfill-facts-private.json": {
+      "bytes": 4517,
+      "sha256": "9331b402f2a0440c1ccc4c2c9a9fc986e789397a57e6f9c197f8c93486012ec1"
+    },
+    "earningsnerd-earnings-calendar-refresh-private.json": {
+      "bytes": 5120,
+      "sha256": "48b62daced2d9d0251ddb222335556c59abb2060dbf1626b9e6e425ceb0dddd5"
+    },
+    "earningsnerd-earnings-day-alerts-private.json": {
+      "bytes": 5132,
+      "sha256": "eb40d16f0608d4c49a14f7d234e399cd96cdb1527222c4219c8304dafd5d388e"
+    },
+    "earningsnerd-filing-digest-private.json": {
+      "bytes": 4936,
+      "sha256": "25610d32b17bda6be1f54f92727e8d7c617bddf05f5afa3e4abea7e2b14b6e8a"
+    },
+    "earningsnerd-filing-scan-private.json": {
+      "bytes": 4901,
+      "sha256": "0166b8d9b90c9eac9f6b40750ebca4a61136e8f314529278a565cf84c789fadd"
+    },
+    "earningsnerd-notable-filings-private.json": {
+      "bytes": 3717,
+      "sha256": "906e3713f2dd2d141975bb735e356f0fbf373737cae9cdefa4791d18216b4d91"
+    },
+    "earningsnerd-pregenerate-private.json": {
+      "bytes": 6018,
+      "sha256": "6411d25c1f72fc9b27a4266c073d4621e17ca223213c529e93b2fec376e8ece1"
+    },
+    "earningsnerd-retention-purge-private.json": {
+      "bytes": 4927,
+      "sha256": "f1c4a0f241c1672f332007e39bf1ebd6960a9f42ce9d3f22d844b515fcae8b96"
+    },
+    "health.json": {
+      "bytes": 439,
+      "sha256": "86a08928bb658ffdc1c83523212361bdb174fb3e37efa53c425a1fca1818cd30"
+    },
+    "inline.json": {
+      "bytes": 2,
+      "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+    },
+    "pr-before-merge.json": {
+      "bytes": 7110,
+      "sha256": "1e0d5f40b2f119d6f3e90e6b758b8d6003e0ef17c7940b2e31ae3896ea7c392e"
+    },
+    "pr-merged.json": {
+      "bytes": 174,
+      "sha256": "64472ac539239dc5f92af8b7d903f31bb2d63694c89710e742ca91c92452ae69"
+    },
+    "pr.json": {
+      "bytes": 174,
+      "sha256": "64472ac539239dc5f92af8b7d903f31bb2d63694c89710e742ca91c92452ae69"
+    },
+    "reviews.json": {
+      "bytes": 2,
+      "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+    },
+    "run.json": {
+      "bytes": 15663,
+      "sha256": "272a01e82a03802210e77c0106cbbc6fb0fb871b9152ef94835f454ba34175ec"
+    },
+    "service-private.json": {
+      "bytes": 13965,
+      "sha256": "67612c72fcba79253358c4d48ad8817c7554407bb71a3c8e46ee737d60b42d16"
+    }
+  }
+}

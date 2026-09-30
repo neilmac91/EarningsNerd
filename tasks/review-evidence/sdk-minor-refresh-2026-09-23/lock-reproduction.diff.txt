@@ -1,0 +1,19 @@
+# pip-compile 7.5.3 / pip 25.3, Python 3.11.15
+## Seeded with main's lock + exact new direct pins (openai==3.16.2, posthog==7.58.0): main lock vs result
+5c5
+< #    pip-compile --output-file=requirements.txt --strip-extras requirements.in
+---
+> #    pip-compile --no-index --output-file=requirements.txt --strip-extras requirements.in
+123c123
+< openai==3.15.0
+---
+> openai==3.16.2
+141c141
+< posthog==7.56.0
+---
+> posthog==7.58.0
+## Seeded with the committed candidate lock: committed vs result
+5c5
+< #    pip-compile --output-file=requirements.txt --strip-extras requirements.in
+---
+> #    pip-compile --no-index --output-file=requirements.txt --strip-extras requirements.in

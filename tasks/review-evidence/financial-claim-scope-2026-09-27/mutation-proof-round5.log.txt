@@ -1,0 +1,21 @@
+== committed HEAD: acee6d9ce238a2fbdd1246dc153250bad3275ae5 (author metadata reset after the proof; tree identical) ==
+fault applied: the authored label no longer has to match the fact's row label
+== gate under fault ==
+E       AssertionError: assert ['Debt: $3,237 million.'] == ['Debt: $3,237.']
+E         
+E         At index 0 diff: 'Debt: $3,237 million.' != 'Debt: $3,237.'
+E         Use -v to get more diff
+E       AssertionError: assert ('million', 'declared') == (None, 'no_matching_row')
+E         
+E         At index 0 diff: 'million' != None
+E         Use -v to get more diff
+FAILED tests/unit/test_table_cell_units.py::test_bare_figures_the_source_does_not_own_stay_as_written[$3,237-no_matching_row-<html><body><div style="display:none"><ix:header><ix:nonNumeric contextRef="c-dei" name="dei:DocumentPeriodEndDate"
+FAILED tests/unit/test_table_cell_units.py::test_bare_figures_the_source_does_not_own_stay_as_written[$3,237-no_matching_row-<html><body><div style="display:none"><ix:header><ix:nonNumeric contextRef="c-dei" name="dei:DocumentPeriodEndDate"
+FAILED tests/unit/test_table_cell_units.py::test_bare_figures_the_source_does_not_own_stay_as_written[$3,237-no_matching_row-<html><body><div style="display:none"><ix:header><ix:nonNumeric contextRef="c-dei" name="dei:DocumentPeriodEndDate"
+FAILED tests/unit/test_table_cell_units.py::test_bare_figures_the_source_does_not_own_stay_as_written[$3,237-no_matching_row-<html><body><div style="display:none"><ix:header><ix:nonNumeric contextRef="c-dei" name="dei:DocumentPeriodEndDate"
+FAILED tests/unit/test_table_cell_units.py::test_the_source_document_is_parsed_once_and_only_on_demand
+5 failed, 38 passed in 3.95s
+fault_exit=1
+== restored: clean ==
+43 passed in 3.87s
+restored_exit=0

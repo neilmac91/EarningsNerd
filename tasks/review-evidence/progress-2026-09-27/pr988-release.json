@@ -1,0 +1,123 @@
+{
+  "schema_version": 1,
+  "status": "verified_healthy",
+  "verified_at": "2026-09-27T22:39:46.453298+00:00",
+  "merge": {
+    "pr": 988,
+    "sha": "9e0cc1342d18dfd0d8adaa7c236d8aff659b6084",
+    "merged_at": "2026-09-27T22:32:15Z"
+  },
+  "workflow": {
+    "id": 36355627124,
+    "url": "https://github.com/neilmac91/EarningsNerd/actions/runs/36355627124",
+    "conclusion": "success"
+  },
+  "deployment": {
+    "job_id": 108723188407,
+    "revision": "earningsnerd-backend-00406-9nz",
+    "traffic_percent": 100,
+    "migrations": {
+      "applied": 0,
+      "skipped": 40
+    },
+    "release_environment_matches_merge": true
+  },
+  "connection_pool_recipe": {
+    "api_pool_size": 4,
+    "api_overflow": 0,
+    "revision_max_instances": 2,
+    "service_max_instances": 2,
+    "service_max_changed_by_this_release": false,
+    "pregenerate_pool_size": 3,
+    "other_job_pool_size": 1,
+    "all_eight_jobs_match_release_image": true,
+    "all_job_task_counts": 1,
+    "limits": [
+      "Configured pool sizes are per process. This does not prove a fleet-wide hard cap or eliminate rolling-revision overlap.",
+      "Service-level maximum is independently read back; any operator change is recorded in its separate receipt."
+    ]
+  },
+  "independent_public_health": {
+    "url": "https://api.earningsnerd.io/health/detailed",
+    "http_status": 200,
+    "body": {
+      "status": "healthy",
+      "checks": {
+        "database": {
+          "healthy": true,
+          "latency_ms": 6.11
+        },
+        "redis": {
+          "healthy": true,
+          "disabled": true,
+          "latency_ms": 0.0
+        },
+        "sec_edgar_circuit": {
+          "state": "closed",
+          "healthy": true,
+          "stats": {
+            "total_requests": 0,
+            "success_rate": 0,
+            "rejected_requests": 0
+          }
+        }
+      },
+      "timestamp": 1790548786.3733015
+    },
+    "verified_after_deploy": true
+  },
+  "raw_retention_hashes": {
+    "deploy.log": {
+      "bytes": 221554,
+      "sha256": "ce6b418372235dd3ad5bd32dd09641ea5ed66640b3ac6371997bcc0b9fab5102"
+    },
+    "earningsnerd-backfill-facts-private.json": {
+      "bytes": 4517,
+      "sha256": "376aa1fb8da41aff2e35a47fd21c521fd974f1260a67620339e4462e458a24b5"
+    },
+    "earningsnerd-earnings-calendar-refresh-private.json": {
+      "bytes": 5120,
+      "sha256": "57e222f2e5aa7da0f2d805a68816dec99c26b81440e220af0e3c6aa6fcc248c5"
+    },
+    "earningsnerd-earnings-day-alerts-private.json": {
+      "bytes": 5132,
+      "sha256": "cd47ab66b9a2162aa9c24c1a791a7668b99916bdda01331b9232b87b5e4b606f"
+    },
+    "earningsnerd-filing-digest-private.json": {
+      "bytes": 4936,
+      "sha256": "ffa76431038f2392c47dd247da09e62ccc7cdc1058e240a3367fbaf6bcb23232"
+    },
+    "earningsnerd-filing-scan-private.json": {
+      "bytes": 4901,
+      "sha256": "2201a266f1050fafb6513bdd363af91e052b5cdc742b2d7374c94276a6135b3b"
+    },
+    "earningsnerd-notable-filings-private.json": {
+      "bytes": 3717,
+      "sha256": "0281d5a33135100e95c4fd4a5b3694d7789bffbd9b3f096e27dd8954b28ec312"
+    },
+    "earningsnerd-pregenerate-private.json": {
+      "bytes": 6018,
+      "sha256": "017a0f44244d922863662b48dbbdc75164d50edb6bf29aca136eb7bf718f4ff5"
+    },
+    "earningsnerd-retention-purge-private.json": {
+      "bytes": 4927,
+      "sha256": "ef306d69d5ae5c6549a0facb6f1ce67f3509a27a2a43b3c8d0cfb9b05159f906"
+    },
+    "health.json": {
+      "bytes": 439,
+      "sha256": "7e6a524e2ecdb85ad6f68134198383885e0f6d13d628e94be66825c258fee44e"
+    },
+    "pr.json": {
+      "bytes": 174,
+      "sha256": "d4092e037e953cbfe60dc664d99e2af6a4088aab160a9e1dfcb34bf4ef9096f7"
+    },
+    "run.json": {
+      "bytes": 15663,
+      "sha256": "320fb9d1d1ab40fd87274b096275a0ad8dfdbfaf102d69c7be37a079ef0af399"
+    },
+    "service-private.json": {
+      "bytes": 13965,
+      "sha256": "4cceacde6271a0bbe85b694767bfb7206cef7e69690431ba51075e9bd68ca76c"
+    }
+  }
+}

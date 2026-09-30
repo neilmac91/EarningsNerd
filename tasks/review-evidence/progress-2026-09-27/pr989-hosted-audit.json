@@ -1,0 +1,225 @@
+{
+  "ci": {
+    "harness_differences_from_p": {},
+    "identity_coverage": {
+      "duplicates": 0,
+      "exact_set_match": true,
+      "expected_slots": 70,
+      "identity_fields": [
+        "ticker",
+        "filing_type",
+        "run"
+      ],
+      "missing": [],
+      "observed_slots": 70,
+      "observed_unique_slots": 70,
+      "unexpected": []
+    },
+    "observed": {
+      "citation_violations": 10,
+      "hard_gate_failures": 0,
+      "judge_results": 0,
+      "output_errors": 0,
+      "preview_truncations": 0,
+      "retried_outputs": 0,
+      "untraceable_dollar_figures": 168
+    },
+    "report": {
+      "path": "outputs/takeover-2026-09-27/source-capacity/coverage-pool-fix/hosted/ci-36350434715/eval_20260927T211612Z.json",
+      "sha256": "dbdafb54edee4345110d0875925223fe86fa3f90091fcf8249b7733e5372ec9b"
+    },
+    "summary": {
+      "actual_models": [
+        "deepseek-flash"
+      ],
+      "aggregate_stdev": 0.0,
+      "errors": 0,
+      "figure_trace_errors": 0,
+      "figure_trace_measured": 70,
+      "figure_trace_unavailable": 0,
+      "gate_fail_rate": 0.0,
+      "incurred_provider_usage": {
+        "actual_models": [
+          "deepseek-flash"
+        ],
+        "cache_hit_tokens": 2741494,
+        "cache_miss_tokens": 14076,
+        "calls": 70,
+        "completion_tokens": 280116,
+        "operations": {
+          "summary_primary": 70
+        },
+        "prompt_tokens": 2755570,
+        "reasoning_tokens": null,
+        "unknown_calls": 0
+      },
+      "incurred_usage_attempts": 70,
+      "judge_pass_rate": null,
+      "mean_aggregate": 1.0,
+      "mean_citation_checked": 7.2,
+      "mean_citation_fidelity": 0.9816,
+      "mean_completion_tokens": 4001.7,
+      "mean_coverage": 1.0,
+      "mean_currency_consistency": 0.9998,
+      "mean_delta_consistency": 1.0,
+      "mean_financial_depth": 0.8095,
+      "mean_forward_quote_fidelity": 1.0,
+      "mean_latency_seconds": 13.152,
+      "mean_numeric_accuracy": 1.0,
+      "mean_numeric_precision": 1.0,
+      "mean_prompt_tokens": 39365.3,
+      "mean_redundancy": 0.9248,
+      "mean_specificity": 0.9957,
+      "mean_untraceable_dollar_figures": 2.4,
+      "n": 70,
+      "pass_rate": 1.0,
+      "provider_calls": 70,
+      "repaired_rate": 0.0,
+      "retried": 0,
+      "schema_valid_rate": 1.0,
+      "scored": 70,
+      "total_cache_hit_tokens": 2741494,
+      "total_cache_miss_tokens": 14076,
+      "total_completion_tokens": 280116,
+      "total_cost_usd": 0.0,
+      "total_prompt_tokens": 2755570,
+      "usage_attempts": 70
+    },
+    "telemetry": {
+      "actual_models": {
+        "deepseek-flash": 70
+      },
+      "billed_cost_usd": null,
+      "estimated_cost_unknown_calls": 0,
+      "estimated_cost_usd_known": 0.178406,
+      "known_usage": {
+        "cache_hit_tokens": 2741494,
+        "cache_miss_tokens": 14076,
+        "completion_tokens": 280116,
+        "prompt_tokens": 2755570,
+        "reasoning_tokens": 0,
+        "total_tokens": 3035686
+      },
+      "operations": {
+        "summary_primary": 70
+      },
+      "outcomes": {
+        "success": 70
+      },
+      "provider_attempts": 70,
+      "system_fingerprints": {
+        "aeb56401ca74e127821c4f9126dcb669": 70
+      },
+      "unknown_usage_calls": {
+        "cache_hit_tokens": 0,
+        "cache_miss_tokens": 0,
+        "completion_tokens": 0,
+        "prompt_tokens": 0,
+        "reasoning_tokens": 70,
+        "total_tokens": 0
+      }
+    }
+  },
+  "copilot": {
+    "identity_coverage": {
+      "duplicates": 0,
+      "exact_set_match": true,
+      "expected_slots": 18,
+      "identity_fields": [
+        "ticker",
+        "accession_number",
+        "question_id",
+        "run_index"
+      ],
+      "missing": [],
+      "observed_slots": 18,
+      "observed_unique_slots": 18,
+      "unexpected": []
+    },
+    "observed": {
+      "hard_gate_failures": 0,
+      "invalid_provenance": 0,
+      "output_errors": 0,
+      "uncited_figures": 5,
+      "unverified_excerpts": 0
+    },
+    "report": {
+      "path": "outputs/takeover-2026-09-27/source-capacity/coverage-pool-fix/hosted/copilot-36350465732/copilot-eval.json",
+      "sha256": "f67bc1b7105f0cb9510b6841c5d9e773d9174df273c6de20d114d1b69729a3c1"
+    },
+    "source_preparation": {
+      "artifact_checks": 24,
+      "artifact_mismatches": [],
+      "database_sha256": "b74aa37d7c3e0e66f11b59e514b1db054e6a0b2549c4e27e374b0d586b994ef7",
+      "errors": [],
+      "manifest_sha256": "8960e1bbeaa95680cafa46762134a6bb573a8bd265992204a6c9e82fc7c52a16",
+      "sources": 6,
+      "status": "complete"
+    },
+    "summary": {
+      "completed": 18,
+      "errors": 0,
+      "expected": 18,
+      "pass_rate": 1.0,
+      "passed": 18,
+      "scored": 18
+    },
+    "telemetry": {
+      "actual_models": {
+        "deepseek-flash": 35
+      },
+      "billed_cost_usd": null,
+      "estimated_cost_unknown_calls": 0,
+      "estimated_cost_usd_known": 0.007609,
+      "known_usage": {
+        "cache_hit_tokens": 1091072,
+        "cache_miss_tokens": 6895,
+        "completion_tokens": 5500,
+        "prompt_tokens": 1097967,
+        "reasoning_tokens": 0,
+        "total_tokens": 1103467
+      },
+      "operations": {
+        "copilot_chat": 35
+      },
+      "outcomes": {
+        "success": 35
+      },
+      "provider_attempts": 35,
+      "system_fingerprints": {
+        "aeb56401ca74e127821c4f9126dcb669": 35
+      },
+      "unknown_usage_calls": {
+        "cache_hit_tokens": 0,
+        "cache_miss_tokens": 0,
+        "completion_tokens": 0,
+        "prompt_tokens": 0,
+        "reasoning_tokens": 35,
+        "total_tokens": 0
+      }
+    }
+  },
+  "errors": [],
+  "expected_head": "9ec24668c06a3f84e24c9565aa3be6e281767ef4",
+  "limits": [
+    "This accounts for hosted identities, errors, retries, model telemetry, cost estimates, source artifact custody, and source/head stamps.",
+    "It does not compare candidate output/source bytes with retained p and does not establish Fable quality or adoption.",
+    "Known cost is application telemetry, not a provider invoice; calls with missing cost remain explicit."
+  ],
+  "report_source_sha": "8287369c627b297078be7890a7ecb458bf506c2c",
+  "schema_version": 1,
+  "status": "clear",
+  "synthetic_merge": {
+    "head_parent_present": true,
+    "head_tree": "7562cfd5d74e1153832644fde80457e47a1a2113",
+    "parents": [
+      "3178b1b91d3a83a0da3496c764c701abb91ab6cd",
+      "9ec24668c06a3f84e24c9565aa3be6e281767ef4"
+    ],
+    "sha": "8287369c627b297078be7890a7ecb458bf506c2c",
+    "source_sha_matches": true,
+    "tree": "7562cfd5d74e1153832644fde80457e47a1a2113",
+    "tree_matches_head": true
+  },
+  "warnings": []
+}

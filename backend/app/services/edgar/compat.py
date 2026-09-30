@@ -9,21 +9,26 @@ Usage:
     from app.services.edgar.compat import xbrl_service, sec_edgar_service
 """
 
-import logging
 import hashlib
+import logging
 from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional
+from urllib.parse import quote
 
 import httpx
 
 from .client import edgar_client
 from .xbrl_service import edgar_xbrl_service, clear_xbrl_cache, get_xbrl_cache_stats
-from .exceptions import EdgarError
+from .exceptions import EdgarError, EdgarNetworkError, EdgarRateLimitError, EdgarTimeoutError
 from .config import FilingType, EDGAR_IDENTITY
 from .circuit_breaker import edgar_circuit_breaker, CircuitOpenError
 from app.services.sec_rate_limiter import sec_rate_limiter
+from app.utils.sec_urls import build_sec_archive_url, normalize_accession, normalize_cik
 
 logger = logging.getLogger(__name__)
+
+MAX_SEC_ATTACHMENT_BYTES = 32 * 1024 * 1024
+SEC_ATTACHMENT_CHUNK_BYTES = 64 * 1024
 
 
 def _decoded_source_provenance(
@@ -39,6 +44,44 @@ def _decoded_source_provenance(
         "final_url": final_url,
         "content_type": content_type,
     }
+
+
+def _filing_attachment_url(cik: str, accession_number: str, filename: str) -> str:
+    """Build one exact same-filing attachment URL from a safe leaf filename."""
+    if not isinstance(filename, str) or not filename:
+        raise ValueError("SEC attachment filename must be a non-empty string")
+    if (
+        filename in {".", ".."}
+        or len(filename.encode("utf-8")) > 255
+        or any(character in "/\\?#" or ord(character) < 32 or ord(character) == 127 for character in filename)
+    ):
+        raise ValueError("SEC attachment filename must be a single safe path segment")
+    return build_sec_archive_url(cik, accession_number) + quote(filename, safe="-._~")
+
+
+async def _bounded_identity_response_content(response: httpx.Response) -> bytes:
+    """Read an identity-encoded HTTP entity while bounding declared and actual size."""
+    content_encoding = response.headers.get("content-encoding")
+    if content_encoding is not None and content_encoding.strip().lower() != "identity":
+        raise ValueError("SEC attachment returned a non-identity Content-Encoding")
+
+    declared_length = response.headers.get("content-length")
+    if declared_length is not None:
+        if not declared_length.isdigit():
+            raise ValueError("SEC attachment returned an invalid Content-Length")
+        if int(declared_length) > MAX_SEC_ATTACHMENT_BYTES:
+            raise ValueError(
+                f"SEC attachment exceeds the {MAX_SEC_ATTACHMENT_BYTES}-byte entity limit"
+            )
+
+    content = bytearray()
+    async for chunk in response.aiter_raw(chunk_size=SEC_ATTACHMENT_CHUNK_BYTES):
+        if len(content) + len(chunk) > MAX_SEC_ATTACHMENT_BYTES:
+            raise ValueError(
+                f"SEC attachment exceeds the {MAX_SEC_ATTACHMENT_BYTES}-byte entity limit"
+            )
+        content.extend(chunk)
+    return bytes(content)
 
 
 class SECEdgarServiceCompat:
@@ -311,6 +354,106 @@ class SECEdgarServiceCompat:
         """Return the unchanged decoded response text through the existing transport."""
         text, _, _ = await self._fetch_filing_document(document_url, timeout, max_retries)
         return text
+
+    async def get_filing_attachment_bytes(
+        self,
+        cik: str,
+        accession_number: str,
+        filename: str,
+        timeout: Optional[float] = None,
+        max_retries: int = 1,
+    ) -> tuple[bytes, Dict[str, Any]]:
+        """Fetch one same-filing attachment as bounded identity entity bytes.
+
+        The returned bytes are the HTTP entity bytes after transfer framing. The
+        request requires identity content encoding and rejects any compressed
+        response before reading its body. Redirects fail; callers cannot use this
+        method to leave the requested filing directory.
+        """
+        if type(max_retries) is not int or max_retries < 1:
+            raise ValueError("max_retries must be a positive integer")
+
+        requested_url = _filing_attachment_url(cik, accession_number, filename)
+        timeout = timeout or 60.0
+        import asyncio as aio
+
+        physical_attempts = 0
+        try:
+            async with edgar_circuit_breaker:
+                async with httpx.AsyncClient() as client:
+                    async def _do_get() -> tuple[bytes, Dict[str, Any]]:
+                        nonlocal physical_attempts
+                        physical_attempts += 1
+                        async with client.stream(
+                            "GET",
+                            requested_url,
+                            headers={
+                                "User-Agent": EDGAR_IDENTITY,
+                                "Accept-Encoding": "identity",
+                            },
+                            timeout=timeout,
+                            follow_redirects=False,
+                        ) as response:
+                            response.raise_for_status()
+                            if response.url != httpx.URL(requested_url):
+                                raise ValueError("SEC attachment response left the requested filing URL")
+                            content = await _bounded_identity_response_content(response)
+                            source = {
+                                "schema_version": 1,
+                                "representation": "httpx_identity_entity_bytes",
+                                "sha256": hashlib.sha256(content).hexdigest(),
+                                "bytes": len(content),
+                                "cik": normalize_cik(cik),
+                                "accession_number": normalize_accession(accession_number),
+                                "filename": filename,
+                                "requested_url": requested_url,
+                                "final_url": str(response.url),
+                                "status_code": response.status_code,
+                                "content_type": response.headers.get("content-type"),
+                                "content_encoding": response.headers.get("content-encoding"),
+                                "content_length": response.headers.get("content-length"),
+                                "etag": response.headers.get("etag"),
+                                "last_modified": response.headers.get("last-modified"),
+                                "physical_attempts": physical_attempts,
+                            }
+                            return content, source
+
+                    for attempt in range(max_retries):
+                        try:
+                            return await sec_rate_limiter.execute(_do_get)
+                        except Exception as exc:
+                            if attempt == max_retries - 1:
+                                # The shared breaker counts Edgar network errors, not HTTPX's
+                                # hierarchy. Translate before leaving its context, after the
+                                # caller-owned retry budget is exhausted.
+                                if isinstance(exc, httpx.TimeoutException):
+                                    raise EdgarTimeoutError(
+                                        timeout_seconds=timeout, cause=exc,
+                                    ) from exc
+                                if isinstance(exc, httpx.RequestError):
+                                    raise EdgarNetworkError(
+                                        "SEC attachment transport failed", cause=exc,
+                                    ) from exc
+                                if isinstance(exc, httpx.HTTPStatusError):
+                                    if exc.response.status_code == 429:
+                                        raise EdgarRateLimitError(cause=exc) from exc
+                                    if exc.response.status_code >= 500:
+                                        raise EdgarNetworkError(
+                                            "SEC attachment server failed", cause=exc,
+                                        ) from exc
+                                raise
+                            await aio.sleep(2 ** attempt)
+        except CircuitOpenError as exc:
+            raise EdgarError(f"SEC EDGAR circuit breaker is open: {exc}", cause=exc)
+        except Exception as exc:
+            raise EdgarError(
+                f"Failed to fetch SEC attachment: {exc}",
+                cause=exc,
+                context={
+                    "requested_url": requested_url,
+                    "physical_attempts": physical_attempts,
+                },
+            )
 
     async def get_filing_document_with_source(
         self,

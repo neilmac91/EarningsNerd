@@ -4,6 +4,7 @@ Pure pieces (period keys, growth/CAGR math, inflection detectors, prompt renderi
 without a DB; dataset assembly and coverage run against seeded ``financial_fact`` rows.
 """
 
+import math
 import uuid
 from datetime import date
 from types import SimpleNamespace
@@ -94,7 +95,30 @@ class TestInflectionDetectors:
         flags = svc.detect_growth_deceleration(ds)
         assert len(flags) == 1
         assert flags[0]["kind"] == "growth_deceleration"
-        assert flags[0]["markers"] == ["F2", "F3", "F4"]
+        # Every displayed YoY has both its current and prior-year source operand.
+        assert flags[0]["markers"] == ["F2", "F1", "F3", "F4"]
+        assert "three most recent measurable observations" in flags[0]["detail"]
+        assert "straight periods" not in flags[0]["detail"]
+
+        close = _dataset([{
+            "concept": "revenue", "unit": "USD", "percent": False,
+            "points": [
+                _point("FY2021", 100, "F1"),
+                _point("FY2022", 110, "F2", yoy=0.1004),
+                _point("FY2023", 120, "F3", yoy=0.1003),
+                _point("FY2024", 130, "F4", yoy=0.1002),
+            ],
+        }])
+        assert "+10.04% → +10.03% → +10.02%" in svc.detect_growth_deceleration(close)[0]["detail"]
+
+        close["series"][0]["points"][1]["yoy"] = 0.1
+        close["series"][0]["points"][2]["yoy"] = math.nextafter(0.1, 0.0)
+        close["series"][0]["points"][3]["yoy"] = math.nextafter(
+            close["series"][0]["points"][2]["yoy"], 0.0
+        )
+        adjacent = svc.detect_growth_deceleration(close)[0]["detail"]
+        assert "+10.0000%, +10.0000%, +10.0000%" in adjacent
+        assert "effectively equal where values match at four-decimal precision" in adjacent
 
     def test_growth_deceleration_quiet_when_growth_reaccelerates(self):
         ds = _dataset([{
@@ -115,6 +139,14 @@ class TestInflectionDetectors:
         ]}])
         assert svc.detect_margin_compression(compressed)[0]["kind"] == "margin_compression"
 
+        compressed["series"][0]["points"] = [
+            _point("FY2022", 30.00004, "F1"), _point("FY2023", 30.00003, "F2"),
+            _point("FY2024", 28.00002, "F3"),
+        ]
+        close_detail = svc.detect_margin_compression(compressed)[0]["detail"]
+        assert "30.0000%, 30.0000%, 28.0000%" in close_detail
+        assert "effectively equal where values match at four-decimal precision" in close_detail
+
         shallow = _dataset([{**base, "points": [
             _point("FY2022", 30.0, "F1"), _point("FY2023", 29.5, "F2"),
             _point("FY2024", 29.0, "F3"),
@@ -134,7 +166,7 @@ class TestInflectionDetectors:
         ])
         flags = svc.detect_fcf_ni_divergence(ds)
         assert len(flags) == 1
-        assert set(flags[0]["markers"]) == {"F8", "F4"}
+        assert set(flags[0]["markers"]) == {f"F{i}" for i in range(1, 9)}
 
     def test_debt_build_and_liquidity(self):
         ds = _dataset([
@@ -149,6 +181,269 @@ class TestInflectionDetectors:
         liquidity = svc.detect_liquidity_squeeze(ds)
         assert liquidity[0]["kind"] == "liquidity_squeeze"
         assert "below 1.0" in liquidity[0]["detail"]
+
+        ds["series"][1]["points"][-1]["value"] = 0.99999
+        liquidity = svc.detect_liquidity_squeeze(ds)
+        assert "below 1.0 (0.99999x in FY2024)" in liquidity[0]["detail"]
+
+
+def _observation_series(concept, label, points, *, unit="USD", percent=False):
+    return {
+        "concept": concept, "label": label, "unit": unit, "percent": percent,
+        "points": points, "cagr": None,
+    }
+
+
+class TestCodeOwnedObservations:
+    """One representation gate for the retained relation, period, absence and selection defects."""
+
+    def _dataset(self, *, ratio=1.003294804655586):
+        periods = ["2026Q1", "2026Q2"]
+        marker = iter(f"F{i}" for i in range(1, 40))
+
+        def points(values, yoys=(None, None)):
+            return [
+                {"period": period, "value": value, "marker": next(marker), "yoy": yoy,
+                 "unit": "USD", "period_end": f"2026-0{3 + index * 3}-30",
+                 "raw_tag": "test", "derived": False, "reconciled": True}
+                for index, (period, value, yoy) in enumerate(zip(periods, values, yoys))
+            ]
+
+        return {
+            "ticker": "TST", "company_name": "Test Co", "mode": "quarterly",
+            "period_key": "2026Q1..2026Q2",
+            "periods": [{"key": period} for period in periods],
+            "series": [
+                _observation_series("net_interest_income", "Net interest income",
+                                    points((10.0, 11.0), (0.176, 0.301))),
+                _observation_series("noninterest_income", "Noninterest income",
+                                    points((7.0, 8.0), (0.10, 0.20))),
+                _observation_series("net_income", "Net income",
+                                    points((20_000_000_000.0, 21_893_000_000.0), (0.271, 0.283))),
+                _observation_series("operating_cash_flow", "Operating cash flow",
+                                    points((25_000_000_000.0, 26_000_000_000.0), (0.20, 0.315))),
+                _observation_series("free_cash_flow", "Free cash flow",
+                                    points((16_000_000_000.0, 14_923_000_000.0), (0.10, -0.067))),
+                _observation_series("shareholders_equity", "Shareholders' equity",
+                                    points((90.0, 100.0))),
+                _observation_series("earnings_per_share", "EPS (basic)",
+                                    points((6.4, 7.7)), unit="USD/shares"),
+                _observation_series("current_ratio", "Current ratio",
+                                    points((1.1, ratio)), unit="pure"),
+            ],
+            "inflections": [{
+                "kind": "test_signal", "detail": "A fixed signal uses both periods.",
+                "markers": ["F1", "F2"],
+            }],
+        }
+
+    def test_retained_false_relations_and_absence_cannot_be_rendered(self):
+        dataset = self._dataset()
+        catalogue = svc.build_observation_catalogue(dataset)
+        text = "\n".join(item.markdown for item in catalogue)
+
+        assert "free cash flow of USD 14,923,000,000" in text
+        assert "was below net income of USD 21,893,000,000" in text
+        assert "net income growth of +27.1%" in text and "above net interest income growth of +17.6%" in text
+        assert "net income growth of +28.3%" in text and "below net interest income growth of +30.1%" in text
+
+        cash = next(s for s in dataset["series"] if s["concept"] == "free_cash_flow")
+        income = next(s for s in dataset["series"] if s["concept"] == "net_income")
+        cash["points"][-1]["value"] = 20_000_000_000.4
+        income["points"][-1]["value"] = 20_000_000_000.3
+        rounded_level = next(
+            item.markdown for item in svc.build_observation_catalogue(dataset)
+            if item.id.startswith("cash_balance_sheet.level-comparison.free-cash-flow")
+        )
+        assert "USD 20,000,000,000" in rounded_level
+        assert "was effectively equal to net income" in rounded_level
+
+        googl = self._dataset()
+        next(s for s in googl["series"] if s["concept"] == "net_income")["points"][-1]["yoy"] = 0.32
+        googl_text = "\n".join(item.markdown for item in svc.build_observation_catalogue(googl))
+        assert "operating cash flow growth of +31.5%" in googl_text
+        assert "was below net income growth of +32.0%" in googl_text
+
+        equity = next(item for item in catalogue if "Shareholders' equity was USD 100" in item.markdown)
+        assert "2026Q2" in equity.markdown and "[F12]" in equity.markdown
+        assert not any(
+            item.id.startswith("growth_quality.selected-gap.earnings-per-share")
+            for item in catalogue
+        )
+        eps = next(item for item in catalogue if item.id.startswith("growth_quality.latest-eps"))
+        assert "EPS (basic) was USD 7.70 per share in 2026Q2" in eps.markdown
+        signals = [item for item in catalogue if item.id.startswith("red_flags.signal")]
+        assert len(signals) == 1 and signals[0].required
+        assert "Source operands:" in signals[0].markdown
+        assert "[F1]" in signals[0].markdown and "[F2]" in signals[0].markdown
+        assert "Net interest income USD 10" in signals[0].markdown
+
+    def test_derived_q4_points_are_disclosed_in_code_owned_observations(self):
+        dataset = self._dataset()
+        revenue = next(s for s in dataset["series"] if s["concept"] == "net_interest_income")
+        revenue["points"][-1]["derived"] = True
+        catalogue = svc.build_observation_catalogue(dataset)
+        rendered = "\n".join(item.markdown for item in catalogue)
+        assert "Net interest income was USD 11 in 2026Q2 [F2] (derived Q4)." in rendered
+
+        revenue["points"][-1]["derived"] = False
+        revenue["points"].insert(0, {
+            "period": "2025Q2", "value": 8.0, "marker": "F39", "yoy": None,
+            "unit": "USD", "period_end": "2025-06-30", "raw_tag": "test",
+            "derived": True, "reconciled": True,
+        })
+        rendered = "\n".join(
+            item.markdown for item in svc.build_observation_catalogue(dataset)
+            if "growth in 2026Q2" in item.markdown
+        )
+        assert "(derived Q4)" in rendered
+
+    @pytest.mark.parametrize("ratio,relation,display", [
+        (1.003294804655586, "above 1.00x", "1.0033x"),
+        (0.996, "below 1.00x", "0.9960x"),
+        (1.0, "equal to 1.00x", "1.0000x"),
+        (1.00001, "above 1.00x", "1.00001x"),
+        (0.99999, "below 1.00x", "0.99999x"),
+    ])
+    def test_ratio_direction_uses_raw_value_and_exposes_the_cushion(self, ratio, relation, display):
+        dataset = self._dataset(ratio=ratio)
+        catalogue = svc.build_observation_catalogue(dataset)
+        observation = next(item for item in catalogue if "current ratio was" in item.markdown.lower())
+        assert relation in observation.markdown
+        assert display in observation.markdown
+        _, citations, _, _ = svc.resolve_narrative_citations(
+            observation.markdown, svc.marker_index(dataset)
+        )
+        ratio_citation = next(c for c in citations if c["concept"] == "current_ratio")
+        assert f"Current ratio = {display}" in ratio_citation["excerpt"]
+
+        ratio_point = next(
+            point
+            for series in dataset["series"] if series["concept"] == "current_ratio"
+            for point in series["points"] if point["period"] == "2026Q2"
+        )
+        dataset["inflections"] = [{
+            "kind": "liquidity_squeeze",
+            "detail": f"Current ratio is below 1.0 ({display} in 2026Q2).",
+            "markers": [ratio_point["marker"]],
+        }]
+        signal = next(
+            item for item in svc.build_observation_catalogue(dataset)
+            if item.id.startswith("red_flags.signal")
+        )
+        assert f"Source operands: Current ratio {display} in 2026Q2" in signal.markdown
+
+    def test_growth_relations_require_numeric_same_period_operands(self):
+        dataset = self._dataset()
+        ni = next(s for s in dataset["series"] if s["concept"] == "net_income")
+        nii = next(s for s in dataset["series"] if s["concept"] == "net_interest_income")
+        ni["points"][0]["yoy"], nii["points"][0]["yoy"] = -0.1, -0.2
+        ni["points"][1]["yoy"], nii["points"][1]["yoy"] = 0.0, 0.0
+        catalogue = svc.build_observation_catalogue(dataset)
+        comparisons = "\n".join(
+            item.markdown for item in catalogue if "net income growth" in item.markdown
+            and "net interest income growth" in item.markdown
+        )
+        assert "-10.0%" in comparisons and "above" in comparisons
+        assert "+0.0%" in comparisons and "equal to" in comparisons
+
+        ni["points"][1]["yoy"], nii["points"][1]["yoy"] = 0.1004, 0.1003
+        catalogue = svc.build_observation_catalogue(dataset)
+        close_comparison = next(
+            item.markdown for item in catalogue
+            if "net income growth" in item.markdown
+            and "net interest income growth" in item.markdown
+            and "2026Q2" in item.markdown
+        )
+        assert "+10.04%" in close_comparison
+        assert "above net interest income growth of +10.03%" in close_comparison
+
+        ni["points"][1]["yoy"] = 0.1
+        nii["points"][1]["yoy"] = math.nextafter(0.1, 0.0)
+        catalogue = svc.build_observation_catalogue(dataset)
+        adjacent_comparison = next(
+            item.markdown for item in catalogue
+            if "net income growth" in item.markdown
+            and "net interest income growth" in item.markdown
+            and "2026Q2" in item.markdown
+        )
+        assert "net income growth of +10.0%" in adjacent_comparison
+        assert "effectively equal to net interest income growth of +10.0%" in adjacent_comparison
+
+        ni["points"][0]["yoy"] = svc.NOT_MEANINGFUL
+        nii["points"][1]["yoy"] = None
+        catalogue = svc.build_observation_catalogue(dataset)
+        comparisons = [
+            item for item in catalogue if "net income growth" in item.markdown
+            and "net interest income growth" in item.markdown
+        ]
+        assert comparisons == []
+
+        nii["points"][-1]["yoy"] = svc.NOT_MEANINGFUL
+        catalogue = svc.build_observation_catalogue(dataset)
+        watch = "\n".join(item.markdown for item in catalogue if item.section == "watch_next")
+        assert "improves from n/m" not in watch
+        assert "compares with USD 11 in 2026Q2" in watch
+
+    def test_core_periods_must_overlap_and_earliest_actual_period_is_named(self):
+        disjoint = {
+            "series": [
+                _observation_series("revenue", "Revenue", [
+                    {"period": "FY2021", "value": 1}, {"period": "FY2022", "value": 2},
+                ]),
+                _observation_series("net_income", "Net income", [
+                    {"period": "FY2023", "value": 3}, {"period": "FY2024", "value": 4},
+                ]),
+            ],
+        }
+        assert svc._has_minimum_analysis_data(disjoint) is False
+
+        dataset = self._dataset()
+        top = next(s for s in dataset["series"] if s["concept"] == "net_interest_income")
+        top["points"].insert(0, {
+            "period": "2025Q4", "value": None, "marker": None, "yoy": None,
+            "unit": "USD", "period_end": "2025-12-31", "raw_tag": "test",
+            "derived": False, "reconciled": True,
+        })
+        dataset["periods"].insert(0, {"key": "2025Q4"})
+        text = "\n".join(item.markdown for item in svc.build_observation_catalogue(dataset))
+        assert "earliest available net interest income observation was USD 10 in 2026Q1" in text
+        assert "start of the selected window" not in text
+
+    def test_selection_rejects_replacement_text_wrong_section_and_unknown_ids(self):
+        catalogue = svc.build_observation_catalogue(self._dataset())
+        valid = {key: [] for key, _ in svc.ANALYSIS_SECTIONS}
+        older = next(
+            item for item in catalogue
+            if item.section == "growth_quality" and "2026Q1" in item.markdown
+        )
+        valid["growth_quality"] = [older.id]
+        parsed = svc.parse_observation_selection(__import__("json").dumps(valid), catalogue)
+        assert parsed is not None
+        rendered = svc.render_observation_selection(catalogue, parsed)
+        assert older.markdown in rendered and "2026Q1" in rendered
+
+        wrong_section = {**valid, "growth_quality": [], "trajectory": [older.id]}
+        assert svc.parse_observation_selection(__import__("json").dumps(wrong_section), catalogue) is None
+        replacement = {**valid, "text": "Net income caused cash flow."}
+        assert svc.parse_observation_selection(__import__("json").dumps(replacement), catalogue) is None
+        unknown = {**valid, "growth_quality": ["growth_quality.claim.replacement"]}
+        assert svc.parse_observation_selection(__import__("json").dumps(unknown), catalogue) is None
+
+    def test_empty_selection_keeps_available_bank_evidence_and_plainly_labels_true_gaps(self):
+        dataset = self._dataset()
+        dataset["series"] = [
+            series for series in dataset["series"]
+            if series["concept"] not in {"free_cash_flow", "current_ratio"}
+        ]
+        catalogue = svc.build_observation_catalogue(dataset)
+        selection = {key: [] for key, _ in svc.ANALYSIS_SECTIONS}
+        rendered = svc.render_observation_selection(catalogue, selection)
+
+        assert "operating cash flow of USD 26,000,000,000" in rendered
+        assert "Shareholders' equity was USD 100" not in rendered  # one deterministic fallback
+        assert "No bounded observation" not in rendered
+        assert "## Margins\nNot enough data is available for this section in the selected periods." in rendered
 
 
 class TestEntitlementGate:

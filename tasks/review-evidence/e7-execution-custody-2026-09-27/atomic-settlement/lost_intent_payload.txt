@@ -1,0 +1,105 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+________ test_identical_files_recover_precommit_settle_and_seal_crashes ________
+
+tmp_path = PosixPath('/private/var/folders/z2/yc82290j1gs2z4djm9thxf980000gp/T/pytest-of-neilmacaogain/pytest-285/test_identical_files_recover_p0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10a4f6cd0>
+
+    def test_identical_files_recover_precommit_settle_and_seal_crashes(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        # A pre-publication crash must not expose a partial immutable record at its final path.
+        atomic_path = tmp_path / "atomic-record.json"
+        with monkeypatch.context() as patch:
+            def interrupt_publication(source: Path, destination: Path) -> None:
+                assert source.read_bytes() == b"complete record"
+                assert not destination.exists()
+                raise RuntimeError("simulated crash before atomic publication")
+    
+            patch.setattr(execution.os, "link", interrupt_publication)
+            with pytest.raises(RuntimeError, match="before atomic publication"):
+                execution._durable_new(atomic_path, b"complete record")
+        assert not atomic_path.exists()
+        execution._durable_new(atomic_path, b"complete record")
+        assert atomic_path.read_bytes() == b"complete record"
+    
+        adverse_root = tmp_path / "intent-recover"
+        _initialize(adverse_root)
+        adverse = _leaf(adverse_root, "l1", "ctx-adverse", UNITS[0]["unit_id"])
+        original = execution._durable_exact
+        intent_interrupted = False
+    
+        def interrupt_after_intent(path: Path, data: bytes) -> None:
+            nonlocal intent_interrupted
+            original(path, data)
+            if path.name == "settlement-intent.json" and not intent_interrupted:
+                intent_interrupted = True
+                raise RuntimeError("simulated crash after settlement intent")
+    
+        monkeypatch.setattr(execution, "_durable_exact", interrupt_after_intent)
+        with pytest.raises(RuntimeError, match="simulated crash"):
+            settle_attempt(
+                adverse_root, reservation_id=adverse["reservation_id"], status="failed",
+                artifact_bytes=b"adverse output survived", receipt={"outcome": "failed"},
+            )
+        monkeypatch.setattr(execution, "_durable_exact", original)
+        intent_path = next((adverse_root / "attempts").iterdir()) / "settlement-intent.json"
+        external_intent = tmp_path / "external-intent.json"
+        external_intent.write_bytes(intent_path.read_bytes())
+        for name, target in (
+            ("external-intent-link", external_intent),
+            ("dangling-external-intent-link", tmp_path / "missing-external-intent.json"),
+        ):
+            escaped = tmp_path / name
+            shutil.copytree(adverse_root, escaped)
+            escaped_intent = next((escaped / "attempts").iterdir()) / "settlement-intent.json"
+            escaped_intent.unlink()
+            escaped_intent.symlink_to(target)
+            with pytest.raises(ValueError, match="journal artifact path escapes its root"):
+                recover_pending_attempt(escaped)
+>       interrupted = recover_pending_attempt(adverse_root)
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/unit/test_acceptance_source_review_execution.py:435: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+evals/acceptance_source_review_execution.py:830: in recover_pending_attempt
+    intent = _pending_settlement_intent(root, binding, row)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+evals/acceptance_source_review_execution.py:715: in _pending_settlement_intent
+    _, intent_receipt = _intent_payloads(intent)
+                        ^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+intent = {'artifact_base64': None, 'artifact_sha256': '79e7b5a8d7bb810c726b3477c3f9f6b28a953edb54d72fc91e53fc261c6819f8', 'kind': 'e7_operator_source_review_settlement_intent', 'receipt': {'outcome': 'failed'}, ...}
+
+    def _intent_payloads(intent: dict[str, Any]) -> tuple[bytes | None, dict[str, Any]]:
+        """Recover complete payloads from the same atomic record that freezes their disposition."""
+        encoded = intent["artifact_base64"]
+        artifact = None
+        if encoded is not None:
+            if type(encoded) is not str:
+                raise ValueError("settlement intent artifact encoding is invalid")
+            try:
+                artifact = base64.b64decode(encoded, validate=True)
+            except (ValueError, binascii.Error) as exc:
+                raise ValueError("settlement intent artifact encoding is invalid") from exc
+            if base64.b64encode(artifact).decode("ascii") != encoded:
+                raise ValueError("settlement intent artifact encoding is not canonical")
+        if (_sha(artifact) if artifact is not None else None) != intent["artifact_sha256"]:
+>           raise ValueError("settlement intent artifact payload differs from its hash")
+E           ValueError: settlement intent artifact payload differs from its hash
+
+evals/acceptance_source_review_execution.py:379: ValueError
+=============================== warnings summary ===============================
+tests/unit/test_acceptance_source_review_execution.py::test_identical_files_recover_precommit_settle_and_seal_crashes
+  /private/tmp/earningsnerd-takeover-20260926/backend/app/config.py:21: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.13/migration/
+    class Settings(BaseSettings):
+
+tests/unit/test_acceptance_source_review_execution.py::test_identical_files_recover_precommit_settle_and_seal_crashes
+  /private/tmp/earningsnerd-takeover-20260926/backend/app/database.py:44: MovedIn20Warning: The ``declarative_base()`` function is now available as sqlalchemy.orm.declarative_base(). (deprecated since: 2.0) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
+    Base = declarative_base()
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED tests/unit/test_acceptance_source_review_execution.py::test_identical_files_recover_precommit_settle_and_seal_crashes
+1 failed, 2 warnings in 5.61s

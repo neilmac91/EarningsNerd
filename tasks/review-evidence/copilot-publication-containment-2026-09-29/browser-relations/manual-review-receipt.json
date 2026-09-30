@@ -1,0 +1,17 @@
+{
+  "recorded_at_utc": "2026-09-29T21:45:20.430641+00:00",
+  "head": "9d60e1e713be454e33e9e3695423cab4bc815d3d",
+  "review_id": 5358855956,
+  "inline_id": 4138623457,
+  "completed_at_utc": "2026-09-29T21:41:59.408946Z",
+  "finding": "P2 browser completion count/source marker relationships not validated",
+  "root_fresh_refutation": "Restated without rationale: external completed payload may publish count and cited rows unrelated to its answer. Actual service resolver retains only cited identities and increments grounded once per verified unique source. Browser independently validates types but no count/cited-marker relationship; rail displays both directly. Current producer consistency does not make arbitrary external network data internally trusted. Finding upheld. Unmatched numeric literal markers remain allowed, so do not require every bracket to have a source.",
+  "status": "draft_held_pending_independent_refutation_and_frontend_correction",
+  "capture_files": {
+    "pr.json": "9c763d11fb692996bf64f961e8ad01c68045a20c602e8317f9b8373913013817",
+    "comments.json": "f23782912e4a2d02ca62895531a669b77857b025b4b666c8ae14d56b07b0214f",
+    "inline.json": "157df75a91d811207cdf3872ab0b99fa945a7afdc26be961636dd4a79478b1a2",
+    "reviews.json": "e55b64becb67c08d5057fbec2710965cfad6af6974501e0e602a7bd45c5d7243"
+  },
+  "paid_evaluation": "Allow currentCI to finish and retain its results; no ready trigger or same-head retry."
+}

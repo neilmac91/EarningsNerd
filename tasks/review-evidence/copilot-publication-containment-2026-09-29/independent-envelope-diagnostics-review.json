@@ -1,0 +1,83 @@
+{
+  "recorded_at_utc": "2026-09-29T20:24:44.802111+00:00",
+  "reviewer": "containment_frontend_restore",
+  "head": "097b2fdbb696d4c5009bcf46b6e9189536cca375",
+  "scope": "Independent static review of exact uncommitted missing-envelope correction, diagnostic retention, fixture and documentation changes; no source edits, tests, provider calls, commits or release actions by reviewer.",
+  "diff_sha256": "63b9c6605183d0b788c47ca67d0b1d26fd8435560a42505d401b8f6adea9ed0b",
+  "file_sha256": {
+    "backend/app/services/copilot_service.py": "5ef52df4c80fe1f9b1218329e331c7ce596c06338e6c2b20f4ec482d80a37aa2",
+    "backend/evals/RUNBOOK.md": "e91bb1343afe3416d37e4af172df9a78a1580fafc05ea2bf30f6eca0368933e6",
+    "backend/evals/copilot_runner.py": "98a69c899c3e75882ea0d4a1c5c2b0aceb4ade789c189cb4f3f8043161295af7",
+    "backend/tests/unit/test_copilot.py": "868c90494c694c5acea835296ccbeb07b06816737c1cc167ccebbd10bf236595",
+    "backend/tests/unit/test_copilot_citation_repair.py": "e1ac1d89c5ac33a86d61c12789aad94a0baab3e512a9a52f6120eb70ae3f1751",
+    "backend/tests/unit/test_copilot_gate.py": "c51ab8d400017913384b82965922aa33ba60ed5ccbefffa17e8c1a6a7f1cf62e",
+    "backend/tests/unit/test_copilot_paired_claims.py": "03ba5c8f5cd4c38ae0f44d8bbf9477f2b5ce555a57d9f80768551c7002077beb",
+    "backend/tests/unit/test_copilot_provenance.py": "1a18e7c4eee47d7a99c53190e8e207f65bcb7f30c60b1caf7d5e5c0b25973c6f",
+    "lessons/arch-admit-copilot-answers-before-publication.md": "2a52d03544b3d2948f22c288481c450963a36409663ac8aaaa4ebcafc55c92e5",
+    "tasks/archive/copilot-publication-containment-2026-09-29.md": "69fc2d9bac21b302df3c4fc700bf7fd534e94570db8013ddcb0acc1a57a750a5"
+  },
+  "verdict": "No blocking or should-fix finding in this exact diff. Full root-owned gates and committed exact-head review/release evidence remain required.",
+  "behavior": [
+    "Service rejects answer-mode EOF/partial sentinel before citation resolution and before completion. Validated not-disclosed returns before the guard; explicit empty citation arrays retain normal uncited completion semantics.",
+    "Missing envelope produces the unchanged generic publication error. Router completion-only metering does not convert the quota reservation; existing shielded release remains intact.",
+    "All current _UnpublishableAnswer raise sites use application-owned literal reasons. The warning does not include candidate excerpts/prose through this exception path; public error text remains unchanged.",
+    "Eval observer forwards original messages, tool schema, callbacks and kwargs; records only wrapper candidate deltas, type-only error/activity controls and actual service error/complete events. It excludes provider error payload strings; candidate capture is not raw HTTP or finish_reason evidence.",
+    "AsyncExitStack owns the service generator and registers each observed provider generator. LIFO exit awaits observed provider closure before service closure on early service error; aclosing then closes the original provider. The patch context restores the original method on success/error/cancellation.",
+    "Only runner _answer changed at function AST level. Cohort plan, validate_report, run denominator, scoring, model/prompt settings and golden set remain unchanged. Rejected answerable output remains an error and cannot become a pass.",
+    "Positive provenance, repair, paired-claim and existing trace fixtures now provide complete empty citation envelopes; their financial/tool assertions remain unchanged. New five-outcome owner tests preserve exact candidate text and cover success, malformed declaration, missing envelope, provider error and cancellation.",
+    "Documentation identifies the original no-envelope compatibility exception and prospective correction honestly; does not promote source matching, empty-citation answers or ND to semantic quality acceptance."
+  ],
+  "refutation_passes": [
+    {
+      "hypothesis": "The new service warning could expose rejected model prose.",
+      "pass_1": "Enumerated every _UnpublishableAnswer constructor: only fixed string literals; JSON decoder exceptions are replaced with fixed Incomplete citation array.",
+      "pass_2": "Followed warning/public-event paths: only the controlled exception reaches warning; client receives fixed _PUBLICATION_ERROR. Generic logger.exception path is pre-existing and not expanded.",
+      "result": "Refuted for this exact diff."
+    },
+    {
+      "hypothesis": "Eval diagnostics could change acceptance or leave patched streams open on rejection.",
+      "pass_1": "AST comparison isolates _answer; unchanged terminal validation/raise branches and unchanged scorer/report acceptance preserve failure semantics.",
+      "pass_2": "Followed early error and cancellation unwinding: registered async generator closure plus aclosing(original_stream), then service closure; with observer restores global method. Reviewed retained five-outcome owner evidence without running it.",
+      "result": "Refuted for current sequential eval runner; no concurrency expansion is introduced."
+    }
+  ],
+  "runner_changed_functions": [
+    "_answer"
+  ],
+  "locked_contracts_byte_identical_to_main68": {
+    "backend/tests/integration/test_summary_stream_contract.py": true,
+    "backend/tests/unit/test_background_generation_characterization.py": true,
+    "backend/tests/unit/test_auth_flow.py": true,
+    "backend/tests/unit/test_subscription_webhook_sync.py": true,
+    "frontend/tests/unit/summaryStream.contract.spec.ts": true
+  },
+  "original_failed_measurement": {
+    "run_id": 36624149908,
+    "head": "097b2fdbb696d4c5009bcf46b6e9189536cca375",
+    "attempt": "MSFT / 0000950170-25-100235 / sales-diluted-eps-2025 / draw1",
+    "terminal_complete": false,
+    "error": {
+      "type": "ValueError",
+      "stage": "answer_or_score"
+    },
+    "retained_tool_trace_keys": [
+      "tool_results",
+      "initial_messages",
+      "tool_schema",
+      "generation_options"
+    ],
+    "limit": "Original raw rejected candidate and precise rejection reason are absent. Its cause remains unresolved; missing envelope previously completed, so this new guard does not establish the cause of that historical rejection. Do not claim it fixed MSFT."
+  },
+  "author_test_evidence_reviewed": {
+    "envelope-red.log": "1 failed natural existing no_declaration regression before guard",
+    "envelope-green.log": "113 passed after guard",
+    "diagnostic-red.log": "Author reports 5 failed new retention outcomes before observer implementation; retained log present",
+    "diagnostic-green-final.log": "67 passed, 9 warnings in 1.85s; tail read by reviewer"
+  },
+  "prerequisites_for_release": [
+    "Root full backend/frontend gates appropriate to final changed tree",
+    "Committed final exact-head review and hosted requirements",
+    "Retain original failed ready measurement; any new measurement is a new run with actual telemetry and cost",
+    "No semantic E7/E8 acceptance or beta/pricing activation inferred"
+  ]
+}

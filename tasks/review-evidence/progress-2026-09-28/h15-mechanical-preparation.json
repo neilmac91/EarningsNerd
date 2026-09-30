@@ -1,0 +1,95 @@
+{
+  "admission_approved": false,
+  "complete_source_dossiers": 3,
+  "context_byte_burden": {
+    "all_prepared_reader_bytes": 3150219,
+    "combined_prepared_context_bytes": 6151203,
+    "excludes_archive_payload": true,
+    "excludes_custody_metadata_and_projection_json": true,
+    "readable_member_reader_bytes": 453165,
+    "standalone_index_reader_bytes": 8719,
+    "structured_data_and_unclassified_raw_payload_bytes": 3000984,
+    "structured_rendering_reader_bytes": 2688335
+  },
+  "holdout_id": "H15",
+  "image_references": {
+    "all_prepared_view_reference_count": 1,
+    "external_reference_count": 1,
+    "external_references": [
+      {
+        "alt": "",
+        "id": "I00001",
+        "ordinal": null,
+        "source_kind": "packet-index",
+        "src": "/edgar/search/images/edgar-logo-2x.png"
+      }
+    ],
+    "unique_external_reference_count": 1,
+    "unique_external_references": [
+      {
+        "alt": "",
+        "src": "/edgar/search/images/edgar-logo-2x.png"
+      }
+    ]
+  },
+  "kind": "publication_path_derivative",
+  "limits": [
+    "This derivative preserves the reviewed aggregate fields; per-member and original summary artifacts remain in the operator workspace.",
+    "The source artifact predates the separately retained current-archive supplement; its point-in-time residual fields remain unchanged.",
+    "External logo bytes and all 78 member dispositions remain unresolved."
+  ],
+  "map_recomputed": false,
+  "raw_retention": {
+    "all_payload_hashes_verified": true,
+    "payload_bytes": 3000984,
+    "structured_data_members": 8,
+    "unclassified_members": 2
+  },
+  "required_source_dossiers": 30,
+  "residual_gaps": {
+    "all_member_dispositions_unresolved": 78,
+    "archive_acquired_or_decoded": false,
+    "encoded_archive_members_unresolved": [
+      77
+    ],
+    "standalone_primary_projected": false,
+    "structured_rendering_members_not_projected": []
+  },
+  "schema_version": 1,
+  "semantic_coverage_attested": false,
+  "semantic_review_attested": false,
+  "single_context_fit_attested": false,
+  "source_artifact": {
+    "bytes": 34504,
+    "path": "outputs/takeover-2026-09-28/h15-source-preparation/modality-preparation-summary.json",
+    "sha256": "c2ea45a352b394c57dadb6073cb51d15b8c15245ae467204e9b3c1b9b04dc0ad"
+  },
+  "standalone_index": {
+    "hash_verified": true,
+    "reader_bytes": 8719,
+    "status": "projected"
+  },
+  "structured_rendering": {
+    "attempted": 62,
+    "content_input_bytes": 1823209,
+    "eligible": 62,
+    "failures": 0,
+    "not_attempted_due_total_bound": [],
+    "projected": 62,
+    "reader_bytes": 2688335,
+    "timeouts": 0
+  },
+  "publication_limit": "Mechanical preparation plus a separately bound current-archive supplement only; historical archive equality, external-logo bytes, semantic review and all 78 dispositions remain unresolved.",
+  "later_archive_supplement": {
+    "receipt": "h15-archive-receipt.json",
+    "validation_summary": "h15-archive-validation-summary.json",
+    "current_zip_bytes": 235520,
+    "current_zip_sha256": "0c776d02f9c425d3c9f86205e9f4dee5ebbbbaaeff2d70a7a621d53b056a2fff",
+    "children": 10,
+    "expanded_bytes": 2627788,
+    "exact_byte_equal_children": 5,
+    "frozen_content_plus_one_terminal_lf_children": 5,
+    "different_or_unmatched_children": 0,
+    "historical_archive_byte_equality_proved": false
+  }
+}
