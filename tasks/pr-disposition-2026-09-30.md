@@ -14,7 +14,7 @@ handover package `earningsnerd-opus-5-5-handover` (SHA256SUMS verified). Checked
   19:57Z. No Actions run was in progress at 20:21Z.
 - Worktrees: one per lane under `/home/user/wt/` (outside the repository root).
 
-## Spend ledger (approved: USD 2.00 total routine DeepSeek validation)
+## Spend ledger (approved: USD 2.00 total routine DeepSeek validation; raised by the founder to USD 10.00 total at ~22:25Z)
 
 - Balance read (free `/user/balance`, session DeepSeek key): **USD 46.17 at 2026-09-30T20:20:25Z**.
   Last Actions-secret readout: USD 46.55 at 2026-09-29T23:39Z (run 36646363746) — consistent with
@@ -124,3 +124,7 @@ Merge-tree conflicts vs main at start: #1013/#1012 none; #952, #1023, #1009 `tas
 - Other concurrent activity (not in this assignment): Dependabot #1031–#1034 and Codex draft #1035
   (`codex/wave3-native-delivery-capability`) opened 21:18–21:54Z. Check main for in-progress deploys
   before every backend merge.
+- ~22:25Z — Founder (live): "progress the effort independently as the chief engineer … I approve deepseek
+  spend of up to 10USD if you need it." Ceiling now USD 10.00 total (inclusive of the USD 0.005827 spent).
+  All other boundaries of the launch prompt stand (no pricing/Stripe activation, no production flags, no
+  E7/E8 judging, no locked contracts/baselines/threshold changes, no retained-evidence deletion).
