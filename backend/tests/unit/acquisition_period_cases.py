@@ -12,6 +12,7 @@ from app.services.ai.acquisition_period import CONTEXT_KEY, LIMITATION, OWNED_FI
 from app.services.copilot_service import _build_messages
 from app.services.export_service import ExportService
 from app.services.openai_service import OpenAIService
+from app.services.provenance_service import enrich_summary_provenance
 from app.services.summary_sections import render_sections, sections_to_markdown
 from app.services.summary_versioning import SUMMARY_SCHEMA_VERSION
 from evals.judge import build_judge_messages
@@ -163,8 +164,13 @@ async def exercise_acquisition_period_consumer(monkeypatch, name):
                              period_end_date=None, sec_url="", document_url="", content_cache=None,
                              xbrl_data=metrics)
     export = ExportService()
+    # Web read path: the stored row is re-rendered on read through provenance enrichment.
+    web = enrich_summary_provenance(summary, filing)["rendered_sections"]
+    assert "FORGED" not in json.dumps(web) and OWNED_FIELD not in json.dumps(web)
     visible = [result["business_overview"], sections_to_markdown(render_sections(raw)),
-               export.generate_pdf_html(summary, filing), export.generate_csv(summary, filing)]
+               export.generate_pdf_html(summary, filing), export.generate_csv(summary, filing),
+               "\n".join(" | ".join(row) for section in web if section["title"] == "Notable Footnotes"
+                         for block in section["blocks"] for row in block.get("rows") or [])]
     if not case["recovered"]:
         assert frames
         visible.extend(frames)
