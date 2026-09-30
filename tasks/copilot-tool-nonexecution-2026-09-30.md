@@ -128,10 +128,13 @@ does not remove it.
 - **"Every no-tool answer on main ends up cited because it uses the repair shape."** True in two
   of three main-prompt runs; false in 36777581481 (ASML d1 above).
 - **"Tools or `tool_choice` may not reach the provider."** The wrapper sets `tools` and
-  `tool_choice="auto"` on every round (`ai/copilot_chat.py:237-250`), and the same unchanged wrapper
-  produced tool calls on other rows of every run. Live runs do not record native request bodies or
-  `finish_reason` (`evals/copilot_runner.py:185`), so this rests on code reading plus call counting;
-  offline, this PR now asserts it (see below).
+  `tool_choice="auto"` on every round (`ai/copilot_chat.py:237-250`); those lines are unchanged
+  since `9888ef8b` (2026-07-05), before every run, and the recorded tool schema is identical in all
+  ten runs. #1023's run 36647075136 made no tool call on any row, so it gives no in-run evidence
+  either way; the same wrapper produced tool calls on rows of every other run, including the three
+  main-prompt runs that bracket it (10-K questions 9/9 in each). Live runs do not record native
+  request bodies or `finish_reason` (`evals/copilot_runner.py:185`), so this rests on code reading
+  plus call counting; offline, this PR now asserts it (see below).
 - **"A same-window A/B fits under USD 0.25."** No dispatch path exists (below); the realistic cost
   is USD 0.4–0.8.
 
@@ -210,12 +213,18 @@ tool markers", interleaved with A the same way.
 
 **Decision rules (question level).** A question-run is tool-using when at least two of its three
 draws call a tool. Each arm has six 20-F question-runs (three questions × two runs), counted with the
-audit tool:
+audit tool. Each arm replays a recorded request (same system prompt, context, tool schema and
+options): arm C the pre-#1022 runs' (20-F question-runs tool-using in 17/18), arm A main's (1/9).
 
-- **Prompt-caused:** C ≥ 5/6 and A ≤ 2/6 → proceed to stage 2 only with new authorization.
-- **Not the prompt:** A ≥ 5/6 → close the prompt hypothesis; no prompt change.
-- **Prompt-insensitive:** A ≤ 2/6 and C ≤ 2/6 → the next discriminator is question wording, which
-  needs a non-golden variant set and its own authorization.
+- **Prompt-caused:** C ≥ 5/6 and A ≤ 2/6 → both arms match their records, so the recorded contrast
+  reproduces within one window; proceed to stage 2 only with new authorization.
+- **Drift (main's request changed):** A ≥ 5/6 → main's unchanged request now calls tools, so the
+  recorded shift was time-varying model behaviour, not the prompt; close the prompt hypothesis; no
+  prompt change.
+- **Drift (now prompt-insensitive):** A ≤ 2/6 and C ≤ 2/6 → the unchanged pre-#1022 request now
+  skips tools, so the recorded shift was time-varying model behaviour, not the prompt; close the
+  prompt hypothesis; no prompt change. Why the 20-F questions then skip tools under both prompts is
+  a separate question (hypotheses 2 and 3) with its own design and authorization.
 - **Anything else:** inconclusive; stop and record.
 - Any arm below 6/6 tool-using 10-K question-runs is recorded as a regression, whatever the outcome.
 
