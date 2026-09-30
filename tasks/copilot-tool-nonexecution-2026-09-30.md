@@ -211,14 +211,35 @@ unchanged golden set, scorer and runner. Stage 2, only if stage 1 finds the prom
 under a separate authorization: arm B = main minus the clause "including when all cited figures use
 tool markers", interleaved with A the same way.
 
+**Validity precondition (checked before any decision rule).** The drift readings below assume each
+arm replays a recorded request, and the mechanism does not guarantee that: each arm is a new PR off
+main at experiment time, and the workflow re-prepares sources live from SEC on every run
+(`copilot-eval.yml:42-47`), so a dependency, edgartools or context-builder change would alter the
+request. The audit tool hashes only the system prompt, so every row of both arms is checked
+separately against the values all ten recorded runs share (sha256 prefixes of the UTF-8 text; JSON
+via `json.dumps(..., sort_keys=True)`; all fields under `tool_trace`):
+
+- System prompt: `initial_messages[0].content` is `a88b6fb1` in every arm A row and `93dc6565` in
+  every arm C row.
+- Context: `initial_messages[1:]` matches the question's recorded value: AAPL `db033e5a13d4`, TSLA
+  `3babd16a34cf`, MSFT `b552352b2af3`, BABA native-2026 `6db10712e780`, BABA viewed-2025
+  `be263a712053`, ASML `09e857dbd1b9`.
+- Tool schema: `tool_schema` is `b6958973`.
+- Generation options: `generation_options` is `deepseek-flash`, `max_tokens` 2400, temperature 0.2.
+
+Any mismatch makes the run invalid, not drift: stop and record, and apply no decision rule. Record
+the provider `system_fingerprint` of every logged call (all 246 recorded calls carry `aeb56401…`); a
+new fingerprint is a provider-side change, reported with the outcome rather than treated as invalid.
+
 **Decision rules (question level).** A question-run is tool-using when at least two of its three
 draws call a tool. Each arm has six 20-F question-runs (three questions × two runs), counted with the
-audit tool. Each arm replays a recorded request (same system prompt, context, tool schema and
-options): arm C the pre-#1022 runs' (20-F question-runs tool-using in 17/18), arm A main's (1/9).
+audit tool. With the precondition met, each arm replays a recorded request (same system prompt,
+context, tool schema and options): arm C the pre-#1022 runs' (20-F question-runs tool-using in
+17/18), arm A main's (1/9).
 
 - **Prompt-caused:** C ≥ 5/6 and A ≤ 2/6 → both arms match their records, so the recorded contrast
   reproduces within one window; proceed to stage 2 only with new authorization.
-- **Drift (main's request changed):** A ≥ 5/6 → main's unchanged request now calls tools, so the
+- **Drift (main's behaviour changed):** A ≥ 5/6 → main's unchanged request now calls tools, so the
   recorded shift was time-varying model behaviour, not the prompt; close the prompt hypothesis; no
   prompt change.
 - **Drift (now prompt-insensitive):** A ≤ 2/6 and C ≤ 2/6 → the unchanged pre-#1022 request now
