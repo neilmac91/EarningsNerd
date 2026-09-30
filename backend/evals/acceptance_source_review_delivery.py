@@ -49,7 +49,7 @@ SCHEMA_VERSION = 1
 REQUEST_KIND = "e7_native_delivery_request"
 RECEIPT_KIND = "e7_native_delivery_receipt"
 VALIDATION_KIND = "e7_native_delivery_validation"
-CLASSIFIER_VERSION = 1
+CLASSIFIER_VERSION = 2
 ROUTE = "claude_code_cli_print"
 ROUTE_PROVIDER = "anthropic-claude-code-cli"
 # Fixed route overhead: replaces the CLI's default agent system prompt so the model-visible input is
@@ -619,6 +619,10 @@ def classify_stream(
             reasons.append("stream_schema:assistant_missing")
         if observed["assistant_message_ids_missing"]:
             reasons.append("stream_schema:message_id")
+        if any(model is None for model in observed["models_reported"]):
+            reasons.append("stream_schema:assistant_model")
+        if any(model is not None and model != model_requested for model in observed["models_reported"]):
+            reasons.append("assistant_model_mismatch")
         if len(observed["assistant_message_ids"]) > 1:
             reasons.append("multiple_assistant_messages")
         if any(reason is None for reason in observed["stop_reasons"]):
@@ -899,7 +903,24 @@ def deliver_reserved_attempt(
             "redispatch_permitted": False}
 
 
-def _bound_ledger(journal_root: Path, delivery_root: Path, reservation_id: str) -> tuple[dict[str, Any], dict[str, Any], dict[str, bytes], dict[str, Any]]:
+def _bound_reservation(journal_root: Path, receipt: dict[str, Any], files: dict[str, bytes]) -> dict[str, Any]:
+    """Bind retained input to the durable attempt before either settlement or validation."""
+    expected = receipt["reservation"]
+    with execution._connect(journal_root, read_only=True) as db:
+        row = db.execute("SELECT * FROM attempts WHERE reservation_id=?", (expected["reservation_id"],)).fetchone()
+    if row is None:
+        raise ValueError("journal has no attempt for this reservation")
+    fields = ("reservation_id", "sequence", "node_id", "node_kind", "context_id", "attempt",
+              "template_sha256", "input_sha256", "prompt_sha256")
+    if (any(row[key] != expected.get(key) for key in fields)
+            or row["prompt_sha256"] != receipt["stdin"]["sha256"]
+            or _sha(files["stdin.bin"]) != row["prompt_sha256"]
+            or len(files["stdin.bin"]) != receipt["stdin"]["byte_length"]):
+        raise ValueError("delivery ledger does not bind the journal reservation")
+    return dict(row)
+
+
+def _bound_ledger(journal_root: Path, delivery_root: Path, reservation_id: str) -> tuple[dict[str, Any], dict[str, Any], dict[str, bytes], dict[str, Any], dict[str, Any]]:
     """Read the ledger, bind it to the journal contract, and re-derive its classification from bytes.
 
     The route identity the classification depends on (provider, model, version) is taken from the
@@ -916,6 +937,7 @@ def _bound_ledger(journal_root: Path, delivery_root: Path, reservation_id: str) 
     if (receipt["route_provider"] != contract["provider"] or receipt["model_requested"] != contract["model"]
             or receipt["provider_version"] != contract["provider_version"] or receipt["route"] != ROUTE):
         raise ValueError("delivery receipt route identity differs from the journal contract")
+    row = _bound_reservation(journal_root, receipt, files)
     classification = classify_stream(files["stdout.raw"], exit_code=receipt["process"]["exit_code"],
                                      timed_out=receipt["process"]["timed_out"],
                                      model_requested=contract["model"], provider_version=contract["provider_version"])
@@ -923,7 +945,7 @@ def _bound_ledger(journal_root: Path, delivery_root: Path, reservation_id: str) 
             or classification["output_sha256"] != receipt["output"]["sha256"]
             or classification["classifier_version"] != receipt["classifier_version"]):
         raise ValueError("retained delivery receipt disagrees with its retained stream")
-    return binding, receipt, files, classification
+    return binding, receipt, files, classification, row
 
 
 def settle_delivery(journal_root: Path, delivery_root: Path, *, reservation_id: str) -> dict[str, Any]:
@@ -933,10 +955,9 @@ def settle_delivery(journal_root: Path, delivery_root: Path, *, reservation_id: 
     reservation through the journal directly. Identical retries are absorbed by ``settle_attempt``.
     """
     journal_root = Path(journal_root).resolve()
-    binding, receipt, _files, classification = _bound_ledger(journal_root, delivery_root, reservation_id)
+    binding, receipt, _files, classification, pending = _bound_ledger(journal_root, delivery_root, reservation_id)
     if classification["outcome"] == "unknown":
         raise ValueError("delivery outcome is unknown; inspect the ledger and settle or retire manually")
-    pending = receipt["reservation"]
     proposal = _proposal(receipt, classification, binding, pending)
     if proposal is None:  # unreachable: unknown was refused above; keep the refusal explicit
         raise ValueError("delivery outcome has no settlement proposal")
@@ -961,7 +982,7 @@ def validate_delivery_binding(
     ``eligible``. Supplying ``native_members`` re-derives their dispositions from ``stdin.bin``.
     """
     journal_root = Path(journal_root).resolve()
-    binding, receipt, files, classification = _bound_ledger(journal_root, delivery_root, reservation_id)
+    binding, receipt, files, classification, row = _bound_ledger(journal_root, delivery_root, reservation_id)
     if receipt["engineering_probe"] and _SYNTHETIC_ACCESSION.fullmatch(receipt["accession_number"]) is None:
         raise ValueError("engineering probe receipt is bound to a non-synthetic accession")
     if receipt["native_delivery"]["complete_native_delivery"] is False:
@@ -970,17 +991,7 @@ def validate_delivery_binding(
         rederived = native_member_dispositions(files["stdin.bin"], native_members)
         if rederived != receipt["native_delivery"]:
             raise ValueError("native member dispositions differ from the retained stdin")
-    with execution._connect(journal_root, read_only=True) as db:
-        row = db.execute("SELECT * FROM attempts WHERE reservation_id=?", (reservation_id,)).fetchone()
-    if row is None:
-        raise ValueError("journal has no attempt for this reservation")
     expected_row = receipt["reservation"]
-    if (row["node_id"] != expected_row["node_id"] or row["node_kind"] != expected_row["node_kind"]
-            or row["context_id"] != expected_row["context_id"] or row["attempt"] != expected_row["attempt"]
-            or row["prompt_sha256"] != expected_row["prompt_sha256"]
-            or row["prompt_sha256"] != receipt["stdin"]["sha256"]
-            or _sha(files["stdin.bin"]) != row["prompt_sha256"]):
-        raise ValueError("delivery ledger does not bind the journal reservation")
     status = row["status"]
     outcome = receipt["outcome"]
     operator_settled = False

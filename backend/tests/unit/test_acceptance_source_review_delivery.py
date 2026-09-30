@@ -747,3 +747,31 @@ def test_classifier_precedence_is_deterministic_on_the_same_stream() -> None:
     nested = _stream() + b"[" * 200000 + b"\n"
     deep = classify_stream(nested, exit_code=0, timed_out=False, model_requested=MODEL, provider_version=VERSION)
     assert deep["outcome"] == "failed" and deep["reasons"] == ["stream_schema:unparseable_lines"]
+
+
+@pytest.mark.parametrize("reported_model", ["claude-other", None])
+def test_assistant_model_must_match_frozen_contract(reported_model: str | None) -> None:
+    events = [json.loads(line) for line in _stream().splitlines()]
+    next(event for event in events if event["type"] == "assistant")["message"]["model"] = reported_model
+    raw = b"\n".join(_canonical(event) for event in events) + b"\n"
+    result = delivery.classify_stream(raw, exit_code=0, timed_out=False,
+                                      model_requested=MODEL, provider_version=VERSION)
+    assert result["outcome"] == "failed"
+    reason = "stream_schema:assistant_model" if reported_model is None else "assistant_model_mismatch"
+    assert reason in result["reasons"]
+
+
+def test_settlement_rejects_rehashed_stdin_before_journal_mutation(tmp_path: Path) -> None:
+    journal_root, delivery_root, reservation, common = _setup(tmp_path)
+    outcome = deliver_reserved_attempt(journal_root, delivery_root, runner=FakeRoute(_stream()), **common)
+    ledger = Path(outcome["ledger_path"])
+    changed = b"Synthetic bytes that are not the reserved prompt.\n"
+    (ledger / "stdin.bin").write_bytes(changed)
+    receipt = json.loads((ledger / "receipt.json").read_bytes())
+    receipt["stdin"].update(sha256=_sha(changed), byte_length=len(changed))
+    (ledger / "receipt.json").write_bytes(_canonical(receipt))
+    with pytest.raises(ValueError, match="does not bind the journal reservation"):
+        settle_delivery(journal_root, delivery_root, reservation_id=reservation["reservation_id"])
+    pending = recover_pending_attempt(journal_root)
+    assert pending["reservation_id"] == reservation["reservation_id"]
+    assert pending["prompt_bytes"] == reservation["prompt_bytes"]

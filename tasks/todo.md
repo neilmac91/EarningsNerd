@@ -5986,3 +5986,9 @@ Full local and hosted verification plus independent exact-head review precede re
 - Full frontend lint, TypeScript, tests and production build passed on Node22.23.2.
   No backend, provider, prompt, flag, price or locked-contract change. Exact-head review,
   hosted checks and frontend release verification follow separately.
+
+- 2026-09-30 native-delivery integration: preserved all pinned owners; independently reproduced
+  and fixed assistant-model mismatch admission and pre-settlement stdin/journal binding. The
+  single subscription probe returned four exact lines but was retained as failed for absent
+  assistant finish metadata. No retry, source dispatch, or E7/E8 admission; classifier 2 keeps
+  the measured failure closed. Paid CI awaits a fresh balance after Google Cloud reauthentication.

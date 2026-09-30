@@ -3,8 +3,11 @@
 **Status:** engineering candidate (`schema_version` 1; kinds `e7_native_delivery_request`,
 `e7_native_delivery_receipt`, `e7_native_delivery_validation`). Non-admitting. It has no readiness,
 protocol, executor or decision call site, dispatches nothing on import, and cannot admit evidence.
-Its first live use is the bounded probe in `backend/scripts/native_delivery_probe.py`, which has not
-been run.
+Its first live use was one synthetic probe on CLI 2.1.273 (version-confounded from the
+implementer's 2.1.285 pin). The reply matched all four requested lines, but classifier 1 settled
+`failed: stop_reason_unobserved`: the assistant finish field was null although the result event
+reported `end_turn`. Classifier 2 retains that failure criterion and additionally checks every
+assistant-reported model against the frozen contract. No second dispatch has run.
 
 `backend/evals/acceptance_source_review_delivery.py` fills the gap the
 [execution-custody slice](source-review-execution.md) left at step 3: `reserve_attempt` retains the
@@ -79,7 +82,7 @@ Precedence: `unknown` > `compacted` > `truncated` > `failed` > `complete`.
   `num_turns` absent or not 1; more than one result event (`result_ambiguous`); unparseable lines
   (including NaN/Infinity constants and pathologically nested lines); init event absent, tools not
   `[]`, model absent or not the contract model, or a reported CLI version that differs; no assistant
-  event; an assistant message without a string id (`stream_schema:message_id`) or more than one
+  event; an assistant model absent or different from the contract; an assistant message without a string id (`stream_schema:message_id`) or more than one
   message id; any assistant `stop_reason` absent (`stop_reason_unobserved`) or not `end_turn`; a
   `tool_use` block; empty, non-text or non-encodable `result`; result text not equal to the
   assistant text blocks.
@@ -123,8 +126,15 @@ Consequences stated plainly: through this route the complete H20 native bundle c
 `complete_native_delivery: true` — `source-view.json` (26,445,997 bytes) exceeds the documented 10 MB
 stdin cap and `reader.txt` (277,045 bytes) exceeds any conservative probe cap, so both are
 `retained_not_delivered` by construction. The stream shapes the classifier expects (assistant
-`stop_reason`, result `subtype` names, `compact_boundary`) are documentation- and precedent-derived
-and unmeasured until the probe runs; the probe's retained `stdout.raw` is the first real fixture.
+`stop_reason`, result `subtype` names, `compact_boundary`) were initially documentation- and
+precedent-derived. The retained 2.1.273 probe is the first real stream fixture; it confirms the safe failure above,
+not compatibility of the assistant finish schema. Its init metadata reports discovered skills,
+while `tools` is empty. That discovery list alone does not prove model-visible skill content.
+Its route-reported cost estimate was USD 0.162903 across Fable and auxiliary Haiku usage; one CLI
+dispatch is established, while the number of physical provider requests and cash charge are
+unobserved. The raw stream stays local because it contains an absolute home path. Classifier 1
+receipts remain sealed historical evidence and are not rewritten or silently upgraded by
+classifier 2.
 Full L004 controls remain absent; nothing here confers source-role readiness.
 
 ## API
