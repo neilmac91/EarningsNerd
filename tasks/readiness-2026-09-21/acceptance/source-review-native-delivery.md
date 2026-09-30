@@ -119,8 +119,8 @@ and no `input_transformations` on `message_start`/`message_delta` (`stream_bindi
 because a server-side model switch would otherwise bind to the contract model named in `message_start`.
 The receipt records the result as `assistant_completion` (`source`, `message_id`, `model`,
 `stop_reason`, `observed`); `observed` is true only when the finish is a string and no identity,
-finish or text binding reason was recorded. The result event's `stop_reason` is recorded but never
-used. A stream with no bracket at all (the retained 2.1.273 stream) is `failed` with
+finish or text binding reason was recorded, including absent, ambiguous or mismatched assistant
+identity/model fields. The result event's `stop_reason` is recorded but never used. A stream with no bracket at all (the retained 2.1.273 stream) is `failed` with
 `stream_schema:message_start_count:0` and `stop_reason_unobserved`;
 the real stream and its sanitized derivative remain in the private custody ledger. Synthetic
 `partial=False` rows in the delivery owner test preserve this regression without publishing

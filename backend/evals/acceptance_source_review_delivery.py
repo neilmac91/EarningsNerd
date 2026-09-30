@@ -808,7 +808,10 @@ def classify_stream(
             # The completion is "observed" only when the finish is bound to an identified message: a
             # string stop_reason from the single message_delta, no identity/text/finish binding miss.
             binding_intact = not any(reason.startswith(("stream_schema:message_start", "stream_schema:stop_reason_ambiguous",
-                                                        "stream_schema:message_delta_stop_reason", "stream_binding:"))
+                                                        "stream_schema:message_delta_stop_reason", "stream_binding:",
+                                                        "stream_schema:assistant_missing", "stream_schema:message_id",
+                                                        "stream_schema:assistant_model", "assistant_model_mismatch",
+                                                        "multiple_assistant_messages"))
                                      for reason in reasons)
             finish_observed = type(bound_stop) is str and binding_intact
         for reason in observed["stop_reasons"]:

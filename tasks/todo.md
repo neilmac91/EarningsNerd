@@ -8,6 +8,7 @@
 ## 2026-09-30 — native-delivery completion capability integration
 
 - Apply Fable's return to released base `bc07c885`, verifying its exact tree and all 13 pinned owners. Schema 2 requests partial stream events; classifier 3 binds finish, model, message identity and text without promoting result-level completion. Preserve schema 1 compatibility and the stated whole-ledger rewrite limit.
+- Independent review and two fresh refutations caught rejected streams whose completion metadata still claimed an identified assistant. Include assistant identity/model failures in the observation predicate, with proportional cases in the existing owner; eligibility remains failed.
 - Keep the real stream and sanitized derivative in private custody. The existing owner's synthetic missing-bracket rows explicitly carry result-level `end_turn` and retain their failed expectations.
 - Full pinned backend gate, committed-state mutation proofs and fresh independent review are required before a draft PR. This tranche authorizes neither merge/deployment nor probe 2; complete native capacity beyond the current stdin route remains unmeasured. H20 24/19/5, dossiers 3/30 and staged pricing remain unchanged.
 

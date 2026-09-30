@@ -1048,7 +1048,11 @@ def test_assistant_completion_is_coherent_and_classifier_2_refuses_the_bracket()
     # A finish without an intact identity/text binding is recorded but never "observed".
     for broken in (_stream(start_id="msg_other"), _stream(start_id=None), _stream(start_model="claude-other"),
                    _stream(delta_text="differs"), _stream(duplicate_delta_stop=True), _stream(delta_stop_reason=7),
-                   _stream(duplicate_start=True), _stream(fallback_block=True)):
+                   _stream(duplicate_start=True), _stream(fallback_block=True),
+                   _stream(message_id=None, start_id="msg_1", stop_reason=None, delta_stop_reason="end_turn"),
+                   _stream(second_message=True, stop_reason=None, delta_stop_reason="end_turn"),
+                   _stream(model=None, start_model=MODEL), _stream(model="claude-other", start_model=MODEL),
+                   _stream(omit_assistant=True, result_text="")):
         classified = classify(broken)
         assert classified["outcome"] == "failed", classified["reasons"]
         assert classified["assistant_completion"]["observed"] is False and classified["finish_metadata_observed"] is False
