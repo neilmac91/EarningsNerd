@@ -33,8 +33,8 @@ handover package `earningsnerd-opus-5-5-handover` (SHA256SUMS verified). Checked
 
 | PR | Disposition target | Branch / worktree | Head | Status |
 | --- | --- | --- | --- | --- |
-| #1013 | review, validate, merge | dependabot branch | `2cd639fd` | in progress |
-| #1012 | maintainer replacement, merge, close original | tbd | `1e56f3d2` | in progress |
+| #1013 | review, validate, merge | dependabot branch (main merged: `0113e9c9`) | `2cd639fd`→`0113e9c9` | CI running; review blocked (Codex quota) |
+| #1012 | maintainer replacement, merge, close original | replacement [#1030](https://github.com/neilmac91/EarningsNerd/pull/1030) `claude/pr1012-posthog-7.60.1` `c8c56cee` | `1e56f3d2` | draft; review pending |
 | #952 | repair current-inspection binding, merge tooling | `claude/attached-file-review-any8xz` | `1d48eb33` | analysis |
 | #1021 | integrate main, qualify or hold draft | `codex/wave3-acquisition-period-withholding` | `55e89142` | analysis |
 | #942 | fresh successor, close original | tbd | `47d040aa` | analysis |
@@ -67,3 +67,13 @@ Merge-tree conflicts vs main at start: #1013/#1012 none; #952, #1023, #1009 `tas
 - Deployment verification path: Cloud Run API token in this environment is stale
   (UNAUTHENTICATED) → verify from the CI deploy-job log (migration tail, revision, traffic) plus
   independent `GET https://api.earningsnerd.io/health/detailed` (healthy at 20:29Z baseline).
+- 20:29Z — #1013 branch updated with main via GitHub (head `0113e9c9`, tree `d4d81e7a` = locally
+  tested tree). Local gate: npm ci ok, lint 0, tsc 0, vitest 732/732, build 0 (Node 22.23.2).
+- 20:30Z — **Codex review quota exhausted**: `@codex review` on #1013 answered "You have reached your
+  Codex usage limits for code reviews". `review-gate` (required) needs a Codex summary for the head
+  or a `Review override:` line; the handover excludes the override mechanism. Founder decision
+  requested (credits/reset vs. override backed by an independent AGENTS.md §5 review, precedent
+  #1027/#1028). Independent 3-lens review with 2 refutations per material finding is running for
+  #1013 `0113e9c9` and #1012-replacement `c8c56cee`. GitHub Copilot review requested on #1013.
+- 20:43Z — #1012 replacement full gate at `c8c56cee`: ruff clean, bandit clean, pytest 4197 passed,
+  39 skipped, 2 deselected (384 s). Pushed; draft #1030 opened.
