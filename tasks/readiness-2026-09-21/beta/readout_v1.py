@@ -146,7 +146,7 @@ def build_readout(response: dict, parameters: dict) -> dict:
         raise ValueError("query response contains an error")
     diagnostics: list[dict] = []
     decoded: list[dict] = []
-    poisoned_requests: set[str] = set()
+    poisoned_requests: dict[str, set[str]] = defaultdict(set)
     for index, values in enumerate(rows):
         if not isinstance(values, list) or len(values) != len(COLUMNS):
             raise ValueError("export row shape mismatch")
@@ -162,7 +162,7 @@ def build_readout(response: dict, parameters: dict) -> dict:
         if not _uuid(row["uuid"]) or not _integer(row["timestamp_s"], 0):
             diagnostics.append({"row": index, "uuid": row["uuid"], "reason": "malformed_event_identity"})
             if row["event"] in tuple(REQUEST_EVENTS) and _uuid(row["request_id"]):
-                poisoned_requests.add(row["request_id"])
+                poisoned_requests[row["request_id"]].add("malformed_event_identity")
             continue
         decoded.append(row)
     uuid_variants: dict[str, set[str]] = defaultdict(set)
@@ -178,7 +178,7 @@ def build_readout(response: dict, parameters: dict) -> dict:
         if uid in conflicted:
             diagnostics.append({"uuid": uid, "reason": "conflicting_event_uuid"})
             if row["event"] in tuple(REQUEST_EVENTS) and _uuid(row["request_id"]):
-                poisoned_requests.add(row["request_id"])
+                poisoned_requests[row["request_id"]].add("conflicting_event_uuid")
             continue
         if uid in seen:
             duplicate_uuid_deliveries += 1
@@ -187,7 +187,7 @@ def build_readout(response: dict, parameters: dict) -> dict:
         if not _account(account) or account not in accounts:
             reason = "excluded_account" if account in excluded else "outside_roster_or_unattributable"
             if row["event"] in tuple(REQUEST_EVENTS) and _uuid(row["request_id"]):
-                poisoned_requests.add(row["request_id"])
+                poisoned_requests[row["request_id"]].add(reason)
         elif row["event"] in tuple(REQUEST_EVENTS):
             if _uuid(row["request_id"]):
                 requests[row["request_id"]].append(row)
@@ -206,7 +206,8 @@ def build_readout(response: dict, parameters: dict) -> dict:
     paired = [_pair_request(key, values) for key, values in sorted(requests.items())]
     for request in paired:
         if request["request_id"] in poisoned_requests:
-            request.update(status="ambiguous", errors=sorted(set(request["errors"] + ["conflicting_event_uuid"])),
+            request.update(status="ambiguous", errors=sorted(set(request["errors"]) |
+                                                             poisoned_requests[request["request_id"]]),
                            account_id=None, filing_id=None, logical_request_id=None,
                            client_attempt=None, transport_attempt=None,
                            observed_terminal=None, paired_duration_ms=None)
@@ -233,6 +234,7 @@ def build_readout(response: dict, parameters: dict) -> dict:
         "paired_outcome_counts": dict(Counter(r["observed_terminal"]["outcome"] for r in paired if r["status"] == "paired")),
         "diagnostics": diagnostics, "duplicate_uuid_deliveries": duplicate_uuid_deliveries,
         "conflicting_event_uuids": sorted(conflicted), "poisoned_request_ids": sorted(poisoned_requests),
+        "poisoned_request_reasons": {key: sorted(poisoned_requests[key]) for key in sorted(poisoned_requests)},
         "export_complete_observed": (response.get("hasMore") is False and len(rows) < MAX_ROWS
                                      and not response.get("warnings")
                                      and ("offset" not in response or

@@ -240,6 +240,30 @@ def check_v1_readout() -> dict:
     for n in (6, 7, 8, 9, 10, 11, 13, 14, 30):
         assert requests[uuid(1000+n)]["status"] == "ambiguous", (n, requests[uuid(1000+n)])
         assert requests[uuid(1000+n)]["observed_terminal"] is None
+    expected_poison_reasons = {
+        uuid(1009): ["conflicting_event_uuid"],
+        uuid(1010): ["malformed_event_identity"],
+        uuid(1011): ["excluded_account"],
+    }
+    actual_poison_reasons = {key: requests[key]["errors"] for key in expected_poison_reasons}
+    assert actual_poison_reasons == expected_poison_reasons, actual_poison_reasons
+    assert result["poisoned_request_ids"] == sorted(expected_poison_reasons)
+    assert result["poisoned_request_reasons"] == expected_poison_reasons
+    assert all(requests[key]["paired_duration_ms"] is None for key in expected_poison_reasons)
+    # Reuse those same adverse rows under one ID: every cause must survive, not
+    # whichever poison path happened to run last.
+    request_column = COLUMNS.index("request_id_json")
+    poison_ids_json = {json.dumps(key) for key in expected_poison_reasons}
+    shared_poison_rows = deepcopy([row for row in rows if row[request_column] in poison_ids_json])
+    for row in shared_poison_rows:
+        row[request_column] = json.dumps(uuid(1009))
+    shared_poison = build_readout({**response, "results": shared_poison_rows}, parameters)
+    all_poison_reasons = sorted(reason for values in expected_poison_reasons.values() for reason in values)
+    assert shared_poison["requests"][0]["errors"] == all_poison_reasons
+    assert shared_poison["poisoned_request_reasons"] == {uuid(1009): all_poison_reasons}
+    assert shared_poison["requests"][0]["status"] == "ambiguous"
+    assert shared_poison["requests"][0]["observed_terminal"] is None
+    assert shared_poison["requests"][0]["paired_duration_ms"] is None
     assert requests[uuid(1012)]["account_id"] == "4"
     missing_summary_statuses = {label: requests[request_id]["status"]
                                 for label, request_id in missing_summary_requests.items()}
@@ -285,6 +309,7 @@ def check_v1_readout() -> dict:
     return {"v1_fixture_rows": len(rows), "eligible_denominator": 5,
             "paired_outcomes": result["paired_outcome_counts"], "request_statuses": result["request_status_counts"],
             "missing_success_summary_id_statuses": missing_summary_statuses,
+            "poisoned_request_reasons": result["poisoned_request_reasons"],
             "actual_cli_roundtrip": "passed", "hogql_live_execution": "not performed"}
 
 

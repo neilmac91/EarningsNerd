@@ -66,7 +66,9 @@ identical selected properties, event name and second-resolution timestamp count 
 duplicate request deliveries. Changed starts/finishes, identity/hint disagreement,
 invalid terminal fields or conflicting UUIDs make a request ambiguous. A malformed
 or out-of-roster row with a recognizable request ID cannot rescue its otherwise
-valid pair. Missing start/finish is separate from ambiguity. A finish without a
+valid pair. `poisoned_request_reasons` links each affected server request ID to its
+actual causes; `poisoned_request_ids` remains the compatible ID list. Missing
+start/finish is separate from ambiguity. A finish without a
 start retains its observed outcome but contributes no paired duration or paired
 outcome count. `complete`, `partial`, `error`, `timed_out`, `rejected`, `cancelled`
 and `incomplete` remain distinct. `complete` and `partial` require a positive integer
