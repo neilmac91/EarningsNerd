@@ -1,3 +1,8 @@
+## 2026-09-30 — #942 successor: deterministic return-ratio render (`summary-2026-09-t`)
+
+- [x] Port only #942's render-only ratio corrections onto main `c13b069a`: formula-named label with the point's own numerator scope, dated comparator with abstention when the prior is undated, prior-basis note, ratio operand custody and the shared `financial_basis` helper. Grounding, prompt, Copilot-facing `Filing.xbrl_data`, schema, flags and baseline are byte-unchanged; `q`/`r` stay reserved. Offline replay of all 70 retained r outputs: grounding identical 70/70, only the returns line changes (64), and every changed clause source-checks against its XBRL operands. [Evidence, lineage, artifacts and held tranche](review-evidence/pr942-successor-2026-09-30/README.md).
+- [ ] Merge only after green technical gates, a source review of every changed replayed and hosted line, and the founder's scoped confirmation that a render-only change is judged by the deterministic-revision precedent. The model-facing corrections stay held under their own later identity and the unchanged grounding-candidate bar.
+
 ## 2026-09-30 — native-evidence delivery adapter candidate (engineering-only)
 
 - Capability preflight in the implementer's container: Claude Code CLI 2.1.285 present, `codex` absent, Anthropic SDK not installed, credentials and network policy not inspected. Documented, statically measured and unknown facts are kept separate in the handback's capability inventory; no model, API or paid call was made.
