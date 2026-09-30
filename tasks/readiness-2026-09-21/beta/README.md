@@ -4,6 +4,8 @@ Prepared 21 September 2026. September 28 implementation adds [versioned event-ti
 
 Current request measurement uses [summary request evidence v1](summary-request-evidence.md): server-owned request/account identity, consent-gated terminal observations and explicit cached/shared/generation paths. The existing HogQL queries and the identity/request descriptions below are the original unversioned diagnostic baseline; do not apply them as the semantics of either new v1 contract. Live receipt and the consenting cohort remain unverified.
 
+The [prospective summary v1 readout](summary-v1-readout.md) now provides a bounded raw-event export and an offline consumer for the versioned contracts. Historical `posthog.hogql` remains byte-identical. Offline fixtures do not establish live HogQL receipt, a consenting cohort or a weekly result.
+
 ## Freeze before each readout
 
 Record the UTC half-open window `[window_start, window_end)`, exact invite `cohort`, the immutable list of founder/staff/agent/automation/test **user IDs**, any test invite IDs, data-source availability, and query version/SHA. A pending invite without a user ID cannot be classified as internal from this filter; exclude its invite ID explicitly if known. Record any unresolved identity as unknown and resolve it before claiming a rate. Use a separate copy of this parameter sheet for each weekly readout; never silently revise a past denominator.
