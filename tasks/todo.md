@@ -1,3 +1,10 @@
+## 2026-09-30 — Copilot tool nonexecution diagnosis (#1023 successor, diagnostic only)
+
+- #1023 closes unmerged at `d58c1a59`: its ready run 36647075136 passed 18/18 formally with 0/18 tool calls, 30 unissued `[F#]` markers, and 13/18 answers and 25/30 figures uncited. Corrected counts, refutations, ranked hypotheses, latent risks and offline coverage: [diagnosis](copilot-tool-nonexecution-2026-09-30.md). Its evidence is ten retained `copilot-fidelity` artifacts, listed there by run and report digest and audited offline at zero cost.
+- On main-equivalent code (#1030 ready run 36777581481), one ASML answer skipped tools and shipped with no citation while the run was accepted 18/18, and two passing main-prompt answers published composed prose quotations. The #1021 ASML cross-check defect remains open on main.
+- `test_copilot.py::test_stream_chat_with_tools_assembles_tool_call_deltas` now asserts that both provider rounds offer `tools` with `tool_choice="auto"`; before it, all 351 Copilot owner tests passed with either removed. No prompt, service, runner, scorer, repair grammar, coverage policy or flag change.
+- [ ] Founder: authorize or decline the pre-registered prompt-versus-drift experiment in the diagnosis (stage 1 about USD 0.4–0.8 through CI, proposed ceiling USD 1.00). It is not run by this change.
+
 ## 2026-09-30 — native-evidence delivery adapter candidate (engineering-only)
 
 - Capability preflight in the implementer's container: Claude Code CLI 2.1.285 present, `codex` absent, Anthropic SDK not installed, credentials and network policy not inspected. Documented, statically measured and unknown facts are kept separate in the handback's capability inventory; no model, API or paid call was made.
