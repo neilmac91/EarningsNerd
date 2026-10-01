@@ -234,7 +234,7 @@ export default function FilingWorkspace({
                 aria-hidden="true"
                 tabIndex={-1}
                 onClick={handleClose}
-                className="lg:hidden fixed inset-0 z-30 bg-black/50"
+                className="lg:hidden fixed inset-0 z-30 bg-overlay"
               />
             )}
 
