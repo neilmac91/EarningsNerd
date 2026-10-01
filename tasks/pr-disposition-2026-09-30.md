@@ -40,7 +40,7 @@ handover package `earningsnerd-opus-5-5-handover` (SHA256SUMS verified). Checked
 | #1013 | review, validate, merge | dependabot branch (main merged: `0113e9c9`) | `2cd639fd`→`0113e9c9` | **merged** `e1914ea4`; prod serves posthog-js 1.434.14 |
 | #1012 | maintainer replacement, merge, close original | replacement [#1030](https://github.com/neilmac91/EarningsNerd/pull/1030) `claude/pr1012-posthog-7.60.1` `c8c56cee` | `1e56f3d2` | **#1030 merged** `c13b069a`, deployed `00423-wrg`; #1012 closed superseded |
 | #952 | repair current-inspection binding, merge tooling | `claude/attached-file-review-any8xz` | `1d48eb33`→`551f4808` | **merged** `e3aa33df`; deployed `00426-xqn` (verified); E8 judging parked |
-| #1021 | integrate main, qualify or hold draft | `codex/wave3-acquisition-period-withholding` (local integrated `d1c321eb`, unpushed) | `55e89142` | integrated + local gate 4533 passed; exact-head review running |
+| #1021 | integrate main, qualify or hold draft | `codex/wave3-acquisition-period-withholding` (local integrated `c4629ffc`, unpushed) | `55e89142` | review complete (3 rounds, no blocker); final fixes `99082c98`; merged main `e3aa33df`; full gate running |
 | #942 | fresh successor, close original | successor draft [#1039](https://github.com/neilmac91/EarningsNerd/pull/1039) `claude/pr942-successor` `4d036b48` (stamp `summary-2026-09-t`) | `47d040aa` | **#942 closed** superseded (comment 5922709320); #1039 blocked draft pending founder's scoped disposition; eval-baseline D3 running |
 | #1023 | close with successor, diagnose | successor draft [#1036](https://github.com/neilmac91/EarningsNerd/pull/1036) `claude/pr1023-diagnostic` `5a5ebf8a` | `d58c1a59` | **#1023 closed** (comment 5920729833); #1036 reviewed (no blocker; 5 should-fix fixed), retained as diagnostic draft |
 | #1009 | retain draft hold, document prerequisites | `codex/wave3-launch-pricing-offer` | `561dc2b8` | **held draft**; hold record comment 5920001935 |
@@ -186,3 +186,15 @@ Merge-tree conflicts vs main at start: #1013/#1012 none; #952, #1023, #1009 `tas
 - 01:33Z — **#952 deploy verified**: main CI 36800759454 success; deploy job 110175708793 `apply_migrations: applied=0
   skipped=40`, revision `earningsnerd-backend-00426-xqn` 100% traffic, deploy health healthy; independent `/health/detailed`
   2026-10-01T01:33:24Z healthy (db 5.16 ms, SEC circuit closed), homepage 200. Release comment 5922927202.
+- 02:40Z — #1021 review complete (43 agents, 3 rounds): no blocker. Surviving findings fixed: r0 eval-projection inclusion gate,
+  PLTR net/unit operand controls (`504a646c`, `c0ddfd2f`); r1 component/asset/value/sign controls (`1b08b62f`); r2 Unicode
+  case-folding KeyError in the PLTR explanation scan fixed with `re.ASCII` + 2 cases (`99082c98`; mutation: KeyError
+  'thouſand' 1 failed → restored 15 passed); stale "current main" text and "No founder action" handled in the body. Merged
+  main `e3aa33df` (`c4629ffc`; Copilot/frontend diff vs main empty). Two round-1 refuters were flagged by the security
+  classifier ([Merge Without Review], [CI Bypass]); inspection of their tool calls shows only reads (handover files, session
+  transcript), and GitHub state is unchanged (main `e3aa33df`, #1021 remote `55e89142`, no unexpected merges) — no effect.
+- Pre-registered #1021 acceptance policy (set before the ready run; not lower than the existing bar): FAIL/hold on any error,
+  failed or withheld row, composed or absent prose quotation, or an answer stating figures with zero verified citations;
+  advisory (recorded) for individual uncited figures in otherwise-cited answers and fully-cited tool-less answers, per the
+  existing RUNBOOK policy. Main-code base rate now 5 runs / 90 rows: composed 3/90, uncited answers 1/90 → expected single-run
+  pass ≈ 45%; a hold on that basis is main's Copilot behaviour, recorded as the exact blocker.
