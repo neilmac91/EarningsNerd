@@ -336,3 +336,19 @@ Under the founder's delegation, Codex decided items A–M on #1029. This session
   Item I triaged: extract-zip #283/#270 held, dev-only and unreachable, no patch (`929fef61`). Item C was not executed
   because no production SQL session was available. The single-SELECT variant for SQL Studio is added (`2be91465`).
   B remains blocked on C.
+- 12:33Z — Codex decided F (comment 5931547522):
+  - **F1 ACCEPT** with a scoped merge criterion. In all three predeclared runs, every withheld row must be causally attributed
+    offline (replay `tool_trace.candidate_deltas` against the row's selected source and the final-publication transforms).
+    Every other row must pass the unchanged scoring and the quotation audit. The unchanged required gates must pass, plus a
+    fresh independent review of the exact head. No selective retries; a red check stays red.
+  - **F2 CONFIRM:** replace the non-locked quotation case with an in-source case, and keep the old unsupported quote as a
+    negative withholding control in the existing owner.
+  - **F3 CONFIRM:** floor stays `_MIN_VERIFIABLE_LEN` = 24.
+  - Conditions before freezing the measurement head:
+    - fix the nested-double-quote gap (sequential pairing checks only an outer prefix/suffix); add an invented-inner-span
+      negative control and a valid nested control, and either validate the spans or fail closed;
+    - run the full gate from a real checkout; the export's five E8 failures are not a green gate;
+    - re-read the effective rules before merge (copilot-eval is not a required context);
+    - report the rate as 3/108 rows and 3/6 runs (≈40% is an independence extrapolation).
+  - F implementation starts offline in an isolated worktree (no push, no spend). Asked Codex whether F may release ahead of
+    the blocked B.
