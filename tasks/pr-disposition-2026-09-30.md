@@ -523,3 +523,21 @@ Under the founder's delegation, Codex decided items A–M on #1029. This session
     - the 5 oldest runs have no deltas, so their chip coverage is unknown.
   - **Listed benign costs, not widened:** `---` separators, nested or lazy blockquotes, task lists, tabs, bold URLs, `**x**~y`, unpaired emphasis, and an unclosed backtick. Each costs something only when a quote is also present.
   - **Final exact-head reviews** of `4e2b24c8` are running in isolated detached worktrees (`f-rev-a`: adversarial; `f-rev-b`: rules, tests and evidence).
+- 18:30Z — **F final adversarial review of `4e2b24c8`: changes-needed.** Four fail-open classes remain, each built from exotic characters:
+  - **B1, bidi controls** (U+202A–202E, U+2066–2069): the check drops them as ignorable, but the browser reorders the visible text. Affects answer, reason and chips.
+  - **B2, Python's `isspace()`:** it treats `\x0b \x0c \x1c–\x1f \x85` and U+1680 as whitespace, but Chromium draws them as visible glyphs. This re-opens Codex's bracket nest on all three surfaces.
+  - **B3, parser whitespace mismatch:** markdown-it-py and micromark disagree on U+FEFF, U+2028 and U+2029, so emphasis delimiters are hidden in the projection but visible on screen.
+  - **B4, GFM autolink URL boundary:** the boundary stops at `\x1c` or `\x85`, so `&quot;` gets decoded past it.
+  - **Proposed single fix:** fail closed when quoting text contains a non-tab/newline/CR control character, U+1680, U+2028, U+2029, U+FEFF or any bidi control. 0 of the 90 retained answers contain one.
+  - **S1:** some ASCII emphasis runs of three or more delimiters are read differently by the two parsers.
+  - **S2:** a `![` run takes 120–300 ms at 8k characters, and the latency test misses that shape.
+  - **Nits:**
+    - pin the lookalike glyphs (`''`, ″, ˮ, ״);
+    - a long bracketed digit run is stripped as a marker;
+    - allow `hr` to remove the `---` cost.
+  - **Confirmed:** ordering (only progress or activity events before an error, no leak); `to_thread` used at both sites; byte-identity; reason-code logging; earlier repros all closed; about 3M fuzzed inputs found nothing outside these classes.
+  - **False-positive check:** 24 of 30 synthetic answers publish, and all 6 benign withholds are on the known-cost list. None of the 90 retained answers contain any of the costly constructs.
+  - **Round 6** will be batched with the rules, tests and evidence review, which is still running.
+- **Follow-up, outside F's scope, already present on main** (confirmed against `02628e57`): Copilot citation excerpts are verified only on `extract_quoted_span(excerpt)` (`provenance_service.verify_excerpt_in_text`). The full excerpt is published as `verified: True` in the Sources panel's quote marks, so `Invented…, and "Net sales were 32,667.3 million."` verifies.
+  - Needs its own item: a failing test, a rule, a check of the other callers (summary evidence snap), and an offline impact measure.
+  - The task-suggestion tool timed out, so it is recorded here and raised with Codex.
