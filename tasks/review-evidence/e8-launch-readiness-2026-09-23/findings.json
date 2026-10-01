@@ -1,0 +1,891 @@
+{
+ "workflow": "e8-launch-readiness-review (run wf_bc4180a7-356)",
+ "agents": 56,
+ "base": "main ebdc4c4",
+ "findings": [
+  {
+   "id": "F01",
+   "title": "The kit never names the permission mode. Of the two non-Auto choices in the cloud dropdown, Plan sends shell commands to the auto-mode classifier by default.",
+   "claimed_severity": "launch-blocking",
+   "fix_location": "kit",
+   "source_dims": [
+    "route"
+   ],
+   "votes": [
+    {
+     "verdict": "confirmed",
+     "corrected_severity": "launch-blocking"
+    },
+    {
+     "verdict": "confirmed",
+     "corrected_severity": "launch-blocking"
+    }
+   ],
+   "disposition": "fixed",
+   "action": "kit launch paragraph names Accept edits; gate pins MODE_SENTENCE"
+  },
+  {
+   "id": "F02",
+   "title": "Restore receipt never records the frozen commit (and logs shim mode as 0o755), although kit step 1 says the receipt must show commit 73cc311... and shim mode 0755",
+   "claimed_severity": "degrading",
+   "fix_location": "unsealed-script",
+   "source_dims": [
+    "restore",
+    "route",
+    "docs"
+   ],
+   "votes": [
+    {
+     "verdict": "confirmed",
+     "corrected_severity": "degrading"
+    },
+    {
+     "verdict": "confirmed",
+     "corrected_severity": "doc-drift"
+    }
+   ],
+   "disposition": "fixed",
+   "action": "restore logs frozen_commit (rev-parse on both paths) and shim_mode 0755; kit step 1 names receipt keys"
+  },
+  {
+   "id": "F03",
+   "title": "Six of the nine kit-table attachment hashes are neither checked nor recorded; the receipt carries no attachment identity",
+   "claimed_severity": "degrading",
+   "fix_location": "unsealed-script",
+   "source_dims": [
+    "restore"
+   ],
+   "votes": [
+    {
+     "verdict": "confirmed",
+     "corrected_severity": "doc-drift"
+    },
+    {
+     "verdict": "confirmed",
+     "corrected_severity": "note"
+    }
+   ],
+   "disposition": "fixed",
+   "action": "restore pins all nine kit-table hashes (gate keeps table = pins), checks them before any write, records each attachment"
+  },
+  {
+   "id": "F04",
+   "title": "No receipt or log is written when the restore refuses, including at the last-run CLI-version gate",
+   "claimed_severity": "degrading",
+   "fix_location": "unsealed-script",
+   "source_dims": [
+    "restore"
+   ],
+   "votes": [
+    {
+     "verdict": "refuted",
+     "corrected_severity": "note"
+    },
+    {
+     "verdict": "confirmed",
+     "corrected_severity": "note"
+    }
+   ],
+   "disposition": "fixed",
+   "action": "restore prints its partial log on any refusal; CLI check now runs before any write"
+  },
+  {
+   "id": "F05",
+   "title": "How to record the absent `active` key in state.json is undefined for the step 3 and step 7 readbacks; the export's strict comparison refuses a null, and its REFUSE text asks for the retry the kit forbids",
+   "claimed_severity": "degrading",
+   "fix_location": "unsealed-script",
+   "source_dims": [
+    "guard",
+    "export"
+   ],
+   "votes": [
+    {
+     "verdict": "confirmed",
+     "corrected_severity": "degrading"
+    },
+    {
+     "verdict": "confirmed",
+     "corrected_severity": "degrading"
+    }
+   ],
+   "disposition": "fixed",
+   "action": "export reads a null active/completed as 0 only when the live key is absent; kit records absent active as {}"
+  },
+  {
+   "id": "F06",
+   "title": "The frozen harness runs outside the judging venv: execute() resolves the venv's python symlink, so the pinned json-repair fallback is silently disabled",
+   "claimed_severity": "degrading",
+   "fix_location": "unsealed-script",
+   "source_dims": [
+    "execute"
+   ],
+   "votes": [
+    {
+     "verdict": "confirmed",
+     "corrected_severity": "note"
+    },
+    {
+     "verdict": "confirmed",
+     "corrected_severity": "degrading"
+    }
+   ],
+   "disposition": "founder decision",
+   "action": "kit step 8 records the harness interpreter and the unavailable json-repair fallback; --copies venv not adopted (would add a harness difference versus E3/E2)"
+  },
+  {
+   "id": "F07",
+   "title": "The SIGINT/SIGTERM interrupt handler is ineffective while a slot runs: InterruptedError is swallowed inside communicate(), so the 'Operator interrupted' path and its 8-second grace never execute",
+   "claimed_severity": "degrading",
+   "fix_location": "sealed",
+   "source_dims": [
+    "execute"
+   ],
+   "votes": [
+    {
+     "verdict": "confirmed",
+     "corrected_severity": "note"
+    },
+    {
+     "verdict": "confirmed",
+     "corrected_severity": "degrading"
+    }
+   ],
+   "disposition": "kit note; sealed rebuild candidate",
+   "action": "kit step 6: no graceful mid-slot stop, never stop the run by hand; handler fix needs a founder-approved rebuild"
+  },
+  {
+   "id": "F08",
+   "title": "The repository's *.log ignore rule silently drops every run.log and the execute log when step 7's export directory is committed, so the committed checkpoint does not match its own inventory",
+   "claimed_severity": "degrading",
+   "fix_location": "kit",
+   "source_dims": [
+    "export"
+   ],
+   "votes": [
+    {
+     "verdict": "confirmed",
+     "corrected_severity": "degrading"
+    },
+    {
+     "verdict": "confirmed",
+     "corrected_severity": "degrading"
+    }
+   ],
+   "disposition": "fixed",
+   "action": ".gitignore re-includes *.log under tasks/review-evidence; gate test_git_keeps_the_exported_logs"
+  },
+  {
+   "id": "F09",
+   "title": "The destination-versus-inventory check that README condition 1 requires before committing is missing from both the export tool and the kit, and no allowed command can do it",
+   "claimed_severity": "degrading",
+   "fix_location": "unsealed-script",
+   "source_dims": [
+    "export"
+   ],
+   "votes": [
+    {
+     "verdict": "confirmed",
+     "corrected_severity": "degrading"
+    },
+    {
+     "verdict": "confirmed",
+     "corrected_severity": "degrading"
+    }
+   ],
+   "disposition": "fixed",
+   "action": "export verifies each copy against the source before and after, re-lists the source, records inventory_sha256"
+  },
+  {
+   "id": "F10",
+   "title": "The export refuses a reachable stop state (template configured, not initialized), although README says to export after every stop",
+   "claimed_severity": "degrading",
+   "fix_location": "unsealed-script",
+   "source_dims": [
+    "export"
+   ],
+   "votes": [
+    {
+     "verdict": "confirmed",
+     "corrected_severity": "degrading"
+    },
+    {
+     "verdict": "confirmed",
+     "corrected_severity": "degrading"
+    }
+   ],
+   "disposition": "fixed",
+   "action": "export follows the guard lifecycle and never withholds evidence; recovery_eligible with named blockers"
+  },
+  {
+   "id": "F11",
+   "title": "Claude cannot tell a silent allow from a prompt the founder approved, yet step 0 and step 8 ask Claude to record which happened",
+   "claimed_severity": "degrading",
+   "fix_location": "kit",
+   "source_dims": [
+    "route"
+   ],
+   "votes": [
+    {
+     "verdict": "confirmed",
+     "corrected_severity": "degrading"
+    },
+    {
+     "verdict": "confirmed",
+     "corrected_severity": "degrading"
+    }
+   ],
+   "disposition": "fixed",
+   "action": "kit: step 0 read as \"route open; allow source not distinguished\"; prompts founder-reported"
+  },
+  {
+   "id": "F12",
+   "title": "In any non-Auto cloud session the post-run checkpoint needs founder approvals after a ~2 h background run. The kit does not ask the founder to stay available.",
+   "claimed_severity": "degrading",
+   "fix_location": "kit",
+   "source_dims": [
+    "route"
+   ],
+   "votes": [
+    {
+     "verdict": "refuted",
+     "corrected_severity": "note"
+    },
+    {
+     "verdict": "confirmed",
+     "corrected_severity": "degrading"
+    }
+   ],
+   "disposition": "kit note",
+   "action": "launch paragraph asks the founder to be reachable when step 6 ends"
+  },
+  {
+   "id": "F13",
+   "title": "Kit step 6 misdescribes the run.log: it is one per slot (per harness invocation), not one per real call, and a retried first call leaves no trace in it",
+   "claimed_severity": "doc-drift",
+   "fix_location": "kit",
+   "source_dims": [
+    "execute"
+   ],
+   "votes": [
+    {
+     "verdict": "confirmed",
+     "corrected_severity": "doc-drift"
+    }
+   ],
+   "disposition": "fixed",
+   "action": "kit step 6 describes run.log per attempted slot and per-call accounting in the guard and ledger"
+  },
+  {
+   "id": "F14",
+   "title": "Restore docstrings overstate re-run safety and misdescribe upload matching",
+   "claimed_severity": "doc-drift",
+   "fix_location": "unsealed-script",
+   "source_dims": [
+    "restore"
+   ],
+   "votes": [
+    {
+     "verdict": "confirmed",
+     "corrected_severity": "doc-drift"
+    }
+   ],
+   "disposition": "fixed",
+   "action": "restore docstrings: re-run semantics before/after setup; find_upload matching"
+  },
+  {
+   "id": "F15",
+   "title": "The second-session receipt (and the first receipt's closing line) say the pristine-guard before-state snapshot was never committed, but it was committed in #945",
+   "claimed_severity": "doc-drift",
+   "fix_location": "docs",
+   "source_dims": [
+    "guard",
+    "docs"
+   ],
+   "votes": [
+    {
+     "verdict": "confirmed",
+     "corrected_severity": "doc-drift"
+    }
+   ],
+   "disposition": "correction recorded",
+   "action": "this README, section 8; the two earlier receipts stay unchanged (SHA256SUMS-pinned)"
+  },
+  {
+   "id": "F16",
+   "title": "The E8 'next steps' chain (canonical handover -> 22 Sep re-pin handover) predates #946-#948 and never reaches the launch kit or the non-Auto decision",
+   "claimed_severity": "doc-drift",
+   "fix_location": "docs",
+   "source_dims": [
+    "docs"
+   ],
+   "votes": [
+    {
+     "verdict": "confirmed",
+     "corrected_severity": "doc-drift"
+    }
+   ],
+   "disposition": "fixed",
+   "action": "canonical and re-pin handovers point to the revision 3 kit and Accept edits"
+  },
+  {
+   "id": "F17",
+   "title": "Consolidated Fable handover still says the next E8 run uses the sealed add-on and its prompt on CLI 2.1.278 with the original guard_setup.py",
+   "claimed_severity": "doc-drift",
+   "fix_location": "docs",
+   "source_dims": [
+    "docs"
+   ],
+   "votes": [
+    {
+     "verdict": "confirmed",
+     "corrected_severity": "doc-drift"
+    }
+   ],
+   "disposition": "fixed",
+   "action": "consolidated Fable handover carries a 23 September pointer to the re-pin package and kit"
+  },
+  {
+   "id": "F18",
+   "title": "Hash-sealed re-pin README blames the first stop on missing allow rules, which the second stop disproved",
+   "claimed_severity": "doc-drift",
+   "fix_location": "sealed",
+   "source_dims": [
+    "docs"
+   ],
+   "votes": [
+    {
+     "verdict": "confirmed",
+     "corrected_severity": "doc-drift"
+    }
+   ],
+   "disposition": "kit note; sealed rebuild candidate",
+   "action": "kit states the README prerequisite paragraph is superseded; README corrected at the next rebuild"
+  },
+  {
+   "id": "F19",
+   "title": "Launch-kit header change list and 'revision 2' label were not updated when #946's final commit and #947 changed the operative text",
+   "claimed_severity": "doc-drift",
+   "fix_location": "kit",
+   "source_dims": [
+    "docs"
+   ],
+   "votes": [
+    {
+     "verdict": "confirmed",
+     "corrected_severity": "doc-drift"
+    }
+   ],
+   "disposition": "fixed",
+   "action": "kit header lists changes 5 (#947) and 6-11 (revision 3)"
+  },
+  {
+   "id": "F20",
+   "title": "Lesson says to probe the subscription judge before any long run, with no exception for E8, where a probe is forbidden and falsifies the attestation",
+   "claimed_severity": "doc-drift",
+   "fix_location": "docs",
+   "source_dims": [
+    "docs"
+   ],
+   "votes": [
+    {
+     "verdict": "refuted",
+     "corrected_severity": "note"
+    }
+   ],
+   "disposition": "no change",
+   "action": "refuted: the kit forbids probes explicitly"
+  },
+  {
+   "id": "F21",
+   "title": "step_assemble has no recorded run against the real transport-manifest.json; a schema mismatch would crash with a KeyError traceback, not a REFUSE",
+   "claimed_severity": "note",
+   "fix_location": "unsealed-script",
+   "source_dims": [
+    "restore"
+   ],
+   "votes": [
+    {
+     "verdict": "confirmed",
+     "corrected_severity": "note"
+    }
+   ],
+   "disposition": "fixed",
+   "action": "manifest schema checked before any write with a clean REFUSE; the real manifest remains unexercised"
+  },
+  {
+   "id": "F22",
+   "title": "Attachments are resolved lazily: a missing or duplicated supplement, add-on or deliverable is detected only after the bundle is assembled and extracted",
+   "claimed_severity": "note",
+   "fix_location": "unsealed-script",
+   "source_dims": [
+    "restore"
+   ],
+   "votes": [
+    {
+     "verdict": "confirmed",
+     "corrected_severity": "note"
+    }
+   ],
+   "disposition": "fixed",
+   "action": "all nine attachments resolved and checked before any write"
+  },
+  {
+   "id": "F23",
+   "title": "The kit gives no tool-call timeout for step 1 and does not say how to treat a timeout",
+   "claimed_severity": "note",
+   "fix_location": "kit",
+   "source_dims": [
+    "restore"
+   ],
+   "votes": [
+    {
+     "verdict": "refuted",
+     "corrected_severity": "note"
+    }
+   ],
+   "disposition": "kit guidance",
+   "action": "refuted as a defect; kit step 1 says to use the longest tool timeout and never re-issue a backgrounded restore"
+  },
+  {
+   "id": "F24",
+   "title": "Kit step 3 does not name the 'four guard files', checks for execution.lock in the wrong place, and has no readback key for the TEMPLATE check",
+   "claimed_severity": "note",
+   "fix_location": "kit",
+   "source_dims": [
+    "guard",
+    "docs"
+   ],
+   "votes": [
+    {
+     "verdict": "confirmed",
+     "corrected_severity": "note"
+    }
+   ],
+   "disposition": "fixed",
+   "action": "kit step 3 names the four files, execution.lock at the bundle root, template_marker_never_initialized"
+  },
+  {
+   "id": "F25",
+   "title": "The attestation and before-state observed_at_utc come from step 1's finished_at_utc, earlier than the actual guard readback; the six-hour clock starts there and expiry is only detected after the irreversible step 5",
+   "claimed_severity": "note",
+   "fix_location": "kit",
+   "source_dims": [
+    "guard",
+    "docs"
+   ],
+   "votes": [
+    {
+     "verdict": "confirmed",
+     "corrected_severity": "note"
+    }
+   ],
+   "disposition": "fixed",
+   "action": "kit step 4: observed_at_utc is the step 1 reading; six-hour budget; stop before step 5 if it cannot be kept"
+  },
+  {
+   "id": "F26",
+   "title": "The launch-kit gate checks only the three placeholder commands: step 2/5 setup commands, the attestation JSON template and the hash table are unpinned, so a typo would pass CI and could permanently block the guard",
+   "claimed_severity": "note",
+   "fix_location": "gate-test",
+   "source_dims": [
+    "guard",
+    "route"
+   ],
+   "votes": [
+    {
+     "verdict": "confirmed",
+     "corrected_severity": "note"
+    }
+   ],
+   "disposition": "fixed",
+   "action": "gate pins all seven commands whole and in order, the attestation template against sealed attest() constants, and the attachment table against the restore pins"
+  },
+  {
+   "id": "F27",
+   "title": "Step 3 snapshot copies made with the file tools are not guaranteed byte-identical, and readback.json records no hashes",
+   "claimed_severity": "note",
+   "fix_location": "kit",
+   "source_dims": [
+    "guard"
+   ],
+   "votes": [
+    {
+     "verdict": "refuted",
+     "corrected_severity": "not-a-defect"
+    }
+   ],
+   "disposition": "no change",
+   "action": "refuted: Read/Write round trips of the pristine files are byte-identical"
+  },
+  {
+   "id": "F28",
+   "title": "Step 6 must be issued by the main session; a background task started by a subagent or workflow agent is killed when that agent returns",
+   "claimed_severity": "note",
+   "fix_location": "kit",
+   "source_dims": [
+    "execute"
+   ],
+   "votes": [
+    {
+     "verdict": "confirmed",
+     "corrected_severity": "note"
+    }
+   ],
+   "disposition": "fixed",
+   "action": "kit step 6: issue from the main session, never a subagent, Task or Workflow agent"
+  },
+  {
+   "id": "F29",
+   "title": "No checkpoint exists during the roughly two-hour run: all guard and stage state lives only in the ephemeral container until step 7, so a mid-run container reclaim is not recoverable",
+   "claimed_severity": "note",
+   "fix_location": "founder-decision",
+   "source_dims": [
+    "execute",
+    "export"
+   ],
+   "votes": [
+    {
+     "verdict": "confirmed",
+     "corrected_severity": "note"
+    }
+   ],
+   "disposition": "founder decision",
+   "action": "kit step 8 states the residual risk; batching would change the pinned execute command"
+  },
+  {
+   "id": "F30",
+   "title": "An empty directory such as a just-created `.pending-*` owner marker is not represented in the export",
+   "claimed_severity": "note",
+   "fix_location": "unsealed-script",
+   "source_dims": [
+    "export"
+   ],
+   "votes": [
+    {
+     "verdict": "confirmed",
+     "corrected_severity": "note"
+    }
+   ],
+   "disposition": "fixed",
+   "action": "export lists directories, pending markers (empty or not), STOP files and failed entries"
+  },
+  {
+   "id": "F31",
+   "title": "The gate's rule matcher misreads patterns that combine a mid-pattern * with a trailing ' *' or ':*', and ignores parameter rules. Deny/ask rules that shadow steps 1, 6 and 7 would pass.",
+   "claimed_severity": "note",
+   "fix_location": "gate-test",
+   "source_dims": [
+    "route"
+   ],
+   "votes": [
+    {
+     "verdict": "confirmed",
+     "corrected_severity": "note"
+    }
+   ],
+   "disposition": "fixed",
+   "action": "gate matcher handles a trailing wildcard after another wildcard; Bash parameter deny/ask rules fail the gate"
+  },
+  {
+   "id": "F32",
+   "title": "The kit gives no tool-free way to find <session-uploads-dir>, although one exists",
+   "claimed_severity": "note",
+   "fix_location": "kit",
+   "source_dims": [
+    "route"
+   ],
+   "votes": [
+    {
+     "verdict": "confirmed",
+     "corrected_severity": "note"
+    }
+   ],
+   "disposition": "fixed",
+   "action": "kit: <session-uploads-dir> is read from the attachment paths, no tool call"
+  },
+  {
+   "id": "F33",
+   "title": "Step 4 says the three affirmatives are verified in step 3, but step 3 cannot verify the external-history affirmative",
+   "claimed_severity": "note",
+   "fix_location": "founder-decision",
+   "source_dims": [
+    "route"
+   ],
+   "votes": [
+    {
+     "verdict": "confirmed",
+     "corrected_severity": "note"
+    }
+   ],
+   "disposition": "fixed",
+   "action": "kit: founder confirmation line in message 3; evidence named per affirmative; operator defined"
+  },
+  {
+   "id": "F34",
+   "title": "Every step, classified by permission regime in an Accept-edits cloud session per the docs: the founder faces many more prompts than the kit tells them to expect",
+   "claimed_severity": "note",
+   "fix_location": "kit",
+   "source_dims": [
+    "route"
+   ],
+   "votes": [
+    {
+     "verdict": "refuted",
+     "corrected_severity": "not-a-defect"
+    }
+   ],
+   "disposition": "no change (refuted); observation adopted",
+   "action": "the refutation found the harness launch allow list, which the kit now explains"
+  },
+  {
+   "id": "F35",
+   "title": "Three of the seven pinned allow rules are never used by the kit, and one is broad",
+   "claimed_severity": "note",
+   "fix_location": "founder-decision",
+   "source_dims": [
+    "route"
+   ],
+   "votes": [
+    {
+     "verdict": "confirmed",
+     "corrected_severity": "note"
+    }
+   ],
+   "disposition": "founder decision",
+   "action": "three allow rules (build_repin.py, readout.py, -m unittest) are unused by the kit; left pinned"
+  },
+  {
+   "id": "F36",
+   "title": "The re-pin code seal is self-referential: nothing pins the hash of code-sha256.json or build-summary.json",
+   "claimed_severity": "note",
+   "fix_location": "gate-test",
+   "source_dims": [
+    "docs"
+   ],
+   "votes": [
+    {
+     "verdict": "confirmed",
+     "corrected_severity": "note"
+    }
+   ],
+   "disposition": "fixed",
+   "action": "backend/tests/unit/test_e8_repin_package_is_sealed.py pins the manifests, build summary and diff"
+  },
+  {
+   "id": "F37",
+   "title": "Minor wording drift: export docstring uses the pre-run stamp placeholder, and todo.md has no entry for #947/#948",
+   "claimed_severity": "note",
+   "fix_location": "kit",
+   "source_dims": [
+    "docs"
+   ],
+   "votes": [
+    {
+     "verdict": "confirmed",
+     "corrected_severity": "note"
+    }
+   ],
+   "disposition": "fixed",
+   "action": "export docstring uses <post-run stamp>; todo.md records #947/#948"
+  }
+ ],
+ "coverage": [
+  {
+   "dim": "restore",
+   "verified_ok": [
+    "restore_e8_session.py, export_e8_state.py and build_repin.py are in neither code-sha256.json (5 entries) nor supplement-sha256.json (4 entries), so they are unsealed",
+    "The kit's attachment table (9 rows) equals tasks/review-evidence/e8-repin-restore-2026-09-22/attachments-sha256.txt exactly; its 5 part hashes equal e8-restore-2026-09-22/assembly-report.json attachment_sha256, and the payload bytes sum to 123,221,172",
+    "Script pins SUPPLEMENT 0ac918a0…, ADDON 5298a21e… and DELIVERABLE 281095aa…, equal to kit rows 40-42",
+    "BUNDLE_ZIP_SHA256 38db06d2… / 123221172 bytes equals assembly-report.json and verification.md; IMMUTABLE_MANIFEST_SHA256 0fe5cb9e… equals the kit attestation's original_manifest_sha256; SHIM_SHA256 c0ade9e8… equals the committed guard sha256.txt entry for `claude`",
+    "The five PINNED_EVAL_FILES equal `git show 73cc311:backend/evals/<f> | sha256sum` for judge_report.py, judge.py, runner.py, weekly_readout.py and golden_set.json, and equal tools/binding.py FROZEN",
+    "73cc31162c3dfe7ec497c8c88c43cf397afce4a7 exists (commit 'eval: measure attribution verifier after evidence ranking fix'). No remote ref points at it directly and it is not in main's visible history, but GitHub serves a SHA fetch of it",
+    "The script's exact `git fetch origin <sha>` works from a depth-50 single-branch clone (exit 0, 2 s, 30 commits); `git worktree add --detach` gives HEAD = the frozen commit; `git status --porcelain` is clean; __pycache__ is ignored at 73cc311 (.gitignore:22); the script's step_worktree passes on create and re-run and refuses a stray untracked file",
+    "The frozen backend/requirements.txt (pip-compiled for Python 3.11) resolves to 99 packages, all binary wheels, on cp311 linux (pip --dry-run --only-binary=:all:, exit 0). A fresh `python3 -m venv` plus pip install exited 0 in 47 s. pip needs network: pypi.org and files.pythonhosted.org are in NO_PROXY and PIP_CERT is set; ensurepip gives pip 24.0. python3 is /usr/local/bin/python3 3.11.15",
+    "find_upload matches exact, single-prefix and double-prefix names (e.g. 71e29957-4ecee27d-fable-upload-01-of-05.zip) and refuses on 0 or 2 or more matches; session 2 shows all nine attachments across two messages landing in one uploads dir",
+    "step_extract on the real add-on ZIP: single top dir fable-e8-continuation-2026-09-22, 6 members, code-sha256.json 5/5; a re-run re-verifies all members, a missing member refuses, extra files are tolerated; extractall leaves mode 0644, so the explicit shim chmod 0o755 (line 225) is needed",
+    "step_assemble logic, exercised with a synthetic manifest in its assumed schema, concatenates in order, verifies the final size and hash, removes the partial file on a final mismatch, and skips on re-run",
+    "Kit step 0: `restore_e8_session.py --help` (unmodified scratch copy) prints usage and the docstring only, exit 0, before any file, network or subprocess action",
+    "Container CLI: `/opt/claude-code/bin/claude --version` with billing variables stripped gives stdout exactly '2.1.280 (Claude Code)\\n', empty stderr (guard_setup.py:109 also requires empty stderr), exit 0. It is a regular file, mode 0755. None of the five BILLING_ENV names is set in the container",
+    "`claude auth status` outputs JSON by default (binary strings: `.option(\"--json\",\"Output as JSON (default)\")`, object {loggedIn, authMethod, apiProvider, ...}, `process.exit(C?0:1)`); session 1 observed loggedIn true / oauth_token / firstParty; step_cli's exact-match logic is correct with a fake CLI",
+    "Receipt path /home/user/fable-judging/receipts/restore-YYYY-MM-DDTHHMMSS.json matches the kit's `restore-*.json`; it contains finished_at_utc (isoformat +00:00, which the operator hand-converts to YYYYMMDDTHHMMSSZ); export_e8_state.py copies receipts/**",
+    "Receipt fields cover every other must-show item: immutable '818 entries verified' plus overlay.immutable_ok 818; deliverable_inventory '712 entries verified'; overlay.slot_dirs asserted equal to 70/69/70 (and equal to the Mac fixture-verification.json); overlay.shim_mode '0o755'; pinned_eval_files '5 verified'; cli.version_stdout; cli.auth",
+    "Script fixed paths (BUNDLE, FROZEN_REPO, VENV/bin/python, REAL_CLI, RECEIPTS) equal the kit's fixed values; the re-pin tools hardcode no /home/user or extraction paths",
+    "The kit's restore command text equals the allow rule prefix `python3 tasks/fable-e8-repin-2026-09-22/restore_e8_session.py` in .claude/settings.json and the gate test's pinned RESTORE string",
+    "Disk: 29G free on /; restore-created paths need roughly 250MB plus the venv"
+   ],
+   "unverifiable": [
+    "The transport-manifest.json schema (field names original_sha256/original_bytes/parts/attachment/attachment_sha256/member/payload_bytes/payload_sha256) and its part order: the file is not in this container, and no committed record shows step_assemble running against it",
+    "The E3 supplement ZIP layout (single top dir fable-reconciliation-2026-09-22), the payload-inventory.json 'bytes' key, and the deliverable inventory schema and root layout. Only indirect evidence exists: kit-verification.json and fixture-verification.json from the Mac run, whose log phrasing matches this script's functions",
+    "Bundle and deliverable contents: the actual 818/828 member split, whether any guard file is outside the archive, the 70/69/70 slot entries after overlay in this container, the absence of bundle-stage-records/e8 in the deliverable, and the guard shim's interpreter line",
+    "Whether Ink-rendered `claude auth status` stdout is strict JSON when captured without a TTY (running it is forbidden here; session 1 read the values but its parsing method is not recorded)",
+    "The CLI version and auth route in the next fresh container (the image changed once between sessions)",
+    "How the upload UI names re-sent or renamed files (e.g. ' (1)' suffixes); find_upload would refuse them",
+    "What the Bash tool does when a foreground command exceeds its timeout in the judging session (kill or auto-background)",
+    "Whether non-Auto mode applies the project allow rules silently or prompts: this belongs to kit step 0, not the restore script"
+   ]
+  },
+  {
+   "dim": "guard",
+   "verified_ok": [
+    "Argparse: the step 2 command and both step 5 commands parse exactly as the kit writes them (scratch copies, entry points stubbed): e8_resume {bundle, supplement, repo, execute False}; guard_setup {configure_template True, prior_count None} then {prior_count 287 as int, configure_template False}; the step 6 command parses once <UTC stamp> is replaced",
+    "The steps 2 and 5 commands start with the literal allow-rule prefixes in .claude/settings.json; the gate's rule_problems() and kit_problems() return [] at HEAD ebdc4c4",
+    "Re-pin manifests: code-sha256.json 5/5 and supplement-sha256.json 4/4 match; sha256(supplement-sha256.json)=1ef772b3… = E3_SUPPLEMENT_MANIFEST_SHA256 = build-summary repin_supplement_manifest_sha256; git blobs equal the working tree; no .gitattributes",
+    "restore_e8_session.py, export_e8_state.py and build_repin.py are in neither manifest",
+    "Re-pin tools/e8_resume.py differs from the sealed add-on only at line 24; founder-history-attestation.md is identical and hashes to 67527fd1…",
+    "Frozen 73cc311: all five pinned eval hashes match binding.FROZEN; binding.Validator builds from them under Python 3.11.15",
+    "All re-pin tools parse and run under Python 3.11 (the venv is built from python3 3.11.15)",
+    "Kit step 4 JSON: exactly the 12 keys attest() requires; the four hash constants equal the e8_resume constants; prior_count is the int 287; the three affirmatives are true; the guard_state_path literal equals str(<kit guard dir>/'state.json')",
+    "The repo copy tasks/review-evidence/fable-return-2026-09-20/historical-receipts/e8-pilot/accounting-reconciliation.md.txt hashes to PRIOR_EVIDENCE_SHA256 ef5ef4dd…",
+    "attest() observed_at_utc formats accepted on 3.11: isoformat '+00:00' with microseconds (restore's finished_at_utc format), 'Z', fractional 'Z', compact '20260923T133043Z', '+0000', space separator. Naive time refused. Window: exactly 6h old accepted, 6h+1s refused; exactly 5 min future accepted, 5 min+1s refused",
+    "attest() refuses the unfilled kit template, prior_count 287.0, '287' and True, and a guard_state_path given through a symlink or as a non-normalized path ('//', '/./')",
+    "The pristine snapshot satisfies configure_template's preconditions: enabled false, reconciled false, count 0, completed [], stop_reason null, missing `active` tolerated by _idle; TEMPLATE never_initialized true with state_sha256 a588c486… = sha(state.json); /private does not exist in this container, so the 'original ledger exists' refusal cannot fire for the Mac /private/tmp state_path",
+    "/opt/claude-code/bin/claude is a regular file (resolves to itself). Run as guard_setup runs it (stdin DEVNULL, billing env removed): rc 0, stdout '2.1.280 (Claude Code)\\n', stderr '', 0.01s; guard_setup's fullmatch and resume.verified_cli's regex both match",
+    "Synthetic run (copies of the committed pristine guard files, stand-in shim, fake 2.1.280 CLI): --configure-template exits 0 and writes config.json (local state_path, new real_cli, enabled false) and template-configuration.json with status complete; state.lock created; a repeat is refused (exit 2)",
+    "Synthetic --prior-count 287 exits 0: config enabled true; state reconciled true, count 287; initialization.json status complete with prior_count 287, state_path, real_cli, shim_sha256, old_config, old_state. Repeating either setup command is refused (exit 2)",
+    "Refusals happen before any write: initializing before configuring, or configuring with a CLI reporting 2.1.281, leaves config.json and state.json byte-identical (only state.lock appears); a symlinked --real-cli is refused",
+    "e8_resume.attest() accepts exactly what guard_setup writes (initialization prior_count, state_path and status; config state_path, ceiling and real_cli; validate_guard passes) and returns count 287 with completed []",
+    "Step 2 inspection writes nothing: dont_write_bytecode is set before resume.py/binding/guard_setup are imported, and no lock or subprocess is used",
+    "execute's check `Path(cfg['real_cli']) != real` passes because /opt/claude-code/bin/claude resolves to itself",
+    "Step 2 output keys (reused_control_mains, new_planned, new_complete, new_missing) match the kit's 140/160/0/160 expectation and the committed offline-inspection.json",
+    "Observation: the setup files are rewritten with mode 0600 (mkstemp); same-user access, not a defect"
+   ],
+   "unverifiable": [
+    "Whether the sealed bundle's immutable-sha256.json (818 entries) excludes e8/guard/config.json and state.json. If it included them, admit()→verify_bundle would refuse at step 6 after setup. The bundle is not in this container, and test_e8_addon.py never runs admit() after a real configure/initialize (it fakes attest and guard state)",
+    "The sealed guard shim's behavior (whether it adds an `active` key, its lock protocol, the 601-ceiling latch); e8/guard/claude and check_guard_offline.py are not available here",
+    "That the live bundle's preserved/e8-pilot/accounting-reconciliation.md hashes to ef5ef4dd… (only the repository's historical copy was checked)",
+    "E3 prerequisite admission (resume.admit for e3-candidate2) and the 818/712 inventories, which need the five fable-upload parts and the E3 deliverable",
+    "That the next container's live guard files will match the committed pristine snapshot byte for byte (same bundle ZIP hash implies it, not observed)",
+    "Actual per-slot duration, and so how much of the six-hour attestation window a full 160-slot run uses",
+    "Whether a non-Auto web session applies the project allow rules silently or prompts for each gated command"
+   ]
+  },
+  {
+   "dim": "execute",
+   "verified_ok": [
+    "The step 6 command text starts with the allow rule `Bash(/home/user/fable-judging/venv/bin/python /home/user/EarningsNerd/tasks/fable-e8-repin-2026-09-22/tools/e8_resume.py:*)` and carries no shell syntax; run_in_background does not change the command string.",
+    "Subprocess command (e8_resume.py:297-298) is [python, -m, evals.judge_report, <absolute packet path from load_index>, --judge, cli:claude-fable-5-1, --output-dir, <pending dir>, --concurrency, 1] with cwd <frozen repo>/backend, so `evals` and `app` resolve from the frozen checkout.",
+    "Billing variables removed, identical in resume.py:47 BILLING and frozen judge.py:63-64 _BILLING_ENV: ANTHROPIC_API_KEY, ANTHROPIC_AUTH_TOKEN, CLAUDE_CODE_USE_BEDROCK, CLAUDE_CODE_USE_VERTEX, CLAUDE_CODE_USE_FOUNDRY. None of the five is present in this container.",
+    "ANTHROPIC_BASE_URL passes through, but its value here is https://api.anthropic.com (first-party). CLAUDECODE=1 passes through, and the 2.1.280 binary has no 'inside another Claude Code session' / 'Nested sessions' refusal text (grep count 0).",
+    "Importing evals.judge_report, evals.runner, evals.judge and app.services.ai_metrics at 73cc311 is stdlib-only: app.config is never loaded, and no DATABASE_URL, OPENAI key, Redis or network is needed at import. SECRET_KEY and SKIP_REDIS_INIT are set but unnecessary. Verified by import under /usr/bin/python3.11 with SECRET_KEY unset.",
+    "judge.py:338-346 spawns bare 'claude' with env=child_env. A fake shim test confirmed that asyncio.create_subprocess_exec resolves it through the env's PATH, so the guard dir that e8_resume.py:270 puts first intercepts it. e8_resume.py:271 additionally asserts shutil.which resolves to guard/claude.",
+    "'cli:claude-fable-5-1' routes to backend 'cli' (judge_backend) and becomes `--model claude-fable-5-1`. The id is present in the 2.1.280 binary's model tables (13 occurrences).",
+    "At most two real calls per slot: binding.py:101 enforces one row per packet; runner._maybe_judge calls judge_summary once; _judge_with_retry loops range(2). The per-slot delta check (1,2), the contiguous invocation sequence check, the attest() ledger continuity and the post >= 601 stop are consistent with this.",
+    "Arithmetic: 601 - 287 = 314 remaining and 160 x 2 = 320 maximum, so a partial result is possible. The ceiling binds only if more than 154 of the 160 slots retry. The E3 audit shows about 2 retried slots in 123.",
+    "validate_output's expected harness {**packet.harness, judge: cli:claude-fable-5-1, judge_contract_version: 2} equals what frozen judge_report.py:159 writes. Extra keys (phase, judged_at, judged_summary) are tolerated.",
+    "/opt/claude-code/bin/claude is a regular file (not a symlink). `--version` under the billing-stripped env returns rc 0, stdout '2.1.280 (Claude Code)\\n' and empty stderr. It passes guard_setup._real_cli's fullmatch and resume.verified_cli's regex, and cfg real_cli == resolved CLI (e8_resume.py:264) holds.",
+    "Six-hour window versus runtime: the committed tasks/review-evidence/e3-fable-complete-2026-09-22/invocation-audit.json shows 123 slots with mean 39.1 s (median about 38-40 s, max 98.9 s) and about 1 s between slots. 160 slots is about 1.74 h of judge time, so 'about two hours' is consistent even with extra per-slot admission. Worst case 160 x 2 x 300 s far exceeds 6 h, but attest() at e8_resume.py:291 raises before a pending dir is created, a clean exit 2 with no STOP.",
+    "attest() accepts the restore receipt's finished_at_utc format (datetime.isoformat() with +00:00) that the kit uses as observed_at_utc.",
+    "export_e8_state.py copy_tree uses pathlib rglob('*'), which includes hidden .pending-* dirs and every slots/*/run.log and failed/*/run.log (verified on a synthetic tree), so step 7 captures the run logs.",
+    "Bash run_in_background works in a web session and TaskStop reaches start_new_session children (tree kill), so the step 6 form 'one background tool call, no redirect' is mechanically compatible.",
+    "The re-pin e8_resume.py differs from the attached sealed add-on by exactly line 24 (E3_SUPPLEMENT_MANIFEST_SHA256). restore_e8_session.py and export_e8_state.py are in neither code-sha256.json nor supplement-sha256.json."
+   ],
+   "unverifiable": [
+    "Guard shim behaviour (sealed e8/guard/claude, not in this container): whether it execs or spawns the real CLI, how it counts a call refused at 601 or under a latch, and what it records on SIGTERM/SIGKILL. Frozen judge.py:306-312 `_kill_and_reap` calls proc.kill() on the direct child (the shim) only, so on a 300 s timeout a spawned real CLI could be orphaned, leaving an active owner and a probable owner-loss latch on the retry. That would make a single >300 s call terminal for the run (the E3 maximum slot was 98.9 s).",
+    "Whether the 818-file immutable-sha256.json covers e8/guard/config.json, state.json or TEMPLATE.json. If it did, the step 5 setup would make every later verify_bundle() admission refuse. verification.md states real guard initialization was never tested, and no committed key list exists.",
+    "Actual per-slot admission overhead in E8, which re-runs full admit() (verify_bundle twice, all KO/E3 stages, the E8 panel) plus validate_guard's `claude --version` before every slot. It needs the bundle, which is not available here.",
+    "Whether the 22 September E3 run and the 140 reused E2 control verdicts ran with json_repair importable. The E3 environment.supplement.json 'python' value and the E2 harness venv are not in this container.",
+    "How long a Claude Code web container stays alive while the main session sits idle waiting on a roughly 2-hour background task.",
+    "Nested `claude -p` behaviour under the inherited session variables (CLAUDE_CODE_DEBUG=true, CLAUDE_CODE_DIAGNOSTICS_FILE, CLAUDE_CODE_REMOTE, CLAUDE_CODE_PROVIDER_MANAGED_BY_HOST, CLAUDE_CODE_SESSION_ID). E3 ran with the same kind of environment, but through a direct CLI symlink, not the shim.",
+    "Subscription quota headroom for 160 to 320 calls, and live model-output parse rates. No model call was made."
+   ]
+  },
+  {
+   "dim": "export",
+   "verified_ok": [
+    "export_e8_state.py is in neither code-sha256.json nor supplement-sha256.json, so it is unsealed (fix_location unsealed-script is valid). The scratch copy's SHA-256 c2150642… equals the repository file",
+    "The only /home/user references in export_e8_state.py are in the docstring. The script writes only under --out (lines 202-223) and never modifies the bundle",
+    "argparse matches the kit step 7 command: --bundle required, --receipts optional, --out required. The command is covered by the allow rule `Bash(python3 tasks/fable-e8-repin-2026-09-22/export_e8_state.py:*)` and pinned exactly by the gate test's EXPORT constant",
+    "A relative --out resolves against the cwd (repository root per the kit). Demonstrated with a relative out under a scratch cwd",
+    "An existing out directory is refused with `REFUSE: output directory exists` and exit 1 (demonstrated)",
+    "The six GUARD_FILES are copied when present and the shim is never copied. A pristine guard exports its four files with or without --receipts (synthetic s1/s1n, exit 0), so a stop before setup still exports",
+    "The complete stages/e8 tree is copied, including dot-prefixed failed/.pending-* directories (pathlib rglob includes hidden names), STOP.supplement.json, the ledger, environment.supplement.json and resume-manifest (synthetic s4)",
+    "The whole receipts tree is copied: restore receipt, guard-before-state snapshot, attestation, post-run readback and execute log (synthetic s4)",
+    "Inventory format is {relative path: {sha256, bytes}}, sorted, plus export-summary.json with the guard counter, reconciled flag, stop reason, active count and completed count",
+    "The kit's attestation JSON has exactly the ATTESTATION_KEYS. Its four hashes equal SEALED_HASHES and e8_resume.py's constants, and valid_attestation() accepts it for the kit's guard path",
+    "The kit's step 3 readback lists all eleven keys. valid_readback accepts dict/list or integer counts for state_active/state_completed and ignores cli_version_observed",
+    "The initialized case with a valid attestation and a fresh readback exports with exit 0, both with no slot run (s3) and with slots, failures and STOP (s4)",
+    "A before-state (pristine) readback is not accepted after initialization, as documented. The step 7 post-run readback is what satisfies the export",
+    "No CI gate scans tasks/review-evidence. testHomesAllowlist checks only basenames matching test_*.py, *_test.py or .spec/.test.(ts|js…), and none of the export's file names (owner/judged/index/*.supplement.json, judged.md, run.log, restore-*.json, e8-attestation-*.json, readback.json) match. ruff, bandit and pytest are backend-scoped; eslint, tsc and vitest are frontend-scoped. No gitleaks or trufflehog in the workflows, and no git hooks or pre-commit",
+    "No path- or email-sanitization gate exists. Absolute paths must be kept unmodified (README condition 4 restores at the same absolute paths; the fable-return precedent shows placeholder sanitization breaks manifest hashes)",
+    "The restore receipt that the export copies records only loggedIn/authMethod/apiProvider from `claude auth status` (restore_e8_session.py:293-294), not the account email",
+    "The prior session's review (e8-restore receipt line 119) says the shim and validate_guard write only state.json and state.lock in e8/guard. The lock files are empty and are correctly left out of GUARD_FILES",
+    "In the no-run-log fallback with a correct attestation and readback, the export succeeds, as the kit's \"the export still runs\" requires (s3)"
+   ],
+   "unverifiable": [
+    "Real judged.json and run.log sizes. judged.json embeds the full packet (payload plus retained grounding, excerpts up to ~260k characters) (frozen judge_report.py:204-207). The E3 deliverable proxy is 27,927,235 bytes compressed for 712 members, which suggests individual files far below GitHub's 100 MB per-file limit. Exact sizes and total repository growth cannot be measured without the bundle",
+    "Whether real run.log stdout/stderr or judged.json contain anything GitHub push protection would flag. The synthetic fixtures cannot show this",
+    "Whether git add, commit, push and draft-PR creation, which are not among the seven allow rules, prompt or are denied in the non-Auto judging session",
+    "Whether Claude Code ends an interrupted background task with SIGTERM, which e8_resume handles by killing the harness process group, or SIGKILL. With SIGKILL, the harness child (start_new_session=True) could keep calling the CLI after execution appears to have ended, which breaks the export's quiescence assumption",
+    "Whether the sealed shim (e8/guard/claude, not available here) writes any runtime file in e8/guard besides state.json and state.lock that GUARD_FILES would omit. This relies on the prior session's receipt only",
+    "Whether the shim adds an 'active' key to state.json on its first call. This decides whether the missing-key readback ambiguity arises only in the no-slot fallback"
+   ]
+  },
+  {
+   "dim": "route",
+   "verified_ok": [
+    "Gate test run: bvenv pytest 9.1.1, `python -m pytest backend/tests/unit/test_e8_launch_kit_matches_allow_rules.py -q` from backend/ gave 60 passed, 2 warnings, 0.57s; git status stayed clean.",
+    "CI claim holds: ci.yml:3-7 `on: push: branches: [main]` / `pull_request:` with no paths filter. backend-tests (line 21) has no `if:` and runs `cd backend && python -m pytest`. pytest.ini testpaths=tests; addopts deselects only performance. Latest main push run 35805228865 on ebdc4c4 concluded success.",
+    ".claude/settings.json holds exactly the seven EXPECTED_ALLOW_RULES, identical to handover lines 97-103, with no deny or ask entries.",
+    "All 7 kit sh commands parse correctly under their own scripts' argparse (scratch harness intercepting parse_args): restore --uploads; e8_resume inspection (execute False); guard_setup --configure-template and --prior-count 287; e8_resume --execute with --attestation .../e8-attestation-<stamp>.json and --max-new 160; export --bundle/--receipts/--out.",
+    "Step 0 probe on a scratch copy with the hardcoded paths patched: prints only the usage text, exit 0, creates no files and no __pycache__.",
+    "Kit hash table: 9/9 match the stopped session's attachments-sha256.txt. The 3 ZIP rows equal restore_e8_session.py SUPPLEMENT/ADDON/DELIVERABLE_ZIP_SHA256.",
+    "Attestation JSON: 12 keys equal attest() expected_keys; schema, prior_count 287 (int) and all four hashes equal e8_resume.py constants and export_e8_state SEALED_HASHES. sha256(supplement-sha256.json)=1ef772b3…; sha256(founder-history-attestation.md)=67527fd1…; code-sha256.json 5/5 and supplement-sha256.json 4/4 match on disk; build-summary repin_supplement_manifest_sha256 matches.",
+    "guard_state_path in the kit equals str(resolve(guard)/'state.json'), given /home/user is not a symlink. The readback guard_dir string equals what export_e8_state.valid_readback expects.",
+    "Five PINNED_EVAL_FILES hashes equal `git show 73cc311:backend/evals/<f> | sha256sum` for all five files.",
+    "/opt/claude-code/bin/claude resolves to itself; `--version` gives stdout '2.1.280 (Claude Code)\\n', empty stderr, exit 0 (with CLAUDECODE=1 set). That passes guard_setup._real_cli (fullmatch plus empty stderr), resume.verified_cli and restore's exact check.",
+    "restore_e8_session.py, export_e8_state.py and build_repin.py are absent from code-sha256.json, supplement-sha256.json and build-summary.json, so they are unsealed.",
+    "The restore prints its full log, including finished_at_utc, to stdout (line 329), so <UTC stamp> can be taken from the tool result without reading outside the working directory.",
+    "tools-reference.md: a foreground command reaching its timeout is moved to the background, not killed, so a >2 min restore (pip install of 99 frozen requirements) will not be cut off.",
+    "Docs: the cloud mode dropdown offers Accept edits, Plan and Auto (no Manual label, no Bypass). The mobile app has the same dropdown, and the mode can be set at creation and changed mid-session, so an iOS-started session can pick the mode. This session's env shows CLAUDE_CODE_ENTRYPOINT=remote_mobile.",
+    "~/.claude.json has no 'projects' key (re-checked). ~/.claude/launcher-settings.json permissions.allow is only ['Skill']. remote-settings.json is {}.",
+    "The committed guard-before-state copies (TEMPLATE, config, state, sha256.txt) hash to the values recorded in guard-dir-sha256.txt, so the file-tool copy approach produced byte-identical copies before."
+   ],
+   "unverifiable": [
+    "Whether this cloud harness applies the project permissions.allow rules without a workspace-trust record. The docs say 'Not used' for SDK sessions; only step 0 in the real session can settle it.",
+    "Whether the model receives any signal when the founder approves a prompt without a comment (the docs describe none). Finding 2 depends on there being none.",
+    "The 'five attachments per message' limit, and whether the iOS app can attach nine ZIPs totalling ~123 MB. Neither is documented on the pages read.",
+    "Whether a running run_in_background command keeps a cloud session 'active' for the ~2 h run, and the length of the inactivity expiry.",
+    "Whether the web approval UI offers session-scoped approval for writes outside the working directory, and whether a Bash 'don't ask again' writes .claude/settings.local.json in the clone (not gitignored; the Stop hook would push Claude to commit it).",
+    "Whether the git proxy accepts a push to a branch other than the harness-assigned claude/... branch, if the operator reads 'on a new branch' as git checkout -b.",
+    "Glob's handling of dotfiles (.pending-*, .writing-*) when verifying with file tools only that 'stages/e8 holds only index.json'. The docs are silent.",
+    "Anything inside the 8 unavailable attachments: 818/712 counts, E3 prerequisites for the step 2 inspection, the shim's post-run state.json shape (whether 'active' is present, which the readback's state_active must match for export_e8_state.valid_readback), and the transport-manifest part hashes."
+   ]
+  },
+  {
+   "dim": "docs",
+   "verified_ok": [
+    "Attachment ZIP /root/.claude/uploads/.../4ec603f3-fable-e8-continuation-2026-09-22.zip sha256 = 5298a21e…0909, matching the kit table, verification.md, restore ADDON_ZIP_SHA256, the consolidated handover and both receipts",
+    "Scratch extraction equals the ZIP members byte-for-byte (6/6). Single top-level dir fable-e8-continuation-2026-09-22 (matches restore's expected top). code-sha256.json 5/5 OK",
+    "build_repin.py ADDON_HASHES (e8_resume a2399735…, founder-history-attestation 67527fd1…, test_e8_addon d79de757…) equal the attachment files' hashes",
+    "diff of attachment tools/e8_resume.py vs re-pin copy = exactly line 24 (E3_SUPPLEMENT_MANIFEST_SHA256 8e43ac91… -> 1ef772b3…). tests/test_e8_addon.py and founder-history-attestation.md byte-identical",
+    "Re-pin code-sha256.json 5/5 and supplement-sha256.json 4/4 match disk. sha256(supplement-sha256.json)=1ef772b3157106bcf9bee52675f89bdf0cf643f0457eb405b6ce28e5fe950f6f. build-summary.json manifests equal both on-disk manifests",
+    "repin.diff has exactly 6 removed / 6 added lines across guard_setup.py (2), resume.py (3), e8_resume.py (1), consistent with README, verification.md, build_repin docstring, lesson and superseded prompt",
+    "restore_e8_session.py, export_e8_state.py and build_repin.py are listed in neither manifest (not sealed)",
+    "Attestation constants agree across kit step 4, e8_resume.py (PRIOR_EVIDENCE/FOUNDER/ORIGINAL/E3 manifest, MIN_PRIOR 287) and export_e8_state.py SEALED_HASHES. The key set is identical in all three",
+    "CLI string agrees: kit '2.1.280 (Claude Code)', restore EXPECTED_CLI_VERSION, re-pin regexes, container `--version` output now; binary sha256 1e08503d…925b unchanged; /opt/claude-code/bin/claude is a regular file (not a symlink); ~/.claude.json has no 'projects' key",
+    "Five pinned eval files at 73cc311 (git show) match restore PINNED_EVAL_FILES and the consolidated handover table",
+    "Kit step-1 receipt fields for bundle 818, deliverable 712, slot dirs 70/69/70, shim mode, CLI version and auth (loggedIn/oauth_token/firstParty) all exist in restore's log",
+    "Kit readback key list covers every key export_e8_state.valid_readback compares (state_active/state_completed mapped to counts)",
+    "The .claude/settings.json allow list is byte-equal to handover section 4 JSON (7 rules) and to the gate's EXPECTED_ALLOW_RULES",
+    "A scratch copy of backend/tests/unit/test_e8_launch_kit_matches_allow_rules.py, pointed at the repo, gives 60 passed, matching the #948 message; repo left clean",
+    "Kit CI claim is true: backend-tests runs on push to main and every pull_request with no path filter; pytest testpaths=tests; the gate is not performance-marked",
+    "Test-homes exemption: simulated gate logic over git ls-files; the only Python test outside the homes is tasks/fable-e8-repin-2026-09-22/tests/test_e8_addon.py, exempt through the ancestor code-sha256.json plus hash match. CLAUDE.md:119-122, lessons/test-one-test-home.md and the spec comment agree",
+    "Counts consistent everywhere: 601-287=314; 160=140 mains+20 duplicates; 320=160x2; 300-slot panel = 140 reused + 160 new",
+    "The 5 fable-upload part hashes agree across the kit table, first-session assembly-report.json and second-session attachments-sha256.txt. The E8-SESSION-PROMPT hash 600d012b…6cf4e matches the kit reference",
+    "SHA256SUMS in both receipt directories verify OK",
+    "Offline test logs match verification.md: six-line 10 OK in 73.329s; five-line 4 ok / 3 FAIL / 3 ERROR, including test_completed_e3_admits_only_the_frozen_e8_missing_panel as the lesson states",
+    "lessons/README.md indexes every lesson file with no dangling links. All relative links in the reviewed E8 docs resolve",
+    "#949 dependency refresh does not affect judging: restore builds the venv from the frozen 73cc311 backend/requirements.txt",
+    "Commit 51b5dcf cited by the superseded Astra prompt exists on GitHub (PR-branch commit, squash-merged into 3d836ad), not in main's ancestry"
+   ],
+   "unverifiable": [
+    "Contents of the other 8 attachments (five fable-upload parts incl. guard shim e8/guard/claude and check_guard_offline.py, E3 supplement ZIP, E3-complete deliverable ZIP, transport-manifest.json). This includes whether transport-manifest.json carries the keys restore_e8_session.py reads ('original_sha256','original_bytes','parts'[].'attachment'/'attachment_sha256'/'member'/'payload_bytes'/'payload_sha256'); restore does not check the transport-manifest file hash e30ed42b… itself",
+    "Original E8-SESSION-PROMPT.md text, needed to confirm the kit header's 'original eight steps unchanged in substance' and 'same fixed values'",
+    "Whether a non-Auto Claude Code web session applies the project allow rules without a workspace-trust record; only kit step 0 inside that session can show this",
+    "`claude auth status` output, which was not run per the safety rules",
+    "Current live state of the pristine guard: no bundle exists in this container; the last observation is the committed 22 Sep 17:44:39Z snapshot",
+    "Hosted CI result for main ebdc4c4"
+   ]
+  }
+ ]
+}
