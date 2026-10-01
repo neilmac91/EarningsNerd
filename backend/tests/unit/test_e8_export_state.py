@@ -66,8 +66,10 @@ def make_bundle(root: Path, stage: str = "pristine", *, active: dict | None = No
 
     Like a restored bundle it carries the sealed shim beside the guard files (never exported) and,
     once setup has run, the ``state.lock`` guard_setup creates; an immutable manifest listing an E8
-    panel file and a file only the manifest names; slot 001's packet file, outside ``stages/``; the
-    E3 candidate 2 prerequisite index; and the E8 index's reused control slots.
+    panel file and a file only the manifest names; the other three E8 panel files, which only the
+    panel list names; a file in each prerequisite stage; one packet file outside ``stages/`` for
+    each index route (E8 slot 001, reused control c001 and E3 candidate 2 slot p001); and the E8
+    index's reused control slots.
     """
     bundle = root.resolve() / "bundle"
     guard = bundle / "e8" / "guard"
@@ -79,7 +81,14 @@ def make_bundle(root: Path, stage: str = "pristine", *, active: dict | None = No
     _write(bundle / "preserved" / "e1" / "judged.json", {"results": [], "programme": "e1"})
     _write(bundle / "immutable-sha256.json", {rel: hashlib.sha256((bundle / rel).read_bytes()).hexdigest()
                                               for rel in ("preserved/e1/judged.json", "preserved/e2/judged.json")})
+    _write(bundle / "preserved" / "e2-control2" / "judged.json", {"results": [], "programme": "e2-control2"})
+    _write(bundle / "e8" / "frozen" / "e8-judge-order.json", {"slots": []})
+    _write(bundle / "e8" / "e8-control-main-reuse-2026-09-19.json", {"main_verdicts": []})
+    _write(bundle / "stages" / "ko-corrected" / "index.json", {"programme": "ko-corrected", "packets": []})
+    _write(bundle / "stages" / "e3-candidate1" / "reconciliation-supplement.json", {"status": "reconciled"})
     _write(bundle / PACKETS[0]["packet_path"], "packet 1")
+    _write(bundle / REUSED[0]["packet_path"], "control packet 1")
+    _write(bundle / PREREQUISITE_INDEX["packets"][0]["packet_path"], "prerequisite packet 1")
     _write(bundle / "stages" / "e3-candidate2" / "index.json", PREREQUISITE_INDEX)
     state = {"accounting_reconciled": initialized, "real_cli_invocations": 287 if initialized else 0,
              "stop_reason": None, "completed": []}
@@ -107,10 +116,13 @@ def _digest(text: str) -> str:
 # The frozen 160-slot panel, with the packet bindings a ledger row must repeat.
 PACKETS = [{"slot": f"{n:03d}", "packet_sha256": _digest(f"packet {n}"), "request_sha256": _digest(f"request {n}"),
             "row_sha256": _digest(f"row {n}")} for n in range(1, 161)]
-# Slot 001's packet file is indexed by path (its bytes are ``packet 1``, matching its packet_sha256).
+# Slot 001's packet file is indexed by path (its bytes are ``packet 1``, matching its packet_sha256), and so
+# are reused control c001's and E3 candidate 2 slot p001's: the sealed load_index resolves all three routes.
 PACKETS[0]["packet_path"] = "e8/packets/001.json"
 REUSED =[{"slot": f"c{n:03d}", "slot_kind": "main", "condition": "o"} for n in range(1, 141)]
-PREREQUISITE_INDEX = {"programme": "e3-candidate2", "packets": []}
+REUSED[0]["packet_path"] = "e8/packets/c001.json"
+PREREQUISITE_INDEX = {"programme": "e3-candidate2",
+                      "packets": [{"slot": "p001", "packet_path": "work/e3-candidate2/packets/p001.json"}]}
 # What the sealed admission pins, as the stand-in below checks it: the prerequisite's bytes and the reused panel.
 PINNED_PREREQUISITE = _digest(json.dumps(PREREQUISITE_INDEX, indent=2) + "\n")
 PINNED_REUSED = _digest(json.dumps(REUSED, sort_keys=True))
@@ -623,23 +635,37 @@ def test_the_verdict_is_taken_on_the_current_bytes_not_on_matching_counts(
 
 
 def _append(path: Path) -> None:
+    """Append a newline, creating the file when it does not exist yet."""
     with path.open("a") as stream:
         stream.write("\n")
 
 
 # Admission inputs inside and outside stages/e8, the package and the frozen checkout, and the shim, which
 # is hashed as an input but never exported. preserved/e1 reaches the digest only through the immutable
-# manifest (it is no E8 panel file) and e8/packets/001.json only through its index packet_path.
+# manifest (it is no E8 panel file); the other three E8 panel files only through the panel list; each
+# prerequisite stage only through ADMISSION_STAGES; and each packet only through its own index route
+# (E8 packets, E8 reused_main_slots, a prerequisite stage's packets).
 INPUTS_EDITED_DURING_THE_RUN = [
     "bundle/stages/e8/index.json",
     "bundle/stages/e3-candidate2/index.json",
+    "bundle/stages/e3-candidate1/reconciliation-supplement.json",
+    "bundle/stages/ko-corrected/index.json",
     "bundle/preserved/e2/judged.json",
     "bundle/preserved/e1/judged.json",
+    "bundle/preserved/e2-control2/judged.json",
+    "bundle/e8/frozen/e8-judge-order.json",
+    "bundle/e8/e8-control-main-reuse-2026-09-19.json",
     "bundle/e8/packets/001.json",
+    "bundle/e8/packets/c001.json",
+    "bundle/work/e3-candidate2/packets/p001.json",
     "bundle/e8/guard/claude",
     "frozen/backend/evals/golden_set.json",
     "package/tools/e8_resume.py",
 ]
+# Created during the run, so it is in the "after" map only. A prerequisite stage's stop is never exported,
+# so neither the copy check nor the exported-bytes check can see it: only the digest's union of keys does.
+CREATED_DURING_THE_RUN = "bundle/stages/e3-candidate2/STOP.supplement.json"
+INPUTS_EDITED_DURING_THE_RUN.append(CREATED_DURING_THE_RUN)
 
 
 @pytest.mark.parametrize("label", INPUTS_EDITED_DURING_THE_RUN)
@@ -661,13 +687,17 @@ def test_inputs_that_change_while_the_inspection_runs_void_its_verdict(export, m
     assert summary["current_inspection"]["inputs_changed"] == [label]
     assert summary["recovery_blockers"] == [f"admission inputs changed during the current inspection: ['{label}']"]
     inputs = json.loads((tmp_path / "out" / "admission-inputs.json").read_text())
-    assert inputs["before"][label] != inputs["after"][label]
+    assert (label in inputs["before"]) is (label != CREATED_DURING_THE_RUN)
+    assert inputs["before"].get(label) != inputs["after"][label]
     assert_evidence_exported(export, tmp_path / "out", 0, summary)
 
 
+# Every guard file the export copies, not only state.json, must be the inspected bytes.
+COPIED_GUARD_FILES = ("config.json", "state.json", "TEMPLATE.json", "initialization.json",
+                      "template-configuration.json", "sha256.txt")
 EDITED_BEFORE_THE_COPY = [
     ("stages/e8/index.json", lambda b: _append(b / "stages/e8/index.json")),
-    ("e8/guard/state.json", lambda b: _append(b / "e8/guard/state.json")),
+    *[(f"e8/guard/{name}", lambda b, name=name: _append(b / "e8/guard" / name)) for name in COPIED_GUARD_FILES],
     ("stages/e8/notes.txt", lambda b: _write(b / "stages/e8/notes.txt", "written after the inspection")),
     # Inspected, then gone before the copy: no ledger, slot or marker rule and no source re-listing sees it.
     ("stages/e8/environment.supplement.json", lambda b: (b / "stages/e8/environment.supplement.json").unlink()),
