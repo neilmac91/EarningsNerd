@@ -560,3 +560,58 @@ def test_display_rounding_half_interval_is_the_last_stated_digit():
     view = filing()
     assert service._fact_certifies_claim(fact(value=996347000000.0 + 499999), whole, view)
     assert not service._fact_certifies_claim(fact(value=996347000000.0 + 500001), whole, view)
+
+
+# Python's Unicode re.IGNORECASE folds ı and İ onto i and ſ onto s. Each answer below is the
+# qualifying sentence with one folded letter. The lookup returns a fact equal to the value a folded
+# parse would have produced: on Unicode folding "net ſales" raised KeyError (the whole answer
+# became a stream error) and a folded scale word became scale 1.0, which certified that fact.
+@pytest.mark.parametrize('answer,value', [
+    pytest.param('Net ſales for the fiscal year ended March 31, 2025 was RMB996,347 million.',
+                 996347000000.0, id='subject-long-s'),
+    pytest.param('Revenue for the fiscal year ended March 31, 2025 was RMB996,347 thouſand.',
+                 996347.0, id='scale-long-s'),
+    pytest.param('Revenue for the fiscal year ended March 31, 2025 was RMB996.3 bıllion.',
+                 996.3, id='scale-dotless-i'),
+    pytest.param('Revenue for the fiscal year ended March 31, 2025 was RMB996,347 mİllion.',
+                 996347.0, id='scale-dotted-capital-i'),
+])
+@pytest.mark.asyncio
+async def test_unicode_case_fold_never_parses_a_claim(monkeypatch, answer, value):
+    assert service._plan_uncited_fact_citation(answer) is None
+    complete = await _complete(monkeypatch, answer, lookup=lambda *a, **kw: dict(fact(value=value)))
+    assert complete['answer'] == answer
+    assert complete['citations'] == [] and complete['grounded'] == 0
+
+
+@pytest.mark.parametrize('answer', [
+    pytest.param('REVENUE FOR THE FISCAL YEAR ENDED MARCH 31, 2025 WAS RMB996,347 MILLION.', id='upper'),
+    pytest.param('Total Net Sales for the Fiscal Year Ended march 31, 2025 was rmb996.3 Billion.', id='mixed'),
+])
+@pytest.mark.asyncio
+async def test_ascii_case_variants_still_certify(monkeypatch, answer):
+    complete = await _complete(monkeypatch, answer)
+    assert complete['answer'] == answer[:-1] + ' [1].'
+    assert len(complete['citations']) == 1 and complete['citations'][0]['concept'] == 'revenue'
+
+
+@pytest.mark.asyncio
+async def test_unicode_whitespace_still_separates_the_claim(monkeypatch):
+    """NBSP between month and day and a narrow NBSP before the scale were accepted before
+    ASCII-only case folding and still are."""
+    answer = 'Revenue for the fiscal year ended March\xa031, 2025 was RMB996,347\u202fmillion.'
+    complete = await _complete(monkeypatch, answer)
+    assert complete['answer'] == answer[:-1] + ' [1].'
+    assert len(complete['citations']) == 1
+
+
+def test_annual_claim_grammars_fold_ascii_only_and_keep_unicode_whitespace():
+    """Gate: the scalar and paired annual-claim grammars fold over ASCII only and spell whitespace (?u:\\s)."""
+    import re
+
+    from app.services import copilot_service
+
+    for pattern in (copilot_service._ANNUAL_FIGURE_CLAIM, copilot_service._PAIRED_ANNUAL_CLAIM):
+        assert pattern.flags & re.ASCII and pattern.flags & re.IGNORECASE
+        assert not re.search(r"(?<!\(\?u:)\\s", pattern.pattern)
+

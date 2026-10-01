@@ -1127,17 +1127,21 @@ _CLAIM_SCALES = {"thousand": 1e3, "million": 1e6, "billion": 1e9}
 # over the WHOLE answer. That anchor is what rejects multi-metric, comparative, causal, quoted,
 # conditional, derived and incomplete-scope statements: a second proposition simply falls outside
 # the match. Longest phrases first so the alternation binds the fullest subject.
+# Case folds over ASCII letters only: Unicode re.IGNORECASE also folds ı/İ onto i, ſ onto s and the
+# Kelvin sign onto k, so "net ſales" raised KeyError below and "thouſand" fell back to scale 1.0.
+# Such an answer now does not match and abstains. Whitespace stays Unicode through (?u:\s): an NBSP
+# is still a separator. \d is ASCII digits: a claim in non-ASCII digits also abstains.
 _ANNUAL_FIGURE_CLAIM = re.compile(
     r"(?P<subject>" + "|".join(
         re.escape(p) for p in sorted(_CLAIM_PHRASE_CONCEPT, key=len, reverse=True)) + r")"
-    r"\s+(?:for|in)\s+(?:the\s+)?(?:fiscal\s+)?year\s+ended(?:\s+on)?\s+"
-    r"(?P<month>" + "|".join(_MONTH_NAMES) + r")\s+(?P<day>\d{1,2}),\s+(?P<year>\d{4})"
-    r"\s+(?:was|were|totaled|totalled|amounted\s+to)\s+"
-    r"(?P<currency>" + _CURRENCY_TOKEN + r")\s*"
+    r"(?u:\s)+(?:for|in)(?u:\s)+(?:the(?u:\s)+)?(?:fiscal(?u:\s)+)?year(?u:\s)+ended(?:(?u:\s)+on)?(?u:\s)+"
+    r"(?P<month>" + "|".join(_MONTH_NAMES) + r")(?u:\s)+(?P<day>\d{1,2}),(?u:\s)+(?P<year>\d{4})"
+    r"(?u:\s)+(?:was|were|totaled|totalled|amounted(?u:\s)+to)(?u:\s)+"
+    r"(?P<currency>" + _CURRENCY_TOKEN + r")(?u:\s)*"
     r"(?P<amount>\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?)"
-    r"(?:\s*(?P<scale>billion|million|thousand))?"
+    r"(?:(?u:\s)*(?P<scale>billion|million|thousand))?"
     r"\.\Z",
-    re.IGNORECASE,
+    re.IGNORECASE | re.ASCII,
 )
 
 # Annual report forms: the ones whose period of report IS a full fiscal year. Same test
@@ -1207,13 +1211,14 @@ def _plan_uncited_fact_citation(answer: str) -> Optional[dict]:
     }
 
 
-# Reuse the existing annual revenue clause verbatim; only this explicit second clause is admitted.
+# Reuse the existing annual revenue clause verbatim, with its flags; only this explicit second
+# clause is admitted.
 _PAIRED_ANNUAL_CLAIM = re.compile(
     _ANNUAL_FIGURE_CLAIM.pattern.removesuffix(r"\.\Z")
     + r"(?P<separator>, and net income was )"
-    + r"(?P<income_currency>" + _CURRENCY_TOKEN + r")\s*"
+    + r"(?P<income_currency>" + _CURRENCY_TOKEN + r")(?u:\s)*"
     + r"(?P<income_amount>\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?)"
-    + r"(?:\s*(?P<income_scale>billion|million|thousand))?\.\Z", re.IGNORECASE,
+    + r"(?:(?u:\s)*(?P<income_scale>billion|million|thousand))?\.\Z", _ANNUAL_FIGURE_CLAIM.flags,
 )
 
 
