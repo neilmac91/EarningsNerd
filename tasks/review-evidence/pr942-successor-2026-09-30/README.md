@@ -178,10 +178,12 @@ file overlaps.
 
 ## Local verification on committed code
 
-Five mutations were applied to committed code, tested, and restored with `git checkout --` into a
+Six mutations were applied to committed code, tested, and restored with `git checkout --` into a
 clean tree. Each targeted run used a fresh `PYTHONPYCACHEPREFIX`. The first four ran on `438fd37a`.
-The fifth ran on `19928d2f`, whose production and test code is identical to `438fd37a`: that commit
-added only this evidence and `tasks/todo.md`.
+The last two ran on `16ea2559`, which tightened the Copilot raw-shape gate from "no `raw_tag`" to
+main's exact key set (`test_accession_xbrl_extraction.py:897`). Production code there is identical
+to `438fd37a`. Those runs used the three owner files plus `test_copilot_citation_repair.py`. Before
+the tightening, the sixth mutation passed all 228 tests in those files.
 
 | Mutation | Failing | Restored |
 | --- | --- | --- |
@@ -189,7 +191,8 @@ added only this evidence and `tasks/todo.md`.
 | Drop the date guard in `_ratio_clause` | 3 failed, 104 passed (the undated prior renders `22.4%`) | 107 passed |
 | Borrow the sibling net-income scope in the render | 8 failed, 160 passed (JPM exact line and all seven custody cases) | 168 passed |
 | Relabel the grounding ROE row with the formula text | 8 failed (grounding equals main's bytes; JPM grounding row) | 8 passed |
-| Restore #942's `:463` hunk, so equity/assets raw points carry `raw_tag` (Copilot-facing `Filing.xbrl_data` shape) | 18 failed, 150 passed (all at `test_accession_xbrl_extraction.py:896`: `assert 'raw_tag' not in {...}`) | 168 passed |
+| Restore #942's `:463` hunk, so equity/assets raw points carry `raw_tag` (Copilot-facing `Filing.xbrl_data` shape) | 18 failed, 210 passed (all at `test_accession_xbrl_extraction.py:897`: extra item `'raw_tag'`) | 228 passed |
+| Add a differently named key (`concept`) to the equity/assets raw points instead | 18 failed, 210 passed (all at `:897`: extra item `'concept'`) | 228 passed |
 
 The first attempt at the sibling-scope mutation contained a Python 3.11 f-string quoting error, so
 tests failed at collection. That run proves nothing and was discarded. It is recorded here
