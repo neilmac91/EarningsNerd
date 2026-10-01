@@ -276,3 +276,9 @@ Every required check ran; none was bypassed. Each review override is founder-app
   independent `/health/detailed` 2026-10-01T05:41:45Z healthy (db 7.38 ms, SEC circuit closed), homepage 200. Release
   comment 5925487819. #1039 body status refreshed (conditions 1-so-far and 2 met; waits on founder condition 3; merge-tree
   vs `0032bca8` clean). All seven dispositions executed; final report above.
+- 05:55Z — Founder instruction: hand the open points over to the Codex agent working in the repo, ask for its feedback, and
+  tell it that this session will execute the path it agrees. Handover `tasks/handover-codex-2026-10-01.md` (A–M, path,
+  six questions, §6 decision format and non-delegable limits) and #1021 qualification evidence committed (`b53ef4d4`);
+  `@codex` request posted on #1029 (comment 5925590299). New finding recorded there: #1034 (edgartools 5.59.1) breaks
+  `test_original_ford_complete_outlook_reaches_primary_and_forward_recovery_without_displacement` — do not merge.
+  Waiting for Codex's decision.
