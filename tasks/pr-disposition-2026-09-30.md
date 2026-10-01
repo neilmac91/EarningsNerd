@@ -541,3 +541,28 @@ Under the founder's delegation, Codex decided items A–M on #1029. This session
 - **Follow-up, outside F's scope, already present on main** (confirmed against `02628e57`): Copilot citation excerpts are verified only on `extract_quoted_span(excerpt)` (`provenance_service.verify_excerpt_in_text`). The full excerpt is published as `verified: True` in the Sources panel's quote marks, so `Invented…, and "Net sales were 32,667.3 million."` verifies.
   - Needs its own item: a failing test, a rule, a check of the other callers (summary evidence snap), and an offline impact measure.
   - The task-suggestion tool timed out, so it is recorded here and raised with Codex.
+- 19:10Z — **F final review of rules, tests and evidence at `4e2b24c8`: changes-needed, no blocker.**
+  - **Verified:**
+    - every CLAUDE.md rule and Codex ruling;
+    - chip conditions (a) and (c)–(e);
+    - dependency pins;
+    - logging change safe and tested;
+    - replay identical;
+    - attribution summary reproduced byte-identically;
+    - gate 4930 passed;
+    - merge with main clean (516 tests passed).
+  - **Should-fix:**
+    - S1: lazy rule-cache compilation in markdown-it lets two first-time parses on `to_thread` workers race (fail-open: 63/2400 under a forced switch interval). Fix: warm the parser at import and/or lock it.
+    - S2–S6: surviving mutations that change real behaviour: R6 (answer read as plain text), R5 (chip trim order, ruling (b) unpinned), R3 (`<!`), R8 (bidi range), R4 (`www.`).
+    - S7: the delimiter-row exemption also applies to blockquotes.
+  - **Attribution tool:** must classify withheld rows as F, other or UNEXPLAINED (loud), report the 45 replay mismatches (unrecorded repair lookups), and record `source_sha` next to the code sha before F's measurement runs.
+  - **Nits:** ordered-list depth not counted toward the nesting cap; bare `&` treated as a quote hint; RUNBOOK wording; logging test restore.
+  - **Round 6 sent to the F agent**, combining both reviews:
+    - a character-level fail-closed gate (controls, U+1680/2028/2029/FEFF, bidi) on all surfaces;
+    - emphasis-run fail-closed;
+    - parser warm-up/lock plus a concurrency test;
+    - raw pre-scans for constructs that always fail closed (`![`, HTML, `[^`, tab), for latency;
+    - mutation-killing tests;
+    - delimiter-row fix;
+    - attribution tool A1–A3;
+    - nits: lookalike glyph pins, marker strip limited to `\[F?\d{1,3}\]`, entity-only `&` hint, `hr` only if parity is proven.
