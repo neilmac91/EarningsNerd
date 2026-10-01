@@ -9,6 +9,7 @@ from app.services.openai_service import OpenAIService
 from app.services.summary_sections import render_sections, sections_to_markdown
 from app.services.export_service import ExportService
 from app.services.summary_versioning import SUMMARY_SCHEMA_VERSION
+from app.services.ai import cash_claims
 from app.services.ai.fi_signals import fi_components_present
 from app.services.edgar.instance_extractor import cash_financial_classification
 
@@ -189,3 +190,46 @@ def test_explicit_prior_year_never_uses_end_year_alone(change):
         for key in ("operating_cash_flow", "capital_expenditures"):
             metrics[key]["prior"]["period_start"] = start
     assert filled(metrics, {"headline": claim})["the_print"]["headline"] == claim
+
+
+# Python's Unicode re.IGNORECASE also folds four non-ASCII letters onto ASCII ones: ı and İ onto i,
+# ſ onto s, and the Kelvin sign onto k. A folded scale word is no _SCALES key, so before ASCII-only
+# folding these raised KeyError out of the structured-summary owner, or certified a folded token.
+@pytest.mark.parametrize("claim", [
+    pytest.param("Free cash flow (OCF less capex) rose to $10.8 bıllion from $7.1B.", id="single-scale-dotless-i"),
+    pytest.param("Free cash flow (OCF less capex) rose to $10,773 mİllion from $7.1B.", id="single-scale-dotted-I"),
+    pytest.param("Free cash flow (OCF less capex) rose to $10,773,000K from $7.1B.", id="single-scale-kelvin"),
+    pytest.param("Operating cash flow rose to $12,116,000 thouſand from $7.9B, and free cash flow "
+                 "(OCF less capex) reached $10.8B versus $7.1B.", id="pair-scale-long-s"),
+    pytest.param("Free cash flow (OCF less capex) rose to uſd 10.8B from $7.1B.", id="currency-long-s"),
+    pytest.param("Free caſh flow (OCF less capex) rose to $10.8B from $7.1B.", id="single-frame"),
+    pytest.param("Operating caſh flow rose to $12.1B from $7.9B, and free cash flow (OCF less capex) "
+                 "reached $10.8B versus $7.1B.", id="pair-frame"),
+    pytest.param("Operating caſh flow of $12.1B and free cash flow of $10.8B, while total assets grew "
+                 "to $42.7B from $25.2B.", id="mixed-frame"),
+    pytest.param("Operating caſh flow of $12.1B (+53.0% YoY) and free cash flow of $10.8B, while total "
+                 "assets grew 69.3% to $42.7B.", id="mixed-growth-frame"),
+])
+def test_unicode_case_fold_is_left_untouched(claim):
+    assert filled(lead={"headline": claim})["the_print"]["headline"] == claim
+
+
+@pytest.mark.parametrize("token", ["$10.8 bıllion", "$10,773 mİllion", "$10,773,000 thouſand",
+                                   "$10,773,000K", "uſd 10.8B"])
+def test_folded_token_is_neither_a_scale_nor_a_currency(token):
+    assert cash_claims._matches(token, 10773000000.0, "USD") is False
+
+
+@pytest.mark.parametrize("claim", [
+    "FREE CASH FLOW (OCF LESS CAPEX) ROSE TO $10.8 BILLION FROM $7.1B.",
+    "Operating Cash Flow rose to $12.1b from $7.9B, and Free Cash Flow (ocf less capex) reached "
+    "usd 10.8B versus $7.1B.",
+    "OPERATING CASH FLOW OF $12.1B AND FREE CASH FLOW OF $10.8B, WHILE TOTAL ASSETS GREW TO $42.7B FROM $25.2B.",
+])
+def test_ascii_case_variants_still_qualify(claim):
+    assert_owned(filled(lead={"headline": claim})["the_print"]["headline"])
+
+
+def test_unicode_space_after_currency_code_still_qualifies():
+    claim = "Free cash flow (OCF less capex) rose to USD\xa010.8B from USD 7.1B."
+    assert_owned(filled(lead={"headline": claim})["the_print"]["headline"])

@@ -9,25 +9,29 @@ from typing import Any, Callable
 from .xbrl_narrative import cash_flow_basis
 from .fi_signals import fi_components_present
 
-_AMOUNT = r"(?:\$|[A-Z]{3}\s+)-?(?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d+)?(?:B|M|K| billion| million| thousand)"
+# Case folds over ASCII letters only. Unicode re.IGNORECASE also folds ı/İ onto i, ſ onto s and the
+# Kelvin sign onto k, so "bıllion" or "thouſand" matched a scale word that is no _SCALES key and
+# _matches raised. Whitespace stays Unicode through (?u:\s): an NBSP after a currency code still counts.
+_FOLD = re.IGNORECASE | re.ASCII
+_AMOUNT = r"(?:\$|[A-Z]{3}(?u:\s)+)-?(?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d+)?(?:B|M|K| billion| million| thousand)"
 _VERB = r"(?:increased to|decreased to|rose to|fell to|reached|was)"
 _FCF = r"free cash flow(?: \(OCF (?:less|minus) capex\))? " + _VERB
 _PRIOR = r"(?: from | versus |, (?:up|down) from )"
 _PRIOR_YEAR = r"(?: in (?P<prior_year>\d{4}))?"
 _PAIR = re.compile(
     rf"Operating cash flow {_VERB} (?P<ocf_current>{_AMOUNT}){_PRIOR}(?P<ocf_prior>{_AMOUNT}), "
-    rf"and {_FCF} (?P<fcf_current>{_AMOUNT}){_PRIOR}(?P<fcf_prior>{_AMOUNT}){_PRIOR_YEAR}\.", re.I,
+    rf"and {_FCF} (?P<fcf_current>{_AMOUNT}){_PRIOR}(?P<fcf_prior>{_AMOUNT}){_PRIOR_YEAR}\.", _FOLD,
 )
-_SINGLE = re.compile(rf"{_FCF} (?P<fcf_current>{_AMOUNT}){_PRIOR}(?P<fcf_prior>{_AMOUNT}){_PRIOR_YEAR}\.", re.I)
+_SINGLE = re.compile(rf"{_FCF} (?P<fcf_current>{_AMOUNT}){_PRIOR}(?P<fcf_prior>{_AMOUNT}){_PRIOR_YEAR}\.", _FOLD)
 # Two observed whole mixed sentences. The asset suffix is preserved, never certified.
 _MIXED = re.compile(
     rf"Operating cash flow of (?P<ocf_current>{_AMOUNT}) and free cash flow of (?P<fcf_current>{_AMOUNT})"
-    rf"(?P<suffix>, while total assets grew to {_AMOUNT} from {_AMOUNT}\.)", re.I,
+    rf"(?P<suffix>, while total assets grew to {_AMOUNT} from {_AMOUNT}\.)", _FOLD,
 )
 _MIXED_GROWTH = re.compile(
     rf"Operating cash flow of (?P<ocf_current>{_AMOUNT}) \((?P<ocf_growth>[+-]?\d+(?:\.\d+)?)% YoY\) "
     rf"and free cash flow of (?P<fcf_current>{_AMOUNT})"
-    rf"(?P<suffix>, while total assets grew [+-]?\d+(?:\.\d+)?% to {_AMOUNT}\.)", re.I,
+    rf"(?P<suffix>, while total assets grew [+-]?\d+(?:\.\d+)?% to {_AMOUNT}\.)", _FOLD,
 )
 _SCALES = {"b": 10**9, "m": 10**6, "k": 10**3,
            "billion": 10**9, "million": 10**6, "thousand": 10**3}
@@ -77,7 +81,7 @@ def _selected(metrics: dict) -> dict | None:
 
 
 def _matches(token: str, value: float, currency: str) -> bool:
-    match = re.fullmatch(r"(\$|[A-Z]{3}\s+)(-?[\d,.]+)\s*(B|M|K|billion|million|thousand)", token, re.I)
+    match = re.fullmatch(r"(\$|[A-Z]{3}(?u:\s)+)(-?[\d,.]+)(?u:\s)*(B|M|K|billion|million|thousand)", token, _FOLD)
     if match is None or ("USD" if match[1] == "$" else match[1].strip().upper()) != currency:
         return False
     raw = match[2].replace(",", "")
