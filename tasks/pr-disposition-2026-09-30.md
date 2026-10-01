@@ -42,7 +42,7 @@ handover package `earningsnerd-opus-5-5-handover` (SHA256SUMS verified). Checked
 | #1013 | review, validate, merge | dependabot branch (main merged: `0113e9c9`) | `2cd639fd`→`0113e9c9` | **merged** `e1914ea4`; prod serves posthog-js 1.434.14 |
 | #1012 | maintainer replacement, merge, close original | replacement [#1030](https://github.com/neilmac91/EarningsNerd/pull/1030) `claude/pr1012-posthog-7.60.1` `c8c56cee` | `1e56f3d2` | **#1030 merged** `c13b069a`, deployed `00423-wrg`; #1012 closed superseded |
 | #952 | repair current-inspection binding, merge tooling | `claude/attached-file-review-any8xz` | `1d48eb33`→`551f4808` | **merged** `e3aa33df`; deployed `00426-xqn` (verified); E8 judging parked |
-| #1021 | integrate main, qualify or hold draft | `codex/wave3-acquisition-period-withholding` | `55e89142`→`c4629ffc` | **merged** `0032bca8` (qualified: CI green, eval-baseline 70/70, Copilot 18/18, audit PASS); deploy verification pending |
+| #1021 | integrate main, qualify or hold draft | `codex/wave3-acquisition-period-withholding` | `55e89142`→`c4629ffc` | **merged** `0032bca8` (qualified: CI green, eval-baseline 70/70, Copilot 18/18, audit PASS); deployed `00427-qdv` (verified) |
 | #942 | fresh successor, close original | successor draft [#1039](https://github.com/neilmac91/EarningsNerd/pull/1039) `claude/pr942-successor` `4d036b48` (stamp `summary-2026-09-t`) | `47d040aa` | **#942 closed** superseded (comment 5922709320); #1039 blocked draft: merge conditions 1 (so far) and 2 met (D3 70/70; source review comment 5922852309); waits only on founder's scoped disposition (condition 3); merge-tree vs main `0032bca8` clean, re-integrate + re-gate before any merge |
 | #1023 | close with successor, diagnose | successor draft [#1036](https://github.com/neilmac91/EarningsNerd/pull/1036) `claude/pr1023-diagnostic` `5a5ebf8a` | `d58c1a59` | **#1023 closed** (comment 5920729833); #1036 reviewed (no blocker; 5 should-fix fixed), retained as diagnostic draft |
 | #1038 (unplanned) | fix the 2026-10-01 month-rollover date bomb in migrations-postgres | `claude/fix-month-rollover-tests` | `9d7fa56f` | **merged** `ee30022a`; deployed `00425-xph` (verified) |
@@ -59,7 +59,7 @@ Merge-tree conflicts vs main at start: #1013/#1012 none; #952, #1023, #1009 `tas
 | #1013 | review, validate, merge | **merged** `e1914ea4` | frontend-only; main CI 36778453187 green; production serves posthog-js 1.434.14 |
 | #1012 | maintainer replacement, merge, close original | **#1030 merged** `c13b069a`; #1012 closed as superseded | deploy job 110106288262: `applied=0 skipped=40`, `00423-wrg` 100%, `/health/detailed` healthy |
 | #952 | bind recovery to a current inspection; merge tooling only | **merged** `e3aa33df`; E8 judging stays parked | deploy job 110175708793: `applied=0 skipped=40`, `00426-xqn` 100%, `/health/detailed` healthy |
-| #1021 | integrate main, verify tracing thread, qualify or hold | **merged** `0032bca8` | CI 36808107539 green; eval-baseline 70/70; Copilot 36809122540 18/18; pre-registered audit PASS; tracing thread resolved with evidence; deploy verification in progress (main CI 36819975322) |
+| #1021 | integrate main, verify tracing thread, qualify or hold | **merged** `0032bca8` | CI 36808107539 green; eval-baseline 70/70; Copilot 36809122540 18/18; pre-registered audit PASS; tracing thread resolved with evidence; deployed `00427-qdv` (main CI 36819975322; deploy job 110235056894 `applied=0 skipped=40`, 100% traffic, healthy; independent `/health/detailed` healthy 05:41:45Z); release comment 5925487819 |
 | #942 | fresh successor, close original, merge only if conditions hold | **#942 closed**; successor **#1039 blocked draft** | merge conditions 1 (so far) and 2 met; waits only on founder condition 3 |
 | #1023 | close with evidence; diagnostic draft | **#1023 closed**; **#1036 diagnostic draft** | reviewed, no blocker; experiment not run (needs authorization) |
 | #1009 | keep the pricing hold | **held draft** | hold record comment 5920001935; no pricing or Stripe change |
@@ -271,3 +271,8 @@ Every required check ran; none was bypassed. Each review override is founder-app
 - 03:16Z — #1021 body updated with the qualification result; review-gate 36809724263 pass.
 - ~05:29Z — **#1021 squash-merged as `0032bca8`** (head re-read `c4629ffc`, mergeable clean, base `e3aa33df`, no main run in
   progress). Main CI 36819975322 queued; deploy verification pending. Cumulative telemetry spend: USD 0.738531 of USD 10.00.
+- 05:41Z — **#1021 deploy verified**: main CI 36819975322 success; deploy job 110235056894 `apply_migrations: applied=0
+  skipped=40`, revision `earningsnerd-backend-00427-qdv` 100% traffic, job images updated, deploy health healthy;
+  independent `/health/detailed` 2026-10-01T05:41:45Z healthy (db 7.38 ms, SEC circuit closed), homepage 200. Release
+  comment 5925487819. #1039 body status refreshed (conditions 1-so-far and 2 met; waits on founder condition 3; merge-tree
+  vs `0032bca8` clean). All seven dispositions executed; final report above.
