@@ -514,6 +514,10 @@ def test_conflicting_alias_does_not_hide_an_independent_claim(alternate, authore
     (CLAIM, "tagged"), (CAUSE_CLAIM, "tagged"), (CAUSE_CLAIM, "complete"),
     (CAUSE_CLAIM, "qualified_complete"), (CAUSE_CLAIM, "mismatched_complete"),
     (CAUSE_CLAIM, "mismatched_net_complete"), (CAUSE_CLAIM, "mismatched_unit_complete"),
+    (CAUSE_CLAIM, "mismatched_component_complete"), (CAUSE_CLAIM, "mismatched_asset_complete"),
+    (CAUSE_CLAIM, "mismatched_value_tagged"),
+    # The tagged gain equals current other income, so only the claimed sign differs.
+    (CAUSE_CLAIM.replace("realized gain", "realized loss"), "opposite_sign_tagged"),
     (CAUSE_CLAIM, "oversized_complete"), (CAUSE_CLAIM, "fragment"),
 ])
 async def test_same_authored_grammar_is_preserved_when_source_separately_quantifies_component(claim, exclusion):
@@ -524,11 +528,14 @@ async def test_same_authored_grammar_is_preserved_when_source_separately_quantif
     fact = copy.deepcopy(node(document, "f-129"))
     fact.set("id", "separate-realized-investment-gain")
     fact.set("name", "us-gaap:GainLossOnSaleOfInvestments")
+    if exclusion == "mismatched_value_tagged":
+        fact.text = "68,210"
     paragraph = html.Element("div")
     paragraph.text = "The Company recognized a realized gain on privately-held equity securities of $"
     paragraph.append(fact)
     fact.tail = " thousand for the three months ended March 31, 2026."
-    if exclusion != "tagged":
+    tagged = exclusion.endswith("tagged")
+    if not tagged:
         paragraph.clear()
         paragraph.text = CAUSE_CLAIM.removesuffix(CAUSE_SUFFIX)
         if exclusion == "mismatched_complete":
@@ -538,6 +545,10 @@ async def test_same_authored_grammar_is_preserved_when_source_separately_quantif
         elif exclusion == "mismatched_unit_complete":
             # Same digits at a different authored scale are different operands.
             paragraph.text = paragraph.text.replace("thousand", "million")
+        elif exclusion == "mismatched_component_complete":
+            paragraph.text = paragraph.text.replace("realized gain", "realized loss")
+        elif exclusion == "mismatched_asset_complete":
+            paragraph.text = paragraph.text.replace("privately-held", "publicly-held")
         elif exclusion == "oversized_complete":
             paragraph.text = paragraph.text.replace("$68,209", OVERSIZED_AMOUNT)
         elif exclusion == "fragment":
@@ -552,12 +563,17 @@ async def test_same_authored_grammar_is_preserved_when_source_separately_quantif
     source = acquire(changed)
     assert source is not None
     expected_components = [{
-        "concept": "us-gaap:GainLossOnSaleOfInvestments", "value": 68209000,
+        "concept": "us-gaap:GainLossOnSaleOfInvestments",
+        "value": 68210000 if exclusion == "mismatched_value_tagged" else 68209000,
         "fact_id": "separate-realized-investment-gain", "context_id": "c-1", "unit_id": "usd",
-    }] if exclusion == "tagged" else []
+    }] if tagged else []
     assert source["separate_investment_component_amounts"] == expected_components
-    expected_explanations = [{"component": "gain", "asset": "privately-held"}] if exclusion in {
-        "complete", "qualified_complete"} else []
+    expected_explanations = {
+        "complete": [{"component": "gain", "asset": "privately-held"}],
+        "qualified_complete": [{"component": "gain", "asset": "privately-held"}],
+        "mismatched_component_complete": [{"component": "loss", "asset": "privately-held"}],
+        "mismatched_asset_complete": [{"component": "gain", "asset": "publicly-held"}],
+    }.get(exclusion, [])
     assert source["complete_other_income_explanations"] == expected_explanations
     preserved = exclusion in {"tagged", "complete", "qualified_complete"}
     supplied = {"sections": sections(claim), "metadata": {}, "schema_version": SUMMARY_SCHEMA_VERSION}
