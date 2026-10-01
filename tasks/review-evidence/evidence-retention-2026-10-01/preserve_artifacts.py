@@ -58,7 +58,7 @@ def main() -> int:
                     stdout=handle, stderr=subprocess.PIPE, check=False,
                 )
             if result.returncode != 0:
-                partial.unlink(missing_ok=True)
+                # Keep the partial download (never delete): it stays as *.zip.part for inspection.
                 status = "download_failed: " + result.stderr.decode(errors="replace").strip()[:200]
             else:
                 partial.replace(target)

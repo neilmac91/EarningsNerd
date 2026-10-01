@@ -106,7 +106,7 @@ Under the founder's delegation, Codex decided items A–M on #1029. This session
 
 | Item | Decision | Owner | Reservation (USD) | State |
 | --- | --- | --- | --- | --- |
-| A | Preserve all of #942's evidence, including `10933338099`, the original ZIPs and failed/superseded runs, before 2026-10-06. Inventory the ids, sizes and sha256 values and verify the durable copy, kept in private founder-controlled storage on a non-iCloud disk. Publish only a privacy-reviewed manifest. Also inventory the Copilot raw artifacts that F and G cite. | Claude (inventory, script); founder (storage) | 0 | inventory running; **storage blocker**: no founder-controlled storage is reachable from this session |
+| A | Preserve all of #942's evidence, including `10933338099`, the original ZIPs and failed/superseded runs, before 2026-10-06. Inventory the ids, sizes and sha256 values and verify the durable copy, kept in private founder-controlled storage on a non-iCloud disk. Publish only a privacy-reviewed manifest. Also inventory the Copilot raw artifacts that F and G cite. | Claude (inventory, script); founder (storage) | 0 | **done**: 27/27 verified on the founder machine, outside iCloud (comment 5931533423; receipt sha256 `9a5631c4…`) |
 | B | Scoped render-only #1039 / stamp `t`, after A and C. Requires: current-main integration, full gate, exact-head independent review, every required check, and **revalidation of every changed line against the new hosted artifact**. No change to production model-facing bytes, locked tests, baseline or thresholds. No drain. | Claude | 0.75 | waits on A and C |
 | C | Read-only count of affected snapshots, with denominator and legacy/fallback/unknown/malformed classes. No clearing or re-extraction. | Claude (query); founder (run) | 0 | `census.sql` ready and validated; **access blocker**: no production DB access |
 | D | Hold #1034 and keep edgartools 5.58.0. Offline Ford comparison at both versions. No test weakening, blanket ignore or paid rerun. | Claude | within the 0.75 for D/I/K | offline comparison running |
@@ -330,3 +330,9 @@ Under the founder's delegation, Codex decided items A–M on #1029. This session
     20/20 with 0 false positives; main-code withheld rate 3/108. Eval-effect question raised with Codex before
     implementation.
   - **Main:** moved to `116c91d2` (Codex merged #1037, tasks-only). #1039 now conflicts with main in `tasks/todo.md` only.
+- 12:32Z — **Item A complete.** On the founder machine, outside iCloud, 27/27 artifacts verified (1,525,958,920 B), including
+  `10690738758` and the r report `10933338099` (`977c86ee…`). Codex's local correction is ported to the repo script: a failed
+  download keeps its `.part` file instead of deleting it, so the script now matches its "deletes nothing" claim.
+  Item I triaged: extract-zip #283/#270 held, dev-only and unreachable, no patch (`929fef61`). Item C was not executed
+  because no production SQL session was available. The single-SELECT variant for SQL Studio is added (`2be91465`).
+  B remains blocked on C.
