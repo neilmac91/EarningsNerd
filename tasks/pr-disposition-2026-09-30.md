@@ -449,3 +449,12 @@ Under the founder's delegation, Codex decided items A–M on #1029. This session
   - **Dependency question to Codex** (#1029): declare `markdown-it-py>=4.2.0,<5` directly. It is already pinned at 4.2.0 via `rich` and installed in production; no version change.
   - **Reviews:** two fresh exact-head reviews running (adversarial; rules, tests, dependencies and evidence).
   - **Hold:** the head stays unfrozen while the founder's floor decision is pending.
+- 16:40Z — **Codex approved the dependency** (comment 5935923490).
+  - **Approved:** declare `markdown-it-py>=4.2.0,<5` directly, keeping the exact pins and package set.
+  - **Condition:** show that regenerating the lock changes only the provenance comments.
+  - **Reproduction result:** pip-tools 7.5.3 / pip 25.3 / Python 3.11.
+    - Main's lock regenerates byte-identically. F's committed lock regenerates byte-identically.
+    - F differs from main only in the `markdown-it-py` "via" lines; the 99 pins are identical.
+    - The one header difference, `--no-index`, comes from the sandbox index configuration and appears in the control too.
+    - Evidence: `f-quote-containment-2026-10-01/lock-reproduction-2026-10-01/`.
+  - **Not cleared:** this approves only the declaration. The floor stays 24 pending the founder; no head freeze, no paid validation and no release is cleared.
