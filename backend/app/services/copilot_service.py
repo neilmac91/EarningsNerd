@@ -469,6 +469,68 @@ def _verify_citations(
     return by_marker
 
 
+# Prose quotations (decision F). Double-quote marks are the ones normalize_for_match folds to '"'.
+# Curly and low-9 marks carry direction; a straight mark does not. Single quotes are left alone
+# (apostrophes).
+_QUOTE_MARK_RE = re.compile('["\u201c\u201d\u201e]')
+_QUOTE_EDGE_CHARS = " \t\r\n\u00a0.,;:!?\u2026"
+_QUOTE_ELLIPSIS_RE = re.compile(r"\.\s*\.\s*\.|\u2026")
+
+
+def _quotation_pairs(answer: str) -> Optional[list[tuple[int, int]]]:
+    """(opening, closing) mark offsets of every quotation, outer before inner; None if unpairable.
+
+    “ (U+201C) and „ (U+201E) open, ” (U+201D) closes. A straight mark closes an open straight
+    mark and otherwise opens, so straight nesting reads as consecutive quotes; the caller
+    rejects that signature.
+    """
+    opened: list[int] = []
+    pairs: list[tuple[int, int]] = []
+    for match in _QUOTE_MARK_RE.finditer(answer):
+        mark = match.group()
+        if mark == "\u201d" or (mark == '"' and opened and answer[opened[-1]] == '"'):
+            if not opened:
+                return None
+            pairs.append((opened.pop(), match.start()))
+        else:
+            opened.append(match.start())
+    return None if opened else sorted(pairs)
+
+
+def unsupported_prose_quotations(answer: str, normalized_source: str) -> list[str]:
+    """Reason codes for final-prose quotations the filing text cannot show contiguously.
+
+    A quotation is in scope when the citation verifier could verify it (``_MIN_VERIFIABLE_LEN``
+    after the shared normalization) or it contains an interior ellipsis; shorter quoted terms
+    ("ROE", "Gross margin") are labels, not source quotations. An in-scope quotation must occur
+    contiguously in ``normalized_source``; citation markers and edge punctuation are not quoted
+    text. A nested quotation is checked both whole and inner. Missing source text, unpairable
+    marks and straight marks that may hide a nested quotation fail closed. Nothing is repaired
+    or stitched: any reason withholds the whole answer.
+    """
+    pairs = _quotation_pairs(answer)
+    if pairs is None:
+        return ["unbalanced_quotation"]
+    reasons: list[str] = []
+    for start, end in pairs:
+        raw = answer[start + 1:end]
+        if answer[start] == answer[end] == '"' and (raw[:1].isspace() or raw[-1:].isspace()):
+            # '"x "y" z"' pairs as 'x ' and ' z': the inner "y" would never be checked.
+            reasons.append("ambiguous_quotation")
+            continue
+        content = _COPILOT_MARKER_RE.sub(" ", raw).strip(_QUOTE_EDGE_CHARS)
+        needle = normalize_for_match(content)
+        elided = bool(_QUOTE_ELLIPSIS_RE.search(content))
+        if not elided and len(needle) < _MIN_VERIFIABLE_LEN:
+            continue
+        if not normalized_source:
+            reasons.append("quotation_source_unavailable")
+        elif (needle not in normalized_source
+              and normalize_for_match(raw.strip(_QUOTE_EDGE_CHARS)) not in normalized_source):
+            reasons.append("elided_quotation" if elided else "quotation_not_in_source")
+    return reasons
+
+
 def _safe_activity_label(info: dict) -> str:
     """Keep model-controlled tool names and concept strings out of publication events."""
     name = info.get("name")
@@ -1353,6 +1415,9 @@ async def answer_filing_question(
         if any(str(cite["n"]) in unresolved_literals or cite["verified"] is not True
                for cite in verified_citations):
             raise _UnpublishableAnswer("Unverified or colliding final citation")
+        quotation_failures = unsupported_prose_quotations(full_answer, normalized_source)
+        if quotation_failures:
+            raise _UnpublishableAnswer(f"Unsupported prose quotation: {quotation_failures[0]}")
         if misplaced:
             # Trust telemetry: a nonzero rate here means the model is attaching fact markers to
             # figures they don't support — watch this after any prompt/model change.
