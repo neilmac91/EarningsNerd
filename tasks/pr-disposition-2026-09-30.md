@@ -34,7 +34,8 @@ handover package `earningsnerd-opus-5-5-handover` (SHA256SUMS verified). Checked
 | D4 | #952 ready → copilot-eval [36800236360](https://github.com/neilmac91/EarningsNerd/actions/runs/36800236360) at `551f4808` | 0.05 | 0.011508 (30 calls, 0 unknown) | done: accepted 18/18; 1 composed quote (ASML d0, main code) |
 | D5 | #1021 push of integrated head `c4629ffc` → eval-baseline [36808107539](https://github.com/neilmac91/EarningsNerd/actions/runs/36808107539) (peak window; balance 45.80 at 02:50:38Z) | 0.50 | 0.351808 (70 calls, 0 unknown; tokens × llm_pricing × 2) | done: 70/70 pass, gate_fail 0, regression gate pass |
 | D6 | #1021 ready → copilot-eval [36809122540](https://github.com/neilmac91/EarningsNerd/actions/runs/36809122540) at `c4629ffc` (one run; pre-registered policy; balance 45.62 at 03:08:37Z) | 0.05 | 0.011835 (31 calls, 0 unknown) | done: accepted 18/18; audit: 0 composed, 0 uncited answers → policy PASS |
-| D7 | E PR push of `da4f66a0` (`claude/e-unicode-fold-guards`) → eval-baseline (off-peak; balance 45.62 at 13:17:18Z; E lane reservation 0.75) | 0.40 | pending | pending |
+| D7 | [#1040](https://github.com/neilmac91/EarningsNerd/pull/1040) (E) push of `da4f66a0` → eval-baseline [36868705889](https://github.com/neilmac91/EarningsNerd/actions/runs/36868705889) (off-peak; balance 45.62 at 13:17:18Z; E lane reservation 0.75) | 0.40 | 0.175062 (70 calls, 0 unknown; off-peak tokens × llm_pricing) | done: 70/70 scored, gate_fail 0, regression gate PASS; artifact sha256 `38774635…` |
+| D8 | #1040 ready → copilot-eval at `da4f66a0` (one run; criterion accepted 18/18, 0 errors; balance 45.44 at 13:42:09Z) | 0.05 | pending | pending |
 
 ## Lanes
 
@@ -370,3 +371,7 @@ Under the founder's delegation, Codex decided items A–M on #1029. This session
   - Pushing `claude/e-unicode-fold-guards` off-peak as D7, reserved at 0.40 out of E's 0.75. Total telemetry before D7 is 0.738531.
   - Readiness criterion, stated before the ready transition: required CI green on the exact head; then one `copilot-eval` run (D8, 0.05) that must report accepted 18/18 with 0 errors; the prose-quote audit is advisory.
   - **F:** the rework commit `6f85b6e6` closes Codex's bracket form and the reversed-curly form. Review found a third bypass that still publishes: an inner span wrapped in emphasis, dash or underscore markup next to straight marks, e.g. `"label **"*Invented…*"** here"`. The misparsed outer fragments fall below the 24-character floor, so the inner span is never checked. It was sent back to the F agent with a flanking-based rule as the suggestion. F stays offline.
+- 13:42Z — **#1040 (E): all required CI green on `da4f66a0`.** The checks are backend-tests, frontend-tests, e2e-tests, migrations-postgres and lighthouse; review-gate runs on the ready transition.
+  - **D7:** USD 0.175062, telemetry-based. Total telemetry is now 0.913593. The balance, 45.62 → 45.44, is consistent.
+  - **Review:** the independent delta review of `da4f66a0` approved it (no blocker, no should-fix). Its four optional test-only nits are recorded in the PR body and were not pushed, because a push would re-run the paid eval.
+  - **Next:** marking ready, which triggers D8.
