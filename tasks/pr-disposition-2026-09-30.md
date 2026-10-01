@@ -501,3 +501,25 @@ Under the founder's delegation, Codex decided items A–M on #1029. This session
   - **Unchanged:** runner, scorer, F1 criteria, locked contracts and thresholds.
   - **Not cleared:** the round-5 implementation and the parser findings until the actual final head passes. The floor stays 24 pending the founder. No paid validation, freeze or release.
   - **Relayed** to the F agent as a round-5 addendum.
+- 17:45Z — **F round 5 delivered at `4e2b24c8`** (offline, unpushed). One commit on top of `feb90f60`.
+  - **Answer projection is now an allowlist** of the markdown subset both parsers agree on. Raw HTML (detected on the raw text, with `html` off), images, link titles, reference links, footnotes, task lists, tabs, more than 4 nesting levels and parser-divergent forms all give `ambiguous_quotation` when a quote mark is present.
+  - **Reason and chips** are checked as plain text, after the trim and count limits, before any answer-bearing event. There are no `chunk` events.
+  - **Other fixes:**
+    - default-ignorables are dropped (Unicode 17);
+    - quoting answers over 8k characters fail closed;
+    - the check runs via `asyncio.to_thread` at both call sites;
+    - the `markdown_it` logger is set to WARNING in logging_service, because DEBUG logging slowed the parse twentyfold;
+    - the RUNBOOK row is fixed.
+  - **Evidence:**
+    - gate: 4930 passed;
+    - mutations: 73 of 74 killed (the survivor, M36, is defence in depth, with no hole found);
+    - real-renderer cross-check: 0 holes over 423 cases plus 1.4M fuzzed answers, including an HTML class;
+    - replay: 0 row changes;
+    - trial merge with main: clean, 516 focused tests passed.
+  - **F1 attribution script:**
+    - 234 rows, of which 144 replayed from `candidate_deltas`;
+    - 20 withheld, all on the answer;
+    - 429 chips, 0 with double quotes;
+    - the 5 oldest runs have no deltas, so their chip coverage is unknown.
+  - **Listed benign costs, not widened:** `---` separators, nested or lazy blockquotes, task lists, tabs, bold URLs, `**x**~y`, unpaired emphasis, and an unclosed backtick. Each costs something only when a quote is also present.
+  - **Final exact-head reviews** of `4e2b24c8` are running in isolated detached worktrees (`f-rev-a`: adversarial; `f-rev-b`: rules, tests and evidence).
