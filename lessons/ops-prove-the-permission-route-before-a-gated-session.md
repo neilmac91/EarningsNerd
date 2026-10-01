@@ -55,6 +55,21 @@ session. `tasks/fable-e8-repin-2026-09-22/README.md` still shows its command blo
 `"$PYTHON_BIN"` form; it is hash-sealed by `code-sha256.json`, so bringing it into rule form is a
 rebuild, not an edit, and the kit file is the operative text until then.
 
+## Update, 2026-09-23: name the mode, and read step 0 for that mode
+
+"Non-Auto" does not name a mode. A cloud session offers Accept edits, Plan and Auto. In Plan the
+auto-mode classifier still reviews shell commands by default (`useAutoModeDuringPlan`), and plan
+approval offers "Yes, and use auto mode". The kit must therefore name **Accept edits** and forbid
+switching. The cloud harness also starts the session's CLI with its own session-level allow list
+(`--allowed-tools …,Bash,…,Read,…,Write,…`, read from the launch arguments on 23 September).
+Auto mode drops such blanket allows, which is why both 22 September sessions reached the
+classifier. In Accept edits the list applies, so a silent step 0 shows the route is open, not
+that the project rules were applied. Claude sees an approved prompt only as its result, so
+prompts are founder-reported. The gate now also pins all seven commands whole and in order, the
+attestation template against the sealed `attest()` constants, the attachment table against the
+restore's pins, and the mode sentence. Evidence:
+`tasks/review-evidence/e8-launch-readiness-2026-09-23/README.md`.
+
 ## Evidence
 
 - `tasks/review-evidence/e8-repin-restore-2026-09-22/receipt.md` (sections 3, 6 and 10)

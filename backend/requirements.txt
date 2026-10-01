@@ -261,7 +261,7 @@ typing-inspection==0.4.2
     #   pydantic-settings
 unidecode==1.4.0
     # via edgartools
-urllib3==2.7.0
+urllib3==2.8.0
     # via
     #   requests
     #   sentry-sdk
