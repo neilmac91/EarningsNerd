@@ -4,16 +4,17 @@ Filing fixtures are verbatim snippets of the retained #1021 qualification source
 and table-cell layout as retained); the synthetic lines are labelled as such. The composed spans are
 the retained main-code failures: "Total net sales 32,667.3" (ASML, runs 36640254449 and 36800236360)
 and "Revenue ... 996,347" (BABA, run 36777581481). The check reuses the citation verifier's
-normalizer and its 24-character floor.
+normalizer. Quoted text of fewer than 8 characters is a label (the founder's decision on PR #1029);
+citation excerpts keep the verifier's own 24-character floor.
 
 Each published text is read as it is displayed. The answer is markdown (react-markdown 10 +
-remark-gfm), read here with markdown-it-py within a small subset both parsers read alike: a link
-shows its text, escapes and character references show their characters, emphasis and code-span
-delimiters do not show, and default-ignorable code points are dropped; controls, separators, the
-byte-order mark, bidi controls and right-to-left scripts fail closed. A quoting answer that uses
-markdown outside the subset (raw HTML, images, link titles, reference definitions, footnotes, deep
-nesting and the other forms pinned below) is ``ambiguous_quotation``; so is a mark whose direction
-a delimiter left as text decides. That the parsers agree on the subset is the residual assumption,
+remark-gfm), read here with markdown-it-py within a small subset both parsers read alike: escapes
+and character references show their characters, emphasis and code-span delimiters do not show,
+and default-ignorable code points are dropped; controls, separators, the byte-order mark, bidi
+controls, right-to-left scripts, astral characters and characters unassigned in Python's Unicode
+tables fail closed. A quoting answer that uses markdown outside the subset (links of any kind, raw
+HTML, images, reference definitions, footnotes, deep nesting and the other forms pinned below) is
+``ambiguous_quotation``; so is a mark whose direction a delimiter left as text decides. That the parsers agree on the subset is the residual assumption,
 not exact parity. The not-disclosed reason and the follow-up chips are displayed as plain text and
 read as such. A mark's direction comes from its glyph (“ „ ‟ open, ” closes) or, for a straight
 mark, from its neighbours as CommonMark reads emphasis, so '"x "y" z"' and '"x ("y") z"' read as
@@ -24,7 +25,9 @@ is ``ambiguous_quotation``. The reading decides only whether to withhold: publis
 rewritten. Only double quotation marks are in scope (see the pinned limits below); this is not
 exhaustive verification of every quotation form.
 """
+import ast
 import importlib.util
+import inspect
 import json
 import logging
 import sys
@@ -39,10 +42,11 @@ from app.services.copilot_service import (
     _MAX_QUOTE_MARKS,
     _MAX_QUOTED_ANSWER_CHARS,
     _MAX_QUOTED_CHARS,
+    _MIN_QUOTED_LEN,
     unsupported_plain_quotations,
     unsupported_prose_quotations,
 )
-from app.services.provenance_service import _MIN_VERIFIABLE_LEN, normalize_for_match
+from app.services.provenance_service import _MIN_VERIFIABLE_LEN, normalize_for_match, verify_excerpt_in_text
 
 SOURCE = normalize_for_match("\n".join([
     # ASML 20-F 0001628280-26-011378: operating-results table rows and an MD&A sentence.
@@ -88,10 +92,11 @@ TSLA = "consolidated balance sheets of Tesla, Inc. and its subsidiaries (the {}C
 PROBE = "an invented record-breaking statement here"
 # Starts and ends with markup, which may sit outside either mark: only the inside edges show nesting.
 MARKED = "*€9.9 billion of invented record revenue.*"
-# One sample per range of the default-ignorable code points dropped as invisible.
+# One sample per range of the default-ignorable code points dropped as invisible: those in the Basic
+# Multilingual Plane and assigned in Python's tables (the rest fail closed; see SKEWED).
 INVISIBLE = ("\u00ad", "\u034f", "\u115f", "\u1160", "\u17b4", "\u17b5", "\u180e", "\u200b", "\u2063", "\u206b", "\u3164",
-             "\ufe0f", "\uffa0", "\ufff3", "\U0001bca1", "\U0001d175", "\U000e0041")
-# A realistic EDGAR document URL: the underscore in it is not emphasis.
+             "\ufe0f", "\uffa0")
+# A realistic EDGAR document URL. Links fail closed, so answers holding one are a pinned cost.
 EDGAR = "https://www.sec.gov/Archives/edgar/data/789019/000095017024087843/msft-10k_20240630.htm"
 
 
@@ -107,15 +112,12 @@ EDGAR = "https://www.sec.gov/Archives/edgar/data/789019/000095017024087843/msft-
     'It "further increased by 3% to RMB1,023,670 million (US$148,401 million) in fiscal year 2026" [1].',
     '"Date of event requiring this shell company report............... For the transition period from" [1]',
     '"As shown in Note [7] to the financial statements" [1]',             # source-literal bracket
-    'Return on equity ("ROE") and "Adjusted EBITDA margin" are not reported; see "Revenue" [1].',
+    'Return on equity ("ROE") and "EBITDA" are not reported; see "Revenue" [1].',  # labels under 8 characters
     "No quotation here ... at all [1].",
     '"Net income for 2025 amounted to €9,609.4 million"\n"Total net sales" [1]',   # any Unicode space
-    'The filing never says "…Adjusted EBITDA…" [1].',                    # edge ellipses are not elision
+    'The filing never says "…EBITDA…" [1].',                             # edge ellipses are not elision
     f'- The filing says "{NI}."\n- Revenue grew [1].',                    # a list item's end is a break
     f'The filing says "{NI}."\nRevenue grew [1].',                         # so is a soft line break
-    f'See the [10-K]({EDGAR}): "{NI}" [1].',                               # a link destination is not shown
-    f'See <{EDGAR}>: "{NI}" [1].',                                          # an autolink is not HTML
-    f'See [{EDGAR}]({EDGAR}): "{NI}" [1].',                                 # a URL as link text
     f'The filing says "{NI}" [1].\n\n---\n\nThat is all.',                   # a thematic break
     f'- Revenue grew [1].\n---\nThe filing says "{NI}" [1].',               # a break after a list
     f'Net income\n---\nThe filing says "{NI}" [1].',                        # a setext heading underline
@@ -129,7 +131,9 @@ def test_contiguous_quotations_and_short_terms_publish(answer):
 
 @pytest.mark.unit
 @pytest.mark.parametrize("answer,expected", [
-    ('showing "Total net sales 32,667.3" and "Net income 9,609.4" for 2025 [3].', [NOT_IN]),
+    ('showing "Total net sales 32,667.3" and "Net income 9,609.4" for 2025 [3].', [NOT_IN, NOT_IN]),
+    # Under 24 characters but not under 8 (the prose floor): checked like any other quotation.
+    ('The filing reports "Total net sales 416,161" and "Gross margin 195,201" [1].', [NOT_IN, NOT_IN]),
     ('which report "Revenue ... 996,347" for the year [2].', [ELIDED]),
     ('"Net income for 2025 amounted to … 29.4% of total net sales" [1]', [ELIDED]),
     ('"Net income for 2025 was €9,609.4 million" and "Revenue . . . 996,347" [1]', [NOT_IN, ELIDED]),
@@ -144,20 +148,53 @@ def test_composed_or_unpairable_quotations_are_withheld(answer, expected):
 
 
 @pytest.mark.unit
+@pytest.mark.parametrize("quoted,length,expected", [
+    pytest.param("416,161", 7, [], id="7-characters-out-of-scope"),
+    pytest.param("4,161.61", 8, [NOT_IN], id="8-characters-unsupported"),
+    pytest.param("32,667.3", 8, [], id="8-characters-in-source"),
+    pytest.param("Gross margin 195,201", 20, [NOT_IN], id="20-characters-unsupported"),
+    pytest.param("Total net sales 416,161", 23, [NOT_IN], id="23-characters-unsupported"),
+    pytest.param("Net sales were 32,667.3", 23, [], id="23-characters-in-source"),
+])
+def test_quotations_of_eight_characters_or_more_are_checked(quoted, length, expected):
+    """The prose floor (the founder's decision on PR #1029): quoted text of 8 characters or more
+    after normalization is checked against the filing on every surface; shorter quoted text is a label."""
+    assert len(normalize_for_match(quoted)) == length
+    assert unsupported_prose_quotations(f'The filing reports "{quoted}" [1].', SOURCE) == expected
+    assert unsupported_plain_quotations(f'Why does the filing report "{quoted}"?', SOURCE) == expected
+
+
+@pytest.mark.unit
+def test_the_prose_floor_is_its_own_and_citations_keep_theirs():
+    """The prose floor is a separate constant read in one place; citation excerpts are verified by
+    the citation verifier with its own 24-character floor, so a 23-character excerpt of the filing
+    still does not verify."""
+    reads = [node for node in ast.walk(ast.parse(inspect.getsource(copilot_service)))
+             if isinstance(node, ast.Name) and node.id == "_MIN_QUOTED_LEN" and isinstance(node.ctx, ast.Load)]
+    assert _MIN_QUOTED_LEN == 8 and len(reads) == 1
+    assert _MIN_VERIFIABLE_LEN == 24 and copilot_service.verify_excerpt_in_text is verify_excerpt_in_text
+    excerpt = "Net sales were 32,667.3"
+    assert len(normalize_for_match(excerpt)) == 23 and normalize_for_match(excerpt) in SOURCE
+    assert not verify_excerpt_in_text(excerpt, SOURCE)
+    assert len(normalize_for_match("et sales were 32,667.3 m")) == 24
+    assert verify_excerpt_in_text("et sales were 32,667.3 m", SOURCE)
+
+
+@pytest.mark.unit
 def test_nested_controls_differ_from_the_filing_only_in_the_inner_span():
     """Premise of the nested controls: an all-valid nest would not test an invented inner span."""
     assert normalize_for_match(PREFIX.strip(" ,")) in SOURCE
     assert normalize_for_match(SUFFIX.strip()) in SOURCE
     assert normalize_for_match(f"{PREFIX}“{INNER}”{SUFFIX}") in SOURCE
-    assert normalize_for_match(INNER) in SOURCE and len(normalize_for_match(INNER)) >= _MIN_VERIFIABLE_LEN
+    assert normalize_for_match(INNER) in SOURCE and len(normalize_for_match(INNER)) >= _MIN_QUOTED_LEN
     assert normalize_for_match(INVENTED) not in SOURCE
-    assert len(normalize_for_match(INVENTED)) >= _MIN_VERIFIABLE_LEN
-    # Each sequential half of the straight-nesting controls is filing text of at least 24 characters.
+    assert len(normalize_for_match(INVENTED)) >= _MIN_QUOTED_LEN
+    # Each sequential half of the straight-nesting controls is filing text the floor checks.
     for half in ("The policy names the approved label (", ") and describes the release procedure",
                  "The policy names the approved label—", "—and describes the release procedure",
                  "Tesla, Inc. and its subsidiaries (", ") as of December 31, 2024",
                  'The policy names the approved label "Original', 'Original" and describes the release procedure'):
-        assert normalize_for_match(half) in SOURCE and len(normalize_for_match(half)) >= _MIN_VERIFIABLE_LEN
+        assert normalize_for_match(half) in SOURCE and len(normalize_for_match(half)) >= _MIN_QUOTED_LEN
     for inner in (INV, PROBE, MARKED.strip("*.")):
         assert normalize_for_match(inner) not in SOURCE
 
@@ -230,18 +267,18 @@ def test_nested_controls_differ_from_the_filing_only_in_the_inner_span():
     pytest.param('It says "x."[1]', [], id="citation-after-closing-mark"),
     pytest.param('It says "*x*" [1].', [], id="emphasis-inside-quotation"),
     pytest.param('It reports "ROE" and "Revenue" and "Net sales" [1].', [], id="sequential-quotations"),
-    pytest.param('Amounts are shown "(in millions)" in the table [1].', [], id="balanced-parenthetical"),
+    pytest.param('Amounts are shown "(US$148,401 million)" in the table [1].', [], id="balanced-parenthetical"),
     pytest.param("Note 13 is titled “Segment Information and Geographic Data” [1].", [],
                  id="well-formed-curly-internal-spaces"),
     pytest.param('**"Net income for 2025 amounted to €9,609.4 million"**[1]; the "ROE"/"Revenue" lines and the'
-                 ' "Company"\'s "Adjusted EBITDA margin" [1].', [], id="tight-sequential-quotes-and-markup"),
+                 ' "Company"\'s "EBITDA" [1].', [], id="tight-sequential-quotes-and-markup"),
     pytest.param(f'It said,"{NI}" [1].', [], id="quotation-tight-to-a-comma"),
     pytest.param(f'The "{NI}"s figure is cited [1].', [], id="quotation-tight-to-a-letter"),
     # Both-flanking straight marks with only one balanced reading: a literal "both-flanking is
     # ambiguous" rule would withhold these.
-    pytest.param('Revenue ("$391.0 billion") rose [1].', [], id="both-flanking-opening-mark"),
+    pytest.param('Revenue ("€9,609.4 million") rose [1].', [], id="both-flanking-opening-mark"),
     pytest.param('The margin was "29.4%".', [], id="both-flanking-closing-mark"),
-    pytest.param('Amounts are "(in millions)".', [], id="both-flanking-after-parenthetical"),
+    pytest.param('Amounts are "(US$148,401 million)".', [], id="both-flanking-after-parenthetical"),
     pytest.param('It says "Net sales increased."[1] and "Revenue" [2].', [], id="both-flanking-before-citation"),
 ])
 def test_nested_quotations_are_checked_whole_and_inner(answer, expected):
@@ -275,16 +312,14 @@ def test_nested_quotations_are_checked_whole_and_inner(answer, expected):
     pytest.param(f'The filing calls it "label&quot;{INV}](www.x.com)&quot;here" [1].', [AMBIGUOUS],
                  id="www-url-character-reference"),
     pytest.param('Margins rose "~5%" and ~2 points [1].', [], id="tilde-that-decides-nothing"),
-    pytest.param(f'See https://www.sec.gov/a_b_c and [Note 13](https://www.sec.gov/x): "{NI}" [1].', [],
-                 id="urls-shown-verbatim"),
     pytest.param('The tag `&quot;` is code, and the filing says "ROE" [1].', [], id="code-span-shows-a-reference"),
     # Fail-closed cost: quoted text is matched as written here, tildes included, though GFM may strike
     # through and hide them.
     pytest.param('"Net income for 2025 amounted to ~€9,609.4 million~" [1]', [NOT_IN],
                  id="tilde-inside-quotation-matched-as-written"),
     # Invisible code points next to the marks and inside a quotation: every Default_Ignorable_Code_Point
-    # but the bidi controls and U+FEFF (which fail closed) is dropped, one sample per range here, and
-    # combining marks are skipped.
+    # in the Basic Multilingual Plane and assigned in Python's tables but the bidi controls and U+FEFF
+    # (which fail closed) is dropped, one sample per range here, and combining marks are skipped.
     *[pytest.param(f'The filing calls it "label {mark}"*{INV}*"{mark} here" [1].', [NOT_IN, NOT_IN],
                    id=f"invisible-u{ord(mark):04x}-emphasis") for mark in INVISIBLE],
     *[pytest.param(f'The filing says "Net income{mark} for 2025 amounted to €9,609.4 million" [1].', [],
@@ -309,7 +344,11 @@ def test_nested_quotations_are_checked_whole_and_inner(answer, expected):
     pytest.param(f'"*{NI}*" [1]', [], id="emphasised-long-quotation"),
     pytest.param("The MD&amp;A notes &ldquo;Segment Information and Geographic Data&rdquo; [1].", [],
                  id="character-references-in-a-supported-quote"),
-    pytest.param(f'See [Note 13](https://www.sec.gov/x): "{NI}" [1].', [], id="link-beside-a-supported-quote"),
+    # A mark's neighbours are read as CommonMark reads them: Unicode space separators are whitespace.
+    pytest.param(f'The filing calls it "label\u00a0"({INV})"\u00a0here" [1].', [NOT_IN, NOT_IN],
+                 id="no-break-space-beside-marks"),
+    pytest.param(f'The filing calls it "label\u3000"({INV})"\u3000here" [1].', [NOT_IN, NOT_IN],
+                 id="ideographic-space-beside-marks"),
 ])
 def test_quotations_are_read_as_displayed(answer, expected):
     assert unsupported_prose_quotations(answer, SOURCE) == expected
@@ -357,6 +396,8 @@ def test_quotations_are_read_as_displayed(answer, expected):
     pytest.param('xThe policy names the approved labelROE*_ (__"*?*!*The policy names the approved label,"*',
                  [AMBIGUOUS], id="emphasis-pairs-differently-around-a-mark"),
     pytest.param('__**ROEt*"The policy names the approved label*__"(', [AMBIGUOUS], id="emphasis-run-split-in-two"),
+    pytest.param('Net **income* for* 2025 is "ROE" [1].', [AMBIGUOUS], id="opening-emphasis-run-split-in-two"),
+    pytest.param('Net *income *for** 2025 is "ROE" [1].', [AMBIGUOUS], id="closing-emphasis-run-split-in-two"),
 ])
 def test_display_divergences_fail_closed(answer, expected):
     """Markdown on which markdown-it and the displayed remark-gfm text disagree, from a seeded fuzz
@@ -444,7 +485,21 @@ def test_quotation_across_table_cells_is_pinned(answer, expected):
     pytest.param(f'The filing says "{NI}" ([Note 13](https://www.sec.gov/x "Note 13")) [1].', id="link-title"),
     pytest.param(f'- Net income:\n\tthe filing says "{NI}" [1].', id="tab-indentation"),
     pytest.param(f'**Net income**~€9.6 billion; the filing says "{NI}" [1].', id="tilde-beside-bold"),
+    pytest.param(f'**Net income**\\~€9.6 billion; the filing says "{NI}" [1].', id="escaped-tilde-beside-bold"),
     pytest.param(f'Net income was **€9.6 billion*; the filing says "{NI}" [1].', id="unpaired-emphasis-run"),
+    # Links of any kind fail closed. 0 of 576 retained answers contain links.
+    pytest.param(f'See the [10-K]({EDGAR}): "{NI}" [1].', id="edgar-link"),
+    pytest.param(f'See <{EDGAR}>: "{NI}" [1].', id="edgar-autolink"),
+    pytest.param(f'See [{EDGAR}]({EDGAR}): "{NI}" [1].', id="edgar-url-as-link-text"),
+    pytest.param(f'See {EDGAR}: "{NI}" [1].', id="edgar-bare-url"),
+    pytest.param(f'See https://www.sec.gov/a_b_c and [Note 13](https://www.sec.gov/x): "{NI}" [1].',
+                 id="urls-shown-verbatim"),
+    pytest.param(f'See [Note 13](https://www.sec.gov/x): "{NI}" [1].', id="link-beside-a-supported-quote"),
+    pytest.param("See [Note 13](https://www.sec.gov/x) — “Segment Information and Geographic Data” [1].",
+                 id="analyst-link-to-a-note"),
+    pytest.param(f'Investor Relations (investor@apple.com) notes the filing says "{NI}" [1].', id="email-address"),
+    # Astral characters fail closed, emoji included.
+    pytest.param(f'Net income rose \U0001f4c8; the filing says "{NI}" [1].', id="emoji"),
 ])
 def test_benign_markdown_outside_the_subset_is_a_fail_closed_cost(answer):
     """Pinned costs of the allowlist, listed rather than widened: realistic answers that quote the
@@ -482,13 +537,18 @@ def test_plain_text_is_read_as_written(text, expected):
 
 # Characters that change what a reader sees without being plain visible text fail closed on every
 # published surface (the round-6 reviews' repros): controls, separators, the byte-order mark, bidi
-# controls and right-to-left scripts. The bidi repro reads, displayed, as a quotation of the source's
-# "missing from the source" text reversed around the invented text.
+# controls and right-to-left scripts (every right-to-left character, by bidi class, below), astral
+# characters and characters unassigned in Python's tables. The bidi repro reads, displayed, as a
+# quotation of the source's "missing from the source" text reversed around the invented text.
 BIDI = 'Invented text\u2067\u202e"ecruos eht morf gnissim \u202c\u2069'
 NESTED = '"The policy names the approved label ("{0}Invented text missing from the source{0}") and describes the release procedure."'
 GATED = ("\x00", "\x08", "\x0b", "\x0c", "\x0e", "\x1c", "\x1d", "\x1e", "\x1f", "\x7f", "\x85", "\x9f", "\u1680", "\u2028",
-         "\u2029", "\ufeff", "\u061c", "\u200e", "\u200f", "\u202a", "\u202e", "\u2066", "\u2069", "\u05d0", "\u0627",
-         "\ufb1d", "\ufe70", "\U00010800", "\U0001e800")
+         "\u2029", "\ufeff", "\u061c", "\u200e", "\u200f", "\u202a", "\u202e", "\u2066", "\u2069")
+# Astral characters (micromark reads them by UTF-16 unit) and characters unassigned in Python's
+# Unicode 14 tables (the browser's may assign them): the round-6 reviews' samples (an emoji, U+20C1,
+# U+2FFC, U+31EF, U+1FAE8) and the default-ignorable code points that were dropped before.
+SKEWED = ("\U0001f4c8", "\u20c1", "\u2ffc", "\u31ef", "\U0001fae8", "\ufff3", "\u2065", "\U0001bca1", "\U0001d175",
+          "\U000e0041")
 
 
 @pytest.mark.unit
@@ -523,13 +583,121 @@ def test_characters_that_change_the_display_fail_closed_in_plain_text(text):
 
 
 @pytest.mark.unit
+def test_every_right_to_left_character_fails_closed():
+    """Every code point Python's tables give a right-to-left or Arabic-number bidi class, and every
+    explicit bidi control, fails closed beside a supported quotation on both kinds of surface."""
+    classes = {"R", "AL", "AN", "LRE", "RLE", "LRO", "RLO", "PDF", "LRI", "RLI", "FSI", "PDI"}
+    chars = [chr(code) for code in range(sys.maxunicode + 1) if unicodedata.bidirectional(chr(code)) in classes]
+    assert len(chars) > 3_000
+    assert all(unsupported_prose_quotations(f'The filing says "{NI}"{char} [1].', SOURCE) == [AMBIGUOUS]
+               and unsupported_plain_quotations(f'What does "{NI}"{char} cover?', SOURCE) == [AMBIGUOUS]
+               for char in chars)
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize("answer", [
+    pytest.param(f'The filing says "ROE \U0001f4c8_x_"({INV})"_x_\U0001f4c8 here" [1].', id="astral-repro"),
+    *[pytest.param(f'"ROE a*{char}x*"({INV})"*x{char}*b here" [1]', id=f"unassigned-repro-u{ord(char):04x}")
+      for char in ("\u20c1", "\u2ffc", "\u31ef")],
+    *[pytest.param(f'The filing says "{NI}"{char} [1].', id=f"beside-a-supported-quote-u{ord(char):04x}")
+      for char in SKEWED],
+    *[pytest.param(f'The filing says "Net income{char} for 2025 amounted to €9,609.4 million" [1].',
+                   id=f"inside-a-supported-quote-u{ord(char):04x}") for char in SKEWED],
+    *[pytest.param(f'The filing says "{NI}" [1]. &#x{ord(char):x};', id=f"by-character-reference-u{ord(char):04x}")
+      for char in SKEWED],
+])
+def test_astral_and_unassigned_characters_fail_closed_in_the_answer(answer):
+    assert unsupported_prose_quotations(answer, SOURCE) == [AMBIGUOUS]
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize("text", [
+    *[pytest.param(f'Why does the filing say "ROE {char}"({INV})"{char} here"?', id=f"chip-repro-u{ord(char):04x}")
+      for char in ("\u20c1", "\U0001fae8")],
+    *[pytest.param(f'What does "{NI}"{char} cover?', id=f"beside-a-supported-quote-u{ord(char):04x}") for char in SKEWED],
+    *[pytest.param(f'{REASON}; the filing only says "Net income{char} for 2025 amounted to €9,609.4 million".',
+                   id=f"inside-a-supported-quote-u{ord(char):04x}") for char in SKEWED],
+])
+def test_astral_and_unassigned_characters_fail_closed_in_plain_text(text):
+    assert unsupported_plain_quotations(text, SOURCE) == [AMBIGUOUS]
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize("answer", [
+    # The round-6 reviews' repros: a link destination or a GFM literal that the parsers read apart.
+    pytest.param(f'"ROE www.a.com/x&quot;.y {INV} www.b.com/.&quot;y here" [1]. See [the filing](<./www.a.com/x".y z>)'
+                 ' and [notes](<./www.b.com/."y z>).', id="www-literals-and-angle-destinations"),
+    pytest.param(f'The filing says "ROE [t](./x".y/\\ ) {INV} [u](./."y/\\ ) here" [1].', id="destinations-holding-marks"),
+    pytest.param('The filing says [this](\\\n“Invented text missing from the source”) [1].',
+                 id="backslash-line-feed-destination"),
+    pytest.param('The filing says [this](\\\n“Invented\u00a0text missing from the source”) [1].',
+                 id="backslash-line-feed-destination-no-break-space"),
+    pytest.param(f'The filing says "a@b.co²https://a.co/x&quot;.y {INV} a@b.co²https://b.co/.&quot;y here" [1].',
+                 id="email-and-url-literals"),
+    # Each link form alone, beside a quotation of the filing.
+    *[pytest.param(f'The filing says "{NI}" [1]. {link}', id=f"form-{name}") for name, link in (
+        ("inline-link", "[Note 13](x)"), ("reference-link", "[Note 13][a]\n\n[a]: x"),
+        ("reference-definition", "\n\n[a]: x"), ("multi-line-label-definition", "\n\n[a\nb]: x"),
+        ("www", "www.sec.gov"), ("www-upper-case", "WWW.SEC.GOV"), ("http", "http://x"),
+        ("https-upper-case", "HTTPS://x"), ("email", "investor@apple.com"), ("mailto", "mailto:investor@apple.com"),
+        ("xmpp", "xmpp:investor@apple.com"), ("email-autolink", "<1@b>"), ("scheme-autolink", "<https://x>"))],
+])
+def test_links_of_any_kind_fail_closed(answer):
+    assert unsupported_prose_quotations(answer, SOURCE) == [AMBIGUOUS]
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize("answer", [
+    # The round-6 review's repro, and its mirror.
+    pytest.param('z*_?"Total net sales{0} increased to the approved label"!!- ', id="star-underscore-review-repro"),
+    pytest.param('z_*?"Total net sales{0} increased to the approved label"!!- ', id="underscore-star"),
+    # The round-7 probe's: micromark lets a '*' run beside a '~' close, where markdown-it reads the
+    # '~' as punctuation, so the display hides both stars and shows the quotation without its own.
+    pytest.param('!Total*~Total"Total net sales{0} increased to the approved label"[1]', id="star-tilde-probe-repro"),
+    pytest.param('Total*~ ?,"Total net sales{0} increased to the approved label"~[1]', id="star-tilde-probe-repro-2"),
+    pytest.param('Total~*Total"Total net sales{0} increased to the approved label"[1]', id="tilde-star"),
+    pytest.param('!Total_~Total"Total net sales{0} increased to the approved label"[1]', id="underscore-tilde"),
+    pytest.param('Total~_Total"Total net sales{0} increased to the approved label"[1]', id="tilde-underscore"),
+])
+@pytest.mark.parametrize("delimiter", ["*", "_"])
+def test_different_delimiters_side_by_side_fail_closed(answer, delimiter):
+    """Two different emphasis or strikethrough delimiters side by side are outside the read subset,
+    even where the filing text holds the delimiter the quotation shows."""
+    source = normalize_for_match(f"The report says Total net sales{delimiter} increased to the approved label.")
+    assert unsupported_prose_quotations(answer.format(delimiter), source) == [AMBIGUOUS]
+
+
+@pytest.mark.unit
+def test_a_tilde_the_filing_text_holds_is_a_known_limit():
+    """Pinned limit, not a guarantee (the one single-delimiter case the round-7 probe found): where
+    the filing text itself holds a '~' after a word, a quotation of it publishes, though GFM may
+    pair that '~' with another and strike the text through, hiding the tilde. A filing's own '*' or
+    '_' showed no such case."""
+    source = normalize_for_match("The report says Total net sales~ increased to the approved label for the year.")
+    answer = '~x!-"Total net sales~ increased to the approved label") [1].'
+    assert unsupported_prose_quotations(answer, source) == []
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize("answer", [
+    pytest.param(f"The filing calls it &#x201C;{INV}&#x201D; [1].", id="hex-references"),
+    pytest.param(f"The filing calls it &#X22;{INV}&#X22; [1].", id="upper-case-hex-reference"),
+    pytest.param(f"The filing calls it &QUOT;{INV}&QUOT; [1].", id="upper-case-named-reference"),
+    pytest.param(f"The filing calls it &#0000034;{INV}&#0000034; [1].", id="seven-digit-decimal-reference"),
+])
+def test_marks_written_only_as_references_are_read(answer):
+    """Character references are the only marks here: each form must count as a quote hint."""
+    assert unsupported_prose_quotations(answer, SOURCE) == [NOT_IN]
+
+
+@pytest.mark.unit
 def test_whitespace_read_beside_marks_is_the_display_whitespace():
     """Outside the characters that fail closed, str.isspace (used to read a mark's neighbours) holds
     exactly for CommonMark's whitespace: Unicode Zs, tab, line feed and carriage return."""
-    gate = copilot_service._FAIL_CLOSED_CHARS_RE
-    python = {code for code in range(sys.maxunicode + 1) if chr(code).isspace() and not gate.match(chr(code))}
+    gate = copilot_service._display_may_differ
+    python = {code for code in range(sys.maxunicode + 1) if chr(code).isspace() and not gate(chr(code))}
     commonmark = {code for code in range(sys.maxunicode + 1)
-                  if (unicodedata.category(chr(code)) == "Zs" or chr(code) in "\t\n\r") and not gate.match(chr(code))}
+                  if (unicodedata.category(chr(code)) == "Zs" or chr(code) in "\t\n\r") and not gate(chr(code))}
     assert python == commonmark
 
 
@@ -584,7 +752,7 @@ def _adversarial_answers():
     yield "[" * 10_000 + '"x"'
     for shape in ('[a](b "', '"x"\n', '# "x"\n', "&#", '\\"', "` ", '"ROE" ' * 32 + "x" * _MAX_QUOTED_ANSWER_CHARS):
         yield (shape * _MAX_QUOTED_ANSWER_CHARS)[:_MAX_QUOTED_ANSWER_CHARS]
-    for run in ("*", "~", "*_", "*a_", "\u0301", "\u200b"):
+    for run in ("*", "~", "*_", "*a_", "\u0301", "\u200b", "www.", "a@", "](", "]:", "\U0001f4c8", "\u20c1"):
         yield ('"' + run * _MAX_QUOTED_ANSWER_CHARS)[:_MAX_QUOTED_ANSWER_CHARS - 1] + '"'
     yield ("|" + "a|" * 100 + "\n|" + "-|" * 100 + "\n" + ("|" + '"x"|' * 100 + "\n") * 40)[:_MAX_QUOTED_ANSWER_CHARS]
     # The round-6 review's slow shape (123-304 ms before image markup was found in the source text).
@@ -629,7 +797,6 @@ def test_quotation_work_is_bounded(monkeypatch):
     'The filing\'s "ROE", "ROA" and "EBITDA" labels are not defined; "Revenue" is [1].',
     f'_"{NI}"_ [1]',
     'The tag `us-gaap:Revenues` is used, and the filing says "Total net sales" [1].',
-    "See [Note 13](https://www.sec.gov/x) — “Segment Information and Geographic Data” [1].",
     "The MD&amp;A notes &ldquo;Segment Information and Geographic Data&rdquo; [1].",
     'Net income rose—"Net income for 2025 amounted to €9,609.4 million"—per the MD&A [1].',
     'The company ("Tesla") reported revenue [F1].',
@@ -641,11 +808,22 @@ def test_quotation_work_is_bounded(monkeypatch):
     '"Gross margin percentage was 46.2% in 2025, compared to 44.1% in 2024" [1].\n\nIt also says "Total net sales'
     ' increased 2% or $8.0 billion during 2025" [2].',
     'It states "Net income for 2025 amounted to €9,609.4 million."[1]',
-    'This filing does not disclose "adjusted EBITDA"; it reports "Net income" [1].',
     "The company’s auditor covered “consolidated balance sheets of Tesla, Inc. and its subsidiaries” [1].",
 ])
 def test_analyst_style_answers_publish(answer):
     assert unsupported_prose_quotations(answer, SOURCE) == []
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize("answer", [
+    'This filing does not disclose "adjusted EBITDA"; it reports "Net income" [1].',
+    'Return on equity ("ROE") and "Adjusted EBITDA margin" are not reported; see "Revenue" [1].',
+    'The filing never says "…Adjusted EBITDA…" [1].',
+])
+def test_quoted_absent_terms_are_a_floor_cost(answer):
+    """Pinned cost of the 8-character floor (PR #1029): an absent measure of 8 characters or more
+    named in quotation marks is checked as a quotation of the filing, and withheld."""
+    assert unsupported_prose_quotations(answer, SOURCE) == [NOT_IN]
 
 
 @pytest.mark.unit
@@ -679,9 +857,10 @@ def test_missing_source_text_fails_closed(source):
 
 
 @pytest.mark.unit
-def test_short_stitched_label_and_cell_is_a_known_limit():
-    """Pinned limit, not a guarantee: under the 24-character floor a stitched label stays a term."""
-    assert unsupported_prose_quotations('showing "Net income 9,609.4" [1].', SOURCE) == []
+def test_short_stitched_label_and_cell_is_withheld():
+    """Under the 8-character prose floor a stitched label and cell shorter than 24 characters (the
+    shape of the D8 AAPL row) is checked, and withheld."""
+    assert unsupported_prose_quotations('showing "Net income 9,609.4" [1].', SOURCE) == [NOT_IN]
 
 
 def _filing(source):
@@ -714,7 +893,8 @@ async def test_service_logs_constant_quotation_reason(monkeypatch, caplog):
     (f'Segment margins are not broken out; the filing only says "{INV} and nothing more".', False),
     ('Segment margins are not broken out; the filing only says "Net income for 2025 amounted to €9,609.4'
      ' million".', True),
-    ('Segment margins are not broken out; the filing names no "segment margin" measure.', True),
+    ('Segment margins are not broken out; the filing names no "segment margin" measure.', False),
+    ('Segment margins are not broken out; the filing names no "EBITDA" measure.', True),
 ])
 async def test_not_disclosed_reason_quotations_are_checked(monkeypatch, caplog, reason, published):
     """The not-disclosed verdict is published prose too: its quotations take the same check."""
@@ -733,7 +913,7 @@ async def test_not_disclosed_reason_quotations_are_checked(monkeypatch, caplog, 
         assert events[-1] == {"type": "error", "message": copilot_service._PUBLICATION_ERROR}
         assert all(event["type"] != "not_disclosed" for event in events)
         assert "Unsupported prose quotation: quotation_not_in_source" in caplog.text
-        assert "nothing more" not in caplog.text
+        assert "nothing more" not in caplog.text and "segment margin" not in caplog.text
 
 
 @pytest.mark.unit
@@ -742,7 +922,7 @@ async def test_published_answer_is_not_rewritten_by_the_reading(monkeypatch):
     """The rendered reading only decides whether to withhold; a published answer stays byte-identical."""
     source = "Net income for 2025 amounted to €9,609.4 million, representing 29.4% of total net sales."
     answer = ('The MD&amp;A says **"Net income for 2025 amounted to €9,609.4 million"** and &ldquo;representing'
-              ' 29.4% of total net sales&rdquo; [link](https://www.sec.gov/x), with *emphasis*\u200b kept.')
+              ' 29.4% of total net sales&rdquo; (`us-gaap:NetIncomeLoss`), with *emphasis*\u200b kept.')
 
     async def stream(*_args, **_kwargs):
         yield answer + "\n===CITATIONS===\n[]"
@@ -865,6 +1045,15 @@ def test_long_bracketed_digits_inside_a_quotation_are_quoted_text():
 
 
 @pytest.mark.unit
+@pytest.mark.parametrize("marker,expected", [
+    ("[123]", []), ("[F123]", []), ("[1234]", [NOT_IN]), ("[F1234]", [NOT_IN]),
+])
+def test_citation_markers_inside_a_quotation_run_to_three_digits(marker, expected):
+    answer = f'The filing says "Net income for 2025 {marker} amounted to €9,609.4 million" [1].'
+    assert unsupported_prose_quotations(answer, SOURCE) == expected
+
+
+@pytest.mark.unit
 def test_a_bare_ampersand_is_not_a_quote_hint():
     """A long answer that cannot quote (R&D, S&P) is not withheld for its length."""
     assert unsupported_prose_quotations("R&D and S&P " + "x" * _MAX_QUOTED_ANSWER_CHARS, SOURCE) == []
@@ -883,6 +1072,21 @@ def test_a_bare_ampersand_is_not_a_quote_hint():
     pytest.param(f'"{NI}" ***x***', id="delimiter-run-of-stars"),
     pytest.param(f'"{NI}" ___x___', id="delimiter-run-of-underscores"),
     pytest.param(f'"{NI}" <br>', id="raw-html"),
+    pytest.param(f'"{NI}" [Note 13](x)', id="inline-link"),
+    pytest.param(f'"{NI}"\n\n[a]: x', id="reference-definition"),
+    pytest.param(f'"{NI}" www.sec.gov', id="www-address"),
+    pytest.param(f'"{NI}" https://x', id="url"),
+    pytest.param(f'"{NI}" investor@apple.com', id="email-address"),
+    pytest.param(f'"{NI}" <1@b>', id="email-autolink"),
+    pytest.param(f'"{NI}" <https://x>', id="scheme-autolink"),
+    pytest.param(f'"{NI}" \U0001f4c8', id="astral-character"),
+    pytest.param(f'"{NI}" \u20c1', id="unassigned-character"),
+    pytest.param(f'"{NI}" *_x_*', id="star-beside-underscore"),
+    pytest.param(f'"{NI}" _*x*_', id="underscore-beside-star"),
+    pytest.param(f'"{NI}" *~x~*', id="star-beside-tilde"),
+    pytest.param(f'"{NI}" ~*x*~', id="tilde-beside-star"),
+    pytest.param(f'"{NI}" _~x~_', id="underscore-beside-tilde"),
+    pytest.param(f'"{NI}" ~_x_~', id="tilde-beside-underscore"),
 ])
 def test_what_always_fails_closed_is_found_before_parsing(monkeypatch, answer):
     """Cheap source-text checks answer before the markdown parse, which bounds the slow shapes."""
@@ -908,6 +1112,57 @@ def test_images_are_outside_the_read_subset():
     """The parser-level allowlist, behind the source-text check for image markup."""
     assert copilot_service._rendered_text("![chart](https://www.sec.gov/x.png) Net income rose.") is None
     assert copilot_service._rendered_text("Net income rose.") == "Net income rose.\n"
+
+
+@pytest.mark.unit
+def test_links_are_outside_the_read_subset():
+    """The parser-level allowlist, behind the source-text check for links: a link, an autolink and a
+    reference definition (which markdown-it hides) are not read."""
+    assert copilot_service._rendered_text("See [Note 13](x) here.") is None
+    assert copilot_service._rendered_text("See <https://x> here.") is None
+    assert copilot_service._rendered_text("[a]: x\n\nNet income rose.") is None
+    assert copilot_service._rendered_text("Net income rose.") == "Net income rose.\n"
+
+
+def _module_answers():
+    """Every answer this module parametrizes, and the adversarial ones."""
+    for test in list(globals().values()):
+        for mark in getattr(test, "pytestmark", []):
+            if mark.name == "parametrize" and mark.args[0].split(",")[0] == "answer":
+                for param in mark.args[1]:
+                    values = getattr(param, "values", param)
+                    yield values[0] if isinstance(values, tuple) else values
+    yield from _adversarial_answers()
+
+
+@pytest.mark.unit
+def test_link_normalization_never_runs_on_a_reading(monkeypatch):
+    """mdurl (markdown-it's link normalization) is never called while an answer is read: every form
+    that reaches it fails closed before parsing."""
+    import mdurl
+
+    def called(*_args, **_kwargs):
+        raise AssertionError("mdurl called")
+
+    answers = list(_module_answers())
+    for name in ("parse", "format", "encode", "decode"):
+        monkeypatch.setattr(mdurl, name, called)
+    for answer in answers:
+        unsupported_prose_quotations(answer, SOURCE)
+    assert len(answers) > 400
+
+
+@pytest.mark.unit
+def test_link_normalization_is_warmed_at_import(monkeypatch):
+    """mdurl fills its encoding and decoding caches on first use, each published empty and then
+    filled, so the module's warm-up parse fills both before any thread reads an answer."""
+    import mdurl._decode
+    import mdurl._encode
+
+    monkeypatch.setattr(mdurl._encode, "encode_cache", {})
+    monkeypatch.setattr(mdurl._decode, "decode_cache", {})
+    _fresh_service_module()
+    assert mdurl._encode.encode_cache and mdurl._decode.decode_cache
 
 
 def _fresh_service_module():
@@ -994,14 +1249,18 @@ async def test_the_answer_is_read_as_markdown_through_the_service(monkeypatch, c
 
 @pytest.mark.unit
 @pytest.mark.asyncio
+@pytest.mark.parametrize("quoted", [
+    pytest.param(f'"{BIDI}', id="bidi-reordered"),
+    *[pytest.param(f'"ROE {char}"({INV})"{char} here"', id=f"skewed-u{ord(char):04x}") for char in ("\u20c1", "\U0001fae8")],
+])
 @pytest.mark.parametrize("surface", ["answer", "reason", "chip"])
-async def test_bidi_reordered_quotation_is_withheld_on_every_surface(monkeypatch, caplog, surface):
+async def test_display_changing_quotations_are_withheld_on_every_surface(monkeypatch, caplog, surface, quoted):
     if surface == "answer":
-        reply = f'The filing says "{BIDI} [1].\n===CITATIONS===\n{ND_CITATIONS}'
+        reply = f'The filing says {quoted} [1].\n===CITATIONS===\n{ND_CITATIONS}'
     elif surface == "reason":
-        reply = _reply("not_disclosed", ["What changed?", "What are the risks?"], f'{REASON}; the filing only says "{BIDI}.')
+        reply = _reply("not_disclosed", ["What changed?", "What are the risks?"], f'{REASON}; the filing only says {quoted}.')
     else:
-        reply = _reply("answer", [f'Why does the filing say "{BIDI}?', "What are the risks?"])
+        reply = _reply("answer", [f'Why does the filing say {quoted}?', "What are the risks?"])
     monkeypatch.setattr(copilot_service.openai_service, "stream_chat_with_tools", _stream_of(reply))
     with caplog.at_level(logging.WARNING, logger=copilot_service.logger.name):
         events = [e async for e in copilot_service.answer_filing_question(filing=_filing(ND_SOURCE), question="q")]
