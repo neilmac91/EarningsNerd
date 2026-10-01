@@ -21,8 +21,8 @@ answer checked against the row's normalized filing source.
 
 | Run | UTC | System prompt | Formal | Rows with tools | Physical calls | `copilot-eval.json` sha256 (prefix) |
 |---|---|---|---|---|---|---|
-| [36500418287](https://github.com/neilmac91/EarningsNerd/actions/runs/36500418287) | 09-28 23:56 | pre-#1022 `93dc6565` | 17/18, 1 error | 16/18 | not retained | `93741077db33` |
-| [36511300921](https://github.com/neilmac91/EarningsNerd/actions/runs/36511300921) | 09-29 02:11 | pre-#1022 `93dc6565` | 18/18 | 17/18 | not retained | `8ea5006e6dc7` |
+| [36500418287](https://github.com/neilmac91/EarningsNerd/actions/runs/36500418287) | 09-28 23:56 | pre-#1022 `93dc6565` | 17/18, 1 error | 16/18 | 34 (1 timeout) | `93741077db33` |
+| [36511300921](https://github.com/neilmac91/EarningsNerd/actions/runs/36511300921) | 09-29 02:11 | pre-#1022 `93dc6565` | 18/18 | 17/18 | 35 | `8ea5006e6dc7` |
 | [36516634768](https://github.com/neilmac91/EarningsNerd/actions/runs/36516634768) | 09-29 03:21 | pre-#1022 `93dc6565` | 17/18 (ASML d0) | 17/18 | 35 | `e39c43bd2f62` |
 | [36519321075](https://github.com/neilmac91/EarningsNerd/actions/runs/36519321075) | 09-29 03:57 | pre-#1022 `93dc6565` | 18/18 | 16/18 | 34 | `6a1cc858a71b` |
 | [36624149908](https://github.com/neilmac91/EarningsNerd/actions/runs/36624149908) | 09-29 20:09 | pre-#1022 `93dc6565` | 17/18, 1 error | 18/18 | 36 | `dd051e3b16a2` |
@@ -33,13 +33,15 @@ answer checked against the row's normalized filing source.
 | [36777581481](https://github.com/neilmac91/EarningsNerd/actions/runs/36777581481) | 09-30 21:11 | main `a88b6fb1` | 18/18 | 12/18 | 30 | `8b3084e7afb2` |
 
 Across all ten runs the tool schema (`b6958973`), generation options (`deepseek-flash`, 2400 tokens,
-temperature 0.2) and the per-question context message are byte-identical; all 246 logged calls
-carry provider fingerprint `aeb56401ca74e127821c4f9126dcb669`. The system prompt is the only request
-input that varies. Pre-#1022 runs also ran older post-processing code, so their citation outcomes
-are not comparable with main's; their tool decisions are, because those depend only on the request.
-Row attribution of physical calls is unique in all eight logged runs, no row used more than one tool
-round, and calls = rows without tools + 2 × rows with tools in every run. 36777581481 is the #1030
-ready run: #1030 changed only `backend/requirements.*`, so its Copilot path is main's.
+temperature 0.2) and the per-question context message are byte-identical; all 315 logged calls (ten
+`runner.log` files) carry provider fingerprint `aeb56401ca74e127821c4f9126dcb669`. The system prompt
+is the only request input that varies. Pre-#1022 runs also ran older post-processing code, so their
+citation outcomes are not comparable with main's; their tool decisions are, because those depend
+only on the request. Row attribution of physical calls is unique in nine runs; in 36500418287 one
+call timed out (its error row), so its attribution is not modelled, although its total fits. No
+attributed row used more than one tool round, and calls = rows without tools + 2 × rows with tools
+in every run. 36777581481 is the #1030 ready run: #1030 changed only `backend/requirements.*`, so
+its Copilot path is main's.
 
 ## What is known
 
@@ -154,7 +156,7 @@ does not remove it.
 3. **Model tool-selection variance.** Nonexecution predates both prompts: RUNBOOK.md:699-700 records
    MSFT and historical BABA answers without tools at #703 (2026-09-05). This sets a base rate, not a
    cause of the old→main shift.
-4. **Time drift.** One fingerprint on all 246 logged calls and bracketing make this least likely for
+4. **Time drift.** One fingerprint on all 315 logged calls and bracketing make this least likely for
    #1023. It is not excluded for the 20-F shift, because every pre-#1022 run precedes every main run.
 
 ## Latent production risks
@@ -228,7 +230,7 @@ via `json.dumps(..., sort_keys=True)`; all fields under `tool_trace`):
 - Generation options: `generation_options` is `deepseek-flash`, `max_tokens` 2400, temperature 0.2.
 
 Any mismatch makes the run invalid, not drift: stop and record, and apply no decision rule. Record
-the provider `system_fingerprint` of every logged call (all 246 recorded calls carry `aeb56401…`); a
+the provider `system_fingerprint` of every logged call (all 315 recorded calls carry `aeb56401…`); a
 new fingerprint is a provider-side change, reported with the outcome rather than treated as invalid.
 
 **Decision rules (question level).** A question-run is tool-using when at least two of its three
