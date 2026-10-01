@@ -30,7 +30,7 @@ handover package `earningsnerd-opus-5-5-handover` (SHA256SUMS verified). Checked
 | --- | --- | --- | --- | --- |
 | D1 | #1030 ready → copilot-eval [36777581481](https://github.com/neilmac91/EarningsNerd/actions/runs/36777581481) at `c8c56cee` (balance 46.17 at 21:09:23Z) | 0.05 | 0.005827 (30 calls, 0 unknown) | done: accepted 18/18 |
 | D2 | #1038 ready → copilot-eval [36798834277](https://github.com/neilmac91/EarningsNerd/actions/runs/36798834277) at `9d7fa56f` (balance 45.98 at 22:44Z) | 0.05 | 0.010511 (28 calls, 0 unknown) | done: accepted 18/18; 0 composed quotes |
-| D3 | #942 successor push → eval-baseline (70 summaries, peak window) at `4d036b48` | 0.50 | pending | running |
+| D3 | #1039 (#942 successor) push → eval-baseline [36799996921](https://github.com/neilmac91/EarningsNerd/actions/runs/36799996921) at `4d036b48` (peak window) | 0.50 | 0.347042 (70 calls, 0 unknown; tokens × llm_pricing × 2) | done: 70/70 pass, gate pass |
 | D4 | #952 ready → copilot-eval [36800236360](https://github.com/neilmac91/EarningsNerd/actions/runs/36800236360) at `551f4808` | 0.05 | 0.011508 (30 calls, 0 unknown) | done: accepted 18/18; 1 composed quote (ASML d0, main code) |
 
 ## Lanes
@@ -177,3 +177,9 @@ Merge-tree conflicts vs main at start: #1013/#1012 none; #952, #1023, #1009 `tas
   review-gate override pass and copilot-eval D4 accepted 18/18, USD 0.011508; no main run in progress). Main CI
   36800759454 running; deploy verification scheduled. Main-code Copilot composed-quote base rate now 3/90 rows
   (36640254449, 36777581481, 36800236360 ASML d0 "Total net sales 32,667.3"/"Net income 9,609.4"; 36798834277 had 0).
+- 01:30Z — #1039 hosted eval-baseline 36799996921: 70/70, pass_rate 1.0, gate_fail 0, regression gate pass vs unchanged pin;
+  D3 USD 0.347042. Merge-condition-2 source review (offline): 126/126 clauses recompute, periods match, scope labels correct
+  (110 parent / 16 NCI; 0 unestablished); 90/92 priors dated (2 GPRO out-of-band dropped as on main); FIGS sequential
+  priors dated `prior at 2026-03-31`; durations match by class (80 annual, 10 quarter); hosted lines byte-identical to
+  retained r in 70/70. Recorded on #1039 (comment 5922852309). #1039 remains blocked on merge condition 3 (founder).
+  Cumulative telemetry spend: USD 0.374888 of the USD 10.00 ceiling.
