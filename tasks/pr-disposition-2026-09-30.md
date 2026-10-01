@@ -32,7 +32,7 @@ handover package `earningsnerd-opus-5-5-handover` (SHA256SUMS verified). Checked
 | D2 | #1038 ready → copilot-eval [36798834277](https://github.com/neilmac91/EarningsNerd/actions/runs/36798834277) at `9d7fa56f` (balance 45.98 at 22:44Z) | 0.05 | 0.010511 (28 calls, 0 unknown) | done: accepted 18/18; 0 composed quotes |
 | D3 | #1039 (#942 successor) push → eval-baseline [36799996921](https://github.com/neilmac91/EarningsNerd/actions/runs/36799996921) at `4d036b48` (peak window) | 0.50 | 0.347042 (70 calls, 0 unknown; tokens × llm_pricing × 2) | done: 70/70 pass, gate pass |
 | D4 | #952 ready → copilot-eval [36800236360](https://github.com/neilmac91/EarningsNerd/actions/runs/36800236360) at `551f4808` | 0.05 | 0.011508 (30 calls, 0 unknown) | done: accepted 18/18; 1 composed quote (ASML d0, main code) |
-| D5 | #1021 push of integrated head `c4629ffc` → eval-baseline (peak window; balance 45.80 at 02:50:38Z) | 0.50 | pending | reserved |
+| D5 | #1021 push of integrated head `c4629ffc` → eval-baseline [36808107539](https://github.com/neilmac91/EarningsNerd/actions/runs/36808107539) (peak window; balance 45.80 at 02:50:38Z) | 0.50 | pending | running |
 | D6 | #1021 ready → copilot-eval at `c4629ffc` (one run; pre-registered policy) | 0.05 | pending | reserved |
 
 ## Lanes
@@ -42,7 +42,7 @@ handover package `earningsnerd-opus-5-5-handover` (SHA256SUMS verified). Checked
 | #1013 | review, validate, merge | dependabot branch (main merged: `0113e9c9`) | `2cd639fd`→`0113e9c9` | **merged** `e1914ea4`; prod serves posthog-js 1.434.14 |
 | #1012 | maintainer replacement, merge, close original | replacement [#1030](https://github.com/neilmac91/EarningsNerd/pull/1030) `claude/pr1012-posthog-7.60.1` `c8c56cee` | `1e56f3d2` | **#1030 merged** `c13b069a`, deployed `00423-wrg`; #1012 closed superseded |
 | #952 | repair current-inspection binding, merge tooling | `claude/attached-file-review-any8xz` | `1d48eb33`→`551f4808` | **merged** `e3aa33df`; deployed `00426-xqn` (verified); E8 judging parked |
-| #1021 | integrate main, qualify or hold draft | `codex/wave3-acquisition-period-withholding` (local integrated `c4629ffc`, unpushed) | `55e89142` | review complete (3 rounds, no blocker); final fixes `99082c98`; merged main `e3aa33df`; full gate running |
+| #1021 | integrate main, qualify or hold draft | `codex/wave3-acquisition-period-withholding` | `55e89142`→`c4629ffc` | pushed 02:55Z (draft); local gate 4698 passed; delta review no blocker; hosted CI 36808107539 running |
 | #942 | fresh successor, close original | successor draft [#1039](https://github.com/neilmac91/EarningsNerd/pull/1039) `claude/pr942-successor` `4d036b48` (stamp `summary-2026-09-t`) | `47d040aa` | **#942 closed** superseded (comment 5922709320); #1039 blocked draft pending founder's scoped disposition; eval-baseline D3 running |
 | #1023 | close with successor, diagnose | successor draft [#1036](https://github.com/neilmac91/EarningsNerd/pull/1036) `claude/pr1023-diagnostic` `5a5ebf8a` | `d58c1a59` | **#1023 closed** (comment 5920729833); #1036 reviewed (no blocker; 5 should-fix fixed), retained as diagnostic draft |
 | #1009 | retain draft hold, document prerequisites | `codex/wave3-launch-pricing-offer` | `561dc2b8` | **held draft**; hold record comment 5920001935 |
@@ -200,3 +200,11 @@ Merge-tree conflicts vs main at start: #1013/#1012 none; #952, #1023, #1009 `tas
   advisory (recorded) for individual uncited figures in otherwise-cited answers and fully-cited tool-less answers, per the
   existing RUNBOOK policy. Main-code base rate now 5 runs / 90 rows: composed 3/90, uncited answers 1/90 → expected single-run
   pass ≈ 45%; a hold on that basis is main's Copilot behaviour, recorded as the exact blocker.
+- 02:55Z — #1021 local gate on `c4629ffc` green (ruff, bandit, pytest 4698 passed / 39 skipped / 2 deselected, 454 s).
+  Focused independent review of the final delta (`99082c98` + conflict-free main merge `c4629ffc`): no blocker; mutation
+  without `re.ASCII` 1 failed / 197 passed → 198 passed. Out-of-scope finding on main (same Unicode-fold KeyError class in
+  `ai/cash_claims.py:84`, `copilot_service.py:790`) queued as a separate follow-up task, not fixed in #1021.
+  Pushed `55e89142..c4629ffc` (fast-forward) at 02:55:27Z in the peak window (D5 ≈ USD 0.35 instead of ≈ 0.18 off-peak;
+  accepted to keep the founder-absent window productive, well inside the USD 10 ceiling). PR body updated (integration,
+  eval-projection disclosure, pre-registered policy, base rate 5 runs / 90 rows, founder actions, override line).
+  Subscribed to #1021 activity.
