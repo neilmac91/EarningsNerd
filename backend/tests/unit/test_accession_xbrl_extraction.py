@@ -892,8 +892,9 @@ def test_selected_cash_conversion_basis_survives_source_to_visible(monkeypatch, 
     # Exercise the real producer: synthetic standardized metadata cannot prove ratio custody.
     selected_metrics = EdgarXBRLService().extract_standardized_metrics(raw)
     for ratio, key in (("return_on_equity", "shareholders_equity"), ("return_on_assets", "total_assets")):
-        # Raw instance points (persisted as Filing.xbrl_data, which Copilot reads) keep main's shape.
-        assert "raw_tag" not in raw[key][0]
+        # Raw instance points (persisted as Filing.xbrl_data, which Copilot JSON-dumps) keep main's
+        # exact key set: any added key (raw_tag or another name) changes Copilot prompt bytes.
+        assert set(raw[key][0]) == {"period", "value", "form", "accn", "currency"}
         point = selected_metrics[ratio]["current"]
         assert point["numerator"] == selected_metrics["net_income"]["current"]
         assert point["numerator"]["raw_tag"] == income_tag

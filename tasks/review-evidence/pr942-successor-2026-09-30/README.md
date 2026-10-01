@@ -39,8 +39,9 @@ standalone net-income prior when a missing balance skips it. The net-income scop
   70/70 identical blocks on real retained metrics.
 - **Copilot.** Copilot JSON-dumps the raw `Filing.xbrl_data`. #942's `:463` hunk added `raw_tag` to
   equity/assets instance points, and that hunk is not ported. The real-producer test asserts that
-  those raw points keep main's shape. Operand copies exist only in the standardized metrics, which
-  Copilot does not read. FinancialFact rows read only named point keys.
+  those raw points keep main's exact key set (`period`, `value`, `form`, `accn`, `currency`), so an
+  added key under any name fails it, not only `raw_tag`. Operand copies exist only in the
+  standardized metrics, which Copilot does not read. FinancialFact rows read only named point keys.
 - The prompt text, form prompts, ONE-HOME rule, `summary_schema`, flags, `baseline_scores.json`,
   the golden set, scorers, judge and locked contract tests are all unchanged. The cash labels and
   debt wording are also unchanged.
