@@ -32,7 +32,7 @@ handover package `earningsnerd-opus-5-5-handover` (SHA256SUMS verified). Checked
 | D2 | #1038 ready → copilot-eval [36798834277](https://github.com/neilmac91/EarningsNerd/actions/runs/36798834277) at `9d7fa56f` (balance 45.98 at 22:44Z) | 0.05 | 0.010511 (28 calls, 0 unknown) | done: accepted 18/18; 0 composed quotes |
 | D3 | #1039 (#942 successor) push → eval-baseline [36799996921](https://github.com/neilmac91/EarningsNerd/actions/runs/36799996921) at `4d036b48` (peak window) | 0.50 | 0.347042 (70 calls, 0 unknown; tokens × llm_pricing × 2) | done: 70/70 pass, gate pass |
 | D4 | #952 ready → copilot-eval [36800236360](https://github.com/neilmac91/EarningsNerd/actions/runs/36800236360) at `551f4808` | 0.05 | 0.011508 (30 calls, 0 unknown) | done: accepted 18/18; 1 composed quote (ASML d0, main code) |
-| D5 | #1021 push of integrated head `c4629ffc` → eval-baseline [36808107539](https://github.com/neilmac91/EarningsNerd/actions/runs/36808107539) (peak window; balance 45.80 at 02:50:38Z) | 0.50 | pending | running |
+| D5 | #1021 push of integrated head `c4629ffc` → eval-baseline [36808107539](https://github.com/neilmac91/EarningsNerd/actions/runs/36808107539) (peak window; balance 45.80 at 02:50:38Z) | 0.50 | 0.351808 (70 calls, 0 unknown; tokens × llm_pricing × 2) | done: 70/70 pass, gate_fail 0, regression gate pass |
 | D6 | #1021 ready → copilot-eval at `c4629ffc` (one run; pre-registered policy) | 0.05 | pending | reserved |
 
 ## Lanes
@@ -208,3 +208,8 @@ Merge-tree conflicts vs main at start: #1013/#1012 none; #952, #1023, #1009 `tas
   accepted to keep the founder-absent window productive, well inside the USD 10 ceiling). PR body updated (integration,
   eval-projection disclosure, pre-registered policy, base rate 5 runs / 90 rows, founder actions, override line).
   Subscribed to #1021 activity.
+- 03:04Z — #1021 hosted CI 36808107539 on `c4629ffc`: backend-tests, frontend-tests, e2e, migrations-postgres, lighthouse
+  success; eval-baseline 70/70 pass_rate 1.0, gate_fail 0, regression gate pass (artifact sha256 `ed6e8a15…`; mean
+  untraceable 1.9714, advisory); D5 USD 0.351808. Figure-tracing thread answered with evidence (comment 4151421172) and
+  resolved after backend-tests went green.
+- 03:08Z — #1021 marked ready (spend opt-in D6: single copilot-eval run under the pre-registered policy); balance USD 45.62 at 03:08:37Z.
