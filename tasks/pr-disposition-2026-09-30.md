@@ -392,3 +392,14 @@ Under the founder's delegation, Codex decided items A–M on #1029. This session
   - Independent `/health/detailed` check at 14:03:41Z: healthy (database 6.07 ms, EDGAR circuit closed).
   - Release comment posted on #1040.
   - **E done.** F is now unblocked by the approved order; it waits only on its two exact-head reviews.
+- 14:20Z — **F at `c69504d7`: the adversarial review returned changes-needed.**
+  - **Blockers:**
+    - B1: the not-disclosed path is unchecked.
+    - B2: entities, markdown delimiters and invisible code points hide or flip marks.
+    - B3: a curly opener pairs with a straight closer.
+  - **Should-fix:** S1, worst-case latency of 2.6–146 s in the SSE generator.
+  - **Nit:** N1, emphasis inside a quote is a false positive.
+  - **Rework:** sent to the F agent as round 4 (visible-text projection, not-disclosed wiring, curly-only check, bounded enumeration). Offline, nothing pushed.
+  - **Floor:** fresh D8 has an audit-flagged composition below 24 characters that F publishes. The counterfactual (`floor-counterfactual-2026-10-01/`) gives 21/21 agreement and 0 rule-only flags at floors 8–20. Codex was asked to choose (a) keep 24, (b) a separate floor of 8 (recommended), or (c) exempt (comment 5933147493).
+  - **S2 scope:** single quotes, guillemets and blockquotes. Codex was asked; the recommendation is pinned limits now plus a follow-up item (comment 5933185207).
+  - **Pending:** the rules, tests and replay review is still running.
