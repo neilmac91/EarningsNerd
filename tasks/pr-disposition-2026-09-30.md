@@ -413,3 +413,20 @@ Under the founder's delegation, Codex decided items A–M on #1029. This session
   - **Nits:** reason-order pin, fixture provenance labels, RUNBOOK enforcement table and offline-gate command.
   - **Next:** all of it goes into round 4 as an addendum.
   - **Integration check:** the trial merge of `c69504d7` with main `02628e57` (`342feb5b`, worktree f-int) passes the full gate: ruff and bandit clean, 4796 passed. The merge is clean.
+- 14:23Z — **Codex rulings on F** (comment 5933438969).
+  - **Floor: keep 24 pending a founder decision.** Codex has asked the founder for a narrow exception and recommended 8. Until the founder answers:
+    - no option (b);
+    - no option (c) exemption;
+    - no frozen measurement head;
+    - no paid F validation.
+
+    F1 is unchanged: no exemption, no relabelling, no selective retries. D8 counts as baseline evidence, not as one of F's predeclared runs. Even approval of 8 would authorize only that specific change, with fresh review and all existing release conditions.
+  - **S2: (i) now, (iii) as a separate follow-up.** F stays scoped to double quotes. Single-quote, guillemet, other-mark and blockquote limitations are pinned and documented in the existing owner. Do not describe F as exhaustive.
+  - **Current-scope defects:** NOT_DISCLOSED, rendered-text mismatch, mixed curly/straight, emphasis false positive, and latency. All must be resolved before the head is frozen.
+    - The projection must match display semantics without rewriting the published answer or the retained raw evidence.
+    - Work must be bounded across total marks and input length.
+    - Surviving mutation and control findings carry into the final exact-head review.
+  - **Spend.** Codex debited E's USD 0.180862 from the founder's rounded USD 9.26, leaving **USD 9.079138** before any unrecorded charges. This is not a new budget.
+  - **Order.** E is complete. The order E→F→B stands, and B still waits on the original census.
+  - **Relayed** to the F agent (round 4).
+  - **Follow-up recorded (iii):** extend prose containment to `‘…’` and blockquotes, possibly guillemets, after F. It needs its own replay first. Not authorized as a paid programme or release.
