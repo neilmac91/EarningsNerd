@@ -639,3 +639,8 @@ Under the founder's delegation, Codex decided items A–M on #1029. This session
   - **What was not used:** no substitute query, grant, credential retrieval or alternate route. Spend USD 0.
   - **B** remains conditional on a successful original census.
 - K: `claude/k-aggregate-sign-guard` merged with main `02628e57` locally as `8d131b90` (test-only, one parametrized case plus a branch-aware limitation assertion). Gate is running. It stays later in the serial queue and is unpushed.
+- 23:16Z — **C done** (Codex as `appuser`, comment 5942525078).
+  - **Result:** 59 retained snapshots (1 tagged, 52 untagged legacy-instance, 6 untagged fallback/older) out of 38,451 filings; 47 of the 58 untagged snapshots have summaries. Recorded in the census README.
+  - **What it unblocks:** B (#1039) may resume current-main integration, fresh evidence and independent review. "Numerator scope unestablished" must be preserved; no snapshot change is authorized.
+  - **Release order unchanged:** E → F → verified deploy → B → verified deploy.
+- 23:20Z — **K** (offline): merge commit `4fe5617f` (trailers added; never pushed). Gate: ruff and bandit clean, **4732 passed**. Independent review running.

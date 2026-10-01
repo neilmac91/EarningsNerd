@@ -57,3 +57,22 @@ The decision rules out the following. Any repair or drain needs its own preserva
 - clearing or re-extracting snapshots;
 - regenerating summaries;
 - a stamp-`t` drain.
+
+## Result (2026-10-01T23:16Z, Codex in the founder's Cloud SQL Studio session as `appuser`; PR #1029 comment 5942525078)
+
+| class | filings | with_summary | k10 | q10 | foreign_annual | other_forms |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| 0_no_snapshot | 38392 | 2 | 8471 | 24855 | 223 | 4843 |
+| 4_tagged_scope_renders | 1 | 1 | 0 | 1 | 0 | 0 |
+| 6_untagged_legacy_instance | 52 | 46 | 30 | 20 | 2 | 0 |
+| 7_untagged_fallback_or_older | 6 | 1 | 2 | 4 | 0 | 0 |
+| total | 38451 | 50 | 8503 | 24880 | 225 | 4843 |
+
+There are **58 untagged snapshots** (classes 6 and 7); 47 of them have a summary. Under stamp `t` these render as "numerator scope unestablished". This is truthful, and it is the behaviour to preserve. No malformed, mixed, unknown-shape or unusable class appeared.
+
+**How it ran.**
+- A first attempt as the IAM user failed with `pq: permission denied for table filings`; that failure is retained.
+- The editor batch contained the original script twice. Both read-only copies ran, and their result tables are identical.
+- The file's SHA-256 `2e9284b9…4823c` identifies the source file, not the duplicated batch.
+
+**Not authorized by this result:** clearing, rewriting, re-extracting, refreshing or draining snapshots.
