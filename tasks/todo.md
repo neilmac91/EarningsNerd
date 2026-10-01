@@ -1,3 +1,9 @@
+## 2026-10-01 — bounded SDK transport-attempt evidence
+
+- Characterized the real pinned edgartools 5.58.0 accession resolver with invented responses and no-network guards: recent lookup 1 attempt / 1 SDK grant; two-shard history 3/3; transport-error and HTTP429 cases 2/2 each, both propagating without retry. No application limiter wait entries were observed in these cases.
+- Corrected the capacity map's ambiguous “no per-wire limiter” wording to distinguish application ownership from the SDK's own grants. Preserve the two failed harness setup stages and exact final custody; see [scope and receipt](readiness-2026-09-21/operations/sec-outbound-attempts.md#october-1-bounded-sdk-observation).
+- Documentation only. No application/SDK change, live SEC/provider traffic, load or production setting change. This does not establish shared fleet admission, live rate, egress identity or a safe beta size.
+
 ## 2026-09-30 — native-evidence delivery adapter candidate (engineering-only)
 
 - Capability preflight in the implementer's container: Claude Code CLI 2.1.285 present, `codex` absent, Anthropic SDK not installed, credentials and network policy not inspected. Documented, statically measured and unknown facts are kept separate in the handback's capability inventory; no model, API or paid call was made.
