@@ -403,3 +403,13 @@ Under the founder's delegation, Codex decided items A–M on #1029. This session
   - **Floor:** fresh D8 has an audit-flagged composition below 24 characters that F publishes. The counterfactual (`floor-counterfactual-2026-10-01/`) gives 21/21 agreement and 0 rule-only flags at floors 8–20. Codex was asked to choose (a) keep 24, (b) a separate floor of 8 (recommended), or (c) exempt (comment 5933147493).
   - **S2 scope:** single quotes, guillemets and blockquotes. Codex was asked; the recommendation is pinned limits now plus a follow-up item (comment 5933185207).
   - **Pending:** the rules, tests and replay review is still running.
+- 14:30Z — **F at `c69504d7`: the rules, tests and replay review returned changes-needed, with no blocker.**
+  - **Rules:** CLAUDE.md compliance confirmed (no flag, prompt, scorer or threshold change; logging carries reason codes only), and decision F's requirements are met (F2 reversal with a negative control; Codex's verbatim control).
+  - **Replay:** independently confirmed: 20/20, 0 false positives, 3/108 rows in 3/6 runs, 41/41 controls.
+  - **Should-fix:**
+    - a total-mark cap is needed for latency;
+    - FIFO-pairing mutation M3 survives, and a witness control was supplied;
+    - two fail-closed guards are missing (M5 newline whitespace, M7 interior ellipsis).
+  - **Nits:** reason-order pin, fixture provenance labels, RUNBOOK enforcement table and offline-gate command.
+  - **Next:** all of it goes into round 4 as an addendum.
+  - **Integration check:** the trial merge of `c69504d7` with main `02628e57` (`342feb5b`, worktree f-int) passes the full gate: ruff and bandit clean, 4796 passed. The merge is clean.
