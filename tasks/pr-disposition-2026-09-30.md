@@ -632,3 +632,10 @@ Under the founder's delegation, Codex decided items A–M on #1029. This session
     - merge of current main (`02628e57`) into F.
 
     Final reviews will run on the integrated head.
+- 23:08Z — **C census attempted, failed on permissions** (Codex, comment 5942432605).
+  - **Query:** Codex used the founder's SQL Studio session (IAM user) and submitted the original `census.sql` once (sha256 `2e9284b9…` verified).
+  - **Result:** `pq: permission denied for table filings`. No output table exists, so this is a failed access attempt, not a zero count.
+  - **Next step for the founder:** switch SQL Studio to the existing `appuser` account (SELECT on filings and summaries). The unchanged query is staged in the editor.
+  - **What was not used:** no substitute query, grant, credential retrieval or alternate route. Spend USD 0.
+  - **B** remains conditional on a successful original census.
+- K: `claude/k-aggregate-sign-guard` merged with main `02628e57` locally as `8d131b90` (test-only, one parametrized case plus a branch-aware limitation assertion). Gate is running. It stays later in the serial queue and is unpushed.
