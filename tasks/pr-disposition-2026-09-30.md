@@ -35,7 +35,7 @@ handover package `earningsnerd-opus-5-5-handover` (SHA256SUMS verified). Checked
 | D5 | #1021 push of integrated head `c4629ffc` → eval-baseline [36808107539](https://github.com/neilmac91/EarningsNerd/actions/runs/36808107539) (peak window; balance 45.80 at 02:50:38Z) | 0.50 | 0.351808 (70 calls, 0 unknown; tokens × llm_pricing × 2) | done: 70/70 pass, gate_fail 0, regression gate pass |
 | D6 | #1021 ready → copilot-eval [36809122540](https://github.com/neilmac91/EarningsNerd/actions/runs/36809122540) at `c4629ffc` (one run; pre-registered policy; balance 45.62 at 03:08:37Z) | 0.05 | 0.011835 (31 calls, 0 unknown) | done: accepted 18/18; audit: 0 composed, 0 uncited answers → policy PASS |
 | D7 | [#1040](https://github.com/neilmac91/EarningsNerd/pull/1040) (E) push of `da4f66a0` → eval-baseline [36868705889](https://github.com/neilmac91/EarningsNerd/actions/runs/36868705889) (off-peak; balance 45.62 at 13:17:18Z; E lane reservation 0.75) | 0.40 | 0.175062 (70 calls, 0 unknown; off-peak tokens × llm_pricing) | done: 70/70 scored, gate_fail 0, regression gate PASS; artifact sha256 `38774635…` |
-| D8 | #1040 ready → copilot-eval at `da4f66a0` (one run; criterion accepted 18/18, 0 errors; balance 45.44 at 13:42:09Z) | 0.05 | pending | pending |
+| D8 | #1040 ready → copilot-eval [36870677818](https://github.com/neilmac91/EarningsNerd/actions/runs/36870677818) at `da4f66a0` (one run; criterion accepted 18/18, 0 errors; balance 45.44 at 13:42:09Z) | 0.05 | 0.005800 (30 calls, 0 unknown) | done: **accepted 18/18, 0 errors** (criterion met); advisory audit exit 1: 1 composed row below F's 24-char floor; not attributable to E (0 fold letters / non-ASCII digits in any answer) |
 
 ## Lanes
 
@@ -375,3 +375,14 @@ Under the founder's delegation, Codex decided items A–M on #1029. This session
   - **D7:** USD 0.175062, telemetry-based. Total telemetry is now 0.913593. The balance, 45.62 → 45.44, is consistent.
   - **Review:** the independent delta review of `da4f66a0` approved it (no blocker, no should-fix). Its four optional test-only nits are recorded in the PR body and were not pushed, because a push would re-run the paid eval.
   - **Next:** marking ready, which triggers D8.
+- 13:53Z — **#1040 (E) merged as `02628e57`.**
+  - **Merge checks.** Squash-merged with `expectedHeadSha` `da4f66a0`. Before merging, the head was re-read: mergeable clean, no review threads, and every required check green, including review-gate (success at 13:42Z, from the override backed by both independent reviews).
+  - **D8:** USD 0.005800. Accepted 18/18 with 0 errors, so the readiness criterion is met.
+  - **Advisory audit:** exit 1, one composed row (AAPL, spans of 23 and 20 characters, below F's floor), not attributable to E. Evidence is in `tasks/review-evidence/e-unicode-fold-2026-10-01/`.
+  - **Spend:** telemetry total is now **USD 0.919393**. E's lane used 0.180862 of its 0.75.
+  - **Deploy:** main CI 36872019870 is running; deploy verification follows.
+  - **F:** head `c69504d7` replaces the patch checks with CommonMark flanking plus an enumeration of balanced readings.
+    - Every nested bypass is withheld, including the third, punctuation-flanked form.
+    - Replay unchanged: 20/20, 0 false positives, 3/108.
+    - Gate: 4763 passed.
+    - Two independent exact-head reviews are running: one hunting bypasses, one checking rules, tests and the replay.
