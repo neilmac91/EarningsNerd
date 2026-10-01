@@ -33,7 +33,7 @@ handover package `earningsnerd-opus-5-5-handover` (SHA256SUMS verified). Checked
 | D3 | #1039 (#942 successor) push → eval-baseline [36799996921](https://github.com/neilmac91/EarningsNerd/actions/runs/36799996921) at `4d036b48` (peak window) | 0.50 | 0.347042 (70 calls, 0 unknown; tokens × llm_pricing × 2) | done: 70/70 pass, gate pass |
 | D4 | #952 ready → copilot-eval [36800236360](https://github.com/neilmac91/EarningsNerd/actions/runs/36800236360) at `551f4808` | 0.05 | 0.011508 (30 calls, 0 unknown) | done: accepted 18/18; 1 composed quote (ASML d0, main code) |
 | D5 | #1021 push of integrated head `c4629ffc` → eval-baseline [36808107539](https://github.com/neilmac91/EarningsNerd/actions/runs/36808107539) (peak window; balance 45.80 at 02:50:38Z) | 0.50 | 0.351808 (70 calls, 0 unknown; tokens × llm_pricing × 2) | done: 70/70 pass, gate_fail 0, regression gate pass |
-| D6 | #1021 ready → copilot-eval at `c4629ffc` (one run; pre-registered policy) | 0.05 | pending | reserved |
+| D6 | #1021 ready → copilot-eval [36809122540](https://github.com/neilmac91/EarningsNerd/actions/runs/36809122540) at `c4629ffc` (one run; pre-registered policy; balance 45.62 at 03:08:37Z) | 0.05 | 0.011835 (31 calls, 0 unknown) | done: accepted 18/18; audit: 0 composed, 0 uncited answers → policy PASS |
 
 ## Lanes
 
@@ -42,7 +42,7 @@ handover package `earningsnerd-opus-5-5-handover` (SHA256SUMS verified). Checked
 | #1013 | review, validate, merge | dependabot branch (main merged: `0113e9c9`) | `2cd639fd`→`0113e9c9` | **merged** `e1914ea4`; prod serves posthog-js 1.434.14 |
 | #1012 | maintainer replacement, merge, close original | replacement [#1030](https://github.com/neilmac91/EarningsNerd/pull/1030) `claude/pr1012-posthog-7.60.1` `c8c56cee` | `1e56f3d2` | **#1030 merged** `c13b069a`, deployed `00423-wrg`; #1012 closed superseded |
 | #952 | repair current-inspection binding, merge tooling | `claude/attached-file-review-any8xz` | `1d48eb33`→`551f4808` | **merged** `e3aa33df`; deployed `00426-xqn` (verified); E8 judging parked |
-| #1021 | integrate main, qualify or hold draft | `codex/wave3-acquisition-period-withholding` | `55e89142`→`c4629ffc` | pushed 02:55Z (draft); local gate 4698 passed; delta review no blocker; hosted CI 36808107539 running |
+| #1021 | integrate main, qualify or hold draft | `codex/wave3-acquisition-period-withholding` | `55e89142`→`c4629ffc` | **merged** `0032bca8` (qualified: CI green, eval-baseline 70/70, Copilot 18/18, audit PASS); deploy verification pending |
 | #942 | fresh successor, close original | successor draft [#1039](https://github.com/neilmac91/EarningsNerd/pull/1039) `claude/pr942-successor` `4d036b48` (stamp `summary-2026-09-t`) | `47d040aa` | **#942 closed** superseded (comment 5922709320); #1039 blocked draft pending founder's scoped disposition; eval-baseline D3 running |
 | #1023 | close with successor, diagnose | successor draft [#1036](https://github.com/neilmac91/EarningsNerd/pull/1036) `claude/pr1023-diagnostic` `5a5ebf8a` | `d58c1a59` | **#1023 closed** (comment 5920729833); #1036 reviewed (no blocker; 5 should-fix fixed), retained as diagnostic draft |
 | #1009 | retain draft hold, document prerequisites | `codex/wave3-launch-pricing-offer` | `561dc2b8` | **held draft**; hold record comment 5920001935 |
@@ -213,3 +213,12 @@ Merge-tree conflicts vs main at start: #1013/#1012 none; #952, #1023, #1009 `tas
   untraceable 1.9714, advisory); D5 USD 0.351808. Figure-tracing thread answered with evidence (comment 4151421172) and
   resolved after backend-tests went green.
 - 03:08Z — #1021 marked ready (spend opt-in D6: single copilot-eval run under the pre-registered policy); balance USD 45.62 at 03:08:37Z.
+- 03:11Z — #1021 copilot-eval 36809122540 at `c4629ffc`: PASS, 18/18 scored/passed, 0 errors, accepted, all terminal; artifact
+  sha256 `501748cc…`, copilot-eval.json `9cb7368e…`; D6 USD 0.011835 (31 calls, 0 unknown). Pre-registered audit
+  (`prose_quote_audit.py`, exit 2): composed quotes 0, rows without source 0, uncited answers 0 → **policy PASS**; advisory
+  recorded: MSFT d0–d2 1/3 uncited figure (cited answers), tool-less fully-cited BABA native d0–d2 and ASML d0–d1.
+  `evals/runner.py` is not hash-sealed; `provider_requests.py` (E7 MEASUREMENT_FILES) changes by the original PR's
+  2-line `primary_excerpt` binder pass-through (no prompt/request change) — disclosed as an E7 custody note.
+- 03:16Z — #1021 body updated with the qualification result; review-gate 36809724263 pass.
+- ~05:29Z — **#1021 squash-merged as `0032bca8`** (head re-read `c4629ffc`, mergeable clean, base `e3aa33df`, no main run in
+  progress). Main CI 36819975322 queued; deploy verification pending. Cumulative telemetry spend: USD 0.738531 of USD 10.00.
