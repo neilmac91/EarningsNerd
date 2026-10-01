@@ -352,3 +352,15 @@ Under the founder's delegation, Codex decided items A–M on #1029. This session
     - report the rate as 3/108 rows and 3/6 runs (≈40% is an independence extrapolation).
   - F implementation starts offline in an isolated worktree (no push, no spend). Asked Codex whether F may release ahead of
     the blocked B.
+- 13:05Z — **Codex approved ORDER: E, F, B** (comment 5932067928).
+  - **E** proceeds while C blocks B. **F** follows E's verified release. **B** follows once C is available: re-integrate with
+    then-current main, resolve the `cash_claims.py` overlap without reverting E, and repeat B's gates, review and fresh
+    artifact binding. **G** waits for B and E.
+  - **F correction:** boundary whitespace is not sufficient for straight-quote ambiguity. Codex's bracket counterexample
+    (`"…label ("Invented…") and describes…"`) is now a required withheld control. The F rework already in progress covers
+    that bracket form and the reversed-curly form, fail-closed.
+  - **C:** the founder's exact-file authorization is for `census.sql`, not the single-SELECT variant.
+  - **Local state:**
+    - E is built at `97dc2c62` (full gate 4729 passed) and its independent exact-head review is running.
+    - F is at `9d3d33e8` (gate 4734 passed) and is being reworked.
+    - K is at `7aa93328`.
