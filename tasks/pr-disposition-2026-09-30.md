@@ -89,7 +89,7 @@ Every required check ran; none was bypassed. Each review override is founder-app
 1. **#1039:** the scoped disposition (merge condition 3). Before any `t` drain, also decide how to treat filings whose persisted snapshot predates #925.
 2. **#942 artifact retention:** the earliest artifacts expire on 2026-10-06. The r report (artifact `10933338099`) expires on 2026-10-11 and is cited by main and by #1021's fixtures.
 3. **#1036:** whether to authorize the tool-nonexecution experiment (about USD 0.4–0.8, ceiling USD 1.00).
-4. **Composed prose quotes:** whether they become a CI gate (a separate verifier PR). On main's Copilot code the rate is 3 in 90 rows. The #1021 run happened to have none.
+4. **Composed prose quotes:** whether they become a CI gate (a separate verifier PR). On main's Copilot code the rate was 3 in 90 rows (historical five-run snapshot); the current figure is 3 in 108 rows across six runs. The #1021 run happened to have none.
 5. **Codex review quota:** add credits, wait for a reset, or keep the founder-approved override practice.
 6. **#1009:** the release prerequisites listed in the hold record.
 7. **E7 custody:** #1021 changed `provider_requests.py`, which is in `MEASUREMENT_FILES`. Any E7 run bound to earlier instrumentation needs re-review before use.
@@ -99,6 +99,38 @@ Every required check ran; none was bypassed. Each review override is founder-app
 - On main, the same Unicode case-fold `KeyError` class exists in `ai/cash_claims.py:84` and `copilot_service.py:790` (suggested task).
 - The `_quarterly_claim` aggregate-branch sign check has no test.
 - An optional whole-document pre-check for the PLTR explanation scan.
+
+## Codex decision and execution plan (2026-10-01, comment 5925688598)
+
+Under the founder's delegation, Codex decided items A–M on #1029. This session executes them. The full text is in the comment; in short:
+
+| Item | Decision | Owner | Reservation (USD) | State |
+| --- | --- | --- | --- | --- |
+| A | Preserve all of #942's evidence, including `10933338099`, the original ZIPs and failed/superseded runs, before 2026-10-06. Inventory the ids, sizes and sha256 values and verify the durable copy, kept in private founder-controlled storage on a non-iCloud disk. Publish only a privacy-reviewed manifest. Also inventory the Copilot raw artifacts that F and G cite. | Claude (inventory, script); founder (storage) | 0 | inventory running; **storage blocker**: no founder-controlled storage is reachable from this session |
+| B | Scoped render-only #1039 / stamp `t`, after A and C. Requires: current-main integration, full gate, exact-head independent review, every required check, and **revalidation of every changed line against the new hosted artifact**. No change to production model-facing bytes, locked tests, baseline or thresholds. No drain. | Claude | 0.75 | waits on A and C |
+| C | Read-only count of affected snapshots, with denominator and legacy/fallback/unknown/malformed classes. No clearing or re-extraction. | Claude (query); founder (run) | 0 | `census.sql` ready and validated; **access blocker**: no production DB access |
+| D | Hold #1034 and keep edgartools 5.58.0. Offline Ford comparison at both versions. No test weakening, blanket ignore or paid rerun. | Claude | within the 0.75 for D/I/K | offline comparison running |
+| E | After B: Unicode-fold crashes **and the silent wrong-scale fallback**, scalar and paired paths, with fold/ASCII controls and one mutation proof per boundary. | Claude | 0.75 | queued after B |
+| F | Prose-quotation containment: an unsupported quote takes the existing withheld/error path. No repair. Offline replay with valid-quote controls first, then 3 predeclared runs. **No scorer, threshold, prompt or flag change.** | Claude | 0.75 | queued after E |
+| G | #1036 stage 1 only, USD 1.00, after B and E. Check prepared inputs offline before paying; a mismatch stops the lane. | Claude | 1.00 | queued |
+| H | Keep the manual-review exception, with a real independent review of each exact head. No credits bought. | — | 0 | standing |
+| I | Inventory the two alert identities, versions and reachability before any fix. | Claude | within the 0.75 for D/I/K | **access blocker**: no Dependabot alerts API from this session |
+| J | Agreed: E7 stays parked. Any future reuse needs an explicit custody review and a new binding. | — | 0 | held |
+| K | Add the sign-guard control in the existing owner, after the higher-risk fixes. Defer the PLTR optimization. | Claude | within the 0.75 for D/I/K | queued |
+| L | Agreed: #1009 stays held. | — | 0 | held |
+| M | Record these decisions here; merge #1029 through normal review and checks; keep handover paths discoverable; no branch cleanup. | Claude | 0 | this entry |
+
+**Order.**
+1. A.
+2. C, plus offline D and I triage. These can run independently.
+3. B → verified deploy → E → verified deploy.
+4. F (containment and replay), then G within its six-hour window.
+5. K.
+6. M records the final outcomes.
+
+**Spend.** USD 9.26 remains under the shared ceiling across both sessions. Claude's lanes reserve USD 4.00 in total; USD 5.26 stays uncommitted; Codex's lane #1037 reserves 0. Before each paid trigger, read the balance and the ledger, prefer off-peak hours, and stop before any lane exceeds its reservation.
+
+**Correction.** The composed-quote base rate in the final report (3/90 rows, from five runs) is a historical snapshot. The current count is **3 composed rows out of 108 main-code rows across six runs**, with three clean runs.
 
 ## Log
 
@@ -282,3 +314,8 @@ Every required check ran; none was bypassed. Each review override is founder-app
   `@codex` request posted on #1029 (comment 5925590299). New finding recorded there: #1034 (edgartools 5.59.1) breaks
   `test_original_ford_complete_outlook_reaches_primary_and_forward_recovery_without_displacement` — do not merge.
   Waiting for Codex's decision.
+- 06:01Z — Codex decision received (#1029 comment 5925688598). Execution started: A (inventory) and D (offline Ford
+  comparison) run in parallel. C's read-only `census.sql` is written and validated on synthetic rows (local PostgreSQL 16,
+  12 rows across all classes; one NULL-predicate bug found and fixed). Access blockers are confirmed: the GCP access token
+  is invalid (`invalid_token`), so there is no production DB read for C. There is no Dependabot alerts API (GitHub MCP),
+  so I is blocked. No founder-controlled durable storage is reachable for A.
