@@ -26,7 +26,11 @@ from app.models import Summary, UsageReservation, User, UserUsage
 from app.services import subscription_service as usage
 
 
-MONTH = "2026-09"
+# Never the wall-clock month: a case whose outcome depends on the admission month fails at once
+# when it forgets to pin, instead of on a calendar date (MONTH = "2026-09" broke two cases on
+# 2026-10-01). ROLLOVER_MONTH is the different month a rollover case moves the clock to.
+MONTH = "2000-01"
+ROLLOVER_MONTH = "2000-02"
 WRITERS = [(usage.increment_user_usage, "summary_count"),
            (usage.increment_user_qa, "qa_count"), (usage.increment_user_analysis, "analysis_count")]
 TABLES = [User.__table__, UserUsage.__table__, UsageReservation.__table__]
@@ -74,6 +78,14 @@ def _rows(engine, user_id):
     with Session(engine) as db:
         return [(r.id, r.summary_count, r.qa_count, r.analysis_count)
                 for r in db.query(UserUsage).filter_by(user_id=user_id, month=MONTH).order_by(UserUsage.id)]
+
+
+def test_fixture_months_are_sentinels_the_clock_never_returns():
+    """lessons/test-fixture-months-are-never-the-wall-clock-month.md: a seeded month the clock can
+    return lets an unpinned case pass until the calendar moves past it."""
+    for month in (MONTH, ROLLOVER_MONTH):
+        assert month <= "2000-12" and month != usage.get_current_month()
+    assert MONTH != ROLLOVER_MONTH
 
 
 @pytest.mark.parametrize("value", [0, -1, 10001, 0.5, float("inf"), float("nan")])
@@ -256,6 +268,11 @@ def _free_limit(monkeypatch, limit):
     monkeypatch.setattr(usage, "get_entitlements", lambda user: SimpleNamespace(monthly_summary_limit=limit))
 
 
+def _pin_month(monkeypatch):
+    """Admission reads get_current_month(); cases that seed MONTH must admit in MONTH."""
+    monkeypatch.setattr(usage, "get_current_month", lambda: MONTH)
+
+
 def _reservations(engine, user_id):
     with Session(engine) as db:
         return [(r.token, r.kind) for r in db.query(UsageReservation).filter_by(user_id=user_id).order_by(UsageReservation.id)]
@@ -266,6 +283,7 @@ def _load_user(db, user_id):
 
 
 def test_postgres_parallel_reservations_admit_exactly_the_remaining_units(postgres_engine, monkeypatch):
+    _pin_month(monkeypatch)
     _free_limit(monkeypatch, 2)
     uid = _seed(postgres_engine, (0, 0, 0))
     ready = threading.Barrier(3, timeout=5)
@@ -288,6 +306,7 @@ def test_postgres_parallel_reservations_admit_exactly_the_remaining_units(postgr
 
 
 def test_postgres_converted_reservation_blocks_and_released_reservation_readmits(postgres_engine, monkeypatch):
+    _pin_month(monkeypatch)
     _free_limit(monkeypatch, 1)
     uid = _seed(postgres_engine, (0, 0, 0))
     with Session(postgres_engine) as db:
@@ -314,6 +333,7 @@ def test_postgres_converted_reservation_blocks_and_released_reservation_readmits
 
 
 def test_postgres_expired_reservation_is_ignored_and_swept(postgres_engine, monkeypatch):
+    _pin_month(monkeypatch)
     _free_limit(monkeypatch, 1)
     uid = _seed(postgres_engine, (0, 0, 0))
     with Session(postgres_engine) as db:
@@ -351,6 +371,7 @@ def test_postgres_conversion_between_admission_reads_blocks_instead_of_over_admi
     was already seen as a lease (conservative block); reading the counter first would see
     neither. The hook reads the counter and only then lets the completion commit, which is the
     one interleaving that tells the two read orders apart."""
+    _pin_month(monkeypatch)
     _free_limit(monkeypatch, 1)
     uid = _seed(postgres_engine, (0, 0, 0))
     with Session(postgres_engine) as db:
@@ -376,6 +397,7 @@ def test_postgres_deleting_the_users_row_cascades_live_and_expired_reservations(
     a crashed worker left behind (swept only on a later admission), must go with it instead of
     failing the deletion on the FK. Core delete bypasses ORM cascades: this proves the database
     constraint (the ORM path is pinned in tests/unit/test_usage_reservation_wiring.py)."""
+    _pin_month(monkeypatch)
     _free_limit(monkeypatch, 5)
     uid = _seed(postgres_engine)
     with Session(postgres_engine) as db:
@@ -418,10 +440,6 @@ def test_convert_reservation_returns_the_admitted_month_and_drops_the_lease(sqli
 # Analysis (`analysis`, monthly) admissions share _reserve_use, so they inherit the summary
 # proofs above; these pin what is specific to each: the cap each one reads, the completed count
 # it converts into, and the lifetime scope that must survive a month rollover.
-
-def _pin_month(monkeypatch):
-    monkeypatch.setattr(usage, "get_current_month", lambda: MONTH)
-
 
 def _parallel(engine, uid, reserve, workers=3):
     ready = threading.Barrier(workers, timeout=5)
@@ -469,7 +487,7 @@ def test_postgres_parallel_taste_reservations_admit_exactly_the_lifetime_allowan
             [(usage.QA_TASTE_RESERVATION_KIND, usage.LIFETIME_SCOPE)]
         # A month rollover between admission and the next question changes nothing for a
         # lifetime allowance: the held lease is still seen, the request is still refused.
-        monkeypatch.setattr(usage, "get_current_month", lambda: "2000-01")
+        monkeypatch.setattr(usage, "get_current_month", lambda: ROLLOVER_MONTH)
         assert usage.reserve_qa_taste_use(_load_user(db, uid), db) == (False, 1, 2, None)
         # Completion converts into the users-row counter; the allowance is then spent for good.
         assert usage.convert_reservation(token, db) == usage.LIFETIME_SCOPE
