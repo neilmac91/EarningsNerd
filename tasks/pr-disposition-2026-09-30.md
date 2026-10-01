@@ -493,3 +493,11 @@ Under the founder's delegation, Codex decided items A–M on #1029. This session
     - Bound: about 8k characters, plus `to_thread` if the call site is async.
     - Mutation-survivor controls added, and the other double-quote glyphs are pinned.
   - **Follow-up (iii) record:** extend containment to single quotes, guillemets and other double-quote glyphs (〝〞〟 ❝❞ 🙶🙷 ʺ) and blockquotes, after F, starting from its own replay.
+- 17:07Z — **Codex confirmed follow-up chips are in current scope** (comment 5936475095), with binding conditions:
+  - **Ordering:** all checks (answer, reason, chips) complete before any answer-bearing `chunk`, `not_disclosed` or `complete` event. Never a partial answer followed by a chip failure. The SSE contract and locked tests are preserved, and any real conflict is surfaced.
+  - **What is checked:** the final chip strings after the existing transforms. Chips and the reason use plain-text semantics; the answer uses display semantics. Content is never rewritten. A failing chip withholds the whole response through the existing boundary: no repair, drop or regeneration.
+  - **F1 attribution:** reconstruct the answer, reason, FOLLOWUPS envelope and final checked strings from `tool_trace.candidate_deltas`. Record the failed surface, chip index, exact text, source binding and reason code.
+  - **Counting:** chip findings are recorded separately, and each withheld response counts once.
+  - **Unchanged:** runner, scorer, F1 criteria, locked contracts and thresholds.
+  - **Not cleared:** the round-5 implementation and the parser findings until the actual final head passes. The floor stays 24 pending the founder. No paid validation, freeze or release.
+  - **Relayed** to the F agent as a round-5 addendum.
