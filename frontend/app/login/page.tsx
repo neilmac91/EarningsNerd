@@ -9,7 +9,7 @@ import { acceptLoginAndResetAccount } from '@/features/auth/lib/accountQueryStat
 import { getExplicitSessionGeneration, assertExplicitSessionGeneration } from '@/lib/api/session'
 import { isApiError, getErrorMessage } from '@/lib/api/types'
 import Link from 'next/link'
-import { CircleNotchIcon, EnvelopeSimpleIcon } from '@/lib/icons'
+import { EnvelopeSimpleIcon } from '@/lib/icons'
 import analytics from '@/lib/analytics'
 import AuthShell from '@/features/auth/components/AuthShell'
 import SocialAuthButtons from '@/features/auth/components/SocialAuthButtons'
@@ -49,6 +49,7 @@ function LoginContent() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (loading) return
     setError('')
     setLoading(true)
 
@@ -181,17 +182,12 @@ function LoginContent() {
 
             <Button
               type="submit"
-              disabled={loading || (TURNSTILE_ENABLED && !turnstileToken)}
-              className="w-full py-2.5 font-semibold active:scale-[0.99]"
+              loading={loading}
+              loadingText="Signing in…"
+              disabled={TURNSTILE_ENABLED && !turnstileToken}
+              className="w-full"
             >
-              {loading ? (
-                <span className="flex items-center justify-center gap-2">
-                  <CircleNotchIcon className="h-4 w-4 animate-spin" />
-                  Signing in…
-                </span>
-              ) : (
-                'Sign in'
-              )}
+              Sign in
             </Button>
           </form>
         )}
