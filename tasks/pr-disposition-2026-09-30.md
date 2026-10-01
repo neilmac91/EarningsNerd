@@ -644,3 +644,14 @@ Under the founder's delegation, Codex decided items A–M on #1029. This session
   - **What it unblocks:** B (#1039) may resume current-main integration, fresh evidence and independent review. "Numerator scope unestablished" must be preserved; no snapshot change is authorized.
   - **Release order unchanged:** E → F → verified deploy → B → verified deploy.
 - 23:20Z — **K** (offline): merge commit `4fe5617f` (trailers added; never pushed). Gate: ruff and bandit clean, **4732 passed**. Independent review running.
+- 23:45Z — **K independently reviewed at `4fe5617f`: approve** (no blocker, no should-fix).
+  - **Mutation evidence:** mutations A, B and C each defeat the aggregate-branch sign guard (`statement_relationship.py:74-78`). The new case fails under every one of them.
+  - **Real gap on main:** with mutation A and main's test file, the full suite gives 4731 passed, 0 failed.
+  - **Control:** mutation D (cause branch) is caught only by the existing CAUSE case.
+  - **No weakened assertion:** every pre-existing case still asserts `[CAUSE_LIMITATION]`.
+  - **Locked contracts:** byte-identical.
+  - **Nits:** stale counts in the 7aa93328 message; an optional `owned["kind"]` assertion.
+  - **Release:** K stays in the serial queue after F → deploy → B → deploy. It is test-only, so no eval-baseline runs on push; the ready transition runs copilot-eval at about USD 0.006, and the merge redeploys the backend.
+- 23:45Z — **B integrated offline at `d5d30587`** (main `02628e57` merged). Gate: ruff and bandit clean, **4739 passed**, 0 failed.
+  - **Still to do:** re-merge after F lands, then a fresh exact-head review and a fresh hosted artifact. Every changed line must be revalidated against the new artifact.
+  - **Release evidence must also record** the census population (58 untagged, 47 with summaries) and the preserved "numerator scope unestablished" behaviour.
