@@ -189,6 +189,9 @@ def configure_logging(
     logging.getLogger("urllib3").setLevel(logging.WARNING)
     # edgartools is chatty at INFO (per-filing fetch/parse lines); keep it at WARNING.
     logging.getLogger("edgar").setLevel(logging.WARNING)
+    # markdown-it-py logs every block rule it tries at DEBUG (the Copilot quotation check parses
+    # each answer); at a DEBUG root that floods the log and slows the parse twentyfold.
+    logging.getLogger("markdown_it").setLevel(logging.WARNING)
 
 
 def get_logger(name: str) -> logging.Logger:

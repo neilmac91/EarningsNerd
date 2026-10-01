@@ -20,13 +20,14 @@ context is the cached excerpt, capped to ``COPILOT_CONTEXT_CHAR_CAP`` chars. No 
 """
 from __future__ import annotations
 
+import asyncio
+import html
 import json
 import logging
 import math
-from datetime import date
-import html
 import re
 import unicodedata
+from datetime import date
 from time import monotonic
 from types import SimpleNamespace
 from typing import Any, AsyncGenerator, Callable, Optional
@@ -475,7 +476,8 @@ def _verify_citations(
 
 # Prose quotations (decision F). The marks are the double quotes normalize_for_match folds to '"'
 # (straight, “ ” „) plus ‟ (U+201F) and the fullwidth ＂ (U+FF02). Single quotes are left alone
-# (apostrophes), and so is ″ (U+2033): an inch or seconds sign far more often than a quote.
+# (apostrophes), and so are ″ (U+2033, far more often an inch or seconds sign), 〝〞〟, ❝❞, 🙶🙷 and ʺ:
+# decision F's scope is these double quotes, not every quotation form.
 _STRAIGHT_QUOTE_MARKS = '"\uff02'
 _CLOSING_QUOTE_MARK = "\u201d"
 _QUOTE_MARK_RE = re.compile('["\uff02\u201c\u201d\u201e\u201f]')
@@ -483,59 +485,171 @@ _QUOTE_EDGE_CHARS = " \t\r\n\u00a0.,;:!?\u2026"
 _QUOTE_ELLIPSIS_RE = re.compile(r"\.\s*\.\s*\.|\u2026")
 # The work per answer is bounded: an answer that may quote and is longer than this, holds more
 # quote marks than this, or whose quotations (nested ones counted again) span more characters than
-# this, fails closed unchecked. The retained evaluation answers hold at most 8 marks in 330 characters.
-_MAX_QUOTED_ANSWER_CHARS = 20_000
+# this, fails closed unchecked. Realistic answers run to 2-3k characters; the retained evaluation
+# answers hold at most 8 marks in 330 characters.
+_MAX_QUOTED_ANSWER_CHARS = 8_000
 _MAX_QUOTE_MARKS = 64
 _MAX_QUOTED_CHARS = 20_000
 _QUOTE_HINT_RE = re.compile('["\uff02\u201c\u201d\u201e\u201f&]')
-# Readers see the answer rendered by react-markdown 10 with remark-gfm: CommonMark with raw HTML shown
-# as text, plus GFM tables and strikethrough. markdown-it-py parses the same CommonMark and tables;
-# every other difference that can move or hide text fails closed:
-# - tildes stay text here, and a delimiter left as text may still vanish when displayed
-#   (strikethrough; emphasis and code-span edge cases), so a direction one decides is ambiguous,
-#   while quoted text is matched as written, delimiters included;
-# - a footnote definition shows text that markdown-it hides;
-# - GFM shows a bare URL verbatim, so one that markdown-it would not show verbatim is ambiguous.
+# Unicode Default_Ignorable_Code_Point (DerivedCoreProperties, Unicode 17.0; checked against ICU):
+# never displayed, so dropped before a mark's neighbours are read.
+_DEFAULT_IGNORABLE_RE = re.compile(
+    "[\u00ad\u034f\u061c\u115f\u1160\u17b4\u17b5\u180b-\u180f\u200b-\u200f\u202a-\u202e"
+    "\u2060-\u206f\u3164\ufe00-\ufe0f\ufeff\uffa0\ufff0-\ufff8\U0001bca0-\U0001bca3"
+    "\U0001d173-\U0001d17a\U000e0000-\U000e0fff]")
+# The answer is displayed by react-markdown 10 with remark-gfm (micromark). It is read here with
+# markdown-it-py, and only within a small subset that both parsers read alike: paragraphs, headings,
+# lists, blockquotes, GFM tables, emphasis, code spans, inline links without a title, and code
+# blocks. An answer that may quote and uses anything else fails closed: raw HTML, images, link
+# titles, reference links or definitions, footnotes, task-list checkboxes, tabs, nesting past
+# _MAX_MARKDOWN_NESTING, and the forms below on which a fuzz against the display found the parsers
+# to differ (lazy lines, stray table rows, some list openings). Within the subset some guards
+# remain: a delimiter left as text may still vanish when displayed, so a mark's direction that one
+# decides is ambiguous; such a delimiter beside emphasis, or a backtick left as text, may change
+# what the display pairs; GFM shows a bare URL or email address, and an autolink's text, verbatim.
+# That the two parsers agree on this subset is the residual assumption; it is not exact parity with
+# the display.
 _MARKDOWN = MarkdownIt("commonmark", {"html": False}).enable("table")
 _MARKDOWN_BLOCK_ENDS = frozenset({
     "paragraph_close", "heading_close", "blockquote_close", "list_item_close", "bullet_list_close",
-    "ordered_list_close", "tr_close", "th_close", "td_close",
+    "ordered_list_close", "thead_close", "tbody_close", "tr_close", "th_close", "td_close", "table_close",
 })
-_MAYBE_HIDDEN = "*_~`"
-_FOOTNOTE_DEFINITION_RE = re.compile(r"^ {0,3}\[\^[^\]\s]+\]:", re.MULTILINE)
-_BARE_URL_RE = re.compile(r"(?:https?://|www\.)[^\s<]+", re.IGNORECASE)
-_MARKDOWN_IN_URL_RE = re.compile(r"&[#A-Za-z0-9]+;|[\\*_~`\[\]]")
+_MARKDOWN_BLOCKS = _MARKDOWN_BLOCK_ENDS | {
+    "paragraph_open", "heading_open", "blockquote_open", "list_item_open", "bullet_list_open",
+    "ordered_list_open", "thead_open", "tbody_open", "tr_open", "th_open", "td_open", "table_open",
+    "inline", "fence", "code_block",
+}
+_MARKDOWN_INLINE = frozenset({
+    "text", "softbreak", "hardbreak", "em_open", "em_close", "strong_open", "strong_close", "code_inline",
+    "link_open", "link_close",
+})
+_MARKDOWN_BREAKS = ("softbreak", "hardbreak")
+_MARKDOWN_EMPHASIS = ("em_open", "em_close", "strong_open", "strong_close")
+_MARKDOWN_CONTAINERS = {"blockquote_open": 1, "blockquote_close": -1, "bullet_list_open": 1,
+                        "bullet_list_close": -1, "ordered_list_open": 1, "ordered_list_close": -1}
+# Nested blockquotes and lists, together. This keeps every token far below markdown-it's maxNesting
+# (20), past which it stops parsing; the display has no such cap.
+_MAX_MARKDOWN_NESTING = 4
+# Raw HTML of any kind, found in the source text (markdown-it's HTML parsing stays off); autolinks
+# such as <https://...> are links, not HTML.
+_RAW_HTML_RE = re.compile(r"<[A-Za-z/!?]")
+_AUTOLINK_RE = re.compile(
+    r"<[A-Za-z][A-Za-z0-9.+-]{1,31}:[^\x00-\x20<>]*>"
+    r"|<[A-Za-z0-9.!#$%&'*+/=?^_`{|}~-]+@[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?"
+    r"(?:\.[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?)*>")
+# A GFM task-list checkbox, which the display draws as a box instead of this text.
+_TASK_CHECKBOX_RE = re.compile(r"\[[ \txX]\]")
+# Blockquotes and GFM tables are read only outside any container and with every line starting with
+# their marker (no lazy continuation lines). Any other line that GFM might take for a table's
+# delimiter row (pipes and dashes, perhaps behind container markers) is outside the subset, and so
+# is a tab, which the parsers expand differently in indentation and table rows.
+_TOP_LEVEL_BLOCKS = {"blockquote_open": re.compile(r" {0,3}>"), "table_open": re.compile(r" {0,3}\|")}
+_TABLE_DELIMITER_LIKE_RE = re.compile(r"[ \t>+*0-9.):-]*\|[ \t>+*0-9.):|-]*")
+_MAYBE_HIDDEN = "*_~"
+# GFM autolink literals: a URL, or an email address, which may extend back over its local part
+# (matched from the start of its run only, so the search stays linear).
+_GFM_LITERAL_RE = re.compile(r"(?:https?://|www\.)\S*|(?<![\w.+-])[\w.+-]*@[\w.-]*", re.IGNORECASE)
 
 
-def _rendered_text(answer: str) -> str:
-    """The answer's text as a reader sees it: markdown syntax, link destinations and images do not
-    show, escapes and character references show their characters, block ends show as line breaks,
-    and format characters (Unicode Cf) do not show. Used only to decide; never published."""
+def _rendered_text(answer: str) -> Optional[str]:
+    """The answer's text as the reader sees it, or None when it uses markdown outside the subset.
+
+    Link destinations do not show, character references and escapes show their characters, block
+    ends show as line breaks, and code is shown verbatim. Used only to decide; never published.
+    """
+    if _RAW_HTML_RE.search(_AUTOLINK_RE.sub("", answer)) or "[^" in answer or "\t" in answer:
+        return None
+    env: dict = {}
+    tokens = _MARKDOWN.parse(answer, env)
+    if env.get("references"):
+        return None
+    lines = re.split(r"\r\n?|\n", answer)
+    delimiter_rows = {at for at, line in enumerate(lines) if "-" in line and _TABLE_DELIMITER_LIKE_RE.fullmatch(line)}
     parts: list[str] = []
-    for token in _MARKDOWN.parse(answer):
+    depth = 0
+    for index, token in enumerate(tokens):
+        outer = depth
+        depth += _MARKDOWN_CONTAINERS.get(token.type, 0)
+        if token.type not in _MARKDOWN_BLOCKS or depth > _MAX_MARKDOWN_NESTING:
+            return None
+        start, end = token.map or (0, 0)
+        if token.type in _TOP_LEVEL_BLOCKS:
+            if outer or not all(_TOP_LEVEL_BLOCKS[token.type].match(line) for line in lines[start:end]):
+                return None
+            delimiter_rows.discard(start + 1)
+        if token.type == "code_block" and start and lines[start - 1].strip(" "):
+            return None  # indented code right after text, where GFM continues the text instead
+        if token.type == "list_item_open" and (tokens[index + 1].type == "list_item_close"
+                                               or (tokens[index + 1].map or (start,))[0] > start):
+            return None  # an item opening on a blank line, which the display may show as its marker
+        number = token.attrGet("start")
+        if token.type == "ordered_list_open" and number not in (None, 1) and (
+                (index and tokens[index - 1].type == "code_block") or not re.match(f" *0*{number}[.)]", lines[start])):
+            return None  # numbered past 1 after a code block or another marker: GFM may show it as text
         if token.type == "inline":
-            for child in token.children or ():
-                if child.type in ("text", "code_inline"):
-                    parts.append(child.content)
-                elif child.type in ("softbreak", "hardbreak"):
-                    parts.append("\n")
-        elif token.type in ("code_block", "fence"):
+            inline = _rendered_inline(token.children or [], token.content)
+            if inline is None or _TASK_CHECKBOX_RE.match(token.content):
+                return None
+            parts.append(inline)
+        elif token.type in ("fence", "code_block"):
             parts.append(token.content)
         elif token.type in _MARKDOWN_BLOCK_ENDS:
             parts.append("\n")
-    return "".join(char for char in "".join(parts) if unicodedata.category(char) != "Cf")
+    return None if delimiter_rows else "".join(parts)
+
+
+def _rendered_inline(children: list, source: str) -> Optional[str]:
+    parts: list[str] = []
+    in_link = autolink = False
+    # GFM shows a literal as written, running on through any markup that touches it, so each one
+    # in the text must be one written in the source; counted, so another cannot stand in for it.
+    literals: dict[str, int] = {}
+    for literal in _GFM_LITERAL_RE.finditer(source):
+        literals[literal.group()] = literals.get(literal.group(), 0) + 1
+    for index, child in enumerate(children):
+        if child.type not in _MARKDOWN_INLINE:
+            return None
+        if child.type == "link_open":
+            if child.attrGet("title") is not None:
+                return None
+            in_link, autolink = True, child.markup == "autolink"
+        elif child.type == "link_close":
+            in_link = autolink = False
+        elif child.type in _MARKDOWN_BREAKS:
+            parts.append("\n")
+        elif child.type == "code_inline":
+            parts.append(child.content)
+        else:
+            text = child.content
+            before = children[index - 1].type if index else "softbreak"
+            after = children[index + 1].type if index + 1 < len(children) else "softbreak"
+            if autolink and text not in source:
+                return None  # markdown-it decodes an autolink's text; GFM shows it as written
+            if "`" in text:
+                return None  # a backtick left as text may open a code span when displayed
+            if text and ((text[0] in _MAYBE_HIDDEN and before in _MARKDOWN_EMPHASIS)
+                         or (text[-1] in _MAYBE_HIDDEN and after in _MARKDOWN_EMPHASIS)):
+                return None  # a delimiter left as text beside emphasis: GFM may pair the run otherwise
+            for literal in _GFM_LITERAL_RE.finditer(text):
+                if in_link:
+                    break
+                literals[literal.group()] = literals.get(literal.group(), 0) - 1
+                if literals[literal.group()] < 0:
+                    return None
+            parts.append(text)
+    return "".join(parts)
 
 
 def _is_punctuation(char: str) -> bool:
     return unicodedata.category(char)[0] in "PS"
 
 
-def _beside(text: str, at: int, step: int) -> set[str]:
+def _beside(text: str, at: int, step: int, maybe_hidden: str) -> set[str]:
     """What a reader may see just before (step -1) or after (step 1) the mark at ``at``.
 
     Combining marks draw on a neighbour, so they are passed over; text edges read as whitespace. A
-    delimiter left as text may still vanish when displayed, so beside one the character beyond it is
-    possible too.
+    delimiter in ``maybe_hidden`` may still vanish when displayed, so beside one the character beyond
+    it is possible too.
     """
     seen: set[str] = set()
     index = at + step
@@ -544,7 +658,7 @@ def _beside(text: str, at: int, step: int) -> set[str]:
             index += step
         char = text[index] if 0 <= index < len(text) else " "
         seen.add(char)
-        if char not in _MAYBE_HIDDEN:
+        if char not in maybe_hidden:
             return seen
         index += step
 
@@ -585,7 +699,7 @@ def _straight_reading(marks: list[tuple[int, str]]) -> tuple[int, list[tuple[int
     return 1, pairs
 
 
-def _quotation_reading(text: str) -> list[tuple[int, int]] | str:
+def _quotation_reading(text: str, maybe_hidden: str) -> list[tuple[int, int]] | str:
     """(opening, closing) mark offsets of the one reading the marks admit.
 
     “ „ ‟ open and ” closes; a straight mark takes its direction from its neighbours, as CommonMark
@@ -608,8 +722,8 @@ def _quotation_reading(text: str) -> list[tuple[int, int]] | str:
     for match in found:
         at, glyph = match.start(), match.group()
         roles: set[str | bool] = set()
-        for before in _beside(text, at, -1):
-            for after in _beside(text, at, 1):
+        for before in _beside(text, at, -1, maybe_hidden):
+            for after in _beside(text, at, 1, maybe_hidden):
                 opens = not after.isspace() and (
                     not _is_punctuation(after) or before.isspace() or _is_punctuation(before))
                 closes = not before.isspace() and (
@@ -642,10 +756,10 @@ def _quotation_reading(text: str) -> list[tuple[int, int]] | str:
 
 
 def unsupported_prose_quotations(answer: str, normalized_source: str) -> list[str]:
-    """Reason codes for published double-quoted spans the filing text cannot show contiguously.
+    """Reason codes for double-quoted spans of a markdown answer the filing text cannot show contiguously.
 
     Only double quotation marks are in scope; single quotes, guillemets, other marks and markdown
-    blockquotes are not checked. The answer is read as rendered (``_rendered_text``), for this
+    blockquotes are not checked. The answer is read as displayed (``_rendered_text``), for this
     decision only; the published answer is never rewritten. A quotation is in scope when the
     citation verifier could verify it (``_MIN_VERIFIABLE_LEN`` after the shared normalization, the
     one place this floor is read) or it contains an interior ellipsis; shorter quoted terms ("ROE",
@@ -653,25 +767,33 @@ def unsupported_prose_quotations(answer: str, normalized_source: str) -> list[st
     contiguously in ``normalized_source``; citation markers and edge punctuation are not quoted
     text. A nested quotation is checked both whole and inner, and reasons follow the opening
     marks, so an outer quotation's reason precedes its inner one's. Missing source text, marks
-    that admit no reading or more than one, and answers past the work bounds fail closed. Nothing
-    is repaired or stitched: any reason withholds the whole answer.
+    that admit no reading or more than one, markdown outside the read subset, and answers past
+    the work bounds fail closed. Nothing is repaired or stitched: any reason withholds the whole
+    answer.
     """
     if not _QUOTE_HINT_RE.search(answer):
         return []
     if len(answer) > _MAX_QUOTED_ANSWER_CHARS:
         return ["ambiguous_quotation"]
     text = _rendered_text(answer)
-    diverges = _FOOTNOTE_DEFINITION_RE.search(answer) or any(
-        _MARKDOWN_IN_URL_RE.search(url) and url.removesuffix(">") not in text
-        for url in _BARE_URL_RE.findall(answer))
-    if diverges and _QUOTE_MARK_RE.search(html.unescape(answer)):
+    if text is None:
+        return ["ambiguous_quotation"] if _QUOTE_MARK_RE.search(html.unescape(answer)) else []
+    return _displayed_quotation_reasons(_DEFAULT_IGNORABLE_RE.sub("", text), normalized_source, _MAYBE_HIDDEN)
+
+
+def unsupported_plain_quotations(text: str, normalized_source: str) -> list[str]:
+    """``unsupported_prose_quotations`` for prose displayed as plain text, with no markdown: the
+    not-disclosed reason and the follow-up questions."""
+    if not _QUOTE_MARK_RE.search(text):
+        return []
+    if len(text) > _MAX_QUOTED_ANSWER_CHARS:
         return ["ambiguous_quotation"]
-    return _rendered_quotation_reasons(text, normalized_source)
+    return _displayed_quotation_reasons(_DEFAULT_IGNORABLE_RE.sub("", text), normalized_source, "")
 
 
-def _rendered_quotation_reasons(text: str, normalized_source: str) -> list[str]:
-    """``unsupported_prose_quotations`` on text as displayed."""
-    reading = _quotation_reading(text)
+def _displayed_quotation_reasons(text: str, normalized_source: str, maybe_hidden: str) -> list[str]:
+    """The reason codes for ``text`` as displayed, where ``maybe_hidden`` delimiters may yet vanish."""
+    reading = _quotation_reading(text, maybe_hidden)
     if isinstance(reading, str):
         return [reading]
     if sum(end - start for start, end in reading) > _MAX_QUOTED_CHARS:
@@ -693,9 +815,15 @@ def _rendered_quotation_reasons(text: str, normalized_source: str) -> list[str]:
     return reasons
 
 
-def _withhold_unsupported_quotations(prose: str, normalized_source: str) -> None:
-    """Raise when published prose quotes text the filing cannot show; the log gets only the code."""
-    failures = unsupported_prose_quotations(prose, normalized_source)
+def _withhold_unsupported_quotations(normalized_source: str, markdown: str, plain: list[str]) -> None:
+    """Raise when published prose quotes text the filing cannot show; the log gets only the code.
+
+    ``markdown`` is displayed as markdown (the answer), ``plain`` as plain text (the not-disclosed
+    reason, the follow-up questions). Any failure withholds the whole response.
+    """
+    failures = unsupported_prose_quotations(markdown, normalized_source) if markdown else []
+    for text in plain:
+        failures = failures or unsupported_plain_quotations(text, normalized_source)
     if failures:
         raise _UnpublishableAnswer(f"Unsupported prose quotation: {failures[0]}")
 
@@ -1507,7 +1635,7 @@ async def answer_filing_question(
                     or any(not isinstance(item, str) or not item.strip() for item in nd_followups)):
                 raise _UnpublishableAnswer("Invalid not-disclosed followups array")
             nd_followups = [item.strip()[:140] for item in nd_followups]
-            _withhold_unsupported_quotations(answer, normalized_source)
+            await asyncio.to_thread(_withhold_unsupported_quotations, normalized_source, "", [answer, *nd_followups])
             yield {"type": "not_disclosed", "answer": answer}
             yield {
                 "type": "complete",
@@ -1585,7 +1713,7 @@ async def answer_filing_question(
         if any(str(cite["n"]) in unresolved_literals or cite["verified"] is not True
                for cite in verified_citations):
             raise _UnpublishableAnswer("Unverified or colliding final citation")
-        _withhold_unsupported_quotations(full_answer, normalized_source)
+        await asyncio.to_thread(_withhold_unsupported_quotations, normalized_source, full_answer, followups)
         if misplaced:
             # Trust telemetry: a nonzero rate here means the model is attaching fact markers to
             # figures they don't support — watch this after any prompt/model change.
