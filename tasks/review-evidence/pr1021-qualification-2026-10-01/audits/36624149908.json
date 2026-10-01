@@ -1,0 +1,86 @@
+[
+ {
+  "artifact": "analysis/skeptic1021/r36624149908/copilot-eval.json",
+  "summary": {
+   "expected": 18,
+   "completed": 18,
+   "scored": 17,
+   "errors": 1,
+   "passed": 17,
+   "pass_rate": 0.9444444444444444
+  },
+  "answers": 17,
+  "rows_without_source_text": [],
+  "composed_quote_rows": [
+   {
+    "ticker": "ASML",
+    "question_id": "us-gaap-sales-net-income-2025",
+    "run_index": 0,
+    "passed": true,
+    "composed_quotes": [
+     "Total net sales 32,667.3",
+     "Net income 9,609.4"
+    ]
+   },
+   {
+    "ticker": "ASML",
+    "question_id": "us-gaap-sales-net-income-2025",
+    "run_index": 1,
+    "passed": true,
+    "composed_quotes": [
+     "Total net sales 32,667.3",
+     "Net income 9,609.4"
+    ]
+   },
+   {
+    "ticker": "ASML",
+    "question_id": "us-gaap-sales-net-income-2025",
+    "run_index": 2,
+    "passed": true,
+    "composed_quotes": [
+     "Total net sales 32,667.3",
+     "Net income 9,609.4"
+    ]
+   }
+  ],
+  "grounding_escalations": {
+   "uncited_answer_rows": [],
+   "uncited_figure_rows": [
+    {
+     "ticker": "MSFT",
+     "question_id": "sales-diluted-eps-2025",
+     "run_index": 0,
+     "passed": true,
+     "figure_count": 3,
+     "uncited_figures": 1,
+     "citations": 2,
+     "verified_citations": 2,
+     "tool_results": 2
+    },
+    {
+     "ticker": "MSFT",
+     "question_id": "sales-diluted-eps-2025",
+     "run_index": 2,
+     "passed": true,
+     "figure_count": 3,
+     "uncited_figures": 1,
+     "citations": 2,
+     "verified_citations": 2,
+     "tool_results": 2
+    },
+    {
+     "ticker": "BABA",
+     "question_id": "native-revenue-2026",
+     "run_index": 0,
+     "passed": true,
+     "figure_count": 4,
+     "uncited_figures": 1,
+     "citations": 2,
+     "verified_citations": 2,
+     "tool_results": 1
+    }
+   ],
+   "tool_less_rows": []
+  }
+ }
+]
