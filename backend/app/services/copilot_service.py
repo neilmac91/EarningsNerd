@@ -25,6 +25,7 @@ import logging
 import math
 from datetime import date
 import re
+import unicodedata
 from time import monotonic
 from types import SimpleNamespace
 from typing import Any, AsyncGenerator, Callable, Optional
@@ -470,41 +471,63 @@ def _verify_citations(
 
 
 # Prose quotations (decision F). Double-quote marks are the ones normalize_for_match folds to '"'.
-# Curly and low-9 marks carry direction; a straight mark does not. Single quotes are left alone
-# (apostrophes).
+# Single quotes are left alone (apostrophes).
 _QUOTE_MARK_RE = re.compile('["\u201c\u201d\u201e]')
 _QUOTE_EDGE_CHARS = " \t\r\n\u00a0.,;:!?\u2026"
 _QUOTE_ELLIPSIS_RE = re.compile(r"\.\s*\.\s*\.|\u2026")
-# Quoted text hugs its marks. Straight '"x "y" z"' pairs as 'x ' and ' z', '"x ("y") z"' as 'x (' and
-# ') z', '"x—"y"—z"' as 'x—' and '—z', and reversed curly '“x ”y“ z”' as 'x ' and ' z', so "y" is
-# never checked. A misparse shows at the marks: whitespace or an outward-facing bracket just inside
-# one, or, just outside one with another mark beyond, a character that cannot sit there. A closing
-# mark is followed by whitespace, punctuation, a closing bracket, a citation, markup, a dash, a
-# slash or a possessive; an opening mark is preceded by whitespace, an opening bracket, markup, a
-# dash or a slash. Another quote mark may sit on either side.
-_QUOTE_MISPARSE_RE = re.compile(r"\A[\s)\]}]|[\s(\[{]\Z")
-_NOT_AFTER_CLOSING_MARK_RE = re.compile(r"[^\s.,;:!?\u2026)\]}\[*_`'\u2019\u2014\u2013/\"\u201c\u201d\u201e-]")
-_NOT_BEFORE_OPENING_MARK_RE = re.compile(r"[^\s(\[{*_`\u2014\u2013/\"\u201c\u201d\u201e-]")
+# Straight marks whose neighbours leave their direction open multiply the readings to enumerate;
+# past this many the answer fails closed instead.
+_MAX_UNDIRECTED_QUOTE_MARKS = 12
 
 
-def _quotation_pairs(answer: str) -> Optional[list[tuple[int, int]]]:
-    """(opening, closing) mark offsets of every quotation, outer before inner; None if unpairable.
+def _is_punctuation(char: str) -> bool:
+    return unicodedata.category(char)[0] in "PS"
 
-    “ (U+201C) and „ (U+201E) open, ” (U+201D) closes. A straight mark closes an open straight
-    mark and otherwise opens, so straight nesting reads as consecutive quotes; the caller
-    rejects that signature.
+
+def _quotation_reading(answer: str) -> list[tuple[int, int]] | str:
+    """(opening, closing) mark offsets of the one reading the marks admit, outer before inner.
+
+    “ (U+201C) and „ (U+201E) open and ” (U+201D) closes; any other direction comes from a mark's
+    neighbours, as CommonMark reads emphasis. A mark can open when the next character is not
+    whitespace and is not punctuation (Unicode P or S) unless whitespace or punctuation precedes
+    the mark; closing mirrors this. A straight mark that can do both or neither may do either.
+    So '"x "y" z"' and '"x ("y") z"' read only as nested quotations, and every span is checked.
+    Returns a reason code instead when a curly mark faces the wrong way, when no balanced
+    reading exists, or when more than one does.
     """
-    opened: list[int] = []
-    pairs: list[tuple[int, int]] = []
+    marks: list[tuple[int, str]] = []
     for match in _QUOTE_MARK_RE.finditer(answer):
-        mark = match.group()
-        if mark == "\u201d" or (mark == '"' and opened and answer[opened[-1]] == '"'):
-            if not opened:
-                return None
-            pairs.append((opened.pop(), match.start()))
+        at, glyph = match.start(), match.group()
+        before = answer[at - 1] if at else " "
+        after = answer[at + 1] if at + 1 < len(answer) else " "
+        opens = not after.isspace() and (
+            not _is_punctuation(after) or before.isspace() or _is_punctuation(before))
+        closes = not before.isspace() and (
+            not _is_punctuation(before) or after.isspace() or _is_punctuation(after))
+        if glyph == '"':
+            marks.append((at, "either" if opens == closes else "open" if opens else "close"))
+        elif (closes if glyph == "\u201d" else opens):
+            marks.append((at, "close" if glyph == "\u201d" else "open"))
         else:
-            opened.append(match.start())
-    return None if opened else sorted(pairs)
+            return "ambiguous_quotation"
+    if sum(role == "either" for _, role in marks) > _MAX_UNDIRECTED_QUOTE_MARKS:
+        return "ambiguous_quotation"
+    readings: list[list[tuple[int, int]]] = []
+    branches: list[tuple[int, tuple[int, ...], tuple[tuple[int, int], ...]]] = [(0, (), ())]
+    while branches and len(readings) < 2:
+        index, opened, pairs = branches.pop()
+        if index == len(marks):
+            if not opened:
+                readings.append(sorted(pairs))
+            continue
+        at, role = marks[index]
+        if role != "close":
+            branches.append((index + 1, opened + (at,), pairs))
+        if role != "open" and opened:  # tried first: the left-to-right reading comes first
+            branches.append((index + 1, opened[:-1], pairs + ((opened[-1], at),)))
+    if not readings:
+        return "unbalanced_quotation"
+    return readings[0] if len(readings) == 1 else "ambiguous_quotation"
 
 
 def unsupported_prose_quotations(answer: str, normalized_source: str) -> list[str]:
@@ -514,22 +537,16 @@ def unsupported_prose_quotations(answer: str, normalized_source: str) -> list[st
     after the shared normalization) or it contains an interior ellipsis; shorter quoted terms
     ("ROE", "Gross margin") are labels, not source quotations. An in-scope quotation must occur
     contiguously in ``normalized_source``; citation markers and edge punctuation are not quoted
-    text. A nested quotation is checked both whole and inner. Missing source text, unpairable
-    marks and marks placed as if hiding a nested quotation fail closed. Nothing is repaired
-    or stitched: any reason withholds the whole answer.
+    text. A nested quotation is checked both whole and inner. Missing source text, and marks
+    that admit no reading or more than one, fail closed. Nothing is repaired or stitched: any
+    reason withholds the whole answer.
     """
-    pairs = _quotation_pairs(answer)
-    if pairs is None:
-        return ["unbalanced_quotation"]
+    reading = _quotation_reading(answer)
+    if isinstance(reading, str):
+        return [reading]
     reasons: list[str] = []
-    for start, end in pairs:
+    for start, end in reading:
         raw = answer[start + 1:end]
-        if (_QUOTE_MISPARSE_RE.search(raw)
-                or (_NOT_AFTER_CLOSING_MARK_RE.match(answer, end + 1) and _QUOTE_MARK_RE.search(answer, end + 1))
-                or (start and _NOT_BEFORE_OPENING_MARK_RE.match(answer, start - 1)
-                    and _QUOTE_MARK_RE.search(answer, 0, start))):
-            reasons.append("ambiguous_quotation")
-            continue
         content = _COPILOT_MARKER_RE.sub(" ", raw).strip(_QUOTE_EDGE_CHARS)
         needle = normalize_for_match(content)
         elided = bool(_QUOTE_ELLIPSIS_RE.search(content))

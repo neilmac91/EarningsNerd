@@ -5,13 +5,12 @@ NBSPs and table-cell layout preserved. The composed spans are the retained main-
 "Total net sales 32,667.3" (ASML, runs 36640254449 and 36800236360) and "Revenue ... 996,347" (BABA,
 run 36777581481). The check reuses the citation verifier's normalizer and its 24-character floor.
 
-Nested quotations are checked whole and inner. Curly marks carry direction, so the parser can tell
-the outer quotation from the inner one. Straight marks cannot: '"x "y" z"' reads as the two quotes
-'x ' and ' z', '"x ("y") z"' as 'x (' and ') z' and '"x—"y"—z"' as 'x—' and '—z', and the inner "y"
-is never seen. Reversed curly marks hide "y" the same way. Every mark is therefore checked on both
-sides: whitespace or an outward-facing bracket just inside it, or a character that cannot sit just
-outside a mark of its direction while another mark lies beyond, fails closed as
-``ambiguous_quotation`` whatever the marks, even when the nesting was genuine filing text.
+Nested quotations are checked whole and inner. A mark's direction comes from its glyph (“ and „ open,
+” closes) or, for a straight mark, from its neighbours as CommonMark reads emphasis, so '"x "y" z"'
+and '"x ("y") z"' read as nesting and "y" is checked too. A straight mark between two punctuation
+characters may go either way, so every balanced reading is enumerated: exactly one is checked, none
+is ``unbalanced_quotation``, and more than one, or a curly mark facing the wrong way, is
+``ambiguous_quotation``.
 """
 import logging
 
@@ -113,15 +112,10 @@ def test_nested_controls_differ_from_the_filing_only_in_the_inner_span():
 
 @pytest.mark.unit
 @pytest.mark.parametrize("answer,expected", [
+    # Curly nesting: direction from the glyphs.
     pytest.param(f"The filing says “{PREFIX}“{INVENTED}”{SUFFIX}” [1].", [NOT_IN, NOT_IN],
                  id="a-curly-invented-inner"),
-    pytest.param(f'The filing says "{PREFIX}"{INVENTED}"{SUFFIX}" [1].', [AMBIGUOUS, AMBIGUOUS],
-                 id="b-straight-invented-inner"),
     pytest.param(f"The filing says “{PREFIX}“{INNER}”{SUFFIX}” [1].", [], id="c-curly-valid-nest"),
-    # Codex's counterexample, verbatim: both sequential halves are >= 24 characters, are filing text and
-    # have no boundary whitespace, so only the bracket and adjacency signatures can withhold it.
-    pytest.param('"The policy names the approved label ("Invented text missing from the source") and describes'
-                 ' the release procedure."', [AMBIGUOUS, AMBIGUOUS], id="codex-straight-bracket-nest"),
     pytest.param(f"The filing says “Revenue rose in every region, per Note 13, “{INNER}”{SUFFIX}” [1].", [NOT_IN],
                  id="invented-outer-around-valid-inner"),
     pytest.param(f'The filing says “{PREFIX}"{INVENTED}"{SUFFIX}” [1].', [NOT_IN, NOT_IN],
@@ -129,37 +123,60 @@ def test_nested_controls_differ_from_the_filing_only_in_the_inner_span():
     pytest.param('The filing refers to "the Company’s chief operating decision maker (“CODM”). In addition,'
                  ' ASU 2023-07 requires the Company to disclose" [1].', [], id="curly-inside-straight-valid-nest"),
     pytest.param(f"The auditor covered “{TSLA.format('“', '”')}” [1].", [], id="curly-valid-nest-of-straight-source"),
-    pytest.param(f'The auditor covered "{TSLA.format(chr(34), chr(34))}" [1].', [AMBIGUOUS, AMBIGUOUS],
-                 id="straight-valid-nest-fails-closed"),
-    pytest.param("showing ”Total net sales 32,667.3“ [3].", [UNBALANCED], id="reversed-curly-marks"),
-    # The first commit's residual-limit probes, verbatim.
-    pytest.param(f'"Tesla, Inc. and its subsidiaries ("{PROBE}") as of December 31, 2024" [1]', [AMBIGUOUS, AMBIGUOUS],
-                 id="straight-bracket-adjacent-invented-inner"),
-    pytest.param(f"“revenue source was generally consistent for each reportable segment in Note 13, ”{PROBE}“"
-                 " for 2025, 2024 and 2023” [1]", [AMBIGUOUS, AMBIGUOUS], id="reversed-curly-invented-inner"),
-    pytest.param(f"“Tesla, Inc. and its subsidiaries (”{PROBE}“) as of December 31, 2024” [1]", [AMBIGUOUS, AMBIGUOUS],
-                 id="reversed-curly-bracket-adjacent-invented-inner"),
-    # One signature each. Inside edge alone: the markup around the inner span may sit outside a mark.
-    # Outside alone: an em dash is neither whitespace nor a bracket, so only the far side of the mark
-    # that misreads its direction can show it.
-    pytest.param(f'"Tesla, Inc. and its subsidiaries ("{MARKED}") as of December 31, 2024" [1]', [AMBIGUOUS, AMBIGUOUS],
-                 id="inside-bracket-edge-only"),
-    pytest.param(f"“{PREFIX}”{MARKED}“{SUFFIX}” [1]", [AMBIGUOUS, AMBIGUOUS], id="inside-whitespace-edge-curly-only"),
+    # Straight nesting: direction from the neighbours, so the one reading is the nest.
+    pytest.param(f'The filing says "{PREFIX}"{INVENTED}"{SUFFIX}" [1].', [NOT_IN, NOT_IN],
+                 id="b-straight-invented-inner"),
+    # Codex's counterexample, verbatim: both sequential halves are >= 24 characters, are filing text and
+    # have no boundary whitespace.
+    pytest.param('"The policy names the approved label ("Invented text missing from the source") and describes'
+                 ' the release procedure."', [NOT_IN, NOT_IN], id="codex-straight-bracket-nest"),
+    pytest.param(f'"Tesla, Inc. and its subsidiaries ("{PROBE}") as of December 31, 2024" [1]', [NOT_IN, NOT_IN],
+                 id="straight-bracket-nest-first-commit-probe"),
     pytest.param('"The policy names the approved label—"Invented text missing from the *source*"—and describes'
-                 ' the release procedure." [1]', [AMBIGUOUS], id="outside-after-closing-mark-only"),
+                 ' the release procedure." [1]', [NOT_IN, NOT_IN], id="straight-dash-nest-markup-end"),
     pytest.param('"The policy names the approved label—"*Invented* text missing from the source"—and describes'
-                 ' the release procedure." [1]', [AMBIGUOUS], id="outside-before-opening-mark-only"),
+                 ' the release procedure." [1]', [NOT_IN, NOT_IN], id="straight-dash-nest-markup-start"),
+    pytest.param(f'The auditor covered "{TSLA.format(chr(34), chr(34))}" [1].', [], id="straight-valid-nest"),
+    # Straight marks between punctuation on both sides: two balanced readings, sequential and nested.
+    pytest.param('The filing calls it "label **"*Invented text missing from the source*"** here".', [AMBIGUOUS],
+                 id="punctuation-flanked-bold"),
+    pytest.param('The filing calls it "label —"—Invented text missing from the source—"— here".', [AMBIGUOUS],
+                 id="punctuation-flanked-dash"),
+    pytest.param('The filing calls it "label _"_Invented text missing from the source_"_ here".', [AMBIGUOUS],
+                 id="punctuation-flanked-underscore"),
+    pytest.param(f'"Tesla, Inc. and its subsidiaries ("{MARKED}") as of December 31, 2024" [1]', [AMBIGUOUS],
+                 id="punctuation-flanked-bracket-markup"),
     pytest.param('"The policy names the approved label—"€9.9 billion of invented record revenue."—and describes'
-                 ' the release procedure." [1]', [AMBIGUOUS, AMBIGUOUS], id="outside-non-word-inner-edges"),
+                 ' the release procedure." [1]', [AMBIGUOUS], id="punctuation-flanked-dash-symbol"),
+    pytest.param('Its labels are ' + '.".' * 13 + ' [1].', [AMBIGUOUS], id="too-many-undirected-marks"),
+    # A curly mark facing the wrong way: its glyph cannot be trusted.
+    pytest.param("showing ”Total net sales 32,667.3“ [3].", [AMBIGUOUS], id="reversed-curly-marks"),
+    pytest.param(f"“revenue source was generally consistent for each reportable segment in Note 13, ”{PROBE}“"
+                 " for 2025, 2024 and 2023” [1]", [AMBIGUOUS], id="reversed-curly-first-commit-probe"),
+    pytest.param(f"“Tesla, Inc. and its subsidiaries (”{PROBE}“) as of December 31, 2024” [1]", [AMBIGUOUS],
+                 id="reversed-curly-bracket"),
+    pytest.param(f"“{PREFIX}”{MARKED}“{SUFFIX}” [1]", [AMBIGUOUS], id="reversed-curly-markup-inner"),
     # Well-formed marks that must keep publishing.
+    pytest.param('It reports **"Net sales"** [1].', [], id="bold-quotation"),
+    pytest.param('It reports ("Net sales") [1].', [], id="parenthesised-quotation"),
+    pytest.param('It uses "x"/"y" [1].', [], id="slash-separated-quotations"),
+    pytest.param('It says "x."[1]', [], id="citation-after-closing-mark"),
+    pytest.param('It says "*x*" [1].', [], id="emphasis-inside-quotation"),
+    pytest.param('It reports "ROE" and "Revenue" and "Net sales" [1].', [], id="sequential-quotations"),
     pytest.param('Amounts are shown "(in millions)" in the table [1].', [], id="balanced-parenthetical"),
     pytest.param("Note 13 is titled “Segment Information and Geographic Data” [1].", [],
                  id="well-formed-curly-internal-spaces"),
     pytest.param('**"Net income for 2025 amounted to €9,609.4 million"**[1]; the "ROE"/"Revenue" lines and the'
                  ' "Company"\'s "Adjusted EBITDA margin" [1].', [], id="tight-sequential-quotes-and-markup"),
-    # With no other mark beyond it, a mark cannot be hiding a nested span.
-    pytest.param(f'It said,"{NI}" [1].', [], id="lone-quotation-tight-to-a-comma"),
-    pytest.param(f'The "{NI}"s figure is cited [1].', [], id="lone-quotation-tight-to-a-letter"),
+    pytest.param(f'It said,"{NI}" [1].', [], id="quotation-tight-to-a-comma"),
+    pytest.param(f'The "{NI}"s figure is cited [1].', [], id="quotation-tight-to-a-letter"),
+    pytest.param("“Segment Information and Geographic Data\" [1].", [], id="mixed-curly-open-straight-close"),
+    # Both-flanking straight marks with only one balanced reading: a literal "both-flanking is
+    # ambiguous" rule would withhold these.
+    pytest.param('Revenue ("$391.0 billion") rose [1].', [], id="both-flanking-opening-mark"),
+    pytest.param('The margin was "29.4%".', [], id="both-flanking-closing-mark"),
+    pytest.param('Amounts are "(in millions)".', [], id="both-flanking-after-parenthetical"),
+    pytest.param('It says "Net sales increased."[1] and "Revenue" [2].', [], id="both-flanking-before-citation"),
 ])
 def test_nested_quotations_are_checked_whole_and_inner(answer, expected):
     assert unsupported_prose_quotations(answer, SOURCE) == expected
