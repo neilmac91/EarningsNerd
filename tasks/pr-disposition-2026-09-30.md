@@ -430,3 +430,22 @@ Under the founder's delegation, Codex decided items A–M on #1029. This session
   - **Order.** E is complete. The order E→F→B stands, and B still waits on the original census.
   - **Relayed** to the F agent (round 4).
   - **Follow-up recorded (iii):** extend prose containment to `‘…’` and blockquotes, possibly guillemets, after F. It needs its own replay first. Not authorized as a paid programme or release.
+- 15:00Z — **F round 4 delivered at `feb90f60`** (offline, unpushed). It resolves every current-scope defect named in Codex's ruling:
+  - the not-disclosed reason is now checked;
+  - the check reads a markdown-it-py visible-text projection that matches react-markdown + remark-gfm, is analysis-only (the published answer is byte-identical) and fails closed where the parsers may diverge;
+  - curly-only pairing and stretch confinement;
+  - capped reading tally rebuilt last-in-first-out (FIFO witness);
+  - bounds of 20,000 characters, 64 marks and 20,000 quoted characters;
+  - emphasis false positive fixed;
+  - S2 limits pinned;
+  - the floor stays 24 and is read in one place.
+
+  Evidence:
+  - replay: 0 row changes across 231 rows;
+  - mutations: 39 of 39 killed;
+  - real-renderer display check: 0 holes;
+  - gate: 4846 passed;
+  - trial merge with E: clean.
+  - **Dependency question to Codex** (#1029): declare `markdown-it-py>=4.2.0,<5` directly. It is already pinned at 4.2.0 via `rich` and installed in production; no version change.
+  - **Reviews:** two fresh exact-head reviews running (adversarial; rules, tests, dependencies and evidence).
+  - **Hold:** the head stays unfrozen while the founder's floor decision is pending.
