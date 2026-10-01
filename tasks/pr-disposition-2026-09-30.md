@@ -143,3 +143,12 @@ Merge-tree conflicts vs main at start: #1013/#1012 none; #952, #1023, #1009 `tas
   finding: both "not retained" runner logs are retained, 315 calls across ten runs, one fingerprint).
   Full gate at `ed2f5e21` 4197 passed; docs-reading tests at `5a5ebf8a` 145 passed. Pushed (free: tests and
   tasks only); body carries the review record. Retained as the diagnostic draft; experiment not run.
+- 00:30Z — **Calendar time bomb on main**: from 2026-10-01T00:00Z the required `migrations-postgres` step "Verify
+  usage counter concurrency" fails on every backend PR (first seen on #1036, run 36796447015): two cases in
+  `tests/integration/test_usage_counter_transactions.py` seeded `MONTH = "2026-09"` but admitted in the wall-clock
+  month. Reproduced on main `ae95322a` against local PostgreSQL 16 (2 failed / 27 passed); other PG suites green;
+  hosted SQLite backend-tests green. Fix PR [#1038](https://github.com/neilmac91/EarningsNerd/pull/1038)
+  (`claude/fix-month-rollover-tests` `0fa139af`, test + lesson only): sentinel `MONTH = "2000-01"`, five
+  summary-reservation cases pin the month, rollover case → "2000-02"; 29 passed ×4; mutation (drop one pin) → 1 failed.
+  Independent 3-lens review running. Comment on #1036 (5922335039). Sequencing: #1038 merges and deploys first
+  (test-only, no runtime change), then lanes take main.
