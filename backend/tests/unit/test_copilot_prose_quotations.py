@@ -356,6 +356,7 @@ def test_quotations_are_read_as_displayed(answer, expected):
     pytest.param(f'The filing says "{NI}" [1]. *-_*e*_', [AMBIGUOUS], id="emphasis-mixed-delimiters"),
     pytest.param('xThe policy names the approved labelROE*_ (__"*?*!*The policy names the approved label,"*',
                  [AMBIGUOUS], id="emphasis-pairs-differently-around-a-mark"),
+    pytest.param('__**ROEt*"The policy names the approved label*__"(', [AMBIGUOUS], id="emphasis-run-split-in-two"),
 ])
 def test_display_divergences_fail_closed(answer, expected):
     """Markdown on which markdown-it and the displayed remark-gfm text disagree, from a seeded fuzz

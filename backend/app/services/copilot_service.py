@@ -523,10 +523,10 @@ _QUOTED_MARKER_RE = re.compile(r"\[F?\d{1,3}\]")
 # and the forms below on which a fuzz against the display found the parsers to differ (lazy lines,
 # stray table rows, some list openings). Within the subset some guards remain: a delimiter left as
 # text may still vanish when displayed, so a mark's direction that one decides is ambiguous; a '*'
-# or '_' left as text where there is emphasis, a tilde beside emphasis, or a backtick left as text
-# may change what the display pairs; GFM shows a bare URL or email address, and an autolink's text,
-# verbatim. That the two parsers agree on this subset is the residual assumption; it is not exact
-# parity with the display.
+# or '_' left as text where there is emphasis, one delimiter run split between two emphasis tokens,
+# a tilde beside emphasis, or a backtick left as text may change what the display pairs; GFM shows a
+# bare URL or email address, and an autolink's text, verbatim. That the two parsers agree on this
+# subset is the residual assumption; it is not exact parity with the display.
 
 
 def _markdown_parser() -> MarkdownIt:
@@ -643,6 +643,9 @@ def _rendered_inline(children: list, source: str) -> Optional[str]:
     for index, child in enumerate(children):
         if child.type not in _MARKDOWN_INLINE:
             return None
+        if (index and child.type in _MARKDOWN_EMPHASIS and children[index - 1].type in _MARKDOWN_EMPHASIS
+                and child.markup[0] == children[index - 1].markup[0]):
+            return None  # one delimiter run split between two emphasis tokens: GFM may pair it otherwise
         if child.type == "link_open":
             if child.attrGet("title") is not None:
                 return None
