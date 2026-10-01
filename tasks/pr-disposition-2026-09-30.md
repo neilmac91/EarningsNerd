@@ -39,7 +39,7 @@ handover package `earningsnerd-opus-5-5-handover` (SHA256SUMS verified). Checked
 | --- | --- | --- | --- | --- |
 | #1013 | review, validate, merge | dependabot branch (main merged: `0113e9c9`) | `2cd639fd`→`0113e9c9` | **merged** `e1914ea4`; prod serves posthog-js 1.434.14 |
 | #1012 | maintainer replacement, merge, close original | replacement [#1030](https://github.com/neilmac91/EarningsNerd/pull/1030) `claude/pr1012-posthog-7.60.1` `c8c56cee` | `1e56f3d2` | **#1030 merged** `c13b069a`, deployed `00423-wrg`; #1012 closed superseded |
-| #952 | repair current-inspection binding, merge tooling | `claude/attached-file-review-any8xz` | `1d48eb33`→`551f4808` | review complete (3 rounds, no blocker, 13 surviving findings fixed); integrated with main `ee30022a`; CI running; thread reply 4150826823 |
+| #952 | repair current-inspection binding, merge tooling | `claude/attached-file-review-any8xz` | `1d48eb33`→`551f4808` | **merged** `e3aa33df`; deployed `00426-xqn` (verified); E8 judging parked |
 | #1021 | integrate main, qualify or hold draft | `codex/wave3-acquisition-period-withholding` (local integrated `d1c321eb`, unpushed) | `55e89142` | integrated + local gate 4533 passed; exact-head review running |
 | #942 | fresh successor, close original | successor draft [#1039](https://github.com/neilmac91/EarningsNerd/pull/1039) `claude/pr942-successor` `4d036b48` (stamp `summary-2026-09-t`) | `47d040aa` | **#942 closed** superseded (comment 5922709320); #1039 blocked draft pending founder's scoped disposition; eval-baseline D3 running |
 | #1023 | close with successor, diagnose | successor draft [#1036](https://github.com/neilmac91/EarningsNerd/pull/1036) `claude/pr1023-diagnostic` `5a5ebf8a` | `d58c1a59` | **#1023 closed** (comment 5920729833); #1036 reviewed (no blocker; 5 should-fix fixed), retained as diagnostic draft |
@@ -183,3 +183,6 @@ Merge-tree conflicts vs main at start: #1013/#1012 none; #952, #1023, #1009 `tas
   priors dated `prior at 2026-03-31`; durations match by class (80 annual, 10 quarter); hosted lines byte-identical to
   retained r in 70/70. Recorded on #1039 (comment 5922852309). #1039 remains blocked on merge condition 3 (founder).
   Cumulative telemetry spend: USD 0.374888 of the USD 10.00 ceiling.
+- 01:33Z — **#952 deploy verified**: main CI 36800759454 success; deploy job 110175708793 `apply_migrations: applied=0
+  skipped=40`, revision `earningsnerd-backend-00426-xqn` 100% traffic, deploy health healthy; independent `/health/detailed`
+  2026-10-01T01:33:24Z healthy (db 5.16 ms, SEC circuit closed), homepage 200. Release comment 5922927202.
