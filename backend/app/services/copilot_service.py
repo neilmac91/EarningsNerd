@@ -490,29 +490,59 @@ _QUOTE_ELLIPSIS_RE = re.compile(r"\.\s*\.\s*\.|\u2026")
 _MAX_QUOTED_ANSWER_CHARS = 8_000
 _MAX_QUOTE_MARKS = 64
 _MAX_QUOTED_CHARS = 20_000
-_QUOTE_HINT_RE = re.compile('["\uff02\u201c\u201d\u201e\u201f&]')
-# Unicode Default_Ignorable_Code_Point (DerivedCoreProperties, Unicode 17.0; checked against ICU):
-# never displayed, so dropped before a mark's neighbours are read.
+# Link-label parsing grows with the brackets ('[' runs reach about 100 ms at the character bound);
+# an answer that may quote and opens more than this many fails closed. Realistic answers hold a few
+# dozen citation markers at most.
+_MAX_BRACKETS = 256
+# A mark, or a character reference that may name one (a bare "&", as in R&D, is not one).
+_QUOTE_HINT_RE = re.compile(
+    '["\uff02\u201c\u201d\u201e\u201f]|&(?:#[0-9]{1,7}|#[xX][0-9a-fA-F]{1,6}|[A-Za-z][A-Za-z0-9]{1,31});')
+# Characters that change what a reader sees without being plain visible text: C0 and C1 controls
+# other than line breaks (a tab fails closed in the answer below), the Ogham space mark and the line
+# and paragraph separators (a space or a break, by reader), the byte-order mark, and the bidi
+# controls and right-to-left scripts (whose blocks hold the Arabic letter mark), around which the
+# browser reorders marks and text. Text that may quote and holds one fails closed: it is not read,
+# and it is not dropped.
+_FAIL_CLOSED_CHARS_RE = re.compile(
+    "[\x00-\x08\x0b\x0c\x0e-\x1f\x7f-\x9f\u1680\u2028\u2029\ufeff\u200e\u200f\u202a-\u202e\u2066-\u2069"
+    "\u0590-\u08ff\ufb1d-\ufdff\ufe70-\ufefe\U00010800-\U00010fff\U0001e800-\U0001efff]")
+# Unicode Default_Ignorable_Code_Point (DerivedCoreProperties, Unicode 17.0; checked against ICU),
+# less the bidi controls and U+FEFF that fail closed above: never displayed, so dropped before a
+# mark's neighbours are read.
 _DEFAULT_IGNORABLE_RE = re.compile(
-    "[\u00ad\u034f\u061c\u115f\u1160\u17b4\u17b5\u180b-\u180f\u200b-\u200f\u202a-\u202e"
-    "\u2060-\u206f\u3164\ufe00-\ufe0f\ufeff\uffa0\ufff0-\ufff8\U0001bca0-\U0001bca3"
-    "\U0001d173-\U0001d17a\U000e0000-\U000e0fff]")
+    "[\u00ad\u034f\u115f\u1160\u17b4\u17b5\u180b-\u180f\u200b-\u200d\u2060-\u2065\u206a-\u206f\u3164"
+    "\ufe00-\ufe0f\uffa0\ufff0-\ufff8\U0001bca0-\U0001bca3\U0001d173-\U0001d17a\U000e0000-\U000e0fff]")
+# Citation markers inside a quotation are not quoted text; anything longer is read as written.
+_QUOTED_MARKER_RE = re.compile(r"\[F?\d{1,3}\]")
 # The answer is displayed by react-markdown 10 with remark-gfm (micromark). It is read here with
-# markdown-it-py, and only within a small subset that both parsers read alike: paragraphs, headings,
-# lists, blockquotes, GFM tables, emphasis, code spans, inline links without a title, and code
-# blocks. An answer that may quote and uses anything else fails closed: raw HTML, images, link
-# titles, reference links or definitions, footnotes, task-list checkboxes, tabs, nesting past
-# _MAX_MARKDOWN_NESTING, and the forms below on which a fuzz against the display found the parsers
-# to differ (lazy lines, stray table rows, some list openings). Within the subset some guards
-# remain: a delimiter left as text may still vanish when displayed, so a mark's direction that one
-# decides is ambiguous; such a delimiter beside emphasis, or a backtick left as text, may change
-# what the display pairs; GFM shows a bare URL or email address, and an autolink's text, verbatim.
-# That the two parsers agree on this subset is the residual assumption; it is not exact parity with
-# the display.
-_MARKDOWN = MarkdownIt("commonmark", {"html": False}).enable("table")
+# markdown-it-py, and only within a small subset that both parsers are assumed to read alike:
+# paragraphs, headings, thematic breaks, lists, blockquotes, GFM tables, emphasis, code spans,
+# inline links without a title, and code blocks. An answer that may quote and uses anything else
+# fails closed: raw HTML, images, link titles, reference links or definitions, footnotes, task-list
+# checkboxes, tabs, runs of three or more emphasis delimiters, nesting past _MAX_MARKDOWN_NESTING,
+# and the forms below on which a fuzz against the display found the parsers to differ (lazy lines,
+# stray table rows, some list openings). Within the subset some guards remain: a delimiter left as
+# text may still vanish when displayed, so a mark's direction that one decides is ambiguous; a '*'
+# or '_' left as text where there is emphasis, a tilde beside emphasis, or a backtick left as text
+# may change what the display pairs; GFM shows a bare URL or email address, and an autolink's text,
+# verbatim. That the two parsers agree on this subset is the residual assumption; it is not exact
+# parity with the display.
+
+
+def _markdown_parser() -> MarkdownIt:
+    """The shared parser, its rules compiled. markdown-it compiles its rule chains on first use and
+    publishes an empty cache before filling it, so a first parse in two worker threads at once could
+    run without rules; after this one parse the instance is only read."""
+    parser = MarkdownIt("commonmark", {"html": False}).enable("table")
+    parser.parse("x")
+    return parser
+
+
+_MARKDOWN = _markdown_parser()
+# Block ends, and a thematic break, show as line breaks.
 _MARKDOWN_BLOCK_ENDS = frozenset({
     "paragraph_close", "heading_close", "blockquote_close", "list_item_close", "bullet_list_close",
-    "ordered_list_close", "thead_close", "tbody_close", "tr_close", "th_close", "td_close", "table_close",
+    "ordered_list_close", "thead_close", "tbody_close", "tr_close", "th_close", "td_close", "table_close", "hr",
 })
 _MARKDOWN_BLOCKS = _MARKDOWN_BLOCK_ENDS | {
     "paragraph_open", "heading_open", "blockquote_open", "list_item_open", "bullet_list_open",
@@ -530,8 +560,11 @@ _MARKDOWN_CONTAINERS = {"blockquote_open": 1, "blockquote_close": -1, "bullet_li
 # Nested blockquotes and lists, together. This keeps every token far below markdown-it's maxNesting
 # (20), past which it stops parsing; the display has no such cap.
 _MAX_MARKDOWN_NESTING = 4
-# Raw HTML of any kind, found in the source text (markdown-it's HTML parsing stays off); autolinks
-# such as <https://...> are links, not HTML.
+# Found in the source text before parsing, since each always fails closed: an image, footnote
+# syntax, a tab (expanded differently in indentation and table rows), a run of three or more '*' or
+# '_' (which the parsers pair differently), and raw HTML of any kind (markdown-it's HTML parsing
+# stays off; autolinks such as <https://...> are links, not HTML).
+_OUTSIDE_SUBSET_RE = re.compile(r"!\[|\[\^|\t|\*{3}|_{3}")
 _RAW_HTML_RE = re.compile(r"<[A-Za-z/!?]")
 _AUTOLINK_RE = re.compile(
     r"<[A-Za-z][A-Za-z0-9.+-]{1,31}:[^\x00-\x20<>]*>"
@@ -541,8 +574,7 @@ _AUTOLINK_RE = re.compile(
 _TASK_CHECKBOX_RE = re.compile(r"\[[ \txX]\]")
 # Blockquotes and GFM tables are read only outside any container and with every line starting with
 # their marker (no lazy continuation lines). Any other line that GFM might take for a table's
-# delimiter row (pipes and dashes, perhaps behind container markers) is outside the subset, and so
-# is a tab, which the parsers expand differently in indentation and table rows.
+# delimiter row (pipes and dashes, perhaps behind container markers) is outside the subset.
 _TOP_LEVEL_BLOCKS = {"blockquote_open": re.compile(r" {0,3}>"), "table_open": re.compile(r" {0,3}\|")}
 _TABLE_DELIMITER_LIKE_RE = re.compile(r"[ \t>+*0-9.):-]*\|[ \t>+*0-9.):|-]*")
 _MAYBE_HIDDEN = "*_~"
@@ -557,8 +589,6 @@ def _rendered_text(answer: str) -> Optional[str]:
     Link destinations do not show, character references and escapes show their characters, block
     ends show as line breaks, and code is shown verbatim. Used only to decide; never published.
     """
-    if _RAW_HTML_RE.search(_AUTOLINK_RE.sub("", answer)) or "[^" in answer or "\t" in answer:
-        return None
     env: dict = {}
     tokens = _MARKDOWN.parse(answer, env)
     if env.get("references"):
@@ -576,7 +606,8 @@ def _rendered_text(answer: str) -> Optional[str]:
         if token.type in _TOP_LEVEL_BLOCKS:
             if outer or not all(_TOP_LEVEL_BLOCKS[token.type].match(line) for line in lines[start:end]):
                 return None
-            delimiter_rows.discard(start + 1)
+            if token.type == "table_open":
+                delimiter_rows.discard(start + 1)
         if token.type == "code_block" and start and lines[start - 1].strip(" "):
             return None  # indented code right after text, where GFM continues the text instead
         if token.type == "list_item_open" and (tokens[index + 1].type == "list_item_close"
@@ -595,7 +626,9 @@ def _rendered_text(answer: str) -> Optional[str]:
             parts.append(token.content)
         elif token.type in _MARKDOWN_BLOCK_ENDS:
             parts.append("\n")
-    return None if delimiter_rows else "".join(parts)
+    text = "".join(parts)
+    # Character references can name what the source text may not hold.
+    return None if delimiter_rows or _FAIL_CLOSED_CHARS_RE.search(text) else text
 
 
 def _rendered_inline(children: list, source: str) -> Optional[str]:
@@ -606,6 +639,7 @@ def _rendered_inline(children: list, source: str) -> Optional[str]:
     literals: dict[str, int] = {}
     for literal in _GFM_LITERAL_RE.finditer(source):
         literals[literal.group()] = literals.get(literal.group(), 0) + 1
+    emphasis = any(child.type in _MARKDOWN_EMPHASIS for child in children)
     for index, child in enumerate(children):
         if child.type not in _MARKDOWN_INLINE:
             return None
@@ -627,9 +661,11 @@ def _rendered_inline(children: list, source: str) -> Optional[str]:
                 return None  # markdown-it decodes an autolink's text; GFM shows it as written
             if "`" in text:
                 return None  # a backtick left as text may open a code span when displayed
-            if text and ((text[0] in _MAYBE_HIDDEN and before in _MARKDOWN_EMPHASIS)
-                         or (text[-1] in _MAYBE_HIDDEN and after in _MARKDOWN_EMPHASIS)):
-                return None  # a delimiter left as text beside emphasis: GFM may pair the run otherwise
+            if text and ((text[0] == "~" and before in _MARKDOWN_EMPHASIS)
+                         or (text[-1] == "~" and after in _MARKDOWN_EMPHASIS)):
+                return None  # a tilde beside emphasis: GFM may pair the runs otherwise
+            if emphasis and _may_delimit(text):
+                return None  # a '*' or '_' left as text where there is emphasis: GFM may pair them otherwise
             for literal in _GFM_LITERAL_RE.finditer(text):
                 if in_link:
                     break
@@ -638,6 +674,18 @@ def _rendered_inline(children: list, source: str) -> Optional[str]:
                     return None
             parts.append(text)
     return "".join(parts)
+
+
+def _may_delimit(text: str) -> bool:
+    """Whether a '*' or '_' left as text could open or close emphasis: not one between spaces, nor an
+    underscore inside a word."""
+    for at, char in enumerate(text):
+        if char in "*_":
+            before, after = text[at - 1:at], text[at + 1:at + 2]
+            if not (before.isspace() and after.isspace()) and not (
+                    char == "_" and before.isalnum() and after.isalnum()):
+                return True
+    return False
 
 
 def _is_punctuation(char: str) -> bool:
@@ -767,15 +815,17 @@ def unsupported_prose_quotations(answer: str, normalized_source: str) -> list[st
     contiguously in ``normalized_source``; citation markers and edge punctuation are not quoted
     text. A nested quotation is checked both whole and inner, and reasons follow the opening
     marks, so an outer quotation's reason precedes its inner one's. Missing source text, marks
-    that admit no reading or more than one, markdown outside the read subset, and answers past
-    the work bounds fail closed. Nothing is repaired or stitched: any reason withholds the whole
-    answer.
+    that admit no reading or more than one, markdown outside the read subset, characters that
+    change what is displayed (``_FAIL_CLOSED_CHARS_RE``), and answers past the work bounds fail
+    closed. Nothing is repaired or stitched: any reason withholds the whole answer.
     """
     if not _QUOTE_HINT_RE.search(answer):
         return []
-    if len(answer) > _MAX_QUOTED_ANSWER_CHARS:
-        return ["ambiguous_quotation"]
-    text = _rendered_text(answer)
+    text = None
+    if not (len(answer) > _MAX_QUOTED_ANSWER_CHARS or answer.count("[") > _MAX_BRACKETS
+            or _FAIL_CLOSED_CHARS_RE.search(answer) or _OUTSIDE_SUBSET_RE.search(answer)
+            or _RAW_HTML_RE.search(_AUTOLINK_RE.sub("", answer))):
+        text = _rendered_text(answer)
     if text is None:
         return ["ambiguous_quotation"] if _QUOTE_MARK_RE.search(html.unescape(answer)) else []
     return _displayed_quotation_reasons(_DEFAULT_IGNORABLE_RE.sub("", text), normalized_source, _MAYBE_HIDDEN)
@@ -786,7 +836,7 @@ def unsupported_plain_quotations(text: str, normalized_source: str) -> list[str]
     not-disclosed reason and the follow-up questions."""
     if not _QUOTE_MARK_RE.search(text):
         return []
-    if len(text) > _MAX_QUOTED_ANSWER_CHARS:
+    if len(text) > _MAX_QUOTED_ANSWER_CHARS or _FAIL_CLOSED_CHARS_RE.search(text):
         return ["ambiguous_quotation"]
     return _displayed_quotation_reasons(_DEFAULT_IGNORABLE_RE.sub("", text), normalized_source, "")
 
@@ -801,7 +851,7 @@ def _displayed_quotation_reasons(text: str, normalized_source: str, maybe_hidden
     reasons: list[str] = []
     for start, end in reading:
         raw = text[start + 1:end]
-        content = _COPILOT_MARKER_RE.sub(" ", raw).strip(_QUOTE_EDGE_CHARS)
+        content = _QUOTED_MARKER_RE.sub(" ", raw).strip(_QUOTE_EDGE_CHARS)
         needle = normalize_for_match(content)
         elided = bool(_QUOTE_ELLIPSIS_RE.search(content))
         if not elided and len(needle) < _MIN_VERIFIABLE_LEN:
