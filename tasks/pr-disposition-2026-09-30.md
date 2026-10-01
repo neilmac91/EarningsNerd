@@ -458,3 +458,25 @@ Under the founder's delegation, Codex decided items A–M on #1029. This session
     - The one header difference, `--no-index`, comes from the sandbox index configuration and appears in the control too.
     - Evidence: `f-quote-containment-2026-10-01/lock-reproduction-2026-10-01/`.
   - **Not cleared:** this approves only the declaration. The floor stays 24 pending the founder; no head freeze, no paid validation and no release is cleared.
+- 17:00Z — **F final adversarial review of `feb90f60`: changes-needed.** Each blocker is a single-input fail-open. None is likely in normal model output, but each lets INV publish inside visible double quotes.
+  - **Blockers:**
+    - **B1:** the not-disclosed reason is displayed as plain `<p>{content}</p>` but checked as markdown (link titles, image alt text, entities, code fences).
+    - **B2:** raw HTML is shown verbatim by react-markdown, while markdown-it with `html` off parses inside it.
+    - **B3:** the footnote-definition guard is anchored to the line start, so it misses definitions inside blockquotes and lists.
+  - **Should-fix:**
+    - markdown-it's `maxNesting` of 20 silently drops deeper text;
+    - latency is 0.29–0.54 s at 20k characters and runs synchronously in the SSE generator;
+    - follow-up chips are published unchecked;
+    - image alt text is dropped from the projection.
+  - **Nits:**
+    - Hangul filler (Lo) flips direction, so all Default_Ignorable code points should be dropped;
+    - reference-label whitespace differs between the parsers;
+    - other double-quote glyphs (〝〞, ❝❞, ʺ) are not pinned;
+    - the bare-URL guard falsely withholds sec.gov links with `_` in the destination (a realistic EDGAR filename).
+  - **Confirmed:**
+    - the published answer is byte-identical;
+    - logging carries reason codes only;
+    - 27/27 fresh benign answers publish;
+    - 384 copilot tests pass on an archive snapshot.
+  - **Process note:** both reviewers shared one worktree, and the rules reviewer's in-place mutations briefly dirtied it. The adversarial reviewer switched to a `git archive` snapshot. Future parallel reviews should each get their own snapshot.
+  - **Next:** round 5 is held until the rules, tests and dependency review reports, then one combined brief goes out.
