@@ -68,6 +68,7 @@ what applies to your task. Filenames are greppable: `arch-*`, `sec-*`, `test-*`,
 - [`test-e2e-runs-without-backend.md`](./test-e2e-runs-without-backend.md) — CI Playwright runs against `next start` with NO backend — specs must tolerate a dead API
 - [`test-empty-truth-sets-score-perfect.md`](./test-empty-truth-sets-score-perfect.md) — An empty truth set scores 1.0, not 0 — guard the decision, not the scorer
 - [`test-eval-iteration-ergonomics.md`](./test-eval-iteration-ergonomics.md) — Exploit prompt-cache and pinned-accession ergonomics when iterating on evals
+- [`test-fixture-months-are-never-the-wall-clock-month.md`](./test-fixture-months-are-never-the-wall-clock-month.md) — Seed fixture months that can never be the wall-clock month; pin the clock where cases depend on it
 - [`test-fresh-bytecode-prefix-before-trusting-local-timing.md`](./test-fresh-bytecode-prefix-before-trusting-local-timing.md) — Give every local Python run on this Mac a fresh bytecode-cache prefix before trusting its timing
 - [`test-gates-must-be-as-wide-as-their-rule.md`](./test-gates-must-be-as-wide-as-their-rule.md) — A gate narrower than its rule is worse than no gate; evaluate the source, don't text-match it
 - [`test-isolate-process-wide-contextvars.md`](./test-isolate-process-wide-contextvars.md) — Isolate process-wide ContextVars per test; CI's file order can hide a leak
