@@ -722,7 +722,7 @@ _CLAIM_SCALES = {"thousand": 1e3, "million": 1e6, "billion": 1e9}
 # Case folds over ASCII letters only: Unicode re.IGNORECASE also folds ı/İ onto i, ſ onto s and the
 # Kelvin sign onto k, so "net ſales" raised KeyError below and "thouſand" fell back to scale 1.0.
 # Such an answer now does not match and abstains. Whitespace stays Unicode through (?u:\s): an NBSP
-# is still a separator.
+# is still a separator. \d is ASCII digits: a claim in non-ASCII digits also abstains.
 _ANNUAL_FIGURE_CLAIM = re.compile(
     r"(?P<subject>" + "|".join(
         re.escape(p) for p in sorted(_CLAIM_PHRASE_CONCEPT, key=len, reverse=True)) + r")"

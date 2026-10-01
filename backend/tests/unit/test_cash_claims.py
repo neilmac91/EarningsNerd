@@ -231,5 +231,20 @@ def test_ascii_case_variants_still_qualify(claim):
 
 
 def test_unicode_space_after_currency_code_still_qualifies():
-    claim = "Free cash flow (OCF less capex) rose to USD\xa010.8B from USD 7.1B."
+    claim = "Free cash flow (OCF less capex) rose to USD\xa010.8B from USD\u202f7.1B."
     assert_owned(filled(lead={"headline": claim})["the_print"]["headline"])
+
+
+def test_finite_claim_grammars_fold_ascii_only_and_keep_unicode_whitespace():
+    """Gate: every finite cash-claim grammar folds case over ASCII only and spells whitespace (?u:\\s)."""
+    import inspect
+    import re
+
+    from app.services.ai import cash_claims
+
+    for pattern in (cash_claims._PAIR, cash_claims._SINGLE, cash_claims._MIXED, cash_claims._MIXED_GROWTH):
+        assert pattern.flags & re.ASCII and pattern.flags & re.IGNORECASE
+        assert not re.search(r"(?<!\(\?u:)\\s", pattern.pattern)
+    source = inspect.getsource(cash_claims._matches)
+    assert "_FOLD)" in source and not re.search(r"(?<!\(\?u:)\\s", source)
+

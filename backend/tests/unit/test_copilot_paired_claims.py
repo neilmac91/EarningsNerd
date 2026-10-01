@@ -200,7 +200,7 @@ async def test_ascii_case_variants_still_certify_pair(monkeypatch, tmp_path, ans
 
 @pytest.mark.asyncio
 async def test_unicode_whitespace_still_separates_pair(monkeypatch, tmp_path):
-    answer = ANSWER.replace("32,667.3 million", "32,667.3\xa0million").replace("9,609.4 million", "9,609.4 million")
+    answer = ANSWER.replace("32,667.3 million", "32,667.3\xa0million").replace("9,609.4 million", "9,609.4\u202fmillion")
     result = await complete(monkeypatch, tmp_path, answer=answer)
     assert result["answer"] == answer.replace("million,", "million [1],").replace("million.", "million [2].")
     assert result["grounded"] == 2

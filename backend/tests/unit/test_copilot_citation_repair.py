@@ -571,7 +571,19 @@ async def test_ascii_case_variants_still_certify(monkeypatch, answer):
 async def test_unicode_whitespace_still_separates_the_claim(monkeypatch):
     """NBSP between month and day and a narrow NBSP before the scale were accepted before
     ASCII-only case folding and still are."""
-    answer = 'Revenue for the fiscal year ended March\xa031, 2025 was RMB996,347 million.'
+    answer = 'Revenue for the fiscal year ended March\xa031, 2025 was RMB996,347\u202fmillion.'
     complete = await _complete(monkeypatch, answer)
     assert complete['answer'] == answer[:-1] + ' [1].'
     assert len(complete['citations']) == 1
+
+
+def test_annual_claim_grammars_fold_ascii_only_and_keep_unicode_whitespace():
+    """Gate: the scalar and paired annual-claim grammars fold over ASCII only and spell whitespace (?u:\\s)."""
+    import re
+
+    from app.services import copilot_service
+
+    for pattern in (copilot_service._ANNUAL_FIGURE_CLAIM, copilot_service._PAIRED_ANNUAL_CLAIM):
+        assert pattern.flags & re.ASCII and pattern.flags & re.IGNORECASE
+        assert not re.search(r"(?<!\(\?u:)\\s", pattern.pattern)
+

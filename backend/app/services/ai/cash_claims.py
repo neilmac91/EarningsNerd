@@ -12,6 +12,7 @@ from .fi_signals import fi_components_present
 # Case folds over ASCII letters only. Unicode re.IGNORECASE also folds ı/İ onto i, ſ onto s and the
 # Kelvin sign onto k, so "bıllion" or "thouſand" matched a scale word that is no _SCALES key and
 # _matches raised. Whitespace stays Unicode through (?u:\s): an NBSP after a currency code still counts.
+# \d is ASCII digits under re.ASCII: a claim written in non-ASCII digits no longer parses and abstains.
 _FOLD = re.IGNORECASE | re.ASCII
 _AMOUNT = r"(?:\$|[A-Z]{3}(?u:\s)+)-?(?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d+)?(?:B|M|K| billion| million| thousand)"
 _VERB = r"(?:increased to|decreased to|rose to|fell to|reached|was)"
