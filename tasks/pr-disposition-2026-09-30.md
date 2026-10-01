@@ -29,7 +29,8 @@ handover package `earningsnerd-opus-5-5-handover` (SHA256SUMS verified). Checked
 | # | Dispatch | Reserved | Telemetry actual | Status |
 | --- | --- | --- | --- | --- |
 | D1 | #1030 ready → copilot-eval [36777581481](https://github.com/neilmac91/EarningsNerd/actions/runs/36777581481) at `c8c56cee` (balance 46.17 at 21:09:23Z) | 0.05 | 0.005827 (30 calls, 0 unknown) | done: accepted 18/18 |
-| D2 | #1038 ready → copilot-eval at `9d7fa56f` (balance 45.98 at 22:44Z) | 0.05 | pending | running |
+| D2 | #1038 ready → copilot-eval [36798834277](https://github.com/neilmac91/EarningsNerd/actions/runs/36798834277) at `9d7fa56f` (balance 45.98 at 22:44Z) | 0.05 | 0.010511 (28 calls, 0 unknown) | done: accepted 18/18; 0 composed quotes |
+| D3 | #942 successor push → eval-baseline (70 summaries, peak window) at `4d036b48` | 0.50 | pending | running |
 
 ## Lanes
 
@@ -37,9 +38,9 @@ handover package `earningsnerd-opus-5-5-handover` (SHA256SUMS verified). Checked
 | --- | --- | --- | --- | --- |
 | #1013 | review, validate, merge | dependabot branch (main merged: `0113e9c9`) | `2cd639fd`→`0113e9c9` | **merged** `e1914ea4`; prod serves posthog-js 1.434.14 |
 | #1012 | maintainer replacement, merge, close original | replacement [#1030](https://github.com/neilmac91/EarningsNerd/pull/1030) `claude/pr1012-posthog-7.60.1` `c8c56cee` | `1e56f3d2` | **#1030 merged** `c13b069a`, deployed `00423-wrg`; #1012 closed superseded |
-| #952 | repair current-inspection binding, merge tooling | `claude/attached-file-review-any8xz` | `1d48eb33`→`8e8c6f83` | pushed (draft); CI 36784862944 green (eval-baseline no-op, USD 0); exact-head review running |
+| #952 | repair current-inspection binding, merge tooling | `claude/attached-file-review-any8xz` | `1d48eb33`→`551f4808` | review complete (3 rounds, no blocker, 13 surviving findings fixed); integrated with main `ee30022a`; CI running; thread reply 4150826823 |
 | #1021 | integrate main, qualify or hold draft | `codex/wave3-acquisition-period-withholding` (local integrated `d1c321eb`, unpushed) | `55e89142` | integrated + local gate 4533 passed; exact-head review running |
-| #942 | fresh successor, close original | `claude/pr942-successor` (local `19928d2f`, unpushed; stamp `summary-2026-09-t`) | `47d040aa` | built + offline replay 70/70; exact-head review running |
+| #942 | fresh successor, close original | successor draft [#1039](https://github.com/neilmac91/EarningsNerd/pull/1039) `claude/pr942-successor` `4d036b48` (stamp `summary-2026-09-t`) | `47d040aa` | **#942 closed** superseded (comment 5922709320); #1039 blocked draft pending founder's scoped disposition; eval-baseline D3 running |
 | #1023 | close with successor, diagnose | successor draft [#1036](https://github.com/neilmac91/EarningsNerd/pull/1036) `claude/pr1023-diagnostic` `5a5ebf8a` | `d58c1a59` | **#1023 closed** (comment 5920729833); #1036 reviewed (no blocker; 5 should-fix fixed), retained as diagnostic draft |
 | #1009 | retain draft hold, document prerequisites | `codex/wave3-launch-pricing-offer` | `561dc2b8` | **held draft**; hold record comment 5920001935 |
 
@@ -158,3 +159,12 @@ Merge-tree conflicts vs main at start: #1013/#1012 none; #952, #1023, #1009 `tas
   unenforced, MONTH unguarded) fixed in `9d7fa56f` with `test_fixture_months_are_sentinels_the_clock_never_returns`
   (mutation: MONTH="2026-10" → 1 failed) and narrowed lesson wording. Pushed; body carries the review record and the
   founder-approved override. Marking ready (D2).
+- 01:04Z — **#1038 squash-merged as `ee30022a`** (head re-read `9d7fa56f`, mergeable clean, all required checks green,
+  review-gate override pass, copilot-eval D2 accepted 18/18, USD 0.010511; no main run in progress). Main CI 36799337442:
+  migrations-postgres green (all four PG suites), backend/frontend/e2e green; deploy-backend running.
+- 01:05Z — #952 review final round fixed in `f053b9fd` (pin digest lists to sealed manifests, nested stage records,
+  case-insensitive inspection refusal names; T1–T3 mutation proofs; full gate 4353 passed). Merged main `ee30022a`
+  (`551f4808`), pushed (draft, free). Thread r4085294704 answered (4150826823).
+- 01:11Z — #942 successor: review final round disclosure fixes `4efbb1b0`; merged main (`4d036b48`); full gate 4206 passed;
+  pushed and opened draft [#1039](https://github.com/neilmac91/EarningsNerd/pull/1039) (D3 eval-baseline, peak window).
+  #942 closed as superseded with durable links (comment 5922709320). #1039 is blocked on the founder's scoped disposition.
