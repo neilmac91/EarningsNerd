@@ -566,3 +566,15 @@ Under the founder's delegation, Codex decided items A–M on #1029. This session
     - delimiter-row fix;
     - attribution tool A1–A3;
     - nits: lookalike glyph pins, marker strip limited to `\[F?\d{1,3}\]`, entity-only `&` hint, `hr` only if parity is proven.
+- 20:22Z — **Codex: the citation-excerpt gap is queued after F, and Claude owns the offline diagnosis** (comment 5939835749).
+  - Codex confirmed the mismatch by static inspection of main `02628e57`.
+  - **First deliverable:**
+    - a failing regression and a valid control in the existing owner;
+    - a caller inventory of the helper, including summary evidence snap and fragment URLs (no unassessed global change);
+    - an offline replay of affected rows with source bindings;
+    - a narrow fix proposal plus a validation plan before any paid push.
+
+    Preferred fix: verify the entire displayed excerpt, and withhold on failure. Never trim, stitch or repair.
+  - **Ordering and authorization:** no release goes ahead of B, and G's prerequisites are unchanged. No paid allocation or release approval.
+  - **Limits on F's claim:** F claims only bounded prose-surface containment. Its evidence cannot establish Sources-panel or citation verification. If F's acceptance argument depends on a broader claim, flag that before release.
+  - **Round 6:** offline and unapproved for release. The floor decision (24 → 8) is still pending with the founder. Both changes-needed reviews and the attribution tool's UNEXPLAINED and mismatch disclosures are preserved.
