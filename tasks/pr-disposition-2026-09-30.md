@@ -39,7 +39,7 @@ handover package `earningsnerd-opus-5-5-handover` (SHA256SUMS verified). Checked
 | #952 | repair current-inspection binding, merge tooling | `claude/attached-file-review-any8xz` | `1d48eb33`→`8e8c6f83` | pushed (draft); CI 36784862944 green (eval-baseline no-op, USD 0); exact-head review running |
 | #1021 | integrate main, qualify or hold draft | `codex/wave3-acquisition-period-withholding` (local integrated `d1c321eb`, unpushed) | `55e89142` | integrated + local gate 4533 passed; exact-head review running |
 | #942 | fresh successor, close original | `claude/pr942-successor` (local `19928d2f`, unpushed; stamp `summary-2026-09-t`) | `47d040aa` | built + offline replay 70/70; exact-head review running |
-| #1023 | close with successor, diagnose | successor draft [#1036](https://github.com/neilmac91/EarningsNerd/pull/1036) `claude/pr1023-diagnostic` `fdfb3844` | `d58c1a59` | **#1023 closed** (comment 5920729833); #1036 draft, review pending |
+| #1023 | close with successor, diagnose | successor draft [#1036](https://github.com/neilmac91/EarningsNerd/pull/1036) `claude/pr1023-diagnostic` `5a5ebf8a` | `d58c1a59` | **#1023 closed** (comment 5920729833); #1036 reviewed (no blocker; 5 should-fix fixed), retained as diagnostic draft |
 | #1009 | retain draft hold, document prerequisites | `codex/wave3-launch-pricing-offer` | `561dc2b8` | **held draft**; hold record comment 5920001935 |
 
 Merge-tree conflicts vs main at start: #1013/#1012 none; #952, #1023, #1009 `tasks/todo.md`;
@@ -134,3 +134,12 @@ Merge-tree conflicts vs main at start: #1013/#1012 none; #952, #1023, #1009 `tas
 - 22:44Z — Balance USD 45.98 (−0.19 since 20:20Z; this session's telemetry spend is 0.005827, the rest is
   other agents on the shared account). #952 CI 36784862944 all green on `8e8c6f83`; its eval-baseline job
   was a no-op (8 s; no `backend/app|evals|prompts` change), so USD 0.
+- 23:21–23:58Z — Founder merged Dependabot #1033 (`212e297e`), #1032 (`8387351b`) and #1031 urllib3 2.8.0
+  (`ae95322a`, backend). Main CI 36793775535 success; deploy job 110153951453 succeeded 00:07Z (migrations,
+  Cloud Run deploy, job images, health). Main is now `ae95322a`; lanes based on `c13b069a` take main again
+  before their next push.
+- 00:29Z — #1036 review complete (33 agents): no blocker; five should-fix findings that survived two
+  refutations each are fixed (`192ca986`, `7dfb5036`, `ed2f5e21`, and `5a5ebf8a` by hand for the final-round
+  finding: both "not retained" runner logs are retained, 315 calls across ten runs, one fingerprint).
+  Full gate at `ed2f5e21` 4197 passed; docs-reading tests at `5a5ebf8a` 145 passed. Pushed (free: tests and
+  tasks only); body carries the review record. Retained as the diagnostic draft; experiment not run.
