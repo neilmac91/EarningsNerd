@@ -168,7 +168,7 @@ export function DataTable<T extends Record<string, unknown>>({
         {caption ? <caption className="sr-only">{caption}</caption> : null}
         <thead>
           {/* 12px uppercase metric-label header — eyebrow tracking 0.08em (--track-eyebrow), matching .markdown-body th */}
-          <tr className="text-left text-xs uppercase tracking-[0.08em] text-text-tertiary-light dark:text-text-secondary-dark">
+          <tr className="text-left text-xs uppercase tracking-eyebrow text-text-tertiary-light dark:text-text-secondary-dark">
             {columns.map((c, colIndex) => {
               const sorted = sort && sort.key === c.key ? sort.dir : undefined
               const isFirstCol = colIndex === 0 && stickyFirstColumn
@@ -191,7 +191,7 @@ export function DataTable<T extends Record<string, unknown>>({
                       type="button"
                       onClick={() => onSort(c.key)}
                       className={cx(
-                        'inline-flex items-center gap-1 rounded uppercase tracking-[0.08em]',
+                        'inline-flex items-center gap-1 rounded uppercase tracking-eyebrow',
                         'hover:text-text-primary-light dark:hover:text-text-primary-dark',
                         'focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark',
                         c.align === 'right' && 'flex-row-reverse',

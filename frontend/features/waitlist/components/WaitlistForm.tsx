@@ -132,7 +132,7 @@ export default function WaitlistForm({ source = 'homepage' }: WaitlistFormProps)
       <Card className="p-6">
         <div className="flex items-center gap-2 text-brand-strong dark:text-brand-strong-dark">
           <CheckIcon className="h-5 w-5" />
-          <span className="text-sm font-semibold uppercase tracking-wide">You&apos;re in</span>
+          <span className="text-sm font-semibold uppercase tracking-eyebrow">You&apos;re in</span>
         </div>
         <h3 className="mt-3 text-2xl font-semibold text-text-primary-light dark:text-text-primary-dark">
           {success.message || 'You&apos;re on the waitlist.'}
@@ -142,7 +142,7 @@ export default function WaitlistForm({ source = 'homepage' }: WaitlistFormProps)
         </p>
 
         <div className="mt-5 rounded-xl border border-border-light bg-background-light px-4 py-3 dark:border-border-dark dark:bg-background-dark">
-          <div className="text-xs uppercase tracking-wide text-text-tertiary-light dark:text-text-secondary-dark">
+          <div className="text-xs uppercase tracking-eyebrow text-text-tertiary-light dark:text-text-secondary-dark">
             Your referral link
           </div>
           <div className="mt-2 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">

@@ -45,7 +45,7 @@ export function MonthView({
           <div
             key={d}
             className={cx(
-              'px-2.5 py-2 text-xs font-semibold uppercase tracking-[0.08em] text-text-tertiary-light dark:text-text-secondary-dark',
+              'px-2.5 py-2 text-xs font-semibold uppercase tracking-eyebrow text-text-tertiary-light dark:text-text-secondary-dark',
               i > 0 && 'border-l border-border-light/60 dark:border-white/[0.06]',
             )}
           >

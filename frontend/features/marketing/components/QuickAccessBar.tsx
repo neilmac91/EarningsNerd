@@ -34,7 +34,7 @@ function QuickAccessBar() {
           key={ticker}
           href={`/company/${ticker}`}
           onClick={() => handleClick(ticker)}
-          className="inline-flex min-h-9 items-center gap-2 rounded-full border border-border-light bg-panel-light py-1.5 pl-1.5 pr-3 text-[13px] font-medium shadow-e1 transition-colors duration-fast hover:border-brand-border hover:bg-white dark:border-white/10 dark:bg-panel-dark dark:shadow-none dark:hover:border-brand-border-dark dark:hover:bg-white/10 focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark"
+          className="inline-flex min-h-9 items-center gap-2 rounded-full border border-border-light bg-panel-light py-1.5 pl-1.5 pr-3 text-sm font-medium shadow-e1 transition-colors duration-fast hover:border-brand-border hover:bg-white dark:border-white/10 dark:bg-panel-dark dark:shadow-none dark:hover:border-brand-border-dark dark:hover:bg-white/10 focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark"
           data-testid={`quick-access-${ticker}`}
         >
           <CompanyLogo ticker={ticker} name={name} size={24} />

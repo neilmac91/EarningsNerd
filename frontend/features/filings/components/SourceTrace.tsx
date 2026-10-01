@@ -54,7 +54,7 @@ export const sourceTraceChipClass = (isVerified: boolean): string => {
   const tone = isVerified
     ? 'text-brand-strong dark:text-brand-strong-dark hover:bg-brand-weak dark:hover:bg-white/5'
     : 'text-text-tertiary-light dark:text-text-secondary-dark hover:bg-border-light/40 dark:hover:bg-white/5'
-  return `inline-flex items-center gap-1 rounded px-1 py-0.5 text-[11px] font-medium leading-none align-baseline transition-colors focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark ${tone}`
+  return `inline-flex items-center gap-1 rounded px-1 py-0.5 text-data-xs font-medium leading-none align-baseline transition-colors focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark ${tone}`
 }
 
 /**
@@ -77,12 +77,12 @@ export function SourceTracePanelBody({
   excerpt?: React.ReactNode
 }) {
   const statusLine = isVerified ? (
-    <span className="mt-2 flex items-center gap-1 text-[11px] font-medium text-brand-strong dark:text-brand-strong-dark">
+    <span className="mt-2 flex items-center gap-1 text-data-xs font-medium text-brand-strong dark:text-brand-strong-dark">
       <CheckCircleIcon className="h-3 w-3 shrink-0" aria-hidden="true" />
       {note || 'Verified against the original SEC filing'}
     </span>
   ) : (
-    <span className="mt-2 flex items-center gap-1 text-[11px] font-medium text-text-tertiary-light dark:text-text-secondary-dark">
+    <span className="mt-2 flex items-center gap-1 text-data-xs font-medium text-text-tertiary-light dark:text-text-secondary-dark">
       <ArrowSquareOutIcon className="h-3 w-3 shrink-0" aria-hidden="true" />
       {note || 'Cited. Open the section to confirm.'}
     </span>
@@ -91,7 +91,7 @@ export function SourceTracePanelBody({
   return (
     <>
       {header && (
-        <span className="block text-[11px] font-semibold uppercase tracking-wide text-text-tertiary-light dark:text-text-secondary-dark break-words">
+        <span className="block text-data-xs font-semibold uppercase tracking-eyebrow text-text-tertiary-light dark:text-text-secondary-dark break-words">
           {header}
         </span>
       )}
@@ -102,7 +102,7 @@ export function SourceTracePanelBody({
           href={url}
           target="_blank"
           rel="noopener noreferrer"
-          className="mt-2 flex items-center gap-1 text-[11px] font-medium text-text-tertiary-light transition-colors hover:text-brand-strong dark:text-text-secondary-dark dark:hover:text-brand-strong-dark"
+          className="mt-2 flex items-center gap-1 text-data-xs font-medium text-text-tertiary-light transition-colors hover:text-brand-strong dark:text-text-secondary-dark dark:hover:text-brand-strong-dark"
         >
           <ArrowSquareOutIcon className="h-3 w-3 shrink-0" aria-hidden="true" />
           Open in SEC EDGAR

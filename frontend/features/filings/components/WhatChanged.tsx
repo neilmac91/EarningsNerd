@@ -34,7 +34,7 @@ export function WhatChanged({
             What changed
           </Heading>
           {basis && (
-            <span className="text-xs font-medium uppercase tracking-wide text-text-tertiary-light dark:text-text-secondary-dark">
+            <span className="text-xs font-medium uppercase tracking-eyebrow text-text-tertiary-light dark:text-text-secondary-dark">
               {basis}
             </span>
           )}
@@ -86,7 +86,7 @@ export function WhatChanged({
         <div className="mt-4 grid gap-4 sm:grid-cols-2">
           {risks.new.length > 0 && (
             <div>
-              <h3 className="mb-1 text-xs font-semibold uppercase tracking-wide text-text-tertiary-light dark:text-text-secondary-dark">
+              <h3 className="mb-1 text-xs font-semibold uppercase tracking-eyebrow text-text-tertiary-light dark:text-text-secondary-dark">
                 New risk factors
               </h3>
               <ul className="space-y-1 text-sm text-text-secondary-light dark:text-text-secondary-dark">
@@ -101,7 +101,7 @@ export function WhatChanged({
           )}
           {risks.resolved.length > 0 && (
             <div>
-              <h3 className="mb-1 text-xs font-semibold uppercase tracking-wide text-brand-strong dark:text-brand-strong-dark">
+              <h3 className="mb-1 text-xs font-semibold uppercase tracking-eyebrow text-brand-strong dark:text-brand-strong-dark">
                 No longer cited
               </h3>
               <ul className="space-y-1 text-sm text-text-secondary-light dark:text-text-secondary-dark">
