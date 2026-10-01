@@ -31,7 +31,7 @@ handover package `earningsnerd-opus-5-5-handover` (SHA256SUMS verified). Checked
 | D1 | #1030 ready → copilot-eval [36777581481](https://github.com/neilmac91/EarningsNerd/actions/runs/36777581481) at `c8c56cee` (balance 46.17 at 21:09:23Z) | 0.05 | 0.005827 (30 calls, 0 unknown) | done: accepted 18/18 |
 | D2 | #1038 ready → copilot-eval [36798834277](https://github.com/neilmac91/EarningsNerd/actions/runs/36798834277) at `9d7fa56f` (balance 45.98 at 22:44Z) | 0.05 | 0.010511 (28 calls, 0 unknown) | done: accepted 18/18; 0 composed quotes |
 | D3 | #942 successor push → eval-baseline (70 summaries, peak window) at `4d036b48` | 0.50 | pending | running |
-| D4 | #952 ready → copilot-eval at `551f4808` | 0.05 | pending | running |
+| D4 | #952 ready → copilot-eval [36800236360](https://github.com/neilmac91/EarningsNerd/actions/runs/36800236360) at `551f4808` | 0.05 | 0.011508 (30 calls, 0 unknown) | done: accepted 18/18; 1 composed quote (ASML d0, main code) |
 
 ## Lanes
 
@@ -173,3 +173,7 @@ Merge-tree conflicts vs main at start: #1013/#1012 none; #952, #1023, #1009 `tas
   `earningsnerd-backend-00425-xph` 100% traffic, deploy health healthy; independent `/health/detailed` 01:14:11Z healthy
   (db 6.51 ms, SEC circuit closed), homepage 200. #952 CI 36799391050 green on `551f4808` (4354 passed). Body replaced
   with the final record and override; thread PRRT_kwDOQRd7Tc6lQsOp resolved; marking ready (D4).
+- 01:22Z — **#952 squash-merged as `e3aa33df`** (head re-read `551f4808`, mergeable clean, all required checks green incl.
+  review-gate override pass and copilot-eval D4 accepted 18/18, USD 0.011508; no main run in progress). Main CI
+  36800759454 running; deploy verification scheduled. Main-code Copilot composed-quote base rate now 3/90 rows
+  (36640254449, 36777581481, 36800236360 ASML d0 "Total net sales 32,667.3"/"Net income 9,609.4"; 36798834277 had 0).
