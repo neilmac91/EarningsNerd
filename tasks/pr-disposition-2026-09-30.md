@@ -386,3 +386,9 @@ Under the founder's delegation, Codex decided items A–M on #1029. This session
     - Replay unchanged: 20/20, 0 false positives, 3/108.
     - Gate: 4763 passed.
     - Two independent exact-head reviews are running: one hunting bypasses, one checking rules, tests and the replay.
+- 14:04Z — **E deployed and verified.**
+  - Main CI 36872019870 is green.
+  - Deploy job 110404800525: `applied=0 skipped=40`; revision `earningsnerd-backend-00428-pzn` serving 100 percent of traffic; "Deployed 02628e5 and verified healthy".
+  - Independent `/health/detailed` check at 14:03:41Z: healthy (database 6.07 ms, EDGAR circuit closed).
+  - Release comment posted on #1040.
+  - **E done.** F is now unblocked by the approved order; it waits only on its two exact-head reviews.
