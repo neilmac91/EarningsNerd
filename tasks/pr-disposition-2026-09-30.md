@@ -29,6 +29,7 @@ handover package `earningsnerd-opus-5-5-handover` (SHA256SUMS verified). Checked
 | # | Dispatch | Reserved | Telemetry actual | Status |
 | --- | --- | --- | --- | --- |
 | D1 | #1030 ready → copilot-eval [36777581481](https://github.com/neilmac91/EarningsNerd/actions/runs/36777581481) at `c8c56cee` (balance 46.17 at 21:09:23Z) | 0.05 | 0.005827 (30 calls, 0 unknown) | done: accepted 18/18 |
+| D2 | #1038 ready → copilot-eval at `9d7fa56f` (balance 45.98 at 22:44Z) | 0.05 | pending | running |
 
 ## Lanes
 
@@ -152,3 +153,8 @@ Merge-tree conflicts vs main at start: #1013/#1012 none; #952, #1023, #1009 `tas
   summary-reservation cases pin the month, rollover case → "2000-02"; 29 passed ×4; mutation (drop one pin) → 1 failed.
   Independent 3-lens review running. Comment on #1036 (5922335039). Sequencing: #1038 merges and deploys first
   (test-only, no runtime change), then lanes take main.
+- 00:58Z — #1038 review (11 agents): no blocker; root cause and fix confirmed against a fake clock (head 29/29 for
+  2026-09/10/12, 2027-01, 2099-12; base fails exactly the two). One surviving should-fix (rule-12: lesson's never-rule
+  unenforced, MONTH unguarded) fixed in `9d7fa56f` with `test_fixture_months_are_sentinels_the_clock_never_returns`
+  (mutation: MONTH="2026-10" → 1 failed) and narrowed lesson wording. Pushed; body carries the review record and the
+  founder-approved override. Marking ready (D2).
