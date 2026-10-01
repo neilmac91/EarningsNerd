@@ -67,7 +67,7 @@ def make_bundle(root: Path, stage: str = "pristine", *, active: dict | None = No
     Like a restored bundle it carries the sealed shim beside the guard files (never exported) and,
     once setup has run, the ``state.lock`` guard_setup creates; an immutable manifest listing an E8
     panel file and a file only the manifest names; the other three E8 panel files, which only the
-    panel list names; a file in each prerequisite stage; one packet file outside ``stages/`` for
+    panel list names; a file in each prerequisite stage (and one nested slot record); one packet file outside ``stages/`` for
     each index route (E8 slot 001, reused control c001 and E3 candidate 2 slot p001); and the E8
     index's reused control slots.
     """
@@ -86,6 +86,7 @@ def make_bundle(root: Path, stage: str = "pristine", *, active: dict | None = No
     _write(bundle / "e8" / "e8-control-main-reuse-2026-09-19.json", {"main_verdicts": []})
     _write(bundle / "stages" / "ko-corrected" / "index.json", {"programme": "ko-corrected", "packets": []})
     _write(bundle / "stages" / "e3-candidate1" / "reconciliation-supplement.json", {"status": "reconciled"})
+    _write(bundle / "stages" / "e3-candidate1" / "slots" / "s001" / "judged.json", {"results": []})
     _write(bundle / PACKETS[0]["packet_path"], "packet 1")
     _write(bundle / REUSED[0]["packet_path"], "control packet 1")
     _write(bundle / PREREQUISITE_INDEX["packets"][0]["packet_path"], "prerequisite packet 1")
@@ -649,6 +650,8 @@ INPUTS_EDITED_DURING_THE_RUN = [
     "bundle/stages/e8/index.json",
     "bundle/stages/e3-candidate2/index.json",
     "bundle/stages/e3-candidate1/reconciliation-supplement.json",
+    # A nested stage record (restored by the overlay, never listed in the immutable manifest).
+    "bundle/stages/e3-candidate1/slots/s001/judged.json",
     "bundle/stages/ko-corrected/index.json",
     "bundle/preserved/e2/judged.json",
     "bundle/preserved/e1/judged.json",
@@ -742,15 +745,31 @@ def test_a_current_success_on_unchanged_inputs_is_an_eligible_checkpoint(export,
             "bundle/e8/packets/001.json", "bundle/stages/e3-candidate2/index.json",
             "bundle/stages/e8/index.json", "bundle/e8/guard/claude", "bundle/e8/guard/state.lock",
             "frozen/backend/evals/golden_set.json"} <= set(after)
+    assert {f"package/{name}" for name in export.ADDON_FILES + export.SUPPLEMENT_FILES} <= set(after)
+    assert {f"frozen/backend/evals/{name}" for name in export.FROZEN_EVAL_FILES} <= set(after)
     # The shim and state.lock are inputs, not exports: the guard comparison covers only the copied files.
     inventory = json.loads((tmp_path / "out" / "sha256-inventory.json").read_text())
     assert not {"e8/guard/claude", "e8/guard/state.lock"} & set(inventory)
+
+
+def test_the_package_and_frozen_digest_lists_are_what_the_sealed_admission_reads(export) -> None:
+    """The digest's package and frozen labels are the sealed manifests' files and the pinned eval files,
+    so narrowing any list is caught; A3 checks the digest covers every label they name."""
+    code = json.loads((PACKAGE / "code-sha256.json").read_text())
+    supplement = json.loads((PACKAGE / "supplement-sha256.json").read_text())
+    restore = _load("restore_e8_session_for_export_pin", PACKAGE / "restore_e8_session.py")
+    assert sorted(export.ADDON_FILES) == sorted(["code-sha256.json", *code])
+    assert sorted(export.SUPPLEMENT_FILES) == sorted(["supplement-sha256.json", *supplement])
+    assert sorted(export.FROZEN_EVAL_FILES) == sorted(restore.PINNED_EVAL_FILES)
 
 
 REFUSAL_RECORDS = [
     ("a saved refusal", "inspection-post-run.txt", "ValueError: E8 ledger has an unresolved execution\n"),
     ("a saved non-verdict JSON", "inspection-post-run.json", {"error": "ValueError: E8 frozen order changed"}),
     ("a nested restored refusal", "restored/inspection-post-run.txt", "ValueError: E8 frozen order changed\n"),
+    ("a refusal named after its step", "post-run-inspection.txt", "ValueError: E8 frozen order changed\n"),
+    ("a capitalised refusal", "Inspection-post-run.txt", "ValueError: E8 frozen order changed\n"),
+    ("a refusal inside an inspection folder", "inspection-2026-10-01/refusal.txt", "ValueError: E8 frozen order changed\n"),
 ]
 
 

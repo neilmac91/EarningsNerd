@@ -49,7 +49,8 @@ malformed or ambiguous output is a named blocker, never a crash; the export is s
 Receipts on disk are evidence only and never grant eligibility: a saved inspection, however
 recent it looks, is not bound to the state being exported. They can only take it away: README
 condition 6 says a prior stop remains a stop, so any restored inspection receipt that is not a
-success JSON (a saved refusal ``inspection-*.txt``, for example) blocks recovery.
+success JSON (a saved refusal such as ``inspection-*.txt``, under any name that mentions an
+inspection) blocks recovery.
 
 The verdict is advisory. It is not the admission: README condition 5 still requires a new
 readback and attestation, and the sealed ``admit()`` and ``attest()`` to pass on the restored
@@ -615,9 +616,19 @@ def admission_blockers(inspection: dict, packets: dict, done: set, inventory: di
 
 
 def refusal_records(receipts: Path) -> list[str]:
-    """Restored inspection receipts that are not a success JSON: an earlier stop, which remains one."""
-    return [path.relative_to(receipts).as_posix() for path in sorted(receipts.rglob('inspection*'))
-            if path.is_file() and set(read_json(path) if path.suffix == '.json' else {}) != INSPECTION_KEYS]
+    """Restored inspection receipts that are not a success JSON: an earlier stop, which remains one.
+
+    A receipt is an inspection receipt when any part of its path under ``receipts`` names an
+    inspection, in any case (``inspection-post-run.txt``, ``post-run-inspection.txt``,
+    ``Inspection/refusal.txt``): the stop must not depend on how the operator named the file.
+    """
+    records = []
+    for path in sorted(receipts.rglob('*')):
+        rel = path.relative_to(receipts).as_posix()
+        if (path.is_file() and 'inspection' in rel.lower()
+                and set(read_json(path) if path.suffix == '.json' else {}) != INSPECTION_KEYS):
+            records.append(rel)
+    return records
 
 
 def recovery_blockers(guard: Path, stages: Path, stage: str, state: dict, classes: dict | None, markers: dict,
