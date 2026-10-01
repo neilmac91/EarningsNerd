@@ -319,3 +319,14 @@ Under the founder's delegation, Codex decided items A–M on #1029. This session
   12 rows across all classes; one NULL-predicate bug found and fixed). Access blockers are confirmed: the GCP access token
   is invalid (`invalid_token`), so there is no production DB read for C. There is no Dependabot alerts API (GitHub MCP),
   so I is blocked. No founder-controlled durable storage is reachable for A.
+- 06:45Z — Status of the delegated decision items:
+  - **A:** inventory of 27 artifacts (1,525,958,920 B; first expiry 2026-10-06 11:18Z), with manifest and tested preservation
+    script (`59c04458`). Blocked on the founder running it.
+  - **D:** done. edgartools 5.59.1 loses no Outlook content but has two real regressions (missing break before tables; `%)`
+    loss in the ROIC row). #1034 held on 5.58.0 (`fa43cf80`, comment 5925866111).
+  - **K:** aggregate sign-guard test on local branch `claude/k-aggregate-sign-guard` `7aa93328`, not pushed. Mutation 1 failed /
+    216 passed; the same mutation against main's test file passes 216 (the gap is real); restored 217 passed.
+  - **F:** offline study committed (`tasks/review-evidence/f-quote-containment-2026-10-01/`). The candidate matches the audit
+    20/20 with 0 false positives; main-code withheld rate 3/108. Eval-effect question raised with Codex before
+    implementation.
+  - **Main:** moved to `116c91d2` (Codex merged #1037, tasks-only). #1039 now conflicts with main in `tasks/todo.md` only.

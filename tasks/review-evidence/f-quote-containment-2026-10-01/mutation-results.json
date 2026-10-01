@@ -1,0 +1,107 @@
+[
+ {
+  "mutation": "none (control)",
+  "exit": 0,
+  "tail": [
+   "26 passed, 17 warnings in 4.49s"
+  ]
+ },
+ {
+  "mutation": "M01 publication wiring",
+  "exit": 1,
+  "tail": [
+   "ERROR    main:main.py:192 Stripe configuration is invalid. Subscription features will be disabled.",
+   "ERROR    main:main.py:204 Email (Resend) configuration is invalid. Outbound email (verification, password reset) will fail.",
+   "FAILED tests/unit/test_copilot.py::test_service_publication_boundary[prose_quote_composed]",
+   "FAILED tests/unit/test_copilot_prose_quotations.py::test_service_logs_constant_quotation_reason",
+   "2 failed, 17 warnings in 5.04s"
+  ]
+ },
+ {
+  "mutation": "M02 scope floor = production _MIN_VERIFIABLE_LEN",
+  "exit": 1,
+  "tail": [
+   "FAILED tests/unit/test_copilot_prose_quotations.py::test_contiguous_quotations_and_short_terms_publish[Return on equity (\"ROE\") and \"Adjusted EBITDA margin\" are not reported; see \"Revenue\" [1].]",
+   "FAILED tests/unit/test_copilot_prose_quotations.py::test_composed_or_unpairable_quotations_are_withheld[showing \"Total net sales 32,667.3\" and \"Net income 9,609.4\" for 2025 [3].-expected0]",
+   "FAILED tests/unit/test_copilot_prose_quotations.py::test_short_stitched_label_and_cell_is_a_known_limit",
+   "3 failed, 21 passed, 9 warnings in 3.08s"
+  ]
+ },
+ {
+  "mutation": "M03 interior ellipsis always in scope",
+  "exit": 1,
+  "tail": [
+   "FAILED tests/unit/test_copilot_prose_quotations.py::test_composed_or_unpairable_quotations_are_withheld[which report \"Revenue ... 996,347\" for the year [2].-expected1]",
+   "FAILED tests/unit/test_copilot_prose_quotations.py::test_composed_or_unpairable_quotations_are_withheld[\"Net income for 2025 was \\u20ac9,609.4 million\" and \"Revenue . . . 996,347\" [1]-expected3]",
+   "FAILED tests/unit/test_copilot_prose_quotations.py::test_missing_source_text_fails_closed[]",
+   "FAILED tests/unit/test_copilot_prose_quotations.py::test_missing_source_text_fails_closed[None]",
+   "4 failed, 20 passed, 9 warnings in 3.14s"
+  ]
+ },
+ {
+  "mutation": "M04 shared normalizer",
+  "exit": 1,
+  "tail": [
+   "FAILED tests/unit/test_copilot_prose_quotations.py::test_contiguous_quotations_and_short_terms_publish[\"Net income for 2025 amounted to \\u20ac9,609.4 million [1], representing 29.4% of total net sales\"]",
+   "1 failed, 23 passed, 9 warnings in 2.94s"
+  ]
+ },
+ {
+  "mutation": "M05 missing source fails closed",
+  "exit": 1,
+  "tail": [
+   "FAILED tests/unit/test_copilot_prose_quotations.py::test_missing_source_text_fails_closed[]",
+   "FAILED tests/unit/test_copilot_prose_quotations.py::test_missing_source_text_fails_closed[None]",
+   "2 failed, 22 passed, 9 warnings in 3.06s"
+  ]
+ },
+ {
+  "mutation": "M06 unpairable marks fail closed",
+  "exit": 1,
+  "tail": [
+   "FAILED tests/unit/test_copilot_prose_quotations.py::test_composed_or_unpairable_quotations_are_withheld[The table shows \"Total net sales 32,667.3 [1].-expected6]",
+   "1 failed, 23 passed, 9 warnings in 3.05s"
+  ]
+ },
+ {
+  "mutation": "M07 edge punctuation is not quoted text",
+  "exit": 1,
+  "tail": [
+   "FAILED tests/unit/test_copilot_prose_quotations.py::test_contiguous_quotations_and_short_terms_publish[The filing says \"Net income for 2025 amounted to \\u20ac9,609.4 million, representing 29.4% of total net sales [1].\"]",
+   "1 failed, 23 passed, 9 warnings in 3.04s"
+  ]
+ },
+ {
+  "mutation": "M08 citation markers are not quoted text",
+  "exit": 1,
+  "tail": [
+   "FAILED tests/unit/test_copilot_prose_quotations.py::test_contiguous_quotations_and_short_terms_publish[The filing says \"Net income for 2025 amounted to \\u20ac9,609.4 million, representing 29.4% of total net sales [1]\".]",
+   "FAILED tests/unit/test_copilot_prose_quotations.py::test_contiguous_quotations_and_short_terms_publish[The filing says \"Net income for 2025 amounted to \\u20ac9,609.4 million, representing 29.4% of total net sales [1].\"]",
+   "FAILED tests/unit/test_copilot_prose_quotations.py::test_contiguous_quotations_and_short_terms_publish[\"Net income for 2025 amounted to \\u20ac9,609.4 million [1], representing 29.4% of total net sales\"]",
+   "3 failed, 21 passed, 9 warnings in 3.10s"
+  ]
+ },
+ {
+  "mutation": "M09 curly and low-9 marks count",
+  "exit": 1,
+  "tail": [
+   "FAILED tests/unit/test_copilot_prose_quotations.py::test_composed_or_unpairable_quotations_are_withheld[showing \\u201eTotal net sales 32,667.3\\u201d [3].-expected4]",
+   "1 failed, 23 passed, 9 warnings in 3.15s"
+  ]
+ },
+ {
+  "mutation": "M10 literal span checked before marker stripping",
+  "exit": 1,
+  "tail": [
+   "FAILED tests/unit/test_copilot_prose_quotations.py::test_contiguous_quotations_and_short_terms_publish[\"As shown in Note [7] to the financial statements\" [1]]",
+   "1 failed, 23 passed, 9 warnings in 2.99s"
+  ]
+ },
+ {
+  "mutation": "restored",
+  "exit": 0,
+  "tail": [
+   "26 passed, 17 warnings in 4.72s"
+  ]
+ }
+]
