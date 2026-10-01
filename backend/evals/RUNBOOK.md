@@ -723,6 +723,7 @@ reused as year labels on gross-profit/net-income figures).
 | Publication admission | text `[n]` | an answer must contain a complete citation envelope and array with unambiguous referenced identities; every referenced excerpt must pass the existing source matcher | whole answer withheld with an application error; no draft prose is published |
 | Excerpt verification | text `[n]` | excerpt matches the normalized filing (`verify_excerpt_in_text`) | referenced failed evidence prevents completion; unused failed declarations remain omitted |
 | Final numbering | both | an unresolved literal numeric marker must not acquire an unrelated citation's number | whole answer withheld with an application error |
+| Prose quotations (decision F) | — | `unsupported_prose_quotations`: in the answer and in a not-disclosed reason, read as rendered (react-markdown + remark-gfm), every double-quoted span of at least `_MIN_VERIFIABLE_LEN` normalized characters, or with an interior ellipsis, must occur contiguously in the normalized filing; the quote marks must admit exactly one balanced reading within the work bounds. Single quotes, guillemets, other marks and blockquotes are not checked (decided scope), and shorter quoted spans are labels | whole answer withheld with an application error; only the reason code is logged; never repaired |
 | Marker resolution | both | every inline marker resolves to a declared source | unresolvable F-marker stripped from prose |
 | Value adjacency | fact `[Fn]` | a figure matching the fact's value (display-rounding tolerance) must sit in the claim span before the marker — bounded by the previous marker | occurrence stripped, counted as misplaced |
 | Concept adjacency | fact `[Fn]` | the claim span must not name a *different* curated metric while never naming the fact's own (right value, wrong label — `_CONCEPT_SYNONYMS`) | occurrence stripped, counted as misplaced |
@@ -803,7 +804,7 @@ prompt change with its own evidence requirements.
 `tests/unit/test_copilot_citation_repair.py::test_quarterly_point_in_an_annual_filing_never_certifies`
 drives that whole transformation through production code.
 
-**Offline gates (CI, free, every PR):** `pytest tests/unit/test_copilot.py tests/unit/test_copilot_evals.py tests/unit/test_copilot_citation_repair.py tests/unit/test_copilot_paired_claims.py -q`
+**Offline gates (CI, free, every PR):** `pytest tests/unit/test_copilot.py tests/unit/test_copilot_evals.py tests/unit/test_copilot_citation_repair.py tests/unit/test_copilot_paired_claims.py tests/unit/test_copilot_prose_quotations.py -q`
 — covers the resolver's strip/keep behavior and the eval scorers (including `score_fact_marker_adjacency`,
 which re-runs the SAME production matcher + window rule over the final answer, so a resolver
 regression can't hide from the harness).

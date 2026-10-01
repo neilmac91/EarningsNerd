@@ -208,6 +208,9 @@ def _publication_case(name):
         before = answer if name == "mixed_not_disclosed" else ""
         if name == "nd_citations":
             reason += "\n===CITATIONS===\n" + json.dumps([bad])
+        elif name == "nd_prose_quote":
+            # Decision F: a not-disclosed reason is published prose; quoting text the filing lacks withholds it.
+            reason = 'The filing only says "Forward guidance is withheld for competitive reasons".'
         elif name == "nd_repeated":
             reason += "\n===NOT_DISCLOSED===\nContradictory second verdict."
         elif name == "nd_blank_reason":
@@ -273,7 +276,7 @@ def _publication_case(name):
     "nd_bare", "nd_missing_followups", "nd_partial_reason", "nd_partial_sentinel", "nd_blank_reason",
     "nd_empty_followups", "nd_truncated_array", "nd_truncated_question", "nd_repairable", "nd_object",
     "nd_empty_array", "nd_one_question", "nd_four_questions", "nd_nonstring", "nd_blank_question",
-    "nd_prefix", "nd_suffix", "nd_followup_citations", "nd_normal", "nd_three_questions",
+    "nd_prefix", "nd_suffix", "nd_followup_citations", "nd_normal", "nd_three_questions", "nd_prose_quote",
     "nd_bare_pro", "not_disclosed_pro",
 ])
 async def test_service_publication_boundary(client, monkeypatch, case):

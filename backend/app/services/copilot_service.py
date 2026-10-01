@@ -24,11 +24,14 @@ import json
 import logging
 import math
 from datetime import date
+import html
 import re
 import unicodedata
 from time import monotonic
 from types import SimpleNamespace
 from typing import Any, AsyncGenerator, Callable, Optional
+
+from markdown_it import MarkdownIt
 
 from app.config import settings
 from app.services import citation_markers, copilot_tools
@@ -470,83 +473,212 @@ def _verify_citations(
     return by_marker
 
 
-# Prose quotations (decision F). Double-quote marks are the ones normalize_for_match folds to '"'.
-# Single quotes are left alone (apostrophes).
-_QUOTE_MARK_RE = re.compile('["\u201c\u201d\u201e]')
+# Prose quotations (decision F). The marks are the double quotes normalize_for_match folds to '"'
+# (straight, “ ” „) plus ‟ (U+201F) and the fullwidth ＂ (U+FF02). Single quotes are left alone
+# (apostrophes), and so is ″ (U+2033): an inch or seconds sign far more often than a quote.
+_STRAIGHT_QUOTE_MARKS = '"\uff02'
+_CLOSING_QUOTE_MARK = "\u201d"
+_QUOTE_MARK_RE = re.compile('["\uff02\u201c\u201d\u201e\u201f]')
 _QUOTE_EDGE_CHARS = " \t\r\n\u00a0.,;:!?\u2026"
 _QUOTE_ELLIPSIS_RE = re.compile(r"\.\s*\.\s*\.|\u2026")
-# Straight marks whose neighbours leave their direction open multiply the readings to enumerate;
-# past this many the answer fails closed instead.
-_MAX_UNDIRECTED_QUOTE_MARKS = 12
+# The work per answer is bounded: an answer that may quote and is longer than this, holds more
+# quote marks than this, or whose quotations (nested ones counted again) span more characters than
+# this, fails closed unchecked. The retained evaluation answers hold at most 8 marks in 330 characters.
+_MAX_QUOTED_ANSWER_CHARS = 20_000
+_MAX_QUOTE_MARKS = 64
+_MAX_QUOTED_CHARS = 20_000
+_QUOTE_HINT_RE = re.compile('["\uff02\u201c\u201d\u201e\u201f&]')
+# Readers see the answer rendered by react-markdown 10 with remark-gfm: CommonMark with raw HTML shown
+# as text, plus GFM tables and strikethrough. markdown-it-py parses the same CommonMark and tables;
+# every other difference that can move or hide text fails closed:
+# - tildes stay text here, and a delimiter left as text may still vanish when displayed
+#   (strikethrough; emphasis and code-span edge cases), so a direction one decides is ambiguous,
+#   while quoted text is matched as written, delimiters included;
+# - a footnote definition shows text that markdown-it hides;
+# - GFM shows a bare URL verbatim, so one that markdown-it would not show verbatim is ambiguous.
+_MARKDOWN = MarkdownIt("commonmark", {"html": False}).enable("table")
+_MARKDOWN_BLOCK_ENDS = frozenset({
+    "paragraph_close", "heading_close", "blockquote_close", "list_item_close", "bullet_list_close",
+    "ordered_list_close", "tr_close", "th_close", "td_close",
+})
+_MAYBE_HIDDEN = "*_~`"
+_FOOTNOTE_DEFINITION_RE = re.compile(r"^ {0,3}\[\^[^\]\s]+\]:", re.MULTILINE)
+_BARE_URL_RE = re.compile(r"(?:https?://|www\.)[^\s<]+", re.IGNORECASE)
+_MARKDOWN_IN_URL_RE = re.compile(r"&[#A-Za-z0-9]+;|[\\*_~`\[\]]")
+
+
+def _rendered_text(answer: str) -> str:
+    """The answer's text as a reader sees it: markdown syntax, link destinations and images do not
+    show, escapes and character references show their characters, block ends show as line breaks,
+    and format characters (Unicode Cf) do not show. Used only to decide; never published."""
+    parts: list[str] = []
+    for token in _MARKDOWN.parse(answer):
+        if token.type == "inline":
+            for child in token.children or ():
+                if child.type in ("text", "code_inline"):
+                    parts.append(child.content)
+                elif child.type in ("softbreak", "hardbreak"):
+                    parts.append("\n")
+        elif token.type in ("code_block", "fence"):
+            parts.append(token.content)
+        elif token.type in _MARKDOWN_BLOCK_ENDS:
+            parts.append("\n")
+    return "".join(char for char in "".join(parts) if unicodedata.category(char) != "Cf")
 
 
 def _is_punctuation(char: str) -> bool:
     return unicodedata.category(char)[0] in "PS"
 
 
-def _quotation_reading(answer: str) -> list[tuple[int, int]] | str:
-    """(opening, closing) mark offsets of the one reading the marks admit, outer before inner.
+def _beside(text: str, at: int, step: int) -> set[str]:
+    """What a reader may see just before (step -1) or after (step 1) the mark at ``at``.
 
-    “ (U+201C) and „ (U+201E) open and ” (U+201D) closes; any other direction comes from a mark's
-    neighbours, as CommonMark reads emphasis. A mark can open when the next character is not
-    whitespace and is not punctuation (Unicode P or S) unless whitespace or punctuation precedes
-    the mark; closing mirrors this. A straight mark that can do both or neither may do either.
-    So '"x "y" z"' and '"x ("y") z"' read only as nested quotations, and every span is checked.
-    Returns a reason code instead when a curly mark faces the wrong way, when no balanced
-    reading exists, or when more than one does.
+    Combining marks draw on a neighbour, so they are passed over; text edges read as whitespace. A
+    delimiter left as text may still vanish when displayed, so beside one the character beyond it is
+    possible too.
     """
-    marks: list[tuple[int, str]] = []
-    for match in _QUOTE_MARK_RE.finditer(answer):
-        at, glyph = match.start(), match.group()
-        before = answer[at - 1] if at else " "
-        after = answer[at + 1] if at + 1 < len(answer) else " "
-        opens = not after.isspace() and (
-            not _is_punctuation(after) or before.isspace() or _is_punctuation(before))
-        closes = not before.isspace() and (
-            not _is_punctuation(before) or after.isspace() or _is_punctuation(after))
-        if glyph == '"':
-            marks.append((at, "either" if opens == closes else "open" if opens else "close"))
-        elif (closes if glyph == "\u201d" else opens):
-            marks.append((at, "close" if glyph == "\u201d" else "open"))
+    seen: set[str] = set()
+    index = at + step
+    while True:
+        while 0 <= index < len(text) and unicodedata.category(text[index]) in ("Mn", "Me"):
+            index += step
+        char = text[index] if 0 <= index < len(text) else " "
+        seen.add(char)
+        if char not in _MAYBE_HIDDEN:
+            return seen
+        index += step
+
+
+def _straight_reading(marks: list[tuple[int, str]]) -> tuple[int, list[tuple[int, int]]]:
+    """How many balanced readings one stretch of straight marks admits (0, 1, or 2 for two or more),
+    and the pairs of the reading when there is exactly one.
+
+    ``layers[k]`` maps each depth reachable after ``k`` marks to the number of readings reaching it,
+    capped at 2, so the work is marks times depths rather than the number of readings.
+    """
+    layers: list[dict[int, int]] = [{0: 1}]
+    for _, role in marks:
+        layer: dict[int, int] = {}
+        for depth, count in layers[-1].items():
+            if role != "close":
+                layer[depth + 1] = min(2, layer.get(depth + 1, 0) + count)
+            if role != "open" and depth:
+                layer[depth - 1] = min(2, layer.get(depth - 1, 0) + count)
+        layers.append(layer)
+    count = layers[-1].get(0, 0)
+    if count != 1:
+        return count, []
+    # Walk the one reading back from its end: each step on it has exactly one predecessor.
+    closings: list[bool] = []
+    depth = 0
+    for index in range(len(marks), 0, -1):
+        closing = marks[index - 1][1] != "open" and depth + 1 in layers[index - 1]
+        closings.append(closing)
+        depth += 1 if closing else -1
+    opened: list[int] = []
+    pairs: list[tuple[int, int]] = []
+    for (at, _), closing in zip(marks, reversed(closings)):
+        if closing:
+            pairs.append((opened.pop(), at))
         else:
-            return "ambiguous_quotation"
-    if sum(role == "either" for _, role in marks) > _MAX_UNDIRECTED_QUOTE_MARKS:
+            opened.append(at)
+    return 1, pairs
+
+
+def _quotation_reading(text: str) -> list[tuple[int, int]] | str:
+    """(opening, closing) mark offsets of the one reading the marks admit.
+
+    “ „ ‟ open and ” closes; a straight mark takes its direction from its neighbours, as CommonMark
+    reads emphasis. A mark can open when the next character is not whitespace and is not
+    punctuation (Unicode P or S) unless whitespace or punctuation precedes the mark; closing
+    mirrors this. A straight mark that can do both or neither may do either. Curly marks pair
+    with curly marks by glyph; straight marks pair only with straight marks of the same stretch
+    between curly marks. So '"x "y" z"' and '"x ("y") z"' read only as nested quotations, and
+    every span is checked. Every balanced reading is counted (``_straight_reading``). Returns a
+    reason code instead when a curly mark faces the wrong way, when a mark's direction depends on
+    whether a delimiter shows, when no balanced reading exists, when more than one does, or when
+    there are more than ``_MAX_QUOTE_MARKS`` marks.
+    """
+    found = list(_QUOTE_MARK_RE.finditer(text))
+    if len(found) > _MAX_QUOTE_MARKS:
         return "ambiguous_quotation"
-    readings: list[list[tuple[int, int]]] = []
-    branches: list[tuple[int, tuple[int, ...], tuple[tuple[int, int], ...]]] = [(0, (), ())]
-    while branches and len(readings) < 2:
-        index, opened, pairs = branches.pop()
-        if index == len(marks):
-            if not opened:
-                readings.append(sorted(pairs))
-            continue
-        at, role = marks[index]
-        if role != "close":
-            branches.append((index + 1, opened + (at,), pairs))
-        if role != "open" and opened:  # tried first: the left-to-right reading comes first
-            branches.append((index + 1, opened[:-1], pairs + ((opened[-1], at),)))
-    if not readings:
+    curly_open: list[int] = []
+    stretches: dict[int, list[tuple[int, str]]] = {-1: []}
+    pairs: list[tuple[int, int]] = []
+    for match in found:
+        at, glyph = match.start(), match.group()
+        roles: set[str | bool] = set()
+        for before in _beside(text, at, -1):
+            for after in _beside(text, at, 1):
+                opens = not after.isspace() and (
+                    not _is_punctuation(after) or before.isspace() or _is_punctuation(before))
+                closes = not before.isspace() and (
+                    not _is_punctuation(before) or after.isspace() or _is_punctuation(after))
+                if glyph in _STRAIGHT_QUOTE_MARKS:
+                    roles.add("either" if opens == closes else "open" if opens else "close")
+                else:
+                    roles.add(closes if glyph == _CLOSING_QUOTE_MARK else opens)
+        if len(roles) > 1 or False in roles:
+            return "ambiguous_quotation"
+        if glyph in _STRAIGHT_QUOTE_MARKS:
+            stretches[curly_open[-1] if curly_open else -1].append((at, roles.pop()))
+        elif glyph != _CLOSING_QUOTE_MARK:
+            curly_open.append(at)
+            stretches[at] = []
+        elif curly_open:
+            pairs.append((curly_open.pop(), at))
+        else:
+            return "unbalanced_quotation"
+    if curly_open:
         return "unbalanced_quotation"
-    return readings[0] if len(readings) == 1 else "ambiguous_quotation"
+    counts: list[int] = []
+    for marks in stretches.values():
+        count, stretch_pairs = _straight_reading(marks)
+        counts.append(count)
+        pairs += stretch_pairs
+    if 0 in counts:
+        return "unbalanced_quotation"
+    return "ambiguous_quotation" if max(counts) > 1 else sorted(pairs)
 
 
 def unsupported_prose_quotations(answer: str, normalized_source: str) -> list[str]:
-    """Reason codes for final-prose quotations the filing text cannot show contiguously.
+    """Reason codes for published double-quoted spans the filing text cannot show contiguously.
 
-    A quotation is in scope when the citation verifier could verify it (``_MIN_VERIFIABLE_LEN``
-    after the shared normalization) or it contains an interior ellipsis; shorter quoted terms
-    ("ROE", "Gross margin") are labels, not source quotations. An in-scope quotation must occur
+    Only double quotation marks are in scope; single quotes, guillemets, other marks and markdown
+    blockquotes are not checked. The answer is read as rendered (``_rendered_text``), for this
+    decision only; the published answer is never rewritten. A quotation is in scope when the
+    citation verifier could verify it (``_MIN_VERIFIABLE_LEN`` after the shared normalization, the
+    one place this floor is read) or it contains an interior ellipsis; shorter quoted terms ("ROE",
+    "Gross margin") are labels, not source quotations. An in-scope quotation must occur
     contiguously in ``normalized_source``; citation markers and edge punctuation are not quoted
-    text. A nested quotation is checked both whole and inner. Missing source text, and marks
-    that admit no reading or more than one, fail closed. Nothing is repaired or stitched: any
-    reason withholds the whole answer.
+    text. A nested quotation is checked both whole and inner, and reasons follow the opening
+    marks, so an outer quotation's reason precedes its inner one's. Missing source text, marks
+    that admit no reading or more than one, and answers past the work bounds fail closed. Nothing
+    is repaired or stitched: any reason withholds the whole answer.
     """
-    reading = _quotation_reading(answer)
+    if not _QUOTE_HINT_RE.search(answer):
+        return []
+    if len(answer) > _MAX_QUOTED_ANSWER_CHARS:
+        return ["ambiguous_quotation"]
+    text = _rendered_text(answer)
+    diverges = _FOOTNOTE_DEFINITION_RE.search(answer) or any(
+        _MARKDOWN_IN_URL_RE.search(url) and url.removesuffix(">") not in text
+        for url in _BARE_URL_RE.findall(answer))
+    if diverges and _QUOTE_MARK_RE.search(html.unescape(answer)):
+        return ["ambiguous_quotation"]
+    return _rendered_quotation_reasons(text, normalized_source)
+
+
+def _rendered_quotation_reasons(text: str, normalized_source: str) -> list[str]:
+    """``unsupported_prose_quotations`` on text as displayed."""
+    reading = _quotation_reading(text)
     if isinstance(reading, str):
         return [reading]
+    if sum(end - start for start, end in reading) > _MAX_QUOTED_CHARS:
+        return ["ambiguous_quotation"]
     reasons: list[str] = []
     for start, end in reading:
-        raw = answer[start + 1:end]
+        raw = text[start + 1:end]
         content = _COPILOT_MARKER_RE.sub(" ", raw).strip(_QUOTE_EDGE_CHARS)
         needle = normalize_for_match(content)
         elided = bool(_QUOTE_ELLIPSIS_RE.search(content))
@@ -556,8 +688,16 @@ def unsupported_prose_quotations(answer: str, normalized_source: str) -> list[st
             reasons.append("quotation_source_unavailable")
         elif (needle not in normalized_source
               and normalize_for_match(raw.strip(_QUOTE_EDGE_CHARS)) not in normalized_source):
+            # Literal second: a filing can print "Note [7]".
             reasons.append("elided_quotation" if elided else "quotation_not_in_source")
     return reasons
+
+
+def _withhold_unsupported_quotations(prose: str, normalized_source: str) -> None:
+    """Raise when published prose quotes text the filing cannot show; the log gets only the code."""
+    failures = unsupported_prose_quotations(prose, normalized_source)
+    if failures:
+        raise _UnpublishableAnswer(f"Unsupported prose quotation: {failures[0]}")
 
 
 def _safe_activity_label(info: dict) -> str:
@@ -1367,6 +1507,7 @@ async def answer_filing_question(
                     or any(not isinstance(item, str) or not item.strip() for item in nd_followups)):
                 raise _UnpublishableAnswer("Invalid not-disclosed followups array")
             nd_followups = [item.strip()[:140] for item in nd_followups]
+            _withhold_unsupported_quotations(answer, normalized_source)
             yield {"type": "not_disclosed", "answer": answer}
             yield {
                 "type": "complete",
@@ -1444,9 +1585,7 @@ async def answer_filing_question(
         if any(str(cite["n"]) in unresolved_literals or cite["verified"] is not True
                for cite in verified_citations):
             raise _UnpublishableAnswer("Unverified or colliding final citation")
-        quotation_failures = unsupported_prose_quotations(full_answer, normalized_source)
-        if quotation_failures:
-            raise _UnpublishableAnswer(f"Unsupported prose quotation: {quotation_failures[0]}")
+        _withhold_unsupported_quotations(full_answer, normalized_source)
         if misplaced:
             # Trust telemetry: a nonzero rate here means the model is attaching fact markers to
             # figures they don't support — watch this after any prompt/model change.
