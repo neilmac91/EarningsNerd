@@ -20,7 +20,7 @@ handover package `earningsnerd-opus-5-5-handover` (SHA256SUMS verified). Checked
   Last Actions-secret readout: USD 46.55 at 2026-09-29T23:39Z (run 36646363746) — consistent with
   the same account; the Actions dispatch API is not available to this session (403).
 - Hard floor for new paid dispatch: balance must stay ≥ **USD 44.17** and telemetry-estimated
-  cumulative spend ≤ USD 2.00. Other agents share the account, so balance deltas are a cross-check;
+  cumulative spend ≤ USD 2.00 (superseded at ~22:25Z: ceiling USD 10.00 → floor USD 36.17). Other agents share the account, so balance deltas are a cross-check;
   run telemetry is the primary accounting.
 - Paid triggers: `ci.yml` `eval-baseline` runs on EVERY `pull_request` opened/synchronize/reopened
   touching `backend/app|evals|prompts` (drafts included; historically USD 0.18–0.38 per run);
@@ -32,6 +32,8 @@ handover package `earningsnerd-opus-5-5-handover` (SHA256SUMS verified). Checked
 | D2 | #1038 ready → copilot-eval [36798834277](https://github.com/neilmac91/EarningsNerd/actions/runs/36798834277) at `9d7fa56f` (balance 45.98 at 22:44Z) | 0.05 | 0.010511 (28 calls, 0 unknown) | done: accepted 18/18; 0 composed quotes |
 | D3 | #1039 (#942 successor) push → eval-baseline [36799996921](https://github.com/neilmac91/EarningsNerd/actions/runs/36799996921) at `4d036b48` (peak window) | 0.50 | 0.347042 (70 calls, 0 unknown; tokens × llm_pricing × 2) | done: 70/70 pass, gate pass |
 | D4 | #952 ready → copilot-eval [36800236360](https://github.com/neilmac91/EarningsNerd/actions/runs/36800236360) at `551f4808` | 0.05 | 0.011508 (30 calls, 0 unknown) | done: accepted 18/18; 1 composed quote (ASML d0, main code) |
+| D5 | #1021 push of integrated head `c4629ffc` → eval-baseline (peak window; balance 45.80 at 02:50:38Z) | 0.50 | pending | reserved |
+| D6 | #1021 ready → copilot-eval at `c4629ffc` (one run; pre-registered policy) | 0.05 | pending | reserved |
 
 ## Lanes
 
