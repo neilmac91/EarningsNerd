@@ -26,9 +26,11 @@ from app.models import Summary, UsageReservation, User, UserUsage
 from app.services import subscription_service as usage
 
 
-# Never the wall-clock month: a case that seeds MONTH but lets admission read the clock fails
-# at once instead of on a calendar date (MONTH = "2026-09" broke two cases on 2026-10-01).
+# Never the wall-clock month: a case whose outcome depends on the admission month fails at once
+# when it forgets to pin, instead of on a calendar date (MONTH = "2026-09" broke two cases on
+# 2026-10-01). ROLLOVER_MONTH is the different month a rollover case moves the clock to.
 MONTH = "2000-01"
+ROLLOVER_MONTH = "2000-02"
 WRITERS = [(usage.increment_user_usage, "summary_count"),
            (usage.increment_user_qa, "qa_count"), (usage.increment_user_analysis, "analysis_count")]
 TABLES = [User.__table__, UserUsage.__table__, UsageReservation.__table__]
@@ -76,6 +78,14 @@ def _rows(engine, user_id):
     with Session(engine) as db:
         return [(r.id, r.summary_count, r.qa_count, r.analysis_count)
                 for r in db.query(UserUsage).filter_by(user_id=user_id, month=MONTH).order_by(UserUsage.id)]
+
+
+def test_fixture_months_are_sentinels_the_clock_never_returns():
+    """lessons/test-fixture-months-are-never-the-wall-clock-month.md: a seeded month the clock can
+    return lets an unpinned case pass until the calendar moves past it."""
+    for month in (MONTH, ROLLOVER_MONTH):
+        assert month <= "2000-12" and month != usage.get_current_month()
+    assert MONTH != ROLLOVER_MONTH
 
 
 @pytest.mark.parametrize("value", [0, -1, 10001, 0.5, float("inf"), float("nan")])
@@ -477,7 +487,7 @@ def test_postgres_parallel_taste_reservations_admit_exactly_the_lifetime_allowan
             [(usage.QA_TASTE_RESERVATION_KIND, usage.LIFETIME_SCOPE)]
         # A month rollover between admission and the next question changes nothing for a
         # lifetime allowance: the held lease is still seen, the request is still refused.
-        monkeypatch.setattr(usage, "get_current_month", lambda: "2000-02")
+        monkeypatch.setattr(usage, "get_current_month", lambda: ROLLOVER_MONTH)
         assert usage.reserve_qa_taste_use(_load_user(db, uid), db) == (False, 1, 2, None)
         # Completion converts into the users-row counter; the allowance is then spent for good.
         assert usage.convert_reservation(token, db) == usage.LIFETIME_SCOPE
