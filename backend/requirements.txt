@@ -64,7 +64,9 @@ filelock==3.29.4
 fonttools==4.63.0
     # via weasyprint
 greenlet==3.5.6
-    # via -r requirements.in
+    # via
+    #   -r requirements.in
+    #   sqlalchemy
 h11==0.16.0
     # via
     #   httpcore
@@ -136,7 +138,7 @@ pillow==12.3.0
     # via weasyprint
 pluggy==1.6.0
     # via pytest
-posthog==7.60.0
+posthog==7.60.1
     # via -r requirements.in
 psycopg2-binary==2.9.13
     # via -r requirements.in
@@ -259,7 +261,7 @@ typing-inspection==0.4.2
     #   pydantic-settings
 unidecode==1.4.0
     # via edgartools
-urllib3==2.7.0
+urllib3==2.8.0
     # via
     #   requests
     #   sentry-sdk
