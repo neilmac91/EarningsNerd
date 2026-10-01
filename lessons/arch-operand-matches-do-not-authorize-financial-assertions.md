@@ -73,3 +73,37 @@ source-adverse gate covers scales three and six, including signed values that
 scale to exactly the accepted limit, and JSON-encodes accepted source/bound-summary
 shapes. Negation preserves the decimal digit count; later source arithmetic only
 compares values and does not store larger derived integers.
+
+For the reconciliation-direction successor, own the complete three-sentence
+shape before removing its middle interpretation. Preserve the first and third
+as separate, exact authored sentences; a dependent third sentence or unknown
+prefix/tail must abstain. Untagged operands may select only a nonassertive
+capability limitation after bounded identity, period, unit, geometry, and complete
+local-context checks. Global source assertion status remains unestablished.
+The existing complete-interpretation consumer gate retains all 87 assessment
+controls through actual final/preview/shared/PDF/CSV, plus metadata privacy,
+recovery, alias and original-admission-before-repair controls. Assessment failures
+are retained; the old positive reconstruction and formal E7 decision remain held.
+
+A relative causal clause can follow an independent authored numeric statement.
+Withhold only the complete recognized interpretation while preserving that prefix
+and its original terminal punctuation in a separate authored channel, just as the
+existing continuation is preserved. The shared display helper orders both authored
+channels around the application capability limitation. Do not relabel preserved
+financial text as verified source prose. Whole-field admission still rejects unknown
+prefixes, tails, qualifications and conflicting populated aliases.
+
+For the separate current-level explanation branch, a complete same-form native
+paragraph with matching operands conservatively excludes withholding. This is an
+exclusion only: qualified or hypothetical enclosing text does not become assertion
+authority. Store only finite component/asset selectors under the existing quarterly
+kind, which stays excluded from generator, judge, acceptance and Copilot evidence.
+The existing owner/consumer and source-scope gates cover exact authored spans,
+recovered assembly, forged ownership, complete-source preservation and context
+projection. Fullmatch-to-search and source-exclusion-omission are distinct fault
+proofs; unchanged annual and earlier quarterly cases remain in the same gates.
+
+Preserved model-authored prefixes remain in the explicit prose-slot allowlist used
+by figure tracing and scale restoration after binding. Source-correlated operands
+do not exempt their displayed prose. Keep source records, audits and application
+paragraphs outside that allowlist; never replace it with a recursive record scan.
