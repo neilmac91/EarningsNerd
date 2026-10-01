@@ -20,6 +20,13 @@ psql "host=127.0.0.1 port=5432 dbname=<db> user=<read-capable user>" -f census.s
 
 Paste the output table into PR #1029 or #1039.
 
+### Cloud SQL Studio (single statement)
+
+Some consoles, Cloud SQL Studio included, may not accept explicit `BEGIN`/`ROLLBACK` statements. For those, paste `census_select_only.sql` instead.
+- It is the same query as `census.sql`, byte for byte, but as one `SELECT` with no transaction statements. A lone `SELECT` writes nothing.
+- SHA-256: `census.sql` is `2e9284b9…4823c`; `census_select_only.sql` is `f16e21b1…611b2`.
+- It was re-checked on a local PostgreSQL 16 scratch database.
+
 ## Classes
 
 The classes follow `app/services/edgar/xbrl_service.py` on main `0032bca8`. Classes 5–8 are the affected population.
