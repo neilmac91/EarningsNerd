@@ -480,3 +480,16 @@ Under the founder's delegation, Codex decided items A–M on #1029. This session
     - 384 copilot tests pass on an archive snapshot.
   - **Process note:** both reviewers shared one worktree, and the rules reviewer's in-place mutations briefly dirtied it. The adversarial reviewer switched to a `git archive` snapshot. Future parallel reviews should each get their own snapshot.
   - **Next:** round 5 is held until the rules, tests and dependency review reports, then one combined brief goes out.
+- 17:15Z — **F final review of rules, tests and dependencies at `feb90f60`: changes-needed, no blocker.**
+  - **Should-fix:**
+    - S1: raw HTML blocks are read as markdown but displayed verbatim. Fuzzing found 7 fail-open cases, all HTML.
+    - S2: the not-disclosed reason is checked as markdown but displayed as plain text, and the RUNBOOK row claiming it is "read as rendered" is inaccurate.
+    - S3: mutations M1, M2 and M4 survive. M4 means an invented quote in a code block publishes.
+  - **Passes:** rules, Codex rulings, the dependency (pin unchanged; rich requires `>=2.2.0` with no cap; Dockerfile installs requirements.txt), and the replay (0 row changes). Gate: 4846 passed. Merge with main: clean, 288 + 144 tests passed.
+  - **Round 5 sent to the F agent.** The projection becomes an **allowlist** of safe tokens. Any quote mark plus a construct outside it gives `ambiguous_quotation`. That covers raw HTML (detected on the raw text, not `html: True`, to avoid markdown-it-py's quadratic inline-HTML parsing), images, link titles, reference links, footnotes anywhere, and the nesting cap.
+    - The not-disclosed reason and **follow-up chips** are checked as plain text. A failing chip withholds the whole response (existing semantics).
+    - Code content is projected verbatim. All default-ignorable code points are dropped.
+    - The URL guard becomes token-aware, which fixes EDGAR `_` links.
+    - Bound: about 8k characters, plus `to_thread` if the call site is async.
+    - Mutation-survivor controls added, and the other double-quote glyphs are pinned.
+  - **Follow-up (iii) record:** extend containment to single quotes, guillemets and other double-quote glyphs (〝〞〟 ❝❞ 🙶🙷 ʺ) and blockquotes, after F, starting from its own replay.
