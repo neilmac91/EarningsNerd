@@ -578,3 +578,24 @@ Under the founder's delegation, Codex decided items A–M on #1029. This session
   - **Ordering and authorization:** no release goes ahead of B, and G's prerequisites are unchanged. No paid allocation or release approval.
   - **Limits on F's claim:** F claims only bounded prose-surface containment. Its evidence cannot establish Sources-panel or citation verification. If F's acceptance argument depends on a broader claim, flag that before release.
   - **Round 6:** offline and unapproved for release. The floor decision (24 → 8) is still pending with the founder. Both changes-needed reviews and the attribution tool's UNEXPLAINED and mismatch disclosures are preserved.
+- 21:10Z — **F round 6 delivered at `44b942de`** (8001b124 + 44b942de on top of 4e2b24c8; offline, unpushed; confirmed final with no running jobs).
+  - **Character gate** (all three surfaces; before parsing and again after entity decode) fails closed on:
+    - C0/C1 controls;
+    - U+1680, U+2028, U+2029, U+FEFF;
+    - bidi controls;
+    - RTL script blocks (the agent's addition; no retained answer has one).
+  - **Drop set** = ICU Default_Ignorable minus Bidi_Control minus FEFF. A test pins `isspace` outside the gate as equal to CommonMark whitespace.
+  - **Emphasis:** runs of three or more delimiters, leftover delimiters, and adjacent same-delimiter tokens fail closed. Fuzz (600k answers): 32 holes, then 0.
+  - **Parser:** warmed at import; a concurrency test fails without the warm-up.
+  - **Pre-parse screens** (including the new rule that more than 256 `[` fails closed): worst median latency is now 30 ms.
+  - **Tests:** mutation-killing tests R2–R10.
+  - **Attribution tool:** A1–A3 done. UNEXPLAINED exits 3; 2 UNEXPLAINED pre-trace rows are disclosed.
+  - **Thematic breaks** are now read, with parity evidence. Marker strip is limited to `\[F?\d{1,3}\]`. The quote hint is entity-like only. Lookalike glyphs are pinned.
+  - **Evidence:**
+    - gate: 5102 passed;
+    - mutations: 133 of 134 killed (M36 is defence in depth);
+    - replay: 0 row changes;
+    - display check: 0 holes in 538 cases plus 1.8M fuzzed answers;
+    - merge with main: clean (688 tests passed).
+  - **New benign costs:** `***bold italic***`, `*margin* is 5*3`, `grew![1]`, RTL script in quoting text.
+  - **Next:** final exact-head reviews running in the isolated `f-rev-a` (adversarial) and `f-rev-b` (rules, tests and evidence).
