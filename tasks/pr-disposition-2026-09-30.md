@@ -43,13 +43,62 @@ handover package `earningsnerd-opus-5-5-handover` (SHA256SUMS verified). Checked
 | #1012 | maintainer replacement, merge, close original | replacement [#1030](https://github.com/neilmac91/EarningsNerd/pull/1030) `claude/pr1012-posthog-7.60.1` `c8c56cee` | `1e56f3d2` | **#1030 merged** `c13b069a`, deployed `00423-wrg`; #1012 closed superseded |
 | #952 | repair current-inspection binding, merge tooling | `claude/attached-file-review-any8xz` | `1d48eb33`→`551f4808` | **merged** `e3aa33df`; deployed `00426-xqn` (verified); E8 judging parked |
 | #1021 | integrate main, qualify or hold draft | `codex/wave3-acquisition-period-withholding` | `55e89142`→`c4629ffc` | **merged** `0032bca8` (qualified: CI green, eval-baseline 70/70, Copilot 18/18, audit PASS); deploy verification pending |
-| #942 | fresh successor, close original | successor draft [#1039](https://github.com/neilmac91/EarningsNerd/pull/1039) `claude/pr942-successor` `4d036b48` (stamp `summary-2026-09-t`) | `47d040aa` | **#942 closed** superseded (comment 5922709320); #1039 blocked draft pending founder's scoped disposition; eval-baseline D3 running |
+| #942 | fresh successor, close original | successor draft [#1039](https://github.com/neilmac91/EarningsNerd/pull/1039) `claude/pr942-successor` `4d036b48` (stamp `summary-2026-09-t`) | `47d040aa` | **#942 closed** superseded (comment 5922709320); #1039 blocked draft: merge conditions 1 (so far) and 2 met (D3 70/70; source review comment 5922852309); waits only on founder's scoped disposition (condition 3); merge-tree vs main `0032bca8` clean, re-integrate + re-gate before any merge |
 | #1023 | close with successor, diagnose | successor draft [#1036](https://github.com/neilmac91/EarningsNerd/pull/1036) `claude/pr1023-diagnostic` `5a5ebf8a` | `d58c1a59` | **#1023 closed** (comment 5920729833); #1036 reviewed (no blocker; 5 should-fix fixed), retained as diagnostic draft |
-| #1009 | retain draft hold, document prerequisites | `codex/wave3-launch-pricing-offer` | `561dc2b8` | **held draft**; hold record comment 5920001935 |
+| #1038 (unplanned) | fix the 2026-10-01 month-rollover date bomb in migrations-postgres | `claude/fix-month-rollover-tests` | `9d7fa56f` | **merged** `ee30022a`; deployed `00425-xph` (verified) |
+| #1009 | retain draft hold, document prerequisites | `codex/wave3-launch-pricing-offer` | `561dc2b8` | **held draft**; hold record comment 5920001935; still conflicts with main only in `tasks/todo.md` |
 
 Merge-tree conflicts vs main at start: #1013/#1012 none; #952, #1023, #1009 `tasks/todo.md`;
 #1021 `lessons/README.md`; #942 `summary_versioning.py`, `continuation-plan-2026-09-26.md`,
 `tasks/todo.md`.
+
+## Final report (2026-10-01)
+
+| PR | Disposition target | Outcome | Evidence |
+| --- | --- | --- | --- |
+| #1013 | review, validate, merge | **merged** `e1914ea4` | frontend-only; main CI 36778453187 green; production serves posthog-js 1.434.14 |
+| #1012 | maintainer replacement, merge, close original | **#1030 merged** `c13b069a`; #1012 closed as superseded | deploy job 110106288262: `applied=0 skipped=40`, `00423-wrg` 100%, `/health/detailed` healthy |
+| #952 | bind recovery to a current inspection; merge tooling only | **merged** `e3aa33df`; E8 judging stays parked | deploy job 110175708793: `applied=0 skipped=40`, `00426-xqn` 100%, `/health/detailed` healthy |
+| #1021 | integrate main, verify tracing thread, qualify or hold | **merged** `0032bca8` | CI 36808107539 green; eval-baseline 70/70; Copilot 36809122540 18/18; pre-registered audit PASS; tracing thread resolved with evidence; deploy verification in progress (main CI 36819975322) |
+| #942 | fresh successor, close original, merge only if conditions hold | **#942 closed**; successor **#1039 blocked draft** | merge conditions 1 (so far) and 2 met; waits only on founder condition 3 |
+| #1023 | close with evidence; diagnostic draft | **#1023 closed**; **#1036 diagnostic draft** | reviewed, no blocker; experiment not run (needs authorization) |
+| #1009 | keep the pricing hold | **held draft** | hold record comment 5920001935; no pricing or Stripe change |
+| #1038 (unplanned) | fix the 2026-10-01 test date bomb that broke the required migrations-postgres check | **merged** `ee30022a` | deployed `00425-xph`, verified |
+| #1029 | durable checkpoint (this file) | draft, tasks-only | — |
+
+**Spend.** Six paid dispatches, telemetry total **USD 0.738531** against the USD 10.00 ceiling:
+- D1 0.005827
+- D2 0.010511
+- D3 0.347042
+- D4 0.011508
+- D5 0.351808
+- D6 0.011835
+
+All of it was deepseek-flash, with 0 unknown-cost calls. The DeepSeek balance went from USD 46.17 at 20:20Z to 45.62 at 03:08Z. Other agents share the account, so the balance is a cross-check, not the accounting.
+
+**Boundaries kept.** Nothing in this run touched any of the following:
+- pricing, Stripe prices or production flags;
+- E7 or E8 judging launches;
+- locked contract tests, thresholds or baseline pins;
+- retained evidence (none deleted);
+- Actions secrets or repository protections.
+
+Every required check ran; none was bypassed. Each review override is founder-approved and backed by an independent multi-round review of that exact line.
+
+**Decisions needed from the founder:**
+1. **#1039:** the scoped disposition (merge condition 3). Before any `t` drain, also decide how to treat filings whose persisted snapshot predates #925.
+2. **#942 artifact retention:** the earliest artifacts expire on 2026-10-06. The r report (artifact `10933338099`) expires on 2026-10-11 and is cited by main and by #1021's fixtures.
+3. **#1036:** whether to authorize the tool-nonexecution experiment (about USD 0.4–0.8, ceiling USD 1.00).
+4. **Composed prose quotes:** whether they become a CI gate (a separate verifier PR). On main's Copilot code the rate is 3 in 90 rows. The #1021 run happened to have none.
+5. **Codex review quota:** add credits, wait for a reset, or keep the founder-approved override practice.
+6. **#1009:** the release prerequisites listed in the hold record.
+7. **E7 custody:** #1021 changed `provider_requests.py`, which is in `MEASUREMENT_FILES`. Any E7 run bound to earlier instrumentation needs re-review before use.
+8. **Dependabot:** GitHub reports 2 high-severity alerts on main. This session cannot read the alert API, so they were not triaged.
+
+**Queued follow-ups (not done):**
+- On main, the same Unicode case-fold `KeyError` class exists in `ai/cash_claims.py:84` and `copilot_service.py:790` (suggested task).
+- The `_quarterly_claim` aggregate-branch sign check has no test.
+- An optional whole-document pre-check for the PLTR explanation scan.
 
 ## Log
 
