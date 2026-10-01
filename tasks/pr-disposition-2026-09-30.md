@@ -599,3 +599,36 @@ Under the founder's delegation, Codex decided items A–M on #1029. This session
     - merge with main: clean (688 tests passed).
   - **New benign costs:** `***bold italic***`, `*margin* is 5*3`, `grew![1]`, RTL script in quoting text.
   - **Next:** final exact-head reviews running in the isolated `f-rev-a` (adversarial) and `f-rev-b` (rules, tests and evidence).
+- 23:01Z — **Founder approved a separate 8-character prose minimum** (Codex relay, comment 5942350749). Citations stay at 24.
+  - **Approved:** F proceeds as the next stage, with Claude as implementation and release owner. Once the implementation and the final reviews of the current-main-integrated exact head are clear, the freeze hold and the paid F validation hold are lifted.
+  - **Process:** follow the draft-PR process with three predeclared runs inside F's USD 0.75 reservation, including automatic jobs. Read the balance and ledger before each paid trigger. The known shared remainder is USD 9.079138.
+  - **Not allowed:** no extra pilot, selective retry, budget reset or unchanged-head rerun.
+  - **F1 binding:** every withheld row must be causally attributed per surface and chip index, and each response counts once. UNEXPLAINED rows, missing evidence and benign parser rejections are never relabelled. Preserve the 2 UNEXPLAINED pre-trace rows and the 45 mismatches. F cannot claim Sources-panel verification.
+  - **Order:** E → F → verified deploy → B, once C is available. K may be integrated and reviewed offline, but stays later in the serial queue. #1034 and #1035 remain held. After the F merge, verify migration, revision, traffic, health and configured jobs before any next backend merge.
+- 23:05Z — **Container restarted twice.** Both final reviews of `44b942de` were interrupted. Their partial findings were retained from the progress files (scratchpad `frev6a-progress.md`, `frev6b-progress.md`).
+  - **Fail-open findings (frev6a):**
+    - Unicode skew: Python 3.11 uses Unicode 14, so newer characters are Cn, and micromark classifies astral characters by UTF-16 unit. Emphasis and flanking diverge.
+    - A spare GFM literal count via a link destination.
+    - The link destination `\ ` divergence.
+    - The backslash-LF destination divergence.
+    - Email/URL literal overlap.
+  - **Other findings (frev6b):**
+    - mdurl lazy caches race, fail-closed only.
+    - The `*` delimiter present in filing text can be deleted on display (no invented words).
+    - Mutation survivors X1, X2 and X3 (entity-hint forms); X5, X7, X9 and X10 to check.
+  - **Positives:**
+    - gate 5102 passed;
+    - drop set equal to ICU Unicode 17;
+    - parse race fixed (0/16000);
+    - replay 0 changes;
+    - attribution tool sound (exit 3 on 2 UNEXPLAINED; the 45 mismatches' cause verified);
+    - thematic-break parity clean;
+    - real-corpus false-positive check: 0 of 576 retained answers affected.
+  - **Round 7 sent to the F agent:**
+    - a separate prose floor of 8 (citations stay 24), with boundary tests;
+    - conservative gates: when quoting, fail closed on any link, URL or email; on astral or Cn characters; on mixed `*_`/`_*`;
+    - mdurl warm-up or confirmation it is unreachable;
+    - tests that kill X1–X3;
+    - merge of current main (`02628e57`) into F.
+
+    Final reviews will run on the integrated head.
