@@ -475,6 +475,16 @@ def _verify_citations(
 _QUOTE_MARK_RE = re.compile('["\u201c\u201d\u201e]')
 _QUOTE_EDGE_CHARS = " \t\r\n\u00a0.,;:!?\u2026"
 _QUOTE_ELLIPSIS_RE = re.compile(r"\.\s*\.\s*\.|\u2026")
+# Quoted text hugs its marks. Straight '"x "y" z"' pairs as 'x ' and ' z', '"x ("y") z"' as 'x (' and
+# ') z', '"x—"y"—z"' as 'x—' and '—z', and reversed curly '“x ”y“ z”' as 'x ' and ' z', so "y" is
+# never checked. A misparse shows at the marks: whitespace or an outward-facing bracket just inside
+# one, or, just outside one with another mark beyond, a character that cannot sit there. A closing
+# mark is followed by whitespace, punctuation, a closing bracket, a citation, markup, a dash, a
+# slash or a possessive; an opening mark is preceded by whitespace, an opening bracket, markup, a
+# dash or a slash. Another quote mark may sit on either side.
+_QUOTE_MISPARSE_RE = re.compile(r"\A[\s)\]}]|[\s(\[{]\Z")
+_NOT_AFTER_CLOSING_MARK_RE = re.compile(r"[^\s.,;:!?\u2026)\]}\[*_`'\u2019\u2014\u2013/\"\u201c\u201d\u201e-]")
+_NOT_BEFORE_OPENING_MARK_RE = re.compile(r"[^\s(\[{*_`\u2014\u2013/\"\u201c\u201d\u201e-]")
 
 
 def _quotation_pairs(answer: str) -> Optional[list[tuple[int, int]]]:
@@ -505,7 +515,7 @@ def unsupported_prose_quotations(answer: str, normalized_source: str) -> list[st
     ("ROE", "Gross margin") are labels, not source quotations. An in-scope quotation must occur
     contiguously in ``normalized_source``; citation markers and edge punctuation are not quoted
     text. A nested quotation is checked both whole and inner. Missing source text, unpairable
-    marks and straight marks that may hide a nested quotation fail closed. Nothing is repaired
+    marks and marks placed as if hiding a nested quotation fail closed. Nothing is repaired
     or stitched: any reason withholds the whole answer.
     """
     pairs = _quotation_pairs(answer)
@@ -514,8 +524,10 @@ def unsupported_prose_quotations(answer: str, normalized_source: str) -> list[st
     reasons: list[str] = []
     for start, end in pairs:
         raw = answer[start + 1:end]
-        if answer[start] == answer[end] == '"' and (raw[:1].isspace() or raw[-1:].isspace()):
-            # '"x "y" z"' pairs as 'x ' and ' z': the inner "y" would never be checked.
+        if (_QUOTE_MISPARSE_RE.search(raw)
+                or (_NOT_AFTER_CLOSING_MARK_RE.match(answer, end + 1) and _QUOTE_MARK_RE.search(answer, end + 1))
+                or (start and _NOT_BEFORE_OPENING_MARK_RE.match(answer, start - 1)
+                    and _QUOTE_MARK_RE.search(answer, 0, start))):
             reasons.append("ambiguous_quotation")
             continue
         content = _COPILOT_MARKER_RE.sub(" ", raw).strip(_QUOTE_EDGE_CHARS)
