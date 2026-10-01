@@ -519,6 +519,8 @@ def test_conflicting_alias_does_not_hide_an_independent_claim(alternate, authore
     # The tagged gain equals current other income, so only the claimed sign differs.
     (CAUSE_CLAIM.replace("realized gain", "realized loss"), "opposite_sign_tagged"),
     (CAUSE_CLAIM, "oversized_complete"), (CAUSE_CLAIM, "fragment"),
+    # ASCII case variants still explain; a Unicode case-folded unit is no sentence and never a crash.
+    (CAUSE_CLAIM, "uppercase_complete"), (CAUSE_CLAIM, "unicode_unit_complete"),
 ])
 async def test_same_authored_grammar_is_preserved_when_source_separately_quantifies_component(claim, exclusion):
     document = html.fromstring(original().encode())
@@ -553,6 +555,10 @@ async def test_same_authored_grammar_is_preserved_when_source_separately_quantif
             paragraph.text = paragraph.text.replace("$68,209", OVERSIZED_AMOUNT)
         elif exclusion == "fragment":
             paragraph.text = "Unrecognized governing words " + paragraph.text
+        elif exclusion == "uppercase_complete":
+            paragraph.text = paragraph.text.upper()
+        elif exclusion == "unicode_unit_complete":
+            paragraph.text = paragraph.text.replace("thousand", "thou\u017fand")
         elif exclusion == "qualified_complete":
             wrapper = html.Element("section")
             wrapper.text = "The following sentence is hypothetical and has been withdrawn."
@@ -571,11 +577,12 @@ async def test_same_authored_grammar_is_preserved_when_source_separately_quantif
     expected_explanations = {
         "complete": [{"component": "gain", "asset": "privately-held"}],
         "qualified_complete": [{"component": "gain", "asset": "privately-held"}],
+        "uppercase_complete": [{"component": "gain", "asset": "privately-held"}],
         "mismatched_component_complete": [{"component": "loss", "asset": "privately-held"}],
         "mismatched_asset_complete": [{"component": "gain", "asset": "publicly-held"}],
     }.get(exclusion, [])
     assert source["complete_other_income_explanations"] == expected_explanations
-    preserved = exclusion in {"tagged", "complete", "qualified_complete"}
+    preserved = exclusion in {"tagged", "complete", "qualified_complete", "uppercase_complete"}
     supplied = {"sections": sections(claim), "metadata": {}, "schema_version": SUMMARY_SCHEMA_VERSION}
     direct = copy.deepcopy(supplied["sections"])
     assert bind_statement_relationship(direct, source) is (not preserved)

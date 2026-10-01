@@ -27,7 +27,9 @@ OTHER_INCOME_CAUSE_SENTENCE = (
     r", which management attributed primarily to a realized (?P<component>gain|loss) "
     r"on (?P<asset>privately-held|publicly-held) equity securities\."
 )
-_COMPLETE_CAUSE_SENTENCE = re.compile(OTHER_INCOME_CAUSE_SENTENCE, re.IGNORECASE)
+# ASCII-only case folding: Unicode folding would also match "thouſand" or "mİllion", whose
+# lowercase forms are not scale keys, and the lookup below would raise instead of skipping.
+_COMPLETE_CAUSE_SENTENCE = re.compile(OTHER_INCOME_CAUSE_SENTENCE, re.IGNORECASE | re.ASCII)
 
 
 def claim_amount(text: str, scale: int) -> int | None:
