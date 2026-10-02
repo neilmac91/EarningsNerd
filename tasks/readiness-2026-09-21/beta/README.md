@@ -6,15 +6,39 @@ Current request measurement uses [summary request evidence v1](summary-request-e
 
 The [prospective summary v1 readout](summary-v1-readout.md) now provides a bounded raw-event export and an offline consumer for the versioned contracts. Historical `posthog.hogql` remains byte-identical. Offline fixtures do not establish live HogQL receipt, a consenting cohort or a weekly result.
 
+## Current operator handoff (October 2)
+
+The [support and cohort worksheet](support-and-review.md) records the intended
+10–20-person cohort and email response target within two business days, with actual
+consent, eligible IDs, owners, dates and results still to be recorded. Its weekly
+metric map separates prospective v1 view/request observations from historical
+diagnostics, durable DB counts and reviewed session evidence.
+
+Follow the [current operator checklist](summary-v1-readout.md#current-operator-checklist-october-2)
+for access, literal-only verification, a reviewed file-input contract, consented
+cohort preparation and two real weekly readouts. The retained file-export attempt
+returned HTTP 403 with no run, completed count or files. The three-row literal
+projection lacked pagination metadata, so export completeness remains false.
+These documents preserve that blocker and do not authorize a launch or collection.
+
 ## Freeze before each readout
 
 Record the UTC half-open window `[window_start, window_end)`, exact invite `cohort`, the immutable list of founder/staff/agent/automation/test **user IDs**, any test invite IDs, data-source availability, and query version/SHA. A pending invite without a user ID cannot be classified as internal from this filter; exclude its invite ID explicitly if known. Record any unresolved identity as unknown and resolve it before claiming a rate. Use a separate copy of this parameter sheet for each weekly readout; never silently revise a past denominator.
 
 The database stores the current `email_verified` and `is_revoked` flags, not their transition timestamps. Therefore historical verification and invite reachability cannot be reconstructed exactly by rerunning a past window. `registered_by_window_end` and `redeemed_by_window_end` use timestamps, while `eligible_verified` uses current verification state. `pending_reachable_at_window_end_current_state` treats an invite redeemed at or after the window end as still pending at that boundary, but uses current revocation state. Save each weekly roster output with `roster_observed_at`; do not re-label a later snapshot as the earlier week's state.
 
-`db_roster.sql` uses only `SELECT` and returns one row per invite with eligibility flags. Run with a read-only database role and `psql -X -v ON_ERROR_STOP=1 -v cohort='...' -v window_start='2026-09-21T00:00:00Z' -v window_end='2026-09-28T00:00:00Z' -v excluded_user_ids='{...}' -v excluded_invite_ids='{...}' -f db_roster.sql`. Do not run it against customer data until the cohort/exclusion owner authorizes that observation. Count distinct eligible `user_id` values (the query selects one canonical redeemed invite per user). Export only the eligible numeric IDs into the `eligible_ids` array in `posthog.hogql`, whose window and exclusions must be identical. Keep the export in the authorized analysis workspace; it is not a repository fixture.
+`db_roster.sql` uses only `SELECT` and returns one row per invite with eligibility flags. Run with a read-only database role and `psql -X -v ON_ERROR_STOP=1 -v cohort='...' -v window_start='2026-09-21T00:00:00Z' -v window_end='2026-09-28T00:00:00Z' -v excluded_user_ids='{...}' -v excluded_invite_ids='{...}' -f db_roster.sql`. Do not run it against customer data until the cohort/exclusion owner authorizes that observation. Count distinct eligible `user_id` values (the query selects one canonical redeemed invite per user). For prospective summary measurements, carry the frozen eligible IDs and exclusions into the [v1 query and private parameters](summary-v1-readout.md); use the same declared UTC window. For a separately labeled historical diagnostic, copy only the eligible numeric IDs into the `eligible_ids` array in `posthog.hogql`, with matching bounds and exclusions. Keep the export in the authorized analysis workspace; it is not a repository fixture.
 
 `db_support_alerts.sql` reports persisted feedback and accepted alert batches for the same eligible cohort. The existing `docs/OPERATIONS.md` query remains the all-user trend; this query adds the frozen cohort filter. `db_paid_cohort.sql` adds only a distinct-payer count for the exact eligible denominator, using the same qualifying predicate as the existing [billing report](../../../backend/scripts/billing_revenue_report.py); use that report for amount/currency/coverage limits. Checkout, trial, `subscription_activated`, and a $0 beta invoice do not prove paid conversion.
+
+## Historical unversioned diagnostic contract
+
+The paragraphs below retain the original `posthog.hogql` semantics. References to
+missing event-time identity or request IDs describe that unversioned baseline,
+not the later [view v1](event-glossary.md#summary-view-evidence-v1-september-28-implementation)
+or [request v1](summary-request-evidence.md) contracts. Use the current worksheet
+and v1 runbook for prospective summary observations; do not relabel historical
+queries or their saved receipts as v1 results.
 
 `posthog.hogql` has independent named queries. Replace its eligible ID list and UTC bounds once per readout, after applying excluded IDs in `db_roster.sql`; do not use person traits to infer a cohort. Its A/B client-coverage predicates include every named event emitted by current frontend capture sites; the offline `fixture_check.py --inventory-only` check compares both lists to those sites. A/B anchor each eligible numeric account ID through PostHog's `person_distinct_ids` and join events by resolved `events.person_id`, which can include an anonymous UUID later linked by `identify`. A person linked to more than one numeric account ID is excluded from attribution and reported as `ambiguous_numeric_identity`; an absent mapping is `unresolved_identity`. Both remain in the eligible denominator. A different unmerged anonymous profile cannot be recovered, and the numeric-ID guard cannot prove who controlled a shared browser before identification; current identity mappings can also change a historical rerun, so save the readout. [PostHog's person documentation](https://posthog.com/docs/data/persons) describes retrospective anonymous-event linkage, and its [HogQL person-processing documentation](https://github.com/PostHog/posthog/blob/master/docs/published/handbook/engineering/person-processing.md) describes canonical person IDs and merge overrides.
 

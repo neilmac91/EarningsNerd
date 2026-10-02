@@ -147,3 +147,68 @@ run are a different evidence contract from this consumer's query-response JSON.
 Do not manufacture `hasMore=false` or concatenate file parts into a v1 response and
 call it a completed export. Review and validate an explicit input format before any
 customer readout; keep the current consumer and its unknowns unchanged meanwhile.
+
+## Current operator checklist (October 2)
+
+This is a handoff of remaining prerequisites, not authorization to execute them.
+The [support worksheet](support-and-review.md) maps the weekly measures and records
+the intended 10–20 people and email response target within two business days.
+Quality acceptance, individual consent, eligible IDs, named owners, a start date
+and launch disposition remain separate requirements.
+
+- [ ] **Resolve export access.** Retain the [September 30 capability receipt](../../review-evidence/beta-readout-2026-09-30/export-capability.json):
+  HTTP 403, `HogQL batch exports are not enabled for this team.` There is no run ID,
+  completed record count or returned file. Project 117863 was confirmed and the
+  tools were available after reconnection; broader scopes or an unchanged retry
+  do not resolve the recorded team-feature restriction. The founder reported that
+  submitting support tickets requires a paid plan. That limits the known support
+  route; it does not establish that payment is necessary or sufficient for feature
+  access. The access request below is draft-only; no ticket or purchase is claimed.
+- [ ] **Verify only literals after confirmed access and separate authorization.**
+  First verify one tiny literal-only export, with no events/persons table access,
+  before customer data. Retain the exact query, actual run identity/status,
+  reported completed count, every returned part and custody hashes. Preserve the
+  prior 403 and the [three-row query projection receipt](../../review-evidence/beta-readout-2026-09-30/receipt.json).
+  That projection verified 21-column compatibility but omitted pagination metadata;
+  `export_complete_observed` remains false. Neither a UI row count nor the literal
+  fixture proves the production roster/predicate, capture or consent.
+- [ ] **Review the actual file-input contract.** Once real literal-export artifacts
+  exist, explicitly document their format, fields/types, part inventory, completion
+  evidence, bounds, duplicate/conflict handling and provenance; independently
+  review that contract before any customer readout. A completed file run and
+  JSONLines parts are not this consumer's query-response JSON. Keep the released
+  consumer unchanged here; do not design an adapter for a hypothetical file,
+  concatenate parts into a fabricated response or manufacture `hasMore=false`.
+- [ ] **Prepare the consented cohort privately.** The founder records participation
+  and contact permission separately from analytics choice, offered scope and any
+  quotation/recording permission. Assign support owner, backup and readout reviewer;
+  record the business-day calendar/timezone for the two-business-day email target.
+  Under separately authorized observation, freeze actual eligible IDs/exclusions,
+  roster observation time, start date, weekly UTC windows and a fixed roster for
+  the combined return window. Intended size supplies none of these facts. Keep
+  participant data out of the repository and retain unobserved accounts in N.
+- [ ] **Complete two actual weekly readouts before expansion disposition.** Retain
+  each week's source availability, exact query/parameters and consumer version,
+  original inputs, hashes, completeness/diagnostic outputs, denominator and unknowns.
+  Use the fixed-roster combined two-week window for observed ISO-week new-filing
+  returns; do not concatenate weekly exports to bypass the input contract. Include
+  actual support responses and reviewed participant usefulness evidence, with
+  absent evidence still unknown. A prepared worksheet, synthetic receipt or
+  completed export is not a weekly cohort result or beta launch approval.
+
+### Draft-only PostHog access request — not sent
+
+> EarningsNerd project 117863 needs confirmation of eligibility and the supported
+> route for HogQL batch-export beta access. After reconnection made the export
+> tools available, our September 30 attempt using only three invented literal rows
+> returned HTTP 403: “HogQL batch exports are not enabled for this team.” No run ID,
+> completed record count or files were returned. Can you confirm the feature-access
+> process and an available contact route? Our founder reports that the support
+> ticket route requires a paid plan; we have not established whether payment is
+> necessary or sufficient for this feature. We are not requesting broader
+> events/persons exports. After confirmed access, our first separately authorized
+> verification would use literal data only, before review of the actual file-input
+> contract and any customer observation.
+
+This text is retained for founder disposition only. No message, support ticket,
+subscription purchase, export retry or customer query was performed for this handoff.
