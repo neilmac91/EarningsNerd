@@ -97,6 +97,10 @@ Infra: `docker-compose up -d postgres redis` (local only — prod has no Redis).
     `lessons/sec-filing-url-format.md`; tests in `tests/unit/test_filing_url_listeners.py`).
 11. **Design system:** any theme/token change is app-wide (public + authed). Done-gate = the
     legacy-color grep in `DESIGN_SYSTEM.md` returns nothing AND both themes verified on preview.
+    Dialogs only via `ui/Modal`; z from the ladder; eyebrows = `tracking-eyebrow`; chip/delta text = the
+    700-level tokens; page bg = `background`, cards = `panel`, on every route. Gates: the design rules in
+    `frontend/eslint.config.mjs` (raw hex/palette, `z-[N]`, off-ramp tracking, sub-scale type, `alert`)
+    and `tests/unit/dialogAllowlist.spec.ts`; the 700-level and surface clauses are review-checked.
 12. **Rules become gates.** When a review or plan produces a "never do X again" rule, land the
     machine enforcement in the same PR (ESLint rule, allowlist spec, AST test, CI grep). Prose-only
     rules rot — see `lessons/arch-structural-gates-over-prose-rules.md`.

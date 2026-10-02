@@ -106,6 +106,69 @@ const CALENDAR_FIELD_RULES = ['Date', 'parseISO'].flatMap((ctor) => {
   ]
 })
 
+// MIGRATION-v3 §c — design-token guardrails (CLAUDE.md rule 12: a "never do X again" rule lands as
+// a machine gate in the same PR as the sweep). Tokens only: no raw hex, no raw palette classes, no
+// arbitrary z / radius / duration / sub-scale text, no off-ramp tracking, no window.alert.
+// Exemptions, each pinned to its own block below:
+//   - the sanctioned JS color mirrors (lib/motion.ts, lib/financialTone.ts, ui/Chart.tsx,
+//     features/analysis/lib/chartExport.ts) and the brand-mandated GoogleSignInButton skip the two
+//     color rules (tests/unit/designTokenParity.spec.ts checks the mirrors use only token hexes);
+//   - app/manifest.ts + app/layout.tsx declare the OS-facing theme colors (PWA manifest, <meta
+//     theme-color>), which have no Tailwind form, so they skip the hex rule only (the parity spec
+//     checks those hexes too) — added beyond §c's list, recorded in the PR;
+//   - components/ui/DataTable.tsx keeps its internal z-[5] sticky-cell layering (the one z exemption).
+// Every class-string rule also runs on template-literal chunks (withTemplates), so a className built
+// with `${…}` is held to the same rules. A class name assembled from fragments at runtime is not.
+// aria-hidden glyphs below the type scale (Badge ▲▼, DataTable ▲▼) carry an eslint-disable with a
+// reason.
+const DESIGN_HEX_RULE = {
+  selector: 'Literal[value=/#[0-9a-fA-F]{6}/]',
+  message: 'Raw hex — use a token (mirrors: motion.ts, financialTone, Chart, chartExport).',
+}
+const DESIGN_PALETTE_RULE = {
+  selector:
+    'Literal[value=/\\b(bg|text|border|ring|from|to)-(slate|gray|zinc|neutral|stone|blue|green|red|amber|emerald|teal|sky|mint)-[0-9]/]',
+  message: 'Raw palette class — semantic tokens only.',
+}
+const DESIGN_Z_RULE = {
+  selector: 'Literal[value=/\\bz-\\[/]',
+  message: 'Arbitrary z — use the zIndex ladder (sticky/header/overlay/modal/toast).',
+}
+const DESIGN_SHARED_RULES = [
+  { selector: 'Literal[value=/\\bduration-[0-9]/]', message: 'Raw duration — duration-fast|base|slow|ambient.' },
+  {
+    selector: 'Literal[value=/\\btracking-(wide|wider|widest|tight|tighter)\\b/]',
+    message: 'Off-ramp tracking — tracking-eyebrow for labels; the fontSize ramp tracks headings.',
+  },
+  {
+    selector: 'Literal[value=/\\btext-\\[(?:[0-9]|1[0-3])(?:\\.5)?px\\]/]',
+    message: 'Below-scale type — data-xs(11)/xs(12)/sm(14). Glyphs: eslint-disable with a reason.',
+  },
+  { selector: 'Literal[value=/\\brounded-\\[/]', message: 'Off-scale radius — 4/8/12/16/24.' },
+  { selector: "CallExpression[callee.name='alert']", message: 'window.alert — render a Notice or toast.' },
+  {
+    selector: "CallExpression[callee.type='MemberExpression'][callee.property.name='alert']",
+    message: 'window.alert — render a Notice or toast.',
+  },
+]
+/** Each class-string rule gets a twin on template-literal chunks (`… ${x} …` is not a Literal). */
+const withTemplates = (rules) =>
+  rules.flatMap((rule) =>
+    rule.selector.startsWith('Literal[value=')
+      ? [rule, { ...rule, selector: rule.selector.replace('Literal[value=', 'TemplateElement[value.raw=') }]
+      : [rule],
+  )
+const DESIGN_RULES = withTemplates([DESIGN_HEX_RULE, DESIGN_PALETTE_RULE, DESIGN_Z_RULE, ...DESIGN_SHARED_RULES])
+const DESIGN_COLOR_EXEMPT = [
+  'lib/motion.ts',
+  'lib/financialTone.ts',
+  'components/ui/Chart.tsx',
+  'features/analysis/lib/chartExport.ts',
+  'features/auth/components/GoogleSignInButton.tsx',
+]
+const DESIGN_HEX_EXEMPT = ['app/manifest.ts', 'app/layout.tsx']
+const DESIGN_Z_EXEMPT = ['components/ui/DataTable.tsx']
+
 const DATE_RULES = [
   {
     // format(new Date(x), …). `new Date()` with no argument (meaning "now") is deliberately allowed.
@@ -160,7 +223,14 @@ const config = [
   // still apply to them.
   {
     files: ['**/*.ts', '**/*.tsx'],
-    ignores: [...TEST_FILES, 'lib/queryKeys.ts', ...RAW_FETCH_ALLOWLIST, ...CALENDAR_SORT_ALLOWLIST],
+    ignores: [
+      ...TEST_FILES,
+      'lib/queryKeys.ts',
+      ...RAW_FETCH_ALLOWLIST,
+      ...CALENDAR_SORT_ALLOWLIST,
+      ...DESIGN_COLOR_EXEMPT,
+      ...DESIGN_Z_EXEMPT,
+    ],
     rules: {
       'no-restricted-syntax': [
         'error',
@@ -168,6 +238,49 @@ const config = [
         ...RAW_FETCH_RULES,
         ...DATE_RULES,
         ...CALENDAR_FIELD_RULES,
+        ...DESIGN_RULES,
+      ],
+    },
+  },
+  // The JS color mirrors + the brand-mandated GoogleSignInButton: every gate except the two color rules.
+  {
+    files: DESIGN_COLOR_EXEMPT,
+    rules: {
+      'no-restricted-syntax': [
+        'error',
+        ...QUERY_KEY_RULES,
+        ...RAW_FETCH_RULES,
+        ...DATE_RULES,
+        ...CALENDAR_FIELD_RULES,
+        ...withTemplates([DESIGN_Z_RULE, ...DESIGN_SHARED_RULES]),
+      ],
+    },
+  },
+  // OS-facing theme colors (PWA manifest, <meta theme-color>): every gate except the hex rule.
+  {
+    files: DESIGN_HEX_EXEMPT,
+    rules: {
+      'no-restricted-syntax': [
+        'error',
+        ...QUERY_KEY_RULES,
+        ...RAW_FETCH_RULES,
+        ...DATE_RULES,
+        ...CALENDAR_FIELD_RULES,
+        ...withTemplates([DESIGN_PALETTE_RULE, DESIGN_Z_RULE, ...DESIGN_SHARED_RULES]),
+      ],
+    },
+  },
+  // DataTable's internal sticky-cell z-[5]: every gate except the z rule.
+  {
+    files: DESIGN_Z_EXEMPT,
+    rules: {
+      'no-restricted-syntax': [
+        'error',
+        ...QUERY_KEY_RULES,
+        ...RAW_FETCH_RULES,
+        ...DATE_RULES,
+        ...CALENDAR_FIELD_RULES,
+        ...withTemplates([DESIGN_HEX_RULE, DESIGN_PALETTE_RULE, ...DESIGN_SHARED_RULES]),
       ],
     },
   },
@@ -175,17 +288,17 @@ const config = [
   // reason to build a Date from a calendar-date field. Every other gate still applies here.
   {
     files: CALENDAR_SORT_ALLOWLIST,
-    rules: { 'no-restricted-syntax': ['error', ...QUERY_KEY_RULES, ...RAW_FETCH_RULES, ...DATE_RULES] },
+    rules: { 'no-restricted-syntax': ['error', ...QUERY_KEY_RULES, ...RAW_FETCH_RULES, ...DATE_RULES, ...DESIGN_RULES] },
   },
   // The query-key registry defines keys as literals, so only the fetch gate applies to it.
   {
     files: ['lib/queryKeys.ts'],
-    rules: { 'no-restricted-syntax': ['error', ...RAW_FETCH_RULES, ...DATE_RULES, ...CALENDAR_FIELD_RULES] },
+    rules: { 'no-restricted-syntax': ['error', ...RAW_FETCH_RULES, ...DATE_RULES, ...CALENDAR_FIELD_RULES, ...DESIGN_RULES] },
   },
   // The sanctioned raw-fetch sites still get the query-key gate.
   {
     files: RAW_FETCH_ALLOWLIST,
-    rules: { 'no-restricted-syntax': ['error', ...QUERY_KEY_RULES, ...DATE_RULES, ...CALENDAR_FIELD_RULES] },
+    rules: { 'no-restricted-syntax': ['error', ...QUERY_KEY_RULES, ...DATE_RULES, ...CALENDAR_FIELD_RULES, ...DESIGN_RULES] },
   },
 ]
 
