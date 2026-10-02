@@ -12,7 +12,12 @@
      - portal to <body>; scrim = bg-overlay z-modal + backdrop-blur-sm
      - panel = the Card recipe at the featured radius (rounded-2xl, panel fill,
        hairline, shadow-e5 light / shadow:none dark), entrance animate-fadeIn
-       (globals reduce-guards it)
+       (globals reduce-guards it); the panel never outgrows the viewport — it
+       stops at the scrim's inset and scrolls inside, so on a short or zoomed
+       screen the ✕ and the actions stay reachable (the body is locked, so
+       nothing else scrolls), and a control scrolled in by focus lands its
+       ring clear of the edge (scroll padding = the panel's p-6 inset).
+       Callers never size its height.
      - focus: moves into the panel on open (initialFocusRef ?? first focusable
        ?? the panel), Tab/Shift-Tab cycle inside, Escape closes (when
        dismissible), focus RETURNS to the opener on close; the trap arms once
@@ -159,7 +164,7 @@ export function Modal({
         tabIndex={-1}
         onClick={(e) => e.stopPropagation()}
         className={cx(
-          'relative w-full animate-fadeIn rounded-2xl border border-border-light bg-panel-light shadow-e5 outline-none',
+          'relative max-h-full w-full animate-fadeIn overflow-y-auto scroll-py-6 rounded-2xl border border-border-light bg-panel-light shadow-e5 outline-none',
           'dark:border-white/10 dark:bg-panel-dark dark:shadow-none',
           SIZE[size],
           className,

@@ -89,6 +89,8 @@ what applies to your task. Filenames are greppable: `arch-*`, `sec-*`, `test-*`,
 
 - [`frontend-dialog-trap-arms-once-per-open.md`](./frontend-dialog-trap-arms-once-per-open.md) — Arm a dialog's focus trap once per open; never key its effect on a callback prop's identity
 
+- [`frontend-locked-page-dialog-scrolls-itself.md`](./frontend-locked-page-dialog-scrolls-itself.md) — A dialog that locks the page must bound itself to the viewport and scroll inside
+
 - [`frontend-top-dialog-owns-the-keyboard.md`](./frontend-top-dialog-owns-the-keyboard.md) — The top dialog owns the keyboard: listen in window capture and stop the keys it handles
 
 - [`frontend-trial-labels-use-entitlements.md`](./frontend-trial-labels-use-entitlements.md) — Derive current-trial presentation from the resolved entitlement
