@@ -794,3 +794,9 @@ Under the founder's delegation, Codex decided items A–M on #1029. This session
   - Full gate: ruff and bandit clean; pytest **5507 passed**, 39 skipped, 2 deselected, 0 failed.
   - B is compatible with F. The real re-merge still happens after F's deploy, with a fresh review and a hosted artifact, as planned.
 - 04:49Z — **Offline citation-excerpt diagnosis started** (queued item, zero spend, no push) in `wt/cite-diag` at main `02628e57`, while F waits on the decision.
+- 05:05Z — **Citation-excerpt diagnosis returned** (offline, zero spend; evidence in `tasks/review-evidence/citation-excerpt-diagnosis-2026-10-02/`).
+  - **The gap is confirmed on main:** Copilot verifies only a citation's inner quoted span but publishes the full excerpt as verified. It is pinned in `test_copilot.py` by a strict-xfail regression plus a passing control (local commit `17e6e545`, kept as a patch, not pushed).
+  - **Caller inventory:** the defect is confined to `_verify_citations`. The shared helpers' prefix tolerance is intended and pinned for summary evidence, Risks and snap, so a global change is rejected.
+  - **Replay:** 0 affected out of 9 text citations in 8 runs; no quote-bearing `section_ref`. One stitched inner-span footnote (BYND) on the summary surface is displayed safely.
+  - **Proposal:** a whole-excerpt sibling helper in Copilot only, with the existing withholding path. `section_ref` and forward quotes are separate decisions.
+  - **Paid estimate if released:** under USD 1.50 worst case. Posted on #1029 for review; nothing paid.
