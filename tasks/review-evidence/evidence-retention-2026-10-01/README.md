@@ -8,6 +8,8 @@ Nothing has been regenerated. This folder holds only the manifest, which is priv
 
 ## Status
 
+**Preserved (update, 2026-10-01).** The founder verified all 27 of 27 artifacts in founder-controlled storage outside iCloud (comment 5931533423; receipt sha256 `9a5631c4…`). The original status follows.
+
 **Inventoried. Not yet preserved.**
 
 The preservation needs a founder-controlled machine with an authenticated `gh` CLI. The Claude session cannot reach any founder-controlled durable storage.

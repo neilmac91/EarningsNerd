@@ -5,7 +5,9 @@ This is a read-only count of persisted `Filing.xbrl_data` snapshots. It must run
 - distinguish legacy, fallback, unknown and malformed cases;
 - do not clear, overwrite or re-extract anything.
 
-**Status: blocked on access.** The Claude session cannot reach the production Cloud SQL database (its GCP access token is invalid), so the founder or an agent with production read access must run the query.
+**Status: done (update, 2026-10-01T23:16Z).** Codex ran the original `census.sql` read-only; the Result section below records it (comment 5942525078). The original status follows.
+
+**Status (original): blocked on access.** The Claude session cannot reach the production Cloud SQL database (its GCP access token is invalid), so the founder or an agent with production read access must run the query.
 
 ## Run (read-only)
 

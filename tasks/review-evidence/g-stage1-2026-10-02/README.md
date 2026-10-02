@@ -10,7 +10,7 @@ The arms are:
 
 The four runs were interleaved A, C, A, C and finished within 20 minutes, all off-peak. Each run started only after the previous one completed.
 
-| Run | Trigger | CI run | Artifact zip sha256 | Cost (USD) | Calls |
+| Run | Trigger | CI run | Artifact zip sha256 | Cost (USD) | Usage-bearing service events |
 | --- | --- | --- | --- | --- | --- |
 | A1 | #1036 ready 11:58:04Z | [37003942265](https://github.com/neilmac91/EarningsNerd/actions/runs/37003942265) | `eb5b7959…` | 0.005384 | 17 |
 | C1 | #1053 ready 12:04:53Z | [37004589548](https://github.com/neilmac91/EarningsNerd/actions/runs/37004589548) | `d3dc6fb2…` | 0.006006 | 14 |
@@ -18,6 +18,26 @@ The four runs were interleaved A, C, A, C and finished within 20 minutes, all of
 | C2 | #1053 draft→ready 12:14:50Z | [37005546506](https://github.com/neilmac91/EarningsNerd/actions/runs/37005546506) | `13ddcd86…` | 0.006460 | 15 |
 
 Opening #1053 also ran one `eval-baseline` (D18, USD 0.177645), because the arm changes `backend/app`. It is not part of the measurement. **G spent USD 0.200825 in total, against a 1.00 reservation.**
+
+## Retained inputs
+
+The raw `copilot-eval.json` files are about 10 MB each and are not committed. Each run's zip is a GitHub artifact, and its digest equals the sha256 above:
+
+| Run | Artifact id | Expires |
+| --- | --- | --- |
+| A1 | `11224618474` | 2026-12-31T11:58:04Z |
+| C1 | `11225536799` | 2026-12-31T12:04:54Z |
+| A2 | `11225252695` | 2026-12-31T12:10:20Z |
+| C2 | `11225578263` | 2026-12-31T12:14:51Z |
+
+Item A's preservation manifest predates these runs and does not include them. Keeping them past their expiry needs the same founder-side tool.
+
+The tool outputs are committed here:
+- `g_precheck.txt`: per-row hashes, fingerprints per run, and the sha256 of each input;
+- `g_decide.txt`: draw patterns and question-run counts;
+- `copilot_cost.txt` and `copilot_cost.py`: cost per run.
+
+The decision rules are quoted from `tasks/copilot-tool-nonexecution-2026-09-30.md` on draft branch `claude/pr1023-diagnostic` at `a35e8342` (#1036).
 
 ## Validity precondition: all four runs valid
 

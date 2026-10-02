@@ -37,6 +37,8 @@ The answer reads: "For the year ended December 31, 2025, ASML reported total net
 
 **Why this is an escalation.** Under the #1021 pre-registered audit policy, an uncited answer is "founder decides, never an automatic pass". So F1's clause "every other row passes the unchanged applicable scoring/audit" is not established automatically, and F is held unmerged pending a founder or Codex decision.
 
+**Resolved (2026-10-02 08:10Z).** The founder ruled that this escalation does not block F1 (#1029 comment 5947962998). F was merged as `f6e79a50` and deployed as `00429-vlm`, verified.
+
 ## Spend
 
 | Row | Item | USD |

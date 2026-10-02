@@ -40,6 +40,7 @@ Main was then merged in twice, `f896afbe` (B) and `0f4dffa9` (K). Neither overla
   - `replay_base_vs_head_enrich.py`: 140 of 140 summaries are byte-equal between base and head, across Risks, takeaways, commentary, footnotes and forward quotes. 178 of 178 forward-quote dicts equal main's.
   - `replay-results-cite-rev.json`: 9 of 9 Copilot citations are unchanged.
 - **Mutations:** 16 of 16 killed (`run_mutations.sh`, `mutate.py`). Full gate: **5529** passed (`gate-*`).
+  - **Retention:** the review's mutation run and the pytest count were read from stdout, not retained here. `gate-pytest-tail.txt` holds only the exit code, and the count is recorded on #1052.
 - **Should-fix, outside the approved boundary:** `evals/copilot_scorers.py:65` still uses the prefix-tolerant helper. `probe_scorer_divergence.py` shows that the product can verify an excerpt the scorer marks unverified, which makes the CITATION gate stricter than the product, never more lenient. 0 of 9 retained citations are affected. Repointing the scorer needs founder approval, which is pending.
 - **Nits:**
   - the `section_ref` mark set excludes `„ ‟ ＂`, F's wider set (`probe_section_ref.py`);
