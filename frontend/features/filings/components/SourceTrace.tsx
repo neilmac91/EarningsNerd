@@ -54,7 +54,7 @@ export const sourceTraceChipClass = (isVerified: boolean): string => {
   const tone = isVerified
     ? 'text-brand-strong dark:text-brand-strong-dark hover:bg-brand-weak dark:hover:bg-white/5'
     : 'text-text-tertiary-light dark:text-text-secondary-dark hover:bg-border-light/40 dark:hover:bg-white/5'
-  return `inline-flex items-center gap-1 rounded px-1 py-0.5 text-[11px] font-medium leading-none align-baseline transition-colors focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark ${tone}`
+  return `inline-flex items-center gap-1 rounded px-1 py-0.5 text-data-xs font-medium leading-none align-baseline transition-colors focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark ${tone}`
 }
 
 /**
@@ -77,12 +77,12 @@ export function SourceTracePanelBody({
   excerpt?: React.ReactNode
 }) {
   const statusLine = isVerified ? (
-    <span className="mt-2 flex items-center gap-1 text-[11px] font-medium text-brand-strong dark:text-brand-strong-dark">
+    <span className="mt-2 flex items-center gap-1 text-data-xs font-medium text-brand-strong dark:text-brand-strong-dark">
       <CheckCircleIcon className="h-3 w-3 shrink-0" aria-hidden="true" />
       {note || 'Verified against the original SEC filing'}
     </span>
   ) : (
-    <span className="mt-2 flex items-center gap-1 text-[11px] font-medium text-text-tertiary-light dark:text-text-secondary-dark">
+    <span className="mt-2 flex items-center gap-1 text-data-xs font-medium text-text-tertiary-light dark:text-text-secondary-dark">
       <ArrowSquareOutIcon className="h-3 w-3 shrink-0" aria-hidden="true" />
       {note || 'Cited. Open the section to confirm.'}
     </span>
@@ -91,7 +91,7 @@ export function SourceTracePanelBody({
   return (
     <>
       {header && (
-        <span className="block text-[11px] font-semibold uppercase tracking-wide text-text-tertiary-light dark:text-text-secondary-dark break-words">
+        <span className="block text-data-xs font-semibold uppercase tracking-eyebrow text-text-tertiary-light dark:text-text-secondary-dark break-words">
           {header}
         </span>
       )}
@@ -102,7 +102,7 @@ export function SourceTracePanelBody({
           href={url}
           target="_blank"
           rel="noopener noreferrer"
-          className="mt-2 flex items-center gap-1 text-[11px] font-medium text-text-tertiary-light transition-colors hover:text-brand-strong dark:text-text-secondary-dark dark:hover:text-brand-strong-dark"
+          className="mt-2 flex items-center gap-1 text-data-xs font-medium text-text-tertiary-light transition-colors hover:text-brand-strong dark:text-text-secondary-dark dark:hover:text-brand-strong-dark"
         >
           <ArrowSquareOutIcon className="h-3 w-3 shrink-0" aria-hidden="true" />
           Open in SEC EDGAR
@@ -312,11 +312,11 @@ function SourceTraceInner({
   if (open && typeof document !== 'undefined') {
     if (isCoarse) {
       overlay = createPortal(
-        <div className="fixed inset-0 z-[70]" role="dialog" aria-modal="true" aria-label="Source detail">
+        <div className="fixed inset-0 z-modal" role="dialog" aria-modal="true" aria-label="Source detail">
           <button
             type="button"
             aria-label="Close"
-            className="absolute inset-0 bg-black/40"
+            className="absolute inset-0 bg-overlay"
             onClick={closePanel}
           />
           <div
@@ -346,7 +346,7 @@ function SourceTraceInner({
           onMouseEnter={clearCloseTimer}
           onMouseLeave={scheduleClose}
           style={{ position: 'fixed', left: pos.left, top: pos.top, bottom: pos.bottom, transform: 'translateX(-50%)' }}
-          className="z-[60] block w-72 rounded-lg border border-border-light bg-background-light p-3 text-left shadow-e4 dark:shadow-none dark:border-border-dark dark:bg-panel-dark"
+          className="z-overlay block w-72 rounded-lg border border-border-light bg-background-light p-3 text-left shadow-e4 dark:shadow-none dark:border-border-dark dark:bg-panel-dark"
         >
           <SourceTracePanelBody header={header} isVerified={isVerified} note={note} url={url} />
         </span>,

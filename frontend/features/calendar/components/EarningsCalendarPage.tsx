@@ -134,7 +134,7 @@ export default function EarningsCalendarPage() {
           <div
             role="group"
             aria-label="Calendar view"
-            className="inline-flex rounded-lg border border-border-light bg-panel-light p-[3px] shadow-e1 dark:border-white/10 dark:bg-panel-dark dark:shadow-none"
+            className="inline-flex rounded-lg border border-border-light bg-panel-light p-1 shadow-e1 dark:border-white/10 dark:bg-panel-dark dark:shadow-none"
           >
             {(['week', 'month'] as const).map((v) => (
               <button
@@ -143,7 +143,7 @@ export default function EarningsCalendarPage() {
                 aria-pressed={view === v}
                 onClick={() => { setOpenDay(null); setView(v) }}
                 className={cx(
-                  'h-[26px] rounded-[9px] px-3.5 text-xs font-semibold capitalize transition-colors duration-fast',
+                  'h-[26px] rounded px-3.5 text-xs font-semibold capitalize transition-colors duration-fast',
                   'focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark',
                   view === v
                     ? 'bg-brand text-white shadow-e1 dark:bg-brand-dark dark:text-background-dark'

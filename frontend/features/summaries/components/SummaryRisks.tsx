@@ -52,7 +52,7 @@ export function SummaryRisks({ risks, projection }: SummaryRisksProps) {
         >
           <div className="space-y-2">
             <div className="mt-2 rounded border border-border-light bg-background-light p-2 text-xs text-text-secondary-light dark:border-border-dark dark:bg-background-dark dark:text-text-secondary-dark">
-              <span className="mr-2 text-[10px] font-semibold uppercase tracking-wider text-text-tertiary-light dark:text-text-secondary-dark">
+              <span className="mr-2 text-data-xs font-semibold uppercase tracking-eyebrow text-text-tertiary-light dark:text-text-secondary-dark">
                 Evidence
               </span>
               {risk.supporting_evidence}

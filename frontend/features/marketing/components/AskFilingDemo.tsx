@@ -7,11 +7,11 @@ import { SAMPLE_ASK, SAMPLE_FILING } from '@/features/marketing/lib/landing-samp
 
 // The mono answer register (DS §3: Ask-this-Filing output renders in the data face).
 const ANSWER_REGISTER =
-  'copilot-answer tnum font-data text-[13px] leading-relaxed text-text-primary-light dark:text-text-primary-dark'
+  'copilot-answer tnum font-data text-sm leading-relaxed text-text-primary-light dark:text-text-primary-dark'
 
 // Inside-card eyebrow (11px uppercase tracked, tertiary on the white field surface).
 const EYEBROW =
-  'text-[11px] font-semibold uppercase tracking-[0.08em] text-text-tertiary-light dark:text-text-secondary-dark'
+  'text-data-xs font-semibold uppercase tracking-eyebrow text-text-tertiary-light dark:text-text-secondary-dark'
 
 const FIELD = 'rounded-lg border border-border-light bg-white dark:border-white/10 dark:bg-white/5'
 

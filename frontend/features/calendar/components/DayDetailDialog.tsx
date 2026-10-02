@@ -55,7 +55,7 @@ export function DayDetailDialog({
       onClick={(e) => e.target === ref.current && onClose()}
       className={cx(
         'w-[min(560px,calc(100vw-32px))] rounded-xl border border-border-light bg-panel-light p-0 text-text-primary-light shadow-e5',
-        'backdrop:bg-background-dark/45 dark:border-white/10 dark:bg-panel-dark dark:text-text-primary-dark',
+        'backdrop:bg-overlay dark:border-white/10 dark:bg-panel-dark dark:text-text-primary-dark',
         'motion-safe:animate-content-in',
       )}
     >

@@ -24,7 +24,7 @@ export default function WaitlistPage() {
       <section className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="grid grid-cols-1 items-center gap-10 lg:grid-cols-[1.05fr_0.95fr] lg:gap-12">
           <div className="text-center lg:text-left">
-            <h1 className="text-4xl font-semibold tracking-tight text-text-primary-light dark:text-text-primary-dark sm:text-5xl md:text-6xl">
+            <h1 className="text-4xl font-semibold text-text-primary-light dark:text-text-primary-dark sm:text-5xl md:text-6xl">
               Read a 10-K in{' '}
               <span className="text-brand-strong dark:text-brand-strong-dark">5 minutes</span>, not 5 hours.
             </h1>
@@ -148,7 +148,7 @@ export default function WaitlistPage() {
                 key={item.step}
                 className="rounded-2xl border border-border-light bg-background-light px-5 py-4 dark:border-border-dark dark:bg-background-dark"
               >
-                <div className="text-xs font-semibold uppercase tracking-widest text-brand-strong dark:text-brand-strong-dark">
+                <div className="text-xs font-semibold uppercase tracking-eyebrow text-brand-strong dark:text-brand-strong-dark">
                   {item.step}
                 </div>
                 <h3 className="mt-2 text-lg font-semibold text-text-primary-light dark:text-text-primary-dark">

@@ -56,7 +56,7 @@ export default function SummaryContents() {
                   <span className="w-5 shrink-0 font-data tnum text-xs text-text-secondary-light dark:text-text-secondary-dark">
                     {String(index + 1).padStart(2, '0')}
                   </span>
-                  <span className="text-[15px] font-medium text-text-primary-light dark:text-text-primary-dark">
+                  <span className="text-base font-medium text-text-primary-light dark:text-text-primary-dark">
                     {name}
                   </span>
                 </li>

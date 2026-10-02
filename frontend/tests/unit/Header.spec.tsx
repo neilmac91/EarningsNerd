@@ -68,7 +68,7 @@ describe('Header auth state', () => {
     expect(screen.queryByRole('link', { name: /log in/i })).not.toBeInTheDocument()
   })
 
-  it('shows Log In / the account CTA only on a definitive logged-out (null)', async () => {
+  it('shows Log in / the account CTA only on a definitive logged-out (null)', async () => {
     vi.mocked(getCurrentUserSafe).mockResolvedValue(null)
     renderHeader()
 

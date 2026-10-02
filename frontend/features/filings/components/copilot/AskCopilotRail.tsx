@@ -386,7 +386,7 @@ export default function AskCopilotRail({
               Ask anything about {subjectLabel}’s {filingType}. Answers are grounded in the filing and
               cite the excerpts they came from.
             </p>
-            <p className="mt-4 mb-2 text-xs font-semibold uppercase tracking-wide text-text-secondary-light dark:text-text-secondary-dark">
+            <p className="mt-4 mb-2 text-xs font-semibold uppercase tracking-eyebrow text-text-secondary-light dark:text-text-secondary-dark">
               Try asking
             </p>
             <div className="flex flex-col gap-2">
@@ -508,7 +508,7 @@ export default function AskCopilotRail({
         aria-hidden="true"
         tabIndex={-1}
         onClick={handleClose}
-        className="lg:hidden fixed inset-0 z-30 bg-black/50"
+        className="lg:hidden fixed inset-0 z-30 bg-overlay"
       />
       <div
         ref={panelRef}

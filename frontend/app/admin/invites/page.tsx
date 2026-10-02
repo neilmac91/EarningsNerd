@@ -370,37 +370,37 @@ export default function AdminInvitesPage() {
                   <tr>
                     <th
                       scope="col"
-                      className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-text-tertiary-light dark:text-text-secondary-dark"
+                      className="px-4 py-3 text-left text-xs font-medium uppercase tracking-eyebrow text-text-tertiary-light dark:text-text-secondary-dark"
                     >
                       Email
                     </th>
                     <th
                       scope="col"
-                      className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-text-tertiary-light dark:text-text-secondary-dark"
+                      className="px-4 py-3 text-left text-xs font-medium uppercase tracking-eyebrow text-text-tertiary-light dark:text-text-secondary-dark"
                     >
                       Cohort
                     </th>
                     <th
                       scope="col"
-                      className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-text-tertiary-light dark:text-text-secondary-dark"
+                      className="px-4 py-3 text-left text-xs font-medium uppercase tracking-eyebrow text-text-tertiary-light dark:text-text-secondary-dark"
                     >
                       Status
                     </th>
                     <th
                       scope="col"
-                      className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-text-tertiary-light dark:text-text-secondary-dark"
+                      className="px-4 py-3 text-left text-xs font-medium uppercase tracking-eyebrow text-text-tertiary-light dark:text-text-secondary-dark"
                     >
                       Created
                     </th>
                     <th
                       scope="col"
-                      className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-text-tertiary-light dark:text-text-secondary-dark"
+                      className="px-4 py-3 text-left text-xs font-medium uppercase tracking-eyebrow text-text-tertiary-light dark:text-text-secondary-dark"
                     >
                       Expires
                     </th>
                     <th
                       scope="col"
-                      className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-text-tertiary-light dark:text-text-secondary-dark"
+                      className="px-4 py-3 text-left text-xs font-medium uppercase tracking-eyebrow text-text-tertiary-light dark:text-text-secondary-dark"
                     >
                       Actions
                     </th>
