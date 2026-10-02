@@ -104,7 +104,7 @@ what applies to your task. Filenames are greppable: `arch-*`, `sec-*`, `test-*`,
 - [`frontend-query-keys-registry.md`](./frontend-query-keys-registry.md) — React Query keys come from lib/queryKeys.ts — inline key literals are a stale-cache bug class
 - [`frontend-status-colors-for-status-only.md`](./frontend-status-colors-for-status-only.md) — Reserve loud status colors for genuine status messages
 - [`frontend-sweep-replaces-need-per-site-asserts.md`](./frontend-sweep-replaces-need-per-site-asserts.md) — Assert every targeted replace in a sweep script and grep all token variants first
-- [`frontend-tailwind-content-scans-class-maps.md`](./frontend-tailwind-content-scans-class-maps.md) — A class string only ships if a Tailwind content glob scans the module that composes it
+- [`frontend-tailwind-content-scans-class-maps.md`](./frontend-tailwind-content-scans-class-maps.md) — Put every module that composes Tailwind classes under a content glob
 - [`frontend-theme-migration-app-wide.md`](./frontend-theme-migration-app-wide.md) — Treat a design-token/theme migration as app-wide by default
 - [`frontend-verify-chart-annotations-on-dense-data.md`](./frontend-verify-chart-annotations-on-dense-data.md) — Acceptance-test chart annotations on a dense real-world series, never only fixtures
 

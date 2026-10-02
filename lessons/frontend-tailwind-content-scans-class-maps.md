@@ -1,4 +1,4 @@
-# A class string only ships if a Tailwind content glob scans the module that composes it
+# Put every module that composes Tailwind classes under a content glob
 
 Date: 2026-10-02   Area: frontend
 

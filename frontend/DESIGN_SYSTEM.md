@@ -166,7 +166,8 @@ Ask answer       <AskFilingAnswer>  — the SHIPPED copilot contract: status rea
   it finds in the modules `tailwind.config.js` `content` scans. A class composed in an unscanned
   module ships unstyled and nothing reports it: `lib/financialTone.directionChip` lost its /20
   borders and flat tint until `lib/` got a glob. `tests/unit/designSystemDoneGate.spec.ts` fails
-  on any app module whose classes no glob scans.
+  when an unscanned app module composes a hyphenated, variant, opacity or arbitrary-value class
+  (bare single-word utilities like `italic` are indistinguishable from prose, so they are not checked).
 
 ## 5. Headings
 

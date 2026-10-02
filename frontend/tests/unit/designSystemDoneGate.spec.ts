@@ -294,12 +294,13 @@ describe('tailwind content scans every module that composes classes', () => {
 
   /** Each content glob as (directory, extensions). Every entry is `./<dir>/**\/*.{exts}` today; an
    *  entry of any other shape throws, so this model of what Tailwind scans cannot drift from the
-   *  globs it models. The production-build test below checks the same globs through Tailwind's own
-   *  resolution, independently of this model. */
+   *  globs it models. That includes a one-extension brace like `{ts}`: Tailwind's glob library reads
+   *  it literally and matches nothing (Tailwind only warns). The production-build test below checks
+   *  the same globs through Tailwind's own resolution, independently of this model. */
   const contentGlobs = (): { dir: string; exts: string[] }[] => {
     if (!Array.isArray(config.content)) throw new Error('tailwind.config.js content is not an array')
     return config.content.map((glob) => {
-      const m = typeof glob === 'string' ? glob.match(/^\.\/([\w-]+)\/\*\*\/\*\.\{(\w+(?:,\w+)*)\}$/) : null
+      const m = typeof glob === 'string' ? glob.match(/^\.\/([\w-]+)\/\*\*\/\*\.\{(\w+(?:,\w+)+)\}$/) : null
       if (!m) throw new Error(`content entry ${JSON.stringify(glob)} is not ./<dir>/**/*.{exts}; teach this gate its shape`)
       return { dir: m[1], exts: m[2].split(',') }
     })
@@ -307,12 +308,15 @@ describe('tailwind content scans every module that composes classes', () => {
   const isScanned = (file: string): boolean =>
     contentGlobs().some(({ dir, exts }) => file.startsWith(`${dir}/`) && exts.includes(path.extname(file).slice(1)))
 
-  /** Every class Tailwind generates for `content`, read off the selectors it emits. */
-  const generatedClasses = async (content: Config['content'], safelist: string[] = []): Promise<Set<string>> => {
-    const css = await postcss([tailwindcss({ ...config, content, safelist })]).process(
-      '@tailwind components; @tailwind utilities;',
-      { from: undefined },
-    )
+  /** Every class Tailwind generates for `content`, read off the selectors it emits. With a
+   *  `stylesheet`, that file is the input, so its own `@layer` classes (`tnum`, `tabular`) count too. */
+  const generatedClasses = async (
+    content: Config['content'],
+    { safelist = [], stylesheet }: { safelist?: string[]; stylesheet?: string } = {},
+  ): Promise<Set<string>> => {
+    const from = stylesheet && path.join(frontendDir, stylesheet)
+    const input = from ? readFileSync(from, 'utf8') : '@tailwind components; @tailwind utilities;'
+    const css = await postcss([tailwindcss({ ...config, content, safelist })]).process(input, { from })
     const classes = new Set<string>()
     css.root.walkRules((rule) => {
       for (const m of rule.selector.matchAll(/\.((?:\\.|[\w-])+)/g)) classes.add(m[1].replace(/\\(.)/g, '$1'))
@@ -328,7 +332,7 @@ describe('tailwind content scans every module that composes classes', () => {
     const raw = readFileSync(path.join(frontendDir, file), 'utf8')
     // The safelisted bare word keeps Tailwind's "No utility classes were detected" warning quiet
     // for class-free modules; the filter drops it again.
-    const classes = await generatedClasses([{ raw, extension: path.extname(file).slice(1) }], ['hidden'])
+    const classes = await generatedClasses([{ raw, extension: path.extname(file).slice(1) }], { safelist: ['hidden'] })
     return [...classes].filter((c) => /[-:/[]/.test(c)).sort()
   }
 
@@ -353,9 +357,8 @@ describe('tailwind content scans every module that composes classes', () => {
 
   it('sees the classes a class-map module composes', async () => {
     // Positive control: a detector that silently returns nothing would leave the gate below green.
-    expect(await composedClasses('lib/financialTone.ts')).toEqual(
-      expect.arrayContaining(['border-gain-light/20', 'dark:border-loss-dark/20', 'bg-flat-light/10', 'dark:bg-flat-dark/10']),
-    )
+    const chipClasses = Object.values(directionChip).flatMap((tone) => tone.split(/\s+/))
+    expect(await composedClasses('lib/financialTone.ts')).toEqual(expect.arrayContaining(chipClasses))
   })
 
   it('scans every app module that composes classes', async () => {
@@ -368,7 +371,8 @@ describe('tailwind content scans every module that composes classes', () => {
       offenders,
       'these modules compose Tailwind classes, but no tailwind.config.js content glob scans them, so ' +
         'any class used only there is purged from production CSS. Add the directory (or the ' +
-        `extension) to content:\n${offenders.join('\n')}`,
+        'extension) to content, or, if the file never ships to the browser, add it to NOT_APP_CODE ' +
+        `with the reason:\n${offenders.join('\n')}`,
     ).toEqual([])
   }, 30_000)
 
@@ -376,7 +380,7 @@ describe('tailwind content scans every module that composes classes', () => {
     // Anchored to frontend/: Tailwind resolves relative globs against the process cwd, not the
     // config file, so a run from another directory would otherwise scan nothing.
     const globs = (config.content as string[]).map((glob) => path.join(frontendDir, glob))
-    const built = await generatedClasses(globs)
+    const built = await generatedClasses(globs, { stylesheet: 'app/globals.css' })
     const composed = [directionText, directionTextOnDark, directionChip].flatMap((tones) =>
       Object.values(tones).flatMap((tone) => tone.split(/\s+/)),
     )
