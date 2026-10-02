@@ -1,0 +1,21 @@
+.F...................................................................... [ 15%]
+........................................................................ [ 31%]
+........................................................................ [ 47%]
+........................................................................ [ 63%]
+........................................................................ [ 79%]
+........................................................................ [ 95%]
+...................                                                      [100%]
+=================================== FAILURES ===================================
+______ test_service_withholds_excerpt_verified_only_by_inner_quoted_span _______
+[XPASS(strict)] KNOWN DEFECT on main 02628e5799496be7a6faea5bea2bba8ec0caa295: verify_excerpt_in_text checks only extract_quoted_span(excerpt), yet _verify_citations publishes the full excerpt as verified. Remove this marker in the change that verifies the whole excerpt.
+---------------------------- Captured stdout setup -----------------------------
+[2026-10-02 04:55:49] DEBUG    [no-id] asyncio - Using selector: EpollSelector
+------------------------------ Captured log setup ------------------------------
+DEBUG    asyncio:selector_events.py:54 Using selector: EpollSelector
+----------------------------- Captured stdout call -----------------------------
+[2026-10-02 04:55:49] WARNING  [no-id] app.services.copilot_service - Copilot candidate withheld at citation publication boundary: Unverified or ambiguous referenced citation
+------------------------------ Captured log call -------------------------------
+WARNING  app.services.copilot_service:copilot_service.py:1391 Copilot candidate withheld at citation publication boundary: Unverified or ambiguous referenced citation
+=========================== short test summary info ============================
+FAILED tests/unit/test_copilot.py::test_service_withholds_excerpt_verified_only_by_inner_quoted_span
+1 failed, 450 passed in 39.45s
