@@ -718,3 +718,14 @@ Under the founder's delegation, Codex decided items A–M on #1029. This session
   - the S3 cost pinned.
 
   Delta reviews will follow on the new head.
+- 01:55Z — **F round 8 delivered at `b424e8d9`** (one commit on top of `555d771d`, +149/−26).
+  - **Gate:** `_LINE_EDGE_SPACE_RE` covers the 15 ungated Python whitespace characters at a line edge, after CR/CRLF are normalised; the set is computed and pinned. Mid-line NBSP still publishes.
+  - **Tests:** B1 controls for 15 spaces × 3 spans end to end, plus 12 shapes at unit level. Also F-N1 (`Net loss`/`Q3 sales`), F-N3 (`EBITDA [1]`) and B-N1 (escaped `~`), and the S3 cost pinned through the service.
+  - **Docs:** RUNBOOK wording made precise.
+  - **Attribution tool:** a88162d7. Unserved repair lookups are now UNEXPLAINED, and the self-test covers every surface and chip index.
+  - **Results:**
+    - mutations 171/171 killed;
+    - replay: 0 row changes against `555d771d` (21/0/0, 4/126);
+    - display cross-check: 0 holes in 623 cases; fuzz 0 holes in 450k; the reviewer's wsfz went from 815 hits to 0;
+    - gate: **5499 passed**.
+  - **Delta reviews** requested from both final reviewers, in `f-rev-a` and `f-rev-b` reset to `b424e8d9`.
