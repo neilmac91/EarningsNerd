@@ -62,6 +62,8 @@ function PricingContent({ billingCycle, setBillingCycle, billingResolved }: {
 }) {
   const router = useRouter()
   const [isLoadingCheckout, setIsLoadingCheckout] = useState<string | null>(null)
+  const [checkoutError, setCheckoutError] = useState<string | null>(null)
+  const checkoutErrorRef = useRef<HTMLDivElement>(null)
   const hasTrackedPricingView = useRef(false)
 
   // The pricing page is publicly reachable; only fetch account-scoped data for
@@ -72,7 +74,7 @@ function PricingContent({ billingCycle, setBillingCycle, billingResolved }: {
     retry: false,
   })
   // `undefined` is an unresolved identity (pending, or failed without data); only `null` is a
-  // confirmed guest. Conflating the two labelled Free "Current Plan" and armed checkout before
+  // confirmed guest. Conflating the two labelled Free "Current plan" and armed checkout before
   // anything was known about the account.
   const identityResolved = currentUser !== undefined
   const isGuest = currentUser === null
@@ -109,6 +111,12 @@ function PricingContent({ billingCycle, setBillingCycle, billingResolved }: {
     }
   }, [billingCycle, billingResolved])
 
+  useEffect(() => {
+    // The Notice renders above the plan grid, so on a phone the CTA that failed sits a screen below
+    // it. Bring a new error into view (an instant jump, so reduced motion needs no special case).
+    if (checkoutError) checkoutErrorRef.current?.scrollIntoView?.({ block: 'center' })
+  }, [checkoutError])
+
   const checkoutMutation = useMutation({
     mutationFn: createCheckoutSession,
     onSuccess: (data) => {
@@ -120,7 +128,7 @@ function PricingContent({ billingCycle, setBillingCycle, billingResolved }: {
       const errorMessage = isApiError(error)
         ? getErrorMessage(error)
         : 'Failed to create checkout session'
-      alert(errorMessage)
+      setCheckoutError(errorMessage)
       setIsLoadingCheckout(null)
     },
   })
@@ -138,6 +146,7 @@ function PricingContent({ billingCycle, setBillingCycle, billingResolved }: {
     }
     if (!subscription || subscription.is_pro) return
     if (isLoadingCheckout) return
+    setCheckoutError(null)
     setIsLoadingCheckout(priceId)
     try {
       const priceValue = billingCycle === 'monthly' ? PRO_PRICING.monthly : PRO_PRICING.yearly
@@ -153,7 +162,7 @@ function PricingContent({ billingCycle, setBillingCycle, billingResolved }: {
   // (The old rule let trialing users click through to checkout; that was written for the retired
   // no-card reverse trial and would now create a SECOND live subscription — double-billing plus
   // a webhook hazard when the orphaned sub later cancels. Staff review, PR #619.)
-  // isPaidPro stays distinct so copy can say "Current Plan (trial)" vs "Current Plan".
+  // isPaidPro stays distinct so copy can say "Current plan (trial)" vs "Current plan".
   // Expired trial rows can retain their Stripe status after the API resolves them to Free.
   const isTrialing = Boolean(subscription?.is_pro) && subscription?.status === 'trialing'
   const isPaidPro = Boolean(subscription?.is_pro) && !isTrialing
@@ -209,12 +218,12 @@ function PricingContent({ billingCycle, setBillingCycle, billingResolved }: {
         'Historical filing access',
       ],
       // Only the genuinely-free user is "on" the Free plan. A Pro user (paid or trialing) would
-      // otherwise see "Current Plan" on BOTH cards, which reads as a contradiction.
+      // otherwise see "Current plan" on BOTH cards, which reads as a contradiction.
       cta: !accountResolved
         ? unresolvedCta
         : isAuthenticated && !subscription?.is_pro
-        ? 'Current Plan'
-        : 'Get Started Free',
+        ? 'Current plan'
+        : 'Create free account',
       disabled: !accountResolved || isAuthenticated,
       priceId: null,
       betaOriginal: null,
@@ -240,9 +249,9 @@ function PricingContent({ billingCycle, setBillingCycle, billingResolved }: {
       cta: !accountResolved
         ? unresolvedCta
         : isPaidPro
-        ? 'Current Plan'
+        ? 'Current plan'
         : isTrialing
-        ? 'Current Plan (trial)'
+        ? 'Current plan (trial)'
         : showBetaOffer
         ? 'Claim Pro'
         : trialEligible
@@ -345,8 +354,8 @@ function PricingContent({ billingCycle, setBillingCycle, billingResolved }: {
           <div className="mb-8 bg-info-light/10 border border-info-light/40 rounded-lg p-4 max-w-2xl mx-auto dark:bg-info-dark/15 dark:border-info-dark/40">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-info-light dark:text-info-dark">Current Usage</p>
-                <p className="text-sm text-info-light dark:text-info-dark">
+                <p className="text-sm font-medium text-info-text dark:text-info-dark">Current usage</p>
+                <p className="text-sm text-info-text dark:text-info-dark">
                   {usage.summaries_used} / {usage.summaries_limit || '∞'} summaries used this month
                 </p>
               </div>
@@ -384,6 +393,12 @@ function PricingContent({ billingCycle, setBillingCycle, billingResolved }: {
           </div>
         )}
 
+        {checkoutError && (
+          <div ref={checkoutErrorRef} className="mb-8 mx-auto max-w-2xl">
+            <Notice variant="error" title="Checkout didn't start" description={checkoutError} />
+          </div>
+        )}
+
         {/* Pricing Cards */}
         <div className="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto">
           {plans.map((plan) => (
@@ -396,7 +411,7 @@ function PricingContent({ billingCycle, setBillingCycle, billingResolved }: {
             >
               {plan.popular && (
                 <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-                  <Badge variant="solid">Most Popular</Badge>
+                  <Badge variant="solid">Most popular</Badge>
                 </div>
               )}
 
@@ -450,7 +465,7 @@ function PricingContent({ billingCycle, setBillingCycle, billingResolved }: {
 
         {/* FAQ */}
         <div className="mt-16 max-w-3xl mx-auto">
-          <h2 className="text-2xl font-semibold text-text-heading-light dark:text-text-heading-dark mb-8 text-center">Frequently Asked Questions</h2>
+          <h2 className="text-2xl font-semibold text-text-heading-light dark:text-text-heading-dark mb-8 text-center">Frequently asked questions</h2>
           <div className="space-y-6">
             <div>
               <h3 className="text-lg font-semibold text-text-heading-light dark:text-text-heading-dark mb-2">

@@ -121,7 +121,7 @@ export default function Header({
           ) : user === null || isError ? (
             <>
               <Link href="/login" className={buttonVariants({ variant: 'ghost', size: 'md' })}>
-                Log In
+                Log in
               </Link>
               <Link href={account.href} className={buttonVariants({ variant: 'primary', size: 'md' })}>
                 {account.cta}
@@ -130,7 +130,7 @@ export default function Header({
             </>
           ) : (
             // Auth still resolving (pending, including retry backoff): hold the skeleton so a
-            // slow/cold backend never flashes the "Log In" CTAs to a user who is actually signed
+            // slow/cold backend never flashes the "Log in" CTAs to a user who is actually signed
             // in. Once the query *settles* — `null` (logged out) or `isError` (gave up) — one of
             // the branches above renders, so the user is never trapped on this placeholder.
             <span role="status" aria-label="Checking sign-in">
@@ -144,7 +144,7 @@ export default function Header({
         <div className="flex items-center gap-1 lg:hidden">
           <ThemeToggle className="min-h-11 min-w-11" />
           {(user === null || isError) && (
-            <Link href={account.href} className={buttonVariants({ variant: 'primary', size: 'md' })}>
+            <Link href={account.href} className={buttonVariants({ variant: 'primary', size: 'md', className: 'min-h-11' })}>
               {account.ctaShort}
             </Link>
           )}
@@ -218,12 +218,12 @@ export default function Header({
                     onClick={() => setMobileMenuOpen(false)}
                     className="block rounded-lg px-3 py-2.5 text-center text-sm font-medium text-text-secondary-light transition-colors hover:bg-brand-weak hover:text-text-primary-light dark:text-text-secondary-dark dark:hover:bg-white/5 dark:hover:text-text-primary-dark"
                   >
-                    Log In
+                    Log in
                   </Link>
                   <Link
                     href={account.href}
                     onClick={() => setMobileMenuOpen(false)}
-                    className="block rounded-lg bg-brand px-3 py-2.5 text-center text-sm font-semibold text-white transition-colors hover:bg-brand-strong active:bg-brand-emphasis dark:bg-brand-dark dark:text-background-dark dark:hover:bg-brand-strong-dark"
+                    className={buttonVariants({ variant: 'primary', className: 'w-full min-h-11' })}
                   >
                     {account.cta}
                   </Link>
@@ -231,7 +231,7 @@ export default function Header({
               ) : (
                 // Auth still resolving (pending): show a skeleton bar rather than leaving the
                 // bordered container empty (a stray divider + gap), matching the desktop header's
-                // loading state. A settled error falls through to the Log In / account CTA links
+                // loading state. A settled error falls through to the Log in / account CTA links
                 // above (via `isError`), so the mobile menu is never stuck on this placeholder.
                 <span role="status" aria-label="Checking sign-in" className="block">
                   <Skeleton className="h-9 w-full rounded-lg" />
