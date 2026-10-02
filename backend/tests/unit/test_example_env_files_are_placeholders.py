@@ -33,12 +33,18 @@ URL_SCHEME = re.compile(r"^[a-z][a-z0-9+]*://")
 PLACEHOLDER_MARKERS = ("your", "example", "change", "placeholder", "xxx", "...", "<", "replace", "here", "dummy", "mock", "test", "local", "optional")
 
 
+# Dotenv-style example files only (`.env.example`, `.env.local.example`, ...). Matching on the
+# words "env" and "example" anywhere in a name also selects this test module once it is tracked.
+EXAMPLE_ENV_NAME = re.compile(r"^\.env(\.[\w-]+)*\.(example|sample|template)$", re.IGNORECASE)
+
+
+def _is_example_env_name(name: str) -> bool:
+    return EXAMPLE_ENV_NAME.match(name) is not None
+
+
 def _tracked_example_env_files() -> list[Path]:
     out = subprocess.run(["git", "ls-files"], cwd=ROOT, capture_output=True, text=True, check=True).stdout
-    return sorted(
-        ROOT / line for line in out.splitlines()
-        if "example" in Path(line).name.lower() and "env" in Path(line).name.lower()
-    )
+    return sorted(ROOT / line for line in out.splitlines() if _is_example_env_name(Path(line).name))
 
 
 def _entropy(value: str) -> float:
@@ -73,6 +79,17 @@ def _offending_lines(text: str) -> list[str]:
 
 def test_tracked_example_env_files_exist():
     assert _tracked_example_env_files(), "expected at least backend/.env.example to be tracked"
+
+
+def test_selector_picks_dotenv_example_files_only():
+    selected = _tracked_example_env_files()
+    assert Path(__file__).resolve() not in selected
+    assert all(_is_example_env_name(path.name) for path in selected)
+    assert _is_example_env_name(".env.example")
+    assert _is_example_env_name(".env.local.example")
+    assert not _is_example_env_name("test_example_env_files_are_placeholders.py")
+    assert not _is_example_env_name("example_env_notes.md")
+    assert not _is_example_env_name(".env")
 
 
 @pytest.mark.parametrize("path", _tracked_example_env_files(), ids=lambda p: str(p.relative_to(ROOT)))
