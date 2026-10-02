@@ -149,6 +149,10 @@ module.exports = {
           light: '#E5E7EB', // gray-200
           dark: '#374151', // gray-700
         },
+
+        // v3: the ONE modal/sheet scrim (brand navy @ 55%), both themes —
+        // replaces the bg-slate-950/60 and bg-black/50 hand-rolls.
+        overlay: 'rgba(11, 17, 32, 0.55)',
       },
 
       fontFamily: {
@@ -191,6 +195,22 @@ module.exports = {
         '4xl': ['2.25rem', { lineHeight: '2.5rem', letterSpacing: 'var(--track-title1)' }],
         '5xl': ['3rem', { lineHeight: '1.1', letterSpacing: 'var(--track-display)' }],
         '6xl': ['3.75rem', { lineHeight: '1.05', letterSpacing: 'var(--track-display)' }],
+      },
+
+      // v3: the ONE eyebrow tracking — 12px UPPERCASE metric labels only.
+      // Replaces every tracking-wider / tracking-[0.08em] hand-roll.
+      letterSpacing: {
+        eyebrow: 'var(--track-eyebrow)',
+      },
+
+      // v3: semantic stacking ladder — never z-[N]. (DataTable's internal z-[5]
+      // sticky-cell layering is the one documented exemption.)
+      zIndex: {
+        sticky: '30', // in-page sticky chrome (mobile section nav)
+        header: '50', // site header
+        overlay: '60', // popovers, the selection pill; the skip link rides toast
+        modal: '70', // dialogs + sheets — scrim AND panel
+        toast: '80',
       },
 
       borderRadius: {
