@@ -134,6 +134,8 @@ def test_contiguous_quotations_and_short_terms_publish(answer):
     ('showing "Total net sales 32,667.3" and "Net income 9,609.4" for 2025 [3].', [NOT_IN, NOT_IN]),
     # Under 24 characters but not under 8 (the prose floor): checked like any other quotation.
     ('The filing reports "Total net sales 416,161" and "Gross margin 195,201" [1].', [NOT_IN, NOT_IN]),
+    # An interior ellipsis puts a quotation in scope at any length.
+    ('which report "Rev…347" and "R . . . D" [2].', [ELIDED, ELIDED]),
     ('which report "Revenue ... 996,347" for the year [2].', [ELIDED]),
     ('"Net income for 2025 amounted to … 29.4% of total net sales" [1]', [ELIDED]),
     ('"Net income for 2025 was €9,609.4 million" and "Revenue . . . 996,347" [1]', [NOT_IN, ELIDED]),
@@ -349,6 +351,14 @@ def test_nested_quotations_are_checked_whole_and_inner(answer, expected):
                  id="no-break-space-beside-marks"),
     pytest.param(f'The filing calls it "label\u3000"({INV})"\u3000here" [1].', [NOT_IN, NOT_IN],
                  id="ideographic-space-beside-marks"),
+    pytest.param(f'The filing calls it "label" {INV}"\u00a0here" [1].', [UNBALANCED],
+                 id="no-break-space-after-a-closing-mark"),
+    pytest.param(f'The filing calls it "label"{INV}"\u3000here" [1].', [NOT_IN, NOT_IN],
+                 id="ideographic-space-after-a-mark"),
+    # A '*' or '_' left as text may still vanish when displayed, so a direction it decides is ambiguous.
+    pytest.param(f'The filing calls it "label"*{INV}" here" [1].', [AMBIGUOUS], id="star-left-as-text-beside-a-mark"),
+    pytest.param(f'The filing calls it "label"_{INV}" here" [1].', [AMBIGUOUS],
+                 id="underscore-left-as-text-beside-a-mark"),
 ])
 def test_quotations_are_read_as_displayed(answer, expected):
     assert unsupported_prose_quotations(answer, SOURCE) == expected
@@ -414,6 +424,7 @@ def test_display_divergences_fail_closed(answer, expected):
     pytest.param(f'Revenue rose [1].\n\n<br>\nThe filing names it [here](https://www.sec.gov/x "{INV}").',
                  id="html-break"),
     pytest.param(f'See <!-- [x](https://www.sec.gov "{INV}") --> here [1].', id="html-comment"),
+    pytest.param(f'See <!-- "{INV}" --> here [1].', id="html-comment-without-a-link"),
     pytest.param('The filing calls it "label <!-- [x](https://www.sec.gov/"Invented-text-missing-from-the-source") -->'
                  ' here" [1].', id="html-comment-without-a-title"),
     pytest.param('<div>\n"Invented text&#34; &#34;missing from the source" [1]\n</div>', id="html-block-references"),
@@ -530,6 +541,7 @@ REASON = "Segment margins are not broken out"
     pytest.param(f'It says "label \u3164"({INV})"\u3164 here".', [NOT_IN, NOT_IN], id="default-ignorable-dropped"),
     pytest.param(f'What does "{NI}" cover?', [], id="chip-quoting-the-filing"),
     pytest.param("What are the risks?", [], id="chip-without-quotation"),
+    pytest.param(f'Why does it say "label" {INV}"\u00a0here"?', [UNBALANCED], id="no-break-space-after-a-closing-mark"),
 ])
 def test_plain_text_is_read_as_written(text, expected):
     assert unsupported_plain_quotations(text, SOURCE) == expected
