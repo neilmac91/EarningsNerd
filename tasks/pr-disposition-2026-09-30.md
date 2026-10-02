@@ -898,3 +898,8 @@ Under the founder's delegation, Codex decided items A–M on #1029. This session
 - 11:07Z — **Citation PR next.** Branch `claude/citation-whole-excerpt` is integrated on `0f4dffa9` as `b3871db4`; the full gate is running.
   - **Reservation:** USD 0.50 from the shared remainder, under the founder's approval (5947962998). It covers one eval-baseline on push and one copilot-eval on ready.
   - **Scorer:** `evals/copilot_scorers.py:65` stays unchanged, pending the founder's decision. This is disclosed: the scorer is stricter than the product, never more lenient.
+- 11:33Z — **Citation fix merged.** #1052 was squash-merged as `287d018d` after an immediate re-read of the head: `b3871db4`, mergeable clean, base `0f4dffa9`, every check green including the ready Review gate, 0 threads.
+  - **D16 eval-baseline:** 70/70, regression gate PASS, USD 0.176214.
+  - **D17 copilot-eval:** 18/18, USD 0.005022. Its 30 citations were all XBRL; 0 text citations were exercised.
+  - **Total:** 0.181236 of 0.50.
+  - **Next:** serial deploy verification.
