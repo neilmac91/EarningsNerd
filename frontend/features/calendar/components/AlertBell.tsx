@@ -124,7 +124,7 @@ export function BellPopover({ blocked, onClose }: { blocked: BlockedState; onClo
     const popover = ref.current
     const trigger = blocked.trigger
     // Focus is "free" when nobody else claimed it: an async result must not yank a user who moved on
-    // (the error kind's alert announces it instead). A pending bell is disabled, so it blurred to <body>.
+    // (the error kind's alert announces it instead). Body focus is also free if the trigger lost focus.
     const free = (el: Element | null) => !el || el === document.body || el === trigger || !!popover?.contains(el)
     const actions = () => Array.from(popover?.querySelectorAll<HTMLElement>('a[href], button') ?? [])
     if (free(document.activeElement)) actions()[0]?.focus({ preventScroll: true })

@@ -151,15 +151,14 @@ export default function CookieConsent({ onPreferencesChanged }: CookieConsentPro
   }
 
   // ui/Modal owns the dialog contract (focus in, Tab cycle, Escape, scroll lock, focus return);
-  // Escape and the scrim close it exactly as Cancel does. max-h-full + overflow keeps the three
-  // categories reachable on a short phone screen (the panel never outgrows the padded scrim).
+  // Escape and the scrim close it exactly as Cancel does. The primitive also owns viewport
+  // sizing and inner scrolling so all three categories stay reachable on a short screen.
   const settings = (
     <Modal
       open={showSettings}
       onClose={() => setShowSettings(false)}
       labelledBy="cookie-settings-title"
       size="lg"
-      className="max-h-full overflow-y-auto"
     >
       <ModalHeader
         id="cookie-settings-title"
