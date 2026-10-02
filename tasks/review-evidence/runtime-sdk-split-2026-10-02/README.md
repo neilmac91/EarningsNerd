@@ -65,8 +65,14 @@ Primary release sources: [OpenAI 3.20.0](https://github.com/openai/openai-python
 
 [Initial full gate](initial-evidence-packaging-failure.txt): 5585 passed, 1 evidence-link failure,
 2 deselected, 0 skipped.
-The guard correctly rejected new, not-yet-tracked evidence files. The evidence is now committed;
-full gate confirmation follows in the next evidence update. No application assertion failed.
+The guard correctly rejected new, not-yet-tracked evidence files; no application assertion failed.
+After committing those files and integrating main, the [final full gate](final-full-gate.txt) on
+`f009a602d28487fe2f9234e9fc17294cf5da5e1e` passed: **ruff clean; bandit no medium/high issues; 5604 passed, 2 deselected, 0 skipped**.
+[Machine-readable status](final-full-gate-status.json) records all three successful commands.
+[Independent environment check](final-environment-review.json) confirms the runtime lock,
+independent optional base, combined package set and retained Edgartools 5.58.0.
+Only these verification receipts and this documentation were added after the tested commit;
+the evidence-link gate is checked again on the committed receipt update.
 
 [Migration proof](migrations-triple-pass.txt) reproduces CI's disposable PostgreSQL15 database:
 40 files apply, all 40 skip on pass two, then all 40 safely reapply after resetting the ledger.
@@ -97,4 +103,4 @@ library directory, so WeasyPrint could not load libgobject. Restoring
 `DYLD_FALLBACK_LIBRARY_PATH=/opt/homebrew/lib` fixed [both exact PDF tests](pdf-host-library-restored.txt):
 **2 passed**. This probe used the runtime successor after integrating #1065; the same native
 libraries serve both isolated environments. No dependency, application or test change was used
-to bypass the failure. The complete gates are repeated with the restored path on the new base.
+to bypass the failure. The complete gates passed with the restored path on the new base; see the final receipt above.

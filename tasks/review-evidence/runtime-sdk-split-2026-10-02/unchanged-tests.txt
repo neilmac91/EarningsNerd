@@ -1,4 +1,4 @@
-base_head=5525a91db3de9ce554b6015ed51d6817666c7bc3
-source_head=92aab7ae2109f2f31669fdc7c68e577842e8b58e
-changed_source_files=backend/requirements.in,backend/requirements.txt
-backend/tests diff against base: empty (all existing tests byte-identical)
+base_head=efdc33f42bbf95a70ceb78d0c6615d59788800df
+tested_head=f009a602d28487fe2f9234e9fc17294cf5da5e1e
+backend/app, backend/tests, backend/evals, .github diff against current base: empty
+All existing tests, including locked contracts, are byte-identical to the integrated base.
