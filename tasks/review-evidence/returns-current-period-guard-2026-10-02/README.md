@@ -1,14 +1,16 @@
 # Returns current-period guard: offline evidence
 
-This is the item-B follow-up from the close-out research (R4), as the founder approved it: the code-rendered `value_drivers.returns_on_capital` line leaves out a ratio whose current point is not the filing's period. It does not date the current point, and there is no drain.
+This is the item-B follow-up from the close-out research (R4), as the founder approved it (`tasks/pr-disposition-2026-09-30.md`, log entry 13:10Z): the code-rendered `value_drivers.returns_on_capital` line leaves out a ratio whose current point is not the filing's period. It does not date the current point, and there is no drain.
 
-Branch `claude/returns-current-period-guard`, on main `06ad809a`:
+Branch `claude/returns-current-period-guard`, on main `06ad809a`, then merged with main `a541c3c8` (#1036: one `test_copilot.py` assertion and `tasks/` only):
 
 | Commit | Content |
 | --- | --- |
 | `a31ff53e` | the guard in `markdown_render._ratio_clause` and its test |
 | `4b354ed6` | content stamp `summary-2026-09-u` |
-| this commit | this folder and the `tasks/todo.md` entry |
+| `c2880a47` | this folder and the `tasks/todo.md` entry |
+| `0c6376a0` | merge of main `a541c3c8`, clean |
+| this commit | review nits in this README, and the post-merge gate |
 
 Everything here is offline: provider keys unset, sockets blocked in the scripts, no provider call and no spend.
 
@@ -35,6 +37,8 @@ This is R4's line, byte for byte. The 10-Q (FIGS-like) form, case E, renders Q1'
 - The stamp is read only by the pipeline's row write, `summary_refresh` and the admin endpoint, and never by a prompt.
 - The grounding block, which dates the ratio itself as `(period: …)`, is identical to main in 6 of 6 probe cases and 70 of 70 cohort results (below).
 - Copilot reads `Filing.xbrl_data`, not summaries, and is untouched.
+
+This guard is about dating, not value quality, so `lessons/arch-guard-every-model-facing-surface.md` asks nothing more here: the grounding dates the point itself as `(period: …)`, and model-facing bytes stay unchanged by founder scope.
 
 ## Probe (`probe-current-period.json`, `.stdout`)
 
@@ -70,9 +74,11 @@ Each run covers the owner test file plus the locked render file, 113 tests on th
 | M1: guard removed | 4 failed: the four misaligned cases of the new test |
 | M2: period comparison inverted (`not in` → `in`) | 13 failed: all 6 new-test cases, including both aligned ones, plus all 7 cases of the existing `test_return_ratios_own_their_selected_operands_across_periods` |
 
+Expected survivors (reviewer mutations, not in `mutate.py`): making an undated ratio abstain too, and comparing raw periods without `return_ratio_period`. Both behave identically for every input the real producer can make, because each ratio point copies its period string from a net-income point (`xbrl_service.py:1243`); the undated branch of the "known and differs" rule cannot be reached, so no test is added.
+
 ## Content stamp `summary-2026-09-u`, and what it triggers
 
-The bump follows how `t` was introduced in `f896afbe`: only `summary_versioning.py` changes, and no test pins the current stamp by literal. `u` has never been set on any ref in the local clone; `q` and `r` stay reserved.
+The bump follows how `t` was introduced in `f896afbe`: only `summary_versioning.py` changes, and no test pins the current stamp by literal. `u` has never been set on any ref in the local clone, nor in main's history through `a541c3c8` (`git log -S`), where the stamp is still `t`; `q` and `r` stay reserved.
 
 A bump makes `t`-and-earlier rows version-stale (`is_stale`, `summary_refresh.stale_filter`). It regenerates nothing by itself:
 
@@ -80,7 +86,7 @@ A bump makes `t`-and-earlier rows version-stale (`is_stale`, `summary_refresh.st
 | --- | --- | --- |
 | Admin `POST /api/admin/summaries/refresh-stale` (`admin.py:879`) | yes | no. Operator call; `dry_run=True` by default |
 | `scripts/refresh_stale_summaries.py` (D4 drain) | yes | no. Dry run unless `--execute`; not scheduled (`docs/OPERATIONS.md`, D4) |
-| Weekly pregenerate cron (Mondays 06:00 UTC, `scripts/pregenerate_examples.py`, no `--force`) | no | skips any filing that has a summary (`precompute_service.py:171-178`) |
+| Weekly pregenerate cron (Mondays 06:00 UTC, `scripts/pregenerate_examples.py`; args set out of band, `docs/DEPLOYMENT.md` §9) | no | stamp-agnostic either way; skips any filing that has a summary unless forced (`precompute_service.py:171-178`) |
 | `POST /internal/jobs/precompute` | no | same `precompute_one`; `force` comes from the request |
 | Pro regenerate (`summaries.py:230-253`) | no | user-initiated |
 | Read path / provenance API | passes `prompt_version` through | nothing regenerates on read |
@@ -92,7 +98,7 @@ Compared with `t`, which shipped today, the only addition is that rows generated
 
 The 47 census filings with summaries (58 untagged snapshots; `../stamp-t-snapshot-census-2026-10-01/README.md`) get no drain or refresh, for the guard or for `t`:
 1. **Nothing shown today is newly false.** Stored summaries keep the line text from generation, built from each filing's own snapshot. The guard changes a line only when a row is regenerated.
-2. **A drain cannot target them.** It selects every stale summary, filterable only by form (`summary_refresh.py:48-57`). Order is random (`:114`) and each row is fully regenerated (`:125`). That re-draws the whole production corpus of about 50 summaries, changes every model-written section, and the keep-better gate can leave rows stale anyway.
+2. **A drain cannot target them.** It selects every stale summary, filterable only by form (`summary_refresh.py:50-58`). Order is random (`:114`) and each row is fully regenerated (`:125`). That re-draws the whole production corpus of about 50 summaries, changes every model-written section, and the keep-better gate can leave rows stale anyway.
 3. **The useful version is not authorized.** Naming the numerator scope needs `xbrl_data` cleared (`summaries.py:252-253`, `admin.py:446`). Re-extraction would rewrite 58 snapshots and their FinancialFact rows, a data change that has not been authorized (`tasks/pr-disposition-2026-09-30.md`, item 5).
 4. **Cost is not the issue** (about USD 0.12–0.25 at eval rates); content churn and the data change are.
 5. **These rows fix themselves on demand.** A Pro regenerate clears the snapshot and re-extracts.
@@ -120,3 +126,5 @@ If the result is `pre_785_shape_period_mismatch`, clearing and regenerating that
 ## Gate
 
 Full backend gate on `4b354ed6` from `backend/`, provider keys unset: `ruff check .` all checks passed, `bandit -q -r app -ll` exit 0 with no findings, `python -m pytest -q -p no:cacheprovider` **5544 passed**, 39 skipped, 2 deselected, 40 warnings in 644.03s. The log is kept in scratch and not committed. This folder's commit changes only `tasks/`.
+
+After the merge of main `a541c3c8`, the same gate on merge `0c6376a0` (backend identical at this commit): ruff all checks passed, bandit exit 0, pytest **5544 passed**, 39 skipped, 2 deselected, 40 warnings in 678.39s. `mutate.py` re-run there: baseline 113 passed, M1 4 failed, M2 13 failed, tree clean after.
