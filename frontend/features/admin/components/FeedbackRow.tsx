@@ -6,7 +6,7 @@ import { format } from 'date-fns'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { CircleNotchIcon } from '@/lib/icons'
-import { inputClasses } from '@/components/ui/Input'
+import { fieldUnavailableClass, inputClasses } from '@/components/ui/Input'
 import { isApiError, getErrorMessage } from '@/lib/api/types'
 import {
   updateFeedbackStatus,
@@ -87,12 +87,20 @@ export default function FeedbackRow({ feedback }: FeedbackRowProps) {
             Set status for feedback {feedback.id}
           </label>
           <div className="relative">
+            {/* aria-disabled + an early return while its own update is in flight, not native
+                `disabled`: Chromium blurs a focused select that turns disabled, dropping the
+                keyboard user to <body>. The early return leaves the controlled value unchanged.
+                The aria-disabled: classes repeat inputClasses()' disabled: look. */}
             <select
               id={`feedback-status-${feedback.id}`}
               value={feedback.status}
-              disabled={statusMutation.isPending}
-              onChange={(e) => statusMutation.mutate(e.target.value as FeedbackStatus)}
-              className={`${inputClasses()} w-auto py-1.5 pr-8 text-xs disabled:cursor-not-allowed disabled:opacity-50`}
+              aria-disabled={statusMutation.isPending || undefined}
+              aria-busy={statusMutation.isPending || undefined}
+              onChange={(e) => {
+                if (statusMutation.isPending) return
+                statusMutation.mutate(e.target.value as FeedbackStatus)
+              }}
+              className={`${inputClasses()} w-auto py-1.5 pr-8 text-xs ${fieldUnavailableClass}`}
             >
               {STATUS_OPTIONS.map((s) => (
                 <option key={s} value={s}>

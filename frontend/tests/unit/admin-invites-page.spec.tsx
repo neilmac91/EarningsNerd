@@ -84,12 +84,15 @@ describe('AdminInvitesPage', () => {
     expect(screen.getByText(/1 invalid/)).toBeInTheDocument()
     // The Send button enables once there is at least one valid, not-already-invited email.
     expect(screen.getByRole('button', { name: /Send invites/i })).toBeEnabled()
+    expect(screen.getByRole('button', { name: /Send invites/i })).not.toHaveAttribute('aria-disabled')
   })
 
   it('disables Send invites when there is nothing valid to send', async () => {
     vi.mocked(listInvites).mockResolvedValue([])
     renderPage()
-    expect(screen.getByRole('button', { name: /Send invites/i })).toBeDisabled()
+    // aria-disabled, not native: a send can empty the list while Send holds focus
+    // (busyControls.admin-auth.spec.tsx).
+    expect(screen.getByRole('button', { name: /Send invites/i })).toHaveAttribute('aria-disabled', 'true')
   })
 })
 

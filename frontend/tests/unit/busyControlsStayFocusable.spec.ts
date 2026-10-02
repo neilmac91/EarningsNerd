@@ -57,8 +57,12 @@ const ALLOW: Record<string, { sites: string[]; reason: string }> = {
       'cannot be activated during the request, so it never holds focus when it flips.',
   },
   // Pre-existing follow-ups.
-  'app/admin/invites/page.tsx': { sites: ['sending', 'sending', 'sending', 'sending', '!canSend'], reason: FOLLOW_UP },
-  'app/check-email/page.tsx': { sites: ['resendLoading || cooldown > 0 || !email'], reason: FOLLOW_UP },
+  'app/admin/invites/page.tsx': {
+    sites: ['sending', 'sending', 'sending', 'sending'],
+    reason:
+      'The invite fields stay disabled while sending: only Send (`loading`) starts a send, and there is no ' +
+      'form, so Enter in a field submits nothing. Focus is on Send, never on a field, when they flip.',
+  },
   'app/company/[ticker]/page-client.tsx': { sites: ['watchlistMutation.isPending', 'filingsRefetching'], reason: FOLLOW_UP },
   'app/dashboard/settings/page.tsx': {
     sites: ['deleteMutation.isPending', 'deleteMutation.isPending'],
@@ -66,8 +70,6 @@ const ALLOW: Record<string, { sites: string[]; reason: string }> = {
       'The delete-confirm field and Cancel stay disabled while deleting: only Confirm (`loading`) starts the ' +
       'delete, with no form, so focus is on Confirm, never on them, when they flip.',
   },
-  'features/admin/components/FeedbackRow.tsx': { sites: ['statusMutation.isPending'], reason: FOLLOW_UP },
-  'features/auth/components/VerificationBanner.tsx': { sites: ['loading'], reason: FOLLOW_UP },
   'features/contact/components/ContactForm.tsx': { sites: ['isSubmitting', 'isSubmitting', 'isSubmitting', 'isSubmitting', 'isSubmitting || (TURNSTILE_ENABLED && !turnstileToken)'], reason: FOLLOW_UP },
   'features/dashboard/components/YourCompanies.tsx': { sites: ['removeMutation.isPending'], reason: FOLLOW_UP },
   'features/feedback/components/FeedbackWidget.tsx': { sites: ['submitting || message.trim().length < 5'], reason: FOLLOW_UP },
@@ -78,8 +80,8 @@ const ALLOW: Record<string, { sites: string[]; reason: string }> = {
 }
 
 /** Frozen ceilings on files and on pinned sites: lower them as sites are converted, never raise them. */
-const MAX_ALLOWLIST_SIZE = 16
-const MAX_PINNED_SITES = 26
+const MAX_ALLOWLIST_SIZE = 13
+const MAX_PINNED_SITES = 22
 
 const frontendRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 const ROOTS = ['app', 'components', 'features']

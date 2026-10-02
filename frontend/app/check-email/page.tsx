@@ -80,10 +80,16 @@ function CheckEmailContent() {
 
       <p className="mt-8 text-center text-sm text-text-secondary-light dark:text-text-secondary-dark">
         Didn&apos;t receive it?{' '}
+        {/* In flight and cooling down: aria-disabled (handleResend returns early), not native
+            `disabled`. Chromium blurs a focused button that turns disabled, and both states
+            follow this button's own activation. A missing email comes from the URL and never
+            changes here, so that alone stays natively disabled. */}
         <button
           onClick={handleResend}
-          disabled={resendLoading || cooldown > 0 || !email}
-          className="inline-flex items-center gap-1 font-medium text-brand-strong hover:underline disabled:cursor-not-allowed disabled:opacity-50 disabled:no-underline dark:text-brand-strong-dark"
+          disabled={!email}
+          aria-disabled={resendLoading || cooldown > 0 || undefined}
+          aria-busy={resendLoading || undefined}
+          className="inline-flex items-center gap-1 font-medium text-brand-strong hover:underline disabled:cursor-not-allowed disabled:opacity-50 disabled:no-underline aria-disabled:cursor-not-allowed aria-disabled:opacity-50 aria-disabled:no-underline dark:text-brand-strong-dark"
         >
           {resendLoading && <CircleNotchIcon className="h-3 w-3 animate-spin" />}
           {cooldown > 0 ? `Resend in ${cooldown}s` : 'Resend email'}
