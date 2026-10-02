@@ -1,0 +1,37 @@
+# g_precheck.py over the four G stage-1 copilot-eval.json files (artifact copies; see README for run ids and digests)
+copilot-37003942265
+  system_prompt {'a88b6fb1': 18}
+  context {'AAPL sales-gross-profit-2025': ['db033e5a13d4'], 'TSLA sales-operating-income-2024': ['3babd16a34cf'], 'MSFT sales-diluted-eps-2025': ['b552352b2af3'], 'BABA native-revenue-2026': ['6db10712e780'], 'BABA viewed-native-revenue-2025': ['be263a712053'], 'ASML us-gaap-sales-net-income-2025': ['09e857dbd1b9']}
+  tool_schema {'b6958973': 18}
+  generation_options {'{"max_tokens": 2400, "model": "deepseek-flash", "temperature": 0.2}': 18}
+  fingerprints {}
+copilot-37004589548
+  system_prompt {'93dc6565': 18}
+  context {'AAPL sales-gross-profit-2025': ['db033e5a13d4'], 'TSLA sales-operating-income-2024': ['3babd16a34cf'], 'MSFT sales-diluted-eps-2025': ['b552352b2af3'], 'BABA native-revenue-2026': ['6db10712e780'], 'BABA viewed-native-revenue-2025': ['be263a712053'], 'ASML us-gaap-sales-net-income-2025': ['09e857dbd1b9']}
+  tool_schema {'b6958973': 18}
+  generation_options {'{"max_tokens": 2400, "model": "deepseek-flash", "temperature": 0.2}': 18}
+  fingerprints {}
+copilot-37005114216
+  system_prompt {'a88b6fb1': 18}
+  context {'AAPL sales-gross-profit-2025': ['db033e5a13d4'], 'TSLA sales-operating-income-2024': ['3babd16a34cf'], 'MSFT sales-diluted-eps-2025': ['b552352b2af3'], 'BABA native-revenue-2026': ['6db10712e780'], 'BABA viewed-native-revenue-2025': ['be263a712053'], 'ASML us-gaap-sales-net-income-2025': ['09e857dbd1b9']}
+  tool_schema {'b6958973': 18}
+  generation_options {'{"max_tokens": 2400, "model": "deepseek-flash", "temperature": 0.2}': 18}
+  fingerprints {}
+copilot-37005546506
+  system_prompt {'93dc6565': 18}
+  context {'AAPL sales-gross-profit-2025': ['db033e5a13d4'], 'TSLA sales-operating-income-2024': ['3babd16a34cf'], 'MSFT sales-diluted-eps-2025': ['b552352b2af3'], 'BABA native-revenue-2026': ['6db10712e780'], 'BABA viewed-native-revenue-2025': ['be263a712053'], 'ASML us-gaap-sales-net-income-2025': ['09e857dbd1b9']}
+  tool_schema {'b6958973': 18}
+  generation_options {'{"max_tokens": 2400, "model": "deepseek-flash", "temperature": 0.2}': 18}
+  fingerprints {}
+
+# provider system_fingerprint per run, from each artifact's runner.log
+37003942265:  30 "system_fingerprint":"aeb56401ca74e127821c4f9126dcb669"
+37004589548:  35 "system_fingerprint":"aeb56401ca74e127821c4f9126dcb669"
+37005114216:  28 "system_fingerprint":"aeb56401ca74e127821c4f9126dcb669"
+37005546506:  36 "system_fingerprint":"aeb56401ca74e127821c4f9126dcb669"
+
+# sha256 of each input
+37003942265 a.zip eb5b7959454ca0de92cdb15fcc1152247156da912b7efd17f55740e9db3a7334 copilot-eval.json c8d1b0a32df96a6f866982f53bd2b6912e17ec7cc09faea7a3a3103a1df9299a runner.log 11984a2bf28287118f4f959ef695c2c1a4050c93db6e771327aa00ed07d621f6
+37004589548 a.zip d3dc6fb25ed03ac1ae8f5e291e3ccfbfc04e132a5b3d19fd2152be192a67b74c copilot-eval.json d8fdb8c33a9af4f684fe5b6f14fb77a7db36901e8faddb47f8c65ac1f500bafa runner.log d19453993bafe77b9b1b56f8a2a307940f99a05888db790ea4802ae451c1cad9
+37005114216 a.zip 566c8b6026012d4f21a29d4da3eaef11d4aa88573635d3935a176971dd9676d7 copilot-eval.json b828598f90e91d17391f179464da4ea0497ef7b43efe088fa49a6d89b6a0d329 runner.log 0853208e580f275335b15e734444688bf20a7d0e55fc8e7e1af1fc99d1003ff9
+37005546506 a.zip 13ddcd86bd4578fc2553603595cf9f40ffda301611caa7bfc73f71526f26199c copilot-eval.json 327d3aa1e501b94eb0d9f4fbed971a31aa7aed70c60b54b83acc0fde6ecb0bab runner.log 6d582ca9e32ee1cec7a72a7304cd4f94d83bc7944ac01a059184d64b28095f7e
