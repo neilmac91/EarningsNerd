@@ -1,31 +1,36 @@
-baseline (unmutated): 75 passed, 9 warnings in 3.53s
-M1 capture records nothing: KILLED -- 4 failed, 71 passed, 9 warnings in 3.52s
+baseline (unmutated): 76 passed, 9 warnings in 3.55s
+M1 capture records nothing: KILLED -- 5 failed, 71 passed, 9 warnings in 4.11s
     tests/unit/test_copilot_gate.py::test_attempt_trace_retains_candidate_and_closes_provider[no_envelope]
     tests/unit/test_copilot_gate.py::test_attempt_trace_retains_candidate_and_closes_provider[rejected]
     tests/unit/test_copilot_gate.py::test_withheld_capture_keeps_other_attempts_records_off_the_row
+    tests/unit/test_copilot_gate.py::test_withheld_capture_keeps_service_lines_in_runner_log
     tests/unit/test_copilot_gate.py::test_withheld_rows_name_their_own_reason_and_still_fail_the_run
-M2 reason not copied to the row error: KILLED -- 1 failed, 74 passed, 9 warnings in 3.28s
+M2 reason not copied to the row error: KILLED -- 1 failed, 75 passed, 9 warnings in 3.98s
     tests/unit/test_copilot_gate.py::test_withheld_rows_name_their_own_reason_and_still_fail_the_run
-M3 a named withhold counts as success: KILLED -- 3 failed, 72 passed, 9 warnings in 3.37s
+M3 a named withhold counts as success: KILLED -- 3 failed, 73 passed, 9 warnings in 3.88s
     tests/unit/test_copilot_gate.py::test_withheld_attempt_is_named_and_remains_a_failure[decision-f]
     tests/unit/test_copilot_gate.py::test_withheld_attempt_is_named_and_remains_a_failure[other-reason]
     tests/unit/test_copilot_gate.py::test_withheld_rows_name_their_own_reason_and_still_fail_the_run
-M4 no attempt-context check: KILLED -- 1 failed, 74 passed, 9 warnings in 3.95s
+M4 no attempt-context check: KILLED -- 1 failed, 75 passed, 9 warnings in 4.47s
     tests/unit/test_copilot_gate.py::test_withheld_capture_keeps_other_attempts_records_off_the_row
-M5 handler left on the service logger: KILLED -- 1 failed, 74 passed, 9 warnings in 3.74s
+M5 filter left on the service logger: KILLED -- 1 failed, 75 passed, 9 warnings in 4.33s
     tests/unit/test_copilot_gate.py::test_withheld_capture_keeps_other_attempts_records_off_the_row
-M6 generic label kept: KILLED -- 4 failed, 71 passed, 9 warnings in 3.61s
+M6 generic label kept: KILLED -- 4 failed, 72 passed, 9 warnings in 4.13s
     tests/unit/test_copilot_gate.py::test_human_readable_report_preserves_failures_counts_and_json[True]
     tests/unit/test_copilot_gate.py::test_withheld_attempt_is_named_and_remains_a_failure[decision-f]
     tests/unit/test_copilot_gate.py::test_withheld_attempt_is_named_and_remains_a_failure[other-reason]
     tests/unit/test_copilot_gate.py::test_withheld_rows_name_their_own_reason_and_still_fail_the_run
-M7 markdown verdict shows the raw error: KILLED -- 2 failed, 73 passed, 9 warnings in 3.32s
+M7 markdown verdict shows the raw error: KILLED -- 2 failed, 74 passed, 9 warnings in 3.80s
     tests/unit/test_copilot_gate.py::test_human_readable_report_preserves_failures_counts_and_json[True]
     tests/unit/test_copilot_gate.py::test_withheld_rows_name_their_own_reason_and_still_fail_the_run
-M8 summary step not always(): KILLED -- 1 failed, 74 passed, 9 warnings in 3.44s
+M8 summary step not always(): KILLED -- 1 failed, 75 passed, 9 warnings in 3.93s
     tests/unit/test_copilot_gate.py::test_workflow_is_explicit_same_repo_ready_full_cohort_and_always_artifacts
-M9 summary step fails when the report is missing: KILLED -- 1 failed, 74 passed, 9 warnings in 3.37s
+M9 summary step fails when the report is missing: KILLED -- 1 failed, 75 passed, 9 warnings in 4.62s
     tests/unit/test_copilot_gate.py::test_workflow_is_explicit_same_repo_ready_full_cohort_and_always_artifacts
-M10 workflow_dispatch trigger added: KILLED -- 1 failed, 74 passed, 9 warnings in 3.58s
+M10 workflow_dispatch trigger added: KILLED -- 1 failed, 75 passed, 9 warnings in 4.14s
     tests/unit/test_copilot_gate.py::test_workflow_is_explicit_same_repo_ready_full_cohort_and_always_artifacts
+M11 the filter drops the record: KILLED -- 1 failed, 75 passed, 9 warnings in 4.10s
+    tests/unit/test_copilot_gate.py::test_withheld_capture_keeps_service_lines_in_runner_log
+M12 the capture is a handler again: KILLED -- 1 failed, 75 passed, 9 warnings in 3.86s
+    tests/unit/test_copilot_gate.py::test_withheld_capture_keeps_service_lines_in_runner_log
 tree restored clean: True

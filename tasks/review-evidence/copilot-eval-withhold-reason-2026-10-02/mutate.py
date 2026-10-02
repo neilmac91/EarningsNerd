@@ -3,10 +3,10 @@
     env -u OPENAI_API_KEY -u DEEPSEEK_API_KEY -u OPENAI_BASE_URL python \
         ../tasks/review-evidence/copilot-eval-withhold-reason-2026-10-02/mutate.py PYTHON
 
-Each mutation edits one committed file (the target text must occur exactly once), runs
-``tests/unit/test_copilot_gate.py``, records the failing tests, and restores the file with
-``git checkout --``; the tree must be clean afterwards. A mutation is killed when at least one
-test fails.
+Each mutation edits one committed file (each target text must occur exactly once; a mutation
+may make several such edits), runs ``tests/unit/test_copilot_gate.py``, records the failing
+tests, and restores the file with ``git checkout --``; the tree must be clean afterwards. A
+mutation is killed when at least one test fails.
 """
 import json
 import re
@@ -25,8 +25,8 @@ MUTATIONS = [
      "            if not _withheld_label(row):\n                failures.append('operationally incomplete attempt')"),
     ('M4 no attempt-context check', RUNNER,
      "if isinstance(reason, self.withheld) and _ATTEMPT_CAPTURE.get() is self:", "if isinstance(reason, self.withheld):"),
-    ('M5 handler left on the service logger', RUNNER,
-     "        self.service_log.removeHandler(self)\n", ""),
+    ('M5 filter left on the service logger', RUNNER,
+     "        self.service_log.removeFilter(self)\n", ""),
     ('M6 generic label kept', RUNNER,
      "    return 'publication withheld: ' + reason if isinstance(reason, str) and reason else None", "    return None"),
     ('M7 markdown verdict shows the raw error', RUNNER,
@@ -39,6 +39,23 @@ MUTATIONS = [
      '          cat evals/reports/copilot/copilot-eval.md >> "$GITHUB_STEP_SUMMARY"'),
     ('M10 workflow_dispatch trigger added', WORKFLOW,
      "on:\n  pull_request:\n", "on:\n  workflow_dispatch:\n  pull_request:\n"),
+    ('M11 the filter drops the record', RUNNER,
+     "            self.sink.append(str(reason)[:200])\n        return True\n",
+     "            self.sink.append(str(reason)[:200])\n        return False\n"),
+    # The capture as committed in 49677945: a handler, which switches off logging.lastResort.
+    ('M12 the capture is a handler again', RUNNER, (
+        "class _WithheldReasons(logging.Filter):",
+        "        super().__init__()\n",
+        "        self.service_log.addFilter(self)\n",
+        "        self.service_log.removeFilter(self)\n",
+        "    def filter(self, record: logging.LogRecord) -> bool:\n",
+        "            self.sink.append(str(reason)[:200])\n        return True\n"), (
+        "class _WithheldReasons(logging.Handler):",
+        "        super().__init__(logging.WARNING)\n",
+        "        self.service_log.addHandler(self)\n",
+        "        self.service_log.removeHandler(self)\n",
+        "    def emit(self, record: logging.LogRecord) -> None:\n",
+        "            self.sink.append(str(reason)[:200])\n")),
 ]
 
 
@@ -55,8 +72,10 @@ def main():
     results = []
     for name, path, old, new in MUTATIONS:
         text = open(path).read()
-        assert text.count(old) == 1, (name, text.count(old))
-        open(path, 'w').write(text.replace(old, new))
+        for target, replacement in (zip(old, new) if isinstance(old, tuple) else [(old, new)]):
+            assert text.count(target) == 1, (name, target, text.count(target))
+            text = text.replace(target, replacement)
+        open(path, 'w').write(text)
         try:
             run = gate(python)
         finally:

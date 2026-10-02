@@ -1,8 +1,8 @@
 {
  "code": {
-  "git_head": "f311c87a28519e57b0f9f26563889ea8476c662d",
+  "git_head": "ee5cedb4e325916a2e549aab6ecbdbe0c3c88156",
   "git_dirty": false,
-  "copilot_runner_sha256": "f3a0804e7da3c50930e473072dc57969140b84a6642c0918df482861f09312f2",
+  "copilot_runner_sha256": "f35ecd3cb68099e77a9550668692ebc7c74c9d544d473395f3ac27ea34d9a497",
   "copilot_service_sha256": "008ca6382c9a924d150f0b267a13da72930dfcd286b73004669c5a4caef4e065"
  },
  "runs": [
@@ -182,6 +182,113 @@
    },
    "labelled": {
     "errors": 3,
+    "failures": [
+     "publication withheld: Unsupported prose quotation: elided_quotation",
+     "publication withheld: Unsupported prose quotation: quotation_not_in_source"
+    ],
+    "accepted": false,
+    "exit_code": 1
+   }
+  },
+  {
+   "run": "37029156902",
+   "source_sha": "80b944165f1ef4f2078a98fe1a72237e1ba05af5",
+   "report_sha256": "7ac0b18bb57272f39162edf121073baac4cdb895da8ab4a22d982f2fcfcd8c74",
+   "errored_rows": [
+    {
+     "row": "ASML us-gaap-sales-net-income-2025 d1",
+     "replay_outcome": "provider error event",
+     "same_service_events": true,
+     "unserved_lookups": [],
+     "withheld_reasons": [
+      "Unsupported prose quotation: quotation_not_in_source"
+     ]
+    },
+    {
+     "row": "ASML us-gaap-sales-net-income-2025 d2",
+     "replay_outcome": "provider error event",
+     "same_service_events": true,
+     "unserved_lookups": [],
+     "withheld_reasons": [
+      "Unsupported prose quotation: quotation_not_in_source"
+     ]
+    }
+   ],
+   "captured_in_row_order": [
+    "Unsupported prose quotation: quotation_not_in_source",
+    "Unsupported prose quotation: quotation_not_in_source"
+   ],
+   "runner_log_in_order": [
+    "Unsupported prose quotation: quotation_not_in_source",
+    "Unsupported prose quotation: quotation_not_in_source"
+   ],
+   "captured_equals_runner_log": true,
+   "retained": {
+    "errors": 2,
+    "failures": [
+     "operationally incomplete attempt"
+    ],
+    "accepted": false,
+    "exit_code": 1,
+    "revalidated_failures": [
+     "operationally incomplete attempt"
+    ]
+   },
+   "labelled": {
+    "errors": 2,
+    "failures": [
+     "publication withheld: Unsupported prose quotation: quotation_not_in_source"
+    ],
+    "accepted": false,
+    "exit_code": 1
+   }
+  },
+  {
+   "run": "37029964566",
+   "source_sha": "80b944165f1ef4f2078a98fe1a72237e1ba05af5",
+   "report_sha256": "7b6f80d758d055e18e47332352be6bd66a71f08d9d1774cb65254c166bf4f6b0",
+   "errored_rows": [
+    {
+     "row": "BABA viewed-native-revenue-2025 d1",
+     "replay_outcome": "provider error event",
+     "same_service_events": true,
+     "unserved_lookups": [],
+     "withheld_reasons": [
+      "Unsupported prose quotation: elided_quotation"
+     ]
+    },
+    {
+     "row": "ASML us-gaap-sales-net-income-2025 d2",
+     "replay_outcome": "provider error event",
+     "same_service_events": true,
+     "unserved_lookups": [],
+     "withheld_reasons": [
+      "Unsupported prose quotation: quotation_not_in_source"
+     ]
+    }
+   ],
+   "captured_in_row_order": [
+    "Unsupported prose quotation: elided_quotation",
+    "Unsupported prose quotation: quotation_not_in_source"
+   ],
+   "runner_log_in_order": [
+    "Unsupported prose quotation: elided_quotation",
+    "Unsupported prose quotation: quotation_not_in_source"
+   ],
+   "captured_equals_runner_log": true,
+   "retained": {
+    "errors": 2,
+    "failures": [
+     "operationally incomplete attempt"
+    ],
+    "accepted": false,
+    "exit_code": 1,
+    "revalidated_failures": [
+     "operationally incomplete attempt"
+    ]
+   },
+   "labelled": {
+    "errors": 2,
     "failures": [
      "publication withheld: Unsupported prose quotation: elided_quotation",
      "publication withheld: Unsupported prose quotation: quotation_not_in_source"
