@@ -10,6 +10,7 @@ import { SectionEmpty } from './SectionEmpty'
 import { normalizeRisk } from '@/lib/formatters'
 import type { RiskFactor } from '@/types/summary'
 import type { BlockEvidence, RenderedBlock, RenderedSection, Summary } from '@/features/summaries/api/summaries-api'
+import { parseNumeric } from '@/lib/format'
 
 // A block/row citation → the shared Trace-to-Source chip (T4). Renders nothing when there's nothing to
 // trace (SourceTrace's own guard), so an unenriched or uncited block is unaffected. The excerpt is shown
@@ -238,31 +239,39 @@ function BlockView({ block }: { block: RenderedBlock }) {
   }
 }
 
-/** A plain string-cell table (segments, footnotes) styled with design-system tokens and horizontal
-    scroll so wide grids never push the page sideways. When `rowEvidence` is present (T4 — footnotes),
-    a per-row Trace-to-Source chip is appended under the row's last cell. */
-function GenericTable({
-  headers,
-  rows,
-  rowEvidence,
-}: {
+// No letters except one trailing K/M/B/T scale: "$391.0B", "-3.2%", "(12.4)" — not "$2.1B goodwill …".
+const WHOLE_FIGURE = /^\P{L}*[KMBT]?$/iu
+
+/** A plain string-cell table (segments, footnotes) on reader-table manners: hairline rows, no
+    header fill, eyebrow header, and — new in v3 — numeric COLUMNS detected via parseNumeric and
+    rendered right-aligned in the data face (segment-revenue grids were left-aligned prose).
+    Horizontal scroll keeps wide grids from pushing the page sideways. When `rowEvidence` is present
+    (T4 — footnotes), a per-row Trace-to-Source chip is appended under the row's last cell. */
+function GenericTable({ headers, rows, rowEvidence }: {
   headers: string[]
   rows: string[][]
   rowEvidence?: (BlockEvidence | null)[]
 }) {
   if (rows.length === 0) return null
   const hasRowEvidence = rowEvidence?.some(Boolean) ?? false
+  const colCount = Math.max(headers.length, ...rows.map((r) => r.length))
+  // Numeric column = every non-empty cell is a whole figure ($391.0B, 61.2%, (12.4), —). parseNumeric
+  // reads a leading number, so a cell must also carry no letters beyond one scale suffix: commentary
+  // that merely opens with a figure ("41% operating margin — …") stays wrapping prose.
+  const numericCol = Array.from({ length: colCount }, (_, c) => {
+    const cells = rows.map((r) => (r[c] ?? '').trim())
+    return cells.some((v) => v !== '') &&
+      cells.every((v) => v === '' || v === '—' || v === '-' || (WHOLE_FIGURE.test(v) && parseNumeric(v) !== null))
+  })
   return (
     <div className="overflow-x-auto rounded-xl border border-border-light dark:border-border-dark">
-      <table className="min-w-full divide-y divide-border-light dark:divide-border-dark">
+      <table className="min-w-full">
         {headers.length > 0 && (
-          <thead className="bg-background-light dark:bg-background-dark">
+          <thead>
             <tr>
               {headers.map((header, i) => (
-                <th
-                  key={i}
-                  className="px-4 py-2 text-left text-xs font-medium uppercase tracking-eyebrow text-text-tertiary-light dark:text-text-secondary-dark"
-                >
+                <th key={i}
+                  className={`border-b border-border-light px-4 py-2 text-xs font-semibold uppercase tracking-eyebrow text-text-tertiary-light dark:border-border-dark dark:text-text-secondary-dark ${numericCol[i] ? 'text-right' : 'text-left'}`}>
                   {header}
                 </th>
               ))}
@@ -276,18 +285,17 @@ function GenericTable({
             // Top-align only cited tables (footnotes), so a chip sits at the top of a tall row; a plain
             // table (segments) keeps its default vertical alignment.
             const cellAlign = hasRowEvidence ? ' align-top' : ''
+            // One hairline between rows: the header keeps its border-b, so row 0 skips its border-t
+            // (the DataTable rule) — no doubled line under the header.
+            const rowRule = r > 0 ? 'border-t border-border-light dark:border-border-dark ' : ''
             return (
               <tr key={r}>
                 {row.map((cell, c) => (
-                  <td
-                    key={c}
-                    className={`border-t border-border-light px-4 py-3 text-sm text-text-secondary-light dark:border-border-dark dark:text-text-secondary-dark${cellAlign}`}
-                  >
+                  <td key={c}
+                    className={`${rowRule}px-4 py-3 text-sm text-text-secondary-light dark:text-text-secondary-dark${cellAlign}${numericCol[c] ? ' text-right font-data tabular-nums whitespace-nowrap' : ''}`}>
                     {cell}
                     {c === last && ev && (
-                      <span className="mt-1 block">
-                        <EvidenceChip evidence={ev} />
-                      </span>
+                      <span className="mt-1 block"><EvidenceChip evidence={ev} /></span>
                     )}
                   </td>
                 ))}
