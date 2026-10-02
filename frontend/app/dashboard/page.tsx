@@ -9,7 +9,7 @@ import { getSavedSummaries, deleteSavedSummary, SavedSummary } from '@/features/
 import { getWatchlistInsights } from '@/features/watchlist/api/watchlist-api'
 import { useRouter } from 'next/navigation'
 import { useEffect } from 'react'
-import { CheckCircleIcon, CircleNotchIcon, SparkleIcon, TrashIcon, WarningCircleIcon } from '@/lib/icons'
+import { CheckCircleIcon, CircleNotchIcon, LightningIcon, TrashIcon, WarningCircleIcon } from '@/lib/icons'
 import Link from 'next/link'
 import { formatLocalDate } from '@/lib/format'
 import { toast } from 'sonner'
@@ -118,7 +118,7 @@ export default function DashboardPage() {
 
   if (userLoading || usageLoading || subscriptionLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-panel-light dark:bg-background-dark">
+      <div className="min-h-screen flex items-center justify-center bg-background-light dark:bg-background-dark">
         <CircleNotchIcon className="h-8 w-8 animate-spin text-brand-strong dark:text-brand-strong-dark" />
       </div>
     )
@@ -126,7 +126,7 @@ export default function DashboardPage() {
 
   if (userError) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-panel-light dark:bg-background-dark px-4">
+      <div className="min-h-screen flex items-center justify-center bg-background-light dark:bg-background-dark px-4">
         <div className="max-w-md w-full">
           <GuidanceCard
             variant="error"
@@ -163,7 +163,7 @@ export default function DashboardPage() {
   const watchlistCount = watchlistInsights?.length
 
   return (
-    <div className="min-h-screen bg-panel-light dark:bg-background-dark">
+    <div className="min-h-screen bg-background-light dark:bg-background-dark">
       <SecondaryHeader
         title="Dashboard"
         subtitle={`Welcome back, ${user.full_name || user.email}`}
@@ -174,7 +174,7 @@ export default function DashboardPage() {
             onClick={() => logoutMutation.mutate()}
             className="text-sm font-medium text-text-secondary-light hover:text-text-primary-light dark:text-text-secondary-dark dark:hover:text-text-primary-dark"
           >
-            Logout
+            Log out
           </button>
         }
       />
@@ -252,14 +252,14 @@ export default function DashboardPage() {
                             {formatLocalDate(item.filing.filing_date, 'MMM dd, yyyy')}
                           </p>
                           {item.notes && (
-                            <p className="text-sm text-text-secondary-light mt-2 bg-panel-light p-2 rounded dark:bg-background-dark dark:text-text-secondary-dark border border-border-light dark:border-border-dark">
+                            <p className="text-sm text-text-secondary-light mt-2 bg-background-light p-2 rounded dark:bg-background-dark dark:text-text-secondary-dark border border-border-light dark:border-border-dark">
                               {item.notes}
                             </p>
                           )}
                         </div>
                         <button
                           onClick={() => deleteSummaryMutation.mutate(item.id)}
-                          className="text-error-light hover:bg-error-light/10 p-2 rounded-lg focus-visible:outline-none focus-visible:shadow-ring-error dark:text-error-dark dark:hover:bg-error-dark/15"
+                          className="text-error-light hover:bg-error-light/10 inline-flex min-h-11 min-w-11 items-center justify-center p-2.5 rounded-lg focus-visible:outline-none focus-visible:shadow-ring-error dark:text-error-dark dark:hover:bg-error-dark/15"
                           title="Delete"
                           aria-label={`Delete summary for ${formatCompanyName(item.company.name)}`}
                         >
@@ -286,7 +286,7 @@ export default function DashboardPage() {
               <div className="flex items-center justify-between">
                 <h2 className="text-sm font-semibold text-text-primary-light dark:text-text-primary-dark">Plan and usage</h2>
                 {subscription?.is_pro ? (
-                  <Badge variant="brand" icon={<SparkleIcon className="h-4 w-4" />}>Pro</Badge>
+                  <Badge variant="brand" icon={<LightningIcon className="h-4 w-4" />}>Pro</Badge>
                 ) : (
                   <Badge variant="free">Free</Badge>
                 )}
