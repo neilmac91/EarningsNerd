@@ -11,7 +11,10 @@ DB-touching tests are marked ``requires_db`` and override ``get_current_user`` w
 entitlements resolve to FREE vs PRO via ``is_pro`` (the ``require_entitlement`` dep resolves through
 ``get_current_user``). Mirrors ``test_notification_preferences_api.py``.
 """
+import ast
 import asyncio
+import copy
+import inspect
 import json
 import uuid
 from contextlib import contextmanager
@@ -25,6 +28,11 @@ from main import app
 from app.routers.auth import get_current_user
 from app.dependencies import _resolve_current_user
 from app.services import copilot_service
+from app.services.provenance_service import (
+    _MIN_VERIFIABLE_LEN,
+    extract_quoted_span,
+    normalize_for_match,
+)
 
 
 # --- Fakes -------------------------------------------------------------------------------------
@@ -112,6 +120,200 @@ async def test_service_grounds_verified_citation(monkeypatch):
     assert "#:~:text=" in cite["fragment_url"]
 
 
+# --- Excerpt boundary: the verified text must be the displayed text ------------------------------
+# The Sources panel shows the published ``excerpt`` in quote marks beside "Source match found", so
+# the whole string is presented as filing text. Before this fix (main f6e79a50) the shared verifier
+# checked only ``extract_quoted_span(excerpt)``, and ``_verify_citations`` then published the FULL
+# excerpt with ``verified: True``; it now verifies the whole excerpt.
+
+_INVENTED_PREFIX = "Invented text missing from the source, and "
+_PREFIXED_EXCERPT = _INVENTED_PREFIX + '"' + _KNOWN_SENTENCE + '"'
+_QUOTED_FREE_TEXT_SECTION = 'Item 7 "Fake words here"'
+
+
+async def _declare_one(monkeypatch, excerpt, section, *, source=None, extra=()):
+    """One referenced text citation through the real service path; returns the terminal event.
+
+    ``extra`` declarations are appended unreferenced; ``source`` replaces the cached filing text.
+    """
+    declarations = json.dumps([{"n": 1, "excerpt": excerpt, "section": section}, *extra])
+    chunks = ["Apple's revenue grew strongly [1].", " ===CITATIONS===\n" + declarations]
+    monkeypatch.setattr(
+        copilot_service.openai_service, "stream_chat_with_tools", _chunks_to_async_gen(chunks)
+    )
+    filing = _fake_filing()
+    if source is not None:
+        filing.content_cache.critical_excerpt = source
+    events = await _collect(filing, "How did revenue do?")
+    terminal = [e for e in events if e["type"] in ("complete", "error")]
+    assert len(terminal) == 1
+    return terminal[0]
+
+
+@pytest.mark.unit
+@pytest.mark.asyncio
+async def test_service_withholds_excerpt_verified_only_by_inner_quoted_span(monkeypatch):
+    """A citation whose only filing text is an inner quoted span must not publish.
+
+    The invented prefix is not in the source (premise pinned by the paired control below), so the
+    displayed excerpt is not filing text. The contract is the existing withholding path: the whole
+    answer becomes the publication error. Showing only the quoted span instead would be a new,
+    separately approved display contract, so it is deliberately not the expected outcome here.
+
+    The section label is plain so that only the excerpt rule can withhold; quoted labels have their
+    own rule and tests below.
+    """
+    terminal = await _declare_one(monkeypatch, _PREFIXED_EXCERPT, "Item 7 — MD&A")
+
+    published = terminal.get("citations") or []
+    diagnostic = {
+        "terminal_type": terminal["type"],
+        "displayed_excerpt": [c.get("excerpt") for c in published],
+        "span_actually_verified": extract_quoted_span(_PREFIXED_EXCERPT),
+        "full_excerpt_in_source": (
+            normalize_for_match(_PREFIXED_EXCERPT) in normalize_for_match(_FAKE_SOURCE)
+        ),
+        "published_verified": [c.get("verified") for c in published],
+        "published_section_ref": [c.get("section_ref") for c in published],
+    }
+    assert terminal == {"type": "error", "message": copilot_service._PUBLICATION_ERROR}, diagnostic
+
+
+@pytest.mark.unit
+@pytest.mark.asyncio
+async def test_service_publishes_full_excerpt_contiguous_in_source(monkeypatch):
+    """Valid control for the regression above: the same sentence without the invented prefix.
+
+    Also pins that regression's premise: its quoted span is filing text, its full excerpt is not.
+    """
+    normalized_source = normalize_for_match(_FAKE_SOURCE)
+    assert extract_quoted_span(_PREFIXED_EXCERPT) == _KNOWN_SENTENCE
+    assert normalize_for_match(_KNOWN_SENTENCE) in normalized_source
+    assert normalize_for_match(_PREFIXED_EXCERPT) not in normalized_source
+
+    terminal = await _declare_one(monkeypatch, _KNOWN_SENTENCE, "Item 7 — MD&A")
+
+    assert terminal["type"] == "complete"
+    assert terminal["answer"] == "Apple's revenue grew strongly [1]."
+    assert terminal["grounded"] == 1
+    [cite] = terminal["citations"]
+    assert {k: cite[k] for k in ("n", "excerpt", "section_ref", "verified")} == {
+        "n": 1, "excerpt": _KNOWN_SENTENCE, "section_ref": "Item 7 — MD&A", "verified": True,
+    }
+    assert cite["fragment_url"].startswith(_fake_filing().document_url + "#:~:text=Revenue%20increased")
+
+
+def _published_one(terminal):
+    """The single published citation of a completed answer."""
+    assert terminal["type"] == "complete", terminal
+    [cite] = terminal["citations"]
+    return cite
+
+
+@pytest.mark.unit
+@pytest.mark.asyncio
+@pytest.mark.parametrize("wrapped", ['"' + _KNOWN_SENTENCE + '"', "“" + _KNOWN_SENTENCE + "”"])
+async def test_service_publishes_excerpt_wrapped_in_one_quote_pair(monkeypatch, wrapped):
+    """One quote pair wrapping the WHOLE excerpt is stripped for matching; bytes publish unchanged."""
+    cite = _published_one(await _declare_one(monkeypatch, wrapped, "Item 7 — MD&A"))
+    assert (cite["excerpt"], cite["verified"]) == (wrapped, True)
+    # The deep link starts at the filing text, not at the wrapping mark.
+    assert cite["fragment_url"].startswith(_fake_filing().document_url + "#:~:text=Revenue%20increased")
+
+
+_FOLDED_EXCERPT = "Item 7 - Management’s Discussion   and\nAnalysis.  Revenue increased to 391.0"
+
+
+@pytest.mark.unit
+@pytest.mark.asyncio
+async def test_service_publishes_typography_and_whitespace_folded_excerpt(monkeypatch):
+    """Curly apostrophe, hyphen-for-dash, NBSP and runs of whitespace fold through the shared normalizer."""
+    assert _FOLDED_EXCERPT.lower() not in _FAKE_SOURCE.lower()  # premise: not byte-contiguous
+    cite = _published_one(await _declare_one(monkeypatch, _FOLDED_EXCERPT, "Item 7 — MD&A"))
+    assert (cite["excerpt"], cite["verified"]) == (_FOLDED_EXCERPT, True)
+
+
+@pytest.mark.unit
+@pytest.mark.asyncio
+async def test_service_publishes_contiguous_excerpt_containing_an_inner_quoted_term(monkeypatch):
+    """An inner “…” term inside a fully contiguous excerpt neither shrinks the needle (the term alone
+    is below the floor) nor moves the deep link off the start of the displayed excerpt."""
+    excerpt = "The Company calls this measure “services margin” in its segment reporting."
+    assert len(normalize_for_match(extract_quoted_span(excerpt))) < _MIN_VERIFIABLE_LEN
+    cite = _published_one(await _declare_one(
+        monkeypatch, excerpt, "Item 7 — MD&A", source=_FAKE_SOURCE + " " + excerpt,
+    ))
+    assert (cite["excerpt"], cite["verified"]) == (excerpt, True)
+    assert cite["fragment_url"].startswith(_fake_filing().document_url + "#:~:text=The%20Company%20calls")
+
+
+@pytest.mark.unit
+@pytest.mark.asyncio
+async def test_service_withholds_referenced_excerpt_below_the_floor(monkeypatch):
+    """A contiguous filing span one character under ``_MIN_VERIFIABLE_LEN`` is too generic to verify."""
+    excerpt = "driven by strong iPhone"
+    assert len(normalize_for_match(excerpt)) == _MIN_VERIFIABLE_LEN - 1
+    assert normalize_for_match(excerpt) in normalize_for_match(_FAKE_SOURCE)
+    terminal = await _declare_one(monkeypatch, excerpt, "Item 7 — MD&A")
+    assert terminal == {"type": "error", "message": copilot_service._PUBLICATION_ERROR}
+
+
+@pytest.mark.unit
+@pytest.mark.asyncio
+async def test_unreferenced_prefixed_declaration_stays_unverified_and_answer_publishes(monkeypatch):
+    """An unused failing declaration stays in the candidate pool as unverified; it neither blocks the
+    answer nor reaches the Sources panel."""
+    prefixed = {"n": 2, "excerpt": _PREFIXED_EXCERPT, "section": "Item 7"}
+    pool = copilot_service._verify_citations(
+        [{"n": 1, "excerpt": _KNOWN_SENTENCE, "section": "Item 7"}, prefixed],
+        _fake_filing(), normalize_for_match(_FAKE_SOURCE), {"1"},
+    )
+    assert pool["1"]["verified"] is True
+    assert pool["2"] == {"excerpt": _PREFIXED_EXCERPT, "section_ref": "Item 7", "verified": False,
+                         "fragment_url": _fake_filing().document_url}
+
+    cite = _published_one(await _declare_one(monkeypatch, _KNOWN_SENTENCE, "Item 7", extra=[prefixed]))
+    assert (cite["excerpt"], cite["verified"]) == (_KNOWN_SENTENCE, True)
+
+
+@pytest.mark.unit
+@pytest.mark.asyncio
+@pytest.mark.parametrize("section", [
+    _QUOTED_FREE_TEXT_SECTION, "Item 7 “Fake words here", "Item 7 Fake words here”",
+])
+async def test_service_withholds_referenced_citation_whose_section_ref_has_a_quote_mark(monkeypatch, section):
+    """Section labels publish unchecked, so one carrying ``"``, ``“`` or ``”`` would display an
+    unverified quotation; the citation is unverified even though its excerpt is filing text."""
+    terminal = await _declare_one(monkeypatch, _KNOWN_SENTENCE, section)
+    assert terminal == {"type": "error", "message": copilot_service._PUBLICATION_ERROR}
+
+
+@pytest.mark.unit
+@pytest.mark.asyncio
+@pytest.mark.parametrize("section", ["Item 7", "Item 7 — Management’s Discussion and Analysis"])
+async def test_service_publishes_plain_section_ref(monkeypatch, section):
+    """Plain labels (apostrophes included) are unaffected by the quote-mark rule."""
+    cite = _published_one(await _declare_one(monkeypatch, _KNOWN_SENTENCE, section))
+    assert (cite["section_ref"], cite["verified"]) == (section, True)
+
+
+@pytest.mark.unit
+def test_copilot_citations_never_use_the_prefix_tolerant_verifier():
+    """Gate: Copilot displays the whole excerpt, so ``_verify_citations`` verifies the whole excerpt.
+    The prefix-tolerant helpers serve summary evidence and must not return to this module."""
+    tree = ast.parse(inspect.getsource(copilot_service))
+    referenced = {node.id for node in ast.walk(tree) if isinstance(node, ast.Name)}
+    referenced |= {node.attr for node in ast.walk(tree) if isinstance(node, ast.Attribute)}
+    referenced |= {alias.name for node in ast.walk(tree) if isinstance(node, ast.ImportFrom)
+                   for alias in node.names}
+    assert not referenced & {"verify_excerpt_in_text", "extract_quoted_span"}
+    [verifier] = [node for node in ast.walk(tree)
+                  if isinstance(node, ast.FunctionDef) and node.name == "_verify_citations"]
+    calls = {node.func.id for node in ast.walk(verifier)
+             if isinstance(node, ast.Call) and isinstance(node.func, ast.Name)}
+    assert "verify_whole_excerpt_in_text" in calls
+
+
 def _publication_case(name):
     """Cases share the real service → router → SSE publication and quota boundary."""
     name = name.removesuffix("_pro")
@@ -170,6 +372,14 @@ def _publication_case(name):
     elif name in ("empty_array", "no_declaration"):
         answer = "The filing describes its business and an original reference [14]."
         declarations, expected = [], answer if name == "empty_array" else None
+    elif name in ("prose_quote_composed", "prose_quote_valid"):
+        # Decision F: final prose quoting stitched source text is withheld; a contiguous quote is not.
+        quote = (_KNOWN_SENTENCE if name == "prose_quote_valid"
+                 else "Revenue increased to 391.0 billion. Operating margins expanded")
+        answer = f'The filing states "{quote}" [7].'
+        declarations = [good]
+        if name == "prose_quote_valid":
+            expected = answer.replace("[7]", "[1]")
     elif name == "semantic_limit":
         answer = "This proves the company will dominate every future market [7]."
         declarations, expected = [good], answer.replace("[7]", "[1]")
@@ -200,6 +410,9 @@ def _publication_case(name):
         before = answer if name == "mixed_not_disclosed" else ""
         if name == "nd_citations":
             reason += "\n===CITATIONS===\n" + json.dumps([bad])
+        elif name == "nd_prose_quote":
+            # Decision F: a not-disclosed reason is published prose; quoting text the filing lacks withholds it.
+            reason = 'The filing only says "Forward guidance is withheld for competitive reasons".'
         elif name == "nd_repeated":
             reason += "\n===NOT_DISCLOSED===\nContradictory second verdict."
         elif name == "nd_blank_reason":
@@ -259,12 +472,13 @@ def _publication_case(name):
     "markdown_emphasis", "markdown_link", "markdown_code", "valid", "mixed_fact_valid",
     "duplicate_identical", "literal_noncolliding", "leading_zero", "numeric_group", "unused_failed",
     "empty_array", "no_declaration", "semantic_limit", "fenced", "followups", "embedded_followups",
+    "prose_quote_composed", "prose_quote_valid",
     "not_disclosed", "nd_citations", "nd_repeated", "empty_response", "whitespace_response",
     "empty_citations", "stripped_empty",
     "nd_bare", "nd_missing_followups", "nd_partial_reason", "nd_partial_sentinel", "nd_blank_reason",
     "nd_empty_followups", "nd_truncated_array", "nd_truncated_question", "nd_repairable", "nd_object",
     "nd_empty_array", "nd_one_question", "nd_four_questions", "nd_nonstring", "nd_blank_question",
-    "nd_prefix", "nd_suffix", "nd_followup_citations", "nd_normal", "nd_three_questions",
+    "nd_prefix", "nd_suffix", "nd_followup_citations", "nd_normal", "nd_three_questions", "nd_prose_quote",
     "nd_bare_pro", "not_disclosed_pro",
 ])
 async def test_service_publication_boundary(client, monkeypatch, case):
@@ -931,7 +1145,8 @@ async def test_stream_chat_with_tools_assembles_tool_call_deltas():
         async def _aiter():
             for c in chunks:
                 yield c
-        calls.append(kwargs)
+        # Snapshot the offered tools: kwargs hold the caller's live list, which may change later.
+        calls.append({**kwargs, "tools": copy.deepcopy(kwargs.get("tools"))})
         return _aiter()
 
     captured = {}
@@ -962,6 +1177,11 @@ async def test_stream_chat_with_tools_assembles_tool_call_deltas():
     assert len(activity) == 2
     # Two create() calls: round 1 (tool call) + round 2 (answer).
     assert len(calls) == 2
+    # Every round offers the tools for the model to choose (live runs record neither). The expected
+    # list is built independently of the passed one, so an in-place change to the caller's list
+    # (production passes the module-global TOOLS) cannot also change the expectation.
+    offered = [{"type": "function", "function": {"name": "get_financial_fact"}}]
+    assert [(c.get("tools"), c.get("tool_choice")) for c in calls] == [(offered, "auto")] * 2
 
 
 # --- Audit fixes: stream-error handling, metering-on-success, history bounding ------------------

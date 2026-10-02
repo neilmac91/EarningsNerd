@@ -1,0 +1,72 @@
+{
+ "code": {
+  "service": "/home/user/wt/f-quotes/backend/app/services/copilot_service.py",
+  "service_sha256": "adbe6f292a9a8d9b5a46a01074fa1e00369964b4ded5d955cdcea7f849c11aed",
+  "git_head": "b424e8d9a6fb6fa592c0846311558c890db56681",
+  "git_dirty": false
+ },
+ "runs": [
+  {
+   "run": "99999999999",
+   "source_sha": "synthetic",
+   "rows": 7,
+   "with_deltas": 7
+  }
+ ],
+ "rows": 7,
+ "replayed": 7,
+ "answer_only": 0,
+ "replay_mismatches": [
+  {
+   "row": "SYN synthetic-3 d0 @99999999999",
+   "cause": "UNEXPLAINED"
+  }
+ ],
+ "replay_mismatch_causes": {
+  "UNEXPLAINED": 1
+ },
+ "replay_verdict_disagreements": [],
+ "published_by_run": {
+  "rows": 0,
+  "f_would_withhold": 0,
+  "by_surface": {
+   "answer": 0,
+   "reason": 0,
+   "chip": 0
+  }
+ },
+ "withheld_or_errored_by_run": {
+  "rows": 7,
+  "F-withheld": [
+   "SYN synthetic-1 d0 @99999999999",
+   "SYN synthetic-4 d0 @99999999999",
+   "SYN synthetic-5 d0 @99999999999",
+   "SYN synthetic-6 d0 @99999999999"
+  ],
+  "other reason": [
+   "SYN synthetic-2 d0 @99999999999"
+  ],
+  "UNEXPLAINED": [
+   "SYN synthetic-3 d0 @99999999999",
+   "SYN synthetic-7 d0 @99999999999"
+  ]
+ },
+ "not_disclosed_rows": 2,
+ "rows_with_chips": 5,
+ "chips_checked": 10,
+ "rows_with_double_quoted_chips": 3,
+ "chips_with_double_quotes": 3,
+ "failing_chips": 3
+}
+F withheld or errored 99999999999 SYN synthetic-1 d0 [('answer', None, ['quotation_not_in_source'])]
+F withheld or errored 99999999999 SYN synthetic-4 d0 [('reason', None, ['quotation_not_in_source'])]
+F withheld or errored 99999999999 SYN synthetic-5 d0 [('chip', 1, ['quotation_not_in_source'])]
+F withheld or errored 99999999999 SYN synthetic-6 d0 [('chip', 0, ['quotation_not_in_source'])]
+F withheld or errored 99999999999 SYN synthetic-7 d0 [('chip', 1, ['quotation_not_in_source'])]
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+UNEXPLAINED: 99999999999 SYN synthetic-3 d0: the replay publishes with no F reason (not counted as not-F)
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+UNEXPLAINED: 99999999999 SYN synthetic-7 d0: the replay made a repair lookup the trace does not serve, so its verdict is not attributed (not counted as not-F)
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+self-test passed: F-withheld on the answer, a not-disclosed reason, a not-disclosed chip and an answer-path chip (with chip indexes), other reason, and UNEXPLAINED (incl. an unserved repair lookup) classified; UNEXPLAINED is loud and exit 3
+SELFTEST_EXIT=0

@@ -1,0 +1,15 @@
+3,6c3
+< We provided 2026 Company guidance in our earnings release furnished on Form 8-K dated April 29, 2026.  The guidance is based on our expectations and best estimates as of April 29, 2026, and assumes no material change to our current assumptions for inflation, logistics issues, production, or macroeconomic conditions.  Our guidance does not include potential impacts of a sustained conflict in the Middle East or a significant downturn in the U.S. economy, which could have a material impact on industry demand.  Moreover, our guidance has not factored in any new policy changes by the administration in the United States, including future or revised tariffs or related offsets, that have not been announced or tariffs or other policy changes that may be announced by other governments after the date hereof.  Our actual results could differ materially from our guidance due to risks, uncertainties, and other factors, including those set forth in “Risk Factors” in Item 1A of our 2025 Form 10-K Report and as updated by our subsequent filings with the SEC.
+< 
+< 2026 Guidance
+< 
+---
+> We provided 2026 Company guidance in our earnings release furnished on Form 8-K dated April 29, 2026.  The guidance is based on our expectations and best estimates as of April 29, 2026, and assumes no material change to our current assumptions for inflation, logistics issues, production, or macroeconomic conditions.  Our guidance does not include potential impacts of a sustained conflict in the Middle East or a significant downturn in the U.S. economy, which could have a material impact on industry demand.  Moreover, our guidance has not factored in any new policy changes by the administration in the United States, including future or revised tariffs or related offsets, that have not been announced or tariffs or other policy changes that may be announced by other governments after the date hereof.  Our actual results could differ materially from our guidance due to risks, uncertainties, and other factors, including those set forth in “Risk Factors” in Item 1A of our 2025 Form 10-K Report and as updated by our subsequent filings with the SEC.2026 Guidance
+8,11c5,6
+< 
+< Adjusted EBIT (a)$8.5 - $10.5 billion
+< 
+< Adjusted Free Cash Flow (a)$5.0 - $6.0 billion
+---
+> Adjusted EBIT (a)  $8.5 - $10.5 billion
+> Adjusted Free Cash Flow (a)  $5.0 - $6.0 billion

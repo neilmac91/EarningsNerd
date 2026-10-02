@@ -1,0 +1,22 @@
+CAUGHT hosted field differs from re-render :: exit=1 failures=1
+CAUGHT hosted Markdown line differs :: exit=1
+CAUGHT main renderer used as successor is refused (exit 2) :: exit=2 log=e-user-EarningsNerd/4aaef390-9924-5295-aa90-251d71b700b2/scratchpad/b-reval/main-f6e79a50/backend lacks B's code under test: ['app/services/financial_basis.py']
+CAUGHT undated prior renders (date guard removed, hosted == re-render) :: exit=1 line='Period net income attributable to the parent / period-end equity, not annualized: 6.4% (prior at None: 1.5%); period net income attributable to the parent / period-end assets, not annualized: 4.9%.' reasons=["undated prior renders (period 'N/A' is not an ISO date)", "mis-dated prior: re
+CAUGHT control baseline passes (FIGS run0 untampered) :: []
+CAUGHT wrong current value :: ['current value renders 6.3% but operands give 6.4%']
+CAUGHT wrong numerator scope :: ["scope renders 'including noncontrolling interests', numerator concept 'us-gaap:NetIncomeLoss' gives 'attributable to the parent'"]
+CAUGHT mis-dated prior (YoY date on a sequential point) :: ["mis-dated prior: renders 'prior at 2025-06-30', prior point period '2026-03-31'", 'prior does not read as dated (or the line carries YoY wording)']
+CAUGHT in-band dated prior silently dropped :: ['an in-band, dated prior point is not rendered']
+CAUGHT sequential prior worded as YoY :: ["line does not parse as the B returns format: 'Period net income attributable to the parent / period-end equity, not annualized: 6.4% (prior year: 1.5%); period net income attributable to the parent / period-end assets, not annualized: 4.9%.'"]
+CAUGHT non-ISO prior period renders :: ["undated prior renders (period 'FY26Q1' is not an ISO date)", 'prior operand periods differ from the prior ratio period', 'prior does not read as dated (or the line carries YoY wording)']
+CAUGHT prior numerator duration class differs :: ["prior numerator duration class 'annual' differs from current 'quarter'"]
+CAUGHT missing prior basis note :: ["prior basis note present=False expected=True (rendered scope None, prior concept gives 'including noncontrolling interests')"]
+CAUGHT correct prior basis note accepted :: []
+CAUGHT unestablished clause listed, not failed on scope :: {'unestablished': [True, True], 'other_failures': ["prior basis note present=False expected=True (rendered scope None, prior concept gives 'attributable to the parent')"]}
+CAUGHT unestablished current vs established prior requires a basis note :: ["prior basis note present=False expected=True (rendered scope None, prior concept gives 'attributable to the parent')"]
+CAUGHT operand copies missing :: ['current operand copies missing', 'current operand periods differ from the ratio period', "scope renders 'attributable to the parent', numerator concept None gives '(numerator scope unestablished)'", "prior numerator duration class 'quarter' differs from current None", "prior basis note present=Fal
+CAUGHT operand period differs from ratio period :: ['current operand periods differ from the ratio period']
+CAUGHT out-of-band prior renders :: ['out-of-band prior renders']
+CAUGHT control baseline passes (BYND single ROA clause) :: []
+CAUGHT missing line while in-band ratios exist :: ["no returns line, but in-band ratios exist: ['return_on_equity', 'return_on_assets']"]
+controls=21 missed=0

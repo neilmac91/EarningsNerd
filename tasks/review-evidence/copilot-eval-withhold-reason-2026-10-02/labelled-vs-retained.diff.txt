@@ -1,0 +1,67 @@
+== run 37003942265: retained copilot-eval.md vs labelled-37003942265.md
+11c11
+< Failures: operationally incomplete attempt.
+---
+> Failures: publication withheld: Unsupported prose quotation: quotation_not_in_source.
+30c30
+< | ASML | 0001628280-26-011378 | us-gaap-sales-net-income-2025 | 0 | False | {'type': 'ValueError', 'stage': 'answer_or_score'} |
+---
+> | ASML | 0001628280-26-011378 | us-gaap-sales-net-income-2025 | 0 | False | publication withheld: Unsupported prose quotation: quotation_not_in_source |
+== run 37004589548: retained copilot-eval.md vs labelled-37004589548.md
+11c11
+< Failures: operationally incomplete attempt.
+---
+> Failures: publication withheld: Invalid citation declaration; publication withheld: Unsupported prose quotation: quotation_not_in_source; publication withheld: Unsupported prose quotation: elided_quotation.
+26c26
+< | BABA | 0001193125-26-231755 | native-revenue-2026 | 2 | False | {'type': 'ValueError', 'stage': 'answer_or_score'} |
+---
+> | BABA | 0001193125-26-231755 | native-revenue-2026 | 2 | False | publication withheld: Invalid citation declaration |
+30,32c30,32
+< | ASML | 0001628280-26-011378 | us-gaap-sales-net-income-2025 | 0 | False | {'type': 'ValueError', 'stage': 'answer_or_score'} |
+< | ASML | 0001628280-26-011378 | us-gaap-sales-net-income-2025 | 1 | False | {'type': 'ValueError', 'stage': 'answer_or_score'} |
+< | ASML | 0001628280-26-011378 | us-gaap-sales-net-income-2025 | 2 | False | {'type': 'ValueError', 'stage': 'answer_or_score'} |
+---
+> | ASML | 0001628280-26-011378 | us-gaap-sales-net-income-2025 | 0 | False | publication withheld: Unsupported prose quotation: quotation_not_in_source |
+> | ASML | 0001628280-26-011378 | us-gaap-sales-net-income-2025 | 1 | False | publication withheld: Unsupported prose quotation: elided_quotation |
+> | ASML | 0001628280-26-011378 | us-gaap-sales-net-income-2025 | 2 | False | publication withheld: Unsupported prose quotation: elided_quotation |
+== run 37005546506: retained copilot-eval.md vs labelled-37005546506.md
+11c11
+< Failures: operationally incomplete attempt.
+---
+> Failures: publication withheld: Unsupported prose quotation: elided_quotation; publication withheld: Unsupported prose quotation: quotation_not_in_source.
+28c28
+< | BABA | 0000950170-25-090161 | viewed-native-revenue-2025 | 1 | False | {'type': 'ValueError', 'stage': 'answer_or_score'} |
+---
+> | BABA | 0000950170-25-090161 | viewed-native-revenue-2025 | 1 | False | publication withheld: Unsupported prose quotation: elided_quotation |
+30c30
+< | ASML | 0001628280-26-011378 | us-gaap-sales-net-income-2025 | 0 | False | {'type': 'ValueError', 'stage': 'answer_or_score'} |
+---
+> | ASML | 0001628280-26-011378 | us-gaap-sales-net-income-2025 | 0 | False | publication withheld: Unsupported prose quotation: quotation_not_in_source |
+32c32
+< | ASML | 0001628280-26-011378 | us-gaap-sales-net-income-2025 | 2 | False | {'type': 'ValueError', 'stage': 'answer_or_score'} |
+---
+> | ASML | 0001628280-26-011378 | us-gaap-sales-net-income-2025 | 2 | False | publication withheld: Unsupported prose quotation: quotation_not_in_source |
+== run 37029156902: retained copilot-eval.md vs labelled-37029156902.md
+11c11
+< Failures: operationally incomplete attempt.
+---
+> Failures: publication withheld: Unsupported prose quotation: quotation_not_in_source.
+31,32c31,32
+< | ASML | 0001628280-26-011378 | us-gaap-sales-net-income-2025 | 1 | False | {'type': 'ValueError', 'stage': 'answer_or_score'} |
+< | ASML | 0001628280-26-011378 | us-gaap-sales-net-income-2025 | 2 | False | {'type': 'ValueError', 'stage': 'answer_or_score'} |
+---
+> | ASML | 0001628280-26-011378 | us-gaap-sales-net-income-2025 | 1 | False | publication withheld: Unsupported prose quotation: quotation_not_in_source |
+> | ASML | 0001628280-26-011378 | us-gaap-sales-net-income-2025 | 2 | False | publication withheld: Unsupported prose quotation: quotation_not_in_source |
+== run 37029964566: retained copilot-eval.md vs labelled-37029964566.md
+11c11
+< Failures: operationally incomplete attempt.
+---
+> Failures: publication withheld: Unsupported prose quotation: elided_quotation; publication withheld: Unsupported prose quotation: quotation_not_in_source.
+28c28
+< | BABA | 0000950170-25-090161 | viewed-native-revenue-2025 | 1 | False | {'type': 'ValueError', 'stage': 'answer_or_score'} |
+---
+> | BABA | 0000950170-25-090161 | viewed-native-revenue-2025 | 1 | False | publication withheld: Unsupported prose quotation: elided_quotation |
+32c32
+< | ASML | 0001628280-26-011378 | us-gaap-sales-net-income-2025 | 2 | False | {'type': 'ValueError', 'stage': 'answer_or_score'} |
+---
+> | ASML | 0001628280-26-011378 | us-gaap-sales-net-income-2025 | 2 | False | publication withheld: Unsupported prose quotation: quotation_not_in_source |

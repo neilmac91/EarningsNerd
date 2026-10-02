@@ -1,0 +1,140 @@
+============================= test session starts ==============================
+platform linux -- Python 3.11.15, pytest-9.1.1, pluggy-1.6.0
+rootdir: /home/user/wt/cite-diag/backend
+configfile: pytest.ini
+plugins: platformdirs-4.12.2, anyio-4.14.2, asyncio-1.4.0
+asyncio: mode=Mode.STRICT, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collected 137 items / 135 deselected / 2 selected
+
+tests/unit/test_copilot.py F.                                            [100%]
+
+=================================== FAILURES ===================================
+______ test_service_withholds_excerpt_verified_only_by_inner_quoted_span _______
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f501e797750>
+
+    @pytest.mark.unit
+    @pytest.mark.asyncio
+    @pytest.mark.xfail(
+        strict=True,
+        raises=AssertionError,
+        reason=(
+            "KNOWN DEFECT on main 02628e5799496be7a6faea5bea2bba8ec0caa295: verify_excerpt_in_text "
+            "checks only extract_quoted_span(excerpt), yet _verify_citations publishes the full "
+            "excerpt as verified. Remove this marker in the change that verifies the whole excerpt."
+        ),
+    )
+    async def test_service_withholds_excerpt_verified_only_by_inner_quoted_span(monkeypatch):
+        """KNOWN DEFECT — a citation whose only filing text is an inner quoted span must not publish.
+    
+        The invented prefix is not in the source (premise pinned by the paired control below), so the
+        displayed excerpt is not filing text. The contract is the existing withholding path: the whole
+        answer becomes the publication error. Showing only the quoted span instead would be a new,
+        separately approved display contract, so it is deliberately not the expected outcome here.
+    
+        The free-text ``section_ref`` carries a quoted span absent from the source to record that it
+        also publishes verbatim. This test flips on the excerpt fix alone; ``section_ref`` has no
+        verification contract and needs its own decision.
+        """
+        terminal = await _declare_one(monkeypatch, _PREFIXED_EXCERPT, _QUOTED_FREE_TEXT_SECTION)
+    
+        published = terminal.get("citations") or []
+        diagnostic = {
+            "terminal_type": terminal["type"],
+            "displayed_excerpt": [c.get("excerpt") for c in published],
+            "span_actually_verified": extract_quoted_span(_PREFIXED_EXCERPT),
+            "full_excerpt_in_source": (
+                normalize_for_match(_PREFIXED_EXCERPT) in normalize_for_match(_FAKE_SOURCE)
+            ),
+            "published_verified": [c.get("verified") for c in published],
+            "published_section_ref": [c.get("section_ref") for c in published],
+        }
+>       assert terminal == {"type": "error", "message": copilot_service._PUBLICATION_ERROR}, diagnostic
+E       AssertionError: {'terminal_type': 'complete', 'displayed_excerpt': ['Invented text missing from the source, and "Revenue increased to ..._verified': 'Revenue increased to 391.0 billion driven by strong iPhone demand.', 'full_excerpt_in_source': False, ...}
+E       assert {'type': 'com...nded': 1, ...} == {'type': 'err...this answer."}
+E         
+E         Differing items:
+E         {'type': 'complete'} != {'type': 'error'}
+E         Left contains 9 more items:
+E         {'answer': "Apple's revenue grew strongly [1].",
+E          'citations': [{'excerpt': 'Invented text missing from the source, and '
+E                                    '"Revenue increased to 391.0 billion driven by '...
+E         
+E         ...Full output truncated (16 lines hidden), use '-vv' to show
+
+tests/unit/test_copilot.py:176: AssertionError
+---------------------------- Captured stdout setup -----------------------------
+[2026-10-02 04:55:04] DEBUG    [no-id] asyncio - Using selector: EpollSelector
+------------------------------ Captured log setup ------------------------------
+DEBUG    asyncio:selector_events.py:54 Using selector: EpollSelector
+=============================== warnings summary ===============================
+app/config.py:21
+  /home/user/wt/cite-diag/backend/app/config.py:21: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.13/migration/
+    class Settings(BaseSettings):
+
+app/database.py:44
+  /home/user/wt/cite-diag/backend/app/database.py:44: MovedIn20Warning: The ``declarative_base()`` function is now available as sqlalchemy.orm.declarative_base(). (deprecated since: 2.0) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
+    Base = declarative_base()
+
+app/schemas/summary.py:81
+  /home/user/wt/cite-diag/backend/app/schemas/summary.py:81: PydanticDeprecatedSince212: Using `@model_validator` with mode='after' on a classmethod is deprecated. Instead, use an instance method. See the documentation at https://docs.pydantic.dev/2.13/concepts/validators/#model-after-validator. Deprecated in Pydantic V2.12 to be removed in V3.0.
+    @model_validator(mode="after")
+
+../../../venv/lib/python3.11/site-packages/pydantic/_internal/_generate_schema.py:325
+../../../venv/lib/python3.11/site-packages/pydantic/_internal/_generate_schema.py:325
+../../../venv/lib/python3.11/site-packages/pydantic/_internal/_generate_schema.py:325
+../../../venv/lib/python3.11/site-packages/pydantic/_internal/_generate_schema.py:325
+  /home/user/venv/lib/python3.11/site-packages/pydantic/_internal/_generate_schema.py:325: PydanticDeprecatedSince20: `json_encoders` is deprecated. See https://docs.pydantic.dev/2.13/concepts/serialization/#custom-serializers for alternatives. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.13/migration/
+    warnings.warn(
+
+app/schemas/summary.py:139
+  /home/user/wt/cite-diag/backend/app/schemas/summary.py:139: PydanticDeprecatedSince212: Using `@model_validator` with mode='after' on a classmethod is deprecated. Instead, use an instance method. See the documentation at https://docs.pydantic.dev/2.13/concepts/validators/#model-after-validator. Deprecated in Pydantic V2.12 to be removed in V3.0.
+    @model_validator(mode="after")
+
+app/schemas/contact.py:47
+  /home/user/wt/cite-diag/backend/app/schemas/contact.py:47: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.13/migration/
+    class ContactSubmissionResponse(BaseModel):
+
+app/routers/companies.py:133
+  /home/user/wt/cite-diag/backend/app/routers/companies.py:133: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.13/migration/
+    class CompanyResponse(BaseModel):
+
+app/routers/filings.py:133
+  /home/user/wt/cite-diag/backend/app/routers/filings.py:133: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.13/migration/
+    class FilingResponse(BaseModel):
+
+app/routers/saved_summaries.py:16
+  /home/user/wt/cite-diag/backend/app/routers/saved_summaries.py:16: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.13/migration/
+    class SavedSummaryResponse(BaseModel):
+
+app/routers/summaries.py:122
+  /home/user/wt/cite-diag/backend/app/routers/summaries.py:122: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.13/migration/
+    class SummaryResponse(BaseModel):
+
+app/routers/users.py:121
+  /home/user/wt/cite-diag/backend/app/routers/users.py:121: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.13/migration/
+    class NotificationPreferencesResponse(BaseModel):
+
+app/routers/users.py:208
+  /home/user/wt/cite-diag/backend/app/routers/users.py:208: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.13/migration/
+    class NotificationItem(BaseModel):
+
+app/routers/watchlist.py:38
+  /home/user/wt/cite-diag/backend/app/routers/watchlist.py:38: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.13/migration/
+    class WatchlistResponse(BaseModel):
+
+app/schemas/feedback.py:34
+  /home/user/wt/cite-diag/backend/app/schemas/feedback.py:34: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.13/migration/
+    class FeedbackResponse(BaseModel):
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+==================================== PASSES ====================================
+___________ test_service_publishes_full_excerpt_contiguous_in_source ___________
+---------------------------- Captured stdout setup -----------------------------
+[2026-10-02 04:55:04] DEBUG    [no-id] asyncio - Using selector: EpollSelector
+------------------------------ Captured log setup ------------------------------
+DEBUG    asyncio:selector_events.py:54 Using selector: EpollSelector
+=========================== short test summary info ============================
+PASSED tests/unit/test_copilot.py::test_service_publishes_full_excerpt_contiguous_in_source
+FAILED tests/unit/test_copilot.py::test_service_withholds_excerpt_verified_only_by_inner_quoted_span
+=========== 1 failed, 1 passed, 135 deselected, 17 warnings in 3.84s ===========
