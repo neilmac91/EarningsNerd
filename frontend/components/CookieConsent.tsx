@@ -1,9 +1,9 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { CheckCircleIcon, CookieIcon, XIcon } from '@/lib/icons'
+import { CheckCircleIcon, CookieIcon } from '@/lib/icons'
 import Link from 'next/link'
-import { Button } from '@/components/ui'
+import { Button, Modal, ModalBody, ModalFooter, ModalHeader } from '@/components/ui'
 
 export interface CookiePreferences {
   essential: boolean
@@ -150,126 +150,141 @@ export default function CookieConsent({ onPreferencesChanged }: CookieConsentPro
   }
 
   if (showSettings) {
+    // ui/Modal owns the dialog contract (focus in, Tab cycle, Escape, scroll lock, focus return);
+    // Escape and the scrim close it exactly as Cancel does. max-h-full + overflow keeps the three
+    // categories reachable on a short phone screen (the panel never outgrows the padded scrim).
     return (
-      <div className="fixed inset-0 bg-overlay backdrop-blur-sm z-modal flex items-center justify-center p-4">
-        <div className="bg-panel-light dark:bg-panel-dark rounded-xl shadow-e5 dark:shadow-none max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-          <div className="p-6">
-            <div className="flex items-start justify-between mb-4">
-              <div className="flex items-center gap-3">
-                <CookieIcon className="h-6 w-6 text-brand-strong dark:text-brand-strong-dark" />
-                <h2 className="text-2xl font-semibold text-text-primary-light dark:text-text-primary-dark">
-                  Cookie Preferences
-                </h2>
-              </div>
-              <button
-                onClick={() => setShowSettings(false)}
-                className="text-text-tertiary-light hover:text-text-secondary-light dark:hover:text-text-secondary-dark"
-              >
-                <XIcon className="h-6 w-6" />
-              </button>
-            </div>
+      <Modal
+        open
+        onClose={() => setShowSettings(false)}
+        labelledBy="cookie-settings-title"
+        size="lg"
+        className="max-h-full overflow-y-auto"
+      >
+        <ModalHeader
+          id="cookie-settings-title"
+          icon={<CookieIcon className="h-5 w-5" />}
+          onClose={() => setShowSettings(false)}
+        >
+          Cookie Preferences
+        </ModalHeader>
 
-            <p className="text-text-secondary-light dark:text-text-secondary-dark mb-6">
-              We use cookies to enhance your experience, analyze site traffic, and provide
-              personalized content. Choose which cookies you&apos;re comfortable with.
-            </p>
+        <ModalBody>
+          <p className="text-text-secondary-light dark:text-text-secondary-dark mb-6">
+            We use cookies to enhance your experience, analyze site traffic, and provide
+            personalized content. Choose which cookies you&apos;re comfortable with.
+          </p>
 
-            <div className="space-y-4">
-              {/* Essential Cookies */}
-              <div className="border border-border-light dark:border-border-dark rounded-lg p-4">
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <h3 className="font-semibold text-text-primary-light dark:text-text-primary-dark mb-2">
-                      Essential Cookies
-                    </h3>
-                    <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark">
-                      Required for the website to function properly. These include authentication,
-                      security, and basic functionality. Cannot be disabled.
-                    </p>
-                  </div>
-                  <div className="ml-4">
-                    <input
-                      type="checkbox"
-                      checked={true}
-                      disabled
-                      className="h-5 w-5 rounded border-border-light text-brand-strong focus:shadow-ring-brand opacity-50 cursor-not-allowed"
-                    />
-                  </div>
+          <div className="space-y-4">
+            {/* Essential Cookies */}
+            <div className="border border-border-light dark:border-border-dark rounded-lg p-4">
+              <div className="flex items-start justify-between">
+                <div className="flex-1">
+                  <h3
+                    id="cookie-essential-title"
+                    className="font-semibold text-text-primary-light dark:text-text-primary-dark mb-2"
+                  >
+                    Essential Cookies
+                  </h3>
+                  <p id="cookie-essential-desc" className="text-sm text-text-secondary-light dark:text-text-secondary-dark">
+                    Required for the website to function properly. These include authentication,
+                    security, and basic functionality. Cannot be disabled.
+                  </p>
                 </div>
-              </div>
-
-              {/* Analytics Cookies */}
-              <div className="border border-border-light dark:border-border-dark rounded-lg p-4">
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <h3 className="font-semibold text-text-primary-light dark:text-text-primary-dark mb-2">
-                      Analytics Cookies
-                    </h3>
-                    <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark">
-                      Help us understand how visitors interact with our website by collecting
-                      anonymous usage statistics (PostHog). This helps us improve the user
-                      experience.
-                    </p>
-                  </div>
-                  <div className="ml-4">
-                    <input
-                      type="checkbox"
-                      checked={preferences.analytics}
-                      onChange={(e) =>
-                        setPreferences({ ...preferences, analytics: e.target.checked })
-                      }
-                      className="h-5 w-5 rounded border-border-light text-brand-strong focus:shadow-ring-brand"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* Session Recording */}
-              <div className="border border-border-light dark:border-border-dark rounded-lg p-4">
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <h3 className="font-semibold text-text-primary-light dark:text-text-primary-dark mb-2">
-                      Session Recording
-                    </h3>
-                    <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark">
-                      Records your interactions with the site to help us identify and fix bugs.
-                      Sensitive information (passwords, payment details) is always masked. This is
-                      more invasive and is opt-in only.
-                    </p>
-                  </div>
-                  <div className="ml-4">
-                    <input
-                      type="checkbox"
-                      checked={preferences.sessionRecording}
-                      onChange={(e) =>
-                        setPreferences({ ...preferences, sessionRecording: e.target.checked })
-                      }
-                      className="h-5 w-5 rounded border-border-light text-brand-strong focus:shadow-ring-brand"
-                    />
-                  </div>
+                <div className="ml-4">
+                  <input
+                    type="checkbox"
+                    checked={true}
+                    disabled
+                    aria-labelledby="cookie-essential-title"
+                    aria-describedby="cookie-essential-desc"
+                    className="h-5 w-5 rounded border-border-light text-brand-strong focus:shadow-ring-brand opacity-50 cursor-not-allowed"
+                  />
                 </div>
               </div>
             </div>
 
-            <div className="mt-6 flex gap-3">
-              <Button onClick={handleSavePreferences} className="flex-1">
-                Save Preferences
-              </Button>
-              <Button variant="ghost" onClick={() => setShowSettings(false)}>
-                Cancel
-              </Button>
+            {/* Analytics Cookies */}
+            <div className="border border-border-light dark:border-border-dark rounded-lg p-4">
+              <div className="flex items-start justify-between">
+                <div className="flex-1">
+                  <h3
+                    id="cookie-analytics-title"
+                    className="font-semibold text-text-primary-light dark:text-text-primary-dark mb-2"
+                  >
+                    Analytics Cookies
+                  </h3>
+                  <p id="cookie-analytics-desc" className="text-sm text-text-secondary-light dark:text-text-secondary-dark">
+                    Help us understand how visitors interact with our website by collecting
+                    anonymous usage statistics (PostHog). This helps us improve the user
+                    experience.
+                  </p>
+                </div>
+                <div className="ml-4">
+                  <input
+                    type="checkbox"
+                    checked={preferences.analytics}
+                    onChange={(e) =>
+                      setPreferences({ ...preferences, analytics: e.target.checked })
+                    }
+                    aria-labelledby="cookie-analytics-title"
+                    aria-describedby="cookie-analytics-desc"
+                    className="h-5 w-5 rounded border-border-light text-brand-strong focus:shadow-ring-brand"
+                  />
+                </div>
+              </div>
             </div>
 
-            <p className="mt-4 text-xs text-text-secondary-light dark:text-text-secondary-dark">
-              For more information, see our{' '}
-              <Link href="/privacy" className="text-brand-strong dark:text-brand-strong-dark hover:underline">
-                Privacy Policy
-              </Link>
-              .
-            </p>
+            {/* Session Recording */}
+            <div className="border border-border-light dark:border-border-dark rounded-lg p-4">
+              <div className="flex items-start justify-between">
+                <div className="flex-1">
+                  <h3
+                    id="cookie-recording-title"
+                    className="font-semibold text-text-primary-light dark:text-text-primary-dark mb-2"
+                  >
+                    Session Recording
+                  </h3>
+                  <p id="cookie-recording-desc" className="text-sm text-text-secondary-light dark:text-text-secondary-dark">
+                    Records your interactions with the site to help us identify and fix bugs.
+                    Sensitive information (passwords, payment details) is always masked. This is
+                    more invasive and is opt-in only.
+                  </p>
+                </div>
+                <div className="ml-4">
+                  <input
+                    type="checkbox"
+                    checked={preferences.sessionRecording}
+                    onChange={(e) =>
+                      setPreferences({ ...preferences, sessionRecording: e.target.checked })
+                    }
+                    aria-labelledby="cookie-recording-title"
+                    aria-describedby="cookie-recording-desc"
+                    className="h-5 w-5 rounded border-border-light text-brand-strong focus:shadow-ring-brand"
+                  />
+                </div>
+              </div>
+            </div>
           </div>
-        </div>
-      </div>
+
+          <p className="mt-4 text-xs text-text-secondary-light dark:text-text-secondary-dark">
+            For more information, see our{' '}
+            <Link href="/privacy" className="text-brand-strong dark:text-brand-strong-dark hover:underline">
+              Privacy Policy
+            </Link>
+            .
+          </p>
+        </ModalBody>
+
+        <ModalFooter>
+          <Button variant="secondary" onClick={() => setShowSettings(false)} className="w-full sm:w-auto">
+            Cancel
+          </Button>
+          <Button onClick={handleSavePreferences} className="w-full sm:w-auto">
+            Save Preferences
+          </Button>
+        </ModalFooter>
+      </Modal>
     )
   }
 

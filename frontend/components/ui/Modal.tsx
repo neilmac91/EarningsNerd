@@ -5,8 +5,10 @@
    -----------------------------------------------------------------------------
    The ONE dialog primitive. Replaces the hand-rolled shells (UpgradeModal,
    EmailVerificationModal, Resend/RevokeShareModal, FeedbackWidget dialog,
-   DayDetailDialog). The copilot rail / filing-viewer SHEETS keep their bespoke
-   pane behavior (already focus-trapped) and only adopt the z/scrim tokens.
+   CookieConsent settings). The copilot rail / filing-viewer SHEETS keep their
+   bespoke pane behavior (already focus-trapped) and only adopt the z/scrim
+   tokens; the calendar's DayDetailDialog stays a native <dialog> + showModal()
+   (only its scrim token changed) — never raise a Modal from inside it.
 
    Contract (all non-negotiable):
      - portal to <body>; scrim = bg-overlay z-modal + backdrop-blur-sm
