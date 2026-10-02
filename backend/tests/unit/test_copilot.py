@@ -129,6 +129,8 @@ async def test_service_grounds_verified_citation(monkeypatch):
 _INVENTED_PREFIX = "Invented text missing from the source, and "
 _PREFIXED_EXCERPT = _INVENTED_PREFIX + '"' + _KNOWN_SENTENCE + '"'
 _QUOTED_FREE_TEXT_SECTION = 'Item 7 "Fake words here"'
+# Decision F's double quote marks, spelled out independently of the module under test.
+_DECISION_F_MARKS = '"\uff02\u201c\u201d\u201e\u201f'
 
 
 async def _declare_one(monkeypatch, excerpt, section, *, source=None, extra=()):
@@ -280,19 +282,38 @@ async def test_unreferenced_prefixed_declaration_stays_unverified_and_answer_pub
 @pytest.mark.asyncio
 @pytest.mark.parametrize("section", [
     _QUOTED_FREE_TEXT_SECTION, "Item 7 “Fake words here", "Item 7 Fake words here”",
+    # F's marks the three cases above lack; the BMP sweep gate below covers all six.
+    *(pytest.param(f"Item 7 {mark}Fake words here", id=f"U+{ord(mark):04X}") for mark in "\uff02\u201e\u201f"),
 ])
 async def test_service_withholds_referenced_citation_whose_section_ref_has_a_quote_mark(monkeypatch, section):
-    """Section labels publish unchecked, so one carrying ``"``, ``“`` or ``”`` would display an
-    unverified quotation; the citation is unverified even though its excerpt is filing text."""
+    """Section labels publish unchecked, so one carrying any of decision F's double quote marks
+    (``"``, ``＂``, ``“``, ``”``, ``„``, ``‟``) would display an unverified quotation; the citation is
+    unverified even though its excerpt is filing text."""
     terminal = await _declare_one(monkeypatch, _KNOWN_SENTENCE, section)
     assert terminal == {"type": "error", "message": copilot_service._PUBLICATION_ERROR}
 
 
 @pytest.mark.unit
+def test_section_ref_rule_withholds_exactly_decision_f_marks():
+    """Gate (CLAUDE.md rule 12): the section_ref rule and decision F read one mark set. Over the
+    whole Basic Multilingual Plane, a section label is unverified exactly when F's prose check reads
+    its character as a double quote mark, so the two sets cannot drift apart again."""
+    labels = [{"n": cp + 1, "excerpt": _KNOWN_SENTENCE, "section": f"Item 7 {chr(cp)}"} for cp in range(0x10000)]
+    pool = copilot_service._verify_citations(labels, SimpleNamespace(), normalize_for_match(_FAKE_SOURCE), set())
+    withheld = {chr(int(n) - 1) for n, cite in pool.items() if not cite["verified"]}
+    assert withheld == {chr(cp) for cp in range(0x10000) if copilot_service._QUOTE_MARK_RE.search(chr(cp))}
+    assert withheld == set(_DECISION_F_MARKS)
+
+
+@pytest.mark.unit
 @pytest.mark.asyncio
-@pytest.mark.parametrize("section", ["Item 7", "Item 7 — Management’s Discussion and Analysis"])
+@pytest.mark.parametrize("section", [
+    "Item 7", "Item 7 — Management’s Discussion and Analysis",
+    "Item 7 ‘Fake words here’", "Item 7 «Fake words here»", "Item 7 \u2033Fake words here\u2033",
+])
 async def test_service_publishes_plain_section_ref(monkeypatch, section):
-    """Plain labels (apostrophes included) are unaffected by the quote-mark rule."""
+    """Plain labels (apostrophes included) are unaffected by the quote-mark rule, and so are the
+    quotation forms decision F leaves unchecked (its decided limit)."""
     cite = _published_one(await _declare_one(monkeypatch, _KNOWN_SENTENCE, section))
     assert (cite["section_ref"], cite["verified"]) == (section, True)
 
