@@ -729,3 +729,24 @@ Under the founder's delegation, Codex decided items A–M on #1029. This session
     - display cross-check: 0 holes in 623 cases; fuzz 0 holes in 450k; the reviewer's wsfz went from 815 hits to 0;
     - gate: **5499 passed**.
   - **Delta reviews** requested from both final reviewers, in `f-rev-a` and `f-rev-b` reset to `b424e8d9`.
+- 02:14Z — **F round-8 delta reviews of `b424e8d9`: both APPROVE.** Neither has a blocker or a should-fix.
+  - **Adversarial review:**
+    - B1 repros: 0 publish across 15 spaces × 3 spans × LF/CRLF/CR line endings.
+    - wsfz fuzz: 0 hits (815 in round 7). fzb fuzz: 0 holes over about 188k inputs. Mid-line fuzz: 0 hits over 37k inputs.
+    - 26 bypass probes: 0 holes.
+    - Every markdown-it strip site was assessed.
+    - Latency at the bound: 157–165 ms worst case.
+    - Nits: the gate also catches code blocks (a benign cost); a space right after a container marker is ungated but reads as whitespace in both parsers.
+  - **Rules review:**
+    - Killed mutations: F-N1, F-N3, B-N1 and G-N1–G-N5.
+    - The RUNBOOK is accurate. The 9 locked contracts are byte-identical. Gate: 5499 passed.
+    - Attribution tool a88162d7 is fit for F1.
+    - Nits:
+      - the gate comment omits `heading.py`;
+      - "runs of emphasis delimiters" is loose;
+      - state S3 in the PR body;
+      - an unserved repair lookup on an F-withheld row fails F1, which errs only toward failing.
+- 02:16Z — **#1029 read.** No Codex reply to S3 (5943731782). Proceeding on the approved scope. Main is still `02628e57`.
+- 02:25Z — **F release head `3b0a74fc`.** One commit on `b424e8d9` that changes only comments and the RUNBOOK (`ast.dump` identical). It fixes two of the nits: it names `heading.py`, and the RUNBOOK now says "runs of three or more". The full gate and an independent delta review of `b424e8d9..3b0a74fc` are running.
+  - The attribution tool and its outputs are committed in `tasks/review-evidence/f-quote-containment-2026-10-01/f1-attribution-2026-10-02/`.
+  - **Predeclared:** in every replayed run, 6–8 BABA/ASML rows need an unrecorded repair lookup. If such a row is withheld in a measurement run, it is UNEXPLAINED and F1 fails.
