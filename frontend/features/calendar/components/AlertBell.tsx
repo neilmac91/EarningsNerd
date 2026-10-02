@@ -50,10 +50,16 @@ export function AlertBell({
       aria-pressed={on}
       aria-label={label}
       title={label}
-      disabled={pending || checking}
+      // While its own toggle is in flight the bell is aria-disabled, not natively disabled: a focused
+      // button that turns `disabled` is blurred to <body> (Chromium), so every keyboard toggle sent the
+      // user back to the top of the page. `checking` stays native — it only holds before identity
+      // resolves, when the bell cannot have focus yet.
+      disabled={checking}
+      aria-disabled={pending || undefined}
       onClick={(e) => {
         e.preventDefault()
         e.stopPropagation()
+        if (pending) return
         alerts.toggle(ticker, e.currentTarget)
       }}
       className={cx(
