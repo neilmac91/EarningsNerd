@@ -1,24 +1,24 @@
 == baseline (unmutated)
-956 passed, 17 warnings in 21.42s
+953 passed, 17 warnings in 22.37s
 == M1 scorer back on verify_excerpt_in_text: named gate test_citation_faithfulness_matches_copilot_publication FAILED (killed)
-3 failed, 953 passed, 17 warnings in 21.26s
+3 failed, 950 passed, 17 warnings in 21.92s
 tests/unit/test_copilot_evals.py::test_citation_faithfulness_matches_copilot_publication['Revenue increased to $391.0 billion in fiscal 2024.'-Item 7-True]
 tests/unit/test_copilot_evals.py::test_citation_faithfulness_matches_copilot_publication[For the fiscal year ending January 31, 2027 ("fiscal 2027"), we project capital expenditures-Item 7-True]
 tests/unit/test_copilot_evals.py::test_citation_faithfulness_matches_copilot_publication[We said "Revenue increased to $391.0 billion in fiscal 2024."-Item 7-False]
 == M2 scorer drops the label clause: named gate test_citation_faithfulness_matches_copilot_publication FAILED (killed)
-1 failed, 955 passed, 17 warnings in 22.44s
+1 failed, 952 passed, 17 warnings in 23.14s
 tests/unit/test_copilot_evals.py::test_citation_faithfulness_matches_copilot_publication[Revenue increased to $391.0 billion in fiscal 2024.-Item 7 \u201cMD&A\u201d-False]
 == M3 section_ref narrowed back to three marks: named gate test_section_ref_rule_withholds_exactly_decision_f_marks FAILED (killed)
-4 failed, 952 passed, 17 warnings in 20.09s
+4 failed, 949 passed, 17 warnings in 23.29s
 tests/unit/test_copilot.py::test_section_ref_rule_withholds_exactly_decision_f_marks
 tests/unit/test_copilot.py::test_service_withholds_referenced_citation_whose_section_ref_has_a_quote_mark[U+201E]
 tests/unit/test_copilot.py::test_service_withholds_referenced_citation_whose_section_ref_has_a_quote_mark[U+201F]
 tests/unit/test_copilot.py::test_service_withholds_referenced_citation_whose_section_ref_has_a_quote_mark[U+FF02]
 == M4 separate drifting literal (F gains U+2033): named gate test_section_ref_rule_withholds_exactly_decision_f_marks FAILED (killed)
-2 failed, 954 passed, 17 warnings in 21.36s
+2 failed, 951 passed, 17 warnings in 21.97s
 tests/unit/test_copilot.py::test_section_ref_rule_withholds_exactly_decision_f_marks
 tests/unit/test_copilot_prose_quotations.py::test_other_quotation_forms_are_a_decided_limit[The filing calls it \u2033Invented text missing from the source\u2033 [1].]
 == restored
-956 passed, 17 warnings in 20.84s
+953 passed, 17 warnings in 21.00s
 == git status --short backend/ after restore:
 (clean)

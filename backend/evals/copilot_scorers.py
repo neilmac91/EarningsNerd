@@ -3,11 +3,11 @@
 Four reproducible, no-network checks that encode the feature's core promises:
 
 * **Citation faithfulness** — every text citation's WHOLE excerpt must be contiguous in the filing
-  and its section label must carry no double quote mark: Copilot's own publication rule
-  (``verify_whole_excerpt_in_text`` and ``section_label_is_quoted``, as ``_verify_citations`` applies
-  them). A citation that doesn't verify is the exact hallucination the feature claims to prevent, so
-  it's a hard gate. XBRL/tool citations are exempt (their provenance is the ``financial_fact`` table,
-  not the filing prose)...
+  and its section label must carry none of decision F's double quote marks: Copilot's own
+  publication rule (``verify_whole_excerpt_in_text`` and ``section_label_is_quoted``, as
+  ``_verify_citations`` applies them). A citation that doesn't verify is the exact hallucination the
+  feature claims to prevent, so it's a hard gate. XBRL/tool citations are exempt (their provenance is
+  the ``financial_fact`` table, not the filing prose)...
 * **Fact-marker adjacency** — ...but XBRL citations get their own gate: every inline marker backed by
   a tool fact must sit adjacent to a figure matching that fact's value AND must not sit on a claim
   naming a different metric (field report: revenue markers reused as year labels on other metrics'
@@ -54,7 +54,8 @@ def _is_xbrl_citation(citation: dict) -> bool:
 def score_citation_faithfulness(
     citations: List[dict], normalized_source: str
 ) -> Tuple[float, List[str]]:
-    """Independently re-verify each text citation's excerpt against the (normalized) filing text.
+    """Independently re-verify each text citation's excerpt against the (normalized) filing text, and
+    its section label (``section_label_is_quoted``, Copilot's section_ref rule).
 
     Returns ``(ratio_verified, unverified_excerpts)``. We do NOT trust the answer's own ``verified``
     flag — the whole point is to catch a citation the product wrongly trusted. With no text citations

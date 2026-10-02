@@ -282,7 +282,8 @@ async def test_unreferenced_prefixed_declaration_stays_unverified_and_answer_pub
 @pytest.mark.asyncio
 @pytest.mark.parametrize("section", [
     _QUOTED_FREE_TEXT_SECTION, "Item 7 “Fake words here", "Item 7 Fake words here”",
-    *(pytest.param(f"Item 7 {mark}Fake words here", id=f"U+{ord(mark):04X}") for mark in _DECISION_F_MARKS),
+    # F's marks the three cases above lack; the BMP sweep gate below covers all six.
+    *(pytest.param(f"Item 7 {mark}Fake words here", id=f"U+{ord(mark):04X}") for mark in "\uff02\u201e\u201f"),
 ])
 async def test_service_withholds_referenced_citation_whose_section_ref_has_a_quote_mark(monkeypatch, section):
     """Section labels publish unchecked, so one carrying any of decision F's double quote marks
