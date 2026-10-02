@@ -166,7 +166,7 @@ does not remove it.
 3. **Model tool-selection variance.** Nonexecution predates both prompts: RUNBOOK.md:699-700 records
    MSFT and historical BABA answers without tools at #703 (2026-09-05). This sets a base rate, not a
    cause of the old→main shift.
-4. **Time drift** (excluded within each stage's window: arm A stayed at or below 2/6 while the other arm reached 6/6, and every logged call carries fingerprint `aeb56401`). One fingerprint on all 315 logged calls and bracketing make this least likely for
+4. **Time drift** (not supported within each stage's window: arm A stayed at or below 2/6 while the other arm reached 6/6, and every logged call carries fingerprint `aeb56401`. A stable fingerprint shows that no fingerprint change was observed; it does not prove that provider state or time effects were unchanged). One fingerprint on all 315 logged calls and bracketing make this least likely for
    #1023. The original caveat, that every pre-#1022 run preceded every main run, no longer holds: stage 1 interleaved them within 20 minutes and reproduced the 20-F shift.
 
 ## Latent production risks

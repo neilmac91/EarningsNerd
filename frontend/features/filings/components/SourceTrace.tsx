@@ -312,11 +312,11 @@ function SourceTraceInner({
   if (open && typeof document !== 'undefined') {
     if (isCoarse) {
       overlay = createPortal(
-        <div className="fixed inset-0 z-[70]" role="dialog" aria-modal="true" aria-label="Source detail">
+        <div className="fixed inset-0 z-modal" role="dialog" aria-modal="true" aria-label="Source detail">
           <button
             type="button"
             aria-label="Close"
-            className="absolute inset-0 bg-black/40"
+            className="absolute inset-0 bg-overlay"
             onClick={closePanel}
           />
           <div
@@ -346,7 +346,7 @@ function SourceTraceInner({
           onMouseEnter={clearCloseTimer}
           onMouseLeave={scheduleClose}
           style={{ position: 'fixed', left: pos.left, top: pos.top, bottom: pos.bottom, transform: 'translateX(-50%)' }}
-          className="z-[60] block w-72 rounded-lg border border-border-light bg-background-light p-3 text-left shadow-e4 dark:shadow-none dark:border-border-dark dark:bg-panel-dark"
+          className="z-overlay block w-72 rounded-lg border border-border-light bg-background-light p-3 text-left shadow-e4 dark:shadow-none dark:border-border-dark dark:bg-panel-dark"
         >
           <SourceTracePanelBody header={header} isVerified={isVerified} note={note} url={url} />
         </span>,

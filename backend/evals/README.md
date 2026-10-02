@@ -120,7 +120,9 @@ grounded Q&A loop, so it has a sibling eval with its own deterministic gates:
   "not disclosed", not fabricate).
 - **Scorers (`copilot_scorers.py`, deterministic, no network):**
   - *Citation faithfulness* — every text citation's excerpt must verify **verbatim** in the filing
-    (re-run independently of the answer's own `verified` flag; XBRL/tool citations exempt). Hard gate.
+    (re-run independently of the answer's own `verified` flag; XBRL/tool citations exempt), and its
+    section label must carry none of decision F's double quote marks (Copilot's own publication
+    rule). Hard gate.
   - *Refusal calibration* — refuse iff the filing does not disclose the answer. Hard gate.
   - *Numeric accuracy* — for targeted numeric questions, the expected figure must appear (reuses the
     summary harness's value-rendering matcher). Hard gate.

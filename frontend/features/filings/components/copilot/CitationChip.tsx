@@ -177,7 +177,7 @@ export default function CitationChip({ citation }: CitationChipProps) {
             style={{ position: 'fixed', left: pos.left, top: pos.top, transform: 'translateX(-50%)',
               maxWidth: Math.max(0, window.innerWidth - 16), maxHeight: Math.max(0, window.innerHeight - 16),
               overflowY: 'auto' }}
-            className="z-[60] block w-64 rounded-lg border border-border-light bg-panel-light p-3 text-left shadow-e5 dark:border-white/10 dark:bg-panel-dark dark:shadow-none"
+            className="z-overlay block w-64 rounded-lg border border-border-light bg-panel-light p-3 text-left shadow-e5 dark:border-white/10 dark:bg-panel-dark dark:shadow-none"
           >
             <span className="block text-[11px] font-semibold uppercase tracking-wide text-text-secondary-light dark:text-text-secondary-dark break-words">
               {header}

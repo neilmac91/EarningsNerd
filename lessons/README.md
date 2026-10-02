@@ -87,6 +87,12 @@ what applies to your task. Filenames are greppable: `arch-*`, `sec-*`, `test-*`,
 
 ## Frontend & design system
 
+- [`frontend-dialog-trap-arms-once-per-open.md`](./frontend-dialog-trap-arms-once-per-open.md) — Arm a dialog's focus trap once per open; never key its effect on a callback prop's identity
+
+- [`frontend-locked-page-dialog-scrolls-itself.md`](./frontend-locked-page-dialog-scrolls-itself.md) — A dialog that locks the page must bound itself to the viewport and scroll inside
+
+- [`frontend-top-dialog-owns-the-keyboard.md`](./frontend-top-dialog-owns-the-keyboard.md) — The top dialog owns the keyboard: listen in window capture and stop the keys it handles
+
 - [`frontend-trial-labels-use-entitlements.md`](./frontend-trial-labels-use-entitlements.md) — Derive current-trial presentation from the resolved entitlement
 
 - [`test-smoke-targets-feature-semantics.md`](./test-smoke-targets-feature-semantics.md) — Distinguish the actual smoke target from similarly named calls to action
@@ -109,6 +115,7 @@ what applies to your task. Filenames are greppable: `arch-*`, `sec-*`, `test-*`,
 - [`frontend-tailwind-content-scans-class-maps.md`](./frontend-tailwind-content-scans-class-maps.md) — Put every module that composes Tailwind classes under a content glob
 - [`frontend-theme-migration-app-wide.md`](./frontend-theme-migration-app-wide.md) — Treat a design-token/theme migration as app-wide by default
 - [`frontend-verify-chart-annotations-on-dense-data.md`](./frontend-verify-chart-annotations-on-dense-data.md) — Acceptance-test chart annotations on a dense real-world series, never only fixtures
+- [`frontend-variable-text-must-not-size-a-wrapping-row.md`](./frontend-variable-text-must-not-size-a-wrapping-row.md) — Keep variable-length text from sizing a wrapping row or an implicit grid track
 
 ## Operations & workflow
 

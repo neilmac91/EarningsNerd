@@ -25,8 +25,8 @@ const STRENGTH_COLORS = [
   'bg-error-light',
   'bg-warning-light',
   'bg-warning-light',
-  'bg-brand-strong',
-  'bg-brand',
+  'bg-success-light',
+  'bg-success-light',
 ]
 
 function scorePassword(pw: string): number {
