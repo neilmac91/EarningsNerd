@@ -210,7 +210,9 @@ export default function DashboardPage() {
           </div>
         )}
 
-        <div className="grid gap-8 lg:grid-cols-3">
+        {/* grid-cols-1 is minmax(0, 1fr): an implicit phone track would size to its widest row's
+            min-content (a long company name beside its status badge) and scroll the page sideways. */}
+        <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
           {/* Main column: search, the "what changed" feed, and the watchlist status section. */}
           <div className="space-y-8 lg:col-span-2">
             <Card className="p-5">
