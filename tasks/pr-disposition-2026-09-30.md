@@ -814,3 +814,10 @@ Under the founder's delegation, Codex decided items A–M on #1029. This session
   - The item-C census is recorded in B's evidence as `a458f452`: 58 untagged snapshots, 47 of them with summaries; the truthful unestablished-scope render is preserved; no drain.
   - The fresh exact-head review of `a458f452` is running in `wt/b-rev`.
   - **Not pushed yet:** the paid push waits until F's deploy is verified and the off-peak window opens at 10:00Z.
+- 08:24Z — **F deployed and verified** (deploy-backend job 110763255823 in CI [36982814786](https://github.com/neilmac91/EarningsNerd/actions/runs/36982814786); all CI jobs green; eval-baseline skipped on push).
+  - `apply_migrations: applied=0 skipped=40`.
+  - Revision **`earningsnerd-backend-00429-vlm`** serves 100 percent of traffic.
+  - Jobs updated: pregenerate, the six configured jobs (filing-scan, filing-digest, earnings-calendar-refresh, earnings-day-alerts, notable-filings, retention-purge) and backfill-facts. None was executed.
+  - Log: "Deployed f6e79a5 and verified healthy."
+  - **Independent check:** `/health/detailed` at 08:32:55Z returned `healthy`, with the database at 6.22 ms, Redis disabled and the EDGAR circuit closed.
+  - **F is released.** Next is B.
