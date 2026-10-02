@@ -193,7 +193,7 @@ questions; qualitative and refusal questions remain in `pending_cases`.
 The `tools`/`tool_choice` assertion closes a real gap: with `tools` removed from every `create()`
 call, or `tool_choice` set to `"none"`, all 351 tests in these six owners still passed on main.
 
-## Pre-registered next experiment (not run; needs its own founder authorization and ceiling)
+## Pre-registered next experiment (stage 1 run 2026-10-02: prompt-caused; stage 2 pre-registered below)
 
 **Question.** Is main's 20-F nonexecution caused by #1022's step-3 wording, by time drift, or by
 something prompt-insensitive (question wording or model selection)?
@@ -263,3 +263,39 @@ context, tool schema and options): arm C the pre-#1022 runs' (20-F question-runs
 Any prompt change that follows must also satisfy `backend/evals/RUNBOOK.md` (aggregates of at least
 three runs, never a single draw; its negative result on density-forcing prompts) and land as its own
 PR with the normal offline gate.
+
+## Stage 1 outcome and stage 2 pre-registration (2026-10-02)
+
+**Stage 1: prompt-caused.** It was run on 2026-10-02 as item G of the #1029 decision, under a USD 1.00 ceiling, with the design above unchanged.
+
+| Arm | Runs | 20-F question-runs tool-using | 10-K question-runs tool-using |
+| --- | --- | --- | --- |
+| A | A1, A2 | 1/6 | 6/6 |
+| C | C1, C2 | 6/6 | 6/6 |
+
+All 72 rows met the validity precondition, and all 129 logged calls carry fingerprint `aeb56401`. Spend was USD 0.200825. Evidence: `tasks/review-evidence/g-stage1-2026-10-02/README.md` on main.
+
+**Stage 2 pre-registration.** The founder authorized stage 2 on 2026-10-02 ("Go with your recommendation on all open points"). Ceiling: USD 0.50, hard stop. These rules are committed before any stage-2 spend.
+
+- **Arm A** is the main prompt `a88b6fb1`, run on this PR. Its `backend/app` equals main's.
+- **Arm B** is main with exactly one deletion: the comma, a space and the clause, ", including when all cited figures use tool markers" (51 characters at offset 2914 of `SYSTEM_PROMPT`).
+  - The sentence then reads "...output [] after the citations line. Example:". Nothing else changes.
+  - Composed `SYSTEM_PROMPT`: sha256 prefix `16457055`, 5006 characters.
+  - It runs on a DO-NOT-MERGE experiment PR, closed unmerged afterwards.
+- **Runs:** A3, B1, A4, B2, interleaved. Each starts only after the previous one completes, all within six hours, off-peak. The A runs are fresh; stage-1 runs are context only.
+- **Validity precondition:** the same as stage 1, except that arm B's system prompt must hash to `16457055`. A mismatch makes the run invalid: stop and record, and apply no rule. Any `system_fingerprint` other than `aeb56401` is reported with the outcome.
+
+**Decision rules,** at question level (at least 2 of 3 draws), on six 20-F question-runs per arm, evaluated in order:
+
+1. **Drift (main changed):** A ≥ 5/6. The stage-1 contrast did not reproduce. Close the clause hypothesis; no prompt change.
+2. **Clause-caused:** B ≥ 5/6 and A ≤ 2/6. Removing exactly the clause restores 20-F tool use. B may then be evaluated as a fix candidate, but only under separate authorization, against the acceptance checks above and the RUNBOOK aggregate rule.
+3. **Clause removal insufficient, or prompt-insensitive drift:** B ≤ 2/6 and A ≤ 2/6. Removing the clause does not restore tool use. With no C control, stage 2 cannot tell whether the cause lies elsewhere in #1022's step-3 rewrite or in drift since stage 1. No prompt change follows from stage 2.
+4. **Anything else is inconclusive.** Stop and record.
+5. **10-K regression:** any arm below 6/6 tool-using 10-K question-runs is recorded as a regression, whatever the outcome.
+
+**Reported as context, outside the rules:**
+- draws with tools;
+- F-withheld rows and other errors;
+- MSFT string-ID rejections (acceptance check 1), because the clause came from #1022's MSFT string-`F1`/`F2` fix.
+
+A `copilot-eval` run's formal acceptance is not the measurement. A red check is recorded and never re-run.

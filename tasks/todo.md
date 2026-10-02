@@ -9,7 +9,8 @@
 - #1023 closes unmerged at `d58c1a59`: its ready run 36647075136 passed 18/18 formally with 0/18 tool calls, 30 unissued `[F#]` markers, and 13/18 answers and 25/30 figures uncited. Corrected counts, refutations, ranked hypotheses, latent risks and offline coverage: [diagnosis](copilot-tool-nonexecution-2026-09-30.md). Its evidence is ten retained `copilot-fidelity` artifacts, listed there by run and report digest and audited offline at zero cost.
 - On main-equivalent code (#1030 ready run 36777581481), one ASML answer skipped tools and shipped with no citation while the run was accepted 18/18, and two passing main-prompt answers published composed prose quotations. The #1021 ASML cross-check defect remains open on main.
 - `test_copilot.py::test_stream_chat_with_tools_assembles_tool_call_deltas` now asserts that both provider rounds offer `tools` with `tool_choice="auto"`; before it, all 351 Copilot owner tests passed with either removed. No prompt, service, runner, scorer, repair grammar, coverage policy or flag change.
-- [ ] Founder: authorize or decline the pre-registered prompt-versus-drift experiment in the diagnosis (stage 1 about USD 0.4–0.8 through CI, proposed ceiling USD 1.00). It is not run by this change.
+- [x] Stage 1 of the prompt-versus-drift experiment: authorized as #1029 item G (USD 1.00) and run on 2026-10-02. **Prompt-caused.** 20-F question-runs tool-using: main prompt 1/6, pre-#1022 step 3 6/6; 10-K 6/6 in both. Spend USD 0.200825. [Evidence](review-evidence/g-stage1-2026-10-02/README.md).
+- [ ] Stage 2 (arm B: main minus the "including when all cited figures use tool markers" clause). Authorized 2026-10-02, ceiling USD 0.50; pre-registered in the diagnosis.
 
 ## 2026-09-30 — #942 successor: deterministic return-ratio render (`summary-2026-09-t`)
 
