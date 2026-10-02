@@ -3,7 +3,10 @@ import { readFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import postcss from 'postcss'
+import tailwindcss, { type Config } from 'tailwindcss'
 import { describe, expect, it } from 'vitest'
+import { directionChip, directionText, directionTextOnDark } from '@/lib/financialTone'
 
 /**
  * Structural gate for DESIGN_SYSTEM.md §12, the definition-of-done for any theme/token change.
@@ -20,6 +23,10 @@ import { describe, expect, it } from 'vitest'
  *   - item 2, grep #1 (legacy brand colors / type roles) — the pattern is READ FROM THE DOC rather
  *     than copied, so the gate can never guard something other than what rule 11 names.
  *   - item 3, the font-var packaging gate.
+ *
+ * Plus the precondition every token here rests on: a class only reaches production CSS if a
+ * tailwind.config.js `content` glob scans the module that composes it. lib/ was missing, so
+ * lib/financialTone's directionChip shipped without its /20 borders or its flat tint.
  *
  * Deliberately NOT gated:
  *   - item 2's second grep (raw durations / cubic-bezier outside token homes). It returns ~39 hits
@@ -278,4 +285,105 @@ describe('DESIGN_SYSTEM §12 item 3 — every font stack reaches its next/font v
     expect(Object.keys(fontFamilies())).not.toContain('system')
     expect(Object.keys(fontFamilies())).not.toContain('grotesque')
   })
+})
+
+// --------------------------------------------------------------------------- tailwind content
+describe('tailwind content scans every module that composes classes', () => {
+  /** Loaded, not parsed, for the same reason as fontFamilies() above. */
+  const config = createRequire(import.meta.url)(path.join(frontendDir, 'tailwind.config.js')) as Config
+
+  /** Each content glob as (directory, extensions). Every entry is `./<dir>/**\/*.{exts}` today; an
+   *  entry of any other shape throws, so this model of what Tailwind scans cannot drift from the
+   *  globs it models. That includes a one-extension brace like `{ts}`: Tailwind's glob library reads
+   *  it literally and matches nothing (Tailwind only warns). The production-build test below checks
+   *  the same globs through Tailwind's own resolution, independently of this model. */
+  const contentGlobs = (): { dir: string; exts: string[] }[] => {
+    if (!Array.isArray(config.content)) throw new Error('tailwind.config.js content is not an array')
+    return config.content.map((glob) => {
+      const m = typeof glob === 'string' ? glob.match(/^\.\/([\w-]+)\/\*\*\/\*\.\{(\w+(?:,\w+)+)\}$/) : null
+      if (!m) throw new Error(`content entry ${JSON.stringify(glob)} is not ./<dir>/**/*.{exts}; teach this gate its shape`)
+      return { dir: m[1], exts: m[2].split(',') }
+    })
+  }
+  const isScanned = (file: string): boolean =>
+    contentGlobs().some(({ dir, exts }) => file.startsWith(`${dir}/`) && exts.includes(path.extname(file).slice(1)))
+
+  /** Every class Tailwind generates for `content`, read off the selectors it emits. With a
+   *  `stylesheet`, that file is the input, so its own `@layer` classes (`tnum`, `tabular`) count too. */
+  const generatedClasses = async (
+    content: Config['content'],
+    { safelist = [], stylesheet }: { safelist?: string[]; stylesheet?: string } = {},
+  ): Promise<Set<string>> => {
+    const from = stylesheet && path.join(frontendDir, stylesheet)
+    const input = from ? readFileSync(from, 'utf8') : '@tailwind components; @tailwind utilities;'
+    const css = await postcss([tailwindcss({ ...config, content, safelist })]).process(input, { from })
+    const classes = new Set<string>()
+    css.root.walkRules((rule) => {
+      for (const m of rule.selector.matchAll(/\.((?:\\.|[\w-])+)/g)) classes.add(m[1].replace(/\\(.)/g, '$1'))
+    })
+    return classes
+  }
+
+  /** The classes one module composes, as Tailwind itself extracts them. Bare words (`block`,
+   *  `table`, `visible`) are dropped: they are ordinary English and identifiers, so keeping them
+   *  would flag config files and type declarations. A module that composes classes carries a
+   *  hyphen, variant, opacity or arbitrary value (`border-gain-light/20`). */
+  const composedClasses = async (file: string): Promise<string[]> => {
+    const raw = readFileSync(path.join(frontendDir, file), 'utf8')
+    // The safelisted bare word keeps Tailwind's "No utility classes were detected" warning quiet
+    // for class-free modules; the filter drops it again.
+    const classes = await generatedClasses([{ raw, extension: path.extname(file).slice(1) }], { safelist: ['hidden'] })
+    return [...classes].filter((c) => /[-:/[]/.test(c)).sort()
+  }
+
+  /** Tracked paths that never ship to the browser, so nothing in them needs generating. */
+  const NOT_APP_CODE: Record<string, string> = {
+    'tests/': 'specs assert on class strings; they never render in the app',
+    'design/': 'design-handoff mock-ups and bundles; the app imports none of it',
+    'tailwind.config.js': 'the token definitions themselves; class names appear as keys and comments',
+  }
+  const isAppCode = (file: string): boolean =>
+    !Object.keys(NOT_APP_CODE).some((p) => (p.endsWith('/') ? file.startsWith(p) : file === p))
+  const CODE = /\.(js|jsx|ts|tsx|mjs|cjs|mdx)$/
+  const tracked = execFileSync('git', ['ls-files', '-z'], { cwd: frontendDir, encoding: 'utf8' })
+    .split('\0')
+    .filter(Boolean)
+
+  it('has no stale NOT_APP_CODE entries', () => {
+    for (const p of Object.keys(NOT_APP_CODE)) {
+      expect(tracked.some((f) => (p.endsWith('/') ? f.startsWith(p) : f === p)), `${p} no longer exists`).toBe(true)
+    }
+  })
+
+  it('sees the classes a class-map module composes', async () => {
+    // Positive control: a detector that silently returns nothing would leave the gate below green.
+    const chipClasses = Object.values(directionChip).flatMap((tone) => tone.split(/\s+/))
+    expect(await composedClasses('lib/financialTone.ts')).toEqual(expect.arrayContaining(chipClasses))
+  })
+
+  it('scans every app module that composes classes', async () => {
+    const offenders: string[] = []
+    for (const file of tracked.filter((f) => CODE.test(f) && isAppCode(f) && !isScanned(f))) {
+      const classes = await composedClasses(file)
+      if (classes.length) offenders.push(`${file}: ${classes.join(' ')}`)
+    }
+    expect(
+      offenders,
+      'these modules compose Tailwind classes, but no tailwind.config.js content glob scans them, so ' +
+        'any class used only there is purged from production CSS. Add the directory (or the ' +
+        'extension) to content, or, if the file never ships to the browser, add it to NOT_APP_CODE ' +
+        `with the reason:\n${offenders.join('\n')}`,
+    ).toEqual([])
+  }, 30_000)
+
+  it('emits every class lib/financialTone composes in the production build', async () => {
+    // Anchored to frontend/: Tailwind resolves relative globs against the process cwd, not the
+    // config file, so a run from another directory would otherwise scan nothing.
+    const globs = (config.content as string[]).map((glob) => path.join(frontendDir, glob))
+    const built = await generatedClasses(globs, { stylesheet: 'app/globals.css' })
+    const composed = [directionText, directionTextOnDark, directionChip].flatMap((tones) =>
+      Object.values(tones).flatMap((tone) => tone.split(/\s+/)),
+    )
+    expect(composed.filter((c) => !built.has(c)), 'purged from production CSS').toEqual([])
+  }, 30_000)
 })
