@@ -95,6 +95,8 @@ what applies to your task. Filenames are greppable: `arch-*`, `sec-*`, `test-*`,
 
 - [`frontend-native-modal-dialog-makes-body-portals-inert.md`](./frontend-native-modal-dialog-makes-body-portals-inert.md) — Under a native showModal() dialog, portal into the dialog and preventDefault the keys you own
 
+- [`frontend-dialog-opener-outlives-the-dialog.md`](./frontend-dialog-opener-outlives-the-dialog.md) — Keep a dialog's opener mounted while the dialog is open, so focus has somewhere to return
+
 - [`frontend-trial-labels-use-entitlements.md`](./frontend-trial-labels-use-entitlements.md) — Derive current-trial presentation from the resolved entitlement
 
 - [`test-smoke-targets-feature-semantics.md`](./test-smoke-targets-feature-semantics.md) — Distinguish the actual smoke target from similarly named calls to action

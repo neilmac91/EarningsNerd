@@ -32,6 +32,7 @@
   - While a native `<dialog>` is open, it portals into that dialog.
   - Recorded in the AlertBell header, the DESIGN_SYSTEM §4 Popover entry and `lessons/frontend-native-modal-dialog-makes-body-portals-inert.md`.
 - The CookieConsent settings panel is now on `ui/Modal`. The consent handlers and the `cookieConsentChanged` event are unchanged and pinned by `CookieConsent.spec.tsx`. The category checkboxes are now named by their headings.
+  - Founder decision: the banner stays mounted beneath the dialog, so `handleOpenSettings` no longer hides it. Cancel, Escape, the ✕ and the scrim now return focus to Customize; Save still dismisses both. Recorded in `lessons/frontend-dialog-opener-outlives-the-dialog.md`.
 - `useSheetFocusTrap` reads `onClose` through a ref and ignores keys from another `[aria-modal="true"]` layer.
 - `dialogAllowlist.spec.ts` is now a TypeScript-AST gate.
   - It detects a dialog/alertdialog role (literal, `role={…}` value analysis, `role:` prop, `setAttribute`), a native `<dialog>`, and the `z-modal`/`bg-overlay` layer tokens.
@@ -39,12 +40,11 @@
   - It also walks the calendar page's imports to prove nothing it renders imports `ui/Modal`, and checks that DayDetailDialog never gains a transform/filter/contain/will-change or a non-opacity animation (either would make it the containing block that clips the popovers portalled into it).
   - The old substring spec passes on the base tree with both hand-rolled dialogs still present. The new spec fails on each of them.
 - Verification: the full frontend gate, plus Playwright keyboard passes on a production build in both themes at 1440 and 375, with every API stubbed by `page.route`:
-  - CookieConsent: 52/52.
+  - CookieConsent: 60/60, including focus back on Customize after Escape, Cancel and the scrim.
   - BellPopover: 38/38, including inside DayDetailDialog and across a real parent re-render.
   - The same BellPopover pass on the original code fails 24/38: invisible and inert inside the day dialog, focus jumping on re-render, and focus lost to `<body>` on Not now, Dismiss and outside click.
 - [ ] Follow-ups, all pre-existing:
   - A focused calendar bell is natively `disabled` while its toggle is pending, so Chromium blurs it to `<body>` on every toggle; focus does not come back. Fix: `aria-disabled` plus an early return.
-  - After CookieConsent's settings close, focus lands on `<body>`: `handleOpenSettings` hides the banner, so the opener is gone. Keeping the banner mounted under the dialog (Cancel returns to it) is a product call.
   - `ui/Modal`'s Escape calls stopPropagation only. That is harmless while the gate keeps Modal out of DayDetailDialog; add preventDefault if Modal ever gains a portal host.
   - The async-error popover anchors at the click-time rect, which goes stale if the page scrolled during the request. Re-read the trigger's rect at open.
   - Add sr-only ticker context to the async error title ("Alert not enabled for AAPL"); copy change, outside this brief.

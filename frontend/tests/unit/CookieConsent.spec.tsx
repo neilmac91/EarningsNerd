@@ -5,9 +5,10 @@ import CookieConsent, { type CookiePreferences } from '@/components/CookieConsen
 
 /**
  * The cookie settings panel is a ui/Modal dialog (DESIGN_SYSTEM §4, gated by dialogAllowlist.spec.ts).
- * The migration changed the shell only: these cases pin that the consent handlers still write the
- * same preferences, fire the same `cookieConsentChanged` event PostHog listens for, and call
- * `onPreferencesChanged` exactly as before — and that Escape and Cancel close without saving.
+ * The migration changed the shell: these cases pin that the consent handlers still write the same
+ * preferences, fire the same `cookieConsentChanged` event PostHog listens for, and call
+ * `onPreferencesChanged` exactly as before — and that Escape, Cancel and the X close without saving.
+ * The banner stays mounted beneath the dialog, so those return focus to its Customize button.
  */
 
 const STORAGE_KEY = 'cookie_consent'
@@ -34,15 +35,16 @@ describe('CookieConsent settings dialog', () => {
   const openSettings = async (onPreferencesChanged = vi.fn()) => {
     const user = userEvent.setup()
     render(<CookieConsent onPreferencesChanged={onPreferencesChanged} />)
-    await user.click(await screen.findByRole('button', { name: 'Customize' }))
-    return { user, onPreferencesChanged, dialog: screen.getByRole('dialog', { name: 'Cookie Preferences' }) }
+    const customize = await screen.findByRole('button', { name: 'Customize' })
+    await user.click(customize)
+    return { user, onPreferencesChanged, customize, dialog: screen.getByRole('dialog', { name: 'Cookie Preferences' }) }
   }
 
   it('opens a labelled modal dialog with named category switches, and focus moves inside it', async () => {
     const { dialog } = await openSettings()
     expect(dialog).toHaveAttribute('aria-modal', 'true')
     expect(dialog).toContainElement(document.activeElement as HTMLElement)
-    expect(screen.queryByRole('button', { name: 'Customize' })).not.toBeInTheDocument()
+    expect(screen.getByText('We value your privacy')).toBeInTheDocument() // the banner stays beneath it
     expect(screen.getByRole('checkbox', { name: 'Essential Cookies' })).toBeDisabled()
     expect(screen.getByRole('checkbox', { name: 'Analytics Cookies' })).not.toBeChecked()
     expect(screen.getByRole('checkbox', { name: 'Session Recording' })).not.toBeChecked()
@@ -54,6 +56,7 @@ describe('CookieConsent settings dialog', () => {
     await user.click(screen.getByRole('button', { name: 'Save Preferences' }))
 
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    expect(screen.queryByText('We value your privacy')).not.toBeInTheDocument() // Save dismisses both
     expect(stored()).toMatchObject({ essential: true, analytics: true, sessionRecording: false })
     expect(consentEvents).toHaveLength(1)
     expect(consentEvents[0]).toMatchObject({ essential: true, analytics: true, sessionRecording: false })
@@ -68,12 +71,14 @@ describe('CookieConsent settings dialog', () => {
     ['Escape', async (user: ReturnType<typeof userEvent.setup>) => user.keyboard('{Escape}')],
     ['Cancel', async (user: ReturnType<typeof userEvent.setup>) => user.click(screen.getByRole('button', { name: 'Cancel' }))],
     ['the ✕', async (user: ReturnType<typeof userEvent.setup>) => user.click(screen.getByRole('button', { name: 'Close' }))],
-  ])('%s closes without saving anything', async (_how, close) => {
-    const { user, onPreferencesChanged } = await openSettings()
+  ])('%s closes without saving anything and returns focus to Customize on the banner', async (_how, close) => {
+    const { user, onPreferencesChanged, customize } = await openSettings()
     await user.click(screen.getByRole('checkbox', { name: 'Analytics Cookies' }))
     await close(user)
 
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    expect(screen.getByText('We value your privacy')).toBeInTheDocument()
+    expect(document.activeElement).toBe(customize)
     expect(stored()).toBeNull()
     expect(consentEvents).toHaveLength(0)
     expect(onPreferencesChanged).not.toHaveBeenCalled()
