@@ -34,6 +34,8 @@
 - The CookieConsent settings panel is now on `ui/Modal`. The consent handlers and the `cookieConsentChanged` event are unchanged and pinned by `CookieConsent.spec.tsx`. The category checkboxes are now named by their headings.
   - Founder decision: the banner stays mounted beneath the dialog, so `handleOpenSettings` no longer hides it. Cancel, Escape, the ✕ and the scrim now return focus to Customize; Save still dismisses both. Recorded in `lessons/frontend-dialog-opener-outlives-the-dialog.md`.
 - `useSheetFocusTrap` reads `onClose` through a ref and ignores keys from another `[aria-modal="true"]` layer.
+  - SourceTrace's open panel now owns Escape: it is handled in window capture and stopped there. On a phone, its source sheet over the copilot sheet used to close both on one key, through the trap and the rail's own listener.
+  - Verified with a real-build pass on a filing page: Pixel 7 profile, both themes, client calls stubbed. The pass covers the copilot sheet's own Tab, Escape and focus return; UpgradeModal stacked over it; and the source sheet stacked over it. The result is 24/24. The base branch fails the two source-sheet checks: Tab is pulled back into the copilot sheet, and one Escape closes both.
 - `dialogAllowlist.spec.ts` is now a TypeScript-AST gate.
   - It detects a dialog/alertdialog role (literal, `role={…}` value analysis, `role:` prop, `setAttribute`), a native `<dialog>`, and the `z-modal`/`bg-overlay` layer tokens.
   - Pins are per-kind site counts with reasons, shrink-only. DayDetailDialog is explicitly allowlisted as native.
@@ -41,6 +43,7 @@
   - The old substring spec passes on the base tree with both hand-rolled dialogs still present. The new spec fails on each of them.
 - Verification: the full frontend gate, plus Playwright keyboard passes on a production build in both themes at 1440 and 375, with every API stubbed by `page.route`:
   - CookieConsent: 60/60, including focus back on Customize after Escape, Cancel and the scrim.
+  - Day-dialog conditions from the manual review: 10/10. These are an unfocused error popover in the dialog with its ✕ then activated from the keyboard, and a day opened over an unfocused page popover. The same checks fail 6/10 on `6901cec`.
   - BellPopover: 38/38, including inside DayDetailDialog and across a real parent re-render.
   - The same BellPopover pass on the original code fails 24/38: invisible and inert inside the day dialog, focus jumping on re-render, and focus lost to `<body>` on Not now, Dismiss and outside click.
 - [ ] Follow-ups, all pre-existing:

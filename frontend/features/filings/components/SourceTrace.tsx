@@ -229,14 +229,19 @@ function SourceTraceInner({
     }
   }, [open, isCoarse])
 
-  // ESC closes either presentation.
+  // ESC closes either presentation. The open panel is the top layer (on a phone, the source sheet can
+  // sit over the copilot sheet), so it owns the key: window capture runs ahead of the sheet's
+  // document-level trap and the rail's own Escape listener, and stopping it there closes one layer
+  // per press. lessons/frontend-top-dialog-owns-the-keyboard.md
   useEffect(() => {
     if (!open) return
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setOpen(false)
+      if (e.key !== 'Escape') return
+      e.stopPropagation()
+      setOpen(false)
     }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
+    window.addEventListener('keydown', onKey, true)
+    return () => window.removeEventListener('keydown', onKey, true)
   }, [open])
 
   const Icon = isVerified ? CheckCircleIcon : ArrowSquareOutIcon
