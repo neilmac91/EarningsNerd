@@ -97,9 +97,8 @@ export default function InviteRow({ invite }: InviteRowProps) {
           {/* Resend is hidden once an invite is used — re-minting a redeemed invite is a 409. */}
           {!isUsed && (
             // aria-disabled + an early return, not native `disabled` (the DS Button's `loading`
-            // pattern): this button opens ResendShareModal, whose close returns focus here, and a
-            // natively disabled button can't take focus (Chrome also blurs it the moment it turns
-            // disabled mid-request), so focus would fall to <body> for the whole cooldown.
+            // pattern): ResendShareModal returns focus here on close, and a disabled button can't
+            // take it (Chrome even blurs it mid-request), so focus would land on <body>.
             <button
               type="button"
               onClick={() => {
