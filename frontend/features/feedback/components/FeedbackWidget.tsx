@@ -1,9 +1,9 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { toast } from 'sonner'
-import { ChatCircleDotsIcon, XIcon, CircleNotchIcon, PaperPlaneTiltIcon } from '@/lib/icons'
-import { Button } from '@/components/ui/Button'
+import { ChatCircleDotsIcon, CircleNotchIcon, PaperPlaneTiltIcon } from '@/lib/icons'
+import { Button, Modal, ModalBody, ModalHeader } from '@/components/ui'
 import { submitFeedback, type FeedbackType } from '@/features/feedback/api/feedback-api'
 import { hasActiveSession } from '@/lib/api/session'
 import { isApiError, getErrorMessage } from '@/lib/api/types'
@@ -22,16 +22,14 @@ const LAUNCHER_OFFSET: React.CSSProperties = {
   bottom: 'max(1.25rem, env(safe-area-inset-bottom))',
   left: 'max(1.25rem, env(safe-area-inset-left))',
 }
-// The popup sits just above the launcher.
-const PANEL_OFFSET: React.CSSProperties = {
-  bottom: 'calc(max(1.25rem, env(safe-area-inset-bottom)) + 3.75rem)',
-  left: 'max(1.25rem, env(safe-area-inset-left))',
-}
 
 /**
  * Always-available beta feedback launcher. Renders a floating button for logged-in users only
  * (gated on the client-readable session marker), opening a small bug/idea/general report panel that
  * posts to /api/feedback. Mounted once in Providers so it's available across the authenticated app.
+ *
+ * v3 (DS-04): the report panel is a ui/Modal dialog (focus trap, Escape, focus return to the
+ * launcher, overlay + z-modal tokens) instead of an anchored popover with no keyboard handling.
  */
 export default function FeedbackWidget() {
   // Avoid a hydration mismatch: the session marker lives in localStorage (client-only), so we render
@@ -42,6 +40,8 @@ export default function FeedbackWidget() {
   const [type, setType] = useState<FeedbackType>('general')
   const [message, setMessage] = useState('')
   const [submitting, setSubmitting] = useState(false)
+  const messageRef = useRef<HTMLTextAreaElement>(null)
+  const close = () => setOpen(false)
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- mount-time hydration latch: session marker lives in localStorage, so we resolve client-only state after mount
@@ -74,28 +74,12 @@ export default function FeedbackWidget() {
 
   return (
     <>
-      {open && (
-        <div
-          role="dialog"
-          aria-label="Send feedback"
-          style={PANEL_OFFSET}
-          className="fixed z-30 w-[min(92vw,22rem)] rounded-2xl bg-panel-light p-4 shadow-e2 ring-1 ring-black/5 dark:bg-panel-dark dark:shadow-none dark:ring-white/10"
-        >
-          <div className="flex items-center justify-between">
-            <h2 className="text-sm font-semibold text-text-primary-light dark:text-text-primary-dark">
-              Send feedback
-            </h2>
-            <button
-              type="button"
-              aria-label="Close feedback"
-              onClick={() => setOpen(false)}
-              className="rounded-lg p-1 text-text-secondary-light hover:text-text-primary-light dark:text-text-secondary-dark dark:hover:text-text-primary-dark"
-            >
-              <XIcon className="h-4 w-4" />
-            </button>
-          </div>
-
-          <form onSubmit={handleSubmit} className="mt-3 space-y-3">
+      <Modal open={open} onClose={close} labelledBy="feedback-dialog-title" size="sm" initialFocusRef={messageRef}>
+        <ModalHeader id="feedback-dialog-title" onClose={close}>
+          Send feedback
+        </ModalHeader>
+        <ModalBody>
+          <form onSubmit={handleSubmit} className="space-y-3">
             <div className="flex gap-2">
               {TYPES.map((t) => (
                 <button
@@ -116,11 +100,11 @@ export default function FeedbackWidget() {
             </div>
 
             <textarea
+              ref={messageRef}
               aria-label="Feedback message"
               value={message}
               onChange={(e) => setMessage(e.target.value)}
               required
-              autoFocus
               rows={4}
               maxLength={4000}
               placeholder="What's working, what's broken, or what you'd love to see…"
@@ -145,8 +129,8 @@ export default function FeedbackWidget() {
               )}
             </Button>
           </form>
-        </div>
-      )}
+        </ModalBody>
+      </Modal>
 
       <button
         type="button"
