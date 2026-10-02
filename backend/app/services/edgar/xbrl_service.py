@@ -1239,8 +1239,15 @@ class EdgarXBRLService:
                     ni_v = ni.get("value")
                     denom_v = denom.get("value") if denom else None
                     if ni_v is not None and denom_v is not None and denom_v > 0:
-                        r_series.append({"period": ni["period"],
-                                         "value": (ni_v / denom_v) * 100, "form": ni.get("form")})
+                        r_series.append({
+                            "period": ni["period"],
+                            "value": (ni_v / denom_v) * 100,
+                            "form": ni.get("form"),
+                            # Bind the formula to these selected operands. The ratio's prior
+                            # may differ from the standalone NI prior when an instant is absent.
+                            "numerator": dict(ni),
+                            "denominator": dict(denom),
+                        })
                 if r_series:
                     metrics[ratio_key] = build_metric_entry(r_series)
 

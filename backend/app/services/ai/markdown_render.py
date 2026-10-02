@@ -17,7 +17,12 @@ from app.services.ai.cash_claims import cash_conversion_basis, conventional_cash
 from app.services.ai.bank_guards import ground_bank_component_rows
 from app.services.ai.normalize import _PLACEHOLDER_STRINGS
 from app.services.ai.debt_scope import build_debt_scope_view, leverage_statement
-from app.services.ai.xbrl_narrative import cash_flow_basis, return_ratio_basis, returns_ratio_in_band
+from app.services.ai.xbrl_narrative import (
+    cash_flow_basis,
+    return_ratio_basis,
+    return_ratio_period,
+    returns_ratio_in_band,
+)
 
 
 def _append_bullet_group(lines: List[str], label: str, items: Any) -> bool:
@@ -549,7 +554,7 @@ class _MarkdownRenderMixin:
         roe = (xbrl_metrics or {}).get("return_on_equity")
         roa = (xbrl_metrics or {}).get("return_on_assets")
 
-        def _ratio_clause(key: str, label: str, metric: Any) -> Optional[str]:
+        def _ratio_clause(key: str, metric: Any) -> Optional[str]:
             # Band guard (the cash_conversion ±10x precedent): a |ratio| beyond the shared
             # RETURNS_RATIO_BAND_PCT almost always means a near-zero denominator (HD's ~$1B equity
             # → "1644.4%") — arithmetically true, analytically noise. Honest negatives inside the
@@ -563,15 +568,26 @@ class _MarkdownRenderMixin:
             value = current.get("value")
             if not returns_ratio_in_band(value):
                 return None
-            clause = f"{label} {value:.1f}%"
+            # Name the derived ratio by its formula and this point's own numerator scope, not by
+            # an issuer-facing ROE/ROA name the filing may define on a different basis.
+            clause = f"{return_ratio_basis(key, current)}: {value:.1f}%"
             prior = metric.get("prior") if isinstance(metric.get("prior"), dict) else {}
             prior_value = prior.get("value")
-            if returns_ratio_in_band(prior_value):
-                clause += f" (prior {prior_value:.1f}%)"
-            return f"{clause} ({return_ratio_basis(key)})"
+            prior_period = return_ratio_period(prior)
+            if returns_ratio_in_band(prior_value) and prior_period is not None:
+                # Comparative selection remains the extractor's existing immediately-prior point.
+                # Name that point's actual date so a sequential instant cannot silently read as the
+                # filing's otherwise-prevailing YoY comparison (observed on FIGS Q2 2026); an
+                # undated prior abstains.
+                clause += f" (prior at {prior_period}: {prior_value:.1f}%"
+                prior_basis = return_ratio_basis(key, prior)
+                if prior_basis != return_ratio_basis(key, current):
+                    clause += f"; {prior_basis}"
+                clause += ")"
+            return clause
 
-        ratio_clauses = [c for c in (_ratio_clause("return_on_equity", "return on equity was", roe),
-                                     _ratio_clause("return_on_assets", "return on assets", roa)) if c]
+        ratio_clauses = [c for c in (_ratio_clause("return_on_equity", roe),
+                                     _ratio_clause("return_on_assets", roa)) if c]
         if ratio_clauses:
             line = "; ".join(ratio_clauses)
             vd["returns_on_capital"] = line[0].upper() + line[1:] + "."
