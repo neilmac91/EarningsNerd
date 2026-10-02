@@ -1,0 +1,106 @@
+{
+  "kind": "offline-sdk-resolver-boundary-observation",
+  "context": "/root/next_stage_engineering",
+  "versions": {
+    "edgartools": "5.58.0",
+    "httpx": "0.28.1",
+    "httpxthrottlecache": "0.6.1",
+    "pyrate-limiter": "4.3.0",
+    "stamina": "26.1.0",
+    "httpx2": "2.13.0",
+    "httpcore2": "2.13.0"
+  },
+  "cases": [
+    {
+      "case": "recent_hit",
+      "transport_attempts": 1,
+      "sdk_grants": 1,
+      "application_token_wait_entries": 0,
+      "outcome": "completed",
+      "exception_class": null,
+      "returned_filing_count": 1,
+      "unexpected_network_guard_events": 0,
+      "source_unchanged": true,
+      "receipt_sha256": "ed0e6fccfc131282b460b5703a04453344647976fbc2146efb4bec205760c51a",
+      "synthetic_fixture_sha256": "85e48e686213b6291e713e04cece68fa030216e378142e094abea3a22642eef8"
+    },
+    {
+      "case": "old_two_shards",
+      "transport_attempts": 3,
+      "sdk_grants": 3,
+      "application_token_wait_entries": 0,
+      "outcome": "completed",
+      "exception_class": null,
+      "returned_filing_count": 1,
+      "unexpected_network_guard_events": 0,
+      "source_unchanged": true,
+      "receipt_sha256": "630a3851d9e2e7b01a22e2aab21e3ae473452b037af857d2348b0b7f7b752d41",
+      "synthetic_fixture_sha256": "85e48e686213b6291e713e04cece68fa030216e378142e094abea3a22642eef8"
+    },
+    {
+      "case": "transport_error_retry",
+      "transport_attempts": 2,
+      "sdk_grants": 2,
+      "application_token_wait_entries": 0,
+      "outcome": "raised",
+      "exception_class": "ConnectError",
+      "returned_filing_count": null,
+      "unexpected_network_guard_events": 0,
+      "source_unchanged": true,
+      "receipt_sha256": "7dcd3bf76c7533ac5e421b6a4e79d538467c2f36a79d943bdad645caba58acb1",
+      "synthetic_fixture_sha256": "85e48e686213b6291e713e04cece68fa030216e378142e094abea3a22642eef8"
+    },
+    {
+      "case": "rate_limit_429",
+      "transport_attempts": 2,
+      "sdk_grants": 2,
+      "application_token_wait_entries": 0,
+      "outcome": "raised",
+      "exception_class": "TooManyRequestsError",
+      "returned_filing_count": null,
+      "unexpected_network_guard_events": 0,
+      "source_unchanged": true,
+      "receipt_sha256": "06b68117eec33b5770efa256905e20878f6a4429dd9f204821ecdec3175fd385",
+      "synthetic_fixture_sha256": "85e48e686213b6291e713e04cece68fa030216e378142e094abea3a22642eef8"
+    }
+  ],
+  "source_sha256": {
+    "backend/app/services/edgar/client.py": "8c1ea1d8e40557774dadb3676fce76da6f197f946bffd42868b8b3ed64d7a9d9",
+    "backend/app/services/sec_rate_limiter.py": "a314cb320b72c040669b7c97dedf84c8e6560990590ec89c86975a0c981d1b28",
+    "edgar/httpclient.py": "63675da6f438d5e06422882a07b20802eded59a944a8357242969b53d7876ecc",
+    "edgar/httprequests.py": "d1d6b54f3388b7540503717a0f380ed677610afe7d254525535c14f850463322",
+    "edgar/entity/data.py": "575fb02c3d01c831ad41263e164455fad6aa15b625874a2317c2eaa57b636058",
+    "edgar/entity/submissions.py": "18b13b81afe8b35426708c7b34d4b938473e909d5a030d28cd49902e3bc328f9",
+    "httpxthrottlecache/ratelimiter.py": "c28c69b4c2273bed194e4761fe61d26620b5061736a4085bdc9892589345a822",
+    "httpxthrottlecache/httpxclientmanager.py": "000026b2324d3dcf82e34729881c54f9eca95555e0fb65e3a2d4cb487290d4e5",
+    "httpxthrottlecache/_compat.py": "68605463450802509bfb118c5593b6a4cfdd04dbc7955b24bba2eeb7d601a0e1",
+    "httpx2/_transports/default.py": "8fc43a2882d471aff751366a7f28e91c5e31831a4b29aa3bb4e66931a2148e97"
+  },
+  "harness_sha256": {
+    "followup-2/characterize.py": "9d247de72f595e91bacc6a24774a13854d34987687cf0993e504b770ace3cd3e",
+    "followup-2/old-stage/characterize.py": "52b3a8d69eec913822a3312154f036a6668791c5ba2ff78637667809c59202a0",
+    "followup-2/recent-stage/characterize.py": "d4a0cff603bd724a0188552073b897355706c8f2812888cdee9f0343b68f2e37",
+    "followup-2/remaining/rate_limit_429/characterize.py": "ac163812f60a9ae90b6704cb95e686b9123a21fdf58fbc309f90d5449641dd2b",
+    "followup-2/remaining/transport_error_retry/characterize.py": "4b2e0d2d4354480d2871dac7ea616590c59942114dc9fe48969bf48755440f39"
+  },
+  "guards": {
+    "calibrated_before_each_case": true,
+    "real_dns_tcp_prevented": true,
+    "unexpected_network_events_working_cases": 0,
+    "intercepted_attempt_ceiling_per_case": 16,
+    "last_two_total_seconds": 18.63979845799986,
+    "last_two_ceiling_seconds": 60
+  },
+  "model_calls": 0,
+  "sec_requests": 0,
+  "application_sdk_edits": 0,
+  "production_changes": 0,
+  "interpretation": "Observed per-attempt SDK admission exists on this resolver; application limiter does not own its grants. No shared fleet/live-capacity inference. Injected transport failure and429 propagated without recovery retry.",
+  "earlier_failures": "Wrong-library interception and eager synthetic response failures preserved privately; no result erased.",
+  "observed_application_head": "23c948e9b881ca89328327a451a7b238b119dabe",
+  "documentation_base": "c13b069a2f817d06fc7e7c76ea3d71d8bf8522ce",
+  "private_evidence_manifest_sha256": "30535e4db19b461a46cfbf369d424230f747f6dcc7105cb6830f6cde582c5106",
+  "private_evidence_file_count": 76,
+  "original_public_summary_sha256": "036f12622cf87399f7f2dd0d82ea7d48b4fdc3294e302366fda835c66f171292",
+  "projection_note": "Root adds evidence identities and uses null returned_filing_count for propagated exceptions; original summary and all raw evidence retained unchanged privately."
+}
