@@ -1,0 +1,7 @@
+backend=/home/user/wt/closeout/backend
+  SYSTEM_PROMPT               sha256[:8]=a88b6fb1  chars=5057  clause_count=1
+  _build_messages()[0].content sha256[:8]=a88b6fb1
+  derived arm B (in-memory replace of ', including when all cited figures use tool markers') sha256[:8]=16457055  chars=5006
+backend=/home/user/wt/g-armb/backend
+  SYSTEM_PROMPT               sha256[:8]=16457055  chars=5006  clause_count=0
+  _build_messages()[0].content sha256[:8]=16457055
