@@ -12,10 +12,12 @@ import { describe, expect, it } from 'vitest'
  *
  * The scan reads the TypeScript AST of every .tsx under app/, components/ and features/. It counts
  * each JSX `disabled={…}` whose expression names a busy flag (BUSY below), directly, through a member
- * (`mutation.isPending`) or through a same-file `const` it references (followed up to three levels,
- * so `const canSend = … && !sending` counts). Any JSX element counts, components included: a
- * `disabled` prop fed by a busy flag is the same bug one component away. Strings and comments never
- * count.
+ * (`mutation.isPending`), or through the binding visible from the site: a `const` (followed up to three
+ * levels, so `const canSend = … && !sending` counts) or a renamed destructured prop
+ * (`{ isPending: waiting }`). Names resolve in their lexical scope, so a parameter shadows an outer
+ * const and two components may each declare their own `cannotSubmit`. Any JSX element counts,
+ * components included: a `disabled` prop fed by a busy flag is the same bug one component away.
+ * Strings and comments never count.
  *
  * What it cannot see, so per-site specs stay the real proof of focus:
  *  - a busy flag under a name outside BUSY;
@@ -23,9 +25,10 @@ import { describe, expect, it } from 'vitest'
  *    control the user just activated;
  *  - a value threaded through props under another name, or computed in another file.
  *
- * ALLOW pins every sanctioned site by the exact text of its `disabled` expression (whitespace collapsed), per file, with a
- * reason. A new site fails, a busy flag added to a pinned attribute fails (its text changes), and a
- * converted site fails until its pin is removed. The list is shrink-only (MAX_ALLOWLIST_SIZE).
+ * ALLOW pins every sanctioned site, per file and with a reason, by the exact text of its `disabled`
+ * expression (whitespace collapsed). A new site fails, a busy flag added to a pinned expression fails
+ * (its text changes), and a converted site fails until its pin is removed. Files and pinned sites are
+ * both capped, shrink-only.
  */
 const BUSY = /pending|loading|submitting|saving|sending|streaming|running|busy|refetching|fetching|mutating|deleting|removing|inflight/i
 
@@ -83,8 +86,9 @@ const ALLOW: Record<string, { sites: string[]; reason: string }> = {
   'features/watchlist/components/WatchlistAddSearch.tsx': { sites: ['addMutation.isPending'], reason: FOLLOW_UP },
 }
 
-/** A frozen ceiling: lower it when an entry is removed, never raise it. */
+/** Frozen ceilings on files and on pinned sites: lower them as sites are converted, never raise them. */
 const MAX_ALLOWLIST_SIZE = 26
+const MAX_PINNED_SITES = 38
 
 const frontendRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 const ROOTS = ['app', 'components', 'features']
@@ -104,19 +108,55 @@ interface Site {
   expr: string
 }
 
+/** A name binding: where it is visible, and what it aliases (if anything). */
+interface Binding {
+  scope: ts.Node
+  /** The initializer, or for `{ isPending: x }` the property it renames; none for a plain parameter. */
+  alias?: ts.Node
+}
+
+/** The node whose extent bounds a binding's visibility: the enclosing block, or a parameter's function. */
+function scopeOf(node: ts.Node): ts.Node {
+  if (ts.isParameter(node)) return node.parent
+  for (let p = node.parent; ; p = p.parent) {
+    if (ts.isParameter(p)) return p.parent
+    if (
+      ts.isBlock(p) || ts.isSourceFile(p) || ts.isModuleBlock(p) || ts.isCaseClause(p) || ts.isDefaultClause(p) ||
+      ts.isCatchClause(p) || ts.isForStatement(p) || ts.isForInStatement(p) || ts.isForOfStatement(p)
+    ) {
+      return p
+    }
+  }
+}
+
 /** One entry per `disabled={…}` site whose expression reaches a busy flag. */
 function busyDisabledSites(source: string, fileName: string): Site[] {
   const sf = ts.createSourceFile(fileName, source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX)
-  const consts = new Map<string, ts.Expression>()
+  // Every binding of each name, so a reference resolves to the one visible from it: two components
+  // in one file may each declare their own `cannotSubmit`, and a parameter shadows an outer const.
+  const bindings = new Map<string, Binding[]>()
+  const bind = (name: ts.Identifier, at: ts.Node, alias?: ts.Node): void => {
+    bindings.set(name.text, [...(bindings.get(name.text) ?? []), { scope: scopeOf(at), alias }])
+  }
   const collect = (node: ts.Node): void => {
-    if (ts.isVariableDeclaration(node) && ts.isIdentifier(node.name) && node.initializer) {
-      consts.set(node.name.text, node.initializer)
-    }
+    if (ts.isVariableDeclaration(node) && ts.isIdentifier(node.name)) bind(node.name, node, node.initializer)
+    else if (ts.isParameter(node) && ts.isIdentifier(node.name)) bind(node.name, node)
+    else if (ts.isBindingElement(node) && ts.isIdentifier(node.name)) bind(node.name, node, node.propertyName)
     ts.forEachChild(node, collect)
   }
   collect(sf)
 
-  const reachesBusy = (expr: ts.Node, depth: number, seen: Set<string>): boolean => {
+  /** The innermost binding of `ref`'s name whose scope contains `ref`. */
+  const visible = (ref: ts.Identifier): Binding | undefined => {
+    let best: Binding | undefined
+    for (const b of bindings.get(ref.text) ?? []) {
+      if (b.scope.pos > ref.pos || ref.end > b.scope.end) continue
+      if (!best || b.scope.end - b.scope.pos < best.scope.end - best.scope.pos) best = b
+    }
+    return best
+  }
+
+  const reachesBusy = (expr: ts.Node, depth: number, seen: Set<Binding>): boolean => {
     let hit = false
     const visit = (n: ts.Node): void => {
       if (hit) return
@@ -125,10 +165,12 @@ function busyDisabledSites(source: string, fileName: string): Site[] {
           hit = true
           return
         }
-        const init = consts.get(n.text)
-        if (init && depth < 3 && !seen.has(n.text)) {
-          seen.add(n.text)
-          if (reachesBusy(init, depth + 1, seen)) hit = true
+        // `form.cannotSubmit` names a property, not a local binding.
+        if (ts.isPropertyAccessExpression(n.parent) && n.parent.name === n) return
+        const binding = visible(n)
+        if (binding?.alias && depth < 3 && !seen.has(binding)) {
+          seen.add(binding)
+          if (reachesBusy(binding.alias, depth + 1, seen)) hit = true
         }
         return
       }
@@ -191,6 +233,37 @@ describe('busy controls stay focusable (rule-12 gate)', () => {
     ])
   })
 
+  it('resolves each name to the binding visible from the site, not the last one declared in the file', () => {
+    const fixture = [
+      'const shadowed = isLoading',
+      'function A() {',
+      '  const cannotSubmit = isPending',
+      '  return <button disabled={cannotSubmit} />', // A's own busy alias: counts
+      '}',
+      'function B() {',
+      '  const cannotSubmit = !valid',
+      '  return <button disabled={cannotSubmit} />', // B's validation alias: does not count
+      '}',
+      'function C({ isPending: waiting, ready }: Props) {',
+      '  return <><button disabled={waiting} /><button disabled={ready} /></>', // renamed busy prop counts
+      '}',
+      'function D(shadowed: boolean) {',
+      '  return <button disabled={shadowed} />', // the parameter, not the outer busy const
+      '}',
+      'function E() {',
+      '  return <button disabled={shadowed} />', // the outer busy const
+      '}',
+      'function F() {',
+      '  return <button disabled={form.cannotSubmit} />', // a property, not A's binding
+      '}',
+    ].join('\n')
+    expect(busyDisabledSites(fixture, 'fixture.tsx').map((site) => `${site.line}: ${site.expr}`)).toEqual([
+      '4: cannotSubmit',
+      '11: waiting',
+      '17: shadowed',
+    ])
+  })
+
   it('no control takes native disabled from a busy flag outside the allowlist', () => {
     const offenders: string[] = []
     for (const [file, sites] of found) {
@@ -214,6 +287,12 @@ describe('busy controls stay focusable (rule-12 gate)', () => {
       Object.keys(ALLOW).length,
       `ALLOW has ${Object.keys(ALLOW).length} entries but the ceiling is ${MAX_ALLOWLIST_SIZE}. Fix the control instead of adding an entry.`,
     ).toBeLessThanOrEqual(MAX_ALLOWLIST_SIZE)
+    // Files alone are not enough: a new exception appended to a listed file keeps the file count.
+    const pinned = Object.values(ALLOW).reduce((sum, { sites }) => sum + sites.length, 0)
+    expect(
+      pinned,
+      `ALLOW pins ${pinned} sites but the ceiling is ${MAX_PINNED_SITES}. Fix the control instead of pinning it.`,
+    ).toBeLessThanOrEqual(MAX_PINNED_SITES)
     for (const [file, { reason }] of Object.entries(ALLOW)) {
       expect(reason.trim().length, `${file} needs a reason`).toBeGreaterThan(0)
     }
