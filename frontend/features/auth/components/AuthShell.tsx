@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { ArrowLeftIcon, FileTextIcon, ShieldCheckIcon } from '@/lib/icons'
-import EarningsNerdLogoIcon from '@/components/EarningsNerdLogoIcon'
+import EarningsNerdLogo from '@/components/EarningsNerdLogo'
 import { ThemeToggle } from '@/components/ThemeToggle'
 import { directionChip } from '@/lib/financialTone'
 
@@ -17,10 +17,7 @@ export default function AuthShell({ children }: { children: React.ReactNode }) {
       <div className="flex min-h-screen flex-col bg-background-light dark:bg-background-dark">
         <div className="flex items-center justify-between px-6 py-6 sm:px-10">
           <Link href="/" className="flex items-center gap-2.5">
-            <EarningsNerdLogoIcon className="h-8 w-8" />
-            <span className="text-lg font-semibold text-text-primary-light dark:text-text-primary-dark">
-              Earnings<em className="italic text-brand-strong dark:text-brand-strong-dark">Nerd</em>
-            </span>
+            <EarningsNerdLogo iconClassName="h-8 w-8" wordmarkClassName="text-lg" />
           </Link>
           <div className="flex items-center gap-2">
             <ThemeToggle />
