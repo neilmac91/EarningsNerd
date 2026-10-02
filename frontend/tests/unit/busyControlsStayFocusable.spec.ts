@@ -12,8 +12,8 @@ import { describe, expect, it } from 'vitest'
  *
  * The scan reads the TypeScript AST of every .tsx under app/, components/ and features/. It counts
  * each JSX `disabled={…}` whose expression names a busy flag (BUSY below), directly, through a member
- * (`mutation.isPending`), or through the binding visible from the site: a `const` (followed up to three
- * levels, so `const canSend = … && !sending` counts) or a renamed destructured prop
+ * (`mutation.isPending`), or through the binding visible from the site: a `const` (followed
+ * transitively, so `const canSend = … && !sending` counts) or a renamed destructured prop
  * (`{ isPending: waiting }`). Names resolve in their lexical scope, so a parameter shadows an outer
  * const and two components may each declare their own `cannotSubmit`. Any JSX element counts,
  * components included: a `disabled` prop fed by a busy flag is the same bug one component away.
@@ -154,7 +154,12 @@ function busyDisabledSites(source: string, fileName: string): Site[] {
     return best
   }
 
-  const reachesBusy = (expr: ts.Node, depth: number, seen: Set<Binding>): boolean => {
+  // Aliases are followed transitively. `path` holds only the bindings on the current chain, so a cycle
+  // stops there but an alias already met on another branch is still followed on this one. A binding
+  // proven busy stays busy from anywhere, so that result is remembered; "not busy" may be a cycle
+  // cut-off and is not.
+  const busyBindings = new Set<Binding>()
+  const reachesBusy = (expr: ts.Node, path: Set<Binding>): boolean => {
     let hit = false
     const visit = (n: ts.Node): void => {
       if (hit) return
@@ -166,9 +171,17 @@ function busyDisabledSites(source: string, fileName: string): Site[] {
         // `form.cannotSubmit` names a property, not a local binding.
         if (ts.isPropertyAccessExpression(n.parent) && n.parent.name === n) return
         const binding = visible(n)
-        if (binding?.alias && depth < 3 && !seen.has(binding)) {
-          seen.add(binding)
-          if (reachesBusy(binding.alias, depth + 1, seen)) hit = true
+        if (!binding?.alias || path.has(binding)) return
+        if (busyBindings.has(binding)) {
+          hit = true
+          return
+        }
+        path.add(binding)
+        const busy = reachesBusy(binding.alias, path)
+        path.delete(binding)
+        if (busy) {
+          busyBindings.add(binding)
+          hit = true
         }
         return
       }
@@ -187,7 +200,7 @@ function busyDisabledSites(source: string, fileName: string): Site[] {
       node.initializer &&
       ts.isJsxExpression(node.initializer) &&
       node.initializer.expression &&
-      reachesBusy(node.initializer.expression, 0, new Set())
+      reachesBusy(node.initializer.expression, new Set())
     ) {
       const { line } = sf.getLineAndCharacterOfPosition(node.getStart(sf))
       sites.push({ line: line + 1, expr: node.initializer.expression.getText(sf).replace(/\s+/g, ' ') })
@@ -269,6 +282,36 @@ describe('busy controls stay focusable (rule-12 gate)', () => {
       '11: waiting',
       '17: shadowed',
       '28: !canSend',
+    ])
+  })
+
+  it('follows every path to an alias, however long, and stops only on a cycle', () => {
+    const fixture = [
+      'function I() {',
+      '  const a2 = mutation.isPending',
+      '  const a1 = a2',
+      '  const fieldBlocked = a1', // three hops to the busy flag
+      '  const b1 = fieldBlocked',
+      '  const buttonBlocked = b1', // reaches fieldBlocked first, on a longer path
+      '  return <button disabled={buttonBlocked || fieldBlocked} />', // counts
+      '}',
+      'function J() {',
+      '  const c5 = isSaving',
+      '  const c4 = c5',
+      '  const c3 = c4',
+      '  const c2 = c3',
+      '  const c1 = c2',
+      '  return <button disabled={c1} />', // five hops: counts
+      '}',
+      'function K() {',
+      '  let x = y',
+      '  let y = x',
+      '  return <button disabled={x} />', // a cycle with no busy flag: does not count, and terminates
+      '}',
+    ].join('\n')
+    expect(busyDisabledSites(fixture, 'fixture.tsx').map((site) => `${site.line}: ${site.expr}`)).toEqual([
+      '7: buttonBlocked || fieldBlocked',
+      '15: c1',
     ])
   })
 
