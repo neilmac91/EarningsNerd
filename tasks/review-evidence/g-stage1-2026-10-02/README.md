@@ -61,7 +61,7 @@ The decision rules are quoted from `tasks/copilot-tool-nonexecution-2026-09-30.m
 | Tool schema | `b6958973` | every row |
 | Generation options | deepseek-flash, 2400, 0.2 | every row |
 
-The provider fingerprint was `aeb56401…` on all 129 logged calls (30, 35, 28 and 36 per run), so there was no provider-side change.
+The provider fingerprint was `aeb56401…` on all 129 logged calls (30, 35, 28 and 36 per run), so no fingerprint change was observed. That does not prove that all provider state was unchanged.
 
 ## Result (`g_decide.py`): prompt-caused
 
