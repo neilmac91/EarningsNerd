@@ -52,4 +52,11 @@ The acceptance worksheets add only the missing [Analysis](analysis-acceptance.md
 
 ## Fixture verification
 
+The paragraph below is the preparation-time description. Later verification is
+recorded in [the original fixture receipt](fixture-receipt.md) and the
+[September 30 literal-only receipt](../../review-evidence/beta-readout-2026-09-30/README.md).
+The latter verified projection compatibility, while export completeness and a
+real cohort readout remain unestablished; it does not replace the historical SQL
+or its evidence.
+
 `fixture_check.py` creates temporary tables in the isolated `tranche_beta` PostgreSQL database, inserts synthetic invite/user/feedback/alert/payment rows, executes the exact roster/support/payer SQL, and asserts denominator and exclusion outcomes. It refuses other database names, never reads application tables and rolls back at the end. `posthog.hogql` uses functions listed in the [PostHog SQL reference](https://posthog.com/docs/sql/clickhouse-functions) and [aggregation reference](https://posthog.com/docs/sql/aggregations), and its client-observation denominator is checked with a separate fixture truth table; live HogQL execution requires PostHog access and has not occurred. See `fixture-receipt.md` for the exact command/result.
