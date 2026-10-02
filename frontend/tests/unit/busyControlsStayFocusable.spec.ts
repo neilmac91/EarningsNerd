@@ -35,8 +35,6 @@ const BUSY = /pending|loading|submitting|saving|sending|streaming|running|busy|r
 const FOLLOW_UP =
   'Pre-existing follow-up (lesson rule (d)): a busy flag natively disables a control that can hold focus. ' +
   'Convert it to `loading` / aria-disabled + an early return, then lower this pin.'
-const DESIGN_V3 =
-  'The design-v3 stack converts this auth submit to the DS Button `loading` (#1045); remove the pin when it lands.'
 
 const ALLOW: Record<string, { sites: string[]; reason: string }> = {
   // Kept by design.
@@ -58,11 +56,6 @@ const ALLOW: Record<string, { sites: string[]; reason: string }> = {
       'Cancel is disabled while Revoke runs. Revoke (`loading`) is the control that holds focus, and Cancel ' +
       'cannot be activated during the request, so it never holds focus when it flips.',
   },
-  // Converted by the in-flight design-v3 stack.
-  'app/forgot-password/page.tsx': { sites: ['loading'], reason: DESIGN_V3 },
-  'app/login/page.tsx': { sites: ['loading || (TURNSTILE_ENABLED && !turnstileToken)'], reason: DESIGN_V3 },
-  'app/register/page.tsx': { sites: ['loading || (TURNSTILE_ENABLED && !turnstileToken)'], reason: DESIGN_V3 },
-  'app/reset-password/page.tsx': { sites: ['loading || !token'], reason: DESIGN_V3 },
   // Pre-existing follow-ups.
   'app/admin/invites/page.tsx': { sites: ['sending', 'sending', 'sending', 'sending', '!canSend'], reason: FOLLOW_UP },
   'app/check-email/page.tsx': { sites: ['resendLoading || cooldown > 0 || !email'], reason: FOLLOW_UP },
@@ -85,8 +78,8 @@ const ALLOW: Record<string, { sites: string[]; reason: string }> = {
 }
 
 /** Frozen ceilings on files and on pinned sites: lower them as sites are converted, never raise them. */
-const MAX_ALLOWLIST_SIZE = 25
-const MAX_PINNED_SITES = 36
+const MAX_ALLOWLIST_SIZE = 21
+const MAX_PINNED_SITES = 32
 
 const frontendRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 const ROOTS = ['app', 'components', 'features']
