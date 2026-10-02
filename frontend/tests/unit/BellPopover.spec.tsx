@@ -65,7 +65,8 @@ describe('BellPopover', () => {
     await openFromBell('error', 'Pro includes 50 earnings alerts.')
     const group = screen.getByRole('group', { name: 'Alert not enabled' })
     expect(screen.getByRole('alert')).toHaveTextContent('Alert not enabled' + 'Pro includes 50 earnings alerts.')
-    expect(group).not.toHaveAttribute('aria-describedby') // the alert already reads it; no double read
+    // Focus moving in can cut the alert's speech off; the description keeps the message reachable.
+    expect(group).toHaveAccessibleDescription('Pro includes 50 earnings alerts.')
     expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument()
     expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Dismiss' }))
   })
@@ -247,6 +248,56 @@ describe('BellPopover', () => {
       })
       expect(dialog).toContainElement(screen.getByRole('group', { name: 'Alert not enabled' }))
     } finally {
+      pageBell.remove()
+    }
+  })
+
+  it('closes with the day dialog it lives in (a close request that is not a key, e.g. Android back)', () => {
+    const dialog = document.createElement('dialog')
+    dialog.setAttribute('open', '')
+    const bell = document.createElement('button')
+    dialog.appendChild(bell)
+    document.body.appendChild(dialog)
+    const onClose = vi.fn()
+    act(() => {
+      render(<BellPopover blocked={blockedFor('signin', bell)} onClose={onClose} />)
+    })
+    expect(dialog).toContainElement(screen.getByRole('group'))
+    act(() => {
+      dialog.dispatchEvent(new Event('cancel'))
+    })
+    expect(onClose).toHaveBeenCalledTimes(1)
+  })
+
+  it('keeps one host for its life: a parent re-render after a dialog opened does not re-mount it', async () => {
+    const { rerender } = await openFromBell('signin')
+    const create = screen.getByRole('link', { name: 'Create account' })
+    create.focus()
+    const dialog = document.createElement('dialog')
+    dialog.setAttribute('open', '')
+    document.body.appendChild(dialog)
+    rerender(<Page kind="signin" tick={1} />)
+    expect(dialog).not.toContainElement(screen.getByRole('group'))
+    expect(document.activeElement).toBe(create)
+  })
+
+  it('keeps focus inside the day dialog when its bell outside it is inert', () => {
+    const pageBell = document.createElement('button')
+    const inertFocus = vi.spyOn(pageBell, 'focus').mockImplementation(() => {}) // jsdom has no inert
+    const dialog = document.createElement('dialog')
+    dialog.setAttribute('open', '')
+    const dialogClose = document.createElement('button')
+    dialog.appendChild(dialogClose)
+    document.body.append(pageBell, dialog)
+    try {
+      act(() => {
+        render(<BellPopover blocked={blockedFor('error', pageBell, 'Try again later.')} onClose={() => {}} />)
+      })
+      expect(dialog).toContainElement(document.activeElement as HTMLElement) // Dismiss, in the dialog
+      cleanup()
+      expect(document.activeElement).toBe(dialogClose)
+    } finally {
+      inertFocus.mockRestore()
       pageBell.remove()
     }
   })

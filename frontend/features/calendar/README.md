@@ -60,7 +60,8 @@ Weighed three layouts:
   `/company/[ticker]`; bell is a sibling button (never a link-in-link); native
   `<dialog>` for the day detail (focus trap + Esc for free, focus restored);
   the bell's popover is a non-modal `role="group"` on `z-overlay` (no dialog
-  role: it traps and blocks nothing; the async error is a `role="alert"`) with
+  role: nothing is inert and Tab is not trapped — its transparent catcher only
+  turns an outside press into a close; the async error is also a `role="alert"`) with
   Esc, outside-click, Tab-out, bell-moving scroll and resize dismissal and focus return,
   rendered inside the day `<dialog>` while one is open;
   `aria-live` on the range heading; every numeral/ticker is `font-data tabular-nums`.

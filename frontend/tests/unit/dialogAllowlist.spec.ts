@@ -27,12 +27,15 @@
    each kind it declares (the rawFetchAllowlist idiom). A new hand-rolled dialog,
    an extra one inside a sanctioned file, a kind drift and a stale entry all fail.
 
-   Nothing DayDetailDialog renders may import ui/Modal: under showModal() a <body>
-   portal is inert and painted beneath the top layer
-   (lessons/frontend-native-modal-dialog-makes-body-portals-inert.md).
+   Nothing the calendar page renders may import ui/Modal: any layer it raises can
+   sit over DayDetailDialog, and under showModal() a <body> portal is inert and
+   painted beneath the top layer. And DayDetailDialog never becomes a containing
+   block (transform, filter, contain…) that would clip the popovers portalled
+   into it (lessons/frontend-native-modal-dialog-makes-body-portals-inert.md).
 ============================================================================= */
 
 import fs from 'node:fs'
+import { createRequire } from 'node:module'
 import path from 'node:path'
 import ts from 'typescript'
 import { describe, expect, it } from 'vitest'
@@ -290,10 +293,11 @@ describe('dialogs ship only through ui/Modal (or the documented bespoke layers)'
     ).toEqual([])
   })
 
-  it('nothing DayDetailDialog renders imports ui/Modal (inert beneath the native top layer)', () => {
+  it('nothing the calendar page renders imports ui/Modal (inert beneath DayDetailDialog’s top layer)', () => {
+    // From the page, not the dialog: the page raises the layers (BellPopover) that portal over it.
     const seen = new Set<string>()
     const offenders: string[] = []
-    const queue = [path.join(ROOT, 'features/calendar/components/DayDetailDialog.tsx')]
+    const queue = [path.join(ROOT, 'features/calendar/components/EarningsCalendarPage.tsx')]
     while (queue.length) {
       const file = queue.pop() as string
       if (seen.has(file)) continue
@@ -302,10 +306,50 @@ describe('dialogs ship only through ui/Modal (or the documented bespoke layers)'
       if (modal) offenders.push(path.relative(ROOT, file).split(path.sep).join('/'))
       queue.push(...next)
     }
-    expect(seen, 'the walk must reach the bell rendered inside the dialog').toContain(
-      path.join(ROOT, 'features/calendar/components/AlertBell.tsx'),
-    )
+    for (const reached of ['DayDetailDialog.tsx', 'AlertBell.tsx']) {
+      expect(seen, `the walk must reach ${reached}`).toContain(path.join(ROOT, 'features/calendar/components', reached))
+    }
     expect(offenders).toEqual([])
+  })
+
+  it('DayDetailDialog never becomes a containing block for the popovers portalled into it', () => {
+    const file = path.join(ROOT, 'features/calendar/components/DayDetailDialog.tsx')
+    const source = ts.createSourceFile(file, fs.readFileSync(file, 'utf8'), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX)
+    const tokens: string[] = []
+    const visit = (node: ts.Node): void => {
+      if (ts.isJsxOpeningElement(node) && node.tagName.getText(source) === 'dialog') {
+        for (const attr of node.attributes.properties) {
+          if (ts.isJsxAttribute(attr) && attr.name.getText(source) === 'className' && attr.initializer) {
+            tokens.push(...literalTexts(attr.initializer).flatMap((text) => text.split(/\s+/)).filter(Boolean))
+          }
+        }
+      }
+      ts.forEachChild(node, visit)
+    }
+    visit(source)
+    expect(tokens.length, 'the <dialog> className should be readable').toBeGreaterThan(0)
+
+    const { theme } = createRequire(import.meta.url)('../../tailwind.config.js')
+    const offenders: string[] = []
+    for (const token of tokens) {
+      const variants = token.split(':')
+      const utility = (variants.pop() as string).replace(/^!/, '')
+      if (variants.includes('backdrop')) continue // styles ::backdrop, not the dialog box
+      if (/^-?(transform|translate-|scale-|rotate-|skew-|perspective|filter|blur|brightness-|contrast-|drop-shadow|grayscale|hue-rotate-|invert|saturate-|sepia|backdrop-|contain-|will-change-)/.test(utility)) {
+        offenders.push(token)
+      }
+      const animation = utility.match(/^animate-(.+)$/)?.[1]
+      if (animation) {
+        const keyframes = theme?.extend?.keyframes?.[String(theme?.extend?.animation?.[animation] ?? '').split(/\s+/)[0]]
+        const animated = keyframes ? Object.values(keyframes as Record<string, object>).flatMap((stop) => Object.keys(stop)) : ['unknown']
+        if (animated.some((prop) => prop !== 'opacity')) offenders.push(token)
+      }
+    }
+    expect(
+      offenders,
+      'A transform/filter/contain/will-change (or a non-opacity animation) on the day <dialog> makes it the containing ' +
+        'block for the fixed popovers portalled into it: they would clip and mis-position.',
+    ).toEqual([])
   })
 
   it('the allowlist is shrink-only', () => {

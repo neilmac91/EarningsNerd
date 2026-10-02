@@ -16,7 +16,7 @@
    would claim an interruption it does not make, and ui/Modal portals to <body>,
    where a bell inside DayDetailDialog's native top layer could not reach it.
    So it carries no dialog role: a group named by its title and described by
-   its message (the async error kind is announced as an alert instead), with
+   its message (the async error kind is also announced as an alert), with
    the popover keyboard contract —
      - focus moves to the first action on open, unless the user already moved
        it elsewhere while a request was pending; the effect arms ONCE per popover
@@ -35,7 +35,7 @@
    layer instead of rendering inert beneath it.
 ============================================================================= */
 
-import { useEffect, useId, useRef } from 'react'
+import { useEffect, useId, useMemo, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import Link from 'next/link'
 import { BellIcon, LockSimpleIcon, WarningCircleIcon } from '@/lib/icons'
@@ -111,6 +111,14 @@ export function BellPopover({ blocked, onClose }: { blocked: BlockedState; onClo
   useEffect(() => {
     onCloseRef.current = onClose
   }, [onClose])
+  // Resolved ONCE per popover: while a native <dialog> is open the popover renders inside it — the
+  // top layer would otherwise paint over a <body> portal and make it inert — including a failed
+  // toggle whose error arrives after the user opened a day, from a bell outside the dialog. Picking
+  // the host on every render would re-mount the portal (stale refs, focus lost) if the dialog went.
+  const host = useMemo(
+    () => blocked.trigger?.closest('dialog[open]') ?? document.querySelector('dialog[open]') ?? document.body,
+    [blocked],
+  )
 
   useEffect(() => {
     const popover = ref.current
@@ -153,20 +161,33 @@ export function BellPopover({ blocked, onClose }: { blocked: BlockedState; onClo
       if (origin && now && Math.abs(now.top - origin.top) < 1 && Math.abs(now.left - origin.left) < 1) return
       onCloseRef.current()
     }
-    const onResize = () => onCloseRef.current()
+    const dismiss = () => onCloseRef.current()
+    // A popover living in a day dialog goes with it: a close request that is not a key (the Android
+    // back gesture fires `cancel` on the dialog) would otherwise leave it in a detached host,
+    // invisible, still holding Escape.
+    const hostDialog = host.localName === 'dialog' ? host : null
     window.addEventListener('keydown', onKey, true)
     window.addEventListener('scroll', onScroll, { capture: true, passive: true })
-    window.addEventListener('resize', onResize, { passive: true })
+    window.addEventListener('resize', dismiss, { passive: true })
+    hostDialog?.addEventListener('cancel', dismiss)
+    hostDialog?.addEventListener('close', dismiss)
     return () => {
       window.removeEventListener('keydown', onKey, true)
       window.removeEventListener('scroll', onScroll, { capture: true })
-      window.removeEventListener('resize', onResize)
+      window.removeEventListener('resize', dismiss)
+      hostDialog?.removeEventListener('cancel', dismiss)
+      hostDialog?.removeEventListener('close', dismiss)
       // Escape, Not now / Dismiss, the outside click and a scroll all land here with focus gone from
       // the (unmounted) popover; send it back to the bell without scrolling the page to it. A Tab
       // out already moved it on, and a user who moved on keeps their place.
-      if (trigger?.isConnected && free(document.activeElement)) trigger.focus({ preventScroll: true })
+      if (trigger?.isConnected && free(document.activeElement)) {
+        trigger.focus({ preventScroll: true })
+        // A page bell is inert under the day dialog (an error that landed after a day was opened):
+        // keep focus inside the dialog, on its first control, rather than dropping it on <body>.
+        if (document.activeElement !== trigger) hostDialog?.querySelector<HTMLElement>('a[href], button')?.focus({ preventScroll: true })
+      }
     }
-  }, [blocked])
+  }, [blocked, host])
 
   const W = 300
   const margin = 12
@@ -192,8 +213,7 @@ export function BellPopover({ blocked, onClose }: { blocked: BlockedState; onClo
         ref={ref}
         role="group"
         aria-labelledby={titleId}
-        // The error is announced by its alert below; describing the group too would read it twice.
-        aria-describedby={isError ? undefined : bodyId}
+        aria-describedby={bodyId}
         tabIndex={-1}
         style={{ left, top, width: W }}
         className="fixed rounded-lg outline-none border border-border-light bg-panel-light p-4 shadow-e4 dark:border-white/10 dark:bg-panel-dark dark:shadow-none"
@@ -217,7 +237,9 @@ export function BellPopover({ blocked, onClose }: { blocked: BlockedState; onClo
             )}
           </span>
           <div className="min-w-0 flex-1">
-            {/* A failed toggle lands asynchronously, so it is announced as an alert. */}
+            {/* A failed toggle lands asynchronously, so it is also announced as an alert: focus may
+                not move in (the user moved on), and when it does, the focus speech can cut the alert
+                off — the group's description keeps the message reachable either way. */}
             <div role={isError ? 'alert' : undefined}>
               <p id={titleId} className="text-sm font-semibold text-text-primary-light dark:text-text-primary-dark">
                 {title}
@@ -257,9 +279,6 @@ export function BellPopover({ blocked, onClose }: { blocked: BlockedState; onClo
         </div>
       </div>
     </div>,
-    // While a native <dialog> is open (DayDetailDialog) the popover renders inside it: the top layer
-    // would otherwise paint over a <body> portal and make it inert. That includes a failed toggle
-    // whose error arrives after the user opened a day, from a bell outside the dialog.
-    document.querySelector('dialog[open]') ?? document.body,
+    host,
   )
 }

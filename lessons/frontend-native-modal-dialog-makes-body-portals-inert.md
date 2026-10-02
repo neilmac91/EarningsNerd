@@ -8,7 +8,7 @@ a `<body>` portal opened while that dialog is up is inert (`focus()` is refused)
 beneath the top layer (`elementFromPoint` returns the dialog), whatever its z-index. So a
 signed-out user who clicked a bell in the day view got a prompt nobody could see or reach.
 Migrating the popover to `ui/Modal` would not have helped, because Modal also portals to
-`<body>`. Separately, the popover's window-capture Escape handler called only
+`<body>`. Separately, the popover's document-capture Escape handler called only
 `stopPropagation()`, and the native dialog still fired `cancel` and `close` on the same key.
 One Escape closed both layers.
 
@@ -22,7 +22,12 @@ the dialog animates opacity only, so it is not a containing block.
 (b) A layer above a native dialog that handles Escape calls `preventDefault()` as well as
 `stopPropagation()`. The dialog's close request is the key's default action.
 
-(c) Never open `ui/Modal` from inside `DayDetailDialog`.
+(c) Never open `ui/Modal` from anything the calendar page renders; any layer it raises can sit over
+`DayDetailDialog`. Gated: `dialogAllowlist.spec.ts` walks the page's imports.
+
+(e) The day dialog never gains a transform, filter, contain, will-change or a non-opacity animation.
+Any of those makes it the containing block for the fixed popovers portalled into it, which then clip
+and mis-position. Gated in the same spec, which reads its `className` and its keyframes.
 
 (d) A keyboard pass on any layer that can appear inside the day dialog runs one case with
 the dialog open.

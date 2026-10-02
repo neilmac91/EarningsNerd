@@ -168,13 +168,16 @@ Dialog           <Modal open onClose labelledBy="<id>" size="sm|md|lg" dismissib
                  tests/unit/dialogAllowlist.spec.ts reads the TypeScript AST and pins each allowlisted file, with
                  a reason, to its count of each kind — a dialog/alertdialog role (literal, any value of a role={…}
                  expression, role: prop or setAttribute), a native <dialog>, and the dialog layer's own tokens
-                 (z-modal, bg-overlay), so a role-less hand-rolled modal fails too. The list is shrink-only. Never raise Modal from inside DayDetailDialog: under
-                 showModal() a <body> portal is inert and painted beneath the top layer.
+                 (z-modal, bg-overlay), so a role-less hand-rolled modal fails too. The list is shrink-only.
+                 Never raise Modal from the calendar page: any layer it raises can sit over DayDetailDialog, and
+                 under showModal() a <body> portal is inert and painted beneath the top layer. Nor give the day
+                 <dialog> a transform/filter/contain/will-change or a non-opacity animation: it would become the
+                 containing block that clips the popovers portalled into it. Both are gated in the same spec.
 
 Popover          An anchored, light-dismiss surface that explains one control (the calendar's BellPopover) is
                  NOT a dialog: it makes nothing inert, traps nothing and locks nothing. No dialog role — a
-                 role="group" named by its title and described by its message (an async failure is announced
-                 with role="alert" instead of the description) — on z-overlay, behind a transparent catcher so
+                 role="group" named by its title and described by its message (an async failure is also
+                 announced with role="alert") — on z-overlay, behind a transparent catcher so
                  an outside press closes only the popover; the panel is the Card recipe (dark:shadow-none).
                  Keyboard: focus moves to the first action unless the user already moved it elsewhere (armed
                  once per open, callbacks through a ref); Escape closes in window capture with preventDefault

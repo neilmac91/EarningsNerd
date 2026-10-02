@@ -28,14 +28,15 @@
   - It is now a `role="group"` named by its title, on `z-overlay`. The async error is announced with `role="alert"`.
   - Keyboard: armed once per popover, with `onClose` read through a ref. Focus moves in on open unless the user already moved it elsewhere. Escape is handled in window capture with preventDefault. Tab out resumes after the bell. A scroll that moves the bell, or a resize, closes it; the page scrolling behind the fixed day dialog does not. Every close returns focus to the bell unless the user moved on.
   - The transparent click-catcher stays, so an outside press closes one layer, as Escape does.
+  - Its portal host is resolved once per popover, and it closes with its day dialog (a non-key close request such as Android back). A bell outside the dialog is inert under it, so focus falls back to the dialog's first control instead of `<body>`. These came from a pre-push review: four lenses, each finding refuted twice.
   - While a native `<dialog>` is open, it portals into that dialog.
   - Recorded in the AlertBell header, the DESIGN_SYSTEM §4 Popover entry and `lessons/frontend-native-modal-dialog-makes-body-portals-inert.md`.
 - The CookieConsent settings panel is now on `ui/Modal`. The consent handlers and the `cookieConsentChanged` event are unchanged and pinned by `CookieConsent.spec.tsx`. The category checkboxes are now named by their headings.
 - `useSheetFocusTrap` reads `onClose` through a ref and ignores keys from another `[aria-modal="true"]` layer.
 - `dialogAllowlist.spec.ts` is now a TypeScript-AST gate.
-  - It detects a dialog/alertdialog role (literal, `role={…}` value analysis, `role:` prop, `setAttribute`, `.role =`), a native `<dialog>`, and the `z-modal`/`bg-overlay` layer tokens.
+  - It detects a dialog/alertdialog role (literal, `role={…}` value analysis, `role:` prop, `setAttribute`), a native `<dialog>`, and the `z-modal`/`bg-overlay` layer tokens.
   - Pins are per-kind site counts with reasons, shrink-only. DayDetailDialog is explicitly allowlisted as native.
-  - It also does an import walk proving nothing DayDetailDialog renders imports `ui/Modal`.
+  - It also walks the calendar page's imports to prove nothing it renders imports `ui/Modal`, and checks that DayDetailDialog never gains a transform/filter/contain/will-change or a non-opacity animation (either would make it the containing block that clips the popovers portalled into it).
   - The old substring spec passes on the base tree with both hand-rolled dialogs still present. The new spec fails on each of them.
 - Verification: the full frontend gate, plus Playwright keyboard passes on a production build in both themes at 1440 and 375, with every API stubbed by `page.route`:
   - CookieConsent: 52/52.
