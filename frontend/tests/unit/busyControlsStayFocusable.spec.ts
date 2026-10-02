@@ -36,7 +36,7 @@ const FOLLOW_UP =
   'Pre-existing follow-up (lesson rule (d)): a busy flag natively disables a control that can hold focus. ' +
   'Convert it to `loading` / aria-disabled + an early return, then lower this pin.'
 const DESIGN_V3 =
-  'The design-v3 stack (#1042–#1048) converts this to the DS Button `loading`; lower the pin when it lands.'
+  'The design-v3 stack converts this auth submit to the DS Button `loading` (#1045); remove the pin when it lands.'
 
 const ALLOW: Record<string, { sites: string[]; reason: string }> = {
   // Kept by design.
@@ -52,19 +52,17 @@ const ALLOW: Record<string, { sites: string[]; reason: string }> = {
       "Run's native disabled while running is pinned by analysis-api.spec.ts (the SSE parsing contract). " +
       'Converting it needs a PR-body-documented contract change (CLAUDE.md rule 6).',
   },
+  'features/admin/components/RevokeConfirmModal.tsx': {
+    sites: ['isPending'],
+    reason:
+      'Cancel is disabled while Revoke runs. Revoke (`loading`) is the control that holds focus, and Cancel ' +
+      'cannot be activated during the request, so it never holds focus when it flips.',
+  },
   // Converted by the in-flight design-v3 stack.
   'app/forgot-password/page.tsx': { sites: ['loading'], reason: DESIGN_V3 },
   'app/login/page.tsx': { sites: ['loading || (TURNSTILE_ENABLED && !turnstileToken)'], reason: DESIGN_V3 },
   'app/register/page.tsx': { sites: ['loading || (TURNSTILE_ENABLED && !turnstileToken)'], reason: DESIGN_V3 },
   'app/reset-password/page.tsx': { sites: ['loading || !token'], reason: DESIGN_V3 },
-  'features/admin/components/RevokeConfirmModal.tsx': {
-    sites: ['isPending', 'isPending'],
-    reason: `${DESIGN_V3} Cancel keeps its pin: it is disabled while Revoke, the control that holds focus, runs.`,
-  },
-  'features/auth/components/EmailVerificationModal.tsx': {
-    sites: ['loading || resent'],
-    reason: `${DESIGN_V3} Its post-success \`disabled={resent}\` still drops focus and is not visible to this scan.`,
-  },
   // Pre-existing follow-ups.
   'app/admin/invites/page.tsx': { sites: ['sending', 'sending', 'sending', 'sending', '!canSend'], reason: FOLLOW_UP },
   'app/check-email/page.tsx': { sites: ['resendLoading || cooldown > 0 || !email'], reason: FOLLOW_UP },
@@ -87,8 +85,8 @@ const ALLOW: Record<string, { sites: string[]; reason: string }> = {
 }
 
 /** Frozen ceilings on files and on pinned sites: lower them as sites are converted, never raise them. */
-const MAX_ALLOWLIST_SIZE = 26
-const MAX_PINNED_SITES = 38
+const MAX_ALLOWLIST_SIZE = 25
+const MAX_PINNED_SITES = 36
 
 const frontendRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 const ROOTS = ['app', 'components', 'features']
@@ -256,11 +254,21 @@ describe('busy controls stay focusable (rule-12 gate)', () => {
       'function F() {',
       '  return <button disabled={form.cannotSubmit} />', // a property, not A's binding
       '}',
+      // The same pair in the other order: the earlier, non-busy sibling must not count either.
+      'function G() {',
+      '  const canSend = true',
+      '  return <button disabled={!canSend} />', // does not count
+      '}',
+      'function H() {',
+      '  const canSend = !request.isPending',
+      '  return <button disabled={!canSend} />', // counts
+      '}',
     ].join('\n')
     expect(busyDisabledSites(fixture, 'fixture.tsx').map((site) => `${site.line}: ${site.expr}`)).toEqual([
       '4: cannotSubmit',
       '11: waiting',
       '17: shadowed',
+      '28: !canSend',
     ])
   })
 

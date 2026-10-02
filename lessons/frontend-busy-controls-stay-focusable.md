@@ -27,15 +27,17 @@ itself needs a real-browser keyboard pass.
 under app/, components/ and features/ and fails on any `disabled={…}` whose expression names a busy
 flag (`pending`, `loading`, `submitting`, `sending`, `streaming`, …), directly or through the
 binding visible from the site (a `const` or a renamed destructured prop, resolved in its lexical
-scope). It found 38 such sites in 26 files; each is pinned by its exact expression with a reason:
-two kept by design (this bell's `checking`; the Analysis Run button, which a contract spec pins),
-seven the design-v3 stack converts, and the rest follow-ups. Pins only shrink, and both files and
-sites are capped: converting a site means removing its pin, and adding a busy flag to a pinned
-expression fails.
+scope). On main after the design-v3 modal PR (#1043) it finds 36 such sites in 25 files; each is
+pinned by its exact expression with a reason. Three are kept by design: this bell's `checking`, the
+Analysis Run button (a contract spec pins it), and RevokeConfirmModal's Cancel while Revoke runs.
+Four are auth submits that design-v3 #1045 converts, and 29 are follow-ups. Pins only shrink, and
+both files and sites are capped: converting a site means removing its pin, and adding a busy flag to
+a pinned expression fails.
 
 (e) The scan cannot see post-success flips (`!dirty` after a save, `saved`, `resent`, a cooldown)
 that disable the control the user just activated, nor a busy flag under another name. Those stay
-per-site specs plus a real-browser keyboard pass.
+per-site specs plus a real-browser keyboard pass. Known open case: EmailVerificationModal's Resend
+(`loading` since #1043) still turns `disabled={resent}` after it succeeds, while it holds focus.
 
 **Evidence**: `frontend/features/calendar/components/AlertBell.tsx` (`disabled={checking}`,
 `aria-disabled={pending || undefined}` plus an early return). `tests/unit/calendarBellKeepsFocus.spec.tsx`
