@@ -8,6 +8,16 @@ Code references are to main `c13b069a`; the Copilot request and publication path
 `copilot_tools.py`, `provenance_service.py`, `citation_markers.py`, `evals/copilot_runner.py`,
 `evals/copilot_scorers.py`, the golden set, `copilot-eval.yml` and `.github/ai-model.env` is empty).
 
+> **Status, 2026-10-02.** Both stages of the experiment below have run.
+> - **Stage 1: prompt-caused.**
+> - **Stage 2: clause-caused.** Removing the step-3 clause "including when all cited figures use tool markers" restores 20-F tool use.
+>
+> Since this diagnosis was written, main has gained two changes:
+> - decision F (#1049, `f6e79a50`) withholds answers whose prose quotations are composed, elided or absent;
+> - #1052 (`287d018d`) verifies whole citation excerpts.
+>
+> So the "composed prose quotations pass" finding and its risk are superseded: those answers are now withheld. Line references below stay pinned to `c13b069a`. Outcomes and evidence are at the end of this document.
+
 ## Evidence base and method
 
 Ten retained `copilot-fidelity` artifacts were audited offline with a scratch tool that imports the
@@ -85,7 +95,7 @@ shape the server repair certifies, for example `Consolidated revenue for the yea
 stripped, repair abstained by design, and the answer shipped with 0 citations and 2/2 figures
 uncited. It was scored PASS, and the run was accepted 18/18.
 
-**Composed prose quotations pass on main-equivalent code.** The verifier checks declared citation
+**Composed prose quotations passed on main-equivalent code** (superseded 2026-10-02: decision F now withholds such answers; owner `tests/unit/test_copilot_prose_quotations.py`). The verifier checks declared citation
 excerpts (`_verify_citations`, `copilot_service.py:441-469`); nothing checks text the answer puts in
 quotation marks, and the scorer does not either. The audit found no quotation that is wholly absent
 from the filing, but many that are composed from separate spans:
@@ -138,11 +148,11 @@ does not remove it.
   request bodies or `finish_reason` (`evals/copilot_runner.py:185`), so this rests on code reading
   plus call counting; offline, this PR now asserts it (see below).
 - **"A same-window A/B fits under USD 0.25."** No dispatch path exists (below); the realistic cost
-  is USD 0.4–0.8.
+  was estimated at USD 0.4–0.8. Stage 1 actually cost USD 0.200825, because arm A ran on this PR's tests-only diff and only arm C's PR paid an `eval-baseline` run.
 
 ## Unresolved hypotheses, ranked
 
-1. **Prompt clause.** Text that describes the finished answer shape — step 3's "output []… including
+1. **Prompt clause** (supported 2026-10-02: stage 1 found it prompt-caused and stage 2 clause-caused). Text that describes the finished answer shape — step 3's "output []… including
    when all cited figures use tool markers" (`copilot_service.py:111-112`) on main, plus #1023's
    worked example and relaxed lead rule — makes skipping tools look compliant, because every
    requested figure is already in the preloaded excerpt and XBRL block. For: the only request
@@ -156,7 +166,7 @@ does not remove it.
 3. **Model tool-selection variance.** Nonexecution predates both prompts: RUNBOOK.md:699-700 records
    MSFT and historical BABA answers without tools at #703 (2026-09-05). This sets a base rate, not a
    cause of the old→main shift.
-4. **Time drift.** One fingerprint on all 315 logged calls and bracketing make this least likely for
+4. **Time drift** (excluded within each stage's window: arm A stayed at or below 2/6 while the other arm reached 6/6, and every logged call carries fingerprint `aeb56401`). One fingerprint on all 315 logged calls and bracketing make this least likely for
    #1023. It is not excluded for the 20-F shift, because every pre-#1022 run precedes every main run.
 
 ## Latent production risks
@@ -168,8 +178,8 @@ does not remove it.
   the sentence differs from the certified shape. The documented
   production alert (RUNBOOK) fires only above 5 uncited figures per hour. The eval accepted 13 such
   rows under #1023 (9 of them on non-revenue questions) and one on main (ASML, an uncertified shape).
-- **Unverified prose quotations.** Text in quotation marks is published without verification; on
-  main-equivalent code 2 of 54 rows showed composed quotations, and a reader has no way to tell.
+- **Unverified prose quotations** (superseded 2026-10-02: decision F withholds the whole answer instead). Text in quotation marks was published without verification; on
+  main-equivalent code 2 of 54 rows showed composed quotations, and a reader had no way to tell.
 - **Readiness does not measure tool execution.** A run with 0/18 tool calls was accepted 18/18. The
   scorer has no tool-use, unissued-marker or prose-quote measure.
 
@@ -188,10 +198,10 @@ questions; qualitative and refusal questions remain in `pending_cases`.
 | Fallback: no tool → text excerpt, server repair or uncited | `test_copilot_citation_repair.py::test_uncited_answer_gains_a_citation_when_the_fact_proves_the_year`, `::test_unsupported_claim_shapes_abstain`, `::test_uncertified_evidence_abstains`, `::test_non_annual_or_mismatched_filing_abstains`, `::test_declared_but_unplaced_text_citation_still_gets_the_certified_chip`; `test_copilot_paired_claims.py::test_retained_pair_has_two_distinct_grounded_chips`, `::test_final_visible_pair_repairs_after_unresolved_markers`, `::test_final_visible_pair_missing_operand_still_abstains`, `::test_unsupported_pair_never_adds_a_fact_marker`; `test_copilot.py::test_service_complete_event_carries_coverage_counters`, `::test_service_publication_boundary[empty_array]` | Incidental: repair on 20 of 21 main no-tool rows; one uncited row. No deliberate case. |
 | Not disclosed | `test_copilot.py::test_service_not_disclosed_path`, `::test_service_not_disclosed_carries_followups`, `::test_service_publication_boundary[not_disclosed]` and the `nd_*` cases; `test_copilot_gate.py::test_single_terminal_not_disclosed_and_guard_count_are_retained`, `::test_actual_service_refusal_terminal_is_accepted_without_invented_counter`, `::test_refusal_provided_malformed_counter_is_rejected` | Never measured live. |
 | Provider or stream failure | `test_copilot.py::test_service_stream_error_becomes_error_event`, `::test_service_stream_error_after_prose_becomes_error_event`, `::test_stream_chat_with_tools_yields_error_sentinel_on_failure`; `test_copilot_gate.py::test_attempt_trace_retains_candidate_and_closes_provider` | Not observed. |
-| Quotation marks in answer prose | none | Composed quotations published (above). |
+| Quotation marks in answer prose | `tests/unit/test_copilot_prose_quotations.py` (decision F, added after this diagnosis) | Withheld since F. In G (2026-10-02), 11 of 144 rows were F-withheld, all on tool-using draws. |
 
 The `tools`/`tool_choice` assertion closes a real gap: with `tools` removed from every `create()`
-call, or `tool_choice` set to `"none"`, all 351 tests in these six owners still passed on main.
+call, or `tool_choice` set to `"none"`, all 351 tests in these six owners still passed on main. That was 383 tests on `06ad809a`, re-checked by mutation on 2026-10-02.
 
 ## Pre-registered next experiment (stage 1 run 2026-10-02: prompt-caused; stage 2 pre-registered below)
 
@@ -299,3 +309,42 @@ All 72 rows met the validity precondition, and all 129 logged calls carry finger
 - MSFT string-ID rejections (acceptance check 1), because the clause came from #1022's MSFT string-`F1`/`F2` fix.
 
 A `copilot-eval` run's formal acceptance is not the measurement. A red check is recorded and never re-run.
+
+## Stage 2 outcome (2026-10-02): clause-caused
+
+**Runs.** A3, B1, A4 and B2 ran from 15:41 to 15:54Z, off-peak, each after the previous one completed.
+- Arm A ran on this PR at `592d2541`, with prompt `a88b6fb1`.
+- Arm B ran on DO-NOT-MERGE #1054 at `e37d71da`, with prompt `16457055`.
+
+| Run | CI run | 20-F tool-using | 10-K tool-using | Draws with tools | Check |
+| --- | --- | --- | --- | --- | --- |
+| A3 | [37028750965](https://github.com/neilmac91/EarningsNerd/actions/runs/37028750965) | 1/3 | 3/3 | 13/18 | 18/18 accepted |
+| B1 | [37029156902](https://github.com/neilmac91/EarningsNerd/actions/runs/37029156902) | 3/3 | 3/3 | 18/18 | 16/18 + 2 F-withheld |
+| A4 | [37029566102](https://github.com/neilmac91/EarningsNerd/actions/runs/37029566102) | 1/3 | 3/3 | 11/18 | 18/18 accepted |
+| B2 | [37029964566](https://github.com/neilmac91/EarningsNerd/actions/runs/37029964566) | 3/3 | 3/3 | 17/18 | 16/18 + 2 F-withheld |
+
+**Validity.** All 72 rows match the pre-registered request: system prompt per arm, the six contexts, tool schema `b6958973`, and options deepseek-flash/2400/0.2. All 131 logged calls carry fingerprint `aeb56401`.
+
+**Decision.** Rule 2 applies.
+- 20-F question-runs tool-using: arm A **2/6**, arm B **6/6**.
+- 20-F draws with tools: 6/18 and 17/18.
+- 10-K: 6/6 in both arms, so no regression.
+
+**Context, outside the rules: arm B is not a fix candidate as it stands.** Arm B published 32 of 36 rows. Four were withheld by decision F: ASML ×3 (`quotation_not_in_source`) and BABA viewed ×1 (`elided_quotation`). Arm A published 36 of 36. Against the acceptance checks above, over these two runs:
+- check 1 passes: 0 MSFT rejections;
+- check 2 passes: AAPL/TSLA/MSFT tool use 18 of 18;
+- checks 3, 4 and 5 fail: ASML was withheld in 3 of 6 draws, and each run errored twice.
+
+**Across all eight G runs, ASML was withheld only on draws that used tools**: 9 of 15 tool-using ASML draws were withheld, and 0 of 9 tool-less ones. The model states the tool figures, then adds a narrative cross-check that quotes a table row with cells removed (for example "Total net sales 32,667.3"). The JSON citation excerpt is the full, verified row. So restoring tool use without also changing how the answer prose quotes the filing would raise the withheld rate.
+
+**Next step (not authorized here).** A single fix candidate, as its own PR, under its own authorization and ceiling:
+- arm B's deletion;
+- an answer-text quotation rule: quote only text copied contiguously from the filing, never quote a table row with cells removed, and state figures without quote marks.
+
+It would be judged against acceptance checks 1–5 with RUNBOOK's aggregates of at least three runs.
+
+**Spend.** USD 0.226996:
+- #1054's `eval-baseline`: 0.177093;
+- the four runs: 0.005905, 0.032404, 0.005491 and 0.006103. B1 was the first call on the new prompt prefix, with 183k cache-miss tokens.
+
+**Evidence.** `tasks/review-evidence/g-stage2-2026-10-02/`.

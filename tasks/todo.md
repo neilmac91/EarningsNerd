@@ -10,7 +10,8 @@
 - On main-equivalent code (#1030 ready run 36777581481), one ASML answer skipped tools and shipped with no citation while the run was accepted 18/18, and two passing main-prompt answers published composed prose quotations. The #1021 ASML cross-check defect remains open on main.
 - `test_copilot.py::test_stream_chat_with_tools_assembles_tool_call_deltas` now asserts that both provider rounds offer `tools` with `tool_choice="auto"`; before it, all 351 Copilot owner tests passed with either removed. No prompt, service, runner, scorer, repair grammar, coverage policy or flag change.
 - [x] Stage 1 of the prompt-versus-drift experiment: authorized as #1029 item G (USD 1.00) and run on 2026-10-02. **Prompt-caused.** 20-F question-runs tool-using: main prompt 1/6, pre-#1022 step 3 6/6; 10-K 6/6 in both. Spend USD 0.200825. [Evidence](review-evidence/g-stage1-2026-10-02/README.md).
-- [ ] Stage 2 (arm B: main minus the "including when all cited figures use tool markers" clause). Authorized 2026-10-02, ceiling USD 0.50; pre-registered in the diagnosis.
+- [x] Stage 2 (arm B: main minus the "including when all cited figures use tool markers" clause), run on 2026-10-02 under a USD 0.50 ceiling. **Clause-caused.** 20-F tool-using: main 2/6, arm B 6/6; 10-K 6/6 in both. Arm B is not a fix candidate as it stands: 4 of 36 rows were withheld by decision F, and on ASML only tool-using draws were withheld. Spend USD 0.226996. [Evidence](review-evidence/g-stage2-2026-10-02/README.md).
+- [ ] Copilot prompt fix candidate: arm B's deletion plus an answer-text quotation rule, judged against the diagnosis's acceptance checks 1–5 with aggregates of at least three runs. It needs its own authorization and ceiling.
 
 ## 2026-09-30 — #942 successor: deterministic return-ratio render (`summary-2026-09-t`)
 
