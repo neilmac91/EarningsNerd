@@ -64,12 +64,25 @@ def mint_invite(
     return invite, raw, build_invite_link(raw)
 
 
+def hash_invite_token(raw: str) -> str:
+    """The stored form of an invite token. Callers that must carry an invite across a redirect
+    (the OAuth state row) keep this hash, never the raw token."""
+    return _hash_token(raw)
+
+
 def validate_invite(db: Session, raw_token: Optional[str], email: str) -> Optional[InviteCode]:
     """Return a usable invite for this registration, or None if it's missing / invalid / revoked /
     already used / expired / bound to a different email. Never raises on a bad token."""
     if not raw_token:
         return None
-    invite = db.query(InviteCode).filter(InviteCode.code_hash == _hash_token(raw_token)).first()
+    return validate_invite_hash(db, _hash_token(raw_token), email)
+
+
+def validate_invite_hash(db: Session, code_hash: Optional[str], email: str) -> Optional[InviteCode]:
+    """``validate_invite`` for a caller holding only the token's hash (see ``hash_invite_token``)."""
+    if not code_hash:
+        return None
+    invite = db.query(InviteCode).filter(InviteCode.code_hash == code_hash).first()
     if invite is None or invite.is_revoked or invite.used_at is not None or _is_expired(invite):
         return None
     if invite.email and invite.email.strip().lower() != (email or "").strip().lower():
@@ -77,13 +90,17 @@ def validate_invite(db: Session, raw_token: Optional[str], email: str) -> Option
     return invite
 
 
-def redeem_invite(db: Session, invite: InviteCode, user) -> bool:
+def redeem_invite(db: Session, invite: InviteCode, user, *, commit: bool = True) -> bool:
     """Atomically mark a single-use invite redeemed for ``user``. Returns False if a concurrent
-    registration already consumed it (guarded ``UPDATE ... WHERE used_at IS NULL``)."""
+    registration already consumed it (guarded ``UPDATE ... WHERE used_at IS NULL``).
+
+    ``commit=False`` leaves the UPDATE in the caller's open transaction, so a registration commits
+    (or rolls back) the new account and the redemption together."""
     result = db.execute(
         update(InviteCode)
         .where(InviteCode.id == invite.id, InviteCode.used_at.is_(None))
         .values(used_at=_now(), user_id=user.id)
     )
-    db.commit()
+    if commit:
+        db.commit()
     return result.rowcount == 1

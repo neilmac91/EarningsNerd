@@ -50,9 +50,13 @@ ALLOWED_SIDE_EFFECTING_GETS: dict[tuple[str, str], str] = {
         "OAuth redirect callback — the provider returns the user via GET by protocol; creates or "
         "links the account (db.add/flush)"
     ),
+    ("app/routers/auth.py", "google_login"): (
+        "starts Google sign-in — persists the OAuthState row carrying an invited sign-up's invite "
+        "hash (db.commit) so the callback can redeem it; GET by protocol (top-level navigation)"
+    ),
     ("app/routers/auth.py", "apple_login"): (
-        "starts Sign in with Apple — persists the OAuthState nonce (db.add/commit) because the "
-        "form_post response cannot carry SameSite cookies; GET by protocol (top-level navigation)"
+        "starts Sign in with Apple — persists the OAuthState nonce (db.commit) because the "
+        "form_post response cannot carry SameSite=Lax cookies; GET by protocol (top-level navigation)"
     ),
     ("app/routers/companies.py", "search_companies"): (
         "read-through cache: persists Company rows discovered via the SEC ticker lookup "

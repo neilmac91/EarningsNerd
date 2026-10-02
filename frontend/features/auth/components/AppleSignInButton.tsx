@@ -1,5 +1,7 @@
 'use client'
 
+import { oauthStartHref } from '@/features/auth/lib/oauthStart'
+
 /**
  * Apple sign-in button, per Apple Human Interface Guidelines:
  * - Black surface (light theme) / white surface (dark theme) for contrast
@@ -9,14 +11,16 @@
  */
 export default function AppleSignInButton({
   apiBase,
+  invite,
   label = 'Continue with Apple',
 }: {
   apiBase: string
+  invite?: string
   label?: string
 }) {
   return (
     <a
-      href={`${apiBase}/api/auth/apple`}
+      href={oauthStartHref(apiBase, 'apple', invite)}
       className="flex w-full items-center justify-center gap-3 rounded-lg bg-black px-4 py-3 text-sm font-semibold text-white transition hover:bg-black/90 active:scale-[0.99] focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark dark:bg-white dark:text-black dark:hover:bg-white/90"
     >
       <AppleLogo />
