@@ -63,14 +63,9 @@ function fixture(pathname: string, who: Who): unknown {
 async function signIn(page: Page, who: Who, baseURL: string) {
   const origin = new URL(baseURL).origin
   await page.context().addCookies([{ name: 'en_session', value: '1', url: origin }])
-  const cors = {
-    'access-control-allow-origin': origin,
-    'access-control-allow-credentials': 'true',
-    'access-control-allow-headers': '*',
-    'access-control-allow-methods': 'GET,POST,PUT,PATCH,DELETE,OPTIONS',
-  }
+  // Credentialed cross-origin responses need these two; Playwright answers any preflight itself.
+  const cors = { 'access-control-allow-origin': origin, 'access-control-allow-credentials': 'true' }
   await page.route((url) => url.origin === API_ORIGIN, (route) => {
-    if (route.request().method() === 'OPTIONS') return route.fulfill({ status: 204, headers: cors })
     const body = fixture(new URL(route.request().url()).pathname, who)
     return body === undefined
       ? route.fulfill({ status: 404, headers: cors, json: { detail: 'Not found' } })
@@ -86,7 +81,7 @@ async function openDashboard(page: Page, who: Who, baseURL: string) {
   await page.evaluate(() => document.fonts.ready)
 }
 
-for (const width of [375, 390, 1440]) {
+for (const width of [320, 375, 390, 1440]) {
   test(`dashboard has no horizontal scroll at ${width}px with long company names`, async ({ page, baseURL }) => {
     await page.setViewportSize({ width, height: 900 })
     await openDashboard(page, LONG, baseURL!)
@@ -99,6 +94,13 @@ for (const width of [375, 390, 1440]) {
     const name = page.getByText('Taiwan Semiconductor Manufacturing Company Limited').last()
     const box = await name.boundingBox()
     expect(box!.x + box!.width).toBeLessThanOrEqual(clientWidth)
+    // Beside a long "Generating (<stage>)" badge a name column keeps a few characters (the row
+    // wraps its status cluster instead) rather than collapsing under the badge.
+    const nameWidths = await page
+      .locator('a[href^="/company/"]:has(+ div button[aria-label^="Remove "]) .truncate.font-semibold')
+      .evaluateAll((els) => els.map((el) => el.getBoundingClientRect().width))
+    expect(nameWidths).toHaveLength(COMPANIES.length)
+    for (const w of nameWidths) expect(w).toBeGreaterThanOrEqual(24)
   })
 }
 
@@ -126,8 +128,9 @@ test('dashboard header height does not depend on the greeting at 375px', async (
 test('a typical name fits beside an icon-only back link at 375px', async ({ page, baseURL }) => {
   await page.setViewportSize({ width: 375, height: 900 })
   await openDashboard(page, TYPICAL, baseURL!)
-  const greeting = page.getByText('Welcome back, Jordan Whitaker')
-  expect(await greeting.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true)
+  // Measure the truncating <p> (an inline span reports no client width).
+  const greeting = page.locator('header p', { hasText: 'Welcome back, Jordan Whitaker' })
+  expect(await greeting.evaluate((el) => el.clientWidth > 0 && el.scrollWidth <= el.clientWidth)).toBe(true)
   const back = page.getByRole('link', { name: 'Back to home' })
   await expect(back).toBeVisible()
   const box = (await back.boundingBox())!

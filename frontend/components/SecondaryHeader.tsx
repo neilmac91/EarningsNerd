@@ -46,11 +46,9 @@ export default function SecondaryHeader({
                 <h1 className="text-lg font-semibold text-text-primary-light dark:text-text-primary-dark">{title}</h1>
               )}
               {subtitle && (
-                <p
-                  title={subtitle}
-                  className="truncate text-xs text-text-secondary-light [contain:inline-size] dark:text-text-secondary-dark"
-                >
-                  {subtitle}
+                <p className="truncate text-xs text-text-secondary-light [contain:inline-size] dark:text-text-secondary-dark">
+                  {/* The tooltip sits on the text, not the <p>, which spans the whole free width. */}
+                  <span title={subtitle}>{subtitle}</span>
                 </p>
               )}
             </div>

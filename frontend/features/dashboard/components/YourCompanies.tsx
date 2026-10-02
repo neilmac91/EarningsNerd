@@ -88,22 +88,25 @@ export default function YourCompanies({ insights, isLoading, isError, refetch, i
             {insights.map((insight: WatchlistInsight) => {
               const latest = insight.latest_filing
               return (
-                <div key={insight.company.id} className="flex items-center justify-between gap-3 px-4 py-3">
+                // The status cluster drops to a second line only when the name column would fall below
+                // basis-16 (a long "Generating (<stage>)" badge at ~320–360px); max-w-fit keeps the
+                // link hugging its content otherwise, so wider rows lay out exactly as before.
+                <div key={insight.company.id} className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 px-4 py-3">
                   <Link
                     href={`/company/${insight.company.ticker}`}
-                    className="flex min-w-0 items-center gap-2.5 rounded-lg focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark"
+                    className="flex min-w-0 max-w-fit grow basis-16 items-center gap-2.5 rounded-lg focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark"
                   >
                     <CompanyLogo ticker={insight.company.ticker} name={formatCompanyName(insight.company.name)} size={28} />
                     <div className="min-w-0">
                       <div className="truncate font-semibold text-text-primary-light hover:text-brand-strong dark:text-text-primary-dark dark:hover:text-brand-strong-dark">
                         {formatCompanyName(insight.company.name)}
                       </div>
-                      <div className="text-sm text-text-secondary-light dark:text-text-secondary-dark">
+                      <div className="truncate text-sm text-text-secondary-light dark:text-text-secondary-dark">
                         {insight.company.ticker}
                       </div>
                     </div>
                   </Link>
-                  <div className="flex flex-shrink-0 items-center gap-3">
+                  <div className="ml-auto flex flex-shrink-0 items-center gap-3">
                     <span className="hidden text-xs text-text-tertiary-light sm:inline dark:text-text-secondary-dark">
                       {latest
                         ? `Last filed ${latest.filing_type} · ${formatLocalDate(latest.filing_date, 'MMM d, yyyy')}`
