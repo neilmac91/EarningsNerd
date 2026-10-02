@@ -109,7 +109,9 @@ lxml==6.1.3
     #   -r requirements.in
     #   edgartools
 markdown-it-py==4.2.0
-    # via rich
+    # via
+    #   -r requirements.in
+    #   rich
 markupsafe==3.0.3
     # via jinja2
 mdurl==0.1.2

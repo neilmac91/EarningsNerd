@@ -17,6 +17,7 @@ case rather than quietly presented as fixed.
 These tests drive the real service path with a fake stream and a scoped fact lookup; every
 negative control leaves the answer byte-identical.
 """
+import logging
 from datetime import datetime
 from types import SimpleNamespace
 
@@ -56,8 +57,8 @@ def filing(**changes):
     return SimpleNamespace(**{**fields, **changes})
 
 
-async def _complete(monkeypatch, answer, *, lookup=None, view=None, model_calls=None):
-    """Run the real generator over a fake stream; return its single terminal `complete` event.
+async def _events(monkeypatch, answer, *, lookup=None, view=None, model_calls=None):
+    """Run the real generator over a fake stream; return every event it yields.
 
     `model_calls` collects what the MODEL asked for through the closure the eval harness observes,
     so a server-initiated lookup can be shown never to enter tool-call history.
@@ -74,9 +75,13 @@ async def _complete(monkeypatch, answer, *, lookup=None, view=None, model_calls=
             yield '\n===CITATIONS===\n[]'
 
     monkeypatch.setattr(service.openai_service, 'stream_chat_with_tools', stream)
-    events = [e async for e in service.answer_filing_question(
+    return [e async for e in service.answer_filing_question(
         filing=view if view is not None else filing(), question='Revenue?')]
-    terminal = [e for e in events if e['type'] == 'complete']
+
+
+async def _complete(monkeypatch, answer, **kwargs):
+    """Return the single terminal `complete` event of `_events`."""
+    terminal = [e for e in await _events(monkeypatch, answer, **kwargs) if e['type'] == 'complete']
     assert len(terminal) == 1
     return terminal[0]
 
@@ -426,7 +431,6 @@ async def test_known_advisory_false_positive_answer_is_untouched(monkeypatch):
     pytest.param('Revenue for the fiscal year ended March 31, 2025 was US$996,347 million.', id='claimed-currency-not-the-filings'),
     pytest.param('Cloud revenue for the fiscal year ended March 31, 2025 was RMB996,347 million.', id='segment-subject'),
     pytest.param('Sales for the fiscal year ended March 31, 2025 was RMB996,347 million.', id='bare-sales'),
-    pytest.param('The filing states "Revenue for the fiscal year ended March 31, 2025 was RMB996,347 million."', id='quotation'),
     pytest.param('If the disposal is excluded, revenue for the fiscal year ended March 31, 2025 was RMB996,347 million.', id='conditional'),
     pytest.param('Revenue for the fiscal year ended March 31, 2025 was RMB996,347 million, up 5.9% from the prior year.', id='comparative'),
     pytest.param('Revenue for the fiscal year ended March 31, 2025 was RMB996,347 million, driven by cloud growth.', id='causal'),
@@ -439,6 +443,30 @@ async def test_unsupported_claim_shapes_abstain(monkeypatch, answer):
     complete = await _complete(monkeypatch, answer)
     assert complete['answer'] == answer
     assert complete['citations'] == [] and complete['grounded'] == 0
+
+
+# The `quotation` shape (decision F, #1029). The repair never certifies a quotation, so a quote that
+# IS the viewed filing's text publishes byte-identical and uncited. The same quote absent from the
+# filing's text is a demonstrably unsupported quotation: the whole answer is withheld, not repaired.
+QUOTED = 'The filing states "Revenue for the fiscal year ended March 31, 2025 was RMB996,347 million."'
+
+
+@pytest.mark.asyncio
+async def test_quoted_claim_shape_abstains(monkeypatch):
+    view = filing(content_cache=SimpleNamespace(critical_excerpt=UNCITED, markdown_content=None))
+    complete = await _complete(monkeypatch, QUOTED, view=view)
+    assert complete['answer'] == QUOTED
+    assert complete['citations'] == [] and complete['grounded'] == 0
+
+
+@pytest.mark.asyncio
+async def test_quotation_absent_from_the_filing_is_withheld(monkeypatch, caplog):
+    with caplog.at_level(logging.WARNING, logger=service.logger.name):
+        events = await _events(monkeypatch, QUOTED)
+    assert events[-1] == {'type': 'error', 'message': service._PUBLICATION_ERROR}
+    assert all(e['type'] in ('progress', 'activity', 'error') for e in events)
+    assert 'Unsupported prose quotation: quotation_not_in_source' in caplog.text
+    assert 'RMB996,347' not in caplog.text
 
 
 # Evidence the filing does not actually supply. The sentence is the qualifying one every time, so
