@@ -1,3 +1,8 @@
+## 2026-10-02 — returns current-period guard (`summary-2026-09-u`; item-B follow-up)
+
+- [x] The §4 returns line omits a ratio whose current point is not net income's current period (zero, negative or missing equity at the report date promoted an older ROE point that read as the filing's own); an aligned ROA still renders. Render-only: grounding identical in 70 of 70 hosted-cohort replays and 6 of 6 probes, 0 of 64 cohort lines change, stamp `u` schedules no regeneration, and there is no drain of the 47 census filings. [Evidence](review-evidence/returns-current-period-guard-2026-10-02/README.md).
+- [ ] Optional, zero spend: run the read-only `class7_snapshot_check.sql` for the one class-7 filing with a summary; any clear/regenerate of it is a separate founder decision.
+
 ## 2026-10-01 — bounded SDK transport-attempt evidence
 
 - Characterized the real pinned edgartools 5.58.0 accession resolver with invented responses and no-network guards: recent lookup 1 attempt / 1 SDK grant; two-shard history 3/3; transport-error and HTTP429 cases 2/2 each, both propagating without retry. No application limiter wait entries were observed in these cases.
