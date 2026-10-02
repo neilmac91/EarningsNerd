@@ -833,3 +833,11 @@ Under the founder's delegation, Codex decided items A–M on #1029. This session
   - Nits: the two README nits are fixed in **`583b9f8a`** (docs only). Two non-regression limitations are now documented: the undated-prior grounding/render difference and the undated current point (follow-up).
   - The condition-2 hosted-line revalidation script is being built and dry-run against the retained r report.
   - B's push is armed for 10:00Z, off-peak.
+- 08:45Z — **Citation-excerpt fix built offline** on local `claude/citation-whole-excerpt` (head `a8a2d5a7`, on main `f6e79a50`, 7 files; not pushed).
+  - **Shared helper:** a new `verify_whole_excerpt_in_text`. The one-pair wrapping strip moves from `forward_quote_gate` into `provenance_service`, and the gate's behavior is unchanged.
+  - **Copilot:** `_verify_citations` uses whole-excerpt verification. A quoted `section_ref` (`"` `“` `”`) is treated as unverified. The fragment URL is built from the whole excerpt.
+  - **Forward quotes:** whole-quote read-time check, with fallback to the existing unverified presentation.
+  - **Unchanged:** `build_evidence`, `verify_excerpt_in_text` and `extract_quoted_span` are byte-unchanged. No scorer, flag or threshold change. The RUNBOOK change is the "Excerpt verification" row only.
+  - **Tests:** the regression passes and the xfail marker is removed. There are new controls and an AST gate. Full gate: **5529 passed**. Mutations M1–M8 are all killed.
+  - **Replay:** 0 verdict changes and 9/9 identical URLs on Copilot citations. Forward quotes: 175/178 verified, the same as main.
+  - **Next:** independent exact-head review running in `wt/cite-rev`. The PR follows B and K.
