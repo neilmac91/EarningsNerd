@@ -7,7 +7,8 @@ This change separates OpenAI 3.19.2 → 3.20.0, PyJWT 2.15.0 → 2.15.1 and Sent
 update and its missing filing characters. Anthropic is handled separately.
 
 Original base: `5525a91db3de9ce554b6015ed51d6817666c7bc3`; current main
-`153cfc4612b790713e1aebbec9174479c373468f` was subsequently merged before the final full gate. Dependency source commit:
+`153cfc4612b790713e1aebbec9174479c373468f` was subsequently merged, followed by
+`efdc33f42bbf95a70ceb78d0c6615d59788800df` (#1065), before the final full gate. Dependency source commit:
 `92aab7ae2109f2f31669fdc7c68e577842e8b58e`. Evidence-only additions follow that commit.
 No application, workflow, contract test, prompt, model, baseline or production flag changed.
 
@@ -87,3 +88,13 @@ requirements. This evidence is offline compatibility, not live model quality or 
 No provider call, workflow dispatch, production operation or production flag change occurred
 while preparing this local successor. Every backend merge still requires the next deployment's
 migration receipt and health verification before another backend merge.
+
+## Resumed local-runner correction
+
+The [resumed gate on main 153cfc46](resumption-host-library-failure.txt) had **5595 passed,
+2 failed, 2 deselected, 0 skipped**: the sanitized runner omitted the existing Homebrew native
+library directory, so WeasyPrint could not load libgobject. Restoring
+`DYLD_FALLBACK_LIBRARY_PATH=/opt/homebrew/lib` fixed [both exact PDF tests](pdf-host-library-restored.txt):
+**2 passed**. This probe used the runtime successor after integrating #1065; the same native
+libraries serve both isolated environments. No dependency, application or test change was used
+to bypass the failure. The complete gates are repeated with the restored path on the new base.
