@@ -22,5 +22,5 @@ goes away.
 composes classes") runs Tailwind's own extractor over every unscanned app module and fails on any
 hyphenated or variant class it finds. It also builds production CSS and checks that every
 financialTone class is emitted. With the `lib/` glob removed, both tests fail. With the glob
-restored, the build emits exactly 11 more rules: the 8 chip border/tint classes plus the 3
-`text-*-dark` classes in `directionTextOnDark`.
+restored, the build emitted exactly 11 more rules: the 8 chip border/tint classes plus the 3
+`text-*-dark` classes in `directionTextOnDark`, an export with no consumer that was then removed.
