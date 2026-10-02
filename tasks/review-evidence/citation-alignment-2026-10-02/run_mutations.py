@@ -35,6 +35,10 @@ MUTATIONS = {
         (SERVICE, "_QUOTE_MARK_RE = re.compile('[\"\\uff02\\u201c\\u201d\\u201e\\u201f]')",
          "_QUOTE_MARK_RE = re.compile('[\"\\uff02\\u201c\\u201d\\u201e\\u201f\\u2033]')"),
     ]),
+    "M5 scorer trusts the published verified flag instead of the label": (
+        "test_citation_faithfulness_matches_copilot_publication", [
+            (SCORER, " or section_label_is_quoted(label):", ' or not cite.get("verified", True):'),
+        ]),
 }
 
 

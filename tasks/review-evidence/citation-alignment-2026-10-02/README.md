@@ -84,8 +84,9 @@ Each mutation runs `test_copilot.py`, `test_copilot_evals.py`, `test_copilot_liv
 | M2: scorer drops the label clause | `test_citation_faithfulness_matches_copilot_publication` | 1 (quoted label) |
 | M3: `section_label_is_quoted` narrowed back to `"` `“` `”` | `test_section_ref_rule_withholds_exactly_decision_f_marks` | 4 (the gate, plus the U+FF02, U+201E and U+201F withhold cases) |
 | M4: the predicate on its own six-mark literal while `_QUOTE_MARK_RE` gains U+2033 | `test_section_ref_rule_withholds_exactly_decision_f_marks` | 2 (the gate, plus the `″` case of `test_other_quotation_forms_are_a_decided_limit`, since F itself widened) |
+| M5: the scorer trusts the citation's `verified` flag instead of checking the label | `test_citation_faithfulness_matches_copilot_publication` | 1 (quoted label; the gate pins `verified` True, as on every published citation) |
 
-Unmutated and restored runs: 953 passed. `git status` of `backend/` is clean after the restore.
+Unmutated and restored runs: 953 passed. M5 is the reviewer mutation R8 from the second review round; it survived the parity gate at `2636b5f8`, where the gate passed the product's own `verified` verdict into the scorer. `git status` of `backend/` is clean after the restore.
 
 ## Gate
 
