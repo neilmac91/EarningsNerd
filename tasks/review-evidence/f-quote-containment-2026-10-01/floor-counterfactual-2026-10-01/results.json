@@ -1,0 +1,64 @@
+{
+ "runs": 13,
+ "rows": 231,
+ "audit_flagged": 21,
+ "floors": {
+  "24": {
+   "agree": 20,
+   "rule_only": 0,
+   "audit_only": 1,
+   "audit_only_rows": [
+    [
+     "36870677818",
+     "AAPL",
+     "sales-gross-profit-2025",
+     2
+    ]
+   ],
+   "main_code_withheld_rows": 3,
+   "main_code_rows": 126,
+   "main_code_runs_with_withheld": 3,
+   "main_code_runs": 7
+  },
+  "20": {
+   "agree": 21,
+   "rule_only": 0,
+   "audit_only": 0,
+   "audit_only_rows": [],
+   "main_code_withheld_rows": 4,
+   "main_code_rows": 126,
+   "main_code_runs_with_withheld": 4,
+   "main_code_runs": 7
+  },
+  "16": {
+   "agree": 21,
+   "rule_only": 0,
+   "audit_only": 0,
+   "audit_only_rows": [],
+   "main_code_withheld_rows": 4,
+   "main_code_rows": 126,
+   "main_code_runs_with_withheld": 4,
+   "main_code_runs": 7
+  },
+  "12": {
+   "agree": 21,
+   "rule_only": 0,
+   "audit_only": 0,
+   "audit_only_rows": [],
+   "main_code_withheld_rows": 4,
+   "main_code_rows": 126,
+   "main_code_runs_with_withheld": 4,
+   "main_code_runs": 7
+  },
+  "8": {
+   "agree": 21,
+   "rule_only": 0,
+   "audit_only": 0,
+   "audit_only_rows": [],
+   "main_code_withheld_rows": 4,
+   "main_code_rows": 126,
+   "main_code_runs_with_withheld": 4,
+   "main_code_runs": 7
+  }
+ }
+}
