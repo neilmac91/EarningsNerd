@@ -164,8 +164,9 @@ function BlockView({ block }: { block: RenderedBlock }) {
   switch (block.kind) {
     case 'paragraph':
       return block.text ? (
-        // Justified body copy with hyphenation, matching the .markdown-body prose treatment (T1.7).
-        <p className="text-justify leading-relaxed text-text-secondary-light [hyphens:auto] dark:text-text-secondary-dark">
+        // Justified body copy with hyphenation at ≥sm only, matching the .markdown-body prose treatment
+        // (T1.7; v3 Q3 keeps phone-width panes ragged-right).
+        <p className="leading-relaxed text-text-secondary-light dark:text-text-secondary-dark sm:text-justify sm:[hyphens:auto]">
           {block.text}
         </p>
       ) : null

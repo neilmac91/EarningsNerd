@@ -110,7 +110,7 @@ describe('PricingPage', () => {
     mockUseFeatureFlagVariantKey.mockReturnValue(undefined) // default arm = $39 control
   })
 
-  it('treats a trialing user as current-plan: disabled "Current Plan (trial)" + no billing toggle', async () => {
+  it('treats a trialing user as current-plan: disabled "Current plan (trial)" + no billing toggle', async () => {
     // INVERTED from the original reverse-trial pin (staff review, PR #619): a card-required
     // Stripe trial IS a live subscription that auto-charges at trial end, so an enabled buy CTA
     // here invited a SECOND checkout — double-billing plus a webhook hazard when the orphaned
@@ -152,7 +152,7 @@ describe('PricingPage', () => {
     expect(mockCheckoutStarted).toHaveBeenCalledWith('pro', 390, 'yearly', 'control')
   })
 
-  it('treats a paid (active, non-trial) subscriber as Current Plan with no toggle', async () => {
+  it('treats a paid (active, non-trial) subscriber as Current plan with no toggle', async () => {
     mockGetSubscriptionStatus.mockResolvedValue({
       ...baseSub,
       is_pro: true,
@@ -164,18 +164,18 @@ describe('PricingPage', () => {
     renderPricing()
 
     // Toggle removal is the subscription-driven change; wait for it so we don't assert mid-load
-    // (the Free card renders its own disabled "Current Plan" before the subscription resolves).
+    // (the Free card renders its own disabled "Current plan" before the subscription resolves).
     await waitFor(() =>
       expect(screen.queryByRole('switch', { name: /billing cycle/i })).not.toBeInTheDocument()
     )
     // A paid subscriber has nothing to buy — no enabled upgrade/subscribe CTA anywhere.
     expect(screen.queryByRole('button', { name: /subscribe to pro|upgrade to pro/i })).not.toBeInTheDocument()
-    // "Current Plan" appears exactly once (the Pro card) — never on the Free card too.
+    // "Current plan" appears exactly once (the Pro card) — never on the Free card too.
     const currentPlanButtons = screen.getAllByRole('button', { name: /current plan/i })
     expect(currentPlanButtons).toHaveLength(1)
     expect(currentPlanButtons[0]).toBeDisabled()
-    // The Free card is not the user's plan, so it stays the disabled "Get Started Free".
-    const freeButton = screen.getByRole('button', { name: /get started free/i })
+    // The Free card is not the user's plan, so it stays the disabled "Create free account".
+    const freeButton = screen.getByRole('button', { name: /create free account/i })
     expect(freeButton).toBeDisabled()
   })
 
@@ -184,7 +184,7 @@ describe('PricingPage', () => {
 
     renderPricing()
 
-    // Free card shows the authenticated "Current Plan" label, not a perpetual spinner.
+    // Free card shows the authenticated "Current plan" label, not a perpetual spinner.
     await screen.findByText(/current plan/i)
     expect(screen.queryByText(/processing/i)).not.toBeInTheDocument()
   })
@@ -216,7 +216,7 @@ describe('PricingPage', () => {
     mockGetSubscriptionStatus.mockResolvedValue({ ...baseSub })
     renderPricing()
 
-    // Wait until auth resolves (the Free card flips to "Current Plan") — otherwise the click is
+    // Wait until auth resolves (the Free card flips to "Current plan") — otherwise the click is
     // treated as a guest and redirects to /register instead of starting checkout.
     await screen.findByRole('button', { name: /current plan/i })
     fireEvent.click(screen.getByRole('button', { name: /upgrade to pro/i }))
@@ -265,7 +265,7 @@ describe('PricingPage', () => {
     const unavailable = screen.getAllByRole('button', { name: /plan unavailable/i })
     expect(unavailable).toHaveLength(2)
     unavailable.forEach((button) => expect(button).toBeDisabled())
-    expect(screen.queryByRole('button', { name: /current plan|get started free/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /current plan|create free account/i })).not.toBeInTheDocument()
     invokeCard('free', 'Plan unavailable')
     invokeCard('pro', 'Plan unavailable')
     await Promise.resolve()
@@ -336,7 +336,7 @@ describe('PricingPage', () => {
     expect(current).toHaveLength(1)
     if (isPro) {
       expect(screen.queryByRole('button', { name: /upgrade to pro/i })).not.toBeInTheDocument()
-      invokeCard('pro', 'Current Plan')
+      invokeCard('pro', 'Current plan')
       await Promise.resolve()
       noCheckoutSideEffects()
     } else {
@@ -354,7 +354,7 @@ describe('PricingPage', () => {
     mockGetCurrentUserSafe.mockResolvedValue(null)
     renderPricing()
 
-    const free = await screen.findByRole('button', { name: /get started free/i })
+    const free = await screen.findByRole('button', { name: /create free account/i })
     expect(free).toBeEnabled()
     fireEvent.click(free)
     expect(mockPush).toHaveBeenCalledWith('/register')
