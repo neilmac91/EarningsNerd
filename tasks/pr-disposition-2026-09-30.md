@@ -846,3 +846,15 @@ Under the founder's delegation, Codex decided items A–M on #1029. This session
   - **Hosted copies:** the field and the Markdown line both equal the re-render, 70 of 70.
   - **Negative controls:** 21 of 21 caught.
   - It will run on B's hosted eval-baseline artifact after the 10:00Z push.
+- 09:20Z — **Citation-fix exact-head review of `a8a2d5a7`: APPROVE.** No blockers.
+  - **Probes:** the adversarial bypass probes all stay unverified. A 50k-case property check confirms the verified needle covers everything displayed.
+  - **Decision F:** prose-quotation containment is AST-identical.
+  - **Shared helpers:** `strip_wrapping_quotes` moved with identical behavior (200k-string differential fuzz). `build_evidence`, `extract_quoted_span` and `verify_excerpt_in_text` are AST-identical.
+  - **Replay:** 140/140 summaries byte-equal across Risks, takeaways, commentary, footnotes and forward quotes; 178/178 forward-quote dicts equal main's; 9/9 Copilot citations unchanged.
+  - **Mutations:** 16 of 16 killed. Full gate: **5529**.
+  - **Should-fix, outside the approved boundary:** `evals/copilot_scorers.py:65` still uses the prefix-tolerant `verify_excerpt_in_text`. The product can now publish a verified excerpt that the scorer marks unverified, which is a CITATION hard gate. Example: the WMT `("fiscal 2027")` shape in a Copilot citation, or a single-quote-wrapped excerpt. 0 of 9 retained citations are affected. Repointing the scorer is a scorer change and needs explicit founder approval. **Asked.**
+  - **Nits:**
+    - the `section_ref` mark set excludes `„ ‟ ＂`, F's wider set; widening it is the founder's call;
+    - the fragment URL may miss a highlight in a narrow straight-versus-curly case;
+    - RUNBOOK "Publication admission" wording is ambiguous.
+  - **Release:** the PR follows B and K.
