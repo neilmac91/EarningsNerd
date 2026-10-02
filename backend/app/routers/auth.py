@@ -924,6 +924,7 @@ async def change_password(
         LOGIN_LIMITER,
         f"change-password:{current_user.id}",
         error_detail="Too many password change attempts. Please try again later.",
+        include_client_ip=False,  # per-account cap: an IP pool must not multiply it
     )
     if current_user.hashed_password:
         ok = await asyncio.to_thread(

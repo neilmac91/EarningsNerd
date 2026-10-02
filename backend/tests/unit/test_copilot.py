@@ -565,7 +565,7 @@ async def test_service_publication_boundary(client, monkeypatch, case):
         assert len(terminal) == 1
         if expected is None:
             assert terminal == [{"type": "error", "message": copilot_service._PUBLICATION_ERROR}]
-            assert _qa_state(uid) == ([], 0, 2)
+            assert _qa_state(uid) == ([], 0, 2)  # the unit counted at provider start is refunded
             assert completed_cost == []
         else:
             complete = terminal[0]
@@ -589,7 +589,8 @@ async def test_service_publication_boundary(client, monkeypatch, case):
         }
         assert all(event["type"] != "token" for event in events)
         assert "MODEL PRIVATE" not in json.dumps(events)
-        assert pending_quota == (0, 2)
+        # Metered when the provider stream started, before any verdict (Pro: monthly; Free: lifetime).
+        assert pending_quota == ((1, 2) if is_pro else (0, 3))
 
 
 @pytest.mark.unit
@@ -1282,7 +1283,8 @@ async def test_stream_chat_with_tools_yields_error_sentinel_on_failure():
 
 @pytest.mark.requires_db
 def test_endpoint_does_not_increment_qa_on_error(client, monkeypatch):
-    """A generation that fails (only an ``error`` event, no ``complete``) must NOT consume quota."""
+    """A generation that fails (only an ``error`` event, no ``complete``) must NOT consume quota:
+    the unit counted when the provider stream started is refunded on the error event."""
     async def _fake_answer(*, filing, question, history=None):
         yield {"type": "progress", "stage": "reading"}
         yield {"type": "error", "message": "model down"}
@@ -1889,9 +1891,11 @@ async def test_service_complete_event_carries_coverage_counters(monkeypatch):
 #
 # The endpoint's gate and cap checks are plain reads, so concurrent questions could all pass them.
 # reserve_qa_use (Pro, monthly `qa`) and reserve_qa_taste_use (Free, LIFETIME `qa_taste`) are the
-# serialized decisions: a unit is held under a lease while the answer streams, converted in the
-# metering commit on `complete`, and released on an error event, a raised pipeline error or a
-# metering failure. PostgreSQL concurrency lives in tests/integration/test_usage_counter_transactions.py.
+# serialized decisions: a unit is held under a lease until the provider stream starts (the first
+# non-error event), when the metering commit converts it into a counted unit. A provider-side
+# failure after that (an error event, a raised pipeline error) refunds the unit; a client
+# disconnect does not. A metering failure or an error before the provider started releases the
+# lease. PostgreSQL concurrency lives in tests/integration/test_usage_counter_transactions.py.
 
 @pytest.fixture(autouse=True)
 def _fresh_ask_limiter(monkeypatch):
@@ -1938,14 +1942,16 @@ def _insert_lease(uid, kind, month, *, expired=False):
 
 
 @pytest.mark.requires_db
-def test_endpoint_pro_lease_is_held_while_answering_and_converted_on_complete(client, monkeypatch):
+def test_endpoint_pro_lease_is_converted_when_the_provider_stream_starts(client, monkeypatch):
     import app.routers.summaries as summaries_router
     from app.services.subscription_service import QA_RESERVATION_KIND, get_current_month
 
     seen = []
 
     async def _observing_answer(*, filing, question, history=None):
-        seen.append(_qa_state(_observing_answer.uid))
+        seen.append(_qa_state(_observing_answer.uid))  # before the provider is called
+        yield {"type": "progress", "stage": "reading"}  # the event right before the model call
+        seen.append(_qa_state(_observing_answer.uid))  # while the provider streams
         yield {"type": "complete", "answer": "ok", "citations": [], "grounded": 0, "kind": "answer"}
 
     monkeypatch.setattr(summaries_router, "answer_filing_question", _observing_answer)
@@ -1953,26 +1959,47 @@ def test_endpoint_pro_lease_is_held_while_answering_and_converted_on_complete(cl
         _observing_answer.uid = uid
         resp = client.post(f"/api/summaries/filing/{fid}/ask-stream", json={"question": "Q?"})
         assert resp.status_code == 200
-        assert seen == [([(QA_RESERVATION_KIND, get_current_month())], 0, 0)]  # held, nothing counted
-        assert _qa_state(uid) == ([], 1, 0)  # converted: one counted unit, no lease left
+        assert seen == [
+            ([(QA_RESERVATION_KIND, get_current_month())], 0, 0),  # held until the provider starts
+            ([], 1, 0),  # converted at provider start: one counted unit, no lease left
+        ]
+        assert _qa_state(uid) == ([], 1, 0)  # complete settles it
 
 
 @pytest.mark.requires_db
-def test_endpoint_error_event_releases_the_pro_lease(client, monkeypatch):
+def test_endpoint_error_event_after_the_provider_started_refunds_the_unit(client, monkeypatch):
     import app.routers.summaries as summaries_router
+
+    seen = []
 
     async def _failing_answer(*, filing, question, history=None):
         yield {"type": "progress", "stage": "reading"}
+        seen.append(_qa_state(_failing_answer.uid))
         yield {"type": "error", "message": "model down"}
 
     monkeypatch.setattr(summaries_router, "answer_filing_question", _failing_answer)
     with _as_user(is_pro=True) as uid, _seed_filing() as fid:
+        _failing_answer.uid = uid
         assert client.post(f"/api/summaries/filing/{fid}/ask-stream", json={"question": "Q?"}).status_code == 200
-        assert _qa_state(uid) == ([], 0, 0)
+        assert seen == [([], 1, 0)]  # counted when the provider started
+        assert _qa_state(uid) == ([], 0, 0)  # the provider-side failure refunded it
 
 
 @pytest.mark.requires_db
-def test_endpoint_raised_pipeline_error_releases_the_lease(client, monkeypatch):
+def test_endpoint_error_event_before_the_provider_started_releases_the_lease(client, monkeypatch):
+    import app.routers.summaries as summaries_router
+
+    async def _failing_answer(*, filing, question, history=None):
+        yield {"type": "error", "message": "could not build the prompt"}
+
+    monkeypatch.setattr(summaries_router, "answer_filing_question", _failing_answer)
+    with _as_user(is_pro=True) as uid, _seed_filing() as fid:
+        assert client.post(f"/api/summaries/filing/{fid}/ask-stream", json={"question": "Q?"}).status_code == 200
+        assert _qa_state(uid) == ([], 0, 0)  # never metered; the lease was released
+
+
+@pytest.mark.requires_db
+def test_endpoint_raised_pipeline_error_refunds_the_unit(client, monkeypatch):
     import app.routers.summaries as summaries_router
 
     async def _exploding_answer(*, filing, question, history=None):
@@ -1983,7 +2010,7 @@ def test_endpoint_raised_pipeline_error_releases_the_lease(client, monkeypatch):
     with _as_user(is_pro=True) as uid, _seed_filing() as fid:
         with pytest.raises(RuntimeError):
             client.post(f"/api/summaries/filing/{fid}/ask-stream", json={"question": "Q?"})
-        assert _qa_state(uid) == ([], 0, 0)  # released now, not after the lease TTL
+        assert _qa_state(uid) == ([], 0, 0)  # counted at provider start, refunded on the raised failure
 
 
 @pytest.mark.requires_db
@@ -2023,13 +2050,18 @@ def test_endpoint_free_taste_lease_is_lifetime_scoped_and_converts_to_the_lifeti
 
     async def _observing_answer(*, filing, question, history=None):
         seen.append(_qa_state(_observing_answer.uid))
+        yield {"type": "progress", "stage": "reading"}
+        seen.append(_qa_state(_observing_answer.uid))
         yield {"type": "complete", "answer": "ok", "citations": [], "grounded": 0, "kind": "answer"}
 
     monkeypatch.setattr(summaries_router, "answer_filing_question", _observing_answer)
     with _as_user(is_pro=False, free_taste_used=1) as uid, _seed_filing() as fid:
         _observing_answer.uid = uid
         assert client.post(f"/api/summaries/filing/{fid}/ask-stream", json={"question": "Q?"}).status_code == 200
-        assert seen == [([(QA_TASTE_RESERVATION_KIND, LIFETIME_SCOPE)], 0, 1)]
+        assert seen == [
+            ([(QA_TASTE_RESERVATION_KIND, LIFETIME_SCOPE)], 0, 1),  # held until the provider starts
+            ([], 0, 2),  # converted at provider start into the lifetime counter
+        ]
         assert _qa_state(uid) == ([], 0, 2)  # lifetime counter 1 → 2, monthly cap untouched
 
 
@@ -2107,8 +2139,10 @@ def _wire_events(sent):
 
 @pytest.mark.requires_db
 @pytest.mark.asyncio
-async def test_endpoint_client_disconnect_mid_answer_releases_the_lease(client, monkeypatch):
-    """Disconnect while the real service buffers prose closes the upstream and releases quota."""
+async def test_endpoint_client_disconnect_mid_answer_keeps_the_counted_unit(client, monkeypatch):
+    """Disconnect while the real service buffers prose closes the upstream but keeps the unit
+    counted when the provider stream started: the provider bill accrued, and a refund here would
+    let a client sample answers for free by leaving before ``complete``."""
     streaming, closed = asyncio.Event(), asyncio.Event()
 
     async def _slow_stream(*_args, **_kwargs):
@@ -2129,7 +2163,7 @@ async def test_endpoint_client_disconnect_mid_answer_releases_the_lease(client, 
         assert sent[0]["status"] == 200
         assert closed.is_set()
         assert all(event["type"] == "progress" for event in _wire_events(sent))
-        assert _qa_state(uid) == ([], 0, 2)
+        assert _qa_state(uid) == ([], 0, 3)  # no lease left; the unit stays counted
 
 
 @pytest.mark.requires_db

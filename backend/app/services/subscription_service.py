@@ -251,6 +251,44 @@ def release_reservation(token: Optional[str], db: Session) -> None:
     db.commit()
 
 
+def _refund_monthly_counter(user_id: int, month: str, db: Session, column: InstrumentedAttribute) -> None:
+    """Give one counted unit back on the bucket ``_increment_monthly_counter`` selected (floor 0).
+
+    A generation is counted when its provider call starts; this is the inverse for the cases that
+    did not serve the user (a provider-side failure, or a partial verdict under the quality gate).
+    SQL arithmetic with a ``> 0`` guard, so a concurrent increment is never lost and the counter
+    never goes negative; a missing bucket is a no-op. Commits.
+    """
+    _set_transaction_lock_timeout(db)
+    selected = db.query(UserUsage.id).filter(UserUsage.user_id == user_id, UserUsage.month == month).first()
+    if selected is None:
+        return
+    db.query(UserUsage).filter(UserUsage.id == selected.id, column > 0).update(
+        {column: column - 1, UserUsage.updated_at: datetime.now(timezone.utc)},
+        synchronize_session=False,
+    )
+    db.commit()
+
+
+def refund_summary_use(user_id: int, month: str, db: Session) -> None:
+    """Give back one summary unit counted in ``month`` when the provider call started."""
+    _refund_monthly_counter(user_id, month, db, UserUsage.summary_count)
+
+
+def refund_qa_use(user_id: int, month: str, db: Session) -> None:
+    """Give back one Pro Copilot unit counted in ``month`` when the provider stream started."""
+    _refund_monthly_counter(user_id, month, db, UserUsage.qa_count)
+
+
+def refund_copilot_free_taste(user_id: int, db: Session) -> None:
+    """Give back one lifetime free-taste unit (floor 0; atomic SQL decrement; commits)."""
+    db.query(User).filter(User.id == user_id, User.copilot_free_taste_used > 0).update(
+        {User.copilot_free_taste_used: User.copilot_free_taste_used - 1},
+        synchronize_session=False,
+    )
+    db.commit()
+
+
 def get_user_qa_count(user_id: int, month: str, db: Session) -> int:
     """Get user's Copilot Q&A question count for the given month."""
     usage = db.query(UserUsage).filter(

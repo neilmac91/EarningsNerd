@@ -57,6 +57,7 @@ from app.services.subscription_service import (
     increment_user_usage,
     convert_reservation,
     get_current_month,
+    refund_summary_use,
     release_reservation,
     reserve_summary_use,
 )
@@ -414,11 +415,32 @@ async def stream_filing_summary(
     generation_semaphore: Optional[asyncio.Semaphore] = None
     generation_slot_held = False
     usage_reservation_token: Optional[str] = None
+    # The month the admission lease was counted in when the provider task started; None once the
+    # unit is settled (summary persisted) or refunded, so a refund can happen at most once.
+    charged_month: Optional[str] = None
     summary_task: Optional[asyncio.Task] = None
 
     async def run_sync_db(func, *args, **kwargs):
         """Run a complete, session-owning DB unit in the thread pool."""
         return await run_in_threadpool(func, *args, **kwargs)
+
+    async def refund_charge(reason: str) -> None:
+        """Give the unit counted at provider start back (at most once). Called only from the
+        provider-failure and partial-verdict paths — never from cancellation (client disconnect)."""
+        nonlocal charged_month
+        if charged_month is None:
+            return
+        month, charged_month = charged_month, None
+
+        def refund_sync() -> None:
+            with database.SessionLocal() as session:
+                refund_summary_use(user_id, month, session)
+
+        try:
+            await run_sync_db(refund_sync)
+            logger.info(f"[stream:{filing_id}] Refunded the usage unit counted at provider start ({reason})")
+        except Exception as refund_error:  # the unit stays counted; never mask the outcome
+            logger.warning(f"[stream:{filing_id}] Could not refund usage unit ({reason}): {refund_error}")
 
     def record_progress_sync(*args, **kwargs) -> None:
         # record_progress refreshes its returned row after committing. Close that read
@@ -926,6 +948,38 @@ async def stream_filing_summary(
                 sixk_class, sixk_class_audit = sixk.sixk_class, sixk.as_audit()
             if request_evidence is not None:
                 request_evidence.summary_service_invoked = True
+
+            # Metering point: a held admission lease becomes a counted unit HERE, as the provider
+            # call starts — not after persistence. The provider bill accrues from this moment and
+            # section previews may stream before the complete event, so a client that disconnects
+            # mid-generation has consumed the unit; the pipeline's cancellation path (CancelledError /
+            # GeneratorExit) deliberately never refunds it. The unit is refunded only for outcomes the
+            # client cannot induce: a provider-side failure (the task raises, returns an error payload
+            # or the pipeline times out) and, under AI_QUALITY_GATE, a partial verdict — so an honest
+            # partial still costs nothing. Callers without a lease (the background drain with
+            # current_user=None, and uncapped Pro) keep the completion-time count below. Charging in
+            # the thread pool BEFORE the task is created means a failed charge (which raises into the
+            # generic handler) never leaves an unmetered provider call running.
+            if usage_reservation_token is not None:
+                token_to_convert = usage_reservation_token
+
+                def charge_usage_sync() -> Optional[str]:
+                    with database.SessionLocal() as session:
+                        user = session.query(User).filter(User.id == user_id).first()
+                        if user is None:
+                            return None  # no account row: nothing to count (the lease is released in `finally`)
+                        # Convert the reservation: its delete rides in the increment's commit, so the
+                        # unit is counted exactly once and never both held and counted, in the month
+                        # whose quota admitted it (a lease can straddle a rollover).
+                        month = convert_reservation(token_to_convert, session) or get_current_month()
+                        increment_user_usage(user.id, month, session)
+                        return month
+
+                charged_month = await run_sync_db(charge_usage_sync)
+                if charged_month is not None:
+                    usage_reservation_token = None
+                    mark_stage("usage_tracking")
+
             summary_task = asyncio.create_task(openai_service.summarize_filing(
                 filing_text,
                 company_name,
@@ -1015,6 +1069,7 @@ async def stream_filing_summary(
             summary_status = summary_payload.get("status", "complete")
             if summary_status == "error":
                 error_message = summary_payload.get("message", "Error generating summary")
+                await refund_charge("provider returned an error payload")
                 # Persist the error state so the /progress endpoint reports a retryable error
                 # immediately, instead of leaving "summarizing" to age out via the stale check.
                 try:
@@ -1184,17 +1239,19 @@ async def stream_filing_summary(
                     filing_id,
                 )
 
-            # S4 quality gate (flagged, default off): the summary is ALWAYS persisted, so the
-            # streamed result doesn't vanish when the client refetches and isn't regenerated from
-            # scratch on revisit. When a result is assessed "partial", the gate instead skips
-            # charging the user's monthly quota (they weren't served a full result); the UI
-            # surfaces it honestly via the quality badge + one-click Regenerate.
+            # S4 quality gate: the summary is ALWAYS persisted, so the streamed result doesn't
+            # vanish when the client refetches and isn't regenerated from scratch on revisit. When
+            # a result is assessed "partial", the user is not charged for it (they weren't served a
+            # full result): the unit counted at provider start is refunded, and a caller without a
+            # lease skips the completion-time count. The UI surfaces it honestly via the quality
+            # badge + one-click Regenerate.
             count_usage = not (settings.AI_QUALITY_GATE and quality["tier"] == "partial")
             if not count_usage:
                 logger.info(
                     f"[stream:{filing_id}] Quality gate: tier=partial, not charging usage "
                     f"(reasons: {quality['reasons']})"
                 )
+                await refund_charge("partial verdict")
 
             # DB OP: Persist summary
             def save_summary_sync():
@@ -1289,21 +1346,21 @@ async def stream_filing_summary(
 
             mark_stage("persist_summary")
 
-            if user_id and count_usage:
+            if charged_month is not None:
+                # The unit counted at provider start is settled by the persisted summary: no later
+                # failure refunds it.
+                charged_month = None
+            elif user_id and count_usage:
+                # No lease was held (background drain, uncapped Pro): the historical
+                # completion-time count, full results only.
                 def track_usage_sync():
                     with database.SessionLocal() as session:
                         user = session.query(User).filter(User.id == user_id).first()
                         if user:
-                            # Convert the reservation: its delete rides in the increment's commit,
-                            # so the unit is counted exactly once and never both held and counted,
-                            # in the month whose quota admitted it (a lease can straddle a rollover).
-                            month = convert_reservation(usage_reservation_token, session) or get_current_month()
-                            increment_user_usage(user.id, month, session)
+                            increment_user_usage(user.id, get_current_month(), session)
 
                 await run_sync_db(track_usage_sync)
-                usage_reservation_token = None
-
-            mark_stage("usage_tracking")
+                mark_stage("usage_tracking")
 
             # DB OP: Record complete
             await run_sync_db(record_progress_sync, filing_id, "completed")
@@ -1337,6 +1394,7 @@ async def stream_filing_summary(
             request_evidence.reason = "pipeline_timeout"
         # Pipeline hard timeout reached
         logger.warning(f"[stream:{filing_id}] Pipeline timeout after {PIPELINE_TIMEOUT_SECONDS}s")
+        await refund_charge("pipeline timeout")
         emit_funnel(
             telemetry_distinct_id,
             EVENT_GENERATION_TIMED_OUT,
@@ -1356,8 +1414,11 @@ async def stream_filing_summary(
             logger.error(f"[stream:{filing_id}] Failed to record pipeline timeout error: {e}", exc_info=True)
         yield {'type': 'error', 'message': 'Summary generation timed out. Please try again.'}
     except Exception as e:
+        # CancelledError/GeneratorExit (client disconnect) are BaseExceptions and skip this handler:
+        # the unit counted at provider start is refunded only for a failure the client did not cause.
         logger.error(f"[stream:{filing_id}] Error in streaming summary: {str(e)}", exc_info=True)
         error_msg = str(e)
+        await refund_charge("pipeline failure")
         emit_funnel(
             telemetry_distinct_id,
             EVENT_GENERATION_FAILED,
@@ -1393,8 +1454,9 @@ async def stream_filing_summary(
                 if not summary_task.done():
                     summary_task.cancel()
                 await asyncio.gather(summary_task, return_exceptions=True)
-            # A reservation still held here was neither converted nor released (error, timeout,
-            # disconnect, or an uncounted partial result): give the quota unit back now.
+            # A reservation still held here was never converted (failure or disconnect before the
+            # provider call started, or no account row to count against): give the quota unit back
+            # now. A unit counted at provider start is NOT touched here — see the metering point.
             if usage_reservation_token is not None:
                 token_to_release = usage_reservation_token
                 usage_reservation_token = None

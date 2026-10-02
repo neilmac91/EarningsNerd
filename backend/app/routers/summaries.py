@@ -30,11 +30,14 @@ from app.services.entitlements import get_entitlements, is_pro_user
 from app.services.export_service import export_service
 from app.services.rate_limiter import RateLimiter, enforce_rate_limit
 from app.services.subscription_service import (
+    LIFETIME_SCOPE,
     check_qa_limit,
     convert_reservation,
     get_current_month,
     increment_user_copilot_free_taste,
     increment_user_qa,
+    refund_copilot_free_taste,
+    refund_qa_use,
     release_reservation,
     reserve_qa_taste_use,
     reserve_qa_use,
@@ -53,9 +56,11 @@ from app.services.change_report_service import build_change_report
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
+# Both burst limiters are keyed on the account alone (``include_client_ip=False``): keying on
+# (IP, user) would let one account presenting several client IPs multiply its allowance.
 SUMMARY_LIMITER = RateLimiter(limit=5, window_seconds=60)
 # Copilot Q&A is cheaper per call than a summary but still hits the model — allow a higher
-# burst than summaries while still throttling abuse (per IP, sliding window).
+# burst than summaries while still throttling abuse (per user, sliding window).
 ASK_LIMITER = RateLimiter(limit=10, window_seconds=60)
 
 
@@ -208,13 +213,12 @@ async def generate_summary_stream(
         client_host = request.client.host if request.client else "unknown"
         logger.info(f"[stream:{filing_id}] Incoming stream request from {current_user.id} (IP: {client_host}, force={force})")
 
-        rate_limit_key = f"summary:{current_user.id}"
-
         enforce_rate_limit(
             request,
             SUMMARY_LIMITER,
-            rate_limit_key,
+            f"summary:{current_user.id}",
             error_detail="Too many summary requests. Please try again shortly.",
+            include_client_ip=False,
         )
 
         # Eagerly load content_cache and company relationship to avoid detached session issues
@@ -333,29 +337,45 @@ async def generate_summary_stream(
         raise
 
 
-def _meter_qa_best_effort(user_id: int, is_free_taste: bool = False, token: Optional[str] = None) -> bool:
-    """Meter one answered Copilot question in a fresh DB session (best-effort).
+def _meter_qa_best_effort(user_id: int, is_free_taste: bool = False, token: Optional[str] = None) -> Optional[str]:
+    """Meter one Copilot question in a fresh DB session (best-effort) as its provider stream starts.
 
     Free users (``is_free_taste``) decrement their lifetime free-taste allowance; Pro users
     increment the monthly fair-use ``qa_count``. The admission lease (``token``) is converted in
     the same commit, so a unit is never both held and counted. Called from inside the SSE
     generator, which runs after the request's DB session may already be gone (see
     ``snapshot_filing``), so it opens its own short-lived session. A metering failure must never
-    break the answer stream, so errors are swallowed (and logged); returns whether the lease was
-    converted, so the caller can release it otherwise.
+    break the answer stream, so errors are swallowed (and logged). Returns the scope the unit was
+    counted in (the admitted month, or ``LIFETIME_SCOPE`` for free taste) so a provider-side
+    failure can refund it, or ``None`` when nothing was counted (the caller releases the lease).
     """
     db = SessionLocal()
     try:
         if is_free_taste:
             convert_reservation(token, db)  # lifetime scope: the returned scope is not a month
             increment_user_copilot_free_taste(user_id, db)
-        else:
-            month = convert_reservation(token, db) or get_current_month()
-            increment_user_qa(user_id, month, db)
-        return True
+            return LIFETIME_SCOPE
+        month = convert_reservation(token, db) or get_current_month()
+        increment_user_qa(user_id, month, db)
+        return month
     except Exception:  # noqa: BLE001 — metering must not break the answer stream
         logger.warning("Failed to meter Copilot QA for user %s", user_id, exc_info=True)
-        return False
+        return None
+    finally:
+        db.close()
+
+
+def _refund_qa_best_effort(user_id: int, is_free_taste: bool, scope: str) -> None:
+    """Give back the unit ``_meter_qa_best_effort`` counted in ``scope`` (fresh session; best-effort).
+    Only for a provider-side failure after the stream started — never for a client disconnect."""
+    db = SessionLocal()
+    try:
+        if is_free_taste:
+            refund_copilot_free_taste(user_id, db)
+        else:
+            refund_qa_use(user_id, scope, db)
+    except Exception:  # noqa: BLE001 — never mask the stream outcome
+        logger.warning("Could not refund a Copilot unit for user %s", user_id, exc_info=True)
     finally:
         db.close()
 
@@ -429,13 +449,15 @@ async def ask_filing_stream(
     answer with source-match labels and ``#:~:text=`` deep links. Known failed referenced evidence
     yields an error without draft prose. Excluded from the timeout middleware by the ``*stream*``
     name rule. Metering: Pro counts against the monthly fair-use cap; Free decrements the lifetime
-    free-taste counter — both only on a successful answer.
+    free-taste counter — both when the provider stream starts, refunded on a provider-side failure
+    and never on a client disconnect (see ``event_stream``).
     """
     enforce_rate_limit(
         request,
         ASK_LIMITER,
         f"ask:{current_user.id}",
         error_detail="Too many questions. Please try again shortly.",
+        include_client_ip=False,
     )
 
     filing = db.query(Filing).options(
@@ -478,24 +500,33 @@ async def ask_filing_stream(
     held = {"token": token}  # the admission lease, until converted by metering or released
 
     async def event_stream():
-        # Meter on the first successful completion only: a failed/aborted generation (an ``error``
-        # event, or a client disconnect before completion) must NOT burn the user's fair-use quota.
-        # The not-disclosed path still emits ``complete`` (the model did its job), so it counts.
-        metered = False
+        # Metering point: the unit is counted when the provider stream starts — the first non-error
+        # event, which ``answer_filing_question`` yields right before the model call — not on
+        # completion. The provider bill accrues from there, so a client disconnect after that point
+        # keeps the unit (the cancellation path never refunds). A provider-side failure after the
+        # start (an ``error`` event, or the generator raising) refunds it: the client cannot induce
+        # either, and no answer prose was delivered. An ``error`` before any other event never meters.
+        metered = False  # metering attempted (once, at provider start)
+        charged: Optional[str] = None  # scope the unit was counted in, until settled by `complete` or refunded
         try:
             async for event in answer_filing_question(
                 filing=filing_ctx,
                 question=body.question,
                 history=body.history,
             ):
-                if not metered and event.get("type") == "complete":
+                kind = event.get("type")
+                if not metered and kind != "error":
+                    metered = True
                     # Offload the synchronous DB write to a worker thread so it never blocks the
                     # event loop mid-stream (it opens its own fresh SessionLocal, so it's
                     # thread-safe). Free users decrement the lifetime free-taste counter; Pro the
-                    # monthly fair-use count; either converts the lease in the same commit.
-                    if await run_in_threadpool(_meter_qa_best_effort, user_id, is_free_taste, held["token"]):
+                    # monthly fair-use count; either converts the lease in the same commit. A
+                    # metering failure leaves the lease held, and the `finally` releases it.
+                    charged = await run_in_threadpool(_meter_qa_best_effort, user_id, is_free_taste, held["token"])
+                    if charged is not None:
                         held["token"] = None
-                    metered = True
+                if kind == "complete":
+                    charged = None  # settled: the answer was served
                     # Per-answer inference-cost telemetry (roadmap 2.1) — token usage rides the
                     # complete event; cost is estimated here. Non-blocking + best-effort.
                     _emit_copilot_cost_best_effort(
@@ -505,12 +536,22 @@ async def ask_filing_stream(
                         event,
                         is_free_taste,
                     )
+                elif kind == "error" and charged is not None:
+                    await run_in_threadpool(_refund_qa_best_effort, user_id, is_free_taste, charged)
+                    charged = None
                 yield to_sse(event)
+        except Exception:
+            # A raised failure after the provider started (CancelledError is a BaseException and
+            # skips this handler, so a client disconnect never reaches the refund).
+            if charged is not None:
+                await run_in_threadpool(_refund_qa_best_effort, user_id, is_free_taste, charged)
+            raise
         finally:
-            # Anything still held here was neither converted nor released (error, disconnect,
-            # metering failure): give the unit back now rather than after the lease TTL. On a
-            # client disconnect Starlette cancels this task (ASGI < 2.4, which uvicorn speaks),
-            # and an unshielded await here would be cancelled before the release ran.
+            # A lease still held here was never converted (error before the provider started,
+            # metering failure, disconnect before the first event): give the unit back now rather
+            # than after the lease TTL. On a client disconnect Starlette cancels this task
+            # (ASGI < 2.4, which uvicorn speaks), and an unshielded await here would be cancelled
+            # before the release ran.
             if held["token"] is not None:
                 with anyio.CancelScope(shield=True):
                     await run_in_threadpool(_release_reservation_best_effort, held["token"])
