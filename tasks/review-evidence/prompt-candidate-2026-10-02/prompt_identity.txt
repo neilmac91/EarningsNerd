@@ -1,0 +1,24 @@
+$ env -u OPENAI_API_KEY -u DEEPSEEK_API_KEY -u OPENAI_BASE_URL OPENAI_API_KEY=sk-test-key-for-mocking SECRET_KEY=offline-identity-check-not-a-secret-0 SKIP_REDIS_INIT=true PYTHONDONTWRITEBYTECODE=1 python tasks/review-evidence/prompt-candidate-2026-10-02/prompt_identity.py backend efdc33f42bbf95a70ceb78d0c6615d59788800df
+
+checkout HEAD 81f85248cb36505cf7217f0cf0e00cae3b0f5aad (git rev-parse in /home/user/wt/prompt-candidate)
+base          efdc33f42bbf95a70ceb78d0c6615d59788800df
+copilot_service.py sha256: worktree 33ccf7219fb7baf9e2d36bb620373c4db5050730eb7d670f1c64a21867b4d801 | base 7262596ebd09c830910c6a1187417d2ecb17361a74eb7e3b8cca5a0e2913871d
+candidate SYSTEM_PROMPT
+  sha256 a22fb4cd5472512f5867bad039feaef7400487869487fa94ae5d7a94073309f5  chars 5289  utf-8 bytes 5313
+  [ok] 1. _build_messages(...)[0] == {'role': 'system', 'content': SYSTEM_PROMPT}
+  [ok] 2. candidate sha256 == a22fb4cd5472512f5867bad039feaef7400487869487fa94ae5d7a94073309f5 and 5289 chars / 5313 bytes
+  counts: clause 0, rule block 1, template extension 1, 'If there are no filing-text markers, output []' 1
+  [ok]    clause absent; rule block and template extension present exactly once
+  minus both insertions: sha256 164570555f40de62e102c5b24e6fc6a80361aeb5767e37f80019faebc7c90087  chars 5006
+  [ok] 3. candidate minus (b) and (c) == arm B 16457055 (5006 chars)
+  [ok]    arm B == base SYSTEM_PROMPT with the clause removed once
+  plus the clause:       sha256 a88b6fb1de5b7f3103088f0795b04bea9b3216627e59dcb8bb9ebfd98ecd88cd  chars 5057
+  [ok] 4. arm B plus clause == main a88b6fb1 (5057 chars)
+  [ok]    == base commit's own SYSTEM_PROMPT (git show <BASE>, evaluated)
+  [ok] 5. _MIN_QUOTED_LEN == 8 (8) and _MIN_VERIFIABLE_LEN == 24 (24)
+context
+  offsets: tool MUST 674, rule block 2232, OUTPUT FORMAT 2468, template extension 4892
+  non-ASCII characters: ['—']; braces in insertions: False
+  five step-3 pins present: True
+all identity checks passed
+exit 0

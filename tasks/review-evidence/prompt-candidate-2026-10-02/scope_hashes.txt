@@ -1,0 +1,117 @@
+$ python tasks/review-evidence/prompt-candidate-2026-10-02/scope_hashes.py efdc33f42bbf95a70ceb78d0c6615d59788800df HEAD
+
+base efdc33f42bbf95a70ceb78d0c6615d59788800df
+head 81f85248cb36505cf7217f0cf0e00cae3b0f5aad
+
+1. byte identity (git diff --exit-code BASE HEAD -- path; sha256 at BASE | at HEAD)
+  same  diff-rc=0  backend/evals/copilot_scorers.py  (scorer)
+        4b70c52f09bf8bec669e99d292854499100fee751bb9395cc2268bb35a4d9144 | 4b70c52f09bf8bec669e99d292854499100fee751bb9395cc2268bb35a4d9144
+  same  diff-rc=0  backend/evals/copilot_runner.py  (runner)
+        f35ecd3cb68099e77a9550668692ebc7c74c9d544d473395f3ac27ea34d9a497 | f35ecd3cb68099e77a9550668692ebc7c74c9d544d473395f3ac27ea34d9a497
+  same  diff-rc=0  backend/evals/copilot_bootstrap.py  (bootstrap)
+        abb2ba4fb57664cd5e64335b4615d7cf2223b50b5704410ab85bf46302de6e28 | abb2ba4fb57664cd5e64335b4615d7cf2223b50b5704410ab85bf46302de6e28
+  same  diff-rc=0  backend/evals/copilot_schema.py  (schema)
+        b6650382ee809b76d612b0748212435e079d0d55660e7f15ddd21ecca1e15989 | b6650382ee809b76d612b0748212435e079d0d55660e7f15ddd21ecca1e15989
+  same  diff-rc=0  backend/evals/copilot_golden_set.json  (golden set)
+        15f8e7f92f934a5b040d905e8f684896cb11b2309d41737bbb58d59d0127b3c0 | 15f8e7f92f934a5b040d905e8f684896cb11b2309d41737bbb58d59d0127b3c0
+  same  diff-rc=0  backend/evals/copilot_sources.json  (sources)
+        8960e1bbeaa95680cafa46762134a6bb573a8bd265992204a6c9e82fc7c52a16 | 8960e1bbeaa95680cafa46762134a6bb573a8bd265992204a6c9e82fc7c52a16
+  same  diff-rc=0  backend/evals/baseline_scores.json  (baseline)
+        6ca0f4a8654b49111a823e3c6998edc6c375506e82adbf670576479f56126387 | 6ca0f4a8654b49111a823e3c6998edc6c375506e82adbf670576479f56126387
+  same  diff-rc=0  backend/evals/golden_set.json  (baseline)
+        f165468c3161a5defc2e6980b2f6870dd4113e89e5c638e94b80b5ba3cadc55c | f165468c3161a5defc2e6980b2f6870dd4113e89e5c638e94b80b5ba3cadc55c
+  same  diff-rc=0  backend/evals/baselines/README.md  (baseline)
+        5c3f91541e96e974ae998cf5f9898da03968773c45338e38d2bb9cc776564670 | 5c3f91541e96e974ae998cf5f9898da03968773c45338e38d2bb9cc776564670
+  same  diff-rc=0  backend/evals/baselines/eval_20260905T111951Z.json  (baseline)
+        4122deaae820adb532ea21885ffbb20b87a248a9da47a07dbdc757880953e629 | 4122deaae820adb532ea21885ffbb20b87a248a9da47a07dbdc757880953e629
+  same  diff-rc=0  backend/evals/baselines/eval_20260905T111951Z.md  (baseline)
+        fad9e45910723b9ee923d2131075c90cc5e4494e11e48046591a6cd582b7d675 | fad9e45910723b9ee923d2131075c90cc5e4494e11e48046591a6cd582b7d675
+  same  diff-rc=0  backend/evals/baselines/eval_20260910T153541Z.json  (baseline)
+        ca6b0b334e8765128993804c90c7e1f91cc46f2072dacdbaa187d9b0acb93de1 | ca6b0b334e8765128993804c90c7e1f91cc46f2072dacdbaa187d9b0acb93de1
+  same  diff-rc=0  backend/evals/baselines/eval_20260910T153541Z.md  (baseline)
+        5366cf0dbb8f5a5912f32638ecee4b1262c59b3b4e698345f00877d894083b2d | 5366cf0dbb8f5a5912f32638ecee4b1262c59b3b4e698345f00877d894083b2d
+  same  diff-rc=0  backend/evals/baselines/eval_20260910T154318Z.json  (baseline)
+        7a5dc34a84df37b0f6f407d44a48290b47576f673f2f722437da95b2689c7b00 | 7a5dc34a84df37b0f6f407d44a48290b47576f673f2f722437da95b2689c7b00
+  same  diff-rc=0  backend/evals/regression_gate.py  (regression gate)
+        ed8d08b8566cd9033019557acf5fbd768d84c2e41d74356402ae8d7c85a5c2bc | ed8d08b8566cd9033019557acf5fbd768d84c2e41d74356402ae8d7c85a5c2bc
+  same  diff-rc=0  backend/evals/RUNBOOK.md  (RUNBOOK)
+        36177fdec918bb976c6f531e0048b84a88a68da2f08e91e4edcf452387239dfb | 36177fdec918bb976c6f531e0048b84a88a68da2f08e91e4edcf452387239dfb
+  same  diff-rc=0  .github/ai-model.env  (model/flags)
+        95c580400a7ff14524db8e08b8ca8f3223cbcce8dad4722f1e929f01ce6260ba | 95c580400a7ff14524db8e08b8ca8f3223cbcce8dad4722f1e929f01ce6260ba
+  same  diff-rc=0  backend/app/config.py  (model/flags)
+        bccbaf90c9e67794f825025fe27ee9f2cdc8b58bd798626441a3fae1fedff571 | bccbaf90c9e67794f825025fe27ee9f2cdc8b58bd798626441a3fae1fedff571
+  same  diff-rc=0  .github/workflows/ci.yml  (workflow)
+        a73b7757d8ec38678446aa7a8bba7d368b129ff5c3c5d16c76d690cc01bc4af8 | a73b7757d8ec38678446aa7a8bba7d368b129ff5c3c5d16c76d690cc01bc4af8
+  same  diff-rc=0  .github/workflows/copilot-eval.yml  (workflow)
+        bb7ecee1b16be7d92e5455653e38812eeb8d48e33af92be508da25413c2b77fb | bb7ecee1b16be7d92e5455653e38812eeb8d48e33af92be508da25413c2b77fb
+  same  diff-rc=0  backend/app/services/copilot_tools.py  (tool path)
+        442ae5f147272bfed049e42af8fba5651922d6fc94431f6c44ecb244a7ae9180 | 442ae5f147272bfed049e42af8fba5651922d6fc94431f6c44ecb244a7ae9180
+  same  diff-rc=0  backend/app/services/ai/copilot_chat.py  (tool path)
+        2f7ca99c904e4509b0f8f74099c63529c1e30c5488cdc0058f820cae811299f5 | 2f7ca99c904e4509b0f8f74099c63529c1e30c5488cdc0058f820cae811299f5
+  same  diff-rc=0  backend/app/services/citation_markers.py  (tool path)
+        1042db3962a8e694f1b3682aeddba1e9efb4a7c7d28593ce6cbb0d97f44f97a6 | 1042db3962a8e694f1b3682aeddba1e9efb4a7c7d28593ce6cbb0d97f44f97a6
+  same  diff-rc=0  backend/app/services/provenance_service.py  (citation floor)
+        b7af6468e21e8fcccdf10760a057259d09dba26a440fe1f0aa32e4f94b5e01ef | b7af6468e21e8fcccdf10760a057259d09dba26a440fe1f0aa32e4f94b5e01ef
+  same  diff-rc=0  backend/tests/unit/test_copilot_prose_quotations.py  (F owner test (byte-identical))
+        3612d6bd0b7c9b68a811941195352bf0ab739c546ab9f4d9e11d3911028725c9 | 3612d6bd0b7c9b68a811941195352bf0ab739c546ab9f4d9e11d3911028725c9
+  same  diff-rc=0  backend/tests/integration/test_summary_stream_contract.py  (locked T1)
+        4b10582387ed68ad1564bbcbb54017d7d153c1447da8fb39bb73523512b3b57a | 4b10582387ed68ad1564bbcbb54017d7d153c1447da8fb39bb73523512b3b57a
+  same  diff-rc=0  backend/tests/fixtures/summary_stream_frames.json  (locked T1/T10 fixture)
+        5dcc29d7e482ca0fa627025452080d2274298f82be248e3d4b7dadc69effcef5 | 5dcc29d7e482ca0fa627025452080d2274298f82be248e3d4b7dadc69effcef5
+  same  diff-rc=0  backend/tests/fixtures/summary_stream_frames.README  (locked T1/T10 fixture)
+        e0d03e7b90c4405f11cd3dc2ed118b24069c84db56ad2ea04ed55bbbe0938e52 | e0d03e7b90c4405f11cd3dc2ed118b24069c84db56ad2ea04ed55bbbe0938e52
+  same  diff-rc=0  backend/tests/support/summary_stream_harness.py  (locked T1 harness)
+        6b6d4c3a2e9718256693723a1c7a4f03f86c66641aa20125b609ba992dfc0720 | 6b6d4c3a2e9718256693723a1c7a4f03f86c66641aa20125b609ba992dfc0720
+  same  diff-rc=0  backend/tests/integration/test_summary_stream_heartbeat.py  (locked heartbeat)
+        26f454699e00db073407e0cb0bff655291a56ea1c0b8f8795326bac1033a70bd | 26f454699e00db073407e0cb0bff655291a56ea1c0b8f8795326bac1033a70bd
+  same  diff-rc=0  backend/tests/unit/test_background_generation_characterization.py  (locked T2)
+        5a6b7024605bfe712c42b34e51900d6009f99db58ab1694c4c2ffb4d6bb316f9 | 5a6b7024605bfe712c42b34e51900d6009f99db58ab1694c4c2ffb4d6bb316f9
+  same  diff-rc=0  backend/tests/unit/test_generation_requires_account.py  (locked T3 successor)
+        1360430fb3a884800ddb962651d6c9369198b89fdcd0ef671d1726934389f22a | 1360430fb3a884800ddb962651d6c9369198b89fdcd0ef671d1726934389f22a
+  same  diff-rc=0  backend/tests/unit/test_subscription_webhook_sync.py  (locked T4)
+        a00853b94d4bb7127a82d987af8f9a57395fa2789ff638ed9c4febaaf78aaf02 | a00853b94d4bb7127a82d987af8f9a57395fa2789ff638ed9c4febaaf78aaf02
+  same  diff-rc=0  backend/tests/unit/test_expired_trial_gating.py  (locked T5)
+        6daf082a0a098431cd664730418277e1c237adaf50c614fb48654587d6be8413 | 6daf082a0a098431cd664730418277e1c237adaf50c614fb48654587d6be8413
+  same  diff-rc=0  backend/tests/unit/test_filing_scan.py  (locked T7)
+        fab53148fcdac656dd8b28dffa976420cec2b655d2b1186843599a2e065cc5b1 | fab53148fcdac656dd8b28dffa976420cec2b655d2b1186843599a2e065cc5b1
+  same  diff-rc=0  backend/tests/unit/test_refresh_replay.py  (locked T8)
+        b57d1f662628e1febbe7d9eeef1928da80c177422fb5584e65b59d29a430e6c3 | b57d1f662628e1febbe7d9eeef1928da80c177422fb5584e65b59d29a430e6c3
+  same  diff-rc=0  backend/tests/unit/test_companyfacts_fixture.py  (locked T9)
+        a2b20e66828f605bbabbd6b604a001d22943c1044a83776d4445e04c3e644794 | a2b20e66828f605bbabbd6b604a001d22943c1044a83776d4445e04c3e644794
+  same  diff-rc=0  frontend/tests/unit/summaryStream.contract.spec.ts  (locked T10)
+        4a27aa5d94c8af518016624e2159cd48b6bab6f8b76f2a58b0edf63ce59c3aaf | 4a27aa5d94c8af518016624e2159cd48b6bab6f8b76f2a58b0edf63ce59c3aaf
+  same  diff-rc=0  frontend/tests/unit/summaryStream.spec.ts  (locked SSE parser)
+        2be5c3ae31ddcce9090336caccae3c70b022ee845dce38cacbd1df39bba82473 | 2be5c3ae31ddcce9090336caccae3c70b022ee845dce38cacbd1df39bba82473
+  same  diff-rc=0  backend/tests/unit/test_auth_flow.py  (locked auth)
+        4a927487d44c77549abcb3e5f4843e064ddc63827ecb725fa25f3e513a3dbba9 | 4a927487d44c77549abcb3e5f4843e064ddc63827ecb725fa25f3e513a3dbba9
+  same  diff-rc=0  backend/tests/unit/test_auth_cookies.py  (locked auth)
+        1299c8444c3e895502bb83f216daff257af0b64755c3b5b013f6e7fcf235f86c | 1299c8444c3e895502bb83f216daff257af0b64755c3b5b013f6e7fcf235f86c
+  same  diff-rc=0  backend/tests/unit/test_stripe_webhook.py  (locked Stripe)
+        ca02207aaa71e8845e7f883b5c0316342525cc713b7a25028ff0cd18ab59cb78 | ca02207aaa71e8845e7f883b5c0316342525cc713b7a25028ff0cd18ab59cb78
+  same  diff-rc=0  backend/tests/unit/test_export_service.py  (locked serializer pin)
+        c7c88b6f9ea823649b104000147692408d09ed8dca3fcef9b8b2cca5114ab0b0 | c7c88b6f9ea823649b104000147692408d09ed8dca3fcef9b8b2cca5114ab0b0
+  same  diff-rc=0  backend/tests/unit/test_structured_markdown_render.py  (locked serializer pin)
+        f76eba4f3f994a18f2f1811d6239a874110364ae8a28f51ec2291d6ea890e958 | f76eba4f3f994a18f2f1811d6239a874110364ae8a28f51ec2291d6ea890e958
+  same  diff-rc=0  backend/tests/unit/test_markdown_render_bullets.py  (locked serializer pin)
+        a28a8cadba4f2be4103ebf86d6535cfb9cc8d179d0194e2e22bd9617a6053c9d | a28a8cadba4f2be4103ebf86d6535cfb9cc8d179d0194e2e22bd9617a6053c9d
+  same  diff-rc=0  tasks/review-evidence/f-quote-containment-2026-10-01/f1-attribution-2026-10-02/f_attribution.py  (measurement tool)
+        a88162d7776dc3d02f76bf987061e820afaab1a29d137402d09f063039cde7f6 | a88162d7776dc3d02f76bf987061e820afaab1a29d137402d09f063039cde7f6
+  same  diff-rc=0  tasks/review-evidence/pr1021-qualification-2026-10-01/prose_quote_audit.py  (measurement tool)
+        8716c4729e1a8f15cfc96da583d27e436ac9729bb6ef7c6b0ed2e7832f43e02a | 8716c4729e1a8f15cfc96da583d27e436ac9729bb6ef7c6b0ed2e7832f43e02a
+  same  diff-rc=0  tasks/review-evidence/g-stage1-2026-10-02/g_decide.py  (measurement tool)
+        dd1c8d266e1719a1fab411b8ffa30e25f36fd5ca12daf23bda2b4b34d9964adb | dd1c8d266e1719a1fab411b8ffa30e25f36fd5ca12daf23bda2b4b34d9964adb
+  same  diff-rc=0  tasks/review-evidence/g-stage1-2026-10-02/g_precheck.py  (measurement tool)
+        ca8bb29004c190cc2f6f897b746635d81c6db7945b9826f888bdf8e9299e4df1 | ca8bb29004c190cc2f6f897b746635d81c6db7945b9826f888bdf8e9299e4df1
+  same  diff-rc=0  tasks/review-evidence/g-stage2-2026-10-02/copilot_cost_runnerlog.py  (measurement tool)
+        0704037825ceec9935734784503f8e62cdf114816d75cc1a3eae367a9eecdde4 | 0704037825ceec9935734784503f8e62cdf114816d75cc1a3eae367a9eecdde4
+
+2. allowed diff (git diff --name-status BASE HEAD)
+  ok   M  backend/app/services/copilot_service.py
+  ok   M  backend/tests/unit/test_copilot_live_regressions.py
+
+3. AST scope
+  backend/app/services/copilot_service.py: 120 other top-level statements at base, 120 at head, identical: True; SYSTEM_PROMPT changed: True
+  backend/tests/unit/test_copilot_live_regressions.py: 16 other top-level statements at base, 16 at head, identical: True; test_contiguous_citation_instruction_reaches_actual_service_messages changed: True
+
+RESULT: PASS
+exit 0
