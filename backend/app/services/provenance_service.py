@@ -60,6 +60,10 @@ _TYPOGRAPHY_FOLDS = str.maketrans({
 })
 # Match a span wrapped in straight or curly double-quotes (e.g. Item 1A: "Supply chain ...").
 _QUOTED_RE = re.compile(r"[\"“”]([^\"“”]{8,})[\"“”]")
+# Quote marks that may wrap a WHOLE excerpt (see strip_wrapping_quotes): one definition shared by
+# the T5.4 forward-quote gate and the whole-excerpt verifier, so both agree on what a wrapper is.
+_QUOTE_MARKS_OPEN = "\"'“‘"
+_QUOTE_MARKS_CLOSE = "\"'”’"
 
 # Maps an AI metric-name pattern -> (standardized XBRL key produced by
 # ``xbrl_service.extract_standardized_metrics``, human label). Ordered: more specific first.
@@ -406,6 +410,33 @@ def verify_excerpt_in_text(excerpt: str, normalized_source: Optional[str]) -> bo
     return needle in normalized_source
 
 
+def strip_wrapping_quotes(text: str) -> str:
+    """Strip ONE pair of quote marks only when they wrap the ENTIRE value. Never extracts inner
+    spans — the needle must stay the whole quote so fabricated text around a real quoted fragment
+    can neither verify nor duck under the length floor."""
+    t = text.strip()
+    if len(t) >= 2 and t[0] in _QUOTE_MARKS_OPEN and t[-1] in _QUOTE_MARKS_CLOSE:
+        return t[1:-1].strip()
+    return t
+
+
+def verify_whole_excerpt_in_text(excerpt: Any, normalized_source: Optional[str]) -> bool:
+    """True when the WHOLE ``excerpt`` is contiguous in ``normalized_source``.
+
+    For surfaces that display the full excerpt as filing text (Copilot citations, forward quotes).
+    Unlike :func:`verify_excerpt_in_text`, an inner quoted span never stands in for the excerpt:
+    only a quote pair wrapping the entire value is stripped, then the shared normalization, the
+    shared length floor and contiguous containment apply. ``normalized_source`` must already be
+    normalized via :func:`normalize_for_match`.
+    """
+    if not isinstance(excerpt, str) or not normalized_source:
+        return False
+    needle = normalize_for_match(strip_wrapping_quotes(excerpt))
+    if len(needle) < _MIN_VERIFIABLE_LEN:
+        return False
+    return needle in normalized_source
+
+
 def build_text_fragment_url(base_url: str, excerpt: str, *, source_span: bool = False) -> str:
     """Append a percent-encoded ``#:~:text=`` fragment pointing at the start of ``excerpt``.
 
@@ -535,7 +566,11 @@ def build_evidence(
 def _enrich_forward_quotes(sections: dict, base_url: str, normalized_source: Optional[str]) -> None:
     """Attach ``evidence`` to each verbatim management quote in ``forward_signals.quotes`` (mutates the
     already-deep-copied sections). The quote text IS the excerpt (emitted verbatim), so it verifies +
-    deep-links cleanly; the section ref is the block-level ``forward_signals.source_section_ref``."""
+    deep-links cleanly; the section ref is the block-level ``forward_signals.source_section_ref``.
+
+    The page displays the WHOLE quote, so the whole quote must match: one that is not contiguous
+    in the filing gets ``build_evidence``'s unverified presentation (no excerpt, section-level
+    link), even when an inner quoted span would satisfy the prefix-tolerant ``build_evidence``."""
     fwd = sections.get("forward_signals")
     if not isinstance(fwd, dict):
         return
@@ -545,8 +580,10 @@ def _enrich_forward_quotes(sections: dict, base_url: str, normalized_source: Opt
     section_ref = fwd.get("source_section_ref") or fwd.get("sourceSectionRef")
     for q in quotes:
         if isinstance(q, dict) and (q.get("quote") or q.get("text")):
+            text = q.get("quote") or q.get("text")
+            whole = verify_whole_excerpt_in_text(text, normalized_source)
             q["evidence"] = build_evidence(
-                q.get("quote") or q.get("text"), section_ref, base_url, normalized_source
+                text if whole else None, section_ref, base_url, normalized_source
             )
 
 
