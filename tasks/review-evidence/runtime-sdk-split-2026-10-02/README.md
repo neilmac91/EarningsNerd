@@ -6,7 +6,8 @@ This change separates OpenAI 3.19.2 → 3.20.0, PyJWT 2.15.0 → 2.15.1 and Sent
 [issue #1063](https://github.com/neilmac91/EarningsNerd/issues/1063) carries the blocked 5.59.1
 update and its missing filing characters. Anthropic is handled separately.
 
-Base: `5525a91db3de9ce554b6015ed51d6817666c7bc3`. Dependency source commit:
+Original base: `5525a91db3de9ce554b6015ed51d6817666c7bc3`; current main
+`153cfc4612b790713e1aebbec9174479c373468f` was subsequently merged before the final full gate. Dependency source commit:
 `92aab7ae2109f2f31669fdc7c68e577842e8b58e`. Evidence-only additions follow that commit.
 No application, workflow, contract test, prompt, model, baseline or production flag changed.
 
@@ -61,7 +62,8 @@ Primary release sources: [OpenAI 3.20.0](https://github.com/openai/openai-python
 
 ## Verification
 
-Initial full gate: 5585 passed, 1 evidence-link failure, 2 deselected, 0 skipped.
+[Initial full gate](initial-evidence-packaging-failure.txt): 5585 passed, 1 evidence-link failure,
+2 deselected, 0 skipped.
 The guard correctly rejected new, not-yet-tracked evidence files. The evidence is now committed;
 full gate confirmation follows in the next evidence update. No application assertion failed.
 
