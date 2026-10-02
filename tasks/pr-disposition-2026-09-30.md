@@ -789,3 +789,8 @@ Under the founder's delegation, Codex decided items A–M on #1029. This session
   - **Blocker:** one pre-existing uncited-answer escalation (run 2, ASML d1: tool-less, uncited, no quotation; the same class appeared on main's code in D1). Under the #1021 audit policy that is "founder decides".
   - **F is held unmerged** pending a founder/Codex decision on whether this escalation blocks F1. The PR stays ready, so no further paid toggle is needed. B, K and the rest of the queue wait behind F.
   - Evidence: `tasks/review-evidence/f-quote-containment-2026-10-01/f1-measurement-2026-10-02/`.
+- 04:57Z — **B readiness, offline trial.** I merged the F head `89bd1e12` into B (`d5d30587`) as a trial in the scratch worktree `wt/b-trial`; the merge is uncommitted and B's branch is untouched.
+  - The merge is clean; tree `c0b44603`.
+  - Full gate: ruff and bandit clean; pytest **5507 passed**, 39 skipped, 2 deselected, 0 failed.
+  - B is compatible with F. The real re-merge still happens after F's deploy, with a fresh review and a hosted artifact, as planned.
+- 04:49Z — **Offline citation-excerpt diagnosis started** (queued item, zero spend, no push) in `wt/cite-diag` at main `02628e57`, while F waits on the decision.
