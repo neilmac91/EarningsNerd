@@ -36,6 +36,53 @@ needs changing. Its existing period-end cancellation and payment-method/invoice 
 The pricing introduction and FAQ describe these available controls without promising immediate
 plan changes. The existing trial-cancellation terms remain unchanged.
 
+## Read-only agreement check (held preparation)
+
+After an authorized operator captures the effective serving backend bindings and fresh Stripe
+catalog readbacks, compare that supplied snapshot with this branch's shared `PRO_PRICING` module:
+
+```sh
+cd frontend
+npm run check:pricing -- /path/to/operator-readback.json
+```
+
+Use the repository's Node 22 runtime. This local command reads one JSON file and prints a result;
+it makes no Stripe, backend or checkout request and changes no catalog, configuration or account.
+The JSON envelope is:
+
+```json
+{
+  "bindings": {
+    "STRIPE_PRICE_MONTHLY_ID": "<effective serving monthly Price ID>",
+    "STRIPE_PRICE_YEARLY_ID": "<effective serving yearly Price ID>",
+    "product_id": "<intended Pro Product ID from the approved catalog receipt>"
+  },
+  "product": { "...": "full live Product readback" },
+  "prices": {
+    "monthly": { "...": "full live monthly Price readback" },
+    "yearly": { "...": "full live yearly Price readback" }
+  }
+}
+```
+
+Replace the placeholders with actual readbacks. The binding IDs must come from the effective
+serving backend revision, not merely proposed environment values. Supply unexpanded `Price.product`
+IDs. Retain the source revision, readback time and serving revision with the operator receipt.
+The [Stripe Price schema](https://docs.stripe.com/api/prices/object) defines the checked fields.
+
+The check requires distinct, correctly bound monthly/yearly Prices; an active live Product and
+Prices on the intended product; USD fixed per-unit whole-cent amounts matching `PRO_PRICING`;
+licensed recurring usage once per month/year; and explicit null custom-amount and quantity-transform
+fields. A conflicting decimal amount also fails. Missing or malformed evidence is not agreement.
+Exit 0 means the supplied snapshot agrees; exit 1 means a catalog/binding disagreement; exit 2 means
+an unreadable file, invalid JSON or incorrect invocation. The command does not authenticate the
+snapshot, establish freshness, inspect a real Checkout Session, determine tax/discount/trial totals,
+or prove existing customers' renewal terms. Those remain separate activation checks below.
+
+The retained staged prices are inactive and the historical serving bindings use the old offer:
+such a snapshot must fail. Preparing or passing this local check does not release the activation
+hold. Do not change catalog activity or backend bindings merely to make a preparation check pass.
+
 ## Activation checklist
 
 Keep this change held as a draft until the quality and controlled-beta acceptance gates are
