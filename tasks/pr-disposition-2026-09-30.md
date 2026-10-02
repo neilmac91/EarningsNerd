@@ -680,3 +680,24 @@ Under the founder's delegation, Codex decided items A–M on #1029. This session
   - **Pinned limit:** a filing's own `~` after a word.
   - **Next:** final exact-head reviews running in the isolated `f-rev-a` and `f-rev-b`, with stale local databases moved aside.
   - **Timing plan:** push the draft PR off-peak at about 04:00Z, since 01:00–04:00Z is peak.
+- 01:00Z — **F final review of rules, tests and evidence at `555d771d`: changes-needed, test-only** (no blocker, production code correct).
+  - **Verified:**
+    - every CLAUDE.md rule and Codex ruling;
+    - floor 8, read once; citations 24, untouched;
+    - the merge `bbc90e4a` is true and E's guards are intact;
+    - the drop set is exact;
+    - the mixed-delimiter gate matches micromark's attentionMarkers;
+    - replay 21/0/0 and 4/126;
+    - attribution reproduced, synthetic chip and reason rows attributed correctly;
+    - gate: 5263 passed.
+  - **Should-fix (test-only):**
+    - F-N1: the floor's space counting is unpinned (add `"Net loss"`, 8 characters);
+    - F-N3: marker exclusion from the floor is unpinned (add `"EBITDA [1]"` as a published control);
+    - B-N1: escaped delimiters in the mixed gate are unpinned (pin one escaped `~` repro as AMBIGUOUS).
+  - **Nits:**
+    - "links of any kind" is slightly overstated: remark-gfm can autolink entity- or escape-decoded text, but containment still holds. Fix the wording.
+    - The warm-up docstring.
+    - One comment wrap.
+    - Recommended follow-up: split the module into `app/services/ai/prose_quotations.py`, not in this PR.
+  - **Attribution tool caveats:** class withheld rows whose replay hit an unserved repair lookup as UNEXPLAINED, and add reason and chip-index rows to the self-test.
+  - **Waiting on:** the adversarial review.
