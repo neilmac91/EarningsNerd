@@ -201,6 +201,7 @@ export function DataTable<T extends Record<string, unknown>>({
                       <span
                         aria-hidden="true"
                         className={cx(
+                          // eslint-disable-next-line no-restricted-syntax -- aria-hidden sort glyph, not type (DS-08 exemption)
                           'text-[9px] leading-none',
                           sorted ? 'text-brand-strong dark:text-brand-strong-dark' : 'opacity-40',
                         )}
