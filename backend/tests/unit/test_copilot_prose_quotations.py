@@ -12,8 +12,9 @@ remark-gfm), read here with markdown-it-py within a small subset both parsers re
 and character references show their characters, emphasis and code-span delimiters do not show,
 and default-ignorable code points are dropped; controls, separators, the byte-order mark, bidi
 controls, right-to-left scripts, astral characters and characters unassigned in Python's Unicode
-tables fail closed. A quoting answer that uses markdown outside the subset (links of any kind, raw
-HTML, images, reference definitions, footnotes, deep nesting and the other forms pinned below) is
+tables fail closed. A quoting answer that uses markdown outside the subset (link syntax and raw URL
+or email literals, Unicode spaces at a line's edge, raw HTML, images, reference definitions,
+footnotes, deep nesting and the other forms pinned below) is
 ``ambiguous_quotation``; so is a mark whose direction a delimiter left as text decides. That the parsers agree on the subset is the residual assumption,
 not exact parity. The not-disclosed reason and the follow-up chips are displayed as plain text and
 read as such. A mark's direction comes from its glyph (“ „ ‟ open, ” closes) or, for a straight
@@ -30,6 +31,7 @@ import importlib.util
 import inspect
 import json
 import logging
+import re
 import sys
 import threading
 import time
@@ -124,6 +126,10 @@ EDGAR = "https://www.sec.gov/Archives/edgar/data/789019/000095017024087843/msft-
     f'**Net income** above; the filing says "{NI}" [1].',                    # emphasis, no stray delimiter
     f'**Revenue** is tagged us-gaap_Revenues; the filing says "{NI}" [1].',  # an underscore inside a word
     f'**Margin** is 5 * 3; the filing says "{NI}" [1].',                     # an asterisk between spaces
+    'The "EBITDA [1]" label is not defined [1].',                          # a marker does not count
+    # A Unicode space inside a line is read as displayed (only one at a line's edge fails closed).
+    'The filing says "Net sales were 32,667.3 million" for the year ended September\u00a027, 2025 [1].',
+    '| Metric | Value |\n|---|---|\n| Net sales | "Net sales were 32,667.3\u00a0million" [1] |',
 ])
 def test_contiguous_quotations_and_short_terms_publish(answer):
     assert unsupported_prose_quotations(answer, SOURCE) == []
@@ -156,6 +162,8 @@ def test_composed_or_unpairable_quotations_are_withheld(answer, expected):
     pytest.param("32,667.3", 8, [], id="8-characters-in-source"),
     pytest.param("Gross margin 195,201", 20, [NOT_IN], id="20-characters-unsupported"),
     pytest.param("Total net sales 416,161", 23, [NOT_IN], id="23-characters-unsupported"),
+    pytest.param("Net loss", 8, [NOT_IN], id="8-characters-with-a-space"),
+    pytest.param("Q3 sales", 8, [NOT_IN], id="8-characters-with-a-space-and-a-digit"),
     pytest.param("Net sales were 32,667.3", 23, [], id="23-characters-in-source"),
 ])
 def test_quotations_of_eight_characters_or_more_are_checked(quoted, length, expected):
@@ -498,7 +506,7 @@ def test_quotation_across_table_cells_is_pinned(answer, expected):
     pytest.param(f'**Net income**~€9.6 billion; the filing says "{NI}" [1].', id="tilde-beside-bold"),
     pytest.param(f'**Net income**\\~€9.6 billion; the filing says "{NI}" [1].', id="escaped-tilde-beside-bold"),
     pytest.param(f'Net income was **€9.6 billion*; the filing says "{NI}" [1].', id="unpaired-emphasis-run"),
-    # Links of any kind fail closed. 0 of 576 retained answers contain links.
+    # Link syntax and raw URL or email literals fail closed. 0 of 576 retained answers contain links.
     pytest.param(f'See the [10-K]({EDGAR}): "{NI}" [1].', id="edgar-link"),
     pytest.param(f'See <{EDGAR}>: "{NI}" [1].', id="edgar-autolink"),
     pytest.param(f'See [{EDGAR}]({EDGAR}): "{NI}" [1].', id="edgar-url-as-link-text"),
@@ -680,6 +688,57 @@ def test_different_delimiters_side_by_side_fail_closed(answer, delimiter):
 
 
 @pytest.mark.unit
+def test_an_escaped_delimiter_beside_another_fails_closed():
+    """The mixed-delimiter check reads the source text, escapes included: an escaped '_' beside a
+    '~' fails closed like any other pair."""
+    source = normalize_for_match("The report says Total net sales~ increased to the approved label for the year.")
+    answer = 'z)_-\\_~"Total net sales~ increased to the approved label" [1]'
+    assert unsupported_prose_quotations(answer, source) == [AMBIGUOUS]
+
+
+# Unicode spaces at a line's edge (the round-7 review's B1): markdown-it-py strips every Python
+# whitespace character from a table row, a paragraph and a setext heading with str.strip(), where
+# micromark trims only spaces and tabs. The 15 not already failing closed, computed here.
+UNICODE_SPACES = tuple(chr(code) for code in range(sys.maxunicode + 1) if chr(code).isspace()
+                       and chr(code) not in " \t\n\r" and not copilot_service._display_may_differ(chr(code)))
+LINE_EDGE = {
+    # (a) A table header row ending in the space: the display takes no table and shows the cell.
+    "table-header-row-end": '| Metric | Value |{0}\n|---|---|\n| Net sales | 32,667.3 million [1] | "{1}" |',
+    "table-header-row-start": '{0}| Metric | Value |\n|---|---|\n| Net sales | 32,667.3 million [1] | "{1}" |',
+    "table-delimiter-row-end": '| Metric | Value |\n|---|---|{0}\n| Net sales | 32,667.3 million [1] | "{1}" |',
+    # (b) A line holding only the space inside a table body.
+    "table-body-space-line": '| a | b |\n|---|---|\n| x | y |\n{0}\n| "R |  | x" |\n| {1} | " | y" |',
+    # (c) A trailing backslash, then a line holding only the space: a hard break for the display.
+    "backslash-then-space-line": 'The filing says "The policy names the approved label " {1} "\\\n{0}\n\nROE" [1].',
+    "backslash-in-a-list-item": '- "approved label"{1} "\\\n{0}\n- ROE" [1].',
+    "backslash-in-a-blockquote": '> "approved label"{1} "\\\n>{0}\n\n> ROE" [1].',
+    "backslash-in-a-setext-heading": 'Title "approved label"{1} "\\\n{0}\n===\n\nROE" [1].',
+    # Behind indentation, before trailing spaces, and with CR or CRLF line endings.
+    "after-indentation": '  {0}The filing says "{1}" [1].',
+    "before-a-trailing-space": 'The filing says "{1}" [1].{0} ',
+    "cr-line-endings": '| Metric | Value |{0}\r|---|---|\r| Net sales | 32,667.3 million [1] | "{1}" |',
+    "crlf-line-endings": '| Metric | Value |{0}\r\n|---|---|\r\n| Net sales | 32,667.3 million [1] | "{1}" |',
+}
+
+
+@pytest.mark.unit
+def test_the_line_edge_spaces_are_the_python_only_whitespace():
+    """The gate's class is exactly the whitespace str.strip() removes besides the space, tab, line
+    endings and the characters that already fail closed: U+00A0, U+2000-U+200A, U+202F, U+205F, U+3000."""
+    gate = re.compile(f"[{copilot_service._UNICODE_SPACES}]")
+    assert len(UNICODE_SPACES) == 15
+    assert {chr(code) for code in range(sys.maxunicode + 1) if gate.fullmatch(chr(code))} == set(UNICODE_SPACES)
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize("space", [pytest.param(char, id=f"u{ord(char):04x}") for char in UNICODE_SPACES])
+@pytest.mark.parametrize("shape", LINE_EDGE)
+def test_unicode_spaces_at_a_line_edge_fail_closed(shape, space):
+    for invented in ("Fake words here", "Made up!x"):
+        assert unsupported_prose_quotations(LINE_EDGE[shape].format(space, invented), SOURCE) == [AMBIGUOUS]
+
+
+@pytest.mark.unit
 def test_a_tilde_the_filing_text_holds_is_a_known_limit():
     """Pinned limit, not a guarantee (the one single-delimiter case the round-7 probe found): where
     the filing text itself holds a '~' after a word, a quotation of it publishes, though GFM may
@@ -767,6 +826,7 @@ def _adversarial_answers():
     for run in ("*", "~", "*_", "*a_", "\u0301", "\u200b", "www.", "a@", "](", "]:", "\U0001f4c8", "\u20c1"):
         yield ('"' + run * _MAX_QUOTED_ANSWER_CHARS)[:_MAX_QUOTED_ANSWER_CHARS - 1] + '"'
     yield ("|" + "a|" * 100 + "\n|" + "-|" * 100 + "\n" + ("|" + '"x"|' * 100 + "\n") * 40)[:_MAX_QUOTED_ANSWER_CHARS]
+    yield ('- a\n  - b\n    - c\n      - "d" *e*\n' * 400)[:_MAX_QUOTED_ANSWER_CHARS]
     # The round-6 review's slow shape (123-304 ms before image markup was found in the source text).
     for mark in ('"', "\u201c"):
         yield (mark + "![_" * _MAX_QUOTED_ANSWER_CHARS)[:_MAX_QUOTED_ANSWER_CHARS]
@@ -999,6 +1059,56 @@ async def test_a_failing_follow_up_chip_withholds_the_whole_response(monkeypatch
     _assert_withheld(events, caplog, "Invented text", "What are the risks?", "Net income for 2025", REASON)
 
 
+TABLE_SOURCE = "Net sales were 32,667.3 million."
+TABLE_CITATIONS = '[{"n": 1, "excerpt": "Net sales were 32,667.3 million."}]'
+
+
+@pytest.mark.unit
+@pytest.mark.asyncio
+@pytest.mark.parametrize("space", [pytest.param(char, id=f"u{ord(char):04x}") for char in UNICODE_SPACES])
+@pytest.mark.parametrize("invented", ["Invented text missing from the source", "Made up!x", "Fake words here"])
+async def test_a_table_header_ending_in_a_unicode_space_is_withheld(monkeypatch, caplog, space, invented):
+    """The round-7 review's B1 repro through the service: markdown-it reads a table (the third cell
+    dropped), the display reads no table and shows the invented quotation."""
+    answer = f'| Metric | Value |{space}\n|---|---|\n| Net sales | 32,667.3 million [1] | "{invented}" |'
+    monkeypatch.setattr(copilot_service.openai_service, "stream_chat_with_tools",
+                        _stream_of(f"{answer}\n===CITATIONS===\n{TABLE_CITATIONS}"))
+    with caplog.at_level(logging.WARNING, logger=copilot_service.logger.name):
+        events = [e async for e in copilot_service.answer_filing_question(filing=_filing(TABLE_SOURCE), question="q")]
+    assert events[-1] == {"type": "error", "message": copilot_service._PUBLICATION_ERROR}
+    assert all(event["type"] == "progress" for event in events[:-1])
+    assert "Unsupported prose quotation: ambiguous_quotation" in caplog.text
+    assert invented not in json.dumps(events, ensure_ascii=False) and invented not in caplog.text
+
+
+@pytest.mark.unit
+@pytest.mark.asyncio
+async def test_a_table_with_a_unicode_space_inside_a_line_publishes(monkeypatch):
+    answer = '| Metric | Value |\n|---|---|\n| Net sales | "Net sales were 32,667.3\u00a0million" [1] |'
+    monkeypatch.setattr(copilot_service.openai_service, "stream_chat_with_tools",
+                        _stream_of(f"{answer}\n===CITATIONS===\n{TABLE_CITATIONS}"))
+    events = [e async for e in copilot_service.answer_filing_question(filing=_filing(TABLE_SOURCE), question="q")]
+    assert events[-1]["type"] == "complete" and events[-1]["answer"] == answer
+
+
+@pytest.mark.unit
+@pytest.mark.asyncio
+@pytest.mark.parametrize("reason,metric", [
+    ('The filing gives no "iPhone unit sales" figure.', "iPhone unit sales"),
+    ('Apple does not report "Adjusted EBITDA".', "Adjusted EBITDA"),
+])
+async def test_a_reason_quoting_an_absent_metric_is_a_decided_cost(monkeypatch, caplog, reason, metric):
+    """Decided product cost of the 8-character floor (PR #1029): a not-disclosed reason that names
+    the absent metric in quotation marks quotes text the filing does not hold, so the whole response
+    errors. A later prompt follow-up (name absent metrics without quotation marks) would be gated
+    like any prompt change by backend/evals/RUNBOOK.md; this change leaves prompts and scope alone."""
+    monkeypatch.setattr(copilot_service.openai_service, "stream_chat_with_tools",
+                        _stream_of(_reply("not_disclosed", ["What changed?", "What are the risks?"], reason)))
+    with caplog.at_level(logging.WARNING, logger=copilot_service.logger.name):
+        events = [e async for e in copilot_service.answer_filing_question(filing=_filing(ND_SOURCE), question="q")]
+    _assert_withheld(events, caplog, metric)
+
+
 @pytest.mark.unit
 @pytest.mark.asyncio
 @pytest.mark.parametrize("path", ["answer", "not_disclosed"])
@@ -1099,6 +1209,7 @@ def test_a_bare_ampersand_is_not_a_quote_hint():
     pytest.param(f'"{NI}" ~*x*~', id="tilde-beside-star"),
     pytest.param(f'"{NI}" _~x~_', id="underscore-beside-tilde"),
     pytest.param(f'"{NI}" ~_x_~', id="tilde-beside-underscore"),
+    pytest.param(f'"{NI}"\u00a0', id="unicode-space-at-a-line-edge"),
 ])
 def test_what_always_fails_closed_is_found_before_parsing(monkeypatch, answer):
     """Cheap source-text checks answer before the markdown parse, which bounds the slow shapes."""

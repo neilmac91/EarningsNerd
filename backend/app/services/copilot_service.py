@@ -521,25 +521,27 @@ _QUOTED_MARKER_RE = re.compile(r"\[F?\d{1,3}\]")
 # The answer is displayed by react-markdown 10 with remark-gfm (micromark). It is read here with
 # markdown-it-py, and only within a small subset that both parsers are assumed to read alike:
 # paragraphs, headings, thematic breaks, lists, blockquotes, GFM tables, emphasis, code spans, and
-# code blocks. An answer that may quote and uses anything else fails closed: links of any kind
-# (inline links, reference definitions, autolinks, and the URLs and email addresses GFM links by
-# itself), raw HTML, images, footnotes, task-list checkboxes, tabs, runs of three or more emphasis
-# delimiters or two different delimiters side by side, nesting past _MAX_MARKDOWN_NESTING, and the
-# forms below on which a fuzz against the display found the parsers to differ (lazy lines, stray
-# table rows, some list openings). Within the subset some guards remain: a delimiter left as text may still vanish
-# when displayed, so a mark's direction that one decides is ambiguous; a '*' or '_' left as text
-# where there is emphasis, one delimiter run split between two emphasis tokens, a tilde beside
-# emphasis, or a backtick left as text may change what the display pairs. That the two parsers
-# agree on this subset is the residual assumption; it is not exact parity with the display.
+# code blocks. An answer that may quote and uses anything else fails closed: link syntax (inline
+# links, reference definitions, autolinks) and the raw URL and email literals GFM links by itself,
+# raw HTML, images, footnotes, task-list checkboxes, tabs, runs of three or more emphasis delimiters
+# or two different delimiters side by side, Unicode spaces at a line's edge, nesting past
+# _MAX_MARKDOWN_NESTING, and the forms below on which a fuzz against the display found the parsers
+# to differ (lazy lines, stray table rows, some list openings). A URL or address built from
+# character references or escapes (www&#46;sec.gov) is linked by the display too, but it shows the
+# same text, so it is read as text. Within the subset some guards remain: a delimiter left as text
+# may still vanish when displayed, so a mark's direction that one decides is ambiguous; a '*' or
+# '_' left as text where there is emphasis, one delimiter run split between two emphasis tokens, a
+# tilde beside emphasis, or a backtick left as text may change what the display pairs. That the two
+# parsers agree on this subset is the residual assumption; it is not exact parity with the display.
 
 
 def _markdown_parser() -> MarkdownIt:
     """The shared parser, its rules compiled. markdown-it compiles its rule chains on first use, and
-    mdurl fills its link-encoding caches on first use, each publishing an empty cache before filling
-    it, so a first parse in two worker threads at once could run without them. Links and reference
-    definitions never reach the reading (they fail closed before parsing, so mdurl is not called on
-    one); a link is parsed here anyway, so that both are filled.
-    After this one parse the instance is only read."""
+    mdurl fills its encoding and decoding caches on first use, each publishing an empty cache before
+    filling it, so a first parse in two worker threads at once could run without them. Link syntax
+    never reaches the reading (it fails closed before parsing, so mdurl is not called on one); the
+    autolink parsed here fills both mdurl caches, and the inline link is a harmless extra. After this
+    one parse the instance is only read."""
     parser = MarkdownIt("commonmark", {"html": False}).enable("table")
     parser.parse("[x](y) <http://z>")
     return parser
@@ -574,13 +576,23 @@ _MAX_MARKDOWN_NESTING = 4
 # (markdown-it's HTML parsing stays off; it also catches autolinks such as <https://...>).
 _OUTSIDE_SUBSET_RE = re.compile(r"!\[|\[\^|\t|\*{3}|_{3}|\*[_~]|_[*~]|~[*_]")
 _RAW_HTML_RE = re.compile(r"<[A-Za-z/!?]")
-# A link of any kind, also found before parsing: an inline link or a reference definition (the
-# only markdown here that reaches markdown-it's link normalization, so mdurl never runs on a
-# reading), or what GFM links by itself: a URL, a www. address, or an email address ('@' between
-# two characters, which also finds mailto: and xmpp: addresses and '<...@...>' autolinks;
-# '<scheme:...>' autolinks are found as raw HTML). No answer in the retained evaluation runs holds
-# one (0 of 576).
+# Link syntax and raw URL and email literals, also found before parsing: an inline link or a
+# reference definition (the only markdown here that reaches markdown-it's link normalization, so
+# mdurl never runs on a reading), or a literal GFM links by itself: a URL, a www. address, or an
+# email address ('@' between two characters, which also finds mailto: and xmpp: addresses and
+# '<...@...>' autolinks; '<scheme:...>' autolinks are found as raw HTML). No answer in the retained
+# evaluation runs holds one (0 of 576).
 _LINK_RE = re.compile(r"\]\(|\]:|www\.|https?://|\S@\S", re.IGNORECASE)
+# A Unicode space at a line's edge, also found before parsing (in the answer with its line endings
+# normalized, as markdown-it normalizes them). These are the whitespace characters Python's
+# str.strip() removes besides those that fail closed anyway (_display_may_differ) and the space,
+# tab and line endings: U+00A0, U+2000-U+200A, U+202F, U+205F and U+3000. markdown-it strips them
+# from a table row (rules_block/table.py), a paragraph (paragraph.py) and a setext heading
+# (lheading.py), where micromark trims only spaces and tabs, so at a line's edge they can change the
+# blocks the display shows (a table header the display does not take as one, a line the display
+# breaks after a trailing backslash). Inside a line they are read as the display shows them.
+_UNICODE_SPACES = "\u00a0\u2000-\u200a\u202f\u205f\u3000"
+_LINE_EDGE_SPACE_RE = re.compile(f"(?m)^[ \t]*[{_UNICODE_SPACES}]|[{_UNICODE_SPACES}][ \t]*$")
 # A GFM task-list checkbox, which the display draws as a box instead of this text.
 _TASK_CHECKBOX_RE = re.compile(r"\[[ \txX]\]")
 # Blockquotes and GFM tables are read only outside any container and with every line starting with
@@ -823,7 +835,7 @@ def unsupported_prose_quotations(answer: str, normalized_source: str) -> list[st
     text = None
     if not (len(answer) > _MAX_QUOTED_ANSWER_CHARS or answer.count("[") > _MAX_BRACKETS
             or _display_may_differ(answer) or _OUTSIDE_SUBSET_RE.search(answer) or _LINK_RE.search(answer)
-            or _RAW_HTML_RE.search(answer)):
+            or _RAW_HTML_RE.search(answer) or _LINE_EDGE_SPACE_RE.search(re.sub(r"\r\n?", "\n", answer))):
         text = _rendered_text(answer)
     if text is None:
         return ["ambiguous_quotation"] if _QUOTE_MARK_RE.search(html.unescape(answer)) else []
