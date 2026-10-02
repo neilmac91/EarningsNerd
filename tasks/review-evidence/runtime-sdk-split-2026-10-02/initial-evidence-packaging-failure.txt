@@ -1,0 +1,45 @@
+Initial source base5525a91d; exit=1. New evidence files were written during the gate and not tracked yet.
+=================================== FAILURES ===================================
+__________ test_review_evidence_readme_links_resolve_to_tracked_files __________
+
+    def test_review_evidence_readme_links_resolve_to_tracked_files() -> None:
+        tracked = _tracked()
+        broken = []
+        for readme in sorted(EVIDENCE.glob("**/README.md")):
+            for target in LINK.findall(readme.read_text(encoding="utf-8")):
+                if re.match(r"[a-z]+:", target) or target.startswith("#"):
+                    continue
+                path = (readme.parent / target.split("#")[0]).resolve()
+                try:
+                    relative = path.relative_to(ROOT).as_posix()
+                except ValueError:
+                    broken.append(f"{readme.relative_to(ROOT)}: {target} (outside the repository)")
+                    continue
+                inside_evidence = relative.startswith("tasks/review-evidence/")
+                if tracked is not None and inside_evidence and path.is_file():
+                    present = relative in tracked
+                else:
+                    present = path.exists()
+                if not present:
+                    broken.append(f"{readme.relative_to(ROOT)}: {target}")
+>       assert not broken, "review-evidence links to untracked or missing files (force-add ignored logs):\n" + "\n".join(broken)
+E       AssertionError: review-evidence links to untracked or missing files (force-add ignored logs):
+E         tasks/review-evidence/runtime-sdk-split-2026-10-02/README.md: lock-changes.json
+E         tasks/review-evidence/runtime-sdk-split-2026-10-02/README.md: runtime-freeze.txt
+E         tasks/review-evidence/runtime-sdk-split-2026-10-02/README.md: installed-artifacts.json
+E         tasks/review-evidence/runtime-sdk-split-2026-10-02/README.md: runtime-pip-check.txt
+E         tasks/review-evidence/runtime-sdk-split-2026-10-02/README.md: runtime-dev-pip-check.txt
+E         tasks/review-evidence/runtime-sdk-split-2026-10-02/README.md: runtime-dev-freeze.txt
+E         tasks/review-evidence/runtime-sdk-split-2026-10-02/README.md: wheel-receipts.json
+E         tasks/review-evidence/runtime-sdk-split-2026-10-02/README.md: pyjwt-offline-controls.json
+E         tasks/review-evidence/runtime-sdk-split-2026-10-02/README.md: sentry-shapes.txt
+E         tasks/review-evidence/runtime-sdk-split-2026-10-02/README.md: sentry_shapes.py.txt
+E         tasks/review-evidence/runtime-sdk-split-2026-10-02/README.md: migrations-triple-pass.txt
+E         tasks/review-evidence/runtime-sdk-split-2026-10-02/README.md: pip-audit.txt
+E         tasks/review-evidence/runtime-sdk-split-2026-10-02/README.md: edgartools-hold.md
+E       assert not ['tasks/review-evidence/runtime-sdk-split-2026-10-02/README.md: lock-changes.json', 'tasks/review-evidence/runtime-sdk...untime-dev-pip-check.txt', 'tasks/review-evidence/runtime-sdk-split-2026-10-02/README.md: runtime-dev-freeze.txt', ...]
+
+tests/unit/test_review_evidence_links.py:49: AssertionError
+
+FAILED tests/unit/test_review_evidence_links.py::test_review_evidence_readme_links_resolve_to_tracked_files
+==== 1 failed, 5585 passed, 2 deselected, 40 warnings in 538.86s (0:08:58) =====

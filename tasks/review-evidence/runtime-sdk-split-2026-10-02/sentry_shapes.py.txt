@@ -1,0 +1,45 @@
+"""Offline Sentry integration check with the application's exact options and a recorder transport."""
+import json
+import socket
+import sentry_sdk
+from sentry_sdk.integrations.fastapi import FastApiIntegration
+from sentry_sdk.integrations.sqlalchemy import SqlalchemyIntegration
+from sentry_sdk.transport import Transport
+
+def no_network(*args, **kwargs):
+    raise AssertionError('Unexpected real network access in offline Sentry check')
+socket.socket.connect = no_network
+socket.create_connection = no_network
+
+class Recorder(Transport):
+    def __init__(self, options):
+        super().__init__(options)
+        self.envelopes = []
+    def capture_envelope(self, envelope):
+        self.envelopes.append(envelope)
+
+client = sentry_sdk.Client(
+    dsn='https://offline@example.invalid/1',
+    environment='offline-compatibility',
+    release='dependency-review',
+    traces_sample_rate=0.1,
+    profiles_sample_rate=0.1,
+    integrations=[FastApiIntegration(transaction_style='endpoint'), SqlalchemyIntegration()],
+    send_default_pii=False,
+    transport=Recorder,
+)
+assert client.options['send_default_pii'] is False
+assert 'fastapi' in client.integrations and 'sqlalchemy' in client.integrations
+with sentry_sdk.isolation_scope() as scope:
+    scope.set_client(client)
+    event_id = sentry_sdk.capture_exception(ValueError('offline-synthetic-compatibility'))
+assert event_id
+items = [item for envelope in client.transport.envelopes for item in envelope.items]
+events = [item.get_event() for item in items if item.type == 'event']
+assert len(events) == 1
+assert events[0]['exception']['values'][0]['type'] == 'ValueError'
+assert events[0]['environment'] == 'offline-compatibility'
+assert events[0]['release'] == 'dependency-review'
+client.close()
+print(json.dumps({'sentry_sdk': sentry_sdk.VERSION, 'integrations': ['fastapi', 'sqlalchemy'], 'send_default_pii': False, 'captured_offline_events': len(events)}, indent=2))
+print('SENTRY_SHAPES_OK')
