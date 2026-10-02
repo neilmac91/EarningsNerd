@@ -152,7 +152,10 @@ Dialog           <Modal open onClose labelledBy="<id>" size="sm|md|lg" dismissib
                  The ONE dialog primitive (v3, DS-04): portal to <body>, bg-overlay + z-modal scrim with
                  backdrop-blur, Card recipe at rounded-2xl, focus moves in on open (initialFocusRef ?? first
                  focusable ?? panel), Tab/Shift-Tab cycle inside, Escape closes when dismissible, focus RETURNS
-                 to the opener, body scroll locked. Destructive confirms use variant="destructive" and stay
+                 to the opener, body scroll locked. The panel never outgrows the viewport: it stops at the
+                 scrim's inset and scrolls inside, with scroll padding equal to its p-6 inset so a control
+                 scrolled in by focus lands its ring clear of the edge; callers never size its height.
+                 Destructive confirms use variant="destructive" and stay
                  dismissible. The trap arms once per open (onClose is read through a ref), so inline
                  callbacks are fine. The TOP open dialog owns Tab/Escape (window-capture listener), so a
                  dialog over the copilot sheet never lets a key reach the sheet — and content inside a panel
