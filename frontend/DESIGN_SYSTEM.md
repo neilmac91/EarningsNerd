@@ -179,8 +179,9 @@ Popover          An anchored, light-dismiss surface that explains one control (t
                  Keyboard: focus moves to the first action unless the user already moved it elsewhere (armed
                  once per open, callbacks through a ref); Escape closes in window capture with preventDefault
                  (stopPropagation alone still closes a native <dialog> beneath); Tab past the last action /
-                 Shift+Tab before the first close it and resume the page's order at the trigger; scroll and
-                 resize close it (fixed at the trigger's rect, it would detach); every close returns focus to
+                 Shift+Tab before the first close it and resume the page's order at the trigger; a scroll that
+                 moves the trigger, or a resize, closes it (fixed at its rect, it would detach; the page
+                 scrolling behind a fixed dialog does not move it); every close returns focus to
                  the trigger unless the user moved on. While a native <dialog> is open, it portals into it.
 
 Stacking         z-sticky 30 (in-page sticky chrome) · z-header 50 (site header; its menus ride it) ·

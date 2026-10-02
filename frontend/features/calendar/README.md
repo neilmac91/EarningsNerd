@@ -61,7 +61,7 @@ Weighed three layouts:
   `<dialog>` for the day detail (focus trap + Esc for free, focus restored);
   the bell's popover is a non-modal `role="group"` on `z-overlay` (no dialog
   role: it traps and blocks nothing; the async error is a `role="alert"`) with
-  Esc, outside-click, Tab-out and scroll/resize dismissal and focus return,
+  Esc, outside-click, Tab-out, bell-moving scroll and resize dismissal and focus return,
   rendered inside the day `<dialog>` while one is open;
   `aria-live` on the range heading; every numeral/ticker is `font-data tabular-nums`.
 - **Motion:** token-timed only — `animate-content-in` on the skeleton→content

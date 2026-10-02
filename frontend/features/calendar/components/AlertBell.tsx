@@ -25,8 +25,8 @@
        beneath does not close on the same key);
      - Tab past the last action or Shift+Tab before the first closes it and
        resumes the page's order at the bell, as a native popover's would;
-     - scrolling or resizing closes it (fixed at the bell's rect, it would
-       detach), as CitationChip's popover does;
+     - a scroll that moves the bell, or a resize, closes it (fixed at the bell's
+       rect, it would detach), as CitationChip's popover does;
      - every close returns focus to the bell unless the user moved it on.
    The transparent click-catcher stays: an outside press closes only the
    popover, so it cannot also close the day dialog through its backdrop or
@@ -141,20 +141,26 @@ export function BellPopover({ blocked, onClose }: { blocked: BlockedState; onClo
       trigger.focus()
       onCloseRef.current()
     }
-    // Fixed at the bell's rect, the popover would detach from it on scroll or resize (a wheel goes
-    // straight through the catcher), so it closes, as CitationChip's does. Scroll does not bubble:
-    // capture catches any scroller, the day dialog's list included; the popover's own is exempt.
-    const onMove = (e: Event) => {
-      if (e.type === 'scroll' && e.target instanceof Node && popover?.contains(e.target)) return
+    // Fixed at the bell's rect, the popover would detach from it once a scroll moves the bell (a
+    // wheel goes straight through the catcher), so it closes then, as CitationChip's does. Scroll
+    // does not bubble: capture catches any scroller, the day dialog's list included. A scroll that
+    // leaves the bell in place keeps it open — the page behind the fixed day dialog, or a smooth
+    // scroll from before the popover opened whose events arrive a frame late.
+    const origin = trigger?.getBoundingClientRect()
+    const onScroll = (e: Event) => {
+      if (e.target instanceof Node && popover?.contains(e.target)) return
+      const now = trigger?.getBoundingClientRect()
+      if (origin && now && Math.abs(now.top - origin.top) < 1 && Math.abs(now.left - origin.left) < 1) return
       onCloseRef.current()
     }
+    const onResize = () => onCloseRef.current()
     window.addEventListener('keydown', onKey, true)
-    window.addEventListener('scroll', onMove, { capture: true, passive: true })
-    window.addEventListener('resize', onMove, { passive: true })
+    window.addEventListener('scroll', onScroll, { capture: true, passive: true })
+    window.addEventListener('resize', onResize, { passive: true })
     return () => {
       window.removeEventListener('keydown', onKey, true)
-      window.removeEventListener('scroll', onMove, { capture: true })
-      window.removeEventListener('resize', onMove)
+      window.removeEventListener('scroll', onScroll, { capture: true })
+      window.removeEventListener('resize', onResize)
       // Escape, Not now / Dismiss, the outside click and a scroll all land here with focus gone from
       // the (unmounted) popover; send it back to the bell without scrolling the page to it. A Tab
       // out already moved it on, and a user who moved on keeps their place.

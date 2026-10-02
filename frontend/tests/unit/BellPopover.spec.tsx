@@ -155,24 +155,38 @@ describe('BellPopover', () => {
     expect(() => cleanup()).not.toThrow()
   })
 
-  it('closes on a page scroll or resize (it would detach from the bell), but not on its own scroll', async () => {
+  it('closes once a scroll moves its bell (it would detach) or on resize, but not on its own scroll', async () => {
     const { user, bell } = await openFromBell('signin')
-    const group = screen.getByRole('group')
-    fireEvent.scroll(group)
+    const rect = vi.spyOn(bell, 'getBoundingClientRect')
+    try {
+      fireEvent.scroll(screen.getByRole('group'))
+      expect(screen.getByRole('group')).toBeInTheDocument()
+
+      rect.mockReturnValue({ ...ANCHOR, top: ANCHOR.top - 120 } as DOMRect) // the page scrolled the bell away
+      fireEvent.scroll(window)
+      expect(screen.queryByRole('group')).not.toBeInTheDocument()
+      expect(document.activeElement).toBe(bell)
+
+      // Scroll does not bubble: an ancestor scroller (the day dialog's list) is caught in capture.
+      rect.mockReturnValue(ANCHOR)
+      await user.click(bell)
+      rect.mockReturnValue({ ...ANCHOR, top: ANCHOR.top + 40 } as DOMRect)
+      fireEvent.scroll(bell.parentElement as HTMLElement)
+      expect(screen.queryByRole('group')).not.toBeInTheDocument()
+
+      rect.mockReturnValue(ANCHOR)
+      await user.click(bell)
+      fireEvent(window, new Event('resize'))
+      expect(screen.queryByRole('group')).not.toBeInTheDocument()
+    } finally {
+      rect.mockRestore()
+    }
+  })
+
+  it('stays open through a scroll that leaves its bell in place (the page behind the fixed day dialog)', async () => {
+    await openFromBell('signin')
+    fireEvent.scroll(window) // the bell's rect is unchanged
     expect(screen.getByRole('group')).toBeInTheDocument()
-
-    fireEvent.scroll(window)
-    expect(screen.queryByRole('group')).not.toBeInTheDocument()
-    expect(document.activeElement).toBe(bell)
-
-    // Scroll does not bubble: an ancestor scroller (the day dialog's list) is caught in capture.
-    await user.click(bell)
-    fireEvent.scroll(bell.parentElement as HTMLElement)
-    expect(screen.queryByRole('group')).not.toBeInTheDocument()
-
-    await user.click(bell)
-    fireEvent(window, new Event('resize'))
-    expect(screen.queryByRole('group')).not.toBeInTheDocument()
   })
 
   it('Tab past the last action resumes at the bell (the browser moves on); Shift+Tab before the first lands on it', async () => {
