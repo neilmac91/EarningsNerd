@@ -12,11 +12,11 @@ provenance primitives that already power Trace-to-Source:
   quote pair wrapping the entire excerpt is stripped; an inner quoted span never stands in for it),
   and builds a ``#:~:text=`` deep-link to the start of that excerpt via
   :func:`~app.services.provenance_service.build_text_fragment_url`. A citation whose section label
-  contains a double quote mark (``"``, ``“``, ``”``) is unverified too: the label is not checked
-  against the filing, so it may not present a quotation. A citation the model
-  references but that fails verification prevents publication of the entire answer. Answer prose
-  remains private until citation admission and numbering finish; source matching does not prove
-  the interpretation or establish that every uncited claim is supported.
+  contains one of decision F's double quote marks (``"``, ``＂``, ``“``, ``”``, ``„``, ``‟``) is
+  unverified too: the label is not checked against the filing, so it may not present a quotation.
+  A citation the model references but that fails verification prevents publication of the entire
+  answer. Answer prose remains private until citation admission and numbering finish; source
+  matching does not prove the interpretation or establish that every uncited claim is supported.
 
 This module is transport-agnostic: it yields plain ``dict`` events. The SSE router formats them for
 the wire. Numeric tools use the viewed filing's accession and native currency; narrative
@@ -451,7 +451,12 @@ def _parse_followups(raw: str) -> list[str]:
 # A section label is published as-is and never matched against the filing (most legitimate labels
 # are not filing text), so a label carrying a double quote mark would present an unverified
 # quotation beside "Source match found"; its citation is unverified (the founder's section_ref rule).
-_SECTION_REF_QUOTE_MARKS = '"“”'
+# The marks are decision F's, read from its one definition (_QUOTE_MARK_RE below) so the two rules
+# cannot drift; a label displays as plain text, so a character reference is not a mark. The Copilot
+# eval's CITATION scorer reads this predicate too.
+def section_label_is_quoted(label: object) -> bool:
+    """Whether a citation's section label carries one of decision F's double quote marks."""
+    return isinstance(label, str) and _QUOTE_MARK_RE.search(label) is not None
 
 
 def _verify_citations(
@@ -471,9 +476,8 @@ def _verify_citations(
         excerpt = cite["excerpt"].strip()
         section_ref = cite.get("section") or cite.get("section_ref")
         key = str(cite["n"])
-        verified = verify_whole_excerpt_in_text(excerpt, normalized_source) and not (
-            section_ref and any(mark in section_ref for mark in _SECTION_REF_QUOTE_MARKS)
-        )
+        verified = (verify_whole_excerpt_in_text(excerpt, normalized_source)
+                    and not section_label_is_quoted(section_ref))
         if key in referenced and (
             not verified or (key in declared and declared[key] != cite)
         ):
@@ -495,7 +499,8 @@ def _verify_citations(
 # Prose quotations (decision F). The marks are the double quotes normalize_for_match folds to '"'
 # (straight, “ ” „) plus ‟ (U+201F) and the fullwidth ＂ (U+FF02). Single quotes are left alone
 # (apostrophes), and so are ″ (U+2033, far more often an inch or seconds sign), 〝〞〟, ❝❞, 🙶🙷 and ʺ:
-# decision F's scope is these double quotes, not every quotation form.
+# decision F's scope is these double quotes, not every quotation form. This is the one definition of
+# the set: the markdown pre-filter below and the section_ref rule (section_label_is_quoted) read it.
 _STRAIGHT_QUOTE_MARKS = '"\uff02'
 _CLOSING_QUOTE_MARK = "\u201d"
 _QUOTE_MARK_RE = re.compile('["\uff02\u201c\u201d\u201e\u201f]')
@@ -518,7 +523,7 @@ _MAX_QUOTED_CHARS = 20_000
 _MAX_BRACKETS = 256
 # A mark, or a character reference that may name one (a bare "&", as in R&D, is not one).
 _QUOTE_HINT_RE = re.compile(
-    '["\uff02\u201c\u201d\u201e\u201f]|&(?:#[0-9]{1,7}|#[xX][0-9a-fA-F]{1,6}|[A-Za-z][A-Za-z0-9]{1,31});')
+    _QUOTE_MARK_RE.pattern + "|&(?:#[0-9]{1,7}|#[xX][0-9a-fA-F]{1,6}|[A-Za-z][A-Za-z0-9]{1,31});")
 # Characters that change what a reader sees without being plain visible text: C0 and C1 controls
 # other than line breaks (a tab fails closed in the answer below), the Ogham space mark and the line
 # and paragraph separators (a space or a break, by reader), the byte-order mark, and the bidi
