@@ -96,12 +96,20 @@ export default function InviteRow({ invite }: InviteRowProps) {
         <div className="flex items-center gap-2">
           {/* Resend is hidden once an invite is used — re-minting a redeemed invite is a 409. */}
           {!isUsed && (
+            // aria-disabled + an early return, not native `disabled` (the DS Button's `loading`
+            // pattern): this button opens ResendShareModal, whose close returns focus here, and a
+            // natively disabled button can't take focus (Chrome also blurs it the moment it turns
+            // disabled mid-request), so focus would fall to <body> for the whole cooldown.
             <button
               type="button"
-              onClick={() => resendMutation.mutate()}
-              disabled={resendDisabled}
+              onClick={() => {
+                if (resendDisabled) return
+                resendMutation.mutate()
+              }}
+              aria-disabled={resendDisabled || undefined}
+              aria-busy={resendMutation.isPending || undefined}
               aria-label={`Resend invite to ${emailLabel}`}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-border-light bg-panel-light px-2.5 py-1.5 text-xs font-medium text-text-primary-light shadow-e1 transition hover:bg-brand-weak hover:shadow-e2 disabled:opacity-50 disabled:cursor-not-allowed dark:border-white/10 dark:bg-panel-dark dark:text-text-primary-dark dark:shadow-none dark:hover:bg-white/5"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-border-light bg-panel-light px-2.5 py-1.5 text-xs font-medium text-text-primary-light shadow-e1 transition hover:bg-brand-weak hover:shadow-e2 aria-disabled:opacity-50 aria-disabled:cursor-not-allowed dark:border-white/10 dark:bg-panel-dark dark:text-text-primary-dark dark:shadow-none dark:hover:bg-white/5"
             >
               {resendMutation.isPending ? (
                 <CircleNotchIcon className="h-3.5 w-3.5 animate-spin" />
