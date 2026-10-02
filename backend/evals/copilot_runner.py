@@ -6,7 +6,8 @@ DB inference, unverified-case promotion, or answered-only denominator is accepte
 from __future__ import annotations
 
 import argparse
-from contextlib import nullcontext
+from contextlib import AsyncExitStack, aclosing, nullcontext
+from contextvars import ContextVar
 from copy import deepcopy
 from unittest.mock import patch
 import asyncio
@@ -68,6 +69,13 @@ def _identity(row: dict) -> tuple:
     return tuple(row.get(k) for k in ('ticker', 'accession_number', 'question_id', 'run_index'))
 
 
+def _withheld_label(row: dict) -> str | None:
+    """Name an attempt withheld at the publication boundary; it remains an incomplete attempt."""
+    error = row.get('error')
+    reason = error.get('withheld_reason') if isinstance(error, dict) else None
+    return 'publication withheld: ' + reason if isinstance(reason, str) and reason else None
+
+
 def validate_report(report: dict, *, expected_plan: list[dict] | None = None) -> list[str]:
     """Completeness is independent of pass-rate statistics: every planned row must be scored."""
     failures = []
@@ -103,7 +111,7 @@ def validate_report(report: dict, *, expected_plan: list[dict] | None = None) ->
     for row in rows:
         score = row.get('score')
         if row.get('error') or row.get('terminal_complete') is not True or not isinstance(score, dict):
-            failures.append('operationally incomplete attempt')
+            failures.append(_withheld_label(row) or 'operationally incomplete attempt')
         elif score.get('passed') is not True or score.get('gate_failures') != []:
             failures.append('deterministic trust/accuracy veto')
     summary = report.get('summary', {})
@@ -167,8 +175,46 @@ def _snapshot_for_case(case: CopilotGoldenCase):
         return snapshot_filing(filing) if filing else None
 
 
+# The capture of the attempt running in this context (its asyncio task, and threads it starts). A
+# record logged under another attempt's context never reaches this row.
+_ATTEMPT_CAPTURE: ContextVar[logging.Filter | None] = ContextVar('copilot_eval_attempt_capture', default=None)
+
+
+class _WithheldReasons(logging.Filter):
+    """Record this attempt's publication-boundary withhold reasons from the service log.
+
+    The client receives only the shared generic error; the service logs the reason, an
+    application-owned constant, never candidate prose. Diagnostic only: nothing is admitted.
+    A logger filter, not a handler: it passes every record on unchanged, and an added handler
+    would switch off logging's last-resort stderr output, which is how the service's warnings
+    and tracebacks reach runner.log in the copilot-eval job (no root handler there).
+    """
+
+    def __init__(self, sink: list[str]):
+        from app.services.copilot_service import _UnpublishableAnswer, logger
+        super().__init__()
+        self.sink, self.withheld, self.service_log = sink, _UnpublishableAnswer, logger
+
+    def __enter__(self):
+        self.token = _ATTEMPT_CAPTURE.set(self)
+        self.service_log.addFilter(self)
+        return self
+
+    def __exit__(self, *exc_info):
+        self.service_log.removeFilter(self)
+        _ATTEMPT_CAPTURE.reset(self.token)
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        reason = record.args[0] if isinstance(record.args, tuple) and record.args else None
+        if isinstance(reason, self.withheld) and _ATTEMPT_CAPTURE.get() is self:
+            self.sink.append(str(reason)[:200])
+        return True
+
+
 async def _answer(filing_snap, question: str, *, trace: dict | None = None) -> tuple[str, list[dict], str, int]:
     from app.services.copilot_service import answer_filing_question, openai_service
+    from app.services.openai_service import STREAM_ACTIVITY_SENTINEL, STREAM_ERROR_SENTINEL
+
     original_stream = openai_service.stream_chat_with_tools
     def observed_stream(messages, tools, run_tool, **kwargs):
         trace['initial_messages'] = deepcopy(messages)
@@ -178,29 +224,58 @@ async def _answer(filing_snap, question: str, *, trace: dict | None = None) -> t
             result = run_tool(name, args)
             trace['tool_results'].append({'name': name, 'args': deepcopy(args), 'result': deepcopy(result)})
             return result
-        return original_stream(messages, tools, observed_tool, **kwargs)
+
+        async def observed_deltas():
+            # These are candidate deltas from the existing wrapper, not a native HTTP trace.
+            # Preserve rejected candidates exactly; provider control payloads may carry private
+            # failure details and are recorded by type only. Nothing here changes public SSE.
+            async with aclosing(original_stream(messages, tools, observed_tool, **kwargs)) as provider:
+                async for delta in provider:
+                    if delta.startswith(STREAM_ERROR_SENTINEL):
+                        trace['provider_controls'].append({'type': 'error'})
+                    elif delta.startswith(STREAM_ACTIVITY_SENTINEL):
+                        trace['provider_controls'].append({'type': 'activity'})
+                    else:
+                        trace['candidate_deltas'].append(delta)
+                    yield delta
+
+        observed = observed_deltas()
+        # The service can return immediately on a provider error. Closing its generator alone
+        # does not guarantee that an async iterator nested in its loop has been awaited closed.
+        streams.push_async_callback(observed.aclose)
+        return observed
+
     if trace is not None:
         trace['tool_results'] = []
+        trace['candidate_deltas'] = []
+        trace['provider_controls'] = []
+        trace['service_events'] = []
+        trace['withheld_reasons'] = []
     observer = patch.object(openai_service, 'stream_chat_with_tools', observed_stream) if trace is not None else nullcontext()
+    withheld = _WithheldReasons(trace['withheld_reasons']) if trace is not None else nullcontext()
     complete = None
-    with observer:
-        async for event in answer_filing_question(filing=filing_snap, question=question):
-            if not isinstance(event, dict):
-                raise ValueError('malformed stream event')
-            if complete is not None:
-                raise ValueError('event after terminal completion')
-            if event.get('type') == 'error':
-                raise ValueError('provider error event')
-            if event.get('type') == 'complete':
-                # The real refusal producer has no strip-count field. Only that omission is zero.
-                stripped = event.get('misplaced_fact_markers', 0 if event.get('kind') == 'not_disclosed' else None)
-                if (not isinstance(event.get('answer'), str) or not event['answer'].strip()
-                        or event.get('kind') not in {'answer', 'not_disclosed'}
-                        or not isinstance(event.get('citations'), list)
-                        or any(not isinstance(c, dict) for c in event['citations'])
-                        or type(stripped) is not int or stripped < 0):
-                    raise ValueError('malformed terminal completion')
-                complete = {**event, 'misplaced_fact_markers': stripped}
+    async with AsyncExitStack() as streams:
+        with observer, withheld:
+            service = await streams.enter_async_context(aclosing(answer_filing_question(filing=filing_snap, question=question)))
+            async for event in service:
+                if not isinstance(event, dict):
+                    raise ValueError('malformed stream event')
+                if trace is not None and event.get('type') in {'error', 'complete'}:
+                    trace['service_events'].append(deepcopy(event))
+                if complete is not None:
+                    raise ValueError('event after terminal completion')
+                if event.get('type') == 'error':
+                    raise ValueError('provider error event')
+                if event.get('type') == 'complete':
+                    # The real refusal producer has no strip-count field. Only that omission is zero.
+                    stripped = event.get('misplaced_fact_markers', 0 if event.get('kind') == 'not_disclosed' else None)
+                    if (not isinstance(event.get('answer'), str) or not event['answer'].strip()
+                            or event.get('kind') not in {'answer', 'not_disclosed'}
+                            or not isinstance(event.get('citations'), list)
+                            or any(not isinstance(c, dict) for c in event['citations'])
+                            or type(stripped) is not int or stripped < 0):
+                        raise ValueError('malformed terminal completion')
+                    complete = {**event, 'misplaced_fact_markers': stripped}
     if complete is None:
         raise ValueError('stream ended without terminal completion')
     return complete['answer'], complete['citations'], complete['kind'], complete['misplaced_fact_markers']
@@ -249,6 +324,8 @@ async def run(*, runs: int = 3, cases: list[CopilotGoldenCase] | None = None) ->
                 period_of_report=case.period_of_report, reporting_currency=case.reporting_currency).to_dict()
         except Exception as exc:
             row['error'] = {'type': type(exc).__name__, 'stage': 'answer_or_score'}
+            if row.get('tool_trace', {}).get('withheld_reasons'):
+                row['error']['withheld_reason'] = row['tool_trace']['withheld_reasons'][0]
         row['elapsed_ms'] = round((time.monotonic() - started) * 1000, 2)
         report['results'].append(row)
     rows = report['results']
@@ -282,7 +359,8 @@ def _write_report(report: dict, output: Path = REPORTS_DIR) -> Path:
         '| --- | --- | --- | --- | --- | --- |']
     for row in report.get('results', []):
         score = row.get('score', {})
-        verdict = row.get('error') or ('PASS' if score.get('passed') else '; '.join(score.get('gate_failures', [])) or 'unscored')
+        verdict = (_withheld_label(row) or row.get('error')
+                   or ('PASS' if score.get('passed') else '; '.join(score.get('gate_failures', [])) or 'unscored'))
         lines.append('| ' + ' | '.join(cell(v) for v in (
             row.get('ticker'),row.get('accession_number'),row.get('question_id'),row.get('run_index'),
             row.get('terminal_complete'),verdict)) + ' |')

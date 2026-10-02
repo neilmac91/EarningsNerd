@@ -12,6 +12,16 @@ what applies to your task. Filenames are greppable: `arch-*`, `sec-*`, `test-*`,
 
 ## Architecture
 
+- [`arch-acquisition-period-withholding-needs-whole-claims.md`](./arch-acquisition-period-withholding-needs-whole-claims.md) — Preserve closed authored continuations when withholding ambiguous acquisition-period claims
+
+- [`arch-admit-copilot-answers-before-publication.md`](./arch-admit-copilot-answers-before-publication.md) — Hold answer prose until citation admission and preserve truthful request completion
+
+- [`arch-admit-authored-evidence-before-repair.md`](./arch-admit-authored-evidence-before-repair.md) — Match the real evidence selector and admit authored evidence before fuzzy repair
+
+- [`arch-validate-inline-source-identities.md`](./arch-validate-inline-source-identities.md) — Validate namespace bindings and qualified tags before selecting inline source facts
+
+- [`arch-operand-matches-do-not-authorize-financial-assertions.md`](./arch-operand-matches-do-not-authorize-financial-assertions.md) — Use tagged operands for bounded withholding without promoting them to assertion authority
+
 - [`arch-source-supplements-preserve-existing-context.md`](./arch-source-supplements-preserve-existing-context.md) — Retain complete bounded omitted source without displacing existing context
 - [`arch-capital-comparisons-need-source-ownership.md`](./arch-capital-comparisons-need-source-ownership.md) — Own qualified comparisons and source-attributed capital passages in code
 - [`arch-bind-bare-table-figures-to-the-declared-scale.md`](./arch-bind-bare-table-figures-to-the-declared-scale.md) — Bind a bare dollar figure copied from a scaled table to the table's declared scale
@@ -60,6 +70,7 @@ what applies to your task. Filenames are greppable: `arch-*`, `sec-*`, `test-*`,
 - [`test-e2e-runs-without-backend.md`](./test-e2e-runs-without-backend.md) — CI Playwright runs against `next start` with NO backend — specs must tolerate a dead API
 - [`test-empty-truth-sets-score-perfect.md`](./test-empty-truth-sets-score-perfect.md) — An empty truth set scores 1.0, not 0 — guard the decision, not the scorer
 - [`test-eval-iteration-ergonomics.md`](./test-eval-iteration-ergonomics.md) — Exploit prompt-cache and pinned-accession ergonomics when iterating on evals
+- [`test-fixture-months-are-never-the-wall-clock-month.md`](./test-fixture-months-are-never-the-wall-clock-month.md) — Seed fixture months that can never be the wall-clock month; pin the clock where cases depend on it
 - [`test-fresh-bytecode-prefix-before-trusting-local-timing.md`](./test-fresh-bytecode-prefix-before-trusting-local-timing.md) — Give every local Python run on this Mac a fresh bytecode-cache prefix before trusting its timing
 - [`test-gates-must-be-as-wide-as-their-rule.md`](./test-gates-must-be-as-wide-as-their-rule.md) — A gate narrower than its rule is worse than no gate; evaluate the source, don't text-match it
 - [`test-isolate-process-wide-contextvars.md`](./test-isolate-process-wide-contextvars.md) — Isolate process-wide ContextVars per test; CI's file order can hide a leak
@@ -87,16 +98,25 @@ what applies to your task. Filenames are greppable: `arch-*`, `sec-*`, `test-*`,
 - [`frontend-client-exports-need-next-build.md`](./frontend-client-exports-need-next-build.md) — Run next build before moving design-system client exports across page files
 - [`frontend-route-redesign-needs-a-mount-gate.md`](./frontend-route-redesign-needs-a-mount-gate.md) — A self-omitting section needs a source-level mount gate — render tests cannot see it go missing
 - [`frontend-guard-submit-on-loading-buttons.md`](./frontend-guard-submit-on-loading-buttons.md) — Guard submit handlers with an early return when the button uses loading, not disabled
+- [`frontend-dialog-openers-stay-focusable.md`](./frontend-dialog-openers-stay-focusable.md) — Keep a dialog's opener focusable through its pending and cooldown states — aria-disabled, not native disabled
 - [`frontend-overrides-rot-when-the-constrained-package-moves.md`](./frontend-overrides-rot-when-the-constrained-package-moves.md) — An npm override's meaning is set by the package it constrains — re-check every override on a major bump
 - [`frontend-no-surface-fighting-global-colors.md`](./frontend-no-surface-fighting-global-colors.md) — Never set a global element-level color that surfaces must opt out of
 - [`frontend-preview-both-themes-before-done.md`](./frontend-preview-both-themes-before-done.md) — Eyeball the deployed preview in both themes before declaring visual work done
 - [`frontend-query-keys-registry.md`](./frontend-query-keys-registry.md) — React Query keys come from lib/queryKeys.ts — inline key literals are a stale-cache bug class
 - [`frontend-status-colors-for-status-only.md`](./frontend-status-colors-for-status-only.md) — Reserve loud status colors for genuine status messages
 - [`frontend-sweep-replaces-need-per-site-asserts.md`](./frontend-sweep-replaces-need-per-site-asserts.md) — Assert every targeted replace in a sweep script and grep all token variants first
+- [`frontend-tailwind-content-scans-class-maps.md`](./frontend-tailwind-content-scans-class-maps.md) — Put every module that composes Tailwind classes under a content glob
 - [`frontend-theme-migration-app-wide.md`](./frontend-theme-migration-app-wide.md) — Treat a design-token/theme migration as app-wide by default
 - [`frontend-verify-chart-annotations-on-dense-data.md`](./frontend-verify-chart-annotations-on-dense-data.md) — Acceptance-test chart annotations on a dense real-world series, never only fixtures
+- [`frontend-variable-text-must-not-size-a-wrapping-row.md`](./frontend-variable-text-must-not-size-a-wrapping-row.md) — Keep variable-length text from sizing a wrapping row or an implicit grid track
 
 ## Operations & workflow
+
+- [`ops-capacity-projection-withholds-command-values.md`](./ops-capacity-projection-withholds-command-values.md) — Withhold command values and execute the real readback projection in a privacy gate
+- [`ops-finish-only-job-owned-read-transactions.md`](./ops-finish-only-job-owned-read-transactions.md) — Finish the CLI's read transaction before transport while preserving attached inputs
+
+- [`ops-price-the-actual-provider-model.md`](./ops-price-the-actual-provider-model.md) — Price each actual returned model at its own published tariff
+- [`ops-release-cached-filing-reads-before-yield.md`](ops-release-cached-filing-reads-before-yield.md) — Close completed filing reads before async dependency cleanup can be blocked by a competing checkout
 
 - [`ops-ai-evidence-is-not-human-acceptance.md`](ops-ai-evidence-is-not-human-acceptance.md) — Use explicit model/source evidence when the founder cannot supply a human panel
 
@@ -135,4 +155,5 @@ what applies to your task. Filenames are greppable: `arch-*`, `sec-*`, `test-*`,
 - [evals-accept-a-prompt-change-on-two-runs-not-one.md](evals-accept-a-prompt-change-on-two-runs-not-one.md) — one generated run sets a direction, never an effect size; report the range across two
 - [ops-the-subscription-judge-has-a-usage-limit.md](ops-the-subscription-judge-has-a-usage-limit.md) — probe `is_error` before a long judge run; an exhausted subscription looks like exit 1 with empty stderr
 - [ops-judge-cli-pins-need-a-drift-plan.md](ops-judge-cli-pins-need-a-drift-plan.md) — Pin the judge CLI by version, but decide in advance what happens when the container image drifts
-- [ops-prove-the-permission-route-before-a-gated-session.md](ops-prove-the-permission-route-before-a-gated-session.md) — Prove the permission route with a `--help` no-op in the exact allow-rule form before any gated step; a denial there is a stop, not a failed restore
+- [ops-prove-the-permission-route-before-a-gated-session.md](ops-prove-the-permission-route-before-a-gated-session.md) — Prove the permission route with a `--help` no-op in the exact allow-rule form before any gated step; a denial there is a stop, not a failed restore; name the mode (Accept edits, not Plan)
+- [ops-evidence-exports-verify-themselves-and-survive-git.md](ops-evidence-exports-verify-themselves-and-survive-git.md) — An evidence export copies everything, verifies its copy, states its own eligibility, and is gated against ignore rules that silently drop inventoried files; a verdict that depends on another tool reruns that tool on the current inputs, and a receipt on disk is evidence only

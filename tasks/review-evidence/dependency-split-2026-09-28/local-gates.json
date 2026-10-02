@@ -1,0 +1,143 @@
+{
+  "base": "4088743ca6ad3604a1dc4cb6b897e8864d506bd7",
+  "tested_commit": "20e0855d97992acec426fcb221592dc1133d0b76",
+  "backend_tree": "35dcf5aa147dd46a1c212b3df0ee2be95a5dc944",
+  "gate_started_at": "2026-09-28T20:39:32.905433+00:00",
+  "gate_finished_at": "2026-09-28T20:45:06.619251+00:00",
+  "python": "3.11.16",
+  "postgres": "15.15 Homebrew, disposable loopback-only cluster, stopped",
+  "installed_pin_count": 104,
+  "manifest_sha256": {
+    "backend/requirements.in": "21bc71169546f37b22e4cb158e2727a08f90111baf43b13a1f7ac33d45256617",
+    "backend/requirements.txt": "0061dfafb82220cb77c737f6e9255c9e4e517ff4ad0833c2a58fceb03dffa749",
+    "backend/requirements-dev.txt": "da0f0b2061c8c557ad9b34002183e84429db888ddde083582aa61406684590f3",
+    "backend/requirements-eval.txt": "5351ea42f8466513b725544a7a41b0ef0759474cf92e2069a7df9ab3262b2ae6"
+  },
+  "protected_source_and_tests_identical_to_base": {
+    "backend/app": "2116b131fda48c774e4170333adad94717156ed2",
+    "backend/main.py": "038c78ace617514028d13aa363938346e7fc818b",
+    "backend/tests": "ffe1c9cf59821bc761e5c10884b89afbf07da901",
+    "backend/migrations": "e963e8b819b1c634f72d8fc380a26fa9f4dcc78f",
+    "backend/evals": "db7d23091b97eed71cc60c181b9ba4b3f8f42cc1",
+    "backend/prompts": "f357c91638784e96df543105fb4caa59d6849ead",
+    "frontend": "d836d88e795f9cd13833662b581cfe7ab2945c2f",
+    ".github/workflows": "dd82cef8da89f66bc80b9c0bfbc8e5221e92aa8a"
+  },
+  "dependabot_parse": "passed; version group exclusion only; security group unchanged",
+  "results": [
+    {
+      "name": "pip-check",
+      "exit_code": 0,
+      "summary": "No broken requirements found.",
+      "log_sha256": "9261363b733079a641c2e4cc9bc46ffa1d8336945a87f807b6cf68847dbc9b09"
+    },
+    {
+      "name": "ruff",
+      "exit_code": 0,
+      "summary": "All checks passed!",
+      "log_sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18"
+    },
+    {
+      "name": "bandit",
+      "exit_code": 0,
+      "summary": "No issues identified. Medium/high severity issues: 0.",
+      "log_sha256": "21db9b89a8ca6cb3a2b1c95e65680fca00caa04cedfea5321be8a90f5f9557d3"
+    },
+    {
+      "name": "pytest",
+      "exit_code": 0,
+      "summary": "3806 passed, 39 skipped, 2 deselected, 40 warnings in 156.08s",
+      "log_sha256": "3c4bf879f87715ce61699f1124eb35d4b772a90f23aeb671560580c739437005"
+    },
+    {
+      "name": "performance",
+      "exit_code": 0,
+      "summary": "2 passed, 18 warnings in 25.99s",
+      "log_sha256": "5423f268a22ea48348741d75678940e13f200232832ba263ef0b0cb65c370c60"
+    },
+    {
+      "name": "pg-seed",
+      "exit_code": 0,
+      "summary": "create_all: 33 tables; driver: psycopg2",
+      "log_sha256": "3a676331ea92660406ba14fa2f34b80b60dfd19c5eb757880146b282381c1a62"
+    },
+    {
+      "name": "pg-migrations-pass1",
+      "exit_code": 0,
+      "summary": "apply_migrations: applied=40 skipped=0",
+      "log_sha256": "14ed3052f0f35c6648bd29ef9430ee83c62305b529bdb699c34b9b0c79a60b0f"
+    },
+    {
+      "name": "pg-migrations-pass2",
+      "exit_code": 0,
+      "summary": "apply_migrations: applied=0 skipped=40",
+      "log_sha256": "8f75a97ae73f4163eb014363ac11c767a35ee20607e701b8d50d9ca568dbf2c9"
+    },
+    {
+      "name": "pg-migrations-pass3",
+      "exit_code": 0,
+      "summary": "apply_migrations: applied=40 skipped=0",
+      "log_sha256": "77d1c53ca7f83217d2bc303625d824577a8350bece9bacf6906594d4a391dd79"
+    },
+    {
+      "name": "pg-concurrency-stripe",
+      "exit_code": 0,
+      "summary": "24 passed, 16 warnings in 7.11s",
+      "log_sha256": "021ca65e4699cb33e6b4ad73349a6e03a2b81988a647e56f40c2826833ca2d16"
+    },
+    {
+      "name": "pg-concurrency-usage",
+      "exit_code": 0,
+      "summary": "29 passed, 9 warnings in 5.56s",
+      "log_sha256": "4c7683b84d62f9bda83af2779ea6fc2fe439d04eaebce86e7a279a6a8644dc57"
+    },
+    {
+      "name": "pg-concurrency-login",
+      "exit_code": 0,
+      "summary": "6 passed, 2 warnings in 1.46s",
+      "log_sha256": "4ae178e58525da4bf872092d22969f2512db93fdf909204d914beae9087c4b16"
+    },
+    {
+      "name": "pg-concurrency-delivery",
+      "exit_code": 0,
+      "summary": "5 passed, 2 warnings in 1.44s",
+      "log_sha256": "6d138fc224cab1931389ae4a884a72a014b145aee6b9a533bfc0bdeb07936e5a"
+    },
+    {
+      "name": "pg-final-state",
+      "exit_code": 0,
+      "summary": "40 ledger rows; 0 decoy rows; 0 invalid indexes",
+      "log_sha256": "b7868aed47160b3ede05dce32c835d3c3c67a2de94aaa83463ae2955a3033336"
+    },
+    {
+      "name": "pg-stop",
+      "exit_code": 0,
+      "summary": "server stopped",
+      "log_sha256": "ca19178a35ab4153b75b494963b66ce8243e1b94c173107c87b44d09db23652d"
+    }
+  ],
+  "default_pytest_skips": {
+    "stripe_postgresql": 10,
+    "usage_postgresql": 18,
+    "login_postgresql": 6,
+    "delivery_postgresql": 5,
+    "total": 39,
+    "all_reexecuted_in_explicit_postgresql_lanes": true
+  },
+  "deselected": "Two performance tests, both passed in the existing separate performance lane.",
+  "setup_failure_retained": {
+    "stage": "first PostgreSQL startup, before schema seeding",
+    "exit_code": 1,
+    "reason": "macOS postmaster became multithreaded during startup; valid LC_ALL required",
+    "remedy": "Retry database setup only in a new private cluster with LC_ALL=C; no app/test/dependency edits.",
+    "log_sha256": "a16bbdb1830055075a1177b12cde7f515410b8d7548553c7c29dd6d77d511e60"
+  },
+  "limitations": [
+    "Fresh local evidence, not hosted Linux CI or production verification.",
+    "Known Yahoo-client closed-stream shutdown logging traceback followed the successful pytest footer; process exit 0.",
+    "No live model/provider compatibility measurement or quality acceptance."
+  ],
+  "provider_calls": false,
+  "production_database_access": false,
+  "working_tree_clean_after_gates": true
+}

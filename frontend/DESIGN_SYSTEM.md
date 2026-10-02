@@ -144,7 +144,9 @@ Ask answer       <AskFilingAnswer>  — the SHIPPED copilot contract: status rea
                  stay literal text — never a dead button. CopilotCitation = { n, excerpt, section_ref,
                  verified, fragment_url } — `verified` drives source attribution: checked sources show
                  “Source match found” with its scope (not whole-answer verification); unmatched sources
-                 stay “Cited”. Numeric/text visual grouping is a display convention, not a separate
+                 stay “Cited” in legacy/reference rendering. New Ask-this-Filing responses wait for
+                 an admitted completion; failed referenced citations and draft answer text are
+                 withheld before reaching this renderer. Numeric/text grouping is not a separate
                  attestation. Never conflate source matching with support for every answer claim.
                  REPO REALITY: this file is the design-system REFERENCE implementation (0 importers).
                  The wired production renderer is features/filings/components/copilot/CopilotMessage.tsx,
@@ -160,6 +162,12 @@ Ask answer       <AskFilingAnswer>  — the SHIPPED copilot contract: status rea
 - **Evidence identity:** the Ask-this-Filing header tile uses the Phosphor `quotes` glyph;
   `sparkle` appears ONLY on the "AI summary" chip.
 - Sortable table headers render as buttons with `aria-sort`, ▲/▼, and the brand focus ring.
+- **Class maps outside JSX must sit under a `content` glob.** Tailwind generates only the classes
+  it finds in the modules `tailwind.config.js` `content` scans. A class composed in an unscanned
+  module ships unstyled and nothing reports it: `lib/financialTone.directionChip` lost its /20
+  borders and flat tint until `lib/` got a glob. `tests/unit/designSystemDoneGate.spec.ts` fails
+  when an unscanned app module composes a hyphenated, variant, opacity or arbitrary-value class
+  (bare single-word utilities like `italic` are indistinguishable from prose, so they are not checked).
 
 ## 5. Headings
 

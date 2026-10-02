@@ -4,6 +4,8 @@ import copy
 from types import SimpleNamespace
 from urllib.parse import unquote
 
+import pytest
+
 from app.services import provenance_service as prov
 
 
@@ -100,6 +102,48 @@ class TestVerifyExcerptInText:
     def test_non_string_evidence_is_safe(self):
         # Legacy/malformed records may carry a non-string excerpt; must not raise.
         assert prov.verify_excerpt_in_text(["not", "a", "string"], self._norm()) is False
+
+
+class TestVerifyWholeExcerptInText:
+    """Surfaces that DISPLAY the whole excerpt as filing text (Copilot citations, forward quotes)
+    verify all of it: only a quote pair wrapping the entire value is stripped, never an inner span."""
+
+    SOURCE = prov.normalize_for_match(
+        "ITEM 1A. RISK FACTORS\nSupply chain constraints persisted through Q3 of fiscal 2024. "
+        "The Company’s “Tier 1” suppliers remain concentrated in Asia."
+    )
+
+    @pytest.mark.parametrize("excerpt", [
+        "Supply chain constraints persisted through Q3",
+        '"Supply chain constraints persisted through Q3"',
+        "“Supply chain constraints persisted through Q3”",
+        "  SUPPLY chain   constraints\npersisted through Q3 ",
+        "The Company's \"Tier 1\" suppliers remain concentrated",
+        "constraints persisted th",  # exactly the floor
+    ])
+    def test_whole_excerpt_contiguous_in_source_verifies(self, excerpt):
+        assert prov.verify_whole_excerpt_in_text(excerpt, self.SOURCE) is True
+
+    @pytest.mark.parametrize("excerpt", [
+        '"Supply chain constraints persisted through Q3" and ended in Q4',
+        '""Supply chain constraints persisted through Q3""',  # one wrapping pair only
+        "constraints persisted t",  # contiguous, one character under the floor
+        "",
+        ["not", "a", "string"],
+    ])
+    def test_anything_else_is_unverified(self, excerpt):
+        assert prov.verify_whole_excerpt_in_text(excerpt, self.SOURCE) is False
+
+    def test_inner_quoted_span_never_stands_in_for_the_excerpt(self):
+        evidence = 'Item 1A: "Supply   chain constraints persisted through Q3"'
+        # Summary evidence is prefix-tolerant by design; the whole-excerpt verifier is not.
+        assert prov.verify_excerpt_in_text(evidence, self.SOURCE) is True
+        assert prov.verify_whole_excerpt_in_text(evidence, self.SOURCE) is False
+
+    def test_floor_is_the_shared_constant_and_source_is_required(self):
+        assert len(prov.normalize_for_match("constraints persisted th")) == prov._MIN_VERIFIABLE_LEN
+        assert prov.verify_whole_excerpt_in_text("Supply chain constraints persisted through Q3", None) is False
+        assert prov.verify_whole_excerpt_in_text("Supply chain constraints persisted through Q3", "") is False
 
 
 class TestBuildTextFragmentUrl:
@@ -433,6 +477,43 @@ class TestV2CitationEnrichment:
         assert row["commentary_evidence"]["verified"] is True
         # The number provenance (source_*) and the takeaway citation are independent fields.
         assert "source_verified" in row and "commentary_evidence" in row
+
+    def _enrich_one_quote(self, quote):
+        raw = self._raw()
+        raw["sections"]["forward_signals"]["quotes"] = [{"speaker": "CEO", "quote": quote}]
+        out = prov.enrich_raw_summary(raw, _filing(critical_excerpt=self.SRC))
+        return out["sections"]["forward_signals"]["quotes"][0]["evidence"]
+
+    def test_whole_verbatim_quote_is_verified_with_build_evidence_output(self):
+        quote = "“We expect double-digit revenue growth in fiscal 2025.”"
+        ev = self._enrich_one_quote(quote)
+        assert ev == prov.build_evidence(
+            quote, "Item 7. MD&A", _filing().document_url, prov.normalize_for_match(self.SRC)
+        )
+        assert ev["verified"] is True and "#:~:text=We%20expect" in ev["fragment_url"]
+
+    def test_quote_contiguous_only_through_an_inner_quoted_span_is_unverified(self):
+        # The page displays the whole quote, so a real inner span cannot vouch for invented text.
+        quote = 'The CEO promised a special dividend and said "We expect double-digit revenue growth in fiscal 2025."'
+        premise = prov.build_evidence(
+            quote, "Item 7. MD&A", _filing().document_url, prov.normalize_for_match(self.SRC)
+        )
+        assert premise["verified"] is True  # the prefix-tolerant builder alone would verify it
+        assert self._enrich_one_quote(quote) == {
+            "excerpt": None, "section_ref": "Item 7. MD&A", "verified": False,
+            "fragment_url": _filing().document_url,
+        }
+
+    def test_footnote_evidence_for_a_prefixed_excerpt_is_unchanged(self):
+        # Footnotes display only the verified quoted span, so build_evidence's prefix tolerance stays.
+        span = "Stock-based compensation expense was recognized over the vesting period"
+        raw = self._raw()
+        raw["sections"]["notable_footnotes"][0]["supporting_evidence"] = f'Note 5 states: "{span}"'
+        out = prov.enrich_raw_summary(raw, _filing(critical_excerpt=self.SRC))
+        assert out["sections"]["notable_footnotes"][0]["evidence"] == {
+            "excerpt": span, "section_ref": "Note 5", "verified": True,
+            "fragment_url": prov.build_text_fragment_url(_filing().document_url, span),
+        }
 
     def test_enrichment_is_non_mutating(self):
         raw = self._raw()

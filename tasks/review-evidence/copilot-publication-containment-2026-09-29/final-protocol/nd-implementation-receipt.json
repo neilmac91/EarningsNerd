@@ -1,0 +1,37 @@
+{
+  "recorded_at": "2026-09-29T21:12:26.118931+00:00",
+  "base_head": "2dae5338554560bf3008082843cedd5f34bd0ad3",
+  "owned_files": {
+    "backend/app/services/copilot_service.py": "5818fb9160d8cb815581f165b90beaeb703ef7f93a9b073fff2122e71d624a79",
+    "backend/tests/unit/test_copilot.py": "4396f3cce11c58ed09dbd5d17d2ac9c97acc062b32ddc4aab0816615bf129f46"
+  },
+  "scope": "Only ND service branch and existing test_copilot.py publication owner/positive ND fixture; no prompt/model/golden/scorer edits. No commit/push/paid calls.",
+  "behavior": "Require nonempty ND reason and required whole strict JSON FOLLOWUPS array of2\u20133 nonblank strings; reject missing/truncated/repairable/prefix/suffix/non-array/nonstring/blank forms; no fabricated default reason. Preserve strip+140-character cap and optional ordinary-answer followups behavior.",
+  "arity_rationale": "Existing frozen prompt explicitly requests2\u20133 ND follow-up questions; enforce that contract instead of silently filtering or truncating invalid entries. The maximum remains3.",
+  "red": {
+    "command": "python -m pytest tests/unit/test_copilot.py -q -k 'publication_boundary and (nd_ or not_disclosed)'",
+    "exit_code": 1,
+    "summary": "19 failed, 7 passed, 109 deselected, 17 warnings in7.21s",
+    "log_sha256": "638f9e5c49745b65254b23bfc3b9b4a8ae8e29db307d3ccde067b4d4870ecb5d",
+    "identity_receipt_sha256": "9e5f6ed2a53412279de1d02c56d4a7f851863ffbf2849922aac3f3ed99d5ff4d"
+  },
+  "green": {
+    "command": "python -m pytest tests/unit/test_copilot.py -q",
+    "exit_code": 0,
+    "summary": "135 passed,17 warnings in6.92s",
+    "log_sha256": "bf769c3b41fd0955952137b90649c859d2eece47cc4bf1af745a2fbf678c2b7a"
+  },
+  "ruff": {
+    "command": "python -m ruff check app/services/copilot_service.py tests/unit/test_copilot.py",
+    "exit_code": 0,
+    "output": "All checks passed!"
+  },
+  "diff_check_exit": 0,
+  "proof": "Natural failing-before/fixed-after same existing owner; no extra synthetic mutation.",
+  "tests": "Free/pro rejected ND preserves quota; valid ND consumes exactly once; no candidate wire prose before completion, generator closes, usage unchanged; normal/split complete reason+2 questions and3-question strip/cap success.",
+  "patch_sha256": "70009bcd4c92e00da74912168870fafc0be799db7a31049d500fece5df60ad61",
+  "limitations": [
+    "Complete syntax does not establish semantic truth of a not-disclosed assertion.",
+    "Full backend gates and exact immutable-head independent review are root-owned and pending."
+  ]
+}

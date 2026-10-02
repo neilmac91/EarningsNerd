@@ -1,0 +1,23 @@
+{
+  "recorded_at_utc": "2026-09-29T21:34:05.533932+00:00",
+  "prior_hosted_head": "2dae5338554560bf3008082843cedd5f34bd0ad3",
+  "source_hashes": {
+    "backend/app/services/copilot_service.py": "f890ac8002a727b1f6f5174aaeee3b62d79ab78168bde1f1158f44be0acc0626",
+    "backend/tests/unit/test_copilot.py": "4396f3cce11c58ed09dbd5d17d2ac9c97acc062b32ddc4aab0816615bf129f46",
+    "backend/tests/unit/test_copilot_gate.py": "65d4facf28fb26997189fbcfcc8fe28b9ff5446f93ed1491fb36cdab2c5dfefa",
+    "frontend/features/filings/api/copilot-api.ts": "a01afe65c85a7315b86afe081f1ea7e1905aec4de4f1aae307bc5ca39819f97a",
+    "frontend/tests/unit/copilotStream.spec.ts": "e9b691ffef2d8c276a22e3077fb50513a0a5a5efbf05c3a42a176ee1a5909c33"
+  },
+  "decision": "Local source review clear, all required gates passed; hosted CI and actual Codex review still required.",
+  "lenses": {
+    "correctness": "ND branch requires nonempty reason and entire JSON tail with two or three nonblank questions, rejects fallback/truncation/repair; client rejects malformed external ND completion; prompt clarifies existing numeric-vs-tool declaration protocol. Ordinary answer optional followups, facts, quota, tool provenance and transport unchanged.",
+    "rules_and_brief": "Format step3 only prompt change. Summary pin/model/scorer/source preparation unchanged. No financial accuracy or E7/E8 acceptance inferred. Frozen prior failures retained.",
+    "tests_and_gates": "Existing ASGI/parser gates extended, natural controls fail on prior production logic. All full gates pass. No locked test edited."
+  },
+  "independent_receipts": {
+    "independent-nd-fix-review.json": "2e963863c2544c230440c30695403a1820857862b16a11fd2f2e91f5a0bb5558",
+    "independent-format-frontend-review.json": "93a8f8fc3e21b7161d43bc7f8b9af26a9c3da027773464e38a7e45947c6a964a"
+  },
+  "backend_gate": "ba3f0e92dda46c58959ac162d520cfedaeb19dbb601dbf8a35728704bc121875",
+  "frontend_build": "d29b3023775d3732ad7c34bdc368ec40f83bb6e096f9bbeb37d9c243fcd33cfb"
+}

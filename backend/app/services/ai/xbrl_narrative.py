@@ -10,6 +10,8 @@ from typing import Any, Optional
 
 from app.services.ai.fi_signals import fi_components_present
 from app.services.ai.bank_guards import _is_no_total_bank
+from app.services.ai.normalize import _PLACEHOLDER_STRINGS
+from app.services.financial_basis import net_income_basis
 from app.services.ai.debt_scope import (
     build_debt_scope_view,
     debt_balance_label,
@@ -28,10 +30,20 @@ RETURNS_RATIO_BAND_PCT = 200.0
 _RETURNS_BAND_KEYS = ("return_on_equity", "return_on_assets")
 
 
-def return_ratio_basis(metric_key: str) -> str:
-    """Describe the existing return formula without inferring a duration or annualizing it."""
+def return_ratio_basis(metric_key: str, point: Optional[dict] = None) -> str:
+    """Describe the existing return formula without inferring a duration or annualizing it.
+
+    With ``point`` (the rendered §4 line), also name that point's OWN selected numerator concept,
+    never a sibling metric's; a missing or custom concept stays explicitly unestablished (not a
+    ``_PLACEHOLDER_STRINGS`` word, which the shared projection would drop). Without ``point`` (the
+    model's grounding block) the text is byte-identical to the pre-scope formula.
+    """
     denominator = {"return_on_equity": "equity", "return_on_assets": "assets"}[metric_key]
-    return f"period net income / period-end {denominator}, not annualized"
+    if point is None:
+        return f"period net income / period-end {denominator}, not annualized"
+    numerator = point.get("numerator") if isinstance(point, dict) else None
+    scope = net_income_basis(numerator.get("raw_tag")) if isinstance(numerator, dict) else None
+    return f"period net income {scope or '(numerator scope unestablished)'} / period-end {denominator}, not annualized"
 
 
 def cash_flow_basis(
@@ -58,6 +70,19 @@ def returns_ratio_in_band(value: Any) -> bool:
         isinstance(value, (int, float)) and not isinstance(value, bool)
         and -RETURNS_RATIO_BAND_PCT <= value <= RETURNS_RATIO_BAND_PCT
     )
+
+
+def return_ratio_period(point: Any) -> Optional[str]:
+    """Return a usable stored ratio period; ambiguous comparators must abstain."""
+    if not isinstance(point, dict):
+        return None
+    period = point.get("period")
+    if not isinstance(period, str):
+        return None
+    period = period.strip()
+    if not period or period.lower() in _PLACEHOLDER_STRINGS:
+        return None
+    return period
 
 
 # Standardized financial metrics surfaced in the prompt's grounding block, as

@@ -1,5 +1,6 @@
 """Full-cohort, terminal and provenance acceptance boundaries for the real runner."""
 from copy import deepcopy
+import asyncio
 import json
 from pathlib import Path
 
@@ -94,6 +95,75 @@ async def test_single_terminal_not_disclosed_and_guard_count_are_retained(monkey
     assert await runner._answer(filing(), 'Future?') == ('Not disclosed.', [], 'not_disclosed', 2)
 
 
+@pytest.mark.asyncio
+@pytest.mark.parametrize('outcome', ['complete', 'rejected', 'no_envelope', 'provider_error', 'cancelled'])
+async def test_attempt_trace_retains_candidate_and_closes_provider(outcome, monkeypatch):
+    """Rejected candidates remain diagnosable without storing provider error payloads."""
+    from app.services import copilot_service
+    from app.services.openai_service import STREAM_ACTIVITY_SENTINEL, STREAM_ERROR_SENTINEL
+
+    source = 'The company sells products to retail and enterprise customers around the world.'
+    snap = filing()
+    snap.content_cache.critical_excerpt = source
+    candidate = ['  The company serves ', 'retail customers [7].\n']
+    if outcome in {'complete', 'rejected'}:
+        declarations = [{'n': 7, 'excerpt': source, 'section': 'Business'}]
+        candidate += ['===CITA', 'TIONS===\n', json.dumps(declarations) if outcome == 'complete' else '[broken]']
+    started = asyncio.Event()
+    closed = []
+    private_error = 'provider-private-error-detail'
+    activity = STREAM_ACTIVITY_SENTINEL + json.dumps({'name': 'get_financial_fact', 'phase': 'done'})
+    monkeypatch.setattr(copilot_service.copilot_tools, 'run_tool', lambda *args, **kwargs: fact())
+
+    async def stream(messages, tools, run_tool, **kwargs):
+        try:
+            run_tool('get_financial_fact', {'concept': 'revenue', 'fiscal_year': 2025})
+            yield activity
+            for delta in candidate:
+                yield delta
+            started.set()
+            if outcome == 'cancelled':
+                await asyncio.Event().wait()
+            if outcome == 'provider_error':
+                yield STREAM_ERROR_SENTINEL + private_error
+        finally:
+            closed.append(True)
+
+    monkeypatch.setattr(copilot_service.openai_service, 'stream_chat_with_tools', stream)
+    trace = {}
+    if outcome == 'cancelled':
+        task = asyncio.create_task(runner._answer(snap, 'Describe the business.', trace=trace))
+        await started.wait()
+        task.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await task
+    elif outcome == 'complete':
+        answer, cites, kind, _ = await runner._answer(snap, 'Describe the business.', trace=trace)
+        assert answer == 'The company serves retail customers [1].' and len(cites) == 1 and kind == 'answer'
+    else:
+        with pytest.raises(ValueError, match='provider error event'):
+            await runner._answer(snap, 'Describe the business.', trace=trace)
+
+    assert trace['candidate_deltas'] == candidate
+    assert trace['withheld_reasons'] == {'rejected': ['Incomplete citation array'],
+                                         'no_envelope': ['Missing citation envelope']}.get(outcome, [])
+    assert trace['provider_controls'] == [{'type': 'activity'}] + (
+        [{'type': 'error'}] if outcome == 'provider_error' else [])
+    assert private_error not in json.dumps(trace)
+    assert trace['tool_results'][0]['name'] == 'get_financial_fact'
+    assert trace['tool_results'][0]['result']['cite'] == 'F1'
+    if outcome == 'cancelled':
+        assert trace['service_events'] == []
+    elif outcome == 'complete':
+        assert trace['service_events'][0]['type'] == 'complete'
+        assert trace['service_events'][0]['answer'] == answer
+    else:
+        message = copilot_service._STREAM_FAILURE if outcome == 'provider_error' else copilot_service._PUBLICATION_ERROR
+        assert trace['service_events'] == [{'type': 'error', 'message': message}]
+    assert closed == [True]
+    assert copilot_service.openai_service.stream_chat_with_tools is stream
+
+
 def complete_report():
     cases = runner._load_cases(runner.GOLDEN_PATH)
     plan = runner._plan(cases, 3)
@@ -127,6 +197,26 @@ def test_full_report_rejects_incomplete_or_red_evidence(damage):
     else:
         report['runs'] = 1
     assert runner.validate_report(report)
+
+
+F_REASON = 'Unsupported prose quotation: quotation_not_in_source'
+
+
+@pytest.mark.parametrize('error,label', [
+    ({'type': 'ValueError', 'stage': 'answer_or_score', 'withheld_reason': F_REASON}, 'publication withheld: ' + F_REASON),
+    ({'type': 'ValueError', 'stage': 'answer_or_score', 'withheld_reason': 'Invalid citation declaration'},
+     'publication withheld: Invalid citation declaration'),
+    ({'type': 'ValueError', 'stage': 'answer_or_score'}, 'operationally incomplete attempt'),
+    ({'type': 'ValueError', 'withheld_reason': ''}, 'operationally incomplete attempt'),
+    ({'type': 'ValueError', 'withheld_reason': [F_REASON]}, 'operationally incomplete attempt'),
+    ('TimeoutError', 'operationally incomplete attempt')],
+    ids=['decision-f', 'other-reason', 'uncaptured', 'empty', 'not-a-string', 'not-a-dict'])
+def test_withheld_attempt_is_named_and_remains_a_failure(error, label):
+    report = complete_report()
+    report['results'][0].update(error=error, terminal_complete=False)
+    report['results'][0].pop('score')
+    report['summary'].update(scored=17, errors=1)
+    assert runner.validate_report(report) == [label]
 
 
 def test_verified_plan_preserves_pending_questions_and_exact_golden_periods():
@@ -173,10 +263,13 @@ async def test_runner_keeps_failed_attempt_in_denominator_and_full_inputs(monkey
     assert report['summary']['pass_rate'] == report['summary']['passed'] / 18
 
 
-def test_workflow_is_explicit_same_repo_ready_full_cohort_and_always_artifacts():
+def test_workflow_is_explicit_same_repo_ready_full_cohort_and_always_artifacts(tmp_path):
+    import os
+    import subprocess
     import yaml
     data = yaml.safe_load((Path(__file__).parents[3]/'.github/workflows/copilot-eval.yml').read_text())
     trigger = data.get('on', data.get(True))
+    assert set(trigger) == {'pull_request'}
     assert 'ready_for_review' in trigger['pull_request']['types']
     job = data['jobs']['copilot-eval']
     assert '!github.event.pull_request.draft' in job['if']
@@ -189,6 +282,22 @@ def test_workflow_is_explicit_same_repo_ready_full_cohort_and_always_artifacts()
     assert 'OPENAI_API_KEY' not in job['env'] and 'OPENAI_API_KEY' not in prepare.get('env', {})
     artifact = next(s for s in steps if 'actions/upload-artifact@' in s.get('uses',''))
     assert artifact['if'] == 'always()'
+    summary = next(s for s in steps if 'GITHUB_STEP_SUMMARY' in s.get('run',''))
+    assert summary['if'] == 'always()' and steps.index(run) < steps.index(summary)
+    assert 'copilot-eval.md >> "$GITHUB_STEP_SUMMARY"' in summary['run'] and 'env' not in summary
+    # The exact step under Actions' bash: it appends the readable report, and a missing one (failed
+    # preparation) is not a second failure.
+    readable = tmp_path/'evals/reports/copilot/copilot-eval.md'
+    readable.parent.mkdir(parents=True)
+    for present in (False, True):
+        if present:
+            readable.write_text('| ASML | publication withheld: ' + F_REASON + ' |\n')
+        page = tmp_path/f'summary-{present}.md'
+        result = subprocess.run(['bash', '--noprofile', '--norc', '-eo', 'pipefail', '-c', summary['run']],
+            cwd=tmp_path, env={**os.environ, 'GITHUB_STEP_SUMMARY': str(page)},
+            capture_output=True, text=True, timeout=5)
+        assert result.returncode == 0, result.stderr
+        assert (page.read_text() if page.exists() else '') == (readable.read_text() if present else '')
 
 
 def preparation(tmp_path):
@@ -268,6 +377,125 @@ def test_cli_preflight_failure_retains_artifact_and_never_calls_model(failure,tm
     assert report['accepted'] is False and report['failures']
 
 
+SOURCE = 'The company sells products to retail and enterprise customers around the world.'
+
+
+def sourced():
+    snap = filing()
+    snap.content_cache.critical_excerpt = SOURCE
+    return snap
+
+
+def reply(outcome):
+    """A provider candidate the real service publishes or withholds (decision F, or a malformed declaration)."""
+    declarations = [{'n': 7, 'excerpt': SOURCE, 'section': 'Business'}]
+    if outcome == 'quotation':
+        return 'The filing says "retail and wholesale customers in Europe" [7].\n===CITATIONS===\n' + json.dumps(declarations)
+    if outcome == 'declaration':
+        declarations[0]['n'] = '7'
+    return 'The company serves retail customers [7].\n===CITATIONS===\n' + json.dumps(declarations)
+
+
+def test_withheld_rows_name_their_own_reason_and_still_fail_the_run(tmp_path, monkeypatch):
+    import logging
+    import sys
+    from types import SimpleNamespace
+    from app.config import settings
+    from app.services import copilot_service
+    from evals import copilot_scorers
+    _, data = preparation(tmp_path)
+    path = tmp_path/'preparation.json'
+    path.write_text(json.dumps(data))
+    output = tmp_path/'out'
+    monkeypatch.setenv('GITHUB_SHA', '1'*40)
+    monkeypatch.setenv('DATABASE_URL', 'sqlite://')
+    monkeypatch.setattr(settings, 'OPENAI_API_KEY', 'offline-test')
+    monkeypatch.setattr(sys, 'argv', ['copilot_runner', '--preparation', str(path), '--output', str(output)])
+    monkeypatch.setattr(runner, '_snapshot_for_case', lambda case: sourced())
+    replies = iter(['quotation', 'declaration'])
+    async def stream(messages, tools, run_tool, **kwargs):
+        yield reply(next(replies, 'published'))
+    monkeypatch.setattr(copilot_service.openai_service, 'stream_chat_with_tools', stream)
+    # Every published row passes, so only the withheld rows can fail the run.
+    passing = SimpleNamespace(to_dict=lambda: {'passed': True, 'gate_failures': []})
+    monkeypatch.setattr(copilot_scorers, 'score_copilot_answer', lambda *args, **kwargs: passing)
+    telemetry = logging.getLogger('app.services.ai_metrics')
+    monkeypatch.setattr(telemetry, 'handlers', [])  # main() attaches its console handler here
+    level = telemetry.level
+    try:
+        assert runner.main() == 1
+    finally:
+        telemetry.setLevel(level)
+    report = json.loads((output/'copilot-eval.json').read_text())
+    rows = report['results']
+    assert [row['tool_trace']['withheld_reasons'] for row in rows[:2]] == [[F_REASON], ['Invalid citation declaration']]
+    assert [row.get('error') for row in rows[:2]] == [
+        {'type': 'ValueError', 'stage': 'answer_or_score', 'withheld_reason': F_REASON},
+        {'type': 'ValueError', 'stage': 'answer_or_score', 'withheld_reason': 'Invalid citation declaration'}]
+    assert all('error' not in row and row['tool_trace']['withheld_reasons'] == [] for row in rows[2:])
+    assert {k: report['summary'][k] for k in ('expected', 'completed', 'scored', 'errors')} == {
+        'expected': 18, 'completed': 18, 'scored': 16, 'errors': 2}
+    assert report['failures'] == ['publication withheld: ' + F_REASON, 'publication withheld: Invalid citation declaration']
+    assert report['accepted'] is False
+    readable = (output/'copilot-eval.md').read_text()
+    assert '| publication withheld: ' + F_REASON + ' |' in readable
+    assert '| publication withheld: Invalid citation declaration |' in readable
+
+
+@pytest.mark.asyncio
+async def test_withheld_capture_keeps_other_attempts_records_off_the_row():
+    """The runner awaits one attempt at a time (its observer patches the provider), so a capture's
+    window is its attempt. Even overlapping, a record logged by another attempt's task, or by a
+    thread no attempt started, never reaches the row; a thread the attempt starts still does."""
+    import threading
+    from app.services.copilot_service import _UnpublishableAnswer, logger
+    def withhold(reason):
+        logger.warning('Copilot candidate withheld at citation publication boundary: %s', _UnpublishableAnswer(reason))
+    first, second = [], []
+    opened, logged = asyncio.Event(), asyncio.Event()
+    async def attempt_one():
+        with runner._WithheldReasons(first):
+            await opened.wait()
+            withhold(F_REASON)
+            logged.set()
+    async def attempt_two():
+        with runner._WithheldReasons(second):
+            opened.set()
+            await logged.wait()
+            await asyncio.to_thread(withhold, 'Invalid citation declaration')
+            stray = threading.Thread(target=withhold, args=('Empty resolved answer',))
+            stray.start()
+            stray.join()
+    await asyncio.gather(attempt_one(), attempt_two())
+    assert first == [F_REASON] and second == ['Invalid citation declaration']
+    assert not any(isinstance(f, runner._WithheldReasons) for f in logger.filters)
+
+
+@pytest.mark.asyncio
+async def test_withheld_capture_keeps_service_lines_in_runner_log(monkeypatch, capsys):
+    """The copilot-eval job sets no root handler, so the service's warnings and tracebacks reach
+    stderr (tee'd into runner.log) only through logging.lastResort, which runs only when no handler
+    is on the logger's path. During an attempt the capture must leave them printed."""
+    import logging
+    from app.services import copilot_service
+    monkeypatch.setattr(logging.getLogger(), 'handlers', [])  # the job's root logger
+    replies = iter(['quotation', 'crash'])
+    async def stream(messages, tools, run_tool, **kwargs):
+        if next(replies) == 'crash':
+            raise RuntimeError('offline provider crash')
+        yield reply('quotation')
+    monkeypatch.setattr(copilot_service.openai_service, 'stream_chat_with_tools', stream)
+    traces = [{}, {}]
+    for trace in traces:
+        with pytest.raises(ValueError, match='provider error event'):
+            await runner._answer(sourced(), 'Describe the business.', trace=trace)
+    assert [trace['withheld_reasons'] for trace in traces] == [[F_REASON], []]
+    printed = capsys.readouterr().err
+    assert 'Copilot candidate withheld at citation publication boundary: ' + F_REASON + '\n' in printed
+    assert 'Copilot answer_filing_question failed\nTraceback (most recent call last):' in printed
+    assert 'RuntimeError: offline provider crash\n' in printed
+
+
 def test_nullable_raw_tag_is_preserved_without_inventing_provenance():
     result = score([citation(raw_tag=None)])
     assert result.passed and result.invalid_provenance == []
@@ -277,7 +505,8 @@ def test_nullable_raw_tag_is_preserved_without_inventing_provenance():
 async def test_actual_service_refusal_terminal_is_accepted_without_invented_counter(monkeypatch):
     from app.services import copilot_service
     async def stream(*args, **kwargs):
-        yield '===NOT_DISCLOSED===This filing does not disclose that information.'
+        yield ('===NOT_DISCLOSED===This filing does not disclose that information.'
+               '\n===FOLLOWUPS===["What did revenue total?", "What risks were disclosed?"]')
     monkeypatch.setattr(copilot_service.openai_service, 'stream_chat_with_tools', stream)
     result = None
     try:
@@ -317,7 +546,7 @@ async def test_trace_retains_uncited_and_rejected_tools_and_restores_provider(st
         if stop == 'error':
             yield STREAM_ERROR_SENTINEL + 'offline failure'
         else:
-            yield 'Revenue was RMB996.347 billion.'
+            yield 'Revenue was RMB996.347 billion.\n===CITATIONS===\n[]'
     monkeypatch.setattr(copilot_service.openai_service, 'stream_chat_with_tools', stream)
     trace = {}
     if stop == 'complete':
@@ -361,8 +590,11 @@ def test_downloaded_bundle_relocates_without_original_host_paths(tmp_path):
 def test_human_readable_report_preserves_failures_counts_and_json(complete,tmp_path):
     report = complete_report() if complete else {'accepted':False,'results':[], 'failures':['preflight unavailable']}
     if complete:
-        report.update(accepted=False,failures=['NUMERIC veto'])
+        report.update(accepted=False,failures=['NUMERIC veto','publication withheld: '+F_REASON])
         report['results'][0]['score'] = {'passed':False,'gate_failures':['NUMERIC veto']}
+        report['results'][1].update(terminal_complete=False,
+            error={'type':'ValueError','stage':'answer_or_score','withheld_reason':F_REASON})
+        report['results'][1].pop('score')
     path = runner._write_report(report,tmp_path)
     assert json.loads(path.read_text()) == report
     readable = tmp_path/'copilot-eval.md'
@@ -370,4 +602,5 @@ def test_human_readable_report_preserves_failures_counts_and_json(complete,tmp_p
     text = readable.read_text()
     assert 'FAIL / incomplete' in text
     assert ('Expected: 18' in text and 'NUMERIC veto' in text) if complete else 'preflight unavailable' in text
+    assert ('| False | publication withheld: ' + F_REASON + ' |' in text) is complete
     assert 'not the weekly strong-judge readout' in text

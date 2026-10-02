@@ -1,0 +1,14 @@
+{
+  "recorded_at_utc": "2026-09-29T21:55:54.253109+00:00",
+  "base_head": "9d60e1e713be454e33e9e3695423cab4bc815d3d",
+  "backend_tree_unchanged": "57eb8340e148b9db6edaab77338c57214b5af8c3",
+  "source_hashes": {
+    "frontend/features/filings/api/copilot-api.ts": "a514af5e1c54c3e0af075cd25256ae5a0405184bcc5a10ba57a917f6115aaf47",
+    "frontend/tests/unit/copilotStream.spec.ts": "8d31caa2421ff294a4537c36d5d5a7d2dac508b4d0b0415d94d145cff0e1be3d"
+  },
+  "decision": "Clear for draft publication, fresh hosted exact-head CI and actual review still required.",
+  "correctness": "Matched count equals admitted distinct source count; cited IDs must occur in normalized answer markers. Preserves repeated references, literal unmatched numeric brackets, canonical/legacy F variants and completion/cleanup behavior. No semantic source verification claimed.",
+  "rules_and_brief": "No backend, prompt, model, scorer, source prep or locked-test change after9d. Only existing external stream owner and two documentation files changed.",
+  "tests_and_gates": "Natural existingowner5fail/44pass; final duplicatefixture isolated with grounded2. All716 frontendtests plus lint/types/defaultbuild pass on current bytes; backend tree exactly equals last4151-test gate. Prior test-fixture version and gate preserved.",
+  "review_receipt_sha256": "ce5a2c90adbea491d0a153c86c2446755a83c342349563da8d3dc8ea54e9e147"
+}

@@ -1,0 +1,40 @@
+{
+  "observed_at": "2026-09-29T21:48:34.658243+00:00",
+  "head": "9d60e1e713be454e33e9e3695423cab4bc815d3d",
+  "finding": "4138623457",
+  "restatement_without_rationale": "The completion parser accepts an answer containing [1], a source with n=2, and grounded=99.",
+  "method": "Independent fresh static pass over server producer, network parser, rail, and renderer before edits or tests.",
+  "refutation_attempts": [
+    {
+      "counterexample": "Could unused server declarations legitimately become displayed sources?",
+      "result": "No. _verify_citations retains a candidate pool, but _resolve_citations 1026-1099 walks answer markers and emits only resolved references. Repeated markers reuse an existing source. Unused declarations never reach the final sources."
+    },
+    {
+      "counterexample": "Could grounded differ from source count for a valid emitted completion?",
+      "result": "No. Resolver increments once per distinct verified source (1086-1091); publication rejects any unverified final citation (1353-1355). Thus grounded equals final citations length. ND emits zero and no citations."
+    },
+    {
+      "counterexample": "Does a downstream renderer correct a mismatched payload?",
+      "result": "No. AskCopilotRail 287-307 copies answer, citations, and grounded to message/analytics. CopilotMessage 263-285 renders every source, and 462-476 displays the supplied count."
+    },
+    {
+      "counterexample": "Must every numeric bracket have a source?",
+      "result": "No. Unresolved numeric literals remain literal at server 1070-1083 and in frontend/lib/citationMarkers.tsx. Require cited-marker subset of answer markers, not equality with all bracket tokens."
+    }
+  ],
+  "conclusion": "upheld",
+  "minimal_fix": "At the existing network completion boundary require grounded === citations.length and each normalized citation marker to occur in the answer using the existing case/whitespace tolerant marker syntax. Preserve repeated references and unmatched numeric literals. Do not change resolver, rendering, scoring, or source verification.",
+  "current_server_tool_behavior": "Current resolver rewrites surviving tool markers to sequential numeric identifiers and strips unresolved or misplaced tool markers. Frontend also accepts legacy F-marker completions, so retain that compatibility.",
+  "limits": [
+    "These relationships establish wire consistency, not source faithfulness or claim entailment.",
+    "Existing renderer canonicalizes answer-marker whitespace but source IDs only by uppercase; this review does not broaden into rendering changes."
+  ],
+  "files": {
+    "frontend/features/filings/api/copilot-api.ts": "a01afe65c85a7315b86afe081f1ea7e1905aec4de4f1aae307bc5ca39819f97a",
+    "frontend/lib/citationMarkers.tsx": "b8e6c58da0735983eb6c0903e6adca1b2fca829a48a9fcc7f42ae5e2c6815f8e",
+    "frontend/features/filings/components/copilot/AskCopilotRail.tsx": "7f0283f7dc3e68dc3d4c8411c5e6bd6282963c9e0d2c6336a2e49a9ff3b36abc",
+    "frontend/features/filings/components/copilot/CopilotMessage.tsx": "aeec02512801d55f3a601595da28c8ece2eea5958919ee2e8e1e39e6214dfb2c",
+    "backend/app/services/copilot_service.py": "f890ac8002a727b1f6f5174aaeee3b62d79ab78168bde1f1158f44be0acc0626",
+    "frontend/tests/unit/copilotStream.spec.ts": "e9b691ffef2d8c276a22e3077fb50513a0a5a5efbf05c3a42a176ee1a5909c33"
+  }
+}

@@ -1,0 +1,43 @@
+{
+  "reviewed_at_utc": "2026-09-29T22:05:31.127104+00:00",
+  "reviewer": "containment_backend_restore",
+  "base_head": "f1890ff66d8d9c6fb77c42d805899bbc8faa2b28",
+  "status": "CLEAR_STATIC_REVIEW",
+  "scope": "Independent fresh refutation of review4138791730 and final two-file parser/owner diff, tracing accepted citation identities through askFilingStream, AskCopilotRail, CopilotMessage and injectCitationMarkers. No edits, tests, browser actions, API calls or paid calls by reviewer.",
+  "file_sha256": {
+    "frontend/features/filings/api/copilot-api.ts": "7a98c5f6cf97d5a851ced90dd2b03fa05366b7f56a5026b48e6de038ed02d3e0",
+    "frontend/tests/unit/copilotStream.spec.ts": "df3dd3b1302ae5ca6cca3e0826ff8e57b57d0500f2f8ee261bb02fb45ee7ca07"
+  },
+  "fresh_refutation": {
+    "finding": "Whitespace-bearing returned tool citation IDs can pass network admission but fail renderer binding.",
+    "upstream_attempt": "At f189 validMarker accepts F 1; count/reference checks normalize it toF1, but citation object retains F 1. Thus the parser does not exclude the finding.",
+    "downstream_attempt": "AskCopilotRail forwards returned citations unchanged. injectCitationMarkers keys by uppercase String(n) without whitespace removal but normalizes answer marker whitespace. Key F 1 cannot satisfy lookup F1. Neither consumer excludes the finding.",
+    "outcome": "UPHELD before correction; root independently upheld."
+  },
+  "correction_review": {
+    "change": "Only stored string n has all whitespace removed after validation/dedup/reference checks; original F/f case retained. Numeric n is unchanged.",
+    "why_sufficient": "All accepted F IDs have one F/f prefix followed by whitespace and positive decimal digits. Removing whitespace leaves exactly the same identity used for membership and dedup. Renderer uppercases both canonical citation key and normalized answer reference.",
+    "runtime_findings": [],
+    "existing_behavior_preserved": [
+      "Positive safe integer n remains numeric and has canonical decimal String key.",
+      "F1/f1, spaced or tab/newline/other JavaScript whitespace after F retain prefix case but use compact IDs; an accepted terminal line ending is also stripped.",
+      "Zero/negative/noninteger/unsafe numeric IDs and numeric strings stay rejected.",
+      "F0/F01 and digit-internal or leading whitespace forms outside existing grammar stay rejected.",
+      "Case/whitespace aliases remain duplicates under the existing normalized-key guard.",
+      "Repeated references reuse one citation; count remains equal to unique citations array length.",
+      "Answer marker normalization remains case/whitespace tolerant under existing regex.",
+      "Unmatched numeric [14] and leading-zero literals are neither coerced into another citation nor rejected merely for being uncited.",
+      "Not-disclosed shape, source verification flags, all other citation fields, error paths, cancellation, timeouts and financial policy are unchanged."
+    ]
+  },
+  "owner_review": {
+    "file": "frontend/tests/unit/copilotStream.spec.ts",
+    "description": "Existing stream owner now passes actual admitted completion to actual injectCitationMarkers, requiring two chip callbacks with normalized citation objects, preserving lowercase callback semantics, final payload, cancellation and cleared timers. Cases cover F-space and lowercase-space-tab IDs, repeated answer references and uncited numeric14.",
+    "natural_before_after": "Author reports natural red2failed/44passed at f189 and corrected focused46passed. This reviewer did not execute those runs; author owns their logs and final gate receipt.",
+    "full_gate": "Author started final required frontend gates; completion is not claimed here."
+  },
+  "limits": [
+    "Review is identity normalization and existing wire/render binding only; no claim of financial truth, source entailment, customer consent, or exhaustive Markdown layout behavior.",
+    "No second proof programme or new test framework was requested or run."
+  ]
+}

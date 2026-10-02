@@ -404,7 +404,8 @@ async def test_native_chat_retry_boundary_and_owned_stream_close(tools, failure,
                 if failure == "after":
                     assert len(rest) == 1 and rest[0].startswith(copilot_chat.STREAM_ERROR_SENTINEL)
                 else:
-                    assert rest == [] and sink["total_tokens"] == 12
+                    # The pre-header retry has unknown usage; the successful call cannot erase it.
+                    assert rest == [] and sink["total_tokens"] is None
             assert len(calls) == (2 if failure == "before" else 1) and closed
         finally:
             await gen.aclose()

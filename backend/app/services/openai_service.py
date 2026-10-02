@@ -32,12 +32,16 @@ from app.services.ai.copilot_chat import (
 )
 from app.services.ai.extraction import _ExtractionMixin
 from app.services.ai.evidence_snap import snap_evidence
+from app.services.ai.acquisition_period import (
+    CONTEXT_KEY as ACQUISITION_CONTEXT_KEY, CONTEXT_VERSION as ACQUISITION_CONTEXT_VERSION,
+    bind_acquisition_period, clear_model_acquisition_context,
+)
 from app.services.ai.attribution_gate import apply_attributions, find_attributions
 from app.services.ai import attribution_verify
 from app.services.ai.forward_quote_gate import gate_forward_quotes
 from app.services.ai.statement_relationship import (
     CONTEXT_KEY as STATEMENT_CONTEXT_KEY, CONTEXT_VERSION as STATEMENT_CONTEXT_VERSION,
-    OWNED_FIELD as STATEMENT_OWNED_FIELD, bind_statement_relationship,
+    OWNED_FIELD as STATEMENT_OWNED_FIELD, bind_statement_relationship, display_statement_paragraphs,
 )
 from app.services.ai.issuer_cash_disclosure import (
     CONTEXT_KEY as ISSUER_CASH_CONTEXT_KEY, CONTEXT_VERSION as ISSUER_CASH_CONTEXT_VERSION,
@@ -49,6 +53,12 @@ from app.services.ai.financing_comparison import (
 from app.services.ai.source_units import (
     attach_quote_unit_context, build_table_unit_index, capital_plan_proposition,
     restore_authored_plan_units, restore_table_cell_units,
+)
+from app.services.ai.reconciliation_directions import (
+    AUDIT_KEY as RECONCILIATION_AUDIT_KEY, strip_reconciliation_metadata, withhold_reconciliation_directions,
+)
+from app.services.ai.tax_rate_explanation import (
+    AUDIT_KEY as TAX_EXPLANATION_AUDIT_KEY, strip_tax_explanation_metadata, withhold_tax_rate_explanation,
 )
 from app.services.ai.json_repair import _JsonRepairMixin
 from app.services.ai.markdown_render import _MarkdownRenderMixin
@@ -455,6 +465,7 @@ Rules:
             xbrl_metrics=xbrl_metrics, **({"capital_plan": plan} if plan else {}),
             **({"statement_source": statement_source} if statement_source else {}),
             **({"unit_index": unit_index} if unit_index else {}),
+            **({"primary_excerpt": filing_excerpt} if filing_excerpt else {}),
         )
         return await self._assemble_structured_summary(
             content, filing_type_key, filing_sample, xbrl_metrics, recovery_sources
@@ -555,7 +566,7 @@ Rules:
         filing_type_key: str,
         xbrl_metrics: Optional[Dict],
         *, _client=None, _observation=None, capital_plan: tuple[str, str] | None = None,
-        statement_source: Optional[Dict] = None, unit_index: Any = None,
+        statement_source: Optional[Dict] = None, unit_index: Any = None, primary_excerpt: str = "",
     ) -> str:
         """Stream a structured-extraction call, awaiting ``stream_cb(partial_markdown)`` with throttled
         preview renders as the JSON fills in, and return the COMPLETE accumulated content. Preview
@@ -588,9 +599,12 @@ Rules:
                 if total - emitted_at >= 1500:
                     emitted_at = total
                     preview = self._partial_markdown_preview(
-                        "".join(parts), xbrl_metrics, **({"capital_plan": capital_plan} if capital_plan else {}),
+                        "".join(parts), xbrl_metrics,
+                        **({"filing_type_key": filing_type_key} if unit_index is not None or primary_excerpt else {}),
+                        **({"capital_plan": capital_plan} if capital_plan else {}),
                         **({"statement_source": statement_source} if statement_source else {}),
                         **({"unit_index": unit_index} if unit_index else {}),
+                        **({"primary_excerpt": primary_excerpt} if primary_excerpt else {}),
                     )
                     if preview:
                         try:
@@ -602,8 +616,9 @@ Rules:
         return "".join(parts)
 
     def _partial_markdown_preview(
-        self, partial_content: str, xbrl_metrics: Optional[Dict], *, capital_plan: tuple[str, str] | None = None,
-        statement_source: Optional[Dict] = None, unit_index: Any = None,
+        self, partial_content: str, xbrl_metrics: Optional[Dict], *, filing_type_key: str = "",
+        capital_plan: tuple[str, str] | None = None,
+        statement_source: Optional[Dict] = None, unit_index: Any = None, primary_excerpt: str = "",
     ) -> Optional[str]:
         """Render only originally complete sections with the current summary projection.
 
@@ -612,6 +627,7 @@ Rules:
         """
         try:
             sections = self._complete_preview_sections(partial_content or "")
+            clear_model_acquisition_context(sections)
             # Preview may own a capital-plan proposition, but never a quote-unit badge.
             attach_quote_unit_context(sections)
             restore_authored_plan_units(sections, capital_plan)
@@ -642,9 +658,12 @@ Rules:
             # A partial provider response has no source text at this callback boundary. Risks wait
             # for the final same-filing source projection rather than streaming model-authored text.
             sections.pop("risks", None)
-            bind_statement_relationship(sections, statement_source)
+            acquisition_owned = bind_acquisition_period(sections, primary_excerpt, xbrl_metrics, filing_type=filing_type_key)
+            statement_owned = bind_statement_relationship(sections, statement_source)
             bind_capital_allocation(sections, xbrl_metrics)
             bind_issuer_cash_disclosure(sections)
+            withhold_tax_rate_explanation(sections, unit_index)
+            withhold_reconciliation_directions(sections, unit_index, filing_type=filing_type_key)
             # Same table-cell owner as the final render, over the same source document, after the
             # same binders, so preview and final restore the same surviving prose.
             restore_table_cell_units(sections, unit_index, xbrl_metrics=xbrl_metrics)
@@ -652,7 +671,8 @@ Rules:
                 "schema_version": SUMMARY_SCHEMA_VERSION, "sections": sections,
                 CAPITAL_CONTEXT_KEY: CAPITAL_CONTEXT_VERSION,
                 METRIC_DELTA_CONTEXT_KEY: METRIC_DELTA_CONTEXT_VERSION,
-                **({STATEMENT_CONTEXT_KEY: STATEMENT_CONTEXT_VERSION} if statement_source else {}),
+                **({ACQUISITION_CONTEXT_KEY: ACQUISITION_CONTEXT_VERSION} if acquisition_owned else {}),
+                **({STATEMENT_CONTEXT_KEY: STATEMENT_CONTEXT_VERSION} if statement_owned else {}),
             })
             return sections_to_markdown(rendered) or None
         except Exception:  # noqa: BLE001 — optional malformed previews must not abort generation
@@ -711,6 +731,8 @@ Rules:
                 "raw_summary": {"error": "structured_extraction_failed", "detail": error_msg[:500]},
             }
 
+        strip_tax_explanation_metadata(structured_summary)
+        strip_reconciliation_metadata(structured_summary)
         sections_info = structured_summary.get("sections", {}) or {}
         # Deterministic taxonomy guard: the model has a strong prior for "standard" sections and will
         # emit legacy/extra keys (executive_snapshot, three_year_trend, …) alongside the v2 schema no
@@ -806,6 +828,21 @@ Rules:
         from fastapi.concurrency import run_in_threadpool
 
         recovered_keys = frozenset(structured_summary.pop("_recovered_sections", []) or [])
+        # Bind original primary evidence before auto-snap can replace its bytes.
+        clear_model_acquisition_context(structured_summary)
+        acquisition_owned = bind_acquisition_period(
+            sections_info, filing_excerpt or "", xbrl_metrics, filing_type=filing_type_key,
+            recovered="notable_footnotes" in recovered_keys,
+        )
+        unit_index = build_table_unit_index(filing_text or "")
+        # Like preview, decide from authored evidence before any fuzzy evidence repair.
+        # The selector uses the complete native document, including for recovered notes;
+        # it neither assumes the primary excerpt nor emits a source assertion.
+        tax_explanation_audit = withhold_tax_rate_explanation(sections_info, unit_index)
+        reconciliation_audit = withhold_reconciliation_directions(
+            sections_info, unit_index, filing_type=filing_type_key,
+            recovered="earnings_quality" in recovered_keys,
+        )
         evidence_snap_audit = await run_in_threadpool(
             snap_evidence,
             sections_info,
@@ -828,7 +865,7 @@ Rules:
                 sections_info, capital_plan_proposition(filing_excerpt or "", layout),
             )
         capital_source = structured_summary.pop("_capital_allocation_grounding", "")
-        bind_statement_relationship(sections_info, statement_source)
+        statement_owned = bind_statement_relationship(sections_info, statement_source)
         bind_capital_allocation(sections_info, xbrl_metrics, capital_source)
         issuer_cash_owned = bind_issuer_cash_disclosure(
             sections_info, structured_summary.pop(ISSUER_CASH_SOURCE_KEY, ""),
@@ -842,7 +879,7 @@ Rules:
         # (separately selected context). Measure-always: the audit carries total counts beside its
         # capped detail lists.
         table_cell_unit_audit = restore_table_cell_units(
-            sections_info, build_table_unit_index(filing_text or ""),
+            sections_info, unit_index,
             xbrl_metrics=xbrl_metrics, recovered=recovered_keys,
         )
 
@@ -911,9 +948,9 @@ Rules:
         if isinstance(management_section_structured, dict):
             management_for_compat = dict(management_section_structured)
             management_for_compat.pop(ISSUER_CASH_OWNED_FIELD, None)
-            if statement_source:
+            if statement_owned:
                 owned_statement = management_for_compat.pop(STATEMENT_OWNED_FIELD, {})
-                management_for_compat["operating_vs_one_time"] = "\n".join(owned_statement.get("paragraphs", []))
+                management_for_compat["operating_vs_one_time"] = "\n".join(display_statement_paragraphs(owned_statement))
         management_section = _stringify(management_for_compat)
         guidance_structured = sections_info.get("forward_signals")
         guidance_section = _stringify(guidance_structured)
@@ -939,6 +976,8 @@ Rules:
         structured_summary.pop(CAPITAL_CONTEXT_KEY, None)
         structured_summary.pop(ISSUER_CASH_CONTEXT_KEY, None)
         structured_summary.pop(STATEMENT_CONTEXT_KEY, None)
+        structured_summary.pop(ACQUISITION_CONTEXT_KEY, None)
+        structured_summary.pop("primary_excerpt", None)
         structured_summary.pop(RISK_SOURCE_CONTEXT_KEY, None)
         structured_summary.pop("_risk_source_candidates", None)
         structured_summary.pop("_risk_source_candidate_count", None)
@@ -950,7 +989,8 @@ Rules:
             METRIC_DELTA_CONTEXT_KEY: METRIC_DELTA_CONTEXT_VERSION,
             RISK_SOURCE_CONTEXT_KEY: RISK_SOURCE_CONTEXT_VERSION,
             **({ISSUER_CASH_CONTEXT_KEY: ISSUER_CASH_CONTEXT_VERSION} if issuer_cash_owned else {}),
-            **({STATEMENT_CONTEXT_KEY: STATEMENT_CONTEXT_VERSION} if statement_source else {}),
+            **({STATEMENT_CONTEXT_KEY: STATEMENT_CONTEXT_VERSION} if statement_owned else {}),
+            **({ACQUISITION_CONTEXT_KEY: ACQUISITION_CONTEXT_VERSION} if acquisition_owned else {}),
         }
         rendered = render_sections(render_envelope)
         final_markdown = (
@@ -959,7 +999,8 @@ Rules:
         )
 
         raw_summary_payload = {
-            **({STATEMENT_CONTEXT_KEY: STATEMENT_CONTEXT_VERSION} if statement_source else {}),
+            **({ACQUISITION_CONTEXT_KEY: ACQUISITION_CONTEXT_VERSION} if acquisition_owned else {}),
+            **({STATEMENT_CONTEXT_KEY: STATEMENT_CONTEXT_VERSION} if statement_owned else {}),
             SOURCE_UNIT_CONTEXT_KEY: SOURCE_UNIT_CONTEXT_VERSION,
             CAPITAL_CONTEXT_KEY: CAPITAL_CONTEXT_VERSION,
             METRIC_DELTA_CONTEXT_KEY: METRIC_DELTA_CONTEXT_VERSION,
@@ -977,6 +1018,10 @@ Rules:
             raw_summary_payload["evidence_snap_audit"] = evidence_snap_audit
         if table_cell_unit_audit:
             raw_summary_payload["table_cell_unit_audit"] = table_cell_unit_audit
+        if tax_explanation_audit:
+            raw_summary_payload[TAX_EXPLANATION_AUDIT_KEY] = tax_explanation_audit
+        if reconciliation_audit:
+            raw_summary_payload[RECONCILIATION_AUDIT_KEY] = reconciliation_audit
         if writer_result:
             raw_summary_payload["writer"] = writer_result
         if writer_fallback_reason:

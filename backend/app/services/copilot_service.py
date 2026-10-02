@@ -7,11 +7,16 @@ provenance primitives that already power Trace-to-Source:
 * The model is told to answer ONLY from the provided content and to emit, after its prose, a JSON
   array of ``{n, excerpt, section}`` citations (or ``===NOT_DISCLOSED===`` when the filing does not
   disclose the answer).
-* The server then **verifies** each emitted excerpt against the (once-normalized) cached filing text
-  via :func:`~app.services.provenance_service.verify_excerpt_in_text`, and builds a ``#:~:text=``
-  deep-link via :func:`~app.services.provenance_service.build_text_fragment_url`. A citation the model
-  invents but that does not appear verbatim in the filing is surfaced as ``verified=False`` rather
-  than silently trusted — the same honest-labelling contract as the summary path.
+* The server then **verifies** each WHOLE emitted excerpt against the (once-normalized) cached
+  filing text via :func:`~app.services.provenance_service.verify_whole_excerpt_in_text` (only a
+  quote pair wrapping the entire excerpt is stripped; an inner quoted span never stands in for it),
+  and builds a ``#:~:text=`` deep-link to the start of that excerpt via
+  :func:`~app.services.provenance_service.build_text_fragment_url`. A citation whose section label
+  contains one of decision F's double quote marks (``"``, ``＂``, ``“``, ``”``, ``„``, ``‟``) is
+  unverified too: the label is not checked against the filing, so it may not present a quotation.
+  A citation the model references but that fails verification prevents publication of the entire
+  answer. Answer prose remains private until citation admission and numbering finish; source
+  matching does not prove the interpretation or establish that every uncited claim is supported.
 
 This module is transport-agnostic: it yields plain ``dict`` events. The SSE router formats them for
 the wire. Numeric tools use the viewed filing's accession and native currency; narrative
@@ -19,13 +24,19 @@ context is the cached excerpt, capped to ``COPILOT_CONTEXT_CHAR_CAP`` chars. No 
 """
 from __future__ import annotations
 
+import asyncio
+import html
 import json
 import logging
 import math
-from datetime import date
 import re
+import unicodedata
+from datetime import date
+from time import monotonic
 from types import SimpleNamespace
 from typing import Any, AsyncGenerator, Callable, Optional
+
+from markdown_it import MarkdownIt
 
 from app.config import settings
 from app.services import citation_markers, copilot_tools
@@ -38,7 +49,8 @@ from app.services.provenance_service import (
     _MIN_VERIFIABLE_LEN,
     build_text_fragment_url,
     normalize_for_match,
-    verify_excerpt_in_text,
+    strip_wrapping_quotes,
+    verify_whole_excerpt_in_text,
 )
 
 try:
@@ -59,6 +71,15 @@ _SENTINEL_TAIL = max(len(_CITATIONS_SENTINEL), len(_NOT_DISCLOSED_SENTINEL))
 # Optional trailer after the citations JSON carrying 2-3 suggested follow-up questions. It only ever
 # appears inside the (buffered) citations phase, so it's parsed post-hoc — no cross-chunk tail needed.
 _FOLLOWUPS_SENTINEL = "===FOLLOWUPS==="
+_FOLLOWUPS_RE = re.compile(r"===\s*FOLLOW-?UPS\s*===", re.IGNORECASE)
+_COPILOT_MARKER_RE = re.compile(r"\[(F?\s*\d+)\]", re.IGNORECASE)
+_PUBLICATION_ERROR = "I couldn't verify the cited evidence, so I couldn't provide this answer."
+_STREAM_FAILURE = "I couldn't complete this answer. Please try again."
+
+
+class _UnpublishableAnswer(ValueError):
+    """A candidate cannot cross the publication boundary."""
+
 
 SYSTEM_PROMPT = f"""You are EarningsNerd's "Ask this Filing" assistant. You answer questions about a \
 SINGLE SEC filing using ONLY the filing content provided in this conversation. You are scoped to \
@@ -94,7 +115,11 @@ OUTPUT FORMAT (follow exactly):
 support: [1], [2] for filing-text excerpts, and [F1], [F2] for tool-provided figures.
 2. Then output a line containing exactly:
 {_CITATIONS_SENTINEL}
-3. Then output a JSON array of citation objects, one per marker you used, e.g.:
+3. Then output a JSON array of citation objects for ONLY the plain numeric filing-text markers
+   ([1], [2], ...) used in the answer. Each "n" must be that marker's positive JSON integer,
+   never a string or an F marker. Tool [F#] markers already reference their returned facts;
+   never include objects for them in this array. If there are no filing-text markers, output []
+   after the citations line, including when all cited figures use tool markers. Example:
 [{{"n": 1, "excerpt": "<verbatim quote copied exactly from the filing>", "section": "Item 7 — MD&A"}}]
    - "excerpt" MUST be copied verbatim from the filing content (so it can be verified). Keep each
      excerpt to the SHORTEST contiguous span that supports the claim — one sentence, at most ~30 words.
@@ -342,29 +367,55 @@ def _build_messages(filing: Any, source_text: str, question: str, history: Optio
     return _merge_consecutive_roles(messages)
 
 
-def _parse_citations(raw: str) -> list[dict]:
-    """Parse the model's citation JSON array, repairing malformed JSON when needed."""
-    text = (raw or "").strip()
-    if not text:
-        return []
-    # The model may wrap the array in stray prose/fences; isolate the array span.
-    start = text.find("[")
-    end = text.rfind("]")
-    if start != -1 and end != -1 and end > start:
-        text = text[start : end + 1]
+def _parse_citations(raw: str) -> tuple[list[dict], list[str]]:
+    """Admit one complete citation array, then the optional followups envelope.
+
+    Decode before looking for FOLLOWUPS: sentinel text inside a JSON excerpt is data.
+    Never repair incomplete JSON or discard a malformed declaration as if it were absent.
+    """
+    text = raw.strip()
+    fenced = re.match(r"^```(?:json)?\s*\n", text, re.IGNORECASE)
+    if fenced:
+        text = text[fenced.end():].lstrip()
+
+    def unique_fields(pairs: list[tuple[str, Any]]) -> dict:
+        result: dict = {}
+        for key, value in pairs:
+            if key in result:
+                raise _UnpublishableAnswer("Duplicate citation field")
+            result[key] = value
+        return result
+
+    def reject_constant(_value: str) -> None:
+        raise _UnpublishableAnswer("Non-JSON citation value")
+
     try:
-        data = json.loads(text)
-    except (ValueError, TypeError):
-        if _HAS_JSON_REPAIR and _repair_json is not None:
-            try:
-                data = json.loads(_repair_json(text))
-            except (ValueError, TypeError):
-                return []
-        else:
-            return []
+        data, end = json.JSONDecoder(
+            object_pairs_hook=unique_fields, parse_constant=reject_constant,
+        ).raw_decode(text)
+    except (ValueError, TypeError) as exc:
+        raise _UnpublishableAnswer("Incomplete citation array") from exc
+    trailer = text[end:].strip()
+    if fenced:
+        if not trailer.startswith("```"):
+            raise _UnpublishableAnswer("Unclosed citation fence")
+        trailer = trailer[3:].strip()
+    followups: list[str] = []
+    if trailer:
+        followups_match = _FOLLOWUPS_RE.match(trailer)
+        if not followups_match:
+            raise _UnpublishableAnswer("Unexpected citation trailer")
+        followups = _parse_followups(trailer[followups_match.end():])
     if not isinstance(data, list):
-        return []
-    return [item for item in data if isinstance(item, dict)]
+        raise _UnpublishableAnswer("Citation declaration is not an array")
+    for item in data:
+        if (not isinstance(item, dict)
+                or type(item.get("n")) is not int or item["n"] <= 0
+                or not isinstance(item.get("excerpt"), str)
+                or any(item.get(key) is not None and not isinstance(item[key], str)
+                       for key in ("section", "section_ref"))):
+            raise _UnpublishableAnswer("Invalid citation declaration")
+    return data, followups
 
 
 def _parse_followups(raw: str) -> list[str]:
@@ -397,35 +448,486 @@ def _parse_followups(raw: str) -> list[str]:
     return out
 
 
-def _verify_citations(citations: list[dict], filing: Any, normalized_source: str) -> dict[str, dict]:
-    """Verify each declared citation's excerpt; return a lookup keyed by its declared marker.
+# A section label is published as-is and never matched against the filing (most legitimate labels
+# are not filing text), so a label carrying a double quote mark would present an unverified
+# quotation beside "Source match found"; its citation is unverified (the founder's section_ref rule).
+# The marks are decision F's, read from its one definition (_QUOTE_MARK_RE below) so the two rules
+# cannot drift; a label displays as plain text, so a character reference is not a mark. The Copilot
+# eval's CITATION scorer reads this predicate too.
+def section_label_is_quoted(label: object) -> bool:
+    """Whether a citation's section label carries one of decision F's double quote marks."""
+    return isinstance(label, str) and _QUOTE_MARK_RE.search(label) is not None
 
-    Keyed by the citation's own ``n`` (stringified, e.g. ``"1"``), falling back to its 1-based
-    position in the array when ``n`` isn't a valid int. This is a *candidate* pool only — a citation
-    the model declares here but never actually places inline is never surfaced: the caller's unified
-    :func:`_resolve_citations` pass looks entries up by the markers it finds in the answer text, not
-    the other way around.
+
+def _verify_citations(
+    citations: list[dict], filing: Any, normalized_source: str, referenced: set[str],
+) -> dict[str, dict]:
+    """Verify original declarations before duplicate IDs can overwrite rejected evidence.
+
+    Unused valid declarations remain a candidate pool only. A referenced ID must have an
+    unambiguous declaration and every declaration for it must pass the whole-excerpt verifier
+    (the Sources panel displays the whole excerpt as filing text) with a quote-free section label.
+    The published excerpt is the declared one, never trimmed or substituted.
     """
     base_url = getattr(filing, "document_url", None) or getattr(filing, "sec_url", None) or ""
     by_marker: dict[str, dict] = {}
-    for idx, cite in enumerate(citations, start=1):
-        excerpt = str(cite.get("excerpt") or "").strip()
+    declared: dict[str, dict] = {}
+    for cite in citations:
+        excerpt = cite["excerpt"].strip()
         section_ref = cite.get("section") or cite.get("section_ref")
-        n = cite.get("n")
-        if not isinstance(n, int):
-            n = idx
-        verified = verify_excerpt_in_text(excerpt, normalized_source)
-        if verified:
-            fragment_url = build_text_fragment_url(base_url, excerpt) if base_url else base_url
-        else:
-            fragment_url = base_url
-        by_marker[str(n)] = {
+        key = str(cite["n"])
+        verified = (verify_whole_excerpt_in_text(excerpt, normalized_source)
+                    and not section_label_is_quoted(section_ref))
+        if key in referenced and (
+            not verified or (key in declared and declared[key] != cite)
+        ):
+            raise _UnpublishableAnswer("Unverified or ambiguous referenced citation")
+        declared[key] = cite
+        fragment_url = (
+            build_text_fragment_url(base_url, strip_wrapping_quotes(excerpt), source_span=True)
+            if verified and base_url else base_url
+        )
+        by_marker[key] = {
             "excerpt": excerpt,
             "section_ref": section_ref,
             "verified": verified,
             "fragment_url": fragment_url,
         }
     return by_marker
+
+
+# Prose quotations (decision F). The marks are the double quotes normalize_for_match folds to '"'
+# (straight, “ ” „) plus ‟ (U+201F) and the fullwidth ＂ (U+FF02). Single quotes are left alone
+# (apostrophes), and so are ″ (U+2033, far more often an inch or seconds sign), 〝〞〟, ❝❞, 🙶🙷 and ʺ:
+# decision F's scope is these double quotes, not every quotation form. This is the one definition of
+# the set: the markdown pre-filter below and the section_ref rule (section_label_is_quoted) read it.
+_STRAIGHT_QUOTE_MARKS = '"\uff02'
+_CLOSING_QUOTE_MARK = "\u201d"
+_QUOTE_MARK_RE = re.compile('["\uff02\u201c\u201d\u201e\u201f]')
+_QUOTE_EDGE_CHARS = " \t\r\n\u00a0.,;:!?\u2026"
+_QUOTE_ELLIPSIS_RE = re.compile(r"\.\s*\.\s*\.|\u2026")
+# The shortest quoted text checked against the filing (the founder's decision on PR #1029): shorter
+# quoted terms ("ROE", "EBITDA") are labels. Citation excerpts keep the verifier's own floor,
+# provenance_service._MIN_VERIFIABLE_LEN (24).
+_MIN_QUOTED_LEN = 8
+# The work per answer is bounded: an answer that may quote and is longer than this, holds more
+# quote marks than this, or whose quotations (nested ones counted again) span more characters than
+# this, fails closed unchecked. Realistic answers run to 2-3k characters; the retained evaluation
+# answers hold at most 8 marks in 330 characters.
+_MAX_QUOTED_ANSWER_CHARS = 8_000
+_MAX_QUOTE_MARKS = 64
+_MAX_QUOTED_CHARS = 20_000
+# Link-label parsing grows with the brackets ('[' runs reach about 100 ms at the character bound);
+# an answer that may quote and opens more than this many fails closed. Realistic answers hold a few
+# dozen citation markers at most.
+_MAX_BRACKETS = 256
+# A mark, or a character reference that may name one (a bare "&", as in R&D, is not one).
+_QUOTE_HINT_RE = re.compile(
+    _QUOTE_MARK_RE.pattern + "|&(?:#[0-9]{1,7}|#[xX][0-9a-fA-F]{1,6}|[A-Za-z][A-Za-z0-9]{1,31});")
+# Characters that change what a reader sees without being plain visible text: C0 and C1 controls
+# other than line breaks (a tab fails closed in the answer below), the Ogham space mark and the line
+# and paragraph separators (a space or a break, by reader), the byte-order mark, and the bidi
+# controls and right-to-left scripts (whose blocks hold the Arabic letter mark), around which the
+# browser reorders marks and text. Text that may quote and holds one fails closed: it is not read,
+# and it is not dropped (see _display_may_differ, which adds the astral and unassigned characters).
+_FAIL_CLOSED_CHARS_RE = re.compile(
+    "[\x00-\x08\x0b\x0c\x0e-\x1f\x7f-\x9f\u1680\u2028\u2029\ufeff\u200e\u200f\u202a-\u202e\u2066-\u2069"
+    "\u0590-\u08ff\ufb1d-\ufdff\ufe70-\ufefe]")
+# Unicode Default_Ignorable_Code_Point (DerivedCoreProperties, Unicode 17.0; checked against ICU) in
+# the Basic Multilingual Plane and assigned in Python's tables, less the bidi controls and U+FEFF:
+# never displayed, so dropped before a mark's neighbours are read. The rest fail closed.
+_DEFAULT_IGNORABLE_RE = re.compile(
+    "[\u00ad\u034f\u115f\u1160\u17b4\u17b5\u180b-\u180f\u200b-\u200d\u2060-\u2064\u206a-\u206f\u3164"
+    "\ufe00-\ufe0f\uffa0]")
+# Citation markers inside a quotation are not quoted text; anything longer is read as written.
+_QUOTED_MARKER_RE = re.compile(r"\[F?\d{1,3}\]")
+# The answer is displayed by react-markdown 10 with remark-gfm (micromark). It is read here with
+# markdown-it-py, and only within a small subset that both parsers are assumed to read alike:
+# paragraphs, headings, thematic breaks, lists, blockquotes, GFM tables, emphasis, code spans, and
+# code blocks. An answer that may quote and uses anything else fails closed: link syntax (inline
+# links, reference definitions, autolinks) and the raw URL and email literals GFM links by itself,
+# raw HTML, images, footnotes, task-list checkboxes, tabs, runs of three or more emphasis delimiters
+# or two different delimiters side by side, Unicode spaces at a line's edge, nesting past
+# _MAX_MARKDOWN_NESTING, and the forms below on which a fuzz against the display found the parsers
+# to differ (lazy lines, stray table rows, some list openings). A URL or address built from
+# character references or escapes (www&#46;sec.gov) is linked by the display too, but it shows the
+# same text, so it is read as text. Within the subset some guards remain: a delimiter left as text
+# may still vanish when displayed, so a mark's direction that one decides is ambiguous; a '*' or
+# '_' left as text where there is emphasis, one delimiter run split between two emphasis tokens, a
+# tilde beside emphasis, or a backtick left as text may change what the display pairs. That the two
+# parsers agree on this subset is the residual assumption; it is not exact parity with the display.
+
+
+def _markdown_parser() -> MarkdownIt:
+    """The shared parser, its rules compiled. markdown-it compiles its rule chains on first use, and
+    mdurl fills its encoding and decoding caches on first use, each publishing an empty cache before
+    filling it, so a first parse in two worker threads at once could run without them. Link syntax
+    never reaches the reading (it fails closed before parsing, so mdurl is not called on one); the
+    autolink parsed here fills both mdurl caches, and the inline link is a harmless extra. After this
+    one parse the instance is only read."""
+    parser = MarkdownIt("commonmark", {"html": False}).enable("table")
+    parser.parse("[x](y) <http://z>")
+    return parser
+
+
+_MARKDOWN = _markdown_parser()
+# Block ends, and a thematic break, show as line breaks.
+_MARKDOWN_BLOCK_ENDS = frozenset({
+    "paragraph_close", "heading_close", "blockquote_close", "list_item_close", "bullet_list_close",
+    "ordered_list_close", "thead_close", "tbody_close", "tr_close", "th_close", "td_close", "table_close", "hr",
+})
+_MARKDOWN_BLOCKS = _MARKDOWN_BLOCK_ENDS | {
+    "paragraph_open", "heading_open", "blockquote_open", "list_item_open", "bullet_list_open",
+    "ordered_list_open", "thead_open", "tbody_open", "tr_open", "th_open", "td_open", "table_open",
+    "inline", "fence", "code_block",
+}
+_MARKDOWN_INLINE = frozenset({
+    "text", "softbreak", "hardbreak", "em_open", "em_close", "strong_open", "strong_close", "code_inline",
+})
+_MARKDOWN_BREAKS = ("softbreak", "hardbreak")
+_MARKDOWN_EMPHASIS = ("em_open", "em_close", "strong_open", "strong_close")
+_MARKDOWN_CONTAINERS = {"blockquote_open": 1, "blockquote_close": -1, "bullet_list_open": 1,
+                        "bullet_list_close": -1, "ordered_list_open": 1, "ordered_list_close": -1}
+# Nested blockquotes and lists, together. This keeps every token far below markdown-it's maxNesting
+# (20), past which it stops parsing; the display has no such cap.
+_MAX_MARKDOWN_NESTING = 4
+# Found in the source text before parsing, since each always fails closed: an image, footnote
+# syntax, a tab (expanded differently in indentation and table rows), a run of three or more '*' or
+# '_' (which the parsers pair differently), two different emphasis or strikethrough delimiters side
+# by side (micromark lets a '*' or '_' run beside any other of '*', '_' and GFM's '~' open or close,
+# where CommonMark and markdown-it read that neighbour as punctuation), and raw HTML of any kind
+# (markdown-it's HTML parsing stays off; it also catches autolinks such as <https://...>).
+_OUTSIDE_SUBSET_RE = re.compile(r"!\[|\[\^|\t|\*{3}|_{3}|\*[_~]|_[*~]|~[*_]")
+_RAW_HTML_RE = re.compile(r"<[A-Za-z/!?]")
+# Link syntax and raw URL and email literals, also found before parsing: an inline link or a
+# reference definition (the only markdown here that reaches markdown-it's link normalization, so
+# mdurl never runs on a reading), or a literal GFM links by itself: a URL, a www. address, or an
+# email address ('@' between two characters, which also finds mailto: and xmpp: addresses and
+# '<...@...>' autolinks; '<scheme:...>' autolinks are found as raw HTML). No answer in the retained
+# evaluation runs holds one (0 of 576).
+_LINK_RE = re.compile(r"\]\(|\]:|www\.|https?://|\S@\S", re.IGNORECASE)
+# A Unicode space at a line's edge, also found before parsing (in the answer with its line endings
+# normalized, as markdown-it normalizes them). These are the whitespace characters Python's
+# str.strip() removes besides those that fail closed anyway (_display_may_differ) and the space,
+# tab and line endings: U+00A0, U+2000-U+200A, U+202F, U+205F and U+3000. markdown-it strips them
+# from a table row (rules_block/table.py), a paragraph (paragraph.py), a setext heading
+# (lheading.py) and an ATX heading's content (heading.py), where micromark trims only spaces and
+# tabs, so at a line's edge they can change the blocks the display shows (a table header the
+# display does not take as one, a line the display breaks after a trailing backslash). Elsewhere in
+# a line the only differences are whitespace at the edge of a table cell, a heading, or a paragraph
+# that starts after a blockquote or list marker, and the padding of a code span that holds only
+# whitespace; the reading and the shared normalization treat these alike.
+_UNICODE_SPACES = "\u00a0\u2000-\u200a\u202f\u205f\u3000"
+_LINE_EDGE_SPACE_RE = re.compile(f"(?m)^[ \t]*[{_UNICODE_SPACES}]|[{_UNICODE_SPACES}][ \t]*$")
+# A GFM task-list checkbox, which the display draws as a box instead of this text.
+_TASK_CHECKBOX_RE = re.compile(r"\[[ \txX]\]")
+# Blockquotes and GFM tables are read only outside any container and with every line starting with
+# their marker (no lazy continuation lines). Any other line that GFM might take for a table's
+# delimiter row (pipes and dashes, perhaps behind container markers) is outside the subset.
+_TOP_LEVEL_BLOCKS = {"blockquote_open": re.compile(r" {0,3}>"), "table_open": re.compile(r" {0,3}\|")}
+_TABLE_DELIMITER_LIKE_RE = re.compile(r"[ \t>+*0-9.):-]*\|[ \t>+*0-9.):|-]*")
+_MAYBE_HIDDEN = "*_~"
+
+
+def _rendered_text(answer: str) -> Optional[str]:
+    """The answer's text as the reader sees it, or None when it uses markdown outside the subset.
+
+    Character references and escapes show their characters, block ends show as line breaks, and code
+    is shown verbatim. Used only to decide; never published.
+    """
+    env: dict = {}
+    tokens = _MARKDOWN.parse(answer, env)
+    if env.get("references"):
+        return None
+    lines = re.split(r"\r\n?|\n", answer)
+    delimiter_rows = {at for at, line in enumerate(lines) if "-" in line and _TABLE_DELIMITER_LIKE_RE.fullmatch(line)}
+    parts: list[str] = []
+    depth = 0
+    for index, token in enumerate(tokens):
+        outer = depth
+        depth += _MARKDOWN_CONTAINERS.get(token.type, 0)
+        if token.type not in _MARKDOWN_BLOCKS or depth > _MAX_MARKDOWN_NESTING:
+            return None
+        start, end = token.map or (0, 0)
+        if token.type in _TOP_LEVEL_BLOCKS:
+            if outer or not all(_TOP_LEVEL_BLOCKS[token.type].match(line) for line in lines[start:end]):
+                return None
+            if token.type == "table_open":
+                delimiter_rows.discard(start + 1)
+        if token.type == "code_block" and start and lines[start - 1].strip(" "):
+            return None  # indented code right after text, where GFM continues the text instead
+        if token.type == "list_item_open" and (tokens[index + 1].type == "list_item_close"
+                                               or (tokens[index + 1].map or (start,))[0] > start):
+            return None  # an item opening on a blank line, which the display may show as its marker
+        number = token.attrGet("start")
+        if token.type == "ordered_list_open" and number not in (None, 1) and (
+                (index and tokens[index - 1].type == "code_block") or not re.match(f" *0*{number}[.)]", lines[start])):
+            return None  # numbered past 1 after a code block or another marker: GFM may show it as text
+        if token.type == "inline":
+            inline = _rendered_inline(token.children or [])
+            if inline is None or _TASK_CHECKBOX_RE.match(token.content):
+                return None
+            parts.append(inline)
+        elif token.type in ("fence", "code_block"):
+            parts.append(token.content)
+        elif token.type in _MARKDOWN_BLOCK_ENDS:
+            parts.append("\n")
+    text = "".join(parts)
+    # Character references can name what the source text may not hold.
+    return None if delimiter_rows or _display_may_differ(text) else text
+
+
+def _rendered_inline(children: list) -> Optional[str]:
+    parts: list[str] = []
+    emphasis = any(child.type in _MARKDOWN_EMPHASIS for child in children)
+    for index, child in enumerate(children):
+        if child.type not in _MARKDOWN_INLINE:
+            return None
+        if (index and child.type in _MARKDOWN_EMPHASIS and children[index - 1].type in _MARKDOWN_EMPHASIS
+                and child.markup[0] == children[index - 1].markup[0]):
+            return None  # one delimiter run split between two emphasis tokens: GFM may pair it otherwise
+        if child.type in _MARKDOWN_BREAKS:
+            parts.append("\n")
+        elif child.type == "code_inline":
+            parts.append(child.content)
+        else:
+            text = child.content
+            before = children[index - 1].type if index else "softbreak"
+            after = children[index + 1].type if index + 1 < len(children) else "softbreak"
+            if "`" in text:
+                return None  # a backtick left as text may open a code span when displayed
+            if text and ((text[0] == "~" and before in _MARKDOWN_EMPHASIS)
+                         or (text[-1] == "~" and after in _MARKDOWN_EMPHASIS)):
+                return None  # a tilde beside emphasis: GFM may pair the runs otherwise
+            if emphasis and _may_delimit(text):
+                return None  # a '*' or '_' left as text where there is emphasis: GFM may pair them otherwise
+            parts.append(text)
+    return "".join(parts)
+
+
+def _display_may_differ(text: str) -> bool:
+    """Whether ``text`` holds a character the display may show differently from this reading: one
+    in _FAIL_CLOSED_CHARS_RE, an astral character (micromark classifies those by UTF-16 unit), or
+    one unassigned in Python's Unicode tables (the browser's tables may assign it)."""
+    return bool(_FAIL_CLOSED_CHARS_RE.search(text)) or any(
+        char > "\uffff" or unicodedata.category(char) == "Cn" for char in text if char > "\x7f")
+
+
+def _may_delimit(text: str) -> bool:
+    """Whether a '*' or '_' left as text could open or close emphasis: not one between spaces, nor an
+    underscore inside a word."""
+    for at, char in enumerate(text):
+        if char in "*_":
+            before, after = text[at - 1:at], text[at + 1:at + 2]
+            if not (before.isspace() and after.isspace()) and not (
+                    char == "_" and before.isalnum() and after.isalnum()):
+                return True
+    return False
+
+
+def _is_punctuation(char: str) -> bool:
+    return unicodedata.category(char)[0] in "PS"
+
+
+def _beside(text: str, at: int, step: int, maybe_hidden: str) -> set[str]:
+    """What a reader may see just before (step -1) or after (step 1) the mark at ``at``.
+
+    Combining marks draw on a neighbour, so they are passed over; text edges read as whitespace. A
+    delimiter in ``maybe_hidden`` may still vanish when displayed, so beside one the character beyond
+    it is possible too.
+    """
+    seen: set[str] = set()
+    index = at + step
+    while True:
+        while 0 <= index < len(text) and unicodedata.category(text[index]) in ("Mn", "Me"):
+            index += step
+        char = text[index] if 0 <= index < len(text) else " "
+        seen.add(char)
+        if char not in maybe_hidden:
+            return seen
+        index += step
+
+
+def _straight_reading(marks: list[tuple[int, str]]) -> tuple[int, list[tuple[int, int]]]:
+    """How many balanced readings one stretch of straight marks admits (0, 1, or 2 for two or more),
+    and the pairs of the reading when there is exactly one.
+
+    ``layers[k]`` maps each depth reachable after ``k`` marks to the number of readings reaching it,
+    capped at 2, so the work is marks times depths rather than the number of readings.
+    """
+    layers: list[dict[int, int]] = [{0: 1}]
+    for _, role in marks:
+        layer: dict[int, int] = {}
+        for depth, count in layers[-1].items():
+            if role != "close":
+                layer[depth + 1] = min(2, layer.get(depth + 1, 0) + count)
+            if role != "open" and depth:
+                layer[depth - 1] = min(2, layer.get(depth - 1, 0) + count)
+        layers.append(layer)
+    count = layers[-1].get(0, 0)
+    if count != 1:
+        return count, []
+    # Walk the one reading back from its end: each step on it has exactly one predecessor.
+    closings: list[bool] = []
+    depth = 0
+    for index in range(len(marks), 0, -1):
+        closing = marks[index - 1][1] != "open" and depth + 1 in layers[index - 1]
+        closings.append(closing)
+        depth += 1 if closing else -1
+    opened: list[int] = []
+    pairs: list[tuple[int, int]] = []
+    for (at, _), closing in zip(marks, reversed(closings)):
+        if closing:
+            pairs.append((opened.pop(), at))
+        else:
+            opened.append(at)
+    return 1, pairs
+
+
+def _quotation_reading(text: str, maybe_hidden: str) -> list[tuple[int, int]] | str:
+    """(opening, closing) mark offsets of the one reading the marks admit.
+
+    “ „ ‟ open and ” closes; a straight mark takes its direction from its neighbours, as CommonMark
+    reads emphasis. A mark can open when the next character is not whitespace and is not
+    punctuation (Unicode P or S) unless whitespace or punctuation precedes the mark; closing
+    mirrors this. A straight mark that can do both or neither may do either. Curly marks pair
+    with curly marks by glyph; straight marks pair only with straight marks of the same stretch
+    between curly marks. So '"x "y" z"' and '"x ("y") z"' read only as nested quotations, and
+    every span is checked. Every balanced reading is counted (``_straight_reading``). Returns a
+    reason code instead when a curly mark faces the wrong way, when a mark's direction depends on
+    whether a delimiter shows, when no balanced reading exists, when more than one does, or when
+    there are more than ``_MAX_QUOTE_MARKS`` marks.
+    """
+    found = list(_QUOTE_MARK_RE.finditer(text))
+    if len(found) > _MAX_QUOTE_MARKS:
+        return "ambiguous_quotation"
+    curly_open: list[int] = []
+    stretches: dict[int, list[tuple[int, str]]] = {-1: []}
+    pairs: list[tuple[int, int]] = []
+    for match in found:
+        at, glyph = match.start(), match.group()
+        roles: set[str | bool] = set()
+        for before in _beside(text, at, -1, maybe_hidden):
+            for after in _beside(text, at, 1, maybe_hidden):
+                opens = not after.isspace() and (
+                    not _is_punctuation(after) or before.isspace() or _is_punctuation(before))
+                closes = not before.isspace() and (
+                    not _is_punctuation(before) or after.isspace() or _is_punctuation(after))
+                if glyph in _STRAIGHT_QUOTE_MARKS:
+                    roles.add("either" if opens == closes else "open" if opens else "close")
+                else:
+                    roles.add(closes if glyph == _CLOSING_QUOTE_MARK else opens)
+        if len(roles) > 1 or False in roles:
+            return "ambiguous_quotation"
+        if glyph in _STRAIGHT_QUOTE_MARKS:
+            stretches[curly_open[-1] if curly_open else -1].append((at, roles.pop()))
+        elif glyph != _CLOSING_QUOTE_MARK:
+            curly_open.append(at)
+            stretches[at] = []
+        elif curly_open:
+            pairs.append((curly_open.pop(), at))
+        else:
+            return "unbalanced_quotation"
+    if curly_open:
+        return "unbalanced_quotation"
+    counts: list[int] = []
+    for marks in stretches.values():
+        count, stretch_pairs = _straight_reading(marks)
+        counts.append(count)
+        pairs += stretch_pairs
+    if 0 in counts:
+        return "unbalanced_quotation"
+    return "ambiguous_quotation" if max(counts) > 1 else sorted(pairs)
+
+
+def unsupported_prose_quotations(answer: str, normalized_source: str) -> list[str]:
+    """Reason codes for double-quoted spans of a markdown answer the filing text cannot show contiguously.
+
+    Only double quotation marks are in scope; single quotes, guillemets, other marks and markdown
+    blockquotes are not checked. The answer is read as displayed (``_rendered_text``), for this
+    decision only; the published answer is never rewritten. A quotation is in scope when it holds
+    at least ``_MIN_QUOTED_LEN`` characters after the shared normalization (the one place this
+    floor is read) or an interior ellipsis; shorter quoted terms ("ROE", "EBITDA") are labels, not
+    source quotations. An in-scope quotation must occur
+    contiguously in ``normalized_source``; citation markers and edge punctuation are not quoted
+    text. A nested quotation is checked both whole and inner, and reasons follow the opening
+    marks, so an outer quotation's reason precedes its inner one's. Missing source text, marks
+    that admit no reading or more than one, markdown outside the read subset, characters the
+    display may show otherwise (``_display_may_differ``), and answers past the work bounds fail
+    closed. Nothing is repaired or stitched: any reason withholds the whole answer.
+    """
+    if not _QUOTE_HINT_RE.search(answer):
+        return []
+    text = None
+    if not (len(answer) > _MAX_QUOTED_ANSWER_CHARS or answer.count("[") > _MAX_BRACKETS
+            or _display_may_differ(answer) or _OUTSIDE_SUBSET_RE.search(answer) or _LINK_RE.search(answer)
+            or _RAW_HTML_RE.search(answer) or _LINE_EDGE_SPACE_RE.search(re.sub(r"\r\n?", "\n", answer))):
+        text = _rendered_text(answer)
+    if text is None:
+        return ["ambiguous_quotation"] if _QUOTE_MARK_RE.search(html.unescape(answer)) else []
+    return _displayed_quotation_reasons(_DEFAULT_IGNORABLE_RE.sub("", text), normalized_source, _MAYBE_HIDDEN)
+
+
+def unsupported_plain_quotations(text: str, normalized_source: str) -> list[str]:
+    """``unsupported_prose_quotations`` for prose displayed as plain text, with no markdown: the
+    not-disclosed reason and the follow-up questions."""
+    if not _QUOTE_MARK_RE.search(text):
+        return []
+    if len(text) > _MAX_QUOTED_ANSWER_CHARS or _display_may_differ(text):
+        return ["ambiguous_quotation"]
+    return _displayed_quotation_reasons(_DEFAULT_IGNORABLE_RE.sub("", text), normalized_source, "")
+
+
+def _displayed_quotation_reasons(text: str, normalized_source: str, maybe_hidden: str) -> list[str]:
+    """The reason codes for ``text`` as displayed, where ``maybe_hidden`` delimiters may yet vanish."""
+    reading = _quotation_reading(text, maybe_hidden)
+    if isinstance(reading, str):
+        return [reading]
+    if sum(end - start for start, end in reading) > _MAX_QUOTED_CHARS:
+        return ["ambiguous_quotation"]
+    reasons: list[str] = []
+    for start, end in reading:
+        raw = text[start + 1:end]
+        content = _QUOTED_MARKER_RE.sub(" ", raw).strip(_QUOTE_EDGE_CHARS)
+        needle = normalize_for_match(content)
+        elided = bool(_QUOTE_ELLIPSIS_RE.search(content))
+        if not elided and len(needle) < _MIN_QUOTED_LEN:
+            continue
+        if not normalized_source:
+            reasons.append("quotation_source_unavailable")
+        elif (needle not in normalized_source
+              and normalize_for_match(raw.strip(_QUOTE_EDGE_CHARS)) not in normalized_source):
+            # Literal second: a filing can print "Note [7]".
+            reasons.append("elided_quotation" if elided else "quotation_not_in_source")
+    return reasons
+
+
+def _withhold_unsupported_quotations(normalized_source: str, markdown: str, plain: list[str]) -> None:
+    """Raise when published prose quotes text the filing cannot show; the log gets only the code.
+
+    ``markdown`` is displayed as markdown (the answer), ``plain`` as plain text (the not-disclosed
+    reason, the follow-up questions). Any failure withholds the whole response.
+    """
+    failures = unsupported_prose_quotations(markdown, normalized_source) if markdown else []
+    for text in plain:
+        failures = failures or unsupported_plain_quotations(text, normalized_source)
+    if failures:
+        raise _UnpublishableAnswer(f"Unsupported prose quotation: {failures[0]}")
+
+
+def _safe_activity_label(info: dict) -> str:
+    """Keep model-controlled tool names and concept strings out of publication events."""
+    name = info.get("name")
+    if name not in ("list_available_concepts", "get_financial_fact", "compute_metric"):
+        return "Reading financial information"
+    args = info.get("args")
+    args = args if isinstance(args, dict) else {}
+    concept = args.get("concept")
+    safe_args = {
+        "concept": concept if isinstance(concept, str) and concept in copilot_tools._CONCEPT_LABELS else None,
+        "kind": args.get("kind") if args.get("kind") in ("yoy_growth", "margin") else None,
+    }
+    return copilot_tools.describe_tool_call(name, safe_args)
 
 
 # How far back (chars) to look for the figure a fact marker claims to support.
@@ -663,17 +1165,21 @@ _CLAIM_SCALES = {"thousand": 1e3, "million": 1e6, "billion": 1e9}
 # over the WHOLE answer. That anchor is what rejects multi-metric, comparative, causal, quoted,
 # conditional, derived and incomplete-scope statements: a second proposition simply falls outside
 # the match. Longest phrases first so the alternation binds the fullest subject.
+# Case folds over ASCII letters only: Unicode re.IGNORECASE also folds ı/İ onto i, ſ onto s and the
+# Kelvin sign onto k, so "net ſales" raised KeyError below and "thouſand" fell back to scale 1.0.
+# Such an answer now does not match and abstains. Whitespace stays Unicode through (?u:\s): an NBSP
+# is still a separator. \d is ASCII digits: a claim in non-ASCII digits also abstains.
 _ANNUAL_FIGURE_CLAIM = re.compile(
     r"(?P<subject>" + "|".join(
         re.escape(p) for p in sorted(_CLAIM_PHRASE_CONCEPT, key=len, reverse=True)) + r")"
-    r"\s+(?:for|in)\s+(?:the\s+)?(?:fiscal\s+)?year\s+ended(?:\s+on)?\s+"
-    r"(?P<month>" + "|".join(_MONTH_NAMES) + r")\s+(?P<day>\d{1,2}),\s+(?P<year>\d{4})"
-    r"\s+(?:was|were|totaled|totalled|amounted\s+to)\s+"
-    r"(?P<currency>" + _CURRENCY_TOKEN + r")\s*"
+    r"(?u:\s)+(?:for|in)(?u:\s)+(?:the(?u:\s)+)?(?:fiscal(?u:\s)+)?year(?u:\s)+ended(?:(?u:\s)+on)?(?u:\s)+"
+    r"(?P<month>" + "|".join(_MONTH_NAMES) + r")(?u:\s)+(?P<day>\d{1,2}),(?u:\s)+(?P<year>\d{4})"
+    r"(?u:\s)+(?:was|were|totaled|totalled|amounted(?u:\s)+to)(?u:\s)+"
+    r"(?P<currency>" + _CURRENCY_TOKEN + r")(?u:\s)*"
     r"(?P<amount>\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?)"
-    r"(?:\s*(?P<scale>billion|million|thousand))?"
+    r"(?:(?u:\s)*(?P<scale>billion|million|thousand))?"
     r"\.\Z",
-    re.IGNORECASE,
+    re.IGNORECASE | re.ASCII,
 )
 
 # Annual report forms: the ones whose period of report IS a full fiscal year. Same test
@@ -743,13 +1249,14 @@ def _plan_uncited_fact_citation(answer: str) -> Optional[dict]:
     }
 
 
-# Reuse the existing annual revenue clause verbatim; only this explicit second clause is admitted.
+# Reuse the existing annual revenue clause verbatim, with its flags; only this explicit second
+# clause is admitted.
 _PAIRED_ANNUAL_CLAIM = re.compile(
     _ANNUAL_FIGURE_CLAIM.pattern.removesuffix(r"\.\Z")
     + r"(?P<separator>, and net income was )"
-    + r"(?P<income_currency>" + _CURRENCY_TOKEN + r")\s*"
+    + r"(?P<income_currency>" + _CURRENCY_TOKEN + r")(?u:\s)*"
     + r"(?P<income_amount>\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?)"
-    + r"(?:\s*(?P<income_scale>billion|million|thousand))?\.\Z", re.IGNORECASE,
+    + r"(?:(?u:\s)*(?P<income_scale>billion|million|thousand))?\.\Z", _ANNUAL_FIGURE_CLAIM.flags,
 )
 
 
@@ -967,7 +1474,7 @@ def _resolve_citations(
     misplaced = 0
     prev_marker_end = 0
 
-    for match in re.finditer(r"\[(F?\s*\d+)\]", full_answer, re.IGNORECASE):
+    for match in _COPILOT_MARKER_RE.finditer(full_answer):
         key = re.sub(r"\s+", "", match.group(1)).upper()
 
         # Adjacency guards for FACT-backed markers, on EVERY occurrence: the model reusing a
@@ -1055,13 +1562,13 @@ async def answer_filing_question(
     Yields (in order):
     * ``{"type": "progress", "stage": "reading"}`` before the model call.
     * ``{"type": "activity", "label", "phase", "ok"}`` as numeric tools run (live "show the work").
-    * ``{"type": "token", "text": ...}`` for answer prose only (never the citation JSON / sentinels).
+    * Fixed reading progress while candidate prose is buffered privately.
     * ``{"type": "not_disclosed", "answer": ...}`` if the model emits the not-disclosed sentinel.
     * ``{"type": "complete", "answer", "citations", "grounded", "kind", "followups"}`` at the end.
     * ``{"type": "error", "message": ...}`` on any failure.
 
-    The generator never raises — all exceptions become an ``error`` event so the SSE stream stays
-    well-formed. The filing source text is normalized **once** here and reused for every excerpt.
+    Ordinary failures become safe ``error`` events; cancellation still propagates. The filing source
+    text is normalized **once** here and reused for every excerpt.
     """
     try:
         source_text = _select_source_text(filing) or ""
@@ -1102,16 +1609,15 @@ async def answer_filing_question(
 
         yield {"type": "progress", "stage": "reading"}
 
-        answer_parts: list[str] = []          # emitted prose (before any sentinel)
+        answer_parts: list[str] = []          # private candidate prose (before any sentinel)
         citation_buffer: list[str] = []       # text after ===CITATIONS===
         not_disclosed_parts: list[str] = []   # text after ===NOT_DISCLOSED===
         pending = ""                          # carry-over tail for cross-chunk sentinel detection
         mode = "answer"                        # answer | citations | not_disclosed
+        last_progress = monotonic()
 
-        # Token usage is accumulated here across tool rounds (opt-in via usage_sink) so the router
-        # can emit per-answer inference cost from the `complete` event; empty if the provider
-        # returns no usage.
-        usage_sink: dict[str, int] = {}
+        # The wrapper accumulates actual model, usage and recorded call costs across tool rounds.
+        usage_sink: dict[str, Any] = {}
         model_name = openai_service.model
         async for delta in openai_service.stream_chat_with_tools(
             messages,
@@ -1130,8 +1636,7 @@ async def answer_filing_question(
             # bracketed text stream out as the answer body — a model outage must not look like a
             # confident, zero-grounded answer.
             if delta.startswith(STREAM_ERROR_SENTINEL):
-                message = delta[len(STREAM_ERROR_SENTINEL):].strip() or "model stream failed"
-                yield {"type": "error", "message": message[:300]}
+                yield {"type": "error", "message": _STREAM_FAILURE}
                 return
 
             # Tool-activity signal from the wrapper → a live "show the work" event. Translate the raw
@@ -1145,11 +1650,15 @@ async def answer_filing_question(
                     info = {}
                 yield {
                     "type": "activity",
-                    "label": copilot_tools.describe_tool_call(info.get("name", ""), info.get("args")),
-                    "phase": info.get("phase", "start"),
+                    "label": _safe_activity_label(info),
+                    "phase": "done" if info.get("phase") == "done" else "start",
                     "ok": bool(info.get("ok", True)),
                 }
                 continue
+
+            if monotonic() - last_progress >= 3:
+                yield {"type": "progress", "stage": "reading"}
+                last_progress = monotonic()
 
             if mode == "citations":
                 citation_buffer.append(delta)
@@ -1158,7 +1667,7 @@ async def answer_filing_question(
                 not_disclosed_parts.append(delta)
                 continue
 
-            # mode == "answer": scan the accumulated buffer for a sentinel, emitting safe prose and
+            # mode == "answer": scan the accumulated buffer for a sentinel, holding prose privately and
             # holding back a tail so a sentinel split across chunks is still caught.
             pending += delta
             while True:
@@ -1171,7 +1680,6 @@ async def answer_filing_question(
                     prose = pending[:cut]
                     if prose:
                         answer_parts.append(prose)
-                        yield {"type": "token", "text": prose}
                     if cut == cit_at:
                         mode = "citations"
                         citation_buffer.append(pending[cut + len(_CITATIONS_SENTINEL):])
@@ -1181,35 +1689,45 @@ async def answer_filing_question(
                     pending = ""
                     break
 
-                # No complete sentinel: emit everything except a held-back tail that could be the
+                # No complete sentinel: buffer everything except a held-back tail that could be the
                 # start of a sentinel spanning into the next chunk.
                 if len(pending) > _SENTINEL_TAIL:
                     emit = pending[:-_SENTINEL_TAIL]
                     pending = pending[-_SENTINEL_TAIL:]
                     if emit:
                         answer_parts.append(emit)
-                        yield {"type": "token", "text": emit}
                 break
 
-        # Stream finished. Build the usage payload (tokens + model) for the per-answer cost
-        # telemetry the router emits from the `complete` event; None if the provider gave no usage.
-        usage_payload = {"model": model_name, **usage_sink} if usage_sink else None
+        # Preserve the per-call accounting, including unknown values and mixed-model totals.
+        usage_payload = usage_sink or None
 
         # Flush any held-back tail that turned out to be plain prose.
         if mode == "answer" and pending:
             answer_parts.append(pending)
-            yield {"type": "token", "text": pending}
 
         if mode == "not_disclosed":
-            # The not-disclosed verdict may carry a trailing followups block (questions this
-            # filing CAN answer) — a dead end without a next step just strands the user.
+            if "".join(answer_parts).strip():
+                raise _UnpublishableAnswer("Answer prose precedes not-disclosed verdict")
+            # A complete not-disclosed verdict needs its reason and the whole required
+            # followups envelope. Provider EOF or repaired JSON cannot establish completion.
             nd_raw = "".join(not_disclosed_parts)
-            nd_followups: list[str] = []
-            nd_match = re.search(r"===\s*FOLLOW-?UPS\s*===", nd_raw, re.IGNORECASE)
-            if nd_match:
-                nd_followups = _parse_followups(nd_raw[nd_match.end():])
-                nd_raw = nd_raw[: nd_match.start()]
-            answer = nd_raw.strip() or "This filing does not disclose the requested information."
+            nd_match = _FOLLOWUPS_RE.search(nd_raw)
+            if not nd_match:
+                raise _UnpublishableAnswer("Missing not-disclosed followups envelope")
+            answer = nd_raw[:nd_match.start()].strip()
+            if not answer:
+                raise _UnpublishableAnswer("Empty not-disclosed reason")
+            if _CITATIONS_SENTINEL in answer or _NOT_DISCLOSED_SENTINEL in answer:
+                raise _UnpublishableAnswer("Contradictory not-disclosed envelope")
+            try:
+                nd_followups = json.loads(nd_raw[nd_match.end():].strip())
+            except (ValueError, TypeError) as exc:
+                raise _UnpublishableAnswer("Incomplete not-disclosed followups array") from exc
+            if (not isinstance(nd_followups, list) or not 2 <= len(nd_followups) <= 3
+                    or any(not isinstance(item, str) or not item.strip() for item in nd_followups)):
+                raise _UnpublishableAnswer("Invalid not-disclosed followups array")
+            nd_followups = [item.strip()[:140] for item in nd_followups]
+            await asyncio.to_thread(_withhold_unsupported_quotations, normalized_source, "", [answer, *nd_followups])
             yield {"type": "not_disclosed", "answer": answer}
             yield {
                 "type": "complete",
@@ -1223,19 +1741,9 @@ async def answer_filing_question(
             return
 
         full_answer = "".join(answer_parts).strip()
-        # The citations buffer may carry a trailing ===FOLLOWUPS=== block; split it off before parsing
-        # the citation JSON so suggested next-questions can be surfaced as tappable chips. The match is
-        # case/dash/space-tolerant: if a mis-cased sentinel slipped through, the followups JSON would
-        # otherwise be left in the buffer and corrupt the citation parse (zero citations) — so this is
-        # deliberately forgiving.
-        citation_raw = "".join(citation_buffer)
-        followups: list[str] = []
-        followups_match = re.search(r"===\s*FOLLOW-?UPS\s*===", citation_raw, re.IGNORECASE)
-        if followups_match:
-            followups = _parse_followups(citation_raw[followups_match.end():])
-            citation_raw = citation_raw[: followups_match.start()]
-        citations = _parse_citations(citation_raw)
-        text_citations_by_marker = _verify_citations(citations, filing, normalized_source)
+        if mode != "citations":
+            raise _UnpublishableAnswer("Missing citation envelope")
+        citations, followups = _parse_citations("".join(citation_buffer))
 
         # Multi-reference bracket groups the model emits despite the one-marker-per-bracket
         # contract — "[F1, F2]", "[F1, 2]", "[F1 vs F2]" — previously stayed LITERAL in the
@@ -1253,6 +1761,15 @@ async def answer_filing_question(
             # (pinned resolver behavior, and "[1,234]" could be a bracketed thousands figure).
             require_re=citation_markers.MARKER_REF_RE,
         )
+        referenced = {
+            re.sub(r"\s+", "", match.group(1)).upper()
+            for match in _COPILOT_MARKER_RE.finditer(full_answer)
+        }
+        text_citations_by_marker = _verify_citations(citations, filing, normalized_source, referenced)
+        # Keep literal identities before repair/numbering; a later citation must not capture
+        # an unrelated original [1]. Leading-zero markers keep their original identity.
+        unresolved_literals = {key for key in referenced if not key.startswith("F")
+                               and key not in text_citations_by_marker}
         # Supported uncited annual claims need positive certification, beyond marker removal.
         # Look up each claimed figure in the viewed filing and attach separate markers only
         # after every operand certifies; preserve every other byte of the answer.
@@ -1283,6 +1800,12 @@ async def answer_filing_question(
                     repaired, {}, used_facts, filing_url,
                 )
                 misplaced += additional_misplaced
+        if not full_answer:
+            raise _UnpublishableAnswer("Empty resolved answer")
+        if any(str(cite["n"]) in unresolved_literals or cite["verified"] is not True
+               for cite in verified_citations):
+            raise _UnpublishableAnswer("Unverified or colliding final citation")
+        await asyncio.to_thread(_withhold_unsupported_quotations, normalized_source, full_answer, followups)
         if misplaced:
             # Trust telemetry: a nonzero rate here means the model is attaching fact markers to
             # figures they don't support — watch this after any prompt/model change.
@@ -1309,6 +1832,10 @@ async def answer_filing_question(
             "uncited_figures": uncited_figures,
             "usage": usage_payload,
         }
-    except Exception as e:  # noqa: BLE001 — never raise out of the SSE generator
+    except _UnpublishableAnswer as exc:
+        # These reasons are application-owned constants, never candidate prose or excerpts.
+        logger.warning("Copilot candidate withheld at citation publication boundary: %s", exc)
+        yield {"type": "error", "message": _PUBLICATION_ERROR}
+    except Exception:  # noqa: BLE001 — never raise ordinary failures out of the SSE generator
         logger.exception("Copilot answer_filing_question failed")
-        yield {"type": "error", "message": str(e)[:300]}
+        yield {"type": "error", "message": _STREAM_FAILURE}

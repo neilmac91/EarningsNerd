@@ -1,0 +1,311 @@
+{
+  "runtime_head": "a92dff9edae4228268f69ef1b77883950f4ca118",
+  "base": "d4798aa219dc6578396d6195bfd457dcd827e3d6",
+  "refutations": [
+    {
+      "finding": "Specific and recent filing reads retain completed synchronous SQL sessions across async return.",
+      "attempt": "Fresh HTTP/dependency pass: try to explain previous failures as ASGITransport or an artificial get_db replacement.",
+      "result": "Not refuted: actual Uvicorn server has separate client/server event loops; original SessionLocal/get_db uses actual PG, no dependency override for get_db or request barrier. Saved traces identify the two route queries and pool timeouts. Eight 15s deadline cancellations and four ~40s held leases independently agree."
+    },
+    {
+      "finding": "Specific and recent filing reads retain completed synchronous SQL sessions across async return.",
+      "attempt": "Fresh source/lifetime pass: find synchronous closure, lazy response work requiring retained session, or a different cleanup owner.",
+      "result": "Not refuted: both async handlers synchronously query and materialize FilingResponse before returning. No local close exists. get_db is a sync generator whose finally closes in dependency cleanup. joinedload eagerly loads company. Thus DTO-before-finally-close can preserve payload and specific-filing 404 while returning the completed lease before the event loop yields."
+    },
+    {
+      "finding": "Content and fundamentals reads also defer completed synchronous read cleanup.",
+      "attempts": [
+        "Fresh real-HTTP pass used original get_db/SessionLocal and no request barrier; PostgreSQL observed four idle-in-transaction application clients, while both original endpoints hit actual route-query QueuePool timeouts. This refutes an ASGITransport-only or upstream-delay explanation.",
+        "Fresh source/lifetime pass found content DTO creation completes from an eagerly loaded cache; fundamentals service materializes strings/numbers/lists/dictionaries in _fundamentals_payload before returning. Neither requires an open session after the handler returns. No local cleanup exists at the original head."
+      ],
+      "result": "Both attempts upheld the finding; isolated before/after evidence and existing shared gate retained."
+    }
+  ],
+  "initial_specific_recent_measurement": {
+    "head": "d4798aa219dc6578396d6195bfd457dcd827e3d6",
+    "runner_sha256": "7e47cd09acac0cb1ba4a82118046c6a394bd2308204f6ffa1b50d83912ae1712",
+    "runs": {
+      "sibling-specific-http": {
+        "app_mode": "http",
+        "cached_target": "filing",
+        "request_count": 8,
+        "pool": {
+          "size": 4,
+          "overflow": 0,
+          "timeout_seconds": 10,
+          "observed_checked_out_highwater": 4
+        },
+        "error": "TimeoutError",
+        "blocked_external_socket_attempts": [],
+        "observer_errors": [],
+        "http_server_stopped": true,
+        "postgres_stopped": true,
+        "client_http_200": 0,
+        "cancelled_requests": 8,
+        "lease_seconds_min": 40.053399,
+        "lease_seconds_max": 40.063751,
+        "postgres_state_sample_highwater": {
+          "idle": 4,
+          "idle in transaction": 4
+        },
+        "receipt_sha256": {
+          "application-receipt.json": "1f54f3d80ee797ee32599c6cce0c8e1c7c86ed8f73792cc52fa2797c66515e4f",
+          "controller-receipt.json": "4a8b773eaa3db54fc6001badbd59b7d40c98c45329c7001a940b7fa5001b77d8",
+          "postgres-samples.json": "d12eda9988998f0a50d2917ed9d5960dd4749241878f95bffa12059f546902b4",
+          "application.log": "b41826d307db98cd667d7c3c7afaff4ee4b3f14f868b86098168ff8cc8b66036"
+        }
+      },
+      "sibling-recent-http": {
+        "app_mode": "http",
+        "cached_target": "recent",
+        "request_count": 8,
+        "pool": {
+          "size": 4,
+          "overflow": 0,
+          "timeout_seconds": 10,
+          "observed_checked_out_highwater": 4
+        },
+        "error": "TimeoutError",
+        "blocked_external_socket_attempts": [],
+        "observer_errors": [],
+        "http_server_stopped": true,
+        "postgres_stopped": true,
+        "client_http_200": 0,
+        "cancelled_requests": 8,
+        "lease_seconds_min": 40.053943,
+        "lease_seconds_max": 40.067887,
+        "postgres_state_sample_highwater": {
+          "idle": 4,
+          "idle in transaction": 4
+        },
+        "receipt_sha256": {
+          "application-receipt.json": "fcb7e9e03d70bd689502454ccc5551c38ad28fba067442bde3356c1931ab630a",
+          "controller-receipt.json": "932adff6083259e22a272a50b025d3cf8956f0ae08fdb77b3412b51b1096c19e",
+          "postgres-samples.json": "2a005dd459ee3e6f649555c22e912c64b54e2426c9572dd993474ed82ab08e32",
+          "application.log": "a86843efee072d03f5e1b8b63e7fcb5ebac5c96589c97d613252fa1bbc5387cc"
+        }
+      }
+    }
+  },
+  "content_fundamentals_measurement": {
+    "runtime_head": "a92dff9edae4228268f69ef1b77883950f4ca118",
+    "base": "d4798aa219dc6578396d6195bfd457dcd827e3d6",
+    "runner_sha256": "f5575995f495bf38b656171f03f2973457822e9356559f3d4efaf944be4b8cb4",
+    "additional_actual_http_requests": 32,
+    "runs": {
+      "content-before": {
+        "source_head": "d4798aa219dc6578396d6195bfd457dcd827e3d6",
+        "target": "content",
+        "requests": 8,
+        "http_200": 0,
+        "cancelled": 8,
+        "client_elapsed_seconds_min": 14.991221,
+        "client_elapsed_seconds_max": 15.003493,
+        "longest_connection_lease_seconds": 40.056831,
+        "pool": {
+          "size": 4,
+          "overflow": 0,
+          "timeout_seconds": 10,
+          "observed_checked_out_highwater": 4
+        },
+        "postgres_state_sample_highwater": {
+          "idle": 4,
+          "idle in transaction": 4
+        },
+        "error": "TimeoutError",
+        "external_socket_attempts": [],
+        "observer_errors": [],
+        "http_server_stopped": true,
+        "postgres_stopped": true,
+        "receipt_sha256": {
+          "application-receipt.json": "af2e3128b3ab49451793a53182434ce28de7d3cfaf7ef5792a3222488a103fd9",
+          "controller-receipt.json": "b2676c1a3bcb5327c97593acbd8ddfa1cffa9ec23c744cf68da4f846d9bd7b22",
+          "postgres-samples.json": "334d5e584f9f9558c295abf67ab3cf63a267be1dbf1566cb7b6393a5104eae68",
+          "application.log": "befcdce3e74eb18f1e7b3490894ca907603522316f7069016908f00efb3f9295"
+        }
+      },
+      "fundamentals-before": {
+        "source_head": "d4798aa219dc6578396d6195bfd457dcd827e3d6",
+        "target": "fundamentals",
+        "requests": 8,
+        "http_200": 0,
+        "cancelled": 8,
+        "client_elapsed_seconds_min": 14.991975,
+        "client_elapsed_seconds_max": 15.003225,
+        "longest_connection_lease_seconds": 40.057628,
+        "pool": {
+          "size": 4,
+          "overflow": 0,
+          "timeout_seconds": 10,
+          "observed_checked_out_highwater": 4
+        },
+        "postgres_state_sample_highwater": {
+          "idle": 4,
+          "active": 1,
+          "idle in transaction": 4
+        },
+        "error": "TimeoutError",
+        "external_socket_attempts": [],
+        "observer_errors": [],
+        "http_server_stopped": true,
+        "postgres_stopped": true,
+        "receipt_sha256": {
+          "application-receipt.json": "e74b46186e61e08ba1bbeec1a5cc4a1c67eb5385e27704239a0fba56740fbc85",
+          "controller-receipt.json": "f44f94c155d37972c6124d1d6eb6720830ff907da366d51963e38d7d4b003356",
+          "postgres-samples.json": "1d13a69aa9cc85ff156adf3a80430d060c10f394c512bec75832fa22ad914d7e",
+          "application.log": "eaa6594f12046dcfef29d22577b0e8027416e0290238732c16eecc3c7149f821"
+        }
+      },
+      "content-after": {
+        "source_head": "a92dff9edae4228268f69ef1b77883950f4ca118",
+        "target": "content",
+        "requests": 8,
+        "http_200": 8,
+        "cancelled": 0,
+        "client_elapsed_seconds_min": 0.028156,
+        "client_elapsed_seconds_max": 0.039378,
+        "longest_connection_lease_seconds": 0.003079,
+        "pool": {
+          "size": 4,
+          "overflow": 0,
+          "timeout_seconds": 10,
+          "observed_checked_out_highwater": 1
+        },
+        "postgres_state_sample_highwater": {
+          "idle": 1
+        },
+        "error": null,
+        "external_socket_attempts": [],
+        "observer_errors": [],
+        "http_server_stopped": true,
+        "postgres_stopped": true,
+        "receipt_sha256": {
+          "application-receipt.json": "8ab1cd4f5a87d305c0cded40f3a56e5c9deae5437f46a5202458a3f899caf6e5",
+          "controller-receipt.json": "6b44cf033ff3789670ec092ac2c394b364e65f9f3483b106d562bae5899a6939",
+          "postgres-samples.json": "218f1a464b8bdfaaf31946789a29a0b4848cc56801f12d037bc3dc707f0a15e5",
+          "application.log": "6eeab52c704e2fb35f8e8da19248a70d26aaffc5fdcfc4b3221d728afba7bca8"
+        }
+      },
+      "fundamentals-after": {
+        "source_head": "a92dff9edae4228268f69ef1b77883950f4ca118",
+        "target": "fundamentals",
+        "requests": 8,
+        "http_200": 8,
+        "cancelled": 0,
+        "client_elapsed_seconds_min": 0.035014,
+        "client_elapsed_seconds_max": 0.046565,
+        "longest_connection_lease_seconds": 0.004864,
+        "pool": {
+          "size": 4,
+          "overflow": 0,
+          "timeout_seconds": 10,
+          "observed_checked_out_highwater": 1
+        },
+        "postgres_state_sample_highwater": {
+          "idle": 1
+        },
+        "error": null,
+        "external_socket_attempts": [],
+        "observer_errors": [],
+        "http_server_stopped": true,
+        "postgres_stopped": true,
+        "receipt_sha256": {
+          "application-receipt.json": "ee39b138a5c4f30798196b15f49e8eae41dcca37d576209e83f844ca10ef1884",
+          "controller-receipt.json": "a2a04ee498b744fd30d8c4f565fb67523a90106a3f4e48af4b80f7960bd2eb99",
+          "postgres-samples.json": "86ecfcf242089c3356346dbce1aa0f959e6b49345f1714afb62eab2f2c9953c2",
+          "application.log": "8da0505b2827332a545ff3f04bc9e0ae6a67e77ca8325551228c9fa632f3a300"
+        }
+      }
+    }
+  },
+  "mutation": {
+    "head": "a92dff9edae4228268f69ef1b77883950f4ca118",
+    "invariant": "Completed filing read handlers release synchronous sessions before yielding to async dependency cleanup.",
+    "fault": "Restore d4798aa2 route, removing all four successor closes while retaining reviewed company-list fix.",
+    "original_sha256": "b9d6c42954b2e04ff8ef696cefaf6746645a3e9ebfd4c2474112dd61734edc71",
+    "fault_sha256": "af2436b28ad2e8b5ab2a0e9574f92be383cd2faeeb18b49d8e2180976369e00a",
+    "results": [
+      {
+        "phase": "fault",
+        "exit_code": 1,
+        "sha256": "f967f38031ced5a41ca6b126a12e26ea16fe390a06e433bdf5d3ffc19d6330b9"
+      },
+      {
+        "phase": "restored",
+        "exit_code": 0,
+        "sha256": "75f292df78de52b05c94e2ff872bda025793e17371162f12a10e0c3d70677ce8"
+      }
+    ],
+    "restored_byte_identical": true
+  },
+  "full_gate": {
+    "head": "a92dff9edae4228268f69ef1b77883950f4ca118",
+    "source_sha256": {
+      "backend/app/routers/filings.py": "b9d6c42954b2e04ff8ef696cefaf6746645a3e9ebfd4c2474112dd61734edc71",
+      "backend/tests/unit/test_cached_filings_pool_lifetime.py": "28d9df012b2c6b3b0b8573990fb351862b7b5671f21d62b8925ea9cf9ca931ec"
+    },
+    "results": [
+      {
+        "name": "ruff",
+        "command": [
+          "ruff",
+          "check",
+          "."
+        ],
+        "exit_code": 0,
+        "seconds": 0.1,
+        "log_sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18"
+      },
+      {
+        "name": "bandit",
+        "command": [
+          "bandit",
+          "-r",
+          "app",
+          "-ll"
+        ],
+        "exit_code": 0,
+        "seconds": 2.43,
+        "log_sha256": "fda0670dd46aa23bff762f513adbec095750242ffc8cd9fe0ec055d82b06b7dc"
+      },
+      {
+        "name": "pytest",
+        "command": [
+          "python",
+          "-m",
+          "pytest",
+          "-rs"
+        ],
+        "exit_code": 0,
+        "seconds": 163.04,
+        "log_sha256": "955039cdb1e6b74c14cdbe510213f5e77e9d729554692c74fa2e05318f263bac"
+      }
+    ]
+  },
+  "pytest_tail": "3817 passed, 39 skipped, 2 deselected, 40 warnings in 160.02s (0:02:40)",
+  "gate_scope": "39 opt-in PostgreSQL transaction tests skipped without their separate database URLs; two performance tests deselected by normal pytest configuration. Local PostgreSQL/HTTP measurements actually executed separately.",
+  "existing_locked_tests_unchanged": true,
+  "release_status": "Dated coordination snapshot below; PR1018 is the live source. Local-only status is superseded. No production release claimed.",
+  "unchanged_company_list_function_sha256": "9c53fe338271fb5ae89aed38f307addea99f1be716e0e49975a5bc54212efc37",
+  "local_verification_identity_note": "Original local heads retained as historical evidence; see release_coordination_snapshot for subsequent reconciliation.",
+  "release_coordination_snapshot": {
+    "as_of_utc": "2026-09-28T23:07:00Z",
+    "pr": "https://github.com/neilmac91/EarningsNerd/pull/1018",
+    "live_status_source": "PR conversation and checks, not this immutable snapshot",
+    "reconciled_head": "0a0e83d2e059d81264fc04129f096b28bdbab996",
+    "base_main": "367a70fa474a43b0da03a8901b6c63f720d261c1",
+    "tree_identical_to_locally_gated_head": "57a5e4c7c28eab2e4d22b9aaeafdad6b8050d360",
+    "hosted_ci": 36494549922,
+    "synthetic_merge": "7aa5f282adf3dfe63086be47312677180bce7aad",
+    "initial_independent_review": "cleared exact0a0e83d2",
+    "ready_copilot": 36495768049,
+    "ready_review_workflow": 36495768083,
+    "ready_review_finding": "stale documentation status; corrected by this documentation-only update",
+    "remaining_at_snapshot": [
+      "independent review of documentation correction",
+      "merge",
+      "serial production release verification"
+    ],
+    "runtime_and_gate_bytes_changed": false
+  }
+}

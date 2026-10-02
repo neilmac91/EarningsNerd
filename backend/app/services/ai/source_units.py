@@ -10,6 +10,8 @@ from app.services.ai.recovery_context import clean_filing_source, recovery_block
 from app.services.edgar.debt_concepts import DEBT_MATURITY_SEQUENCE, DEBT_MATURITY_TOTAL
 from app.services.edgar.statement_context import source_context_identity, source_report_identity
 from app.services.edgar.statement_relationship_source import _text
+from app.services.edgar.tax_rate_comparison import select_tax_rate_comparison
+from app.services.edgar.reconciliation_operands import select_reconciliation_operands
 from app.services.provenance_service import _MIN_VERIFIABLE_LEN
 
 # Deliberately narrow: a declaration immediately below the actual MD&A title, not a
@@ -251,6 +253,24 @@ class TableUnitIndex:
         self._contexts: dict[str, tuple[str, str, str, bool] | None] | None = None
         self._identity: tuple[str, str] | None = None
         self._identity_read = False
+        self._tax_comparison: dict | None = None
+        self._tax_comparison_read = False
+        self._reconciliation: dict | None = None
+        self._reconciliation_read = False
+
+    def reconciliation_operands(self) -> dict | None:
+        """Cache bounded native operands without granting source assertion authority."""
+        if not self._reconciliation_read:
+            self._reconciliation_read = True
+            self._reconciliation = select_reconciliation_operands(self._parse())
+        return self._reconciliation
+
+    def tax_rate_comparison(self) -> dict | None:
+        """Cache complete tax-note selectors; these never establish assertion authority."""
+        if not self._tax_comparison_read:
+            self._tax_comparison_read = True
+            self._tax_comparison = select_tax_rate_comparison(self._parse())
+        return self._tax_comparison
 
     def resolve_maturity_sequence(self, years: Sequence[int], amounts: Sequence[str]) -> tuple[str | None, str]:
         """``(scale word, reason)`` for the authored sequence, else ``(None, why)``."""

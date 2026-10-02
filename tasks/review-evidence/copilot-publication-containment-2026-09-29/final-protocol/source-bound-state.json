@@ -1,0 +1,105 @@
+{
+  "recorded_at": "2026-09-29T21:34:10.459825+00:00",
+  "base_head": "2dae5338554560bf3008082843cedd5f34bd0ad3",
+  "status": "Uncommitted source-bound correction; all required local backend and frontend gates pass. Initial frontend build failures remain retained; unchanged default build succeeds with verified local-port capability and a fresh generated cache. No hosted acceptance or release approval.",
+  "source_files_sha256": {
+    "backend/app/services/copilot_service.py": "f890ac8002a727b1f6f5174aaeee3b62d79ab78168bde1f1158f44be0acc0626",
+    "backend/tests/unit/test_copilot.py": "4396f3cce11c58ed09dbd5d17d2ac9c97acc062b32ddc4aab0816615bf129f46",
+    "backend/tests/unit/test_copilot_gate.py": "65d4facf28fb26997189fbcfcc8fe28b9ff5446f93ed1491fb36cdab2c5dfefa",
+    "frontend/features/filings/api/copilot-api.ts": "a01afe65c85a7315b86afe081f1ea7e1905aec4de4f1aae307bc5ca39819f97a",
+    "frontend/tests/unit/copilotStream.spec.ts": "e9b691ffef2d8c276a22e3077fb50513a0a5a5efbf05c3a42a176ee1a5909c33"
+  },
+  "five_file_diff_sha256": "5c15f21f1345d917c0f2b968f09a45300be1a8926a98214cb7608e03cf81d796",
+  "evidence_files": {
+    "nd-natural-red-identity.json": {
+      "sha256": "9e5f6ed2a53412279de1d02c56d4a7f851863ffbf2849922aac3f3ed99d5ff4d",
+      "bytes": 541,
+      "retained_source": "/Users/neilmacaogain/Documents/Codex/2026-09-28/github-plugin-github-openai-curated-remote/outputs/resumption-2026-09-29/containment/final-protocol-review/nd-natural-red-identity.json"
+    },
+    "nd-implementation-receipt.json": {
+      "sha256": "8db08ea4b890f48a85d62e19979ad672f7be0af5a4450eda9052808471abf7c6",
+      "bytes": 2524,
+      "retained_source": "/Users/neilmacaogain/Documents/Codex/2026-09-28/github-plugin-github-openai-curated-remote/outputs/resumption-2026-09-29/containment/final-protocol-review/nd-implementation-receipt.json"
+    },
+    "independent-refutation.json": {
+      "sha256": "6a8ce1675a9c08cfe8dd481a3226bdecdef8200bc96b8a0a1eea2f6b8af0ac8d",
+      "bytes": 10819,
+      "retained_source": "/Users/neilmacaogain/Documents/Codex/2026-09-28/github-plugin-github-openai-curated-remote/outputs/resumption-2026-09-29/containment/final-protocol-review/independent-refutation.json"
+    },
+    "independent-nd-fix-review.json": {
+      "sha256": "2e963863c2544c230440c30695403a1820857862b16a11fd2f2e91f5a0bb5558",
+      "bytes": 2223,
+      "retained_source": "/Users/neilmacaogain/Documents/Codex/2026-09-28/github-plugin-github-openai-curated-remote/outputs/resumption-2026-09-29/containment/final-protocol-review/independent-nd-fix-review.json"
+    },
+    "independent-format-frontend-review.json": {
+      "sha256": "93a8f8fc3e21b7161d43bc7f8b9af26a9c3da027773464e38a7e45947c6a964a",
+      "bytes": 7116,
+      "retained_source": "/Users/neilmacaogain/Documents/Codex/2026-09-28/github-plugin-github-openai-curated-remote/outputs/resumption-2026-09-29/containment/final-protocol-review/independent-format-frontend-review.json"
+    },
+    "frontend-nd-natural-red.json": {
+      "sha256": "ee4a5b586bb79f6e0fa30483a5fa01825233fbd63003471376ea0d8ff3957d36",
+      "bytes": 668,
+      "retained_source": "/Users/neilmacaogain/Documents/Codex/2026-09-28/github-plugin-github-openai-curated-remote/outputs/resumption-2026-09-29/containment/final-protocol-review/frontend-nd-natural-red.json"
+    },
+    "frontend-nd-focused-green.json": {
+      "sha256": "a20f39b6fa48ab65d5fbd4ada21a3d2a6ca5ac133775e15d8c05b41aaed5ec4c",
+      "bytes": 517,
+      "retained_source": "/Users/neilmacaogain/Documents/Codex/2026-09-28/github-plugin-github-openai-curated-remote/outputs/resumption-2026-09-29/containment/final-protocol-review/frontend-nd-focused-green.json"
+    },
+    "frontend-nd-implementation-receipt.json": {
+      "sha256": "1e904ce7a971ca955883e25fc6925e9c0f6add24fbef1afd49ac1458043a36b3",
+      "bytes": 3480,
+      "retained_source": "/Users/neilmacaogain/Documents/Codex/2026-09-28/github-plugin-github-openai-curated-remote/outputs/resumption-2026-09-29/containment/final-protocol-review/frontend-nd-implementation-receipt.json"
+    },
+    "backend-full-gate.json": {
+      "sha256": "ba3f0e92dda46c58959ac162d520cfedaeb19dbb601dbf8a35728704bc121875",
+      "bytes": 437,
+      "retained_source": "/Users/neilmacaogain/Documents/Codex/2026-09-28/github-plugin-github-openai-curated-remote/outputs/resumption-2026-09-29/containment/final-protocol-review/backend-full-gate.json"
+    },
+    "frontend-nd-full-gate.json": {
+      "sha256": "5f3457f611155b7559b0c9ef60aea3ee19084a788b0be751acb9021110cfca0c",
+      "bytes": 2574,
+      "retained_source": "/Users/neilmacaogain/Documents/Codex/2026-09-28/github-plugin-github-openai-curated-remote/outputs/resumption-2026-09-29/containment/final-protocol-review/frontend-nd-full-gate.json"
+    },
+    "frontend-nd-build-capability-retry.json": {
+      "sha256": "147d0824520b601fe0212f5284d3bfa2ca2d3501d20cea31f8b5c331971715e3",
+      "bytes": 945,
+      "retained_source": "/Users/neilmacaogain/Documents/Codex/2026-09-28/github-plugin-github-openai-curated-remote/outputs/resumption-2026-09-29/containment/final-protocol-review/frontend-nd-build-capability-retry.json"
+    },
+    "copilot-097b2fdb-receipt.json": {
+      "sha256": "d27fc6e26467eb40efbcc091efd764db9a695446b81a65bde50e8409681d7b35",
+      "bytes": 1249,
+      "retained_source": "/Users/neilmacaogain/Documents/Codex/2026-09-28/github-plugin-github-openai-curated-remote/outputs/resumption-2026-09-29/containment/copilot-097b2fdb/receipt.json"
+    },
+    "copilot-2dae5338-receipt.json": {
+      "sha256": "c49c2d8e8517f1ec4f969c4878540d46780178ecaa57dcde05676747a31ca733",
+      "bytes": 1249,
+      "retained_source": "/Users/neilmacaogain/Documents/Codex/2026-09-28/github-plugin-github-openai-curated-remote/outputs/resumption-2026-09-29/containment/copilot-2dae5338/receipt.json"
+    },
+    "ci-2dae5338-receipt.json": {
+      "sha256": "e629fc471de5137641d8488c3f18da1167f56879b230b1561cfe5d81f43ff99c",
+      "bytes": 2704,
+      "retained_source": "/Users/neilmacaogain/Documents/Codex/2026-09-28/github-plugin-github-openai-curated-remote/outputs/resumption-2026-09-29/containment/ci-2dae5338/receipt.json"
+    },
+    "ready-2dae5338-review-receipt.json": {
+      "sha256": "220c451b1fb4b6be976730261b35f772e51d102d9444733321b139249072f97d",
+      "bytes": 4338,
+      "retained_source": "/Users/neilmacaogain/Documents/Codex/2026-09-28/github-plugin-github-openai-curated-remote/outputs/resumption-2026-09-29/containment/corrected-ready-review/ready-review-receipt.json"
+    },
+    "frontend-final-build.json": {
+      "sha256": "d29b3023775d3732ad7c34bdc368ec40f83bb6e096f9bbeb37d9c243fcd33cfb",
+      "bytes": 641,
+      "retained_source": "/Users/neilmacaogain/Documents/Codex/2026-09-28/github-plugin-github-openai-curated-remote/outputs/resumption-2026-09-29/containment/final-protocol-review/frontend-final-build.json"
+    },
+    "root-final-protocol-review.json": {
+      "sha256": "eb7ed9006d35f65a1b1f73a1cb359f394b8e3e674963e2dd110b5023bf88da0d",
+      "bytes": 2005,
+      "retained_source": "/Users/neilmacaogain/Documents/Codex/2026-09-28/github-plugin-github-openai-curated-remote/outputs/resumption-2026-09-29/containment/final-protocol-review/root-final-protocol-review.json"
+    }
+  },
+  "raw_logs": "Retained in external final-protocol-review directory, bound by copied receipts; no large logs or source artifacts copied.",
+  "historical_receipts": "All previous evidence files remain unchanged; original097 and corrected2dae ready failures remain failures. No cause is inferred for097.",
+  "scope": "ND structural admission and wire parity; SYSTEM_PROMPT output-format step3 clarification only. Model, source selection, financial rules, scorer, baseline and formal E7/E8 acceptance unchanged.",
+  "immutable_head": "Pending root commit and exact-tree review; source hashes identify reviewed bytes before documentation changes.",
+  "documentation_finalized_at": "2026-09-29T21:36:19.668031+00:00"
+}

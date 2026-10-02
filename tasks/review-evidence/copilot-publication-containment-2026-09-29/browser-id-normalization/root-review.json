@@ -1,0 +1,14 @@
+{
+  "recorded_at_utc": "2026-09-29T22:07:49.399420+00:00",
+  "base_head": "f1890ff66d8d9c6fb77c42d805899bbc8faa2b28",
+  "source_hashes": {
+    "frontend/features/filings/api/copilot-api.ts": "7a98c5f6cf97d5a851ced90dd2b03fa05366b7f56a5026b48e6de038ed02d3e0",
+    "frontend/tests/unit/copilotStream.spec.ts": "df3dd3b1302ae5ca6cca3e0826ff8e57b57d0500f2f8ee261bb02fb45ee7ca07"
+  },
+  "backend_tree_unchanged": "57eb8340e148b9db6edaab77338c57214b5af8c3",
+  "decision": "Clear for draft publication; fresh hosted CI and actual review still required.",
+  "correctness": "Remove whitespace only from stored accepted string ID. Preserve numeric IDs and F/f case. Admission and renderer now agree for every accepted ID grammar. Shared renderer callback asserts actual admitted source bindings, repeated markers and numeric literals.",
+  "rules_and_brief": "Two-line frontend runtime correction; backend/prompt/model/source/scorer/baseline/locked contracts unchanged. No source meaning or financial acceptance inferred.",
+  "tests_and_gates": "Existing stream owner natural2failed/44passed on committed f189; corrected46passed. Full718 frontendtests/lint/types/defaultbuild pass on reviewedbytes. Earlier controls preserved.",
+  "independent_review_sha256": "720a9a65dba0099bb16f775bb54a247a7cc7c0621975c5f52177d646c934e1c8"
+}

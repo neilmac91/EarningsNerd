@@ -1,0 +1,68 @@
+{
+  "completed_at": "2026-09-29T21:54:54.284184+00:00",
+  "status": "implemented_and_final_full_frontend_gate_passed",
+  "base_head": "9d60e1e713be454e33e9e3695423cab4bc815d3d",
+  "finding": "4138623457",
+  "scope": [
+    "frontend/features/filings/api/copilot-api.ts",
+    "frontend/tests/unit/copilotStream.spec.ts"
+  ],
+  "change": "The network completion parser requires grounded to equal the number of verified citations and every normalized returned citation marker to occur in the answer. It does not require all bracket literals to be citations.",
+  "compatibility": [
+    "Repeated references count once.",
+    "Case-insensitive and whitespace-tolerant answer markers are retained.",
+    "Legacy F-marker sources are retained.",
+    "Unmatched numeric brackets remain literal.",
+    "Uncited answered and complete not-disclosed payloads remain supported.",
+    "Existing duplicate-source case now uses grounded=2, preserving its isolated duplicate-identity rejection coverage.",
+    "No changes to endpoints, authentication, lifecycle ownership, backend source checks, prompt, models, scoring or acceptance."
+  ],
+  "limits": [
+    "Wire consistency does not prove source faithfulness, claim entailment or ND truth.",
+    "No cloud or provider actions; no claim of release or deployed frontend."
+  ],
+  "natural_red": {
+    "result": "5 failed / 39 passed against unchanged committed runtime, before later duplicate-fixture count correction",
+    "receipt": "frontend-relation-natural-red.json",
+    "sha256": "27bb5767c89f312b2566f3478a72d116efdab6604f5b8c7f7a2d846aba54c9f0"
+  },
+  "focused_green": {
+    "result": "44 passed before later duplicate-fixture count correction; final owner covered by final full gate",
+    "receipt": "frontend-relation-focused-green.json",
+    "sha256": "4b867ae9a513adb0f5b4d32aec4e92091b53447aeb15d8fa708aa6e681f7019b"
+  },
+  "full_gate": {
+    "result": "lint + TypeScript passed; 716 tests in 115 files passed; unchanged default production build passed, 27/27 static pages",
+    "receipt": "frontend-relation-full-gate.json",
+    "sha256": "3de595220b9c6cc7bc870830191dbe8cae0f68e0c831a4d9b544d596e87c60eb",
+    "scope": "Node v22.23.2; serial gate; require_escalated loopback capability; prior generated cache preserved, fresh .next; unchanged bundler and commands",
+    "retained_warnings": "Build has no local Sentry auth token; Sentry release and source map upload are skipped. Raw test log retains expected fixture warnings."
+  },
+  "review_correction": {
+    "receipt": "frontend-relation-fixture-correction.json",
+    "sha256": "2415a3f9b6289bafed127abb978ec17d70933a6ed7b9ec11eaf83ec023edc8dd",
+    "previous_complete_gate_and_receipts": "frontend-relation-v1",
+    "note": "Previous 716-pass/build-pass gate retained; full gate repeated because final fixture bytes changed. No runtime change or extra mutation programme."
+  },
+  "refutation": {
+    "path": "frontend-relation-refutation.json",
+    "sha256": "6a4b1fe6a4714890bf34ecb9134393528e7f49631c896e3a39abcdc65d39c567"
+  },
+  "patch": {
+    "path": "frontend-relation-fix.patch",
+    "sha256": "2217ac113105407b762709d31f847652281730852304b26d1777e8320abdbde5"
+  },
+  "files": {
+    "frontend/features/filings/api/copilot-api.ts": "a514af5e1c54c3e0af075cd25256ae5a0405184bcc5a10ba57a917f6115aaf47",
+    "frontend/tests/unit/copilotStream.spec.ts": "8d31caa2421ff294a4537c36d5d5a7d2dac508b4d0b0415d94d145cff0e1be3d"
+  },
+  "unchanged_from_base": {
+    "frontend/tests/unit/summaryStream.contract.spec.ts": "4a27aa5d94c8af518016624e2159cd48b6bab6f8b76f2a58b0edf63ce59c3aaf",
+    "frontend/package-lock.json": "fc8bc41c635009f3cc3620f432bc76b21689c7577467237afd15c5d3c9c63b0b",
+    "frontend/package.json": "77eec16ad4d2a29f0e01b8355d11d817f67290b4d009782e1c93a21633d47b2b",
+    "frontend/next.config.js": "350a6ecaa29c6d455aa8d8cccdbaa934bc3b53e9f88fa5af757cbd2d34e3b4f4",
+    "frontend/app/globals.css": "f25c9416399fdb17acf455d840b256b14e813268ee8b0edc10cfa3da0d11f9c6"
+  },
+  "receipt_preparation_correction": "Initial v1 receipt assembly incorrectly looked for next.config.ts and stopped before writing; rg found next.config.js. Correct path byte-identity check passes. This did not cause a test/build rerun.",
+  "commit_or_push_performed": false
+}

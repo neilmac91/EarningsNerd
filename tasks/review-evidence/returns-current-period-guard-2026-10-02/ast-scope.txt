@@ -1,0 +1,16 @@
+backend/app files changed 06ad809a..4b354ed6: ['backend/app/services/ai/markdown_render.py', 'backend/app/services/summary_versioning.py']
+backend/app/services/ai/markdown_render.py: changed definitions ['def _MarkdownRenderMixin._apply_structured_fallbacks', 'def _MarkdownRenderMixin._apply_structured_fallbacks._ratio_clause']
+backend/app/services/summary_versioning.py: changed definitions ['assign SUMMARY_PROMPT_VERSION']
+backend/app readers of SUMMARY_PROMPT_VERSION at HEAD:
+backend/app/routers/admin.py:28:from app.services.summary_versioning import SUMMARY_PROMPT_VERSION, SUMMARY_SCHEMA_VERSION, is_stale
+backend/app/routers/admin.py:997:        "current_prompt_version": SUMMARY_PROMPT_VERSION,
+backend/app/services/summary_pipeline.py:78:from app.services.summary_versioning import SUMMARY_PROMPT_VERSION, SUMMARY_SCHEMA_VERSION
+backend/app/services/summary_pipeline.py:1228:                            existing.prompt_version = SUMMARY_PROMPT_VERSION
+backend/app/services/summary_pipeline.py:1253:                        prompt_version=SUMMARY_PROMPT_VERSION,
+backend/app/services/summary_refresh.py:18:from app.services.summary_versioning import SUMMARY_PROMPT_VERSION, SUMMARY_SCHEMA_VERSION
+backend/app/services/summary_refresh.py:35:        Summary.prompt_version != SUMMARY_PROMPT_VERSION,
+backend/app/services/summary_refresh.py:78:        "current_prompt_version": SUMMARY_PROMPT_VERSION,
+backend/app/services/summary_versioning.py:4:``raw_summary["sections"]`` — the sections taxonomy) and the ``SUMMARY_PROMPT_VERSION`` (the
+backend/app/services/summary_versioning.py:11:re-architecture in Tier 3). Bump ``SUMMARY_PROMPT_VERSION`` on any content-affecting change to the
+backend/app/services/summary_versioning.py:134:SUMMARY_PROMPT_VERSION: str = "summary-2026-09-u"
+backend/app/services/summary_versioning.py:141:    return schema_version != SUMMARY_SCHEMA_VERSION or prompt_version != SUMMARY_PROMPT_VERSION

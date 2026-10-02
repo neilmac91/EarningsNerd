@@ -292,14 +292,112 @@ def test_return_basis_is_explicit_on_both_surfaces(surface, period):
     }
     if surface == "grounding":
         text = build_xbrl_narrative_section(metrics)
+        assert "period net income / period-end equity, not annualized" in text
+        assert "period net income / period-end assets, not annualized" in text
     else:
         sections = {}
         openai_service._apply_structured_fallbacks(sections, {}, metrics)
         text = sections["value_drivers"]["returns_on_capital"]
-    assert "period net income / period-end equity, not annualized" in text
-    assert "period net income / period-end assets, not annualized" in text
+        # The rendered line names the formula and an unknown numerator scope explicitly (never a
+        # _PLACEHOLDER_STRINGS word), and dates the comparator it actually used.
+        assert text.startswith("Period net income (numerator scope unestablished) / period-end equity, not annualized: 29.8%")
+        assert "period net income (numerator scope unestablished) / period-end assets, not annualized: 22.5%" in text
+        assert "(prior at 2025-04-27: 22.4%)" in text
     assert all(value in text for value in ("29.8%", "22.4%", "22.5%"))
     assert "quarter" not in text.lower() and "average" not in text.lower()
+    if surface == "grounding":
+        return
+
+    # The render uses the canonical period, not a padded raw spelling.
+    metrics["return_on_equity"]["prior"]["period"] = " 2025-04-27 "
+    sections = {}
+    openai_service._apply_structured_fallbacks(sections, {}, metrics)
+    text = sections["value_drivers"]["returns_on_capital"]
+    assert "(prior at 2025-04-27: 22.4%)" in text and " 2025-04-27 " not in text
+
+    # A numeric prior without a usable period is not an honest comparator: the rendered line
+    # abstains rather than reopening the bare-"prior" FIGS defect; the current ratio still renders.
+    for unusable_period in (None, "", " N/A ", 20250427):
+        metrics["return_on_equity"]["prior"]["period"] = unusable_period
+        sections = {}
+        openai_service._apply_structured_fallbacks(sections, {}, metrics)
+        text = sections["value_drivers"]["returns_on_capital"]
+        assert "22.4%" not in text and "prior" not in text
+        assert "not annualized: 29.8%" in text
+
+
+@pytest.mark.asyncio
+async def test_jpm_rendered_returns_do_not_take_issuer_ratio_names(monkeypatch):
+    """Issuer ROE/ROA reach the model verbatim beside the unchanged grounding block; only the
+    code-rendered §4 line renames the differently-based derived ratios by formula."""
+    from app.services.openai_service import openai_service
+
+    # Retained JPM table wording with extraction whitespace/NBSPs normalized for this unit fixture.
+    issuer_ratio_excerpt = (
+        "Selected ratios and metrics\n"
+        "Return on common equity (“ROE”) 17% 18% 17%\n"
+        "Return on assets (“ROA”) 1.29% 1.43% 1.30%"
+    )
+    parent = {"numerator": {"raw_tag": "us-gaap:NetIncomeLoss"}}
+    metrics = {
+        "net_interest_income": {"current": {"value": 95_443_000_000}},
+        "return_on_equity": {
+            "current": {"value": 15.74007140531622, "period": "2025-12-31", **parent},
+            "prior": {"value": 16.96001253052866, "period": "2024-12-31", **parent},
+        },
+        "return_on_assets": {
+            "current": {"value": 1.289249474564397, "period": "2025-12-31", **parent},
+            "prior": {"value": 1.4607473642292648, "period": "2024-12-31", **parent},
+        },
+    }
+    sections: dict = {}
+    openai_service._apply_structured_fallbacks(sections, {}, metrics)
+    rendered = sections["value_drivers"]["returns_on_capital"]
+    grounding = build_xbrl_narrative_section(metrics)
+    captured: dict = {}
+
+    monkeypatch.setattr(openai_service, "_parse_and_clean_text", lambda *_args: {
+        "filing_sample": issuer_ratio_excerpt,
+        "financial_data": {
+            "revenue": [], "net_income": [], "cash_flow": [], "segments": [], "guidance": [],
+        },
+        "recovery_sources": (),
+    })
+
+    async def capture_request(create_kwargs, **_kwargs):
+        captured.update(create_kwargs)
+        return "{}"
+
+    async def finish_without_recovery(*_args, **_kwargs):
+        return {}
+
+    monkeypatch.setattr(openai_service, "_request_content", capture_request)
+    monkeypatch.setattr(openai_service, "_assemble_structured_summary", finish_without_recovery)
+    await openai_service.generate_structured_summary(
+        issuer_ratio_excerpt, "JPMorgan Chase", "10-K", metrics,
+        filing_excerpt=issuer_ratio_excerpt,
+    )
+    prompt = captured["messages"][1]["content"]
+
+    assert rendered == (
+        "Period net income attributable to the parent / period-end equity, not annualized: 15.7% "
+        "(prior at 2024-12-31: 17.0%); period net income attributable to the parent / period-end "
+        "assets, not annualized: 1.3% (prior at 2024-12-31: 1.5%)."
+    )
+    assert "Return on Equity" not in rendered and "Return on Assets" not in rendered
+    # Model-facing bytes are unchanged in this tranche: the grounding block keeps its existing
+    # labels and formula basis (renaming them is the held prompt tranche, thread r4080047443), and
+    # the source's real issuer-defined ratios stay in the prompt verbatim; neither is erased merely
+    # to avoid a naming collision.
+    assert grounding in prompt
+    assert (
+        "- Return on Equity: 15.7% (period: 2025-12-31); prior: 17.0% (2024-12-31); "
+        "basis: period net income / period-end equity, not annualized"
+    ) in grounding
+    assert "numerator scope" not in prompt and "attributable to the parent" not in prompt
+    assert issuer_ratio_excerpt in prompt
+    assert "Return on common equity (“ROE”) 17% 18% 17%" in prompt
+    assert "Return on assets (“ROA”) 1.29% 1.43% 1.30%" in prompt
 
 
 @pytest.mark.parametrize("surface", ["grounding", "web", "markdown", "pdf", "csv"])
@@ -354,3 +452,156 @@ def test_selected_cash_flow_basis_survives_consumers(surface, tag):
     assert "prior source concept:" not in text
     assert ("11,000,000,000" in text and "8,000,000,000" in text) if surface == "grounding" else ("11.0B" in text and "8.0B" in text)
     assert metrics == original
+
+
+# The grounding block main (c13b069a) emits for the operand fixture below, captured from main's own
+# builder. The successor extractor attaches ratio operands; the model-facing bytes must not move.
+_MAIN_OPERAND_FIXTURE_GROUNDING = (
+    "XBRL STANDARDIZED FINANCIAL DATA (SEC-verified; quote these figures verbatim):\n"
+    "- Net Income: $100 (period: 2026-06-30); prior: $55 (2026-03-31)\n"
+    "- Return on Equity: 10.0% (period: 2026-06-30); prior: 8.0% (2025-12-31); "
+    "basis: period net income / period-end equity, not annualized\n"
+    "- Return on Assets: 5.0% (period: 2026-06-30); prior: 4.0% (2025-12-31); "
+    "basis: period net income / period-end assets, not annualized\n"
+    "- Total Assets: $2,000 (period: 2026-06-30); prior: $2,000 (2025-12-31)\n"
+    "- Shareholders' Equity: $1,000 (period: 2026-06-30); prior: $1,000 (2025-12-31)"
+)
+
+
+@pytest.mark.parametrize("tag,scope", [
+    ("us-gaap:NetIncomeLoss", "attributable to the parent"),
+    ("us-gaap:ProfitLoss", "including noncontrolling interests"),
+    ("us-gaap:NetIncomeLossAvailableToCommonStockholdersBasic", "available to common shareholders"),
+    ("ifrs-full:ProfitLoss", "including noncontrolling interests"),
+    ("ifrs-full:ProfitLossAttributableToOwnersOfParent", "attributable to owners of the parent"),
+    ("issuer:AdjustedProfit", "(numerator scope unestablished)"),
+    (None, "(numerator scope unestablished)"),
+])
+def test_return_ratios_own_their_selected_operands_across_periods(tag, scope):
+    """A missing balance skips NI's immediate prior; no sibling point may supply ratio scope, and
+    operand custody never reaches the model's grounding bytes."""
+    from copy import deepcopy
+    from app.services.edgar.xbrl_service import edgar_xbrl_service
+    from app.services.openai_service import openai_service
+    from app.services.summary_sections import render_sections, sections_to_markdown
+
+    raw = {
+        "net_income": [
+            {"period": "2026-06-30", "period_start": "2026-04-01", "value": 100,
+             "raw_tag": tag, "currency": "USD", "form": "10-Q"},
+            {"period": "2026-03-31", "period_start": "2026-01-01", "value": 55,
+             "raw_tag": "us-gaap:NetIncomeLossAvailableToCommonStockholdersBasic", "currency": "USD"},
+            {"period": "2025-12-31", "period_start": "2025-01-01", "value": 80,
+             "raw_tag": "us-gaap:NetIncomeLoss", "currency": "USD"},
+        ],
+        "shareholders_equity": [
+            {"period": "2026-06-30", "value": 1000, "currency": "USD"},
+            {"period": "2025-12-31", "value": 1000, "currency": "USD"},
+        ],
+        "total_assets": [
+            {"period": "2026-06-30", "value": 2000, "currency": "USD"},
+            {"period": "2025-12-31", "value": 2000, "currency": "USD"},
+        ],
+    }
+    original = deepcopy(raw)
+    metrics = edgar_xbrl_service.extract_standardized_metrics(raw)
+    assert metrics["net_income"]["prior"]["period"] == "2026-03-31"
+    for key, denominator, expected in (("return_on_equity", "shareholders_equity", 10),
+                                       ("return_on_assets", "total_assets", 5)):
+        ratio = metrics[key]
+        assert ratio["current"]["value"] == expected
+        assert ratio["prior"]["value"] == expected * .8
+        assert ratio["current"]["numerator"] == metrics["net_income"]["current"]
+        assert ratio["prior"]["numerator"] == metrics["net_income"]["series"][2]
+        assert ratio["current"]["denominator"] == metrics[denominator]["current"]
+        assert ratio["prior"]["denominator"] == metrics[denominator]["prior"]
+        assert ratio["current"]["numerator"]["period_start"] == "2026-04-01"
+    assert raw == original
+
+    # Model-facing bytes: the grounding block is main's exact output whatever the operands say.
+    assert build_xbrl_narrative_section(metrics) == _MAIN_OPERAND_FIXTURE_GROUNDING
+
+    sections = {}
+    openai_service._apply_structured_fallbacks(sections, {}, metrics)
+    for text in (sections["value_drivers"]["returns_on_capital"],
+                 sections_to_markdown(render_sections({"schema_version": 2, "sections": sections}))):
+        assert f"period net income {scope} / period-end equity, not annualized: 10.0%" in text.lower()
+        assert f"period net income {scope} / period-end assets, not annualized: 5.0%" in text.lower()
+        # The ratio prior is the 2025-12-31 point (NetIncomeLoss), not NI's own 2026-03-31 prior.
+        assert "prior at 2025-12-31: 8.0%" in text and "prior at 2025-12-31: 4.0%" in text
+        assert "2026-03-31" not in text
+        # A prior-basis note (the prior point's OWN NetIncomeLoss scope) appears only when it
+        # differs from the current point's scope.
+        note = "; period net income attributable to the parent / period-end equity, not annualized)"
+        assert (note in text.lower()) is (scope != "attributable to the parent")
+    # A cached derived point cannot borrow a known scope from the sibling NI metric.
+    for key in ("return_on_equity", "return_on_assets"):
+        metrics[key]["current"].pop("numerator")
+    sections = {}
+    openai_service._apply_structured_fallbacks(sections, {}, metrics)
+    for text in (sections["value_drivers"]["returns_on_capital"],
+                 sections_to_markdown(render_sections({"schema_version": 2, "sections": sections}))):
+        assert "net income (numerator scope unestablished) / period-end equity, not annualized: 10.0%" in text.lower()
+        assert "net income (numerator scope unestablished) / period-end assets, not annualized: 5.0%" in text.lower()
+    assert build_xbrl_narrative_section(metrics) == _MAIN_OPERAND_FIXTURE_GROUNDING
+
+
+_ANNUAL_NI = [("2025-12-31", "2025-01-01", 100.0), ("2024-12-31", "2024-01-01", 80.0),
+              ("2023-12-31", "2023-01-01", 60.0)]
+_ANNUAL_ASSETS = [("2025-12-31", 2000.0), ("2024-12-31", 1900.0)]
+# FIGS-like 10-Q (Q2): three-month net income for Q2, Q1 and the prior-year Q2.
+_Q2_NI = [("2026-06-30", "2026-04-01", 12.0), ("2026-03-31", "2026-01-01", 7.5),
+          ("2025-06-30", "2025-04-01", 9.0)]
+_Q2_ASSETS = [("2026-06-30", 2000.0), ("2026-03-31", 1900.0), ("2025-12-31", 1800.0)]
+_PARENT = "period net income attributable to the parent / period-end"
+# The aligned lines below are main's (06ad809a) own render of the same inputs, byte for byte.
+_ANNUAL_ROA = f"{_PARENT} assets, not annualized: 5.0% (prior at 2024-12-31: 4.2%)"
+_Q2_ROA = f"{_PARENT} assets, not annualized: 0.6% (prior at 2026-03-31: 0.4%)"
+
+
+@pytest.mark.parametrize("form,net_income,equity,assets,line,grounding_roe", [
+    ("10-K", _ANNUAL_NI, [("2025-12-31", 500.0), ("2024-12-31", 400.0)], _ANNUAL_ASSETS,
+     f"{_PARENT} equity, not annualized: 20.0% (prior at 2024-12-31: 20.0%); {_ANNUAL_ROA}",
+     "Return on Equity: 20.0% (period: 2025-12-31); prior: 20.0% (2024-12-31)"),
+    ("10-K", _ANNUAL_NI, [("2025-12-31", -50.0), ("2024-12-31", 400.0), ("2023-12-31", 300.0)],
+     _ANNUAL_ASSETS, _ANNUAL_ROA, "Return on Equity: 20.0% (period: 2024-12-31); prior: 20.0% (2023-12-31)"),
+    ("10-K", _ANNUAL_NI, [("2025-12-31", 0.0), ("2024-12-31", 400.0), ("2023-12-31", 300.0)],
+     _ANNUAL_ASSETS, _ANNUAL_ROA, "Return on Equity: 20.0% (period: 2024-12-31); prior: 20.0% (2023-12-31)"),
+    ("10-K", _ANNUAL_NI, [("2024-12-31", 400.0), ("2023-12-31", 300.0)],
+     _ANNUAL_ASSETS, _ANNUAL_ROA, "Return on Equity: 20.0% (period: 2024-12-31); prior: 20.0% (2023-12-31)"),
+    # Assets missing at the report date: ROA's point predates net income and abstains; ROE stays.
+    ("10-K", _ANNUAL_NI, [("2025-12-31", 500.0), ("2024-12-31", 400.0)],
+     [("2024-12-31", 1900.0), ("2023-12-31", 1800.0)],
+     f"{_PARENT} equity, not annualized: 20.0% (prior at 2024-12-31: 20.0%)",
+     "Return on Equity: 20.0% (period: 2025-12-31); prior: 20.0% (2024-12-31)"),
+    ("10-Q", _Q2_NI, [("2026-06-30", 520.0), ("2026-03-31", 500.0), ("2025-12-31", 450.0)], _Q2_ASSETS,
+     f"{_PARENT} equity, not annualized: 2.3% (prior at 2026-03-31: 1.5%); {_Q2_ROA}",
+     "Return on Equity: 2.3% (period: 2026-06-30); prior: 1.5% (2026-03-31)"),
+    ("10-Q", _Q2_NI, [("2026-06-30", -20.0), ("2026-03-31", 500.0), ("2025-12-31", 450.0)], _Q2_ASSETS,
+     _Q2_ROA, "Return on Equity: 1.5% (period: 2026-03-31); basis:"),
+], ids=["10k-aligned", "10k-negative-equity", "10k-zero-equity", "10k-equity-missing", "10k-assets-missing",
+        "10q-aligned", "10q-negative-equity"])
+def test_return_ratio_not_at_net_income_period_abstains(form, net_income, equity, assets, line, grounding_roe):
+    """A ratio whose current point predates net income's (the derivation skipped a non-positive or
+    missing denominator) would render undated as this period's: that clause abstains. The aligned
+    sibling ratio still renders, aligned inputs keep main's bytes, and the grounding is untouched."""
+    from app.services.edgar.xbrl_service import edgar_xbrl_service
+    from app.services.openai_service import openai_service
+    from app.services.summary_sections import render_sections, sections_to_markdown
+
+    def point(period, value, start=None):
+        return {"period": period, "value": value, "currency": "USD", "form": form,
+                **({"period_start": start, "raw_tag": "us-gaap:NetIncomeLoss"} if start else {})}
+
+    metrics = edgar_xbrl_service.extract_standardized_metrics({
+        "net_income": [point(p, v, s) for p, s, v in net_income],
+        "shareholders_equity": [point(p, v) for p, v in equity],
+        "total_assets": [point(p, v) for p, v in assets],
+    })
+    sections = {}
+    openai_service._apply_structured_fallbacks(sections, {}, metrics)
+    rendered = sections["value_drivers"]["returns_on_capital"]
+    assert rendered == line[0].upper() + line[1:] + "."
+    assert rendered in sections_to_markdown(render_sections({"schema_version": 2, "sections": sections}))
+    # Model-facing bytes: the grounding keeps main's ROE line, which dates that point itself.
+    assert f"- {grounding_roe}" in build_xbrl_narrative_section(metrics)

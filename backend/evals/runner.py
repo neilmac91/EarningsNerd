@@ -178,6 +178,10 @@ def _baseline_to_canonical(summary: Dict[str, Any]) -> Dict[str, Any]:
     `financial_highlights` is passed through in the pipeline's own richer shape (a metric table +
     profitability / cash_flow / balance_sheet bullets); `validate_schema` accepts that shape, so a
     well-formed baseline scores schema-valid."""
+    from app.services.ai.acquisition_period import CONTEXT_KEY, CONTEXT_VERSION, project_footnotes
+
+    raw = summary.get("raw_summary") or {}
+    marker = raw.get(CONTEXT_KEY)
     return {
         "executive_summary": summary.get("business_overview") or "",
         "financial_highlights": summary.get("financial_highlights") or {},
@@ -187,10 +191,16 @@ def _baseline_to_canonical(summary: Dict[str, Any]) -> Dict[str, Any]:
         # T4 follow-up: footnote evidence is verbatim-contracted but was dropped from the
         # canonical shape, so the citation-fidelity scorer could not see it. Eval-harness-internal
         # threading only — the pipeline payload contract is untouched.
-        "notable_footnotes": ((summary.get("raw_summary") or {}).get("sections") or {}).get(
-            "notable_footnotes"
-        ) or [],
+        "notable_footnotes": project_footnotes((raw.get("sections") or {}).get("notable_footnotes") or [],
+                                             owned=type(marker) is int and marker == CONTEXT_VERSION),
     }
+
+
+def _include_statement_evidence(source: Any) -> bool:
+    """Keep legacy annex eligibility; the new operand-only descriptor is not evidence."""
+    from app.services.edgar.quarterly_statement_source import KIND
+
+    return bool(source) and (not isinstance(source, dict) or source.get("kind") != KIND)
 
 
 async def _maybe_judge(
@@ -207,7 +217,7 @@ async def _maybe_judge(
     xbrl_text = json.dumps(_model_metrics(grounding["xbrl_metrics"]), default=str) if grounding["xbrl_metrics"] else ""
     judge_excerpt = grounding["excerpt"] or ""
     statement_evidence = grounding.get("statement_source")
-    if statement_evidence:
+    if _include_statement_evidence(statement_evidence):
         # Independent application evidence, not a claim that the model saw these passages.
         judge_excerpt += ("\n\n[APPLICATION-OWNED PRIMARY-STATEMENT EVIDENCE; "
                           "independent of the generator excerpt]\n"

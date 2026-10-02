@@ -4,7 +4,68 @@
 - [x] Revised-offer proof on committed `c72f0caa`: JSON-LD 19→29 failed and exact restoration passed. Full frontend gate on `1f3b910e` passed lint, TypeScript, 114 Vitest files / 652 tests (zero skips), and Next build. Built homepage/pricing HTML and JSON-LD show $19/$190 and two months free. Retained final receipts are separate from the historical $23-candidate checks.
 - [ ] Keep activation held for quality and controlled-beta readiness. Follow the backend-first configuration and safe rollback sequence in [the approved offer checklist](../docs/PRICING_OFFER.md); inactive catalog preparation is not activation.
 
-## September 28 — trial billing routing, separate from held pricing activation
+## 2026-10-02 — returns current-period guard (`summary-2026-09-u`; item-B follow-up)
+
+- [x] The §4 returns line omits a ratio whose current point is not net income's current period (zero, negative or missing equity at the report date promoted an older ROE point that read as the filing's own); an aligned ROA still renders. Render-only: grounding identical in 70 of 70 hosted-cohort replays and 6 of 6 probes, 0 of 64 cohort lines change, stamp `u` schedules no regeneration, and there is no drain of the 47 census filings. [Evidence](review-evidence/returns-current-period-guard-2026-10-02/README.md).
+- [ ] Optional, zero spend: run the read-only `class7_snapshot_check.sql` for the one class-7 filing with a summary; any clear/regenerate of it is a separate founder decision.
+
+## 2026-10-01 — bounded SDK transport-attempt evidence
+
+- Characterized the real pinned edgartools 5.58.0 accession resolver with invented responses and no-network guards: recent lookup 1 attempt / 1 SDK grant; two-shard history 3/3; transport-error and HTTP429 cases 2/2 each, both propagating without retry. No application limiter wait entries were observed in these cases.
+- Corrected the capacity map's ambiguous “no per-wire limiter” wording to distinguish application ownership from the SDK's own grants. Preserve the two failed harness setup stages and exact final custody; see [scope and receipt](readiness-2026-09-21/operations/sec-outbound-attempts.md#october-1-bounded-sdk-observation).
+- Documentation only. No application/SDK change, live SEC/provider traffic, load or production setting change. This does not establish shared fleet admission, live rate, egress identity or a safe beta size.
+
+## 2026-09-30 — Copilot tool nonexecution diagnosis (#1023 successor, diagnostic only)
+
+- #1023 closes unmerged at `d58c1a59`: its ready run 36647075136 passed 18/18 formally with 0/18 tool calls, 30 unissued `[F#]` markers, and 13/18 answers and 25/30 figures uncited. Corrected counts, refutations, ranked hypotheses, latent risks and offline coverage: [diagnosis](copilot-tool-nonexecution-2026-09-30.md). Its evidence is ten retained `copilot-fidelity` artifacts, listed there by run and report digest and audited offline at zero cost.
+- On main-equivalent code (#1030 ready run 36777581481), one ASML answer skipped tools and shipped with no citation while the run was accepted 18/18, and two passing main-prompt answers published composed prose quotations (now withheld by decision F). The #1021 ASML cross-check defect remains open on main.
+- `test_copilot.py::test_stream_chat_with_tools_assembles_tool_call_deltas` now asserts that both provider rounds offer `tools` with `tool_choice="auto"`; before it, all 351 Copilot owner tests passed with either removed. No prompt, service, runner, scorer, repair grammar, coverage policy or flag change.
+- [x] Stage 1 of the prompt-versus-drift experiment: authorized as #1029 item G (USD 1.00) and run on 2026-10-02. **Prompt-caused.** 20-F question-runs tool-using: main prompt 1/6, pre-#1022 step 3 6/6; 10-K 6/6 in both. Spend USD 0.204254. [Evidence](review-evidence/g-stage1-2026-10-02/README.md).
+- [x] Stage 2 (arm B: main minus the "including when all cited figures use tool markers" clause), run on 2026-10-02 under a USD 0.50 ceiling. **Clause-caused.** 20-F tool-using: main 2/6, arm B 6/6; 10-K 6/6 in both. Arm B is not a fix candidate as it stands: 4 of 36 rows were withheld by decision F, and on ASML only tool-using draws were withheld. Spend USD 0.228826. [Evidence](review-evidence/g-stage2-2026-10-02/README.md).
+- [ ] Copilot prompt fix candidate: arm B's deletion plus an answer-text quotation rule, judged against the diagnosis's acceptance checks 1–5 with aggregates of at least three runs. It needs its own authorization and ceiling.
+
+## 2026-09-30 — #942 successor: deterministic return-ratio render (`summary-2026-09-t`)
+
+- [x] Port only #942's render-only ratio corrections onto main `c13b069a`: formula-named label with the point's own numerator scope, dated comparator with abstention when the prior is undated, prior-basis note, ratio operand custody and the shared `financial_basis` helper. Grounding, prompt, Copilot-facing `Filing.xbrl_data`, schema, flags and baseline are byte-unchanged; `q`/`r` stay reserved. Offline replay of all 70 retained r outputs: grounding identical 70/70, only the returns line changes (64), and every changed clause source-checks against its XBRL operands. [Evidence, lineage, artifacts and held tranche](review-evidence/pr942-successor-2026-09-30/README.md).
+- [ ] Merge only after green technical gates, a source review of every changed replayed and hosted line, and the founder's scoped confirmation that a render-only change is judged by the deterministic-revision precedent. The model-facing corrections stay held under their own later identity and the unchanged grounding-candidate bar.
+
+## 2026-09-30 — native-evidence delivery adapter candidate (engineering-only)
+
+- Capability preflight in the implementer's container: Claude Code CLI 2.1.285 present, `codex` absent, Anthropic SDK not installed, credentials and network policy not inspected. Documented, statically measured and unknown facts are kept separate in the handback's capability inventory; no model, API or paid call was made.
+- New `backend/evals/acceptance_source_review_delivery.py` dispatches exactly the reserved `prompt.bin` bytes through one route (`claude -p`, stdin, `stream-json`, no tools), with an allow-listed child environment, create-once ledger as the redispatch lock, file-backed raw streams, group kill on timeout, fail-closed classification (`unknown` > `compacted` > `truncated` > `failed` > `complete`; `complete` needs an observed `end_turn`), per-member native dispositions by exact bytes, and a settlement proposal for the unchanged journal. Contract: `tasks/readiness-2026-09-21/acceptance/source-review-native-delivery.md`. The six owner modules and their tests are byte-identical to the handoff snapshot.
+- Offline owner tests cover exact stdin/output binding, each reason code the classifier emits, unknown delivery left pending with same-root redispatch refused (the lock is per delivery root; one root per journal is the operator rule), pre-dispatch refusals with no ledger (including user memory/rules/plugins in HOME), the frozen argv/env allow-list with no path or value disclosure, native-member honesty, a re-labelled ledger refused against the journal contract, the status matrix (unknown never admits eligible; operator retirement after failed/unknown), and one real subprocess run against a fake CLI. `backend/scripts/native_delivery_probe.py` prepares the single bounded probe (synthetic packet, one dispatch, no retry; `plan` runs the adapter's preflight with no side effects) for Codex to release after inspection.
+- [ ] Codex: bind the base, run the probe `plan` on the releasing machine, then `run` once; adopt the retained `stdout.raw` as the first real stream fixture before any second call. Opening a PR runs the paid `eval-baseline` job and merging deploys the backend service; neither is authorised by this task.
+
+## 2026-09-30 — recover incomplete Analysis streams
+
+- Two independent refutations upheld a conditional EOF/idle-timeout lifecycle defect on main `0dcc4ee3`: the client omitted a terminal callback and the mounted Run flow stayed busy. No production incident or deployed feature-flag observation is inferred.
+- The Analysis client now reports incomplete EOF and idle timeout once, keeps caller cancellation quiet, stops after the first terminal event and releases the reader/timer. Progressive previews, completion/error/not-enough-data mappings and shared auth refresh are preserved.
+- The existing owner includes actual mounted Run recovery. Corrected fixtures fail against the original runtime (8 failed / 5 passed) and pass after the correction (13/13); earlier fixture failures are retained. Node 22.23.2 lint, TypeScript and all 726 tests/115 files pass. The unchanged default build passes with 27/27 generated pages outside the sandbox; its earlier stalled attempt, process diagnostic and cache are retained.
+- Local evidence: `outputs/resumption-2026-09-30/analysis-stream/`. No backend, model, scorer, locked contract, feature-flag, account or pricing change.
+
+## 2026-09-29 — release completed sibling filing reads
+
+- Separate actual-HTTP/PostgreSQL controls reproduced pool starvation in specific-filing, recent-filing, content and fundamentals reads. Retain two fresh refutation passes and the original failures.
+- Materialize existing DTOs or primitive payloads before synchronous `finally` cleanup. Extend the single filing-read burst gate to populated, empty and 404 responses; preserve global dependencies, pool settings and locked tests. One committed mutation failed 9/10 and restored 10/10; the full backend gate passed 3,817 tests. [Evidence](review-evidence/filing-read-session-successor-2026-09-29/README.md) retains actual-HTTP bounds and remaining limits. Base reconciliation to main `367a70fa`, exact-head independent review at `0a0e83d2`, hosted CI70 and ready-stage Copilot completed. The evidence contains a dated coordination snapshot; [PR #1018](https://github.com/neilmac91/EarningsNerd/pull/1018) is the live source for the documentation correction and subsequent serial release, not a request to redo those completed gates.
+
+## 2026-09-29 — release completed filing-list database sessions
+
+- Isolated PostgreSQL measurement reproduced four-slot pool starvation from eight concurrent cached HTTP reads, including full middleware and local Uvicorn. Close materialized cached/live/fallback reads synchronously; retain original response, cache and background-refresh behavior.
+- One full-app regression guards the reported burst, with a failing/restored mutation proof. Full backend gate: 3,808 passed; separate PostgreSQL/HTTP checks: eight cached reads and 44 mixed requests passed. [Local evidence](review-evidence/filing-cache-session-2026-09-29/README.md) retains limits. Exact-head hosted review and serial release remain required.
+
+# September 28 — bounded operational capacity readout
+
+- [x] Add a read-only, two-hour UTC-window Ops inspection using existing WIF, Monitoring/Logging and the pinned Cloud SQL proxy. Retain missing permissions, partial pages and sample intervals explicitly.
+- [ ] Complete local/hosted gates and exact-head review; measure the September 28 natural job overlap after release. Current snapshots and sampled connections do not establish peak headroom, SEC egress, provider capacity or a safe beta invitation count.
+
+# September 28 — isolated non-ORM dependency maintenance
+
+- [x] Split eight dependency updates from held #1000; retain SQLAlchemy 2.0.54, narrow its source constraint to `<2.1`, and preserve psycopg2-binary 2.9.13 and greenlet 3.5.6. Exclude SQLAlchemy only from the backend version-update group so its driver migration is reviewed separately; security grouping is unchanged.
+- [x] Verify the exact compiled candidate on committed `20e0855d`: full backend gate passed 3,806 tests; both performance tests passed; disposable PostgreSQL 15.15 seeded 33 tables with psycopg2, passed migration counts 40/0, 0/40, 40/0 and all four concurrency lanes (24/29/6/5 passes). Retain the initial macOS locale setup failure and successful retry in [dependency split evidence](review-evidence/dependency-split-2026-09-28/README.md).
+- [x] Prepare an independently reviewable draft replacement with unchanged application code and contract tests. Leave #1000 open and the paid ready-for-review workflow, merge/release, quality programme and held pricing #1009 outside this tranche.
+- [ ] Complete exact-head hosted checks and independent review before the coordinating release owner decides readiness and serial deployment.
+
+# September 28 — trial billing routing, separate from held pricing activation
 
 - [x] Preserve the selected monthly/yearly cycle from homepage and trial paywall through pricing; retain the existing server-rendered pricing boundary and record the resolved initial cycle once.
 - [x] Preserve guest cycle choice through registration and the existing email-login redirect stash; keep backend eligibility, active subscriptions and beta offers unchanged. The routing tranche preserved prices and the experiment; the combined offer tranche retires the display experiment. OAuth callbacks still return to the homepage.
@@ -75,6 +136,14 @@ The founder-account ready-for-review action on #940 is preserved. The PR remains
 Latest Fable ZIPs contain no new judgments; E3/KO completion is retained and E8 remains 140 reused / 0 new / 160 missing. Current main #947 deployment is verified at revision 00378-jlg, migrations 0/39, independent healthy response. Closed obsolete draft #943 as superseded by #945 without deleting its branch. [Current continuation and master-plan position](continuation-plan-2026-09-23.md).
 
 Integrated current main into E7 draft #940. The new offline mapper verifies the existing fixed archive and accounts for all 4,330 embedded documents across 30 complete submissions. All 92 packets/60 supplements/30 embedding contracts are hash-bound; two real-archive runs produced 31 identical JSON files in about 19 seconds. The [source-map receipt](review-evidence/e7-source-map-2026-09-23/README.md) preserves scope and limits. No semantic coverage, paid generation, model call or quality acceptance follows. The source-only review capacity tranche is next; the prior denied proof blockers remain, with no alternate-route retry.
+
+## September 23 — E8 launch readiness: attached add-on verified, kit revision 3, export and restore hardened
+
+- [x] Session `session_016Pp5bKtWb43ugUV1QfPtr6` (iOS, Auto mode) received only `fable-e8-continuation-2026-09-22.zip` (SHA-256 `5298a21e…0909`, equal to the kit table; manifest 5/5; the re-pin package derives from it by the one documented line). One of nine attachments and an Auto-mode session: no judging, by the kit and by the 22 September founder decision. Container CLI still `2.1.280`, same binary hash as 22 September; no drift. [Receipt and review](review-evidence/e8-launch-readiness-2026-09-23/README.md).
+- [x] Offline readiness review of the whole launch path (56 agents, 37 findings, each adversarially verified). Launch-blocking: the kit said only "non-Auto", but Plan still sends shell commands to the classifier by default, so revision 3 names **Accept edits**. The harness starts cloud sessions with a session-level allow list that includes Bash, which Auto drops: that is why both 22 September sessions met the classifier, and why a silent step 0 in Accept edits proves the route open but not the project rules.
+- [x] Fixed without touching anything sealed: `export_e8_state.py` never withholds evidence (partial setup, unmatched receipts, STOP) and records `recovery_eligible` with blockers; it verifies its copy and lists pending markers. `.gitignore` keeps `run.log` files under `tasks/review-evidence/`, which `git add` had been dropping silently. `restore_e8_session.py` checks all nine attachments, the manifest schema and the CLI before writing, logs the frozen commit and prints its log on refusal. The gates pin all seven kit commands, the attestation template (against sealed `attest()` constants), the attachment table and the mode, and a new seal gate pins the re-pin manifests. 162 E8 gate cases, mutation-proved; a second adversarial review of the diff found eleven minor issues, the pre-merge review five should-fix items and Codex two P1s and a P2 (export ledger continuity, frozen-index binding, malformed slot names), all fixed. Records #947 (`<UTC stamp>` / `<post-run stamp>` split) and #948 (placeholder commands pinned whole), which had no entry. Corrects the #946 receipt's claim that the pristine-guard snapshot was never committed (it was, in #945).
+- [x] Codex's third P1 (review thread r4085294704, stale admission receipts), fixed on 30 September: eligibility read any saved inspection JSON whose counts and slots matched, so a restored old success could outvote a current refusal. The export now runs the unchanged kit step 2 read-only inspection itself, records its argv, UTC start and finish, exit status and output, and binds the verdict to SHA-256 digests of every admission input taken before and after the run (`admission-inputs.json`); the exported bytes must be the inspected bytes. Saved receipts are evidence only, and a restored refusal record still blocks (README condition 6). Kit step 7 drops the manual rerun. Current main (`c13b069a`) integrated; the three handover addenda were dropped because main treats those handovers as historical. A pre-merge review of that fix (two refutations per finding) found that a NUL byte in an indexed `packet_path` or an `immutable-sha256.json` key crashed the export before anything was written; `_inside()` now treats it as an unreadable path, and the tests pin it, the immutable-only and packet-path digest entries, and an inspected file deleted before the copy. A second round found the rest of the digest's scope untested; the tests now also pin a prerequisite-stage file created during the run, the reused-control and prerequisite packet routes, the `ko-corrected` and `e3-candidate1` stages, the three E8 panel files the immutable manifest does not list, and all six copied guard files.
+- [ ] Merge the tooling only; E8 judging stays parked ("#952 — E8 launch/recovery … Park it while E7 progresses", [continuation plan of 26 September](continuation-plan-2026-09-26.md)). The [revision 3 kit](fable-e8-launch-kit.md) applies only if the founder resumes E8. Founder decisions, none blocking: F35 unused allow rules, F29 no mid-run checkpoint, F06 judge outside the venv (recorded), sealed rebuild for F07/F18. E8 remains 140 reused / 0 new / 160 missing. No quality or activation claim.
 
 ## September 22 — E7 exact runtime dependency inventory
 
@@ -5903,3 +5972,75 @@ H15 historical equality, logo and 78 dispositions remain unresolved. Quality, be
 - Local evidence is under the September 28 workspace
   `outputs/execution-2026-09-28/`: source-bound candidate stop, beta readout fixtures and
   retained fleet arithmetic. No E7/E8 generation or claim of a completed fourth dossier.
+
+
+## 2026-09-28 — isolated quarterly component-withholding candidate
+
+- Verified remote base `4db8f46a1a35eca7e71194919eefafb29c29e50d`; implementation stays
+  on `codex/wave3-quarterly-source-preservation`. Held `9e65e74c` and its five red
+  source-scope regressions remain untouched in their original checkout.
+- Replace only a complete matching ambiguous aggregate/component proposition with
+  an explicit application verification limitation. Preserve the complete separate
+  compensation continuation and all other fields. No quarterly financial fact is
+  reconstructed from the operand descriptor.
+- This is offline candidate work pending independent root review. Native-source
+  supplements are separate from the unchanged retained-70 cached-source evidence.
+  No provider call, push, PR, production change, E7 credit or content-stamp adoption.
+- Independent engineering review requested three fixes: quarterly-only omission
+  from both optional judge annexes, short-header abstention and exception-safe
+  leap-date abstention. Correction commit `5274fc7e` passes 59 focused tests, three
+  committed fault/restored proofs and the full backend gate (3,866 passed, 39
+  skipped, 2 deselected). Annual/absent full-message hashes are preserved. The
+  candidate remains held for independent re-review; no release action is taken.
+
+## September 28 overnight authority and provider-cost correction
+
+The founder requested independent overnight implementation with agents and explicitly authorized
+necessary changes and DeepSeek spend. Continue the quality/source/capacity critical path with
+normal review and serial release gates. The local overnight checkpoint records an initial USD 5
+discretionary ceiling against a fresh USD 51.36 available balance (readout 36488471935); formal
+E7/E8 contracts and customer-consent/quality prerequisites remain unchanged. This supersedes
+earlier blanket account/spend waiting states, not the retained specific quality boundaries.
+
+The official DeepSeek notice and the existing ADR-0008 addendum both say Pro service continued
+after September 14. Correct its per-call telemetry rates to USD 0.022/0.66/1.98 per million
+cache-hit input/cache-miss input/output tokens off peak, with the existing peak multiplier.
+Preserve Flash rates, model/default/flag/prompt/baseline settings and historical measurements.
+One dedicated tariff gate and its stale-rate fault prove the rates. Separate actual-model
+routing and completion-accounting gates use estimator sentinels; completion telemetry preserves
+recorded per-call costs, mixed models and unknown usage through retries and tool rounds.
+Full local and hosted verification plus independent exact-head review precede release.
+
+## September 30 — Analysis request ownership
+
+- A pending dataset response could restart an obsolete company/mode analysis after a
+  selection reset or unmount, aborting a newer stream; an old failure could clear newer state.
+- Own and cancel the dataset request before awaiting it, and check ownership before
+  publishing either phase. Changing the period range now clears the previous result and
+  cancels its request, matching company/mode changes. Refresh holds the Run control busy.
+- The existing mounted Analysis test owner reproduces company/mode/range/unmount and
+  older-success/older-error races even when the mocked transport ignores cancellation.
+  Corrected base: 6 failed / 13 passed; fixed focused suite: 19 passed. The initial range
+  fixture selected an unchanged endpoint; its failure and corrected proof remain retained.
+- Full frontend lint, TypeScript, tests and production build passed on Node22.23.2.
+  No backend, provider, prompt, flag, price or locked-contract change. Exact-head review,
+  hosted checks and frontend release verification follow separately.
+
+- 2026-09-30 native-delivery integration: preserved all pinned owners; independently reproduced
+  and fixed assistant-model mismatch admission and pre-settlement stdin/journal binding. The
+  single subscription probe returned four exact lines but was retained as failed for absent
+  assistant finish metadata. No retry, source dispatch, or E7/E8 admission; classifier 2 keeps
+  the measured failure closed. Paid CI awaits a fresh balance after Google Cloud reauthentication.
+
+
+## September 30 — beta export readiness receipt
+
+- Retain the actual three-row PostHog literal projection and unchanged v1 consumer
+  output with input hashes. Synthetic view/request pairing works; absent provider
+  pagination metadata keeps export completeness false.
+- Replace the stale runbook claim that no live synthetic query ran. Document the
+  supported file-download export prerequisite. After the founder reconnected, one
+  literal-only attempt confirmed that team HogQL export access is disabled; no
+  unchanged retry or broader export followed. A new input format still needs review.
+- Documentation and synthetic evidence only. No customer query, source-role work,
+  E7/E8 admission, production flag, price change, invitation or model call.

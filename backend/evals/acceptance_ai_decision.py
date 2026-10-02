@@ -401,7 +401,7 @@ def _verify_challenge_sources(findings: list[dict[str, Any]], filing: dict[str, 
 def _judge_input_sha(canonical: dict[str, Any], grounding: dict[str, Any]) -> str:
     """Reconstruct the existing frozen judge messages without truncation or a model call."""
     from evals.judge import build_judge_messages
-    from evals.runner import _baseline_to_canonical, _model_metrics
+    from evals.runner import _baseline_to_canonical, _include_statement_evidence, _model_metrics
 
     calls = grounding["summarizer_calls"]
     if len(calls) != 1 or len(calls[0]["args"]) != 3:
@@ -411,7 +411,7 @@ def _judge_input_sha(canonical: dict[str, Any], grounding: dict[str, Any]) -> st
     if not isinstance(excerpt, str) or not excerpt:
         raise ValueError("generator excerpt unavailable; do not infer or truncate judge grounding")
     statement = kwargs.get("statement_source")
-    if statement:
+    if _include_statement_evidence(statement):
         excerpt += ("\n\n[APPLICATION-OWNED PRIMARY-STATEMENT EVIDENCE; "
                     "independent of the generator excerpt]\n" +
                     json.dumps(statement, ensure_ascii=False, sort_keys=True) +
