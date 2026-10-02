@@ -2,7 +2,7 @@
 
 This is the item-B follow-up from the close-out research (R4), as the founder approved it (`tasks/pr-disposition-2026-09-30.md`, log entry 13:10Z): the code-rendered `value_drivers.returns_on_capital` line leaves out a ratio whose current point is not the filing's period. It does not date the current point, and there is no drain.
 
-Branch `claude/returns-current-period-guard`, on main `06ad809a`, then merged with main `a541c3c8` (#1036: one `test_copilot.py` assertion and `tasks/` only):
+Branch `claude/returns-current-period-guard`, on main `06ad809a`, then merged with main `a541c3c8` (#1036: one `test_copilot.py` test change and `tasks/` only):
 
 | Commit | Content |
 | --- | --- |
@@ -51,7 +51,7 @@ This guard is about dating, not value quality, so `lessons/arch-guard-every-mode
 | E 10-Q FIGS-like, negative equity at Q2 end | 2026-06-30 | 2026-03-31 | identical | ROE clause dropped, ROA kept |
 | F 10-Q FIGS-like, aligned (sequential prior) | 2026-06-30 | 2026-06-30 | identical | identical |
 
-Markdown outside the returns line is identical in all six cases. The new test, `test_return_ratio_not_at_net_income_period_abstains` in `tests/unit/test_xbrl_narrative_section.py` (not a locked file), pins the same six shapes. The aligned lines are main's bytes, and each case keeps main's dated grounding ROE line. The locked `test_structured_markdown_render.py` is unchanged.
+Markdown outside the returns line is identical in all six cases. The new test, `test_return_ratio_not_at_net_income_period_abstains` in `tests/unit/test_xbrl_narrative_section.py` (not a locked file), pins the same six shapes plus a seventh: assets missing at the report date, where ROA's current point is 2024-12-31 and its clause is dropped while the aligned ROE stays (added after review, `10k-assets-missing`). The aligned lines are main's bytes, and each case keeps main's dated grounding ROE line. The locked `test_structured_markdown_render.py` is unchanged.
 
 ## Offline replay of B's hosted cohort (`replay_hosted_cohort.py`, `replay-hosted-36993299710.json`)
 
@@ -67,12 +67,13 @@ The input is the retained report of CI run 36993299710, `eval_20261002T101321Z.j
 
 ## Mutations (`mutate.py`, `mutations.json`, `mutations.log`)
 
-Each run covers the owner test file plus the locked render file, 113 tests on the unmutated tree. Tracked files were clean afterwards.
+Each run covers the owner test file plus the locked render file, 114 tests on the unmutated tree. Tracked files were clean afterwards.
 
 | Mutation | Result |
 | --- | --- |
-| M1: guard removed | 4 failed: the four misaligned cases of the new test |
-| M2: period comparison inverted (`not in` → `in`) | 13 failed: all 6 new-test cases, including both aligned ones, plus all 7 cases of the existing `test_return_ratios_own_their_selected_operands_across_periods` |
+| M1: guard removed | 5 failed: the five misaligned cases of the new test |
+| M2: period comparison inverted (`not in` → `in`) | 14 failed: all 7 new-test cases, including both aligned ones, plus all 7 cases of the existing `test_return_ratios_own_their_selected_operands_across_periods` |
+| M3: guard limited to ROE (`key == "return_on_equity" and …`) | 1 failed: `10k-assets-missing`. This was a reviewer mutation that survived the first six cases; the seventh case was added for it |
 
 Expected survivors (reviewer mutations, not in `mutate.py`): making an undated ratio abstain too, and comparing raw periods without `return_ratio_period`. Both behave identically for every input the real producer can make, because each ratio point copies its period string from a net-income point (`xbrl_service.py:1243`); the undated branch of the "known and differs" rule cannot be reached, so no test is added.
 

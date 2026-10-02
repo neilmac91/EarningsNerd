@@ -1,11 +1,13 @@
-baseline: 113 passed, 9 warnings in 4.32s
-M1_remove_guard: 4 failed, 109 passed, 9 warnings in 3.86s
+baseline: 114 passed, 9 warnings in 4.88s
+M1_remove_guard: 5 failed, 109 passed, 9 warnings in 4.61s
+  tests/unit/test_xbrl_narrative_section.py::test_return_ratio_not_at_net_income_period_abstains[10k-assets-missing]
   tests/unit/test_xbrl_narrative_section.py::test_return_ratio_not_at_net_income_period_abstains[10k-equity-missing]
   tests/unit/test_xbrl_narrative_section.py::test_return_ratio_not_at_net_income_period_abstains[10k-negative-equity]
   tests/unit/test_xbrl_narrative_section.py::test_return_ratio_not_at_net_income_period_abstains[10k-zero-equity]
   tests/unit/test_xbrl_narrative_section.py::test_return_ratio_not_at_net_income_period_abstains[10q-negative-equity]
-M2_invert_period_comparison: 13 failed, 100 passed, 9 warnings in 4.18s
+M2_invert_period_comparison: 14 failed, 100 passed, 9 warnings in 4.60s
   tests/unit/test_xbrl_narrative_section.py::test_return_ratio_not_at_net_income_period_abstains[10k-aligned]
+  tests/unit/test_xbrl_narrative_section.py::test_return_ratio_not_at_net_income_period_abstains[10k-assets-missing]
   tests/unit/test_xbrl_narrative_section.py::test_return_ratio_not_at_net_income_period_abstains[10k-equity-missing]
   tests/unit/test_xbrl_narrative_section.py::test_return_ratio_not_at_net_income_period_abstains[10k-negative-equity]
   tests/unit/test_xbrl_narrative_section.py::test_return_ratio_not_at_net_income_period_abstains[10k-zero-equity]
@@ -18,5 +20,7 @@ M2_invert_period_comparison: 13 failed, 100 passed, 9 warnings in 4.18s
   tests/unit/test_xbrl_narrative_section.py::test_return_ratios_own_their_selected_operands_across_periods[us-gaap:NetIncomeLoss-attributable to the parent]
   tests/unit/test_xbrl_narrative_section.py::test_return_ratios_own_their_selected_operands_across_periods[us-gaap:NetIncomeLossAvailableToCommonStockholdersBasic-available to common shareholders]
   tests/unit/test_xbrl_narrative_section.py::test_return_ratios_own_their_selected_operands_across_periods[us-gaap:ProfitLoss-including noncontrolling interests]
+M3_guard_roe_only: 1 failed, 113 passed, 9 warnings in 5.30s
+  tests/unit/test_xbrl_narrative_section.py::test_return_ratio_not_at_net_income_period_abstains[10k-assets-missing]
 clean_after=True
 exit=0
