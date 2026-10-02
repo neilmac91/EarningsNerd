@@ -109,7 +109,8 @@ def test_citation_faithfulness_matches_copilot_publication(excerpt, section, exp
     model declares ``section``; the published citation the scorer reads carries ``section_ref``)."""
     declared = {"n": 1, "excerpt": excerpt, "section": section}
     product = copilot_service._verify_citations([declared], SimpleNamespace(), _PARITY_SOURCE, set())["1"]
-    published = {**product, "n": 1}
+    # Pinned True as on every published citation, so a scorer that trusts the flag is caught.
+    published = {**product, "n": 1, "verified": True}
     _ratio, unverified = score_citation_faithfulness([published], _PARITY_SOURCE)
     assert (product["verified"], not unverified) == (expected, expected)
 

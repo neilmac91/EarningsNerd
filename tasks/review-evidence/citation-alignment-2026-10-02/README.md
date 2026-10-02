@@ -21,7 +21,7 @@ Branch `claude/citation-alignment`, on main `06ad809a`; main `a541c3c8` (#1036) 
 - **Scorer.** `score_citation_faithfulness` fails a text citation when `not verify_whole_excerpt_in_text(excerpt, source)` or `section_label_is_quoted(label)`. Both names come from modules the scorer already imported, so no import edge is added. The gate message is now `(absent, too short, or quoted section label)`; `test_copilot_live_regressions.py` asserts it exactly and was updated (not a locked test).
 - **Gates** (existing owners):
   - `test_copilot.py::test_section_ref_rule_withholds_exactly_decision_f_marks`: one `_verify_citations` call over every BMP code point as a label; the withheld set equals `_QUOTE_MARK_RE`'s matches and an independently written six-mark literal.
-  - `test_copilot_evals.py::test_citation_faithfulness_matches_copilot_publication`: four shapes where scorer verdict == real `_verify_citations` verdict == pinned value; the scorer reads the citation dict `_verify_citations` returns.
+  - `test_copilot_evals.py::test_citation_faithfulness_matches_copilot_publication`: four shapes where scorer verdict == real `_verify_citations` verdict == pinned value; the scorer reads the citation dict `_verify_citations` returns, with `verified` pinned True as on every published citation, so a scorer that trusts the flag instead of checking the excerpt and label fails the gate.
   - Per-mark withhold cases through the real service path for the three marks the existing `"` `“` `”` cases lacked (ids `U+FF02`, `U+201E`, `U+201F`), and `‘’`, `«»`, `″` labels that still publish.
 - **RUNBOOK** Excerpt-verification row: lists the six marks, names the one definition, and states that the CITATION gate re-checks with the same verifier and label predicate.
 
@@ -72,7 +72,7 @@ Output: [`probe-shapes.json`](probe-shapes.json), [`probe-shapes.stdout`](probe-
 
 Differential fuzz, 200,000 cases (seed 1052), excerpts as in the research probe plus random labels drawn from every F mark and several that are not: **0** new-scorer/product disagreements; 11,469 old False to new True and 25,730 old True to new False.
 
-The old scorer passed the #1052 prefix and suffix shapes, which the product withholds (old T, product F). So the earlier claim that the CITATION gate was "stricter than the product, never more lenient" ([the citation-fix evidence](../citation-excerpt-fix-2026-10-02/README.md) line 44, repeated in ledger item 3) held only for published output: an answer that references such a citation is withheld, so the scorer never sees it.
+The old scorer passed the #1052 prefix and suffix shapes and the quoted-label shapes for all six marks (`probe-shapes.stdout`), all of which the product withholds (old T, product F). So the earlier claim that the CITATION gate was "stricter than the product, never more lenient" ([the citation-fix evidence](../citation-excerpt-fix-2026-10-02/README.md) line 44, repeated in ledger item 3) held only for published output: an answer that references such a citation is withheld, so the scorer never sees it.
 
 ## Mutations ([`run_mutations.py`](run_mutations.py), [`mutations.txt`](mutations.txt))
 
