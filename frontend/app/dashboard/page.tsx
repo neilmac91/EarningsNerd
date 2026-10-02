@@ -9,7 +9,7 @@ import { getSavedSummaries, deleteSavedSummary, SavedSummary } from '@/features/
 import { getWatchlistInsights } from '@/features/watchlist/api/watchlist-api'
 import { useRouter } from 'next/navigation'
 import { useEffect } from 'react'
-import { CheckCircleIcon, CircleNotchIcon, LightningIcon, TrashIcon, WarningCircleIcon } from '@/lib/icons'
+import { CheckCircleIcon, LightningIcon, TrashIcon, WarningCircleIcon } from '@/lib/icons'
 import Link from 'next/link'
 import { formatLocalDate } from '@/lib/format'
 import { toast } from 'sonner'
@@ -21,7 +21,7 @@ import EarningsCalendar from '@/features/dashboard/components/EarningsCalendar'
 import YourCompanies from '@/features/dashboard/components/YourCompanies'
 import { ENABLE_CALENDAR } from '@/lib/featureFlags'
 import analytics from '@/lib/analytics'
-import { Badge, Button, buttonVariants, Card, GuidanceCard } from '@/components/ui'
+import { Badge, Button, buttonVariants, Card, GuidanceCard, SkeletonStat, SkeletonText } from '@/components/ui'
 import { queryKeys } from '@/lib/queryKeys'
 import { FREE_SUMMARY_LIMIT } from '@/lib/planLimits'
 
@@ -116,10 +116,46 @@ export default function DashboardPage() {
     }
   }, [user])
 
+  // One header for the skeleton and the loaded page. Usage and subscription only start once the user
+  // resolves, so by the time the grid replaces the bones the header already carries the real name and
+  // the Log out action, and the grid lands without a shift. (A cold load can still move the bones
+  // once, while the user query is pending, when a long name wraps the row on a phone.)
+  const header = (
+    <SecondaryHeader
+      title="Dashboard"
+      subtitle={user ? `Welcome back, ${user.full_name || user.email}` : 'Welcome back'}
+      backHref="/"
+      backLabel="Back to home"
+      actions={
+        <button
+          onClick={() => logoutMutation.mutate()}
+          className="text-sm font-medium text-text-secondary-light hover:text-text-primary-light dark:text-text-secondary-dark dark:hover:text-text-primary-dark"
+        >
+          Log out
+        </button>
+      }
+    />
+  )
+
   if (userLoading || usageLoading || subscriptionLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background-light dark:bg-background-dark">
-        <CircleNotchIcon className="h-8 w-8 animate-spin text-brand-strong dark:text-brand-strong-dark" />
+      <div className="min-h-screen bg-background-light dark:bg-background-dark">
+        {/* The loaded page's own header, so the bones below sit where the grid lands. */}
+        {header}
+        <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+          {/* Layout-preserving bones (SkeletonText/Stat own role="status" — no wrapper role). */}
+          <div className="grid gap-8 lg:grid-cols-3">
+            <div className="space-y-8 lg:col-span-2">
+              <Card className="p-5"><SkeletonText lines={2} /></Card>
+              <Card className="p-5"><SkeletonText lines={4} /></Card>
+              <Card className="p-5"><SkeletonText lines={4} /></Card>
+            </div>
+            <div className="space-y-8">
+              <Card className="p-5"><SkeletonStat /></Card>
+              <Card className="p-5"><SkeletonText lines={3} /></Card>
+            </div>
+          </div>
+        </main>
       </div>
     )
   }
@@ -164,20 +200,7 @@ export default function DashboardPage() {
 
   return (
     <div className="min-h-screen bg-background-light dark:bg-background-dark">
-      <SecondaryHeader
-        title="Dashboard"
-        subtitle={`Welcome back, ${user.full_name || user.email}`}
-        backHref="/"
-        backLabel="Back to home"
-        actions={
-          <button
-            onClick={() => logoutMutation.mutate()}
-            className="text-sm font-medium text-text-secondary-light hover:text-text-primary-light dark:text-text-secondary-dark dark:hover:text-text-primary-dark"
-          >
-            Log out
-          </button>
-        }
-      />
+      {header}
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
 
