@@ -93,6 +93,8 @@ what applies to your task. Filenames are greppable: `arch-*`, `sec-*`, `test-*`,
 
 - [`frontend-top-dialog-owns-the-keyboard.md`](./frontend-top-dialog-owns-the-keyboard.md) — The top dialog owns the keyboard: listen in window capture and stop the keys it handles
 
+- [`frontend-native-modal-dialog-makes-body-portals-inert.md`](./frontend-native-modal-dialog-makes-body-portals-inert.md) — Under a native showModal() dialog, portal into the dialog and preventDefault the keys you own
+
 - [`frontend-trial-labels-use-entitlements.md`](./frontend-trial-labels-use-entitlements.md) — Derive current-trial presentation from the resolved entitlement
 
 - [`test-smoke-targets-feature-semantics.md`](./test-smoke-targets-feature-semantics.md) — Distinguish the actual smoke target from similarly named calls to action

@@ -59,7 +59,10 @@ Weighed three layouts:
 - **A11y:** semantic day `<section>`s + `<ul>` rows; rows are real links to
   `/company/[ticker]`; bell is a sibling button (never a link-in-link); native
   `<dialog>` for the day detail (focus trap + Esc for free, focus restored);
-  popover is a `dialog`/`alertdialog` with Esc + outside-click + focus return;
+  the bell's popover is a non-modal `role="group"` on `z-overlay` (no dialog
+  role: it traps and blocks nothing; the async error is a `role="alert"`) with
+  Esc, outside-click, Tab-out and scroll/resize dismissal and focus return,
+  rendered inside the day `<dialog>` while one is open;
   `aria-live` on the range heading; every numeral/ticker is `font-data tabular-nums`.
 - **Motion:** token-timed only — `animate-content-in` on the skeleton→content
   flip, shimmer at `duration-ambient`, `motion-safe:` guards. No decorative motion.
