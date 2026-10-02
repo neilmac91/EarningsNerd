@@ -25,6 +25,7 @@ from main import app
 from app.routers.auth import get_current_user
 from app.dependencies import _resolve_current_user
 from app.services import copilot_service
+from app.services.provenance_service import extract_quoted_span, normalize_for_match
 
 
 # --- Fakes -------------------------------------------------------------------------------------
@@ -110,6 +111,93 @@ async def test_service_grounds_verified_citation(monkeypatch):
     assert cite["verified"] is True
     assert cite["section_ref"] == "Item 7 — MD&A"
     assert "#:~:text=" in cite["fragment_url"]
+
+
+# --- Excerpt boundary: the verified text must be the displayed text ------------------------------
+# The Sources panel shows the published ``excerpt`` in quote marks beside "Source match found", so
+# the whole string is presented as filing text. Reproduced on main 02628e57 (#1040): the shared
+# verifier checks only ``extract_quoted_span(excerpt)``, and ``_verify_citations`` then publishes
+# the FULL excerpt with ``verified: True``.
+
+_INVENTED_PREFIX = "Invented text missing from the source, and "
+_PREFIXED_EXCERPT = _INVENTED_PREFIX + '"' + _KNOWN_SENTENCE + '"'
+_QUOTED_FREE_TEXT_SECTION = 'Item 7 "Fake words here"'
+
+
+async def _declare_one(monkeypatch, excerpt, section):
+    """One referenced text citation through the real service path; returns the terminal event."""
+    declarations = json.dumps([{"n": 1, "excerpt": excerpt, "section": section}])
+    chunks = ["Apple's revenue grew strongly [1].", " ===CITATIONS===\n" + declarations]
+    monkeypatch.setattr(
+        copilot_service.openai_service, "stream_chat_with_tools", _chunks_to_async_gen(chunks)
+    )
+    events = await _collect(_fake_filing(), "How did revenue do?")
+    terminal = [e for e in events if e["type"] in ("complete", "error")]
+    assert len(terminal) == 1
+    return terminal[0]
+
+
+@pytest.mark.unit
+@pytest.mark.asyncio
+@pytest.mark.xfail(
+    strict=True,
+    raises=AssertionError,
+    reason=(
+        "KNOWN DEFECT on main 02628e5799496be7a6faea5bea2bba8ec0caa295: verify_excerpt_in_text "
+        "checks only extract_quoted_span(excerpt), yet _verify_citations publishes the full "
+        "excerpt as verified. Remove this marker in the change that verifies the whole excerpt."
+    ),
+)
+async def test_service_withholds_excerpt_verified_only_by_inner_quoted_span(monkeypatch):
+    """KNOWN DEFECT — a citation whose only filing text is an inner quoted span must not publish.
+
+    The invented prefix is not in the source (premise pinned by the paired control below), so the
+    displayed excerpt is not filing text. The contract is the existing withholding path: the whole
+    answer becomes the publication error. Showing only the quoted span instead would be a new,
+    separately approved display contract, so it is deliberately not the expected outcome here.
+
+    The free-text ``section_ref`` carries a quoted span absent from the source to record that it
+    also publishes verbatim. This test flips on the excerpt fix alone; ``section_ref`` has no
+    verification contract and needs its own decision.
+    """
+    terminal = await _declare_one(monkeypatch, _PREFIXED_EXCERPT, _QUOTED_FREE_TEXT_SECTION)
+
+    published = terminal.get("citations") or []
+    diagnostic = {
+        "terminal_type": terminal["type"],
+        "displayed_excerpt": [c.get("excerpt") for c in published],
+        "span_actually_verified": extract_quoted_span(_PREFIXED_EXCERPT),
+        "full_excerpt_in_source": (
+            normalize_for_match(_PREFIXED_EXCERPT) in normalize_for_match(_FAKE_SOURCE)
+        ),
+        "published_verified": [c.get("verified") for c in published],
+        "published_section_ref": [c.get("section_ref") for c in published],
+    }
+    assert terminal == {"type": "error", "message": copilot_service._PUBLICATION_ERROR}, diagnostic
+
+
+@pytest.mark.unit
+@pytest.mark.asyncio
+async def test_service_publishes_full_excerpt_contiguous_in_source(monkeypatch):
+    """Valid control for the regression above: the same sentence without the invented prefix.
+
+    Also pins that regression's premise: its quoted span is filing text, its full excerpt is not.
+    """
+    normalized_source = normalize_for_match(_FAKE_SOURCE)
+    assert extract_quoted_span(_PREFIXED_EXCERPT) == _KNOWN_SENTENCE
+    assert normalize_for_match(_KNOWN_SENTENCE) in normalized_source
+    assert normalize_for_match(_PREFIXED_EXCERPT) not in normalized_source
+
+    terminal = await _declare_one(monkeypatch, _KNOWN_SENTENCE, "Item 7 — MD&A")
+
+    assert terminal["type"] == "complete"
+    assert terminal["answer"] == "Apple's revenue grew strongly [1]."
+    assert terminal["grounded"] == 1
+    [cite] = terminal["citations"]
+    assert {k: cite[k] for k in ("n", "excerpt", "section_ref", "verified")} == {
+        "n": 1, "excerpt": _KNOWN_SENTENCE, "section_ref": "Item 7 — MD&A", "verified": True,
+    }
+    assert cite["fragment_url"].startswith(_fake_filing().document_url + "#:~:text=Revenue%20increased")
 
 
 def _publication_case(name):
