@@ -1,0 +1,73 @@
+-[ RECORD 1 ]-------------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ticker                          | AAA
+filing_id                       | 1
+accession_number                | 0000000001-24-000010
+filing_type                     | 10-Q
+filing_period_end               | 2024-06-30
+filing_date                     | 2024-08-01
+filing_row_created_at           | 2026-10-02 16:23:32.658733+00
+summary_id                      | 1
+summary_created_at              | 2026-10-02 16:23:32.659342+00
+summary_updated_at              | 
+schema_version                  | 2
+prompt_version                  | summary-2026-09-a
+ni_points                       | 2
+newest_ni_period                | 2023-12-31
+all_points                      | 3
+latest_financials_shaped_points | 3
+points_with_form                | 0
+points_with_other_or_no_accn    | 0
+keysets                         | accn,form,period,value
+latest_stored_annual_period_end | 2023-12-31
+verdict                         | pre_785_shape_period_mismatch: another filing's figures under this accession
+ni_series                       | [{"accn": "0000000001-24-000010", "form": null, "value": 100, "period": "2023-12-31"}, {"accn": "0000000001-24-000010", "form": null, "value": 90, "period": "2022-12-31"}]
+stored_returns_line             | Return on assets 10.0%.
+-[ RECORD 2 ]-------------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ticker                          | AAA
+filing_id                       | 2
+accession_number                | 0000000001-24-000001
+filing_type                     | 10-K
+filing_period_end               | 2023-12-31
+filing_date                     | 2024-02-20
+filing_row_created_at           | 2026-10-02 16:23:32.660054+00
+summary_id                      | 2
+summary_created_at              | 2026-10-02 16:23:32.661137+00
+summary_updated_at              | 
+schema_version                  | 2
+prompt_version                  | summary-2026-09-a
+ni_points                       | 1
+newest_ni_period                | 2023-12-31
+all_points                      | 1
+latest_financials_shaped_points | 1
+points_with_form                | 0
+points_with_other_or_no_accn    | 0
+keysets                         | accn,form,period,value
+latest_stored_annual_period_end | 2023-12-31
+verdict                         | pre_785_shape_period_matches: figures plausibly this filing's own
+ni_series                       | [{"accn": "0000000001-24-000001", "form": null, "value": 100, "period": "2023-12-31"}]
+stored_returns_line             | 
+-[ RECORD 3 ]-------------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ticker                          | BBB
+filing_id                       | 3
+accession_number                | 0000000002-24-000020
+filing_type                     | 10-Q
+filing_period_end               | 2024-06-30
+filing_date                     | 2024-08-01
+filing_row_created_at           | 2026-10-02 16:23:32.661814+00
+summary_id                      | 3
+summary_created_at              | 2026-10-02 16:23:32.662484+00
+summary_updated_at              | 
+schema_version                  | 
+prompt_version                  | 
+ni_points                       | 2
+newest_ni_period                | 2024-06-30
+all_points                      | 2
+latest_financials_shaped_points | 0
+points_with_form                | 2
+points_with_other_or_no_accn    | 1
+keysets                         | accn,form,period,period_start,value
+latest_stored_annual_period_end | 
+verdict                         | companyfacts_fallback_shape
+ni_series                       | [{"accn": "0000000002-24-000020", "form": "10-Q", "value": 5, "period": "2024-06-30"}, {"accn": "0000000002-23-000020", "form": "10-Q", "value": 4, "period": "2023-06-30"}]
+stored_returns_line             | 
+

@@ -1,0 +1,31 @@
+# Lock reproduction for F's markdown-it-py declaration
+# Toolchain: pip-tools 7.5.3, pip 25.3, Python 3.11.15; Linux x86_64. Command: pip-compile --output-file=requirements.txt --strip-extras requirements.in (seeded with main 02628e57 lock, no upgrade flags).
+# The header line differs only by '--no-index', an artifact of this sandbox's pip index configuration (proxy); it appears in the control too.
+
+## Control: main 02628e57 regenerated vs committed
+5c5
+< #    pip-compile --output-file=requirements.txt --strip-extras requirements.in
+---
+> #    pip-compile --no-index --output-file=requirements.txt --strip-extras requirements.in
+
+## F feb90f60: regenerated vs committed
+5c5
+< #    pip-compile --output-file=requirements.txt --strip-extras requirements.in
+---
+> #    pip-compile --no-index --output-file=requirements.txt --strip-extras requirements.in
+
+## F regenerated vs main committed (expected: provenance comment only)
+5c5
+< #    pip-compile --output-file=requirements.txt --strip-extras requirements.in
+---
+> #    pip-compile --no-index --output-file=requirements.txt --strip-extras requirements.in
+112c112,114
+<     # via rich
+---
+>     # via
+>     #   -r requirements.in
+>     #   rich
+
+## Pins: 99 packages; pinned lines identical to main: yes
+d9e739ae352b99e2a4e4b2135307d9b74c05e341c530e25aa87223d36e8fd220  main/requirements.txt.orig
+031275865af1db9a7065711e6798ac383f990059c676a45b217af7727d4443fb  f/requirements.txt.committed

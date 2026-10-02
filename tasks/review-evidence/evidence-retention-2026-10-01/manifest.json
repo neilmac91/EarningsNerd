@@ -1,0 +1,638 @@
+{
+ "generated_at": "2026-10-01T06:07:38Z",
+ "repo": "neilmac91/EarningsNerd",
+ "purpose": "Founder-delegated item A (PR #1029 comment 5925688598): preserve #942 evidence and the Copilot raw artifacts cited by F/G before expiry.",
+ "privacy": "Identifiers, sizes, expiry and hashes only; no artifact content.",
+ "artifact_count": 27,
+ "total_bytes": 1525958920,
+ "artifacts": [
+  {
+   "artifact_id": 10690738758,
+   "artifact_name": "eval-report-35719785433",
+   "run_id": 35719785433,
+   "workflow_name": "CI",
+   "run_event": "pull_request",
+   "head_sha": "accb5a3eba0d9072777a6df52fe7c9a2aa79fbff",
+   "head_branch": "codex/wave3-return-ratio-basis",
+   "run_conclusion": "success",
+   "size_in_bytes": 3663619,
+   "digest": "sha256:125c0a4f8a17c0dde74d4bf6cf8084de3c876a58066e19faef348eda928a2660",
+   "created_at": "2026-09-22T11:18:16Z",
+   "expires_at": "2026-10-06T11:18:15Z",
+   "expired": false,
+   "sets": [
+    "pr942"
+   ],
+   "notes": [
+    "#942 CI eval report, head accb5a3e 'Name derived returns by their period-end formulas'"
+   ],
+   "sha256": "125c0a4f8a17c0dde74d4bf6cf8084de3c876a58066e19faef348eda928a2660"
+  },
+  {
+   "artifact_id": 10737173810,
+   "artifact_name": "eval-report-35831800595",
+   "run_id": 35831800595,
+   "workflow_name": "CI",
+   "run_event": "pull_request",
+   "head_sha": "d129dd246d9ca593751ecf13a4f2f067a930dd92",
+   "head_branch": "codex/wave3-return-ratio-basis",
+   "run_conclusion": "success",
+   "size_in_bytes": 3271058,
+   "digest": "sha256:2e0d7fa008e0efd0e1f56c13a54a2fc5aa234aac85b2dd4dd6ff53c85931d931",
+   "created_at": "2026-09-23T07:42:30Z",
+   "expires_at": "2026-10-07T07:42:29Z",
+   "expired": false,
+   "sets": [
+    "pr942"
+   ],
+   "notes": [
+    "#942 CI eval report, head d129dd24 'docs: retain ratio-stamp correction validation and release holds'"
+   ],
+   "sha256": "2e0d7fa008e0efd0e1f56c13a54a2fc5aa234aac85b2dd4dd6ff53c85931d931"
+  },
+  {
+   "artifact_id": 10738219665,
+   "artifact_name": "eval-report-35834524871",
+   "run_id": 35834524871,
+   "workflow_name": "CI",
+   "run_event": "pull_request",
+   "head_sha": "aab234fb0d041eadea378a1b374d29b71b9c7b0a",
+   "head_branch": "codex/wave3-return-ratio-basis",
+   "run_conclusion": "success",
+   "size_in_bytes": 3667301,
+   "digest": "sha256:23c86a9de233531e1c24c2a9ffdbe7281fddf8f58b616b73feda5f82a8dbbf56",
+   "created_at": "2026-09-23T08:09:17Z",
+   "expires_at": "2026-10-07T08:09:15Z",
+   "expired": false,
+   "sets": [
+    "pr942"
+   ],
+   "notes": [
+    "#942 CI eval report, head aab234fb 'docs: retain generator instruction validation and release requirements'"
+   ],
+   "sha256": "23c86a9de233531e1c24c2a9ffdbe7281fddf8f58b616b73feda5f82a8dbbf56"
+  },
+  {
+   "artifact_id": 10915948634,
+   "artifact_name": "eval-report-36272463033",
+   "run_id": 36272463033,
+   "workflow_name": "CI",
+   "run_event": "pull_request",
+   "head_sha": "c8c90ace48b0d199f200f5cccf3919f01cf18058",
+   "head_branch": "claude/dreamy-meitner-jywnhd",
+   "run_conclusion": "success",
+   "size_in_bytes": 3685144,
+   "digest": "sha256:da84150b0f8d1aef80d8fa7918708bc290592cc57ae0e9e7185bc17137814316",
+   "created_at": "2026-09-26T21:28:54Z",
+   "expires_at": "2026-10-10T21:28:52Z",
+   "expired": false,
+   "sets": [
+    "pr942"
+   ],
+   "notes": [
+    "p control eval report: CI run on claude/dreamy-meitner-jywnhd, head c8c90ace"
+   ],
+   "sha256": "da84150b0f8d1aef80d8fa7918708bc290592cc57ae0e9e7185bc17137814316"
+  },
+  {
+   "artifact_id": 10917259386,
+   "artifact_name": "eval-report-36276521637",
+   "run_id": 36276521637,
+   "workflow_name": "CI",
+   "run_event": "pull_request",
+   "head_sha": "2a00fcfadee12845c3cae906b681b454d18916e5",
+   "head_branch": "codex/wave3-return-ratio-basis",
+   "run_conclusion": "success",
+   "size_in_bytes": 3666655,
+   "digest": "sha256:5425a2809dec8a5c955b2fe292228d272cf132a4c97cfb25afc683c855dc6829",
+   "created_at": "2026-09-26T22:41:43Z",
+   "expires_at": "2026-10-10T22:41:41Z",
+   "expired": false,
+   "sets": [
+    "pr942"
+   ],
+   "notes": [
+    "#942 CI eval report (pull_request), head 2a00fcfa 'docs: retain current-main ratio integration gate'"
+   ],
+   "sha256": "5425a2809dec8a5c955b2fe292228d272cf132a4c97cfb25afc683c855dc6829"
+  },
+  {
+   "artifact_id": 10916803846,
+   "artifact_name": "eval-report-36276551360",
+   "run_id": 36276551360,
+   "workflow_name": "CI",
+   "run_event": "workflow_dispatch",
+   "head_sha": "2a00fcfadee12845c3cae906b681b454d18916e5",
+   "head_branch": "codex/wave3-return-ratio-basis",
+   "run_conclusion": "success",
+   "size_in_bytes": 5478832,
+   "digest": "sha256:c32a93fefcc7bdf9be33359a02f91b638f96b5e6b01a7d62dd8d4bda91b114ec",
+   "created_at": "2026-09-26T22:45:02Z",
+   "expires_at": "2026-10-10T22:45:00Z",
+   "expired": false,
+   "sets": [
+    "pr942"
+   ],
+   "notes": [
+    "#942 CI eval report (workflow_dispatch), head 2a00fcfa 'docs: retain current-main ratio integration gate'"
+   ],
+   "sha256": "c32a93fefcc7bdf9be33359a02f91b638f96b5e6b01a7d62dd8d4bda91b114ec"
+  },
+  {
+   "artifact_id": 10917902118,
+   "artifact_name": "eval-report-36278111326",
+   "run_id": 36278111326,
+   "workflow_name": "CI",
+   "run_event": "pull_request",
+   "head_sha": "be1f98f42cdd70ffb7219357cdbd1f1715316fcf",
+   "head_branch": "codex/wave3-return-ratio-basis",
+   "run_conclusion": "success",
+   "size_in_bytes": 3648291,
+   "digest": "sha256:43fcd898232b863447b7a5b1dc3db45de3e250cab1b54ab2b482ee7c5b8aa9f0",
+   "created_at": "2026-09-26T23:11:25Z",
+   "expires_at": "2026-10-10T23:11:23Z",
+   "expired": false,
+   "sets": [
+    "pr942"
+   ],
+   "notes": [
+    "#942 CI eval report, head be1f98f4 'Retain current-runtime ratio measurements and unapplied floor proposal'"
+   ],
+   "sha256": "43fcd898232b863447b7a5b1dc3db45de3e250cab1b54ab2b482ee7c5b8aa9f0"
+  },
+  {
+   "artifact_id": 10933338099,
+   "artifact_name": "eval-report-36324847604",
+   "run_id": 36324847604,
+   "workflow_name": "CI",
+   "run_event": "pull_request",
+   "head_sha": "47d040aa53e89d2e1fa78c26ee688d5a49338133",
+   "head_branch": "codex/wave3-return-ratio-basis",
+   "run_conclusion": "success",
+   "size_in_bytes": 3704457,
+   "digest": "sha256:977c86eec309a283ce6125d349d0a691284d7eac2b25612df515069f4fdcc5a2",
+   "created_at": "2026-09-27T14:19:40Z",
+   "expires_at": "2026-10-11T14:19:39Z",
+   "expired": false,
+   "sets": [
+    "pr942"
+   ],
+   "notes": [
+    "r eval report: #942 CI (pull_request), head 47d040aa 'Record candidate r validation and preserved acceptance boundary'"
+   ],
+   "sha256": "977c86eec309a283ce6125d349d0a691284d7eac2b25612df515069f4fdcc5a2"
+  },
+  {
+   "artifact_id": 10080231388,
+   "artifact_name": "copilot-fidelity-34287821642",
+   "run_id": 34287821642,
+   "workflow_name": "Copilot filing fidelity",
+   "run_event": "pull_request",
+   "head_sha": "d28f9fffb591c2af3ddcbde5da42e2e060ef894c",
+   "head_branch": "codex/wave3-return-ratio-basis",
+   "run_conclusion": "success",
+   "size_in_bytes": 78637579,
+   "digest": "sha256:27f3f1a9b0a2a8de85736970f595871ac2e39ddd6ad69b1185a1cfd283c432b7",
+   "created_at": "2026-09-08T22:52:42Z",
+   "expires_at": "2026-12-07T22:49:53Z",
+   "expired": false,
+   "sets": [
+    "pr942"
+   ],
+   "notes": [
+    "#942 Copilot fidelity bundle, head d28f9fff"
+   ],
+   "sha256": "27f3f1a9b0a2a8de85736970f595871ac2e39ddd6ad69b1185a1cfd283c432b7"
+  },
+  {
+   "artifact_id": 10081948967,
+   "artifact_name": "copilot-fidelity-34292517100",
+   "run_id": 34292517100,
+   "workflow_name": "Copilot filing fidelity",
+   "run_event": "pull_request",
+   "head_sha": "804b90cb73dfba6fd9d6713ebc010a2b189fee4b",
+   "head_branch": "codex/wave3-return-ratio-basis",
+   "run_conclusion": "success",
+   "size_in_bytes": 78638400,
+   "digest": "sha256:a0d15dd78a1ac2aad682c2274977f132681e77081a3c40b954960b6d7a19af7c",
+   "created_at": "2026-09-08T23:54:57Z",
+   "expires_at": "2026-12-07T23:51:58Z",
+   "expired": false,
+   "sets": [
+    "pr942"
+   ],
+   "notes": [
+    "#942 Copilot fidelity bundle, head 804b90cb"
+   ],
+   "sha256": "a0d15dd78a1ac2aad682c2274977f132681e77081a3c40b954960b6d7a19af7c"
+  },
+  {
+   "artifact_id": 10734995784,
+   "artifact_name": "copilot-fidelity-35823824436",
+   "run_id": 35823824436,
+   "workflow_name": "Copilot filing fidelity",
+   "run_event": "pull_request",
+   "head_sha": "accb5a3eba0d9072777a6df52fe7c9a2aa79fbff",
+   "head_branch": "codex/wave3-return-ratio-basis",
+   "run_conclusion": "success",
+   "size_in_bytes": 78696541,
+   "digest": "sha256:6a4079a9b827a6990a433254e8f66741c5d5a72000e7846d2928c07ecfeaaa2d",
+   "created_at": "2026-09-23T05:49:14Z",
+   "expires_at": "2026-12-22T05:46:43Z",
+   "expired": false,
+   "sets": [
+    "pr942"
+   ],
+   "notes": [
+    "#942 Copilot fidelity bundle, head accb5a3e"
+   ],
+   "sha256": "6a4079a9b827a6990a433254e8f66741c5d5a72000e7846d2928c07ecfeaaa2d"
+  },
+  {
+   "artifact_id": 10737303523,
+   "artifact_name": "copilot-fidelity-35831800508",
+   "run_id": 35831800508,
+   "workflow_name": "Copilot filing fidelity",
+   "run_event": "pull_request",
+   "head_sha": "d129dd246d9ca593751ecf13a4f2f067a930dd92",
+   "head_branch": "codex/wave3-return-ratio-basis",
+   "run_conclusion": "success",
+   "size_in_bytes": 78696304,
+   "digest": "sha256:fab182ee5a8d291358c623776990b9734e566904655657ecb6446904e28fccea",
+   "created_at": "2026-09-23T07:30:04Z",
+   "expires_at": "2026-12-22T07:27:25Z",
+   "expired": false,
+   "sets": [
+    "pr942"
+   ],
+   "notes": [
+    "#942 Copilot fidelity bundle, head d129dd24"
+   ],
+   "sha256": "fab182ee5a8d291358c623776990b9734e566904655657ecb6446904e28fccea"
+  },
+  {
+   "artifact_id": 10738029199,
+   "artifact_name": "copilot-fidelity-35834524877",
+   "run_id": 35834524877,
+   "workflow_name": "Copilot filing fidelity",
+   "run_event": "pull_request",
+   "head_sha": "aab234fb0d041eadea378a1b374d29b71b9c7b0a",
+   "head_branch": "codex/wave3-return-ratio-basis",
+   "run_conclusion": "success",
+   "size_in_bytes": 78695438,
+   "digest": "sha256:fd87e03ab47bdf81a4fc3ab63b2c1af12d55575c005cefb6a5bd7dcf4d423f85",
+   "created_at": "2026-09-23T08:00:53Z",
+   "expires_at": "2026-12-22T07:58:28Z",
+   "expired": false,
+   "sets": [
+    "pr942"
+   ],
+   "notes": [
+    "#942 Copilot fidelity bundle, head aab234fb"
+   ],
+   "sha256": "fd87e03ab47bdf81a4fc3ab63b2c1af12d55575c005cefb6a5bd7dcf4d423f85"
+  },
+  {
+   "artifact_id": 10933995935,
+   "artifact_name": "copilot-fidelity-36324856693",
+   "run_id": 36324856693,
+   "workflow_name": "Copilot filing fidelity",
+   "run_event": "pull_request",
+   "head_sha": "47d040aa53e89d2e1fa78c26ee688d5a49338133",
+   "head_branch": "codex/wave3-return-ratio-basis",
+   "run_conclusion": "success",
+   "size_in_bytes": 78684743,
+   "digest": "sha256:d22272db61e5a4ccc16f30fe146408fcf3e7a4e0b522c495f3c41dc45397e4e4",
+   "created_at": "2026-09-27T14:11:27Z",
+   "expires_at": "2026-12-26T14:08:47Z",
+   "expired": false,
+   "sets": [
+    "pr942"
+   ],
+   "notes": [
+    "r Copilot fidelity bundle: #942 Copilot run, head 47d040aa (candidate r)"
+   ],
+   "sha256": "d22272db61e5a4ccc16f30fe146408fcf3e7a4e0b522c495f3c41dc45397e4e4"
+  },
+  {
+   "artifact_id": 11004881645,
+   "artifact_name": "copilot-fidelity-36500418287",
+   "run_id": 36500418287,
+   "workflow_name": "Copilot filing fidelity",
+   "run_event": "pull_request",
+   "head_sha": "7ce7960cd596b5e0f7b0ceb8ecc402c80cc44382",
+   "head_branch": "codex/wave3-capacity-measurement",
+   "run_conclusion": "failure",
+   "size_in_bytes": 78682357,
+   "digest": "sha256:4a3a2c2b12e2b6fc279c1b5e52242a09d40443dd56d743100dbb5665cf10c038",
+   "created_at": "2026-09-28T23:58:59Z",
+   "expires_at": "2026-12-27T23:54:26Z",
+   "expired": false,
+   "sets": [
+    "pr1021_qualification",
+    "pr1036_cited"
+   ],
+   "notes": [
+    "#1021 qualification Copilot run (lane F composed-quote containment replay)",
+    "cited in #1036 run table (tasks/copilot-tool-nonexecution-2026-09-30.md; one of the ten runs holding 315 logged calls)"
+   ],
+   "sha256": "4a3a2c2b12e2b6fc279c1b5e52242a09d40443dd56d743100dbb5665cf10c038"
+  },
+  {
+   "artifact_id": 11008449687,
+   "artifact_name": "copilot-fidelity-36511300921",
+   "run_id": 36511300921,
+   "workflow_name": "Copilot filing fidelity",
+   "run_event": "pull_request",
+   "head_sha": "a13b46a85f5d873ad67f19733c721983c86fffcb",
+   "head_branch": "codex/wave3-figs-textual-note",
+   "run_conclusion": "success",
+   "size_in_bytes": 78695088,
+   "digest": "sha256:619b1df9c22ffad31890147703aaa52f96eb858cabc9211c5b7e6ba19650c412",
+   "created_at": "2026-09-29T02:12:46Z",
+   "expires_at": "2026-12-28T02:09:54Z",
+   "expired": false,
+   "sets": [
+    "pr1021_qualification",
+    "pr1036_cited"
+   ],
+   "notes": [
+    "#1021 qualification Copilot run (lane F composed-quote containment replay)",
+    "cited in #1036 run table (tasks/copilot-tool-nonexecution-2026-09-30.md; one of the ten runs holding 315 logged calls)"
+   ],
+   "sha256": "619b1df9c22ffad31890147703aaa52f96eb858cabc9211c5b7e6ba19650c412"
+  },
+  {
+   "artifact_id": 11011521582,
+   "artifact_name": "copilot-fidelity-36516634768",
+   "run_id": 36516634768,
+   "workflow_name": "Copilot filing fidelity",
+   "run_event": "pull_request",
+   "head_sha": "55e891426fbf03809cd89526451ec6db78a5031d",
+   "head_branch": "codex/wave3-acquisition-period-withholding",
+   "run_conclusion": "failure",
+   "size_in_bytes": 78697221,
+   "digest": "sha256:14299382e9a71f79c1ac77c0a7bfb454e14c570f14f3b78187a3381154cdeb10",
+   "created_at": "2026-09-29T03:22:26Z",
+   "expires_at": "2026-12-28T03:19:40Z",
+   "expired": false,
+   "sets": [
+    "pr1021_qualification",
+    "pr1036_cited"
+   ],
+   "notes": [
+    "#1021 qualification Copilot run (lane F composed-quote containment replay)",
+    "cited in #1036 run table (tasks/copilot-tool-nonexecution-2026-09-30.md; one of the ten runs holding 315 logged calls)"
+   ],
+   "sha256": "14299382e9a71f79c1ac77c0a7bfb454e14c570f14f3b78187a3381154cdeb10"
+  },
+  {
+   "artifact_id": 11012038712,
+   "artifact_name": "copilot-fidelity-36519321075",
+   "run_id": 36519321075,
+   "workflow_name": "Copilot filing fidelity",
+   "run_event": "pull_request",
+   "head_sha": "4436cd70bf82e815a886416bb65db115c2dedc3b",
+   "head_branch": "codex/wave3-backfill-read-lease",
+   "run_conclusion": "success",
+   "size_in_bytes": 78698614,
+   "digest": "sha256:b86828d8a546c758712f1166dac495f7c8dbacb46b7c5348b0bceae0059bd391",
+   "created_at": "2026-09-29T03:58:14Z",
+   "expires_at": "2026-12-28T03:55:50Z",
+   "expired": false,
+   "sets": [
+    "pr1021_qualification",
+    "pr1036_cited"
+   ],
+   "notes": [
+    "#1021 qualification Copilot run (lane F composed-quote containment replay)",
+    "cited in #1036 run table (tasks/copilot-tool-nonexecution-2026-09-30.md; one of the ten runs holding 315 logged calls)"
+   ],
+   "sha256": "b86828d8a546c758712f1166dac495f7c8dbacb46b7c5348b0bceae0059bd391"
+  },
+  {
+   "artifact_id": 11059508548,
+   "artifact_name": "copilot-fidelity-36624149908",
+   "run_id": 36624149908,
+   "workflow_name": "Copilot filing fidelity",
+   "run_event": "pull_request",
+   "head_sha": "097b2fdbb696d4c5009bcf46b6e9189536cca375",
+   "head_branch": "codex/wave3-copilot-publication-containment-resume",
+   "run_conclusion": "failure",
+   "size_in_bytes": 78682826,
+   "digest": "sha256:89c79d624275a66ada1ddf3a139939cef6f8fb96c852243dce1cc9fdf638288d",
+   "created_at": "2026-09-29T20:10:34Z",
+   "expires_at": "2026-12-28T20:07:52Z",
+   "expired": false,
+   "sets": [
+    "pr1021_qualification",
+    "pr1036_cited"
+   ],
+   "notes": [
+    "#1021 qualification Copilot run (lane F composed-quote containment replay)",
+    "cited in #1036 run table (tasks/copilot-tool-nonexecution-2026-09-30.md; one of the ten runs holding 315 logged calls)"
+   ],
+   "sha256": "89c79d624275a66ada1ddf3a139939cef6f8fb96c852243dce1cc9fdf638288d"
+  },
+  {
+   "artifact_id": 11062736860,
+   "artifact_name": "copilot-fidelity-36630506944",
+   "run_id": 36630506944,
+   "workflow_name": "Copilot filing fidelity",
+   "run_event": "pull_request",
+   "head_sha": "2dae5338554560bf3008082843cedd5f34bd0ad3",
+   "head_branch": "codex/wave3-copilot-publication-containment-resume",
+   "run_conclusion": "failure",
+   "size_in_bytes": 78714731,
+   "digest": "sha256:e3f9e3f6921db68c4603d616508c49344d4c7ee520d13397f00f87f2c203535c",
+   "created_at": "2026-09-29T21:04:00Z",
+   "expires_at": "2026-12-28T21:01:58Z",
+   "expired": false,
+   "sets": [
+    "pr1021_qualification",
+    "pr1036_cited"
+   ],
+   "notes": [
+    "#1021 qualification Copilot run (lane F composed-quote containment replay)",
+    "cited in #1036 run table (tasks/copilot-tool-nonexecution-2026-09-30.md; one of the ten runs holding 315 logged calls)"
+   ],
+   "sha256": "e3f9e3f6921db68c4603d616508c49344d4c7ee520d13397f00f87f2c203535c"
+  },
+  {
+   "artifact_id": 11065618942,
+   "artifact_name": "copilot-fidelity-36640254449",
+   "run_id": 36640254449,
+   "workflow_name": "Copilot filing fidelity",
+   "run_event": "pull_request",
+   "head_sha": "a21f17ecd53759a89aec18e2e07bf9634d4f009b",
+   "head_branch": "codex/wave3-copilot-publication-containment-resume",
+   "run_conclusion": "success",
+   "size_in_bytes": 78695602,
+   "digest": "sha256:c550294a976c3bed9fa728c4fa27adc053b5833d10de9d96ab86a0c593e02498",
+   "created_at": "2026-09-29T22:35:46Z",
+   "expires_at": "2026-12-28T22:33:21Z",
+   "expired": false,
+   "sets": [
+    "pr1021_qualification",
+    "pr1036_cited"
+   ],
+   "notes": [
+    "#1021 qualification Copilot run (lane F composed-quote containment replay)",
+    "cited in #1036 run table (tasks/copilot-tool-nonexecution-2026-09-30.md; one of the ten runs holding 315 logged calls)"
+   ],
+   "sha256": "c550294a976c3bed9fa728c4fa27adc053b5833d10de9d96ab86a0c593e02498"
+  },
+  {
+   "artifact_id": 11069750175,
+   "artifact_name": "copilot-fidelity-36647075136",
+   "run_id": 36647075136,
+   "workflow_name": "Copilot filing fidelity",
+   "run_event": "pull_request",
+   "head_sha": "d58c1a59774793336168e8d3c18e976d267a00c7",
+   "head_branch": "codex/wave3-copilot-typed-evidence",
+   "run_conclusion": "success",
+   "size_in_bytes": 78692506,
+   "digest": "sha256:f28463335568de98c19ae4033f324eb5ef00fb9c70157009b1bbd8d23bb34ff9",
+   "created_at": "2026-09-29T23:49:58Z",
+   "expires_at": "2026-12-28T23:47:52Z",
+   "expired": false,
+   "sets": [
+    "pr1036_cited"
+   ],
+   "notes": [
+    "cited in #1036 run table (tasks/copilot-tool-nonexecution-2026-09-30.md; one of the ten runs holding 315 logged calls); #1023 ready run"
+   ],
+   "sha256": "f28463335568de98c19ae4033f324eb5ef00fb9c70157009b1bbd8d23bb34ff9"
+  },
+  {
+   "artifact_id": 11115438557,
+   "artifact_name": "copilot-fidelity-36754723895",
+   "run_id": 36754723895,
+   "workflow_name": "Copilot filing fidelity",
+   "run_event": "pull_request",
+   "head_sha": "fec3d2f7e7d33459d8288ee36aebc44284372a18",
+   "head_branch": "codex/wave3-native-evidence-delivery",
+   "run_conclusion": "success",
+   "size_in_bytes": 78711303,
+   "digest": "sha256:340ca8791f6fe8f59346f41d9caae511c4d9869ee409db66b06826d6bcdaff8e",
+   "created_at": "2026-09-30T17:56:41Z",
+   "expires_at": "2026-12-29T17:54:13Z",
+   "expired": false,
+   "sets": [
+    "pr1021_qualification",
+    "pr1036_cited"
+   ],
+   "notes": [
+    "#1021 qualification Copilot run (lane F composed-quote containment replay)",
+    "cited in #1036 run table (tasks/copilot-tool-nonexecution-2026-09-30.md; one of the ten runs holding 315 logged calls)"
+   ],
+   "sha256": "340ca8791f6fe8f59346f41d9caae511c4d9869ee409db66b06826d6bcdaff8e"
+  },
+  {
+   "artifact_id": 11126117568,
+   "artifact_name": "copilot-fidelity-36777581481",
+   "run_id": 36777581481,
+   "workflow_name": "Copilot filing fidelity",
+   "run_event": "pull_request",
+   "head_sha": "c8c56ceedf8d34c20e162c91601f6452f6b2f511",
+   "head_branch": "claude/pr1012-posthog-7.60.1",
+   "run_conclusion": "success",
+   "size_in_bytes": 78711279,
+   "digest": "sha256:f2aca82fff848285374e16b6256636e1edf280ba9771d189d9de56f92ee86123",
+   "created_at": "2026-09-30T21:11:55Z",
+   "expires_at": "2026-12-29T21:09:30Z",
+   "expired": false,
+   "sets": [
+    "pr1021_qualification",
+    "pr1036_cited"
+   ],
+   "notes": [
+    "#1021 qualification Copilot run (lane F composed-quote containment replay)",
+    "cited in #1036 run table (tasks/copilot-tool-nonexecution-2026-09-30.md; one of the ten runs holding 315 logged calls); #1030 ready run"
+   ],
+   "sha256": "f2aca82fff848285374e16b6256636e1edf280ba9771d189d9de56f92ee86123"
+  },
+  {
+   "artifact_id": 11135037342,
+   "artifact_name": "copilot-fidelity-36798834277",
+   "run_id": 36798834277,
+   "workflow_name": "Copilot filing fidelity",
+   "run_event": "pull_request",
+   "head_sha": "9d7fa56f3083e8f5c4a7a5d77cd2af1085597f75",
+   "head_branch": "claude/fix-month-rollover-tests",
+   "run_conclusion": "success",
+   "size_in_bytes": 78711864,
+   "digest": "sha256:f242bcc3adb031b84eeba914868baa8bc5e8d01b8236efa91a866bfa06569e68",
+   "created_at": "2026-10-01T01:00:54Z",
+   "expires_at": "2026-12-30T00:58:39Z",
+   "expired": false,
+   "sets": [
+    "pr1021_qualification"
+   ],
+   "notes": [
+    "#1021 qualification Copilot run (lane F composed-quote containment replay)"
+   ],
+   "sha256": "f242bcc3adb031b84eeba914868baa8bc5e8d01b8236efa91a866bfa06569e68"
+  },
+  {
+   "artifact_id": 11135420570,
+   "artifact_name": "copilot-fidelity-36800236360",
+   "run_id": 36800236360,
+   "workflow_name": "Copilot filing fidelity",
+   "run_event": "pull_request",
+   "head_sha": "551f4808e9a79ca3827daccca44ac7f7b92fbb6f",
+   "head_branch": "claude/attached-file-review-any8xz",
+   "run_conclusion": "success",
+   "size_in_bytes": 78716144,
+   "digest": "sha256:cfd9353e1c9b72f5447646743ddd11e7e456decf230caf4b6f96158745f06698",
+   "created_at": "2026-10-01T01:18:11Z",
+   "expires_at": "2026-12-30T01:15:37Z",
+   "expired": false,
+   "sets": [
+    "pr1021_qualification"
+   ],
+   "notes": [
+    "#1021 qualification Copilot run (lane F composed-quote containment replay)"
+   ],
+   "sha256": "cfd9353e1c9b72f5447646743ddd11e7e456decf230caf4b6f96158745f06698"
+  },
+  {
+   "artifact_id": 11138816604,
+   "artifact_name": "copilot-fidelity-36809122540",
+   "run_id": 36809122540,
+   "workflow_name": "Copilot filing fidelity",
+   "run_event": "pull_request",
+   "head_sha": "c4629ffc5b9c750a5f1369d3b86c94761f57989b",
+   "head_branch": "codex/wave3-acquisition-period-withholding",
+   "run_conclusion": "success",
+   "size_in_bytes": 78715023,
+   "digest": "sha256:501748cc5de46fca5485c391e008f5341ba9531516e2f5e0fa161484b9172732",
+   "created_at": "2026-10-01T03:10:58Z",
+   "expires_at": "2026-12-30T03:08:33Z",
+   "expired": false,
+   "sets": [
+    "pr1021_qualification"
+   ],
+   "notes": [
+    "#1021 qualification Copilot run (lane F composed-quote containment replay)"
+   ],
+   "sha256": "501748cc5de46fca5485c391e008f5341ba9531516e2f5e0fa161484b9172732"
+  }
+ ],
+ "runs_without_artifacts": [
+  {
+   "set": "pr942",
+   "run_id": 34292517143,
+   "head_sha": "804b90cb73dfba6fd9d6713ebc010a2b189fee4b",
+   "workflow": "CI",
+   "note": "#942 CI, head 804b90cb (merge of e6b76a3c); API lists no artifacts for this run"
+  },
+  {
+   "set": "pr942",
+   "run_id": 34287780530,
+   "head_sha": "d28f9fffb591c2af3ddcbde5da42e2e060ef894c",
+   "workflow": "CI",
+   "note": "#942 CI, head d28f9fff (merge of origin/main); API lists no artifacts for this run"
+  }
+ ]
+}

@@ -47,6 +47,11 @@ module.exports = {
     // never scans them, so any class used ONLY in features/ is purged in production.
     './features/**/*.{js,ts,jsx,tsx,mdx}',
     './hooks/**/*.{js,ts,jsx,tsx,mdx}',
+    // Shared class maps (lib/financialTone's directionChip, etc.) are composed here, not in JSX.
+    // Without this glob, every class used ONLY in lib/ is purged in production — the chips lost
+    // their /20 borders and the flat tint. designSystemDoneGate.spec.ts fails when an unscanned app
+    // module composes a hyphenated, variant, opacity or arbitrary-value class.
+    './lib/**/*.{js,ts,jsx,tsx}',
   ],
   darkMode: 'class',
   theme: {

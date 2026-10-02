@@ -1,8 +1,27 @@
+## 2026-10-02 — returns current-period guard (`summary-2026-09-u`; item-B follow-up)
+
+- [x] The §4 returns line omits a ratio whose current point is not net income's current period (zero, negative or missing equity at the report date promoted an older ROE point that read as the filing's own); an aligned ROA still renders. Render-only: grounding identical in 70 of 70 hosted-cohort replays and 6 of 6 probes, 0 of 64 cohort lines change, stamp `u` schedules no regeneration, and there is no drain of the 47 census filings. [Evidence](review-evidence/returns-current-period-guard-2026-10-02/README.md).
+- [ ] Optional, zero spend: run the read-only `class7_snapshot_check.sql` for the one class-7 filing with a summary; any clear/regenerate of it is a separate founder decision.
+
 ## 2026-10-01 — bounded SDK transport-attempt evidence
 
 - Characterized the real pinned edgartools 5.58.0 accession resolver with invented responses and no-network guards: recent lookup 1 attempt / 1 SDK grant; two-shard history 3/3; transport-error and HTTP429 cases 2/2 each, both propagating without retry. No application limiter wait entries were observed in these cases.
 - Corrected the capacity map's ambiguous “no per-wire limiter” wording to distinguish application ownership from the SDK's own grants. Preserve the two failed harness setup stages and exact final custody; see [scope and receipt](readiness-2026-09-21/operations/sec-outbound-attempts.md#october-1-bounded-sdk-observation).
 - Documentation only. No application/SDK change, live SEC/provider traffic, load or production setting change. This does not establish shared fleet admission, live rate, egress identity or a safe beta size.
+
+## 2026-09-30 — Copilot tool nonexecution diagnosis (#1023 successor, diagnostic only)
+
+- #1023 closes unmerged at `d58c1a59`: its ready run 36647075136 passed 18/18 formally with 0/18 tool calls, 30 unissued `[F#]` markers, and 13/18 answers and 25/30 figures uncited. Corrected counts, refutations, ranked hypotheses, latent risks and offline coverage: [diagnosis](copilot-tool-nonexecution-2026-09-30.md). Its evidence is ten retained `copilot-fidelity` artifacts, listed there by run and report digest and audited offline at zero cost.
+- On main-equivalent code (#1030 ready run 36777581481), one ASML answer skipped tools and shipped with no citation while the run was accepted 18/18, and two passing main-prompt answers published composed prose quotations (now withheld by decision F). The #1021 ASML cross-check defect remains open on main.
+- `test_copilot.py::test_stream_chat_with_tools_assembles_tool_call_deltas` now asserts that both provider rounds offer `tools` with `tool_choice="auto"`; before it, all 351 Copilot owner tests passed with either removed. No prompt, service, runner, scorer, repair grammar, coverage policy or flag change.
+- [x] Stage 1 of the prompt-versus-drift experiment: authorized as #1029 item G (USD 1.00) and run on 2026-10-02. **Prompt-caused.** 20-F question-runs tool-using: main prompt 1/6, pre-#1022 step 3 6/6; 10-K 6/6 in both. Spend USD 0.204254. [Evidence](review-evidence/g-stage1-2026-10-02/README.md).
+- [x] Stage 2 (arm B: main minus the "including when all cited figures use tool markers" clause), run on 2026-10-02 under a USD 0.50 ceiling. **Clause-caused.** 20-F tool-using: main 2/6, arm B 6/6; 10-K 6/6 in both. Arm B is not a fix candidate as it stands: 4 of 36 rows were withheld by decision F, and on ASML only tool-using draws were withheld. Spend USD 0.228826. [Evidence](review-evidence/g-stage2-2026-10-02/README.md).
+- [ ] Copilot prompt fix candidate: arm B's deletion plus an answer-text quotation rule, judged against the diagnosis's acceptance checks 1–5 with aggregates of at least three runs. It needs its own authorization and ceiling.
+
+## 2026-09-30 — #942 successor: deterministic return-ratio render (`summary-2026-09-t`)
+
+- [x] Port only #942's render-only ratio corrections onto main `c13b069a`: formula-named label with the point's own numerator scope, dated comparator with abstention when the prior is undated, prior-basis note, ratio operand custody and the shared `financial_basis` helper. Grounding, prompt, Copilot-facing `Filing.xbrl_data`, schema, flags and baseline are byte-unchanged; `q`/`r` stay reserved. Offline replay of all 70 retained r outputs: grounding identical 70/70, only the returns line changes (64), and every changed clause source-checks against its XBRL operands. [Evidence, lineage, artifacts and held tranche](review-evidence/pr942-successor-2026-09-30/README.md).
+- [ ] Merge only after green technical gates, a source review of every changed replayed and hosted line, and the founder's scoped confirmation that a render-only change is judged by the deterministic-revision precedent. The model-facing corrections stay held under their own later identity and the unchanged grounding-candidate bar.
 
 ## 2026-09-30 — native-evidence delivery adapter candidate (engineering-only)
 

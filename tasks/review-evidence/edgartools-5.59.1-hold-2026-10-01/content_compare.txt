@@ -1,0 +1,8 @@
+section_part_i_item_1.txt: raw_equal=False nonws_equal=False nonws_lenA=63386 nonws_lenB=63386 same_char_multiset=True lost_in_B={} gained_in_B={}
+section_part_i_item_2.txt: raw_equal=False nonws_equal=False nonws_lenA=74129 nonws_lenB=74126 same_char_multiset=False lost_in_B={')': 1, '%': 2} gained_in_B={}
+section_part_i_item_3.txt: raw_equal=True nonws_equal=True nonws_lenA=1914 nonws_lenB=1914 same_char_multiset=True lost_in_B={} gained_in_B={}
+section_part_i_item_4.txt: raw_equal=True nonws_equal=True nonws_lenA=960 nonws_lenB=960 same_char_multiset=True lost_in_B={} gained_in_B={}
+section_part_ii_item_1.txt: raw_equal=True nonws_equal=True nonws_lenA=1882 nonws_lenB=1882 same_char_multiset=True lost_in_B={} gained_in_B={}
+section_part_ii_item_2.txt: raw_equal=False nonws_equal=True nonws_lenA=1339 nonws_lenB=1339 same_char_multiset=True lost_in_B={} gained_in_B={}
+section_part_ii_item_5.txt: raw_equal=True nonws_equal=True nonws_lenA=232 nonws_lenB=232 same_char_multiset=True lost_in_B={} gained_in_B={}
+section_part_ii_item_6.txt: raw_equal=False nonws_equal=False nonws_lenA=1944 nonws_lenB=1664 same_char_multiset=False lost_in_B={'I': 1, 'T': 2, 'E': 2, 'M': 2, '6': 3, '.': 1, 'x': 1, 'h': 11, 'i': 17, 'b': 3, 't': 25, 's': 11, 'D': 2, 'e': 29, 'g': 6, 'n': 14, 'a': 10, 'o': 13, 'c': 13, 'r': 17, 'p': 4, 'd': 7, 'f': 8, 'F': 1, 'l': 7, '3': 1, '1': 1, 'R': 3, 'C': 4, ',': 3, 'A': 5, 'u': 12, '2': 3, '0': 1, 'm': 1, 'K': 2, 'y': 6, '(': 1, ')': 1, 'S': 2, 'P': 2, 'k': 2, '9': 2, 'B': 1, 'U': 1, '4': 1, 'O': 5, 'N': 2, 'G': 1, 'q': 1, 'z': 1, 'Y': 1, ':': 2, '/': 2} gained_in_B={}

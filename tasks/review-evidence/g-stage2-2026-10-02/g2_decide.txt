@@ -1,0 +1,28 @@
+A3: 20-F question-runs tool-using 1/3; 10-K 3/3; draws with tools 13/18
+   AAPL  sales-gross-profit-2025          draws=TTT tool-using=True
+   ASML  us-gaap-sales-net-income-2025    draws=--T tool-using=False
+   BABA  native-revenue-2026              draws=T-- tool-using=False
+   BABA  viewed-native-revenue-2025       draws=TT- tool-using=True
+   MSFT  sales-diluted-eps-2025           draws=TTT tool-using=True
+   TSLA  sales-operating-income-2024      draws=TTT tool-using=True
+B1: 20-F question-runs tool-using 3/3; 10-K 3/3; draws with tools 18/18
+   AAPL  sales-gross-profit-2025          draws=TTT tool-using=True
+   ASML  us-gaap-sales-net-income-2025    draws=TTT tool-using=True
+   BABA  native-revenue-2026              draws=TTT tool-using=True
+   BABA  viewed-native-revenue-2025       draws=TTT tool-using=True
+   MSFT  sales-diluted-eps-2025           draws=TTT tool-using=True
+   TSLA  sales-operating-income-2024      draws=TTT tool-using=True
+A4: 20-F question-runs tool-using 1/3; 10-K 3/3; draws with tools 11/18
+   AAPL  sales-gross-profit-2025          draws=TTT tool-using=True
+   ASML  us-gaap-sales-net-income-2025    draws=--- tool-using=False
+   BABA  native-revenue-2026              draws=--- tool-using=False
+   BABA  viewed-native-revenue-2025       draws=T-T tool-using=True
+   MSFT  sales-diluted-eps-2025           draws=TTT tool-using=True
+   TSLA  sales-operating-income-2024      draws=TTT tool-using=True
+B2: 20-F question-runs tool-using 3/3; 10-K 3/3; draws with tools 17/18
+   AAPL  sales-gross-profit-2025          draws=TTT tool-using=True
+   ASML  us-gaap-sales-net-income-2025    draws=-TT tool-using=True
+   BABA  native-revenue-2026              draws=TTT tool-using=True
+   BABA  viewed-native-revenue-2025       draws=TTT tool-using=True
+   MSFT  sales-diluted-eps-2025           draws=TTT tool-using=True
+   TSLA  sales-operating-income-2024      draws=TTT tool-using=True

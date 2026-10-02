@@ -33,18 +33,6 @@ export const directionText: Record<Direction, string> = {
   flat: 'text-flat-light dark:text-flat-dark',
 }
 
-/**
- * Text tone for components that sit on a *permanently dark* surface regardless of the global
- * theme (e.g. the hero, the "market movers" rail, the search dropdown). These use the
- * dark-tuned gain/loss shades unconditionally — `directionText`'s light-mode values would have
- * poor contrast on a dark background when the global `.dark` class is absent.
- */
-export const directionTextOnDark: Record<Direction, string> = {
-  up: 'text-gain-dark',
-  down: 'text-loss-dark',
-  flat: 'text-flat-dark',
-}
-
 /** Full pill/chip tone — text + a subtle tinted background + border.
  *  Label ink = the 700-level TEXT tokens (AA inside the tint); the 600s stay on the
  *  border only. Matches Badge's beat/miss recipe — the two primitives now agree. */

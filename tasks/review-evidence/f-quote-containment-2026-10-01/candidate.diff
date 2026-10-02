@@ -1,0 +1,111 @@
+diff -ru base_full/backend/app/services/copilot_service.py cand_full/backend/app/services/copilot_service.py
+--- base_full/backend/app/services/copilot_service.py	2026-10-01 06:12:47.000000000 +0000
++++ cand_full/backend/app/services/copilot_service.py	2026-10-01 06:31:45.193963441 +0000
+@@ -469,6 +469,42 @@
+     return by_marker
+ 
+ 
++# Prose quotations (decision F). Double-quote marks are the ones normalize_for_match folds to '"';
++# direction is ignored, as the normalizer ignores it. Single quotes are left alone (apostrophes).
++_QUOTE_MARK_RE = re.compile('["\u201c\u201d\u201e]')
++_QUOTE_EDGE_CHARS = " \t\r\n\u00a0.,;:!?\u2026"
++_QUOTE_ELLIPSIS_RE = re.compile(r"\.\s*\.\s*\.|\u2026")
++
++
++def unsupported_prose_quotations(answer: str, normalized_source: str) -> list[str]:
++    """Reason codes for final-prose quotations the filing text cannot show contiguously.
++
++    A quotation is in scope when the citation verifier could verify it (``_MIN_VERIFIABLE_LEN``
++    after the shared normalization) or it contains an interior ellipsis; shorter quoted terms
++    ("ROE", "Gross margin") are labels, not source quotations. An in-scope quotation must occur
++    contiguously in ``normalized_source``; citation markers and edge punctuation are not quoted
++    text. Missing source text and unpairable marks fail closed. Nothing is repaired or stitched:
++    any reason withholds the whole answer.
++    """
++    marks = [match.start() for match in _QUOTE_MARK_RE.finditer(answer)]
++    if len(marks) % 2:
++        return ["unbalanced_quotation"]
++    reasons: list[str] = []
++    for start, end in zip(marks[::2], marks[1::2]):
++        raw = answer[start + 1:end]
++        content = _COPILOT_MARKER_RE.sub(" ", raw).strip(_QUOTE_EDGE_CHARS)
++        needle = normalize_for_match(content)
++        elided = bool(_QUOTE_ELLIPSIS_RE.search(content))
++        if not elided and len(needle) < _MIN_VERIFIABLE_LEN:
++            continue
++        if not normalized_source:
++            reasons.append("quotation_source_unavailable")
++        elif (needle not in normalized_source
++              and normalize_for_match(raw.strip(_QUOTE_EDGE_CHARS)) not in normalized_source):
++            reasons.append("elided_quotation" if elided else "quotation_not_in_source")
++    return reasons
++
++
+ def _safe_activity_label(info: dict) -> str:
+     """Keep model-controlled tool names and concept strings out of publication events."""
+     name = info.get("name")
+@@ -1353,6 +1389,9 @@
+         if any(str(cite["n"]) in unresolved_literals or cite["verified"] is not True
+                for cite in verified_citations):
+             raise _UnpublishableAnswer("Unverified or colliding final citation")
++        quotation_failures = unsupported_prose_quotations(full_answer, normalized_source)
++        if quotation_failures:
++            raise _UnpublishableAnswer(f"Unsupported prose quotation: {quotation_failures[0]}")
+         if misplaced:
+             # Trust telemetry: a nonzero rate here means the model is attaching fact markers to
+             # figures they don't support — watch this after any prompt/model change.
+diff -ru base_full/backend/tests/unit/test_copilot.py cand_full/backend/tests/unit/test_copilot.py
+--- base_full/backend/tests/unit/test_copilot.py	2026-10-01 06:12:47.000000000 +0000
++++ cand_full/backend/tests/unit/test_copilot.py	2026-10-01 06:31:45.203960239 +0000
+@@ -170,6 +170,14 @@
+     elif name in ("empty_array", "no_declaration"):
+         answer = "The filing describes its business and an original reference [14]."
+         declarations, expected = [], answer if name == "empty_array" else None
++    elif name in ("prose_quote_composed", "prose_quote_valid"):
++        # Decision F: final prose quoting stitched source text is withheld; a contiguous quote is not.
++        quote = (_KNOWN_SENTENCE if name == "prose_quote_valid"
++                 else "Revenue increased to 391.0 billion. Operating margins expanded")
++        answer = f'The filing states "{quote}" [7].'
++        declarations = [good]
++        if name == "prose_quote_valid":
++            expected = answer.replace("[7]", "[1]")
+     elif name == "semantic_limit":
+         answer = "This proves the company will dominate every future market [7]."
+         declarations, expected = [good], answer.replace("[7]", "[1]")
+@@ -259,6 +267,7 @@
+     "markdown_emphasis", "markdown_link", "markdown_code", "valid", "mixed_fact_valid",
+     "duplicate_identical", "literal_noncolliding", "leading_zero", "numeric_group", "unused_failed",
+     "empty_array", "no_declaration", "semantic_limit", "fenced", "followups", "embedded_followups",
++    "prose_quote_composed", "prose_quote_valid",
+     "not_disclosed", "nd_citations", "nd_repeated", "empty_response", "whitespace_response",
+     "empty_citations", "stripped_empty",
+     "nd_bare", "nd_missing_followups", "nd_partial_reason", "nd_partial_sentinel", "nd_blank_reason",
+diff -ru base_full/backend/tests/unit/test_copilot_citation_repair.py cand_full/backend/tests/unit/test_copilot_citation_repair.py
+--- base_full/backend/tests/unit/test_copilot_citation_repair.py	2026-10-01 06:12:47.000000000 +0000
++++ cand_full/backend/tests/unit/test_copilot_citation_repair.py	2026-10-01 06:31:45.208773127 +0000
+@@ -426,7 +426,6 @@
+     pytest.param('Revenue for the fiscal year ended March 31, 2025 was US$996,347 million.', id='claimed-currency-not-the-filings'),
+     pytest.param('Cloud revenue for the fiscal year ended March 31, 2025 was RMB996,347 million.', id='segment-subject'),
+     pytest.param('Sales for the fiscal year ended March 31, 2025 was RMB996,347 million.', id='bare-sales'),
+-    pytest.param('The filing states "Revenue for the fiscal year ended March 31, 2025 was RMB996,347 million."', id='quotation'),
+     pytest.param('If the disposal is excluded, revenue for the fiscal year ended March 31, 2025 was RMB996,347 million.', id='conditional'),
+     pytest.param('Revenue for the fiscal year ended March 31, 2025 was RMB996,347 million, up 5.9% from the prior year.', id='comparative'),
+     pytest.param('Revenue for the fiscal year ended March 31, 2025 was RMB996,347 million, driven by cloud growth.', id='causal'),
+@@ -441,6 +440,16 @@
+     assert complete['citations'] == [] and complete['grounded'] == 0
+ 
+ 
++@pytest.mark.asyncio
++async def test_quoted_claim_shape_abstains(monkeypatch):
++    """The repair never certifies a quotation; the quotation itself must be filing text (decision F)."""
++    quoted = f'The filing states "{UNCITED}"'
++    view = filing(content_cache=SimpleNamespace(critical_excerpt=UNCITED, markdown_content=None))
++    complete = await _complete(monkeypatch, quoted, view=view)
++    assert complete['answer'] == quoted
++    assert complete['citations'] == [] and complete['grounded'] == 0
++
++
+ # Evidence the filing does not actually supply. The sentence is the qualifying one every time, so
+ # only the returned fact (or the viewed filing) differs — amount coincidence must never certify.
+ @pytest.mark.parametrize('lookup', [
+Only in cand_full/backend/tests/unit: test_copilot_prose_quotations.py
