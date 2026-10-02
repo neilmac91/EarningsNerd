@@ -2,10 +2,12 @@
 
 Four reproducible, no-network checks that encode the feature's core promises:
 
-* **Citation faithfulness** — every text citation's excerpt must appear verbatim in the filing
-  (reusing the product's own ``verify_excerpt_in_text``). A citation that doesn't verify is the exact
-  hallucination the feature claims to prevent, so it's a hard gate. XBRL/tool citations are exempt
-  (their provenance is the ``financial_fact`` table, not the filing prose)...
+* **Citation faithfulness** — every text citation's WHOLE excerpt must be contiguous in the filing
+  and its section label must carry no double quote mark: Copilot's own publication rule
+  (``verify_whole_excerpt_in_text`` and ``section_label_is_quoted``, as ``_verify_citations`` applies
+  them). A citation that doesn't verify is the exact hallucination the feature claims to prevent, so
+  it's a hard gate. XBRL/tool citations are exempt (their provenance is the ``financial_fact`` table,
+  not the filing prose)...
 * **Fact-marker adjacency** — ...but XBRL citations get their own gate: every inline marker backed by
   a tool fact must sit adjacent to a figure matching that fact's value AND must not sit on a claim
   naming a different metric (field report: revenue markers reused as year labels on other metrics'
@@ -35,9 +37,10 @@ from app.services.copilot_service import (
     _fact_matches_adjacent_currency,
     _fact_matches_adjacent_number,
     count_uncited_figures,
+    section_label_is_quoted,
 )
 from app.services.copilot_tools import canonical_unit
-from app.services.provenance_service import normalize_for_match, verify_excerpt_in_text
+from app.services.provenance_service import normalize_for_match, verify_whole_excerpt_in_text
 from evals.copilot_schema import CopilotAnswerScore, CopilotQACase
 from evals.scorers import score_numeric_accuracy
 
@@ -62,7 +65,8 @@ def score_citation_faithfulness(
     unverified: List[str] = []
     for cite in text_citations:
         excerpt = str(cite.get("excerpt") or "")
-        if not verify_excerpt_in_text(excerpt, normalized_source):
+        label = cite.get("section") or cite.get("section_ref")
+        if not verify_whole_excerpt_in_text(excerpt, normalized_source) or section_label_is_quoted(label):
             unverified.append(excerpt)
     verified = len(text_citations) - len(unverified)
     return round(verified / len(text_citations), 4), unverified
@@ -256,7 +260,7 @@ def score_copilot_answer(
             else "REFUSAL: refused a disclosed question"
         )
     if unverified:
-        gate_failures.append(f"CITATION: {len(unverified)} excerpt(s) failed filing-text verification (absent or too short)")
+        gate_failures.append(f"CITATION: {len(unverified)} excerpt(s) failed filing-text verification (absent, too short, or quoted section label)")
     if misplaced:
         gate_failures.append(f"ADJACENCY: {len(misplaced)} fact marker(s) not on their own figure")
     if missing:
