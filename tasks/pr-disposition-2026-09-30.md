@@ -701,3 +701,20 @@ Under the founder's delegation, Codex decided items A–M on #1029. This session
     - Recommended follow-up: split the module into `app/services/ai/prose_quotations.py`, not in this PR.
   - **Attribution tool caveats:** class withheld rows whose replay hit an unserved repair lookup as UNEXPLAINED, and add reason and chip-index rows to the self-test.
   - **Waiting on:** the adversarial review.
+- 01:20Z — **F final adversarial review of `555d771d`: changes-needed.** One blocker class, B1:
+  - **Cause:** markdown-it-py strips Unicode whitespace with Python `.strip()` in table, paragraph and setext rules; micromark trims only spaces and tabs.
+  - **Effect:** a table header ending in NBSP, an NBSP-only table line, or a trailing `\` followed by an NBSP line lets an invented quote display.
+  - **Confirmed:** end to end, plus a Chromium screenshot.
+  - **Validated fix:** a line-edge gate over the 15 remaining Python whitespace code points. 0 hits in the fuzz; 0 of 566 retained answers affected.
+  - **Held:** every earlier repro, the link-gate evasions, entity-built autolinks (displayed text is identical), and the floor (8 withheld on all surfaces, citations 24).
+  - **Floor on retained data:** it newly withholds only D8 AAPL (stitched cells). No retained answer quotes an 8–23-character absent defined term.
+  - **S3, product cost:** not-disclosed reasons quoting an absent metric name (`"Adjusted EBITDA"`) are now withheld. Pinned as a cost, to be surfaced to the founder/Codex. A prompt follow-up is possible under RUNBOOK gating.
+  - **S2:** the Sources excerpt and `section_ref` gap is already on main and queued separately, and is now also known to include `section_ref` free text.
+- 01:20Z — **Round 8 sent to the F agent:**
+  - the line-edge Unicode whitespace gate, with B1 repros and controls;
+  - test-only F-N1, F-N3 and B-N1;
+  - RUNBOOK and comment wording;
+  - attribution: unserved repair lookups count as UNEXPLAINED, plus synthetic reason and chip self-test rows;
+  - the S3 cost pinned.
+
+  Delta reviews will follow on the new head.
