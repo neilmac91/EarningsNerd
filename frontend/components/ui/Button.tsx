@@ -114,6 +114,17 @@ export function buttonVariants({ variant = 'primary', size = 'md', className }: 
   return cx(BASE, SIZE[size], VARIANT[resolveVariant(variant)], className)
 }
 
+/** The primary variant's `disabled:` look keyed to `aria-disabled`, for a primary <Button> that is
+    unavailable but must keep keyboard focus: aria-disabled plus the caller's own guard, never native
+    `disabled` (Chromium blurs a focused control that turns disabled). Apply it only while the button
+    is unavailable: `loading` also sets aria-disabled and keeps the resting look by design.
+    shadow-none would also erase the light focus ring this focusable state can show, so that ring is
+    restored (dark's ring out-specifies it). lessons/frontend-busy-controls-stay-focusable.md */
+export const primaryUnavailableClass = cx(
+  'aria-disabled:cursor-not-allowed aria-disabled:bg-brand/45 aria-disabled:text-white/80 aria-disabled:shadow-none',
+  'aria-disabled:focus-visible:shadow-ring-brand dark:aria-disabled:bg-brand-dark/35 dark:aria-disabled:text-background-dark/60',
+)
+
 function Spinner({ className }: { className?: string }) {
   return (
     <svg

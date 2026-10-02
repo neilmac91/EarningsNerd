@@ -73,6 +73,15 @@ export function inputClasses({ invalid = false, leadingIcon = false, className }
   return cx(FIELD, leadingIcon ? PAD_ICON : PAD, invalid && INVALID, className)
 }
 
+/** The field's `disabled:` look keyed to `aria-disabled`, for a field (a <select> here) that is
+    unavailable while its own save runs but must keep keyboard focus: aria-disabled plus a guarded
+    change handler, never native `disabled` (Chromium blurs a focused control that turns disabled).
+    lessons/frontend-busy-controls-stay-focusable.md */
+export const fieldUnavailableClass = cx(
+  'aria-disabled:cursor-not-allowed aria-disabled:bg-background-light aria-disabled:opacity-60 aria-disabled:hover:border-border-light',
+  'dark:aria-disabled:bg-white/5 dark:aria-disabled:hover:border-border-dark',
+)
+
 interface FieldExtras {
   label?: ReactNode
   hint?: ReactNode
