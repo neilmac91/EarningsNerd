@@ -1,0 +1,26 @@
+[
+  {
+    "name": "ruff",
+    "version": "0.16.9",
+    "url": "https://files.pythonhosted.org/packages/b6/63/09659283f92f02dff45809da194a70da2f688d87c55d8875c4fae3536072/ruff-0.16.9-py3-none-macosx_11_0_arm64.whl",
+    "hashes": {
+      "sha256": "1632eb1d6197f33bd00b1acbc5b71009e89a8895c158e2d2b03a834fac964ab6"
+    }
+  },
+  {
+    "name": "bandit",
+    "version": "1.9.4",
+    "url": "https://files.pythonhosted.org/packages/05/a4/a26d5b25671d27e03afb5401a0be5899d94ff8fab6a698b1ac5be3ec29ef/bandit-1.9.4-py3-none-any.whl",
+    "hashes": {
+      "sha256": "f89ffa663767f5a0585ea075f01020207e966a9c0f2b9ef56a57c7963a3f6f8e"
+    }
+  },
+  {
+    "name": "pip_audit",
+    "version": "2.10.1",
+    "url": "https://files.pythonhosted.org/packages/a3/a7/b0c504148114047bd1bc9d97447453c6850ca176bb2f3c0038835994e8b7/pip_audit-2.10.1-py3-none-any.whl",
+    "hashes": {
+      "sha256": "99ef3f600a317c1945f1e89e227ef26e1c2d618429b8bd3fa6f4f7c440c4611a"
+    }
+  }
+]
