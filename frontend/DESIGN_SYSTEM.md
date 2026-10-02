@@ -162,6 +162,11 @@ Ask answer       <AskFilingAnswer>  — the SHIPPED copilot contract: status rea
 - **Evidence identity:** the Ask-this-Filing header tile uses the Phosphor `quotes` glyph;
   `sparkle` appears ONLY on the "AI summary" chip.
 - Sortable table headers render as buttons with `aria-sort`, ▲/▼, and the brand focus ring.
+- **Class maps outside JSX must sit under a `content` glob.** Tailwind generates only the classes
+  it finds in the modules `tailwind.config.js` `content` scans. A class composed in an unscanned
+  module ships unstyled and nothing reports it: `lib/financialTone.directionChip` lost its /20
+  borders and flat tint until `lib/` got a glob. `tests/unit/designSystemDoneGate.spec.ts` fails
+  on any app module whose classes no glob scans.
 
 ## 5. Headings
 
