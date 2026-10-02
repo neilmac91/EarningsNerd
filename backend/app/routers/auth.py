@@ -4,7 +4,7 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy import func
-from pydantic import BaseModel, EmailStr, field_validator
+from pydantic import BaseModel, EmailStr, Field, field_validator
 from typing import Optional
 from datetime import datetime, timedelta, timezone
 from uuid import uuid4
@@ -24,6 +24,7 @@ from app.config import settings
 from app.services.rate_limiter import RateLimiter, enforce_rate_limit
 from app.services.pwned_passwords import is_password_pwned
 from app.services.turnstile import enforce_turnstile
+from app.utils.text import has_control_characters
 from app.services import audit_service, login_lockout
 from app.services.oauth_verify import _verify_apple_id_token, _verify_google_id_token
 from app.services.password_utils import (
@@ -89,7 +90,7 @@ _APPLE_AUTH_URL = "https://appleid.apple.com/auth/authorize"
 class UserCreate(BaseModel):
     email: EmailStr
     password: str
-    full_name: Optional[str] = None
+    full_name: Optional[str] = Field(None, max_length=100)
     # Closed-beta magic-link token. Required only when REGISTRATION_MODE="invite_only".
     invite_code: Optional[str] = None
 
@@ -102,6 +103,17 @@ class UserCreate(BaseModel):
     @classmethod
     def validate_password(cls, value: str) -> str:
         return validate_password_strength(value)
+
+    @field_validator("full_name")
+    @classmethod
+    def clean_full_name(cls, value: Optional[str]) -> Optional[str]:
+        # Mirrors users.ProfileUpdate: trimmed, empty clears the name; control characters rejected.
+        if value is None:
+            return None
+        value = value.strip()
+        if has_control_characters(value):
+            raise ValueError("Name must not contain control characters.")
+        return value or None
 
 
 class UserLogin(BaseModel):

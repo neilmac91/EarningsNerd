@@ -21,13 +21,12 @@ export interface WaitlistStats {
   total_signups: number
 }
 
+// Public status lookup: position and referral progress only (no referral code/link, no
+// verification state) — the backend response model is the source of truth.
 export interface WaitlistStatusResult {
   position: number
-  referral_code: string
-  referral_link: string
   referrals_count: number
   positions_gained: number
-  email_verified: boolean
 }
 
 // The waitlist endpoints are public (no auth); routing them through the shared axios client (was raw
