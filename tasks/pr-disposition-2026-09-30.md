@@ -655,3 +655,28 @@ Under the founder's delegation, Codex decided items A–M on #1029. This session
 - 23:45Z — **B integrated offline at `d5d30587`** (main `02628e57` merged). Gate: ruff and bandit clean, **4739 passed**, 0 failed.
   - **Still to do:** re-merge after F lands, then a fresh exact-head review and a fresh hosted artifact. Every changed line must be revalidated against the new artifact.
   - **Release evidence must also record** the census population (58 untagged, 47 with summaries) and the preserved "numerator scope unestablished" behaviour.
+- 00:30Z — **F round 7 final at `555d771d`.**
+  - **Commits:**
+    - `3664e3ca`: the fix.
+    - `bbc90e4a`: merge of main `02628e57`. The merge was clean and E's guards are intact.
+    - `555d771d`: tests only.
+  - **Changes in the fix:**
+    - New `_MIN_QUOTED_LEN = 8`, read in one place; citations keep `_MIN_VERIFIABLE_LEN = 24`.
+    - Links of any kind fail closed: `\]\(|\]:|www\.|https?://|\S@\S`. GFM-literal counting and link-destination reading were deleted from the trusted path.
+    - Astral and Python-Cn characters fail closed on all surfaces.
+    - Any adjacent pair of different delimiters fails closed: `\*[_~]|_[*~]|~[*_]`, rooted in micromark's attentionMarkers.
+    - mdurl is warmed up and never called on a reading.
+  - **Tests and fuzzing:**
+    - 154 of 154 mutations killed.
+    - 528 prose tests.
+    - Gate: **5263 passed**. One unrelated flake came from a stale local `earningsnerd.db` ticker collision; it was moved aside and the gate re-ran green.
+    - Display cross-check: 0 holes in 619 cases.
+    - fuzz_r7: 0 holes in 1.95M answers.
+  - **Replay:** rule_only 0 and audit_only 0 across all 13 runs (21 both). Main code 4/126 rows, 4/7 runs; D8 AAPL is now withheld.
+  - **Attribution:**
+    - F would withhold 21 of 231 published answers, all on the answer surface.
+    - 2 UNEXPLAINED and 45 mismatches are preserved.
+    - Chips: 429 checked, 0 failing.
+  - **Pinned limit:** a filing's own `~` after a word.
+  - **Next:** final exact-head reviews running in the isolated `f-rev-a` and `f-rev-b`, with stale local databases moved aside.
+  - **Timing plan:** push the draft PR off-peak at about 04:00Z, since 01:00–04:00Z is peak.
