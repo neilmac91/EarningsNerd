@@ -31,17 +31,24 @@ describe('SourceTrace owns Escape while its panel is open', () => {
   })
   afterEach(() => matchMedia.mockRestore())
 
-  it('closes the source sheet and keeps the key from the layers beneath it', () => {
+  it('closes the source sheet even when focus is in the lower copilot layer', () => {
     // Stand-ins for the copilot sheet's trap (document capture) and the rail's listener (window bubble).
     const trapBeneath = vi.fn()
     const railBeneath = vi.fn()
     document.addEventListener('keydown', trapBeneath, true)
     window.addEventListener('keydown', railBeneath)
     try {
-      render(<SourceTrace url="https://www.sec.gov/x.htm" verified={false} />)
+      render(
+        <>
+          <div role="dialog" aria-modal="true" aria-label="Copilot">
+            <button>Copilot action</button>
+          </div>
+          <SourceTrace url="https://www.sec.gov/x.htm" verified={false} />
+        </>,
+      )
       fireEvent.click(screen.getByRole('button', { name: /source/i }))
       const sheet = screen.getByRole('dialog', { name: 'Source detail' })
-      fireEvent.keyDown(screen.getByRole('button', { name: 'Close source detail' }), { key: 'Escape' })
+      fireEvent.keyDown(screen.getByRole('button', { name: 'Copilot action' }), { key: 'Escape' })
 
       expect(sheet).not.toBeInTheDocument()
       expect(trapBeneath).not.toHaveBeenCalled()

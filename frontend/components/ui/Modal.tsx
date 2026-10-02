@@ -160,6 +160,7 @@ export function Modal({
       <div
         ref={panelRef}
         role="dialog"
+        data-ui-modal="true"
         aria-modal="true"
         aria-label={ariaLabel}
         aria-labelledby={labelledBy}

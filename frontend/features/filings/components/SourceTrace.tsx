@@ -229,7 +229,7 @@ function SourceTraceInner({
     }
   }, [open, isCoarse])
 
-  // ESC closes either presentation. The open panel is the top layer (on a phone, the source sheet can
+  // ESC closes either presentation when this panel owns the key (on a phone, the source sheet can
   // sit over the copilot sheet), so it owns the key: window capture runs ahead of the sheet's
   // document-level trap and the rail's own Escape listener, and stopping it there closes one layer
   // per press. lessons/frontend-top-dialog-owns-the-keyboard.md
@@ -237,16 +237,16 @@ function SourceTraceInner({
     if (!open) return
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== 'Escape') return
-      // Another modal can open above this panel. Its capture listener shares window with ours,
-      // so stopPropagation alone cannot shield it: leave keys inside that other layer to it.
-      const layer = e.target instanceof Element ? e.target.closest('[aria-modal="true"]') : null
-      if (layer && !layer.contains(document.getElementById(panelId))) return
+      // ui/Modal can open above this panel and traps focus inside its marked panel. Its capture
+      // listener shares window with ours, so stopPropagation alone cannot shield it. Do not use
+      // aria-modal here: a lower copilot sheet can also retain focus beneath the source sheet.
+      if (e.target instanceof Element && e.target.closest('[data-ui-modal="true"]')) return
       e.stopPropagation()
       setOpen(false)
     }
     window.addEventListener('keydown', onKey, true)
     return () => window.removeEventListener('keydown', onKey, true)
-  }, [open, panelId])
+  }, [open])
 
   const Icon = isVerified ? CheckCircleIcon : ArrowSquareOutIcon
 

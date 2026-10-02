@@ -34,7 +34,9 @@ copilot listeners below it, but it still closed alongside a later ui/Modal liste
 window. On the real filing page with a coarse pointer, keyboard users could open the source sheet,
 Tab to the global Feedback opener, and open Feedback over it; one Escape closed both. A shared
 capture phase does not establish ownership between sibling listeners. SourceTrace now ignores
-keys targeted inside another aria-modal layer, matching the existing sheet trap's target guard.
+keys targeted inside the shared Modal's explicit `data-ui-modal` panel marker. An `aria-modal`
+check is too broad: a lower copilot sheet can retain focus beneath the source sheet, so its
+semantics do not identify it as the upper layer.
 `SourceTraceEscapeLayer.spec.tsx` covers a real Modal opened after the source sheet: one Escape
 closes the upper dialog and the next closes the source sheet. The browser probe uses actual page
 controls with fixture API responses; the source sheet's separate focus-containment limitation
