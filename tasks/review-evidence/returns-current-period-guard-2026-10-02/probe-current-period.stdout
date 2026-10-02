@@ -1,0 +1,19 @@
+A_10k_negative_equity_at_report_date: differs=['roe'] grounding_identical=True line_identical=False
+  main:   Period net income attributable to the parent / period-end equity, not annualized: 20.0% (prior at 2023-12-31: 20.0%); period net income attributable to the parent / period-end assets, not annualized: 5.0% (prior at 2024-12-31: 4.2%).
+  branch: Period net income attributable to the parent / period-end assets, not annualized: 5.0% (prior at 2024-12-31: 4.2%).
+B_10k_equity_missing_at_report_date: differs=['roe'] grounding_identical=True line_identical=False
+  main:   Period net income attributable to the parent / period-end equity, not annualized: 20.0% (prior at 2023-12-31: 20.0%); period net income attributable to the parent / period-end assets, not annualized: 5.0% (prior at 2024-12-31: 4.2%).
+  branch: Period net income attributable to the parent / period-end assets, not annualized: 5.0% (prior at 2024-12-31: 4.2%).
+C_10k_normal: differs=[] grounding_identical=True line_identical=True
+  main:   Period net income attributable to the parent / period-end equity, not annualized: 20.0% (prior at 2024-12-31: 20.0%); period net income attributable to the parent / period-end assets, not annualized: 5.0% (prior at 2024-12-31: 4.2%).
+  branch: Period net income attributable to the parent / period-end equity, not annualized: 20.0% (prior at 2024-12-31: 20.0%); period net income attributable to the parent / period-end assets, not annualized: 5.0% (prior at 2024-12-31: 4.2%).
+D_10k_zero_equity_at_report_date: differs=['roe'] grounding_identical=True line_identical=False
+  main:   Period net income attributable to the parent / period-end equity, not annualized: 20.0% (prior at 2023-12-31: 20.0%); period net income attributable to the parent / period-end assets, not annualized: 5.0% (prior at 2024-12-31: 4.2%).
+  branch: Period net income attributable to the parent / period-end assets, not annualized: 5.0% (prior at 2024-12-31: 4.2%).
+E_10q_figs_like_negative_equity_at_report_date: differs=['roe'] grounding_identical=True line_identical=False
+  main:   Period net income attributable to the parent / period-end equity, not annualized: 1.5%; period net income attributable to the parent / period-end assets, not annualized: 0.6% (prior at 2026-03-31: 0.4%).
+  branch: Period net income attributable to the parent / period-end assets, not annualized: 0.6% (prior at 2026-03-31: 0.4%).
+F_10q_figs_like_normal_sequential_prior: differs=[] grounding_identical=True line_identical=True
+  main:   Period net income attributable to the parent / period-end equity, not annualized: 2.3% (prior at 2026-03-31: 1.5%); period net income attributable to the parent / period-end assets, not annualized: 0.6% (prior at 2026-03-31: 0.4%).
+  branch: Period net income attributable to the parent / period-end equity, not annualized: 2.3% (prior at 2026-03-31: 1.5%); period net income attributable to the parent / period-end assets, not annualized: 0.6% (prior at 2026-03-31: 0.4%).
+exit=0
