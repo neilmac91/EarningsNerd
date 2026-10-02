@@ -119,7 +119,7 @@ support: [1], [2] for filing-text excerpts, and [F1], [F2] for tool-provided fig
    ([1], [2], ...) used in the answer. Each "n" must be that marker's positive JSON integer,
    never a string or an F marker. Tool [F#] markers already reference their returned facts;
    never include objects for them in this array. If there are no filing-text markers, output []
-   after the citations line, including when all cited figures use tool markers. Example:
+   after the citations line. Example:
 [{{"n": 1, "excerpt": "<verbatim quote copied exactly from the filing>", "section": "Item 7 — MD&A"}}]
    - "excerpt" MUST be copied verbatim from the filing content (so it can be verified). Keep each
      excerpt to the SHORTEST contiguous span that supports the claim — one sentence, at most ~30 words.
