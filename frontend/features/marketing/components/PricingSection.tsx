@@ -61,6 +61,7 @@ const fmtUsd = (n: number): string => (Number.isInteger(n) ? `$${n}` : `$${n.toF
 
 const PRICE_CLASS =
   /* display figure — deliberate, ramp has no 40 */
+  // eslint-disable-next-line no-restricted-syntax -- the 40px display figure sets its own tracking; the ramp has no 40
   'font-data tnum text-[40px] font-semibold leading-[1.1] tracking-[-0.02em] text-text-primary-light dark:text-text-primary-dark'
 const MUTED_CLASS = 'text-text-secondary-light dark:text-text-secondary-dark'
 // Design: 44px tall, full card width. buttonVariants' md size sets h-10; h-11 is emitted later in

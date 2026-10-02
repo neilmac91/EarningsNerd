@@ -75,8 +75,9 @@ shared surface (it caused white-on-cream and dark-on-cream bugs across the app).
   `text-brand-strong underline underline-offset-4 dark:text-brand-strong-dark`.
 - **Tracking ramp** (`--track-*`): +0.01em ≤12px · 0 at 13–19px · −0.012em 20–24px · −0.016em
   26–32px · −0.02em 34–44px · −0.025em 48px+ · `--track-eyebrow 0.08em` for uppercase micro-labels —
-  as the utility **`tracking-eyebrow`** (v3). `tracking-wide/wider/widest/tight/tighter` are off-ramp
-  (lint-banned); headings take their tracking from the fontSize ramp.
+  as the utility **`tracking-eyebrow`** (v3). `tracking-wide/wider/widest/tight/tighter` and arbitrary
+  `tracking-[…]` are off-ramp (lint-banned; the 40px pricing display figure is the one disabled site);
+  headings take their tracking from the fontSize ramp.
 - 12px UI-type floor for running copy; `text-data-xs` (11px) for dense numeric annotations and in-card
   captions / uppercase micro-labels (v3 b8 maps every former `text-[10–11px]` text site to it). UPPERCASE tracked
   eyebrows are reserved for metric labels — never card titles (`CardTitle` is sentence case,

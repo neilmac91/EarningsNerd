@@ -119,8 +119,8 @@ const CALENDAR_FIELD_RULES = ['Date', 'parseISO'].flatMap((ctor) => {
 //   - components/ui/DataTable.tsx keeps its internal z-[5] sticky-cell layering (the one z exemption).
 // Every class-string rule also runs on template-literal chunks (withTemplates), so a className built
 // with `${…}` is held to the same rules. A class name assembled from fragments at runtime is not.
-// aria-hidden glyphs below the type scale (Badge ▲▼, DataTable ▲▼) carry an eslint-disable with a
-// reason.
+// aria-hidden glyphs below the type scale (Badge ▲▼, DataTable ▲▼) and the 40px pricing display
+// figure (its own tracking-[…]) carry an eslint-disable with a reason.
 const DESIGN_HEX_RULE = {
   selector: 'Literal[value=/#[0-9a-fA-F]{6}/]',
   message: 'Raw hex — use a token (mirrors: motion.ts, financialTone, Chart, chartExport).',
@@ -137,7 +137,7 @@ const DESIGN_Z_RULE = {
 const DESIGN_SHARED_RULES = [
   { selector: 'Literal[value=/\\bduration-[0-9]/]', message: 'Raw duration — duration-fast|base|slow|ambient.' },
   {
-    selector: 'Literal[value=/\\btracking-(wide|wider|widest|tight|tighter)\\b/]',
+    selector: 'Literal[value=/\\btracking-((wide|wider|widest|tight|tighter)\\b|\\[)/]',
     message: 'Off-ramp tracking — tracking-eyebrow for labels; the fontSize ramp tracks headings.',
   },
   {
