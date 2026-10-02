@@ -123,7 +123,7 @@ Under the founder's delegation, Codex decided items A–M on #1029. This session
 | D | Hold #1034 and keep edgartools 5.58.0. Offline Ford comparison at both versions. No test weakening, blanket ignore or paid rerun. | Claude | within the 0.75 for D/I/K | offline comparison running |
 | E | After B: Unicode-fold crashes **and the silent wrong-scale fallback**, scalar and paired paths, with fold/ASCII controls and one mutation proof per boundary. | Claude | 0.75 | queued after B |
 | F | Prose-quotation containment: an unsupported quote takes the existing withheld/error path. No repair. Offline replay with valid-quote controls first, then 3 predeclared runs. **No scorer, threshold, prompt or flag change.** | Claude | 0.75 | queued after E |
-| G | #1036 stage 1 only, USD 1.00, after B and E. Check prepared inputs offline before paying; a mismatch stops the lane. | Claude | 1.00 | queued |
+| G | #1036 stage 1 only, USD 1.00, after B and E. Check prepared inputs offline before paying; a mismatch stops the lane. | Claude | 1.00 | offline precheck passed (both arms); runs next |
 | H | Keep the manual-review exception, with a real independent review of each exact head. No credits bought. | — | 0 | standing |
 | I | Inventory the two alert identities, versions and reachability before any fix. | Claude | within the 0.75 for D/I/K | **access blocker**: no Dependabot alerts API from this session |
 | J | Agreed: E7 stays parked. Any future reuse needs an explicit custody review and a new binding. | — | 0 | held |
@@ -903,3 +903,15 @@ Under the founder's delegation, Codex decided items A–M on #1029. This session
   - **D17 copilot-eval:** 18/18, USD 0.005022. Its 30 citations were all XBRL; 0 text citations were exercised.
   - **Total:** 0.181236 of 0.50.
   - **Next:** serial deploy verification.
+- 11:46Z — **Citation fix deployed and verified.** CI [37001655570](https://github.com/neilmac91/EarningsNerd/actions/runs/37001655570): every job green, eval-baseline skipped on push.
+  - `applied=0 skipped=40`.
+  - Revision `earningsnerd-backend-00432-jtt` at 100% traffic.
+  - Job images updated: pregenerate, the six configured jobs and backfill-facts.
+  - "Deployed 287d018 and verified healthy".
+  - Independent `/health/detailed` at 11:46:06Z: 200 healthy (DB 5.36 ms).
+  - **The citation fix is complete:** USD 0.181236 of 0.50.
+- 11:46Z — **G stage 1 prepared offline, no spend.**
+  - **Precondition reproduced:** my hashing reproduces the recorded values of 36777581481 and 36630506944.
+  - **Arm A (main prompt):** today's main-equivalent D17 artifact matches every recorded value: system prompt `a88b6fb1`, all six question contexts, tool schema `b6958973`, options deepseek-flash/2400/0.2, fingerprint `aeb56401`.
+  - **Arm C:** branch `claude/g-stage1-arm-c` `9041f04a`, main plus the pre-#1022 step-3 line. The composed SYSTEM_PROMPT is byte-equal to 36630506944's (`93dc6565`), and 1231 Copilot tests pass.
+  - **#1036 (arm A vehicle):** main merged in (`a35e8342`); its two conflicts were additive. Full gate running.
