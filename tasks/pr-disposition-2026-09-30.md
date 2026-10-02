@@ -115,7 +115,7 @@ Under the founder's delegation, Codex decided items A–M on #1029. This session
 | Item | Decision | Owner | Reservation (USD) | State |
 | --- | --- | --- | --- | --- |
 | A | Preserve all of #942's evidence, including `10933338099`, the original ZIPs and failed/superseded runs, before 2026-10-06. Inventory the ids, sizes and sha256 values and verify the durable copy, kept in private founder-controlled storage on a non-iCloud disk. Publish only a privacy-reviewed manifest. Also inventory the Copilot raw artifacts that F and G cite. | Claude (inventory, script); founder (storage) | 0 | **done**: 27/27 verified on the founder machine, outside iCloud (comment 5931533423; receipt sha256 `9a5631c4…`) |
-| B | Scoped render-only #1039 / stamp `t`, after A and C. Requires: current-main integration, full gate, exact-head independent review, every required check, and **revalidation of every changed line against the new hosted artifact**. No change to production model-facing bytes, locked tests, baseline or thresholds. No drain. | Claude | 0.75 | waits on A and C |
+| B | Scoped render-only #1039 / stamp `t`, after A and C. Requires: current-main integration, full gate, exact-head independent review, every required check, and **revalidation of every changed line against the new hosted artifact**. No change to production model-facing bytes, locked tests, baseline or thresholds. No drain. | Claude | 0.75 | **released**: merged `f896afbe`, deployed `00430-skw` (verified); spend 0.178987 |
 | C | Read-only count of affected snapshots, with denominator and legacy/fallback/unknown/malformed classes. No clearing or re-extraction. | Claude (query); founder (run) | 0 | `census.sql` ready and validated; **access blocker**: no production DB access |
 | D | Hold #1034 and keep edgartools 5.58.0. Offline Ford comparison at both versions. No test weakening, blanket ignore or paid rerun. | Claude | within the 0.75 for D/I/K | offline comparison running |
 | E | After B: Unicode-fold crashes **and the silent wrong-scale fallback**, scalar and paired paths, with fold/ASCII controls and one mutation proof per boundary. | Claude | 0.75 | queued after B |
@@ -124,7 +124,7 @@ Under the founder's delegation, Codex decided items A–M on #1029. This session
 | H | Keep the manual-review exception, with a real independent review of each exact head. No credits bought. | — | 0 | standing |
 | I | Inventory the two alert identities, versions and reachability before any fix. | Claude | within the 0.75 for D/I/K | **access blocker**: no Dependabot alerts API from this session |
 | J | Agreed: E7 stays parked. Any future reuse needs an explicit custody review and a new binding. | — | 0 | held |
-| K | Add the sign-guard control in the existing owner, after the higher-risk fixes. Defer the PLTR optimization. | Claude | within the 0.75 for D/I/K | queued |
+| K | Add the sign-guard control in the existing owner, after the higher-risk fixes. Defer the PLTR optimization. | Claude | within the 0.75 for D/I/K | integrated `91dce7a1` on `f896afbe`; PR next |
 | L | Agreed: #1009 stays held. | — | 0 | held |
 | M | Record these decisions here; merge #1029 through normal review and checks; keep handover paths discoverable; no branch cleanup. | Claude | 0 | this entry |
 
@@ -874,3 +874,11 @@ Under the founder's delegation, Codex decided items A–M on #1029. This session
   - **D14 copilot-eval:** accepted 18/18, 0 errors, audit policy PASS, USD 0.005472.
   - **B total:** 0.178987 of 0.75.
   - **Next:** serial deploy verification, then K.
+- 10:42Z — **B deployed and verified.** CI [36995629966](https://github.com/neilmac91/EarningsNerd/actions/runs/36995629966): every job green, eval-baseline skipped on push.
+  - `applied=0 skipped=40`.
+  - Revision `earningsnerd-backend-00430-skw` at 100% traffic.
+  - Job images updated: pregenerate, the six configured jobs and backfill-facts.
+  - "Deployed f896afb and verified healthy".
+  - Independent `/health/detailed` at 10:41:42Z: 200 healthy (DB 6.05 ms, EDGAR circuit closed).
+  - **B is complete:** USD 0.178987 of 0.75.
+- 10:42Z — **K integrated** on `f896afbe` as `91dce7a1`. Gate: ruff and bandit clean, 5508 passed, 0 failed (B's 5507 plus the new case). Pushing it as a draft PR; there is no eval-baseline because only `backend/tests` changes.
