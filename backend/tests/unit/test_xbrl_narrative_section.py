@@ -569,13 +569,18 @@ _Q2_ROA = f"{_PARENT} assets, not annualized: 0.6% (prior at 2026-03-31: 0.4%)"
      _ANNUAL_ASSETS, _ANNUAL_ROA, "Return on Equity: 20.0% (period: 2024-12-31); prior: 20.0% (2023-12-31)"),
     ("10-K", _ANNUAL_NI, [("2024-12-31", 400.0), ("2023-12-31", 300.0)],
      _ANNUAL_ASSETS, _ANNUAL_ROA, "Return on Equity: 20.0% (period: 2024-12-31); prior: 20.0% (2023-12-31)"),
+    # Assets missing at the report date: ROA's point predates net income and abstains; ROE stays.
+    ("10-K", _ANNUAL_NI, [("2025-12-31", 500.0), ("2024-12-31", 400.0)],
+     [("2024-12-31", 1900.0), ("2023-12-31", 1800.0)],
+     f"{_PARENT} equity, not annualized: 20.0% (prior at 2024-12-31: 20.0%)",
+     "Return on Equity: 20.0% (period: 2025-12-31); prior: 20.0% (2024-12-31)"),
     ("10-Q", _Q2_NI, [("2026-06-30", 520.0), ("2026-03-31", 500.0), ("2025-12-31", 450.0)], _Q2_ASSETS,
      f"{_PARENT} equity, not annualized: 2.3% (prior at 2026-03-31: 1.5%); {_Q2_ROA}",
      "Return on Equity: 2.3% (period: 2026-06-30); prior: 1.5% (2026-03-31)"),
     ("10-Q", _Q2_NI, [("2026-06-30", -20.0), ("2026-03-31", 500.0), ("2025-12-31", 450.0)], _Q2_ASSETS,
      _Q2_ROA, "Return on Equity: 1.5% (period: 2026-03-31); basis:"),
-], ids=["10k-aligned", "10k-negative-equity", "10k-zero-equity", "10k-equity-missing", "10q-aligned",
-        "10q-negative-equity"])
+], ids=["10k-aligned", "10k-negative-equity", "10k-zero-equity", "10k-equity-missing", "10k-assets-missing",
+        "10q-aligned", "10q-negative-equity"])
 def test_return_ratio_not_at_net_income_period_abstains(form, net_income, equity, assets, line, grounding_roe):
     """A ratio whose current point predates net income's (the derivation skipped a non-positive or
     missing denominator) would render undated as this period's: that clause abstains. The aligned

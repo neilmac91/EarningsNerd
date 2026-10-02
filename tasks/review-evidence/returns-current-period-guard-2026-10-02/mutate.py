@@ -23,6 +23,7 @@ TESTS = ["tests/unit/test_xbrl_narrative_section.py", "tests/unit/test_structure
 MUTATIONS = {
     "M1_remove_guard": (GUARD, ""),
     "M2_invert_period_comparison": (GUARD, GUARD.replace(" not in (None, ni_period)", " in (None, ni_period)")),
+    "M3_guard_roe_only": (GUARD, GUARD.replace("if ni_period", 'if key == "return_on_equity" and ni_period')),
 }
 PROVIDER_KEYS = ("OPENAI_API_KEY", "DEEPSEEK_API_KEY", "OPENAI_BASE_URL")
 
