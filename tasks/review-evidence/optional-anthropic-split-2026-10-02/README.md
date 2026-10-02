@@ -5,7 +5,7 @@ It separates the optional API-credit judge SDK from aggregate
 [Dependabot #1050](https://github.com/neilmac91/EarningsNerd/pull/1050)
 (head `938c586110d8eec3f200d3bedb9adefb61560d14`). The weekly readout and runtime image do not
 install this file. Its `-c requirements.txt` constraint and docstring-parser 0.18.0 remain intact.
-Runtime SDK upgrades have a separate successor; Edgartools 5.59.1 remains held in
+Runtime SDK upgrades landed separately in [#1066](https://github.com/neilmac91/EarningsNerd/pull/1066); Edgartools 5.59.1 remains held in
 [issue #1063](https://github.com/neilmac91/EarningsNerd/issues/1063).
 
 Original base: `5525a91db3de9ce554b6015ed51d6817666c7bc3`; current main
@@ -65,9 +65,7 @@ The full gate uses synthetic credentials, fresh bytecode cache and four separate
 PostgreSQL15 concurrency-lane databases. No new assertion, contract or gate is introduced;
 no redundant version-pin test or mutation proof was added.
 
-Independent exact-head review and hosted required checks remain release requirements. If the
-runtime successor lands first, rerun required integration checks after updating this branch's base; the
-combined package environment is already checked above. This is offline compatibility evidence, not live Anthropic quality/fidelity acceptance.
+Independent exact-head review and hosted required checks remain release requirements. The runtime successor has now landed; the combined source-tree integration checks are recorded below. This is offline compatibility evidence, not live Anthropic quality/fidelity acceptance.
 No provider call, workflow dispatch or production action occurred in this preparation.
 Although this dependency is excluded from the runtime image, this backend-file merge still
 triggers deployment and requires the usual serialized migration and health verification.
@@ -81,3 +79,31 @@ library directory, so WeasyPrint could not load libgobject. Restoring
 **2 passed**. This probe used the runtime successor after integrating #1065; the same native
 libraries serve both isolated environments. No dependency, application or test change was used
 to bypass the failure. The complete gates passed with the restored path on the new base; see the final receipt above.
+
+## Integration after runtime #1066 — 3 October 2026
+
+Merged main `432fa5dfefa910b84071d812210dfd182bbd2855` into this branch at `de8caeaf0146569c35cad0a4a6716ead082b357d`.
+The only backend delta from that main commit is Anthropic 1.8.0 → 1.9.0 in
+`requirements-eval.txt`; application, eval consumer and test sources (including locked contracts)
+are byte-identical. The initial independent-base receipts above remain preserved.
+
+The [combined installed environment](integrated-freeze.txt) matches all pinned entries in
+runtime, development and optional requirements. [Version verification](integrated-environment.json)
+confirms OpenAI 3.20.0, PyJWT 2.15.1, Sentry 2.71.0, Anthropic 1.9.0 and retained Edgartools 5.58.0.
+[Pip check](integrated-pip-check.txt) reports no broken requirements. The
+[fresh real-SDK application check](integrated-anthropic-shapes.txt) passes on the merged source
+with real sockets blocked: `ANTHROPIC_SHAPES_OK 1.9.0 app`.
+
+The [full backend gate](integrated-full-gate.txt) on that committed source and combined
+environment passes: **ruff clean; bandit no medium/high issues; 5604 passed,
+2 deselected, 0 skipped**. [Status](integrated-full-gate-status.json) records all
+three command exits. All four PostgreSQL concurrency lanes were enabled. A first gate startup
+found a missing Ruff executable in the copied environment; the
+[exact pinned dev-tool restoration](combined-dev-tool-restore.txt) and
+[public artifact receipts](combined-dev-tool-artifacts.json) preserve that correction.
+No application or test change bypassed the failed startup. Only these evidence documents follow
+the tested commit; the tracked evidence-link gate is rerun after committing them.
+
+No provider call or production operation occurred during this integration. The release owner
+retains exact-head review, required hosted checks, and serialized deployment/migration/health
+verification after the preceding backend deployment is confirmed.
