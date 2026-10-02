@@ -21,6 +21,64 @@
 - [x] The §4 returns line omits a ratio whose current point is not net income's current period (zero, negative or missing equity at the report date promoted an older ROE point that read as the filing's own); an aligned ROA still renders. Render-only: grounding identical in 70 of 70 hosted-cohort replays and 6 of 6 probes, 0 of 64 cohort lines change, stamp `u` schedules no regeneration, and there is no drain of the 47 census filings. [Evidence](review-evidence/returns-current-period-guard-2026-10-02/README.md).
 - [ ] Optional, zero spend: run the read-only `class7_snapshot_check.sql` for the one class-7 filing with a summary; any clear/regenerate of it is a separate founder decision.
 
+## 2026-10-02 — design-v3 follow-up: the remaining hand-rolled dialogs (frontend)
+
+- Stacked on lockup [#1048](https://github.com/neilmac91/EarningsNerd/pull/1048) (base `claude/funny-goodall-l4gno8-lockup`), branch `claude/epic-ritchie-0q8svz`. It closes the follow-up queued below: "AlertBell and the CookieConsent settings panel are hand-rolled dialogs the allowlist cannot see, and `useSheetFocusTrap` still keys its effect on `onClose`."
+- AlertBell's `BellPopover` is a **non-modal popover, not a dialog**. Three independent design lenses (accessibility, minimal-diff, design-system) reached that verdict separately, and a judge confirmed it. It explains one control, is anchored to it and dismisses lightly. Nothing is made inert, Tab is not trapped and the page does not lock. `ui/Modal` cannot serve it: it portals to `<body>`, and Chromium 1194 measurements show that a body portal opened under DayDetailDialog's `showModal()` is inert and painted beneath the top layer. Modal's Escape also uses stopPropagation only, so it would close the native dialog too.
+  - It is now a `role="group"` named by its title, on `z-overlay`. The async error is announced with `role="alert"`.
+  - Keyboard: armed once per popover, with `onClose` read through a ref. Focus moves in on open unless the user already moved it elsewhere. Escape is handled in window capture with preventDefault. Tab out resumes after the bell. Scroll and resize close it. Every close returns focus to the bell unless the user moved on.
+  - The transparent click-catcher stays, so an outside press closes one layer, as Escape does.
+  - While a native `<dialog>` is open, it portals into that dialog.
+  - Recorded in the AlertBell header, the DESIGN_SYSTEM §4 Popover entry and `lessons/frontend-native-modal-dialog-makes-body-portals-inert.md`.
+- The CookieConsent settings panel is now on `ui/Modal`. The consent handlers and the `cookieConsentChanged` event are unchanged and pinned by `CookieConsent.spec.tsx`. The category checkboxes are now named by their headings.
+- `useSheetFocusTrap` reads `onClose` through a ref and ignores keys from another `[aria-modal="true"]` layer.
+- `dialogAllowlist.spec.ts` is now a TypeScript-AST gate.
+  - It detects a dialog/alertdialog role (literal, `role={…}` value analysis, `role:` prop, `setAttribute`, `.role =`), a native `<dialog>`, and the `z-modal`/`bg-overlay` layer tokens.
+  - Pins are per-kind site counts with reasons, shrink-only. DayDetailDialog is explicitly allowlisted as native.
+  - It also does an import walk proving nothing DayDetailDialog renders imports `ui/Modal`.
+  - The old substring spec passes on the base tree with both hand-rolled dialogs still present. The new spec fails on each of them.
+- Verification: the full frontend gate, plus Playwright keyboard passes on a production build in both themes at 1440 and 375, with every API stubbed by `page.route`:
+  - CookieConsent: 52/52.
+  - BellPopover: 38/38, including inside DayDetailDialog and across a real parent re-render.
+  - The same BellPopover pass on the original code fails 24/38: invisible and inert inside the day dialog, focus jumping on re-render, and focus lost to `<body>` on Not now, Dismiss and outside click.
+- [ ] Follow-ups, all pre-existing:
+  - A focused calendar bell is natively `disabled` while its toggle is pending, so Chromium blurs it to `<body>` on every toggle; focus does not come back. Fix: `aria-disabled` plus an early return.
+  - After CookieConsent's settings close, focus lands on `<body>`: `handleOpenSettings` hides the banner, so the opener is gone. Keeping the banner mounted under the dialog (Cancel returns to it) is a product call.
+  - `ui/Modal`'s Escape calls stopPropagation only. That is harmless while the gate keeps Modal out of DayDetailDialog; add preventDefault if Modal ever gains a portal host.
+  - The async-error popover anchors at the click-time rect, which goes stale if the page scrolled during the request. Re-read the trigger's rect at open.
+  - Add sr-only ticker context to the async error title ("Alert not enabled for AAPL"); copy change, outside this brief.
+- [ ] Upstream DS-source sync: `Modal.tsx`'s header comment now lists CookieConsent as migrated and says DayDetailDialog stays native.
+
+## 2026-10-02 — design-v3 remediation series (frontend)
+
+- Seven stacked PRs implement `MIGRATION-v3.md` §f in order, each commit scoped so it reverts cleanly on its PR head: quick-wins [#1042](https://github.com/neilmac91/EarningsNerd/pull/1042) → modal [#1043](https://github.com/neilmac91/EarningsNerd/pull/1043) (one consumer per commit) → type-ramp [#1044](https://github.com/neilmac91/EarningsNerd/pull/1044) → dashboard [#1045](https://github.com/neilmac91/EarningsNerd/pull/1045) → summary-tables [#1046](https://github.com/neilmac91/EarningsNerd/pull/1046) → guardrails [#1047](https://github.com/neilmac91/EarningsNerd/pull/1047) → lockup [#1048](https://github.com/neilmac91/EarningsNerd/pull/1048). PR 2 `ds-sync` belongs to the DS source project, not this repo, and is still pending (below). Each PR body records its deviations from the pack.
+- Verification for each branch, in an isolated worktree: lint, `tsc -p tsconfig.ci.json`, vitest, build, and Playwright in the CI env with no backend. Also the §12 greps, screenshots at 1440 and 375 in both themes on the six named routes, a Playwright keyboard pass on every migrated dialog, and computed contrast. Then a pre-merge review: four lenses per PR (correctness, brief fidelity, gates and tests, design system), two independent refuters for each blocker or should-fix finding, and a stack-completeness audit. Every finding that survived both refuters was fixed on its own branch before the push.
+- New gates, each with a failing-then-restored mutation proof: `Modal.spec.tsx`, `dialogAllowlist.spec.ts`, `designTokenParity.spec.ts` (now also covering manifest/layout theme colors), `wordmarkSingleSource.spec.ts`, `designExportRetired.spec.ts`, `SummaryBlocks.spec.tsx`'s whole-figure column case, and the `no-restricted-syntax` design rules in `eslint.config.mjs` (template literals, `window.alert` and arbitrary `tracking-[…]` included).
+- The pack's Modal had three defects that the verification and review caught. First, the trap re-armed on every parent render that passed an inline `onClose`. Second, opened over the mobile copilot sheet, Tab left the dialog and one Escape closed both. Third, found by a Codex task on #1043: a lower dialog closing first unlocked the page and pulled focus from under the dialog above. All three are fixed in the primitive, each with a regression case, and recorded in `lessons/frontend-dialog-trap-arms-once-per-open.md` and `lessons/frontend-top-dialog-owns-the-keyboard.md`.
+- [ ] Founder: merge #1042 → #1048 in order. After each squash merge, the next branch is rebased onto main and retargeted. Check both themes on each Vercel preview; previews are SSO-gated, so this check could not run from the agent container.
+- [ ] Upstream DS-source sync (finding DS-01, P0). Apply `tasks/upstream-sync.md` §1–15 in the DS source project, regenerate `_ds_bundle.js`, republish, and then **link** the package (never re-vendor `_ds`). The sync must also carry back what diverged here:
+  - `tailwind.config.js`: the pack copy is older than the repo. Its stale `brand.light` alias and its trimmed body-font comment were not taken.
+  - `Modal.tsx`:
+    - the `icon ? 'pt-2' : undefined` typing fix;
+    - the `onCloseRef` arm-once trap;
+    - the window-capture listener with the top-dialog stack, which also owns the scroll lock and focus return;
+    - the `ModalHeader` `tone` prop.
+  - Rewordings of comment literals that the new gates count, in `ui/index.ts`, `UpgradeModal.tsx` and `Badge.tsx`. Also the `designTokenParity.spec.ts` unused eslint-disable, and its two OS-facing mirrors.
+  - b11 snippet: the numeric-column test needs a whole-figure check; the snippet's own test flagged prose on 32 of 98 baseline segment tables.
+  - Calendar copy: the pack's `DayDetailDialog` text differs from the shipped "Market closed —" copy.
+  - `DESIGN_SYSTEM.md`: the repo copy is canonical, and the pack's copy has diverged.
+  - The "Current usage" contrast figure: MIGRATION cites 5.6:1, but the computed value is 5.29:1 on `info.light/10` over cream. Both clear AA.
+  - The parity spec checks membership only (a gain/loss swap, rgba or easing drift passes).
+  - Focus-ring tokens are below the 3:1 floor for focus indicators: `shadow-ring-brand` is about 1.9:1 on cream, and `shadow-ring-error` is about 1.3:1 on the dark panel (the Revoke dialog's initial focus). These are system-token decisions.
+  - Modal: the panel has no max-height or scroll, so a dialog taller than the viewport is clipped. The pack's geometry is kept here; the tallest dialogs (ResendShareModal, FeedbackWidget) have not been measured at phone heights.
+- [ ] Publish an archive (repo or release asset) for the removed `frontend/design/landing-redesign` export. Until then, `RATIONALE.md` points at commit `02628e5`.
+- [ ] Follow-ups queued as separate tasks, all pre-existing on main:
+  - `/dashboard` overflows to 457px at 375px wide, and its `SecondaryHeader` wraps when the user's name arrives, which moves the cold-load skeleton.
+  - The invite row's Resend button is natively disabled for its 30 s cooldown, so focus cannot return to it when ResendShareModal closes.
+  - ~~AlertBell and the CookieConsent settings panel are hand-rolled dialogs the allowlist cannot see, and `useSheetFocusTrap` still keys its effect on `onClose`.~~ Done in the follow-up above.
+  - `lib/` is missing from Tailwind's `content` globs, so the `financialTone` chip borders and the flat-chip tint are never generated.
+  - Also noted, not queued: InsiderActivityPanel's gain/loss labels use the 600-level chip colours as text (3.00 and 3.95:1).
+
 ## 2026-10-01 — bounded SDK transport-attempt evidence
 
 - Characterized the real pinned edgartools 5.58.0 accession resolver with invented responses and no-network guards: recent lookup 1 attempt / 1 SDK grant; two-shard history 3/3; transport-error and HTTP429 cases 2/2 each, both propagating without retry. No application limiter wait entries were observed in these cases.
@@ -3053,7 +3111,7 @@ user's five-action approval was directly available to the approval reviewer. It 
 exec session `95488` completed with exit 0 on this worktree. Independently read log
 `/private/tmp/earningsnerd-e10b-root-approved-backend.log` records:
 ```text
-=============== 2560 passed, 2 deselected, 23 warnings in 47.35s ========
+=============== 2560 passed, 2 deselected, 23 warnings in 47.35s =
 ```
 Both Stripe and usage PostgreSQL URLs were enabled against the existing local cluster with
 UUID disposable schemas. Root used the pinned Python directly with the required DYLD path.
