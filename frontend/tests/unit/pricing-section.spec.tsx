@@ -1,18 +1,13 @@
 import { fireEvent, render, screen, within } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { PRICE_VARIANTS } from '@/app/pricing/prices'
 import PricingSection from '@/features/marketing/components/PricingSection'
 import { ACCESS_COPY } from '@/features/marketing/lib/access'
 
 /**
  * The landing pricing section shows the SAME numbers as the pricing page (one price source, one
- * PostHog arm), never the design's placeholders; the toggle is an accessible radio group; and the
+ * approved offer), never the design's placeholders; the toggle is an accessible radio group; and the
  * beta line, account CTA and trial copy each follow their one deciding source.
  */
-
-// The pricing A/B arm, per test. Default (undefined) = the $39 control, as on the pricing page.
-const mockVariant = vi.hoisted(() => ({ value: undefined as unknown }))
-vi.mock('posthog-js/react', () => ({ useFeatureFlagVariantKey: () => mockVariant.value }))
 
 // Live mutable flag so a test can flip ENABLE_PRO_TRIAL without re-importing the component.
 const flags = vi.hoisted(() => ({ ENABLE_PRO_TRIAL: false }))
@@ -35,23 +30,20 @@ const renderSection = (props: Partial<React.ComponentProps<typeof PricingSection
 
 describe('PricingSection', () => {
   beforeEach(() => {
-    mockVariant.value = undefined
     flags.ENABLE_PRO_TRIAL = false
   })
 
-  it('defaults to monthly at the control price and shows the annual per-month equivalent when selected', () => {
+  it('defaults to monthly and shows the full annual charge and saving when selected', () => {
     renderSection()
-    const { monthlyDisplay, yearlyDisplay } = PRICE_VARIANTS.control
 
-    expect(screen.getByText(monthlyDisplay)).toBeInTheDocument()
-    expect(screen.getByText(`Billed monthly. Or ${yearlyDisplay} a year, 2 months free.`)).toBeInTheDocument()
+    expect(screen.getByText('$19')).toBeInTheDocument()
+    expect(screen.getByText('Billed monthly. Or $190 a year, with two months free.')).toBeInTheDocument()
 
     fireEvent.click(screen.getByRole('radio', { name: /annual/i }))
-    // $390 / 12, formatted like the pricing page.
-    expect(screen.getByText('$32.50')).toBeInTheDocument()
-    expect(screen.queryByText(monthlyDisplay)).not.toBeInTheDocument()
+    expect(screen.getByText('$15.83')).toBeInTheDocument()
+    expect(screen.queryByText('$19')).not.toBeInTheDocument()
     expect(
-      screen.getByText(`Billed annually at ${yearlyDisplay}. Two months free against monthly.`),
+      screen.getByText('Billed annually at $190. Two months free, saving $38 a year (17%).'),
     ).toBeInTheDocument()
   })
 
@@ -127,20 +119,5 @@ describe('PricingSection', () => {
     expect(screen.getByRole('link', { name: 'Upgrade to Pro' })).toHaveAttribute('href', '/pricing')
     expect(screen.queryByRole('link', { name: 'Start 7-day free trial' })).not.toBeInTheDocument()
     expect(screen.queryByText(TRIAL_LINE)).not.toBeInTheDocument()
-  })
-
-  it('lowers the displayed price on the price_29 arm, in both billing periods', () => {
-    mockVariant.value = 'price_29'
-    renderSection()
-    const { monthlyDisplay, yearlyDisplay } = PRICE_VARIANTS.price_29
-
-    expect(screen.getByText(monthlyDisplay)).toBeInTheDocument()
-    expect(screen.queryByText(PRICE_VARIANTS.control.monthlyDisplay)).not.toBeInTheDocument()
-    expect(screen.getByText(`Billed monthly. Or ${yearlyDisplay} a year, 2 months free.`)).toBeInTheDocument()
-
-    fireEvent.click(screen.getByRole('radio', { name: /annual/i }))
-    // $290 / 12.
-    expect(screen.getByText('$24.17')).toBeInTheDocument()
-    expect(screen.queryByText('$32.50')).not.toBeInTheDocument()
   })
 })

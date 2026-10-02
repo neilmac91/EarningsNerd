@@ -1,3 +1,10 @@
+# September 28 — approved Pro offer, activation held
+
+- [x] Implement the final approved $19/month / $190/year offer from one shared frontend source; retire the live price experiment and show two months free, $38 saved and 17% rounded. Preserve account, beta and trial semantics. The unpublished $23 candidate is superseded.
+- [x] Revised-offer proof on committed `c72f0caa`: JSON-LD 19→29 failed and exact restoration passed. Full frontend gate on `1f3b910e` passed lint, TypeScript, 114 Vitest files / 652 tests (zero skips), and Next build. Built homepage/pricing HTML and JSON-LD show $19/$190 and two months free. Retained final receipts are separate from the historical $23-candidate checks.
+- [x] Prepare a read-only operator price-agreement check against shared `PRO_PRICING`, effective binding IDs and supplied live catalog readbacks. Missing evidence or inactive staged prices fail; no live readback, activation, checkout or customer change is performed by the check.
+- [ ] Keep activation held for quality and controlled-beta readiness. Follow the backend-first configuration and safe rollback sequence in [the approved offer checklist](../docs/PRICING_OFFER.md); inactive catalog preparation is not activation.
+
 ## 2026-10-02 — returns current-period guard (`summary-2026-09-u`; item-B follow-up)
 
 - [x] The §4 returns line omits a ratio whose current point is not net income's current period (zero, negative or missing equity at the report date promoted an older ROE point that read as the filing's own); an aligned ROA still renders. Render-only: grounding identical in 70 of 70 hosted-cohort replays and 6 of 6 probes, 0 of 64 cohort lines change, stamp `u` schedules no regeneration, and there is no drain of the 47 census filings. [Evidence](review-evidence/returns-current-period-guard-2026-10-02/README.md).
@@ -62,13 +69,13 @@
 # September 28 — trial billing routing, separate from held pricing activation
 
 - [x] Preserve the selected monthly/yearly cycle from homepage and trial paywall through pricing; retain the existing server-rendered pricing boundary and record the resolved initial cycle once.
-- [x] Preserve guest cycle choice through registration and the existing email-login redirect stash; keep backend eligibility, active subscriptions, beta offers, prices and the pricing experiment unchanged. OAuth callbacks still return to the homepage.
+- [x] Preserve guest cycle choice through registration and the existing email-login redirect stash; keep backend eligibility, active subscriptions and beta offers unchanged. The routing tranche preserved prices and the experiment; the combined offer tranche retires the display experiment. OAuth callbacks still return to the homepage.
 - [x] Resolve the reviewed stale-stash defect: accepted email login consumes the signup destination even when an explicit redirect wins; a later login cannot replay that completed return. Failed login retains the pending destination for retry.
 - [x] Preserve the beta offer's neutral pricing entry until account eligibility resolves; verify the actual homepage link in guest pricing, alongside the selected monthly paid-offer trial control. This corrects presentation without changing billing or beta entitlements.
 - [ ] Complete committed-state mutation proofs, full frontend gates and independent review before push; verify the preview in both themes before release.
 - [ ] The separately approved $19/month and $190/year offer remains held until accepted quality readiness and coordinated price activation; this routing fix does not activate it or migrate any subscriber.
 
-# September 28 — summary request evidence
+## September 28 — summary request evidence
 
 - [ ] Deliver one consent-gated request lifecycle across cached/shared/generated summaries and automatic/auth retries; retain server account/request identity, terminal unknowns and legacy semantics.
 - [ ] Verify new adverse controls, mutation proofs, full backend/frontend gates and unchanged locked contracts; review exact head before a bounded metered push/release.

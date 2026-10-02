@@ -20,7 +20,8 @@
     "clean:all": "rimraf .next node_modules/.cache",
     "dev:clean": "npm run clean && npm run dev",
     "deploy": "npx vercel --prod",
-    "brand:assets": "node scripts/generate-brand-assets.mjs"
+    "brand:assets": "node scripts/generate-brand-assets.mjs",
+    "check:pricing": "node --experimental-strip-types scripts/check-pricing-agreement.mjs"
   },
   "dependencies": {
     "@phosphor-icons/react": "^2.1.10",
