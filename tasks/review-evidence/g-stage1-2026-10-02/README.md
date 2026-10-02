@@ -19,6 +19,17 @@ The four runs were interleaved A, C, A, C and finished within 20 minutes, all of
 
 Opening #1053 also ran one `eval-baseline` (D18, USD 0.177645), because the arm changes `backend/app`. It is not part of the measurement. **G spent USD 0.200825 in total, against a 1.00 reservation.**
 
+**Correction, 2026-10-02.** The costs above sum usage from service events only, so they miss the provider calls behind withheld rows. Counting every provider call in each `runner.log` gives the following (`../g-stage2-2026-10-02/copilot_cost_runnerlog.txt`):
+
+| Run | Cost (USD) |
+| --- | --- |
+| A1 | 0.005853 |
+| C1 | 0.007619 |
+| A2 | 0.005330 |
+| C2 | 0.007807 |
+
+Stage 1 totals **USD 0.204254**. The 1.00 ceiling is unaffected.
+
 ## Retained inputs
 
 The raw `copilot-eval.json` files are about 10 MB each and are not committed. Each run's zip is a GitHub artifact, and its digest equals the sha256 above:
