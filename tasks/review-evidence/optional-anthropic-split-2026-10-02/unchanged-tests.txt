@@ -1,3 +1,4 @@
+base_head=5525a91db3de9ce554b6015ed51d6817666c7bc3
 source_head=73b218e3ef24c2edad834601b7ecc18e0a4bed10
 changed_source_files=backend/requirements-eval.txt
 backend/tests diff against base: empty (all existing tests byte-identical)

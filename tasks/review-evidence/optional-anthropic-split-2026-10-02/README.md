@@ -8,7 +8,8 @@ install this file. Its `-c requirements.txt` constraint and docstring-parser 0.1
 Runtime SDK upgrades have a separate successor; Edgartools 5.59.1 remains held in
 [issue #1063](https://github.com/neilmac91/EarningsNerd/issues/1063).
 
-Base: `5525a91db3de9ce554b6015ed51d6817666c7bc3`. Dependency source commit:
+Original base: `5525a91db3de9ce554b6015ed51d6817666c7bc3`; current main
+`153cfc4612b790713e1aebbec9174479c373468f` was subsequently merged before the final full gate. Dependency source commit:
 `73b218e3ef24c2edad834601b7ecc18e0a4bed10`. Evidence-only additions follow that commit.
 Application, prompts, model choices, contracts, workflows, budgets and baseline files are unchanged.
 
@@ -48,8 +49,10 @@ The [optional package vulnerability audit](pip-audit.txt) reports no known vulne
 
 ## Verification and release boundary
 
-The full backend gate is being completed against the committed dependency and evidence files.
-Its completed result follows in the next evidence update.
+[Initial full gate](initial-evidence-packaging-failure.txt): 5585 passed, 1 evidence-link failure,
+2 deselected, 0 skipped. The guard correctly rejected new, not-yet-tracked receipts.
+All evidence files are now tracked. The full gate is rerun after integrating current main;
+its completed result follows in the next evidence update. No application assertion failed.
 
 The full gate uses synthetic credentials, fresh bytecode cache and four separate disposable
 PostgreSQL15 concurrency-lane databases. No new assertion, contract or gate is introduced;
