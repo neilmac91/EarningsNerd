@@ -1,0 +1,36 @@
+{
+ "totals": {
+  "artifacts": 15,
+  "scored_rows": 262,
+  "withheld_rows": 8,
+  "text_citations": 25,
+  "xbrl_citations": 432,
+  "old_unverified": 0,
+  "new_unverified": 0,
+  "product_unverified": 0,
+  "verdict_changes": 0,
+  "transitions": {
+   "old True -> new True (product True)": 25
+  },
+  "withheld_declared_text_citations": 7,
+  "withheld_declared_old_new_diffs": 0,
+  "withheld_declared_new_product_diffs": 0,
+  "withheld_parser_rejections": 1
+ },
+ "changes": 0,
+ "product_disagreements": 0,
+ "reproduction_mismatches": 0,
+ "label_scan": {
+  "structured_occurrences": 914,
+  "structured_distinct": 10,
+  "withheld_declared_occurrences": 7,
+  "withheld_declared_distinct": 2,
+  "distinct_with_main_marks": [],
+  "distinct_with_f_marks": [],
+  "distinct_quoted_per_branch_predicate": [],
+  "non_ascii_chars": [
+   "U+00B7",
+   "U+2014"
+  ]
+ }
+}
