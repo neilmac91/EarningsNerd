@@ -62,11 +62,13 @@ shared surface (it caused white-on-cream and dark-on-cream bugs across the app).
   **body sans**, but FILLS its pane with no measure cap (it renders inside a card/pane, where any
   capped measure reads as dead space — field-tested twice) — its app consumer is
   the AI-generated summary, and AI output never renders in the filing's voice. Ask output stays mono.
-  **Justified summary body:** `.markdown-body p` sets `text-align: justify` + `hyphens: auto` — an
-  app-wide, founder-requested decision (rule 11) so the AI summary reads as a finished document.
-  Caveat: CSS justification opens uneven word-spacing/rivers in a narrow measure; `hyphens: auto`
-  (with `<html lang="en">`) plus the pane's wide, uncapped measure keep them small. Scoped to
-  `.markdown-body` only — the real filing reader (`.filing-reader`) stays ragged-right. One-line revert.
+  **Justified summary body:** at ≥sm (640px) only, `.markdown-body p` and the structured summary's
+  paragraph blocks (`SummaryBlocks`, `sm:text-justify sm:[hyphens:auto]`) set `text-align: justify`
+  + `hyphens: auto` — an app-wide, founder-requested decision (rule 11) so the AI summary reads as
+  a finished document. Below 640px they stay ragged-right (v3 Q3): CSS justification opens uneven
+  word-spacing/rivers in a narrow measure, and even `hyphens: auto` (with `<html lang="en">`) cannot
+  hold them down in a phone-width pane. Scoped to the summary only — the real filing reader
+  (`.filing-reader`) stays ragged-right. One-block revert.
   **Links in both surfaces:** Tailwind preflight strips anchor color AND underline, so a shared
   globals rule restores them — `:is(.markdown-body, .filing-reader) a` =
   `text-brand-strong underline underline-offset-4 dark:text-brand-strong-dark`.
