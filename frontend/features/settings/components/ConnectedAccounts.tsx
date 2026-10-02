@@ -4,7 +4,7 @@ import { queryKeys } from '@/lib/queryKeys'
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useRouter } from 'next/navigation'
-import { CircleNotchIcon, KeyIcon, LinkIcon, SignOutIcon, WarningCircleIcon } from '@/lib/icons'
+import { KeyIcon, LinkIcon, SignOutIcon, WarningCircleIcon } from '@/lib/icons'
 import {
   getConnections,
   unlinkProvider,
@@ -37,7 +37,9 @@ export default function ConnectedAccounts() {
     mutationFn: (provider: string) => unlinkProvider(provider),
     onSuccess: () => {
       setError('')
-      queryClient.invalidateQueries({ queryKey: queryKeys.authConnections() })
+      // Returned so the unlink stays pending until the refetch drops its row: the focused button
+      // must not turn active again for a provider that is already gone.
+      return queryClient.invalidateQueries({ queryKey: queryKeys.authConnections() })
     },
     onError: (err: unknown) => {
       setError(
@@ -115,12 +117,20 @@ export default function ConnectedAccounts() {
                     </span>
                   )}
                 </div>
+                {/* aria-disabled + an early return, never native `disabled` — a focused button
+                    that turns disabled is blurred to <body> in Chromium. That covers `pending` (its
+                    own request) and `isLast`, which a sibling row's unlink can flip on while this
+                    button holds focus. */}
                 <button
                   type="button"
-                  onClick={() => unlinkMutation.mutate(p.provider)}
-                  disabled={isLast || pending}
+                  onClick={() => {
+                    if (isLast || pending) return
+                    unlinkMutation.mutate(p.provider)
+                  }}
+                  aria-disabled={isLast || pending || undefined}
+                  aria-busy={pending || undefined}
                   title={isLast ? 'Set a password first so you keep a way to sign in' : undefined}
-                  className="text-sm font-medium text-error-light underline-offset-4 hover:underline dark:text-error-dark disabled:opacity-40 disabled:cursor-not-allowed disabled:no-underline"
+                  className="text-sm font-medium text-error-light underline-offset-4 hover:underline dark:text-error-dark aria-disabled:opacity-40 aria-disabled:cursor-not-allowed aria-disabled:no-underline"
                 >
                   {pending ? 'Unlinking…' : 'Unlink'}
                 </button>
@@ -143,16 +153,14 @@ export default function ConnectedAccounts() {
 
           {/* Sign out everywhere */}
           <div className="pt-2">
+            {/* `loading` (spinner in the icon slot) rather than `disabled`, so the focused button
+                keeps focus while the request is in flight. */}
             <Button
               variant="secondary"
               onClick={() => logoutAllMutation.mutate()}
-              disabled={logoutAllMutation.isPending}
+              loading={logoutAllMutation.isPending}
+              leftIcon={<SignOutIcon className="h-4 w-4" />}
             >
-              {logoutAllMutation.isPending ? (
-                <CircleNotchIcon className="h-4 w-4 animate-spin" />
-              ) : (
-                <SignOutIcon className="h-4 w-4" />
-              )}
               Sign out of all devices
             </Button>
           </div>

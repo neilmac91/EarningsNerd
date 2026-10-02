@@ -60,26 +60,26 @@ const ALLOW: Record<string, { sites: string[]; reason: string }> = {
   'app/admin/invites/page.tsx': { sites: ['sending', 'sending', 'sending', 'sending', '!canSend'], reason: FOLLOW_UP },
   'app/check-email/page.tsx': { sites: ['resendLoading || cooldown > 0 || !email'], reason: FOLLOW_UP },
   'app/company/[ticker]/page-client.tsx': { sites: ['watchlistMutation.isPending', 'filingsRefetching'], reason: FOLLOW_UP },
-  'app/dashboard/settings/page.tsx': { sites: ['deleteMutation.isPending', 'deleteMutation.isPending'], reason: FOLLOW_UP },
+  'app/dashboard/settings/page.tsx': {
+    sites: ['deleteMutation.isPending', 'deleteMutation.isPending'],
+    reason:
+      'The delete-confirm field and Cancel stay disabled while deleting: only Confirm (`loading`) starts the ' +
+      'delete, with no form, so focus is on Confirm, never on them, when they flip.',
+  },
   'features/admin/components/FeedbackRow.tsx': { sites: ['statusMutation.isPending'], reason: FOLLOW_UP },
   'features/auth/components/VerificationBanner.tsx': { sites: ['loading'], reason: FOLLOW_UP },
   'features/contact/components/ContactForm.tsx': { sites: ['isSubmitting', 'isSubmitting', 'isSubmitting', 'isSubmitting', 'isSubmitting || (TURNSTILE_ENABLED && !turnstileToken)'], reason: FOLLOW_UP },
   'features/dashboard/components/YourCompanies.tsx': { sites: ['removeMutation.isPending'], reason: FOLLOW_UP },
   'features/feedback/components/FeedbackWidget.tsx': { sites: ['submitting || message.trim().length < 5'], reason: FOLLOW_UP },
   'features/filings/components/copilot/AskCopilotRail.tsx': { sites: ['isStreaming || !canAsk'], reason: FOLLOW_UP },
-  'features/settings/components/BillingPanel.tsx': { sites: ['portal.isPending'], reason: FOLLOW_UP },
-  'features/settings/components/ChangePasswordForm.tsx': { sites: ['mutation.isPending || !next || !confirm || (hasPassword && !current)'], reason: FOLLOW_UP },
-  'features/settings/components/ConnectedAccounts.tsx': { sites: ['isLast || pending', 'logoutAllMutation.isPending'], reason: FOLLOW_UP },
-  'features/settings/components/NotificationPreferencesForm.tsx': { sites: ['mutation.isPending'], reason: FOLLOW_UP },
-  'features/settings/components/ProfileForm.tsx': { sites: ['!dirty || mutation.isPending'], reason: FOLLOW_UP },
   'features/summaries/components/SummaryActionsBar.tsx': { sites: ['saveMutation.isPending'], reason: FOLLOW_UP },
   'features/watchlist/components/PopularTickerChips.tsx': { sites: ['addMutation.isPending'], reason: FOLLOW_UP },
   'features/watchlist/components/WatchlistAddSearch.tsx': { sites: ['addMutation.isPending'], reason: FOLLOW_UP },
 }
 
 /** Frozen ceilings on files and on pinned sites: lower them as sites are converted, never raise them. */
-const MAX_ALLOWLIST_SIZE = 21
-const MAX_PINNED_SITES = 32
+const MAX_ALLOWLIST_SIZE = 16
+const MAX_PINNED_SITES = 26
 
 const frontendRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 const ROOTS = ['app', 'components', 'features']
