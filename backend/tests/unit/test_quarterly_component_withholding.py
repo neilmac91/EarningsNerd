@@ -518,6 +518,8 @@ def test_conflicting_alias_does_not_hide_an_independent_claim(alternate, authore
     (CAUSE_CLAIM, "mismatched_value_tagged"),
     # The tagged gain equals current other income, so only the claimed sign differs.
     (CAUSE_CLAIM.replace("realized gain", "realized loss"), "opposite_sign_tagged"),
+    # Same sign-only isolation for the aggregate (component-breakdown) branch.
+    (CLAIM.replace("realized gain", "realized loss"), "opposite_sign_tagged"),
     (CAUSE_CLAIM, "oversized_complete"), (CAUSE_CLAIM, "fragment"),
     # ASCII case variants still explain; a Unicode case-folded unit is no sentence and never a crash.
     (CAUSE_CLAIM, "uppercase_complete"), (CAUSE_CLAIM, "unicode_unit_complete"),
@@ -587,7 +589,8 @@ async def test_same_authored_grammar_is_preserved_when_source_separately_quantif
     direct = copy.deepcopy(supplied["sections"])
     assert bind_statement_relationship(direct, source) is (not preserved)
     if not preserved:
-        assert direct["earnings_quality"][OWNED_FIELD]["paragraphs"] == [CAUSE_LIMITATION]
+        limitation = COMPONENT_LIMITATION if claim.endswith(SUFFIX) else CAUSE_LIMITATION
+        assert direct["earnings_quality"][OWNED_FIELD]["paragraphs"] == [limitation]
         return
     assert direct["earnings_quality"]["operating_vs_one_time"] == claim
     service = OpenAIService()
