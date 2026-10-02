@@ -39,4 +39,4 @@ The self-test (`selftest-b424e8d9.txt`, exit 0) covers six cases:
 
 Suppose a measurement row is withheld and its replay needs an unrecorded repair lookup. That row is UNEXPLAINED, so F1 fails, even if the response would also fail a quotation. That is the conservative reading of "missing reconstruction evidence fails the criterion". Both round-8 reviews accepted it as erring only toward failing the criterion.
 
-The production code at the release head `3b0a74fc` is AST-identical to `b424e8d9`; the one commit between them changes only a comment and the RUNBOOK. These results therefore stand for the release head.
+The production code at the release head `662f931d` is AST-identical to `b424e8d9`; the one commit between them changes only comments and the RUNBOOK. These results therefore stand for the release head.
