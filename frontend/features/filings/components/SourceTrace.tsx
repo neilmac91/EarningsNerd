@@ -237,12 +237,16 @@ function SourceTraceInner({
     if (!open) return
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== 'Escape') return
+      // Another modal can open above this panel. Its capture listener shares window with ours,
+      // so stopPropagation alone cannot shield it: leave keys inside that other layer to it.
+      const layer = e.target instanceof Element ? e.target.closest('[aria-modal="true"]') : null
+      if (layer && !layer.contains(document.getElementById(panelId))) return
       e.stopPropagation()
       setOpen(false)
     }
     window.addEventListener('keydown', onKey, true)
     return () => window.removeEventListener('keydown', onKey, true)
-  }, [open])
+  }, [open, panelId])
 
   const Icon = isVerified ? CheckCircleIcon : ArrowSquareOutIcon
 

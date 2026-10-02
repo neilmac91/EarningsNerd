@@ -1,6 +1,8 @@
+import { useState } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, screen } from '@testing-library/react'
 import { SourceTrace } from '@/features/filings/components/SourceTrace'
+import { Modal } from '@/components/ui/Modal'
 
 /**
  * On a phone, SourceTrace's source-detail sheet can sit over the copilot sheet. The open panel is the
@@ -49,4 +51,32 @@ describe('SourceTrace owns Escape while its panel is open', () => {
       window.removeEventListener('keydown', railBeneath)
     }
   })
+
+  it('leaves Escape inside a modal opened above the source sheet to that modal', () => {
+    function StackedLayers() {
+      const [open, setOpen] = useState(false)
+      return (
+        <>
+          <SourceTrace url="https://www.sec.gov/x.htm" verified={false} />
+          <button onClick={() => setOpen(true)}>Open another dialog</button>
+          <Modal open={open} onClose={() => setOpen(false)} ariaLabel="Another dialog">
+            <button>Nested action</button>
+          </Modal>
+        </>
+      )
+    }
+
+    render(<StackedLayers />)
+    fireEvent.click(screen.getByRole('button', { name: /source/i }))
+    const source = screen.getByRole('dialog', { name: 'Source detail' })
+    fireEvent.click(screen.getByRole('button', { name: 'Open another dialog' }))
+    const upper = screen.getByRole('dialog', { name: 'Another dialog' })
+    fireEvent.keyDown(screen.getByRole('button', { name: 'Nested action' }), { key: 'Escape' })
+
+    expect(upper).not.toBeInTheDocument()
+    expect(source).toBeInTheDocument()
+    fireEvent.keyDown(screen.getByRole('button', { name: 'Close source detail' }), { key: 'Escape' })
+    expect(source).not.toBeInTheDocument()
+  })
+
 })
