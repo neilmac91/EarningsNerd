@@ -23,10 +23,21 @@ identity first resolves.
 (c) A unit test pins the attribute: `aria-disabled="true"` and `not.toBeDisabled()`. Focus loss
 itself needs a real-browser keyboard pass.
 
-(d) The same `disabled={isPending|loading…}` shape appears at about 29 other sites (auth forms,
-settings, admin rows). They are follow-ups, not fixed here.
+(d) Gated (rule 12): `tests/unit/busyControlsStayFocusable.spec.ts` reads the AST of every `.tsx`
+under app/, components/ and features/ and fails on any `disabled={…}` whose expression names a busy
+flag (`pending`, `loading`, `submitting`, `sending`, `streaming`, …), directly or through a same-file
+`const`. It found 38 such sites in 26 files; each is pinned by its exact expression with a reason:
+two kept by design (this bell's `checking`; the Analysis Run button, which a contract spec pins), seven
+the design-v3 stack converts, and the rest follow-ups. Pins only shrink: converting a site means
+removing its pin, and adding a busy flag to a pinned expression fails.
+
+(e) The scan cannot see post-success flips (`!dirty` after a save, `saved`, `resent`, a cooldown)
+that disable the control the user just activated, nor a busy flag under another name. Those stay
+per-site specs plus a real-browser keyboard pass.
 
 **Evidence**: `frontend/features/calendar/components/AlertBell.tsx` (`disabled={checking}`,
 `aria-disabled={pending || undefined}` plus an early return). `tests/unit/calendarBellKeepsFocus.spec.tsx`
 fails on the old attribute. Real build, both themes, a bell on the page and one in the day dialog:
 focus stays on the bell during and after the request, 8/8; `main` fails 8/8 with focus on `<body>`.
+The gate fails on the bell's old `disabled={pending || checking}`, on a new busy-disabled site in an
+unlisted file, and on a converted site whose pin was not removed.
