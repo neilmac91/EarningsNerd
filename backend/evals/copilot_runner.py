@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import argparse
 from contextlib import AsyncExitStack, aclosing, nullcontext
+from contextvars import ContextVar
 from copy import deepcopy
 from unittest.mock import patch
 import asyncio
@@ -68,6 +69,13 @@ def _identity(row: dict) -> tuple:
     return tuple(row.get(k) for k in ('ticker', 'accession_number', 'question_id', 'run_index'))
 
 
+def _withheld_label(row: dict) -> str | None:
+    """Name an attempt withheld at the publication boundary; it remains an incomplete attempt."""
+    error = row.get('error')
+    reason = error.get('withheld_reason') if isinstance(error, dict) else None
+    return 'publication withheld: ' + reason if isinstance(reason, str) and reason else None
+
+
 def validate_report(report: dict, *, expected_plan: list[dict] | None = None) -> list[str]:
     """Completeness is independent of pass-rate statistics: every planned row must be scored."""
     failures = []
@@ -103,7 +111,7 @@ def validate_report(report: dict, *, expected_plan: list[dict] | None = None) ->
     for row in rows:
         score = row.get('score')
         if row.get('error') or row.get('terminal_complete') is not True or not isinstance(score, dict):
-            failures.append('operationally incomplete attempt')
+            failures.append(_withheld_label(row) or 'operationally incomplete attempt')
         elif score.get('passed') is not True or score.get('gate_failures') != []:
             failures.append('deterministic trust/accuracy veto')
     summary = report.get('summary', {})
@@ -167,6 +175,38 @@ def _snapshot_for_case(case: CopilotGoldenCase):
         return snapshot_filing(filing) if filing else None
 
 
+# The capture of the attempt running in this context (its asyncio task, and threads it starts). A
+# record logged under another attempt's context never reaches this row.
+_ATTEMPT_CAPTURE: ContextVar[logging.Handler | None] = ContextVar('copilot_eval_attempt_capture', default=None)
+
+
+class _WithheldReasons(logging.Handler):
+    """Record this attempt's publication-boundary withhold reasons from the service log.
+
+    The client receives only the shared generic error; the service logs the reason, an
+    application-owned constant, never candidate prose. Diagnostic only: nothing is admitted.
+    """
+
+    def __init__(self, sink: list[str]):
+        from app.services.copilot_service import _UnpublishableAnswer, logger
+        super().__init__(logging.WARNING)
+        self.sink, self.withheld, self.service_log = sink, _UnpublishableAnswer, logger
+
+    def __enter__(self):
+        self.token = _ATTEMPT_CAPTURE.set(self)
+        self.service_log.addHandler(self)
+        return self
+
+    def __exit__(self, *exc_info):
+        self.service_log.removeHandler(self)
+        _ATTEMPT_CAPTURE.reset(self.token)
+
+    def emit(self, record: logging.LogRecord) -> None:
+        reason = record.args[0] if isinstance(record.args, tuple) and record.args else None
+        if isinstance(reason, self.withheld) and _ATTEMPT_CAPTURE.get() is self:
+            self.sink.append(str(reason)[:200])
+
+
 async def _answer(filing_snap, question: str, *, trace: dict | None = None) -> tuple[str, list[dict], str, int]:
     from app.services.copilot_service import answer_filing_question, openai_service
     from app.services.openai_service import STREAM_ACTIVITY_SENTINEL, STREAM_ERROR_SENTINEL
@@ -206,10 +246,12 @@ async def _answer(filing_snap, question: str, *, trace: dict | None = None) -> t
         trace['candidate_deltas'] = []
         trace['provider_controls'] = []
         trace['service_events'] = []
+        trace['withheld_reasons'] = []
     observer = patch.object(openai_service, 'stream_chat_with_tools', observed_stream) if trace is not None else nullcontext()
+    withheld = _WithheldReasons(trace['withheld_reasons']) if trace is not None else nullcontext()
     complete = None
     async with AsyncExitStack() as streams:
-        with observer:
+        with observer, withheld:
             service = await streams.enter_async_context(aclosing(answer_filing_question(filing=filing_snap, question=question)))
             async for event in service:
                 if not isinstance(event, dict):
@@ -278,6 +320,8 @@ async def run(*, runs: int = 3, cases: list[CopilotGoldenCase] | None = None) ->
                 period_of_report=case.period_of_report, reporting_currency=case.reporting_currency).to_dict()
         except Exception as exc:
             row['error'] = {'type': type(exc).__name__, 'stage': 'answer_or_score'}
+            if row.get('tool_trace', {}).get('withheld_reasons'):
+                row['error']['withheld_reason'] = row['tool_trace']['withheld_reasons'][0]
         row['elapsed_ms'] = round((time.monotonic() - started) * 1000, 2)
         report['results'].append(row)
     rows = report['results']
@@ -311,7 +355,8 @@ def _write_report(report: dict, output: Path = REPORTS_DIR) -> Path:
         '| --- | --- | --- | --- | --- | --- |']
     for row in report.get('results', []):
         score = row.get('score', {})
-        verdict = row.get('error') or ('PASS' if score.get('passed') else '; '.join(score.get('gate_failures', [])) or 'unscored')
+        verdict = (_withheld_label(row) or row.get('error')
+                   or ('PASS' if score.get('passed') else '; '.join(score.get('gate_failures', [])) or 'unscored'))
         lines.append('| ' + ' | '.join(cell(v) for v in (
             row.get('ticker'),row.get('accession_number'),row.get('question_id'),row.get('run_index'),
             row.get('terminal_complete'),verdict)) + ' |')
