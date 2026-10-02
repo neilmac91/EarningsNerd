@@ -1,24 +1,57 @@
-$ python tasks/review-evidence/prompt-candidate-2026-10-02/crosscheck_count.py main-37049387017=copilot-37049387017/copilot-eval.json main-37052760996=copilot-37052760996/copilot-eval.json main-37063120532=copilot-37063120532/copilot-eval.json armB-37029156902=copilot-37029156902/copilot-eval.json
+$ python tasks/review-evidence/prompt-candidate-2026-10-02/crosscheck_count.py main-37049387017=copilot-37049387017/copilot-eval.json main-37052760996=copilot-37052760996/copilot-eval.json main-37063120532=copilot-37063120532/copilot-eval.json armB-37029156902=copilot-37029156902/copilot-eval.json armC-C1-37004589548=copilot-37004589548/copilot-eval.json
 (artifacts: retained copies, paths relative to the lane scratch directory)
 
-main-37049387017: tool-using rows 10/18 (withheld 0); redundant cross-check citations 1 (published 1, withheld-declared 0); restating a tool figure 1; per ticker {'AAPL': 0, 'BABA': 1, 'MSFT': 0, 'TSLA': 0}; text citations on tool-less rows 0
+(armC-C1 is a method check for placed/unplaced counting, not a baseline run)
+
+main-37049387017: tool-using rows 10/18 (withheld 0); declared cross-check objects 1 (placed 1, unplaced 0; on withheld rows 0); published final text citations 1; declared restating a tool figure 1; declared per ticker {'AAPL': 0, 'BABA': 1, 'MSFT': 0, 'TSLA': 0}; declared objects on tool-less rows 0
   declared identities: non-positive-integer n 0 []; unparseable declarations []
-   BABA  viewed-native-revenue-2025     d2 P restates_tool_figure=True  "Revenue 5, 24 868,687 941,168 996,347 137,300"
-main-37052760996: tool-using rows 11/18 (withheld 0); redundant cross-check citations 0 (published 0, withheld-declared 0); restating a tool figure 0; per ticker {'AAPL': 0, 'ASML': 0, 'BABA': 0, 'MSFT': 0, 'TSLA': 0}; text citations on tool-less rows 0
+   BABA  viewed-native-revenue-2025     d2 P placed   restates_tool_figure=True  "Revenue 5, 24 868,687 941,168 996,347 137,300"
+main-37052760996: tool-using rows 11/18 (withheld 0); declared cross-check objects 0 (placed 0, unplaced 0; on withheld rows 0); published final text citations 0; declared restating a tool figure 0; declared per ticker {'AAPL': 0, 'ASML': 0, 'BABA': 0, 'MSFT': 0, 'TSLA': 0}; declared objects on tool-less rows 0
   declared identities: non-positive-integer n 0 []; unparseable declarations []
-main-37063120532: tool-using rows 11/18 (withheld 0); redundant cross-check citations 1 (published 1, withheld-declared 0); restating a tool figure 1; per ticker {'AAPL': 0, 'ASML': 1, 'MSFT': 0, 'TSLA': 0}; text citations on tool-less rows 0
+main-37063120532: tool-using rows 11/18 (withheld 0); declared cross-check objects 1 (placed 1, unplaced 0; on withheld rows 0); published final text citations 1; declared restating a tool figure 1; declared per ticker {'AAPL': 0, 'ASML': 1, 'MSFT': 0, 'TSLA': 0}; declared objects on tool-less rows 0
   declared identities: non-positive-integer n 0 []; unparseable declarations []
-   ASML  us-gaap-sales-net-income-2025  d1 P restates_tool_figure=True  "Total net sales 28,262.9 100.0 32,667.3 100.0 15.6"
-armB-37029156902: tool-using rows 18/18 (withheld 2); redundant cross-check citations 8 (published 6, withheld-declared 2); restating a tool figure 8; per ticker {'AAPL': 0, 'ASML': 3, 'BABA': 5, 'MSFT': 0, 'TSLA': 0}; text citations on tool-less rows 0
+   ASML  us-gaap-sales-net-income-2025  d1 P placed   restates_tool_figure=True  "Total net sales 28,262.9 100.0 32,667.3 100.0 15.6"
+armB-37029156902: tool-using rows 18/18 (withheld 2); declared cross-check objects 8 (placed 8, unplaced 0; on withheld rows 2); published final text citations 6; declared restating a tool figure 8; declared per ticker {'AAPL': 0, 'ASML': 3, 'BABA': 5, 'MSFT': 0, 'TSLA': 0}; declared objects on tool-less rows 0
   declared identities: non-positive-integer n 0 []; unparseable declarations []
   withheld ASML us-gaap-sales-net-income-2025 d1: error {"type": "ValueError", "stage": "answer_or_score"}; captured reason null
   withheld ASML us-gaap-sales-net-income-2025 d2: error {"type": "ValueError", "stage": "answer_or_score"}; captured reason null
-   BABA  native-revenue-2026            d0 P restates_tool_figure=True  "further increased by 3% to RMB1,023,670 million (US$148,401 million) in fiscal year 2026"
-   BABA  native-revenue-2026            d1 P restates_tool_figure=True  "Consolidated revenue\n     941,168\n     996,347\n     1,023,670\n     148,401"
-   BABA  native-revenue-2026            d2 P restates_tool_figure=True  "Consolidated revenue 941,168 996,347 1,023,670 148,401"
-   BABA  viewed-native-revenue-2025     d1 P restates_tool_figure=True  "Revenue 5, 24 868,687 941,168 996,347 137,300"
-   BABA  viewed-native-revenue-2025     d2 P restates_tool_figure=True  "Revenue 5, 24 868,687 941,168 996,347 137,300"
-   ASML  us-gaap-sales-net-income-2025  d0 P restates_tool_figure=True  "Net income 7,571.6 26.8 9,609.4 29.4 26.9"
-   ASML  us-gaap-sales-net-income-2025  d1 W restates_tool_figure=True  "Total net sales 28,262.9 100.0 32,667.3 100.0 15.6"
-   ASML  us-gaap-sales-net-income-2025  d2 W restates_tool_figure=True  "Net income 7,571.6 26.8 9,609.4 29.4 26.9"
+   BABA  native-revenue-2026            d0 P placed   restates_tool_figure=True  "further increased by 3% to RMB1,023,670 million (US$148,401 million) in fiscal year 2026"
+   BABA  native-revenue-2026            d1 P placed   restates_tool_figure=True  "Consolidated revenue\n     941,168\n     996,347\n     1,023,670\n     148,401"
+   BABA  native-revenue-2026            d2 P placed   restates_tool_figure=True  "Consolidated revenue 941,168 996,347 1,023,670 148,401"
+   BABA  viewed-native-revenue-2025     d1 P placed   restates_tool_figure=True  "Revenue 5, 24 868,687 941,168 996,347 137,300"
+   BABA  viewed-native-revenue-2025     d2 P placed   restates_tool_figure=True  "Revenue 5, 24 868,687 941,168 996,347 137,300"
+   ASML  us-gaap-sales-net-income-2025  d0 P placed   restates_tool_figure=True  "Net income 7,571.6 26.8 9,609.4 29.4 26.9"
+   ASML  us-gaap-sales-net-income-2025  d1 W placed   restates_tool_figure=True  "Total net sales 28,262.9 100.0 32,667.3 100.0 15.6"
+   ASML  us-gaap-sales-net-income-2025  d2 W placed   restates_tool_figure=True  "Net income 7,571.6 26.8 9,609.4 29.4 26.9"
+armC-C1-37004589548: tool-using rows 17/18 (withheld 3); declared cross-check objects 25 (placed 9, unplaced 16; on withheld rows 3); published final text citations 6; declared restating a tool figure 25; declared per ticker {'AAPL': 5, 'ASML': 3, 'BABA': 5, 'MSFT': 6, 'TSLA': 6}; declared objects on tool-less rows 0
+  declared identities: non-positive-integer n 1 [('BABA', 2, ['F1'])]; unparseable declarations []
+  withheld BABA native-revenue-2026 d2: error {"type": "ValueError", "stage": "answer_or_score"}; captured reason null
+  withheld ASML us-gaap-sales-net-income-2025 d0: error {"type": "ValueError", "stage": "answer_or_score"}; captured reason null
+  withheld ASML us-gaap-sales-net-income-2025 d1: error {"type": "ValueError", "stage": "answer_or_score"}; captured reason null
+  withheld ASML us-gaap-sales-net-income-2025 d2: error {"type": "ValueError", "stage": "answer_or_score"}; captured reason null
+   AAPL  sales-gross-profit-2025        d0 P placed   restates_tool_figure=True  "Total net sales416,161 391,035 383,285"
+   AAPL  sales-gross-profit-2025        d1 P unplaced restates_tool_figure=True  "Total net sales416,161 391,035 383,285"
+   AAPL  sales-gross-profit-2025        d1 P unplaced restates_tool_figure=True  "Gross margin195,201 180,683 169,148"
+   AAPL  sales-gross-profit-2025        d2 P unplaced restates_tool_figure=True  "Total net sales416,161 391,035 383,285"
+   AAPL  sales-gross-profit-2025        d2 P unplaced restates_tool_figure=True  "Gross margin195,201 180,683 169,148"
+   TSLA  sales-operating-income-2024    d0 P unplaced restates_tool_figure=True  "Total revenues$97,690 $96,773 $81,462"
+   TSLA  sales-operating-income-2024    d0 P unplaced restates_tool_figure=True  "Income from operations7,076 8,891 13,656"
+   TSLA  sales-operating-income-2024    d1 P unplaced restates_tool_figure=True  "Total revenues$97,690 $96,773 $81,462"
+   TSLA  sales-operating-income-2024    d1 P unplaced restates_tool_figure=True  "Income from operations7,076 8,891 13,656"
+   TSLA  sales-operating-income-2024    d2 P unplaced restates_tool_figure=True  "Total revenues$97,690 $96,773 $81,462"
+   TSLA  sales-operating-income-2024    d2 P unplaced restates_tool_figure=True  "Income from operations7,076 8,891 13,656"
+   MSFT  sales-diluted-eps-2025         d0 P unplaced restates_tool_figure=True  "Total revenue 281,724 245,122 211,915"
+   MSFT  sales-diluted-eps-2025         d0 P unplaced restates_tool_figure=True  "Diluted $ 13.64 $ 11.80 $ 9.68"
+   MSFT  sales-diluted-eps-2025         d1 P unplaced restates_tool_figure=True  "Total revenue 281,724 245,122 211,915"
+   MSFT  sales-diluted-eps-2025         d1 P unplaced restates_tool_figure=True  "Diluted $ 13.64 $ 11.80 $ 9.68"
+   MSFT  sales-diluted-eps-2025         d2 P unplaced restates_tool_figure=True  "Total revenue 281,724 245,122 211,915"
+   MSFT  sales-diluted-eps-2025         d2 P unplaced restates_tool_figure=True  "Diluted $ 13.64 $ 11.80 $ 9.68"
+   BABA  native-revenue-2026            d0 P placed   restates_tool_figure=True  "further increased by 3% to RMB1,023,670 million (US$148,401 million) in fiscal year 2026"
+   BABA  native-revenue-2026            d1 P placed   restates_tool_figure=True  "further increased by 3% to RMB1,023,670 million (US$148,401 million) in fiscal year 2026"
+   BABA  viewed-native-revenue-2025     d0 P placed   restates_tool_figure=True  "Revenue 5, 24 868,687 941,168 996,347 137,300"
+   BABA  viewed-native-revenue-2025     d1 P placed   restates_tool_figure=True  "Revenue 5, 24 868,687 941,168 996,347 137,300"
+   BABA  viewed-native-revenue-2025     d2 P placed   restates_tool_figure=True  "Revenue 5, 24 868,687 941,168 996,347 137,300"
+   ASML  us-gaap-sales-net-income-2025  d0 W placed   restates_tool_figure=True  "Net income 7,571.6 26.8 9,609.4 29.4 26.9"
+   ASML  us-gaap-sales-net-income-2025  d1 W placed   restates_tool_figure=True  "Net income 7,571.6 26.8 9,609.4 29.4 26.9"
+   ASML  us-gaap-sales-net-income-2025  d2 W placed   restates_tool_figure=True  "Net income 7,571.6 26.8 9,609.4 29.4 26.9"
 exit 0

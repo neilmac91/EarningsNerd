@@ -6,17 +6,20 @@ Surfaces, per row:
   (row.answer when the event is absent);
 - withheld row (no published answer): the candidate the service rejected, i.e. the joined
   tool_trace.candidate_deltas: its prose up to the first ===CITATIONS=== / ===NOT_DISCLOSED=== / ===FOLLOWUPS===
-  line, plus the strings of its follow-up JSON array when it parses.
+  line; its not-disclosed reason (the text after ===NOT_DISCLOSED=== up to ===FOLLOWUPS===, surface
+  withheld-reason); and the strings of its follow-up JSON array when it parses.
 Forms (scanned on each surface's text):
 - double: straight "...", and decision F's other marks paired as “...”, „...“/„...”, ‟...”, ＂...＂;
 - single: ‘...’, and straight '...' whose opening mark does not follow a letter or digit and whose closing mark
-  is not followed by one (apostrophes are not openers);
+  is not followed by one (apostrophes are not openers; an apostrophe between two word characters inside the span,
+  as in 'ASML's net sales', does not close it);
 - backtick: `...`;  guillemet: «...» and ‹...›;  blockquote: each line starting with '>' (up to 3 spaces first).
 Classes, first match wins:
 - table-figure: the span holds a figure token (\\d{1,3}(,\\d{3})+(\\.\\d+)?, \\d+\\.\\d+ or \\d{5,}) and at most four
   words once figure tokens, ellipses, currency signs and punctuation are removed. This is the label-plus-cell and
   bare-cell shape ("Total net sales 32,667.3", "9,609.4", "Revenue ... 996,347"); an MD&A sentence that carries a
-  figure has more words and is classed on its own merits;
+  figure has more words and is classed on its own merits. A short prose figure phrase ("€9,609.4 million") is also
+  classed table-figure, so read in_source alongside the class;
 - sub-floor: under 8 normalized characters (decision F's _MIN_QUOTED_LEN) with no interior ellipsis;
 - verified: the span occurs contiguously in the row's normalized inputs.source_text;
 - other: everything else (8 or more characters or an interior ellipsis, not found in the source, not a
@@ -46,9 +49,10 @@ F_ELLIPSIS = re.compile(r"\.\s*\.\s*\.|\u2026")
 MARKER = re.compile(r"\[F?\d{1,3}\]")
 SENTINEL = re.compile(r"^\s*===\s*(CITATIONS|NOT[_ -]?DISCLOSED|FOLLOW-?UPS)\s*===\s*$", re.I | re.M)
 FOLLOWUPS = re.compile(r"^\s*===\s*FOLLOW-?UPS\s*===\s*$", re.I | re.M)
+NOT_DISCLOSED = re.compile(r"^\s*===\s*NOT[_ -]?DISCLOSED\s*===\s*$", re.I | re.M)
 FORMS = [
     ("double", re.compile(r'"([^"\n]+)"|“([^”\n]+)”|„([^“”\n]+)[“”]|‟([^”\n]+)”|＂([^＂\n]+)＂')),
-    ("single", re.compile(r"‘([^’\n]+)’|(?<![\w])'([^'\n]+?)'(?!\w)")),
+    ("single", re.compile(r"‘([^’\n]+)’|(?<![\w])'((?:[^'\n]|(?<=\w)'(?=\w))+?)'(?!\w)")),
     ("backtick", re.compile(r"`([^`\n]+)`")),
     ("guillemet", re.compile(r"«([^»\n]+)»|‹([^›\n]+)›")),
     ("blockquote", re.compile(r"^ {0,3}>[ \t]?(.+)$", re.M)),
@@ -92,6 +96,9 @@ def surfaces(row):
     if not candidate:
         return []
     out = [("withheld-prose", SENTINEL.split(candidate, maxsplit=1)[0])]
+    reason = NOT_DISCLOSED.split(candidate, maxsplit=1)
+    if len(reason) == 2:
+        out.append(("withheld-reason", FOLLOWUPS.split(reason[1], maxsplit=1)[0]))
     tail = FOLLOWUPS.split(candidate, maxsplit=1)
     if len(tail) == 2:
         try:

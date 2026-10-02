@@ -1,7 +1,7 @@
-$ python tasks/review-evidence/prompt-candidate-2026-10-02/scope_hashes.py efdc33f42bbf95a70ceb78d0c6615d59788800df HEAD
+$ python tasks/review-evidence/prompt-candidate-2026-10-02/scope_hashes.py b40fa70382c5d45239817f012c2b0e9d6a5a5532 HEAD
 
-base efdc33f42bbf95a70ceb78d0c6615d59788800df
-head 81f85248cb36505cf7217f0cf0e00cae3b0f5aad
+base b40fa70382c5d45239817f012c2b0e9d6a5a5532
+head 3264cdcce3940d8778a625025dad335e07318111
 
 1. byte identity (git diff --exit-code BASE HEAD -- path; sha256 at BASE | at HEAD)
   same  diff-rc=0  backend/evals/copilot_scorers.py  (scorer)
@@ -36,6 +36,14 @@ head 81f85248cb36505cf7217f0cf0e00cae3b0f5aad
         ed8d08b8566cd9033019557acf5fbd768d84c2e41d74356402ae8d7c85a5c2bc | ed8d08b8566cd9033019557acf5fbd768d84c2e41d74356402ae8d7c85a5c2bc
   same  diff-rc=0  backend/evals/RUNBOOK.md  (RUNBOOK)
         36177fdec918bb976c6f531e0048b84a88a68da2f08e91e4edcf452387239dfb | 36177fdec918bb976c6f531e0048b84a88a68da2f08e91e4edcf452387239dfb
+  same  diff-rc=0  backend/requirements.txt  (runtime pins)
+        1fcb8ec359ed4ede4fabc6ecf10b8ba8398ddf48a963e556b1b57ac1787a4a9e | 1fcb8ec359ed4ede4fabc6ecf10b8ba8398ddf48a963e556b1b57ac1787a4a9e
+  same  diff-rc=0  backend/requirements.in  (runtime pins)
+        fc1c78dc98ef3d151183eda25544e037974b3ddabd600b85d43ec63e750b365f | fc1c78dc98ef3d151183eda25544e037974b3ddabd600b85d43ec63e750b365f
+  same  diff-rc=0  backend/requirements-dev.txt  (runtime pins)
+        da0f0b2061c8c557ad9b34002183e84429db888ddde083582aa61406684590f3 | da0f0b2061c8c557ad9b34002183e84429db888ddde083582aa61406684590f3
+  same  diff-rc=0  backend/requirements-eval.txt  (runtime pins)
+        5895b41ad40a611c048454221bf6a921da08edfe959c59c70521c2d0037c5189 | 5895b41ad40a611c048454221bf6a921da08edfe959c59c70521c2d0037c5189
   same  diff-rc=0  .github/ai-model.env  (model/flags)
         95c580400a7ff14524db8e08b8ca8f3223cbcce8dad4722f1e929f01ce6260ba | 95c580400a7ff14524db8e08b8ca8f3223cbcce8dad4722f1e929f01ce6260ba
   same  diff-rc=0  backend/app/config.py  (model/flags)
@@ -108,6 +116,26 @@ head 81f85248cb36505cf7217f0cf0e00cae3b0f5aad
 2. allowed diff (git diff --name-status BASE HEAD)
   ok   M  backend/app/services/copilot_service.py
   ok   M  backend/tests/unit/test_copilot_live_regressions.py
+  ok   A  tasks/review-evidence/prompt-candidate-2026-10-02/PREREGISTRATION.md
+  ok   A  tasks/review-evidence/prompt-candidate-2026-10-02/README.md
+  ok   A  tasks/review-evidence/prompt-candidate-2026-10-02/baseline_context.txt
+  ok   A  tasks/review-evidence/prompt-candidate-2026-10-02/crosscheck_count.py
+  ok   A  tasks/review-evidence/prompt-candidate-2026-10-02/crosscheck_count.txt
+  ok   A  tasks/review-evidence/prompt-candidate-2026-10-02/design-history/codex-decision-5958742492.md
+  ok   A  tasks/review-evidence/prompt-candidate-2026-10-02/design-history/critique0-decision-fidelity.md
+  ok   A  tasks/review-evidence/prompt-candidate-2026-10-02/design-history/critique1-model-behaviour.md
+  ok   A  tasks/review-evidence/prompt-candidate-2026-10-02/design-history/critique2-rules-gates.md
+  ok   A  tasks/review-evidence/prompt-candidate-2026-10-02/design-history/design-v1.md
+  ok   A  tasks/review-evidence/prompt-candidate-2026-10-02/design-history/design-v2.md
+  ok   A  tasks/review-evidence/prompt-candidate-2026-10-02/mutations.txt
+  ok   A  tasks/review-evidence/prompt-candidate-2026-10-02/prompt_identity.py
+  ok   A  tasks/review-evidence/prompt-candidate-2026-10-02/prompt_identity.txt
+  ok   A  tasks/review-evidence/prompt-candidate-2026-10-02/quote_inventory.py
+  ok   A  tasks/review-evidence/prompt-candidate-2026-10-02/quote_inventory.txt
+  ok   A  tasks/review-evidence/prompt-candidate-2026-10-02/run_validity.py
+  ok   A  tasks/review-evidence/prompt-candidate-2026-10-02/run_validity.txt
+  ok   A  tasks/review-evidence/prompt-candidate-2026-10-02/scope_hashes.py
+  ok   A  tasks/review-evidence/prompt-candidate-2026-10-02/scope_hashes.txt
 
 3. AST scope
   backend/app/services/copilot_service.py: 120 other top-level statements at base, 120 at head, identical: True; SYSTEM_PROMPT changed: True

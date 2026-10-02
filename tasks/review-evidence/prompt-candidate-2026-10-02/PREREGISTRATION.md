@@ -16,12 +16,19 @@ comment on #1029, never in this file. The PR number is posted after step 1 as a 
 
 ## Candidate identity
 
-- **Base:** main `efdc33f42bbf95a70ceb78d0c6615d59788800df` (post-#1065 main). Its deploy verification is a
-  precondition below.
+- **Base:** main `b40fa70382c5d45239817f012c2b0e9d6a5a5532` (post-#1067). The candidate commit `81f85248` was cut
+  from main `efdc33f4` (post-#1065). Main then gained two backend merges and three frontend-only merges (#1042,
+  #1043, #1044):
+  - #1066 changes the backend runtime pins (`openai` 3.20.0, `PyJWT` 2.15.1, `sentry-sdk` 2.71.0).
+  - #1067 changes `backend/requirements-eval.txt` (`anthropic` 1.9.0), which neither CI nor the Copilot runner
+    installs.
+  Merge commits `5e5e80a5` (main `11681b9c`) and `3264cdcc` (main `b40fa703`) bring that main into the branch, so
+  the gated tree is the tree the runs measure. Deploy verification of every backend merge is a precondition below.
 - **Head:** the commit containing this file, on branch `claude/copilot-prompt-candidate`.
 - **Diff against base:** `backend/app/services/copilot_service.py` (the `SYSTEM_PROMPT` assignment only),
   `backend/tests/unit/test_copilot_live_regressions.py` (four assertions in one existing test), and new files in
-  this folder. `scope_hashes.py` proves it.
+  this folder. `scope_hashes.py` proves it, including byte identity to base of `backend/requirements.txt`,
+  `requirements.in`, `requirements-dev.txt` and `requirements-eval.txt`.
 - **The prompt edit,** exactly two insertions plus arm B's deletion:
   - (a) **Arm B deletion.** `, including when all cited figures use tool markers` (51 characters) is removed from
     output-format step 3. "If there are no filing-text markers, output []" stays.
@@ -38,9 +45,14 @@ comment on #1029, never in this file. The PR number is posted after step 1 as a 
     (5057 characters), which equals the base commit's own `SYSTEM_PROMPT`.
   - `_MIN_QUOTED_LEN` is 8 and `_MIN_VERIFIABLE_LEN` is 24, both unchanged.
   - Proof: `prompt_identity.py`, output in `prompt_identity.txt`.
-- **Disclosed deliberately:** "Keep table figures outside quotation marks" is stricter than decision F. F lets a
-  verified label-plus-cell quotation such as `"Net income 7,571.6"`, and any cell under 8 characters, publish.
-  That shape is reported as context (the quote inventory). It is not enforced by F and is not a check.
+- **Disclosed deliberately:** the wording is stricter than decision F in two places. Neither is enforced by F, and
+  neither is a check.
+  - "Keep table figures outside quotation marks": F lets a verified label-plus-cell quotation such as
+    `"Net income 7,571.6"`, and any cell under 8 characters, publish. That shape is reported as context (the quote
+    inventory).
+  - "never put an ellipsis inside a quotation": F strips an edge ellipsis and verifies the rest, so
+    `"by 3% to RMB1,023,670 million …"` (run 36800236360 d1) passes F's per-span test. The rule bans that edge
+    ellipsis too; the model can truncate without one.
 
 ## Identity table (every row of every run)
 
@@ -51,7 +63,7 @@ comment on #1029, never in this file. The PR number is posted after step 1 as a 
 | Tool schema (full sha256) | `b69589739c353f6c2e6ec884028ebbfd3b130582f48200c8e821ca960dd6e638` | `run_validity.py` |
 | Generation options | `{"max_tokens": 2400, "model": "deepseek-flash", "temperature": 0.2}` | `run_validity.py` |
 | Report fields | `golden_sha256` `15f8e7f92f934a5b040d905e8f684896cb11b2309d41737bbb58d59d0127b3c0`; `requested_model` deepseek-flash; `requested_flags` `{"COPILOT_MAX_TOKENS": 2400, "USE_STATEMENT_FINANCIALS": true}`; `runs` 3; `planned_attempts` 18 (six questions × draws 0–2), one result row per planned identity | `run_validity.py` |
-| Runtime between runs | `git diff --quiet <previous run's source_sha> <this run's source_sha> -- backend .github` exits 0 | git, by the operator |
+| Runtime between runs | `git diff --quiet <previous source_sha> <this run's source_sha> -- backend .github` exits 0, along the chain `eval-baseline` (its `ci-execution.txt` `source_sha`), Q1, Q2, Q3 | git, by the operator |
 | Fingerprint | expected `aeb56401…`; any other value is **reported, not invalid**; a stable fingerprint does not prove unchanged provider state | `run_validity.py` (counts from `runner.log`) |
 
 `run_validity.txt` shows the checker on retained runs: main and arm B runs fail only on the system prompt, and
@@ -59,31 +71,48 @@ pass when the control option swaps in their own prompt. The control option is ne
 
 ## Preconditions before step 1
 
-Recorded in the step-0 comment on #1029:
-1. Deploys verified for #1036 (revision 00433-vcp), #1056 (00434-nbg), #1060 (00436-pkk) and #1065 (its receipt).
-2. No other active prompt-candidate PR.
-3. A backend-slot and `copilot_service.py` claim for the window is posted on #1029 and acknowledged by the active
-   Codex implementation owner (the #1050 successors). An explicit "no backend merges planned" from that owner also
+Each is recorded on #1029 before step 1:
+1. **Deploys.** Every backend-touching merge on main, up to `origin/main` at the moment of step 1, has a verified
+   deploy receipt, and no backend deploy is in flight. When this file was written that list was #1036 (revision
+   00433-vcp), #1056 (00434-nbg), #1060 (00436-pkk), #1065 (its receipt) and #1066 (`432fa5df`; receipt not yet
+   recorded) and #1067 (`b40fa703`; receipt not yet recorded), which #1029 comment 5962269409 sequenced after
+   #1066's deploy. Any later backend merge joins the list.
+2. **Same backend as the gated tree.** `git diff --quiet b40fa70382c5d45239817f012c2b0e9d6a5a5532 origin/main --
+   backend .github` exits 0 at step 1. Otherwise stop before any paid trigger: main must be merged into the branch,
+   re-gated and re-reviewed, which is a new freeze.
+3. No other active prompt-candidate PR.
+4. **Backend slot.** The serial #1066/#1067 backend slot claimed in comment 5962269409 has been released. Then a
+   backend-slot and `copilot_service.py` claim for the window is posted on #1029 and acknowledged by the active Codex
+   implementation owner (the #1050 successors). An explicit "no backend merges planned" from that owner also
    satisfies this. The draft is not opened without one of them.
-4. The full backend gate is green on the exact frozen head, and the exact-head independent review (three lenses:
-   correctness and scope, model behaviour, rules/gates/custody) has run on the head that contains this file, with
-   any findings fixed and re-reviewed before freeze.
+5. **Measurement.** Codex acknowledges the registered composed-quotation measurement for checks 3 and 4 (below), or
+   directs its one predeclared alternative, the strict reading. Step 1 does not start without one of the two.
+6. **Gates and review.** The full backend gate is green on the exact frozen head, and the exact-head independent
+   review (three lenses: correctness and scope, model behaviour, rules/gates/custody) has run on the head that
+   contains this file, with any findings fixed and re-reviewed before freeze.
 
 ## Trigger sequence
 
 0. *(free)* Push the branch with no PR. Post the #1029 comment: head SHA, this file's sha256, gate tails, review
    verdicts and the spend start point.
-1. *(about USD 0.18)* Read the DeepSeek balance and the shared ledger. Apply the spend rule:
-   0.19 + 3 × 0.1725 = 0.7075 ≤ remaining reservation. Trigger off-peak only: not Monday–Friday 01:00–04:00 or
-   06:00–10:00 UTC, and at least 20 minutes before the next peak start (`eval-baseline` takes about 10–11 minutes).
-   Open the PR as a **draft** with the Review section and a `Review override:` line in the body. This runs
-   `eval-baseline` once; `copilot-eval` is skipped while the PR is a draft.
-2. After `eval-baseline` completes: record its verdict and telemetry (`summary.incurred_provider_usage`,
-   `unknown_calls`). Apply the spend rule: spent + 3 × 0.1725 ≤ 0.75. Check that the PR is mergeable and that
-   `git diff --quiet <previous merge ref> origin/main -- backend .github` holds. Mark the PR ready: this starts **Q1**.
+1. *(about USD 0.18)* Read the DeepSeek balance and the shared ledger. The planned set fits the reservation
+   (0.19 + 3 × 0.1725 = 0.7075 ≤ 0.75). **Stop** unless both hold: the shared-ledger remainder, minus every other
+   owner's later known charges and reservations (for example the #1050 successors' 1.00 in comment 5960418625),
+   is at least 0.75; and the DeepSeek balance is at least 0.75. Trigger off-peak only: not Monday–Friday
+   01:00–04:00 or 06:00–10:00 UTC, and at least 20 minutes before the next peak start (`eval-baseline` takes about
+   10–11 minutes). Open the PR as a **draft** with the Review section and a `Review override:` line in the body.
+   This runs `eval-baseline` once; `copilot-eval` is skipped while the PR is a draft.
+2. After `eval-baseline` completes: download its artifact and record the sha256 of the zip and its report JSON
+   (`eval_*.json`); record its verdict and telemetry (`summary.incurred_provider_usage`, `unknown_calls`) and its
+   `source_sha` (the merge ref, in `ci-execution.txt`). Apply the spend rule: spent + 3 × 0.1725 ≤ 0.75. Check that
+   the PR is mergeable and that `git diff --quiet <previous merge ref>^1 origin/main -- backend .github` exits 0,
+   i.e. main's `backend/` and `.github` are unchanged since the previous run's merge ref was made. For Q1 the
+   previous merge ref is the `eval-baseline` run's `source_sha`, so row R(i) and Q1 measure one backend tree. (The
+   merge ref itself contains the candidate's backend diff and `origin/main` does not, so the check compares main
+   with the merge ref's first parent, which is main.) Mark the PR ready: this starts **Q1**.
 3. After Q1 completes: download the artifact; record the sha256 of the zip, `copilot-eval.json` and `runner.log`.
    Inspect validity, cost and checks 1–5 **before continuing**. Convert to draft. Apply the same spend and
-   diff-quiet checks. Mark ready: this starts **Q2**.
+   diff-quiet checks, with Q1's `source_sha` as the previous merge ref. Mark ready: this starts **Q2**.
 4. Repeat step 3 for **Q3**. Then convert the PR back to draft.
 
 Every paid trigger in steps 1–4 is off-peak under the step-1 rule. Never push, rebase, close or reopen the PR
@@ -93,9 +122,15 @@ Results go in PR or #1029 comments, never in commits to this branch.
 ## Validity (one rule)
 
 A run is valid only when every row matches the identity table above (`run_validity.py` exits 0) and
-`git diff --quiet` of `backend/` and `.github` holds between the runs' merge refs (`source_sha`). A mismatch, a
-cancelled run or a missing artifact makes the run **invalid**: stop, record, apply no rule, run no replacement.
-Fingerprints are reported; a value other than `aeb56401` does not make a run invalid.
+`git diff --quiet` of `backend/` and `.github` holds between consecutive merge refs (`source_sha`) along the chain
+`eval-baseline`, Q1, Q2, Q3. A mismatch, a cancelled run or a missing artifact makes the run **invalid**: stop,
+record, apply no rule, run no replacement. Fingerprints are reported; a value other than `aeb56401` does not make a
+run invalid.
+
+**Invalidity never erases a failure.** `run_validity.py` marks a row without `tool_trace.initial_messages` as a
+mismatch, and the runner records those messages only once the service reaches the provider call. A row with an
+`error` and no recorded request therefore makes the run invalid **and** fails check 5 (0 errors). The outcome is
+Not qualified, with the stop reported.
 
 ## Acceptance: checks 1–5 on each run
 
@@ -118,21 +153,55 @@ check is evaluated separately on Q1, Q2 and Q3.
 | --- | --- |
 | 1 | No MSFT row has an `error`. `crosscheck_count.py` lists 0 declared objects without a positive JSON integer `n` on MSFT rows. No MSFT row carries an `Invalid citation declaration` withheld reason. |
 | 2 | `g_decide.py`: every AAPL, TSLA and MSFT draw is `T` (9/9 per run). |
-| 3 | 3/3 ASML rows completed and scored, each with `unverified_excerpts == []` and `citation_faithfulness == 1.0`; no ASML row has an `error`; `f_attribution.py`: 0 ASML F-withheld; `prose_quote_audit.py`: 0 composed on ASML rows. Redundant cross-checks are counted with `crosscheck_count.py` (declared method in its docstring) and reported. |
-| 4 | `f_attribution.py` exits 0 with 0 UNEXPLAINED and 0 F-withheld rows on any surface (answer, reason, chip). `prose_quote_audit.py` reports `composed_quote_rows == []` and `rows_without_source_text == []` (it does not exit 1). |
+| 3 | 3/3 ASML rows completed and scored, each with `unverified_excerpts == []` and `citation_faithfulness == 1.0`; no ASML row has an `error`; `f_attribution.py`: 0 ASML F-withheld; `composed_quotes.py`: 0 composed spans on ASML rows (registered measurement below; the raw `prose_quote_audit.py` ASML hits are reported beside it). Redundant cross-checks are counted with `crosscheck_count.py` (declared method in its docstring) and reported. |
+| 4 | `f_attribution.py` exits 0 with 0 UNEXPLAINED and 0 F-withheld rows on any surface (answer, reason, chip). `composed_quotes.py` exits 0: 0 composed spans and 0 rows without source text (`prose_quote_audit.py`'s `rows_without_source_text == []`). The raw `composed_quote_rows` of `prose_quote_audit.py` are reported beside it, with each flagged span's verdict. |
 | 5 | `summary` expected/completed/scored 18/18/18, `errors` 0, `accepted` true, `failures` []. `prose_quote_audit.py` `uncited_answer_rows` = 0. Uncited figures are reported as the sum of `score.uncited_figures` per run and per question. |
 
 **Audit policy for checks 4 and 5.** `prose_quote_audit.py` exits 2 whenever an escalation category is non-empty.
 Following the D14/D17 precedent (`tasks/pr-disposition-2026-09-30.md`): composed 0 and uncited answers 0 is a pass.
-The other exit-2 categories (MSFT uncited figures, tool-less rows) are reported, not thresholds. The existing MSFT
-advisory (one uncited figure per draw) is reported and is not made a threshold.
+`uncited_figure_rows` (any ticker) and `tool_less_rows` are reported, not thresholds. The existing MSFT advisory
+(one uncited figure per draw) is reported and is not made a threshold.
 
-**Known audit difference, decided before the runs.** `prose_quote_audit.py` normalizes less than the product
-(it lacks `normalize_for_match`'s punctuation-spacing fold). On retained run 37029964566 (arm B) it flags ASML d1's
-published, F-verified MD&A quotation ("Net income for 2025 amounted to €9,609.4 million, representing …"),
-because the source reads `million\n, \nrepresenting`. Check 4's measurement stays as written above: any
-`composed_quote_rows` entry fails check 4. When F's own per-span test (`quote_inventory.py`, `in_source`) finds the
-span, the row is also labelled "audit normalization difference" in the report. The label never converts a failure.
+**Composed-quotation measurement for checks 3 and 4, decided before the runs.**
+
+*Why the raw audit cannot be the measurement on this build.* `prose_quote_audit.py` normalizes less than decision F.
+It lacks F's citation-marker blanking (`[n]`, `[F#]`), its edge-character stripping (spaces, `.,;:!?…`),
+`normalize_for_match`'s punctuation-spacing fold, and its folds for low and curly marks, the non-breaking hyphen,
+the minus sign and invisible characters. The audit reads only published answers. With F live, every published
+double-quoted span of 8 or more characters has already passed F's per-span test, so on this build a raw audit hit is
+a normalization artifact or an F defect. A truly composed quotation is withheld by F, and it fails through the
+F-withheld legs of checks 3 and 4 and the 0-errors leg of check 5. Across the 23 retained runs, the raw audit flags
+five runs (`composed_quotes.txt`):
+- Three runs from before decision F, whose composed quotations were published: 36777581481 (BABA
+  `"Revenue ... 996,347"`), 36800236360 (ASML `"Total net sales 32,667.3"`, `"Net income 9,609.4"`) and 36870677818
+  (AAPL `"Total net sales 416,161"`, `"Gross margin 195,201"`). F's per-span test also fails on every one of these
+  spans; they are genuine compositions.
+- Two F-live runs, where the flagged quotation was published and F-verified:
+  - B2 37029964566, ASML d1: the MD&A sentence "Net income for 2025 amounted to €9,609.4 million, representing …".
+    The source reads `million\n, \nrepresenting`.
+  - C1 37004589548, AAPL d0: `labels this line "Gross margin,"`, with the comma inside the closing mark.
+  F's per-span test finds both.
+Under a strict reading, 2 of the 12 G and later-main runs and 1 of the 2 arm-B runs (the candidate's parent arm)
+would fail check 4 with no composed quotation; B2 would also fail check 3. The ASML MD&A shape appeared in 1 of the
+25 tool-using ASML draws across the retained runs (1 of 18 in the G and later-main runs). At arm B's rate of three
+tool-using ASML draws per run, that shape alone gives about a 31–40% chance of at least one false failure across
+Q1–Q3. The candidate's wording may also move quoting toward the two shapes that trigger it: MD&A sentences, and quoted
+labels with the figure outside, where a comma often sits inside the closing mark.
+
+*Registered measurement.* A quotation is **composed** when `prose_quote_audit.py` flags it AND F's per-span test, as
+copied in `quote_inventory.classify` (`in_source`: markers blanked, edge characters stripped, a copy of
+`normalize_for_match`), does not find it in the row's `inputs.source_text`. A flagged span that the per-span test
+finds is reported as an **audit normalization difference**, with the raw audit count beside it; it is not composed.
+A row without source text remains an absent quotation and fails. `composed_quotes.py` applies this mechanically. On
+the retained runs it keeps all three genuine compositions and clears both F-verified spans. The check text is
+unchanged. Only the reading of the audit leg is defined here, and the F-withheld, error and 18/18 legs are untouched.
+
+*Decision owner.* This defines how a check's measurement is read, so Codex acknowledges it on #1029 before step 1
+(precondition 5). Codex may instead direct the one predeclared alternative before step 1: the **strict reading**.
+Under it, any raw `composed_quote_rows` entry fails check 4, and fails check 3 when it is on an ASML row. That
+direction accepts the false-failure exposure quantified above. The "audit normalization difference" label is then
+reported, but it never converts a failure. No other reading is available, and the reading in force is fixed before
+step 1.
 
 ## R. RUNBOOK aggregate evidence
 
@@ -142,11 +211,18 @@ A separate row, after checks 1–5, which stay unchanged:
 - (ii) `score.fact_adjacency == 1.0` on every scored row of each run: the TRUST veto (`backend/evals/RUNBOOK.md`,
   "Gating rule": "The aggregate's TRUST line … is the hard veto").
 - (iii) Three runs × `--runs 3` give 9 draws per question, meeting the RUNBOOK's aggregate rule for prompt changes.
+  The RUNBOOK's `--runs 5` requirement covers density-forcing prompts. This rule makes no marker or density demand,
+  and 9 draws per question exceeds 5 in any case.
 
 ## Reported as context, outside the rules
 
 - **20-F tool use** per run, from `g_decide.py`: question-runs and draws. A run with 20-F tool-using question-runs
   ≤ 1/3 is labelled **"deletion effect not preserved"**. This is a label, not a check.
+- **Exposure denominators,** per run and across Q1–Q3, from `g_decide.py`'s per-question draw strings: tool-using
+  ASML draws and tool-using BABA-viewed draws. The label above sums the three 20-F questions, so it can miss ASML
+  alone going tool-less. A check-3 pass on tool-less ASML draws is reported as such. It is not evidence that the
+  rule stops the label-plus-cell shape, because none of the 44 tool-less ASML draws in the 23 retained runs was
+  withheld or errored.
 - **Quote inventory** across all forms (double, single, backtick, guillemet, blockquote), from `quote_inventory.py`:
   where table figures go (displacement report).
 - **Non-F withholds,** with their captured reasons.
@@ -154,6 +230,9 @@ A separate row, after checks 1–5, which stay unchanged:
 - **Not-disclosed rows:** expected 0. The not-disclosed path is unmeasured live.
 - **Uncited figures,** per run and per question. The MSFT advisory is not a threshold.
 - **Per-run cost,** including cache-miss tokens, and **fingerprints**.
+- **Runtime versions,** `preparation.runtime.versions` per run (printed by `run_validity.py`). The base pins
+  `openai` 3.20.0, `edgartools` 5.58.0 and `sqlalchemy` 2.0.54. Every retained run before #1066 recorded `openai`
+  3.19.2. A different value is reported; the backend-tree rule above is the validity condition.
 
 Baseline values of these measures on retained main and arm B runs are in this folder's README.
 
@@ -164,15 +243,17 @@ Baseline values of these measures on retained main and arm B runs are in this fo
   but the failure stands. No retry, selective rerun, replacement run or candidate edit. Diagnostic withhold reasons
   never turn withheld rows into passes. The #1056 triage rule (`RUNBOOK.md`, "Triage rule for a red copilot-eval
   run") does not apply, because this candidate changes model-facing bytes.
-- **Incomplete:** a validity stop or a spend stop. The early stop is reported.
+- **Incomplete:** a validity stop or a spend stop with no failed check. The early stop is reported. A row with an
+  `error` and no recorded request is a check-5 failure even though it also stops the run (see Validity).
 
 ## Spend
 
 - **Start point:** the last posted shared-ledger remainder, USD 7.346893 (#1029 comment 5961781714), before other
   owners' later costs. The 0.75 reservation is debited from it.
-- **Rule:** before step 1, 0.19 + 3 × 0.1725 ≤ 0.75. Before each ready transition, spent so far + remaining runs ×
-  0.1725 ≤ 0.75. USD 0.1725 is the off-peak cost of one run with no cache hits; 0.19 is the conservative off-peak
-  `eval-baseline`. Budget risk stops the lane.
+- **Rule:** before step 1, 0.19 + 3 × 0.1725 ≤ 0.75, and the two step-1 stops (shared remainder after other
+  owners' later known charges and reservations ≥ 0.75; DeepSeek balance ≥ 0.75). Before each ready transition,
+  spent so far + remaining runs × 0.1725 ≤ 0.75. USD 0.1725 is the off-peak cost of one run with no cache hits;
+  0.19 is the conservative off-peak `eval-baseline`. Budget risk stops the lane.
 - **Accounting:** every physical provider call, including withheld and error rows and unknown charges.
   `copilot_cost_runnerlog.py` over each run's `runner.log` for the Copilot runs; `summary.incurred_provider_usage`
   (with `unknown_calls`) for `eval-baseline`. Unknown cost is not free.
@@ -180,9 +261,9 @@ Baseline values of these measures on retained main and arm B runs are in this fo
 ## Custody
 
 After each run: download the artifact, then record the sha256 of the zip, `copilot-eval.json` and `runner.log` in a
-PR or #1029 comment. The `eval-baseline` report is downloaded promptly, because its retention is 14 days. A durable
-private copy is requested from the founder-side Codex custody owner, as for G; this lane cannot write founder
-storage.
+PR or #1029 comment. The `eval-baseline` artifact is row R(i)'s evidence and has 14-day retention. It is downloaded
+promptly, and the sha256 of its zip and its report JSON go in the same kind of comment. A durable private copy is
+requested from the founder-side Codex custody owner, as for G; this lane cannot write founder storage.
 
 ## Handback (#1029)
 
@@ -191,9 +272,10 @@ storage.
 - actual telemetry and unknowns;
 - the exact-head review and the gates;
 - remaining limitations:
-  - small denominators;
+  - small denominators, including the exposure denominators above (tool-using ASML and BABA-viewed draws);
   - the not-disclosed path is unmeasured live;
   - decision F and the audit see only double quotes, so other quote forms are visible only through the inventory;
+  - the composed-quotation reading in force for checks 3 and 4, and every audit normalization difference;
   - offline coverage of the G failure shapes is argued, not replayed (a prompt change alters model output).
 
 This design's earlier versions and the review findings are preserved in `design-history/`.

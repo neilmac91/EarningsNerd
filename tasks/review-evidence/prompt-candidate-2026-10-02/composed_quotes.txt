@@ -1,0 +1,36 @@
+$ python tasks/review-evidence/prompt-candidate-2026-10-02/composed_quotes.py <run>=copilot-<run>/copilot-eval.json for all 23 retained runs
+(artifacts: retained copies, paths relative to the lane scratch directory)
+
+(exit 1 is expected: the three pre-F runs 36777581481, 36800236360 and 36870677818 published genuine compositions)
+
+36777581481: audit composed_quote_rows 1 (raw, strict); flagged spans 1: composed 1 (ASML 0), audit normalization difference 0; rows without source text 0 []
+   BABA  viewed-native-revenue-2025     d0 composed                       "Revenue ... 996,347"
+36798834277: audit composed_quote_rows 0 (raw, strict); flagged spans 0: composed 0 (ASML 0), audit normalization difference 0; rows without source text 0 []
+36800236360: audit composed_quote_rows 1 (raw, strict); flagged spans 2: composed 2 (ASML 2), audit normalization difference 0; rows without source text 0 []
+   ASML  us-gaap-sales-net-income-2025  d0 composed                       "Total net sales 32,667.3"
+   ASML  us-gaap-sales-net-income-2025  d0 composed                       "Net income 9,609.4"
+36809122540: audit composed_quote_rows 0 (raw, strict); flagged spans 0: composed 0 (ASML 0), audit normalization difference 0; rows without source text 0 []
+36870677818: audit composed_quote_rows 1 (raw, strict); flagged spans 2: composed 2 (ASML 0), audit normalization difference 0; rows without source text 0 []
+   AAPL  sales-gross-profit-2025        d2 composed                       "Total net sales 416,161"
+   AAPL  sales-gross-profit-2025        d2 composed                       "Gross margin 195,201"
+36963789557: audit composed_quote_rows 0 (raw, strict); flagged spans 0: composed 0 (ASML 0), audit normalization difference 0; rows without source text 0 []
+36964503116: audit composed_quote_rows 0 (raw, strict); flagged spans 0: composed 0 (ASML 0), audit normalization difference 0; rows without source text 0 []
+36965303868: audit composed_quote_rows 0 (raw, strict); flagged spans 0: composed 0 (ASML 0), audit normalization difference 0; rows without source text 0 []
+36994753645: audit composed_quote_rows 0 (raw, strict); flagged spans 0: composed 0 (ASML 0), audit normalization difference 0; rows without source text 0 []
+36997852891: audit composed_quote_rows 0 (raw, strict); flagged spans 0: composed 0 (ASML 0), audit normalization difference 0; rows without source text 0 []
+37000691174: audit composed_quote_rows 0 (raw, strict); flagged spans 0: composed 0 (ASML 0), audit normalization difference 0; rows without source text 0 []
+37003942265: audit composed_quote_rows 0 (raw, strict); flagged spans 0: composed 0 (ASML 0), audit normalization difference 0; rows without source text 0 []
+37004589548: audit composed_quote_rows 1 (raw, strict); flagged spans 1: composed 0 (ASML 0), audit normalization difference 1; rows without source text 0 []
+   AAPL  sales-gross-profit-2025        d0 audit normalization difference "Gross margin,"
+37005114216: audit composed_quote_rows 0 (raw, strict); flagged spans 0: composed 0 (ASML 0), audit normalization difference 0; rows without source text 0 []
+37005546506: audit composed_quote_rows 0 (raw, strict); flagged spans 0: composed 0 (ASML 0), audit normalization difference 0; rows without source text 0 []
+37028750965: audit composed_quote_rows 0 (raw, strict); flagged spans 0: composed 0 (ASML 0), audit normalization difference 0; rows without source text 0 []
+37029156902: audit composed_quote_rows 0 (raw, strict); flagged spans 0: composed 0 (ASML 0), audit normalization difference 0; rows without source text 0 []
+37029566102: audit composed_quote_rows 0 (raw, strict); flagged spans 0: composed 0 (ASML 0), audit normalization difference 0; rows without source text 0 []
+37029964566: audit composed_quote_rows 1 (raw, strict); flagged spans 1: composed 0 (ASML 0), audit normalization difference 1; rows without source text 0 []
+   ASML  us-gaap-sales-net-income-2025  d1 audit normalization difference "Net income for 2025 amounted to €9,609.4 million, representing 29.4% of total net sales and €24.73 basic net income per ordinary share"
+37034659514: audit composed_quote_rows 0 (raw, strict); flagged spans 0: composed 0 (ASML 0), audit normalization difference 0; rows without source text 0 []
+37049387017: audit composed_quote_rows 0 (raw, strict); flagged spans 0: composed 0 (ASML 0), audit normalization difference 0; rows without source text 0 []
+37052760996: audit composed_quote_rows 0 (raw, strict); flagged spans 0: composed 0 (ASML 0), audit normalization difference 0; rows without source text 0 []
+37063120532: audit composed_quote_rows 0 (raw, strict); flagged spans 0: composed 0 (ASML 0), audit normalization difference 0; rows without source text 0 []
+exit 1

@@ -1,16 +1,17 @@
 """Redundant cross-check counter (declared method). Offline over a retained copilot-eval.json; no app import, no
 provider call, no network.
 
-A redundant cross-check is a filing-text citation on a row whose answer already uses tool figures, i.e. a row
-whose tool_trace.tool_results is non-empty:
-- published row (no `error`): count the final citations whose section_ref does not start with "XBRL";
-- withheld row (`error` set): count the objects with a positive-integer "n" in the declared JSON array that follows
-  the ===CITATIONS=== line of the joined tool_trace.candidate_deltas.
-Each counted excerpt is listed with `restates_tool_figure`: some figure token in the excerpt
+A redundant cross-check is a filing-text citation declared on a row whose answer already uses tool figures, i.e. a
+row whose tool_trace.tool_results is non-empty. On every row, published or withheld, the declared objects are read
+from the same place: the objects with a positive-integer "n" in the JSON array that follows the ===CITATIONS=== line
+of the joined tool_trace.candidate_deltas. Each is "placed" when its [n] marker occurs in the candidate prose (the
+text before that line) and "unplaced" otherwise; both are counted, so a cross-check excerpt kept in the JSON after
+its [n] was dropped from the prose stays visible. On published rows the final citations whose section_ref does not
+start with "XBRL" are also counted, for continuity with the earlier method.
+Each declared excerpt is listed with `restates_tool_figure`: some figure token in the excerpt
 (\\d{1,3}(,\\d{3})+(\\.\\d+)?, \\d+\\.\\d+ or \\d{5,}) equals, at the excerpt's displayed decimals, a tool value on the
-same row divided by 1, 1e3, 1e6 or 1e9. The tool values are the XBRL citations' `value` on a published row, and on a
-withheld row the tool_results values whose [F#] cite appears in the candidate prose.
-Text citations on tool-less rows are not cross-checks; they are counted separately.
+same row divided by 1, 1e3, 1e6 or 1e9. The tool values are the tool_results values whose [F#] cite appears in the
+candidate prose. Declared objects on tool-less rows are not cross-checks; they are counted separately.
 Also listed, on every row (acceptance check 1 support): each declared object whose "n" is not a positive JSON
 integer, an unparseable declaration, and every withheld row's error and captured withheld reason.
 
@@ -62,22 +63,18 @@ def count(path):
         objects, decl_error = declared(candidate)
         bad_ids = [o.get("n") if isinstance(o, dict) else o for o in objects
                    if not (isinstance(o, dict) and positive_int(o.get("n")))]
-        tool_using = bool(trace.get("tool_results"))
-        withheld = bool(row.get("error"))
-        if withheld:
-            prose = CITATIONS.split(candidate, maxsplit=1)[0]
-            values = [((t.get("result") or {}).get("value")) for t in trace.get("tool_results") or []
-                      if isinstance(t, dict) and f"[{(t.get('result') or {}).get('cite')}]" in prose]
-            text = [o.get("excerpt") for o in objects if isinstance(o, dict) and positive_int(o.get("n"))]
-        else:
-            cits = row.get("citations") or []
-            values = [c.get("value") for c in cits if str(c.get("section_ref") or "").startswith("XBRL")]
-            text = [c.get("excerpt") for c in cits if not str(c.get("section_ref") or "").startswith("XBRL")]
+        prose = CITATIONS.split(candidate, maxsplit=1)[0]
+        values = [((t.get("result") or {}).get("value")) for t in trace.get("tool_results") or []
+                  if isinstance(t, dict) and f"[{(t.get('result') or {}).get('cite')}]" in prose]
         values = [v for v in values if isinstance(v, (int, float))]
+        text = [(o.get("excerpt"), f"[{o['n']}]" in prose) for o in objects
+                if isinstance(o, dict) and positive_int(o.get("n"))]
+        final = [c.get("excerpt") for c in row.get("citations") or []
+                 if not str(c.get("section_ref") or "").startswith("XBRL")]
         rows.append({"ticker": row.get("ticker"), "question_id": row.get("question_id"), "run_index": row.get("run_index"),
-                     "withheld": withheld, "tool_using": tool_using, "text_citations": text,
-                     "restates": [restates(e, values) for e in text], "bad_ids": bad_ids, "decl_error": decl_error,
-                     "error": row.get("error"),
+                     "withheld": bool(row.get("error")), "tool_using": bool(trace.get("tool_results")),
+                     "declared": text, "restates": [restates(e, values) for e, _ in text], "final_text": final,
+                     "bad_ids": bad_ids, "decl_error": decl_error, "error": row.get("error"),
                      "withheld_reasons": trace.get("withheld_reasons") or (row.get("error") or {}).get("withheld_reason")})
     return report, rows
 
@@ -87,17 +84,19 @@ if __name__ == "__main__":
         label, path = arg.split("=", 1)
         report, rows = count(path)
         cross = [r for r in rows if r["tool_using"]]
-        pub = sum(len(r["text_citations"]) for r in cross if not r["withheld"])
-        wh = sum(len(r["text_citations"]) for r in cross if r["withheld"])
+        placed = sum(p for r in cross for _, p in r["declared"])
+        total = sum(len(r["declared"]) for r in cross)
+        on_withheld = sum(len(r["declared"]) for r in cross if r["withheld"])
+        final = sum(len(r["final_text"]) for r in cross if not r["withheld"])
         rest = sum(sum(r["restates"]) for r in cross)
-        toolless = sum(len(r["text_citations"]) for r in rows if not r["tool_using"])
+        toolless = sum(len(r["declared"]) for r in rows if not r["tool_using"])
         per = Counter()
         for r in cross:
-            per[r["ticker"]] += len(r["text_citations"])
+            per[r["ticker"]] += len(r["declared"])
         print(f"{label}: tool-using rows {len(cross)}/{len(rows)} (withheld {sum(r['withheld'] for r in cross)}); "
-              f"redundant cross-check citations {pub + wh} (published {pub}, withheld-declared {wh}); "
-              f"restating a tool figure {rest}; per ticker {dict(sorted(per.items()))}; "
-              f"text citations on tool-less rows {toolless}")
+              f"declared cross-check objects {total} (placed {placed}, unplaced {total - placed}; on withheld rows "
+              f"{on_withheld}); published final text citations {final}; declared restating a tool figure {rest}; "
+              f"declared per ticker {dict(sorted(per.items()))}; declared objects on tool-less rows {toolless}")
         print(f"  declared identities: non-positive-integer n {sum(len(r['bad_ids']) for r in rows)} "
               f"{[(r['ticker'], r['run_index'], r['bad_ids']) for r in rows if r['bad_ids']]}; unparseable declarations "
               f"{[(r['ticker'], r['run_index'], r['decl_error']) for r in rows if r['decl_error']]}")
@@ -106,6 +105,7 @@ if __name__ == "__main__":
                 print(f"  withheld {r['ticker']} {r['question_id']} d{r['run_index']}: error {json.dumps(r['error'])}; "
                       f"captured reason {json.dumps(r['withheld_reasons'])}")
         for r in cross:
-            for excerpt, flag in zip(r["text_citations"], r["restates"]):
+            for (excerpt, is_placed), flag in zip(r["declared"], r["restates"]):
                 print(f"   {r['ticker']:5} {r['question_id']:30} d{r['run_index']} {'W' if r['withheld'] else 'P'} "
-                      f"restates_tool_figure={flag!s:5} {json.dumps(excerpt, ensure_ascii=False)}")
+                      f"{'placed  ' if is_placed else 'unplaced'} restates_tool_figure={flag!s:5} "
+                      f"{json.dumps(excerpt, ensure_ascii=False)}")
