@@ -841,3 +841,8 @@ Under the founder's delegation, Codex decided items A–M on #1029. This session
   - **Tests:** the regression passes and the xfail marker is removed. There are new controls and an AST gate. Full gate: **5529 passed**. Mutations M1–M8 are all killed.
   - **Replay:** 0 verdict changes and 9/9 identical URLs on Copilot citations. Forward quotes: 175/178 verified, the same as main.
   - **Next:** independent exact-head review running in `wt/cite-rev`. The PR follows B and K.
+- 08:55Z — **B condition-2 revalidation script ready**: `scratchpad/b-reval/revalidate.py`, sha256 `90e0b98d…`.
+  - **Dry run on the retained r report (`deaa1b52`)** reproduces every recorded count: 70 results, 64 lines, 126 clauses (110 NetIncomeLoss / 16 ProfitLoss), 0 unestablished, 92 priors (90 dated, 2 GPRO out of band), gaps 365×80 / 364×8 / 91×2, FIGS sequential priors dated.
+  - **Hosted copies:** the field and the Markdown line both equal the re-render, 70 of 70.
+  - **Negative controls:** 21 of 21 caught.
+  - It will run on B's hosted eval-baseline artifact after the 10:00Z push.
