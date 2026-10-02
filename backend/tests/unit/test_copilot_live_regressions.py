@@ -64,6 +64,14 @@ def test_contiguous_citation_instruction_reaches_actual_service_messages():
     assert 'choose a longer contiguous source span; never pad or paraphrase it' in instruction
     assert 'Never stitch separated table cells or sentences together, or insert an ellipsis' in instruction
     assert 'reuse its existing [F#] marker; do not add a text citation' in instruction
+    # G stage 2: this clause suppressed 20-F tool use; the explicit empty-array rule stays.
+    assert ', including when all cited figures use tool markers' not in instruction
+    assert 'If there are no filing-text markers, output []' in instruction
+    assert instruction.count(
+        'Each quotation in your answer prose must be one contiguous span copied verbatim from the filing. '
+        'Keep table figures outside quotation marks, never quote a table row with cells left out, and never '
+        'put an ellipsis inside a quotation.') == 1
+    assert instruction.count('name the missing metric without quotation marks>') == 1
 
 
 def test_actual_aapl_stitched_quote_remains_a_hard_veto():
