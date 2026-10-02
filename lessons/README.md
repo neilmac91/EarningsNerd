@@ -79,6 +79,7 @@ what applies to your task. Filenames are greppable: `arch-*`, `sec-*`, `test-*`,
 - [`test-persistent-sqlite-db-goes-stale.md`](./test-persistent-sqlite-db-goes-stale.md) — The test SQLite DB (earningsnerd.db, CWD-relative — usually backend/) is a persistent file — rm it after a schema change or rebase
 - [`test-proofs-run-on-committed-state.md`](./test-proofs-run-on-committed-state.md) — Mechanical proofs must run against committed state — a proof that cannot fail proves nothing
 - [`test-pure-move-ast-proof.md`](./test-pure-move-ast-proof.md) — Verify "pure move" refactors with an AST-normalized per-symbol diff, not by eyeballing the diff
+- [`test-leave-the-tree-alone-during-a-background-suite.md`](./test-leave-the-tree-alone-during-a-background-suite.md) — Leave the working tree untouched while a background full-suite run reads it
 - [`test-tracked-file-gates-run-after-staging.md`](./test-tracked-file-gates-run-after-staging.md) — Run a `git ls-files` gate after staging its own module, and select targets by name pattern
 - [`test-smoke-model-runs-before-sweeps.md`](./test-smoke-model-runs-before-sweeps.md) — Smoke one or two items and inspect raw output before any long or expensive model run
 - [`test-verify-orphaned-tests-before-adopting.md`](./test-verify-orphaned-tests-before-adopting.md) — Verify orphaned or uncollected tests before adopting them

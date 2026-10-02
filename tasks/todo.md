@@ -1,3 +1,10 @@
+## 2026-10-02 — security review work packages WP-01 to WP-06 (PR #1069)
+
+- [x] CI: checksum-pinned `secret-scan` job over branch and remote refs with reviewed fingerprints in `.gitleaksignore`; tracked dotenv example files gated to placeholders; `deploy-backend` routes traffic `--to-latest --clear-tags`; `ops.yml` fails on tagged traffic targets, reads dispatch inputs through `env:`, checks out without persisted credentials and runs only from `main`.
+- [x] Backend: recipient names enter email templates only through escaping helpers (AST gate); waitlist and signup names bounded and control-character free; waitlist status lookup rate limited and trimmed; contact confirmation no longer echoes the message. Summaries and Copilot answers are metered when the provider call starts, refunded only for provider-side failure, timeout or a partial verdict; per-user burst limiters keyed on the account alone (AST gate). Social sign-in creation is gated like email registration (invite and verified-email checks in one helper, AST gate); Apple state bound to the browser; invite redeemed in the insert transaction.
+- [ ] Founder console actions from the private remediation plan (credential rotation and push protection, removing the existing revision tags after the deploy, scoping the WIF trust to `main`) are not code and remain open.
+- [ ] Remaining packages WP-07 onward follow in their own PRs.
+
 ## 2026-10-02 — returns current-period guard (`summary-2026-09-u`; item-B follow-up)
 
 - [x] The §4 returns line omits a ratio whose current point is not net income's current period (zero, negative or missing equity at the report date promoted an older ROE point that read as the filing's own); an aligned ROA still renders. Render-only: grounding identical in 70 of 70 hosted-cohort replays and 6 of 6 probes, 0 of 64 cohort lines change, stamp `u` schedules no regeneration, and there is no drain of the 47 census filings. [Evidence](review-evidence/returns-current-period-guard-2026-10-02/README.md).
