@@ -9,7 +9,9 @@ The candidate commit `81f85248` was cut from main `efdc33f4` (post-#1065). Main 
   installs.
 - #1042, #1043 and #1044 are frontend-only.
 Merge commits `5e5e80a5` (main `11681b9c`) and `3264cdcc` (main `b40fa703`) bring that main into the branch, so the
-gated tree is the tree the runs measure. `b40fa703` is the base for every comparison below. The candidate is
+gated `backend/` and `.github` tree is the one the runs measure; the validity rule checks it for every run against
+the frozen head. A run's merge ref also carries main's later merges outside `backend/` and `.github`. `b40fa703` is
+the base for every comparison below. The candidate is
 qualified by three fresh paid runs under [PREREGISTRATION.md](PREREGISTRATION.md). No merge and no production
 prompt release follow from them.
 
@@ -47,12 +49,12 @@ own prompt ([prompt_identity.txt](prompt_identity.txt)).
 | [prompt_identity.py](prompt_identity.py), [prompt_identity.txt](prompt_identity.txt) | full sha256 and length; `_build_messages(...)[0]` equals `SYSTEM_PROMPT`; minus (b) and (c) equals arm B; plus the clause equals main and the base's own prompt; floors 8 and 24 |
 | [scope_hashes.py](scope_hashes.py), [scope_hashes.txt](scope_hashes.txt) | byte identity to base (`git diff --exit-code` and sha256 at both) of the scorer, runner, bootstrap, schema, golden set, sources, baselines, regression gate, RUNBOOK, runtime pins, flags and model, workflows, tool path, citation floor, decision F's owner test, every locked test and the measurement tools; allowed diff; AST scope |
 | [run_validity.py](run_validity.py), [run_validity.txt](run_validity.txt) | the validity checker for each qualification run (full prompt hash and length per row), with negative and control results on retained runs |
-| [composed_quotes.py](composed_quotes.py), [composed_quotes.txt](composed_quotes.txt) | the registered composed-quotation measurement for checks 3 and 4: the unchanged #1021 audit, with each flagged span re-tested by F's per-span test; output on all 23 retained runs |
+| [composed_quotes.py](composed_quotes.py), [composed_quotes.txt](composed_quotes.txt) | the registered composed-quotation measurement for checks 3 and 4: the unchanged #1021 audit, with each flagged span re-tested by F's per-span test (floor, then source match); output on all 23 retained runs |
 | [crosscheck_count.py](crosscheck_count.py), [crosscheck_count.txt](crosscheck_count.txt) | declared redundant cross-check method (declared objects on every row, placed and unplaced); also lists declared citation identities (check 1) |
 | [quote_inventory.py](quote_inventory.py), [quote_inventory.txt](quote_inventory.txt) | every quoted span in every quote form, classified as table-figure, sub-floor, verified or other |
 | [baseline_context.txt](baseline_context.txt) | input sha256, `g_decide.py`, `copilot_cost_runnerlog.py`, `prose_quote_audit.py` summaries and uncited figures on the retained runs |
 | [mutations.txt](mutations.txt) | owner-test mutations M1–M4 failing, and M0 passing |
-| [design-history/](design-history/design-v2.md) | design v1, design v2, the three adversarial critiques, Codex's decision and the round-1 exact-head review findings ([exact-head-review-r1.md](design-history/exact-head-review-r1.md)), verbatim |
+| [design-history/](design-history/design-v2.md) | design v1, design v2, the three adversarial critiques, Codex's decision and the exact-head review findings of round 1 ([exact-head-review-r1.md](design-history/exact-head-review-r1.md)) and round 2 ([exact-head-review-r2.md](design-history/exact-head-review-r2.md)), verbatim |
 
 The scripts have no `test_` prefix or `_test` suffix, so the test-homes gate does not treat them as tests.
 `scope_hashes.txt` and `prompt_identity.txt` were produced against merge commit `3264cdcc`, with base `b40fa703`.
@@ -105,19 +107,25 @@ in [baseline_context.txt](baseline_context.txt), [quote_inventory.txt](quote_inv
   `crosscheck_count.txt` as a method check) it finds 25 declared cross-checks, 16 of them unplaced; the earlier
   method saw 9.
 
-**Composed-quotation measurement (checks 3 and 4).** `prose_quote_audit.py` normalizes less than decision F. It
-lacks marker blanking, edge stripping, the punctuation-spacing fold and the low/curly-mark, hyphen, minus and
-invisible-character folds. Over the 23 retained runs it flags five runs:
+**Composed-quotation measurement (checks 3 and 4).** `prose_quote_audit.py` reads quotations more simply than
+decision F. It lacks marker blanking, edge stripping, the punctuation-spacing fold and the low/curly-mark, hyphen,
+minus and invisible-character folds. Its floor counts raw characters, so it checks a label such as `"EBITDA [1]"`
+that F exempts under its floor. It also lacks F's markdown reading and quote pairing. Over the 23 retained runs it
+flags five runs:
 - three runs from before F, all genuine compositions;
 - two F-live runs whose flagged quotation F verified and published: B2 37029964566 ASML d1 (the MD&A sentence; the
   source reads `million\n, \nrepresenting`) and C1 37004589548 AAPL d0 (`"Gross margin,"`, comma inside the mark).
 Read strictly, the audit would fail 2 of the 12 G and later-main runs and 1 of the 2 arm-B runs with no composed
 quotation. The ASML MD&A shape alone gives about a 31–40% chance of one such false failure across Q1–Q3. The
 pre-registration therefore registers one reading: a span is composed when the audit flags it and F's per-span test
-(`quote_inventory.classify`, `in_source`) also fails. Other flagged spans are reported as audit normalization
-differences. It applies to check 3 and check 4 alike, and `composed_quotes.py` implements it
-([composed_quotes.txt](composed_quotes.txt)). Codex acknowledges it on #1029 before step 1, or directs the strict
-reading instead, with the exposure above accepted.
+(`composed_quotes.verdict`: F's floor, then `quote_inventory.classify`'s `in_source`) neither exempts nor finds it.
+Other flagged spans are reported as audit normalization differences or sub-floor labels. It applies to check 3 and
+check 4 alike, and `composed_quotes.py` implements it ([composed_quotes.txt](composed_quotes.txt)). F's markdown
+reading (emphasis delimiters `*`, `_`, `~`) and its quote pairing are not copied, so a published quotation that
+contains markdown emphasis, such as `"**Net income**"`, is still read as composed and is reported with its span.
+None of the 402 published answers in the retained runs contains `*`, `_` or `~`, and each of the 15 spans the audit
+checks there matches a span of F's own reading. Codex acknowledges the reading on #1029 before step 1, or directs
+the strict reading instead, with the exposure above accepted.
 
 ## Failure-shape coverage (argued, not replayed)
 
@@ -133,12 +141,12 @@ coverage below is an argument; the shapes and their sources are in [design-histo
 | Bare cell under the floor: `"9,609.4"`, `"996,347"` | exempt (under 8) | "Keep table figures outside quotation marks"; the figure is still stated |
 | Quoted absent metric in a not-disclosed reason | withheld (pinned in `test_copilot_prose_quotations.py`) | template (c); unmeasured live (no not-disclosed golden question) |
 
-Legitimate shapes the wording keeps: contiguous MD&A sentences carrying figures (BABA "further increased by 3% to
-RMB1,023,670 million …", ASML "Net income for 2025 amounted to €9,609.4 million …"), quoted labels with figures
-outside the quotes, the unquoted cross-check, and an unquoted not-disclosed reason. The wording is stricter than F in
-two places, both disclosed in the pre-registration: table figures inside quotation marks, and an edge ellipsis
-(`"by 3% to RMB1,023,670 million …"`, which F verifies after stripping the ellipsis). The model can truncate
-without the ellipsis, and F still verifies the span.
+Legitimate shapes the wording keeps: contiguous MD&A sentences carrying figures (BABA's sentence beginning
+"further increased by 3% to RMB1,023,670 million", ASML's beginning "Net income for 2025 amounted to €9,609.4
+million"), quoted labels with figures outside the quotes, the unquoted cross-check, and an unquoted not-disclosed
+reason. The wording is stricter than F in two places, both disclosed in the pre-registration: table figures inside
+quotation marks, and an edge ellipsis (`"by 3% to RMB1,023,670 million …"`, an illustration that F verifies after
+stripping the ellipsis). The model can truncate without the ellipsis, and F still verifies the span.
 
 ## Review record
 
@@ -157,7 +165,7 @@ findings and twelve nits. The findings are kept verbatim in
 | Finding | Resolution |
 | --- | --- |
 | R1-3 (blocker): main moved past the head with a backend change (#1066 runtime pins), so the gated tree differed from the measured tree | Merged main `11681b9c` (merge `5e5e80a5`), then main `b40fa703` after #1067 landed during the fix round (merge `3264cdcc`). Gates use main's pins: `openai` 3.20.0, `PyJWT` 2.15.1 and `sentry-sdk` 2.71.0 come from an overlay on the gate venv, and venv plus overlay match all 99 pins of `requirements.txt` and the dev pins. Re-ran the full gate, the five RUNBOOK files with the owner test, and the tests that read `tasks/`, all on the integrated head with HEAD-stamped logs (tails in the step-0 comment). Regenerated `prompt_identity.txt` and `scope_hashes.txt` against `b40fa703`; the scope proof now covers the requirements files. Base lines updated. Precondition 1 is now a general deploy-receipt rule (#1066, #1067 and any later backend merge). New precondition 2 stops the lane if main's backend moves before step 1. Runtime versions are reported as context. The integrated head needs a fresh exact-head review (precondition 6). |
-| R1-1, R1-2, R1-5: the strict audit leg of checks 3 and 4 fails F-verified quotations (B2 ASML d1 MD&A sentence; C1 AAPL d0 `"Gross margin,"`), and the gap was understated | The pre-registration now lists every normalization gap and both retained cases, and quantifies the strict-reading exposure. It registers one reading: a span is composed when the audit flags it and F's per-span test also fails (`composed_quotes.py`). The reading applies to check 3 and check 4. Over the 23 retained runs it keeps the 3 genuine pre-F compositions and clears the 2 F-verified spans. Codex acknowledges it on #1029 before step 1 (precondition 5), or directs the one predeclared alternative, the strict reading, with its exposure accepted. This lane cannot post on #1029, so the reading is fixed in the frozen file and Codex's choice between the two is recorded before any paid trigger. Neither reading is chosen after data. |
+| R1-1, R1-2, R1-5: the strict audit leg of checks 3 and 4 fails F-verified quotations (B2 ASML d1 MD&A sentence; C1 AAPL d0 `"Gross margin,"`), and the gap was understated | The pre-registration now lists every normalization gap and both retained cases, and quantifies the strict-reading exposure. It registers one reading: a span is composed when the audit flags it and F's per-span test also fails (`composed_quotes.py`). The reading applies to check 3 and check 4. Over the 23 retained runs it keeps the 3 genuine pre-F compositions and clears the 2 F-verified spans. Codex acknowledges it on #1029 before step 1 (precondition 5), or directs the one predeclared alternative, the strict reading, with its exposure accepted. Codex's choice cannot be obtained before freeze, so both readings are fixed in the frozen file and Codex's choice is recorded on #1029 before step 1 (reworded in round 2, R2-N6). Neither reading is chosen after data. |
 | R1-4: the pre-trigger diff check could never pass (the merge ref contains the candidate) | Restated as `git diff --quiet <previous merge ref>^1 origin/main -- backend .github`. For Q1 the previous merge ref is the `eval-baseline` run's `source_sha` (`ci-execution.txt`). The validity chain runs `eval-baseline`, Q1, Q2, Q3. |
 | N1: the 20-F label can miss ASML alone going tool-less | Exposure denominators (tool-using ASML and BABA-viewed draws, per run and across Q1–Q3) are now reported in context and the handback. A check-3 pass on tool-less ASML draws is reported as such: 0 of the 44 retained tool-less ASML draws was withheld. |
 | N2: "edge ellipses" listed as kept | Dropped from the kept list; disclosed as a second place where the wording is stricter than F. |
@@ -172,6 +180,27 @@ findings and twelve nits. The findings are kept verbatim in
 | N11: gate logs did not name their HEAD | Every round-1 gate log starts with `git rev-parse HEAD`, `git status --short` and the provider-SDK versions. |
 | N12: no mutation proof for the kept-sentence assertion | M4 deletes that sentence and fails the owner test at `:69` ([mutations.txt](mutations.txt)). |
 
+### Review round 2 (exact-head review of `61cce875`)
+
+Three lenses reviewed `61cce875` (the round-1 fix commit on merge `3264cdcc`, base `b40fa703`) and returned one
+should-fix finding and seven nits. The findings are kept verbatim in
+[design-history/exact-head-review-r2.md](design-history/exact-head-review-r2.md). Round 2 changes only files in this
+folder; `backend/` and `.github` are byte-identical to `3264cdcc`. Resolution:
+
+| Finding | Resolution |
+| --- | --- |
+| R2-1 (should-fix): the pre-registration attributed the edge-ellipsis quotation `"by 3% to RMB1,023,670 million …"` to run 36800236360 d1, whose published quotation has no ellipsis (the `…` was an abbreviation in the research notes) | The run attribution is removed and the example is marked illustrative. Checked over the 23 retained runs: none of the 51 quoted spans the inventory finds (every form, published and withheld) starts or ends with an ellipsis, and the pre-registration now says so. The same abbreviation habit is removed where a quoted retained span was cut with `…`: the B2 MD&A sentence in the pre-registration (now quoted up to "representing", full span in `composed_quotes.txt`) and the README's list of kept shapes. The pre-registration's sha256 changes; the step-0 comment carries the new value. |
+| R2-N1, R2-N7: the registered reading omitted F's floor, so a sub-floor label padded by a marker or edge punctuation (`"EBITDA [1]"`) could be classed composed | `composed_quotes.verdict` applies F's floor first: a needle under 8 normalized characters, after marker blanking and edge stripping, with no interior ellipsis, is a **sub-floor label**, reported and not composed. An offline probe (not committed) compared the verdict with the product's `unsupported_prose_quotations` on 14 spans (labels with markers and edge punctuation, interior and edge ellipses, table-cell compositions, the B2 sentence, bare numbers on each side of the floor): 0 disagreements. Over the 23 retained runs, `composed_quotes.txt` is unchanged apart from the new count, which is 0 in every run. The pre-registration's "Why the raw audit…", "Registered measurement" and "Decision owner" paragraphs and this README name the floor. |
+| R2-N2: main moved again (#1064, #1071, and since then #1045) | No action on the tree: `git diff --name-only b40fa703 origin/main -- backend .github` is empty at `origin/main` `7337eba6`. Precondition 2 now records the `origin/main` SHA checked with its result. The "gated tree" sentences in both files now say `backend/` and `.github`. |
+| R2-N3: F's markdown reading and quote pairing are not copied, so a quotation holding markdown emphasis reads as composed | Stated, with the measurement unchanged, in the pre-registration ("Why the raw audit…", "Registered measurement", handback), this README (measurement paragraph, limitations) and `composed_quotes.py`'s docstring. Such a span is still read as composed and is reported with its span. Exposure on the retained runs: 0 of 402 published answers contain `*`, `_` or `~`, and each of the 15 spans the audit checks matches a span of F's own reading. |
+| R2-N4: validity had no anchor to the frozen head | The identity-table row (now "Backend tree of each run") and Validity require `git diff --quiet <head> <source_sha> -- backend .github` for each of `eval-baseline`, Q1, Q2 and Q3. This replaces the consecutive-pair chain, which it implies. The step-2 `^1` check stays as a pre-trigger guard against spending on a run that would be invalid. |
+| R2-N5: precondition 1's list omitted #1041 | The list now reads "included" and adds #1041 (`5525a91d`, covered by #1060's 00436-pkk). It also names #1065's revision (00437-xsf) and the #1066 and #1067 receipts read on #1029: 00438-v8g (comment 5962491931) and 00439-llg (comment 5962762092). Precondition 4 notes that comment 5962762092 records the #1066/#1067 slot as free. |
+| R2-N6: "This lane cannot post on #1029" contradicted step 0 | Reworded in the round-1 table as proposed. |
+
+The owner test with the five RUNBOOK files, M0–M4, `prompt_identity.py`, `scope_hashes.py`, the tasks-reading tests
+and the full backend gate are re-run on the round-2 commit with HEAD-stamped logs; their tails go in the step-0
+comment.
+
 ## Limitations
 
 - **Small denominators.** Failures concentrate on about six tool-using ASML and BABA-viewed draws per run. The
@@ -181,5 +210,6 @@ findings and twelve nits. The findings are kept verbatim in
   visible only through `quote_inventory.py`, whose classes are a declared heuristic, not F's parser.
 - **Composed-quotation reading.** Checks 3 and 4 read the audit through F's per-span test (copied, not imported).
   An F defect that the copy shares would not be caught by the audit leg. The F-withheld, error and 18/18 legs still
-  catch every composed quotation F withholds.
+  catch every composed quotation F withholds. F's markdown reading and quote pairing are not copied, so a published
+  quotation holding markdown emphasis would read as composed (stricter than F; none in the retained runs).
 - **Argued coverage.** Offline coverage of the failure shapes is argued, not replayed.
