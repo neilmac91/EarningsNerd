@@ -468,7 +468,32 @@ async def test_withheld_capture_keeps_other_attempts_records_off_the_row():
             stray.join()
     await asyncio.gather(attempt_one(), attempt_two())
     assert first == [F_REASON] and second == ['Invalid citation declaration']
-    assert not any(isinstance(h, runner._WithheldReasons) for h in logger.handlers)
+    assert not any(isinstance(f, runner._WithheldReasons) for f in logger.filters)
+
+
+@pytest.mark.asyncio
+async def test_withheld_capture_keeps_service_lines_in_runner_log(monkeypatch, capsys):
+    """The copilot-eval job sets no root handler, so the service's warnings and tracebacks reach
+    stderr (tee'd into runner.log) only through logging.lastResort, which runs only when no handler
+    is on the logger's path. During an attempt the capture must leave them printed."""
+    import logging
+    from app.services import copilot_service
+    monkeypatch.setattr(logging.getLogger(), 'handlers', [])  # the job's root logger
+    replies = iter(['quotation', 'crash'])
+    async def stream(messages, tools, run_tool, **kwargs):
+        if next(replies) == 'crash':
+            raise RuntimeError('offline provider crash')
+        yield reply('quotation')
+    monkeypatch.setattr(copilot_service.openai_service, 'stream_chat_with_tools', stream)
+    traces = [{}, {}]
+    for trace in traces:
+        with pytest.raises(ValueError, match='provider error event'):
+            await runner._answer(sourced(), 'Describe the business.', trace=trace)
+    assert [trace['withheld_reasons'] for trace in traces] == [[F_REASON], []]
+    printed = capsys.readouterr().err
+    assert 'Copilot candidate withheld at citation publication boundary: ' + F_REASON + '\n' in printed
+    assert 'Copilot answer_filing_question failed\nTraceback (most recent call last):' in printed
+    assert 'RuntimeError: offline provider crash\n' in printed
 
 
 def test_nullable_raw_tag_is_preserved_without_inventing_provenance():

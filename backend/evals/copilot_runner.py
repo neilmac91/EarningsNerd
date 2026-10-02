@@ -177,34 +177,38 @@ def _snapshot_for_case(case: CopilotGoldenCase):
 
 # The capture of the attempt running in this context (its asyncio task, and threads it starts). A
 # record logged under another attempt's context never reaches this row.
-_ATTEMPT_CAPTURE: ContextVar[logging.Handler | None] = ContextVar('copilot_eval_attempt_capture', default=None)
+_ATTEMPT_CAPTURE: ContextVar[logging.Filter | None] = ContextVar('copilot_eval_attempt_capture', default=None)
 
 
-class _WithheldReasons(logging.Handler):
+class _WithheldReasons(logging.Filter):
     """Record this attempt's publication-boundary withhold reasons from the service log.
 
     The client receives only the shared generic error; the service logs the reason, an
     application-owned constant, never candidate prose. Diagnostic only: nothing is admitted.
+    A logger filter, not a handler: it passes every record on unchanged, and an added handler
+    would switch off logging's last-resort stderr output, which is how the service's warnings
+    and tracebacks reach runner.log in the copilot-eval job (no root handler there).
     """
 
     def __init__(self, sink: list[str]):
         from app.services.copilot_service import _UnpublishableAnswer, logger
-        super().__init__(logging.WARNING)
+        super().__init__()
         self.sink, self.withheld, self.service_log = sink, _UnpublishableAnswer, logger
 
     def __enter__(self):
         self.token = _ATTEMPT_CAPTURE.set(self)
-        self.service_log.addHandler(self)
+        self.service_log.addFilter(self)
         return self
 
     def __exit__(self, *exc_info):
-        self.service_log.removeHandler(self)
+        self.service_log.removeFilter(self)
         _ATTEMPT_CAPTURE.reset(self.token)
 
-    def emit(self, record: logging.LogRecord) -> None:
+    def filter(self, record: logging.LogRecord) -> bool:
         reason = record.args[0] if isinstance(record.args, tuple) and record.args else None
         if isinstance(reason, self.withheld) and _ATTEMPT_CAPTURE.get() is self:
             self.sink.append(str(reason)[:200])
+        return True
 
 
 async def _answer(filing_snap, question: str, *, trace: dict | None = None) -> tuple[str, list[dict], str, int]:
