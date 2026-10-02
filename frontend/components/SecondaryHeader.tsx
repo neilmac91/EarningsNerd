@@ -26,14 +26,17 @@ export default function SecondaryHeader({
             inline-size contained, so only the back link, title and actions decide where the row
             wraps, and the title block grows into the free space where the subtitle truncates. A late
             or long subtitle therefore can't change the header's height and move the page below. */}
-        <div className="flex min-w-0 grow flex-wrap items-center gap-4">
+        <div className="flex min-w-0 grow flex-wrap items-center gap-x-1 gap-y-4 sm:gap-x-4">
           {backHref && (
+            // Below sm the back link is its caret alone (the label stays as its accessible name), so
+            // the subtitle keeps room for a name. The 44px target reaches into the gutter, keeping
+            // the caret on the page edge.
             <Link
               href={backHref}
-              className="inline-flex items-center text-sm font-medium text-text-secondary-light dark:text-text-secondary-dark transition hover:text-text-primary-light dark:hover:text-text-primary-dark"
+              className="-ml-3.5 inline-flex min-h-11 min-w-11 items-center justify-center text-sm font-medium text-text-secondary-light dark:text-text-secondary-dark transition hover:text-text-primary-light dark:hover:text-text-primary-dark sm:ml-0 sm:min-h-0 sm:min-w-0 sm:justify-start"
             >
-              <CaretLeftIcon className="mr-1 h-4 w-4" />
-              {backLabel}
+              <CaretLeftIcon aria-hidden="true" className="h-4 w-4 sm:mr-1" />
+              <span className="sr-only sm:not-sr-only">{backLabel}</span>
             </Link>
           )}
           <div className="flex min-w-0 grow items-center gap-3">

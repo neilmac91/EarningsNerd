@@ -7,6 +7,8 @@ import { test, expect, type Page } from '@playwright/test'
  *    so a long company name beside a status badge truncates instead of widening the page.
  * 2. A stable header: the SecondaryHeader subtitle ("Welcome back, <name or email>") never sizes
  *    the header row, so the page below sits at the same offset whatever the name's length.
+ * 3. Room for the name: below sm the back link is its caret alone (still named by its label, with a
+ *    44px target), so a typical name fits whole beside the title at 375px.
  *
  * CI runs e2e with no backend (lessons/test-e2e-runs-without-backend.md). These specs still need
  * none: the API is answered inside the browser with page.route fixtures, and the middleware's
@@ -18,6 +20,7 @@ const API_ORIGIN = new URL(process.env.NEXT_PUBLIC_API_BASE_URL || 'http://local
 type Who = { full_name: string | null; email: string }
 
 const SHORT: Who = { full_name: 'Al', email: 'al@example.com' }
+const TYPICAL: Who = { full_name: 'Jordan Whitaker', email: 'jordan@example.com' }
 const LONG: Who = { full_name: 'Maximilian Alexander Featherstonehaugh-Worthington', email: 'max@example.com' }
 const EMAIL_ONLY: Who = { full_name: null, email: 'maximilian.featherstonehaugh@example-enterprise.com' }
 
@@ -80,6 +83,7 @@ async function openDashboard(page: Page, who: Who, baseURL: string) {
   await page.goto('/dashboard')
   await expect(page.getByRole('link', { name: 'Open watchlist insights' })).toBeVisible()
   await expect(page.getByText('Latest report').first()).toBeVisible()
+  await page.evaluate(() => document.fonts.ready)
 }
 
 for (const width of [375, 390, 1440]) {
@@ -117,4 +121,17 @@ test('dashboard header height does not depend on the greeting at 375px', async (
   }
   expect(offsets[1]).toEqual(offsets[0])
   expect(offsets[2]).toEqual(offsets[0])
+})
+
+test('a typical name fits beside an icon-only back link at 375px', async ({ page, baseURL }) => {
+  await page.setViewportSize({ width: 375, height: 900 })
+  await openDashboard(page, TYPICAL, baseURL!)
+  const greeting = page.getByText('Welcome back, Jordan Whitaker')
+  expect(await greeting.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true)
+  const back = page.getByRole('link', { name: 'Back to home' })
+  await expect(back).toBeVisible()
+  const box = (await back.boundingBox())!
+  expect(box.width).toBeGreaterThanOrEqual(44)
+  expect(box.height).toBeGreaterThanOrEqual(44)
+  expect(box.x).toBeGreaterThanOrEqual(0)
 })
