@@ -755,3 +755,10 @@ Under the founder's delegation, Codex decided items A–M on #1029. This session
   - **Nit:** "Inside a line they are read as the display shows them" is not literally true. `heading.py:62` and `table.py:174/230` also strip mid-line at the edge of a heading or cell, but the only effect is whitespace, which the reading and `normalize_for_match` treat alike. The reviewer's probes: 0 differences.
 - 02:25Z — **Full gate on `3b0a74fc`:** ruff and bandit clean, pytest exit 0 (the count line was lost to `tail`).
 - 02:27Z — **Release head amended to `662f931d`**, still on top of `b424e8d9` and still comment and RUNBOOK only (`ast.dump` identical). The overclaiming sentence now reads: "Elsewhere in a line the only difference is whitespace at a table cell's or a heading's edge, which the reading and the shared normalization treat alike." A full gate with the complete log and a re-review of `b424e8d9..662f931d` are running.
+- 02:34Z — **Full gate on `662f931d`:** ruff and bandit clean; pytest **5499 passed, 39 skipped, 2 deselected** (7m53s).
+- 02:35Z — **Re-review of `b424e8d9..662f931d`: APPROVE.** No blocker and no should-fix.
+  - **Nit:** the sentence's "only" list left out two cases:
+    - a paragraph starting right after a container marker (`paragraph.py:50`);
+    - the padding of a code span that holds only whitespace (`backticks.py:57`).
+  - **Behaviour is unaffected:** 210 probe answers against micromark 4.0.2 + gfm 3.0.0 gave 0 verdict mismatches.
+- 02:37Z — **Release head amended to `ca1e60b9`.** It adopts the reviewer's suggested sentence word for word and is still comment and RUNBOOK only (`ast.dump` identical to `b424e8d9`). Running now: a full gate, and the reviewer's word-for-word confirmation.
