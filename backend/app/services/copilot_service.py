@@ -587,10 +587,13 @@ _LINK_RE = re.compile(r"\]\(|\]:|www\.|https?://|\S@\S", re.IGNORECASE)
 # normalized, as markdown-it normalizes them). These are the whitespace characters Python's
 # str.strip() removes besides those that fail closed anyway (_display_may_differ) and the space,
 # tab and line endings: U+00A0, U+2000-U+200A, U+202F, U+205F and U+3000. markdown-it strips them
-# from a table row (rules_block/table.py), a paragraph (paragraph.py) and a setext heading
-# (lheading.py), where micromark trims only spaces and tabs, so at a line's edge they can change the
-# blocks the display shows (a table header the display does not take as one, a line the display
-# breaks after a trailing backslash). Inside a line they are read as the display shows them.
+# from a table row (rules_block/table.py), a paragraph (paragraph.py), a setext heading
+# (lheading.py) and an ATX heading's content (heading.py), where micromark trims only spaces and
+# tabs, so at a line's edge they can change the blocks the display shows (a table header the
+# display does not take as one, a line the display breaks after a trailing backslash). Elsewhere in
+# a line the only differences are whitespace at the edge of a table cell, a heading, or a paragraph
+# that starts after a blockquote or list marker, and the padding of a code span that holds only
+# whitespace; the reading and the shared normalization treat these alike.
 _UNICODE_SPACES = "\u00a0\u2000-\u200a\u202f\u205f\u3000"
 _LINE_EDGE_SPACE_RE = re.compile(f"(?m)^[ \t]*[{_UNICODE_SPACES}]|[{_UNICODE_SPACES}][ \t]*$")
 # A GFM task-list checkbox, which the display draws as a box instead of this text.
