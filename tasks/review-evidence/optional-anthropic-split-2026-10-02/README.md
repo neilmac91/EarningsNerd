@@ -9,7 +9,8 @@ Runtime SDK upgrades have a separate successor; Edgartools 5.59.1 remains held i
 [issue #1063](https://github.com/neilmac91/EarningsNerd/issues/1063).
 
 Original base: `5525a91db3de9ce554b6015ed51d6817666c7bc3`; current main
-`153cfc4612b790713e1aebbec9174479c373468f` was subsequently merged before the final full gate. Dependency source commit:
+`153cfc4612b790713e1aebbec9174479c373468f` was subsequently merged, followed by
+`efdc33f42bbf95a70ceb78d0c6615d59788800df` (#1065), before the final full gate. Dependency source commit:
 `73b218e3ef24c2edad834601b7ecc18e0a4bed10`. Evidence-only additions follow that commit.
 Application, prompts, model choices, contracts, workflows, budgets and baseline files are unchanged.
 
@@ -64,3 +65,13 @@ combined package environment is already checked above. This is offline compatibi
 No provider call, workflow dispatch or production action occurred in this preparation.
 Although this dependency is excluded from the runtime image, this backend-file merge still
 triggers deployment and requires the usual serialized migration and health verification.
+
+## Resumed local-runner correction
+
+The [resumed gate on main 153cfc46](resumption-host-library-failure.txt) had **5595 passed,
+2 failed, 2 deselected, 0 skipped**: the sanitized runner omitted the existing Homebrew native
+library directory, so WeasyPrint could not load libgobject. Restoring
+`DYLD_FALLBACK_LIBRARY_PATH=/opt/homebrew/lib` fixed [both exact PDF tests](pdf-host-library-restored.txt):
+**2 passed**. This probe used the runtime successor after integrating #1065; the same native
+libraries serve both isolated environments. No dependency, application or test change was used
+to bypass the failure. The complete gates are repeated with the restored path on the new base.
