@@ -61,7 +61,6 @@ const ALLOW: Record<string, { sites: string[]; reason: string }> = {
   // Converted by the in-flight design-v3 stack.
   'app/forgot-password/page.tsx': { sites: ['loading'], reason: DESIGN_V3 },
   'app/login/page.tsx': { sites: ['loading || (TURNSTILE_ENABLED && !turnstileToken)'], reason: DESIGN_V3 },
-  'app/register/page.tsx': { sites: ['loading || (TURNSTILE_ENABLED && !turnstileToken)'], reason: DESIGN_V3 },
   'app/reset-password/page.tsx': { sites: ['loading || !token'], reason: DESIGN_V3 },
   // Pre-existing follow-ups.
   'app/admin/invites/page.tsx': { sites: ['sending', 'sending', 'sending', 'sending', '!canSend'], reason: FOLLOW_UP },
@@ -85,8 +84,8 @@ const ALLOW: Record<string, { sites: string[]; reason: string }> = {
 }
 
 /** Frozen ceilings on files and on pinned sites: lower them as sites are converted, never raise them. */
-const MAX_ALLOWLIST_SIZE = 25
-const MAX_PINNED_SITES = 36
+const MAX_ALLOWLIST_SIZE = 24
+const MAX_PINNED_SITES = 35
 
 const frontendRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 const ROOTS = ['app', 'components', 'features']

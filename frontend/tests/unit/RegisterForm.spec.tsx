@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import RegisterForm from '@/features/auth/components/RegisterForm'
 
 /**
@@ -23,6 +23,8 @@ vi.mock('@/features/auth/components/AuthShell', () => ({
   default: ({ children }: { children: React.ReactNode }) => <>{children}</>,
 }))
 vi.mock('@/features/auth/components/TurnstileWidget', () => ({ default: () => null }))
+// A register call that never settles, so the form can be observed while its request is in flight.
+vi.mock('@/features/auth/api/auth-api', () => ({ register: vi.fn(() => new Promise(() => {})) }))
 
 const socialLink = (provider: 'Google' | 'Apple') =>
   screen.queryByRole('link', { name: `Sign up with ${provider}` })
@@ -57,5 +59,21 @@ describe('RegisterForm social sign-up follows the invite gate', () => {
     expect(socialLink('Apple')).toHaveAttribute('href', `/api/auth/apple${query}`)
     expect(screen.getByLabelText('Email')).toBeInTheDocument()
     expect(screen.queryByRole('link', { name: 'Request an invite' })).toBeNull()
+  })
+
+  it('keeps the submit focusable while the request is in flight (aria-disabled, never native disabled)', async () => {
+    render(<RegisterForm inviteOnly={false} />)
+    fireEvent.click(screen.getByRole('button', { name: /sign up with email/i }))
+    fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'person@example.com' } })
+    fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'a-long-enough-passphrase' } })
+    const submit = screen.getByRole('button', { name: 'Create account' })
+    expect(submit).not.toBeDisabled()
+
+    fireEvent.submit(submit.closest('form') as HTMLFormElement)
+
+    await waitFor(() => expect(submit).toHaveAttribute('aria-busy', 'true'))
+    expect(submit).toHaveAttribute('aria-disabled', 'true')
+    expect(submit).not.toBeDisabled()
+    expect(submit).toHaveTextContent('Creating account…')
   })
 })
