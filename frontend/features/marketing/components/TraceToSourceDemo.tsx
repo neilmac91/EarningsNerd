@@ -36,7 +36,7 @@ export default function TraceToSourceDemo({ trace }: { trace: TraceSample }) {
         into SEC EDGAR.
       </p>
       <div className="mt-4 rounded-lg border border-border-light bg-white px-4 py-3.5 dark:border-white/10 dark:bg-white/5">
-        <p className="text-[13px] leading-relaxed text-text-secondary-light dark:text-text-secondary-dark">
+        <p className="text-sm leading-relaxed text-text-secondary-light dark:text-text-secondary-dark">
           {trace.claim}{' '}
           <button
             type="button"

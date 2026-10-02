@@ -128,7 +128,7 @@ export default function ProDepth() {
           <div className="mt-12 border-t border-border-light pt-8 dark:border-white/10 lg:mt-16">
             <div className="flex flex-wrap items-baseline justify-between gap-4">
               <h3 className="text-sm text-text-secondary-light dark:text-text-secondary-dark">Also in Pro</h3>
-              <span className="text-[13px] text-text-secondary-light dark:text-text-secondary-dark">
+              <span className="text-sm text-text-secondary-light dark:text-text-secondary-dark">
                 Watchlists are unlimited on both plans.
               </span>
             </div>
@@ -148,8 +148,8 @@ export default function ProDepth() {
                       <Icon className="h-6 w-6" />
                     </span>
                     <div>
-                      <h4 className="text-[15px] leading-5">{extra.title}</h4>
-                      <p className="mt-1 text-[13px] leading-[18px] text-text-secondary-light dark:text-text-secondary-dark">
+                      <h4 className="text-base leading-5">{extra.title}</h4>
+                      <p className="mt-1 text-sm leading-[18px] text-text-secondary-light dark:text-text-secondary-dark">
                         {extra.description}
                       </p>
                     </div>

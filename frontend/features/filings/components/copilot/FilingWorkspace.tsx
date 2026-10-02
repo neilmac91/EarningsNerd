@@ -196,7 +196,7 @@ export default function FilingWorkspace({
                 >
                   <SparkleIcon className="h-4 w-4" />
                   Ask this Filing
-                  <kbd className="ml-1 hidden rounded border border-border-light bg-background-light px-1.5 py-0.5 text-[10px] font-semibold leading-none sm:inline-block">
+                  <kbd className="ml-1 hidden rounded border border-border-light bg-background-light px-1.5 py-0.5 text-data-xs font-semibold leading-none sm:inline-block">
                     ⌘K
                   </kbd>
                   {/* First-run "new" dot — static (the decorative ping ring was removed for
