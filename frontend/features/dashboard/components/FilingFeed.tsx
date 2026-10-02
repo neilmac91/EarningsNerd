@@ -52,7 +52,7 @@ export default function FilingFeed({
       </div>
 
       {isLoading ? (
-        <div role="status" aria-label="Loading feed" className="grid gap-4 sm:grid-cols-2">
+        <div role="status" aria-label="Loading feed" className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           {[0, 1, 2, 3].map((i) => (
             <Skeleton key={i} className="h-28 rounded-xl" />
           ))}
@@ -88,7 +88,8 @@ export default function FilingFeed({
         )
       ) : (
         <>
-          <div className="grid gap-4 sm:grid-cols-2">
+          {/* grid-cols-1 (minmax(0, 1fr)) lets a card shrink below its untruncated company name on phones. */}
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             {visible.map((item) => (
               <WhatChangedCard key={item.filing_id} item={item} />
             ))}

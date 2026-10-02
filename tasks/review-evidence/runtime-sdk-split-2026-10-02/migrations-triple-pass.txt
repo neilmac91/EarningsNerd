@@ -1,0 +1,740 @@
+
+create_all: 33 tables
+
+CREATE TABLE
+
+== applying 20260120_create_waitlist_signups.sql ==
+CREATE TABLE
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+psql:/Users/neilmacaogain/Documents/Codex/2026-10-02/github-plugin-github-openai-curated-remote-3/work/runtime-deps/backend/migrations/20260120_create_waitlist_signups.sql:13: NOTICE:  42P07: relation "waitlist_signups" already exists, skipping
+LOCATION:  transformCreateStmt, parse_utilcmd.c:210
+== applying 20260122_add_markdown_cache_columns.sql ==
+ALTER TABLE
+CREATE INDEX
+COMMENT
+COMMENT
+COMMENT
+psql:/Users/neilmacaogain/Documents/Codex/2026-10-02/github-plugin-github-openai-curated-remote-3/work/runtime-deps/backend/migrations/20260122_add_markdown_cache_columns.sql:7: NOTICE:  42701: column "markdown_content" of relation "filing_content_cache" already exists, skipping
+LOCATION:  check_for_column_name_collision, tablecmds.c:7275
+psql:/Users/neilmacaogain/Documents/Codex/2026-10-02/github-plugin-github-openai-curated-remote-3/work/runtime-deps/backend/migrations/20260122_add_markdown_cache_columns.sql:7: NOTICE:  42701: column "markdown_generated_at" of relation "filing_content_cache" already exists, skipping
+LOCATION:  check_for_column_name_collision, tablecmds.c:7275
+psql:/Users/neilmacaogain/Documents/Codex/2026-10-02/github-plugin-github-openai-curated-remote-3/work/runtime-deps/backend/migrations/20260122_add_markdown_cache_columns.sql:7: NOTICE:  42701: column "markdown_sections" of relation "filing_content_cache" already exists, skipping
+LOCATION:  check_for_column_name_collision, tablecmds.c:7275
+== applying 20260126_add_is_admin_to_users.sql ==
+ALTER TABLE
+CREATE INDEX
+psql:/Users/neilmacaogain/Documents/Codex/2026-10-02/github-plugin-github-openai-curated-remote-3/work/runtime-deps/backend/migrations/20260126_add_is_admin_to_users.sql:4: NOTICE:  42701: column "is_admin" of relation "users" already exists, skipping
+LOCATION:  check_for_column_name_collision, tablecmds.c:7275
+== applying 20260613_create_refresh_tokens.sql ==
+CREATE TABLE
+CREATE INDEX
+CREATE INDEX
+psql:/Users/neilmacaogain/Documents/Codex/2026-10-02/github-plugin-github-openai-curated-remote-3/work/runtime-deps/backend/migrations/20260613_create_refresh_tokens.sql:15: NOTICE:  42P07: relation "refresh_tokens" already exists, skipping
+LOCATION:  transformCreateStmt, parse_utilcmd.c:210
+== applying 20260615_oauth_and_email_verification.sql ==
+BEGIN
+ALTER TABLE
+ALTER TABLE
+CREATE INDEX
+CREATE INDEX
+CREATE TABLE
+CREATE INDEX
+COMMIT
+psql:/Users/neilmacaogain/Documents/Codex/2026-10-02/github-plugin-github-openai-curated-remote-3/work/runtime-deps/backend/migrations/20260615_oauth_and_email_verification.sql:20: NOTICE:  42701: column "email_verified" of relation "users" already exists, skipping
+LOCATION:  check_for_column_name_collision, tablecmds.c:7275
+psql:/Users/neilmacaogain/Documents/Codex/2026-10-02/github-plugin-github-openai-curated-remote-3/work/runtime-deps/backend/migrations/20260615_oauth_and_email_verification.sql:20: NOTICE:  42701: column "email_verification_token" of relation "users" already exists, skipping
+LOCATION:  check_for_column_name_collision, tablecmds.c:7275
+psql:/Users/neilmacaogain/Documents/Codex/2026-10-02/github-plugin-github-openai-curated-remote-3/work/runtime-deps/backend/migrations/20260615_oauth_and_email_verification.sql:20: NOTICE:  42701: column "email_verification_expires" of relation "users" already exists, skipping
+LOCATION:  check_for_column_name_collision, tablecmds.c:7275
+psql:/Users/neilmacaogain/Documents/Codex/2026-10-02/github-plugin-github-openai-curated-remote-3/work/runtime-deps/backend/migrations/20260615_oauth_and_email_verification.sql:20: NOTICE:  42701: column "password_reset_token" of relation "users" already exists, skipping
+LOCATION:  check_for_column_name_collision, tablecmds.c:7275
+psql:/Users/neilmacaogain/Documents/Codex/2026-10-02/github-plugin-github-openai-curated-remote-3/work/runtime-deps/backend/migrations/20260615_oauth_and_email_verification.sql:20: NOTICE:  42701: column "password_reset_expires" of relation "users" already exists, skipping
+LOCATION:  check_for_column_name_collision, tablecmds.c:7275
+psql:/Users/neilmacaogain/Documents/Codex/2026-10-02/github-plugin-github-openai-curated-remote-3/work/runtime-deps/backend/migrations/20260615_oauth_and_email_verification.sql:20: NOTICE:  42701: column "last_login_at" of relation "users" already exists, skipping
+LOCATION:  check_for_column_name_collision, tablecmds.c:7275
+psql:/Users/neilmacaogain/Documents/Codex/2026-10-02/github-plugin-github-openai-curated-remote-3/work/runtime-deps/backend/migrations/20260615_oauth_and_email_verification.sql:43: NOTICE:  42P07: relation "oauth_accounts" already exists, skipping
+LOCATION:  transformCreateStmt, parse_utilcmd.c:210
+== applying 20260616_apple_oauth_states.sql ==
+BEGIN
+CREATE TABLE
+COMMIT
+psql:/Users/neilmacaogain/Documents/Codex/2026-10-02/github-plugin-github-openai-curated-remote-3/work/runtime-deps/backend/migrations/20260616_apple_oauth_states.sql:16: NOTICE:  42P07: relation "oauth_states" already exists, skipping
+LOCATION:  transformCreateStmt, parse_utilcmd.c:210
+== applying 20260617_create_subscriptions_and_stripe_events.sql ==
+CREATE TABLE
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE TABLE
+INSERT 0 0
+psql:/Users/neilmacaogain/Documents/Codex/2026-10-02/github-plugin-github-openai-curated-remote-3/work/runtime-deps/backend/migrations/20260617_create_subscriptions_and_stripe_events.sql:23: NOTICE:  42P07: relation "subscriptions" already exists, skipping
+LOCATION:  transformCreateStmt, parse_utilcmd.c:210
+psql:/Users/neilmacaogain/Documents/Codex/2026-10-02/github-plugin-github-openai-curated-remote-3/work/runtime-deps/backend/migrations/20260617_create_subscriptions_and_stripe_events.sql:33: NOTICE:  42P07: relation "stripe_events" already exists, skipping
+LOCATION:  transformCreateStmt, parse_utilcmd.c:210
+== applying 20260618_phase2_alerts.sql ==
+BEGIN
+ALTER TABLE
+ALTER TABLE
+CREATE TABLE
+CREATE INDEX
+CREATE TABLE
+CREATE INDEX
+CREATE INDEX
+INSERT 0 0
+COMMIT
+psql:/Users/neilmacaogain/Documents/Codex/2026-10-02/github-plugin-github-openai-curated-remote-3/work/runtime-deps/backend/migrations/20260618_phase2_alerts.sql:11: NOTICE:  42701: column "last_alerted_accession" of relation "watchlist" already exists, skipping
+LOCATION:  check_for_column_name_collision, tablecmds.c:7275
+psql:/Users/neilmacaogain/Documents/Codex/2026-10-02/github-plugin-github-openai-curated-remote-3/work/runtime-deps/backend/migrations/20260618_phase2_alerts.sql:11: NOTICE:  42701: column "last_alerted_at" of relation "watchlist" already exists, skipping
+LOCATION:  check_for_column_name_collision, tablecmds.c:7275
+psql:/Users/neilmacaogain/Documents/Codex/2026-10-02/github-plugin-github-openai-curated-remote-3/work/runtime-deps/backend/migrations/20260618_phase2_alerts.sql:15: NOTICE:  42701: column "last_filings_check_at" of relation "companies" already exists, skipping
+LOCATION:  check_for_column_name_collision, tablecmds.c:7275
+psql:/Users/neilmacaogain/Documents/Codex/2026-10-02/github-plugin-github-openai-curated-remote-3/work/runtime-deps/backend/migrations/20260618_phase2_alerts.sql:28: NOTICE:  42P07: relation "notification_preferences" already exists, skipping
+LOCATION:  transformCreateStmt, parse_utilcmd.c:210
+psql:/Users/neilmacaogain/Documents/Codex/2026-10-02/github-plugin-github-openai-curated-remote-3/work/runtime-deps/backend/migrations/20260618_phase2_alerts.sql:39: NOTICE:  42P07: relation "notification_log" already exists, skipping
+LOCATION:  transformCreateStmt, parse_utilcmd.c:210
+== applying 20260620_create_financial_fact.sql ==
+BEGIN
+CREATE TABLE
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+COMMIT
+psql:/Users/neilmacaogain/Documents/Codex/2026-10-02/github-plugin-github-openai-curated-remote-3/work/runtime-deps/backend/migrations/20260620_create_financial_fact.sql:28: NOTICE:  42P07: relation "financial_fact" already exists, skipping
+LOCATION:  transformCreateStmt, parse_utilcmd.c:210
+psql:/Users/neilmacaogain/Documents/Codex/2026-10-02/github-plugin-github-openai-curated-remote-3/work/runtime-deps/backend/migrations/20260620_create_financial_fact.sql:30: NOTICE:  42P07: relation "ix_financial_fact_company_id" already exists, skipping
+LOCATION:  index_create, index.c:868
+psql:/Users/neilmacaogain/Documents/Codex/2026-10-02/github-plugin-github-openai-curated-remote-3/work/runtime-deps/backend/migrations/20260620_create_financial_fact.sql:31: NOTICE:  42P07: relation "ix_financial_fact_period_end" already exists, skipping
+LOCATION:  index_create, index.c:868
+psql:/Users/neilmacaogain/Documents/Codex/2026-10-02/github-plugin-github-openai-curated-remote-3/work/runtime-deps/backend/migrations/20260620_create_financial_fact.sql:32: NOTICE:  42P07: relation "ix_financial_fact_accession" already exists, skipping
+LOCATION:  index_create, index.c:868
+psql:/Users/neilmacaogain/Documents/Codex/2026-10-02/github-plugin-github-openai-curated-remote-3/work/runtime-deps/backend/migrations/20260620_create_financial_fact.sql:35: NOTICE:  42P07: relation "ix_financial_fact_peer" already exists, skipping
+LOCATION:  index_create, index.c:868
+psql:/Users/neilmacaogain/Documents/Codex/2026-10-02/github-plugin-github-openai-curated-remote-3/work/runtime-deps/backend/migrations/20260620_create_financial_fact.sql:37: NOTICE:  42P07: relation "ix_financial_fact_series" already exists, skipping
+LOCATION:  index_create, index.c:868
+== applying 20260620_filing_processed_facts_at.sql ==
+BEGIN
+ALTER TABLE
+COMMIT
+psql:/Users/neilmacaogain/Documents/Codex/2026-10-02/github-plugin-github-openai-curated-remote-3/work/runtime-deps/backend/migrations/20260620_filing_processed_facts_at.sql:10: NOTICE:  42701: column "processed_facts_at" of relation "filings" already exists, skipping
+LOCATION:  check_for_column_name_collision, tablecmds.c:7275
+== applying 20260620_users_notifications_seen_at.sql ==
+BEGIN
+ALTER TABLE
+COMMIT
+psql:/Users/neilmacaogain/Documents/Codex/2026-10-02/github-plugin-github-openai-curated-remote-3/work/runtime-deps/backend/migrations/20260620_users_notifications_seen_at.sql:10: NOTICE:  42701: column "notifications_seen_at" of relation "users" already exists, skipping
+LOCATION:  check_for_column_name_collision, tablecmds.c:7275
+== applying 20260621_user_usage_qa_count.sql ==
+BEGIN
+ALTER TABLE
+COMMIT
+psql:/Users/neilmacaogain/Documents/Codex/2026-10-02/github-plugin-github-openai-curated-remote-3/work/runtime-deps/backend/migrations/20260621_user_usage_qa_count.sql:11: NOTICE:  42701: column "qa_count" of relation "user_usage" already exists, skipping
+LOCATION:  check_for_column_name_collision, tablecmds.c:7275
+== applying 20260624_add_cohort_to_invite_codes.sql ==
+BEGIN
+ALTER TABLE
+CREATE INDEX
+COMMIT
+psql:/Users/neilmacaogain/Documents/Codex/2026-10-02/github-plugin-github-openai-curated-remote-3/work/runtime-deps/backend/migrations/20260624_add_cohort_to_invite_codes.sql:10: NOTICE:  42701: column "cohort" of relation "invite_codes" already exists, skipping
+LOCATION:  check_for_column_name_collision, tablecmds.c:7275
+psql:/Users/neilmacaogain/Documents/Codex/2026-10-02/github-plugin-github-openai-curated-remote-3/work/runtime-deps/backend/migrations/20260624_add_cohort_to_invite_codes.sql:12: NOTICE:  42P07: relation "ix_invite_codes_cohort" already exists, skipping
+LOCATION:  index_create, index.c:868
+== applying 20260624_add_is_beta_to_users.sql ==
+BEGIN
+ALTER TABLE
+CREATE INDEX
+COMMIT
+psql:/Users/neilmacaogain/Documents/Codex/2026-10-02/github-plugin-github-openai-curated-remote-3/work/runtime-deps/backend/migrations/20260624_add_is_beta_to_users.sql:15: NOTICE:  42701: column "is_beta" of relation "users" already exists, skipping
+LOCATION:  check_for_column_name_collision, tablecmds.c:7275
+== applying 20260624_add_oauth_account_unique.sql ==
+BEGIN
+CREATE INDEX
+COMMIT
+psql:/Users/neilmacaogain/Documents/Codex/2026-10-02/github-plugin-github-openai-curated-remote-3/work/runtime-deps/backend/migrations/20260624_add_oauth_account_unique.sql:13: NOTICE:  42P07: relation "uq_oauth_provider_account" already exists, skipping
+LOCATION:  index_create, index.c:868
+== applying 20260624_create_feedback.sql ==
+BEGIN
+CREATE TABLE
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+COMMIT
+psql:/Users/neilmacaogain/Documents/Codex/2026-10-02/github-plugin-github-openai-curated-remote-3/work/runtime-deps/backend/migrations/20260624_create_feedback.sql:19: NOTICE:  42P07: relation "feedback" already exists, skipping
+LOCATION:  transformCreateStmt, parse_utilcmd.c:210
+== applying 20260624_create_invite_codes.sql ==
+BEGIN
+CREATE TABLE
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+COMMIT
+psql:/Users/neilmacaogain/Documents/Codex/2026-10-02/github-plugin-github-openai-curated-remote-3/work/runtime-deps/backend/migrations/20260624_create_invite_codes.sql:18: NOTICE:  42P07: relation "invite_codes" already exists, skipping
+LOCATION:  transformCreateStmt, parse_utilcmd.c:210
+== applying 20260628_fpi_alert_prefs.sql ==
+BEGIN
+ALTER TABLE
+COMMIT
+psql:/Users/neilmacaogain/Documents/Codex/2026-10-02/github-plugin-github-openai-curated-remote-3/work/runtime-deps/backend/migrations/20260628_fpi_alert_prefs.sql:12: NOTICE:  42701: column "notify_20f" of relation "notification_preferences" already exists, skipping
+LOCATION:  check_for_column_name_collision, tablecmds.c:7275
+psql:/Users/neilmacaogain/Documents/Codex/2026-10-02/github-plugin-github-openai-curated-remote-3/work/runtime-deps/backend/migrations/20260628_fpi_alert_prefs.sql:12: NOTICE:  42701: column "notify_6k" of relation "notification_preferences" already exists, skipping
+LOCATION:  check_for_column_name_collision, tablecmds.c:7275
+== applying 20260629_user_copilot_free_taste.sql ==
+BEGIN
+ALTER TABLE
+COMMIT
+psql:/Users/neilmacaogain/Documents/Codex/2026-10-02/github-plugin-github-openai-curated-remote-3/work/runtime-deps/backend/migrations/20260629_user_copilot_free_taste.sql:18: NOTICE:  42701: column "copilot_free_taste_used" of relation "users" already exists, skipping
+LOCATION:  check_for_column_name_collision, tablecmds.c:7275
+== applying 20260702_create_guest_daily_usage.sql ==
+CREATE TABLE
+== applying 20260702_create_login_attempts.sql ==
+CREATE TABLE
+psql:/Users/neilmacaogain/Documents/Codex/2026-10-02/github-plugin-github-openai-curated-remote-3/work/runtime-deps/backend/migrations/20260702_create_login_attempts.sql:12: NOTICE:  42P07: relation "login_attempts" already exists, skipping
+LOCATION:  transformCreateStmt, parse_utilcmd.c:210
+== applying 20260703_create_earnings_events.sql ==
+CREATE TABLE
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE TABLE
+CREATE INDEX
+CREATE INDEX
+ALTER TABLE
+psql:/Users/neilmacaogain/Documents/Codex/2026-10-02/github-plugin-github-openai-curated-remote-3/work/runtime-deps/backend/migrations/20260703_create_earnings_events.sql:26: NOTICE:  42P07: relation "earnings_events" already exists, skipping
+LOCATION:  transformCreateStmt, parse_utilcmd.c:210
+psql:/Users/neilmacaogain/Documents/Codex/2026-10-02/github-plugin-github-openai-curated-remote-3/work/runtime-deps/backend/migrations/20260703_create_earnings_events.sql:28: NOTICE:  42P07: relation "ix_earnings_events_event_date" already exists, skipping
+LOCATION:  index_create, index.c:868
+psql:/Users/neilmacaogain/Documents/Codex/2026-10-02/github-plugin-github-openai-curated-remote-3/work/runtime-deps/backend/migrations/20260703_create_earnings_events.sql:29: NOTICE:  42P07: relation "ix_earnings_events_ticker" already exists, skipping
+LOCATION:  index_create, index.c:868
+psql:/Users/neilmacaogain/Documents/Codex/2026-10-02/github-plugin-github-openai-curated-remote-3/work/runtime-deps/backend/migrations/20260703_create_earnings_events.sql:31: NOTICE:  42P07: relation "ix_earnings_events_day_rank" already exists, skipping
+LOCATION:  index_create, index.c:868
+psql:/Users/neilmacaogain/Documents/Codex/2026-10-02/github-plugin-github-openai-curated-remote-3/work/runtime-deps/backend/migrations/20260703_create_earnings_events.sql:43: NOTICE:  42P07: relation "earnings_alert_log" already exists, skipping
+LOCATION:  transformCreateStmt, parse_utilcmd.c:210
+psql:/Users/neilmacaogain/Documents/Codex/2026-10-02/github-plugin-github-openai-curated-remote-3/work/runtime-deps/backend/migrations/20260703_create_earnings_events.sql:47: NOTICE:  42P07: relation "ix_earnings_alert_log_user_id" already exists, skipping
+LOCATION:  index_create, index.c:868
+psql:/Users/neilmacaogain/Documents/Codex/2026-10-02/github-plugin-github-openai-curated-remote-3/work/runtime-deps/backend/migrations/20260703_create_earnings_events.sql:48: NOTICE:  42P07: relation "ix_earnings_alert_log_earnings_event_id" already exists, skipping
+LOCATION:  index_create, index.c:868
+psql:/Users/neilmacaogain/Documents/Codex/2026-10-02/github-plugin-github-openai-curated-remote-3/work/runtime-deps/backend/migrations/20260703_create_earnings_events.sql:51: NOTICE:  42701: column "earnings_alert" of relation "watchlist" already exists, skipping
+LOCATION:  check_for_column_name_collision, tablecmds.c:7275
+== applying 20260705_summary_filing_id_unique.sql ==
+BEGIN
+UPDATE 0
+DELETE 0
+DELETE 0
+DO
+COMMIT
+== applying 20260706_company_facts_synced_at.sql ==
+BEGIN
+ALTER TABLE
+COMMIT
+psql:/Users/neilmacaogain/Documents/Codex/2026-10-02/github-plugin-github-openai-curated-remote-3/work/runtime-deps/backend/migrations/20260706_company_facts_synced_at.sql:7: NOTICE:  42701: column "facts_synced_at" of relation "companies" already exists, skipping
+LOCATION:  check_for_column_name_collision, tablecmds.c:7275
+== applying 20260706_demote_null_fiscal_period_duplicates.sql ==
+BEGIN
+UPDATE 0
+COMMIT
+== applying 20260707_create_trend_analysis.sql ==
+BEGIN
+CREATE TABLE
+CREATE INDEX
+COMMIT
+psql:/Users/neilmacaogain/Documents/Codex/2026-10-02/github-plugin-github-openai-curated-remote-3/work/runtime-deps/backend/migrations/20260707_create_trend_analysis.sql:23: NOTICE:  42P07: relation "trend_analysis" already exists, skipping
+LOCATION:  transformCreateStmt, parse_utilcmd.c:210
+psql:/Users/neilmacaogain/Documents/Codex/2026-10-02/github-plugin-github-openai-curated-remote-3/work/runtime-deps/backend/migrations/20260707_create_trend_analysis.sql:25: NOTICE:  42P07: relation "ix_trend_analysis_company_id" already exists, skipping
+LOCATION:  index_create, index.c:868
+== applying 20260707_user_usage_analysis_count.sql ==
+BEGIN
+ALTER TABLE
+COMMIT
+psql:/Users/neilmacaogain/Documents/Codex/2026-10-02/github-plugin-github-openai-curated-remote-3/work/runtime-deps/backend/migrations/20260707_user_usage_analysis_count.sql:8: NOTICE:  42701: column "analysis_count" of relation "user_usage" already exists, skipping
+LOCATION:  check_for_column_name_collision, tablecmds.c:7275
+== applying 20260708_add_trend_analysis_unverified.sql ==
+ALTER TABLE
+psql:/Users/neilmacaogain/Documents/Codex/2026-10-02/github-plugin-github-openai-curated-remote-3/work/runtime-deps/backend/migrations/20260708_add_trend_analysis_unverified.sql:11: NOTICE:  42701: column "unverified" of relation "trend_analysis" already exists, skipping
+LOCATION:  check_for_column_name_collision, tablecmds.c:7275
+== applying 20260708_summary_version_stamps.sql ==
+BEGIN
+ALTER TABLE
+ALTER TABLE
+COMMIT
+psql:/Users/neilmacaogain/Documents/Codex/2026-10-02/github-plugin-github-openai-curated-remote-3/work/runtime-deps/backend/migrations/20260708_summary_version_stamps.sql:17: NOTICE:  42701: column "schema_version" of relation "summaries" already exists, skipping
+LOCATION:  check_for_column_name_collision, tablecmds.c:7275
+psql:/Users/neilmacaogain/Documents/Codex/2026-10-02/github-plugin-github-openai-curated-remote-3/work/runtime-deps/backend/migrations/20260708_summary_version_stamps.sql:18: NOTICE:  42701: column "prompt_version" of relation "summaries" already exists, skipping
+LOCATION:  check_for_column_name_collision, tablecmds.c:7275
+== applying 20260709_create_notable_filings.sql ==
+CREATE TABLE
+CREATE INDEX
+CREATE INDEX
+psql:/Users/neilmacaogain/Documents/Codex/2026-10-02/github-plugin-github-openai-curated-remote-3/work/runtime-deps/backend/migrations/20260709_create_notable_filings.sql:21: NOTICE:  42P07: relation "notable_filings" already exists, skipping
+LOCATION:  transformCreateStmt, parse_utilcmd.c:210
+psql:/Users/neilmacaogain/Documents/Codex/2026-10-02/github-plugin-github-openai-curated-remote-3/work/runtime-deps/backend/migrations/20260709_create_notable_filings.sql:25: NOTICE:  42P07: relation "ix_notable_filings_rank" already exists, skipping
+LOCATION:  index_create, index.c:868
+psql:/Users/neilmacaogain/Documents/Codex/2026-10-02/github-plugin-github-openai-curated-remote-3/work/runtime-deps/backend/migrations/20260709_create_notable_filings.sql:26: NOTICE:  42P07: relation "ix_notable_filings_ticker" already exists, skipping
+LOCATION:  index_create, index.c:868
+== applying 20260710_filings_company_type_date_index.sql ==
+BEGIN
+CREATE INDEX
+COMMIT
+psql:/Users/neilmacaogain/Documents/Codex/2026-10-02/github-plugin-github-openai-curated-remote-3/work/runtime-deps/backend/migrations/20260710_filings_company_type_date_index.sql:18: NOTICE:  42P07: relation "ix_filings_company_type_date" already exists, skipping
+LOCATION:  index_create, index.c:868
+== applying 20260711_companies_history_backfilled_at.sql ==
+BEGIN
+ALTER TABLE
+COMMIT
+psql:/Users/neilmacaogain/Documents/Codex/2026-10-02/github-plugin-github-openai-curated-remote-3/work/runtime-deps/backend/migrations/20260711_companies_history_backfilled_at.sql:7: NOTICE:  42701: column "history_backfilled_at" of relation "companies" already exists, skipping
+LOCATION:  check_for_column_name_collision, tablecmds.c:7275
+== applying 20260905_earningsnerd_job_runs.sql ==
+CREATE TABLE
+DO
+psql:/Users/neilmacaogain/Documents/Codex/2026-10-02/github-plugin-github-openai-curated-remote-3/work/runtime-deps/backend/migrations/20260905_earningsnerd_job_runs.sql:11: NOTICE:  42P07: relation "earningsnerd_job_runs" already exists, skipping
+LOCATION:  transformCreateStmt, parse_utilcmd.c:210
+== applying 20260905_filing_amendment_relationship.sql ==
+DO
+== applying 20260906_earningsnerd_billing_payments.sql ==
+CREATE TABLE
+DO
+psql:/Users/neilmacaogain/Documents/Codex/2026-10-02/github-plugin-github-openai-curated-remote-3/work/runtime-deps/backend/migrations/20260906_earningsnerd_billing_payments.sql:22: NOTICE:  42P07: relation "earningsnerd_billing_payments" already exists, skipping
+LOCATION:  transformCreateStmt, parse_utilcmd.c:210
+== applying 20260906_earningsnerd_usage_reservations.sql ==
+CREATE TABLE
+DO
+psql:/Users/neilmacaogain/Documents/Codex/2026-10-02/github-plugin-github-openai-curated-remote-3/work/runtime-deps/backend/migrations/20260906_earningsnerd_usage_reservations.sql:12: NOTICE:  42P07: relation "earningsnerd_usage_reservations" already exists, skipping
+LOCATION:  transformCreateStmt, parse_utilcmd.c:210
+== applying 20260906_financial_fact_filing_index.sql ==
+CREATE INDEX
+psql:/Users/neilmacaogain/Documents/Codex/2026-10-02/github-plugin-github-openai-curated-remote-3/work/runtime-deps/backend/migrations/20260906_financial_fact_filing_index.sql:9: NOTICE:  42P07: relation "ix_financial_fact_filing_period_concept_end" already exists, skipping
+LOCATION:  index_create, index.c:868
+== applying 20260907_earningsnerd_notification_delivery.sql ==
+CREATE TABLE
+CREATE TABLE
+DO
+psql:/Users/neilmacaogain/Documents/Codex/2026-10-02/github-plugin-github-openai-curated-remote-3/work/runtime-deps/backend/migrations/20260907_earningsnerd_notification_delivery.sql:27: NOTICE:  42P07: relation "earningsnerd_delivery_batches" already exists, skipping
+LOCATION:  transformCreateStmt, parse_utilcmd.c:210
+psql:/Users/neilmacaogain/Documents/Codex/2026-10-02/github-plugin-github-openai-curated-remote-3/work/runtime-deps/backend/migrations/20260907_earningsnerd_notification_delivery.sql:36: NOTICE:  42P07: relation "earningsnerd_delivery_items" already exists, skipping
+LOCATION:  transformCreateStmt, parse_utilcmd.c:210
+== applying 20260908_earningsnerd_delivery_first_click.sql ==
+DO
+CREATE INDEX
+psql:/Users/neilmacaogain/Documents/Codex/2026-10-02/github-plugin-github-openai-curated-remote-3/work/runtime-deps/backend/migrations/20260908_earningsnerd_delivery_first_click.sql:18: NOTICE:  42P07: relation "ix_earningsnerd_delivery_batches_provider_email_id" already exists, skipping
+LOCATION:  index_create, index.c:868
+== applying 20260927_filing_content_cache_risk_source.sql ==
+DO
+apply_migrations: applied=40 skipped=0
+
+-- skipping 20260120_create_waitlist_signups.sql (recorded) --
+-- skipping 20260122_add_markdown_cache_columns.sql (recorded) --
+-- skipping 20260126_add_is_admin_to_users.sql (recorded) --
+-- skipping 20260613_create_refresh_tokens.sql (recorded) --
+-- skipping 20260615_oauth_and_email_verification.sql (recorded) --
+-- skipping 20260616_apple_oauth_states.sql (recorded) --
+-- skipping 20260617_create_subscriptions_and_stripe_events.sql (recorded) --
+-- skipping 20260618_phase2_alerts.sql (recorded) --
+-- skipping 20260620_create_financial_fact.sql (recorded) --
+-- skipping 20260620_filing_processed_facts_at.sql (recorded) --
+-- skipping 20260620_users_notifications_seen_at.sql (recorded) --
+-- skipping 20260621_user_usage_qa_count.sql (recorded) --
+-- skipping 20260624_add_cohort_to_invite_codes.sql (recorded) --
+-- skipping 20260624_add_is_beta_to_users.sql (recorded) --
+-- skipping 20260624_add_oauth_account_unique.sql (recorded) --
+-- skipping 20260624_create_feedback.sql (recorded) --
+-- skipping 20260624_create_invite_codes.sql (recorded) --
+-- skipping 20260628_fpi_alert_prefs.sql (recorded) --
+-- skipping 20260629_user_copilot_free_taste.sql (recorded) --
+-- skipping 20260702_create_guest_daily_usage.sql (recorded) --
+-- skipping 20260702_create_login_attempts.sql (recorded) --
+-- skipping 20260703_create_earnings_events.sql (recorded) --
+-- skipping 20260705_summary_filing_id_unique.sql (recorded) --
+-- skipping 20260706_company_facts_synced_at.sql (recorded) --
+-- skipping 20260706_demote_null_fiscal_period_duplicates.sql (recorded) --
+-- skipping 20260707_create_trend_analysis.sql (recorded) --
+-- skipping 20260707_user_usage_analysis_count.sql (recorded) --
+-- skipping 20260708_add_trend_analysis_unverified.sql (recorded) --
+-- skipping 20260708_summary_version_stamps.sql (recorded) --
+-- skipping 20260709_create_notable_filings.sql (recorded) --
+-- skipping 20260710_filings_company_type_date_index.sql (recorded) --
+-- skipping 20260711_companies_history_backfilled_at.sql (recorded) --
+-- skipping 20260905_earningsnerd_job_runs.sql (recorded) --
+-- skipping 20260905_filing_amendment_relationship.sql (recorded) --
+-- skipping 20260906_earningsnerd_billing_payments.sql (recorded) --
+-- skipping 20260906_earningsnerd_usage_reservations.sql (recorded) --
+-- skipping 20260906_financial_fact_filing_index.sql (recorded) --
+-- skipping 20260907_earningsnerd_notification_delivery.sql (recorded) --
+-- skipping 20260908_earningsnerd_delivery_first_click.sql (recorded) --
+-- skipping 20260927_filing_content_cache_risk_source.sql (recorded) --
+apply_migrations: applied=0 skipped=40
+
+DELETE 40
+
+== applying 20260120_create_waitlist_signups.sql ==
+CREATE TABLE
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+psql:/Users/neilmacaogain/Documents/Codex/2026-10-02/github-plugin-github-openai-curated-remote-3/work/runtime-deps/backend/migrations/20260120_create_waitlist_signups.sql:13: NOTICE:  42P07: relation "waitlist_signups" already exists, skipping
+LOCATION:  transformCreateStmt, parse_utilcmd.c:210
+psql:/Users/neilmacaogain/Documents/Codex/2026-10-02/github-plugin-github-openai-curated-remote-3/work/runtime-deps/backend/migrations/20260120_create_waitlist_signups.sql:15: NOTICE:  42P07: relation "idx_waitlist_signups_email" already exists, skipping
+LOCATION:  index_create, index.c:868
+psql:/Users/neilmacaogain/Documents/Codex/2026-10-02/github-plugin-github-openai-curated-remote-3/work/runtime-deps/backend/migrations/20260120_create_waitlist_signups.sql:16: NOTICE:  42P07: relation "idx_waitlist_signups_referral_code" already exists, skipping
+LOCATION:  index_create, index.c:868
+psql:/Users/neilmacaogain/Documents/Codex/2026-10-02/github-plugin-github-openai-curated-remote-3/work/runtime-deps/backend/migrations/20260120_create_waitlist_signups.sql:17: NOTICE:  42P07: relation "idx_waitlist_signups_referred_by" already exists, skipping
+LOCATION:  index_create, index.c:868
+== applying 20260122_add_markdown_cache_columns.sql ==
+ALTER TABLE
+CREATE INDEX
+COMMENT
+COMMENT
+COMMENT
+psql:/Users/neilmacaogain/Documents/Codex/2026-10-02/github-plugin-github-openai-curated-remote-3/work/runtime-deps/backend/migrations/20260122_add_markdown_cache_columns.sql:7: NOTICE:  42701: column "markdown_content" of relation "filing_content_cache" already exists, skipping
+LOCATION:  check_for_column_name_collision, tablecmds.c:7275
+psql:/Users/neilmacaogain/Documents/Codex/2026-10-02/github-plugin-github-openai-curated-remote-3/work/runtime-deps/backend/migrations/20260122_add_markdown_cache_columns.sql:7: NOTICE:  42701: column "markdown_generated_at" of relation "filing_content_cache" already exists, skipping
+LOCATION:  check_for_column_name_collision, tablecmds.c:7275
+psql:/Users/neilmacaogain/Documents/Codex/2026-10-02/github-plugin-github-openai-curated-remote-3/work/runtime-deps/backend/migrations/20260122_add_markdown_cache_columns.sql:7: NOTICE:  42701: column "markdown_sections" of relation "filing_content_cache" already exists, skipping
+LOCATION:  check_for_column_name_collision, tablecmds.c:7275
+psql:/Users/neilmacaogain/Documents/Codex/2026-10-02/github-plugin-github-openai-curated-remote-3/work/runtime-deps/backend/migrations/20260122_add_markdown_cache_columns.sql:12: NOTICE:  42P07: relation "idx_filing_content_cache_markdown_generated" already exists, skipping
+LOCATION:  index_create, index.c:868
+== applying 20260126_add_is_admin_to_users.sql ==
+ALTER TABLE
+CREATE INDEX
+psql:/Users/neilmacaogain/Documents/Codex/2026-10-02/github-plugin-github-openai-curated-remote-3/work/runtime-deps/backend/migrations/20260126_add_is_admin_to_users.sql:4: NOTICE:  42701: column "is_admin" of relation "users" already exists, skipping
+LOCATION:  check_for_column_name_collision, tablecmds.c:7275
+psql:/Users/neilmacaogain/Documents/Codex/2026-10-02/github-plugin-github-openai-curated-remote-3/work/runtime-deps/backend/migrations/20260126_add_is_admin_to_users.sql:7: NOTICE:  42P07: relation "idx_users_is_admin" already exists, skipping
+LOCATION:  index_create, index.c:868
+== applying 20260613_create_refresh_tokens.sql ==
+CREATE TABLE
+CREATE INDEX
+CREATE INDEX
+psql:/Users/neilmacaogain/Documents/Codex/2026-10-02/github-plugin-github-openai-curated-remote-3/work/runtime-deps/backend/migrations/20260613_create_refresh_tokens.sql:15: NOTICE:  42P07: relation "refresh_tokens" already exists, skipping
+LOCATION:  transformCreateStmt, parse_utilcmd.c:210
+psql:/Users/neilmacaogain/Documents/Codex/2026-10-02/github-plugin-github-openai-curated-remote-3/work/runtime-deps/backend/migrations/20260613_create_refresh_tokens.sql:17: NOTICE:  42P07: relation "idx_refresh_tokens_user_id" already exists, skipping
+LOCATION:  index_create, index.c:868
+psql:/Users/neilmacaogain/Documents/Codex/2026-10-02/github-plugin-github-openai-curated-remote-3/work/runtime-deps/backend/migrations/20260613_create_refresh_tokens.sql:18: NOTICE:  42P07: relation "idx_refresh_tokens_token_hash" already exists, skipping
+LOCATION:  index_create, index.c:868
+== applying 20260615_oauth_and_email_verification.sql ==
+BEGIN
+ALTER TABLE
+ALTER TABLE
+CREATE INDEX
+CREATE INDEX
+CREATE TABLE
+CREATE INDEX
+COMMIT
+psql:/Users/neilmacaogain/Documents/Codex/2026-10-02/github-plugin-github-openai-curated-remote-3/work/runtime-deps/backend/migrations/20260615_oauth_and_email_verification.sql:20: NOTICE:  42701: column "email_verified" of relation "users" already exists, skipping
+LOCATION:  check_for_column_name_collision, tablecmds.c:7275
+psql:/Users/neilmacaogain/Documents/Codex/2026-10-02/github-plugin-github-openai-curated-remote-3/work/runtime-deps/backend/migrations/20260615_oauth_and_email_verification.sql:20: NOTICE:  42701: column "email_verification_token" of relation "users" already exists, skipping
+LOCATION:  check_for_column_name_collision, tablecmds.c:7275
+psql:/Users/neilmacaogain/Documents/Codex/2026-10-02/github-plugin-github-openai-curated-remote-3/work/runtime-deps/backend/migrations/20260615_oauth_and_email_verification.sql:20: NOTICE:  42701: column "email_verification_expires" of relation "users" already exists, skipping
+LOCATION:  check_for_column_name_collision, tablecmds.c:7275
+psql:/Users/neilmacaogain/Documents/Codex/2026-10-02/github-plugin-github-openai-curated-remote-3/work/runtime-deps/backend/migrations/20260615_oauth_and_email_verification.sql:20: NOTICE:  42701: column "password_reset_token" of relation "users" already exists, skipping
+LOCATION:  check_for_column_name_collision, tablecmds.c:7275
+psql:/Users/neilmacaogain/Documents/Codex/2026-10-02/github-plugin-github-openai-curated-remote-3/work/runtime-deps/backend/migrations/20260615_oauth_and_email_verification.sql:20: NOTICE:  42701: column "password_reset_expires" of relation "users" already exists, skipping
+LOCATION:  check_for_column_name_collision, tablecmds.c:7275
+psql:/Users/neilmacaogain/Documents/Codex/2026-10-02/github-plugin-github-openai-curated-remote-3/work/runtime-deps/backend/migrations/20260615_oauth_and_email_verification.sql:20: NOTICE:  42701: column "last_login_at" of relation "users" already exists, skipping
+LOCATION:  check_for_column_name_collision, tablecmds.c:7275
+psql:/Users/neilmacaogain/Documents/Codex/2026-10-02/github-plugin-github-openai-curated-remote-3/work/runtime-deps/backend/migrations/20260615_oauth_and_email_verification.sql:28: NOTICE:  42P07: relation "idx_users_email_verification_token" already exists, skipping
+LOCATION:  index_create, index.c:868
+psql:/Users/neilmacaogain/Documents/Codex/2026-10-02/github-plugin-github-openai-curated-remote-3/work/runtime-deps/backend/migrations/20260615_oauth_and_email_verification.sql:32: NOTICE:  42P07: relation "idx_users_password_reset_token" already exists, skipping
+LOCATION:  index_create, index.c:868
+psql:/Users/neilmacaogain/Documents/Codex/2026-10-02/github-plugin-github-openai-curated-remote-3/work/runtime-deps/backend/migrations/20260615_oauth_and_email_verification.sql:43: NOTICE:  42P07: relation "oauth_accounts" already exists, skipping
+LOCATION:  transformCreateStmt, parse_utilcmd.c:210
+psql:/Users/neilmacaogain/Documents/Codex/2026-10-02/github-plugin-github-openai-curated-remote-3/work/runtime-deps/backend/migrations/20260615_oauth_and_email_verification.sql:45: NOTICE:  42P07: relation "idx_oauth_accounts_user_id" already exists, skipping
+LOCATION:  index_create, index.c:868
+== applying 20260616_apple_oauth_states.sql ==
+BEGIN
+CREATE TABLE
+COMMIT
+psql:/Users/neilmacaogain/Documents/Codex/2026-10-02/github-plugin-github-openai-curated-remote-3/work/runtime-deps/backend/migrations/20260616_apple_oauth_states.sql:16: NOTICE:  42P07: relation "oauth_states" already exists, skipping
+LOCATION:  transformCreateStmt, parse_utilcmd.c:210
+== applying 20260617_create_subscriptions_and_stripe_events.sql ==
+CREATE TABLE
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE TABLE
+INSERT 0 0
+psql:/Users/neilmacaogain/Documents/Codex/2026-10-02/github-plugin-github-openai-curated-remote-3/work/runtime-deps/backend/migrations/20260617_create_subscriptions_and_stripe_events.sql:23: NOTICE:  42P07: relation "subscriptions" already exists, skipping
+LOCATION:  transformCreateStmt, parse_utilcmd.c:210
+psql:/Users/neilmacaogain/Documents/Codex/2026-10-02/github-plugin-github-openai-curated-remote-3/work/runtime-deps/backend/migrations/20260617_create_subscriptions_and_stripe_events.sql:25: NOTICE:  42P07: relation "idx_subscriptions_user_id" already exists, skipping
+LOCATION:  index_create, index.c:868
+psql:/Users/neilmacaogain/Documents/Codex/2026-10-02/github-plugin-github-openai-curated-remote-3/work/runtime-deps/backend/migrations/20260617_create_subscriptions_and_stripe_events.sql:26: NOTICE:  42P07: relation "idx_subscriptions_stripe_customer_id" already exists, skipping
+LOCATION:  index_create, index.c:868
+psql:/Users/neilmacaogain/Documents/Codex/2026-10-02/github-plugin-github-openai-curated-remote-3/work/runtime-deps/backend/migrations/20260617_create_subscriptions_and_stripe_events.sql:27: NOTICE:  42P07: relation "idx_subscriptions_stripe_subscription_id" already exists, skipping
+LOCATION:  index_create, index.c:868
+psql:/Users/neilmacaogain/Documents/Codex/2026-10-02/github-plugin-github-openai-curated-remote-3/work/runtime-deps/backend/migrations/20260617_create_subscriptions_and_stripe_events.sql:33: NOTICE:  42P07: relation "stripe_events" already exists, skipping
+LOCATION:  transformCreateStmt, parse_utilcmd.c:210
+== applying 20260618_phase2_alerts.sql ==
+BEGIN
+ALTER TABLE
+ALTER TABLE
+CREATE TABLE
+CREATE INDEX
+CREATE TABLE
+CREATE INDEX
+CREATE INDEX
+INSERT 0 0
+COMMIT
+psql:/Users/neilmacaogain/Documents/Codex/2026-10-02/github-plugin-github-openai-curated-remote-3/work/runtime-deps/backend/migrations/20260618_phase2_alerts.sql:11: NOTICE:  42701: column "last_alerted_accession" of relation "watchlist" already exists, skipping
+LOCATION:  check_for_column_name_collision, tablecmds.c:7275
+psql:/Users/neilmacaogain/Documents/Codex/2026-10-02/github-plugin-github-openai-curated-remote-3/work/runtime-deps/backend/migrations/20260618_phase2_alerts.sql:11: NOTICE:  42701: column "last_alerted_at" of relation "watchlist" already exists, skipping
+LOCATION:  check_for_column_name_collision, tablecmds.c:7275
+psql:/Users/neilmacaogain/Documents/Codex/2026-10-02/github-plugin-github-openai-curated-remote-3/work/runtime-deps/backend/migrations/20260618_phase2_alerts.sql:15: NOTICE:  42701: column "last_filings_check_at" of relation "companies" already exists, skipping
+LOCATION:  check_for_column_name_collision, tablecmds.c:7275
+psql:/Users/neilmacaogain/Documents/Codex/2026-10-02/github-plugin-github-openai-curated-remote-3/work/runtime-deps/backend/migrations/20260618_phase2_alerts.sql:28: NOTICE:  42P07: relation "notification_preferences" already exists, skipping
+LOCATION:  transformCreateStmt, parse_utilcmd.c:210
+psql:/Users/neilmacaogain/Documents/Codex/2026-10-02/github-plugin-github-openai-curated-remote-3/work/runtime-deps/backend/migrations/20260618_phase2_alerts.sql:29: NOTICE:  42P07: relation "idx_notification_preferences_user_id" already exists, skipping
+LOCATION:  index_create, index.c:868
+psql:/Users/neilmacaogain/Documents/Codex/2026-10-02/github-plugin-github-openai-curated-remote-3/work/runtime-deps/backend/migrations/20260618_phase2_alerts.sql:39: NOTICE:  42P07: relation "notification_log" already exists, skipping
+LOCATION:  transformCreateStmt, parse_utilcmd.c:210
+psql:/Users/neilmacaogain/Documents/Codex/2026-10-02/github-plugin-github-openai-curated-remote-3/work/runtime-deps/backend/migrations/20260618_phase2_alerts.sql:40: NOTICE:  42P07: relation "idx_notification_log_user_id" already exists, skipping
+LOCATION:  index_create, index.c:868
+psql:/Users/neilmacaogain/Documents/Codex/2026-10-02/github-plugin-github-openai-curated-remote-3/work/runtime-deps/backend/migrations/20260618_phase2_alerts.sql:41: NOTICE:  42P07: relation "idx_notification_log_filing_id" already exists, skipping
+LOCATION:  index_create, index.c:868
+== applying 20260620_create_financial_fact.sql ==
+BEGIN
+CREATE TABLE
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+COMMIT
+psql:/Users/neilmacaogain/Documents/Codex/2026-10-02/github-plugin-github-openai-curated-remote-3/work/runtime-deps/backend/migrations/20260620_create_financial_fact.sql:28: NOTICE:  42P07: relation "financial_fact" already exists, skipping
+LOCATION:  transformCreateStmt, parse_utilcmd.c:210
+psql:/Users/neilmacaogain/Documents/Codex/2026-10-02/github-plugin-github-openai-curated-remote-3/work/runtime-deps/backend/migrations/20260620_create_financial_fact.sql:30: NOTICE:  42P07: relation "ix_financial_fact_company_id" already exists, skipping
+LOCATION:  index_create, index.c:868
+psql:/Users/neilmacaogain/Documents/Codex/2026-10-02/github-plugin-github-openai-curated-remote-3/work/runtime-deps/backend/migrations/20260620_create_financial_fact.sql:31: NOTICE:  42P07: relation "ix_financial_fact_period_end" already exists, skipping
+LOCATION:  index_create, index.c:868
+psql:/Users/neilmacaogain/Documents/Codex/2026-10-02/github-plugin-github-openai-curated-remote-3/work/runtime-deps/backend/migrations/20260620_create_financial_fact.sql:32: NOTICE:  42P07: relation "ix_financial_fact_accession" already exists, skipping
+LOCATION:  index_create, index.c:868
+psql:/Users/neilmacaogain/Documents/Codex/2026-10-02/github-plugin-github-openai-curated-remote-3/work/runtime-deps/backend/migrations/20260620_create_financial_fact.sql:35: NOTICE:  42P07: relation "ix_financial_fact_peer" already exists, skipping
+LOCATION:  index_create, index.c:868
+psql:/Users/neilmacaogain/Documents/Codex/2026-10-02/github-plugin-github-openai-curated-remote-3/work/runtime-deps/backend/migrations/20260620_create_financial_fact.sql:37: NOTICE:  42P07: relation "ix_financial_fact_series" already exists, skipping
+LOCATION:  index_create, index.c:868
+== applying 20260620_filing_processed_facts_at.sql ==
+BEGIN
+ALTER TABLE
+COMMIT
+psql:/Users/neilmacaogain/Documents/Codex/2026-10-02/github-plugin-github-openai-curated-remote-3/work/runtime-deps/backend/migrations/20260620_filing_processed_facts_at.sql:10: NOTICE:  42701: column "processed_facts_at" of relation "filings" already exists, skipping
+LOCATION:  check_for_column_name_collision, tablecmds.c:7275
+== applying 20260620_users_notifications_seen_at.sql ==
+BEGIN
+ALTER TABLE
+COMMIT
+psql:/Users/neilmacaogain/Documents/Codex/2026-10-02/github-plugin-github-openai-curated-remote-3/work/runtime-deps/backend/migrations/20260620_users_notifications_seen_at.sql:10: NOTICE:  42701: column "notifications_seen_at" of relation "users" already exists, skipping
+LOCATION:  check_for_column_name_collision, tablecmds.c:7275
+== applying 20260621_user_usage_qa_count.sql ==
+BEGIN
+ALTER TABLE
+COMMIT
+psql:/Users/neilmacaogain/Documents/Codex/2026-10-02/github-plugin-github-openai-curated-remote-3/work/runtime-deps/backend/migrations/20260621_user_usage_qa_count.sql:11: NOTICE:  42701: column "qa_count" of relation "user_usage" already exists, skipping
+LOCATION:  check_for_column_name_collision, tablecmds.c:7275
+== applying 20260624_add_cohort_to_invite_codes.sql ==
+BEGIN
+ALTER TABLE
+CREATE INDEX
+COMMIT
+psql:/Users/neilmacaogain/Documents/Codex/2026-10-02/github-plugin-github-openai-curated-remote-3/work/runtime-deps/backend/migrations/20260624_add_cohort_to_invite_codes.sql:10: NOTICE:  42701: column "cohort" of relation "invite_codes" already exists, skipping
+LOCATION:  check_for_column_name_collision, tablecmds.c:7275
+psql:/Users/neilmacaogain/Documents/Codex/2026-10-02/github-plugin-github-openai-curated-remote-3/work/runtime-deps/backend/migrations/20260624_add_cohort_to_invite_codes.sql:12: NOTICE:  42P07: relation "ix_invite_codes_cohort" already exists, skipping
+LOCATION:  index_create, index.c:868
+== applying 20260624_add_is_beta_to_users.sql ==
+BEGIN
+ALTER TABLE
+CREATE INDEX
+COMMIT
+psql:/Users/neilmacaogain/Documents/Codex/2026-10-02/github-plugin-github-openai-curated-remote-3/work/runtime-deps/backend/migrations/20260624_add_is_beta_to_users.sql:15: NOTICE:  42701: column "is_beta" of relation "users" already exists, skipping
+LOCATION:  check_for_column_name_collision, tablecmds.c:7275
+psql:/Users/neilmacaogain/Documents/Codex/2026-10-02/github-plugin-github-openai-curated-remote-3/work/runtime-deps/backend/migrations/20260624_add_is_beta_to_users.sql:17: NOTICE:  42P07: relation "idx_users_is_beta" already exists, skipping
+LOCATION:  index_create, index.c:868
+== applying 20260624_add_oauth_account_unique.sql ==
+BEGIN
+CREATE INDEX
+COMMIT
+psql:/Users/neilmacaogain/Documents/Codex/2026-10-02/github-plugin-github-openai-curated-remote-3/work/runtime-deps/backend/migrations/20260624_add_oauth_account_unique.sql:13: NOTICE:  42P07: relation "uq_oauth_provider_account" already exists, skipping
+LOCATION:  index_create, index.c:868
+== applying 20260624_create_feedback.sql ==
+BEGIN
+CREATE TABLE
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+COMMIT
+psql:/Users/neilmacaogain/Documents/Codex/2026-10-02/github-plugin-github-openai-curated-remote-3/work/runtime-deps/backend/migrations/20260624_create_feedback.sql:19: NOTICE:  42P07: relation "feedback" already exists, skipping
+LOCATION:  transformCreateStmt, parse_utilcmd.c:210
+psql:/Users/neilmacaogain/Documents/Codex/2026-10-02/github-plugin-github-openai-curated-remote-3/work/runtime-deps/backend/migrations/20260624_create_feedback.sql:21: NOTICE:  42P07: relation "idx_feedback_user_id" already exists, skipping
+LOCATION:  index_create, index.c:868
+psql:/Users/neilmacaogain/Documents/Codex/2026-10-02/github-plugin-github-openai-curated-remote-3/work/runtime-deps/backend/migrations/20260624_create_feedback.sql:22: NOTICE:  42P07: relation "idx_feedback_type" already exists, skipping
+LOCATION:  index_create, index.c:868
+psql:/Users/neilmacaogain/Documents/Codex/2026-10-02/github-plugin-github-openai-curated-remote-3/work/runtime-deps/backend/migrations/20260624_create_feedback.sql:23: NOTICE:  42P07: relation "idx_feedback_status" already exists, skipping
+LOCATION:  index_create, index.c:868
+== applying 20260624_create_invite_codes.sql ==
+BEGIN
+CREATE TABLE
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+COMMIT
+psql:/Users/neilmacaogain/Documents/Codex/2026-10-02/github-plugin-github-openai-curated-remote-3/work/runtime-deps/backend/migrations/20260624_create_invite_codes.sql:18: NOTICE:  42P07: relation "invite_codes" already exists, skipping
+LOCATION:  transformCreateStmt, parse_utilcmd.c:210
+psql:/Users/neilmacaogain/Documents/Codex/2026-10-02/github-plugin-github-openai-curated-remote-3/work/runtime-deps/backend/migrations/20260624_create_invite_codes.sql:20: NOTICE:  42P07: relation "idx_invite_codes_code_hash" already exists, skipping
+LOCATION:  index_create, index.c:868
+psql:/Users/neilmacaogain/Documents/Codex/2026-10-02/github-plugin-github-openai-curated-remote-3/work/runtime-deps/backend/migrations/20260624_create_invite_codes.sql:21: NOTICE:  42P07: relation "idx_invite_codes_email" already exists, skipping
+LOCATION:  index_create, index.c:868
+psql:/Users/neilmacaogain/Documents/Codex/2026-10-02/github-plugin-github-openai-curated-remote-3/work/runtime-deps/backend/migrations/20260624_create_invite_codes.sql:22: NOTICE:  42P07: relation "idx_invite_codes_used_at" already exists, skipping
+LOCATION:  index_create, index.c:868
+psql:/Users/neilmacaogain/Documents/Codex/2026-10-02/github-plugin-github-openai-curated-remote-3/work/runtime-deps/backend/migrations/20260624_create_invite_codes.sql:23: NOTICE:  42P07: relation "idx_invite_codes_user_id" already exists, skipping
+LOCATION:  index_create, index.c:868
+== applying 20260628_fpi_alert_prefs.sql ==
+BEGIN
+ALTER TABLE
+COMMIT
+psql:/Users/neilmacaogain/Documents/Codex/2026-10-02/github-plugin-github-openai-curated-remote-3/work/runtime-deps/backend/migrations/20260628_fpi_alert_prefs.sql:12: NOTICE:  42701: column "notify_20f" of relation "notification_preferences" already exists, skipping
+LOCATION:  check_for_column_name_collision, tablecmds.c:7275
+psql:/Users/neilmacaogain/Documents/Codex/2026-10-02/github-plugin-github-openai-curated-remote-3/work/runtime-deps/backend/migrations/20260628_fpi_alert_prefs.sql:12: NOTICE:  42701: column "notify_6k" of relation "notification_preferences" already exists, skipping
+LOCATION:  check_for_column_name_collision, tablecmds.c:7275
+== applying 20260629_user_copilot_free_taste.sql ==
+BEGIN
+ALTER TABLE
+COMMIT
+psql:/Users/neilmacaogain/Documents/Codex/2026-10-02/github-plugin-github-openai-curated-remote-3/work/runtime-deps/backend/migrations/20260629_user_copilot_free_taste.sql:18: NOTICE:  42701: column "copilot_free_taste_used" of relation "users" already exists, skipping
+LOCATION:  check_for_column_name_collision, tablecmds.c:7275
+== applying 20260702_create_guest_daily_usage.sql ==
+CREATE TABLE
+psql:/Users/neilmacaogain/Documents/Codex/2026-10-02/github-plugin-github-openai-curated-remote-3/work/runtime-deps/backend/migrations/20260702_create_guest_daily_usage.sql:13: NOTICE:  42P07: relation "guest_daily_usage" already exists, skipping
+LOCATION:  transformCreateStmt, parse_utilcmd.c:210
+== applying 20260702_create_login_attempts.sql ==
+CREATE TABLE
+psql:/Users/neilmacaogain/Documents/Codex/2026-10-02/github-plugin-github-openai-curated-remote-3/work/runtime-deps/backend/migrations/20260702_create_login_attempts.sql:12: NOTICE:  42P07: relation "login_attempts" already exists, skipping
+LOCATION:  transformCreateStmt, parse_utilcmd.c:210
+== applying 20260703_create_earnings_events.sql ==
+CREATE TABLE
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE TABLE
+CREATE INDEX
+CREATE INDEX
+ALTER TABLE
+psql:/Users/neilmacaogain/Documents/Codex/2026-10-02/github-plugin-github-openai-curated-remote-3/work/runtime-deps/backend/migrations/20260703_create_earnings_events.sql:26: NOTICE:  42P07: relation "earnings_events" already exists, skipping
+LOCATION:  transformCreateStmt, parse_utilcmd.c:210
+psql:/Users/neilmacaogain/Documents/Codex/2026-10-02/github-plugin-github-openai-curated-remote-3/work/runtime-deps/backend/migrations/20260703_create_earnings_events.sql:28: NOTICE:  42P07: relation "ix_earnings_events_event_date" already exists, skipping
+LOCATION:  index_create, index.c:868
+psql:/Users/neilmacaogain/Documents/Codex/2026-10-02/github-plugin-github-openai-curated-remote-3/work/runtime-deps/backend/migrations/20260703_create_earnings_events.sql:29: NOTICE:  42P07: relation "ix_earnings_events_ticker" already exists, skipping
+LOCATION:  index_create, index.c:868
+psql:/Users/neilmacaogain/Documents/Codex/2026-10-02/github-plugin-github-openai-curated-remote-3/work/runtime-deps/backend/migrations/20260703_create_earnings_events.sql:31: NOTICE:  42P07: relation "ix_earnings_events_day_rank" already exists, skipping
+LOCATION:  index_create, index.c:868
+psql:/Users/neilmacaogain/Documents/Codex/2026-10-02/github-plugin-github-openai-curated-remote-3/work/runtime-deps/backend/migrations/20260703_create_earnings_events.sql:43: NOTICE:  42P07: relation "earnings_alert_log" already exists, skipping
+LOCATION:  transformCreateStmt, parse_utilcmd.c:210
+psql:/Users/neilmacaogain/Documents/Codex/2026-10-02/github-plugin-github-openai-curated-remote-3/work/runtime-deps/backend/migrations/20260703_create_earnings_events.sql:47: NOTICE:  42P07: relation "ix_earnings_alert_log_user_id" already exists, skipping
+LOCATION:  index_create, index.c:868
+psql:/Users/neilmacaogain/Documents/Codex/2026-10-02/github-plugin-github-openai-curated-remote-3/work/runtime-deps/backend/migrations/20260703_create_earnings_events.sql:48: NOTICE:  42P07: relation "ix_earnings_alert_log_earnings_event_id" already exists, skipping
+LOCATION:  index_create, index.c:868
+psql:/Users/neilmacaogain/Documents/Codex/2026-10-02/github-plugin-github-openai-curated-remote-3/work/runtime-deps/backend/migrations/20260703_create_earnings_events.sql:51: NOTICE:  42701: column "earnings_alert" of relation "watchlist" already exists, skipping
+LOCATION:  check_for_column_name_collision, tablecmds.c:7275
+== applying 20260705_summary_filing_id_unique.sql ==
+BEGIN
+UPDATE 0
+DELETE 0
+DELETE 0
+DO
+COMMIT
+== applying 20260706_company_facts_synced_at.sql ==
+BEGIN
+ALTER TABLE
+COMMIT
+psql:/Users/neilmacaogain/Documents/Codex/2026-10-02/github-plugin-github-openai-curated-remote-3/work/runtime-deps/backend/migrations/20260706_company_facts_synced_at.sql:7: NOTICE:  42701: column "facts_synced_at" of relation "companies" already exists, skipping
+LOCATION:  check_for_column_name_collision, tablecmds.c:7275
+== applying 20260706_demote_null_fiscal_period_duplicates.sql ==
+BEGIN
+UPDATE 0
+COMMIT
+== applying 20260707_create_trend_analysis.sql ==
+BEGIN
+CREATE TABLE
+CREATE INDEX
+COMMIT
+psql:/Users/neilmacaogain/Documents/Codex/2026-10-02/github-plugin-github-openai-curated-remote-3/work/runtime-deps/backend/migrations/20260707_create_trend_analysis.sql:23: NOTICE:  42P07: relation "trend_analysis" already exists, skipping
+LOCATION:  transformCreateStmt, parse_utilcmd.c:210
+psql:/Users/neilmacaogain/Documents/Codex/2026-10-02/github-plugin-github-openai-curated-remote-3/work/runtime-deps/backend/migrations/20260707_create_trend_analysis.sql:25: NOTICE:  42P07: relation "ix_trend_analysis_company_id" already exists, skipping
+LOCATION:  index_create, index.c:868
+== applying 20260707_user_usage_analysis_count.sql ==
+BEGIN
+ALTER TABLE
+COMMIT
+psql:/Users/neilmacaogain/Documents/Codex/2026-10-02/github-plugin-github-openai-curated-remote-3/work/runtime-deps/backend/migrations/20260707_user_usage_analysis_count.sql:8: NOTICE:  42701: column "analysis_count" of relation "user_usage" already exists, skipping
+LOCATION:  check_for_column_name_collision, tablecmds.c:7275
+== applying 20260708_add_trend_analysis_unverified.sql ==
+ALTER TABLE
+psql:/Users/neilmacaogain/Documents/Codex/2026-10-02/github-plugin-github-openai-curated-remote-3/work/runtime-deps/backend/migrations/20260708_add_trend_analysis_unverified.sql:11: NOTICE:  42701: column "unverified" of relation "trend_analysis" already exists, skipping
+LOCATION:  check_for_column_name_collision, tablecmds.c:7275
+== applying 20260708_summary_version_stamps.sql ==
+BEGIN
+ALTER TABLE
+ALTER TABLE
+COMMIT
+psql:/Users/neilmacaogain/Documents/Codex/2026-10-02/github-plugin-github-openai-curated-remote-3/work/runtime-deps/backend/migrations/20260708_summary_version_stamps.sql:17: NOTICE:  42701: column "schema_version" of relation "summaries" already exists, skipping
+LOCATION:  check_for_column_name_collision, tablecmds.c:7275
+psql:/Users/neilmacaogain/Documents/Codex/2026-10-02/github-plugin-github-openai-curated-remote-3/work/runtime-deps/backend/migrations/20260708_summary_version_stamps.sql:18: NOTICE:  42701: column "prompt_version" of relation "summaries" already exists, skipping
+LOCATION:  check_for_column_name_collision, tablecmds.c:7275
+== applying 20260709_create_notable_filings.sql ==
+CREATE TABLE
+CREATE INDEX
+CREATE INDEX
+psql:/Users/neilmacaogain/Documents/Codex/2026-10-02/github-plugin-github-openai-curated-remote-3/work/runtime-deps/backend/migrations/20260709_create_notable_filings.sql:21: NOTICE:  42P07: relation "notable_filings" already exists, skipping
+LOCATION:  transformCreateStmt, parse_utilcmd.c:210
+psql:/Users/neilmacaogain/Documents/Codex/2026-10-02/github-plugin-github-openai-curated-remote-3/work/runtime-deps/backend/migrations/20260709_create_notable_filings.sql:25: NOTICE:  42P07: relation "ix_notable_filings_rank" already exists, skipping
+LOCATION:  index_create, index.c:868
+psql:/Users/neilmacaogain/Documents/Codex/2026-10-02/github-plugin-github-openai-curated-remote-3/work/runtime-deps/backend/migrations/20260709_create_notable_filings.sql:26: NOTICE:  42P07: relation "ix_notable_filings_ticker" already exists, skipping
+LOCATION:  index_create, index.c:868
+== applying 20260710_filings_company_type_date_index.sql ==
+BEGIN
+CREATE INDEX
+COMMIT
+psql:/Users/neilmacaogain/Documents/Codex/2026-10-02/github-plugin-github-openai-curated-remote-3/work/runtime-deps/backend/migrations/20260710_filings_company_type_date_index.sql:18: NOTICE:  42P07: relation "ix_filings_company_type_date" already exists, skipping
+LOCATION:  index_create, index.c:868
+== applying 20260711_companies_history_backfilled_at.sql ==
+BEGIN
+ALTER TABLE
+COMMIT
+psql:/Users/neilmacaogain/Documents/Codex/2026-10-02/github-plugin-github-openai-curated-remote-3/work/runtime-deps/backend/migrations/20260711_companies_history_backfilled_at.sql:7: NOTICE:  42701: column "history_backfilled_at" of relation "companies" already exists, skipping
+LOCATION:  check_for_column_name_collision, tablecmds.c:7275
+== applying 20260905_earningsnerd_job_runs.sql ==
+CREATE TABLE
+DO
+psql:/Users/neilmacaogain/Documents/Codex/2026-10-02/github-plugin-github-openai-curated-remote-3/work/runtime-deps/backend/migrations/20260905_earningsnerd_job_runs.sql:11: NOTICE:  42P07: relation "earningsnerd_job_runs" already exists, skipping
+LOCATION:  transformCreateStmt, parse_utilcmd.c:210
+== applying 20260905_filing_amendment_relationship.sql ==
+DO
+== applying 20260906_earningsnerd_billing_payments.sql ==
+CREATE TABLE
+DO
+psql:/Users/neilmacaogain/Documents/Codex/2026-10-02/github-plugin-github-openai-curated-remote-3/work/runtime-deps/backend/migrations/20260906_earningsnerd_billing_payments.sql:22: NOTICE:  42P07: relation "earningsnerd_billing_payments" already exists, skipping
+LOCATION:  transformCreateStmt, parse_utilcmd.c:210
+== applying 20260906_earningsnerd_usage_reservations.sql ==
+CREATE TABLE
+DO
+psql:/Users/neilmacaogain/Documents/Codex/2026-10-02/github-plugin-github-openai-curated-remote-3/work/runtime-deps/backend/migrations/20260906_earningsnerd_usage_reservations.sql:12: NOTICE:  42P07: relation "earningsnerd_usage_reservations" already exists, skipping
+LOCATION:  transformCreateStmt, parse_utilcmd.c:210
+== applying 20260906_financial_fact_filing_index.sql ==
+CREATE INDEX
+psql:/Users/neilmacaogain/Documents/Codex/2026-10-02/github-plugin-github-openai-curated-remote-3/work/runtime-deps/backend/migrations/20260906_financial_fact_filing_index.sql:9: NOTICE:  42P07: relation "ix_financial_fact_filing_period_concept_end" already exists, skipping
+LOCATION:  index_create, index.c:868
+== applying 20260907_earningsnerd_notification_delivery.sql ==
+CREATE TABLE
+CREATE TABLE
+DO
+psql:/Users/neilmacaogain/Documents/Codex/2026-10-02/github-plugin-github-openai-curated-remote-3/work/runtime-deps/backend/migrations/20260907_earningsnerd_notification_delivery.sql:27: NOTICE:  42P07: relation "earningsnerd_delivery_batches" already exists, skipping
+LOCATION:  transformCreateStmt, parse_utilcmd.c:210
+psql:/Users/neilmacaogain/Documents/Codex/2026-10-02/github-plugin-github-openai-curated-remote-3/work/runtime-deps/backend/migrations/20260907_earningsnerd_notification_delivery.sql:36: NOTICE:  42P07: relation "earningsnerd_delivery_items" already exists, skipping
+LOCATION:  transformCreateStmt, parse_utilcmd.c:210
+== applying 20260908_earningsnerd_delivery_first_click.sql ==
+DO
+CREATE INDEX
+psql:/Users/neilmacaogain/Documents/Codex/2026-10-02/github-plugin-github-openai-curated-remote-3/work/runtime-deps/backend/migrations/20260908_earningsnerd_delivery_first_click.sql:18: NOTICE:  42P07: relation "ix_earningsnerd_delivery_batches_provider_email_id" already exists, skipping
+LOCATION:  index_create, index.c:868
+== applying 20260927_filing_content_cache_risk_source.sql ==
+DO
+apply_migrations: applied=40 skipped=0
