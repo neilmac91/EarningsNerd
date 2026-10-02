@@ -87,6 +87,10 @@ what applies to your task. Filenames are greppable: `arch-*`, `sec-*`, `test-*`,
 
 ## Frontend & design system
 
+- [`frontend-dialog-trap-arms-once-per-open.md`](./frontend-dialog-trap-arms-once-per-open.md) — Arm a dialog's focus trap once per open; never key its effect on a callback prop's identity
+
+- [`frontend-top-dialog-owns-the-keyboard.md`](./frontend-top-dialog-owns-the-keyboard.md) — The top dialog owns the keyboard: listen in window capture and stop the keys it handles
+
 - [`frontend-trial-labels-use-entitlements.md`](./frontend-trial-labels-use-entitlements.md) — Derive current-trial presentation from the resolved entitlement
 
 - [`test-smoke-targets-feature-semantics.md`](./test-smoke-targets-feature-semantics.md) — Distinguish the actual smoke target from similarly named calls to action

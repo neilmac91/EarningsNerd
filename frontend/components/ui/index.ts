@@ -7,6 +7,9 @@ export {
 export { Card, CardHeader, CardTitle, CardBody, CardFooter, type CardProps } from './Card'
 export { Notice, type NoticeProps, type NoticeVariant } from './Notice'
 export { Switch, type SwitchProps } from './Switch'
+// v3: the ONE dialog primitive (DS-04) — the dialog role ships only through Modal
+// (plus the documented copilot sheets; gated by tests/unit/dialogAllowlist.spec.ts).
+export { Modal, ModalHeader, ModalBody, ModalFooter, type ModalProps, type ModalHeaderProps } from './Modal'
 export { DataTable, type DataTableProps, type Column, type CellTone, type SortState, type Density } from './DataTable'
 export { Skeleton, SkeletonText, SkeletonStat } from './Skeleton'
 // v2.1: ui/StateCard renamed → GuidanceCard (collision with the app's own
