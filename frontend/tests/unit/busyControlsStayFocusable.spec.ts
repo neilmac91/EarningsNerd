@@ -32,10 +32,6 @@ import { describe, expect, it } from 'vitest'
  */
 const BUSY = /pending|loading|submitting|saving|sending|streaming|running|busy|refetching|fetching|mutating|deleting|removing|inflight/i
 
-const FOLLOW_UP =
-  'Pre-existing follow-up (lesson rule (d)): a busy flag natively disables a control that can hold focus. ' +
-  'Convert it to `loading` / aria-disabled + an early return, then lower this pin.'
-
 const ALLOW: Record<string, { sites: string[]; reason: string }> = {
   // Kept by design.
   'features/calendar/components/AlertBell.tsx': {
@@ -56,7 +52,6 @@ const ALLOW: Record<string, { sites: string[]; reason: string }> = {
       'Cancel is disabled while Revoke runs. Revoke (`loading`) is the control that holds focus, and Cancel ' +
       'cannot be activated during the request, so it never holds focus when it flips.',
   },
-  // Pre-existing follow-ups.
   'app/admin/invites/page.tsx': {
     sites: ['sending', 'sending', 'sending', 'sending'],
     reason:
@@ -69,13 +64,11 @@ const ALLOW: Record<string, { sites: string[]; reason: string }> = {
       'The delete-confirm field and Cancel stay disabled while deleting: only Confirm (`loading`) starts the ' +
       'delete, with no form, so focus is on Confirm, never on them, when they flip.',
   },
-  'features/contact/components/ContactForm.tsx': { sites: ['isSubmitting', 'isSubmitting', 'isSubmitting', 'isSubmitting', 'isSubmitting || (TURNSTILE_ENABLED && !turnstileToken)'], reason: FOLLOW_UP },
-  'features/feedback/components/FeedbackWidget.tsx': { sites: ['submitting || message.trim().length < 5'], reason: FOLLOW_UP },
 }
 
 /** Frozen ceilings on files and on pinned sites: lower them as sites are converted, never raise them. */
-const MAX_ALLOWLIST_SIZE = 7
-const MAX_PINNED_SITES = 15
+const MAX_ALLOWLIST_SIZE = 5
+const MAX_PINNED_SITES = 9
 
 const frontendRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 const ROOTS = ['app', 'components', 'features']

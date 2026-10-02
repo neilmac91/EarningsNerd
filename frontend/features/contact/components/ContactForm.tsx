@@ -2,7 +2,6 @@
 
 import { useState } from 'react'
 import { clsx } from 'clsx'
-import { CircleNotchIcon } from '@/lib/icons'
 import { submitContactForm } from '@/features/contact/api/contact-api'
 import TurnstileWidget from '@/features/auth/components/TurnstileWidget'
 import { TURNSTILE_ENABLED } from '@/lib/featureFlags'
@@ -21,6 +20,10 @@ export default function ContactForm() {
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
+    // Send uses `loading` (aria-disabled + click guard, not native disabled) and the fields go
+    // readOnly, so everything stays focusable while the request is in flight — Enter in a field can
+    // still land here, so refuse a second submit explicitly.
+    if (isSubmitting) return
     setError(null)
     setSuccess(false)
 
@@ -131,7 +134,7 @@ export default function ContactForm() {
             value={name}
             onChange={(e) => setName(e.target.value)}
             required
-            disabled={isSubmitting}
+            readOnly={isSubmitting}
             className="mt-2"
             placeholder="Your name"
           />
@@ -152,7 +155,7 @@ export default function ContactForm() {
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             required
-            disabled={isSubmitting}
+            readOnly={isSubmitting}
             className="mt-2"
             placeholder="you@company.com"
           />
@@ -172,7 +175,7 @@ export default function ContactForm() {
             type="text"
             value={subject}
             onChange={(e) => setSubject(e.target.value)}
-            disabled={isSubmitting}
+            readOnly={isSubmitting}
             className="mt-2"
             placeholder="How can we help?"
           />
@@ -192,7 +195,7 @@ export default function ContactForm() {
             value={message}
             onChange={(e) => setMessage(e.target.value)}
             required
-            disabled={isSubmitting}
+            readOnly={isSubmitting}
             rows={6}
             className={clsx(inputClasses(), 'mt-2')}
             placeholder="Tell us more about your inquiry..."
@@ -211,20 +214,18 @@ export default function ContactForm() {
 
         <TurnstileWidget onToken={setTurnstileToken} />
 
-        {/* Submit Button */}
+        {/* Submit Button — `loading`, never native `disabled`, while sending: Chromium blurs a
+            focused control that turns disabled (focus → <body>), and the fields above are readOnly
+            for the same reason. Native `disabled` stays only for the missing Turnstile token, which
+            the widget sets — never this button's own activation. */}
         <Button
           type="submit"
-          disabled={isSubmitting || (TURNSTILE_ENABLED && !turnstileToken)}
+          loading={isSubmitting}
+          loadingText="Sending..."
+          disabled={TURNSTILE_ENABLED && !turnstileToken}
           className="w-full"
         >
-          {isSubmitting ? (
-            <span className="flex items-center justify-center">
-              <CircleNotchIcon className="mr-2 h-5 w-5 animate-spin" />
-              Sending...
-            </span>
-          ) : (
-            'Send Message'
-          )}
+          Send Message
         </Button>
       </div>
     </form>

@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, Suspense, useRef, useEffect, useCallback } from 'react'
-import { useQuery, useMutation } from '@tanstack/react-query'
+import { useQuery, useMutation, type UseQueryResult } from '@tanstack/react-query'
 import { createCheckoutSession, getSubscriptionStatus, getUsage } from '@/features/subscriptions/api/subscriptions-api'
 import { getCurrentUserSafe } from '@/features/auth/api/auth-api'
 import { isApiError, getErrorMessage } from '@/lib/api/types'
@@ -28,6 +28,39 @@ interface CurrentUser {
 }
 
 // Price anchor + the $39-vs-$29 A/B arms live in ./prices (shared with the layout's Product JSON-LD).
+
+/**
+ * A failed query stays failed, with its last error, while a Retry the user pressed runs. React Query
+ * puts a query that has no data back to `pending` (`error: null`) the moment it refetches; reading
+ * that as recovered unmounted the error Notice, and the focused Retry button in it, before the
+ * button's `loading` rendered, so focus fell to <body>. Only that press holds the failure: any other
+ * refetch of an errored query (a new observer mounting, window focus) shows the ordinary pending
+ * state, as before.
+ */
+function useRetainedFailure(query: UseQueryResult<unknown>) {
+  const { isError, error, isFetching, data, refetch } = query
+  const [lastError, setLastError] = useState<unknown>(null)
+  if (error && error !== lastError) setLastError(error)
+  const [retrying, setRetrying] = useState(false)
+  // The press's own fetch may not be visible yet on the render right after it, so the retry ends
+  // only once a fetch has been seen and has finished.
+  const sawFetch = useRef(false)
+  useEffect(() => {
+    if (!retrying) return
+    if (isFetching) sawFetch.current = true
+    else if (sawFetch.current) {
+      sawFetch.current = false
+      setRetrying(false)
+    }
+  }, [retrying, isFetching])
+  const retry = () => {
+    sawFetch.current = false
+    setRetrying(true)
+    void refetch()
+  }
+  const failed = isError || (retrying && data === undefined)
+  return { failed, error: failed ? error ?? lastError : null, retry }
+}
 
 // The ONLY consumer of useSearchParams() on this page, isolated so it is the only thing inside the
 // Suspense boundary. useSearchParams() bails its nearest Suspense subtree out of the server HTML;
@@ -74,11 +107,12 @@ function PricingContent({ billingCycle, setBillingCycle, billingResolved }: {
 
   // The pricing page is publicly reachable; only fetch account-scoped data for
   // signed-in users so guests see the plain guest/free-tier view, not a 401 error card.
-  const { data: currentUser, isError: identityError, error: identityErrorData, refetch: refetchIdentity, isFetching: identityFetching } = useQuery<CurrentUser | null>({
+  const identityQuery = useQuery<CurrentUser | null>({
     queryKey: queryKeys.currentUser(),
     queryFn: getCurrentUserSafe,
     retry: false,
   })
+  const { data: currentUser, isError: identityError, isFetching: identityFetching } = identityQuery
   // `undefined` is an unresolved identity (pending, or failed without data); only `null` is a
   // confirmed guest. Conflating the two labelled Free "Current plan" and armed checkout before
   // anything was known about the account.
@@ -86,19 +120,26 @@ function PricingContent({ billingCycle, setBillingCycle, billingResolved }: {
   const isGuest = currentUser === null
   const isAuthenticated = Boolean(currentUser)
 
-  const { data: subscription, isError: subscriptionError, error: subscriptionErrorData, refetch: refetchSubscription, isFetching: subscriptionFetching } = useQuery({
+  const subscriptionQuery = useQuery({
     queryKey: queryKeys.subscription.byUser(currentUser?.id),
     queryFn: getSubscriptionStatus,
     retry: false,
     enabled: !!currentUser,
   })
+  const { data: subscription, isError: subscriptionError, isFetching: subscriptionFetching } = subscriptionQuery
 
-  const { data: usage, isError: usageError, error: usageErrorData, refetch: refetchUsage, isFetching: usageFetching } = useQuery({
+  const usageQuery = useQuery({
     queryKey: queryKeys.usage.byUser(currentUser?.id),
     queryFn: getUsage,
     retry: false,
     enabled: !!currentUser,
   })
+  const { data: usage, isError: usageError, isFetching: usageFetching } = usageQuery
+
+  // What the error Notices show. A retry in flight keeps its Notice (and the focused Retry button).
+  const identityFailure = useRetainedFailure(identityQuery)
+  const subscriptionFailure = useRetainedFailure(subscriptionQuery)
+  const usageFailure = useRetainedFailure(usageQuery)
 
   // Account readiness for plan labels and the buy action. A guest is fully resolved; a known
   // user needs a subscription snapshot. Retained same-account data counts: a failed refresh
@@ -107,8 +148,23 @@ function PricingContent({ billingCycle, setBillingCycle, billingResolved }: {
   const subscriptionResolved = subscription !== undefined
   const accountResolved = billingResolved && (isGuest || (isAuthenticated && subscriptionResolved))
   const accountFailed = !accountResolved && (identityError || (isAuthenticated && subscriptionError))
-  const identityUnavailable = identityError && !identityResolved
+  const identityUnavailable = identityFailure.failed && !identityResolved
   const subscriptionStale = subscriptionError && subscriptionResolved
+  const errorNoticeShown = identityUnavailable || subscriptionFailure.failed || usageFailure.failed
+
+  // A successful retry removes the error Notice, and the focused Retry button with it: focus would
+  // fall to <body>. Land it on the intro line the Notice sat under, unless it has already moved on.
+  const introRef = useRef<HTMLParagraphElement>(null)
+  const retried = useRef(false)
+  const retry = (failure: { retry: () => void }) => () => {
+    retried.current = true
+    failure.retry()
+  }
+  useEffect(() => {
+    if (errorNoticeShown || !retried.current) return
+    retried.current = false
+    if (document.activeElement === document.body) introRef.current?.focus({ preventScroll: true })
+  }, [errorNoticeShown])
 
   useEffect(() => {
     if (billingResolved && !hasTrackedPricingView.current) {
@@ -298,7 +354,7 @@ function PricingContent({ billingCycle, setBillingCycle, billingResolved }: {
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         <div className="text-center mb-12">
           {/* SecondaryHeader already renders the page H1 ("Pricing"); no duplicate heading here. */}
-          <p className="text-lg text-text-secondary-light dark:text-text-secondary-dark max-w-2xl mx-auto">
+          <p ref={introRef} tabIndex={-1} className="text-lg text-text-secondary-light dark:text-text-secondary-dark max-w-2xl mx-auto outline-none">
             Choose the plan that works for you. Upgrade or downgrade at any time.
           </p>
 
@@ -308,15 +364,15 @@ function PricingContent({ billingCycle, setBillingCycle, billingResolved }: {
               <Notice
                 variant="error"
                 title="We couldn't check your account"
-                description={identityErrorData instanceof Error ? identityErrorData.message : 'Please retry.'}
+                description={identityFailure.error instanceof Error ? identityFailure.error.message : 'Please retry.'}
                 action={
-                  <Button variant="secondary" size="sm" onClick={() => refetchIdentity()} loading={identityFetching} loadingText="Retrying…">
+                  <Button variant="secondary" size="sm" onClick={retry(identityFailure)} loading={identityFetching} loadingText="Retrying…">
                     Retry account check
                   </Button>
                 }
               />
             </div>
-          ) : (subscriptionError || usageError) && (
+          ) : (subscriptionFailure.failed || usageFailure.failed) && (
             <div className="mt-6 mx-auto max-w-2xl text-left">
               <Notice
                 variant="error"
@@ -324,18 +380,18 @@ function PricingContent({ billingCycle, setBillingCycle, billingResolved }: {
                 description={
                   subscriptionStale
                     ? 'Showing your last loaded plan. Retry to refresh it.'
-                    : subscriptionErrorData instanceof Error
-                    ? subscriptionErrorData.message
-                    : usageErrorData instanceof Error
-                    ? usageErrorData.message
+                    : subscriptionFailure.error instanceof Error
+                    ? subscriptionFailure.error.message
+                    : usageFailure.error instanceof Error
+                    ? usageFailure.error.message
                     : 'Please retry.'
                 }
                 action={
                   <>
-                    <Button variant="secondary" size="sm" onClick={() => refetchSubscription()} loading={subscriptionFetching} loadingText="Retrying…">
+                    <Button variant="secondary" size="sm" onClick={retry(subscriptionFailure)} loading={subscriptionFetching} loadingText="Retrying…">
                       Retry subscription
                     </Button>
-                    <Button variant="secondary" size="sm" onClick={() => refetchUsage()} loading={usageFetching} loadingText="Retrying…">
+                    <Button variant="secondary" size="sm" onClick={retry(usageFailure)} loading={usageFetching} loadingText="Retrying…">
                       Retry usage
                     </Button>
                   </>

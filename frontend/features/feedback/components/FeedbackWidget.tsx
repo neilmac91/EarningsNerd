@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { toast } from 'sonner'
-import { ChatCircleDotsIcon, CircleNotchIcon, PaperPlaneTiltIcon } from '@/lib/icons'
+import { ChatCircleDotsIcon, PaperPlaneTiltIcon } from '@/lib/icons'
 import { Button, Modal, ModalBody, ModalHeader } from '@/components/ui'
 import { submitFeedback, type FeedbackType } from '@/features/feedback/api/feedback-api'
 import { hasActiveSession } from '@/lib/api/session'
@@ -53,6 +53,9 @@ export default function FeedbackWidget() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    // Send uses `loading` (aria-disabled + click guard, not native disabled) so it keeps focus while
+    // the request is in flight; a submit that bypasses its click must not send a second report.
+    if (submitting) return
     if (message.trim().length < 5) return
     setSubmitting(true)
     try {
@@ -111,22 +114,21 @@ export default function FeedbackWidget() {
               className="w-full resize-none rounded-lg border border-black/10 bg-white/70 px-3 py-2 text-sm text-text-primary-light placeholder:text-text-tertiary-light focus:border-brand-strong focus:outline-none focus:ring-2 focus:ring-brand-strong/30 dark:border-white/15 dark:bg-white/5 dark:text-text-primary-dark dark:placeholder:text-text-secondary-dark"
             />
 
+            {/* `loading`, never native `disabled`, while sending: Chromium blurs a focused button
+                that turns disabled (focus → <body>). Native `disabled` stays only for the too-short
+                message — the textarea sets it, and the success reset that clears the message also
+                closes this panel in the same render, so it never flips under focus. */}
             <Button
               type="submit"
-              disabled={submitting || message.trim().length < 5}
+              loading={submitting}
+              loadingText="Sending…"
+              disabled={message.trim().length < 5}
               className="w-full py-2 font-semibold active:scale-[0.99]"
             >
-              {submitting ? (
-                <span className="flex items-center justify-center gap-2">
-                  <CircleNotchIcon className="h-4 w-4 animate-spin" />
-                  Sending…
-                </span>
-              ) : (
-                <span className="flex items-center justify-center gap-2">
-                  <PaperPlaneTiltIcon className="h-4 w-4" />
-                  Send feedback
-                </span>
-              )}
+              <span className="flex items-center justify-center gap-2">
+                <PaperPlaneTiltIcon className="h-4 w-4" />
+                Send feedback
+              </span>
             </Button>
           </form>
         </ModalBody>
