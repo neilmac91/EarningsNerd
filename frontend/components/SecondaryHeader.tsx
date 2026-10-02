@@ -22,7 +22,11 @@ export default function SecondaryHeader({
   return (
     <header className="sticky top-0 z-40 border-b border-border-light dark:border-white/10 bg-panel-light/80 dark:bg-panel-dark/80 backdrop-blur">
       <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-4 px-4 py-5 sm:px-6 lg:px-8">
-        <div className="flex flex-wrap items-center gap-4">
+        {/* The subtitle (often per-user, e.g. "Welcome back, <name>") never sizes the row: it is
+            inline-size contained, so only the back link, title and actions decide where the row
+            wraps, and the title block grows into the free space where the subtitle truncates. A late
+            or long subtitle therefore can't change the header's height and move the page below. */}
+        <div className="flex min-w-0 grow flex-wrap items-center gap-4">
           {backHref && (
             <Link
               href={backHref}
@@ -32,14 +36,19 @@ export default function SecondaryHeader({
               {backLabel}
             </Link>
           )}
-          <div className="flex items-center gap-3">
-            <EarningsNerdLogoIcon className="h-8 w-8" />
-            <div>
+          <div className="flex min-w-0 grow items-center gap-3">
+            <EarningsNerdLogoIcon className="h-8 w-8 shrink-0" />
+            <div className="min-w-0 grow">
               {title && (
                 <h1 className="text-lg font-semibold text-text-primary-light dark:text-text-primary-dark">{title}</h1>
               )}
               {subtitle && (
-                <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark">{subtitle}</p>
+                <p
+                  title={subtitle}
+                  className="truncate text-xs text-text-secondary-light [contain:inline-size] dark:text-text-secondary-dark"
+                >
+                  {subtitle}
+                </p>
               )}
             </div>
           </div>
