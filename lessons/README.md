@@ -98,6 +98,7 @@ what applies to your task. Filenames are greppable: `arch-*`, `sec-*`, `test-*`,
 - [`frontend-client-exports-need-next-build.md`](./frontend-client-exports-need-next-build.md) — Run next build before moving design-system client exports across page files
 - [`frontend-route-redesign-needs-a-mount-gate.md`](./frontend-route-redesign-needs-a-mount-gate.md) — A self-omitting section needs a source-level mount gate — render tests cannot see it go missing
 - [`frontend-guard-submit-on-loading-buttons.md`](./frontend-guard-submit-on-loading-buttons.md) — Guard submit handlers with an early return when the button uses loading, not disabled
+- [`frontend-dialog-openers-stay-focusable.md`](./frontend-dialog-openers-stay-focusable.md) — Keep a dialog's opener focusable through its pending and cooldown states — aria-disabled, not native disabled
 - [`frontend-overrides-rot-when-the-constrained-package-moves.md`](./frontend-overrides-rot-when-the-constrained-package-moves.md) — An npm override's meaning is set by the package it constrains — re-check every override on a major bump
 - [`frontend-no-surface-fighting-global-colors.md`](./frontend-no-surface-fighting-global-colors.md) — Never set a global element-level color that surfaces must opt out of
 - [`frontend-preview-both-themes-before-done.md`](./frontend-preview-both-themes-before-done.md) — Eyeball the deployed preview in both themes before declaring visual work done

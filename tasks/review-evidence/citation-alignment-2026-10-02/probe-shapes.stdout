@@ -1,0 +1,21 @@
+old=False new=True  product=True  | fiscal-2027 inner short quoted span
+old=False new=True  product=True  | straight single-quote wrapped
+old=False new=True  product=True  | curly single-quote wrapped
+old=False new=True  product=True  | mixed wrapper open " close '
+old=True  new=True  product=True  | double-quote wrapped (control)
+old=False new=True  product=True  | outer wrap + interior quotes, all in source
+old=True  new=False product=False | #1052 shape: invented prefix + real quoted span
+old=True  new=False product=False | invented suffix after real quoted span
+old=True  new=True  product=True  | plain verbatim with whitespace drift
+old=False new=False product=False | 23-char needle inside wrapper (floor)
+old=True  new=False product=False | verbatim excerpt, label with U+0022
+old=True  new=False product=False | verbatim excerpt, label with U+FF02
+old=True  new=False product=False | verbatim excerpt, label with U+201C
+old=True  new=False product=False | verbatim excerpt, label with U+201D
+old=True  new=False product=False | verbatim excerpt, label with U+201E
+old=True  new=False product=False | verbatim excerpt, label with U+201F
+old=True  new=True  product=True  | verbatim excerpt, label with U+2018 (F's decided limit)
+old=True  new=True  product=True  | verbatim excerpt, label with U+00AB (F's decided limit)
+old=True  new=True  product=True  | verbatim excerpt, label with U+2033 (F's decided limit)
+old=True  new=True  product=True  | verbatim excerpt, label with &quot; (displayed literally)
+{"cases": 200000, "seed": 1052, "new_vs_product_mismatches": 0, "mismatch_examples": [], "old_false_new_true": 11469, "old_true_new_false": 25730}

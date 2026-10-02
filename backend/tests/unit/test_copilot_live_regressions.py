@@ -83,4 +83,4 @@ def test_actual_aapl_stitched_quote_remains_a_hard_veto():
                     'verified': False}])
     assert result.numeric_recall == 1.0
     assert not result.passed and result.unverified_excerpts == [excerpt]
-    assert result.gate_failures == ['CITATION: 1 excerpt(s) failed filing-text verification (absent or too short)']
+    assert result.gate_failures == ['CITATION: 1 excerpt(s) failed filing-text verification (absent, too short, or quoted section label)']

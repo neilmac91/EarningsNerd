@@ -3,8 +3,11 @@
 Pure, no-network checks of refusal calibration, citation faithfulness, and numeric accuracy — the
 deterministic gates that make the harness CI-runnable on every change.
 """
+from types import SimpleNamespace
+
 import pytest
 
+from app.services import copilot_service
 from app.services.provenance_service import normalize_for_match
 from evals.copilot_schema import CopilotQACase
 from evals.copilot_scorers import (
@@ -82,6 +85,34 @@ def test_citation_faithfulness_exempts_xbrl_and_handles_empty():
     assert ratio == 1.0 and unverified == []
     # No citations at all → nothing to falsify.
     assert score_citation_faithfulness([], NORM) == (1.0, [])
+
+
+_PARITY_SOURCE = normalize_for_match(
+    "For the fiscal year ending January 31, 2027 (“fiscal 2027”), we project capital expenditures will be "
+    "approximately $25 billion to $27 billion. Revenue increased to $391.0 billion in fiscal 2024."
+)
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize("excerpt,section,expected", [
+    # An inner quoted span under the 24-char floor: the whole excerpt is filing text.
+    ('For the fiscal year ending January 31, 2027 ("fiscal 2027"), we project capital expenditures', "Item 7", True),
+    # Only a quote pair wrapping the whole excerpt is stripped, single quotes included.
+    ("'Revenue increased to $391.0 billion in fiscal 2024.'", "Item 7", True),
+    # The #1052 shape: a real quoted sentence never vouches for an invented prefix.
+    ('We said "Revenue increased to $391.0 billion in fiscal 2024."', "Item 7", False),
+    # A label is published unchecked, so a quote-marked label unverifies a verbatim excerpt.
+    ("Revenue increased to $391.0 billion in fiscal 2024.", "Item 7 “MD&A”", False),
+])
+def test_citation_faithfulness_matches_copilot_publication(excerpt, section, expected):
+    """Gate: the CITATION scorer verifies exactly what Copilot's ``_verify_citations`` publishes (the
+    model declares ``section``; the published citation the scorer reads carries ``section_ref``)."""
+    declared = {"n": 1, "excerpt": excerpt, "section": section}
+    product = copilot_service._verify_citations([declared], SimpleNamespace(), _PARITY_SOURCE, set())["1"]
+    # Pinned True as on every published citation, so a scorer that trusts the flag is caught.
+    published = {**product, "n": 1, "verified": True}
+    _ratio, unverified = score_citation_faithfulness([published], _PARITY_SOURCE)
+    assert (product["verified"], not unverified) == (expected, expected)
 
 
 # --- fact-marker adjacency ---------------------------------------------------------------------

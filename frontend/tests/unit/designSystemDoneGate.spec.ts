@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url'
 import postcss from 'postcss'
 import tailwindcss, { type Config } from 'tailwindcss'
 import { describe, expect, it } from 'vitest'
-import { directionChip, directionText, directionTextOnDark } from '@/lib/financialTone'
+import { directionChip, directionText } from '@/lib/financialTone'
 
 /**
  * Structural gate for DESIGN_SYSTEM.md §12, the definition-of-done for any theme/token change.
@@ -381,7 +381,7 @@ describe('tailwind content scans every module that composes classes', () => {
     // config file, so a run from another directory would otherwise scan nothing.
     const globs = (config.content as string[]).map((glob) => path.join(frontendDir, glob))
     const built = await generatedClasses(globs, { stylesheet: 'app/globals.css' })
-    const composed = [directionText, directionTextOnDark, directionChip].flatMap((tones) =>
+    const composed = [directionText, directionChip].flatMap((tones) =>
       Object.values(tones).flatMap((tone) => tone.split(/\s+/)),
     )
     expect(composed.filter((c) => !built.has(c)), 'purged from production CSS').toEqual([])
