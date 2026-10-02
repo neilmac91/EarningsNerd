@@ -37,7 +37,8 @@ handover package `earningsnerd-opus-5-5-handover` (SHA256SUMS verified). Checked
 | D7 | [#1040](https://github.com/neilmac91/EarningsNerd/pull/1040) (E) push of `da4f66a0` → eval-baseline [36868705889](https://github.com/neilmac91/EarningsNerd/actions/runs/36868705889) (off-peak; balance 45.62 at 13:17:18Z; E lane reservation 0.75) | 0.40 | 0.175062 (70 calls, 0 unknown; off-peak tokens × llm_pricing) | done: 70/70 scored, gate_fail 0, regression gate PASS; artifact sha256 `38774635…` |
 | D8 | #1040 ready → copilot-eval [36870677818](https://github.com/neilmac91/EarningsNerd/actions/runs/36870677818) at `da4f66a0` (one run; criterion accepted 18/18, 0 errors; balance 45.44 at 13:42:09Z) | 0.05 | 0.005800 (30 calls, 0 unknown) | done: **accepted 18/18, 0 errors** (criterion met); advisory audit exit 1: 1 composed row below F's 24-char floor; not attributable to E (0 fold letters / non-ASCII digits in any answer) |
 | D9 | [#1049](https://github.com/neilmac91/EarningsNerd/pull/1049) (F) push of `89bd1e12`, draft opened 04:02:21Z → eval-baseline in CI [36962781437](https://github.com/neilmac91/EarningsNerd/actions/runs/36962781437) (off-peak; balance 45.44 at 04:00:58Z; F reservation 0.75 incl. D9–D12; shared remainder before F 9.079138) | 0.40 | 0.181062 (70 calls, 0 unknown; off-peak 04:03–04:13Z, tokens × llm_pricing; method reproduces D7's 0.175062) | done: 70/70 scored, pass_rate 1.0, gate_fail 0, regression gate PASS; every required check on `89bd1e12` green; artifact sha256 `07442c6a…` |
-| D10 | #1049 ready transition 04:15:53Z → copilot-eval run 1 of 3 [36963789557](https://github.com/neilmac91/EarningsNerd/actions/runs/36963789557) (predeclared) at `89bd1e12` (off-peak; balance 45.26 at 04:15:36Z; F used 0.181062 of 0.75; shared remainder 8.898076) | 0.05 | pending | pending |
+| D10 | #1049 ready transition 04:15:53Z → copilot-eval run 1 of 3 [36963789557](https://github.com/neilmac91/EarningsNerd/actions/runs/36963789557) (predeclared) at `89bd1e12` (off-peak; balance 45.26 at 04:15:36Z; F used 0.181062 of 0.75; shared remainder 8.898076) | 0.05 | ≈0.005430 (18 usage-bearing service events, 0 unknown; off-peak tokens × llm_pricing; the same method gives D8 0.005803 vs its recorded 0.005800) | done: **accepted 18/18, 0 errors, 0 withheld**; F would withhold 0 of 18 published (0 answer / 0 reason / 0 of 54 chips); attribution exit 0 (0 UNEXPLAINED; 7 known repair-lookup mismatches, all on published rows); #1021 audit exit 2 = composed 0, no-source 0, uncited answers 0 → policy PASS as in D6, advisory MSFT 1/3 uncited figure ×3 and tool-less BABA/ASML ×7; artifact sha256 `0f56bb90…`, copilot-eval.json `aec28008…` |
+| D11 | #1049 draft→ready toggle on unchanged `89bd1e12` → copilot-eval run 2 of 3 [36964503116](https://github.com/neilmac91/EarningsNerd/actions/runs/36964503116) (predeclared; toggled 04:25:2xZ; started after run 1 completed 04:18:29Z; off-peak; balance 45.25 at 04:25:19Z) | 0.05 | pending | pending |
 
 ## Lanes
 
@@ -771,3 +772,10 @@ Under the founder's delegation, Codex decided items A–M on #1029. This session
   - I pushed `claude/f-prose-quote-containment` at `89bd1e12` and opened draft [#1049](https://github.com/neilmac91/EarningsNerd/pull/1049) with the predeclared measurement plan, then subscribed to it.
   - CI [36962781437](https://github.com/neilmac91/EarningsNerd/actions/runs/36962781437) is queued; its eval-baseline is D9.
   - copilot-eval job: skipped while the PR is a draft (no spend). Review gate: skipped while draft.
+- 04:18Z — **F measurement run 1 (D10, [36963789557](https://github.com/neilmac91/EarningsNerd/actions/runs/36963789557)) is clean.**
+  - accepted 18/18, 0 errors, 0 withheld;
+  - attribution exit 0, with no published row F would withhold;
+  - audit policy PASS.
+
+  Evidence is in `tasks/review-evidence/f-quote-containment-2026-10-01/f1-measurement-2026-10-02/run1-36963789557/`.
+- 04:25Z — **Run 2 started:** the predeclared draft→ready toggle on the unchanged head, made after run 1 completed. Run [36964503116](https://github.com/neilmac91/EarningsNerd/actions/runs/36964503116); balance USD 45.25 at 04:25:19Z.
