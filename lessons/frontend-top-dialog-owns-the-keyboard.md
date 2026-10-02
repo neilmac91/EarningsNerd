@@ -41,3 +41,12 @@ semantics do not identify it as the upper layer.
 closes the upper dialog and the next closes the source sheet. The browser probe uses actual page
 controls with fixture API responses; the source sheet's separate focus-containment limitation
 predates this Escape change.
+
+The same sibling-listener failure also occurred in BellPopover: start a calendar alert toggle,
+open the global Feedback dialog while the request is pending, then let the request fail. The
+error popover correctly preserves textarea focus in Feedback, but its unconditional window-capture
+Escape listener closed both layers. The calendar import gate cannot prevent a global layout dialog
+from opening. BellPopover now yields keys targeted inside the shared Modal marker too; its existing
+test home covers the delayed popover mount, first Escape closing Feedback alone, and second Escape
+closing the remaining popover. A current-source real-page dev probe with fixture API replies
+reproduced the sequence; production-build confirmation belongs to the final parent integration gate.

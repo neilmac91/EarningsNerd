@@ -131,6 +131,9 @@ export function BellPopover({ blocked, onClose }: { blocked: BlockedState; onClo
 
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
+        // An async bell error can mount behind an already-open ui/Modal without taking focus.
+        // Both listen on window capture; yield to that upper panel so one Escape closes one layer.
+        if (e.target instanceof Element && e.target.closest('[data-ui-modal="true"]')) return
         e.preventDefault()
         e.stopPropagation()
         onCloseRef.current()

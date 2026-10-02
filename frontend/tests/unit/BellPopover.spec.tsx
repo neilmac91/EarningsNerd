@@ -3,6 +3,7 @@ import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { BellPopover } from '@/features/calendar/components/AlertBell'
+import { Modal } from '@/components/ui/Modal'
 import type { BlockedKind, BlockedState } from '@/features/calendar/hooks/useCalendar'
 
 /**
@@ -98,6 +99,38 @@ describe('BellPopover', () => {
     }
     expect(screen.queryByRole('group')).not.toBeInTheDocument()
     expect(document.activeElement).toBe(bell)
+  })
+
+  it('leaves Escape to an upper modal when an async error arrives behind it', () => {
+    function PageWithDelayedError({ failed }: { failed: boolean }) {
+      const [open, setOpen] = useState(false)
+      const [dismissed, setDismissed] = useState(false)
+      return (
+        <>
+          <button onClick={() => setOpen(true)}>Open feedback</button>
+          {failed && !dismissed && (
+            <BellPopover blocked={blockedFor('error', null, 'Alert unavailable')} onClose={() => setDismissed(true)} />
+          )}
+          <Modal open={open} onClose={() => setOpen(false)} ariaLabel="Feedback">
+            <textarea aria-label="Feedback message" />
+          </Modal>
+        </>
+      )
+    }
+
+    const view = render(<PageWithDelayedError failed={false} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Open feedback' }))
+    const message = screen.getByRole('textbox', { name: 'Feedback message' })
+    expect(message).toHaveFocus()
+    view.rerender(<PageWithDelayedError failed />)
+    const popover = screen.getByRole('group', { name: 'Alert not enabled' })
+    expect(message).toHaveFocus()
+
+    fireEvent.keyDown(message, { key: 'Escape' })
+    expect(screen.queryByRole('dialog', { name: 'Feedback' })).not.toBeInTheDocument()
+    expect(popover).toBeInTheDocument()
+    fireEvent.keyDown(screen.getByRole('button', { name: 'Dismiss' }), { key: 'Escape' })
+    expect(popover).not.toBeInTheDocument()
   })
 
   it.each([
