@@ -1,0 +1,82 @@
+{
+  "schema_version": 1,
+  "verified_on": "2026-10-03",
+  "scope": "Historical natural schedule verification from GitHub run/job logs and exact workflow source; no new cloud action.",
+  "run": {
+    "id": 36852004473,
+    "url": "https://github.com/neilmac91/EarningsNerd/actions/runs/36852004473",
+    "attempt": 1,
+    "event": "schedule",
+    "head_sha": "116c91d2fca93d13bf9015f8c82ffa05d5cd625b",
+    "created_at": "2026-10-01T10:54:14Z",
+    "updated_at": "2026-10-01T10:57:46Z",
+    "conclusion": "success",
+    "export_job_id": 110335599212,
+    "export_job_conclusion": "success",
+    "export_step_completed_at": "2026-10-01T10:57:41Z",
+    "failure_report_job_conclusion": "skipped"
+  },
+  "observed_output": {
+    "raw_line": "export\tUNKNOWN STEP\t2026-10-01T10:57:41.5843188Z monthly SQL export complete: period=2026-10 bytes=4931278",
+    "timestamp": "2026-10-01T10:57:41.5843188Z",
+    "outcome": "complete",
+    "period": "2026-10",
+    "bytes": 4931278
+  },
+  "schedule": {
+    "cron": "15 4 1 * *",
+    "expected_clock_time_utc": "2026-10-01T04:15:00Z",
+    "run_created_minus_expected_seconds": 23954,
+    "delay_cause": "not established"
+  },
+  "source_binding": {
+    "path": ".github/workflows/monthly-sql-export.yml",
+    "sha256": "de2e3180a118f8c29137a2565ddd20bbb15a654cd62aba11bdd4b7925c6db49e",
+    "source_url": "https://github.com/neilmac91/EarningsNerd/blob/116c91d2fca93d13bf9015f8c82ffa05d5cd625b/.github/workflows/monthly-sql-export.yml",
+    "derived_object_key": "monthly/2026-10/earningsnerd-2026-10.sql.gz",
+    "object_key_evidence": "inferred from the pinned workflow and observed period; masked bucket identity not directly observed"
+  },
+  "source_derived_completion_checks": [
+    "Exact export operation context, DONE status and no operation errors required before completion line.",
+    "Matching object metadata, positive byte size, STANDARD storage class and two-byte gzip magic required.",
+    "Before/after public health checks require database healthy=true and top-level status other than unhealthy; exact health payloads not retained in this log."
+  ],
+  "limits": [
+    "Completion line does not distinguish submitting a new export from adopting an active export.",
+    "No direct operation ID, bucket identity, object generation, checksum or full object metadata in the retained public output.",
+    "Two-byte gzip header is not full compression integrity, SQL integrity or restore evidence.",
+    "Managed Cloud SQL re-import remains unproved. This receipt is not a new recovery rehearsal or quality/beta/scale admission.",
+    "Export/cloud cost was not measured; zero new DeepSeek model calls is not zero historical cloud cost."
+  ],
+  "verification_actions": {
+    "github_metadata_and_logs_read": true,
+    "sql_object_downloaded_by_this_verification": false,
+    "cloud_command_executed": false,
+    "workflow_triggered_or_rerun": false,
+    "iam_or_schedule_changed": false,
+    "new_model_calls": 0,
+    "new_deepseek_spend_usd": 0
+  },
+  "privately_retained_evidence": [
+    {
+      "name": "monthly-runs.json",
+      "bytes": 12351,
+      "sha256": "1f92aa224f79d88d2035e1f4c5731ecd041100804b2f1836e0e38aebda1b5f18"
+    },
+    {
+      "name": "monthly-run.json",
+      "bytes": 2832,
+      "sha256": "2fc41c479d33088457b378287332945ecc7d13ed7568bf8db227e638f9656f73"
+    },
+    {
+      "name": "monthly-run.log",
+      "bytes": 76749,
+      "sha256": "7046f2a34a5b7489c83e8a932f3ce929bbfcbb256343639d110dc4ddeaea7c01"
+    },
+    {
+      "name": "monthly-sql-export.yml",
+      "bytes": 27380,
+      "sha256": "de2e3180a118f8c29137a2565ddd20bbb15a654cd62aba11bdd4b7925c6db49e"
+    }
+  ]
+}

@@ -1,5 +1,11 @@
 # EarningsNerd takeover and completion path — 26 September 2026
 
+## October 3 verification addendum
+
+The October 1 **natural monthly SQL export is now verified**: scheduled run `36852004473` emitted a successful completion for period `2026-10`, **4,931,278 bytes**, from workflow source `116c91d2`. The [receipt](review-evidence/natural-monthly-export-2026-10-01/README.md) distinguishes observed output from source-derived checks and preserves the delayed run creation, masked bucket identity and submit/adopt uncertainty. Earlier natural-trigger statements below remain historical. Managed Cloud SQL re-import and measured fleet headroom remain open.
+
+The [whole-plan planning estimate](#master-plan-position) remains **57.5% (about 58%, rough 55–65% range)** under the existing weighting. Recent engineering fixes and this export receipt strengthen already-credited milestones; they do not establish independent quality acceptance or real cohort outcomes. The foundation bucket alone remains 90%. This update changes no programme criteria, production setting or release hold.
+
 EarningsNerd remains at **quality acceptance before controlled beta**. The engineering
 foundation is strong, and a bounded database recovery is now demonstrated. The next evidence
 needed is that complete filing summaries are correct and useful, and that real users return for another analysis.
