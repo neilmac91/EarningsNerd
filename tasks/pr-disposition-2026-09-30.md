@@ -762,3 +762,4 @@ Under the founder's delegation, Codex decided items A–M on #1029. This session
     - the padding of a code span that holds only whitespace (`backticks.py:57`).
   - **Behaviour is unaffected:** 210 probe answers against micromark 4.0.2 + gfm 3.0.0 gave 0 verdict mismatches.
 - 02:37Z — **Release head amended to `ca1e60b9`.** It adopts the reviewer's suggested sentence word for word and is still comment and RUNBOOK only (`ast.dump` identical to `b424e8d9`). Running now: a full gate, and the reviewer's word-for-word confirmation.
+- 02:40Z — **Re-review of `ca1e60b9`: APPROVE.** It confirms the wording matches word for word, `ast.dump` is identical, and 764 tests pass. Its one nit was the stale commit message, which is now fixed. The **final F head is `89bd1e12`** (tree `6c20fd11`, the same tree as `ca1e60b9`). The full gate on this tree is running.
