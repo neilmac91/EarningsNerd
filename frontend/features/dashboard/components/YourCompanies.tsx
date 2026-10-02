@@ -2,6 +2,7 @@
 
 import { formatCompanyName } from '@/lib/formatCompanyName'
 import Link from 'next/link'
+import { useEffect, useRef } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { ArrowRightIcon, XIcon } from '@/lib/icons'
@@ -31,10 +32,22 @@ interface YourCompaniesProps {
  */
 export default function YourCompanies({ insights, isLoading, isError, refetch, isFetching }: YourCompaniesProps) {
   const queryClient = useQueryClient()
+  const headingRef = useRef<HTMLHeadingElement>(null)
+  const removedTicker = useRef<string | null>(null)
+
+  // A successful removal drops its row, and the focused remove button with it, once insights
+  // refetch. Focus would fall to <body>; land it on the section heading instead.
+  useEffect(() => {
+    const ticker = removedTicker.current
+    if (ticker === null || insights?.some((insight) => insight.company.ticker === ticker)) return
+    removedTicker.current = null
+    if (document.activeElement === document.body) headingRef.current?.focus({ preventScroll: true })
+  }, [insights])
 
   const removeMutation = useMutation({
     mutationFn: removeFromWatchlist,
     onSuccess: (_data, ticker) => {
+      removedTicker.current = ticker
       queryClient.invalidateQueries({ queryKey: queryKeys.watchlist() })
       queryClient.invalidateQueries({ queryKey: queryKeys.watchlistInsights() })
       queryClient.invalidateQueries({ queryKey: queryKeys.dashboardFeed() })
@@ -46,10 +59,15 @@ export default function YourCompanies({ insights, isLoading, isError, refetch, i
       toast.error(error instanceof Error ? error.message : "Couldn't update your watchlist. Please try again.")
     },
   })
+  const pendingTicker = removeMutation.isPending ? removeMutation.variables : null
 
   return (
     <section>
-      <h2 className="mb-4 text-xl font-semibold text-text-primary-light dark:text-text-primary-dark">
+      <h2
+        ref={headingRef}
+        tabIndex={-1}
+        className="mb-4 text-xl font-semibold text-text-primary-light outline-none dark:text-text-primary-dark"
+      >
         Your companies
       </h2>
 
@@ -118,10 +136,16 @@ export default function YourCompanies({ insights, isLoading, isError, refetch, i
                         needsRegeneration={latest.needs_regeneration}
                       />
                     )}
+                    {/* aria-disabled + aria-busy + an early return while a removal is in flight, not
+                        native `disabled`: Chromium blurs a focused button that turns disabled. */}
                     <button
-                      onClick={() => removeMutation.mutate(insight.company.ticker)}
-                      disabled={removeMutation.isPending}
-                      className="rounded-lg p-2 text-error-light hover:bg-error-light/10 focus-visible:outline-none focus-visible:shadow-ring-error disabled:opacity-50 dark:text-error-dark dark:hover:bg-error-dark/15"
+                      onClick={() => {
+                        if (removeMutation.isPending) return
+                        removeMutation.mutate(insight.company.ticker)
+                      }}
+                      aria-disabled={removeMutation.isPending || undefined}
+                      aria-busy={pendingTicker === insight.company.ticker || undefined}
+                      className="rounded-lg p-2 text-error-light hover:bg-error-light/10 focus-visible:outline-none focus-visible:shadow-ring-error aria-disabled:opacity-50 dark:text-error-dark dark:hover:bg-error-dark/15"
                       title="Remove from watchlist"
                       aria-label={`Remove ${formatCompanyName(insight.company.name)} from watchlist`}
                     >

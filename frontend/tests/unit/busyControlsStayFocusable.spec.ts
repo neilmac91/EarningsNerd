@@ -63,7 +63,6 @@ const ALLOW: Record<string, { sites: string[]; reason: string }> = {
       'The invite fields stay disabled while sending: only Send (`loading`) starts a send, and there is no ' +
       'form, so Enter in a field submits nothing. Focus is on Send, never on a field, when they flip.',
   },
-  'app/company/[ticker]/page-client.tsx': { sites: ['watchlistMutation.isPending', 'filingsRefetching'], reason: FOLLOW_UP },
   'app/dashboard/settings/page.tsx': {
     sites: ['deleteMutation.isPending', 'deleteMutation.isPending'],
     reason:
@@ -71,17 +70,14 @@ const ALLOW: Record<string, { sites: string[]; reason: string }> = {
       'delete, with no form, so focus is on Confirm, never on them, when they flip.',
   },
   'features/contact/components/ContactForm.tsx': { sites: ['isSubmitting', 'isSubmitting', 'isSubmitting', 'isSubmitting', 'isSubmitting || (TURNSTILE_ENABLED && !turnstileToken)'], reason: FOLLOW_UP },
-  'features/dashboard/components/YourCompanies.tsx': { sites: ['removeMutation.isPending'], reason: FOLLOW_UP },
   'features/feedback/components/FeedbackWidget.tsx': { sites: ['submitting || message.trim().length < 5'], reason: FOLLOW_UP },
   'features/filings/components/copilot/AskCopilotRail.tsx': { sites: ['isStreaming || !canAsk'], reason: FOLLOW_UP },
   'features/summaries/components/SummaryActionsBar.tsx': { sites: ['saveMutation.isPending'], reason: FOLLOW_UP },
-  'features/watchlist/components/PopularTickerChips.tsx': { sites: ['addMutation.isPending'], reason: FOLLOW_UP },
-  'features/watchlist/components/WatchlistAddSearch.tsx': { sites: ['addMutation.isPending'], reason: FOLLOW_UP },
 }
 
 /** Frozen ceilings on files and on pinned sites: lower them as sites are converted, never raise them. */
-const MAX_ALLOWLIST_SIZE = 13
-const MAX_PINNED_SITES = 22
+const MAX_ALLOWLIST_SIZE = 9
+const MAX_PINNED_SITES = 17
 
 const frontendRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 const ROOTS = ['app', 'components', 'features']
