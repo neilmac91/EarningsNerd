@@ -151,7 +151,7 @@ export default function CookieConsent({ onPreferencesChanged }: CookieConsentPro
 
   if (showSettings) {
     return (
-      <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+      <div className="fixed inset-0 bg-overlay backdrop-blur-sm z-modal flex items-center justify-center p-4">
         <div className="bg-panel-light dark:bg-panel-dark rounded-xl shadow-e5 dark:shadow-none max-w-2xl w-full max-h-[90vh] overflow-y-auto">
           <div className="p-6">
             <div className="flex items-start justify-between mb-4">

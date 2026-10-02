@@ -140,7 +140,7 @@ function MobileSectionNav({ sections }: { sections: RenderedSection[] }) {
   return (
     <nav
       aria-label="Jump to section"
-      className="sticky top-16 z-10 -mx-4 border-b border-border-light bg-background-light/95 px-4 backdrop-blur-xl sm:-mx-6 sm:px-6 lg:hidden dark:border-border-dark dark:bg-background-dark/95"
+      className="sticky top-16 z-sticky -mx-4 border-b border-border-light bg-background-light/95 px-4 backdrop-blur-xl sm:-mx-6 sm:px-6 lg:hidden dark:border-border-dark dark:bg-background-dark/95"
     >
       <ul className="flex gap-2 overflow-x-auto py-2 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         {sections.map((section) => (
