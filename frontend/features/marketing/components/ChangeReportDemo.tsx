@@ -2,7 +2,7 @@ import { Skeleton } from '@/components/ui/Skeleton'
 import { WhatChanged } from '@/features/filings/components/WhatChanged'
 import { SAMPLE_CHANGE_REPORT } from '@/features/marketing/lib/landing-samples'
 
-const EYEBROW = 'mb-1.5 text-[11px] font-semibold uppercase tracking-[0.08em]'
+const EYEBROW = 'mb-1.5 text-data-xs font-semibold uppercase tracking-eyebrow'
 const SKELETON_LABEL = 'Risk factor text loads from the live report'
 
 /**

@@ -291,7 +291,7 @@ function FilingDetailView({ filingId, initialFiling, initialSummary }: { filingI
                 <>
                   <div className="flex flex-wrap items-center gap-3 mb-2">
                     <div className="flex flex-wrap items-center gap-2">
-                      <h1 className="text-3xl font-semibold text-text-primary-light dark:text-text-primary-dark tracking-tight">
+                      <h1 className="text-3xl font-semibold text-text-primary-light dark:text-text-primary-dark">
                         {formatCompanyName(filing.company.name)}
                       </h1>
                       <Badge variant="solid" className="text-sm">
@@ -317,7 +317,7 @@ function FilingDetailView({ filingId, initialFiling, initialSummary }: { filingI
                 </>
               ) : (
                 <>
-                  <h1 className="text-3xl font-semibold text-text-primary-light dark:text-text-primary-dark tracking-tight mb-2">
+                  <h1 className="text-3xl font-semibold text-text-primary-light dark:text-text-primary-dark mb-2">
                     {filing.filing_type} Summary
                   </h1>
                   <p className="text-text-secondary-light dark:text-text-secondary-dark">

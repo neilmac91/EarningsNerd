@@ -53,7 +53,7 @@ function DayColumn({
         )}
       >
         <div className="flex items-center gap-2">
-          <span className="text-xs font-semibold uppercase tracking-[0.08em] text-text-tertiary-light dark:text-text-secondary-dark">
+          <span className="text-xs font-semibold uppercase tracking-eyebrow text-text-tertiary-light dark:text-text-secondary-dark">
             {formatLocalDate(day.iso, 'EEE')}
           </span>
           <span

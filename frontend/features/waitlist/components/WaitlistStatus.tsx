@@ -84,7 +84,7 @@ export default function WaitlistStatus() {
               {status.email_verified ? 'Yes' : 'Not yet'}
             </span>
           </div>
-          <div className="pt-2 text-xs uppercase tracking-wide text-text-tertiary-light dark:text-text-secondary-dark">
+          <div className="pt-2 text-xs uppercase tracking-eyebrow text-text-tertiary-light dark:text-text-secondary-dark">
             Your referral link
           </div>
           <div className="break-all text-sm font-medium text-text-primary-light dark:text-text-primary-dark">

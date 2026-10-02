@@ -28,7 +28,7 @@ export default function HeroHeadline() {
     <h1
       id="hero-h"
       data-headline-variant={variant}
-      className="text-4xl font-semibold leading-[1.1] tracking-tight text-text-primary-light dark:text-text-primary-dark sm:text-5xl lg:text-6xl"
+      className="text-4xl font-semibold leading-[1.1] text-text-primary-light dark:text-text-primary-dark sm:text-5xl lg:text-6xl"
     >
       {headline.pre}
       <span className="text-brand-strong dark:text-brand-strong-dark">{headline.accent}</span>

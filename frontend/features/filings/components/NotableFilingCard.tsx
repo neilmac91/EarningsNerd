@@ -64,7 +64,7 @@ export default function NotableFilingCard({
             {filing.company_name}
           </span>
         </div>
-        <div className="mt-1 text-xs uppercase tracking-wide text-text-secondary-light dark:text-text-secondary-dark">
+        <div className="mt-1 text-xs uppercase tracking-eyebrow text-text-secondary-light dark:text-text-secondary-dark">
           {filing.form}
           {ago ? ` • Filed ${ago}` : ''}
         </div>

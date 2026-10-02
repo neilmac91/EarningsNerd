@@ -45,7 +45,7 @@ function KpiTile({ kpi }: { kpi: Kpi }) {
   const tone = applySeriesTone(kpi.tone, direction)
   return (
     <Card className="p-4">
-      <div className="text-xs font-medium uppercase tracking-wide text-text-tertiary-light dark:text-text-secondary-dark">
+      <div className="text-xs font-medium uppercase tracking-eyebrow text-text-tertiary-light dark:text-text-secondary-dark">
         {kpi.label}
       </div>
       <div className="tnum font-data mt-1 text-2xl font-semibold text-text-primary-light dark:text-text-primary-dark">

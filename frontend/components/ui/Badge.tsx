@@ -22,6 +22,8 @@
    sentence case. icon={null} strips a variant's automatic affordance —
    beat/miss/new double as plain TONAL RECIPES that way (e.g. a delta chip
    with no glyph, or `new`'s warning tint without the pulse).
+   v3: pro's uppercase tracking moved off the 0.05em wider utility onto the
+   one eyebrow token (`tracking-eyebrow` = --track-eyebrow 0.08em).
 ============================================================================= */
 
 import { type HTMLAttributes, type ReactNode } from 'react'
@@ -51,7 +53,7 @@ const QUIET = cx(
 )
 
 const VARIANT: Record<BadgeVariant, string> = {
-  pro: cx(TINT, 'uppercase tracking-wider'),
+  pro: cx(TINT, 'uppercase tracking-eyebrow'),
   brand: TINT,
   // border-transparent keeps solid metric-identical to the bordered tint chips
   // it replaces on tinted grounds.

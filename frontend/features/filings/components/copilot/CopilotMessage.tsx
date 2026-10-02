@@ -80,7 +80,7 @@ function FollowupChips({
 }) {
   return (
     <div className="mt-3 border-t border-border-light dark:border-white/10 pt-2.5">
-      <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-text-secondary-light dark:text-text-secondary-dark">Ask next</p>
+      <p className="mb-1.5 text-xs font-semibold uppercase tracking-eyebrow text-text-secondary-light dark:text-text-secondary-dark">Ask next</p>
       <div className="flex flex-col gap-1.5">
         {followups.map((q, i) => (
           <button
@@ -159,7 +159,7 @@ function buildMdComponents(inject: (children: ReactNode) => ReactNode) {
     th: ({ node: _n, children, ...rest }: ComponentProps<'th'> & MdExtra) => (
       <th
         {...rest}
-        className="border-b border-border-light px-2 py-1.5 text-left text-[11px] font-semibold uppercase tracking-[0.08em] text-text-tertiary-light dark:border-border-dark dark:text-text-secondary-dark"
+        className="border-b border-border-light px-2 py-1.5 text-left text-data-xs font-semibold uppercase tracking-eyebrow text-text-tertiary-light dark:border-border-dark dark:text-text-secondary-dark"
       >
         {children}
       </th>
@@ -245,12 +245,12 @@ function TagIcon({ className }: { className?: string }) {
 /** Attribute the existing source check; excerpt matching is not whole-answer verification. */
 function TrustBadge({ citation }: { citation: CopilotCitation }) {
   return citation.verified ? (
-    <span className={`inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-px text-[10.5px] font-semibold ${CHIP}`}>
+    <span className={`inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-px text-data-xs font-semibold ${CHIP}`}>
       <CheckCircleIcon className="h-2.5 w-2.5" aria-hidden="true" />
       {citationVerificationLabel(citation)}
     </span>
   ) : (
-    <span className="inline-flex shrink-0 items-center rounded-full border border-border-light bg-white px-2 py-px text-[10.5px] font-medium text-text-secondary-light dark:border-border-dark dark:bg-white/5 dark:text-text-secondary-dark">
+    <span className="inline-flex shrink-0 items-center rounded-full border border-border-light bg-white px-2 py-px text-data-xs font-medium text-text-secondary-light dark:border-border-dark dark:bg-white/5 dark:text-text-secondary-dark">
       Cited
     </span>
   )
@@ -266,7 +266,7 @@ function SourcesList({ citations }: { citations: CopilotCitation[] }) {
     'text-xs font-semibold text-brand-strong underline-offset-4 hover:underline focus-visible:outline-none focus-visible:shadow-ring-brand dark:text-brand-strong-dark dark:focus-visible:shadow-ring-brand-dark'
   return (
     <div className="mt-3 border-t border-border-light dark:border-white/10 pt-2.5">
-      <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-text-secondary-light dark:text-text-secondary-dark">Sources</p>
+      <p className="mb-2 text-xs font-semibold uppercase tracking-eyebrow text-text-secondary-light dark:text-text-secondary-dark">Sources</p>
       {citations.some((c) => c.verified) && (
         <p className="mb-2 text-xs text-text-secondary-light dark:text-text-secondary-dark">
           {SOURCE_MATCH_SCOPE}
@@ -279,7 +279,7 @@ function SourcesList({ citations }: { citations: CopilotCitation[] }) {
           return (
             <li key={`${c.n}-${i}`} className="flex gap-2.5 text-xs">
               <span
-                className={`flex h-[18px] min-w-[18px] flex-none items-center justify-center rounded border px-1 font-data text-[10px] font-semibold ${CHIP}`}
+                className={`flex h-[18px] min-w-[18px] flex-none items-center justify-center rounded border px-1 font-data text-data-xs font-semibold ${CHIP}`}
               >
                 [{String(c.n).toUpperCase()}]
               </span>
@@ -390,7 +390,7 @@ export default function CopilotMessage({
       <div className={ANSWER_CARD}>
         <div className="mb-1.5 flex items-center gap-2 text-text-secondary-light dark:text-text-secondary-dark">
           <ProhibitIcon className="h-4 w-4" />
-          <span className="text-xs font-semibold uppercase tracking-wide">Not disclosed in this filing</span>
+          <span className="text-xs font-semibold uppercase tracking-eyebrow">Not disclosed in this filing</span>
         </div>
         <p className="text-text-secondary-light dark:text-text-secondary-dark">{message.content}</p>
         {(hint || ticker) && (

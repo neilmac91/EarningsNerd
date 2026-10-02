@@ -48,7 +48,7 @@ const formatDelta = (delta?: number | null): string | null => {
 
 // Inside-card eyebrow register (11px uppercase tracked, tertiary on the white field surface).
 const EYEBROW =
-  'text-[11px] font-semibold uppercase tracking-[0.08em] text-text-tertiary-light dark:text-text-secondary-dark'
+  'text-data-xs font-semibold uppercase tracking-eyebrow text-text-tertiary-light dark:text-text-secondary-dark'
 
 function MetricCell({ metric, isFallback }: { metric: ExampleMetric; isFallback: boolean }) {
   const delta = formatDelta(metric.deltaPercent)
@@ -141,7 +141,7 @@ function HeroExample({
           {/* Executive snapshot — real summary text */}
           <div className="rounded-lg border border-border-light bg-white p-4 dark:border-white/10 dark:bg-white/5">
             <div className={`mb-2 ${EYEBROW}`}>Executive snapshot</div>
-            <p className="text-[13px] leading-relaxed text-text-secondary-light dark:text-text-secondary-dark">{data.excerpt}</p>
+            <p className="text-sm leading-relaxed text-text-secondary-light dark:text-text-secondary-dark">{data.excerpt}</p>
           </div>
 
           {/* Metrics — with the receipt: where the numbers come from */}
@@ -156,7 +156,7 @@ function HeroExample({
             href={data.secUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center gap-1 font-data text-[11px] text-text-secondary-light underline-offset-2 transition-colors duration-fast hover:text-brand-strong hover:underline dark:text-text-secondary-dark dark:hover:text-brand-strong-dark"
+            className="inline-flex items-center gap-1 font-data text-data-xs text-text-secondary-light underline-offset-2 transition-colors duration-fast hover:text-brand-strong hover:underline dark:text-text-secondary-dark dark:hover:text-brand-strong-dark"
           >
             <ArrowSquareOutIcon className="h-3 w-3 shrink-0" aria-hidden="true" />
             {data.metrics.length > 0
@@ -170,7 +170,7 @@ function HeroExample({
             placement={ctaPlacement}
             className="group flex items-center justify-between gap-2 rounded-lg border border-brand-border bg-brand-weak px-4 py-3 transition-colors duration-fast hover:border-brand-strong dark:border-brand-border-dark dark:bg-brand-weak-dark dark:hover:border-brand-dark focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark"
           >
-            <span className="text-[13px] font-semibold text-brand-strong dark:text-brand-strong-dark">{ctaLabel}</span>
+            <span className="text-sm font-semibold text-brand-strong dark:text-brand-strong-dark">{ctaLabel}</span>
             <ArrowRightIcon
               className="h-3.5 w-3.5 shrink-0 text-brand-strong transition-transform duration-fast group-hover:translate-x-0.5 motion-reduce:group-hover:translate-x-0 dark:text-brand-strong-dark"
               aria-hidden="true"

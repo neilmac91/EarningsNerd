@@ -108,7 +108,7 @@ export function SummaryBlocks({ sections, summary }: SummaryBlocksProps) {
           never crowds the reading column on narrow/reflowed layouts). */}
       <aside className="hidden lg:block">
         <nav aria-label="Summary sections" className="sticky top-24 self-start">
-          <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-text-tertiary-light dark:text-text-secondary-dark">
+          <p className="mb-3 text-xs font-semibold uppercase tracking-eyebrow text-text-tertiary-light dark:text-text-secondary-dark">
             On this page
           </p>
           <ul className="space-y-1 border-l border-border-light dark:border-border-dark">
@@ -173,7 +173,7 @@ function BlockView({ block }: { block: RenderedBlock }) {
 
     case 'subheading':
       return block.text ? (
-        <h4 className="text-xs font-semibold uppercase tracking-wider text-text-tertiary-light dark:text-text-secondary-dark">
+        <h4 className="text-xs font-semibold uppercase tracking-eyebrow text-text-tertiary-light dark:text-text-secondary-dark">
           {block.text}
         </h4>
       ) : null
@@ -261,7 +261,7 @@ function GenericTable({
               {headers.map((header, i) => (
                 <th
                   key={i}
-                  className="px-4 py-2 text-left text-xs font-medium uppercase tracking-wider text-text-tertiary-light dark:text-text-secondary-dark"
+                  className="px-4 py-2 text-left text-xs font-medium uppercase tracking-eyebrow text-text-tertiary-light dark:text-text-secondary-dark"
                 >
                   {header}
                 </th>

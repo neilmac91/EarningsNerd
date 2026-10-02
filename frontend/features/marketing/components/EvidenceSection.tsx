@@ -39,7 +39,7 @@ export default function EvidenceSection() {
             <div className="min-w-0">
               {/* FinancialMetricsTable owns its card header, so the design's right-aligned period
                   note renders as a data-register line above the card instead of inside it. */}
-              <p className="mb-2 flex items-center justify-end font-data text-[11px] text-text-secondary-light dark:text-text-secondary-dark">
+              <p className="mb-2 flex items-center justify-end font-data text-data-xs text-text-secondary-light dark:text-text-secondary-dark">
                 <span className="sr-only">Periods compared: </span>
                 {`${SAMPLE_FILING.fiscalYear} vs ${SAMPLE_FILING.priorFiscalYear}`}
               </p>
