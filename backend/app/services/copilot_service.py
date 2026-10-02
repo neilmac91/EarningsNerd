@@ -7,9 +7,13 @@ provenance primitives that already power Trace-to-Source:
 * The model is told to answer ONLY from the provided content and to emit, after its prose, a JSON
   array of ``{n, excerpt, section}`` citations (or ``===NOT_DISCLOSED===`` when the filing does not
   disclose the answer).
-* The server then **verifies** each emitted excerpt against the (once-normalized) cached filing text
-  via :func:`~app.services.provenance_service.verify_excerpt_in_text`, and builds a ``#:~:text=``
-  deep-link via :func:`~app.services.provenance_service.build_text_fragment_url`. A citation the model
+* The server then **verifies** each WHOLE emitted excerpt against the (once-normalized) cached
+  filing text via :func:`~app.services.provenance_service.verify_whole_excerpt_in_text` (only a
+  quote pair wrapping the entire excerpt is stripped; an inner quoted span never stands in for it),
+  and builds a ``#:~:text=`` deep-link to the start of that excerpt via
+  :func:`~app.services.provenance_service.build_text_fragment_url`. A citation whose section label
+  contains a double quote mark (``"``, ``“``, ``”``) is unverified too: the label is not checked
+  against the filing, so it may not present a quotation. A citation the model
   references but that fails verification prevents publication of the entire answer. Answer prose
   remains private until citation admission and numbering finish; source matching does not prove
   the interpretation or establish that every uncited claim is supported.
@@ -45,7 +49,8 @@ from app.services.provenance_service import (
     _MIN_VERIFIABLE_LEN,
     build_text_fragment_url,
     normalize_for_match,
-    verify_excerpt_in_text,
+    strip_wrapping_quotes,
+    verify_whole_excerpt_in_text,
 )
 
 try:
@@ -443,13 +448,21 @@ def _parse_followups(raw: str) -> list[str]:
     return out
 
 
+# A section label is published as-is and never matched against the filing (most legitimate labels
+# are not filing text), so a label carrying a double quote mark would present an unverified
+# quotation beside "Source match found"; its citation is unverified (the founder's section_ref rule).
+_SECTION_REF_QUOTE_MARKS = '"“”'
+
+
 def _verify_citations(
     citations: list[dict], filing: Any, normalized_source: str, referenced: set[str],
 ) -> dict[str, dict]:
     """Verify original declarations before duplicate IDs can overwrite rejected evidence.
 
     Unused valid declarations remain a candidate pool only. A referenced ID must have an
-    unambiguous declaration and every declaration for it must pass the existing verifier.
+    unambiguous declaration and every declaration for it must pass the whole-excerpt verifier
+    (the Sources panel displays the whole excerpt as filing text) with a quote-free section label.
+    The published excerpt is the declared one, never trimmed or substituted.
     """
     base_url = getattr(filing, "document_url", None) or getattr(filing, "sec_url", None) or ""
     by_marker: dict[str, dict] = {}
@@ -458,13 +471,18 @@ def _verify_citations(
         excerpt = cite["excerpt"].strip()
         section_ref = cite.get("section") or cite.get("section_ref")
         key = str(cite["n"])
-        verified = verify_excerpt_in_text(excerpt, normalized_source)
+        verified = verify_whole_excerpt_in_text(excerpt, normalized_source) and not (
+            section_ref and any(mark in section_ref for mark in _SECTION_REF_QUOTE_MARKS)
+        )
         if key in referenced and (
             not verified or (key in declared and declared[key] != cite)
         ):
             raise _UnpublishableAnswer("Unverified or ambiguous referenced citation")
         declared[key] = cite
-        fragment_url = build_text_fragment_url(base_url, excerpt) if verified and base_url else base_url
+        fragment_url = (
+            build_text_fragment_url(base_url, strip_wrapping_quotes(excerpt), source_span=True)
+            if verified and base_url else base_url
+        )
         by_marker[key] = {
             "excerpt": excerpt,
             "section_ref": section_ref,

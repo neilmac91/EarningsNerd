@@ -48,7 +48,7 @@ from app.services.copilot_service import (
     unsupported_plain_quotations,
     unsupported_prose_quotations,
 )
-from app.services.provenance_service import _MIN_VERIFIABLE_LEN, normalize_for_match, verify_excerpt_in_text
+from app.services.provenance_service import _MIN_VERIFIABLE_LEN, normalize_for_match, verify_whole_excerpt_in_text
 
 SOURCE = normalize_for_match("\n".join([
     # ASML 20-F 0001628280-26-011378: operating-results table rows and an MD&A sentence.
@@ -182,12 +182,12 @@ def test_the_prose_floor_is_its_own_and_citations_keep_theirs():
     reads = [node for node in ast.walk(ast.parse(inspect.getsource(copilot_service)))
              if isinstance(node, ast.Name) and node.id == "_MIN_QUOTED_LEN" and isinstance(node.ctx, ast.Load)]
     assert _MIN_QUOTED_LEN == 8 and len(reads) == 1
-    assert _MIN_VERIFIABLE_LEN == 24 and copilot_service.verify_excerpt_in_text is verify_excerpt_in_text
+    assert _MIN_VERIFIABLE_LEN == 24 and copilot_service.verify_whole_excerpt_in_text is verify_whole_excerpt_in_text
     excerpt = "Net sales were 32,667.3"
     assert len(normalize_for_match(excerpt)) == 23 and normalize_for_match(excerpt) in SOURCE
-    assert not verify_excerpt_in_text(excerpt, SOURCE)
+    assert not verify_whole_excerpt_in_text(excerpt, SOURCE)
     assert len(normalize_for_match("et sales were 32,667.3 m")) == 24
-    assert verify_excerpt_in_text("et sales were 32,667.3 m", SOURCE)
+    assert verify_whole_excerpt_in_text("et sales were 32,667.3 m", SOURCE)
 
 
 @pytest.mark.unit
