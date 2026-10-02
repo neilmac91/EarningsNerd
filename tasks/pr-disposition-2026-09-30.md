@@ -125,7 +125,7 @@ Under the founder's delegation, Codex decided items A–M on #1029. This session
 | H | Keep the manual-review exception, with a real independent review of each exact head. No credits bought. | — | 0 | standing |
 | I | Inventory the two alert identities, versions and reachability before any fix. | Claude | within the 0.75 for D/I/K | **access blocker**: no Dependabot alerts API from this session |
 | J | Agreed: E7 stays parked. Any future reuse needs an explicit custody review and a new binding. | — | 0 | held |
-| K | Add the sign-guard control in the existing owner, after the higher-risk fixes. Defer the PLTR optimization. | Claude | within the 0.75 for D/I/K | integrated `91dce7a1` on `f896afbe`; PR next |
+| K | Add the sign-guard control in the existing owner, after the higher-risk fixes. Defer the PLTR optimization. | Claude | within the 0.75 for D/I/K | **released**: #1051 merged `0f4dffa9`, deployed `00431-zjz` (verified); spend 0.005457 |
 | L | Agreed: #1009 stays held. | — | 0 | held |
 | M | Record these decisions here; merge #1029 through normal review and checks; keep handover paths discoverable; no branch cleanup. | Claude | 0 | this entry |
 
@@ -886,3 +886,13 @@ Under the founder's delegation, Codex decided items A–M on #1029. This session
 - 10:56Z — **K merged.** #1051 was squash-merged as `0f4dffa9` after an immediate re-read of the head: `91dce7a1`, mergeable clean, base `f896afbe`, every check green, 0 review threads.
   - **D15 copilot-eval:** accepted 18/18, 0 errors, audit policy PASS, USD 0.005457.
   - **Next:** serial deploy verification, then the citation PR.
+- 11:07Z — **K deployed and verified.** CI [36998212207](https://github.com/neilmac91/EarningsNerd/actions/runs/36998212207): every job green, eval-baseline skipped on push.
+  - `applied=0 skipped=40`.
+  - Revision `earningsnerd-backend-00431-zjz` at 100% traffic.
+  - Job images updated: pregenerate, the six configured jobs and backfill-facts.
+  - "Deployed 0f4dffa and verified healthy".
+  - Independent `/health/detailed` at 11:06:53Z: 200 healthy (DB 6.33 ms).
+  - **K is complete:** USD 0.005457, within D/I/K's 0.75.
+- 11:07Z — **Citation PR next.** Branch `claude/citation-whole-excerpt` is integrated on `0f4dffa9` as `b3871db4`; the full gate is running.
+  - **Reservation:** USD 0.50 from the shared remainder, under the founder's approval (5947962998). It covers one eval-baseline on push and one copilot-eval on ready.
+  - **Scorer:** `evals/copilot_scorers.py:65` stays unchanged, pending the founder's decision. This is disclosed: the scorer is stricter than the product, never more lenient.
