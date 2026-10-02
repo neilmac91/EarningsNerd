@@ -29,7 +29,7 @@ export default function EarningsCalendarPage() {
   const todayIso = useMemo(() => todayEasternIso(), [])
   const [view, setView] = useState<CalendarView>('week')
   const [anchor, setAnchor] = useState(todayIso)
-  const [openDay, setOpenDay] = useState<string | null>(null)
+  const [openDay, setOpenDayState] = useState<string | null>(null)
 
   const range = useMemo(() => {
     if (view === 'week') {
@@ -43,6 +43,13 @@ export default function EarningsCalendarPage() {
   const query = useCalendarRange(range.from, range.to)
   const viewer = useViewer()
   const alerts = useEarningsAlerts(viewer)
+  // The bell's popover portals into the open day dialog, so it never outlives a change of that dialog:
+  // one closing under it (its X from the keyboard fires no cancel) would orphan it, still holding
+  // Escape; one opening over it would leave it inert beneath the top layer. Every day change goes here.
+  const setOpenDay = (iso: string | null) => {
+    alerts.clearBlocked()
+    setOpenDayState(iso)
+  }
 
   const eventsByDate = useMemo(() => indexByDate(query.data?.events ?? []), [query.data])
 

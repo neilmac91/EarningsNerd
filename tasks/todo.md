@@ -28,7 +28,7 @@
   - It is now a `role="group"` named by its title, on `z-overlay`. The async error is announced with `role="alert"`.
   - Keyboard: armed once per popover, with `onClose` read through a ref. Focus moves in on open unless the user already moved it elsewhere. Escape is handled in window capture with preventDefault. Tab out resumes after the bell. A scroll that moves the bell, or a resize, closes it; the page scrolling behind the fixed day dialog does not. Every close returns focus to the bell unless the user moved on.
   - The transparent click-catcher stays, so an outside press closes one layer, as Escape does.
-  - Its portal host is resolved once per popover, and it closes with its day dialog (a non-key close request such as Android back). A bell outside the dialog is inert under it, so focus falls back to the dialog's first control instead of `<body>`. These came from a pre-push review: four lenses, each finding refuted twice.
+  - Its portal host is resolved once per popover. It closes with its day dialog: the page clears it on every day change, and it listens for the dialog's `cancel` (Android back). A bell outside the dialog is inert under it, so focus falls back to the dialog's first control instead of `<body>`. These came from a pre-push review: four lenses, each finding refuted twice.
   - While a native `<dialog>` is open, it portals into that dialog.
   - Recorded in the AlertBell header, the DESIGN_SYSTEM §4 Popover entry and `lessons/frontend-native-modal-dialog-makes-body-portals-inert.md`.
 - The CookieConsent settings panel is now on `ui/Modal`. The consent handlers and the `cookieConsentChanged` event are unchanged and pinned by `CookieConsent.spec.tsx`. The category checkboxes are now named by their headings.

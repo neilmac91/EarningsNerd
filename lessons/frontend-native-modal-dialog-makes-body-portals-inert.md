@@ -18,6 +18,10 @@ One Escape closed both layers.
 (`document.querySelector('dialog[open]') ?? document.body`), not into `<body>`. That includes an
 async result whose trigger sat outside the dialog. Fixed positioning still works there:
 the dialog animates opacity only, so it is not a containing block.
+Such a layer also never outlives a change of that dialog. The calendar page clears the popover on
+every day change: a dialog removed by React (its ✕ from the keyboard) fires no `cancel` or `close`,
+which would orphan the popover in the detached dialog, still holding Escape.
+`calendarDayDialogPopover.spec.tsx` pins both directions.
 
 (b) A layer above a native dialog that handles Escape calls `preventDefault()` as well as
 `stopPropagation()`. The dialog's close request is the key's default action.
