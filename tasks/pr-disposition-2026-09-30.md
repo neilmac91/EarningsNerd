@@ -124,17 +124,17 @@ Under the founder's delegation, Codex decided items A–M on #1029. This session
 | --- | --- | --- | --- | --- |
 | A | Preserve all of #942's evidence, including `10933338099`, the original ZIPs and failed/superseded runs, before 2026-10-06. Inventory the ids, sizes and sha256 values and verify the durable copy, kept in private founder-controlled storage on a non-iCloud disk. Publish only a privacy-reviewed manifest. Also inventory the Copilot raw artifacts that F and G cite. | Claude (inventory, script); founder (storage) | 0 | **done**: 27/27 verified on the founder machine, outside iCloud (comment 5931533423; receipt sha256 `9a5631c4…`) |
 | B | Scoped render-only #1039 / stamp `t`, after A and C. Requires: current-main integration, full gate, exact-head independent review, every required check, and **revalidation of every changed line against the new hosted artifact**. No change to production model-facing bytes, locked tests, baseline or thresholds. No drain. | Claude | 0.75 | **released**: merged `f896afbe`, deployed `00430-skw` (verified); spend 0.178987 |
-| C | Read-only count of affected snapshots, with denominator and legacy/fallback/unknown/malformed classes. No clearing or re-extraction. | Claude (query); founder (run) | 0 | `census.sql` ready and validated; **access blocker**: no production DB access |
-| D | Hold #1034 and keep edgartools 5.58.0. Offline Ford comparison at both versions. No test weakening, blanket ignore or paid rerun. | Claude | within the 0.75 for D/I/K | offline comparison running |
-| E | After B: Unicode-fold crashes **and the silent wrong-scale fallback**, scalar and paired paths, with fold/ASCII controls and one mutation proof per boundary. | Claude | 0.75 | queued after B |
-| F | Prose-quotation containment: an unsupported quote takes the existing withheld/error path. No repair. Offline replay with valid-quote controls first, then 3 predeclared runs. **No scorer, threshold, prompt or flag change.** | Claude | 0.75 | queued after E |
+| C | Read-only count of affected snapshots, with denominator and legacy/fallback/unknown/malformed classes. No clearing or re-extraction. | Claude (query); founder (run) | 0 | **done** (Codex, read-only, comment 5942525078): 59 retained snapshots, 47 of the 58 untagged with summaries; no drain |
+| D | Hold #1034 and keep edgartools 5.58.0. Offline Ford comparison at both versions. No test weakening, blanket ignore or paid rerun. | Claude | within the 0.75 for D/I/K | **done**: #1034 held on 5.58.0 (5.59.1 has two real Ford regressions; comment 5925866111) |
+| E | After B: Unicode-fold crashes **and the silent wrong-scale fallback**, scalar and paired paths, with fold/ASCII controls and one mutation proof per boundary. | Claude | 0.75 | **released**: #1040 merged `02628e57`, deployed `00428-pzn` (verified); spend 0.180862 |
+| F | Prose-quotation containment: an unsupported quote takes the existing withheld/error path. No repair. Offline replay with valid-quote controls first, then 3 predeclared runs. **No scorer, threshold, prompt or flag change.** | Claude | 0.75 | **released**: #1049 merged `f6e79a50`, deployed `00429-vlm` (verified); spend 0.197008 |
 | G | #1036 stage 1 only, USD 1.00, after B and E. Check prepared inputs offline before paying; a mismatch stops the lane. | Claude | 1.00 | **stage 1 done: prompt-caused** (20-F tool-using A 1/6, C 6/6; 10-K 6/6 both; 4/4 runs valid); spend 0.200825; stage 2 needs new authorization; #1053 closed unmerged |
 | H | Keep the manual-review exception, with a real independent review of each exact head. No credits bought. | — | 0 | standing |
 | I | Inventory the two alert identities, versions and reachability before any fix. | Claude | within the 0.75 for D/I/K | **access blocker**: no Dependabot alerts API from this session |
 | J | Agreed: E7 stays parked. Any future reuse needs an explicit custody review and a new binding. | — | 0 | held |
 | K | Add the sign-guard control in the existing owner, after the higher-risk fixes. Defer the PLTR optimization. | Claude | within the 0.75 for D/I/K | **released**: #1051 merged `0f4dffa9`, deployed `00431-zjz` (verified); spend 0.005457 |
 | L | Agreed: #1009 stays held. | — | 0 | held |
-| M | Record these decisions here; merge #1029 through normal review and checks; keep handover paths discoverable; no branch cleanup. | Claude | 0 | this entry |
+| M | Record these decisions here; merge #1029 through normal review and checks; keep handover paths discoverable; no branch cleanup. | Claude | 0 | final report below; #1029 merges last through normal checks |
 
 **Order.**
 1. A.
@@ -147,6 +147,78 @@ Under the founder's delegation, Codex decided items A–M on #1029. This session
 **Spend.** USD 9.26 remains under the shared ceiling across both sessions. Claude's lanes reserve USD 4.00 in total; USD 5.26 stays uncommitted; Codex's lane #1037 reserves 0. Before each paid trigger, read the balance and the ledger, prefer off-peak hours, and stop before any lane exceeds its reservation.
 
 **Correction.** The composed-quote base rate in the final report (3/90 rows, from five runs) is a historical snapshot. The current count is **3 composed rows out of 108 main-code rows across six runs**, with three clean runs.
+
+## Final report (2026-10-02, items A–M)
+
+| Item | Outcome | Evidence |
+| --- | --- | --- |
+| A | **done**: 27 of 27 artifacts verified in founder-controlled storage outside iCloud | comment 5931533423; receipt sha256 `9a5631c4…` |
+| B | **released**: #1039 merged `f896afbe`, deployed `00430-skw` (verified) | condition-2 revalidation of the hosted 70-run: 0 failures (`tasks/review-evidence/pr1039-condition2-2026-10-02/`) |
+| C | **done** (Codex, read-only) | 59 retained snapshots: 1 tagged, 52 untagged legacy-instance, 6 untagged fallback/older; 47 of the 58 untagged have summaries (comment 5942525078). No drain or refresh |
+| D | **done**: #1034 held on edgartools 5.58.0 | 5.59.1 has two real Ford regressions (comment 5925866111) |
+| E | **released**: #1040 merged `02628e57`, deployed `00428-pzn` (verified) | D7–D8 |
+| F | **released**: #1049 merged `f6e79a50`, deployed `00429-vlm` (verified) | D9–D12 |
+| Citation fix | **released**: #1052 merged `287d018d`, deployed `00432-jtt` (verified) | D16–D17; `tasks/review-evidence/citation-excerpt-fix-2026-10-02/` |
+| G | **stage 1 done: prompt-caused.** 20-F question-runs tool-using: arm A (main) 1/6, arm C (pre-#1022 step 3) 6/6; 10-K 6/6 in both. 4/4 runs valid | D18–D22; `tasks/review-evidence/g-stage1-2026-10-02/`; #1036 comment 5952214197; #1053 closed unmerged; #1036 back to draft |
+| H | standing: a real independent exact-head review backs every override | — |
+| I | **access blocker**: no Dependabot alerts API from this session; GitHub still reports 2 high alerts on main | — |
+| J, L | held: E7 parked; #1009 held | — |
+| K | **released**: #1051 merged `0f4dffa9`, deployed `00431-zjz` (verified). PLTR optimization deferred | D15 |
+| M | this file; #1029 merges last through normal checks | — |
+
+Each backend merge was verified serially before the next release:
+- `applied=0 skipped=40`;
+- the new revision at 100% traffic;
+- the job images updated;
+- the "verified healthy" deploy step;
+- an independent `/health/detailed` read.
+
+#1034 and #1035 remain held.
+
+**Spend (telemetry).**
+
+| Item | Rows | USD |
+| --- | --- | --- |
+| E | D7–D8 | 0.180862 |
+| F | D9–D12 | 0.197008 |
+| B | D13–D14 | 0.178987 |
+| K | D15 | 0.005457 |
+| Citation fix | D16–D17 | 0.181236 |
+| G | D18–D22 | 0.200825 |
+| **This phase (D7–D22)** | | **0.944375** |
+| **Both phases (D1–D22)** | | **1.682906**, against the USD 10.00 ceiling |
+
+- Every item stayed within its reservation.
+- Every call was deepseek-flash, with 0 unknown-cost calls.
+- Every paid trigger in this phase ran off-peak, after a balance and ledger read.
+- **Shared remainder:** USD 8.315625, before any unrecorded charges by other agents.
+- **Balance cross-check:** USD 45.62 at 2026-10-01 13:17Z, 44.68 at 2026-10-02 12:18Z, a drop of 0.94 against 0.944375 telemetry.
+
+**Boundaries kept.**
+- No pricing, Stripe, production-flag, customer, E7/E8, scorer, threshold, baseline-pin or locked-contract change.
+- No retained evidence deleted.
+- No Actions secret extracted, and no protection weakened.
+- No required check bypassed.
+- No rerun outside a predeclared protocol.
+
+**Decisions needed from the founder.**
+1. **G stage 2.** The pre-registered next step is arm B, main minus the clause "including when all cited figures use tool markers", interleaved with arm A. It needs its own authorization and ceiling, about USD 0.2 including one unavoidable `eval-baseline`.
+   - Arm C is **not** a fix candidate: 6 of its 36 rows were withheld by decision F for composed or elided quotations.
+2. **Copilot-eval red on main.** Decision F's designed withholding of composed or elided quotations now makes `copilot-eval` red at random, about 1 in 36 rows on the main prompt in G's arm A. The merge criterion "accepted 18/18, 0 errors" will therefore sometimes fail a backend PR through no fault of its diff.
+   - Options: a prompt follow-up (RUNBOOK-gated), or a runner/scorer change that counts F-withheld as a scored outcome. Either needs approval.
+3. **Scorer repoint.** `evals/copilot_scorers.py:65` still uses the prefix-tolerant helper. The CITATION gate is stricter than the product, never more lenient.
+4. **`section_ref` mark set.** Decide whether to widen it to F's set (`„ ‟ ＂`).
+5. **B follow-ups.**
+   - The current point is not dated.
+   - No drain or refresh of the 47 census filings with summaries is authorized. A drain needs its own decision.
+6. **Dependabot (I):** 2 high alerts, which need someone with alert access.
+7. **Codex review quota:** still exhausted; the founder-approved override practice continues.
+
+**Recorded follow-ups (not done).**
+- Prose containment for single quotes, guillemets and blockquotes (F follow-up iii).
+- Tool-less 20-F answers rescued only by the server's uncited-claim repair. In G's A2, 8 tool-less draws were all rescued; G's outcome attributes this to the prompt.
+- The PLTR pre-check optimization (deferred under K).
+- The fragment-URL straight-versus-curly highlight nit, and the RUNBOOK "Publication admission" wording.
 
 ## Log
 
