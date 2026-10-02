@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { forgotPassword } from '@/features/auth/api/auth-api'
 import { isApiError, getErrorMessage } from '@/lib/api/types'
 import Link from 'next/link'
-import { CircleNotchIcon, EnvelopeSimpleOpenIcon } from '@/lib/icons'
+import { EnvelopeSimpleOpenIcon } from '@/lib/icons'
 import AuthShell from '@/features/auth/components/AuthShell'
 import { Button, Input, Notice } from '@/components/ui'
 
@@ -16,6 +16,7 @@ export default function ForgotPasswordPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (loading) return
     setError('')
     setLoading(true)
     try {
@@ -64,19 +65,8 @@ export default function ForgotPasswordPage() {
               />
             </div>
 
-            <Button
-              type="submit"
-              disabled={loading}
-              className="w-full py-2.5 font-semibold active:scale-[0.99]"
-            >
-              {loading ? (
-                <span className="flex items-center justify-center gap-2">
-                  <CircleNotchIcon className="h-4 w-4 animate-spin" />
-                  Sending…
-                </span>
-              ) : (
-                'Send reset link'
-              )}
+            <Button type="submit" loading={loading} loadingText="Sending…" className="w-full">
+              Send reset link
             </Button>
           </form>
         </>

@@ -32,7 +32,8 @@ pinned by its exact expression with a reason. Three are kept by design: this bel
 Analysis Run button (a contract spec pins it), and RevokeConfirmModal's Cancel while Revoke runs.
 Four are auth submits that design-v3 #1045 converts, and 29 are follow-ups. Pins only shrink, and
 both files and sites are capped: converting a site means removing its pin, and adding a busy flag to
-a pinned expression fails.
+a pinned expression fails. #1045 converted the four auth submits and removed their pins, leaving 32
+sites in 21 files.
 
 (e) The scan cannot see post-success flips (`!dirty` after a save, `saved`, `resent`, a cooldown)
 that disable the control the user just activated, nor a busy flag under another name. Those stay
