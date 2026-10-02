@@ -13,7 +13,9 @@ Branch `claude/returns-current-period-guard`, on main `06ad809a`, then merged wi
 | `69929b5a` | review nits in this README, and the post-merge gate |
 | `edc5d3db` | test case `10k-assets-missing` (misaligned ROA beside an aligned ROE) and mutation M3 (review finding, LOW) |
 | `7fee4b08` | `mutations.json`/`.log` regenerated; this README for the seventh shape and M3 |
-| this commit | this table and the gate on `7fee4b08` |
+| `c1ae4d23` | this table and the gate on `7fee4b08` |
+| `68a701f6` | merge of main `153cfc46` (#1056, #1060 and others), clean |
+| `cd9d094e` and later | the programme's close-out ledger (`tasks/pr-disposition-2026-09-30.md`) and two G wording corrections; `tasks/` only |
 
 Everything here is offline: provider keys unset, sockets blocked in the scripts, no provider call and no spend.
 
@@ -134,3 +136,5 @@ Full backend gate on `4b354ed6` from `backend/`, provider keys unset: `ruff chec
 After the merge of main `a541c3c8`, the same gate on merge `0c6376a0` (backend identical at this commit): ruff all checks passed, bandit exit 0, pytest **5544 passed**, 39 skipped, 2 deselected, 40 warnings in 678.39s. `mutate.py` re-run there: baseline 113 passed, M1 4 failed, M2 13 failed, tree clean after.
 
 After the `10k-assets-missing` case (`edc5d3db`), the same gate on `7fee4b08`: ruff all checks passed, bandit exit 0, pytest **5545 passed** (one new case), 39 skipped, 2 deselected, 40 warnings in 677.97s. `mutate.py` on `edc5d3db`: baseline 114 passed, M1 5 failed, M2 14 failed, M3 1 failed, tree clean after (`mutations.json`).
+
+After merging main `153cfc46` (#1056, #1060), the same gate on `68a701f6`: ruff all checks passed, bandit exit 0, pytest **5565 passed** (main's 5558 plus this branch's 7 cases), 39 skipped, 2 deselected, 40 warnings in 651.76s. The later commits change only `tasks/`; the 13 backend test files that read `tasks/` pass on them.
