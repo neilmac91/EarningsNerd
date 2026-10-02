@@ -821,3 +821,15 @@ Under the founder's delegation, Codex decided items A–M on #1029. This session
   - Log: "Deployed f6e79a5 and verified healthy."
   - **Independent check:** `/health/detailed` at 08:32:55Z returned `healthy`, with the database at 6.22 ms, Redis disabled and the EDGAR circuit closed.
   - **F is released.** Next is B.
+- 08:40Z — **B exact-head review of `a458f452` against main `f6e79a50`: APPROVE.** No blocker and no should-fix.
+  - Render correctness confirmed.
+  - E's guards are intact: 33 of 33 gate tests pass.
+  - No overlap with F: Copilot suites 1052 passed.
+  - On the retained r report, 70 of 70 grounding blocks and 70 of 70 full prompts are identical to main's.
+  - Locked contracts and the baseline are byte-identical.
+  - Mutations 1, 5 and an extra grounding mutation were all killed.
+  - Full gate: **5507**.
+  - Census disclosure is accurate.
+  - Nits: the two README nits are fixed in **`583b9f8a`** (docs only). Two non-regression limitations are now documented: the undated-prior grounding/render difference and the undated current point (follow-up).
+  - The condition-2 hosted-line revalidation script is being built and dry-run against the retained r report.
+  - B's push is armed for 10:00Z, off-peak.
