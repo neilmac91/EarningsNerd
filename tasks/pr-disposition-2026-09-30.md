@@ -36,7 +36,7 @@ handover package `earningsnerd-opus-5-5-handover` (SHA256SUMS verified). Checked
 | D6 | #1021 ready → copilot-eval [36809122540](https://github.com/neilmac91/EarningsNerd/actions/runs/36809122540) at `c4629ffc` (one run; pre-registered policy; balance 45.62 at 03:08:37Z) | 0.05 | 0.011835 (31 calls, 0 unknown) | done: accepted 18/18; audit: 0 composed, 0 uncited answers → policy PASS |
 | D7 | [#1040](https://github.com/neilmac91/EarningsNerd/pull/1040) (E) push of `da4f66a0` → eval-baseline [36868705889](https://github.com/neilmac91/EarningsNerd/actions/runs/36868705889) (off-peak; balance 45.62 at 13:17:18Z; E lane reservation 0.75) | 0.40 | 0.175062 (70 calls, 0 unknown; off-peak tokens × llm_pricing) | done: 70/70 scored, gate_fail 0, regression gate PASS; artifact sha256 `38774635…` |
 | D8 | #1040 ready → copilot-eval [36870677818](https://github.com/neilmac91/EarningsNerd/actions/runs/36870677818) at `da4f66a0` (one run; criterion accepted 18/18, 0 errors; balance 45.44 at 13:42:09Z) | 0.05 | 0.005800 (30 calls, 0 unknown) | done: **accepted 18/18, 0 errors** (criterion met); advisory audit exit 1: 1 composed row below F's 24-char floor; not attributable to E (0 fold letters / non-ASCII digits in any answer) |
-| D9 | F push of `89bd1e12` (claude/f-prose-quote-containment) → eval-baseline (off-peak 04:0xZ; balance 45.44 at 04:00:58Z; F reservation 0.75 incl. D9–D12; shared remainder before F 9.079138) | 0.40 | pending | pending |
+| D9 | [#1049](https://github.com/neilmac91/EarningsNerd/pull/1049) (F) push of `89bd1e12`, draft opened 04:02:21Z → eval-baseline in CI [36962781437](https://github.com/neilmac91/EarningsNerd/actions/runs/36962781437) (off-peak; balance 45.44 at 04:00:58Z; F reservation 0.75 incl. D9–D12; shared remainder before F 9.079138) | 0.40 | pending | pending |
 
 ## Lanes
 
@@ -765,3 +765,8 @@ Under the founder's delegation, Codex decided items A–M on #1029. This session
 - 02:37Z — **Release head amended to `ca1e60b9`.** It adopts the reviewer's suggested sentence word for word and is still comment and RUNBOOK only (`ast.dump` identical to `b424e8d9`). Running now: a full gate, and the reviewer's word-for-word confirmation.
 - 02:40Z — **Re-review of `ca1e60b9`: APPROVE.** It confirms the wording matches word for word, `ast.dump` is identical, and 764 tests pass. Its one nit was the stale commit message, which is now fixed. The **final F head is `89bd1e12`** (tree `6c20fd11`, the same tree as `ca1e60b9`). The full gate on this tree is running.
 - 02:43Z — **Full gate on tree `6c20fd11`** (`ca1e60b9`, the same tree as the final head `89bd1e12`): ruff and bandit clean; pytest **5499 passed, 39 skipped, 2 deselected** (7m44s). **F is release-ready.** The PR body is final, and the push waits for the 04:00Z off-peak wake-up.
+- 04:02Z — **F released for measurement.**
+  - Before the push I re-read the state: origin/main is `02628e57`, #1029 has no new comments, and the balance was USD 45.44 at 04:00:58Z.
+  - I pushed `claude/f-prose-quote-containment` at `89bd1e12` and opened draft [#1049](https://github.com/neilmac91/EarningsNerd/pull/1049) with the predeclared measurement plan, then subscribed to it.
+  - CI [36962781437](https://github.com/neilmac91/EarningsNerd/actions/runs/36962781437) is queued; its eval-baseline is D9.
+  - copilot-eval job: skipped while the PR is a draft (no spend). Review gate: skipped while draft.
