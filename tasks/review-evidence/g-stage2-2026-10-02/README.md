@@ -8,21 +8,23 @@ This stage was pre-registered in `tasks/copilot-tool-nonexecution-2026-09-30.md`
 - **Arm A** is the main prompt `a88b6fb1`, run on #1036 at `592d2541`. That head is main `06ad809a` merged, so its `backend/app` equals main's.
 - **Arm B** is main minus `", including when all cited figures use tool markers"` (51 characters at offset 2914), giving `16457055`, 5006 characters. It ran on #1054 at `e37d71da` (DO NOT MERGE), which is closed unmerged.
 
-`g2_prompt_hash.txt` shows both hashes, computed by `g2_prompt_hash.py` from each tree's `SYSTEM_PROMPT` and `_build_messages()[0]`.
+`g2_prompt_hash.txt` shows both hashes, computed by `g2_prompt_hash.py` from each tree's `SYSTEM_PROMPT` and `_build_messages()[0]`. Arm A was hashed in a clean worktree of main `06ad809a`, whose `copilot_service.py` is byte-identical to `592d2541`'s.
 
 **The runs**, interleaved, each starting only after the previous one completed, 15:41–15:54Z, all off-peak:
 
-| Run | Trigger | CI run | Artifact zip sha256 | Cost (USD) | Usage-bearing service events |
+| Run | Trigger | CI run | Artifact zip sha256 | Cost (USD) | Provider calls |
 | --- | --- | --- | --- | --- | --- |
-| A3 | #1036 ready | [37028750965](https://github.com/neilmac91/EarningsNerd/actions/runs/37028750965) | `2faf7318…` | 0.005905 | 18 |
-| B1 | #1054 ready | [37029156902](https://github.com/neilmac91/EarningsNerd/actions/runs/37029156902) | `9fd89c2a…` | 0.032404 | 16 |
-| A4 | #1036 draft→ready | [37029566102](https://github.com/neilmac91/EarningsNerd/actions/runs/37029566102) | `c0341064…` | 0.005491 | 18 |
-| B2 | #1054 draft→ready | [37029964566](https://github.com/neilmac91/EarningsNerd/actions/runs/37029964566) | `e2b18a1f…` | 0.006103 | 16 |
+| A3 | #1036 ready | [37028750965](https://github.com/neilmac91/EarningsNerd/actions/runs/37028750965) | `2faf7318…` | 0.005905 | 31 |
+| B1 | #1054 ready | [37029156902](https://github.com/neilmac91/EarningsNerd/actions/runs/37029156902) | `9fd89c2a…` | 0.033333 | 36 |
+| A4 | #1036 draft→ready | [37029566102](https://github.com/neilmac91/EarningsNerd/actions/runs/37029566102) | `c0341064…` | 0.005491 | 29 |
+| B2 | #1054 draft→ready | [37029964566](https://github.com/neilmac91/EarningsNerd/actions/runs/37029964566) | `e2b18a1f…` | 0.007004 | 35 |
 
 **Cost notes:**
-- B1 was the first call on the new prompt prefix. Its 183,459 cache-miss tokens, against about 5,800 in the other runs, explain its cost.
+- Costs count every provider call in each run's `runner.log` (`copilot_cost_runnerlog.py`, output `copilot_cost_runnerlog.txt`). The service-event sum in `copilot_cost.txt` misses the calls behind withheld rows: USD 0.001830 for B1 and B2 together.
+- The same correction applies to stage 1, which was first recorded as 0.200825 and is **0.204254**. The per-run figures for A1, C1, A2 and C2 are in `copilot_cost_runnerlog.txt`.
+- B1 was the first run on the new prompt prefix. Its first draw of each question missed the cache: 184,219 cache-miss tokens, against about 5,500–6,600 in the other runs.
 - Opening #1054 also ran one `eval-baseline` ([37028722712](https://github.com/neilmac91/EarningsNerd/actions/runs/37028722712): 70/70, USD 0.177093), which is not part of the measurement.
-- **Stage 2 total: USD 0.226996 of 0.50.**
+- **Stage 2 total: USD 0.228826 of 0.50.**
 
 **Retained inputs.** The artifacts are `11236272278` (A3), `11236178105` (B1), `11236238450` (A4) and `11237206469` (B2), all expiring 2026-12-31. The full input digests are in `g2_precheck.txt`.
 
@@ -76,7 +78,7 @@ The replay mismatches (A3 5, A4 7, B2 1) are tool-less draws where the server-si
 | 2. AAPL/TSLA/MSFT tool use | 18/18 (passes) |
 | 3. ASML | fails: withheld in 3 of 6 draws |
 | 4. Composed-quote audit | fails: 4 rows |
-| 5. Formal acceptance | fails: 16/18 with 2 errors in each run |
+| 5. Formal acceptance | fails: 16/18 with 2 errors in each run. Uncited figures, scored rows: arm B 9 of 73, arm A 6 of 69; MSFT has 1 in every draw of both arms |
 
 So arm B is **not a fix candidate** as it stands.
 
@@ -95,5 +97,6 @@ The tool-using answer states the tool figures, then adds a narrative cross-check
 | `g2_prompt_hash.py`, `g2_prompt_hash.txt` | Arm prompt hashes |
 | `g2_precheck.txt` | Precondition tallies, fingerprints and input digests (`../g-stage1-2026-10-02/g_precheck.py`) |
 | `g2_decide.txt` | Draw patterns and counts (`../g-stage1-2026-10-02/g_decide.py`) |
-| `copilot_cost.txt` | Per-run cost (`../g-stage1-2026-10-02/copilot_cost.py`) |
+| `copilot_cost_runnerlog.py`, `copilot_cost_runnerlog.txt` | Per-run cost from every logged provider call, for stage 1 and stage 2 |
+| `copilot_cost.txt` | Service-event cost (`../g-stage1-2026-10-02/copilot_cost.py`); it undercounts runs with withheld rows |
 | `A3-…`, `B1-…`, `A4-…`, `B2-…-f-attribution.json` | Per-row decision-F attribution |

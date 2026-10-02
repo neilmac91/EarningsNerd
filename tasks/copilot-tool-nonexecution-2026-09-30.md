@@ -148,7 +148,7 @@ does not remove it.
   request bodies or `finish_reason` (`evals/copilot_runner.py:185`), so this rests on code reading
   plus call counting; offline, this PR now asserts it (see below).
 - **"A same-window A/B fits under USD 0.25."** No dispatch path exists (below); the realistic cost
-  was estimated at USD 0.4–0.8. Stage 1 actually cost USD 0.200825, because arm A ran on this PR's tests-only diff and only arm C's PR paid an `eval-baseline` run.
+  was estimated at USD 0.4–0.8. Stage 1 actually cost USD 0.204254 (every provider call in each `runner.log`), because arm A ran on this PR's tests-only diff and only arm C's PR paid an `eval-baseline` run.
 
 ## Unresolved hypotheses, ranked
 
@@ -157,7 +157,7 @@ does not remove it.
    worked example and relaxed lead rule — makes skipping tools look compliant, because every
    requested figure is already in the preloaded excerpt and XBRL block. For: the only request
    difference in every comparison; monotone dose-response (102/108 → 33/54 → 0/18); #1023 is
-   bracketed in time. Against: not interleaved for pre-#1022 vs main; the 10-K questions are
+   bracketed in time. Against (resolved by stage 1, which interleaved the prompts within 20 minutes): not interleaved for pre-#1022 vs main. Still open: the 10-K questions are
    unaffected on main.
 2. **Question wording.** Only the 20-F questions degrade on main, and they share wording the 10-K
    questions lack ("native reporting currency", "in RMB", "In this Form 20-F's US GAAP … in euros").
@@ -167,7 +167,7 @@ does not remove it.
    MSFT and historical BABA answers without tools at #703 (2026-09-05). This sets a base rate, not a
    cause of the old→main shift.
 4. **Time drift** (excluded within each stage's window: arm A stayed at or below 2/6 while the other arm reached 6/6, and every logged call carries fingerprint `aeb56401`). One fingerprint on all 315 logged calls and bracketing make this least likely for
-   #1023. It is not excluded for the 20-F shift, because every pre-#1022 run precedes every main run.
+   #1023. The original caveat, that every pre-#1022 run preceded every main run, no longer holds: stage 1 interleaved them within 20 minutes and reproduced the 20-F shift.
 
 ## Latent production risks
 
@@ -181,13 +181,13 @@ does not remove it.
 - **Unverified prose quotations** (superseded 2026-10-02: decision F withholds the whole answer instead). Text in quotation marks was published without verification; on
   main-equivalent code 2 of 54 rows showed composed quotations, and a reader had no way to tell.
 - **Readiness does not measure tool execution.** A run with 0/18 tool calls was accepted 18/18. The
-  scorer has no tool-use, unissued-marker or prose-quote measure.
+  scorer has no tool-use or unissued-marker measure. Since decision F, a composed or elided prose quotation withholds the answer, and the row fails readiness as an execution error.
 
 These are eval-cohort observations; production frequency was not measured here.
 
 ## Validated offline versus measured live
 
-All six offline owners pass on this branch (counts in the PR). Live runs exercise only six numeric
+All six offline owners pass on this branch (counts in the PR); the 351 and 383 counts below are for these six. The table also names `test_copilot_prose_quotations.py`, which was added later by decision F. Live runs exercise only six numeric
 questions; qualitative and refusal questions remain in `pending_cases`.
 
 | Path | Offline owners (exact tests) | Live evidence |
@@ -203,7 +203,7 @@ questions; qualitative and refusal questions remain in `pending_cases`.
 The `tools`/`tool_choice` assertion closes a real gap: with `tools` removed from every `create()`
 call, or `tool_choice` set to `"none"`, all 351 tests in these six owners still passed on main. That was 383 tests on `06ad809a`, re-checked by mutation on 2026-10-02.
 
-## Pre-registered next experiment (stage 1 run 2026-10-02: prompt-caused; stage 2 pre-registered below)
+## Pre-registered next experiment (stage 1 run 2026-10-02: prompt-caused; stage 2 run 2026-10-02: clause-caused)
 
 **Question.** Is main's 20-F nonexecution caused by #1022's step-3 wording, by time drift, or by
 something prompt-insensitive (question wording or model selection)?
@@ -283,7 +283,7 @@ PR with the normal offline gate.
 | A | A1, A2 | 1/6 | 6/6 |
 | C | C1, C2 | 6/6 | 6/6 |
 
-All 72 rows met the validity precondition, and all 129 logged calls carry fingerprint `aeb56401`. Spend was USD 0.200825. Evidence: `tasks/review-evidence/g-stage1-2026-10-02/README.md` on main.
+All 72 rows met the validity precondition, and all 129 logged calls carry fingerprint `aeb56401`. Spend was USD 0.204254, counting every provider call in each `runner.log`; the 0.200825 first recorded omitted the calls behind withheld rows. Evidence: `tasks/review-evidence/g-stage1-2026-10-02/README.md` on main.
 
 **Stage 2 pre-registration.** The founder authorized stage 2 on 2026-10-02 ("Go with your recommendation on all open points"). Ceiling: USD 0.50, hard stop. These rules are committed before any stage-2 spend.
 
@@ -343,8 +343,12 @@ A `copilot-eval` run's formal acceptance is not the measurement. A red check is 
 
 It would be judged against acceptance checks 1–5 with RUNBOOK's aggregates of at least three runs.
 
-**Spend.** USD 0.226996:
+**Spend.** USD 0.228826, counting every provider call in each `runner.log`:
 - #1054's `eval-baseline`: 0.177093;
-- the four runs: 0.005905, 0.032404, 0.005491 and 0.006103. B1 was the first call on the new prompt prefix, with 183k cache-miss tokens.
+- the four runs: 0.005905, 0.033333, 0.005491 and 0.007004.
+
+B1 was the first run on the new prompt prefix. Its first draw of each question missed the cache, giving 184,219 cache-miss tokens in total.
+
+**Uncited figures** (acceptance check 5, scored rows): arm A 6 of 69, arm B 9 of 73. MSFT has one uncited figure in every draw of both arms.
 
 **Evidence.** `tasks/review-evidence/g-stage2-2026-10-02/`.

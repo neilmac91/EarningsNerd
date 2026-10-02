@@ -1,0 +1,9 @@
+# copilot_cost_runnerlog.py over every provider call in each G run's runner.log (stage 1: A1 C1 A2 C2; stage 2: A3 B1 A4 B2)
+copilot-37003942265 calls 30 peak 0 unknown 0 hit 927857 miss 5570 completion 3723 usd 0.005853 log_estimate 0.005851
+copilot-37004589548 calls 35 peak 0 unknown 0 hit 1091072 miss 6892 completion 5520 usd 0.007619 log_estimate 0.007618
+copilot-37005114216 calls 28 peak 0 unknown 0 hit 858875 miss 5186 completion 3292 usd 0.00533 log_estimate 0.005329
+copilot-37005546506 calls 36 peak 0 unknown 0 hit 1121280 miss 7069 completion 5638 usd 0.007807 log_estimate 0.00781
+copilot-37028750965 calls 31 peak 0 unknown 0 hit 962934 miss 5811 completion 3575 usd 0.005905 log_estimate 0.005902
+copilot-37029156902 calls 36 peak 0 unknown 0 hit 946804 miss 184219 completion 4766 usd 0.033333 log_estimate 0.033335
+copilot-37029566102 calls 29 peak 0 unknown 0 hit 900470 miss 5535 completion 3265 usd 0.005491 log_estimate 0.005488
+copilot-37029964566 calls 35 peak 0 unknown 0 hit 1092206 miss 6571 completion 4569 usd 0.007004 log_estimate 0.007006
