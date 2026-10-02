@@ -52,6 +52,13 @@ jobs:
           OPENAI_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
         run: |
           python -m evals.copilot_runner --preparation evals/reports/copilot/preparation.json --output evals/reports/copilot --runs 3 2>&1 | tee evals/reports/copilot/runner.log
+      - name: Show the readable report on the run page
+        # Every row's verdict, including a named publication withhold, without downloading the artifact.
+        if: always()
+        working-directory: backend
+        shell: bash
+        run: |
+          if [ -f evals/reports/copilot/copilot-eval.md ]; then cat evals/reports/copilot/copilot-eval.md >> "$GITHUB_STEP_SUMMARY"; fi
       - name: Retain source, output and failure evidence
         if: always()
         uses: actions/upload-artifact@v7

@@ -739,7 +739,8 @@ activity remain live. The browser rejects malformed or known-unverified completi
 including those from an older backend revision, and treats EOF or timeout without completion as
 an error. Closing the rail cancels only its pending response. Failed or cancelled requests do
 not consume successful-answer quota; physical provider usage remains recorded by the provider
-wrapper, including unknown cost. A rejected answerable evaluation attempt remains a failure.
+wrapper, including unknown cost. A rejected answerable evaluation attempt remains a failure;
+the copilot-eval report names its publication-withhold reason (below), which admits nothing.
 
 This boundary prevents publication of known failed referenced evidence. Source matching does
 not establish the meaning, period, entity or cause of the surrounding claim. An explicit empty
@@ -847,6 +848,38 @@ claimed to be a full native HTTP conversation transcript or native finish-reason
 sanitized provider telemetry. Unknown cost is not free. Source-preparation failure means zero
 provider calls and requires diagnosis. No live acceptance result is claimed by implementation or
 offline tests. The first weekly strong-judge readout and evidence-snap activation remain held.
+
+**Publication-withhold reason (diagnostic only).** When the service withholds a candidate at the
+publication boundary, the client receives only the shared generic error and the service logs the
+application-owned reason. For each attempt the runner records that reason from the `copilot_service`
+log through a logger filter scoped to the attempt (service log output unchanged; attempts run one at
+a time; a record logged under any other attempt's context is ignored), in
+`tool_trace.withheld_reasons`, and copies it to the row as `error.withheld_reason`. Decision F
+reasons start with `Unsupported prose quotation:` (for example `Unsupported prose quotation:
+quotation_not_in_source`); every other reason, such as `Invalid citation declaration` or `Unverified
+or ambiguous referenced citation` (whole-excerpt or section-label check), is not F.
+`validate_report` names that row's failure `publication withheld: <reason>` instead of
+`operationally incomplete attempt`, the `copilot-eval.md` verdict column shows the same label, and
+the workflow appends `copilot-eval.md` to the job summary, so the reason is readable on the run page
+without the artifact. The row stays an execution error: `summary.errors`, `failures` being
+non-empty, `accepted`, thresholds and the exit code are unchanged, and an uncaptured reason leaves
+the generic label, never a pass. Product behaviour, SSE events and the locked stream contract tests
+are unchanged.
+
+**Triage rule for a red copilot-eval run** (founder approval, 2026-10-02 13:10Z: "Go with your
+recommendation on all open points"; recorded in `tasks/pr-disposition-2026-09-30.md`, log entry
+13:10Z). A red copilot-eval run may be recorded as not caused by a PR only when ALL hold: (1) every
+errored row carries a decision-F prose-quotation withhold reason (named in the report); (2) the PR
+changes no Copilot model-facing bytes (system prompt, tool schema, context building, generation
+options) and no decision-F prose-quotation logic beyond a behaviour-preserving refactor proven
+offline; (3) offline replay of each such row's retained candidate gives the same F reason under
+main's code (f_attribution exit 0, 0 UNEXPLAINED); (4) every other row passes; (5) the PR records
+the red run, the attribution and this rule in a comment. Any other failure — including non-F
+publication withholds — blocks as before. The run is never re-run to obtain a green result outside a
+predeclared protocol. This does not change accepted, error counting, thresholds or exit codes.
+Condition (1) is read off each errored row in the per-row verdict column of `copilot-eval.md` (the
+`Failures:` line lists each label only once); the replay tool for (3) is
+`tasks/review-evidence/f-quote-containment-2026-10-01/f1-attribution-2026-10-02/f_attribution.py`.
 
 **Gating rule — two different standards (July 2026, learned the hard way):**
 - **Resolver/guard changes** gate DETERMINISTICALLY: the offline suites replay real failure shapes
