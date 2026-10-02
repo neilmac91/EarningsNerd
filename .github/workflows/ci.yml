@@ -56,9 +56,11 @@ jobs:
         # ini addopts and scope to the performance dir so it doesn't collect the whole tree.
         run: cd backend && python -m pytest -o addopts= -m performance tests/performance
 
-  # Committed-credential gate (rule 12). Scans the full history of every fetched branch with a
+  # Committed-credential gate (rule 12). Scans the full history of every branch with a
   # checksum-pinned gitleaks binary; reviewed false positives are listed by fingerprint in
-  # .gitleaksignore. deploy-backend needs: this job, so a credential in any commit blocks a release.
+  # .gitleaksignore. deploy-backend needs: this job, so a credential in any branch commit blocks a
+  # release. Tag refs are curated by hand and are outside this scan (--branches --remotes), so the
+  # gate's verdict follows the branches a pull request can change.
   secret-scan:
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -80,7 +82,7 @@ jobs:
           echo "${GITLEAKS_SHA256}  gitleaks.tgz" | sha256sum -c -
           tar -xzf gitleaks.tgz gitleaks
           # --redact keeps any match out of this public log; the exit code is the signal.
-          ./gitleaks git . --log-opts="--all" --redact=100 --no-banner --exit-code 1
+          ./gitleaks git . --log-opts="--branches --remotes" --redact=100 --no-banner --exit-code 1
 
   # Real-Postgres migration gate (ADR-0007; CLAUDE.md rule 12). backend-tests runs on SQLite, so
   # before this job the first place a backend/migrations/*.sql file ever met PostgreSQL was the
