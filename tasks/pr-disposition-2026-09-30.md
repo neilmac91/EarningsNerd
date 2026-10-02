@@ -800,3 +800,17 @@ Under the founder's delegation, Codex decided items A–M on #1029. This session
   - **Replay:** 0 affected out of 9 text citations in 8 runs; no quote-bearing `section_ref`. One stitched inner-span footnote (BYND) on the summary surface is displayed safely.
   - **Proposal:** a whole-excerpt sibling helper in Copilot only, with the existing withholding path. `section_ref` and forward quotes are separate decisions.
   - **Paid estimate if released:** under USD 1.50 worst case. Posted on #1029 for review; nothing paid.
+- 08:10Z — **Founder decisions in the Claude chat, recorded on #1029 (5947962998):**
+  1. The run-2 ASML d1 escalation **does not block F1**: proceed.
+  2. The citation-excerpt fix is **approved**.
+  3. `section_ref`: withhold a citation whose label contains `"`, `“` or `”`, as recommended.
+  4. Forward quotes: my recommendation.
+     - Add a read-time whole-quote check; on failure it falls back to the existing unverified "Cited" presentation.
+     - No production flag change.
+     - It ships in the citation PR, after B.
+- 08:13Z — **F merged.** #1049 was squash-merged as **`f6e79a50`** after an immediate re-read of the head: `89bd1e12`, mergeable clean, base `02628e57`, every required check green. Main CI and deploy [36982814786](https://github.com/neilmac91/EarningsNerd/actions/runs/36982814786) is running. eval-baseline is skipped on push, so there is no spend.
+- 08:20Z — **B re-integrated** in `wt/pr942s`.
+  - Main `f6e79a50` merged as `484c5458`. Tree `c0b44603` is identical to the trial merge that passed the gate with 5507.
+  - The item-C census is recorded in B's evidence as `a458f452`: 58 untagged snapshots, 47 of them with summaries; the truthful unestablished-scope render is preserved; no drain.
+  - The fresh exact-head review of `a458f452` is running in `wt/b-rev`.
+  - **Not pushed yet:** the paid push waits until F's deploy is verified and the off-peak window opens at 10:00Z.
