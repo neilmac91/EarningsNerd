@@ -50,3 +50,5 @@ Main was then merged in twice, `f896afbe` (B) and `0f4dffa9` (K). Neither overla
 ## Release head
 
 The release head is `b3871db4`, which merges main `0f4dffa9` into the reviewed code. Its full gate result is recorded on the PR.
+
+Resolved by [the citation-alignment evidence](../citation-alignment-2026-10-02/README.md) (founder approval 2026-10-02): the scorer should-fix and the `section_ref` mark-set nit above.
