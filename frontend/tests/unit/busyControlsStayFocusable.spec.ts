@@ -71,13 +71,11 @@ const ALLOW: Record<string, { sites: string[]; reason: string }> = {
   },
   'features/contact/components/ContactForm.tsx': { sites: ['isSubmitting', 'isSubmitting', 'isSubmitting', 'isSubmitting', 'isSubmitting || (TURNSTILE_ENABLED && !turnstileToken)'], reason: FOLLOW_UP },
   'features/feedback/components/FeedbackWidget.tsx': { sites: ['submitting || message.trim().length < 5'], reason: FOLLOW_UP },
-  'features/filings/components/copilot/AskCopilotRail.tsx': { sites: ['isStreaming || !canAsk'], reason: FOLLOW_UP },
-  'features/summaries/components/SummaryActionsBar.tsx': { sites: ['saveMutation.isPending'], reason: FOLLOW_UP },
 }
 
 /** Frozen ceilings on files and on pinned sites: lower them as sites are converted, never raise them. */
-const MAX_ALLOWLIST_SIZE = 9
-const MAX_PINNED_SITES = 17
+const MAX_ALLOWLIST_SIZE = 7
+const MAX_PINNED_SITES = 15
 
 const frontendRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 const ROOTS = ['app', 'components', 'features']

@@ -12,7 +12,7 @@ function Harness() {
       <button type="button" onClick={() => ref.current?.prefill('Explain this excerpt: "Revenue rose 8%"')}>
         fill
       </button>
-      <CopilotComposer ref={ref} onSubmit={() => {}} disabled={false} />
+      <CopilotComposer ref={ref} onSubmit={() => {}} locked={false} />
     </>
   )
 }

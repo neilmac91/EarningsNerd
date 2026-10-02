@@ -248,6 +248,14 @@ export default function AskCopilotRail({
   }
 
   const runQuestion = (question: string, priorMessages: CopilotMessageData[]) => {
+    // A starter, a follow-up chip or Retry sits in the conversation and is replaced by the turn it
+    // starts, so the control a keyboard user just pressed unmounts and focus falls to <body>. Hand
+    // it to the composer first. Only keyboard focus (:focus-visible): moving a tap's focus into the
+    // textarea would raise the touch keyboard over the answer.
+    const active = document.activeElement
+    if (active instanceof HTMLElement && scrollRef.current?.contains(active) && active.matches(':focus-visible')) {
+      composerRef.current?.focus()
+    }
     lastQuestionRef.current = question
     // Build history from finalized turns only (user + completed assistant answers).
     const history: CopilotTurn[] = priorMessages
@@ -420,8 +428,9 @@ export default function AskCopilotRail({
         )}
       </div>
 
-      {/* Composer — disabled while streaming, or once a FREE user has spent their taste. */}
-      <CopilotComposer ref={composerRef} onSubmit={handleSubmit} disabled={isStreaming || !canAsk} />
+      {/* Composer — Send locked (aria-disabled, still focusable) while streaming, or once a FREE
+          user has spent their taste. */}
+      <CopilotComposer ref={composerRef} onSubmit={handleSubmit} locked={isStreaming || !canAsk} />
 
       {/* Honest usage line. PRO: a calm monthly count. FREE: the lifetime taste balance, then a
           gentle upsell at exhaustion (the conversation above stays put). */}
