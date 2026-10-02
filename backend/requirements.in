@@ -40,6 +40,9 @@ openpyxl>=3.1,<4
 edgartools>=5.58.0
 posthog==7.60.1
 json-repair>=0.63.5
+# Copilot reads an answer as the browser renders it (CommonMark) before publishing its quotations
+# (decision F). Already in the lock via rich; declared because app code imports it directly.
+markdown-it-py>=4.2.0,<5
 sentry-sdk[fastapi]>=2.70.0
 
 # Testing
