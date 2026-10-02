@@ -143,8 +143,9 @@ export default function DashboardPage() {
         {/* The loaded page's own header, so the bones below sit where the grid lands. */}
         {header}
         <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-          {/* Layout-preserving bones (SkeletonText/Stat own role="status" — no wrapper role). */}
-          <div className="grid gap-8 lg:grid-cols-3">
+          {/* Layout-preserving bones on the loaded grid's own tracks (grid-cols-1 = minmax(0, 1fr)), so they
+              hand off without a reflow. SkeletonText/Stat own role="status" — no wrapper role. */}
+          <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
             <div className="space-y-8 lg:col-span-2">
               <Card className="p-5"><SkeletonText lines={2} /></Card>
               <Card className="p-5"><SkeletonText lines={4} /></Card>
