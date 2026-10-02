@@ -999,3 +999,6 @@ Each backend merge was verified serially before the next release:
   - **Context, not part of the decision:** arm C is not a fix candidate. It published 29/36: 6 rows F-withheld for composed or elided quotations (ASML 5/6 draws, one BABA) and 1 invalid citation declaration. Arm A published 35/36, with 1 F-withheld.
   - **Stop:** no stage 2 (arm B = main minus "including when all cited figures use tool markers") without new authorization. #1053 closes unmerged and #1036 returns to draft.
   - **Spend:** USD 0.200825 of 1.00 (D18 0.177645, D19 0.005384, D20 0.006006, D21 0.005330, D22 0.006460).
+- 12:40Z — **Founder confirmed the F prose floor of 8 directly in chat** ("approve floor 8 for F. Proceed").
+  - **No change:** this ratifies what is already live. The founder first approved it on 2026-10-01 at 23:01Z (Codex relay, comment 5942350749). F shipped it as `_MIN_QUOTED_LEN = 8` in `copilot_service.py`, merged `f6e79a50`, deployed `00429-vlm`, verified.
+  - Citation excerpts stay at `provenance_service._MIN_VERIFIABLE_LEN` (24).

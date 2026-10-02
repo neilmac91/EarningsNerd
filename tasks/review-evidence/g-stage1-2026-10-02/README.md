@@ -33,7 +33,7 @@ The raw `copilot-eval.json` files are about 10 MB each and are not committed. Ea
 Item A's preservation manifest predates these runs and does not include them. Keeping them past their expiry needs the same founder-side tool.
 
 The tool outputs are committed here:
-- `g_precheck.txt`: per-row hashes, fingerprints per run, and the sha256 of each input;
+- `g_precheck.txt`: per-run hash tallies (18 rows each), fingerprints per run, and the sha256 of each input. The script's own `fingerprints` field is `{}`, because service events do not carry `system_fingerprint`. The fingerprint counts come from each artifact's `runner.log`, extracted with `grep -o '"system_fingerprint": *"[^"]*"' runner.log | sort | uniq -c`;
 - `g_decide.txt`: draw patterns and question-run counts;
 - `copilot_cost.txt` and `copilot_cost.py`: cost per run.
 
