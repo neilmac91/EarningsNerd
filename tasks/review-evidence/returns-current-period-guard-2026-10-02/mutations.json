@@ -1,0 +1,56 @@
+{
+ "head": "edc5d3dbaaf6f2c07f73eede37e39ab5fd206464",
+ "tests": [
+  "tests/unit/test_xbrl_narrative_section.py",
+  "tests/unit/test_structured_markdown_render.py"
+ ],
+ "baseline": {
+  "exit": 0,
+  "summary": "114 passed, 9 warnings in 4.88s",
+  "failed": []
+ },
+ "mutations": {
+  "M1_remove_guard": {
+   "diff": "diff --git a/backend/app/services/ai/markdown_render.py b/backend/app/services/ai/markdown_render.py\nindex 425ed921..8dc933e7 100644\n--- a/backend/app/services/ai/markdown_render.py\n+++ b/backend/app/services/ai/markdown_render.py\n@@ -575,8 +575,6 @@ class _MarkdownRenderMixin:\n             # predate the filing's net income. The current clause is undated, so that older ratio\n             # would read as this period's: omit it rather than guess (the undated-prior rule). Each\n             # ratio is judged on its own point, so a dropped ROE never drops an aligned ROA.\n-            if ni_period is not None and return_ratio_period(current) not in (None, ni_period):\n-                return None\n             # Name the derived ratio by its formula and this point's own numerator scope, not by\n             # an issuer-facing ROE/ROA name the filing may define on a different basis.\n             clause = f\"{return_ratio_basis(key, current)}: {value:.1f}%\"\n",
+   "exit": 1,
+   "summary": "5 failed, 109 passed, 9 warnings in 4.61s",
+   "failed": [
+    "tests/unit/test_xbrl_narrative_section.py::test_return_ratio_not_at_net_income_period_abstains[10k-assets-missing]",
+    "tests/unit/test_xbrl_narrative_section.py::test_return_ratio_not_at_net_income_period_abstains[10k-equity-missing]",
+    "tests/unit/test_xbrl_narrative_section.py::test_return_ratio_not_at_net_income_period_abstains[10k-negative-equity]",
+    "tests/unit/test_xbrl_narrative_section.py::test_return_ratio_not_at_net_income_period_abstains[10k-zero-equity]",
+    "tests/unit/test_xbrl_narrative_section.py::test_return_ratio_not_at_net_income_period_abstains[10q-negative-equity]"
+   ]
+  },
+  "M2_invert_period_comparison": {
+   "diff": "diff --git a/backend/app/services/ai/markdown_render.py b/backend/app/services/ai/markdown_render.py\nindex 425ed921..20a5ffbb 100644\n--- a/backend/app/services/ai/markdown_render.py\n+++ b/backend/app/services/ai/markdown_render.py\n@@ -575,7 +575,7 @@ class _MarkdownRenderMixin:\n             # predate the filing's net income. The current clause is undated, so that older ratio\n             # would read as this period's: omit it rather than guess (the undated-prior rule). Each\n             # ratio is judged on its own point, so a dropped ROE never drops an aligned ROA.\n-            if ni_period is not None and return_ratio_period(current) not in (None, ni_period):\n+            if ni_period is not None and return_ratio_period(current) in (None, ni_period):\n                 return None\n             # Name the derived ratio by its formula and this point's own numerator scope, not by\n             # an issuer-facing ROE/ROA name the filing may define on a different basis.\n",
+   "exit": 1,
+   "summary": "14 failed, 100 passed, 9 warnings in 4.60s",
+   "failed": [
+    "tests/unit/test_xbrl_narrative_section.py::test_return_ratio_not_at_net_income_period_abstains[10k-aligned]",
+    "tests/unit/test_xbrl_narrative_section.py::test_return_ratio_not_at_net_income_period_abstains[10k-assets-missing]",
+    "tests/unit/test_xbrl_narrative_section.py::test_return_ratio_not_at_net_income_period_abstains[10k-equity-missing]",
+    "tests/unit/test_xbrl_narrative_section.py::test_return_ratio_not_at_net_income_period_abstains[10k-negative-equity]",
+    "tests/unit/test_xbrl_narrative_section.py::test_return_ratio_not_at_net_income_period_abstains[10k-zero-equity]",
+    "tests/unit/test_xbrl_narrative_section.py::test_return_ratio_not_at_net_income_period_abstains[10q-aligned]",
+    "tests/unit/test_xbrl_narrative_section.py::test_return_ratio_not_at_net_income_period_abstains[10q-negative-equity]",
+    "tests/unit/test_xbrl_narrative_section.py::test_return_ratios_own_their_selected_operands_across_periods[None-(numerator scope unestablished)]",
+    "tests/unit/test_xbrl_narrative_section.py::test_return_ratios_own_their_selected_operands_across_periods[ifrs-full:ProfitLoss-including noncontrolling interests]",
+    "tests/unit/test_xbrl_narrative_section.py::test_return_ratios_own_their_selected_operands_across_periods[ifrs-full:ProfitLossAttributableToOwnersOfParent-attributable to owners of the parent]",
+    "tests/unit/test_xbrl_narrative_section.py::test_return_ratios_own_their_selected_operands_across_periods[issuer:AdjustedProfit-(numerator scope unestablished)]",
+    "tests/unit/test_xbrl_narrative_section.py::test_return_ratios_own_their_selected_operands_across_periods[us-gaap:NetIncomeLoss-attributable to the parent]",
+    "tests/unit/test_xbrl_narrative_section.py::test_return_ratios_own_their_selected_operands_across_periods[us-gaap:NetIncomeLossAvailableToCommonStockholdersBasic-available to common shareholders]",
+    "tests/unit/test_xbrl_narrative_section.py::test_return_ratios_own_their_selected_operands_across_periods[us-gaap:ProfitLoss-including noncontrolling interests]"
+   ]
+  },
+  "M3_guard_roe_only": {
+   "diff": "diff --git a/backend/app/services/ai/markdown_render.py b/backend/app/services/ai/markdown_render.py\nindex 425ed921..de20885e 100644\n--- a/backend/app/services/ai/markdown_render.py\n+++ b/backend/app/services/ai/markdown_render.py\n@@ -575,7 +575,7 @@ class _MarkdownRenderMixin:\n             # predate the filing's net income. The current clause is undated, so that older ratio\n             # would read as this period's: omit it rather than guess (the undated-prior rule). Each\n             # ratio is judged on its own point, so a dropped ROE never drops an aligned ROA.\n-            if ni_period is not None and return_ratio_period(current) not in (None, ni_period):\n+            if key == \"return_on_equity\" and ni_period is not None and return_ratio_period(current) not in (None, ni_period):\n                 return None\n             # Name the derived ratio by its formula and this point's own numerator scope, not by\n             # an issuer-facing ROE/ROA name the filing may define on a different basis.\n",
+   "exit": 1,
+   "summary": "1 failed, 113 passed, 9 warnings in 5.30s",
+   "failed": [
+    "tests/unit/test_xbrl_narrative_section.py::test_return_ratio_not_at_net_income_period_abstains[10k-assets-missing]"
+   ]
+  }
+ },
+ "clean_after": true
+}

@@ -553,6 +553,8 @@ class _MarkdownRenderMixin:
 
         roe = (xbrl_metrics or {}).get("return_on_equity")
         roa = (xbrl_metrics or {}).get("return_on_assets")
+        ni_metric = (xbrl_metrics or {}).get("net_income")
+        ni_period = return_ratio_period(ni_metric.get("current") if isinstance(ni_metric, dict) else None)
 
         def _ratio_clause(key: str, metric: Any) -> Optional[str]:
             # Band guard (the cash_conversion ±10x precedent): a |ratio| beyond the shared
@@ -567,6 +569,13 @@ class _MarkdownRenderMixin:
             current = metric.get("current") if isinstance(metric.get("current"), dict) else {}
             value = current.get("value")
             if not returns_ratio_in_band(value):
+                return None
+            # Current-period guard: the derivation skips a period whose denominator is missing or
+            # not positive (negative equity at the report date), so the ratio's newest point can
+            # predate the filing's net income. The current clause is undated, so that older ratio
+            # would read as this period's: omit it rather than guess (the undated-prior rule). Each
+            # ratio is judged on its own point, so a dropped ROE never drops an aligned ROA.
+            if ni_period is not None and return_ratio_period(current) not in (None, ni_period):
                 return None
             # Name the derived ratio by its formula and this point's own numerator scope, not by
             # an issuer-facing ROE/ROA name the filing may define on a different basis.
