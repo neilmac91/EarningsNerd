@@ -10,7 +10,10 @@ Branch `claude/returns-current-period-guard`, on main `06ad809a`, then merged wi
 | `4b354ed6` | content stamp `summary-2026-09-u` |
 | `c2880a47` | this folder and the `tasks/todo.md` entry |
 | `0c6376a0` | merge of main `a541c3c8`, clean |
-| this commit | review nits in this README, and the post-merge gate |
+| `69929b5a` | review nits in this README, and the post-merge gate |
+| `edc5d3db` | test case `10k-assets-missing` (misaligned ROA beside an aligned ROE) and mutation M3 (review finding, LOW) |
+| `7fee4b08` | `mutations.json`/`.log` regenerated; this README for the seventh shape and M3 |
+| this commit | this table and the gate on `7fee4b08` |
 
 Everything here is offline: provider keys unset, sockets blocked in the scripts, no provider call and no spend.
 
@@ -129,3 +132,5 @@ If the result is `pre_785_shape_period_mismatch`, clearing and regenerating that
 Full backend gate on `4b354ed6` from `backend/`, provider keys unset: `ruff check .` all checks passed, `bandit -q -r app -ll` exit 0 with no findings, `python -m pytest -q -p no:cacheprovider` **5544 passed**, 39 skipped, 2 deselected, 40 warnings in 644.03s. The log is kept in scratch and not committed. This folder's commit changes only `tasks/`.
 
 After the merge of main `a541c3c8`, the same gate on merge `0c6376a0` (backend identical at this commit): ruff all checks passed, bandit exit 0, pytest **5544 passed**, 39 skipped, 2 deselected, 40 warnings in 678.39s. `mutate.py` re-run there: baseline 113 passed, M1 4 failed, M2 13 failed, tree clean after.
+
+After the `10k-assets-missing` case (`edc5d3db`), the same gate on `7fee4b08`: ruff all checks passed, bandit exit 0, pytest **5545 passed** (one new case), 39 skipped, 2 deselected, 40 warnings in 677.97s. `mutate.py` on `edc5d3db`: baseline 114 passed, M1 5 failed, M2 14 failed, M3 1 failed, tree clean after (`mutations.json`).
