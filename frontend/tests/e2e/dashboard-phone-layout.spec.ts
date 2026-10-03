@@ -1,7 +1,7 @@
 import { test, expect, type Page } from '@playwright/test'
 
 /**
- * Phone-width layout guards for the signed-in /dashboard.
+ * Phone-width layout guards for the signed-in /dashboard and /dashboard/watchlist.
  *
  * 1. No sideways scroll: the dashboard's grids give their phone track an explicit minmax(0, 1fr),
  *    so a long company name beside a status badge truncates instead of widening the page.
@@ -9,6 +9,8 @@ import { test, expect, type Page } from '@playwright/test'
  *    the header row, so the page below sits at the same offset whatever the name's length.
  * 3. Room for the name: below sm the back link is its caret alone (still named by its label, with a
  *    44px target), so a typical name fits whole beside the title at 375px.
+ * 4. Watchlist insights cards: an explicit phone track, and below sm the ticker and status badges
+ *    wrap under the company name instead of widening the card.
  *
  * CI runs e2e with no backend (lessons/test-e2e-runs-without-backend.md). These specs still need
  * none: the API is answered inside the browser with page.route fixtures, and the middleware's
@@ -138,3 +140,24 @@ test('a typical name fits beside an icon-only back link at 375px', async ({ page
   expect(box.height).toBeGreaterThanOrEqual(44)
   expect(box.x).toBeGreaterThanOrEqual(0)
 })
+
+for (const width of [320, 375, 390, 1440]) {
+  test(`watchlist insights has no horizontal scroll at ${width}px with long company names`, async ({ page, baseURL }) => {
+    await page.setViewportSize({ width, height: 900 })
+    await signIn(page, LONG, baseURL!)
+    await page.goto('/dashboard/watchlist')
+    const names = page.locator('main h2')
+    await expect(names).toHaveCount(COMPANIES.length)
+    await page.evaluate(() => document.fonts.ready)
+    const { scrollWidth, clientWidth } = await page.evaluate(() => ({
+      scrollWidth: document.documentElement.scrollWidth,
+      clientWidth: document.documentElement.clientWidth,
+    }))
+    expect(scrollWidth).toBe(clientWidth)
+    // Every name sits inside the viewport with room to read, not squeezed beside the badges.
+    for (const box of await names.evaluateAll((els) => els.map((el) => el.getBoundingClientRect().toJSON()))) {
+      expect(box.right).toBeLessThanOrEqual(clientWidth)
+      expect(box.width).toBeGreaterThanOrEqual(100)
+    }
+  })
+}
