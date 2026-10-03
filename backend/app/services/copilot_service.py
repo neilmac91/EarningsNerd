@@ -74,6 +74,7 @@ _FOLLOWUPS_SENTINEL = "===FOLLOWUPS==="
 _FOLLOWUPS_RE = re.compile(r"===\s*FOLLOW-?UPS\s*===", re.IGNORECASE)
 _COPILOT_MARKER_RE = re.compile(r"\[(F?\s*\d+)\]", re.IGNORECASE)
 _PUBLICATION_ERROR = "I couldn't verify the cited evidence, so I couldn't provide this answer."
+PROVIDER_STARTED_STAGE = "generating"  # progress stage emitted once the provider stream yields
 _STREAM_FAILURE = "I couldn't complete this answer. Please try again."
 
 
@@ -1619,6 +1620,10 @@ async def answer_filing_question(
         # The wrapper accumulates actual model, usage and recorded call costs across tool rounds.
         usage_sink: dict[str, Any] = {}
         model_name = openai_service.model
+        # Emitted once, on the provider stream's first non-error chunk: the proof the model call
+        # started, which the ask-stream router meters on (not the `reading` progress above, which
+        # precedes the call). A failure or disconnect before this point costs the user nothing.
+        provider_started = False
         async for delta in openai_service.stream_chat_with_tools(
             messages,
             copilot_tools.TOOLS,
@@ -1638,6 +1643,10 @@ async def answer_filing_question(
             if delta.startswith(STREAM_ERROR_SENTINEL):
                 yield {"type": "error", "message": _STREAM_FAILURE}
                 return
+
+            if not provider_started:
+                provider_started = True
+                yield {"type": "progress", "stage": PROVIDER_STARTED_STAGE}
 
             # Tool-activity signal from the wrapper → a live "show the work" event. Translate the raw
             # tool name/args into a human label here (the wrapper stays provider-generic).

@@ -20,3 +20,12 @@ rule that only lives in CLAUDE.md or a review comment will rot.
 `lib/queryKeys.ts`); `frontend/tests/unit/componentsAllowlist.spec.ts` (components/ =
 ui/ + chrome allowlist); `backend/tests/unit/test_naive_utcnow_allowlist.py` (AST-based
 6-site naive-utcnow allowlist, fails on additions AND on "fixing" a sanctioned site).
+
+
+The read-only GET gate scans handler bodies, not top-level helper call graphs. A refactor must
+not hide a surviving OAuth state write and then remove its documented exception. Keep the Apple
+state commit in each public start handler; the helper only stages the row. The existing
+`test_read_only_get_endpoints.py` stale-entry check catches moving that commit back into the helper
+while the exception remains. One mutation proof is sufficient; no recursive scanner or second
+gate is needed. The database state is single-use; the signed browser cookie supplies the separate
+browser binding.

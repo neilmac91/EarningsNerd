@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import desc, func
 from sqlalchemy.exc import IntegrityError
 from typing import List, Optional, Dict, Any
-from pydantic import BaseModel, EmailStr, field_validator
+from pydantic import BaseModel, EmailStr, Field, field_validator
 import jwt
 from app.database import get_db
 from app.models import Watchlist, Company, User, Filing, Summary, WaitlistSignup
@@ -14,6 +14,7 @@ from app.services.summary_placeholders import is_summary_placeholder
 from app.config import settings
 from app.services.rate_limiter import RateLimiter, enforce_rate_limit
 from app.services.turnstile import enforce_turnstile
+from app.utils.text import has_control_characters
 from app.services.waitlist_service import (
     REFERRAL_BONUS,
     build_referral_link,
@@ -33,6 +34,7 @@ router = APIRouter()
 waitlist_router = APIRouter()
 
 WAITLIST_JOIN_LIMITER = RateLimiter(limit=5, window_seconds=60 * 60)
+WAITLIST_STATUS_LIMITER = RateLimiter(limit=10, window_seconds=60)
 logger = logging.getLogger(__name__)
 
 class WatchlistResponse(BaseModel):
@@ -367,9 +369,9 @@ async def get_watchlist_insights(
 
 class WaitlistJoinRequest(BaseModel):
     email: EmailStr
-    name: Optional[str] = None
+    name: Optional[str] = Field(None, max_length=100)
     referral_code: Optional[str] = None
-    source: Optional[str] = None
+    source: Optional[str] = Field(None, max_length=100)
     honeypot: Optional[str] = None
 
     @field_validator("email")
@@ -377,12 +379,14 @@ class WaitlistJoinRequest(BaseModel):
     def normalize_email(cls, value: str) -> str:
         return value.strip().lower()
 
-    @field_validator("name")
+    @field_validator("name", "source")
     @classmethod
-    def normalize_name(cls, value: Optional[str]) -> Optional[str]:
+    def normalize_free_text(cls, value: Optional[str]) -> Optional[str]:
         if not value:
             return None
         cleaned = value.strip()
+        if has_control_characters(cleaned):
+            raise ValueError("Must not contain control characters.")
         return cleaned or None
 
     @field_validator("referral_code")
@@ -403,12 +407,10 @@ class WaitlistJoinRequest(BaseModel):
 
 
 class WaitlistStatusResponse(BaseModel):
+    """Public, unauthenticated status: position and referral progress only."""
     position: int
-    referral_code: str
-    referral_link: str
     referrals_count: int
     positions_gained: int
-    email_verified: bool
 
 
 @waitlist_router.post("/join")
@@ -546,7 +548,13 @@ async def join_waitlist(
 
 
 @waitlist_router.get("/status/{email}", response_model=WaitlistStatusResponse)
-async def get_waitlist_status(email: EmailStr, db: Session = Depends(get_db)):
+async def get_waitlist_status(email: EmailStr, request: Request, db: Session = Depends(get_db)):
+    enforce_rate_limit(
+        request,
+        WAITLIST_STATUS_LIMITER,
+        "waitlist_status",
+        error_detail="Too many status checks. Please try again later.",
+    )
     normalized_email = email.strip().lower()
     signup = db.query(WaitlistSignup).filter(WaitlistSignup.email == normalized_email).first()
     if not signup:
@@ -564,11 +572,8 @@ async def get_waitlist_status(email: EmailStr, db: Session = Depends(get_db)):
     position = calculate_waitlist_position(signup.position, signup.priority_score)
     return WaitlistStatusResponse(
         position=position,
-        referral_code=signup.referral_code,
-        referral_link=build_referral_link(signup.referral_code),
         referrals_count=int(referrals_count),
         positions_gained=signup.priority_score * REFERRAL_BONUS,
-        email_verified=signup.email_verified,
     )
 
 

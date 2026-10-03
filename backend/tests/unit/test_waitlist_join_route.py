@@ -94,6 +94,20 @@ def test_honeypot_is_rejected_with_400(client, session_factory):
         assert s.query(WaitlistSignup).count() == 0
 
 
+@pytest.mark.parametrize("field", ["name", "source"])
+def test_oversized_or_control_character_name_and_source_are_422(client, session_factory, emails, field):
+    assert _join(client, email=_email(), **{field: "x" * 101}).status_code == 422
+    assert _join(client, email=_email(), **{field: "Eve\r\nBcc: x"}).status_code == 422
+    with session_factory() as s:
+        assert s.query(WaitlistSignup).count() == 0
+    assert emails["welcome"] == []
+
+    ok = _join(client, email=_email(), **{field: "  Jane Doe  "})
+    assert ok.status_code == 200, ok.text
+    with session_factory() as s:
+        assert getattr(s.query(WaitlistSignup).one(), field) == "Jane Doe"
+
+
 def test_unknown_referral_code_is_400_invalid_referral(client, session_factory):
     resp = _join(client, email=_email(), referral_code="nosuch01")
     assert resp.status_code == 400

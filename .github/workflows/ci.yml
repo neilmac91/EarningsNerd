@@ -56,6 +56,34 @@ jobs:
         # ini addopts and scope to the performance dir so it doesn't collect the whole tree.
         run: cd backend && python -m pytest -o addopts= -m performance tests/performance
 
+  # Committed-credential gate (rule 12). Scans the full history of every branch with a
+  # checksum-pinned gitleaks binary; reviewed false positives are listed by fingerprint in
+  # .gitleaksignore. deploy-backend needs: this job, so a credential in any branch commit blocks a
+  # release. Tag refs are curated by hand and are outside this scan (--branches --remotes), so the
+  # gate's verdict follows the branches a pull request can change.
+  secret-scan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    env:
+      GITLEAKS_VERSION: 8.24.3
+      GITLEAKS_SHA256: 9991e0b2903da4c8f6122b5c3186448b927a5da4deef1fe45271c3793f4ee29c
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Scan branch history for committed credentials
+        run: |
+          set -euo pipefail
+          curl -fsSL -o gitleaks.tgz \
+            "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+          echo "${GITLEAKS_SHA256}  gitleaks.tgz" | sha256sum -c -
+          tar -xzf gitleaks.tgz gitleaks
+          # --redact keeps any match out of this public log; the exit code is the signal.
+          ./gitleaks git . --log-opts="--branches --remotes" --redact=100 --no-banner --exit-code 1
+
   # Real-Postgres migration gate (ADR-0007; CLAUDE.md rule 12). backend-tests runs on SQLite, so
   # before this job the first place a backend/migrations/*.sql file ever met PostgreSQL was the
   # production deploy step. Seeds a postgres:15 service the way a fresh DB is created (create_all),
@@ -477,7 +505,7 @@ jobs:
     # A normal deploy is ~10 min. Without this, a migration waiting on a Postgres lock held the job
     # for GitHub's 6 h default on 2026-07-16 and the release never shipped (lessons/ops-migrations-need-lock-timeout.md).
     timeout-minutes: 30
-    needs: [backend-tests, migrations-postgres, frontend-tests, e2e-tests]
+    needs: [backend-tests, migrations-postgres, frontend-tests, e2e-tests, secret-scan]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main' && vars.GCP_WIF_PROVIDER != ''
     concurrency:
       group: deploy-backend
@@ -594,7 +622,10 @@ jobs:
           # Always route live traffic to the new revision. A prior manual `--no-traffic --tag`
           # deploy can pin traffic to an old revision, which silently makes every CD deploy "dark"
           # (new revision built + healthy at 0% traffic while prod keeps serving the old image).
-          gcloud run services update-traffic earningsnerd-backend --region=us-west1 --to-latest --quiet
+          # --clear-tags removes every revision tag at the same time: a tagged revision stays
+          # addressable at its own URL even at 0% traffic, so a leftover tag keeps an old image
+          # serving beside the release (tests/unit/test_prod_flag_visibility.py pins this flag).
+          gcloud run services update-traffic earningsnerd-backend --region=us-west1 --to-latest --clear-tags --quiet
       - name: Update pregenerate job image
         if: steps.changes.outputs.backend == 'true'
         run: |

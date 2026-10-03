@@ -106,6 +106,7 @@ async def get_coverage(
         COVERAGE_LIMITER,
         f"analysis-coverage:{current_user.id}",
         error_detail="Too many coverage requests. Please retry in a minute.",
+        include_client_ip=False,
     )
     company = _get_company(db, ticker)
     company_id = company.id
@@ -175,6 +176,7 @@ async def get_dataset(
         DATASET_LIMITER,
         f"analysis-dataset:{current_user.id}",
         error_detail="Too many analysis requests. Please retry in a minute.",
+        include_client_ip=False,
     )
     company = _get_company(db, ticker)
     try:
@@ -204,6 +206,7 @@ async def export_analysis_xlsx(
         XLSX_LIMITER,
         f"analysis-xlsx:{current_user.id}",
         error_detail="Too many export requests. Please retry in a minute.",
+        include_client_ip=False,
     )
     company = _get_company(db, ticker)
     try:
@@ -305,6 +308,7 @@ async def stream_analysis(
         STREAM_LIMITER,
         f"analysis-stream:{current_user.id}",
         error_detail="Too many analysis generations. Please retry in a minute.",
+        include_client_ip=False,
     )
     company = _get_company(db, ticker)
 

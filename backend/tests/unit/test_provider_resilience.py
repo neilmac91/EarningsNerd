@@ -101,6 +101,25 @@ async def test_sdk_wire_transient_retry_and_actual_usage(lib, observations):
 
 
 @pytest.mark.asyncio
+async def test_provider_start_signal_fires_once_before_the_first_request(observations):
+    """The armed provider-start signal is the metering signal: it fires exactly once per context,
+    immediately before the first request leaves (never again after a retry or a later call)."""
+    order = []
+
+    def handler(req):
+        order.append("request")
+        if len([o for o in order if o == "request"]) == 1:
+            return httpx2.Response(429, json={"error": {"type": "rate_limit_error", "message": "busy"}})
+        return httpx2.Response(200, json=completion())
+
+    async with service_for(handler) as service:
+        with requests.provider_start_signal(lambda: order.append("signal")):
+            assert await service._request_content(KW) == '{"fresh":true}'
+            assert await service._request_content(KW) == '{"fresh":true}'  # same context: no second signal
+    assert order == ["signal", "request", "request", "request"]
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize("status", [400, 401, 403, 429, 503])
 async def test_exact_attempt_count_and_sdk_retry_override(status, observations):
     calls = []
