@@ -1073,9 +1073,7 @@ def _apple_state_cookie_value(state: str) -> str:
 def _apple_redirect(url: str) -> RedirectResponse:
     """Redirect out of the Apple callback; the one-shot state-binding cookie is cleared either way."""
     redirect = RedirectResponse(url=url, status_code=302)
-    redirect.delete_cookie(
-        _APPLE_STATE_COOKIE, httponly=True, samesite="none", secure=settings.COOKIE_SECURE
-    )
+    redirect.delete_cookie(_APPLE_STATE_COOKIE, httponly=True, samesite="none", secure=True)
     return redirect
 
 
@@ -1297,12 +1295,14 @@ def _start_apple(request: Request, db: Session, invite: Optional[str]) -> tuple[
 
 
 def _set_apple_state_cookie(response: Response, state: str) -> None:
-    # Apple posts the callback cross-site, so this cookie is SameSite=None (Secure in prod). It
-    # binds the state to the browser that started the flow: the callback accepts a posted state
+    # Apple posts the callback cross-site, so this cookie is SameSite=None, which browsers accept
+    # only together with Secure; it is Secure unconditionally (not COOKIE_SECURE) because Apple
+    # requires an HTTPS redirect URI even locally (docs/auth/05_apple_signin_runbook.md, Part 3).
+    # It binds the state to the browser that started the flow: the callback accepts a posted state
     # only together with this cookie, and the DB row makes it single-use.
     response.set_cookie(
         _APPLE_STATE_COOKIE, _apple_state_cookie_value(state), httponly=True, samesite="none",
-        max_age=_OAUTH_STATE_MAX_AGE, secure=settings.COOKIE_SECURE,
+        max_age=_OAUTH_STATE_MAX_AGE, secure=True,
     )
 
 

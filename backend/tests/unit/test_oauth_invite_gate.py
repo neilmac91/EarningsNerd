@@ -41,7 +41,9 @@ PROVIDERS = ("google", "apple")
 
 @pytest.fixture(scope="module")
 def client():
-    with TestClient(app) as test_client:
+    # HTTPS base: the Apple binding cookie is Secure, and the client keeps and returns it only over
+    # HTTPS, exactly as a browser does against the tunneled host the runbook requires.
+    with TestClient(app, base_url="https://testserver") as test_client:
         yield test_client
 
 
@@ -340,6 +342,27 @@ def test_apple_callback_requires_the_browser_binding_cookie(client, monkeypatch,
     resp = _callback(client, monkeypatch, "apple", _claims("apple", email), state=state)
     _assert_signed_in(resp, email)
     assert _state_rows(state) == []
+
+
+def _apple_cookie_headers(resp) -> list[str]:
+    return [h for h in resp.headers.get_list("set-cookie") if h.startswith(f"{auth_module._APPLE_STATE_COOKIE}=")]
+
+
+@pytest.mark.requires_db
+def test_apple_binding_cookie_is_secure_whatever_cookie_secure_says(client, monkeypatch, public_mode):
+    # The cookie is SameSite=None, which browsers keep only with Secure. COOKIE_SECURE is false in
+    # development, but Apple requires an HTTPS redirect even locally (runbook Part 3), so the cookie
+    # is Secure unconditionally; otherwise the local tunnel flow always ends in oauth_state_mismatch.
+    monkeypatch.setattr(auth_module.settings, "COOKIE_SECURE", False)
+    resp = client.get("/api/auth/apple", follow_redirects=False)
+    (issued,) = _apple_cookie_headers(resp)
+    assert "secure" in issued.lower() and "samesite=none" in issued.lower(), issued
+
+    client.cookies.clear()
+    resp = client.post("/api/auth/apple/callback", data={"state": "x", "id_token": "y"}, follow_redirects=False)
+    assert resp.status_code == 302 and "oauth_state_mismatch" in resp.headers["location"]
+    (cleared,) = _apple_cookie_headers(resp)
+    assert "secure" in cleared.lower() and "max-age=0" in cleared.lower(), cleared
 
 
 # ── structural gate ───────────────────────────────────────────────────────────

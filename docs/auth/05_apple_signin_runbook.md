@@ -89,7 +89,10 @@ export COOKIE_SECURE=true
 
 Start plain Apple sign-in at `https://dev.earningsnerd.io/api/auth/apple`. The browser-binding
 cookie is host-only, so starting on `localhost` while returning to `dev.earningsnerd.io` fails.
-Apple's cross-site callback requires that cookie to have both `SameSite=None` and `Secure`.
+Apple's cross-site callback requires that cookie to have both `SameSite=None` and `Secure`; the
+backend sets it `Secure` unconditionally (independent of `COOKIE_SECURE`), so the start request
+itself must be HTTPS or the browser discards the cookie and the callback ends in
+`oauth_state_mismatch`. `COOKIE_SECURE=true` above is for the session cookies the sign-in issues.
 For invited sign-in, send the JSON `POST` to `https://dev.earningsnerd.io/api/auth/apple/start`
 from the browser with credentials enabled and the frontend origin allowed by CORS; keep the
 invite in the JSON body, never in a URL. Local UI testing must target this same HTTPS API
