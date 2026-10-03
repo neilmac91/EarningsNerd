@@ -83,7 +83,7 @@ export function WhatChanged({
       )}
 
       {risks && (risks.new.length > 0 || risks.resolved.length > 0) && (
-        <div className="mt-4 grid gap-4 sm:grid-cols-2">
+        <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
           {risks.new.length > 0 && (
             <div>
               <h3 className="mb-1 text-xs font-semibold uppercase tracking-eyebrow text-text-tertiary-light dark:text-text-secondary-dark">

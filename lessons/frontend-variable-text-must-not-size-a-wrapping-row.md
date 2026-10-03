@@ -14,8 +14,9 @@ not work. Flexbox breaks lines on each item's max-content size, and `min-width: 
 that size, so the row still wrapped (121px vs 157px). The `nowrap` from `truncate` also pushed long
 names past the viewport (467–480px).
 
-**Rule**: When data-dependent text sits in a responsive grid, give the grid an explicit phone
-template (`grid-cols-1` is `minmax(0, 1fr)`), not just `sm:`/`lg:` ones. When text must not move a
+**Rule**: Every grid that sets its columns under a variant also sets its base track in the same
+class string: `grid grid-cols-1 md:grid-cols-3`, not `grid md:grid-cols-3` (`grid-cols-1` is
+`minmax(0, 1fr)`; use `grid-cols-[auto]` if a content-sized base is intended). When text must not move a
 layout (a greeting, a name, an email), take it out of intrinsic sizing with `[contain:inline-size]`.
 Then let its ancestors `grow` with `min-w-0`, and `truncate` it. Static content alone then decides
 where the row wraps. Prove it in a real browser with short, long and email-only fixtures: the
@@ -26,3 +27,7 @@ offset of what follows must be identical. A CSS-string assertion proves nothing 
 `frontend/tests/e2e/dashboard-phone-layout.spec.ts`. It fails on the pre-fix code (669px; header
 offsets differ) and passes after. On the design-v3 stack (#1045 skeleton), `<main>` moved 154px →
 190–258px when the user query resolved; with the fix it stays at 154px in every state.
+`/dashboard/watchlist` had the same grid bug (496px at 320–390px; #1077). The sweep that followed
+added `grid-cols-1` to the 20 remaining responsive grids and made the grid half of the rule a gate:
+an ESLint design rule in `frontend/eslint.config.mjs` flags a variant `grid-cols-*` without a base
+one. It tripped at exactly those 20 sites before the fix and none after.
