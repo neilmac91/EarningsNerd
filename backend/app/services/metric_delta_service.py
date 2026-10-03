@@ -144,6 +144,26 @@ def strict_xbrl_metric_key(metric_name: Any) -> Optional[str]:
     return _STRICT_XBRL_KEYS.get(" ".join(metric_name.casefold().split()))
 
 
+def _has_unsupported_income_scope(metric_name: Any) -> bool:
+    """Refuse qualified total-income math without source-owned attribution and entity scope.
+
+    This is a withholding boundary, never an alias into ``net_income``. The current exact
+    envelope cannot establish a qualified parent/consolidated claim's native entity ownership.
+    Whole per-share labels remain the separate displayed-EPS policy; a mention of EPS or shares
+    elsewhere in a total-income claim cannot exempt that claim.
+    """
+    if not isinstance(metric_name, str):
+        return False
+    label = " ".join(metric_name.casefold().split())
+    if not re.search(r"\bnet (?:income|loss)\b", label) or label == "net income":
+        return False
+    return re.fullmatch(
+        r"(?:(?:basic|diluted) )?net (?:income|loss) per (?:common )?share"
+        r"(?: attributable to [^,;]+)?",
+        label,
+    ) is None
+
+
 def _as_finite_decimal(value: Any) -> Optional[Decimal]:
     if isinstance(value, bool):
         return None
@@ -339,6 +359,8 @@ def delta_for_row(row: dict, *, exact_owned: bool = False) -> Optional[MetricDel
     this service exists to kill, so it returns None and the caller shows no computed delta.
     """
     if not isinstance(row, dict):
+        return None
+    if _has_unsupported_income_scope(row.get("metric")):
         return None
     if exact_owned and isinstance(row.get("change_display"), str):
         display = row["change_display"]

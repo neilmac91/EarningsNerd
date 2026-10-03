@@ -125,7 +125,7 @@ async def test_exact_xbrl_operands_own_rendered_delta_only_after_identity_checks
         raw[metric_delta_service.EXACT_CONTEXT_KEY] = metric_delta_service.EXACT_CONTEXT_VERSION
         block = next(b for s in render_sections(raw) for b in s.blocks if b.kind == "metrics")
         assert [row[3] for row in block.rows] == [
-            "+6.4%", "+33.3%", "+32.9%", "+6.6%", "+14.4 ppts",
+            "+6.4%", "+33.3%", "—", "+6.6%", "+14.4 ppts",
         ]
         assert block.metric_rows[0]["change"] == "model says 99%"
 
