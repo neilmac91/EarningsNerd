@@ -49,7 +49,10 @@ invalidation from `onSuccess` (`return queryClient.invalidateQueries(…)`), so 
 the refetched data lands. Otherwise the button re-enables in between and a second press sends a
 duplicate request (ProfileForm's Save, ConnectedAccounts' Unlink). A hand-rolled async handler does
 the same: it awaits the invalidation before clearing its busy flag (admin invites' Send, which would
-otherwise mint and email the whole batch again). When `onSuccess` fans out several invalidations,
+otherwise mint and email the whole batch again). A removal goes further: its `onSuccess` prunes the item from the cache (`setQueryData`), so the
+row and its focused control go with the request itself. A refetch that fails still resolves its
+invalidation, so waiting on the refetch alone would leave the deleted row's control live for a second
+DELETE (the dashboard's saved-summary Delete; Codex P2 on #1075). When `onSuccess` fans out several invalidations,
 return the one whose refetch removes or flips the focused control, and fire the rest. Examples: the
 filing page's saved status, which swaps Save for Saved; the dashboard's watchlist insights, which
 drop a removed row and end the onboarding panel under the popular-ticker chips. The admin feedback

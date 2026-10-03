@@ -91,9 +91,12 @@ export default function DashboardPage() {
     onSuccess: (_data, id) => {
       deletedId.current = id
       toast.success('Saved summary removed')
-      // Returned, so the delete stays pending until the refetch drops the row: its button keeps
-      // focus, and released any sooner a second Enter would DELETE the summary again.
-      return queryClient.invalidateQueries({ queryKey: queryKeys.savedSummaries() })
+      // Drop the row from the cache now, so it and its focused Delete go with the DELETE itself.
+      // Waiting for the refetch instead is not enough: a refetch that fails resolves the
+      // invalidation anyway and leaves the deleted row's Delete live, where a second Enter would
+      // DELETE it again. The refetch then only confirms the list.
+      queryClient.setQueryData<SavedSummary[]>(queryKeys.savedSummaries(), (items) => items?.filter((item) => item.id !== id))
+      void queryClient.invalidateQueries({ queryKey: queryKeys.savedSummaries() })
     },
     onError: (error) => {
       toast.error(error instanceof Error ? error.message : "Couldn't delete that summary. Please try again.")

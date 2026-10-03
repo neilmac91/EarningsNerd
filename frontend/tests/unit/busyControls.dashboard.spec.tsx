@@ -394,7 +394,7 @@ describe('Saved summary Delete', () => {
   const apple = saved(1, 'Apple Inc.')
   const microsoft = saved(2, 'Microsoft Corp')
 
-  it('deletes one at a time, stays busy until the refetch drops the row, then lands on the section heading', async () => {
+  it('deletes one at a time, busy and focused until the DELETE lands, then the row goes and focus lands on the heading', async () => {
     healthyApi()
     const del = deferred<void>()
     api.deleteSavedSummary.mockReturnValue(del.promise)
@@ -417,20 +417,32 @@ describe('Saved summary Delete', () => {
     expect(api.deleteSavedSummary).toHaveBeenCalledTimes(1)
     expect(api.deleteSavedSummary.mock.calls[0][0]).toBe(1)
 
-    // Deleted, but the row is still on screen until saved summaries refetch: still busy, still
-    // focused, and a second activation sends no second DELETE.
+    // The DELETE lands: the row goes at once, before the refetch answers, so there is no window in
+    // which the deleted row's Delete is live. Focus lands on the section heading.
     await act(async () => del.resolve(undefined))
-    await waitFor(() => expect(api.getSavedSummaries).toHaveBeenCalledTimes(2))
-    await settle()
-    expectBusyAndFocused(deleteApple)
-    fireEvent.click(deleteApple)
-    await settle()
-    expect(api.deleteSavedSummary).toHaveBeenCalledTimes(1)
-
-    await act(async () => refetched.resolve([microsoft]))
     await waitFor(() => expect(deleteApple.isConnected).toBe(false))
     expect(document.activeElement).toBe(screen.getByRole('heading', { name: 'Saved summaries' }))
     expect(deleteMicrosoft).not.toHaveAttribute('aria-disabled')
+    expect(api.getSavedSummaries).toHaveBeenCalledTimes(2)
+    await act(async () => refetched.resolve([microsoft]))
+    expect(api.deleteSavedSummary).toHaveBeenCalledTimes(1)
+  })
+
+  it('a refetch that fails after the DELETE does not bring the deleted row (or a live Delete) back', async () => {
+    healthyApi()
+    api.deleteSavedSummary.mockResolvedValue(undefined)
+    api.getSavedSummaries.mockReset()
+    api.getSavedSummaries.mockResolvedValueOnce([apple, microsoft]).mockRejectedValueOnce(new Error('list down'))
+    renderDashboard()
+
+    const deleteApple = await screen.findByRole('button', { name: /Delete summary for Apple/ })
+    deleteApple.focus()
+    fireEvent.click(deleteApple)
+    await waitFor(() => expect(api.getSavedSummaries).toHaveBeenCalledTimes(2))
+    await settle()
+    expect(screen.queryByRole('button', { name: /Delete summary for Apple/ })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Delete summary for Microsoft/ })).toBeInTheDocument()
+    expect(api.deleteSavedSummary).toHaveBeenCalledTimes(1)
   })
 
   it('deleting the last summary removes the section and lands on the Plan and usage heading', async () => {
