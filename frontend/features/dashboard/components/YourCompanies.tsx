@@ -44,6 +44,18 @@ export default function YourCompanies({ insights, isLoading, isError, refetch, i
     if (document.activeElement === document.body) headingRef.current?.focus({ preventScroll: true })
   }, [insights])
 
+  // A successful Retry swaps the error card, and the focused Retry in it, for the list. The press is
+  // tracked through its own fetch: on success focus lands on the heading (only when it fell to
+  // <body>); a retry that fails again leaves the card and its Retry in place and disarms.
+  const retry = useRef<'pressed' | 'fetching' | null>(null)
+  useEffect(() => {
+    if (retry.current === 'pressed' && isFetching) retry.current = 'fetching'
+    else if (retry.current === 'fetching' && !isFetching) {
+      retry.current = null
+      if (!isError && document.activeElement === document.body) headingRef.current?.focus({ preventScroll: true })
+    }
+  }, [isFetching, isError])
+
   const removeMutation = useMutation({
     mutationFn: removeFromWatchlist,
     onSuccess: (_data, ticker) => {
@@ -92,7 +104,15 @@ export default function YourCompanies({ insights, isLoading, isError, refetch, i
           title="Unable to load your companies"
           description="Please retry in a moment."
           action={
-            <Button variant="secondary" onClick={() => refetch()} loading={isFetching} loadingText="Retrying…">
+            <Button
+              variant="secondary"
+              onClick={() => {
+                retry.current = 'pressed'
+                refetch()
+              }}
+              loading={isFetching}
+              loadingText="Retrying…"
+            >
               Retry
             </Button>
           }
@@ -117,7 +137,7 @@ export default function YourCompanies({ insights, isLoading, isError, refetch, i
                     href={`/company/${insight.company.ticker}`}
                     className="flex min-w-0 max-w-fit grow basis-16 items-center gap-2.5 rounded-lg focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark"
                   >
-                    <CompanyLogo ticker={insight.company.ticker} name={formatCompanyName(insight.company.name)} size={28} />
+                    <CompanyLogo decorative ticker={insight.company.ticker} name={formatCompanyName(insight.company.name)} size={28} />
                     <div className="min-w-0">
                       <div className="truncate font-semibold text-text-primary-light hover:text-brand-strong dark:text-text-primary-dark dark:hover:text-brand-strong-dark">
                         {formatCompanyName(insight.company.name)}

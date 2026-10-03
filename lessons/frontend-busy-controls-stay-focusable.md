@@ -52,10 +52,13 @@ the same: it awaits the invalidation before clearing its busy flag (admin invite
 otherwise mint and email the whole batch again). A removal goes further: its `onSuccess` prunes the item from the cache (`setQueryData`), so the
 row and its focused control go with the request itself. A refetch that fails still resolves its
 invalidation, so waiting on the refetch alone would leave the deleted row's control live for a second
-DELETE (the dashboard's saved-summary Delete; Codex P2 on #1075). When `onSuccess` fans out several invalidations,
+DELETE (the dashboard's saved-summary Delete; Codex P2 on #1075). YourCompanies' remove needs no
+prune: a failed insights refetch puts the section in its error card, which replaces the list
+(pinned through the real page in `busyControls.dashboard.spec.tsx`). When `onSuccess` fans out several invalidations,
 return the one whose refetch removes or flips the focused control, and fire the rest. Examples: the
 filing page's saved status, which swaps Save for Saved; the dashboard's watchlist insights, which
-drop a removed row and end the onboarding panel under the popular-ticker chips. The admin feedback
+drop a removed row and end the onboarding panel under the popular-ticker chips (a chip whose
+insights refetch fails still goes live again: open in (h)). The admin feedback
 list is another, because it moves FeedbackRow's controlled select. A success that leaves the page
 (`window.location` to Stripe for Manage billing and Manage subscription) stays pending until the page
 goes. Its `onSuccess` returns `untilPageReturns()` (`lib/untilPageReturns.ts`). That settles on
@@ -80,8 +83,26 @@ per-site specs plus a real-browser keyboard pass. Known open cases, same class, 
 EmailVerificationModal's Resend (`disabled={resent}` after success, while focused); FilingFeed's Retry;
 the filing page's Retry generation / Retry / Regenerate Analysis; FeedbackRow's status select when
 the list is filtered by status (its own update removes the row); the dashboard header's Log out (no
-in-flight guard); YourCompanies' Retry and CompanySearch's "Try Again", both on the dashboard and
-both swapped for a skeleton or hidden when their refetch puts a no-data query back to pending. The dashboard's two Retry buttons, saved-summary Delete and Manage subscription are
+in-flight guard); PopularTickerChips' add when the insights refetch after it fails (the chip goes live
+again, and with no row to prune it needs the added ticker remembered); YourCompanies' remove when
+the insights refetch after it fails (the error card replaces the list and focus falls to `<body>`
+with no hand-off); the company page's filings Retry, EarningsCalendarPage's "Try again",
+FullTextSearch's Retry and FilingViewer's "Try again". YourCompanies' Retry and CompanySearch's
+"Try Again" are fixed (`busyControls.dashboard.spec.tsx`, `CompanySearch.spec.tsx`).
+- A Retry that hands focus to a text field arms only on a keyboard press (`e.detail === 0`), since
+  focusing the field after a tap raises the touch keyboard. `:focus-visible` cannot stand in, because
+  it reflects how the control got focus, not how it was activated: a tap on a keyboard-focused button
+  still matches.
+- The hand-off is armed with the term pressed. A term that changes, including Escape clearing it,
+  drops the failure without a result, so the hand-off disarms rather than firing.
+- `useRetainedFailure` takes a reset key for a query whose key changes under it, such as a new
+  search term.
+- A fetch is in flight while `fetchStatus !== 'idle'`. A retry paused offline or in a hidden tab is
+  still the press's fetch, so `isFetching` alone would release the failure, and the busy state, too
+  early.
+- When a retry fails again with the same message, the alert's text is unchanged, so nothing is
+  announced. Keying the message node to `errorUpdateCount` re-inserts it, and the busy button's
+  `loadingText` names the busy state. The dashboard's two Retry buttons, saved-summary Delete and Manage subscription are
 fixed (`tests/unit/busyControls.dashboard.spec.tsx`). A Retry whose query has no data must keep its
 failure while the press runs (`hooks/useRetainedFailure.ts`): the refetch puts the query back to
 pending, and a page gated on `isLoading` swaps the focused Retry for a skeleton.

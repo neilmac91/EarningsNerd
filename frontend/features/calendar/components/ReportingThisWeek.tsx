@@ -74,7 +74,7 @@ export default function ReportingThisWeek({
                 className="flex flex-col items-center gap-2 rounded-xl border border-border-light bg-panel-light p-4 text-center shadow-e1 transition-colors duration-fast hover:border-brand-border hover:bg-white dark:border-white/10 dark:bg-panel-dark dark:shadow-none dark:hover:border-brand-border-dark dark:hover:bg-white/10 focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark"
                 data-testid={`reporting-this-week-${company.ticker}`}
               >
-                <CompanyLogo ticker={company.ticker} name={formatCompanyName(company.name)} size={40} />
+                <CompanyLogo decorative ticker={company.ticker} name={formatCompanyName(company.name)} size={40} />
                 <div className="font-data font-semibold text-text-primary-light dark:text-text-primary-dark">
                   {company.ticker}
                 </div>

@@ -68,12 +68,15 @@ export default function DashboardPage() {
     enabled: !!user,
   })
 
-  const { data: watchlistInsights, isLoading: insightsLoading, isError: insightsError, refetch: refetchInsights, isFetching: insightsFetching } = useQuery({
+  const insightsQuery = useQuery({
     queryKey: queryKeys.watchlistInsights(),
     queryFn: getWatchlistInsights,
     retry: false,
     enabled: !!user,
   })
+  const { data: watchlistInsights, isLoading: insightsLoading, isFetching: insightsFetching } = insightsQuery
+  // Your companies' Retry, as the two above: its skeleton branch would otherwise replace the error card.
+  const insightsFailure = useRetainedFailure(insightsQuery)
 
   const queryClient = useQueryClient()
 
@@ -184,8 +187,8 @@ export default function DashboardPage() {
 
   // One header for the skeleton and the loaded page. Usage and subscription only start once the user
   // resolves, so by the time the grid replaces the bones the header already carries the real name and
-  // the Log out action, and the grid lands without a shift. (A cold load can still move the bones
-  // once, while the user query is pending, when a long name wraps the row on a phone.)
+  // the Log out action, and the grid lands without a shift. The name arriving on a cold load moves
+  // nothing either: SecondaryHeader's subtitle never sizes the header row.
   const header = (
     <SecondaryHeader
       titleRef={titleRef}
@@ -327,9 +330,9 @@ export default function DashboardPage() {
 
             <YourCompanies
               insights={watchlistInsights}
-              isLoading={insightsLoading}
-              isError={insightsError}
-              refetch={refetchInsights}
+              isLoading={insightsLoading && !insightsFailure.failed}
+              isError={insightsFailure.failed}
+              refetch={insightsFailure.retry}
               isFetching={insightsFetching}
             />
           </div>

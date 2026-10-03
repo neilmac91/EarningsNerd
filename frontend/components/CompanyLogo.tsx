@@ -16,6 +16,13 @@ interface CompanyLogoProps {
   ticker: string | null | undefined
   /** Full company name, used for the accessible label when available. */
   name?: string | null
+  /**
+   * Required on purpose, so every call site decides. `true` when the company's name is rendered
+   * as text beside the logo (in the same link, option or row): the mark is then hidden from
+   * assistive tech, so screen readers don't announce the name twice. `false` when the logo stands
+   * alone and its "<name> logo" label is the only way to identify the company.
+   */
+  decorative: boolean
   /** Diameter in px. Both the monogram and the real logo render at this fixed size. */
   size?: number
   /** Mark as high-priority for the single above-the-fold logo on a page (e.g. company header). */
@@ -33,6 +40,7 @@ interface CompanyLogoProps {
 export default function CompanyLogo({
   ticker,
   name,
+  decorative,
   size = 32,
   priority = false,
   className = '',
@@ -45,8 +53,7 @@ export default function CompanyLogo({
 
   return (
     <span
-      role="img"
-      aria-label={label}
+      {...(decorative ? { 'aria-hidden': true } : { role: 'img', 'aria-label': label })}
       className={`relative inline-flex shrink-0 items-center justify-center overflow-hidden rounded-full bg-brand-strong/15 ring-1 ring-brand-border dark:bg-brand-dark/15 dark:ring-brand-dark/30 ${className}`}
       style={{ width: size, height: size }}
     >

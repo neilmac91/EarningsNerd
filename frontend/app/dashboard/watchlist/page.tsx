@@ -102,7 +102,8 @@ export default function WatchlistDashboardPage() {
             description="Use the search above to track your first company. You'll get an alert here and by email whenever it files with the SEC."
           />
         ) : (
-          <div className="grid gap-6">
+          // grid-cols-1 (minmax(0, 1fr)): an implicit track would size to the widest card's min-content.
+          <div className="grid grid-cols-1 gap-6">
             {insights.map((insight: WatchlistInsight) => {
               const latest = insight.latest_filing
               const progressStage = latest?.progress?.stage
@@ -114,11 +115,15 @@ export default function WatchlistDashboardPage() {
                 <Card key={insight.company.id} className="p-6">
                   <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
                     <div>
-                      <div className="flex items-center space-x-3">
-                        <CompanyLogo ticker={insight.company.ticker} name={formatCompanyName(insight.company.name)} size={36} />
-                        <h2 className="text-2xl font-semibold text-text-primary-light dark:text-text-primary-dark">
-                          {formatCompanyName(insight.company.name)}
-                        </h2>
+                      {/* Below sm, logo and name fill the first line and the ticker and status badges sit
+                          on the line below, instead of widening the card. One unwrapped row from sm up. */}
+                      <div className="flex flex-wrap items-center gap-x-3 gap-y-2 sm:flex-nowrap">
+                        <div className="flex min-w-0 basis-full items-center gap-3 sm:basis-auto">
+                          <CompanyLogo decorative ticker={insight.company.ticker} name={formatCompanyName(insight.company.name)} size={36} />
+                          <h2 className="min-w-0 break-words text-2xl font-semibold text-text-primary-light dark:text-text-primary-dark">
+                            {formatCompanyName(insight.company.name)}
+                          </h2>
+                        </div>
                         <Badge variant="neutral">{insight.company.ticker}</Badge>
                         {latest && (
                           <SummaryStatusBadge
@@ -149,7 +154,7 @@ export default function WatchlistDashboardPage() {
                     </div>
                   </div>
 
-                  <div className="mt-6 grid gap-4 md:grid-cols-3">
+                  <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-3">
                     <div className="bg-background-light dark:bg-background-dark rounded-lg p-4 border border-border-light dark:border-border-dark">
                       <div className="text-sm font-medium text-text-secondary-light dark:text-text-secondary-dark mb-1">Latest filing</div>
                       {latest ? (

@@ -399,7 +399,7 @@ export default function CompanyPageClient({ initialCompany, initialFilings }: Co
               </Link>
               <div className="border-l-0 sm:border-l border-border-light dark:border-border-dark sm:pl-4 flex-1">
                 <div className="flex items-center space-x-3">
-                  <CompanyLogo ticker={companyData.ticker} name={companyDisplayName} size={40} priority />
+                  <CompanyLogo decorative ticker={companyData.ticker} name={companyDisplayName} size={40} priority />
                   <h1 className="text-2xl font-semibold text-text-primary-light dark:text-text-primary-dark">{companyDisplayName}</h1>
                   {currentUser && (
                     // aria-disabled + aria-busy + an early return while the toggle is in flight, not

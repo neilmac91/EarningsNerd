@@ -118,7 +118,7 @@ function HeroExample({
           {/* Header area */}
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div className="flex min-w-0 flex-wrap items-center gap-2">
-              <CompanyLogo ticker={data.ticker} name={data.companyName} size={24} priority />
+              <CompanyLogo decorative ticker={data.ticker} name={data.companyName} size={24} priority />
               <span className="min-w-0 break-words text-sm font-semibold text-text-primary-light dark:text-text-primary-dark">
                 {data.companyName}
               </span>
