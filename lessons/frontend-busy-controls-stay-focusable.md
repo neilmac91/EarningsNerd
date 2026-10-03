@@ -54,9 +54,11 @@ return the one whose refetch removes or flips the focused control, and fire the 
 filing page's saved status, which swaps Save for Saved; the dashboard's watchlist insights, which
 drop a removed row and end the onboarding panel under the popular-ticker chips. The admin feedback
 list is another, because it moves FeedbackRow's controlled select. A success that leaves the page
-(`window.location` to Stripe for Manage billing) stays pending until the page goes. Its `onSuccess`
-returns a promise that `pageshow` settles, so a back-forward restore brings the button back live. A
-success that unmounts the control itself (Sign out everywhere's `queryClient.clear()` skeleton)
+(`window.location` to Stripe for Manage billing and Manage subscription) stays pending until the page
+goes. Its `onSuccess` returns `untilPageReturns()` (`lib/untilPageReturns.ts`). That settles on
+`pageshow`, so a back-forward restore brings the button back live. It also settles after a timeout,
+because a navigation the user aborts with Esc or Stop fires no event and would leave the button busy
+until a reload. A success that unmounts the control itself (Sign out everywhere's `queryClient.clear()` skeleton)
 needs neither. Audit every `onSuccess` of a control this sweep keeps focusable. Hosted Codex found
 four of these in later review rounds, after the sweep had shipped them fire-and-forget.
 
@@ -64,16 +66,20 @@ four of these in later review rounds, after the sweep had shipped them fire-and-
 swapped for a skeleton, Save replaced by a "Saved" label) hands focus to a stable target: a heading
 or status line with `tabIndex={-1}`, focused with `{ preventScroll: true }`. Two forms are accepted:
 before the unmount, only when the control holds focus (`document.activeElement === e.currentTarget`),
-or after it, only when focus fell to `<body>`. Never move focus a mouse user did not lose.
+or after it, only when focus fell to `<body>`. Never move focus a mouse user did not lose. A
+hand-off armed by a press (a `retried` or `pressed` ref) is disarmed when that press's own request
+fails again. Otherwise a later recovery nobody pressed, such as a reconnect refetch, moves focus
+(`useRetainedFailure`'s `retrying` tells a retry that failed from one still running).
 
 (h) The scan cannot see post-success flips, unmounts, or a busy flag under another name. Those stay
 per-site specs plus a real-browser keyboard pass. Known open cases, same class, not yet fixed:
 EmailVerificationModal's Resend (`disabled={resent}` after success, while focused); FilingFeed's Retry;
 the filing page's Retry generation / Retry / Regenerate Analysis; FeedbackRow's status select when
 the list is filtered by status (its own update removes the row); the dashboard header's Log out (no
-in-flight guard). The dashboard's two Retry buttons, saved-summary Delete and Manage subscription are
+in-flight guard); YourCompanies' Retry and CompanySearch's "Try Again", both on the dashboard and
+both swapped for a skeleton or hidden when their refetch puts a no-data query back to pending. The dashboard's two Retry buttons, saved-summary Delete and Manage subscription are
 fixed (`tests/unit/busyControls.dashboard.spec.tsx`). A Retry whose query has no data must keep its
-failure while the press runs (`lib/useRetainedFailure.ts`): the refetch puts the query back to
+failure while the press runs (`hooks/useRetainedFailure.ts`): the refetch puts the query back to
 pending, and a page gated on `isLoading` swaps the focused Retry for a skeleton.
 
 **Evidence**: `frontend/features/calendar/components/AlertBell.tsx` (`disabled={checking}`,

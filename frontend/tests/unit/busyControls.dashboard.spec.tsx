@@ -6,6 +6,7 @@ import type { CurrentUser } from '@/features/auth/api/auth-api'
 import type { SavedSummary } from '@/features/summaries/api/summaries-api'
 import type { SubscriptionStatus, Usage } from '@/features/subscriptions/api/subscriptions-api'
 import DashboardPage from '@/app/dashboard/page'
+import { queryKeys } from '@/lib/queryKeys'
 
 /**
  * The dashboard's two Retry buttons and the saved-summary Delete keep keyboard focus through their
@@ -96,9 +97,11 @@ const saved = (id: number, name: string): SavedSummary => ({
   company: { id, ticker: name.slice(0, 4).toUpperCase(), name },
 })
 
-function renderDashboard() {
-  const client = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } })
-  return render(<QueryClientProvider client={client}><DashboardPage /></QueryClientProvider>)
+function renderDashboard(client = newClient()) {
+  return { client, ...render(<QueryClientProvider client={client}><DashboardPage /></QueryClientProvider>) }
+}
+function newClient() {
+  return new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } })
 }
 
 /** Every query resolves unless a case overrides it. */
@@ -124,6 +127,30 @@ afterEach(() => {
   Object.values(api).forEach((mock) => mock.mockReset())
 })
 
+describe('Focus hand-offs fire only after their own press', () => {
+  it('a cold load moves no focus', async () => {
+    healthyApi()
+    api.getSavedSummaries.mockResolvedValue([saved(1, 'Apple Inc.')])
+    renderDashboard()
+    await screen.findByRole('heading', { name: 'Saved summaries' })
+    await settle()
+    expect(document.activeElement).toBe(document.body)
+  })
+
+  it('a mount over a warm cache (the dashboard renders at once) moves no focus', async () => {
+    healthyApi()
+    const client = newClient()
+    client.setQueryData(queryKeys.currentUser(), user)
+    client.setQueryData(queryKeys.usage.byUser(user.id), usage)
+    client.setQueryData(queryKeys.subscription.byUser(user.id), subscription)
+    client.setQueryData(queryKeys.savedSummaries(), [saved(1, 'Apple Inc.')])
+    renderDashboard(client)
+    expect(screen.getByRole('heading', { name: 'Plan and usage' })).toBeInTheDocument()
+    await settle()
+    expect(document.activeElement).toBe(document.body)
+  })
+})
+
 describe('Dashboard Retry (the account could not load)', () => {
   it('keeps the error card and its focused Retry through the retry, then hands focus to the page title', async () => {
     healthyApi()
@@ -136,8 +163,10 @@ describe('Dashboard Retry (the account could not load)', () => {
     fireEvent.click(retry)
     await waitFor(() => expect(api.getCurrentUserSafe).toHaveBeenCalledTimes(2))
     await settle()
-    // Still the error card, not the page skeleton: Retry is busy, focused, and refuses a second press.
+    // Still the error card, with its error, not the page skeleton: Retry is busy, focused, and refuses
+    // a second press.
     expect(screen.getByText('Unable to load your dashboard')).toBeInTheDocument()
+    expect(screen.getByText('Server unavailable')).toBeInTheDocument()
     expectBusyAndFocused(retry)
     fireEvent.click(retry)
     await settle()
@@ -165,6 +194,25 @@ describe('Dashboard Retry (the account could not load)', () => {
     expect(retry).not.toHaveAttribute('aria-disabled')
     expect(document.activeElement).toBe(retry)
     expect(screen.getByText('Still unavailable')).toBeInTheDocument()
+  })
+
+  it('a retry that failed again leaves no hand-off armed: a later recovery nobody pressed moves no focus', async () => {
+    healthyApi()
+    api.getCurrentUserSafe.mockRejectedValueOnce(new Error('Server unavailable')).mockRejectedValueOnce(new Error('Still unavailable'))
+    const { client } = renderDashboard()
+
+    const retry = await screen.findByRole('button', { name: 'Retry' })
+    retry.focus()
+    fireEvent.click(retry)
+    await screen.findByText('Still unavailable')
+    await waitFor(() => expect(retry).not.toHaveAttribute('aria-busy'))
+    retry.blur()
+
+    await act(async () => { await client.refetchQueries({ queryKey: queryKeys.currentUser() }) })
+    await screen.findByRole('heading', { level: 1, name: 'Dashboard' })
+    await screen.findByRole('heading', { name: 'Plan and usage' })
+    await settle()
+    expect(document.activeElement).toBe(document.body)
   })
 })
 
@@ -212,6 +260,41 @@ describe('Plan and usage Retry', () => {
     expect(retry).not.toHaveAttribute('aria-disabled')
     expect(document.activeElement).toBe(retry)
   })
+
+  it('a mouse user who moved on keeps their focus when the retry succeeds', async () => {
+    healthyApi()
+    const refetched = deferred<Usage>()
+    api.getUsage.mockRejectedValueOnce(new Error('usage down')).mockReturnValueOnce(refetched.promise)
+    renderDashboard()
+
+    const retry = within(await screen.findByRole('alert')).getByRole('button', { name: 'Retry' })
+    fireEvent.click(retry)
+    const logOut = screen.getByRole('button', { name: 'Log out' })
+    logOut.focus()
+    await act(async () => refetched.resolve(usage))
+    await waitFor(() => expect(retry.isConnected).toBe(false))
+    await settle()
+    expect(document.activeElement).toBe(logOut)
+  })
+
+  it('a retry that failed again leaves no hand-off armed: a later recovery nobody pressed moves no focus', async () => {
+    healthyApi()
+    api.getUsage.mockRejectedValueOnce(new Error('usage down')).mockRejectedValueOnce(new Error('usage still down'))
+    const { client } = renderDashboard()
+
+    const retry = within(await screen.findByRole('alert')).getByRole('button', { name: 'Retry' })
+    retry.focus()
+    fireEvent.click(retry)
+    await waitFor(() => expect(api.getUsage).toHaveBeenCalledTimes(2))
+    await waitFor(() => expect(retry).not.toHaveAttribute('aria-busy'))
+    expect(retry.isConnected).toBe(true)
+    retry.blur()
+
+    await act(async () => { await client.refetchQueries({ queryKey: queryKeys.usage.byUser(user.id) }) })
+    await screen.findByText('1 / 3 summaries')
+    await settle()
+    expect(document.activeElement).toBe(document.body)
+  })
 })
 
 describe('Manage subscription', () => {
@@ -243,6 +326,21 @@ describe('Manage subscription', () => {
     } finally {
       Object.defineProperty(window, 'location', { value: realLocation, writable: true, configurable: true })
     }
+  })
+
+  it('a portal response with no URL says so and leaves the button live and focused', async () => {
+    healthyApi()
+    api.getSubscriptionStatus.mockResolvedValue({ ...subscription, is_pro: true, plan: 'pro', status: 'active' })
+    api.createPortalSession.mockResolvedValue({ url: '' })
+    renderDashboard()
+
+    const manage = await screen.findByRole('button', { name: 'Manage subscription' })
+    manage.focus()
+    fireEvent.click(manage)
+    await waitFor(() => expect(api.toastError).toHaveBeenCalledWith('Could not open the billing portal. Please try again.'))
+    await waitFor(() => expect(manage).not.toHaveAttribute('aria-busy'))
+    expect(manage).not.toHaveAttribute('aria-disabled')
+    expect(document.activeElement).toBe(manage)
   })
 })
 

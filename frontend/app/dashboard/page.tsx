@@ -24,7 +24,8 @@ import analytics from '@/lib/analytics'
 import { Badge, Button, buttonVariants, Card, GuidanceCard, SkeletonStat, SkeletonText } from '@/components/ui'
 import { queryKeys } from '@/lib/queryKeys'
 import { FREE_SUMMARY_LIMIT } from '@/lib/planLimits'
-import { useRetainedFailure } from '@/lib/useRetainedFailure'
+import { useRetainedFailure } from '@/hooks/useRetainedFailure'
+import { untilPageReturns } from '@/lib/untilPageReturns'
 
 export default function DashboardPage() {
   const router = useRouter()
@@ -109,10 +110,9 @@ export default function DashboardPage() {
         return
       }
       window.location.href = data.url
-      // Pending until the page leaves for Stripe (as BillingPanel's Manage billing): the button keeps
-      // focus, and released any sooner a second Enter would open a second portal session. A
-      // back-forward cache restore fires pageshow, which settles it, so the button is live on return.
-      return new Promise<void>((resolve) => window.addEventListener('pageshow', () => resolve(), { once: true }))
+      // Pending while the page leaves for Stripe, as BillingPanel's Manage billing: the button keeps
+      // focus, and released any sooner a second Enter would open a second portal session.
+      return untilPageReturns()
     },
     onError: (error) => {
       // Surfaces the backend detail (e.g. "No subscription found") instead of failing silently.
@@ -136,19 +136,29 @@ export default function DashboardPage() {
     }
   }, [user, userLoading, userError, router])
 
-  // A successful Retry swaps the error card for the dashboard: hand focus to the page title.
+  // A successful Retry swaps the error card for the dashboard: hand focus to the page title. A retry
+  // that fails again drops its flag, so a later recovery nobody pressed moves no focus.
   useEffect(() => {
-    if (!userRetried.current || userFailure.failed || !user) return
+    if (!userRetried.current) return
+    if (userFailure.failed) {
+      if (!userFailure.retrying) userRetried.current = false
+      return
+    }
     userRetried.current = false
-    if (document.activeElement === document.body) titleRef.current?.focus({ preventScroll: true })
-  }, [user, userFailure.failed])
+    if (user && document.activeElement === document.body) titleRef.current?.focus({ preventScroll: true })
+  }, [user, userFailure.failed, userFailure.retrying])
 
-  // A successful plan Retry swaps the alert, and its Retry, for the plan details.
+  // A successful plan Retry swaps the alert, and its Retry, for the plan details. As above, a retry
+  // that fails again drops its flag.
   useEffect(() => {
-    if (!planRetried.current || planFailed) return
+    if (!planRetried.current) return
+    if (planFailed) {
+      if (!usageFailure.retrying && !subscriptionFailure.retrying) planRetried.current = false
+      return
+    }
     planRetried.current = false
     if (document.activeElement === document.body) planHeadingRef.current?.focus({ preventScroll: true })
-  }, [planFailed])
+  }, [planFailed, usageFailure.retrying, subscriptionFailure.retrying])
 
   // A successful delete drops its row once saved summaries refetch. Land on the section heading, or
   // on the next section's when the last summary went and the section with it.

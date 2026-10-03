@@ -33,5 +33,7 @@ export function useRetainedFailure(query: UseQueryResult<unknown>) {
     void refetch()
   }
   const failed = isError || (retrying && data === undefined)
-  return { failed, error: failed ? error ?? lastError : null, retry }
+  // `retrying` stays true from the press until its own fetch has settled, so a caller can tell a
+  // retry that failed again (failed && !retrying) from one still running.
+  return { failed, error: failed ? error ?? lastError : null, retry, retrying }
 }
