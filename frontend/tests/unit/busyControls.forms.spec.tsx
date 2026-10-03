@@ -154,9 +154,9 @@ describe('ContactForm', () => {
     await waitFor(() => expect(send).toHaveAttribute('aria-busy', 'true'))
     expect(api.submitContactForm).toHaveBeenCalledTimes(1)
 
-    // Every field holds its value read-only rather than turning disabled under the user's focus.
+    // Every field holds its value read-only while the form sends (that a busy flag never disables it
+    // is the rule-12 gate's job).
     for (const field of [name, screen.getByLabelText(/^Email/), screen.getByLabelText('Subject'), screen.getByLabelText(/^Message/)]) {
-      expect(field).not.toBeDisabled()
       expect(field).toHaveAttribute('readonly')
     }
     expect(document.activeElement).toBe(name)

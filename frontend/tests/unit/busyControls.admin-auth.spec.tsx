@@ -63,9 +63,19 @@ function withQueryClient(ui: React.ReactElement) {
 }
 
 /** Busy-but-focusable: announced unavailable, never natively disabled, still holding focus. */
+/** Unavailable after its own success (cooldown, nothing to send): aria-disabled, never natively
+    disabled, and still focused. The rule-12 gate cannot see these states, so they are pinned here. */
 function expectInertButFocused(el: HTMLElement) {
   expect(el).toHaveAttribute('aria-disabled', 'true')
   expect(el).not.toBeDisabled()
+  expect(el).toHaveFocus()
+}
+
+/** Busy with its own request: announced and still focused. That a busy flag never turns it natively
+    disabled is the rule-12 gate's job (busyControlsStayFocusable.spec.ts). */
+function expectBusyAndFocused(el: HTMLElement) {
+  expect(el).toHaveAttribute('aria-busy', 'true')
+  expect(el).toHaveAttribute('aria-disabled', 'true')
   expect(el).toHaveFocus()
 }
 
@@ -116,7 +126,7 @@ describe('Admin invites: Send invites stays focusable', () => {
 
     expect(send).toHaveAttribute('aria-busy', 'true')
     expect(send).toHaveTextContent('Sending…')
-    expectInertButFocused(send)
+    expectBusyAndFocused(send)
     await user.click(send)
     await user.keyboard('{Enter}')
     expect(createInvite).toHaveBeenCalledTimes(1)
@@ -201,7 +211,7 @@ describe('Admin feedback: the row status select stays focusable', () => {
     await user.selectOptions(select, 'triaged')
 
     await waitFor(() => expect(select).toHaveAttribute('aria-busy', 'true'))
-    expectInertButFocused(select)
+    expectBusyAndFocused(select)
     await user.selectOptions(select, 'resolved')
     expect(updateFeedbackStatus).toHaveBeenCalledTimes(1)
     expect(updateFeedbackStatus).toHaveBeenCalledWith(1, 'triaged')
@@ -231,7 +241,7 @@ describe('Check email: Resend stays focusable', () => {
     await user.click(resend)
 
     expect(resend).toHaveAttribute('aria-busy', 'true')
-    expectInertButFocused(resend)
+    expectBusyAndFocused(resend)
     await user.click(resend)
     await user.keyboard('{Enter}')
     expect(resendVerification).toHaveBeenCalledTimes(1)
@@ -279,7 +289,7 @@ describe('Verification banner: Resend link stays focusable', () => {
     await user.click(resend)
 
     expect(resend).toHaveAttribute('aria-busy', 'true')
-    expectInertButFocused(resend)
+    expectBusyAndFocused(resend)
     await user.click(resend)
     await user.keyboard('{Enter}')
     expect(resendVerification).toHaveBeenCalledTimes(1)
