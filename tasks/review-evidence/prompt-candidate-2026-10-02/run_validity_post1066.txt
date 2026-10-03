@@ -1,6 +1,10 @@
 Post-#1066 validity control (round 3, precondition 2). Offline; no provider call.
 Artifact: copilot-eval of #1067's head b7bd5d19 (Actions run 37072989252), retained at copilot-37072989252/ in the lane
-scratch directory. Zip sha256 prefix fe4b718ef8be6907 as recorded at download (the zip itself is not retained).
+scratch directory. Zip sha256 prefix fe4b718ef8be6907 as recorded at download (the zip itself is not retained). The
+full artifact digest, read from the Actions artifacts API in round 4, matches that prefix:
+
+$ gh api repos/neilmac91/EarningsNerd/actions/runs/37072989252/artifacts   (read only)
+copilot-fidelity-37072989252: size_in_bytes 78712108, expired false, digest sha256:fe4b718ef8be6907068cdb2ddc83727e1550eecc3b4131030855a3d0775b5f0c
 
 $ sha256sum copilot-37072989252/copilot-eval.json copilot-37072989252/runner.log
 3692fc49c3fb8bb85d70929ce6beb5642ee09cd456e013563b15b417b2cfda99  copilot-37072989252/copilot-eval.json

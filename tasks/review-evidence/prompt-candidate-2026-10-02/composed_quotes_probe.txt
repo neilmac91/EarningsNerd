@@ -38,8 +38,7 @@ case  5 [pairing] BABA native-revenue-2026
   F:       [] (publishes)
   audit:   ["Revenue [1]"]
   round 2: ['sub-floor label']
-  reading: unpaired marks (audit spans read as the audit pairs them); flagged sub-floor label "Revenue [1]"
-  pairs only (no unpaired-marks rule, illustration): composed " and the line is ", audit pairing difference "Revenue [1]"  <- FALSE FAILURE without the rule
+  reading: unflagged verified "further increased by 3% to\nRMB1,023,670 million (US$148,401 million) in fiscal year 2026", flagged sub-floor label "Revenue [1]"
   outcome: agree
 
 case  6 [pairing] BABA viewed-native-revenue-2025
@@ -47,8 +46,7 @@ case  6 [pairing] BABA viewed-native-revenue-2025
   F:       ['quotation_not_in_source', 'quotation_not_in_source']
   audit:   ["increased by\n3%", "Revenue 996,347"]
   round 2: ['composed', 'composed']
-  reading: unpaired marks (audit spans read as the audit pairs them); flagged composed "increased by\n3%", flagged composed "Revenue 996,347"
-  pairs only (no unpaired-marks rule, illustration): composed " and the table reads ", audit pairing difference "increased by\n3%", audit pairing difference "Revenue 996,347"  <- 2 composed audit span(s) become audit pairing differences without the rule
+  reading: flagged composed "increased by\n3%", flagged composed "Revenue 996,347"
   outcome: agree
 
 case  7 [floor] AAPL sales-gross-profit-2025
@@ -243,5 +241,71 @@ case 30 [nested, disclosed] BABA native-revenue-2026
   reading: nothing flagged
   outcome: F-withheld leg
 
-30 cases: F-withheld leg 1, FALSE FAILURE 1, agree 28; untagged FALSE FAILURE 0
+case 31 [pairing] BABA native-revenue-2026
+  answer:  "The \"Revenue\" line agrees, and MD&A says revenue \"further increased by 3% to\nRMB1,023,670 million (US$148,401 million) in fiscal year 2026\" [1]."
+  F:       [] (publishes)
+  audit:   [" line agrees, and MD&A says revenue "]
+  round 2: ['composed']  <- FALSE FAILURE under the round-2 reading
+  reading: unflagged sub-floor label "Revenue", flagged audit pairing difference " line agrees, and MD&A says revenue ", unflagged verified "further increased by 3% to\nRMB1,023,670 million (US$148,401 million) in fiscal year 2026"
+  outcome: agree
+
+case 32 [pairing] BABA native-revenue-2026
+  answer:  "An empty \"\" pair, the \"Revenue\" line, and MD&A says revenue \"further increased by 3% to RMB1,023,670 million (US$148,401 million) in fiscal year 2026\" [1]."
+  F:       [] (publishes)
+  audit:   [" pair, the ", " line, and MD&A says revenue "]
+  round 2: ['composed', 'composed']  <- FALSE FAILURE under the round-2 reading
+  reading: unflagged sub-floor label "", flagged audit pairing difference " pair, the ", unflagged sub-floor label "Revenue", flagged audit pairing difference " line, and MD&A says revenue ", unflagged verified "further increased by 3% to RMB1,023,670 million (US$148,401 million) in fiscal year 2026"
+  outcome: agree
+
+case 33 [pairing] BABA native-revenue-2026
+  answer:  "The \"Revenue＂ line agrees, and MD&A says revenue ＂further increased by 3% to RMB1,023,670 million (US$148,401 million) in fiscal year 2026\" [1]."
+  F:       [] (publishes)
+  audit:   ["Revenue＂ line agrees, and MD&A says revenue ＂further increased by 3% to RMB1,023,670 million (US$148,401 million) in fiscal year 2026"]
+  round 2: ['composed']  <- FALSE FAILURE under the round-2 reading
+  reading: unflagged sub-floor label "Revenue", flagged audit pairing difference "Revenue＂ line agrees, and MD&A says revenue ＂further increased by 3% to RMB1,023,670 million (US$148,401 million) in fiscal year 2026", unflagged verified "further increased by 3% to RMB1,023,670 million (US$148,401 million) in fiscal year 2026"
+  outcome: agree
+
+case 34 [pairing] BABA native-revenue-2026
+  answer:  "The \"Revenue\" line agrees, and MD&A says revenue „further increased by 3% to RMB1,023,670 million (US$148,401 million) in fiscal year 2026” [1]."
+  F:       [] (publishes)
+  audit:   [" line agrees, and MD&A says revenue „further increased by 3% to RMB1,023,670 million (US$148,401 million) in fiscal year 2026"]
+  round 2: ['composed']  <- FALSE FAILURE under the round-2 reading
+  reading: unflagged sub-floor label "Revenue", flagged audit pairing difference " line agrees, and MD&A says revenue „further increased by 3% to RMB1,023,670 million (US$148,401 million) in fiscal year 2026", unflagged verified "further increased by 3% to RMB1,023,670 million (US$148,401 million) in fiscal year 2026"
+  outcome: agree
+
+case 35 [pairing] BABA native-revenue-2026
+  answer:  "The \"Revenue\" line agrees, and MD&A says revenue „further increased by 3% to RMB1,023,670 million (US$148,401 million) in fiscal year 2026‟ [1]."
+  F:       ['ambiguous_quotation']
+  audit:   []
+  round 2: []
+  reading: nothing flagged
+  outcome: F-withheld leg
+
+case 36 [odd count] BABA native-revenue-2026
+  answer:  "The \"Revenue\" line agrees, and MD&A says revenue \"further increased by 3% to RMB1,023,670 million (US$148,401 million) in fiscal year 2026 [1]."
+  F:       ['unbalanced_quotation']
+  audit:   [" line agrees, and MD&A says revenue "]
+  round 2: ['composed']
+  reading: unpaired marks (audit spans read as the audit pairs them); flagged composed " line agrees, and MD&A says revenue "
+  pairs only (no unpaired-marks rule, illustration): sub-floor label "Revenue", audit pairing difference " line agrees, and MD&A says revenue "  <- 1 composed audit span(s) become audit pairing differences without the rule
+  outcome: agree
+
+case 37 [odd count, disclosed] BABA native-revenue-2026
+  answer:  "The &quot;Revenue\" line agrees, and MD&A says revenue \"further increased by 3% to RMB1,023,670 million (US$148,401 million) in fiscal year 2026\" [1]."
+  F:       [] (publishes)
+  audit:   [" line agrees, and MD&A says revenue "]
+  round 2: ['composed']  <- FALSE FAILURE under the round-2 reading
+  reading: unpaired marks (audit spans read as the audit pairs them); flagged composed " line agrees, and MD&A says revenue "
+  pairs only (no unpaired-marks rule, illustration): composed " line agrees, and MD&A says revenue "  <- FALSE FAILURE with or without the rule
+  outcome: FALSE FAILURE
+
+case 38 [escape, disclosed] BABA native-revenue-2026
+  answer:  "The \\\"Revenue\\\" line agrees, and MD&A says revenue \"further increased by 3% to RMB1,023,670 million (US$148,401 million) in fiscal year 2026\" [1]."
+  F:       [] (publishes)
+  audit:   ["Revenue\\"]
+  round 2: ['composed']  <- FALSE FAILURE under the round-2 reading
+  reading: flagged composed "Revenue\\", unflagged verified "further increased by 3% to RMB1,023,670 million (US$148,401 million) in fiscal year 2026"
+  outcome: FALSE FAILURE
+
+38 cases: F-withheld leg 2, FALSE FAILURE 3, agree 33; untagged FALSE FAILURE 0
 exit 0

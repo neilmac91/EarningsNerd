@@ -23,7 +23,8 @@ report (the six source texts are identical in every retained run). Per case it p
     In a run such an answer is never published, so the audit never reads it; checks 3 and 4 fail it through
     f_attribution.py's F-withheld count and check 5 through its error row;
   - FALSE FAILURE: F publishes and the reading finds a composed span (a run would fail with no composed quotation).
-Cases tagged "disclosed" are the documented differences: markdown emphasis and a nested quotation.
+Cases tagged "disclosed" are the documented differences: markdown emphasis, a nested quotation, a backslash-escaped
+mark and a character reference.
 Exit 0 when no untagged case is a FALSE FAILURE under the registered reading.
 """
 import importlib.util
@@ -86,6 +87,16 @@ CASES = [
     # Documented differences (composed_quotes.py docstring, PREREGISTRATION.md).
     ("markdown", ASML, 'The line is "**Net income**" [F1].', "disclosed"),
     ("nested", BABA_NATIVE, 'The filing says "revenue "further increased by 3%" in fiscal year 2026" [1].', "disclosed"),
+    # Round 4, model-behaviour findings: a quotation across a line break, an empty quotation, F's other marks.
+    ("pairing", BABA_NATIVE, f'The "Revenue" line agrees, and MD&A says revenue "{MDA[:26]}\n{MDA[27:]}" [1].', ""),
+    ("pairing", BABA_NATIVE, f'An empty "" pair, the "Revenue" line, and MD&A says revenue "{MDA}" [1].', ""),
+    ("pairing", BABA_NATIVE, f'The "Revenue＂ line agrees, and MD&A says revenue ＂{MDA}" [1].', ""),
+    ("pairing", BABA_NATIVE, f'The "Revenue" line agrees, and MD&A says revenue „{MDA}” [1].', ""),
+    ("pairing", BABA_NATIVE, f'The "Revenue" line agrees, and MD&A says revenue „{MDA}‟ [1].', ""),
+    # Round 4: an odd mark count (the unpaired-marks rule), and F's markdown reading of escapes and references.
+    ("odd count", BABA_NATIVE, f'The "Revenue" line agrees, and MD&A says revenue "{MDA} [1].', ""),
+    ("odd count", BABA_NATIVE, f'The &quot;Revenue" line agrees, and MD&A says revenue "{MDA}" [1].', "disclosed"),
+    ("escape", BABA_NATIVE, f'The \\"Revenue\\" line agrees, and MD&A says revenue "{MDA}" [1].', "disclosed"),
 ]
 
 
@@ -99,7 +110,7 @@ def one_row_report(directory, index, key, answer):
 
 def pairs_only(answer, source_text, flagged):
     """The in-order pairs' verdicts with no unpaired-marks rule (illustration only, never the measurement)."""
-    folded = answer.translate(CQ.AUDIT.FOLD)
+    folded = answer.translate(CQ.AUDIT.FOLD).translate(CQ.PAIRING_FOLD)
     pairs = [m.group(1) for m in CQ.PAIR.finditer(folded)]
     verdicts = [(CQ.verdict(p, CQ.INVENTORY.norm(source_text)), p) for p in pairs]
     return verdicts + [(CQ.PAIRING_DIFF, q) for q in flagged if q not in pairs]
@@ -135,7 +146,8 @@ with tempfile.TemporaryDirectory() as directory:
             hidden = [q for q, v in zip(flagged, round2) if v == CQ.COMPOSED and (CQ.PAIRING_DIFF, q) in alone]
             print("  pairs only (no unpaired-marks rule, illustration): "
                   + ", ".join(f"{cls} {json.dumps(span, ensure_ascii=False)}" for cls, span in alone)
-                  + ("  <- FALSE FAILURE without the rule" if alone_composed and not f_reasons else "")
+                  + (f"  <- FALSE FAILURE {'with or ' if composed else ''}without the rule"
+                     if alone_composed and not f_reasons else "")
                   + (f"  <- {len(hidden)} composed audit span(s) become audit pairing differences without the rule"
                      if hidden else ""))
         print(f"  outcome: {outcome}\n")
