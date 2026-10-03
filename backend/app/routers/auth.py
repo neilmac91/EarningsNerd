@@ -1268,7 +1268,8 @@ async def google_callback(
 
 def _start_apple(request: Request, db: Session, invite: Optional[str]) -> tuple[str, str]:
     """Rate limit, stage the nonce row (with the invite's hash when the invite is live) and build
-    Apple's consent URL. Returns ``(url, state)``; the caller sets the browser-binding cookie."""
+    Apple's consent URL. Returns ``(url, state)`` without committing; each caller commits the row
+    before returning the URL and setting the browser-binding cookie."""
     if not settings.APPLE_CLIENT_ID:
         raise HTTPException(status_code=503, detail="Apple Sign In is not configured.")
     enforce_rate_limit(
@@ -1279,7 +1280,6 @@ def _start_apple(request: Request, db: Session, invite: Optional[str]) -> tuple[
     state = secrets.token_urlsafe(32)
     raw_nonce = secrets.token_urlsafe(32)
     _store_oauth_state(db, state, raw_nonce, _live_invite_hash(db, invite))
-    db.commit()
 
     # Send sha256(raw_nonce) so Apple stores it in id_token; we verify on callback.
     params = {
@@ -1311,6 +1311,7 @@ async def apple_login(request: Request, db: Session = Depends(get_db)):
     """Redirect the browser to Apple's consent screen (plain sign-in: no invite). An invited
     sign-up starts through ``POST /api/auth/apple/start`` so the token never rides in a URL."""
     url, state = _start_apple(request, db, None)
+    db.commit()
     redirect = RedirectResponse(url=url, status_code=302)
     _set_apple_state_cookie(redirect, state)
     return redirect
@@ -1321,6 +1322,7 @@ async def apple_start(body: OAuthStartRequest, request: Request, db: Session = D
     """Start Sign in with Apple for the browser to follow: ``{"url": ...}`` plus the binding cookie
     (``invite``: as for google_start)."""
     url, state = _start_apple(request, db, body.invite)
+    db.commit()
     response = JSONResponse({"url": url})
     _set_apple_state_cookie(response, state)
     return response
