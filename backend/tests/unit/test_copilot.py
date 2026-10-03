@@ -2317,3 +2317,54 @@ async def test_chat_layer_fires_the_provider_start_signal_before_the_first_reque
         ):
             pass
     assert order == ["signal", "request", "request"]  # once, before the first request; not again on the tool round
+
+
+@pytest.mark.requires_db
+@pytest.mark.asyncio
+async def test_endpoint_client_disconnect_at_the_sdk_boundary_keeps_the_counted_unit(client, monkeypatch):
+    """Real wrapper, fake SDK: the client leaves the moment the completions request is created,
+    while the only chunk so far is short enough for the wrapper's prose holdback, so no wrapper
+    event (and no `generating` marker) ever reaches the route. The provider request was issued,
+    so the unit must be counted: the dispatcher's signal at the request site starts the metering
+    write and the route's shielded finally settles it instead of releasing the lease."""
+    from types import SimpleNamespace as NS
+
+    from app.services.openai_service import openai_service as svc
+
+    requested, closed = asyncio.Event(), asyncio.Event()
+
+    class _HeldStream:
+        """One short chunk (below the 240-char holdback), then nothing until cancelled."""
+
+        def __init__(self):
+            self.sent = False
+
+        def __aiter__(self):
+            return self
+
+        async def __anext__(self):
+            if not self.sent:
+                self.sent = True
+                return NS(choices=[NS(delta=NS(content="Revenue ", tool_calls=None))], model="deepseek-flash")
+            await asyncio.sleep(30)  # cancelled by the disconnect
+            raise StopAsyncIteration
+
+        async def close(self):
+            closed.set()
+
+    async def _fake_create(**_kwargs):
+        requested.set()  # the provider request leaves; the client disconnects right here
+        return _HeldStream()
+
+    monkeypatch.setattr(svc.client.chat.completions, "create", _fake_create)
+    with _as_user(is_pro=False, free_taste_used=2) as uid, _seed_filing() as fid:
+        sent = await asyncio.wait_for(
+            _asgi_post(f"/api/summaries/filing/{fid}/ask-stream", {"question": "Q?"}, disconnect_after=requested),
+            timeout=15,
+        )
+        assert sent[0]["status"] == 200
+        assert closed.is_set()  # the upstream stream was closed on the way out
+        events = _wire_events(sent)
+        assert all(event["type"] == "progress" and event.get("stage") != copilot_service.PROVIDER_STARTED_STAGE
+                   for event in events)  # no wrapper event reached the client: only the pre-call `reading`
+        assert _qa_state(uid) == ([], 0, 3)  # the request was issued: counted, no lease left
