@@ -20,8 +20,9 @@ never on a callback prop: read callbacks through a ref synced in its own effect 
 memoize instead — the primitive must be correct with inline arrows. (c) Verify dialogs with a
 keyboard pass on a real build that includes a parent re-render while open (an interval tick or a
 `rerender`), not only open/close; `tests/unit/Modal.spec.tsx` pins the regression. The copilot
-sheet's `useSheetFocusTrap` still keys its effect on `onClose`; its two callers pass stable
-callbacks today, and it was outside the v3 scope (queued as a follow-up).
+sheet's `useSheetFocusTrap` and the calendar's `BellPopover` carried the same dependency; both
+now read `onClose` through a ref (design-v3 follow-up, `useSheetFocusTrap.spec.tsx` and
+`BellPopover.spec.tsx` pin it).
 
 **Evidence**: PR #1043, the ui/Modal commit (the fix is folded into it); keyboard pass
 before (104 pass / 5 fail, all ResendShareModal, focus timeline jumping to ✕ on each cooldown
