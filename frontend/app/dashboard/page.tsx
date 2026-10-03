@@ -424,8 +424,11 @@ export default function DashboardPage() {
                     size="sm"
                     onClick={() => {
                       planRetried.current = true
-                      usageFailure.retry()
-                      subscriptionFailure.retry()
+                      // Only the queries that failed. A healthy sibling refetched too could still be
+                      // in flight when the failed one recovers: the strip, and this Retry, would go,
+                      // and come back if that sibling then failed.
+                      if (usageFailure.failed) usageFailure.retry()
+                      if (subscriptionFailure.failed) subscriptionFailure.retry()
                     }}
                     loading={usageFetching || subscriptionFetching}
                     loadingText="Retrying…"

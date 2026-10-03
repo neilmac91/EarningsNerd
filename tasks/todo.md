@@ -10,7 +10,7 @@
   - `components/Header.tsx` observes the current user with `refetchOnWindowFocus: true`. That refetch nobody pressed can still replace a focused account-error Retry with the skeleton.
   - A Pro user whose subscription call fails sees a "Free" badge beside "Unable to load plan details". BillingPanel avoids this.
   - The saved-summaries error card has no Retry, though it says "Please retry in a moment."
-  - The plan Retry refetches both usage and subscription even when only one failed.
+- The plan Retry now refetches only the queries that failed. Refetching a healthy sibling too let the failed one recover first, which unmounted the focused Retry, and the alert could then come back if the sibling failed (Codex P2 on #1075).
 
 ## 2026-10-03 — busy controls stay focusable: the sweep after #1064 (frontend)
 

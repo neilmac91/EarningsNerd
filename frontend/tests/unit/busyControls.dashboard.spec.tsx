@@ -261,6 +261,52 @@ describe('Plan and usage Retry', () => {
     expect(document.activeElement).toBe(retry)
   })
 
+  it('retries only the query that failed, so a healthy sibling cannot settle the strip early', async () => {
+    healthyApi()
+    const refetched = deferred<Usage>()
+    api.getUsage.mockRejectedValueOnce(new Error('usage down')).mockReturnValueOnce(refetched.promise)
+    renderDashboard()
+
+    const retry = within(await screen.findByRole('alert')).getByRole('button', { name: 'Retry' })
+    const subscriptionCalls = api.getSubscriptionStatus.mock.calls.length
+    retry.focus()
+    fireEvent.click(retry)
+    await waitFor(() => expect(api.getUsage).toHaveBeenCalledTimes(2))
+    await settle()
+    expect(api.getSubscriptionStatus).toHaveBeenCalledTimes(subscriptionCalls)
+    expectBusyAndFocused(retry)
+
+    await act(async () => refetched.resolve(usage))
+    await waitFor(() => expect(retry.isConnected).toBe(false))
+    expect(api.getSubscriptionStatus).toHaveBeenCalledTimes(subscriptionCalls)
+    await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('heading', { name: 'Plan and usage' })))
+  })
+
+  it('with both failed, the strip and its Retry stay until both retries settle; one failing again keeps focus there', async () => {
+    healthyApi()
+    const usageRefetched = deferred<Usage>()
+    const subscriptionRefetched = deferred<SubscriptionStatus>()
+    api.getUsage.mockRejectedValueOnce(new Error('usage down')).mockReturnValueOnce(usageRefetched.promise)
+    api.getSubscriptionStatus.mockRejectedValueOnce(new Error('billing down')).mockReturnValueOnce(subscriptionRefetched.promise)
+    renderDashboard()
+
+    const retry = within(await screen.findByRole('alert')).getByRole('button', { name: 'Retry' })
+    retry.focus()
+    fireEvent.click(retry)
+    await waitFor(() => expect(api.getSubscriptionStatus).toHaveBeenCalledTimes(2))
+
+    // Usage recovers first: the subscription retry is still running, so nothing has recovered yet.
+    await act(async () => usageRefetched.resolve(usage))
+    await settle()
+    expectBusyAndFocused(retry)
+    expect(screen.getByText('Unable to load plan details')).toBeInTheDocument()
+
+    await act(async () => subscriptionRefetched.reject(new Error('billing still down')))
+    await waitFor(() => expect(retry).not.toHaveAttribute('aria-busy'))
+    expect(retry.isConnected).toBe(true)
+    expect(document.activeElement).toBe(retry)
+  })
+
   it('a mouse user who moved on keeps their focus when the retry succeeds', async () => {
     healthyApi()
     const refetched = deferred<Usage>()
