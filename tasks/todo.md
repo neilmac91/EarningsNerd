@@ -1,3 +1,12 @@
+## 2026-10-03 — the dashboard feed's Retry keeps keyboard focus (frontend)
+
+- Same bug as the dashboard's other Retry buttons: the errored feed has no data, so its refetch went back to pending and FilingFeed's skeleton branch replaced the error card and its focused Retry.
+- FilingFeed now runs its own query through `useRetainedFailure`. Retry is the DS `<Button loading>`, busy while `fetchStatus !== 'idle'`, so a retry pressed offline waits paused and still busy, and a press during a refetch nobody pressed (a feed that still has data stays on the card) sends nothing. A successful Retry hands focus to the "What's new" heading, only when focus fell to `<body>`; a retry that fails again disarms.
+- Spec: `busyControls.watchlist.spec.tsx` ("FilingFeed Retry", 5 cases). Removing any of 9 guards fails at least one case.
+- Review: three lenses, three skeptics per finding; nothing upheld. Added anyway: a case pinning Retry busy during a refetch nobody pressed (the narrower `busy = failure.retrying` survived the first 4). Refuted 2/3: "a repeat failure is not re-announced". The button's "Retrying…" to "Retry" swap sits inside the card's `role=alert`, which is atomic and assertive in Chromium's tree, so the whole alert is presented again.
+- [ ] Still open in rule (h): EmailVerificationModal, the filing page's Retry / Regenerate, FeedbackRow on a status-filtered list, the dashboard header's Log out, PopularTickerChips' add when its refetch fails, YourCompanies' remove focus when its refetch fails, the company page's filings Retry, EarningsCalendarPage's "Try again", FullTextSearch's Retry, FilingViewer's "Try again" and BillingPanel's Retry.
+- [ ] Retry hardening follow-up (found in this review, in code from #1075/#1078): the dashboard's, YourCompanies' and the pricing page's Retry take busy from `isFetching` (a retry paused offline stays live; a second press resets `useRetainedFailure`'s fetch tracking mid-flight and wedges `retrying`, so the hand-off never disarms; `retry()` should keep `sawFetch` when a fetch is already in flight); the pricing page's hand-off never disarms on a failed retry; an unpressed refetch that swaps a retained error card for its skeleton drops a focused Retry to `<body>`.
+
 ## 2026-10-03 — Your companies Retry and the search's "Try Again" keep keyboard focus (frontend)
 
 - Both had the bug #1075 fixed on the dashboard's own Retry buttons. The query has no data after it errors, so a refetch put it back to pending, and the control unmounted: YourCompanies' skeleton branch replaced its error card, and CompanySearch's alert rendered only while `isError`.
@@ -6,7 +15,7 @@
 - `useRetainedFailure` and CompanySearch's busy state treat `fetchStatus !== 'idle'` as in flight, so a retry paused offline or in a hidden tab keeps its failure and busy button.
 - Review: five lenses, three skeptics per finding. Fixed: the Escape and term-change hand-off, the paused retry, the unannounced same-text failure, an unpinned `<body>` guard, and a remove pin that bypassed the page's wiring (now in `busyControls.dashboard.spec.tsx`).
 - Specs: `busyControls.dashboard.spec.tsx` (Your companies Retry, now rendering the real component, and the remove whose refetch fails, which shows why YourCompanies' remove needs no cache prune) and `CompanySearch.spec.tsx`.
-- [ ] Still open in rule (h): FilingFeed's Retry, EmailVerificationModal, the filing page's Retry / Regenerate, FeedbackRow on a status-filtered list, the dashboard header's Log out, PopularTickerChips' add when the insights refetch after it fails, YourCompanies' remove focus when its refetch fails, the company page's filings Retry, EarningsCalendarPage's "Try again", FullTextSearch's Retry and FilingViewer's "Try again".
+- [ ] Still open in rule (h): ~~FilingFeed's Retry~~ (done, see the section above), EmailVerificationModal, the filing page's Retry / Regenerate, FeedbackRow on a status-filtered list, the dashboard header's Log out, PopularTickerChips' add when the insights refetch after it fails, YourCompanies' remove focus when its refetch fails, the company page's filings Retry, EarningsCalendarPage's "Try again", FullTextSearch's Retry and FilingViewer's "Try again".
 
 ## 2026-10-03 — dashboard Retry, Delete and Manage subscription keep keyboard focus (frontend)
 

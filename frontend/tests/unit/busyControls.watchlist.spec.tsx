@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
-import { QueryClient, QueryClientProvider, useQuery } from '@tanstack/react-query'
+import { QueryClient, QueryClientProvider, onlineManager, useQuery } from '@tanstack/react-query'
 import type { ReactNode } from 'react'
 import type { Company } from '@/features/companies/api/companies-api'
 import type { Filing } from '@/features/filings/api/filings-api'
@@ -480,6 +480,135 @@ describe('FilingFeed onboarding', () => {
       expect(document.activeElement).toBe(elsewhere)
     } finally {
       elsewhere.remove()
+    }
+  })
+})
+
+// The feed's Retry keeps its failure while the retry it started runs: an errored feed has no data, so
+// its refetch goes back to pending and the skeleton used to replace the error card and the focused
+// Retry with it (lessons/frontend-busy-controls-stay-focusable.md, rules (f), (g) and (h)).
+describe('FilingFeed Retry', () => {
+  const renderFeed = () => renderWithClient(<FilingFeed watchlistCount={1} />)
+  const errorRetry = async () => {
+    await screen.findByText("Couldn't load your feed")
+    return screen.getByRole('button', { name: 'Retry' })
+  }
+
+  it('keeps the error card and its focused Retry through the retry, then hands focus to "What\'s new"', async () => {
+    const refetched = deferred<unknown[]>()
+    api.getDashboardFeed.mockRejectedValueOnce(new Error('feed down')).mockReturnValueOnce(refetched.promise)
+    renderFeed()
+
+    const retry = await errorRetry()
+    retry.focus()
+    fireEvent.click(retry)
+    await waitFor(() => expect(api.getDashboardFeed).toHaveBeenCalledTimes(2))
+    await settle()
+    // Still the error card, not the skeleton: Retry is busy, focused, and inert.
+    expect(screen.getByText("Couldn't load your feed")).toBeInTheDocument()
+    expect(screen.queryByRole('status', { name: 'Loading feed' })).not.toBeInTheDocument()
+    expectBusyAndFocused(retry)
+    fireEvent.click(retry)
+    await settle()
+    expect(api.getDashboardFeed).toHaveBeenCalledTimes(2)
+
+    await act(async () => refetched.resolve([]))
+    await waitFor(() => expect(retry.isConnected).toBe(false))
+    expect(screen.getByText('Nothing new yet')).toBeInTheDocument()
+    await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('heading', { name: "What's new" })))
+  })
+
+  it('a retry that fails again leaves the keyboard user on Retry, live, and arms no later hand-off', async () => {
+    api.getDashboardFeed
+      .mockRejectedValueOnce(new Error('feed down'))
+      .mockRejectedValueOnce(new Error('still down'))
+      .mockResolvedValueOnce([])
+    const { client } = renderFeed()
+
+    const retry = await errorRetry()
+    retry.focus()
+    fireEvent.click(retry)
+    await waitFor(() => expect(api.getDashboardFeed).toHaveBeenCalledTimes(2))
+    await waitFor(() => expect(retry).not.toHaveAttribute('aria-busy'))
+    expect(retry.isConnected).toBe(true)
+    expect(retry).not.toHaveAttribute('aria-disabled')
+    expect(document.activeElement).toBe(retry)
+    retry.blur()
+
+    // A recovery nobody pressed moves no focus.
+    await act(async () => { await client.refetchQueries({ queryKey: queryKeys.dashboardFeed() }) })
+    await screen.findByText('Nothing new yet')
+    await settle()
+    expect(document.activeElement).toBe(document.body)
+  })
+
+  it('a mouse user who moved on keeps their focus when the retry succeeds', async () => {
+    const refetched = deferred<unknown[]>()
+    api.getDashboardFeed.mockRejectedValueOnce(new Error('feed down')).mockReturnValueOnce(refetched.promise)
+    renderFeed()
+
+    const retry = await errorRetry()
+    fireEvent.click(retry)
+    const elsewhere = document.createElement('button')
+    document.body.appendChild(elsewhere)
+    try {
+      elsewhere.focus()
+      await act(async () => refetched.resolve([]))
+      await waitFor(() => expect(retry.isConnected).toBe(false))
+      await settle()
+      expect(document.activeElement).toBe(elsewhere)
+    } finally {
+      elsewhere.remove()
+    }
+  })
+
+  it('stays busy and inert through a refetch nobody pressed while the error card shows', async () => {
+    // A feed with data whose refetch fails keeps that data, so a later background refetch leaves the
+    // card on screen with the focused Retry in it: a press then must not send a second request.
+    const background = deferred<unknown[]>()
+    api.getDashboardFeed
+      .mockResolvedValueOnce([])
+      .mockRejectedValueOnce(new Error('feed down'))
+      .mockReturnValueOnce(background.promise)
+    const { client } = renderFeed()
+    await screen.findByText('Nothing new yet')
+    await act(async () => { await client.refetchQueries({ queryKey: queryKeys.dashboardFeed() }) })
+
+    const retry = await errorRetry()
+    retry.focus()
+    act(() => { void client.refetchQueries({ queryKey: queryKeys.dashboardFeed() }) })
+    await waitFor(() => expect(api.getDashboardFeed).toHaveBeenCalledTimes(3))
+    expect(screen.getByText("Couldn't load your feed")).toBeInTheDocument()
+    expectBusyAndFocused(retry)
+    fireEvent.click(retry)
+    await settle()
+    expect(api.getDashboardFeed).toHaveBeenCalledTimes(3)
+
+    await act(async () => background.resolve([]))
+    await screen.findByText('Nothing new yet')
+  })
+
+  it('a retry pressed offline waits paused, busy and focused, and lands when back online', async () => {
+    api.getDashboardFeed.mockRejectedValueOnce(new Error('feed down')).mockResolvedValueOnce([])
+    renderFeed()
+
+    const retry = await errorRetry()
+    retry.focus()
+    try {
+      act(() => onlineManager.setOnline(false))
+      fireEvent.click(retry)
+      await settle()
+      // Paused before it starts: no request yet, and the card and its busy Retry stay.
+      expect(api.getDashboardFeed).toHaveBeenCalledTimes(1)
+      expect(screen.getByText("Couldn't load your feed")).toBeInTheDocument()
+      expectBusyAndFocused(retry)
+
+      act(() => onlineManager.setOnline(true))
+      await waitFor(() => expect(retry.isConnected).toBe(false))
+      expect(api.getDashboardFeed).toHaveBeenCalledTimes(2)
+      await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('heading', { name: "What's new" })))
+    } finally {
+      onlineManager.setOnline(true)
     }
   })
 })

@@ -80,15 +80,22 @@ fails again. Otherwise a later recovery nobody pressed, such as a reconnect refe
 
 (h) The scan cannot see post-success flips, unmounts, or a busy flag under another name. Those stay
 per-site specs plus a real-browser keyboard pass. Known open cases, same class, not yet fixed:
-EmailVerificationModal's Resend (`disabled={resent}` after success, while focused); FilingFeed's Retry;
-the filing page's Retry generation / Retry / Regenerate Analysis; FeedbackRow's status select when
-the list is filtered by status (its own update removes the row); the dashboard header's Log out (no
-in-flight guard); PopularTickerChips' add when the insights refetch after it fails (the chip goes live
-again, and with no row to prune it needs the added ticker remembered); YourCompanies' remove when
-the insights refetch after it fails (the error card replaces the list and focus falls to `<body>`
-with no hand-off); the company page's filings Retry, EarningsCalendarPage's "Try again",
-FullTextSearch's Retry and FilingViewer's "Try again". YourCompanies' Retry and CompanySearch's
-"Try Again" are fixed (`busyControls.dashboard.spec.tsx`, `CompanySearch.spec.tsx`).
+EmailVerificationModal's Resend (`disabled={resent}` after success, while focused); the filing
+page's Retry generation / Retry / Regenerate Analysis; FeedbackRow's status select when the list is
+filtered by status (its own update removes the row); the dashboard header's Log out (no in-flight
+guard); PopularTickerChips' add when the insights refetch after it fails (the chip goes live again,
+and with no row to prune it needs the added ticker remembered); YourCompanies' remove when the
+insights refetch after it fails (the error card replaces the list and focus falls to `<body>` with
+no hand-off); the company page's filings Retry, EarningsCalendarPage's "Try again", FullTextSearch's
+Retry and FilingViewer's "Try again"; BillingPanel's Retry (no retained failure, so its refetch
+swaps the Notice for the skeleton). Gaps in the fixed Retry buttons, found in FilingFeed's review:
+the dashboard's, YourCompanies' and the pricing page's take busy from `isFetching`, so a retry
+paused offline leaves them live, and a second press resets `useRetainedFailure`'s fetch tracking
+mid-flight, which wedges `retrying` so the press's hand-off never disarms; the pricing page's
+hand-off has no disarm at all; and a refetch nobody pressed (a reconnect, an invalidation) that
+swaps a retained error card for its skeleton still drops a focused Retry to `<body>`. YourCompanies'
+Retry, CompanySearch's "Try Again" and FilingFeed's Retry are fixed
+(`busyControls.dashboard.spec.tsx`, `CompanySearch.spec.tsx`, `busyControls.watchlist.spec.tsx`).
 - A Retry that hands focus to a text field arms only on a keyboard press (`e.detail === 0`), since
   focusing the field after a tap raises the touch keyboard. `:focus-visible` cannot stand in, because
   it reflects how the control got focus, not how it was activated: a tap on a keyboard-focused button
@@ -102,7 +109,10 @@ FullTextSearch's Retry and FilingViewer's "Try again". YourCompanies' Retry and 
   early.
 - When a retry fails again with the same message, the alert's text is unchanged, so nothing is
   announced. Keying the message node to `errorUpdateCount` re-inserts it, and the busy button's
-  `loadingText` names the busy state. The dashboard's two Retry buttons, saved-summary Delete and Manage subscription are
+  `loadingText` names the busy state. A card whose busy Retry sits inside its `role=alert` needs no
+  key: the "Retrying…" swap back to "Retry" is a text change inside the region, and Chromium
+  exposes `role=alert` as atomic and assertive, so the whole alert is presented again (FilingFeed
+  review, refuted 2/3 with the accessibility tree). The dashboard's two Retry buttons, saved-summary Delete and Manage subscription are
 fixed (`tests/unit/busyControls.dashboard.spec.tsx`). A Retry whose query has no data must keep its
 failure while the press runs (`hooks/useRetainedFailure.ts`): the refetch puts the query back to
 pending, and a page gated on `isLoading` swaps the focused Retry for a skeleton.
