@@ -439,7 +439,7 @@ describe('Email verification modal: Resend link stays focusable', () => {
     expect(resendVerification).toHaveBeenCalledTimes(1)
   })
 
-  it('announces a failed resend and leaves Resend link live; a repeat failure is announced again', async () => {
+  it('announces a failed resend and leaves Resend link live; the next press keeps the Notice, and a repeat failure is announced again', async () => {
     const first = deferred<unknown>()
     const second = deferred<unknown>()
     vi.mocked(resendVerification).mockReturnValueOnce(first.promise).mockReturnValueOnce(second.promise)
@@ -459,10 +459,14 @@ describe('Email verification modal: Resend link stays focusable', () => {
 
     await user.keyboard('{Enter}')
     expect(resendVerification).toHaveBeenCalledTimes(2)
-    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+    // The last failure stays through the send, so the centred panel keeps its height and a quick
+    // second tap still lands on the busy Resend, not on whatever would move under it.
+    expectBusyAndFocused(resend)
+    expect(screen.getByRole('alert')).toBe(alert)
     second.reject(new ApiError(503, 'Service temporarily unavailable. Please try again in a moment.'))
     // Re-inserted, not reused: a role="alert" whose text does not change is not announced again.
-    expect(await screen.findByRole('alert')).not.toBe(alert)
+    await waitFor(() => expect(screen.getByRole('alert')).not.toBe(alert))
+    expect(alert).not.toBeInTheDocument()
     expect(resend).toHaveFocus()
   })
 
@@ -478,7 +482,7 @@ describe('Email verification modal: Resend link stays focusable', () => {
     await user.keyboard('{Enter}')
 
     expect(await screen.findByRole('alert')).toHaveTextContent(
-      "We've sent several links recently. Use the newest one, or try again later.",
+      "We can't send another link right now. Use the newest link in your inbox, or try again later.",
     )
     expect(resend).toHaveAccessibleName('Resend link')
     expectInertButFocused(resend)
@@ -553,7 +557,10 @@ describe('Email verification modal: Resend link stays focusable', () => {
     const resend = screen.getByRole('button', { name: 'Resend link' })
     resend.focus()
     await user.keyboard('{Enter}')
+    // Nothing started: no request, no busy state, no failure.
     expect(resendVerification).not.toHaveBeenCalled()
+    expect(resend).not.toHaveAttribute('aria-busy')
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
     expect(resend).toHaveFocus()
   })
 })

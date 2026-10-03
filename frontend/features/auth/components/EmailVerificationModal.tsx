@@ -23,13 +23,18 @@ import { queryKeys } from '@/lib/queryKeys'
     result of its own press, so it stays focusable: aria-disabled plus handleResend's early return,
     never native `disabled`. Chromium blurs a focused control that turns disabled, which dropped
     keyboard focus to <body> inside the open dialog. lessons/frontend-busy-controls-stay-focusable.md (e) */
-type ResendState =
-  | { phase: 'idle' | 'sending' | 'sent' }
-  | { phase: 'failed' | 'limited'; message: string }
+type ResendState = {
+  phase: 'idle' | 'sending' | 'sent' | 'failed' | 'limited'
+  /** The last failure, kept through the next send so the panel does not shrink under the pointer: the
+      centred dialog would move "I've verified" (or the scrim) under a quick second tap on Resend. `n`
+      keys its Notice, so each new failure re-mounts its role="alert" and is announced again. */
+  failure: { message: string; n: number } | null
+}
 
-const IDLE: ResendState = { phase: 'idle' }
+const IDLE: ResendState = { phase: 'idle', failure: null }
 const RESEND_FAILED = 'Please try again in a moment.'
-const RESEND_LIMITED = "We've sent several links recently. Use the newest one, or try again later."
+// A 429 may come from the per-address cap or the shared per-IP one, so the copy fits both.
+const RESEND_LIMITED = "We can't send another link right now. Use the newest link in your inbox, or try again later."
 
 /**
  * Global, graceful intercept of the backend's "verify your email" 403. The axios
@@ -79,21 +84,19 @@ export default function EmailVerificationModal() {
 
   const handleResend = async () => {
     if (!user?.email || sending || unavailable) return
-    // Leaving `failed` unmounts the error Notice, so the next failure re-inserts its role="alert"
-    // and is announced again even when the message is unchanged.
-    setResend({ phase: 'sending' })
+    setResend((r) => ({ phase: 'sending', failure: r.failure }))
     try {
       await resendVerification(user.email)
-      setResend({ phase: 'sent' })
+      setResend({ phase: 'sent', failure: null })
     } catch (err) {
       // A 429 is the server's cap (3/hr per address, 20/hr per IP). The route charges the per-IP
       // bucket before the per-address check rejects, so a live button would let each further press
       // spend the shared IP allowance for nothing: Resend turns unavailable for this prompt.
-      setResend(
-        getErrorStatus(err) === 429
-          ? { phase: 'limited', message: RESEND_LIMITED }
-          : { phase: 'failed', message: RESEND_FAILED },
-      )
+      const limited = getErrorStatus(err) === 429
+      setResend((r) => ({
+        phase: limited ? 'limited' : 'failed',
+        failure: { message: limited ? RESEND_LIMITED : RESEND_FAILED, n: (r.failure?.n ?? 0) + 1 },
+      }))
     }
   }
 
@@ -122,15 +125,21 @@ export default function EmailVerificationModal() {
         <div role="status">
           {resend.phase === 'sent' ? (
             <p className="mt-3 flex items-start gap-2 text-sm leading-relaxed text-text-secondary-light dark:text-text-secondary-dark">
-              <CheckCircleIcon className="mt-0.5 h-4 w-4 flex-shrink-0 text-success-light dark:text-success-dark" />
+              <CheckCircleIcon aria-hidden="true" className="mt-0.5 h-4 w-4 flex-shrink-0 text-success-light dark:text-success-dark" />
               <span>
                 New link sent. Only the newest link works. Not there in a minute or two? Check your spam folder.
               </span>
             </p>
           ) : null}
         </div>
-        {resend.phase === 'failed' || resend.phase === 'limited' ? (
-          <Notice variant="error" title="Couldn't send a new link" description={resend.message} className="mt-4" />
+        {resend.failure ? (
+          <Notice
+            key={resend.failure.n}
+            variant="error"
+            title="Couldn't send a new link"
+            description={resend.failure.message}
+            className="mt-4"
+          />
         ) : null}
       </ModalBody>
       <ModalFooter>

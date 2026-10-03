@@ -43,10 +43,12 @@ function fixture(pathname: string): unknown {
 type Resend = { status: number; body: unknown }
 const SENT: Resend = { status: 200, body: { message: 'If that email has an unverified account, a new verification link is on its way.' } }
 const LIMITED: Resend = { status: 429, body: { detail: 'Too many resend requests. Please wait before trying again.' } }
+const DOWN: Resend = { status: 503, body: { detail: 'Service temporarily unavailable. Please try again in a moment.' } }
 /** Resend under each of its names: idle, busy, sent. */
 const RESEND = /^(Resend link|Sending…|Link sent)$/
 
-async function openPrompt(page: Page, baseURL: string, theme: 'light' | 'dark', resend: Resend) {
+/** `resend` answers every send, or each send in turn (the last one repeats). */
+async function openPrompt(page: Page, baseURL: string, theme: 'light' | 'dark', resend: Resend | Resend[]) {
   const origin = new URL(baseURL).origin
   const requests = { resend: 0 }
   await page.context().addCookies([{ name: 'en_session', value: '1', url: origin }])
@@ -59,10 +61,12 @@ async function openPrompt(page: Page, baseURL: string, theme: 'light' | 'dark', 
   await page.route((url) => url.origin === API_ORIGIN, async (route) => {
     const { pathname } = new URL(route.request().url())
     if (pathname === '/api/auth/resend-verification') {
+      const answers = Array.isArray(resend) ? resend : [resend]
+      const answer = answers[Math.min(requests.resend, answers.length - 1)]
       requests.resend += 1
       // Slow enough that the busy state is on screen while the second Enter lands.
       await new Promise((resolve) => setTimeout(resolve, 400))
-      return route.fulfill({ status: resend.status, headers: cors, json: resend.body })
+      return route.fulfill({ status: answer.status, headers: cors, json: answer.body })
     }
     const body = fixture(pathname)
     return body === undefined
@@ -75,6 +79,16 @@ async function openPrompt(page: Page, baseURL: string, theme: 'light' | 'dark', 
   const dialog = page.getByRole('dialog', { name: 'Verify your email to continue' })
   await expect(dialog.getByText(EMAIL)).toBeVisible()
   return { dialog, requests }
+}
+
+/** Whether `act` makes the page send another resend within a bounded wait. Reading a counter right
+    after a key press could run before a dropped guard's request leaves the page. */
+async function sendsAnother(page: Page, act: () => Promise<void>) {
+  const another = page
+    .waitForRequest((req) => req.url().includes('/api/auth/resend-verification'), { timeout: 700 })
+    .then(() => true, () => false)
+  await act()
+  return another
 }
 
 /** The focused element after the next rendering update, when Chromium has applied any blur. */
@@ -100,7 +114,7 @@ for (const theme of ['light', 'dark'] as const) {
     await resend.focus()
     await page.keyboard.press('Enter')
     await expect(resend).toHaveAttribute('aria-busy', 'true')
-    await page.keyboard.press('Enter')
+    expect(await sendsAnother(page, () => page.keyboard.press('Enter'))).toBe(false)
 
     await expect(resend).toHaveAccessibleName('Link sent')
     await expect(resend).toHaveAttribute('aria-disabled', 'true')
@@ -120,7 +134,7 @@ for (const theme of ['light', 'dark'] as const) {
     expect(look.shadow).toContain(theme === 'dark' ? 'rgba(127, 178, 149, 0.55)' : 'rgba(79, 122, 99, 0.5)')
     if (theme === 'dark') expect(look.border).toBe('rgba(127, 178, 149, 0.14)')
 
-    await page.keyboard.press('Enter')
+    expect(await sendsAnother(page, () => page.keyboard.press('Enter'))).toBe(false)
     expect(requests.resend).toBe(1)
     await page.keyboard.press('Tab')
     expect(await settledFocus(page)).toEqual({ tag: 'BUTTON', name: "I've verified" })
@@ -132,10 +146,26 @@ for (const theme of ['light', 'dark'] as const) {
     await resend.focus()
     await page.keyboard.press('Enter')
 
-    await expect(dialog.getByRole('alert')).toContainText("We've sent several links recently.")
+    await expect(dialog.getByRole('alert')).toContainText("We can't send another link right now.")
     await expect(resend).toHaveAttribute('aria-disabled', 'true')
     expect(await settledFocus(page)).toEqual({ tag: 'BUTTON', name: 'Resend link' })
-    await page.keyboard.press('Enter')
+    expect(await sendsAnother(page, () => page.keyboard.press('Enter'))).toBe(false)
     expect(requests.resend).toBe(1)
   })
 }
+
+// On a phone the footer stacks Resend above "I've verified" in a vertically centred panel. A press
+// after a failure must not shrink the panel, or a quick second tap lands on "I've verified" (or the
+// scrim) and closes the dialog while the send is in flight.
+test('a quick second tap on Resend after a failure stays on Resend at phone width', async ({ page, baseURL }) => {
+  await page.setViewportSize({ width: 390, height: 844 })
+  const { dialog, requests } = await openPrompt(page, baseURL!, 'light', [DOWN, SENT])
+  const resend = dialog.getByRole('button', { name: RESEND })
+  await resend.click()
+  await expect(dialog.getByRole('alert')).toContainText("Couldn't send a new link")
+
+  await resend.dblclick()
+  await expect(resend).toHaveAccessibleName('Link sent')
+  await expect(dialog).toBeVisible()
+  expect(requests.resend).toBe(2)
+})
