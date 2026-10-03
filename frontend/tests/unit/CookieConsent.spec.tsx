@@ -83,6 +83,12 @@ describe('CookieConsent settings dialog', () => {
     expect(consentEvents).toHaveLength(0)
     expect(onPreferencesChanged).not.toHaveBeenCalled()
     expect(document.body.style.overflow).toBe('')
+
+    // The dismissed edit does not come back on the next open, and a Save there stores the saved choices.
+    await user.click(customize)
+    expect(screen.getByRole('checkbox', { name: 'Analytics Cookies' })).not.toBeChecked()
+    await user.click(screen.getByRole('button', { name: 'Save Preferences' }))
+    expect(stored()).toMatchObject({ essential: true, analytics: false, sessionRecording: false })
   })
 
   it('the banner handlers are unchanged: Accept All opts into analytics only, Reject All into neither', async () => {
