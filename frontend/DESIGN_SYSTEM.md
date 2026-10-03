@@ -96,7 +96,9 @@ skeleton via the shared shimmer keyframe, error).
 A control that is busy, or unavailable as a result of its own activation, never takes native
 `disabled`: Chromium blurs a focused control that turns disabled, so keyboard focus falls to
 `<body>`. Busy is `<Button loading>`. Unavailable is `aria-disabled` plus an early return in the
-handler, styled with `primaryUnavailableClass` (primary Button) or `fieldUnavailableClass` (field).
+handler, styled with `primaryUnavailableClass` (primary Button), `secondaryUnavailableClass` (secondary
+Button; it fades the label and hairline, not the element, so the focus ring keeps its strength) or
+`fieldUnavailableClass` (field).
 Text fields use `readOnly` while their own form submits. Gate: `tests/unit/busyControlsStayFocusable.spec.ts`;
 rules in `lessons/frontend-busy-controls-stay-focusable.md`.
 
@@ -105,9 +107,10 @@ Primary button   <Button>  ·  LIGHT: white label on bg-brand, hover bg-brand-st
                  DARK: NAVY-INK label on bg-brand-dark (text-background-dark), hover bg-brand-strong-dark,
                  active bg-brand-fill-dark.  White-on-fill-dark is 3.7:1 — never revert to it.
 
-Secondary button <Button variant="secondary">  — panel fill + hairline + soft lift; BRIGHTENS on hover
-                 bg-panel-light border border-border-light shadow-e1 hover:bg-brand-weak hover:shadow-e2
-                 dark:bg-panel-dark dark:border-white/10 dark:shadow-none dark:hover:bg-white/5
+Secondary button <Button variant="secondary">  — brand hairline on transparent; tints on hover
+                 border border-brand-border bg-transparent text-brand-strong hover:bg-brand-weak
+                 active:bg-brand-border/60  dark:border-brand-border-dark dark:text-brand-strong-dark
+                 dark:hover:bg-brand-weak-dark dark:active:bg-brand-border-dark
                  (never hover:opacity — it darkens)
 
 Ghost button     <Button variant="ghost">  — brand.strong text on transparent, tint hover

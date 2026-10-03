@@ -13,7 +13,7 @@ const { usePathname, useSearchParams } = vi.hoisted(() => ({
   usePathname: vi.fn<() => string>(),
   useSearchParams: vi.fn<() => URLSearchParams>(),
 }))
-vi.mock('next/navigation', () => ({ usePathname, useSearchParams }))
+vi.mock('next/navigation', () => ({ usePathname, useSearchParams, useRouter: () => ({ refresh: vi.fn() }) }))
 
 vi.mock('@/features/admin/api/admin-api', () => ({
   listInvites: vi.fn(),
@@ -36,6 +36,7 @@ import AdminInvitesPage from '@/app/admin/invites/page'
 import CheckEmailPage from '@/app/check-email/page'
 import FeedbackRow from '@/features/admin/components/FeedbackRow'
 import VerificationBanner from '@/features/auth/components/VerificationBanner'
+import EmailVerificationModal from '@/features/auth/components/EmailVerificationModal'
 import {
   createInvite,
   listInvites,
@@ -47,6 +48,7 @@ import {
 import { getCurrentUserSafe, resendVerification } from '@/features/auth/api/auth-api'
 import { toast } from 'sonner'
 import { queryKeys } from '@/lib/queryKeys'
+import { ApiError, EMAIL_VERIFICATION_REQUIRED_EVENT } from '@/lib/api/client'
 
 function deferred<T>() {
   let resolve!: (value: T) => void
@@ -370,5 +372,188 @@ describe('Verification banner: Resend link stays focusable', () => {
     sent.resolve({})
     await screen.findByText('Verification email sent. Check your inbox.')
     expect(dismiss).toHaveFocus()
+  })
+})
+
+describe('Email verification modal: Resend link stays focusable', () => {
+  beforeEach(() => {
+    vi.mocked(resendVerification).mockReset()
+    vi.mocked(getCurrentUserSafe).mockResolvedValue({
+      id: 7,
+      email: 'unverified@example.com',
+      full_name: null,
+      is_pro: false,
+      is_beta: false,
+      is_admin: false,
+      email_verified: false,
+    })
+  })
+
+  const prompt = () => act(() => { window.dispatchEvent(new Event(EMAIL_VERIFICATION_REQUIRED_EVENT)) })
+
+  async function openPrompt() {
+    prompt()
+    // The address comes from the current-user query; wait for it so Resend has an email to send to.
+    await screen.findByText('unverified@example.com')
+    return screen.getByRole('button', { name: 'Resend link' })
+  }
+
+  it('keeps Resend link focused but inert while its request is in flight', async () => {
+    const sent = deferred<unknown>()
+    vi.mocked(resendVerification).mockReturnValue(sent.promise)
+    const user = userEvent.setup()
+    withQueryClient(<EmailVerificationModal />)
+    const resend = await openPrompt()
+
+    resend.focus()
+    await user.keyboard('{Enter}')
+
+    expectBusyAndFocused(resend)
+    await user.keyboard('{Enter}')
+    expect(resendVerification).toHaveBeenCalledTimes(1)
+    sent.resolve({})
+    await screen.findByRole('button', { name: 'Link sent' })
+  })
+
+  it('keeps Link sent focused but unavailable after its own success, and announces the send', async () => {
+    const sent = deferred<unknown>()
+    vi.mocked(resendVerification).mockReturnValue(sent.promise)
+    const user = userEvent.setup()
+    withQueryClient(<EmailVerificationModal />)
+    const resend = await openPrompt()
+    // The live region is mounted and empty before the send, so the sent line is announced.
+    const status = screen.getByRole('status')
+    expect(status).toBeEmptyDOMElement()
+
+    resend.focus()
+    await user.keyboard('{Enter}')
+    sent.resolve({})
+
+    await waitFor(() => expect(resend).toHaveAccessibleName('Link sent'))
+    expect(resend).not.toHaveAttribute('aria-busy')
+    expectInertButFocused(resend)
+    expect(screen.getByRole('status')).toBe(status)
+    expect(status).toHaveTextContent('New link sent. Only the newest link works.')
+    await user.keyboard('{Enter}')
+    await user.click(resend)
+    expect(resendVerification).toHaveBeenCalledTimes(1)
+  })
+
+  it('announces a failed resend and leaves Resend link live; a repeat failure is announced again', async () => {
+    const first = deferred<unknown>()
+    const second = deferred<unknown>()
+    vi.mocked(resendVerification).mockReturnValueOnce(first.promise).mockReturnValueOnce(second.promise)
+    const user = userEvent.setup()
+    withQueryClient(<EmailVerificationModal />)
+    const resend = await openPrompt()
+
+    resend.focus()
+    await user.keyboard('{Enter}')
+    first.reject(new ApiError(503, 'Service temporarily unavailable. Please try again in a moment.'))
+
+    const alert = await screen.findByRole('alert')
+    expect(alert).toHaveTextContent("Couldn't send a new link")
+    expect(alert).toHaveTextContent('Please try again in a moment.')
+    expect(resend).not.toHaveAttribute('aria-disabled')
+    expect(resend).toHaveFocus()
+
+    await user.keyboard('{Enter}')
+    expect(resendVerification).toHaveBeenCalledTimes(2)
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+    second.reject(new ApiError(503, 'Service temporarily unavailable. Please try again in a moment.'))
+    // Re-inserted, not reused: a role="alert" whose text does not change is not announced again.
+    expect(await screen.findByRole('alert')).not.toBe(alert)
+    expect(resend).toHaveFocus()
+  })
+
+  it('keeps Resend link focused but unavailable after a 429, and says what to do', async () => {
+    vi.mocked(resendVerification).mockRejectedValue(
+      new ApiError(429, 'Too many resend requests. Please wait before trying again.'),
+    )
+    const user = userEvent.setup()
+    withQueryClient(<EmailVerificationModal />)
+    const resend = await openPrompt()
+
+    resend.focus()
+    await user.keyboard('{Enter}')
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      "We've sent several links recently. Use the newest one, or try again later.",
+    )
+    expect(resend).toHaveAccessibleName('Resend link')
+    expectInertButFocused(resend)
+    await user.keyboard('{Enter}')
+    expect(resendVerification).toHaveBeenCalledTimes(1)
+  })
+
+  it('re-arms Resend only for a new prompt: never under a send in flight, never while the dialog stays open', async () => {
+    const sent = deferred<unknown>()
+    vi.mocked(resendVerification).mockReturnValueOnce(sent.promise).mockResolvedValueOnce({})
+    const user = userEvent.setup()
+    withQueryClient(<EmailVerificationModal />)
+    let resend = await openPrompt()
+
+    resend.focus()
+    await user.keyboard('{Enter}')
+    // A second gated 403 while the first send is in flight: still busy, so a press sends nothing.
+    prompt()
+    expect(resend).toHaveAttribute('aria-busy', 'true')
+    await user.keyboard('{Enter}')
+    expect(resendVerification).toHaveBeenCalledTimes(1)
+    sent.resolve({})
+    await screen.findByRole('button', { name: 'Link sent' })
+
+    // Another while the dialog is still open is the same prompt: the fresh link is not replaced.
+    prompt()
+    expect(resend).toHaveAccessibleName('Link sent')
+    expectInertButFocused(resend)
+    await user.keyboard('{Enter}')
+    expect(resendVerification).toHaveBeenCalledTimes(1)
+
+    await user.keyboard('{Escape}')
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+    resend = await openPrompt()
+    expect(resend).not.toHaveAttribute('aria-disabled')
+    expect(screen.getByRole('status')).toBeEmptyDOMElement()
+    resend.focus()
+    await user.keyboard('{Enter}')
+    expect(resendVerification).toHaveBeenCalledTimes(2)
+    await screen.findByRole('button', { name: 'Link sent' })
+  })
+
+  it('a prompt reopened while the last send is still in flight keeps Resend busy, so it cannot send twice', async () => {
+    const sent = deferred<unknown>()
+    vi.mocked(resendVerification).mockReturnValue(sent.promise)
+    const user = userEvent.setup()
+    withQueryClient(<EmailVerificationModal />)
+    const first = await openPrompt()
+
+    first.focus()
+    await user.keyboard('{Enter}')
+    await user.keyboard('{Escape}')
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+
+    prompt()
+    const resend = await screen.findByRole('button', { name: /Sending/ })
+    resend.focus()
+    expectBusyAndFocused(resend)
+    await user.keyboard('{Enter}')
+    expect(resendVerification).toHaveBeenCalledTimes(1)
+    sent.resolve({})
+    await screen.findByRole('button', { name: 'Link sent' })
+  })
+
+  it('reads sensibly before the address loads, and Resend sends nothing without one', async () => {
+    vi.mocked(getCurrentUserSafe).mockResolvedValue(null)
+    const user = userEvent.setup()
+    withQueryClient(<EmailVerificationModal />)
+    prompt()
+
+    expect(await screen.findByText('your email address')).toBeInTheDocument()
+    const resend = screen.getByRole('button', { name: 'Resend link' })
+    resend.focus()
+    await user.keyboard('{Enter}')
+    expect(resendVerification).not.toHaveBeenCalled()
+    expect(resend).toHaveFocus()
   })
 })
