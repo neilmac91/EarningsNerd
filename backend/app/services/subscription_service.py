@@ -300,7 +300,8 @@ def get_user_qa_count(user_id: int, month: str, db: Session) -> int:
 
 
 def increment_user_qa(user_id: int, month: str, db: Session) -> None:
-    """Increment the monthly Copilot counter at the existing completion call site."""
+    """Increment the monthly Copilot counter; the ask-stream route calls it as the provider request
+    is issued (the lease converted in the same commit), not on completion."""
     _increment_monthly_counter(user_id, month, db, UserUsage.qa_count)
 
 
@@ -308,7 +309,8 @@ def increment_user_copilot_free_taste(user_id: int, db: Session) -> None:
     """Increment a Free user's *lifetime* Copilot free-taste counter (roadmap 2.2).
 
     Lifetime (lives on ``users``), so it's keyed only by user — unlike the monthly ``qa_count`` on
-    ``user_usage``. Metered after a successful answer; Pro users never reach this path.
+    ``user_usage``. Metered as the provider request is issued (a provider-side failure refunds it);
+    Pro users never reach this path.
 
     Atomic DB-level increment (not read-modify-write) so concurrent questions — a double-click or
     parallel requests — cannot lose a completed-answer increment. Admission is serialized

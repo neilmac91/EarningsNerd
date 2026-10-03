@@ -43,6 +43,7 @@ from app.services.subscription_service import (
     reserve_qa_use,
 )
 from app.services.copilot_service import PROVIDER_STARTED_STAGE, answer_filing_question, snapshot_filing
+from app.services.ai.provider_requests import provider_start_signal
 from app.services.summary_generation_service import (
     mark_stale_progress_as_error,
     progress_as_dict,
@@ -500,53 +501,80 @@ async def ask_filing_stream(
     held = {"token": token}  # the admission lease, until converted by metering or released
 
     async def event_stream():
-        # Metering point: the unit is counted when the provider stream has started — the
-        # ``progress`` event with stage ``PROVIDER_STARTED_STAGE`` that ``answer_filing_question``
-        # emits on the provider's first chunk (a terminal event counts too, for a stream that
-        # completes without one) — not the ``reading`` progress that precedes the model call, and
-        # not completion. The provider bill accrues from there, so a client disconnect after that
-        # point keeps the unit (the cancellation path never refunds); a disconnect or failure before
-        # it leaves the lease held, and ``finally`` releases it. A provider-side failure after the
-        # start (an ``error`` event, or the generator raising) refunds it: the client cannot induce
-        # either, and no answer prose was delivered.
-        metered = False  # metering attempted (once, at provider start)
+        # Metering point: the unit is counted when the provider request is ISSUED. The request
+        # dispatcher fires the provider-start signal immediately before the first provider call,
+        # and that signal starts the metering write right here, in this task, before the prose
+        # holdback or a tool round can delay the first chunk. The ``progress`` event with stage
+        # ``PROVIDER_STARTED_STAGE`` (or a terminal event) starts it too, for a stand-in service
+        # that never signals. Neither the ``reading`` progress that precedes the model call nor
+        # completion meters. The provider bill accrues from the request, so a client disconnect
+        # after that point keeps the unit (the cancellation path never refunds; ``finally`` settles
+        # the write the signal started); a disconnect or failure before it leaves the lease held,
+        # and ``finally`` releases it. A provider-side failure after the start (an ``error`` event,
+        # or the generator raising) refunds it: the client cannot induce either, and no answer prose
+        # was delivered.
+        charge: dict[str, Optional[asyncio.Future]] = {"future": None}  # the in-flight metering write
+        metered = False  # the metering write's outcome has been adopted (once)
         charged: Optional[str] = None  # scope the unit was counted in, until settled by `complete` or refunded
-        try:
-            async for event in answer_filing_question(
-                filing=filing_ctx,
-                question=body.question,
-                history=body.history,
-            ):
-                kind = event.get("type")
-                provider_started = (
-                    (kind == "progress" and event.get("stage") == PROVIDER_STARTED_STAGE)
-                    or kind in ("complete", "not_disclosed")
+
+        def begin_charge() -> None:
+            """Start the metering write (at most once). Offloaded to a worker thread (fresh
+            SessionLocal) so it never blocks the event loop mid-stream; it cannot be cancelled, so
+            it is kept as a future that ``settle_charge`` adopts whatever happens to this task."""
+            if charge["future"] is None and held["token"] is not None:
+                charge["future"] = asyncio.ensure_future(
+                    run_in_threadpool(_meter_qa_best_effort, user_id, is_free_taste, held["token"])
                 )
-                if not metered and provider_started:
-                    metered = True
-                    # Offload the synchronous DB write to a worker thread so it never blocks the
-                    # event loop mid-stream (it opens its own fresh SessionLocal, so it's
-                    # thread-safe). Free users decrement the lifetime free-taste counter; Pro the
-                    # monthly fair-use count; either converts the lease in the same commit. A
-                    # metering failure leaves the lease held, and the `finally` releases it.
-                    charged = await run_in_threadpool(_meter_qa_best_effort, user_id, is_free_taste, held["token"])
-                    if charged is not None:
-                        held["token"] = None
-                if kind == "complete":
-                    charged = None  # settled: the answer was served
-                    # Per-answer inference-cost telemetry (roadmap 2.1) — token usage rides the
-                    # complete event; cost is estimated here. Non-blocking + best-effort.
-                    _emit_copilot_cost_best_effort(
-                        user_id,
-                        filing_id,
-                        getattr(getattr(filing_ctx, "company", None), "ticker", None),
-                        event,
-                        is_free_taste,
+
+        async def settle_charge(*, in_finally: bool) -> None:
+            """Adopt what the metering write committed: the scope it counted in (the lease is then
+            converted) or None (a metering failure leaves the lease held for release)."""
+            nonlocal metered, charged
+            future = charge["future"]
+            if future is None or metered:
+                return
+            if in_finally:
+                if not future.done():
+                    await asyncio.wait({future})
+            else:
+                await asyncio.shield(future)  # a cancellation here abandons the await, not the write
+            if future.cancelled() or future.exception() is not None:
+                return
+            metered = True
+            charged = future.result()
+            if charged is not None:
+                held["token"] = None
+
+        try:
+            with provider_start_signal(begin_charge):  # armed in this task: the service runs here
+                async for event in answer_filing_question(
+                    filing=filing_ctx,
+                    question=body.question,
+                    history=body.history,
+                ):
+                    kind = event.get("type")
+                    provider_started = (
+                        (kind == "progress" and event.get("stage") == PROVIDER_STARTED_STAGE)
+                        or kind in ("complete", "not_disclosed")
                     )
-                elif kind == "error" and charged is not None:
-                    await run_in_threadpool(_refund_qa_best_effort, user_id, is_free_taste, charged)
-                    charged = None
-                yield to_sse(event)
+                    if not metered and (provider_started or charge["future"] is not None):
+                        begin_charge()
+                        await settle_charge(in_finally=False)
+                    if kind == "complete":
+                        charged = None  # settled: the answer was served
+                        # Per-answer inference-cost telemetry (roadmap 2.1) — token usage rides the
+                        # complete event; cost is estimated here. Non-blocking + best-effort.
+                        _emit_copilot_cost_best_effort(
+                            user_id,
+                            filing_id,
+                            getattr(getattr(filing_ctx, "company", None), "ticker", None),
+                            event,
+                            is_free_taste,
+                        )
+                    elif kind == "error" and charged is not None:
+                        await run_in_threadpool(_refund_qa_best_effort, user_id, is_free_taste, charged)
+                        charged = None
+                    yield to_sse(event)
         except Exception:
             # A raised failure after the provider started (CancelledError is a BaseException and
             # skips this handler, so a client disconnect never reaches the refund).
@@ -554,13 +582,15 @@ async def ask_filing_stream(
                 await run_in_threadpool(_refund_qa_best_effort, user_id, is_free_taste, charged)
             raise
         finally:
-            # A lease still held here was never converted (error before the provider started,
-            # metering failure, disconnect before the first event): give the unit back now rather
-            # than after the lease TTL. On a client disconnect Starlette cancels this task
-            # (ASGI < 2.4, which uvicorn speaks), and an unshielded await here would be cancelled
-            # before the release ran.
-            if held["token"] is not None:
-                with anyio.CancelScope(shield=True):
+            # On a client disconnect Starlette cancels this task (ASGI < 2.4, which uvicorn speaks),
+            # so everything here runs shielded. First adopt a metering write the signal started
+            # that the loop never reached (the request was issued: the unit is owed, no lease is
+            # left to release). A lease still held after that was never converted (error before the
+            # provider started, metering failure, disconnect before the request): give the unit back
+            # now rather than after the lease TTL.
+            with anyio.CancelScope(shield=True):
+                await settle_charge(in_finally=True)
+                if held["token"] is not None:
                     await run_in_threadpool(_release_reservation_best_effort, held["token"])
 
     return StreamingResponse(

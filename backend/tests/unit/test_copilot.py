@@ -2245,3 +2245,75 @@ def test_analysis_metering_converts_the_lease_in_the_counter_commit(client, monk
         with SessionLocal() as db:
             assert db.query(UsageReservation).filter_by(user_id=uid).count() == 0
             assert get_user_analysis_count(uid, get_current_month(), db) == 1
+
+
+@pytest.mark.requires_db
+@pytest.mark.asyncio
+async def test_endpoint_client_disconnect_at_the_provider_request_keeps_the_counted_unit(client, monkeypatch):
+    """The chat layer holds prose back (240 chars) and tool-round output until the round closes, so
+    a provider request can be in flight before any chunk reaches the route. The request dispatcher's
+    provider-start signal starts the metering write at the request itself; a client that leaves at
+    that instant has consumed the unit, and ``finally`` settles the write instead of releasing
+    the lease for a request that was already issued."""
+    from app.services.ai.provider_requests import signal_provider_start
+
+    requested, closed = asyncio.Event(), asyncio.Event()
+
+    async def _request_then_hold(*_args, **_kwargs):
+        try:
+            signal_provider_start()  # the request leaves ...
+            requested.set()          # ... and the client leaves before any chunk is yielded
+            await asyncio.sleep(30)
+            yield "never reached"
+        finally:
+            closed.set()
+
+    monkeypatch.setattr(copilot_service.openai_service, "stream_chat_with_tools", _request_then_hold)
+    with _as_user(is_pro=False, free_taste_used=2) as uid, _seed_filing() as fid:
+        sent = await asyncio.wait_for(
+            _asgi_post(f"/api/summaries/filing/{fid}/ask-stream", {"question": "Q?"}, disconnect_after=requested),
+            timeout=10,
+        )
+        assert sent[0]["status"] == 200
+        assert closed.is_set()
+        assert all(event["type"] == "progress" for event in _wire_events(sent))  # nothing but `reading`
+        assert _qa_state(uid) == ([], 0, 3)  # the request was issued: counted, no lease left
+
+
+@pytest.mark.asyncio
+async def test_chat_layer_fires_the_provider_start_signal_before_the_first_request(monkeypatch):
+    """`stream_chat_with_tools` fires the one-shot provider-start signal immediately before its
+    first provider request, once per armed context, so a caller metering on the signal counts the
+    unit at the request and not after the prose holdback or a tool round."""
+    from types import SimpleNamespace as NS
+
+    from app.services.ai.provider_requests import provider_start_signal
+    from app.services.openai_service import openai_service as svc
+
+    def _chunk(content=None, tool_call=None):
+        delta = NS(content=content, tool_calls=[tool_call] if tool_call else None)
+        return NS(choices=[NS(delta=delta)])
+
+    async def _round(chunks):
+        for c in chunks:
+            yield c
+
+    rounds = iter([
+        _round([_chunk(tool_call=NS(index=0, id="c1", function=NS(name="get_financial_fact", arguments='{"concept":"revenue"}')))]),
+        _round([_chunk(content="Revenue was $10B [F1].")]),
+    ])
+    order: list[str] = []
+
+    async def _fake_create(**_kwargs):
+        order.append("request")
+        return next(rounds)
+
+    monkeypatch.setattr(svc, "client", NS(chat=NS(completions=NS(create=_fake_create))))
+    with provider_start_signal(lambda: order.append("signal")):
+        async for _delta in svc.stream_chat_with_tools(
+            [{"role": "user", "content": "q"}],
+            [{"type": "function", "function": {"name": "get_financial_fact"}}],
+            lambda name, args: {"value": 1, "cite": "F1"},
+        ):
+            pass
+    assert order == ["signal", "request", "request"]  # once, before the first request; not again on the tool round

@@ -322,9 +322,9 @@ The significant, hard-to-reverse decisions — and their trade-offs — are ADRs
 and staying on React 18 under Next 16.
 
 Monthly usage counter writes preserve existing first-row history. A metered summary or Copilot
-generation is counted as its provider call starts (summaries: on the request dispatcher's
-provider-start signal, the admission lease converted in the increment's commit; Copilot: on the
-provider's first chunk); a provider-side failure or a partial-quality verdict refunds the unit through
+generation is counted as its provider call starts (summaries and Copilot alike: on the request
+dispatcher's provider-start signal, fired at the request site, the admission lease converted in
+the increment's commit); a provider-side failure or a partial-quality verdict refunds the unit through
 the same SQL-arithmetic protocol (floor 0), and a client disconnect after the provider started
 does not. Existing buckets skip the parent User lock; first-month creation can contend with
 Stripe account work, subject to `USAGE_COUNTER_LOCK_TIMEOUT_MS`. SQL increments prevent
