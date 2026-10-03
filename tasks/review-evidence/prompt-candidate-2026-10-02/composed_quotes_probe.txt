@@ -307,5 +307,21 @@ case 38 [escape, disclosed] BABA native-revenue-2026
   reading: flagged composed "Revenue\\", unflagged verified "further increased by 3% to RMB1,023,670 million (US$148,401 million) in fiscal year 2026"
   outcome: FALSE FAILURE
 
-38 cases: F-withheld leg 2, FALSE FAILURE 3, agree 33; untagged FALSE FAILURE 0
+case 39 [code span, disclosed] ASML us-gaap-sales-net-income-2025
+  answer:  "The table reads \"Net income `7,571.6`\" [F1]."
+  F:       [] (publishes)
+  audit:   ["Net income `7,571.6`"]
+  round 2: ['composed']  <- FALSE FAILURE under the round-2 reading
+  reading: flagged composed "Net income `7,571.6`"
+  outcome: FALSE FAILURE
+
+case 40 [block marker, disclosed] BABA native-revenue-2026
+  answer:  "> MD&A says revenue \"further increased by 3% to\n> RMB1,023,670 million (US$148,401 million) in fiscal year 2026\" [1]."
+  F:       [] (publishes)
+  audit:   ["further increased by 3% to\n> RMB1,023,670 million (US$148,401 million) in fiscal year 2026"]
+  round 2: ['composed']  <- FALSE FAILURE under the round-2 reading
+  reading: flagged composed "further increased by 3% to\n> RMB1,023,670 million (US$148,401 million) in fiscal year 2026"
+  outcome: FALSE FAILURE
+
+40 cases: F-withheld leg 2, FALSE FAILURE 5, agree 33; untagged FALSE FAILURE 0
 exit 0

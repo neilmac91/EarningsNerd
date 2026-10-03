@@ -51,19 +51,19 @@ own prompt ([prompt_identity.txt](prompt_identity.txt)).
 | [run_validity.py](run_validity.py), [run_validity.txt](run_validity.txt) | the validity checker for each qualification run (full prompt hash and length per row), with negative and control results on retained runs |
 | [run_validity_post1066.txt](run_validity_post1066.txt) | the same checker on #1067's own `copilot-eval` run 37072989252 (post-#1066 runtime, `openai` 3.20.0): every identity row matches under the main-prompt control (precondition 2) |
 | [composed_quotes.py](composed_quotes.py), [composed_quotes.txt](composed_quotes.txt) | the registered composed-quotation measurement for checks 3 and 4: the unchanged #1021 audit; on each row it flags, the answer's quotations paired in order and each re-tested by F's per-span test (floor, then source match); output on all 23 retained runs |
-| [composed_quotes_probe.py](composed_quotes_probe.py), [composed_quotes_probe.txt](composed_quotes_probe.txt) | the reading against the product's `unsupported_prose_quotations` on 38 synthetic answers built on retained source texts (rounds 3 and 4) |
+| [composed_quotes_probe.py](composed_quotes_probe.py), [composed_quotes_probe.txt](composed_quotes_probe.txt) | the reading against the product's `unsupported_prose_quotations` on 40 synthetic answers built on retained source texts (rounds 3 to 5) |
 | [crosscheck_count.py](crosscheck_count.py), [crosscheck_count.txt](crosscheck_count.txt) | declared redundant cross-check method (declared objects on every row, placed and unplaced); also lists declared citation identities (check 1) |
 | [quote_inventory.py](quote_inventory.py), [quote_inventory.txt](quote_inventory.txt) | every quoted span in every quote form, classified as table-figure, sub-floor, verified or other |
 | [baseline_context.txt](baseline_context.txt) | input sha256, `g_decide.py`, `copilot_cost_runnerlog.py`, `prose_quote_audit.py` summaries and uncited figures on the retained runs |
 | [mutations.txt](mutations.txt) | owner-test mutations M1–M4 failing, and M0 passing |
-| [design-history/](design-history/design-v2.md) | design v1, design v2, the three adversarial critiques, Codex's decision and the exact-head review findings of round 1 ([exact-head-review-r1.md](design-history/exact-head-review-r1.md)), round 2 ([exact-head-review-r2.md](design-history/exact-head-review-r2.md)), round 3 ([exact-head-review-r3.md](design-history/exact-head-review-r3.md)) and round 4 ([exact-head-review-r4.md](design-history/exact-head-review-r4.md)), verbatim |
+| [design-history/](design-history/design-v2.md) | design v1, design v2, the three adversarial critiques, Codex's decision and the exact-head review findings of round 1 ([exact-head-review-r1.md](design-history/exact-head-review-r1.md)), round 2 ([exact-head-review-r2.md](design-history/exact-head-review-r2.md)), round 3 ([exact-head-review-r3.md](design-history/exact-head-review-r3.md)), round 4 ([exact-head-review-r4.md](design-history/exact-head-review-r4.md)) and round 5 ([exact-head-review-r5.md](design-history/exact-head-review-r5.md)), verbatim |
 
 The scripts have no `test_` prefix or `_test` suffix, so the test-homes gate does not treat them as tests.
 `prompt_identity.txt` was produced against merge commit `3264cdcc`, with base `b40fa703`. The commits after it
 change only files in this folder, and re-running it on the frozen head gives the same result apart from the HEAD
-line. `scope_hashes.txt` was regenerated in round 4 against the round-4 commit as it stood before this file was
-rewritten (its head line). That commit has the same files as the frozen head, so re-running the script on the frozen
-head gives the same output apart from the head line.
+line. `scope_hashes.txt` was regenerated in round 5 on the parent of the commit that carries it (its head line); the
+two commits differ only in `scope_hashes.txt`, so re-running the script on the frozen head gives the same output
+apart from the head line.
 
 ## Owner test and mutations
 
@@ -114,11 +114,12 @@ in [baseline_context.txt](baseline_context.txt), [quote_inventory.txt](quote_inv
 **Composed-quotation measurement (checks 3 and 4).** `prose_quote_audit.py` reads quotations more simply than
 decision F. It lacks marker blanking, edge stripping, the punctuation-spacing fold and the low/curly-mark, hyphen,
 minus and invisible-character folds. Its floor counts raw characters, so it checks a label such as `"EBITDA [1]"`
-that F exempts under its floor. It also lacks F's markdown reading (emphasis delimiters, backslash escapes and
-character references) and quote pairing: its regex `"([^"]{8,})"` cannot match a quotation under 8 characters, so a
-sub-floor quoted label such as BABA's `"Revenue"` followed by another quotation makes it pair the label's closing
-mark with the next opening mark, and the text between the two quotations becomes its span. Over the 23 retained runs
-it flags five runs:
+that F exempts under its floor. It also lacks F's display reading (`_rendered_text` and its default-ignorable drop,
+which differ from the text in emphasis delimiters, backslash escapes, character references, code-span backticks,
+block markers on a quotation's continuation lines and default-ignorable characters, among others) and quote pairing:
+its regex `"([^"]{8,})"` cannot match a quotation under 8 characters, so a sub-floor quoted label such as BABA's
+`"Revenue"` followed by another quotation makes it pair the label's closing mark with the next opening mark, and the
+text between the two quotations becomes its span. Over the 23 retained runs it flags five runs:
 - three runs from before F, all genuine compositions;
 - two F-live runs whose flagged quotation F verified and published: B2 37029964566 ASML d1 (the MD&A sentence; the
   source reads `million\n, \nrepresenting`) and C1 37004589548 AAPL d0 (`"Gross margin,"`, comma inside the mark).
@@ -138,22 +139,29 @@ verified (an unflagged pair it finds). A mark is left unpaired only when the row
 That row falls back to testing the audit's own spans as the audit pairs them and is reported, so the pairing shape
 can still fail there. An answer F publishes has an even count as displayed, so this needs a mark that the text and
 the display count differently, such as a character reference. The reading applies to check 3 and check 4 alike, and
-`composed_quotes.py` implements it ([composed_quotes.txt](composed_quotes.txt)). F's markdown reading (emphasis
-delimiters `*`, `_`, `~`, backslash escapes and character references) and its nested reading are not copied, so a
-published quotation that contains markdown emphasis, such as `"**Net income**"`, or an escaped mark (`\"Revenue\"`,
-read with its backslash) is still read as composed and is reported with its span, a character reference is read as
-written, and a nested quotation is read in order. None of the 402 published answers in the 23 retained runs contains
-`*`, `_`, `~`, a backslash or a character reference, holds an odd number of marks or nests a quotation, and each of
-the 15 spans the audit checks there is one of its row's pairs and matches a span of F's own reading. None of the 432
-rows of the 24 retained runs (published answers and withheld candidates, run 37072989252 included) holds a backslash,
-a character reference, a `＂`, `„` or `‟` mark or an odd number of marks. The probe
-([composed_quotes_probe.txt](composed_quotes_probe.txt)) runs 38 synthetic answers through the product's
+`composed_quotes.py` implements it ([composed_quotes.txt](composed_quotes.txt)). F's display reading
+(`_rendered_text` and its default-ignorable drop) and its nested reading are not copied. The answer is read as
+written, and this list of display differences is not exhaustive: emphasis delimiters `*`, `_`, `~`, backslash
+escapes, character references, code-span backticks, block markers on a quotation's continuation lines and
+default-ignorable characters. In general any span whose text differs from F's display of it can read as composed
+when F publishes; such a span is printed with its row. So a published quotation that contains markdown emphasis,
+such as `"**Net income**"`, a code span, or an escaped mark (`\"Revenue\"`, read with its backslash) is still read as
+composed, a character reference is read as written, and a nested quotation is read in order. None of the 402
+published answers in the 23 retained runs contains `*`, `_`, `~`, a backslash, a character reference, a backtick or a
+default-ignorable character, holds an odd number of marks, has a quotation whose continuation line starts with a
+block marker (none crosses a line break) or nests a quotation, and each of the 15 spans the audit checks there is one
+of its row's pairs and matches a span of F's own reading. Across the 432 rows of the 24 retained runs (run
+37072989252 included), none of the 420 published answers and none of the 12 withheld candidates holds a backslash, a
+character reference, a backtick, a default-ignorable character, a `＂`, `„` or `‟` mark, an odd number of marks or a
+quotation whose continuation line starts with a block marker. Three published rows hold backslashes only in their
+candidate's citation JSON (`\n` escapes), outside that surface. The probe
+([composed_quotes_probe.txt](composed_quotes_probe.txt)) runs 40 synthetic answers through the product's
 `unsupported_prose_quotations`, the round-2 reading and this one. The three round-3 pairing answers and the four
 round-4 pairing answers that F publishes (a line-break quotation, an empty quotation first, a `＂` mix and a `„…”`
 mix) are failed by the round-2 reading and read with 0 composed spans here. No answer F publishes is read as
-composed, apart from three disclosed cases: markdown emphasis, a backslash-escaped mark and a one-sided character
-reference. Codex acknowledges the reading on #1029 before step 1, or directs the strict reading instead, with the
-exposure above accepted.
+composed, apart from five disclosed cases: markdown emphasis, a backslash-escaped mark, a one-sided character
+reference, a code span and a blockquote continuation line. Codex acknowledges the reading on #1029 before step 1, or
+directs the strict reading instead, with the exposure above accepted.
 
 ## Failure-shape coverage (argued, not replayed)
 
@@ -269,17 +277,38 @@ folder; `backend/` and `.github` are byte-identical to `f848de27`. Resolution:
 | R4-N1: the unpaired-marks fallback brought back the round-2 false failure for the pairing shape when the later quotation crosses a line break or an empty `""` comes first | Took the proposed fix: `PAIR` is now `"([^"]*)"`. Pairs cross line breaks, as F's do, and an empty pair is allowed and reads as a sub-floor label. The fallback is now reached only when the row's count of marks is odd. The pre-registration ("Registered measurement", handback), this README (measurement paragraph, Limitations) and the `composed_quotes.py` docstring say so and state the residual: such a row is read as the audit pairs it, so the pairing shape can still fail there. F pairs every mark it reads, so for an answer F publishes an odd count needs a mark that the text and the display count differently, such as a character reference. Over the same 23 runs `composed_quotes.txt` is byte-identical, exit 1 (the three pre-F runs); run 37072989252 exits 0 with all counts 0. Probe cases 31 and 32 (the reviewer's line-break and empty-quotation answers) are published by F, failed by the round-2 reading and read with 0 composed spans. Round-3 cases 5 and 6 now pair in order and still agree with F. |
 | R4-N2: a `＂` pair between straight marks kept the count even, so its out-of-phase pairing went undetected | Took the proposed fix. For the pairing only, `＂`, `„` and `‟` are folded to `"` (`PAIRING_FOLD`, one character for one, so positions still match the audit's located spans); the audit's FOLD and the located-span assertion are unchanged. The two folds make all six of F's marks straight. Probe case 33 (the reviewer's `＂` mix) and case 34 (a `„…”` quotation after the label) are published by F, failed by the round-2 reading and read with 0 composed spans. Case 35 (a `„…‟` quotation) is withheld by F as ambiguous (`‟` opens in F) and the audit flags nothing, so a run fails it through the F-withheld leg. |
 | R4-N3: backslash escapes and character references are part of F's markdown reading and were not named as not copied | Named beside the emphasis delimiters in the pre-registration ("Why the raw audit…", "Registered measurement", handback), this README (measurement paragraph, Limitations) and the `composed_quotes.py` docstring. Measured: none of the 402 published answers in the 23 runs holds a backslash or a character reference (`&name;` or `&#…;`; none holds `&` at all), and none of the 432 rows of the 24 runs does (420 published answers and 12 withheld candidates, run 37072989252 included). Probe case 38 (the reviewer's `\"Revenue\"`) is published by F and read as composed: a disclosed false failure. Case 37 (a one-sided `&quot;`) is the odd-count residual of R4-N1, also a disclosed false failure. Case 36 (an unclosed quotation: an odd count, which F withholds as unbalanced) shows the fallback: the reading finds a composed span and agrees with F. |
-| R4-N4: "Each provider call without usage is budget risk" read as an automatic stop, and a balance delta above the known cost plus the charges had no stated outcome | Spend now charges each such call to "spent so far" at the stated bound, and the call stops the lane only when the charged total fails the spend rule. A balance delta above the known cost plus the charges: if the run has unknown-cost calls, the charge may understate this lane's spend, which is budget risk and stops the lane (reported); if it has none, its known cost is exact and the excess is reported as other owners' concurrent spend, without stopping. "Budget risk stops the lane" now names both cases. |
+| R4-N4: "Each provider call without usage is budget risk" read as an automatic stop, and a balance delta above the known cost plus the charges had no stated outcome | Spend now charges each such call to "spent so far" at the stated bound, and the call stops the lane only when the charged total fails the spend rule, or in the balance case below. A balance delta above the known cost plus the charges: if the run has unknown-cost calls, the charge may understate this lane's spend, which is budget risk and stops the lane (reported); if it has none, its known cost is complete under the pinned rates and the excess is reported as other owners' concurrent spend, without stopping. "Budget risk stops the lane" now names both cases. |
 | R4-N5: the `eval-baseline` telemetry is nested under the candidate name | `summary.baseline.incurred_provider_usage` (`.unknown_calls`) in step 2, Accounting and the unknown-cost bullet, as in the 9 retained reports (631 calls, 0 unknown). The README has no instance. |
-| R4-N6: a failed mergeable check stops the lane, and `mergeable_state` reads `draft` on a draft PR | Steps 2 and 3: the REST pull-request `mergeable` field is true (re-read while it is null); `mergeable_state` is not the check (it reads `draft`, `blocked` or `unstable` on a draft PR or with failing non-required checks). |
+| R4-N6: a failed mergeable check stops the lane, and `mergeable_state` reads `draft` on a draft PR | Steps 2 and 3: the REST pull-request `mergeable` field is true (re-read while it is null); `mergeable_state` is not the check (it also reflects check status, for example `unstable` when a non-required check fails). |
 | R4-N7: precondition 4 needs a named acknowledger for each of #1035, #1069 and #1070 | No file edit: handled in the step-0/precondition-4 comment on #1029. |
 | R4-N8: `run_validity_post1066.txt` recorded only a 16-hex zip prefix | The file now records the full digest from the Actions artifacts API (read only): `sha256:fe4b718ef8be6907068cdb2ddc83727e1550eecc3b4131030855a3d0775b5f0c` for artifact `copilot-fidelity-37072989252` (78,712,108 bytes), which matches the prefix. Custody and steps 2 and 3 record the API `digest` beside the locally computed zip sha256 for `eval-baseline` and each of Q1–Q3. |
 | R4-N9: precondition 6 requires the gate on the exact frozen head, and the round-3 record reused the round-2 gate | Precondition 6 now says a gate run on an earlier head does not satisfy it, even with identical `backend/` and `.github`, and step 0 posts the tails of the gate run on the frozen head. This README no longer says the round-2 gate "still applies" or that earlier rounds' tails go in the step-0 comment. |
 
 `composed_quotes.py` (the 23 runs and run 37072989252), the probe (38 cases: 33 agree, 2 F-withheld legs, 3 disclosed
-false failures, exit 0), `prompt_identity.py`, `scope_hashes.py` (regenerated, see Files) and the tasks-reading tests
-are re-run on the round-4 commit. `git diff --quiet f848de27 HEAD -- backend .github` exits 0. The full backend gate
-is not re-run here; precondition 6 needs it on the frozen head itself.
+false failures, exit 0), `prompt_identity.py`, `scope_hashes.py` (regenerated; see R5-N6 below) and the tasks-reading
+tests are re-run on the round-4 commit. `git diff --quiet f848de27 HEAD -- backend .github` exits 0. The full backend
+gate is not re-run here; precondition 6 needs it on the frozen head itself.
+
+### Review round 5 (exact-head review of `998aff32`)
+
+Two lenses, model behaviour and rules/gates/custody, reviewed `998aff32` (the round-4 fix commit on merge `3264cdcc`,
+base `b40fa703`). Both returned APPROVE with nits only: two from model behaviour and four from rules/gates/custody,
+kept verbatim with what each lens ran in
+[design-history/exact-head-review-r5.md](design-history/exact-head-review-r5.md). Round 5 changes only files in this
+folder; `backend/` and `.github` are byte-identical to `998aff32`. Resolution:
+
+| Finding | Resolution |
+| --- | --- |
+| R5-N1: the not-copied list read as complete, but F's display reading also drops code-span backticks, block markers on a quotation's continuation lines and default-ignorable characters, so such a quotation reads as composed though F publishes it | The pre-registration ("Why the raw audit…", the pointer and the not-copied bullet in "Registered measurement", handback), this README (measurement paragraph, Limitations) and the `composed_quotes.py` docstring (with its pointer) now name F's display reading (`_rendered_text` and its default-ignorable drop) and say the list is not exhaustive: emphasis delimiters, backslash escapes, character references, code-span backticks, block markers on a quotation's continuation lines and default-ignorable characters, and in general any span whose text differs from F's display of it, can read as composed when F publishes; such a span is printed with its row. The handback limitation now reads "any span whose text differs from F's display of it". `quote_inventory.py`'s docstring uses the same name (docstring only; its output is unchanged). Measured beside the existing zero counts: none of the 402 published answers in the 23 runs, and none of the 420 published answers and 12 withheld candidates in the 24 runs (run 37072989252 included), holds a backtick, a default-ignorable character (F's `_DEFAULT_IGNORABLE_RE`) or a quotation whose continuation line starts with a block marker; no quotation there crosses a line break. Probe cases 39 (a code span inside a quotation) and 40 (a blockquote continuation of a quotation across a line break) are appended, so cases 1–38 keep their numbers. F publishes both and the reading finds a composed span: disclosed false failures. The probe now reports 40 cases: 33 agree, 2 F-withheld legs, 5 disclosed false failures, 0 untagged, exit 0; the output for cases 1–38 is unchanged. |
+| R5-N2: "no row holds a backslash" is wrong for three rows whose candidate citation JSON holds backslashes | The pre-registration now says "no published answer and no withheld candidate holds …", and adds that three published rows hold backslashes only in their candidate's citation JSON (`\n` escapes), outside the measured surface: 37005114216 ASML d1, 37029156902 BABA native d1 and 37029964566 BABA native d1 (5, 4 and 4 backslashes, none in the answer). This README's sentence is reworded the same way. |
+| R5-N3: an unknown-cost call was said to stop the lane only when the charged total fails the spend rule, while the balance case also stops it; and steps 2 and 3 did not require the balance readings the balance case needs | Spend and row R4-N4 above now read "…only when the charged total fails the spend rule, or in the balance case below". Steps 2 and 3 read the DeepSeek balance after each artifact download and again just before each ready transition, and step 4 reads it after Q3's download; step 1 already reads it before `eval-baseline`'s trigger. Every reading is recorded with its UTC time, and the balance case names the two readings it compares for each run. In Spend and row R4-N4, "the run's known cost is exact" is now "complete under the pinned rates": the provider client is built with `max_retries=0` (`backend/app/services/openai_service.py:120-121`, and the fallback client at `backend/app/services/ai/provider_requests.py:171`), so the SDK makes no unlogged retries. |
+| R5-N4: the reason given for `mergeable_state` not being the check was inaccurate for this repository | Steps 2 and 3 (and row R4-N6 above) now read: the REST pull-request `mergeable` field is true (re-read while it is null); `mergeable_state` is not the check (it also reflects check status, for example `unstable` when a non-required check fails). They no longer say it reads `draft` or `blocked`. |
+| R5-N5: precondition 6 asks for a three-lens review of the head that contains the pre-registration, and rounds 4 and 5 used two lenses | No pre-registration edit. The final review of the frozen head is three-lens (correctness and scope, model behaviour, rules/gates/custody). Its verdicts and the operator's full-gate tails on the frozen head are posted in the step-0 comment on #1029. |
+| R5-N6: the committed scope proof named a commit that is on no branch, and "this file" in the Files paragraph was ambiguous | Round 4's annotation named a local commit that was amended away and never pushed; it is replaced here. Round 5 has two commits and amends neither. `scope_hashes.py b40fa703 HEAD` was run on the first, which carries every other edit of this round. The second adds only `scope_hashes.txt`, whose annotation names the first commit as its parent and says the two differ only in that file. The Files paragraph now says `scope_hashes.txt` instead of "this file". |
+
+`composed_quotes.py` (the 23 runs: byte-identical to `composed_quotes.txt`, exit 1), the probe, `prompt_identity.py`,
+`scope_hashes.py` and the tasks-reading tests are re-run on round 5's edits. `git diff --quiet 998aff32 HEAD --
+backend .github` exits 0. The full backend gate is not re-run here; precondition 6 needs it on the frozen head itself.
 
 ## Limitations
 
@@ -295,8 +324,10 @@ is not re-run here; precondition 6 needs it on the frozen head itself.
   `"Revenue"` followed by another quotation makes the audit flag the text between them; that span is an audit pairing
   difference, reported and not composed. A row with an odd mark count falls back to the audit's own spans and is
   reported, so the pairing shape can still fail there; for an answer F publishes this needs a mark that the text and
-  the display count differently, such as a character reference. F's markdown reading (emphasis delimiters, backslash
-  escapes and character references) and its nested reading are not copied: a published quotation holding markdown
-  emphasis or an escaped mark reads as composed (stricter than F), a character reference is read as written, and a
-  nested quotation is read as two pairs with a gap between them. None of these shapes is in the retained runs.
+  the display count differently, such as a character reference. F's display reading (`_rendered_text` and its
+  default-ignorable drop) and its nested reading are not copied. The list of display differences is not exhaustive:
+  emphasis delimiters, backslash escapes, character references, code-span backticks, block markers on a quotation's
+  continuation lines and default-ignorable characters, and in general any span whose text differs from F's display
+  of it, can read as composed when F publishes (stricter than F); such a span is printed with its row. A nested
+  quotation is read as two pairs with a gap between them. None of these shapes is in the retained runs.
 - **Argued coverage.** Offline coverage of the failure shapes is argued, not replayed.

@@ -24,7 +24,7 @@ report (the six source texts are identical in every retained run). Per case it p
     f_attribution.py's F-withheld count and check 5 through its error row;
   - FALSE FAILURE: F publishes and the reading finds a composed span (a run would fail with no composed quotation).
 Cases tagged "disclosed" are the documented differences: markdown emphasis, a nested quotation, a backslash-escaped
-mark and a character reference.
+mark, a character reference, a code span and a blockquote marker on a quotation's continuation line.
 Exit 0 when no untagged case is a FALSE FAILURE under the registered reading.
 """
 import importlib.util
@@ -97,6 +97,9 @@ CASES = [
     ("odd count", BABA_NATIVE, f'The "Revenue" line agrees, and MD&A says revenue "{MDA} [1].', ""),
     ("odd count", BABA_NATIVE, f'The &quot;Revenue" line agrees, and MD&A says revenue "{MDA}" [1].', "disclosed"),
     ("escape", BABA_NATIVE, f'The \\"Revenue\\" line agrees, and MD&A says revenue "{MDA}" [1].', "disclosed"),
+    # Round 5, model-behaviour finding: F's display reading of a code span and of a quotation's continuation line.
+    ("code span", ASML, 'The table reads "Net income `7,571.6`" [F1].', "disclosed"),
+    ("block marker", BABA_NATIVE, f'> MD&A says revenue "{MDA[:26]}\n> {MDA[27:]}" [1].', "disclosed"),
 ]
 
 

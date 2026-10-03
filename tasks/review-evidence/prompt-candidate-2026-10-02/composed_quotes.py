@@ -34,11 +34,15 @@ audit pairing difference, its other pairs are not read, and the row is counted. 
 text between two quotations (the pairing shape). F pairs every mark it reads, so an answer F publishes has an even
 count as displayed; an odd count in the published text needs a mark that the text and the display count
 differently, such as a character reference (`&quot;`). With an even count, the in-order pairs are F's pairs unless F
-reads a nested quotation or the display differs from the text (below).
+reads a nested quotation or a span's text differs from F's display of it (below).
 
-Not copied from F: its markdown reading (emphasis delimiters * _ ~, backslash escapes and character references), so
-a published quotation holding markdown emphasis (`"**Net income**"`) is read as composed and printed with its span,
-an escaped mark (`\\"Revenue\\"`) leaves its backslash in the pair, and a character reference is read as written; and
+Not copied from F: its display reading (copilot_service._rendered_text and its default-ignorable drop), so the
+answer is read as written, not as displayed. The differences are not limited to this list: emphasis delimiters
+* _ ~, backslash escapes, character references, code-span backticks, block markers on a quotation's continuation
+lines (`>`, list markers) and default-ignorable characters. In general any span whose text differs from F's
+display of it can read as composed when F publishes; such a span is printed with its row. So a published quotation
+holding markdown emphasis (`"**Net income**"`) or a code span is read as composed, an escaped mark
+(`\\"Revenue\\"`) leaves its backslash in the pair, and a character reference is read as written. Also not copied:
 its nested reading, so `"x "y" z"`, which F reads whole and inner, is read in order: two pairs, with the inner text
 as the gap between them. A row without source text is an absent quotation, as in the audit. Both raw audit counts
 and the classified counts are printed, overall and for ASML (check 3).

@@ -27,7 +27,8 @@ Classes, first match wins:
 The per-span test copies decision F's (copilot_service._displayed_quotation_reasons at base): citation markers
 [n]/[F#] blanked, edge characters _QUOTE_EDGE_CHARS stripped, an interior ellipsis is _QUOTE_ELLIPSIS_RE, and
 the text is normalized by a copy of provenance_service.normalize_for_match (both files are byte-identical to base,
-scope_hashes.txt). F's markdown reading and work bounds are not copied, so this is not F's verdict.
+scope_hashes.txt). F's display reading (_rendered_text and its default-ignorable drop) and work bounds are not
+copied, so this is not F's verdict.
 Every span also reports in_source and interior_ellipsis, so a table figure that F would verify stays visible.
 This is context for the qualification (where table figures go: double quotes or another form), never a threshold;
 the classes are a declared heuristic, not decision F's parser.
