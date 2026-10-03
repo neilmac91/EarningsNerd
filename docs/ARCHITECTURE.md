@@ -53,7 +53,8 @@ stream_filing_summary(filing_id, ...)
   a. Fetch filing text from SEC EDGAR   (24h FilingContentCache short-circuit)
   b. Extract XBRL financials in parallel (edgar/xbrl_service, accession-aware)
   c. Extract critical sections from the filing text
-  d. Start the AI model call and count the admission lease as one usage unit as it starts
+  d. Summarize with the AI model; the admission lease is counted as one usage unit when the
+                                         request dispatcher signals the first provider request
                                          (in-stage timeout → deterministic XBRL fallback)
   e. Quality verdict via assess_quality  (9-section taxonomy, 4/9 bar, XBRL grounding);
                                          a partial verdict refunds the unit
@@ -321,8 +322,9 @@ The significant, hard-to-reverse decisions — and their trade-offs — are ADRs
 and staying on React 18 under Next 16.
 
 Monthly usage counter writes preserve existing first-row history. A metered summary or Copilot
-generation is counted as its provider call starts (summaries: the task is created, then the
-admission lease is converted in the increment's commit; Copilot: on the provider's first chunk); a provider-side failure or a partial-quality verdict refunds the unit through
+generation is counted as its provider call starts (summaries: on the request dispatcher's
+provider-start signal, the admission lease converted in the increment's commit; Copilot: on the
+provider's first chunk); a provider-side failure or a partial-quality verdict refunds the unit through
 the same SQL-arithmetic protocol (floor 0), and a client disconnect after the provider started
 does not. Existing buckets skip the parent User lock; first-month creation can contend with
 Stripe account work, subject to `USAGE_COUNTER_LOCK_TIMEOUT_MS`. SQL increments prevent

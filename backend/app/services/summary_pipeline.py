@@ -52,6 +52,7 @@ from app.services.posthog_client import (
     EVENT_PAYWALL_HIT,
     capture_funnel_event,
 )
+from app.services.ai.provider_requests import provider_start_signal
 from app.services.subscription_service import (
     check_usage_limit,
     increment_user_usage,
@@ -419,6 +420,7 @@ async def stream_filing_summary(
     # unit is settled (summary persisted) or refunded, so a refund can happen at most once.
     charged_month: Optional[str] = None
     summary_task: Optional[asyncio.Task] = None
+    provider_started_waiter: Optional[asyncio.Future] = None
 
     async def run_sync_db(func, *args, **kwargs):
         """Run a complete, session-owning DB unit in the thread pool."""
@@ -949,32 +951,26 @@ async def stream_filing_summary(
             if request_evidence is not None:
                 request_evidence.summary_service_invoked = True
 
-            # Metering point: a held admission lease becomes a counted unit HERE, as the provider
-            # call starts — not after persistence. The provider bill accrues from this moment and
+            # Metering point: a held admission lease becomes a counted unit when the provider request
+            # is ISSUED — the `provider_start_signal` the request dispatcher fires immediately before
+            # the first provider call — not after persistence, and not at task creation (the
+            # task parses the filing locally first). The provider bill accrues from that moment and
             # section previews may stream before the complete event, so a client that disconnects
-            # mid-generation has consumed the unit; the pipeline's cancellation path (CancelledError /
-            # GeneratorExit) deliberately never refunds it. The unit is refunded only for outcomes the
-            # client cannot induce: a provider-side failure (the task raises, returns an error payload
-            # or the pipeline times out) and, under AI_QUALITY_GATE, a partial verdict — so an honest
-            # partial still costs nothing. Callers without a lease (the background drain with
-            # current_user=None, and uncapped Pro) keep the completion-time count below. The provider
-            # task is created FIRST and the charge runs while it already executes: a client that
-            # disconnects during the charge write has a provider call in flight, so the unit it may
-            # have counted is owed; charging before the task would let that same disconnect count a
-            # unit for a call that never started. A charge that raises reaches the generic handler,
-            # whose `finally` cancels the task and releases the still-held lease.
-            summary_task = asyncio.create_task(openai_service.summarize_filing(
-                filing_text,
-                company_name,
-                filing_type,
-                xbrl_metrics=xbrl_metrics,
-                filing_excerpt=excerpt,
-                stream_cb=summary_stream_cb,
-                **({"statement_source": statement_source} if statement_source else {}),
-                **({"sixk_class": sixk_class, "sixk_class_audit": sixk_class_audit} if sixk_class else {}),
-            ))
+            # after it has consumed the unit; the pipeline's cancellation path (CancelledError /
+            # GeneratorExit) deliberately never refunds it. A disconnect or failure BEFORE the signal
+            # leaves the lease held, and `finally` releases it. The unit is refunded only for outcomes
+            # the client cannot induce: a provider-side failure (the task raises, returns an error
+            # payload or the pipeline times out) and, under AI_QUALITY_GATE, a partial verdict — so an
+            # honest partial still costs nothing. A result that arrives without the signal (a stand-in
+            # service) is counted on completion. Callers without a lease (the background drain with
+            # current_user=None, and uncapped Pro) keep the completion-time count below.
+            provider_started = asyncio.Event()
 
-            if usage_reservation_token is not None:
+            async def charge_lease() -> None:
+                """Convert the held lease into one counted unit (at most once; the lease is cleared)."""
+                nonlocal charged_month, usage_reservation_token
+                if usage_reservation_token is None or charged_month is not None:
+                    return
                 token_to_convert = usage_reservation_token
 
                 def charge_usage_sync() -> Optional[str]:
@@ -992,7 +988,19 @@ async def stream_filing_summary(
                 charged_month = await run_sync_db(charge_usage_sync)
                 if charged_month is not None:
                     usage_reservation_token = None
-                    mark_stage("usage_tracking")
+
+            with provider_start_signal(provider_started.set):  # armed in the task's context
+                summary_task = asyncio.create_task(openai_service.summarize_filing(
+                    filing_text,
+                    company_name,
+                    filing_type,
+                    xbrl_metrics=xbrl_metrics,
+                    filing_excerpt=excerpt,
+                    stream_cb=summary_stream_cb,
+                    **({"statement_source": statement_source} if statement_source else {}),
+                    **({"sixk_class": sixk_class, "sixk_class_audit": sixk_class_audit} if sixk_class else {}),
+                ))
+            provider_started_waiter = asyncio.ensure_future(provider_started.wait())
 
             SUMMARIZE_MESSAGES = [
                 "Analyzing financial highlights...",
@@ -1016,14 +1024,19 @@ async def stream_filing_summary(
             }
 
             while not summary_task.done():
+                if provider_started.is_set():
+                    await charge_lease()  # the provider request is issued: count the unit now
+                awaited = [summary_task] if provider_started_waiter.done() else [summary_task, provider_started_waiter]
                 done, pending = await asyncio.wait(
-                    [summary_task],
+                    awaited,
                     timeout=settings.STREAM_HEARTBEAT_INTERVAL,
                     return_when=asyncio.FIRST_COMPLETED
                 )
 
                 if summary_task in done:
                     break
+                if provider_started_waiter in done:
+                    continue  # charge at the top of the loop before the next heartbeat wait
 
                 # Check for AI Timeout (60s)
                 current_time = time.time()
@@ -1070,6 +1083,10 @@ async def stream_filing_summary(
             mark_stage("generate_summary")
 
             summary_status = summary_payload.get("status", "complete")
+            if provider_started.is_set() or summary_status != "error":
+                # The signal may have fired just before the task finished; a result without the
+                # signal (a stand-in service) still ran a provider, so it is counted on completion.
+                await charge_lease()
             if summary_status == "error":
                 error_message = summary_payload.get("message", "Error generating summary")
                 await refund_charge("provider returned an error payload")
@@ -1457,6 +1474,8 @@ async def stream_filing_summary(
                 if not summary_task.done():
                     summary_task.cancel()
                 await asyncio.gather(summary_task, return_exceptions=True)
+            if provider_started_waiter is not None and not provider_started_waiter.done():
+                provider_started_waiter.cancel()
             # A reservation still held here was never converted (failure or disconnect before the
             # provider call started, or no account row to count against): give the quota unit back
             # now. A unit counted at provider start is NOT touched here — see the metering point.

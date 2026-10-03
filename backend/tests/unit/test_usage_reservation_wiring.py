@@ -20,6 +20,7 @@ from app.database import SessionLocal
 from app.models import UsageReservation, User, UserUsage
 from app.services import subscription_service as usage
 from app.services import summary_pipeline
+from app.services.ai.provider_requests import signal_provider_start
 from app.services.subscription_service import get_current_month
 from app.services.summary_pipeline import GenerationUserSnapshot, stream_filing_summary
 from tests.support.summary_stream_harness import (
@@ -73,11 +74,13 @@ async def test_full_result_converts_the_reservation_into_one_counted_unit():
 
 
 def _observer(user_id: int, seen: list[tuple[int, int]], outcome):
-    """A provider stand-in that records the (leases, counted) state while it runs, then returns
-    ``outcome`` (a payload) or raises it (an exception). The charge runs in the thread pool while
-    the provider task already executes, so the observation waits a beat for that write to land."""
+    """A provider stand-in that signals the provider request (as the real dispatcher does right
+    before issuing it), records the (leases, counted) state while it runs, then returns ``outcome``
+    (a payload) or raises it (an exception). The pipeline charges on that signal from its heartbeat
+    loop, so the observation waits a beat for the write to land."""
     async def observe(*args, **kwargs):
         import asyncio
+        signal_provider_start()
         await asyncio.sleep(0.3)
         seen.append(_state(user_id))
         if isinstance(outcome, BaseException):
@@ -235,6 +238,8 @@ async def test_client_disconnect_after_provider_start_keeps_the_counted_unit_and
     provider_started, disconnected = asyncio.Event(), asyncio.Event()
 
     async def blocking_provider(*args, **kwargs):
+        signal_provider_start()
+        await asyncio.sleep(0.3)  # the charge lands while the provider streams
         provider_started.set()
         await asyncio.sleep(30)  # still generating when the client leaves
         return CANONICAL_PAYLOAD
@@ -271,10 +276,11 @@ async def test_client_disconnect_after_provider_start_keeps_the_counted_unit_and
 
 @pytest.mark.asyncio
 async def test_client_disconnect_during_the_charge_write_has_a_provider_call_in_flight():
-    """The provider task is created before the charge runs, so a client that leaves while the
-    counter write is still in the thread pool has a provider call in flight; the unit that write
-    counted is owed (and stays counted, as after any post-start disconnect). Charging before the
-    task would let the same disconnect count a unit for a call that never started."""
+    """The charge runs only after the provider signals that its request is issued, so a client that
+    leaves while the counter write is still in the thread pool has a provider call in flight; the
+    unit that write counted is owed (and stays counted, as after any post-start disconnect).
+    Charging before the task would let the same disconnect count a unit for a call that never
+    started."""
     import asyncio
 
     from starlette.responses import StreamingResponse
@@ -298,6 +304,7 @@ async def test_client_disconnect_during_the_charge_write_has_a_provider_call_in_
 
     async def blocking_provider(*args, **kwargs):
         at["provider_started"] = time.monotonic()
+        signal_provider_start()  # the request is issued: the pipeline charges from here
         provider_started.set()
         await asyncio.sleep(30)
         return CANONICAL_PAYLOAD
@@ -326,8 +333,31 @@ async def test_client_disconnect_during_the_charge_write_has_a_provider_call_in_
         await asyncio.wait_for(response({"type": "http", "asgi": {"spec_version": "2.3"}, "headers": []}, receive, send), 10)
         await asyncio.sleep(0.5)  # let the thread-pool write finish
     assert provider_started.is_set()  # the provider call was in flight when the client left
-    # The provider task started while the charge write was still in the thread pool: the call the
-    # unit pays for exists before the unit is counted (charging first would start it only afterwards).
+    # The provider request was issued before the charge write finished: the call the unit pays for
+    # exists before the unit is counted (charging first would start it only afterwards).
     assert at["provider_started"] < at["charge_done"], at
     assert _state(user_id) == (0, 1)  # the unit that write counted is owed and stays counted
+
+
+@pytest.mark.asyncio
+async def test_failure_before_the_provider_request_leaves_nothing_counted():
+    """A service failure before any provider request (no start signal) never counts: the lease is
+    released, the counter untouched. This is the disconnect-before-provider case's twin."""
+    user_id, filing_id = _seed_user(), seed_company_filing()
+    with stream_boundaries() as summarize:
+        summarize.side_effect = RuntimeError("prompt build failed before any provider request")
+        events = await _run(filing_id, user_id)
+    assert events[-1]["type"] == "error"
+    assert _state(user_id) == (0, 0)
+
+
+@pytest.mark.asyncio
+async def test_result_without_a_start_signal_is_counted_on_completion():
+    """A stand-in service that returns a result without signalling still ran a provider: the unit
+    is counted when the result arrives, so metering never depends on the signal being wired."""
+    user_id, filing_id = _seed_user(), seed_company_filing()
+    with stream_boundaries():
+        events = await _run(filing_id, user_id)
+    assert events[-1]["type"] == "complete"
+    assert _state(user_id) == (0, 1)
 
