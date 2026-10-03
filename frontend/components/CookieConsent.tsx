@@ -136,8 +136,11 @@ export default function CookieConsent({ onPreferencesChanged }: CookieConsentPro
   }
 
   // The banner stays mounted beneath the settings dialog, so Cancel / Escape / the X return focus to
-  // the Customize button that opened it (Save still dismisses both).
+  // the Customize button that opened it (Save still dismisses both). Its state stays mounted too, so
+  // the draft starts from the saved choices on every open: a dismissed edit must not come back, or be
+  // saved by a later Save.
   const handleOpenSettings = () => {
+    setPreferences(getCookiePreferences() ?? DEFAULT_PREFERENCES)
     setShowSettings(true)
   }
 

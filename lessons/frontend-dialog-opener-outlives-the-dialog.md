@@ -19,9 +19,15 @@ element it should land on.
 
 (c) For each consumer, a spec asserts the focus-return target per close path.
 
+(d) An opener that stays mounted keeps its owner's state mounted too. A dialog that edits a draft
+(CookieConsent's category switches) starts that draft from the saved value on every open. Otherwise
+an edit dismissed with Cancel, Escape, the ✕ or the scrim comes back on the next open, and a later
+Save stores it. Hosted Codex review of #1059 caught this after the banner stopped unmounting.
+
 **Evidence**: `frontend/components/CookieConsent.tsx` (`handleOpenSettings` no longer hides the
 banner). `frontend/tests/unit/CookieConsent.spec.tsx`: Escape, Cancel and ✕ each return focus to
 Customize. Mutation: restoring `setShowBanner(false)` fails 4 of 6 cases. The real-build keyboard
 pass (both themes, 1440 and 375) returns focus to Customize after Escape, Cancel and a scrim click.
 A static gate cannot see "the opener unmounts" in general; the per-consumer spec is the enforcement
-(rule 12).
+(rule 12). Rule (d): each close-path case reopens Customize and asserts the dismissed edit is gone and
+a Save stores the saved choice; dropping the reset in `handleOpenSettings` fails all three.
