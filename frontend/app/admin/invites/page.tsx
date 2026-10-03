@@ -5,12 +5,11 @@ import { useMemo, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import {
-  CircleNotchIcon,
   EnvelopeSimpleIcon,
   PaperPlaneTiltIcon,
   UserIcon,
 } from '@/lib/icons'
-import { Button } from '@/components/ui/Button'
+import { Button, primaryUnavailableClass } from '@/components/ui/Button'
 import { Input, inputClasses } from '@/components/ui/Input'
 import { GuidanceCard, Skeleton } from '@/components/ui'
 import SecondaryHeader from '@/components/SecondaryHeader'
@@ -122,10 +121,10 @@ export default function AdminInvitesPage() {
 
   const toInviteCount = breakdown.toInvite.length
   const overBatchLimit = toInviteCount > MAX_BATCH
-  const canSend = toInviteCount > 0 && !overBatchLimit && !sending
+  const nothingToSend = toInviteCount === 0
 
   const handleSend = async () => {
-    if (toInviteCount === 0 || sending) return
+    if (nothingToSend || sending) return
     if (overBatchLimit) {
       toast.error(`Too many at once. Send at most ${MAX_BATCH} per batch (${toInviteCount} entered).`)
       return
@@ -159,6 +158,9 @@ export default function AdminInvitesPage() {
     )
 
     setOutcomes(results)
+    // Send keeps focus, so it stays busy until the refetched list marks these addresses invited:
+    // re-enabled any sooner, a second Enter would mint (and email) every invite in the batch again.
+    await queryClient.invalidateQueries({ queryKey: queryKeys.adminInvites() })
     setSending(false)
 
     const failedCount = results.filter((r) => !r.ok).length
@@ -170,8 +172,6 @@ export default function AdminInvitesPage() {
     } else if (failedCount > 0) {
       toast.error(`${failedCount} invite${failedCount === 1 ? '' : 's'} failed`)
     }
-
-    queryClient.invalidateQueries({ queryKey: queryKeys.adminInvites() })
   }
 
   return (
@@ -193,6 +193,8 @@ export default function AdminInvitesPage() {
             </h2>
           </div>
 
+          {/* Zone A fields stay natively disabled while sending: only Send's click starts a send
+              (no form, so no Enter-submit), so focus is on Send, never on a field, when it flips. */}
           <EmailChipsInput
             alreadyInvited={pendingEmails}
             onChange={setBreakdown}
@@ -274,13 +276,21 @@ export default function AdminInvitesPage() {
           )}
 
           <div className="mt-4">
-            <Button onClick={handleSend} disabled={!canSend}>
-              {sending ? (
-                <CircleNotchIcon className="h-4 w-4 animate-spin" />
-              ) : (
-                <PaperPlaneTiltIcon className="h-4 w-4" />
-              )}
-              {sending ? 'Sending…' : 'Send invites'}
+            {/* Busy and nothing-to-send are aria-disabled (handleSend returns early), not native
+                `disabled`: Chromium blurs a focused button that turns disabled, and an all-success
+                send refetches the list, turning the sent chips "already invited" (nothing to send)
+                while Send still holds focus. Over the batch cap is set only by the chips field,
+                never by Send itself, so it stays natively disabled. */}
+            <Button
+              onClick={handleSend}
+              loading={sending}
+              loadingText="Sending…"
+              leftIcon={<PaperPlaneTiltIcon className="h-4 w-4" />}
+              disabled={overBatchLimit}
+              aria-disabled={sending || nothingToSend || undefined}
+              className={nothingToSend && !sending ? primaryUnavailableClass : undefined}
+            >
+              Send invites
             </Button>
           </div>
 

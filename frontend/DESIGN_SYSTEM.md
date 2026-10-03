@@ -20,6 +20,7 @@ subagent briefs for UI work should link here.
 | **Border** | `border-light #E5E7EB` | `border-dark` / `white/10` | Hairlines |
 | **Status** | success `#15803D` · warning `#92400E` · error `#B91C1C` (+ `error.emphasis #991B1B` destructive hover) · info `#2563EB` (in-tint label: `info.text #1D4ED8`) | success `#22C55E` · warning `#F59E0B` · error `#F87171` · info `#60A5FA` | Genuine state messages only |
 | **Financial** | `gain.text #15803D` / `loss.text #B91C1C` for delta **text**; `gain.light #16A34A` / `loss.light #DC2626` are **graphic/chip-only** (3:1 non-text floor); `flat #6B7280` (+ `-soft` tints) | `gain.dark #34D399` / `loss.dark #FB7185` (text-safe on navy) | Money/% direction only — never brand |
+| **Overlay** | `overlay` rgba(11,17,32,0.55) | same | The ONE modal/sheet scrim (`bg-overlay`, v3) — replaces every `bg-slate-950/60` / `bg-black/50` hand-roll |
 | **Chart** | `chart-1..6`: `#3E8E84` teal · `#B8812F` honey · `#5B7CC0` cornflower · `#CF7159` coral · `#6E7E9C` slate-blue · `#8B7BC0` periwinkle | same hexes (≥3:1 vs both cream and navy) | Chart series — a SEQUENCE, taken 1→N in order, never re-sorted |
 
 **Legacy / banned as brand:** `mint-*`, `emerald-*`, `primary-*` (back-compat **alias for mint**),
@@ -73,8 +74,12 @@ shared surface (it caused white-on-cream and dark-on-cream bugs across the app).
   globals rule restores them — `:is(.markdown-body, .filing-reader) a` =
   `text-brand-strong underline underline-offset-4 dark:text-brand-strong-dark`.
 - **Tracking ramp** (`--track-*`): +0.01em ≤12px · 0 at 13–19px · −0.012em 20–24px · −0.016em
-  26–32px · −0.02em 34–44px · −0.025em 48px+ · `--track-eyebrow 0.08em` for uppercase micro-labels.
-- 12px UI-type floor (`text-data-xs` 11px only for dense numeric annotations). UPPERCASE tracked
+  26–32px · −0.02em 34–44px · −0.025em 48px+ · `--track-eyebrow 0.08em` for uppercase micro-labels —
+  as the utility **`tracking-eyebrow`** (v3). `tracking-wide/wider/widest/tight/tighter` and arbitrary
+  `tracking-[…]` are off-ramp (lint-banned; the 40px pricing display figure is the one disabled site);
+  headings take their tracking from the fontSize ramp.
+- 12px UI-type floor for running copy; `text-data-xs` (11px) for dense numeric annotations and in-card
+  captions / uppercase micro-labels (v3 b8 maps every former `text-[10–11px]` text site to it). UPPERCASE tracked
   eyebrows are reserved for metric labels — never card titles (`CardTitle` is sentence case,
   14px/600 heading ink; it shipped as an eyebrow in v2 and was fixed in v2.1).
 - **Figtree and Helvetica are retired.** `--font-active` survives as a permanent alias of the body
@@ -83,10 +88,17 @@ shared surface (it caused white-on-cream and dark-on-cream bugs across the app).
 ## 4. Canonical component patterns
 
 **Compose the component layer, don't hand-roll** — `components/ui/*` (Button, Badge, Input, Card,
-DataTable, Skeleton, GuidanceCard, Notice) + `components/AskFilingAnswer.tsx` (v2.2: reworked to
+DataTable, Skeleton, GuidanceCard, Notice, Modal) + `components/AskFilingAnswer.tsx` (v2.2: reworked to
 the SHIPPED copilot data model — see below). Every component defines
 default / hover / active / focus-visible / disabled / loading plus the system states (empty,
 skeleton via the shared shimmer keyframe, error).
+
+A control that is busy, or unavailable as a result of its own activation, never takes native
+`disabled`: Chromium blurs a focused control that turns disabled, so keyboard focus falls to
+`<body>`. Busy is `<Button loading>`. Unavailable is `aria-disabled` plus an early return in the
+handler, styled with `primaryUnavailableClass` (primary Button) or `fieldUnavailableClass` (field).
+Text fields use `readOnly` while their own form submits. Gate: `tests/unit/busyControlsStayFocusable.spec.ts`;
+rules in `lessons/frontend-busy-controls-stay-focusable.md`.
 
 ```
 Primary button   <Button>  ·  LIGHT: white label on bg-brand, hover bg-brand-strong, active bg-brand-emphasis
@@ -113,7 +125,7 @@ Card / panel     bg-panel-light dark:bg-panel-dark + border + shadow-e2 dark:sha
                  (e1 chips · e2 cards · e3 hero/featured · e4/e5 menus & overlays)
 
 Input            <Input>  — fill is the BRIGHTEST surface so the field reads on BOTH the cream page
-                 AND an off-white card: bg-white dark:bg-slate-900/60 + hairline + brand focus ring
+                 AND an off-white card: bg-white dark:bg-white/5 + hairline + brand focus ring
 
 Delta text       text-gain-text dark:text-gain-dark  /  text-loss-text dark:text-loss-dark
                  (the 600-level gain/loss are chips + graphics only — the 3:1 non-text floor).
@@ -139,6 +151,55 @@ Chat composer    <Textarea variant="composer">  — transparent, auto-growing, c
                  focus-within:shadow-ring-brand (never double chrome).
 
 Semantic card    <Card as="section">  — same recipe on a semantic element.
+
+Dialog           <Modal open onClose labelledBy="<id>" size="sm|md|lg" dismissible initialFocusRef>
+                   <ModalHeader id="<id>" onClose icon={…?} tone="brand|success|warning|error">Title</ModalHeader>
+                   <ModalBody>…</ModalBody>
+                   <ModalFooter>…<Button>s (className="w-full sm:w-auto")</ModalFooter>
+                 </Modal>
+                 The ONE dialog primitive (v3, DS-04): portal to <body>, bg-overlay + z-modal scrim with
+                 backdrop-blur, Card recipe at rounded-2xl, focus moves in on open (initialFocusRef ?? first
+                 focusable ?? panel), Tab/Shift-Tab cycle inside, Escape closes when dismissible, focus RETURNS
+                 to the opener, body scroll locked. The panel never outgrows the viewport: it stops at the
+                 scrim's inset and scrolls inside, with scroll padding equal to its p-6 inset so a control
+                 scrolled in by focus lands its ring clear of the edge; callers never size its height.
+                 Destructive confirms use variant="destructive" and stay
+                 dismissible. The trap arms once per open (onClose is read through a ref), so inline
+                 callbacks are fine. The TOP open dialog owns Tab/Escape (window-capture listener), so a
+                 dialog over the copilot sheet never lets a key reach the sheet — and content inside a panel
+                 cannot handle Tab/Escape itself. The header icon tile takes the dialog's tone: brand for a
+                 neutral prompt, a status hue for a state glyph (brand never signals a state).
+                 Dialog semantics ship only through Modal plus the documented bespoke layers: the copilot rail /
+                 viewer / workspace sheets and SourceTrace (role="dialog"), and the calendar's DayDetailDialog, a
+                 sanctioned native <dialog> + showModal() that keeps the native top layer. Gate:
+                 tests/unit/dialogAllowlist.spec.ts reads the TypeScript AST and pins each allowlisted file, with
+                 a reason, to its count of each kind — a dialog/alertdialog role (literal, any value of a role={…}
+                 expression, role: prop or setAttribute), a native <dialog>, and the dialog layer's own tokens
+                 (z-modal, bg-overlay), so a role-less hand-rolled modal fails too. The list is shrink-only.
+                 Never raise Modal from the calendar page: any layer it raises can sit over DayDetailDialog, and
+                 under showModal() a <body> portal is inert and painted beneath the top layer. Nor give the day
+                 <dialog> a transform/filter/contain/will-change or a non-opacity animation: it would become the
+                 containing block that clips the popovers portalled into it. Both are gated in the same spec.
+
+Popover          An anchored, light-dismiss surface that explains one control (the calendar's BellPopover) is
+                 NOT a dialog: it makes nothing inert, traps nothing and locks nothing. No dialog role — a
+                 role="group" named by its title and described by its message (an async failure is also
+                 announced with role="alert") — on z-overlay, behind a transparent catcher so
+                 an outside press closes only the popover; the panel is the Card recipe (dark:shadow-none).
+                 Keyboard: focus moves to the first action unless the user already moved it elsewhere (armed
+                 once per open, callbacks through a ref); Escape closes in window capture with preventDefault
+                 (stopPropagation alone still closes a native <dialog> beneath); Tab past the last action /
+                 Shift+Tab before the first close it and resume the page's order at the trigger; a scroll that
+                 moves the trigger, or a resize, closes it (fixed at its rect, it would detach; the page
+                 scrolling behind a fixed dialog does not move it); every close returns focus to
+                 the trigger unless the user moved on. While a native <dialog> is open, it portals into it.
+
+Stacking         z-sticky 30 (in-page sticky chrome) · z-header 50 (site header; its menus ride it) ·
+                 z-overlay 60 (popovers incl. BellPopover, the selection pill) · z-modal 70 (dialogs + the source and viewer
+                 sheets — scrim AND panel) · z-toast 80 (the skip link; sonner manages its own toast layer).
+                 The copilot rail / workspace bottom sheets stay z-40 over z-30 scrims, so the in-sheet
+                 citation popovers (z-overlay) still sit above them. Never z-[N]; DataTable's internal z-[5]
+                 sticky-cell layering is the one documented exemption.
 
 Ask answer       <AskFilingAnswer>  — the SHIPPED copilot contract: status reading|streaming|done|error;
                  answer = GFM markdown (react-markdown + remark-gfm); markers [n] AND [F1]/[f1]/[F 1]
@@ -284,6 +345,19 @@ Recharts/rAF, which need numbers). **No raw ms or bezier strings anywhere else.*
    ```
    grep -rnE '[0-9]+(\.[0-9]+)?m?s\b|cubic-bezier' app components features | grep -v 'var(--'
    ```
+   v3 token hygiene (MIGRATION-v3 §c) — expected hits: DataTable's internal `z-[5]`, the eslint-disabled
+   aria-hidden glyphs (Badge ▲▼ `text-[10px]`, DataTable ▲▼ `text-[9px]`) and the brand-mandated
+   GoogleSignInButton (`hover:bg-slate-50`, §9); nothing else:
+   ```
+   grep -rnE "tracking-(wider|widest|tight)|text-\[([0-9]|1[0-3])(\.5)?px\]|bg-slate-|bg-black/50|z-\[|alert\(" app components features hooks lib
+   grep -rlnE --include='*.ts*' "role=(\"|'|\{[^}]*)(alert)?dialog|<dialog|z-modal|bg-overlay" app components features   # ≈ the dialog allowlist
+   ```
+   The grep is a quick look (it also lists files that only mention the tokens in comments); the
+   AST gate in `tests/unit/dialogAllowlist.spec.ts` is the authority.
+   The same rules run in CI as `no-restricted-syntax` design selectors in `eslint.config.mjs` (on string
+   literals and template-literal chunks alike), `tests/unit/dialogAllowlist.spec.ts`, and
+   `tests/unit/designTokenParity.spec.ts` (the JS color mirrors use only token hexes; MOTION equals the
+   `--duration-*` values).
 3. **Font-var gate** (repeat offender — missed in BOTH the v2 and v2.1 exports): every
    `fontFamily` stack in `tailwind.config.js` and every `:root` font var in `globals.css`
    leads with its `next/font` variable (`var(--font-inter)` / `var(--font-geist-mono)` /

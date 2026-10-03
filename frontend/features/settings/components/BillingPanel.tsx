@@ -3,7 +3,7 @@
 import { getCurrentUserSafe } from '@/features/auth/api/auth-api'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import Link from 'next/link'
-import { CircleNotchIcon, CreditCardIcon, SparkleIcon } from '@/lib/icons'
+import { CreditCardIcon, SparkleIcon } from '@/lib/icons'
 import {
   getSubscriptionStatus,
   getUsage,
@@ -43,7 +43,12 @@ export default function BillingPanel() {
   const portal = useMutation({
     mutationFn: createPortalSession,
     onSuccess: (data) => {
-      if (data.url) window.location.href = data.url
+      if (!data.url) return
+      window.location.href = data.url
+      // Pending until the page leaves for Stripe: Manage billing keeps focus, and released any sooner
+      // a second Enter would open a second portal session. A back-forward cache restore fires
+      // pageshow, which settles it, so the button is live again on return.
+      return new Promise<void>((resolve) => window.addEventListener('pageshow', () => resolve(), { once: true }))
     },
   })
 
@@ -172,12 +177,13 @@ export default function BillingPanel() {
               the customer id, and send everyone else to /pricing to subscribe. */}
           <div className="border-t border-border-light dark:border-border-dark pt-3">
             {sub?.stripe_customer_id ? (
+              /* `loading`, not `disabled`, while the portal session is requested: a focused button
+                 that turns natively disabled is blurred to <body> in Chromium. */
               <Button
                 variant="secondary"
                 onClick={() => portal.mutate()}
-                disabled={portal.isPending}
+                loading={portal.isPending}
               >
-                {portal.isPending ? <CircleNotchIcon className="h-4 w-4 animate-spin" /> : null}
                 Manage billing
               </Button>
             ) : (

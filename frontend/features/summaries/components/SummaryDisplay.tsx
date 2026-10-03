@@ -248,10 +248,10 @@ export function SummaryDisplay({
       )}
 
       {debug && rawSummary && (
-        <section className="bg-gray-900 rounded-lg border border-gray-800 p-4 text-xs text-gray-100">
+        <section className="bg-panel-dark rounded-lg border border-border-dark p-4 text-xs text-text-primary-dark">
           {/* Explicit ink: the global h1–h6 --heading-color is theme-aware but not
               surface-aware — this section is fixed-dark in both themes. */}
-          <h3 className="text-sm font-semibold mb-2 text-gray-100">Debug: raw summary payload</h3>
+          <h3 className="text-sm font-semibold mb-2 text-text-primary-dark">Debug: raw summary payload</h3>
           <pre className="whitespace-pre-wrap break-all">
             {JSON.stringify(rawSummary, null, 2)}
           </pre>

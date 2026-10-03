@@ -183,11 +183,14 @@ function FilingDetailView({ filingId, initialFiling, initialSummary }: { filingI
   const saveMutation = useMutation({
     mutationFn: (summaryId: number) => saveSummary(summaryId),
     onSuccess: () => {
-      // The shared prefix refreshes this summary's status and the dashboard library.
-      queryClient.invalidateQueries({ queryKey: queryKeys.savedSummaries() })
+      // The shared prefix refreshes this summary's status and the dashboard library. Returned, so the
+      // save stays pending until the status refetch swaps Save for Saved: Save keeps focus, and
+      // released any sooner a second Enter would save (and count) the summary again.
+      const refreshed = queryClient.invalidateQueries({ queryKey: queryKeys.savedSummaries() })
       if (summary?.filing_id) {
         analytics.summarySaved(summary.filing_id, filing?.company?.ticker ?? null)
       }
+      return refreshed
     },
   })
 

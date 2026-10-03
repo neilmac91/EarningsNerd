@@ -27,3 +27,26 @@ first (the copilot sheet beneath it)". Mutation proof: with the listener moved b
 and fixed there: "keeps the scroll lock and focus with the upper dialog when a lower one closes
 first" fails on the per-dialog cleanup (`overflow` `''`) and, with only the focus guard removed, on
 focus. Each mutation: 1 failed | 6 passed; fixed, 7 passed.
+
+
+**Additional evidence (2026-10-03)**: SourceTrace's window-capture Escape fix stopped the
+copilot listeners below it, but it still closed alongside a later ui/Modal listener on the same
+window. On the real filing page with a coarse pointer, keyboard users could open the source sheet,
+Tab to the global Feedback opener, and open Feedback over it; one Escape closed both. A shared
+capture phase does not establish ownership between sibling listeners. SourceTrace now ignores
+keys targeted inside the shared Modal's explicit `data-ui-modal` panel marker. An `aria-modal`
+check is too broad: a lower copilot sheet can retain focus beneath the source sheet, so its
+semantics do not identify it as the upper layer.
+`SourceTraceEscapeLayer.spec.tsx` covers a real Modal opened after the source sheet: one Escape
+closes the upper dialog and the next closes the source sheet. The browser probe uses actual page
+controls with fixture API responses; the source sheet's separate focus-containment limitation
+predates this Escape change.
+
+The same sibling-listener failure also occurred in BellPopover: start a calendar alert toggle,
+open the global Feedback dialog while the request is pending, then let the request fail. The
+error popover correctly preserves textarea focus in Feedback, but its unconditional window-capture
+Escape listener closed both layers. The calendar import gate cannot prevent a global layout dialog
+from opening. BellPopover now yields keys targeted inside the shared Modal marker too; its existing
+test home covers the delayed popover mount, first Escape closing Feedback alone, and second Escape
+closing the remaining popover. A current-source real-page dev probe with fixture API replies
+reproduced the sequence; production-build confirmation belongs to the final parent integration gate.

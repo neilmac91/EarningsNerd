@@ -78,8 +78,10 @@ export function Badge({ variant = 'neutral', icon, className, children, ...rest 
     icon !== undefined ? (
       icon
     ) : variant === 'beat' ? (
+      // eslint-disable-next-line no-restricted-syntax -- aria-hidden direction glyph, not type (DS-08 exemption)
       <span aria-hidden="true" className="text-[10px] leading-none">▲</span>
     ) : variant === 'miss' ? (
+      // eslint-disable-next-line no-restricted-syntax -- aria-hidden direction glyph, not type (DS-08 exemption)
       <span aria-hidden="true" className="text-[10px] leading-none">▼</span>
     ) : variant === 'new' ? (
       <span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-current animate-pulse motion-reduce:animate-none" />

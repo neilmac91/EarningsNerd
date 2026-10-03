@@ -108,6 +108,33 @@ describe('SummaryBlocks', () => {
     expect(screen.getByText('Receivables outpaced sales.')).toBeInTheDocument()
   })
 
+  it('sets whole-figure columns in the data face and keeps commentary that opens with a figure as prose', () => {
+    const segments: RenderedSection[] = [
+      {
+        id: 'business-segment-analysis',
+        title: 'Business Segment Analysis',
+        blocks: [
+          {
+            kind: 'table',
+            headers: ['Segment', 'Revenue', 'Revenue Change', 'Commentary'],
+            // Older retained summaries prefix segment commentary with a machine margin.
+            rows: [
+              ['iPhone', '$46.2B', '+6.1%', '41% operating margin — higher net sales of iPhone'],
+              ['Services', '$26.6B', '-', '$1.2B of the increase came from advertising'],
+            ],
+          },
+        ],
+      },
+    ]
+    render(<SummaryBlocks sections={segments} summary={summary} />)
+    expect(screen.getByRole('columnheader', { name: 'Revenue' })).toHaveClass('text-right')
+    expect(screen.getByText('$46.2B')).toHaveClass('text-right', 'font-data', 'whitespace-nowrap')
+    expect(screen.getByText('+6.1%')).toHaveClass('text-right')
+    expect(screen.getByRole('columnheader', { name: 'Commentary' })).toHaveClass('text-left')
+    expect(screen.getByText(/41% operating margin/)).not.toHaveClass('text-right')
+    expect(screen.getByText(/41% operating margin/)).not.toHaveClass('whitespace-nowrap')
+  })
+
   it('builds a table of contents whose anchors match every section id', () => {
     const { container } = render(<SummaryBlocks sections={sections} summary={summary} />)
     for (const section of sections) {

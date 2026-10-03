@@ -1,10 +1,10 @@
 'use client'
 
 import { queryKeys } from '@/lib/queryKeys'
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useRouter } from 'next/navigation'
-import { CircleNotchIcon, KeyIcon, LinkIcon, SignOutIcon, WarningCircleIcon } from '@/lib/icons'
+import { KeyIcon, LinkIcon, SignOutIcon, WarningCircleIcon } from '@/lib/icons'
 import {
   getConnections,
   unlinkProvider,
@@ -33,11 +33,24 @@ export default function ConnectedAccounts() {
     retry: false,
   })
 
+  // A successful unlink's refetch drops its row, and the focused Unlink with it. Hand focus to the
+  // section heading, but only when it fell to <body>.
+  const headingRef = useRef<HTMLHeadingElement>(null)
+  const unlinked = useRef(false)
+  useEffect(() => {
+    if (!unlinked.current) return
+    unlinked.current = false
+    if (document.activeElement === document.body) headingRef.current?.focus({ preventScroll: true })
+  }, [data])
+
   const unlinkMutation = useMutation({
     mutationFn: (provider: string) => unlinkProvider(provider),
     onSuccess: () => {
       setError('')
-      queryClient.invalidateQueries({ queryKey: queryKeys.authConnections() })
+      unlinked.current = true
+      // Returned so the unlink stays pending until the refetch drops its row: the focused button
+      // must not turn active again for a provider that is already gone.
+      return queryClient.invalidateQueries({ queryKey: queryKeys.authConnections() })
     },
     onError: (err: unknown) => {
       setError(
@@ -68,7 +81,11 @@ export default function ConnectedAccounts() {
     <Card className="p-6 mb-6">
       <div className="flex items-center gap-3 mb-2">
         <LinkIcon className="h-5 w-5 text-brand-strong dark:text-brand-strong-dark" />
-        <h2 className="text-xl font-semibold text-text-primary-light dark:text-text-primary-dark">
+        <h2
+          ref={headingRef}
+          tabIndex={-1}
+          className="text-xl font-semibold text-text-primary-light outline-none dark:text-text-primary-dark"
+        >
           Connected accounts &amp; sessions
         </h2>
       </div>
@@ -115,12 +132,20 @@ export default function ConnectedAccounts() {
                     </span>
                   )}
                 </div>
+                {/* aria-disabled + an early return, never native `disabled` — a focused button
+                    that turns disabled is blurred to <body> in Chromium. That covers `pending` (its
+                    own request) and `isLast`, which a sibling row's unlink can flip on while this
+                    button holds focus. */}
                 <button
                   type="button"
-                  onClick={() => unlinkMutation.mutate(p.provider)}
-                  disabled={isLast || pending}
+                  onClick={() => {
+                    if (isLast || pending) return
+                    unlinkMutation.mutate(p.provider)
+                  }}
+                  aria-disabled={isLast || pending || undefined}
+                  aria-busy={pending || undefined}
                   title={isLast ? 'Set a password first so you keep a way to sign in' : undefined}
-                  className="text-sm font-medium text-error-light underline-offset-4 hover:underline dark:text-error-dark disabled:opacity-40 disabled:cursor-not-allowed disabled:no-underline"
+                  className="text-sm font-medium text-error-light underline-offset-4 hover:underline dark:text-error-dark aria-disabled:opacity-40 aria-disabled:cursor-not-allowed aria-disabled:no-underline"
                 >
                   {pending ? 'Unlinking…' : 'Unlink'}
                 </button>
@@ -143,16 +168,14 @@ export default function ConnectedAccounts() {
 
           {/* Sign out everywhere */}
           <div className="pt-2">
+            {/* `loading` (spinner in the icon slot) rather than `disabled`, so the focused button
+                keeps focus while the request is in flight. */}
             <Button
               variant="secondary"
               onClick={() => logoutAllMutation.mutate()}
-              disabled={logoutAllMutation.isPending}
+              loading={logoutAllMutation.isPending}
+              leftIcon={<SignOutIcon className="h-4 w-4" />}
             >
-              {logoutAllMutation.isPending ? (
-                <CircleNotchIcon className="h-4 w-4 animate-spin" />
-              ) : (
-                <SignOutIcon className="h-4 w-4" />
-              )}
               Sign out of all devices
             </Button>
           </div>

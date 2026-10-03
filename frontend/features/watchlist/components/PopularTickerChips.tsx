@@ -16,7 +16,7 @@ const CHIP_CLASSES = [
   'inline-flex items-center gap-1 rounded-full border px-3 py-1.5 text-sm font-semibold',
   'border-border-light bg-panel-light text-text-primary-light shadow-e1',
   'transition-colors duration-fast hover:bg-brand-weak hover:border-brand-border',
-  'focus-visible:outline-none focus-visible:shadow-ring-brand disabled:opacity-50',
+  'focus-visible:outline-none focus-visible:shadow-ring-brand aria-disabled:opacity-50',
   'dark:border-white/10 dark:bg-panel-dark dark:text-text-primary-dark dark:shadow-none',
   'dark:hover:bg-white/5 dark:hover:border-brand-border-dark dark:focus-visible:shadow-ring-brand-dark',
 ].join(' ')
@@ -29,11 +29,15 @@ export default function PopularTickerChips() {
     onSuccess: (_data, ticker) => {
       // Same watchlist-derived invalidation set as the other add/remove sites (§2.7).
       queryClient.invalidateQueries({ queryKey: queryKeys.watchlist() })
-      queryClient.invalidateQueries({ queryKey: queryKeys.watchlistInsights() })
+      const counted = queryClient.invalidateQueries({ queryKey: queryKeys.watchlistInsights() })
       queryClient.invalidateQueries({ queryKey: queryKeys.dashboardFeed() })
       queryClient.invalidateQueries({ queryKey: queryKeys.dashboardCalendar() })
       analytics.watchlistAdded(ticker)
       toast.success(`${ticker} added to your watchlist`)
+      // Returned, so the add stays pending until the insights refetch counts the ticker, which ends
+      // the onboarding panel these chips live in: the chip keeps focus, and released any sooner a
+      // second Enter would post the same ticker again.
+      return counted
     },
     onError: () => {
       toast.error("Couldn't add that company. Please try again.")
@@ -45,11 +49,17 @@ export default function PopularTickerChips() {
   return (
     <div className="flex flex-wrap justify-center gap-2">
       {POPULAR_TICKERS.map((ticker) => (
+        // aria-disabled + aria-busy + an early return while an add is in flight, not native
+        // `disabled`: Chromium blurs a focused chip that turns disabled, dropping the user to <body>.
         <button
           key={ticker}
           type="button"
-          onClick={() => addMutation.mutate(ticker)}
-          disabled={addMutation.isPending}
+          onClick={() => {
+            if (addMutation.isPending) return
+            addMutation.mutate(ticker)
+          }}
+          aria-disabled={addMutation.isPending || undefined}
+          aria-busy={pendingTicker === ticker || undefined}
           aria-label={`Add ${ticker} to your watchlist`}
           className={CHIP_CLASSES}
         >
