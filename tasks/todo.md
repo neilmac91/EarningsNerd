@@ -1,3 +1,10 @@
+## 2026-10-03 — the dashboard feed's Retry keeps keyboard focus (frontend)
+
+- Same bug as the dashboard's other Retry buttons: the errored feed has no data, so its refetch went back to pending and FilingFeed's skeleton branch replaced the error card and its focused Retry.
+- FilingFeed now runs its own query through `useRetainedFailure`. Retry is the DS `<Button loading>`, busy while `fetchStatus !== 'idle'`, so a retry pressed offline waits paused and still busy. A successful Retry hands focus to the "What's new" heading, only when focus fell to `<body>`; a retry that fails again disarms.
+- Spec: `busyControls.watchlist.spec.tsx` ("FilingFeed Retry", 4 cases). Removing any of 8 guards fails at least one case.
+- [ ] Still open in rule (h): EmailVerificationModal, the filing page's Retry / Regenerate, FeedbackRow on a status-filtered list, the dashboard header's Log out, PopularTickerChips' add when its refetch fails, YourCompanies' remove focus when its refetch fails, the company page's filings Retry, EarningsCalendarPage's "Try again", FullTextSearch's Retry and FilingViewer's "Try again".
+
 ## 2026-10-03 — Your companies Retry and the search's "Try Again" keep keyboard focus (frontend)
 
 - Both had the bug #1075 fixed on the dashboard's own Retry buttons. The query has no data after it errors, so a refetch put it back to pending, and the control unmounted: YourCompanies' skeleton branch replaced its error card, and CompanySearch's alert rendered only while `isError`.
@@ -6,7 +13,7 @@
 - `useRetainedFailure` and CompanySearch's busy state treat `fetchStatus !== 'idle'` as in flight, so a retry paused offline or in a hidden tab keeps its failure and busy button.
 - Review: five lenses, three skeptics per finding. Fixed: the Escape and term-change hand-off, the paused retry, the unannounced same-text failure, an unpinned `<body>` guard, and a remove pin that bypassed the page's wiring (now in `busyControls.dashboard.spec.tsx`).
 - Specs: `busyControls.dashboard.spec.tsx` (Your companies Retry, now rendering the real component, and the remove whose refetch fails, which shows why YourCompanies' remove needs no cache prune) and `CompanySearch.spec.tsx`.
-- [ ] Still open in rule (h): FilingFeed's Retry, EmailVerificationModal, the filing page's Retry / Regenerate, FeedbackRow on a status-filtered list, the dashboard header's Log out, PopularTickerChips' add when the insights refetch after it fails, YourCompanies' remove focus when its refetch fails, the company page's filings Retry, EarningsCalendarPage's "Try again", FullTextSearch's Retry and FilingViewer's "Try again".
+- [ ] Still open in rule (h): ~~FilingFeed's Retry~~ (done, see the section above), EmailVerificationModal, the filing page's Retry / Regenerate, FeedbackRow on a status-filtered list, the dashboard header's Log out, PopularTickerChips' add when the insights refetch after it fails, YourCompanies' remove focus when its refetch fails, the company page's filings Retry, EarningsCalendarPage's "Try again", FullTextSearch's Retry and FilingViewer's "Try again".
 
 ## 2026-10-03 — dashboard Retry, Delete and Manage subscription keep keyboard focus (frontend)
 

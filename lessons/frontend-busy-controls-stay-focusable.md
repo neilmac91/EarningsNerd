@@ -80,15 +80,16 @@ fails again. Otherwise a later recovery nobody pressed, such as a reconnect refe
 
 (h) The scan cannot see post-success flips, unmounts, or a busy flag under another name. Those stay
 per-site specs plus a real-browser keyboard pass. Known open cases, same class, not yet fixed:
-EmailVerificationModal's Resend (`disabled={resent}` after success, while focused); FilingFeed's Retry;
-the filing page's Retry generation / Retry / Regenerate Analysis; FeedbackRow's status select when
-the list is filtered by status (its own update removes the row); the dashboard header's Log out (no
-in-flight guard); PopularTickerChips' add when the insights refetch after it fails (the chip goes live
-again, and with no row to prune it needs the added ticker remembered); YourCompanies' remove when
-the insights refetch after it fails (the error card replaces the list and focus falls to `<body>`
-with no hand-off); the company page's filings Retry, EarningsCalendarPage's "Try again",
-FullTextSearch's Retry and FilingViewer's "Try again". YourCompanies' Retry and CompanySearch's
-"Try Again" are fixed (`busyControls.dashboard.spec.tsx`, `CompanySearch.spec.tsx`).
+EmailVerificationModal's Resend (`disabled={resent}` after success, while focused); the filing
+page's Retry generation / Retry / Regenerate Analysis; FeedbackRow's status select when the list is
+filtered by status (its own update removes the row); the dashboard header's Log out (no in-flight
+guard); PopularTickerChips' add when the insights refetch after it fails (the chip goes live again,
+and with no row to prune it needs the added ticker remembered); YourCompanies' remove when the
+insights refetch after it fails (the error card replaces the list and focus falls to `<body>` with
+no hand-off); the company page's filings Retry, EarningsCalendarPage's "Try again", FullTextSearch's
+Retry and FilingViewer's "Try again". YourCompanies' Retry, CompanySearch's "Try Again" and
+FilingFeed's Retry are fixed (`busyControls.dashboard.spec.tsx`, `CompanySearch.spec.tsx`,
+`busyControls.watchlist.spec.tsx`).
 - A Retry that hands focus to a text field arms only on a keyboard press (`e.detail === 0`), since
   focusing the field after a tap raises the touch keyboard. `:focus-visible` cannot stand in, because
   it reflects how the control got focus, not how it was activated: a tap on a keyboard-focused button
