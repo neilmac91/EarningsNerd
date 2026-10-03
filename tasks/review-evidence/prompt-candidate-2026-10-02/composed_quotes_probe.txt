@@ -1,0 +1,247 @@
+$ env -u OPENAI_API_KEY -u DEEPSEEK_API_KEY -u OPENAI_BASE_URL OPENAI_API_KEY=sk-test-key-for-mocking SECRET_KEY=offline-identity-check-not-a-secret-0 SKIP_REDIS_INIT=true PYTHONDONTWRITEBYTECODE=1 python tasks/review-evidence/prompt-candidate-2026-10-02/composed_quotes_probe.py backend copilot-37063120532/copilot-eval.json
+(source texts from the retained main run 37063120532, path relative to the lane scratch directory; backend tree byte-identical to b40fa703 apart from SYSTEM_PROMPT and the owner test, scope_hashes.txt)
+
+case  1 [pairing] BABA native-revenue-2026
+  answer:  "The \"Revenue\" line agrees, and MD&A says revenue \"further increased by 3% to RMB1,023,670 million (US$148,401 million) in fiscal year 2026\" [1]."
+  F:       [] (publishes)
+  audit:   [" line agrees, and MD&A says revenue "]
+  round 2: ['composed']  <- FALSE FAILURE under the round-2 reading
+  reading: unflagged sub-floor label "Revenue", flagged audit pairing difference " line agrees, and MD&A says revenue ", unflagged verified "further increased by 3% to RMB1,023,670 million (US$148,401 million) in fiscal year 2026"
+  outcome: agree
+
+case  2 [pairing] BABA viewed-native-revenue-2025
+  answer:  "The \"Revenue\" line shows RMB996,347 million [F1], up from RMB941,168 million on the same \"Revenue\" line a year earlier [F2]."
+  F:       [] (publishes)
+  audit:   [" line shows RMB996,347 million [F1], up from RMB941,168 million on the same "]
+  round 2: ['composed']  <- FALSE FAILURE under the round-2 reading
+  reading: unflagged sub-floor label "Revenue", flagged audit pairing difference " line shows RMB996,347 million [F1], up from RMB941,168 million on the same ", unflagged sub-floor label "Revenue"
+  outcome: agree
+
+case  3 [pairing] BABA viewed-native-revenue-2025
+  answer:  "The “Revenue” line shows RMB996,347 million [F1], up from RMB941,168 million on the same “Revenue” line a year earlier [F2]."
+  F:       [] (publishes)
+  audit:   [" line shows RMB996,347 million [F1], up from RMB941,168 million on the same "]
+  round 2: ['composed']  <- FALSE FAILURE under the round-2 reading
+  reading: unflagged sub-floor label "Revenue", flagged audit pairing difference " line shows RMB996,347 million [F1], up from RMB941,168 million on the same ", unflagged sub-floor label "Revenue"
+  outcome: agree
+
+case  4 [pairing] BABA viewed-native-revenue-2025
+  answer:  "The \"Revenue\" line agrees, and the table reads \"Revenue ... 996,347\" [F1]."
+  F:       ['elided_quotation']
+  audit:   [" line agrees, and the table reads "]
+  round 2: ['composed']
+  reading: unflagged sub-floor label "Revenue", flagged audit pairing difference " line agrees, and the table reads ", unflagged composed "Revenue ... 996,347"
+  outcome: agree
+
+case  5 [pairing] BABA native-revenue-2026
+  answer:  "MD&A says \"further increased by 3% to\nRMB1,023,670 million (US$148,401 million) in fiscal year 2026\" and the line is \"Revenue [1]\"."
+  F:       [] (publishes)
+  audit:   ["Revenue [1]"]
+  round 2: ['sub-floor label']
+  reading: unpaired marks (audit spans read as the audit pairs them); flagged sub-floor label "Revenue [1]"
+  pairs only (no unpaired-marks rule, illustration): composed " and the line is ", audit pairing difference "Revenue [1]"  <- FALSE FAILURE without the rule
+  outcome: agree
+
+case  6 [pairing] BABA viewed-native-revenue-2025
+  answer:  "MD&A says revenue \"increased by\n3%\" and the table reads \"Revenue 996,347\" [F1]."
+  F:       ['quotation_not_in_source', 'quotation_not_in_source']
+  audit:   ["increased by\n3%", "Revenue 996,347"]
+  round 2: ['composed', 'composed']
+  reading: unpaired marks (audit spans read as the audit pairs them); flagged composed "increased by\n3%", flagged composed "Revenue 996,347"
+  pairs only (no unpaired-marks rule, illustration): composed " and the table reads ", audit pairing difference "increased by\n3%", audit pairing difference "Revenue 996,347"  <- 2 composed audit span(s) become audit pairing differences without the rule
+  outcome: agree
+
+case  7 [floor] AAPL sales-gross-profit-2025
+  answer:  "The company reports no \"EBITDA [1]\" figure."
+  F:       [] (publishes)
+  audit:   ["EBITDA [1]"]
+  round 2: ['sub-floor label']
+  reading: flagged sub-floor label "EBITDA [1]"
+  outcome: agree
+
+case  8 [floor] BABA viewed-native-revenue-2025
+  answer:  "The cell reads \"... 996,347\" [F1]."
+  F:       [] (publishes)
+  audit:   ["... 996,347"]
+  round 2: ['sub-floor label']
+  reading: flagged sub-floor label "... 996,347"
+  outcome: agree
+
+case  9 [floor] BABA viewed-native-revenue-2025
+  answer:  "The cell reads \"996,347\" [F1]."
+  F:       [] (publishes)
+  audit:   []
+  round 2: []
+  reading: nothing flagged
+  outcome: agree
+
+case 10 [floor] ASML us-gaap-sales-net-income-2025
+  answer:  "The cell reads \"9,609.4\" [F1]."
+  F:       [] (publishes)
+  audit:   []
+  round 2: []
+  reading: nothing flagged
+  outcome: agree
+
+case 11 [floor] BABA viewed-native-revenue-2025
+  answer:  "The line is \"Revenue.\" [F1]"
+  F:       [] (publishes)
+  audit:   []
+  round 2: []
+  reading: nothing flagged
+  outcome: agree
+
+case 12 [floor] BABA viewed-native-revenue-2025
+  answer:  "Revenue was \"RMB996,347\" [F1]."
+  F:       ['quotation_not_in_source']
+  audit:   ["RMB996,347"]
+  round 2: ['composed']
+  reading: flagged composed "RMB996,347"
+  outcome: agree
+
+case 13 [ellipsis] BABA viewed-native-revenue-2025
+  answer:  "The table shows \"Revenue ... 996,347\" [F1]."
+  F:       ['elided_quotation']
+  audit:   ["Revenue ... 996,347"]
+  round 2: ['composed']
+  reading: flagged composed "Revenue ... 996,347"
+  outcome: agree
+
+case 14 [ellipsis] ASML us-gaap-sales-net-income-2025
+  answer:  "The table shows \"Net income 7,571.6 ... 9,609.4\" [F1]."
+  F:       ['elided_quotation']
+  audit:   ["Net income 7,571.6 ... 9,609.4"]
+  round 2: ['composed']
+  reading: flagged composed "Net income 7,571.6 ... 9,609.4"
+  outcome: agree
+
+case 15 [ellipsis] BABA viewed-native-revenue-2025
+  answer:  "The table shows \"Revenue . . . 996,347\" [F1]."
+  F:       ['elided_quotation']
+  audit:   ["Revenue . . . 996,347"]
+  round 2: ['composed']
+  reading: flagged composed "Revenue . . . 996,347"
+  outcome: agree
+
+case 16 [ellipsis] BABA viewed-native-revenue-2025
+  answer:  "The table shows \"Revenue … 996,347\" [F1]."
+  F:       ['elided_quotation']
+  audit:   ["Revenue … 996,347"]
+  round 2: ['composed']
+  reading: flagged composed "Revenue … 996,347"
+  outcome: agree
+
+case 17 [edge] BABA native-revenue-2026
+  answer:  "MD&A says revenue rose \"by 3% to RMB1,023,670 million …\" [1]."
+  F:       [] (publishes)
+  audit:   ["by 3% to RMB1,023,670 million …"]
+  round 2: ['audit normalization difference']
+  reading: flagged audit normalization difference "by 3% to RMB1,023,670 million …"
+  outcome: agree
+
+case 18 [edge] BABA native-revenue-2026
+  answer:  "MD&A says revenue \"… further increased by 3% to RMB1,023,670 million\" [1]."
+  F:       [] (publishes)
+  audit:   ["… further increased by 3% to RMB1,023,670 million"]
+  round 2: ['audit normalization difference']
+  reading: flagged audit normalization difference "… further increased by 3% to RMB1,023,670 million"
+  outcome: agree
+
+case 19 [normalization] ASML us-gaap-sales-net-income-2025
+  answer:  "The report states \"Net income for 2025 amounted to €9,609.4 million, representing 29.4% of total net sales and €24.73 basic net income per ordinary share\" [1]."
+  F:       [] (publishes)
+  audit:   ["Net income for 2025 amounted to €9,609.4 million, representing 29.4% of total net sales and €24.73 basic net income per ordinary share"]
+  round 2: ['audit normalization difference']
+  reading: flagged audit normalization difference "Net income for 2025 amounted to €9,609.4 million, representing 29.4% of total net sales and €24.73 basic net income per ordinary share"
+  outcome: agree
+
+case 20 [normalization] AAPL sales-gross-profit-2025
+  answer:  "Apple labels this line \"Gross margin,\" and reports it [F1]."
+  F:       [] (publishes)
+  audit:   ["Gross margin,"]
+  round 2: ['audit normalization difference']
+  reading: flagged audit normalization difference "Gross margin,"
+  outcome: agree
+
+case 21 [normalization] ASML us-gaap-sales-net-income-2025
+  answer:  "The line \"Total net sales [1]\" is the 2025 figure."
+  F:       [] (publishes)
+  audit:   ["Total net sales [1]"]
+  round 2: ['audit normalization difference']
+  reading: flagged audit normalization difference "Total net sales [1]"
+  outcome: agree
+
+case 22 [verified] BABA native-revenue-2026
+  answer:  "MD&A says revenue \"further increased by 3% to RMB1,023,670 million (US$148,401 million) in fiscal year 2026\" [1]."
+  F:       [] (publishes)
+  audit:   []
+  round 2: []
+  reading: nothing flagged
+  outcome: agree
+
+case 23 [verified] ASML us-gaap-sales-net-income-2025
+  answer:  "The table reads \"Net income 7,571.6\" [F1]."
+  F:       [] (publishes)
+  audit:   []
+  round 2: []
+  reading: nothing flagged
+  outcome: agree
+
+case 24 [composition] ASML us-gaap-sales-net-income-2025
+  answer:  "The table reads \"Total net sales 32,667.3\" [F1]."
+  F:       ['quotation_not_in_source']
+  audit:   ["Total net sales 32,667.3"]
+  round 2: ['composed']
+  reading: flagged composed "Total net sales 32,667.3"
+  outcome: agree
+
+case 25 [composition] ASML us-gaap-sales-net-income-2025
+  answer:  "The table reads \"Net income 9,609.4\" [F2]."
+  F:       ['quotation_not_in_source']
+  audit:   ["Net income 9,609.4"]
+  round 2: ['composed']
+  reading: flagged composed "Net income 9,609.4"
+  outcome: agree
+
+case 26 [composition] AAPL sales-gross-profit-2025
+  answer:  "The table reads \"Total net sales 416,161\" [F1]."
+  F:       ['quotation_not_in_source']
+  audit:   ["Total net sales 416,161"]
+  round 2: ['composed']
+  reading: flagged composed "Total net sales 416,161"
+  outcome: agree
+
+case 27 [composition] AAPL sales-gross-profit-2025
+  answer:  "The table reads \"Gross margin 195,201\" [F2]."
+  F:       ['quotation_not_in_source']
+  audit:   ["Gross margin 195,201"]
+  round 2: ['composed']
+  reading: flagged composed "Gross margin 195,201"
+  outcome: agree
+
+case 28 [composition] ASML us-gaap-sales-net-income-2025
+  answer:  "The table reads \"Total net sales [F1] 32,667.3\"."
+  F:       ['quotation_not_in_source']
+  audit:   ["Total net sales [F1] 32,667.3"]
+  round 2: ['composed']
+  reading: flagged composed "Total net sales [F1] 32,667.3"
+  outcome: agree
+
+case 29 [markdown, disclosed] ASML us-gaap-sales-net-income-2025
+  answer:  "The line is \"**Net income**\" [F1]."
+  F:       [] (publishes)
+  audit:   ["**Net income**"]
+  round 2: ['composed']  <- FALSE FAILURE under the round-2 reading
+  reading: flagged composed "**Net income**"
+  outcome: FALSE FAILURE
+
+case 30 [nested, disclosed] BABA native-revenue-2026
+  answer:  "The filing says \"revenue \"further increased by 3%\" in fiscal year 2026\" [1]."
+  F:       ['quotation_not_in_source']
+  audit:   []
+  round 2: []
+  reading: nothing flagged
+  outcome: F-withheld leg
+
+30 cases: F-withheld leg 1, FALSE FAILURE 1, agree 28; untagged FALSE FAILURE 0
+exit 0

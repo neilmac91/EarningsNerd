@@ -5,8 +5,9 @@ Per row: sha256 of tool_trace.initial_messages[0].content (FULL hex) and its len
 json.dumps(initial_messages[1:], sort_keys=True) (the context, as g_precheck.py hashes it, compared in full);
 sha256 of json.dumps(tool_schema, sort_keys=True); generation_options. Per report: golden_sha256, requested_model,
 requested_flags, runs, planned_attempts (18 identities, each question x run_index 0-2) and one row per planned
-identity. Prints source_sha (for the `git diff --quiet <s1> <s2> -- backend .github` rule between runs) and, when
-runner.log sits next to the report, the system_fingerprint counts (reported, never a validity condition).
+identity. Prints source_sha (for the head-anchored `git diff --quiet <frozen head> <source_sha> -- backend .github`
+validity rule) and, when runner.log sits next to the report, the system_fingerprint counts (reported, never a
+validity condition).
 Exit 0 = valid; exit 1 = any mismatch (the run is invalid: stop, record, apply no rule).
 
 Usage: python run_validity.py LABEL=path/copilot-eval.json [...]

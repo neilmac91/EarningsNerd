@@ -1,19 +1,38 @@
 """Composed-quotation leg of acceptance checks 3 and 4 (registered measurement). Offline over a retained
 copilot-eval.json; no app import, no provider call, no network.
 
-It runs the unchanged #1021 audit, `prose_quote_audit.audit` (../pr1021-qualification-2026-10-01/), and re-tests
-every span in the audit's composed_quote_rows with decision F's per-span test: F's floor (`verdict` below), then F's
-source match as copied in `quote_inventory.classify` (this folder): citation markers [n]/[F#] blanked, edge
-characters stripped, and a copy of provenance_service.normalize_for_match (punctuation-spacing fold and the
-low/curly-mark, hyphen, minus and invisible-character folds). Per span, first match wins:
+It runs the unchanged #1021 audit, `prose_quote_audit.audit` (../pr1021-qualification-2026-10-01/), and reads each
+row the audit flags (composed_quote_rows) again. Quotations are paired in order: the published answer gets the
+audit's FOLD (curly double marks to straight), and the pairs are the matches of `"([^"\\n]+)"` (quote_inventory's
+straight double form) with no floor. Every pair is re-tested by decision F's per-span test: F's floor (`verdict`
+below), then F's source match as copied in `quote_inventory.classify` (this folder): citation markers [n]/[F#]
+blanked, edge characters stripped, and a copy of provenance_service.normalize_for_match (punctuation-spacing fold
+and the low/curly-mark, hyphen, minus and invisible-character folds).
+
+Why pairs: the audit's regex `"([^"]{8,})"` cannot match a quotation under 8 characters. After a short quoted label
+(BABA's `"Revenue"`) it restarts at the label's closing mark and pairs it with the next quotation's opening mark, so
+the text between two quotations becomes an audit span. Decision F pairs the marks correctly and publishes.
+
+Classes. An audit span (one the audit flagged), first match wins:
+- audit pairing difference: it is not one of the row's pairs (the text between two quotations). Reported, not
+  composed;
 - sub-floor label: the marker-blanked, edge-stripped, normalized text is under F's _MIN_QUOTED_LEN (8) and holds no
   interior ellipsis, so F exempts it as a label (copilot_service._displayed_quotation_reasons); the audit's own
   floor counts raw characters between the marks, so `"EBITDA [1]"` reaches it. Reported, not composed;
-- audit normalization difference: the audit flags it, but F's per-span test finds it (reported, not composed);
-- composed: the audit flags it AND F's per-span test does not find it in the row's inputs.source_text.
-F's markdown reading (emphasis delimiters * _ ~) and its quote pairing are not copied: the span is the one the
-audit's regex pairs, so a published quotation holding markdown emphasis (`"**Net income**"`) is read as composed
-and printed with its span.
+- audit normalization difference: F's per-span test finds it. Reported, not composed;
+- composed: F's per-span test does not find it in the row's inputs.source_text.
+A pair on the same row that the audit did not flag (for example a quotation the audit skipped while out of phase)
+gets the same test: unflagged sub-floor label, unflagged verified (found), or unflagged composed. Composed spans are
+the composed audit spans plus the unflagged composed pairs.
+
+Unpaired marks: when the in-order pairing leaves a double mark of the folded answer unpaired (a quotation across a
+line break, an empty quotation, or a „ ‟ ＂ mark, which the audit's FOLD leaves alone), the pairs are not trusted on
+that row. Its audit spans are re-tested as the audit pairs them (sub-floor label, audit normalization difference or
+composed), none is an audit pairing difference, its other pairs are not read, and the row is counted.
+
+Not copied from F: its markdown reading (emphasis delimiters * _ ~), so a published quotation holding markdown
+emphasis (`"**Net income**"`) is read as composed and printed with its span; and its nested reading, so
+`"x "y" z"`, which F reads whole and inner, is read in order: two pairs, with the inner text as the gap between them.
 A row without source text is an absent quotation, as in the audit. Both raw audit counts and the classified counts
 are printed, overall and for ASML (check 3).
 
@@ -23,6 +42,7 @@ Usage: python composed_quotes.py LABEL=path/copilot-eval.json [...]
 """
 import importlib.util
 import json
+import re
 import sys
 from pathlib import Path
 
@@ -40,44 +60,84 @@ AUDIT = load("prose_quote_audit", HERE.parent / "pr1021-qualification-2026-10-01
 INVENTORY = load("quote_inventory", HERE / "quote_inventory.py")
 F_MIN_QUOTED_LEN = 8  # copilot_service._MIN_QUOTED_LEN, unchanged from base (prompt_identity.txt, check 5)
 COMPOSED, NORM_DIFF, SUB_FLOOR = "composed", "audit normalization difference", "sub-floor label"
+PAIRING_DIFF, VERIFIED = "audit pairing difference", "verified"
+PAIR = re.compile(r'"([^"\n]+)"')  # quote_inventory's straight double form, no floor
+AUDIT_SPAN = re.compile(r'"([^"]{8,})"')  # the audit's own regex, used only to locate its spans (checked below)
 
 
 def verdict(span, source_norm):
-    """F's per-span test on one audit span: its floor first, then the source match (quote_inventory.classify)."""
+    """F's per-span test on one span: its floor first, then the source match (quote_inventory.classify)."""
     content = INVENTORY.MARKER.sub(" ", span).strip(INVENTORY.EDGE)
     if not INVENTORY.F_ELLIPSIS.search(content) and len(INVENTORY.norm(content)) < F_MIN_QUOTED_LEN:
         return SUB_FLOOR
     return NORM_DIFF if INVENTORY.classify(span, source_norm)[1] else COMPOSED
 
 
+def read_row(answer, source_text, flagged):
+    """(marks pair in order, [(flagged, class, span)] in text order) for one row the audit flagged."""
+    folded = answer.translate(AUDIT.FOLD)
+    audit_source = AUDIT.norm(source_text)
+    located = [(m.start(1), m.end(1)) for m in AUDIT_SPAN.finditer(folded) if AUDIT.norm(m.group(1)) not in audit_source]
+    if [folded[a:b] for a, b in located] != flagged:
+        raise SystemExit(f"could not locate the audit's spans {flagged!r}")
+    pairs = [(m.start(1), m.end(1)) for m in PAIR.finditer(folded)]
+    paired = folded.count('"') == 2 * len(pairs)
+    source_norm = INVENTORY.norm(source_text)
+    spans = []
+    for at in sorted(set(located) | (set(pairs) if paired else set())):
+        text = folded[at[0]:at[1]]
+        if at not in located:
+            cls = verdict(text, source_norm)
+            spans.append((False, VERIFIED if cls == NORM_DIFF else cls, text))
+        elif paired and at not in pairs:
+            spans.append((True, PAIRING_DIFF, text))
+        else:
+            spans.append((True, verdict(text, source_norm), text))
+    return paired, spans
+
+
 def classify(path):
-    """(raw audit result, [span dicts], rows without source text)."""
+    """(raw audit result, [span dicts], rows whose marks do not pair in order, rows without source text)."""
     raw = AUDIT.audit(path)
     rows = {(r.get("ticker"), r.get("question_id"), r.get("run_index")): r
             for r in json.load(open(path, encoding="utf-8"))["results"]}
-    spans = []
+    spans, unpaired = [], []
     for hit in raw["composed_quote_rows"]:
-        row = rows[(hit["ticker"], hit["question_id"], hit["run_index"])]
-        source_norm = INVENTORY.norm((row.get("inputs") or {}).get("source_text"))
-        for span in hit["composed_quotes"]:
+        key = (hit["ticker"], hit["question_id"], hit["run_index"])
+        row = rows[key]
+        paired, read = read_row(row.get("answer") or "", (row.get("inputs") or {}).get("source_text"),
+                                hit["composed_quotes"])
+        if not paired:
+            unpaired.append(key)
+        for flagged, cls, span in read:
             spans.append({"ticker": hit["ticker"], "question_id": hit["question_id"], "run_index": hit["run_index"],
-                          "verdict": verdict(span, source_norm), "span": span})
-    return raw, spans, raw["rows_without_source_text"]
+                          "flagged": flagged, "verdict": cls, "span": span})
+    return raw, spans, unpaired, raw["rows_without_source_text"]
+
+
+def count(spans, cls, ticker=None):
+    return sum(s["verdict"] == cls and ticker in (None, s["ticker"]) for s in spans)
 
 
 if __name__ == "__main__":
     failed = not sys.argv[1:]
     for arg in sys.argv[1:]:
         label, path = arg.split("=", 1)
-        raw, spans, absent = classify(path)
-        composed = [s for s in spans if s["verdict"] == COMPOSED]
-        asml = [s for s in composed if s["ticker"] == "ASML"]
-        failed |= bool(composed or absent)
+        raw, spans, unpaired, absent = classify(path)
+        flagged = [s for s in spans if s["flagged"]]
+        other = [s for s in spans if not s["flagged"]]
+        failed |= bool(count(spans, COMPOSED) or absent)
         print(f"{label}: audit composed_quote_rows {len(raw['composed_quote_rows'])} (raw, strict); flagged spans "
-              f"{len(spans)}: composed {len(composed)} (ASML {len(asml)}), audit normalization difference "
-              f"{sum(s['verdict'] == NORM_DIFF for s in spans)}, sub-floor label "
-              f"{sum(s['verdict'] == SUB_FLOOR for s in spans)}; rows without source text {len(absent)} {absent}")
+              f"{len(flagged)}: composed {count(flagged, COMPOSED)} (ASML {count(flagged, COMPOSED, 'ASML')}), audit "
+              f"normalization difference {count(flagged, NORM_DIFF)}, sub-floor label {count(flagged, SUB_FLOOR)}, "
+              f"audit pairing difference {count(flagged, PAIRING_DIFF)}; unflagged pairs on flagged rows {len(other)}: "
+              f"composed {count(other, COMPOSED)} (ASML {count(other, COMPOSED, 'ASML')}), sub-floor label "
+              f"{count(other, SUB_FLOOR)}, verified {count(other, VERIFIED)}; rows with unpaired marks {len(unpaired)}; "
+              f"rows without source text {len(absent)} {absent}")
+        for s in unpaired:
+            print(f"   unpaired marks: {s[0]} {s[1]} d{s[2]} (audit spans read as the audit pairs them)")
         for s in spans:
-            print(f"   {s['ticker']:5} {s['question_id']:30} d{s['run_index']} {s['verdict']:30} "
+            cls = s["verdict"] if s["flagged"] else f"unflagged {s['verdict']}"
+            print(f"   {s['ticker']:5} {s['question_id']:30} d{s['run_index']} {cls:30} "
                   f"{json.dumps(s['span'], ensure_ascii=False)}")
     sys.exit(1 if failed else 0)
