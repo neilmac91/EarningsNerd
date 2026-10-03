@@ -34,7 +34,7 @@ from app.services import invite_service
 
 AUTH_ROUTER = Path(__file__).resolve().parents[2] / "app" / "routers" / "auth.py"
 GATE_HELPER = "_oauth_new_account_gate"
-VALID_PASSWORD = "Sup3rSecretPassw0rd"  # >=12 chars, upper+lower+digit
+VALID_PASSWORD = "Sup3rSecretPassw0rd"  # >=12 chars, upper+lower+digit; test fixture, not a credential  # gitleaks:allow
 PROVIDERS = ("google", "apple")
 
 

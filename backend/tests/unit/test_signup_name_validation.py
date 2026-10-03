@@ -11,7 +11,7 @@ from app.routers.auth import UserCreate
 from app.routers.watchlist import WaitlistJoinRequest
 from app.utils.text import has_control_characters
 
-VALID_PASSWORD = "Sup3rSecretPassw0rd"  # >=12 chars, upper+lower+digit
+VALID_PASSWORD = "Sup3rSecretPassw0rd"  # >=12 chars, upper+lower+digit; test fixture, not a credential  # gitleaks:allow
 
 
 def _waitlist_name(value):

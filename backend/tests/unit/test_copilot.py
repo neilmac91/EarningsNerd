@@ -595,6 +595,30 @@ async def test_service_publication_boundary(client, monkeypatch, case):
 
 @pytest.mark.unit
 @pytest.mark.asyncio
+async def test_service_marks_provider_start_on_the_first_chunk_only(monkeypatch):
+    """The `generating` progress marks the provider's first chunk: it follows the pre-call `reading`
+    progress exactly once, and a stream whose first chunk is the error sentinel never emits it."""
+    chunks = ["Revenue rose. ", "===CITATIONS===[]"]
+    monkeypatch.setattr(
+        copilot_service.openai_service, "stream_chat_with_tools", _chunks_to_async_gen(chunks)
+    )
+    events = await _collect(_fake_filing(), "How did revenue do?")
+    stages = [e.get("stage") for e in events if e["type"] == "progress"]
+    assert stages[:2] == ["reading", copilot_service.PROVIDER_STARTED_STAGE]
+    assert stages.count(copilot_service.PROVIDER_STARTED_STAGE) == 1
+
+    monkeypatch.setattr(
+        copilot_service.openai_service,
+        "stream_chat_with_tools",
+        _chunks_to_async_gen([copilot_service.STREAM_ERROR_SENTINEL + "model exploded"]),
+    )
+    events = await _collect(_fake_filing(), "How did revenue do?")
+    assert [e["type"] for e in events] == ["progress", "error"]
+    assert events[0]["stage"] == "reading"
+
+
+@pytest.mark.unit
+@pytest.mark.asyncio
 async def test_service_not_disclosed_path(monkeypatch):
     """The not-disclosed sentinel yields a not_disclosed event and no fabricated citations."""
     chunks = [
@@ -1951,6 +1975,8 @@ def test_endpoint_pro_lease_is_converted_when_the_provider_stream_starts(client,
     async def _observing_answer(*, filing, question, history=None):
         seen.append(_qa_state(_observing_answer.uid))  # before the provider is called
         yield {"type": "progress", "stage": "reading"}  # the event right before the model call
+        seen.append(_qa_state(_observing_answer.uid))  # still held: the provider has not started
+        yield {"type": "progress", "stage": copilot_service.PROVIDER_STARTED_STAGE}  # the provider has started
         seen.append(_qa_state(_observing_answer.uid))  # while the provider streams
         yield {"type": "complete", "answer": "ok", "citations": [], "grounded": 0, "kind": "answer"}
 
@@ -1961,6 +1987,7 @@ def test_endpoint_pro_lease_is_converted_when_the_provider_stream_starts(client,
         assert resp.status_code == 200
         assert seen == [
             ([(QA_RESERVATION_KIND, get_current_month())], 0, 0),  # held until the provider starts
+            ([(QA_RESERVATION_KIND, get_current_month())], 0, 0),  # the pre-call progress meters nothing
             ([], 1, 0),  # converted at provider start: one counted unit, no lease left
         ]
         assert _qa_state(uid) == ([], 1, 0)  # complete settles it
@@ -1974,6 +2001,7 @@ def test_endpoint_error_event_after_the_provider_started_refunds_the_unit(client
 
     async def _failing_answer(*, filing, question, history=None):
         yield {"type": "progress", "stage": "reading"}
+        yield {"type": "progress", "stage": copilot_service.PROVIDER_STARTED_STAGE}  # the provider has started
         seen.append(_qa_state(_failing_answer.uid))
         yield {"type": "error", "message": "model down"}
 
@@ -2004,6 +2032,7 @@ def test_endpoint_raised_pipeline_error_refunds_the_unit(client, monkeypatch):
 
     async def _exploding_answer(*, filing, question, history=None):
         yield {"type": "progress", "stage": "reading"}
+        yield {"type": "progress", "stage": copilot_service.PROVIDER_STARTED_STAGE}  # the provider has started
         raise RuntimeError("provider down")
 
     monkeypatch.setattr(summaries_router, "answer_filing_question", _exploding_answer)
@@ -2011,6 +2040,30 @@ def test_endpoint_raised_pipeline_error_refunds_the_unit(client, monkeypatch):
         with pytest.raises(RuntimeError):
             client.post(f"/api/summaries/filing/{fid}/ask-stream", json={"question": "Q?"})
         assert _qa_state(uid) == ([], 0, 0)  # counted at provider start, refunded on the raised failure
+
+
+@pytest.mark.requires_db
+def test_endpoint_failure_after_the_reading_progress_but_before_the_provider_started_releases_the_lease(
+    client, monkeypatch
+):
+    """The `reading` progress precedes the model call, so a stream that dies between it and the
+    provider's first chunk (a raise here; a client disconnect takes the same path) never meters."""
+    import app.routers.summaries as summaries_router
+
+    seen = []
+
+    async def _dying_answer(*, filing, question, history=None):
+        yield {"type": "progress", "stage": "reading"}
+        seen.append(_qa_state(_dying_answer.uid))
+        raise RuntimeError("prompt build failed before the provider was called")
+
+    monkeypatch.setattr(summaries_router, "answer_filing_question", _dying_answer)
+    with _as_user(is_pro=True) as uid, _seed_filing() as fid:
+        _dying_answer.uid = uid
+        with pytest.raises(RuntimeError):
+            client.post(f"/api/summaries/filing/{fid}/ask-stream", json={"question": "Q?"})
+        assert seen[0][1:] == (0, 0)  # nothing counted on the pre-call progress
+        assert _qa_state(uid) == ([], 0, 0)  # the lease was released, not converted
 
 
 @pytest.mark.requires_db
@@ -2050,7 +2103,7 @@ def test_endpoint_free_taste_lease_is_lifetime_scoped_and_converts_to_the_lifeti
 
     async def _observing_answer(*, filing, question, history=None):
         seen.append(_qa_state(_observing_answer.uid))
-        yield {"type": "progress", "stage": "reading"}
+        yield {"type": "progress", "stage": copilot_service.PROVIDER_STARTED_STAGE}  # the provider has started
         seen.append(_qa_state(_observing_answer.uid))
         yield {"type": "complete", "answer": "ok", "citations": [], "grounded": 0, "kind": "answer"}
 

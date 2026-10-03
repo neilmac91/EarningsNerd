@@ -42,7 +42,7 @@ from app.services.subscription_service import (
     reserve_qa_taste_use,
     reserve_qa_use,
 )
-from app.services.copilot_service import answer_filing_question, snapshot_filing
+from app.services.copilot_service import PROVIDER_STARTED_STAGE, answer_filing_question, snapshot_filing
 from app.services.summary_generation_service import (
     mark_stale_progress_as_error,
     progress_as_dict,
@@ -500,12 +500,15 @@ async def ask_filing_stream(
     held = {"token": token}  # the admission lease, until converted by metering or released
 
     async def event_stream():
-        # Metering point: the unit is counted when the provider stream starts — the first non-error
-        # event, which ``answer_filing_question`` yields right before the model call — not on
-        # completion. The provider bill accrues from there, so a client disconnect after that point
-        # keeps the unit (the cancellation path never refunds). A provider-side failure after the
+        # Metering point: the unit is counted when the provider stream has started — the
+        # ``progress`` event with stage ``PROVIDER_STARTED_STAGE`` that ``answer_filing_question``
+        # emits on the provider's first chunk (a terminal event counts too, for a stream that
+        # completes without one) — not the ``reading`` progress that precedes the model call, and
+        # not completion. The provider bill accrues from there, so a client disconnect after that
+        # point keeps the unit (the cancellation path never refunds); a disconnect or failure before
+        # it leaves the lease held, and ``finally`` releases it. A provider-side failure after the
         # start (an ``error`` event, or the generator raising) refunds it: the client cannot induce
-        # either, and no answer prose was delivered. An ``error`` before any other event never meters.
+        # either, and no answer prose was delivered.
         metered = False  # metering attempted (once, at provider start)
         charged: Optional[str] = None  # scope the unit was counted in, until settled by `complete` or refunded
         try:
@@ -515,7 +518,11 @@ async def ask_filing_stream(
                 history=body.history,
             ):
                 kind = event.get("type")
-                if not metered and kind != "error":
+                provider_started = (
+                    (kind == "progress" and event.get("stage") == PROVIDER_STARTED_STAGE)
+                    or kind in ("complete", "not_disclosed")
+                )
+                if not metered and provider_started:
                     metered = True
                     # Offload the synchronous DB write to a worker thread so it never blocks the
                     # event loop mid-stream (it opens its own fresh SessionLocal, so it's
