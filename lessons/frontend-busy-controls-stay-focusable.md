@@ -49,7 +49,12 @@ invalidation from `onSuccess` (`return queryClient.invalidateQueries(…)`), so 
 the refetched data lands. Otherwise the button re-enables in between and a second press sends a
 duplicate request (ProfileForm's Save, ConnectedAccounts' Unlink). A hand-rolled async handler does
 the same: it awaits the invalidation before clearing its busy flag (admin invites' Send, which would
-otherwise mint and email the whole batch again).
+otherwise mint and email the whole batch again). When `onSuccess` fans out several invalidations,
+return the one whose refetch removes or flips the focused control, and fire the rest. Examples: the
+filing page's saved status, which swaps Save for Saved; the dashboard's watchlist insights, which
+drop a removed row and end the onboarding panel under the popular-ticker chips. Audit every
+`onSuccess` of a control this sweep keeps focusable. Hosted Codex found these three after the sweep
+had shipped them fire-and-forget.
 
 (g) A control that unmounts as a result of its own activation (a row removed on success, a section
 swapped for a skeleton, Save replaced by a "Saved" label) hands focus to a stable target: a heading

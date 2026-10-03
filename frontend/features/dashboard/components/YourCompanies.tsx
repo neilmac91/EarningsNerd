@@ -49,11 +49,14 @@ export default function YourCompanies({ insights, isLoading, isError, refetch, i
     onSuccess: (_data, ticker) => {
       removedTicker.current = ticker
       queryClient.invalidateQueries({ queryKey: queryKeys.watchlist() })
-      queryClient.invalidateQueries({ queryKey: queryKeys.watchlistInsights() })
+      const rowGone = queryClient.invalidateQueries({ queryKey: queryKeys.watchlistInsights() })
       queryClient.invalidateQueries({ queryKey: queryKeys.dashboardFeed() })
       queryClient.invalidateQueries({ queryKey: queryKeys.dashboardCalendar() })
       analytics.watchlistRemoved(ticker)
       toast.success(`${ticker} removed from your watchlist`)
+      // Returned, so the removal stays pending until the insights refetch drops the row: the remove
+      // button keeps focus, and released any sooner a second Enter would DELETE the ticker again.
+      return rowGone
     },
     onError: (error) => {
       toast.error(error instanceof Error ? error.message : "Couldn't update your watchlist. Please try again.")

@@ -29,11 +29,15 @@ export default function PopularTickerChips() {
     onSuccess: (_data, ticker) => {
       // Same watchlist-derived invalidation set as the other add/remove sites (§2.7).
       queryClient.invalidateQueries({ queryKey: queryKeys.watchlist() })
-      queryClient.invalidateQueries({ queryKey: queryKeys.watchlistInsights() })
+      const counted = queryClient.invalidateQueries({ queryKey: queryKeys.watchlistInsights() })
       queryClient.invalidateQueries({ queryKey: queryKeys.dashboardFeed() })
       queryClient.invalidateQueries({ queryKey: queryKeys.dashboardCalendar() })
       analytics.watchlistAdded(ticker)
       toast.success(`${ticker} added to your watchlist`)
+      // Returned, so the add stays pending until the insights refetch counts the ticker, which ends
+      // the onboarding panel these chips live in: the chip keeps focus, and released any sooner a
+      // second Enter would post the same ticker again.
+      return counted
     },
     onError: () => {
       toast.error("Couldn't add that company. Please try again.")

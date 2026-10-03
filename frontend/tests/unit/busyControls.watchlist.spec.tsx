@@ -18,7 +18,9 @@ import FilingFeed from '@/features/dashboard/components/FilingFeed'
  * (+ aria-busy on the control whose request is in flight) with an early return, or the DS Button's
  * `loading`, never natively `disabled`: Chromium blurs a focused control that turns `disabled` to
  * <body>. jsdom does not blur disabled elements, so these specs pin the attributes, that focus is
- * never moved off the control, and that a second activation sends no second request.
+ * never moved off the control, and that a second activation sends no second request. That includes
+ * the gap after the request lands: an add or removal stays pending until the insights refetch that
+ * recounts the ticker or drops its row, since the kept focus could otherwise send it again.
  *
  * Where a control's own success (or activation) unmounts it, focus is handed to a stable target
  * before it can fall to <body>: the search field after an add from the results, the "Your
@@ -121,19 +123,36 @@ const watchlistItem = (ticker: string): WatchlistItem => ({
   company: { id: 1, ticker, name: 'Apple Inc.' },
 })
 
+const insight = (id: number, ticker: string, name: string): WatchlistInsight => ({
+  company: { id, ticker, name },
+  latest_filing: null,
+  total_filings: 0,
+})
+
 afterEach(() => {
   cleanup()
   Object.values(api).forEach((mock) => mock.mockReset())
 })
 
 describe('PopularTickerChips', () => {
-  // Rendered on its own, so "after it" means the chip row survives the add. Its only render site,
-  // FeedOnboarding, is replaced wholesale by FilingFeed once the add lands (watchlistCount > 0),
-  // taking the focused chip with it; that hand-off belongs to FilingFeed (a recorded follow-up).
-  it('keeps focus on the chip through its add and after it, and ignores repeat clicks on any chip', async () => {
+  // Rendered beside the dashboard's insights query but not inside the onboarding panel, so "after
+  // it" means the chip row survives the add. Its only render site, FeedOnboarding, is replaced
+  // wholesale by FilingFeed once the recount lands (watchlistCount > 0), taking the focused chip with
+  // it; that hand-off is FilingFeed's ('FilingFeed onboarding' below).
+  it('keeps focus on the chip through its add and the recount after it, and ignores repeat clicks on any chip', async () => {
     const post = deferred<WatchlistItem>()
     api.addToWatchlist.mockReturnValue(post.promise)
-    renderWithClient(<PopularTickerChips />)
+    const recount = deferred<WatchlistInsight[]>()
+    const getInsights = vi
+      .fn<() => Promise<WatchlistInsight[]>>()
+      .mockResolvedValueOnce([])
+      .mockReturnValueOnce(recount.promise)
+    function DashboardInsights() {
+      useQuery({ queryKey: queryKeys.watchlistInsights(), queryFn: getInsights })
+      return null
+    }
+    renderWithClient(<><DashboardInsights /><PopularTickerChips /></>)
+    await waitFor(() => expect(getInsights).toHaveBeenCalledTimes(1))
 
     const aapl = screen.getByRole('button', { name: 'Add AAPL to your watchlist' })
     const msft = screen.getByRole('button', { name: 'Add MSFT to your watchlist' })
@@ -148,7 +167,17 @@ describe('PopularTickerChips', () => {
     expect(api.addToWatchlist).toHaveBeenCalledTimes(1)
     expect(api.addToWatchlist).toHaveBeenCalledWith('AAPL', expect.anything())
 
+    // Added but not yet counted, so the panel would still be up: the chip stays busy and a second
+    // activation posts nothing until the insights refetch lands.
     await act(async () => post.resolve(watchlistItem('AAPL')))
+    await waitFor(() => expect(getInsights).toHaveBeenCalledTimes(2))
+    await settle()
+    expectBusyAndFocused(aapl)
+    fireEvent.click(aapl)
+    await settle()
+    expect(api.addToWatchlist).toHaveBeenCalledTimes(1)
+
+    await act(async () => recount.resolve([insight(1, 'AAPL', 'Apple Inc.')]))
     await expectSettledAndFocused(aapl)
     expect(msft).not.toHaveAttribute('aria-disabled')
   })
@@ -215,12 +244,6 @@ describe('WatchlistAddSearch result option', () => {
 })
 
 describe('YourCompanies remove button', () => {
-  const insight = (id: number, ticker: string, name: string): WatchlistInsight => ({
-    company: { id, ticker, name },
-    latest_filing: null,
-    total_filings: 0,
-  })
-
   it('keeps focus through its removal request and a failed settle, and ignores repeat clicks on any row', async () => {
     const del = deferred<unknown>()
     api.removeFromWatchlist.mockReturnValue(del.promise)
@@ -253,13 +276,14 @@ describe('YourCompanies remove button', () => {
     expect(removeMicrosoft).not.toHaveAttribute('aria-disabled')
   })
 
-  it('lands focus on the section heading when a successful removal drops the focused row', async () => {
+  it('stays busy until the refetch drops the focused row, then lands focus on the section heading', async () => {
     const del = deferred<unknown>()
     api.removeFromWatchlist.mockReturnValue(del.promise)
+    const refetched = deferred<WatchlistInsight[]>()
     const getInsights = vi
       .fn<() => Promise<WatchlistInsight[]>>()
       .mockResolvedValueOnce([insight(1, 'AAPL', 'Apple Inc.'), insight(2, 'MSFT', 'Microsoft Corp')])
-      .mockResolvedValue([insight(2, 'MSFT', 'Microsoft Corp')])
+      .mockReturnValueOnce(refetched.promise)
     // The dashboard's own insights query: the removal's invalidation refetches it, and the row goes.
     function DashboardHost() {
       const { data, isLoading, isError, refetch, isFetching } = useQuery({
@@ -284,7 +308,17 @@ describe('YourCompanies remove button', () => {
     await waitFor(() => expect(removeApple).toHaveAttribute('aria-busy', 'true'))
     expectBusyAndFocused(removeApple)
 
+    // Removed, but the row stays on screen until insights refetch: its button stays busy and focused,
+    // and a second activation sends no second DELETE.
     await act(async () => del.resolve(undefined))
+    await waitFor(() => expect(getInsights).toHaveBeenCalledTimes(2))
+    await settle()
+    expectBusyAndFocused(removeApple)
+    fireEvent.click(removeApple)
+    await settle()
+    expect(api.removeFromWatchlist).toHaveBeenCalledTimes(1)
+
+    await act(async () => refetched.resolve([insight(2, 'MSFT', 'Microsoft Corp')]))
     await waitFor(() => expect(removeApple).not.toBeInTheDocument())
     const heading = screen.getByRole('heading', { name: 'Your companies' })
     await waitFor(() => expect(document.activeElement).toBe(heading))
