@@ -52,6 +52,7 @@ def _fresh_flow(client, monkeypatch):
     monkeypatch.setattr(auth_module.settings, "GOOGLE_CLIENT_ID", "test-google-client")
     monkeypatch.setattr(auth_module.settings, "APPLE_CLIENT_ID", "io.earningsnerd.test")
     auth_module.REGISTER_LIMITER._hits.clear()
+    auth_module.OAUTH_START_LIMITER._hits.clear()
     yield
     client.cookies.clear()
 
@@ -388,3 +389,33 @@ def test_every_user_construction_in_the_auth_router_is_gated():
     assert "settings.REGISTRATION_MODE" in body and "validate_invite_hash" in body, (
         f"{GATE_HELPER} no longer reads REGISTRATION_MODE / validates the invite"
     )
+
+
+@pytest.mark.requires_db
+@pytest.mark.parametrize("provider", PROVIDERS)
+def test_oauth_start_persists_nothing_for_an_unknown_invite(client, monkeypatch, invite_only, provider):
+    """An unauthenticated caller cannot grow the state table by inventing invite values: an unknown
+    token stores no invite hash (Google: no row at all; Apple: its nonce row carries no invite)."""
+    with SessionLocal() as db:
+        before = db.query(OAuthState).count()
+    state = _start(client, provider, invite="not-a-real-invite-token")
+    rows = _state_rows(state)
+    if provider == "google":
+        assert rows == []
+    else:
+        assert [row.invite_code_hash for row in rows] == [None]
+    with SessionLocal() as db:
+        assert db.query(OAuthState).filter(OAuthState.invite_code_hash.isnot(None)).count() == 0
+        assert db.query(OAuthState).count() - before == (0 if provider == "google" else 1)
+
+
+@pytest.mark.requires_db
+@pytest.mark.parametrize("provider", PROVIDERS)
+def test_oauth_start_is_rate_limited_per_ip(client, monkeypatch, public_mode, provider):
+    limit = auth_module.OAUTH_START_LIMITER.limit
+    for _ in range(limit):
+        assert client.get(f"/api/auth/{provider}", follow_redirects=False).status_code == 302
+    blocked = client.get(f"/api/auth/{provider}", follow_redirects=False)
+    assert blocked.status_code == 429
+    assert "Retry-After" in blocked.headers
+

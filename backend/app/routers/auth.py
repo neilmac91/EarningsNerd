@@ -66,6 +66,9 @@ RESEND_VERIFY_LIMITER = RateLimiter(limit=3, window_seconds=3600)   # 3/hr per e
 # single IP can't spray reset/verification mail to thousands of different addresses (Resend cost +
 # domain-reputation abuse). The per-email limiters stop bombing ONE victim; this stops fan-out.
 RESET_RESEND_IP_LIMITER = RateLimiter(limit=20, window_seconds=3600)  # 20/hr per IP, all emails
+# OAuth starts persist a state row (always for Apple, for an invited Google sign-up): bound the
+# unauthenticated writers per IP. Sized for a person retrying a sign-in, not a script.
+OAUTH_START_LIMITER = RateLimiter(limit=20, window_seconds=60)
 # Per-account failed-login lockout is now durable + anti-enumeration (services/login_lockout,
 # keyed on the email hash and backed by the DB), replacing the old in-memory RateLimiter here.
 
@@ -1065,8 +1068,18 @@ def _apple_redirect(url: str) -> RedirectResponse:
 
 # ─── Google OAuth (OIDC via httpx — no extra dependency) ───────────────────────
 
+def _live_invite_hash(db: Session, invite: Optional[str]) -> Optional[str]:
+    """The hash of ``invite`` when it names a usable invite, else None: an OAuth start persists
+    nothing for an unknown, revoked, used or expired token (the callback then sees no invite)."""
+    if not invite:
+        return None
+    code_hash = invite_service.hash_invite_token(invite)
+    return code_hash if invite_service.invite_hash_is_live(db, code_hash) else None
+
+
 @router.get("/google")
 async def google_login(
+    request: Request,
     db: Session = Depends(get_db),
     invite: Optional[str] = Query(None, max_length=128),
 ):
@@ -1074,14 +1087,20 @@ async def google_login(
 
     ``invite`` is the raw closed-beta token from the magic link, so an invited user can sign up
     with Google under REGISTRATION_MODE=invite_only: its hash is stored against the ``state`` and
-    the callback validates + redeems it when it creates the account. Only the hash is stored.
+    the callback validates + redeems it when it creates the account. Only the hash is stored, and
+    only for an invite that is live; the start is rate limited per IP because it writes a row.
     """
     if not settings.GOOGLE_CLIENT_ID:
         raise HTTPException(status_code=503, detail="Google Sign-In is not configured.")
+    enforce_rate_limit(
+        request, OAUTH_START_LIMITER, "oauth-start",
+        error_detail="Too many sign-in attempts. Please try again shortly.",
+    )
     state = secrets.token_urlsafe(32)
-    if invite:
+    invite_code_hash = _live_invite_hash(db, invite)
+    if invite_code_hash is not None:
         # The nonce column is NOT NULL but unused for Google (no OIDC nonce in this flow).
-        _store_oauth_state(db, state, secrets.token_urlsafe(32), invite_service.hash_invite_token(invite))
+        _store_oauth_state(db, state, secrets.token_urlsafe(32), invite_code_hash)
         db.commit()
     params = {
         "client_id": settings.GOOGLE_CLIENT_ID,
@@ -1219,18 +1238,21 @@ async def google_callback(
 
 @router.get("/apple")
 async def apple_login(
+    request: Request,
     db: Session = Depends(get_db),
     invite: Optional[str] = Query(None, max_length=128),
 ):
     """Redirect the browser to Apple's consent screen (``invite``: as for google_login)."""
     if not settings.APPLE_CLIENT_ID:
         raise HTTPException(status_code=503, detail="Apple Sign In is not configured.")
+    enforce_rate_limit(
+        request, OAUTH_START_LIMITER, "oauth-start",
+        error_detail="Too many sign-in attempts. Please try again shortly.",
+    )
 
     state = secrets.token_urlsafe(32)
     raw_nonce = secrets.token_urlsafe(32)
-    _store_oauth_state(
-        db, state, raw_nonce, invite_service.hash_invite_token(invite) if invite else None
-    )
+    _store_oauth_state(db, state, raw_nonce, _live_invite_hash(db, invite))
     db.commit()
 
     # Send sha256(raw_nonce) so Apple stores it in id_token; we verify on callback.

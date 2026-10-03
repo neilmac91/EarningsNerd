@@ -78,6 +78,16 @@ def validate_invite(db: Session, raw_token: Optional[str], email: str) -> Option
     return validate_invite_hash(db, _hash_token(raw_token), email)
 
 
+def invite_hash_is_live(db: Session, code_hash: Optional[str]) -> bool:
+    """True when ``code_hash`` names an invite that is still usable (exists, not revoked, unused,
+    unexpired). The email binding is checked at redemption, when the address is known; this is the
+    cheap pre-check an OAuth start uses before it persists anything for the invite."""
+    if not code_hash:
+        return False
+    invite = db.query(InviteCode).filter(InviteCode.code_hash == code_hash).first()
+    return invite is not None and not invite.is_revoked and invite.used_at is None and not _is_expired(invite)
+
+
 def validate_invite_hash(db: Session, code_hash: Optional[str], email: str) -> Optional[InviteCode]:
     """``validate_invite`` for a caller holding only the token's hash (see ``hash_invite_token``)."""
     if not code_hash:
