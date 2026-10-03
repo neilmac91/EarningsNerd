@@ -1,8 +1,8 @@
 $ python tasks/review-evidence/prompt-candidate-2026-10-02/scope_hashes.py b40fa70382c5d45239817f012c2b0e9d6a5a5532 HEAD
-(round 4: run on the round-4 commit 955c3098 before this file was regenerated; the commit that carries this file differs from it only in this file)
+(run on commit f4121429bdf9430efc326bce93b5c68d659a6258, the parent of the commit that carries this file; the two differ only in this file. Re-running on any later head with no other change gives the same output apart from the head line.)
 
 base b40fa70382c5d45239817f012c2b0e9d6a5a5532
-head 955c309866bf4eff71e7cd4e7fba7a3ae6d24230
+head f4121429bdf9430efc326bce93b5c68d659a6258
 
 1. byte identity (git diff --exit-code BASE HEAD -- path; sha256 at BASE | at HEAD)
   same  diff-rc=0  backend/evals/copilot_scorers.py  (scorer)
@@ -136,6 +136,7 @@ head 955c309866bf4eff71e7cd4e7fba7a3ae6d24230
   ok   A  tasks/review-evidence/prompt-candidate-2026-10-02/design-history/exact-head-review-r2.md
   ok   A  tasks/review-evidence/prompt-candidate-2026-10-02/design-history/exact-head-review-r3.md
   ok   A  tasks/review-evidence/prompt-candidate-2026-10-02/design-history/exact-head-review-r4.md
+  ok   A  tasks/review-evidence/prompt-candidate-2026-10-02/design-history/exact-head-review-r5.md
   ok   A  tasks/review-evidence/prompt-candidate-2026-10-02/mutations.txt
   ok   A  tasks/review-evidence/prompt-candidate-2026-10-02/prompt_identity.py
   ok   A  tasks/review-evidence/prompt-candidate-2026-10-02/prompt_identity.txt
