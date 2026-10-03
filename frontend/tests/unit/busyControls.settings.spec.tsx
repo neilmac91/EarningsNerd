@@ -249,6 +249,9 @@ describe('ConnectedAccounts', () => {
     await act(async () => refetch.resolve({ has_password: true, providers: [] }))
     expect(await screen.findByText('No social sign-ins linked.')).toBeInTheDocument()
     expect(screen.queryByText(/Could not unlink/)).not.toBeInTheDocument()
+    // The refetch dropped the row and the focused Unlink with it: focus lands on the section heading.
+    expect(unlink.isConnected).toBe(false)
+    expect(document.activeElement).toBe(screen.getByRole('heading', { name: /Connected accounts/ }))
   })
 
   it('the last sign-in method is unavailable but focusable, and a click sends nothing', async () => {

@@ -1,7 +1,7 @@
 'use client'
 
 import { queryKeys } from '@/lib/queryKeys'
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useRouter } from 'next/navigation'
 import { KeyIcon, LinkIcon, SignOutIcon, WarningCircleIcon } from '@/lib/icons'
@@ -33,10 +33,21 @@ export default function ConnectedAccounts() {
     retry: false,
   })
 
+  // A successful unlink's refetch drops its row, and the focused Unlink with it. Hand focus to the
+  // section heading, but only when it fell to <body>.
+  const headingRef = useRef<HTMLHeadingElement>(null)
+  const unlinked = useRef(false)
+  useEffect(() => {
+    if (!unlinked.current) return
+    unlinked.current = false
+    if (document.activeElement === document.body) headingRef.current?.focus({ preventScroll: true })
+  }, [data])
+
   const unlinkMutation = useMutation({
     mutationFn: (provider: string) => unlinkProvider(provider),
     onSuccess: () => {
       setError('')
+      unlinked.current = true
       // Returned so the unlink stays pending until the refetch drops its row: the focused button
       // must not turn active again for a provider that is already gone.
       return queryClient.invalidateQueries({ queryKey: queryKeys.authConnections() })
@@ -70,7 +81,11 @@ export default function ConnectedAccounts() {
     <Card className="p-6 mb-6">
       <div className="flex items-center gap-3 mb-2">
         <LinkIcon className="h-5 w-5 text-brand-strong dark:text-brand-strong-dark" />
-        <h2 className="text-xl font-semibold text-text-primary-light dark:text-text-primary-dark">
+        <h2
+          ref={headingRef}
+          tabIndex={-1}
+          className="text-xl font-semibold text-text-primary-light outline-none dark:text-text-primary-dark"
+        >
           Connected accounts &amp; sessions
         </h2>
       </div>

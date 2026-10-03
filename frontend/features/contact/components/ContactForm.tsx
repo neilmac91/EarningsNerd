@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { clsx } from 'clsx'
 import { submitContactForm } from '@/features/contact/api/contact-api'
 import TurnstileWidget from '@/features/auth/components/TurnstileWidget'
@@ -17,6 +17,18 @@ export default function ContactForm() {
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
   const [turnstileToken, setTurnstileToken] = useState('')
+  // Swapping the form for the success panel (and back) unmounts whatever held focus: Send, the
+  // field Enter was pressed in, or 'Send another message'. Hand focus to the panel's heading, or to
+  // the first field, but only when it fell to <body>.
+  const successHeadingRef = useRef<HTMLHeadingElement>(null)
+  const nameRef = useRef<HTMLInputElement>(null)
+  const swapped = useRef(false)
+  useEffect(() => {
+    if (!swapped.current) return
+    swapped.current = false
+    if (document.activeElement !== document.body) return
+    ;(success ? successHeadingRef.current : nameRef.current)?.focus({ preventScroll: true })
+  }, [success])
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
@@ -58,6 +70,7 @@ export default function ContactForm() {
         turnstileToken,
       )
 
+      swapped.current = true
       setSuccess(true)
       // Reset form
       setName('')
@@ -95,7 +108,11 @@ export default function ContactForm() {
               />
             </svg>
           </div>
-          <h3 className="mb-2 text-xl font-semibold text-text-primary-light dark:text-text-primary-dark">
+          <h3
+            ref={successHeadingRef}
+            tabIndex={-1}
+            className="mb-2 text-xl font-semibold text-text-primary-light outline-none dark:text-text-primary-dark"
+          >
             Message sent
           </h3>
           <p className="text-text-secondary-light dark:text-text-secondary-dark">
@@ -103,7 +120,10 @@ export default function ContactForm() {
             days.
           </p>
           <button
-            onClick={() => setSuccess(false)}
+            onClick={() => {
+              swapped.current = true
+              setSuccess(false)
+            }}
             className="mt-6 text-sm font-medium text-brand-strong underline-offset-4 hover:underline dark:text-brand-strong-dark"
           >
             Send another message
@@ -128,6 +148,7 @@ export default function ContactForm() {
             Name <span className="text-error-light dark:text-error-dark">*</span>
           </label>
           <Input
+            ref={nameRef}
             id="name"
             name="name"
             type="text"

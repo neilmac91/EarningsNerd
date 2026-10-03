@@ -10,6 +10,7 @@ import PopularTickerChips from '@/features/watchlist/components/PopularTickerChi
 import WatchlistAddSearch from '@/features/watchlist/components/WatchlistAddSearch'
 import YourCompanies from '@/features/dashboard/components/YourCompanies'
 import CompanyPageClient from '@/app/company/[ticker]/page-client'
+import FilingFeed from '@/features/dashboard/components/FilingFeed'
 
 /**
  * Watchlist controls keep keyboard focus while their own add/remove/toggle is in flight, and the
@@ -21,8 +22,9 @@ import CompanyPageClient from '@/app/company/[ticker]/page-client'
  *
  * Where a control's own success (or activation) unmounts it, focus is handed to a stable target
  * before it can fall to <body>: the search field after an add from the results, the "Your
- * companies" heading after a removal drops the row, and the "SEC Filings" heading when "Show full
- * history" swaps the list. jsdom does move focus to <body> when the focused node is removed, so
+ * companies" heading after a removal drops the row, the "SEC Filings" heading when "Show full
+ * history" swaps the list, and the feed's "What's new" heading when an add replaces the onboarding
+ * panel that held the chip or search. jsdom does move focus to <body> when the focused node is removed, so
  * those cases fail without the hand-off.
  */
 
@@ -35,6 +37,7 @@ const api = vi.hoisted(() => ({
   getCompanyFilings: vi.fn(),
   getSummary: vi.fn(),
   getCurrentUserSafe: vi.fn(),
+  getDashboardFeed: vi.fn(),
 }))
 vi.mock('@/features/watchlist/api/watchlist-api', () => ({
   addToWatchlist: api.addToWatchlist,
@@ -48,6 +51,7 @@ vi.mock('@/features/companies/api/companies-api', () => ({
 vi.mock('@/features/filings/api/filings-api', () => ({ getCompanyFilings: api.getCompanyFilings }))
 vi.mock('@/features/summaries/api/summaries-api', () => ({ getSummary: api.getSummary }))
 vi.mock('@/features/auth/api/auth-api', () => ({ getCurrentUserSafe: api.getCurrentUserSafe }))
+vi.mock('@/features/dashboard/api/dashboard-api', () => ({ getDashboardFeed: api.getDashboardFeed }))
 vi.mock('@/lib/featureFlags', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/featureFlags')>()),
   ENABLE_FINANCIAL_CHARTS: false,
@@ -401,5 +405,47 @@ describe('Company page', () => {
 
     await waitFor(() => expect(button).not.toBeInTheDocument())
     expect(document.activeElement).not.toBe(elsewhere)
+  })
+})
+
+describe('FilingFeed onboarding', () => {
+  // Its only render site for the chips and the onboarding search: an add that succeeds changes the
+  // watchlist count, and the panel (with the focused chip) gives way to the feed's next state.
+  function renderFeed(count: number) {
+    const view = renderWithClient(<FilingFeed watchlistCount={count} />)
+    const setCount = (next: number) =>
+      view.rerender(<QueryClientProvider client={view.client}><FilingFeed watchlistCount={next} /></QueryClientProvider>)
+    return { ...view, setCount }
+  }
+
+  it('hands focus to "What\'s new" when a successful add replaces the onboarding panel', async () => {
+    api.getDashboardFeed.mockResolvedValue([])
+    api.addToWatchlist.mockResolvedValue({})
+    const { setCount } = renderFeed(0)
+
+    const chip = (await screen.findAllByRole('button', { name: /^Add .+ to your watchlist$/ }))[0]
+    chip.focus()
+    fireEvent.click(chip)
+    await waitFor(() => expect(api.addToWatchlist).toHaveBeenCalledTimes(1))
+    // The dashboard passes the new count once its insights refetch lands.
+    setCount(1)
+    await waitFor(() => expect(chip.isConnected).toBe(false))
+    expect(document.activeElement).toBe(screen.getByRole('heading', { name: "What's new" }))
+  })
+
+  it('leaves focus alone when the panel leaves while focus is elsewhere', async () => {
+    api.getDashboardFeed.mockResolvedValue([])
+    const { setCount } = renderFeed(0)
+    await screen.findAllByRole('button', { name: /^Add .+ to your watchlist$/ })
+    const elsewhere = document.createElement('button')
+    document.body.appendChild(elsewhere)
+    try {
+      elsewhere.focus()
+      setCount(1)
+      await waitFor(() => expect(screen.queryByRole('button', { name: /^Add .+ to your watchlist$/ })).not.toBeInTheDocument())
+      expect(document.activeElement).toBe(elsewhere)
+    } finally {
+      elsewhere.remove()
+    }
   })
 })

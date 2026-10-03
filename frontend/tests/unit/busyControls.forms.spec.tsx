@@ -117,6 +117,27 @@ describe('ContactForm', () => {
     expect(document.activeElement).toBe(send)
   })
 
+  it('a successful send hands focus to "Message sent", and "Send another message" hands it to Name', async () => {
+    api.submitContactForm.mockResolvedValue({})
+    render(<ContactForm />)
+    fill()
+
+    // The success panel replaces the form, and the focused Send with it: focus must not stay on <body>.
+    const send = screen.getByRole('button', { name: 'Send Message' })
+    send.focus()
+    fireEvent.click(send)
+    const heading = await screen.findByRole('heading', { name: 'Message sent' })
+    expect(send.isConnected).toBe(false)
+    expect(document.activeElement).toBe(heading)
+
+    // 'Send another message' unmounts itself as the form comes back.
+    const again = screen.getByRole('button', { name: 'Send another message' })
+    again.focus()
+    fireEvent.click(again)
+    await waitFor(() => expect(again.isConnected).toBe(false))
+    expect(document.activeElement).toBe(screen.getByLabelText(/^Name/))
+  })
+
   it('a field submitted with Enter stays focused and readOnly (not disabled), and a second Enter sends nothing', async () => {
     const post = deferred<unknown>()
     api.submitContactForm.mockReturnValue(post.promise)
