@@ -402,7 +402,7 @@ describe('account query ownership structural gate', () => {
     }
     expect(errors).toEqual([])
     expect(identityWrites).toEqual(['features/auth/lib/accountQueryState.ts'])
-    expect(allWrites).toHaveLength(5) // current user null, watchlist x2, notification x2.
+    expect(allWrites).toHaveLength(6) // current user null, watchlist x2, notification x2, saved summaries x1 (Delete prunes its row).
   })
 
   it('all subscription/usage reads carry identity and an enabled condition, never a family prefix', () => {

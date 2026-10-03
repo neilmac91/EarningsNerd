@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, Suspense, useRef, useEffect, useCallback } from 'react'
-import { useQuery, useMutation, type UseQueryResult } from '@tanstack/react-query'
+import { useQuery, useMutation } from '@tanstack/react-query'
 import { createCheckoutSession, getSubscriptionStatus, getUsage } from '@/features/subscriptions/api/subscriptions-api'
 import { getCurrentUserSafe } from '@/features/auth/api/auth-api'
 import { isApiError, getErrorMessage } from '@/lib/api/types'
@@ -15,6 +15,7 @@ import { useFeatureFlagVariantKey } from 'posthog-js/react'
 import posthog from 'posthog-js'
 import { queryKeys } from '@/lib/queryKeys'
 import { FREE_SUMMARY_LIMIT } from '@/lib/planLimits'
+import { useRetainedFailure } from '@/hooks/useRetainedFailure'
 import { PRICE_VARIANTS } from './prices'
 import { billingCycleFromQuery, pricingHref, type BillingCycle } from '@/features/subscriptions/lib/pricingRoute'
 import { registerHrefWithRedirect, stashPostAuthRedirect } from '@/lib/postAuthRedirect'
@@ -28,39 +29,6 @@ interface CurrentUser {
 }
 
 // Price anchor + the $39-vs-$29 A/B arms live in ./prices (shared with the layout's Product JSON-LD).
-
-/**
- * A failed query stays failed, with its last error, while a Retry the user pressed runs. React Query
- * puts a query that has no data back to `pending` (`error: null`) the moment it refetches; reading
- * that as recovered unmounted the error Notice, and the focused Retry button in it, before the
- * button's `loading` rendered, so focus fell to <body>. Only that press holds the failure: any other
- * refetch of an errored query (a new observer mounting, window focus) shows the ordinary pending
- * state, as before.
- */
-function useRetainedFailure(query: UseQueryResult<unknown>) {
-  const { isError, error, isFetching, data, refetch } = query
-  const [lastError, setLastError] = useState<unknown>(null)
-  if (error && error !== lastError) setLastError(error)
-  const [retrying, setRetrying] = useState(false)
-  // The press's own fetch may not be visible yet on the render right after it, so the retry ends
-  // only once a fetch has been seen and has finished.
-  const sawFetch = useRef(false)
-  useEffect(() => {
-    if (!retrying) return
-    if (isFetching) sawFetch.current = true
-    else if (sawFetch.current) {
-      sawFetch.current = false
-      setRetrying(false)
-    }
-  }, [retrying, isFetching])
-  const retry = () => {
-    sawFetch.current = false
-    setRetrying(true)
-    void refetch()
-  }
-  const failed = isError || (retrying && data === undefined)
-  return { failed, error: failed ? error ?? lastError : null, retry }
-}
 
 // The ONLY consumer of useSearchParams() on this page, isolated so it is the only thing inside the
 // Suspense boundary. useSearchParams() bails its nearest Suspense subtree out of the server HTML;
