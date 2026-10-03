@@ -127,10 +127,10 @@ def test_example_env_file_holds_only_placeholders(path):
     "postgresql://appuser:Sup3rSecret@10.0.0.5:5432/app",
     "postgresql://appuser:9f8e7d6c5b4a@localhost:5432/app",
     "Vq7Kp2Lm9Xz4Rt8Wn3Yb6Hd1Jf5Gs0Ac",
-    "https://example.com/?token=Vq7Kp2Lm9Xz4Rt8Wn3Yb6Hd1Jf5Gs0Ac",            # token in a query value
-    "https://hooks.example.com/services/T0/B0/Vq7Kp2Lm9Xz4Rt8Wn3Yb6Hd1Jf5Gs0Ac",  # signed webhook URL
-    "https://Vq7Kp2Lm9Xz4Rt8Wn3Yb6Hd1Jf5Gs0Ac@o123.ingest.example.io/456",     # DSN-style userinfo key
-    "Bearer Vq7Kp2Lm9Xz4Rt8Wn3Yb6Hd1Jf5Gs0Ac",                                  # token inside free text
+    "https://example.com/?token=Vq7Kp2Lm9Xz4Rt8Wn3Yb6Hd1Jf5Gs0Ac",  # token in a query value; synthetic fixture  # gitleaks:allow
+    "https://hooks.example.com/services/T0/B0/Vq7Kp2Lm9Xz4Rt8Wn3Yb6Hd1Jf5Gs0Ac",  # signed webhook URL; synthetic  # gitleaks:allow
+    "https://Vq7Kp2Lm9Xz4Rt8Wn3Yb6Hd1Jf5Gs0Ac@o123.ingest.example.io/456",  # DSN-style userinfo key; synthetic  # gitleaks:allow
+    "Bearer Vq7Kp2Lm9Xz4Rt8Wn3Yb6Hd1Jf5Gs0Ac",  # token inside free text; synthetic  # gitleaks:allow
 ])
 def test_detector_rejects_credential_shaped_values(value):
     assert _offending_lines(f"KEY={value}\n")

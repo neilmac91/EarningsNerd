@@ -82,3 +82,7 @@ ff20d8c15d4a8551518950b9f385c07f14d1f999:tests/test_endpoint_security.py:generic
 # inline `gitleaks:allow`, which covers whatever commit carries them after a squash merge.
 21d2457e2cc1b4069d685bdc73b80b01b8d19280:backend/tests/unit/test_signup_name_validation.py:generic-api-key:14
 d1c31ee5b5f52021119de53a81f840b53ad53a73:backend/tests/unit/test_oauth_invite_gate.py:generic-api-key:37
+# 077838d3 introduced synthetic URL fixtures (a made-up token inside example URLs) for the
+# example-env placeholder gate; the line now carries an inline gitleaks:allow, this pin covers
+# the branch commit that predates the marker.
+077838d307fc6747663201e8e67336a1631c6d7b:backend/tests/unit/test_example_env_files_are_placeholders.py:generic-api-key:130
