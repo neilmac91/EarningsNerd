@@ -1,6 +1,7 @@
 from fastapi import APIRouter, HTTPException, Depends, status, Request, Response, Query, Form
 from fastapi.responses import RedirectResponse
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from fastapi.concurrency import run_in_threadpool
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy import func
@@ -344,6 +345,12 @@ def _get_token_from_request(
     return cookie_token
 
 
+def _lookup_auth_user(db: Session, email: str) -> Optional[User]:
+    # Pool checkout can wait. Keep it off the event loop so other requests can
+    # finish and run their request-owned Session cleanup, returning pool slots.
+    return db.query(User).filter(User.email == email).first()
+
+
 async def get_current_user(
     request: Request,
     credentials: HTTPAuthorizationCredentials = Depends(security),
@@ -373,7 +380,7 @@ async def get_current_user(
     except jwt.PyJWTError:
         raise credentials_exception
 
-    user = db.query(User).filter(User.email == email).first()
+    user = await run_in_threadpool(_lookup_auth_user, db, email)
     if user is None:
         raise credentials_exception
     if not user.is_active:
@@ -425,7 +432,7 @@ async def get_current_user_optional(
         return None
 
     try:
-        user = db.query(User).filter(User.email == email).first()
+        user = await run_in_threadpool(_lookup_auth_user, db, email)
         if user and not user.is_active:
             logger.warning(f"Optional auth: user id={user.id} is inactive")
             return None
