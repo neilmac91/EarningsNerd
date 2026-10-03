@@ -324,6 +324,35 @@ describe('YourCompanies remove button', () => {
     expect(screen.getByRole('button', { name: /Remove Microsoft.* from watchlist/ })).toBeInTheDocument()
     expect(api.removeFromWatchlist).toHaveBeenCalledTimes(1)
   })
+
+  it('a refetch that fails after the DELETE leaves no live remove button for the removed row', async () => {
+    api.removeFromWatchlist.mockResolvedValue(undefined)
+    const getInsights = vi
+      .fn<() => Promise<WatchlistInsight[]>>()
+      .mockResolvedValueOnce([insight(1, 'AAPL', 'Apple Inc.'), insight(2, 'MSFT', 'Microsoft Corp')])
+      .mockRejectedValueOnce(new Error('insights down'))
+    // As the dashboard wires it: a failed insights refetch is an error, even with rows cached.
+    function DashboardHost() {
+      const { data, isLoading, isError, refetch, isFetching } = useQuery({
+        queryKey: queryKeys.watchlistInsights(),
+        queryFn: getInsights,
+      })
+      return (
+        <YourCompanies insights={data} isLoading={isLoading} isError={isError} refetch={() => void refetch()} isFetching={isFetching} />
+      )
+    }
+    renderWithClient(<DashboardHost />)
+
+    const removeApple = await screen.findByRole('button', { name: /Remove Apple.* from watchlist/ })
+    removeApple.focus()
+    fireEvent.click(removeApple)
+    await waitFor(() => expect(getInsights).toHaveBeenCalledTimes(2))
+    await settle()
+    // The section's error card replaces the list, so the removed row's button cannot go live again.
+    expect(screen.queryByRole('button', { name: /Remove Apple.* from watchlist/ })).not.toBeInTheDocument()
+    expect(screen.getByText('Unable to load your companies')).toBeInTheDocument()
+    expect(api.removeFromWatchlist).toHaveBeenCalledTimes(1)
+  })
 })
 
 describe('Company page', () => {

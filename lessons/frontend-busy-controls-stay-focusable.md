@@ -52,7 +52,9 @@ the same: it awaits the invalidation before clearing its busy flag (admin invite
 otherwise mint and email the whole batch again). A removal goes further: its `onSuccess` prunes the item from the cache (`setQueryData`), so the
 row and its focused control go with the request itself. A refetch that fails still resolves its
 invalidation, so waiting on the refetch alone would leave the deleted row's control live for a second
-DELETE (the dashboard's saved-summary Delete; Codex P2 on #1075). When `onSuccess` fans out several invalidations,
+DELETE (the dashboard's saved-summary Delete; Codex P2 on #1075). YourCompanies' remove needs no
+prune: a failed insights refetch puts the section in its error card, which replaces the list
+(pinned in `busyControls.watchlist.spec.tsx`). When `onSuccess` fans out several invalidations,
 return the one whose refetch removes or flips the focused control, and fire the rest. Examples: the
 filing page's saved status, which swaps Save for Saved; the dashboard's watchlist insights, which
 drop a removed row and end the onboarding panel under the popular-ticker chips. The admin feedback
@@ -80,8 +82,12 @@ per-site specs plus a real-browser keyboard pass. Known open cases, same class, 
 EmailVerificationModal's Resend (`disabled={resent}` after success, while focused); FilingFeed's Retry;
 the filing page's Retry generation / Retry / Regenerate Analysis; FeedbackRow's status select when
 the list is filtered by status (its own update removes the row); the dashboard header's Log out (no
-in-flight guard); YourCompanies' Retry and CompanySearch's "Try Again", both on the dashboard and
-both swapped for a skeleton or hidden when their refetch puts a no-data query back to pending. The dashboard's two Retry buttons, saved-summary Delete and Manage subscription are
+in-flight guard). YourCompanies' Retry and CompanySearch's "Try Again" are fixed
+(`busyControls.dashboard.spec.tsx`, `CompanySearch.spec.tsx`). A Retry that hands focus to a text field
+arms only on a keyboard press (`e.detail === 0`), since focusing the field after a tap raises the touch
+keyboard. jsdom's `:focus-visible` is false inside any click handler, so it cannot stand in for that check.
+`useRetainedFailure` takes a reset key for a query whose key changes under it, such as a new search
+term. The dashboard's two Retry buttons, saved-summary Delete and Manage subscription are
 fixed (`tests/unit/busyControls.dashboard.spec.tsx`). A Retry whose query has no data must keep its
 failure while the press runs (`hooks/useRetainedFailure.ts`): the refetch puts the query back to
 pending, and a page gated on `isLoading` swaps the focused Retry for a skeleton.

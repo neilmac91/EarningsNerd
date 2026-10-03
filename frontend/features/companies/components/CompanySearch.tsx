@@ -13,6 +13,7 @@ import { useRouter } from 'next/navigation'
 import { fmtCurrency, fmtPercent } from '@/lib/format'
 import { directionText, directionOf } from '@/lib/financialTone'
 import analytics from '@/lib/analytics'
+import { useRetainedFailure } from '@/hooks/useRetainedFailure'
 
 const isTypingTarget = (el: EventTarget | null): boolean => {
   if (!(el instanceof HTMLElement)) return false
@@ -84,7 +85,7 @@ export default function CompanySearch({
     return () => clearTimeout(timer)
   }, [query])
 
-  const { data: companies, isLoading, error, isError, refetch } = useQuery({
+  const companiesQuery = useQuery({
     queryKey: queryKeys.companies(debouncedQuery),
     queryFn: () => searchCompanies(debouncedQuery),
     enabled: debouncedQuery.length > 0,
@@ -100,6 +101,27 @@ export default function CompanySearch({
     staleTime: 5 * 60 * 1000, // 5 minutes
     gcTime: 10 * 60 * 1000, // 10 minutes (formerly cacheTime)
   })
+  const { data: companies, isLoading, isFetching } = companiesQuery
+  // "Try Again" keeps its failure while the retry it started runs. An errored search has no data, so
+  // its refetch goes back to pending, and the alert (and the focused button in it) would vanish.
+  // Keyed to the term, so typing a new search drops the old failure.
+  const failure = useRetainedFailure(companiesQuery, debouncedQuery)
+  const isError = failure.failed
+  const error = failure.error
+
+  // A successful retry swaps the alert for the results: hand focus to the field, but only after a
+  // keyboard press, since focusing the field after a tap would raise the touch keyboard, and only when
+  // focus fell to <body>. A retry that fails again disarms.
+  const retried = useRef(false)
+  useEffect(() => {
+    if (!retried.current) return
+    if (failure.failed) {
+      if (!failure.retrying) retried.current = false
+      return
+    }
+    retried.current = false
+    if (document.activeElement === document.body) inputRef.current?.focus({ preventScroll: true })
+  }, [failure.failed, failure.retrying])
 
   // Navigate to a result and record the search→click so search→company conversion is causal.
   const goToResult = (ticker: string, position: number) => {
@@ -241,9 +263,19 @@ export default function CompanySearch({
                     : 'An unexpected error occurred. Please try again.'}
               </div>
             </div>
+            {/* aria-disabled + aria-busy + an early return while its retry runs, not native
+                `disabled`: Chromium blurs a focused button that turns disabled. The early return
+                keeps the busy button inert, so a later press cannot re-arm or drop the hand-off. */}
             <button
-              onClick={() => refetch()}
-              className="ml-4 rounded-lg border border-error-light/30 dark:border-error-dark/30 bg-error-light/10 dark:bg-error-dark/10 px-3 py-1.5 text-sm font-medium text-error-light dark:text-error-dark transition-colors hover:bg-error-light/15 dark:hover:bg-error-dark/20"
+              onClick={(e) => {
+                if (isFetching) return
+                // A click from Enter or Space (or assistive tech) has detail 0; a pointer or tap has 1+.
+                retried.current = e.detail === 0
+                failure.retry()
+              }}
+              aria-disabled={isFetching || undefined}
+              aria-busy={isFetching || undefined}
+              className="ml-4 rounded-lg border border-error-light/30 dark:border-error-dark/30 bg-error-light/10 dark:bg-error-dark/10 px-3 py-1.5 text-sm font-medium text-error-light dark:text-error-dark transition-colors hover:bg-error-light/15 aria-disabled:cursor-not-allowed aria-disabled:opacity-60 dark:hover:bg-error-dark/20"
               aria-label="Retry search"
             >
               Try Again

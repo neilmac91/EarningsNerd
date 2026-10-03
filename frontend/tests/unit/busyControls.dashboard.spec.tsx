@@ -45,7 +45,12 @@ vi.mock('@/features/summaries/api/summaries-api', () => ({
   getSavedSummaries: api.getSavedSummaries,
   deleteSavedSummary: api.deleteSavedSummary,
 }))
-vi.mock('@/features/watchlist/api/watchlist-api', () => ({ getWatchlistInsights: api.getWatchlistInsights }))
+vi.mock('@/features/watchlist/api/watchlist-api', () => ({
+  getWatchlistInsights: api.getWatchlistInsights,
+  addToWatchlist: vi.fn(),
+  removeFromWatchlist: vi.fn(),
+}))
+vi.mock('@/features/companies/api/companies-api', () => ({ searchCompanies: vi.fn() }))
 vi.mock('next/navigation', () => ({ useRouter: () => ({ push: api.routerPush, refresh: vi.fn() }) }))
 vi.mock('next/link', () => ({
   default: ({ children, href, ...props }: { children: ReactNode; href: string; [key: string]: unknown }) => (
@@ -53,17 +58,19 @@ vi.mock('next/link', () => ({
   ),
 }))
 vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: api.toastError } }))
-vi.mock('@/lib/analytics', () => ({ default: { identify: vi.fn(), logout: vi.fn() } }))
+vi.mock('@/lib/analytics', () => ({
+  default: { identify: vi.fn(), logout: vi.fn(), watchlistAdded: vi.fn(), watchlistRemoved: vi.fn() },
+}))
 vi.mock('@/lib/featureFlags', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/featureFlags')>()),
   ENABLE_CALENDAR: false,
 }))
-// The page's own sections are under test; its embedded feature widgets are not.
+// The page's own sections and Your companies (whose Retry runs on the page's retained failure) are
+// under test; the other embedded feature widgets are not.
 vi.mock('@/features/subscriptions/components/TrialBanner', () => ({ default: () => null }))
 vi.mock('@/features/companies/components/CompanySearch', () => ({ default: () => null }))
 vi.mock('@/features/dashboard/components/FilingFeed', () => ({ default: () => null }))
 vi.mock('@/features/dashboard/components/EarningsCalendar', () => ({ default: () => null }))
-vi.mock('@/features/dashboard/components/YourCompanies', () => ({ default: () => null }))
 
 const deferred = <T,>() => {
   let resolve!: (value: T) => void
@@ -340,6 +347,86 @@ describe('Plan and usage Retry', () => {
     await screen.findByText('1 / 3 summaries')
     await settle()
     expect(document.activeElement).toBe(document.body)
+  })
+})
+
+describe('Your companies Retry', () => {
+  const errorCard = async () => {
+    await screen.findByText('Unable to load your companies')
+    return screen.getByRole('button', { name: 'Retry' })
+  }
+
+  it('keeps the error card and its focused Retry through the retry, then hands focus to "Your companies"', async () => {
+    healthyApi()
+    const refetched = deferred<unknown[]>()
+    api.getWatchlistInsights.mockRejectedValueOnce(new Error('insights down')).mockReturnValueOnce(refetched.promise)
+    renderDashboard()
+
+    const retry = await errorCard()
+    retry.focus()
+    fireEvent.click(retry)
+    await waitFor(() => expect(api.getWatchlistInsights).toHaveBeenCalledTimes(2))
+    await settle()
+    // Still the error card, not the section's skeleton: Retry is busy, focused, and inert.
+    expect(screen.getByText('Unable to load your companies')).toBeInTheDocument()
+    expectBusyAndFocused(retry)
+    fireEvent.click(retry)
+    await settle()
+    expect(api.getWatchlistInsights).toHaveBeenCalledTimes(2)
+
+    await act(async () => refetched.resolve([]))
+    await waitFor(() => expect(retry.isConnected).toBe(false))
+    expect(screen.getByText('No companies yet')).toBeInTheDocument()
+    await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('heading', { name: 'Your companies' })))
+  })
+
+  it('a retry that fails again leaves no hand-off armed: a later recovery nobody pressed moves no focus', async () => {
+    healthyApi()
+    api.getWatchlistInsights.mockRejectedValueOnce(new Error('insights down')).mockRejectedValueOnce(new Error('still down'))
+    const { client } = renderDashboard()
+
+    const retry = await errorCard()
+    retry.focus()
+    fireEvent.click(retry)
+    await waitFor(() => expect(api.getWatchlistInsights).toHaveBeenCalledTimes(2))
+    await waitFor(() => expect(retry).not.toHaveAttribute('aria-busy'))
+    expect(retry.isConnected).toBe(true)
+    expect(document.activeElement).toBe(retry)
+    retry.blur()
+
+    await act(async () => { await client.refetchQueries({ queryKey: queryKeys.watchlistInsights() }) })
+    await screen.findByText('No companies yet')
+    await settle()
+    expect(document.activeElement).toBe(document.body)
+  })
+
+  it('a pointer retry that fails again moves no focus', async () => {
+    healthyApi()
+    api.getWatchlistInsights.mockRejectedValueOnce(new Error('insights down')).mockRejectedValueOnce(new Error('still down'))
+    renderDashboard()
+
+    const retry = await errorCard()
+    fireEvent.click(retry)
+    await waitFor(() => expect(api.getWatchlistInsights).toHaveBeenCalledTimes(2))
+    await waitFor(() => expect(retry).not.toHaveAttribute('aria-busy'))
+    await settle()
+    expect(document.activeElement).toBe(document.body)
+  })
+
+  it('a mouse user who moved on keeps their focus when the retry succeeds', async () => {
+    healthyApi()
+    const refetched = deferred<unknown[]>()
+    api.getWatchlistInsights.mockRejectedValueOnce(new Error('insights down')).mockReturnValueOnce(refetched.promise)
+    renderDashboard()
+
+    const retry = await errorCard()
+    fireEvent.click(retry)
+    const logOut = screen.getByRole('button', { name: 'Log out' })
+    logOut.focus()
+    await act(async () => refetched.resolve([]))
+    await waitFor(() => expect(retry.isConnected).toBe(false))
+    await settle()
+    expect(document.activeElement).toBe(logOut)
   })
 })
 

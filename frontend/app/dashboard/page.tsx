@@ -68,12 +68,15 @@ export default function DashboardPage() {
     enabled: !!user,
   })
 
-  const { data: watchlistInsights, isLoading: insightsLoading, isError: insightsError, refetch: refetchInsights, isFetching: insightsFetching } = useQuery({
+  const insightsQuery = useQuery({
     queryKey: queryKeys.watchlistInsights(),
     queryFn: getWatchlistInsights,
     retry: false,
     enabled: !!user,
   })
+  const { data: watchlistInsights, isLoading: insightsLoading, isFetching: insightsFetching } = insightsQuery
+  // Your companies' Retry, as the two above: its skeleton branch would otherwise replace the error card.
+  const insightsFailure = useRetainedFailure(insightsQuery)
 
   const queryClient = useQueryClient()
 
@@ -327,9 +330,9 @@ export default function DashboardPage() {
 
             <YourCompanies
               insights={watchlistInsights}
-              isLoading={insightsLoading}
-              isError={insightsError}
-              refetch={refetchInsights}
+              isLoading={insightsLoading && !insightsFailure.failed}
+              isError={insightsFailure.failed}
+              refetch={insightsFailure.retry}
               isFetching={insightsFetching}
             />
           </div>
