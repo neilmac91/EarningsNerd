@@ -576,10 +576,14 @@ async def ask_filing_stream(
                         charged = None
                     yield to_sse(event)
         except Exception:
-            # A raised failure after the provider started (CancelledError is a BaseException and
-            # skips this handler, so a client disconnect never reaches the refund).
-            if charged is not None:
-                await run_in_threadpool(_refund_qa_best_effort, user_id, is_free_taste, charged)
+            # An escaping ordinary failure may precede the first post-signal event. Adopt the
+            # pending charge before refunding it; cancellation must not interrupt that settlement.
+            # CancelledError is a BaseException and skips this handler: disconnects stay charged.
+            with anyio.CancelScope(shield=True):
+                await settle_charge(in_finally=True)
+                if charged is not None:
+                    await run_in_threadpool(_refund_qa_best_effort, user_id, is_free_taste, charged)
+                    charged = None
             raise
         finally:
             # On a client disconnect Starlette cancels this task (ASGI < 2.4, which uvicorn speaks),

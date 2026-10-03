@@ -2027,19 +2027,42 @@ def test_endpoint_error_event_before_the_provider_started_releases_the_lease(cli
 
 
 @pytest.mark.requires_db
-def test_endpoint_raised_pipeline_error_refunds_the_unit(client, monkeypatch):
+@pytest.mark.parametrize("is_pro", [True, False], ids=["monthly", "lifetime"])
+@pytest.mark.parametrize("start", ["progress", "signal"])
+def test_endpoint_raised_pipeline_error_refunds_the_unit(client, monkeypatch, is_pro, start):
+    """The router refunds escaping ordinary failures, including a not-yet-adopted start signal.
+
+    Ordinary SDK failures already normalize to error events; this exercises the separate raised
+    exception contract. Both scopes must convert exactly one unit and then refund only that unit.
+    """
     import app.routers.summaries as summaries_router
+    from app.services.ai.provider_requests import signal_provider_start
+
+    metered_states = []
+    original_meter = summaries_router._meter_qa_best_effort
+
+    def _observing_meter(user_id, is_free_taste=False, token=None):
+        scope = original_meter(user_id, is_free_taste, token)
+        metered_states.append(_qa_state(user_id))
+        return scope
 
     async def _exploding_answer(*, filing, question, history=None):
         yield {"type": "progress", "stage": "reading"}
-        yield {"type": "progress", "stage": copilot_service.PROVIDER_STARTED_STAGE}  # the provider has started
+        if start == "progress":
+            yield {"type": "progress", "stage": copilot_service.PROVIDER_STARTED_STAGE}
+        else:
+            signal_provider_start()
+            # No await or yield after the signal: its scheduled charge is still pending when
+            # this task raises, and no subsequent event lets the loop adopt the charge first.
         raise RuntimeError("provider down")
 
+    monkeypatch.setattr(summaries_router, "_meter_qa_best_effort", _observing_meter)
     monkeypatch.setattr(summaries_router, "answer_filing_question", _exploding_answer)
-    with _as_user(is_pro=True) as uid, _seed_filing() as fid:
+    with _as_user(is_pro=is_pro, free_taste_used=1) as uid, _seed_filing() as fid:
         with pytest.raises(RuntimeError):
             client.post(f"/api/summaries/filing/{fid}/ask-stream", json={"question": "Q?"})
-        assert _qa_state(uid) == ([], 0, 0)  # counted at provider start, refunded on the raised failure
+        assert metered_states == [([], 1, 1) if is_pro else ([], 0, 2)]
+        assert _qa_state(uid) == ([], 0, 1)  # refund exactly this charge; preserve pre-existing taste
 
 
 @pytest.mark.requires_db
