@@ -562,6 +562,32 @@ describe('FilingFeed Retry', () => {
     }
   })
 
+  it('stays busy and inert through a refetch nobody pressed while the error card shows', async () => {
+    // A feed with data whose refetch fails keeps that data, so a later background refetch leaves the
+    // card on screen with the focused Retry in it: a press then must not send a second request.
+    const background = deferred<unknown[]>()
+    api.getDashboardFeed
+      .mockResolvedValueOnce([])
+      .mockRejectedValueOnce(new Error('feed down'))
+      .mockReturnValueOnce(background.promise)
+    const { client } = renderFeed()
+    await screen.findByText('Nothing new yet')
+    await act(async () => { await client.refetchQueries({ queryKey: queryKeys.dashboardFeed() }) })
+
+    const retry = await errorRetry()
+    retry.focus()
+    act(() => { void client.refetchQueries({ queryKey: queryKeys.dashboardFeed() }) })
+    await waitFor(() => expect(api.getDashboardFeed).toHaveBeenCalledTimes(3))
+    expect(screen.getByText("Couldn't load your feed")).toBeInTheDocument()
+    expectBusyAndFocused(retry)
+    fireEvent.click(retry)
+    await settle()
+    expect(api.getDashboardFeed).toHaveBeenCalledTimes(3)
+
+    await act(async () => background.resolve([]))
+    await screen.findByText('Nothing new yet')
+  })
+
   it('a retry pressed offline waits paused, busy and focused, and lands when back online', async () => {
     api.getDashboardFeed.mockRejectedValueOnce(new Error('feed down')).mockResolvedValueOnce([])
     renderFeed()

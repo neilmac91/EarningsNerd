@@ -32,10 +32,12 @@ export default function FilingFeed({
   const { data } = feedQuery
   // A pressed Retry keeps its failure until its own refetch settles. An errored feed has no data, so
   // its refetch goes back to pending, and the skeleton branch would replace the error card and the
-  // focused Retry in it. A fetch paused offline or in a hidden tab is still in flight.
+  // focused Retry in it. A fetch paused offline is still in flight.
   const failure = useRetainedFailure(feedQuery)
   const isError = failure.failed
   const isLoading = feedQuery.isLoading && !failure.failed
+  // Busy during any fetch, pressed or not: a feed that still has data stays on the error card while a
+  // background refetch runs, and a press then would send a second request.
   const busy = feedQuery.fetchStatus !== 'idle'
 
   const visible = data ? data.slice(0, MAX_CARDS) : []
