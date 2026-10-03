@@ -1,5 +1,6 @@
 import next from 'eslint-config-next'
 import { RAW_FETCH_ALLOWLIST_FILES } from './eslint.rawFetchAllowlist.mjs'
+import gridBaseTrackPlugin from './eslint.gridBaseTrack.mjs'
 
 // Flat config (ESLint 9). Replaces the legacy .eslintrc.json:
 //   extends ["next/core-web-vitals", "next/typescript"]  ->  ...next
@@ -145,38 +146,17 @@ const DESIGN_SHARED_RULES = [
     message: 'Below-scale type — data-xs(11)/xs(12)/sm(14). Glyphs: eslint-disable with a reason.',
   },
   { selector: 'Literal[value=/\\brounded-\\[/]', message: 'Off-scale radius — 4/8/12/16/24.' },
-  {
-    // A grid whose columns are set only under a variant (md:grid-cols-3) has an implicit phone
-    // track sized to its widest child's min-content, so one long name scrolls the page sideways
-    // (lessons/frontend-variable-text-must-not-size-a-wrapping-row.md). The base track goes in the
-    // same class string. Exempt by construction: a grid that is one only under a variant
-    // (lg:grid lg:grid-cols-…) and an arbitrary child-selector variant (lg:[&>div]:grid-cols-3).
-    selector:
-      'Literal[value=/(^|\\s)([a-z0-9-]+(\\[[^\\]\\s&]+\\])?:)+grid-cols-/]' +
-      ':not([value=/(^|\\s)grid-cols-/])' +
-      ':not([value=/(^|\\s)([a-z0-9-]+(\\[[^\\]\\s&]+\\])?:)+grid(\\s|$)/])',
-    message:
-      'Responsive grid without a base track — add grid-cols-1 (minmax(0, 1fr)) beside md:grid-cols-*, ' +
-      'or the phone track sizes to its widest content and can scroll the page sideways.',
-  },
   { selector: "CallExpression[callee.name='alert']", message: 'window.alert — render a Notice or toast.' },
   {
     selector: "CallExpression[callee.type='MemberExpression'][callee.property.name='alert']",
     message: 'window.alert — render a Notice or toast.',
   },
 ]
-/** Each class-string rule gets a twin on template-literal chunks (`… ${x} …` is not a Literal).
- *  Every `[value=` clause is rewritten, including those inside :not(…). */
+/** Each class-string rule gets a twin on template-literal chunks (`… ${x} …` is not a Literal). */
 const withTemplates = (rules) =>
   rules.flatMap((rule) =>
     rule.selector.startsWith('Literal[value=')
-      ? [
-          rule,
-          {
-            ...rule,
-            selector: rule.selector.replace(/^Literal/, 'TemplateElement').replaceAll('[value=', '[value.raw='),
-          },
-        ]
+      ? [rule, { ...rule, selector: rule.selector.replace('Literal[value=', 'TemplateElement[value.raw=') }]
       : [rule],
   )
 const DESIGN_RULES = withTemplates([DESIGN_HEX_RULE, DESIGN_PALETTE_RULE, DESIGN_Z_RULE, ...DESIGN_SHARED_RULES])
@@ -260,6 +240,16 @@ const config = [
         ...DESIGN_RULES,
       ],
     },
+  },
+  // Every grid that sets its columns under a variant also sets its base track
+  // (lessons/frontend-variable-text-must-not-size-a-wrapping-row.md). A custom rule, not a selector:
+  // it evaluates a whole class string, every cx() argument and template chunk together, and parses
+  // variant prefixes. It is its own rule, so it covers the design-exempt files too.
+  {
+    files: ['**/*.ts', '**/*.tsx'],
+    ignores: TEST_FILES,
+    plugins: { earningsnerd: gridBaseTrackPlugin },
+    rules: { 'earningsnerd/responsive-grid-base-track': 'error' },
   },
   // The JS color mirrors + the brand-mandated GoogleSignInButton: every gate except the two color rules.
   {

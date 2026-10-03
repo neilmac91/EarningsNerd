@@ -29,5 +29,10 @@ offsets differ) and passes after. On the design-v3 stack (#1045 skeleton), `<mai
 190–258px when the user query resolved; with the fix it stays at 154px in every state.
 `/dashboard/watchlist` had the same grid bug (496px at 320–390px; #1077). The sweep that followed
 added `grid-cols-1` to the 20 remaining responsive grids and made the grid half of the rule a gate:
-an ESLint design rule in `frontend/eslint.config.mjs` flags a variant `grid-cols-*` without a base
-one. It tripped at exactly those 20 sites before the fix and none after.
+the custom ESLint rule `earningsnerd/responsive-grid-base-track` (`frontend/eslint.gridBaseTrack.mjs`,
+pinned by `frontend/tests/unit/gridBaseTrackRule.spec.ts`). It tripped at exactly those 20 sites
+before the fix and none after. A first draft was a `no-restricted-syntax` regex, and review found it
+both too narrow and too wide. It saw one literal at a time, so it flagged `cx('grid grid-cols-1',
+c && 'md:grid-cols-2')`. It missed `md:!grid-cols-3`, `group-hover/card:grid-cols-2` and
+`grid-cols-none`. The rule now parses each token's variants and evaluates a whole class attribute
+or `cx()` call together.
