@@ -957,9 +957,23 @@ async def stream_filing_summary(
             # client cannot induce: a provider-side failure (the task raises, returns an error payload
             # or the pipeline times out) and, under AI_QUALITY_GATE, a partial verdict — so an honest
             # partial still costs nothing. Callers without a lease (the background drain with
-            # current_user=None, and uncapped Pro) keep the completion-time count below. Charging in
-            # the thread pool BEFORE the task is created means a failed charge (which raises into the
-            # generic handler) never leaves an unmetered provider call running.
+            # current_user=None, and uncapped Pro) keep the completion-time count below. The provider
+            # task is created FIRST and the charge runs while it already executes: a client that
+            # disconnects during the charge write has a provider call in flight, so the unit it may
+            # have counted is owed; charging before the task would let that same disconnect count a
+            # unit for a call that never started. A charge that raises reaches the generic handler,
+            # whose `finally` cancels the task and releases the still-held lease.
+            summary_task = asyncio.create_task(openai_service.summarize_filing(
+                filing_text,
+                company_name,
+                filing_type,
+                xbrl_metrics=xbrl_metrics,
+                filing_excerpt=excerpt,
+                stream_cb=summary_stream_cb,
+                **({"statement_source": statement_source} if statement_source else {}),
+                **({"sixk_class": sixk_class, "sixk_class_audit": sixk_class_audit} if sixk_class else {}),
+            ))
+
             if usage_reservation_token is not None:
                 token_to_convert = usage_reservation_token
 
@@ -979,17 +993,6 @@ async def stream_filing_summary(
                 if charged_month is not None:
                     usage_reservation_token = None
                     mark_stage("usage_tracking")
-
-            summary_task = asyncio.create_task(openai_service.summarize_filing(
-                filing_text,
-                company_name,
-                filing_type,
-                xbrl_metrics=xbrl_metrics,
-                filing_excerpt=excerpt,
-                stream_cb=summary_stream_cb,
-                **({"statement_source": statement_source} if statement_source else {}),
-                **({"sixk_class": sixk_class, "sixk_class_audit": sixk_class_audit} if sixk_class else {}),
-            ))
 
             SUMMARIZE_MESSAGES = [
                 "Analyzing financial highlights...",

@@ -74,8 +74,11 @@ async def test_full_result_converts_the_reservation_into_one_counted_unit():
 
 def _observer(user_id: int, seen: list[tuple[int, int]], outcome):
     """A provider stand-in that records the (leases, counted) state while it runs, then returns
-    ``outcome`` (a payload) or raises it (an exception)."""
+    ``outcome`` (a payload) or raises it (an exception). The charge runs in the thread pool while
+    the provider task already executes, so the observation waits a beat for that write to land."""
     async def observe(*args, **kwargs):
+        import asyncio
+        await asyncio.sleep(0.3)
         seen.append(_state(user_id))
         if isinstance(outcome, BaseException):
             raise outcome
@@ -98,14 +101,14 @@ async def test_partial_result_refunds_the_unit_counted_at_provider_start():
 
 
 @pytest.mark.asyncio
-async def test_reservation_is_converted_into_a_counted_unit_before_the_provider_runs():
+async def test_reservation_is_converted_into_a_counted_unit_as_the_provider_starts():
     user_id, filing_id = _seed_user(), seed_company_filing()
     seen: list[tuple[int, int]] = []
 
     with stream_boundaries() as summarize:
         summarize.side_effect = _observer(user_id, seen, CANONICAL_PAYLOAD)
         await _run(filing_id, user_id)
-    assert seen == [(0, 1)]  # no lease left and one counted unit while the provider ran
+    assert seen == [(0, 1)]  # no lease left and one counted unit while the provider runs
     assert _state(user_id) == (0, 1)
 
 
@@ -264,3 +267,67 @@ async def test_client_disconnect_after_provider_start_keeps_the_counted_unit_and
     assert _state(user_id) == (0, 1)  # no lease left; the unit counted at provider start stays counted
     assert semaphore._value == slots_before  # generation slot given back
     assert filing_id not in summary_pipeline._inflight_generations  # leadership released
+
+
+@pytest.mark.asyncio
+async def test_client_disconnect_during_the_charge_write_has_a_provider_call_in_flight():
+    """The provider task is created before the charge runs, so a client that leaves while the
+    counter write is still in the thread pool has a provider call in flight; the unit that write
+    counted is owed (and stays counted, as after any post-start disconnect). Charging before the
+    task would let the same disconnect count a unit for a call that never started."""
+    import asyncio
+
+    from starlette.responses import StreamingResponse
+
+    from app.services.summary_pipeline import to_sse
+
+    import time
+
+    user_id, filing_id = _seed_user(), seed_company_filing()
+    provider_started, charging, disconnected = asyncio.Event(), asyncio.Event(), asyncio.Event()
+    loop = asyncio.get_running_loop()
+    real_increment = summary_pipeline.increment_user_usage
+    at: dict[str, float] = {}
+
+    def slow_increment(*args, **kwargs):
+        loop.call_soon_threadsafe(charging.set)
+        time.sleep(0.3)  # the client leaves while this write is in the thread pool
+        result = real_increment(*args, **kwargs)
+        at["charge_done"] = time.monotonic()
+        return result
+
+    async def blocking_provider(*args, **kwargs):
+        at["provider_started"] = time.monotonic()
+        provider_started.set()
+        await asyncio.sleep(30)
+        return CANONICAL_PAYLOAD
+
+    async def event_stream():
+        async for event in stream_filing_summary(
+            filing_id=filing_id, current_user=GenerationUserSnapshot(user_id, False, None), user_id=user_id,
+            telemetry_distinct_id=str(user_id), telemetry_entry_point=None, telemetry_ctx={},
+            emit_funnel_telemetry=False,
+        ):
+            yield to_sse(event)
+
+    async def receive():
+        await charging.wait()
+        disconnected.set()
+        return {"type": "http.disconnect"}
+
+    async def send(message):
+        if disconnected.is_set() and message["type"] == "http.response.body":
+            raise OSError("peer closed connection")
+
+    with stream_boundaries() as summarize, patch.object(summary_pipeline, "increment_user_usage", slow_increment), \
+            patch.object(summary_pipeline.settings, "STREAM_HEARTBEAT_INTERVAL", 0.2):
+        summarize.side_effect = blocking_provider
+        response = StreamingResponse(event_stream(), media_type="text/event-stream")
+        await asyncio.wait_for(response({"type": "http", "asgi": {"spec_version": "2.3"}, "headers": []}, receive, send), 10)
+        await asyncio.sleep(0.5)  # let the thread-pool write finish
+    assert provider_started.is_set()  # the provider call was in flight when the client left
+    # The provider task started while the charge write was still in the thread pool: the call the
+    # unit pays for exists before the unit is counted (charging first would start it only afterwards).
+    assert at["provider_started"] < at["charge_done"], at
+    assert _state(user_id) == (0, 1)  # the unit that write counted is owed and stays counted
+
