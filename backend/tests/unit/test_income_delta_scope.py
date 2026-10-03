@@ -85,3 +85,50 @@ def test_qualified_income_abstains_without_borrowing_operands_or_rounded_fallbac
     assert all("change_display" not in row for row in deltas.bind_exact_xbrl_deltas(
         {"table": originals[:4]}, invented,
     )["table"])
+
+    # Review successor: invented values only. Collect all results before comparing so reverting
+    # just the service to 3e5 exposes both amount bypasses and ratio suppression in one failure.
+    synthetic_cases = {
+        "earnings_presentation_amount": (
+            "Net earnings/(loss) attributable to Example shareholders", "$120M", "$100M",
+            None, None,
+        ),
+        "loss_income_presentation_amount": (
+            "Net (loss) income attributable to Example", "$120M", "$100M", None, None,
+        ),
+        "presentation_ratio": (
+            "Net income/(loss) margin", "50%", "40%", "+10.0 ppts", "+99.0%",
+        ),
+        "presentation_mixed_units": (
+            "Net income/(loss) margin", "50%", "$40M", None, None,
+        ),
+        "presentation_missing_percentage": (
+            "Net income/(loss) margin", "n/a%", "40%", None, None,
+        ),
+        "earnings_per_share": (
+            "Diluted net earnings/(loss) per common share attributable to Example",
+            "$1.20", "$1.00", "+20.0%", "+99.0%",
+        ),
+        "income_loss_per_share": (
+            "Basic net (loss) income per common share attributable to Example",
+            "$1.20", "$1.00", "+20.0%", "+99.0%",
+        ),
+        "punctuation_is_not_generic_alias": (
+            "Net (income)", "$120M", "$100M", None, None,
+        ),
+        "generic_cached_invalid_displays": (
+            "Net income", "not available", "not available", None, "+99.0%",
+        ),
+    }
+    observed, expected_synthetic = {}, {}
+    for case, (label, current, prior, plain_expected, owned_expected) in synthetic_cases.items():
+        row = {"metric": label, "current_period": current, "prior_period": prior}
+        plain = deltas.delta_for_row(row)
+        stale = {**row, "change_display": "+99.0%", "change_direction": "up", "change_tone": "gain"}
+        owned = deltas.delta_for_row(stale, exact_owned=True)
+        observed[case] = (plain.display if plain else None, owned.display if owned else None)
+        expected_synthetic[case] = (plain_expected, owned_expected)
+        assert deltas.strict_xbrl_metric_key(label) == (
+            "net_income" if label == "Net income" else None
+        )
+    assert observed == expected_synthetic

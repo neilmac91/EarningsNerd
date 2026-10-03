@@ -155,10 +155,15 @@ def _has_unsupported_income_scope(metric_name: Any) -> bool:
     if not isinstance(metric_name, str):
         return False
     label = " ".join(metric_name.casefold().split())
-    if not re.search(r"\bnet (?:income|loss)\b", label) or label == "net income":
+    if label == "net income":
+        return False  # Preserve only the original whole-label generic mapping exemption.
+    # Normalize presentation punctuation solely to withhold; never feed this into concept binding.
+    label = " ".join(re.sub(r"[()/]", " ", label).split())
+    income_terms = r"(?:income|earnings|loss)"
+    if not re.search(rf"\bnet {income_terms}\b", label):
         return False
     return re.fullmatch(
-        r"(?:(?:basic|diluted) )?net (?:income|loss) per (?:common )?share"
+        rf"(?:(?:basic|diluted) )?net {income_terms}(?: {income_terms})* per (?:common )?share"
         r"(?: attributable to [^,;]+)?",
         label,
     ) is None
@@ -360,7 +365,10 @@ def delta_for_row(row: dict, *, exact_owned: bool = False) -> Optional[MetricDel
     """
     if not isinstance(row, dict):
         return None
-    if _has_unsupported_income_scope(row.get("metric")):
+    cur, cur_pct = _parse_number(row.get("current_period") or row.get("currentPeriod"))
+    prior, prior_pct = _parse_number(row.get("prior_period") or row.get("priorPeriod"))
+    is_parsed_ratio = cur is not None and prior is not None and cur_pct and prior_pct
+    if _has_unsupported_income_scope(row.get("metric")) and not is_parsed_ratio:
         return None
     if exact_owned and isinstance(row.get("change_display"), str):
         display = row["change_display"]
@@ -368,8 +376,6 @@ def delta_for_row(row: dict, *, exact_owned: bool = False) -> Optional[MetricDel
         tone = row.get("change_tone")
         if direction in {"up", "down", "flat"} and tone in {"gain", "loss", "flat"}:
             return MetricDelta(None, None, direction, tone, False, display)
-    cur, cur_pct = _parse_number(row.get("current_period") or row.get("currentPeriod"))
-    prior, prior_pct = _parse_number(row.get("prior_period") or row.get("priorPeriod"))
     if cur is None or prior is None:
         return None
     if cur_pct != prior_pct:
