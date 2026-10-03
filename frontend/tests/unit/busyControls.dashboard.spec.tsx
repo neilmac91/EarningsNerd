@@ -32,6 +32,7 @@ const api = vi.hoisted(() => ({
   getSavedSummaries: vi.fn(),
   deleteSavedSummary: vi.fn(),
   getWatchlistInsights: vi.fn(),
+  removeFromWatchlist: vi.fn(),
   routerPush: vi.fn(),
   toastError: vi.fn(),
 }))
@@ -48,7 +49,7 @@ vi.mock('@/features/summaries/api/summaries-api', () => ({
 vi.mock('@/features/watchlist/api/watchlist-api', () => ({
   getWatchlistInsights: api.getWatchlistInsights,
   addToWatchlist: vi.fn(),
-  removeFromWatchlist: vi.fn(),
+  removeFromWatchlist: api.removeFromWatchlist,
 }))
 vi.mock('@/features/companies/api/companies-api', () => ({ searchCompanies: vi.fn() }))
 vi.mock('next/navigation', () => ({ useRouter: () => ({ push: api.routerPush, refresh: vi.fn() }) }))
@@ -411,6 +412,28 @@ describe('Your companies Retry', () => {
     await waitFor(() => expect(retry).not.toHaveAttribute('aria-busy'))
     await settle()
     expect(document.activeElement).toBe(document.body)
+  })
+
+  it('a remove whose insights refetch fails leaves no live remove button for the removed row', async () => {
+    healthyApi()
+    const row = (id: number, ticker: string, name: string) => ({ company: { id, ticker, name }, latest_filing: null, total_filings: 0 })
+    api.removeFromWatchlist.mockResolvedValue(undefined)
+    api.getWatchlistInsights
+      .mockReset()
+      .mockResolvedValueOnce([row(1, 'AAPL', 'Apple Inc.'), row(2, 'MSFT', 'Microsoft Corp')])
+      .mockRejectedValueOnce(new Error('insights down'))
+    renderDashboard()
+
+    const removeApple = await screen.findByRole('button', { name: /Remove Apple.* from watchlist/ })
+    removeApple.focus()
+    fireEvent.click(removeApple)
+    await waitFor(() => expect(api.getWatchlistInsights).toHaveBeenCalledTimes(2))
+    await settle()
+    // The page reads the failed refetch as an error, so the section's error card replaces the list:
+    // the removed row's button cannot go live again, and no cache prune is needed.
+    expect(screen.queryByRole('button', { name: /Remove Apple.* from watchlist/ })).not.toBeInTheDocument()
+    expect(screen.getByText('Unable to load your companies')).toBeInTheDocument()
+    expect(api.removeFromWatchlist).toHaveBeenCalledTimes(1)
   })
 
   it('a mouse user who moved on keeps their focus when the retry succeeds', async () => {

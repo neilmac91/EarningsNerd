@@ -1,7 +1,7 @@
 import React from 'react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { act, render, screen, fireEvent, waitFor, within } from '@testing-library/react'
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { QueryClient, QueryClientProvider, onlineManager } from '@tanstack/react-query'
 import userEvent from '@testing-library/user-event'
 
 // Router is invoked on result click; capture push.
@@ -184,7 +184,7 @@ describe('CompanySearch "Try Again" keeps keyboard focus', () => {
     renderSearch()
     type('apple')
     const alert = await screen.findByRole('alert', {}, { timeout: 4000 })
-    return within(alert).getByRole('button', { name: 'Retry search' })
+    return within(alert).getByRole('button', { name: 'Try again' })
   }
 
   it('stays mounted, busy and focused while its retry runs, refuses a second press, then hands focus to the field', async () => {
@@ -199,6 +199,7 @@ describe('CompanySearch "Try Again" keeps keyboard focus', () => {
     expect(tryAgain.isConnected).toBe(true)
     expect(tryAgain).toHaveAttribute('aria-busy', 'true')
     expect(tryAgain).toHaveAttribute('aria-disabled', 'true')
+    expect(tryAgain).toHaveAccessibleName('Retrying…')
     expect(document.activeElement).toBe(tryAgain)
     expect(screen.getByText('Search is down')).toBeInTheDocument()
     await user.keyboard('{Enter}')
@@ -268,7 +269,7 @@ describe('CompanySearch "Try Again" keeps keyboard focus', () => {
     const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } })
     render(<QueryClientProvider client={qc}><CompanySearch /></QueryClientProvider>)
     type('apple')
-    const tryAgain = within(await screen.findByRole('alert', {}, { timeout: 4000 })).getByRole('button', { name: 'Retry search' })
+    const tryAgain = within(await screen.findByRole('alert', {}, { timeout: 4000 })).getByRole('button', { name: 'Try again' })
     tryAgain.focus()
     await user.keyboard('{Enter}')
     await waitFor(() => expect(tryAgain).toHaveAttribute('aria-busy', 'true'))
@@ -280,4 +281,110 @@ describe('CompanySearch "Try Again" keeps keyboard focus', () => {
     await settle()
     expect(document.activeElement).toBe(document.body)
   }, 15_000)
+  it('a retry that fails again with the same message re-inserts it, so the alert is announced again', async () => {
+    failSearch()
+    vi.mocked(searchCompanies)
+      .mockRejectedValueOnce(new Error('Search is down'))
+      .mockRejectedValueOnce(new Error('Search is down'))
+    const tryAgain = await failedTryAgain()
+    const message = screen.getByText('Search is down')
+    tryAgain.focus()
+    await user.keyboard('{Enter}')
+    await waitFor(() => expect(tryAgain).toHaveAttribute('aria-busy', 'true'))
+    await waitFor(() => expect(tryAgain).not.toHaveAttribute('aria-busy'), { timeout: 4000 })
+    expect(message.isConnected).toBe(false)
+    expect(screen.getByText('Search is down')).toBeInTheDocument()
+    expect(document.activeElement).toBe(tryAgain)
+  }, 12_000)
+
+  it('Escape out of the field while the retry runs moves no focus back into it', async () => {
+    failSearch()
+    const retried = deferred<Company[]>()
+    vi.mocked(searchCompanies).mockReturnValueOnce(retried.promise)
+    const tryAgain = await failedTryAgain()
+    tryAgain.focus()
+    await user.keyboard('{Enter}')
+    await waitFor(() => expect(tryAgain).toHaveAttribute('aria-busy', 'true'))
+
+    screen.getByRole('combobox').focus()
+    await user.keyboard('{Escape}')
+    expect(document.activeElement).toBe(document.body)
+    // The debounce drops the term, and with it the failure; the press's retry then lands too late.
+    await act(async () => { await new Promise((resolve) => setTimeout(resolve, 400)) })
+    await act(async () => retried.resolve([APPLE]))
+    await settle()
+    expect(document.activeElement).toBe(document.body)
+  }, 10_000)
+
+  it('switching to a term already cached is not the retry\'s success: it moves no focus', async () => {
+    vi.mocked(searchCompanies).mockResolvedValueOnce([TESLA])
+    failSearch()
+    const retried = deferred<Company[]>()
+    vi.mocked(searchCompanies).mockReturnValueOnce(retried.promise)
+    renderSearch()
+    type('tesla')
+    await screen.findByText('Tesla, Inc.')
+    type('apple')
+    const tryAgain = within(await screen.findByRole('alert', {}, { timeout: 4000 })).getByRole('button', { name: 'Try again' })
+    tryAgain.focus()
+    await user.keyboard('{Enter}')
+    await waitFor(() => expect(tryAgain).toHaveAttribute('aria-busy', 'true'))
+
+    // Back to the cached term, then away from the field before the debounce lands: its results show
+    // at once, but they are not what the press asked for.
+    const field = screen.getByRole('combobox')
+    field.focus()
+    type('tesla')
+    field.blur()
+    await screen.findByText('Tesla, Inc.')
+    await settle()
+    expect(document.activeElement).toBe(document.body)
+  }, 10_000)
+
+  it('a keyboard user who moved on keeps their focus when the retry succeeds', async () => {
+    failSearch()
+    const retried = deferred<Company[]>()
+    vi.mocked(searchCompanies).mockReturnValueOnce(retried.promise)
+    const tryAgain = await failedTryAgain()
+    tryAgain.focus()
+    await user.keyboard('{Enter}')
+    await waitFor(() => expect(tryAgain).toHaveAttribute('aria-busy', 'true'))
+    const elsewhere = document.createElement('button')
+    document.body.appendChild(elsewhere)
+    try {
+      elsewhere.focus()
+      await act(async () => retried.resolve([APPLE]))
+      await waitFor(() => expect(tryAgain.isConnected).toBe(false))
+      await settle()
+      expect(document.activeElement).toBe(elsewhere)
+    } finally {
+      elsewhere.remove()
+    }
+  }, 10_000)
+
+  it('a retry paused offline stays busy, keeps its alert and focus, and resumes when back online', async () => {
+    failSearch()
+    // The press's attempt fails, and the component's own retry (1 s later) finds the browser offline.
+    vi.mocked(searchCompanies)
+      .mockRejectedValueOnce(new Error('Search is down'))
+      .mockResolvedValueOnce([APPLE])
+    const tryAgain = await failedTryAgain()
+    tryAgain.focus()
+    try {
+      await user.keyboard('{Enter}')
+      await waitFor(() => expect(searchCompanies).toHaveBeenCalledTimes(3))
+      act(() => onlineManager.setOnline(false))
+      await act(async () => { await new Promise((resolve) => setTimeout(resolve, 1300)) })
+      expect(searchCompanies).toHaveBeenCalledTimes(3)
+      expect(tryAgain.isConnected).toBe(true)
+      expect(tryAgain).toHaveAttribute('aria-busy', 'true')
+      expect(document.activeElement).toBe(tryAgain)
+
+      act(() => onlineManager.setOnline(true))
+      await waitFor(() => expect(tryAgain.isConnected).toBe(false))
+      await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('combobox')))
+    } finally {
+      onlineManager.setOnline(true)
+    }
+  }, 12_000)
 })
