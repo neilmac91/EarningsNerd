@@ -694,7 +694,9 @@ Rules:
         """Generate newsroom-ready summary using structured extraction + editorial writer phases.
 
         ``stream_cb`` opts into progressive previews. The provider request policy owns bounded
-        transient retries; exhausted/authentication failures retain the existing error contract."""
+        transient retries; exhausted/authentication failures retain the existing error contract.
+        The metering signal (``provider_requests.provider_start_signal``) travels in the task
+        context, not as a parameter."""
         import asyncio
 
         filing_type_key = (filing_type or "10-K").upper()

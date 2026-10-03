@@ -53,9 +53,15 @@ stream_filing_summary(filing_id, ...)
   a. Fetch filing text from SEC EDGAR   (24h FilingContentCache short-circuit)
   b. Extract XBRL financials in parallel (edgar/xbrl_service, accession-aware)
   c. Extract critical sections from the filing text
-  d. Summarize with the AI model         (in-stage timeout → deterministic XBRL fallback)
-  e. Quality verdict via assess_quality  (9-section taxonomy, 4/9 bar, XBRL grounding)
-  f. Persist Summary + FilingContentCache; increment usage (full results only)
+  d. Summarize with the AI model; the admission lease is counted as one usage unit when the
+                                         request dispatcher signals the first provider request
+                                         (in-stage timeout → deterministic XBRL fallback)
+  e. Quality verdict via assess_quality  (9-section taxonomy, 4/9 bar, XBRL grounding);
+                                         a partial verdict refunds the unit
+  f. Persist Summary + FilingContentCache (settles the unit; a provider-side failure before
+                                         this refunds it, a client disconnect never does;
+                                         lease-less callers — the background drain, uncapped
+                                         Pro — count full results here instead)
   → events: progress → chunk → (partial|complete) | error
 ```
 
@@ -315,12 +321,16 @@ The significant, hard-to-reverse decisions — and their trade-offs — are ADRs
 (Gemini, then DeepSeek — ADR-0002/0006), `edgartools` for SEC data, Redis-off-in-prod,
 and staying on React 18 under Next 16.
 
-Monthly usage counter writes preserve existing first-row history and completion billing rules.
-Existing buckets skip the parent User lock; first-month creation can contend with Stripe account
-work, subject to `USAGE_COUNTER_LOCK_TIMEOUT_MS`. SQL increments prevent stale-session lost
-updates for successfully committed calls. All old service and job writers must drain before the
-first-use protocol holds fleet-wide. This does not reserve admission, repair historical duplicate
-buckets or make best-effort completion metering strict billing accounting.
+Monthly usage counter writes preserve existing first-row history. A metered summary or Copilot
+generation is counted as its provider call starts (summaries and Copilot alike: on the request
+dispatcher's provider-start signal, fired at the request site, the admission lease converted in
+the increment's commit); a provider-side failure or a partial-quality verdict refunds the unit through
+the same SQL-arithmetic protocol (floor 0), and a client disconnect after the provider started
+does not. Existing buckets skip the parent User lock; first-month creation can contend with
+Stripe account work, subject to `USAGE_COUNTER_LOCK_TIMEOUT_MS`. SQL increments prevent
+stale-session lost updates for successfully committed calls. All old service and job writers must
+drain before the first-use protocol holds fleet-wide. This does not repair historical duplicate
+buckets or make best-effort metering strict billing accounting.
 
 Failed-login recording uses the existing `login_attempts.email_hash` primary key for concurrent
 insert/update and successful-clear ordering on PostgreSQL and SQLite. A failure waiting behind

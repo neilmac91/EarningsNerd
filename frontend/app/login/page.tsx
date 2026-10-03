@@ -30,6 +30,12 @@ const OAUTH_ERROR_MESSAGES: Record<string, string> = {
   google_account_conflict: 'An account conflict occurred. Please contact support.',
   apple_denied: 'Apple sign-in was cancelled.',
   apple_invalid: 'Apple sign-in failed. Please try again.',
+  apple_missing_claims: 'Apple did not return an email address. Please try again.',
+  apple_account_conflict: 'An account conflict occurred. Please contact support.',
+  invite_required:
+    'EarningsNerd is in private beta: creating an account needs an invite. Sign in with an existing account, or open your invite link to sign up.',
+  email_unverified:
+    'Your sign-in provider has not verified that email address. Verify it with the provider, or sign up with an email and password.',
 }
 
 function LoginContent() {
