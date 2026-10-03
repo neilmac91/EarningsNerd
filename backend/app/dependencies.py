@@ -53,7 +53,8 @@ def require_copilot_or_taste(current_user: User = Depends(_resolve_current_user)
     lifetime free-taste questions left (roadmap 2.2); 403 → upsell once the taste is spent.
 
     Unlike ``require_entitlement("copilot")`` (a hard Pro gate), this lets Free users sample the
-    feature a few times. The lifetime counter is metered on the endpoint after a successful answer.
+    feature a few times. The lifetime counter is metered on the endpoint as the provider request is
+    issued (the dispatcher's provider-start signal); a provider-side failure refunds it.
     """
     if can_use_copilot(current_user):
         return current_user

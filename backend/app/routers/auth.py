@@ -1,17 +1,18 @@
 from fastapi import APIRouter, HTTPException, Depends, status, Request, Response, Query, Form
-from fastapi.responses import RedirectResponse
+from fastapi.responses import JSONResponse, RedirectResponse
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from fastapi.concurrency import run_in_threadpool
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy import func
-from pydantic import BaseModel, EmailStr, field_validator
+from pydantic import BaseModel, EmailStr, Field, field_validator
 from typing import Optional
 from datetime import datetime, timedelta, timezone
 from uuid import uuid4
 from urllib.parse import urlencode
 import asyncio
 import hashlib
+import hmac
 import json
 import secrets
 import logging
@@ -20,12 +21,13 @@ import httpx
 import jwt
 
 from app.database import get_db
-from app.models import User, OAuthAccount, OAuthState
+from app.models import InviteCode, User, OAuthAccount, OAuthState
 from app.config import settings
 from app.services.rate_limiter import RateLimiter, enforce_rate_limit
 from app.services.pwned_passwords import is_password_pwned
 from app.services.turnstile import enforce_turnstile
-from app.services import audit_service, login_lockout
+from app.utils.text import has_control_characters
+from app.services import audit_service, invite_service, login_lockout
 from app.services.oauth_verify import _verify_apple_id_token, _verify_google_id_token
 from app.services.password_utils import (
     _DUMMY_PASSWORD_HASH,
@@ -65,6 +67,9 @@ RESEND_VERIFY_LIMITER = RateLimiter(limit=3, window_seconds=3600)   # 3/hr per e
 # single IP can't spray reset/verification mail to thousands of different addresses (Resend cost +
 # domain-reputation abuse). The per-email limiters stop bombing ONE victim; this stops fan-out.
 RESET_RESEND_IP_LIMITER = RateLimiter(limit=20, window_seconds=3600)  # 20/hr per IP, all emails
+# OAuth starts persist a state row (always for Apple, for an invited Google sign-up): bound the
+# unauthenticated writers per IP. Sized for a person retrying a sign-in, not a script.
+OAUTH_START_LIMITER = RateLimiter(limit=20, window_seconds=60)
 # Per-account failed-login lockout is now durable + anti-enumeration (services/login_lockout,
 # keyed on the email hash and backed by the DB), replacing the old in-memory RateLimiter here.
 
@@ -76,7 +81,10 @@ PASSWORD_RESET_EXPIRY_HOURS = 1
 # re-imported below so the callbacks still call them by name.
 _GOOGLE_AUTH_URL = "https://accounts.google.com/o/oauth2/v2/auth"
 _GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token"
+# Google: holds the state itself (SameSite=Lax; the callback is a same-site GET redirect).
 _OAUTH_STATE_COOKIE = "oauth_state"
+# Apple: holds an HMAC of the state (SameSite=None; the callback is a cross-site form_post).
+_APPLE_STATE_COOKIE = "apple_oauth_state"
 _OAUTH_STATE_MAX_AGE = 600  # 10 minutes
 
 # Apple authentication uses the id_token delivered directly in Apple's form_post callback
@@ -90,7 +98,7 @@ _APPLE_AUTH_URL = "https://appleid.apple.com/auth/authorize"
 class UserCreate(BaseModel):
     email: EmailStr
     password: str
-    full_name: Optional[str] = None
+    full_name: Optional[str] = Field(None, max_length=100)
     # Closed-beta magic-link token. Required only when REGISTRATION_MODE="invite_only".
     invite_code: Optional[str] = None
 
@@ -103,6 +111,17 @@ class UserCreate(BaseModel):
     @classmethod
     def validate_password(cls, value: str) -> str:
         return validate_password_strength(value)
+
+    @field_validator("full_name")
+    @classmethod
+    def clean_full_name(cls, value: Optional[str]) -> Optional[str]:
+        # Mirrors users.ProfileUpdate: trimmed, empty clears the name; control characters rejected.
+        if value is None:
+            return None
+        value = value.strip()
+        if has_control_characters(value):
+            raise ValueError("Name must not contain control characters.")
+        return value or None
 
 
 class UserLogin(BaseModel):
@@ -122,6 +141,12 @@ class Token(BaseModel):
 
 class MessageResponse(BaseModel):
     message: str
+
+
+class OAuthStartRequest(BaseModel):
+    """Body of ``POST /api/auth/{google,apple}/start``. The invite travels in the body, never in a
+    URL: request logs record query strings, and the raw token is a live single-use credential."""
+    invite: Optional[str] = Field(None, max_length=128)
 
 
 class RefreshRequest(BaseModel):
@@ -558,8 +583,7 @@ async def register(
     # the valid-invite path. In "public" mode the invite is ignored and nothing changes.
     invite = None
     if settings.REGISTRATION_MODE == "invite_only":
-        from app.services.invite_service import validate_invite
-        invite = validate_invite(db, user_data.invite_code, user_data.email)
+        invite = invite_service.validate_invite(db, user_data.invite_code, user_data.email)
         if invite is None:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
@@ -592,27 +616,23 @@ async def register(
     )
     db.add(user)
     try:
+        db.flush()
+        # Closed beta: consume the (already-validated) single-use invite in the SAME transaction as
+        # the insert and tag the user beta-eligible, so the 100%-off promo applies at checkout. A
+        # lost redemption race rolls the account back too (the invite's single-use invariant holds),
+        # and a failed insert never burns an invite.
+        if invite is not None:
+            if not invite_service.redeem_invite(db, invite, user, commit=False):
+                db.rollback()
+                return _REGISTER_OPAQUE
+            user.is_beta = True
         db.commit()
         db.refresh(user)
     except IntegrityError:
         # Lost a concurrent-create race for the same email — stay opaque (treat as existing).
         db.rollback()
         return _REGISTER_OPAQUE
-
-    # Closed beta: consume the (already-validated) single-use invite and tag the user beta-eligible,
-    # so the 100%-off promo applies at checkout. Done after creation so a failed insert never burns
-    # an invite; best-effort on the rare lost race (the account still exists, just not beta).
-    redeemed = False
-    if invite is not None:
-        try:
-            from app.services.invite_service import redeem_invite
-            if redeem_invite(db, invite, user):
-                user.is_beta = True
-                db.commit()
-                redeemed = True
-        except Exception:
-            db.rollback()
-            logger.warning("Invite redemption failed for user %s", user.id, exc_info=True)
+    redeemed = invite is not None
 
     # Reverse trial is NOT granted at registration: the email is still unverified here, so granting
     # no-card Pro now would hand full features to a disposable/unverified address (repeatable for
@@ -919,6 +939,7 @@ async def change_password(
         LOGIN_LIMITER,
         f"change-password:{current_user.id}",
         error_detail="Too many password change attempts. Please try again later.",
+        include_client_ip=False,  # per-account cap: an IP pool must not multiply it
     )
     if current_user.hashed_password:
         ok = await asyncio.to_thread(
@@ -948,14 +969,142 @@ async def change_password(
     return {"message": "Password updated."}
 
 
+# ─── OAuth account creation + state (shared by Google and Apple) ────────────────
+
+def _oauth_new_account_gate(
+    db: Session, *, email: str, email_verified: bool, invite_code_hash: Optional[str]
+) -> tuple[Optional[str], Optional[InviteCode]]:
+    """Decide whether a social sign-in may create a NEW User (linking is decided by the callers).
+
+    Returns ``(error_code, invite)``. ``error_code`` is None when creation may proceed, else the
+    ``/login?error=`` code to redirect with: ``email_unverified`` when the provider has not verified
+    the address (an unverified claim never seeds an account), ``invite_required`` when
+    REGISTRATION_MODE is invite_only and the sign-in carries no valid invite. ``invite`` is the
+    validated invite the caller must redeem in the SAME transaction as the insert (None in public
+    mode). Mirrors the register() gate; tests/unit/test_oauth_invite_gate.py keeps every ``User(``
+    construction in this module behind it.
+    """
+    if not email_verified:
+        return "email_unverified", None
+    if settings.REGISTRATION_MODE != "invite_only":
+        return None, None
+    invite = invite_service.validate_invite_hash(db, invite_code_hash, email)
+    if invite is None:
+        return "invite_required", None
+    return None, invite
+
+
+def _oauth_create_account(
+    db: Session,
+    *,
+    provider: str,
+    email: str,
+    full_name: Optional[str],
+    email_verified: bool,
+    invite_code_hash: Optional[str],
+) -> tuple[Optional[User], Optional[str]]:
+    """Create the User for a first social sign-in, or say why not.
+
+    Returns ``(user, None)`` with the row flushed but not committed (the caller's issue_session
+    commits it together with the provider link and the session), or ``(None, error_code)`` after
+    rolling back. When invite-only mode requires an invite it is consumed here, inside the same
+    transaction, so a lost redemption race never leaves an account behind.
+    """
+    error_code, invite = _oauth_new_account_gate(
+        db, email=email, email_verified=email_verified, invite_code_hash=invite_code_hash
+    )
+    if error_code:
+        return None, error_code
+    user = User(email=email, full_name=full_name, hashed_password=None, email_verified=email_verified)
+    db.add(user)
+    try:
+        db.flush()
+    except IntegrityError:
+        # Lost a concurrent first-sign-in race for the same email.
+        db.rollback()
+        logger.warning("%s OAuth IntegrityError creating account", provider)
+        return None, f"{provider}_account_conflict"
+    if invite is not None:
+        if not invite_service.redeem_invite(db, invite, user, commit=False):
+            db.rollback()
+            return None, "invite_required"
+        user.is_beta = True
+    return user, None
+
+
+def _store_oauth_state(db: Session, state: str, nonce: str, invite_code_hash: Optional[str]) -> None:
+    """Stage a single-use ``state`` row (10-minute TTL) after GC-ing expired rows; the caller commits
+    (so the GET handler's write stays visible to tests/unit/test_read_only_get_endpoints.py).
+
+    Apple always needs one (its form_post callback is checked against the row's nonce); Google only
+    when the sign-in carries an invite, which rides on the row as its hash so the callback can
+    validate and redeem it. Naive UTC throughout (see the OAuthState model) so the comparison is
+    naive-vs-naive on both Postgres and SQLite.
+    """
+    now = datetime.utcnow()
+    db.query(OAuthState).filter(OAuthState.expires_at < now).delete(synchronize_session=False)
+    db.add(OAuthState(
+        state=state,
+        nonce=nonce,
+        invite_code_hash=invite_code_hash,
+        expires_at=now + timedelta(seconds=_OAUTH_STATE_MAX_AGE),
+    ))
+
+
+def _consume_oauth_state(db: Session, state: str) -> Optional[tuple[str, Optional[str]]]:
+    """Delete the row for ``state`` and return its ``(nonce, invite_code_hash)``, or None when the
+    state is unknown or expired (an expired row is deleted too). Single-use by construction."""
+    row = db.query(OAuthState).filter_by(state=state).first()
+    if row is None:
+        return None
+    live = row.expires_at >= datetime.utcnow()
+    nonce, invite_code_hash = row.nonce, row.invite_code_hash
+    db.delete(row)
+    db.commit()
+    return (nonce, invite_code_hash) if live else None
+
+
+def _apple_state_cookie_value(state: str) -> str:
+    """HMAC-SHA256 of the Apple ``state`` keyed with SECRET_KEY: the browser-binding half of the
+    callback's state check (the DB row is the single-use half)."""
+    return hmac.new(settings.SECRET_KEY.encode("utf-8"), state.encode("utf-8"), hashlib.sha256).hexdigest()
+
+
+def _apple_redirect(url: str) -> RedirectResponse:
+    """Redirect out of the Apple callback; the one-shot state-binding cookie is cleared either way."""
+    redirect = RedirectResponse(url=url, status_code=302)
+    redirect.delete_cookie(
+        _APPLE_STATE_COOKIE, httponly=True, samesite="none", secure=settings.COOKIE_SECURE
+    )
+    return redirect
+
+
 # ─── Google OAuth (OIDC via httpx — no extra dependency) ───────────────────────
 
-@router.get("/google")
-async def google_login():
-    """Redirect the browser to Google's consent screen."""
+def _live_invite_hash(db: Session, invite: Optional[str]) -> Optional[str]:
+    """The hash of ``invite`` when it names a usable invite, else None: an OAuth start persists
+    nothing for an unknown, revoked, used or expired token (the callback then sees no invite)."""
+    if not invite:
+        return None
+    code_hash = invite_service.hash_invite_token(invite)
+    return code_hash if invite_service.invite_hash_is_live(db, code_hash) else None
+
+
+def _start_google(request: Request, db: Session, invite: Optional[str]) -> tuple[str, str]:
+    """Rate limit, stage the state (with the invite's hash when the invite is live) and build
+    Google's consent URL. Returns ``(url, state)``; the caller sets the state cookie."""
     if not settings.GOOGLE_CLIENT_ID:
         raise HTTPException(status_code=503, detail="Google Sign-In is not configured.")
+    enforce_rate_limit(
+        request, OAUTH_START_LIMITER, "oauth-start",
+        error_detail="Too many sign-in attempts. Please try again shortly.",
+    )
     state = secrets.token_urlsafe(32)
+    invite_code_hash = _live_invite_hash(db, invite)
+    if invite_code_hash is not None:
+        # The nonce column is NOT NULL but unused for Google (no OIDC nonce in this flow).
+        _store_oauth_state(db, state, secrets.token_urlsafe(32), invite_code_hash)
+        db.commit()
     params = {
         "client_id": settings.GOOGLE_CLIENT_ID,
         "redirect_uri": settings.GOOGLE_REDIRECT_URI,
@@ -965,12 +1114,41 @@ async def google_login():
         "access_type": "online",
         "prompt": "select_account",
     }
-    redirect = RedirectResponse(url=f"{_GOOGLE_AUTH_URL}?{urlencode(params)}", status_code=302)
-    redirect.set_cookie(
+    return f"{_GOOGLE_AUTH_URL}?{urlencode(params)}", state
+
+
+def _set_google_state_cookie(response: Response, state: str) -> None:
+    response.set_cookie(
         _OAUTH_STATE_COOKIE, state, httponly=True, samesite="lax",
         max_age=_OAUTH_STATE_MAX_AGE, secure=settings.COOKIE_SECURE,
     )
+
+
+@router.get("/google")
+async def google_login(request: Request, db: Session = Depends(get_db)):
+    """Redirect the browser to Google's consent screen (plain sign-in: no invite, nothing persisted).
+
+    An invited sign-up starts through ``POST /api/auth/google/start`` instead, so the raw invite
+    token never appears in a request URL (request logs record query strings).
+    """
+    url, state = _start_google(request, db, None)
+    redirect = RedirectResponse(url=url, status_code=302)
+    _set_google_state_cookie(redirect, state)
     return redirect
+
+
+@router.post("/google/start")
+async def google_start(body: OAuthStartRequest, request: Request, db: Session = Depends(get_db)):
+    """Start Google sign-in for the browser to follow: returns ``{"url": ...}`` and sets the state
+    cookie. ``invite`` is the raw closed-beta token from the magic link, so an invited user can sign
+    up with Google under REGISTRATION_MODE=invite_only: its hash is stored against the ``state`` and
+    the callback validates + redeems it when it creates the account. Only the hash is stored, and
+    only for an invite that is live; the start is rate limited per IP because it writes a row.
+    """
+    url, state = _start_google(request, db, body.invite)
+    response = JSONResponse({"url": url})
+    _set_google_state_cookie(response, state)
+    return response
 
 
 @router.get("/google/callback")
@@ -992,6 +1170,11 @@ async def google_callback(
     stored_state = request.cookies.get(_OAUTH_STATE_COOKIE)
     if not stored_state or not secrets.compare_digest(stored_state, state):
         return RedirectResponse(f"{frontend_url}/login?error=oauth_state_mismatch", status_code=302)
+
+    # An invited sign-up stored its invite hash against this state (google_login); plain sign-ins
+    # have no row. Consumed up front so the row is single-use whatever happens next.
+    consumed = _consume_oauth_state(db, state)
+    invite_code_hash = consumed[1] if consumed else None
 
     # Exchange the authorization code for tokens, then cryptographically verify the id_token
     # (signature + audience + issuer) rather than trusting an access-token-authenticated
@@ -1035,20 +1218,27 @@ async def google_callback(
     if oauth_row:
         user = oauth_row.user
     else:
-        # Link to an existing account only when both sides have a verified email.
         existing = db.query(User).filter(func.lower(User.email) == email).first()
-        if existing and existing.email_verified and email_verified_by_google:
+        if existing:
+            # Link to an existing account only when both sides have a verified email; otherwise a
+            # new insert would hit the UNIQUE constraint.
+            if not (existing.email_verified and email_verified_by_google):
+                return RedirectResponse(
+                    f"{frontend_url}/login?error=google_account_conflict", status_code=302
+                )
             user = existing
             linked_existing = True
         else:
-            user = User(
+            user, error_code = _oauth_create_account(
+                db,
+                provider="google",
                 email=email,
                 full_name=full_name,
-                hashed_password=None,
                 email_verified=email_verified_by_google,
+                invite_code_hash=invite_code_hash,
             )
-            db.add(user)
-            db.flush()
+            if user is None:
+                return RedirectResponse(f"{frontend_url}/login?error={error_code}", status_code=302)
         db.add(OAuthAccount(
             user_id=user.id,
             provider="google",
@@ -1078,24 +1268,19 @@ async def google_callback(
 
 # ─── Apple Sign In (ES256 client secret, form_post callback, JWKS verification) ──
 
-@router.get("/apple")
-async def apple_login(db: Session = Depends(get_db)):
-    """Redirect the browser to Apple's consent screen."""
+def _start_apple(request: Request, db: Session, invite: Optional[str]) -> tuple[str, str]:
+    """Rate limit, stage the nonce row (with the invite's hash when the invite is live) and build
+    Apple's consent URL. Returns ``(url, state)``; the caller sets the browser-binding cookie."""
     if not settings.APPLE_CLIENT_ID:
         raise HTTPException(status_code=503, detail="Apple Sign In is not configured.")
-
-    # Lazy GC: remove expired state rows. Naive UTC throughout (see OAuthState model)
-    # so the comparison is naive-vs-naive on both Postgres and SQLite.
-    now = datetime.utcnow()
-    db.query(OAuthState).filter(OAuthState.expires_at < now).delete(synchronize_session=False)
+    enforce_rate_limit(
+        request, OAUTH_START_LIMITER, "oauth-start",
+        error_detail="Too many sign-in attempts. Please try again shortly.",
+    )
 
     state = secrets.token_urlsafe(32)
     raw_nonce = secrets.token_urlsafe(32)
-    db.add(OAuthState(
-        state=state,
-        nonce=raw_nonce,
-        expires_at=now + timedelta(minutes=10),
-    ))
+    _store_oauth_state(db, state, raw_nonce, _live_invite_hash(db, invite))
     db.commit()
 
     # Send sha256(raw_nonce) so Apple stores it in id_token; we verify on callback.
@@ -1108,7 +1293,37 @@ async def apple_login(db: Session = Depends(get_db)):
         "state": state,
         "nonce": hashlib.sha256(raw_nonce.encode()).hexdigest(),
     }
-    return RedirectResponse(url=f"{_APPLE_AUTH_URL}?{urlencode(params)}", status_code=302)
+    return f"{_APPLE_AUTH_URL}?{urlencode(params)}", state
+
+
+def _set_apple_state_cookie(response: Response, state: str) -> None:
+    # Apple posts the callback cross-site, so this cookie is SameSite=None (Secure in prod). It
+    # binds the state to the browser that started the flow: the callback accepts a posted state
+    # only together with this cookie, and the DB row makes it single-use.
+    response.set_cookie(
+        _APPLE_STATE_COOKIE, _apple_state_cookie_value(state), httponly=True, samesite="none",
+        max_age=_OAUTH_STATE_MAX_AGE, secure=settings.COOKIE_SECURE,
+    )
+
+
+@router.get("/apple")
+async def apple_login(request: Request, db: Session = Depends(get_db)):
+    """Redirect the browser to Apple's consent screen (plain sign-in: no invite). An invited
+    sign-up starts through ``POST /api/auth/apple/start`` so the token never rides in a URL."""
+    url, state = _start_apple(request, db, None)
+    redirect = RedirectResponse(url=url, status_code=302)
+    _set_apple_state_cookie(redirect, state)
+    return redirect
+
+
+@router.post("/apple/start")
+async def apple_start(body: OAuthStartRequest, request: Request, db: Session = Depends(get_db)):
+    """Start Sign in with Apple for the browser to follow: ``{"url": ...}`` plus the binding cookie
+    (``invite``: as for google_start)."""
+    url, state = _start_apple(request, db, body.invite)
+    response = JSONResponse({"url": url})
+    _set_apple_state_cookie(response, state)
+    return response
 
 
 @router.post("/apple/callback")
@@ -1125,34 +1340,32 @@ async def apple_callback(
     frontend_url = settings.FRONTEND_URL
 
     if error:
-        return RedirectResponse(f"{frontend_url}/login?error=apple_denied", status_code=302)
+        return _apple_redirect(f"{frontend_url}/login?error=apple_denied")
     if not state or not id_token:
-        return RedirectResponse(f"{frontend_url}/login?error=apple_invalid", status_code=302)
+        return _apple_redirect(f"{frontend_url}/login?error=apple_invalid")
 
-    # Validate state from DB (form_post drops SameSite=Lax cookies).
-    # Naive UTC (see OAuthState model) so expires_at comparison is naive-vs-naive everywhere.
-    now = datetime.utcnow()
-    state_row = db.query(OAuthState).filter_by(state=state).first()
-    if not state_row or state_row.expires_at < now:
-        if state_row:
-            db.delete(state_row)
-            db.commit()
-        return RedirectResponse(f"{frontend_url}/login?error=oauth_state_mismatch", status_code=302)
-
-    raw_nonce = state_row.nonce
-    db.delete(state_row)
-    db.commit()
+    # State check, both halves: the SameSite=None cookie set at /apple must carry this state's HMAC
+    # (browser binding; checked first so a post without it leaves the row untouched), then the DB
+    # row is consumed for the nonce + optional invite (single use).
+    bound = request.cookies.get(_APPLE_STATE_COOKIE)
+    expected = _apple_state_cookie_value(state)
+    if not bound or not secrets.compare_digest(bound.encode("utf-8"), expected.encode("utf-8")):
+        return _apple_redirect(f"{frontend_url}/login?error=oauth_state_mismatch")
+    consumed = _consume_oauth_state(db, state)
+    if consumed is None:
+        return _apple_redirect(f"{frontend_url}/login?error=oauth_state_mismatch")
+    raw_nonce, invite_code_hash = consumed
 
     # Verify Apple's id_token
     try:
         claims = await _verify_apple_id_token(id_token, raw_nonce)
     except Exception as exc:
         logger.warning("Apple id_token verification failed: %s", exc)
-        return RedirectResponse(f"{frontend_url}/login?error=apple_invalid", status_code=302)
+        return _apple_redirect(f"{frontend_url}/login?error=apple_invalid")
 
     apple_sub = claims.get("sub")
     if not apple_sub:
-        return RedirectResponse(f"{frontend_url}/login?error=apple_missing_claims", status_code=302)
+        return _apple_redirect(f"{frontend_url}/login?error=apple_missing_claims")
 
     email = (claims.get("email") or "").strip().lower() or None
     email_verified_by_apple = str(claims.get("email_verified", "false")).lower() == "true"
@@ -1182,7 +1395,7 @@ async def apple_callback(
     else:
         if not email:
             # No email and no existing link — can't create an account
-            return RedirectResponse(f"{frontend_url}/login?error=apple_missing_claims", status_code=302)
+            return _apple_redirect(f"{frontend_url}/login?error=apple_missing_claims")
 
         existing = db.query(User).filter(func.lower(User.email) == email).first()
         if existing:
@@ -1194,18 +1407,18 @@ async def apple_callback(
             else:
                 # Email exists but can't be safely linked (unverified on either side).
                 # Attempting a new insert would hit the UNIQUE constraint.
-                return RedirectResponse(
-                    f"{frontend_url}/login?error=apple_account_conflict", status_code=302
-                )
+                return _apple_redirect(f"{frontend_url}/login?error=apple_account_conflict")
         else:
-            user_obj = User(
+            user_obj, error_code = _oauth_create_account(
+                db,
+                provider="apple",
                 email=email,
                 full_name=full_name,
-                hashed_password=None,
                 email_verified=email_verified_by_apple,
+                invite_code_hash=invite_code_hash,
             )
-            db.add(user_obj)
-            db.flush()
+            if user_obj is None:
+                return _apple_redirect(f"{frontend_url}/login?error={error_code}")
 
         db.add(OAuthAccount(
             user_id=user_obj.id,
@@ -1215,13 +1428,13 @@ async def apple_callback(
         ))
 
     user_obj.last_login_at = datetime.now(timezone.utc)
-    redirect = RedirectResponse(url=frontend_url, status_code=302)
+    redirect = _apple_redirect(frontend_url)
     try:
         issue_session(db, user_obj, redirect, request)
     except IntegrityError:
         db.rollback()
         logger.warning("Apple OAuth IntegrityError for sub=%s", apple_sub)
-        return RedirectResponse(f"{frontend_url}/login?error=apple_account_conflict", status_code=302)
+        return _apple_redirect(f"{frontend_url}/login?error=apple_account_conflict")
 
     hashed_ip = _hashed_client_ip(request)
     audit_service.log_oauth_login(db, user_obj.id, user_obj.email, provider="apple", ip_address=hashed_ip)

@@ -100,13 +100,20 @@ as an env var of the same name. `APPLE_REDIRECT_URI` defaults to the prod callba
 - **`form_post` callback.** Because we request `name email` scope, Apple **POSTs** to the
   callback (not GET) and returns the user's name **only on first authorization**. The route is
   a POST handler that captures the name on that first hit.
-- **State/nonce stored server-side.** A cross-site POST with `SameSite=Lax` cookies drops the
-  cookie, so I store `state`+`nonce` in a short-lived `oauth_states` table (10-min TTL) instead
-  of the cookie used for Google. Validated + consumed on callback.
+- **State/nonce stored server-side, state bound to the browser.** A cross-site POST drops
+  `SameSite=Lax` cookies, so `state`+`nonce` live in a short-lived `oauth_states` table (10-min
+  TTL) instead of the state cookie used for Google; the row is validated + consumed on callback.
+  `/api/auth/apple` also sets a `SameSite=None; Secure; HttpOnly` cookie holding an HMAC of the
+  state, and the callback requires it, so a posted state is accepted only from the browser that
+  started the flow.
 - **ID-token verification.** Verify Apple's ID token against Apple's JWKS
   (`https://appleid.apple.com/auth/keys`); check `iss`/`aud`/`exp`/`nonce`.
 - **Account linking.** Same policy as Google: link to an existing account only when the email
-  matches an existing **verified** account; otherwise create a new user. `email_verified=true`
-  from Apple's assertion. Private-relay emails are treated as that user's email.
+  matches an existing **verified** account; otherwise create a new user — only when Apple asserts
+  `email_verified=true`, and under `REGISTRATION_MODE=invite_only` only when the sign-in started
+  from `POST /api/auth/apple/start` with the magic-link invite in the request body (never in a
+  URL: request logs record query strings); the callback validates and redeems it in the same
+  transaction as the insert. Private-relay
+  emails are treated as that user's email.
 - **Tests + frontend wiring.** Apple button (HIG-compliant) ships with the design work; the
   backend exchange + the button's live wiring land in this increment once credentials arrive.

@@ -83,17 +83,26 @@ env:
 
 jobs:
   ops:
+    # Operations run against production, so only the reviewed definition on main may run: a
+    # dispatch from another ref is skipped before any step executes.
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
 
       - name: Resolve requested operation
         id: request
+        # Dispatch inputs reach the shell only through env: (never interpolated into the script),
+        # so their text can never be parsed as shell before the validation below runs
+        # (tests/unit/test_workflow_dispatch_inputs.py).
+        env:
+          OP: ${{ inputs.operation }}
+          TICKERS: ${{ inputs.tickers }}
+          REVISION: ${{ inputs.revision }}
         run: |
           set -euo pipefail
-          OP="${{ inputs.operation }}"
-          TICKERS="${{ inputs.tickers }}"
-          REVISION="${{ inputs.revision }}"
           case "$OP" in
             describe-service|describe-jobs|detection-sql|logs-probe|capacity-readout|jobs-channel-noop-probe|repair-ticker-dry-run|repair-ticker-apply|sync-companyfacts|backfill-filing-history|data-quality-report|reset-filing-summary-dry-run|reset-filing-summary-apply|rollback-traffic) ;;
             *) echo "::error::unknown operation '$OP'"; exit 1 ;;
@@ -183,6 +192,11 @@ jobs:
           svc = json.load(open("/tmp/svc.json"))
           status = svc["status"]
           latest = status.get("latestReadyRevisionName")
+          tagged = [target.get("revisionName") for target in status.get("traffic", []) if target.get("tag")]
+          if tagged:
+              # A tagged revision stays routable at its own URL whatever its traffic share, so a
+              # leftover tag keeps a retired image serving beside the release.
+              raise SystemExit(f"Unresolved production configuration: tagged traffic targets {tagged}; remove stale revision tags.")
           traffic = [target for target in status.get("traffic", []) if target.get("percent", 0) > 0]
           print("Serving traffic:", traffic)
           if (not latest or status.get("latestCreatedRevisionName") != latest

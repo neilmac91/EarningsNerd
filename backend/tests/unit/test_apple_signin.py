@@ -39,8 +39,9 @@ def client():
         yield test_client
 
 
-def _seed_state(nonce: str = RAW_NONCE, ttl_minutes: int = 5) -> str:
-    """Insert a fresh OAuthState row and return its state token."""
+def _seed_state(client: TestClient, nonce: str = RAW_NONCE, ttl_minutes: int = 5) -> str:
+    """Insert a fresh OAuthState row, bind it to ``client`` (the HMAC cookie /apple sets, which the
+    callback requires alongside the row), and return its state token."""
     state = f"state_{uuid.uuid4().hex}"
     db = SessionLocal()
     try:
@@ -53,6 +54,7 @@ def _seed_state(nonce: str = RAW_NONCE, ttl_minutes: int = 5) -> str:
         db.commit()
     finally:
         db.close()
+    client.cookies.set(auth_module._APPLE_STATE_COOKIE, auth_module._apple_state_cookie_value(state))
     return state
 
 
@@ -166,7 +168,7 @@ def test_callback_conflict_when_existing_account_unverified(client):
     finally:
         db.close()
 
-    state = _seed_state()
+    state = _seed_state(client)
     claims = {
         "sub": f"apple_{uuid.uuid4().hex}",
         "email": email,
@@ -205,7 +207,7 @@ def test_callback_links_verified_account_and_stores_name(client):
     finally:
         db.close()
 
-    state = _seed_state()
+    state = _seed_state(client)
     apple_sub = f"apple_{uuid.uuid4().hex}"
     claims = {"sub": apple_sub, "email": email, "email_verified": "true", "nonce": HASHED_NONCE}
     with patch.object(auth_module, "_verify_apple_id_token", AsyncMock(return_value=claims)):

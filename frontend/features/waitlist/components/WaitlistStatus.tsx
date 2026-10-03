@@ -2,21 +2,12 @@
 
 import { useState } from 'react'
 import { ApiError } from '@/lib/api/client'
-import { getWaitlistStatus } from '@/features/waitlist/api/waitlist-api'
+import { getWaitlistStatus, type WaitlistStatusResult } from '@/features/waitlist/api/waitlist-api'
 import { Button, Card, Input, Notice } from '@/components/ui'
-
-type StatusData = {
-  position: number
-  referral_code: string
-  referral_link: string
-  referrals_count: number
-  positions_gained: number
-  email_verified: boolean
-}
 
 export default function WaitlistStatus() {
   const [email, setEmail] = useState('')
-  const [status, setStatus] = useState<StatusData | null>(null)
+  const [status, setStatus] = useState<WaitlistStatusResult | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
 
@@ -77,18 +68,6 @@ export default function WaitlistStatus() {
           <div>
             Positions gained:{' '}
             <span className="tnum font-data font-semibold">{status.positions_gained}</span>
-          </div>
-          <div>
-            Email verified:{' '}
-            <span className="font-semibold">
-              {status.email_verified ? 'Yes' : 'Not yet'}
-            </span>
-          </div>
-          <div className="pt-2 text-xs uppercase tracking-eyebrow text-text-tertiary-light dark:text-text-secondary-dark">
-            Your referral link
-          </div>
-          <div className="break-all text-sm font-medium text-text-primary-light dark:text-text-primary-dark">
-            {status.referral_link}
           </div>
         </div>
       )}
