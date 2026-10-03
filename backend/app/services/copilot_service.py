@@ -109,6 +109,9 @@ conversation — do not invent, renumber, or extrapolate them. Each marker names
 it on a different number, metric, or year (markers are not year labels). If a tool returned an error (or you \
 did not call one) and you state a number quoted from the filing text instead, cite it with a plain \
 filing-text excerpt marker ([1], [2], ...) backed by a verbatim excerpt — never an [F#] marker.
+- Each quotation in your answer prose must be one contiguous span copied verbatim from the filing. \
+Keep table figures outside quotation marks, never quote a table row with cells left out, and never \
+put an ellipsis inside a quotation.
 
 OUTPUT FORMAT (follow exactly):
 1. Write the answer as prose. Place inline citation markers immediately after each claim/number they \
@@ -119,7 +122,7 @@ support: [1], [2] for filing-text excerpts, and [F1], [F2] for tool-provided fig
    ([1], [2], ...) used in the answer. Each "n" must be that marker's positive JSON integer,
    never a string or an F marker. Tool [F#] markers already reference their returned facts;
    never include objects for them in this array. If there are no filing-text markers, output []
-   after the citations line, including when all cited figures use tool markers. Example:
+   after the citations line. Example:
 [{{"n": 1, "excerpt": "<verbatim quote copied exactly from the filing>", "section": "Item 7 — MD&A"}}]
    - "excerpt" MUST be copied verbatim from the filing content (so it can be verified). Keep each
      excerpt to the SHORTEST contiguous span that supports the claim — one sentence, at most ~30 words.
@@ -140,7 +143,7 @@ requiring data it lacks (e.g. quarterly breakdowns in an annual filing, or undis
 
 IF THE FILING DOES NOT DISCLOSE THE ANSWER, do NOT write prose or citations. Instead output exactly:
 {_NOT_DISCLOSED_SENTINEL}
-<one sentence stating what is missing and why this filing would not contain it>
+<one sentence stating what is missing and why this filing would not contain it; name the missing metric without quotation marks>
 then the {_FOLLOWUPS_SENTINEL} line and a JSON array of 2-3 questions this filing CAN answer, so \
 the user has a productive next step. For example:
 {_NOT_DISCLOSED_SENTINEL}

@@ -1,0 +1,139 @@
+Mutation proofs for the owner test (never committed). Each mutation edits backend/app/services/copilot_service.py
+in the working tree of the code commit (81f85248), runs the owner test file from backend/ with provider keys unset,
+records the tail, then restores with `git checkout -- backend/app/services/copilot_service.py`; `git status` was
+empty after each restore and after the set.
+
+$ env -u OPENAI_API_KEY -u DEEPSEEK_API_KEY -u OPENAI_BASE_URL PYTHONDONTWRITEBYTECODE=1 \
+    python -m pytest -q -p no:cacheprovider -W ignore tests/unit/test_copilot_live_regressions.py
+
+M0 (no mutation):
+7 passed in 3.01s
+
+M1 = restore the 51-character clause (expected: fails the clause-absent assertion)
+M2 = delete the RULES bullet (expected: fails the rule-once assertion)
+M3 = revert the not-disclosed template edit (expected: fails the template assertion)
+
+===== M1:  1 file changed, 1 insertion(+), 1 deletion(-)
+@@ -125 +125 @@ support: [1], [2] for filing-text excerpts, and [F1], [F2] for tool-provided fig
+-   after the citations line. Example:
++   after the citations line, including when all cited figures use tool markers. Example:
+pytest exit=1
+>       assert ', including when all cited figures use tool markers' not in instruction
+E       assert ', including...tool markers' not in 'You are Ear... expenses?"]'
+E         
+E         ', including when a...es use tool markers' is contained here:
+E           tions line, including when all cited figures use tool markers. Example:
+E           [{"n": 1, "excerpt": "<verbatim quote copied exactly from the filing>", "section": "Item 7 — MD&A"}]
+E              - "excerpt" MUST be copied verbatim from the filing content (so it can be verified). Keep each
+E                excerpt to the SHORTEST contiguous span that supports the claim — one sentence, at most ~30 words.
+E                Each text excerpt must contain at least 24 characters after whitespace is collapsed....
+E         
+E         ...Full output truncated (20 lines hidden), use '-vv' to show
+tests/unit/test_copilot_live_regressions.py:68: AssertionError
+FAILED tests/unit/test_copilot_live_regressions.py::test_contiguous_citation_instruction_reaches_actual_service_messages
+1 failed, 6 passed in 3.33s
+restored: 0 changed paths
+===== M2:  1 file changed, 3 deletions(-)
+@@ -112,3 +111,0 @@ filing-text excerpt marker ([1], [2], ...) backed by a verbatim excerpt — neve
+-- Each quotation in your answer prose must be one contiguous span copied verbatim from the filing. \
+-Keep table figures outside quotation marks, never quote a table row with cells left out, and never \
+-put an ellipsis inside a quotation.
+pytest exit=1
+>       assert instruction.count(
+E       assert 0 == 1
+E        +  where 0 = <built-in method count of str object at 0x3a9c8620>('Each quotation in your answer prose must be one contiguous span copied verbatim from the filing. Keep table figures outside quotation marks, never quote a table row with cells left out, and never put an ellipsis inside a quotation.')
+E        +    where <built-in method count of str object at 0x3a9c8620> = 'You are EarningsNerd\'s "Ask this Filing" assistant. You answer questions about a SINGLE SEC filing using ONLY the fi...-year figures are reported.\n===FOLLOWUPS===\n["How did annual gross margin trend?", "What drove operating expenses?"]'.count
+tests/unit/test_copilot_live_regressions.py:70: AssertionError
+FAILED tests/unit/test_copilot_live_regressions.py::test_contiguous_citation_instruction_reaches_actual_service_messages
+1 failed, 6 passed in 3.29s
+restored: 0 changed paths
+===== M3:  1 file changed, 1 insertion(+), 1 deletion(-)
+@@ -146 +146 @@ IF THE FILING DOES NOT DISCLOSE THE ANSWER, do NOT write prose or citations. Ins
+-<one sentence stating what is missing and why this filing would not contain it; name the missing metric without quotation marks>
++<one sentence stating what is missing and why this filing would not contain it>
+pytest exit=1
+>       assert instruction.count('name the missing metric without quotation marks>') == 1
+E       assert 0 == 1
+E        +  where 0 = <built-in method count of str object at 0x389a2ea0>('name the missing metric without quotation marks>')
+E        +    where <built-in method count of str object at 0x389a2ea0> = 'You are EarningsNerd\'s "Ask this Filing" assistant. You answer questions about a SINGLE SEC filing using ONLY the fi...-year figures are reported.\n===FOLLOWUPS===\n["How did annual gross margin trend?", "What drove operating expenses?"]'.count
+tests/unit/test_copilot_live_regressions.py:74: AssertionError
+FAILED tests/unit/test_copilot_live_regressions.py::test_contiguous_citation_instruction_reaches_actual_service_messages
+1 failed, 6 passed in 3.21s
+restored: 0 changed paths
+
+## Round 1 (exact-head review finding R1-N12; integrated head)
+
+Re-run on merge commit 3264cdcc (main b40fa703 merged; its backend is identical to every later commit on this
+branch), with main's #1066 pins (openai 3.20.0, PyJWT 2.15.1, sentry-sdk 2.71.0) and provider keys unset. M4 is
+new: it deletes the kept sentence "If there are no filing-text markers, output [] after the citations line."
+Same command and restore procedure as above; M1's FAILED and summary lines are copied from its raw pytest output
+(the tail filter stops after 12 lines).
+
+M4 = delete the kept empty-array sentence (expected: fails the kept-sentence assertion at :69)
+
+HEAD 3264cdcce3940d8778a625025dad335e07318111
+git status --short (tracked backend): []
+===== M0: 
+pytest exit=0
+7 passed in 3.03s
+restored: 0 changed paths
+===== M1:  1 file changed, 1 insertion(+), 1 deletion(-)
+@@ -125 +125 @@ support: [1], [2] for filing-text excerpts, and [F1], [F2] for tool-provided fig
+-   after the citations line. Example:
++   after the citations line, including when all cited figures use tool markers. Example:
+pytest exit=1
+>       assert ', including when all cited figures use tool markers' not in instruction
+E       assert ', including...tool markers' not in 'You are Ear... expenses?"]'
+E         
+E         ', including when a...es use tool markers' is contained here:
+E           tions line, including when all cited figures use tool markers. Example:
+E           [{"n": 1, "excerpt": "<verbatim quote copied exactly from the filing>", "section": "Item 7 — MD&A"}]
+E              - "excerpt" MUST be copied verbatim from the filing content (so it can be verified). Keep each
+E                excerpt to the SHORTEST contiguous span that supports the claim — one sentence, at most ~30 words.
+E                Each text excerpt must contain at least 24 characters after whitespace is collapsed....
+E         
+E         ...Full output truncated (20 lines hidden), use '-vv' to show
+tests/unit/test_copilot_live_regressions.py:68: AssertionError
+FAILED tests/unit/test_copilot_live_regressions.py::test_contiguous_citation_instruction_reaches_actual_service_messages
+1 failed, 6 passed in 3.06s
+restored: 0 changed paths
+===== M2:  1 file changed, 3 deletions(-)
+@@ -112,3 +111,0 @@ filing-text excerpt marker ([1], [2], ...) backed by a verbatim excerpt — neve
+-- Each quotation in your answer prose must be one contiguous span copied verbatim from the filing. \
+-Keep table figures outside quotation marks, never quote a table row with cells left out, and never \
+-put an ellipsis inside a quotation.
+pytest exit=1
+>       assert instruction.count(
+E       assert 0 == 1
+E        +  where 0 = <built-in method count of str object at 0x39f57300>('Each quotation in your answer prose must be one contiguous span copied verbatim from the filing. Keep table figures outside quotation marks, never quote a table row with cells left out, and never put an ellipsis inside a quotation.')
+E        +    where <built-in method count of str object at 0x39f57300> = 'You are EarningsNerd\'s "Ask this Filing" assistant. You answer questions about a SINGLE SEC filing using ONLY the fi...-year figures are reported.\n===FOLLOWUPS===\n["How did annual gross margin trend?", "What drove operating expenses?"]'.count
+tests/unit/test_copilot_live_regressions.py:70: AssertionError
+FAILED tests/unit/test_copilot_live_regressions.py::test_contiguous_citation_instruction_reaches_actual_service_messages
+1 failed, 6 passed in 3.04s
+restored: 0 changed paths
+===== M3:  1 file changed, 1 insertion(+), 1 deletion(-)
+@@ -146 +146 @@ IF THE FILING DOES NOT DISCLOSE THE ANSWER, do NOT write prose or citations. Ins
+-<one sentence stating what is missing and why this filing would not contain it; name the missing metric without quotation marks>
++<one sentence stating what is missing and why this filing would not contain it>
+pytest exit=1
+>       assert instruction.count('name the missing metric without quotation marks>') == 1
+E       assert 0 == 1
+E        +  where 0 = <built-in method count of str object at 0x2a9ce250>('name the missing metric without quotation marks>')
+E        +    where <built-in method count of str object at 0x2a9ce250> = 'You are EarningsNerd\'s "Ask this Filing" assistant. You answer questions about a SINGLE SEC filing using ONLY the fi...-year figures are reported.\n===FOLLOWUPS===\n["How did annual gross margin trend?", "What drove operating expenses?"]'.count
+tests/unit/test_copilot_live_regressions.py:74: AssertionError
+FAILED tests/unit/test_copilot_live_regressions.py::test_contiguous_citation_instruction_reaches_actual_service_messages
+1 failed, 6 passed in 3.25s
+restored: 0 changed paths
+===== M4:  1 file changed, 1 insertion(+), 2 deletions(-)
+@@ -124,2 +124 @@ support: [1], [2] for filing-text excerpts, and [F1], [F2] for tool-provided fig
+-   never include objects for them in this array. If there are no filing-text markers, output []
+-   after the citations line. Example:
++   never include objects for them in this array. Example:
+pytest exit=1
+>       assert 'If there are no filing-text markers, output []' in instruction
+E       assert 'If there are no filing-text markers, output []' in 'You are EarningsNerd\'s "Ask this Filing" assistant. You answer questions about a SINGLE SEC filing using ONLY the fi...-year figures are reported.\n===FOLLOWUPS===\n["How did annual gross margin trend?", "What drove operating expenses?"]'
+tests/unit/test_copilot_live_regressions.py:69: AssertionError
+FAILED tests/unit/test_copilot_live_regressions.py::test_contiguous_citation_instruction_reaches_actual_service_messages
+1 failed, 6 passed in 3.25s
+restored: 0 changed paths
+final git status --short: no tracked change under backend/; the only changes are the uncommitted round-1 evidence files in this folder
