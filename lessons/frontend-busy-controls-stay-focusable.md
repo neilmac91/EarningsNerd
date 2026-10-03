@@ -47,7 +47,9 @@ the disabled look without native `disabled`. Never `loading`'s look: that stays 
 operation. A mutation whose success refetches the data the control depends on returns that
 invalidation from `onSuccess` (`return queryClient.invalidateQueries(…)`), so it stays pending until
 the refetched data lands. Otherwise the button re-enables in between and a second press sends a
-duplicate request (ProfileForm's Save, ConnectedAccounts' Unlink).
+duplicate request (ProfileForm's Save, ConnectedAccounts' Unlink). A hand-rolled async handler does
+the same: it awaits the invalidation before clearing its busy flag (admin invites' Send, which would
+otherwise mint and email the whole batch again).
 
 (g) A control that unmounts as a result of its own activation (a row removed on success, a section
 swapped for a skeleton, Save replaced by a "Saved" label) hands focus to a stable target: a heading

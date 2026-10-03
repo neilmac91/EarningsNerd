@@ -1,5 +1,5 @@
 import React from 'react'
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { act, render, screen, fireEvent, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
@@ -135,6 +135,27 @@ describe('Admin invites: Send invites stays focusable', () => {
     await waitFor(() => expect(send).not.toHaveAttribute('aria-busy'))
     expect(send).toHaveFocus()
     expect(send).not.toBeDisabled()
+  })
+
+  it('stays busy until the post-send refetch lands, so a second Enter mints nothing twice', async () => {
+    const refetch = deferred<InviteRecord[]>()
+    vi.mocked(listInvites).mockResolvedValueOnce([]).mockReturnValueOnce(refetch.promise)
+    vi.mocked(createInvite).mockResolvedValue(minted)
+    const user = userEvent.setup()
+    const send = await stageOneAddress()
+
+    await user.click(send)
+    await waitFor(() => expect(listInvites).toHaveBeenCalledTimes(2))
+    // The mint has resolved; the list that marks the address invited has not.
+    expectBusyAndFocused(send)
+    await user.keyboard('{Enter}')
+    await user.click(send)
+    expect(createInvite).toHaveBeenCalledTimes(1)
+
+    await act(async () => refetch.resolve([pendingGood]))
+    await waitFor(() => expect(send).not.toHaveAttribute('aria-busy'))
+    expectInertButFocused(send)
+    expect(createInvite).toHaveBeenCalledTimes(1)
   })
 
   it('keeps Send focused when an all-success send leaves nothing to send', async () => {

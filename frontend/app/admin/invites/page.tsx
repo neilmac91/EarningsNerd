@@ -158,6 +158,9 @@ export default function AdminInvitesPage() {
     )
 
     setOutcomes(results)
+    // Send keeps focus, so it stays busy until the refetched list marks these addresses invited:
+    // re-enabled any sooner, a second Enter would mint (and email) every invite in the batch again.
+    await queryClient.invalidateQueries({ queryKey: queryKeys.adminInvites() })
     setSending(false)
 
     const failedCount = results.filter((r) => !r.ok).length
@@ -169,8 +172,6 @@ export default function AdminInvitesPage() {
     } else if (failedCount > 0) {
       toast.error(`${failedCount} invite${failedCount === 1 ? '' : 's'} failed`)
     }
-
-    queryClient.invalidateQueries({ queryKey: queryKeys.adminInvites() })
   }
 
   return (
