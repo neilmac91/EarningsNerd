@@ -56,9 +56,10 @@ drop a removed row and end the onboarding panel under the popular-ticker chips. 
 list is another, because it moves FeedbackRow's controlled select. A success that leaves the page
 (`window.location` to Stripe for Manage billing and Manage subscription) stays pending until the page
 goes. Its `onSuccess` returns `untilPageReturns()` (`lib/untilPageReturns.ts`). That settles on
-`pageshow`, so a back-forward restore brings the button back live. It also settles after a timeout,
-because a navigation the user aborts with Esc or Stop fires no event and would leave the button busy
-until a reload. A success that unmounts the control itself (Sign out everywhere's `queryClient.clear()` skeleton)
+`pageshow`, so a back-forward restore brings the button back live. It also settles on the Navigation
+API's `navigateerror`, which Chromium fires when the user aborts the pending navigation with Esc or
+Stop. A fixed timeout cannot tell an aborted navigation from a slow one, so it is only the fallback
+where that API is missing (Codex P2 on #1075). A success that unmounts the control itself (Sign out everywhere's `queryClient.clear()` skeleton)
 needs neither. Audit every `onSuccess` of a control this sweep keeps focusable. Hosted Codex found
 four of these in later review rounds, after the sweep had shipped them fire-and-forget.
 
