@@ -11,22 +11,31 @@ import type { UseQueryResult } from '@tanstack/react-query'
  * <body>. Only that press holds the failure: any other refetch of an errored query (a new observer
  * mounting, window focus) shows the ordinary pending state, as before.
  */
-export function useRetainedFailure(query: UseQueryResult<unknown>) {
-  const { isError, error, isFetching, data, refetch } = query
+export function useRetainedFailure(query: UseQueryResult<unknown>, resetKey?: unknown) {
+  const { isError, error, fetchStatus, data, refetch } = query
+  // A fetch paused offline or in a hidden tab (a retry waiting to continue) is still in flight.
+  const inFlight = fetchStatus !== 'idle'
   const [lastError, setLastError] = useState<unknown>(null)
   if (error && error !== lastError) setLastError(error)
   const [retrying, setRetrying] = useState(false)
+  // A press holds the failure of the query it retried. When the caller's query moves to another key
+  // (a new search term), that failure is no longer the one on screen, so it is dropped.
+  const [heldKey, setHeldKey] = useState(resetKey)
+  if (!Object.is(heldKey, resetKey)) {
+    setHeldKey(resetKey)
+    setRetrying(false)
+  }
   // The press's own fetch may not be visible yet on the render right after it, so the retry ends
   // only once a fetch has been seen and has finished.
   const sawFetch = useRef(false)
   useEffect(() => {
     if (!retrying) return
-    if (isFetching) sawFetch.current = true
+    if (inFlight) sawFetch.current = true
     else if (sawFetch.current) {
       sawFetch.current = false
       setRetrying(false)
     }
-  }, [retrying, isFetching])
+  }, [retrying, inFlight])
   const retry = () => {
     sawFetch.current = false
     setRetrying(true)
