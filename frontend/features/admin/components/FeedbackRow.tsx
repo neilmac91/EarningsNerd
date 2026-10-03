@@ -38,7 +38,10 @@ export default function FeedbackRow({ feedback }: FeedbackRowProps) {
     mutationFn: (status: FeedbackStatus) => updateFeedbackStatus(feedback.id, status),
     onSuccess: (updated) => {
       toast.success(`Marked as ${updated.status}`)
-      queryClient.invalidateQueries({ queryKey: queryKeys.adminFeedback.all() })
+      // Returned, so the update stays pending until the list refetch moves the controlled value (or
+      // drops the row from a filtered list): the select keeps focus, and released any sooner a
+      // second keyboard change would send another, possibly conflicting, update.
+      return queryClient.invalidateQueries({ queryKey: queryKeys.adminFeedback.all() })
     },
     onError: (err: unknown) => {
       toast.error(isApiError(err) ? getErrorMessage(err) : 'Could not update that feedback.')

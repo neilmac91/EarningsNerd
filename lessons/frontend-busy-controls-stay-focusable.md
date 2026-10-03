@@ -52,9 +52,13 @@ the same: it awaits the invalidation before clearing its busy flag (admin invite
 otherwise mint and email the whole batch again). When `onSuccess` fans out several invalidations,
 return the one whose refetch removes or flips the focused control, and fire the rest. Examples: the
 filing page's saved status, which swaps Save for Saved; the dashboard's watchlist insights, which
-drop a removed row and end the onboarding panel under the popular-ticker chips. Audit every
-`onSuccess` of a control this sweep keeps focusable. Hosted Codex found these three after the sweep
-had shipped them fire-and-forget.
+drop a removed row and end the onboarding panel under the popular-ticker chips. The admin feedback
+list is another, because it moves FeedbackRow's controlled select. A success that leaves the page
+(`window.location` to Stripe for Manage billing) stays pending until the page goes. Its `onSuccess`
+returns a promise that `pageshow` settles, so a back-forward restore brings the button back live. A
+success that unmounts the control itself (Sign out everywhere's `queryClient.clear()` skeleton)
+needs neither. Audit every `onSuccess` of a control this sweep keeps focusable. Hosted Codex found
+four of these in later review rounds, after the sweep had shipped them fire-and-forget.
 
 (g) A control that unmounts as a result of its own activation (a row removed on success, a section
 swapped for a skeleton, Save replaced by a "Saved" label) hands focus to a stable target: a heading

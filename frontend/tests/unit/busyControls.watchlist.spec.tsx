@@ -91,7 +91,6 @@ function renderWithClient(ui: ReactNode) {
     meaningful once pending work has flushed — otherwise a second request would not be seen yet. */
 const settle = () => act(async () => { await new Promise((resolve) => setTimeout(resolve, 0)) })
 
-/** In flight: announced busy + unavailable, still focusable, and still the focused element. */
 /** Busy is announced (aria-busy + aria-disabled) and the control keeps focus. That a busy flag
     never turns it natively disabled is the rule-12 gate's job (busyControlsStayFocusable.spec.ts). */
 function expectBusyAndFocused(control: HTMLElement) {

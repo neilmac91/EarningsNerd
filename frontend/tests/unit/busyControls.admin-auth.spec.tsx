@@ -1,7 +1,7 @@
 import React from 'react'
 import { act, render, screen, fireEvent, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { QueryClient, QueryClientProvider, useQuery } from '@tanstack/react-query'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 // A control busy with its own request (or flipped by its own success) stays focusable:
@@ -46,6 +46,7 @@ import {
 } from '@/features/admin/api/admin-api'
 import { getCurrentUserSafe, resendVerification } from '@/features/auth/api/auth-api'
 import { toast } from 'sonner'
+import { queryKeys } from '@/lib/queryKeys'
 
 function deferred<T>() {
   let resolve!: (value: T) => void
@@ -62,7 +63,6 @@ function withQueryClient(ui: React.ReactElement) {
   return render(<QueryClientProvider client={qc}>{ui}</QueryClientProvider>)
 }
 
-/** Busy-but-focusable: announced unavailable, never natively disabled, still holding focus. */
 /** Unavailable after its own success (cooldown, nothing to send): aria-disabled, never natively
     disabled, and still focused. The rule-12 gate cannot see these states, so they are pinned here. */
 function expectInertButFocused(el: HTMLElement) {
@@ -215,18 +215,28 @@ describe('Admin feedback: the row status select stays focusable', () => {
     vi.mocked(updateFeedbackStatus).mockReset()
   })
 
-  it('keeps the select focused but inert while its update is in flight', async () => {
+  it('keeps the select focused but inert through its update and the list refetch after it', async () => {
     const update = deferred<FeedbackRecord>()
     vi.mocked(updateFeedbackStatus).mockReturnValue(update.promise)
+    const refetched = deferred<FeedbackRecord[]>()
+    const listFeedback = vi
+      .fn<() => Promise<FeedbackRecord[]>>()
+      .mockResolvedValueOnce([bugReport])
+      .mockReturnValueOnce(refetched.promise)
+    // The admin page's list query: the select's value is the row's status from this list.
+    function FeedbackTable() {
+      const { data } = useQuery({ queryKey: queryKeys.adminFeedback.list({}), queryFn: listFeedback })
+      return (
+        <table>
+          <tbody>
+            {data?.map((record) => <FeedbackRow key={record.id} feedback={record} />)}
+          </tbody>
+        </table>
+      )
+    }
     const user = userEvent.setup()
-    withQueryClient(
-      <table>
-        <tbody>
-          <FeedbackRow feedback={bugReport} />
-        </tbody>
-      </table>,
-    )
-    const select = screen.getByLabelText('Set status for feedback 1') as HTMLSelectElement
+    withQueryClient(<FeedbackTable />)
+    const select = (await screen.findByLabelText('Set status for feedback 1')) as HTMLSelectElement
     select.focus()
 
     await user.selectOptions(select, 'triaged')
@@ -239,8 +249,18 @@ describe('Admin feedback: the row status select stays focusable', () => {
     // The guarded change is a no-op: the controlled value stays on the row's status.
     expect(select.value).toBe('new')
 
-    update.resolve({ ...bugReport, status: 'triaged' })
+    // Updated, but the list has not refetched, so the select still shows the old status: it stays
+    // busy, and another change sends nothing until the refetched row catches up.
+    await act(async () => update.resolve({ ...bugReport, status: 'triaged' }))
+    await waitFor(() => expect(listFeedback).toHaveBeenCalledTimes(2))
+    await act(async () => { await new Promise((resolve) => setTimeout(resolve, 0)) })
+    expectBusyAndFocused(select)
+    await user.selectOptions(select, 'resolved')
+    expect(updateFeedbackStatus).toHaveBeenCalledTimes(1)
+
+    await act(async () => refetched.resolve([{ ...bugReport, status: 'triaged' }]))
     await waitFor(() => expect(select).not.toHaveAttribute('aria-busy'))
+    expect(select.value).toBe('triaged')
     expect(select).not.toHaveAttribute('aria-disabled')
     expect(select).toHaveFocus()
   })

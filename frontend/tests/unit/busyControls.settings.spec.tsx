@@ -17,6 +17,8 @@ import NotificationPreferencesForm from '@/features/settings/components/Notifica
  * early return, never natively `disabled`: Chromium blurs a focused control that turns `disabled` to
  * <body>. jsdom does not blur disabled elements, so these specs pin the attributes, that focus is
  * never moved off the control, and that a second activation (click, Enter-submit) sends no request.
+ * Manage billing's success navigates away, so it stays pending until the page leaves: the kept
+ * focus cannot open a second portal session while the browser is on its way to Stripe.
  */
 
 const api = vi.hoisted(() => ({
@@ -346,6 +348,41 @@ describe('BillingPanel Manage billing', () => {
     expect(await screen.findByText('Could not open the billing portal. Please try again.')).toBeInTheDocument()
     expect(manage).not.toHaveAttribute('aria-disabled')
     expect(document.activeElement).toBe(manage)
+  })
+
+  it('stays busy while the page leaves for the portal, and is live again after a back-forward restore', async () => {
+    const sub: SubscriptionStatus = {
+      is_pro: true, stripe_customer_id: 'cus_123', stripe_subscription_id: null, subscription_status: 'active',
+      plan: 'pro', status: 'active', trial_end: null, current_period_end: '2027-06-18T00:00:00Z', cancel_at_period_end: false,
+    }
+    api.getCurrentUserSafe.mockResolvedValue(user(null))
+    api.getSubscriptionStatus.mockResolvedValue(sub)
+    api.getUsage.mockResolvedValue({ summaries_used: 0, summaries_limit: null, is_pro: true, month: '2026-10' })
+    api.createPortalSession.mockResolvedValue({ url: 'https://billing.stripe.com/p/session_1' })
+    // jsdom cannot navigate; a plain object records the assignment instead.
+    const realLocation = window.location
+    Object.defineProperty(window, 'location', { value: { href: '' }, writable: true, configurable: true })
+    try {
+      renderWithClient(<BillingPanel />)
+      const manage = await screen.findByRole('button', { name: 'Manage billing' })
+      manage.focus()
+      fireEvent.click(manage)
+      await waitFor(() => expect(window.location.href).toBe('https://billing.stripe.com/p/session_1'))
+      await settle()
+      // Still on the page while the browser leaves: busy, focused, and a second click opens nothing.
+      expectBusyAndFocused(manage)
+      fireEvent.click(manage)
+      await settle()
+      expect(api.createPortalSession).toHaveBeenCalledTimes(1)
+
+      // Back from Stripe via the back-forward cache: pageshow settles the request.
+      await act(async () => { window.dispatchEvent(new Event('pageshow')) })
+      await waitFor(() => expect(manage).not.toHaveAttribute('aria-busy'))
+      expect(manage).not.toHaveAttribute('aria-disabled')
+      expect(document.activeElement).toBe(manage)
+    } finally {
+      Object.defineProperty(window, 'location', { value: realLocation, writable: true, configurable: true })
+    }
   })
 })
 
