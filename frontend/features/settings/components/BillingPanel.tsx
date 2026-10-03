@@ -20,6 +20,7 @@ import { Badge } from '@/components/ui/Badge'
 import { Notice } from '@/components/ui/Notice'
 import { SkeletonText } from '@/components/ui/Skeleton'
 import { queryKeys } from '@/lib/queryKeys'
+import { untilPageReturns } from '@/lib/untilPageReturns'
 
 function daysUntil(value: string | null): number | null {
   if (!value) return null
@@ -45,10 +46,9 @@ export default function BillingPanel() {
     onSuccess: (data) => {
       if (!data.url) return
       window.location.href = data.url
-      // Pending until the page leaves for Stripe: Manage billing keeps focus, and released any sooner
-      // a second Enter would open a second portal session. A back-forward cache restore fires
-      // pageshow, which settles it, so the button is live again on return.
-      return new Promise<void>((resolve) => window.addEventListener('pageshow', () => resolve(), { once: true }))
+      // Pending while the page leaves for Stripe: Manage billing keeps focus, and released any sooner
+      // a second Enter would open a second portal session.
+      return untilPageReturns()
     },
   })
 
