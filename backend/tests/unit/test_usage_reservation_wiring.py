@@ -377,3 +377,38 @@ async def test_timeout_fallback_without_a_start_signal_is_not_counted(monkeypatc
         events = await _run(filing_id, user_id)
     assert events[-1]["type"] in ("complete", "partial")
     assert _state(user_id) == (0, 0)
+
+
+@pytest.mark.asyncio
+async def test_pipeline_timeout_during_the_charge_write_still_refunds_the_committed_unit():
+    """The thread-pool charge write cannot be cancelled: when the pipeline deadline passes while
+    it is running, the worker still commits, and the coroutine awaiting it is cancelled before it
+    can record the month. The timeout refund must still find that committed unit, or a timed-out
+    generation costs quota against the stated refund policy."""
+    import asyncio
+    import time
+
+    user_id, filing_id = _seed_user(), seed_company_filing()
+    loop = asyncio.get_running_loop()
+    real_increment = summary_pipeline.increment_user_usage
+    write_done = asyncio.Event()
+
+    def slow_increment(*args, **kwargs):
+        time.sleep(1.2)  # the pipeline deadline passes while this write is in the thread pool
+        result = real_increment(*args, **kwargs)
+        loop.call_soon_threadsafe(write_done.set)
+        return result
+
+    async def blocking_provider(*args, **kwargs):
+        signal_provider_start()
+        await asyncio.sleep(30)
+        return CANONICAL_PAYLOAD
+
+    with stream_boundaries() as summarize, patch.object(summary_pipeline, "increment_user_usage", slow_increment), \
+            patch.object(summary_pipeline, "PIPELINE_TIMEOUT_SECONDS", 0.6), \
+            patch.object(summary_pipeline.settings, "STREAM_HEARTBEAT_INTERVAL", 0.1):
+        summarize.side_effect = blocking_provider
+        events = await _run(filing_id, user_id)
+        await asyncio.wait_for(write_done.wait(), 5)
+    assert events[-1]["type"] == "error" and "timed out" in events[-1]["message"]
+    assert _state(user_id) == (0, 0)  # the committed unit was found and refunded; no lease left

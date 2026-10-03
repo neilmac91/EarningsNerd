@@ -419,6 +419,12 @@ async def stream_filing_summary(
     # The month the admission lease was counted in when the provider task started; None once the
     # unit is settled (summary persisted) or refunded, so a refund can happen at most once.
     charged_month: Optional[str] = None
+    # The in-flight charge write. The thread-pool write cannot be cancelled: when the pipeline
+    # deadline (or a disconnect) cancels the coroutine awaiting it, the worker still finishes and
+    # commits, and the assignment after the await never runs. The write is awaited through
+    # `asyncio.shield`, so this future still resolves with the committed month, and the refund and
+    # release paths settle it before deciding what was actually counted.
+    charge_future: Optional[asyncio.Future] = None
     summary_task: Optional[asyncio.Task] = None
     provider_started_waiter: Optional[asyncio.Future] = None
 
@@ -426,13 +432,30 @@ async def stream_filing_summary(
         """Run a complete, session-owning DB unit in the thread pool."""
         return await run_in_threadpool(func, *args, **kwargs)
 
+    async def settle_charge() -> None:
+        """Wait for an in-flight charge write and adopt what it committed. Needed when the await
+        on that write was cancelled (pipeline timeout, disconnect) before it could record the month."""
+        nonlocal charged_month, usage_reservation_token
+        if charge_future is None:
+            return
+        if not charge_future.done():
+            await asyncio.wait({charge_future})
+        if charged_month is None and not charge_future.cancelled() and charge_future.exception() is None:
+            month = charge_future.result()
+            if month is not None:
+                charged_month = month
+                usage_reservation_token = None  # the convert deleted it in the same commit
+
     async def refund_charge(reason: str) -> None:
         """Give the unit counted at provider start back (at most once). Called only from the
-        provider-failure and partial-verdict paths — never from cancellation (client disconnect)."""
-        nonlocal charged_month
+        provider-failure, timeout and partial-verdict paths — never from cancellation (client
+        disconnect)."""
+        nonlocal charged_month, charge_future
+        await settle_charge()
         if charged_month is None:
             return
         month, charged_month = charged_month, None
+        charge_future = None  # refunded: a later settle must not adopt this write again
 
         def refund_sync() -> None:
             with database.SessionLocal() as session:
@@ -968,8 +991,8 @@ async def stream_filing_summary(
 
             async def charge_lease() -> None:
                 """Convert the held lease into one counted unit (at most once; the lease is cleared)."""
-                nonlocal charged_month, usage_reservation_token
-                if usage_reservation_token is None or charged_month is not None:
+                nonlocal charged_month, usage_reservation_token, charge_future
+                if usage_reservation_token is None or charged_month is not None or charge_future is not None:
                     return
                 token_to_convert = usage_reservation_token
 
@@ -985,7 +1008,10 @@ async def stream_filing_summary(
                         increment_user_usage(user.id, month, session)
                         return month
 
-                charged_month = await run_sync_db(charge_usage_sync)
+                charge_future = asyncio.ensure_future(run_sync_db(charge_usage_sync))
+                # Shielded: a cancellation here (deadline, disconnect) abandons this await, not the
+                # write, and `settle_charge` later reads what the write committed.
+                charged_month = await asyncio.shield(charge_future)
                 if charged_month is not None:
                     usage_reservation_token = None
 
@@ -1376,6 +1402,7 @@ async def stream_filing_summary(
                 # The unit counted at provider start is settled by the persisted summary: no later
                 # failure refunds it.
                 charged_month = None
+                charge_future = None  # nothing left to settle: the unit is owed
             elif user_id and count_usage and usage_reservation_token is None:
                 # No lease was held (background drain, uncapped Pro): the historical
                 # completion-time count, full results only. A lease still held here was left
@@ -1486,6 +1513,7 @@ async def stream_filing_summary(
             # A reservation still held here was never converted (failure or disconnect before the
             # provider call started, or no account row to count against): give the quota unit back
             # now. A unit counted at provider start is NOT touched here — see the metering point.
+            await settle_charge()  # a charge committed under a cancelled await has no lease to release
             if usage_reservation_token is not None:
                 token_to_release = usage_reservation_token
                 usage_reservation_token = None
