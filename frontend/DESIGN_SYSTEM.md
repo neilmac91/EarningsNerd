@@ -162,14 +162,33 @@ Dialog           <Modal open onClose labelledBy="<id>" size="sm|md|lg" dismissib
                  dialog over the copilot sheet never lets a key reach the sheet — and content inside a panel
                  cannot handle Tab/Escape itself. The header icon tile takes the dialog's tone: brand for a
                  neutral prompt, a status hue for a state glyph (brand never signals a state).
-                 role="dialog" ships only through Modal plus the documented bespoke sheets (copilot rail /
-                 viewer / workspace, SourceTrace) — gate: tests/unit/dialogAllowlist.spec.ts (it matches the
-                 literal role="dialog"). The calendar's DayDetailDialog is a native <dialog> + showModal() and
-                 keeps the native top layer. Pending migration (pre-v3, not in the v3 edit list): AlertBell's
-                 anchored dialog (a role={…} expression the gate cannot see) and CookieConsent's settings panel.
+                 Dialog semantics ship only through Modal plus the documented bespoke layers: the copilot rail /
+                 viewer / workspace sheets and SourceTrace (role="dialog"), and the calendar's DayDetailDialog, a
+                 sanctioned native <dialog> + showModal() that keeps the native top layer. Gate:
+                 tests/unit/dialogAllowlist.spec.ts reads the TypeScript AST and pins each allowlisted file, with
+                 a reason, to its count of each kind — a dialog/alertdialog role (literal, any value of a role={…}
+                 expression, role: prop or setAttribute), a native <dialog>, and the dialog layer's own tokens
+                 (z-modal, bg-overlay), so a role-less hand-rolled modal fails too. The list is shrink-only.
+                 Never raise Modal from the calendar page: any layer it raises can sit over DayDetailDialog, and
+                 under showModal() a <body> portal is inert and painted beneath the top layer. Nor give the day
+                 <dialog> a transform/filter/contain/will-change or a non-opacity animation: it would become the
+                 containing block that clips the popovers portalled into it. Both are gated in the same spec.
+
+Popover          An anchored, light-dismiss surface that explains one control (the calendar's BellPopover) is
+                 NOT a dialog: it makes nothing inert, traps nothing and locks nothing. No dialog role — a
+                 role="group" named by its title and described by its message (an async failure is also
+                 announced with role="alert") — on z-overlay, behind a transparent catcher so
+                 an outside press closes only the popover; the panel is the Card recipe (dark:shadow-none).
+                 Keyboard: focus moves to the first action unless the user already moved it elsewhere (armed
+                 once per open, callbacks through a ref); Escape closes in window capture with preventDefault
+                 (stopPropagation alone still closes a native <dialog> beneath); Tab past the last action /
+                 Shift+Tab before the first close it and resume the page's order at the trigger; a scroll that
+                 moves the trigger, or a resize, closes it (fixed at its rect, it would detach; the page
+                 scrolling behind a fixed dialog does not move it); every close returns focus to
+                 the trigger unless the user moved on. While a native <dialog> is open, it portals into it.
 
 Stacking         z-sticky 30 (in-page sticky chrome) · z-header 50 (site header; its menus ride it) ·
-                 z-overlay 60 (popovers, the selection pill) · z-modal 70 (dialogs + the source and viewer
+                 z-overlay 60 (popovers incl. BellPopover, the selection pill) · z-modal 70 (dialogs + the source and viewer
                  sheets — scrim AND panel) · z-toast 80 (the skip link; sonner manages its own toast layer).
                  The copilot rail / workspace bottom sheets stay z-40 over z-30 scrims, so the in-sheet
                  citation popovers (z-overlay) still sit above them. Never z-[N]; DataTable's internal z-[5]
@@ -324,8 +343,10 @@ Recharts/rAF, which need numbers). **No raw ms or bezier strings anywhere else.*
    GoogleSignInButton (`hover:bg-slate-50`, §9); nothing else:
    ```
    grep -rnE "tracking-(wider|widest|tight)|text-\[([0-9]|1[0-3])(\.5)?px\]|bg-slate-|bg-black/50|z-\[|alert\(" app components features hooks lib
-   grep -rln 'role="dialog"' app components features   # must equal the allowlist in tests/unit/dialogAllowlist.spec.ts
+   grep -rlnE --include='*.ts*' "role=(\"|'|\{[^}]*)(alert)?dialog|<dialog|z-modal|bg-overlay" app components features   # ≈ the dialog allowlist
    ```
+   The grep is a quick look (it also lists files that only mention the tokens in comments); the
+   AST gate in `tests/unit/dialogAllowlist.spec.ts` is the authority.
    The same rules run in CI as `no-restricted-syntax` design selectors in `eslint.config.mjs` (on string
    literals and template-literal chunks alike), `tests/unit/dialogAllowlist.spec.ts`, and
    `tests/unit/designTokenParity.spec.ts` (the JS color mirrors use only token hexes; MOTION equals the
