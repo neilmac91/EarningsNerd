@@ -145,17 +145,38 @@ const DESIGN_SHARED_RULES = [
     message: 'Below-scale type — data-xs(11)/xs(12)/sm(14). Glyphs: eslint-disable with a reason.',
   },
   { selector: 'Literal[value=/\\brounded-\\[/]', message: 'Off-scale radius — 4/8/12/16/24.' },
+  {
+    // A grid whose columns are set only under a variant (md:grid-cols-3) has an implicit phone
+    // track sized to its widest child's min-content, so one long name scrolls the page sideways
+    // (lessons/frontend-variable-text-must-not-size-a-wrapping-row.md). The base track goes in the
+    // same class string. Exempt by construction: a grid that is one only under a variant
+    // (lg:grid lg:grid-cols-…) and an arbitrary child-selector variant (lg:[&>div]:grid-cols-3).
+    selector:
+      'Literal[value=/(^|\\s)([a-z0-9-]+(\\[[^\\]\\s&]+\\])?:)+grid-cols-/]' +
+      ':not([value=/(^|\\s)grid-cols-/])' +
+      ':not([value=/(^|\\s)([a-z0-9-]+(\\[[^\\]\\s&]+\\])?:)+grid(\\s|$)/])',
+    message:
+      'Responsive grid without a base track — add grid-cols-1 (minmax(0, 1fr)) beside md:grid-cols-*, ' +
+      'or the phone track sizes to its widest content and can scroll the page sideways.',
+  },
   { selector: "CallExpression[callee.name='alert']", message: 'window.alert — render a Notice or toast.' },
   {
     selector: "CallExpression[callee.type='MemberExpression'][callee.property.name='alert']",
     message: 'window.alert — render a Notice or toast.',
   },
 ]
-/** Each class-string rule gets a twin on template-literal chunks (`… ${x} …` is not a Literal). */
+/** Each class-string rule gets a twin on template-literal chunks (`… ${x} …` is not a Literal).
+ *  Every `[value=` clause is rewritten, including those inside :not(…). */
 const withTemplates = (rules) =>
   rules.flatMap((rule) =>
     rule.selector.startsWith('Literal[value=')
-      ? [rule, { ...rule, selector: rule.selector.replace('Literal[value=', 'TemplateElement[value.raw=') }]
+      ? [
+          rule,
+          {
+            ...rule,
+            selector: rule.selector.replace(/^Literal/, 'TemplateElement').replaceAll('[value=', '[value.raw='),
+          },
+        ]
       : [rule],
   )
 const DESIGN_RULES = withTemplates([DESIGN_HEX_RULE, DESIGN_PALETTE_RULE, DESIGN_Z_RULE, ...DESIGN_SHARED_RULES])

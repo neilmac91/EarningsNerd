@@ -50,7 +50,7 @@ function FeatureRow({
   children: ReactNode
 }) {
   return (
-    <div className="grid items-center gap-6 lg:grid-cols-2 lg:gap-12">
+    <div className="grid grid-cols-1 items-center gap-6 lg:grid-cols-2 lg:gap-12">
       <div className="min-w-0 max-w-[420px]">
         <div className="flex items-center gap-2.5">
           <Badge variant="pro" className="shrink-0">
@@ -132,7 +132,7 @@ export default function ProDepth() {
                 Watchlists are unlimited on both plans.
               </span>
             </div>
-            <ul className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <ul className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
               {EXTRAS.map((extra) => {
                 const Icon = extra.icon
                 return (
