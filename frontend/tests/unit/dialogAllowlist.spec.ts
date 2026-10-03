@@ -14,9 +14,9 @@
      role   — a `role` that names dialog or alertdialog: a JSX attribute literal, a
               role={…} expression any of whose values does (role={isError ?
               'alertdialog' : 'dialog'} included), a `role:` object property (spread
-              or createElement props) or setAttribute('role', …). A role={…} value
-              that cannot be proven a literal (role={role}, role={c ? r : 'status'})
-              counts too: inline the literals.
+              or createElement props) or setAttribute('role', …). A role={…} or
+              setAttribute('role', …) value that cannot be proven a literal
+              (role={role}, role={c ? r : 'status'}) counts too: inline the literals.
      native — a <dialog> element, or createElement('dialog').
      layer  — the dialog layer's own tokens in any string: z-modal or bg-overlay
               (variant prefixes such as backdrop: included). DESIGN_SYSTEM reserves
@@ -156,7 +156,8 @@ function countDialogSites(source: string, fileName: string): Counts {
       const method = ts.isPropertyAccessExpression(callee) ? callee.name.text : ts.isIdentifier(callee) ? callee.text : ''
       const [first, second] = node.arguments
       if (method === 'setAttribute' && first && ts.isStringLiteralLike(first) && first.text === 'role' && second) {
-        if (literalTexts(second).some(namesDialog)) add('role')
+        // An ARIA role attribute: an unprovable value counts, as in the JSX role={…} branch.
+        if (rolesDialog(second)) add('role')
       }
       if (method === 'createElement' && first && ts.isStringLiteralLike(first) && first.text === 'dialog') {
         add('native')
@@ -242,6 +243,9 @@ describe('dialogs ship only through ui/Modal (or the documented bespoke layers)'
     expect(kindsOf("const p = { role: 'dialog' }; const a = <div {...p} />")).toEqual({ role: 1 })
     expect(kindsOf("createElement('div', { 'role': 'alertdialog' })")).toEqual({ role: 1 })
     expect(kindsOf("el.setAttribute('role', 'dialog')")).toEqual({ role: 1 })
+    expect(kindsOf('el.setAttribute(\'role\', computedRole)')).toEqual({ role: 1 })
+    expect(kindsOf("el.setAttribute('role', open ? 'alertdialog' : 'status')")).toEqual({ role: 1 })
+    expect(kindsOf("el.setAttribute('role', 'status')")).toEqual({})
     expect(kindsOf("const a = <div role={kind === 'error' ? ROLE : 'group'} />")).toEqual({ role: 1 })
     expect(kindsOf('const a = <><div role="dialog" /><div role="dialog" /></>')).toEqual({ role: 2 })
     // native dialogs
