@@ -17,6 +17,7 @@ function that calls the gate helper, or is register() (whose gate is the REGISTR
 at the top of the handler). A fourth creation path cannot appear silently.
 """
 import ast
+import inspect
 import uuid
 from pathlib import Path
 from types import SimpleNamespace
@@ -99,16 +100,22 @@ def _state_from(resp) -> str:
 
 
 def _start(client: TestClient, provider: str, invite: str | None = None) -> str:
-    """GET /api/auth/<provider> (optionally carrying an invite) and return the state it issued. The
-    state cookie lands on ``client`` as it would on a browser."""
-    resp = client.get(
-        f"/api/auth/{provider}",
-        params={"invite": invite} if invite else None,
-        follow_redirects=False,
-    )
-    state = _state_from(resp)
+    """Start the provider flow and return the state it issued: GET /api/auth/<provider> for a plain
+    sign-in, POST /api/auth/<provider>/start with the invite in the JSON body for an invited one
+    (the token never rides in a URL). The state cookie lands on ``client`` as it would on a browser."""
+    if invite is None:
+        resp = client.get(f"/api/auth/{provider}", follow_redirects=False)
+        state = _state_from(resp)
+    else:
+        resp = client.post(f"/api/auth/{provider}/start", json={"invite": invite})
+        assert resp.status_code == 200, resp.text
+        url = resp.json()["url"]
+        assert invite not in url and "invite" not in parse_qs(urlparse(url).query)
+        state = parse_qs(urlparse(url).query)["state"][0]
     if provider == "apple":
         assert auth_module._APPLE_STATE_COOKIE in resp.cookies, "Apple must issue the binding cookie"
+    else:
+        assert auth_module._OAUTH_STATE_COOKIE in resp.cookies, "Google must issue the state cookie"
     return state
 
 
@@ -412,10 +419,37 @@ def test_oauth_start_persists_nothing_for_an_unknown_invite(client, monkeypatch,
 @pytest.mark.requires_db
 @pytest.mark.parametrize("provider", PROVIDERS)
 def test_oauth_start_is_rate_limited_per_ip(client, monkeypatch, public_mode, provider):
+    """One per-IP budget covers both ways of starting the flow (the redirecting GET and the POST that
+    carries an invite), so neither can be used to escape the other's limit."""
     limit = auth_module.OAUTH_START_LIMITER.limit
-    for _ in range(limit):
+    for _ in range(limit - 1):
         assert client.get(f"/api/auth/{provider}", follow_redirects=False).status_code == 302
+    assert client.post(f"/api/auth/{provider}/start", json={}).status_code == 200
     blocked = client.get(f"/api/auth/{provider}", follow_redirects=False)
     assert blocked.status_code == 429
     assert "Retry-After" in blocked.headers
+    assert client.post(f"/api/auth/{provider}/start", json={"invite": "x"}).status_code == 429
+
+
+def test_oauth_start_get_handlers_take_no_invite_parameter():
+    """Gate for the review rule: the raw invite token must never ride in a request URL (request logs
+    record query strings), so the redirecting GET starts accept no ``invite`` and only the POST
+    starts' JSON body carries one."""
+    for handler in (auth_module.google_login, auth_module.apple_login):
+        assert "invite" not in inspect.signature(handler).parameters, handler.__name__
+    for handler in (auth_module.google_start, auth_module.apple_start):
+        body_param = inspect.signature(handler).parameters["body"]
+        assert body_param.annotation is auth_module.OAuthStartRequest, handler.__name__
+    assert "invite" in auth_module.OAuthStartRequest.model_fields
+
+
+@pytest.mark.requires_db
+@pytest.mark.parametrize("provider", PROVIDERS)
+def test_oauth_start_get_ignores_an_invite_query_parameter(client, monkeypatch, invite_only, provider):
+    """A stray ``?invite=`` on the GET start is not honoured: nothing is stored for it, so the
+    callback would see no invite (the only sanctioned path is the body of the POST start)."""
+    _, invite = _mint_invite()
+    resp = client.get(f"/api/auth/{provider}", params={"invite": invite}, follow_redirects=False)
+    state = _state_from(resp)
+    assert [row.invite_code_hash for row in _state_rows(state)] in ([], [None])
 

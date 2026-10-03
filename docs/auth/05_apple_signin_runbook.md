@@ -111,8 +111,9 @@ as an env var of the same name. `APPLE_REDIRECT_URI` defaults to the prod callba
 - **Account linking.** Same policy as Google: link to an existing account only when the email
   matches an existing **verified** account; otherwise create a new user — only when Apple asserts
   `email_verified=true`, and under `REGISTRATION_MODE=invite_only` only when the sign-in started
-  from `/api/auth/apple?invite=<token>` (the register page passes the magic-link invite through;
-  the callback validates and redeems it in the same transaction as the insert). Private-relay
+  from `POST /api/auth/apple/start` with the magic-link invite in the request body (never in a
+  URL: request logs record query strings); the callback validates and redeems it in the same
+  transaction as the insert. Private-relay
   emails are treated as that user's email.
 - **Tests + frontend wiring.** Apple button (HIG-compliant) ships with the design work; the
   backend exchange + the button's live wiring land in this increment once credentials arrive.

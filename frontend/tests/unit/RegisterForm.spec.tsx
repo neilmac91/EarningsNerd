@@ -4,8 +4,9 @@ import RegisterForm from '@/features/auth/components/RegisterForm'
 
 /**
  * The signup page offers social sign-up only where the backend would accept it: never to an
- * uninvited visitor in invite-only mode (the callback refuses with error=invite_required), and with
- * the invite threaded onto the backend start URLs for an invited one (the callback redeems it).
+ * uninvited visitor in invite-only mode (the callback refuses with error=invite_required), and for an
+ * invited one through the POST start that carries the invite in its body (the callback redeems it):
+ * the raw token never appears in a URL.
  */
 const searchParams = new URLSearchParams()
 
@@ -24,7 +25,11 @@ vi.mock('@/features/auth/components/AuthShell', () => ({
 }))
 vi.mock('@/features/auth/components/TurnstileWidget', () => ({ default: () => null }))
 // A register call that never settles, so the form can be observed while its request is in flight.
-vi.mock('@/features/auth/api/auth-api', () => ({ register: vi.fn(() => new Promise(() => {})) }))
+const { startOAuthWithInvite } = vi.hoisted(() => ({ startOAuthWithInvite: vi.fn(() => new Promise<string>(() => {})) }))
+vi.mock('@/features/auth/api/auth-api', () => ({
+  register: vi.fn(() => new Promise(() => {})),
+  startOAuthWithInvite,
+}))
 
 const socialLink = (provider: 'Google' | 'Apple') =>
   screen.queryByRole('link', { name: `Sign up with ${provider}` })
@@ -50,13 +55,20 @@ describe('RegisterForm social sign-up follows the invite gate', () => {
     expect(screen.queryByRole('link', { name: 'Request an invite' })).toBeNull()
   })
 
-  it('threads an invite onto the social start URLs and opens the email form', () => {
+  it('starts an invited social sign-up with the invite in the request body, never in a URL', () => {
     const invite = 'tok en+/=1'
     searchParams.set('invite', invite)
     render(<RegisterForm inviteOnly />)
-    const query = `?invite=${encodeURIComponent(invite)}`
-    expect(socialLink('Google')).toHaveAttribute('href', `/api/auth/google${query}`)
-    expect(socialLink('Apple')).toHaveAttribute('href', `/api/auth/apple${query}`)
+    // No link carries the token: the controls are buttons that POST it.
+    expect(socialLink('Google')).toBeNull()
+    expect(socialLink('Apple')).toBeNull()
+    for (const anchor of Array.from(document.querySelectorAll('a'))) {
+      expect(anchor.getAttribute('href') ?? '').not.toMatch(/invite/)
+    }
+    fireEvent.click(screen.getByRole('button', { name: 'Sign up with Google' }))
+    expect(startOAuthWithInvite).toHaveBeenCalledWith('google', invite)
+    fireEvent.click(screen.getByRole('button', { name: 'Sign up with Apple' }))
+    expect(startOAuthWithInvite).toHaveBeenCalledWith('apple', invite)
     expect(screen.getByLabelText('Email')).toBeInTheDocument()
     expect(screen.queryByRole('link', { name: 'Request an invite' })).toBeNull()
   })

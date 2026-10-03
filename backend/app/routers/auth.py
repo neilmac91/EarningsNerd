@@ -1,5 +1,5 @@
 from fastapi import APIRouter, HTTPException, Depends, status, Request, Response, Query, Form
-from fastapi.responses import RedirectResponse
+from fastapi.responses import JSONResponse, RedirectResponse
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
@@ -140,6 +140,12 @@ class Token(BaseModel):
 
 class MessageResponse(BaseModel):
     message: str
+
+
+class OAuthStartRequest(BaseModel):
+    """Body of ``POST /api/auth/{google,apple}/start``. The invite travels in the body, never in a
+    URL: request logs record query strings, and the raw token is a live single-use credential."""
+    invite: Optional[str] = Field(None, max_length=128)
 
 
 class RefreshRequest(BaseModel):
@@ -1077,19 +1083,9 @@ def _live_invite_hash(db: Session, invite: Optional[str]) -> Optional[str]:
     return code_hash if invite_service.invite_hash_is_live(db, code_hash) else None
 
 
-@router.get("/google")
-async def google_login(
-    request: Request,
-    db: Session = Depends(get_db),
-    invite: Optional[str] = Query(None, max_length=128),
-):
-    """Redirect the browser to Google's consent screen.
-
-    ``invite`` is the raw closed-beta token from the magic link, so an invited user can sign up
-    with Google under REGISTRATION_MODE=invite_only: its hash is stored against the ``state`` and
-    the callback validates + redeems it when it creates the account. Only the hash is stored, and
-    only for an invite that is live; the start is rate limited per IP because it writes a row.
-    """
+def _start_google(request: Request, db: Session, invite: Optional[str]) -> tuple[str, str]:
+    """Rate limit, stage the state (with the invite's hash when the invite is live) and build
+    Google's consent URL. Returns ``(url, state)``; the caller sets the state cookie."""
     if not settings.GOOGLE_CLIENT_ID:
         raise HTTPException(status_code=503, detail="Google Sign-In is not configured.")
     enforce_rate_limit(
@@ -1111,12 +1107,41 @@ async def google_login(
         "access_type": "online",
         "prompt": "select_account",
     }
-    redirect = RedirectResponse(url=f"{_GOOGLE_AUTH_URL}?{urlencode(params)}", status_code=302)
-    redirect.set_cookie(
+    return f"{_GOOGLE_AUTH_URL}?{urlencode(params)}", state
+
+
+def _set_google_state_cookie(response: Response, state: str) -> None:
+    response.set_cookie(
         _OAUTH_STATE_COOKIE, state, httponly=True, samesite="lax",
         max_age=_OAUTH_STATE_MAX_AGE, secure=settings.COOKIE_SECURE,
     )
+
+
+@router.get("/google")
+async def google_login(request: Request, db: Session = Depends(get_db)):
+    """Redirect the browser to Google's consent screen (plain sign-in: no invite, nothing persisted).
+
+    An invited sign-up starts through ``POST /api/auth/google/start`` instead, so the raw invite
+    token never appears in a request URL (request logs record query strings).
+    """
+    url, state = _start_google(request, db, None)
+    redirect = RedirectResponse(url=url, status_code=302)
+    _set_google_state_cookie(redirect, state)
     return redirect
+
+
+@router.post("/google/start")
+async def google_start(body: OAuthStartRequest, request: Request, db: Session = Depends(get_db)):
+    """Start Google sign-in for the browser to follow: returns ``{"url": ...}`` and sets the state
+    cookie. ``invite`` is the raw closed-beta token from the magic link, so an invited user can sign
+    up with Google under REGISTRATION_MODE=invite_only: its hash is stored against the ``state`` and
+    the callback validates + redeems it when it creates the account. Only the hash is stored, and
+    only for an invite that is live; the start is rate limited per IP because it writes a row.
+    """
+    url, state = _start_google(request, db, body.invite)
+    response = JSONResponse({"url": url})
+    _set_google_state_cookie(response, state)
+    return response
 
 
 @router.get("/google/callback")
@@ -1236,13 +1261,9 @@ async def google_callback(
 
 # ─── Apple Sign In (ES256 client secret, form_post callback, JWKS verification) ──
 
-@router.get("/apple")
-async def apple_login(
-    request: Request,
-    db: Session = Depends(get_db),
-    invite: Optional[str] = Query(None, max_length=128),
-):
-    """Redirect the browser to Apple's consent screen (``invite``: as for google_login)."""
+def _start_apple(request: Request, db: Session, invite: Optional[str]) -> tuple[str, str]:
+    """Rate limit, stage the nonce row (with the invite's hash when the invite is live) and build
+    Apple's consent URL. Returns ``(url, state)``; the caller sets the browser-binding cookie."""
     if not settings.APPLE_CLIENT_ID:
         raise HTTPException(status_code=503, detail="Apple Sign In is not configured.")
     enforce_rate_limit(
@@ -1265,15 +1286,37 @@ async def apple_login(
         "state": state,
         "nonce": hashlib.sha256(raw_nonce.encode()).hexdigest(),
     }
-    redirect = RedirectResponse(url=f"{_APPLE_AUTH_URL}?{urlencode(params)}", status_code=302)
+    return f"{_APPLE_AUTH_URL}?{urlencode(params)}", state
+
+
+def _set_apple_state_cookie(response: Response, state: str) -> None:
     # Apple posts the callback cross-site, so this cookie is SameSite=None (Secure in prod). It
     # binds the state to the browser that started the flow: the callback accepts a posted state
     # only together with this cookie, and the DB row makes it single-use.
-    redirect.set_cookie(
+    response.set_cookie(
         _APPLE_STATE_COOKIE, _apple_state_cookie_value(state), httponly=True, samesite="none",
         max_age=_OAUTH_STATE_MAX_AGE, secure=settings.COOKIE_SECURE,
     )
+
+
+@router.get("/apple")
+async def apple_login(request: Request, db: Session = Depends(get_db)):
+    """Redirect the browser to Apple's consent screen (plain sign-in: no invite). An invited
+    sign-up starts through ``POST /api/auth/apple/start`` so the token never rides in a URL."""
+    url, state = _start_apple(request, db, None)
+    redirect = RedirectResponse(url=url, status_code=302)
+    _set_apple_state_cookie(redirect, state)
     return redirect
+
+
+@router.post("/apple/start")
+async def apple_start(body: OAuthStartRequest, request: Request, db: Session = Depends(get_db)):
+    """Start Sign in with Apple for the browser to follow: ``{"url": ...}`` plus the binding cookie
+    (``invite``: as for google_start)."""
+    url, state = _start_apple(request, db, body.invite)
+    response = JSONResponse({"url": url})
+    _set_apple_state_cookie(response, state)
+    return response
 
 
 @router.post("/apple/callback")

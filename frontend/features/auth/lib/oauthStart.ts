@@ -1,10 +1,8 @@
 /**
- * Backend OAuth start URL for the social sign-in buttons. `invite` is the closed-beta token from
- * the register magic link; the backend stores its hash against the OAuth state and redeems it when
- * the callback creates the account (REGISTRATION_MODE=invite_only refuses creation without one).
+ * Backend OAuth start URL for a plain social sign-in (no invite): a top-level navigation to the
+ * redirecting GET. An invited sign-up never puts the token in a URL (request logs record query
+ * strings): it goes through `startOAuthWithInvite` in `features/auth/api/auth-api`, which POSTs the
+ * invite in the request body and returns the provider URL to navigate to.
  */
-export const oauthStartHref = (
-  apiBase: string,
-  provider: 'google' | 'apple',
-  invite?: string,
-): string => `${apiBase}/api/auth/${provider}${invite ? `?invite=${encodeURIComponent(invite)}` : ''}`
+export const oauthStartHref = (apiBase: string, provider: 'google' | 'apple'): string =>
+  `${apiBase}/api/auth/${provider}`
