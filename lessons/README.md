@@ -12,6 +12,8 @@ what applies to your task. Filenames are greppable: `arch-*`, `sec-*`, `test-*`,
 
 ## Architecture
 
+- [`arch-qualified-income-deltas-need-source-ownership.md`](./arch-qualified-income-deltas-need-source-ownership.md) — Withhold qualified income arithmetic when attribution and entity ownership are unsupported
+
 - [`arch-acquisition-period-withholding-needs-whole-claims.md`](./arch-acquisition-period-withholding-needs-whole-claims.md) — Preserve closed authored continuations when withholding ambiguous acquisition-period claims
 
 - [`arch-admit-copilot-answers-before-publication.md`](./arch-admit-copilot-answers-before-publication.md) — Hold answer prose until citation admission and preserve truthful request completion

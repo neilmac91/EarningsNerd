@@ -1,0 +1,263 @@
+{
+  "kind": "engineering regression controls transcribed from authorized independent handback; not new source or financial judgment",
+  "handback_sha256": "f5eba3202155668d1fd629a1ed7823a5115efc36a91b1c29d495562087ab367f",
+  "candidate_commit": "82556d6ec232e8ae5f0dfa4c951aa6fb5c695e39",
+  "selected_parent_income": {
+    "json_pointer": "/results/39/xbrl_grounding/net_income",
+    "value": {
+      "current": {
+        "period": "2026-01-31",
+        "value": 21893000000.0,
+        "form": "10-K",
+        "currency": "USD",
+        "period_start": "2025-02-01",
+        "raw_tag": "us-gaap:NetIncomeLoss"
+      },
+      "prior": {
+        "period": "2025-01-31",
+        "value": 19436000000.0,
+        "form": "10-K",
+        "currency": "USD",
+        "period_start": "2024-02-01",
+        "raw_tag": "us-gaap:NetIncomeLoss"
+      },
+      "change": {
+        "absolute": 2457000000.0,
+        "percentage": 12.64,
+        "direction": "increase"
+      },
+      "series": [
+        {
+          "period": "2026-01-31",
+          "value": 21893000000.0,
+          "form": "10-K",
+          "currency": "USD",
+          "period_start": "2025-02-01",
+          "raw_tag": "us-gaap:NetIncomeLoss"
+        },
+        {
+          "period": "2025-01-31",
+          "value": 19436000000.0,
+          "form": "10-K",
+          "currency": "USD",
+          "period_start": "2024-02-01",
+          "raw_tag": "us-gaap:NetIncomeLoss"
+        },
+        {
+          "period": "2024-01-31",
+          "value": 15511000000.0,
+          "form": "10-K",
+          "currency": "USD",
+          "period_start": "2023-02-01",
+          "raw_tag": "us-gaap:NetIncomeLoss"
+        }
+      ]
+    }
+  },
+  "selected_operating_income": {
+    "json_pointer": "/results/39/xbrl_grounding/operating_income",
+    "value": {
+      "current": {
+        "period": "2026-01-31",
+        "value": 29825000000.0,
+        "form": "10-K",
+        "currency": "USD",
+        "period_start": "2025-02-01",
+        "raw_tag": null
+      },
+      "prior": {
+        "period": "2025-01-31",
+        "value": 29348000000.0,
+        "form": "10-K",
+        "currency": "USD",
+        "period_start": "2024-02-01",
+        "raw_tag": null
+      },
+      "change": {
+        "absolute": 477000000.0,
+        "percentage": 1.63,
+        "direction": "increase"
+      },
+      "series": [
+        {
+          "period": "2026-01-31",
+          "value": 29825000000.0,
+          "form": "10-K",
+          "currency": "USD",
+          "period_start": "2025-02-01",
+          "raw_tag": null
+        },
+        {
+          "period": "2025-01-31",
+          "value": 29348000000.0,
+          "form": "10-K",
+          "currency": "USD",
+          "period_start": "2024-02-01",
+          "raw_tag": null
+        },
+        {
+          "period": "2024-01-31",
+          "value": 27012000000.0,
+          "form": "10-K",
+          "currency": "USD",
+          "period_start": "2023-02-01",
+          "raw_tag": null
+        }
+      ]
+    }
+  },
+  "original_controls": [
+    {
+      "arm": "Q",
+      "report_sha256": "4b548a72fb458de8bcd903b9be7da67721685c3740eaee0728024cbb76bdda4b",
+      "authored_json_pointer": "/results/39/raw_sections/results_that_matter/table/4",
+      "authored_row": {
+        "metric": "Consolidated net income attributable to Walmart",
+        "current_period": "$21.9B",
+        "prior_period": "$19.4B",
+        "change": "up 12.6% YoY",
+        "commentary": "Net income attributable to Walmart increased as consolidated net income rose, with the noncontrolling interest deduction narrowing to $377M from $721M.",
+        "supporting_evidence": ""
+      },
+      "rendered_json_pointer": "/results/39/payload/executive_summary",
+      "rendered_markdown_line": "| Consolidated net income attributable to Walmart | $21.9B | $19.4B | +12.9% | Net income attributable to Walmart increased as consolidated net income rose, with the noncontrolling interest deduction narrowing to $377M from $721M. |",
+      "engineering_expectation": "Parent-attributable: compute +12.6% only with same-scope exact operands; otherwise withhold computed percentage. Do not render rounded-display +12.9%."
+    },
+    {
+      "arm": "Q",
+      "report_sha256": "4b548a72fb458de8bcd903b9be7da67721685c3740eaee0728024cbb76bdda4b",
+      "authored_json_pointer": "/results/39/raw_sections/results_that_matter/table/3",
+      "authored_row": {
+        "metric": "Consolidated net income",
+        "current_period": "$22.3B",
+        "prior_period": "$20.2B",
+        "change": "up 10.5% YoY",
+        "commentary": "The increase reflects higher operating income and a $2.1B net gain in other gains and losses in fiscal 2026 versus a $0.8B net loss in fiscal 2025, primarily driven by changes in the fair value of equity and other investments.",
+        "supporting_evidence": "Other gains and losses resulted in a net gain of $2.1 billion and a net loss of $0.8 billion in fiscal 2026 and 2025, respectively, primarily driven by changes in the fair value of our equity and other investments due to fluctuations in their underlying stock prices."
+      },
+      "rendered_json_pointer": "/results/39/payload/executive_summary",
+      "rendered_markdown_line": "| Consolidated net income | $22.3B | $20.2B | +10.4% | The increase reflects higher operating income and a $2.1B net gain in other gains and losses in fiscal 2026 versus a $0.8B net loss in fiscal 2025, primarily driven by changes in the fair value of equity and other investments. |",
+      "engineering_expectation": "Consolidated: do not use selected parent NetIncomeLoss operands. +10.5% requires independently owned consolidated operands; otherwise withhold computed percentage, not +10.4%."
+    },
+    {
+      "arm": "P",
+      "report_sha256": "6715966b0fde06bba8e2d5257542e637a0ea5cd81a3092996b3d18d4b8004f76",
+      "authored_json_pointer": "/results/39/raw_sections/results_that_matter/table/3",
+      "authored_row": {
+        "metric": "Consolidated net income attributable to Walmart",
+        "current_period": "$21,893M",
+        "prior_period": "$19,436M",
+        "change": "up 12.6%",
+        "commentary": "The increase reflects higher operating income and net gains in other gains and losses, partially offset by a higher effective income tax rate of 24.4% versus 23.4%, which management attributes primarily to the share-based compensation charge recorded at the PhonePe subsidiary that provided no tax benefit.",
+        "supporting_evidence": "The increase in effective income tax rate in fiscal 2026 compared to fiscal 2025 is primarily due to the share-based compensation charge recorded at the Company's PhonePe subsidiary, which provided no tax benefit."
+      },
+      "rendered_json_pointer": "/results/39/payload/executive_summary",
+      "rendered_markdown_line": "| Consolidated net income attributable to Walmart | $21,893M | $19,436M | +12.6% | The increase reflects higher operating income and net gains in other gains and losses, partially offset by a higher effective income tax rate of 24.4% versus 23.4%, which management attributes primarily to the share-based compensation charge recorded at the PhonePe subsidiary that provided no tax benefit. |",
+      "engineering_expectation": "Exact-display parent row already renders +12.6%; preserve correct supported arithmetic without blanket substitution."
+    },
+    {
+      "arm": "R",
+      "report_sha256": "deaa1b52c85bbab1bbcd19b7e55ab483b58ec465d6523272931cbd67e6c7f80b",
+      "authored_json_pointer": "/results/39/raw_sections/results_that_matter/table/2",
+      "authored_row": {
+        "metric": "Consolidated net income",
+        "current_period": "$22.3B",
+        "prior_period": "$20.2B",
+        "change": "up 10.5% YoY",
+        "commentary": "The increase reflects higher operating income and net gains on equity and other investments, partially offset by a higher effective income tax rate of 24.4% compared to 23.4%.",
+        "supporting_evidence": "As a result of the factors discussed above, we reported $22.3 billion and $20.2 billion of consolidated net income for fiscal 2026 and 2025, respectively, which represent increases of $2.1 billion and $3.9 billion for fiscal 2026 and 2025, respectively, when compared to the previous fiscal year."
+      },
+      "rendered_json_pointer": "/results/39/payload/executive_summary",
+      "rendered_markdown_line": "| Consolidated net income | $22.3B | $20.2B | +10.4% | The increase reflects higher operating income and net gains on equity and other investments, partially offset by a higher effective income tax rate of 24.4% compared to 23.4%. |",
+      "engineering_expectation": "Retained consolidated defect persists: authored +10.5%, rendered +10.4%. Same ownership/withholding requirement as Q consolidated row."
+    },
+    {
+      "arm": "Q",
+      "report_sha256": "4b548a72fb458de8bcd903b9be7da67721685c3740eaee0728024cbb76bdda4b",
+      "authored_json_pointer": "/results/39/raw_sections/results_that_matter/table/2",
+      "authored_row": {
+        "metric": "Operating income",
+        "current_period": "$29.8B",
+        "prior_period": "$29.3B",
+        "change": "up 1.6% YoY",
+        "commentary": "Operating income as a percentage of net sales decreased 13 basis points to 4.2%, which management attributes to higher self-insured general liability claims expense, a PhonePe share-based compensation modification charge and increased depreciation, partially offset by strong growth in membership income globally.",
+        "supporting_evidence": "Operating income as a percentage of net sales decreased 13 basis points for fiscal 2026 and increased 15 basis points for fiscal 2025, respectively, primarily due to the factors described above and strong growth in membership income globally."
+      },
+      "rendered_json_pointer": "/results/39/payload/executive_summary",
+      "rendered_markdown_line": "| Operating income | $29.8B | $29.3B | +1.7% | Operating income as a percentage of net sales decreased 13 basis points to 4.2%, which management attributes to higher self-insured general liability claims expense, a PhonePe share-based compensation modification charge and increased depreciation, partially offset by strong growth in membership income globally. |",
+      "engineering_expectation": "Operating income is a separate existing whole-label mapping: 29,825M/29,348M gives +1.6%; prevent rounded +1.7% without expanding parent/consolidated attribution."
+    },
+    {
+      "arm": "P",
+      "report_sha256": "6715966b0fde06bba8e2d5257542e637a0ea5cd81a3092996b3d18d4b8004f76",
+      "authored_json_pointer": "/results/39/raw_sections/results_that_matter/table/2",
+      "authored_row": {
+        "metric": "Operating income",
+        "current_period": "$29,825M",
+        "prior_period": "$29,348M",
+        "change": "up 1.6%",
+        "commentary": "Operating income as a percentage of net sales decreased 13 basis points for fiscal 2026, primarily due to higher self-insured general liability claims expense, a $0.7B PhonePe share-based compensation charge, and increased depreciation, partially offset by strong growth in membership income globally.",
+        "supporting_evidence": "Operating income as a percentage of net sales decreased 13 basis points for fiscal 2026 and increased 15 basis points for fiscal 2025, respectively, primarily due to the factors described above and strong growth in membership income globally."
+      },
+      "rendered_json_pointer": "/results/39/payload/executive_summary",
+      "rendered_markdown_line": "| Operating income | $29,825M | $29,348M | +1.6% | Operating income as a percentage of net sales decreased 13 basis points for fiscal 2026, primarily due to higher self-insured general liability claims expense, a $0.7B PhonePe share-based compensation charge, and increased depreciation, partially offset by strong growth in membership income globally. |",
+      "engineering_expectation": "Exact-display operating income already renders +1.6%; preserve."
+    },
+    {
+      "arm": "R",
+      "report_sha256": "deaa1b52c85bbab1bbcd19b7e55ab483b58ec465d6523272931cbd67e6c7f80b",
+      "authored_json_pointer": "/results/39/raw_sections/results_that_matter/table/1",
+      "authored_row": {
+        "metric": "Operating income",
+        "current_period": "$29.8B",
+        "prior_period": "$29.3B",
+        "change": "up 1.6% YoY",
+        "commentary": "Operating income as a percentage of net sales decreased 13 basis points to 4.2%, which management attributes to higher self-insured general liability claims expense, a PhonePe share-based compensation charge, and increased depreciation, partially offset by strong growth in membership income globally.",
+        "supporting_evidence": "Operating income as a percentage of net sales decreased 13 basis points for fiscal 2026 and increased 15 basis points for fiscal 2025, respectively, primarily due to the factors described above and strong growth in membership income globally."
+      },
+      "rendered_json_pointer": "/results/39/payload/executive_summary",
+      "rendered_markdown_line": "| Operating income | $29.8B | $29.3B | +1.7% | Operating income as a percentage of net sales decreased 13 basis points to 4.2%, which management attributes to higher self-insured general liability claims expense, a PhonePe share-based compensation charge, and increased depreciation, partially offset by strong growth in membership income globally. |",
+      "engineering_expectation": "Operating income retains authored +1.6% versus rendered +1.7%; preserve distinct issue and exact operand mapping."
+    },
+    {
+      "arm": "Q",
+      "report_sha256": "4b548a72fb458de8bcd903b9be7da67721685c3740eaee0728024cbb76bdda4b",
+      "authored_json_pointer": "/results/39/raw_sections/results_that_matter/table/5",
+      "authored_row": {
+        "metric": "Diluted net income per common share attributable to Walmart",
+        "current_period": "$2.73",
+        "prior_period": "$2.41",
+        "change": "up 13.3% YoY",
+        "commentary": "Diluted EPS increased alongside net income attributable to Walmart, with weighted-average diluted shares declining to 8,022M from 8,081M.",
+        "supporting_evidence": ""
+      },
+      "rendered_json_pointer": "/results/39/payload/executive_summary",
+      "rendered_markdown_line": "| Diluted net income per common share attributable to Walmart | $2.73 | $2.41 | +13.3% | Diluted EPS increased alongside net income attributable to Walmart, with weighted-average diluted shares declining to 8,022M from 8,081M. |",
+      "engineering_expectation": "Diluted EPS is per-share scope: do not borrow parent total-income operands. Preserve original +13.3%."
+    },
+    {
+      "arm": "Q",
+      "report_sha256": "4b548a72fb458de8bcd903b9be7da67721685c3740eaee0728024cbb76bdda4b",
+      "authored_json_pointer": "/results/39/raw_sections/results_that_matter/table/6",
+      "authored_row": {
+        "metric": "Basic net income per common share attributable to Walmart",
+        "current_period": "$2.74",
+        "prior_period": "$2.42",
+        "change": "up 13.2% YoY",
+        "commentary": "Basic EPS increased alongside net income attributable to Walmart, with weighted-average basic shares declining to 7,983M from 8,041M.",
+        "supporting_evidence": ""
+      },
+      "rendered_json_pointer": "/results/39/payload/executive_summary",
+      "rendered_markdown_line": "| Basic net income per common share attributable to Walmart | $2.74 | $2.42 | +13.2% | Basic EPS increased alongside net income attributable to Walmart, with weighted-average basic shares declining to 7,983M from 8,041M. |",
+      "engineering_expectation": "Basic EPS is per-share scope: do not borrow parent total-income operands. Preserve original +13.2%."
+    }
+  ],
+  "residual_limits": [
+    "Retained selected points lack native contextRef, explicit native entity identifier and dimensions. Filing URL contains CIK path 104169; this is provenance, not recovered native context metadata.",
+    "No standalone native HTML/tables were admitted; observed_partial excerpt remains partial. Do not backfill context/entity fields or manufacture ProfitLoss facts.",
+    "P/Q full-source provenance hashes equal f692721015280e002dfd72e2ec40e262501ae6682ccacb8d3fb0a761220e9eb7; R differs despite identical retained excerpt. This handback does not reinstate p/r full-source comparability.",
+    "No current-u output was measured or observed. Static code supports an unresolved path, not a claim that a new u output failed.",
+    "Missing exact judge-inputs-p-v-q2-v2.zip remains missing, not reconstructed.",
+    "No new source acquisition, provider calls, product edits, tests, formal acceptance or completion counts performed by reviewer."
+  ]
+}

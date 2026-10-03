@@ -78,7 +78,22 @@ ingress:
 ```
 Cloudflare DNS → **earningsnerd.io** → add `CNAME` `dev` → `<UUID>.cfargotunnel.com` (proxied).
 Run while developing: `cloudflared tunnel run earningsnerd-dev`.
-For local runs set `APPLE_REDIRECT_URI=https://dev.earningsnerd.io/api/auth/apple/callback`.
+In the shell that launches the local backend, export both settings before starting it.
+A `COOKIE_SECURE` value supplied only in `.env` is overwritten by the development default
+(see [Settings precedence](../CONFIGURATION.md#backend-settings-inventory)).
+
+```bash
+export APPLE_REDIRECT_URI=https://dev.earningsnerd.io/api/auth/apple/callback
+export COOKIE_SECURE=true
+```
+
+Start plain Apple sign-in at `https://dev.earningsnerd.io/api/auth/apple`. The browser-binding
+cookie is host-only, so starting on `localhost` while returning to `dev.earningsnerd.io` fails.
+Apple's cross-site callback requires that cookie to have both `SameSite=None` and `Secure`.
+For invited sign-in, send the JSON `POST` to `https://dev.earningsnerd.io/api/auth/apple/start`
+from the browser with credentials enabled and the frontend origin allowed by CORS; keep the
+invite in the JSON body, never in a URL. Local UI testing must target this same HTTPS API
+origin for its backend requests because `COOKIE_SECURE=true` also secures the session cookies.
 
 ---
 
