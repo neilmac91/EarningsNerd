@@ -3,7 +3,9 @@
 An example file is committed to a public repository, so a value pasted into it is published. Every
 `KEY=value` line in a tracked example env file must be empty, a visible placeholder, or a documented
 non-secret default. Known provider key formats and JWTs are rejected outright, and any long,
-high-entropy value without a placeholder marker is rejected as well.
+high-entropy value without a placeholder marker is rejected as well. URLs and free text are not
+exempt: each component (userinfo, path segment, query value, word) is held to the same test, so a
+credential-bearing URL fails while known public URLs pass.
 """
 import math
 import re
@@ -30,6 +32,7 @@ CREDENTIAL_SHAPES = (
 DSN_WITH_PASSWORD = re.compile(r"^[a-z][a-z0-9+]*://[^:/\s]+:(?P<password>[^@\s]+)@")
 DSN_PLACEHOLDER_PASSWORDS = {"password", "pass", "pwd", "user", "changeme", "example", "your-password", "<password>", "secret"}
 URL_SCHEME = re.compile(r"^[a-z][a-z0-9+]*://")
+FREE_TEXT_SEPARATORS = re.compile(r"[\s/?&=:@#;,.()\[\]{}<>\"']+")  # URL delimiters, dots, punctuation
 PLACEHOLDER_MARKERS = ("your", "example", "change", "placeholder", "xxx", "...", "<", "replace", "here", "dummy", "mock", "test", "local", "optional")
 
 
@@ -69,12 +72,29 @@ def _offending_lines(text: str) -> list[str]:
         if any(shape.search(value) for shape in CREDENTIAL_SHAPES):
             offenders.append(f"line {number} ({key.strip()}): credential-shaped value")
             continue
-        lowered = value.lower()
         free_text = " " in value or URL_SCHEME.match(value) is not None
-        if len(value) >= 24 and not free_text and _entropy(value) > 3.5 \
-                and not any(marker in lowered for marker in PLACEHOLDER_MARKERS):
-            offenders.append(f"line {number} ({key.strip()}): long high-entropy value without a placeholder marker")
+        if not free_text:
+            if _is_opaque_secret(value):
+                offenders.append(f"line {number} ({key.strip()}): long high-entropy value without a placeholder marker")
+        else:
+            # Free text and URLs are not exempt: a credential can ride in a URL's userinfo, a path
+            # segment or a query value (a Sentry DSN, a signed webhook URL), so every component is
+            # held to the same test. Known public URLs have only short, low-entropy components.
+            for component in FREE_TEXT_SEPARATORS.split(value):
+                if _is_opaque_secret(component):
+                    offenders.append(
+                        f"line {number} ({key.strip()}): URL or text carries a long high-entropy component "
+                        f"without a placeholder marker"
+                    )
+                    break
     return offenders
+
+
+def _is_opaque_secret(token: str) -> bool:
+    """A long, high-entropy token with no placeholder marker: the shape of a pasted credential."""
+    lowered = token.lower()
+    return len(token) >= 24 and _entropy(token) > 3.5 \
+        and not any(marker in lowered for marker in PLACEHOLDER_MARKERS)
 
 
 def test_tracked_example_env_files_exist():
@@ -107,6 +127,10 @@ def test_example_env_file_holds_only_placeholders(path):
     "postgresql://appuser:Sup3rSecret@10.0.0.5:5432/app",
     "postgresql://appuser:9f8e7d6c5b4a@localhost:5432/app",
     "Vq7Kp2Lm9Xz4Rt8Wn3Yb6Hd1Jf5Gs0Ac",
+    "https://example.com/?token=Vq7Kp2Lm9Xz4Rt8Wn3Yb6Hd1Jf5Gs0Ac",            # token in a query value
+    "https://hooks.example.com/services/T0/B0/Vq7Kp2Lm9Xz4Rt8Wn3Yb6Hd1Jf5Gs0Ac",  # signed webhook URL
+    "https://Vq7Kp2Lm9Xz4Rt8Wn3Yb6Hd1Jf5Gs0Ac@o123.ingest.example.io/456",     # DSN-style userinfo key
+    "Bearer Vq7Kp2Lm9Xz4Rt8Wn3Yb6Hd1Jf5Gs0Ac",                                  # token inside free text
 ])
 def test_detector_rejects_credential_shaped_values(value):
     assert _offending_lines(f"KEY={value}\n")
@@ -115,6 +139,10 @@ def test_detector_rejects_credential_shaped_values(value):
 @pytest.mark.parametrize("value", ["", "your-key-here", "sk-your-openai-key", "http://localhost:8000",
                                    "whsec_...", "change-me-in-production", "sqlite:///./earningsnerd.db",
                                    "postgresql://user:password@localhost:5432/earningsnerd",
-                                   "EarningsNerd/1.0 (contact@earningsnerd.io)", "          # Apple Services ID"])
+                                   "EarningsNerd/1.0 (contact@earningsnerd.io)", "          # Apple Services ID",
+                                   "https://us.i.posthog.com", "https://api.deepseek.com/v1",
+                                   "https://api.earningsnerd.io/api/auth/google/callback",
+                                   "http://localhost:3000,http://127.0.0.1:3000",
+                                   "https://generativelanguage.googleapis.com/v1beta/openai/"])
 def test_detector_accepts_placeholders(value):
     assert not _offending_lines(f"KEY={value}\n")
