@@ -68,10 +68,13 @@ or after it, only when focus fell to `<body>`. Never move focus a mouse user did
 
 (h) The scan cannot see post-success flips, unmounts, or a busy flag under another name. Those stay
 per-site specs plus a real-browser keyboard pass. Known open cases, same class, not yet fixed:
-EmailVerificationModal's Resend (`disabled={resent}` after success, while focused); the dashboard's
-two Retry buttons and saved-summary Delete (which also has no in-flight guard); FilingFeed's Retry;
+EmailVerificationModal's Resend (`disabled={resent}` after success, while focused); FilingFeed's Retry;
 the filing page's Retry generation / Retry / Regenerate Analysis; FeedbackRow's status select when
-the list is filtered by status (its own update removes the row).
+the list is filtered by status (its own update removes the row); the dashboard header's Log out (no
+in-flight guard). The dashboard's two Retry buttons, saved-summary Delete and Manage subscription are
+fixed (`tests/unit/busyControls.dashboard.spec.tsx`). A Retry whose query has no data must keep its
+failure while the press runs (`lib/useRetainedFailure.ts`): the refetch puts the query back to
+pending, and a page gated on `isLoading` swaps the focused Retry for a skeleton.
 
 **Evidence**: `frontend/features/calendar/components/AlertBell.tsx` (`disabled={checking}`,
 `aria-disabled={pending || undefined}` plus an early return). `tests/unit/calendarBellKeepsFocus.spec.tsx`
