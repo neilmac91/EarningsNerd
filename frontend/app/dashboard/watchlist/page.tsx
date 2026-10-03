@@ -120,7 +120,7 @@ export default function WatchlistDashboardPage() {
                       <div className="flex flex-wrap items-center gap-x-3 gap-y-2 sm:flex-nowrap">
                         <div className="flex min-w-0 basis-full items-center gap-3 sm:basis-auto">
                           <CompanyLogo ticker={insight.company.ticker} name={formatCompanyName(insight.company.name)} size={36} />
-                          <h2 className="min-w-0 text-2xl font-semibold text-text-primary-light dark:text-text-primary-dark">
+                          <h2 className="min-w-0 break-words text-2xl font-semibold text-text-primary-light dark:text-text-primary-dark">
                             {formatCompanyName(insight.company.name)}
                           </h2>
                         </div>

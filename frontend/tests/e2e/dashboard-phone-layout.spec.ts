@@ -31,6 +31,9 @@ const COMPANIES: Array<[string, string, string]> = [
   ['IBM', 'International Business Machines Corporation', 'generating:summarizing'],
   ['BRK.B', 'Berkshire Hathaway Inc.', 'error'],
   ['AAPL', 'Apple Inc.', 'missing'],
+  // A real EDGAR name whose one word ("Telecommunications", ~227px at text-2xl) is wider than a
+  // 320px phone's watchlist name column.
+  ['SHEN', 'SHENANDOAH TELECOMMUNICATIONS CO/VA/', 'ready'],
 ]
 
 function fixture(pathname: string, who: Who): unknown {
@@ -154,10 +157,24 @@ for (const width of [320, 375, 390, 1440]) {
       clientWidth: document.documentElement.clientWidth,
     }))
     expect(scrollWidth).toBe(clientWidth)
-    // Every name sits inside the viewport with room to read, not squeezed beside the badges.
-    for (const box of await names.evaluateAll((els) => els.map((el) => el.getBoundingClientRect().toJSON()))) {
-      expect(box.right).toBeLessThanOrEqual(clientWidth)
-      expect(box.width).toBeGreaterThanOrEqual(100)
+    // Every name's text fits its own box (a long word breaks rather than spilling past the card),
+    // the box sits inside the viewport, and it is not squeezed narrower than the name needs on
+    // one line, up to 100px.
+    const measured = await names.evaluateAll((els) =>
+      els.map((el) => {
+        const probe = el.cloneNode(true) as HTMLElement
+        probe.style.cssText = 'position:absolute;visibility:hidden;white-space:nowrap;width:auto;min-width:0'
+        el.parentElement!.appendChild(probe)
+        const natural = probe.getBoundingClientRect().width
+        probe.remove()
+        const box = el.getBoundingClientRect()
+        return { right: box.right, width: box.width, natural, spill: el.scrollWidth - el.clientWidth }
+      }),
+    )
+    for (const m of measured) {
+      expect(m.spill).toBeLessThanOrEqual(0)
+      expect(m.right).toBeLessThanOrEqual(clientWidth)
+      expect(m.width).toBeGreaterThanOrEqual(Math.min(100, m.natural - 1))
     }
   })
 }
