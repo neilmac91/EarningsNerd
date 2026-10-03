@@ -412,3 +412,49 @@ async def test_pipeline_timeout_during_the_charge_write_still_refunds_the_commit
         await asyncio.wait_for(write_done.wait(), 5)
     assert events[-1]["type"] == "error" and "timed out" in events[-1]["message"]
     assert _state(user_id) == (0, 0)  # the committed unit was found and refunded; no lease left
+
+
+@pytest.mark.asyncio
+async def test_client_disconnect_at_the_instant_of_the_provider_start_signal_keeps_the_counted_unit():
+    """The start signal fires inside the provider task; the pipeline's heartbeat loop charges on
+    its next turn. A client that leaves in that gap must still be counted: the signal itself starts
+    the charge write, so `finally` finds and settles it instead of releasing the lease for a request
+    that has already been issued."""
+    import asyncio
+
+    from starlette.responses import StreamingResponse
+
+    from app.services.summary_pipeline import to_sse
+
+    user_id, filing_id = _seed_user(), seed_company_filing()
+    provider_started, disconnected = asyncio.Event(), asyncio.Event()
+
+    async def blocking_provider(*args, **kwargs):
+        signal_provider_start()  # the request is issued ...
+        provider_started.set()   # ... and the client leaves before the pipeline resumes
+        await asyncio.sleep(30)
+        return CANONICAL_PAYLOAD
+
+    async def event_stream():
+        async for event in stream_filing_summary(
+            filing_id=filing_id, current_user=GenerationUserSnapshot(user_id, False, None), user_id=user_id,
+            telemetry_distinct_id=str(user_id), telemetry_entry_point=None, telemetry_ctx={},
+            emit_funnel_telemetry=False,
+        ):
+            yield to_sse(event)
+
+    async def receive():
+        await provider_started.wait()
+        disconnected.set()
+        return {"type": "http.disconnect"}
+
+    async def send(message):
+        if disconnected.is_set() and message["type"] == "http.response.body":
+            raise OSError("peer closed connection")
+
+    with stream_boundaries() as summarize, patch.object(summary_pipeline.settings, "STREAM_HEARTBEAT_INTERVAL", 0.2):
+        summarize.side_effect = blocking_provider
+        response = StreamingResponse(event_stream(), media_type="text/event-stream")
+        await asyncio.wait_for(response({"type": "http", "asgi": {"spec_version": "2.3"}, "headers": []}, receive, send), 10)
+    assert provider_started.is_set()
+    assert _state(user_id) == (0, 1)  # the request was issued: the unit is counted, no lease is left

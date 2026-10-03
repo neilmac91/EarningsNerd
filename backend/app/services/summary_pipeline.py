@@ -989,9 +989,12 @@ async def stream_filing_summary(
             # current_user=None, and uncapped Pro) keep the completion-time count below.
             provider_started = asyncio.Event()
 
-            async def charge_lease() -> None:
-                """Convert the held lease into one counted unit (at most once; the lease is cleared)."""
-                nonlocal charged_month, usage_reservation_token, charge_future
+            def begin_charge() -> None:
+                """Start the lease-to-unit write (at most once). Called from the dispatcher's start
+                signal, inside the provider task, at the instant the request is issued: the write
+                exists before this generator can be cancelled, so a disconnect in the gap between the
+                signal and the heartbeat loop's next turn still finds it in `finally`."""
+                nonlocal charge_future
                 if usage_reservation_token is None or charged_month is not None or charge_future is not None:
                     return
                 token_to_convert = usage_reservation_token
@@ -1009,13 +1012,26 @@ async def stream_filing_summary(
                         return month
 
                 charge_future = asyncio.ensure_future(run_sync_db(charge_usage_sync))
+
+            async def charge_lease() -> None:
+                """Convert the held lease into one counted unit (at most once; the lease is cleared)."""
+                nonlocal charged_month, usage_reservation_token
+                if charged_month is not None:
+                    return
+                begin_charge()  # no-op when the signal already started the write
+                if charge_future is None:
+                    return  # no lease to convert
                 # Shielded: a cancellation here (deadline, disconnect) abandons this await, not the
                 # write, and `settle_charge` later reads what the write committed.
                 charged_month = await asyncio.shield(charge_future)
                 if charged_month is not None:
                     usage_reservation_token = None
 
-            with provider_start_signal(provider_started.set):  # armed in the task's context
+            def on_provider_start() -> None:
+                begin_charge()
+                provider_started.set()
+
+            with provider_start_signal(on_provider_start):  # armed in the task's context
                 summary_task = asyncio.create_task(openai_service.summarize_filing(
                     filing_text,
                     company_name,
