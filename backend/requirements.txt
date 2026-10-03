@@ -49,13 +49,13 @@ distro==1.9.0
     # via posthog
 dnspython==2.8.0
     # via email-validator
-edgartools==5.58.0
+edgartools==5.59.1
     # via -r requirements.in
 email-validator==2.3.0
     # via -r requirements.in
 et-xmlfile==2.0.0
     # via openpyxl
-fastapi==0.141.1
+fastapi==0.142.1
     # via
     #   -r requirements.in
     #   sentry-sdk
@@ -64,7 +64,9 @@ filelock==3.29.4
 fonttools==4.63.0
     # via weasyprint
 greenlet==3.5.6
-    # via -r requirements.in
+    # via
+    #   -r requirements.in
+    #   sqlalchemy
 h11==0.16.0
     # via
     #   httpcore
@@ -120,10 +122,12 @@ numpy==2.4.6
     # via
     #   pandas
     #   rank-bm25
-openai==3.20.0
+openai==3.22.0
     # via -r requirements.in
 openpyxl==3.1.5
     # via -r requirements.in
+opentelemetry-api==1.45.0
+    # via fastapi
 orjson==3.11.9
     # via edgartools
 packaging==26.2
@@ -138,7 +142,7 @@ pillow==12.3.0
     # via weasyprint
 pluggy==1.6.0
     # via pytest
-posthog==7.60.1
+posthog==7.60.2
     # via -r requirements.in
 psycopg2-binary==2.9.13
     # via -r requirements.in
@@ -246,6 +250,7 @@ typing-extensions==4.15.0
     #   fastapi
     #   httpx2
     #   openai
+    #   opentelemetry-api
     #   posthog
     #   pydantic
     #   pydantic-core
