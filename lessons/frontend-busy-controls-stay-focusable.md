@@ -20,8 +20,11 @@ handler. That keeps it focusable and announced as unavailable. Keep the busy sty
 (b) Native `disabled` is fine only where the control cannot hold focus yet, for example before
 identity first resolves.
 
-(c) A unit test pins the attribute: `aria-disabled="true"` and `not.toBeDisabled()`. Focus loss
-itself needs a real-browser keyboard pass.
+(c) The gate (d) owns "a busy flag never turns a control natively disabled"; per-site specs do not
+re-assert it (AGENTS.md §4). They pin what the scan cannot see: no second request on a second
+activation, the focus hand-off when a control unmounts, and an unavailable state after the control's
+own success (`aria-disabled="true"`, `not.toBeDisabled()`). Focus loss itself needs a real-browser
+keyboard pass.
 
 (d) Gated (rule 12): `tests/unit/busyControlsStayFocusable.spec.ts` reads the AST of every `.tsx`
 under app/, components/ and features/ and fails on any `disabled={…}` whose expression names a busy
