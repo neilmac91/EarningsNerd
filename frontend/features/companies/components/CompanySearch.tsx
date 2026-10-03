@@ -279,7 +279,7 @@ export default function CompanySearch({
               }`}
             >
               <div className="flex items-center gap-2">
-                <CompanyLogo ticker={company.ticker} name={formatCompanyName(company.name)} size={24} />
+                <CompanyLogo decorative ticker={company.ticker} name={formatCompanyName(company.name)} size={24} />
                 <div className="font-semibold text-text-primary-light dark:text-text-primary-dark">{formatCompanyName(company.name)}</div>
               </div>
               <div className="flex flex-col space-y-1 text-sm">

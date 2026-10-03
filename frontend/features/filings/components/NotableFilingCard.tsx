@@ -54,7 +54,7 @@ export default function NotableFilingCard({
       className="group flex items-center gap-3 rounded-xl border border-border-light bg-panel-light p-4 shadow-e1 transition duration-base hover:-translate-y-1 motion-reduce:hover:translate-y-0 hover:border-brand-strong hover:shadow-e2 dark:border-white/10 dark:bg-panel-dark dark:shadow-none dark:hover:border-brand-dark focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark"
       data-testid={`notable-filing-${filing.ticker}`}
     >
-      <CompanyLogo ticker={filing.ticker} name={filing.company_name} size={40} />
+      <CompanyLogo decorative ticker={filing.ticker} name={filing.company_name} size={40} />
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
           <span className="font-semibold text-text-primary-light dark:text-text-primary-dark">

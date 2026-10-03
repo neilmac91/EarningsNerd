@@ -68,7 +68,7 @@ export default function WhatChangedCard({ item }: { item: FeedItem }) {
       <Card interactive className="h-full p-5">
         <div className="flex items-start justify-between gap-3">
           <div className="flex min-w-0 items-center gap-2.5">
-            <CompanyLogo ticker={company.ticker} name={formatCompanyName(company.name)} size={28} />
+            <CompanyLogo decorative ticker={company.ticker} name={formatCompanyName(company.name)} size={28} />
             <div className="flex min-w-0 items-center gap-2">
               <span className="truncate font-semibold text-text-primary-light dark:text-text-primary-dark">
                 {formatCompanyName(company.name)}
