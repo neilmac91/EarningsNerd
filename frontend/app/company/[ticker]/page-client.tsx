@@ -68,6 +68,7 @@ export default function CompanyPageClient({ initialCompany, initialFilings }: Co
   const [filterYear, setFilterYear] = useState<string | null>(null)
   const [showFullHistory, setShowFullHistory] = useState(false)
   const hasTrackedCompanyView = useRef(false)
+  const filingsHeadingRef = useRef<HTMLHeadingElement>(null)
 
   // initialDataUpdatedAt: 0 marks the ISR-cached seed as already stale, so the client refetches
   // on mount and live fields (stock quote) catch up — the seed only guarantees the first paint.
@@ -401,9 +402,16 @@ export default function CompanyPageClient({ initialCompany, initialFilings }: Co
                   <CompanyLogo ticker={companyData.ticker} name={companyDisplayName} size={40} priority />
                   <h1 className="text-2xl font-semibold text-text-primary-light dark:text-text-primary-dark">{companyDisplayName}</h1>
                   {currentUser && (
+                    // aria-disabled + aria-busy + an early return while the toggle is in flight, not
+                    // native `disabled`: Chromium blurs a focused button that turns disabled, so a
+                    // keyboard toggle would drop the user to <body>.
                     <button
-                      onClick={() => watchlistMutation.mutate({ ticker: normalizedTicker, shouldAdd: !isInWatchlist })}
-                      disabled={watchlistMutation.isPending}
+                      onClick={() => {
+                        if (watchlistMutation.isPending) return
+                        watchlistMutation.mutate({ ticker: normalizedTicker, shouldAdd: !isInWatchlist })
+                      }}
+                      aria-disabled={watchlistMutation.isPending || undefined}
+                      aria-busy={watchlistMutation.isPending || undefined}
                       aria-label={isInWatchlist ? 'Remove from watchlist' : 'Add to watchlist'}
                       aria-pressed={Boolean(isInWatchlist)}
                       className={`p-2 rounded-lg transition-colors ${
@@ -460,7 +468,13 @@ export default function CompanyPageClient({ initialCompany, initialFilings }: Co
         {/* Filings Section */}
         <Card as="section" className="p-6">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between mb-6">
-            <h2 className="text-xl font-semibold text-text-primary-light dark:text-text-primary-dark">SEC Filings</h2>
+            <h2
+              ref={filingsHeadingRef}
+              tabIndex={-1}
+              className="text-xl font-semibold text-text-primary-light outline-none dark:text-text-primary-dark"
+            >
+              SEC Filings
+            </h2>
             {filings && filings.length > 0 && (availableFilingTypes.length > 1 || availableYears.length > 1) && (
               <div className="flex flex-wrap items-center gap-2">
                 <FunnelIcon className="h-4 w-4 text-text-tertiary-light dark:text-text-secondary-dark" />
@@ -649,19 +663,22 @@ export default function CompanyPageClient({ initialCompany, initialFilings }: Co
                 // P1-6: the default view serves the recent cap; load the full backfilled 10-K/10-Q
                 // history (since 2001) on demand.
                 <div className="pt-2 text-center">
+                  {/* `loading`, not `disabled`: a background refetch (reconnect, invalidation) can
+                      start while this button holds focus, and a focused button that turns
+                      disabled is blurred to <body> in Chromium. `loading` keeps the click guard.
+                      Activating it unmounts it (the unseeded full-history key swaps the list for
+                      the skeleton), so focus moves to the section heading first, not to <body>. */}
                   <Button
                     variant="secondary"
-                    onClick={() => setShowFullHistory(true)}
-                    disabled={filingsRefetching}
+                    onClick={(e) => {
+                      // Only a keyboard (or AT) user holding this button loses focus when it unmounts.
+                      if (document.activeElement === e.currentTarget) filingsHeadingRef.current?.focus({ preventScroll: true })
+                      setShowFullHistory(true)
+                    }}
+                    loading={filingsRefetching}
+                    loadingText="Loading full history…"
                   >
-                    {filingsRefetching ? (
-                      <>
-                        <CircleNotchIcon className="h-4 w-4 animate-spin" />
-                        Loading full history…
-                      </>
-                    ) : (
-                      'Show full history'
-                    )}
+                    Show full history
                   </Button>
                 </div>
               )}

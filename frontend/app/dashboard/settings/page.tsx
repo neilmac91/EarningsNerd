@@ -199,7 +199,10 @@ export default function SettingsPage() {
                   Type &quot;delete my account&quot; to confirm:
                 </label>
                 {/* Raw input + inputClasses(): the destructive-confirm field keeps its
-                    error-toned focus, which must style the field, not the v2 shell. */}
+                    error-toned focus, which must style the field, not the v2 shell. Native
+                    `disabled` while deleting is kept: only Confirm's click starts the delete (no
+                    form, so Enter here submits nothing), so focus is on Confirm, never on this
+                    field or on Cancel, when they flip. */}
                 <input
                   type="text"
                   value={deleteConfirmText}

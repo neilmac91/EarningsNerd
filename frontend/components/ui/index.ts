@@ -1,7 +1,7 @@
-export { Button, buttonVariants, type ButtonProps, type ButtonVariant, type ButtonSize, type ButtonVariantsOptions } from './Button'
+export { Button, buttonVariants, primaryUnavailableClass, type ButtonProps, type ButtonVariant, type ButtonSize, type ButtonVariantsOptions } from './Button'
 export { Badge, type BadgeProps, type BadgeVariant } from './Badge'
 export {
-  Input, Textarea, Select, inputClasses,
+  Input, Textarea, Select, inputClasses, fieldUnavailableClass,
   type InputProps, type TextareaProps, type SelectProps, type InputClassesOptions,
 } from './Input'
 export { Card, CardHeader, CardTitle, CardBody, CardFooter, type CardProps } from './Card'

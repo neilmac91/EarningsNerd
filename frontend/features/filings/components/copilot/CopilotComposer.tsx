@@ -2,11 +2,14 @@
 
 import { forwardRef, useImperativeHandle, useRef, useState } from 'react'
 import { PaperPlaneTiltIcon } from '@/lib/icons'
-import { Button, Textarea, cx, inputClasses } from '@/components/ui'
+import { Button, Textarea, cx, inputClasses, primaryUnavailableClass } from '@/components/ui'
 
 interface CopilotComposerProps {
   onSubmit: (question: string) => void
-  disabled: boolean
+  /** Send refuses while true (a stream is in flight, or no questions are left). It is aria-disabled
+   *  and stays focusable, and the field stays editable. Not named `disabled`: nothing turns natively
+   *  disabled. */
+  locked: boolean
 }
 
 export interface CopilotComposerHandle {
@@ -17,11 +20,12 @@ export interface CopilotComposerHandle {
 
 /**
  * Bottom-pinned input for the Copilot rail. Enter submits, Shift+Enter inserts a newline.
- * Send is disabled while a stream is in flight or the input is empty. Exposes `focus()` / `prefill()`
- * handles so the rail can focus it on open (⌘K) or pre-fill it from a "Ask about this" text selection.
+ * Send is unavailable (aria-disabled, still focusable) while a stream is in flight or the input is
+ * empty. Exposes `focus()` / `prefill()` handles so the rail can focus it on open (⌘K) or pre-fill
+ * it from a "Ask about this" text selection.
  */
 const CopilotComposer = forwardRef<CopilotComposerHandle, CopilotComposerProps>(
-  function CopilotComposer({ onSubmit, disabled }, ref) {
+  function CopilotComposer({ onSubmit, locked }, ref) {
   const [value, setValue] = useState('')
   const textareaRef = useRef<HTMLTextAreaElement>(null)
 
@@ -45,7 +49,7 @@ const CopilotComposer = forwardRef<CopilotComposerHandle, CopilotComposerProps>(
   )
 
   const trimmed = value.trim()
-  const canSend = !disabled && trimmed.length > 0
+  const canSend = !locked && trimmed.length > 0
 
   const submit = () => {
     if (!canSend) return
@@ -92,8 +96,17 @@ const CopilotComposer = forwardRef<CopilotComposerHandle, CopilotComposerProps>(
           style={{ maxHeight: 120, overflowY: 'auto' }}
         />
         {/* Icon-only primary Button — the first-class icon size (a zero-padding className
-            override on `sm` loses the stylesheet-order conflict and crushes the glyph). */}
-        <Button type="submit" size="icon-sm" disabled={!canSend} aria-label="Send" className="shrink-0">
+            override on `sm` loses the stylesheet-order conflict and crushes the glyph).
+            aria-disabled, never native `disabled`: pressing Send itself starts the stream and clears
+            the input, and Chromium blurs a focused button that turns disabled (focus → <body>).
+            submit()'s `canSend` early return is the guard for both click and Enter. */}
+        <Button
+          type="submit"
+          size="icon-sm"
+          aria-disabled={!canSend || undefined}
+          aria-label="Send"
+          className={cx('shrink-0', primaryUnavailableClass)}
+        >
           <PaperPlaneTiltIcon className="h-4 w-4" />
         </Button>
       </div>

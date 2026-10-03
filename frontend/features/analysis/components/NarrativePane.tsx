@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, type ComponentProps, type ElementType, type ReactNode } from 'react'
+import { useMemo, useRef, type ComponentProps, type ElementType, type ReactNode } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 
@@ -163,6 +163,7 @@ export default function NarrativePane({
   sample?: boolean
 }) {
   const completion = state.completion
+  const headingRef = useRef<HTMLHeadingElement>(null)
   // Stable components-map identity across re-renders — a fresh object every render would make
   // react-markdown treat each element type as new and remount the whole narrative subtree
   // (losing e.g. focus on a citation chip) instead of reconciling it.
@@ -186,7 +187,11 @@ export default function NarrativePane({
     <Card as="section" className="p-6">
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-2">
-          <h2 className="text-xl font-semibold text-text-primary-light dark:text-text-primary-dark">
+          <h2
+            ref={headingRef}
+            tabIndex={-1}
+            className="text-xl font-semibold text-text-primary-light outline-none dark:text-text-primary-dark"
+          >
             AI trend analysis
           </h2>
           {state.status === 'streaming' && (
@@ -226,8 +231,20 @@ export default function NarrativePane({
               </Button>
             )}
             {onRefresh && (
-              <Button size="sm" variant="secondary" onClick={onRefresh} disabled={refreshDisabled}>
-                <ArrowClockwiseIcon className="h-3.5 w-3.5" aria-hidden="true" />
+              // Refresh restarts the stream, which unmounts this row and the focused button with it;
+              // hand focus to the heading first so a keyboard user is not dropped to <body>.
+              // `loading`, never native `disabled`, for refreshDisabled: Chromium blurs a focused
+              // button that turns disabled.
+              <Button
+                size="sm"
+                variant="secondary"
+                onClick={(e) => {
+                  if (document.activeElement === e.currentTarget) headingRef.current?.focus({ preventScroll: true })
+                  onRefresh()
+                }}
+                loading={refreshDisabled}
+                leftIcon={<ArrowClockwiseIcon className="h-3.5 w-3.5" aria-hidden="true" />}
+              >
                 Refresh analysis
               </Button>
             )}

@@ -3,10 +3,10 @@
 import { queryKeys } from '@/lib/queryKeys'
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { CheckCircleIcon, CircleNotchIcon, KeyIcon } from '@/lib/icons'
+import { CheckCircleIcon, KeyIcon } from '@/lib/icons'
 import { changePassword, getConnections } from '@/features/auth/api/auth-api'
 import { isApiError, getErrorMessage } from '@/lib/api/types'
-import { Button } from '@/components/ui/Button'
+import { Button, primaryUnavailableClass } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Card } from '@/components/ui/Card'
 import { Skeleton } from '@/components/ui/Skeleton'
@@ -53,6 +53,8 @@ export default function ChangePasswordForm() {
     mutation.mutate()
   }
 
+  const incomplete = !next || !confirm || (hasPassword && !current)
+
   // Wait for connections so we know whether to show the "Current password" field — otherwise it
   // would flash in for OAuth-only users (who default to hasPassword=true) before disappearing.
   if (connectionsLoading) {
@@ -88,6 +90,9 @@ export default function ChangePasswordForm() {
         className="space-y-4"
         onSubmit={(e) => {
           e.preventDefault()
+          // The submit button is aria-disabled, not natively disabled, so implicit submission (Enter
+          // in a field) still lands here — refuse it while saving or incomplete, as `disabled` did.
+          if (mutation.isPending || incomplete) return
           submit()
         }}
       >
@@ -136,11 +141,15 @@ export default function ChangePasswordForm() {
         </div>
 
         <div className="flex items-center gap-3">
+          {/* aria-disabled, never native `disabled`: the button holds focus while its request is in
+              flight AND when a successful save clears the fields (incomplete) right after. A focused
+              button that turns disabled is blurred to <body> in Chromium. */}
           <Button
             type="submit"
-            disabled={mutation.isPending || !next || !confirm || (hasPassword && !current)}
+            loading={mutation.isPending}
+            aria-disabled={mutation.isPending || incomplete || undefined}
+            className={incomplete && !mutation.isPending ? primaryUnavailableClass : undefined}
           >
-            {mutation.isPending ? <CircleNotchIcon className="h-4 w-4 animate-spin" /> : null}
             {hasPassword ? 'Update password' : 'Set password'}
           </Button>
           {mutation.isSuccess && (

@@ -2,10 +2,10 @@
 
 import { useEffect, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { CheckCircleIcon, CircleNotchIcon, UserIcon } from '@/lib/icons'
+import { CheckCircleIcon, UserIcon } from '@/lib/icons'
 import { getCurrentUserSafe, updateProfile } from '@/features/auth/api/auth-api'
 import { isApiError, getErrorMessage } from '@/lib/api/types'
-import { Button } from '@/components/ui/Button'
+import { Button, primaryUnavailableClass } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Card } from '@/components/ui/Card'
 import { queryKeys } from '@/lib/queryKeys'
@@ -26,7 +26,9 @@ export default function ProfileForm() {
     onSuccess: () => {
       // A profile mutation may finish after logout/login. Let the fenced /me query resolve
       // the current identity instead of publishing the mutation's earlier account response.
-      queryClient.invalidateQueries({ queryKey: queryKeys.currentUser() })
+      // Returned so Save stays `loading` until the refetched name makes the form clean; otherwise
+      // the focused, still-dirty button turns active in between and a second Enter re-sends.
+      return queryClient.invalidateQueries({ queryKey: queryKeys.currentUser() })
     },
   })
 
@@ -61,12 +63,19 @@ export default function ProfileForm() {
         </div>
 
         <div className="flex items-center gap-3">
+          {/* aria-disabled + an early return, never native `disabled`: Save holds focus while its
+              request is in flight AND when the refetched name makes the form clean (!dirty) right
+              after a save. A focused button that turns disabled is blurred to <body> in Chromium. */}
           <Button
             type="button"
-            onClick={() => mutation.mutate()}
-            disabled={!dirty || mutation.isPending}
+            onClick={() => {
+              if (!dirty) return
+              mutation.mutate()
+            }}
+            loading={mutation.isPending}
+            aria-disabled={!dirty || mutation.isPending || undefined}
+            className={!dirty && !mutation.isPending ? primaryUnavailableClass : undefined}
           >
-            {mutation.isPending ? <CircleNotchIcon className="h-4 w-4 animate-spin" /> : null}
             Save changes
           </Button>
           {mutation.isSuccess && !dirty && (

@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import { useEffect, useRef } from 'react'
 import { queryKeys } from '@/lib/queryKeys'
 import { useQuery } from '@tanstack/react-query'
 import { ArrowRightIcon, NewspaperIcon } from '@/lib/icons'
@@ -37,12 +38,28 @@ export default function FilingFeed({
   const overflowLabel =
     watchlistCount != null ? `See all ${watchlistCount} companies` : 'See all companies'
 
+  // The onboarding panel leaves once an add succeeds (the watchlist count or the feed changes), taking
+  // the focused chip or search option with it. Hand focus to the section heading, but only when it
+  // fell to <body>.
+  const onboarding = !isLoading && !isError && (!data || data.length === 0) && watchlistCount === 0
+  const headingRef = useRef<HTMLHeadingElement>(null)
+  const wasOnboarding = useRef(onboarding)
+  useEffect(() => {
+    const left = wasOnboarding.current && !onboarding
+    wasOnboarding.current = onboarding
+    if (left && document.activeElement === document.body) headingRef.current?.focus({ preventScroll: true })
+  }, [onboarding])
+
   return (
     <section>
       <div className="mb-4">
         <div className="flex items-center gap-2">
           <NewspaperIcon className="h-5 w-5 text-brand-strong dark:text-brand-strong-dark" />
-          <h2 className="text-xl font-semibold text-text-primary-light dark:text-text-primary-dark">
+          <h2
+            ref={headingRef}
+            tabIndex={-1}
+            className="text-xl font-semibold text-text-primary-light outline-none dark:text-text-primary-dark"
+          >
             What&apos;s new
           </h2>
         </div>

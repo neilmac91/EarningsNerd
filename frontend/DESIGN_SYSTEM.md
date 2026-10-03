@@ -93,6 +93,13 @@ the SHIPPED copilot data model — see below). Every component defines
 default / hover / active / focus-visible / disabled / loading plus the system states (empty,
 skeleton via the shared shimmer keyframe, error).
 
+A control that is busy, or unavailable as a result of its own activation, never takes native
+`disabled`: Chromium blurs a focused control that turns disabled, so keyboard focus falls to
+`<body>`. Busy is `<Button loading>`. Unavailable is `aria-disabled` plus an early return in the
+handler, styled with `primaryUnavailableClass` (primary Button) or `fieldUnavailableClass` (field).
+Text fields use `readOnly` while their own form submits. Gate: `tests/unit/busyControlsStayFocusable.spec.ts`;
+rules in `lessons/frontend-busy-controls-stay-focusable.md`.
+
 ```
 Primary button   <Button>  ·  LIGHT: white label on bg-brand, hover bg-brand-strong, active bg-brand-emphasis
                  DARK: NAVY-INK label on bg-brand-dark (text-background-dark), hover bg-brand-strong-dark,
