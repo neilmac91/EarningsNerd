@@ -361,3 +361,19 @@ async def test_result_without_a_start_signal_is_counted_on_completion():
     assert events[-1]["type"] == "complete"
     assert _state(user_id) == (0, 1)
 
+
+
+@pytest.mark.asyncio
+async def test_timeout_fallback_without_a_start_signal_is_not_counted(monkeypatch):
+    """The service's own deadline can pass before any provider request (local parsing, admission).
+    The pipeline then serves the deterministic XBRL fallback; with no start signal, no provider was
+    billed, so the lease is released and nothing is counted. The quality gate is off here so the
+    observation is the charge decision itself, not a partial-verdict refund: a well-populated
+    fallback passes that gate and would otherwise stay counted."""
+    monkeypatch.setattr(summary_pipeline.settings, "AI_QUALITY_GATE", False)
+    user_id, filing_id = _seed_user(), seed_company_filing()
+    with stream_boundaries() as summarize:
+        summarize.side_effect = TimeoutError("service deadline passed before the provider request")
+        events = await _run(filing_id, user_id)
+    assert events[-1]["type"] in ("complete", "partial")
+    assert _state(user_id) == (0, 0)

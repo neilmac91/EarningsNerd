@@ -1012,6 +1012,7 @@ async def stream_filing_summary(
             ]
             summarize_heartbeat_index = 0
             summary_payload = None
+            provider_fallback = False  # the payload is the deterministic XBRL fallback, not a provider result
 
             # Build fallback kwargs once to avoid duplication (DRY principle)
             fallback_kwargs = {
@@ -1048,6 +1049,7 @@ async def stream_filing_summary(
                     await asyncio.gather(summary_task, return_exceptions=True)
                     # Use fallback with full filing context for meaningful partial results
                     summary_payload = generate_xbrl_summary(**fallback_kwargs)
+                    provider_fallback = True
                     # Break loop manually since task is cancelled/ignored
                     break
 
@@ -1074,18 +1076,22 @@ async def stream_filing_summary(
                 except TimeoutError:
                     # The service now owns the exact AI deadline, independent of heartbeat timing.
                     summary_payload = generate_xbrl_summary(**fallback_kwargs)
+                    provider_fallback = True
                 except asyncio.CancelledError:
                     if asyncio.current_task().cancelling():
                         raise
                     # Looked like we already handled fallback, but ensure payload is set
                     if not summary_payload:
                         summary_payload = generate_xbrl_summary(**fallback_kwargs)
+                        provider_fallback = True
             mark_stage("generate_summary")
 
             summary_status = summary_payload.get("status", "complete")
-            if provider_started.is_set() or summary_status != "error":
+            if provider_started.is_set() or (summary_status != "error" and not provider_fallback):
                 # The signal may have fired just before the task finished; a result without the
                 # signal (a stand-in service) still ran a provider, so it is counted on completion.
+                # A timeout fallback without the signal ran no provider at all (the deadline passed
+                # during local parsing or admission), so it is served uncounted.
                 await charge_lease()
             if summary_status == "error":
                 error_message = summary_payload.get("message", "Error generating summary")
@@ -1370,9 +1376,10 @@ async def stream_filing_summary(
                 # The unit counted at provider start is settled by the persisted summary: no later
                 # failure refunds it.
                 charged_month = None
-            elif user_id and count_usage:
+            elif user_id and count_usage and usage_reservation_token is None:
                 # No lease was held (background drain, uncapped Pro): the historical
-                # completion-time count, full results only.
+                # completion-time count, full results only. A lease still held here was left
+                # uncharged on purpose (an unsignalled timeout fallback); `finally` releases it.
                 def track_usage_sync():
                     with database.SessionLocal() as session:
                         user = session.query(User).filter(User.id == user_id).first()
