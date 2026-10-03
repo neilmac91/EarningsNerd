@@ -117,7 +117,7 @@ export default function YourCompanies({ insights, isLoading, isError, refetch, i
                     href={`/company/${insight.company.ticker}`}
                     className="flex min-w-0 max-w-fit grow basis-16 items-center gap-2.5 rounded-lg focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark"
                   >
-                    <CompanyLogo ticker={insight.company.ticker} name={formatCompanyName(insight.company.name)} size={28} />
+                    <CompanyLogo decorative ticker={insight.company.ticker} name={formatCompanyName(insight.company.name)} size={28} />
                     <div className="min-w-0">
                       <div className="truncate font-semibold text-text-primary-light hover:text-brand-strong dark:text-text-primary-dark dark:hover:text-brand-strong-dark">
                         {formatCompanyName(insight.company.name)}

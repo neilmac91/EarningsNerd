@@ -37,9 +37,10 @@ function QuickAccessBar() {
           className="inline-flex min-h-9 items-center gap-2 rounded-full border border-border-light bg-panel-light py-1.5 pl-1.5 pr-3 text-sm font-medium shadow-e1 transition-colors duration-fast hover:border-brand-border hover:bg-white dark:border-white/10 dark:bg-panel-dark dark:shadow-none dark:hover:border-brand-border-dark dark:hover:bg-white/10 focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark"
           data-testid={`quick-access-${ticker}`}
         >
-          <CompanyLogo ticker={ticker} name={name} size={24} />
+          <CompanyLogo decorative ticker={ticker} name={name} size={24} />
           <span className="font-data text-xs font-semibold text-text-primary-light dark:text-text-primary-dark">{ticker}</span>
-          <span className="hidden text-text-secondary-light dark:text-text-secondary-dark sm:inline">{name}</span>
+          {/* The name is always in the accessibility tree (sr-only below sm), so the logo can stay decorative. */}
+          <span className="sr-only text-text-secondary-light dark:text-text-secondary-dark sm:not-sr-only">{name}</span>
         </Link>
       ))}
     </nav>
