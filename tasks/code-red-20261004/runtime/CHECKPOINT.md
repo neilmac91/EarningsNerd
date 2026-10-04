@@ -1,4 +1,4 @@
-# Durable checkpoint — CODE RED chief session (updated 2026-10-04T23:51:28Z)
+# Durable checkpoint — CODE RED chief session (updated 2026-10-04T23:51:52Z)
 
 Chief: `https://claude.ai/code/session_01GWYV7WXWstgVGQG43YcSM8` (runtime-reported model `claude-fable-5-1`).
 Package: `earningsnerd-code-red-fable-chief-20261004.zip` SHA-256
@@ -64,7 +64,7 @@ from the branch restarted at that main. Tasks-only: no code, workflow, test or p
 15. *(Superseded in part by decision 18, then decision 19: 150 minutes remain; custody 30/69 cloud-only, 11 verified.)* **R1 planner registered** (`DECISIONS-03.md`, closure 140): Astra's fresh source-only H20 planner is a known source-role context; `BLOCKED_BEFORE_REFINEMENT`; 0/0/0; 170 of 180 minutes remain; refinement waits on the founder's local custody recovery (17/21 bootstrap files cloud-only).
 16. **Scope confirmed, D2 unit corrected:** H20-only packing/closure refinement on the frozen H20 input set; "27" counts remaining programme dossiers, not H20 items; no expansion of the allowance.
 17. *(Superseded in part by decision 18: a `rate_limit_hits` rise records a recognised rate-limit error, not necessarily an SEC 429.)* **Record-02 corrections from Astra verified and applied:** D1 wording → ledger event 1 (document `beef4ca0…`, no balance change); D3/D6 → `rate_limit_hits` counts only recognised SEC 429s on backoff paths, so a flat counter proves nothing and a rise stays a stop signal; founder's patch wording revised (SHA-256 `21322a05…`).
-18. *(Superseded in part by decision 19: 150 minutes remain; telemetry wording narrowed; recovery advice reordered.)* **Planner-controls package received and hash-verified** (`DECISIONS-04.md`): ZIP `ceed7244…`, six members all matching Astra's inventory; contents not read by the chief. **Time ceiling: 20 of 180 minutes charged, 160 remain.** Closure 142 registers Astra's package-boundary reviewer and resolves the delta reviewer's identity. **Implementation stays HELD** pending the source-owned refinement; planner idle; release receipt NOT_RELEASED. Record-03 corrections accepted: telemetry wording (recognised rate-limit error, not necessarily an SEC 429), "zero writes" scope, custody counts 18/21 and 12/48, `brctl` advice unverified.
+18. *(Superseded in part by decision 19: 150 minutes remain; telemetry wording narrowed; recovery advice reordered; "planner idle" superseded by "planner runtime availability unverified".)* **Planner-controls package received and hash-verified** (`DECISIONS-04.md`): ZIP `ceed7244…`, six members all matching Astra's inventory; contents not read by the chief. **Time ceiling: 20 of 180 minutes charged, 160 remain.** Closure 142 registers Astra's package-boundary reviewer and resolves the delta reviewer's identity. **Implementation stays HELD** pending the source-owned refinement; planner idle; release receipt NOT_RELEASED. Record-03 corrections accepted: telemetry wording (recognised rate-limit error, not necessarily an SEC 429), "zero writes" scope, custody counts 18/21 and 12/48, `brctl` advice unverified.
 19. **Pre-release update recorded** (`DECISIONS-05.md`): custody 30/69 cloud-only, 11 of 39 local files verified by hash and length, 0 mismatches, no complete release manifest yet; Finder-first recovery guidance adopted; the release-receipt predicate table adopted as the standing gate (chief receives the completed receipt's hash and metadata, never inputs); **planner runtime availability unverified — no release until resolved and any fresh context is registered**; **30 of 180 minutes charged, 150 remain**; implementation stays HELD pending the source-owned refinement. **Founder update:** Keep Downloaded applied; still 18/21 and 14/48 cloud-only; bounded discrepancy investigation authorised as preparation against the 150; nothing released.
 
 ## Retained holds and counts (unchanged)
@@ -158,7 +158,8 @@ from the branch restarted at that main. Tasks-only: no code, workflow, test or p
   decision 18) and 11 nits (record-04 pointer wording and coverage of the planner-runtime change, attribution of the
   two reviewer minutes, hold phrase in decision 19, registration ordering in the next-action line, todo and
   appointments wording, mutations list), all fixed in the following commit, whose delta is checked by the
-  pre-registered fallback reviewer before the `Review override:` line is bound.
+  pre-registered independent reviewer (decisions-05-pr-independent-reviewer-01) before the `Review override:`
+  line is bound.
 
 ## Founder-dependent items (precise; nothing blocks today's work)
 
