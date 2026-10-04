@@ -6205,13 +6205,14 @@ Full local and hosted verification plus independent exact-head review precede re
   held PR1035 is unchanged. Accept the exact source-approved note-v2 status without admitting
   unknown successors. [Interface and limitations](readiness-2026-09-21/acceptance/h20-note-inputs.md).
 
-## 2026-10-04 — CODE RED chief takeover (Fable chief session; tasks-only, PR #1086)
+## 2026-10-04 — CODE RED chief takeover (Fable chief session; tasks-only, PR #1086 merged + decisions PR)
 
 - Recorded single-writer takeover under `tasks/code-red-20261004/runtime/`: verified founder package
   (`e5316f50…`, 0 manifest mismatches), observed runtime identity, fresh main/PR-owner snapshot at
   `100fb7d6`, append-only exclusion successors 136 and 137, appointments, CEO/CFO spend statement.
-  Live spend ledger is on the founder's machine and unreachable from the cloud session: paid dispatch,
-  reservations and ledger writes held; no successor ledger designated. Zero DeepSeek calls / USD 0.
+  Live spend ledger was on the founder's machine and unreachable from the cloud session at takeover:
+  paid dispatch, reservations and ledger writes held; the successor ledger was designated later the same
+  day (see the ticked item below). Zero DeepSeek calls / USD 0.
 - R1 stays `BLOCKED_SOURCE_OWNED_PACKING` (no worker launched; founder-dependent item recorded).
 - CPO lane: isolated coordinator produced the R1→R2 admission status (A1–A9) and process handback;
   two independent verifier passes: administrative pass, execution not admitted, candidate HOLD.
@@ -6222,12 +6223,19 @@ Full local and hosted verification plus independent exact-head review precede re
   classifier; no isolated adversarial review ran.
 - COO lane: operating-envelope disposition HOLD with eight named missing inputs/decisions and owners;
   capacity unadmitted; counts unchanged (3/30 dossiers, 0/2 readouts, 5 groups + 1 capacity decision).
-- [ ] Founder: run the authorized source-owned H20 packing refinement locally and state the timebox
-      balance, or record the timebox as exhausted (`runtime/handbacks/cto/R1-STATUS.md`).
-- [ ] Founder: supply the live `spend-and-reservation.json` bytes + SHA-256, or confirm identity with
-      snapshot `99c7259f…`, before any paid action (`runtime/control/LEDGER-ACCESS.md`).
-- [ ] COO/CEO: one bounded read-only Ops `capacity-readout` over the Monday 06:00–07:00 UTC job-overlap
-      window to inform B32 (and B56 only as far as the COO/CEO decide the receipt may close); chief
-      decision recorded in `runtime/CHECKPOINT.md`.
+- [ ] Founder + Astra: run the 3-hour bounded H20 packing/closure refinement locally with a fresh
+      source-only planner (USD 0; engineering-safe return; report the planner's context identity);
+      chief then sets `R1-STATUS.md` (`DECISIONS-02.md` D2).
+- [x] Ledger: Astra confirmed byte-identity with snapshot `99c7259f…`; successor ledger designated as a
+      private artifact (document SHA-256 `53e84868…`); chief sole writer; paid dispatch still needs a
+      reservation there (`runtime/control/DECISIONS-02.md` D1, `LEDGER-ACCESS.md` update).
+- [ ] COO/CEO: one bounded read-only Ops `capacity-readout` over Monday 06:00–08:00 UTC (widened to
+      include backfill-facts 07:00; Routine fires 08:10Z) to inform B32; receipt to COO (`DECISIONS-02.md` D4).
+- [ ] Founder: apply (or change the numbers in) the handed-over patch pinning `SEC_RATE_LIMIT_PER_SECOND=1`
+      and `EDGAR_RATE_LIMIT_PER_SEC=1` on the service and all eight jobs with its rule-12 gate — the chief's
+      commit of it was classifier-denied (Production Deploy); chief reserves ~USD 0.01 before any PR
+      carrying it is marked ready (`DECISIONS-02.md` D3 execution note).
+- [ ] COO: decide whether item 8 closes on the two refuter appendices (`DECISIONS-02.md` D9); CTO carries
+      B07/B08/B36/B41/B52 updates into the next handback revision.
 - [ ] Docs-vs-config: `docs/OPERATIONS.md` alert threshold `database.checked_out > 8` is unreachable with
       the deployed pool 4 / overflow 0 (handback B33); fix the doc separately.
