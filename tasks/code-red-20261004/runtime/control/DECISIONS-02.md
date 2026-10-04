@@ -10,8 +10,9 @@ and take the decisions with the owning officers' input. Nothing below admits cap
 invites a user, changes a production flag, adds load or spends.
 
 **Corrections recorded in `DECISIONS-03.md` (2026-10-04, from Astra's R1 bootstrap handover):** D1 reconciliation
-wording (ledger event 1), D2's unit (27 = remaining dossiers, not H20 items), D3's `rate_limit_hits` sentence and
-D6 condition 1. The text below is left as recorded.
+wording (ledger event 1), D2's unit (27 = remaining dossiers, not H20 items), D3's `rate_limit_hits` sentence,
+D6 condition 1, and the D1 owners-table rule "write events only with a reservation", narrowed to balance-affecting
+writes (administrative correction events are permitted under the hash chain). The text below is left as recorded.
 
 ## D1 — Successor spend ledger designated (CEO, CFO evidence)
 

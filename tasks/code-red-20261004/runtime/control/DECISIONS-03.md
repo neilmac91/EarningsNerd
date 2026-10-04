@@ -1,10 +1,10 @@
 # Decision record 03 — R1 bootstrap handover response and corrections to record 02 (chief, 2026-10-04)
 
 Recorded 2026-10-04T20:07:50Z by the chief (`https://claude.ai/code/session_01GWYV7WXWstgVGQG43YcSM8`, runtime-reported
-model `claude-fable-5-1`). Input: Astra's private administrative handover "R1 bootstrap and bounded local
+model `claude-fable-5-1`); amended 2026-10-04T20:37:55Z after the three-lens review (event time, rule narrowing, wording). Input: Astra's private administrative handover "R1 bootstrap and bounded local
 findings" (preparation observed from 19:41:09 UTC as reported; relayed by the founder; zero spend, zero
 writes, no source work started). Astra's evidence files live on the founder's machine and are cited by
-size and SHA-256 only; nothing from them is reproduced here. Nothing below admits capacity, releases a
+size and SHA-256; only counts and file names from them are reproduced here, never contents. Nothing below admits capacity, releases a
 hold, invites a user, changes a production flag, adds load or spends.
 
 ## Prerequisite 1 — planner registered (CEO)
@@ -61,6 +61,10 @@ charged. The chief records further charges only from the planner's return contra
   document is now 21,295 bytes, SHA-256 `beef4ca0b2973db9f00503e0bbbf3ae2ad816def51c0f53820c41e51431be3fa`;
   page SHA-256 `6ee48c8ac775c6a42f9d4ecdb75c62121f294f34610808282a97b78ecc08e3d0`. Spend 0, reservations
   0. `LEDGER-ACCESS.md` carries the new hash.
+- Rule narrowed (disclosed): record 02's owners table and the chief role said ledger events are written only
+  with a reservation. That requirement applies to balance-affecting writes (reservations, holds, spend).
+  Event 1 is an administrative correction with `balances_changed: false`, permitted under the hash chain;
+  record 02's pointer, `LEDGER-ACCESS.md` and `APPOINTMENTS.json` now say so.
 
 ### D3 / D6 — what `rate_limit_hits` measures
 
@@ -93,7 +97,7 @@ charged. The chief records further charges only from the planner's return contra
 | Refinement | Planner (via Astra, read-only on the ledger) | Run within 170 minutes; return counts, hashes, status, minutes | blocked on custody |
 | D1 wording | CEO | Ledger event 1 written; records updated | done |
 | D3/D6 telemetry | CTO/COO | Records corrected; patch revised | done |
-| Patch | Founder | Apply or change numbers; chief reserves ~USD 0.01 before any PR carrying it is marked ready | open |
+| Patch | Founder | Apply or change numbers; marking any PR carrying it ready needs a chief reservation (~USD 0.01) | open |
 
 ## Spend
 
