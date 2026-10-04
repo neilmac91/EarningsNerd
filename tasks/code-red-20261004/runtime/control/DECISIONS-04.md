@@ -74,8 +74,8 @@ worker stays undispatched.
 ## Records-privacy sanitisation
 
 `control/LEDGER-ACCESS.md` line 5 carried the founder's local filesystem path since PR #1086 (flagged by
-the PR #1090 delta review). Replaced by a neutral description; the path stays in the private handover
-materials. Forward-only policy; no history rewrite.
+the PR #1090 delta review). Replaced by a neutral description, as was the truncated form in `TAKEOVER.md`; the path stays in the
+private handover materials. Forward-only policy; no history rewrite.
 
 ## Owners and next actions
 

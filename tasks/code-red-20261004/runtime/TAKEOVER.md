@@ -13,7 +13,7 @@ management record, not a dossier, quality acceptance, capacity admission or coho
 | Configured model | `claude-fable-5-1` (session_context.model); last served model reported by the runtime: `claude-fable-5-1` |
 | Effort / mode flags | effort `xhigh`; runtime flag `ultracode: true` (observed in session flag settings, not inferred from the product label); permission mode `auto` |
 | Tool access actually available | Bash/filesystem on a fresh clone of `neilmac91/EarningsNerd`; isolated subagents (`Agent`) and multi-agent `Workflow` orchestration; GitHub MCP tools authenticated as the founder's GitHub account `neilmac91` (any GitHub write from this session is attributed to that account); Vercel, PostHog, Gmail and Cloudflare MCP connectors are present but were not used; `gcloud`/`gh` CLIs are installed, authentication not probed and not needed for this session's work |
-| Not available | The founder's local Codex workspace (`/Users/neilmacaogain/...`), its `outputs/next-stage-20261003/` live records, the H20 source-planner context and every clean source-role input; the Codex code-review service (credits exhausted, per founder) |
+| Not available | The founder's local Codex workspace (absolute path held privately; sanitised under `DECISIONS-04.md`), its `outputs/next-stage-20261003/` live records, the H20 source-planner context and every clean source-role input; the Codex code-review service (credits exhausted, per founder) |
 
 A requested model or mode is not runtime evidence; the values above are what the runtime reported
 when queried at takeover. Served models of delegated subagents are recorded as requested routing in

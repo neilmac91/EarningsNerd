@@ -12,11 +12,11 @@ from the branch restarted at that main. Tasks-only: no code, workflow, test or p
 | Path (under `tasks/code-red-20261004/runtime/`) | SHA-256 | Status |
 |---|---|---|
 | `README.md` | `2bd9fbd9b5c33e713df04cf1cb8b2de1345a5083c81da1a5fc61548301455325` | recorded (revision exception added after review nit R1) |
-| `TAKEOVER.md` | `7fcb32c92c7793deacfb90c8af86db73edf0b63083d5f75d018c0b73b30013b1` | recorded (snapshot heading: observed 14:21Z, recorded 14:31Z) |
+| `TAKEOVER.md` | `ee9fb4590e9e6dca015bc2f254319662d35e775d663e57b386090b4f3c64f165` | recorded (snapshot heading: observed 14:21Z, recorded 14:31Z); local path sanitised (DECISIONS-04) |
 | `control/LEDGER-ACCESS.md` | `85c42cfb4a3732faeb90e85fbffcf5cd131ccf526147d2430bddb4cc93168a12` | successor ledger designated 17:39Z; event 1 (wording correction) written 20:04:46Z, document SHA-256 `beef4ca0…`; local path sanitised (DECISIONS-04); paid dispatch still HELD, 0 reservations |
 | `control/DECISIONS-02.md` | `4d93171f68c7491afd70fcd54b19a355093c5f2a14b437d02c4fd13d3f4f508b` | post-Astra decision set D1–D9 + refuter appendices A/B |
 | `control/DECISIONS-03.md` | `c7c08a397abed74f7e053813b99ddd072c7c1d3fe5e01c0f8deda9b8e433319c` | R1 bootstrap handover response; corrections to record 02 (D1 wording, D2 unit, D3/D6 telemetry, ledger rule narrowed) |
-| `control/DECISIONS-04.md` | `0d510ea790f2daadea6f7883cebe47c1490b654f4fa636b5e4abda5f6f0ed8e2` | planner-controls package receipt (hash-verified), 160-minute ceiling, closure 142, corrections to record 03 |
+| `control/DECISIONS-04.md` | `a44eaa1dc40678e20e2884ef826b965128fc7f79beaeb4af446e8f915aec8f07` | planner-controls package receipt (hash-verified), 160-minute ceiling, closure 142, corrections to record 03 |
 | `control/PRODUCTION-CONFIG-OBSERVATION-20261004.md` | `ea3689c8744023f9b627c2e0e51622bb01b7fa70382f1a70c8fac59f17c3564d` | two read-only Ops describes; no SEC budget override anywhere; one process per instance observed |
 | `control/source-context-exclusion-136.json` | `f6c065fd30650547e6cdb597faca44138ccd54bc50e5d9ab63b9883c61862f9a` | 136 entries (chief added) |
 | `control/source-context-exclusion-137.json` | `3f04115827cc22e0588af212eb86737dcf3c183a51118ac6443020eb6530b00f` | 141 entries (4 CPO workflow agents + COO subagent added) |
