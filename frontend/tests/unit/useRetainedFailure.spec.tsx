@@ -38,11 +38,11 @@ const freezeDate = (iso: string) => {
 
 const newClient = () => new QueryClient({ defaultOptions: { queries: { retry: false } } })
 
-/** A query keyed by `k` (a user id, a search term) and the hook over it. */
-function setup(fn: ReturnType<typeof vi.fn>, client = newClient()) {
+/** A query keyed by `k` (a user id, a search term) and the hook over it; `enabled` per key (default: all). */
+function setup(fn: ReturnType<typeof vi.fn>, client = newClient(), enabled: (k: string) => boolean = () => true) {
   const wrapper = ({ children }: { children: ReactNode }) => <QueryClientProvider client={client}>{children}</QueryClientProvider>
   const hook = renderHook(({ k }: { k: string }) => {
-    const query = useQuery({ queryKey: ['t', k], queryFn: () => fn(k) })
+    const query = useQuery({ queryKey: ['t', k], queryFn: () => fn(k), enabled: enabled(k) })
     return { query, failure: useRetainedFailure(query, ['t', k]) }
   }, { wrapper, initialProps: { k: 'a' } })
   return { client, ...hook }
@@ -177,6 +177,28 @@ describe('useRetainedFailure', () => {
     expect(result.current.failure).toMatchObject({ failed: false, error: null })
   })
 
+  it("a new key's failure shown as it is (no refetch on the switch) is recorded under its own key: its refetch is held", async () => {
+    freezeDate('2026-10-04T00:00:00Z')
+    const client = newClient()
+    await client.fetchQuery({ queryKey: ['t', 'b'], queryFn: () => Promise.reject(new Error('b down')) }).catch(() => {})
+    const fn = vi.fn().mockRejectedValueOnce(new Error('a down'))
+    // b is disabled here, so the switch shows b's cached failure as it is, with no refetch.
+    const { result, rerender } = setup(fn, client, (k) => k === 'a')
+    await waitFor(() => expect(result.current.failure.failed).toBe(true))
+    rerender({ k: 'b' })
+    // Same time, same count as a's failure: only the key tells them apart.
+    expect(result.current.query).toMatchObject({ status: 'error', errorUpdateCount: 1, errorUpdatedAt: Date.now() })
+    expect(result.current.failure).toMatchObject({ failed: true, error: expect.objectContaining({ message: 'b down' }) })
+    const next = deferred<string>()
+    fn.mockReturnValueOnce(next.promise)
+    act(() => result.current.failure.retry())
+    await waitFor(() => expect(result.current.failure.busy).toBe(true))
+    expect(result.current.query.status).toBe('pending')
+    expect(result.current.failure).toMatchObject({ failed: true, error: expect.objectContaining({ message: 'b down' }) })
+    await act(async () => next.resolve('ok'))
+    await waitFor(() => expect(result.current.failure.failed).toBe(false))
+  })
+
   // Same key: a new failure moves the failure count (a second failure in the same millisecond) or the failure
   // time (a reset starts the count over). Either way it is recorded, so the next refetch holds the newer error.
   it.each([['the same Error', true], ['another Error', false]])(
@@ -236,6 +258,28 @@ describe('useRetainedFailure', () => {
     await act(async () => next.resolve('ok'))
   })
 
+  it('a reset whose refetch fails again unrendered, at the old count, then a refetch: the old failure is not held', async () => {
+    freezeDate('2026-10-04T00:00:00Z')
+    const fn = vi.fn().mockRejectedValueOnce(new Error('before the reset'))
+    const { client, result } = setup(fn)
+    await waitFor(() => expect(result.current.failure.failed).toBe(true))
+    vi.setSystemTime(new Date('2026-10-04T00:00:01Z'))
+    const next = deferred<string>()
+    fn.mockRejectedValueOnce(new Error('after the reset')).mockReturnValueOnce(next.promise)
+    await act(async () => {
+      // The reset starts the query over and its refetch fails (count 1 again, never rendered); a new fetch
+      // starts before React Query notifies.
+      await client.resetQueries({ queryKey: ['t', 'a'] })
+      void client.refetchQueries()
+    })
+    // React hears of it on React Query's next notify, a later task: the first render after the act.
+    await waitFor(() => expect(result.current.query.status).toBe('pending'))
+    // Only the time tells this state from the shown failure's: same key, same count.
+    expect(result.current.query).toMatchObject({ fetchStatus: 'fetching', errorUpdateCount: 1, errorUpdatedAt: Date.now() })
+    expect(result.current.failure).toMatchObject({ failed: false, error: null, busy: true })
+    await act(async () => next.resolve('ok'))
+  })
+
   it('once data replaced the failure, a later refetch nobody pressed shows no failure', async () => {
     const fn = vi.fn().mockRejectedValueOnce(new Error('down')).mockResolvedValueOnce('ok')
     const { client, result } = setup(fn)
@@ -249,6 +293,23 @@ describe('useRetainedFailure', () => {
     fn.mockReturnValueOnce(later.promise)
     act(() => { void client.refetchQueries() })
     await waitFor(() => expect(result.current.failure.busy).toBe(true))
+    expect(result.current.failure).toMatchObject({ failed: false, error: null })
+    await act(async () => later.resolve('ok again'))
+  })
+
+  it('data that lands with a new refetch already running ends the hold: data, not an idle fetch, ends it', async () => {
+    const fn = vi.fn().mockRejectedValueOnce(new Error('down'))
+    const { client, result } = setup(fn)
+    await waitFor(() => expect(result.current.failure.failed).toBe(true))
+    const later = deferred<string>()
+    fn.mockReturnValueOnce(later.promise)
+    // A mutation's onSuccess that writes the cache and refetches: the first render after it has data and a fetch.
+    act(() => {
+      client.setQueryData(['t', 'a'], 'ok')
+      void client.refetchQueries()
+    })
+    await waitFor(() => expect(result.current.failure.busy).toBe(true))
+    expect(result.current.query).toMatchObject({ status: 'success', data: 'ok' })
     expect(result.current.failure).toMatchObject({ failed: false, error: null })
     await act(async () => later.resolve('ok again'))
   })

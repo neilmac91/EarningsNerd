@@ -82,7 +82,9 @@ async function openPrompt(page: Page, baseURL: string, theme: 'light' | 'dark', 
 }
 
 /** Whether `act` makes the page send another resend within a bounded wait. Reading a counter right
-    after a key press could run before a dropped guard's request leaves the page. */
+    after a key press could run before a dropped guard's request leaves the page. Call it only once
+    every earlier send has reached the route (`requests.resend` counts it): the listener takes the
+    first request event it sees, and an earlier send's can arrive after its busy state is on screen. */
 async function sendsAnother(page: Page, act: () => Promise<void>) {
   const another = page
     .waitForRequest((req) => req.url().includes('/api/auth/resend-verification'), { timeout: 700 })
@@ -114,6 +116,9 @@ for (const theme of ['light', 'dark'] as const) {
     await resend.focus()
     await page.keyboard.press('Enter')
     await expect(resend).toHaveAttribute('aria-busy', 'true')
+    // aria-busy can land before the first send's request event: wait for that send at the route
+    // (its 400 ms answer keeps the button busy) so sendsAnother cannot take it for a second one.
+    await expect.poll(() => requests.resend, { intervals: [10] }).toBe(1)
     expect(await sendsAnother(page, () => page.keyboard.press('Enter'))).toBe(false)
 
     await expect(resend).toHaveAccessibleName('Link sent')

@@ -20,21 +20,25 @@ import { bindingResolver, type Binding } from './astBindings'
  *  - loading gates: `if (cond) return <render>` (either branch, a block's direct `return` included) and
  *    `cond ? <render> : …`, where a render is JSX, `null`, a ternary with one in either branch, or a call with
  *    JSX among its arguments (`return wrap(<Spinner />)`), whose condition reads the loading state of a shared
- *    query: `isLoading`, `isPending`, `isInitialLoading`, or `status` compared with `'pending'`. Read as a
- *    member (`userQuery.isLoading`), destructured from it (renamed or not), through same-file consts (followed
+ *    query: `isLoading`, `isPending`, `isInitialLoading`, or `status` compared with `'pending'`. Each is read as
+ *    a member (`userQuery.isLoading`), destructured from it (renamed or not), through same-file consts (followed
  *    transitively), or through a same-file hook's returned object (`const { isReady } = useAuthGate()`,
- *    `return { isReady: !isLoading }`).
+ *    `return { isReady: !isLoading }`; `const { status } = useAuthGate()`, `return { status }`).
  *  - the hold: a loading read is held when an enclosing `&&` (in the condition, or in a const it came through)
  *    has `!failure.failed` as a conjunct, where `failure` is `useRetainedFailure(<that same query>, …)`. A
  *    conjunct is `!failure.failed` itself, in parentheses, or an operand of a nested `&&`; never anything under
  *    `||`, `?:`, a call or a negated compound (`!(…)`), where the condition can still be true while the failure
  *    is shown.
- *  - fetching gates: a condition that reads `isFetching`, `isRefetching` or `fetchStatus` of a shared query
- *    fails held or not. A fetch with data in hand (a background refetch, window focus) turns them on too, so
- *    such a gate unmounts the children, whose next mount can refetch again: never gate a page on them.
- * Every offending read fails, unless its site is pinned in ALLOW by the condition's exact text and the shared
- * families it reads (`expr [families]`), with a reason: a pinned condition that starts reading another shared
- * family fails too.
+ *  - fetching gates: a condition that reads `isFetching`, `isRefetching` or `fetchStatus` of a shared query,
+ *    by any of the paths above, fails held or not. A fetch with data in hand (a background refetch, window
+ *    focus) turns them on too, so such a gate unmounts the children, whose next mount can refetch again: never
+ *    gate a page on them.
+ * Every offending loading read fails, unless its site is pinned in ALLOW by the condition's exact text and the
+ * shared families it reads (`expr [families]`), with a reason: a pinned condition that starts reading another
+ * shared family fails too. A fetch flag is never pinnable: a gate that reads one fails whatever ALLOW pins, so a
+ * pinned name that starts reading `isFetching` of a family it already reads (`const isLoading = firstLoad ||
+ * isFetching`, the watchlist hook's `isReady: !isLoading && !isFetching`), its text and families unchanged,
+ * still fails.
  *
  * Limits, so a reviewer still reads new gates: a key family built outside a `queryKey:` property (an options
  * helper), a loading state passed in through props, a hold read through an alias
@@ -111,9 +115,16 @@ interface Gate {
   expr: string
   /** The shared key families it reads loading from without the hold, or fetching from at all. */
   families: string[]
+  /** The families among them it reads a fetch flag of: such a gate is an offender whatever ALLOW pins. */
+  fetching: string[]
 }
 /** What ALLOW pins: the condition and the families it reads, so a pinned gate that reads another family fails. */
 const pin = (gate: Gate) => `${gate.expr} [${gate.families.join(', ')}]`
+/** A shared query a gate reads: its loading state with no hold over it, or a fetch flag (`fetching`). */
+interface Read {
+  query: ts.CallExpression
+  fetching: boolean
+}
 
 const isJsx = (e: ts.Expression): boolean => ts.isJsxElement(e) || ts.isJsxSelfClosingElement(e) || ts.isJsxFragment(e)
 /** Renders something: JSX, `null`, a ternary with one in either branch, or a call with JSX among its arguments. */
@@ -213,21 +224,6 @@ function unheldGates(source: string, fileName: string, shared: Set<string>): Gat
     return ts.isVariableDeclaration(declaration) ? queryOf(declaration.initializer) : null
   }
 
-  /** The shared query whose `status` `e` reads: `query.status`, a destructured `status`, or a const holding one. */
-  const statusOf = (e: ts.Expression, seen = new Set<Binding>()): ts.CallExpression | null => {
-    const inner = unwrap(e)
-    if (ts.isPropertyAccessExpression(inner)) return inner.name.text === 'status' ? queryOf(inner.expression) : null
-    if (!ts.isIdentifier(inner)) return null
-    const b = visible(inner)
-    if (!b || seen.has(b)) return null
-    return destructured(b, /^status$/) ?? (b.init ? statusOf(b.init, new Set([...seen, b])) : null)
-  }
-  const EQUALITY = new Set([
-    ts.SyntaxKind.EqualsEqualsEqualsToken, ts.SyntaxKind.EqualsEqualsToken,
-    ts.SyntaxKind.ExclamationEqualsEqualsToken, ts.SyntaxKind.ExclamationEqualsToken,
-  ])
-  const isPendingLiteral = (e: ts.Expression) => ts.isStringLiteralLike(unwrap(e)) && (unwrap(e) as ts.StringLiteral).text === 'pending'
-
   /** For `{ isReady } = useAuthGate()` with a same-file hook: what its returned object holds under that name. */
   const hookReturn = (b: Binding): ts.Expression | null => {
     const d = b.decl
@@ -254,9 +250,32 @@ function unheldGates(source: string, fileName: string, shared: Set<string>): Gat
     return found
   }
 
-  /** The shared queries whose loading flag `e` reads without a hold over it. */
-  const unheld = (e: ts.Node, held: Set<ts.CallExpression>, path: Set<Binding>): ts.CallExpression[] => {
-    const out: ts.CallExpression[] = []
+  /**
+   * The shared query whose `status` `e` reads: `query.status`, a destructured `status`, or a name holding one
+   * through same-file consts or a same-file hook's returned object (`const { status } = useAuthGate()`,
+   * `return { userStatus: userQuery.status }`), as the loading reads are followed.
+   */
+  const statusOf = (e: ts.Expression, seen = new Set<Binding>()): ts.CallExpression | null => {
+    const inner = unwrap(e)
+    if (ts.isPropertyAccessExpression(inner)) return inner.name.text === 'status' ? queryOf(inner.expression) : null
+    if (!ts.isIdentifier(inner)) return null
+    const b = visible(inner)
+    if (!b || seen.has(b)) return null
+    const via = b.init ?? hookReturn(b)
+    return destructured(b, /^status$/) ?? (via ? statusOf(via, new Set([...seen, b])) : null)
+  }
+  const EQUALITY = new Set([
+    ts.SyntaxKind.EqualsEqualsEqualsToken, ts.SyntaxKind.EqualsEqualsToken,
+    ts.SyntaxKind.ExclamationEqualsEqualsToken, ts.SyntaxKind.ExclamationEqualsToken,
+  ])
+  const isPendingLiteral = (e: ts.Expression) => ts.isStringLiteralLike(unwrap(e)) && (unwrap(e) as ts.StringLiteral).text === 'pending'
+
+  /** The shared queries whose loading state `e` reads without a hold over it, and those it reads a fetch flag of. */
+  const unheld = (e: ts.Node, held: Set<ts.CallExpression>, path: Set<Binding>): Read[] => {
+    const out: Read[] = []
+    const loading = (query: ts.CallExpression, held: Set<ts.CallExpression>) => {
+      if (!held.has(query)) out.push({ query, fetching: false })
+    }
     const visit = (n: ts.Node, held: Set<ts.CallExpression>): void => {
       if (ts.isBinaryExpression(n) && n.operatorToken.kind === ts.SyntaxKind.AmpersandAmpersandToken) {
         visit(n.left, new Set([...held, ...holdsIn(n.right)]))
@@ -268,7 +287,7 @@ function unheldGates(source: string, fileName: string, shared: Set<string>): Gat
         const side = isPendingLiteral(n.right) ? n.left : isPendingLiteral(n.left) ? n.right : null
         const q = side && statusOf(side)
         if (q) {
-          if (!held.has(q)) out.push(q)
+          loading(q, held)
           return
         }
       }
@@ -276,7 +295,8 @@ function unheldGates(source: string, fileName: string, shared: Set<string>): Gat
       if (ts.isPropertyAccessExpression(n) && (LOADING.test(n.name.text) || FETCHING.test(n.name.text))) {
         const q = queryOf(n.expression)
         if (q) {
-          if (FETCHING.test(n.name.text) || !held.has(q)) out.push(q)
+          if (FETCHING.test(n.name.text)) out.push({ query: q, fetching: true })
+          else loading(q, held)
           return
         }
       }
@@ -286,12 +306,12 @@ function unheldGates(source: string, fileName: string, shared: Set<string>): Gat
         if (!b || path.has(b)) return
         const fetching = destructured(b, FETCHING)
         if (fetching) {
-          out.push(fetching)
+          out.push({ query: fetching, fetching: true })
           return
         }
         const q = destructured(b, LOADING)
         if (q) {
-          if (!held.has(q)) out.push(q)
+          loading(q, held)
           return
         }
         const via = b.init ?? hookReturn(b)
@@ -307,13 +327,15 @@ function unheldGates(source: string, fileName: string, shared: Set<string>): Gat
 
   const gates: Gate[] = []
   const check = (node: ts.Node, condition: ts.Expression): void => {
-    const queries = unheld(condition, new Set(), new Set())
-    if (!queries.length) return
+    const reads = unheld(condition, new Set(), new Set())
+    if (!reads.length) return
     const { line } = sf.getLineAndCharacterOfPosition(node.getStart(sf))
+    const families = (rs: Read[]) => [...new Set(rs.map((r) => queryFamily(r.query) as string))].sort()
     gates.push({
       line: line + 1,
       expr: condition.getText(sf).replace(/\s+/g, ' '),
-      families: [...new Set(queries.map((q) => queryFamily(q) as string))].sort(),
+      families: families(reads),
+      fetching: families(reads.filter((r) => r.fetching)),
     })
   }
   const visit = (node: ts.Node): void => {
@@ -332,9 +354,10 @@ function unheldGates(source: string, fileName: string, shared: Set<string>): Gat
 /**
  * Gates that read a shared query's loading flag without the hold, kept because no observer of that query can
  * mount over its failure: pinned as `condition [families]` (the condition's exact text and the shared families
- * it reads), with a reason. Shrink-only and capped.
+ * it reads), with a reason. Shrink-only and capped. A gate that reads a fetch flag cannot be pinned.
  */
-const ALLOW: Record<string, { sites: string[]; reason: string }> = {
+type Allow = Record<string, { sites: string[]; reason: string }>
+const ALLOW: Allow = {
   'app/admin/layout.tsx': {
     sites: ['isLoading [queryKeys.currentUser]'],
     reason:
@@ -366,6 +389,28 @@ const ALLOW: Record<string, { sites: string[]; reason: string }> = {
 const MAX_ALLOWLIST_SIZE = 4
 const MAX_PINNED_SITES = 5
 
+/**
+ * The gates `allow` does not pin, each pin covering one gate. A gate that reads a fetch flag of a shared query
+ * is an offender whatever its pin: its condition's text can stay the pinned one while a name in it starts
+ * reading `isFetching` (`const isLoading = firstLoad || isFetching`), and no page may gate on a fetch flag.
+ */
+function offendersIn(found: Map<string, Gate[]>, allow: Allow): string[] {
+  const offenders: string[] = []
+  for (const [file, gates] of found) {
+    const allowed = [...(allow[file]?.sites ?? [])]
+    for (const gate of gates) {
+      if (gate.fetching.length) {
+        offenders.push(`${file}:${gate.line}: ${pin(gate)} reads a fetch flag of ${gate.fetching.join(', ')}`)
+        continue
+      }
+      const i = allowed.indexOf(pin(gate))
+      if (i === -1) offenders.push(`${file}:${gate.line}: ${pin(gate)}`)
+      else allowed.splice(i, 1)
+    }
+  }
+  return offenders
+}
+
 // Shared families: observed by at least two modules.
 const observers = new Map<string, Set<string>>()
 const gateFiles: Array<{ rel: string; source: string }> = []
@@ -383,7 +428,10 @@ for (const { rel, source } of gateFiles) {
 }
 
 const FIXTURE_SHARED = new Set(['queryKeys.currentUser', 'queryKeys.usage.byUser'])
-const seen = (fixture: string) => unheldGates(fixture, 'fixture.tsx', FIXTURE_SHARED).map((gate) => `${gate.line}: ${pin(gate)}`)
+const seen = (fixture: string) =>
+  unheldGates(fixture, 'fixture.tsx', FIXTURE_SHARED).map(
+    (gate) => `${gate.line}: ${pin(gate)}${gate.fetching.length ? ` fetching [${gate.fetching.join(', ')}]` : ''}`,
+  )
 
 describe('a page loading gate over a shared query holds its shown failure (rule-12 gate)', () => {
   it('sees loading read directly, as a member, renamed, through consts and through a same-file hook, and nothing else', () => {
@@ -446,6 +494,7 @@ describe('a page loading gate over a shared query holds its shown failure (rule-
       '  if (userLoading && (ready ? !userFailure.failed : true)) return <Spinner />', // one ternary branch
       '  if (userLoading && (!userFailure.failed || !user)) return <Spinner />', // the hold, or no user
       '  if (userLoading && check(!userFailure.failed)) return <Spinner />', // inside a call
+      '  if (userLoading && !(userFailure.failed)) return <Spinner />', // held: only the negated operand is parenthesized
       '  return <Page />',
       '}',
     ].join('\n')
@@ -483,19 +532,115 @@ describe('a page loading gate over a shared query holds its shown failure (rule-
       '  if (userQuery.isLoading) return wrap(<Spinner />)', // a call around the JSX
       '  if (userQuery.isLoading) return !userQuery.data ? <Spinner /> : null', // a ternary in the return
       '  if (userQuery.isLoading) return setUser(null)', // a call given only null renders nothing
+      '  if (userQuery.isLoading) return ready ? <Spinner /> : undefined', // a ternary with one render branch
+      '  if (userQuery.isLoading) return createPortal(<Spinner />, document.body)', // JSX among other arguments
       '  return <Page />',
       '}',
     ].join('\n')
     expect(seen(fixture)).toEqual([
-      '7: userQuery.isFetching && !userFailure.failed [queryKeys.currentUser]',
-      '8: isFetching [queryKeys.currentUser]',
-      "9: userFetch !== 'idle' [queryKeys.currentUser]",
-      '10: userQuery.isRefetching [queryKeys.currentUser]',
+      '7: userQuery.isFetching && !userFailure.failed [queryKeys.currentUser] fetching [queryKeys.currentUser]',
+      '8: isFetching [queryKeys.currentUser] fetching [queryKeys.currentUser]',
+      "9: userFetch !== 'idle' [queryKeys.currentUser] fetching [queryKeys.currentUser]",
+      '10: userQuery.isRefetching [queryKeys.currentUser] fetching [queryKeys.currentUser]',
       "11: userQuery.status === 'pending' [queryKeys.currentUser]",
       "12: 'pending' === status [queryKeys.currentUser]",
       "13: userStatus !== 'pending' [queryKeys.currentUser]",
       '17: userQuery.isLoading [queryKeys.currentUser]',
       '18: userQuery.isLoading [queryKeys.currentUser]',
+      '20: userQuery.isLoading [queryKeys.currentUser]',
+      '21: userQuery.isLoading [queryKeys.currentUser]',
+    ])
+  })
+
+  it("follows `status` through a same-file hook's returned object, shorthand or renamed", () => {
+    const fixture = [
+      'function useAuthGate() {',
+      '  const { status } = useQuery({ queryKey: queryKeys.currentUser(), queryFn })',
+      '  return { status }',
+      '}',
+      'function useAccount() {',
+      '  const userQuery = useQuery({ queryKey: queryKeys.currentUser(), queryFn })',
+      '  return { userStatus: userQuery.status, plan: userQuery.data?.plan }',
+      '}',
+      'export function E() {',
+      '  const { status } = useAuthGate()',
+      '  const { userStatus, plan } = useAccount()',
+      "  if (status === 'pending') return <Spinner />", // the hook's shorthand `{ status }`
+      "  if (userStatus === 'pending') return <Spinner />", // the hook's `userQuery.status`, renamed
+      "  if (plan === 'pending') return <Spinner />", // another property of the same query: not its status
+      '  return <Page />',
+      '}',
+    ].join('\n')
+    expect(seen(fixture)).toEqual([
+      "12: status === 'pending' [queryKeys.currentUser]",
+      "13: userStatus === 'pending' [queryKeys.currentUser]",
+    ])
+  })
+
+  // A fetch flag is never pinnable. A pinned condition keeps its text while a name in it starts reading
+  // `isFetching` of a family it already reads, so its pin still matches: the gate must fail anyway.
+  const ADMIN_FORM = [
+    'export default function AdminLayout({ children }: Props) {',
+    '  const { data: user, isLoading: firstLoad, isFetching } = useQuery({ queryKey: queryKeys.currentUser(), queryFn })',
+    '  const isLoading = firstLoad || isFetching',
+    '  if (isLoading) return <Skeleton />',
+    '  return <>{children}</>',
+    '}',
+  ].join('\n')
+  const WATCHLIST_FORM = [
+    'function useAuthGate() {',
+    '  const { data: user, isLoading, isFetching } = useQuery({ queryKey: queryKeys.currentUser(), queryFn })',
+    '  return { isReady: !isLoading && !isFetching, hasUser: Boolean(user) }',
+    '}',
+    'export default function WatchlistPage() {',
+    '  const { isReady } = useAuthGate()',
+    '  const { isLoading } = useQuery({ queryKey: queryKeys.usage.byUser(id), queryFn })',
+    '  if (!isReady || isLoading) return <Skeleton />',
+    '  return <Page />',
+    '}',
+  ].join('\n')
+  it('never pins a fetch flag: the admin layout and watchlist hook forms fail though their pins match', () => {
+    const allow: Allow = {
+      'admin.tsx': { sites: ['isLoading [queryKeys.currentUser]'], reason: 'fixture' },
+      'watchlist.tsx': { sites: ['!isReady || isLoading [queryKeys.currentUser, queryKeys.usage.byUser]'], reason: 'fixture' },
+    }
+    const scan = (forms: Record<string, string>) =>
+      new Map(Object.entries(forms).map(([file, source]) => [file, unheldGates(source, file, FIXTURE_SHARED)]))
+    const fetching = scan({ 'admin.tsx': ADMIN_FORM, 'watchlist.tsx': WATCHLIST_FORM })
+    expect([...fetching.values()].flat().map(pin)).toEqual(Object.values(allow).flatMap(({ sites }) => sites))
+    expect(offendersIn(fetching, allow)).toEqual([
+      'admin.tsx:4: isLoading [queryKeys.currentUser] reads a fetch flag of queryKeys.currentUser',
+      'watchlist.tsx:8: !isReady || isLoading [queryKeys.currentUser, queryKeys.usage.byUser] reads a fetch flag of queryKeys.currentUser',
+    ])
+    // The same pages without the fetch flag: the same pins, and they hold.
+    const loading = scan({
+      'admin.tsx': ADMIN_FORM.replace(', isFetching }', ' }').replace('firstLoad || isFetching', 'firstLoad'),
+      'watchlist.tsx': WATCHLIST_FORM.replace(', isFetching }', ' }').replace(' && !isFetching', ''),
+    })
+    expect(offendersIn(loading, allow)).toEqual([])
+  })
+
+  it("the admin layout's and the watchlist page's pins do not cover a fetch flag folded into their pinned names", () => {
+    const fold = (file: string, edits: Array<[string, string]>) => {
+      let source = readFileSync(path.join(frontendRoot, file), 'utf8')
+      expect(offendersIn(new Map([[file, unheldGates(source, file, shared)]]), ALLOW)).toEqual([])
+      for (const [from, to] of edits) {
+        expect(source).toContain(from)
+        source = source.replace(from, to)
+      }
+      return offendersIn(new Map([[file, unheldGates(source, file, shared)]]), ALLOW)
+    }
+    expect(fold('app/admin/layout.tsx', [
+      ['const { data: user, isLoading } = useQuery({', 'const { data: user, isLoading: firstLoad, isFetching } = useQuery({'],
+      ['  const isAdmin = ', '  const isLoading = firstLoad || isFetching\n  const isAdmin = '],
+    ])).toEqual([expect.stringMatching(/^app\/admin\/layout\.tsx:\d+: isLoading \[queryKeys\.currentUser\] reads a fetch flag of queryKeys\.currentUser$/)])
+    expect(fold('app/dashboard/watchlist/page.tsx', [
+      ['const { data: user, isLoading } = useQuery({', 'const { data: user, isLoading, isFetching } = useQuery({'],
+      ['isReady: !isLoading,', 'isReady: !isLoading && !isFetching,'],
+    ])).toEqual([
+      expect.stringMatching(
+        /^app\/dashboard\/watchlist\/page\.tsx:\d+: !isReady \|\| isLoading \[queryKeys\.currentUser, queryKeys\.watchlistInsights\] reads a fetch flag of queryKeys\.currentUser$/,
+      ),
     ])
   })
 
@@ -517,20 +662,12 @@ describe('a page loading gate over a shared query holds its shown failure (rule-
   })
 
   it('no page gates a shared query on loading without holding its shown failure, outside the allowlist', () => {
-    const offenders: string[] = []
-    for (const [file, gates] of found) {
-      const allowed = [...(ALLOW[file]?.sites ?? [])]
-      for (const gate of gates) {
-        const i = allowed.indexOf(pin(gate))
-        if (i === -1) offenders.push(`${file}:${gate.line}: ${pin(gate)}`)
-        else allowed.splice(i, 1)
-      }
-    }
     expect(
-      offenders,
+      offendersIn(found, ALLOW),
       'A loading gate over a query other components observe must hold the failure it shows: ' +
         '`if (isLoading && !failure.failed)` with `const failure = useRetainedFailure(query, queryKey)` ' +
-        '(hooks/useRetainedFailure.tsx). See lessons/frontend-spinner-gate-on-shared-errored-query.md.',
+        '(hooks/useRetainedFailure.tsx), and never reads its isFetching / isRefetching / fetchStatus. ' +
+        'See lessons/frontend-spinner-gate-on-shared-errored-query.md.',
     ).toEqual([])
   })
 

@@ -565,6 +565,28 @@ describe('a Retry of a query is RetryButton (rule-12 gate)', () => {
     ])
   })
 
+  it('binds a function declaration in its own block, and an overloaded one to its implementation', () => {
+    const fixture = [
+      'export function A({ query }: Props) {',
+      '  function reload() { void query.refetch() }',
+      '  return <Button onClick={reload}>Reload</Button>', // A's reload refetches: counts
+      '}',
+      'export function B() {',
+      "  function reload() { track('reload') }",
+      '  return <Button onClick={reload}>Reload</Button>', // B's own reload, not A's: does not count
+      '}',
+      'function refresh(): void',
+      'function refresh(force?: boolean) { void client.refetchQueries() }',
+      'export function C() {',
+      '  return <Button onClick={refresh}>Reload</Button>', // the implementation, not the bodiless signature: counts
+      '}',
+    ].join('\n')
+    expect(retrySites(fixture, 'fixture.tsx').map((site) => `${site.line}: ${site.expr}`)).toEqual([
+      '3: reload',
+      '12: refresh',
+    ])
+  })
+
   it("exempts RetryButton's own definition, in its own file, and nothing else", () => {
     const handRolled = (name: string) => [
       `export function ${name}({ query }: Props) {`,
