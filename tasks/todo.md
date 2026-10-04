@@ -6180,3 +6180,27 @@ Full local and hosted verification plus independent exact-head review precede re
 - [x] Backend: recipient names enter email templates only through escaping helpers (AST gate); waitlist and signup names bounded and control-character free; waitlist status lookup rate limited and trimmed; contact confirmation no longer echoes the message. Summaries and Copilot answers are metered when the provider call starts, refunded only for provider-side failure, timeout or a partial verdict; per-user burst limiters keyed on the account alone (AST gate). Social sign-in creation is gated like email registration (invite and verified-email checks in one helper, AST gate); Apple state bound to the browser; invite redeemed in the insert transaction.
 - [ ] Founder console actions from the private remediation plan (credential rotation and push protection, removing the existing revision tags after the deploy, scoping the WIF trust to `main`) are not code and remain open.
 - [ ] Remaining packages WP-07 onward follow in their own PRs.
+
+## 2026-10-04 — H20 partial note-input binding
+
+- Bind the source owner's two ordered 15-note sets and exact U001 origin context to externally
+  pinned approval files and the independent complete original packet contract. Preserve both
+  representations, byte spans, source labels and all outstanding closure obligations.
+- Offline metadata preflight only: no source payload fixture, graph/schema1 change, prompt,
+  provider call, reservation or source/capacity/admission claim. Held PR1035 remains unchanged.
+- Three synthetic guards cover contract authority/scope, native byte custody and non-admission.
+  Focused checks and one mutation per guard precede independent review and the full backend gate.
+  Interface and remaining gates: [H20 note inputs](readiness-2026-09-21/acceptance/h20-note-inputs.md).
+
+## 2026-10-04 — H20 joint native input custody
+
+- Bind independently pinned original/review packets by exact whole-packet identity, preserve
+  the whole source-unit manifest and native structural labels, and render same/foreign-packet
+  dependency context under the existing aggregate context limits. Bind source-control hashes.
+- Add explicit prompt/graph/journal/replay schema2 hooks while preserving schema1 behavior,
+  node kinds and complete-child parent inputs. Refuse schema2 journals at the current native
+  delivery adapter before process work. No provider call, source acceptance or capacity claim.
+- Three synthetic guards and one committed-state mutation each cover the new boundaries.
+  Full H20 mappings, larger closures, modality delivery and capacity proofs remain separate;
+  held PR1035 is unchanged. Accept the exact source-approved note-v2 status without admitting
+  unknown successors. [Interface and limitations](readiness-2026-09-21/acceptance/h20-note-inputs.md).

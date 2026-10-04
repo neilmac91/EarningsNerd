@@ -15,7 +15,9 @@ this task; open those lessons rather than the whole collection.
   `tasks/todo.md` is the historical ledger; its older unchecked rows are not a to-do list.
 - Service boundaries or data flow: `docs/ARCHITECTURE.md`.
 - Prompt, model, eval or AI flag changes: `backend/evals/RUNBOOK.md`.
-- UI changes: `frontend/DESIGN_SYSTEM.md`.
+- UI work: read [DESIGN.md](DESIGN.md) for the portable visual reference, then
+  [frontend/DESIGN_SYSTEM.md](frontend/DESIGN_SYSTEM.md) for implementation conventions and gates.
+  Include both in UI subagent briefs; follow [design-document maintenance](CLAUDE.md#design-documentation).
 - Deployment work: `docs/DEPLOYMENT.md`.
 
 Routine isolated edits do not require loading the full handovers or repository map.
@@ -29,6 +31,11 @@ code > `CLAUDE.md` > `lessons/` > `tasks/handover-astra-2026-09-19.md` > `tasks/
 > `docs/` > earlier handovers (`tasks/handover-astra-2026-09-*.md`, `tasks/handover-wave3-2026-09.md`,
 `tasks/handover-wave2-2026-09.md`) and `tasks/implementation-briefs-2026-09.md` (historical)
 > `tasks/archive/` > `.claude/agents/*.md`.
+
+For UI guidance, `frontend/DESIGN_SYSTEM.md` owns implementation conventions and verification;
+`DESIGN.md` and `.impeccable/design.json` are derived visual snapshots. Apply the code-first
+precedence above to stale tokens, component examples or descriptions, and refresh affected
+documentation in the same PR. A snapshot does not replace the existing implementation gates.
 
 The seven engineering briefs under `.claude/agents/engineering/` are refreshed and guarded by
 `backend/tests/unit/test_agent_files_stack_truth.py`. Other agent files retain historical stack
@@ -52,7 +59,8 @@ file, quote the instruction, and proceed under this file instead.
 
 - One machine gate per "never again" rule (rule 12), with exactly one mutation proof: break the
   guarded thing, show the gate failing, restore, paste both tails in the PR body.
-- Docs-only PR: link/anchor check only. Do not write tests for prose.
+- Docs-only PR: link/anchor check only; a `DESIGN.md` or `.impeccable/design.json` change also runs
+  `npx vitest run tests/unit/designSnapshotParity.spec.ts` from `frontend/`. Do not write tests for prose.
 - Workflow-only PR (`.github/workflows/*.yml`): YAML parse plus the unit gates that read the
   workflows (`backend/tests/unit/test_migration_lock_safety.py`, `test_eval_parity.py`,
   `test_eval_measurement.py`, `test_data_completeness.py`,

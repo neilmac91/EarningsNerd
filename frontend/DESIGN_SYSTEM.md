@@ -3,7 +3,14 @@
 **Drop-in replacement for `frontend/DESIGN_SYSTEM.md`** (synced July 2026: single Sage accent,
 type v2, cream-audited contrast). Token *definitions* live in `frontend/tailwind.config.js`;
 this doc is the *how/why* + the rules learned the hard way. Read it before touching any UI;
-subagent briefs for UI work should link here.
+subagent briefs for UI work should link here and to [the root DESIGN.md](../DESIGN.md).
+
+Read `DESIGN.md` first for the visual direction and portable token/component snapshot. This guide
+retains implementation conventions, exceptions and verification gates; actual token definitions
+and component code take precedence over stale snapshots. Follow the
+[maintenance guidance in CLAUDE.md](../CLAUDE.md#design-documentation) when a change affects the
+documented system. The [.impeccable/design.json sidecar](../.impeccable/design.json) is a preview
+companion to `DESIGN.md`, not a replacement for the components or the checks below.
 
 > TL;DR: **brand = ONE Sage accent in both themes** (the sage/slate split is retired).
 > Mint/emerald/`primary`/blue/sky/teal are **not** brand. Contrast is audited against the warm
@@ -88,10 +95,10 @@ shared surface (it caused white-on-cream and dark-on-cream bugs across the app).
 ## 4. Canonical component patterns
 
 **Compose the component layer, don't hand-roll** — `components/ui/*` (Button, Badge, Input, Card,
-DataTable, Skeleton, GuidanceCard, Notice, Modal) + `components/AskFilingAnswer.tsx` (v2.2: reworked to
-the SHIPPED copilot data model — see below). Every component defines
-default / hover / active / focus-visible / disabled / loading plus the system states (empty,
-skeleton via the shared shimmer keyframe, error).
+DataTable, Skeleton, GuidanceCard, Notice, Modal) + `features/filings/components/AskFilingAnswer.tsx` (v2.2: reworked to
+the SHIPPED copilot data model — see below). Controls expose their applicable interaction and
+availability states; data surfaces supply loading, empty and error treatments as supported by
+their APIs. Passive Card and Badge primitives do not implement the full control-state set.
 
 A control that is busy, or unavailable as a result of its own activation, never takes native
 `disabled`: Chromium blurs a focused control that turns disabled, so keyboard focus falls to
@@ -99,7 +106,8 @@ A control that is busy, or unavailable as a result of its own activation, never 
 handler, styled with `primaryUnavailableClass` (primary Button), `secondaryUnavailableClass` (secondary
 Button; it fades the label and hairline, not the element, so the focus ring keeps its strength) or
 `fieldUnavailableClass` (field).
-Text fields use `readOnly` while their own form submits. Gate: `tests/unit/busyControlsStayFocusable.spec.ts`;
+A form that locks its text fields while it submits uses `readOnly`, never native `disabled` (`ContactForm` does;
+the login and register forms leave their fields editable). Gate: `tests/unit/busyControlsStayFocusable.spec.ts`;
 rules in `lessons/frontend-busy-controls-stay-focusable.md`.
 
 A Retry of a failed query is
@@ -238,7 +246,8 @@ Ask answer       <AskFilingAnswer>  — the SHIPPED copilot contract: status rea
   bones are `aria-hidden` — a wrapper composed of raw bones needs `role="status"` + an sr-only label.
 - **Evidence identity:** the Ask-this-Filing header tile uses the Phosphor `quotes` glyph;
   `sparkle` appears ONLY on the "AI summary" chip.
-- Sortable table headers render as buttons with `aria-sort`, ▲/▼, and the brand focus ring.
+- Sortable table headers contain buttons with ▲/▼ and the brand focus ring; `aria-sort` belongs
+  to the enclosing header cell (`th`).
 - **Class maps outside JSX must sit under a `content` glob.** Tailwind generates only the classes
   it finds in the modules `tailwind.config.js` `content` scans. A class composed in an unscanned
   module ships unstyled and nothing reports it: `lib/financialTone.directionChip` lost its /20
@@ -277,8 +286,9 @@ tighter hairline strip). Muted text on the cream page ground is `text-secondary`
 ## 8. Theme mechanics
 
 - **One** `<ThemeToggle/>`, in the global `Header` (desktop + mobile). No page-level toggles.
-- `app/layout.tsx` runs a **pre-paint theme bootstrap script** (saved `localStorage.theme` else
-  system pref) to prevent FOUC. Keep `suppressHydrationWarning` on `<html>`.
+- `app/layout.tsx` runs a **pre-paint theme bootstrap script** (saved `localStorage.theme`, else
+  light; there is no system-preference detection) to prevent FOUC, and `ThemeProvider` re-syncs to
+  the same value after hydration. Keep `suppressHydrationWarning` on `<html>`.
 - Logo: `<EarningsNerdLogo mode="auto" />` follows the app theme — don't hardcode `mode="dark"`.
 - Fonts are self-hosted via `next/font` (Inter with `axes: ['opsz']`, Geist Mono, Newsreader) —
   see `app/layout.tsx`; SF Pro / New York are platform-licensed and must never be embedded.
@@ -342,9 +352,12 @@ Recharts/rAF, which need numbers). **No raw ms or bezier strings anywhere else.*
   AskFilingAnswer) — never on first paint of never-loading views.
 - **Stagger**: `animate-fade-up-stagger` + `--stagger-index` (0-based; step = fast; capped at 4;
   first paint only). `fade-up-delay-1/2/3` are retired.
-- **Reduced motion**: one source — `hooks/usePrefersReducedMotion`. Every animation has a fallback:
+- **Reduced motion**: one source — `hooks/usePrefersReducedMotion`. Every animation needs a fallback:
   `animation: none` for transform entrances, static bone (shimmer), static tint (citation-flash),
-  instant final value (count-up, Recharts `lineProps(reduced)`), `scroll-behavior: auto`.
+  instant final value (count-up, Recharts `lineProps(reduced)`), `scroll-behavior: auto`. Known
+  gaps include the `animate-fade-up` entrances in `app/login/page.tsx`, `RegisterForm`, `AuthShell`
+  and `CookieConsent`, the streaming `animate-pulse` indicators in `CopilotMessage`, and standalone
+  `animate-spin` loaders; none has a `motion-reduce:` guard yet.
 - **Nothing decorative** — `animate-float` is retired. Signature set: count-up, citation-flash,
   skeleton→content, sparkline draw-in, check-pop.
 
@@ -386,3 +399,5 @@ Recharts/rAF, which need numbers). **No raw ms or bezier strings anywhere else.*
    editing this section without editing the gate fails, and vice versa.
 4. **Verify in BOTH themes** on the Vercel preview — green CI ≠ correct visuals.
 5. Run `npm run typecheck`, `npm run lint` (`--max-warnings 0`), `npm run build`, `npm run test`.
+   `npm run test` includes `tests/unit/designSnapshotParity.spec.ts`, which fails until the root
+   `DESIGN.md` and its sidecar match the changed tokens ([maintenance guidance](../CLAUDE.md#design-documentation)).
