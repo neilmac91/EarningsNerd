@@ -26,6 +26,16 @@ export const register = async (
   return response.data
 }
 
+/**
+ * Start an invited social sign-up. The closed-beta invite is a live single-use credential, so it is
+ * sent in the request body (never a URL: request logs record query strings); the backend stores its
+ * hash against the OAuth state, sets the state cookie and returns the provider URL to navigate to.
+ */
+export const startOAuthWithInvite = async (provider: 'google' | 'apple', invite: string): Promise<string> => {
+  const response = await api.post<{ url: string }>(`/api/auth/${provider}/start`, { invite })
+  return response.data.url
+}
+
 export const login = async (email: string, password: string, turnstileToken?: string) => {
   const generation = getExplicitSessionGeneration()
   const response = await api.post(

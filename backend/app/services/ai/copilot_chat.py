@@ -16,7 +16,9 @@ from typing import Any, AsyncGenerator, Dict, List, Optional
 from app.config import settings
 from app.services.ai import provider_admission
 from app.services.ai.model_flags import _thinking_disabled_model
-from app.services.ai.provider_requests import close_stream, is_timeout, retry_delay, transient
+from app.services.ai.provider_requests import (
+    close_stream, is_timeout, retry_delay, signal_provider_start, transient,
+)
 from app.services.ai_metrics import record_ai_call
 
 logger = logging.getLogger(__name__)
@@ -90,6 +92,10 @@ class _CopilotChatMixin:
                 async with provider_admission.admit(remaining):
                     try:
                         async with asyncio.timeout_at(deadline):
+                            # The metering signal: a provider request is about to leave. Fired here,
+                            # at the request site, so a caller that meters on it is never behind the
+                            # prose holdback or a tool round (one-shot per armed context).
+                            signal_provider_start()
                             stream = await self.client.chat.completions.create(**kwargs)
                             async for chunk in stream:
                                 if getattr(chunk, "model", None):

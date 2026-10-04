@@ -24,8 +24,8 @@ APP_DIR = Path(__file__).resolve().parents[2] / "app"
 # The ONLY sanctioned stdlib-naive `datetime.utcnow()` call sites in app/, as (file, function) pairs
 # — the deliberately-naive OAuthState/RefreshToken token-expiry cluster.
 ALLOWED_NAIVE_UTCNOW = {
-    ("routers/auth.py", "apple_login"),            # OAuthState.expires_at write + GC compare
-    ("routers/auth.py", "apple_callback"),         # OAuthState.expires_at compare
+    ("routers/auth.py", "_store_oauth_state"),     # OAuthState.expires_at write + GC compare
+    ("routers/auth.py", "_consume_oauth_state"),   # OAuthState.expires_at compare
     ("services/refresh_token_service.py", "create_refresh_token"),
     ("services/refresh_token_service.py", "rotate_refresh_token"),
     ("services/refresh_token_service.py", "revoke_refresh_token"),

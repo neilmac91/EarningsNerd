@@ -190,6 +190,28 @@ def test_ops_renderer_rejects_unresolved_traffic_before_describing(resources, de
     describe.assert_not_called()
 
 
+def test_deploy_routes_traffic_to_latest_and_clears_revision_tags():
+    """A tagged revision stays addressable at its own URL at 0% traffic, so a leftover tag keeps a
+    retired image serving beside the release; every deploy must clear tags when it routes traffic."""
+    job = _workflow("ci.yml")["jobs"]["deploy-backend"]
+    run = _step(job, "Deploy Cloud Run service")["run"]
+    executable = [line.strip() for line in run.splitlines() if line.strip() and not line.lstrip().startswith("#")]
+    traffic = [line for line in executable if "update-traffic" in line]
+    assert len(traffic) == 1, f"expected exactly one update-traffic command, found {traffic}"
+    assert "--to-latest" in traffic[0] and "--clear-tags" in traffic[0], traffic[0]
+
+
+def test_ops_renderer_rejects_tagged_traffic_targets(resources):
+    service, revision, job = resources
+    service["status"]["traffic"].append({"revisionName": "retired", "percent": 0, "tag": "old"})
+    with patch("subprocess.check_output", side_effect=[json.dumps(revision), json.dumps(job)]) as describe, \
+            patch.dict("os.environ", {"REGION": "fixture-region"}), \
+            pytest.raises(SystemExit, match="tagged traffic targets"):
+        with patch("builtins.open", return_value=io.StringIO(json.dumps(service))):
+            exec(compile(_ops_code(), "ops-describe", "exec"), {})
+    describe.assert_not_called()
+
+
 @pytest.mark.parametrize("resource,count", [("revision", 0), ("revision", 2), ("job", 0), ("job", 2)])
 def test_ops_renderer_requires_single_application_container(resources, resource, count):
     service, revision, job = resources

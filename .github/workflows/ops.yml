@@ -83,17 +83,34 @@ env:
 
 jobs:
   ops:
+    # Operations run against production, so only the reviewed definition on main may run: a
+    # dispatch from another ref is skipped before any step executes.
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
 
       - name: Resolve requested operation
         id: request
+        # Dispatch inputs reach the shell only through env: (never interpolated into the script),
+        # so their text can never be parsed as shell before the validation below runs
+        # (tests/unit/test_workflow_dispatch_inputs.py).
+        env:
+          OP: ${{ inputs.operation }}
+          TICKERS: ${{ inputs.tickers }}
+          REVISION: ${{ inputs.revision }}
         run: |
           set -euo pipefail
-          OP="${{ inputs.operation }}"
-          TICKERS="${{ inputs.tickers }}"
-          REVISION="${{ inputs.revision }}"
+          # Every input is bounded before any operation-specific check, including the fields the
+          # requested operation does not use: the values are written line-by-line to $GITHUB_OUTPUT
+          # below, where an unvalidated field could carry extra "name=value" lines and redefine an
+          # output a later step relies on.
+          [[ "$TICKERS" =~ ^[A-Za-z0-9.,-]*$ ]] \
+            || { echo "::error::tickers may contain only letters, digits, '.', '-' and ','"; exit 1; }
+          [[ "$REVISION" =~ ^[a-z0-9-]*$ ]] \
+            || { echo "::error::revision may contain only lowercase letters, digits and '-'"; exit 1; }
           case "$OP" in
             describe-service|describe-jobs|detection-sql|logs-probe|capacity-readout|jobs-channel-noop-probe|repair-ticker-dry-run|repair-ticker-apply|sync-companyfacts|backfill-filing-history|data-quality-report|reset-filing-summary-dry-run|reset-filing-summary-apply|rollback-traffic) ;;
             *) echo "::error::unknown operation '$OP'"; exit 1 ;;
@@ -183,6 +200,11 @@ jobs:
           svc = json.load(open("/tmp/svc.json"))
           status = svc["status"]
           latest = status.get("latestReadyRevisionName")
+          tagged = [target.get("revisionName") for target in status.get("traffic", []) if target.get("tag")]
+          if tagged:
+              # A tagged revision stays routable at its own URL whatever its traffic share, so a
+              # leftover tag keeps a retired image serving beside the release.
+              raise SystemExit(f"Unresolved production configuration: tagged traffic targets {tagged}; remove stale revision tags.")
           traffic = [target for target in status.get("traffic", []) if target.get("percent", 0) > 0]
           print("Serving traffic:", traffic)
           if (not latest or status.get("latestCreatedRevisionName") != latest
@@ -509,10 +531,11 @@ jobs:
           STRIPE_SECRET_KEY: sk_test_ops
           STRIPE_WEBHOOK_SECRET: whsec_ops
           PWNED_PASSWORD_CHECK_ENABLED: 'false'
+          OP: ${{ steps.request.outputs.operation }}
         run: |
           set -euo pipefail
           [ -f scripts/repair_ticker_by_cik.py ] || { echo "::error::repair script not committed yet"; exit 1; }
-          if [ "${{ steps.request.outputs.operation }}" = "repair-ticker-apply" ]; then
+          if [ "$OP" = "repair-ticker-apply" ]; then
             python scripts/repair_ticker_by_cik.py --apply
           else
             python scripts/repair_ticker_by_cik.py
@@ -521,9 +544,10 @@ jobs:
       # ------------------------------------------------------------------ internal jobs
       - name: Trigger companyfacts resync (internal endpoint; jobs-channel fallback)
         if: steps.request.outputs.operation == 'sync-companyfacts'
+        env:
+          TICKERS: ${{ steps.request.outputs.tickers }}
         run: |
           set -euo pipefail
-          TICKERS="${{ steps.request.outputs.tickers }}"
           [ -n "$TICKERS" ] || { echo "::error::tickers input required"; exit 1; }
           TOKEN="$(gcloud secrets versions access latest --secret=INTERNAL_JOB_TOKEN 2>/dev/null || true)"
           if [ -n "$TOKEN" ]; then
@@ -546,9 +570,10 @@ jobs:
 
       - name: Trigger filing-history backfill (internal endpoint; jobs-channel fallback)
         if: steps.request.outputs.operation == 'backfill-filing-history'
+        env:
+          TICKERS: ${{ steps.request.outputs.tickers }}
         run: |
           set -euo pipefail
-          TICKERS="${{ steps.request.outputs.tickers }}"
           TOKEN="$(gcloud secrets versions access latest --secret=INTERNAL_JOB_TOKEN 2>/dev/null || true)"
           if [ -n "$TOKEN" ]; then
             echo "::add-mask::$TOKEN"
@@ -592,14 +617,16 @@ jobs:
 
       - name: Reset a single filing's summary (per-filing regen; jobs channel)
         if: contains('reset-filing-summary-dry-run reset-filing-summary-apply', steps.request.outputs.operation)
+        env:
+          OP: ${{ steps.request.outputs.operation }}
+          TICKER: ${{ steps.request.outputs.tickers }}
         run: |
           set -euo pipefail
-          TICKER="${{ steps.request.outputs.tickers }}"
           [ -n "$TICKER" ] || { echo "::error::a single ticker is required in the tickers field"; exit 1; }
           # Runs the committed per-filing reset in the jobs-channel container (which carries
           # DATABASE_URL). ^;^ switches gcloud's --args delimiter to ';' so each flag stays separate.
           # The script defaults to a dry run; --execute is added only for the -apply operation.
-          if [ "${{ steps.request.outputs.operation }}" = "reset-filing-summary-apply" ]; then
+          if [ "$OP" = "reset-filing-summary-apply" ]; then
             gcloud run jobs execute "$JOBS_CHANNEL_JOB" --region="$REGION" \
               --args="^;^scripts/reset_filing_summary.py;--ticker;${TICKER};--form;10-K;--execute" --wait
             echo "reset-filing-summary APPLIED via jobs channel for: ${TICKER} 10-K (regenerates lazily on next view)"
@@ -612,8 +639,10 @@ jobs:
       # ------------------------------------------------------------------ emergency rollback
       - name: Roll service traffic back to a named revision
         if: steps.request.outputs.operation == 'rollback-traffic'
+        env:
+          REVISION: ${{ steps.request.outputs.revision }}
         run: |
           set -euo pipefail
           gcloud run services update-traffic "$SERVICE" --region="$REGION" \
-            --to-revisions="${{ steps.request.outputs.revision }}=100"
-          echo "traffic pinned to ${{ steps.request.outputs.revision }} — remember to re-run update-traffic --to-latest after the fix deploys"
+            --to-revisions="${REVISION}=100"
+          echo "traffic pinned to ${REVISION} — remember to re-run update-traffic --to-latest after the fix deploys"

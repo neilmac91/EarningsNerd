@@ -13,7 +13,8 @@ every hit). Two AST checks over every ``@<router>.get`` handler in ``app/routers
    (``db.add/add_all/delete/commit/flush/merge`` on a name called ``db``/``session``), a
    ``BackgroundTasks`` parameter or ``.add_task(`` call, or ``asyncio.create_task(``. This catches
    the ``get_*``/``search_*`` handlers the name check cannot. Limitation: a write hidden behind a
-   helper defined in another module is not seen — that remains a review concern.
+   helper outside the handler body (even in the same module) is not seen — that remains a review
+   concern.
 
 Both allow-lists are shrink-only: a NEW hit fails with file:line and the remedy; an allow-listed
 handler that no longer trips the check fails too (prune the entry — the fix is done); an entry
@@ -46,13 +47,13 @@ ALLOWED_SIDE_EFFECTING_GETS: dict[tuple[str, str], str] = {
         "read-through: fires a fire-and-forget companyfacts ingest (asyncio.create_task, deduped, "
         "through the SEC limiter) when coverage is stale; the response itself is a read"
     ),
+    ("app/routers/auth.py", "apple_login"): (
+        "Apple sign-in GET start commits the single-use nonce/state row for the form_post callback; "
+        "the signed SameSite=None, Secure cookie separately binds it to the initiating browser"
+    ),
     ("app/routers/auth.py", "google_callback"): (
         "OAuth redirect callback — the provider returns the user via GET by protocol; creates or "
         "links the account (db.add/flush)"
-    ),
-    ("app/routers/auth.py", "apple_login"): (
-        "starts Sign in with Apple — persists the OAuthState nonce (db.add/commit) because the "
-        "form_post response cannot carry SameSite cookies; GET by protocol (top-level navigation)"
     ),
     ("app/routers/companies.py", "search_companies"): (
         "read-through cache: persists Company rows discovered via the SEC ticker lookup "

@@ -52,11 +52,13 @@ from app.services.posthog_client import (
     EVENT_PAYWALL_HIT,
     capture_funnel_event,
 )
+from app.services.ai.provider_requests import provider_start_signal
 from app.services.subscription_service import (
     check_usage_limit,
     increment_user_usage,
     convert_reservation,
     get_current_month,
+    refund_summary_use,
     release_reservation,
     reserve_summary_use,
 )
@@ -414,11 +416,56 @@ async def stream_filing_summary(
     generation_semaphore: Optional[asyncio.Semaphore] = None
     generation_slot_held = False
     usage_reservation_token: Optional[str] = None
+    # The month the admission lease was counted in when the provider task started; None once the
+    # unit is settled (summary persisted) or refunded, so a refund can happen at most once.
+    charged_month: Optional[str] = None
+    # The in-flight charge write. The thread-pool write cannot be cancelled: when the pipeline
+    # deadline (or a disconnect) cancels the coroutine awaiting it, the worker still finishes and
+    # commits, and the assignment after the await never runs. The write is awaited through
+    # `asyncio.shield`, so this future still resolves with the committed month, and the refund and
+    # release paths settle it before deciding what was actually counted.
+    charge_future: Optional[asyncio.Future] = None
     summary_task: Optional[asyncio.Task] = None
+    provider_started_waiter: Optional[asyncio.Future] = None
 
     async def run_sync_db(func, *args, **kwargs):
         """Run a complete, session-owning DB unit in the thread pool."""
         return await run_in_threadpool(func, *args, **kwargs)
+
+    async def settle_charge() -> None:
+        """Wait for an in-flight charge write and adopt what it committed. Needed when the await
+        on that write was cancelled (pipeline timeout, disconnect) before it could record the month."""
+        nonlocal charged_month, usage_reservation_token
+        if charge_future is None:
+            return
+        if not charge_future.done():
+            await asyncio.wait({charge_future})
+        if charged_month is None and not charge_future.cancelled() and charge_future.exception() is None:
+            month = charge_future.result()
+            if month is not None:
+                charged_month = month
+                usage_reservation_token = None  # the convert deleted it in the same commit
+
+    async def refund_charge(reason: str) -> None:
+        """Give the unit counted at provider start back (at most once). Called only from the
+        provider-failure, timeout and partial-verdict paths — never from cancellation (client
+        disconnect)."""
+        nonlocal charged_month, charge_future
+        await settle_charge()
+        if charged_month is None:
+            return
+        month, charged_month = charged_month, None
+        charge_future = None  # refunded: a later settle must not adopt this write again
+
+        def refund_sync() -> None:
+            with database.SessionLocal() as session:
+                refund_summary_use(user_id, month, session)
+
+        try:
+            await run_sync_db(refund_sync)
+            logger.info(f"[stream:{filing_id}] Refunded the usage unit counted at provider start ({reason})")
+        except Exception as refund_error:  # the unit stays counted; never mask the outcome
+            logger.warning(f"[stream:{filing_id}] Could not refund usage unit ({reason}): {refund_error}")
 
     def record_progress_sync(*args, **kwargs) -> None:
         # record_progress refreshes its returned row after committing. Close that read
@@ -926,16 +973,76 @@ async def stream_filing_summary(
                 sixk_class, sixk_class_audit = sixk.sixk_class, sixk.as_audit()
             if request_evidence is not None:
                 request_evidence.summary_service_invoked = True
-            summary_task = asyncio.create_task(openai_service.summarize_filing(
-                filing_text,
-                company_name,
-                filing_type,
-                xbrl_metrics=xbrl_metrics,
-                filing_excerpt=excerpt,
-                stream_cb=summary_stream_cb,
-                **({"statement_source": statement_source} if statement_source else {}),
-                **({"sixk_class": sixk_class, "sixk_class_audit": sixk_class_audit} if sixk_class else {}),
-            ))
+
+            # Metering point: a held admission lease becomes a counted unit when the provider request
+            # is ISSUED — the `provider_start_signal` the request dispatcher fires immediately before
+            # the first provider call — not after persistence, and not at task creation (the
+            # task parses the filing locally first). The provider bill accrues from that moment and
+            # section previews may stream before the complete event, so a client that disconnects
+            # after it has consumed the unit; the pipeline's cancellation path (CancelledError /
+            # GeneratorExit) deliberately never refunds it. A disconnect or failure BEFORE the signal
+            # leaves the lease held, and `finally` releases it. The unit is refunded only for outcomes
+            # the client cannot induce: a provider-side failure (the task raises, returns an error
+            # payload or the pipeline times out) and, under AI_QUALITY_GATE, a partial verdict — so an
+            # honest partial still costs nothing. A result that arrives without the signal (a stand-in
+            # service) is counted on completion. Callers without a lease (the background drain with
+            # current_user=None, and uncapped Pro) keep the completion-time count below.
+            provider_started = asyncio.Event()
+
+            def begin_charge() -> None:
+                """Start the lease-to-unit write (at most once). Called from the dispatcher's start
+                signal, inside the provider task, at the instant the request is issued: the write
+                exists before this generator can be cancelled, so a disconnect in the gap between the
+                signal and the heartbeat loop's next turn still finds it in `finally`."""
+                nonlocal charge_future
+                if usage_reservation_token is None or charged_month is not None or charge_future is not None:
+                    return
+                token_to_convert = usage_reservation_token
+
+                def charge_usage_sync() -> Optional[str]:
+                    with database.SessionLocal() as session:
+                        user = session.query(User).filter(User.id == user_id).first()
+                        if user is None:
+                            return None  # no account row: nothing to count (the lease is released in `finally`)
+                        # Convert the reservation: its delete rides in the increment's commit, so the
+                        # unit is counted exactly once and never both held and counted, in the month
+                        # whose quota admitted it (a lease can straddle a rollover).
+                        month = convert_reservation(token_to_convert, session) or get_current_month()
+                        increment_user_usage(user.id, month, session)
+                        return month
+
+                charge_future = asyncio.ensure_future(run_sync_db(charge_usage_sync))
+
+            async def charge_lease() -> None:
+                """Convert the held lease into one counted unit (at most once; the lease is cleared)."""
+                nonlocal charged_month, usage_reservation_token
+                if charged_month is not None:
+                    return
+                begin_charge()  # no-op when the signal already started the write
+                if charge_future is None:
+                    return  # no lease to convert
+                # Shielded: a cancellation here (deadline, disconnect) abandons this await, not the
+                # write, and `settle_charge` later reads what the write committed.
+                charged_month = await asyncio.shield(charge_future)
+                if charged_month is not None:
+                    usage_reservation_token = None
+
+            def on_provider_start() -> None:
+                begin_charge()
+                provider_started.set()
+
+            with provider_start_signal(on_provider_start):  # armed in the task's context
+                summary_task = asyncio.create_task(openai_service.summarize_filing(
+                    filing_text,
+                    company_name,
+                    filing_type,
+                    xbrl_metrics=xbrl_metrics,
+                    filing_excerpt=excerpt,
+                    stream_cb=summary_stream_cb,
+                    **({"statement_source": statement_source} if statement_source else {}),
+                    **({"sixk_class": sixk_class, "sixk_class_audit": sixk_class_audit} if sixk_class else {}),
+                ))
+            provider_started_waiter = asyncio.ensure_future(provider_started.wait())
 
             SUMMARIZE_MESSAGES = [
                 "Analyzing financial highlights...",
@@ -947,6 +1054,7 @@ async def stream_filing_summary(
             ]
             summarize_heartbeat_index = 0
             summary_payload = None
+            provider_fallback = False  # the payload is the deterministic XBRL fallback, not a provider result
 
             # Build fallback kwargs once to avoid duplication (DRY principle)
             fallback_kwargs = {
@@ -959,14 +1067,19 @@ async def stream_filing_summary(
             }
 
             while not summary_task.done():
+                if provider_started.is_set():
+                    await charge_lease()  # the provider request is issued: count the unit now
+                awaited = [summary_task] if provider_started_waiter.done() else [summary_task, provider_started_waiter]
                 done, pending = await asyncio.wait(
-                    [summary_task],
+                    awaited,
                     timeout=settings.STREAM_HEARTBEAT_INTERVAL,
                     return_when=asyncio.FIRST_COMPLETED
                 )
 
                 if summary_task in done:
                     break
+                if provider_started_waiter in done:
+                    continue  # charge at the top of the loop before the next heartbeat wait
 
                 # Check for AI Timeout (60s)
                 current_time = time.time()
@@ -978,6 +1091,7 @@ async def stream_filing_summary(
                     await asyncio.gather(summary_task, return_exceptions=True)
                     # Use fallback with full filing context for meaningful partial results
                     summary_payload = generate_xbrl_summary(**fallback_kwargs)
+                    provider_fallback = True
                     # Break loop manually since task is cancelled/ignored
                     break
 
@@ -1004,17 +1118,26 @@ async def stream_filing_summary(
                 except TimeoutError:
                     # The service now owns the exact AI deadline, independent of heartbeat timing.
                     summary_payload = generate_xbrl_summary(**fallback_kwargs)
+                    provider_fallback = True
                 except asyncio.CancelledError:
                     if asyncio.current_task().cancelling():
                         raise
                     # Looked like we already handled fallback, but ensure payload is set
                     if not summary_payload:
                         summary_payload = generate_xbrl_summary(**fallback_kwargs)
+                        provider_fallback = True
             mark_stage("generate_summary")
 
             summary_status = summary_payload.get("status", "complete")
+            if provider_started.is_set() or (summary_status != "error" and not provider_fallback):
+                # The signal may have fired just before the task finished; a result without the
+                # signal (a stand-in service) still ran a provider, so it is counted on completion.
+                # A timeout fallback without the signal ran no provider at all (the deadline passed
+                # during local parsing or admission), so it is served uncounted.
+                await charge_lease()
             if summary_status == "error":
                 error_message = summary_payload.get("message", "Error generating summary")
+                await refund_charge("provider returned an error payload")
                 # Persist the error state so the /progress endpoint reports a retryable error
                 # immediately, instead of leaving "summarizing" to age out via the stale check.
                 try:
@@ -1184,17 +1307,19 @@ async def stream_filing_summary(
                     filing_id,
                 )
 
-            # S4 quality gate (flagged, default off): the summary is ALWAYS persisted, so the
-            # streamed result doesn't vanish when the client refetches and isn't regenerated from
-            # scratch on revisit. When a result is assessed "partial", the gate instead skips
-            # charging the user's monthly quota (they weren't served a full result); the UI
-            # surfaces it honestly via the quality badge + one-click Regenerate.
+            # S4 quality gate: the summary is ALWAYS persisted, so the streamed result doesn't
+            # vanish when the client refetches and isn't regenerated from scratch on revisit. When
+            # a result is assessed "partial", the user is not charged for it (they weren't served a
+            # full result): the unit counted at provider start is refunded, and a caller without a
+            # lease skips the completion-time count. The UI surfaces it honestly via the quality
+            # badge + one-click Regenerate.
             count_usage = not (settings.AI_QUALITY_GATE and quality["tier"] == "partial")
             if not count_usage:
                 logger.info(
                     f"[stream:{filing_id}] Quality gate: tier=partial, not charging usage "
                     f"(reasons: {quality['reasons']})"
                 )
+                await refund_charge("partial verdict")
 
             # DB OP: Persist summary
             def save_summary_sync():
@@ -1289,21 +1414,23 @@ async def stream_filing_summary(
 
             mark_stage("persist_summary")
 
-            if user_id and count_usage:
+            if charged_month is not None:
+                # The unit counted at provider start is settled by the persisted summary: no later
+                # failure refunds it.
+                charged_month = None
+                charge_future = None  # nothing left to settle: the unit is owed
+            elif user_id and count_usage and usage_reservation_token is None:
+                # No lease was held (background drain, uncapped Pro): the historical
+                # completion-time count, full results only. A lease still held here was left
+                # uncharged on purpose (an unsignalled timeout fallback); `finally` releases it.
                 def track_usage_sync():
                     with database.SessionLocal() as session:
                         user = session.query(User).filter(User.id == user_id).first()
                         if user:
-                            # Convert the reservation: its delete rides in the increment's commit,
-                            # so the unit is counted exactly once and never both held and counted,
-                            # in the month whose quota admitted it (a lease can straddle a rollover).
-                            month = convert_reservation(usage_reservation_token, session) or get_current_month()
-                            increment_user_usage(user.id, month, session)
+                            increment_user_usage(user.id, get_current_month(), session)
 
                 await run_sync_db(track_usage_sync)
-                usage_reservation_token = None
-
-            mark_stage("usage_tracking")
+                mark_stage("usage_tracking")
 
             # DB OP: Record complete
             await run_sync_db(record_progress_sync, filing_id, "completed")
@@ -1337,6 +1464,7 @@ async def stream_filing_summary(
             request_evidence.reason = "pipeline_timeout"
         # Pipeline hard timeout reached
         logger.warning(f"[stream:{filing_id}] Pipeline timeout after {PIPELINE_TIMEOUT_SECONDS}s")
+        await refund_charge("pipeline timeout")
         emit_funnel(
             telemetry_distinct_id,
             EVENT_GENERATION_TIMED_OUT,
@@ -1356,8 +1484,11 @@ async def stream_filing_summary(
             logger.error(f"[stream:{filing_id}] Failed to record pipeline timeout error: {e}", exc_info=True)
         yield {'type': 'error', 'message': 'Summary generation timed out. Please try again.'}
     except Exception as e:
+        # CancelledError/GeneratorExit (client disconnect) are BaseExceptions and skip this handler:
+        # the unit counted at provider start is refunded only for a failure the client did not cause.
         logger.error(f"[stream:{filing_id}] Error in streaming summary: {str(e)}", exc_info=True)
         error_msg = str(e)
+        await refund_charge("pipeline failure")
         emit_funnel(
             telemetry_distinct_id,
             EVENT_GENERATION_FAILED,
@@ -1393,8 +1524,12 @@ async def stream_filing_summary(
                 if not summary_task.done():
                     summary_task.cancel()
                 await asyncio.gather(summary_task, return_exceptions=True)
-            # A reservation still held here was neither converted nor released (error, timeout,
-            # disconnect, or an uncounted partial result): give the quota unit back now.
+            if provider_started_waiter is not None and not provider_started_waiter.done():
+                provider_started_waiter.cancel()
+            # A reservation still held here was never converted (failure or disconnect before the
+            # provider call started, or no account row to count against): give the quota unit back
+            # now. A unit counted at provider start is NOT touched here — see the metering point.
+            await settle_charge()  # a charge committed under a cancelled await has no lease to release
             if usage_reservation_token is not None:
                 token_to_release = usage_reservation_token
                 usage_reservation_token = None

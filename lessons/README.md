@@ -81,6 +81,8 @@ what applies to your task. Filenames are greppable: `arch-*`, `sec-*`, `test-*`,
 - [`test-persistent-sqlite-db-goes-stale.md`](./test-persistent-sqlite-db-goes-stale.md) — The test SQLite DB (earningsnerd.db, CWD-relative — usually backend/) is a persistent file — rm it after a schema change or rebase
 - [`test-proofs-run-on-committed-state.md`](./test-proofs-run-on-committed-state.md) — Mechanical proofs must run against committed state — a proof that cannot fail proves nothing
 - [`test-pure-move-ast-proof.md`](./test-pure-move-ast-proof.md) — Verify "pure move" refactors with an AST-normalized per-symbol diff, not by eyeballing the diff
+- [`test-leave-the-tree-alone-during-a-background-suite.md`](./test-leave-the-tree-alone-during-a-background-suite.md) — Leave the working tree untouched while a background full-suite run reads it
+- [`test-tracked-file-gates-run-after-staging.md`](./test-tracked-file-gates-run-after-staging.md) — Run a `git ls-files` gate after staging its own module, and select targets by name pattern
 - [`test-smoke-model-runs-before-sweeps.md`](./test-smoke-model-runs-before-sweeps.md) — Smoke one or two items and inspect raw output before any long or expensive model run
 - [`test-verify-orphaned-tests-before-adopting.md`](./test-verify-orphaned-tests-before-adopting.md) — Verify orphaned or uncollected tests before adopting them
 - [`test-vitest-for-copy-changes.md`](./test-vitest-for-copy-changes.md) — Run vitest before pushing any change to rendered text, numbers, or copy
@@ -126,6 +128,7 @@ what applies to your task. Filenames are greppable: `arch-*`, `sec-*`, `test-*`,
 ## Operations & workflow
 
 - [`ops-auth-lookups-must-let-request-cleanup-progress.md`](./ops-auth-lookups-must-let-request-cleanup-progress.md) — Keep authentication pool waits off the event loop while preserving request-owned sessions
+- [`ops-unmergeable-pr-runs-no-pull-request-workflows.md`](./ops-unmergeable-pr-runs-no-pull-request-workflows.md) — Check the PR's mergeable state before diagnosing missing `pull_request` workflow runs
 - [`ops-capacity-projection-withholds-command-values.md`](./ops-capacity-projection-withholds-command-values.md) — Withhold command values and execute the real readback projection in a privacy gate
 - [`ops-finish-only-job-owned-read-transactions.md`](./ops-finish-only-job-owned-read-transactions.md) — Finish the CLI's read transaction before transport while preserving attached inputs
 

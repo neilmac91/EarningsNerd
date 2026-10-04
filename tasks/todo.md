@@ -6140,3 +6140,10 @@ Full local and hosted verification plus independent exact-head review precede re
   unchanged retry or broader export followed. A new input format still needs review.
 - Documentation and synthetic evidence only. No customer query, source-role work,
   E7/E8 admission, production flag, price change, invitation or model call.
+
+## 2026-10-02 — security review work packages WP-01 to WP-06 (PR #1069)
+
+- [x] CI: checksum-pinned `secret-scan` job over branch and remote refs with reviewed fingerprints in `.gitleaksignore`; tracked dotenv example files gated to placeholders; `deploy-backend` routes traffic `--to-latest --clear-tags`; `ops.yml` fails on tagged traffic targets, reads dispatch inputs through `env:`, checks out without persisted credentials and runs only from `main`.
+- [x] Backend: recipient names enter email templates only through escaping helpers (AST gate); waitlist and signup names bounded and control-character free; waitlist status lookup rate limited and trimmed; contact confirmation no longer echoes the message. Summaries and Copilot answers are metered when the provider call starts, refunded only for provider-side failure, timeout or a partial verdict; per-user burst limiters keyed on the account alone (AST gate). Social sign-in creation is gated like email registration (invite and verified-email checks in one helper, AST gate); Apple state bound to the browser; invite redeemed in the insert transaction.
+- [ ] Founder console actions from the private remediation plan (credential rotation and push protection, removing the existing revision tags after the deploy, scoping the WIF trust to `main`) are not code and remain open.
+- [ ] Remaining packages WP-07 onward follow in their own PRs.

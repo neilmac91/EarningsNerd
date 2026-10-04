@@ -1,9 +1,12 @@
 from __future__ import annotations
 
 import html
+import re
 
 from app.config import settings
 from app.services.resend_service import send_email
+
+_LINE_BREAKS = re.compile(r"[\r\n]+")
 
 _DEFAULT_FOOTER = "You are receiving this email because you joined the EarningsNerd waitlist."
 # Alert/digest emails are transactional opt-ins, not the waitlist — point recipients at prefs.
@@ -44,6 +47,27 @@ def _wrap_html(body: str, footer: str = _DEFAULT_FOOTER) -> str:
     """
 
 
+def _greeting(name: str | None) -> str:
+    """The salutation line of every template that addresses the recipient by name.
+
+    The display name is user-supplied text, so this is the ONLY place it may enter a template:
+    it is collapsed onto one line and HTML-escaped, so it can only ever render as literal text.
+    A missing or blank name falls back to the neutral greeting. Gate:
+    ``tests/unit/test_email_name_interpolation_allowlist.py``.
+    """
+    cleaned = _LINE_BREAKS.sub(" ", name or "").strip()
+    return f"Hi {html.escape(cleaned)}," if cleaned else "Hi there,"
+
+
+def _hidden_text(text: str) -> str:
+    """The plain-text copy appended to each HTML email (hidden from HTML clients).
+
+    It sits inside the HTML document, so the whole text is escaped as a unit before embedding —
+    the same rule as the visible body: user-supplied text never becomes markup.
+    """
+    return f'<pre style="display:none">{html.escape(text)}</pre>'
+
+
 def render_welcome_email(
     *,
     name: str | None,
@@ -51,7 +75,7 @@ def render_welcome_email(
     referral_link: str,
     verification_link: str,
 ) -> tuple[str, str]:
-    greeting = f"Hi {name}," if name else "Hi there,"
+    greeting = _greeting(name)
     html_body = f"""
     <p style="margin:0 0 16px;">{greeting}</p>
     <p style="margin:0 0 16px;">You're officially on the EarningsNerd waitlist! 🎉</p>
@@ -86,7 +110,7 @@ def render_referral_success_email(
     new_position: int,
     referral_link: str,
 ) -> tuple[str, str]:
-    greeting = f"Hi {name}," if name else "Hi there,"
+    greeting = _greeting(name)
     html_body = f"""
     <p style="margin:0 0 16px;">{greeting}</p>
     <p style="margin:0 0 16px;">You just moved up the EarningsNerd waitlist!</p>
@@ -125,7 +149,7 @@ async def send_waitlist_welcome_email(
     await send_email(
         to=[to_email],
         subject="You're on the EarningsNerd waitlist! 🎉",
-        html=f"{html}<pre style=\"display:none\">{text}</pre>",
+        html=f"{html}{_hidden_text(text)}",
     )
 
 
@@ -144,7 +168,7 @@ async def send_referral_success_email(
     await send_email(
         to=[to_email],
         subject="You just moved up the EarningsNerd waitlist!",
-        html=f"{html}<pre style=\"display:none\">{text}</pre>",
+        html=f"{html}{_hidden_text(text)}",
     )
 
 
@@ -154,7 +178,7 @@ async def send_verification_email(
     name: str | None,
     verification_link: str,
 ) -> None:
-    greeting = f"Hi {name}," if name else "Hi there,"
+    greeting = _greeting(name)
     html_body = f"""
     <p style="margin:0 0 16px;">{greeting}</p>
     <p style="margin:0 0 16px;">Thanks for creating an EarningsNerd account. Please verify your email address to unlock AI-powered SEC filing summaries.</p>
@@ -171,7 +195,7 @@ async def send_verification_email(
     await send_email(
         to=[to_email],
         subject="Verify your EarningsNerd email",
-        html=f"{_wrap_html(html_body)}<pre style=\"display:none\">{text_body}</pre>",
+        html=f"{_wrap_html(html_body)}{_hidden_text(text_body)}",
     )
 
 
@@ -182,7 +206,7 @@ async def send_invite_email(
     name: str | None = None,
 ) -> None:
     """Closed-beta invite: a single-use magic link granting full Pro, no card required."""
-    greeting = f"Hi {name}," if name else "Hi there,"
+    greeting = _greeting(name)
     invite_footer = "You're receiving this because you were invited to the EarningsNerd private beta."
     html_body = f"""
     <p style="margin:0 0 16px;">{greeting}</p>
@@ -200,7 +224,7 @@ async def send_invite_email(
     await send_email(
         to=[to_email],
         subject="Your EarningsNerd beta invite",
-        html=f"{_wrap_html(html_body, invite_footer)}<pre style=\"display:none\">{text_body}</pre>",
+        html=f"{_wrap_html(html_body, invite_footer)}{_hidden_text(text_body)}",
     )
 
 
@@ -210,7 +234,7 @@ async def send_password_reset_email(
     name: str | None,
     reset_link: str,
 ) -> None:
-    greeting = f"Hi {name}," if name else "Hi there,"
+    greeting = _greeting(name)
     html_body = f"""
     <p style="margin:0 0 16px;">{greeting}</p>
     <p style="margin:0 0 16px;">We received a request to reset your EarningsNerd password.</p>
@@ -227,7 +251,7 @@ async def send_password_reset_email(
     await send_email(
         to=[to_email],
         subject="Reset your EarningsNerd password",
-        html=f"{_wrap_html(html_body)}<pre style=\"display:none\">{text_body}</pre>",
+        html=f"{_wrap_html(html_body)}{_hidden_text(text_body)}",
     )
 
 
@@ -241,7 +265,7 @@ async def send_oauth_linked_email(
 
     A security notification: if the account owner didn't initiate it, it gives them a chance to
     react (reset password / contact support) rather than silently merging the identities."""
-    greeting = f"Hi {name}," if name else "Hi there,"
+    greeting = _greeting(name)
     html_body = f"""
     <p style="margin:0 0 16px;">{greeting}</p>
     <p style="margin:0 0 16px;">A <strong>{provider}</strong> sign-in was just linked to your EarningsNerd account.</p>
@@ -256,7 +280,7 @@ async def send_oauth_linked_email(
     await send_email(
         to=[to_email],
         subject=f"A {provider} sign-in was linked to your EarningsNerd account",
-        html=f"{_wrap_html(html_body)}<pre style=\"display:none\">{text_body}</pre>",
+        html=f"{_wrap_html(html_body)}{_hidden_text(text_body)}",
     )
 
 
@@ -268,7 +292,7 @@ async def send_account_exists_email(
     reset_link: str,
 ) -> None:
     """Sent when someone tries to register with an already-registered email (anti-enumeration)."""
-    greeting = f"Hi {name}," if name else "Hi there,"
+    greeting = _greeting(name)
     html_body = f"""
     <p style="margin:0 0 16px;">{greeting}</p>
     <p style="margin:0 0 16px;">Someone tried to create an EarningsNerd account using this email address, but you already have one.</p>
@@ -286,7 +310,7 @@ async def send_account_exists_email(
     await send_email(
         to=[to_email],
         subject="Someone tried to sign up with your EarningsNerd email",
-        html=f"{_wrap_html(html_body)}<pre style=\"display:none\">{text_body}</pre>",
+        html=f"{_wrap_html(html_body)}{_hidden_text(text_body)}",
     )
 
 
@@ -311,7 +335,7 @@ def render_new_filing_alert(
     filing_id: int | None = None,
     filing_url: str | None = None,
 ) -> tuple[str, str]:
-    greeting = f"Hi {html.escape(name)}," if name else "Hi there,"
+    greeting = _greeting(name)
     url = _filing_url(filing_id, filing_url)
     # SEC EDGAR fields are external data — escape before interpolating into HTML.
     e_company, e_ticker, e_type, e_date = (
@@ -339,7 +363,7 @@ def render_daily_digest(
     items: list[dict],
 ) -> tuple[str, str]:
     """`items`: dicts with company_name, ticker, filing_type, filing_date, and filing_id or filing_url."""
-    greeting = f"Hi {html.escape(name)}," if name else "Hi there,"
+    greeting = _greeting(name)
     # Escape external SEC EDGAR fields before interpolating into HTML.
     rows_html = "".join(
         f"""
@@ -511,7 +535,7 @@ def render_earnings_day_alert(
     items: list[dict],
 ) -> tuple[str, str]:
     """`items`: dicts with ticker, company_name, and optional time (bmo|amc|dmh) + status."""
-    greeting = f"Hi {html.escape(name)}," if name else "Hi there,"
+    greeting = _greeting(name)
     rows_html = ""
     for it in items:
         ticker = html.escape(str(it.get("ticker", "")))
@@ -557,7 +581,7 @@ async def send_earnings_day_alert(
     await send_email(
         to=[to_email],
         subject=subject,
-        html=f"{html_body}<pre style=\"display:none\">{text}</pre>",
+        html=f"{html_body}{_hidden_text(text)}",
     )
 
 
@@ -604,7 +628,7 @@ def build_new_filing_alert(
         filing_id=filing_id,
         filing_url=filing_url,
     )
-    return f"{ticker} filed a {filing_type}", f"{html}<pre style=\"display:none\">{text}</pre>"
+    return f"{ticker} filed a {filing_type}", f"{html}{_hidden_text(text)}"
 
 
 async def send_daily_digest(
@@ -622,4 +646,4 @@ def build_daily_digest(*, name: str | None, items: list[dict]) -> tuple[str, str
     html, text = render_daily_digest(name=name, items=items)
     count = len(items)
     subject = f"{count} new filing{'s' if count != 1 else ''} from your watchlist"
-    return subject, f"{html}<pre style=\"display:none\">{text}</pre>"
+    return subject, f"{html}{_hidden_text(text)}"
