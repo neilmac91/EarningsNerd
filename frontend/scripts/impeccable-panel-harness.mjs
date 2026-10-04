@@ -16,9 +16,14 @@
                └ shadow: <style>component.css</style> <div>component.html</div>
 
    The page also carries the app's own theme signal: the `:root` and `.dark`
-   custom-property rules copied from app/globals.css, with `.dark` toggled on
-   <html> exactly as the app's theme bootstrap does. The OS colour scheme is
-   emulated independently to prove it never overrides the app's explicit theme.
+   custom-property rules from app/globals.css, with `.dark` toggled on <html>
+   exactly as the app's theme bootstrap does. By default those rules go through
+   lightningcss first, as `next dev` / `next build` (Turbopack) serve them: it
+   lowercases hex values, so the served signal is `#d7dadc`, not the source
+   `#D7DADC`. One scenario keeps the source spelling (`next dev --webpack`).
+   With --app-url the panel is mounted in the running app instead, so the real
+   served CSS, fonts and theme bootstrap apply. The OS colour scheme is emulated
+   independently to prove it never overrides the app's explicit theme.
 
    Matrix: 440px panel on a 1440px viewport and the panel on a 375px viewport,
    app light/dark × OS light/dark, plus one 1200px-wide host to prove the
@@ -32,15 +37,24 @@
    Run (from frontend/):
      node scripts/impeccable-panel-harness.mjs \
        --live-browser <impeccable>/plugin/skills/impeccable/scripts/live-browser.js \
-       [--sidecar ../.impeccable/design.json] [--out <dir for report + PNGs>]
+       [--sidecar ../.impeccable/design.json] [--out <dir for report + PNGs>] \
+       [--app-url http://localhost:3000/waitlist]   # mount in a running `npm run dev`
    Set HARNESS_CHROMIUM=/path/to/chrome when Playwright's managed Chromium is
    not installed. Exits 1 when any check fails; report.json lists each result.
+
+   The real live panel: Impeccable reads the sidecar only from
+   `<project root>/.impeccable/design.json`. Booted from the repository root it
+   resolves the project to frontend/ and shows no specimens, so give the repo
+   root its own `.impeccable/live/config.json` ({"files":
+   ["frontend/app/layout.tsx"], "insertBefore": "</body>", "commentSyntax":
+   "jsx"}) rather than moving or copying the sidecar. Live mode also expects a
+   PRODUCT.md, which this repository does not have.
 ============================================================================= */
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { chromium } from 'playwright'
+import { chromium } from '@playwright/test'
 
 const FRONTEND = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 
@@ -54,6 +68,7 @@ if (!liveBrowserPath) {
   console.error('usage: node scripts/impeccable-panel-harness.mjs --live-browser <path to live-browser.js>')
   process.exit(2)
 }
+const appUrl = arg('app-url')
 const sidecarPath = path.resolve(arg('sidecar', path.join(FRONTEND, '../.impeccable/design.json')))
 const outDir = path.resolve(arg('out', fs.mkdtempSync(path.join(os.tmpdir(), 'impeccable-harness-'))))
 fs.mkdirSync(outDir, { recursive: true })
@@ -96,10 +111,18 @@ const panelSource = [
   block(liveSrc, 'function escapeHtml(', 'escapeHtml'),
 ].join('\n')
 
-/** The app's theme signal: the :root and .dark custom-property rules, verbatim. */
-const appThemeCss = [block(globalsCss, ':root {', ':root'), globalsCss.match(/^\.dark \{[^}]*\}/m)?.[0]]
+/** The app's theme signal: the :root and .dark custom-property rules, as written in source… */
+const sourceThemeCss = [block(globalsCss, ':root {', ':root'), globalsCss.match(/^\.dark \{[^}]*\}/m)?.[0]]
   .filter(Boolean)
   .join('\n')
+/** …and as Turbopack serves them (lightningcss, the same transform Next 16 applies). */
+async function servedCss(code) {
+  const { transform } = await import('lightningcss').catch(() => {
+    throw new Error('lightningcss is not resolvable from frontend/; run npm ci, or use --app-url')
+  })
+  return transform({ filename: 'globals.css', code: Buffer.from(code), minify: false }).code.toString()
+}
+const THEME_CSS = { source: sourceThemeCss, served: await servedCss(sourceThemeCss) }
 
 const PAGE_GROUND = { light: 'rgb(244, 243, 238)', dark: 'rgb(11, 17, 32)' }
 
@@ -115,11 +138,13 @@ const SCENARIOS = [
   { name: 'mobile-viewport_app-light_os-dark', viewport: { width: 375, height: 812 }, app: 'light', osScheme: 'dark' },
   { name: 'mobile-viewport_app-dark_os-light', viewport: { width: 375, height: 812 }, app: 'dark', osScheme: 'light' },
   { name: 'wide-host-probe_app-light_os-light', viewport: { width: 1440, height: 900 }, app: 'light', osScheme: 'light', panelWidth: 1240 },
-]
+  // `next dev --webpack` keeps the source spelling of the signal.
+  { name: 'wide-viewport_app-dark_os-light_source-css', viewport: { width: 1440, height: 900 }, app: 'dark', osScheme: 'light', css: 'source' },
+].filter((s) => !(appUrl && s.css === 'source')) // --app-url always uses what the app serves
 
 function pageHtml(scenario) {
   return `<!doctype html><html${scenario.app === 'dark' ? ' class="dark"' : ''}><head><meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1"><style>${appThemeCss}</style></head><body></body></html>`
+<meta name="viewport" content="width=device-width, initial-scale=1"><style>${THEME_CSS[scenario.css ?? 'served']}</style></head><body></body></html>`
 }
 
 /** Runs in the page: mirrors initDesignPanel + renderDesignChrome, then measures each specimen. */
@@ -212,7 +237,7 @@ function check(scenario, measured) {
 }
 
 const browser = await chromium.launch(process.env.HARNESS_CHROMIUM ? { executablePath: process.env.HARNESS_CHROMIUM } : {})
-const report = { liveBrowser: path.resolve(liveBrowserPath), sidecar: sidecarPath, scenarios: [] }
+const report = { liveBrowser: path.resolve(liveBrowserPath), sidecar: sidecarPath, appUrl: appUrl ?? null, scenarios: [] }
 let failed = 0
 try {
   for (const scenario of SCENARIOS) {
@@ -221,13 +246,21 @@ try {
     const errors = []
     page.on('pageerror', (e) => errors.push(String(e)))
     page.on('console', (m) => m.type() === 'error' && errors.push(m.text()))
-    await page.setContent(pageHtml(scenario))
+    if (appUrl) {
+      // The app's own bootstrap reads localStorage.theme before first paint.
+      await page.addInitScript((theme) => localStorage.setItem('theme', theme), scenario.app)
+      await page.goto(appUrl, { waitUntil: 'networkidle' })
+      await page.evaluate(() => document.fonts.ready)
+    } else {
+      await page.setContent(pageHtml(scenario))
+    }
     const measured = await page.evaluate(mountAndMeasure, {
       panelSource,
       components: sidecar.components,
       panelWidth: scenario.panelWidth ?? null,
     })
-    const failures = [...check(scenario, measured), ...errors.map((e) => `console: ${e}`)]
+    // A running app without its API logs its own errors; only the synthetic page must stay clean.
+    const failures = [...check(scenario, measured), ...(appUrl ? [] : errors.map((e) => `console: ${e}`))]
     failed += failures.length
     const tiles = await page.locator('#impeccable-live-design-host .cmp-tile').all()
     for (const [i, tile] of tiles.entries()) {

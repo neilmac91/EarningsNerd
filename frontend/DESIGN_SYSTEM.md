@@ -344,9 +344,9 @@ Recharts/rAF, which need numbers). **No raw ms or bezier strings anywhere else.*
 - **Reduced motion**: one source — `hooks/usePrefersReducedMotion`. Every animation needs a fallback:
   `animation: none` for transform entrances, static bone (shimmer), static tint (citation-flash),
   instant final value (count-up, Recharts `lineProps(reduced)`), `scroll-behavior: auto`. Known
-  gaps: the `animate-fade-up` entrances in `app/login/page.tsx`, `RegisterForm`, `AuthShell` and
-  `CookieConsent`, and the streaming `animate-pulse` indicators in `CopilotMessage`, have no
-  `motion-reduce:` guard yet.
+  gaps include the `animate-fade-up` entrances in `app/login/page.tsx`, `RegisterForm`, `AuthShell`
+  and `CookieConsent`, the streaming `animate-pulse` indicators in `CopilotMessage`, and standalone
+  `animate-spin` loaders; none has a `motion-reduce:` guard yet.
 - **Nothing decorative** — `animate-float` is retired. Signature set: count-up, citation-flash,
   skeleton→content, sparkline draw-in, check-pop.
 
@@ -388,3 +388,5 @@ Recharts/rAF, which need numbers). **No raw ms or bezier strings anywhere else.*
    editing this section without editing the gate fails, and vice versa.
 4. **Verify in BOTH themes** on the Vercel preview — green CI ≠ correct visuals.
 5. Run `npm run typecheck`, `npm run lint` (`--max-warnings 0`), `npm run build`, `npm run test`.
+   `npm run test` includes `tests/unit/designSnapshotParity.spec.ts`, which fails until the root
+   `DESIGN.md` and its sidecar match the changed tokens ([maintenance guidance](../CLAUDE.md#design-documentation)).

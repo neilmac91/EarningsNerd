@@ -40,15 +40,21 @@ conventions, refresh the affected `DESIGN.md` content and sidecar together in th
 revision and verification limits accurate. A route-specific content change that leaves the
 documented system intact does not require regenerating the snapshot. A routing-only edit to
 `DESIGN.md` (links or wording outside the frontmatter and the narrative the sidecar duplicates) can
-leave the sidecar unchanged. Impeccable's context check then reports `design-sidecar-stale` in that
-working copy, because it compares file modification times, not content; the notice is expected, so
-do not touch the sidecar only to reset timestamps. Content parity is checked by `frontend/tests/unit/designSnapshotParity.spec.ts`
-(frontmatter vs token sources, sidecar vs frontmatter, duplicated narrative, specimen colors and
-panel fit). For a source-based refresh, run Impeccable's `document` command when available
-(`/impeccable document` in Claude Code, `$impeccable document` in Codex); otherwise update from the
-same source files. Keep that spec green, and when specimens change, render them with
-`frontend/scripts/impeccable-panel-harness.mjs`. Apply the existing change-area checks in AGENTS.md
-and rule 11.
+leave the sidecar unchanged. Impeccable then flags it in that working copy (the context check's
+`design-sidecar-stale` and the hook/live panel's "DESIGN.md is newer than .impeccable/design.json")
+because it compares file modification times, not content; both notices are expected, so do not touch
+the sidecar only to reset timestamps. Content parity is checked by
+`frontend/tests/unit/designSnapshotParity.spec.ts` (frontmatter vs token sources, sidecar vs
+frontmatter, duplicated narrative, specimen palette roles and panel fit). For a source-based
+refresh, run Impeccable's `document` command when available (`/impeccable document` in Claude Code,
+`$impeccable document` in Codex), then drop the synthetic tonal ramps it adds and re-apply the
+panel-fit rules to regenerated specimens (the spec names each failure); otherwise update from the
+same source files. When specimens change, render them with
+`frontend/scripts/impeccable-panel-harness.mjs`, which models the CSS the app actually serves. The
+live panel reads the sidecar only from `<project root>/.impeccable/design.json`; boot it from the
+repository root with a root `.impeccable/live/config.json` targeting `frontend/app/layout.tsx`
+rather than moving or copying the sidecar. Apply the existing change-area checks in AGENTS.md and
+rule 11.
 
 ## Commands
 

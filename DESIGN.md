@@ -55,64 +55,64 @@ colors:
   chart-6: "#8B7BC0"
 typography:
   display:
-    fontFamily: "var(--font-inter), Inter, -apple-system, BlinkMacSystemFont, system-ui, sans-serif"
+    fontFamily: "Inter, -apple-system, BlinkMacSystemFont, system-ui, sans-serif"
     fontSize: "3.75rem"
     fontWeight: 600
     lineHeight: "1.05"
     letterSpacing: "-0.025em"
   headline:
-    fontFamily: "var(--font-inter), Inter, -apple-system, BlinkMacSystemFont, system-ui, sans-serif"
+    fontFamily: "Inter, -apple-system, BlinkMacSystemFont, system-ui, sans-serif"
     fontSize: "1.875rem"
     fontWeight: 600
     lineHeight: "2.25rem"
     letterSpacing: "-0.016em"
   title:
-    fontFamily: "var(--font-inter), Inter, -apple-system, BlinkMacSystemFont, system-ui, sans-serif"
+    fontFamily: "Inter, -apple-system, BlinkMacSystemFont, system-ui, sans-serif"
     fontSize: "1.5rem"
     fontWeight: 600
     lineHeight: "2rem"
     letterSpacing: "-0.012em"
   card-title:
-    fontFamily: "var(--font-inter), Inter, -apple-system, BlinkMacSystemFont, system-ui, sans-serif"
+    fontFamily: "Inter, -apple-system, BlinkMacSystemFont, system-ui, sans-serif"
     fontSize: "0.875rem"
     fontWeight: 600
     lineHeight: "1.25rem"
   body:
-    fontFamily: "-apple-system, BlinkMacSystemFont, var(--font-inter), Inter, system-ui, \"Segoe UI\", Roboto, sans-serif"
+    fontFamily: "-apple-system, BlinkMacSystemFont, Inter, system-ui, \"Segoe UI\", Roboto, sans-serif"
     fontSize: "1rem"
     fontWeight: 400
     lineHeight: "1.5"
   body-base:
-    fontFamily: "-apple-system, BlinkMacSystemFont, var(--font-inter), Inter, system-ui, \"Segoe UI\", Roboto, sans-serif"
+    fontFamily: "-apple-system, BlinkMacSystemFont, Inter, system-ui, \"Segoe UI\", Roboto, sans-serif"
     fontSize: "1rem"
     fontWeight: 400
     lineHeight: "1.6rem"
   ui:
-    fontFamily: "-apple-system, BlinkMacSystemFont, var(--font-inter), Inter, system-ui, \"Segoe UI\", Roboto, sans-serif"
+    fontFamily: "-apple-system, BlinkMacSystemFont, Inter, system-ui, \"Segoe UI\", Roboto, sans-serif"
     fontSize: "0.875rem"
     fontWeight: 500
     lineHeight: "1.25rem"
   button:
-    fontFamily: "-apple-system, BlinkMacSystemFont, var(--font-inter), Inter, system-ui, \"Segoe UI\", Roboto, sans-serif"
+    fontFamily: "-apple-system, BlinkMacSystemFont, Inter, system-ui, \"Segoe UI\", Roboto, sans-serif"
     fontSize: "0.875rem"
     fontWeight: 600
     lineHeight: "1.25rem"
   label:
-    fontFamily: "-apple-system, BlinkMacSystemFont, var(--font-inter), Inter, system-ui, \"Segoe UI\", Roboto, sans-serif"
+    fontFamily: "-apple-system, BlinkMacSystemFont, Inter, system-ui, \"Segoe UI\", Roboto, sans-serif"
     fontSize: "0.75rem"
     fontWeight: 600
     lineHeight: "1rem"
     letterSpacing: "0.08em"
   data:
-    fontFamily: "var(--font-geist-mono), \"Geist Mono\", ui-monospace, SFMono-Regular, \"SF Mono\", Menlo, Consolas, monospace"
+    fontFamily: "\"Geist Mono\", ui-monospace, SFMono-Regular, \"SF Mono\", Menlo, Consolas, monospace"
     fontFeature: "\"tnum\" 1"
   data-xs:
-    fontFamily: "var(--font-geist-mono), \"Geist Mono\", ui-monospace, SFMono-Regular, \"SF Mono\", Menlo, Consolas, monospace"
+    fontFamily: "\"Geist Mono\", ui-monospace, SFMono-Regular, \"SF Mono\", Menlo, Consolas, monospace"
     fontSize: "0.6875rem"
     lineHeight: "1rem"
     letterSpacing: "0em"
   filing-reader:
-    fontFamily: "var(--font-newsreader), Newsreader, \"New York\", ui-serif, Georgia, serif"
+    fontFamily: "Newsreader, \"New York\", ui-serif, Georgia, serif"
     fontSize: "1.1875rem"
     fontWeight: 400
     lineHeight: "1.7"
@@ -246,17 +246,14 @@ components:
     typography: "{typography.ui}"
   data-table:
     textColor: "{colors.text-primary-light}"
-    width: "100%"
   modal:
     backgroundColor: "{colors.panel-light}"
     textColor: "{colors.text-primary-light}"
     rounded: "{rounded.2xl}"
-    width: "100%"
   modal-dark:
     backgroundColor: "{colors.panel-dark}"
     textColor: "{colors.text-primary-dark}"
     rounded: "{rounded.2xl}"
-    width: "100%"
 ---
 
 # Design System: EarningsNerd
@@ -278,7 +275,7 @@ The system is refined, readable and quietly confident. Inter headings organize t
 
 This document records the implementation at [`1a79637e4094f8f6ceeb9802014a6a1172283416`](https://github.com/neilmac91/EarningsNerd/tree/1a79637e4094f8f6ceeb9802014a6a1172283416); the links below open the current files. Token definitions remain in [`frontend/tailwind.config.js`](frontend/tailwind.config.js) and [`frontend/app/globals.css`](frontend/app/globals.css); the frontmatter is their portable snapshot, and [`designSnapshotParity.spec.ts`](frontend/tests/unit/designSnapshotParity.spec.ts) checks it against them. [`frontend/DESIGN_SYSTEM.md`](frontend/DESIGN_SYSTEM.md) retains current implementation conventions and verification gates. [AGENTS.md](AGENTS.md) and [CLAUDE.md](CLAUDE.md#design-documentation) route UI work through both documents and define maintenance. Actual token definitions and component code take precedence over a stale snapshot. Refresh affected visual content and [its sidecar](.impeccable/design.json) together when the documented system changes; routing-only edits can leave an unchanged sidecar intact. The descriptive language above was confirmed by the project owner.
 
-The public homepage was inspected visually and sampled for computed styles in light mode on 2026-10-04. Dark treatments and responsive rules below were extracted from source; this pass does not claim a visual audit of authenticated routes or dark mode. Sidecar component samples illustrate appearance without reproducing application behavior; their dark treatment follows the app's own `.dark` theme signal and their responsive rules follow the space available to them. The sidecar carries no tonal ramps: the project defines no tonal scale, and Impeccable's detector accepts every ramp step as a palette color.
+The public homepage was inspected visually and sampled for computed styles in light mode on 2026-10-04. Dark treatments and responsive rules below were extracted from source; this pass does not claim a visual audit of authenticated routes or dark mode. Sidecar component samples illustrate appearance without reproducing application behavior; their dark treatment follows the app's own `html.dark` theme signal and their responsive rules follow the space available to them. The sidecar carries no tonal ramps: the project defines no tonal scale, and Impeccable's detector accepts every ramp step as a palette color.
 
 ## Colors
 
@@ -341,7 +338,7 @@ Chart series follow the configured order: **Teal → Honey → Cornflower → Co
 | Dense data annotation | 11/16px | Compact chart annotations and in-card micro-labels |
 | Filing reader | Newsreader 19px, line-height 1.7, optical sizing | Original filing prose |
 
-The frontmatter `display` token records the large desktop step and `headline` the base step; neither is a universal heading size. The source tracking ramp progresses from +0.01em for captions through zero for body text to −0.025em for large display text. Use the existing type scale and CSS tracking variables rather than inventing new tracking utilities.
+The frontmatter `display` token records the large desktop step and `headline` the base step; neither is a universal heading size. Frontmatter font stacks leave out the app-only `var(--font-*)` entries so they resolve outside the app. The source tracking ramp progresses from +0.01em for captions through zero for body text to −0.025em for large display text. Use the existing type scale and CSS tracking variables rather than inventing new tracking utilities.
 
 **The Source Voice Rule.** Newsreader means original filing prose. AI summaries use body sans; Ask answers use the mono evidence register. `.tabular` supplies mono plus tabular digits; `.tnum` preserves the current face and only aligns digits.
 
@@ -358,7 +355,7 @@ Use shared page grounds around distinct content panels. Controls and tables are 
 - Comfortable table rows use 10px vertical cell padding; compact rows use 4px. Numeric columns align right and use tabular figures. Wide tables scroll within their container.
 - Modal sizes cap at 384px, 448px or 512px. Their outer inset bounds them to the viewport; the panel scrolls internally and reserves 24px scroll padding. The footer stacks actions on small screens and switches to a row from `sm`.
 
-The stacking vocabulary is sticky 30, header 50, popover/overlay 60, modal 70 and toast 80. Preserve the documented workspace-sheet and internal table-layer exceptions in the detailed implementation guide. Several other sites still use numeric z utilities: the header and its account and notification menus (`z-50`), `SecondaryHeader` (`z-40`), the search dropdowns (`z-10` / `z-20`) and the cookie-consent banner and toast (`z-50`, below the ladder's toast level). This snapshot records the ladder without renaming those sites.
+The stacking vocabulary is sticky 30, header 50, popover/overlay 60, modal 70 and toast 80. Preserve the documented workspace-sheet and internal table-layer exceptions in the detailed implementation guide. Several other sites still use numeric z utilities, including the header and its account and notification menus (`z-50`), `SecondaryHeader` and the Copilot coachmark (`z-40`), the feedback widget (`z-30`), the search dropdowns (`z-10` / `z-20`), the workspace pane resizer (`z-10`) and the cookie-consent banner and toast (`z-50`, below the ladder's toast level). This snapshot records the ladder without renaming those sites.
 
 ## Elevation & Depth
 
@@ -373,7 +370,7 @@ The exact source shadow strings are stored in the sidecar's `extensions.shadows`
 | `e1` | Low lift for small controls such as the switch thumb and pricing-period toggle, the popular-ticker and quick-access chips, and some tiles; the Badge primitive carries no shadow |
 | `e2` | Default light card lift |
 | `e3` | Featured/hero surface emphasis |
-| `e4` / `e5` | `e4` for popovers (alert bell, source trace) and the Copilot coachmark; `e5` for the shared Modal in light mode. Header menus use `e2` and search dropdowns `e3` |
+| `e4` / `e5` | `e4` for popovers (alert bell, source trace) and the Copilot coachmark; `e5` for the shared Modal, bottom sheets, the citation-chip popover and the cookie-consent banner, light mode only. Header menus use `e2` and search dropdowns `e3` |
 | `ring-brand` / `ring-brand-dark` | Keyboard focus; fields also show the ring on focus |
 | `ring-error` | Invalid fields and destructive-action focus |
 
@@ -427,7 +424,7 @@ Use [`Modal.tsx`](frontend/components/ui/Modal.tsx) for ordinary dialogs: transl
 
 The signature evidence treatment is a compact citation/source chip attached to a figure or passage, with a route to inspect its source. [`CopilotMessage.tsx`](frontend/features/filings/components/copilot/CopilotMessage.tsx) is the production Ask answer renderer. A source match describes attribution within its stated scope; it must not imply that every claim in an answer was verified. Keep citation labels and evidence states faithful to the renderer.
 
-Motion supports state changes and reading continuity. The source has fast (150ms), base (200ms), slow (600ms) and ambient (1800ms) timings; standard easing is the default and pop easing is reserved for the success check. These live in CSS variables with a JS mirror. The convention is a reduced-motion fallback for every animation: the `globals.css` animation classes guard themselves, and shimmer, count-up, citation highlighting and chart drawing have fallbacks. Some Tailwind animation utilities are not yet guarded, notably the `animate-fade-up` entrances on the login form, registration form, auth shell and cookie-consent toast, and the Copilot streaming `animate-pulse` indicators. Give new animation a fallback and keep the existing ones. Motion values and breakpoints belong in the sidecar, not new frontmatter groups.
+Motion supports state changes and reading continuity. The source has fast (150ms), base (200ms), slow (600ms) and ambient (1800ms) timings; standard easing is the default and pop easing is reserved for the success check. These live in CSS variables with a JS mirror. The convention is a reduced-motion fallback for every animation: the `globals.css` animation classes guard themselves, and shimmer, count-up, citation highlighting and chart drawing have fallbacks. Some Tailwind animation utilities are not yet guarded, notably the `animate-fade-up` entrances on the login form, registration form, auth shell and cookie-consent toast, the Copilot streaming `animate-pulse` indicators and standalone `animate-spin` loaders. Give new animation a fallback and keep the existing ones. Motion values and breakpoints belong in the sidecar, not new frontmatter groups.
 
 ## Do's and Don'ts
 

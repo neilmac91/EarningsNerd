@@ -8,14 +8,16 @@
      1. frontmatter tokens vs source, for the documented subset. Omissions and
         aliases are listed below; units are compared by value (#FFF = #ffffff,
         0 = 0em), not by spelling.
-     2. sidecar colorMeta vs frontmatter. Tonal-ramp steps must be source
-        colors: Impeccable's detector treats every step as an allowed palette
-        color, so a synthetic ramp silently widens palette enforcement.
+     2. sidecar colorMeta vs frontmatter. Tonal-ramp and roundedMeta values
+        must be documented tokens: Impeccable's detector treats every one as an
+        allowed palette color or radius, so synthetic steps silently widen it.
      3. sidecar shadows / motion / breakpoints vs source.
      4. the sidecar narrative vs the DESIGN.md text it duplicates.
-     5. specimens: every color traces to a frontmatter color or sidecar shadow,
-        and the panel-fit rules from review hold (constrained host, no viewport
-        queries, dark keyed to the app's own .dark signal).
+     5. specimens: each `--ds-*` palette variable equals the token its role names
+        in both themes, every other color is a frontmatter color or sidecar
+        shadow, and the panel-fit rules from review hold (constrained host, no
+        viewport queries, dark keyed to the app's own .dark signal in both the
+        source spelling and the lowercase one Turbopack serves).
    It does not judge the prose itself.
 ============================================================================= */
 
@@ -29,16 +31,17 @@ const tailwindColors = require('tailwindcss/colors')
 
 const REPO = path.join(__dirname, '../../..')
 const read = (p: string) => fs.readFileSync(path.join(REPO, p), 'utf8')
-const designMd = read('DESIGN.md')
+const designMd = read('DESIGN.md').replace(/\r\n/g, '\n')
 const sidecar = JSON.parse(read('.impeccable/design.json'))
-const globalsCss = read('frontend/app/globals.css')
+const globalsCss = read('frontend/app/globals.css').replace(/\r\n/g, '\n')
 
 type Yaml = { [key: string]: string | number | Yaml }
 
 /** Strict reader for the frontmatter's YAML subset (nested maps of quoted strings and numbers).
  *  Anything else throws, so an unexpected construct fails loudly instead of parsing wrong. */
+const FRONTMATTER = /^---\n([\s\S]*?)\n---\n/
 function parseFrontmatter(md: string): Yaml {
-  const block = md.match(/^---\n([\s\S]*?)\n---\n/)
+  const block = md.match(FRONTMATTER)
   if (!block) throw new Error('DESIGN.md has no frontmatter')
   const root: Yaml = {}
   const stack: { indent: number; node: Yaml }[] = [{ indent: -1, node: root }]
@@ -61,6 +64,8 @@ function parseFrontmatter(md: string): Yaml {
 
 const fm = parseFrontmatter(designMd)
 const fmColors = fm.colors as Record<string, string>
+/** DESIGN.md after its frontmatter; a later `---` rule cannot shift it. */
+const designBody = designMd.slice(designMd.match(FRONTMATTER)![0].length)
 
 /** [r, g, b, a] for the hex / rgb() / rgba() spellings the sources use. */
 function rgba(value: string): number[] {
@@ -94,11 +99,13 @@ function flatten(tree: Record<string, unknown>, prefix = ''): Record<string, str
   return out
 }
 
-/** `--name: value;` declarations from the first block that starts with `selector {`. */
+/** `--name: value;` declarations from every top-level `selector {…}` block in globals.css. */
 function cssVars(selector: string): Record<string, string> {
-  const start = globalsCss.indexOf(`${selector} {`)
-  const body = globalsCss.slice(start, globalsCss.indexOf('}', start)).replace(/\/\*[\s\S]*?\*\//g, '')
-  return Object.fromEntries([...body.matchAll(/(--[\w-]+):\s*([^;]+);/g)].map((m) => [m[1], m[2].trim()]))
+  const css = globalsCss.replace(/\/\*[\s\S]*?\*\//g, '')
+  const escaped = selector.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  const blocks = [...css.matchAll(new RegExp(`(?:^|[\\s}])${escaped}\\s*\\{([^}]*)\\}`, 'g'))].map((m) => m[1])
+  if (!blocks.length) throw new Error(`globals.css has no ${selector} block`)
+  return Object.fromEntries(blocks.flatMap((b) => [...b.matchAll(/(--[\w-]+):\s*([^;]+);/g)]).map((m) => [m[1], m[2].trim()]))
 }
 const rootVars = cssVars(':root')
 const darkVars = cssVars('.dark')
@@ -120,6 +127,48 @@ const COLOR_ALIASES: Record<string, string> = {
 }
 const OMITTED_RADII = ['md'] // legacy 10px, excluded from the 4/8/12/16/24 scale
 const OMITTED_SHADOWS = ['glow-brand', 'glow-brand-sm', 'glow-brand-lg'] // configured but unused
+const DOCUMENTED_SCREENS = ['sm', 'md', 'lg'] // DESIGN.md › Layout; xl/2xl are not part of the shared conventions
+/** A portable stack drops the next/font `var(--font-*)` entries, which exist only inside the app. */
+const portableStack = (family: string) =>
+  config.theme.extend.fontFamily[family].filter((f: string) => !f.startsWith('var(')).join(', ')
+
+/** Specimen palette role → its token in [light, dark]. `token@alpha` is the token at that opacity,
+ *  `shadow:name` a sidecar shadow, `none` no value, and a null dark entry means the light value
+ *  serves both themes (so the dark block must not redeclare it). Mirrors the source components. */
+const SPECIMEN_ROLES: Record<string, [string, string | null]> = {
+  page: ['background-light', 'background-dark'],
+  panel: ['panel-light', 'panel-dark'],
+  ink: ['text-primary-light', 'text-primary-dark'],
+  secondary: ['text-secondary-light', 'text-secondary-dark'],
+  muted: ['text-tertiary-light', 'text-secondary-dark'],
+  line: ['border-light', 'border-dark'],
+  'panel-line': ['border-light', 'white@0.1'],
+  brand: ['brand', 'brand-dark'],
+  strong: ['brand-strong', 'brand-strong-dark'],
+  tint: ['brand-weak', 'brand-weak-dark'],
+  'brand-line': ['brand-border', 'brand-border-dark'],
+  pressed: ['brand-border@0.6', 'brand-border-dark'],
+  'primary-ink': ['white', 'background-dark'],
+  'primary-hover': ['brand-strong', 'brand-strong-dark'],
+  'primary-active': ['brand-emphasis', 'brand-fill-dark'],
+  'primary-disabled': ['brand@0.45', 'brand-dark@0.35'],
+  'primary-disabled-ink': ['white@0.8', 'background-dark@0.6'],
+  ring: ['shadow:ring-brand', 'shadow:ring-brand-dark'],
+  e1: ['shadow:e1', null],
+  e2: ['shadow:e2', 'none'],
+  e5: ['shadow:e5', 'none'],
+  field: ['white', 'white@0.05'],
+  'field-disabled': ['background-light', 'white@0.05'],
+  error: ['error-light', 'error-dark'],
+  flat: ['flat-light', 'flat-dark'],
+  warning: ['warning-light', 'warning-dark'],
+  'warning-tint': ['warning-light@0.1', 'warning-dark@0.15'],
+  gain: ['gain-text', 'gain-dark'],
+  loss: ['loss-text', 'loss-dark'],
+  hover: ['white', 'white@0.03'],
+  header: ['background-light@0.8', 'background-dark@0.8'],
+  'header-line': ['border-light', 'white@0.06'],
+}
 
 /** Frontmatter typography role → its source. `size` keys tailwind fontSize; `tracking` overrides it. */
 const TYPE_ROLES: Record<string, { family: string; size?: string; tracking?: string }> = {
@@ -152,6 +201,8 @@ describe('DESIGN.md frontmatter matches the token sources', () => {
     expect(unclassified, 'add the token to DESIGN.md, or record the omission here and in DESIGN.md › Colors').toEqual([])
     const stale = [...OMITTED_COLORS, ...Object.keys(COLOR_ALIASES)].filter((name) => !(name in SOURCE_COLORS))
     expect(stale).toEqual([])
+    const omittedButDocumented = [...OMITTED_COLORS, ...Object.keys(COLOR_ALIASES)].filter((name) => name in fmColors)
+    expect(omittedButDocumented, 'a documented token cannot also be listed as omitted or an alias').toEqual([])
     for (const [alias, target] of Object.entries(COLOR_ALIASES)) {
       expect(SOURCE_COLORS[alias], `${alias} is no longer an alias of ${target}`).toBe(SOURCE_COLORS[target])
     }
@@ -159,6 +210,7 @@ describe('DESIGN.md frontmatter matches the token sources', () => {
 
   it('rounded and spacing steps equal the configured scale', () => {
     const radii = { ...config.theme.extend.borderRadius, full: defaultTheme.borderRadius.full }
+    expect(OMITTED_RADII.filter((name) => !(name in radii)), 'stale radius omission').toEqual([])
     for (const name of OMITTED_RADII) delete radii[name]
     expect(fm.rounded).toEqual(radii)
 
@@ -172,7 +224,7 @@ describe('DESIGN.md frontmatter matches the token sources', () => {
     expect(Object.keys(roles).sort()).toEqual(Object.keys(TYPE_ROLES).sort())
     for (const [role, src] of Object.entries(TYPE_ROLES)) {
       const doc = roles[role]
-      expect(doc.fontFamily, `${role}.fontFamily`).toBe(config.theme.extend.fontFamily[src.family].join(', '))
+      expect(doc.fontFamily, `${role}.fontFamily`).toBe(portableStack(src.family))
       if (!src.size) continue
       const [fontSize, opts] = config.theme.extend.fontSize[src.size]
       expect([doc.fontSize, doc.lineHeight], `${role} size/leading`).toEqual([fontSize, opts.lineHeight])
@@ -194,29 +246,42 @@ describe('.impeccable/design.json agrees with DESIGN.md and the sources', () => 
     }
   })
 
-  it('carries only source-backed tonal-ramp steps', () => {
-    const source = new Set(Object.values(SOURCE_COLORS).map((c) => String(rgba(c))))
+  it('carries only documented tonal-ramp steps and radii', () => {
+    const documented = new Set(Object.values(fmColors).map((c) => String(rgba(c))))
     const synthetic = Object.entries<Record<string, unknown>>(ext.colorMeta).flatMap(([name, meta]) =>
       ((meta.tonalRamp as string[] | undefined) ?? [])
-        .filter((step) => !/^(#|rgba?\()/i.test(step) || !source.has(String(rgba(step))))
+        .filter((step) => !/^(#|rgba?\()/i.test(step) || !documented.has(String(rgba(step))))
         .map((step) => `${name}: ${step}`),
     )
     expect(synthetic, 'Impeccable accepts every ramp step as a palette color').toEqual([])
+
+    // The detector also widens its radius list from roundedMeta (canonical/value/values/aliases).
+    const radii = new Set(Object.values(fm.rounded as Yaml).map((r) => length(r as string)))
+    const extraRadii = Object.entries<unknown>(ext.roundedMeta ?? {}).flatMap(([name, meta]) => {
+      const m = (meta && typeof meta === 'object' ? meta : { value: meta }) as Record<string, unknown>
+      const values = [m.canonical, m.value, ...((m.values as unknown[]) ?? []), ...((m.aliases as unknown[]) ?? [])]
+      return values.filter((v) => v !== undefined && !radii.has(length(v as string))).map((v) => `${name}: ${v}`)
+    })
+    expect(extraRadii, 'Impeccable accepts every roundedMeta value as a radius').toEqual([])
   })
 
   it('shadows, motion and breakpoints equal their sources', () => {
     const shadows = { ...config.theme.extend.boxShadow }
+    expect(OMITTED_SHADOWS.filter((name) => !(name in shadows)), 'stale shadow omission').toEqual([])
     for (const name of OMITTED_SHADOWS) delete shadows[name]
     expect(Object.fromEntries(ext.shadows.map((s: { name: string; value: string }) => [s.name, s.value]))).toEqual(shadows)
     const motion = Object.fromEntries(
       Object.entries(rootVars).filter(([name]) => /^--(duration|ease)-/.test(name)).map(([name, v]) => [name.slice(2), v]),
     )
     expect(Object.fromEntries(ext.motion.map((m: { name: string; value: string }) => [m.name, m.value]))).toEqual(motion)
-    for (const bp of ext.breakpoints) expect(bp.value, `breakpoint ${bp.name}`).toBe(defaultTheme.screens[bp.name])
+    expect(config.theme.screens ?? config.theme.extend.screens, 'breakpoints are Tailwind defaults').toBeUndefined()
+    expect(Object.fromEntries(ext.breakpoints.map((b: { name: string; value: string }) => [b.name, b.value]))).toEqual(
+      Object.fromEntries(DOCUMENTED_SCREENS.map((name) => [name, defaultTheme.screens[name]])),
+    )
   })
 
   it('narrative equals the DESIGN.md text it duplicates', () => {
-    const body = designMd.split('\n---\n')[1]
+    const body = designBody
     const overview = body.match(/\*\*Creative North Star: "(.+)"\*\*\n\n([\s\S]+?)\n\n\*\*Key Characteristics:\*\*\n((?:- .+\n)+)/)
     const bullets = (heading: string) => body.split(`### ${heading}\n\n`)[1].split('\n\n')[0].trimEnd().split('\n').map((l) => l.slice(2))
     const rules = body.split(/^## /m).flatMap((section) => {
@@ -239,7 +304,21 @@ describe('sidecar specimens fit the Impeccable panel and trace to the snapshot',
   const components: { refersTo: string; html: string; css: string }[] = sidecar.components
   const shadowValues = sidecar.extensions.shadows.map((s: { value: string }) => s.value)
   const palette = new Set(Object.values(fmColors).map((c) => String(rgba(c).slice(0, 3))))
-  const COLOR = /#[0-9a-f]{3,8}\b|\b(?:rgba?|hsla?|oklch|oklab|lab|lch)\([^)]*\)/gi
+  const COLOR = /#[0-9a-f]{3,8}\b|\b(?:rgba?|hsla?|hwb|oklch|oklab|lab|lch|color-mix|color)\([^)]*\)/gi
+  const shadowByName: Record<string, string> = Object.fromEntries(
+    sidecar.extensions.shadows.map((s: { name: string; value: string }) => [s.name, s.value]),
+  )
+  /** Declarations in one specimen block: the light `.ds-stage{…}` or the one inside the dark query. */
+  const paletteVars = (block: string | undefined) =>
+    Object.fromEntries([...(block ?? '').matchAll(/--ds-([\w-]+):([^;}]+)/g)].map((m) => [m[1], m[2].trim()]))
+  const expected = (spec: string) => {
+    if (spec === 'none') return 'none'
+    if (spec.startsWith('shadow:')) return shadowByName[spec.slice(7)]
+    const [token, alpha] = spec.split('@')
+    const value = rgba(fmColors[token])
+    return String(alpha ? [...value.slice(0, 3), Number(alpha)] : value)
+  }
+  const actual = (value: string) => (value === 'none' || value.includes(' ') ? value : String(rgba(value)))
 
   it('refer to frontmatter components', () => {
     expect(components.map((c) => c.refersTo).filter((ref) => !(ref in (fm.components as Yaml)))).toEqual([])
@@ -255,13 +334,60 @@ describe('sidecar specimens fit the Impeccable panel and trace to the snapshot',
     expect(untraced).toEqual([])
   })
 
+  it('give every palette variable the token its role names, in both themes', () => {
+    const wrong = components.flatMap((c) => {
+      const light = paletteVars(c.css.match(/^:host\{[^}]*\}\.ds-stage\{([^}]*)\}/)?.[1])
+      const dark = paletteVars(c.css.match(/@container style\([^{]*\{\.ds-stage\{([^}]*)\}\}/)?.[1])
+      if (!light.page || !dark.page) return [`${c.refersTo}: palette blocks not found`]
+      return [
+        ...Object.keys({ ...light, ...dark }).filter((role) => !(role in SPECIMEN_ROLES)).map((r) => `--ds-${r}: no role`),
+        ...Object.entries(light).flatMap(([role, value]) => {
+          const spec = SPECIMEN_ROLES[role]
+          if (!spec) return []
+          const out: string[] = []
+          if (actual(value) !== expected(spec[0])) out.push(`--ds-${role} light ${value}, expected ${spec[0]}`)
+          if (spec[1] === null && role in dark) out.push(`--ds-${role} has one value for both themes`)
+          if (spec[1] !== null && !(role in dark)) out.push(`--ds-${role} has no dark value`)
+          if (spec[1] !== null && role in dark && actual(dark[role]) !== expected(spec[1])) {
+            out.push(`--ds-${role} dark ${dark[role]}, expected ${spec[1]}`)
+          }
+          return out
+        }),
+      ].map((msg) => `${c.refersTo}: ${msg}`)
+    })
+    expect(wrong).toEqual([])
+  })
+
+  it('use no named colors in color-bearing declarations', () => {
+    const KEYWORDS = new Set(['transparent', 'currentcolor', 'inherit', 'initial', 'none', 'solid', 'dashed', 'inset'])
+    const PROP = /^(--ds-[\w-]+|color|background(-color)?|border(-(top|right|bottom|left))?(-color)?|outline(-color)?|fill|stroke|box-shadow|caret-color|accent-color|text-decoration(-color)?)$/
+    const named = components.flatMap((c) =>
+      [...c.css.matchAll(/\{([^{}]*)\}/g)].flatMap((block) =>
+        block[1].split(';').flatMap((decl) => {
+          const [prop, ...rest] = decl.split(':')
+          if (!PROP.test(prop.trim())) return []
+          let value = rest.join(':')
+          while (/var\([^()]*\)/.test(value)) value = value.replace(/var\([^()]*\)/g, ' ')
+          value = value.replace(COLOR, ' ').replace(/-?[\d.]+[a-z%]*/gi, ' ')
+          return (value.match(/[a-z][\w-]*/gi) ?? [])
+            .filter((word) => !KEYWORDS.has(word.toLowerCase()))
+            .map((word) => `${c.refersTo}: ${prop.trim()} uses ${word}`)
+        }),
+      ),
+    )
+    expect(named).toEqual([])
+  })
+
   it('size to their panel stage and key dark mode to the app theme signal', () => {
-    const signal = `@container style(--heading-color: ${darkVars['--heading-color']})`
+    // Turbopack (lightningcss) serves hex lowercased, so the query lists the source and served spellings.
+    const value = darkVars['--heading-color']
+    const spellings = [...new Set([value, value.toLowerCase()])]
+    const signal = `@container ${spellings.map((v) => `style(--heading-color: ${v})`).join(' or ')}{`
     for (const c of components) {
       // The panel mounts each specimen in a bare host inside a centered flex stage.
       expect(c.css.startsWith(':host{display:block;width:100%}'), `${c.refersTo}: unconstrained host`).toBe(true)
       // Viewport queries fire on the browser, not the ~350px panel; use container queries.
-      expect(c.css, `${c.refersTo}: viewport width query`).not.toMatch(/@media\s*\([^)]*width/)
+      expect(c.css, `${c.refersTo}: viewport width query`).not.toMatch(/@media[^{]*width/)
       // The panel sets no theme class; the app's `.dark` custom property is what reaches the specimen.
       expect(c.css, `${c.refersTo}: dark signal`).toContain(signal)
       expect(c.css, `${c.refersTo}: theme hook the panel never sets`).not.toMatch(/:root|:host\(\.dark\)|prefers-color-scheme/)
