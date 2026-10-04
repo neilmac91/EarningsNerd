@@ -6210,8 +6210,9 @@ Full local and hosted verification plus independent exact-head review precede re
 - Recorded single-writer takeover under `tasks/code-red-20261004/runtime/`: verified founder package
   (`e5316f50…`, 0 manifest mismatches), observed runtime identity, fresh main/PR-owner snapshot at
   `100fb7d6`, append-only exclusion successors 136 and 137, appointments, CEO/CFO spend statement.
-  Live spend ledger is on the founder's machine and unreachable from the cloud session: paid dispatch,
-  reservations and ledger writes held; no successor ledger designated. Zero DeepSeek calls / USD 0.
+  Live spend ledger was on the founder's machine and unreachable from the cloud session at takeover:
+  paid dispatch, reservations and ledger writes held; the successor ledger was designated later the same
+  day (see the ticked item below). Zero DeepSeek calls / USD 0.
 - R1 stays `BLOCKED_SOURCE_OWNED_PACKING` (no worker launched; founder-dependent item recorded).
 - CPO lane: isolated coordinator produced the R1→R2 admission status (A1–A9) and process handback;
   two independent verifier passes: administrative pass, execution not admitted, candidate HOLD.

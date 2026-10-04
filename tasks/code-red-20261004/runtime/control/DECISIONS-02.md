@@ -1,6 +1,6 @@
 # Decision record 02 — post-Astra decision set (chief, 2026-10-04)
 
-Recorded 2026-10-04T17:45Z, amended 2026-10-04T17:50Z (D3 and D9 after both refuters returned at 17:43Z and 17:47Z) and 2026-10-04T17:59Z (D3 execution note) by the chief (`https://claude.ai/code/session_01GWYV7WXWstgVGQG43YcSM8`,
+Recorded 2026-10-04T17:45Z, amended 2026-10-04T17:50Z (D3 and D9 after both refuters returned at 17:43Z and 17:47Z) and 2026-10-04T17:59Z (D3 execution note); corrected 2026-10-04T18:09Z after the independent PR review (ten processes/190, window label, burst semantics) by the chief (`https://claude.ai/code/session_01GWYV7WXWstgVGQG43YcSM8`,
 runtime-reported model `claude-fable-5-1`). Inputs: Astra's read-only report relayed by the founder on
 2026-10-04 (ledger byte-identity confirmed; timebox balance unrecorded; backfill-facts Monday 07:00 UTC
 confirmed; zero spend, zero writes), the COO disposition's eight items, the CTO handback revision 3, two
@@ -58,9 +58,12 @@ invites a user, changes a production flag, adds load or spends.
     pyrate-limiter token bucket created once at import (`:433`, `HTTP_MGR`). The app documents this
     bucket (`backend/app/integrations/sec_api.py:9-11`) and never wraps it; no deploy sets
     `EDGAR_RATE_LIMIT_PER_SEC`. Source SHA-256 of the file read: `63675da6f438d5e06422882a07b20802eded59a944a8357242969b53d7876ecc`.
-  - Per-process configured sustained ceiling is therefore 10 + 9 = 19 req/s, with first-second
-    bursts up to 2× (both buckets start full). Fleet: all nine slots 171 req/s; Monday 06:00–07:00 UTC
-    scheduled overlap (two instances + pregenerate + filing-scan + backfill-facts) 95; the hourly
+  - Per-process configured sustained ceiling is therefore 10 + 9 = 19 req/s. First second: the app
+    bucket starts full (capacity equals rate, so 2× its rate), while edgartools' pyrate-limiter bucket is
+    a sliding window that admits at most its rate per rolling second (verified in pyrate-limiter 4.3.0
+    `InMemoryBucket.put`), so 20 + 9 = 29 per process. Fleet: all ten processes (two instances + eight
+    jobs) 190 req/s; Monday 07:00 UTC scheduled overlap (two instances + pregenerate + filing-scan +
+    backfill-facts) 95; the hourly
     filing-scan window 57 — against SEC's 10 req/s per user. Handback B36's 20/40/50 was a floor (D9).
   - The limiter waits rather than rejects (`_wait_for_token`), so exceeding the aggregate shows as
     `rate_limit_hits` climbing on the service while a job runs, or as SEC 403/429 and
@@ -71,8 +74,9 @@ invites a user, changes a production flag, adds load or spends.
   job). A rule-12 unit gate asserts those configured values and the arithmetic stated here. Claimed
   configured sustained sums: steady 4; hourly filing-scan window 6; Monday 06:00 UTC (pregenerate +
   scan) 8; Monday 07:00 UTC with backfill-facts and a still-running pregenerate 10; a daily EFTS job
-  over a running scan 8 — every scheduled overlap in B23 ≤ 10. Honestly **not** claimed: all nine slots
-  at once (20); first-second bursts (2× the sustained figure, up to 20 at Monday 07:00); rollout-overlap
+  over a running scan 8 — every scheduled overlap in B23 ≤ 10. Honestly **not** claimed: all ten
+  processes at once (20); first-second bursts (twice the app budget plus the edgartools budget: 3 per
+  process, 15 at Monday 07:00); rollout-overlap
   instances; manual job executions and operator one-shots; any path outside both limiters; SEC's
   enforcement window. Why 1 rather than 2 on the service: with two buckets per process, 2 + 1 per
   instance already puts Monday 07:00 at 12 > 10; the latency cost (a generation's fetch phase queues at
@@ -171,8 +175,8 @@ statement under "D9 — closure".
 
 Context `…:launched-2026-10-04T1733Z:envelope-derived-refuter-arith-01` (exclusion-139). Scope: rows
 B08, B19, B36, B41, B54 and §5 of handback revision 3, recomputed from the repository at main
-`0ad56621` (no non-`tasks/` change since `100fb7d6`). No row is arithmetically wrong on its stated
-inputs; four rows are true-but-incomplete.
+`0ad56621` (the 24 non-`tasks/` files changed since `100fb7d6` are frontend/lessons and touch no cited
+anchor). No row is arithmetically wrong on its stated inputs; four rows and §5 are true-but-incomplete.
 
 | Row | Verdict | Finding the chief accepts | Consequence |
 |---|---|---|---|

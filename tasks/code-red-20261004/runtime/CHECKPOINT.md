@@ -1,4 +1,4 @@
-# Durable checkpoint — CODE RED chief session (updated 2026-10-04T18:00:24Z)
+# Durable checkpoint — CODE RED chief session (updated 2026-10-04T18:10:46Z)
 
 Chief: `https://claude.ai/code/session_01GWYV7WXWstgVGQG43YcSM8` (runtime-reported model `claude-fable-5-1`).
 Package: `earningsnerd-code-red-fable-chief-20261004.zip` SHA-256
@@ -14,13 +14,13 @@ from the branch restarted at that main. Tasks-only: no code, workflow, test or p
 | `README.md` | `2bd9fbd9b5c33e713df04cf1cb8b2de1345a5083c81da1a5fc61548301455325` | recorded (revision exception added after review nit R1) |
 | `TAKEOVER.md` | `7fcb32c92c7793deacfb90c8af86db73edf0b63083d5f75d018c0b73b30013b1` | recorded (snapshot heading: observed 14:21Z, recorded 14:31Z) |
 | `control/LEDGER-ACCESS.md` | `1f630ee23c512466068fe8c14022433d6b758bd32ac336014bbf49270d8ced5d` | **successor ledger designated 17:39Z** (update section); paid dispatch still HELD, 0 reservations |
-| `control/DECISIONS-02.md` | `5e89f77991a0835bb6b95c9b9bd615a728f1a517a507a70610cfae038ca068a2` | post-Astra decision set D1–D9 + refuter appendices A/B |
-| `control/PRODUCTION-CONFIG-OBSERVATION-20261004.md` | `70f519a24b15428fb80171e115656331ccaa066e7d30a3c5cfaa960a0c568d7f` | two read-only Ops describes; no SEC budget override anywhere; one process per instance observed |
+| `control/DECISIONS-02.md` | `2cf3937b953780b27368b5de3974a0c48165ab46cc39a64cd7df9994d19eda04` | post-Astra decision set D1–D9 + refuter appendices A/B |
+| `control/PRODUCTION-CONFIG-OBSERVATION-20261004.md` | `ea3689c8744023f9b627c2e0e51622bb01b7fa70382f1a70c8fac59f17c3564d` | two read-only Ops describes; no SEC budget override anywhere; one process per instance observed |
 | `control/source-context-exclusion-136.json` | `f6c065fd30650547e6cdb597faca44138ccd54bc50e5d9ab63b9883c61862f9a` | 136 entries (chief added) |
 | `control/source-context-exclusion-137.json` | `3f04115827cc22e0588af212eb86737dcf3c183a51118ac6443020eb6530b00f` | 141 entries (4 CPO workflow agents + COO subagent added) |
 | `control/source-context-exclusion-138.json` | `a6c81a93490c89e0a9abc68c8b9bd8a4a61f49440b5f222284ff92477c9f091a` | 143 entries (two PR-review contexts added) |
 | `control/source-context-exclusion-139.json` | `7c2ced05a266915920f589e4256106ad69ada639a85eacbf0d0319b7f04d9955` | 146 entries (two refuters + decisions-PR reviewer added) |
-| `control/APPOINTMENTS.json` | `3cf24e23e5dd6da61328ad712b6d60d2b38a1f435215c345c7ea6a6da951510b` | actual identities recorded; refuters, successor ledger, next assignments added |
+| `control/APPOINTMENTS.json` | `a7744eeb915b59ca1f2d621538ff6a405635bf0dce75f0a1f493f13b20654f3b` | actual identities recorded; refuters, successor ledger, next assignments added |
 | `control/REPOSITORY-SNAPSHOT.json` | `a0666c424912e25b8dab6a689494d04dbe9507cc3bd7fdeb684a0734118741e9` | observed 14:21Z |
 | `control/SPEND-POLICY-STATEMENT.md` | `2a2122c5a727a0190c7ca999c241c8ff4ab2008a476ca64707a82e87e9dafa0e` | provider spend field HOLD |
 | `dispatch/CPO-COORDINATOR-01.json` | `1fbbc3e057be56bea74676c9c906684412dd07e919f9023bc9226278294c640e` | dispatched, complete |
@@ -45,7 +45,7 @@ from the branch restarted at that main. Tasks-only: no code, workflow, test or p
 4. CPO coordinator dispatched (USD 0); disclosed read-only `git status` deviation accepted as having no effect; outputs unchanged by revision.
 5. CTO handback authored in the chief context after the classifier denied the isolated workflow; revision 2 corrects three placeholder fields; determination unchanged.
 6. COO disposition dispatched; HOLD accepted. Items routed: founder — Slice B policy numbers (optional path to close the SEC aggregate-rate gap by configuration); CEO — live ledger access; CTO/CEO — provider account limits and egress identity (read-only, not dispatched).
-7. **Next observation authorized (COO/CEO integrator decision):** one bounded read-only Ops `capacity-readout` over the Monday 2026-10-05 06:00–07:00 UTC job-overlap window, dispatched after 07:05 UTC through the existing `ops.yml` operation, receipt handed to COO. No new load, no DeepSeek call. A one-shot reminder into this session is the mechanism; if it does not fire, the next chief dispatches it from this record.
+7. *(Superseded by decision 12: window 06:00–08:00 UTC, Routine fires 08:10Z.)* **Next observation authorized (COO/CEO integrator decision):** one bounded read-only Ops `capacity-readout` over the Monday 2026-10-05 06:00–07:00 UTC job-overlap window, dispatched after 07:05 UTC through the existing `ops.yml` operation, receipt handed to COO. No new load, no DeepSeek call. A one-shot reminder into this session is the mechanism; if it does not fire, the next chief dispatches it from this record.
 8. Paid dispatch held (live ledger inaccessible at the time). Superseded by decision 9.
 9. **Successor spend ledger designated** (17:39Z, `DECISIONS-02.md` D1): private artifact "CODE RED Spend Ledger", document SHA-256 `53e8486800e193277c5be5c14a786cfeff90d3b4fa212be1c044c7343fea9f78`; chief sole writer; 0 reservations; paid dispatch still HELD. URL kept out of the public repository (D5).
 10. **R1 bounded allowance** (D2): 3 focused hours of local founder-side refinement by a fresh source-only planner; USD 0; engineering-safe return; planner identity registered before any executive read.
@@ -63,7 +63,7 @@ from the branch restarted at that main. Tasks-only: no code, workflow, test or p
 - DeepSeek calls 0; USD 0.000000; reservations 0; ledger writes 0. Recorded cumulative usage reused from the snapshot (2,356 calls / USD 4.331765; USD 12.570771 conditional under the USD 15 authority). PR1086 CI: `eval-baseline` skipped (no AI-relevant change) → no paid job.
 - External mutations by the chief: branch pushes, PR #1086 (merged) and this PR (GitHub, as the founder's account); Vercel previews of the unchanged frontend; two read-only `ops.yml` dispatches (`describe-service` run 37220896634, `describe-jobs` run 37220898225); the private ledger artifact publish; the Monday Routine update. No cloud-config, production, provider or flag action.
 - Classifier denials: the CTO isolated workflow launch; one Bash read of two `docs/DEPLOYMENT.md` schedule sections. A third: the `git commit` of the CTO per-process SEC budget change (Production Deploy). None pursued through another route. (The two refuters read those schedule lines in their own isolated contexts as part of their assigned scope; the chief relies on their reports, not on a re-read.)
-- Worker deviations (both disclosed, read-only, no mutation): CPO coordinator ran `git status --short`; COO worker ran `git status --porcelain | head -0`.
+- Worker deviations (all disclosed, read-only, no mutation): CPO coordinator ran `git status --short`; COO worker ran `git status --porcelain | head -0`; the decisions-PR reviewer composed one command line containing a `pip download` of edgartools with output discarded (a possible outbound index request through the proxy; nothing used, nothing written).
 - Chief defect (commit `3238c5d7`): the checkpoint hash table was regenerated with a column slip (hashes written into the status column; two handback rows kept revision-2 hashes); rebuilt from a clean definition in the next commit.
 - Chief defect: CTO handback revision 1 left three placeholders unrendered; found by the COO worker; corrected in revision 2 (`CORRECTION-01.md`).
 - Scratchpad absolute paths in the dispatch manifests are provenance for package inputs identified by SHA-256; the package hash plus the relative package path identify the bytes once the session's scratchpad is gone.
@@ -80,8 +80,33 @@ from the branch restarted at that main. Tasks-only: no code, workflow, test or p
 - Required checks on `0cf48204`: backend-tests, frontend-tests, e2e-tests, migrations-postgres, lighthouse,
   secret-scan all success; eval-baseline skipped (no AI-relevant change, no paid call); review-gate skipped
   while draft. The corrected head is re-reviewed on its delta before the `Review override:` line is bound.
-- Monday capacity-readout reminder: one-shot Routine `trig_01QEr6wQnjqtMG4FdqLce2qT`, fires
-  2026-10-05T07:10:00Z into this session (cancel with that id if the founder prefers to dispatch manually).
+- Monday capacity-readout reminder: one-shot Routine `trig_01QEr6wQnjqtMG4FdqLce2qT`, updated to fire
+  2026-10-05T08:10:00Z into this session for the 06:00–08:00 UTC window (D4; cancel with that id if the
+  founder prefers to dispatch manually).
+
+## Review record for PR #1088 (decision record 02)
+
+- Head `9c505289950f0027636b9d77571f54d8fbd53ffa` reviewed by an isolated read-only subagent (registered in
+  `control/source-context-exclusion-139.json` as the decisions-PR reviewer): **NO BLOCKER**; 27 `file:line`
+  anchors checked, 0 mismatched; 27 SHA-256 values checked, 0 mismatched; exclusion-139 chain and counts
+  verified; no ledger URL, credential, path or placeholder in the diff; no capacity/hold/spend admission.
+  Six should-fix items and three nits, all accepted and fixed in the following commit: (1) "nine slots /
+  171" → ten processes / 190 (2 instances + 8 jobs) in D3 and the observation record; (2) Appendix A's
+  "no non-`tasks/` change since `100fb7d6`" → the 24 frontend/lessons files, none a cited anchor; (3) the
+  five-process overlap relabelled Monday 07:00 UTC; (4) decision 7 marked superseded and the Routine fire
+  time corrected to 08:10Z; (5) stale APPOINTMENTS fields (CTO status/deliverable, chief role, CFO
+  worker) updated; (6) burst semantics: edgartools' pyrate-limiter bucket is a sliding window, not a
+  start-full token bucket (verified in pyrate-limiter 4.3.0 `InMemoryBucket.put` in the local venv), so
+  the first-second ceiling is 29 per process at the defaults and 3 per process / 15 at Monday 07:00 under
+  the D3 pin — D3, the observation record, the founder's patch and its gate updated; (7) "four rows and
+  §5"; (8) todo narrative bullet; (9) env names of torn-down integrations withheld (D5). The reviewer
+  disclosed one deviation (a `pip download` command line with discarded output; nothing used).
+- The review binds to `9c505289` only; the delta to the final head is re-reviewed by the same context
+  before the `Review override:` line is bound.
+- D3 patch gate (founder's patch, not this PR): first full backend run — ruff and bandit clean, pytest
+  2305 passed / 1 failed: `tests/unit/test_data_completeness.py::test_backfill_deploy_restores_only_its_scheduled_entrypoint`
+  pins the backfill-facts env token, so the patch now updates that token; targeted tests pass after the
+  fix; the full re-run result is reported in the session.
 
 ## Founder-dependent items (precise; nothing blocks today's work)
 

@@ -1,7 +1,7 @@
 {
   "recorded_at": "2026-10-04T14:31:38.078611+00:00",
   "chief": {
-    "role": "CEO / chief execution integrator; sole ledger-reservation writer (held: live ledger inaccessible); paid-dispatch and serial-release coordinator",
+    "role": "CEO / chief execution integrator; sole ledger-reservation writer (successor ledger designated 2026-10-04T17:39Z; writes only with a reservation); paid-dispatch and serial-release coordinator",
     "identity": "https://claude.ai/code/session_01GWYV7WXWstgVGQG43YcSM8",
     "model_reported_by_runtime": "claude-fable-5-1",
     "predecessor": "Astra (GPT-6 Codex chief), retired at package handoff per CHIEF-TRANSFER-POLICY.md"
@@ -18,8 +18,8 @@
       "active_assignment": "dispatch/CTO-ENVELOPE-HANDBACK-01.json (current-beta operating envelope for COO C1)",
       "actual_runtime_identity": "No isolated delegate: the Workflow launch for dispatch CTO-ENVELOPE-HANDBACK-01 (author + three adversarial lenses) was denied by the platform's auto-mode classifier. The chief context (session_01GWYV7WXWstgVGQG43YcSM8, runtime-reported model claude-fable-5-1) authored the handback acting as CTO; no isolated adversarial review ran.",
       "requested_model": "claude-fable-5-1 (author); independent lenses: claude-opus-5-5, claude-fable-5-1, claude-sonnet-5-5",
-      "deliverable": "handbacks/cto/envelope/ revision 2 (CORRECTION-01.md records the revision-1 placeholder defect found by the COO worker and the hash chain)",
-      "status": "delivered; unrefuted by isolated review",
+      "deliverable": "handbacks/cto/envelope/ revision 3 (CORRECTION-01.md: revision-1 placeholder defect found by the COO worker; CORRECTION-02.md: revision-2 anchor nits from the independent PR review; hash chains recorded)",
+      "status": "delivered; six derived rows qualified (none refuted) by two isolated refuters — see independent_refuters",
       "independent_refuters": "Two isolated read-only refuter contexts (arithmetic, assumptions lenses) launched by the chief 2026-10-04T17:33Z against handback rev 3 derived rows; both returned; registered in control/source-context-exclusion-139.json; verdicts in control/DECISIONS-02.md Appendices A and B (no arithmetic error; six qualifications; edgartools second bucket verified; one process per instance observed).",
       "next_assignment": "Per-process SEC budget change prepared and locally gated; commit classifier-denied (Production Deploy) — founder applies or changes the patch (DECISIONS-02.md D3 execution note). Next handback revision carries B07/B08/B36/B41/B52 updates."
     },
@@ -58,7 +58,7 @@
       ],
       "packet_sha256": "83c8214f1d0de29e8ed3f20c4d4a60e9c5c0eb0cf968dd4b81152d22f6018d16",
       "first_deliverable_reused": "cfo FIRST-DELIVERABLE.md 925fcc6b… (reconciliation reused: USD 12.570771 conditional unreserved; snapshot only)",
-      "held_worker": "Cost-decision worker queued: no exact paid action named; live ledger inaccessible from this host (returns a blocked receipt if dispatched)",
+      "held_worker": "Cost-decision worker queued: no exact paid action named yet; successor ledger designated (private artifact; chief sole writer) — the worker's first use is the reservation for marking the D3 PR ready (~USD 0.01 copilot-eval) once the founder applies the patch",
       "actual_runtime_identity": "not launched",
       "requested_model": "n/a",
       "status": "queued; reconciliation reused; SPEND-POLICY-STATEMENT.md issued by the chief (provider operating-spend field HOLD)",
@@ -74,7 +74,7 @@
     ]
   },
   "note": "Appointment is accountability, not entry authorization. Actual delegate identities (workflow run / agent ids) are recorded here and in the exclusion successor after launch.",
-  "updated_at": "2026-10-04T17:59:19.617045+00:00",
+  "updated_at": "2026-10-04T18:09:10.082344+00:00",
   "classifier_denials": [
     "Workflow launch for CTO-ENVELOPE-HANDBACK-01 (auto-mode classifier, no reason given); not re-issued through another tool or subagent",
     "One Bash read of docs/DEPLOYMENT.md job-schedule sections (auto-mode classifier: instruction poisoning); the handback cites those lines from an earlier permitted line-level search only",

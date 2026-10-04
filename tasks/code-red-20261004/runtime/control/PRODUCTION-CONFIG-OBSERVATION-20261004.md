@@ -37,10 +37,11 @@ All eight on image tag `backend:100fb7d`, `taskCount` 1, pools as the workflow r
 
 - B36 refinement: each process holds two independent SEC buckets — the app singleton (10 req/s,
   `SEC_RATE_LIMIT_PER_SECOND`) and edgartools' own (9 req/s, `EDGAR_RATE_LIMIT_PER_SEC`, neither set in
-  any deploy) — so the configured sustained ceiling is 19 req/s per process, 171 with every slot
-  active (2 instances + 8 jobs) and 95 in the Monday 06:00–07:00 UTC scheduled overlap, with
-  first-second bursts up to 2×; realised demand remains unmeasured (B39). Only lower per-process
-  budgets on both buckets change this (`DECISIONS-02.md` D3).
+  any deploy) — so the configured sustained ceiling is 19 req/s per process, 190 with every process
+  active (2 instances + 8 jobs) and 95 in the Monday 07:00 UTC scheduled overlap (two instances +
+  pregenerate + filing-scan + backfill-facts), with a first-second ceiling of 29 per process (the app
+  bucket starts full; edgartools' is a sliding window); realised demand remains unmeasured (B39). Only
+  lower per-process budgets on both buckets change this (`DECISIONS-02.md` D3).
 - B37: egress identity observed as dynamic (no fixed egress); moot for the SEC cap (D8).
 - B07/B08: `WEB_CONCURRENCY` and `UVICORN_WORKERS` are not set and the command is the image default, so
   with `backend/Dockerfile:60` (`uvicorn main:app`, no `--workers`) one serving process per instance is
@@ -52,9 +53,9 @@ All eight on image tag `backend:100fb7d`, `taskCount` 1, pools as the workflow r
 
 - `ENABLE_GUEST_DAILY_QUOTA` is removed at every deploy (`ci.yml:619`) although no Settings field or
   code reads it (assumptions refuter): dead deploy config for the owner of the next `ci.yml` change.
-- The service still carries `FINNHUB_API_BASE`, `FINNHUB_API_KEY` and `FMP_API_KEY` entries although
-  those integrations were torn down in #657; removal is a deploy-config change for the next backend PR
-  by its owner, not for this session.
+- The service still carries env entries for integrations torn down in #657 (names withheld here per
+  `DECISIONS-02.md` D5; visible in the Ops run above); removal is a deploy-config change for the next
+  backend PR by its owner, not for this session.
 - The `notable-filings` job sets neither `EDGAR_IDENTITY` nor `SEC_EDGAR_BASE_URL`; it falls back to
   the compliant default identity in `backend/app/services/edgar/config.py:16`. Compliant; worth
   aligning with the other SEC-calling jobs when that job is next touched.
