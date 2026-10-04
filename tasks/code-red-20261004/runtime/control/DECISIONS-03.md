@@ -7,6 +7,11 @@ writes, no source work started). Astra's evidence files live on the founder's ma
 size and SHA-256; only counts and file names from them are reproduced here, never contents. Nothing below admits capacity, releases a
 hold, invites a user, changes a production flag, adds load or spends.
 
+**Corrections recorded in `DECISIONS-04.md` (from Astra's package adjustment report):** the line-78 telemetry
+sentence (a rise records a recognised rate-limit error, not necessarily an observed SEC 429), the "zero writes"
+scope in the introduction, the custody counts (now 18/21 and 12/48 cloud-only) and the unverified `brctl` advice.
+The text below is left as recorded.
+
 ## Prerequisite 1 — planner registered (CEO)
 
 - Identity: `codex-thread:01a102be-45bf-72f3-8b9a-a5ff7bb8adfe:/root/h20_refinement_planner_20261004` (canonical agent identity `/root/h20_refinement_planner_20261004`), reported
