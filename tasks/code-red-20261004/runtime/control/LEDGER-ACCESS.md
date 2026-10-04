@@ -49,3 +49,11 @@ no reservation, hold or event was added after 2026-10-04T09:35:21Z. Condition (b
 - **Paid dispatch:** still HELD — a reservation must be written in the successor before any paid trigger
   (including `copilot-eval` on a backend PR marked ready). Active reservations: 0.
 - Decisions 3–4 above remain in force; the founder-dependent item is closed.
+
+### Event 1 — 2026-10-04T20:07:50Z
+
+Wording correction appended under the hash-chain rule (`previous_sha256` `53e84868…`): the supported
+reconciliation statement is "byte-identical to the packaged snapshot"; the snapshot already carried
+entries stamped 09:35:21.075Z and 12:49:19.634Z. Current document: 21,295 bytes, SHA-256
+`beef4ca0b2973db9f00503e0bbbf3ae2ad816def51c0f53820c41e51431be3fa`. Balances, holds and reservations
+unchanged; spend 0. See `DECISIONS-03.md`.

@@ -9,6 +9,10 @@ DeepSeek's published rate-limit page (both read 2026-10-04). Founder instruction
 and take the decisions with the owning officers' input. Nothing below admits capacity, releases a hold,
 invites a user, changes a production flag, adds load or spends.
 
+**Corrections recorded in `DECISIONS-03.md` (2026-10-04, from Astra's R1 bootstrap handover):** D1 reconciliation
+wording (ledger event 1), D2's unit (27 = remaining dossiers, not H20 items), D3's `rate_limit_hits` sentence and
+D6 condition 1. The text below is left as recorded.
+
 ## D1 — Successor spend ledger designated (CEO, CFO evidence)
 
 - Condition (b) of `LEDGER-ACCESS.md` is met: Astra confirmed the live

@@ -14,7 +14,7 @@
       ],
       "packet_sha256": "2209215e245813bd25aa6d8f70a41d5da98598f8b9ffdaf67da970e26a20d0e2",
       "first_deliverable_reused": "cto/FIRST-DELIVERABLE.md bdca249d…",
-      "held_worker": "officer/CLAUDE-IMPLEMENTATION-PROMPT.md (R1 dependency handover) NOT dispatched: entry condition (new source-owned packing evidence) absent; status recorded by chief in handbacks/cto/R1-STATUS.md",
+      "held_worker": "R1 dependency handover still NOT dispatched by the chief. Astra bootstrapped a fresh source-only H20 planner (registered in control/source-context-exclusion-140.json; BLOCKED_BEFORE_REFINEMENT; 0/0/0; 170 of 180 minutes remain) under DECISIONS-02 D2 as corrected by DECISIONS-03; refinement waits on the founder's local custody recovery.",
       "active_assignment": "dispatch/CTO-ENVELOPE-HANDBACK-01.json (current-beta operating envelope for COO C1)",
       "actual_runtime_identity": "No isolated delegate: the Workflow launch for dispatch CTO-ENVELOPE-HANDBACK-01 (author + three adversarial lenses) was denied by the platform's auto-mode classifier. The chief context (session_01GWYV7WXWstgVGQG43YcSM8, runtime-reported model claude-fable-5-1) authored the handback acting as CTO; no isolated adversarial review ran.",
       "requested_model": "claude-fable-5-1 (author); independent lenses: claude-opus-5-5, claude-fable-5-1, claude-sonnet-5-5",
@@ -74,7 +74,7 @@
     ]
   },
   "note": "Appointment is accountability, not entry authorization. Actual delegate identities (workflow run / agent ids) are recorded here and in the exclusion successor after launch.",
-  "updated_at": "2026-10-04T18:09:10.082344+00:00",
+  "updated_at": "2026-10-04T20:07:50.508462+00:00",
   "classifier_denials": [
     "Workflow launch for CTO-ENVELOPE-HANDBACK-01 (auto-mode classifier, no reason given); not re-issued through another tool or subagent",
     "One Bash read of docs/DEPLOYMENT.md job-schedule sections (auto-mode classifier: instruction poisoning); the handback cites those lines from an earlier permitted line-level search only",
