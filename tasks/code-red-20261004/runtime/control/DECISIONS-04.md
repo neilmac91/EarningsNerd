@@ -8,6 +8,11 @@ remaining ceiling and the reviewer identity, and keep implementation held pendin
 refinement. Nothing below releases inputs, dispatches the planner, admits capacity, releases a hold,
 invites a user, changes a production flag, adds load or spends.
 
+**Corrections recorded in `DECISIONS-05.md`:** the telemetry wording "or for any exception whose message contains …"
+is narrowed to "or a matching message on a non-`HTTPStatusError` exception" (an `HTTPStatusError` returns directly
+on status 429); the recovery-advice ordering is superseded (Finder first); the time ceiling is 150 after this
+turn's charge. The text below is left as recorded.
+
 ## Package receipt (chief verification by hash only)
 
 Archive `H20-REGISTERED-PLANNER-CONTROLS-20261004.zip`, 7,656 bytes, SHA-256
