@@ -1,0 +1,83 @@
+{
+  "observed_at": "2026-10-04T14:21:00Z",
+  "observer": "chief session_01GWYV7WXWstgVGQG43YcSM8 via GitHub MCP (read-only list_pull_requests, actions_list, list_commits) and git fetch",
+  "main_sha": "100fb7d6bdaf62590af19964d39c2ed732062210",
+  "package_snapshot_main_sha": "100fb7d6bdaf62590af19964d39c2ed732062210",
+  "main_unchanged_since_package": true,
+  "open_prs": [
+    {
+      "number": 1085,
+      "head": "583e828d32496f7b1fae22e6fe705767d907be57",
+      "package_head": "5cd04aa9d85a0e4d0b56dda7bc43e3e244d2ac13",
+      "changed_since_package": true,
+      "branch": "claude/epic-ritchie-0q8svz",
+      "draft": true,
+      "owner_session": "https://claude.ai/code/session_0116SBfHFVS7ksJsVVQmRbdc",
+      "note": "owner pushed 2026-10-04T14:02:54Z; CI run 37207819234 success; review-gate run 37207818098 skipped (draft)"
+    },
+    {
+      "number": 1081,
+      "head": "53cc27625b398c1d9a4007f0840ee19d949bcfd7",
+      "changed_since_package": false,
+      "branch": "claude/zealous-albattani-6ti8cx",
+      "draft": false,
+      "owner_session": "https://claude.ai/code/session_01GXzncC4vdwNj8SWMDhxQfS"
+    },
+    {
+      "number": 1074,
+      "head": "437e245c824516ec8a552c2fd6dced0e0bc0091f",
+      "changed_since_package": false,
+      "branch": "claude/copilot-prompt-candidate",
+      "draft": true,
+      "hold": "Copilot candidate Not qualified; measurement only"
+    },
+    {
+      "number": 1070,
+      "head": "e6b0de982a40d29a6a5091a142ad3215c5c0a7dd",
+      "changed_since_package": false,
+      "branch": "dependabot/pip/backend/minor-updates-2ce14dd2e5",
+      "draft": false,
+      "hold": "edgartools regression"
+    },
+    {
+      "number": 1035,
+      "head": "23c948e9b881ca89328327a451a7b238b119dabe",
+      "changed_since_package": false,
+      "branch": "codex/wave3-native-delivery-capability",
+      "draft": true,
+      "hold": "native delivery adapter held"
+    },
+    {
+      "number": 1009,
+      "head": "be11df3a1547f21ef911d87097d488c5892f5343",
+      "changed_since_package": false,
+      "branch": "codex/wave3-launch-pricing-offer",
+      "draft": true,
+      "hold": "pricing staged, not activated"
+    }
+  ],
+  "latest_main_runs": {
+    "ci_push": {
+      "id": 37202227789,
+      "conclusion": "success"
+    },
+    "ops": [
+      37202971777,
+      37203033138
+    ],
+    "prod_smoke": {
+      "id": 37202612862,
+      "conclusion": "success"
+    },
+    "review_gate_issue_comment": {
+      "id": 37203571525,
+      "conclusion": "skipped"
+    }
+  },
+  "in_progress_workflows": [],
+  "release_reused": {
+    "revision": "earningsnerd-backend-00443-n58",
+    "verification": "package MILESTONE-778e639a.json / h20_release_in_progress; not re-run"
+  },
+  "writes_by_observer": "none on GitHub at observation time"
+}

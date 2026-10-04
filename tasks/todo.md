@@ -6204,3 +6204,30 @@ Full local and hosted verification plus independent exact-head review precede re
   Full H20 mappings, larger closures, modality delivery and capacity proofs remain separate;
   held PR1035 is unchanged. Accept the exact source-approved note-v2 status without admitting
   unknown successors. [Interface and limitations](readiness-2026-09-21/acceptance/h20-note-inputs.md).
+
+## 2026-10-04 — CODE RED chief takeover (Fable chief session; tasks-only, PR #1086)
+
+- Recorded single-writer takeover under `tasks/code-red-20261004/runtime/`: verified founder package
+  (`e5316f50…`, 0 manifest mismatches), observed runtime identity, fresh main/PR-owner snapshot at
+  `100fb7d6`, append-only exclusion successors 136 and 137, appointments, CEO/CFO spend statement.
+  Live spend ledger is on the founder's machine and unreachable from the cloud session: paid dispatch,
+  reservations and ledger writes held; no successor ledger designated. Zero DeepSeek calls / USD 0.
+- R1 stays `BLOCKED_SOURCE_OWNED_PACKING` (no worker launched; founder-dependent item recorded).
+- CPO lane: isolated coordinator produced the R1→R2 admission status (A1–A9) and process handback;
+  two independent verifier passes: administrative pass, execution not admitted, candidate HOLD.
+- CTO lane: current-beta operating-envelope handback (58 classified bounds, verified anchors; revision 2
+  after a placeholder defect). Determination undetermined; no E09 code subset demonstrated necessary;
+  aggregate SEC rate across instances and jobs is the evidence-supported hazard; E09 hold unchanged.
+  Authored in the chief context because the isolated workflow launch was denied by the auto-mode
+  classifier; no isolated adversarial review ran.
+- COO lane: operating-envelope disposition HOLD with eight named missing inputs/decisions and owners;
+  capacity unadmitted; counts unchanged (3/30 dossiers, 0/2 readouts, 5 groups + 1 capacity decision).
+- [ ] Founder: run the authorized source-owned H20 packing refinement locally and state the timebox
+      balance, or record the timebox as exhausted (`runtime/handbacks/cto/R1-STATUS.md`).
+- [ ] Founder: supply the live `spend-and-reservation.json` bytes + SHA-256, or confirm identity with
+      snapshot `99c7259f…`, before any paid action (`runtime/control/LEDGER-ACCESS.md`).
+- [ ] COO/CEO: one bounded read-only Ops `capacity-readout` over the Monday 06:00–07:00 UTC job-overlap
+      window to inform B32 (and B56 only as far as the COO/CEO decide the receipt may close); chief
+      decision recorded in `runtime/CHECKPOINT.md`.
+- [ ] Docs-vs-config: `docs/OPERATIONS.md` alert threshold `database.checked_out > 8` is unreachable with
+      the deployed pool 4 / overflow 0 (handback B33); fix the doc separately.

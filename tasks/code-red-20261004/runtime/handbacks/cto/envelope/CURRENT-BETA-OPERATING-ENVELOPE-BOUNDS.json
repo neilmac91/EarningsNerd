@@ -1,0 +1,859 @@
+{
+  "schema_version": 1,
+  "revision": 3,
+  "dispatch_id": "CTO-ENVELOPE-HANDBACK-01",
+  "observed_at": "2026-10-04T15:20:16Z",
+  "repository_commit": "100fb7d6bdaf62590af19964d39c2ed732062210",
+  "author": "chief session_01GWYV7WXWstgVGQG43YcSM8 acting as CTO (isolated worker launch denied by the platform's auto-mode classifier; no isolated adversarial lenses ran)",
+  "bounds": [
+    {
+      "id": "B01",
+      "component": 1,
+      "bound": "Cloud Run service vCPU per instance",
+      "value": 1,
+      "unit": "vCPU",
+      "classification": "configured-deploy",
+      "enforcement_scope": "instance",
+      "evidence": "`.github/workflows/ci.yml:616` (`--cpu=1 --cpu-boost`); mirrored `docs/DEPLOYMENT.md:201`",
+      "uncertainty": "Re-asserted on every backend deploy; current live value not re-read from Cloud Run here."
+    },
+    {
+      "id": "B02",
+      "component": 1,
+      "bound": "Cloud Run memory per instance",
+      "value": 1,
+      "unit": "GiB",
+      "classification": "configured-deploy",
+      "enforcement_scope": "instance",
+      "evidence": "`.github/workflows/ci.yml:616` (`--memory=1Gi`)",
+      "uncertainty": "As B01."
+    },
+    {
+      "id": "B03",
+      "component": 1,
+      "bound": "Cloud Run minimum instances",
+      "value": 1,
+      "unit": "instances",
+      "classification": "configured-deploy",
+      "enforcement_scope": "service",
+      "evidence": "`.github/workflows/ci.yml:617` (`--min-instances=1`)",
+      "uncertainty": "One warm instance; per-process caches survive between requests."
+    },
+    {
+      "id": "B04",
+      "component": 1,
+      "bound": "Cloud Run maximum instances (service-level and per-revision)",
+      "value": 2,
+      "unit": "instances",
+      "classification": "configured-deploy",
+      "enforcement_scope": "service",
+      "evidence": "`.github/workflows/ci.yml:617` (`--max=2 --max-instances=2`); `.github/workflows/ci.yml:612` (comment)",
+      "uncertainty": "Cloud Run can briefly exceed a configured maximum during scaling/rollout (vendor behaviour recorded in the workflow comment; magnitude unknown). Jobs are outside this limit."
+    },
+    {
+      "id": "B05",
+      "component": 1,
+      "bound": "HTTP request concurrency per instance",
+      "value": 40,
+      "unit": "requests",
+      "classification": "configured-deploy",
+      "enforcement_scope": "instance",
+      "evidence": "`.github/workflows/ci.yml:617` (`--concurrency=40`)",
+      "uncertainty": "Upper bound on simultaneous requests per instance; generation concurrency is bounded separately (B41)."
+    },
+    {
+      "id": "B06",
+      "component": 1,
+      "bound": "Cloud Run request timeout / stream timeout",
+      "value": 600,
+      "unit": "seconds",
+      "classification": "configured-deploy",
+      "enforcement_scope": "instance",
+      "evidence": "`.github/workflows/ci.yml:617` (`--timeout=600`); `STREAM_TIMEOUT` `backend/app/config.py:546`",
+      "uncertainty": "Streaming endpoints are excluded from the application timeout middleware (B27); the platform timeout is the outer bound."
+    },
+    {
+      "id": "B07",
+      "component": 1,
+      "bound": "Serving processes per instance",
+      "value": 1,
+      "unit": "processes",
+      "classification": "configured-code-default",
+      "enforcement_scope": "instance",
+      "evidence": "`backend/Dockerfile:60` (`uvicorn main:app` without `--workers`); tasks/fleet-coordination-proposal-2026-09-19.md:26 (no container command/argument override returned in the 2026-09-19 live read)",
+      "uncertainty": "Current live container command not re-read from Cloud Run; treated as one process per instance."
+    },
+    {
+      "id": "B08",
+      "component": 1,
+      "bound": "Fleet serving processes (steady / rollout)",
+      "value": {
+        "steady_max": 2,
+        "rollout_overlap_extra": null
+      },
+      "unit": "processes",
+      "classification": "assumed",
+      "enforcement_scope": "fleet",
+      "evidence": "Derived: B04 × B07. Rollout overlap: a draining revision's instances add processes for an unknown interval (ci.yml comment at B04).",
+      "uncertainty": "Overlap count and duration unknown; no observation in allowed inputs."
+    },
+    {
+      "id": "B09",
+      "component": 1,
+      "bound": "SQLAlchemy engines per process",
+      "value": 1,
+      "unit": "engine",
+      "classification": "configured-code-default",
+      "enforcement_scope": "process",
+      "evidence": "`backend/app/database.py:32`–39 (module-level `create_engine`, PostgreSQL branch); tasks/fleet-coordination-proposal-2026-09-19.md:25",
+      "uncertainty": "One sync engine per importing process (API instance or job)."
+    },
+    {
+      "id": "B10",
+      "component": 1,
+      "bound": "Service DB pool per process (pool_size / max_overflow)",
+      "value": {
+        "pool_size": 4,
+        "max_overflow": 0,
+        "max_connections_per_process": 4
+      },
+      "unit": "connections",
+      "classification": "configured-deploy",
+      "enforcement_scope": "process",
+      "evidence": "`.github/workflows/ci.yml:620` (`DB_POOL_SIZE=4,DB_MAX_OVERFLOW=0`) overrides image ENV 5/5 (`backend/Dockerfile:45`–46) and code defaults 20/10 (`backend/app/database.py:12`–13)",
+      "uncertainty": "Production-effective values are the deploy values. Local/ad-hoc runs of the same code use 20/10 unless the environment sets them."
+    },
+    {
+      "id": "B11",
+      "component": 1,
+      "bound": "Pool checkout wait before fail-fast",
+      "value": 10,
+      "unit": "seconds",
+      "classification": "configured-code-default",
+      "enforcement_scope": "process",
+      "evidence": "`backend/app/database.py:22` (`DB_POOL_TIMEOUT` default 10; not set by deploy `.github/workflows/ci.yml:620` or image ENV)",
+      "uncertainty": "Effective 10 s unless a runtime env override exists (none in the workflow). Saturation surfaces as a fast error, not a hang."
+    },
+    {
+      "id": "B12",
+      "component": 1,
+      "bound": "Pool connection recycle",
+      "value": 1800,
+      "unit": "seconds",
+      "classification": "configured-code-default",
+      "enforcement_scope": "process",
+      "evidence": "`backend/Dockerfile:47` (image ENV 1800) overriding code default 3600 (`backend/app/database.py:15`); deploy does not set it",
+      "uncertainty": "Effective 1800 s assuming no runtime override."
+    },
+    {
+      "id": "B13",
+      "component": 1,
+      "bound": "DB connect timeout / pre-ping",
+      "value": {
+        "connect_timeout_seconds": 10,
+        "pool_pre_ping": true
+      },
+      "unit": "seconds / flag",
+      "classification": "configured-code-default",
+      "enforcement_scope": "process",
+      "evidence": "`backend/Dockerfile:48`; `backend/app/database.py:17`; `pool_pre_ping=True` `backend/app/database.py:32`–39 (PostgreSQL branch)",
+      "uncertainty": "—"
+    },
+    {
+      "id": "B14",
+      "component": 1,
+      "bound": "Cloud Run jobs: count and per-process pools",
+      "value": {
+        "jobs": 8,
+        "pregenerate_pool": 3,
+        "pregenerate_overflow": 0,
+        "other_seven_pool": 1,
+        "other_seven_overflow": 0
+      },
+      "unit": "connections",
+      "classification": "configured-deploy",
+      "enforcement_scope": "job process",
+      "evidence": "`.github/workflows/ci.yml:637` (pregenerate `DB_POOL_SIZE=3`); `.github/workflows/ci.yml:651` (six jobs `DB_POOL_SIZE=1`); backfill-facts same values in its own step",
+      "uncertainty": "Env is re-asserted only for jobs that exist (CI skips missing jobs); operator `--args` overrides are outside this source audit."
+    },
+    {
+      "id": "B15",
+      "component": 1,
+      "bound": "Configured maximum application DB demand (2 instances + pregenerate + one execution of each other job)",
+      "value": 18,
+      "unit": "connections",
+      "classification": "configured-deploy",
+      "enforcement_scope": "fleet",
+      "evidence": "`.github/workflows/ci.yml:609` (comment: 2×4 + 3 + 7×1 = 18); `docs/DEPLOYMENT.md:664`",
+      "uncertainty": "Excludes rollout-overlap instances (+4 each), repeated concurrent executions of one job, and non-application clients (Ops proxy sessions, Cloud SQL Studio, monthly export, observers). This is configured demand, not measured load."
+    },
+    {
+      "id": "B16",
+      "component": 1,
+      "bound": "Cloud SQL tier",
+      "value": {
+        "bootstrap": "db-g1-small",
+        "current": null
+      },
+      "unit": "tier",
+      "classification": "configured-deploy",
+      "enforcement_scope": "external",
+      "evidence": "`docs/DEPLOYMENT.md:157` (bootstrap runbook)",
+      "uncertainty": "Current tier not verified from this session (no cloud read)."
+    },
+    {
+      "id": "B17",
+      "component": 1,
+      "bound": "PostgreSQL max_connections",
+      "value": 25,
+      "unit": "connections",
+      "classification": "observed",
+      "enforcement_scope": "external",
+      "evidence": "COO FIRST-DELIVERABLE §“C1 — one capacity admission, still HOLD” (package `c8277395…`) (read-only SQL snapshot 2026-10-04 07:02:47 UTC); also measured 2026-09-19 (tasks/fleet-coordination-proposal-2026-09-19.md:28)",
+      "uncertainty": "Observed value; not a reserve policy."
+    },
+    {
+      "id": "B18",
+      "component": 1,
+      "bound": "superuser_reserved_connections / reserved_connections",
+      "value": {
+        "superuser_reserved_connections": 3,
+        "reserved_connections": null
+      },
+      "unit": "connections",
+      "classification": "observed",
+      "enforcement_scope": "external",
+      "evidence": "COO FIRST-DELIVERABLE §“C1 — one capacity admission, still HOLD” (package `c8277395…`) (same snapshot; `reserved_connections=null`)",
+      "uncertainty": "Null is unknown, not zero."
+    },
+    {
+      "id": "B19",
+      "component": 1,
+      "bound": "Usable non-superuser connections",
+      "value": 22,
+      "unit": "connections",
+      "classification": "assumed",
+      "enforcement_scope": "external",
+      "evidence": "Arithmetic on B17 − B18 (25 − 3). Not an operating reserve and not a policy number.",
+      "uncertainty": "Any non-null `reserved_connections` would lower it."
+    },
+    {
+      "id": "B20",
+      "component": 1,
+      "bound": "Client backends observed at the snapshot",
+      "value": 6,
+      "unit": "backends",
+      "classification": "observed",
+      "enforcement_scope": "external",
+      "evidence": "COO FIRST-DELIVERABLE §“C1 — one capacity admission, still HOLD” (package `c8277395…`) (six client backends including the observer, 2026-10-04 07:02:47 UTC)",
+      "uncertainty": "A single light-traffic instant; not a peak and not evidence of spare capacity."
+    },
+    {
+      "id": "B21",
+      "component": 1,
+      "bound": "Job task configuration (taskCount / maxRetries / timeout)",
+      "value": {
+        "taskCount": 1,
+        "maxRetries": 3,
+        "timeout_seconds_range": "900–3600",
+        "parallelism": null
+      },
+      "unit": "tasks / retries / seconds",
+      "classification": "observed",
+      "enforcement_scope": "job",
+      "evidence": "tasks/fleet-coordination-proposal-2026-09-19.md:27 (live inventory 2026-09-19)",
+      "uncertainty": "Dated observation; parallelism omitted in that listing (not zero); current values not re-read."
+    },
+    {
+      "id": "B22",
+      "component": 1,
+      "bound": "Simultaneous job executions",
+      "value": {
+        "observed_overlap_seconds": 11.657177,
+        "same_job_concurrent_executions": null
+      },
+      "unit": "seconds",
+      "classification": "observed",
+      "enforcement_scope": "fleet",
+      "evidence": "COO FIRST-DELIVERABLE §“C1 — one capacity admission, still HOLD” (package `c8277395…`) (two execution lifetimes overlapped in the 2026-10-04 02:30–04:30 UTC window; recorded business phases did not overlap, 0.694726 s gap)",
+      "uncertainty": "Whether one job can run two executions concurrently (Scheduler re-trigger while running) is unknown; no DB sample lies inside the observed overlap."
+    },
+    {
+      "id": "B23",
+      "component": 1,
+      "bound": "Job schedules (SEC- and DB-relevant)",
+      "value": {
+        "pregenerate": "Mon 06:00 UTC",
+        "filing-scan": "hourly 0 * * * *",
+        "filing-digest": "daily 08:00 UTC",
+        "backfill-facts": "runbook: Mon 07:00 UTC; 2026-09-19 inventory: unscheduled",
+        "earnings-calendar-refresh": "daily 05:30 America/New_York",
+        "earnings-day-alerts": "daily 06:00 America/New_York",
+        "retention-purge": "Sun 03:00 UTC",
+        "notable-filings": "08:30 and 18:30 America/New_York per docs/DEPLOYMENT.md:623–624 as reported by the independent PR reviewer; not read by the chief (classifier denial)"
+      },
+      "unit": "cron",
+      "classification": "configured-deploy",
+      "enforcement_scope": "external",
+      "evidence": "`docs/DEPLOYMENT.md:222`, `:275`, `:280`, `:285`, `:344`, `:351`, `:381` (runbook); `docs/OPERATIONS.md:93` (Monday 06:00–07:00 UTC overlap of pregenerate, filing-scan and backfill-facts with the service); tasks/fleet-coordination-proposal-2026-09-19.md:27",
+      "uncertainty": "Runbook values are creation-time commands, not a live Scheduler read; backfill-facts scheduling conflicts between sources → unknown; notable-filings schedule not read by the chief; the independent reviewer reports it from docs/DEPLOYMENT.md:623–624 (recorded with that attribution, not verified here)."
+    },
+    {
+      "id": "B24",
+      "component": 1,
+      "bound": "Default worker-thread limiter per event loop (shared by health probes and summary DB units)",
+      "value": 40,
+      "unit": "threads",
+      "classification": "assumed",
+      "enforcement_scope": "process",
+      "evidence": "`docs/OPERATIONS.md:75` (anyio default limiter; the documented numbers are illustrative)",
+      "uncertainty": "Library default assumed; not observed."
+    },
+    {
+      "id": "B25",
+      "component": 1,
+      "bound": "EDGAR thread pool per process / EDGAR default timeout",
+      "value": {
+        "threads": 4,
+        "default_timeout_seconds": 15.0
+      },
+      "unit": "threads / seconds",
+      "classification": "configured-code-default",
+      "enforcement_scope": "process",
+      "evidence": "`backend/app/services/edgar/config.py:167`–169",
+      "uncertainty": "Env-overridable; deploy does not set them."
+    },
+    {
+      "id": "B26",
+      "component": 2,
+      "bound": "Request-level timeouts by path",
+      "value": {
+        "/api/summaries/": 120,
+        "/api/filings/": 60,
+        "/health": 5,
+        "default": 30,
+        "*/insiders": 75,
+        "streaming_and_progress": "excluded"
+      },
+      "unit": "seconds",
+      "classification": "configured-code-default",
+      "enforcement_scope": "process",
+      "evidence": "`backend/main.py:330`–344; `docs/OPERATIONS.md:315`",
+      "uncertainty": "Recorded as existing controls only; not used to derive any reserve or policy."
+    },
+    {
+      "id": "B27",
+      "component": 2,
+      "bound": "Pipeline backstop timeout / follower wait cap",
+      "value": {
+        "pipeline_timeout_seconds": 120,
+        "follower_wait_cap_seconds": 110,
+        "context_enrichment_timeout_seconds": 18
+      },
+      "unit": "seconds",
+      "classification": "configured-code-default",
+      "enforcement_scope": "process",
+      "evidence": "`backend/app/services/summary_pipeline.py:353`; `backend/app/services/summary_pipeline.py:91`; `backend/app/services/summary_pipeline.py:359`",
+      "uncertainty": "Back-pressure: excess generations queue on the semaphore inside this timeout (`backend/app/services/summary_pipeline.py:673`). Not used to choose policy numbers."
+    },
+    {
+      "id": "B28",
+      "component": 2,
+      "bound": "Provider budgets (summary / attempt / attempts / recovery)",
+      "value": {
+        "summary_budget_seconds": 75,
+        "attempt_cap_seconds": 45,
+        "max_summary_attempts": 3,
+        "recovery_attempt_timeout_seconds": 12
+      },
+      "unit": "seconds / attempts",
+      "classification": "configured-code-default",
+      "enforcement_scope": "process",
+      "evidence": "`backend/app/services/ai/provider_requests.py:22`–24; `backend/app/services/ai/section_recovery.py:122`; `docs/DEPLOYMENT.md:762`",
+      "uncertainty": "—"
+    },
+    {
+      "id": "B29",
+      "component": 2,
+      "bound": "DB session released before admission/provider waits (E03)",
+      "value": true,
+      "unit": "design property",
+      "classification": "configured-code-default",
+      "enforcement_scope": "process",
+      "evidence": "`backend/app/services/summary_pipeline.py:384` (docstring: router releases its session before streaming; no ORM result survives into an admission or provider wait); MASTERPLAN-REVIEW E03 “delivered and subsequently strengthened”",
+      "uncertainty": "A design property of the code path, not a load-tested measurement; connection hold time per DB unit is not measured here."
+    },
+    {
+      "id": "B30",
+      "component": 2,
+      "bound": "Transactional lock waits (usage counters) / reservation TTL",
+      "value": {
+        "usage_counter_lock_timeout_ms": 3000,
+        "usage_reservation_ttl_seconds": 300
+      },
+      "unit": "ms / seconds",
+      "classification": "configured-code-default",
+      "enforcement_scope": "process",
+      "evidence": "`backend/app/config.py:464`; `backend/app/config.py:473`",
+      "uncertainty": "Per-transaction waits, not total deadlines."
+    },
+    {
+      "id": "B31",
+      "component": 2,
+      "bound": "Startup schema deadline / additive DDL lock timeout",
+      "value": {
+        "startup_schema_deadline_seconds": 60,
+        "additive_lock_timeout_ms": 5000
+      },
+      "unit": "seconds / ms",
+      "classification": "configured-code-default",
+      "enforcement_scope": "process",
+      "evidence": "`backend/app/config.py:469`; `backend/app/database.py:59`",
+      "uncertainty": "Startup only; a start that exceeds the deadline fails fast so Cloud Run keeps the last healthy revision."
+    },
+    {
+      "id": "B32",
+      "component": 2,
+      "bound": "DB operating reserve and wait/cleanup allowance under concurrent useful generation",
+      "value": null,
+      "unit": "connections / seconds",
+      "classification": "unknown",
+      "enforcement_scope": "fleet",
+      "evidence": "No retained observation ties pool `checked_out`, waits or pool-timeout log signatures to a window with concurrent generation; the COO windows carried light HTTP traffic and single-task jobs (COO FIRST-DELIVERABLE §“C1 — one capacity admission, still HOLD” (package `c8277395…`)); no DB sample lies inside the 11.66 s job overlap (B22).",
+      "uncertainty": "Resolving observation: one bounded read-only Ops `capacity-readout` run (`.github/workflows/ops.yml:477`–483; ≤2 h window per `ops/capacity/readout.py:38`) over a window that contains actual concurrent generation, such as the Monday 06:00–07:00 UTC job-overlap window, reporting backend counts by state, the job ledger and the pool-timeout log signature (`ops/capacity/readout.py:128`). Owner: COO/CEO decision; not dispatched by this handback; no new load."
+    },
+    {
+      "id": "B33",
+      "component": 2,
+      "bound": "Pool-saturation failure mode and alert thresholds",
+      "value": {
+        "behaviour": "fail-fast after 10 s wait",
+        "documented_warning": "checked_out > 8",
+        "documented_critical": "checked_out = pool_size"
+      },
+      "unit": "—",
+      "classification": "configured-code-default",
+      "enforcement_scope": "process",
+      "evidence": "B11; `docs/OPERATIONS.md:305`–313",
+      "uncertainty": "The documented warning threshold (> 8) is unreachable with pool 4 / overflow 0; only the critical threshold (= 4) can fire. Docs-vs-config inconsistency; code/deploy are truth (fix the doc separately)."
+    },
+    {
+      "id": "B34",
+      "component": 3,
+      "bound": "SEC per-process token bucket / retries / backoff / Retry-After cap",
+      "value": {
+        "requests_per_second": 10,
+        "max_retries": 5,
+        "base_backoff_seconds": 1.0,
+        "max_retry_after_seconds": 120
+      },
+      "unit": "req/s / retries / seconds",
+      "classification": "configured-code-default",
+      "enforcement_scope": "process",
+      "evidence": "`backend/app/config.py:33`–35; `backend/app/services/sec_rate_limiter.py:57`; `backend/app/services/sec_rate_limiter.py:29`",
+      "uncertainty": "Deploy does not override `SEC_RATE_LIMIT_PER_SECOND`; every process (instance or job) carries its own full bucket."
+    },
+    {
+      "id": "B35",
+      "component": 3,
+      "bound": "SEC external cap",
+      "value": 10,
+      "unit": "req/s per IP",
+      "classification": "observed",
+      "enforcement_scope": "external",
+      "evidence": "`backend/app/services/sec_rate_limiter.py:4`; CLAUDE.md rule 5",
+      "uncertainty": "Exceeding it risks SEC IP blocking, which would fail filing fetches for every user behind that IP."
+    },
+    {
+      "id": "B36",
+      "component": 3,
+      "bound": "Fleet SEC configured ceiling",
+      "value": {
+        "steady_two_instances": 20,
+        "monday_overlap_two_instances_plus_pregenerate_filing_scan": 40,
+        "plus_backfill_facts_if_scheduled": 50
+      },
+      "unit": "req/s",
+      "classification": "assumed",
+      "enforcement_scope": "fleet",
+      "evidence": "Derived: B34 × (B08 steady processes + concurrently running SEC-calling job processes per B23); `docs/OPERATIONS.md:96` (aggregate budget exceeded while a job runs; only lower per-process budgets fix it)",
+      "uncertainty": "Configured ceiling, not realised demand; actual aggregate rate unknown (B39). Assumes all processes share one egress IP (B37)."
+    },
+    {
+      "id": "B37",
+      "component": 3,
+      "bound": "Egress identity (shared public IP across instances and jobs)",
+      "value": null,
+      "unit": "—",
+      "classification": "unknown",
+      "enforcement_scope": "external",
+      "evidence": "tasks/fleet-coordination-proposal-2026-09-19.md:29 (no fixed egress arrangement observed 2026-09-15; dynamic egress does not prove independent IPs)",
+      "uncertainty": "Do not assume independent IPs. A Cloud Run egress/NAT configuration read would resolve it; not performed here."
+    },
+    {
+      "id": "B38",
+      "component": 3,
+      "bound": "SEC breaker/limiter coverage by path",
+      "value": {
+        "edgartools_and_compat_fetches": "limiter + breaker",
+        "efts_full_text_and_companyfacts": "limiter only",
+        "local_parsing": "breaker-exempt",
+        "user_facing_wait": "single token (`execute`)",
+        "jobs": "may use backoff ladder"
+      },
+      "unit": "—",
+      "classification": "configured-code-default",
+      "enforcement_scope": "process",
+      "evidence": "`lessons/sec-edgar-resilience-layer.md:22`; CLAUDE.md rule 5",
+      "uncertainty": "The allowlist gate bounds `sec.gov` literals; it does not prove every call's routing."
+    },
+    {
+      "id": "B39",
+      "component": 3,
+      "bound": "Observed aggregate SEC rate / 429 / IP-block incidents",
+      "value": null,
+      "unit": "req/s / incidents",
+      "classification": "unknown",
+      "enforcement_scope": "fleet",
+      "evidence": "No retained aggregate measurement or incident in the allowed inputs. Observation route: per-process `/metrics.sec_rate_limiter` (`total_requests`, `rate_limit_hits`) `docs/OPERATIONS.md:85`; jobs need their logs.",
+      "uncertainty": "Admin-authenticated and per process; a fleet figure needs every instance and job in the window."
+    },
+    {
+      "id": "B40",
+      "component": 3,
+      "bound": "Provider stream ceilings per process",
+      "value": {
+        "MAX_CONCURRENT_GENERATIONS": 6,
+        "RECOVERY_MAX_CONCURRENCY": 3,
+        "AI_CHAT_MAX_INFLIGHT": 8,
+        "max_streams_per_process": 17
+      },
+      "unit": "streams",
+      "classification": "configured-code-default",
+      "enforcement_scope": "process",
+      "evidence": "`backend/app/config.py:489`; `backend/app/config.py:492`; `backend/app/config.py:501`; `backend/app/services/ai/provider_admission.py:1` (docstring)",
+      "uncertainty": "Not overridden by the deploy env (`.github/workflows/ci.yml:620`); effective as coded."
+    },
+    {
+      "id": "B41",
+      "component": 3,
+      "bound": "Fleet provider stream ceiling",
+      "value": {
+        "two_instances": 34,
+        "plus_pregenerate_process": 43
+      },
+      "unit": "streams",
+      "classification": "assumed",
+      "enforcement_scope": "fleet",
+      "evidence": "Derived: 2 × B40 + pregenerate (6 generation + 3 recovery; no chat). Other jobs' provider use not verified.",
+      "uncertainty": "Configured upper bound; realised concurrency unknown; provider account limits unknown (B46)."
+    },
+    {
+      "id": "B42",
+      "component": 3,
+      "bound": "Provider retry policy",
+      "value": {
+        "sdk_max_retries": 0,
+        "application_attempts": 3,
+        "retry_after_cap_seconds": 5,
+        "deadline_extended_by_retry": false
+      },
+      "unit": "—",
+      "classification": "configured-code-default",
+      "enforcement_scope": "process",
+      "evidence": "`backend/app/services/openai_service.py:121`; `backend/app/services/ai/provider_requests.py:172`; `backend/app/services/ai/provider_requests.py:135`; B28",
+      "uncertainty": "—"
+    },
+    {
+      "id": "B43",
+      "component": 3,
+      "bound": "Cancellation and drain on timeout/disconnect",
+      "value": true,
+      "unit": "design property",
+      "classification": "configured-code-default",
+      "enforcement_scope": "process",
+      "evidence": "`backend/app/services/ai/provider_requests.py:95` (outcome `cancelled`, settled); `docs/DEPLOYMENT.md:767`",
+      "uncertainty": "Design property; provider-side billing for a cancelled stream is provider behaviour (unknown)."
+    },
+    {
+      "id": "B44",
+      "component": 3,
+      "bound": "Chat admission queue semantics",
+      "value": {
+        "waits_only_within_own_budget": true,
+        "rejected_counter": "provider_admission.rejected"
+      },
+      "unit": "—",
+      "classification": "configured-code-default",
+      "enforcement_scope": "process",
+      "evidence": "`backend/app/services/ai/provider_admission.py:1`; `docs/OPERATIONS.md:85`",
+      "uncertainty": "Slot, not rate; summary path never queues behind chat."
+    },
+    {
+      "id": "B45",
+      "component": 3,
+      "bound": "In-flight generation dedup / ownership",
+      "value": {
+        "scope": "process-local dict",
+        "cross_instance_duplicate_generation_possible": true
+      },
+      "unit": "—",
+      "classification": "configured-code-default",
+      "enforcement_scope": "process",
+      "evidence": "`backend/app/services/summary_pipeline.py:90`; tasks/fleet-coordination-proposal-2026-09-19.md:25 (process-local leaders); Slice A proposal tasks/fleet-coordination-proposal-2026-09-19.md:125",
+      "uncertainty": "With two instances the same filing can be generated twice; keep-better/accepted-publisher behaviour per the proposal; E09 Slice A implementation remains held."
+    },
+    {
+      "id": "B46",
+      "component": 3,
+      "bound": "Provider account quota / rate limits (DeepSeek)",
+      "value": null,
+      "unit": "—",
+      "classification": "unknown",
+      "enforcement_scope": "external",
+      "evidence": "Not in the allowed inputs.",
+      "uncertainty": "Would need provider account documentation/observation; no provider call is authorized here."
+    },
+    {
+      "id": "B47",
+      "component": 3,
+      "bound": "Metering and refund rule",
+      "value": {
+        "metered_at": "provider call start",
+        "refund_on": "provider-side failure, timeout, partial verdict",
+        "refund_on_client_cancellation": false
+      },
+      "unit": "—",
+      "classification": "configured-code-default",
+      "enforcement_scope": "process",
+      "evidence": "`tasks/todo.md:6147` (PR1069 package); summary_pipeline comments near the lease/refund paths",
+      "uncertainty": "—"
+    },
+    {
+      "id": "B48",
+      "component": 3,
+      "bound": "Pregenerate job provider concurrency",
+      "value": {
+        "generations_at_a_time": 1,
+        "loop": "sequential per ticker and form"
+      },
+      "unit": "streams",
+      "classification": "configured-code-default",
+      "enforcement_scope": "job process",
+      "evidence": "`backend/scripts/pregenerate_examples.py:86`–91 (awaited per ticker/form inside one loop; the `await pregenerate_for_ticker` is the last line of the range)",
+      "uncertainty": "Section recovery inside each generation may add up to 3 streams (B40)."
+    },
+    {
+      "id": "B49",
+      "component": 4,
+      "bound": "Registration mode",
+      "value": {
+        "REGISTRATION_MODE": "invite_only"
+      },
+      "unit": "—",
+      "classification": "configured-deploy",
+      "enforcement_scope": "service",
+      "evidence": "`.github/workflows/ci.yml:620`",
+      "uncertainty": "Accounts are bounded by issued invites; invitations remain separately controlled (no invitations under CODE RED)."
+    },
+    {
+      "id": "B50",
+      "component": 4,
+      "bound": "Per-user monthly caps",
+      "value": {
+        "free_summaries": 5,
+        "pro_summaries_guardrail": 300,
+        "pro_copilot_questions": 1000,
+        "pro_analysis_fresh_generations": 100
+      },
+      "unit": "per user per month",
+      "classification": "configured-code-default",
+      "enforcement_scope": "account",
+      "evidence": "`backend/app/services/entitlements.py:32`; `backend/app/config.py:462`; `backend/app/config.py:513`; `backend/app/config.py:526`",
+      "uncertainty": "Plan truth lives in `entitlements.py`; values not changed by the deploy env."
+    },
+    {
+      "id": "B51",
+      "component": 4,
+      "bound": "Per-account burst limiters",
+      "value": null,
+      "unit": "—",
+      "classification": "unknown",
+      "enforcement_scope": "process",
+      "evidence": "Exist since PR1069 (keyed on the account alone; `tasks/todo.md:6147` entry); limiter key cardinality `backend/app/config.py:171`",
+      "uncertainty": "Burst values not read in this handback; process-local."
+    },
+    {
+      "id": "B52",
+      "component": 4,
+      "bound": "Guest (unauthenticated) generation path",
+      "value": null,
+      "unit": "—",
+      "classification": "unknown",
+      "enforcement_scope": "service",
+      "evidence": "`.github/workflows/ci.yml:619` removes `ENABLE_GUEST_DAILY_QUOTA` at deploy",
+      "uncertainty": "Effective guest behaviour not read here."
+    },
+    {
+      "id": "B53",
+      "component": 4,
+      "bound": "Intended cohort size (settled, not enrolled or consented)",
+      "value": "10–20",
+      "unit": "participants",
+      "classification": "observed",
+      "enforcement_scope": "—",
+      "evidence": "COO FIRST-DELIVERABLE §“C1 — one capacity admission, still HOLD” (package `c8277395…`); CEO-DIRECTIVE",
+      "uncertainty": "Not enrollment, consent or a safe participant count."
+    },
+    {
+      "id": "B54",
+      "component": 4,
+      "bound": "Configured permitted monthly demand ceiling if all 20 were Pro at guardrail",
+      "value": {
+        "summaries": 6000,
+        "copilot_questions": 20000,
+        "analysis_generations": 2000
+      },
+      "unit": "per month",
+      "classification": "assumed",
+      "enforcement_scope": "fleet",
+      "evidence": "Arithmetic on B50 × 20.",
+      "uncertainty": "A ceiling of permitted demand; expected useful demand unknown (B56)."
+    },
+    {
+      "id": "B55",
+      "component": 4,
+      "bound": "Instantaneous demand bounds and back-pressure",
+      "value": {
+        "http_per_instance": 40,
+        "generations_per_process": 6,
+        "excess_generations": "queue inside the 120 s pipeline timeout"
+      },
+      "unit": "—",
+      "classification": "configured-code-default",
+      "enforcement_scope": "process",
+      "evidence": "B05; B40; `backend/app/services/summary_pipeline.py:673`",
+      "uncertainty": "Overload becomes timeouts/503s, not process crashes; user-visible failure rate under overload unknown."
+    },
+    {
+      "id": "B56",
+      "component": 4,
+      "bound": "Retained useful-work (generation) evidence under concurrency",
+      "value": null,
+      "unit": "—",
+      "classification": "unknown",
+      "enforcement_scope": "fleet",
+      "evidence": "None in the allowed inputs. CI eval-baseline runs at `EVAL_CONCURRENCY=2` (`.github/workflows/ci.yml:400`) are CI measurements, not production; COO windows are light HTTP traffic and single-task jobs.",
+      "uncertainty": "Resolving observation: as B32, plus `/metrics.provider_admission` peaks in the same window."
+    },
+    {
+      "id": "B57",
+      "component": 4,
+      "bound": "Existing stop / rollback signals and levers",
+      "value": {
+        "health": "/health/detailed (database healthy + latency, breaker state)",
+        "metrics": "/metrics: database.checked_out, provider_admission.in_flight/rejected/peak_in_flight, sec_rate_limiter.rate_limit_hits, thread_pool.anyio.tasks_waiting",
+        "logs": "pool-timeout signature (QueuePool limit / connection pool exhausted)",
+        "rollback": "Ops `rollback-traffic` operation; deploy routes traffic --to-latest"
+      },
+      "unit": "—",
+      "classification": "configured-code-default",
+      "enforcement_scope": "service",
+      "evidence": "`docs/OPERATIONS.md:85`; `ops/capacity/readout.py:128`; `.github/workflows/ops.yml:641`; `.github/workflows/ci.yml:628`",
+      "uncertainty": "Thresholds for a beta are not evidenced; the documented suggestions are partly stale (B33)."
+    },
+    {
+      "id": "B58",
+      "component": 4,
+      "bound": "Provider spend authority provenance",
+      "value": {
+        "shared_future_authority_usd": "15.000000",
+        "conditional_unreserved_at_snapshot_usd": "12.570771",
+        "retained_holds_usd": "1.881713",
+        "live_ledger": "inaccessible from this session; paid dispatch HELD"
+      },
+      "unit": "USD",
+      "classification": "observed",
+      "enforcement_scope": "—",
+      "evidence": "CFO FIRST-DELIVERABLE (package `925fcc6b…`); `control/LEDGER-ACCESS.md`",
+      "uncertainty": "Authority is not concurrency, capacity or runtime-budget admission; no spend is proposed."
+    }
+  ],
+  "determination": {
+    "existing_controls_suffice": "undetermined",
+    "necessary_e09_subset": null,
+    "missing_decision": "Founder's retained E09 Slice B policy numbers (approved aggregate SEC request rate across the service and jobs, burst/headroom, maximum wait/error tolerance), which also fix the configuration-only mitigation of lowering per-process SEC budgets so their fleet sum stays under the external 10 req/s cap with headroom. No E09 code subset is demonstrated necessary for current-beta safety; the E09 implementation hold (including dormant lease/schema/runtime code) is unchanged.",
+    "missing_observations": [
+      "B32 DB operating reserve under concurrent generation (bounded read-only capacity-readout over a job-overlap window)",
+      "B39 aggregate SEC rate / rate_limit_hits across instances and jobs in the same window",
+      "B37 egress identity"
+    ],
+    "evidence_ids": [
+      "B04",
+      "B10",
+      "B11",
+      "B15",
+      "B17",
+      "B18",
+      "B19",
+      "B23",
+      "B27",
+      "B28",
+      "B29",
+      "B34",
+      "B35",
+      "B36",
+      "B37",
+      "B39",
+      "B40",
+      "B41",
+      "B43",
+      "B45",
+      "B47",
+      "B49",
+      "B50",
+      "B55",
+      "B56",
+      "B58"
+    ],
+    "hazard_ranking_for_current_beta": [
+      {
+        "hazard": "Aggregate SEC request rate exceeds the external 10 req/s per-IP cap during job-overlap windows (B36) → SEC IP block → filing fetch failures for all users",
+        "evidence": "configured ceilings only; no incident observed; realised rate unknown",
+        "existing_control": "per-process bucket + Retry-After backoff + breaker on some paths; none fleet-wide",
+        "mitigation_without_e09_code": "lower per-process SEC budgets on service and jobs (policy decision; OPERATIONS.md names this as the only fix)"
+      },
+      {
+        "hazard": "DB connection saturation when configured demand (18) meets rollout overlap (+4) and other clients against 22 usable (B15, B19)",
+        "evidence": "configured arithmetic; six backends observed at one light instant; no saturation observed",
+        "existing_control": "pool 4/0 per process; 10 s fail-fast wait (B11); E03 release before waits (B29)",
+        "mitigation_without_e09_code": "operating-reserve observation first (B32); Cloud SQL sizing is a separate decision"
+      },
+      {
+        "hazard": "Cross-instance duplicate generation of one filing (B45)",
+        "evidence": "process-local dedup by design",
+        "existing_control": "keep-better publication; provider budgets; shared spend ceiling",
+        "mitigation_without_e09_code": "none; cost/consistency issue, not demonstrated as a user-safety issue at 10–20 participants; Slice A decision retained by the founder"
+      },
+      {
+        "hazard": "Provider account quota exhaustion (B46)",
+        "evidence": "unknown",
+        "existing_control": "per-process stream ceilings (B40); retries with fixed deadline (B42)",
+        "mitigation_without_e09_code": "provider account limit observation"
+      }
+    ]
+  },
+  "counts_unchanged": {
+    "dossiers": "3/30",
+    "weekly_readouts": "0/2",
+    "reporting_groups": 5,
+    "capacity_decisions": 1
+  },
+  "spend": {
+    "new_calls": 0,
+    "new_spend_usd": "0.000000",
+    "reservations": 0
+  },
+  "external_mutations": 0,
+  "next_owner": "COO R3 operating-envelope disposition worker (held worker prompt), after the chief binds a dispatch manifest with this handback's hash"
+}
