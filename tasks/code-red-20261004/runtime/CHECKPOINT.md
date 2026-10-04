@@ -15,6 +15,7 @@ first checkpoint commit `6cd23c3cb7032284a913ed88df08e9a58e90569d`. Tasks-only: 
 | `control/LEDGER-ACCESS.md` | `9d6143456b4b43c940f684638f9a65ed765bd6a0299084487f3a31aaf68d5e9f` | live ledger inaccessible; paid dispatch HELD |
 | `control/source-context-exclusion-136.json` | `f6c065fd30650547e6cdb597faca44138ccd54bc50e5d9ab63b9883c61862f9a` | 136 entries (chief added) |
 | `control/source-context-exclusion-137.json` | `3f04115827cc22e0588af212eb86737dcf3c183a51118ac6443020eb6530b00f` | 141 entries (4 CPO workflow agents + COO subagent added) |
+| `control/source-context-exclusion-138.json` | `a6c81a93490c89e0a9abc68c8b9bd8a4a61f49440b5f222284ff92477c9f091a` | 143 entries (two PR-review contexts added) |
 | `control/APPOINTMENTS.json` | `5a04eeaf9e4f69e85999754e0594b25647729c9bcc1d2f92d2d1d46dc340f53e` | actual identities recorded |
 | `control/REPOSITORY-SNAPSHOT.json` | `a0666c424912e25b8dab6a689494d04dbe9507cc3bd7fdeb684a0734118741e9` | observed 14:21Z |
 | `control/SPEND-POLICY-STATEMENT.md` | `2a2122c5a727a0190c7ca999c241c8ff4ab2008a476ca64707a82e87e9dafa0e` | provider spend field HOLD |
@@ -60,7 +61,7 @@ first checkpoint commit `6cd23c3cb7032284a913ed88df08e9a58e90569d`. Tasks-only: 
 ## Review record for PR #1086 and scheduled follow-up
 
 - Independent read-only review of head `0cf48204d2fd0b20575020ac651ad50e85884b71` by an isolated subagent
-  (registered in the next exclusion successor at merge time): **no blocker**; 82 `file:line` anchors and
+  (registered in `control/source-context-exclusion-138.json`, together with the delta reviewer launched after that record): **no blocker**; 82 `file:line` anchors and
   24 SHA-256 values checked; eight nits (R1–R8). Dispositions: R2–R6 → CTO handback revision 3
   (`CORRECTION-02.md`); R1 → README exception sentence; R7 → todo wording; R8 → TAKEOVER heading now
   distinguishes observed (14:21Z) from recorded (14:31Z) time; the COO disposition's "all eight jobs
