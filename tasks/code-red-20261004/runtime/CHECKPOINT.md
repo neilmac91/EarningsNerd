@@ -1,4 +1,4 @@
-# Durable checkpoint — CODE RED chief session (updated 2026-10-04T18:16:34Z)
+# Durable checkpoint — CODE RED chief session (updated 2026-10-04T18:18:51Z)
 
 Chief: `https://claude.ai/code/session_01GWYV7WXWstgVGQG43YcSM8` (runtime-reported model `claude-fable-5-1`).
 Package: `earningsnerd-code-red-fable-chief-20261004.zip` SHA-256
@@ -103,9 +103,12 @@ from the branch restarted at that main. Tasks-only: no code, workflow, test or p
   disclosed one deviation (a `pip download` command line with discarded output; nothing used).
 - Delta `9c505289..6bc54a44` re-reviewed by the same context: **NO BLOCKER bound to `6bc54a44`**; all nine
   prior findings verified fixed in the committed blobs; 25 hashes / 0 mismatched; one minor should-fix
-  (decision 11 burst wording) and three nits (founder item 2 wording, todo owner, execution-note addendum,
+  (decision 11 burst wording) and four nits (founder item 2 wording, todo owner, execution-note addendum,
   Appendix A footnote) fixed in the following commit, which is re-checked before the `Review override:`
   line is bound.
+- Delta `6bc54a44..0c0a1872` re-checked by the same context: **NO BLOCKER bound to `0c0a1872`**; findings 10–14
+  verified fixed; 25 hashes / 0 mismatched; one nit (this bullet's count of its nits), fixed here. The final
+  head's one-word delta is checked by the same context and recorded in the PR body with the override line.
 - D3 patch gate (founder's patch, not this PR): first full backend run — ruff and bandit clean, pytest
   2305 passed / 1 failed: `tests/unit/test_data_completeness.py::test_backfill_deploy_restores_only_its_scheduled_entrypoint`
   pins the backfill-facts env token, so the patch now updates that token; targeted tests pass after the
