@@ -1,7 +1,8 @@
 {
   "schema_version": 1,
+  "revision": 2,
   "dispatch_id": "CTO-ENVELOPE-HANDBACK-01",
-  "observed_at": "2026-10-04T14:48:15Z",
+  "observed_at": "2026-10-04T15:00:17Z",
   "repository_commit": "100fb7d6bdaf62590af19964d39c2ed732062210",
   "author": "chief session_01GWYV7WXWstgVGQG43YcSM8 acting as CTO (isolated worker launch denied by the platform's auto-mode classifier; no isolated adversarial lenses ran)",
   "bounds": [
@@ -353,7 +354,7 @@
       "classification": "configured-code-default",
       "enforcement_scope": "process",
       "evidence": "`backend/app/services/summary_pipeline.py:353`; `backend/app/services/summary_pipeline.py:91`; `backend/app/services/summary_pipeline.py:359`",
-      "uncertainty": "Back-pressure: excess generations queue on the semaphore inside this timeout ({c('backend/app/services/summary_pipeline.py','sp_sem_acquire')}). Not used to choose policy numbers."
+      "uncertainty": "Back-pressure: excess generations queue on the semaphore inside this timeout (`backend/app/services/summary_pipeline.py:673`). Not used to choose policy numbers."
     },
     {
       "id": "B28",
@@ -419,7 +420,7 @@
       "classification": "unknown",
       "enforcement_scope": "fleet",
       "evidence": "No retained observation ties pool `checked_out`, waits or pool-timeout log signatures to a window with concurrent generation; the COO windows carried light HTTP traffic and single-task jobs (COO FIRST-DELIVERABLE §“C1 — one capacity admission, still HOLD” (package `c8277395…`)); no DB sample lies inside the 11.66 s job overlap (B22).",
-      "uncertainty": "Resolving observation: one bounded read-only Ops `capacity-readout` run (`.github/workflows/ops.yml:{L['ops_cap_step']}`–{L['ops_cap_pgopts']}; ≤2 h window per `ops/capacity/readout.py:{L['ro_window']}`) over a window that contains actual concurrent generation, such as the Monday 06:00–07:00 UTC job-overlap window, reporting backend counts by state, the job ledger and the pool-timeout log signature (`ops/capacity/readout.py:{L['ro_sig']}`). Owner: COO/CEO decision; not dispatched by this handback; no new load."
+      "uncertainty": "Resolving observation: one bounded read-only Ops `capacity-readout` run (`.github/workflows/ops.yml:477`–483; ≤2 h window per `ops/capacity/readout.py:38`) over a window that contains actual concurrent generation, such as the Monday 06:00–07:00 UTC job-overlap window, reporting backend counts by state, the job ledger and the pool-timeout log signature (`ops/capacity/readout.py:128`). Owner: COO/CEO decision; not dispatched by this handback; no new load."
     },
     {
       "id": "B33",
@@ -531,7 +532,7 @@
       "classification": "configured-code-default",
       "enforcement_scope": "process",
       "evidence": "`backend/app/config.py:489`; `backend/app/config.py:492`; `backend/app/config.py:501`; `backend/app/services/ai/provider_admission.py:1` (docstring)",
-      "uncertainty": "Not overridden by the deploy env ({c('.github/workflows/ci.yml','ci_env')}); effective as coded."
+      "uncertainty": "Not overridden by the deploy env (`.github/workflows/ci.yml:620`); effective as coded."
     },
     {
       "id": "B41",
