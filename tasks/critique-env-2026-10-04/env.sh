@@ -14,4 +14,6 @@ export NEXT_PUBLIC_SENTRY_DSN=
 export SENTRY_DSN=
 export WAITLIST_MODE=false
 export NEXT_TELEMETRY_DISABLED=1
-export CHROMIUM_PATH=/opt/pw-browsers/chromium
+# Browser: an explicit CHROMIUM_PATH is preserved; otherwise the cloud image's preinstalled Chromium is offered when present,
+# and browser.mjs falls back to Playwright's own browser or errors with the remedy.
+if [ -z "${CHROMIUM_PATH:-}" ] && [ -x /opt/pw-browsers/chromium ]; then export CHROMIUM_PATH=/opt/pw-browsers/chromium; fi

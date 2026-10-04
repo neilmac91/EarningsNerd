@@ -5,7 +5,7 @@ authenticated/Pro/error/streaming states are simulated per request via the `en_s
 (or `X-EN-Scenario` header). No production mutation ever happens. Scenario tokens (comma-joined):
 
   anon (default) | free | pro        identity + plan
-  content                            serve the filing-text fixture for /filings/{id}/content
+  content                            serve fixtures/filing-3-content.md for /filings/3/content (other ids pass through)
   nosummary                          summary 404 until a mocked generate-stream completes
   summaryerror                       summary GET -> 500
   partial                            summary served with quality.tier=partial (+status partial)
@@ -182,7 +182,7 @@ class H(BaseHTTPRequestHandler):
             if not authed: return unauth()
             return self.send(200, {'is_saved': 'saved' in sc or (','.join(sorted(sc)), m.group(1)) in SAVED})
         m = re.match(r'^/api/filings/(\d+)/content$', p)
-        if m and 'content' in sc:
+        if m and 'content' in sc and m.group(1) == '3':  # the committed fixture is filing 3's; other ids pass through
             if 'slow' in sc: time.sleep(2.5)
             md = open(os.path.join(FIXTURES, 'filing-3-content.md')).read()
             return self.send(200, {'filing_id': int(m.group(1)), 'has_content': True, 'markdown_content': md})

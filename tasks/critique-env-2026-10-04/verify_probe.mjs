@@ -1,9 +1,9 @@
 import path from 'node:path'
-import { pathToFileURL } from 'node:url'
-const HERE = path.dirname(new URL(import.meta.url).pathname)
+import fs from 'node:fs'
+import { HERE, launchChromium } from './browser.mjs'
 const EVID = process.env.CRITIQUE_EVIDENCE_DIR || path.join(HERE, 'evidence')
-const { chromium } = await import(pathToFileURL(path.join(HERE, '..', '..', 'frontend/node_modules/@playwright/test/index.mjs')).href)
-const browser = await chromium.launch({ headless: true, executablePath: '/opt/pw-browsers/chromium' })
+fs.mkdirSync(EVID, { recursive: true })
+const { browser } = await launchChromium()
 const ctx = async (vw, vh, scenario, mobile=false) => {
   const c = await browser.newContext({ viewport: { width: vw, height: vh }, isMobile: mobile, hasTouch: mobile })
   await c.addCookies([{ name: 'en_scenario', value: scenario, domain: 'localhost', path: '/', sameSite: 'Lax' }])

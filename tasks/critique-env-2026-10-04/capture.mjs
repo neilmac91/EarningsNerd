@@ -21,11 +21,9 @@
  */
 import fs from 'node:fs'
 import path from 'node:path'
-import { pathToFileURL } from 'node:url'
+import { HERE, loadPlaywright, resolveExecutablePath } from './browser.mjs'
 
-const HERE = path.dirname(new URL(import.meta.url).pathname)
-const REPO = path.resolve(HERE, '..', '..')
-const { chromium, devices } = await import(pathToFileURL(path.join(REPO, 'frontend/node_modules/@playwright/test/index.mjs')).href)
+const { chromium, devices } = await loadPlaywright()
 
 const BASE = process.env.CRITIQUE_BASE_URL || 'http://localhost:3000'
 const EVID = process.env.CRITIQUE_EVIDENCE_DIR || path.join(HERE, 'evidence')
@@ -176,7 +174,9 @@ async function runJob(browser, job) {
 
 const args = parseArgs(process.argv.slice(2))
 const jobs = args.jobs ? JSON.parse(fs.readFileSync(args.jobs, 'utf8')) : [{ out: args.out || 'capture', route: args.route || '/', scenario: args.scenario, theme: args.theme, viewport: args.viewport, mobile: !!args.mobile, reducedMotion: !!args['reduced-motion'], zoom: args.zoom, steps: args.steps, full: !!args.full, styles: args.styles, aria: !!args.aria, coachSeen: !!args['coach-seen'], dpr: args.dpr, settle: args.settle }]
-const browser = await chromium.launch({ headless: true, executablePath: process.env.CHROMIUM_PATH || undefined })
+const executable = resolveExecutablePath(chromium)
+const browser = await chromium.launch({ headless: true, executablePath: executable })
+console.error(`[capture] chromium: ${executable || 'playwright-default'}`)
 const summary = []
 for (const job of jobs) {
   const r = await runJob(browser, job)

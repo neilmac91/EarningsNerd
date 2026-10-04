@@ -2,13 +2,15 @@
 excerpt/section heading the real production summary references, so Trace-to-Source and Copilot
 citation highlights can anchor in the in-app viewer. TEST FIXTURE: abridged, labelled; not the
 filing. Real figures are copied from the production summary payload where present."""
-import json, pathlib
+import json, pathlib, sys, hashlib, datetime
+FORCE = '--force' in sys.argv  # default: compare against the committed fixture; --force rewrites it + PROVENANCE.json
 HERE = pathlib.Path(__file__).parent
 CACHE = HERE / 'cache'; CACHE.mkdir(exist_ok=True)
+SOURCE_URL = 'https://api.earningsnerd.io/api/summaries/filing/3'
 SRC = CACHE / 'summary-filing-3.json'
 if not SRC.exists():
     import urllib.request
-    with urllib.request.urlopen('https://api.earningsnerd.io/api/summaries/filing/3', timeout=40) as r:
+    with urllib.request.urlopen(SOURCE_URL, timeout=40) as r:
         SRC.write_bytes(r.read())
 d = json.load(open(SRC))
 ex = {}
@@ -203,8 +205,21 @@ The Company has entered into manufacturing purchase obligations and other commit
 The exhibits listed in the exhibit index are filed as part of, or incorporated by reference into, this Form 10-K.
 """
 out = HERE / 'fixtures' / 'filing-3-content.md'
+prov = HERE / 'fixtures' / 'PROVENANCE.json'
+sha = lambda b: hashlib.sha256(b).hexdigest()
+if out.exists() and not FORCE:
+    same = out.read_text() == md
+    print('committed fixture', 'MATCHES' if same else 'DIFFERS FROM', 'the regenerated text; pass --force to overwrite it and refresh PROVENANCE.json')
+    sys.exit(0 if same else 1)
 out.write_text(md)
-print('wrote', out, len(md), 'chars', md.count('\n'), 'lines')
+prov.write_text(json.dumps({
+    'fixture': out.name, 'filing_id': 3, 'synthetic': True,
+    'note': 'Abridged, labelled test fixture assembled from the cited excerpts of the production summary; not the filing.',
+    'source_url': SOURCE_URL, 'source_cache_file': f'cache/{SRC.name}', 'source_sha256': sha(SRC.read_bytes()),
+    'source_fetched_at': datetime.datetime.fromtimestamp(SRC.stat().st_mtime, datetime.timezone.utc).isoformat(timespec='seconds'),
+    'fixture_sha256': sha(md.encode()), 'generator': 'build_fixture.py', 'generated_at': datetime.datetime.now(datetime.timezone.utc).isoformat(timespec='seconds'),
+}, indent=1) + '\n')
+print('wrote', out, len(md), 'chars', md.count('\n'), 'lines; provenance in', prov)
 # sanity: every excerpt is present verbatim
 allex = risks + mdna_liq + note7 + note2 + seg
 missing = [e for e in allex if e not in md]

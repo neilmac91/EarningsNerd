@@ -3,3 +3,4 @@ evidence/
 *.log
 *.pid
 *.stdout
+live-server.started
