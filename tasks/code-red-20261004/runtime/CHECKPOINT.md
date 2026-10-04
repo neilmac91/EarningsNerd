@@ -1,4 +1,4 @@
-# Durable checkpoint — CODE RED chief session (updated 2026-10-04T23:51:52Z)
+# Durable checkpoint — CODE RED chief session (updated 2026-10-04T23:54:42Z)
 
 Chief: `https://claude.ai/code/session_01GWYV7WXWstgVGQG43YcSM8` (runtime-reported model `claude-fable-5-1`).
 Package: `earningsnerd-code-red-fable-chief-20261004.zip` SHA-256
@@ -17,7 +17,7 @@ from the branch restarted at that main. Tasks-only: no code, workflow, test or p
 | `control/DECISIONS-02.md` | `4d93171f68c7491afd70fcd54b19a355093c5f2a14b437d02c4fd13d3f4f508b` | post-Astra decision set D1–D9 + refuter appendices A/B |
 | `control/DECISIONS-03.md` | `56bfb21b3ff5b7dccfafd53a7355cb70795a8962f1454aab951223c70efccd26` | R1 bootstrap handover response; corrections to record 02 (D1 wording, D2 unit, D3/D6 telemetry, ledger rule narrowed) |
 | `control/DECISIONS-04.md` | `9d66fbd093b5ff9cd022c98058dca0fcdfd5a2dbb126e8f4c8c76bfa00b116cd` | planner-controls package receipt (hash-verified), 160-minute ceiling, closure 142, corrections to record 03 |
-| `control/DECISIONS-05.md` | `4a3a700883ed524f5d9faa6085f42487db71f502cd06443c313d44bf62fd126d` | pre-release update: custody state, release-receipt gate, planner runtime unverified, ceiling 150 |
+| `control/DECISIONS-05.md` | `6b41f45fb7d8d1e2ae320c5bdfd2a009837d3975a3e7e5a8808d8832e4c3b078` | pre-release update: custody state, release-receipt gate, planner runtime unverified, ceiling 150 |
 | `control/PRODUCTION-CONFIG-OBSERVATION-20261004.md` | `ea3689c8744023f9b627c2e0e51622bb01b7fa70382f1a70c8fac59f17c3564d` | two read-only Ops describes; no SEC budget override anywhere; one process per instance observed |
 | `control/source-context-exclusion-136.json` | `f6c065fd30650547e6cdb597faca44138ccd54bc50e5d9ab63b9883c61862f9a` | 136 entries (chief added) |
 | `control/source-context-exclusion-137.json` | `3f04115827cc22e0588af212eb86737dcf3c183a51118ac6443020eb6530b00f` | 141 entries (4 CPO workflow agents + COO subagent added) |
@@ -61,7 +61,7 @@ from the branch restarted at that main. Tasks-only: no code, workflow, test or p
 12. **Monday readout window** 06:00–08:00 UTC, Routine fires 08:10Z (D4).
 13. **Records privacy, forward-only** (D5); **provisional stop conditions** (D6); provider limits recorded as published (D7); egress identity moot for the SEC cap (D8).
 14. **COO item 8 answered** by two isolated refuters (D9, Appendices A/B): no arithmetic error; six qualifications accepted; B07/B08 now observed (one process per instance) from the Ops read.
-15. *(Superseded in part by decision 18, then decision 19: 150 minutes remain; custody 30/69 cloud-only, 11 verified.)* **R1 planner registered** (`DECISIONS-03.md`, closure 140): Astra's fresh source-only H20 planner is a known source-role context; `BLOCKED_BEFORE_REFINEMENT`; 0/0/0; 170 of 180 minutes remain; refinement waits on the founder's local custody recovery (17/21 bootstrap files cloud-only).
+15. *(Superseded in part by decision 18, then decision 19: 150 minutes remain; custody 18/21 and 14/48 cloud-only after Keep Downloaded, 11 verified.)* **R1 planner registered** (`DECISIONS-03.md`, closure 140): Astra's fresh source-only H20 planner is a known source-role context; `BLOCKED_BEFORE_REFINEMENT`; 0/0/0; 170 of 180 minutes remain; refinement waits on the founder's local custody recovery (17/21 bootstrap files cloud-only).
 16. **Scope confirmed, D2 unit corrected:** H20-only packing/closure refinement on the frozen H20 input set; "27" counts remaining programme dossiers, not H20 items; no expansion of the allowance.
 17. *(Superseded in part by decision 18: a `rate_limit_hits` rise records a recognised rate-limit error, not necessarily an SEC 429.)* **Record-02 corrections from Astra verified and applied:** D1 wording → ledger event 1 (document `beef4ca0…`, no balance change); D3/D6 → `rate_limit_hits` counts only recognised SEC 429s on backoff paths, so a flat counter proves nothing and a rise stays a stop signal; founder's patch wording revised (SHA-256 `21322a05…`).
 18. *(Superseded in part by decision 19: 150 minutes remain; telemetry wording narrowed; recovery advice reordered; "planner idle" superseded by "planner runtime availability unverified".)* **Planner-controls package received and hash-verified** (`DECISIONS-04.md`): ZIP `ceed7244…`, six members all matching Astra's inventory; contents not read by the chief. **Time ceiling: 20 of 180 minutes charged, 160 remain.** Closure 142 registers Astra's package-boundary reviewer and resolves the delta reviewer's identity. **Implementation stays HELD** pending the source-owned refinement; planner idle; release receipt NOT_RELEASED. Record-03 corrections accepted: telemetry wording (recognised rate-limit error, not necessarily an SEC 429), "zero writes" scope, custody counts 18/21 and 12/48, `brctl` advice unverified.
@@ -163,7 +163,7 @@ from the branch restarted at that main. Tasks-only: no code, workflow, test or p
 
 ## Founder-dependent items (precise; nothing blocks today's work)
 
-1. Custody (DECISIONS-05): in Finder, Download Now then Keep Downloaded on the 30 cloud-only files (controls first), verify every selected original and governing control by hash AND length against the retained records, then complete the release receipt (all six attestations, manifest identity, timestamp, cumulative minutes) and send the chief its SHA-256 and metadata only.
+1. Custody (DECISIONS-05, founder update): Keep Downloaded is applied but 18/21 and 14/48 files remain cloud-only; next is the bounded investigation of that discrepancy with Astra, then materialisation of the remaining files, verification of every selected original and governing control by hash AND length against the retained records, then the release receipt (all six attestations, manifest identity, timestamp, cumulative minutes) and send the chief its SHA-256 and metadata only.
 2. Planner runtime (DECISIONS-05): with Astra, resolve whether the registered planner context is resumable; if not, Astra bootstraps a fresh one and reports its identity for registration before any release.
 3. Policy numbers (D3): confirm or change the per-process budgets (1 + 1 on every process) in the handed-over patch (SHA-256 `21322a05…`) before any PR carrying it is marked ready; marking ready needs a chief reservation (~USD 0.01 `copilot-eval`).
 4. Ledger: closed — successor designated (decision 9); event 1 written (decision 17). Any paid action still needs a reservation written there first.

@@ -124,7 +124,7 @@ complete, but readable original bytes and retained-hash verification are not con
 
 | Item | Owner | Next action | State |
 |---|---|---|---|
-| Custody recovery | Founder (local) | Finder Download Now / Keep Downloaded on the 30 cloud-only files; controls first | open |
+| Custody recovery | Founder (local) with Astra | Keep Downloaded applied; 18/21 and 14/48 still cloud-only — bounded discrepancy investigation, then materialise the rest; controls first | open |
 | Custody verification | Founder + Astra (opaque checks) | Two-part hash-and-length match for every selected original and governing control; totals to the chief | open |
 | Planner runtime | Astra → chief | Resolve resumability; report any fresh identity for registration before release | open |
 | Release receipt | Founder (attestations) → chief (record) | Complete only after every predicate holds; send the receipt hash and metadata to the chief | NOT_RELEASED |
