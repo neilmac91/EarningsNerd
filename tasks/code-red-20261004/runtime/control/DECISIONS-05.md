@@ -1,6 +1,6 @@
 # Decision record 05 — pre-release update: custody state, release-receipt gate, time ceiling 150 (chief, 2026-10-04)
 
-Recorded 2026-10-04T23:14:48Z, amended 2026-10-04T23:45:47Z after the three-lens review (attribution wording), by the chief (`https://claude.ai/code/session_01GWYV7WXWstgVGQG43YcSM8`, runtime-reported
+Recorded 2026-10-04T23:14:48Z, amended 2026-10-04T23:45:47Z after the three-lens review (attribution wording) and 2026-10-04T23:51:28Z (founder update appended), by the chief (`https://claude.ai/code/session_01GWYV7WXWstgVGQG43YcSM8`, runtime-reported
 model `claude-fable-5-1`). Input: Astra's "pre-release update" (observation from 2026-10-04T22:58:48Z;
 relayed by the founder; zero spend; one local administrative write). Status carried: **NOT_RELEASED /
 verification incomplete / no planner dispatch**. Nothing below releases inputs, dispatches the planner,
@@ -101,6 +101,24 @@ download and sync waiting is not charged. Stop on a concrete discrepancy rather 
 
 No new Astra-side context this turn. `control/source-context-exclusion-143.json` (SHA-256 `9f2a7536b0dcf218ecf06c9170a2e7c32c076ce1cbde9631496036d1b1a01bd5`, 174
 known contexts) pre-registers the review contexts for this record's PR.
+
+## Founder update (2026-10-04T23:51:28Z) — Keep Downloaded applied; availability discrepancy to investigate
+
+The founder applied **Keep Downloaded** to both the bootstrap and predecessor planning folders. Astra's
+following read-only check still reports **18 of 21** bootstrap files and **14 of 48** predecessor files
+cloud-only (the predecessor count rose from 12 to 14 since the previous check). The Finder action is
+complete, but readable original bytes and retained-hash verification are not confirmed. Decisions:
+
+- Release receipt stays `NOT_RELEASED`; the planner stays undispatched; implementation stays HELD pending
+  the source-owned refinement; the registered planner's resumability stays unverified and no context is
+  substituted silently.
+- Next local task, authorised as further preparation under the existing allowance: a **bounded
+  investigation of the availability discrepancy** (why Keep Downloaded did not materialise the files and
+  why the predecessor cloud-only count rose), then original-byte verification by hash and length. Astra
+  reports the minutes; they are charged against the 150 remaining; stop and report on a concrete
+  discrepancy rather than retrying blind.
+- Authority, role boundaries and the time ceiling are unchanged. No new spending allowance, source release
+  or execution approval is implied. The controls package (`ceed7244…`) needs no revision for this update.
 
 ## Owners and next actions
 

@@ -6226,7 +6226,8 @@ Full local and hosted verification plus independent exact-head review precede re
 - [ ] Founder + Astra: H20-only packing/closure refinement (frozen H20 input set; 27 = remaining dossiers,
       not the worklist) by the registered source-only planner (closure 140; controls package hash-verified,
       `DECISIONS-04.md`; 30 of 180 minutes charged, 150 remain). Blocked on (a) the founder materialising the
-      30 cloud-only custody files (Finder Download Now / Keep Downloaded; controls first) and the two-part
+      cloud-only custody files (Keep Downloaded applied; still 18/21 and 14/48 cloud-only — bounded discrepancy
+      investigation next) and the two-part
       hash-and-length verification (11 of 39 local files verified so far, 0 mismatches), (b) the planner's
       runtime availability, unverified — any fresh context must be registered before release, and (c) the
       release receipt (`DECISIONS-05.md`). Implementation stays HELD pending the source-owned refinement.
