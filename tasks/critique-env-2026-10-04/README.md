@@ -7,21 +7,25 @@ production state. The mock backend proxies read-only public GETs to `https://api
 `cache/`, gitignored; provenance recorded in `fixtures/CACHE_MANIFEST.json`) and simulates every authenticated,
 Pro, error and streaming state locally.
 
+Supported environment for the lifecycle scripts (`start_mock.sh`, `start_next.sh`, `stop_env.sh`): **Linux only**. They
+need `/proc` (process identity) and `setsid` (one session/process group per server). Elsewhere they exit 2 with a clear
+message and change nothing; stop servers manually there. The capture and verification scripts themselves are plain Node.
+
 ## Run
 
 ```bash
 cd tasks/critique-env-2026-10-04
 python3 build_fixture.py                       # checks fixtures/filing-3-content.md against a fresh regeneration (--force rewrites it + PROVENANCE.json)
-./start_mock.sh                                # mock backend on http://localhost:8010 (own process group; PID in mock.pid)
+./start_mock.sh                                # mock backend on http://localhost:8010; identity recorded in mock.proc
 source env.sh                                  # production-matching flags, API base http://localhost:8010
 (cd ../../frontend && npm ci && npm run build) # build against the mock (it must be running: the homepage ISR fetches it)
-./start_next.sh                                # production server on http://localhost:3000 (own process group; PID in next.pid)
+./start_next.sh                                # production server on http://localhost:3000; identity recorded in next.proc
 node capture.mjs --jobs jobs-baseline.json     # 65 captures → evidence/ (gitignored)
 node capture.mjs --out demo --route /filing/3 --scenario pro,content --theme dark --viewport 390x844 \
   --coach-seen --steps 'click=role:button:Ask this Filing;wait=700;shot=sheet'    # one targeted capture
 ./run_detect.sh                                # one deterministic Impeccable scan → scans/detect-<sha>.json + .meta.json
 python3 cache_manifest.py                      # record which production responses the run used → fixtures/CACHE_MANIFEST.json
-./stop_env.sh                                  # stops exactly what the start scripts started (see Shutdown)
+./stop_env.sh                                  # stops exactly the servers whose records still verify (see Lifecycle)
 ```
 
 ### Browser resolution (`browser.mjs`, shared by `capture.mjs`, `verify_probe.mjs`, `verify_trace.mjs`)
@@ -37,14 +41,28 @@ python3 cache_manifest.py                      # record which production respons
 browser it launched (`[capture] chromium: …`). Module paths are derived with `fileURLToPath`/`pathToFileURL`, so a checkout
 path containing spaces works.
 
-### Shutdown (`stop_env.sh`)
+### Lifecycle: process identity records (`lifecycle.sh`)
 
-Each server is stopped through the PID file its start script wrote: the PID must still exist, its `/proc/<pid>/cmdline` must
-contain the expected command (`mock_api.py`, `next start`), and then its own process group (created with `setsid`) receives
-SIGTERM, with SIGKILL after 10 s. A PID whose command line does not match is reported and left alone; stale PID files are
-removed. There are no pattern kills, so unrelated processes whose arguments merely mention `mock_api.py` or `next start`
-survive (proof transcript in the run notes). An Impeccable live server is stopped through its own launcher only when this
-environment recorded starting one (`touch live-server.started` after `impeccable live-server --background`).
+Each start script launches its server with `setsid` in a new session/process group, waits until it answers, then writes a
+record (`mock.proc`, `next.proc`) with the server's identity: `pid`, `pgid`, `sid` (both equal to `pid`), `starttime`
+(`/proc/<pid>/stat` field 22, clock ticks since boot), `boot_id`, the physical `cwd` and the stable `cmd` line (Next is
+launched directly from `node_modules/next/dist/bin/next`, not through `npx`, and names itself `next-server (v…)`; the
+record is taken only after the command line has stopped changing). A process is treated as this environment's server only
+when EVERY field still matches the live process and the `cwd` is the directory this environment expects. Both the
+already-running check in the start scripts and the shutdown in `stop_env.sh` use the same verification:
+
+- verified → `start_*` reports "already running"; `stop_env.sh` sends SIGTERM to the recorded process group (SIGKILL after 10 s)
+  and removes the record;
+- record present but process gone, a zombie, or from another boot → stale: the record is removed, nothing is signalled;
+- malformed record (syntax is validated field by field; digits are never scraped out of arbitrary text) or a live process
+  that does not match (reused pid with a different start time, same command in another directory, different command line,
+  not its own session/group leader) → REFUSED: nothing is signalled, the record is moved to `<name>.proc.rejected` with the
+  reason printed, `stop_env.sh` exits 1, and `start_*` goes on to start a fresh server.
+
+An unrelated process is therefore never signalled even when its command line contains `mock_api.py` or `next`. The proof
+transcript (forged records against look-alike decoys, malformed records, a simulated non-Linux host, then the normal owned
+shutdown) is in the run notes. An Impeccable live server is stopped through its own launcher only when this environment
+recorded starting one (`touch live-server.started` after `impeccable live-server --background`).
 
 ## Scenarios (cookie `en_scenario` on `localhost`, or header `X-EN-Scenario`; comma-joined)
 
@@ -56,7 +74,8 @@ stream ends in an error · `askfail` — ask-stream 500 · `exhausted` — free 
 
 ## Files
 
-- `mock_api.py` — the mock backend; `env.sh` — build/runtime flags; `start_mock.sh` / `start_next.sh` / `stop_env.sh` — lifecycle.
+- `mock_api.py` — the mock backend; `env.sh` — build/runtime flags; `lifecycle.sh` — process-identity helpers;
+  `start_mock.sh` / `start_next.sh` / `stop_env.sh` — lifecycle (Linux only).
 - `capture.mjs` — Playwright capture harness (usage and step DSL at the top of the file); `browser.mjs` — browser resolution.
 - `jobs-baseline.json` (65 jobs), `jobs-extra.json`, `jobs-verify.json` — the captured matrices; `verify_probe.mjs` /
   `verify_trace.mjs` — the orchestrator's verification probes (reflow culprits, keyboard popover reach, the Trace-to-Source
@@ -77,4 +96,5 @@ stream ends in an error · `askfail` — ask-stream 500 · `exhausted` — free 
   ids sampled (listed in the run notes); that is a dated observation about those ids, not a statement about every filing.
   Findings that depend on the fixture are marked fixture-dependent in the report.
 - Copilot and analysis answers are canned (`mock_api.py`: `ask_completion`, the repo's `demo-analysis.json`).
-- `evidence/`, `cache/`, `*.log`, `*.pid`, `*.stdout` and `live-server.started` are gitignored run state.
+- `evidence/`, `cache/`, `*.log`, `*.pid`, `*.stdout`, `*.proc`, `*.proc.rejected`, `*.unverified`, `*.tmp` and
+  `live-server.started` are gitignored run state.

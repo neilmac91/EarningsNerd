@@ -4,3 +4,7 @@ evidence/
 *.pid
 *.stdout
 live-server.started
+*.proc
+*.proc.rejected
+*.unverified
+*.tmp
