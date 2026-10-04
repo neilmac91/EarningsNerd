@@ -1,0 +1,5 @@
+cache/
+evidence/
+*.log
+*.pid
+*.stdout
