@@ -1,13 +1,40 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { WarningCircleIcon } from '@/lib/icons'
-import { Button, Modal, ModalBody, ModalFooter, ModalHeader } from '@/components/ui'
+import { CheckCircleIcon, WarningCircleIcon } from '@/lib/icons'
+import {
+  Button,
+  Modal,
+  ModalBody,
+  ModalFooter,
+  ModalHeader,
+  Notice,
+  cx,
+  secondaryUnavailableClass,
+} from '@/components/ui'
 import { getCurrentUserSafe, resendVerification } from '@/features/auth/api/auth-api'
 import { EMAIL_VERIFICATION_REQUIRED_EVENT } from '@/lib/api/client'
+import { getErrorStatus } from '@/lib/api/types'
 import { queryKeys } from '@/lib/queryKeys'
+
+/** Resend's lifecycle within one prompt. `sent` and `limited` (a 429) leave Resend unavailable as a
+    result of its own press, so it stays focusable: aria-disabled plus handleResend's early return,
+    never native `disabled`. Chromium blurs a focused control that turns disabled, which dropped
+    keyboard focus to <body> inside the open dialog. lessons/frontend-busy-controls-stay-focusable.md (e) */
+type ResendState = {
+  phase: 'idle' | 'sending' | 'sent' | 'failed' | 'limited'
+  /** The last failure, kept through the next send so the panel does not shrink under the pointer: the
+      centred dialog would move "I've verified" (or the scrim) under a quick second tap on Resend. `n`
+      keys its Notice, so each new failure re-mounts its role="alert" and is announced again. */
+  failure: { message: string; n: number } | null
+}
+
+const IDLE: ResendState = { phase: 'idle', failure: null }
+const RESEND_FAILED = 'Please try again in a moment.'
+// A 429 may come from the per-address cap or the shared per-IP one, so the copy fits both.
+const RESEND_LIMITED = "We can't send another link right now. Use the newest link in your inbox, or try again later."
 
 /**
  * Global, graceful intercept of the backend's "verify your email" 403. The axios
@@ -20,8 +47,7 @@ import { queryKeys } from '@/lib/queryKeys'
  */
 export default function EmailVerificationModal() {
   const [open, setOpen] = useState(false)
-  const [loading, setLoading] = useState(false)
-  const [resent, setResent] = useState(false)
+  const [resend, setResend] = useState<ResendState>(IDLE)
   const router = useRouter()
   const queryClient = useQueryClient()
 
@@ -32,9 +58,19 @@ export default function EmailVerificationModal() {
     staleTime: 60_000,
   })
 
+  // Whether the dialog is showing, readable from the event handler without re-subscribing.
+  const openRef = useRef(false)
+  useEffect(() => {
+    openRef.current = open
+  }, [open])
+
   useEffect(() => {
     const handler = () => {
-      setResent(false)
+      // A new prompt starts fresh. Another gated 403 while this one is open is the same prompt: it
+      // must not re-arm a just-sent Resend, whose next press would replace the fresh link. Nor does a
+      // prompt reset a send still in flight, which would re-arm Resend under the live request.
+      if (!openRef.current) setResend((r) => (r.phase === 'sending' ? r : IDLE))
+      openRef.current = true
       setOpen(true)
     }
     window.addEventListener(EMAIL_VERIFICATION_REQUIRED_EVENT, handler)
@@ -43,16 +79,24 @@ export default function EmailVerificationModal() {
 
   const close = () => setOpen(false)
 
+  const sending = resend.phase === 'sending'
+  const unavailable = resend.phase === 'sent' || resend.phase === 'limited'
+
   const handleResend = async () => {
-    if (!user?.email || loading || resent) return
-    setLoading(true)
+    if (!user?.email || sending || unavailable) return
+    setResend((r) => ({ phase: 'sending', failure: r.failure }))
     try {
       await resendVerification(user.email)
-      setResent(true)
-    } catch {
-      // best-effort
-    } finally {
-      setLoading(false)
+      setResend({ phase: 'sent', failure: null })
+    } catch (err) {
+      // A 429 is the server's cap (3/hr per address, 20/hr per IP). The route charges the per-IP
+      // bucket before the per-address check rejects, so a live button would let each further press
+      // spend the shared IP allowance for nothing: Resend turns unavailable for this prompt.
+      const limited = getErrorStatus(err) === 429
+      setResend((r) => ({
+        phase: limited ? 'limited' : 'failed',
+        failure: { message: limited ? RESEND_LIMITED : RESEND_FAILED, n: (r.failure?.n ?? 0) + 1 },
+      }))
     }
   }
 
@@ -70,34 +114,44 @@ export default function EmailVerificationModal() {
       </ModalHeader>
       <ModalBody>
         <p className="text-sm leading-relaxed text-text-secondary-light dark:text-text-secondary-dark">
-          {resent ? (
-            <>
-              We sent a fresh link to{' '}
-              <span className="font-medium text-text-primary-light dark:text-text-primary-dark">
-                {user?.email}
-              </span>
-              . Click it, then come back and refresh.
-            </>
-          ) : (
-            <>
-              Generating summaries and subscribing require a verified email. We sent a link to{' '}
-              <span className="font-medium text-text-primary-light dark:text-text-primary-dark">
-                {user?.email}
-              </span>
-              .
-            </>
-          )}
+          Generating summaries and subscribing require a verified email. We sent a link to{' '}
+          <span className="font-medium text-text-primary-light dark:text-text-primary-dark">
+            {user?.email ?? 'your email address'}
+          </span>
+          .
         </p>
+        {/* A polite live region, mounted and empty from the moment the dialog opens: the sent line is
+            announced when it appears, and nothing else in it ever changes. */}
+        <div role="status">
+          {resend.phase === 'sent' ? (
+            <p className="mt-3 flex items-start gap-2 text-sm leading-relaxed text-text-secondary-light dark:text-text-secondary-dark">
+              <CheckCircleIcon aria-hidden="true" className="mt-0.5 h-4 w-4 flex-shrink-0 text-success-light dark:text-success-dark" />
+              <span>
+                New link sent. Only the newest link works. Not there in a minute or two? Check your spam folder.
+              </span>
+            </p>
+          ) : null}
+        </div>
+        {resend.failure ? (
+          <Notice
+            key={resend.failure.n}
+            variant="error"
+            title="Couldn't send a new link"
+            description={resend.failure.message}
+            className="mt-4"
+          />
+        ) : null}
       </ModalBody>
       <ModalFooter>
         <Button
           variant="secondary"
           onClick={handleResend}
-          loading={loading}
-          disabled={resent}
-          className="w-full sm:w-auto"
+          loading={sending}
+          loadingText="Sending…"
+          aria-disabled={unavailable || sending || undefined}
+          className={cx('w-full sm:w-auto', unavailable && secondaryUnavailableClass)}
         >
-          {resent ? 'Link sent' : 'Resend link'}
+          {resend.phase === 'sent' ? 'Link sent' : 'Resend link'}
         </Button>
         <Button onClick={handleRefresh} className="w-full sm:w-auto">
           I&apos;ve verified

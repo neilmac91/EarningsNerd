@@ -11,7 +11,8 @@ import { describe, expect, it } from 'vitest'
  * `aria-disabled` (+ `aria-busy`) and an early return in the handler; a text field uses `readOnly`.
  *
  * The scan reads the TypeScript AST of every .tsx under app/, components/ and features/. It counts
- * each JSX `disabled={…}` whose expression names a busy flag (BUSY below), directly, through a member
+ * each JSX `disabled={…}` whose expression names a busy flag (BUSY below) or a post-success flag
+ * (AFTER_SUCCESS: the control's own success leaves it unavailable, e.g. "Link sent"), directly, through a member
  * (`mutation.isPending`), or through the binding visible from the site: a `const` (followed
  * transitively, so `const canSend = … && !sending` counts) or a renamed destructured prop
  * (`{ isPending: waiting }`). Names resolve in their lexical scope, so a parameter shadows an outer
@@ -20,9 +21,8 @@ import { describe, expect, it } from 'vitest'
  * Strings and comments never count.
  *
  * What it cannot see, so per-site specs stay the real proof of focus:
- *  - a busy flag under a name outside BUSY;
- *  - a post-success flip (`!dirty` after a save, `saved`, `resent`, a cooldown) that disables the
- *    control the user just activated;
+ *  - a busy or post-success flag under a name outside BUSY and AFTER_SUCCESS, such as `!dirty` after
+ *    a save;
  *  - a value threaded through props under another name, or computed in another file.
  *
  * ALLOW pins every sanctioned site, per file and with a reason, by the exact text of its `disabled`
@@ -31,6 +31,8 @@ import { describe, expect, it } from 'vitest'
  * both capped, shrink-only.
  */
 const BUSY = /pending|loading|submitting|saving|sending|streaming|running|busy|refetching|fetching|mutating|deleting|removing|inflight/i
+/** Flags a control's own success sets, which leave it unavailable while it still holds focus. */
+const AFTER_SUCCESS = /resent|saved|copied|succeeded|success|cooldown/i
 
 const ALLOW: Record<string, { sites: string[]; reason: string }> = {
   // Kept by design.
@@ -146,7 +148,7 @@ function busyDisabledSites(source: string, fileName: string): Site[] {
     const visit = (n: ts.Node): void => {
       if (hit) return
       if (ts.isIdentifier(n)) {
-        if (BUSY.test(n.text)) {
+        if (BUSY.test(n.text) || AFTER_SUCCESS.test(n.text)) {
           hit = true
           return
         }
@@ -201,7 +203,7 @@ for (const abs of ROOTS.flatMap((root) => walk(path.join(frontendRoot, root), []
 }
 
 describe('busy controls stay focusable (rule-12 gate)', () => {
-  it('the scanner sees busy flags directly, through members and through same-file consts, and nothing else', () => {
+  it('the scanner sees busy and post-success flags directly, through members and through same-file consts, and nothing else', () => {
     const fixture = [
       'const refreshDisabled = isRefetching || !ready',
       'const viaTwo = refreshDisabled',
@@ -210,6 +212,8 @@ describe('busy controls stay focusable (rule-12 gate)', () => {
       '    <button disabled={mutation.isPending} />',
       '    <Button disabled={loading || !valid} />',
       '    <button disabled={viaTwo} />',
+      '    <Button disabled={resent} />',
+      '    <button disabled={mutation.isSuccess || cooldown > 0} />',
       '    <Button loading={saving} disabled={!valid} />',
       '    <button aria-disabled={pending} />',
       '    <button disabled={!email} />',
@@ -223,6 +227,8 @@ describe('busy controls stay focusable (rule-12 gate)', () => {
       'mutation.isPending',
       'loading || !valid',
       'viaTwo',
+      'resent',
+      'mutation.isSuccess || cooldown > 0',
     ])
   })
 

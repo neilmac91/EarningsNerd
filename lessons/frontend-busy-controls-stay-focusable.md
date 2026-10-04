@@ -36,12 +36,17 @@ the control cannot hold focus when it flips: this bell's `checking`; the Analysi
 contract spec pins it); RevokeConfirmModal's Cancel; the invite fields (four sites); and the
 delete-account confirm field and Cancel. In each of the last three, only a sibling's click starts
 the request and there is no form. Pins only shrink, and both files and sites are capped: converting
-a site means removing its pin, and adding a busy flag to a pinned expression fails.
+a site means removing its pin, and adding a busy flag to a pinned expression fails. It also fails on
+a post-success flag by name (`resent`, `saved`, `copied`, `succeeded`/`success`, `cooldown`), with
+no pins: EmailVerificationModal's `disabled={resent}` was the last one.
 
 (e) A control unavailable after its own activation (`!dirty` after a save, an incomplete form, a
-cooldown) is aria-disabled with an early return too. A primary DS Button in that state takes
-`primaryUnavailableClass`, and a field takes `fieldUnavailableClass` (both in `components/ui`), for
-the disabled look without native `disabled`. Never `loading`'s look: that stays the resting fill.
+cooldown, "Link sent") is aria-disabled with an early return too. A primary DS Button in that state
+takes `primaryUnavailableClass`, a secondary one `secondaryUnavailableClass`, and a field
+`fieldUnavailableClass` (all in `components/ui`), for the disabled look without native `disabled`.
+Never `loading`'s look: that stays the resting fill. `secondaryUnavailableClass` fades the label and
+the hairline, not the element: the variant's native `opacity-50` would fade the focus ring the
+focusable state still shows (EmailVerificationModal's Resend, measured in Chromium).
 
 (f) Keeping focus makes a second activation reachable, so the guard must cover the whole
 operation. A mutation whose success refetches the data the control depends on returns that
@@ -78,24 +83,25 @@ hand-off armed by a press (a `retried` or `pressed` ref) is disarmed when that p
 fails again. Otherwise a later recovery nobody pressed, such as a reconnect refetch, moves focus
 (`useRetainedFailure`'s `retrying` tells a retry that failed from one still running).
 
-(h) The scan cannot see post-success flips, unmounts, or a busy flag under another name. Those stay
-per-site specs plus a real-browser keyboard pass. Known open cases, same class, not yet fixed:
-EmailVerificationModal's Resend (`disabled={resent}` after success, while focused); the filing
-page's Retry generation / Retry / Regenerate Analysis; FeedbackRow's status select when the list is
-filtered by status (its own update removes the row); the dashboard header's Log out (no in-flight
-guard); PopularTickerChips' add when the insights refetch after it fails (the chip goes live again,
-and with no row to prune it needs the added ticker remembered); YourCompanies' remove when the
-insights refetch after it fails (the error card replaces the list and focus falls to `<body>` with
-no hand-off); the company page's filings Retry, EarningsCalendarPage's "Try again", FullTextSearch's
-Retry and FilingViewer's "Try again"; BillingPanel's Retry (no retained failure, so its refetch
-swaps the Notice for the skeleton). Gaps in the fixed Retry buttons, found in FilingFeed's review:
-the dashboard's, YourCompanies' and the pricing page's take busy from `isFetching`, so a retry
-paused offline leaves them live, and a second press resets `useRetainedFailure`'s fetch tracking
-mid-flight, which wedges `retrying` so the press's hand-off never disarms; the pricing page's
-hand-off has no disarm at all; and a refetch nobody pressed (a reconnect, an invalidation) that
-swaps a retained error card for its skeleton still drops a focused Retry to `<body>`. YourCompanies'
-Retry, CompanySearch's "Try Again" and FilingFeed's Retry are fixed
-(`busyControls.dashboard.spec.tsx`, `CompanySearch.spec.tsx`, `busyControls.watchlist.spec.tsx`).
+(h) The scan cannot see post-success flips outside its names, unmounts, or a busy flag under another
+name. Those stay per-site specs plus a real-browser keyboard pass. Known open cases, same class, not
+yet fixed: the filing page's Retry generation / Retry / Regenerate Analysis; FeedbackRow's status
+select when the list is filtered by status (its own update removes the row); the dashboard header's
+Log out (no in-flight guard); PopularTickerChips' add when the insights refetch after it fails (the
+chip goes live again, and with no row to prune it needs the added ticker remembered); YourCompanies'
+remove when the insights refetch after it fails (the error card replaces the list and focus falls to
+`<body>` with no hand-off); the company page's filings Retry, EarningsCalendarPage's "Try again",
+FullTextSearch's Retry and FilingViewer's "Try again"; BillingPanel's Retry (no retained failure, so
+its refetch swaps the Notice for the skeleton). Gaps in the fixed Retry buttons, found in
+FilingFeed's review: the dashboard's, YourCompanies' and the pricing page's take busy from
+`isFetching`, so a retry paused offline leaves them live, and a second press resets
+`useRetainedFailure`'s fetch tracking mid-flight, which wedges `retrying` so the press's hand-off
+never disarms; the pricing page's hand-off has no disarm at all; and a refetch nobody pressed (a
+reconnect, an invalidation) that swaps a retained error card for its skeleton still drops a focused
+Retry to `<body>`. YourCompanies' Retry, CompanySearch's "Try Again", FilingFeed's Retry and
+EmailVerificationModal's Resend are fixed (`busyControls.dashboard.spec.tsx`,
+`CompanySearch.spec.tsx`, `busyControls.watchlist.spec.tsx`, `busyControls.admin-auth.spec.tsx` plus
+the e2e `email-verification-resend.spec.ts`).
 - A Retry that hands focus to a text field arms only on a keyboard press (`e.detail === 0`), since
   focusing the field after a tap raises the touch keyboard. `:focus-visible` cannot stand in, because
   it reflects how the control got focus, not how it was activated: a tap on a keyboard-focused button
