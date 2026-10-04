@@ -1,0 +1,63 @@
+{
+  "recorded_at": "2026-10-04T14:31:38.078611+00:00",
+  "chief": {
+    "role": "CEO / chief execution integrator; sole ledger-reservation writer (held: live ledger inaccessible); paid-dispatch and serial-release coordinator",
+    "identity": "https://claude.ai/code/session_01GWYV7WXWstgVGQG43YcSM8",
+    "model_reported_by_runtime": "claude-fable-5-1",
+    "predecessor": "Astra (GPT-6 Codex chief), retired at package handoff per CHIEF-TRANSFER-POLICY.md"
+  },
+  "officers": {
+    "CTO": {
+      "waves": [
+        "R1",
+        "R5"
+      ],
+      "packet_sha256": "2209215e245813bd25aa6d8f70a41d5da98598f8b9ffdaf67da970e26a20d0e2",
+      "first_deliverable_reused": "cto/FIRST-DELIVERABLE.md bdca249d\u2026",
+      "held_worker": "officer/CLAUDE-IMPLEMENTATION-PROMPT.md (R1 dependency handover) NOT dispatched: entry condition (new source-owned packing evidence) absent; status recorded by chief in handbacks/cto/R1-STATUS.md",
+      "active_assignment": "dispatch/CTO-ENVELOPE-HANDBACK-01.json (current-beta operating envelope for COO C1)",
+      "actual_runtime_identity": "pending launch",
+      "requested_model": "claude-fable-5-1 (author); independent lenses: claude-opus-5-5, claude-fable-5-1, claude-sonnet-5-5"
+    },
+    "CPO": {
+      "waves": [
+        "R2"
+      ],
+      "packet_sha256": "14e66f5461144cee3bf7cda92b59c61878635379e9bff8b0278fc20b40a5d3dc",
+      "first_deliverable_reused": "cpo/FIRST-DELIVERABLE.md 53629961\u2026",
+      "active_assignment": "dispatch/CPO-COORDINATOR-01.json (administrative A1\u2013A9 status + process handback; USD 0; no dispatch)",
+      "actual_runtime_identity": "pending launch",
+      "requested_model": "claude-sonnet-5-5 (coordinator); claude-fable-5-1 (independent consistency verifier)"
+    },
+    "COO": {
+      "waves": [
+        "R3",
+        "R4"
+      ],
+      "packet_sha256": "38210de1cb945ac86cb74e60f087e78d1cee0448d8be7019a23099d5ba60bf0e",
+      "first_deliverable_reused": "coo FIRST-DELIVERABLE.md c8277395\u2026",
+      "held_worker": "R3 operating-envelope disposition: HELD until the named CTO handback exists and the chief binds a dispatch manifest",
+      "actual_runtime_identity": "pending",
+      "requested_model": "claude-fable-5-1"
+    },
+    "CFO": {
+      "waves": [
+        "shared spend / commercial controls"
+      ],
+      "packet_sha256": "83c8214f1d0de29e8ed3f20c4d4a60e9c5c0eb0cf968dd4b81152d22f6018d16",
+      "first_deliverable_reused": "cfo FIRST-DELIVERABLE.md 925fcc6b\u2026 (reconciliation reused: USD 12.570771 conditional unreserved; snapshot only)",
+      "held_worker": "Cost-decision worker queued: no exact paid action named; live ledger inaccessible from this host (returns a blocked receipt if dispatched)",
+      "actual_runtime_identity": "not launched",
+      "requested_model": "n/a"
+    }
+  },
+  "lanes": {
+    "max": 3,
+    "active": [
+      "quality inputs (R1 blocked / R2 administrative readiness)",
+      "beta operations (R3 capacity: CTO handback \u2192 COO disposition)",
+      "existing product/security owners (PR1081/PR1085; not touched by this chief)"
+    ]
+  },
+  "note": "Appointment is accountability, not entry authorization. Actual delegate identities (workflow run / agent ids) are recorded here and in the exclusion successor after launch."
+}
