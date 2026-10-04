@@ -88,10 +88,10 @@ shared surface (it caused white-on-cream and dark-on-cream bugs across the app).
 ## 4. Canonical component patterns
 
 **Compose the component layer, don't hand-roll** — `components/ui/*` (Button, Badge, Input, Card,
-DataTable, Skeleton, GuidanceCard, Notice, Modal) + `components/AskFilingAnswer.tsx` (v2.2: reworked to
-the SHIPPED copilot data model — see below). Every component defines
-default / hover / active / focus-visible / disabled / loading plus the system states (empty,
-skeleton via the shared shimmer keyframe, error).
+DataTable, Skeleton, GuidanceCard, Notice, Modal) + `features/filings/components/AskFilingAnswer.tsx` (v2.2: reworked to
+the SHIPPED copilot data model — see below). Controls expose their applicable interaction and
+availability states; data surfaces supply loading, empty and error treatments as supported by
+their APIs. Passive Card and Badge primitives do not implement the full control-state set.
 
 A control that is busy, or unavailable as a result of its own activation, never takes native
 `disabled`: Chromium blurs a focused control that turns disabled, so keyboard focus falls to
@@ -227,7 +227,8 @@ Ask answer       <AskFilingAnswer>  — the SHIPPED copilot contract: status rea
   bones are `aria-hidden` — a wrapper composed of raw bones needs `role="status"` + an sr-only label.
 - **Evidence identity:** the Ask-this-Filing header tile uses the Phosphor `quotes` glyph;
   `sparkle` appears ONLY on the "AI summary" chip.
-- Sortable table headers render as buttons with `aria-sort`, ▲/▼, and the brand focus ring.
+- Sortable table headers contain buttons with ▲/▼ and the brand focus ring; `aria-sort` belongs
+  to the enclosing header cell (`th`).
 - **Class maps outside JSX must sit under a `content` glob.** Tailwind generates only the classes
   it finds in the modules `tailwind.config.js` `content` scans. A class composed in an unscanned
   module ships unstyled and nothing reports it: `lib/financialTone.directionChip` lost its /20
@@ -375,3 +376,4 @@ Recharts/rAF, which need numbers). **No raw ms or bezier strings anywhere else.*
    editing this section without editing the gate fails, and vice versa.
 4. **Verify in BOTH themes** on the Vercel preview — green CI ≠ correct visuals.
 5. Run `npm run typecheck`, `npm run lint` (`--max-warnings 0`), `npm run build`, `npm run test`.
+
