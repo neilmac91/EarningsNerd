@@ -21,7 +21,7 @@
       "deliverable": "handbacks/cto/envelope/ revision 2 (CORRECTION-01.md records the revision-1 placeholder defect found by the COO worker and the hash chain)",
       "status": "delivered; unrefuted by isolated review",
       "independent_refuters": "Two isolated read-only refuter contexts (arithmetic, assumptions lenses) launched by the chief 2026-10-04T17:33Z against handback rev 3 derived rows; both returned; registered in control/source-context-exclusion-139.json; verdicts in control/DECISIONS-02.md Appendices A and B (no arithmetic error; six qualifications; edgartools second bucket verified; one process per instance observed).",
-      "next_assignment": "Draft PR (held unready) for per-process SEC budgets on both buckets per DECISIONS-02.md D3; next handback revision carries B07/B08/B36/B41/B52 updates."
+      "next_assignment": "Per-process SEC budget change prepared and locally gated; commit classifier-denied (Production Deploy) — founder applies or changes the patch (DECISIONS-02.md D3 execution note). Next handback revision carries B07/B08/B36/B41/B52 updates."
     },
     "CPO": {
       "waves": [
@@ -74,9 +74,10 @@
     ]
   },
   "note": "Appointment is accountability, not entry authorization. Actual delegate identities (workflow run / agent ids) are recorded here and in the exclusion successor after launch.",
-  "updated_at": "2026-10-04T17:49:21.474931+00:00",
+  "updated_at": "2026-10-04T17:59:19.617045+00:00",
   "classifier_denials": [
     "Workflow launch for CTO-ENVELOPE-HANDBACK-01 (auto-mode classifier, no reason given); not re-issued through another tool or subagent",
-    "One Bash read of docs/DEPLOYMENT.md job-schedule sections (auto-mode classifier: instruction poisoning); the handback cites those lines from an earlier permitted line-level search only"
+    "One Bash read of docs/DEPLOYMENT.md job-schedule sections (auto-mode classifier: instruction poisoning); the handback cites those lines from an earlier permitted line-level search only",
+    "git commit of the CTO per-process SEC budget change (ci.yml env pins + gate test + docs) in a local worktree (auto-mode classifier: Production Deploy); not pursued through another tool, worker or turn; patch handed to the founder in the session"
   ]
 }

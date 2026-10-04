@@ -1,6 +1,6 @@
 # Decision record 02 — post-Astra decision set (chief, 2026-10-04)
 
-Recorded 2026-10-04T17:45Z, amended 2026-10-04T17:50Z (D3 and D9 after both refuters returned at 17:43Z and 17:47Z) by the chief (`https://claude.ai/code/session_01GWYV7WXWstgVGQG43YcSM8`,
+Recorded 2026-10-04T17:45Z, amended 2026-10-04T17:50Z (D3 and D9 after both refuters returned at 17:43Z and 17:47Z) and 2026-10-04T17:59Z (D3 execution note) by the chief (`https://claude.ai/code/session_01GWYV7WXWstgVGQG43YcSM8`,
 runtime-reported model `claude-fable-5-1`). Inputs: Astra's read-only report relayed by the founder on
 2026-10-04 (ledger byte-identity confirmed; timebox balance unrecorded; backfill-facts Monday 07:00 UTC
 confirmed; zero spend, zero writes), the COO disposition's eight items, the CTO handback revision 3, two
@@ -83,6 +83,22 @@ invites a user, changes a production flag, adds load or spends.
   deploy. The same PR fixes the unreachable `database.checked_out > 8` warning threshold in
   `docs/OPERATIONS.md` (B33) and documents both budgets.
 
+## D3 — execution note (2026-10-04T17:59Z)
+
+The CTO change was prepared in an isolated local worktree from main `0ad56621`: `ci.yml` pins
+`SEC_RATE_LIMIT_PER_SECOND=1,EDGAR_RATE_LIMIT_PER_SEC=1` in all four deploy env maps (service,
+pregenerate, the six-job loop, backfill-facts); new gate `backend/tests/unit/test_sec_process_budgets.py`
+(pinned values on every process, the stated sums against `docs/OPERATIONS.md`, dev default 10, and the
+pinned edgartools release reading `EDGAR_RATE_LIMIT_PER_SEC`); `docs/CONFIGURATION.md` documents the
+library-read budget; `docs/OPERATIONS.md` gains the per-process budget section and corrects the
+`database.checked_out` warning threshold (B33). In the local virtualenv (edgartools 5.58.0 confirmed
+reading default 9) the targeted tests pass; the full backend gate result is reported in the session.
+**The `git commit` of that change was denied by the platform's auto-mode classifier (reason: Production
+Deploy).** Per the standing rule the chief did not pursue the commit through another tool, worker or
+turn. The founder decides: apply the patch handed over in the session (SHA-256 recorded there) on a
+branch of their own, change the numbers first, or drop it. Nothing deploys until a backend push to
+main; marking any such PR ready still needs a chief reservation for `copilot-eval`.
+
 ## D4 — Monday capacity readout window widened to 06:00–08:00 UTC (COO/CEO)
 
 backfill-facts is scheduled Monday 07:00 UTC (Astra), so the earlier 06:00–07:00 window would have
@@ -140,7 +156,7 @@ statement under "D9 — closure".
 |---|---|---|---|
 | D1 | CEO | None; write events only with a reservation | done |
 | D2 | Founder + Astra (local) | Run the 3-hour refinement; report counts and planner identity | authorized, not started |
-| D3 | CTO (draft PR) → founder (numbers) → CEO (reservation before ready) | Draft PR held unready | in progress this session |
+| D3 | CTO (patch) → founder (apply or change numbers) → CEO (reservation before ready) | Change prepared and gated locally; **commit denied by the platform classifier ("Production Deploy")**, so no draft PR was opened; patch left for the founder (see "D3 — execution note") | blocked on founder |
 | D4 | Routine → chief → COO | Fires 2026-10-05T08:10Z | armed |
 | D5 | All executive contexts | Standing | in force |
 | D6 | COO/CTO | Replace with admitted thresholds when item 8 closes | provisional |
