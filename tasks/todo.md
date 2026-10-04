@@ -6223,12 +6223,15 @@ Full local and hosted verification plus independent exact-head review precede re
   classifier; no isolated adversarial review ran.
 - COO lane: operating-envelope disposition HOLD with eight named missing inputs/decisions and owners;
   capacity unadmitted; counts unchanged (3/30 dossiers, 0/2 readouts, 5 groups + 1 capacity decision).
-- [ ] Founder + Astra: run the 3-hour bounded H20 packing/closure refinement locally with a fresh
-      source-only planner (USD 0; engineering-safe return; report the planner's context identity);
-      chief then sets `R1-STATUS.md` (`DECISIONS-02.md` D2).
+- [ ] Founder + Astra: H20-only packing/closure refinement (frozen H20 input set; 27 = remaining dossiers,
+      not the worklist) by the registered source-only planner (closure 140; BLOCKED_BEFORE_REFINEMENT;
+      170 of 180 minutes remain). Blocked on the founder materialising the cloud-only custody files
+      (17/21 bootstrap files, 7/48 predecessor files) and verifying retained hashes
+      (`DECISIONS-03.md`). Chief then sets `R1-STATUS.md`.
 - [x] Ledger: Astra confirmed byte-identity with snapshot `99c7259f…`; successor ledger designated as a
-      private artifact (document SHA-256 `53e84868…`); chief sole writer; paid dispatch still needs a
-      reservation there (`runtime/control/DECISIONS-02.md` D1, `LEDGER-ACCESS.md` update).
+      private artifact (document SHA-256 `53e84868…` at designation; event 1 written 2026-10-04, document now
+      `beef4ca0…`); chief sole writer; paid dispatch still needs a reservation there
+      (`runtime/control/DECISIONS-02.md` D1, `DECISIONS-03.md`, `LEDGER-ACCESS.md`).
 - [ ] COO/CEO: one bounded read-only Ops `capacity-readout` over Monday 06:00–08:00 UTC (widened to
       include backfill-facts 07:00; Routine fires 08:10Z) to inform B32; receipt to COO (`DECISIONS-02.md` D4).
 - [ ] Founder: apply (or change the numbers in) the handed-over patch pinning `SEC_RATE_LIMIT_PER_SECOND=1`
