@@ -1,9 +1,9 @@
 # Live spending ledger — access statement (chief, 2026-10-04)
 
 **Authoritative live ledger named by the package:**
-`outputs/next-stage-20261003/spend-and-reservation.json` under
-`/Users/neilmacaogain/Documents/Codex/2026-10-03/github-plugin-github-openai-curated-remote-3` (the
-founder's local Codex task root). **Status from this cloud session: not reachable.** The repository
+`outputs/next-stage-20261003/spend-and-reservation.json` under the founder's local Codex task root (the
+absolute path is held in the private handover materials; removed from this public record under the
+records-privacy decision, `DECISIONS-04.md`). **Status from this cloud session: not reachable.** The repository
 clone contains no `outputs/` directory and the founder's machine is not mounted or networked here.
 
 **Packaged reference:** `control/spend-and-reservation.SNAPSHOT.json`, SHA-256

@@ -1,10 +1,10 @@
-# Durable checkpoint — CODE RED chief session (updated 2026-10-04T20:37:55Z)
+# Durable checkpoint — CODE RED chief session (updated 2026-10-04T22:01:36Z)
 
 Chief: `https://claude.ai/code/session_01GWYV7WXWstgVGQG43YcSM8` (runtime-reported model `claude-fable-5-1`).
 Package: `earningsnerd-code-red-fable-chief-20261004.zip` SHA-256
 `e5316f506477144051b77f64dde240124e5f4a8571017c79d83dc76ba7e7661c`. Main: `100fb7d6bdaf62590af19964d39c2ed732062210`.
 Branch `claude/vigilant-goodall-633yx3`; first PR [neilmac91/EarningsNerd#1086](https://github.com/neilmac91/EarningsNerd/pull/1086) merged to main as
-`0ad56621c9a160e809e4f35dd8087a00694de4d6` (first checkpoint commit `6cd23c3cb7032284a913ed88df08e9a58e90569d`); PR [neilmac91/EarningsNerd#1088](https://github.com/neilmac91/EarningsNerd/pull/1088) merged as `fdbbcb25`; this revision is the third tasks-only PR
+`0ad56621c9a160e809e4f35dd8087a00694de4d6` (first checkpoint commit `6cd23c3cb7032284a913ed88df08e9a58e90569d`); PR [neilmac91/EarningsNerd#1088](https://github.com/neilmac91/EarningsNerd/pull/1088) merged as `fdbbcb25`; PR [neilmac91/EarningsNerd#1090](https://github.com/neilmac91/EarningsNerd/pull/1090) merged as `d961bf30`; this revision is the fourth tasks-only PR
 from the branch restarted at that main. Tasks-only: no code, workflow, test or production change.
 
 ## Deliverables and exact hashes (SHA-256)
@@ -12,10 +12,11 @@ from the branch restarted at that main. Tasks-only: no code, workflow, test or p
 | Path (under `tasks/code-red-20261004/runtime/`) | SHA-256 | Status |
 |---|---|---|
 | `README.md` | `2bd9fbd9b5c33e713df04cf1cb8b2de1345a5083c81da1a5fc61548301455325` | recorded (revision exception added after review nit R1) |
-| `TAKEOVER.md` | `7fcb32c92c7793deacfb90c8af86db73edf0b63083d5f75d018c0b73b30013b1` | recorded (snapshot heading: observed 14:21Z, recorded 14:31Z) |
-| `control/LEDGER-ACCESS.md` | `33147081e8f6876423a4959ca04ded08c75c7c4437b611926d435dc7d865aaac` | successor ledger designated 17:39Z; **event 1 (wording correction) written 20:04:46Z**, document SHA-256 `beef4ca0…`; paid dispatch still HELD, 0 reservations |
+| `TAKEOVER.md` | `ee9fb4590e9e6dca015bc2f254319662d35e775d663e57b386090b4f3c64f165` | recorded (snapshot heading: observed 14:21Z, recorded 14:31Z); local path sanitised (DECISIONS-04) |
+| `control/LEDGER-ACCESS.md` | `85c42cfb4a3732faeb90e85fbffcf5cd131ccf526147d2430bddb4cc93168a12` | successor ledger designated 17:39Z; event 1 (wording correction) written 20:04:46Z, document SHA-256 `beef4ca0…`; local path sanitised (DECISIONS-04); paid dispatch still HELD, 0 reservations |
 | `control/DECISIONS-02.md` | `4d93171f68c7491afd70fcd54b19a355093c5f2a14b437d02c4fd13d3f4f508b` | post-Astra decision set D1–D9 + refuter appendices A/B |
-| `control/DECISIONS-03.md` | `474e8d70371ab8e4e908cf3f880c124683d84b51209198fff38286cd3202ce45` | R1 bootstrap handover response; corrections to record 02 (D1 wording, D2 unit, D3/D6 telemetry) |
+| `control/DECISIONS-03.md` | `56bfb21b3ff5b7dccfafd53a7355cb70795a8962f1454aab951223c70efccd26` | R1 bootstrap handover response; corrections to record 02 (D1 wording, D2 unit, D3/D6 telemetry, ledger rule narrowed) |
+| `control/DECISIONS-04.md` | `66e1f9096e12049c676e092eaa71f066c3a08a29591579b3adaca987a3f8e811` | planner-controls package receipt (hash-verified), 160-minute ceiling, closure 142, corrections to record 03 |
 | `control/PRODUCTION-CONFIG-OBSERVATION-20261004.md` | `ea3689c8744023f9b627c2e0e51622bb01b7fa70382f1a70c8fac59f17c3564d` | two read-only Ops describes; no SEC budget override anywhere; one process per instance observed |
 | `control/source-context-exclusion-136.json` | `f6c065fd30650547e6cdb597faca44138ccd54bc50e5d9ab63b9883c61862f9a` | 136 entries (chief added) |
 | `control/source-context-exclusion-137.json` | `3f04115827cc22e0588af212eb86737dcf3c183a51118ac6443020eb6530b00f` | 141 entries (4 CPO workflow agents + COO subagent added) |
@@ -23,7 +24,8 @@ from the branch restarted at that main. Tasks-only: no code, workflow, test or p
 | `control/source-context-exclusion-139.json` | `7c2ced05a266915920f589e4256106ad69ada639a85eacbf0d0319b7f04d9955` | 146 entries (two refuters + decisions-PR reviewer added) |
 | `control/source-context-exclusion-140.json` | `37c6520da8d32d236f6acfe90484404e48c2526987d634b0d869116bf4906d31` | 151 entries (fresh source-only H20 planner + decisions-03 review contexts) |
 | `control/source-context-exclusion-141.json` | `2e88659e41d2f2f5816dcc7530d8b366328b8722f9df00fc5489e3effccb33c3` | 167 entries (16 workflow review contexts of PR #1090; provisional labels resolved) |
-| `control/APPOINTMENTS.json` | `e8b0a9483bf1b895e5cab18489d43c441955328354c8d9134694f6e2448d85dd` | actual identities recorded; refuters, successor ledger, next assignments added |
+| `control/source-context-exclusion-142.json` | `3b2d195b1f3047167dcfff599c04304774327bdd00c2f0580b741efe80e5bd60` | 170 entries (Astra's package-boundary reviewer; delta reviewer identity resolved; decisions-04 reviewer) |
+| `control/APPOINTMENTS.json` | `5fbcf12646f0a6f753284a699a9f7899f4f1ef523a425de7b80c593e38fa3468` | actual identities recorded; refuters, successor ledger, next assignments added |
 | `control/REPOSITORY-SNAPSHOT.json` | `a0666c424912e25b8dab6a689494d04dbe9507cc3bd7fdeb684a0734118741e9` | observed 14:21Z |
 | `control/SPEND-POLICY-STATEMENT.md` | `2a2122c5a727a0190c7ca999c241c8ff4ab2008a476ca64707a82e87e9dafa0e` | provider spend field HOLD |
 | `dispatch/CPO-COORDINATOR-01.json` | `1fbbc3e057be56bea74676c9c906684412dd07e919f9023bc9226278294c640e` | dispatched, complete |
@@ -56,9 +58,10 @@ from the branch restarted at that main. Tasks-only: no code, workflow, test or p
 12. **Monday readout window** 06:00–08:00 UTC, Routine fires 08:10Z (D4).
 13. **Records privacy, forward-only** (D5); **provisional stop conditions** (D6); provider limits recorded as published (D7); egress identity moot for the SEC cap (D8).
 14. **COO item 8 answered** by two isolated refuters (D9, Appendices A/B): no arithmetic error; six qualifications accepted; B07/B08 now observed (one process per instance) from the Ops read.
-15. **R1 planner registered** (`DECISIONS-03.md`, closure 140): Astra's fresh source-only H20 planner is a known source-role context; `BLOCKED_BEFORE_REFINEMENT`; 0/0/0; 170 of 180 minutes remain; refinement waits on the founder's local custody recovery (17/21 bootstrap files cloud-only).
+15. *(Superseded in part by decision 18: 160 minutes remain; custody 18/21 and 12/48.)* **R1 planner registered** (`DECISIONS-03.md`, closure 140): Astra's fresh source-only H20 planner is a known source-role context; `BLOCKED_BEFORE_REFINEMENT`; 0/0/0; 170 of 180 minutes remain; refinement waits on the founder's local custody recovery (17/21 bootstrap files cloud-only).
 16. **Scope confirmed, D2 unit corrected:** H20-only packing/closure refinement on the frozen H20 input set; "27" counts remaining programme dossiers, not H20 items; no expansion of the allowance.
-17. **Record-02 corrections from Astra verified and applied:** D1 wording → ledger event 1 (document `beef4ca0…`, no balance change); D3/D6 → `rate_limit_hits` counts only recognised SEC 429s on backoff paths, so a flat counter proves nothing and a rise stays a stop signal; founder's patch wording revised (SHA-256 `21322a05…`).
+17. *(Superseded in part by decision 18: a `rate_limit_hits` rise records a recognised rate-limit error, not necessarily an SEC 429.)* **Record-02 corrections from Astra verified and applied:** D1 wording → ledger event 1 (document `beef4ca0…`, no balance change); D3/D6 → `rate_limit_hits` counts only recognised SEC 429s on backoff paths, so a flat counter proves nothing and a rise stays a stop signal; founder's patch wording revised (SHA-256 `21322a05…`).
+18. **Planner-controls package received and hash-verified** (`DECISIONS-04.md`): ZIP `ceed7244…`, six members all matching Astra's inventory; contents not read by the chief. **Time ceiling: 20 of 180 minutes charged, 160 remain.** Closure 142 registers Astra's package-boundary reviewer and resolves the delta reviewer's identity. **Implementation stays HELD** pending the source-owned refinement; planner idle; release receipt NOT_RELEASED. Record-03 corrections accepted: telemetry wording (recognised rate-limit error, not necessarily an SEC 429), "zero writes" scope, custody counts 18/21 and 12/48, `brctl` advice unverified.
 
 ## Retained holds and counts (unchanged)
 
@@ -136,10 +139,10 @@ from the branch restarted at that main. Tasks-only: no code, workflow, test or p
 
 ## Founder-dependent items (precise; nothing blocks today's work)
 
-1. Custody (DECISIONS-03): materialise the cloud-only files under the H20 planner bootstrap directory (17 of 21) and the predecessor planning directory (7 of 48) on the local machine, verify retained hashes, release clean approved inputs to the registered planner; the planner then runs within the 170 remaining minutes and returns counts, hashes, status and minutes.
+1. Custody (DECISIONS-03/04): materialise the cloud-only files (18 of 21 bootstrap, 12 of 48 predecessor at Astra's last check), verify recovered originals against retained hashes and lengths, fill the release receipt with all preparation minutes, then release only clean approved inputs to the registered planner, which runs within the 160 remaining minutes and returns counts, hashes, status and minutes. Implementation stays held until then.
 2. Policy numbers (D3): confirm or change the per-process budgets (1 + 1 on every process) in the handed-over patch (SHA-256 `21322a05…`) before any PR carrying it is marked ready; marking ready needs a chief reservation (~USD 0.01 `copilot-eval`).
 3. Ledger: closed — successor designated (decision 9); event 1 written (decision 17). Any paid action still needs a reservation written there first.
 
 ## Next executable action and stop condition
 
-Next: (1) independent review of this PR's head, `Review override:` line bound to the final head, merge when green (tasks-only; no paid job); (2) founder: custody recovery and the D3 patch decision; (3) Monday 2026-10-05T08:10Z Routine dispatches the 06:00–08:00 UTC `capacity-readout`, receipt to COO; (4) on the planner's return, the chief sets `R1-STATUS.md` and records minutes. Stop condition unchanged: no capacity admission, invitation, flag, new load, E09 implementation or paid dispatch without a reservation in the successor ledger.
+Next: (1) independent review of this PR's head, `Review override:` line bound to the final head, merge when green (tasks-only; no paid job); (2) founder: custody recovery, release receipt and the D3 patch decision; (3) Monday 2026-10-05T08:10Z Routine dispatches the 06:00–08:00 UTC `capacity-readout`, receipt to COO; (4) on the planner's return, the chief sets `R1-STATUS.md`, records minutes used against the 160-minute ceiling and registers any new context. Stop condition unchanged: no capacity admission, invitation, flag, new load, E09 implementation or paid dispatch without a reservation in the successor ledger; implementation held pending the source-owned refinement.

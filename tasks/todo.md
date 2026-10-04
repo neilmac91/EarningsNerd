@@ -6224,10 +6224,11 @@ Full local and hosted verification plus independent exact-head review precede re
 - COO lane: operating-envelope disposition HOLD with eight named missing inputs/decisions and owners;
   capacity unadmitted; counts unchanged (3/30 dossiers, 0/2 readouts, 5 groups + 1 capacity decision).
 - [ ] Founder + Astra: H20-only packing/closure refinement (frozen H20 input set; 27 = remaining dossiers,
-      not the worklist) by the registered source-only planner (closure 140; BLOCKED_BEFORE_REFINEMENT;
-      170 of 180 minutes remain). Blocked on the founder materialising the cloud-only custody files
-      (17/21 bootstrap files, 7/48 predecessor files) and verifying retained hashes
-      (`DECISIONS-03.md`). Chief then sets `R1-STATUS.md`.
+      not the worklist) by the registered source-only planner (closure 140; idle; controls package
+      hash-verified, `DECISIONS-04.md`; 20 of 180 minutes charged, 160 remain). Blocked on the founder
+      materialising the cloud-only custody files (18/21 bootstrap, 12/48 predecessor as of Astra's last
+      check), verifying retained hashes and filling the release receipt. Implementation stays HELD pending the source-owned refinement.
+      Chief then sets `R1-STATUS.md`.
 - [x] Ledger: Astra confirmed byte-identity with snapshot `99c7259f…`; successor ledger designated as a
       private artifact (document SHA-256 `53e84868…` at designation; event 1 written 2026-10-04, document now
       `beef4ca0…`); chief sole writer; paid dispatch still needs a reservation there
