@@ -44,8 +44,8 @@ export default function BillingPanel() {
   })
   const { data: sub } = subscriptionQuery
   // A failure keeps its Notice, and a focused Retry in it, through any refetch until data replaces it.
-  const identityFailure = useRetainedFailure(identityQuery)
-  const subscriptionFailure = useRetainedFailure(subscriptionQuery)
+  const identityFailure = useRetainedFailure(identityQuery, queryKeys.currentUser())
+  const subscriptionFailure = useRetainedFailure(subscriptionQuery, queryKeys.subscription.byUser(user?.id))
   // Where a Retry's focus goes when its Notice clears (RetryButton). Both branches render this heading
   // at the same place, so it is the same node across the swap.
   const headingRef = useRef<HTMLHeadingElement>(null)

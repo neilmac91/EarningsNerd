@@ -105,7 +105,7 @@ export default function CompanySearch({
   // The alert keeps its failure through any refetch until data replaces it. An errored search has no
   // data, so its refetch goes back to pending, and the alert (and a focused "Try again" in it) would
   // vanish. A new term is another query, so typing one drops the old failure.
-  const failure = useRetainedFailure(companiesQuery)
+  const failure = useRetainedFailure(companiesQuery, queryKeys.companies(debouncedQuery))
   const isError = failure.failed
   const error = failure.error
 

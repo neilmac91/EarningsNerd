@@ -16,8 +16,8 @@ import { bindingResolver, type Binding } from './astBindings'
  * each JSX `disabled={…}` whose expression names a busy flag (BUSY below) or a post-success flag
  * (AFTER_SUCCESS: the control's own success leaves it unavailable, e.g. "Link sent"), directly, through a member
  * (`mutation.isPending`), or through the binding visible from the site: a `const` (followed
- * transitively, so `const canSend = … && !sending` counts) or a renamed destructured prop
- * (`{ isPending: waiting }`). Names resolve in their lexical scope, so a parameter shadows an outer
+ * transitively, so `const canSend = … && !sending` counts), a renamed destructured prop
+ * (`{ isPending: waiting }`), or a function declaration's body (`function reload() { … }`). Names resolve in their lexical scope, so a parameter shadows an outer
  * const and two components may each declare their own `cannotSubmit`. Any JSX element counts,
  * components included: a `disabled` prop fed by a busy flag is the same bug one component away.
  * Strings and comments never count.
@@ -523,7 +523,7 @@ describe('busy controls stay focusable (rule-12 gate)', () => {
 })
 
 const RETRY_GATE_MESSAGE =
-  'A Retry of a query is <RetryButton failures={[useRetainedFailure(query)]} focusTarget={headingRef}> ' +
+  'A Retry of a query is <RetryButton failures={[useRetainedFailure(query, queryKey)]} focusTarget={headingRef}> ' +
   '(hooks/useRetainedFailure.tsx): busy from fetchStatus (isFetching is false while a fetch waits paused), the ' +
   'failure held through any refetch, "Retrying…" only for its own press, and a focus hand-off when it unmounts ' +
   'while focused. See lessons/frontend-busy-controls-stay-focusable.md (d), (g).'
@@ -537,6 +537,7 @@ describe('a Retry of a query is RetryButton (rule-12 gate)', () => {
       '  const onRetry = () => { armed.current = true; failure.retry() }',
       '  const save = useMutation({ mutationFn, onSuccess: () => queryClient.invalidateQueries({ queryKey }) })',
       '  const onReload = () => queryClient.invalidateQueries({ queryKey })',
+      '  function reload() { void query.refetch() }',
       '  return (<>',
       '    <Button loading={busy} onClick={() => refetch()}>Retry</Button>', // both clauses
       '    <Button loading={inFlight} onClick={onRetry}>Retry</Button>', // renamed prop; retry through a const
@@ -547,18 +548,20 @@ describe('a Retry of a query is RetryButton (rule-12 gate)', () => {
       '    <Button loading={save.isPending} onClick={() => save.mutate()}>Save</Button>', // neither: its onSuccess
       '    <Button onClick={onReload}>Reload</Button>', // neither: invalidate counts only inline
       '    <RetryButton failures={[failure]} focusTarget={ref}>Retry</RetryButton>', // neither
+      '    <Button onClick={reload}>Reload</Button>', // refetch through a function declaration
       '  </>)',
       '}',
     ].join('\n')
     expect(retrySites(fixture, 'fixture.tsx').map((site) => `${site.line}: ${site.expr}`)).toEqual([
-      '8: busy',
-      '9: inFlight',
-      "10: query.fetchStatus !== 'idle'",
-      '8: () => refetch()',
-      '9: onRetry',
-      '11: () => queryClient.invalidateQueries({ queryKey })',
-      '12: () => void client.resetQueries()',
-      '13: () => client.refetchQueries()',
+      '9: busy',
+      '10: inFlight',
+      "11: query.fetchStatus !== 'idle'",
+      '9: () => refetch()',
+      '10: onRetry',
+      '12: () => queryClient.invalidateQueries({ queryKey })',
+      '13: () => void client.resetQueries()',
+      '14: () => client.refetchQueries()',
+      '18: reload',
     ])
   })
 

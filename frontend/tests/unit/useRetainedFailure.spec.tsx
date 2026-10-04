@@ -1,15 +1,21 @@
+import { readdirSync, readFileSync, statSync } from 'node:fs'
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
+import ts from 'typescript'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { act, fireEvent, render, renderHook, screen, waitFor } from '@testing-library/react'
 import { QueryClient, QueryClientProvider, onlineManager, useQuery } from '@tanstack/react-query'
 import { useRef, useState, type ReactNode } from 'react'
 import { RetryButton, useRetainedFailure } from '@/hooks/useRetainedFailure'
 import { useFocusHandoff } from '@/hooks/useFocusHandoff'
+import { bindingResolver, type Binding } from './astBindings'
 
 /**
  * hooks/useRetainedFailure.tsx and hooks/useFocusHandoff.ts on their own: the failure a component has shown
  * is held through any refetch of that query until data replaces it, and a focused control that unmounts
  * hands focus to its target (lessons/frontend-busy-controls-stay-focusable.md (g)). The pages' Retry
  * buttons are pinned in busyControls.{dashboard,forms,settings,watchlist}.spec.tsx and CompanySearch.spec.tsx.
+ * The last block gates the hook's callers: each passes the key its own query was given.
  */
 
 const deferred = <T,>() => {
@@ -22,6 +28,7 @@ const settle = () => act(async () => { await new Promise((resolve) => setTimeout
 afterEach(() => {
   onlineManager.setOnline(true)
   vi.useRealTimers()
+  vi.restoreAllMocks()
 })
 /** Freeze `Date` (only): React Query stamps `errorUpdatedAt` from it, so failures can share a millisecond. */
 const freezeDate = (iso: string) => {
@@ -36,7 +43,7 @@ function setup(fn: ReturnType<typeof vi.fn>, client = newClient()) {
   const wrapper = ({ children }: { children: ReactNode }) => <QueryClientProvider client={client}>{children}</QueryClientProvider>
   const hook = renderHook(({ k }: { k: string }) => {
     const query = useQuery({ queryKey: ['t', k], queryFn: () => fn(k) })
-    return { query, failure: useRetainedFailure(query) }
+    return { query, failure: useRetainedFailure(query, ['t', k]) }
   }, { wrapper, initialProps: { k: 'a' } })
   return { client, ...hook }
 }
@@ -119,8 +126,27 @@ describe('useRetainedFailure', () => {
     expect(result.current.failure).toMatchObject({ failed: false, error: null })
   })
 
-  // The hold's query identity is the pair (errorUpdatedAt, errorUpdateCount): each half alone has a case.
-  it('two keys that failed in the same millisecond are told apart by their failure count', async () => {
+  // The hold's identity is the query's key (`hashKey(queryKey)`) and its failure (`errorUpdatedAt`,
+  // `errorUpdateCount`). The state alone cannot tell two keys apart: the first case is the collision.
+  it("two keys that failed once each in the same millisecond: the new key's refetch is pending, not the old key's failure", async () => {
+    freezeDate('2026-10-04T00:00:00Z')
+    const client = newClient()
+    await client.fetchQuery({ queryKey: ['t', 'b'], queryFn: () => Promise.reject(new Error('b down')) }).catch(() => {})
+    const fn = vi.fn().mockRejectedValueOnce(new Error('a down'))
+    const { result, rerender } = setup(fn, client)
+    await waitFor(() => expect(result.current.failure.failed).toBe(true))
+    // Same time, same count: a's failure state and b's are indistinguishable without the key.
+    expect(client.getQueryState(['t', 'a'])).toMatchObject({
+      errorUpdateCount: 1,
+      errorUpdatedAt: client.getQueryState(['t', 'b'])?.errorUpdatedAt,
+    })
+    fn.mockReturnValueOnce(deferred<string>().promise)
+    rerender({ k: 'b' })
+    expect(result.current.query).toMatchObject({ status: 'pending', errorUpdateCount: 1 })
+    expect(result.current.failure).toMatchObject({ failed: false, error: null, busy: true })
+  })
+
+  it('two keys that failed in the same millisecond, unequally often: the new key is not held as the old failure', async () => {
     freezeDate('2026-10-04T00:00:00Z')
     const client = newClient()
     for (let i = 0; i < 2; i++) {
@@ -136,7 +162,7 @@ describe('useRetainedFailure', () => {
     expect(result.current.failure).toMatchObject({ failed: false, error: null })
   })
 
-  it('a new key that failed as many times as the old one, at another time, is not held as the old failure', async () => {
+  it('a new key that failed as often as the old one, at another time, is not held as the old failure', async () => {
     freezeDate('2026-10-04T00:00:00Z')
     const client = newClient()
     await client.fetchQuery({ queryKey: ['t', 'b'], queryFn: () => Promise.reject(new Error('b down')) }).catch(() => {})
@@ -151,22 +177,80 @@ describe('useRetainedFailure', () => {
     expect(result.current.failure).toMatchObject({ failed: false, error: null })
   })
 
-  it('the same Error failing twice in one millisecond is a new failure, so the next refetch still holds it', async () => {
+  // Same key: a new failure moves the failure count (a second failure in the same millisecond) or the failure
+  // time (a reset starts the count over). Either way it is recorded, so the next refetch holds the newer error.
+  it.each([['the same Error', true], ['another Error', false]])(
+    'the query failing again in the same millisecond (%s) is a new failure: the next refetch holds the newer one',
+    async (_label, sameError) => {
+      freezeDate('2026-10-04T00:00:00Z')
+      const first = new Error('down')
+      const second = sameError ? first : new Error('still down')
+      const fn = vi.fn().mockRejectedValueOnce(first).mockRejectedValueOnce(second)
+      const { client, result } = setup(fn)
+      await waitFor(() => expect(result.current.failure.failed).toBe(true))
+      act(() => result.current.failure.retry())
+      await waitFor(() => expect(fn).toHaveBeenCalledTimes(2))
+      await waitFor(() => expect(result.current.failure.busy).toBe(false))
+      expect(result.current.query.errorUpdateCount).toBe(2)
+      const next = deferred<string>()
+      fn.mockReturnValueOnce(next.promise)
+      act(() => { void client.refetchQueries() })
+      await waitFor(() => expect(result.current.failure.busy).toBe(true))
+      expect(result.current.failure).toMatchObject({ failed: true, error: second })
+      await act(async () => next.resolve('ok'))
+    },
+  )
+
+  it('a reset whose refetch fails again is a new failure at the same count: the next refetch holds the newer one', async () => {
     freezeDate('2026-10-04T00:00:00Z')
-    const down = new Error('down')
-    const fn = vi.fn().mockRejectedValueOnce(down).mockRejectedValueOnce(down)
+    const fn = vi.fn().mockRejectedValueOnce(new Error('before the reset'))
     const { client, result } = setup(fn)
     await waitFor(() => expect(result.current.failure.failed).toBe(true))
-    act(() => result.current.failure.retry())
-    await waitFor(() => expect(fn).toHaveBeenCalledTimes(2))
-    await waitFor(() => expect(result.current.failure.busy).toBe(false))
-    expect(result.current.query.errorUpdateCount).toBe(2)
+    vi.setSystemTime(new Date('2026-10-04T00:00:01Z'))
+    fn.mockRejectedValueOnce(new Error('after the reset'))
+    // The refetch fails before React Query notifies, so the reset's pending state is never rendered: the next
+    // render is the new failure, at the old count (the reset started it over) and a new time.
+    act(() => { void client.resetQueries({ queryKey: ['t', 'a'] }) })
+    await settle()
+    expect(result.current.query).toMatchObject({ status: 'error', errorUpdateCount: 1, errorUpdatedAt: Date.now() })
     const next = deferred<string>()
     fn.mockReturnValueOnce(next.promise)
     act(() => { void client.refetchQueries() })
     await waitFor(() => expect(result.current.failure.busy).toBe(true))
-    expect(result.current.failure).toMatchObject({ failed: true, error: down })
+    expect(result.current.failure.failed).toBe(true)
+    expect((result.current.failure.error as Error).message).toBe('after the reset')
     await act(async () => next.resolve('ok'))
+  })
+
+  it("a reset of the shown failure's own query starts it over: its refetch is a first load, not held", async () => {
+    const fn = vi.fn().mockRejectedValueOnce(new Error('down'))
+    const { client, result } = setup(fn)
+    await waitFor(() => expect(result.current.failure.failed).toBe(true))
+    const next = deferred<string>()
+    fn.mockReturnValueOnce(next.promise)
+    // Same key; the reset puts its state back to the start (no failure count, no failure time) and refetches.
+    act(() => { void client.resetQueries({ queryKey: ['t', 'a'] }) })
+    await waitFor(() => expect(result.current.failure.busy).toBe(true))
+    expect(result.current.query).toMatchObject({ status: 'pending', errorUpdateCount: 0, errorUpdatedAt: 0 })
+    expect(result.current.failure).toMatchObject({ failed: false, error: null })
+    await act(async () => next.resolve('ok'))
+  })
+
+  it('once data replaced the failure, a later refetch nobody pressed shows no failure', async () => {
+    const fn = vi.fn().mockRejectedValueOnce(new Error('down')).mockResolvedValueOnce('ok')
+    const { client, result } = setup(fn)
+    await waitFor(() => expect(result.current.failure.failed).toBe(true))
+    act(() => result.current.failure.retry())
+    await waitFor(() => expect(result.current.query.status).toBe('success'))
+    await waitFor(() => expect(result.current.failure.busy).toBe(false))
+    // The success keeps the query's failure count and time: only its status says data replaced the failure.
+    expect(result.current.query).toMatchObject({ errorUpdateCount: 1, data: 'ok' })
+    const later = deferred<string>()
+    fn.mockReturnValueOnce(later.promise)
+    act(() => { void client.refetchQueries() })
+    await waitFor(() => expect(result.current.failure.busy).toBe(true))
+    expect(result.current.failure).toMatchObject({ failed: false, error: null })
+    await act(async () => later.resolve('ok again'))
   })
 
   it('a fresh mount over a failure it never rendered shows the ordinary pending state', async () => {
@@ -257,19 +341,42 @@ describe('useFocusHandoff', () => {
   })
 
   it.each([
-    ['a pointer press', 1, 'skipped'],
-    ['a keyboard press', 0, 'made'],
-    ['no press (focus arrived by Tab)', null, 'made'],
-  ] as const)('textField: after %s, the hand-off to the field is %s', async (_how, detail, outcome) => {
+    ['a pointer press', 'skipped', [1]],
+    ['a keyboard press', 'made', [0]],
+    ['no press (focus arrived by Tab)', 'made', []],
+    // The last press decides: a keyboard press after a tap is a keyboard's.
+    ['a tap, then a keyboard press', 'made', [1, 0]],
+  ] as const)('textField: after %s, the hand-off to the field is %s', async (_how, outcome, details) => {
     render(<Harness textField />)
     act(() => screen.getByRole('button', { name: 'retarget' }).click())
     retry().focus()
-    if (detail !== null) fireEvent.click(retry(), { detail })
+    for (const detail of details) fireEvent.click(retry(), { detail })
     outside('toggle')
     await settle()
     const field = screen.getByRole('textbox', { name: 'Target B' })
     if (outcome === 'made') expect(document.activeElement).toBe(field)
     else expect(document.activeElement).toBe(document.body)
+  })
+
+  it('not a text field: a pointer press still hands off to the heading (no touch keyboard to spare)', async () => {
+    render(<Harness />)
+    fireEvent.pointerDown(retry())
+    act(() => retry().focus())
+    fireEvent.click(retry(), { detail: 1 })
+    outside('toggle')
+    await settle()
+    expect(document.activeElement).toBe(screen.getByRole('heading', { name: 'Target A' }))
+  })
+
+  it('focuses the target with preventScroll, so the hand-off never scrolls the page', async () => {
+    render(<Harness />)
+    retry().focus()
+    const focus = vi.spyOn(HTMLElement.prototype, 'focus')
+    outside('toggle')
+    await settle()
+    expect(focus).toHaveBeenCalledTimes(1)
+    expect(focus).toHaveBeenCalledWith({ preventScroll: true })
+    expect(document.activeElement).toBe(screen.getByRole('heading', { name: 'Target A' }))
   })
 })
 
@@ -277,7 +384,7 @@ describe('RetryButton', () => {
   /** A failed query's Retry over a text field, as CompanySearch's "Try again": it goes when data lands. */
   function FieldRetry({ fn }: { fn: () => Promise<string> }) {
     const query = useQuery({ queryKey: ['field'], queryFn: fn })
-    const failure = useRetainedFailure(query)
+    const failure = useRetainedFailure(query, ['field'])
     const field = useRef<HTMLInputElement>(null)
     return (
       <div>
@@ -326,6 +433,10 @@ describe('RetryButton', () => {
     ['a tap, then Tab away and back', 'made'],
     ['a click that starts no focus (Safari), then focus by Tab', 'made'],
     ['a tap on it busy while keyboard-focused, then Tab away and back', 'made'],
+    ['a tap on it busy while unfocused, then Tab away and back', 'made'],
+    // The tap lands on the spinner inside the focused Retry: the pointerdown's target is the svg, its
+    // currentTarget the Retry, which already holds focus, so the tap starts no focus to mark.
+    ["a tap on its spinner while it is busy and keyboard-focused, then Tab away and back", 'made'],
   ] as const)('textField: after %s, the hand-off to the field is %s', async (how, outcome) => {
     const { client, fn, retry } = await failedRetry()
     const recovery = deferred<string>()
@@ -354,11 +465,23 @@ describe('RetryButton', () => {
       fireEvent.pointerDown(retry)
       fireEvent.click(retry, { detail: 1 })
       act(() => retry.focus())
-    } else {
+    } else if (how === 'a tap on it busy while keyboard-focused, then Tab away and back') {
       act(() => retry.focus())
       await busyFromRefetch()
       fireEvent.pointerDown(retry)
       fireEvent.click(retry, { detail: 1 })
+      tabAwayAndBack()
+    } else if (how === 'a tap on it busy while unfocused, then Tab away and back') {
+      await busyFromRefetch()
+      tap(retry)
+      tabAwayAndBack()
+    } else {
+      act(() => retry.focus())
+      await busyFromRefetch()
+      const spinner = retry.querySelector('svg')
+      expect(spinner).not.toBeNull()
+      fireEvent.pointerDown(spinner as Element)
+      fireEvent.click(spinner as Element, { detail: 1 })
       tabAwayAndBack()
     }
     expect(document.activeElement).toBe(retry)
@@ -368,5 +491,111 @@ describe('RetryButton', () => {
     await settle()
     if (outcome === 'made') expect(document.activeElement).toBe(field())
     else expect(document.activeElement).toBe(document.body)
+  })
+})
+
+/**
+ * Rule-12 gate for the hold's identity: `useRetainedFailure(query, queryKey)` is told which query it holds by
+ * `queryKey`, so a caller that passes another key (or none) brings back the collision the key closes: a key
+ * change held as the old key's failure. Every call under app/, components/, features/, hooks/ and lib/ must name
+ * a same-file `useQuery` / `useSuspenseQuery` / `useInfiniteQuery` call (directly or through a const) and pass,
+ * as its key, the same expression as that call's `queryKey:` (whitespace aside).
+ */
+describe("every useRetainedFailure caller passes its own query's key (rule-12 gate)", () => {
+  const QUERY_HOOK = /^(useQuery|useSuspenseQuery|useInfiniteQuery)$/
+  const frontendRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
+  const bare = (node: ts.Node) => node.getText().replace(/\s+/g, '')
+
+  /** Each `useRetainedFailure(…)` call whose key is not its query's own `queryKey`, as `line: call`. */
+  function keyMismatches(source: string, fileName: string): { calls: number; offenders: string[] } {
+    const sf = ts.createSourceFile(fileName, source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX)
+    const visible = bindingResolver(sf)
+    /** The `queryKey:` of the query hook call `e` holds: the call itself, or a const bound to one. */
+    const ownKey = (e: ts.Expression, seen = new Set<Binding>()): ts.Expression | null => {
+      if (ts.isParenthesizedExpression(e)) return ownKey(e.expression, seen)
+      if (ts.isCallExpression(e) && ts.isIdentifier(e.expression) && QUERY_HOOK.test(e.expression.text)) {
+        const options = e.arguments[0]
+        if (!options || !ts.isObjectLiteralExpression(options)) return null
+        for (const p of options.properties) {
+          if (ts.isPropertyAssignment(p) && p.name.getText() === 'queryKey') return p.initializer
+        }
+        return null
+      }
+      if (!ts.isIdentifier(e)) return null
+      const b = visible(e)
+      if (!b?.init || seen.has(b)) return null
+      return ownKey(b.init, new Set([...seen, b]))
+    }
+    let calls = 0
+    const offenders: string[] = []
+    const visit = (node: ts.Node): void => {
+      if (ts.isCallExpression(node) && ts.isIdentifier(node.expression) && node.expression.text === 'useRetainedFailure') {
+        calls += 1
+        const [query, key] = node.arguments
+        const own = query ? ownKey(query) : null
+        if (!own || !key || bare(own) !== bare(key)) {
+          const { line } = sf.getLineAndCharacterOfPosition(node.getStart(sf))
+          offenders.push(`${line + 1}: ${node.getText(sf).replace(/\s+/g, ' ')}`)
+        }
+      }
+      ts.forEachChild(node, visit)
+    }
+    visit(sf)
+    return { calls, offenders }
+  }
+
+  it("sees a key that is not the query's own, a missing key and a query it cannot name", () => {
+    const fixture = [
+      'export function A({ query, key }: Props) {',
+      '  const userQuery = useQuery({ queryKey: queryKeys.currentUser(), queryFn })',
+      '  const usage = useQuery({',
+      '    queryKey: queryKeys.usage.byUser(user?.id),',
+      '    queryFn,',
+      '  })',
+      '  const aliased = usage',
+      '  const own = useRetainedFailure(userQuery, queryKeys.currentUser())', // its own key
+      '  const wrapped = useRetainedFailure(aliased, queryKeys.usage.byUser(',
+      '    user?.id', // whitespace aside
+      '  ))',
+      '  const other = useRetainedFailure(usage, queryKeys.usage.byUser(id))', // another user's key
+      '  const swapped = useRetainedFailure(userQuery, queryKeys.usage.byUser(user?.id))', // another query's key
+      '  const none = useRetainedFailure(userQuery)', // no key
+      '  const prop = useRetainedFailure(query, key)', // not a same-file query: nothing to compare
+      '}',
+    ].join('\n')
+    expect(keyMismatches(fixture, 'fixture.tsx')).toEqual({
+      calls: 6,
+      offenders: [
+        '12: useRetainedFailure(usage, queryKeys.usage.byUser(id))',
+        '13: useRetainedFailure(userQuery, queryKeys.usage.byUser(user?.id))',
+        '14: useRetainedFailure(userQuery)',
+        '15: useRetainedFailure(query, key)',
+      ],
+    })
+  })
+
+  it('every caller in the app passes the key its own query was given', () => {
+    const walk = (dir: string, out: string[]): string[] => {
+      for (const name of readdirSync(dir)) {
+        const p = path.join(dir, name)
+        if (statSync(p).isDirectory()) walk(p, out)
+        else if (/\.tsx?$/.test(p) && !p.endsWith('.d.ts')) out.push(p)
+      }
+      return out
+    }
+    let calls = 0
+    const offenders: string[] = []
+    for (const abs of ['app', 'components', 'features', 'hooks', 'lib'].flatMap((root) => walk(path.join(frontendRoot, root), []))) {
+      const rel = path.relative(frontendRoot, abs).split(path.sep).join('/')
+      const found = keyMismatches(readFileSync(abs, 'utf8'), rel)
+      calls += found.calls
+      offenders.push(...found.offenders.map((offender) => `${rel}:${offender}`))
+    }
+    expect(
+      offenders,
+      'Pass useRetainedFailure the key its own useQuery was given: `useRetainedFailure(query, <that queryKey>)`.',
+    ).toEqual([])
+    // The dashboard's four, the settings page, the pricing page's three, CompanySearch, BillingPanel's two, FilingFeed.
+    expect(calls).toBeGreaterThanOrEqual(12)
   })
 })

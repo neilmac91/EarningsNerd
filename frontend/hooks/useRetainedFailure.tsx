@@ -1,14 +1,15 @@
 'use client'
 
 import { useReducer, useState, type RefObject } from 'react'
-import type { UseQueryResult } from '@tanstack/react-query'
+import { hashKey, type QueryKey, type UseQueryResult } from '@tanstack/react-query'
 import { Button, type ButtonProps } from '@/components/ui/Button'
 import { useFocusHandoff } from '@/hooks/useFocusHandoff'
 
 /**
  * A Retry for a failed query: `useRetainedFailure` owns the error UI's condition, `<RetryButton>` owns the
- * control (busy state, the press, the focus hand-off). Every Retry of a query goes through both. Gate:
- * tests/unit/busyControlsStayFocusable.spec.ts; rules: lessons/frontend-busy-controls-stay-focusable.md (d), (g).
+ * control (busy state, the press, the focus hand-off). Every Retry of a query goes through both. Gates:
+ * tests/unit/busyControlsStayFocusable.spec.ts (every Retry is RetryButton) and tests/unit/useRetainedFailure.spec.tsx
+ * (every caller passes its own query's key); rules: lessons/frontend-busy-controls-stay-focusable.md (d), (g).
  *
  * Why RetryButton lives here and not in a file of its own: it has no clean home. components/ui is the
  * design system's primitives, kept free of react-query; components/ root is app chrome only
@@ -31,9 +32,11 @@ export interface RetainedFailure {
   retry: () => void
 }
 
-/** The failure this component rendered, identified by the query state that produced it. */
+/** The failure this component rendered, identified by the query and the query state that produced it. */
 interface Shown {
   error: unknown
+  /** `hashKey(queryKey)`: which query failed. */
+  key: string
   at: number
   count: number
 }
@@ -46,29 +49,32 @@ interface Shown {
  * the error UI stays up with its Retry busy, and only a fetch that succeeds ends it. A first load is never
  * held: nothing failed yet. A query with data needs no hold (it stays `error` while it refetches).
  *
- * The hold is tied to the failing query, not to the hook: a pending refetch keeps the failed state's
- * `errorUpdatedAt` and `errorUpdateCount`, and any other query (a new key: another user, a new search
- * term) has its own, so when the caller's key changes the new query's first load shows its own pending
- * state, never the old query's error. A fresh mount over a failure it never rendered (a child observer
- * whose mount refetches it) shows the ordinary pending state too.
+ * The hold is tied to the failing query, not to the hook. `queryKey` is that query's own key (the one its
+ * `useQuery` was given: a query result does not carry it), and the hold is the triple `hashKey(queryKey)`,
+ * `errorUpdatedAt`, `errorUpdateCount`, which a pending refetch keeps. The key: a key change (another user,
+ * a new search term) is another query, so its first load shows its own pending state, never the old query's
+ * error; the state alone cannot tell two keys apart, since both may have failed in the same millisecond as
+ * often. The count: a second failure of the query in the same millisecond is a new failure. The time: a
+ * reset (`resetQueries`) or a rebuilt query starts the count over, so its refetch is a first load, and a
+ * failure after it may repeat the old count. A fresh mount over a failure it never rendered (a child
+ * observer whose mount refetches it) shows the ordinary pending state.
  *
  * Derived from the query's state on each render, with no record of presses or of fetches seen: a second
  * press, a paused fetch, or a fetch that settles inside one notify batch cannot wedge it.
  */
-export function useRetainedFailure(query: UseQueryResult<unknown>): RetainedFailure {
+export function useRetainedFailure(query: UseQueryResult<unknown>, queryKey: QueryKey): RetainedFailure {
   const { isError, error, status, fetchStatus, errorUpdatedAt, errorUpdateCount, refetch } = query
+  const key = hashKey(queryKey)
   const busy = fetchStatus !== 'idle'
   const [shown, setShown] = useState<Shown | null>(null)
+  // The query state is still the failure `shown` recorded: the same query, at the same failure.
+  const same = shown !== null && shown.key === key && shown.at === errorUpdatedAt && shown.count === errorUpdateCount
   let next = shown
   if (isError) {
-    if (shown?.error !== error || shown.at !== errorUpdatedAt || shown.count !== errorUpdateCount) {
-      next = { error, at: errorUpdatedAt, count: errorUpdateCount }
-    }
-  } else if (
-    shown !== null &&
-    (status !== 'pending' || shown.at !== errorUpdatedAt || shown.count !== errorUpdateCount)
-  ) {
-    // Data replaced it, or this is another query's state (the key changed).
+    // A new failure (a failure of the same query moves its count, or after a reset its time), or another query's.
+    if (!same) next = { error, key, at: errorUpdatedAt, count: errorUpdateCount }
+  } else if (shown !== null && (status !== 'pending' || !same)) {
+    // Data replaced it, or this is another query's state (the key changed, or the query started over).
     next = null
   }
   if (next !== shown) setShown(next)

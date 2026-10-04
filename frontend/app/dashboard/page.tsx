@@ -57,9 +57,9 @@ export default function DashboardPage() {
   // A failure keeps the error card or plan strip (and a focused Retry in it) mounted through any refetch
   // until data replaces it. Read raw, the errored query, which has no data, goes back to pending, isLoading
   // turns true, and the page-wide skeleton replaces the button.
-  const userFailure = useRetainedFailure(userQuery)
-  const usageFailure = useRetainedFailure(usageQuery)
-  const subscriptionFailure = useRetainedFailure(subscriptionQuery)
+  const userFailure = useRetainedFailure(userQuery, queryKeys.currentUser())
+  const usageFailure = useRetainedFailure(usageQuery, queryKeys.usage.byUser(user?.id))
+  const subscriptionFailure = useRetainedFailure(subscriptionQuery, queryKeys.subscription.byUser(user?.id))
   const planFailed = usageFailure.failed || subscriptionFailure.failed
 
   const { data: savedSummaries, isError: savedError } = useQuery({
@@ -77,7 +77,7 @@ export default function DashboardPage() {
   })
   const { data: watchlistInsights, isLoading: insightsLoading } = insightsQuery
   // Your companies' Retry, as the two above: its skeleton branch would otherwise replace the error card.
-  const insightsFailure = useRetainedFailure(insightsQuery)
+  const insightsFailure = useRetainedFailure(insightsQuery, queryKeys.watchlistInsights())
 
   const queryClient = useQueryClient()
 

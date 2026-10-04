@@ -255,7 +255,7 @@ describe('CompanySearch "Try Again" keeps keyboard focus', () => {
     await screen.findByText('Search is down', {}, { timeout: 4000 })
     type('msft')
     await screen.findByText('Microsoft search is down', {}, { timeout: 4000 })
-    // Both failed once (errorUpdateCount 1), at different times: apple's refetch is apple's own load.
+    // Both failed once (errorUpdateCount 1): apple's refetch is apple's own load (another key), never msft's failure.
     type('apple')
     await waitFor(() => expect(searchCompanies).toHaveBeenCalledTimes(5))
     await settle()

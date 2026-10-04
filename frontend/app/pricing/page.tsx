@@ -106,9 +106,9 @@ function PricingContent({ billingCycle, setBillingCycle, billingResolved }: {
 
   // What the error Notices show. A failure keeps its Notice (and a focused Retry in it) through any
   // refetch until data replaces it.
-  const identityFailure = useRetainedFailure(identityQuery)
-  const subscriptionFailure = useRetainedFailure(subscriptionQuery)
-  const usageFailure = useRetainedFailure(usageQuery)
+  const identityFailure = useRetainedFailure(identityQuery, queryKeys.currentUser())
+  const subscriptionFailure = useRetainedFailure(subscriptionQuery, queryKeys.subscription.byUser(currentUser?.id))
+  const usageFailure = useRetainedFailure(usageQuery, queryKeys.usage.byUser(currentUser?.id))
 
   // Account readiness for plan labels and the buy action. A guest is fully resolved; a known
   // user needs a subscription snapshot. Retained same-account data counts: a failed refresh

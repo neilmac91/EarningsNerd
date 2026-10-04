@@ -33,7 +33,7 @@ export default function SettingsPage() {
   // A failure holds through any refetch. Read raw, the refetch that BillingPanel and ProfileForm start
   // when they mount over the failed, data-less user (retryOnMount) turned this page back into the
   // spinner, which unmounted them, and the next failure mounted them again: an unbounded /me loop.
-  const userFailure = useRetainedFailure(userQuery)
+  const userFailure = useRetainedFailure(userQuery, queryKeys.currentUser())
 
   const exportMutation = useMutation({
     mutationFn: exportUserData,

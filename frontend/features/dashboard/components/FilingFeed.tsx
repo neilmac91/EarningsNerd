@@ -33,7 +33,7 @@ export default function FilingFeed({
   // A failure keeps the error card, and a focused Retry in it, through any refetch until data replaces
   // it. An errored feed has no data, so its refetch goes back to pending, and the skeleton branch would
   // replace the card. A fetch paused offline is still in flight.
-  const failure = useRetainedFailure(feedQuery)
+  const failure = useRetainedFailure(feedQuery, queryKeys.dashboardFeed())
   const isError = failure.failed
   const isLoading = feedQuery.isLoading && !failure.failed
 

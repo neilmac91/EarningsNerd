@@ -3,14 +3,19 @@ import ts from 'typescript'
 /**
  * Lexical name resolution for the AST gates (busyControlsStayFocusable.spec.ts, spinnerGateHoldsFailure.spec.ts):
  * a reference resolves to the binding of its name visible from it, so two components in one file may each
- * declare their own `cannotSubmit`, and a parameter shadows an outer const. Not a spec: a module the gates share.
+ * declare their own `cannotSubmit`, and a parameter shadows an outer const. A function declaration binds its name
+ * to its body, so a handler written `function reload() { … }` is followed like `const reload = () => …`. Not a spec:
+ * a module the gates share.
  */
 
 /** A name binding: where it is visible, its declaration, and what it aliases (if anything). */
 export interface Binding {
   scope: ts.Node
-  decl: ts.VariableDeclaration | ts.ParameterDeclaration | ts.BindingElement
-  /** The initializer, or for `{ isPending: x }` the property it renames; none for a plain parameter. */
+  decl: ts.VariableDeclaration | ts.ParameterDeclaration | ts.BindingElement | ts.FunctionDeclaration
+  /**
+   * The initializer, for `{ isPending: x }` the property it renames, or a function declaration's body; none for a
+   * plain parameter.
+   */
   alias?: ts.Node
   /** A variable declaration's initializer only (what a same-file const holds). */
   init?: ts.Expression
@@ -41,6 +46,7 @@ export function bindingResolver(sf: ts.SourceFile): (ref: ts.Identifier) => Bind
       bind(node.name, node, node.initializer, node.initializer)
     } else if (ts.isParameter(node) && ts.isIdentifier(node.name)) bind(node.name, node)
     else if (ts.isBindingElement(node) && ts.isIdentifier(node.name)) bind(node.name, node, node.propertyName)
+    else if (ts.isFunctionDeclaration(node) && node.name && node.body) bind(node.name, node, node.body)
     ts.forEachChild(node, collect)
   }
   collect(sf)

@@ -45,8 +45,9 @@ no pins: EmailVerificationModal's `disabled={resent}` was the last one. The same
 a query to `<RetryButton>` (rule (g)), seen two ways. By its wiring, through the same binding resolver:
 `loading` fed by a fetching flag (`isFetching` is false while a fetch waits paused, so the control goes
 live mid-request) or by the query's `fetchStatus` (the right signal, hand-rolled), or a handler that
-reaches `refetch…` (`refetchQueries` included) or a failure's `retry`, or that calls `invalidateQueries` or
-`resetQueries` in its own expression. Those two count only inline: through bindings they reach every
+reaches `refetch…` (`refetchQueries` included) or a failure's `retry`, through a const or a function
+declaration (`function reload() { … }` is followed like `const reload = () => …`), or that calls
+`invalidateQueries` or `resetQueries` in its own expression. Those two count only inline: through bindings they reach every
 mutation whose `onSuccess` invalidates (rule (f) requires it) and every submit that refreshes after it
 lands, 20 handlers in 15 files when measured and none a Retry, so a Retry that invalidates through a named
 handler is left to the label clause. By its label: any element but RetryButton whose `loadingText` starts
@@ -110,15 +111,25 @@ move focus a mouse user did not lose.
   (`node_modules/next/dist/build/create-compiler-aliases.js`), and there is no `pages/` router, so
   production runs React 19. The hand-off was checked in Chromium under both, 7/7 scenarios each (a press,
   a recovery nobody pressed, focus elsewhere, a busy re-render, no target, a reused node, a deep subtree).
-- The hold contract (`useRetainedFailure`, `hooks/useRetainedFailure.tsx`): a failure a component has
-  rendered stays on screen through any refetch of that query, pressed or not, until data replaces it, with
-  its Retry busy. React Query puts a failed query with no data back to `pending` (`error: null`) the moment
-  it refetches; read raw, that swaps the error UI, and a focused Retry in it, for a skeleton. The hold is
-  tied to the failing query (its `errorUpdatedAt` and `errorUpdateCount`, which a pending refetch keeps),
-  so a key change (another user, a new search term) shows the new query's own first load, never the old
-  error: `errorUpdateCount > 0` alone is not enough, since the new key may have failed before. A first load
-  is never held, nor a fresh mount over a failure it never rendered. It is derived from the query's state
-  on each render, so no second press, paused fetch or batched settle can wedge it. This is a visible change
+- The hold contract (`useRetainedFailure(query, queryKey)`, `hooks/useRetainedFailure.tsx`): a failure a
+  component has rendered stays on screen through any refetch of that query, pressed or not, until data
+  replaces it, with its Retry busy. React Query puts a failed query with no data back to `pending`
+  (`error: null`) the moment it refetches; read raw, that swaps the error UI, and a focused Retry in it, for
+  a skeleton. The hold is tied to the failing query: `queryKey` is the key its own `useQuery` was given (a
+  query result does not carry it), and the hold is `hashKey(queryKey)` with the failure's `errorUpdatedAt`
+  and `errorUpdateCount`, which a pending refetch keeps. So a key change (another user, a new search term)
+  shows the new query's own first load, never the old error. The query state alone cannot tell two keys
+  apart: two keys that each fail once in the same millisecond share both counters, and the counters-only
+  hold returned `{failed: true, busy: true, error: 'a down'}` for the new key's first load.
+  `errorUpdateCount > 0` alone is weaker still. The count tells a second failure in the same millisecond
+  from the first; the time tells a failure after a reset of the same key (`resetQueries`, which zeroes both
+  counters, so its refetch is a first load) from the one before it at the same count. Data ends the hold (a query that is neither `error` nor `pending`),
+  so a later background refetch over loaded data never shows the old error. A first load is never held, nor
+  a fresh mount over a failure it never rendered. It is derived from the query's state on each render, so no
+  second press, paused fetch or batched settle can wedge it. Gated (rule 12): every caller under app/,
+  components/, features/, hooks/ and lib/ passes, as `queryKey`, the same expression as its own same-file
+  query hook's `queryKey:` (`useRetainedFailure.spec.tsx`, an AST scan), so a caller that passes another
+  key, or none, fails. This is a visible change
   the founder chose (2026-10-04): an error card stays up, its Retry busy, through a reconnect or a refocus
   that used to show the skeleton.
 - One `<RetryButton>` owns the Retry: busy (`loading`) while any of its failures has a fetch in flight
@@ -167,8 +178,9 @@ remove when the insights refetch after it fails (the error card replaces the lis
 `<body>` with no hand-off); the company page's filings Retry, EarningsCalendarPage's "Try again",
 FullTextSearch's Retry and FilingViewer's "Try again" (each pinned in the Retry gate's allowlists, so a
 conversion must remove its pins). The scan cannot see how a press was made either: the text-field
-hand-off's pointer origin (g) is pinned in `useRetainedFailure.spec.tsx` (a tap on a busy Retry, a tap
-then Tab away and back, a click that starts no focus) and needs a touch-device pass. Fixed, all on
+hand-off's pointer origin (g) is pinned in `useRetainedFailure.spec.tsx` (a tap on a busy Retry, focused or
+not, a tap on the busy Retry's spinner, a tap then Tab away and back, a tap then a keyboard press, a click
+that starts no focus) and needs a touch-device pass. Fixed, all on
 RetryButton: the dashboard's account, plan and Your companies Retry buttons, FilingFeed's Retry,
 CompanySearch's "Try again" (a tap on it busy no longer raises the keyboard when it goes), the pricing
 page's three and BillingPanel's two (`busyControls.dashboard.spec.tsx`, `busyControls.watchlist.spec.tsx`,
@@ -195,11 +207,25 @@ themes, 8/8: a keyboard press reads "Retrying…" and lands on the Dashboard tit
 pressed keeps "Retry" busy and focused, then lands on the title; focus the Retry did not hold is not moved;
 the settings page over a `/me` 503 sends 2 calls in ~2 s.
 Its review follow-up (same day) killed every surviving mutant, each by at least one case on the fixed code:
-the hold's identity without its failure count (both branches, the release branch, the record branch), and
-without its failure time (also failing CompanySearch's return to an earlier failed term); the hand-off
+the hold's identity, then the pair of counters, without its failure count (both branches, the release branch,
+the record branch), and without its failure time (also failing CompanySearch's return to an earlier failed
+term); the hand-off
 without its `isConnected` check or its `<body>` check; a keyboard re-focus that keeps a pointer mark (in the
 hook, or RetryButton without `onFocus`); and the pointer origin gone (the code before it, RetryButton
 without `onPointerDown`, a pointerdown that marks no focus or records no press, a click that keeps the mark,
 a mark set on an already focused Retry). The gate fails on `disabled={busy}` rendered by RetryButton, on a
 fetchStatus busy, an inline `invalidateQueries` press, a label from a same-file const, a hand-rolled Retry
 in hooks/, and on each converted file at 026d6df.
+Its second review round (same day): the counters-only identity collided across keys (above). With the key in
+it, the case "two keys that failed once each in the same millisecond" fails on 44835fe's hook and on the hook
+without the key; "a reset of the shown failure's own query" fails on a key-only identity; the query failing
+again in the same millisecond with another Error fails without the count; a reset whose refetch fails again
+fails without the time; "once data replaced the failure, a later refetch nobody pressed shows no failure"
+fails on a release that ignores `status`. The error object no longer takes part in the identity (a failure of
+the same query always moves its count or, after a reset, its time). Hand-off killers, each
+failing its mutant: a tap on the busy Retry's spinner (a pointerdown checked against `e.target`, not
+`e.currentTarget`), a tap on it busy and unfocused then Tab away and back (a focus that keeps the
+pointer-focus mark), a tap then a keyboard press (a sticky pointer mark), a pointer press on a Retry whose
+target is a heading (the skip without `textField`), and `preventScroll`. The gate fails on a refetch through a
+function-declaration handler; the key gate fails on a caller passing a sibling query's key and on CompanySearch
+passing the undebounced term.

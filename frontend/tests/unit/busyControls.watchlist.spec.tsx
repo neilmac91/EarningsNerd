@@ -288,7 +288,7 @@ describe('YourCompanies remove button', () => {
         queryKey: queryKeys.watchlistInsights(),
         queryFn: getInsights,
       })
-      const failure = useRetainedFailure(query)
+      const failure = useRetainedFailure(query, queryKeys.watchlistInsights())
       return <YourCompanies insights={query.data} isLoading={query.isLoading && !failure.failed} failure={failure} />
     }
     renderWithClient(<DashboardHost />)
