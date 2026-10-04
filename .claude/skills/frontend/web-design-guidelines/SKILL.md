@@ -145,4 +145,3 @@ Recommendations:
 2. Replace hardcoded colors with CSS variables or Tailwind theme values
 3. Implement 'disabled:opacity-50 disabled:cursor-not-allowed' for disabled state
 ```
-

@@ -1,824 +1,263 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-10-04T07:13:20Z",
+  "generatedAt": "2026-10-04T08:58:50Z",
   "title": "Design System: EarningsNerd",
   "extensions": {
     "colorMeta": {
       "brand": {
         "role": "primary",
         "displayName": "Sage",
-        "canonical": "#4F7A63",
-        "tonalRamp": [
-          "oklch(15.00% 0.06011 160.15)",
-          "oklch(26.43% 0.06011 160.15)",
-          "oklch(37.86% 0.06011 160.15)",
-          "oklch(49.29% 0.06011 160.15)",
-          "oklch(60.71% 0.06011 160.15)",
-          "oklch(72.14% 0.06011 160.15)",
-          "oklch(83.57% 0.06011 160.15)",
-          "oklch(95.00% 0.06011 160.15)"
-        ],
-        "tonalRampSource": "synthetic-preview-only"
+        "canonical": "#4F7A63"
       },
       "brand-strong": {
         "role": "primary",
         "displayName": "Deep Sage",
-        "canonical": "#3C6650",
-        "tonalRamp": [
-          "oklch(15.00% 0.05956 160.11)",
-          "oklch(26.43% 0.05956 160.11)",
-          "oklch(37.86% 0.05956 160.11)",
-          "oklch(49.29% 0.05956 160.11)",
-          "oklch(60.71% 0.05956 160.11)",
-          "oklch(72.14% 0.05956 160.11)",
-          "oklch(83.57% 0.05956 160.11)",
-          "oklch(95.00% 0.05956 160.11)"
-        ],
-        "tonalRampSource": "synthetic-preview-only"
+        "canonical": "#3C6650"
       },
       "brand-emphasis": {
         "role": "primary",
         "displayName": "Pressed Sage",
-        "canonical": "#345C48",
-        "tonalRamp": [
-          "oklch(15.00% 0.05662 161.07)",
-          "oklch(26.43% 0.05662 161.07)",
-          "oklch(37.86% 0.05662 161.07)",
-          "oklch(49.29% 0.05662 161.07)",
-          "oklch(60.71% 0.05662 161.07)",
-          "oklch(72.14% 0.05662 161.07)",
-          "oklch(83.57% 0.05662 161.07)",
-          "oklch(95.00% 0.05662 161.07)"
-        ],
-        "tonalRampSource": "synthetic-preview-only"
+        "canonical": "#345C48"
       },
       "brand-weak": {
         "role": "primary",
         "displayName": "Pale Sage",
-        "canonical": "#ECF2EE",
-        "tonalRamp": [
-          "oklch(15.00% 0.00828 157.09)",
-          "oklch(26.43% 0.00828 157.09)",
-          "oklch(37.86% 0.00828 157.09)",
-          "oklch(49.29% 0.00828 157.09)",
-          "oklch(60.71% 0.00828 157.09)",
-          "oklch(72.14% 0.00828 157.09)",
-          "oklch(83.57% 0.00828 157.09)",
-          "oklch(95.00% 0.00828 157.09)"
-        ],
-        "tonalRampSource": "synthetic-preview-only"
+        "canonical": "#ECF2EE"
       },
       "brand-border": {
         "role": "primary",
         "displayName": "Sage Hairline",
-        "canonical": "#CFE0D6",
-        "tonalRamp": [
-          "oklch(15.00% 0.02265 160.18)",
-          "oklch(26.43% 0.02265 160.18)",
-          "oklch(37.86% 0.02265 160.18)",
-          "oklch(49.29% 0.02265 160.18)",
-          "oklch(60.71% 0.02265 160.18)",
-          "oklch(72.14% 0.02265 160.18)",
-          "oklch(83.57% 0.02265 160.18)",
-          "oklch(95.00% 0.02265 160.18)"
-        ],
-        "tonalRampSource": "synthetic-preview-only"
+        "canonical": "#CFE0D6"
       },
       "brand-dark": {
         "role": "primary",
         "displayName": "Light Sage",
-        "canonical": "#7FB295",
-        "tonalRamp": [
-          "oklch(15.00% 0.06867 159.15)",
-          "oklch(26.43% 0.06867 159.15)",
-          "oklch(37.86% 0.06867 159.15)",
-          "oklch(49.29% 0.06867 159.15)",
-          "oklch(60.71% 0.06867 159.15)",
-          "oklch(72.14% 0.06867 159.15)",
-          "oklch(83.57% 0.06867 159.15)",
-          "oklch(95.00% 0.06867 159.15)"
-        ],
-        "tonalRampSource": "synthetic-preview-only"
+        "canonical": "#7FB295"
       },
       "brand-strong-dark": {
         "role": "primary",
         "displayName": "Bright Sage",
-        "canonical": "#98C5AD",
-        "tonalRamp": [
-          "oklch(15.00% 0.05857 161.40)",
-          "oklch(26.43% 0.05857 161.40)",
-          "oklch(37.86% 0.05857 161.40)",
-          "oklch(49.29% 0.05857 161.40)",
-          "oklch(60.71% 0.05857 161.40)",
-          "oklch(72.14% 0.05857 161.40)",
-          "oklch(83.57% 0.05857 161.40)",
-          "oklch(95.00% 0.05857 161.40)"
-        ],
-        "tonalRampSource": "synthetic-preview-only"
+        "canonical": "#98C5AD"
       },
       "brand-fill-dark": {
         "role": "primary",
         "displayName": "Pressed Dark Sage",
-        "canonical": "#569272",
-        "tonalRamp": [
-          "oklch(15.00% 0.08007 159.48)",
-          "oklch(26.43% 0.08007 159.48)",
-          "oklch(37.86% 0.08007 159.48)",
-          "oklch(49.29% 0.08007 159.48)",
-          "oklch(60.71% 0.08007 159.48)",
-          "oklch(72.14% 0.08007 159.48)",
-          "oklch(83.57% 0.08007 159.48)",
-          "oklch(95.00% 0.08007 159.48)"
-        ],
-        "tonalRampSource": "synthetic-preview-only"
+        "canonical": "#569272"
       },
       "brand-weak-dark": {
         "role": "primary",
         "displayName": "Dark Sage Tint",
-        "canonical": "rgba(127,178,149,0.14)",
-        "tonalRamp": [
-          "oklch(15.00% 0.06867 159.15 / 0.14)",
-          "oklch(26.43% 0.06867 159.15 / 0.14)",
-          "oklch(37.86% 0.06867 159.15 / 0.14)",
-          "oklch(49.29% 0.06867 159.15 / 0.14)",
-          "oklch(60.71% 0.06867 159.15 / 0.14)",
-          "oklch(72.14% 0.06867 159.15 / 0.14)",
-          "oklch(83.57% 0.06867 159.15 / 0.14)",
-          "oklch(95.00% 0.06867 159.15 / 0.14)"
-        ],
-        "tonalRampSource": "synthetic-preview-only"
+        "canonical": "rgba(127,178,149,0.14)"
       },
       "brand-border-dark": {
         "role": "primary",
         "displayName": "Dark Sage Hairline",
-        "canonical": "rgba(127,178,149,0.28)",
-        "tonalRamp": [
-          "oklch(15.00% 0.06867 159.15 / 0.28)",
-          "oklch(26.43% 0.06867 159.15 / 0.28)",
-          "oklch(37.86% 0.06867 159.15 / 0.28)",
-          "oklch(49.29% 0.06867 159.15 / 0.28)",
-          "oklch(60.71% 0.06867 159.15 / 0.28)",
-          "oklch(72.14% 0.06867 159.15 / 0.28)",
-          "oklch(83.57% 0.06867 159.15 / 0.28)",
-          "oklch(95.00% 0.06867 159.15 / 0.28)"
-        ],
-        "tonalRampSource": "synthetic-preview-only"
+        "canonical": "rgba(127,178,149,0.28)"
       },
       "background-light": {
         "role": "neutral",
         "displayName": "Warm Cream",
-        "canonical": "#F4F3EE",
-        "tonalRamp": [
-          "oklch(15.00% 0.00672 97.35)",
-          "oklch(26.43% 0.00672 97.35)",
-          "oklch(37.86% 0.00672 97.35)",
-          "oklch(49.29% 0.00672 97.35)",
-          "oklch(60.71% 0.00672 97.35)",
-          "oklch(72.14% 0.00672 97.35)",
-          "oklch(83.57% 0.00672 97.35)",
-          "oklch(95.00% 0.00672 97.35)"
-        ],
-        "tonalRampSource": "synthetic-preview-only"
+        "canonical": "#F4F3EE"
       },
       "background-dark": {
         "role": "neutral",
         "displayName": "Deep Navy",
-        "canonical": "#0B1120",
-        "tonalRamp": [
-          "oklch(15.00% 0.03246 266.62)",
-          "oklch(26.43% 0.03246 266.62)",
-          "oklch(37.86% 0.03246 266.62)",
-          "oklch(49.29% 0.03246 266.62)",
-          "oklch(60.71% 0.03246 266.62)",
-          "oklch(72.14% 0.03246 266.62)",
-          "oklch(83.57% 0.03246 266.62)",
-          "oklch(95.00% 0.03246 266.62)"
-        ],
-        "tonalRampSource": "synthetic-preview-only"
+        "canonical": "#0B1120"
       },
       "panel-light": {
         "role": "neutral",
         "displayName": "Warm Paper",
-        "canonical": "#FBFAF6",
-        "tonalRamp": [
-          "oklch(15.00% 0.00539 95.10)",
-          "oklch(26.43% 0.00539 95.10)",
-          "oklch(37.86% 0.00539 95.10)",
-          "oklch(49.29% 0.00539 95.10)",
-          "oklch(60.71% 0.00539 95.10)",
-          "oklch(72.14% 0.00539 95.10)",
-          "oklch(83.57% 0.00539 95.10)",
-          "oklch(95.00% 0.00539 95.10)"
-        ],
-        "tonalRampSource": "synthetic-preview-only"
+        "canonical": "#FBFAF6"
       },
       "panel-dark": {
         "role": "neutral",
         "displayName": "Slate Panel",
-        "canonical": "#1F2937",
-        "tonalRamp": [
-          "oklch(15.00% 0.02960 256.85)",
-          "oklch(26.43% 0.02960 256.85)",
-          "oklch(37.86% 0.02960 256.85)",
-          "oklch(49.29% 0.02960 256.85)",
-          "oklch(60.71% 0.02960 256.85)",
-          "oklch(72.14% 0.02960 256.85)",
-          "oklch(83.57% 0.02960 256.85)",
-          "oklch(95.00% 0.02960 256.85)"
-        ],
-        "tonalRampSource": "synthetic-preview-only"
+        "canonical": "#1F2937"
       },
       "text-primary-light": {
         "role": "neutral",
         "displayName": "Espresso",
-        "canonical": "#1A1A17",
-        "tonalRamp": [
-          "oklch(15.00% 0.00573 106.87)",
-          "oklch(26.43% 0.00573 106.87)",
-          "oklch(37.86% 0.00573 106.87)",
-          "oklch(49.29% 0.00573 106.87)",
-          "oklch(60.71% 0.00573 106.87)",
-          "oklch(72.14% 0.00573 106.87)",
-          "oklch(83.57% 0.00573 106.87)",
-          "oklch(95.00% 0.00573 106.87)"
-        ],
-        "tonalRampSource": "synthetic-preview-only"
+        "canonical": "#1A1A17"
       },
       "text-primary-dark": {
         "role": "neutral",
         "displayName": "Soft Chalk",
-        "canonical": "#D7DADC",
-        "tonalRamp": [
-          "oklch(15.00% 0.00427 236.50)",
-          "oklch(26.43% 0.00427 236.50)",
-          "oklch(37.86% 0.00427 236.50)",
-          "oklch(49.29% 0.00427 236.50)",
-          "oklch(60.71% 0.00427 236.50)",
-          "oklch(72.14% 0.00427 236.50)",
-          "oklch(83.57% 0.00427 236.50)",
-          "oklch(95.00% 0.00427 236.50)"
-        ],
-        "tonalRampSource": "synthetic-preview-only"
+        "canonical": "#D7DADC"
       },
       "text-secondary-light": {
         "role": "neutral",
         "displayName": "Text Secondary Light",
-        "canonical": "#374151",
-        "tonalRamp": [
-          "oklch(15.00% 0.03062 259.73)",
-          "oklch(26.43% 0.03062 259.73)",
-          "oklch(37.86% 0.03062 259.73)",
-          "oklch(49.29% 0.03062 259.73)",
-          "oklch(60.71% 0.03062 259.73)",
-          "oklch(72.14% 0.03062 259.73)",
-          "oklch(83.57% 0.03062 259.73)",
-          "oklch(95.00% 0.03062 259.73)"
-        ],
-        "tonalRampSource": "synthetic-preview-only"
+        "canonical": "#374151"
       },
       "text-secondary-dark": {
         "role": "neutral",
         "displayName": "Text Secondary Dark",
-        "canonical": "#9CA3AF",
-        "tonalRamp": [
-          "oklch(15.00% 0.01918 261.32)",
-          "oklch(26.43% 0.01918 261.32)",
-          "oklch(37.86% 0.01918 261.32)",
-          "oklch(49.29% 0.01918 261.32)",
-          "oklch(60.71% 0.01918 261.32)",
-          "oklch(72.14% 0.01918 261.32)",
-          "oklch(83.57% 0.01918 261.32)",
-          "oklch(95.00% 0.01918 261.32)"
-        ],
-        "tonalRampSource": "synthetic-preview-only"
+        "canonical": "#9CA3AF"
       },
       "text-tertiary-light": {
         "role": "neutral",
         "displayName": "Text Tertiary Light",
-        "canonical": "#6B7280",
-        "tonalRamp": [
-          "oklch(15.00% 0.02336 264.36)",
-          "oklch(26.43% 0.02336 264.36)",
-          "oklch(37.86% 0.02336 264.36)",
-          "oklch(49.29% 0.02336 264.36)",
-          "oklch(60.71% 0.02336 264.36)",
-          "oklch(72.14% 0.02336 264.36)",
-          "oklch(83.57% 0.02336 264.36)",
-          "oklch(95.00% 0.02336 264.36)"
-        ],
-        "tonalRampSource": "synthetic-preview-only"
+        "canonical": "#6B7280"
       },
       "border-light": {
         "role": "neutral",
         "displayName": "Border Light",
-        "canonical": "#E5E7EB",
-        "tonalRamp": [
-          "oklch(15.00% 0.00581 264.53)",
-          "oklch(26.43% 0.00581 264.53)",
-          "oklch(37.86% 0.00581 264.53)",
-          "oklch(49.29% 0.00581 264.53)",
-          "oklch(60.71% 0.00581 264.53)",
-          "oklch(72.14% 0.00581 264.53)",
-          "oklch(83.57% 0.00581 264.53)",
-          "oklch(95.00% 0.00581 264.53)"
-        ],
-        "tonalRampSource": "synthetic-preview-only"
+        "canonical": "#E5E7EB"
       },
       "border-dark": {
         "role": "neutral",
         "displayName": "Border Dark",
-        "canonical": "#374151",
-        "tonalRamp": [
-          "oklch(15.00% 0.03062 259.73)",
-          "oklch(26.43% 0.03062 259.73)",
-          "oklch(37.86% 0.03062 259.73)",
-          "oklch(49.29% 0.03062 259.73)",
-          "oklch(60.71% 0.03062 259.73)",
-          "oklch(72.14% 0.03062 259.73)",
-          "oklch(83.57% 0.03062 259.73)",
-          "oklch(95.00% 0.03062 259.73)"
-        ],
-        "tonalRampSource": "synthetic-preview-only"
+        "canonical": "#374151"
       },
       "white": {
         "role": "neutral",
         "displayName": "White",
-        "canonical": "#FFFFFF",
-        "tonalRamp": [
-          "oklch(15.00% 0.00000 89.88)",
-          "oklch(26.43% 0.00000 89.88)",
-          "oklch(37.86% 0.00000 89.88)",
-          "oklch(49.29% 0.00000 89.88)",
-          "oklch(60.71% 0.00000 89.88)",
-          "oklch(72.14% 0.00000 89.88)",
-          "oklch(83.57% 0.00000 89.88)",
-          "oklch(95.00% 0.00000 89.88)"
-        ],
-        "tonalRampSource": "synthetic-preview-only"
+        "canonical": "#FFFFFF"
       },
       "overlay": {
         "role": "neutral",
         "displayName": "Overlay",
-        "canonical": "rgba(11, 17, 32, 0.55)",
-        "tonalRamp": [
-          "oklch(15.00% 0.03246 266.62 / 0.55)",
-          "oklch(26.43% 0.03246 266.62 / 0.55)",
-          "oklch(37.86% 0.03246 266.62 / 0.55)",
-          "oklch(49.29% 0.03246 266.62 / 0.55)",
-          "oklch(60.71% 0.03246 266.62 / 0.55)",
-          "oklch(72.14% 0.03246 266.62 / 0.55)",
-          "oklch(83.57% 0.03246 266.62 / 0.55)",
-          "oklch(95.00% 0.03246 266.62 / 0.55)"
-        ],
-        "tonalRampSource": "synthetic-preview-only"
+        "canonical": "rgba(11, 17, 32, 0.55)"
       },
       "gain-light": {
         "role": "semantic",
         "displayName": "Gain Light",
-        "canonical": "#16A34A",
-        "tonalRamp": [
-          "oklch(15.00% 0.16991 149.21)",
-          "oklch(26.43% 0.16991 149.21)",
-          "oklch(37.86% 0.16991 149.21)",
-          "oklch(49.29% 0.16991 149.21)",
-          "oklch(60.71% 0.16991 149.21)",
-          "oklch(72.14% 0.16991 149.21)",
-          "oklch(83.57% 0.16991 149.21)",
-          "oklch(95.00% 0.16991 149.21)"
-        ],
-        "tonalRampSource": "synthetic-preview-only"
+        "canonical": "#16A34A"
       },
       "gain-text": {
         "role": "semantic",
         "displayName": "Gain Text",
-        "canonical": "#15803D",
-        "tonalRamp": [
-          "oklch(15.00% 0.13710 150.07)",
-          "oklch(26.43% 0.13710 150.07)",
-          "oklch(37.86% 0.13710 150.07)",
-          "oklch(49.29% 0.13710 150.07)",
-          "oklch(60.71% 0.13710 150.07)",
-          "oklch(72.14% 0.13710 150.07)",
-          "oklch(83.57% 0.13710 150.07)",
-          "oklch(95.00% 0.13710 150.07)"
-        ],
-        "tonalRampSource": "synthetic-preview-only"
+        "canonical": "#15803D"
       },
       "gain-dark": {
         "role": "semantic",
         "displayName": "Gain Dark",
-        "canonical": "#34D399",
-        "tonalRamp": [
-          "oklch(15.00% 0.15349 163.22)",
-          "oklch(26.43% 0.15349 163.22)",
-          "oklch(37.86% 0.15349 163.22)",
-          "oklch(49.29% 0.15349 163.22)",
-          "oklch(60.71% 0.15349 163.22)",
-          "oklch(72.14% 0.15349 163.22)",
-          "oklch(83.57% 0.15349 163.22)",
-          "oklch(95.00% 0.15349 163.22)"
-        ],
-        "tonalRampSource": "synthetic-preview-only"
+        "canonical": "#34D399"
       },
       "gain-soft": {
         "role": "semantic",
         "displayName": "Gain Soft",
-        "canonical": "#DCFCE7",
-        "tonalRamp": [
-          "oklch(15.00% 0.04338 156.74)",
-          "oklch(26.43% 0.04338 156.74)",
-          "oklch(37.86% 0.04338 156.74)",
-          "oklch(49.29% 0.04338 156.74)",
-          "oklch(60.71% 0.04338 156.74)",
-          "oklch(72.14% 0.04338 156.74)",
-          "oklch(83.57% 0.04338 156.74)",
-          "oklch(95.00% 0.04338 156.74)"
-        ],
-        "tonalRampSource": "synthetic-preview-only"
+        "canonical": "#DCFCE7"
       },
       "gain-soft-dark": {
         "role": "semantic",
         "displayName": "Gain Soft Dark",
-        "canonical": "rgba(52,211,153,0.14)",
-        "tonalRamp": [
-          "oklch(15.00% 0.15349 163.22 / 0.14)",
-          "oklch(26.43% 0.15349 163.22 / 0.14)",
-          "oklch(37.86% 0.15349 163.22 / 0.14)",
-          "oklch(49.29% 0.15349 163.22 / 0.14)",
-          "oklch(60.71% 0.15349 163.22 / 0.14)",
-          "oklch(72.14% 0.15349 163.22 / 0.14)",
-          "oklch(83.57% 0.15349 163.22 / 0.14)",
-          "oklch(95.00% 0.15349 163.22 / 0.14)"
-        ],
-        "tonalRampSource": "synthetic-preview-only"
+        "canonical": "rgba(52,211,153,0.14)"
       },
       "loss-light": {
         "role": "semantic",
         "displayName": "Loss Light",
-        "canonical": "#DC2626",
-        "tonalRamp": [
-          "oklch(15.00% 0.21516 27.33)",
-          "oklch(26.43% 0.21516 27.33)",
-          "oklch(37.86% 0.21516 27.33)",
-          "oklch(49.29% 0.21516 27.33)",
-          "oklch(60.71% 0.21516 27.33)",
-          "oklch(72.14% 0.21516 27.33)",
-          "oklch(83.57% 0.21516 27.33)",
-          "oklch(95.00% 0.21516 27.33)"
-        ],
-        "tonalRampSource": "synthetic-preview-only"
+        "canonical": "#DC2626"
       },
       "loss-text": {
         "role": "semantic",
         "displayName": "Loss Text",
-        "canonical": "#B91C1C",
-        "tonalRamp": [
-          "oklch(15.00% 0.19049 27.52)",
-          "oklch(26.43% 0.19049 27.52)",
-          "oklch(37.86% 0.19049 27.52)",
-          "oklch(49.29% 0.19049 27.52)",
-          "oklch(60.71% 0.19049 27.52)",
-          "oklch(72.14% 0.19049 27.52)",
-          "oklch(83.57% 0.19049 27.52)",
-          "oklch(95.00% 0.19049 27.52)"
-        ],
-        "tonalRampSource": "synthetic-preview-only"
+        "canonical": "#B91C1C"
       },
       "loss-dark": {
         "role": "semantic",
         "displayName": "Loss Dark",
-        "canonical": "#FB7185",
-        "tonalRamp": [
-          "oklch(15.00% 0.16898 13.43)",
-          "oklch(26.43% 0.16898 13.43)",
-          "oklch(37.86% 0.16898 13.43)",
-          "oklch(49.29% 0.16898 13.43)",
-          "oklch(60.71% 0.16898 13.43)",
-          "oklch(72.14% 0.16898 13.43)",
-          "oklch(83.57% 0.16898 13.43)",
-          "oklch(95.00% 0.16898 13.43)"
-        ],
-        "tonalRampSource": "synthetic-preview-only"
+        "canonical": "#FB7185"
       },
       "loss-soft": {
         "role": "semantic",
         "displayName": "Loss Soft",
-        "canonical": "#FEE2E2",
-        "tonalRamp": [
-          "oklch(15.00% 0.03090 17.72)",
-          "oklch(26.43% 0.03090 17.72)",
-          "oklch(37.86% 0.03090 17.72)",
-          "oklch(49.29% 0.03090 17.72)",
-          "oklch(60.71% 0.03090 17.72)",
-          "oklch(72.14% 0.03090 17.72)",
-          "oklch(83.57% 0.03090 17.72)",
-          "oklch(95.00% 0.03090 17.72)"
-        ],
-        "tonalRampSource": "synthetic-preview-only"
+        "canonical": "#FEE2E2"
       },
       "loss-soft-dark": {
         "role": "semantic",
         "displayName": "Loss Soft Dark",
-        "canonical": "rgba(251,113,133,0.14)",
-        "tonalRamp": [
-          "oklch(15.00% 0.16898 13.43 / 0.14)",
-          "oklch(26.43% 0.16898 13.43 / 0.14)",
-          "oklch(37.86% 0.16898 13.43 / 0.14)",
-          "oklch(49.29% 0.16898 13.43 / 0.14)",
-          "oklch(60.71% 0.16898 13.43 / 0.14)",
-          "oklch(72.14% 0.16898 13.43 / 0.14)",
-          "oklch(83.57% 0.16898 13.43 / 0.14)",
-          "oklch(95.00% 0.16898 13.43 / 0.14)"
-        ],
-        "tonalRampSource": "synthetic-preview-only"
+        "canonical": "rgba(251,113,133,0.14)"
       },
       "flat-light": {
         "role": "semantic",
         "displayName": "Flat Light",
-        "canonical": "#6B7280",
-        "tonalRamp": [
-          "oklch(15.00% 0.02336 264.36)",
-          "oklch(26.43% 0.02336 264.36)",
-          "oklch(37.86% 0.02336 264.36)",
-          "oklch(49.29% 0.02336 264.36)",
-          "oklch(60.71% 0.02336 264.36)",
-          "oklch(72.14% 0.02336 264.36)",
-          "oklch(83.57% 0.02336 264.36)",
-          "oklch(95.00% 0.02336 264.36)"
-        ],
-        "tonalRampSource": "synthetic-preview-only"
+        "canonical": "#6B7280"
       },
       "flat-dark": {
         "role": "semantic",
         "displayName": "Flat Dark",
-        "canonical": "#9CA3AF",
-        "tonalRamp": [
-          "oklch(15.00% 0.01918 261.32)",
-          "oklch(26.43% 0.01918 261.32)",
-          "oklch(37.86% 0.01918 261.32)",
-          "oklch(49.29% 0.01918 261.32)",
-          "oklch(60.71% 0.01918 261.32)",
-          "oklch(72.14% 0.01918 261.32)",
-          "oklch(83.57% 0.01918 261.32)",
-          "oklch(95.00% 0.01918 261.32)"
-        ],
-        "tonalRampSource": "synthetic-preview-only"
+        "canonical": "#9CA3AF"
       },
       "success-light": {
         "role": "semantic",
         "displayName": "Success Light",
-        "canonical": "#15803D",
-        "tonalRamp": [
-          "oklch(15.00% 0.13710 150.07)",
-          "oklch(26.43% 0.13710 150.07)",
-          "oklch(37.86% 0.13710 150.07)",
-          "oklch(49.29% 0.13710 150.07)",
-          "oklch(60.71% 0.13710 150.07)",
-          "oklch(72.14% 0.13710 150.07)",
-          "oklch(83.57% 0.13710 150.07)",
-          "oklch(95.00% 0.13710 150.07)"
-        ],
-        "tonalRampSource": "synthetic-preview-only"
+        "canonical": "#15803D"
       },
       "success-dark": {
         "role": "semantic",
         "displayName": "Success Dark",
-        "canonical": "#22C55E",
-        "tonalRamp": [
-          "oklch(15.00% 0.19201 149.58)",
-          "oklch(26.43% 0.19201 149.58)",
-          "oklch(37.86% 0.19201 149.58)",
-          "oklch(49.29% 0.19201 149.58)",
-          "oklch(60.71% 0.19201 149.58)",
-          "oklch(72.14% 0.19201 149.58)",
-          "oklch(83.57% 0.19201 149.58)",
-          "oklch(95.00% 0.19201 149.58)"
-        ],
-        "tonalRampSource": "synthetic-preview-only"
+        "canonical": "#22C55E"
       },
       "warning-light": {
         "role": "semantic",
         "displayName": "Warning Light",
-        "canonical": "#92400E",
-        "tonalRamp": [
-          "oklch(15.00% 0.12470 46.20)",
-          "oklch(26.43% 0.12470 46.20)",
-          "oklch(37.86% 0.12470 46.20)",
-          "oklch(49.29% 0.12470 46.20)",
-          "oklch(60.71% 0.12470 46.20)",
-          "oklch(72.14% 0.12470 46.20)",
-          "oklch(83.57% 0.12470 46.20)",
-          "oklch(95.00% 0.12470 46.20)"
-        ],
-        "tonalRampSource": "synthetic-preview-only"
+        "canonical": "#92400E"
       },
       "warning-dark": {
         "role": "semantic",
         "displayName": "Warning Dark",
-        "canonical": "#F59E0B",
-        "tonalRamp": [
-          "oklch(15.00% 0.16466 70.08)",
-          "oklch(26.43% 0.16466 70.08)",
-          "oklch(37.86% 0.16466 70.08)",
-          "oklch(49.29% 0.16466 70.08)",
-          "oklch(60.71% 0.16466 70.08)",
-          "oklch(72.14% 0.16466 70.08)",
-          "oklch(83.57% 0.16466 70.08)",
-          "oklch(95.00% 0.16466 70.08)"
-        ],
-        "tonalRampSource": "synthetic-preview-only"
+        "canonical": "#F59E0B"
       },
       "error-light": {
         "role": "semantic",
         "displayName": "Error Light",
-        "canonical": "#B91C1C",
-        "tonalRamp": [
-          "oklch(15.00% 0.19049 27.52)",
-          "oklch(26.43% 0.19049 27.52)",
-          "oklch(37.86% 0.19049 27.52)",
-          "oklch(49.29% 0.19049 27.52)",
-          "oklch(60.71% 0.19049 27.52)",
-          "oklch(72.14% 0.19049 27.52)",
-          "oklch(83.57% 0.19049 27.52)",
-          "oklch(95.00% 0.19049 27.52)"
-        ],
-        "tonalRampSource": "synthetic-preview-only"
+        "canonical": "#B91C1C"
       },
       "error-dark": {
         "role": "semantic",
         "displayName": "Error Dark",
-        "canonical": "#F87171",
-        "tonalRamp": [
-          "oklch(15.00% 0.16615 22.22)",
-          "oklch(26.43% 0.16615 22.22)",
-          "oklch(37.86% 0.16615 22.22)",
-          "oklch(49.29% 0.16615 22.22)",
-          "oklch(60.71% 0.16615 22.22)",
-          "oklch(72.14% 0.16615 22.22)",
-          "oklch(83.57% 0.16615 22.22)",
-          "oklch(95.00% 0.16615 22.22)"
-        ],
-        "tonalRampSource": "synthetic-preview-only"
+        "canonical": "#F87171"
       },
       "error-emphasis": {
         "role": "semantic",
         "displayName": "Error Emphasis",
-        "canonical": "#991B1B",
-        "tonalRamp": [
-          "oklch(15.00% 0.16132 26.90)",
-          "oklch(26.43% 0.16132 26.90)",
-          "oklch(37.86% 0.16132 26.90)",
-          "oklch(49.29% 0.16132 26.90)",
-          "oklch(60.71% 0.16132 26.90)",
-          "oklch(72.14% 0.16132 26.90)",
-          "oklch(83.57% 0.16132 26.90)",
-          "oklch(95.00% 0.16132 26.90)"
-        ],
-        "tonalRampSource": "synthetic-preview-only"
+        "canonical": "#991B1B"
       },
       "info-light": {
         "role": "semantic",
         "displayName": "Info Light",
-        "canonical": "#2563EB",
-        "tonalRamp": [
-          "oklch(15.00% 0.21521 262.88)",
-          "oklch(26.43% 0.21521 262.88)",
-          "oklch(37.86% 0.21521 262.88)",
-          "oklch(49.29% 0.21521 262.88)",
-          "oklch(60.71% 0.21521 262.88)",
-          "oklch(72.14% 0.21521 262.88)",
-          "oklch(83.57% 0.21521 262.88)",
-          "oklch(95.00% 0.21521 262.88)"
-        ],
-        "tonalRampSource": "synthetic-preview-only"
+        "canonical": "#2563EB"
       },
       "info-text": {
         "role": "semantic",
         "displayName": "Info Text",
-        "canonical": "#1D4ED8",
-        "tonalRamp": [
-          "oklch(15.00% 0.21717 264.38)",
-          "oklch(26.43% 0.21717 264.38)",
-          "oklch(37.86% 0.21717 264.38)",
-          "oklch(49.29% 0.21717 264.38)",
-          "oklch(60.71% 0.21717 264.38)",
-          "oklch(72.14% 0.21717 264.38)",
-          "oklch(83.57% 0.21717 264.38)",
-          "oklch(95.00% 0.21717 264.38)"
-        ],
-        "tonalRampSource": "synthetic-preview-only"
+        "canonical": "#1D4ED8"
       },
       "info-dark": {
         "role": "semantic",
         "displayName": "Info Dark",
-        "canonical": "#60A5FA",
-        "tonalRamp": [
-          "oklch(15.00% 0.14338 254.62)",
-          "oklch(26.43% 0.14338 254.62)",
-          "oklch(37.86% 0.14338 254.62)",
-          "oklch(49.29% 0.14338 254.62)",
-          "oklch(60.71% 0.14338 254.62)",
-          "oklch(72.14% 0.14338 254.62)",
-          "oklch(83.57% 0.14338 254.62)",
-          "oklch(95.00% 0.14338 254.62)"
-        ],
-        "tonalRampSource": "synthetic-preview-only"
+        "canonical": "#60A5FA"
       },
       "chart-1": {
         "role": "categorical",
         "displayName": "Teal",
-        "canonical": "#3E8E84",
-        "tonalRamp": [
-          "oklch(15.00% 0.07979 184.31)",
-          "oklch(26.43% 0.07979 184.31)",
-          "oklch(37.86% 0.07979 184.31)",
-          "oklch(49.29% 0.07979 184.31)",
-          "oklch(60.71% 0.07979 184.31)",
-          "oklch(72.14% 0.07979 184.31)",
-          "oklch(83.57% 0.07979 184.31)",
-          "oklch(95.00% 0.07979 184.31)"
-        ],
-        "tonalRampSource": "synthetic-preview-only"
+        "canonical": "#3E8E84"
       },
       "chart-2": {
         "role": "categorical",
         "displayName": "Honey",
-        "canonical": "#B8812F",
-        "tonalRamp": [
-          "oklch(15.00% 0.11723 73.26)",
-          "oklch(26.43% 0.11723 73.26)",
-          "oklch(37.86% 0.11723 73.26)",
-          "oklch(49.29% 0.11723 73.26)",
-          "oklch(60.71% 0.11723 73.26)",
-          "oklch(72.14% 0.11723 73.26)",
-          "oklch(83.57% 0.11723 73.26)",
-          "oklch(95.00% 0.11723 73.26)"
-        ],
-        "tonalRampSource": "synthetic-preview-only"
+        "canonical": "#B8812F"
       },
       "chart-3": {
         "role": "categorical",
         "displayName": "Cornflower",
-        "canonical": "#5B7CC0",
-        "tonalRamp": [
-          "oklch(15.00% 0.11134 263.68)",
-          "oklch(26.43% 0.11134 263.68)",
-          "oklch(37.86% 0.11134 263.68)",
-          "oklch(49.29% 0.11134 263.68)",
-          "oklch(60.71% 0.11134 263.68)",
-          "oklch(72.14% 0.11134 263.68)",
-          "oklch(83.57% 0.11134 263.68)",
-          "oklch(95.00% 0.11134 263.68)"
-        ],
-        "tonalRampSource": "synthetic-preview-only"
+        "canonical": "#5B7CC0"
       },
       "chart-4": {
         "role": "categorical",
         "displayName": "Coral",
-        "canonical": "#CF7159",
-        "tonalRamp": [
-          "oklch(15.00% 0.12415 35.30)",
-          "oklch(26.43% 0.12415 35.30)",
-          "oklch(37.86% 0.12415 35.30)",
-          "oklch(49.29% 0.12415 35.30)",
-          "oklch(60.71% 0.12415 35.30)",
-          "oklch(72.14% 0.12415 35.30)",
-          "oklch(83.57% 0.12415 35.30)",
-          "oklch(95.00% 0.12415 35.30)"
-        ],
-        "tonalRampSource": "synthetic-preview-only"
+        "canonical": "#CF7159"
       },
       "chart-5": {
         "role": "categorical",
         "displayName": "Slate Blue",
-        "canonical": "#6E7E9C",
-        "tonalRamp": [
-          "oklch(15.00% 0.04986 262.89)",
-          "oklch(26.43% 0.04986 262.89)",
-          "oklch(37.86% 0.04986 262.89)",
-          "oklch(49.29% 0.04986 262.89)",
-          "oklch(60.71% 0.04986 262.89)",
-          "oklch(72.14% 0.04986 262.89)",
-          "oklch(83.57% 0.04986 262.89)",
-          "oklch(95.00% 0.04986 262.89)"
-        ],
-        "tonalRampSource": "synthetic-preview-only"
+        "canonical": "#6E7E9C"
       },
       "chart-6": {
         "role": "categorical",
         "displayName": "Periwinkle",
-        "canonical": "#8B7BC0",
-        "tonalRamp": [
-          "oklch(15.00% 0.10325 293.85)",
-          "oklch(26.43% 0.10325 293.85)",
-          "oklch(37.86% 0.10325 293.85)",
-          "oklch(49.29% 0.10325 293.85)",
-          "oklch(60.71% 0.10325 293.85)",
-          "oklch(72.14% 0.10325 293.85)",
-          "oklch(83.57% 0.10325 293.85)",
-          "oklch(95.00% 0.10325 293.85)"
-        ],
-        "tonalRampSource": "synthetic-preview-only"
+        "canonical": "#8B7BC0"
       }
     },
     "typographyMeta": {
@@ -828,7 +267,7 @@
       },
       "headline": {
         "displayName": "Headline",
-        "purpose": "Observed headline role."
+        "purpose": "Base section/page heading step; marketing section headings step up to 36/40px (-0.02em) from lg."
       },
       "title": {
         "displayName": "Title",
@@ -875,7 +314,7 @@
       {
         "name": "e1",
         "value": "0 1px 2px 0 rgba(16, 24, 40, 0.06)",
-        "purpose": "Small controls, chips and tiles in light mode."
+        "purpose": "Small controls, popular-ticker and quick-access chips, and some tiles in light mode; the Badge primitive has no shadow."
       },
       {
         "name": "e2",
@@ -890,7 +329,7 @@
       {
         "name": "e4",
         "value": "0 10px 15px -3px rgba(16, 24, 40, 0.10), 0 4px 6px -4px rgba(16, 24, 40, 0.10)",
-        "purpose": "Floating menus in light mode."
+        "purpose": "Popovers (alert bell, source trace) and the Copilot coachmark in light mode."
       },
       {
         "name": "e5",
@@ -967,7 +406,7 @@
       "kind": "button",
       "description": "Button.tsx primary, md: 40px height, 12px corners, 16px horizontal padding. Exact light/dark resting, hover, active, focus and native-disabled recipes. Preview padding and copy are illustrative; production busy state uses loading and preserves focus.",
       "html": "<div class=\"ds-stage\"><button class=\"ds-button ds-primary\" type=\"button\">Read filing <svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" aria-hidden=\"true\"><path d=\"M5 12h14m-6-6 6 6-6 6\" stroke=\"currentColor\" stroke-width=\"1.7\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/></svg></button></div>",
-      "css": "\n:host,:root{display:block;--ds-page:#F4F3EE;--ds-panel:#FBFAF6;--ds-ink:#1A1A17;--ds-secondary:#374151;--ds-muted:#6B7280;--ds-line:#E5E7EB;--ds-panel-line:#E5E7EB;--ds-brand:#4F7A63;--ds-strong:#3C6650;--ds-active:#345C48;--ds-tint:#ECF2EE;--ds-brand-line:#CFE0D6;--ds-primary-ink:#fff;--ds-primary-hover:#3C6650;--ds-primary-active:#345C48;--ds-ring:0 0 0 3px rgba(79,122,99,.5);--ds-e1:0 1px 2px 0 rgba(16,24,40,.06);--ds-e2:0 1px 3px 0 rgba(16,24,40,.1),0 1px 2px -1px rgba(16,24,40,.1);--ds-e5:0 20px 25px -5px rgba(16,24,40,.12),0 8px 10px -6px rgba(16,24,40,.1);--ds-field:#fff;--ds-flat:#6B7280;--ds-warning:#92400E;--ds-warning-tint:rgba(146,64,14,.1);--ds-gain:#15803D;--ds-loss:#B91C1C;--ds-hover:#fff;--ds-header:rgba(244,243,238,.8);--ds-header-line:#E5E7EB;--ds-primary-disabled:rgba(79,122,99,.45);--ds-primary-disabled-ink:rgba(255,255,255,.8)}\n:host(.dark),:root.dark,.ds-dark{--ds-page:#0B1120;--ds-panel:#1F2937;--ds-ink:#D7DADC;--ds-secondary:#9CA3AF;--ds-muted:#9CA3AF;--ds-line:#374151;--ds-panel-line:rgba(255,255,255,.1);--ds-brand:#7FB295;--ds-strong:#98C5AD;--ds-active:#569272;--ds-tint:rgba(127,178,149,.14);--ds-brand-line:rgba(127,178,149,.28);--ds-primary-ink:#0B1120;--ds-primary-hover:#98C5AD;--ds-primary-active:#569272;--ds-ring:0 0 0 3px rgba(127,178,149,.55);--ds-e2:none;--ds-e5:none;--ds-field:rgba(255,255,255,.05);--ds-flat:#9CA3AF;--ds-warning:#F59E0B;--ds-warning-tint:rgba(245,158,11,.15);--ds-gain:#34D399;--ds-loss:#FB7185;--ds-hover:rgba(255,255,255,.03);--ds-header:rgba(11,17,32,.8);--ds-header-line:rgba(255,255,255,.06);--ds-primary-disabled:rgba(127,178,149,.35);--ds-primary-disabled-ink:rgba(11,17,32,.6)}\n.ds-stage,.ds-stage *{box-sizing:border-box}\n.ds-stage{padding:24px;background:var(--ds-page);color:var(--ds-ink);font-family:var(--font-body,-apple-system,BlinkMacSystemFont,Inter,system-ui,sans-serif);font-size:16px;line-height:1.5}\n.ds-stage button,.ds-stage input{font-family:inherit}\n.ds-stage h2,.ds-stage h3{margin:0;font-family:var(--font-heading,var(--font-inter,Inter,-apple-system,BlinkMacSystemFont,system-ui,sans-serif));font-optical-sizing:auto;font-weight:600;color:var(--ds-ink)}\n.ds-stage p{margin:0}.ds-stage :where(a){color:inherit;text-decoration:none}.ds-stage svg{display:block;flex-shrink:0}\n\n.ds-button{display:inline-flex;align-items:center;justify-content:center;gap:8px;height:40px;padding:0 16px;border:0;border-radius:12px;font-size:14px;line-height:20px;font-weight:600;letter-spacing:0;white-space:nowrap;user-select:none;cursor:pointer;transition:color var(--duration-fast,150ms) var(--ease-standard,cubic-bezier(.4,0,.2,1)),background-color var(--duration-fast,150ms) var(--ease-standard,cubic-bezier(.4,0,.2,1)),border-color var(--duration-fast,150ms) var(--ease-standard,cubic-bezier(.4,0,.2,1))}\n.ds-button:focus-visible{outline:none;box-shadow:var(--ds-ring)}\n.ds-button:disabled{cursor:not-allowed}\n\n.ds-primary{background:var(--ds-brand);color:var(--ds-primary-ink);box-shadow:var(--ds-e1)}\n.ds-primary:hover{background:var(--ds-primary-hover)}.ds-primary:active{background:var(--ds-primary-active);box-shadow:none}\n.ds-primary:focus-visible{box-shadow:var(--ds-ring)}\n.ds-primary:disabled{background:var(--ds-primary-disabled);color:var(--ds-primary-disabled-ink);box-shadow:none}\n"
+      "css": ":host{display:block;width:100%}.ds-stage{--ds-page:#F4F3EE;--ds-ink:#1A1A17;--ds-brand:#4F7A63;--ds-primary-ink:#FFFFFF;--ds-primary-hover:#3C6650;--ds-primary-active:#345C48;--ds-primary-disabled:rgba(79,122,99,.45);--ds-primary-disabled-ink:rgba(255,255,255,.8);--ds-ring:0 0 0 3px rgba(79, 122, 99, 0.50);--ds-e1:0 1px 2px 0 rgba(16, 24, 40, 0.06);padding:24px;background:var(--ds-page);color:var(--ds-ink);font-family:var(--font-body,-apple-system,BlinkMacSystemFont,Inter,system-ui,sans-serif);font-size:16px;line-height:1.5}@container style(--heading-color: #D7DADC){.ds-stage{--ds-page:#0B1120;--ds-ink:#D7DADC;--ds-brand:#7FB295;--ds-primary-ink:#0B1120;--ds-primary-hover:#98C5AD;--ds-primary-active:#569272;--ds-primary-disabled:rgba(127,178,149,.35);--ds-primary-disabled-ink:rgba(11,17,32,.6);--ds-ring:0 0 0 3px rgba(127, 178, 149, 0.55)}}.ds-button{display:inline-flex;align-items:center;justify-content:center;gap:8px;box-sizing:border-box;height:40px;padding:0 16px;border:0;border-radius:12px;font-family:inherit;font-size:14px;line-height:20px;font-weight:600;letter-spacing:0;white-space:nowrap;user-select:none;cursor:pointer;transition-property:color,background-color,border-color;transition-duration:var(--duration-fast,150ms);transition-timing-function:var(--ease-standard,cubic-bezier(.4,0,.2,1))}.ds-button:focus-visible{outline:none;box-shadow:var(--ds-ring)}.ds-button:disabled{cursor:not-allowed}.ds-button svg{display:block;flex-shrink:0}.ds-primary{background:var(--ds-brand);color:var(--ds-primary-ink);box-shadow:var(--ds-e1)}.ds-primary:hover{background:var(--ds-primary-hover)}.ds-primary:active{background:var(--ds-primary-active);box-shadow:none}.ds-primary:focus-visible{box-shadow:var(--ds-ring)}.ds-primary:disabled{background:var(--ds-primary-disabled);color:var(--ds-primary-disabled-ink);box-shadow:none}"
     },
     {
       "name": "Secondary button",
@@ -975,7 +414,7 @@
       "kind": "button",
       "description": "Button.tsx secondary, md. Sage hairline and strong ink; transparent default, tinted hover, pressed tint, brand focus ring. Preview copy/padding are illustrative.",
       "html": "<div class=\"ds-stage\"><button class=\"ds-button ds-secondary\" type=\"button\">View source</button></div>",
-      "css": "\n:host,:root{display:block;--ds-page:#F4F3EE;--ds-panel:#FBFAF6;--ds-ink:#1A1A17;--ds-secondary:#374151;--ds-muted:#6B7280;--ds-line:#E5E7EB;--ds-panel-line:#E5E7EB;--ds-brand:#4F7A63;--ds-strong:#3C6650;--ds-active:#345C48;--ds-tint:#ECF2EE;--ds-brand-line:#CFE0D6;--ds-primary-ink:#fff;--ds-primary-hover:#3C6650;--ds-primary-active:#345C48;--ds-ring:0 0 0 3px rgba(79,122,99,.5);--ds-e1:0 1px 2px 0 rgba(16,24,40,.06);--ds-e2:0 1px 3px 0 rgba(16,24,40,.1),0 1px 2px -1px rgba(16,24,40,.1);--ds-e5:0 20px 25px -5px rgba(16,24,40,.12),0 8px 10px -6px rgba(16,24,40,.1);--ds-field:#fff;--ds-flat:#6B7280;--ds-warning:#92400E;--ds-warning-tint:rgba(146,64,14,.1);--ds-gain:#15803D;--ds-loss:#B91C1C;--ds-hover:#fff;--ds-header:rgba(244,243,238,.8);--ds-header-line:#E5E7EB;--ds-primary-disabled:rgba(79,122,99,.45);--ds-primary-disabled-ink:rgba(255,255,255,.8)}\n:host(.dark),:root.dark,.ds-dark{--ds-page:#0B1120;--ds-panel:#1F2937;--ds-ink:#D7DADC;--ds-secondary:#9CA3AF;--ds-muted:#9CA3AF;--ds-line:#374151;--ds-panel-line:rgba(255,255,255,.1);--ds-brand:#7FB295;--ds-strong:#98C5AD;--ds-active:#569272;--ds-tint:rgba(127,178,149,.14);--ds-brand-line:rgba(127,178,149,.28);--ds-primary-ink:#0B1120;--ds-primary-hover:#98C5AD;--ds-primary-active:#569272;--ds-ring:0 0 0 3px rgba(127,178,149,.55);--ds-e2:none;--ds-e5:none;--ds-field:rgba(255,255,255,.05);--ds-flat:#9CA3AF;--ds-warning:#F59E0B;--ds-warning-tint:rgba(245,158,11,.15);--ds-gain:#34D399;--ds-loss:#FB7185;--ds-hover:rgba(255,255,255,.03);--ds-header:rgba(11,17,32,.8);--ds-header-line:rgba(255,255,255,.06);--ds-primary-disabled:rgba(127,178,149,.35);--ds-primary-disabled-ink:rgba(11,17,32,.6)}\n.ds-stage,.ds-stage *{box-sizing:border-box}\n.ds-stage{padding:24px;background:var(--ds-page);color:var(--ds-ink);font-family:var(--font-body,-apple-system,BlinkMacSystemFont,Inter,system-ui,sans-serif);font-size:16px;line-height:1.5}\n.ds-stage button,.ds-stage input{font-family:inherit}\n.ds-stage h2,.ds-stage h3{margin:0;font-family:var(--font-heading,var(--font-inter,Inter,-apple-system,BlinkMacSystemFont,system-ui,sans-serif));font-optical-sizing:auto;font-weight:600;color:var(--ds-ink)}\n.ds-stage p{margin:0}.ds-stage :where(a){color:inherit;text-decoration:none}.ds-stage svg{display:block;flex-shrink:0}\n\n.ds-button{display:inline-flex;align-items:center;justify-content:center;gap:8px;height:40px;padding:0 16px;border:0;border-radius:12px;font-size:14px;line-height:20px;font-weight:600;letter-spacing:0;white-space:nowrap;user-select:none;cursor:pointer;transition:color var(--duration-fast,150ms) var(--ease-standard,cubic-bezier(.4,0,.2,1)),background-color var(--duration-fast,150ms) var(--ease-standard,cubic-bezier(.4,0,.2,1)),border-color var(--duration-fast,150ms) var(--ease-standard,cubic-bezier(.4,0,.2,1))}\n.ds-button:focus-visible{outline:none;box-shadow:var(--ds-ring)}\n.ds-button:disabled{cursor:not-allowed}\n\n.ds-secondary{border:1px solid var(--ds-brand-line);background:transparent;color:var(--ds-strong)}\n.ds-secondary:hover{background:var(--ds-tint)}.ds-secondary:active{background:rgba(207,224,214,.6)}\n:host(.dark) .ds-secondary:active,:root.dark .ds-secondary:active,.ds-dark .ds-secondary:active{background:rgba(127,178,149,.28)}\n.ds-secondary:disabled{opacity:.5;background:transparent}\n"
+      "css": ":host{display:block;width:100%}.ds-stage{--ds-page:#F4F3EE;--ds-ink:#1A1A17;--ds-strong:#3C6650;--ds-tint:#ECF2EE;--ds-brand-line:#CFE0D6;--ds-pressed:rgba(207,224,214,.6);--ds-ring:0 0 0 3px rgba(79, 122, 99, 0.50);padding:24px;background:var(--ds-page);color:var(--ds-ink);font-family:var(--font-body,-apple-system,BlinkMacSystemFont,Inter,system-ui,sans-serif);font-size:16px;line-height:1.5}@container style(--heading-color: #D7DADC){.ds-stage{--ds-page:#0B1120;--ds-ink:#D7DADC;--ds-strong:#98C5AD;--ds-tint:rgba(127,178,149,.14);--ds-brand-line:rgba(127,178,149,.28);--ds-pressed:rgba(127,178,149,.28);--ds-ring:0 0 0 3px rgba(127, 178, 149, 0.55)}}.ds-button{display:inline-flex;align-items:center;justify-content:center;gap:8px;box-sizing:border-box;height:40px;padding:0 16px;border:0;border-radius:12px;font-family:inherit;font-size:14px;line-height:20px;font-weight:600;letter-spacing:0;white-space:nowrap;user-select:none;cursor:pointer;transition-property:color,background-color,border-color;transition-duration:var(--duration-fast,150ms);transition-timing-function:var(--ease-standard,cubic-bezier(.4,0,.2,1))}.ds-button:focus-visible{outline:none;box-shadow:var(--ds-ring)}.ds-button:disabled{cursor:not-allowed}.ds-secondary{border:1px solid var(--ds-brand-line);background:transparent;color:var(--ds-strong)}.ds-secondary:hover{background:var(--ds-tint)}.ds-secondary:active{background:var(--ds-pressed)}.ds-secondary:disabled{opacity:.5;background:transparent}"
     },
     {
       "name": "Ghost button",
@@ -983,7 +422,7 @@
       "kind": "button",
       "description": "Button.tsx ghost, md (tertiary is the deprecated alias). Borderless sage text, tinted hover and active backgrounds. Preview copy/padding are illustrative.",
       "html": "<div class=\"ds-stage\"><button class=\"ds-button ds-ghost\" type=\"button\">Cancel</button></div>",
-      "css": "\n:host,:root{display:block;--ds-page:#F4F3EE;--ds-panel:#FBFAF6;--ds-ink:#1A1A17;--ds-secondary:#374151;--ds-muted:#6B7280;--ds-line:#E5E7EB;--ds-panel-line:#E5E7EB;--ds-brand:#4F7A63;--ds-strong:#3C6650;--ds-active:#345C48;--ds-tint:#ECF2EE;--ds-brand-line:#CFE0D6;--ds-primary-ink:#fff;--ds-primary-hover:#3C6650;--ds-primary-active:#345C48;--ds-ring:0 0 0 3px rgba(79,122,99,.5);--ds-e1:0 1px 2px 0 rgba(16,24,40,.06);--ds-e2:0 1px 3px 0 rgba(16,24,40,.1),0 1px 2px -1px rgba(16,24,40,.1);--ds-e5:0 20px 25px -5px rgba(16,24,40,.12),0 8px 10px -6px rgba(16,24,40,.1);--ds-field:#fff;--ds-flat:#6B7280;--ds-warning:#92400E;--ds-warning-tint:rgba(146,64,14,.1);--ds-gain:#15803D;--ds-loss:#B91C1C;--ds-hover:#fff;--ds-header:rgba(244,243,238,.8);--ds-header-line:#E5E7EB;--ds-primary-disabled:rgba(79,122,99,.45);--ds-primary-disabled-ink:rgba(255,255,255,.8)}\n:host(.dark),:root.dark,.ds-dark{--ds-page:#0B1120;--ds-panel:#1F2937;--ds-ink:#D7DADC;--ds-secondary:#9CA3AF;--ds-muted:#9CA3AF;--ds-line:#374151;--ds-panel-line:rgba(255,255,255,.1);--ds-brand:#7FB295;--ds-strong:#98C5AD;--ds-active:#569272;--ds-tint:rgba(127,178,149,.14);--ds-brand-line:rgba(127,178,149,.28);--ds-primary-ink:#0B1120;--ds-primary-hover:#98C5AD;--ds-primary-active:#569272;--ds-ring:0 0 0 3px rgba(127,178,149,.55);--ds-e2:none;--ds-e5:none;--ds-field:rgba(255,255,255,.05);--ds-flat:#9CA3AF;--ds-warning:#F59E0B;--ds-warning-tint:rgba(245,158,11,.15);--ds-gain:#34D399;--ds-loss:#FB7185;--ds-hover:rgba(255,255,255,.03);--ds-header:rgba(11,17,32,.8);--ds-header-line:rgba(255,255,255,.06);--ds-primary-disabled:rgba(127,178,149,.35);--ds-primary-disabled-ink:rgba(11,17,32,.6)}\n.ds-stage,.ds-stage *{box-sizing:border-box}\n.ds-stage{padding:24px;background:var(--ds-page);color:var(--ds-ink);font-family:var(--font-body,-apple-system,BlinkMacSystemFont,Inter,system-ui,sans-serif);font-size:16px;line-height:1.5}\n.ds-stage button,.ds-stage input{font-family:inherit}\n.ds-stage h2,.ds-stage h3{margin:0;font-family:var(--font-heading,var(--font-inter,Inter,-apple-system,BlinkMacSystemFont,system-ui,sans-serif));font-optical-sizing:auto;font-weight:600;color:var(--ds-ink)}\n.ds-stage p{margin:0}.ds-stage :where(a){color:inherit;text-decoration:none}.ds-stage svg{display:block;flex-shrink:0}\n\n.ds-button{display:inline-flex;align-items:center;justify-content:center;gap:8px;height:40px;padding:0 16px;border:0;border-radius:12px;font-size:14px;line-height:20px;font-weight:600;letter-spacing:0;white-space:nowrap;user-select:none;cursor:pointer;transition:color var(--duration-fast,150ms) var(--ease-standard,cubic-bezier(.4,0,.2,1)),background-color var(--duration-fast,150ms) var(--ease-standard,cubic-bezier(.4,0,.2,1)),border-color var(--duration-fast,150ms) var(--ease-standard,cubic-bezier(.4,0,.2,1))}\n.ds-button:focus-visible{outline:none;box-shadow:var(--ds-ring)}\n.ds-button:disabled{cursor:not-allowed}\n\n.ds-ghost{background:transparent;color:var(--ds-strong)}\n.ds-ghost:hover{background:var(--ds-tint)}.ds-ghost:active{background:rgba(207,224,214,.6)}\n:host(.dark) .ds-ghost:active,:root.dark .ds-ghost:active,.ds-dark .ds-ghost:active{background:rgba(127,178,149,.28)}\n.ds-ghost:disabled{opacity:.5;background:transparent}\n"
+      "css": ":host{display:block;width:100%}.ds-stage{--ds-page:#F4F3EE;--ds-ink:#1A1A17;--ds-strong:#3C6650;--ds-tint:#ECF2EE;--ds-pressed:rgba(207,224,214,.6);--ds-ring:0 0 0 3px rgba(79, 122, 99, 0.50);padding:24px;background:var(--ds-page);color:var(--ds-ink);font-family:var(--font-body,-apple-system,BlinkMacSystemFont,Inter,system-ui,sans-serif);font-size:16px;line-height:1.5}@container style(--heading-color: #D7DADC){.ds-stage{--ds-page:#0B1120;--ds-ink:#D7DADC;--ds-strong:#98C5AD;--ds-tint:rgba(127,178,149,.14);--ds-pressed:rgba(127,178,149,.28);--ds-ring:0 0 0 3px rgba(127, 178, 149, 0.55)}}.ds-button{display:inline-flex;align-items:center;justify-content:center;gap:8px;box-sizing:border-box;height:40px;padding:0 16px;border:0;border-radius:12px;font-family:inherit;font-size:14px;line-height:20px;font-weight:600;letter-spacing:0;white-space:nowrap;user-select:none;cursor:pointer;transition-property:color,background-color,border-color;transition-duration:var(--duration-fast,150ms);transition-timing-function:var(--ease-standard,cubic-bezier(.4,0,.2,1))}.ds-button:focus-visible{outline:none;box-shadow:var(--ds-ring)}.ds-button:disabled{cursor:not-allowed}.ds-ghost{background:transparent;color:var(--ds-strong)}.ds-ghost:hover{background:var(--ds-tint)}.ds-ghost:active{background:var(--ds-pressed)}.ds-ghost:disabled{opacity:.5;background:transparent}"
     },
     {
       "name": "Destructive button",
@@ -991,7 +430,7 @@
       "kind": "button",
       "description": "Button.tsx destructive, md. The same red fill and white text serve both themes; hover/active use #991B1B and keyboard focus uses the error ring. Preview copy/padding are illustrative.",
       "html": "<div class=\"ds-stage\"><button class=\"ds-button ds-destructive\" type=\"button\">Remove saved filing</button></div>",
-      "css": "\n:host,:root{display:block;--ds-page:#F4F3EE;--ds-panel:#FBFAF6;--ds-ink:#1A1A17;--ds-secondary:#374151;--ds-muted:#6B7280;--ds-line:#E5E7EB;--ds-panel-line:#E5E7EB;--ds-brand:#4F7A63;--ds-strong:#3C6650;--ds-active:#345C48;--ds-tint:#ECF2EE;--ds-brand-line:#CFE0D6;--ds-primary-ink:#fff;--ds-primary-hover:#3C6650;--ds-primary-active:#345C48;--ds-ring:0 0 0 3px rgba(79,122,99,.5);--ds-e1:0 1px 2px 0 rgba(16,24,40,.06);--ds-e2:0 1px 3px 0 rgba(16,24,40,.1),0 1px 2px -1px rgba(16,24,40,.1);--ds-e5:0 20px 25px -5px rgba(16,24,40,.12),0 8px 10px -6px rgba(16,24,40,.1);--ds-field:#fff;--ds-flat:#6B7280;--ds-warning:#92400E;--ds-warning-tint:rgba(146,64,14,.1);--ds-gain:#15803D;--ds-loss:#B91C1C;--ds-hover:#fff;--ds-header:rgba(244,243,238,.8);--ds-header-line:#E5E7EB;--ds-primary-disabled:rgba(79,122,99,.45);--ds-primary-disabled-ink:rgba(255,255,255,.8)}\n:host(.dark),:root.dark,.ds-dark{--ds-page:#0B1120;--ds-panel:#1F2937;--ds-ink:#D7DADC;--ds-secondary:#9CA3AF;--ds-muted:#9CA3AF;--ds-line:#374151;--ds-panel-line:rgba(255,255,255,.1);--ds-brand:#7FB295;--ds-strong:#98C5AD;--ds-active:#569272;--ds-tint:rgba(127,178,149,.14);--ds-brand-line:rgba(127,178,149,.28);--ds-primary-ink:#0B1120;--ds-primary-hover:#98C5AD;--ds-primary-active:#569272;--ds-ring:0 0 0 3px rgba(127,178,149,.55);--ds-e2:none;--ds-e5:none;--ds-field:rgba(255,255,255,.05);--ds-flat:#9CA3AF;--ds-warning:#F59E0B;--ds-warning-tint:rgba(245,158,11,.15);--ds-gain:#34D399;--ds-loss:#FB7185;--ds-hover:rgba(255,255,255,.03);--ds-header:rgba(11,17,32,.8);--ds-header-line:rgba(255,255,255,.06);--ds-primary-disabled:rgba(127,178,149,.35);--ds-primary-disabled-ink:rgba(11,17,32,.6)}\n.ds-stage,.ds-stage *{box-sizing:border-box}\n.ds-stage{padding:24px;background:var(--ds-page);color:var(--ds-ink);font-family:var(--font-body,-apple-system,BlinkMacSystemFont,Inter,system-ui,sans-serif);font-size:16px;line-height:1.5}\n.ds-stage button,.ds-stage input{font-family:inherit}\n.ds-stage h2,.ds-stage h3{margin:0;font-family:var(--font-heading,var(--font-inter,Inter,-apple-system,BlinkMacSystemFont,system-ui,sans-serif));font-optical-sizing:auto;font-weight:600;color:var(--ds-ink)}\n.ds-stage p{margin:0}.ds-stage :where(a){color:inherit;text-decoration:none}.ds-stage svg{display:block;flex-shrink:0}\n\n.ds-button{display:inline-flex;align-items:center;justify-content:center;gap:8px;height:40px;padding:0 16px;border:0;border-radius:12px;font-size:14px;line-height:20px;font-weight:600;letter-spacing:0;white-space:nowrap;user-select:none;cursor:pointer;transition:color var(--duration-fast,150ms) var(--ease-standard,cubic-bezier(.4,0,.2,1)),background-color var(--duration-fast,150ms) var(--ease-standard,cubic-bezier(.4,0,.2,1)),border-color var(--duration-fast,150ms) var(--ease-standard,cubic-bezier(.4,0,.2,1))}\n.ds-button:focus-visible{outline:none;box-shadow:var(--ds-ring)}\n.ds-button:disabled{cursor:not-allowed}\n\n.ds-destructive{background:#B91C1C;color:#fff;box-shadow:var(--ds-e1)}\n.ds-destructive:hover,.ds-destructive:active{background:#991B1B}\n.ds-destructive:active{box-shadow:none}.ds-destructive:focus-visible{box-shadow:0 0 0 3px rgba(185,28,28,.45)}\n.ds-destructive:disabled{background:rgba(185,28,28,.4);box-shadow:none}\n"
+      "css": ":host{display:block;width:100%}.ds-stage{--ds-page:#F4F3EE;--ds-ink:#1A1A17;--ds-e1:0 1px 2px 0 rgba(16, 24, 40, 0.06);padding:24px;background:var(--ds-page);color:var(--ds-ink);font-family:var(--font-body,-apple-system,BlinkMacSystemFont,Inter,system-ui,sans-serif);font-size:16px;line-height:1.5}@container style(--heading-color: #D7DADC){.ds-stage{--ds-page:#0B1120;--ds-ink:#D7DADC}}.ds-button{display:inline-flex;align-items:center;justify-content:center;gap:8px;box-sizing:border-box;height:40px;padding:0 16px;border:0;border-radius:12px;font-family:inherit;font-size:14px;line-height:20px;font-weight:600;letter-spacing:0;white-space:nowrap;user-select:none;cursor:pointer;transition-property:color,background-color,border-color;transition-duration:var(--duration-fast,150ms);transition-timing-function:var(--ease-standard,cubic-bezier(.4,0,.2,1))}.ds-button:focus-visible{outline:none;box-shadow:0 0 0 3px rgba(185, 28, 28, 0.45)}.ds-button:disabled{cursor:not-allowed}.ds-destructive{background:#B91C1C;color:#FFFFFF;box-shadow:var(--ds-e1)}.ds-destructive:hover,.ds-destructive:active{background:#991B1B}.ds-destructive:active{box-shadow:none}.ds-destructive:disabled{background:rgba(185,28,28,.4);box-shadow:none}"
     },
     {
       "name": "Search input",
@@ -999,7 +438,7 @@
       "kind": "input",
       "description": "Input.tsx leading-icon recipe: 12px radius, 14/20 type, 10px vertical padding, 44px leading inset, 14px trailing inset. Sample label/hint and preview padding are illustrative. Native input is editable; no search backend is implied.",
       "html": "<div class=\"ds-stage\"><div class=\"ds-field-shell\"><label class=\"ds-label\" for=\"ds-company-search\">Find a company</label><div class=\"ds-input-wrap\"><span class=\"ds-leading\"><svg width=\"18\" height=\"18\" viewBox=\"0 0 24 24\" fill=\"none\" aria-hidden=\"true\"><circle cx=\"10.5\" cy=\"10.5\" r=\"6.5\" stroke=\"currentColor\" stroke-width=\"1.7\"/><path d=\"m16 16 4.5 4.5\" stroke=\"currentColor\" stroke-width=\"1.7\" stroke-linecap=\"round\"/></svg></span><input class=\"ds-input\" id=\"ds-company-search\" type=\"search\" placeholder=\"Company name or ticker\" aria-describedby=\"ds-search-hint\"></div><p class=\"ds-hint\" id=\"ds-search-hint\">Search SEC filings by company.</p></div></div>",
-      "css": "\n:host,:root{display:block;--ds-page:#F4F3EE;--ds-panel:#FBFAF6;--ds-ink:#1A1A17;--ds-secondary:#374151;--ds-muted:#6B7280;--ds-line:#E5E7EB;--ds-panel-line:#E5E7EB;--ds-brand:#4F7A63;--ds-strong:#3C6650;--ds-active:#345C48;--ds-tint:#ECF2EE;--ds-brand-line:#CFE0D6;--ds-primary-ink:#fff;--ds-primary-hover:#3C6650;--ds-primary-active:#345C48;--ds-ring:0 0 0 3px rgba(79,122,99,.5);--ds-e1:0 1px 2px 0 rgba(16,24,40,.06);--ds-e2:0 1px 3px 0 rgba(16,24,40,.1),0 1px 2px -1px rgba(16,24,40,.1);--ds-e5:0 20px 25px -5px rgba(16,24,40,.12),0 8px 10px -6px rgba(16,24,40,.1);--ds-field:#fff;--ds-flat:#6B7280;--ds-warning:#92400E;--ds-warning-tint:rgba(146,64,14,.1);--ds-gain:#15803D;--ds-loss:#B91C1C;--ds-hover:#fff;--ds-header:rgba(244,243,238,.8);--ds-header-line:#E5E7EB;--ds-primary-disabled:rgba(79,122,99,.45);--ds-primary-disabled-ink:rgba(255,255,255,.8)}\n:host(.dark),:root.dark,.ds-dark{--ds-page:#0B1120;--ds-panel:#1F2937;--ds-ink:#D7DADC;--ds-secondary:#9CA3AF;--ds-muted:#9CA3AF;--ds-line:#374151;--ds-panel-line:rgba(255,255,255,.1);--ds-brand:#7FB295;--ds-strong:#98C5AD;--ds-active:#569272;--ds-tint:rgba(127,178,149,.14);--ds-brand-line:rgba(127,178,149,.28);--ds-primary-ink:#0B1120;--ds-primary-hover:#98C5AD;--ds-primary-active:#569272;--ds-ring:0 0 0 3px rgba(127,178,149,.55);--ds-e2:none;--ds-e5:none;--ds-field:rgba(255,255,255,.05);--ds-flat:#9CA3AF;--ds-warning:#F59E0B;--ds-warning-tint:rgba(245,158,11,.15);--ds-gain:#34D399;--ds-loss:#FB7185;--ds-hover:rgba(255,255,255,.03);--ds-header:rgba(11,17,32,.8);--ds-header-line:rgba(255,255,255,.06);--ds-primary-disabled:rgba(127,178,149,.35);--ds-primary-disabled-ink:rgba(11,17,32,.6)}\n.ds-stage,.ds-stage *{box-sizing:border-box}\n.ds-stage{padding:24px;background:var(--ds-page);color:var(--ds-ink);font-family:var(--font-body,-apple-system,BlinkMacSystemFont,Inter,system-ui,sans-serif);font-size:16px;line-height:1.5}\n.ds-stage button,.ds-stage input{font-family:inherit}\n.ds-stage h2,.ds-stage h3{margin:0;font-family:var(--font-heading,var(--font-inter,Inter,-apple-system,BlinkMacSystemFont,system-ui,sans-serif));font-optical-sizing:auto;font-weight:600;color:var(--ds-ink)}\n.ds-stage p{margin:0}.ds-stage :where(a){color:inherit;text-decoration:none}.ds-stage svg{display:block;flex-shrink:0}\n\n.ds-field-shell{display:flex;flex-direction:column;gap:6px}.ds-label{font-size:14px;line-height:20px;font-weight:500}\n.ds-input-wrap{position:relative}.ds-leading{pointer-events:none;position:absolute;left:14px;top:50%;transform:translateY(-50%);color:var(--ds-muted)}\n.ds-input{display:block;width:100%;border:1px solid var(--ds-line);border-radius:12px;padding:10px 14px 10px 44px;background:var(--ds-field);color:var(--ds-ink);font-size:14px;line-height:20px;letter-spacing:0;transition:border-color var(--duration-fast,150ms) var(--ease-standard,cubic-bezier(.4,0,.2,1)),box-shadow var(--duration-fast,150ms) var(--ease-standard,cubic-bezier(.4,0,.2,1))}\n.ds-input::placeholder{color:var(--ds-muted);opacity:1}.ds-input:hover{border-color:var(--ds-flat)}\n.ds-input:focus{outline:none;border-color:var(--ds-brand);box-shadow:var(--ds-ring)}\n.ds-input:disabled{cursor:not-allowed;background:var(--ds-page);opacity:.6;border-color:var(--ds-line)}\n:host(.dark) .ds-input:disabled,:root.dark .ds-input:disabled,.ds-dark .ds-input:disabled{background:rgba(255,255,255,.05)}\n.ds-input[aria-invalid=\"true\"]{border-color:#B91C1C}.ds-input[aria-invalid=\"true\"]:focus{box-shadow:0 0 0 3px rgba(185,28,28,.45)}\n:host(.dark) .ds-input[aria-invalid=\"true\"],:root.dark .ds-input[aria-invalid=\"true\"],.ds-dark .ds-input[aria-invalid=\"true\"]{border-color:#F87171}\n.ds-hint{font-size:12px;line-height:16px;letter-spacing:var(--track-caption,.01em);color:var(--ds-muted)}\n"
+      "css": ":host{display:block;width:100%}.ds-stage{--ds-page:#F4F3EE;--ds-ink:#1A1A17;--ds-muted:#6B7280;--ds-line:#E5E7EB;--ds-brand:#4F7A63;--ds-ring:0 0 0 3px rgba(79, 122, 99, 0.50);--ds-field:#FFFFFF;--ds-field-disabled:#F4F3EE;--ds-error:#B91C1C;--ds-flat:#6B7280;padding:24px;background:var(--ds-page);color:var(--ds-ink);font-family:var(--font-body,-apple-system,BlinkMacSystemFont,Inter,system-ui,sans-serif);font-size:16px;line-height:1.5}@container style(--heading-color: #D7DADC){.ds-stage{--ds-page:#0B1120;--ds-ink:#D7DADC;--ds-muted:#9CA3AF;--ds-line:#374151;--ds-brand:#7FB295;--ds-ring:0 0 0 3px rgba(127, 178, 149, 0.55);--ds-field:rgba(255,255,255,.05);--ds-field-disabled:rgba(255,255,255,.05);--ds-error:#F87171;--ds-flat:#9CA3AF}}.ds-field-shell{display:flex;flex-direction:column;gap:6px}.ds-label{font-size:14px;line-height:20px;font-weight:500}.ds-input-wrap{position:relative}.ds-leading{pointer-events:none;position:absolute;left:14px;top:50%;transform:translateY(-50%);color:var(--ds-muted)}.ds-leading svg{display:block}.ds-input{display:block;box-sizing:border-box;width:100%;appearance:none;border:1px solid var(--ds-line);border-radius:12px;padding:10px 14px 10px 44px;background:var(--ds-field);color:var(--ds-ink);font-family:inherit;font-size:14px;line-height:20px;letter-spacing:0;transition-property:border-color,box-shadow;transition-duration:var(--duration-fast,150ms);transition-timing-function:var(--ease-standard,cubic-bezier(.4,0,.2,1))}.ds-input::placeholder{color:var(--ds-muted);opacity:1}.ds-input:hover{border-color:var(--ds-flat)}.ds-input:focus{outline:none;border-color:var(--ds-brand);box-shadow:var(--ds-ring)}.ds-input:disabled{cursor:not-allowed;background:var(--ds-field-disabled);opacity:.6;border-color:var(--ds-line)}.ds-input[aria-invalid=\"true\"]{border-color:var(--ds-error)}.ds-input[aria-invalid=\"true\"]:focus{box-shadow:0 0 0 3px rgba(185, 28, 28, 0.45)}.ds-hint{margin:0;font-size:12px;line-height:16px;letter-spacing:var(--track-caption,.01em);color:var(--ds-muted)}"
     },
     {
       "name": "Card",
@@ -1007,7 +446,7 @@
       "kind": "card",
       "description": "Card.tsx default, noninteractive card with header/body/footer. 16px radius, panel fill, 1px hairline, e2 light shadow and no dark shadow. Canonical inset values; content and surrounding preview padding are illustrative.",
       "html": "<div class=\"ds-stage\"><section class=\"ds-card\" aria-labelledby=\"ds-card-title\"><div class=\"ds-card-header\"><h3 id=\"ds-card-title\">Latest filing</h3></div><div class=\"ds-card-body\"><p>Review the source filing before drawing conclusions.</p></div><div class=\"ds-card-footer\"><span>Annual report · 10-K</span></div></section></div>",
-      "css": "\n:host,:root{display:block;--ds-page:#F4F3EE;--ds-panel:#FBFAF6;--ds-ink:#1A1A17;--ds-secondary:#374151;--ds-muted:#6B7280;--ds-line:#E5E7EB;--ds-panel-line:#E5E7EB;--ds-brand:#4F7A63;--ds-strong:#3C6650;--ds-active:#345C48;--ds-tint:#ECF2EE;--ds-brand-line:#CFE0D6;--ds-primary-ink:#fff;--ds-primary-hover:#3C6650;--ds-primary-active:#345C48;--ds-ring:0 0 0 3px rgba(79,122,99,.5);--ds-e1:0 1px 2px 0 rgba(16,24,40,.06);--ds-e2:0 1px 3px 0 rgba(16,24,40,.1),0 1px 2px -1px rgba(16,24,40,.1);--ds-e5:0 20px 25px -5px rgba(16,24,40,.12),0 8px 10px -6px rgba(16,24,40,.1);--ds-field:#fff;--ds-flat:#6B7280;--ds-warning:#92400E;--ds-warning-tint:rgba(146,64,14,.1);--ds-gain:#15803D;--ds-loss:#B91C1C;--ds-hover:#fff;--ds-header:rgba(244,243,238,.8);--ds-header-line:#E5E7EB;--ds-primary-disabled:rgba(79,122,99,.45);--ds-primary-disabled-ink:rgba(255,255,255,.8)}\n:host(.dark),:root.dark,.ds-dark{--ds-page:#0B1120;--ds-panel:#1F2937;--ds-ink:#D7DADC;--ds-secondary:#9CA3AF;--ds-muted:#9CA3AF;--ds-line:#374151;--ds-panel-line:rgba(255,255,255,.1);--ds-brand:#7FB295;--ds-strong:#98C5AD;--ds-active:#569272;--ds-tint:rgba(127,178,149,.14);--ds-brand-line:rgba(127,178,149,.28);--ds-primary-ink:#0B1120;--ds-primary-hover:#98C5AD;--ds-primary-active:#569272;--ds-ring:0 0 0 3px rgba(127,178,149,.55);--ds-e2:none;--ds-e5:none;--ds-field:rgba(255,255,255,.05);--ds-flat:#9CA3AF;--ds-warning:#F59E0B;--ds-warning-tint:rgba(245,158,11,.15);--ds-gain:#34D399;--ds-loss:#FB7185;--ds-hover:rgba(255,255,255,.03);--ds-header:rgba(11,17,32,.8);--ds-header-line:rgba(255,255,255,.06);--ds-primary-disabled:rgba(127,178,149,.35);--ds-primary-disabled-ink:rgba(11,17,32,.6)}\n.ds-stage,.ds-stage *{box-sizing:border-box}\n.ds-stage{padding:24px;background:var(--ds-page);color:var(--ds-ink);font-family:var(--font-body,-apple-system,BlinkMacSystemFont,Inter,system-ui,sans-serif);font-size:16px;line-height:1.5}\n.ds-stage button,.ds-stage input{font-family:inherit}\n.ds-stage h2,.ds-stage h3{margin:0;font-family:var(--font-heading,var(--font-inter,Inter,-apple-system,BlinkMacSystemFont,system-ui,sans-serif));font-optical-sizing:auto;font-weight:600;color:var(--ds-ink)}\n.ds-stage p{margin:0}.ds-stage :where(a){color:inherit;text-decoration:none}.ds-stage svg{display:block;flex-shrink:0}\n\n.ds-card{border:1px solid var(--ds-panel-line);border-radius:16px;background:var(--ds-panel);box-shadow:var(--ds-e2)}\n.ds-card-header{display:flex;align-items:center;gap:12px;border-bottom:1px solid var(--ds-line);padding:16px 20px}\n.ds-card-header h3{font-size:14px;line-height:20px;letter-spacing:0}\n.ds-card-body{padding:16px 20px}.ds-card-footer{display:flex;align-items:center;gap:12px;border-top:1px solid var(--ds-line);padding:12px 20px}\n"
+      "css": ":host{display:block;width:100%}.ds-stage{--ds-page:#F4F3EE;--ds-panel:#FBFAF6;--ds-ink:#1A1A17;--ds-line:#E5E7EB;--ds-panel-line:#E5E7EB;--ds-e2:0 1px 3px 0 rgba(16, 24, 40, 0.10), 0 1px 2px -1px rgba(16, 24, 40, 0.10);padding:24px;background:var(--ds-page);color:var(--ds-ink);font-family:var(--font-body,-apple-system,BlinkMacSystemFont,Inter,system-ui,sans-serif);font-size:16px;line-height:1.5}@container style(--heading-color: #D7DADC){.ds-stage{--ds-page:#0B1120;--ds-panel:#1F2937;--ds-ink:#D7DADC;--ds-line:#374151;--ds-panel-line:rgba(255,255,255,.1);--ds-e2:none}}.ds-card{border:1px solid var(--ds-panel-line);border-radius:16px;background:var(--ds-panel);box-shadow:var(--ds-e2)}.ds-card-header{display:flex;align-items:center;gap:12px;border-bottom:1px solid var(--ds-line);padding:16px 20px}.ds-card-header h3{margin:0;font-family:var(--font-heading,var(--font-inter,Inter,-apple-system,BlinkMacSystemFont,system-ui,sans-serif));font-optical-sizing:auto;font-weight:600;color:var(--ds-ink);font-size:14px;line-height:20px;letter-spacing:0}.ds-card-body{padding:16px 20px}.ds-card-body p{margin:0}.ds-card-footer{display:flex;align-items:center;gap:12px;border-top:1px solid var(--ds-line);padding:12px 20px}"
     },
     {
       "name": "New filing badge",
@@ -1015,31 +454,31 @@
       "kind": "chip",
       "description": "Badge.tsx new variant: warning tint, 12/16 semibold label, 10px/2px padding, full radius, 6px gap/dot. The dot uses the existing ambient duration and standard easing; reduced motion makes it static. Preview padding is illustrative.",
       "html": "<div class=\"ds-stage\"><span class=\"ds-badge\"><span class=\"ds-dot\" aria-hidden=\"true\"></span>New filing</span></div>",
-      "css": "\n:host,:root{display:block;--ds-page:#F4F3EE;--ds-panel:#FBFAF6;--ds-ink:#1A1A17;--ds-secondary:#374151;--ds-muted:#6B7280;--ds-line:#E5E7EB;--ds-panel-line:#E5E7EB;--ds-brand:#4F7A63;--ds-strong:#3C6650;--ds-active:#345C48;--ds-tint:#ECF2EE;--ds-brand-line:#CFE0D6;--ds-primary-ink:#fff;--ds-primary-hover:#3C6650;--ds-primary-active:#345C48;--ds-ring:0 0 0 3px rgba(79,122,99,.5);--ds-e1:0 1px 2px 0 rgba(16,24,40,.06);--ds-e2:0 1px 3px 0 rgba(16,24,40,.1),0 1px 2px -1px rgba(16,24,40,.1);--ds-e5:0 20px 25px -5px rgba(16,24,40,.12),0 8px 10px -6px rgba(16,24,40,.1);--ds-field:#fff;--ds-flat:#6B7280;--ds-warning:#92400E;--ds-warning-tint:rgba(146,64,14,.1);--ds-gain:#15803D;--ds-loss:#B91C1C;--ds-hover:#fff;--ds-header:rgba(244,243,238,.8);--ds-header-line:#E5E7EB;--ds-primary-disabled:rgba(79,122,99,.45);--ds-primary-disabled-ink:rgba(255,255,255,.8)}\n:host(.dark),:root.dark,.ds-dark{--ds-page:#0B1120;--ds-panel:#1F2937;--ds-ink:#D7DADC;--ds-secondary:#9CA3AF;--ds-muted:#9CA3AF;--ds-line:#374151;--ds-panel-line:rgba(255,255,255,.1);--ds-brand:#7FB295;--ds-strong:#98C5AD;--ds-active:#569272;--ds-tint:rgba(127,178,149,.14);--ds-brand-line:rgba(127,178,149,.28);--ds-primary-ink:#0B1120;--ds-primary-hover:#98C5AD;--ds-primary-active:#569272;--ds-ring:0 0 0 3px rgba(127,178,149,.55);--ds-e2:none;--ds-e5:none;--ds-field:rgba(255,255,255,.05);--ds-flat:#9CA3AF;--ds-warning:#F59E0B;--ds-warning-tint:rgba(245,158,11,.15);--ds-gain:#34D399;--ds-loss:#FB7185;--ds-hover:rgba(255,255,255,.03);--ds-header:rgba(11,17,32,.8);--ds-header-line:rgba(255,255,255,.06);--ds-primary-disabled:rgba(127,178,149,.35);--ds-primary-disabled-ink:rgba(11,17,32,.6)}\n.ds-stage,.ds-stage *{box-sizing:border-box}\n.ds-stage{padding:24px;background:var(--ds-page);color:var(--ds-ink);font-family:var(--font-body,-apple-system,BlinkMacSystemFont,Inter,system-ui,sans-serif);font-size:16px;line-height:1.5}\n.ds-stage button,.ds-stage input{font-family:inherit}\n.ds-stage h2,.ds-stage h3{margin:0;font-family:var(--font-heading,var(--font-inter,Inter,-apple-system,BlinkMacSystemFont,system-ui,sans-serif));font-optical-sizing:auto;font-weight:600;color:var(--ds-ink)}\n.ds-stage p{margin:0}.ds-stage :where(a){color:inherit;text-decoration:none}.ds-stage svg{display:block;flex-shrink:0}\n\n.ds-badge{display:inline-flex;align-items:center;gap:6px;white-space:nowrap;border-radius:9999px;padding:2px 10px;font-size:12px;line-height:16px;font-weight:600;letter-spacing:var(--track-caption,.01em);background:var(--ds-warning-tint);color:var(--ds-warning)}\n.ds-dot{width:6px;height:6px;border-radius:9999px;background:currentColor;animation:ds-pulse var(--duration-ambient,1800ms) var(--ease-standard,cubic-bezier(.4,0,.2,1)) infinite}\n@keyframes ds-pulse{0%,100%{opacity:1}50%{opacity:.5}}@media(prefers-reduced-motion:reduce){.ds-dot{animation:none}}\n"
+      "css": ":host{display:block;width:100%}.ds-stage{--ds-page:#F4F3EE;--ds-ink:#1A1A17;--ds-warning:#92400E;--ds-warning-tint:rgba(146,64,14,.1);padding:24px;background:var(--ds-page);color:var(--ds-ink);font-family:var(--font-body,-apple-system,BlinkMacSystemFont,Inter,system-ui,sans-serif);font-size:16px;line-height:1.5}@container style(--heading-color: #D7DADC){.ds-stage{--ds-page:#0B1120;--ds-ink:#D7DADC;--ds-warning:#F59E0B;--ds-warning-tint:rgba(245,158,11,.15)}}.ds-badge{display:inline-flex;align-items:center;gap:6px;white-space:nowrap;border-radius:9999px;padding:2px 10px;font-size:12px;line-height:16px;font-weight:600;letter-spacing:var(--track-caption,.01em);background:var(--ds-warning-tint);color:var(--ds-warning)}.ds-dot{width:6px;height:6px;border-radius:9999px;background:currentColor;animation:ds-pulse var(--duration-ambient,1800ms) var(--ease-standard,cubic-bezier(.4,0,.2,1)) infinite}@keyframes ds-pulse{0%,100%{opacity:1}50%{opacity:.5}}@media(prefers-reduced-motion:reduce){.ds-dot{animation:none}}"
     },
     {
       "name": "Navigation",
       "refersTo": "navigation",
       "kind": "nav",
-      "description": "Header.tsx geometry with exact EarningsNerdLogo/Icon SVG paths and wordmark treatment. Sticky z50 header, 80% page fill, 24px blur, max width1280px, 16/24/32px horizontal padding, desktop switch1024px, wordmark switch640px, 44px mobile target. Pricing/Contact are always-present source links; account copy and hash destinations are illustrative. Mobile menu button is a static preview; theme/auth controls omitted.",
+      "description": "Header.tsx geometry with exact EarningsNerdLogo/Icon SVG paths and wordmark treatment: sticky z-50 header, 80% page-ground fill, 24px blur, 1280px maximum width, 16/24/32px horizontal padding, 44px mobile targets. The source switches at the 640px (wordmark) and 1024px (desktop links) viewport breakpoints; the specimen evaluates the same thresholds against its own available width, so a narrow panel shows the phone layout. Pricing/Contact are always-present source links; account copy and hash destinations are illustrative. The menu button is a static preview; theme/auth controls are omitted.",
       "html": "<div class=\"ds-stage ds-navigation-stage\"><header class=\"ds-header\"><div class=\"ds-header-inner\"><a class=\"ds-logo\" href=\"#ds-preview-home\" aria-label=\"EarningsNerd home\"><svg viewBox=\"0 0 94.6 73.2\" class=\"ds-logo-icon\" aria-hidden=\"true\" xmlns=\"http://www.w3.org/2000/svg\" > <g transform=\"translate(0,-14.8)\"> <path d=\"M2.8 28L26.2 28Q29 28 29 30.8L29 36.2Q29 39 26.2 39L12.9 39Q11.5 39 11.5 40.4L11.5 42.1Q11.5 43.5 12.9 43.5L23.2 43.5Q26 43.5 26 46.3L26 51.7Q26 54.5 23.2 54.5L12.9 54.5Q11.5 54.5 11.5 55.9L11.5 57.6Q11.5 59 12.9 59L26.2 59Q29 59 29 61.8L29 67.2Q29 70 26.2 70L2.8 70Q0 70 0 67.2L0 30.8Q0 28 2.8 28Z\" fill=\"currentColor\" /> <g transform=\"translate(0.92,6.98) scale(0.9193)\"> <path d=\"M36.98 84.42L49.76 58.87Q50.65 57.08 51.54 58.87L65.21 86.2Q66.11 88 68.13 88L68.57 88Q70.59 88 71.49 86.2L93.87 41.43Q95.66 37.86 92.09 36.07L84.21 32.13Q80.64 30.34 78.85 33.92L69.24 53.13Q68.35 54.92 67.46 53.13L53.79 25.8Q52.89 24 50.87 24L50.43 24Q48.41 24 47.51 25.8L18.2 84.42Q16.41 88 20.41 88L31.19 88Q35.19 88 36.98 84.42Z\" fill=\"currentColor\" /> <path d=\"M101.76 42.95L101.05 12.49Q100.96 8.49 97.7 10.81L72.91 28.53Q69.65 30.85 73.23 32.64L98.27 45.16Q101.85 46.95 101.76 42.95Z\" fill=\"currentColor\" /> </g> </g> </svg><span class=\"ds-wordmark\">Earnings<em>Nerd</em></span></a><nav class=\"ds-desktop-nav\" aria-label=\"Main navigation\"><a href=\"#ds-preview-pricing\">Pricing</a><a href=\"#ds-preview-contact\">Contact</a></nav><div class=\"ds-desktop-actions\"><a class=\"ds-button ds-ghost\" href=\"#ds-preview-login\">Log in</a><a class=\"ds-button ds-primary\" href=\"#ds-preview-account\">Account</a></div><div class=\"ds-mobile-actions\"><a class=\"ds-button ds-primary\" href=\"#ds-preview-account\">Account</a><button type=\"button\" class=\"ds-menu\" aria-label=\"Open menu — static preview\"><svg width=\"20\" height=\"20\" viewBox=\"0 0 24 24\" fill=\"none\" aria-hidden=\"true\"><path d=\"M4 6h16M4 12h16M4 18h16\" stroke=\"currentColor\" stroke-width=\"1.7\" stroke-linecap=\"round\"/></svg></button></div></div></header></div>",
-      "css": "\n:host,:root{display:block;--ds-page:#F4F3EE;--ds-panel:#FBFAF6;--ds-ink:#1A1A17;--ds-secondary:#374151;--ds-muted:#6B7280;--ds-line:#E5E7EB;--ds-panel-line:#E5E7EB;--ds-brand:#4F7A63;--ds-strong:#3C6650;--ds-active:#345C48;--ds-tint:#ECF2EE;--ds-brand-line:#CFE0D6;--ds-primary-ink:#fff;--ds-primary-hover:#3C6650;--ds-primary-active:#345C48;--ds-ring:0 0 0 3px rgba(79,122,99,.5);--ds-e1:0 1px 2px 0 rgba(16,24,40,.06);--ds-e2:0 1px 3px 0 rgba(16,24,40,.1),0 1px 2px -1px rgba(16,24,40,.1);--ds-e5:0 20px 25px -5px rgba(16,24,40,.12),0 8px 10px -6px rgba(16,24,40,.1);--ds-field:#fff;--ds-flat:#6B7280;--ds-warning:#92400E;--ds-warning-tint:rgba(146,64,14,.1);--ds-gain:#15803D;--ds-loss:#B91C1C;--ds-hover:#fff;--ds-header:rgba(244,243,238,.8);--ds-header-line:#E5E7EB;--ds-primary-disabled:rgba(79,122,99,.45);--ds-primary-disabled-ink:rgba(255,255,255,.8)}\n:host(.dark),:root.dark,.ds-dark{--ds-page:#0B1120;--ds-panel:#1F2937;--ds-ink:#D7DADC;--ds-secondary:#9CA3AF;--ds-muted:#9CA3AF;--ds-line:#374151;--ds-panel-line:rgba(255,255,255,.1);--ds-brand:#7FB295;--ds-strong:#98C5AD;--ds-active:#569272;--ds-tint:rgba(127,178,149,.14);--ds-brand-line:rgba(127,178,149,.28);--ds-primary-ink:#0B1120;--ds-primary-hover:#98C5AD;--ds-primary-active:#569272;--ds-ring:0 0 0 3px rgba(127,178,149,.55);--ds-e2:none;--ds-e5:none;--ds-field:rgba(255,255,255,.05);--ds-flat:#9CA3AF;--ds-warning:#F59E0B;--ds-warning-tint:rgba(245,158,11,.15);--ds-gain:#34D399;--ds-loss:#FB7185;--ds-hover:rgba(255,255,255,.03);--ds-header:rgba(11,17,32,.8);--ds-header-line:rgba(255,255,255,.06);--ds-primary-disabled:rgba(127,178,149,.35);--ds-primary-disabled-ink:rgba(11,17,32,.6)}\n.ds-stage,.ds-stage *{box-sizing:border-box}\n.ds-stage{padding:24px;background:var(--ds-page);color:var(--ds-ink);font-family:var(--font-body,-apple-system,BlinkMacSystemFont,Inter,system-ui,sans-serif);font-size:16px;line-height:1.5}\n.ds-stage button,.ds-stage input{font-family:inherit}\n.ds-stage h2,.ds-stage h3{margin:0;font-family:var(--font-heading,var(--font-inter,Inter,-apple-system,BlinkMacSystemFont,system-ui,sans-serif));font-optical-sizing:auto;font-weight:600;color:var(--ds-ink)}\n.ds-stage p{margin:0}.ds-stage :where(a){color:inherit;text-decoration:none}.ds-stage svg{display:block;flex-shrink:0}\n\n.ds-button{display:inline-flex;align-items:center;justify-content:center;gap:8px;height:40px;padding:0 16px;border:0;border-radius:12px;font-size:14px;line-height:20px;font-weight:600;letter-spacing:0;white-space:nowrap;user-select:none;cursor:pointer;transition:color var(--duration-fast,150ms) var(--ease-standard,cubic-bezier(.4,0,.2,1)),background-color var(--duration-fast,150ms) var(--ease-standard,cubic-bezier(.4,0,.2,1)),border-color var(--duration-fast,150ms) var(--ease-standard,cubic-bezier(.4,0,.2,1))}\n.ds-button:focus-visible{outline:none;box-shadow:var(--ds-ring)}\n.ds-button:disabled{cursor:not-allowed}\n\n.ds-primary{background:var(--ds-brand);color:var(--ds-primary-ink);box-shadow:var(--ds-e1)}\n.ds-primary:hover{background:var(--ds-primary-hover)}.ds-primary:active{background:var(--ds-primary-active);box-shadow:none}\n.ds-primary:focus-visible{box-shadow:var(--ds-ring)}\n.ds-primary:disabled{background:var(--ds-primary-disabled);color:var(--ds-primary-disabled-ink);box-shadow:none}\n\n.ds-secondary{border:1px solid var(--ds-brand-line);background:transparent;color:var(--ds-strong)}\n.ds-secondary:hover{background:var(--ds-tint)}.ds-secondary:active{background:rgba(207,224,214,.6)}\n:host(.dark) .ds-secondary:active,:root.dark .ds-secondary:active,.ds-dark .ds-secondary:active{background:rgba(127,178,149,.28)}\n.ds-secondary:disabled{opacity:.5;background:transparent}\n\n.ds-navigation-stage{padding:0}.ds-header{position:sticky;top:0;z-index:50;border-bottom:1px solid var(--ds-header-line);background:var(--ds-header);backdrop-filter:blur(24px)}\n.ds-header-inner{display:flex;align-items:center;justify-content:space-between;max-width:1280px;margin:0 auto;padding:12px 16px}\n.ds-logo{display:flex;align-items:center;gap:10px}.ds-logo-icon{width:36px;height:36px;color:var(--ds-strong)}\n.ds-wordmark{display:none;font-size:20px;line-height:1;font-weight:600;letter-spacing:var(--track-title3,-.012em)}.ds-wordmark em{font-style:italic;color:var(--ds-strong)}\n.ds-desktop-nav{display:none;align-items:center;gap:32px}.ds-desktop-nav a{font-size:14px;line-height:20px;font-weight:500;color:var(--ds-secondary);transition:color var(--duration-base,200ms) var(--ease-standard,cubic-bezier(.4,0,.2,1))}\n.ds-desktop-nav a:hover{color:var(--ds-ink)}.ds-desktop-nav a:focus-visible{outline:none;box-shadow:var(--ds-ring)}\n.ds-desktop-actions{display:none;align-items:center;gap:12px}.ds-mobile-actions{display:flex;align-items:center;gap:4px}.ds-mobile-actions .ds-button{min-height:44px}\n.ds-menu{display:inline-flex;align-items:center;justify-content:center;min-height:44px;min-width:44px;padding:8px;border:0;border-radius:12px;background:transparent;color:var(--ds-secondary);cursor:pointer}.ds-menu:hover{color:var(--ds-ink)}\n@media(min-width:640px){.ds-header-inner{padding-left:24px;padding-right:24px}.ds-wordmark{display:inline}}\n@media(min-width:1024px){.ds-header-inner{padding-left:32px;padding-right:32px}.ds-desktop-nav,.ds-desktop-actions{display:flex}.ds-mobile-actions{display:none}}\n\n.ds-ghost{background:transparent;color:var(--ds-strong)}\n.ds-ghost:hover{background:var(--ds-tint)}.ds-ghost:active{background:rgba(207,224,214,.6)}\n:host(.dark) .ds-ghost:active,:root.dark .ds-ghost:active,.ds-dark .ds-ghost:active{background:rgba(127,178,149,.28)}\n.ds-ghost:disabled{opacity:.5;background:transparent}\n"
+      "css": ":host{display:block;width:100%}.ds-stage{--ds-page:#F4F3EE;--ds-ink:#1A1A17;--ds-secondary:#374151;--ds-brand:#4F7A63;--ds-strong:#3C6650;--ds-tint:#ECF2EE;--ds-pressed:rgba(207,224,214,.6);--ds-primary-ink:#FFFFFF;--ds-primary-hover:#3C6650;--ds-primary-active:#345C48;--ds-ring:0 0 0 3px rgba(79, 122, 99, 0.50);--ds-e1:0 1px 2px 0 rgba(16, 24, 40, 0.06);--ds-header:rgba(244,243,238,.8);--ds-header-line:#E5E7EB;padding:24px;background:var(--ds-page);color:var(--ds-ink);font-family:var(--font-body,-apple-system,BlinkMacSystemFont,Inter,system-ui,sans-serif);font-size:16px;line-height:1.5}@container style(--heading-color: #D7DADC){.ds-stage{--ds-page:#0B1120;--ds-ink:#D7DADC;--ds-secondary:#9CA3AF;--ds-brand:#7FB295;--ds-strong:#98C5AD;--ds-tint:rgba(127,178,149,.14);--ds-pressed:rgba(127,178,149,.28);--ds-primary-ink:#0B1120;--ds-primary-hover:#98C5AD;--ds-primary-active:#569272;--ds-ring:0 0 0 3px rgba(127, 178, 149, 0.55);--ds-header:rgba(11,17,32,.8);--ds-header-line:rgba(255,255,255,.06)}}.ds-button{display:inline-flex;align-items:center;justify-content:center;gap:8px;box-sizing:border-box;height:40px;padding:0 16px;border:0;border-radius:12px;font-family:inherit;font-size:14px;line-height:20px;font-weight:600;letter-spacing:0;white-space:nowrap;user-select:none;cursor:pointer;transition-property:color,background-color,border-color;transition-duration:var(--duration-fast,150ms);transition-timing-function:var(--ease-standard,cubic-bezier(.4,0,.2,1))}.ds-button:focus-visible{outline:none;box-shadow:var(--ds-ring)}.ds-primary{background:var(--ds-brand);color:var(--ds-primary-ink);box-shadow:var(--ds-e1)}.ds-primary:hover{background:var(--ds-primary-hover)}.ds-primary:active{background:var(--ds-primary-active);box-shadow:none}.ds-primary:focus-visible{box-shadow:var(--ds-ring)}.ds-ghost{background:transparent;color:var(--ds-strong)}.ds-ghost:hover{background:var(--ds-tint)}.ds-ghost:active{background:var(--ds-pressed)}.ds-navigation-stage{padding:0;container-type:inline-size}:where(.ds-header a){color:inherit;text-decoration:none}.ds-header svg{display:block;flex-shrink:0}.ds-header{position:sticky;top:0;z-index:50;border-bottom:1px solid var(--ds-header-line);background:var(--ds-header);backdrop-filter:blur(24px)}.ds-header-inner{display:flex;align-items:center;justify-content:space-between;max-width:1280px;margin:0 auto;padding:12px 16px}.ds-logo{display:flex;align-items:center;gap:10px}.ds-logo-icon{width:36px;height:36px;color:var(--ds-strong)}.ds-wordmark{display:none;font-size:20px;line-height:1;font-weight:600;letter-spacing:var(--track-title3,-.012em)}.ds-wordmark em{font-style:italic;color:var(--ds-strong)}.ds-desktop-nav{display:none;align-items:center;gap:32px}.ds-desktop-nav a{font-size:14px;line-height:20px;font-weight:500;color:var(--ds-secondary);transition:color var(--duration-base,200ms) var(--ease-standard,cubic-bezier(.4,0,.2,1))}.ds-desktop-nav a:hover{color:var(--ds-ink)}.ds-desktop-nav a:focus-visible{outline:none;box-shadow:var(--ds-ring)}.ds-desktop-actions{display:none;align-items:center;gap:12px}.ds-mobile-actions{display:flex;align-items:center;gap:4px}.ds-mobile-actions .ds-button{min-height:44px}.ds-menu{display:inline-flex;align-items:center;justify-content:center;min-height:44px;min-width:44px;padding:8px;border:0;border-radius:12px;background:transparent;color:var(--ds-secondary);cursor:pointer}.ds-menu:hover{color:var(--ds-ink)}@container (min-width:640px){.ds-header-inner{padding-left:24px;padding-right:24px}.ds-wordmark{display:inline}}@container (min-width:1024px){.ds-header-inner{padding-left:32px;padding-right:32px}.ds-desktop-nav,.ds-desktop-actions{display:flex}.ds-mobile-actions{display:none}}"
     },
     {
       "name": "Financial data table",
       "refersTo": "data-table",
       "kind": "custom",
-      "description": "DataTable.tsx comfortable density: header12/16 with 8px vertical padding, body14/20 with 10px vertical padding, 12px horizontal cells. Numeric cells use Geist Mono/tabular figures and gain/loss text hues. Row hover and keyboard-focus treatment match source. Table rendered in an illustrative canonical Card wrapper; values and rows are illustrative. Sort button demonstrates static ascending state only.",
+      "description": "DataTable.tsx comfortable density: 12/16 header with 8px vertical padding, 14/20 body with 10px vertical padding, 12px horizontal cells. Numeric cells use Geist Mono/tabular figures and gain/loss text hues; row hover and keyboard focus match source. The table sits in an illustrative canonical card and scrolls horizontally inside it when the available width is narrower than the table. Values and rows are illustrative; the sort button shows a static ascending state only.",
       "html": "<div class=\"ds-stage\"><div class=\"ds-table-panel\"><div class=\"ds-table-scroll\"><table class=\"ds-table\"><caption class=\"ds-sr-only\">Illustrative filing metrics; values are sample data.</caption><thead><tr><th scope=\"col\">Metric</th><th scope=\"col\" class=\"ds-right\" aria-sort=\"ascending\"><button type=\"button\" class=\"ds-sort\">Current <span aria-hidden=\"true\">▲</span></button></th><th scope=\"col\" class=\"ds-right\">Change</th></tr></thead><tbody><tr><td>Revenue</td><td class=\"ds-numeric ds-right\">$12.4B</td><td class=\"ds-numeric ds-right ds-gain\">+4.2%</td></tr><tr><td>Operating income</td><td class=\"ds-numeric ds-right\">$2.1B</td><td class=\"ds-numeric ds-right ds-loss\">−1.8%</td></tr><tr><td>Cash and equivalents</td><td class=\"ds-numeric ds-right\">$6.8B</td><td class=\"ds-numeric ds-right ds-flat\">0.0%</td></tr></tbody></table></div></div></div>",
-      "css": "\n:host,:root{display:block;--ds-page:#F4F3EE;--ds-panel:#FBFAF6;--ds-ink:#1A1A17;--ds-secondary:#374151;--ds-muted:#6B7280;--ds-line:#E5E7EB;--ds-panel-line:#E5E7EB;--ds-brand:#4F7A63;--ds-strong:#3C6650;--ds-active:#345C48;--ds-tint:#ECF2EE;--ds-brand-line:#CFE0D6;--ds-primary-ink:#fff;--ds-primary-hover:#3C6650;--ds-primary-active:#345C48;--ds-ring:0 0 0 3px rgba(79,122,99,.5);--ds-e1:0 1px 2px 0 rgba(16,24,40,.06);--ds-e2:0 1px 3px 0 rgba(16,24,40,.1),0 1px 2px -1px rgba(16,24,40,.1);--ds-e5:0 20px 25px -5px rgba(16,24,40,.12),0 8px 10px -6px rgba(16,24,40,.1);--ds-field:#fff;--ds-flat:#6B7280;--ds-warning:#92400E;--ds-warning-tint:rgba(146,64,14,.1);--ds-gain:#15803D;--ds-loss:#B91C1C;--ds-hover:#fff;--ds-header:rgba(244,243,238,.8);--ds-header-line:#E5E7EB;--ds-primary-disabled:rgba(79,122,99,.45);--ds-primary-disabled-ink:rgba(255,255,255,.8)}\n:host(.dark),:root.dark,.ds-dark{--ds-page:#0B1120;--ds-panel:#1F2937;--ds-ink:#D7DADC;--ds-secondary:#9CA3AF;--ds-muted:#9CA3AF;--ds-line:#374151;--ds-panel-line:rgba(255,255,255,.1);--ds-brand:#7FB295;--ds-strong:#98C5AD;--ds-active:#569272;--ds-tint:rgba(127,178,149,.14);--ds-brand-line:rgba(127,178,149,.28);--ds-primary-ink:#0B1120;--ds-primary-hover:#98C5AD;--ds-primary-active:#569272;--ds-ring:0 0 0 3px rgba(127,178,149,.55);--ds-e2:none;--ds-e5:none;--ds-field:rgba(255,255,255,.05);--ds-flat:#9CA3AF;--ds-warning:#F59E0B;--ds-warning-tint:rgba(245,158,11,.15);--ds-gain:#34D399;--ds-loss:#FB7185;--ds-hover:rgba(255,255,255,.03);--ds-header:rgba(11,17,32,.8);--ds-header-line:rgba(255,255,255,.06);--ds-primary-disabled:rgba(127,178,149,.35);--ds-primary-disabled-ink:rgba(11,17,32,.6)}\n.ds-stage,.ds-stage *{box-sizing:border-box}\n.ds-stage{padding:24px;background:var(--ds-page);color:var(--ds-ink);font-family:var(--font-body,-apple-system,BlinkMacSystemFont,Inter,system-ui,sans-serif);font-size:16px;line-height:1.5}\n.ds-stage button,.ds-stage input{font-family:inherit}\n.ds-stage h2,.ds-stage h3{margin:0;font-family:var(--font-heading,var(--font-inter,Inter,-apple-system,BlinkMacSystemFont,system-ui,sans-serif));font-optical-sizing:auto;font-weight:600;color:var(--ds-ink)}\n.ds-stage p{margin:0}.ds-stage :where(a){color:inherit;text-decoration:none}.ds-stage svg{display:block;flex-shrink:0}\n\n.ds-table-panel{overflow:hidden;border:1px solid var(--ds-panel-line);border-radius:16px;background:var(--ds-panel);box-shadow:var(--ds-e2)}\n.ds-table-scroll{overflow-x:auto}.ds-table{border-collapse:collapse;width:100%;font-size:14px;line-height:20px}\n.ds-sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}\n.ds-table thead{font-size:12px;line-height:16px;text-align:left;text-transform:uppercase;letter-spacing:var(--track-eyebrow,.08em);color:var(--ds-muted)}\n.ds-table th{padding:8px 12px;font-weight:600}.ds-table td{padding:10px 12px;border-top:1px solid var(--ds-line)}\n.ds-table .ds-right{text-align:right}.ds-numeric{font-family:var(--font-data,var(--font-geist-mono,\"Geist Mono\",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace));font-variant-numeric:tabular-nums}\n.ds-gain{font-weight:600;color:var(--ds-gain)}.ds-loss{font-weight:600;color:var(--ds-loss)}.ds-flat{color:var(--ds-flat)}\n.ds-table tbody tr{transition:background-color var(--duration-base,200ms) var(--ease-standard,cubic-bezier(.4,0,.2,1))}.ds-table tbody tr:hover{background:var(--ds-hover)}\n.ds-sort{display:inline-flex;flex-direction:row-reverse;align-items:center;gap:4px;padding:0;border:0;border-radius:8px;background:transparent;color:inherit;font-size:inherit;line-height:inherit;font-weight:inherit;text-transform:uppercase;letter-spacing:var(--track-eyebrow,.08em);cursor:pointer}\n.ds-sort:hover{color:var(--ds-ink)}.ds-sort:focus-visible{outline:none;box-shadow:var(--ds-ring)}.ds-sort span{font-size:9px;line-height:1;color:var(--ds-strong)}\n"
+      "css": ":host{display:block;width:100%}.ds-stage{--ds-page:#F4F3EE;--ds-panel:#FBFAF6;--ds-ink:#1A1A17;--ds-muted:#6B7280;--ds-line:#E5E7EB;--ds-panel-line:#E5E7EB;--ds-strong:#3C6650;--ds-ring:0 0 0 3px rgba(79, 122, 99, 0.50);--ds-e2:0 1px 3px 0 rgba(16, 24, 40, 0.10), 0 1px 2px -1px rgba(16, 24, 40, 0.10);--ds-flat:#6B7280;--ds-gain:#15803D;--ds-loss:#B91C1C;--ds-hover:#FFFFFF;padding:24px;background:var(--ds-page);color:var(--ds-ink);font-family:var(--font-body,-apple-system,BlinkMacSystemFont,Inter,system-ui,sans-serif);font-size:16px;line-height:1.5}@container style(--heading-color: #D7DADC){.ds-stage{--ds-page:#0B1120;--ds-panel:#1F2937;--ds-ink:#D7DADC;--ds-muted:#9CA3AF;--ds-line:#374151;--ds-panel-line:rgba(255,255,255,.1);--ds-strong:#98C5AD;--ds-ring:0 0 0 3px rgba(127, 178, 149, 0.55);--ds-e2:none;--ds-flat:#9CA3AF;--ds-gain:#34D399;--ds-loss:#FB7185;--ds-hover:rgba(255,255,255,.03)}}.ds-table-panel{overflow:hidden;border:1px solid var(--ds-panel-line);border-radius:16px;background:var(--ds-panel);box-shadow:var(--ds-e2)}.ds-table-scroll{overflow-x:auto}.ds-table{border-collapse:collapse;width:100%;font-size:14px;line-height:20px}.ds-sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}.ds-table thead{font-size:12px;line-height:16px;text-align:left;text-transform:uppercase;letter-spacing:var(--track-eyebrow,.08em);color:var(--ds-muted)}.ds-table th{padding:8px 12px;font-weight:600}.ds-table td{padding:10px 12px;border-top:1px solid var(--ds-line)}.ds-table .ds-right{text-align:right}.ds-numeric{font-family:var(--font-data,var(--font-geist-mono,\"Geist Mono\",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace));font-variant-numeric:tabular-nums}.ds-gain{font-weight:600;color:var(--ds-gain)}.ds-loss{font-weight:600;color:var(--ds-loss)}.ds-flat{color:var(--ds-flat)}.ds-table tbody tr{transition:background-color var(--duration-base,200ms) var(--ease-standard,cubic-bezier(.4,0,.2,1))}.ds-table tbody tr:hover{background:var(--ds-hover)}.ds-sort{display:inline-flex;flex-direction:row-reverse;align-items:center;gap:4px;padding:0;border:0;border-radius:8px;background:transparent;color:inherit;font:inherit;text-transform:uppercase;letter-spacing:var(--track-eyebrow,.08em);cursor:pointer}.ds-sort:hover{color:var(--ds-ink)}.ds-sort:focus-visible{outline:none;box-shadow:var(--ds-ring)}.ds-sort span{font-size:9px;line-height:1;color:var(--ds-strong)}"
     },
     {
       "name": "Modal visual",
       "refersTo": "modal",
       "kind": "custom",
-      "description": "Static visual extraction of Modal.tsx md: 448px maximum width, 24px radius, panel/e5 treatment, 16px scrim inset, 24px scroll padding. Canonical header/body/footer insets, footer breakpoint640px, source fadeIn timing. Preview scrim is locally contained at min-height300px; copy is illustrative. It is intentionally a section, not a functioning dialog: no focus trap, portal, body lock, Escape handler or close/action behavior is supplied.",
+      "description": "Static visual extraction of Modal.tsx md: 448px maximum width, 24px radius, panel/e5 treatment, 16px scrim inset, 24px scroll padding, canonical header/body/footer insets and the source entrance timing. The footer stacks below 640px and becomes a row from 640px, measured against the specimen's available width rather than the viewport. The preview scrim is contained locally at a 300px minimum height and the copy is illustrative. It is intentionally a section, not a working dialog: no focus trap, portal, body lock, Escape handler or close/action behavior is supplied.",
       "html": "<div class=\"ds-stage ds-modal-stage\"><div class=\"ds-modal-backdrop\"><section class=\"ds-modal\" aria-labelledby=\"ds-modal-title\"><div class=\"ds-modal-header\"><h2 id=\"ds-modal-title\">Review the source filing</h2><button class=\"ds-modal-close\" type=\"button\" aria-label=\"Close — static preview\"><svg width=\"20\" height=\"20\" viewBox=\"0 0 24 24\" fill=\"none\" aria-hidden=\"true\"><path d=\"m6 6 12 12M18 6 6 18\" stroke=\"currentColor\" stroke-width=\"1.7\" stroke-linecap=\"round\"/></svg></button></div><div class=\"ds-modal-body\"><p>Keep the original filing alongside your research notes.</p></div><div class=\"ds-modal-footer\"><button class=\"ds-button ds-secondary\" type=\"button\">Cancel</button><button class=\"ds-button ds-primary\" type=\"button\">View filing</button></div></section></div></div>",
-      "css": "\n:host,:root{display:block;--ds-page:#F4F3EE;--ds-panel:#FBFAF6;--ds-ink:#1A1A17;--ds-secondary:#374151;--ds-muted:#6B7280;--ds-line:#E5E7EB;--ds-panel-line:#E5E7EB;--ds-brand:#4F7A63;--ds-strong:#3C6650;--ds-active:#345C48;--ds-tint:#ECF2EE;--ds-brand-line:#CFE0D6;--ds-primary-ink:#fff;--ds-primary-hover:#3C6650;--ds-primary-active:#345C48;--ds-ring:0 0 0 3px rgba(79,122,99,.5);--ds-e1:0 1px 2px 0 rgba(16,24,40,.06);--ds-e2:0 1px 3px 0 rgba(16,24,40,.1),0 1px 2px -1px rgba(16,24,40,.1);--ds-e5:0 20px 25px -5px rgba(16,24,40,.12),0 8px 10px -6px rgba(16,24,40,.1);--ds-field:#fff;--ds-flat:#6B7280;--ds-warning:#92400E;--ds-warning-tint:rgba(146,64,14,.1);--ds-gain:#15803D;--ds-loss:#B91C1C;--ds-hover:#fff;--ds-header:rgba(244,243,238,.8);--ds-header-line:#E5E7EB;--ds-primary-disabled:rgba(79,122,99,.45);--ds-primary-disabled-ink:rgba(255,255,255,.8)}\n:host(.dark),:root.dark,.ds-dark{--ds-page:#0B1120;--ds-panel:#1F2937;--ds-ink:#D7DADC;--ds-secondary:#9CA3AF;--ds-muted:#9CA3AF;--ds-line:#374151;--ds-panel-line:rgba(255,255,255,.1);--ds-brand:#7FB295;--ds-strong:#98C5AD;--ds-active:#569272;--ds-tint:rgba(127,178,149,.14);--ds-brand-line:rgba(127,178,149,.28);--ds-primary-ink:#0B1120;--ds-primary-hover:#98C5AD;--ds-primary-active:#569272;--ds-ring:0 0 0 3px rgba(127,178,149,.55);--ds-e2:none;--ds-e5:none;--ds-field:rgba(255,255,255,.05);--ds-flat:#9CA3AF;--ds-warning:#F59E0B;--ds-warning-tint:rgba(245,158,11,.15);--ds-gain:#34D399;--ds-loss:#FB7185;--ds-hover:rgba(255,255,255,.03);--ds-header:rgba(11,17,32,.8);--ds-header-line:rgba(255,255,255,.06);--ds-primary-disabled:rgba(127,178,149,.35);--ds-primary-disabled-ink:rgba(11,17,32,.6)}\n.ds-stage,.ds-stage *{box-sizing:border-box}\n.ds-stage{padding:24px;background:var(--ds-page);color:var(--ds-ink);font-family:var(--font-body,-apple-system,BlinkMacSystemFont,Inter,system-ui,sans-serif);font-size:16px;line-height:1.5}\n.ds-stage button,.ds-stage input{font-family:inherit}\n.ds-stage h2,.ds-stage h3{margin:0;font-family:var(--font-heading,var(--font-inter,Inter,-apple-system,BlinkMacSystemFont,system-ui,sans-serif));font-optical-sizing:auto;font-weight:600;color:var(--ds-ink)}\n.ds-stage p{margin:0}.ds-stage :where(a){color:inherit;text-decoration:none}.ds-stage svg{display:block;flex-shrink:0}\n\n.ds-button{display:inline-flex;align-items:center;justify-content:center;gap:8px;height:40px;padding:0 16px;border:0;border-radius:12px;font-size:14px;line-height:20px;font-weight:600;letter-spacing:0;white-space:nowrap;user-select:none;cursor:pointer;transition:color var(--duration-fast,150ms) var(--ease-standard,cubic-bezier(.4,0,.2,1)),background-color var(--duration-fast,150ms) var(--ease-standard,cubic-bezier(.4,0,.2,1)),border-color var(--duration-fast,150ms) var(--ease-standard,cubic-bezier(.4,0,.2,1))}\n.ds-button:focus-visible{outline:none;box-shadow:var(--ds-ring)}\n.ds-button:disabled{cursor:not-allowed}\n\n.ds-primary{background:var(--ds-brand);color:var(--ds-primary-ink);box-shadow:var(--ds-e1)}\n.ds-primary:hover{background:var(--ds-primary-hover)}.ds-primary:active{background:var(--ds-primary-active);box-shadow:none}\n.ds-primary:focus-visible{box-shadow:var(--ds-ring)}\n.ds-primary:disabled{background:var(--ds-primary-disabled);color:var(--ds-primary-disabled-ink);box-shadow:none}\n\n.ds-secondary{border:1px solid var(--ds-brand-line);background:transparent;color:var(--ds-strong)}\n.ds-secondary:hover{background:var(--ds-tint)}.ds-secondary:active{background:rgba(207,224,214,.6)}\n:host(.dark) .ds-secondary:active,:root.dark .ds-secondary:active,.ds-dark .ds-secondary:active{background:rgba(127,178,149,.28)}\n.ds-secondary:disabled{opacity:.5;background:transparent}\n\n.ds-modal-stage{padding:0}.ds-modal-backdrop{display:flex;align-items:center;justify-content:center;min-height:300px;padding:16px;background:rgba(11,17,32,.55);backdrop-filter:blur(4px)}\n.ds-modal{position:relative;width:100%;max-width:448px;max-height:calc(100svh - 32px);overflow-y:auto;scroll-padding-top:24px;scroll-padding-bottom:24px;border:1px solid var(--ds-panel-line);border-radius:24px;background:var(--ds-panel);box-shadow:var(--ds-e5);outline:none;animation:ds-modal-in var(--duration-slow,600ms) var(--ease-standard,cubic-bezier(.4,0,.2,1))}\n.ds-modal-header{display:flex;align-items:flex-start;gap:12px;padding:24px 24px 0}.ds-modal-header h2{min-width:0;flex:1;font-size:18px;line-height:28px;letter-spacing:0}\n.ds-modal-close{flex:none;margin:-8px;padding:8px;border:0;border-radius:12px;background:transparent;color:var(--ds-muted);cursor:pointer;transition:color var(--duration-fast,150ms) var(--ease-standard,cubic-bezier(.4,0,.2,1))}\n.ds-modal-close:hover{color:var(--ds-ink)}.ds-modal-close:focus-visible{outline:none;box-shadow:var(--ds-ring)}\n.ds-modal-body{padding:16px 24px}.ds-modal-footer{display:flex;flex-direction:column;gap:8px;padding:8px 24px 24px}.ds-modal-footer .ds-button{width:100%}\n@media(min-width:640px){.ds-modal-footer{flex-direction:row;justify-content:flex-end}.ds-modal-footer .ds-button{width:auto}}\n@keyframes ds-modal-in{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}@media(prefers-reduced-motion:reduce){.ds-modal{animation:none}}\n"
+      "css": ":host{display:block;width:100%}.ds-stage{--ds-page:#F4F3EE;--ds-panel:#FBFAF6;--ds-ink:#1A1A17;--ds-muted:#6B7280;--ds-panel-line:#E5E7EB;--ds-brand:#4F7A63;--ds-strong:#3C6650;--ds-tint:#ECF2EE;--ds-brand-line:#CFE0D6;--ds-pressed:rgba(207,224,214,.6);--ds-primary-ink:#FFFFFF;--ds-primary-hover:#3C6650;--ds-primary-active:#345C48;--ds-ring:0 0 0 3px rgba(79, 122, 99, 0.50);--ds-e1:0 1px 2px 0 rgba(16, 24, 40, 0.06);--ds-e5:0 20px 25px -5px rgba(16, 24, 40, 0.12), 0 8px 10px -6px rgba(16, 24, 40, 0.10);padding:24px;background:var(--ds-page);color:var(--ds-ink);font-family:var(--font-body,-apple-system,BlinkMacSystemFont,Inter,system-ui,sans-serif);font-size:16px;line-height:1.5}@container style(--heading-color: #D7DADC){.ds-stage{--ds-page:#0B1120;--ds-panel:#1F2937;--ds-ink:#D7DADC;--ds-muted:#9CA3AF;--ds-panel-line:rgba(255,255,255,.1);--ds-brand:#7FB295;--ds-strong:#98C5AD;--ds-tint:rgba(127,178,149,.14);--ds-brand-line:rgba(127,178,149,.28);--ds-pressed:rgba(127,178,149,.28);--ds-primary-ink:#0B1120;--ds-primary-hover:#98C5AD;--ds-primary-active:#569272;--ds-ring:0 0 0 3px rgba(127, 178, 149, 0.55);--ds-e5:none}}.ds-button{display:inline-flex;align-items:center;justify-content:center;gap:8px;box-sizing:border-box;height:40px;padding:0 16px;border:0;border-radius:12px;font-family:inherit;font-size:14px;line-height:20px;font-weight:600;letter-spacing:0;white-space:nowrap;user-select:none;cursor:pointer;transition-property:color,background-color,border-color;transition-duration:var(--duration-fast,150ms);transition-timing-function:var(--ease-standard,cubic-bezier(.4,0,.2,1))}.ds-button:focus-visible{outline:none;box-shadow:var(--ds-ring)}.ds-primary{background:var(--ds-brand);color:var(--ds-primary-ink);box-shadow:var(--ds-e1)}.ds-primary:hover{background:var(--ds-primary-hover)}.ds-primary:active{background:var(--ds-primary-active);box-shadow:none}.ds-primary:focus-visible{box-shadow:var(--ds-ring)}.ds-secondary{border:1px solid var(--ds-brand-line);background:transparent;color:var(--ds-strong)}.ds-secondary:hover{background:var(--ds-tint)}.ds-secondary:active{background:var(--ds-pressed)}.ds-modal-stage{padding:0;container-type:inline-size}.ds-modal-backdrop{display:flex;align-items:center;justify-content:center;min-height:300px;padding:16px;background:rgba(11,17,32,.55);backdrop-filter:blur(4px)}.ds-modal{position:relative;box-sizing:border-box;width:100%;max-width:448px;max-height:calc(100svh - 32px);overflow-y:auto;scroll-padding-top:24px;scroll-padding-bottom:24px;border:1px solid var(--ds-panel-line);border-radius:24px;background:var(--ds-panel);box-shadow:var(--ds-e5);outline:none;animation:ds-modal-in var(--duration-slow,600ms) var(--ease-standard,cubic-bezier(.4,0,.2,1))}.ds-modal-header{display:flex;align-items:flex-start;gap:12px;padding:24px 24px 0}.ds-modal-header h2{margin:0;font-family:var(--font-heading,var(--font-inter,Inter,-apple-system,BlinkMacSystemFont,system-ui,sans-serif));font-optical-sizing:auto;font-weight:600;color:var(--ds-ink);min-width:0;flex:1;font-size:18px;line-height:28px;letter-spacing:0}.ds-modal-close{flex:none;margin:-8px;padding:8px;border:0;border-radius:12px;background:transparent;color:var(--ds-muted);cursor:pointer;transition:color var(--duration-fast,150ms) var(--ease-standard,cubic-bezier(.4,0,.2,1))}.ds-modal-close svg{display:block}.ds-modal-close:hover{color:var(--ds-ink)}.ds-modal-close:focus-visible{outline:none;box-shadow:var(--ds-ring)}.ds-modal-body{padding:16px 24px}.ds-modal-body p{margin:0}.ds-modal-footer{display:flex;flex-direction:column;gap:8px;padding:8px 24px 24px}.ds-modal-footer .ds-button{width:100%}@container (min-width:640px){.ds-modal-footer{flex-direction:row;justify-content:flex-end}.ds-modal-footer .ds-button{width:auto}}@keyframes ds-modal-in{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}@media(prefers-reduced-motion:reduce){.ds-modal{animation:none}}"
     }
   ],
   "narrative": {
@@ -1090,7 +529,7 @@
       "**Don't** use light gain/loss graphic colors for small delta text or tertiary dark ink for muted labels.",
       "**Don't** use the legacy 10px radius for new components or uppercase ordinary card titles.",
       "**Don't** apply the filing reader's serif to AI summaries or cap pane-filling summaries to a prose rail.",
-      "**Don't** treat generated preview ramps or illustrative sidecar markup as new production tokens or behavior.",
+      "**Don't** treat illustrative sidecar markup as production tokens or behavior, or add synthetic tonal ramps to the sidecar.",
       "**Don't** create another dialog primitive or remove existing reduced-motion fallbacks."
     ]
   }

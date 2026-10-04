@@ -307,4 +307,3 @@ Ask in user testing:
 - "Was that annoying or delightful?"
 - "Would you want to see that every time?"
 ```
-

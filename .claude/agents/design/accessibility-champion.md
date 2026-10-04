@@ -328,4 +328,3 @@ Visual:
 | VoiceOver | iOS | P1 | Monthly |
 | TalkBack | Android | P1 | Monthly |
 | JAWS | Windows | P2 | Quarterly |
-

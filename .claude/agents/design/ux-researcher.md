@@ -261,4 +261,3 @@ Always validate findings with:
 3. Quantitative + qualitative data
 4. Cross-reference with analytics
 ```
-

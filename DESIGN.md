@@ -110,7 +110,7 @@ typography:
     fontFamily: "var(--font-geist-mono), \"Geist Mono\", ui-monospace, SFMono-Regular, \"SF Mono\", Menlo, Consolas, monospace"
     fontSize: "0.6875rem"
     lineHeight: "1rem"
-    letterSpacing: "0"
+    letterSpacing: "0em"
   filing-reader:
     fontFamily: "var(--font-newsreader), Newsreader, \"New York\", ui-serif, Georgia, serif"
     fontSize: "1.1875rem"
@@ -276,13 +276,13 @@ The system is refined, readable and quietly confident. Inter headings organize t
 - Compact controls and data tables within more generous page layouts.
 - Source context, visible focus and truthful state feedback.
 
-This document records the implementation at [`1a79637e4094f8f6ceeb9802014a6a1172283416`](https://github.com/neilmac91/EarningsNerd/tree/1a79637e4094f8f6ceeb9802014a6a1172283416). Token definitions remain in [`frontend/tailwind.config.js`](https://github.com/neilmac91/EarningsNerd/blob/1a79637e4094f8f6ceeb9802014a6a1172283416/frontend/tailwind.config.js) and [`frontend/app/globals.css`](https://github.com/neilmac91/EarningsNerd/blob/1a79637e4094f8f6ceeb9802014a6a1172283416/frontend/app/globals.css); the frontmatter is their portable snapshot. [`frontend/DESIGN_SYSTEM.md`](frontend/DESIGN_SYSTEM.md) retains current implementation conventions and verification gates. [AGENTS.md](AGENTS.md) and [CLAUDE.md](CLAUDE.md#design-documentation) route UI work through both documents and define maintenance. Actual token definitions and component code take precedence over a stale snapshot. Refresh affected visual content and [its sidecar](.impeccable/design.json) together when the documented system changes; routing-only edits can leave an unchanged sidecar intact. The descriptive language above was confirmed by the project owner.
+This document records the implementation at [`1a79637e4094f8f6ceeb9802014a6a1172283416`](https://github.com/neilmac91/EarningsNerd/tree/1a79637e4094f8f6ceeb9802014a6a1172283416); the links below open the current files. Token definitions remain in [`frontend/tailwind.config.js`](frontend/tailwind.config.js) and [`frontend/app/globals.css`](frontend/app/globals.css); the frontmatter is their portable snapshot, and [`designSnapshotParity.spec.ts`](frontend/tests/unit/designSnapshotParity.spec.ts) checks it against them. [`frontend/DESIGN_SYSTEM.md`](frontend/DESIGN_SYSTEM.md) retains current implementation conventions and verification gates. [AGENTS.md](AGENTS.md) and [CLAUDE.md](CLAUDE.md#design-documentation) route UI work through both documents and define maintenance. Actual token definitions and component code take precedence over a stale snapshot. Refresh affected visual content and [its sidecar](.impeccable/design.json) together when the documented system changes; routing-only edits can leave an unchanged sidecar intact. The descriptive language above was confirmed by the project owner.
 
-The public homepage was inspected visually and sampled for computed styles in light mode on 2026-10-04. Dark treatments and responsive rules below were extracted from source; this pass does not claim a visual audit of authenticated routes or dark mode. Sidecar component samples illustrate appearance without reproducing application behavior. Generated color ramps are preview aids, not additional application tokens.
+The public homepage was inspected visually and sampled for computed styles in light mode on 2026-10-04. Dark treatments and responsive rules below were extracted from source; this pass does not claim a visual audit of authenticated routes or dark mode. Sidecar component samples illustrate appearance without reproducing application behavior; their dark treatment follows the app's own `.dark` theme signal and their responsive rules follow the space available to them. The sidecar carries no tonal ramps: the project defines no tonal scale, and Impeccable's detector accepts every ramp step as a palette color.
 
 ## Colors
 
-The palette combines sage, warm cream, espresso and deep navy with distinct semantic and categorical colors. Frontmatter values are normative for this snapshot; names below explain their use.
+The palette combines sage, warm cream, espresso and deep navy with distinct semantic and categorical colors. Frontmatter values are normative for this snapshot; names below explain their use. The snapshot deliberately omits `text-tertiary-dark` (it fails as muted text on navy), the `chart.*` chrome sub-tokens that `Chart.tsx` derives from surface, text and flat colors, and the aliases `text-heading-*` (equal to `text-primary-*`) and bare `gain` / `loss` (equal to their `-light` values).
 
 ### Primary
 
@@ -310,7 +310,7 @@ Financial gain/loss have separate graphic and text tokens. Use `gain-text` / `lo
 
 Success, warning, error and info are state colors. The info tint's light label uses `info-text`; destructive buttons use the darker light error fill with white text in both themes. Quiet guidance is generally brand-tinted rather than a loud status panel.
 
-Chart series follow the configured order: **Teal → Honey → Cornflower → Coral → Slate Blue → Periwinkle** (`chart-1` through `chart-6`). Preserve this sequence. At five or more series, add labels, markers or dash patterns because color alone is insufficient. Neither sage nor gain/loss colors are series colors. Use [`Chart.tsx`](https://github.com/neilmac91/EarningsNerd/blob/1a79637e4094f8f6ceeb9802014a6a1172283416/frontend/components/ui/Chart.tsx) for theme-aware chart chrome.
+Chart series follow the configured order: **Teal → Honey → Cornflower → Coral → Slate Blue → Periwinkle** (`chart-1` through `chart-6`). Preserve this sequence. At five or more series, add labels, markers or dash patterns because color alone is insufficient. Neither sage nor gain/loss colors are series colors. Use [`Chart.tsx`](frontend/components/ui/Chart.tsx) for theme-aware chart chrome.
 
 **The Actual Surface Rule.** Check text contrast against its actual page, panel or mixed tint in both themes. The existing convention targets at least 4.5:1 for body text and 3:1 for meaningful non-text graphics; token membership alone is not a contrast guarantee.
 
@@ -324,14 +324,14 @@ Chart series follow the configured order: **Teal → Honey → Cornflower → Co
 
 **Editorial Font:** Newsreader, reached through `--font-newsreader`, for the original filing's own words in `.filing-reader` only.
 
-**Character:** Clear sans-serif structure surrounds an exact, aligned data register. The editorial serif marks a distinct reading context, not a general accent style. Inter, Geist Mono and Newsreader are self-hosted through `next/font` in [`layout.tsx`](https://github.com/neilmac91/EarningsNerd/blob/1a79637e4094f8f6ceeb9802014a6a1172283416/frontend/app/layout.tsx); platform fonts are fallbacks rather than embedded assets.
+**Character:** Clear sans-serif structure surrounds an exact, aligned data register. The editorial serif marks a distinct reading context, not a general accent style. Inter, Geist Mono and Newsreader are self-hosted through `next/font` in [`layout.tsx`](frontend/app/layout.tsx); platform fonts are fallbacks rather than embedded assets.
 
 ### Hierarchy
 
 | Role | Implemented treatment | Use |
 | --- | --- | --- |
 | Display | 600; 36px base, 48px from `sm`, 60px from `lg`; live desktop sample 60/63px | Homepage headline; responsive sizes belong to this surface |
-| Headline | 600; 30/36px, with the configured title tracking | Large section/page heading role |
+| Headline | 600; 30/36px with −0.016em tracking; marketing section headings step up to 36/40px (−0.02em) from `lg` | Large section/page heading role |
 | Title | 600; 24/32px; tighter tracking | Section headings; smaller component titles follow their own recipe |
 | Card title | 600; 14/20px; sentence case | Compact container headings |
 | Body | 400; root browser sample 16/24px; `text-base` explicitly sets 16/25.6px | General prose; local leading utilities can override the scale |
@@ -341,7 +341,7 @@ Chart series follow the configured order: **Teal → Honey → Cornflower → Co
 | Dense data annotation | 11/16px | Compact chart annotations and in-card micro-labels |
 | Filing reader | Newsreader 19px, line-height 1.7, optical sizing | Original filing prose |
 
-The frontmatter `display` token records the large desktop step, not a universal heading size. The source tracking ramp progresses from +0.01em for captions through zero for body text to −0.025em for large display text. Use the existing type scale and CSS tracking variables rather than inventing new tracking utilities.
+The frontmatter `display` token records the large desktop step and `headline` the base step; neither is a universal heading size. The source tracking ramp progresses from +0.01em for captions through zero for body text to −0.025em for large display text. Use the existing type scale and CSS tracking variables rather than inventing new tracking utilities.
 
 **The Source Voice Rule.** Newsreader means original filing prose. AI summaries use body sans; Ask answers use the mono evidence register. `.tabular` supplies mono plus tabular digits; `.tnum` preserves the current face and only aligns digits.
 
@@ -358,7 +358,7 @@ Use shared page grounds around distinct content panels. Controls and tables are 
 - Comfortable table rows use 10px vertical cell padding; compact rows use 4px. Numeric columns align right and use tabular figures. Wide tables scroll within their container.
 - Modal sizes cap at 384px, 448px or 512px. Their outer inset bounds them to the viewport; the panel scrolls internally and reserves 24px scroll padding. The footer stacks actions on small screens and switches to a row from `sm`.
 
-The stacking vocabulary is sticky 30, header 50, popover/overlay 60, modal 70 and toast 80. Preserve the documented workspace-sheet and internal table-layer exceptions in the detailed implementation guide. Header source currently spells the 50 level numerically; this snapshot does not rename it.
+The stacking vocabulary is sticky 30, header 50, popover/overlay 60, modal 70 and toast 80. Preserve the documented workspace-sheet and internal table-layer exceptions in the detailed implementation guide. Several other sites still use numeric z utilities: the header and its account and notification menus (`z-50`), `SecondaryHeader` (`z-40`), the search dropdowns (`z-10` / `z-20`) and the cookie-consent banner and toast (`z-50`, below the ladder's toast level). This snapshot records the ladder without renaming those sites.
 
 ## Elevation & Depth
 
@@ -366,14 +366,14 @@ Depth gives structure to the workspace. Light cards use warm paper, a hairline a
 
 ### Shadow Vocabulary
 
-The exact source shadow strings are stored in the sidecar's `extensions.shadows`.
+The exact source shadow strings are stored in the sidecar's `extensions.shadows`. The configured `glow-brand*` shadows are unused and intentionally left out.
 
 | Token | Role |
 | --- | --- |
-| `e1` | Low lift for small controls, chips and tiles |
+| `e1` | Low lift for small controls such as the switch thumb and pricing-period toggle, the popular-ticker and quick-access chips, and some tiles; the Badge primitive carries no shadow |
 | `e2` | Default light card lift |
 | `e3` | Featured/hero surface emphasis |
-| `e4` / `e5` | Floating menus and overlays; the shared Modal uses `e5` in light mode |
+| `e4` / `e5` | `e4` for popovers (alert bell, source trace) and the Copilot coachmark; `e5` for the shared Modal in light mode. Header menus use `e2` and search dropdowns `e3` |
 | `ring-brand` / `ring-brand-dark` | Keyboard focus; fields also show the ring on focus |
 | `ring-error` | Invalid fields and destructive-action focus |
 
@@ -389,7 +389,7 @@ Borders are thin separators and control boundaries. Tables use row hairlines rat
 
 ## Components
 
-Components are **refined, readable and quietly confident**. Reuse [`components/ui`](https://github.com/neilmac91/EarningsNerd/tree/1a79637e4094f8f6ceeb9802014a6a1172283416/frontend/components/ui) and its supported variants. The sidecar's ten samples are static, dependency-free visual translations; they do not replace the React components, form guards, routing, sorting or dialog focus management.
+Components are **refined, readable and quietly confident**. Reuse [`components/ui`](frontend/components/ui) and its supported variants. The sidecar's ten samples are static, dependency-free visual translations; they do not replace the React components, form guards, routing, sorting or dialog focus management.
 
 ### Buttons
 
@@ -397,9 +397,9 @@ Components are **refined, readable and quietly confident**. Reuse [`components/u
 - **Primary:** sage fill and white label in light mode; light sage fill and navy label in dark mode. Hover and active use the corresponding named brand states.
 - **Secondary / Ghost:** transparent ground and sage text; secondary adds a sage hairline. Hover adds a tint; active strengthens it. `tertiary` is only a deprecated alias of ghost.
 - **Destructive:** error fill with white label; darker error hover and active states. Preserve its error focus ring.
-- **Focus and busy:** use the shared focus recipe. Loading keeps the resting appearance, adds a spinner and `aria-busy`, and refuses repeated activation. Controls made unavailable by their own request stay focusable using the established `aria-disabled`/handler guards; text fields use `readOnly` while submitting. Native disabled styles exist for other unavailable states.
+- **Focus and busy:** use the shared focus recipe. Loading keeps the resting appearance, adds a spinner and `aria-busy`, and refuses repeated activation. Controls made unavailable by their own request stay focusable using the established `aria-disabled`/handler guards. A form that locks its text fields while submitting uses `readOnly` rather than native `disabled`; the contact form does, while login and registration leave fields editable. Native disabled styles exist for other unavailable states.
 
-[`Button.tsx`](https://github.com/neilmac91/EarningsNerd/blob/1a79637e4094f8f6ceeb9802014a6a1172283416/frontend/components/ui/Button.tsx) also exports `buttonVariants` for real links styled as buttons. Standard color feedback uses the fast motion token. Spinner animation remains the existing utility with a reduced-motion fallback; this document introduces no new timing for it.
+[`Button.tsx`](frontend/components/ui/Button.tsx) also exports `buttonVariants` for real links styled as buttons. Standard color feedback uses the fast motion token. Spinner animation remains the existing utility with a reduced-motion fallback; this document introduces no new timing for it.
 
 ### Chips
 
@@ -407,27 +407,27 @@ Pill-shaped, 12px semibold labels with 10px horizontal and 2px vertical padding.
 
 ### Cards / Containers
 
-The base [`Card`](https://github.com/neilmac91/EarningsNerd/blob/1a79637e4094f8f6ceeb9802014a6a1172283416/frontend/components/ui/Card.tsx) supplies shape, fill, border and elevation, but **no internal padding**. `CardHeader` and `CardBody` add 20px horizontal / 16px vertical padding; `CardFooter` uses 20px / 12px. Titles are sentence-case 14px semibold headings. Set `as`, `interactive`, `elevation` and `radius` through the API; an interactive appearance alone does not supply link or button semantics.
+The base [`Card`](frontend/components/ui/Card.tsx) supplies shape, fill, border and elevation, but **no internal padding**. `CardHeader` and `CardBody` add 20px horizontal / 16px vertical padding; `CardFooter` uses 20px / 12px. Titles are sentence-case 14px semibold headings. Set `as`, `interactive`, `elevation` and `radius` through the API; an interactive appearance alone does not supply link or button semantics.
 
 ### Inputs / Fields
 
-[`Input.tsx`](https://github.com/neilmac91/EarningsNerd/blob/1a79637e4094f8f6ceeb9802014a6a1172283416/frontend/components/ui/Input.tsx) shares a bright white light fill and translucent white dark fill, 12px radius, hairline and 14px text. Standard padding is 10px vertical / 14px horizontal. Search fields explicitly reserve 44px on the leading side for their icon. Hover strengthens the border; focus shows the brand border/ring. Invalid fields use the error treatment with an associated error message. The composer textarea is transparent inside its own field shell to avoid double borders.
+[`Input.tsx`](frontend/components/ui/Input.tsx) shares a bright white light fill and translucent white dark fill, 12px radius, hairline and 14px text. Standard padding is 10px vertical / 14px horizontal. Search fields explicitly reserve 44px on the leading side for their icon. Hover strengthens the border; focus shows the brand border/ring. Invalid fields use the error treatment with an associated error message. The composer textarea is transparent inside its own field shell to avoid double borders.
 
 ### Navigation
 
-[`Header.tsx`](https://github.com/neilmac91/EarningsNerd/blob/1a79637e4094f8f6ceeb9802014a6a1172283416/frontend/components/Header.tsx) uses a sticky, translucent page-ground strip and hairline with 14px medium-weight links. Desktop links have a 32px gap, secondary ink at rest, primary ink on hover and a visible brand focus ring. The header currently does not implement a route-active link color; do not invent one in this snapshot. Below `lg`, links move into the collapsible menu and the menu trigger maintains a 44px minimum target. Logo and theme toggle belong to the shared header.
+[`Header.tsx`](frontend/components/Header.tsx) uses a sticky, translucent page-ground strip and hairline with 14px medium-weight links. Desktop links have a 32px gap, secondary ink at rest, primary ink on hover and a visible brand focus ring. The header currently does not implement a route-active link color; do not invent one in this snapshot. Below `lg`, links move into the collapsible menu and the menu trigger maintains a 44px minimum target. Logo and theme toggle belong to the shared header.
 
 ### Data tables and charts
 
-[`DataTable.tsx`](https://github.com/neilmac91/EarningsNerd/blob/1a79637e4094f8f6ceeb9802014a6a1172283416/frontend/components/ui/DataTable.tsx) supports comfortable and compact density, row hairlines, optional sticky columns, right-aligned mono numeric cells, sorting, loading, empty and error states. Sort controls are buttons; `aria-sort` belongs to the header cell. Financial tones come from the existing helpers. Chart captions, axes and tooltips keep their theme-aware styles; use the categorical sequence described in Colors.
+[`DataTable.tsx`](frontend/components/ui/DataTable.tsx) supports comfortable and compact density, row hairlines, optional sticky columns, right-aligned mono numeric cells, sorting, loading, empty and error states. Sort controls are buttons; `aria-sort` belongs to the header cell. Financial tones come from the existing helpers. Chart captions, axes and tooltips keep their theme-aware styles; use the categorical sequence described in Colors.
 
 ### Dialogs and evidence
 
-Use [`Modal.tsx`](https://github.com/neilmac91/EarningsNerd/blob/1a79637e4094f8f6ceeb9802014a6a1172283416/frontend/components/ui/Modal.tsx) for ordinary dialogs: translucent navy scrim, rounded panel, shared focus trap, Escape handling, opener focus restoration and internal scrolling. Keep the documented bespoke sheets/native calendar-dialog exceptions rather than creating additional dialog systems. Static sidecar samples demonstrate the visual shell only.
+Use [`Modal.tsx`](frontend/components/ui/Modal.tsx) for ordinary dialogs: translucent navy scrim, rounded panel, shared focus trap, Escape handling, opener focus restoration and internal scrolling. Keep the documented bespoke sheets/native calendar-dialog exceptions rather than creating additional dialog systems. Static sidecar samples demonstrate the visual shell only.
 
-The signature evidence treatment is a compact citation/source chip attached to a figure or passage, with a route to inspect its source. [`CopilotMessage.tsx`](https://github.com/neilmac91/EarningsNerd/blob/1a79637e4094f8f6ceeb9802014a6a1172283416/frontend/features/filings/components/copilot/CopilotMessage.tsx) is the production Ask answer renderer. A source match describes attribution within its stated scope; it must not imply that every claim in an answer was verified. Keep citation labels and evidence states faithful to the renderer.
+The signature evidence treatment is a compact citation/source chip attached to a figure or passage, with a route to inspect its source. [`CopilotMessage.tsx`](frontend/features/filings/components/copilot/CopilotMessage.tsx) is the production Ask answer renderer. A source match describes attribution within its stated scope; it must not imply that every claim in an answer was verified. Keep citation labels and evidence states faithful to the renderer.
 
-Motion supports state changes and reading continuity. The source has fast (150ms), base (200ms), slow (600ms) and ambient (1800ms) timings; standard easing is the default and pop easing is reserved for the success check. These live in CSS variables with a JS mirror. Preserve reduced-motion fallbacks for entrances, shimmer, numeric count-up, citation highlighting and chart drawing. Motion values and breakpoints belong in the sidecar, not new frontmatter groups.
+Motion supports state changes and reading continuity. The source has fast (150ms), base (200ms), slow (600ms) and ambient (1800ms) timings; standard easing is the default and pop easing is reserved for the success check. These live in CSS variables with a JS mirror. The convention is a reduced-motion fallback for every animation: the `globals.css` animation classes guard themselves, and shimmer, count-up, citation highlighting and chart drawing have fallbacks. Some Tailwind animation utilities are not yet guarded, notably the `animate-fade-up` entrances on the login form, registration form, auth shell and cookie-consent toast, and the Copilot streaming `animate-pulse` indicators. Give new animation a fallback and keep the existing ones. Motion values and breakpoints belong in the sidecar, not new frontmatter groups.
 
 ## Do's and Don'ts
 
@@ -449,6 +449,5 @@ Motion supports state changes and reading continuity. The source has fast (150ms
 - **Don't** use light gain/loss graphic colors for small delta text or tertiary dark ink for muted labels.
 - **Don't** use the legacy 10px radius for new components or uppercase ordinary card titles.
 - **Don't** apply the filing reader's serif to AI summaries or cap pane-filling summaries to a prose rail.
-- **Don't** treat generated preview ramps or illustrative sidecar markup as new production tokens or behavior.
+- **Don't** treat illustrative sidecar markup as production tokens or behavior, or add synthetic tonal ramps to the sidecar.
 - **Don't** create another dialog primitive or remove existing reduced-motion fallbacks.
-

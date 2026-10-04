@@ -59,7 +59,8 @@ file, quote the instruction, and proceed under this file instead.
 
 - One machine gate per "never again" rule (rule 12), with exactly one mutation proof: break the
   guarded thing, show the gate failing, restore, paste both tails in the PR body.
-- Docs-only PR: link/anchor check only. Do not write tests for prose.
+- Docs-only PR: link/anchor check only; a `DESIGN.md` or `.impeccable/design.json` change also runs
+  `npx vitest run tests/unit/designSnapshotParity.spec.ts` from `frontend/`. Do not write tests for prose.
 - Workflow-only PR (`.github/workflows/*.yml`): YAML parse plus the unit gates that read the
   workflows (`backend/tests/unit/test_migration_lock_safety.py`, `test_eval_parity.py`,
   `test_eval_measurement.py`, `test_data_completeness.py`,
@@ -106,4 +107,3 @@ the action directly; no filler phrases. Messages and PR bodies are read by a hum
 From `backend/`: `ruff check . && bandit -r app -ll && python -m pytest` before every backend
 push. From `frontend/`: `npm run lint && npx tsc -p tsconfig.ci.json && npm run test -- --run &&
 npm run build`. `git status` must be empty after each commit. Open every PR as a draft first.
-

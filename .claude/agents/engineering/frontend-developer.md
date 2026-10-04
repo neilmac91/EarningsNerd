@@ -46,4 +46,3 @@ From `frontend/`: `npm run lint`, `npx tsc -p tsconfig.ci.json`,
 `npm run test -- --run`, `npm run build`, and relevant Playwright against `next start` with no
 backend. Source runtime pins are `frontend/.nvmrc` and `frontend/package.json`; follow the
 existing lockstep test when changing them. Do not claim production verification from a build alone.
-

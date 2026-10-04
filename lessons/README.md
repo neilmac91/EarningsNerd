@@ -93,6 +93,8 @@ what applies to your task. Filenames are greppable: `arch-*`, `sec-*`, `test-*`,
 
 - [`frontend-design-docs-need-agent-entrypoints.md`](./frontend-design-docs-need-agent-entrypoints.md) — Connect new design references to agent entrypoints, authority and maintenance
 
+- [`frontend-validate-design-sidecars-in-their-consumer.md`](./frontend-validate-design-sidecars-in-their-consumer.md) — Validate design-sidecar specimens in their consumer, and check what its engine reads
+
 - [`frontend-dialog-trap-arms-once-per-open.md`](./frontend-dialog-trap-arms-once-per-open.md) — Arm a dialog's focus trap once per open; never key its effect on a callback prop's identity
 
 - [`frontend-locked-page-dialog-scrolls-itself.md`](./frontend-locked-page-dialog-scrolls-itself.md) — A dialog that locks the page must bound itself to the viewport and scroll inside
@@ -176,4 +178,3 @@ what applies to your task. Filenames are greppable: `arch-*`, `sec-*`, `test-*`,
 - [ops-judge-cli-pins-need-a-drift-plan.md](ops-judge-cli-pins-need-a-drift-plan.md) — Pin the judge CLI by version, but decide in advance what happens when the container image drifts
 - [ops-prove-the-permission-route-before-a-gated-session.md](ops-prove-the-permission-route-before-a-gated-session.md) — Prove the permission route with a `--help` no-op in the exact allow-rule form before any gated step; a denial there is a stop, not a failed restore; name the mode (Accept edits, not Plan)
 - [ops-evidence-exports-verify-themselves-and-survive-git.md](ops-evidence-exports-verify-themselves-and-survive-git.md) — An evidence export copies everything, verifies its copy, states its own eligibility, and is gated against ignore rules that silently drop inventoried files; a verdict that depends on another tool reruns that tool on the current inputs, and a receipt on disk is evidence only
-

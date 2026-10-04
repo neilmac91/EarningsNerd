@@ -106,7 +106,8 @@ A control that is busy, or unavailable as a result of its own activation, never 
 handler, styled with `primaryUnavailableClass` (primary Button), `secondaryUnavailableClass` (secondary
 Button; it fades the label and hairline, not the element, so the focus ring keeps its strength) or
 `fieldUnavailableClass` (field).
-Text fields use `readOnly` while their own form submits. Gate: `tests/unit/busyControlsStayFocusable.spec.ts`;
+A form that locks its text fields while it submits uses `readOnly`, never native `disabled` (`ContactForm` does;
+the login and register forms leave their fields editable). Gate: `tests/unit/busyControlsStayFocusable.spec.ts`;
 rules in `lessons/frontend-busy-controls-stay-focusable.md`.
 
 ```
@@ -274,8 +275,9 @@ tighter hairline strip). Muted text on the cream page ground is `text-secondary`
 ## 8. Theme mechanics
 
 - **One** `<ThemeToggle/>`, in the global `Header` (desktop + mobile). No page-level toggles.
-- `app/layout.tsx` runs a **pre-paint theme bootstrap script** (saved `localStorage.theme` else
-  system pref) to prevent FOUC. Keep `suppressHydrationWarning` on `<html>`.
+- `app/layout.tsx` runs a **pre-paint theme bootstrap script** (saved `localStorage.theme`, else
+  light; there is no system-preference detection) to prevent FOUC, and `ThemeProvider` re-syncs to
+  the same value after hydration. Keep `suppressHydrationWarning` on `<html>`.
 - Logo: `<EarningsNerdLogo mode="auto" />` follows the app theme — don't hardcode `mode="dark"`.
 - Fonts are self-hosted via `next/font` (Inter with `axes: ['opsz']`, Geist Mono, Newsreader) —
   see `app/layout.tsx`; SF Pro / New York are platform-licensed and must never be embedded.
@@ -339,9 +341,12 @@ Recharts/rAF, which need numbers). **No raw ms or bezier strings anywhere else.*
   AskFilingAnswer) — never on first paint of never-loading views.
 - **Stagger**: `animate-fade-up-stagger` + `--stagger-index` (0-based; step = fast; capped at 4;
   first paint only). `fade-up-delay-1/2/3` are retired.
-- **Reduced motion**: one source — `hooks/usePrefersReducedMotion`. Every animation has a fallback:
+- **Reduced motion**: one source — `hooks/usePrefersReducedMotion`. Every animation needs a fallback:
   `animation: none` for transform entrances, static bone (shimmer), static tint (citation-flash),
-  instant final value (count-up, Recharts `lineProps(reduced)`), `scroll-behavior: auto`.
+  instant final value (count-up, Recharts `lineProps(reduced)`), `scroll-behavior: auto`. Known
+  gaps: the `animate-fade-up` entrances in `app/login/page.tsx`, `RegisterForm`, `AuthShell` and
+  `CookieConsent`, and the streaming `animate-pulse` indicators in `CopilotMessage`, have no
+  `motion-reduce:` guard yet.
 - **Nothing decorative** — `animate-float` is retired. Signature set: count-up, citation-flash,
   skeleton→content, sparkline draw-in, check-pop.
 
@@ -383,5 +388,3 @@ Recharts/rAF, which need numbers). **No raw ms or bezier strings anywhere else.*
    editing this section without editing the gate fails, and vice versa.
 4. **Verify in BOTH themes** on the Vercel preview — green CI ≠ correct visuals.
 5. Run `npm run typecheck`, `npm run lint` (`--max-warnings 0`), `npm run build`, `npm run test`.
-
-

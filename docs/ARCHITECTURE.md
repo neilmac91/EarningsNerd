@@ -214,7 +214,10 @@ that gate. (`FMP_API_KEY` survives only for the operator script `scripts/refresh
 - **Feature flags** in `lib/featureFlags.ts`; error boundaries: `GlobalErrorBoundary`
   (Sentry) + `ChartErrorBoundary`; chrome: `CompanyLogo` (Logo.dev + monogram fallback),
   `CookieConsent`, Header/Footer/Theme*.
-- Design system: `frontend/DESIGN_SYSTEM.md` is canonical and MANDATORY before UI work.
+- Design system: read [`DESIGN.md`](../DESIGN.md) (portable visual reference) and then
+  [`frontend/DESIGN_SYSTEM.md`](../frontend/DESIGN_SYSTEM.md) (implementation conventions and
+  verification gates) before UI work. Token definitions and component code take precedence over
+  both; maintenance rules are in [CLAUDE.md](../CLAUDE.md#design-documentation).
 
 ## Data model
 

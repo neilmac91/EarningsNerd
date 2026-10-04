@@ -296,4 +296,3 @@ Week 4: Product UI
 - Guidelines documentation update
 - Team brand training
 ```
-

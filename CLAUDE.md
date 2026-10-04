@@ -38,11 +38,17 @@ When a change affects documented tokens, typography, reusable component states o
 conventions, refresh the affected `DESIGN.md` content and sidecar together in that PR. Update
 `frontend/DESIGN_SYSTEM.md` when its implementation guidance changes. Keep the snapshot's source
 revision and verification limits accurate. A route-specific content change that leaves the
-documented system intact does not require regenerating the snapshot. A routing-only documentation
-edit can leave the sidecar unchanged when its tokens, specimens and narrative still match.
-Use `$impeccable document` for a source-based refresh when available; otherwise update from the
-same source files and check token references, narrative parity and links. Apply the existing
-change-area checks in AGENTS.md and rule 11; a docs-only refresh uses documentation checks.
+documented system intact does not require regenerating the snapshot. A routing-only edit to
+`DESIGN.md` (links or wording outside the frontmatter and the narrative the sidecar duplicates) can
+leave the sidecar unchanged. Impeccable's context check then reports `design-sidecar-stale` in that
+working copy, because it compares file modification times, not content; the notice is expected, so
+do not touch the sidecar only to reset timestamps. Content parity is checked by `frontend/tests/unit/designSnapshotParity.spec.ts`
+(frontmatter vs token sources, sidecar vs frontmatter, duplicated narrative, specimen colors and
+panel fit). For a source-based refresh, run Impeccable's `document` command when available
+(`/impeccable document` in Claude Code, `$impeccable document` in Codex); otherwise update from the
+same source files. Keep that spec green, and when specimens change, render them with
+`frontend/scripts/impeccable-panel-harness.mjs`. Apply the existing change-area checks in AGENTS.md
+and rule 11.
 
 ## Commands
 
@@ -206,4 +212,3 @@ Manual bootstrap: `tasks/gcp-deploy-runbook.md`. Full detail: `docs/DEPLOYMENT.m
 `.claude/skills/` (docs in its README): karpathy-guidelines, llm-council ("council this" /
 "pressure-test this"), stripe-best-practices, cloudflare-agents-sdk, react-best-practices,
 web-design-guidelines, vercel-deploy, voltagent. Invoke manually via `/<skill-name>`.
-
