@@ -1,0 +1,13 @@
+{
+ "fixture": "filing-3-content.md",
+ "filing_id": 3,
+ "synthetic": true,
+ "note": "Abridged, labelled test fixture assembled from the cited excerpts of the production summary; not the filing.",
+ "source_url": "https://api.earningsnerd.io/api/summaries/filing/3",
+ "source_cache_file": "cache/summary-filing-3.json",
+ "source_sha256": "1412895e504244693ab14f54bd9477e30f221604b1c4caaae62441e1ab4ce3b7",
+ "source_fetched_at": "2026-10-04T18:55:29+00:00",
+ "fixture_sha256": "66647fd01c7e7523319a80284a45138261b9888745b7753198d3977b6fc39d5c",
+ "generator": "build_fixture.py",
+ "generated_at": "2026-10-04T19:39:19+00:00"
+}

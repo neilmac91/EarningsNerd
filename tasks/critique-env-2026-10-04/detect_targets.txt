@@ -1,0 +1,33 @@
+# Detector scope for Assessment B: the primary route's wrappers + their component dependencies, plus the
+# four supporting route wrappers and their direct components. Paths are relative to frontend/.
+app/filing/[id]/page.tsx
+app/filing/[id]/page-client.tsx
+app/filing/[id]/StreamingSummaryDisplay.tsx
+app/layout.tsx
+app/globals.css
+components/Header.tsx
+components/Footer.tsx
+components/SiteChrome.tsx
+components/SecondaryHeader.tsx
+components/AiDisclaimer.tsx
+components/ThemeToggle.tsx
+components/CookieConsent.tsx
+components/ui
+features/filings/components
+features/summaries/components
+features/subscriptions/components
+features/auth/components/UserMenu.tsx
+features/notifications/components/NotificationBell.tsx
+features/fundamentals/components/FundamentalsTrendChart.tsx
+app/page.tsx
+features/marketing/components
+features/calendar/components/ReportingThisWeek.tsx
+app/search/page.tsx
+features/search/components/FullTextSearch.tsx
+features/companies/components/CompanySearch.tsx
+app/company/[ticker]/page.tsx
+app/company/[ticker]/page-client.tsx
+features/peers/components/PeerComparisonPanel.tsx
+features/insiders/components/InsiderActivityPanel.tsx
+app/analysis/page.tsx
+features/analysis/components
