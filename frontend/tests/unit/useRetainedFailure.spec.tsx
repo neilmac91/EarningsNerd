@@ -258,6 +258,28 @@ describe('useRetainedFailure', () => {
     await act(async () => next.resolve('ok'))
   })
 
+  it('a failure the query repeats unrendered, then a refetch: the shown failure stays held until data lands', async () => {
+    freezeDate('2026-10-04T00:00:00Z')
+    const fn = vi.fn().mockRejectedValueOnce(new Error('one'))
+    const { client, result } = setup(fn)
+    await waitFor(() => expect(result.current.failure.failed).toBe(true))
+    vi.setSystemTime(new Date('2026-10-04T00:00:01Z'))
+    const next = deferred<string>()
+    fn.mockRejectedValueOnce(new Error('two')).mockReturnValueOnce(next.promise)
+    await act(async () => {
+      // The query fails again (count 2, never rendered) and a new fetch starts before React Query notifies.
+      await client.refetchQueries()
+      void client.refetchQueries()
+    })
+    await waitFor(() => expect(result.current.query.status).toBe('pending'))
+    expect(result.current.query).toMatchObject({ fetchStatus: 'fetching', errorUpdateCount: 2 })
+    // Still the failure on screen: the error UI and its Retry stay, busy, with the error that was shown.
+    expect(result.current.failure).toMatchObject({ failed: true, busy: true })
+    expect((result.current.failure.error as Error).message).toBe('one')
+    await act(async () => next.resolve('ok'))
+    await waitFor(() => expect(result.current.failure).toMatchObject({ failed: false, error: null }))
+  })
+
   it('a reset whose refetch fails again unrendered, at the old count, then a refetch: the old failure is not held', async () => {
     freezeDate('2026-10-04T00:00:00Z')
     const fn = vi.fn().mockRejectedValueOnce(new Error('before the reset'))

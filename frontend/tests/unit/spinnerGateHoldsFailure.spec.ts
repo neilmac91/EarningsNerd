@@ -685,3 +685,76 @@ describe('a page loading gate over a shared query holds its shown failure (rule-
     expect(actual).toEqual([...ALLOW[file].sites].sort())
   })
 })
+
+// Edges of the render and fetch-flag rules, each pinned against the mutant that let it through.
+describe('spinner gate: render and fetch-flag edges', () => {
+  const user = '  const userQuery = useQuery({ queryKey: queryKeys.currentUser(), queryFn })'
+
+  it('a ternary whose only render is its false branch is a render', () => {
+    const fixture = [
+      'export function C() {',
+      user,
+      '  if (userQuery.isLoading) return ready ? undefined : <Spinner />',
+      '  return <Page />',
+      '}',
+    ].join('\n')
+    expect(seen(fixture)).toEqual(['3: userQuery.isLoading [queryKeys.currentUser]'])
+  })
+
+  it('a call whose JSX is not its first argument is a render', () => {
+    const fixture = [
+      'export function C() {',
+      user,
+      '  if (userQuery.isLoading) return cloneElement(shell, { busy: true }, <Spinner />)',
+      '  return <Page />',
+      '}',
+    ].join('\n')
+    expect(seen(fixture)).toEqual(['3: userQuery.isLoading [queryKeys.currentUser]'])
+  })
+
+  it('a destructured fetch flag fails held: directly, renamed, through a const and through a hook', () => {
+    const fixture = [
+      'function useRefresh() {',
+      user,
+      '  const { isRefetching } = userQuery',
+      '  const failure = useRetainedFailure(userQuery, queryKeys.currentUser())',
+      '  return { refreshing: isRefetching && !failure.failed }',
+      '}',
+      'export function D() {',
+      user,
+      '  const { isFetching, fetchStatus: userFetch } = userQuery',
+      '  const userFailure = useRetainedFailure(userQuery, queryKeys.currentUser())',
+      '  const { refreshing } = useRefresh()',
+      '  const spin = isFetching && !userFailure.failed',
+      '  if (isFetching && !userFailure.failed) return <Spinner />',
+      "  if (userFetch !== 'idle' && !userFailure.failed) return null",
+      '  if (spin) return <Spinner />',
+      '  if (refreshing) return <Spinner />',
+      '  return <Page />',
+      '}',
+    ].join('\n')
+    expect(seen(fixture)).toEqual([
+      '13: isFetching && !userFailure.failed [queryKeys.currentUser] fetching [queryKeys.currentUser]',
+      "14: userFetch !== 'idle' && !userFailure.failed [queryKeys.currentUser] fetching [queryKeys.currentUser]",
+      '15: spin [queryKeys.currentUser] fetching [queryKeys.currentUser]',
+      '16: refreshing [queryKeys.currentUser] fetching [queryKeys.currentUser]',
+    ])
+  })
+
+  it("a query member other than `status` compared with 'pending' is no loading read, directly or through a hook", () => {
+    const fixture = [
+      'function useJob() {',
+      '  const jobQuery = useQuery({ queryKey: queryKeys.currentUser(), queryFn })',
+      '  return { phase: jobQuery.data }',
+      '}',
+      'export function J() {',
+      user,
+      '  const { phase } = useJob()',
+      "  if (userQuery.data === 'pending') return <Spinner />",
+      "  if (phase === 'pending') return <Spinner />",
+      '  return <Page />',
+      '}',
+    ].join('\n')
+    expect(seen(fixture)).toEqual([])
+  })
+})

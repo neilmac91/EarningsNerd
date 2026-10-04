@@ -54,9 +54,10 @@ interface Shown {
  * `errorUpdatedAt`, `errorUpdateCount`, which a pending refetch keeps. The key: a key change (another user,
  * a new search term) is another query, so its first load shows its own pending state, never the old query's
  * error; the state alone cannot tell two keys apart, since both may have failed in the same millisecond as
- * often. The count: a second failure of the query in the same millisecond is a new failure. The time: a
- * reset (`resetQueries`) or a rebuilt query starts the count over, so its refetch is a first load, and a
- * failure after it may repeat the old count. A fresh mount over a failure it never rendered (a child
+ * often. The count: a second failure of the query in the same millisecond is a new failure, and a count
+ * that grew while nothing rendered (the query failed again and refetched before a render) is still that
+ * query's failure, so it stays held. The time: a reset (`resetQueries`) or a rebuilt query starts the
+ * count over, so its refetch is a first load, and a failure after it may repeat the old count. A fresh mount over a failure it never rendered (a child
  * observer whose mount refetches it) shows the ordinary pending state.
  *
  * Derived from the query's state on each render, with no record of presses or of fetches seen: a second
@@ -69,10 +70,16 @@ export function useRetainedFailure(query: UseQueryResult<unknown>, queryKey: Que
   const [shown, setShown] = useState<Shown | null>(null)
   // The query state is still the failure `shown` recorded: the same query, at the same failure.
   const same = shown !== null && shown.key === key && shown.at === errorUpdatedAt && shown.count === errorUpdateCount
+  // The same query failed again since, and refetched before a render showed it: its count only grows (a
+  // reset starts it over at 0), so a higher count is still that query's failure, not a first load.
+  const failedAgain = shown !== null && shown.key === key && errorUpdateCount > shown.count
   let next = shown
   if (isError) {
     // A new failure (a failure of the same query moves its count, or after a reset its time), or another query's.
     if (!same) next = { error, key, at: errorUpdatedAt, count: errorUpdateCount }
+  } else if (shown !== null && status === 'pending' && failedAgain) {
+    // Held through it: keep the error that was shown (a pending refetch has cleared the newer one), at the new count.
+    next = { ...shown, at: errorUpdatedAt, count: errorUpdateCount }
   } else if (shown !== null && (status !== 'pending' || !same)) {
     // Data replaced it, or this is another query's state (the key changed, or the query started over).
     next = null
