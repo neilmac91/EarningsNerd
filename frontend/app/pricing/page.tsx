@@ -15,7 +15,7 @@ import { useFeatureFlagVariantKey } from 'posthog-js/react'
 import posthog from 'posthog-js'
 import { queryKeys } from '@/lib/queryKeys'
 import { FREE_SUMMARY_LIMIT } from '@/lib/planLimits'
-import { useRetainedFailure } from '@/hooks/useRetainedFailure'
+import { RetryButton, useRetainedFailure } from '@/hooks/useRetainedFailure'
 import { PRICE_VARIANTS } from './prices'
 import { billingCycleFromQuery, pricingHref, type BillingCycle } from '@/features/subscriptions/lib/pricingRoute'
 import { registerHrefWithRedirect, stashPostAuthRedirect } from '@/lib/postAuthRedirect'
@@ -80,7 +80,7 @@ function PricingContent({ billingCycle, setBillingCycle, billingResolved }: {
     queryFn: getCurrentUserSafe,
     retry: false,
   })
-  const { data: currentUser, isError: identityError, isFetching: identityFetching } = identityQuery
+  const { data: currentUser, isError: identityError } = identityQuery
   // `undefined` is an unresolved identity (pending, or failed without data); only `null` is a
   // confirmed guest. Conflating the two labelled Free "Current plan" and armed checkout before
   // anything was known about the account.
@@ -94,7 +94,7 @@ function PricingContent({ billingCycle, setBillingCycle, billingResolved }: {
     retry: false,
     enabled: !!currentUser,
   })
-  const { data: subscription, isError: subscriptionError, isFetching: subscriptionFetching } = subscriptionQuery
+  const { data: subscription, isError: subscriptionError } = subscriptionQuery
 
   const usageQuery = useQuery({
     queryKey: queryKeys.usage.byUser(currentUser?.id),
@@ -102,9 +102,10 @@ function PricingContent({ billingCycle, setBillingCycle, billingResolved }: {
     retry: false,
     enabled: !!currentUser,
   })
-  const { data: usage, isError: usageError, isFetching: usageFetching } = usageQuery
+  const { data: usage, isError: usageError } = usageQuery
 
-  // What the error Notices show. A retry in flight keeps its Notice (and the focused Retry button).
+  // What the error Notices show. A failure keeps its Notice (and a focused Retry in it) through any
+  // refetch until data replaces it.
   const identityFailure = useRetainedFailure(identityQuery)
   const subscriptionFailure = useRetainedFailure(subscriptionQuery)
   const usageFailure = useRetainedFailure(usageQuery)
@@ -118,21 +119,10 @@ function PricingContent({ billingCycle, setBillingCycle, billingResolved }: {
   const accountFailed = !accountResolved && (identityError || (isAuthenticated && subscriptionError))
   const identityUnavailable = identityFailure.failed && !identityResolved
   const subscriptionStale = subscriptionError && subscriptionResolved
-  const errorNoticeShown = identityUnavailable || subscriptionFailure.failed || usageFailure.failed
 
-  // A successful retry removes the error Notice, and the focused Retry button with it: focus would
-  // fall to <body>. Land it on the intro line the Notice sat under, unless it has already moved on.
+  // A Retry that unmounts while it holds focus (its Notice clears) hands focus to the intro line the
+  // Notice sat under (RetryButton).
   const introRef = useRef<HTMLParagraphElement>(null)
-  const retried = useRef(false)
-  const retry = (failure: { retry: () => void }) => () => {
-    retried.current = true
-    failure.retry()
-  }
-  useEffect(() => {
-    if (errorNoticeShown || !retried.current) return
-    retried.current = false
-    if (document.activeElement === document.body) introRef.current?.focus({ preventScroll: true })
-  }, [errorNoticeShown])
 
   useEffect(() => {
     if (billingResolved && !hasTrackedPricingView.current) {
@@ -327,21 +317,23 @@ function PricingContent({ billingCycle, setBillingCycle, billingResolved }: {
           </p>
 
           {identityUnavailable ? (
-            // Identity failed with nothing retained: an account error, not a guest view.
-            <div className="mt-6 mx-auto max-w-2xl text-left">
+            // Identity failed with nothing retained: an account error, not a guest view. Each Notice is
+            // keyed: unkeyed, React would reuse "Retry account check" as "Retry subscription" when one
+            // Notice replaces the other, and a Retry must never outlive its Notice (RetryButton).
+            <div key="identity" className="mt-6 mx-auto max-w-2xl text-left">
               <Notice
                 variant="error"
                 title="We couldn't check your account"
                 description={identityFailure.error instanceof Error ? identityFailure.error.message : 'Please retry.'}
                 action={
-                  <Button variant="secondary" size="sm" onClick={retry(identityFailure)} loading={identityFetching} loadingText="Retrying…">
+                  <RetryButton size="sm" failures={[identityFailure]} focusTarget={introRef}>
                     Retry account check
-                  </Button>
+                  </RetryButton>
                 }
               />
             </div>
           ) : (subscriptionFailure.failed || usageFailure.failed) && (
-            <div className="mt-6 mx-auto max-w-2xl text-left">
+            <div key="details" className="mt-6 mx-auto max-w-2xl text-left">
               <Notice
                 variant="error"
                 title={subscriptionStale ? "We couldn't refresh your plan details" : "We couldn't load all pricing details"}
@@ -355,13 +347,18 @@ function PricingContent({ billingCycle, setBillingCycle, billingResolved }: {
                     : 'Please retry.'
                 }
                 action={
+                  // Each Retry only for its own failure: a press on a healthy one would do nothing.
                   <>
-                    <Button variant="secondary" size="sm" onClick={retry(subscriptionFailure)} loading={subscriptionFetching} loadingText="Retrying…">
-                      Retry subscription
-                    </Button>
-                    <Button variant="secondary" size="sm" onClick={retry(usageFailure)} loading={usageFetching} loadingText="Retrying…">
-                      Retry usage
-                    </Button>
+                    {subscriptionFailure.failed && (
+                      <RetryButton size="sm" failures={[subscriptionFailure]} focusTarget={introRef}>
+                        Retry subscription
+                      </RetryButton>
+                    )}
+                    {usageFailure.failed && (
+                      <RetryButton size="sm" failures={[usageFailure]} focusTarget={introRef}>
+                        Retry usage
+                      </RetryButton>
+                    )}
                   </>
                 }
               />

@@ -16,6 +16,7 @@ import { Button } from '@/components/ui/Button'
 import { inputClasses } from '@/components/ui/Input'
 import { Card } from '@/components/ui/Card'
 import { queryKeys } from '@/lib/queryKeys'
+import { useRetainedFailure } from '@/hooks/useRetainedFailure'
 
 export default function SettingsPage() {
   const router = useRouter()
@@ -23,11 +24,16 @@ export default function SettingsPage() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [deleteConfirmText, setDeleteConfirmText] = useState('')
 
-  const { data: user, isLoading: userLoading } = useQuery({
+  const userQuery = useQuery({
     queryKey: queryKeys.currentUser(),
     queryFn: getCurrentUserSafe,
     retry: false,
   })
+  const { data: user, isLoading: userLoading } = userQuery
+  // A failure holds through any refetch. Read raw, the refetch that BillingPanel and ProfileForm start
+  // when they mount over the failed, data-less user (retryOnMount) turned this page back into the
+  // spinner, which unmounted them, and the next failure mounted them again: an unbounded /me loop.
+  const userFailure = useRetainedFailure(userQuery)
 
   const exportMutation = useMutation({
     mutationFn: exportUserData,
@@ -66,7 +72,7 @@ export default function SettingsPage() {
     }
   }
 
-  if (userLoading) {
+  if (userLoading && !userFailure.failed) {
     return (
       <div className="min-h-screen bg-background-light dark:bg-background-dark flex items-center justify-center">
         <CircleNotchIcon className="h-8 w-8 animate-spin text-brand-strong dark:text-brand-strong-dark" />

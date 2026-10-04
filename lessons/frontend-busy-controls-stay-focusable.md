@@ -38,7 +38,15 @@ delete-account confirm field and Cancel. In each of the last three, only a sibli
 the request and there is no form. Pins only shrink, and both files and sites are capped: converting
 a site means removing its pin, and adding a busy flag to a pinned expression fails. It also fails on
 a post-success flag by name (`resent`, `saved`, `copied`, `succeeded`/`success`, `cooldown`), with
-no pins: EmailVerificationModal's `disabled={resent}` was the last one.
+no pins: EmailVerificationModal's `disabled={resent}` was the last one. The same file gates every Retry of
+a query to `<RetryButton>` (rule (g)), seen two ways. By its wiring, through the same binding resolver:
+`loading` fed by a fetching flag (`isFetching` is false while a fetch waits paused, so the control goes
+live mid-request), or a handler that reaches `refetch…` or a failure's `retry`. By its label: any element
+but RetryButton whose `loadingText` starts "Retrying" or whose label starts "Retry" or "Try again". Each
+has a shrink-only, capped allowlist with reasons: ALLOW_RETRY pins 5 wiring sites in 3 files (open rule
+(h) Retry buttons), ALLOW_RETRY_LABEL 12 labels in 12 files (4 error-boundary resets, 4 stream or
+generation restarts, 4 open rule (h) sites). Every Retry the retry-hardening follow-up converted fails
+both clauses at its 026d6df version (18 wiring and 10 label offenders in 6 files).
 
 (e) A control unavailable after its own activation (`!dirty` after a save, an incomplete form, a
 cooldown, "Link sent") is aria-disabled with an early return too. A primary DS Button in that state
@@ -74,14 +82,60 @@ where that API is missing (Codex P2 on #1075). A success that unmounts the contr
 needs neither. Audit every `onSuccess` of a control this sweep keeps focusable. Hosted Codex found
 four of these in later review rounds, after the sweep had shipped them fire-and-forget.
 
-(g) A control that unmounts as a result of its own activation (a row removed on success, a section
-swapped for a skeleton, Save replaced by a "Saved" label) hands focus to a stable target: a heading
-or status line with `tabIndex={-1}`, focused with `{ preventScroll: true }`. Two forms are accepted:
-before the unmount, only when the control holds focus (`document.activeElement === e.currentTarget`),
-or after it, only when focus fell to `<body>`. Never move focus a mouse user did not lose. A
-hand-off armed by a press (a `retried` or `pressed` ref) is disarmed when that press's own request
-fails again. Otherwise a later recovery nobody pressed, such as a reconnect refetch, moves focus
-(`useRetainedFailure`'s `retrying` tells a retry that failed from one still running).
+(g) A control that unmounts as a result of its own activation (a row removed on success, Save replaced
+by a "Saved" label) hands focus to a stable target: a heading or status line with `tabIndex={-1}`, focused
+with `{ preventScroll: true }`. Two forms are accepted: before the unmount, only when the control holds
+focus (`document.activeElement === e.currentTarget`), or after it, only when focus fell to `<body>`. Never
+move focus a mouse user did not lose.
+- A Retry's hand-off fires only when the Retry unmounts while it holds focus, whatever the cause: its own
+  success, a recovery nobody pressed (a reconnect, window focus, an invalidation), a new search term.
+  Nothing is armed by a press. The press-armed form (a `retried` or `pressed` ref, fired when the error UI
+  later cleared) is the bug class this replaced: a second press or a retry paused offline wedged it, a
+  press that failed again left it armed for a later recovery, and a refetch nobody pressed still dropped a
+  focused Retry to `<body>`. `useFocusHandoff` (`hooks/useFocusHandoff.ts`) is the mechanism: the
+  control's callback ref sees it leave while it is still connected and focused, and a microtask after the
+  commit moves focus only if the node really left (React may keep a node under a new ref callback) and
+  focus is on `<body>`. Runtime: the unit tests run react 18.3.1 (package.json); the App Router aliases
+  `react` and `react-dom` to Next's vendored React, 19.3.0-canary-cbb046ab-20260731 with next 16.3.6
+  (`node_modules/next/dist/build/create-compiler-aliases.js`), and there is no `pages/` router, so
+  production runs React 19. The hand-off was checked in Chromium under both, 7/7 scenarios each (a press,
+  a recovery nobody pressed, focus elsewhere, a busy re-render, no target, a reused node, a deep subtree).
+- The hold contract (`useRetainedFailure`, `hooks/useRetainedFailure.tsx`): a failure a component has
+  rendered stays on screen through any refetch of that query, pressed or not, until data replaces it, with
+  its Retry busy. React Query puts a failed query with no data back to `pending` (`error: null`) the moment
+  it refetches; read raw, that swaps the error UI, and a focused Retry in it, for a skeleton. The hold is
+  tied to the failing query (its `errorUpdatedAt` and `errorUpdateCount`, which a pending refetch keeps),
+  so a key change (another user, a new search term) shows the new query's own first load, never the old
+  error: `errorUpdateCount > 0` alone is not enough, since the new key may have failed before. A first load
+  is never held, nor a fresh mount over a failure it never rendered. It is derived from the query's state
+  on each render, so no second press, paused fetch or batched settle can wedge it. This is a visible change
+  the founder chose (2026-10-04): an error card stays up, its Retry busy, through a reconnect or a refocus
+  that used to show the skeleton.
+- One `<RetryButton>` owns the Retry: busy (`loading`) while any of its failures has a fetch in flight
+  (`fetchStatus !== 'idle'`, paused offline included), whoever started it; a press retries only the
+  failures that failed, since a healthy sibling refetched too could settle first and end the error UI early;
+  the hand-off above. It reads "Retrying…" only while its own press's retry runs. During a refetch nobody
+  pressed it is busy (aria-busy, aria-disabled, the spinner, a refused press) under its own label: a label
+  swap inside the card's `role=alert` would re-announce the failure at every reconnect.
+- One RetryButton instance never serves two error UIs. React reuses an unkeyed element in the same slot, so
+  when one Notice replaces another in a single render the focused node stays, relabelled, and never
+  unmounts: key the wrappers (the pricing page's `key="identity"` and `key="details"` Notices).
+- A Retry that hands focus to a text field skips the hand-off when the last press since it took focus was a
+  pointer press (`e.detail > 0`), since focusing the field after a tap raises the touch keyboard. A
+  keyboard press, or no press at all (focus arrived by Tab), hands off. `:focus-visible` cannot stand in,
+  because it reflects how the control got focus, not how it was activated: a tap on a keyboard-focused
+  button still matches.
+- A fetch is in flight while `fetchStatus !== 'idle'`. A retry paused offline or in a hidden tab is still
+  in flight, so `isFetching` alone would release the failure, and the busy state, too early.
+- When a retry fails again with the same message, the alert's text is unchanged, so nothing is announced.
+  Keying the message node to `errorUpdateCount` re-inserts it. A card whose Retry sits inside its
+  `role=alert` needs no key for a press: the "Retrying…" swap back to "Retry" is a text change inside the
+  region, and Chromium exposes `role=alert` as atomic and assertive, so the whole alert is presented again
+  (FilingFeed review, refuted 2/3 with the accessibility tree). A refetch nobody pressed that fails again
+  says nothing new, by design.
+- A page-level loading gate over a query its children also observe gates on the retained failure, not raw
+  `isLoading`, or the children's mount refetches loop forever:
+  `frontend-spinner-gate-on-shared-errored-query.md` (the settings page's `/me` loop).
 
 (h) The scan cannot see post-success flips outside its names, unmounts, or a busy flag under another
 name. Those stay per-site specs plus a real-browser keyboard pass. Known open cases, same class, not
@@ -91,37 +145,14 @@ Log out (no in-flight guard); PopularTickerChips' add when the insights refetch 
 chip goes live again, and with no row to prune it needs the added ticker remembered); YourCompanies'
 remove when the insights refetch after it fails (the error card replaces the list and focus falls to
 `<body>` with no hand-off); the company page's filings Retry, EarningsCalendarPage's "Try again",
-FullTextSearch's Retry and FilingViewer's "Try again"; BillingPanel's Retry (no retained failure, so
-its refetch swaps the Notice for the skeleton). Gaps in the fixed Retry buttons, found in
-FilingFeed's review: the dashboard's, YourCompanies' and the pricing page's take busy from
-`isFetching`, so a retry paused offline leaves them live, and a second press resets
-`useRetainedFailure`'s fetch tracking mid-flight, which wedges `retrying` so the press's hand-off
-never disarms; the pricing page's hand-off has no disarm at all; and a refetch nobody pressed (a
-reconnect, an invalidation) that swaps a retained error card for its skeleton still drops a focused
-Retry to `<body>`. YourCompanies' Retry, CompanySearch's "Try Again", FilingFeed's Retry and
-EmailVerificationModal's Resend are fixed (`busyControls.dashboard.spec.tsx`,
-`CompanySearch.spec.tsx`, `busyControls.watchlist.spec.tsx`, `busyControls.admin-auth.spec.tsx` plus
-the e2e `email-verification-resend.spec.ts`).
-- A Retry that hands focus to a text field arms only on a keyboard press (`e.detail === 0`), since
-  focusing the field after a tap raises the touch keyboard. `:focus-visible` cannot stand in, because
-  it reflects how the control got focus, not how it was activated: a tap on a keyboard-focused button
-  still matches.
-- The hand-off is armed with the term pressed. A term that changes, including Escape clearing it,
-  drops the failure without a result, so the hand-off disarms rather than firing.
-- `useRetainedFailure` takes a reset key for a query whose key changes under it, such as a new
-  search term.
-- A fetch is in flight while `fetchStatus !== 'idle'`. A retry paused offline or in a hidden tab is
-  still the press's fetch, so `isFetching` alone would release the failure, and the busy state, too
-  early.
-- When a retry fails again with the same message, the alert's text is unchanged, so nothing is
-  announced. Keying the message node to `errorUpdateCount` re-inserts it, and the busy button's
-  `loadingText` names the busy state. A card whose busy Retry sits inside its `role=alert` needs no
-  key: the "Retrying…" swap back to "Retry" is a text change inside the region, and Chromium
-  exposes `role=alert` as atomic and assertive, so the whole alert is presented again (FilingFeed
-  review, refuted 2/3 with the accessibility tree). The dashboard's two Retry buttons, saved-summary Delete and Manage subscription are
-fixed (`tests/unit/busyControls.dashboard.spec.tsx`). A Retry whose query has no data must keep its
-failure while the press runs (`hooks/useRetainedFailure.ts`): the refetch puts the query back to
-pending, and a page gated on `isLoading` swaps the focused Retry for a skeleton.
+FullTextSearch's Retry and FilingViewer's "Try again" (each pinned in the Retry gate's allowlists, so a
+conversion must remove its pins). Fixed, all on RetryButton: the dashboard's account, plan and Your
+companies Retry buttons, FilingFeed's Retry, CompanySearch's "Try again", the pricing page's three and
+BillingPanel's two (`busyControls.dashboard.spec.tsx`, `busyControls.watchlist.spec.tsx`,
+`CompanySearch.spec.tsx`, `busyControls.forms.spec.tsx`, `busyControls.settings.spec.tsx`,
+`useRetainedFailure.spec.tsx`); and EmailVerificationModal's Resend (`busyControls.admin-auth.spec.tsx`
+plus the e2e `email-verification-resend.spec.ts`). The dashboard's saved-summary Delete and Manage
+subscription are fixed too (`busyControls.dashboard.spec.tsx`).
 
 **Evidence**: `frontend/features/calendar/components/AlertBell.tsx` (`disabled={checking}`,
 `aria-disabled={pending || undefined}` plus an early return). `tests/unit/calendarBellKeepsFocus.spec.tsx`
@@ -132,3 +163,11 @@ unlisted file, and on a converted site whose pin was not removed.
 The sweep that followed (busyControls.<group>.spec.tsx) pins every converted control's attributes,
 its focus through busy and settle, and that a second activation sends nothing; each case fails with
 the old native `disabled` restored.
+The retry-hardening follow-up (2026-10-04, design C): 35 of its 38 new or inverted page-level cases fail
+on the pre-conversion sources (the 3 that pass there are controls: focus elsewhere, a key change, one
+batched paused failure). Removing the hold's query identity fails 5 cases; the `errorUpdateCount > 0`
+formula alone fails 1; an always-on "Retrying…" fails 2 and a never-on one 1; unkeyed pricing Notices fail
+1; the settings page's old spinner gate fails the `/me` bound (11 calls). Real build (React 19 canary), both
+themes, 8/8: a keyboard press reads "Retrying…" and lands on the Dashboard title; a reconnect refetch nobody
+pressed keeps "Retry" busy and focused, then lands on the title; focus the Retry did not hold is not moved;
+the settings page over a `/me` 503 sends 2 calls in ~2 s.

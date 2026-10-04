@@ -11,16 +11,16 @@ import { queryKeys } from '@/lib/queryKeys'
 import analytics from '@/lib/analytics'
 import { formatLocalDate } from '@/lib/format'
 import CompanyLogo from '@/components/CompanyLogo'
-import { Button, Card, GuidanceCard, Skeleton } from '@/components/ui'
+import { Card, GuidanceCard, Skeleton } from '@/components/ui'
+import { RetryButton, type RetainedFailure } from '@/hooks/useRetainedFailure'
 import WatchlistAddSearch from '@/features/watchlist/components/WatchlistAddSearch'
 import SummaryStatusBadge from '@/features/watchlist/components/SummaryStatusBadge'
 
 interface YourCompaniesProps {
   insights: WatchlistInsight[] | undefined
   isLoading: boolean
-  isError: boolean
-  refetch: () => void
-  isFetching: boolean
+  /** The insights query's failure, held through any refetch until data replaces it. */
+  failure: RetainedFailure
 }
 
 /**
@@ -30,7 +30,7 @@ interface YourCompaniesProps {
  * "Latest report": insights has no form filter, so "last filed" may be a recent 8-K while the feed
  * shows an older 10-Q for the same company.
  */
-export default function YourCompanies({ insights, isLoading, isError, refetch, isFetching }: YourCompaniesProps) {
+export default function YourCompanies({ insights, isLoading, failure }: YourCompaniesProps) {
   const queryClient = useQueryClient()
   const headingRef = useRef<HTMLHeadingElement>(null)
   const removedTicker = useRef<string | null>(null)
@@ -43,18 +43,6 @@ export default function YourCompanies({ insights, isLoading, isError, refetch, i
     removedTicker.current = null
     if (document.activeElement === document.body) headingRef.current?.focus({ preventScroll: true })
   }, [insights])
-
-  // A successful Retry swaps the error card, and the focused Retry in it, for the list. The press is
-  // tracked through its own fetch: on success focus lands on the heading (only when it fell to
-  // <body>); a retry that fails again leaves the card and its Retry in place and disarms.
-  const retry = useRef<'pressed' | 'fetching' | null>(null)
-  useEffect(() => {
-    if (retry.current === 'pressed' && isFetching) retry.current = 'fetching'
-    else if (retry.current === 'fetching' && !isFetching) {
-      retry.current = null
-      if (!isError && document.activeElement === document.body) headingRef.current?.focus({ preventScroll: true })
-    }
-  }, [isFetching, isError])
 
   const removeMutation = useMutation({
     mutationFn: removeFromWatchlist,
@@ -98,23 +86,15 @@ export default function YourCompanies({ insights, isLoading, isError, refetch, i
           <Skeleton className="h-14 rounded-xl" />
           <span className="sr-only">Loading your companies…</span>
         </div>
-      ) : isError ? (
+      ) : failure.failed ? (
         <GuidanceCard
           variant="error"
           title="Unable to load your companies"
           description="Please retry in a moment."
           action={
-            <Button
-              variant="secondary"
-              onClick={() => {
-                retry.current = 'pressed'
-                refetch()
-              }}
-              loading={isFetching}
-              loadingText="Retrying…"
-            >
+            <RetryButton failures={[failure]} focusTarget={headingRef}>
               Retry
-            </Button>
+            </RetryButton>
           }
         />
       ) : !insights || insights.length === 0 ? (

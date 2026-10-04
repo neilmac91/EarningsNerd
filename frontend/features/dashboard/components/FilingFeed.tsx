@@ -6,8 +6,8 @@ import { queryKeys } from '@/lib/queryKeys'
 import { useQuery } from '@tanstack/react-query'
 import { ArrowRightIcon, NewspaperIcon } from '@/lib/icons'
 import { getDashboardFeed } from '@/features/dashboard/api/dashboard-api'
-import { Button, GuidanceCard, Skeleton } from '@/components/ui'
-import { useRetainedFailure } from '@/hooks/useRetainedFailure'
+import { GuidanceCard, Skeleton } from '@/components/ui'
+import { RetryButton, useRetainedFailure } from '@/hooks/useRetainedFailure'
 import WhatChangedCard from './WhatChangedCard'
 import FeedOnboarding from './FeedOnboarding'
 
@@ -30,15 +30,12 @@ export default function FilingFeed({
     enabled,
   })
   const { data } = feedQuery
-  // A pressed Retry keeps its failure until its own refetch settles. An errored feed has no data, so
-  // its refetch goes back to pending, and the skeleton branch would replace the error card and the
-  // focused Retry in it. A fetch paused offline is still in flight.
+  // A failure keeps the error card, and a focused Retry in it, through any refetch until data replaces
+  // it. An errored feed has no data, so its refetch goes back to pending, and the skeleton branch would
+  // replace the card. A fetch paused offline is still in flight.
   const failure = useRetainedFailure(feedQuery)
   const isError = failure.failed
   const isLoading = feedQuery.isLoading && !failure.failed
-  // Busy during any fetch, pressed or not: a feed that still has data stays on the error card while a
-  // background refetch runs, and a press then would send a second request.
-  const busy = feedQuery.fetchStatus !== 'idle'
 
   const visible = data ? data.slice(0, MAX_CARDS) : []
   // Overflow count comes from the watchlist (companies followed), never data.length — the feed array
@@ -60,20 +57,6 @@ export default function FilingFeed({
     wasOnboarding.current = onboarding
     if (left && document.activeElement === document.body) headingRef.current?.focus({ preventScroll: true })
   }, [onboarding])
-
-  // A successful Retry swaps the error card, and the focused Retry in it, for the feed: hand focus to
-  // the heading, only when it fell to <body>. A retry that fails again disarms, so a later recovery
-  // nobody pressed moves no focus.
-  const retried = useRef(false)
-  useEffect(() => {
-    if (!retried.current) return
-    if (failure.failed) {
-      if (!failure.retrying) retried.current = false
-      return
-    }
-    retried.current = false
-    if (document.activeElement === document.body) headingRef.current?.focus({ preventScroll: true })
-  }, [failure.failed, failure.retrying])
 
   return (
     <section>
@@ -106,17 +89,9 @@ export default function FilingFeed({
           title="Couldn't load your feed"
           description="Please retry in a moment."
           action={
-            <Button
-              variant="secondary"
-              onClick={() => {
-                retried.current = true
-                failure.retry()
-              }}
-              loading={busy}
-              loadingText="Retrying…"
-            >
+            <RetryButton failures={[failure]} focusTarget={headingRef}>
               Retry
-            </Button>
+            </RetryButton>
           }
         />
       ) : !data || data.length === 0 ? (
