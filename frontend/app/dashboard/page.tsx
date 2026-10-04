@@ -24,7 +24,7 @@ import analytics from '@/lib/analytics'
 import { Badge, Button, buttonVariants, Card, GuidanceCard, SkeletonStat, SkeletonText } from '@/components/ui'
 import { queryKeys } from '@/lib/queryKeys'
 import { FREE_SUMMARY_LIMIT } from '@/lib/planLimits'
-import { useRetainedFailure } from '@/hooks/useRetainedFailure'
+import { RetryButton, useRetainedFailure } from '@/hooks/useRetainedFailure'
 import { untilPageReturns } from '@/lib/untilPageReturns'
 
 export default function DashboardPage() {
@@ -35,7 +35,8 @@ export default function DashboardPage() {
     queryFn: getCurrentUserSafe,
     retry: false,
   })
-  const { data: user, isLoading: userLoading, isError: userError, isFetching: userFetching } = userQuery
+  // isPending, not isLoading: a first load paused offline is still loading the page, not a blank one.
+  const { data: user, isPending: userPending } = userQuery
 
   const usageQuery = useQuery({
     queryKey: queryKeys.usage.byUser(user?.id),
@@ -43,7 +44,7 @@ export default function DashboardPage() {
     retry: false,
     enabled: !!user,
   })
-  const { data: usage, isLoading: usageLoading, isFetching: usageFetching } = usageQuery
+  const { data: usage, isLoading: usageLoading } = usageQuery
 
   const subscriptionQuery = useQuery({
     queryKey: queryKeys.subscription.byUser(user?.id),
@@ -51,14 +52,14 @@ export default function DashboardPage() {
     retry: false,
     enabled: !!user,
   })
-  const { data: subscription, isLoading: subscriptionLoading, isFetching: subscriptionFetching } = subscriptionQuery
+  const { data: subscription, isLoading: subscriptionLoading } = subscriptionQuery
 
-  // A Retry the user pressed keeps its failure, so the error card or plan strip (and the focused Retry
-  // in it) stays mounted while the refetch runs. Without it the errored query, which has no data, goes
-  // back to pending, isLoading turns true, and the page-wide skeleton replaces the button.
-  const userFailure = useRetainedFailure(userQuery)
-  const usageFailure = useRetainedFailure(usageQuery)
-  const subscriptionFailure = useRetainedFailure(subscriptionQuery)
+  // A failure keeps the error card or plan strip (and a focused Retry in it) mounted through any refetch
+  // until data replaces it. Read raw, the errored query, which has no data, goes back to pending, isLoading
+  // turns true, and the page-wide skeleton replaces the button.
+  const userFailure = useRetainedFailure(userQuery, queryKeys.currentUser())
+  const usageFailure = useRetainedFailure(usageQuery, queryKeys.usage.byUser(user?.id))
+  const subscriptionFailure = useRetainedFailure(subscriptionQuery, queryKeys.subscription.byUser(user?.id))
   const planFailed = usageFailure.failed || subscriptionFailure.failed
 
   const { data: savedSummaries, isError: savedError } = useQuery({
@@ -74,19 +75,17 @@ export default function DashboardPage() {
     retry: false,
     enabled: !!user,
   })
-  const { data: watchlistInsights, isLoading: insightsLoading, isFetching: insightsFetching } = insightsQuery
+  const { data: watchlistInsights, isLoading: insightsLoading } = insightsQuery
   // Your companies' Retry, as the two above: its skeleton branch would otherwise replace the error card.
-  const insightsFailure = useRetainedFailure(insightsQuery)
+  const insightsFailure = useRetainedFailure(insightsQuery, queryKeys.watchlistInsights())
 
   const queryClient = useQueryClient()
 
-  // Focus targets for controls that unmount on their own success. Each hand-off fires only after
-  // that control's own press, and only when focus fell to <body>.
+  // Focus targets for controls that unmount while they hold focus: a Retry (RetryButton hands off) and
+  // a deleted row's Delete (the effect below, only when focus fell to <body>).
   const titleRef = useRef<HTMLHeadingElement>(null)
   const savedHeadingRef = useRef<HTMLHeadingElement>(null)
   const planHeadingRef = useRef<HTMLHeadingElement>(null)
-  const userRetried = useRef(false)
-  const planRetried = useRef(false)
   const deletedId = useRef<number | null>(null)
 
   const deleteSummaryMutation = useMutation({
@@ -136,35 +135,10 @@ export default function DashboardPage() {
   })
 
   useEffect(() => {
-    // Redirect to login if not authenticated
-    if (!userLoading && !user && !userError) {
-      router.push('/login')
-    }
-  }, [user, userLoading, userError, router])
-
-  // A successful Retry swaps the error card for the dashboard: hand focus to the page title. A retry
-  // that fails again drops its flag, so a later recovery nobody pressed moves no focus.
-  useEffect(() => {
-    if (!userRetried.current) return
-    if (userFailure.failed) {
-      if (!userFailure.retrying) userRetried.current = false
-      return
-    }
-    userRetried.current = false
-    if (user && document.activeElement === document.body) titleRef.current?.focus({ preventScroll: true })
-  }, [user, userFailure.failed, userFailure.retrying])
-
-  // A successful plan Retry swaps the alert, and its Retry, for the plan details. As above, a retry
-  // that fails again drops its flag.
-  useEffect(() => {
-    if (!planRetried.current) return
-    if (planFailed) {
-      if (!usageFailure.retrying && !subscriptionFailure.retrying) planRetried.current = false
-      return
-    }
-    planRetried.current = false
-    if (document.activeElement === document.body) planHeadingRef.current?.focus({ preventScroll: true })
-  }, [planFailed, usageFailure.retrying, subscriptionFailure.retrying])
+    // Only a confirmed guest (a 401 resolves to null, and logout resets the user to null). An unresolved
+    // user (a fetch paused offline, a failure) is not logged out.
+    if (user === null) router.push('/login')
+  }, [user, router])
 
   // A successful delete drops its row once saved summaries refetch. Land on the section heading, or
   // on the next section's when the last summary went and the section with it.
@@ -208,7 +182,7 @@ export default function DashboardPage() {
   )
 
   if (
-    (userLoading && !userFailure.failed) ||
+    (userPending && !userFailure.failed) ||
     (usageLoading && !usageFailure.failed) ||
     (subscriptionLoading && !subscriptionFailure.failed)
   ) {
@@ -245,17 +219,9 @@ export default function DashboardPage() {
             description={userFailure.error instanceof Error ? userFailure.error.message : 'Please try again in a moment.'}
             action={
               <>
-                <Button
-                  variant="secondary"
-                  onClick={() => {
-                    userRetried.current = true
-                    userFailure.retry()
-                  }}
-                  loading={userFetching}
-                  loadingText="Retrying…"
-                >
+                <RetryButton failures={[userFailure]} focusTarget={titleRef}>
                   Retry
-                </Button>
+                </RetryButton>
                 <Link href="/login" className={buttonVariants({ variant: 'primary' })}>
                   Go to login
                 </Link>
@@ -331,9 +297,7 @@ export default function DashboardPage() {
             <YourCompanies
               insights={watchlistInsights}
               isLoading={insightsLoading && !insightsFailure.failed}
-              isError={insightsFailure.failed}
-              refetch={insightsFailure.retry}
-              isFetching={insightsFetching}
+              failure={insightsFailure}
             />
           </div>
 
@@ -425,22 +389,9 @@ export default function DashboardPage() {
                     <WarningCircleIcon className="h-4 w-4 flex-shrink-0" />
                     Unable to load plan details
                   </p>
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    onClick={() => {
-                      planRetried.current = true
-                      // Only the queries that failed. A healthy sibling refetched too could still be
-                      // in flight when the failed one recovers: the strip, and this Retry, would go,
-                      // and come back if that sibling then failed.
-                      if (usageFailure.failed) usageFailure.retry()
-                      if (subscriptionFailure.failed) subscriptionFailure.retry()
-                    }}
-                    loading={usageFetching || subscriptionFetching}
-                    loadingText="Retrying…"
-                  >
+                  <RetryButton size="sm" failures={[usageFailure, subscriptionFailure]} focusTarget={planHeadingRef}>
                     Retry
-                  </Button>
+                  </RetryButton>
                 </div>
               ) : subscription?.is_pro ? (
                 <div className="mt-3 space-y-3">

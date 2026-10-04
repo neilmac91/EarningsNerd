@@ -110,6 +110,17 @@ A form that locks its text fields while it submits uses `readOnly`, never native
 the login and register forms leave their fields editable). Gate: `tests/unit/busyControlsStayFocusable.spec.ts`;
 rules in `lessons/frontend-busy-controls-stay-focusable.md`.
 
+A Retry of a failed query is
+`<RetryButton failures={[useRetainedFailure(query, queryKey)]} focusTarget={headingRef}>`, never a hand-rolled
+`<Button loading={isFetching}>`. `queryKey` is the key the query's own `useQuery` was given: it is the hold's
+identity, so a key change (another user, a new search term) never holds the old query's error (gated in
+`tests/unit/useRetainedFailure.spec.tsx`). The error UI stays up through any refetch until data replaces it;
+the Retry is busy while the query has a fetch in flight (paused offline included), reads "Retrying…" only
+while its own press runs, and hands focus to `focusTarget` (a `tabIndex={-1}` heading, or a text field with
+`textField`) when it unmounts while focused. It lives beside its hook in `hooks/useRetainedFailure.tsx`, not in
+`components/ui`: it is query-coupled, the DS primitives stay free of react-query, and `components/` root is app
+chrome only. Every Retry is RetryButton, gated in `busyControlsStayFocusable.spec.ts` by wiring and by label.
+
 ```
 Primary button   <Button>  ·  LIGHT: white label on bg-brand, hover bg-brand-strong, active bg-brand-emphasis
                  DARK: NAVY-INK label on bg-brand-dark (text-background-dark), hover bg-brand-strong-dark,

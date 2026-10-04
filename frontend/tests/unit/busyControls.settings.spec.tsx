@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { QueryClient, QueryClientProvider, onlineManager } from '@tanstack/react-query'
 import type { ReactNode } from 'react'
 import type { CurrentUser } from '@/features/auth/api/auth-api'
 import type { NotificationPreferences } from '@/features/notifications/api/notifications-api'
@@ -10,6 +10,8 @@ import ChangePasswordForm from '@/features/settings/components/ChangePasswordFor
 import ConnectedAccounts from '@/features/settings/components/ConnectedAccounts'
 import BillingPanel from '@/features/settings/components/BillingPanel'
 import NotificationPreferencesForm from '@/features/settings/components/NotificationPreferencesForm'
+import SettingsPage from '@/app/dashboard/settings/page'
+import { queryKeys } from '@/lib/queryKeys'
 
 /**
  * Settings controls keep keyboard focus while their own request is in flight and through the state
@@ -41,6 +43,8 @@ vi.mock('@/features/auth/api/auth-api', () => ({
   getConnections: api.getConnections,
   unlinkProvider: api.unlinkProvider,
   logoutAllSessions: api.logoutAllSessions,
+  exportUserData: vi.fn(),
+  deleteUserAccount: vi.fn(),
 }))
 vi.mock('@/features/subscriptions/api/subscriptions-api', () => ({
   getSubscriptionStatus: api.getSubscriptionStatus,
@@ -69,9 +73,8 @@ const user = (fullName: string | null): CurrentUser => ({
   id: 1, email: 'a@example.test', full_name: fullName, is_pro: true, is_beta: false, is_admin: false, email_verified: true,
 })
 
-function renderWithClient(ui: ReactNode) {
-  const client = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } })
-  return render(<QueryClientProvider client={client}>{ui}</QueryClientProvider>)
+function renderWithClient(ui: ReactNode, client = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } })) {
+  return { client, ...render(<QueryClientProvider client={client}>{ui}</QueryClientProvider>) }
 }
 
 /** TanStack calls mutationFn a few microtasks after mutate(), so a request count is only
@@ -89,6 +92,7 @@ function expectBusyAndFocused(control: HTMLElement) {
 
 afterEach(() => {
   cleanup()
+  onlineManager.setOnline(true)
   Object.values(api).forEach((mock) => mock.mockReset())
 })
 
@@ -383,6 +387,175 @@ describe('BillingPanel Manage billing', () => {
     } finally {
       Object.defineProperty(window, 'location', { value: realLocation, writable: true, configurable: true })
     }
+  })
+})
+
+describe('BillingPanel Retry', () => {
+  const freeSub: SubscriptionStatus = {
+    is_pro: false, stripe_customer_id: null, stripe_subscription_id: null, subscription_status: null,
+    plan: 'free', status: null, trial_end: null, current_period_end: null, cancel_at_period_end: false,
+  }
+  const proSub: SubscriptionStatus = {
+    ...freeSub, is_pro: true, status: 'active', plan: 'pro', stripe_customer_id: 'cus_1', current_period_end: '2027-06-18T00:00:00Z',
+  }
+  const usage = { summaries_used: 0, summaries_limit: null, is_pro: true, month: '2026-10' }
+  const heading = () => screen.getByRole('heading', { name: 'Billing' })
+  /** The plan was loaded once, then its refresh failed: the stale-data Notice. */
+  function staleClient() {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    client.setQueryData(queryKeys.currentUser(), user(null))
+    client.setQueryData(queryKeys.subscription.byUser(1), proSub)
+    return client
+  }
+
+  it('subscription unavailable: its press keeps the Notice and the focused Retry busy; success hands focus to "Billing"', async () => {
+    api.getCurrentUserSafe.mockResolvedValue(user(null))
+    api.getUsage.mockResolvedValue(usage)
+    const refetched = deferred<SubscriptionStatus>()
+    api.getSubscriptionStatus.mockRejectedValueOnce(new Error('down')).mockReturnValueOnce(refetched.promise)
+    renderWithClient(<BillingPanel />)
+    const retry = await screen.findByRole('button', { name: 'Retry' })
+    retry.focus()
+    fireEvent.click(retry)
+    await settle()
+    expect(retry.isConnected).toBe(true)
+    expect(screen.getByText('Failed to load billing information')).toBeInTheDocument()
+    expectBusyAndFocused(retry)
+    await act(async () => refetched.resolve(freeSub))
+    await waitFor(() => expect(retry.isConnected).toBe(false))
+    await settle()
+    expect(document.activeElement).toBe(heading())
+  })
+
+  it('identity unavailable: the same, through the identity retry', async () => {
+    const refetched = deferred<CurrentUser>()
+    api.getCurrentUserSafe.mockRejectedValueOnce(new Error('down')).mockReturnValueOnce(refetched.promise)
+    api.getSubscriptionStatus.mockResolvedValue(freeSub)
+    api.getUsage.mockResolvedValue(usage)
+    renderWithClient(<BillingPanel />)
+    const retry = await screen.findByRole('button', { name: 'Retry' })
+    retry.focus()
+    fireEvent.click(retry)
+    await settle()
+    expectBusyAndFocused(retry)
+    await act(async () => refetched.resolve(user(null)))
+    await waitFor(() => expect(retry.isConnected).toBe(false))
+    await settle()
+    expect(document.activeElement).toBe(heading())
+  })
+
+  it('a retry that fails again leaves the same Retry focused and live', async () => {
+    api.getCurrentUserSafe.mockResolvedValue(user(null))
+    api.getUsage.mockResolvedValue(usage)
+    const again = deferred<SubscriptionStatus>()
+    api.getSubscriptionStatus.mockRejectedValueOnce(new Error('down')).mockReturnValueOnce(again.promise)
+    renderWithClient(<BillingPanel />)
+    const retry = await screen.findByRole('button', { name: 'Retry' })
+    retry.focus()
+    fireEvent.click(retry)
+    await settle()
+    await act(async () => again.reject(new Error('down')))
+    await waitFor(() => expect(retry).not.toHaveAttribute('aria-busy'))
+    expect(retry.isConnected).toBe(true)
+    expect(retry).not.toHaveAttribute('aria-disabled')
+    expect(document.activeElement).toBe(retry)
+  })
+
+  it('a reconnect refetch nobody pressed keeps the Notice and the focused Retry busy', async () => {
+    api.getCurrentUserSafe.mockResolvedValue(user(null))
+    api.getUsage.mockResolvedValue(usage)
+    const refetched = deferred<SubscriptionStatus>()
+    api.getSubscriptionStatus.mockRejectedValueOnce(new Error('down')).mockReturnValueOnce(refetched.promise)
+    renderWithClient(<BillingPanel />)
+    const retry = await screen.findByRole('button', { name: 'Retry' })
+    retry.focus()
+    act(() => onlineManager.setOnline(false))
+    act(() => onlineManager.setOnline(true))
+    await waitFor(() => expect(api.getSubscriptionStatus).toHaveBeenCalledTimes(2))
+    expect(retry.isConnected).toBe(true)
+    expectBusyAndFocused(retry)
+    await act(async () => refetched.resolve(freeSub))
+    await waitFor(() => expect(retry.isConnected).toBe(false))
+    await settle()
+    expect(document.activeElement).toBe(heading())
+  })
+
+  it("another account's first plan load shows the skeleton, not the last account's error card", async () => {
+    api.getCurrentUserSafe.mockResolvedValue(user(null))
+    api.getUsage.mockResolvedValue(usage)
+    api.getSubscriptionStatus.mockRejectedValueOnce(new Error('down'))
+    const { client } = renderWithClient(<BillingPanel />)
+    await screen.findByText('Failed to load billing information')
+
+    // The subscription is keyed by user id: another account signs in while the panel is mounted.
+    const secondPlan = deferred<SubscriptionStatus>()
+    api.getSubscriptionStatus.mockReturnValueOnce(secondPlan.promise)
+    act(() => client.setQueryData(queryKeys.currentUser(), { ...user(null), id: 2 }))
+    await waitFor(() => expect(api.getSubscriptionStatus).toHaveBeenCalledTimes(2))
+    await settle()
+    expect(screen.queryByText('Failed to load billing information')).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Retry' })).not.toBeInTheDocument()
+    expect(screen.getByRole('status')).toBeInTheDocument()
+    await act(async () => secondPlan.resolve(proSub))
+    expect(await screen.findByText('Pro')).toBeInTheDocument()
+  })
+
+  it('stale-data Retry: busy offline; its own success hands focus to "Billing"', async () => {
+    api.getCurrentUserSafe.mockResolvedValue(user(null))
+    api.getUsage.mockResolvedValue(usage)
+    const refetched = deferred<SubscriptionStatus>()
+    api.getSubscriptionStatus.mockRejectedValueOnce(new Error('refresh failed')).mockReturnValueOnce(refetched.promise)
+    renderWithClient(<BillingPanel />, staleClient())
+    await screen.findByText("Couldn't refresh billing details")
+    const retry = screen.getByRole('button', { name: 'Retry' })
+    retry.focus()
+    onlineManager.setOnline(false)
+    fireEvent.click(retry)
+    await settle()
+    expectBusyAndFocused(retry)
+    act(() => onlineManager.setOnline(true))
+    await waitFor(() => expect(api.getSubscriptionStatus).toHaveBeenCalledTimes(2))
+    await act(async () => refetched.resolve(proSub))
+    await waitFor(() => expect(retry.isConnected).toBe(false))
+    await settle()
+    expect(document.activeElement).toBe(heading())
+  })
+
+  it('stale-data Retry: busy at once after a press, so a second press in the same tick sends nothing', async () => {
+    api.getCurrentUserSafe.mockResolvedValue(user(null))
+    api.getUsage.mockResolvedValue(usage)
+    const refetched = deferred<SubscriptionStatus>()
+    api.getSubscriptionStatus.mockRejectedValueOnce(new Error('refresh failed')).mockReturnValue(refetched.promise)
+    renderWithClient(<BillingPanel />, staleClient())
+    await screen.findByText("Couldn't refresh billing details")
+    const retry = screen.getByRole('button', { name: 'Retry' })
+    fireEvent.click(retry)
+    expect(retry).toHaveAttribute('aria-busy', 'true')
+    fireEvent.click(retry)
+    await settle()
+    expect(api.getSubscriptionStatus).toHaveBeenCalledTimes(2)
+    await act(async () => refetched.resolve(proSub))
+  })
+})
+
+// lessons/frontend-spinner-gate-on-shared-errored-query.md: the page's spinner gate and its children's
+// observers of the same failed query used to remount each other forever.
+describe('SettingsPage over a failed account check', () => {
+  it('a non-401 /me failure renders the page with the billing Notice after at most 2 /me calls in 200 ms', async () => {
+    api.getCurrentUserSafe.mockRejectedValue(new Error('account down'))
+    api.getConnections.mockResolvedValue({ providers: [], has_password: true })
+    api.getNotificationPreferences.mockResolvedValue({
+      notify_10k: false, notify_10q: true, notify_8k: false, notify_20f: false, notify_6k: false,
+      channel: 'email', digest: 'daily', realtime: false, realtime_available: true, eightk_available: false,
+    })
+    renderWithClient(<SettingsPage />)
+    // Short act() windows, so React renders, and mounts and unmounts children, all through the 200 ms: one
+    // long act() would defer every render to its end and hide a loop.
+    const start = Date.now()
+    while (Date.now() - start < 200) await act(async () => { await new Promise((resolve) => setTimeout(resolve, 5)) })
+    expect(api.getCurrentUserSafe.mock.calls.length).toBeLessThanOrEqual(2)
+    expect(screen.getByRole('heading', { name: 'Account settings' })).toBeInTheDocument()
+    expect(await screen.findByText('Failed to load billing information')).toBeInTheDocument()
   })
 })
 

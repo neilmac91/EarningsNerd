@@ -6,6 +6,7 @@ import type { Company } from '@/features/companies/api/companies-api'
 import type { Filing } from '@/features/filings/api/filings-api'
 import type { WatchlistInsight, WatchlistItem } from '@/features/watchlist/api/watchlist-api'
 import { queryKeys } from '@/lib/queryKeys'
+import { useRetainedFailure } from '@/hooks/useRetainedFailure'
 import PopularTickerChips from '@/features/watchlist/components/PopularTickerChips'
 import WatchlistAddSearch from '@/features/watchlist/components/WatchlistAddSearch'
 import YourCompanies from '@/features/dashboard/components/YourCompanies'
@@ -250,9 +251,7 @@ describe('YourCompanies remove button', () => {
       <YourCompanies
         insights={[insight(1, 'AAPL', 'Apple Inc.'), insight(2, 'MSFT', 'Microsoft Corp')]}
         isLoading={false}
-        isError={false}
-        refetch={vi.fn()}
-        isFetching={false}
+        failure={{ failed: false, error: null, busy: false, retry: vi.fn() }}
       />,
     )
 
@@ -285,19 +284,12 @@ describe('YourCompanies remove button', () => {
       .mockReturnValueOnce(refetched.promise)
     // The dashboard's own insights query: the removal's invalidation refetches it, and the row goes.
     function DashboardHost() {
-      const { data, isLoading, isError, refetch, isFetching } = useQuery({
+      const query = useQuery({
         queryKey: queryKeys.watchlistInsights(),
         queryFn: getInsights,
       })
-      return (
-        <YourCompanies
-          insights={data}
-          isLoading={isLoading}
-          isError={isError}
-          refetch={() => void refetch()}
-          isFetching={isFetching}
-        />
-      )
+      const failure = useRetainedFailure(query, queryKeys.watchlistInsights())
+      return <YourCompanies insights={query.data} isLoading={query.isLoading && !failure.failed} failure={failure} />
     }
     renderWithClient(<DashboardHost />)
 
@@ -484,9 +476,10 @@ describe('FilingFeed onboarding', () => {
   })
 })
 
-// The feed's Retry keeps its failure while the retry it started runs: an errored feed has no data, so
-// its refetch goes back to pending and the skeleton used to replace the error card and the focused
-// Retry with it (lessons/frontend-busy-controls-stay-focusable.md, rules (f), (g) and (h)).
+// The feed keeps its failure through any refetch until data replaces it: an errored feed has no data, so
+// a refetch goes back to pending and the skeleton used to replace the error card and the focused Retry
+// with it. A Retry that unmounts while it holds focus hands it to the heading
+// (lessons/frontend-busy-controls-stay-focusable.md, rules (f) and (g)).
 describe('FilingFeed Retry', () => {
   const renderFeed = () => renderWithClient(<FilingFeed watchlistCount={1} />)
   const errorRetry = async () => {
@@ -518,7 +511,7 @@ describe('FilingFeed Retry', () => {
     await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('heading', { name: "What's new" })))
   })
 
-  it('a retry that fails again leaves the keyboard user on Retry, live, and arms no later hand-off', async () => {
+  it('a retry that fails again leaves the keyboard user on Retry, live; once they move off it, a later recovery moves no focus', async () => {
     api.getDashboardFeed
       .mockRejectedValueOnce(new Error('feed down'))
       .mockRejectedValueOnce(new Error('still down'))
@@ -610,5 +603,36 @@ describe('FilingFeed Retry', () => {
     } finally {
       onlineManager.setOnline(true)
     }
+  })
+
+  it('an invalidation nobody pressed (a watchlist change) keeps the card and the focused Retry busy; its success hands focus to "What\'s new"', async () => {
+    api.getDashboardFeed.mockRejectedValueOnce(new Error('feed down'))
+    const { client } = renderFeed()
+    const retry = await errorRetry()
+    retry.focus()
+    const recovery = deferred<unknown[]>()
+    api.getDashboardFeed.mockReturnValueOnce(recovery.promise)
+    act(() => { void client.invalidateQueries({ queryKey: queryKeys.dashboardFeed() }) })
+    await waitFor(() => expect(api.getDashboardFeed).toHaveBeenCalledTimes(2))
+    await settle()
+    expect(screen.getByText("Couldn't load your feed")).toBeInTheDocument()
+    expectBusyAndFocused(retry)
+    await act(async () => recovery.resolve([]))
+    await screen.findByText('Nothing new yet')
+    await settle()
+    expect(document.activeElement).toBe(screen.getByRole('heading', { name: "What's new" }))
+  })
+
+  it('a reconnect recovery with focus elsewhere leaves it there', async () => {
+    api.getDashboardFeed.mockRejectedValueOnce(new Error('feed down')).mockResolvedValue([])
+    renderFeed()
+    const retry = await errorRetry()
+    retry.focus()
+    retry.blur()
+    act(() => onlineManager.setOnline(false))
+    act(() => onlineManager.setOnline(true))
+    await screen.findByText('Nothing new yet')
+    await settle()
+    expect(document.activeElement).toBe(document.body)
   })
 })

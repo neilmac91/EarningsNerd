@@ -7,13 +7,13 @@ import { CircleNotchIcon, MagnifyingGlassIcon } from '@/lib/icons'
 import { useQuery } from '@tanstack/react-query'
 import { searchCompanies, Company } from '@/features/companies/api/companies-api'
 import CompanyLogo from '@/components/CompanyLogo'
-import { Button, inputClasses } from '@/components/ui'
+import { inputClasses } from '@/components/ui'
 import { ApiError } from '@/lib/api/client'
 import { useRouter } from 'next/navigation'
 import { fmtCurrency, fmtPercent } from '@/lib/format'
 import { directionText, directionOf } from '@/lib/financialTone'
 import analytics from '@/lib/analytics'
-import { useRetainedFailure } from '@/hooks/useRetainedFailure'
+import { RetryButton, useRetainedFailure } from '@/hooks/useRetainedFailure'
 
 const isTypingTarget = (el: EventTarget | null): boolean => {
   if (!(el instanceof HTMLElement)) return false
@@ -102,35 +102,12 @@ export default function CompanySearch({
     gcTime: 10 * 60 * 1000, // 10 minutes (formerly cacheTime)
   })
   const { data: companies, isLoading } = companiesQuery
-  // Busy for as long as a fetch is in flight, including one paused offline or in a hidden tab.
-  const busy = companiesQuery.fetchStatus !== 'idle'
-  // "Try Again" keeps its failure while the retry it started runs. An errored search has no data, so
-  // its refetch goes back to pending, and the alert (and the focused button in it) would vanish.
-  // Keyed to the term, so typing a new search drops the old failure.
-  const failure = useRetainedFailure(companiesQuery, debouncedQuery)
+  // The alert keeps its failure through any refetch until data replaces it. An errored search has no
+  // data, so its refetch goes back to pending, and the alert (and a focused "Try again" in it) would
+  // vanish. A new term is another query, so typing one drops the old failure.
+  const failure = useRetainedFailure(companiesQuery, queryKeys.companies(debouncedQuery))
   const isError = failure.failed
   const error = failure.error
-
-  // A successful retry swaps the alert for the results: hand focus to the field, but only after a
-  // keyboard press, since focusing the field after a tap would raise the touch keyboard, and only when
-  // focus fell to <body>. The press is armed with its term, and only that term's search landing counts:
-  // a new or cleared term (Escape) drops the failure without a result, and so disarms, as does a retry
-  // that fails again.
-  const retriedTerm = useRef<string | null>(null)
-  useEffect(() => {
-    const term = retriedTerm.current
-    if (term === null) return
-    if (term !== debouncedQuery) {
-      retriedTerm.current = null
-      return
-    }
-    if (failure.failed) {
-      if (!failure.retrying) retriedTerm.current = null
-      return
-    }
-    retriedTerm.current = null
-    if (companies !== undefined && document.activeElement === document.body) inputRef.current?.focus({ preventScroll: true })
-  }, [debouncedQuery, failure.failed, failure.retrying, companies])
 
   // Navigate to a result and record the search→click so search→company conversion is causal.
   const goToResult = (ticker: string, position: number) => {
@@ -274,23 +251,11 @@ export default function CompanySearch({
                     : 'An unexpected error occurred. Please try again.'}
               </div>
             </div>
-            {/* `loading` while its retry runs, never native `disabled`: Chromium blurs a focused
-                button that turns disabled. Loading refuses presses, so a later one cannot re-arm or
-                drop the hand-off, and "Retrying…" names the busy state. */}
-            <Button
-              variant="secondary"
-              size="sm"
-              className="ml-4"
-              loading={busy}
-              loadingText="Retrying…"
-              onClick={(e) => {
-                // A click from Enter or Space has detail 0; a pointer or tap has 1+.
-                retriedTerm.current = e.detail === 0 ? debouncedQuery : null
-                failure.retry()
-              }}
-            >
+            {/* When the alert goes while "Try again" holds focus (the search lands), focus moves to the field,
+                except after a tap, which would raise the touch keyboard. */}
+            <RetryButton size="sm" className="ml-4" failures={[failure]} focusTarget={inputRef} textField>
               Try again
-            </Button>
+            </RetryButton>
           </div>
         </div>
       )}

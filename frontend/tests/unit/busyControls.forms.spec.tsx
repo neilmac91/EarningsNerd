@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { QueryClient, QueryClientProvider, onlineManager } from '@tanstack/react-query'
 import ContactForm from '@/features/contact/components/ContactForm'
 import FeedbackWidget from '@/features/feedback/components/FeedbackWidget'
 import WaitlistForm from '@/features/waitlist/components/WaitlistForm'
@@ -238,7 +238,8 @@ describe('WaitlistForm (already `loading` + submit guard — pinned so it cannot
   })
 })
 
-describe('Pricing page Retry buttons (the error Notice stays mounted while its own retry runs)', () => {
+describe('Pricing page Retry buttons (a failure keeps its Notice through any refetch until data replaces it)', () => {
+  afterEach(() => onlineManager.setOnline(true))
   const user1 = { id: 1, email: 'ada@example.test' }
   const freeSub: SubscriptionStatus = {
     is_pro: false,
@@ -265,13 +266,11 @@ describe('Pricing page Retry buttons (the error Notice stays mounted while its o
 
   const intro = () => screen.getByText(/Choose the plan that works for you/)
 
-  // React Query puts a query with no data back to `pending` (error: null) the moment it refetches.
-  // The Notice must not read that as "no longer failed": unmounting it removes the focused Retry
-  // button before its `loading` renders, and focus falls to <body>.
-  it.each([
+  const cases = [
     {
       name: 'Retry account check',
       request: api.getCurrentUserSafe,
+      key: queryKeys.currentUser(),
       message: 'network down',
       // Identity failed with no data; subscription and usage never ran.
       arrange: () => {
@@ -284,6 +283,7 @@ describe('Pricing page Retry buttons (the error Notice stays mounted while its o
     {
       name: 'Retry subscription',
       request: api.getSubscriptionStatus,
+      key: queryKeys.subscription.byUser(1),
       message: 'subscription unavailable',
       // Initial subscription read failed with no data; usage is fine.
       arrange: () => {
@@ -296,6 +296,7 @@ describe('Pricing page Retry buttons (the error Notice stays mounted while its o
     {
       name: 'Retry usage',
       request: api.getUsage,
+      key: queryKeys.usage.byUser(1),
       message: 'usage unavailable',
       // Initial usage read failed with no data; the subscription is fine.
       arrange: () => {
@@ -305,7 +306,12 @@ describe('Pricing page Retry buttons (the error Notice stays mounted while its o
       },
       success: usage as unknown,
     },
-  ])('$name keeps focus through its retry and a failed settle, and lands on the intro once it succeeds', async ({ name, request, message, arrange, success }) => {
+  ]
+
+  // React Query puts a query with no data back to `pending` (error: null) the moment it refetches.
+  // The Notice must not read that as "no longer failed": unmounting it removes the focused Retry
+  // button before its `loading` renders, and focus falls to <body>.
+  it.each(cases)('$name keeps focus through its retry and a failed settle, and lands on the intro once it succeeds', async ({ name, request, message, arrange, success }) => {
     const user = userEvent.setup()
     arrange()
     renderPricing()
@@ -363,27 +369,31 @@ describe('Pricing page Retry buttons (the error Notice stays mounted while its o
     expect(document.activeElement).toBe(toggle)
   })
 
-  it('only a Retry press holds the failure: a background refetch of the errored query shows the pending state', async () => {
+  it('a refetch nobody pressed keeps the Notice and a focused Retry, busy, then hands focus to the intro when it lands', async () => {
     api.getCurrentUserSafe.mockResolvedValue(user1)
     api.getSubscriptionStatus.mockRejectedValueOnce(new Error('subscription unavailable'))
     api.getUsage.mockResolvedValue(usage)
     const client = renderPricing()
-    await screen.findByRole('button', { name: 'Retry subscription' })
+    const retry = await screen.findByRole('button', { name: 'Retry subscription' })
+    retry.focus()
 
-    // A refetch nobody asked for (a new observer mounting, window focus) is not a retry: no error
-    // Notice and no busy "Retrying…" button while it runs, as before the Notice learned to stay.
+    // A refetch nobody pressed (reconnect, window focus, an invalidation) puts the data-less query back
+    // to pending. The failure stays shown until data replaces it, so the focused Retry is not unmounted.
     const background = deferred<unknown>()
     api.getSubscriptionStatus.mockReturnValueOnce(background.promise)
     act(() => { void client.refetchQueries({ queryKey: queryKeys.subscription.all() }) })
     await waitFor(() => expect(api.getSubscriptionStatus).toHaveBeenCalledTimes(2))
-    expect(screen.queryByRole('button', { name: 'Retry subscription' })).not.toBeInTheDocument()
-    expect(screen.queryByText('subscription unavailable')).not.toBeInTheDocument()
+    expect(retry).toHaveAttribute('aria-busy', 'true')
+    expect(document.activeElement).toBe(retry)
+    expect(screen.getByText('subscription unavailable')).toBeInTheDocument()
 
     await act(async () => background.resolve(freeSub))
+    await waitFor(() => expect(retry.isConnected).toBe(false))
     expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+    expect(document.activeElement).toBe(intro())
   })
 
-  it('a Notice that clears without a Retry press does not take focus', async () => {
+  it('a Notice that clears while its Retry does not hold focus moves no focus', async () => {
     api.getCurrentUserSafe.mockResolvedValue(user1)
     api.getSubscriptionStatus.mockRejectedValueOnce(new Error('subscription unavailable'))
     api.getSubscriptionStatus.mockResolvedValue(freeSub)
@@ -396,5 +406,89 @@ describe('Pricing page Retry buttons (the error Notice stays mounted while its o
     await act(async () => { await client.refetchQueries() })
     await waitFor(() => expect(screen.queryByRole('alert')).not.toBeInTheDocument())
     expect(document.activeElement).toBe(document.body)
+  })
+
+  it.each(cases)('$name pressed offline waits paused, busy and focused, and a second press sends nothing', async ({ name, request, arrange }) => {
+    arrange()
+    renderPricing()
+    const retry = await screen.findByRole('button', { name })
+    retry.focus()
+    onlineManager.setOnline(false)
+    fireEvent.click(retry)
+    await settle()
+    expectBusyAndFocused(retry)
+    expect(retry).toHaveAccessibleName('Retrying…')
+    fireEvent.click(retry)
+    await settle()
+    expect(request).toHaveBeenCalledTimes(1)
+  })
+
+  it.each(cases)('$name: after a press fails again and the user moves off, a recovery nobody pressed moves no focus', async ({ name, request, arrange, key, success }) => {
+    arrange()
+    const client = renderPricing()
+    const retry = await screen.findByRole('button', { name })
+    retry.focus()
+    request.mockRejectedValueOnce(new Error('still down'))
+    fireEvent.click(retry)
+    expect(await screen.findByText('still down')).toBeInTheDocument()
+    await waitFor(() => expect(retry).not.toHaveAttribute('aria-busy'))
+    retry.blur()
+    const background = deferred<unknown>()
+    request.mockReturnValueOnce(background.promise)
+    act(() => { void client.refetchQueries({ queryKey: key }) })
+    await waitFor(() => expect(request).toHaveBeenCalledTimes(3))
+    await settle()
+    expect(document.activeElement).toBe(document.body)
+    await act(async () => background.resolve(success))
+    await waitFor(() => expect(retry.isConnected).toBe(false))
+    await settle()
+    expect(document.activeElement).toBe(document.body)
+  })
+
+  it.each(cases)('$name: a refetch nobody pressed keeps it focused and busy under its own label; its success hands focus to the intro', async ({ name, request, arrange, key, success }) => {
+    arrange()
+    const client = renderPricing()
+    const retry = await screen.findByRole('button', { name })
+    retry.focus()
+    const background = deferred<unknown>()
+    request.mockReturnValueOnce(background.promise)
+    act(() => { void client.refetchQueries({ queryKey: key }) })
+    await waitFor(() => expect(request).toHaveBeenCalledTimes(2))
+    await settle()
+    expectBusyAndFocused(retry)
+    expect(retry).toHaveAccessibleName(name)
+    await act(async () => background.resolve(success))
+    await waitFor(() => expect(retry.isConnected).toBe(false))
+    await settle()
+    expect(document.activeElement).toBe(intro())
+  })
+
+  it('a Retry never outlives its Notice: when the account Notice gives way to the details Notice, its focused Retry goes too', async () => {
+    // The plan check of user 1 failed earlier with data on screen (a stale failure), and is still cached.
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    client.setQueryData(queryKeys.subscription.byUser(1), freeSub)
+    client.setQueryData(queryKeys.usage.byUser(1), usage)
+    await client
+      .fetchQuery({ queryKey: queryKeys.subscription.byUser(1), queryFn: () => Promise.reject(new Error('plan refresh failed')) })
+      .catch(() => {})
+    expect(client.getQueryState(queryKeys.subscription.byUser(1))?.status).toBe('error')
+    api.getCurrentUserSafe.mockRejectedValueOnce(new Error('network down'))
+    const planRefresh = deferred<SubscriptionStatus>()
+    api.getSubscriptionStatus.mockReturnValue(planRefresh.promise)
+    api.getUsage.mockResolvedValue(usage)
+    render(<QueryClientProvider client={client}><PricingPage /></QueryClientProvider>)
+
+    const accountRetry = await screen.findByRole('button', { name: 'Retry account check' })
+    accountRetry.focus()
+    api.getCurrentUserSafe.mockResolvedValueOnce(user1)
+    fireEvent.click(accountRetry, { detail: 0 })
+    // The account resolves, and in the same render the cached plan failure shows the details Notice. Unkeyed,
+    // React reused the account Retry as "Retry subscription": the same focused node under another label.
+    const planRetry = await screen.findByRole('button', { name: 'Retry subscription' })
+    expect(planRetry).not.toBe(accountRetry)
+    expect(accountRetry.isConnected).toBe(false)
+    await settle()
+    expect(document.activeElement).toBe(intro())
+    await act(async () => planRefresh.resolve(freeSub))
   })
 })
