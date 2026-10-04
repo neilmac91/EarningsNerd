@@ -208,7 +208,10 @@ def preflight_h20_note_inputs(
     origin = _closure_origin(closure, packets, packet_bytes)
     _object(notes, _NOTE_CONTRACT_KEYS, "note contract")
     if (notes["kind"] != "h20_source_owned_exact_note_units_v1" or notes["scope"] != "H20_only"
-            or notes["status"] != "source_owned_boundary_and_dependency_disposition_for_implementation"
+            or notes["status"] not in {
+                "source_owned_boundary_and_dependency_disposition_for_implementation",
+                "source_owned_boundary_and_complete_native_context_union_approved_for_implementation",
+            }
             or notes["semantic_financial_review_attested"] is not False
             or notes["runtime_delivery_or_capacity_attested"] is not False
             or notes["no_other_artifact_coverage_implied"] is not True):

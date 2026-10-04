@@ -107,6 +107,9 @@ def test_h20_uses_external_approval_and_complete_supported_contracts() -> None:
     """One authority gate: pins, scope and the complete ordered obligations cannot be weakened."""
     fixture = _fixture()
     arguments = _arguments(fixture)
+    successor = _set(fixture, ("notes", "status"),
+                     "source_owned_boundary_and_complete_native_context_union_approved_for_implementation")
+    assert h20.preflight_h20_note_inputs(**_arguments(successor))["admission_approved"] is False
     for name in ("original", "note", "closure"):
         changed = {**arguments, f"{name}_contract_bytes": arguments[f"{name}_contract_bytes"] + b"\n"}
         with pytest.raises(ValueError, match="externally approved SHA-256"):
@@ -115,6 +118,7 @@ def test_h20_uses_external_approval_and_complete_supported_contracts() -> None:
     cases = [
         (("original", "accession_number"), "0000014846-26-000038"),
         (("notes", "scope"), "all_filings"),
+        (("notes", "status"), "unknown_approval"),
         (("notes", "units"), fixture["notes"]["units"][:-1]),
         (("notes", "units"), list(reversed(fixture["notes"]["units"]))),
         (("notes", "units", 0, "unit_label"), "primary-N01"),
