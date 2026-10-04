@@ -1,6 +1,6 @@
 # Decision record 04 — R1 planner-controls package receipt, time ceiling and corrections to record 03 (chief, 2026-10-04)
 
-Recorded 2026-10-04T21:53:14Z by the chief (`https://claude.ai/code/session_01GWYV7WXWstgVGQG43YcSM8`, runtime-reported
+Recorded 2026-10-04T21:53:14Z, amended 2026-10-04T22:01:36Z after the independent review (anchors quoted instead of line numbers; ceiling bound stated once), by the chief (`https://claude.ai/code/session_01GWYV7WXWstgVGQG43YcSM8`, runtime-reported
 model `claude-fable-5-1`). Input: Astra's "package adjustment report" of 2026-10-04 (10,392 bytes, SHA-256
 `0d8b2342f09cced288fa65356ffc19b3ebfae2edaf806c03a13d9da11d9266dd`) and the controls archive it
 describes, both relayed by the founder; founder instruction: record the package preparation charge, the
@@ -34,8 +34,13 @@ the five controls (registered below). Nothing in it is a source-input release or
 Allowance 180 minutes (D2). Charged so far: 10 (preparation, record 03) + 10 (this package work) = **20**.
 Remaining ceiling: **160 minutes** for all further custody preparation plus planner execution; it does
 not restart at delivery. The founder's cumulative preparation receipt includes this charge; the planner's
-terminal `minutes_used` covers all work since record 03 and excludes the first 10 already recorded, so
-nothing is omitted or double-charged. Local time accounting; not a ledger write.
+terminal `minutes_used` covers all work since record 03 (so it includes these 10 package minutes) and
+excludes the first 10 already recorded, so nothing is omitted or double-charged. Bound stated once: total
+charge against the 180 = 10 + `minutes_used` ≤ 180, hence `minutes_used` ≤ 170, of which 10 are already
+spent — the planner and any further preparation have at most 160 minutes from this record. Record 03's
+sentence "the chief records further charges only from the planner's return contract" is narrowed:
+preparation charges reported in Astra's receipts are also recorded, as here. Local time accounting; not a
+ledger write.
 
 ## Registration (closure 142)
 
@@ -55,12 +60,13 @@ worker stays undispatched.
 
 ## Corrections to record 03 raised by Astra and accepted
 
-1. **Telemetry sentence (D3/D6 correction, line 78):** "a rise means SEC answered 429" is too strong.
+1. **Telemetry sentence (D3/D6 correction; record 03 reads "a rise means SEC answered 429 on a backoff path
+   (EFTS, companyfacts)"):** too strong.
    `_is_rate_limit_error` (`sec_rate_limiter.py:184-196`) is true for HTTP 429 **or** for any exception
    whose message contains "rate limit", "too many requests", "429" or "throttl". Supported wording: a rise
    records a recognised rate-limit error on an `execute_with_backoff` path; it is not by itself proof of an
    observed SEC 429. The conservative stop rule stands.
-2. **"Zero writes" scope (line 5):** Astra's handover persisted one local administrative report and an
+2. **"Zero writes" scope (record 03's introduction, "zero spend, zero writes"):** Astra's handover persisted one local administrative report and an
    immediately undone clipping. Supported statement: zero ledger, repository, production, flag, invitation
    and held-PR writes; not zero filesystem writes.
 3. **Custody counts:** the 17/21 and 7/48 cloud-only figures were historical. Astra's read-only check for

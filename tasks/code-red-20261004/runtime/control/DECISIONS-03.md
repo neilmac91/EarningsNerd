@@ -7,9 +7,12 @@ writes, no source work started). Astra's evidence files live on the founder's ma
 size and SHA-256; only counts and file names from them are reproduced here, never contents. Nothing below admits capacity, releases a
 hold, invites a user, changes a production flag, adds load or spends.
 
-**Corrections recorded in `DECISIONS-04.md` (from Astra's package adjustment report):** the line-78 telemetry
-sentence (a rise records a recognised rate-limit error, not necessarily an observed SEC 429), the "zero writes"
-scope in the introduction, the custody counts (now 18/21 and 12/48 cloud-only) and the unverified `brctl` advice.
+**Corrections recorded in `DECISIONS-04.md` (from Astra's package adjustment report):** the telemetry sentence
+"a rise means SEC answered 429 on a backoff path" (a rise records a recognised rate-limit error, not necessarily an
+observed SEC 429), the "zero writes" scope in the introduction, the custody counts (now 18/21 and 12/48
+cloud-only), the unverified `brctl` advice, and the time accounting: "Remaining: 170 minutes" and "run within
+170 minutes" are superseded by 160 after the package preparation charge, and "the chief records further charges
+only from the planner's return contract" is narrowed to include preparation charges reported in Astra's receipts.
 The text below is left as recorded.
 
 ## Prerequisite 1 — planner registered (CEO)
