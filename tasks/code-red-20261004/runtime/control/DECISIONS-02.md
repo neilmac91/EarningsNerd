@@ -103,6 +103,14 @@ turn. The founder decides: apply the patch handed over in the session (SHA-256 r
 branch of their own, change the numbers first, or drop it. Nothing deploys until a backend push to
 main; marking any such PR ready still needs a chief reservation for `copilot-eval`.
 
+Post-gate addendum (2026-10-04T18:16Z): the first full backend gate on the patch returned ruff and
+bandit clean and pytest 2305 passed / 1 failed — `tests/unit/test_data_completeness.py::
+test_backfill_deploy_restores_only_its_scheduled_entrypoint` pins the backfill-facts env token, so the
+revised patch updates that token and also carries the burst-semantics corrections from the PR review
+(edgartools' bucket is a sliding window). Revised patch handed over in the session: 19,842 bytes,
+SHA-256 `e1c097f915cc1566e2b65791bdaf9a27326ef87dd7a98bf2b20f944563553e71` (supersedes the first
+hand-over). Targeted tests pass on the revised patch; the full re-run result is reported in the session.
+
 ## D4 — Monday capacity readout window widened to 06:00–08:00 UTC (COO/CEO)
 
 backfill-facts is scheduled Monday 07:00 UTC (Astra), so the earlier 06:00–07:00 window would have
@@ -182,7 +190,7 @@ anchor). No row is arithmetically wrong on its stated inputs; four rows and §5 
 |---|---|---|---|
 | B08 | stands | 2 instances × 1 process; overlap extra still unknown | §5's "+4" resolves that unknown to exactly one extra instance; two (+8 → 26 > 22) is not excluded |
 | B19 | qualified | 25 − 3 = 22 correct; PostgreSQL 15 has no `reserved_connections` GUC (16+), so the null is "not a parameter", not an unknown; 22 is the total non-reserved backend threshold that Cloud SQL agent and non-application sessions also consume | Treat 22 as a ceiling on everyone's backends, not an application-fillable figure (COO item on DB headroom) |
-| B36 | qualified | 10×{2,4,5} = 20/40/50 correct **on its inputs**, but the input "one 10 req/s bucket per process" is a floor: edgartools' internal limiter is a second, unwrapped bucket in every process (`sec_api.py:9-11`); the app bucket starts full and refills to full after any ≥1 s gap, so the first-second ceiling is 2× sustained and Cloud Scheduler starts Monday jobs at the same second; the hourly filing-scan (every hour) and the daily EFTS jobs (notable-filings, earnings-calendar-refresh) are SEC callers missing from the row | **Chief verification:** edgartools 5.58.0 `edgar/httpclient.py:202` default 9 req/s, env `EDGAR_RATE_LIMIT_PER_SEC`, process-global (`:433`). Per-process ceiling 19 sustained; D3 rewritten to budget both buckets; "mostly the Monday window" withdrawn |
+| B36 | qualified | 10×{2,4,5} = 20/40/50 correct **on its inputs**, but the input "one 10 req/s bucket per process" is a floor: edgartools' internal limiter is a second, unwrapped bucket in every process (`sec_api.py:9-11`); the app bucket starts full and refills to full after any ≥1 s gap, so the first-second ceiling is 2× sustained (app bucket only; edgartools' sliding window stays at rate — see D3) and Cloud Scheduler starts Monday jobs at the same second; the hourly filing-scan (every hour) and the daily EFTS jobs (notable-filings, earnings-calendar-refresh) are SEC callers missing from the row | **Chief verification:** edgartools 5.58.0 `edgar/httpclient.py:202` default 9 req/s, env `EDGAR_RATE_LIMIT_PER_SEC`, process-global (`:433`). Per-process ceiling 19 sustained; D3 rewritten to budget both buckets; "mostly the Monday window" withdrawn |
 | B41 | qualified | 17 per process and 2×17 = 34 correct; the pregenerate process is sequential (B48) with recovery after the primary stream, so its tight bound is 3 and the fleet figure 37 (43 remains a valid loose bound); none of the other seven jobs reaches the provider | Close the row's "other jobs unverified" clause; use 37 as the configured fleet stream ceiling |
 | B54 | qualified | 300/1000/100 × 20 correct and enforced per calendar month; it bounds metered user-originated demand, not provider requests (retries ×3, recovery, cross-instance duplicates, unmetered job generation sit outside) | Keep as a demand ceiling only |
 | §5 | qualified | 18 = 8 + 3 + 7 and 18 + 4 = 22 exact; the "+4" is an assumption (see B08); the hazard-frequency claim understates (hourly 30 req/s configured window; daily EFTS jobs) | D3 covers every job; the frequency claim is withdrawn |

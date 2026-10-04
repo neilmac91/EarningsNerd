@@ -1,4 +1,4 @@
-# Durable checkpoint — CODE RED chief session (updated 2026-10-04T18:10:46Z)
+# Durable checkpoint — CODE RED chief session (updated 2026-10-04T18:16:34Z)
 
 Chief: `https://claude.ai/code/session_01GWYV7WXWstgVGQG43YcSM8` (runtime-reported model `claude-fable-5-1`).
 Package: `earningsnerd-code-red-fable-chief-20261004.zip` SHA-256
@@ -14,7 +14,7 @@ from the branch restarted at that main. Tasks-only: no code, workflow, test or p
 | `README.md` | `2bd9fbd9b5c33e713df04cf1cb8b2de1345a5083c81da1a5fc61548301455325` | recorded (revision exception added after review nit R1) |
 | `TAKEOVER.md` | `7fcb32c92c7793deacfb90c8af86db73edf0b63083d5f75d018c0b73b30013b1` | recorded (snapshot heading: observed 14:21Z, recorded 14:31Z) |
 | `control/LEDGER-ACCESS.md` | `1f630ee23c512466068fe8c14022433d6b758bd32ac336014bbf49270d8ced5d` | **successor ledger designated 17:39Z** (update section); paid dispatch still HELD, 0 reservations |
-| `control/DECISIONS-02.md` | `2cf3937b953780b27368b5de3974a0c48165ab46cc39a64cd7df9994d19eda04` | post-Astra decision set D1–D9 + refuter appendices A/B |
+| `control/DECISIONS-02.md` | `ea12e99e9d0e50de93d65363bffe047296ff871ba3942b8f2410737ecdcd5e07` | post-Astra decision set D1–D9 + refuter appendices A/B |
 | `control/PRODUCTION-CONFIG-OBSERVATION-20261004.md` | `ea3689c8744023f9b627c2e0e51622bb01b7fa70382f1a70c8fac59f17c3564d` | two read-only Ops describes; no SEC budget override anywhere; one process per instance observed |
 | `control/source-context-exclusion-136.json` | `f6c065fd30650547e6cdb597faca44138ccd54bc50e5d9ab63b9883c61862f9a` | 136 entries (chief added) |
 | `control/source-context-exclusion-137.json` | `3f04115827cc22e0588af212eb86737dcf3c183a51118ac6443020eb6530b00f` | 141 entries (4 CPO workflow agents + COO subagent added) |
@@ -49,7 +49,7 @@ from the branch restarted at that main. Tasks-only: no code, workflow, test or p
 8. Paid dispatch held (live ledger inaccessible at the time). Superseded by decision 9.
 9. **Successor spend ledger designated** (17:39Z, `DECISIONS-02.md` D1): private artifact "CODE RED Spend Ledger", document SHA-256 `53e8486800e193277c5be5c14a786cfeff90d3b4fa212be1c044c7343fea9f78`; chief sole writer; 0 reservations; paid dispatch still HELD. URL kept out of the public repository (D5).
 10. **R1 bounded allowance** (D2): 3 focused hours of local founder-side refinement by a fresh source-only planner; USD 0; engineering-safe return; planner identity registered before any executive read.
-11. **SEC budgets as risk reduction** (D3): CTO draft PR, held unready, sets `SEC_RATE_LIMIT_PER_SECOND=1` and `EDGAR_RATE_LIMIT_PER_SEC=1` on every process (second bucket found by the refuters and verified in edgartools 5.58.0 source); every scheduled overlap ≤ 10 req/s sustained; all-active 20 and first-second 2× honestly not bounded; numbers are the founder's. **Execution: the commit of that change was denied by the platform classifier (Production Deploy); patch handed to the founder; no draft PR opened.**
+11. **SEC budgets as risk reduction** (D3): CTO draft PR, held unready, sets `SEC_RATE_LIMIT_PER_SECOND=1` and `EDGAR_RATE_LIMIT_PER_SEC=1` on every process (second bucket found by the refuters and verified in edgartools 5.58.0 source); every scheduled overlap ≤ 10 req/s sustained; all-active 20 and first-second 3 per process (15 at Monday 07:00) honestly not bounded; numbers are the founder's. **Execution: the commit of that change was denied by the platform classifier (Production Deploy); patch handed to the founder; no draft PR opened.**
 12. **Monday readout window** 06:00–08:00 UTC, Routine fires 08:10Z (D4).
 13. **Records privacy, forward-only** (D5); **provisional stop conditions** (D6); provider limits recorded as published (D7); egress identity moot for the SEC cap (D8).
 14. **COO item 8 answered** by two isolated refuters (D9, Appendices A/B): no arithmetic error; six qualifications accepted; B07/B08 now observed (one process per instance) from the Ops read.
@@ -101,8 +101,11 @@ from the branch restarted at that main. Tasks-only: no code, workflow, test or p
   the D3 pin — D3, the observation record, the founder's patch and its gate updated; (7) "four rows and
   §5"; (8) todo narrative bullet; (9) env names of torn-down integrations withheld (D5). The reviewer
   disclosed one deviation (a `pip download` command line with discarded output; nothing used).
-- The review binds to `9c505289` only; the delta to the final head is re-reviewed by the same context
-  before the `Review override:` line is bound.
+- Delta `9c505289..6bc54a44` re-reviewed by the same context: **NO BLOCKER bound to `6bc54a44`**; all nine
+  prior findings verified fixed in the committed blobs; 25 hashes / 0 mismatched; one minor should-fix
+  (decision 11 burst wording) and three nits (founder item 2 wording, todo owner, execution-note addendum,
+  Appendix A footnote) fixed in the following commit, which is re-checked before the `Review override:`
+  line is bound.
 - D3 patch gate (founder's patch, not this PR): first full backend run — ruff and bandit clean, pytest
   2305 passed / 1 failed: `tests/unit/test_data_completeness.py::test_backfill_deploy_restores_only_its_scheduled_entrypoint`
   pins the backfill-facts env token, so the patch now updates that token; targeted tests pass after the
@@ -111,7 +114,7 @@ from the branch restarted at that main. Tasks-only: no code, workflow, test or p
 ## Founder-dependent items (precise; nothing blocks today's work)
 
 1. R1 (D2): run the 3-hour bounded refinement locally with Astra's fresh source-only planner; return counts, hashes and the planner's context identity; the chief then sets `R1-STATUS.md`.
-2. Policy numbers (D3): confirm or change the draft per-process budgets (1 + 1 on every process) before the CTO's draft PR is marked ready; marking ready needs a chief reservation (~USD 0.01 `copilot-eval`).
+2. Policy numbers (D3): confirm or change the per-process budgets (1 + 1 on every process) in the handed-over patch before any PR carrying it is marked ready; marking ready needs a chief reservation (~USD 0.01 `copilot-eval`).
 3. Ledger: closed — successor designated (decision 9). Any paid action still needs a reservation written there first.
 
 ## Next executable action and stop condition

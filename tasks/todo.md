@@ -6231,9 +6231,10 @@ Full local and hosted verification plus independent exact-head review precede re
       reservation there (`runtime/control/DECISIONS-02.md` D1, `LEDGER-ACCESS.md` update).
 - [ ] COO/CEO: one bounded read-only Ops `capacity-readout` over Monday 06:00–08:00 UTC (widened to
       include backfill-facts 07:00; Routine fires 08:10Z) to inform B32; receipt to COO (`DECISIONS-02.md` D4).
-- [ ] CTO: draft PR (held unready) setting `SEC_RATE_LIMIT_PER_SECOND=1` and `EDGAR_RATE_LIMIT_PER_SEC=1`
-      on the service and all eight jobs with a rule-12 gate; founder confirms the numbers; chief reserves
-      ~USD 0.01 before it is marked ready (`DECISIONS-02.md` D3).
+- [ ] Founder: apply (or change the numbers in) the handed-over patch pinning `SEC_RATE_LIMIT_PER_SECOND=1`
+      and `EDGAR_RATE_LIMIT_PER_SEC=1` on the service and all eight jobs with its rule-12 gate — the chief's
+      commit of it was classifier-denied (Production Deploy); chief reserves ~USD 0.01 before any PR
+      carrying it is marked ready (`DECISIONS-02.md` D3 execution note).
 - [ ] COO: decide whether item 8 closes on the two refuter appendices (`DECISIONS-02.md` D9); CTO carries
       B07/B08/B36/B41/B52 updates into the next handback revision.
 - [ ] Docs-vs-config: `docs/OPERATIONS.md` alert threshold `database.checked_out > 8` is unreachable with
