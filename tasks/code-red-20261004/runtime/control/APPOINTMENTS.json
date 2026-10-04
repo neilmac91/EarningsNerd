@@ -19,7 +19,9 @@
       "actual_runtime_identity": "No isolated delegate: the Workflow launch for dispatch CTO-ENVELOPE-HANDBACK-01 (author + three adversarial lenses) was denied by the platform's auto-mode classifier. The chief context (session_01GWYV7WXWstgVGQG43YcSM8, runtime-reported model claude-fable-5-1) authored the handback acting as CTO; no isolated adversarial review ran.",
       "requested_model": "claude-fable-5-1 (author); independent lenses: claude-opus-5-5, claude-fable-5-1, claude-sonnet-5-5",
       "deliverable": "handbacks/cto/envelope/ revision 2 (CORRECTION-01.md records the revision-1 placeholder defect found by the COO worker and the hash chain)",
-      "status": "delivered; unrefuted by isolated review"
+      "status": "delivered; unrefuted by isolated review",
+      "independent_refuters": "Two isolated read-only refuter contexts (arithmetic, assumptions lenses) launched by the chief 2026-10-04T17:33Z against handback rev 3 derived rows; both returned; registered in control/source-context-exclusion-139.json; verdicts in control/DECISIONS-02.md Appendices A and B (no arithmetic error; six qualifications; edgartools second bucket verified; one process per instance observed).",
+      "next_assignment": "Draft PR (held unready) for per-process SEC budgets on both buckets per DECISIONS-02.md D3; next handback revision carries B07/B08/B36/B41/B52 updates."
     },
     "CPO": {
       "waves": [
@@ -47,7 +49,8 @@
       "deliverable": "handbacks/coo/CURRENT-BETA-OPERATING-ENVELOPE-DISPOSITION.md d30bdd50…",
       "disposition": "HOLD — exact missing evidence/decision (8 items, each with owner and smallest next handback); capacity unadmitted; C1 remains the 1 open capacity decision",
       "deviation": "one disclosed read-only `git status --porcelain | head -0` in its final sanity check, contrary to its no-git instruction; no mutation; chief disposition: accepted as a disclosed deviation with no effect on the output",
-      "status": "delivered"
+      "status": "delivered",
+      "item_8_status": "Answered by two refuters (DECISIONS-02.md D9); COO decides closure. Monday readout window 06:00–08:00 UTC (D4)."
     },
     "CFO": {
       "waves": [
@@ -58,7 +61,8 @@
       "held_worker": "Cost-decision worker queued: no exact paid action named; live ledger inaccessible from this host (returns a blocked receipt if dispatched)",
       "actual_runtime_identity": "not launched",
       "requested_model": "n/a",
-      "status": "queued; reconciliation reused; SPEND-POLICY-STATEMENT.md issued by the chief (provider operating-spend field HOLD)"
+      "status": "queued; reconciliation reused; SPEND-POLICY-STATEMENT.md issued by the chief (provider operating-spend field HOLD)",
+      "successor_ledger": "Designated 2026-10-04T17:39Z (DECISIONS-02.md D1): private artifact \"CODE RED Spend Ledger\", document SHA-256 53e8486800e193277c5be5c14a786cfeff90d3b4fa212be1c044c7343fea9f78; chief sole writer; 0 reservations; CFO worker still not launched (USD 0 lane)."
     }
   },
   "lanes": {
@@ -70,7 +74,7 @@
     ]
   },
   "note": "Appointment is accountability, not entry authorization. Actual delegate identities (workflow run / agent ids) are recorded here and in the exclusion successor after launch.",
-  "updated_at": "2026-10-04T15:02:56.216730+00:00",
+  "updated_at": "2026-10-04T17:49:21.474931+00:00",
   "classifier_denials": [
     "Workflow launch for CTO-ENVELOPE-HANDBACK-01 (auto-mode classifier, no reason given); not re-issued through another tool or subagent",
     "One Bash read of docs/DEPLOYMENT.md job-schedule sections (auto-mode classifier: instruction poisoning); the handback cites those lines from an earlier permitted line-level search only"

@@ -29,3 +29,23 @@ never an independently spendable balance.
 **Founder-dependent item (not blocking today):** supply the live ledger file or hash confirmation
 before the first paid action is proposed. The chief will not manufacture a fresh budget from the
 snapshot and will not re-ask for the USD 15 authority.
+
+---
+
+## Update 2026-10-04T17:39Z — successor ledger designated (supersedes decisions 1–2 above)
+
+Astra (the retired original writer, read-only) confirmed on 2026-10-04 that the live
+`outputs/next-stage-20261003/spend-and-reservation.json` is byte-identical to the packaged snapshot
+(SHA-256 `99c7259ff3e5f0f2c40b60e6b557bbc711222be0e261b9277f3105e9bca8fc7b`, 18,351 bytes) and that
+no reservation, hold or event was added after 2026-10-04T09:35:21Z. Condition (b) is met.
+
+- **Successor ledger:** private claude.ai artifact "CODE RED Spend Ledger" in the founder's account;
+  authoritative document `spend-and-reservation.json`, 20,272 bytes, SHA-256
+  `53e8486800e193277c5be5c14a786cfeff90d3b4fa212be1c044c7343fea9f78` (snapshot + `successor_designation`
+  block with the predecessor hash, hash-chain rule, state at designation and an empty `events` list).
+  The URL is not recorded here (public repository; `DECISIONS-02.md` D5).
+- **Writer:** the chief only. Every write appends an event carrying the previous document's SHA-256.
+- **Predecessor:** the founder's local file is frozen reference; Astra stays read-only.
+- **Paid dispatch:** still HELD — a reservation must be written in the successor before any paid trigger
+  (including `copilot-eval` on a backend PR marked ready). Active reservations: 0.
+- Decisions 3–4 above remain in force; the founder-dependent item is closed.
