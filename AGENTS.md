@@ -15,7 +15,9 @@ this task; open those lessons rather than the whole collection.
   `tasks/todo.md` is the historical ledger; its older unchecked rows are not a to-do list.
 - Service boundaries or data flow: `docs/ARCHITECTURE.md`.
 - Prompt, model, eval or AI flag changes: `backend/evals/RUNBOOK.md`.
-- UI changes: `frontend/DESIGN_SYSTEM.md`.
+- UI work: read [DESIGN.md](DESIGN.md) for the portable visual reference, then
+  [frontend/DESIGN_SYSTEM.md](frontend/DESIGN_SYSTEM.md) for implementation conventions and gates.
+  Include both in UI subagent briefs; follow [design-document maintenance](CLAUDE.md#design-documentation).
 - Deployment work: `docs/DEPLOYMENT.md`.
 
 Routine isolated edits do not require loading the full handovers or repository map.
@@ -29,6 +31,11 @@ code > `CLAUDE.md` > `lessons/` > `tasks/handover-astra-2026-09-19.md` > `tasks/
 > `docs/` > earlier handovers (`tasks/handover-astra-2026-09-*.md`, `tasks/handover-wave3-2026-09.md`,
 `tasks/handover-wave2-2026-09.md`) and `tasks/implementation-briefs-2026-09.md` (historical)
 > `tasks/archive/` > `.claude/agents/*.md`.
+
+For UI guidance, `frontend/DESIGN_SYSTEM.md` owns implementation conventions and verification;
+`DESIGN.md` and `.impeccable/design.json` are derived visual snapshots. Apply the code-first
+precedence above to stale tokens, component examples or descriptions, and refresh affected
+documentation in the same PR. A snapshot does not replace the existing implementation gates.
 
 The seven engineering briefs under `.claude/agents/engineering/` are refreshed and guarded by
 `backend/tests/unit/test_agent_files_stack_truth.py`. Other agent files retain historical stack
@@ -99,3 +106,4 @@ the action directly; no filler phrases. Messages and PR bodies are read by a hum
 From `backend/`: `ruff check . && bandit -r app -ll && python -m pytest` before every backend
 push. From `frontend/`: `npm run lint && npx tsc -p tsconfig.ci.json && npm run test -- --run &&
 npm run build`. `git status` must be empty after each commit. Open every PR as a draft first.
+

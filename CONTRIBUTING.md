@@ -81,3 +81,8 @@ Playwright). All three must pass before the backend auto-deploys to Cloud Run on
 
 A full map of services, routers, and models is in [`CLAUDE.md`](./CLAUDE.md); the human-facing
 architecture overview is in [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.md).
+
+For UI work, start with [DESIGN.md](./DESIGN.md), then use
+[frontend/DESIGN_SYSTEM.md](./frontend/DESIGN_SYSTEM.md) for implementation conventions and
+verification. [CLAUDE.md's design-document maintenance guidance](./CLAUDE.md#design-documentation)
+explains when to refresh the visual snapshot, its sidecar and the implementation guide.

@@ -3,7 +3,14 @@
 **Drop-in replacement for `frontend/DESIGN_SYSTEM.md`** (synced July 2026: single Sage accent,
 type v2, cream-audited contrast). Token *definitions* live in `frontend/tailwind.config.js`;
 this doc is the *how/why* + the rules learned the hard way. Read it before touching any UI;
-subagent briefs for UI work should link here.
+subagent briefs for UI work should link here and to [the root DESIGN.md](../DESIGN.md).
+
+Read `DESIGN.md` first for the visual direction and portable token/component snapshot. This guide
+retains implementation conventions, exceptions and verification gates; actual token definitions
+and component code take precedence over stale snapshots. Follow the
+[maintenance guidance in CLAUDE.md](../CLAUDE.md#design-documentation) when a change affects the
+documented system. The [.impeccable/design.json sidecar](../.impeccable/design.json) is a preview
+companion to `DESIGN.md`, not a replacement for the components or the checks below.
 
 > TL;DR: **brand = ONE Sage accent in both themes** (the sage/slate split is retired).
 > Mint/emerald/`primary`/blue/sky/teal are **not** brand. Contrast is audited against the warm
@@ -376,4 +383,5 @@ Recharts/rAF, which need numbers). **No raw ms or bezier strings anywhere else.*
    editing this section without editing the gate fails, and vice versa.
 4. **Verify in BOTH themes** on the Vercel preview — green CI ≠ correct visuals.
 5. Run `npm run typecheck`, `npm run lint` (`--max-warnings 0`), `npm run build`, `npm run test`.
+
 

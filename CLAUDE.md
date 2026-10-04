@@ -16,10 +16,33 @@ prod runs the L1 in-memory cache (ADR-0004).
 - `docs/adr/` — consult when changing architectural decisions; settled decisions (Cloud Run, edgartools, Redis-off-in-prod, React 18,
   DeepSeek supersedes Gemini). Don't re-litigate; supersede with a new ADR.
 - `docs/ARCHITECTURE.md` — consult for service boundaries, data flow, and architectural changes.
-- `frontend/DESIGN_SYSTEM.md` — MANDATORY before any UI work; link it in subagent briefs.
+- [DESIGN.md](DESIGN.md), then [frontend/DESIGN_SYSTEM.md](frontend/DESIGN_SYSTEM.md) — MANDATORY
+  before UI work. The first records the visual system; the second supplies implementation
+  conventions and verification gates. Link both in UI subagent briefs.
 - `backend/evals/RUNBOOK.md` — MANDATORY before changing prompts, models, or AI flags.
 - Reference detail lives in `docs/CONFIGURATION.md` (env vars), `docs/OPERATIONS.md`
   (health/metrics/runbook/admin), `docs/TROUBLESHOOTING.md`, `docs/DEPLOYMENT.md`.
+
+## Design documentation
+
+[DESIGN.md](DESIGN.md) is the root visual reference: the design direction, portable token snapshot
+and reusable component patterns. [frontend/DESIGN_SYSTEM.md](frontend/DESIGN_SYSTEM.md) remains the
+detailed implementation guide, including exceptions and the existing theme/token done-gate.
+[.impeccable/design.json](.impeccable/design.json) supplies preview components and metadata that
+extend the Markdown frontmatter; it is documentation, not a runtime theme or component library.
+Token definitions in `frontend/tailwind.config.js`, `frontend/app/globals.css`, and the actual
+components take precedence over stale documentation, under the conflict rules in
+[AGENTS.md](AGENTS.md#2-precedence-when-documents-conflict).
+
+When a change affects documented tokens, typography, reusable component states or visual
+conventions, refresh the affected `DESIGN.md` content and sidecar together in that PR. Update
+`frontend/DESIGN_SYSTEM.md` when its implementation guidance changes. Keep the snapshot's source
+revision and verification limits accurate. A route-specific content change that leaves the
+documented system intact does not require regenerating the snapshot. A routing-only documentation
+edit can leave the sidecar unchanged when its tokens, specimens and narrative still match.
+Use `$impeccable document` for a source-based refresh when available; otherwise update from the
+same source files and check token references, narrative parity and links. Apply the existing
+change-area checks in AGENTS.md and rule 11; a docs-only refresh uses documentation checks.
 
 ## Commands
 
@@ -95,8 +118,10 @@ Infra: `docker-compose up -d postgres redis` (local only — prod has no Redis).
     `https://www.sec.gov/Archives/edgar/data/{cik}/{accession}/` with CIK leading zeros stripped
     and accession dashes removed — build it ONLY with `app/utils/sec_urls.py` (see
     `lessons/sec-filing-url-format.md`; tests in `tests/unit/test_filing_url_listeners.py`).
-11. **Design system:** any theme/token change is app-wide (public + authed). Done-gate = the
-    legacy-color grep in `DESIGN_SYSTEM.md` returns nothing AND both themes verified on preview.
+11. **Design system:** read `DESIGN.md` and `frontend/DESIGN_SYSTEM.md` before UI work and apply
+    the [design-document maintenance guidance](#design-documentation) when the documented system changes.
+    Any theme/token change is app-wide (public + authed). Done-gate = the legacy-color grep in
+    `frontend/DESIGN_SYSTEM.md` returns nothing AND both themes verified on preview.
     Dialogs only via `ui/Modal`; z from the ladder; eyebrows = `tracking-eyebrow`; chip/delta text = the
     700-level tokens; page bg = `background`, cards = `panel`, on every route. Gates: the design rules in
     `frontend/eslint.config.mjs` (raw hex/palette, `z-[N]`, off-ramp tracking, sub-scale type, `alert`)
@@ -181,3 +206,4 @@ Manual bootstrap: `tasks/gcp-deploy-runbook.md`. Full detail: `docs/DEPLOYMENT.m
 `.claude/skills/` (docs in its README): karpathy-guidelines, llm-council ("council this" /
 "pressure-test this"), stripe-best-practices, cloudflare-agents-sdk, react-best-practices,
 web-design-guidelines, vercel-deploy, voltagent. Invoke manually via `/<skill-name>`.
+

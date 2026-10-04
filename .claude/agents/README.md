@@ -196,8 +196,12 @@ agent file must also cite this section; non-engineering legacy examples remain i
 | Third parties | Stripe, Resend, PostHog + Vercel Analytics, Sentry; `app/integrations/` (finnhub/fmp/stocktwits are tombstoned — see `test_dead_integrations_allowlist.py`) |
 
 Use `CLAUDE.md` for repository rules and `lessons/README.md` to find applicable lessons.
-Consult `docs/ARCHITECTURE.md` for service boundaries, `frontend/DESIGN_SYSTEM.md` for UI work,
-and `backend/evals/RUNBOOK.md` for prompt, model, eval or AI flag changes.
+Consult `docs/ARCHITECTURE.md` for service boundaries and `backend/evals/RUNBOOK.md` for prompt,
+model, eval or AI flag changes. For UI work, read [DESIGN.md](../../DESIGN.md) for the visual
+reference and [frontend/DESIGN_SYSTEM.md](../../frontend/DESIGN_SYSTEM.md) for implementation
+conventions and existing gates. Include both in design/frontend briefs. Source code takes
+precedence over stale snapshots or illustrative examples in specialist files; follow
+[CLAUDE.md's maintenance guidance](../../CLAUDE.md#design-documentation) when the system changes.
 
 ## Maintaining This Framework
 
