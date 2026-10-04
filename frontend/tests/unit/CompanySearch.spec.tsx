@@ -204,7 +204,9 @@ describe('CompanySearch "Try Again" keeps keyboard focus', () => {
     expect(document.activeElement).toBe(tryAgain)
     expect(screen.getByText('Search is down')).toBeInTheDocument()
     await user.keyboard('{Enter}')
-    // A pointer press while busy is inert too: it neither refetches nor turns off the field hand-off.
+    // A click while busy is refused before RetryButton's onClick: no second request, and the click alone records
+    // no pointer origin (that is taken at pointerdown: useRetainedFailure.spec.tsx), so the keyboard press still
+    // hands focus to the field below.
     fireEvent.click(tryAgain, { detail: 1 })
     await settle()
     expect(searchCompanies).toHaveBeenCalledTimes(3)
@@ -240,6 +242,29 @@ describe('CompanySearch "Try Again" keeps keyboard focus', () => {
     await settle()
     expect(document.activeElement).not.toBe(screen.getByRole('combobox'))
   }, 10_000)
+
+  it('back to an earlier term that failed, its refetch shows no error from the term in between', async () => {
+    failSearch()
+    vi.mocked(searchCompanies)
+      .mockRejectedValueOnce(new Error('Microsoft search is down'))
+      .mockRejectedValueOnce(new Error('Microsoft search is down'))
+    const appleAgain = deferred<Company[]>()
+    vi.mocked(searchCompanies).mockReturnValueOnce(appleAgain.promise)
+    renderSearch()
+    type('apple')
+    await screen.findByText('Search is down', {}, { timeout: 4000 })
+    type('msft')
+    await screen.findByText('Microsoft search is down', {}, { timeout: 4000 })
+    // Both failed once (errorUpdateCount 1), at different times: apple's refetch is apple's own load.
+    type('apple')
+    await waitFor(() => expect(searchCompanies).toHaveBeenCalledTimes(5))
+    await settle()
+    expect(searchCompanies).toHaveBeenLastCalledWith('apple')
+    expect(screen.queryByText('Microsoft search is down')).not.toBeInTheDocument()
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+    await act(async () => appleAgain.resolve([APPLE]))
+    expect(await screen.findByText('Apple Inc.')).toBeInTheDocument()
+  }, 12_000)
 
   it('typing a new term drops the failure the retry was holding, before the new search answers', async () => {
     failSearch()

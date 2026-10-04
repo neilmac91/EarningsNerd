@@ -22,10 +22,28 @@ the spinner. Do not fix it in the children with `retryOnMount: false`: every obs
 out, and the next child added brings the loop back. The gate is the one place that turns a refetch into an
 unmount.
 
+Gated (rule 12): `tests/unit/spinnerGateHoldsFailure.spec.ts` reads the AST of every `.tsx` under app/. A
+query counts as shared when its key family (the `queryKey` with its call arguments dropped,
+`queryKeys.usage.byUser`) is observed by a query hook in at least two modules under app/, components/,
+features/, hooks/ and lib/; the scan cannot follow JSX into what a page renders, so that over-approximates
+"a child observes it". A gate is `if (cond) return <JSX>` (or `return null`, in either branch) or
+`cond ? <JSX> : …` whose condition reads `isLoading`, `isPending` or `isInitialLoading` of a shared query:
+as a member, destructured (renamed or not), through same-file consts, or through a same-file hook's
+returned object (the watchlist page's `useAuthGate`). It fails unless an enclosing `&&` also reads
+`!failure.failed` with `failure = useRetainedFailure(<that same query>)`. Kept sites are pinned by their
+condition's text, shrink-only and capped, each with its reason (5 in 4 files: the admin layout, the
+watchlist page and the delete-account page render no observer over a failed `/me`; the filing page's two
+summary-pane branches swap only components that observe no shared query). It cannot see a key built
+outside a `queryKey:` property, a loading state read as `status === 'pending'` or passed through props, a
+hold read through an alias, a gate inside a component under features/ or components/, or a
+`!isLoading && <Panel />` that unmounts a panel instead of replacing the page; review still reads those.
+
 **Evidence**: `frontend/app/dashboard/settings/page.tsx` (`userLoading && !userFailure.failed`). The bound
 is pinned in `frontend/tests/unit/busyControls.settings.spec.tsx` ("SettingsPage over a failed account
 check"): a non-401 `/me` failure renders the page with the billing Notice after at most 2 `/me` calls in
 200 ms, with the real ProfileForm and BillingPanel mounted. With the old `if (userLoading)` gate it sends
 11. The spec renders through short `act()` windows: one long `act()` defers every render to its end, so
 the loop could not spin and the bound would pass on the broken page. The dashboard's page skeleton gates
-on the same retained failures (`frontend/app/dashboard/page.tsx`).
+on the same retained failures (`frontend/app/dashboard/page.tsx`). The gate fails on the settings page's
+old `if (userLoading)` (a case reads the real file and restores the old line), on the dashboard skeleton
+gate without its user hold, and on its usage hold read from the subscription's failure.

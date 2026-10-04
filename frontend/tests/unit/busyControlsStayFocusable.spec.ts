@@ -3,6 +3,7 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import ts from 'typescript'
 import { describe, expect, it } from 'vitest'
+import { bindingResolver, type Binding } from './astBindings'
 
 /**
  * Rule-12 gate for lessons/frontend-busy-controls-stay-focusable.md: a control busy with a request
@@ -10,7 +11,8 @@ import { describe, expect, it } from 'vitest'
  * keyboard focus falls to <body> and stays there. A busy state uses the DS Button's `loading`, or
  * `aria-disabled` (+ `aria-busy`) and an early return in the handler; a text field uses `readOnly`.
  *
- * The scan reads the TypeScript AST of every .tsx under app/, components/ and features/. It counts
+ * The scan reads the TypeScript AST of every .tsx under app/, components/, features/, hooks/ and lib/ (so
+ * RetryButton, the one control behind every Retry, is scanned too). It counts
  * each JSX `disabled={…}` whose expression names a busy flag (BUSY below) or a post-success flag
  * (AFTER_SUCCESS: the control's own success leaves it unavailable, e.g. "Link sent"), directly, through a member
  * (`mutation.isPending`), or through the binding visible from the site: a `const` (followed
@@ -31,11 +33,12 @@ import { describe, expect, it } from 'vitest'
  * both capped, shrink-only.
  *
  * A second gate in this file holds every Retry of a query to `<RetryButton>` (hooks/useRetainedFailure.tsx),
- * seen two ways: by its wiring (`loading` fed by a fetching flag, a handler that refetches or retries; the
- * same binding resolver) and by what the user reads (a "Retrying…" loadingText, a label starting Retry or
- * Try again). Each has its own shrink-only, capped allowlist with reasons: ALLOW_RETRY and
- * ALLOW_RETRY_LABEL. Every Retry converted in the retry-hardening follow-up fails both at its pre-conversion
- * version (026d6df).
+ * seen two ways: by its wiring (`loading` fed by a fetching flag, a handler that refetches, invalidates or
+ * retries; the same binding resolver) and by what the user reads (a "Retrying…" loadingText, a label starting
+ * Retry or Try again, a same-file string const included). Each has its own shrink-only, capped allowlist with
+ * reasons: ALLOW_RETRY and ALLOW_RETRY_LABEL. RetryButton's own definition is the one exemption from both
+ * Retry clauses (it is the sanctioned wiring and label); the busy-disabled clause still scans it. Every Retry
+ * converted in the retry-hardening follow-up fails both at its pre-conversion version (026d6df).
  */
 const BUSY = /pending|loading|submitting|saving|sending|streaming|running|busy|refetching|fetching|mutating|deleting|removing|inflight/i
 /** Flags a control's own success sets, which leave it unavailable while it still holds focus. */
@@ -80,7 +83,7 @@ const MAX_ALLOWLIST_SIZE = 5
 const MAX_PINNED_SITES = 9
 
 const frontendRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
-const ROOTS = ['app', 'components', 'features']
+const ROOTS = ['app', 'components', 'features', 'hooks', 'lib']
 
 function walk(dir: string, out: string[]): string[] {
   for (const name of readdirSync(dir)) {
@@ -97,53 +100,13 @@ interface Site {
   expr: string
 }
 
-/** A name binding: where it is visible, and what it aliases (if anything). */
-interface Binding {
-  scope: ts.Node
-  /** The initializer, or for `{ isPending: x }` the property it renames; none for a plain parameter. */
-  alias?: ts.Node
-}
-
-/** The node whose extent bounds a binding's visibility: the enclosing block, or a parameter's function. */
-function scopeOf(node: ts.Node): ts.Node {
-  if (ts.isParameter(node)) return node.parent
-  for (let p = node.parent; ; p = p.parent) {
-    if (ts.isParameter(p)) return p.parent
-    if (
-      ts.isBlock(p) || ts.isSourceFile(p) || ts.isModuleBlock(p) || ts.isCaseClause(p) || ts.isDefaultClause(p) ||
-      ts.isCatchClause(p) || ts.isForStatement(p) || ts.isForInStatement(p) || ts.isForOfStatement(p)
-    ) {
-      return p
-    }
-  }
-}
-
-/** One entry per JSX attribute named by `attribute` whose expression reaches a name matching `flag`. */
-function sitesReaching(source: string, fileName: string, attribute: RegExp, flag: RegExp): Site[] {
+/**
+ * One entry per JSX attribute named by `attribute` whose expression reaches a name matching `flag`, or names
+ * one matching `direct` in the attribute's own expression (not through a binding).
+ */
+function sitesReaching(source: string, fileName: string, attribute: RegExp, flag: RegExp, direct?: RegExp): Site[] {
   const sf = ts.createSourceFile(fileName, source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX)
-  // Every binding of each name, so a reference resolves to the one visible from it: two components
-  // in one file may each declare their own `cannotSubmit`, and a parameter shadows an outer const.
-  const bindings = new Map<string, Binding[]>()
-  const bind = (name: ts.Identifier, at: ts.Node, alias?: ts.Node): void => {
-    bindings.set(name.text, [...(bindings.get(name.text) ?? []), { scope: scopeOf(at), alias }])
-  }
-  const collect = (node: ts.Node): void => {
-    if (ts.isVariableDeclaration(node) && ts.isIdentifier(node.name)) bind(node.name, node, node.initializer)
-    else if (ts.isParameter(node) && ts.isIdentifier(node.name)) bind(node.name, node)
-    else if (ts.isBindingElement(node) && ts.isIdentifier(node.name)) bind(node.name, node, node.propertyName)
-    ts.forEachChild(node, collect)
-  }
-  collect(sf)
-
-  /** The innermost binding of `ref`'s name whose scope contains `ref`. */
-  const visible = (ref: ts.Identifier): Binding | undefined => {
-    let best: Binding | undefined
-    for (const b of bindings.get(ref.text) ?? []) {
-      if (b.scope.pos > ref.pos || ref.end > b.scope.end) continue
-      if (!best || b.scope.end - b.scope.pos < best.scope.end - best.scope.pos) best = b
-    }
-    return best
-  }
+  const visible = bindingResolver(sf)
 
   // Aliases are followed transitively. `path` holds only the bindings on the current chain, so a cycle
   // stops there but an alias already met on another branch is still followed on this one. A binding
@@ -155,7 +118,7 @@ function sitesReaching(source: string, fileName: string, attribute: RegExp, flag
     const visit = (n: ts.Node): void => {
       if (hit) return
       if (ts.isIdentifier(n)) {
-        if (flag.test(n.text)) {
+        if (flag.test(n.text) || (direct && path.size === 0 && direct.test(n.text))) {
           hit = true
           return
         }
@@ -211,16 +174,47 @@ const busyDisabledSites = (source: string, fileName: string): Site[] =>
  * A Retry of a query is `<RetryButton>` (hooks/useRetainedFailure.tsx): its busy state is the query's
  * `fetchStatus !== 'idle'`, it keeps the failure on screen through any refetch, and it hands focus off when
  * it unmounts while holding it. Two hand-rolled forms fail here:
- *  - `loading={…}` that reaches a fetching flag (`isFetching`, `xFetching`, `isRefetching`): false while a
- *    fetch waits paused offline or in a hidden tab, so the control goes live mid-request;
- *  - a click handler that reaches `refetch…` or a failure's `retry`: a pressed refetch outside RetryButton.
+ *  - `loading={…}` that reaches a fetching flag (`isFetching`, `xFetching`, `isRefetching`: false while a
+ *    fetch waits paused offline or in a hidden tab, so the control goes live mid-request) or the query's
+ *    `fetchStatus` (the right busy signal, hand-rolled: RetryButton owns it);
+ *  - a handler (`on…`) that reaches `refetch…` (`refetchQueries` included) or a failure's `retry`, or that
+ *    calls `invalidateQueries` or `resetQueries` in its own expression: a pressed refetch outside RetryButton.
+ *    Those two count only written in the handler itself. Through bindings they reach every mutation whose
+ *    `onSuccess` invalidates (rule (f) requires it) and every submit that refreshes after it lands: 20
+ *    handlers in 15 files when measured, none of them a Retry. A Retry that invalidates through a named
+ *    handler is left to the label clause.
+ * RetryButton's own definition is exempt (RETRY_BUTTON below), and only it.
  */
-const FETCHING = /fetching/i
+const FETCHING = /fetching|fetchStatus/i
 const PRESSED_REFETCH = /^refetch|^retry$/
-const retrySites = (source: string, fileName: string): Site[] => [
-  ...sitesReaching(source, fileName, /^loading$/, FETCHING),
-  ...sitesReaching(source, fileName, /^on[A-Z]/, PRESSED_REFETCH),
-]
+const PRESSED_INVALIDATE = /^(invalidateQueries|resetQueries)$/
+const retrySites = (source: string, fileName: string): Site[] =>
+  outsideRetryButton(source, fileName, [
+    ...sitesReaching(source, fileName, /^loading$/, FETCHING),
+    ...sitesReaching(source, fileName, /^on[A-Z]/, PRESSED_REFETCH, PRESSED_INVALIDATE),
+  ])
+
+/** The sanctioned Retry: its own wiring and label are the rule, not an exception to it. */
+const RETRY_BUTTON = { file: 'hooks/useRetainedFailure.tsx', name: 'RetryButton' }
+
+/** The 1-based line range of RetryButton's own function declaration, in its file only; null elsewhere. */
+function retryButtonLines(source: string, fileName: string): [number, number] | null {
+  if (fileName !== RETRY_BUTTON.file) return null
+  const sf = ts.createSourceFile(fileName, source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX)
+  for (const statement of sf.statements) {
+    if (ts.isFunctionDeclaration(statement) && statement.name?.text === RETRY_BUTTON.name) {
+      const line = (pos: number) => sf.getLineAndCharacterOfPosition(pos).line + 1
+      return [line(statement.getStart(sf)), line(statement.end)]
+    }
+  }
+  return null
+}
+
+/** Drops the sites inside RetryButton's own definition; every other site, in any file, stays. */
+function outsideRetryButton(source: string, fileName: string, sites: Site[]): Site[] {
+  const lines = retryButtonLines(source, fileName)
+  return lines ? sites.filter((site) => site.line < lines[0] || site.line > lines[1]) : sites
+}
 
 /**
  * The same rule by what the user reads, so a Retry wired through other names is still seen: any JSX element
@@ -233,12 +227,21 @@ const RETRY_LABEL = /^(retry|try again)\b/i
 const RETRY_LOADING_TEXT = /^Retrying/
 function retryLabelSites(source: string, fileName: string): Site[] {
   const sf = ts.createSourceFile(fileName, source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX)
-  /** String literals an expression child can render: itself, or either branch of a conditional or `||`/`??`/`&&`. */
-  const literals = (e: ts.Expression): string[] => {
+  const visible = bindingResolver(sf)
+  /**
+   * String literals an expression child can render: itself, either branch of a conditional or `||`/`??`/`&&`,
+   * or what a same-file const visible from it holds (`const label = 'Retry'`; `seen` stops a cycle).
+   */
+  const literals = (e: ts.Expression, seen = new Set<Binding>()): string[] => {
     if (ts.isStringLiteralLike(e)) return [e.text]
-    if (ts.isParenthesizedExpression(e)) return literals(e.expression)
-    if (ts.isConditionalExpression(e)) return [...literals(e.whenTrue), ...literals(e.whenFalse)]
-    if (ts.isBinaryExpression(e)) return [...literals(e.left), ...literals(e.right)]
+    if (ts.isParenthesizedExpression(e)) return literals(e.expression, seen)
+    if (ts.isConditionalExpression(e)) return [...literals(e.whenTrue, seen), ...literals(e.whenFalse, seen)]
+    if (ts.isBinaryExpression(e)) return [...literals(e.left, seen), ...literals(e.right, seen)]
+    if (ts.isIdentifier(e)) {
+      const binding = visible(e)
+      if (!binding?.init || seen.has(binding)) return []
+      return literals(binding.init, new Set([...seen, binding]))
+    }
     return []
   }
   const collapse = (text: string) => text.replace(/\s+/g, ' ').trim()
@@ -275,7 +278,7 @@ function retryLabelSites(source: string, fileName: string): Site[] {
     ts.forEachChild(node, visit)
   }
   visit(sf)
-  return sites
+  return outsideRetryButton(source, fileName, sites)
 }
 
 /** Open rule (h) cases, pinned by exact expression. Shrink-only: converting one to RetryButton removes its pin. */
@@ -363,8 +366,10 @@ function unpinned(foundSites: Map<string, Site[]>, allow: Record<string, { sites
 const found = new Map<string, Site[]>()
 const foundRetry = new Map<string, Site[]>()
 const foundRetryLabel = new Map<string, Site[]>()
+const scanned: string[] = []
 for (const abs of ROOTS.flatMap((root) => walk(path.join(frontendRoot, root), []))) {
   const rel = path.relative(frontendRoot, abs).split(path.sep).join('/')
+  scanned.push(rel)
   const source = readFileSync(abs, 'utf8')
   const sites = busyDisabledSites(source, rel)
   if (sites.length) found.set(rel, sites)
@@ -524,27 +529,68 @@ const RETRY_GATE_MESSAGE =
   'while focused. See lessons/frontend-busy-controls-stay-focusable.md (d), (g).'
 
 describe('a Retry of a query is RetryButton (rule-12 gate)', () => {
-  it('sees loading fed by a fetching flag and a click handler that refetches or retries, and nothing else', () => {
+  it('sees loading fed by a fetching flag or fetchStatus and a handler that refetches, invalidates or retries, and nothing else', () => {
     const fixture = [
       'function A({ isFetching: inFlight }: Props) {',
       '  const { refetch, isFetching } = query',
       '  const busy = isFetching',
       '  const onRetry = () => { armed.current = true; failure.retry() }',
+      '  const save = useMutation({ mutationFn, onSuccess: () => queryClient.invalidateQueries({ queryKey }) })',
+      '  const onReload = () => queryClient.invalidateQueries({ queryKey })',
       '  return (<>',
       '    <Button loading={busy} onClick={() => refetch()}>Retry</Button>', // both clauses
       '    <Button loading={inFlight} onClick={onRetry}>Retry</Button>', // renamed prop; retry through a const
-      "    <Button loading={query.fetchStatus !== 'idle'} onClick={() => setOpen(true)}>Open</Button>", // neither
-      '    <Button loading={mutation.isPending} onClick={() => mutation.mutate()}>Save</Button>', // neither
+      "    <Button loading={query.fetchStatus !== 'idle'} onClick={() => setOpen(true)}>Open</Button>", // fetchStatus
+      '    <Button onClick={() => queryClient.invalidateQueries({ queryKey })}>Reload</Button>', // invalidate, inline
+      '    <Button onClick={() => void client.resetQueries()}>Reload</Button>', // reset, inline
+      '    <Button onClick={() => client.refetchQueries()}>Reload</Button>', // refetchQueries is a refetch…
+      '    <Button loading={save.isPending} onClick={() => save.mutate()}>Save</Button>', // neither: its onSuccess
+      '    <Button onClick={onReload}>Reload</Button>', // neither: invalidate counts only inline
       '    <RetryButton failures={[failure]} focusTarget={ref}>Retry</RetryButton>', // neither
       '  </>)',
       '}',
     ].join('\n')
     expect(retrySites(fixture, 'fixture.tsx').map((site) => `${site.line}: ${site.expr}`)).toEqual([
-      '6: busy',
-      '7: inFlight',
-      '6: () => refetch()',
-      '7: onRetry',
+      '8: busy',
+      '9: inFlight',
+      "10: query.fetchStatus !== 'idle'",
+      '8: () => refetch()',
+      '9: onRetry',
+      '11: () => queryClient.invalidateQueries({ queryKey })',
+      '12: () => void client.resetQueries()',
+      '13: () => client.refetchQueries()',
     ])
+  })
+
+  it("exempts RetryButton's own definition, in its own file, and nothing else", () => {
+    const handRolled = (name: string) => [
+      `export function ${name}({ query }: Props) {`,
+      "  return <Button loading={query.isFetching} loadingText={'Retrying…'} onClick={() => query.refetch()}>Retry</Button>",
+      '}',
+    ]
+    const fixture = [...handRolled('RetryButton'), ...handRolled('OtherRetry')].join('\n')
+    const seen = (file: string) => [
+      ...retrySites(fixture, file).map((site) => `${site.line}: ${site.expr}`),
+      ...retryLabelSites(fixture, file).map((site) => `${site.line}: ${site.expr}`),
+    ]
+    expect(seen(RETRY_BUTTON.file)).toEqual([
+      '5: query.isFetching',
+      '5: () => query.refetch()',
+      '5: Button "Retry"',
+    ])
+    // Anywhere else, a function named RetryButton is just another hand-rolled Retry.
+    expect(seen('features/x/RetryButton.tsx')).toHaveLength(6)
+    // The real definition is still there to exempt, and unexempted it would fail both Retry clauses: the
+    // exemption is not vacuous, and a renamed RetryButton fails here instead of silently losing it.
+    const real = readFileSync(path.join(frontendRoot, RETRY_BUTTON.file), 'utf8')
+    expect(retryButtonLines(real, RETRY_BUTTON.file)).not.toBeNull()
+    expect(sitesReaching(real, RETRY_BUTTON.file, /^on[A-Z]/, PRESSED_REFETCH).length).toBeGreaterThan(0)
+    expect(retryLabelSites(real, 'unexempted.tsx').length).toBeGreaterThan(0)
+  })
+
+  it('scans hooks/ and lib/ too, so RetryButton itself is held to the busy-disabled clause', () => {
+    expect(scanned).toContain(RETRY_BUTTON.file)
+    expect(scanned.some((file) => file.startsWith('lib/'))).toBe(true)
   })
 
   it('sees a Retry by its label or its "Retrying…" text on anything but RetryButton, and nothing else', () => {
@@ -564,8 +610,18 @@ describe('a Retry of a query is RetryButton (rule-12 gate)', () => {
       '    <p>Please try again later.</p>', // prose: the label does not start with it
       '    <Button aria-label="Retry" onClick={go}>Reload</Button>', // attributes other than loadingText
       '    {/* <Button>Retry</Button> */}',
+      '    <Button onClick={go}>{retryLabel}</Button>', // a same-file const
+      '    <Button loading={busy} loadingText={pressedText} onClick={go}>Load</Button>', // a const, conditional
+      '    <Button onClick={go}>{label}</Button>', // a parameter: not resolved
       '  </>)',
       '}',
+      "const retryLabel = 'Try again'",
+      "const pressedText = pressed ? 'Retrying…' : 'Loading…'",
+      'function Y(label: string) {',
+      '  return <Button onClick={go}>{label}</Button>', // the parameter, not an outer const
+      '}',
+      'const label = loop', // a cycle with no string: terminates
+      'const loop = label',
     ].join('\n')
     expect(retryLabelSites(fixture, 'fixture.tsx').map((site) => `${site.line}: ${site.expr}`)).toEqual([
       '3: Button "Retry"',
@@ -574,6 +630,8 @@ describe('a Retry of a query is RetryButton (rule-12 gate)', () => {
       '8: Button "Retrying…"',
       '9: Button "Retry generation"',
       '10: Button "Retry account check"',
+      '16: Button "Try again"',
+      '17: Button "Retrying…"',
     ])
   })
 

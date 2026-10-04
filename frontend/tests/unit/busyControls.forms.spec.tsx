@@ -393,7 +393,7 @@ describe('Pricing page Retry buttons (a failure keeps its Notice through any ref
     expect(document.activeElement).toBe(intro())
   })
 
-  it('a Notice that clears without a Retry press does not take focus', async () => {
+  it('a Notice that clears while its Retry does not hold focus moves no focus', async () => {
     api.getCurrentUserSafe.mockResolvedValue(user1)
     api.getSubscriptionStatus.mockRejectedValueOnce(new Error('subscription unavailable'))
     api.getSubscriptionStatus.mockResolvedValue(freeSub)

@@ -87,12 +87,13 @@ export function useRetainedFailure(query: UseQueryResult<unknown>): RetainedFail
   }
 }
 
-export interface RetryButtonProps extends Omit<ButtonProps, 'loading' | 'loadingText' | 'onClick' | 'onFocus'> {
+export interface RetryButtonProps
+  extends Omit<ButtonProps, 'loading' | 'loadingText' | 'onClick' | 'onFocus' | 'onPointerDown'> {
   /** The failures this control retries. Busy while any has a fetch in flight; a press retries the failed ones. */
   failures: RetainedFailure[]
   /** Where focus goes if the Retry unmounts while it holds focus: a heading or status line with tabIndex={-1}. */
   focusTarget: RefObject<HTMLElement | null>
-  /** The target is a text field: skip the hand-off after a pointer press, so a tap never raises the touch keyboard. */
+  /** The target is a text field: skip the hand-off after a pointer press (a tap on it busy included), so a tap never raises the touch keyboard. */
   textField?: boolean
 }
 
@@ -116,7 +117,7 @@ export function RetryButton({ failures, focusTarget, textField = false, variant 
   // the fetch it started), so the first render that sees no fetch is the end of the press's retry.
   const [pressed, setPressed] = useState(false)
   if (pressed && !busy) setPressed(false)
-  const { attach, onFocus, onPress } = useFocusHandoff(focusTarget, { textField })
+  const { attach, onFocus, onPointerDown, onPress } = useFocusHandoff(focusTarget, { textField })
   return (
     <Button
       {...rest}
@@ -125,6 +126,9 @@ export function RetryButton({ failures, focusTarget, textField = false, variant 
       loading={busy}
       loadingText={pressed ? 'Retrying…' : undefined}
       onFocus={onFocus}
+      // A busy Button refuses the click before onClick runs; pointerdown still reaches us, so a tap on a
+      // busy Retry counts as a pointer press (no touch keyboard when it then unmounts).
+      onPointerDown={onPointerDown}
       onClick={(e) => {
         onPress(e)
         setPressed(true)
