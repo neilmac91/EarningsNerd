@@ -27,7 +27,7 @@ pid="$(cat "$TMP" 2>/dev/null || true)"; pid="${pid%$'\n'}"; rm -f "$TMP"
 [[ "$pid" =~ ^[1-9][0-9]{0,8}$ ]] || { echo "mock api: child did not report a valid pid ('${pid}')"; tail -20 "$HERE/mock_api.stdout"; exit 1; }
 ready=0
 for _ in $(seq 1 40); do
-  if curl -sSf -m 2 "http://localhost:$PORT/health" 2>/dev/null | python3 -c "import json,sys; sys.exit(0 if json.load(sys.stdin).get('pid') == $pid else 1)" 2>/dev/null; then ready=1; break; fi
+  if lc_pid_listens "$pid" "$PORT" && curl -sSf -m 2 "http://localhost:$PORT/health" 2>/dev/null | python3 -c "import json,sys; sys.exit(0 if json.load(sys.stdin).get('pid') == $pid else 1)" 2>/dev/null; then ready=1; break; fi
   [ -d "/proc/$pid" ] || break
   sleep 0.25
 done
@@ -38,5 +38,5 @@ if ! lc_write_record "$REC" "$pid" "$TOKEN" "$HERE"; then
 fi
 set +e; lc_verify "$REC" "$TOKEN" "$HERE"; rc=$?; set -e
 [ "$rc" = 0 ] || { echo "mock api: the record just written does not verify ($LC_REASON); see mock.proc" >&2; exit 1; }
-[ "$ready" = 1 ] && { echo "mock api up (pid $pid, recorded in mock.proc, /health reports the same pid)"; exit 0; }
-echo "mock api: pid $pid is recorded but did not answer /health with its own pid within 10 s; stop_env.sh can still stop it"; tail -20 "$HERE/mock_api.stdout"; exit 3
+[ "$ready" = 1 ] && [ -d "/proc/$pid" ] && { echo "mock api up (pid $pid, recorded in mock.proc; it owns the :$PORT listener and /health reports the same pid)"; exit 0; }
+echo "mock api: pid $pid is recorded but did not own the :$PORT listener and answer /health with its own pid within 10 s; stop_env.sh can still stop it"; tail -20 "$HERE/mock_api.stdout"; exit 3

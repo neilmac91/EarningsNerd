@@ -44,7 +44,9 @@ path containing spaces works.
 ### Lifecycle: process identity records (`lifecycle.sh`)
 
 Each start script launches its server with `setsid` in a new session/process group, gives it up to 10 s (mock) / 30 s (Next)
-to answer (the mock's `/health` must report the started pid; Next must answer on :3000 while the pid is alive), then writes a
+to answer (readiness is tied to the started process: it must itself own the LISTEN socket on its port, checked through
+`/proc/net/tcp` and `/proc/<pid>/fd`, and the mock's `/health` must report the started pid; a foreign listener on the port
+never counts), then writes a
 record (`mock.proc`, `next.proc`) with the server's identity whether or not it answered: `pid`, `pgid`, `sid` (both equal to
 `pid`), `starttime` (`/proc/<pid>/stat` field 22, clock ticks since boot), `boot_id` (`/proc/sys/kernel/random/boot_id`, else
 `btime:<n>` from `/proc/stat`; with neither readable nothing is recorded and nothing verifies), the physical `cwd` and the

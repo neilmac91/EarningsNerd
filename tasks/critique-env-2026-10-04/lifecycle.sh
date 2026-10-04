@@ -51,6 +51,19 @@ lc_stat() {
 lc_cmdline() { local c; c="$(tr '\0' ' ' < "/proc/$1/cmdline" 2>/dev/null)" || return 1; c="${c%"${c##*[! ]}"}"; printf '%s' "$c"; }
 # lc_cwd <pid>: prints the physical working directory; returns 1 when unreadable.
 lc_cwd() { readlink "/proc/$1/cwd" 2>/dev/null || return 1; }
+# lc_pid_listens <pid> <port>: succeeds only when <pid> itself holds a LISTEN socket on TCP <port> (IPv4 or IPv6), matched
+# through /proc/net/tcp{,6} socket inodes and /proc/<pid>/fd. Readiness is tied to the started process, not to whoever answers.
+lc_pid_listens() {
+  local pid="$1" port="$2" hex inodes f tgt ino i
+  hex="$(printf '%04X' "$port")"
+  inodes="$(awk -v p=":$hex" 'index($2, p) == length($2) - length(p) + 1 && $4 == "0A" {print $10}' /proc/net/tcp /proc/net/tcp6 2>/dev/null)"
+  [ -n "$inodes" ] || return 1
+  for f in /proc/"$pid"/fd/*; do
+    tgt="$(readlink "$f" 2>/dev/null)" || continue
+    case "$tgt" in socket:\[*\]) ino="${tgt#socket:[}"; ino="${ino%]}"; for i in $inodes; do [ "$i" = "$ino" ] && return 0; done ;; esac
+  done
+  return 1
+}
 # lc_group_live <pgid>: prints the number of non-zombie processes in that process group.
 lc_group_live() {
   local pgid="$1" f stat rest arr n=0

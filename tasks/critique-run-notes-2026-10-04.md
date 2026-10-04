@@ -196,76 +196,95 @@ sections stand as written; the critique archive and the detector record `scans/d
   launcher; README coverage of the `.unverified` outcome, the start exit codes (0 / 1 / 3), the "record written either way"
   behaviour and the move-the-checkout caveat. Not changed: a pid-namespace discriminator (single-host use) and a demonstration
   of SIGTERM-ignoring group members (the group wait covers it; not reproduced here).
-- Proof transcript (final run on the committed scripts; hashes in the header). Case (a) a same-command process in another
-  directory, case (b) a same-directory process with a mismatched start time, then stale, sticky-refusal, malformed and
-  non-Linux cases, with the normal owned shutdown in step 6:
+- Review verdicts (workflow completed 22:30 UTC): each of the 13 non-info findings was handed to two independent refuters. The
+  boot-identity finding was confirmed by both (and had already been fixed); every other finding was refuted as "already handled
+  at the current head" except one narrowed residual, reproduced with the real Next 16.3.6 binary under heavy CPU starvation
+  (about 5x): a Next process doomed by a port conflict could outlive the readiness window while a foreign listener answered on
+  :3000, so `start_next.sh` reported "up" with a record that went stale moments later (nothing unrelated could be signalled; the
+  record self-healed as stale). Closed at 22:40 UTC: readiness now requires the started pid itself to own the LISTEN socket on
+  its port (`lc_pid_listens`, via `/proc/net/tcp{,6}` inodes and `/proc/<pid>/fd`), in addition to the mock's `/health` pid check;
+  a foreign listener never counts, and the proof gained step 3b (foreign listener on :3000 → `start_next.sh` exits 1, no record).
+- Proof transcript (final run on the committed scripts after the readiness fix; hashes in the header; it supersedes the 21:53 UTC
+  run quoted in commit a305a464, which differed only by lacking step 3b and the listener-ownership wording). Case (a) a
+  same-command process in another directory, case (b) a same-directory process with a mismatched start time, step 3b a foreign
+  listener on the port, then stale, sticky-refusal, malformed and non-Linux cases, with the normal owned shutdown in step 6:
 ```text
-# process-ownership proof — 2026-10-04T21:54:39Z — Linux 6.18.44-fc-v70 — boot_id b109227a-44a6-46c4-88da-83e6c767cde2
-# repo HEAD d021366e27cb339fee37cf7877fb7a81940f510a; working-tree scripts:
-#   306c0230c8512470dccb8e8dfb048541a7ea1ec159f89f714fa85797015e4ff7  lifecycle.sh
-#   b81ca891dcf1d0b10a2db503a940190e192a208e6c3d152aa20614a60fda4961  start_mock.sh
-#   fbd7da59ecb31be8a064d8fcba3edb75e7ac20250f3565b9c826672c0171bc7a  start_next.sh
+# process-ownership proof — 2026-10-04T22:43:37Z — Linux 6.18.44-fc-v70 — boot_id b109227a-44a6-46c4-88da-83e6c767cde2
+# repo HEAD 6c46f01e848aa21d0f6d5c904de347a0372fbb5e; working-tree scripts:
+#   a44a6bd59884a337f27405e8aafd427d990173d3549967185230957ca4532a05  lifecycle.sh
+#   b884d71941b7bbbdb18e4ee19a655685a5c6865ddb1fab94e37bd6c78daff1e0  start_mock.sh
+#   216779c170f6fa54712867199e3e2ea133f27d35a5e9a99a68222498fcfb8ef0  start_next.sh
 #   1f777057dc9037fc23ff7bbfa7ff942ccf0b72a382e747ab5e418d99913a1f58  stop_env.sh
 
 ## 1. start the mock; a second start must verify the record and not start another
-mock api up (pid 27913, recorded in mock.proc, /health reports the same pid)
+mock api up (pid 18667, recorded in mock.proc; it owns the :8010 listener and /health reports the same pid)
 exit=0
-  mock.proc: pid=27913
-  mock.proc: pgid=27913
-  mock.proc: sid=27913
-  mock.proc: starttime=400735
+  mock.proc: pid=18667
+  mock.proc: pgid=18667
+  mock.proc: sid=18667
+  mock.proc: starttime=694605
   mock.proc: boot_id=b109227a-44a6-46c4-88da-83e6c767cde2
   mock.proc: cwd=/home/user/EarningsNerd/tasks/critique-env-2026-10-04
   mock.proc: cmd=python3 mock_api.py
-  mock.proc: started_at=2026-10-04T21:54:40Z
-mock api already running (pid 27913, verified)
+  mock.proc: started_at=2026-10-04T22:43:39Z
+mock api already running (pid 18667, verified)
 exit=0
 
 ## 2. decoy A: same command, OTHER directory (/tmp/claude-0/-home-user-EarningsNerd/78df218f-8eea-5bb5-9669-b8dbafc877c6/scratchpad/proof2/tasks/decoy-env), port 8011, own session
-decoy A pid 27982 ALIVE (state S; cwd /tmp/claude-0/-home-user-EarningsNerd/78df218f-8eea-5bb5-9669-b8dbafc877c6/scratchpad/proof2/tasks/decoy-env; cmd 'python3 mock_api.py')
+decoy A pid 18749 ALIVE (state S; cwd /tmp/claude-0/-home-user-EarningsNerd/78df218f-8eea-5bb5-9669-b8dbafc877c6/scratchpad/proof2/tasks/decoy-env; cmd 'python3 mock_api.py')
 
 ## 2a. forged mock.proc: decoy A's pid/pgid/sid/starttime, but cwd claims this environment -> stop_env.sh must refuse
-forged mock.proc: pid=27982 pgid=27982 sid=27982 starttime=400856 cwd=/home/user/EarningsNerd/tasks/critique-env-2026-10-04 cmd=python3 mock_api.py
+forged mock.proc: pid=18749 pgid=18749 sid=18749 starttime=694728 cwd=/home/user/EarningsNerd/tasks/critique-env-2026-10-04 cmd=python3 mock_api.py
 next: not started by this environment (no next.proc)
-mock api: record mock.proc REJECTED (pid 27982 working directory differs (record /home/user/EarningsNerd/tasks/critique-env-2026-10-04, live /tmp/claude-0/-home-user-EarningsNerd/78df218f-8eea-5bb5-9669-b8dbafc877c6/scratchpad/proof2/tasks/decoy-env)); the process was left alone and the record was moved to mock.proc.rejected.20261004T215442Z
+mock api: record mock.proc REJECTED (pid 18749 working directory differs (record /home/user/EarningsNerd/tasks/critique-env-2026-10-04, live /tmp/claude-0/-home-user-EarningsNerd/78df218f-8eea-5bb5-9669-b8dbafc877c6/scratchpad/proof2/tasks/decoy-env)); the process was left alone and the record was moved to mock.proc.rejected.20261004T224340Z
 mock api: leftovers from earlier runs need attention:
-  mock.proc.rejected.20261004T215442Z: refused earlier (pid 27982); handle the process by hand, then remove the file
+  mock.proc.rejected.20261004T224340Z: refused earlier (pid 18749); handle the process by hand, then remove the file
 exit=1
-decoy A pid 27982 ALIVE (state S; cwd /tmp/claude-0/-home-user-EarningsNerd/78df218f-8eea-5bb5-9669-b8dbafc877c6/scratchpad/proof2/tasks/decoy-env; cmd 'python3 mock_api.py')
-real mock pid 27913 ALIVE (state S; cwd /home/user/EarningsNerd/tasks/critique-env-2026-10-04; cmd 'python3 mock_api.py')
-  mock.proc.rejected.20261004T215442Z
+decoy A pid 18749 ALIVE (state S; cwd /tmp/claude-0/-home-user-EarningsNerd/78df218f-8eea-5bb5-9669-b8dbafc877c6/scratchpad/proof2/tasks/decoy-env; cmd 'python3 mock_api.py')
+real mock pid 18667 ALIVE (state S; cwd /home/user/EarningsNerd/tasks/critique-env-2026-10-04; cmd 'python3 mock_api.py')
+  mock.proc.rejected.20261004T224340Z
 (real record restored)
 
 ## 3. decoy B: same command, SAME directory, port 8012, own session; record carries the real server's starttime
-decoy B pid 28040 ALIVE (state S; cwd /home/user/EarningsNerd/tasks/critique-env-2026-10-04; cmd 'python3 mock_api.py')
+decoy B pid 18807 ALIVE (state S; cwd /home/user/EarningsNerd/tasks/critique-env-2026-10-04; cmd 'python3 mock_api.py')
 
 ## 3a. forged mock.proc: decoy B's pid/pgid/sid but a mismatched starttime (simulated pid reuse) -> stop_env.sh must refuse
-forged mock.proc: pid=28040 pgid=28040 sid=28040 starttime=400735 cwd=/home/user/EarningsNerd/tasks/critique-env-2026-10-04 cmd=python3 mock_api.py
+forged mock.proc: pid=18807 pgid=18807 sid=18807 starttime=694605 cwd=/home/user/EarningsNerd/tasks/critique-env-2026-10-04 cmd=python3 mock_api.py
 next: not started by this environment (no next.proc)
-mock api: record mock.proc REJECTED (pid 28040 start time differs (record 400735, live 401015): the pid was reused); the process was left alone and the record was moved to mock.proc.rejected.20261004T215443Z
+mock api: record mock.proc REJECTED (pid 18807 start time differs (record 694605, live 694887): the pid was reused); the process was left alone and the record was moved to mock.proc.rejected.20261004T224342Z
 mock api: leftovers from earlier runs need attention:
-  mock.proc.rejected.20261004T215443Z: refused earlier (pid 28040); handle the process by hand, then remove the file
+  mock.proc.rejected.20261004T224342Z: refused earlier (pid 18807); handle the process by hand, then remove the file
 exit=1
-decoy B pid 28040 ALIVE (state S; cwd /home/user/EarningsNerd/tasks/critique-env-2026-10-04; cmd 'python3 mock_api.py')
-real mock pid 27913 ALIVE (state S; cwd /home/user/EarningsNerd/tasks/critique-env-2026-10-04; cmd 'python3 mock_api.py')
-  mock.proc.rejected.20261004T215443Z
+decoy B pid 18807 ALIVE (state S; cwd /home/user/EarningsNerd/tasks/critique-env-2026-10-04; cmd 'python3 mock_api.py')
+real mock pid 18667 ALIVE (state S; cwd /home/user/EarningsNerd/tasks/critique-env-2026-10-04; cmd 'python3 mock_api.py')
+  mock.proc.rejected.20261004T224342Z
 (real record restored)
 
+## 3b. foreign listener already on :3000 -> start_next.sh must not report up and must record nothing
+http://localhost:3000/ -> HTTP 200
+lifecycle: pid 18874 exited before its identity could be recorded (expected 'next')
+next: pid 18874 exited during start-up (port 3000 in use? see next-start.log):
+⨯ Failed to start server
+Error: listen EADDRINUSE: address already in use 0.0.0.0:3000
+exit=1
+  ls: cannot access 'next.proc*': No such file or directory
+(foreign listener killed by the proof script)
+
 ## 4. start next (records for both servers now exist)
-next up (pid 28101, recorded in next.proc)
+next up (pid 18952, recorded in next.proc; it owns the :3000 listener)
 exit=0
-  next.proc: pid=28101
-  next.proc: pgid=28101
-  next.proc: sid=28101
-  next.proc: starttime=401176
+  next.proc: pid=18952
+  next.proc: pgid=18952
+  next.proc: sid=18952
+  next.proc: starttime=695186
   next.proc: boot_id=b109227a-44a6-46c4-88da-83e6c767cde2
   next.proc: cwd=/home/user/EarningsNerd/frontend
   next.proc: cmd=next-server (v16.3.6)
-  next.proc: started_at=2026-10-04T21:54:45Z
+  next.proc: started_at=2026-10-04T22:43:45Z
 http://localhost:8010/health -> HTTP 200
 http://localhost:3000/ -> HTTP 200
   process tree of next's group (expect a single process):
-    28101 28101 28101 Ssl  next-server (v16.3.6)
+    18952 18952 18952 Rsl  next-server (v16.3.6)
 
 ## 5. simulated non-Linux host (uname shim says Darwin): stop_env.sh must exit 2 and touch nothing
 stop_env.sh: the critique lifecycle scripts support Linux only (they need /proc and setsid); nothing was changed.
@@ -277,64 +296,64 @@ http://localhost:8010/health -> HTTP 200
 http://localhost:3000/ -> HTTP 200
 
 ## 6. normal owned shutdown
-next: stopped pid 28101 (process group 28101, verified owner)
-mock api: stopped pid 27913 (process group 27913, verified owner)
+next: stopped pid 18952 (process group 18952, verified owner)
+mock api: stopped pid 18667 (process group 18667, verified owner)
 exit=0
-mock pid 27913 is a ZOMBIE (exited, awaiting reap)
-next pid 28101 is a ZOMBIE (exited, awaiting reap)
+mock pid 18667 is a ZOMBIE (exited, awaiting reap)
+next pid 18952 is a ZOMBIE (exited, awaiting reap)
   ls: cannot access 'mock.proc': No such file or directory
   ls: cannot access 'next.proc': No such file or directory
 http://localhost:8010/health -> no answer
 http://localhost:3000/ -> no answer
   live processes whose cwd is this environment or frontend/ (expect none):
     none (decoy B excluded: it is the proof's own)
-decoy A pid 27982 ALIVE (state S; cwd /tmp/claude-0/-home-user-EarningsNerd/78df218f-8eea-5bb5-9669-b8dbafc877c6/scratchpad/proof2/tasks/decoy-env; cmd 'python3 mock_api.py')
-decoy B pid 28040 ALIVE (state S; cwd /home/user/EarningsNerd/tasks/critique-env-2026-10-04; cmd 'python3 mock_api.py')
+decoy A pid 18749 ALIVE (state S; cwd /tmp/claude-0/-home-user-EarningsNerd/78df218f-8eea-5bb5-9669-b8dbafc877c6/scratchpad/proof2/tasks/decoy-env; cmd 'python3 mock_api.py')
+decoy B pid 18807 ALIVE (state S; cwd /home/user/EarningsNerd/tasks/critique-env-2026-10-04; cmd 'python3 mock_api.py')
 
 ## 6a. stale record: the real (now dead) mock pid -> removed, nothing signalled
 next: not started by this environment (no next.proc)
-mock api: pid 27913 is a zombie/dead process (state Z), not a running server; removing stale mock.proc
+mock api: pid 18667 is a zombie/dead process (state Z), not a running server; removing stale mock.proc
 exit=0
   ls: cannot access 'mock.proc*': No such file or directory
 
 ## 6b. sticky refusal: a refused record is kept as mock.proc.rejected.<ts> and reported on every later run until removed
-forged mock.proc: pid=28040 pgid=28040 sid=28040 starttime=400735 cwd=/home/user/EarningsNerd/tasks/critique-env-2026-10-04 cmd=python3 mock_api.py
+forged mock.proc: pid=18807 pgid=18807 sid=18807 starttime=694605 cwd=/home/user/EarningsNerd/tasks/critique-env-2026-10-04 cmd=python3 mock_api.py
 next: not started by this environment (no next.proc)
-mock api: record mock.proc REJECTED (pid 28040 start time differs (record 400735, live 401015): the pid was reused); the process was left alone and the record was moved to mock.proc.rejected.20261004T215446Z
+mock api: record mock.proc REJECTED (pid 18807 start time differs (record 694605, live 694887): the pid was reused); the process was left alone and the record was moved to mock.proc.rejected.20261004T224346Z
 mock api: leftovers from earlier runs need attention:
-  mock.proc.rejected.20261004T215446Z: refused earlier (pid 28040); handle the process by hand, then remove the file
+  mock.proc.rejected.20261004T224346Z: refused earlier (pid 18807); handle the process by hand, then remove the file
 exit=1
 next: not started by this environment (no next.proc)
 mock api: not started by this environment (no mock.proc)
 mock api: leftovers from earlier runs need attention:
-  mock.proc.rejected.20261004T215446Z: refused earlier (pid 28040); handle the process by hand, then remove the file
+  mock.proc.rejected.20261004T224346Z: refused earlier (pid 18807); handle the process by hand, then remove the file
 exit=1 (second run, no record: leftover still reported)
 next: not started by this environment (no next.proc)
 mock api: not started by this environment (no mock.proc)
 exit=0 (after the operator removed the leftover)
 
 ## 7. forged record at START time: mock.proc describes decoy A (other directory) -> start_mock.sh must refuse it and start a fresh server
-forged mock.proc: pid=27982 pgid=27982 sid=27982 starttime=400856 cwd=/home/user/EarningsNerd/tasks/critique-env-2026-10-04 cmd=python3 mock_api.py
-mock api: record mock.proc REJECTED (pid 27982 working directory differs (record /home/user/EarningsNerd/tasks/critique-env-2026-10-04, live /tmp/claude-0/-home-user-EarningsNerd/78df218f-8eea-5bb5-9669-b8dbafc877c6/scratchpad/proof2/tasks/decoy-env)); the process was left alone and the record was moved to mock.proc.rejected.20261004T215446Z
+forged mock.proc: pid=18749 pgid=18749 sid=18749 starttime=694728 cwd=/home/user/EarningsNerd/tasks/critique-env-2026-10-04 cmd=python3 mock_api.py
+mock api: record mock.proc REJECTED (pid 18749 working directory differs (record /home/user/EarningsNerd/tasks/critique-env-2026-10-04, live /tmp/claude-0/-home-user-EarningsNerd/78df218f-8eea-5bb5-9669-b8dbafc877c6/scratchpad/proof2/tasks/decoy-env)); the process was left alone and the record was moved to mock.proc.rejected.20261004T224346Z
 mock api: earlier refusals need attention (starting anyway):
-  mock.proc.rejected.20261004T215446Z: refused earlier (pid 27982); handle the process by hand, then remove the file
-mock api up (pid 28954, recorded in mock.proc, /health reports the same pid)
+  mock.proc.rejected.20261004T224346Z: refused earlier (pid 18749); handle the process by hand, then remove the file
+mock api up (pid 19749, recorded in mock.proc; it owns the :8010 listener and /health reports the same pid)
 exit=0
   mock.proc
-  mock.proc.rejected.20261004T215446Z
-  new mock.proc: pid=28954
-  new mock.proc: pgid=28954
-  new mock.proc: sid=28954
-  new mock.proc: starttime=401481
+  mock.proc.rejected.20261004T224346Z
+  new mock.proc: pid=19749
+  new mock.proc: pgid=19749
+  new mock.proc: sid=19749
+  new mock.proc: starttime=695482
   new mock.proc: boot_id=b109227a-44a6-46c4-88da-83e6c767cde2
   new mock.proc: cwd=/home/user/EarningsNerd/tasks/critique-env-2026-10-04
   new mock.proc: cmd=python3 mock_api.py
-  new mock.proc: started_at=2026-10-04T21:54:47Z
-decoy A pid 27982 ALIVE (state S; cwd /tmp/claude-0/-home-user-EarningsNerd/78df218f-8eea-5bb5-9669-b8dbafc877c6/scratchpad/proof2/tasks/decoy-env; cmd 'python3 mock_api.py')
+  new mock.proc: started_at=2026-10-04T22:43:47Z
+decoy A pid 18749 ALIVE (state S; cwd /tmp/claude-0/-home-user-EarningsNerd/78df218f-8eea-5bb5-9669-b8dbafc877c6/scratchpad/proof2/tasks/decoy-env; cmd 'python3 mock_api.py')
 next: not started by this environment (no next.proc)
-mock api: stopped pid 28954 (process group 28954, verified owner)
+mock api: stopped pid 19749 (process group 19749, verified owner)
 mock api: leftovers from earlier runs need attention:
-  mock.proc.rejected.20261004T215446Z: refused earlier (pid 27982); handle the process by hand, then remove the file
+  mock.proc.rejected.20261004T224346Z: refused earlier (pid 18749); handle the process by hand, then remove the file
 exit=1 (1: the refused record is still reported as a leftover)
 next: not started by this environment (no next.proc)
 mock api: not started by this environment (no mock.proc)
@@ -342,35 +361,35 @@ exit=0 (after removing the leftover)
 
 ## 8. malformed records are refused by syntax, never signalled
 next: not started by this environment (no next.proc)
-mock api: record mock.proc REJECTED (pid '12 34' is not a positive integer); the process was left alone and the record was moved to mock.proc.rejected.20261004T215448Z
+mock api: record mock.proc REJECTED (pid '12 34' is not a positive integer); the process was left alone and the record was moved to mock.proc.rejected.20261004T224348Z
 mock api: leftovers from earlier runs need attention:
-  mock.proc.rejected.20261004T215448Z: refused earlier (pid 12 34); handle the process by hand, then remove the file
+  mock.proc.rejected.20261004T224348Z: refused earlier (pid 12 34); handle the process by hand, then remove the file
 exit=1
-  mock.proc.rejected.20261004T215448Z
+  mock.proc.rejected.20261004T224348Z
 next: not started by this environment (no next.proc)
-mock api: record mock.proc REJECTED (missing field for START); the process was left alone and the record was moved to mock.proc.rejected.20261004T215448Z
+mock api: record mock.proc REJECTED (missing field for START); the process was left alone and the record was moved to mock.proc.rejected.20261004T224348Z
 mock api: leftovers from earlier runs need attention:
-  mock.proc.rejected.20261004T215448Z: refused earlier (pid 27982); handle the process by hand, then remove the file
+  mock.proc.rejected.20261004T224348Z: refused earlier (pid 18749); handle the process by hand, then remove the file
 exit=1
-  mock.proc.rejected.20261004T215448Z
+  mock.proc.rejected.20261004T224348Z
 next: not started by this environment (no next.proc)
-mock api: record mock.proc REJECTED (duplicate key 'pid' (line 2)); the process was left alone and the record was moved to mock.proc.rejected.20261004T215448Z
+mock api: record mock.proc REJECTED (duplicate key 'pid' (line 2)); the process was left alone and the record was moved to mock.proc.rejected.20261004T224348Z
 mock api: leftovers from earlier runs need attention:
-  mock.proc.rejected.20261004T215448Z: refused earlier (pid 1); handle the process by hand, then remove the file
+  mock.proc.rejected.20261004T224348Z: refused earlier (pid 1); handle the process by hand, then remove the file
 exit=1 (duplicate key)
 next: not started by this environment (no next.proc)
-mock api: record mock.proc REJECTED (line 1 contains a carriage return); the process was left alone and the record was moved to mock.proc.rejected.20261004T215448Z
+mock api: record mock.proc REJECTED (line 1 contains a carriage return); the process was left alone and the record was moved to mock.proc.rejected.20261004T224348Z
 mock api: leftovers from earlier runs need attention:
-  mock.proc.rejected.20261004T215448Z: refused earlier (pid 27913
+  mock.proc.rejected.20261004T224348Z: refused earlier (pid 18667
 ); handle the process by hand, then remove the file
 exit=1 (CRLF record)
-decoy A pid 27982 ALIVE (state S; cwd /tmp/claude-0/-home-user-EarningsNerd/78df218f-8eea-5bb5-9669-b8dbafc877c6/scratchpad/proof2/tasks/decoy-env; cmd 'python3 mock_api.py')
+decoy A pid 18749 ALIVE (state S; cwd /tmp/claude-0/-home-user-EarningsNerd/78df218f-8eea-5bb5-9669-b8dbafc877c6/scratchpad/proof2/tasks/decoy-env; cmd 'python3 mock_api.py')
 
 ## 9. cleanup of the proof's own decoys (killed by this proof script, not by stop_env.sh)
 Terminated
 Terminated
-decoy A pid 27982 GONE
-decoy B pid 28040 GONE
+decoy A pid 18749 GONE
+decoy B pid 18807 GONE
   no record files remain
 ```
 - Correction to "Production reality" above (dated 2026-10-04 21:50 UTC; earlier text left as written): the enumerated id list omits

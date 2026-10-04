@@ -34,7 +34,7 @@ pid="$(cat "$TMP" 2>/dev/null || true)"; pid="${pid%$'\n'}"; rm -f "$TMP"
 [[ "$pid" =~ ^[1-9][0-9]{0,8}$ ]] || { echo "next: child did not report a valid pid ('${pid}')"; tail -20 "$HERE/next-start.log"; exit 1; }
 ready=0
 for _ in $(seq 1 60); do
-  curl -sSf -o /dev/null -m 2 http://localhost:3000/ 2>/dev/null && [ -d "/proc/$pid" ] && { ready=1; break; }
+  lc_pid_listens "$pid" 3000 && curl -sSf -o /dev/null -m 2 http://localhost:3000/ 2>/dev/null && { ready=1; break; }
   [ -d "/proc/$pid" ] || break
   sleep 0.5
 done
@@ -45,5 +45,5 @@ if ! lc_write_record "$REC" "$pid" "$TOKEN" "$FRONTEND"; then
 fi
 set +e; lc_verify "$REC" "$TOKEN" "$FRONTEND"; rc=$?; set -e
 [ "$rc" = 0 ] || { echo "next: the record just written does not verify ($LC_REASON); see next.proc" >&2; exit 1; }
-[ "$ready" = 1 ] && { echo "next up (pid $pid, recorded in next.proc)"; exit 0; }
-echo "next: pid $pid is recorded but did not answer on :3000 within 30 s; stop_env.sh can still stop it"; tail -20 "$HERE/next-start.log"; exit 3
+[ "$ready" = 1 ] && [ -d "/proc/$pid" ] && { echo "next up (pid $pid, recorded in next.proc; it owns the :3000 listener)"; exit 0; }
+echo "next: pid $pid is recorded but did not own the :3000 listener and answer within 30 s; stop_env.sh can still stop it"; tail -20 "$HERE/next-start.log"; exit 3
