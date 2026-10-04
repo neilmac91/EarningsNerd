@@ -5,6 +5,6 @@ evidence/
 *.stdout
 live-server.started
 *.proc
-*.proc.rejected
+*.proc.rejected*
 *.unverified
 *.tmp

@@ -161,7 +161,7 @@ class H(BaseHTTPRequestHandler):
         sc = self.scenario(); p = self.path.split('?')[0]
         authed = 'free' in sc or 'pro' in sc; pro = 'pro' in sc
         unauth = lambda: self.send(401, {'detail': 'Could not validate credentials'})
-        if p == '/health': return self.send(200, {'status': 'healthy', 'mock': True})
+        if p == '/health': return self.send(200, {'status': 'healthy', 'mock': True, 'pid': os.getpid()})
         if p == '/api/auth/me': return self.send(200, USER_PRO if pro else USER_FREE) if authed else unauth()
         if p == '/api/subscriptions/subscription': return self.send(200, SUB_PRO if pro else SUB_FREE) if authed else unauth()
         if p == '/api/subscriptions/usage': return self.send(200, usage(sc)) if authed else unauth()

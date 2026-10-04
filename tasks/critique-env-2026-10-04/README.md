@@ -25,7 +25,7 @@ node capture.mjs --out demo --route /filing/3 --scenario pro,content --theme dar
   --coach-seen --steps 'click=role:button:Ask this Filing;wait=700;shot=sheet'    # one targeted capture
 ./run_detect.sh                                # one deterministic Impeccable scan → scans/detect-<sha>.json + .meta.json
 python3 cache_manifest.py                      # record which production responses the run used → fixtures/CACHE_MANIFEST.json
-./stop_env.sh                                  # stops exactly the servers whose records still verify (see Lifecycle)
+./stop_env.sh                                  # stops exactly the servers whose records still verify (see Lifecycle); exit 1 = something was refused or left over
 ```
 
 ### Browser resolution (`browser.mjs`, shared by `capture.mjs`, `verify_probe.mjs`, `verify_trace.mjs`)
@@ -43,26 +43,42 @@ path containing spaces works.
 
 ### Lifecycle: process identity records (`lifecycle.sh`)
 
-Each start script launches its server with `setsid` in a new session/process group, waits until it answers, then writes a
-record (`mock.proc`, `next.proc`) with the server's identity: `pid`, `pgid`, `sid` (both equal to `pid`), `starttime`
-(`/proc/<pid>/stat` field 22, clock ticks since boot), `boot_id`, the physical `cwd` and the stable `cmd` line (Next is
-launched directly from `node_modules/next/dist/bin/next`, not through `npx`, and names itself `next-server (v…)`; the
-record is taken only after the command line has stopped changing). A process is treated as this environment's server only
-when EVERY field still matches the live process and the `cwd` is the directory this environment expects. Both the
-already-running check in the start scripts and the shutdown in `stop_env.sh` use the same verification:
+Each start script launches its server with `setsid` in a new session/process group, gives it up to 10 s (mock) / 30 s (Next)
+to answer (the mock's `/health` must report the started pid; Next must answer on :3000 while the pid is alive), then writes a
+record (`mock.proc`, `next.proc`) with the server's identity whether or not it answered: `pid`, `pgid`, `sid` (both equal to
+`pid`), `starttime` (`/proc/<pid>/stat` field 22, clock ticks since boot), `boot_id` (`/proc/sys/kernel/random/boot_id`, else
+`btime:<n>` from `/proc/stat`; with neither readable nothing is recorded and nothing verifies), the physical `cwd` and the
+stable `cmd` line (Next is launched directly from `node_modules/next/dist/bin/next`, not through `npx`, and names itself
+`next-server (v…)`; the record is taken only after the command line has stopped changing). The record is trusted input written
+by the start scripts: pid + start time + boot identity identify the process; cwd, command and group leadership are
+consistency checks. Start exit codes: 0 up and recorded; 1 failed (the server died, for example because the port was taken,
+or its identity could not be established, in which case the pid is kept in `<name>.unverified`, nothing is recorded or
+signalled, and the operator stops it by hand); 3 recorded but not answering within the budget (`stop_env.sh` can still stop it).
 
-- verified → `start_*` reports "already running"; `stop_env.sh` sends SIGTERM to the recorded process group (SIGKILL after 10 s)
-  and removes the record;
+A process is treated as this environment's server only when EVERY field still matches the live process and the `cwd` is the
+directory this environment expects. Both the already-running check in the start scripts and the shutdown in `stop_env.sh`
+use the same verification:
+
+- verified → `start_*` reports "already running"; `stop_env.sh` sends SIGTERM to the recorded process group, SIGKILL after
+  10 s, reports "stopped" only once no live (non-zombie) member of the group remains, then removes the record; if members
+  survive SIGKILL the record is kept and the exit code is 1;
 - record present but process gone, a zombie, or from another boot → stale: the record is removed, nothing is signalled;
-- malformed record (syntax is validated field by field; digits are never scraped out of arbitrary text) or a live process
-  that does not match (reused pid with a different start time, same command in another directory, different command line,
-  not its own session/group leader) → REFUSED: nothing is signalled, the record is moved to `<name>.proc.rejected` with the
-  reason printed, `stop_env.sh` exits 1, and `start_*` goes on to start a fresh server.
+- malformed record (syntax is validated field by field: known keys only, no duplicates, no carriage returns or trailing
+  whitespace, canonical integers; digits are never scraped out of arbitrary text) or a live process that does not match (reused
+  pid with a different start time, same command in another directory, different command line, not its own session/group
+  leader, or `/proc` entries that cannot be read) → REFUSED: nothing is signalled, the record is moved to
+  `<name>.proc.rejected.<UTC timestamp>` with the reason printed, `stop_env.sh` exits 1, and `start_*` goes on to start a
+  fresh server;
+- leftovers (`<name>.proc.rejected.*`, `<name>.unverified`) are reported by every later `stop_env.sh` (exit 1) and `start_*`
+  run until the operator has dealt with the process and removed the file, so a refusal is never silently forgotten.
 
 An unrelated process is therefore never signalled even when its command line contains `mock_api.py` or `next`. The proof
-transcript (forged records against look-alike decoys, malformed records, a simulated non-Linux host, then the normal owned
-shutdown) is in the run notes. An Impeccable live server is stopped through its own launcher only when this environment
-recorded starting one (`touch live-server.started` after `impeccable live-server --background`).
+transcript (forged records against look-alike decoys in another directory and with a reused pid, stale and malformed
+records, a simulated non-Linux host, sticky refusals, then the normal owned shutdown) is in the run notes under "Process
+identity". Run `./stop_env.sh` before moving, renaming or re-cloning the checkout: a moved environment's servers no longer
+match their recorded `cwd` and must be stopped by hand from the refused record. An Impeccable live server is outside the
+identity scheme: it is stopped through its own launcher (best effort) only when this environment recorded starting one
+(`touch live-server.started` after `impeccable live-server --background`).
 
 ## Scenarios (cookie `en_scenario` on `localhost`, or header `X-EN-Scenario`; comma-joined)
 
@@ -75,7 +91,7 @@ stream ends in an error · `askfail` — ask-stream 500 · `exhausted` — free 
 ## Files
 
 - `mock_api.py` — the mock backend; `env.sh` — build/runtime flags; `lifecycle.sh` — process-identity helpers;
-  `start_mock.sh` / `start_next.sh` / `stop_env.sh` — lifecycle (Linux only).
+  `start_mock.sh` / `start_next.sh` / `stop_env.sh` — lifecycle (Linux only; curl required).
 - `capture.mjs` — Playwright capture harness (usage and step DSL at the top of the file); `browser.mjs` — browser resolution.
 - `jobs-baseline.json` (65 jobs), `jobs-extra.json`, `jobs-verify.json` — the captured matrices; `verify_probe.mjs` /
   `verify_trace.mjs` — the orchestrator's verification probes (reflow culprits, keyboard popover reach, the Trace-to-Source
@@ -96,5 +112,5 @@ stream ends in an error · `askfail` — ask-stream 500 · `exhausted` — free 
   ids sampled (listed in the run notes); that is a dated observation about those ids, not a statement about every filing.
   Findings that depend on the fixture are marked fixture-dependent in the report.
 - Copilot and analysis answers are canned (`mock_api.py`: `ask_completion`, the repo's `demo-analysis.json`).
-- `evidence/`, `cache/`, `*.log`, `*.pid`, `*.stdout`, `*.proc`, `*.proc.rejected`, `*.unverified`, `*.tmp` and
+- `evidence/`, `cache/`, `*.log`, `*.pid`, `*.stdout`, `*.proc`, `*.proc.rejected*`, `*.unverified`, `*.tmp` and
   `live-server.started` are gitignored run state.
