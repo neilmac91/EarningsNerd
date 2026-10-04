@@ -1,8 +1,8 @@
 {
   "schema_version": 1,
-  "revision": 2,
+  "revision": 3,
   "dispatch_id": "CTO-ENVELOPE-HANDBACK-01",
-  "observed_at": "2026-10-04T15:00:17Z",
+  "observed_at": "2026-10-04T15:20:16Z",
   "repository_commit": "100fb7d6bdaf62590af19964d39c2ed732062210",
   "author": "chief session_01GWYV7WXWstgVGQG43YcSM8 acting as CTO (isolated worker launch denied by the platform's auto-mode classifier; no isolated adversarial lenses ran)",
   "bounds": [
@@ -80,7 +80,7 @@
       "unit": "processes",
       "classification": "configured-code-default",
       "enforcement_scope": "instance",
-      "evidence": "`backend/Dockerfile:60` (`uvicorn main:app` without `--workers`); tasks/fleet-coordination-proposal-2026-09-19.md:25 (no container command override observed 2026-09-19)",
+      "evidence": "`backend/Dockerfile:60` (`uvicorn main:app` without `--workers`); tasks/fleet-coordination-proposal-2026-09-19.md:26 (no container command/argument override returned in the 2026-09-19 live read)",
       "uncertainty": "Current live container command not re-read from Cloud Run; treated as one process per instance."
     },
     {
@@ -105,7 +105,7 @@
       "unit": "engine",
       "classification": "configured-code-default",
       "enforcement_scope": "process",
-      "evidence": "`backend/app/database.py:29` (module-level `create_engine`); tasks/fleet-coordination-proposal-2026-09-19.md:25",
+      "evidence": "`backend/app/database.py:32`–39 (module-level `create_engine`, PostgreSQL branch); tasks/fleet-coordination-proposal-2026-09-19.md:25",
       "uncertainty": "One sync engine per importing process (API instance or job)."
     },
     {
@@ -156,7 +156,7 @@
       "unit": "seconds / flag",
       "classification": "configured-code-default",
       "enforcement_scope": "process",
-      "evidence": "`backend/Dockerfile:48`; `backend/app/database.py:17`; `pool_pre_ping=True` `backend/app/database.py:29`",
+      "evidence": "`backend/Dockerfile:48`; `backend/app/database.py:17`; `pool_pre_ping=True` `backend/app/database.py:32`–39 (PostgreSQL branch)",
       "uncertainty": "—"
     },
     {
@@ -290,13 +290,13 @@
         "earnings-calendar-refresh": "daily 05:30 America/New_York",
         "earnings-day-alerts": "daily 06:00 America/New_York",
         "retention-purge": "Sun 03:00 UTC",
-        "notable-filings": null
+        "notable-filings": "08:30 and 18:30 America/New_York per docs/DEPLOYMENT.md:623–624 as reported by the independent PR reviewer; not read by the chief (classifier denial)"
       },
       "unit": "cron",
       "classification": "configured-deploy",
       "enforcement_scope": "external",
       "evidence": "`docs/DEPLOYMENT.md:222`, `:275`, `:280`, `:285`, `:344`, `:351`, `:381` (runbook); `docs/OPERATIONS.md:93` (Monday 06:00–07:00 UTC overlap of pregenerate, filing-scan and backfill-facts with the service); tasks/fleet-coordination-proposal-2026-09-19.md:27",
-      "uncertainty": "Runbook values are creation-time commands, not a live Scheduler read; backfill-facts scheduling conflicts between sources → unknown; notable-filings schedule not read → unknown."
+      "uncertainty": "Runbook values are creation-time commands, not a live Scheduler read; backfill-facts scheduling conflicts between sources → unknown; notable-filings schedule not read by the chief; the independent reviewer reports it from docs/DEPLOYMENT.md:623–624 (recorded with that attribution, not verified here)."
     },
     {
       "id": "B24",
@@ -640,7 +640,7 @@
       "unit": "streams",
       "classification": "configured-code-default",
       "enforcement_scope": "job process",
-      "evidence": "`backend/scripts/pregenerate_examples.py:86`–90 (awaited per ticker/form inside one loop)",
+      "evidence": "`backend/scripts/pregenerate_examples.py:86`–91 (awaited per ticker/form inside one loop; the `await pregenerate_for_ticker` is the last line of the range)",
       "uncertainty": "Section recovery inside each generation may add up to 3 streams (B40)."
     },
     {
@@ -759,7 +759,7 @@
       "unit": "—",
       "classification": "configured-code-default",
       "enforcement_scope": "service",
-      "evidence": "`docs/OPERATIONS.md:85`; `ops/capacity/readout.py:128`; `.github/workflows/ops.yml:157`; `.github/workflows/ci.yml:628`",
+      "evidence": "`docs/OPERATIONS.md:85`; `ops/capacity/readout.py:128`; `.github/workflows/ops.yml:641`; `.github/workflows/ci.yml:628`",
       "uncertainty": "Thresholds for a beta are not evidenced; the documented suggestions are partly stale (B33)."
     },
     {

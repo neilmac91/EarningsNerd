@@ -33,7 +33,7 @@ when queried at takeover. Served models of delegated subagents are recorded as r
 | `repository-current/AGENTS.md`, `CLAUDE.md` | `55a17858…`, `c66bddb4…` | identical to the clone at main `100fb7d6` |
 | `.github/workflows/review-gate.yml` reference copy | `4f2fa6c2…` | identical to the clone at main |
 
-## Current main, release and PR-owner snapshot (observed 2026-10-04T14:31:37Z)
+## Current main, release and PR-owner snapshot (observed 2026-10-04T14:21:00Z, recorded 2026-10-04T14:31:37Z)
 
 - `origin/main` = `100fb7d6bdaf62590af19964d39c2ed732062210` (PR1084 merge), identical to the package snapshot. Local clone HEAD = main; designated work branch `claude/vigilant-goodall-633yx3` exists locally only until pushed.
 - Latest runs on main all completed: CI 37202227789 success, Review gate (issue_comment) skipped, Ops 37202971777/37203033138 success, Production smoke 37202612862 success. No workflow in progress. The package's release verification (revision `earningsnerd-backend-00443-n58`) is reused, not re-run.

@@ -6194,6 +6194,7 @@ Full local and hosted verification plus independent exact-head review precede re
 - [ ] Founder: supply the live `spend-and-reservation.json` bytes + SHA-256, or confirm identity with
       snapshot `99c7259f…`, before any paid action (`runtime/control/LEDGER-ACCESS.md`).
 - [ ] COO/CEO: one bounded read-only Ops `capacity-readout` over the Monday 06:00–07:00 UTC job-overlap
-      window to resolve B32/B56 (chief decision recorded in `runtime/CHECKPOINT.md`).
+      window to inform B32 (and B56 only as far as the COO/CEO decide the receipt may close); chief
+      decision recorded in `runtime/CHECKPOINT.md`.
 - [ ] Docs-vs-config: `docs/OPERATIONS.md` alert threshold `database.checked_out > 8` is unreachable with
       the deployed pool 4 / overflow 0 (handback B33); fix the doc separately.
