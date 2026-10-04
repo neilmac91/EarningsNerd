@@ -1,6 +1,6 @@
 # Decision record 05 — pre-release update: custody state, release-receipt gate, time ceiling 150 (chief, 2026-10-04)
 
-Recorded 2026-10-04T23:14:48Z by the chief (`https://claude.ai/code/session_01GWYV7WXWstgVGQG43YcSM8`, runtime-reported
+Recorded 2026-10-04T23:14:48Z, amended 2026-10-04T23:45:47Z after the three-lens review (attribution wording), by the chief (`https://claude.ai/code/session_01GWYV7WXWstgVGQG43YcSM8`, runtime-reported
 model `claude-fable-5-1`). Input: Astra's "pre-release update" (observation from 2026-10-04T22:58:48Z;
 relayed by the founder; zero spend; one local administrative write). Status carried: **NOT_RELEASED /
 verification incomplete / no planner dispatch**. Nothing below releases inputs, dispatches the planner,
@@ -89,7 +89,8 @@ administrative failures are reported separately and never cast as a terminal res
 
 ## Time ceiling (CEO)
 
-This turn: 10 minutes charged (8 Astra + 2 reused control reviewer). Cumulative: **30 of 180**;
+This turn, per Astra's report: 10 minutes charged (8 Astra + 2 for the closure-142 package-boundary reviewer,
+reused by Astra for receipt review of the existing control documents only). Cumulative: **30 of 180**;
 remaining **150** for all further preparation plus execution. The terminal `minutes_used` already
 includes 20 minutes of post-record-03 preparation (10 package + 10 this turn) and is not charged again
 on receipt. Astra's estimate after complete recovery and a confirmed resumable context: 10–20 further

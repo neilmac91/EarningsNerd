@@ -6228,7 +6228,7 @@ Full local and hosted verification plus independent exact-head review precede re
       `DECISIONS-04.md`; 30 of 180 minutes charged, 150 remain). Blocked on (a) the founder materialising the
       30 cloud-only custody files (Finder Download Now / Keep Downloaded; controls first) and the two-part
       hash-and-length verification (11 of 39 local files verified so far, 0 mismatches), (b) the planner's
-      runtime availability, unverified — a fresh context must be registered before release, and (c) the
+      runtime availability, unverified — any fresh context must be registered before release, and (c) the
       release receipt (`DECISIONS-05.md`). Implementation stays HELD pending the source-owned refinement.
       Chief then sets `R1-STATUS.md`.
 - [x] Ledger: Astra confirmed byte-identity with snapshot `99c7259f…`; successor ledger designated as a
