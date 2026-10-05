@@ -1,16 +1,53 @@
 """Readout evidence cannot turn missing pages into completeness or publish raw payloads."""
 import importlib.util
+import io
 import json
 from pathlib import Path
+from urllib.error import HTTPError, URLError
 
 import pytest
 
+URL = "https://monitoring.googleapis.com/v3/projects/test-project/timeSeries"
 
-def test_capacity_readout_keeps_coverage_and_sanitizes_evidence(monkeypatch):
+
+def load_readout():
     root = Path(__file__).resolve().parents[3]
     spec = importlib.util.spec_from_file_location("capacity_readout", root / "ops/capacity/readout.py")
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
+    return module
+
+
+class TrackedBody(io.BytesIO):
+    """Error body that records each read size and the bytes consumed, so the read cap can be asserted
+    even after urllib's HTTPError wrapper has closed the stream."""
+
+    def __init__(self, data):
+        super().__init__(data)
+        self.requested = []
+        self.consumed = 0
+
+    def read(self, size=-1):
+        self.requested.append(size)
+        chunk = super().read(size)
+        self.consumed += len(chunk)
+        return chunk
+
+
+def fail_with_http_error(module, monkeypatch, body, code=403):
+    """Make the module's urlopen raise HTTPError(code) with a fresh copy of `body`; returns the bodies served."""
+    served = []
+
+    def urlopen(request, timeout):
+        served.append(TrackedBody(body))
+        raise HTTPError(request.full_url, code, "Forbidden", {}, served[-1])
+
+    monkeypatch.setattr(module, "urlopen", urlopen)
+    return served
+
+
+def test_capacity_readout_keeps_coverage_and_sanitizes_evidence(monkeypatch):
+    module = load_readout()
     start, end = "2026-09-28T05:55:00Z", "2026-09-28T07:10:00Z"
     for invalid in ("2026-09-28", "2026-09-28T05:55:00+00:00", "$(touch /tmp/bad)"):
         with pytest.raises(ValueError):
@@ -89,3 +126,80 @@ def test_capacity_readout_keeps_coverage_and_sanitizes_evidence(monkeypatch):
         "exemplars": [{"attachments": [secret]}]}}}]})
     assert secret not in json.dumps(histogram)
     assert histogram["points"][0]["value"]["distributionValue"]["count"] == "2"
+
+
+def test_capacity_readout_records_structured_http_error_detail_without_body(monkeypatch):
+    module = load_readout()
+    secret = "PRIVATE-MESSAGE-TOKEN-EMAIL"
+    message = "Permission 'monitoring.timeSeries.list' denied on resource 'projects/test-project' " + "x" * 400
+    body = json.dumps({"error": {
+        "code": 403, "message": message, "status": "PERMISSION_DENIED",
+        "details": [{"@type": "type.googleapis.com/google.rpc.ErrorInfo", "reason": "IAM_PERMISSION_DENIED",
+                     "domain": "monitoring.googleapis.com", "metadata": {"permission": secret}},
+                    {"@type": "type.googleapis.com/google.rpc.DebugInfo", "detail": secret}],
+        "errors": [{"message": secret}]}, "trace": secret}).encode()
+    fail_with_http_error(module, monkeypatch, body)
+    api = module.Api("unused-private-token")
+    assert api.request(URL, {"pageSize": 1}) == (None, "http_403")  # tuple shape unchanged
+    detail = api.last_error_detail
+    assert detail["status"] == "PERMISSION_DENIED"
+    assert detail["code"] == 403
+    assert detail["reason"] == "IAM_PERMISSION_DENIED"
+    assert detail["domain"] == "monitoring.googleapis.com"
+    assert detail["message"] == message[:240] and len(detail["message"]) == 240
+    assert set(detail) == {"status", "code", "reason", "domain", "message"}  # no other body key leaked
+    assert secret not in json.dumps(detail)
+    page = api.pages(URL, {"pageSize": 1}, "timeSeries")
+    assert page["state"] == "unavailable" and page["error"] == "http_403" and page["pages"] == 0
+    assert page["error_detail"] == detail
+    assert secret not in json.dumps(page) and "unused-private-token" not in json.dumps(page)
+    # The receipt surfaces the same detail next to each source's existing error string.
+    result = module.collect(api, "test-project", "us-west1", "2026-09-28T05:55:00Z", "2026-09-28T07:10:00Z")
+    assert result["request_count"]["error"] == "http_403"
+    assert result["request_count"]["error_detail"]["reason"] == "IAM_PERMISSION_DENIED"
+    assert result["error_logs"]["error_detail"]["status"] == "PERMISSION_DENIED"
+    assert secret not in json.dumps(result)
+
+    # A transport failure carries no detail: no key is written and the previous detail is cleared.
+    def unreachable(request, timeout):
+        raise URLError("unreachable")
+
+    monkeypatch.setattr(module, "urlopen", unreachable)
+    page = api.pages(URL, {"pageSize": 1}, "timeSeries")
+    assert page["error"] == "transport_or_decode_error" and "error_detail" not in page
+    assert api.last_error_detail is None
+
+
+def test_capacity_readout_records_non_json_error_body_as_sentinel(monkeypatch):
+    module = load_readout()
+    secret = "PRIVATE-MESSAGE-TOKEN-EMAIL"
+    fail_with_http_error(module, monkeypatch, ("<html>Forbidden " + secret + "</html>").encode())
+    api = module.Api("unused-private-token")
+    page = api.pages(URL, {"pageSize": 1}, "timeSeries")
+    assert page["error"] == "http_403"
+    assert page["error_detail"] == {"body": "non_json_or_unreadable"}
+    assert secret not in json.dumps(page)
+    # Valid JSON that is not a Google error envelope records nothing rather than a misleading sentinel.
+    fail_with_http_error(module, monkeypatch, json.dumps({"unexpected": secret}).encode())
+    page = api.pages(URL, {"pageSize": 1}, "timeSeries")
+    assert page["error"] == "http_403" and "error_detail" not in page
+    assert secret not in json.dumps(page)
+
+
+def test_capacity_readout_caps_error_body_read_and_stored_message(monkeypatch):
+    module = load_readout()
+    secret = "PRIVATE-MESSAGE-TOKEN-EMAIL"
+    oversized = json.dumps({"error": {"code": 403, "status": "PERMISSION_DENIED",
+                                      "message": "x" * (32 * 1024) + secret}}).encode()
+    assert len(oversized) > module.MAX_ERROR_BODY == 8 * 1024
+    served = fail_with_http_error(module, monkeypatch, oversized)
+    api = module.Api("unused-private-token")
+    page = api.pages(URL, {"pageSize": 1}, "timeSeries")
+    assert len(served) == 1
+    assert served[0].requested == [module.MAX_ERROR_BODY]  # one bounded read; never read()/read(-1)
+    assert served[0].consumed == module.MAX_ERROR_BODY < len(oversized)
+    detail = page["error_detail"]
+    assert len(detail.get("message", "")) <= module.MAX_ERROR_MESSAGE == 240
+    assert len(json.dumps(detail)) < module.MAX_ERROR_BODY
+    assert detail == {"body": "non_json_or_unreadable"}  # the truncated envelope never parses
+    assert secret not in json.dumps(page)

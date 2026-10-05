@@ -1,6 +1,7 @@
 """Bounded, read-only Cloud Run/Monitoring/Logging evidence; no raw logs or env values.
 
-Run with an existing gcloud identity. Missing permissions/data are recorded, never zeroed.
+Run with an existing gcloud identity. Missing permissions/data are recorded, never zeroed; a failed
+API call keeps only its structured error status, reason and a bounded message, never the raw body.
 The receipt is evidence to inspect, not a capacity verdict or an invitation limit.
 """
 from __future__ import annotations
@@ -11,6 +12,7 @@ import os
 import re
 import subprocess
 from datetime import datetime, timezone
+from http.client import HTTPException
 from pathlib import Path
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode
@@ -23,6 +25,8 @@ JOBS = ("pregenerate", "filing-scan", "filing-digest", "backfill-facts",
         "earnings-calendar-refresh", "earnings-day-alerts", "notable-filings", "retention-purge")
 MAX_PAGES = 5
 MAX_RESPONSE = 8 * 1024 * 1024
+MAX_ERROR_BODY = 8 * 1024
+MAX_ERROR_MESSAGE = 240
 
 
 def timestamp(value):
@@ -41,11 +45,43 @@ def window(start, end):
     return first, last
 
 
+def error_detail(exc):
+    """Bounded, structured reason from a Google API error envelope; never the raw body or headers.
+
+    Keeps only error.status, error.code, the first ErrorInfo detail's reason/domain and at most
+    MAX_ERROR_MESSAGE characters of error.message, reading at most MAX_ERROR_BODY bytes.
+    """
+    try:
+        envelope = json.loads(exc.read(MAX_ERROR_BODY))
+    except (OSError, ValueError, HTTPException):
+        return {"body": "non_json_or_unreadable"}
+    error = envelope.get("error") if isinstance(envelope, dict) else None
+    if not isinstance(error, dict):
+        return {}  # JSON, but not a Google API error envelope: nothing recognised to record.
+    detail = {}
+    if isinstance(error.get("status"), str):
+        detail["status"] = error["status"]
+    if isinstance(error.get("code"), int):
+        detail["code"] = error["code"]
+    details = error.get("details") if isinstance(error.get("details"), list) else []
+    for info in details:
+        if isinstance(info, dict) and isinstance(info.get("@type"), str) and info["@type"].endswith("ErrorInfo"):
+            detail.update({key: info[key] for key in ("reason", "domain") if isinstance(info.get(key), str)})
+            break
+    if isinstance(error.get("message"), str):
+        detail["message"] = error["message"][:MAX_ERROR_MESSAGE]
+    return detail
+
+
 class Api:
     def __init__(self, token):
         self.token = token
+        # Structured reason for the latest failed request(), or None. It lives on the instance so
+        # request() keeps its (data, error) return shape and existing callers and fakes stay unchanged.
+        self.last_error_detail = None
 
     def request(self, url, params, post=False):
+        self.last_error_detail = None
         # Hosts and paths are code-owned; no endpoint/SQL/command comes from workflow input.
         body = json.dumps(params).encode() if post else None
         request = Request(url if post else url + "?" + urlencode(params), data=body,
@@ -59,7 +95,9 @@ class Api:
                 return None, "response_size_limit"
             return json.loads(raw), None
         except HTTPError as exc:
-            return None, "http_" + str(exc.code)  # Never echo response bodies or auth headers.
+            # Never echo response bodies or auth headers; keep only the bounded, structured reason.
+            self.last_error_detail = error_detail(exc)
+            return None, "http_" + str(exc.code)
         except (URLError, TimeoutError, OSError, ValueError):
             return None, "transport_or_decode_error"
 
@@ -69,8 +107,11 @@ class Api:
         for page in range(1, MAX_PAGES + 1):
             data, error = self.request(url, params, post)
             if error or not isinstance(data, dict) or not isinstance(data.get(key, []), list):
-                return {"state": "partial" if items else "unavailable", "pages": page - 1,
-                        "error": error or "invalid_response", "items": items}
+                failure = {"state": "partial" if items else "unavailable", "pages": page - 1,
+                           "error": error or "invalid_response", "items": items}
+                if self.last_error_detail:
+                    failure["error_detail"] = self.last_error_detail
+                return failure
             items.extend(data.get(key, []))
             token = data.get("nextPageToken")
             if not token:
