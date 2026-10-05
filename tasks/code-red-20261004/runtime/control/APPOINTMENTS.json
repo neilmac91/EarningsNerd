@@ -14,7 +14,7 @@
       ],
       "packet_sha256": "2209215e245813bd25aa6d8f70a41d5da98598f8b9ffdaf67da970e26a20d0e2",
       "first_deliverable_reused": "cto/FIRST-DELIVERABLE.md bdca249d…",
-      "held_worker": "R1 dependency handover still NOT dispatched by the chief; implementation HELD pending the source-owned refinement. Astra bootstrapped the registered source-only H20 planner (closure 140) and prepared its controls package (ZIP SHA-256 ceed7244…, DECISIONS-04); planner idle, release receipt NOT_RELEASED; 20 of 180 minutes charged, 160 remain; custody recovery is the founder's prerequisite.",
+      "held_worker": "R1 dependency handover still NOT dispatched by the chief; implementation HELD pending the source-owned refinement. Registered source-only H20 planner (closure 140): uncontacted since the package report, runtime availability UNVERIFIED — no input release until it is resolved and any fresh context is registered first (DECISIONS-05); release receipt NOT_RELEASED; custody still 18/21 and 14/48 cloud-only after Keep Downloaded (bounded discrepancy investigation authorised as preparation), 11 verified hash+length, 0 mismatches; 30 of 180 minutes charged, 150 remain.",
       "active_assignment": "dispatch/CTO-ENVELOPE-HANDBACK-01.json (current-beta operating envelope for COO C1)",
       "actual_runtime_identity": "No isolated delegate: the Workflow launch for dispatch CTO-ENVELOPE-HANDBACK-01 (author + three adversarial lenses) was denied by the platform's auto-mode classifier. The chief context (session_01GWYV7WXWstgVGQG43YcSM8, runtime-reported model claude-fable-5-1) authored the handback acting as CTO; no isolated adversarial review ran.",
       "requested_model": "claude-fable-5-1 (author); independent lenses: claude-opus-5-5, claude-fable-5-1, claude-sonnet-5-5",
@@ -74,7 +74,7 @@
     ]
   },
   "note": "Appointment is accountability, not entry authorization. Actual delegate identities (workflow run / agent ids) are recorded here and in the exclusion successor after launch.",
-  "updated_at": "2026-10-04T21:53:14.084892+00:00",
+  "updated_at": "2026-10-04T23:51:28.104691+00:00",
   "classifier_denials": [
     "Workflow launch for CTO-ENVELOPE-HANDBACK-01 (auto-mode classifier, no reason given); not re-issued through another tool or subagent",
     "One Bash read of docs/DEPLOYMENT.md job-schedule sections (auto-mode classifier: instruction poisoning); the handback cites those lines from an earlier permitted line-level search only",
