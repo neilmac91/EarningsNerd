@@ -6241,8 +6241,12 @@ Full local and hosted verification plus independent exact-head review precede re
       recorded (owners, remaining counts, one blocker each, next deliverable); C1 items 4, 6 (dependency) and 8
       closed by their named owner on records 02 D7/D1/D9, B37 by D8 — five of eight C1 items open; only R3 has an
       executable deliverable overnight (08:10Z readout → CTO handback rev 4 → COO disposition update). USD 0.
-- [ ] COO/CEO: one bounded read-only Ops `capacity-readout` over Monday 06:00–08:00 UTC (widened to
-      include backfill-facts 07:00; Routine fires 08:10Z) to inform B32; receipt to COO (`DECISIONS-02.md` D4).
+- [x] COO/CEO: one bounded read-only Ops `capacity-readout` over Monday 06:00–08:00 UTC dispatched 2026-10-05T08:12Z
+      (run 37282199614, success; receipt `runtime/handbacks/coo/CAPACITY-READOUT-RECEIPT-20261005.md`). Monitoring and
+      Logging channels returned HTTP 403, so B32/B56 stay unknown by this route; two Monday business-phase overlaps
+      (9.15 s, 6.57 s) observed with near-empty work.
+- [ ] CTO/CEO: read-only check of why the Ops identity's Monitoring/Logging reads returned 403 (the 2026-10-04 receipt
+      had Monitoring samples); any IAM grant is the founder's cloud-configuration decision.
 - [ ] Founder: apply (or change the numbers in) the handed-over patch pinning `SEC_RATE_LIMIT_PER_SECOND=1`
       and `EDGAR_RATE_LIMIT_PER_SEC=1` on the service and all eight jobs with its rule-12 gate — the chief's
       commit of it was classifier-denied (Production Deploy); chief reserves ~USD 0.01 before any PR
