@@ -379,8 +379,13 @@
   "steps": [
    "scroll=role:button:Source: Verified in filing",
    "wait=300",
+   "count=[role=group][aria-label='Source detail']",
    "click=role:button:Source: Verified in filing",
-   "wait=500",
+   "wait=400",
+   "count=[role=group][aria-label='Source detail']",
+   "shot=demo-closed",
+   "click=role:button:Source: Verified in filing",
+   "wait=400",
    "count=[role=group][aria-label='Source detail']",
    "shot=demo-open"
   ]
@@ -395,8 +400,13 @@
   "steps": [
    "scroll=role:button:Source: Verified in filing",
    "wait=300",
+   "count=[role=group][aria-label='Source detail']",
    "click=role:button:Source: Verified in filing",
-   "wait=500",
+   "wait=400",
+   "count=[role=group][aria-label='Source detail']",
+   "shot=demo-closed",
+   "click=role:button:Source: Verified in filing",
+   "wait=400",
    "count=[role=group][aria-label='Source detail']",
    "shot=demo-open"
   ]
