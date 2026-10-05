@@ -6261,6 +6261,9 @@ Full local and hosted verification plus independent exact-head review precede re
       real folder paths; send the chief only its two `TOTAL=` lines, give the saved file to Astra and send Astra's match
       counts; confirm in the Codex app whether the registered planner thread resumes. The two archives uploaded into the
       chief's session at ~17:52Z were not opened (classifier denial 5, `DECISIONS-07.md`); they do not shorten this route.
+- [x] PR #1098 merged to main `c780228a` (2026-10-05T18:17:54Z); the reserved `copilot-eval` re-trigger cost USD 0.025568
+      against a USD 0.010000 reservation (excess unreserved; ledger event 4; `DECISIONS-08.md`); the merge's `deploy-backend`
+      run verified and recorded there; closure 151 resolves the delta reviewer.
 - [x] Chief defect recorded (`DECISIONS-07.md`, ledger event 3): marking PR #1098 ready triggered the paid `copilot-eval`
       workflow without a reservation (29 calls, telemetry USD 0.005575; cancel request ineffective); recorded as use,
       USD 0.010000 reserved for the one required re-trigger; rule: reserve before marking a `backend/**`-touching PR ready.

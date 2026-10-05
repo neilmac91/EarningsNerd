@@ -80,3 +80,12 @@ completed — recorded as use against the shared authority (29 calls, telemetry 
 calls 297 → 326), holds unchanged (1.881713), one reservation of USD 0.010000 for the single required re-trigger;
 conditional unreserved 25.000000 − 0.553091 − 1.881713 − 0.010000 = **22.555196**. Current document: 29,012 bytes, SHA-256
 `6c2dc45f76b5405730c6079d2a08dee2507125a64b0afa1f759c533ac71449c5`; republished as artifact version 4 and read back with the same hash. From this event, decision 3 of the 2026-10-04 statement (every action USD 0 / 0 DeepSeek calls) no longer holds: 29 calls are recorded and active reservations are 1. Event 4 will record the re-trigger's actual cost and release the unused reservation.
+
+### Event 4 — written 2026-10-05T18:21:22Z (recorded here 2026-10-05T18:35:26Z)
+
+Written by the chief as sole writer under the hash-chain rule (`previous_sha256` `6c2dc45f…`): the event-3 reservation
+(USD 0.010000, the one required `copilot-eval` re-trigger on PR #1098) settled at its actual telemetry cost of
+USD 0.025568 (34 calls; run 37354664320); the excess USD 0.015568 is recorded as use without a reservation (chief defect:
+reservation undersized). Known use 0.553091 → 0.578659 (calls 326 → 360); holds unchanged (1.881713); active
+reservations 0; conditional unreserved 25.000000 − 0.578659 − 1.881713 = **22.539628**. Current document: 31,690 bytes,
+SHA-256 `b4ce7016ed1996c345dfc40fc3565cfc1e964963bfc866af1df79f49660f9c36`; republished as artifact version 5 and read back with the same hash. See `DECISIONS-08.md`.

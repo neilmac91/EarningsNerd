@@ -1,0 +1,71 @@
+# Decision record 08 — PR #1098 merged; ledger event 4 (reserved copilot-eval run settled, reservation undersized); deploy verified; founder instructions (custody, Ops access, option C, D3 patch); closure 151 (chief, 2026-10-05)
+
+Recorded 2026-10-05T18:35:26Z by the chief (`https://claude.ai/code/session_01GWYV7WXWstgVGQG43YcSM8`, runtime-reported model
+`claude-fable-5-1`). Context: record 07 and the readout diagnostics change merged to main as `c780228a` at 18:17:54Z
+(PR #1098, squash). This record closes the loop on that merge: the reserved paid re-trigger and its settlement, the
+backend deploy that every `backend/`-touching merge runs, the review-chain identities, the two cosmetic nits carried
+from the last delta review, and the founder's five instructions received after the afternoon report. Nothing below releases inputs, dispatches the planner, admits capacity, releases a hold,
+invites a user, adds load or extends a timebox; the one spend is the reserved run recorded below, whose cost exceeded
+its reservation (chief defect, second instance).
+
+## PR #1098 — merged
+
+| Item | Value |
+|---|---|
+| Final head / merge | `56167e72` → main `c780228a` (squash) at 2026-10-05T18:17:54Z; branch restarted from that main |
+| Review chain | three-lens workflow on `de8a525d` (21 contexts; NO BLOCKER ×3; 18 findings, 18 refuters / 0 refuted); delta checks on `2c4e6926`, `c6f3b993` and `56167e72` by the pre-registered delta reviewer (NO BLOCKER each; 48 / 48 / 49 hash rows, 0 mismatched); two nits carried into this record and applied (record-07 header amendment times; "second" delta check) |
+| Required checks on `56167e72` | backend-tests, frontend-tests, e2e-tests, migrations-postgres, lighthouse, review-gate (run 37354665438, on the `Review override:` line) — all success; secret-scan and eval-baseline success |
+| Codex / Copilot | Codex did not review (connector quota comments 5999886282 and 6000402651); Copilot did not review; the `copilot-eval` workflow is an evaluation job, not a review |
+
+## Ledger event 4 — the reserved re-trigger settled; reservation undersized (chief defect, second instance)
+
+| Item | Value |
+|---|---|
+| Run | `Copilot filing fidelity` run **37354664320**, job 111913901715, head `56167e72`, 18:16:07–18:18:30Z, triggered by marking the PR ready under the event-3 reservation (USD 0.010000); conclusion failure (not a required check) |
+| Calls and cost | 34 `deepseek-flash` calls (18:17:29–18:18:21Z, all `success`); 977,448 prompt tokens of which only 840,448 cache hits (137,000 cache-miss tokens against 5,435 in the first run: a cold prompt cache); 4,155 completion tokens; telemetry `estimated_cost_usd` sum **USD 0.025568**, computed twice from the public job log (chief; the registered read-only helper subagent of closure 150, re-used) |
+| Reservation | USD 0.010000 reserved; actual 0.025568; **excess USD 0.015568 unreserved** — recorded as use (chief defect: the reservation was sized to record 02's "about USD 0.01", not to a measured run; the first run's 0.005575 made the estimate look safe) |
+| Result | `accepted: false`; expected 18, completed 18, scored 14, passed 14, errors 4 — three `Unverified or ambiguous referenced citation` withholdings and one `quotation_not_in_source`. The earlier run on `2c4e6926` (same code; heads differ only in `tasks/` files) passed 17 / 18 with one error, so the error set is eval non-determinism (same pre-existing withholding classes), not an effect of the PR; disposed not caused by the PR under the RUNBOOK red-copilot rule; recorded, not retried. Handed to the CPO/CTO as an observation for R2 quality work: two runs of the same code, same day, 17 and 14 passes. |
+| Evidence | artifact `copilot-fidelity-37354664320` (id 11363019585, 52 files, 75,525,466 bytes, digest `24da8e1c…`, expires 2027-01-03); public job log |
+| Ledger | **Event 4** written 2026-10-05T18:21:22Z by the chief (sole writer) under the hash chain (`previous_sha256` `6c2dc45f…`): reservation settled at actual cost; known use 0.553091 → **0.578659** (calls 326 → 360); holds unchanged 1.881713; active reservations 0; conditional unreserved headroom 22.555196 → **22.539628**; cumulative recorded usage 2,419 calls / USD 4.362908. Document SHA-256 `b4ce7016ed1996c345dfc40fc3565cfc1e964963bfc866af1df79f49660f9c36`, 31,690 bytes; republished (artifact version 5) and read back with the same hash. |
+| Rule refinement | Reservations for `copilot-eval` are sized from the dearest measured run (≥ USD 0.03 until a cheaper run is measured) and the whole workflow run is the unit; a reservation under the measured cost is a defect, not a rounding. |
+
+## Deploy triggered by the merge — verified
+
+| Item | Value |
+|---|---|
+| Trigger | CI run **37354885121** on main `c780228a` (push); `deploy-backend` runs on every `backend/`-touching push to main — this PR touched `backend/tests/unit/test_capacity_readout.py` (a test) and `ops/capacity/readout.py` (operator tooling); application code unchanged |
+| Detect backend changes | step succeeded and the job proceeded to build and deploy (the PR changed backend/tests/unit/test_capacity_readout.py); its printed output is not in the retained log tail |
+| Conclusion | success (job completed 18:28:39Z; every step success, including Verify health) (job 111917875491); revision `earningsnerd-backend-00444-bxs` (image digest `b35a9b5b…`; traffic 100% LATEST; migrations applied 0 / skipped 41) |
+| Note | Health step body: status healthy; database healthy (6.85 ms); redis disabled; SEC EDGAR circuit closed. The seven Cloud Run job images were updated to the same digest. Application code unchanged from revision 00443; the rollout is a rebuild of identical service code plus the changed test and ops files. Facts read from the public job log by the chief and the registered helper subagent. |
+| Chief omission | The PR body and record 07 said "no production change". A `backend/`-touching merge rebuilds the image and rolls a new revision even when application code is unchanged; that consequence was not stated before merging and is recorded here. Serial deployment verification: the job's own health step is the gate; no manual change by the chief. |
+
+## Founder instructions received 2026-10-05T18:29Z — recorded and executed within authority
+
+| # | Instruction (founder, verbatim intent) | Chief action | State |
+|---|---|---|---|
+| 1 | **R1 custody.** Remove the uploaded source archives from the chief chat where supported; no retry of unpacking, no workaround of the classifier denial; keep the approved local source-only custody route. Astra confirms all 21 bootstrap and 48 predecessor files recovered with zero cloud-only files at packaging, every ZIP member matching its local original, two retained control anchors and 15 predecessor hash/length pairs verified — recovery and packaging evidence only. | The two archives were removed from the session's upload area at 2026-10-05T18:30:57Z without being opened (one `rm`; the four chief-package uploads remain). Astra's statement is recorded here as evidence relayed by the founder, not verified by the chief. | Outstanding, exactly as the founder states: the complete original input-manifest comparison, the custody script's two `TOTAL=` lines, registered-planner resumability. No release or dispatch permission inferred. Receipt NOT_RELEASED; planner undispatched; 150 of 180 minutes remaining. |
+| 2 | **Ops access.** `roles/logging.viewer` and `roles/monitoring.viewer` authorized for the existing designated Ops identity, scoped to the required EarningsNerd project; record the exact principal and project; use the normal supported approval process; nothing broader. | Recorded: principal `serviceAccount:github-deployer@earnings-nerd.iam.gserviceaccount.com`, project `earnings-nerd`, roles exactly the two named, project-level. The repository's supported process is the documented `gcloud projects add-iam-policy-binding` form of `tasks/gcp-deploy-runbook.md` (Phase 5) run by the founder; no Ops workflow operation grants IAM and the chief makes no IAM change. Exact commands handed to the founder in the session. | Grant pending the founder's run. After it: one read-only `logs-probe` dispatch verifies the read, then one bounded `capacity-readout` over a job-overlap window by COO/CEO decision (B32/B56). |
+| 3 | **Reporting.** Option C: keep the existing PostHog ticket open and prepare the query route without spending or accessing customer data beyond existing authorization. | Adopted. Ticket 76581 retained and not resent. A bounded COO worker (label pre-registered in closure 151; dispatch manifest `COO-QUERY-ROUTE-04`) drafts the query-route readout contract from `REPORT-ROUTE-PROPOSAL-01` and the G2/G3 definitions: no connector call, no customer data, no spend. The operator-identity question (which non-executive context holds the connector) is answered in the draft as a decision for the founder, not assumed. | In progress; G1–G3 stay BLOCKED until the contract is accepted and the access decision for the chosen route is explicit. |
+| 4 | **SEC budget patch.** Keep deployment held pending the specific D3 decision; present the exact existing patch, its configured fleet assumptions and the decision needed; do not reopen the broad assessment or circumvent any platform denial. | Presented in the session (file attached) and summarised below. Deployment held. The chief's own commit of the patch was classifier-denied on 2026-10-04 and is not re-attempted; application is the founder's (`git apply` of the attached file, commit, PR). | Decision pending: confirm `1 + 1` per process or change the numbers. |
+| 5 | **Overall execution.** Complete the deployment verification in flight; progress other executable dependencies in parallel under existing owners and gates; batch records; reuse valid evidence for unchanged bytes. | Deploy verified (section above). This record batches the merge, the ledger settlement, the deploy, the five instructions and closure 151 into one PR; the COO draft runs in parallel. | — |
+
+### The D3 patch as it stands (presented, not applied)
+
+| Item | Value |
+|---|---|
+| File | `sec-process-budgets.patch`, SHA-256 `21322a0546542156a5c9d21fc3de9cb9ad0e4b93b320d9a4da6d3987eb8c3969`, 20,062 bytes; unchanged since 2026-10-04 (CHECKPOINT founder item 3); applies cleanly to main `c780228a` (`git apply --check`) |
+| Changes | `.github/workflows/ci.yml` (+15/−): adds `SEC_RATE_LIMIT_PER_SECOND=1,EDGAR_RATE_LIMIT_PER_SEC=1` to the deploy env maps of the service, the pregenerate job, the six-job loop and backfill-facts; `backend/tests/unit/test_sec_process_budgets.py` (new, 132 lines): rule-12 gate asserting the pinned value on every process, the stated sums against `docs/OPERATIONS.md`, the dev default 10 unchanged, and the pinned edgartools release reading `EDGAR_RATE_LIMIT_PER_SEC`; `backend/tests/unit/test_data_completeness.py` (2 lines, the env-map assertion); `docs/CONFIGURATION.md` (+9/−) and `docs/OPERATIONS.md` (+36/−, per-process budget section; corrects the `database.checked_out` threshold, B33) |
+| Configured fleet assumption | Two independent SEC buckets per process (the app's `SEC_RATE_LIMIT_PER_SECOND`, code default 10; edgartools' `EDGAR_RATE_LIMIT_PER_SEC`, library default 9, read once at import). Today: 19 req/s sustained per process, 29 in its first second, 190 across ten processes (two service instances + eight jobs) against SEC's 10 req/s per user "regardless of the number of machines" (record 02 D3). With the patch: 1 + 1 = 2 req/s sustained per process, 3 in its first second; ten processes 20 sustained / 30 first second; the Monday 07:00 UTC overlap (two instances + two jobs) 8 sustained. The gate's docstring states what is NOT bounded by configuration: rollout-overlap instances, manual job executions and operator one-shots, first-second bursts, any request outside both limiters. |
+| Local gates | targeted tests pass (`sec-gate-2.log`: ruff all checks passed; pytest exit 0); first run (`sec-gate.log`) exit 1 was the harness environment, re-run clean |
+| Decision needed from the founder | (a) apply with `1 + 1` on every process as written, or (b) change the numbers (for example a larger app budget on the service than on the jobs), or (c) keep holding. Then: the founder applies and commits the patch (the chief's commit was classifier-denied), opens the PR; marking it ready runs `copilot-eval`, so the chief reserves from the dearest measured run (≥ USD 0.03) before it leaves draft; merge deploys the new env to the service and all eight jobs through the normal `deploy-backend` job. |
+
+## Registration (closure 151)
+
+`control/source-context-exclusion-151.json` resolves the PR #1098 delta reviewer's label to its launch-time identity
+(17:44Z) and pre-registers the record-08 PR reviewer as a provisional label. The log-cost helper (closure 150) was re-used
+once as the same context; no other context was created.
+
+## Spend
+
+34 DeepSeek calls (the reserved run; telemetry USD 0.025568, of which USD 0.015568 unreserved); 0 active reservations;
+1 ledger event (4). Afternoon total across records 07 and 08: 63 calls, USD 0.031143, of which USD 0.021143 unreserved.
