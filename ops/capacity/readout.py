@@ -12,7 +12,6 @@ import os
 import re
 import subprocess
 from datetime import datetime, timezone
-from http.client import HTTPException
 from pathlib import Path
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode
@@ -27,6 +26,7 @@ MAX_PAGES = 5
 MAX_RESPONSE = 8 * 1024 * 1024
 MAX_ERROR_BODY = 8 * 1024
 MAX_ERROR_MESSAGE = 240
+MAX_ERROR_FIELD = 64  # error.status and ErrorInfo reason/domain (Google bounds reason to 63 characters)
 
 
 def timestamp(value):
@@ -48,28 +48,42 @@ def window(start, end):
 def error_detail(exc):
     """Bounded, structured reason from a Google API error envelope; never the raw body or headers.
 
-    Keeps only error.status, error.code, the first ErrorInfo detail's reason/domain and at most
-    MAX_ERROR_MESSAGE characters of error.message, reading at most MAX_ERROR_BODY bytes.
+    Keeps only error.status, error.code, the first ErrorInfo detail's reason/domain (each at most
+    MAX_ERROR_FIELD characters) and at most MAX_ERROR_MESSAGE characters of error.message, reading at
+    most MAX_ERROR_BODY bytes. A diagnostic must never abort the receipt: whatever the body does, this
+    returns a dict and request() still records its `http_NNN` error.
     """
     try:
-        envelope = json.loads(exc.read(MAX_ERROR_BODY))
-    except (OSError, ValueError, HTTPException):
+        return _parse_error_envelope(exc)
+    except Exception:  # any failure while reading or parsing the body is itself the recorded reason
         return {"body": "non_json_or_unreadable"}
+
+
+def _parse_error_envelope(exc):
+    raw = exc.read(MAX_ERROR_BODY)
+    try:
+        envelope = json.loads(raw)
+    except ValueError:
+        # A valid envelope longer than the cap is cut mid-document and cannot parse either; say so.
+        return {"body": "truncated_or_non_json" if len(raw) >= MAX_ERROR_BODY else "non_json_or_unreadable"}
     error = envelope.get("error") if isinstance(envelope, dict) else None
     if not isinstance(error, dict):
         return {}  # JSON, but not a Google API error envelope: nothing recognised to record.
     detail = {}
     if isinstance(error.get("status"), str):
-        detail["status"] = error["status"]
+        detail["status"] = error["status"][:MAX_ERROR_FIELD]
     if isinstance(error.get("code"), int):
         detail["code"] = error["code"]
     details = error.get("details") if isinstance(error.get("details"), list) else []
     for info in details:
         if isinstance(info, dict) and isinstance(info.get("@type"), str) and info["@type"].endswith("ErrorInfo"):
-            detail.update({key: info[key] for key in ("reason", "domain") if isinstance(info.get(key), str)})
+            detail.update({key: info[key][:MAX_ERROR_FIELD] for key in ("reason", "domain")
+                           if isinstance(info.get(key), str)})
             break
     if isinstance(error.get("message"), str):
         detail["message"] = error["message"][:MAX_ERROR_MESSAGE]
+        if len(error["message"]) > MAX_ERROR_MESSAGE:
+            detail["message_truncated"] = True
     return detail
 
 
@@ -178,7 +192,8 @@ def collect(api, project, region, start, end):
         raise ValueError("Only the production region is supported")
     result = {"schema_version": 1, "observed_at": datetime.now(timezone.utc).isoformat(),
               "project": project, "region": region, "window": {"start": start, "end": end},
-              "limits": {"max_pages_per_query": MAX_PAGES, "max_response_bytes": MAX_RESPONSE},
+              "limits": {"max_pages_per_query": MAX_PAGES, "max_response_bytes": MAX_RESPONSE,
+                         "max_error_body_bytes": MAX_ERROR_BODY, "max_error_message_chars": MAX_ERROR_MESSAGE},
               "interpretation": "Samples are not instantaneous peaks. Empty/partial/unavailable data cannot prove headroom. Execution success is not a business outcome. Current SQL snapshots are not historical samples."}
     result["executions"] = {}
     for name in JOBS:

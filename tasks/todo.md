@@ -6250,11 +6250,16 @@ Full local and hosted verification plus independent exact-head review precede re
       `github-deployer@earnings-nerd.iam.gserviceaccount.com` (`runtime/control/DECISIONS-07.md`).
 - [ ] Founder: decide the read-only IAM grant for that service account (`roles/logging.viewer`, `roles/monitoring.viewer`);
       then COO/CEO dispatch one more bounded `capacity-readout` over a job-overlap window (B32/B56).
-- [ ] COO: G1–G3 route decision — the official PostHog MCP `execute-sql` route returned an invented-literal row for
-      project 117863 (`DECISIONS-07.md`); decide whether a bounded query-based readout contract replaces the blocked
-      batch-export contract. Ticket 76581 retained, not resent.
-- [ ] Founder: run `runtime/tools/h20-custody-check.sh` with the two real folder paths; give the saved file to Astra; send the
-      chief the TOTAL lines and Astra's match counts; confirm in the Codex app whether the registered planner thread resumes.
+- [x] COO: report-route proposal 01 delivered 2026-10-05 by a bounded worker (`runtime/handbacks/coo/REPORT-ROUTE-PROPOSAL-01.md`):
+      the blocked batch-export contract beside a PostHog query-route readout contract (the official MCP `execute-sql` route
+      returned an invented-literal row for project 117863, `DECISIONS-07.md`); three options, no recommendation of spend.
+- [ ] Founder with the CEO: G1–G3 route decision on those three options (CEO assessment: option C — keep ticket 76581 open,
+      prepare the query route, no spend; the operator-identity question first). Ticket retained, not resent.
+- [x] CTO/CEO: readout error-detail diagnostics (`ops/capacity/readout.py`, bounded worker, PR #1098): a structured, bounded
+      error reason beside each failed channel's `http_NNN`, never raw bodies; review findings applied; 6 unit tests.
+- [ ] Founder: the custody check (`runtime/tools/h20-custody-check.sh`) started 2026-10-05T17:29:39Z on the MacBook with both
+      real folder paths; send the chief only its two `TOTAL=` lines, give the saved file to Astra and send Astra's match
+      counts; confirm in the Codex app whether the registered planner thread resumes.
 - [ ] Founder: apply (or change the numbers in) the handed-over patch pinning `SEC_RATE_LIMIT_PER_SECOND=1`
       and `EDGAR_RATE_LIMIT_PER_SEC=1` on the service and all eight jobs with its rule-12 gate — the chief's
       commit of it was classifier-denied (Production Deploy); chief reserves ~USD 0.01 before any PR

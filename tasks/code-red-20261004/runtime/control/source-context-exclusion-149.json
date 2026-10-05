@@ -1,12 +1,12 @@
 {
   "kind": "append_only_known_context_exclusion_closure",
   "prior_record": {
-    "path": "control/source-context-exclusion-147.json",
-    "sha256": "70cbecc2e27d2adbc5c085bc914ab0102e45acb11843c232c9d0424dba96e806"
+    "path": "control/source-context-exclusion-148.json",
+    "sha256": "1567b393e625b1b36a70eaa9a6d8bd363bad81fe83378f744b182b5c34b6df94"
   },
-  "previous_count": 201,
+  "previous_count": 207,
   "all_previous_entries_preserved": true,
-  "exclusion_count": 207,
+  "exclusion_count": 230,
   "excluded_context_ids": [
     "/root",
     "/root/beta_measurement",
@@ -214,28 +214,88 @@
     "claude-code-workflow:session_01GWYV7WXWstgVGQG43YcSM8:launched-after-this-record:decisions-07-review-lens-code-01",
     "claude-code-workflow:session_01GWYV7WXWstgVGQG43YcSM8:launched-after-this-record:decisions-07-review-lens-policy-01",
     "claude-code-workflow:session_01GWYV7WXWstgVGQG43YcSM8:launched-after-this-record:decisions-07-review-refuters",
-    "claude-code-subagent:session_01GWYV7WXWstgVGQG43YcSM8:launched-2026-10-05T0858Z:decisions-06-pr-independent-reviewer-01"
+    "claude-code-subagent:session_01GWYV7WXWstgVGQG43YcSM8:launched-2026-10-05T0858Z:decisions-06-pr-independent-reviewer-01",
+    "claude-code-workflow:wf_c7041486-de9:a0a3bdcb4c4f67440:refute:anchors:tasks/code-red-20261004/runtime/control/DECISIONS-07.md:1",
+    "claude-code-workflow:wf_c7041486-de9:a0a82916e3da6159c:refute:code:backend/tests/unit/test_capacity_readout.py:3",
+    "claude-code-workflow:wf_c7041486-de9:a1396c81874c43f4b:refute:policy:tasks/code-red-20261004/runtime/dispatch/COO-REPORT-ROUTE-03.json:1",
+    "claude-code-workflow:wf_c7041486-de9:a14a2655cdd798d7b:refute:policy:tasks/code-red-20261004/runtime/control/DECISIONS-07.md:3",
+    "claude-code-workflow:wf_c7041486-de9:a14c616385bc8acd2:refute:code:ops/capacity/readout.py:1",
+    "claude-code-workflow:wf_c7041486-de9:a1e7e4b0b92480537:refute:code:ops/capacity/readout.py:0",
+    "claude-code-workflow:wf_c7041486-de9:a39dd40b436d2638d:decisions-07-review-lens-policy-01",
+    "claude-code-workflow:wf_c7041486-de9:a45abb3e63e1055c2:decisions-07-review-lens-anchors-01",
+    "claude-code-workflow:wf_c7041486-de9:a48d9a3095ff9d446:refute:policy:tasks/code-red-20261004/runtime/control/DECISIONS-07.md:6",
+    "claude-code-workflow:wf_c7041486-de9:a552cff56b168e3c4:refute:anchors:tasks/code-red-20261004/runtime/CHECKPOINT.md:0",
+    "claude-code-workflow:wf_c7041486-de9:a5b73b5c12bb85eb6:refute:code:ops/capacity/readout.py:2",
+    "claude-code-workflow:wf_c7041486-de9:a7a123097abe777c5:refute:policy:tasks/code-red-20261004/runtime/CHECKPOINT.md:4",
+    "claude-code-workflow:wf_c7041486-de9:a8569a7e89db2e262:refute:policy:tasks/code-red-20261004/runtime/control/DECISIONS-07.md:5",
+    "claude-code-workflow:wf_c7041486-de9:a901d06f080942f94:refute:policy:tasks/code-red-20261004/runtime/CHECKPOINT.md:2",
+    "claude-code-workflow:wf_c7041486-de9:a9581b969b0146b3e:refute:anchors:tasks/code-red-20261004/runtime/control/source-context-exclusion-148.json:4",
+    "claude-code-workflow:wf_c7041486-de9:a96828b939e3ea61b:refute:policy:tasks/code-red-20261004/runtime/tools/h20-custody-check.sh:8",
+    "claude-code-workflow:wf_c7041486-de9:a9a69286cbffaa165:refute:policy:tasks/code-red-20261004/runtime/control/DECISIONS-07.md:0",
+    "claude-code-workflow:wf_c7041486-de9:aa3cecbe94f797b99:refute:policy:tasks/code-red-20261004/runtime/control/DECISIONS-07.md:7",
+    "claude-code-workflow:wf_c7041486-de9:aac4ad85343aeb3c0:decisions-07-review-lens-code-01",
+    "claude-code-workflow:wf_c7041486-de9:abb05713ddf2789f5:refute:anchors:tasks/code-red-20261004/runtime/CHECKPOINT.md:2",
+    "claude-code-workflow:wf_c7041486-de9:aeb1ea89c6b1fb084:refute:anchors:tasks/code-red-20261004/runtime/CHECKPOINT.md:3",
+    "claude-code-subagent:session_01GWYV7WXWstgVGQG43YcSM8:launched-2026-10-05T1711Z:coo-report-route-proposal-01",
+    "claude-code-subagent:session_01GWYV7WXWstgVGQG43YcSM8:launched-after-this-record:decisions-07-delta-reviewer-01"
   ],
   "new_actual_contexts": [
-    "claude-code-subagent:session_01GWYV7WXWstgVGQG43YcSM8:launched-2026-10-05T1707Z:cto-readout-error-detail-01",
-    "claude-code-subagent:session_01GWYV7WXWstgVGQG43YcSM8:launched-2026-10-05T0858Z:decisions-06-pr-independent-reviewer-01"
+    "claude-code-workflow:wf_c7041486-de9:a0a3bdcb4c4f67440:refute:anchors:tasks/code-red-20261004/runtime/control/DECISIONS-07.md:1",
+    "claude-code-workflow:wf_c7041486-de9:a0a82916e3da6159c:refute:code:backend/tests/unit/test_capacity_readout.py:3",
+    "claude-code-workflow:wf_c7041486-de9:a1396c81874c43f4b:refute:policy:tasks/code-red-20261004/runtime/dispatch/COO-REPORT-ROUTE-03.json:1",
+    "claude-code-workflow:wf_c7041486-de9:a14a2655cdd798d7b:refute:policy:tasks/code-red-20261004/runtime/control/DECISIONS-07.md:3",
+    "claude-code-workflow:wf_c7041486-de9:a14c616385bc8acd2:refute:code:ops/capacity/readout.py:1",
+    "claude-code-workflow:wf_c7041486-de9:a1e7e4b0b92480537:refute:code:ops/capacity/readout.py:0",
+    "claude-code-workflow:wf_c7041486-de9:a39dd40b436d2638d:decisions-07-review-lens-policy-01",
+    "claude-code-workflow:wf_c7041486-de9:a45abb3e63e1055c2:decisions-07-review-lens-anchors-01",
+    "claude-code-workflow:wf_c7041486-de9:a48d9a3095ff9d446:refute:policy:tasks/code-red-20261004/runtime/control/DECISIONS-07.md:6",
+    "claude-code-workflow:wf_c7041486-de9:a552cff56b168e3c4:refute:anchors:tasks/code-red-20261004/runtime/CHECKPOINT.md:0",
+    "claude-code-workflow:wf_c7041486-de9:a5b73b5c12bb85eb6:refute:code:ops/capacity/readout.py:2",
+    "claude-code-workflow:wf_c7041486-de9:a7a123097abe777c5:refute:policy:tasks/code-red-20261004/runtime/CHECKPOINT.md:4",
+    "claude-code-workflow:wf_c7041486-de9:a8569a7e89db2e262:refute:policy:tasks/code-red-20261004/runtime/control/DECISIONS-07.md:5",
+    "claude-code-workflow:wf_c7041486-de9:a901d06f080942f94:refute:policy:tasks/code-red-20261004/runtime/CHECKPOINT.md:2",
+    "claude-code-workflow:wf_c7041486-de9:a9581b969b0146b3e:refute:anchors:tasks/code-red-20261004/runtime/control/source-context-exclusion-148.json:4",
+    "claude-code-workflow:wf_c7041486-de9:a96828b939e3ea61b:refute:policy:tasks/code-red-20261004/runtime/tools/h20-custody-check.sh:8",
+    "claude-code-workflow:wf_c7041486-de9:a9a69286cbffaa165:refute:policy:tasks/code-red-20261004/runtime/control/DECISIONS-07.md:0",
+    "claude-code-workflow:wf_c7041486-de9:aa3cecbe94f797b99:refute:policy:tasks/code-red-20261004/runtime/control/DECISIONS-07.md:7",
+    "claude-code-workflow:wf_c7041486-de9:aac4ad85343aeb3c0:decisions-07-review-lens-code-01",
+    "claude-code-workflow:wf_c7041486-de9:abb05713ddf2789f5:refute:anchors:tasks/code-red-20261004/runtime/CHECKPOINT.md:2",
+    "claude-code-workflow:wf_c7041486-de9:aeb1ea89c6b1fb084:refute:anchors:tasks/code-red-20261004/runtime/CHECKPOINT.md:3",
+    "claude-code-subagent:session_01GWYV7WXWstgVGQG43YcSM8:launched-2026-10-05T1711Z:coo-report-route-proposal-01"
   ],
   "new_provisional_contexts": [
-    "claude-code-workflow:session_01GWYV7WXWstgVGQG43YcSM8:launched-after-this-record:decisions-07-review-lens-anchors-01",
-    "claude-code-workflow:session_01GWYV7WXWstgVGQG43YcSM8:launched-after-this-record:decisions-07-review-lens-code-01",
-    "claude-code-workflow:session_01GWYV7WXWstgVGQG43YcSM8:launched-after-this-record:decisions-07-review-lens-policy-01",
-    "claude-code-workflow:session_01GWYV7WXWstgVGQG43YcSM8:launched-after-this-record:decisions-07-review-refuters"
+    "claude-code-subagent:session_01GWYV7WXWstgVGQG43YcSM8:launched-after-this-record:decisions-07-delta-reviewer-01"
   ],
   "new_context_roles": {
-    "claude-code-subagent:session_01GWYV7WXWstgVGQG43YcSM8:launched-2026-10-05T1707Z:cto-readout-error-detail-01": "Bounded engineering worker that changes ops/capacity/readout.py to record a structured, bounded HTTP error reason (status, reason, truncated message; never raw bodies) and extends backend/tests/unit/test_capacity_readout.py; dispatched 2026-10-05T17:07Z by the chief; requested model inherited claude-fable-5-1; served model not observable by the chief. Engineering context — never a source, reconciliation or judging role.",
-    "claude-code-workflow:session_01GWYV7WXWstgVGQG43YcSM8:launched-after-this-record:decisions-07-review-lens-anchors-01": "Provisional label: anchors/hashes lens of the three-lens review workflow for the PR carrying record 07 and the readout diagnostics change; identity resolved in the next closure",
-    "claude-code-workflow:session_01GWYV7WXWstgVGQG43YcSM8:launched-after-this-record:decisions-07-review-lens-code-01": "Provisional label: code-correctness lens (readout.py change, tests, privacy of error detail) of the three-lens review workflow; identity resolved in the next closure",
-    "claude-code-workflow:session_01GWYV7WXWstgVGQG43YcSM8:launched-after-this-record:decisions-07-review-lens-policy-01": "Provisional label: policy/privacy/consistency lens of the three-lens review workflow; identity resolved in the next closure",
-    "claude-code-workflow:session_01GWYV7WXWstgVGQG43YcSM8:launched-after-this-record:decisions-07-review-refuters": "Provisional collective label for the per-finding refuter contexts of that workflow; each actual id resolved in the next closure",
-    "claude-code-subagent:session_01GWYV7WXWstgVGQG43YcSM8:launched-2026-10-05T0858Z:decisions-06-pr-independent-reviewer-01": "Isolated read-only reviewer of PR #1093 (head 1499cf7d: NO BLOCKER, 80 hashes / 0 mismatched, 78 anchors / 0 stale; delta to f3b898a8: NO BLOCKER, 45 hashes / 0 mismatched); dispatched 2026-10-05T08:58Z; requested model inherited claude-fable-5-1; served model not observable by the chief; management/engineering context"
+    "claude-code-workflow:wf_c7041486-de9:a0a3bdcb4c4f67440:refute:anchors:tasks/code-red-20261004/runtime/control/DECISIONS-07.md:1": "per-finding refuter in the three-lens review workflow of PR #1098 head de8a525d (read-only; requested model inherited claude-fable-5-1); management/engineering context",
+    "claude-code-workflow:wf_c7041486-de9:a0a82916e3da6159c:refute:code:backend/tests/unit/test_capacity_readout.py:3": "per-finding refuter in the three-lens review workflow of PR #1098 head de8a525d (read-only; requested model inherited claude-fable-5-1); management/engineering context",
+    "claude-code-workflow:wf_c7041486-de9:a1396c81874c43f4b:refute:policy:tasks/code-red-20261004/runtime/dispatch/COO-REPORT-ROUTE-03.json:1": "per-finding refuter in the three-lens review workflow of PR #1098 head de8a525d (read-only; requested model inherited claude-fable-5-1); management/engineering context",
+    "claude-code-workflow:wf_c7041486-de9:a14a2655cdd798d7b:refute:policy:tasks/code-red-20261004/runtime/control/DECISIONS-07.md:3": "per-finding refuter in the three-lens review workflow of PR #1098 head de8a525d (read-only; requested model inherited claude-fable-5-1); management/engineering context",
+    "claude-code-workflow:wf_c7041486-de9:a14c616385bc8acd2:refute:code:ops/capacity/readout.py:1": "per-finding refuter in the three-lens review workflow of PR #1098 head de8a525d (read-only; requested model inherited claude-fable-5-1); management/engineering context",
+    "claude-code-workflow:wf_c7041486-de9:a1e7e4b0b92480537:refute:code:ops/capacity/readout.py:0": "per-finding refuter in the three-lens review workflow of PR #1098 head de8a525d (read-only; requested model inherited claude-fable-5-1); management/engineering context",
+    "claude-code-workflow:wf_c7041486-de9:a39dd40b436d2638d:decisions-07-review-lens-policy-01": "policy lens of the three-lens review workflow of PR #1098 head de8a525d (read-only; requested model inherited claude-fable-5-1; served model not observable by the chief); resolves the provisional label 'decisions-07-review-lens-policy-01' of closure 148; management/engineering context",
+    "claude-code-workflow:wf_c7041486-de9:a45abb3e63e1055c2:decisions-07-review-lens-anchors-01": "anchors lens of the three-lens review workflow of PR #1098 head de8a525d (read-only; requested model inherited claude-fable-5-1; served model not observable by the chief); resolves the provisional label 'decisions-07-review-lens-anchors-01' of closure 148; management/engineering context",
+    "claude-code-workflow:wf_c7041486-de9:a48d9a3095ff9d446:refute:policy:tasks/code-red-20261004/runtime/control/DECISIONS-07.md:6": "per-finding refuter in the three-lens review workflow of PR #1098 head de8a525d (read-only; requested model inherited claude-fable-5-1); management/engineering context",
+    "claude-code-workflow:wf_c7041486-de9:a552cff56b168e3c4:refute:anchors:tasks/code-red-20261004/runtime/CHECKPOINT.md:0": "per-finding refuter in the three-lens review workflow of PR #1098 head de8a525d (read-only; requested model inherited claude-fable-5-1); management/engineering context",
+    "claude-code-workflow:wf_c7041486-de9:a5b73b5c12bb85eb6:refute:code:ops/capacity/readout.py:2": "per-finding refuter in the three-lens review workflow of PR #1098 head de8a525d (read-only; requested model inherited claude-fable-5-1); management/engineering context",
+    "claude-code-workflow:wf_c7041486-de9:a7a123097abe777c5:refute:policy:tasks/code-red-20261004/runtime/CHECKPOINT.md:4": "per-finding refuter in the three-lens review workflow of PR #1098 head de8a525d (read-only; requested model inherited claude-fable-5-1); management/engineering context",
+    "claude-code-workflow:wf_c7041486-de9:a8569a7e89db2e262:refute:policy:tasks/code-red-20261004/runtime/control/DECISIONS-07.md:5": "per-finding refuter in the three-lens review workflow of PR #1098 head de8a525d (read-only; requested model inherited claude-fable-5-1); management/engineering context",
+    "claude-code-workflow:wf_c7041486-de9:a901d06f080942f94:refute:policy:tasks/code-red-20261004/runtime/CHECKPOINT.md:2": "per-finding refuter in the three-lens review workflow of PR #1098 head de8a525d (read-only; requested model inherited claude-fable-5-1); management/engineering context",
+    "claude-code-workflow:wf_c7041486-de9:a9581b969b0146b3e:refute:anchors:tasks/code-red-20261004/runtime/control/source-context-exclusion-148.json:4": "per-finding refuter in the three-lens review workflow of PR #1098 head de8a525d (read-only; requested model inherited claude-fable-5-1); management/engineering context",
+    "claude-code-workflow:wf_c7041486-de9:a96828b939e3ea61b:refute:policy:tasks/code-red-20261004/runtime/tools/h20-custody-check.sh:8": "per-finding refuter in the three-lens review workflow of PR #1098 head de8a525d (read-only; requested model inherited claude-fable-5-1); management/engineering context",
+    "claude-code-workflow:wf_c7041486-de9:a9a69286cbffaa165:refute:policy:tasks/code-red-20261004/runtime/control/DECISIONS-07.md:0": "per-finding refuter in the three-lens review workflow of PR #1098 head de8a525d (read-only; requested model inherited claude-fable-5-1); management/engineering context",
+    "claude-code-workflow:wf_c7041486-de9:aa3cecbe94f797b99:refute:policy:tasks/code-red-20261004/runtime/control/DECISIONS-07.md:7": "per-finding refuter in the three-lens review workflow of PR #1098 head de8a525d (read-only; requested model inherited claude-fable-5-1); management/engineering context",
+    "claude-code-workflow:wf_c7041486-de9:aac4ad85343aeb3c0:decisions-07-review-lens-code-01": "code lens of the three-lens review workflow of PR #1098 head de8a525d (read-only; requested model inherited claude-fable-5-1; served model not observable by the chief); resolves the provisional label 'decisions-07-review-lens-code-01' of closure 148; management/engineering context",
+    "claude-code-workflow:wf_c7041486-de9:abb05713ddf2789f5:refute:anchors:tasks/code-red-20261004/runtime/CHECKPOINT.md:2": "per-finding refuter in the three-lens review workflow of PR #1098 head de8a525d (read-only; requested model inherited claude-fable-5-1); management/engineering context",
+    "claude-code-workflow:wf_c7041486-de9:aeb1ea89c6b1fb084:refute:anchors:tasks/code-red-20261004/runtime/CHECKPOINT.md:3": "per-finding refuter in the three-lens review workflow of PR #1098 head de8a525d (read-only; requested model inherited claude-fable-5-1); management/engineering context",
+    "claude-code-subagent:session_01GWYV7WXWstgVGQG43YcSM8:launched-2026-10-05T1711Z:coo-report-route-proposal-01": "Bounded COO worker (dispatch COO-REPORT-ROUTE-03) that authored handbacks/coo/REPORT-ROUTE-PROPOSAL-01.md (dispatched 2026-10-05T17:11Z, about a minute after its manifest was recorded at 17:11Z; returned 17:20Z; 7 inputs hash-verified; one file written; pass); requested model inherited claude-fable-5-1; served model not observable by the chief; management context — never a source, reconciliation or judging role",
+    "claude-code-subagent:session_01GWYV7WXWstgVGQG43YcSM8:launched-after-this-record:decisions-07-delta-reviewer-01": "Provisional label: isolated read-only subagent that checks the delta from de8a525d to this PR's final head (hash table, closure chain, record anchors) before the Review override line is bound; requested model inherited claude-fable-5-1; management context — never a source, reconciliation or judging role; identity resolved in the next closure"
   },
   "provisional_labels_resolved": {
-    "claude-code-subagent:session_01GWYV7WXWstgVGQG43YcSM8:launched-after-this-record:decisions-06-pr-independent-reviewer-01": "resolved to claude-code-subagent:session_01GWYV7WXWstgVGQG43YcSM8:launched-2026-10-05T0858Z:decisions-06-pr-independent-reviewer-01 (reviewed PR #1093 head 1499cf7d and delta to f3b898a8; NO BLOCKER; registered here because closure 147's draft was published before the review ran and its final version applied the review's finding 1 without resolving this label, so it is resolved here)"
+    "claude-code-workflow:session_01GWYV7WXWstgVGQG43YcSM8:launched-after-this-record:decisions-07-review-lens-policy-01": "launched as wf_c7041486-de9 agent a39dd40b436d2638d",
+    "claude-code-workflow:session_01GWYV7WXWstgVGQG43YcSM8:launched-after-this-record:decisions-07-review-lens-anchors-01": "launched as wf_c7041486-de9 agent a45abb3e63e1055c2",
+    "claude-code-workflow:session_01GWYV7WXWstgVGQG43YcSM8:launched-after-this-record:decisions-07-review-lens-code-01": "launched as wf_c7041486-de9 agent aac4ad85343aeb3c0",
+    "claude-code-workflow:session_01GWYV7WXWstgVGQG43YcSM8:launched-after-this-record:decisions-07-review-refuters": "resolved to the individual refuter ids registered here"
   },
   "source_role_allowlist": false,
   "source_role_dispatches": 0,
@@ -244,6 +304,6 @@
   "h20_complete": 19,
   "h20_partial": 5,
   "dossiers": "3/30",
-  "scope": "Append-only registration for the 2026-10-05 afternoon: the readout error-detail engineering worker (actual), the record-06 PR reviewer's resolved identity, and provisional labels for the record-07 review workflow. The chief context itself ran the PostHog invented-literal route probe and dispatched the logs probe; no new context was created for either. None has source A/B, reconciliation or blind financial judging eligibility. All earlier identities and adverse histories retained; the registered H20 planner is unchanged. Wording of the record-06 reviewer resolution corrected before merge on a review finding (closure 147's final version postdated the review); no identity changed.",
-  "recorded_at": "2026-10-05T17:09:29.623834+00:00"
+  "scope": "Append-only registration of the 21 workflow contexts (3 lenses and their per-finding refuters) that reviewed PR #1098 head de8a525d, resolving closure 148's provisional labels, and of the COO report-route proposal worker (dispatched 2026-10-05T17:11Z after closure 148 was recorded at 17:09:29Z; not pre-registered, stated in DECISIONS-07); pre-registers the delta reviewer of this PR's final head as a provisional label. None has source A/B, reconciliation or blind financial judging eligibility. All earlier identities and adverse histories retained; the registered H20 planner is unchanged.",
+  "recorded_at": "2026-10-05T17:41:25.288198+00:00"
 }
