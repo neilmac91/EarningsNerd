@@ -6253,7 +6253,8 @@ Full local and hosted verification plus independent exact-head review precede re
       carrying it is marked ready (`DECISIONS-02.md` D3 execution note).
 - [x] Item 8 closed by the CEO as its named owner on the two refuter appendices (`DECISIONS-02.md` D9,
       `DECISIONS-06.md`).
-- [ ] CTO (after the Monday readout receipt): handback revision 4 carrying B07/B08/B36/B41/B52 updates, the B32
-      observation and the C5 re-determination; then COO disposition update re-stating each C1 item.
+- [x] CTO handback revision 4 (62 bounds; B59–B62; determination still undetermined, no E09 subset demonstrated
+      necessary; `CORRECTION-03.md`) and COO disposition update 01 (HOLD stands; C1 items 2 closed, 1 dependency-closed,
+      5 open, 2 with B62) delivered 2026-10-05 by bounded workers (closure 147).
 - [ ] Docs-vs-config: `docs/OPERATIONS.md` alert threshold `database.checked_out > 8` is unreachable with
       the deployed pool 4 / overflow 0 (handback B33); fix the doc separately.

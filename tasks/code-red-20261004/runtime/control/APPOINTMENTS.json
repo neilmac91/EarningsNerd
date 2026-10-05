@@ -52,7 +52,8 @@
       "deviation": "one disclosed read-only `git status --porcelain | head -0` in its final sanity check, contrary to its no-git instruction; no mutation; chief disposition: accepted as a disclosed deviation with no effect on the output",
       "status": "delivered",
       "item_8_status": "Closed by the CEO as the item's named owner on the refutation record (DECISIONS-02.md Appendices A/B; DECISIONS-06.md); COO carries the six qualifications into the disposition update. Items 4 and 6 closed/dependency-closed (D7, D1); B37 closed (D8); items 1, 2 (B39), 3, 5, 7 open. Monday readout window 06:00–08:00 UTC, Routine 08:10Z (D4).",
-      "next_assignment": "Disposition update dispatched 2026-10-05 on manifest COO-ENVELOPE-DISPOSITION-02 (bounded worker, provisional label from closure 145; identity recorded in closure 147 on return): per-item state for the eight C1 items after handback revision 4 and the readout receipt. Capacity stays unadmitted."
+      "next_assignment": "Next disposition after B62 is resolved and a B32 readout exists, or after the founder's D3 decision. Capacity stays unadmitted.",
+      "disposition_update_01": "handbacks/coo/CURRENT-BETA-OPERATING-ENVELOPE-DISPOSITION-UPDATE-01.md (bounded worker launched 2026-10-05T08:42Z on manifest COO-ENVELOPE-DISPOSITION-02; 13 inputs hash-verified; pass): HOLD stands; C1 items closed 2 (4, 8), dependency-closed 1 (6), open 5 (1, 2 B39 part, 3, 5, 7), 2 with sub-dependency B62; G1–G5 unchanged; identity registered in closure 147"
     },
     "CFO": {
       "waves": [
@@ -76,7 +77,7 @@
     ]
   },
   "note": "Appointment is accountability, not entry authorization. Actual delegate identities (workflow run / agent ids) are recorded here and in the exclusion successor after launch.",
-  "updated_at": "2026-10-05T08:45:07.174865+00:00",
+  "updated_at": "2026-10-05T08:55:57.079351+00:00",
   "classifier_denials": [
     "Workflow launch for CTO-ENVELOPE-HANDBACK-01 (auto-mode classifier, no reason given); not re-issued through another tool or subagent",
     "One Bash read of docs/DEPLOYMENT.md job-schedule sections (auto-mode classifier: instruction poisoning); the handback cites those lines from an earlier permitted line-level search only",

@@ -137,3 +137,46 @@ downloaded, so its view lags the Mac. Decisions:
   founder completes the receipt, sends the chief its SHA-256 and metadata, and dispatches the planner within the
   150 remaining minutes. The chief then records the disposition and the return.
 - Nothing is released, dispatched or spent by this update. 0 DeepSeek calls.
+
+## Morning execution (2026-10-05T08:55:05Z) — readout done, handback revision 4, COO disposition update, one CI fix
+
+- **Readout:** Routine fired 2026-10-05T08:11:12Z; pre-checks passed; `ops.yml` `capacity-readout` run **37282199614 success**
+  (receipt: `handbacks/coo/CAPACITY-READOUT-RECEIPT-20261005.md`). Four in-window executions, all succeeded with near-empty
+  work; business-phase overlaps 9.15 s (06:00) and 6.57 s (07:00). **Material limitation:** Monitoring and Logging channels
+  returned HTTP 403, so B32 and B56 remain unobserved; new sub-dependency **B62** (Monitoring/Logging read access for the Ops
+  identity; CTO/CEO read-only check, founder for any grant). The chief's attempt to copy the two receipt files beside the
+  private ledger artifact was classifier-denied (Data Exfiltration) and is not pursued; the GitHub artifact (expires
+  2026-10-19) and the hashes are the retained record. The 08:40Z fallback check-in was deleted once the dispatch succeeded.
+- **CTO handback revision 4** (bounded worker, dispatch `CTO-ENVELOPE-HANDBACK-02`, 16 inputs hash-verified; pass): 62
+  bounds (B59–B62 new); B07/B08 observed; B36 two-bucket model (19 sustained / 29 first-second per process; 38 steady, 57
+  hourly scan, 76 Monday 06:00, 95 Monday 07:00, 190 all ten; the founder-held D3 patch recorded as not applied); B41
+  qualified; B51 and B52 resolved by bounded code reads (no guest generation path; per-account burst 5/60 s summaries and
+  10/60 s questions, process-local); B37 closed by D8; B46 by D7; B39 semantics verified in code; B58 on the successor
+  ledger (ceiling 25). **Determination unchanged: undetermined; no E09 code subset demonstrated necessary**; the E09 hold
+  (including dormant code) is unchanged. `CORRECTION-03.md` carries the rev 3 → rev 4 chain. No adversarial lens ran on
+  revision 4 itself.
+- **COO disposition update 01** (bounded worker, dispatch `COO-ENVELOPE-DISPOSITION-02`, 13 inputs hash-verified; pass):
+  **HOLD stands.** C1 items after the update: closed 2 (items 4, 8); dependency-closed 1 (item 6); open 5 (items 1, 2 — B39
+  part, 3, 5, 7), of which 2 carry B62 (items 1, 5). G1–G5 and R4 entry dependencies carried forward unchanged (PostHog
+  ticket 76581 still has no access decision). Capacity stays unadmitted; no number, threshold or participant count supplied.
+- **CI (not this PR's failure, fixed by porting):** `secret-scan` turned red on every checkout at 08:20Z because gitleaks scans
+  all branches and PR #1094's branch (another owner, commits 9c0555f1 and 576c86c5) contains a capture-job step pair
+  (`keyfocus`, `shot=after-escape-in-pane`) that `generic-api-key` reads as a key with a value. First-hand check: the matched
+  value is the screenshot step name, not a credential; the branch owner had already pinned the three fingerprints. The same
+  three pins were ported into this PR's `.gitleaksignore` (commit `4fbaf15d`); they no-op once main carries #1094's copy.
+  That branch was not touched.
+- **Registration:** closure 147 (201 known contexts) resolves the two worker labels of closure 145; the record-06 reviewer,
+  the founder's local custody verifier and the conditional fallback planner stay provisional.
+- Spend this morning: 0 DeepSeek calls; USD 0; 0 reservations; 0 ledger events. Nothing released, dispatched to a source
+  role, admitted, invited, flagged or changed in production.
+
+### Owners and next actions (superseding the table above where they differ)
+
+| Item | Owner | Next action | State |
+|---|---|---|---|
+| B62 Monitoring/Logging access for the Ops identity | CTO/CEO (read-only IAM check) → founder (any grant) | Establish why the 2026-10-05 reads returned 403 when the 2026-10-04 receipt had Monitoring samples; no grant by the chief | open (new) |
+| B32 / B56 observation | COO/CEO | One bounded read-only readout over a concurrent-generation window once B62 is resolved | blocked on B62 |
+| D3 patch (Slice B numbers) | Founder | Apply, change the numbers, or decline; chief reserves ~USD 0.01 before any PR carrying it is marked ready | open |
+| C1 HOLD | COO | Stands; next disposition after B62/B32 or the D3 decision | held |
+| Custody / planner runtime / receipt | Founder + Astra (local verification route above) | Unchanged | open |
+| This PR | Chief | Independent review of the final head → override → ready → merge | in progress |
