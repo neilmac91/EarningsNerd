@@ -6257,8 +6257,9 @@ Full local and hosted verification plus independent exact-head review precede re
       returned an invented-literal row for project 117863, `DECISIONS-07.md`); three options, no recommendation of spend.
 - [x] PostHog ticket 76581 RESOLVED by support 2026-10-05 (HogQL file-download exports enabled for the team; founder-relayed).
       COO export capability test dispatched (`runtime/dispatch/COO-EXPORT-VALIDATION-05.json`: exact September 30 literal query,
-      three invented rows, no customer tables); file download needs the founder's authenticated PostHog context (handoff);
-      independent G3 file-input contract review follows. Nothing credited from a synthetic test (`DECISIONS-08.md`).
+      three invented rows, no customer tables) RAN: count 3, run `01a10d89-1ee8-0000-3e2c-9000712c9502` Completed, records_completed 3, one part; file
+      download needs the founder's authenticated PostHog context (handoff in `runtime/handbacks/coo/export-validation-01/`);
+      independent G3 file-input contract review follows the part. Nothing credited from a synthetic test (`DECISIONS-08.md`).
 - [x] Founder: option C adopted 2026-10-05 (ticket 76581 open; query route prepared without spend or customer data); COO contract
       draft delivered (`runtime/handbacks/coo/QUERY-ROUTE-READOUT-CONTRACT-DRAFT-01.md`, `DECISIONS-08.md`).
 - [ ] Founder with the CEO: accept or amend the query-route contract draft; decide the operator identity (which non-executive

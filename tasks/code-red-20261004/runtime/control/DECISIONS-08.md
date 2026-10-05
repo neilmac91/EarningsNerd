@@ -102,6 +102,20 @@ shapes; several calls each)" for accuracy; the count-bracket correction was carr
 | Boundaries | No customer or participant data; no events/persons/sessions export; no `execute-sql`; one export run; no subscription or plan change; no PostHog charge authorized (a pricing signal is a stop condition); USD 0 DeepSeek. Ticket 76581 is resolved by support; nothing is resent. |
 | State | Support-confirmed enablement: RECORDED. G2 complete literal file receipt: PENDING the run and the file verification. G3: PENDING. G1 explicit access decision for the route: still the founder's with the CEO (the enabled flag is capability, not the programme's access decision). Cohort reporting and beta admission: NOT complete; a synthetic test cannot complete them. |
 
+**Outcome (addendum, 2026-10-05T19:35:53Z).** The worker returned 19:3xZ with `pass`: all ten inputs verified before any connector call;
+`count-rows` → 3 (= expected); one `create` → run **`01a10d89-1ee8-0000-3e2c-9000712c9502`**; first `retrieve` → **Completed**,
+`records_completed` **3**, one file part **`01a10d89-3a26-0000-56f3-e1f6c4004610`** (JSONLines, uncompressed, single file); no pricing, plan or
+billing signal; no cancel; nothing else called. Download not attempted: no authenticated PostHog HTTP context exists here and
+none was sought; the endpoint and a narrow Codex-worker handoff (one authenticated GET following the single redirect, save
+raw bytes, never store the signed URL, verify exactly three rows with the 21 aliases) are recorded in the run file. Outputs:
+`handbacks/coo/export-validation-01/EXPORT-CAPABILITY-RECEIPT-01.md` (13,031 bytes, `beb2fff8…`) and
+`export-capability-run.json` (31,051 bytes, `328dbd44…`); both scanned by the chief for credentials, signed URLs and local
+paths (none). **Closes:** support-confirmed enablement, validated (the 403 did not recur; the `hogql` model was accepted).
+**G2:** run completed, file verification pending the download access. **Open:** G1 explicit access decision for the route, G3
+(independent file-input contract review against the actual part, dispatched when the part is available), G4, G5. Cohort
+reporting and beta admission are NOT complete. Next executable dependency: the founder downloads the part (PostHog UI run
+page, or the handoff with their personal API key) and provides it; then the G3 reviewer. 0 DeepSeek calls; USD 0.
+
 ## Registration (closure 151)
 
 `control/source-context-exclusion-151.json` resolves the PR #1098 delta reviewer's label to its launch-time identity
