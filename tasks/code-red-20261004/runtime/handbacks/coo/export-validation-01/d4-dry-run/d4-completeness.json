@@ -1,0 +1,20 @@
+{
+  "error": null,
+  "failing_rules": [
+    "n_after not observed"
+  ],
+  "file_export_complete_observed": false,
+  "files": [
+    {
+      "bytes": 2092,
+      "id": "01a10d89-3a26-0000-56f3-e1f6c4004610",
+      "rows": 3,
+      "sha256": "67bc4e91db4f1bdc31dd4ffc290efd1864d4babdd6c33bd1e45bfb3fa413c6a5"
+    }
+  ],
+  "n_after": null,
+  "n_before": 3,
+  "records_completed": 3,
+  "rows_parsed": 3,
+  "status": "Completed"
+}

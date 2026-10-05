@@ -6248,10 +6248,12 @@ Full local and hosted verification plus independent exact-head review precede re
 - [x] CTO/CEO: cause of the Ops identity's 403s established 2026-10-05T17:06Z by the existing read-only `logs-probe`
       (run 37345946128): `PERMISSION_DENIED: Permission denied for all log views` for
       `github-deployer@earnings-nerd.iam.gserviceaccount.com` (`runtime/control/DECISIONS-07.md`).
-- [ ] Founder: run the two documented `gcloud projects add-iam-policy-binding` commands (grant authorized 2026-10-05, `DECISIONS-08.md` §2:
-      principal `github-deployer@earnings-nerd.iam.gserviceaccount.com`, project `earnings-nerd`, `roles/logging.viewer` and
-      `roles/monitoring.viewer` only); the chief then verifies with one read-only `logs-probe`; then COO/CEO dispatch one more
-      bounded `capacity-readout` over a job-overlap window (B32/B56).
+- [ ] Founder: the two `gcloud projects add-iam-policy-binding` commands ran clean at ~20:17Z (founder statement), but the read-only
+      `logs-probe` re-run at 21:55Z (Ops run 37379102331) still printed `PERMISSION_DENIED: Permission denied for all log views` for
+      `github-deployer@earnings-nerd.iam.gserviceaccount.com` — IAM is applied-per-founder, **verified DENIED** (`DECISIONS-09.md`).
+      Founder: run the read-only policy check (`gcloud projects get-iam-policy earnings-nerd` filtered to that principal) and confirm
+      both roles appear on project `earnings-nerd`; then the chief re-runs one `logs-probe` and, on PERMITTED, COO/CEO dispatch the
+      bounded `capacity-readout` over the Monday 06:00–08:00 UTC window (B32/B56).
 - [x] COO: report-route proposal 01 delivered 2026-10-05 by a bounded worker (`runtime/handbacks/coo/REPORT-ROUTE-PROPOSAL-01.md`):
       the blocked batch-export contract beside a PostHog query-route readout contract (the official MCP `execute-sql` route
       returned an invented-literal row for project 117863, `DECISIONS-07.md`); three options, no recommendation of spend.
@@ -6262,8 +6264,22 @@ Full local and hosted verification plus independent exact-head review precede re
       independent G3 file-input contract review follows the part. Nothing credited from a synthetic test (`DECISIONS-08.md`).
 - [x] Founder: option C adopted 2026-10-05 (ticket 76581 open; query route prepared without spend or customer data); COO contract
       draft delivered (`runtime/handbacks/coo/QUERY-ROUTE-READOUT-CONTRACT-DRAFT-01.md`, `DECISIONS-08.md`).
-- [ ] Founder with the CEO: accept or amend the query-route contract draft; decide the operator identity (which non-executive
-      context holds the connector) and the explicit access decision for the route (G1).
+- [x] Founder: file-download route selected (~20:17Z); COO contract revision 3 for that route and the D1–D5 decisions file delivered;
+      founder adopted D1–D5 as recommended (~21:15Z): O2 founder-operated legs, G1 text recorded (production-host confirmation
+      outstanding), founder-side private store, no second export + one offline dry run, Option A adapter (`DECISIONS-09.md`).
+- [x] Export part downloaded by the founder's Codex operator on PostHog EU cloud (20:52:57Z; `67bc4e91…`, 2,092 bytes) and verified;
+      single G3 review 01: rendering accept, consumer-as-is reject, checklist 14 / 1 / 1 — settles G2 and G3-with-gap only
+      (`runtime/handbacks/coo/export-validation-01/`). D5 adapter `tasks/readiness-2026-09-21/beta/file_export_to_v1.py` authored
+      (+ `fixture_check.py --adapter-only`; released consumer byte-unchanged); D4 offline dry run reproduces the September 30 readout
+      (19 / 20 fields; completeness incomplete: n_after not observed). D1/D3 operator script `export_operator.py` + `OPERATOR-RUNBOOK.md`
+      authored for the founder. Nothing marks cohort reporting, beta admission or capacity complete.
+- [ ] Founder: confirm the production PostHog host values (`POSTHOG_HOST`, frontend provider host; code defaults are US, you state EU)
+      and the project's region — the one condition for G1 to close; revoke the download key (recommended).
+- [x] PR #1099 merged to main `eccf45a3` (2026-10-05T21:59:56Z) after GitHub's Actions incident (five jobs platform-cancelled, re-run once);
+      seven delta-review nits applied in record 09. Review rule from record 09: records-only PRs get one reviewer context; nits carried.
+- [ ] CTO (proposed, awaiting the founder's go-ahead as a deploy-pipeline change): exclude `backend/tests/` from `deploy-backend`'s path
+      filter, mirroring `.dockerignore`, plus a rule-12 gate — PR #1098 deployed unchanged application code because the filter is wider
+      than the build context (`DECISIONS-09.md`).
 - [x] CTO/CEO: readout error-detail diagnostics (`ops/capacity/readout.py`, bounded worker, PR #1098): a structured, bounded
       error reason beside each failed channel's `http_NNN`, never raw bodies; review findings applied; 6 unit tests.
 - [ ] Founder: the custody check (`runtime/tools/h20-custody-check.sh`) started 2026-10-05T17:29:39Z on the MacBook with both

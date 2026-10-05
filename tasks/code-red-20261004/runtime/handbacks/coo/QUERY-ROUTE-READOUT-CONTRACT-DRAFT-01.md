@@ -1,333 +1,336 @@
-# Query-route readout contract — DRAFT 01 (COO worker `coo-query-route-contract-draft-01`)
+# Readout contract — DRAFT 01, revision 3: the supported file-download batch-export route (COO worker `coo-query-route-contract-draft-01`)
 
-**Status: DRAFT for acceptance by the founder with the CEO. Nothing in this file is adopted, authorised, dispatched,
-queried or run.** The founder adopted **option C** on 2026-10-05 (decision record 08, §"Founder instructions", row 3):
-keep PostHog ticket 76581 open and prepare the query route without spending or accessing customer data beyond existing
-authorization. This file is that preparation: the contract of `REPORT-ROUTE-PROPOSAL-01` §3 made executable for G1–G5
-(§2), the operator-identity rule as a decision for the founder with the CEO, not assumed (§3), a dry-run plan that
-costs nothing and reads no customer data (§4), what is and is not settled (§5), risks with owners (§6) and the return
-contract (§7). MASTERPLAN-REVIEW §3B governs: no substitute reporting contract is silently approved. No participant
-count, threshold, budget, cost or policy number is supplied; no connector, network or production call was made; no
-customer or participant data was read. G1–G3 remain BLOCKED until this contract is accepted and the access decision for
-the chosen route is explicit (record 08, row 3).
+**Status: DRAFT, revision 3, for acceptance by the founder with the CEO. Nothing in this file is adopted, authorised,
+dispatched, exported, downloaded or run.** On 2026-10-05 (~20:17Z) the founder selected the **supported PostHog
+file-download batch-export route** for the beta readout and asked for the existing draft to be revised for that route,
+with only the still-necessary founder decisions presented (with recommended answers) and no competing route maintained
+unnecessarily. Revisions 1–2 of this file wrote the contract for the MCP `execute-sql` query route under option C; that
+route is now a one-paragraph fallback (§6.1). The three-row invented-literal export already **completed** (run
+`01a10d89-1ee8-0000-3e2c-9000712c9502`, status Completed, `records_completed` 3, one part) and is **not repeated**; the
+founder is downloading its part with their own authenticated context; the G3 independent review of that part is a
+separate context, not this one. No customer or participant data was read; no connector or HTTP call was made; no
+PostHog charge is authorised; the USD 25 authorisation is DeepSeek-only and untouched. **Nothing here marks cohort
+reporting, beta admission or capacity complete or admitted.** G1–G5 settle only after the founder's explicit access
+decision for this route and the G3 review of the actual downloaded part (§5).
 
 ## 1. Identity, inputs, observation date, authority and limits
 
 | Item | Value |
 |---|---|
-| Worker role label | `coo-query-route-contract-draft-01` (COO-owned wave R3, reporting groups G1–G3; lane: beta operations; label pre-registered in closure 151 per record 08) |
-| Dispatch | `tasks/code-red-20261004/runtime/dispatch/COO-QUERY-ROUTE-04.json`, SHA-256 `49cb15b715c89da6ababd538a0a7bff9477be4405d40f4614d5bab1e32fb744c`, 5,482 bytes (both verified before reading); recorded 2026-10-05T18:36:02.037958+00:00 by the chief (session `01GWYV7WXWstgVGQG43YcSM8`); requested model inherited `claude-fable-5-1`; one active writer for this output: true |
-| Runtime limitation | This worker **cannot observe its own served model or its runtime/session id**; the chief resolves the provisional label and registers the identity in the next exclusion closure. Not read here. |
-| Observation date | Manifest and all eight inputs verified 2026-10-05T18:38Z; file written 2026-10-05T18:39Z–18:46Z and trimmed for length once before handback (UTC). |
-| Repository state | Branch `claude/vigilant-goodall-633yx3` at `1b5e0a47` (passive reads: `git rev-parse`, `git branch --show-current`, `git status --porcelain` clean). The manifest names `e1b00514`; `git merge-base --is-ancestor` confirms it is an ancestor of HEAD and the only later commit is the manifest's own (`1b5e0a47`). A wording deviation, not a content one: every input hash matched at HEAD. No other repository file was opened. |
-| Authority | **COO drafts; the founder with the CEO accepts.** COO owns closure of G1–G5 (FIRST-DELIVERABLE five-group table). MASTERPLAN-REVIEW §3B: "determine a concrete supported export/readout route and its evidence first. No substitute reporting contract is silently approved here." **Option C adopted by the founder 2026-10-05** (record 08, founder instructions row 3). Record 07 handed the query-route evidence to the COO; `REPORT-ROUTE-PROPOSAL-01` §6 set the three options; this draft is the preparation option C permits and nothing more. |
-| Available authority of this worker | Administrative/management only; excluded from source A/B authorship, reconciliation, semantic financial review and blind judging. Read-only except this one file. No git write, network, connector call, customer query, test, cloud or production read. Zero provider calls, reservations and spend. |
-| Not read, by rule | Source packets, candidate outputs, judge material, customer or participant data, credentials, anything under `tasks/readiness-2026-09-21/acceptance/` or the session's upload area, and any file outside the manifest's inputs (the probe response bytes are relied on as quoted in the proposal §1.2). |
+| Worker role label | `coo-query-route-contract-draft-01` — the same registered context (closure 152), resumed for revision 3 |
+| Dispatch | `…/scratchpad/coo-file-route-rev3/COO-FILE-ROUTE-REVISION-06.json`, SHA-256 `a73d0066cb9d84d48bb23c06c4a82f364e416024ce9f0c4004934b24e09efa5d`, 7,123 bytes (hash verified before reading; the dispatch message said 7,112 bytes — hash is the controlling check, discrepancy recorded in §7); recorded 2026-10-05T20:20:57.243659+00:00 by the chief (session `01GWYV7WXWstgVGQG43YcSM8`); requested model inherited `claude-fable-5-1`; one writer for the output paths |
+| Runtime limitation | This worker **cannot observe its own served model or session id**; the chief resolves the label. |
+| Observation date | Manifest and all nine inputs verified 2026-10-05T20:21Z; written 2026-10-05T20:22Z–20:31Z (UTC), including the chief's host addendum (same manifest, no new inputs). |
+| Repository state | Branch `claude/vigilant-goodall-633yx3` at `ad915c44` (main `c780228a`; PR #1099 pending merge), working tree clean (passive reads only). **No write inside the repository tree**; both outputs are staged under `…/scratchpad/coo-file-route-rev3/staging/` and placed by the chief. |
+| Authority | **COO drafts; the founder with the CEO accepts.** Founder instruction 2026-10-05 ~20:17Z (route selected). COO owns closure of G1–G5 (FIRST-DELIVERABLE). MASTERPLAN-REVIEW §3B still governs the substance: a reporting contract is accepted explicitly, never silently. Ticket 76581 is resolved and the HogQL file-download batch-export flag is enabled for the organisation (receipt 01) — decided facts, not re-asked. |
+| Available authority of this worker | Administrative/management only; excluded from source A/B authorship, reconciliation, semantic financial review and blind judging. Read-only repository; no git write, connector, HTTP, customer query, test, cloud or production read. Zero provider calls, reservations and spend. |
+| Not read, by rule | Customer or participant data, credentials, signed URLs, anything under `tasks/readiness-2026-09-21/acceptance/`, the session's upload area, any file outside the manifest's inputs except the one permitted sibling README (§1.1). |
 
-### 1.1 Inputs verified (sha256sum and byte length compared to the manifest BEFORE any input was relied on)
+### 1.1 Inputs verified (sha256 and byte length compared to the manifest BEFORE any input was read)
 
 | Label | Path | SHA-256 | Bytes | Match |
-|---|---|---|---:|---|
-| COO report-route proposal 01 (three options; option C adopted) | `tasks/code-red-20261004/runtime/handbacks/coo/REPORT-ROUTE-PROPOSAL-01.md` | `0916b5f27190cb7805b561d82498552697375071f14121b5a91901ce24017810` | 33854 | match |
-| Decision record 08 (option C decision; operator-identity question; no spend, no customer data) | `tasks/code-red-20261004/runtime/control/DECISIONS-08.md` | `9a19701dab44f1ef1f8827a3c7355b6a10d72404892c75dcb965c52adfe2be91` | 13211 | match |
-| Decision record 07 (query-route evidence; caps labelled connector-stated) | `tasks/code-red-20261004/runtime/control/DECISIONS-07.md` | `0f511f5a9f6eeb97cd59886b732cb96adc6828d16373d1fae57198b980897bf0` | 18305 | match |
-| COO disposition revision 1 (§5 G1–G5, R4) | `tasks/code-red-20261004/runtime/handbacks/coo/CURRENT-BETA-OPERATING-ENVELOPE-DISPOSITION.md` | `d30bdd50125ae304ad5c4fd1c6559326d3767c0f17c1ca7ec41d895ab6fc13be` | 40291 | match |
-| COO disposition update 01 (§5 G1–G5, R4; §1.2 private-store denial) | `tasks/code-red-20261004/runtime/handbacks/coo/CURRENT-BETA-OPERATING-ENVELOPE-DISPOSITION-UPDATE-01.md` | `07ebaaf3f1433460a6b78738314152ba00b7caeba0bbbcf447e0374cf959fdeb` | 37570 | match |
-| Decision record 02 (D5 privacy; D2 identity registration; D9 refuter record) | `tasks/code-red-20261004/runtime/control/DECISIONS-02.md` | `4d93171f68c7491afd70fcd54b19a355093c5f2a14b437d02c4fd13d3f4f508b` | 21885 | match |
-| COO first deliverable (G1–G5 definitions, C1) | `…/scratchpad/handover/officers/coo/references/FIRST-DELIVERABLE.md` | `c82773953be1e85daa87525003d1ade26db4e8f8e9df428f97fff80d10ee3f7f` | 15184 | match |
-| Masterplan review (§3B; §4 R3/R4 rows) | `…/scratchpad/handover/officers/cto/evidence/MASTERPLAN-REVIEW.md` | `0c946f93c801bbb98836aab9c11b789d7748d88bf8894f3fbf57d0370399c710` | 21877 | match |
+|---|---|---|---|---|
+| Existing draft, revision 2 (query route) — revised here | `tasks/code-red-20261004/runtime/handbacks/coo/QUERY-ROUTE-READOUT-CONTRACT-DRAFT-01.md` | `448f4f12bee69a4c543cb14b22a785a9a5754af0d87acd6de834135ff180253d` | 49767 | match |
+| COO report-route proposal 01 | `tasks/code-red-20261004/runtime/handbacks/coo/REPORT-ROUTE-PROPOSAL-01.md` | `0916b5f27190cb7805b561d82498552697375071f14121b5a91901ce24017810` | 33854 | match (read in full earlier in this session at the same hash) |
+| Export capability receipt 01 | `tasks/code-red-20261004/runtime/handbacks/coo/export-validation-01/EXPORT-CAPABILITY-RECEIPT-01.md` | `beb2fff840a74e7cfc278f257046c68904a275dcf9a6a80ea6e882ba711f4b40` | 13031 | match |
+| Export capability run record | `tasks/code-red-20261004/runtime/handbacks/coo/export-validation-01/export-capability-run.json` | `328dbd442a7d562ee9cf139a9b03716b6aed1065a4d211c04bcf5050b19a403e` | 31051 | match |
+| Released consumer | `tasks/readiness-2026-09-21/beta/readout_v1.py` | `a9e089cd1d45672833c49cb222c6cdaab52fe9bafbb2a3dddb5c82ae9b82272e` | 15092 | match |
+| Released readout runbook (G3 file-input checklist) | `tasks/readiness-2026-09-21/beta/summary-v1-readout.md` | `ffab744abf89efecaa574f057d217738057aeb00ac0cd3b6661f1ca9961b82be` | 14372 | match |
+| Released v1 export HogQL | `tasks/readiness-2026-09-21/beta/posthog-v1-export.hogql` | `fa060fe65a078f90d4836d2f60361ff36def4fdf0da34f0eb24b3dbdf0bf47ef` | 2612 | match |
+| Literal-only capability HogQL (21 columns, 3 rows) | `tasks/review-evidence/beta-readout-2026-09-30/literal-projection.hogql` | `87c47aa644ef127eb8189db6e56cf0755d3158be59dcdadb74cecb33c253b3e4` | 2923 | match |
+| September 30 export-capability receipt (the 403) | `tasks/review-evidence/beta-readout-2026-09-30/export-capability.json` | `b1bb12abac4c865aac33670a83a4116378778025b11e2f1ebb87caa469f93387` | 1166 | match |
+| Permitted sibling README (context only) | `tasks/review-evidence/beta-readout-2026-09-30/README.md` | `17996acc339478fa710142586285ede4345c21c53135e7d3210c3f153c7f4466` (as recorded by receipt 01; not in the manifest) | 2932 | read |
 
-The `…/scratchpad` prefix is `/tmp/claude-0/-home-user-EarningsNerd/27aa9761-b14a-5cab-9ee6-5f8ec27f49f3/scratchpad`.
-**8/8 matched.** Path references inside these documents were treated as metadata and not opened.
+**9/9 matched.** The `…/scratchpad` prefix is the chief session's scratchpad directory (a session-local path, not recorded).
 
-### 1.2 Facts this contract relies on, each with its source
+### 1.2 Facts this contract relies on
 
 | # | Fact | Source |
 |---|---|---|
-| F1 | The official PostHog MCP `execute-sql` (HogQL) route ran one invented-literal query on project **117863** (timezone UTC) at 2026-10-05T17:07Z and returned one row; response 193 bytes, SHA-256 `c9c1961ec63b04f26842b9878fe18c77e7e36b397e420a26dc35c5df0cff9b0b` | record 07 §"G1/G2"; proposal §1.2 |
-| F2 | The response echoes the query text under `query.query`; `results` is pipe-delimited text (header, then rows); a `toDateTime('YYYY-MM-DD HH:MM:SS')` literal rendered `…T00:00:00Z`; no row count, limit, offset, `hasMore` or run id in the response | proposal §1.2 (a)–(d) |
-| F3 | A 100-row default cap and a 500-row maximum are **stated by the connector's `execute-sql` command description as read in the chief's session on 2026-10-05, not independently verified and not stated by the tool schema** | record 07 "What it does not show"; binding note |
-| F4 | The connector was attached to the chief's interactive session; the chief context ran the probe itself, permissible only because no collected data was touched | record 07 §Registration; proposal §3.4 |
-| F5 | `project-get` returns two public client tokens; they are recorded nowhere | record 07; proposal §3.3 |
-| F6 | The repository is public; rows, raw responses, roster membership and full context identities live in private stores; the repository keeps sanitized receipts and SHA-256 hashes | record 02 D5 |
-| F7 | A context's identity is reported before any executive context reads its output and is registered in the next exclusion closure | record 02 D2 |
-| F8 | Ticket 76581 is retained and not resent; G1–G3 stay BLOCKED until the contract is accepted and the access decision for the chosen route is explicit | record 08 row 3 |
-| F9 | The 2026-10-05 readout receipt's files were **not** copied to a private store (classifier denial, not pursued); the retained store is a GitHub Actions artifact that expires | update 01 §1.2 last row |
-| F10 | G5's readout must carry the frozen roster/denominator and exclusions, UTC half-open window, source availability, exact query/parameters/consumer identity, hashes, completeness, observed outcomes, session-linked usefulness, citation/problem/support evidence and honest cost coverage, plus one fixed-roster combined-window receipt for later-ISO-week different-filing return | FIRST-DELIVERABLE G5 |
+| F1 | Ticket 76581 resolved; PostHog support enabled the HogQL file-download batch-export flag for the organisation (founder-relayed, recorded as reported); validated: the `hogql` model was accepted by `count-rows-create` and `create` on 2026-10-05 and the 2026-09-30 HTTP 403 (`HogQL batch exports are not enabled for this team.`) did not recur | receipt 01 §Enablement; export-capability.json (2026-09-30) |
+| F2 | Capability run: count-rows `{"count":3}` at 19:27:03Z; create → run id `01a10d89-1ee8-0000-3e2c-9000712c9502` at 19:27:31Z; retrieve at 19:27:46Z → `{"status":"Completed","files":["01a10d89-3a26-0000-56f3-e1f6c4004610"],"records_completed":3}`; no `error` field; cancel not called; expected 3 = count 3 = records_completed 3 | run.json `calls` 7–9, `run.reconciliation` |
+| F3 | Request shapes: create `{"model":"hogql","file":{"format":"JSONLines","compression":null,"max_size_mb":null},"hogql_query":<exact bytes>,"hogql_modifiers":{"convertToProjectTimezone":false}}`; count-rows the same without `file`; no `data_interval_*` bounds passed; the query round-trips byte-for-byte (2,923 bytes, SHA-256 `87c47aa6…`) | receipt 01 §Run facts; run.json `request_shapes`, `query` |
+| F4 | Connector tool surface (from `info`): `file-download-batch-exports-count-rows-create` (readOnlyHint), `-create` (file format Parquet or JSONLines; compression null/zstd/gzip/brotli/lz4/snappy; `max_size_mb` number or null), `-retrieve` (by run id; readOnlyHint), `-cancel-create` (only while Starting/Running). Statuses per the skill: Starting, Running, Completed, Cancelled, Failed, FailedRetryable, FailedBilling, Terminated, TimedOut | run.json `calls` 2–6 |
+| F5 | Download: `GET https://<posthog-api-host>/api/projects/117863/file_download_batch_exports/{run_id}/download/{file_uuid}/` (single-file alias `…/download/`), `Authorization: Bearer <personal API key>` with `batch_export:read`, one 302 to a temporary signed URL that is never stored or forwarded; file availability window not stated by tools or skill. **Host — founder-stated assumption (addendum 2026-10-05):** the organisation uses **PostHog EU cloud** — private API host `https://eu.posthog.com`, ingestion origin `https://eu.i.posthog.com`, personal API keys issued at the EU settings page. **Open founder confirmation (not a decision to re-ask):** the repository defaults (`backend/app/config.py` `POSTHOG_HOST` and the frontend provider) point at `https://us.i.posthog.com` unless overridden by env — receipt 01 and run.json record the US ingestion origin from `docs/CONFIGURATION.md` line 77 / `config.py` line 107 (this worker did not open those files); **the contract names the host production actually uses**, confirmed by the founder from the production environment and the organisation's app URL — never checked by a connector or HTTP call from any management context | receipt 01 §Run facts "Download endpoint"; run.json `download`, `handoff_codex_worker`; chief's addendum relaying the founder, 2026-10-05 |
+| F6 | The download of the capability part was **not** attempted by the worker (no authenticated HTTP context); the founder is now downloading it; expected content: 3 JSONLines rows, the 21 aliases, the three literal UUIDs, `timestamp_s` 1790553600/1/2; rendering to be recorded, not assumed | receipt 01 §Run facts, §Next executable dependency |
+| F7 | Released v1 query shape: the 21-column projection (`toString(uuid)`, `event`, `toUnixTimestamp(timestamp)`, 18 `JSONExtractRaw(properties, …)` columns) `FROM events WHERE event IN ('summary_viewed','summary_request_started','summary_request_finished') AND toString(properties.account_id_at_event) IN (<roster>) AND timestamp >= toDateTime('<start>','UTC') AND timestamp < toDateTime('<end>','UTC') ORDER BY timestamp, uuid LIMIT 10000`; LIMIT is a safety cap, not pagination; never widen to all customers; never `SELECT *` | posthog-v1-export.hogql |
+| F8 | Released consumer `readout_v1.build_readout(response, parameters)`: requires `response["columns"] == COLUMNS` (the 21 names), `response["results"]` a list of at most 10,000 lists of 21 values (uuid, event, `timestamp_s` as `int`, then 18 raw-JSON strings, `""` → None), no `error`/`exception`; `export_complete_observed` is true only if `hasMore is False`, rows < 10,000, no `warnings`, and `offset` absent or integer 0; parameters: `window_start`/`window_end` whole-second UTC ISO (`Z`), `eligible_account_ids`, `excluded_account_ids` (distinct canonical positive decimal strings); denominator = eligible − excluded; every remaining account stays in the output; inputs bounded to 16 MiB; output exclusive-create mode 0600 with the three input hashes | readout_v1.py lines 19–31, 131–248, 251–269 |
+| F9 | Runbook rule: "JSONLines rows and a completed file-export run are a different evidence contract from this consumer's query-response JSON. Do not manufacture `hasMore=false` or concatenate file parts into a v1 response and call it a completed export. Review and validate an explicit input format before any customer readout; keep the current consumer and its unknowns unchanged meanwhile." G3 checklist: format, fields/types, part inventory, completion evidence, bounds, duplicate/conflict handling, provenance; independent review before any customer readout | summary-v1-readout.md §"Supported export route…", checklist item 3 |
+| F10 | Runbook cadence: two actual weekly readouts; each retains source availability, exact query/parameters and consumer version, original inputs, hashes, completeness/diagnostics, denominator and unknowns; the fixed-roster combined two-week window for observed ISO-week new-filing returns, **not** a concatenation of weekly exports; a prepared worksheet, synthetic receipt or completed export is not a weekly cohort result | summary-v1-readout.md checklist items 4–5 |
+| F11 | Privacy: the repository is public; rows, parts, roster membership, executed queries with roster literals, keys and signed URLs live in private stores; the repository keeps sanitized receipts and SHA-256 hashes (record 02 D5, carried from revision 2). The last attempt to copy readout files to a private artifact store was classifier-denied (revision 2 F9) | revision 2 §1.2 F6, F9 |
+| F12 | Operator: FIRST-DELIVERABLE G2 names "one separately named export operator"; the capability run was produced by a chief-dispatched bounded worker — a child context of the chief's session — which **did** call the connector's export tools successfully (function now evidenced for a child worker; transcript isolation from the executive session still not established); permissible because no collected data was touched; the first customer-data export still needs the named operator | receipt 01 §Identity, §Risks "Operator identity"; revision 2 §3 |
 
-## 2. The query-route readout contract — executable shape for G1–G5
+## 2. The readout contract for the file-download route — executable shape for G1–G5
 
-### 2.0 Conventions that apply to every query below
+### 2.0 Conventions and the export lifecycle (apply to every export run)
 
-- **Placeholders.** `{{…}}` marks a value bound to a literal in the retained receipt **before** the text is sent. The
-  text sent contains no braces; HogQL's own `{variable}` mechanism is not used, so the response echo `query.query`
-  (F2) shows the bound literal and the reviewer can compare it byte for byte. Window placeholders are always
-  `{{window_start}}` and `{{window_end}}` in the form `YYYY-MM-DD HH:MM:SS`, UTC (the form F2 proved); the window is
-  **half-open**: `>= toDateTime('{{window_start}}')` and `< toDateTime('{{window_end}}')`. `{{window_end}}` precedes the
-  first call's timestamp (elapsed windows only, F10).
-- **No literal customer identifier appears in this file.** `{{member_key}}` is the column that identifies a roster
-  member (bound at G3's schema confirmation, §2.3); `{{roster_predicate}}` is the predicate over the frozen eligible
-  roster (bound from the G4 packet, §2.4). Any bound text containing roster literals is **private**; its SHA-256 is
-  public (F6).
-- **Event vocabulary.** `{{event_*}}`, `{{prop_*}}` and `{{table}}` are placeholders for event names, property names
-  and the collected table as the project schema names them. They are **bound by the Q-G3 schema confirmation, not
-  invented here**; no event name in this file is a claim about what the product emits. `event` is written literally as
-  the fixed event-name column of `{{table}}`; its name and type are confirmed at Q-G3 together with the other columns
-  (§2.3) before any G5 query is bound.
-- **Count bracket (Q-C).** Every result set is bracketed by a **row-count** query run as `n_before` immediately before
-  page 0 and `n_after` immediately after the terminal page, and `n_before = n_after = Σ rows` must hold for **every**
-  query shape. Row-level query: `count()` with the identical `FROM … WHERE`. Grouped query: the count of distinct
-  group-key tuples — `SELECT count() AS n FROM (<the grouped query without LIMIT/OFFSET>)`, or equivalently
-  `count(DISTINCT <group-key tuple>)` with the identical `FROM … WHERE`; `count(DISTINCT {{member_key}})` serves as the
-  row bracket **only where the group key is the member alone** (Q-G5-1/2/3), and Q-G5-4 uses
-  `count(DISTINCT {{member_key}}, toISOWeek({{event_time}}))`. In addition, for every grouped query a `count()` with the
-  identical `FROM … WHERE` records the underlying events summarised, and where the group key is not the member alone a
-  `count(DISTINCT {{member_key}})` is retained as the observed-member count for the denominator (§2.4). All bracket
-  responses are retained.
-- **Pagination rule (every row-level or grouped result).** Explicit `LIMIT {{L}} OFFSET {{k}} × {{L}}` on every page,
-  `k = 0 … K`, contiguous, text identical across pages except the OFFSET literal, `ORDER BY` a total order on a key
-  whose uniqueness Q-G3 confirmed from the schema. `{{L}}` never exceeds the route's maximum; the default cap is never
-  relied on implicitly. The **100-row default and 500-row maximum are reported by the connector's `execute-sql`
-  description on 2026-10-05, not independently verified; confirm on first use and record** the confirmed values (F3).
-  Terminal page = first page with fewer than `L` rows (an empty page is valid). `complete` only when
-  `n_before = n_after = Σ rows`, every non-terminal page has exactly `L` rows, no non-terminal page returned exactly
-  100 rows while `L ≠ 100`, and keys are `Σ rows` distinct values; otherwise `incomplete` with the failing rule;
-  connector error, denial or timeout = `source-unavailable` (an unknown, not zero). No `hasMore=false` fabricated, no
-  concatenation workaround, no partial re-paging (proposal §3.2 rules 1–10, carried unchanged).
-- **Retention rule.** Private store (CEO-designated; §6 K2): query text as sent (every page and both counts), the
-  window, every response as returned (bytes unmodified), each response's SHA-256 and length, row count per page, UTC
-  timestamp per call, operator context id. **Repository:** SHA-256 of each query text and of each response, row counts,
-  window, `L`, `K`, `n_before`, `n_after`, verdict, status, role labels — hashes and counts only; never a row, a roster
-  literal or a token (F5, F6). Templates and invented-literal probe texts contain no customer identifier and may appear
-  in the repository as this file does. **Retention exception, stated once:** responses to invented-literal probes (no
-  collected table in any `FROM`) are the **only** response bytes that may enter the repository; every response to a
-  query naming `{{table}}` is private, hash only.
-- **Denominators.** `N` is the frozen eligible roster size, carried by reference and hash from the G4 packet;
-  exclusions by count and hash; a roster member absent from a result is recorded "not observed in window" and read
-  only with the source-availability record — never as zero use, never as success; `N` is never reduced to make a ratio.
-- **Operator.** No query in §2.4–§2.5 runs before the §3 decision is recorded, the operator's identity is registered
-  in the exclusion closure and the entry gates hold. §2.1–§2.2 contain only invented literals.
+- **Placeholders.** `{{…}}` is bound to a literal in the retained receipt **before** the query is sent; the text sent
+  contains no braces and no HogQL `{variable}`; the retained text is the exact bytes passed as `hogql_query` to both
+  `count-rows-create` and `create` (F3 proves byte round-trip). `{{window_start}}`/`{{window_end}}` are
+  `YYYY-MM-DD HH:MM:SS` UTC inside `toDateTime('…', 'UTC')` (F7); the window is half-open (`>=` start, `<` end) and
+  `{{window_end}}` precedes the first call. `hogql_modifiers.convertToProjectTimezone` is `false`; **no
+  `data_interval_start`/`data_interval_end` is passed** — the window lives in the query text, as validated (F3).
+  `{{roster_account_id_literals}}` is the comma-separated list of single-quoted canonical positive decimal account-id
+  strings of the **eligible roster after exclusions**, sorted ascending so the query text is deterministic (G4, §2.4).
+  **No literal customer identifier appears in this file**; any bound query text is private, its SHA-256 public (F11).
+- **The one query shape.** Every customer export uses the released v1 projection (F7) with exactly two substitutions:
 
-### 2.1 G1 — supported access (query route)
+```
+SELECT toString(uuid) AS uuid, event, toUnixTimestamp(timestamp) AS timestamp_s,
+       JSONExtractRaw(properties, 'evidence_version') AS evidence_version_json,
+       JSONExtractRaw(properties, 'auth_state_at_event') AS auth_state_at_event_json,
+       JSONExtractRaw(properties, 'account_id_at_event') AS account_id_at_event_json,
+       JSONExtractRaw(properties, 'analytics_consent_at_event') AS analytics_consent_at_event_json,
+       JSONExtractRaw(properties, 'filing_id') AS filing_id_json,
+       JSONExtractRaw(properties, 'summary_id') AS summary_id_json,
+       JSONExtractRaw(properties, 'request_id') AS request_id_json,
+       JSONExtractRaw(properties, 'logical_request_id') AS logical_request_id_json,
+       JSONExtractRaw(properties, 'client_attempt') AS client_attempt_json,
+       JSONExtractRaw(properties, 'transport_attempt') AS transport_attempt_json,
+       JSONExtractRaw(properties, 'identity_evidence') AS identity_evidence_json,
+       JSONExtractRaw(properties, 'consent_evidence') AS consent_evidence_json,
+       JSONExtractRaw(properties, 'outcome') AS outcome_json,
+       JSONExtractRaw(properties, 'delivery_path') AS delivery_path_json,
+       JSONExtractRaw(properties, 'summary_service_invoked') AS summary_service_invoked_json,
+       JSONExtractRaw(properties, 'duration_ms') AS duration_ms_json,
+       JSONExtractRaw(properties, 'reason') AS reason_json,
+       JSONExtractRaw(properties, 'entry_point') AS entry_point_json
+FROM events
+WHERE event IN ('summary_viewed', 'summary_request_started', 'summary_request_finished')
+  AND toString(properties.account_id_at_event) IN ({{roster_account_id_literals}})
+  AND timestamp >= toDateTime('{{window_start}}', 'UTC')
+  AND timestamp <  toDateTime('{{window_end}}', 'UTC')
+ORDER BY timestamp, uuid
+LIMIT 10000
+```
 
-| Field | Content |
-|---|---|
-| Purpose | Dated evidence that a supported, non-batch-export route exists on project 117863, and the **explicit access decision** that G1's exit requires for whichever route is adopted (record 07; §5.2 below says what it must contain). |
-| Query text(s) | **Q-G1-a** (connector command, not HogQL): `project-get` — retained per run as id, name, timezone with the two public client tokens redacted (F5). **Q-G1-b** (done, record 07): `SELECT 1 AS probe_a, 'alpha' AS probe_b, toDateTime('2026-10-05 00:00:00') AS probe_c` — invented literals, no `FROM`, no window (there is no collected table to window). |
-| Denominators | Not applicable (no roster, no customer data). |
-| Count bracket | Not applicable to a one-row literal `SELECT`; the retained row count is 1. |
-| Pagination | Not applicable; no `LIMIT` was sent, so the probe neither confirms nor refutes the caps (F3). |
-| Retention | Q-G1-b's response is already retained (193 bytes, SHA-256 `c9c1961e…`, F1); it contains no customer data and its hash is public. Q-G1-a's redacted identity confirmation is retained per run (proposal §3.3). |
-| Q-G3 checklist items that apply | Provenance (project identity per run; route named; tokens absent); query text byte-identical to the echo. |
-| State | Evidence exists; **decision absent**. BLOCKED (record 08 row 3). |
+  The event vocabulary, columns and consumer semantics are the released ones (F7, F8); nothing is invented or
+  re-bound. The projection is never replaced by `SELECT *`/`properties`; the predicate is never widened; the LIMIT is a
+  cap, not pagination (F7). This template is **not executed by this file**.
+- **Lifecycle of one export run (steps in order; every response retained as returned).**
+  1. *Identity.* Project identity for the run recorded (expected 117863); if `project-get` is used, its two public
+     client tokens are redacted and never recorded (revision 2 F5).
+  2. *Count before.* `count-rows-create` with the bound query → `n_before`. Rule: `n_before < 10000` (the LIMIT cap);
+     otherwise the window is `incomplete (cap)` and is narrowed under a new receipt — never truncated.
+  3. *Create (once).* `create` with the identical `hogql_query` bytes, `file {format: JSONLines, compression: null,
+     max_size_mb: null}`, modifiers as above → `run_id`. One create per window per receipt; a second create needs a new
+     authorisation.
+  4. *Poll.* `retrieve` at a bounded interval until a terminal status. `Completed` → continue, recording
+     `records_completed` and the ordered `files[]` inventory. Any other terminal status (Cancelled, Failed,
+     FailedRetryable, FailedBilling, Terminated, TimedOut) or an `error` field → `source-unavailable`; stop.
+     **`FailedBilling`, or any response text naming payment, plan, billing, trial or quota, is a stop signal to report
+     verbatim: no PostHog charge is authorised.**
+  5. *Count after.* `count-rows-create` again with the identical query → `n_after` (the bracket; revision 2's
+     `n_before = n_after` rule, carried).
+  6. *Download.* For each `file_uuid` in `files[]`, in order: one authenticated GET (F5) by the **operator identity**
+     (§3) against the API host production actually uses — assumed `https://eu.posthog.com` on the founder's EU-cloud
+     statement, confirmed before the first download (K4) — following the single 302; the signed URL is never logged,
+     stored or forwarded; the body is saved as raw bytes; SHA-256 and byte length recorded per part. Download promptly
+     (availability window unknown, F5).
+  7. *Parse and verify.* Each part is JSONLines: one JSON object per non-empty line; BOM, CR bytes, duplicate lines and
+     key-set deviations are recorded; `rows_parsed` = Σ objects over all parts; every object's key set equals the 21
+     aliases (order recorded; set equality required).
+  8. *Completeness verdict.* `complete` iff **all** hold: terminal status `Completed`; no `error`;
+     `n_before = n_after = records_completed = rows_parsed`; `n_before < 10000`; every id in `files[]` downloaded and
+     hashed; no pricing signal; a zero-row export is `complete (zero rows)` only with the source-availability record.
+     Otherwise `incomplete` with the failing rule; connector/HTTP failure → `source-unavailable` (an unknown, not zero).
+     **Never** manufacture `hasMore=false`, concatenate parts across runs or windows, re-run partially, or present a
+     partial window as a full one (F9).
+  9. *Consume.* The parts feed the released consumer only through the input contract decided after G3 (§2.3, decision
+     D5 in `FOUNDER-DECISIONS-FILE-ROUTE.md`); until then no readout is produced from them.
+- **Retention.** *Private store* (decision D3): the bound query text (it carries roster literals), the parameters file,
+  every part's bytes, every connector response as returned, `VERIFICATION.json`, the consumer output, the operator
+  context id. *Repository:* SHA-256 of the query text and of each part, `run_id`, `files[]` ids, status, `n_before`,
+  `n_after`, `records_completed`, `rows_parsed`, verdict, window, `N`, exclusion count, role labels, UTC timestamps —
+  hashes and counts only; never a row, a roster literal, a key or a signed URL. **Retention exception, stated once:**
+  parts of invented-literal exports (the capability run, whose `FROM` is a literal subquery) are the only part bytes
+  that may enter the repository; every part of a run whose query names `events` is private, hash only.
+- **Denominators.** `N` = size of the eligible roster after exclusions from the frozen G4 packet, by reference and hash;
+  the consumer keeps every remaining account in its output (`eligible_denominator`, `unobserved_view_accounts_unknown`,
+  F8); exclusions by count and hash; an unobserved account is unknown, never zero, never success; `N` is never reduced.
+- **Operator.** No step 2–9 runs on a query naming `events` before the founder's access decision (§5.2) is recorded, the
+  operator identity (§3, D1) is registered in the exclusion closure, the private store exists (D3) and the entry gates
+  hold (§5). The capability run (literal subquery, done) is the only run that has occurred.
 
-### 2.2 G2 — complete literal query receipt
-
-| Field | Content |
-|---|---|
-| Purpose | Prove the receipt mechanism end to end on invented literals — format, half-open window, LIMIT/OFFSET paging, count bracket, hashing — so the first customer query, when authorised, is not the first exercise of any rule. The format probe (Q-G1-b) is done; it exercised neither paging nor counting (proposal §4 G2). |
-| Query text(s) | The six dry-run probes **P1–P6 of §4**, each a `SELECT` over a literal subquery (no collected table in any `FROM`), plus the page/count **template** below, whose placeholders are bound only at G5. |
-| Template — page `k` | `SELECT {{projected_columns}} FROM {{table}} WHERE {{event_time}} >= toDateTime('{{window_start}}') AND {{event_time}} < toDateTime('{{window_end}}') AND {{roster_predicate}} ORDER BY {{order_key}} LIMIT {{L}} OFFSET {{k_times_L}}` |
-| Template — count | `SELECT count() AS n FROM {{table}} WHERE {{event_time}} >= toDateTime('{{window_start}}') AND {{event_time}} < toDateTime('{{window_end}}') AND {{roster_predicate}}` |
-| Denominators | Not applicable to literal probes; the template carries `{{roster_predicate}}` so that `N` enters only by reference. |
-| Count bracket | P2 brackets P1 (expected count equals the literal set size, stated in §4); the template count runs before page 0 and after page K. |
-| Pagination | P1 exercises three contiguous pages and the terminal rule on a literal set; P5 exercises the connector-stated caps (F3) — the observed default and maximum are **recorded** as "confirmed on <date>" in every later receipt. |
-| Retention | Under the §2.0 retention exception (probe responses with no collected table in any `FROM` are the only response bytes that may enter the repository): bytes, SHA-256, length and row counts may be public; stored under the proposal §3.1 receipt template so the template is itself exercised. |
-| Q-G3 checklist items that apply | Query text (echo identity across pages except OFFSET); parameters (`L` explicit, `K` consistent); page inventory; count reconciliation re-derived from responses; hashes re-computed; format (delimiter, newline, null, numeric rendering — P6). |
-| State | BLOCKED behind G1's decision; the dry-run itself needs the CEO's R7 decision (§4). |
-
-### 2.3 G3 — independent review of query receipts (Q-G3)
-
-| Field | Content |
-|---|---|
-| Purpose | A named independent read-only reviewer records `accept` / `reject` / `incomplete` on the actual retained receipts and private responses, re-deriving completeness from bytes rather than from the operator's verdict (proposal §3.5). |
-| Query text(s) | **None against collected data.** The reviewer re-hashes every private response, re-derives `n_before = n_after = Σ rows` and key distinctness from retained bytes, and compares each retained query text to the response echo. **One schema confirmation** precedes any G5 binding: `{{order_key}}` unique per row of `{{table}}`; `{{member_key}}`, `{{event_time}}`, the event-name column `event` and each `{{event_*}}`/`{{prop_*}}` present with the expected types. Source, in order of preference: PostHog's published schema documentation (no project access); or the connector's schema command — its command list as presented to this session on 2026-10-05 includes a `read-data-schema` name beside `execute-sql` (seen in the tool description only; **not invoked, capability not verified**). Whether a schema read of project 117863 is within "existing authorization" is **open question Q2 for the founder** (§7): it reads no rows but reveals collected event and property names. |
-| Denominators | The reviewer checks that `N`, exclusions and unobserved members are preserved and that unknowns are not coerced. |
-| Count bracket | Re-derived, not re-run: the reviewer never issues a fresh customer query to "fix" a mismatch; a conflict between `n_before` and `n_after` is recorded, not resolved by choice. |
-| Pagination | The reviewer checks the OFFSET sequence, the terminal-page rule, the cap-hit rule and that the recorded cap confirmation (P5) exists. |
-| Retention | The review record is public (verdict, failing rule numbers, hashes compared); the reviewer's context id is private (F6); its label is registered in the closure before it reads any response (F7). |
-| Checklist (the ten proposal §3.5 checks) | Query text · Parameters · Window · Page inventory · Count reconciliation · Hashes · Format · Duplicate/conflict rules · Denominator semantics · Provenance. Each records pass / fail / not-applicable with the receipt field read. |
-| Consumer rule | The released consumer stays unchanged until this review justifies a bounded change; the CTO supplies a minimal implementation writer only if a reviewed real contract demonstrates the need (FIRST-DELIVERABLE G3). The format finding (pipe-delimited `results` versus the consumer's bounded JSON) is a review output, not a pre-decided adapter. |
-| State | BLOCKED behind G2; needs the named reviewer and real receipts. |
-
-### 2.4 G4 — private cohort, offered-scope and support control packet (what the query route adds)
-
-| Field | Content |
-|---|---|
-| Purpose | The route adds exactly one dependency to G4: the **frozen eligible roster and exclusions must exist, by hash, before any `{{roster_predicate}}` is written** (proposal §4 G4). G4's other contents are unchanged and outside this contract. |
-| Query text(s) | **None run.** The packet yields the bound predicate shape: `{{roster_predicate}}` := `{{member_key}} IN ({{roster_member_literals}})`, where `{{roster_member_literals}}` is the eligible roster after exclusions, bound from the packet. Exclusions are **not** queried: they are applied by absence from the literal set and carried by count and hash. The bound predicate text is private; its SHA-256 and the packet hash it was bound from are public. |
-| Denominators | `N` = size of the eligible roster in the frozen packet (by reference and hash). Observed members per window ≤ `N` by construction. |
-| Count bracket | For every G5 query, the **observed-member count** (it is also the §2.0 row bracket only where the group key is the member alone): `SELECT count(DISTINCT {{member_key}}) AS n_members FROM {{table}} WHERE {{event_time}} >= toDateTime('{{window_start}}') AND {{event_time}} < toDateTime('{{window_end}}') AND {{roster_predicate}}` — the number of roster members observed in the window, compared to `N`; the difference is the "not observed in window" count. |
-| Pagination | Not applicable to the packet; whether a single `IN (…)` literal list of size `N` is accepted by the route is confirmed by P4 on an invented set of comparable shape (§4) — no number is set here. |
-| Retention | The packet is private (FIRST-DELIVERABLE G4: no names in any shared bundle); the repository holds the packet hash, `N`, the exclusion count and the predicate hash. |
-| Q-G3 checklist items that apply | Query text (no identifier or predicate outside the authorised roster/window); denominator semantics (roster hash in the receipt equals the packet hash; `N` unchanged across both weekly windows and the combined window). |
-| State | INCOMPLETE; owners unchanged (founder, CPO, CTO, CFO; CEO integrates). No invitation, data collection, inferred consent, start date, flag, registration or pricing change. |
-
-### 2.5 G5 — actual cohort observation (the two weekly readouts and the combined-window receipt)
+### 2.1 G1 — supported export access
 
 | Field | Content |
 |---|---|
-| Purpose | Two dated weekly readouts and one fixed-roster combined-window receipt (F10), one receipt per query under §2.0. Fields the route can carry: observed request/view outcomes, first useful summary, citation use, repeat use, failures. Fields it **cannot** carry: support burden (support mailbox), cost per successful analysis (provider telemetry, spend ledger), reviewed session-linked usefulness (session review) — joined to the readout by roster key and window from their own evidence routes, never by querying PostHog for them. |
-| Q-G5-1 per-member activity | `SELECT {{member_key}} AS member, count() AS events_in_window, min({{event_time}}) AS first_event_utc, max({{event_time}}) AS last_event_utc, count(DISTINCT toDate({{event_time}})) AS active_days FROM {{table}} WHERE {{event_time}} >= toDateTime('{{window_start}}') AND {{event_time}} < toDateTime('{{window_end}}') AND {{roster_predicate}} GROUP BY member ORDER BY member LIMIT {{L}} OFFSET {{k_times_L}}` |
-| Q-G5-2 first useful summary and citation use | `SELECT {{member_key}} AS member, countIf(event = '{{event_summary_useful}}') AS useful_summaries, minIf({{event_time}}, event = '{{event_summary_useful}}') AS first_useful_utc, countIf(event = '{{event_citation_used}}') AS citation_uses FROM {{table}} WHERE {{event_time}} >= toDateTime('{{window_start}}') AND {{event_time}} < toDateTime('{{window_end}}') AND {{roster_predicate}} AND event IN ('{{event_summary_useful}}', '{{event_citation_used}}') GROUP BY member ORDER BY member LIMIT {{L}} OFFSET {{k_times_L}}` — what counts as "useful" is the CPO's offered-scope definition bound to an event name at G3; not decided here. |
-| Q-G5-3 failures | `SELECT {{member_key}} AS member, count() AS failures, count(DISTINCT {{prop_filing_id}}) AS filings_affected FROM {{table}} WHERE {{event_time}} >= toDateTime('{{window_start}}') AND {{event_time}} < toDateTime('{{window_end}}') AND {{roster_predicate}} AND event IN ({{event_failure_list}}) GROUP BY member ORDER BY member LIMIT {{L}} OFFSET {{k_times_L}}` |
-| Q-G5-4 combined-window different-filing return | Window = the union of the two weekly windows as one half-open interval. `SELECT {{member_key}} AS member, toISOWeek({{event_time}}) AS iso_week, count(DISTINCT {{prop_filing_id}}) AS distinct_filings FROM {{table}} WHERE {{event_time}} >= toDateTime('{{window_start}}') AND {{event_time}} < toDateTime('{{window_end}}') AND {{roster_predicate}} AND event = '{{event_filing_viewed}}' GROUP BY member, iso_week ORDER BY member, iso_week LIMIT {{L}} OFFSET {{k_times_L}}` — "later-ISO-week different-filing return" is derived client-side per member from the retained rows (a filing identifier present in a later week and absent from the earlier), the derivation recorded in the receipt; the query asserts nothing. `toISOWeek` acceptance is proved by P4 (§4). |
-| Row-level fallback | Only where a readout field needs rows, the §2.2 page template with `{{projected_columns}}` limited to the fields the readout names; aggregates are preferred (proposal R1). |
-| Denominators | `N` from the G4 packet; each Q-G5 result lists observed members only; `N − n_members` are "not observed in window"; `source-unavailable` on any call makes the whole window unknown (not zero) for that readout. |
-| Count bracket | For each Q-G5 query, the §2.0 row bracket with the identical `FROM … WHERE` (including the `event` filter), run before page 0 and after page K, so that `n_before = n_after = Σ rows`: Q-G5-1/2/3 (group key = member alone) `count(DISTINCT {{member_key}})`; Q-G5-4 (group key = member, ISO week) `SELECT count() AS n FROM (<Q-G5-4 without LIMIT/OFFSET>)` or `count(DISTINCT {{member_key}}, toISOWeek({{event_time}}))`, plus `count(DISTINCT {{member_key}})` retained as the observed-member count. For every query a further `count()` records the underlying events. |
-| Pagination | As §2.0. A grouped result has at most `N` rows (Q-G5-4: `N` × ISO weeks in the window). Page 0 is terminal only if it returns **fewer than `L`** rows; with exactly `L` rows page 1 is fetched and its emptiness is the terminal page. No participant count is assumed. |
-| Settle rule | Late-arriving events can move `n_before`/`n_after` (proposal R9). The delay between `{{window_end}}` and the first call is a policy the COO with the CEO record when the first window is authorised; none is set here. |
-| Retention | As §2.0; the readout record also names, per field, the evidence route that supplied it (query, support, ledger, session review) so no PostHog-derived figure is presented as covering a field it cannot. |
-| Q-G3 checklist items that apply | All ten; denominator semantics and provenance are decisive. |
-| State | QUEUED; **0/2 actual weekly readouts**; nothing here changes that count. Two elapsed windows cannot be parallelised away. |
+| Purpose | Dated enablement evidence for the selected route and the **explicit access decision** G1's exit requires (FIRST-DELIVERABLE G1; receipt 01 "G1 — OPEN"). |
+| HogQL | None against collected data. The capability query is `literal-projection.hogql` (F3; invented rows; done, not repeated). |
+| Evidence retained | Ticket 76581 resolved; flag enabled (F1); run `01a10d89-1ee8-0000-3e2c-9000712c9502` Completed with `records_completed` 3 = count 3 (F2); request shapes (F3); the 2026-09-30 403 preserved as the before-state. |
+| Completeness / denominators | Not applicable (no roster, no customer data). |
+| Retention | Receipt 01 and run.json are public (no customer data, no credential); the part, once downloaded, is public under the retention exception. |
+| G3 checklist items that apply | Provenance (project identity; route named; no token, key or signed URL recorded). |
+| State | Enablement **evidenced**; **decision absent** — OPEN until the founder records §5.2 (recommended text: `FOUNDER-DECISIONS-FILE-ROUTE.md` D2). |
 
-## 3. Operator-identity rule — a decision for the founder with the CEO (not decided here)
+### 2.2 G2 — complete literal file receipt
 
-**Standing rule (proposal §3.4, carried):** an executive context never runs a customer query. Chief/CEO, COO, CTO, CFO,
-CPO sessions and every management worker — this one included — are excluded; record 07's chief-run probe (invented
-literals only) is the ceiling for an executive context. The readout operator is a separately named, non-executive,
-bounded context, excluded from source authorship, reconciliation, semantic financial review and blind judging, whose
-identity is registered in `control/source-context-exclusion-<n>.json` **before** it runs (label public, context id
-private — F6, F7); executive contexts receive only counts, hashes, status and verdict.
+| Field | Content |
+|---|---|
+| Purpose | One tiny invented-literal export with exact query, actual run id/status, reported completed row count, all parts and hashes; part inventory, count and completion must agree (FIRST-DELIVERABLE G2). |
+| HogQL | `literal-projection.hogql`, 2,923 bytes, SHA-256 `87c47aa6…` (done). |
+| Run evidence (done) | count-rows 3 → create → run id → Completed, `records_completed` 3, `files` = [`01a10d89-3a26-0000-56f3-e1f6c4004610`] (F2). Poll ran once (already Completed). No `n_after` count was taken in that run — recorded as a limitation of the capability receipt, not a failure; the lifecycle rule (step 5) applies from the first customer export. |
+| Pending (in flight, founder's authenticated context) | The part's bytes, SHA-256 and length; `rows_parsed` = 3; key set = the 21 aliases; the three literal UUIDs; `timestamp_s` 1790553600/1/2 with rendering recorded (integer vs string); `*_json` renderings recorded (`"1"`, `"\"authenticated\""`, `"true"`, `""` for absent); row order by timestamp, uuid; `VERIFICATION.json` beside the part (receipt 01 handoff steps 1–4). |
+| Completeness verdict for G2 | `complete` iff `count 3 = records_completed 3 = rows_parsed 3`, one part present and hashed, status Completed, no pricing signal. Any mismatch → `incomplete`, recorded; a 401/403/404/410 on download → `source-unavailable` for the part (a new export would need new authorisation; none is given here). |
+| Retention | Under the retention exception: the part (invented rows) and `VERIFICATION.json` may be public; hashes recorded in the repository. |
+| G3 checklist items that apply | Format; fields/types; part inventory; completion evidence; bounds; duplicate/conflict; provenance — all exercised on this part first. |
+| State | **Run completed; file verification pending the download.** Not credited as the complete G2 receipt until `VERIFICATION.json` exists and G3 has reviewed it. |
 
-**Fact the decision must start from (F4):** the PostHog connector is today attached only to the chief's interactive
-session — an executive context that must never run a customer query. **One further observation, stated carefully:** the
-tool roster presented to this worker on 2026-10-05 lists a PostHog `exec` tool among the deferred tools (schema not
-loaded; **never called**). A child context spawned inside the chief's session is therefore *presented* with the
-connector; that does not show a call would succeed, and it does **not** make such a worker an eligible operator: its
-transcript is readable from the parent session through session tooling, so "without the executive context seeing
-responses" is not established. It narrows proposal R2 (presentation evidenced; function and isolation not).
+### 2.3 G3 — independent review of the actual file-input contract, and the consumer gap
 
-| Option | Which non-executive context runs a customer query | How its identity is registered before any run | What it requires from the founder | What it does not settle |
-|---|---|---|---|---|
-| **O1 — Dedicated non-executive remote session** | A separate Claude Code Remote session for the readout lane only: no executive role, no access to source packets or judging material, the PostHog connector attached in **that** session's configuration; dispatched by the CEO under a hash-bound manifest | The CEO pre-registers the role label in the next closure; the session id is recorded privately on creation and resolved in the closure **before** the first customer query; the closure entry names the window and query set authorised | The founder attaches the connector to that session or its environment (an account action only the founder can take), confirms the authorization is the existing one (no new scope, no plan change), and states in the G1 decision that this session kind may read project 117863 for the beta readout | Whether the connector can be attached to a non-interactive or scheduled session; whether its transcript is isolated from the chief's session (a statement from configuration — proposal R2); the private store (K2) |
-| **O2 — Founder-operated run with a hashing script** | The founder, as account owner with existing authorization, runs the bound queries in PostHog's own SQL interface or a local founder-side session; a read-only script computes per-response SHA-256, length and row count and emits the sanitized receipt; no AI executive context sees rows | A named human operator role, recorded by label in the closure; no AI context id is created; the receipt names "founder-operated" as the consumer identity | The founder's time for every page and count call of every readout; a founder-side script in the style of the custody-check tool (record 07) that never prints row contents; the founder's statement that this is within existing authorization | Operator/reviewer independence holds only if the Q-G3 reviewer is a different, non-executive context; the echo check (F2) must be done by the script, not by eye; no scheduled runs |
-| **O3 — Child worker of the executive session** | A bounded subagent launched from the chief's session (the connector is presented to such a worker, per the observation above) | As O1 | The founder's explicit acceptance that a context whose transcript is readable from an executive session may run a customer query, with the chief bound not to read it — a rule, not an isolation | **Weakest isolation**: non-reading is a discipline, not a control; the standing rule would need an explicit, recorded exception. Listed for completeness, not favoured by the standing rule |
-| **O4 — No operator until G4 exists** | None | None | Nothing now; decided when the frozen roster exists, since no customer query has anything to bind to before then | Leaves G2's paging proof to the dry-run (§4), which needs no operator; delays the operator decision only, not the contract |
+| Field | Content |
+|---|---|
+| Purpose | A named independent read-only reviewer — **a separate context, not this one** — records `accept` / `reject` / `incomplete` on the actual downloaded part(s) and the run record, re-deriving every count and hash from bytes (runbook checklist item 3). |
+| HogQL | None. The reviewer runs no query and no download. |
+| Review checklist (F9) | **Format** — JSONLines, one object per line, no BOM/CR, trailing-newline behaviour recorded. **Fields/types** — key set = the 21 aliases; `uuid` string; `event` string; `timestamp_s` JSON integer (the consumer requires `int`); 18 `*_json` values are raw-JSON strings with `""` for absent (the consumer `json.loads` non-empty strings) — any string-typed `timestamp_s` or non-string `*_json` is a projection/rendering finding, **not** something an adapter may coerce. **Part inventory** — every id in `files[]` present, hashed, sizes recorded. **Completion evidence** — status Completed, `records_completed`, `n_before`, `n_after`, `rows_parsed` re-derived and equal. **Bounds** — `rows_parsed < 10000`; part bytes within the consumer's 16 MiB input bound or the gap recorded. **Duplicate/conflict** — duplicate lines, duplicate `uuid`s, conflicting rows recorded, not resolved. **Provenance** — project, run id, file ids, operator label registered before the run, UTC timestamps, no key/URL/token in any receipt. |
+| **The consumer contract gap, stated exactly** | The released consumer expects a **query-response JSON object**: `{"columns": [<21 names>], "results": [[<21 values>], …], "hasMore": false, …}` (F8). A file-download run yields **JSONLines parts**: one JSON object per row keyed by the 21 aliases, with no `columns`, `results`, `hasMore`, `warnings` or `offset`. Feeding parts to `readout_v1.py` today is impossible without a transformation; and `export_complete_observed` would be `false` by construction because it tests query-route fields. **Exactly one of two changes is needed, after G3 reviews the actual part (decision D5):** |
+| Option A — adapter (released consumer byte-unchanged) | A new, separately reviewed module (suggested home `tasks/readiness-2026-09-21/beta/file_export_to_v1.py`) with two pure functions and no network: (1) `v1_response_from_parts(parts: list[bytes]) -> dict` — rejects a BOM; splits each part on `\n`; ignores only a single trailing empty line; `json.loads` each line into an object; requires the object's key **set** to equal `COLUMNS` (records whether the key order matched); emits `{"columns": COLUMNS, "results": [[obj[c] for c in COLUMNS] for each object, parts in `files[]` order, lines in file order]}`; **sets no `hasMore`, `offset` or `warnings`**; performs **no type coercion** (a string `timestamp_s` stays a string and is diagnosed by the consumer as `malformed_event_identity`; the remedy is a reviewed projection change, not adapter coercion). (2) `file_export_completeness(run_record, parts: list[{id, sha256, bytes, rows}], n_before, n_after) -> dict` — emits `{status, error, records_completed, n_before, n_after, rows_parsed, files, file_export_complete_observed}` where `file_export_complete_observed` is true iff the §2.0 step-8 rule holds. The consumer's own `export_complete_observed` stays `false` and its `limits` list unchanged; the readout receipt carries `file_export_complete_observed` from the adapter record and states that the consumer field is query-route-only. `fixture_check.py` gains fixtures for the adapter only. |
+| Option B — consumer change (alternative) | `readout_v1.build_readout` accepts an optional `response["file_export"]` object `{status, error, records_completed, count_rows_before, count_rows_after, rows_parsed, files: [{id, sha256, bytes}]}` and, when present, computes `export_complete_observed` from the §2.0 step-8 rule instead of the `hasMore`/`offset`/`warnings` test; `readout_version` is bumped; `fixture_check.py --v1-only` gains the file-route cases. This changes the released consumer, its fixtures and their recorded hashes. |
+| Rule | Neither is implemented here or before G3's `accept` on the actual part; the released consumer stays unchanged meanwhile (F9; FIRST-DELIVERABLE G3: the CTO supplies a minimal implementation writer only if the reviewed real contract demonstrates the need). No `hasMore=false` is manufactured; no parts are concatenated into a "completed" response. |
+| Retention | Review record public (verdict, failing items, hashes compared); reviewer context id private, label registered before it reads any part. |
+| State | **OPEN** — needs the downloaded part, the named reviewer, then D5. |
 
-The COO draws no conclusion among O1–O4. The founder with the CEO records one option, dated, in the G1 access decision
-(§5.2); until then, no context — executive or otherwise — runs a customer query on this route.
+### 2.4 G4 — private cohort, offered-scope and support control packet (what this route needs from it)
 
-## 4. Dry-run plan — costs nothing, reads no customer data, **not executed by this worker**
+| Field | Content |
+|---|---|
+| Purpose | The route needs, by hash, before any customer export: the frozen eligible account-id roster, the explicit founder/staff/test exclusions, and the parameters file (F8). Everything else in G4 (consent, offered scope, legal, support owner/backup/address, calendar, entry/start authority) is unchanged and outside this contract. |
+| Binding | `{{roster_account_id_literals}}` := the eligible roster **after** exclusions, canonical positive decimal strings, sorted ascending, single-quoted, comma-separated — so excluded accounts' events are not exported at all; the consumer's parameters file carries both `eligible_account_ids` and `excluded_account_ids` so its denominator is eligible − excluded and every remaining account stays in the output. The bound predicate text is private; its SHA-256 and the packet hash are public. |
+| HogQL | None run by G4; it only produces the binding. |
+| Denominators | `N` = eligible − excluded, from the packet; constant across the two weekly windows and the combined window (same frozen roster). |
+| Completeness | Not applicable; the IN-list length bound is checked once on the capability part's successor run — if the route rejects a long literal list, that is a finding for a projection decision, not a reason to widen the predicate. |
+| Retention | Packet private (no names in any shared bundle); repository holds the packet hash, `N`, exclusion count, predicate hash. |
+| G3 checklist items that apply | Provenance (roster hash in the receipt equals the packet hash); bounds (`N` unchanged across the three runs). |
+| State | **INCOMPLETE**; owners unchanged (founder consent/recruitment and offered scope; CPO; CTO; CFO; CEO integrates). No invitation, data collection, inferred consent, start date, flag, registration or pricing change. |
 
-Purpose: exercise every query *shape* of §2 with invented literals so that syntax acceptance, result shape, pagination
-mechanics and the hashing procedure are proved before any customer query. Every probe is a `SELECT` whose only `FROM`
-is a subquery over literal arrays; **no collected table is named in any `FROM`**. No probe reads customer data, so under
-record 07's ceiling an executive context could run them; **whether and by whom is the CEO's decision (proposal R7)**;
-this worker runs none. Record 07 states the probe calls made on 2026-10-05 were covered by the existing plan; the
-dry-run calls (six probe shapes; P1, P2 and P5 take several calls each) are assumed to fall under the same coverage, to
-be confirmed by the K8 documentation read; no DeepSeek call; no spend. If the route rejects a construct, the rejection
-is a recorded finding and the shape is re-expressed with an accepted construct — the expected counts are properties of
-the literal sets, not of the route.
+### 2.5 G5 — actual cohort observation: two weekly readouts and the combined-window receipt
 
-| Probe | Shape exercised | Query text (invented literals) | Proves | Cannot prove |
-|---|---|---|---|---|
-| **P1** | Row pages, LIMIT/OFFSET, terminal rule | `SELECT k AS probe_key, concat('row_', toString(k)) AS probe_label FROM (SELECT arrayJoin([1,2,3,4,5,6,7,8,9,10,11,12]) AS k) ORDER BY probe_key LIMIT 5 OFFSET 0` then `… OFFSET 5`, `… OFFSET 10` — expected 5, 5, 2 rows; the third page is terminal (`2 < 5`) | OFFSET arithmetic, contiguity, stable order on a literal key, the terminal-page rule, per-page hashing | Completeness on a changing real table; key uniqueness on `{{table}}`; behaviour at `N` rows |
-| **P2** | Count bracket | `SELECT count() AS n FROM (SELECT arrayJoin([1,2,3,4,5,6,7,8,9,10,11,12]) AS k)` — expected `12`, run before P1 page 0 and after P1 page 2 | `n_before = n_after = Σ rows` mechanics; the `results` text rendering of a count | That counts are stable on real data between bracket calls |
-| **P3** | Half-open UTC window | `SELECT t FROM (SELECT arrayJoin([toDateTime('2026-01-01 00:00:00'), toDateTime('2026-01-01 12:00:00'), toDateTime('2026-01-02 00:00:00'), toDateTime('2026-01-02 00:00:01')]) AS t) WHERE t >= toDateTime('2026-01-01 00:00:00') AND t < toDateTime('2026-01-02 00:00:00') ORDER BY t` — expected 2 rows: the start boundary included, the end boundary excluded | Boundary semantics of `>=`/`<` with `toDateTime` literals; UTC rendering (F2 c) | Timezone of real `{{event_time}}` values; late-arrival effects |
-| **P4** | Grouped aggregate, `IN (…)` literal set, `toISOWeek`, `count(DISTINCT)` bracket | `SELECT m AS member, count() AS n_events, count(DISTINCT f) AS distinct_filings, toISOWeek(t) AS iso_week FROM (SELECT arrayJoin([('m1','f1',toDateTime('2026-01-05 10:00:00')),('m1','f2',toDateTime('2026-01-13 10:00:00')),('m2','f1',toDateTime('2026-01-06 10:00:00')),('m3','f3',toDateTime('2026-01-14 10:00:00'))]) AS r, r.1 AS m, r.2 AS f, r.3 AS t) WHERE m IN ('m1','m2','m3','m4') GROUP BY member, iso_week ORDER BY member, iso_week LIMIT 100 OFFSET 0` — expected 4 result rows (member × ISO week); **row bracket** `SELECT count() AS n FROM (<the same grouped query without LIMIT/OFFSET>)` — expected `4` (= Σ rows); **observed-member count** `SELECT count(DISTINCT m) …` with the identical subquery and `WHERE` — expected `3`; the literal roster set has 4 members, so "not observed" = 1 (`m4`) | GROUP BY, tuple literals, `IN` over a literal set with an unmatched member, `toISOWeek`, the group-tuple row bracket, the observed-member count and the client-side "not observed" derivation | That `{{member_key}}`/`{{prop_filing_id}}` exist with these types; the real roster literal list's acceptance at size `N` |
-| **P5** | Caps (F3) | **P5-a**: a `SELECT` over a literal set larger than 100 rows with **no** `LIMIT` — observe whether 100 return (the stated default). **P5-b**: `LIMIT 500` over a set larger than 500 — observe whether 500 return. **P5-c**: `LIMIT 501` — observe acceptance, truncation or error. Sets of that size need a range-generating function (`range(…)` with `arrayJoin`); if rejected, the cap confirmation falls to first use and the receipt keeps "connector-reported, unconfirmed" | The default and maximum as **confirmed on <date>**, replacing F3's "connector-reported" in every later receipt; the cap-hit rule of §2.0 | Plan-level call or query limits (proposal R1, R5); behaviour under load |
-| **P6** | Format fidelity of `results` (proposal R6) | `SELECT 'a\|b' AS has_pipe, 'line1\nline2' AS has_newline, NULL AS is_null, 1.5 AS a_float, toDateTime('2026-01-01 00:00:00') AS a_time, '' AS empty_text` (one row) | How a pipe, a newline, a null, a float, a datetime and an empty string are rendered in the pipe-delimited text — the parse rules Q-G3 and any later consumer change depend on | That real property values contain only these cases |
+| Field | Content |
+|---|---|
+| Purpose | Two dated actual weekly readouts and one fixed-roster combined-window receipt (F10), each from **one** export run under §2.0 and consumed under the D5 contract. A synthetic export is not a readout; **0/2 today**. |
+| Runs | **R-W1**: template with `{{window_start}}`/`{{window_end}}` = week-1 window. **R-W2**: week-2 window. **R-C**: combined window `[W1_start, W2_end)` — a separate export over the union window with the same roster, from which the consumer derives `observed_later_week_new_filing_return` natively (F8); never a concatenation of R-W1 and R-W2 parts (F10). Three runs, three receipts, three private parts sets. |
+| Cadence rule | Windows are UTC half-open with whole-second boundaries (F8); recommended alignment to ISO weeks (Monday 00:00:00Z) because the consumer's return logic is ISO-week based — a recommendation, not a date. Each run starts only after its `{{window_end}}` plus a settle delay the COO with the CEO record when the first window is authorised (no number here). Start date, windows and roster observation time come from the separately authorised G4/R4 gates; none is set here. |
+| What the route carries | Observed view/request outcomes, pairing, outcomes, durations, first observed view, later-week different-filing return — exactly the released consumer's outputs. **What it cannot carry** (joined by account and window from their own evidence routes, never queried here): support responses (support route), cost per successful analysis (provider telemetry and the spend ledger), reviewed participant usefulness (session review). The readout names the evidence route per field. |
+| Completeness | §2.0 step 8 per run; a `source-unavailable` or `incomplete` run leaves that week unknown, not zero; no partial week is reported as a week. |
+| Denominators | `N` from G4 in every run; `unobserved_view_accounts_unknown` reported as unknown. |
+| Retention | §2.0; parts private; hashes, counts, run ids and verdicts public. |
+| G3 checklist items that apply | All seven, per run. |
+| State | **QUEUED, 0/2** — nothing here changes the count; two elapsed windows cannot be parallelised away; entry gates: R2 quality decision, R3 operating readiness (C1 HOLD stands), G1–G4, invitation/consent/start authority. |
 
-Hashing procedure exercised by every probe: retain the response bytes as returned; compute SHA-256 and length; count
-rows by parsing `results` under the P6-confirmed rules; compare the retained query text to the echo `query.query`;
-write the sanitized receipt (proposal §3.1 template), probe texts public. **Execution: none by this worker; none
-authorised by this file.**
+## 3. Operator identity on this route — standing rule and the two legs
 
-## 5. What the contract settles and does not settle for G1–G5
+Standing rule (carried): **an executive context never runs a customer export or reads a part.** Chief/CEO, COO, CTO,
+CFO, CPO sessions and every management worker — this one included — receive only counts, hashes, status and verdicts.
+The operator is a separately named, non-executive context (or a named human role), registered by label in
+`control/source-context-exclusion-<n>.json` **before** the first customer-data run (label public, identity private).
+
+This route has **two legs with different exposure**: the *connector leg* (count-rows, create, retrieve) returns no event
+rows but **sends the roster-bearing query text** (account ids are participant data); the *download leg* (one GET per part
+with a personal API key) returns rows and requires an authenticated PostHog HTTP context that today only the founder
+holds (F5, F6). New evidence since revision 2: a bounded child worker of the chief's session **did** call the connector's
+export tools (F12), so function is established for the connector leg; transcript isolation from the executive session
+is not. **The decision, with a recommended answer, is D1 in `FOUNDER-DECISIONS-FILE-ROUTE.md`;** it is not made here.
+Whichever option is recorded, the G3 reviewer is a different, non-executive context from the operator.
+
+## 4. Dry run — what is already done, what remains, nothing executed here
+
+On this route the three-row literal export **is** the dry run of the export mechanics: syntax acceptance, count-rows,
+create, poll to Completed, `records_completed`, part inventory (F2). Its download and `VERIFICATION.json` are in flight
+in the founder's authenticated context (F6). What no literal run has exercised: the window literals and the
+`events`-table predicate (only exercisable on the first authorised customer run), multi-part output (`max_size_mb` null
+produced one part; behaviour at larger sizes is unknown), the `n_after` bracket, and the consumer path from JSONLines
+to `readout_v1.py`. The one remaining **no-cost, no-connector** dry run is offline: once D5 is decided and authored, run
+the adapter (or changed consumer) on the downloaded three-row part with the September 30 synthetic parameters and
+compare with the retained September 30 consumer output (one view, one paired complete request, 1,000 ms) — same rows,
+different input contract. Whether that is wanted before the first real readout is **D4**. **Execution: none by this
+worker; none authorised by this file.**
+
+## 5. What this revision settles and does not settle — exactly as before: nothing settles until the founder's access decision and the G3 review of the actual part
 
 ### 5.1 Per group
 
-| Group | State (update 01 §5; record 08 row 3) | Settled by this draft (once accepted) | Not settled — still required |
+| Group | State | Settled by this draft once accepted | Still required |
 |---|---|---|---|
-| G1 | BLOCKED | The shape of the access decision (§5.2); the route's dated enablement evidence (F1) | **The explicit access decision itself** (founder with the CEO); the terms question (whether PostHog's terms support the MCP as a reporting route — a documentation read); the operator option (§3); the private store (K2). **Ticket 76581 stays open and is not resent** (F8). |
-| G2 | BLOCKED behind G1 | The executable receipt mechanism (§2.0, §2.2) and a dry-run that proves it on literals (§4) | The CEO's R7 decision to run the dry-run; the caps confirmation (P5); the receipt filled for the done probe and each dry-run probe; no customer query before the entry gates and the §3 operator |
-| G3 | BLOCKED behind G2 | The review target and the ten-check list (§2.3) | The named independent reviewer; real receipts; the schema-confirmation source (Q2 for the founder); the format finding before any consumer change |
-| G4 | INCOMPLETE | The single dependency the route adds (frozen roster by hash before any predicate) and the predicate shape (§2.4) | Everything else in G4, owners unchanged |
-| G5 | QUEUED, 0/2 | The query set per readout field, which fields the route can and cannot carry, the combined-window query and its client-side derivation (§2.5) | The settle rule (R9); the event vocabulary binding (G3); the entry gates (R2 quality decision, R3 operating readiness including the C1 HOLD, G1–G4, invitation/consent/start authority); two elapsed windows |
+| G1 | **OPEN** (enablement evidenced; decision absent) | The route, its lifecycle and the contents of the access decision (§5.2) | **The founder's explicit, dated access decision** (recommended text: D2); operator identity (D1); private store (D3) |
+| G2 | **Run completed; file verification pending** | The receipt fields and the completeness rule for the capability part (§2.2) | The downloaded part, its hashes and `VERIFICATION.json`; G3's acceptance of it |
+| G3 | **OPEN** | The review checklist and the exact statement of the consumer gap with the two admissible changes (§2.3) | The named independent reviewer; the actual part; the D5 decision; then (only if accepted) a CTO-named minimal writer |
+| G4 | **INCOMPLETE** | The binding rule for roster, exclusions and parameters (§2.4) | Everything else in G4; owners unchanged |
+| G5 | **QUEUED, 0/2** | The three-run cadence and what the route can and cannot carry (§2.5) | Entry gates; settle rule; two elapsed windows; actual evidence |
 
 ### 5.2 What G1's explicit access decision must say for this route
 
-Recorded by the founder with the CEO, dated, with provenance, before any customer query: (1) the route — official
-PostHog MCP `execute-sql` (HogQL) on project **117863**, with record 07's probe as enablement evidence; (2) the
-authorizing person and the authorization relied on — the founder's existing account authorization, stating that **no
-new scope, plan purchase or plan change** is involved (FIRST-DELIVERABLE G1; MASTERPLAN-REVIEW §3B); (3) the data
-scope — the roster-limited, window-limited queries of §2.5 for the beta readout only, not general analytics; (4) the
-operator option from §3 and the rule that executive contexts never run a customer query; (5) whether a schema read
-(§2.3) is within the same authorization (Q2); (6) the private store for responses and its custody rule (K2), noting
-F9; (7) the caps as confirmed or still connector-reported (F3); (8) that the file route is **not** closed — ticket 76581
-remains open, not resent, not polled, and if batch export is later enabled Q-G3 compares the two routes on the same
-invented-literal probe before either carries a customer query (proposal §6 option C); (9) that the first customer query
-runs on one route only; (10) that acceptance of this contract is recorded separately from the access decision, so
-neither is inferred from the other (MASTERPLAN-REVIEW §3B).
+Recorded by the founder with the CEO, dated, with provenance, before any customer export: (1) the route — PostHog
+HogQL **file-download batch export** (JSONLines) on project 117863 **at the API host production actually uses**
+(founder-stated EU cloud, `https://eu.posthog.com`, confirmed per K4), enablement per ticket 76581 and the completed
+capability run (F1, F2); (2) the authorisation relied on — the founder's existing account authorisation and the
+`batch_export:read`/`batch_export:write` scopes already connected on 2026-09-30 (runbook), with **no new scope, plan
+purchase or plan change and no PostHog charge** authorised; (3) the data scope — the released v1 projection over the
+three named events, the frozen roster and an elapsed UTC window only, for the beta readout only (F7); (4) the operator
+option (D1) and the standing rule of §3; (5) the private store and custody rule (D3); (6) that the capability part is
+verified and G3-reviewed before the first customer export; (7) that the consumer input contract is fixed by D5 after
+G3, with the released consumer unchanged meanwhile; (8) that the first customer export runs on this route only; (9)
+that acceptance of this contract is recorded separately from the access decision, so neither is inferred from the other
+(MASTERPLAN-REVIEW §3B). The recommended decision text is `FOUNDER-DECISIONS-FILE-ROUTE.md` D2.
 
 ## 6. Risks with owners
 
 | # | Risk | Why it matters | Owner | Permitted next step (none dispatched here) |
 |---|---|---|---|---|
-| K1 | Operator isolation (proposal R2, narrowed): the connector is presented to child workers of the executive session; function and transcript isolation are not established | Without a settled non-executive operator, no customer query may run on this route | **Founder with the CEO** (§3); CEO (one dated statement from configuration of which session kinds can hold the connector) | Record the §3 option in the G1 decision |
-| K2 | Private store for responses (proposal R8) — F9: the last copy of a receipt to a private store was classifier-denied, not pursued | The first customer query would have nowhere compliant to land | **CEO** designates; founder confirms custody | Designate before any operator dispatch; test the custody path with a dry-run receipt (no customer data) |
-| K3 | Caps unconfirmed (F3) | A silent 100-row cap is caught by the cap-hit rule only if `L ≠ 100` | **CEO** (authorise P5); operator records | P5 in the dry-run |
-| K4 | Function acceptance on the route (`arrayJoin`, tuple literals, `toISOWeek`, `range`, `countIf`/`minIf`) unverified | A query could fail on syntax, not data; a failure is a finding, not a workaround trigger | **COO** (contract); operator records the rejection | Re-express with an accepted construct; expected counts unchanged |
-| K5 | Format fidelity of `results` (proposal R6) | A mis-parsed pipe or newline corrupts counts and denominators | **Q-G3 reviewer**; CTO only if the review shows need | P6 before any parse rule is relied on |
-| K6 | Event vocabulary and key uniqueness are bound at G3, not known here | A wrong `{{order_key}}` makes LIMIT/OFFSET slices meaningless; a wrong event name empties a readout field silently | **COO** (binding step); founder (Q2) | Bind from documentation or the schema command only after Q2 is answered |
-| K7 | Changing data under paging (proposal R9) | `n_before ≠ n_after` fails honestly and forces a re-run | **COO with the CEO** | Record the settle rule when the first window is authorised; no number here |
-| K8 | Plan limits at readout scale (proposal R1, R5) | A route needing a purchase to run is a different decision; a purchase is insufficient for G1 and not proposed | **CEO/founder** | Documentation read of plan query/call limits, with source and date |
-| K9 | Fields the route cannot carry (support burden, cost per analysis, session-linked usefulness) presented as covered | Over-claiming the readout | **COO** (evidence route named per field) | §2.5 retention rule |
-| K10 | Token exposure (`project-get` tokens, F5) | Must never reach a receipt or the repository | Operator; Q-G3 reviewer (provenance) | Redaction on every run |
-| K11 | Two contracts under option C | Reviewer burden; a duplicate customer query across routes | **COO**; Q-G3 reviewer | One completeness definition (§2.0) for both; first customer query on one route only |
+| K1 | Two-leg operator exposure (§3): roster literals in the connector leg; rows and a personal API key in the download leg | A wrong operator choice puts participant data or a credential in an executive or shared context | **Founder with the CEO** (D1) | Record D1 in the G1 decision; register the label before any customer run |
+| K2 | Private store for parts, bound queries, parameters, outputs (F11) | The first customer part would have nowhere compliant to land | **Founder** (D3) with the CEO | Decide D3; exercise the custody path on the capability part first |
+| K3 | File availability window unknown (F5) | A part may expire before download; a second create needs new authorisation | Operator; **CEO** (authorisation rule) | Download promptly after `Completed`; one create per window per receipt |
+| K4 | API host: the founder states EU cloud (`https://eu.posthog.com` / `https://eu.i.posthog.com`), while the repository defaults recorded by receipt 01 point at the US ingestion origin unless overridden by env (F5); project identity not re-confirmed in-session | A host other than the one production actually uses yields a 404 on the download leg or an export from the wrong place; an ingestion-origin/region mismatch would mean events are not where the export reads — a possibility to confirm, not a finding asserted here | **Founder** (open confirmation, not a decision: the host production actually uses, from the production env and the app URL); operator records | Confirm the host once and name it in the G1 decision text (§5.2); record project identity per run (tokens redacted); no connector or HTTP check by any management context |
+| K5 | Rendering unverified (`timestamp_s` type; `*_json` strings; key order; row order) | The consumer rejects or mis-diagnoses rows; an adapter must not coerce | **G3 reviewer**; projection owner if a change is needed | Review the actual part; any fix is a reviewed projection change |
+| K6 | Consumer input-contract gap (§2.3) | No readout can be produced from parts until D5 is decided and authored | **Founder** (D5) with the CEO; CTO names the minimal writer only after G3 `accept` | Decide D5 after G3; no implementation before |
+| K7 | LIMIT 10,000 cap or multi-part output | `n_before = 10000` means a capped, incomplete window; multi-part behaviour untested | **COO** (contract) | Narrow the window under a new receipt; download and hash every part |
+| K8 | Pricing signal (`FailedBilling`, payment/plan text) | No PostHog charge is authorised | Operator stops and reports verbatim; **CEO/founder** decide | Stop rule in §2.0 step 4 |
+| K9 | Late-arriving events between `n_before` and `n_after` | Honest `incomplete`; may force a re-run after the settle delay | **COO with the CEO** (settle rule) | Record the settle rule when the first window is authorised; no number here |
+| K10 | Fields the route cannot carry presented as covered | Over-claiming the readout | **COO** | §2.5: evidence route named per field |
+| K11 | Key, signed URL or roster literal reaching a receipt or the repository | Credential or participant exposure in a public repository | Operator; G3 reviewer (provenance) | Redaction rule in §2.0; hashes only in the repository |
+
+### 6.1 Fallback — the MCP `execute-sql` query route (one paragraph, not maintained further)
+
+If the file-download route becomes unavailable — the flag withdrawn, a `FailedBilling`/pricing signal, parts not
+retrievable, or runs not completing within a readout's settle window — the query route written in revisions 1–2 of this
+file (SHA-256 `448f4f12bee69a4c543cb14b22a785a9a5754af0d87acd6de834135ff180253d`, 49,767 bytes) is the fallback. Before
+it could be used the founder would have to record a separate G1 access decision for that route, settle its operator
+identity and private store, confirm the connector-reported 100-row default and 500-row maximum, accept client-side-only
+completeness (count bracket plus LIMIT/OFFSET pages, no server-side run record) and have Q-G3 review its pipe-delimited
+format against the consumer. Its three-option decision table is withdrawn: the route decision is made.
 
 ## 7. Return contract and closing record
 
 - **Counts unchanged:** 3/30 dossiers; 0/2 actual weekly readouts; 5 reporting groups + 1 capacity decision (C1);
-  candidate HOLD; E7 90+30 not admitted (update 01 §6); counters overlap and are not summed. **G1–G3 remain BLOCKED;
-  G4 INCOMPLETE; G5 QUEUED. Nothing is adopted, authorised or run by this file.**
-- **Status:** `pass` for the administrative deliverable — the manifest's six `required_content` items map to §1, §2,
-  §3, §4, §5 and §6–§7. Every claim is cited to a record, a proposal section or a manifest field; no participant count,
-  threshold, budget, cost or policy number is supplied.
-- **Files written:** exactly one — `tasks/code-red-20261004/runtime/handbacks/coo/QUERY-ROUTE-READOUT-CONTRACT-DRAFT-01.md`
-  (this file; exclusive create). Its SHA-256 and byte length cannot be contained in itself and are reported in the
-  worker's return message to the chief.
-- **Input hashes:** 8/8 matched on `sha256sum` and byte length against the manifest before any input was relied on
-  (§1.1); the manifest's own hash and length matched the dispatch message.
-- **Actual new calls / spend / changes by this worker:** PostHog or other connector calls **0** (the connector's tool
-  name was seen in this worker's tool roster and never loaded or called); network calls **0**; customer or participant
-  data read **0**; production reads **0**; provider calls **0**; DeepSeek spend **USD 0.000000**; reservations **0**;
-  ledger writes **0**; git mutations **0** (passive reads only: `rev-parse`, `branch --show-current`, `status
-  --porcelain`, `merge-base --is-ancestor`, `log` of the one-commit range); agents spawned **0**; invitations, flags,
-  pricing, registration, load, probes, measurements **0**. Observed for this worker's own actions; session/platform
-  overhead is unmeasured and not claimed as zero.
-- **Deviations:** (1) the manifest's `repository_read_scope` commit is `e1b00514`; this worker ran at `1b5e0a47`, whose
-  only additional commit is the manifest's own — all input hashes matched. (2) The file exceeded the length guidance
-  given in the dispatch message text (the manifest states no length) on first write and was trimmed once before
-  handback (same single file; no content item removed). No stop condition was met.
-- **Open questions for the founder (with the CEO):** Q1 — which §3 operator option (O1–O4), recorded in the G1 access
-  decision (§5.2). Q2 — whether a schema read of project 117863 (no rows) is within existing authorization, so that
-  `{{order_key}}`, `{{member_key}}` and the event vocabulary can be bound at G3. Q3 — the private store for readout
-  responses and its custody rule (K2), given F9. Q4 — whether the §4 dry-run (invented literals, no customer data, no
-  spend) is authorised and by which context (proposal R7; a CEO decision under option C).
-- **Next named accountable owner and action:** **founder with the CEO** — accept, amend or reject this draft and record
-  the G1 access decision with the §5.2 contents; **CEO** — decide Q4 and, if authorised, name and register the dry-run
-  context; **COO** — on acceptance, fill the §2.2 receipt template for record 07's done probe and each dry-run probe,
-  then name the Q-G3 review scope. No operator dispatch, customer query or consumer change before the decision and the
-  entry gates.
-- **Served model:** this worker cannot observe its own served model; the requested model is recorded in the manifest
-  as inherited `claude-fable-5-1`, and the chief resolves the label.
+  candidate HOLD; E7 90+30 not admitted; counters overlap and are not summed. **G1 OPEN (decision absent); G2 run
+  completed, file verification pending; G3 OPEN; G4 INCOMPLETE; G5 QUEUED. Nothing is adopted, authorised or run by
+  this file; cohort reporting, beta admission and capacity are not complete and not admitted.**
+- **Status:** `pass` for the administrative deliverable — the manifest's procedure items map to §2 (contract, lifecycle,
+  retention, completeness, G4, G5 cadence, consumer gap), §6.1 (query route collapsed; decision table removed),
+  `FOUNDER-DECISIONS-FILE-ROUTE.md` (decisions with recommendations), §5 (settle/not-settle), this §7.
+- **Files written:** exactly two, both staged outside the repository under `…/scratchpad/coo-file-route-rev3/staging/`:
+  this file and `FOUNDER-DECISIONS-FILE-ROUTE.md`. Hashes and byte counts are reported in the return message; the chief
+  places the files and records the hash chain. **No write inside the repository working tree.**
+- **Files read:** the nine manifest inputs (§1.1), the permitted sibling README, and the manifest itself; nothing else.
+- **Actual new calls / spend / changes by this worker:** connector calls **0** (no PostHog MCP, no HTTP); network **0**;
+  customer or participant data **0**; production reads **0**; provider calls **0**; DeepSeek spend **USD 0.000000**;
+  reservations **0**; ledger writes **0**; git mutations **0** (passive reads: `rev-parse`, `log`, `status`,
+  directory listings by name); agents spawned **0**; invitations, flags, pricing, registration, load, exports,
+  downloads **0**. Observed for this worker's own actions; session/platform overhead is unmeasured.
+- **Deviations:** (1) the dispatch message stated the manifest at 7,112 bytes; the file is 7,123 bytes and its SHA-256
+  matches exactly — hash controlling, recorded. (2) The export-capability run was produced by a child worker of the
+  chief's session (F12); this file records that as evidence about connector function, not as a precedent for a
+  customer-data run. (3) The chief's addendum (same manifest; no new inputs) relaying the founder's statement that the
+  organisation uses PostHog EU cloud was applied as a founder-stated assumption plus an open founder confirmation (F5,
+  K4, §5.2); no repository file beyond the inputs was opened to check the defaults, and no connector or HTTP check was
+  made. No stop condition was met.
+- **Served model:** not observable to this worker; the manifest records inherited `claude-fable-5-1`.
 - **No further writes; no background work is claimed after this handback.**
 
-### 7.1 Revision 2 corrections
+### 7.1 Revision history and corrections
 
-Revision 2 supersedes revision 1 (SHA-256 `401b82ed08f2b23147cb1582075c149bf79f4c056368990c030e35593ecff3a8`,
-45,384 bytes, committed at `39c74850`). It applies the chief's read-only review of that head (one should-fix, five
-nits) and nothing else; it was written by the same worker role to a staging path outside the repository tree, under the
-same rules (read-only repository, no connector, no customer data, no spend, no invented numbers), and is moved into
-place by the chief, who records the hash chain.
-
-| # | Severity | Change (one line each) |
-|---|---|---|
-| 1 | should-fix | §2.0 Count bracket and §2.5 Count bracket: the row bracket for a grouped query is the count of distinct group-key tuples (`SELECT count() AS n FROM (<grouped query without LIMIT/OFFSET>)`, or `count(DISTINCT {{member_key}}, toISOWeek({{event_time}}))` for Q-G5-4); `count(DISTINCT {{member_key}})` is the row bracket only where the group key is the member alone; `n_before = n_after = Σ rows` now holds for every shape including Q-G5-4; §2.4 Count bracket relabelled as the observed-member count; §4 P4 bracket corrected to expected `4` with the observed-member count `3` kept separately. |
-| 2 | nit | §2.0 Retention rule: one retention-exception sentence — invented-literal probe responses (no collected table in any `FROM`) are the only response bytes that may enter the repository; every response to a query naming `{{table}}` is private, hash only; §2.2 Retention now points to it. |
-| 3 | nit | §2.0 Event vocabulary: `event` is written literally as the fixed event-name column of `{{table}}`, confirmed at Q-G3 with the other columns; §2.3 schema confirmation lists it. |
-| 4 | nit | §4 plan coverage: record 07 states the probe calls made on 2026-10-05 were covered by the existing plan; the dry-run calls are assumed to fall under the same coverage, to be confirmed by the K8 documentation read; no DeepSeek call; no spend. |
-| 5 | nit | §7 Deviations (2): the length guidance is attributed to the dispatch message text, not the manifest; the number is dropped. |
-| 6 | nit | §2.5 Pagination: page 0 is terminal only with fewer than `L` rows; with exactly `L` rows page 1 is fetched and its emptiness is the terminal page. |
+| Revision | SHA-256 | Bytes | Where | What changed |
+|---|---|---|---|---|
+| 1 | `401b82ed08f2b23147cb1582075c149bf79f4c056368990c030e35593ecff3a8` | 45,384 | committed at `39c74850` | Query-route contract under option C (eight inputs; G1–G5; operator options O1–O4; dry-run P1–P6) |
+| 2 | `448f4f12bee69a4c543cb14b22a785a9a5754af0d87acd6de834135ff180253d` | 49,767 | repository head `ad915c44` (committed with record 08's review application) | Chief's read-only review of revision 1 applied: one should-fix (grouped-query row bracket = distinct group-key tuples; `n_before = n_after = Σ rows` for every shape) and five nits (retention exception; `event` column; plan-coverage wording; length-guidance source; terminal page `< L`) |
+| 3 | reported in the return message | — | staged at `…/scratchpad/coo-file-route-rev3/staging/`, placed by the chief | **Rewritten for the founder-selected file-download batch-export route** (2026-10-05 ~20:17Z): one query shape (released v1 projection with roster and window placeholders), export lifecycle (count → create → poll → count → download → verify), file-route completeness rule, retention with the parts exception, G4 binding, G5 three-run cadence, the consumer gap stated exactly with the two admissible changes (not implemented), operator two-leg analysis pointing to D1, the dry run restated as done/remaining, the query route collapsed to §6.1 and the three-option table removed, risks re-owned, founder decisions moved to `FOUNDER-DECISIONS-FILE-ROUTE.md` with recommended answers; the founder's EU-cloud host statement carried as an explicit assumption with an open confirmation against the repository's US defaults (addendum, same manifest) |

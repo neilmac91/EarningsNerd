@@ -312,15 +312,180 @@ def check_v1_readout() -> dict:
             "poisoned_request_reasons": result["poisoned_request_reasons"],
             "actual_cli_roundtrip": "passed", "hogql_live_execution": "not performed"}
 
+def check_file_export_adapter() -> dict:
+    """Exercise the file-export adapter offline; no part is downloaded and no HogQL executes."""
+    import hashlib
+    import sys
+    import tempfile
+    from datetime import datetime, timezone
+
+    from file_export_to_v1 import file_export_completeness, parse_record, v1_response_from_parts
+    from readout_v1 import COLUMNS, FIELDS, build_readout
+
+    parameters = {"window_start": "2026-09-28T00:00:00Z", "window_end": "2026-10-12T00:00:00Z",
+                  "eligible_account_ids": ["1001", "1002"], "excluded_account_ids": []}
+    begin = int(datetime(2026, 9, 28, tzinfo=timezone.utc).timestamp())
+    run_id = "00000000-0000-4000-8000-0000000000aa"
+    file_ids = ["00000000-0000-4000-8000-0000000000a1", "00000000-0000-4000-8000-0000000000a2"]
+
+    def uuid(n: int) -> str:
+        return f"00000000-0000-4000-8000-{n:012d}"
+
+    def row(n: int, event: str, offset: int, **props: object) -> list:
+        values = dict.fromkeys(FIELDS)
+        values.update(evidence_version=1, auth_state_at_event="authenticated", account_id_at_event="1001",
+                      analytics_consent_at_event=True, filing_id=11, entry_point="synthetic_validation")
+        values.update(props)
+        # JSONExtractRaw renders an absent property as "" (as the actual capability part does).
+        return [uuid(n), event, begin + offset, *["" if values[key] is None else json.dumps(values[key]) for key in FIELDS]]
+
+    def line(values: list, order: list[str]) -> bytes:
+        obj = dict(zip(COLUMNS, values))
+        return json.dumps({key: obj[key] for key in order}, separators=(",", ":")).encode()
+
+    def rotated(k: int) -> list[str]:
+        return COLUMNS[k:] + COLUMNS[:k]
+
+    request = {"request_id": uuid(1), "identity_evidence": "server_authenticated", "consent_evidence": "client_declaration"}
+    view = row(10, "summary_viewed", 0, summary_id=22)
+    started = row(11, "summary_request_started", 1, **request)
+    finished = row(12, "summary_request_finished", 2, summary_id=22, outcome="complete", delivery_path="generation",
+                   summary_service_invoked=True, duration_ms=1000, reason="synthetic_fixture", **request)
+    other_view = row(13, "summary_viewed", 7 * 86400, account_id_at_event="1002", filing_id=12, summary_id=23)
+    # Part one: finish before start (file order is not event order); shuffled keys; trailing LF.
+    part_one = line(view, rotated(5)) + b"\n" + line(finished, rotated(13)) + b"\n"
+    # Part two: one row in projection key order with a CR before its LF; one reversed; no trailing LF.
+    part_two = line(started, COLUMNS) + b"\r\n" + line(other_view, list(reversed(COLUMNS)))
+    parts = [part_one, part_two]
+    expected = {"columns": COLUMNS, "results": [view, finished, started, other_view]}
+    response = v1_response_from_parts(parts)
+    assert response == expected, response
+    assert set(response) == {"columns", "results"}  # never hasMore, offset, warnings or error
+    record = parse_record(parts)
+    assert [fact["rows"] for fact in record["parts"]] == [2, 2]
+    assert [fact["trailing_newline"] for fact in record["parts"]] == [True, False]
+    assert [fact["cr_bytes"] for fact in record["parts"]] == [0, 1]  # recorded, not stripped
+    assert [fact["key_order_matched_rows"] for fact in record["parts"]] == [0, 1]
+    assert record["totals"] == {"parts": 2, "bytes": len(part_one) + len(part_two), "cr_bytes": 1,
+                                "lines": 4, "rows": 4, "key_order_matched_rows": 1}, record["totals"]
+
+    def rejects(bad_parts: list[bytes], *needles: str) -> str:
+        try:
+            v1_response_from_parts(bad_parts)
+        except ValueError as exc:
+            assert all(needle in str(exc) for needle in needles), str(exc)
+            return str(exc)
+        raise AssertionError("adapter accepted a part it must reject")
+
+    rejections = {
+        "bom": rejects([b"\xef\xbb\xbf" + part_one, part_two], "part 0", "byte-order mark"),
+        "key_set_mismatch": rejects([part_one, part_two.replace(b'"uuid":', b'"id":', 1)],
+                                    "part 1 line 1", "key set mismatch", "'uuid'", "'id'"),
+        "second_trailing_empty_line": rejects([part_one + b"\n", part_two], "part 0 line 3"),
+        "non_object_line": rejects([part_one, b"[1]\n"], "part 1 line 1", "not a JSON object"),
+    }
+    # A string-typed timestamp_s passes through uncoerced; the consumer, not the adapter, diagnoses it.
+    string_timestamp = part_one.replace(b'"timestamp_s":%d' % begin, b'"timestamp_s":"%d"' % begin, 1)
+    assert string_timestamp != part_one
+    adapted = v1_response_from_parts([string_timestamp, part_two])
+    assert adapted["results"][0][COLUMNS.index("timestamp_s")] == str(begin)
+    consumer_reasons = [entry["reason"] for entry in build_readout(adapted, parameters)["diagnostics"]
+                        if entry.get("uuid") == uuid(10)]
+    assert consumer_reasons == ["malformed_event_identity"], consumer_reasons  # observed, not assumed
+
+    inventory = [{"id": file_id, "sha256": hashlib.sha256(part).hexdigest(), "bytes": len(part), "rows": fact["rows"]}
+                 for file_id, part, fact in zip(file_ids, parts, record["parts"])]
+    run_record = {"id": run_id, "status": "Completed", "files": list(file_ids), "records_completed": 4}
+    complete = file_export_completeness(run_record, inventory, 4, 4)
+    assert complete == {"status": "Completed", "error": None, "records_completed": 4, "n_before": 4, "n_after": 4,
+                        "rows_parsed": 4, "files": inventory, "file_export_complete_observed": True,
+                        "failing_rules": []}, complete
+    false_cases = {
+        "n_after_mismatch": file_export_completeness(run_record, inventory, 4, 5),
+        "missing_file_id": file_export_completeness({**run_record, "files": [*file_ids, uuid(999)]}, inventory, 4, 4),
+        "failed_billing": file_export_completeness({**run_record, "status": "FailedBilling"}, inventory, 4, 4),
+        "n_after_none": file_export_completeness(run_record, inventory, 4, None),
+        "error_field": file_export_completeness({**run_record, "error": None}, inventory, 4, 4),
+        "pricing_text": file_export_completeness({**run_record, "detail": "Upgrade your plan"}, inventory, 4, 4),
+        "part_from_another_run": file_export_completeness(run_record, [*inventory, {**inventory[0], "id": uuid(998)}], 4, 4),
+        "limit_cap": file_export_completeness({**run_record, "records_completed": 10_000},
+                                              [{**inventory[0], "rows": 9_998}, inventory[1]], 10_000, 10_000),
+    }
+    assert all(case["file_export_complete_observed"] is False for case in false_cases.values())
+    assert false_cases["n_after_none"]["failing_rules"] == ["n_after not observed"], false_cases["n_after_none"]
+    assert any(rule.startswith("counts differ") for rule in false_cases["n_after_mismatch"]["failing_rules"])
+    assert any(uuid(999) in rule for rule in false_cases["missing_file_id"]["failing_rules"])
+    assert any("FailedBilling" in rule for rule in false_cases["failed_billing"]["failing_rules"])
+    assert any(uuid(998) in rule for rule in false_cases["part_from_another_run"]["failing_rules"])
+    assert false_cases["limit_cap"]["failing_rules"] == ["n_before 10000 is not below the LIMIT cap 10000"]
+    empty_part = b""
+    assert parse_record([empty_part])["totals"]["rows"] == 0
+    empty_inventory = [{"id": file_ids[0], "sha256": hashlib.sha256(empty_part).hexdigest(), "bytes": 0, "rows": 0}]
+    empty_run = {"id": run_id, "status": "Completed", "files": [file_ids[0]], "records_completed": 0}
+    zero_without = file_export_completeness(empty_run, empty_inventory, 0, 0)
+    zero_with = file_export_completeness({**empty_run, "source_availability_recorded": True}, empty_inventory, 0, 0)
+    assert zero_without["failing_rules"] == ["zero rows without a source-availability record"]
+    assert zero_without["file_export_complete_observed"] is False
+    assert zero_with["file_export_complete_observed"] is True and zero_with["failing_rules"] == []
+
+    # End to end: the file-ordered adapter output and the query-ordered direct response read out identically.
+    direct = {"columns": COLUMNS, "results": sorted(expected["results"], key=lambda values: (values[2], values[0]))}
+    from_parts = build_readout(v1_response_from_parts(parts), parameters)
+    from_direct = build_readout(direct, parameters)
+    assert from_parts == from_direct
+    assert from_parts["export_complete_observed"] is False and from_direct["export_complete_observed"] is False
+    assert from_parts["request_status_counts"] == {"paired": 1}
+    assert from_parts["paired_outcome_counts"] == {"complete": 1}
+    assert from_parts["observed_view_accounts"] == 2 and from_parts["diagnostics"] == []
+    with tempfile.TemporaryDirectory(prefix="beta-adapter-fixture-") as temp:
+        root = Path(temp)
+        paths = [root / f"posthog-hogql-{run_id}-{file_id}.jsonl" for file_id in file_ids]
+        for path, part in zip(paths, parts):
+            path.write_bytes(part)
+        (root / "run-record.json").write_text(json.dumps(run_record))
+        (root / "parameters.json").write_text(json.dumps(parameters))
+        command = [sys.executable, str(HERE / "file_export_to_v1.py"), "--parts", *map(str, paths),
+                   "--run-record", str(root / "run-record.json"), "--n-before", "4", "--n-after", "4",
+                   "--output", str(root / "events.json"), "--completeness-output", str(root / "completeness.json")]
+        subprocess.run(command, check=True, capture_output=True)
+        for name in ("events.json", "completeness.json"):
+            assert (root / name).stat().st_mode & 0o777 == 0o600
+        assert json.loads((root / "events.json").read_text()) == expected
+        assert json.loads((root / "completeness.json").read_text()) == complete
+        assert subprocess.run(command, capture_output=True, check=False).returncode != 0  # no overwrite
+        consumer = [sys.executable, str(HERE / "readout_v1.py"), "--events", str(root / "events.json"),
+                    "--parameters", str(root / "parameters.json"), "--query", str(HERE / "posthog-v1-export.hogql"),
+                    "--output", str(root / "readout.json")]
+        subprocess.run(consumer, check=True, capture_output=True)
+        actual = json.loads((root / "readout.json").read_text())
+        assert actual.pop("input_sha256").keys() == {"events", "parameters", "query"}
+        assert actual == from_parts
+    return {"adapter_fixture_rows": len(expected["results"]), "adapter_fixture_parts": len(parts),
+            "key_order_matched_rows": record["totals"]["key_order_matched_rows"], "rejections": rejections,
+            "string_timestamp_s_consumer_reasons": consumer_reasons,
+            "completeness_true_case": complete["file_export_complete_observed"],
+            "completeness_false_cases": {name: case["failing_rules"] for name, case in false_cases.items()},
+            "zero_rows": {"without_source_availability_record": zero_without["failing_rules"],
+                          "with_source_availability_record": zero_with["file_export_complete_observed"]},
+            "end_to_end_readout_equal": from_parts == from_direct,
+            "export_complete_observed": {"from_parts": from_parts["export_complete_observed"],
+                                         "from_direct": from_direct["export_complete_observed"]},
+            "actual_cli_roundtrip": "passed", "download_or_hogql_live_execution": "not performed"}
+
+
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--dsn", help="isolated local tranche_beta DSN")
     parser.add_argument("--inventory-only", action="store_true", help="check browser event names without PostgreSQL")
     parser.add_argument("--v1-only", action="store_true", help="exercise v1 export/readout with synthetic events only")
+    parser.add_argument("--adapter-only", action="store_true", help="exercise the file-export adapter with synthetic parts only")
     args = parser.parse_args()
     if args.v1_only:
         print(json.dumps(check_v1_readout(), sort_keys=True))
+        return
+    if args.adapter_only:
+        print(json.dumps(check_file_export_adapter(), sort_keys=True))
         return
     inventory = check_event_inventory()
     identity_schematic = check_identity_schematic()

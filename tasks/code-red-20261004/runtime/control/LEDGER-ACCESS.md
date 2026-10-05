@@ -89,3 +89,14 @@ USD 0.025568 (34 calls; run 37354664320); the excess USD 0.015568 is recorded as
 reservation undersized). Known use 0.553091 → 0.578659 (calls 326 → 360); holds unchanged (1.881713); active
 reservations 0; conditional unreserved 25.000000 − 0.578659 − 1.881713 = **22.539628**. Current document: 31,690 bytes,
 SHA-256 `b4ce7016ed1996c345dfc40fc3565cfc1e964963bfc866af1df79f49660f9c36`; republished as artifact version 5 and read back with the same hash. See `DECISIONS-08.md`.
+
+### Reservation rule refined — recorded 2026-10-05T22:08Z (record 09; no event written)
+
+Founder instruction 2026-10-05 ~20:17Z: keep the recorded overrun visible; future reservations carry justified headroom;
+USD 0.03 is a measured minimum, not a guaranteed maximum. Rule from this record: a reservation is written before any paid
+action at the dearest measured cost of a comparable run multiplied by a headroom factor stated and justified in the
+ledger event. For `copilot-eval`, the two measured runs on identical code cost USD 0.005575 and USD 0.025568 (4.6×), so
+the next reservation is **USD 0.060000** (0.025568 × 2, rounded up) unless a dearer run is measured first. The event-4
+excess of USD 0.015568 recorded without a reservation stays visible in every ledger view, in record 08 and here. No
+balance changes; no event is written by this rule; the document SHA-256 remains `b4ce7016…` (31,690 bytes). See
+`DECISIONS-09.md`.
