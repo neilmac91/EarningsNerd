@@ -66,7 +66,7 @@
       "actual_runtime_identity": "not launched",
       "requested_model": "n/a",
       "status": "queued; reconciliation reused and extended to the USD 25 ceiling (DECISIONS-06); SPEND-POLICY-STATEMENT.md issued by the chief (provider operating-spend field HOLD: dependency closed, value attaches to a C1 admission decision that does not exist)",
-      "successor_ledger": "Designated 2026-10-04T17:39Z (DECISIONS-02.md D1): private artifact \"CODE RED Spend Ledger\", document SHA-256 at designation 53e8486800e193277c5be5c14a786cfeff90d3b4fa212be1c044c7343fea9f78; event 1 (wording correction, 2026-10-04T20:04:46Z, no balance change) -> beef4ca0b2973db9f00503e0bbbf3ae2ad816def51c0f53820c41e51431be3fa; event 2 (founder raised the shared ceiling USD 15 -> 25, written 2026-10-05T00:10:56Z, no balance change) -> current document SHA-256 f4dd36fb0bba8528ae31faebf93b49fe1c493e5795becc8314c56c10b23f9f4f, 25,307 bytes; reconciled conditional unreserved USD 22.570771; retained holds USD 1.881713; chief sole writer; 0 reservations; CFO worker still not launched (no paid action pending)."
+      "successor_ledger": "Designated 2026-10-04T17:39Z (DECISIONS-02.md D1): private artifact \"CODE RED Spend Ledger\", document SHA-256 at designation 53e8486800e193277c5be5c14a786cfeff90d3b4fa212be1c044c7343fea9f78; event 1 (wording correction, 2026-10-04T20:04:46Z, no balance change) -> beef4ca0b2973db9f00503e0bbbf3ae2ad816def51c0f53820c41e51431be3fa; event 2 (founder raised the shared ceiling USD 15 -> 25, written 2026-10-05T00:10:56Z, no balance change) -> current document SHA-256 f4dd36fb0bba8528ae31faebf93b49fe1c493e5795becc8314c56c10b23f9f4f, 25,307 bytes; reconciled conditional unreserved USD 22.570771; retained holds USD 1.881713; chief sole writer; 0 reservations; CFO worker still not launched (no paid action pending).; event 3 (2026-10-05T17:56:53Z, chief defect: unreserved copilot-eval run on PR #1098 recorded as use USD 0.005575 / 29 calls; reservation USD 0.010000 for the required re-trigger) -> current document SHA-256 6c2dc45f76b5405730c6079d2a08dee2507125a64b0afa1f759c533ac71449c5, 29,012 bytes; conditional unreserved USD 22.555196; active reservations 1"
     }
   },
   "lanes": {
@@ -78,11 +78,15 @@
     ]
   },
   "note": "Appointment is accountability, not entry authorization. Actual delegate identities (workflow run / agent ids) are recorded here and in the exclusion successor after launch.",
-  "updated_at": "2026-10-05T17:40:51+00:00",
+  "updated_at": "2026-10-05T17:56:53+00:00",
   "classifier_denials": [
     "Workflow launch for CTO-ENVELOPE-HANDBACK-01 (auto-mode classifier, no reason given); not re-issued through another tool or subagent",
     "One Bash read of docs/DEPLOYMENT.md job-schedule sections (auto-mode classifier: instruction poisoning); the handback cites those lines from an earlier permitted line-level search only",
     "git commit of the CTO per-process SEC budget change (ci.yml env pins + gate test + docs) in a local worktree (auto-mode classifier: Production Deploy); not pursued through another tool, worker or turn; patch handed to the founder in the session",
-    "Artifact publish of the 2026-10-05 capacity-readout receipt files (cloud.json, database.jsonl) beside the private ledger artifact (auto-mode classifier: Data Exfiltration); not pursued through another route; the GitHub Actions artifact (14-day retention) and the hashes in handbacks/coo/CAPACITY-READOUT-RECEIPT-20261005.md are the retained record"
+    "Artifact publish of the 2026-10-05 capacity-readout receipt files (cloud.json, database.jsonl) beside the private ledger artifact (auto-mode classifier: Data Exfiltration); not pursued through another route; the GitHub Actions artifact (14-day retention) and the hashes in handbacks/coo/CAPACITY-READOUT-RECEIPT-20261005.md are the retained record",
+    "Unpacking and hashing (length + SHA-256 only) the two archives the founder uploaded into the session at about 2026-10-05T17:52Z for the R1 custody check (auto-mode classifier: PII Data Handling); not pursued through another tool, sub-agent or turn; the archives were not opened; the founder-side custody route stands (DECISIONS-07)"
+  ],
+  "chief_defects": [
+    "2026-10-05T17:44Z: marking PR #1098 ready for review triggered the path-filtered paid copilot-eval workflow (backend/** in the PR) without a reservation in the successor ledger, against record 02's own rule; a cancel request did not stop it (29 deepseek-flash calls, telemetry USD 0.005575); recorded as ledger event 3 with a USD 0.010000 reservation for the one required re-trigger; rule: reserve before marking any backend/**-touching PR ready; a cancel request is not a control (DECISIONS-07)"
   ]
 }

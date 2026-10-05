@@ -6259,7 +6259,11 @@ Full local and hosted verification plus independent exact-head review precede re
       error reason beside each failed channel's `http_NNN`, never raw bodies; review findings applied; 6 unit tests.
 - [ ] Founder: the custody check (`runtime/tools/h20-custody-check.sh`) started 2026-10-05T17:29:39Z on the MacBook with both
       real folder paths; send the chief only its two `TOTAL=` lines, give the saved file to Astra and send Astra's match
-      counts; confirm in the Codex app whether the registered planner thread resumes.
+      counts; confirm in the Codex app whether the registered planner thread resumes. The two archives uploaded into the
+      chief's session at ~17:52Z were not opened (classifier denial 5, `DECISIONS-07.md`); they do not shorten this route.
+- [x] Chief defect recorded (`DECISIONS-07.md`, ledger event 3): marking PR #1098 ready triggered the paid `copilot-eval`
+      workflow without a reservation (29 calls, telemetry USD 0.005575; cancel request ineffective); recorded as use,
+      USD 0.010000 reserved for the one required re-trigger; rule: reserve before marking a `backend/**`-touching PR ready.
 - [ ] Founder: apply (or change the numbers in) the handed-over patch pinning `SEC_RATE_LIMIT_PER_SECOND=1`
       and `EDGAR_RATE_LIMIT_PER_SEC=1` on the service and all eight jobs with its rule-12 gate — the chief's
       commit of it was classifier-denied (Production Deploy); chief reserves ~USD 0.01 before any PR

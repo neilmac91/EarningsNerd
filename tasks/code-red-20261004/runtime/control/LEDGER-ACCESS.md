@@ -71,3 +71,12 @@ back from the published store with the same hash. Balances, holds and reservatio
 reservations 0; paid dispatch still HELD until a reservation is written before each paid trigger. The
 authorization releases no held work, extends no timebox, permits no new load and relaxes no gate. See
 `DECISIONS-06.md`.
+
+### Event 3 — written 2026-10-05T17:54:35Z (recorded here 2026-10-05T17:56:53Z)
+
+A chief defect, written by the chief as sole writer under the hash-chain rule (`previous_sha256` `f4dd36fb…`): a chief defect — one paid
+`copilot-eval` run (37350658792) triggered without a reservation by marking PR #1098 ready, cancel requested but the run
+completed — recorded as use against the shared authority (29 calls, telemetry USD 0.005575; known use 0.547516 → 0.553091,
+calls 297 → 326), holds unchanged (1.881713), one reservation of USD 0.010000 for the single required re-trigger;
+conditional unreserved 25.000000 − 0.553091 − 1.881713 − 0.010000 = **22.555196**. Current document: 29,012 bytes, SHA-256
+`6c2dc45f76b5405730c6079d2a08dee2507125a64b0afa1f759c533ac71449c5`; republished as artifact version 4. Event 4 will record the re-trigger's actual cost and release the unused reservation.
