@@ -4,7 +4,7 @@ Recorded 2026-10-05T17:09:29Z by the chief (`https://claude.ai/code/session_01GW
 `claude-fable-5-1`). Amended 2026-10-05T17:39:08Z after the three-lens review of head `de8a525d`: two addenda (both bounded workers
 returned), the caps-source labelling, the custody-run timing, two provenance/location notes; nothing else in the record
 changed. Amended again 2026-10-05T17:56:53Z after the delta review of `2c4e6926`: chief defect recorded (one paid CI run triggered without a
-reservation; ledger event 3), classifier denial 5 (uploaded archives not opened), three delta-review nits. Context: the
+reservation; ledger event 3), classifier denial 5 (uploaded archives not opened), three delta-review nits. Amended 2026-10-05T18:06Z after the second delta review (`c6f3b993`): event-3 write time, the log-cost helper described and registered (closure 150); nothing else changed. Amended 2026-10-05T18:35:26Z (record 08): this header line and the ordinal in the Registration paragraph, both delta-review nits carried from PR #1098. Context: the
 founder was away from the MacBook from about 17:05Z and had regained access by 17:29Z, and asked the chief to execute
 independently whatever the plan allows. Nothing below releases inputs, dispatches the planner, admits capacity, releases a
 hold, invites a user, changes a production or cloud configuration, adds load or extends a timebox; the one spend is the
@@ -90,7 +90,7 @@ here rather than hidden: the COO report-route proposal worker (dispatch `COO-REP
 after closure 148 was recorded (17:09:29Z) and was not pre-registered; closure 149 (`control/source-context-exclusion-149.json`,
 appended at this PR's final head) registers it as an actual context, resolves the review workflow's lenses and refuters
 to their agent ids, and pre-registers the delta reviewer of this PR's final head as a provisional label. Closure 150
-registers the read-only log-cost helper subagent of 17:50Z (actual) that the first delta check found unregistered; the
+registers the read-only log-cost helper subagent of 17:50Z (actual) that the second delta check found unregistered; the
 delta reviewer's own label stays provisional until the next closure, as usual.
 
 ## Readout diagnostics — delivered (addendum)
