@@ -215,6 +215,15 @@ Popover          An anchored, light-dismiss surface that explains one control (t
                  moves the trigger, or a resize, closes it (fixed at its rect, it would detach; the page
                  scrolling behind a fixed dialog does not move it); every close returns focus to
                  the trigger unless the user moved on. While a native <dialog> is open, it portals into it.
+                 The evidence popovers (SourceTrace's "Source detail", CitationChip's citation card) are
+                 the hover/focus variant of this contract: they open on hover or focus, so focus stays on
+                 the chip until the user asks for more, and the same hand-off applies from there — Tab on
+                 the open chip moves to the popover's link, Tab past it closes the popover and resumes the
+                 page after the chip, Shift+Tab returns to the chip, Escape closes and refocuses the chip
+                 (`useEvidencePopoverKeys`, gated by tests/unit/evidencePopoverKeys.spec.tsx). On the
+                 filing page a chip's activation is the in-app jump: it opens the research pane on the
+                 Filing tab (the pane never stays silently closed), and on a coarse pointer it opens the
+                 source sheet, which carries "Show in filing" beside the EDGAR link.
 
 Stacking         z-sticky 30 (in-page sticky chrome) · z-header 50 (site header; its menus ride it) ·
                  z-overlay 60 (popovers incl. BellPopover, the selection pill) · z-modal 70 (dialogs + the source and viewer

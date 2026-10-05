@@ -89,4 +89,60 @@ describe('FilingViewer (embedded)', () => {
 
     expect(await screen.findByText(/Revenue grew strongly this year/)).toBeInTheDocument()
   })
+
+  // EN-01: the pane's states after a chip activation are truthful, and every one of them keeps the
+  // original-document action, whose target is the page-derived url (document_url, then sec_url).
+  it('the empty state (no in-app text) offers the original document from the page-derived url', async () => {
+    vi.mocked(fetchFilingContent).mockResolvedValueOnce({ filingId: 1, hasContent: false, markdownContent: null })
+    render(
+      <FilingViewerProvider>
+        <Harness />
+      </FilingViewerProvider>,
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'cite' }))
+    expect(await screen.findByText('The full filing text is not available to view in-app yet.')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /open the original on sec\.gov/i })).toHaveAttribute('href', 'https://sec.gov/x')
+    expect(highlightExcerptInDom).not.toHaveBeenCalled()
+  })
+
+  it('a content-fetch failure keeps the original-document action beside Try again', async () => {
+    vi.mocked(fetchFilingContent).mockRejectedValueOnce(new Error('network'))
+    render(
+      <FilingViewerProvider>
+        <Harness />
+      </FilingViewerProvider>,
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'cite' }))
+    expect(await screen.findByText('Could not load the filing text.')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /try again/i })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /open the original on sec\.gov/i })).toHaveAttribute('href', 'https://sec.gov/x')
+  })
+
+  it('an unmatched excerpt shows the truthful banner with Open original and claims no match', async () => {
+    vi.mocked(highlightExcerptInDom).mockReturnValueOnce(false)
+    render(
+      <FilingViewerProvider>
+        <Harness />
+      </FilingViewerProvider>,
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'cite' }))
+    expect(await screen.findByText(/Couldn’t pinpoint the exact passage/)).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Open original' })).toHaveAttribute('href', 'https://sec.gov/x')
+    expect(screen.queryByText(/source match found/i)).toBeNull()
+  })
+
+  it('repeated activation of the same citation highlights again each time', async () => {
+    render(
+      <FilingViewerProvider>
+        <Harness />
+      </FilingViewerProvider>,
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'cite' }))
+    expect(await screen.findByText(/Revenue grew strongly this year/)).toBeInTheDocument()
+    await waitFor(() => expect(highlightExcerptInDom).toHaveBeenCalledTimes(1))
+    fireEvent.click(screen.getByRole('button', { name: 'cite' }))
+    await waitFor(() => expect(highlightExcerptInDom).toHaveBeenCalledTimes(2))
+    // One load serves both activations; the request is re-run, the content is not re-fetched.
+    expect(fetchFilingContent).toHaveBeenCalledTimes(1)
+  })
 })

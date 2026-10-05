@@ -19,7 +19,7 @@ interface UseSheetFocusTrapOptions {
 }
 
 // Standard focusable selector — anything keyboard-reachable, excluding explicitly removed (-1) tabstops.
-const FOCUSABLE_SELECTOR = [
+export const FOCUSABLE_SELECTOR = [
   'a[href]',
   'button:not([disabled])',
   'input:not([disabled])',
@@ -28,7 +28,8 @@ const FOCUSABLE_SELECTOR = [
   '[tabindex]:not([tabindex="-1"])',
 ].join(', ')
 
-function getFocusable(container: HTMLElement): HTMLElement[] {
+/** Rendered focusables inside `container`, in document order (shared with evidencePopoverKeys). */
+export function getFocusable(container: HTMLElement): HTMLElement[] {
   return Array.from(container.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR)).filter(
     // "Is rendered" via getClientRects(): robust inside position:fixed containers (the sheet is
     // fixed), where offsetParent can be null even for visible elements. Excludes display:none /

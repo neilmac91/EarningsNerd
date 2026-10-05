@@ -14,8 +14,9 @@ interface MetricSourceLinkProps {
 /**
  * Trace-to-Source affordance for a financial metric, rendered through the shared SourceTrace so
  * metric and risk provenance read identically. "✓ … SEC XBRL" means the displayed value was matched
- * against the SEC-verified XBRL figure; otherwise a plain "Source" trace to the filing. Renders
- * nothing when no source URL is available (backward compatible with un-enriched data).
+ * against the SEC-verified XBRL figure; otherwise the chip keeps SourceTrace's honest "Cited"
+ * vocabulary (its accessible name is then "Source: Cited", never the former "Source: Source").
+ * Renders nothing when no source URL is available (backward compatible with un-enriched data).
  */
 export function MetricSourceLink({ url, verified, concept, sectionRef }: MetricSourceLinkProps) {
   if (!url) return null
@@ -25,7 +26,7 @@ export function MetricSourceLink({ url, verified, concept, sectionRef }: MetricS
       url={url}
       verified={isVerified}
       sectionRef={sectionRef}
-      label={isVerified ? `${concept ? `${concept} · ` : ''}SEC XBRL` : 'Source'}
+      label={isVerified ? `${concept ? `${concept} · ` : ''}SEC XBRL` : undefined}
       note={isVerified ? 'Matched against the SEC-filed XBRL value' : null}
     />
   )

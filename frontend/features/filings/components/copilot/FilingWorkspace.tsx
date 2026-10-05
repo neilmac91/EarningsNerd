@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode, type RefObject } from 'react'
 import { ArrowSquareOutIcon, SparkleIcon } from '@/lib/icons'
 import PaneResizer from './PaneResizer'
 import SecondaryPaneTabs, { PANE_PANEL_IDS, PANE_TAB_IDS } from './SecondaryPaneTabs'
@@ -68,7 +68,8 @@ interface FilingWorkspaceProps {
   copilotBody: ReactNode
   /** The embedded filing reader (<FilingViewer embedded .../>). */
   filingBody: ReactNode
-  /** SEC URL for the "open original" link on the filing tab. */
+  /** The original document for the filing tab's "Open original" link: `document_url`, then `sec_url`
+   * (the page derives it with `originalDocumentUrl`). */
   secUrl: string | null
   /** The filing summary content (the left pane). */
   children: ReactNode
@@ -162,7 +163,35 @@ export default function FilingWorkspace({
   // FilingWorkspace owns the trap/scrim for the embedded rail; the embedded rail never adds its own.
   const modalActive = paneOpen && isMobile
   const handleClose = useCallback(() => onOpenChange(false), [onOpenChange])
-  useSheetFocusTrap({ active: modalActive, containerRef: shellRef, onClose: handleClose, restoreFocusRef: launcherRef })
+  // A provenance chip that opened the pane (the provider's opener, recorded by requestHighlight) is
+  // where focus returns on close; otherwise the launcher, which remounts on close. The trap reads
+  // `.current` at cleanup time, so a getter resolves whichever applies at that moment (EN-01).
+  const peekOpener = viewer?.peekOpener
+  const takeOpener = viewer?.takeOpener
+  const restoreFocusRef = useMemo<RefObject<HTMLElement | null>>(
+    () => ({
+      get current() {
+        return peekOpener?.() ?? launcherRef.current
+      },
+    }),
+    [peekOpener],
+  )
+  useSheetFocusTrap({ active: modalActive, containerRef: shellRef, onClose: handleClose, restoreFocusRef })
+  // On lg+ nothing traps focus: when a chip-opened pane closes, the shell goes display:none and any
+  // focus inside it falls to <body>. Hand it back to the chip, only when it did fall to <body> (focus
+  // the pane never held is never moved), then forget the opener so a later launcher-driven open does
+  // not return to a stale chip. lessons/frontend-busy-controls-stay-focusable.md (g), "after it" form.
+  const wasPaneOpen = useRef(paneOpen)
+  useEffect(() => {
+    const was = wasPaneOpen.current
+    wasPaneOpen.current = paneOpen
+    if (!was || paneOpen || !takeOpener) return
+    const opener = takeOpener()
+    if (!opener?.isConnected) return
+    const active = document.activeElement
+    if (active !== null && active !== document.body) return
+    opener.focus({ preventScroll: true })
+  }, [paneOpen, takeOpener])
 
   const openOriginal = isHttpUrl(secUrl) ? (
     <a

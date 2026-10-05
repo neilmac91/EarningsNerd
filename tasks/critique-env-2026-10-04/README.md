@@ -98,6 +98,10 @@ stream ends in an error · `askfail` — ask-stream 500 · `exhausted` — free 
 - `jobs-baseline.json` (65 jobs), `jobs-extra.json`, `jobs-verify.json` — the captured matrices; `verify_probe.mjs` /
   `verify_trace.mjs` — the orchestrator's verification probes (reflow culprits, keyboard popover reach, the Trace-to-Source
   click under five conditions).
+- `jobs-en01.json` (18 jobs) — the EN-01 acceptance matrix run before and after the fix (closed, already-open and
+  repeated activations for `anon`/`free`/`pro` and dark; the touch sheet with "Show in filing"; keyboard reach of the EDGAR
+  link; the Ask tab after a chip-open; the matched highlight with the fixture; the landing demo). Steps are arrays, so the
+  `eval=` probes may contain semicolons.
 - `detect_targets.txt` — detector scope (paths relative to `frontend/`; `#` comments and blank lines are ignored by
   `run_detect.sh`, which validates each path and passes them as an argument array); `scans/` — recorded scans with their
   source SHA and `frontend` tree hash.
