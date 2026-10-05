@@ -6233,16 +6233,28 @@ Full local and hosted verification plus independent exact-head review precede re
       release receipt (`DECISIONS-05.md`). Implementation stays HELD pending the source-owned refinement.
       Chief then sets `R1-STATUS.md`.
 - [x] Ledger: Astra confirmed byte-identity with snapshot `99c7259f…`; successor ledger designated as a
-      private artifact (document SHA-256 `53e84868…` at designation; event 1 written 2026-10-04, document now
-      `beef4ca0…`); chief sole writer; paid dispatch still needs a reservation there
-      (`runtime/control/DECISIONS-02.md` D1, `DECISIONS-03.md`, `LEDGER-ACCESS.md`).
-- [ ] COO/CEO: one bounded read-only Ops `capacity-readout` over Monday 06:00–08:00 UTC (widened to
-      include backfill-facts 07:00; Routine fires 08:10Z) to inform B32; receipt to COO (`DECISIONS-02.md` D4).
+      private artifact (document SHA-256 `53e84868…` at designation; event 1 written 2026-10-04 → `beef4ca0…`;
+      event 2 written 2026-10-05T00:10:56Z recording the founder's shared ceiling raise USD 15 → 25, document now
+      `f4dd36fb…`, reconciled headroom USD 22.570771); chief sole writer; paid dispatch still needs a reservation
+      there (`runtime/control/DECISIONS-02.md` D1, `DECISIONS-03.md`, `DECISIONS-06.md`, `LEDGER-ACCESS.md`).
+- Overnight 2026-10-05 (founder directive 00:02Z, `runtime/control/DECISIONS-06.md`): PR #1092 merged; wave table
+      recorded (owners, remaining counts, one blocker each, next deliverable); C1 items 4, 6 (dependency) and 8
+      closed by their named owner on records 02 D7/D1/D9, B37 by D8 — five of eight C1 items open; only R3 has an
+      executable deliverable overnight (08:10Z readout → CTO handback rev 4 → COO disposition update). USD 0.
+- [x] COO/CEO: one bounded read-only Ops `capacity-readout` over Monday 06:00–08:00 UTC dispatched 2026-10-05T08:12Z
+      (run 37282199614, success; receipt `runtime/handbacks/coo/CAPACITY-READOUT-RECEIPT-20261005.md`). Monitoring and
+      Logging channels returned HTTP 403, so B32/B56 stay unknown by this route; two Monday business-phase overlaps
+      (9.15 s, 6.57 s) observed with near-empty work.
+- [ ] CTO/CEO: read-only check of why the Ops identity's Monitoring/Logging reads returned 403 (the 2026-10-04 receipt
+      had Monitoring samples); any IAM grant is the founder's cloud-configuration decision.
 - [ ] Founder: apply (or change the numbers in) the handed-over patch pinning `SEC_RATE_LIMIT_PER_SECOND=1`
       and `EDGAR_RATE_LIMIT_PER_SEC=1` on the service and all eight jobs with its rule-12 gate — the chief's
       commit of it was classifier-denied (Production Deploy); chief reserves ~USD 0.01 before any PR
       carrying it is marked ready (`DECISIONS-02.md` D3 execution note).
-- [ ] COO: decide whether item 8 closes on the two refuter appendices (`DECISIONS-02.md` D9); CTO carries
-      B07/B08/B36/B41/B52 updates into the next handback revision.
+- [x] Item 8 closed by the CEO as its named owner on the two refuter appendices (`DECISIONS-02.md` D9,
+      `DECISIONS-06.md`).
+- [x] CTO handback revision 4 (62 bounds; B59–B62; determination still undetermined, no E09 subset demonstrated
+      necessary; `CORRECTION-03.md`) and COO disposition update 01 (HOLD stands; C1 items 2 closed, 1 dependency-closed,
+      5 open, 2 with B62) delivered 2026-10-05 by bounded workers (closure 147).
 - [ ] Docs-vs-config: `docs/OPERATIONS.md` alert threshold `database.checked_out > 8` is unreachable with
       the deployed pool 4 / overflow 0 (handback B33); fix the doc separately.

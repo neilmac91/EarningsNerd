@@ -86,3 +86,10 @@ d1c31ee5b5f52021119de53a81f840b53ad53a73:backend/tests/unit/test_oauth_invite_ga
 # example-env placeholder gate; the line now carries an inline gitleaks:allow, this pin covers
 # the branch commit that predates the marker.
 077838d307fc6747663201e8e67336a1631c6d7b:backend/tests/unit/test_example_env_files_are_placeholders.py:generic-api-key:130
+# 2026-10-05 ported from PR #1094 (branch claude/implementation-launch-prompt-ofvuc1): in a capture job, a step named
+# keyfocus followed by a screenshot step (shot=after-escape-in-pane) was read by generic-api-key as a key with a value.
+# Not a credential. The history scan runs across all branches from every PR checkout, so the pins must be on the
+# scanned checkout; they no-op once main carries #1094's own copy. First-hand check: the matched value is the step name.
+9c0555f1b0e63b5680bf0cdbf68b96dbb6fc5e83:tasks/critique-env-2026-10-04/jobs-en01.json:generic-api-key:160
+576c86c5f19cffc50c2258dd84165b260dffa06f:.gitleaksignore:generic-api-key:89
+576c86c5f19cffc50c2258dd84165b260dffa06f:tasks/todo.md:generic-api-key:16
