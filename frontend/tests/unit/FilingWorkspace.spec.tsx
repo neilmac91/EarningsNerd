@@ -262,6 +262,21 @@ describe('FilingWorkspace opened by a provenance chip (EN-01)', () => {
     expect(document.activeElement).toBe(document.body)
   })
 
+  it('closing from the pane\'s own Close button returns focus to the chip (focus is still on the hidden Close when the effect runs)', () => {
+    render(<Page />)
+    const chip = screen.getByRole('button', { name: 'Source: Verified in filing' })
+    fireEvent.click(chip)
+    expect(dialog().getAttribute('aria-hidden')).toBe('false')
+    // A keyboard user tabbed to Close and pressed it; jsdom, like Chromium at the moment the effect
+    // runs, still reports the now-hidden Close as the active element.
+    const close = screen.getByRole('button', { name: 'Close' })
+    act(() => close.focus())
+    expect(document.activeElement).toBe(close)
+    fireEvent.click(close)
+    expect(dialog().getAttribute('aria-hidden')).toBe('true')
+    expect(document.activeElement).toBe(chip)
+  })
+
   it('focus the pane never held is left alone on close', () => {
     render(<Page />)
     const other = screen.getByRole('button', { name: /unrelated/i })

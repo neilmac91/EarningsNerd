@@ -91,8 +91,10 @@ describe('FilingViewer (embedded)', () => {
   })
 
   // EN-01: the pane's states after a chip activation are truthful, and every one of them keeps the
-  // original-document action, whose target is the page-derived url (document_url, then sec_url).
-  it('the empty state (no in-app text) offers the original document from the page-derived url', async () => {
+  // original-document action, whose target is the secUrl prop (page-client derives it with
+  // originalDocumentUrl: document_url, then sec_url; the ordering is pinned in originalDocumentUrl.spec.ts
+  // and the e2e spec, not here).
+  it('the empty state (no in-app text) offers the original document from the secUrl prop', async () => {
     vi.mocked(fetchFilingContent).mockResolvedValueOnce({ filingId: 1, hasContent: false, markdownContent: null })
     render(
       <FilingViewerProvider>

@@ -222,8 +222,10 @@ Popover          An anchored, light-dismiss surface that explains one control (t
                  page after the chip, Shift+Tab returns to the chip, Escape closes and refocuses the chip
                  (`useEvidencePopoverKeys`, gated by tests/unit/evidencePopoverKeys.spec.tsx). On the
                  filing page a chip's activation is the in-app jump: it opens the research pane on the
-                 Filing tab (the pane never stays silently closed), and on a coarse pointer it opens the
-                 source sheet, which carries "Show in filing" beside the EDGAR link.
+                 Filing tab (the pane never stays silently closed); SourceTrace alone has a sheet, which a
+                 coarse pointer opens instead, carrying "Show in filing" beside the EDGAR link. A chip that
+                 is itself the EDGAR anchor (SourceTrace without a viewer, as on the landing demo) has no
+                 second stop, so Tab leaves it as usual.
 
 Stacking         z-sticky 30 (in-page sticky chrome) · z-header 50 (site header; its menus ride it) ·
                  z-overlay 60 (popovers incl. BellPopover, the selection pill) · z-modal 70 (dialogs + the source and viewer

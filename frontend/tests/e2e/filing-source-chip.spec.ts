@@ -135,7 +135,10 @@ test.describe('desktop: a chip activation opens the pane on the Filing tab', () 
         expect(await activeName(page)).not.toBe('TEXTAREA')
         await expect(pane.getByRole('textbox')).toHaveCount(0)
 
-        // Escape closes the pane and the chip keeps focus (it was the activated control).
+        // Escape closes the pane and the chip keeps focus (it was the activated control). The pointer
+        // moves off the chip first: the pane narrows the column, Chromium re-dispatches mousemove, and
+        // a chip under the pointer would open its hover popover and take the Escape.
+        await page.mouse.move(0, 0)
         await page.keyboard.press('Escape')
         await expect(page.locator(PANE)).toBeHidden()
         expect(await activeName(page)).toBe(CHIP)
@@ -158,6 +161,7 @@ test.describe('desktop: a chip activation opens the pane on the Filing tab', () 
     const chip = await openFiling(page, baseURL!)
     await chip.click()
     await expect(page.locator(PANE)).toBeVisible()
+    await page.mouse.move(0, 0)
     await page.keyboard.press('Escape')
     await expect(page.locator(PANE)).toBeHidden()
     await page.setViewportSize({ width: 1280, height: 800 })
@@ -196,6 +200,30 @@ test.describe('desktop: a chip activation opens the pane on the Filing tab', () 
     await expect(pane.getByText('Could not load the filing text.')).toBeVisible()
     await expect(pane.getByRole('button', { name: /try again/i })).toBeVisible()
     await expect(pane.getByRole('link', { name: /open the original on sec\.gov/i })).toHaveAttribute('href', DOCUMENT)
+  })
+
+  test('closing from inside the pane (Close button, or Escape with focus on a pane control) returns focus to the chip', async ({ page, baseURL }) => {
+    const chip = await openFiling(page, baseURL!, { who: 'pro' })
+    await chip.click()
+    await expect(page.locator(PANE)).toBeVisible()
+    await page.mouse.move(0, 0)
+    // A keyboard user reaches the pane's Close and presses it: the control that had focus goes
+    // display:none, so focus must come back to the chip, not fall to <body>.
+    await page.locator(PANE).getByRole('button', { name: 'Close' }).focus()
+    expect(await activeName(page)).toBe('Close')
+    await page.keyboard.press('Enter')
+    await expect(page.locator(PANE)).toBeHidden()
+    expect(await activeName(page)).toBe(CHIP)
+
+    // The same from Escape with focus on a pane control (the Filing tab).
+    await chip.click()
+    await expect(page.locator(PANE)).toBeVisible()
+    await page.mouse.move(0, 0)
+    await page.locator(PANE).getByRole('tab', { name: 'Filing' }).focus()
+    expect(await activeName(page)).toBe('Filing')
+    await page.keyboard.press('Escape')
+    await expect(page.locator(PANE)).toBeHidden()
+    expect(await activeName(page)).toBe(CHIP)
   })
 
   test('keyboard: Tab from the chip reaches "Open in SEC EDGAR", Tab again resumes the page, Escape returns to the chip', async ({ page, baseURL }) => {

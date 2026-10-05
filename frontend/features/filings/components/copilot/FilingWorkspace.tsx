@@ -171,16 +171,20 @@ export default function FilingWorkspace({
   const restoreFocusRef = useMemo<RefObject<HTMLElement | null>>(
     () => ({
       get current() {
-        return peekOpener?.() ?? launcherRef.current
+        const opener = peekOpener?.()
+        return opener?.isConnected ? opener : launcherRef.current
       },
     }),
     [peekOpener],
   )
   useSheetFocusTrap({ active: modalActive, containerRef: shellRef, onClose: handleClose, restoreFocusRef })
   // On lg+ nothing traps focus: when a chip-opened pane closes, the shell goes display:none and any
-  // focus inside it falls to <body>. Hand it back to the chip, only when it did fall to <body> (focus
-  // the pane never held is never moved), then forget the opener so a later launcher-driven open does
-  // not return to a stale chip. lessons/frontend-busy-controls-stay-focusable.md (g), "after it" form.
+  // focus inside it falls to <body>. Hand it back to the chip, only when it fell (focus the pane never
+  // held is never moved), then forget the opener so a later launcher-driven open does not return to a
+  // stale chip. This effect runs synchronously after the closing click or keydown, before Chromium
+  // has moved focus off the now-hidden control (that happens in a later task), so focus still inside
+  // the shell is focus that has fallen. lessons/frontend-busy-controls-stay-focusable.md (g),
+  // "after it" form; lessons/frontend-dialog-opener-outlives-the-dialog.md (b).
   const wasPaneOpen = useRef(paneOpen)
   useEffect(() => {
     const was = wasPaneOpen.current
@@ -189,7 +193,7 @@ export default function FilingWorkspace({
     const opener = takeOpener()
     if (!opener?.isConnected) return
     const active = document.activeElement
-    if (active !== null && active !== document.body) return
+    if (active !== null && active !== document.body && !shellRef.current?.contains(active)) return
     opener.focus({ preventScroll: true })
   }, [paneOpen, takeOpener])
 
