@@ -6253,8 +6253,10 @@ Full local and hosted verification plus independent exact-head review precede re
 - [x] COO: report-route proposal 01 delivered 2026-10-05 by a bounded worker (`runtime/handbacks/coo/REPORT-ROUTE-PROPOSAL-01.md`):
       the blocked batch-export contract beside a PostHog query-route readout contract (the official MCP `execute-sql` route
       returned an invented-literal row for project 117863, `DECISIONS-07.md`); three options, no recommendation of spend.
-- [ ] Founder with the CEO: G1–G3 route decision on those three options (CEO assessment: option C — keep ticket 76581 open,
-      prepare the query route, no spend; the operator-identity question first). Ticket retained, not resent.
+- [x] Founder: option C adopted 2026-10-05 (ticket 76581 open; query route prepared without spend or customer data); COO contract
+      draft delivered (`runtime/handbacks/coo/QUERY-ROUTE-READOUT-CONTRACT-DRAFT-01.md`, `DECISIONS-08.md`).
+- [ ] Founder with the CEO: accept or amend the query-route contract draft; decide the operator identity (which non-executive
+      context holds the connector) and the explicit access decision for the route (G1).
 - [x] CTO/CEO: readout error-detail diagnostics (`ops/capacity/readout.py`, bounded worker, PR #1098): a structured, bounded
       error reason beside each failed channel's `http_NNN`, never raw bodies; review findings applied; 6 unit tests.
 - [ ] Founder: the custody check (`runtime/tools/h20-custody-check.sh`) started 2026-10-05T17:29:39Z on the MacBook with both

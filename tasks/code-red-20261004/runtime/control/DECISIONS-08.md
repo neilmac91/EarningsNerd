@@ -59,10 +59,24 @@ its reservation (chief defect, second instance).
 | Local gates | targeted tests pass (`sec-gate-2.log`: ruff all checks passed; pytest exit 0); first run (`sec-gate.log`) exit 1 was the harness environment, re-run clean |
 | Decision needed from the founder | (a) apply with `1 + 1` on every process as written, or (b) change the numbers (for example a larger app budget on the service than on the jobs), or (c) keep holding. Then: the founder applies and commits the patch (the chief's commit was classifier-denied), opens the PR; marking it ready runs `copilot-eval`, so the chief reserves from the dearest measured run (≥ USD 0.03) before it leaves draft; merge deploys the new env to the service and all eight jobs through the normal `deploy-backend` job. |
 
+## Option C — query-route readout contract draft delivered (addendum)
+
+The bounded COO worker (`coo-query-route-contract-draft-01`, dispatch `COO-QUERY-ROUTE-04`, eight inputs hash-verified;
+dispatched 2026-10-05T1837Z, returned 18:52Z; pass) delivered
+`handbacks/coo/QUERY-ROUTE-READOUT-CONTRACT-DRAFT-01.md` (45,384 bytes, SHA-256 `401b82ed08f2b23147cb1582075c149bf79f4c056368990c030e35593ecff3a8`): the
+query-route readout contract in G2/G3 shape with placeholder-only HogQL per reporting group, the count-bracketed
+pagination rule (caps labelled connector-reported, to be confirmed on first use), the private retention rule (hashes and
+counts only in the repository), the operator-identity rule written as a decision for the founder with the CEO, a no-cost
+dry-run plan that is explicitly not executed, what the contract settles and does not settle for G1–G5, risks with owners.
+No connector call, no customer data, no spend; ticket 76581 open and not resent. Worker deviations: (1) the manifest's read-scope commit e1b00514 precedes the worker's HEAD 1b5e0a47 by the manifest's own commit only, all eight input hashes matching at HEAD; (2) the file is 45,384 bytes after one in-place trim from 47,976 (about 384 bytes over the guidance; no required item removed); (3) one file created and then edited in place in the same run; (4) an observation, not a deviation: a PostHog exec tool appeared in the worker's deferred tool roster (never loaded or called), which the draft records as evidence of presentation only, not of function or transcript isolation, and which does not make such a worker an eligible operator. Open questions
+for the founder: Q1 which operator-identity option is recorded with the CEO in the G1 access decision (O1 a dedicated non-executive remote session with the connector attached by the founder; O2 a founder-operated run with a hashing script; O3 a child worker of the executive session, weakest isolation; O4 no operator until the G4 frozen roster exists); Q2 whether a schema read of project 117863 (table, column and event names, no rows) is within existing authorization, and whether PostHog's terms support the MCP execute-sql route as a reporting route; Q3 which private store holds readout responses and under what custody rule, given the classifier-denied receipt copy; Q4 whether the six invented-literal dry-run probes are authorised and by which context. **Disposition:** a draft; nothing adopted; G1–G3 stay BLOCKED until the founder with the CEO
+accepts the contract, decides the operator identity and makes the explicit access decision for the route.
+
 ## Registration (closure 151)
 
 `control/source-context-exclusion-151.json` resolves the PR #1098 delta reviewer's label to its launch-time identity
-(17:44Z) and pre-registers the record-08 PR reviewer as a provisional label. The log-cost helper (closure 150) was re-used
+(17:44Z) and pre-registers the record-08 PR reviewer and the COO query-route contract worker as provisional labels; closure 152
+resolves the latter after its return. The log-cost helper (closure 150) was re-used
 once as the same context; no other context was created.
 
 ## Spend
