@@ -6245,8 +6245,25 @@ Full local and hosted verification plus independent exact-head review precede re
       (run 37282199614, success; receipt `runtime/handbacks/coo/CAPACITY-READOUT-RECEIPT-20261005.md`). Monitoring and
       Logging channels returned HTTP 403, so B32/B56 stay unknown by this route; two Monday business-phase overlaps
       (9.15 s, 6.57 s) observed with near-empty work.
-- [ ] CTO/CEO: read-only check of why the Ops identity's Monitoring/Logging reads returned 403 (the 2026-10-04 receipt
-      had Monitoring samples); any IAM grant is the founder's cloud-configuration decision.
+- [x] CTO/CEO: cause of the Ops identity's 403s established 2026-10-05T17:06Z by the existing read-only `logs-probe`
+      (run 37345946128): `PERMISSION_DENIED: Permission denied for all log views` for
+      `github-deployer@earnings-nerd.iam.gserviceaccount.com` (`runtime/control/DECISIONS-07.md`).
+- [ ] Founder: decide the read-only IAM grant for that service account (`roles/logging.viewer`, `roles/monitoring.viewer`);
+      then COO/CEO dispatch one more bounded `capacity-readout` over a job-overlap window (B32/B56).
+- [x] COO: report-route proposal 01 delivered 2026-10-05 by a bounded worker (`runtime/handbacks/coo/REPORT-ROUTE-PROPOSAL-01.md`):
+      the blocked batch-export contract beside a PostHog query-route readout contract (the official MCP `execute-sql` route
+      returned an invented-literal row for project 117863, `DECISIONS-07.md`); three options, no recommendation of spend.
+- [ ] Founder with the CEO: G1–G3 route decision on those three options (CEO assessment: option C — keep ticket 76581 open,
+      prepare the query route, no spend; the operator-identity question first). Ticket retained, not resent.
+- [x] CTO/CEO: readout error-detail diagnostics (`ops/capacity/readout.py`, bounded worker, PR #1098): a structured, bounded
+      error reason beside each failed channel's `http_NNN`, never raw bodies; review findings applied; 6 unit tests.
+- [ ] Founder: the custody check (`runtime/tools/h20-custody-check.sh`) started 2026-10-05T17:29:39Z on the MacBook with both
+      real folder paths; send the chief only its two `TOTAL=` lines, give the saved file to Astra and send Astra's match
+      counts; confirm in the Codex app whether the registered planner thread resumes. The two archives uploaded into the
+      chief's session at ~17:52Z were not opened (classifier denial 5, `DECISIONS-07.md`); they do not shorten this route.
+- [x] Chief defect recorded (`DECISIONS-07.md`, ledger event 3): marking PR #1098 ready triggered the paid `copilot-eval`
+      workflow without a reservation (29 calls, telemetry USD 0.005575; cancel request ineffective); recorded as use,
+      USD 0.010000 reserved for the one required re-trigger; rule: reserve before marking a `backend/**`-touching PR ready.
 - [ ] Founder: apply (or change the numbers in) the handed-over patch pinning `SEC_RATE_LIMIT_PER_SECOND=1`
       and `EDGAR_RATE_LIMIT_PER_SEC=1` on the service and all eight jobs with its rule-12 gate — the chief's
       commit of it was classifier-denied (Production Deploy); chief reserves ~USD 0.01 before any PR
