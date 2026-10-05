@@ -147,8 +147,8 @@
    "press=Enter",
    "wait=500",
    "eval=((d,a)=>d?{ariaHidden:d.getAttribute('aria-hidden'),display:getComputedStyle(d).display,size:[Math.round(d.getBoundingClientRect().width),Math.round(d.getBoundingClientRect().height)],activeTab:(document.querySelector('[role=tab][aria-selected=true]')||{textContent:null}).textContent,emptyState:d.innerText.includes('not available to view in-app'),links:[...d.querySelectorAll('a[href]')].map(x=>[x.textContent.trim(),x.getAttribute('href')]),textboxes:d.querySelectorAll('textarea,[role=textbox]').length,active:a&&a!==document.body?(a.getAttribute('aria-label')||a.textContent.trim().slice(0,40)):'BODY'}:null)(document.querySelector('[role=dialog][aria-label=\"Ask this Filing\"]'),document.activeElement)",
-   "keyfocus",
    "shot=after-close-button",
+   "keyfocus",
    "click=role:button:Source: Verified in filing",
    "wait=1500",
    "focus=[role=dialog][aria-label='Ask this Filing'] [role=tab][aria-selected='true']",
@@ -157,8 +157,8 @@
    "press=Escape",
    "wait=500",
    "eval=((d,a)=>d?{ariaHidden:d.getAttribute('aria-hidden'),display:getComputedStyle(d).display,size:[Math.round(d.getBoundingClientRect().width),Math.round(d.getBoundingClientRect().height)],activeTab:(document.querySelector('[role=tab][aria-selected=true]')||{textContent:null}).textContent,emptyState:d.innerText.includes('not available to view in-app'),links:[...d.querySelectorAll('a[href]')].map(x=>[x.textContent.trim(),x.getAttribute('href')]),textboxes:d.querySelectorAll('textarea,[role=textbox]').length,active:a&&a!==document.body?(a.getAttribute('aria-label')||a.textContent.trim().slice(0,40)):'BODY'}:null)(document.querySelector('[role=dialog][aria-label=\"Ask this Filing\"]'),document.activeElement)",
-   "keyfocus",
-   "shot=after-escape-in-pane"
+   "shot=after-escape-in-pane",
+   "keyfocus"
   ]
  },
  {

@@ -86,3 +86,6 @@ d1c31ee5b5f52021119de53a81f840b53ad53a73:backend/tests/unit/test_oauth_invite_ga
 # example-env placeholder gate; the line now carries an inline gitleaks:allow, this pin covers
 # the branch commit that predates the marker.
 077838d307fc6747663201e8e67336a1631c6d7b:backend/tests/unit/test_example_env_files_are_placeholders.py:generic-api-key:130
+# 2026-10-05 EN-01 (#1094): a capture step list, `"keyfocus", "shot=after-escape-in-pane"`, read as key=value; the
+# later commit reorders the steps so main never re-matches. Not a credential.
+9c0555f1b0e63b5680bf0cdbf68b96dbb6fc5e83:tasks/critique-env-2026-10-04/jobs-en01.json:generic-api-key:160
