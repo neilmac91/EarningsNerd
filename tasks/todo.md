@@ -6245,8 +6245,16 @@ Full local and hosted verification plus independent exact-head review precede re
       (run 37282199614, success; receipt `runtime/handbacks/coo/CAPACITY-READOUT-RECEIPT-20261005.md`). Monitoring and
       Logging channels returned HTTP 403, so B32/B56 stay unknown by this route; two Monday business-phase overlaps
       (9.15 s, 6.57 s) observed with near-empty work.
-- [ ] CTO/CEO: read-only check of why the Ops identity's Monitoring/Logging reads returned 403 (the 2026-10-04 receipt
-      had Monitoring samples); any IAM grant is the founder's cloud-configuration decision.
+- [x] CTO/CEO: cause of the Ops identity's 403s established 2026-10-05T17:06Z by the existing read-only `logs-probe`
+      (run 37345946128): `PERMISSION_DENIED: Permission denied for all log views` for
+      `github-deployer@earnings-nerd.iam.gserviceaccount.com` (`runtime/control/DECISIONS-07.md`).
+- [ ] Founder: decide the read-only IAM grant for that service account (`roles/logging.viewer`, `roles/monitoring.viewer`);
+      then COO/CEO dispatch one more bounded `capacity-readout` over a job-overlap window (B32/B56).
+- [ ] COO: G1–G3 route decision — the official PostHog MCP `execute-sql` route returned an invented-literal row for
+      project 117863 (`DECISIONS-07.md`); decide whether a bounded query-based readout contract replaces the blocked
+      batch-export contract. Ticket 76581 retained, not resent.
+- [ ] Founder: run `runtime/tools/h20-custody-check.sh` with the two real folder paths; give the saved file to Astra; send the
+      chief the TOTAL lines and Astra's match counts; confirm in the Codex app whether the registered planner thread resumes.
 - [ ] Founder: apply (or change the numbers in) the handed-over patch pinning `SEC_RATE_LIMIT_PER_SECOND=1`
       and `EDGAR_RATE_LIMIT_PER_SEC=1` on the service and all eight jobs with its rule-12 gate — the chief's
       commit of it was classifier-denied (Production Deploy); chief reserves ~USD 0.01 before any PR
