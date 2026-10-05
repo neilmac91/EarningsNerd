@@ -6248,11 +6248,17 @@ Full local and hosted verification plus independent exact-head review precede re
 - [x] CTO/CEO: cause of the Ops identity's 403s established 2026-10-05T17:06Z by the existing read-only `logs-probe`
       (run 37345946128): `PERMISSION_DENIED: Permission denied for all log views` for
       `github-deployer@earnings-nerd.iam.gserviceaccount.com` (`runtime/control/DECISIONS-07.md`).
-- [ ] Founder: decide the read-only IAM grant for that service account (`roles/logging.viewer`, `roles/monitoring.viewer`);
-      then COO/CEO dispatch one more bounded `capacity-readout` over a job-overlap window (B32/B56).
+- [ ] Founder: run the two documented `gcloud projects add-iam-policy-binding` commands (grant authorized 2026-10-05, `DECISIONS-08.md` §2:
+      principal `github-deployer@earnings-nerd.iam.gserviceaccount.com`, project `earnings-nerd`, `roles/logging.viewer` and
+      `roles/monitoring.viewer` only); the chief then verifies with one read-only `logs-probe`; then COO/CEO dispatch one more
+      bounded `capacity-readout` over a job-overlap window (B32/B56).
 - [x] COO: report-route proposal 01 delivered 2026-10-05 by a bounded worker (`runtime/handbacks/coo/REPORT-ROUTE-PROPOSAL-01.md`):
       the blocked batch-export contract beside a PostHog query-route readout contract (the official MCP `execute-sql` route
       returned an invented-literal row for project 117863, `DECISIONS-07.md`); three options, no recommendation of spend.
+- [x] PostHog ticket 76581 RESOLVED by support 2026-10-05 (HogQL file-download exports enabled for the team; founder-relayed).
+      COO export capability test dispatched (`runtime/dispatch/COO-EXPORT-VALIDATION-05.json`: exact September 30 literal query,
+      three invented rows, no customer tables); file download needs the founder's authenticated PostHog context (handoff);
+      independent G3 file-input contract review follows. Nothing credited from a synthetic test (`DECISIONS-08.md`).
 - [x] Founder: option C adopted 2026-10-05 (ticket 76581 open; query route prepared without spend or customer data); COO contract
       draft delivered (`runtime/handbacks/coo/QUERY-ROUTE-READOUT-CONTRACT-DRAFT-01.md`, `DECISIONS-08.md`).
 - [ ] Founder with the CEO: accept or amend the query-route contract draft; decide the operator identity (which non-executive
@@ -6271,8 +6277,9 @@ Full local and hosted verification plus independent exact-head review precede re
       USD 0.010000 reserved for the one required re-trigger; rule: reserve before marking a `backend/**`-touching PR ready.
 - [ ] Founder: apply (or change the numbers in) the handed-over patch pinning `SEC_RATE_LIMIT_PER_SECOND=1`
       and `EDGAR_RATE_LIMIT_PER_SEC=1` on the service and all eight jobs with its rule-12 gate — the chief's
-      commit of it was classifier-denied (Production Deploy); chief reserves ~USD 0.01 before any PR
-      carrying it is marked ready (`DECISIONS-02.md` D3 execution note).
+      commit of it was classifier-denied (Production Deploy); the exact patch, fleet assumptions and decision are presented in
+      `DECISIONS-08.md` (SHA-256 `21322a05…`, applies to `c780228a`); the chief reserves from the dearest measured `copilot-eval`
+      run (≥ USD 0.03, `DECISIONS-08.md`) before any PR carrying it is marked ready.
 - [x] Item 8 closed by the CEO as its named owner on the two refuter appendices (`DECISIONS-02.md` D9,
       `DECISIONS-06.md`).
 - [x] CTO handback revision 4 (62 bounds; B59–B62; determination still undetermined, no E09 subset demonstrated

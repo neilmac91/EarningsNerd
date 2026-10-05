@@ -1,10 +1,14 @@
 # Decision record 08 — PR #1098 merged; ledger event 4 (reserved copilot-eval run settled, reservation undersized); deploy verified; founder instructions (custody, Ops access, option C, D3 patch); closure 151 (chief, 2026-10-05)
 
 Recorded 2026-10-05T18:35:26Z by the chief (`https://claude.ai/code/session_01GWYV7WXWstgVGQG43YcSM8`, runtime-reported model
-`claude-fable-5-1`). Context: record 07 and the readout diagnostics change merged to main as `c780228a` at 18:17:54Z
-(PR #1098, squash). This record closes the loop on that merge: the reserved paid re-trigger and its settlement, the
+`claude-fable-5-1`). Amended 2026-10-05T18:52:54Z: addendum (COO contract draft delivered; closure 152); dispatch manifest
+`COO-QUERY-ROUTE-04` binds this record at its pre-addendum hash `9a19701d…` (13,211 bytes). Amended 2026-10-05T19:03:55Z after the
+three-lens review of `39c74850`: this header, the merge-time source, the manifest-binding clause in the addendum.
+Context: record 07 and the readout diagnostics change merged to main as `c780228a` (GitHub `merged_at` 18:17:54Z; the
+squash commit's own timestamp 18:17:51Z; PR #1098). This record closes the loop on that merge: the reserved paid re-trigger and its settlement, the
 backend deploy that every `backend/`-touching merge runs, the review-chain identities, the two cosmetic nits carried
-from the last delta review, and the founder's five instructions received after the afternoon report. Nothing below releases inputs, dispatches the planner, admits capacity, releases a hold,
+from the last delta review, the founder's five instructions received after the afternoon report, and the sixth (PostHog ticket
+76581 resolved; export capability test dispatched). Nothing below releases inputs, dispatches the planner, admits capacity, releases a hold,
 invites a user, adds load or extends a timebox; the one spend is the reserved run recorded below, whose cost exceeded
 its reservation (chief defect, second instance).
 
@@ -12,7 +16,7 @@ its reservation (chief defect, second instance).
 
 | Item | Value |
 |---|---|
-| Final head / merge | `56167e72` → main `c780228a` (squash) at 2026-10-05T18:17:54Z; branch restarted from that main |
+| Final head / merge | `56167e72` → main `c780228a` (squash; GitHub `merged_at` 2026-10-05T18:17:54Z, commit timestamp 18:17:51Z); branch restarted from that main |
 | Review chain | three-lens workflow on `de8a525d` (21 contexts; NO BLOCKER ×3; 18 findings, 18 refuters / 0 refuted); delta checks on `2c4e6926`, `c6f3b993` and `56167e72` by the pre-registered delta reviewer (NO BLOCKER each; 48 / 48 / 49 hash rows, 0 mismatched); two nits carried into this record and applied (record-07 header amendment times; "second" delta check) |
 | Required checks on `56167e72` | backend-tests, frontend-tests, e2e-tests, migrations-postgres, lighthouse, review-gate (run 37354665438, on the `Review override:` line) — all success; secret-scan and eval-baseline success |
 | Codex / Copilot | Codex did not review (connector quota comments 5999886282 and 6000402651); Copilot did not review; the `copilot-eval` workflow is an evaluation job, not a review |
@@ -36,7 +40,7 @@ its reservation (chief defect, second instance).
 | Trigger | CI run **37354885121** on main `c780228a` (push); `deploy-backend` runs on every `backend/`-touching push to main — this PR touched `backend/tests/unit/test_capacity_readout.py` (a test) and `ops/capacity/readout.py` (operator tooling); application code unchanged |
 | Detect backend changes | step succeeded and the job proceeded to build and deploy (the PR changed backend/tests/unit/test_capacity_readout.py); its printed output is not in the retained log tail |
 | Conclusion | success (job completed 18:28:39Z; every step success, including Verify health) (job 111917875491); revision `earningsnerd-backend-00444-bxs` (image digest `b35a9b5b…`; traffic 100% LATEST; migrations applied 0 / skipped 41) |
-| Note | Health step body: status healthy; database healthy (6.85 ms); redis disabled; SEC EDGAR circuit closed. The seven Cloud Run job images were updated to the same digest. Application code unchanged from revision 00443; the rollout is a rebuild of identical service code plus the changed test and ops files. Facts read from the public job log by the chief and the registered helper subagent. |
+| Note | Health step body: status healthy; database healthy (6.85 ms); redis disabled; SEC EDGAR circuit closed. The pregenerate job image and the seven other job images (eight jobs) were updated to the same digest. Application code unchanged from revision 00443; the rollout is a rebuild of identical service code plus the changed test and ops files. Facts read from the public job log by the chief and the registered helper subagent. |
 | Chief omission | The PR body and record 07 said "no production change". A `backend/`-touching merge rebuilds the image and rolls a new revision even when application code is unchanged; that consequence was not stated before merging and is recorded here. Serial deployment verification: the job's own health step is the gate; no manual change by the chief. |
 
 ## Founder instructions received 2026-10-05T18:29Z — recorded and executed within authority
@@ -62,21 +66,48 @@ its reservation (chief defect, second instance).
 ## Option C — query-route readout contract draft delivered (addendum)
 
 The bounded COO worker (`coo-query-route-contract-draft-01`, dispatch `COO-QUERY-ROUTE-04`, eight inputs hash-verified;
-dispatched 2026-10-05T1837Z, returned 18:52Z; pass) delivered
+dispatched 18:37Z, returned 18:52Z; pass) delivered
 `handbacks/coo/QUERY-ROUTE-READOUT-CONTRACT-DRAFT-01.md` (45,384 bytes, SHA-256 `401b82ed08f2b23147cb1582075c149bf79f4c056368990c030e35593ecff3a8`): the
 query-route readout contract in G2/G3 shape with placeholder-only HogQL per reporting group, the count-bracketed
 pagination rule (caps labelled connector-reported, to be confirmed on first use), the private retention rule (hashes and
 counts only in the repository), the operator-identity rule written as a decision for the founder with the CEO, a no-cost
 dry-run plan that is explicitly not executed, what the contract settles and does not settle for G1–G5, risks with owners.
-No connector call, no customer data, no spend; ticket 76581 open and not resent. Worker deviations: (1) the manifest's read-scope commit e1b00514 precedes the worker's HEAD 1b5e0a47 by the manifest's own commit only, all eight input hashes matching at HEAD; (2) the file is 45,384 bytes after one in-place trim from 47,976 (about 384 bytes over the guidance; no required item removed); (3) one file created and then edited in place in the same run; (4) an observation, not a deviation: a PostHog exec tool appeared in the worker's deferred tool roster (never loaded or called), which the draft records as evidence of presentation only, not of function or transcript isolation, and which does not make such a worker an eligible operator. Open questions
+No connector call, no customer data, no spend; ticket 76581 open and not resent. This addendum post-dates the worker's read:
+the manifest's record-08 input hash `9a19701d…` (13,211 bytes) names the pre-addendum version at `1b5e0a47`, where all eight
+inputs matched. Worker deviations: (1) the manifest's read-scope commit e1b00514 precedes the worker's HEAD 1b5e0a47 by the manifest's own commit only, all eight input hashes matching at HEAD; (2) the file is 45,384 bytes after one in-place trim from 47,976 (about 384 bytes over the guidance; no required item removed); (3) one file created and then edited in place in the same run; (4) an observation, not a deviation: a PostHog exec tool appeared in the worker's deferred tool roster (never loaded or called), which the draft records as evidence of presentation only, not of function or transcript isolation, and which does not make such a worker an eligible operator. Open questions
 for the founder: Q1 which operator-identity option is recorded with the CEO in the G1 access decision (O1 a dedicated non-executive remote session with the connector attached by the founder; O2 a founder-operated run with a hashing script; O3 a child worker of the executive session, weakest isolation; O4 no operator until the G4 frozen roster exists); Q2 whether a schema read of project 117863 (table, column and event names, no rows) is within existing authorization, and whether PostHog's terms support the MCP execute-sql route as a reporting route; Q3 which private store holds readout responses and under what custody rule, given the classifier-denied receipt copy; Q4 whether the six invented-literal dry-run probes are authorised and by which context. **Disposition:** a draft; nothing adopted; G1–G3 stay BLOCKED until the founder with the CEO
 accepts the contract, decides the operator identity and makes the explicit access decision for the route.
+
+**Revision 2** (2026-10-05T19:07:44Z): the three-lens review of `39c74850` found one should-fix and five nits in the draft (the grouped-query
+count bracket was incoherent for a composite GROUP BY; the retention exception for invented-literal probe responses was
+unscoped; the event-name column was an unplaceholdered schema assumption; the plan-coverage sentence over-generalised record
+07; the length guidance was unsourced; the terminal-page rule was off by one row). The same registered worker (closure 152)
+applied them, staged outside the repository while the reviewers were reading, and the chief moved the file into place: revision
+2 as placed is 49,767 bytes, SHA-256 `448f4f12bee69a4c543cb14b22a785a9a5754af0d87acd6de834135ff180253d` (the worker's staged revision 2 was 49,766 bytes,
+`9daf5f58…`; one chief edit before placement replaced the literal session upload-directory path in its "Not read, by rule" row
+with "the session's upload area", a policy-lens finding; no other byte changed); its §7.1 lists the six changes against the revision-1 hash `401b82ed…`
+(45,384 bytes, committed at `39c74850`). The worker's disclosed deviations: the file grew above the dispatch message's length
+guidance because unrelated text was kept byte-identical; "six dry-run calls" was written as "the dry-run calls (six probe
+shapes; several calls each)" for accuracy; the count-bracket correction was carried into §2.4 and §4 P4 for consistency.
+
+## Founder instruction received ~19:12Z — PostHog ticket 76581 resolved; COO export capability test dispatched
+
+| Item | Value |
+|---|---|
+| Event | The founder relayed (screenshots) that PostHog support (Luke) resolved ticket **76581**: "I've gone ahead and enabled the flag for your organization" (HogQL file-download batch exports, closed beta, enabled per team), with the docs link for file-download exports. **Support-confirmed enablement is recorded; actual export validation is pending** — nothing is credited until a run completes and its files are verified. |
+| Instruction (verbatim intent) | Assign the existing COO to the next bounded reporting dependency: (1) record support-confirmed enablement; (2) run the previously agreed capability test for project 117863 — exactly three invented literal rows, no events, persons or customer-table access; (3) retain the exact query, run identity, terminal status, completed row count, every returned file part and file hashes, and verify the downloaded contents contain exactly the three expected rows; (4) complete the existing independent file-input contract review against those actual artifacts, reusing the released report consumer where compatible; (5) report which reporting prerequisites this closes and the next executable dependency; do not mark cohort reporting or beta admission complete from a synthetic test. No customer-data export, no inferred consent, no subscription change, no expansion of spending permissions; the USD 25 authorization is DeepSeek, not a PostHog charge. If the environment lacks the required PostHog tools, report the exact missing access and provide a narrowly scoped Codex-worker handoff. |
+| Tooling check (chief, read-only) | The connector in this session exposes `file-download-batch-exports-create / -retrieve / -count-rows-create / -cancel-create` (plus the generic batch-export tools); the `hogql` model takes the query verbatim, `JSONLines`, no bounds when the query has no placeholders. The connector's own skill states that the final file download uses the REST endpoint `GET /api/projects/{project_id}/file_download_batch_exports/{run_id}/download/{part}/` "with the same PostHog authentication context as other API calls" — an authentication context this container does not hold (no environment variable name contains POSTHOG; connector credentials are never extracted). So steps 1–3 run here up to run completion, record count and file identities; the file download and the byte-level three-row verification need the founder's authenticated context or a Codex worker with it (handoff prepared by the worker). |
+| Exact agreed query | `tasks/review-evidence/beta-readout-2026-09-30/literal-projection.hogql`, SHA-256 `87c47aa644ef127eb8189db6e56cf0755d3158be59dcdadb74cecb33c253b3e4` — the same query bytes the September 30 export attempt sent (its receipt's `query_sha256`); three invented rows from literal `UNION ALL` SELECTs, 21 aliased columns, no events/persons/sessions table |
+| Dispatch | Manifest `dispatch/COO-EXPORT-VALIDATION-05.json` (SHA-256 `f7f0abfad0accb8d10c6dfd9881c7e2015089b51c05897adb3f51cc45fa201cf`, 9,414 bytes; ten input hashes; procedure: count-rows first, expected 3; one create; poll to a terminal status; no download without an existing authentication context; stop on any pricing, plan or billing signal). Bounded COO worker `coo-export-capability-test-01` dispatched 19:22Z (registered as actual in closure 153). The independent file-input contract review (G3) is a separate context, dispatched when the artifacts exist. |
+| Boundaries | No customer or participant data; no events/persons/sessions export; no `execute-sql`; one export run; no subscription or plan change; no PostHog charge authorized (a pricing signal is a stop condition); USD 0 DeepSeek. Ticket 76581 is resolved by support; nothing is resent. |
+| State | Support-confirmed enablement: RECORDED. G2 complete literal file receipt: PENDING the run and the file verification. G3: PENDING. G1 explicit access decision for the route: still the founder's with the CEO (the enabled flag is capability, not the programme's access decision). Cohort reporting and beta admission: NOT complete; a synthetic test cannot complete them. |
 
 ## Registration (closure 151)
 
 `control/source-context-exclusion-151.json` resolves the PR #1098 delta reviewer's label to its launch-time identity
 (17:44Z) and pre-registers the record-08 PR reviewer and the COO query-route contract worker as provisional labels; closure 152
-resolves the latter after its return. The log-cost helper (closure 150) was re-used
+resolves the latter after its return. Closure 153 registers this PR's review-workflow contexts, the export capability
+test worker (actual) and the delta reviewer (provisional). The log-cost helper (closure 150) was re-used
 once as the same context; no other context was created.
 
 ## Spend

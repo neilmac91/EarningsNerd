@@ -22,7 +22,7 @@ the chosen route is explicit (record 08, row 3).
 | Repository state | Branch `claude/vigilant-goodall-633yx3` at `1b5e0a47` (passive reads: `git rev-parse`, `git branch --show-current`, `git status --porcelain` clean). The manifest names `e1b00514`; `git merge-base --is-ancestor` confirms it is an ancestor of HEAD and the only later commit is the manifest's own (`1b5e0a47`). A wording deviation, not a content one: every input hash matched at HEAD. No other repository file was opened. |
 | Authority | **COO drafts; the founder with the CEO accepts.** COO owns closure of G1–G5 (FIRST-DELIVERABLE five-group table). MASTERPLAN-REVIEW §3B: "determine a concrete supported export/readout route and its evidence first. No substitute reporting contract is silently approved here." **Option C adopted by the founder 2026-10-05** (record 08, founder instructions row 3). Record 07 handed the query-route evidence to the COO; `REPORT-ROUTE-PROPOSAL-01` §6 set the three options; this draft is the preparation option C permits and nothing more. |
 | Available authority of this worker | Administrative/management only; excluded from source A/B authorship, reconciliation, semantic financial review and blind judging. Read-only except this one file. No git write, network, connector call, customer query, test, cloud or production read. Zero provider calls, reservations and spend. |
-| Not read, by rule | Source packets, candidate outputs, judge material, customer or participant data, credentials, anything under `tasks/readiness-2026-09-21/acceptance/` or `/root/.claude/uploads/`, and any file outside the manifest's inputs (the probe response bytes are relied on as quoted in the proposal §1.2). |
+| Not read, by rule | Source packets, candidate outputs, judge material, customer or participant data, credentials, anything under `tasks/readiness-2026-09-21/acceptance/` or the session's upload area, and any file outside the manifest's inputs (the probe response bytes are relied on as quoted in the proposal §1.2). |
 
 ### 1.1 Inputs verified (sha256sum and byte length compared to the manifest BEFORE any input was relied on)
 
@@ -71,11 +71,19 @@ The `…/scratchpad` prefix is `/tmp/claude-0/-home-user-EarningsNerd/27aa9761-b
   public (F6).
 - **Event vocabulary.** `{{event_*}}`, `{{prop_*}}` and `{{table}}` are placeholders for event names, property names
   and the collected table as the project schema names them. They are **bound by the Q-G3 schema confirmation, not
-  invented here**; no event name in this file is a claim about what the product emits.
-- **Count bracket (Q-C).** Every result set is bracketed by a count query with the **identical** `FROM … WHERE` clause:
-  `n_before` immediately before page 0 and `n_after` immediately after the terminal page; for a `GROUP BY` result the
-  count is `count(DISTINCT <group key>)` (the number of result rows), and a second `count()` records the number of
-  underlying events the aggregate summarises. Both responses are retained.
+  invented here**; no event name in this file is a claim about what the product emits. `event` is written literally as
+  the fixed event-name column of `{{table}}`; its name and type are confirmed at Q-G3 together with the other columns
+  (§2.3) before any G5 query is bound.
+- **Count bracket (Q-C).** Every result set is bracketed by a **row-count** query run as `n_before` immediately before
+  page 0 and `n_after` immediately after the terminal page, and `n_before = n_after = Σ rows` must hold for **every**
+  query shape. Row-level query: `count()` with the identical `FROM … WHERE`. Grouped query: the count of distinct
+  group-key tuples — `SELECT count() AS n FROM (<the grouped query without LIMIT/OFFSET>)`, or equivalently
+  `count(DISTINCT <group-key tuple>)` with the identical `FROM … WHERE`; `count(DISTINCT {{member_key}})` serves as the
+  row bracket **only where the group key is the member alone** (Q-G5-1/2/3), and Q-G5-4 uses
+  `count(DISTINCT {{member_key}}, toISOWeek({{event_time}}))`. In addition, for every grouped query a `count()` with the
+  identical `FROM … WHERE` records the underlying events summarised, and where the group key is not the member alone a
+  `count(DISTINCT {{member_key}})` is retained as the observed-member count for the denominator (§2.4). All bracket
+  responses are retained.
 - **Pagination rule (every row-level or grouped result).** Explicit `LIMIT {{L}} OFFSET {{k}} × {{L}}` on every page,
   `k = 0 … K`, contiguous, text identical across pages except the OFFSET literal, `ORDER BY` a total order on a key
   whose uniqueness Q-G3 confirmed from the schema. `{{L}}` never exceeds the route's maximum; the default cap is never
@@ -91,7 +99,9 @@ The `…/scratchpad` prefix is `/tmp/claude-0/-home-user-EarningsNerd/27aa9761-b
   timestamp per call, operator context id. **Repository:** SHA-256 of each query text and of each response, row counts,
   window, `L`, `K`, `n_before`, `n_after`, verdict, status, role labels — hashes and counts only; never a row, a roster
   literal or a token (F5, F6). Templates and invented-literal probe texts contain no customer identifier and may appear
-  in the repository as this file does.
+  in the repository as this file does. **Retention exception, stated once:** responses to invented-literal probes (no
+  collected table in any `FROM`) are the **only** response bytes that may enter the repository; every response to a
+  query naming `{{table}}` is private, hash only.
 - **Denominators.** `N` is the frozen eligible roster size, carried by reference and hash from the G4 packet;
   exclusions by count and hash; a roster member absent from a result is recorded "not observed in window" and read
   only with the source-availability record — never as zero use, never as success; `N` is never reduced to make a ratio.
@@ -122,7 +132,7 @@ The `…/scratchpad` prefix is `/tmp/claude-0/-home-user-EarningsNerd/27aa9761-b
 | Denominators | Not applicable to literal probes; the template carries `{{roster_predicate}}` so that `N` enters only by reference. |
 | Count bracket | P2 brackets P1 (expected count equals the literal set size, stated in §4); the template count runs before page 0 and after page K. |
 | Pagination | P1 exercises three contiguous pages and the terminal rule on a literal set; P5 exercises the connector-stated caps (F3) — the observed default and maximum are **recorded** as "confirmed on <date>" in every later receipt. |
-| Retention | Probe responses contain no customer data: bytes, SHA-256, length and row counts may be public; stored under the proposal §3.1 receipt template so the template is itself exercised. |
+| Retention | Under the §2.0 retention exception (probe responses with no collected table in any `FROM` are the only response bytes that may enter the repository): bytes, SHA-256, length and row counts may be public; stored under the proposal §3.1 receipt template so the template is itself exercised. |
 | Q-G3 checklist items that apply | Query text (echo identity across pages except OFFSET); parameters (`L` explicit, `K` consistent); page inventory; count reconciliation re-derived from responses; hashes re-computed; format (delimiter, newline, null, numeric rendering — P6). |
 | State | BLOCKED behind G1's decision; the dry-run itself needs the CEO's R7 decision (§4). |
 
@@ -131,7 +141,7 @@ The `…/scratchpad` prefix is `/tmp/claude-0/-home-user-EarningsNerd/27aa9761-b
 | Field | Content |
 |---|---|
 | Purpose | A named independent read-only reviewer records `accept` / `reject` / `incomplete` on the actual retained receipts and private responses, re-deriving completeness from bytes rather than from the operator's verdict (proposal §3.5). |
-| Query text(s) | **None against collected data.** The reviewer re-hashes every private response, re-derives `n_before = n_after = Σ rows` and key distinctness from retained bytes, and compares each retained query text to the response echo. **One schema confirmation** precedes any G5 binding: `{{order_key}}` unique per row of `{{table}}`; `{{member_key}}`, `{{event_time}}` and each `{{event_*}}`/`{{prop_*}}` present with the expected types. Source, in order of preference: PostHog's published schema documentation (no project access); or the connector's schema command — its command list as presented to this session on 2026-10-05 includes a `read-data-schema` name beside `execute-sql` (seen in the tool description only; **not invoked, capability not verified**). Whether a schema read of project 117863 is within "existing authorization" is **open question Q2 for the founder** (§7): it reads no rows but reveals collected event and property names. |
+| Query text(s) | **None against collected data.** The reviewer re-hashes every private response, re-derives `n_before = n_after = Σ rows` and key distinctness from retained bytes, and compares each retained query text to the response echo. **One schema confirmation** precedes any G5 binding: `{{order_key}}` unique per row of `{{table}}`; `{{member_key}}`, `{{event_time}}`, the event-name column `event` and each `{{event_*}}`/`{{prop_*}}` present with the expected types. Source, in order of preference: PostHog's published schema documentation (no project access); or the connector's schema command — its command list as presented to this session on 2026-10-05 includes a `read-data-schema` name beside `execute-sql` (seen in the tool description only; **not invoked, capability not verified**). Whether a schema read of project 117863 is within "existing authorization" is **open question Q2 for the founder** (§7): it reads no rows but reveals collected event and property names. |
 | Denominators | The reviewer checks that `N`, exclusions and unobserved members are preserved and that unknowns are not coerced. |
 | Count bracket | Re-derived, not re-run: the reviewer never issues a fresh customer query to "fix" a mismatch; a conflict between `n_before` and `n_after` is recorded, not resolved by choice. |
 | Pagination | The reviewer checks the OFFSET sequence, the terminal-page rule, the cap-hit rule and that the recorded cap confirmation (P5) exists. |
@@ -147,7 +157,7 @@ The `…/scratchpad` prefix is `/tmp/claude-0/-home-user-EarningsNerd/27aa9761-b
 | Purpose | The route adds exactly one dependency to G4: the **frozen eligible roster and exclusions must exist, by hash, before any `{{roster_predicate}}` is written** (proposal §4 G4). G4's other contents are unchanged and outside this contract. |
 | Query text(s) | **None run.** The packet yields the bound predicate shape: `{{roster_predicate}}` := `{{member_key}} IN ({{roster_member_literals}})`, where `{{roster_member_literals}}` is the eligible roster after exclusions, bound from the packet. Exclusions are **not** queried: they are applied by absence from the literal set and carried by count and hash. The bound predicate text is private; its SHA-256 and the packet hash it was bound from are public. |
 | Denominators | `N` = size of the eligible roster in the frozen packet (by reference and hash). Observed members per window ≤ `N` by construction. |
-| Count bracket | For every G5 query: `SELECT count(DISTINCT {{member_key}}) AS n_members FROM {{table}} WHERE {{event_time}} >= toDateTime('{{window_start}}') AND {{event_time}} < toDateTime('{{window_end}}') AND {{roster_predicate}}` — the number of roster members observed in the window, compared to `N`; the difference is the "not observed in window" count. |
+| Count bracket | For every G5 query, the **observed-member count** (it is also the §2.0 row bracket only where the group key is the member alone): `SELECT count(DISTINCT {{member_key}}) AS n_members FROM {{table}} WHERE {{event_time}} >= toDateTime('{{window_start}}') AND {{event_time}} < toDateTime('{{window_end}}') AND {{roster_predicate}}` — the number of roster members observed in the window, compared to `N`; the difference is the "not observed in window" count. |
 | Pagination | Not applicable to the packet; whether a single `IN (…)` literal list of size `N` is accepted by the route is confirmed by P4 on an invented set of comparable shape (§4) — no number is set here. |
 | Retention | The packet is private (FIRST-DELIVERABLE G4: no names in any shared bundle); the repository holds the packet hash, `N`, the exclusion count and the predicate hash. |
 | Q-G3 checklist items that apply | Query text (no identifier or predicate outside the authorised roster/window); denominator semantics (roster hash in the receipt equals the packet hash; `N` unchanged across both weekly windows and the combined window). |
@@ -164,8 +174,8 @@ The `…/scratchpad` prefix is `/tmp/claude-0/-home-user-EarningsNerd/27aa9761-b
 | Q-G5-4 combined-window different-filing return | Window = the union of the two weekly windows as one half-open interval. `SELECT {{member_key}} AS member, toISOWeek({{event_time}}) AS iso_week, count(DISTINCT {{prop_filing_id}}) AS distinct_filings FROM {{table}} WHERE {{event_time}} >= toDateTime('{{window_start}}') AND {{event_time}} < toDateTime('{{window_end}}') AND {{roster_predicate}} AND event = '{{event_filing_viewed}}' GROUP BY member, iso_week ORDER BY member, iso_week LIMIT {{L}} OFFSET {{k_times_L}}` — "later-ISO-week different-filing return" is derived client-side per member from the retained rows (a filing identifier present in a later week and absent from the earlier), the derivation recorded in the receipt; the query asserts nothing. `toISOWeek` acceptance is proved by P4 (§4). |
 | Row-level fallback | Only where a readout field needs rows, the §2.2 page template with `{{projected_columns}}` limited to the fields the readout names; aggregates are preferred (proposal R1). |
 | Denominators | `N` from the G4 packet; each Q-G5 result lists observed members only; `N − n_members` are "not observed in window"; `source-unavailable` on any call makes the whole window unknown (not zero) for that readout. |
-| Count bracket | For each Q-G5 query, two counts with the identical `FROM … WHERE` (including the `event` filter): `count(DISTINCT {{member_key}})` (result rows, run before page 0 and after page K) and `count()` (underlying events). Agreement rule as §2.0. |
-| Pagination | As §2.0. A grouped result has at most `N` rows (Q-G5-4: `N` × ISO weeks in the window); if that is ≤ `L`, page 0 is terminal **and must still return fewer than `L` rows**, otherwise a second page is fetched. No participant count is assumed. |
+| Count bracket | For each Q-G5 query, the §2.0 row bracket with the identical `FROM … WHERE` (including the `event` filter), run before page 0 and after page K, so that `n_before = n_after = Σ rows`: Q-G5-1/2/3 (group key = member alone) `count(DISTINCT {{member_key}})`; Q-G5-4 (group key = member, ISO week) `SELECT count() AS n FROM (<Q-G5-4 without LIMIT/OFFSET>)` or `count(DISTINCT {{member_key}}, toISOWeek({{event_time}}))`, plus `count(DISTINCT {{member_key}})` retained as the observed-member count. For every query a further `count()` records the underlying events. |
+| Pagination | As §2.0. A grouped result has at most `N` rows (Q-G5-4: `N` × ISO weeks in the window). Page 0 is terminal only if it returns **fewer than `L`** rows; with exactly `L` rows page 1 is fetched and its emptiness is the terminal page. No participant count is assumed. |
 | Settle rule | Late-arriving events can move `n_before`/`n_after` (proposal R9). The delay between `{{window_end}}` and the first call is a policy the COO with the CEO record when the first window is authorised; none is set here. |
 | Retention | As §2.0; the readout record also names, per field, the evidence route that supplied it (query, support, ledger, session review) so no PostHog-derived figure is presented as covering a field it cannot. |
 | Q-G3 checklist items that apply | All ten; denominator semantics and provenance are decisive. |
@@ -204,16 +214,18 @@ Purpose: exercise every query *shape* of §2 with invented literals so that synt
 mechanics and the hashing procedure are proved before any customer query. Every probe is a `SELECT` whose only `FROM`
 is a subquery over literal arrays; **no collected table is named in any `FROM`**. No probe reads customer data, so under
 record 07's ceiling an executive context could run them; **whether and by whom is the CEO's decision (proposal R7)**;
-this worker runs none. Record 07 states such calls are covered by the existing PostHog plan (dated 2026-10-05); no
-DeepSeek call; no spend. If the route rejects a construct, the rejection is a recorded finding and the shape is
-re-expressed with an accepted construct — the expected counts are properties of the literal sets, not of the route.
+this worker runs none. Record 07 states the probe calls made on 2026-10-05 were covered by the existing plan; the
+dry-run calls (six probe shapes; P1, P2 and P5 take several calls each) are assumed to fall under the same coverage, to
+be confirmed by the K8 documentation read; no DeepSeek call; no spend. If the route rejects a construct, the rejection
+is a recorded finding and the shape is re-expressed with an accepted construct — the expected counts are properties of
+the literal sets, not of the route.
 
 | Probe | Shape exercised | Query text (invented literals) | Proves | Cannot prove |
 |---|---|---|---|---|
 | **P1** | Row pages, LIMIT/OFFSET, terminal rule | `SELECT k AS probe_key, concat('row_', toString(k)) AS probe_label FROM (SELECT arrayJoin([1,2,3,4,5,6,7,8,9,10,11,12]) AS k) ORDER BY probe_key LIMIT 5 OFFSET 0` then `… OFFSET 5`, `… OFFSET 10` — expected 5, 5, 2 rows; the third page is terminal (`2 < 5`) | OFFSET arithmetic, contiguity, stable order on a literal key, the terminal-page rule, per-page hashing | Completeness on a changing real table; key uniqueness on `{{table}}`; behaviour at `N` rows |
 | **P2** | Count bracket | `SELECT count() AS n FROM (SELECT arrayJoin([1,2,3,4,5,6,7,8,9,10,11,12]) AS k)` — expected `12`, run before P1 page 0 and after P1 page 2 | `n_before = n_after = Σ rows` mechanics; the `results` text rendering of a count | That counts are stable on real data between bracket calls |
 | **P3** | Half-open UTC window | `SELECT t FROM (SELECT arrayJoin([toDateTime('2026-01-01 00:00:00'), toDateTime('2026-01-01 12:00:00'), toDateTime('2026-01-02 00:00:00'), toDateTime('2026-01-02 00:00:01')]) AS t) WHERE t >= toDateTime('2026-01-01 00:00:00') AND t < toDateTime('2026-01-02 00:00:00') ORDER BY t` — expected 2 rows: the start boundary included, the end boundary excluded | Boundary semantics of `>=`/`<` with `toDateTime` literals; UTC rendering (F2 c) | Timezone of real `{{event_time}}` values; late-arrival effects |
-| **P4** | Grouped aggregate, `IN (…)` literal set, `toISOWeek`, `count(DISTINCT)` bracket | `SELECT m AS member, count() AS n_events, count(DISTINCT f) AS distinct_filings, toISOWeek(t) AS iso_week FROM (SELECT arrayJoin([('m1','f1',toDateTime('2026-01-05 10:00:00')),('m1','f2',toDateTime('2026-01-13 10:00:00')),('m2','f1',toDateTime('2026-01-06 10:00:00')),('m3','f3',toDateTime('2026-01-14 10:00:00'))]) AS r, r.1 AS m, r.2 AS f, r.3 AS t) WHERE m IN ('m1','m2','m3','m4') GROUP BY member, iso_week ORDER BY member, iso_week LIMIT 100 OFFSET 0` — expected 4 rows; bracket `SELECT count(DISTINCT m) …` with the identical subquery and `WHERE` — expected `3`, so "not observed" = 4 − 3 = 1 (`m4`) | GROUP BY, tuple literals, `IN` over a literal set with an unmatched member, `toISOWeek`, the two-count bracket and the client-side "not observed" derivation | That `{{member_key}}`/`{{prop_filing_id}}` exist with these types; the real roster literal list's acceptance at size `N` |
+| **P4** | Grouped aggregate, `IN (…)` literal set, `toISOWeek`, `count(DISTINCT)` bracket | `SELECT m AS member, count() AS n_events, count(DISTINCT f) AS distinct_filings, toISOWeek(t) AS iso_week FROM (SELECT arrayJoin([('m1','f1',toDateTime('2026-01-05 10:00:00')),('m1','f2',toDateTime('2026-01-13 10:00:00')),('m2','f1',toDateTime('2026-01-06 10:00:00')),('m3','f3',toDateTime('2026-01-14 10:00:00'))]) AS r, r.1 AS m, r.2 AS f, r.3 AS t) WHERE m IN ('m1','m2','m3','m4') GROUP BY member, iso_week ORDER BY member, iso_week LIMIT 100 OFFSET 0` — expected 4 result rows (member × ISO week); **row bracket** `SELECT count() AS n FROM (<the same grouped query without LIMIT/OFFSET>)` — expected `4` (= Σ rows); **observed-member count** `SELECT count(DISTINCT m) …` with the identical subquery and `WHERE` — expected `3`; the literal roster set has 4 members, so "not observed" = 1 (`m4`) | GROUP BY, tuple literals, `IN` over a literal set with an unmatched member, `toISOWeek`, the group-tuple row bracket, the observed-member count and the client-side "not observed" derivation | That `{{member_key}}`/`{{prop_filing_id}}` exist with these types; the real roster literal list's acceptance at size `N` |
 | **P5** | Caps (F3) | **P5-a**: a `SELECT` over a literal set larger than 100 rows with **no** `LIMIT` — observe whether 100 return (the stated default). **P5-b**: `LIMIT 500` over a set larger than 500 — observe whether 500 return. **P5-c**: `LIMIT 501` — observe acceptance, truncation or error. Sets of that size need a range-generating function (`range(…)` with `arrayJoin`); if rejected, the cap confirmation falls to first use and the receipt keeps "connector-reported, unconfirmed" | The default and maximum as **confirmed on <date>**, replacing F3's "connector-reported" in every later receipt; the cap-hit rule of §2.0 | Plan-level call or query limits (proposal R1, R5); behaviour under load |
 | **P6** | Format fidelity of `results` (proposal R6) | `SELECT 'a\|b' AS has_pipe, 'line1\nline2' AS has_newline, NULL AS is_null, 1.5 AS a_float, toDateTime('2026-01-01 00:00:00') AS a_time, '' AS empty_text` (one row) | How a pipe, a newline, a null, a float, a datetime and an empty string are rendered in the pipe-delimited text — the parse rules Q-G3 and any later consumer change depend on | That real property values contain only these cases |
 
@@ -286,9 +298,9 @@ neither is inferred from the other (MASTERPLAN-REVIEW §3B).
   pricing, registration, load, probes, measurements **0**. Observed for this worker's own actions; session/platform
   overhead is unmeasured and not claimed as zero.
 - **Deviations:** (1) the manifest's `repository_read_scope` commit is `e1b00514`; this worker ran at `1b5e0a47`, whose
-  only additional commit is the manifest's own — all input hashes matched. (2) The file exceeded the ~45,000-byte
-  guidance on first write and was trimmed once before handback (same single file; no content item removed). No stop
-  condition was met.
+  only additional commit is the manifest's own — all input hashes matched. (2) The file exceeded the length guidance
+  given in the dispatch message text (the manifest states no length) on first write and was trimmed once before
+  handback (same single file; no content item removed). No stop condition was met.
 - **Open questions for the founder (with the CEO):** Q1 — which §3 operator option (O1–O4), recorded in the G1 access
   decision (§5.2). Q2 — whether a schema read of project 117863 (no rows) is within existing authorization, so that
   `{{order_key}}`, `{{member_key}}` and the event vocabulary can be bound at G3. Q3 — the private store for readout
@@ -302,3 +314,20 @@ neither is inferred from the other (MASTERPLAN-REVIEW §3B).
 - **Served model:** this worker cannot observe its own served model; the requested model is recorded in the manifest
   as inherited `claude-fable-5-1`, and the chief resolves the label.
 - **No further writes; no background work is claimed after this handback.**
+
+### 7.1 Revision 2 corrections
+
+Revision 2 supersedes revision 1 (SHA-256 `401b82ed08f2b23147cb1582075c149bf79f4c056368990c030e35593ecff3a8`,
+45,384 bytes, committed at `39c74850`). It applies the chief's read-only review of that head (one should-fix, five
+nits) and nothing else; it was written by the same worker role to a staging path outside the repository tree, under the
+same rules (read-only repository, no connector, no customer data, no spend, no invented numbers), and is moved into
+place by the chief, who records the hash chain.
+
+| # | Severity | Change (one line each) |
+|---|---|---|
+| 1 | should-fix | §2.0 Count bracket and §2.5 Count bracket: the row bracket for a grouped query is the count of distinct group-key tuples (`SELECT count() AS n FROM (<grouped query without LIMIT/OFFSET>)`, or `count(DISTINCT {{member_key}}, toISOWeek({{event_time}}))` for Q-G5-4); `count(DISTINCT {{member_key}})` is the row bracket only where the group key is the member alone; `n_before = n_after = Σ rows` now holds for every shape including Q-G5-4; §2.4 Count bracket relabelled as the observed-member count; §4 P4 bracket corrected to expected `4` with the observed-member count `3` kept separately. |
+| 2 | nit | §2.0 Retention rule: one retention-exception sentence — invented-literal probe responses (no collected table in any `FROM`) are the only response bytes that may enter the repository; every response to a query naming `{{table}}` is private, hash only; §2.2 Retention now points to it. |
+| 3 | nit | §2.0 Event vocabulary: `event` is written literally as the fixed event-name column of `{{table}}`, confirmed at Q-G3 with the other columns; §2.3 schema confirmation lists it. |
+| 4 | nit | §4 plan coverage: record 07 states the probe calls made on 2026-10-05 were covered by the existing plan; the dry-run calls are assumed to fall under the same coverage, to be confirmed by the K8 documentation read; no DeepSeek call; no spend. |
+| 5 | nit | §7 Deviations (2): the length guidance is attributed to the dispatch message text, not the manifest; the number is dropped. |
+| 6 | nit | §2.5 Pagination: page 0 is terminal only with fewer than `L` rows; with exactly `L` rows page 1 is fetched and its emptiness is the terminal page. |
