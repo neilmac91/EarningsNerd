@@ -3,7 +3,10 @@
 Recorded 2026-10-05T18:35:26Z by the chief (`https://claude.ai/code/session_01GWYV7WXWstgVGQG43YcSM8`, runtime-reported model
 `claude-fable-5-1`). Amended 2026-10-05T18:52:54Z: addendum (COO contract draft delivered; closure 152); dispatch manifest
 `COO-QUERY-ROUTE-04` binds this record at its pre-addendum hash `9a19701d…` (13,211 bytes). Amended 2026-10-05T19:03:55Z after the
-three-lens review of `39c74850`: this header, the merge-time source, the manifest-binding clause in the addendum.
+three-lens review of `39c74850`: this header, the merge-time source, the manifest-binding clause in the addendum. Amended
+2026-10-05T19:07:44Z (COO draft revision 2); amended by 19:31:58Z (founder instruction ~19:12Z: ticket 76581 resolved, manifest
+`COO-EXPORT-VALIDATION-05`, closure 153); amended 19:35:53Z (export capability outcome); amended 2026-10-05T22:00:25Z in record 09
+(seven nits from the delta review of `ad915c44`: this header, the outcome's return time and tool list).
 Context: record 07 and the readout diagnostics change merged to main as `c780228a` (GitHub `merged_at` 18:17:54Z; the
 squash commit's own timestamp 18:17:51Z; PR #1098). This record closes the loop on that merge: the reserved paid re-trigger and its settlement, the
 backend deploy that every `backend/`-touching merge runs, the review-chain identities, the two cosmetic nits carried
@@ -102,10 +105,10 @@ shapes; several calls each)" for accuracy; the count-bracket correction was carr
 | Boundaries | No customer or participant data; no events/persons/sessions export; no `execute-sql`; one export run; no subscription or plan change; no PostHog charge authorized (a pricing signal is a stop condition); USD 0 DeepSeek. Ticket 76581 is resolved by support; nothing is resent. |
 | State | Support-confirmed enablement: RECORDED. G2 complete literal file receipt: PENDING the run and the file verification. G3: PENDING. G1 explicit access decision for the route: still the founder's with the CEO (the enabled flag is capability, not the programme's access decision). Cohort reporting and beta admission: NOT complete; a synthetic test cannot complete them. |
 
-**Outcome (addendum, 2026-10-05T19:35:53Z).** The worker returned 19:3xZ with `pass`: all ten inputs verified before any connector call;
+**Outcome (addendum, 2026-10-05T19:35:53Z).** The worker returned 19:32Z (run file recorded 19:32:44Z) with `pass`: all ten inputs verified before any connector call;
 `count-rows` → 3 (= expected); one `create` → run **`01a10d89-1ee8-0000-3e2c-9000712c9502`**; first `retrieve` → **Completed**,
 `records_completed` **3**, one file part **`01a10d89-3a26-0000-56f3-e1f6c4004610`** (JSONLines, uncompressed, single file); no pricing, plan or
-billing signal; no cancel; nothing else called. Download not attempted: no authenticated PostHog HTTP context exists here and
+billing signal; no cancel; no other export tool called (`learn` ×2, `info` ×4 only). Download not attempted: no authenticated PostHog HTTP context exists here and
 none was sought; the endpoint and a narrow Codex-worker handoff (one authenticated GET following the single redirect, save
 raw bytes, never store the signed URL, verify exactly three rows with the 21 aliases) are recorded in the run file. Outputs:
 `handbacks/coo/export-validation-01/EXPORT-CAPABILITY-RECEIPT-01.md` (13,031 bytes, `beb2fff8…`) and
