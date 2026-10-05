@@ -1,6 +1,6 @@
 # Decision record 05 — pre-release update: custody state, release-receipt gate, time ceiling 150 (chief, 2026-10-04)
 
-Recorded 2026-10-04T23:14:48Z, amended 2026-10-04T23:45:47Z after the three-lens review (attribution wording) and 2026-10-04T23:51:28Z (founder update appended), by the chief (`https://claude.ai/code/session_01GWYV7WXWstgVGQG43YcSM8`, runtime-reported
+Recorded 2026-10-04T23:14:48Z, amended 2026-10-04T23:45:47Z after the three-lens review (attribution wording), 2026-10-04T23:51:28Z (founder update appended) and 2026-10-04T23:54:42Z (one owners-table row: custody figures), by the chief (`https://claude.ai/code/session_01GWYV7WXWstgVGQG43YcSM8`, runtime-reported
 model `claude-fable-5-1`). Input: Astra's "pre-release update" (observation from 2026-10-04T22:58:48Z;
 relayed by the founder; zero spend; one local administrative write). Status carried: **NOT_RELEASED /
 verification incomplete / no planner dispatch**. Nothing below releases inputs, dispatches the planner,

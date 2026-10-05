@@ -59,3 +59,15 @@ entries stamped 09:35:21.075Z and 12:49:19.634Z. Current document: 21,295 bytes,
 unchanged; spend 0. See `DECISIONS-03.md`. Rule as narrowed there: the reservation requirement applies to
 balance-affecting writes (reservations, holds, spend); administrative wording or correction events are
 permitted under the hash chain with `balances_changed: false`.
+
+### Event 2 — written 2026-10-05T00:10:56Z (recorded here 2026-10-05T00:15:41Z)
+
+Shared DeepSeek ceiling raised by the founder from USD 15.000000 to USD 25.000000 total (one shared ceiling across
+the chief, officers and workers; not per agent; nothing resets). Appended under the hash-chain rule
+(`previous_sha256` `beef4ca0…`). Reconciled headroom: 25.000000 − 0.547516 known future cost − 1.881713 retained
+holds = **22.570771 conditional unreserved**. Current document: 25,307 bytes, SHA-256
+`f4dd36fb0bba8528ae31faebf93b49fe1c493e5795becc8314c56c10b23f9f4f`; republished (artifact version 3) and read
+back from the published store with the same hash. Balances, holds and reservations unchanged; spend 0; active
+reservations 0; paid dispatch still HELD until a reservation is written before each paid trigger. The
+authorization releases no held work, extends no timebox, permits no new load and relaxes no gate. See
+`DECISIONS-06.md`.
