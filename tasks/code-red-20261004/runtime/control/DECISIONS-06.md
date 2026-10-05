@@ -1,6 +1,6 @@
 # Decision record 06 — overnight masterplan execution: ledger event 2 (shared ceiling 25), wave table, C1 closures, Monday readout plan (chief, 2026-10-05)
 
-Recorded 2026-10-05T00:15:41Z by the chief (`https://claude.ai/code/session_01GWYV7WXWstgVGQG43YcSM8`, runtime-reported
+Recorded 2026-10-05T00:15:41Z, amended 2026-10-05T00:45:23Z (founder update), 2026-10-05T08:55:05Z (morning execution) and 2026-10-05T09:11:56Z (independent-review fixes), by the chief (`https://claude.ai/code/session_01GWYV7WXWstgVGQG43YcSM8`, runtime-reported
 model `claude-fable-5-1`). Inputs: the founder's overnight directive and updated spending authorization
 (received 2026-10-05T00:02:09Z), the merged records 02–05, the handover package's `WAVE-REGISTER`,
 `CEO-DIRECTIVE` and `MASTERPLAN-REVIEW`, the COO disposition's eight C1 items and the CTO handback revision 3.
@@ -165,12 +165,16 @@ downloaded, so its view lags the Mac. Decisions:
   value is the screenshot step name, not a credential; the branch owner had already pinned the three fingerprints. The same
   three pins were ported into this PR's `.gitleaksignore` (commit `4fbaf15d`); they no-op once main carries #1094's copy.
   That branch was not touched.
-- **Registration:** closure 147 (201 known contexts) resolves the two worker labels of closure 145; the record-06 reviewer,
-  the founder's local custody verifier and the conditional fallback planner stay provisional.
+- **Registration:** closure 147 (201 known contexts) resolves the two worker labels of closure 145 with the chief's dispatch
+  times (08:19Z and 08:44Z, each about a minute after its manifest was recorded); the record-06 reviewer, the founder's local
+  custody verifier and the conditional fallback planner stay provisional.
 - Spend this morning: 0 DeepSeek calls; USD 0; 0 reservations; 0 ledger events. Nothing released, dispatched to a source
   role, admitted, invited, flagged or changed in production.
 
 ### Owners and next actions (superseding the table above where they differ)
+
+The first table's rows "Monday readout receipt", "CTO handback rev 4" and "COO disposition update" are **done** (this section);
+its other rows stand unless listed below.
 
 | Item | Owner | Next action | State |
 |---|---|---|---|

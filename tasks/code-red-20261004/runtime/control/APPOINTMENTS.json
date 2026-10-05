@@ -15,14 +15,14 @@
       "packet_sha256": "2209215e245813bd25aa6d8f70a41d5da98598f8b9ffdaf67da970e26a20d0e2",
       "first_deliverable_reused": "cto/FIRST-DELIVERABLE.md bdca249d…",
       "held_worker": "R1 dependency handover still NOT dispatched by the chief; implementation HELD pending the source-owned refinement. Registered source-only H20 planner (closure 140): uncontacted since the package report, runtime availability UNVERIFIED — no input release until it is resolved and any fresh context is registered first (DECISIONS-05); release receipt NOT_RELEASED; custody still 18/21 and 14/48 cloud-only after Keep Downloaded (bounded discrepancy investigation authorised as preparation), 11 verified hash+length, 0 mismatches; 30 of 180 minutes charged, 150 remain.",
-      "active_assignment": "dispatch/CTO-ENVELOPE-HANDBACK-01.json (current-beta operating envelope for COO C1)",
+      "active_assignment": "dispatch/CTO-ENVELOPE-HANDBACK-02.json (revision 4 delivered 2026-10-05); -01 is the original envelope dispatch",
       "actual_runtime_identity": "No isolated delegate: the Workflow launch for dispatch CTO-ENVELOPE-HANDBACK-01 (author + three adversarial lenses) was denied by the platform's auto-mode classifier. The chief context (session_01GWYV7WXWstgVGQG43YcSM8, runtime-reported model claude-fable-5-1) authored the handback acting as CTO; no isolated adversarial review ran.",
       "requested_model": "claude-fable-5-1 (author); independent lenses: claude-opus-5-5, claude-fable-5-1, claude-sonnet-5-5",
       "deliverable": "handbacks/cto/envelope/ revision 4 (CORRECTION-01: rev-1 placeholder defect; CORRECTION-02: rev-2 anchor nits; CORRECTION-03: rev 3 → rev 4 — readout facts B59–B62, two-bucket SEC model, B51/B52 resolved, C5 re-determination; hash chains recorded)",
       "status": "revision 4 delivered 2026-10-05T08:36:50Z by the bounded CTO worker; determination undetermined, no E09 code subset demonstrated necessary; E09 hold unchanged; capacity unadmitted",
       "independent_refuters": "Two isolated read-only refuter contexts (arithmetic, assumptions lenses) launched by the chief 2026-10-04T17:33Z against handback rev 3 derived rows; both returned; registered in control/source-context-exclusion-139.json; verdicts in control/DECISIONS-02.md Appendices A and B (no arithmetic error; six qualifications; edgartools second bucket verified; one process per instance observed).",
       "next_assignment": "Per-process SEC budget change prepared and locally gated; commit classifier-denied (Production Deploy) — founder applies or changes the patch (DECISIONS-02.md D3 execution note). After revision 4: read-only IAM check of the Ops identity's Monitoring/Logging access (handback B62) via CEO-approved read; no grant by the CTO.",
-      "rev4_worker_runtime_identity": "Isolated Claude Code subagent launched 2026-10-05T08:17Z by the chief on dispatch CTO-ENVELOPE-HANDBACK-02, role label cto-envelope-handback-rev4-author-01 (requested model inherited claude-fable-5-1; served model not observable by the chief); provisional label from closure 145 resolved in closure 147; 16 inputs hash-verified; only the three output files written; disclosed: branch advanced during authoring (re-verified), LEDGER-ACCESS.md not opened (not in manifest), evidence additions beyond the required list itemised in CORRECTION-03"
+      "rev4_worker_runtime_identity": "Isolated Claude Code subagent dispatched 2026-10-05T08:19Z by the chief (about a minute after the manifest was recorded) on dispatch CTO-ENVELOPE-HANDBACK-02, role label cto-envelope-handback-rev4-author-01 (requested model inherited claude-fable-5-1; served model not observable by the chief); provisional label from closure 145 resolved in closure 147; 16 inputs hash-verified; only the three output files written; disclosed: branch advanced during authoring (re-verified), LEDGER-ACCESS.md not opened (not in manifest), evidence additions beyond the required list itemised in CORRECTION-03"
     },
     "CPO": {
       "waves": [
@@ -53,7 +53,7 @@
       "status": "delivered",
       "item_8_status": "Closed by the CEO as the item's named owner on the refutation record (DECISIONS-02.md Appendices A/B; DECISIONS-06.md); COO carries the six qualifications into the disposition update. Items 4 and 6 closed/dependency-closed (D7, D1); B37 closed (D8); items 1, 2 (B39), 3, 5, 7 open. Monday readout window 06:00–08:00 UTC, Routine 08:10Z (D4).",
       "next_assignment": "Next disposition after B62 is resolved and a B32 readout exists, or after the founder's D3 decision. Capacity stays unadmitted.",
-      "disposition_update_01": "handbacks/coo/CURRENT-BETA-OPERATING-ENVELOPE-DISPOSITION-UPDATE-01.md (bounded worker launched 2026-10-05T08:42Z on manifest COO-ENVELOPE-DISPOSITION-02; 13 inputs hash-verified; pass): HOLD stands; C1 items closed 2 (4, 8), dependency-closed 1 (6), open 5 (1, 2 B39 part, 3, 5, 7), 2 with sub-dependency B62; G1–G5 unchanged; identity registered in closure 147"
+      "disposition_update_01": "handbacks/coo/CURRENT-BETA-OPERATING-ENVELOPE-DISPOSITION-UPDATE-01.md (bounded worker dispatched 2026-10-05T08:44Z on manifest COO-ENVELOPE-DISPOSITION-02; 13 inputs hash-verified; pass): HOLD stands; C1 items closed 2 (4, 8), dependency-closed 1 (6), open 5 (1, 2 B39 part, 3, 5, 7), 2 with sub-dependency B62; G1–G5 unchanged; identity registered in closure 147"
     },
     "CFO": {
       "waves": [
@@ -77,7 +77,7 @@
     ]
   },
   "note": "Appointment is accountability, not entry authorization. Actual delegate identities (workflow run / agent ids) are recorded here and in the exclusion successor after launch.",
-  "updated_at": "2026-10-05T08:55:57.079351+00:00",
+  "updated_at": "2026-10-05T09:11:57.008853+00:00",
   "classifier_denials": [
     "Workflow launch for CTO-ENVELOPE-HANDBACK-01 (auto-mode classifier, no reason given); not re-issued through another tool or subagent",
     "One Bash read of docs/DEPLOYMENT.md job-schedule sections (auto-mode classifier: instruction poisoning); the handback cites those lines from an earlier permitted line-level search only",

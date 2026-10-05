@@ -207,21 +207,21 @@
     "claude-code-subagent:session_01GWYV7WXWstgVGQG43YcSM8:launched-after-this-record:coo-envelope-disposition-update-01",
     "claude-code-local-session:founder-macbook:launched-after-this-record:h20-custody-materialisation-verifier-01",
     "source-only-planner:fresh-context:launched-after-this-record:h20-refinement-planner-fallback-01",
-    "claude-code-subagent:session_01GWYV7WXWstgVGQG43YcSM8:launched-2026-10-05T0817Z:cto-envelope-handback-rev4-author-01",
-    "claude-code-subagent:session_01GWYV7WXWstgVGQG43YcSM8:launched-2026-10-05T0842Z:coo-envelope-disposition-update-01"
+    "claude-code-subagent:session_01GWYV7WXWstgVGQG43YcSM8:launched-2026-10-05T0819Z:cto-envelope-handback-rev4-author-01",
+    "claude-code-subagent:session_01GWYV7WXWstgVGQG43YcSM8:launched-2026-10-05T0844Z:coo-envelope-disposition-update-01"
   ],
   "new_actual_contexts": [
-    "claude-code-subagent:session_01GWYV7WXWstgVGQG43YcSM8:launched-2026-10-05T0817Z:cto-envelope-handback-rev4-author-01",
-    "claude-code-subagent:session_01GWYV7WXWstgVGQG43YcSM8:launched-2026-10-05T0842Z:coo-envelope-disposition-update-01"
+    "claude-code-subagent:session_01GWYV7WXWstgVGQG43YcSM8:launched-2026-10-05T0819Z:cto-envelope-handback-rev4-author-01",
+    "claude-code-subagent:session_01GWYV7WXWstgVGQG43YcSM8:launched-2026-10-05T0844Z:coo-envelope-disposition-update-01"
   ],
   "new_provisional_contexts": [],
   "new_context_roles": {
-    "claude-code-subagent:session_01GWYV7WXWstgVGQG43YcSM8:launched-2026-10-05T0817Z:cto-envelope-handback-rev4-author-01": "Bounded CTO worker (dispatch CTO-ENVELOPE-HANDBACK-02) that authored handback revision 4 and CORRECTION-03 (2026-10-05T08:17Z–08:39Z; 16 inputs hash-verified; only three files written; pass). Resolves the provisional label 'launched-after-this-record:cto-envelope-handback-rev4-author-01' of closure 145. Requested model inherited claude-fable-5-1; served model not observable by the chief. Engineering context — never a source, reconciliation or judging role.",
-    "claude-code-subagent:session_01GWYV7WXWstgVGQG43YcSM8:launched-2026-10-05T0842Z:coo-envelope-disposition-update-01": "Bounded COO worker (dispatch COO-ENVELOPE-DISPOSITION-02) that authored CURRENT-BETA-OPERATING-ENVELOPE-DISPOSITION-UPDATE-01.md (2026-10-05T08:42Z–08:51Z; 13 inputs hash-verified; one file written; pass). Resolves the provisional label 'launched-after-this-record:coo-envelope-disposition-update-01' of closure 145. Requested model inherited claude-fable-5-1; served model not observable by the chief. Management context — never a source, reconciliation or judging role."
+    "claude-code-subagent:session_01GWYV7WXWstgVGQG43YcSM8:launched-2026-10-05T0819Z:cto-envelope-handback-rev4-author-01": "Bounded CTO worker (dispatch CTO-ENVELOPE-HANDBACK-02) that authored handback revision 4 and CORRECTION-03 (dispatched 2026-10-05T08:19Z, about one minute after its manifest was recorded at 08:18:16Z; returned 08:41Z, CORRECTION-03 stamped 08:41:15Z; 16 inputs hash-verified; only three files written; pass). Resolves the provisional label 'launched-after-this-record:cto-envelope-handback-rev4-author-01' of closure 145. Requested model inherited claude-fable-5-1; served model not observable by the chief. Engineering context — never a source, reconciliation or judging role.",
+    "claude-code-subagent:session_01GWYV7WXWstgVGQG43YcSM8:launched-2026-10-05T0844Z:coo-envelope-disposition-update-01": "Bounded COO worker (dispatch COO-ENVELOPE-DISPOSITION-02) that authored CURRENT-BETA-OPERATING-ENVELOPE-DISPOSITION-UPDATE-01.md (dispatched 2026-10-05T08:44Z, about one minute after its manifest was recorded at 08:43:37Z; output written by 08:50Z, returned 08:53Z; 13 inputs hash-verified; one file written; pass). Resolves the provisional label 'launched-after-this-record:coo-envelope-disposition-update-01' of closure 145. Requested model inherited claude-fable-5-1; served model not observable by the chief. Management context — never a source, reconciliation or judging role."
   },
   "provisional_labels_resolved": {
-    "claude-code-subagent:session_01GWYV7WXWstgVGQG43YcSM8:launched-after-this-record:cto-envelope-handback-rev4-author-01": "resolved to claude-code-subagent:session_01GWYV7WXWstgVGQG43YcSM8:launched-2026-10-05T0817Z:cto-envelope-handback-rev4-author-01",
-    "claude-code-subagent:session_01GWYV7WXWstgVGQG43YcSM8:launched-after-this-record:coo-envelope-disposition-update-01": "resolved to claude-code-subagent:session_01GWYV7WXWstgVGQG43YcSM8:launched-2026-10-05T0842Z:coo-envelope-disposition-update-01",
+    "claude-code-subagent:session_01GWYV7WXWstgVGQG43YcSM8:launched-after-this-record:cto-envelope-handback-rev4-author-01": "resolved to claude-code-subagent:session_01GWYV7WXWstgVGQG43YcSM8:launched-2026-10-05T0819Z:cto-envelope-handback-rev4-author-01",
+    "claude-code-subagent:session_01GWYV7WXWstgVGQG43YcSM8:launched-after-this-record:coo-envelope-disposition-update-01": "resolved to claude-code-subagent:session_01GWYV7WXWstgVGQG43YcSM8:launched-2026-10-05T0844Z:coo-envelope-disposition-update-01",
     "claude-code-subagent:session_01GWYV7WXWstgVGQG43YcSM8:launched-after-this-record:decisions-06-pr-independent-reviewer-01": "still provisional: launched after this record for the review of the PR #1093 final head; resolved in the next closure",
     "claude-code-local-session:founder-macbook:launched-after-this-record:h20-custody-materialisation-verifier-01": "still provisional: not yet started by the founder as far as the chief knows",
     "source-only-planner:fresh-context:launched-after-this-record:h20-refinement-planner-fallback-01": "still provisional and conditional: no report that the registered planner is not resumable"
@@ -233,6 +233,6 @@
   "h20_complete": 19,
   "h20_partial": 5,
   "dossiers": "3/30",
-  "scope": "Append-only registration of the two bounded executive/engineering workers that ran on 2026-10-05 (CTO handback revision 4; COO disposition update), resolving their closure-145 provisional labels. Neither has source A/B, reconciliation or blind financial judging eligibility. All earlier identities and adverse histories retained; the registered H20 planner is unchanged.",
-  "recorded_at": "2026-10-05T08:55:05.498007+00:00"
+  "scope": "Append-only registration of the two bounded executive/engineering workers that ran on 2026-10-05 (CTO handback revision 4; COO disposition update), resolving their closure-145 provisional labels. Neither has source A/B, reconciliation or blind financial judging eligibility. All earlier identities and adverse histories retained; the registered H20 planner is unchanged. Label times are the chief's dispatch (Agent launch) times, one to two minutes after each manifest's recorded_at; the pre-review draft of this closure (pushed to the branch, never merged) carried the estimates 0817Z and 0842Z derived from worker durations, corrected here before publication on the independent reviewer's finding 1.",
+  "recorded_at": "2026-10-05T09:11:57.006899+00:00"
 }
