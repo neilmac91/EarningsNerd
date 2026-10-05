@@ -27,10 +27,15 @@ founder runs it in export or resume mode.
 | One create per invocation | A single `create` POST sits in the lifecycle; `--resume RUN_ID` re-enters at step 4 with zero creates; any new create is a new invocation under a new authorisation |
 | `n_before < 10000` | Otherwise the script stops before `create` with verdict `incomplete (cap)` (exit 4) |
 | Poll robustness | A 5xx or a transport error on a retrieve poll is recorded in `calls` and retried at the poll interval until the deadline; only the deadline raises `source-unavailable` |
-| Single completeness rule owner | When `file_export_to_v1.py` sits beside the script, its `file_export_completeness(run_record, parts, n_before, n_after, source_availability_recorded=…)` record IS the verdict; otherwise a byte-equivalent inline fallback runs; the receipt's `completeness_rule_source` names which rule ran |
+| Single completeness rule owner | When `file_export_to_v1.py` sits beside the script, its `file_export_completeness(run_record, parts, n_before, n_after, source_availability_recorded=…)` record IS the verdict; otherwise the receipt's `completeness_rule_source` reads exactly "inline fallback — equivalent on the error / whole-word plan / zero-row semantics; the adapter's duplicate-part, files-order and hex-digest rules are adapter-only, so a run verified by the fallback is marked as such" (a 12-case probe on ec58eeb4 found those four divergences; the fallback is not byte-equivalent and no code is ported) |
+| Pricing scan before the 5xx retry test | By design `_connector_check` scans the body for a pricing signal before the 5xx retry test, so a 5xx body naming billing, trial, quota, payment or plan(s) stops the run (exit 4) rather than retrying |
 | Private directory outside any repository | `--private-dir` is refused when any ancestor (or the directory itself) contains `.git` (exit 5); outputs are 0600 files in 0700 directories, created exclusively, never overwritten |
 | Project identity | Recorded as given (`--project`, default 117863); no `project-get` call |
 | Request shapes | Mirror `export-capability-run.json`: count-rows `{model: hogql, hogql_query, hogql_modifiers: {convertToProjectTimezone: false}}`; create adds `file: {format: JSONLines, compression: null, max_size_mb: null}`; the same `hogql_query` string object is serialised into both bodies; no `data_interval_*` bounds |
+
+Record-10 item (not changed here): offline mode reads `source_availability_recorded` from the run-record JSON
+(`"source_availability_recorded": true` in the file passed to `--run-record`), while the adapter's own CLI takes an
+explicit flag; the two entry points should converge on one convention.
 
 Hygiene proof (run by the chief on every revision; expected matches follow from the source):
 
@@ -203,22 +208,22 @@ python3 tasks/readiness-2026-09-21/beta/export_operator.py --label CAP \
 echo "exit=$?"
 ```
 
-**Observed output — by the PR #1100 independent reviewer, from a copy of the head (7ee540aa), with `readout_v1.py` and
-`file_export_to_v1.py` beside the script** (the two timestamped JSON outputs' byte counts and hashes vary from run to
-run; the identity line shows the label used):
+**Observed output — record-09-delta-reviewer-01 on ec58eeb4, two runs with identical byte counts; only the two hashes
+vary** (fixed-width UTC timestamps keep the byte counts constant; `readout_v1.py` and `file_export_to_v1.py` beside
+the script; label `CAP`):
 
 ```
-export_operator offline-verify label=<label> run_id=01a10d89-1ee8-0000-3e2c-9000712c9502 parts=1
+export_operator offline-verify label=CAP run_id=01a10d89-1ee8-0000-3e2c-9000712c9502 parts=1
 columns: 21 (source: readout_v1.COLUMNS)
 part 1 01a10d89-3a26-0000-56f3-e1f6c4004610: sha256=67bc4e91db4f1bdc31dd4ffc290efd1864d4babdd6c33bd1e45bfb3fa413c6a5 bytes=2092 rows=3 key_set_equal_rows=3 key_order_equals_projection_rows=0 bom=None cr_bytes=0 ends_with_newline=True duplicate_lines=0 duplicate_uuids=0 deviations=2
 completeness rule: file_export_to_v1.file_export_completeness
 n_before=3 n_after=None records_completed=3 rows_parsed=3 status=Completed
 verdict: incomplete (n_after not observed)
-custody <label>-01a10d89-1ee8-0000-3e2c-9000712c9502:
-<sha256 varies>  <bytes vary>  RECEIPT-PUBLIC.json
-<sha256 varies>  <bytes vary>  VERIFICATION.json
+custody CAP-01a10d89-1ee8-0000-3e2c-9000712c9502:
+<sha256 varies>  1828  RECEIPT-PUBLIC.json
+<sha256 varies>  5055  VERIFICATION.json
 e37fed76…  1839  v1-events.json
-TOTAL=3 9066
+TOTAL=3 8722
 exit=2
 ```
 
@@ -251,14 +256,17 @@ record.
   header, signed URL wording), not to any command. Consequently, in the authoring session: (a) the manifest and input
   SHA-256/byte checks could not be computed — inputs were read by path after the manifest, their hashes unverified by
   the worker; (b) `python3 -m py_compile`, (c) `ruff check` and (d) the `--offline-verify` run were not executed by the
-  worker — **(b)–(d) were executed on the first revision by the chief (py_compile ok, ruff clean, hygiene greps as
-  expected) and by the PR #1100 independent reviewer (section 6 output, exit 2, `TOTAL=3 9066`)**; (e) the staged files'
-  SHA-256 and byte counts were not computed by the worker. For this revision the chief re-runs py_compile, ruff and
-  the hygiene greps, and the delta reviewer executes `--offline-verify` and exercises the `--resume` and redaction paths
-  offline before anything is placed or merged.
+  worker — **(b)–(d) were executed by others**: on the first revision (head 7ee540aa) by the chief (py_compile ok,
+  ruff clean, hygiene greps as expected) and by the PR #1100 independent reviewer (offline-verify exit 2,
+  `TOTAL=3 9066`, rule line then reading `file_export_to_v1.file_export_completeness (agrees with inline; both
+  recorded)`); on the review-applied revision (ec58eeb4) by `record-09-delta-reviewer-01` (no blocker: offline-verify
+  per section 6, `--resume` refusals, git-tree refusal and redaction behaved as designed); (e) the staged files'
+  SHA-256 and byte counts were not computed by the worker. The present revision changes wording only (section 1 rule
+  rows, section 6 observed block, this record) and the receipt string for the inline fallback; the chief re-reads it.
 - Review findings applied in this revision (PR #1100, head 7ee540aa): single completeness rule owner (adapter record
-  is the verdict; inline rule kept only as a byte-equivalent fallback with the adapter's `error`, whole-word `plan` and
-  explicit zero-row semantics; receipt names the rule that ran); redaction of `hogql_query` values and bound-query
+  is the verdict; inline rule kept only as a fallback equivalent on the adapter's `error`, whole-word `plan` and
+  explicit zero-row semantics — its duplicate-part, files-order and hex-digest rules stay adapter-only, so a
+  fallback-verified run is marked as such in the receipt; receipt names the rule that ran); redaction of `hogql_query` values and bound-query
   bytes before any print or receipt, pricing stop printing status + matched word + redacted structured fields only;
   5xx/transport-error polls retried until the deadline; `--resume RUN_ID --n-before N` for steps 4–8 under the same
   authorisation; receipt verdict as class plus SHA-256/length of the verdict text with public failing-rule statements

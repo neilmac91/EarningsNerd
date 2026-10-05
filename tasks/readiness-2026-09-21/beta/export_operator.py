@@ -26,8 +26,10 @@ store (decision D3). The founder runs it on their own machine; nothing else does
      duplicate lines, key set equal to the 21 released aliases, key order recorded;
   8. completeness verdict per section 2.0 step 8: when file_export_to_v1.py sits
      beside this script its file_export_completeness record IS the verdict (single
-     rule owner); otherwise a byte-equivalent inline fallback runs, and the receipt
-     names which rule ran.
+     rule owner); otherwise the inline fallback runs (equivalent on the error /
+     whole-word plan / zero-row semantics only; the adapter's duplicate-part,
+     files-order and hex-digest rules are adapter-only), and the receipt names which
+     rule ran.
 
 ``--resume RUN_ID --n-before N`` runs steps 4-8 only (zero creates) for a run that
 an earlier invocation created, carrying n_before from that invocation's saved
@@ -369,10 +371,13 @@ def completeness_inline(
     n_after: int | None,
     source_availability_recorded: bool = False,
 ) -> dict[str, Any]:
-    """Fallback only: byte-equivalent to file_export_to_v1.file_export_completeness (contract
-    section 2.0 step 8). ``error`` fails only when present and not in (None, ""); plan/plans
-    match as whole words, the other pricing terms as substrings; zero rows are complete only
-    with the explicit source-availability flag."""
+    """Fallback only, used when file_export_to_v1.py is absent (contract section 2.0 step 8).
+
+    inline fallback — equivalent on the error / whole-word plan / zero-row semantics; the adapter's duplicate-part, files-order and hex-digest rules are adapter-only, so a run verified by the fallback is marked as such
+
+    ``error`` fails only when present and not in (None, ""); plan/plans match as whole
+    words, the other pricing terms as substrings; zero rows are complete only with the
+    explicit source-availability flag."""
     failing: list[str] = []
     status = run_record.get("status")
     if status != "Completed":
@@ -505,8 +510,9 @@ def _completeness(
     result = completeness_inline(run_record, summary, n_before, n_after, source_availability_recorded)
     result["verdict"] = _verdict_text(result)
     return result, (
-        "inline fallback (file_export_to_v1.py not present beside the script; byte-equivalent to its "
-        "file_export_completeness)"
+        "inline fallback — equivalent on the error / whole-word plan / zero-row semantics; the adapter's "
+        "duplicate-part, files-order and hex-digest rules are adapter-only, so a run verified by the fallback "
+        "is marked as such"
     )
 
 

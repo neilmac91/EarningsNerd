@@ -341,6 +341,6 @@
   "h20_complete": 19,
   "h20_partial": 5,
   "dossiers": "3/30",
-  "scope": "Append-only registration of the 13 workflow contexts (3 lenses and 10 refuters) that reviewed PR #1100 head 7ee540aa, resolving closure 156's provisional review label, and pre-registration of the single delta reviewer of this PR's final head. None has source A/B, reconciliation or blind financial judging eligibility; all earlier identities and adverse histories retained; the registered H20 planner is unchanged.",
+  "scope": "Append-only registration of the 13 workflow contexts (3 lenses and 10 refuters) that reviewed PR #1100 head 7ee540aa, resolving closure 156's provisional review label, and pre-registration of the single delta reviewer of this PR's final head. None has source A/B, reconciliation or blind financial judging eligibility; all earlier identities and adverse histories retained; the registered H20 planner is unchanged. Labelling convention: the three lens ids carry their resolved role labels (record-09-review-lens-*-01) while the ten refuter ids carry the workflow's own per-finding descriptions verbatim; the agent id is the binding in every case.",
   "recorded_at": "2026-10-05T22:38:27.137142+00:00"
 }

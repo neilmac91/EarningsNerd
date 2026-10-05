@@ -215,11 +215,11 @@ The manifest and the twelve inputs in §1 (each after its hash check). Additiona
 
 **Closing statement.** This adapter and its fixtures demonstrate that a completed file-download export's parts can reach the released consumer unchanged, and that the capability run's part reproduces the retained September 30 readout. They do not make any export complete (the capability run's own record is `incomplete: n_after not observed`), do not settle G1–G5, and do not mark cohort reporting, beta admission or capacity complete or admitted.
 
-## Revision 2 (review findings) — 2026-10-05 ~22:05Z, same worker, PR #1100 head `7ee540aa` review: NO BLOCKER, should-fix + nits applied
+## Revision 2 (review findings) — 2026-10-05 ~22:44Z (files written 22:44:16Z and 22:44:59Z), same worker, PR #1100 head `7ee540aa` review: NO BLOCKER, should-fix + nits applied
 
 Edited in place in the repository (not committed; the chief commits): `tasks/readiness-2026-09-21/beta/file_export_to_v1.py` and `tasks/readiness-2026-09-21/beta/fixture_check.py`. `readout_v1.py` byte-unchanged (sha `a9e089cd…`). No network, connector, HTTP call or install; nothing under `acceptance/` or `/root/.claude/uploads/`. Where this revision changes a rule, it supersedes the matching revision-1 text (§4 rows "no `error`", "no pricing signal" and "zero rows"; §10 items 2 and 5).
 
-**Changes — `file_export_to_v1.py` (now the single owner of the step-8 rule; the operator script carries no inline copy):**
+**Changes — `file_export_to_v1.py` (the single rule owner for step 8). Correction: the operator script does carry an inline fallback of step 8, and that fallback is NOT byte-equivalent to this module's rule — the duplicate-part, files-order and hex-digest checks exist only in the adapter — so a verdict is authoritative only when it comes from `file_export_completeness`.**
 
 1. (1a) `error` fails only when the key is present with a value not in `(None, "")`: a retrieve response carrying `"error": null` or `""` is not a failure. Rule text unchanged: `error field present: {value!r}`.
 2. (1b) Pricing scan: `payment`/`billing`/`trial`/`quota` as case-insensitive substrings, `plan`/`plans` only as whole words (`re.compile(r"payment|billing|trial|quota|\bplans?\b", re.IGNORECASE)`), so "explanation" is not a signal; the rule names the matched terms and the text verbatim.

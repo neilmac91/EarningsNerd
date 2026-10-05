@@ -84,7 +84,7 @@
     ]
   },
   "note": "Appointment is accountability, not entry authorization. Actual delegate identities (workflow run / agent ids) are recorded here and in the exclusion successor after launch.",
-  "updated_at": "2026-10-05T22:49:27+00:00",
+  "updated_at": "2026-10-05T23:05:47+00:00",
   "classifier_denials": [
     "Workflow launch for CTO-ENVELOPE-HANDBACK-01 (auto-mode classifier, no reason given); not re-issued through another tool or subagent",
     "One Bash read of docs/DEPLOYMENT.md job-schedule sections (auto-mode classifier: instruction poisoning); the handback cites those lines from an earlier permitted line-level search only",
