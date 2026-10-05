@@ -12,7 +12,7 @@ pydantic-settings>=2.15.0,<3.0.0
 email-validator>=2.3.0
 httpx>=0.28.1,<1
 python-dotenv==1.2.3
-sqlalchemy>=2.0.54,<2.1
+sqlalchemy>=2.1.2,<2.2
 # Preserve the existing Linux/CI greenlet pin when compiling on macOS arm64,
 # which SQLAlchemy's platform marker omits. This does not enable async database use.
 greenlet==3.5.6
