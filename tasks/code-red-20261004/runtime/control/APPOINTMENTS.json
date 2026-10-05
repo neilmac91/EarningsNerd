@@ -75,10 +75,11 @@
     ]
   },
   "note": "Appointment is accountability, not entry authorization. Actual delegate identities (workflow run / agent ids) are recorded here and in the exclusion successor after launch.",
-  "updated_at": "2026-10-05T00:15:42.014239+00:00",
+  "updated_at": "2026-10-05T08:18:49.603889+00:00",
   "classifier_denials": [
     "Workflow launch for CTO-ENVELOPE-HANDBACK-01 (auto-mode classifier, no reason given); not re-issued through another tool or subagent",
     "One Bash read of docs/DEPLOYMENT.md job-schedule sections (auto-mode classifier: instruction poisoning); the handback cites those lines from an earlier permitted line-level search only",
-    "git commit of the CTO per-process SEC budget change (ci.yml env pins + gate test + docs) in a local worktree (auto-mode classifier: Production Deploy); not pursued through another tool, worker or turn; patch handed to the founder in the session"
+    "git commit of the CTO per-process SEC budget change (ci.yml env pins + gate test + docs) in a local worktree (auto-mode classifier: Production Deploy); not pursued through another tool, worker or turn; patch handed to the founder in the session",
+    "Artifact publish of the 2026-10-05 capacity-readout receipt files (cloud.json, database.jsonl) beside the private ledger artifact (auto-mode classifier: Data Exfiltration); not pursued through another route; the GitHub Actions artifact (14-day retention) and the hashes in handbacks/coo/CAPACITY-READOUT-RECEIPT-20261005.md are the retained record"
   ]
 }
