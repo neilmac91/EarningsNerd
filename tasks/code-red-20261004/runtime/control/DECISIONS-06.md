@@ -112,3 +112,28 @@ COO disposition-update worker. The registered H20 planner is unchanged; no subst
 
 0 DeepSeek calls; USD 0.000000; 0 reservations; 1 ledger event (event 2: authorization raised to USD 25; no
 balance change).
+
+## Founder update (2026-10-05T00:45:23Z) — "the files are downloaded on my MacBook; proceed with R1"
+
+Why the chief cannot execute R1 from this session, stated once: (1) the H20 inputs and the registered planner live on
+the founder's MacBook (iCloud Drive and the Codex app); this cloud container holds only the repository clone and no
+other Claude session on that machine is reachable; (2) even with access, this executive context must never open
+source inputs — that separation is the integrity condition of the quality acceptance, not a formality; (3) the
+"cloud-only" counts came from Astra's sandboxed read-only checks, not from the founder's Finder view. The likely
+discrepancy is that Astra's sandbox cannot materialise iCloud-evicted ("dataless") files that Finder has since
+downloaded, so its view lags the Mac. Decisions:
+
+- **Local verification route (founder's choice of two equivalent forms):** a suggested-task card that starts a
+  local Claude Code session on the MacBook, or a Terminal script, performing the opaque check Astra could not: per
+  file, iCloud materialisation status before any read, byte length, SHA-256; comparison with the retained manifest;
+  totals only to the chief; no file contents printed, nothing written inside the folders. Reading an evicted file
+  materialises it (the same effect as Finder's Download Now, which the founder already applied). The local session
+  is pre-registered as a provisional engineering/custody label in closure 146.
+- **Planner runtime:** the founder checks in the Codex app whether the registered thread resumes. If not, one fresh
+  eligible source-only planner is bootstrapped by Astra/the founder with the hash-verified controls package and its
+  identity reported; a conditional fallback label is pre-registered in closure 146 so release is not delayed by a
+  further round trip. The closure-140 entry is annotated as superseded only when that happens.
+- **Release:** unchanged gate (record 05). When the totals show 0 mismatches and the receipt predicates hold, the
+  founder completes the receipt, sends the chief its SHA-256 and metadata, and dispatches the planner within the
+  150 remaining minutes. The chief then records the disposition and the return.
+- Nothing is released, dispatched or spent by this update. 0 DeepSeek calls.
