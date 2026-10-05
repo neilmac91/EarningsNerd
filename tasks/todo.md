@@ -6243,22 +6243,54 @@ Full local and hosted verification plus independent exact-head review precede re
 - COO lane: operating-envelope disposition HOLD with eight named missing inputs/decisions and owners;
   capacity unadmitted; counts unchanged (3/30 dossiers, 0/2 readouts, 5 groups + 1 capacity decision).
 - [ ] Founder + Astra: H20-only packing/closure refinement (frozen H20 input set; 27 = remaining dossiers,
-      not the worklist) by the registered source-only planner (closure 140; idle; controls package
-      hash-verified, `DECISIONS-04.md`; 20 of 180 minutes charged, 160 remain). Blocked on the founder
-      materialising the cloud-only custody files (18/21 bootstrap, 12/48 predecessor as of Astra's last
-      check), verifying retained hashes and filling the release receipt. Implementation stays HELD pending the source-owned refinement.
+      not the worklist) by the registered source-only planner (closure 140; controls package hash-verified,
+      `DECISIONS-04.md`; 30 of 180 minutes charged, 150 remain). Blocked on (a) the founder materialising the
+      cloud-only custody files (Keep Downloaded applied; still 18/21 and 14/48 cloud-only — bounded discrepancy
+      investigation next) and the two-part
+      hash-and-length verification (11 of 39 local files verified so far, 0 mismatches), (b) the planner's
+      runtime availability, unverified — any fresh context must be registered before release, and (c) the
+      release receipt (`DECISIONS-05.md`). Implementation stays HELD pending the source-owned refinement.
       Chief then sets `R1-STATUS.md`.
 - [x] Ledger: Astra confirmed byte-identity with snapshot `99c7259f…`; successor ledger designated as a
-      private artifact (document SHA-256 `53e84868…` at designation; event 1 written 2026-10-04, document now
-      `beef4ca0…`); chief sole writer; paid dispatch still needs a reservation there
-      (`runtime/control/DECISIONS-02.md` D1, `DECISIONS-03.md`, `LEDGER-ACCESS.md`).
-- [ ] COO/CEO: one bounded read-only Ops `capacity-readout` over Monday 06:00–08:00 UTC (widened to
-      include backfill-facts 07:00; Routine fires 08:10Z) to inform B32; receipt to COO (`DECISIONS-02.md` D4).
+      private artifact (document SHA-256 `53e84868…` at designation; event 1 written 2026-10-04 → `beef4ca0…`;
+      event 2 written 2026-10-05T00:10:56Z recording the founder's shared ceiling raise USD 15 → 25, document now
+      `f4dd36fb…`, reconciled headroom USD 22.570771); chief sole writer; paid dispatch still needs a reservation
+      there (`runtime/control/DECISIONS-02.md` D1, `DECISIONS-03.md`, `DECISIONS-06.md`, `LEDGER-ACCESS.md`).
+- Overnight 2026-10-05 (founder directive 00:02Z, `runtime/control/DECISIONS-06.md`): PR #1092 merged; wave table
+      recorded (owners, remaining counts, one blocker each, next deliverable); C1 items 4, 6 (dependency) and 8
+      closed by their named owner on records 02 D7/D1/D9, B37 by D8 — five of eight C1 items open; only R3 has an
+      executable deliverable overnight (08:10Z readout → CTO handback rev 4 → COO disposition update). USD 0.
+- [x] COO/CEO: one bounded read-only Ops `capacity-readout` over Monday 06:00–08:00 UTC dispatched 2026-10-05T08:12Z
+      (run 37282199614, success; receipt `runtime/handbacks/coo/CAPACITY-READOUT-RECEIPT-20261005.md`). Monitoring and
+      Logging channels returned HTTP 403, so B32/B56 stay unknown by this route; two Monday business-phase overlaps
+      (9.15 s, 6.57 s) observed with near-empty work.
+- [x] CTO/CEO: cause of the Ops identity's 403s established 2026-10-05T17:06Z by the existing read-only `logs-probe`
+      (run 37345946128): `PERMISSION_DENIED: Permission denied for all log views` for
+      `github-deployer@earnings-nerd.iam.gserviceaccount.com` (`runtime/control/DECISIONS-07.md`).
+- [ ] Founder: decide the read-only IAM grant for that service account (`roles/logging.viewer`, `roles/monitoring.viewer`);
+      then COO/CEO dispatch one more bounded `capacity-readout` over a job-overlap window (B32/B56).
+- [x] COO: report-route proposal 01 delivered 2026-10-05 by a bounded worker (`runtime/handbacks/coo/REPORT-ROUTE-PROPOSAL-01.md`):
+      the blocked batch-export contract beside a PostHog query-route readout contract (the official MCP `execute-sql` route
+      returned an invented-literal row for project 117863, `DECISIONS-07.md`); three options, no recommendation of spend.
+- [ ] Founder with the CEO: G1–G3 route decision on those three options (CEO assessment: option C — keep ticket 76581 open,
+      prepare the query route, no spend; the operator-identity question first). Ticket retained, not resent.
+- [x] CTO/CEO: readout error-detail diagnostics (`ops/capacity/readout.py`, bounded worker, PR #1098): a structured, bounded
+      error reason beside each failed channel's `http_NNN`, never raw bodies; review findings applied; 6 unit tests.
+- [ ] Founder: the custody check (`runtime/tools/h20-custody-check.sh`) started 2026-10-05T17:29:39Z on the MacBook with both
+      real folder paths; send the chief only its two `TOTAL=` lines, give the saved file to Astra and send Astra's match
+      counts; confirm in the Codex app whether the registered planner thread resumes. The two archives uploaded into the
+      chief's session at ~17:52Z were not opened (classifier denial 5, `DECISIONS-07.md`); they do not shorten this route.
+- [x] Chief defect recorded (`DECISIONS-07.md`, ledger event 3): marking PR #1098 ready triggered the paid `copilot-eval`
+      workflow without a reservation (29 calls, telemetry USD 0.005575; cancel request ineffective); recorded as use,
+      USD 0.010000 reserved for the one required re-trigger; rule: reserve before marking a `backend/**`-touching PR ready.
 - [ ] Founder: apply (or change the numbers in) the handed-over patch pinning `SEC_RATE_LIMIT_PER_SECOND=1`
       and `EDGAR_RATE_LIMIT_PER_SEC=1` on the service and all eight jobs with its rule-12 gate — the chief's
       commit of it was classifier-denied (Production Deploy); chief reserves ~USD 0.01 before any PR
       carrying it is marked ready (`DECISIONS-02.md` D3 execution note).
-- [ ] COO: decide whether item 8 closes on the two refuter appendices (`DECISIONS-02.md` D9); CTO carries
-      B07/B08/B36/B41/B52 updates into the next handback revision.
+- [x] Item 8 closed by the CEO as its named owner on the two refuter appendices (`DECISIONS-02.md` D9,
+      `DECISIONS-06.md`).
+- [x] CTO handback revision 4 (62 bounds; B59–B62; determination still undetermined, no E09 subset demonstrated
+      necessary; `CORRECTION-03.md`) and COO disposition update 01 (HOLD stands; C1 items 2 closed, 1 dependency-closed,
+      5 open, 2 with B62) delivered 2026-10-05 by bounded workers (closure 147).
 - [ ] Docs-vs-config: `docs/OPERATIONS.md` alert threshold `database.checked_out > 8` is unreachable with
       the deployed pool 4 / overflow 0 (handback B33); fix the doc separately.

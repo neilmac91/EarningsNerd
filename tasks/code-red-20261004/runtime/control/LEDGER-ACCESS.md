@@ -59,3 +59,24 @@ entries stamped 09:35:21.075Z and 12:49:19.634Z. Current document: 21,295 bytes,
 unchanged; spend 0. See `DECISIONS-03.md`. Rule as narrowed there: the reservation requirement applies to
 balance-affecting writes (reservations, holds, spend); administrative wording or correction events are
 permitted under the hash chain with `balances_changed: false`.
+
+### Event 2 — written 2026-10-05T00:10:56Z (recorded here 2026-10-05T00:15:41Z)
+
+Shared DeepSeek ceiling raised by the founder from USD 15.000000 to USD 25.000000 total (one shared ceiling across
+the chief, officers and workers; not per agent; nothing resets). Appended under the hash-chain rule
+(`previous_sha256` `beef4ca0…`). Reconciled headroom: 25.000000 − 0.547516 known future cost − 1.881713 retained
+holds = **22.570771 conditional unreserved**. Current document: 25,307 bytes, SHA-256
+`f4dd36fb0bba8528ae31faebf93b49fe1c493e5795becc8314c56c10b23f9f4f`; republished (artifact version 3) and read
+back from the published store with the same hash. Balances, holds and reservations unchanged; spend 0; active
+reservations 0; paid dispatch still HELD until a reservation is written before each paid trigger. The
+authorization releases no held work, extends no timebox, permits no new load and relaxes no gate. See
+`DECISIONS-06.md`.
+
+### Event 3 — written 2026-10-05T17:54:35Z (recorded here 2026-10-05T17:56:53Z)
+
+Written by the chief as sole writer under the hash-chain rule (`previous_sha256` `f4dd36fb…`): a chief defect — one paid
+`copilot-eval` run (37350658792) triggered without a reservation by marking PR #1098 ready, cancel requested but the run
+completed — recorded as use against the shared authority (29 calls, telemetry USD 0.005575; known use 0.547516 → 0.553091,
+calls 297 → 326), holds unchanged (1.881713), one reservation of USD 0.010000 for the single required re-trigger;
+conditional unreserved 25.000000 − 0.553091 − 1.881713 − 0.010000 = **22.555196**. Current document: 29,012 bytes, SHA-256
+`6c2dc45f76b5405730c6079d2a08dee2507125a64b0afa1f759c533ac71449c5`; republished as artifact version 4 and read back with the same hash. From this event, decision 3 of the 2026-10-04 statement (every action USD 0 / 0 DeepSeek calls) no longer holds: 29 calls are recorded and active reservations are 1. Event 4 will record the re-trigger's actual cost and release the unused reservation.

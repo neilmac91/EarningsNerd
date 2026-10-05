@@ -1,7 +1,7 @@
 {
   "recorded_at": "2026-10-04T14:31:38.078611+00:00",
   "chief": {
-    "role": "CEO / chief execution integrator; sole ledger-reservation writer (successor ledger designated 2026-10-04T17:39Z; balance-affecting writes only with a reservation; administrative correction events permitted under the hash chain, DECISIONS-03); paid-dispatch and serial-release coordinator",
+    "role": "CEO / chief execution integrator; sole ledger-reservation writer (successor ledger designated 2026-10-04T17:39Z; balance-affecting writes only with a reservation; administrative correction and authorization events permitted under the hash chain, DECISIONS-03/06); paid-dispatch and serial-release coordinator",
     "identity": "https://claude.ai/code/session_01GWYV7WXWstgVGQG43YcSM8",
     "model_reported_by_runtime": "claude-fable-5-1",
     "predecessor": "Astra (GPT-6 Codex chief), retired at package handoff per CHIEF-TRANSFER-POLICY.md"
@@ -14,14 +14,15 @@
       ],
       "packet_sha256": "2209215e245813bd25aa6d8f70a41d5da98598f8b9ffdaf67da970e26a20d0e2",
       "first_deliverable_reused": "cto/FIRST-DELIVERABLE.md bdca249d…",
-      "held_worker": "R1 dependency handover still NOT dispatched by the chief; implementation HELD pending the source-owned refinement. Astra bootstrapped the registered source-only H20 planner (closure 140) and prepared its controls package (ZIP SHA-256 ceed7244…, DECISIONS-04); planner idle, release receipt NOT_RELEASED; 20 of 180 minutes charged, 160 remain; custody recovery is the founder's prerequisite.",
-      "active_assignment": "dispatch/CTO-ENVELOPE-HANDBACK-01.json (current-beta operating envelope for COO C1)",
+      "held_worker": "R1 dependency handover still NOT dispatched by the chief; implementation HELD pending the source-owned refinement. Registered source-only H20 planner (closure 140): uncontacted since the package report, runtime availability UNVERIFIED — no input release until it is resolved and any fresh context is registered first (DECISIONS-05); release receipt NOT_RELEASED; custody still 18/21 and 14/48 cloud-only after Keep Downloaded (bounded discrepancy investigation authorised as preparation), 11 verified hash+length, 0 mismatches; 30 of 180 minutes charged, 150 remain.",
+      "active_assignment": "dispatch/CTO-ENVELOPE-HANDBACK-02.json (revision 4 delivered 2026-10-05); -01 is the original envelope dispatch",
       "actual_runtime_identity": "No isolated delegate: the Workflow launch for dispatch CTO-ENVELOPE-HANDBACK-01 (author + three adversarial lenses) was denied by the platform's auto-mode classifier. The chief context (session_01GWYV7WXWstgVGQG43YcSM8, runtime-reported model claude-fable-5-1) authored the handback acting as CTO; no isolated adversarial review ran.",
       "requested_model": "claude-fable-5-1 (author); independent lenses: claude-opus-5-5, claude-fable-5-1, claude-sonnet-5-5",
-      "deliverable": "handbacks/cto/envelope/ revision 3 (CORRECTION-01.md: revision-1 placeholder defect found by the COO worker; CORRECTION-02.md: revision-2 anchor nits from the independent PR review; hash chains recorded)",
-      "status": "delivered; six derived rows qualified (none refuted) by two isolated refuters — see independent_refuters",
+      "deliverable": "handbacks/cto/envelope/ revision 4 (CORRECTION-01: rev-1 placeholder defect; CORRECTION-02: rev-2 anchor nits; CORRECTION-03: rev 3 → rev 4 — readout facts B59–B62, two-bucket SEC model, B51/B52 resolved, C5 re-determination; hash chains recorded)",
+      "status": "revision 4 delivered 2026-10-05T08:36:50Z by the bounded CTO worker; determination undetermined, no E09 code subset demonstrated necessary; E09 hold unchanged; capacity unadmitted",
       "independent_refuters": "Two isolated read-only refuter contexts (arithmetic, assumptions lenses) launched by the chief 2026-10-04T17:33Z against handback rev 3 derived rows; both returned; registered in control/source-context-exclusion-139.json; verdicts in control/DECISIONS-02.md Appendices A and B (no arithmetic error; six qualifications; edgartools second bucket verified; one process per instance observed).",
-      "next_assignment": "Per-process SEC budget change prepared and locally gated; commit classifier-denied (Production Deploy) — founder applies or changes the patch (DECISIONS-02.md D3 execution note). Next handback revision carries B07/B08/B36/B41/B52 updates."
+      "next_assignment": "Per-process SEC budget change prepared and locally gated; commit classifier-denied (Production Deploy) — founder applies or changes the patch (DECISIONS-02.md D3 execution note). B62 cause established 2026-10-05 (logs-probe: PERMISSION_DENIED for github-deployer@earnings-nerd.iam.gserviceaccount.com; DECISIONS-07): the grant is the founder's decision; after it, one more bounded capacity-readout by COO/CEO decision. Readout error-detail diagnostics delivered by a bounded worker (closure 148; commit de8a525d) with the review's code findings applied by the chief in PR #1098's final head.",
+      "rev4_worker_runtime_identity": "Isolated Claude Code subagent dispatched 2026-10-05T08:19Z by the chief (about a minute after the manifest was recorded) on dispatch CTO-ENVELOPE-HANDBACK-02, role label cto-envelope-handback-rev4-author-01 (requested model inherited claude-fable-5-1; served model not observable by the chief); provisional label from closure 145 resolved in closure 147; 16 inputs hash-verified; only the three output files written; disclosed: branch advanced during authoring (re-verified), LEDGER-ACCESS.md not opened (not in manifest), evidence additions beyond the required list itemised in CORRECTION-03"
     },
     "CPO": {
       "waves": [
@@ -50,7 +51,10 @@
       "disposition": "HOLD — exact missing evidence/decision (8 items, each with owner and smallest next handback); capacity unadmitted; C1 remains the 1 open capacity decision",
       "deviation": "one disclosed read-only `git status --porcelain | head -0` in its final sanity check, contrary to its no-git instruction; no mutation; chief disposition: accepted as a disclosed deviation with no effect on the output",
       "status": "delivered",
-      "item_8_status": "Answered by two refuters (DECISIONS-02.md D9); COO decides closure. Monday readout window 06:00–08:00 UTC (D4)."
+      "item_8_status": "Closed by the CEO as the item's named owner on the refutation record (DECISIONS-02.md Appendices A/B; DECISIONS-06.md); COO carries the six qualifications into the disposition update. Items 4 and 6 closed/dependency-closed (D7, D1); B37 closed (D8); items 1, 2 (B39), 3, 5, 7 open. Monday readout window 06:00–08:00 UTC, Routine 08:10Z (D4).",
+      "next_assignment": "Route decision pending with the founder and the CEO on the three options of REPORT-ROUTE-PROPOSAL-01 (CEO assessment: option C — keep ticket 76581 open, prepare the query route, no spend; operator-identity question first). Next C1 disposition after the founder's IAM grant and a B32 readout, or after the D3 decision. Capacity stays unadmitted.",
+      "disposition_update_01": "handbacks/coo/CURRENT-BETA-OPERATING-ENVELOPE-DISPOSITION-UPDATE-01.md (bounded worker dispatched 2026-10-05T08:44Z on manifest COO-ENVELOPE-DISPOSITION-02; 13 inputs hash-verified; pass): HOLD stands; C1 items closed 2 (4, 8), dependency-closed 1 (6), open 5 (1, 2 B39 part, 3, 5, 7), 2 with sub-dependency B62; G1–G5 unchanged; identity registered in closure 147",
+      "report_route_proposal_01": "handbacks/coo/REPORT-ROUTE-PROPOSAL-01.md (bounded worker dispatched 2026-10-05T17:11Z on manifest COO-REPORT-ROUTE-03; 7 inputs hash-verified; one file written; pass; 33,854 bytes, SHA-256 0916b5f2…): the blocked batch-export contract beside a PostHog query-route readout contract; three options for the founder with the CEO, no recommendation and no spend; cautions: pipe-delimited results without counts, connector held only by the chief's interactive session; identity registered in closure 149 (dispatched after closure 148 was recorded, so not pre-registered — stated in DECISIONS-07)"
     },
     "CFO": {
       "waves": [
@@ -61,8 +65,8 @@
       "held_worker": "Cost-decision worker queued: no exact paid action named yet; successor ledger designated (private artifact; chief sole writer) — the worker's first use is the reservation for marking the D3 PR ready (~USD 0.01 copilot-eval) once the founder applies the patch",
       "actual_runtime_identity": "not launched",
       "requested_model": "n/a",
-      "status": "queued; reconciliation reused; SPEND-POLICY-STATEMENT.md issued by the chief (provider operating-spend field HOLD)",
-      "successor_ledger": "Designated 2026-10-04T17:39Z (DECISIONS-02.md D1): private artifact \"CODE RED Spend Ledger\", document SHA-256 at designation 53e8486800e193277c5be5c14a786cfeff90d3b4fa212be1c044c7343fea9f78; event 1 (wording correction, written 2026-10-04T20:04:46Z, no balance change) → current document SHA-256 beef4ca0b2973db9f00503e0bbbf3ae2ad816def51c0f53820c41e51431be3fa, 21,295 bytes; chief sole writer; 0 reservations; CFO worker still not launched (USD 0 lane)."
+      "status": "queued; reconciliation reused and extended to the USD 25 ceiling (DECISIONS-06); SPEND-POLICY-STATEMENT.md issued by the chief (provider operating-spend field HOLD: dependency closed, value attaches to a C1 admission decision that does not exist)",
+      "successor_ledger": "Designated 2026-10-04T17:39Z (DECISIONS-02.md D1): private artifact \"CODE RED Spend Ledger\", document SHA-256 at designation 53e8486800e193277c5be5c14a786cfeff90d3b4fa212be1c044c7343fea9f78; event 1 (wording correction, 2026-10-04T20:04:46Z, no balance change) -> beef4ca0b2973db9f00503e0bbbf3ae2ad816def51c0f53820c41e51431be3fa; event 2 (founder raised the shared ceiling USD 15 -> 25, written 2026-10-05T00:10:56Z, no balance change) -> current document SHA-256 f4dd36fb0bba8528ae31faebf93b49fe1c493e5795becc8314c56c10b23f9f4f, 25,307 bytes; reconciled conditional unreserved USD 22.570771; retained holds USD 1.881713; chief sole writer; 0 reservations; CFO worker still not launched (no paid action pending); event 3 (written 2026-10-05T17:54:35Z, chief defect: unreserved copilot-eval run on PR #1098 recorded as use USD 0.005575 / 29 calls; reservation USD 0.010000 for the required re-trigger) -> current document SHA-256 6c2dc45f76b5405730c6079d2a08dee2507125a64b0afa1f759c533ac71449c5, 29,012 bytes; conditional unreserved USD 22.555196; active reservations 1"
     }
   },
   "lanes": {
@@ -74,10 +78,15 @@
     ]
   },
   "note": "Appointment is accountability, not entry authorization. Actual delegate identities (workflow run / agent ids) are recorded here and in the exclusion successor after launch.",
-  "updated_at": "2026-10-04T21:53:14.084892+00:00",
+  "updated_at": "2026-10-05T18:06:09+00:00",
   "classifier_denials": [
     "Workflow launch for CTO-ENVELOPE-HANDBACK-01 (auto-mode classifier, no reason given); not re-issued through another tool or subagent",
     "One Bash read of docs/DEPLOYMENT.md job-schedule sections (auto-mode classifier: instruction poisoning); the handback cites those lines from an earlier permitted line-level search only",
-    "git commit of the CTO per-process SEC budget change (ci.yml env pins + gate test + docs) in a local worktree (auto-mode classifier: Production Deploy); not pursued through another tool, worker or turn; patch handed to the founder in the session"
+    "git commit of the CTO per-process SEC budget change (ci.yml env pins + gate test + docs) in a local worktree (auto-mode classifier: Production Deploy); not pursued through another tool, worker or turn; patch handed to the founder in the session",
+    "Artifact publish of the 2026-10-05 capacity-readout receipt files (cloud.json, database.jsonl) beside the private ledger artifact (auto-mode classifier: Data Exfiltration); not pursued through another route; the GitHub Actions artifact (14-day retention) and the hashes in handbacks/coo/CAPACITY-READOUT-RECEIPT-20261005.md are the retained record",
+    "Unpacking and hashing (length + SHA-256 only) the two archives the founder uploaded into the session at about 2026-10-05T17:52Z for the R1 custody check (auto-mode classifier: PII Data Handling); not pursued through another tool, sub-agent or turn; the archives were not opened; the founder-side custody route stands (DECISIONS-07)"
+  ],
+  "chief_defects": [
+    "2026-10-05T17:44Z: marking PR #1098 ready for review triggered the path-filtered paid copilot-eval workflow (backend/** in the PR) without a reservation in the successor ledger, against record 02's own rule; a cancel request did not stop it (29 deepseek-flash calls, telemetry USD 0.005575); recorded as ledger event 3 (written 17:54:35Z) with a USD 0.010000 reservation for the one required re-trigger; rule: reserve before marking any backend/**-touching PR ready; a cancel request is not a control (DECISIONS-07)"
   ]
 }
