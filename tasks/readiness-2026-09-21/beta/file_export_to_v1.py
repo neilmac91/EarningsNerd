@@ -4,8 +4,9 @@ No network/database access. Parts are bytes the operator already downloaded and 
 addressed by name (key order in a part is not the projection's), every value is kept exactly as
 decoded (no coercion), nothing but columns/results is emitted (no hasMore, offset, warnings or
 error), and parts are never joined across runs. The file-route completeness verdict (contract
-section 2.0 step 8) is a separate record, never a response field: the released consumer's own
-export_complete_observed remains a query-route field and stays false by construction.
+section 2.0 step 8) is a separate record, never a response field, and this module is its single
+rule owner: the released consumer's own export_complete_observed remains a query-route field and
+stays false by construction.
 """
 from __future__ import annotations
 
@@ -14,6 +15,7 @@ import hashlib
 import json
 import os
 import re
+from collections import Counter
 from collections.abc import Iterator
 from pathlib import Path
 
@@ -21,9 +23,24 @@ from readout_v1 import COLUMNS, MAX_ROWS
 
 MAX_PART_BYTES = 16 * 1024 * 1024
 BOMS = (b"\xef\xbb\xbf", b"\xff\xfe", b"\xfe\xff")
-PRICING_TERMS = ("payment", "plan", "billing", "trial", "quota")
+# payment/billing/trial/quota anywhere; plan/plans only as whole words ("explanation" is not a signal).
+PRICING_SIGNAL = re.compile(r"payment|billing|trial|quota|\bplans?\b", re.IGNORECASE)
 INVENTORY_KEYS = ("id", "sha256", "bytes", "rows")
+SHA256_HEX = re.compile(r"[0-9a-fA-F]{64}")
 FILE_ID = re.compile(r"([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$")
+
+
+class _DuplicateKey(ValueError):
+    pass
+
+
+def _object(pairs: list[tuple[str, object]]) -> dict:
+    obj: dict = {}
+    for key, value in pairs:
+        if key in obj:
+            raise _DuplicateKey(key)
+        obj[key] = value
+    return obj
 
 
 def _parse(parts: list[bytes]) -> tuple[list[dict], list[dict]]:
@@ -42,7 +59,9 @@ def _parse(parts: list[bytes]) -> tuple[list[dict], list[dict]]:
         matched = 0
         for number, line in enumerate(lines, 1):
             try:
-                obj = json.loads(line.decode("utf-8"))
+                obj = json.loads(line.decode("utf-8"), object_pairs_hook=_object)
+            except _DuplicateKey as exc:
+                raise ValueError(f"part {index} line {number}: duplicate key {exc.args[0]!r}") from None
             except ValueError as exc:
                 raise ValueError(f"part {index} line {number}: invalid JSON ({exc})") from None
             if not isinstance(obj, dict):
@@ -59,7 +78,7 @@ def _parse(parts: list[bytes]) -> tuple[list[dict], list[dict]]:
 
 
 def parse_record(parts: list[bytes]) -> dict:
-    """Per-part and total parse facts for the receipt; ValueError on a BOM or a key-set deviation."""
+    """Per-part and total parse facts for the receipt; ValueError on a BOM, duplicate key or key-set deviation."""
     _, facts = _parse(parts)
     totals = {key: sum(fact[key] for fact in facts)
               for key in ("bytes", "cr_bytes", "lines", "rows", "key_order_matched_rows")}
@@ -83,22 +102,32 @@ def _strings(value: object) -> Iterator[str]:
             yield from _strings(item)
 
 
-def file_export_completeness(run_record: dict, parts: list[dict], n_before: int | None,
-                             n_after: int | None) -> dict:
-    """Contract section 2.0 step 8: every failing rule is listed; the verdict is true only when none fails."""
+def file_export_completeness(run_record: dict, parts: list[dict], n_before: int | None, n_after: int | None,
+                             *, source_availability_recorded: bool = False) -> dict:
+    """Contract section 2.0 step 8: every failing rule is listed; the verdict is true only when none fails.
+
+    `parts` is the inventory as supplied, in download order. A zero-row export is complete only when the
+    caller passes source_availability_recorded=True explicitly; a key spliced into the run record is not read.
+    """
     failing: list[str] = []
     status = run_record.get("status")
     if status != "Completed":
         failing.append(f"status {status!r} is not Completed")
-    if "error" in run_record:
-        failing.append(f"error field present: {run_record['error']!r}")
-    inventory: dict[str, dict] = {}
+    error = run_record.get("error")
+    if error not in (None, ""):
+        failing.append(f"error field present: {error!r}")
+    supplied: list[dict] = []
     for part in parts:
         if not isinstance(part, dict) or any(key not in part for key in INVENTORY_KEYS):
             failing.append(f"part inventory entry lacks {'/'.join(INVENTORY_KEYS)}: {part!r}")
         else:
-            inventory[part["id"]] = part
-    rows_parsed = sum(part["rows"] for part in inventory.values())
+            supplied.append(part)
+    supplied_ids = [part["id"] for part in supplied]
+    rows_parsed = sum(part["rows"] for part in supplied)
+    failing.extend(f"part {part_id} supplied more than once"
+                   for part_id, count in Counter(supplied_ids).items() if count > 1)
+    failing.extend(f"part {part['id']} sha256 is not 64 hex characters: {part['sha256']!r}" for part in supplied
+                   if not (isinstance(part["sha256"], str) and SHA256_HEX.fullmatch(part["sha256"])))
     records_completed = run_record.get("records_completed")
     counts = {"n_before": n_before, "n_after": n_after, "records_completed": records_completed,
               "rows_parsed": rows_parsed}
@@ -113,20 +142,22 @@ def file_export_completeness(run_record: dict, parts: list[dict], n_before: int 
         failing.append(f"n_before {n_before} is not below the LIMIT cap {MAX_ROWS}")
     declared = run_record.get("files")
     if isinstance(declared, list) and all(isinstance(item, str) for item in declared):
-        failing.extend(f"file {file_id} not downloaded and hashed" for file_id in declared if file_id not in inventory)
-        failing.extend(f"part {part_id} is not in this run's files inventory" for part_id in inventory
+        failing.extend(f"file {file_id} not downloaded and hashed" for file_id in declared if file_id not in supplied_ids)
+        failing.extend(f"part {part_id} is not in this run's files inventory" for part_id in dict.fromkeys(supplied_ids)
                        if part_id not in declared)
+        if supplied_ids != declared:
+            failing.append(f"supplied part ids {supplied_ids} do not equal the run's files inventory {declared}")
     else:
         failing.append("files inventory absent from the run record")
     if status == "FailedBilling":
         failing.append("status FailedBilling (pricing signal)")
     for text in _strings(run_record):
-        terms = [term for term in PRICING_TERMS if term in text.lower()]
+        terms = sorted({match.lower() for match in PRICING_SIGNAL.findall(text)})
         if terms:
             failing.append(f"pricing signal {terms} in run record text: {text!r}")
-    if rows_parsed == 0 and run_record.get("source_availability_recorded") is not True:
+    if rows_parsed == 0 and source_availability_recorded is not True:
         failing.append("zero rows without a source-availability record")
-    return {"status": status, "error": run_record.get("error"), "records_completed": records_completed,
+    return {"status": status, "error": error, "records_completed": records_completed,
             "n_before": n_before, "n_after": n_after, "rows_parsed": rows_parsed, "files": list(parts),
             "file_export_complete_observed": not failing, "failing_rules": failing}
 
@@ -151,7 +182,19 @@ def main() -> None:
     parser.add_argument("--n-after", type=int, default=None, help="count-rows after Completed; omit if not observed")
     parser.add_argument("--output", type=Path, required=True, help="v1 query-response JSON for readout_v1.py --events")
     parser.add_argument("--completeness-output", type=Path, required=True)
+    parser.add_argument("--source-availability-recorded", action="store_true",
+                        help="the operator recorded source availability; required for a zero-row export to be complete")
     args = parser.parse_args()
+    if len({path.resolve() for path in args.parts}) != len(args.parts):
+        raise SystemExit("refusing duplicate --parts paths")
+    ids = [_file_id(path) for path in args.parts]
+    if len(set(ids)) != len(ids):
+        raise SystemExit("refusing duplicate part ids: " + ", ".join(sorted(k for k, v in Counter(ids).items() if v > 1)))
+    if args.output.resolve() == args.completeness_output.resolve():
+        raise SystemExit("refusing identical --output and --completeness-output paths")
+    for path in (args.output, args.completeness_output):
+        if path.exists():
+            raise SystemExit(f"refusing to overwrite {path}")
     parts: list[bytes] = []
     for path in args.parts:
         with path.open("rb") as handle:
@@ -162,10 +205,10 @@ def main() -> None:
         raise ValueError("run record byte bound exceeded")
     response = v1_response_from_parts(parts)
     record = parse_record(parts)
-    inventory = [{"id": _file_id(path), "sha256": hashlib.sha256(part).hexdigest(),
-                  "bytes": fact["bytes"], "rows": fact["rows"]}
-                 for path, part, fact in zip(args.parts, parts, record["parts"])]
-    completeness = file_export_completeness(json.loads(raw_record), inventory, args.n_before, args.n_after)
+    inventory = [{"id": file_id, "sha256": hashlib.sha256(part).hexdigest(), "bytes": fact["bytes"], "rows": fact["rows"]}
+                 for file_id, part, fact in zip(ids, parts, record["parts"])]
+    completeness = file_export_completeness(json.loads(raw_record), inventory, args.n_before, args.n_after,
+                                            source_availability_recorded=args.source_availability_recorded)
     _write(args.output, response)
     _write(args.completeness_output, completeness)
 

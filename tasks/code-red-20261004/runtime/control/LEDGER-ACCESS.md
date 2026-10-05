@@ -90,7 +90,7 @@ reservation undersized). Known use 0.553091 → 0.578659 (calls 326 → 360); ho
 reservations 0; conditional unreserved 25.000000 − 0.578659 − 1.881713 = **22.539628**. Current document: 31,690 bytes,
 SHA-256 `b4ce7016ed1996c345dfc40fc3565cfc1e964963bfc866af1df79f49660f9c36`; republished as artifact version 5 and read back with the same hash. See `DECISIONS-08.md`.
 
-### Reservation rule refined — recorded 2026-10-05T22:08Z (record 09; no event written)
+### Reservation rule refined — recorded 2026-10-05T22:06Z (record 09; no event written; stamp corrected from a forward-dated 22:08Z after the PR #1100 review)
 
 Founder instruction 2026-10-05 ~20:17Z: keep the recorded overrun visible; future reservations carry justified headroom;
 USD 0.03 is a measured minimum, not a guaranteed maximum. Rule from this record: a reservation is written before any paid

@@ -1,9 +1,11 @@
-# Decision record 09 — PR #1099 merged; delta review of `ad915c44` and its seven nits applied; closure 154; founder status update and masterplan next steps delivered (chief, 2026-10-05)
+# Decision record 09 — PR #1099 merged after GitHub's Actions incident; founder instruction 20:17Z (IAM verified DENIED; export part; G3 review 01; contract revision 3; R1 reconciliation; review and reservation rules; deploy-scoping explanation); founder adopts D1–D5 (G1 text; D5 adapter; D4 dry run; D1/D3 operator script); closures 154–157 (chief, 2026-10-05)
 
 Recorded 2026-10-05T22:05:00Z by the chief (`https://claude.ai/code/session_01GWYV7WXWstgVGQG43YcSM8`, runtime-reported model
-`claude-fable-5-1`). Context: record 08 merged to main as `eccf45a31a45b1b69d20a1a37111f4131b3f4b93` (PR #1099; GitHub `merged_at` 2026-10-05T21:59:56Z); this
-branch was restarted from that main. Records only: no code, workflow, migration, cloud, IAM or production change; a
-tasks-only merge runs no `deploy-backend` step that changes the service (the merge's CI on main is recorded below for completeness).
+`claude-fable-5-1`). Context: record 08 merged to main as `eccf45a31a45b1b69d20a1a37111f4131b3f4b93` (PR #1099; GitHub `merged_at` 2026-10-05T21:59:56Z; squash commit timestamp 21:59:55Z); this
+branch was restarted from that main. Records plus the file-route implementation under `tasks/readiness-2026-09-21/beta/` (adapter,
+fixture extension, operator script, runbook — tasks-side Python added): no runtime or service code, workflow, migration, cloud, IAM or
+production change; a tasks-only merge leaves `deploy-backend`'s deploy steps skipped (the merge's CI on main is recorded below).
+Amended 2026-10-05T22:49Z after the three-lens review of `7ee540aa` (findings applied; review section below).
 
 ## PR #1099 — merged
 
@@ -16,14 +18,14 @@ tasks-only merge runs no `deploy-backend` step that changes the service (the mer
 | Review override | bound to `ad915c44` in the PR body at 19:46Z, citing comment 6001767728; `review-gate` success on the `edited` run (the `ready_for_review` run was cancelled by the edit) |
 | Required checks on `ad915c44` | `backend-tests` success 19:43:47Z and `eval-baseline` success 19:41:22Z (attempt 1; no AI-relevant change, so no paid job), `review-gate` success 19:47:10Z (run 37365546132, the `edited` event); `frontend-tests`, `e2e-tests`, `migrations-postgres`, `lighthouse` and `secret-scan` cancelled by the platform at 19:51:03Z after 15 minutes queued with no runner during GitHub's "Incident with Actions" (runner-assignment delays, then major outage; status page updates 19:50Z–21:32Z), then **re-run once** (`rerun_failed_jobs` on run 37364453310 at 21:55:36Z, after the status page showed Actions operational) and all five success by 21:59:18Z (attempt 2). Six required checks green on the unchanged head; the earlier evidence reused |
 | Paid jobs | none (tasks-only: `copilot-eval` not triggered; `eval-baseline` passed without an AI-relevant change) |
-| Merge | squash `eccf45a31a45b1b69d20a1a37111f4131b3f4b93`, GitHub `merged_at` 2026-10-05T21:59:56Z; main CI: run 37379578901 on `eccf45a3` (tasks-only: `deploy-backend` detects no `backend/` change and skips) |
+| Merge | squash `eccf45a31a45b1b69d20a1a37111f4131b3f4b93`, GitHub `merged_at` 2026-10-05T21:59:56Z; main CI: run 37379578901 on `eccf45a3` (tasks-only: the `deploy-backend` job succeeded with its deploy steps skipped — no `backend/` change) |
 
 ## Seven nits from the delta review — applied here
 
-1. Stamp order at `6f5d07a2` (checkpoint header 19:31:58Z before closure 153's 19:31:59Z): moot at `ad915c44`; rule for the chief: take the header stamp after the last bound file is written.
+1. Stamp order at `6f5d07a2` (checkpoint header 19:31:58Z before closure 153's 19:31:59Z): moot at `ad915c44`; rule for the chief: take the header stamp after the last bound file is written, and stamp no bound file after the header (its converse, breached by the 22:08Z stamps of the first commit and corrected in the second).
 2. Record 08 header: amendment lines added for 19:07:44Z (revision 2), by 19:31:58Z (founder instruction, ticket 76581, manifest 05, closure 153), 19:35:53Z (export outcome) and this record's edit.
 3. Checkpoint hash-row description for record 08 extended to its later sections.
-4. "19:3xZ" replaced by "19:32Z (run file recorded 19:32:44Z)" in record 08 and checkpoint decision 29; "nothing else called" replaced by "no other export tool called (`learn` ×2, `info` ×4 only)".
+4. the x-masked return time replaced by "19:32Z (run file recorded 19:32:44Z)" in record 08 and checkpoint decision 29; "nothing else called" replaced by "no other export tool called (`learn` ×2, `info` ×4 only)".
 5. "Third delta" lowercased in the PR #1098 review record.
 6. `APPOINTMENTS.json` `query_route_contract_draft_01` parentheses flattened (facts unchanged).
 7. PR #1099 applied-findings list: "event-3 write time" dropped (no such finding; the text was unchanged); the dry-run item now states the clause was removed and the CEO's decision recorded in Next (4).
@@ -31,6 +33,54 @@ tasks-only merge runs no `deploy-backend` step that changes the service (the mer
 ## Founder status update and masterplan next steps — delivered 19:58Z
 
 Delivered in the session as requested ("after this work is done"): delivered outcomes, a refreshed wave table (R1–R5 and shared spend; counts, blockers recorded once, next deliverable with acceptance), actual spend, five masterplan steps in priority order with finite exits, and the five founder-only items. Nothing in it admits capacity, releases inputs, infers consent or marks cohort reporting complete; holds unchanged.
+
+## Review of this PR's head `7ee540aa` and its CI (added 22:49Z)
+
+**Review (proportionate, per the record-09 rule for a PR that adds code):** a three-lens read-only workflow (anchors, code, policy)
+with one refuter per blocker/should-fix finding only — 13 contexts (3 lenses + 10 refuters), registered in closure 157 by
+resolving closure 156's provisional label. **NO BLOCKER ×3 on `7ee540aa`.** Anchors: 78 checkpoint hash rows / 0 mismatched;
+closure chain 153 → 156 66 / 66 checks; manifests 06/07/08 inputs matching at head except the three inputs bound at the
+pre-revision bytes (each explained); every locally checkable hash, byte count, commit and time in this record verified; the
+seven carried nits 7 / 7 applied. Code: `py_compile` and `ruff` clean; `fixture_check.py --adapter-only` exit 0 and `--v1-only`
+byte-identical to the base; the D4 reproduction byte-identical to the committed `d4-*.json` and equal to the September 30 readout
+except `input_sha256.events`; **`export_operator.py --offline-verify` executed by the reviewer on the invented-literal part**:
+verdict `incomplete (n_after not observed)`, exit 2, `TOTAL=3 9066`, `v1-events.json` byte-identical to the committed
+`d4-events.json`, the git-tree private-dir refusal exercised, the recorded request-body hashes reproduced — the execution check
+the author could not run (classifier denial 6) is therefore done. Policy: no private URL, token, signed URL, customer data or
+MacBook path; the only part bytes are the invented literals; decision fidelity to D1–D5 confirmed; IAM three states, D3 held,
+reservation rule and R1 table as stated. Findings: 0 blocker, **10 should-fix** (code 4; anchors 2; policy 4, two overlapping
+the others), 24 nits; 10 refuters / 0 refuted.
+
+**Applied in the following commit (re-checked by the pre-registered single delta reviewer before the override is bound):**
+
+| # | Finding (should-fix) | Fix |
+|---|---|---|
+| S1 | Two step-8 rules shipped (adapter and the operator's inline copy) with different `error`, zero-row and `plan` semantics; a disagreement produced an empty-reason `incomplete` | Single rule owner: the adapter's `file_export_completeness` (fails on `error` only when present and non-null; `plan`/`plans` whole-word; zero rows complete only with an explicit `source_availability_recorded=True` argument); the operator calls it when present and its inline fallback is made byte-equivalent and named in the receipt |
+| S2 | A part supplied twice collapsed in the adapter's id-keyed inventory (6 rows fed, `rows_parsed` 3, verdict complete) | `rows_parsed` over the parts as supplied; failing rule for a repeated id; the CLI refuses duplicate `--parts` |
+| S3 | On a pricing stop the operator printed up to 4,000 characters of the connector response verbatim; a REST response echoing `hogql_query` would carry roster literals to stdout and to an executive context | Redaction of any `hogql_query` value and of the bound query bytes before any print or public receipt; status, matched word and structured fields only; raw response stays in the private store; runbook §5 reworded |
+| S4 | One transient 5xx on a retrieve poll ended the invocation and would waste an authorised customer export (a second `create` needs new authorisation) | Retry 5xx/URLError within the poll deadline; `--resume RUN_ID --n-before N` runs steps 4–8 with zero creates |
+| S5 | `APPOINTMENTS.json` `updated_at` and the `LEDGER-ACCESS.md` heading were stamped 22:08Z, after the 22:07:07Z commit that contained them | Stamps corrected to their actual write times (22:06Z); the rule "take the header stamp after the last bound file is written" restated with its converse |
+| S6 | This record's title and scope sentence read as a records-only record with closure 154, while the PR carries code and closures 154–157 | Title and scope sentence rewritten (this header) |
+| S7 | The checkpoint row for the contract draft carried an editing remnant and revision 2's description beside revision 3's hash | Row rewritten for revision 3 with revision 2 and 1 as predecessors |
+| S8 | Row 1a's state cell was stale ("awaiting the founder's file") and the operator's disclosed credential-setup caveat appeared only in closure 155 and APPOINTMENTS | Cell rewritten with the receipt facts and the caveat |
+
+**Nits applied in the same commit** (same files, no extra cycle): manifest 06 byte count (7,123) at its first mention; the x-masked time quotation reworded; the squash commit timestamp added beside `merged_at`; the `deploy-backend` wording; the `LEDGER-ACCESS.md` and `APPOINTMENTS.json` row descriptions extended; separators in two appended APPOINTMENTS values; the PR #1099 review record's "Next (4)" pointer annotated; the key-status attribution in founder item 5(b) corrected to the operator's hand-over; adapter: duplicate-key rejection, both-outputs-exist check, `files[]` order and hex-digest rules, a parity fixture pinning the D4 result on the committed part; operator/runbook: receipt verdict class plus hash of any error summary, a first-run connector-leg path confirmation step, §6 replaced by the reviewer-observed output, §8 marked executed, staging references pointed at repository paths.
+
+**File identities after the applied findings (second commit):**
+
+| File | SHA-256 | Bytes | Writer |
+|---|---|---|---|
+| `tasks/readiness-2026-09-21/beta/file_export_to_v1.py` | `95287af3df81fec54bc22224120b7a0047ab20c6cfc107b27460f217ff50369e` | 11,248 | CTO adapter writer (revision 2) |
+| `tasks/readiness-2026-09-21/beta/fixture_check.py` | `3559e4283c8c07fcbd1390819ddfc9a206b5b99ae6308d4142eb8a3d4436e58a` | 44,510 | CTO adapter writer (insertion-only vs the release; `--v1-only` output still `cf6ebba0…`) |
+| `tasks/readiness-2026-09-21/beta/export_operator.py` | `560068af1fcbd350f99720d412ad4f1f68d318f7b247b425473f30d2a65109db` | 56,943 | COO operator-script writer (revision 2; edits only — execution still denied in its context) |
+| `tasks/readiness-2026-09-21/beta/OPERATOR-RUNBOOK.md` | `8d7018408de03dbc82d85bb71af7f29ff6091d85b8c68ca82de747890ba2d72c` | 25,178 | COO operator-script writer (revision 2) |
+| `handbacks/cto/ADAPTER-NOTES-01.md` | `02c7dd359f338c340839aca9f7bf351fa1ab93a81dcc65a7653fdc7722c12e1b` | 39,311 | CTO adapter writer ("Revision 2 (review findings)" section) |
+
+Chief verification after the writers returned (22:48–22:52Z): `py_compile` ok and `ruff` clean on the three `.py` files; `fixture_check.py --adapter-only` exit 0 with the new D4-parity fixture passing and the `error_null` / `error_empty` / `explanation_text` cases passing; `--v1-only` output byte-identical (`cf6ebba0…`); the committed `d4-*.json` unchanged by the adapter revision (writer re-ran and compared); `readout_v1.py` byte-identical to the release; hygiene greps on the operator unchanged (no `print(`, key from the environment only, `Location` local-only). The operator's `--offline-verify`, `--resume` refusal and redaction paths are executed by the delta reviewer.
+
+**Nits carried to record 10 (hash-bound files or not worth a cycle):** the session upload-directory literal in manifests 07/08, the G3 review, the adapter notes and the runbook ("the session's upload area" wording in future); `FOUNDER-DECISIONS-FILE-ROUTE.md`'s "first download" reads as "first customer download"; manifests 07 and 08 share one clock read (generated together); the fixture's end-to-end equality proves order-invariance and consumability, with parity pinned separately by the new D4 fixture.
+
+**CI on `7ee540aa`:** `backend-tests` failed once on `tests/unit/test_inflight_dedup.py::test_waiter_serves_leader_result_without_regenerating` (`assert False` over heartbeats; a coroutine-never-awaited warning) with 5,715 passing. Not this PR's: the PR changes nothing under `backend/`; the identical backend code passed on `main` `eccf45a3` eleven minutes earlier (run 37379578901) and on `ad915c44`; the test is timing-dependent (`asyncio.sleep(0.2)`). One standing-down comment posted on the PR (comment 6004234330) and the single re-run used at 22:15:5xZ: `backend-tests` success 22:23:50Z; all eight jobs green. A robustness fix would be a `backend/tests/` change outside this tasks-only PR and would trigger the paid `copilot-eval` workflow; recorded for the CTO as a candidate, not carried here.
 
 ## Classifier denial 6 — the operator-script worker's command execution (worker context)
 
@@ -44,14 +94,14 @@ the execution check (`--offline-verify` on the invented-literal part) is assigne
 PR, whose brief already includes running the kit's offline checks. Lesson for dispatch wording: a worker that must execute
 commands cannot carry credential-handling vocabulary in its brief; the next operator-tool dispatch separates the two.
 
-## Registration (closures 154–156)
+## Registration (closures 154–157)
 
 `control/source-context-exclusion-154.json` (268 entries) resolves the record-08 delta reviewer's provisional label to its
 launch-time identity (19:32Z). `-155.json` (270) registers the founder-operated Codex download worker (external, actual; request
 20:52:57Z) and the single G3 reviewer (actual; launched 21:04Z). `-156.json` (274) registers the CTO adapter writer and the COO
 operator-script writer (both launched 21:34Z; actual), the human operator role `founder-operator:readout-export-legs-01` (D1
 option O2; registered before any customer run) and pre-registers this PR's proportionate review (`adapter-review-01`,
-provisional; resolved in the next closure). The COO revision-3 author is the already-registered context of closure 152.
+provisional). `-157.json` (288) resolves that label to the 13 contexts of review workflow `wf_955b20cc-eb7` (3 lenses, 10 refuters) and pre-registers the single delta reviewer of this PR's final head (`record-09-delta-reviewer-01`, provisional; resolved in record 10). The COO revision-3 author is the already-registered context of closure 152.
 
 ## Spend
 
@@ -62,8 +112,8 @@ provisional; resolved in the next closure). The COO revision-3 author is the alr
 | # | Instruction (intent) | Action by the chief | State |
 |---|---|---|---|
 | 0 | IAM bindings run (both commands clean); verify with the `logs-probe` | Read-only `ops.yml` `logs-probe` dispatched on `main` `c780228a` at 20:21:06Z (Ops run 37369180920) during GitHub's Actions runner incident | First dispatch (run 37369180920, job 111962125429) was cancelled by the platform after 15 minutes queued with no runner (20:22:12Z → 20:37:15Z; no step ran; no evidence). Second dispatch at 21:55:36Z after GitHub reported Actions operational: run 37379102331, job 111996067424, conclusion success; the probe step printed **`logs-probe: logging.read DENIED (rc=1)`** — `PERMISSION_DENIED: Permission denied for all log views. This command is authenticated as github-deployer@earnings-nerd.iam.gserviceaccount.com` (21:55:53Z). **Access is therefore NOT verified**: the bindings the founder reports as applied at ~20:17Z are not effective for this principal 98 minutes later (propagation is normally minutes). IAM state: authorized (record 08) → applied per the founder's statement → **verified DENIED**. The chief makes no IAM change; the founder is asked to run the read-only policy check in the morning report |
-| 1a | Give the exact authenticated download link or navigation for the existing export part; do not repeat the export | PostHog documentation (two read-only `docs-search` calls): file-download exports are API-only; the run's part is fetched by an authenticated GET on the US-cloud private host with a `batch_export:read` personal API key; both URL forms (part path from the connector's command description; run-level `download/` from the API reference) given to the founder at ~20:24Z; the key and redirect URL are never written anywhere | Awaiting the founder's file |
-| 1b | File-download route selected; revise the draft for that route; present only the necessary founder decisions with recommended answers; no competing routes | Same registered COO context (closure 152) resumed on manifest `COO-FILE-ROUTE-REVISION-06` (`a73d0066…`, 7,112 bytes; nine input hashes; no connector call; staged outside the repository) | **Delivered** ~20:32Z: revision 3 of `handbacks/coo/QUERY-ROUTE-READOUT-CONTRACT-DRAFT-01.md` (as placed `ad599074e6f27149b6bfb736fccdb45014d1bdc411a2b087165a23d09e9b16dd`, 47,321 bytes, after one chief sanitisation of a session-local path; worker's staged `afe6b59a…`, 47,331 bytes) and `handbacks/coo/FOUNDER-DECISIONS-FILE-ROUTE.md` (`7bfe1e63c0b56ffac9bced4161df747ed711e162274e1788571980f854fa906c`, 14,894 bytes); 9 / 9 inputs hash-verified; EU host carried as the founder's stated assumption; manifest 7,123 bytes (the dispatch message said 7,112 characters; hash controlling) |
+| 1a | Give the exact authenticated download link or navigation for the existing export part; do not repeat the export | PostHog documentation (two read-only `docs-search` calls): file-download exports are API-only; the run's part is fetched by an authenticated GET on the private API host with a `batch_export:read` personal API key; both URL forms (part path from the connector's command description; run-level `download/` from the API reference) given to the founder at ~20:24Z, re-issued for EU cloud at ~20:26Z when the founder stated the organisation uses PostHog EU; the key and redirect URL are never written anywhere | **Received 20:52:57Z** — downloaded by the founder's own Codex operator (GPT 6.1, operator-side) on EU cloud with the part-path URL form (one GET, HTTP 302 → 200; part `67bc4e91db4f1bdc31dd4ffc290efd1864d4babdd6c33bd1e45bfb3fa413c6a5`, 2,092 bytes; `VERIFICATION.json` `e5f5c2db…`, 16,233 bytes); chief hash-verified (3 rows, 21-key sets, fixed uuids); the operator disclosed its credential setup (browser key creation, scope reduced to `batch_export:read` on project 117863, transient clipboard transfer, cleared) as outside the bounded download phase, its `api_call_statement` scoped to that phase, and that the key remained active — revocation recommended to the founder; G3 review 01 followed (closure 155) |
+| 1b | File-download route selected; revise the draft for that route; present only the necessary founder decisions with recommended answers; no competing routes | Same registered COO context (closure 152) resumed on manifest `COO-FILE-ROUTE-REVISION-06` (`a73d0066…`, 7,123 bytes; nine input hashes; no connector call; staged outside the repository) | **Delivered** ~20:32Z: revision 3 of `handbacks/coo/QUERY-ROUTE-READOUT-CONTRACT-DRAFT-01.md` (as placed `ad599074e6f27149b6bfb736fccdb45014d1bdc411a2b087165a23d09e9b16dd`, 47,321 bytes, after one chief sanitisation of a session-local path; worker's staged `afe6b59a…`, 47,331 bytes) and `handbacks/coo/FOUNDER-DECISIONS-FILE-ROUTE.md` (`7bfe1e63c0b56ffac9bced4161df747ed711e162274e1788571980f854fa906c`, 14,894 bytes); 9 / 9 inputs hash-verified; EU host carried as the founder's stated assumption; manifest 7,123 bytes (the dispatch message said 7,112 characters; hash controlling) |
 | 2 | Distinguish "roles recorded" from "bindings applied and access verified"; keep unresolved until evidence; then perform the existing bounded readout | Recorded as three states: authorized (record 08) → applied (founder statement 20:17Z, commands ran clean; not evidence of access) → verified (only by the probe's `logging.read PERMITTED` line). The bounded readout is the same `capacity-readout` over the Monday 06:00–08:00 UTC window (record 02 D4), dispatched only after the probe shows PERMITTED and no main CI is in flight | **Not dispatched**: the gate (probe PERMITTED) did not hold. B32/B56 remain unobserved; C1 items 1 and 5 keep the B62 sub-dependency |
 | 3 | R1: recovery and archive integrity confirmed; complete-manifest verification and planner resumability unconfirmed; preserve gates; reconcile the allowance without resetting it | Custody state updated: recovery and archive integrity CONFIRMED by the founder (20:17Z); outstanding: complete original input-manifest comparison, the two `TOTAL=` lines, registered-planner resumability; release receipt NOT_RELEASED; gates unchanged. Allowance reconciled below | Recorded |
 | 4 | Stop optional review chains and cosmetic iterations; batch records around substantive deliverables; explain the PR #1098 deploy; propose one bounded correction under the existing owner | Review rule and the deploy explanation below | Recorded; correction proposed, not applied |

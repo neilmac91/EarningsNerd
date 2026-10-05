@@ -383,6 +383,8 @@ def check_file_export_adapter() -> dict:
                                     "part 1 line 1", "key set mismatch", "'uuid'", "'id'"),
         "second_trailing_empty_line": rejects([part_one + b"\n", part_two], "part 0 line 3"),
         "non_object_line": rejects([part_one, b"[1]\n"], "part 1 line 1", "not a JSON object"),
+        "duplicate_key": rejects([line(view, COLUMNS)[:-1] + b',"uuid":"' + uuid(10).encode() + b'"}\n'],
+                                 "part 0 line 1", "duplicate key", "'uuid'"),
     }
     # A string-typed timestamp_s passes through uncoerced; the consumer, not the adapter, diagnoses it.
     string_timestamp = part_one.replace(b'"timestamp_s":%d' % begin, b'"timestamp_s":"%d"' % begin, 1)
@@ -400,14 +402,26 @@ def check_file_export_adapter() -> dict:
     assert complete == {"status": "Completed", "error": None, "records_completed": 4, "n_before": 4, "n_after": 4,
                         "rows_parsed": 4, "files": inventory, "file_export_complete_observed": True,
                         "failing_rules": []}, complete
+    passing_cases = {  # not signals: an error key that is null or empty; "plan" only inside another word
+        "error_null": file_export_completeness({**run_record, "error": None}, inventory, 4, 4),
+        "error_empty": file_export_completeness({**run_record, "error": ""}, inventory, 4, 4),
+        "explanation_text": file_export_completeness({**run_record, "detail": "explanation of the run"}, inventory, 4, 4),
+    }
+    assert all(case["file_export_complete_observed"] is True and case["failing_rules"] == []
+               for case in passing_cases.values()), passing_cases
+    reordered, duplicated = [inventory[1], inventory[0]], [inventory[0], inventory[0], inventory[1]]
     false_cases = {
         "n_after_mismatch": file_export_completeness(run_record, inventory, 4, 5),
         "missing_file_id": file_export_completeness({**run_record, "files": [*file_ids, uuid(999)]}, inventory, 4, 4),
         "failed_billing": file_export_completeness({**run_record, "status": "FailedBilling"}, inventory, 4, 4),
         "n_after_none": file_export_completeness(run_record, inventory, 4, None),
-        "error_field": file_export_completeness({**run_record, "error": None}, inventory, 4, 4),
+        "error_text": file_export_completeness({**run_record, "error": "boom"}, inventory, 4, 4),
         "pricing_text": file_export_completeness({**run_record, "detail": "Upgrade your plan"}, inventory, 4, 4),
+        "pricing_plural": file_export_completeness({**run_record, "detail": "see Plans"}, inventory, 4, 4),
         "part_from_another_run": file_export_completeness(run_record, [*inventory, {**inventory[0], "id": uuid(998)}], 4, 4),
+        "duplicate_part_id": file_export_completeness(run_record, duplicated, 4, 4),
+        "out_of_order_files": file_export_completeness(run_record, reordered, 4, 4),
+        "bad_sha256": file_export_completeness(run_record, [{**inventory[0], "sha256": "abc"}, inventory[1]], 4, 4),
         "limit_cap": file_export_completeness({**run_record, "records_completed": 10_000},
                                               [{**inventory[0], "rows": 9_998}, inventory[1]], 10_000, 10_000),
     }
@@ -416,16 +430,26 @@ def check_file_export_adapter() -> dict:
     assert any(rule.startswith("counts differ") for rule in false_cases["n_after_mismatch"]["failing_rules"])
     assert any(uuid(999) in rule for rule in false_cases["missing_file_id"]["failing_rules"])
     assert any("FailedBilling" in rule for rule in false_cases["failed_billing"]["failing_rules"])
+    assert false_cases["error_text"]["failing_rules"] == ["error field present: 'boom'"]
+    assert false_cases["pricing_text"]["failing_rules"] == ["pricing signal ['plan'] in run record text: 'Upgrade your plan'"]
+    assert false_cases["pricing_plural"]["failing_rules"] == ["pricing signal ['plans'] in run record text: 'see Plans'"]
     assert any(uuid(998) in rule for rule in false_cases["part_from_another_run"]["failing_rules"])
+    assert false_cases["duplicate_part_id"]["rows_parsed"] == 6  # counted over the parts as supplied
+    assert f"part {file_ids[0]} supplied more than once" in false_cases["duplicate_part_id"]["failing_rules"]
+    assert false_cases["out_of_order_files"]["failing_rules"] == [
+        f"supplied part ids {[file_ids[1], file_ids[0]]} do not equal the run's files inventory {file_ids}"]
+    assert any("sha256 is not 64 hex characters" in rule for rule in false_cases["bad_sha256"]["failing_rules"])
     assert false_cases["limit_cap"]["failing_rules"] == ["n_before 10000 is not below the LIMIT cap 10000"]
     empty_part = b""
     assert parse_record([empty_part])["totals"]["rows"] == 0
     empty_inventory = [{"id": file_ids[0], "sha256": hashlib.sha256(empty_part).hexdigest(), "bytes": 0, "rows": 0}]
     empty_run = {"id": run_id, "status": "Completed", "files": [file_ids[0]], "records_completed": 0}
     zero_without = file_export_completeness(empty_run, empty_inventory, 0, 0)
-    zero_with = file_export_completeness({**empty_run, "source_availability_recorded": True}, empty_inventory, 0, 0)
+    zero_spliced = file_export_completeness({**empty_run, "source_availability_recorded": True}, empty_inventory, 0, 0)
+    zero_with = file_export_completeness(empty_run, empty_inventory, 0, 0, source_availability_recorded=True)
     assert zero_without["failing_rules"] == ["zero rows without a source-availability record"]
     assert zero_without["file_export_complete_observed"] is False
+    assert zero_spliced["failing_rules"] == zero_without["failing_rules"]  # a key in the run record is not the record
     assert zero_with["file_export_complete_observed"] is True and zero_with["failing_rules"] == []
 
     # End to end: the file-ordered adapter output and the query-ordered direct response read out identically.
@@ -452,7 +476,16 @@ def check_file_export_adapter() -> dict:
             assert (root / name).stat().st_mode & 0o777 == 0o600
         assert json.loads((root / "events.json").read_text()) == expected
         assert json.loads((root / "completeness.json").read_text()) == complete
-        assert subprocess.run(command, capture_output=True, check=False).returncode != 0  # no overwrite
+        refused = subprocess.run(command, capture_output=True, check=False)  # no overwrite: one-line refusal
+        assert refused.returncode != 0 and b"refusing to overwrite" in refused.stderr, refused.stderr
+        assert b"Traceback" not in refused.stderr
+        duplicate = [sys.executable, str(HERE / "file_export_to_v1.py"), "--parts", str(paths[0]), str(paths[0]),
+                     "--run-record", str(root / "run-record.json"), "--n-before", "4",
+                     "--output", str(root / "dup-events.json"), "--completeness-output", str(root / "dup-completeness.json")]
+        duplicate_result = subprocess.run(duplicate, capture_output=True, check=False)
+        assert duplicate_result.returncode != 0 and b"refusing duplicate" in duplicate_result.stderr, duplicate_result.stderr
+        assert b"Traceback" not in duplicate_result.stderr
+        assert not (root / "dup-events.json").exists() and not (root / "dup-completeness.json").exists()
         consumer = [sys.executable, str(HERE / "readout_v1.py"), "--events", str(root / "events.json"),
                     "--parameters", str(root / "parameters.json"), "--query", str(HERE / "posthog-v1-export.hogql"),
                     "--output", str(root / "readout.json")]
@@ -460,16 +493,29 @@ def check_file_export_adapter() -> dict:
         actual = json.loads((root / "readout.json").read_text())
         assert actual.pop("input_sha256").keys() == {"events", "parameters", "query"}
         assert actual == from_parts
+    # D4 parity pin: the committed capability part (invented literals) reads out exactly as the retained
+    # September 30 readout minus the input hashes; export_complete_observed stays false by construction.
+    evidence = REPO / "tasks" / "review-evidence" / "beta-readout-2026-09-30"
+    part_bytes = (REPO / "tasks" / "code-red-20261004" / "runtime" / "handbacks" / "coo" / "export-validation-01" / "parts"
+                  / "posthog-hogql-01a10d89-1ee8-0000-3e2c-9000712c9502-01a10d89-3a26-0000-56f3-e1f6c4004610.jsonl").read_bytes()
+    retained = json.loads((evidence / "readout.json").read_text())
+    assert retained.pop("input_sha256").keys() == {"events", "parameters", "query"}
+    d4 = build_readout(v1_response_from_parts([part_bytes]), json.loads((evidence / "parameters.json").read_text()))
+    assert d4 == retained, d4
+    assert d4["export_complete_observed"] is False and d4["export_row_count"] == 3
     return {"adapter_fixture_rows": len(expected["results"]), "adapter_fixture_parts": len(parts),
             "key_order_matched_rows": record["totals"]["key_order_matched_rows"], "rejections": rejections,
             "string_timestamp_s_consumer_reasons": consumer_reasons,
             "completeness_true_case": complete["file_export_complete_observed"],
+            "completeness_passing_cases": sorted(passing_cases),
             "completeness_false_cases": {name: case["failing_rules"] for name, case in false_cases.items()},
             "zero_rows": {"without_source_availability_record": zero_without["failing_rules"],
-                          "with_source_availability_record": zero_with["file_export_complete_observed"]},
+                          "with_run_record_key_only": zero_spliced["file_export_complete_observed"],
+                          "with_explicit_keyword_argument": zero_with["file_export_complete_observed"]},
             "end_to_end_readout_equal": from_parts == from_direct,
             "export_complete_observed": {"from_parts": from_parts["export_complete_observed"],
                                          "from_direct": from_direct["export_complete_observed"]},
+            "d4_parity_with_retained_readout": "passed", "d4_part_sha256": hashlib.sha256(part_bytes).hexdigest(),
             "actual_cli_roundtrip": "passed", "download_or_hogql_live_execution": "not performed"}
 
 
