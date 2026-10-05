@@ -18,10 +18,11 @@
       "active_assignment": "dispatch/CTO-ENVELOPE-HANDBACK-01.json (current-beta operating envelope for COO C1)",
       "actual_runtime_identity": "No isolated delegate: the Workflow launch for dispatch CTO-ENVELOPE-HANDBACK-01 (author + three adversarial lenses) was denied by the platform's auto-mode classifier. The chief context (session_01GWYV7WXWstgVGQG43YcSM8, runtime-reported model claude-fable-5-1) authored the handback acting as CTO; no isolated adversarial review ran.",
       "requested_model": "claude-fable-5-1 (author); independent lenses: claude-opus-5-5, claude-fable-5-1, claude-sonnet-5-5",
-      "deliverable": "handbacks/cto/envelope/ revision 3 (CORRECTION-01.md: revision-1 placeholder defect found by the COO worker; CORRECTION-02.md: revision-2 anchor nits from the independent PR review; hash chains recorded)",
-      "status": "delivered; six derived rows qualified (none refuted) by two isolated refuters — see independent_refuters",
+      "deliverable": "handbacks/cto/envelope/ revision 4 (CORRECTION-01: rev-1 placeholder defect; CORRECTION-02: rev-2 anchor nits; CORRECTION-03: rev 3 → rev 4 — readout facts B59–B62, two-bucket SEC model, B51/B52 resolved, C5 re-determination; hash chains recorded)",
+      "status": "revision 4 delivered 2026-10-05T08:36:50Z by the bounded CTO worker; determination undetermined, no E09 code subset demonstrated necessary; E09 hold unchanged; capacity unadmitted",
       "independent_refuters": "Two isolated read-only refuter contexts (arithmetic, assumptions lenses) launched by the chief 2026-10-04T17:33Z against handback rev 3 derived rows; both returned; registered in control/source-context-exclusion-139.json; verdicts in control/DECISIONS-02.md Appendices A and B (no arithmetic error; six qualifications; edgartools second bucket verified; one process per instance observed).",
-      "next_assignment": "Per-process SEC budget change prepared and locally gated; commit classifier-denied (Production Deploy) — founder applies or changes the patch (DECISIONS-02.md D3 execution note). After the Monday readout receipt: handback revision 4 carrying B07/B08/B36/B41/B52 updates, the B32 observation and the C5 re-determination (provisional label registered in closure 145)."
+      "next_assignment": "Per-process SEC budget change prepared and locally gated; commit classifier-denied (Production Deploy) — founder applies or changes the patch (DECISIONS-02.md D3 execution note). After revision 4: read-only IAM check of the Ops identity's Monitoring/Logging access (handback B62) via CEO-approved read; no grant by the CTO.",
+      "rev4_worker_runtime_identity": "Isolated Claude Code subagent launched 2026-10-05T08:17Z by the chief on dispatch CTO-ENVELOPE-HANDBACK-02, role label cto-envelope-handback-rev4-author-01 (requested model inherited claude-fable-5-1; served model not observable by the chief); provisional label from closure 145 resolved in closure 147; 16 inputs hash-verified; only the three output files written; disclosed: branch advanced during authoring (re-verified), LEDGER-ACCESS.md not opened (not in manifest), evidence additions beyond the required list itemised in CORRECTION-03"
     },
     "CPO": {
       "waves": [
@@ -51,7 +52,7 @@
       "deviation": "one disclosed read-only `git status --porcelain | head -0` in its final sanity check, contrary to its no-git instruction; no mutation; chief disposition: accepted as a disclosed deviation with no effect on the output",
       "status": "delivered",
       "item_8_status": "Closed by the CEO as the item's named owner on the refutation record (DECISIONS-02.md Appendices A/B; DECISIONS-06.md); COO carries the six qualifications into the disposition update. Items 4 and 6 closed/dependency-closed (D7, D1); B37 closed (D8); items 1, 2 (B39), 3, 5, 7 open. Monday readout window 06:00–08:00 UTC, Routine 08:10Z (D4).",
-      "next_assignment": "After the Monday readout receipt and CTO handback revision 4: one bounded disposition update re-stating each C1 item (provisional label registered in closure 145). Capacity stays unadmitted."
+      "next_assignment": "Disposition update dispatched 2026-10-05 on manifest COO-ENVELOPE-DISPOSITION-02 (bounded worker, provisional label from closure 145; identity recorded in closure 147 on return): per-item state for the eight C1 items after handback revision 4 and the readout receipt. Capacity stays unadmitted."
     },
     "CFO": {
       "waves": [
@@ -75,7 +76,7 @@
     ]
   },
   "note": "Appointment is accountability, not entry authorization. Actual delegate identities (workflow run / agent ids) are recorded here and in the exclusion successor after launch.",
-  "updated_at": "2026-10-05T08:18:49.603889+00:00",
+  "updated_at": "2026-10-05T08:45:07.174865+00:00",
   "classifier_denials": [
     "Workflow launch for CTO-ENVELOPE-HANDBACK-01 (auto-mode classifier, no reason given); not re-issued through another tool or subagent",
     "One Bash read of docs/DEPLOYMENT.md job-schedule sections (auto-mode classifier: instruction poisoning); the handback cites those lines from an earlier permitted line-level search only",

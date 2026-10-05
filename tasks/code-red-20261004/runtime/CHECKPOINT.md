@@ -31,19 +31,21 @@ from the branch restarted at that main (overnight record under the founder's 202
 | `control/source-context-exclusion-144.json` | `588a8b3f08a0d835c68a75067b835fcbbc64486abc85987049722f90e17fdfe8` | 193 entries (18 workflow review contexts of PR #1092; decisions-04 reviewer identity resolved) |
 | `control/source-context-exclusion-145.json` | `20d4925aa3f45d58c6e57924c5d43e01b9b8d8509d5a2518273d1067ad70fd86` | 197 entries (decisions-05 reviewer identity resolved; record-06 reviewer, CTO rev-4 author and COO disposition-update worker pre-registered as provisional labels) |
 | `control/source-context-exclusion-146.json` | `804426be7030c64a52e3de04e82d489d526b81a96cb4cbbbbef6e3567463ebd3` | 199 entries (provisional: local custody-materialisation verifier on the founder's MacBook; conditional fallback source-only planner label) |
-| `control/APPOINTMENTS.json` | `42ae6b2117f19242a0992d23071fc108186fb7c7700eaba0d697eb4faca63708` | actual identities recorded; refuters, successor ledger (event 2 hash), C1 closures and post-readout assignments added |
+| `control/APPOINTMENTS.json` | `5777c63fa75e52043a6e31612b39b998e638a2b1aaa69e92b82fe671880b3169` | actual identities recorded; refuters, successor ledger (event 2 hash), C1 closures and post-readout assignments added |
 | `control/REPOSITORY-SNAPSHOT.json` | `a0666c424912e25b8dab6a689494d04dbe9507cc3bd7fdeb684a0734118741e9` | observed 14:21Z |
 | `control/SPEND-POLICY-STATEMENT.md` | `2a2122c5a727a0190c7ca999c241c8ff4ab2008a476ca64707a82e87e9dafa0e` | provider spend field HOLD |
 | `dispatch/CPO-COORDINATOR-01.json` | `1fbbc3e057be56bea74676c9c906684412dd07e919f9023bc9226278294c640e` | dispatched, complete |
 | `dispatch/CTO-ENVELOPE-HANDBACK-01.json` | `681a3526575f4e6e5abddde2f788d48215579d2467e59d81d6c20852ac41f58d` | isolated launch denied; chief authored |
 | `dispatch/CTO-ENVELOPE-HANDBACK-ASSIGNMENT.md` | `13dcf2c78ebeab70f5bd9a8cb84dd4a5faafcc66a42e656d2a557310ff9abe76` | prompt kept for a real isolated session |
 | `dispatch/CTO-ENVELOPE-HANDBACK-02.json` | `260a706a37cd448b075cedbb96246101a6f41895ba16c70195e0463ed4f30fd5` | revision-4 dispatch: sixteen input hashes bound (handback rev 3, COO disposition, readout receipt and files, records 02–06, closure 146); USD 0 |
+| `dispatch/COO-ENVELOPE-DISPOSITION-02.json` | `9c11bd60c4a65806bd9860a67825688436fdfee5c0175e98a9bf5b4484bacf09` | disposition-update dispatch: thirteen input hashes bound (handback rev 4, receipt, records 02–06, closure 146); USD 0 |
 | `dispatch/COO-ENVELOPE-DISPOSITION-01.json` | `c09327b8d5a1a767d2e43ad8ada70983e66a228bdc5a9c6f111fa2e98e59499f` | dispatched, complete (binds CTO revision-1 hashes) |
 | `handbacks/cto/R1-STATUS.md` | `fb3d032e41f460ed7e45e39de5bca4a84aeb0061438b490421b98de8018e29b7` | BLOCKED_SOURCE_OWNED_PACKING; bounded allowance granted (DECISIONS-02 D2) |
-| `handbacks/cto/envelope/CURRENT-BETA-OPERATING-ENVELOPE-HANDBACK.md` | `58ef902d0339ba812e859a764575f53828f60588b8104bf9318d79c69b0a967e` | rev 3; delivered; six rows qualified by two refuters (DECISIONS-02 App. A/B); next revision owner CTO |
-| `handbacks/cto/envelope/CURRENT-BETA-OPERATING-ENVELOPE-BOUNDS.json` | `5ee84009c08f8ecf107174376f67c34084f9461b162fdbc5864e718f4ce3c8fd` | rev 3; 58 bounds |
+| `handbacks/cto/envelope/CURRENT-BETA-OPERATING-ENVELOPE-HANDBACK.md` | `94c155c7c517b36b73d751a1935fa78060747907dd810fcbf84685ac19ee3d41` | rev 4 (bounded CTO worker on manifest CTO-ENVELOPE-HANDBACK-02): 62 bounds; readout facts B59–B62; two-bucket SEC model; B51/B52 resolved by code read; determination undetermined, no E09 subset demonstrated necessary |
+| `handbacks/cto/envelope/CURRENT-BETA-OPERATING-ENVELOPE-BOUNDS.json` | `d675516eea6b401780e6dbe29061388573b5c736f4447b979bb86536a2577505` | rev 4; 62 bounds; Markdown/JSON ids agree (checked programmatically) |
 | `handbacks/cto/envelope/CORRECTION-01.md` | `d3383d37bb7faf89824b40872a88c0687d896ff7cfbc4cfa70d9853362332625` | rev 1 → rev 2 chain |
 | `handbacks/cto/envelope/CORRECTION-02.md` | `d7ffd463c59049dacb629fb1482dd94d724f0e910a1b7f23bf01870bc0fa77b0` | rev 2 → rev 3 chain (independent PR review nits) |
+| `handbacks/cto/envelope/CORRECTION-03.md` | `33ce976660442b467d15c020762e7c3ca2afc1aa2d58f5b5abe0cb2e1b2e9b78` | rev 3 → rev 4 chain (changed-bound table, JSON field diff, hash table; branch-advance disclosure) |
 | `handbacks/cpo/claude-result/R1-R2-ADMISSION-STATUS.json` | `1244a8ed2d09a4c47d7b6676c61697c762e7047ee50bb451ef3ce5648e2103a1` | administrative complete; not admitted |
 | `handbacks/cpo/claude-result/PROCESS-HANDBACK.md` | `74b780511b9249d32ee207cc7ed0988340aa169ce3d72dd13622c91041ed12ab` | two verifier passes: administrative pass |
 | `handbacks/coo/CURRENT-BETA-OPERATING-ENVELOPE-DISPOSITION.md` | `d30bdd50125ae304ad5c4fd1c6559326d3767c0f17c1ca7ec41d895ab6fc13be` | HOLD, 8 named items; item 8 answered (D9), COO decides closure |
