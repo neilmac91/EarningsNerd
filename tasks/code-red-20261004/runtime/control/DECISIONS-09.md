@@ -6,6 +6,7 @@ branch was restarted from that main. Records plus the file-route implementation 
 fixture extension, operator script, runbook — tasks-side Python added): no runtime or service code, workflow, migration, cloud, IAM or
 production change; a tasks-only merge leaves `deploy-backend`'s deploy steps skipped (the merge's CI on main is recorded below).
 Amended 2026-10-05T22:49Z after the three-lens review of `7ee540aa` (findings applied; review section below).
+Amended 2026-10-05T23:05Z with the delta review's wording corrections (commit `4907e6a3`; this amendment line added in record 10 per the carried nit).
 
 ## PR #1099 — merged
 

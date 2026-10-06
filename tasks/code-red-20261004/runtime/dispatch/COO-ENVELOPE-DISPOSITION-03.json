@@ -1,0 +1,162 @@
+{
+ "dispatch_id": "COO-ENVELOPE-DISPOSITION-03",
+ "recorded_at": "2026-10-06T06:23:46.293619+00:00",
+ "dispatched_by": "chief session_01GWYV7WXWstgVGQG43YcSM8",
+ "officer": "COO",
+ "wave": "R3 (C1 capacity decision; G1–G5 reporting groups carried)",
+ "lane": "beta operations",
+ "role_label": "coo-envelope-disposition-update-02-author-01",
+ "provisional_label_registered": "claude-code-subagent:session_01GWYV7WXWstgVGQG43YcSM8:launched-after-this-record:coo-envelope-disposition-update-02-author-01 (closure 158)",
+ "requested_model": "inherited (claude-fable-5-1)",
+ "repository_read_scope": {
+  "commit": "main f0af2e3ccf465450ac86905c580971310a8eff0a (PR #1101 merged: a CI-workflow change outside the envelope) checked out on branch claude/vigilant-goodall-633yx3, plus the working-tree runtime files named in allowed_inputs",
+  "mode": "read-only; no git writes; no tests or servers; no gcloud/network/production reads; no provider call"
+ },
+ "measurable_output": [
+  "tasks/code-red-20261004/runtime/handbacks/coo/CURRENT-BETA-OPERATING-ENVELOPE-DISPOSITION-UPDATE-02.md (new file; revision 1 and update 01 are never edited after return)"
+ ],
+ "allowed_inputs": [
+  {
+   "label": "CTO handback revision 5 (Markdown; 66 bounds B01–B66)",
+   "path": "tasks/code-red-20261004/runtime/handbacks/cto/envelope/CURRENT-BETA-OPERATING-ENVELOPE-HANDBACK.md",
+   "sha256": "b9fdccb3f368ed07f0f0b8bf148298cba1a61ab4ae75186c7c642f97e0140381",
+   "bytes": 101532
+  },
+  {
+   "label": "CTO handback revision 5 (bounds JSON, 66 bounds)",
+   "path": "tasks/code-red-20261004/runtime/handbacks/cto/envelope/CURRENT-BETA-OPERATING-ENVELOPE-BOUNDS.json",
+   "sha256": "6638a908cbff099ff49f38a5c707a814c0f277e17e47727de1964b19c2cf92f3",
+   "bytes": 94153
+  },
+  {
+   "label": "Correction 04 (rev 4 → rev 5; hash chain; 23 changed bounds, 4 new)",
+   "path": "tasks/code-red-20261004/runtime/handbacks/cto/envelope/CORRECTION-04.md",
+   "sha256": "b4ebc7fb7b0ba30be465ed3483fe09cd5cc7c951bf472bf277abd760d874604d",
+   "bytes": 17483
+  },
+  {
+   "label": "Correction 03 (rev 3 → rev 4)",
+   "path": "tasks/code-red-20261004/runtime/handbacks/cto/envelope/CORRECTION-03.md",
+   "sha256": "33ce976660442b467d15c020762e7c3ca2afc1aa2d58f5b5abe0cb2e1b2e9b78",
+   "bytes": 16882
+  },
+  {
+   "label": "COO operating-envelope disposition (revision 1, HOLD, 8 items) — never edited",
+   "path": "tasks/code-red-20261004/runtime/handbacks/coo/CURRENT-BETA-OPERATING-ENVELOPE-DISPOSITION.md",
+   "sha256": "d30bdd50125ae304ad5c4fd1c6559326d3767c0f17c1ca7ec41d895ab6fc13be",
+   "bytes": 40291
+  },
+  {
+   "label": "COO disposition update 01 (after revision 4 and the 2026-10-05 receipt) — never edited; this update succeeds it",
+   "path": "tasks/code-red-20261004/runtime/handbacks/coo/CURRENT-BETA-OPERATING-ENVELOPE-DISPOSITION-UPDATE-01.md",
+   "sha256": "07ebaaf3f1433460a6b78738314152ba00b7caeba0bbbcf447e0374cf959fdeb",
+   "bytes": 37570
+  },
+  {
+   "label": "Capacity-readout receipt note (chief → COO, 2026-10-05; Monitoring/Logging HTTP 403)",
+   "path": "tasks/code-red-20261004/runtime/handbacks/coo/CAPACITY-READOUT-RECEIPT-20261005.md",
+   "sha256": "eea93bba6b1285354bd921e472ad18e8ffb83edaf60ce13cfbc757174ec9c297",
+   "bytes": 7453
+  },
+  {
+   "label": "Capacity-readout receipt note (chief → COO, 2026-10-06; same window re-read, every channel complete)",
+   "path": "tasks/code-red-20261004/runtime/handbacks/coo/CAPACITY-READOUT-RECEIPT-20261006.md",
+   "sha256": "fce1245d9d10b0603264fd01936c7048f0fcd0f48911ee0f9ef7db22cbdb43d9",
+   "bytes": 11695
+  },
+  {
+   "label": "COO first deliverable (five reporting groups; C1 five components; package c8277395…)",
+   "path": "/tmp/claude-0/-home-user-EarningsNerd/27aa9761-b14a-5cab-9ee6-5f8ec27f49f3/scratchpad/handover/officers/coo/references/FIRST-DELIVERABLE.md",
+   "sha256": "c82773953be1e85daa87525003d1ade26db4e8f8e9df428f97fff80d10ee3f7f",
+   "bytes": 15184
+  },
+  {
+   "label": "Decision record 02 (D1–D9, Appendices A/B)",
+   "path": "tasks/code-red-20261004/runtime/control/DECISIONS-02.md",
+   "sha256": "4d93171f68c7491afd70fcd54b19a355093c5f2a14b437d02c4fd13d3f4f508b",
+   "bytes": 21885
+  },
+  {
+   "label": "Decision record 03",
+   "path": "tasks/code-red-20261004/runtime/control/DECISIONS-03.md",
+   "sha256": "56bfb21b3ff5b7dccfafd53a7355cb70795a8962f1454aab951223c70efccd26",
+   "bytes": 8578
+  },
+  {
+   "label": "Decision record 04",
+   "path": "tasks/code-red-20261004/runtime/control/DECISIONS-04.md",
+   "sha256": "9d66fbd093b5ff9cd022c98058dca0fcdfd5a2dbb126e8f4c8c76bfa00b116cd",
+   "bytes": 7812
+  },
+  {
+   "label": "Decision record 05",
+   "path": "tasks/code-red-20261004/runtime/control/DECISIONS-05.md",
+   "sha256": "d3723842b2140cdc81976edfefecfe94a307d613ce5410bb17571c9862799d50",
+   "bytes": 10357
+  },
+  {
+   "label": "Decision record 06 (C1 item closures by the CEO; readout plan)",
+   "path": "tasks/code-red-20261004/runtime/control/DECISIONS-06.md",
+   "sha256": "08f9c060408bf10508d3d9e118468e2b59db70620b8fe7c4097a2f2c3af306d9",
+   "bytes": 19699
+  },
+  {
+   "label": "Decision record 07 (B62 cause; readout diagnostics)",
+   "path": "tasks/code-red-20261004/runtime/control/DECISIONS-07.md",
+   "sha256": "0f511f5a9f6eeb97cd59886b732cb96adc6828d16373d1fae57198b980897bf0",
+   "bytes": 18305
+  },
+  {
+   "label": "Decision record 08 (PR #1098 merged and deployed; ledger event 4; founder instructions)",
+   "path": "tasks/code-red-20261004/runtime/control/DECISIONS-08.md",
+   "sha256": "22098e3059c92604eb998fd4384ff75f2660dce7d37e91919eba7a06cf92ae6f",
+   "bytes": 24540
+  },
+  {
+   "label": "Decision record 09 as committed in main plus one header amendment line added 2026-10-06 (working tree; the committed bytes are bcc56ab2…, 35,869)",
+   "path": "tasks/code-red-20261004/runtime/control/DECISIONS-09.md",
+   "sha256": "be6fed3ea42d36e4f25eafdab430f09d4bb6851c80df566c2b0f4145535153ff",
+   "bytes": 36020
+  },
+  {
+   "label": "CTO dispatch manifest 03 (revision 5)",
+   "path": "tasks/code-red-20261004/runtime/dispatch/CTO-ENVELOPE-HANDBACK-03.json",
+   "sha256": "0513f43f3a6cbff203696a4d4d64e50abb39c6947e001434358a917f1b12c93c",
+   "bytes": 13649
+  },
+  {
+   "label": "COO dispatch manifest 02 (update 01)",
+   "path": "tasks/code-red-20261004/runtime/dispatch/COO-ENVELOPE-DISPOSITION-02.json",
+   "sha256": "9c11bd60c4a65806bd9860a67825688436fdfee5c0175e98a9bf5b4484bacf09",
+   "bytes": 6358
+  },
+  {
+   "label": "Exclusion closure 158 (pre-registers this writer's provisional label)",
+   "path": "tasks/code-red-20261004/runtime/control/source-context-exclusion-158.json",
+   "sha256": "f1fc6bfd7171aa1e84b339cd13e3d28f70dd63f123b950a1b528c03f0f9da03e",
+   "bytes": 32358
+  }
+ ],
+ "required_content": [
+  "Identity, inputs read with hashes (all 20), observation date, authority (record 02 D4/D9, record 06 CEO closures, update 01), limits",
+  "Per-item state for the eight C1 items of the revision-1 disposition §4 after revision 5 and the 2026-10-06 receipt: 1 (B32: the readout route now returns connection, request, latency and error-log samples — B62 evidenced for the 2026-10-06 run, per-run verification rule; the window had no concurrent generation and no sample lies inside the 9.15 s / 6.57 s overlaps, so B32 stays unknown under its definition; next: one bounded read-only readout over a RETAINED window that contains concurrent useful generation, when such a window exists — never new load), 2 (B39: the Logging half of the route is feasible and un-run; the per-process /metrics half unchanged; B37 closed by D8), 3 (founder patch decision D3 open), 4 (closed by D7), 5 (stop thresholds: the log-based signals' observation channel is evidenced — 0 matching entries in the quiet window — and the window's figures are a quiet-Monday baseline, inputs not thresholds; D6 provisional stands; the B62 sub-dependency is resolved for this run), 6 (dependency closed by D1/event 2; field value not set), 7 (CTO re-determination delivered in revision 5: undetermined, no E09 subset demonstrated necessary; closing condition unmet), 8 (closed by the CEO on Appendices A/B; the six qualifications carried)",
+  "What the 2026-10-06 readout (receipt, B59 second observation, B62 observed, new B63–B66) does and does not change for the five C1 components and for the COO HOLD; whether the HOLD stands (it is expected to) and the exact smallest next handback per open item with owner; explicitly: which retained window, if any among those the records name, could satisfy B32's resolving observation, and if none exists say so — do not propose creating one",
+  "G1–G5 and R4 entry dependencies carried forward: G1 is CLOSED by the chief in decision record 10 (2026-10-06) on the production-host confirmation relayed by the founder's Astra agent (Cloud Run POSTHOG_HOST and the frontend provider host are the EU ingestion host; project 117863 is in EU cloud; metadata only) — state G1 CLOSED on that authority (this manifest) and leave G2 (evidenced for the synthetic literal route), G3 (reviewed with a stated gap; adapter merged in PR #1100), G4 (INCOMPLETE) and G5 (0/2) unchanged unless an input changes them",
+  "Return contract: counts (3/30 dossiers, 0/2 weekly readouts, 5 reporting groups + 1 capacity decision; two capacity-readout runs over the same window — one with channels unavailable, one complete), 0 calls/spend/reservations/mutations, next owner per item"
+ ],
+ "entry_condition": "CTO handback revision 5 (b9fdccb3…, 6638a908…) and CORRECTION-04 exist with the hashes above; the 2026-10-06 receipt exists; closure 158 recorded; PR #1101 merged (f0af2e3c).",
+ "stop_conditions": [
+  "any production/cloud read or mutation",
+  "any numeric participant count, threshold, budget or policy number supplied",
+  "any invitation, flag, pricing, registration or E09 code",
+  "any source/customer payload",
+  "any proposal of new load, synthetic traffic, invitations or generation to manufacture an observation window",
+  "hash mismatch or missing input"
+ ],
+ "spend": {
+  "reservation_usd": "0.000000",
+  "deepseek_calls_authorized": 0,
+  "ledger_written": false
+ },
+ "one_writer_for_output_paths": true
+}

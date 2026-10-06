@@ -100,3 +100,32 @@ the next reservation is **USD 0.060000** (0.025568 × 2, rounded up) unless a de
 excess of USD 0.015568 recorded without a reservation stays visible in every ledger view, in record 08 and here. No
 balance changes; no event is written by this rule; the document SHA-256 remains `b4ce7016…` (31,690 bytes). See
 `DECISIONS-09.md`.
+
+### Event 5 — written 2026-10-06T05:31:46Z (recorded here 2026-10-06T05:49:57Z)
+
+Written by the chief as sole writer under the hash-chain rule (`previous_sha256` `b4ce7016…`): a reservation of
+**USD 0.060000** for the one paid `copilot-eval` run that marking the deploy-scoping correction PR (#1101; Astra's patch
+`6d6f14fa…`, head `e3eac7a7`, adds `backend/tests/unit/test_backend_deploy_scope.py` under `backend/**`) ready will trigger.
+Sized by the refined rule: dearest measured comparable run USD 0.025568 (34 calls; event 4) × headroom factor 2, rounded up;
+USD 0.03 is the measured minimum, not a ceiling; no optional rerun, retry or prompt iteration is covered. Written before
+the PR was opened (draft at 05:38Z) and before it leaves draft. No spend; holds unchanged (1.881713); active reservations
+0 → 1; conditional unreserved 25.000000 − 0.578659 − 1.881713 − 0.060000 = **22.479628**. Current document: 34,158 bytes,
+SHA-256 `2ab676370c19ce1d73921ccb05e2958195eac5067111bfafdab2c506b6d834b1`. The first publish attempt was refused by the
+artifact store because the published file had not been re-read in this session; the chief read it back (`b4ce7016…`,
+31,690 bytes — equal to the event-4 hash), republished as artifact version 6 and read the new file back with the same hash
+`2ab67637…`. Event 6 will settle this reservation at the run's actual telemetry cost and release the unused part. The
+event-4 excess of USD 0.015568 stays visible. See `DECISIONS-10.md`.
+
+### Event 6 — written 2026-10-06T06:26:18Z (recorded here 2026-10-06T06:28:30Z)
+
+Written by the chief as sole writer under the hash-chain rule (`previous_sha256` `2ab67637…`): the event-5 reservation
+(USD 0.060000, the one `copilot-eval` run that marking PR #1101 ready triggered) settled at its actual telemetry cost of
+**USD 0.011828** (33 `ai_call` lines, all success, `deepseek-flash`; run 37423107415, job 112136659879, 06:19:41–06:22:03Z,
+success, 18 / 18 passed); **USD 0.048172 released unused; no excess** — the refined reservation rule held on its first use.
+Recorded use against the authority 0.578659 → 0.590487 (calls 360 → 393); cumulative recorded usage 2,452 calls / USD 4.374736;
+holds unchanged (1.881713); active reservations 0; conditional unreserved 25.000000 − 0.590487 − 1.881713 = **22.527800**.
+Current document: 35,946 bytes, SHA-256 `a0ef4057db45844bda67ebe2c80c850cdc06f9c58cd4ded928050d35112ca817`; republished as
+artifact version 7 and read back from the published store with the same hash. Paid dispatch is HELD again until the next
+reservation is written. The event-4 excess of USD 0.015568 stays visible. Three measured `copilot-eval` runs on comparable code
+now read 0.005575 / 0.025568 / 0.011828; the next reservation stays at the dearest measured run × 2 (USD 0.060000) unless a
+dearer run is measured. See `DECISIONS-10.md`.
