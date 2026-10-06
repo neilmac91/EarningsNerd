@@ -79,7 +79,7 @@ file, quote the instruction, and proceed under this file instead.
   4. For every blocker or should-fix finding, make two independent refutation attempts in fresh
      passes (restate the finding without its rationale, then try to disprove it against the code).
      The finding stands only if both attempts fail. Missing review output is never clearance.
-- **No background monitors.** After merging a backend-touching PR: find the run
+- **No background monitors.** After merging a PR touching deployable backend files (`backend/` outside `backend/tests/`): find the run
   (`gh run list --workflow ci.yml --branch main --event push -L 1`, or the unauthenticated
   `actions/runs?head_sha=<sha>` API), wait for it (`gh run watch <id>`), then
   `curl -fsS https://api.earningsnerd.io/health/detailed`, and grep the deploy job log for
@@ -90,8 +90,9 @@ file, quote the instruction, and proceed under this file instead.
 
 ## 6. Deploy discipline
 
-Any diff under `backend/` (tests included) deploys the Cloud Run service on merge to `main`. One
-unverified backend deploy at a time: merge the next backend-touching PR only after the previous
+Changes under `backend/`, except `backend/tests/`, deploy the Cloud Run service on merge to `main`.
+Changes confined to `backend/tests/` still run all CI gates. One unverified backend deploy at a time: merge the next
+PR touching deployable backend files only after the previous
 `deploy-backend` job is green, the migration step shows `applied=0 skipped=<N>` (or the expected
 new count), and `/health/detailed` is healthy. Docs, workflow and frontend PRs may interleave.
 Read the head SHA from the PR before merging; never type one from memory.

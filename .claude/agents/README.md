@@ -191,7 +191,7 @@ agent file must also cite this section; non-engineering legacy examples remain i
 | Frontend | **Next.js 16 App Router** + TypeScript + Tailwind + React Query, React 18 (ADR-0005), on Vercel (`pdx1`); code lives in `frontend/app`, `frontend/features/<domain>/`, `frontend/components/` (shared chrome files) and `frontend/components/ui/` — there is no `frontend/src`, no Vite, no React Router |
 | Cache | Redis dev-only; prod is L1 in-memory (ADR-0004); all rate limiters are per-process |
 | Routes | `/api/...`, admin `/api/admin/...`, cron `/internal/...` — no `/api/v1` |
-| CI/CD | `.github/workflows/ci.yml`: ruff + bandit + pytest, eslint + tsc + vitest, Playwright (no backend), eval-baseline; `deploy-backend` on push to `main` touching `backend/` (WIF, keyless). Frontend deploys via Vercel Git integration |
+| CI/CD | `.github/workflows/ci.yml`: ruff + bandit + pytest, eslint + tsc + vitest, Playwright (no backend), eval-baseline; `deploy-backend` on push to `main` touching `backend/` outside `backend/tests/` (WIF, keyless). Frontend deploys via Vercel Git integration |
 | Tests | `backend/tests/{unit,integration,smoke,performance}` and `frontend/tests/{unit,e2e}` only |
 | Third parties | Stripe, Resend, PostHog + Vercel Analytics, Sentry; `app/integrations/` (finnhub/fmp/stocktwits are tombstoned — see `test_dead_integrations_allowlist.py`) |
 

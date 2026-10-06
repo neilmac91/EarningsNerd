@@ -496,7 +496,8 @@ jobs:
 
   # Backend continuous deployment to Cloud Run.
   # Runs only on push to main, only after every test job is green, and only
-  # when backend/ actually changed (frontend deploys are Vercel's job).
+  # when backend/ changed outside backend/tests/ (changes confined to the tests stay in CI;
+  # frontend deploys are Vercel's job).
   # Inert until the two repo VARIABLES exist (Settings -> Secrets and
   # variables -> Actions -> Variables): GCP_WIF_PROVIDER, GCP_DEPLOYER_SA.
   # Auth is keyless via Workload Identity Federation - no stored credentials.
@@ -530,13 +531,16 @@ jobs:
       - name: Detect backend changes
         id: changes
         # HEAD^ is the previous main tip (first parent of the merge commit),
-        # so this diff covers everything the merge brought in.
+        # so this diff covers everything the merge brought in. backend/tests/ is excluded from the
+        # image by backend/.dockerignore, so changes confined to it do not deploy; --no-renames lists
+        # both sides of a rename, so a runtime file moved under backend/tests/ still deploys
+        # (gate: backend/tests/unit/test_backend_deploy_scope.py; lessons/ops-deploy-detector-mirrors-the-image-context.md).
         run: |
-          if git diff --name-only HEAD^ HEAD | grep -qE '^backend/'; then
+          if git diff --name-only --no-renames HEAD^ HEAD | grep -v '^backend/tests/' | grep -qE '^backend/'; then
             echo "backend=true" >> "$GITHUB_OUTPUT"
           else
             echo "backend=false" >> "$GITHUB_OUTPUT"
-            echo "No backend changes - skipping deploy."
+            echo "No deployable backend changes - skipping deploy."
           fi
       - name: Authenticate to Google Cloud
         if: steps.changes.outputs.backend == 'true'

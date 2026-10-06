@@ -177,7 +177,7 @@ Infra: `docker-compose up -d postgres redis` (local only — prod has no Redis).
 CI (`.github/workflows/ci.yml`): backend gate = ruff + bandit + pytest; frontend gate = eslint +
 tsc + vitest; e2e = Playwright (no backend running — specs must tolerate a dead API); the
 `eval-baseline` job gates AI regressions against `backend/evals/baseline_scores.json`.
-`deploy-backend` runs on push to main when `backend/` changed: applies not-yet-recorded
+`deploy-backend` runs on push to main when `backend/` changed outside `backend/tests/`: applies not-yet-recorded
 `backend/migrations/*.sql` files to Cloud SQL through the `migration_ledger` table
 (`backend/scripts/apply_migrations.sh`; the `migrations-postgres` job proves the same script on
 `postgres:15` first), deploys the Cloud Run service (`earningsnerd-backend`, project
@@ -185,8 +185,8 @@ tsc + vitest; e2e = Playwright (no backend running — specs must tolerate a dea
 (Mondays 06:00 UTC), and updates the required pregenerate job image. Seven other configured job
 targets (filing-scan, filing-digest, backfill-facts, earnings-calendar-refresh, earnings-day-alerts,
 notable-filings, retention-purge) are updated only when found; CI skips missing jobs and does not provision them.
-Only a backend-touching push to main deploys; a failed deploy is not retried, so check the job's
-conclusion after every backend merge. Frontend deploys via Vercel (`NEXT_PUBLIC_API_BASE_URL=https://api.earningsnerd.io`).
+Changes confined to `backend/tests/` still run all CI gates but do not deploy. A failed deploy is not retried,
+so check the job's conclusion after every merge touching deployable backend files. Frontend deploys via Vercel (`NEXT_PUBLIC_API_BASE_URL=https://api.earningsnerd.io`).
 Manual bootstrap: `tasks/gcp-deploy-runbook.md`. Full detail: `docs/DEPLOYMENT.md`.
 
 ## Workflow
