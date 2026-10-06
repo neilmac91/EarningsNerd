@@ -211,6 +211,11 @@ module.exports = {
       // v3: semantic stacking ladder — never z-[N]. (DataTable's internal z-[5]
       // sticky-cell layering is the one documented exemption.)
       zIndex: {
+        // The cookie-consent bar: above in-page sticky chrome (z-sticky) and the z-30 workspace
+        // scrims, beneath the z-40 workspace sheets, launcher and coachmark, which add its height
+        // (--consent-inset, lib/consentLayer.ts) to their bottom offsets while it is mounted.
+        // Gate: tests/unit/bottomChromeLadder.spec.ts.
+        consent: '35',
         sticky: '30', // in-page sticky chrome (mobile section nav)
         header: '50', // site header
         overlay: '60', // popovers, the selection pill; the skip link rides toast

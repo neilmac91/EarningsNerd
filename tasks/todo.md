@@ -6348,3 +6348,18 @@ Full local and hosted verification plus independent exact-head review precede re
 - [ ] Founder: relay the custodian's answer (do the three component manifests jointly enumerate the 69 inputs with per-file hash
       and length?), then the manifest decision (keep record 05's gate, or supersede its predicate explicitly); accept or amend
       contract revision 3; optionally the control reviewer's identity string; D3 (held).
+- 2026-10-06 EN-02 (`fix(chrome): consent bar yields to the research chrome`, branch `claude/implementation-launch-prompt-ofvuc1`): the
+  cookie-consent bar moves from `z-50` to the new `z-consent` (35: above the z-sticky in-page chrome and the z-30 scrims,
+  beneath the z-40 workspace sheets, launcher and coachmark — a first cut at 20 let the mobile section nav paint over
+  "Accept All" at 320x568); while mounted it publishes its height as `--consent-inset` + `data-consent-visible`
+  on `<html>` (`frontend/lib/consentLayer.ts`), the bottom-anchored chrome adds that inset to its bottom offset
+  (`BOTTOM_CHROME_OFFSET`, `bottom-[var(--consent-inset,0px)]`, the desktop pane's sticky height) and the document's
+  `scroll-padding-bottom` reserves it (a focus never lands behind the bar: the desktop pane's composer, focused on open,
+  scrolls clear of the bar instead of 9px under it), the coachmark is deferred
+  while the bar shows (`hooks/useConsentLayer`), and the saved confirmation is a sonner toast (top-centre) instead of a fixed
+  bottom-right element. Consent semantics unchanged (storage key, `cookieConsentChanged`, analytics gating, DNT path).
+  Rule-12 gate `frontend/tests/unit/bottomChromeLadder.spec.ts` (no fixed chrome outranks the workspace layers at the
+  launcher corner; no in-page sticky chrome outranks the bar, the top-anchored headers pinned; pinned bottom chrome takes
+  the inset) with its one mutation demonstration recorded in the PR body;
+  docs: DESIGN.md › Layout, DESIGN_SYSTEM.md §4 Stacking; browser evidence: `tests/e2e/consent-bar-yields.spec.ts`
+  (1440x900 + 390x844 both themes, 320x568, 1280x600, simulated safe-area inset, stored-preferences and DNT states).

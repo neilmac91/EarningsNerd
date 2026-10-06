@@ -8,6 +8,7 @@ import { submitFeedback, type FeedbackType } from '@/features/feedback/api/feedb
 import { hasActiveSession } from '@/lib/api/session'
 import { isApiError, getErrorMessage } from '@/lib/api/types'
 import { ENABLE_FEEDBACK_WIDGET } from '@/lib/featureFlags'
+import { BOTTOM_CHROME_OFFSET } from '@/lib/consentLayer'
 
 const TYPES: { value: FeedbackType; label: string }[] = [
   { value: 'bug', label: '🐞 Bug' },
@@ -16,10 +17,12 @@ const TYPES: { value: FeedbackType; label: string }[] = [
 ]
 
 // Secondary launcher: pinned bottom-LEFT (Ask is the bottom-right hero) and clear of the iOS home
-// indicator / Android nav bar. max() keeps a 1.25rem base gap on flat phones and adds the inset on
-// notched ones (needs viewport-fit=cover, set in app/layout.tsx).
+// indicator / Android nav bar and of the cookie-consent bar: BOTTOM_CHROME_OFFSET keeps a 1.25rem
+// base gap on flat phones, adds the inset on notched ones (needs viewport-fit=cover, set in
+// app/layout.tsx) and the bar's height while it is mounted, so this z-30 button never rises over
+// the bar's "Customize" (lib/consentLayer).
 const LAUNCHER_OFFSET: React.CSSProperties = {
-  bottom: 'max(1.25rem, env(safe-area-inset-bottom))',
+  bottom: BOTTOM_CHROME_OFFSET,
   left: 'max(1.25rem, env(safe-area-inset-left))',
 }
 
