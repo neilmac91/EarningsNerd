@@ -123,6 +123,12 @@ const launcher = (page: Page) => page.getByRole('button', { name: 'Ask this Fili
 const feedbackLauncher = (page: Page) => page.getByRole('button', { name: 'Send feedback', exact: true })
 const composer = (page: Page) => page.locator(PANE).getByRole('textbox')
 const coachmark = (page: Page) => page.getByText(COACH_TEXT)
+/** The coachmark stays absent for a while (a mount one tick later would pass a one-shot count). */
+async function expectCoachmarkDeferred(page: Page) {
+  await expect(coachmark(page)).toHaveCount(0)
+  await page.waitForTimeout(600)
+  expect(await coachmark(page).count(), 'the coachmark must wait for the bar').toBe(0)
+}
 
 const rectOf = (loc: Locator): Promise<Rect> =>
   loc.evaluate((el) => {
@@ -150,8 +156,9 @@ const consentEvents = (page: Page) => page.evaluate(() => window.__consentEvents
 /** Every consent choice and both launchers hit themselves, sit inside the viewport and clear the bar. */
 async function expectBothControlSetsUsable(page: Page) {
   const vp = await viewport(page)
+  await expect.poll(async () => ({ ...(await layer(page)), height: Math.ceil((await rectOf(bar(page))).h) })).toMatchObject({ visible: true })
   const barRect = await rectOf(bar(page))
-  expect(await layer(page)).toEqual({ visible: true, inset: `${Math.ceil(barRect.h)}px` })
+  await expect.poll(() => layer(page)).toEqual({ visible: true, inset: `${Math.ceil(barRect.h)}px` })
   for (const name of CONSENT_CHOICES) {
     const choice = page.getByRole('button', { name, exact: true })
     expect(await hitsItself(choice), `${name} is covered`).toBe(true)
@@ -164,8 +171,32 @@ async function expectBothControlSetsUsable(page: Page) {
     expect(overlaps(r, barRect), `${label} overlaps the bar`).toBe(false)
     expect(r.y + r.h, `${label} is not above the bar`).toBeLessThanOrEqual(barRect.y + 0.5)
   }
-  expect(await coachmark(page).count(), 'the coachmark must wait for the bar').toBe(0)
+  await expectCoachmarkDeferred(page)
   return { vp, barRect }
+}
+
+/**
+ * The site header (z-50, top-anchored) ranks above the bar by design; its mobile menu opens in flow
+ * inside the header. Where the open menu ends above the bar (390x844: 427px of header against a bar
+ * at 667) every choice stays operable with it open; on a short phone (320x568) the open menu reaches
+ * the bar's region and covers a choice until the user closes it — a user-opened, user-closed surface,
+ * documented in DESIGN_SYSTEM §4 (before this change the bar covered the menu's lower items instead).
+ * Either way the choices are operable again once the menu is closed.
+ */
+async function expectMenuYields(page: Page, menuClearsBar: boolean) {
+  await page.getByRole('button', { name: 'Open menu' }).click()
+  await expect(page.getByRole('button', { name: 'Close menu' })).toBeVisible()
+  const header = await rectOf(page.locator('header').first())
+  const barTop = (await rectOf(bar(page))).y
+  if (menuClearsBar) {
+    expect(header.y + header.h, 'the open menu reaches the bar').toBeLessThanOrEqual(barTop + 0.5)
+    await expectBothControlSetsUsable(page)
+  } else {
+    expect(header.y + header.h, 'the open menu was expected to reach the bar on this short viewport').toBeGreaterThan(barTop)
+  }
+  await page.getByRole('button', { name: 'Close menu' }).click()
+  await expect(page.getByRole('button', { name: 'Open menu' })).toBeVisible()
+  await expectBothControlSetsUsable(page)
 }
 
 /** With the pane open: its composer is inside the viewport and never intersected by the bar. */
@@ -236,7 +267,7 @@ for (const theme of ['light', 'dark'] as const) {
     test('the coachmark is deferred while the bar shows and then points at the uncovered launcher', async ({ page, baseURL }) => {
       await openFiling(page, baseURL!, { theme })
       await expect(bar(page)).toBeVisible()
-      expect(await coachmark(page).count()).toBe(0)
+      await expectCoachmarkDeferred(page)
       await page.getByRole('button', { name: 'Accept All' }).click()
       await expect(bar(page)).toHaveCount(0)
       await expect(coachmark(page)).toBeVisible()
@@ -254,6 +285,8 @@ for (const theme of ['light', 'dark'] as const) {
       await openFiling(page, baseURL!, { theme })
       await expect(bar(page)).toBeVisible()
       await expectBothControlSetsUsable(page)
+
+      await expectMenuYields(page, true)
 
       await launcher(page).tap()
       await expect(page.locator(PANE)).toBeVisible()
@@ -307,7 +340,7 @@ for (const theme of ['light', 'dark'] as const) {
     test('the coachmark is deferred while the bar shows and then points at the uncovered launcher', async ({ page, baseURL }) => {
       await openFiling(page, baseURL!, { theme })
       await expect(bar(page)).toBeVisible()
-      expect(await coachmark(page).count()).toBe(0)
+      await expectCoachmarkDeferred(page)
       await page.getByRole('button', { name: 'Reject All' }).tap()
       await expect(bar(page)).toHaveCount(0)
       await expect(coachmark(page)).toBeVisible()
@@ -332,6 +365,7 @@ test.describe('narrow and short viewports', () => {
         // At 320x568 the unscrolled section nav (sticky, z-sticky) sits in the bar's region: the hit
         // tests below prove the bar paints over it (a consent layer at 20 lost "Accept All" to it).
         await expectBothControlSetsUsable(page)
+        if (w < 1024) await expectMenuYields(page, false)
         await launcher(page).click()
         await expect(page.locator(PANE)).toBeVisible()
         await expectComposerClear(page)

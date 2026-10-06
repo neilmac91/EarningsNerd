@@ -91,6 +91,9 @@ what applies to your task. Filenames are greppable: `arch-*`, `sec-*`, `test-*`,
 
 ## Frontend & design system
 
+- [`frontend-site-overlays-outrank-in-page-sticky-chrome.md`](./frontend-site-overlays-outrank-in-page-sticky-chrome.md) — A fixed site-level overlay ranks above in-page sticky chrome, and the ladder gate scans sticky sites too
+- [`frontend-reserve-fixed-chrome-with-scroll-padding.md`](./frontend-reserve-fixed-chrome-with-scroll-padding.md) — A focus scroll stops at the viewport edge, not at a fixed overlay: reserve the overlay with scroll-padding
+
 - [`frontend-design-docs-need-agent-entrypoints.md`](./frontend-design-docs-need-agent-entrypoints.md) — Connect new design references to agent entrypoints, authority and maintenance
 
 - [`frontend-validate-design-sidecars-in-their-consumer.md`](./frontend-validate-design-sidecars-in-their-consumer.md) — Validate design-sidecar specimens in their consumer, and check what its engine reads

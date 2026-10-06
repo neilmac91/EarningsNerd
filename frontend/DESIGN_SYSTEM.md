@@ -249,9 +249,16 @@ Stacking         z-sticky 30 (in-page sticky chrome) · z-consent 35 (the cookie
                  workspace bottom sheet (whose scrim is below the bar) a choice stays pointer-operable and
                  resolves consent without closing the sheet. In-page sticky chrome stays below the bar: a
                  section nav passing through the bar's region on a short phone must not paint over a choice.
+                 The site header (z-50, top-anchored) stays above it: on a short phone (320x568) its open
+                 mobile menu reaches the bar's region and covers a choice until the user closes the menu
+                 (user-opened, user-closed; before, the bar covered the menu's lower items instead).
                  Gate: tests/unit/bottomChromeLadder.spec.ts — no fixed chrome outranks the workspace layers
-                 at the launcher corner, no in-page sticky chrome outranks the bar (the top-anchored site and
-                 page headers are pinned), the pinned bottom chrome takes the inset.
+                 at the launcher corner (a file with fixed chrome is held to its highest z token anywhere and
+                 to inline zIndex, so a z written apart from its `fixed` still counts), no in-page sticky
+                 chrome outranks the bar (the top-anchored site and page headers are pinned), the pinned bottom
+                 chrome takes the inset (the sheets' anchor, no `bottom-0` behind any variant, the offset
+                 objects' `bottom` from BOTTOM_CHROME_OFFSET, the bar's layout-effect publish, the scroll
+                 padding); every pin list is shrink-only in files, sites and z.
 
 Ask answer       <AskFilingAnswer>  — the SHIPPED copilot contract: status reading|streaming|done|error;
                  answer = GFM markdown (react-markdown + remark-gfm); markers [n] AND [F1]/[f1]/[F 1]
