@@ -105,6 +105,10 @@ what applies to your task. Filenames are greppable: `arch-*`, `sec-*`, `test-*`,
 
 - [`frontend-dialog-opener-outlives-the-dialog.md`](./frontend-dialog-opener-outlives-the-dialog.md) — Keep a dialog's opener mounted while the dialog is open, so focus has somewhere to return
 
+- [`frontend-focus-opened-popovers-survive-the-focusing-scroll.md`](./frontend-focus-opened-popovers-survive-the-focusing-scroll.md) — A popover that opens on focus re-anchors on the scroll that focusing caused; only a hover popover closes on scroll
+
+- [`frontend-guard-a-loader-two-effects-can-start-in-one-commit.md`](./frontend-guard-a-loader-two-effects-can-start-in-one-commit.md) — Guard a loader with a synchronous in-flight ref when two effects can start it in one commit
+
 - [`frontend-trial-labels-use-entitlements.md`](./frontend-trial-labels-use-entitlements.md) — Derive current-trial presentation from the resolved entitlement
 
 - [`test-smoke-targets-feature-semantics.md`](./test-smoke-targets-feature-semantics.md) — Distinguish the actual smoke target from similarly named calls to action
