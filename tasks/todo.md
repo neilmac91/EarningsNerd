@@ -6323,8 +6323,8 @@ Full local and hosted verification plus independent exact-head review precede re
 - 2026-10-06 (record 12, `runtime/control/DECISIONS-12.md`): Astra's five-field handback recorded as relayed — planner
   acknowledged inside the 60-second bound (≤ 23 s; no input, no task); no fallback; custody `TOTAL=22` / `TOTAL=48` with zero stubs
   or unreadable files and 69 of 69 originals equal (tool hash verified against the committed custody script); the complete
-  original H20 input-manifest identity NOT established from retained evidence (three component manifests identified, nothing
-  substituted); 12 minutes charged (42 charged / 138 remaining); R1 NOT_RELEASED. PR #1104 review record closed (merge
+  original H20 input-manifest identity NOT established in the evidence Astra checked (three component manifests identified and
+  equal to the committed E7 frozen-source-contract constants, nothing substituted); 12 minutes charged (42 charged / 138 remaining); R1 NOT_RELEASED. PR #1104 review record closed (merge
   `88df1f7f`; deploy steps skipped). Closure 162.
 - [ ] Founder: relay the custodian's answer (do the three component manifests jointly enumerate the 69 inputs with per-file hash
       and length?), then the manifest decision (keep record 05's gate, or supersede its predicate explicitly); accept or amend
