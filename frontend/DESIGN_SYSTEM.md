@@ -234,6 +234,19 @@ Stacking         z-sticky 30 (in-page sticky chrome) · z-header 50 (site header
                  citation popovers (z-overlay) still sit above them. Never z-[N]; DataTable's internal z-[5]
                  sticky-cell layering is the one documented exemption.
 
+Metric cards     <FinancialMetricsTable> below md (768px): one stacked card per metric instead of the five-column
+                 DataTable, switched by CSS alone (`md:hidden` cards, `hidden md:block` table — both in the DOM,
+                 the inactive one display:none, so it adds no accessible content, Tab stop or id). A card carries
+                 every cell the table shows: name + XBRL chip; a `<dl>` of Current period / Prior period / Change
+                 (eyebrow labels in the table's header size; prior and change only when the table has those
+                 columns; the change chip's tone from `change_tone`, its glyph from `change_direction`, the em
+                 dash when the server sent none); the takeaway and its evidence chip; the per-ADS note. The list
+                 takes the table caption as its accessible name. Sub-surface `rounded-lg border border-border-light
+                 bg-white p-3 dark:border-white/10 dark:bg-white/5` inside the section panel (HeroExample's);
+                 text-sm values and takeaway, never nowrap / truncate / line-clamp / a clipping height — long
+                 values wrap. Gate: tests/unit/FinancialMetricsCards.spec.tsx (content parity, both layouts) +
+                 tests/e2e/metrics-stacked-cards.spec.ts (the hidden layout in a real browser).
+
 Ask answer       <AskFilingAnswer>  — the SHIPPED copilot contract: status reading|streaming|done|error;
                  answer = GFM markdown (react-markdown + remark-gfm); markers [n] AND [F1]/[f1]/[F 1]
                  (case/whitespace tolerant) become chips showing the BRACKETED marker; unmatched markers
