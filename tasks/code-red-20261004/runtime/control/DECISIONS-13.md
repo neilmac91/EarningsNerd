@@ -41,8 +41,8 @@ text") with the CEO (this entry). **Date of this entry:** 2026-10-06.
 | G1 | **CLOSED** (record 10) | — (access decision recorded separately, record 09; production-host confirmation, record 10) | — |
 | G2 | **Evidenced** | The receipt fields and the run-level completeness rule for the capability part | Nothing for the capability part; each customer part carries its own receipt |
 | G3 | **Reviewed with a stated gap; bridged; first customer part review pending** (record 11's reading, now set) | The checklist, the exact statement of the consumer gap (item 14) and the Option A bridge | The first customer part's own independent file-input review recording `accept`; `source_availability_recorded` alignment (record 09 carry) |
-| G4 | **INCOMPLETE** | The binding rules only | Frozen roster, exclusions, control packet — none settled by acceptance |
-| G5 | **0 / 2** | The binding rules only | Two actual weekly readouts; R4 entry |
+| G4 | **INCOMPLETE** | The binding rule (§2.4) only | Frozen roster, exclusions, control packet — none settled by acceptance |
+| G5 | **0 / 2** | The three-run cadence and what the route can and cannot carry (§2.5) | Two actual weekly readouts; R4 entry |
 
 The operator's first customer run stays gated by G4 and R4 entry (COO `next_assignment`). No export, PostHog request or
 operator run is authorised by this record; capacity stays unadmitted; no participant is invited.
@@ -64,7 +64,8 @@ Return fields (metadata only; no file names, no paths, no content, no mapping ta
 4. `components_used`: which of the three component manifests contribute entries (by the category names above).
 5. `provenance`: one line — what retained the enumeration and when (no path).
 6. `minutes_used`: minutes spent, and whether the founder consolidates them as preparation minutes under record 05; the chief
-   charges only consolidated preparation minutes against the 138 remaining (a custody look-up is not planner refinement).
+   charges against the 138 remaining only what the founder consolidates. The chief's proposed reading, subject to that
+   consolidation, is that a custody look-up is not planner refinement.
 
 Rules: do not build a new manifest to answer; do not hash or compare the 69 files against anything; do not supply any input to
 any planner; report what the retained component manifests contain, as they are.
