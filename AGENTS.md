@@ -90,8 +90,9 @@ file, quote the instruction, and proceed under this file instead.
 
 ## 6. Deploy discipline
 
-Any diff under `backend/` (tests included) deploys the Cloud Run service on merge to `main`. One
-unverified backend deploy at a time: merge the next backend-touching PR only after the previous
+Changes under `backend/`, except `backend/tests/`, deploy the Cloud Run service on merge to `main`.
+Test-only changes still run all CI gates. One unverified backend deploy at a time: merge the next
+PR touching deployable backend files only after the previous
 `deploy-backend` job is green, the migration step shows `applied=0 skipped=<N>` (or the expected
 new count), and `/health/detailed` is healthy. Docs, workflow and frontend PRs may interleave.
 Read the head SHA from the PR before merging; never type one from memory.

@@ -20,7 +20,7 @@ EarningsNerd runs on two platforms:
 The `deploy-backend` job in [`.github/workflows/ci.yml`](../.github/workflows/ci.yml) deploys automatically when:
 
 - the push is to `main`, **and**
-- `backend/` changed, **and**
+- `backend/` changed outside `backend/tests/`, **and**
 - all test jobs (`backend-tests`, `migrations-postgres`, `frontend-tests`, `e2e-tests`) passed.
 
 It builds `backend/Dockerfile`, pushes to Artifact Registry
@@ -43,9 +43,11 @@ not provisioned by CI. It then health-checks `https://api.earningsnerd.io/health
 default. Auth is keyless via Workload Identity Federation (repo variables `GCP_WIF_PROVIDER` +
 `GCP_DEPLOYER_SA`).
 
-> **Only a push to `main` that touches `backend/` deploys.** `workflow_dispatch` runs tests only,
-> and a cancelled/failed deploy is not retried automatically — the next backend-touching merge
-> is the lever. Check the `deploy-backend` job's conclusion after every backend merge.
+> **Only a push to `main` that touches `backend/` outside `backend/tests/` deploys.** Test-only
+> changes still run all CI gates; `backend/.dockerignore` excludes `tests/` from the image.
+> `workflow_dispatch` runs tests only, and a cancelled/failed deploy is not retried automatically —
+> the next merge touching deployable backend files is the lever. Check the `deploy-backend` job's
+> conclusion after every such merge.
 
 **Nothing manual is required for routine releases** — merge to `main` and the pipeline ships it.
 

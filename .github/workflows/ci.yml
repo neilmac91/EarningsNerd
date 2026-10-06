@@ -532,7 +532,7 @@ jobs:
         # HEAD^ is the previous main tip (first parent of the merge commit),
         # so this diff covers everything the merge brought in.
         run: |
-          if git diff --name-only HEAD^ HEAD | grep -qE '^backend/'; then
+          if git diff --name-only HEAD^ HEAD | grep -v '^backend/tests/' | grep -qE '^backend/'; then
             echo "backend=true" >> "$GITHUB_OUTPUT"
           else
             echo "backend=false" >> "$GITHUB_OUTPUT"
