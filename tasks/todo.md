@@ -6313,5 +6313,11 @@ Full local and hosted verification plus independent exact-head review precede re
   reviewed, revised and merged as PR #1101 (`f0af2e3c`); the merge's `deploy-backend` run skipped every deploy step — the
   correction's first live proof; lesson `lessons/ops-deploy-detector-mirrors-the-image-context.md`. CTO envelope revision 5
   (66 bounds; determination unchanged); COO disposition update 02 (The COO HOLD stands: B32, B39 and B56 remain unknown in revision 5, the re-read window had no concurrent generation and no sample inside either overlap, no qualifying retained window is known, D3 is open and C5 undetermined.) Closures 158–160.
-- [ ] Founder: one runtime-only resume acknowledgment to the registered planner; confirm whether the bootstrap +1 is
-      `.DS_Store`; give the original input manifest's SHA-256 and byte count; D3 numbers (held); optionally revoke the export key.
+- 2026-10-06 (record 11, `runtime/control/DECISIONS-11.md`): the founder's four bounded decisions recorded — one planner
+  acknowledgment attempt (≤ 60 s) with an administrative fallback; bootstrap count resolved (21 + `.DS_Store`, Finder metadata
+  excluded); local availability to be restored and verified; the manifest identity a retained-evidence retrieval task (no
+  substitute); other lanes reuse evidence, B32 stays unobserved, D3 held, optional follow-ups deferred. Readout contract
+  revision 3 presented for acceptance with the exact G3 gap (item 14, bridged by the adapter; first customer part review
+  pending). Record-10 merge's deploy steps verified skipped. Closure 161.
+- [ ] Astra (relayed by the founder): the five return fields of the record-11 brief (`ack_attempt`, `fallback_identity`,
+      `custody_totals_and_equality`, `manifest_identity`, `minutes_used`). Founder: accept or amend contract revision 3; D3 (held).
