@@ -6326,6 +6326,11 @@ Full local and hosted verification plus independent exact-head review precede re
   original H20 input-manifest identity NOT established in the evidence Astra checked (three component manifests identified and
   equal to the committed E7 frozen-source-contract constants, nothing substituted); 12 minutes charged (42 charged / 138 remaining); R1 NOT_RELEASED. PR #1104 review record closed (merge
   `88df1f7f`; deploy steps skipped). Closure 162.
-- [ ] Founder: relay the custodian's answer (do the three component manifests jointly enumerate the 69 inputs with per-file hash
-      and length?), then the manifest decision (keep record 05's gate, or supersede its predicate explicitly); accept or amend
-      contract revision 3; optionally the control reviewer's identity string; D3 (held).
+- [x] Founder (2026-10-06 evening): chose the chief's recommendation on the manifest control (custodian question first) and
+      ACCEPTED readout contract revision 3 with the record-11 text — recorded in record 13.
+- 2026-10-06 (record 13, `runtime/control/DECISIONS-13.md`): readout contract revision 3 ACCEPTED by the founder with the CEO
+  (bound to `ad599074…`, 47,321 bytes; G3 set to "reviewed with a stated gap; bridged; first customer part review pending"; G4
+  and G5 untouched; nothing runs); the manifest control proceeds by one metadata-only custodian question with six return fields
+  (no predicate change, nothing substituted); PR #1105 review record closed (merge `adf98331`; deploy steps skipped). Closure 163.
+- [ ] Founder: relay the record-13 custodian question and its six return fields, then state (a) keep record 05's gate or (b)
+      supersede its predicate explicitly; optionally the control reviewer's identity string; D3 (held).
