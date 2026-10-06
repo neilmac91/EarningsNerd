@@ -6304,3 +6304,14 @@ Full local and hosted verification plus independent exact-head review precede re
       5 open, 2 with B62) delivered 2026-10-05 by bounded workers (closure 147).
 - [ ] Docs-vs-config: `docs/OPERATIONS.md` alert threshold `database.checked_out > 8` is unreachable with
       the deployed pool 4 / overflow 0 (handback B33); fix the doc separately.
+- 2026-10-06 morning (record 10, `runtime/control/DECISIONS-10.md`): Astra's handover processed — the founder's IAM bindings
+  **verified PERMITTED** (`logs-probe` run 37418676235) and the Monday 06:00–08:00 UTC `capacity-readout` re-run with every
+  channel complete (run 37418876945; receipt `handbacks/coo/CAPACITY-READOUT-RECEIPT-20261006.md`; B62 evidenced; B32 still
+  unobserved under its definition); **G1 CLOSED** on the production-host confirmation; R1 custody totals received (bootstrap 22
+  vs 21 unresolved; manifest comparison BLOCKED; planner runtime identity annotated; resumability UNVERIFIED). Ledger events 5
+  (reservation USD 0.06) and 6 (settled at actual USD 0.011828; headroom 22.527800). Deploy-scoping correction (Astra's patch)
+  reviewed, revised and merged as PR #1101 (`f0af2e3c`); the merge's `deploy-backend` run skipped every deploy step — the
+  correction's first live proof; lesson `lessons/ops-deploy-detector-mirrors-the-image-context.md`. CTO envelope revision 5
+  (66 bounds; determination unchanged); COO disposition update 02 (The COO HOLD stands: B32, B39 and B56 remain unknown in revision 5, the re-read window had no concurrent generation and no sample inside either overlap, no qualifying retained window is known, D3 is open and C5 undetermined.) Closures 158–159.
+- [ ] Founder: one runtime-only resume acknowledgment to the registered planner; confirm whether the bootstrap +1 is
+      `.DS_Store`; give the original input manifest's SHA-256 and byte count; D3 numbers (held); optionally revoke the export key.
