@@ -6312,6 +6312,6 @@ Full local and hosted verification plus independent exact-head review precede re
   (reservation USD 0.06) and 6 (settled at actual USD 0.011828; headroom 22.527800). Deploy-scoping correction (Astra's patch)
   reviewed, revised and merged as PR #1101 (`f0af2e3c`); the merge's `deploy-backend` run skipped every deploy step — the
   correction's first live proof; lesson `lessons/ops-deploy-detector-mirrors-the-image-context.md`. CTO envelope revision 5
-  (66 bounds; determination unchanged); COO disposition update 02 (The COO HOLD stands: B32, B39 and B56 remain unknown in revision 5, the re-read window had no concurrent generation and no sample inside either overlap, no qualifying retained window is known, D3 is open and C5 undetermined.) Closures 158–159.
+  (66 bounds; determination unchanged); COO disposition update 02 (The COO HOLD stands: B32, B39 and B56 remain unknown in revision 5, the re-read window had no concurrent generation and no sample inside either overlap, no qualifying retained window is known, D3 is open and C5 undetermined.) Closures 158–160.
 - [ ] Founder: one runtime-only resume acknowledgment to the registered planner; confirm whether the bootstrap +1 is
       `.DS_Store`; give the original input manifest's SHA-256 and byte count; D3 numbers (held); optionally revoke the export key.

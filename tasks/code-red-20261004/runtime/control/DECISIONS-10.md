@@ -1,14 +1,14 @@
-# Decision record 10 — Astra's morning handover processed (IAM verified PERMITTED; the Monday readout re-read with every channel complete; G1 closed on the production-host confirmation; R1 custody totals received with one unresolved +1; planner runtime identity); ledger event 5; deploy-scoping correction PR #1101; closure 158 (chief, 2026-10-06)
+# Decision record 10 — Astra's morning handover processed (IAM verified PERMITTED; the Monday readout re-read with every channel complete; G1 closed on the production-host confirmation; R1 custody totals received with one unresolved +1; planner runtime identity); ledger events 5–6; deploy-scoping correction PR #1101 merged with its deploy steps verified skipped; CTO revision 5; COO update 02; closures 158–160 (chief, 2026-10-06)
 
 Recorded 2026-10-06T05:53:48Z by the chief (`https://claude.ai/code/session_01GWYV7WXWstgVGQG43YcSM8`, runtime-reported model
 `claude-fable-5-1`). Context: record 09 merged to main as `caa6defef2ac9b32cddf8bd7cad164230c132266` (PR #1100; GitHub `merged_at`
 2026-10-05T23:14:41Z); this branch was restarted from that main; the founder uploaded Astra's four-file morning handover at
-~05:2xZ with "please now progress with the next waves of implementation". The deploy-scoping correction (Astra's patch) was
+between 05:20Z and 05:29Z with "please now progress with the next waves of implementation". The deploy-scoping correction (Astra's patch) was
 committed on the branch as `e3eac7a7`, opened as draft PR #1101 (05:38Z), revised on the independent review's findings (`1d2bfae2`)
 and **merged to main as `f0af2e3ccf465450ac86905c580971310a8eff0a` at 06:22:35Z**; this record is tasks-only and is committed on the
 branch restarted from that main. No runtime or service code, migration, cloud, IAM
 or production change by the chief or any delegate; the IAM change recorded below is the founder's.
-Written in stages between 05:4xZ and 06:38Z as the morning's events completed (handover processing and receipt; PR #1101's review, revision, merge and deploy verification; events 5–6; revision 5; update 02); final before this PR's independent review.
+Written in stages between 05:53Z and 06:38Z as the morning's events completed (handover processing and receipt; PR #1101's review, revision, merge and deploy verification; events 5–6; revision 5; update 02); final before this PR's independent review.
 
 ## Astra's morning handover (2026-10-06; four files; metadata only) — processed
 
@@ -143,7 +143,7 @@ checks: hash and byte count equal the writer's report; policy greps clean.
 | Carried (not this PR) | a follow-up PR making the detector fail its step when `git diff` itself fails and immune to `pipefail`/`core.quotePath` (pre-existing with both lines; owner CTO); PyYAML declared explicitly in the dev requirements (a deployable-path change — its own PR); `docs/ENGINEERING_AUDIT_2026-09.md` left as a dated snapshot; the commit-message/body wording difference for the integrator's gate run (the body's wording governs) |
 | Delta review of `e3eac7a7..1d2bfae2` | single pre-registered delta reviewer launched 06:14Z, returned 06:20Z: **NO BLOCKER bound to `1d2bfae21c08b035773c6393a94e81e83e09fdf2`**; S1–S5 present and correct (each quoted from the head); gate 2 passed; `ruff` clean; `--no-renames` reproduced with git 2.43 and checked across seven rename shapes (no unintended effect); git-config isolation of the scratch-repo test verified; the delta's only `backend/` path is the gate test; docs, ADR line, lesson claims and ci.yml comments consistent with committed history; policy greps clean; mutation probes on scratch copies (no `--no-renames` → rename test fails; a deploy step's `if` dropped → gating assertion fails; `shell: bash` on the detector → default-shell assertion fails; old-detector stub call caught by the stderr sentinel). 0 blocker, 0 should-fix, **5 nits carried** (the gate's function name and one message still say "test-only"; one long line in the agent brief; the ADR's inline rather than sectioned amendment; the dated audit snapshot; the strict empty-stderr assertion under an unavailable locale) |
 | CI on `1d2bfae2` | `backend-tests` (the gate under the real conftest, both tests), `frontend-tests`, `e2e-tests`, `migrations-postgres`, `lighthouse`, `secret-scan`, `eval-baseline` success on attempt 1 by 06:18:24Z |
-| Marked ready | 06:19:3xZ with the review record in the body; the Codex connector posted its usage-limit comment 6010599395 at 06:19:41Z; no `@codex review` re-request; `copilot-eval` run 37423107415 started 06:19:41Z under the event-5 reservation |
+| Marked ready | 06:19:38Z with the review record in the body; the Codex connector posted its usage-limit comment 6010599395 at 06:19:41Z; no `@codex review` re-request; `copilot-eval` run 37423107415 started 06:19:41Z under the event-5 reservation |
 | Review override | bound to `1d2bfae2` in the PR body at 06:20Z citing comment 6010599395; `review-gate` success 06:20:48Z (run 37423198404, the `edited` event; the `ready_for_review` run was cancelled by the edit) |
 | Paid job | `copilot-eval` job 112136659879, 06:19:41–06:22:03Z, success: accepted, 18 expected / 18 completed / 18 scored / 18 passed / 0 errors; 33 `ai_call` lines, all success, `deepseek-flash`; telemetry estimated cost **USD 0.011828** (945,186 prompt tokens, 3,648 completion; high cache-hit ratio) — settled by ledger event 6 |
 | Merge | squash `f0af2e3ccf465450ac86905c580971310a8eff0a`, GitHub `merged_at` 2026-10-06T06:22:35Z, on six green required checks and the override; PR unsubscribed and the safety-net check-in cancelled after the merge |
@@ -158,12 +158,30 @@ full; the writer made no retry and no workaround and disclosed the denial in the
 in `APPOINTMENTS.json` (`classifier_denials`, seventh entry) and pursues nothing through another tool, sub-agent or turn.
 No output of this record depends on the refused read.
 
+## Review of this PR's head `987a2bc9` (records-only rule: one reviewer context)
+
+Single isolated read-only reviewer (pre-registered in closure 160; launched 06:41Z; resolved in closure 161): **NO BLOCKER bound to
+`987a2bc9`**. 88 hash rows / 0 mismatched; closure chain 157 → 160 fully verified (prior hashes 3 / 3; counts 288 → 292 → 303 → 304;
+closure 159's eight workflow ids equal the journal's; closure 140 byte-identical to main); manifests 25 / 25 and 20 / 20 inputs (the three
+CTO inputs since superseded equal the committed bytes at `f0af2e3c`, as stated); every hash, byte count and ledger figure in this record
+verified, ledger arithmetic exact and equal to the published document copy; every receipt figure recomputed from the readout files;
+CORRECTION-04's chain and the 62 → 66 / 23-changed counts recounted from JSON; update 02's input table equals the manifest; policy
+greps clean (no private URL, local path, token, placeholder, Codex/Copilot claim, admission or new-load proposal). Findings: 0 blocker,
+**1 should-fix** (the closure-157 `prior_record` sentence sat in the closure-160 paragraph — moved to the closure-158 paragraph here),
+6 nits: applied here — the header stamp re-taken after this edit (was 538 ms before closure 160's `recorded_at` at sub-second precision),
+the stale "closures 158–159" / "event 5" ranges in this record's title, the checkpoint and the todo entry, the `LEDGER-ACCESS.md` checkpoint
+row extended to events 5–6, the three approximate timestamps written as exact times or ranges; carried to closure 161 / record 11 — the
+lens-label mapping (`review:<lens>` in the journal, `pr-1101-review-lens-<lens>-01` in closure 159; agent ids identical) stated once there,
+and the session scratchpad path literals in manifests (a container path, consistent with earlier manifests; no change). The delta re-check
+of the final head by the same reviewer is recorded in the PR body and in record 11.
+
 ## Registration (closures 158–160)
 
 `control/source-context-exclusion-158.json` (`f1fc6bfd7171aa1e84b339cd13e3d28f70dd63f123b950a1b528c03f0f9da03e`, 32,358 bytes;
 recorded 05:44:29Z; 288 → 292): resolves closure 157's provisional delta-reviewer label to `launched-2026-10-05T2250Z`
 (PR #1100's two delta re-checks); pre-registers three provisional labels — `pr-1101-review-01`, `cto-envelope-handback-rev5-author-01`,
-`coo-envelope-disposition-update-02-author-01`.
+`coo-envelope-disposition-update-02-author-01`. Closure 158's `prior_record` binds to closure 157's committed bytes (`a01b0dd5…`),
+whose scope sentence was amended after its `recorded_at` (stated there and here; conventions go in the next closure from now on).
 
 `control/source-context-exclusion-159.json` (`daf43219a7fff012fe3adb90412ea68d1b8102ad11eff0c44a84c516b819e19e`, 37,954 bytes;
 recorded 06:25:21Z; 292 → 303): resolves the three labels to launch-time identities — the PR #1101 review workflow
@@ -172,8 +190,7 @@ recorded 06:25:21Z; 292 → 303): resolves the three labels to launch-time ident
 (`launched-2026-10-06T0624Z`) — and annotates closure 140's registered H20 planner with the runtime subchat identity Astra reported
 (no new context; closure 140 not edited; resumability still UNVERIFIED).
 
-`control/source-context-exclusion-160.json` (afea62b2…; 303 → 304): pre-registers this record's single PR reviewer (`record-10-reviewer-01`) before launch; resolved in closure 161 (record 11). `prior_record` binds to closure 157's committed bytes (`a01b0dd5…`), whose scope
-sentence was amended after its `recorded_at` (stated there and here; conventions go in the next closure from now on). No context
+`control/source-context-exclusion-160.json` (afea62b2…; 303 → 304): pre-registers this record's single PR reviewer (`record-10-reviewer-01`) before launch; resolved in closure 161 (record 11). No context
 gains source A/B, reconciliation or blind financial judging eligibility.
 
 ## Nits carried from record 09 — disposition
