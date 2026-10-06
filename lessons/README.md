@@ -161,6 +161,7 @@ what applies to your task. Filenames are greppable: `arch-*`, `sec-*`, `test-*`,
 - [`ops-lint-before-every-push.md`](./ops-lint-before-every-push.md) — Run ruff (and bandit) before every push, not just pytest
 - [`ops-deploy-owned-state-needs-a-distinctive-name.md`](./ops-deploy-owned-state-needs-a-distinctive-name.md) — Give deploy-owned tables a name nothing else could have created; CREATE TABLE IF NOT EXISTS adopts strangers
 - [`ops-migrations-need-lock-timeout.md`](./ops-migrations-need-lock-timeout.md) — Give every migration session a lock_timeout and every deploy job a timeout — idempotent is not lock-free
+- [`ops-deploy-detector-mirrors-the-image-context.md`](./ops-deploy-detector-mirrors-the-image-context.md) — Make the deploy change detector exclude exactly what `.dockerignore` excludes, and gate it with a test
 - [`ops-no-ddl-in-startup-path.md`](./ops-no-ddl-in-startup-path.md) — Never run schema-altering DDL in the serving container's startup path
 - [`ops-write-down-the-second-anomaly-before-chasing-the-first.md`](./ops-write-down-the-second-anomaly-before-chasing-the-first.md) — Write down the second anomaly before chasing the first — a parked finding is a lost finding
 - [`ops-place-a-provider-stall-before-paying-again.md`](./ops-place-a-provider-stall-before-paying-again.md) — Place a provider stall at one layer with free probes before paying for another corpus

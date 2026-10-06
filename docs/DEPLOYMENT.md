@@ -43,8 +43,9 @@ not provisioned by CI. It then health-checks `https://api.earningsnerd.io/health
 default. Auth is keyless via Workload Identity Federation (repo variables `GCP_WIF_PROVIDER` +
 `GCP_DEPLOYER_SA`).
 
-> **Only a push to `main` that touches `backend/` outside `backend/tests/` deploys.** Test-only
-> changes still run all CI gates; `backend/.dockerignore` excludes `tests/` from the image.
+> **Only a push to `main` that touches `backend/` outside `backend/tests/` deploys.** Changes confined to
+> `backend/tests/` still run all CI gates (the exclusion is that path prefix only); `backend/.dockerignore`
+> excludes `tests/` from the image.
 > `workflow_dispatch` runs tests only, and a cancelled/failed deploy is not retried automatically —
 > the next merge touching deployable backend files is the lever. Check the `deploy-backend` job's
 > conclusion after every such merge.

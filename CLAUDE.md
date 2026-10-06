@@ -185,7 +185,7 @@ tsc + vitest; e2e = Playwright (no backend running — specs must tolerate a dea
 (Mondays 06:00 UTC), and updates the required pregenerate job image. Seven other configured job
 targets (filing-scan, filing-digest, backfill-facts, earnings-calendar-refresh, earnings-day-alerts,
 notable-filings, retention-purge) are updated only when found; CI skips missing jobs and does not provision them.
-Test-only backend changes still run all CI gates but do not deploy. A failed deploy is not retried,
+Changes confined to `backend/tests/` still run all CI gates but do not deploy. A failed deploy is not retried,
 so check the job's conclusion after every merge touching deployable backend files. Frontend deploys via Vercel (`NEXT_PUBLIC_API_BASE_URL=https://api.earningsnerd.io`).
 Manual bootstrap: `tasks/gcp-deploy-runbook.md`. Full detail: `docs/DEPLOYMENT.md`.
 
