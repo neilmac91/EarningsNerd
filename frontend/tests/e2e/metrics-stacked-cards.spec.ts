@@ -88,7 +88,10 @@ const rectOf = (loc: Locator): Promise<Rect> =>
     return { x: r.x, y: r.y, w: r.width, h: r.height }
   })
 const viewport = (page: Page) => page.evaluate(() => ({ w: window.innerWidth, h: window.innerHeight }))
-const inside = (r: Rect, vp: { w: number; h: number }) => r.x >= 0 && r.y >= 0 && r.x + r.w <= vp.w + 0.5 && r.y + r.h <= vp.h + 0.5
+/** Inside the viewport AND below the sticky site header (content under the header is not visible). */
+const inside = (r: Rect, vp: { w: number; h: number; top?: number }) =>
+  r.x >= 0 && r.y >= (vp.top ?? 0) - 0.5 && r.x + r.w <= vp.w + 0.5 && r.y + r.h <= vp.h + 0.5
+const headerBottom = (page: Page) => page.locator('header').first().evaluate((el) => el.getBoundingClientRect().bottom)
 
 /** Exactly one of the two layouts is rendered (display) at the current width. */
 async function expectSingleLayout(page: Page, active: 'cards' | 'table') {
@@ -123,9 +126,9 @@ async function expectAccessibleLayout(page: Page, active: 'cards' | 'table') {
   // definition terms, or the table's column headers and cells
   if (active === 'cards') {
     expect(snapshot, `no table nodes while the cards are active:\n${snapshot}`).not.toMatch(/columnheader|- cell|- row /)
-    expect(snapshot).toMatch(/Current period/)
+    expect(snapshot).toMatch(/- term: Current/)
   } else {
-    expect(snapshot, `no card nodes while the table is active:\n${snapshot}`).not.toMatch(/Current period|Prior period|- term|- definition/)
+    expect(snapshot, `no card nodes while the table is active:\n${snapshot}`).not.toMatch(/- term|- definition/)
     expect(snapshot).toMatch(/columnheader "Current Period"/)
   }
 }
@@ -170,12 +173,16 @@ const duplicateIds = (page: Page) =>
 /** Computed-style facts for every text node holder in a card. */
 const cardTextStyles = (card: Locator) =>
   card.evaluate((root) => {
-    const out: { tag: string; text: string; whiteSpace: string; textOverflow: string; lineClamp: string; overflowY: string; clipped: boolean; fontSize: number }[] = []
+    const out: { tag: string; text: string; whiteSpace: string; textOverflow: string; lineClamp: string; overflowY: string; clipped: boolean; fontSize: number; floor: number }[] = []
     for (const el of Array.from(root.querySelectorAll<HTMLElement>('*'))) {
       if (el.closest('svg') || el.closest('a, button')) continue // the provenance chips keep their own (text-data-xs) type
       const ownText = Array.from(el.childNodes).some((n) => n.nodeType === Node.TEXT_NODE && (n.textContent ?? '').trim())
       if (!ownText) continue
       const cs = getComputedStyle(el)
+      // labels (dt) and the per-ADS annotation (PerAdsNote, text-xs by design) are 12px; everything else is the table's 14px body
+      const annotation = el.tagName === 'DT' || !!el.closest('[title]')
+      // inline boxes report no scroll size; clipping is a block-level fact
+      const block = cs.display !== 'inline'
       out.push({
         tag: el.tagName.toLowerCase(),
         text: (el.textContent ?? '').trim().slice(0, 30),
@@ -183,12 +190,16 @@ const cardTextStyles = (card: Locator) =>
         textOverflow: cs.textOverflow,
         lineClamp: cs.webkitLineClamp,
         overflowY: cs.overflowY,
-        clipped: el.scrollHeight > el.clientHeight + 1 || el.scrollWidth > el.clientWidth + 1,
+        clipped: block && (el.scrollHeight > el.clientHeight + 1 || el.scrollWidth > el.clientWidth + 1),
         fontSize: parseFloat(cs.fontSize),
+        floor: annotation ? 12 : 14,
       })
     }
     return out
   })
+
+/** The three `<dl>` groups of a card (Current / Prior / Change) sit on one line: equal tops. */
+const groupTops = (card: Locator) => card.locator('dl > div').evaluateAll((els) => els.map((el) => Math.round(el.getBoundingClientRect().top)))
 
 /** No run of blank space taller than 64px between the card's visible blocks, and none inside its padding. */
 const blankRuns = (card: Locator) =>
@@ -213,10 +224,15 @@ for (const theme of ['light', 'dark'] as const) {
 
       const first = page.locator(CARD).first()
       await first.scrollIntoViewIfNeeded()
-      await page.evaluate(() => window.scrollBy({ top: -8, behavior: 'instant' }))
-      const vp = await viewport(page)
+      // settle the card just under the sticky header, then measure against the header's bottom edge
+      await page.evaluate(() => window.scrollBy({ top: -80, behavior: 'instant' }))
+      const vp = { ...(await viewport(page)), top: await headerBottom(page) }
       const cardRect = await rectOf(first)
       expect(inside(cardRect, vp), 'the whole first card fits one viewport').toBe(true)
+      // the named fixture's Current / Prior / Change row is one line at 390px
+      const tops = await groupTops(first)
+      expect(tops, 'Current / Prior / Change on one line').toHaveLength(3)
+      expect(new Set(tops).size, `the value row wrapped: tops ${tops}`).toBe(1)
       // value, change, takeaway and its chip, each inside the viewport at once
       const value = first.locator('dd').first()
       const change = first.getByText(METRIC_ROWS[0].change_display!)
@@ -227,9 +243,9 @@ for (const theme of ['light', 'dark'] as const) {
         expect(inside(await rectOf(loc), vp), `${label} inside the viewport`).toBe(true)
       }
       await expect(takeaway).toHaveText(METRIC_ROWS[0].commentary!)
-      expect(await first.getByText('Current period').count()).toBe(1)
-      expect(await first.getByText('Prior period').count()).toBe(1)
-      expect(await first.getByText('Change').count()).toBe(1)
+      expect(await first.getByText('Current', { exact: true }).count()).toBe(1)
+      expect(await first.getByText('Prior', { exact: true }).count()).toBe(1)
+      expect(await first.getByText('Change', { exact: true }).count()).toBe(1)
 
       // no blank run > 64px, no horizontal scrolling inside any card or the section
       for (const card of await page.locator(CARD).all()) {
@@ -241,7 +257,7 @@ for (const theme of ['light', 'dark'] as const) {
           expect(s.textOverflow, `${s.tag} "${s.text}" text-overflow`).not.toBe('ellipsis')
           expect(s.lineClamp, `${s.tag} "${s.text}" line-clamp`).toBe('none')
           expect(s.clipped, `${s.tag} "${s.text}" is clipped`).toBe(false)
-          expect(s.fontSize, `${s.tag} "${s.text}" font-size`).toBeGreaterThanOrEqual(s.tag === 'dt' ? 12 : 14)
+          expect(s.fontSize, `${s.tag} "${s.text}" font-size`).toBeGreaterThanOrEqual(s.floor)
         }
       }
       const section = await page.locator(SECTION).evaluate((el) => ({ sw: el.scrollWidth, cw: el.clientWidth }))

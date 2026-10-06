@@ -195,12 +195,16 @@ export default function FinancialMetricsTable({ metrics, notes, bare = false }: 
   )
 
   // Phone cards: every cell the table shows, in reading order — name + XBRL chip, the values with
-  // their period labels (a `<dl>` so each figure is announced with its label; the row wraps rather
-  // than clipping when a value is longer than the fixture's), the takeaway and its chip. Type never
-  // drops below the table's (text-sm body, text-xs labels — the table's header size); no nowrap,
-  // ellipsis, line clamp or fixed height anywhere: long content grows the card.
+  // their period labels (a `<dl>` so each figure is announced with its label; Current / Prior /
+  // Change sit on one line for the Apple fixture at 390px — the labels are short on purpose, the
+  // table's "Current Period" at the eyebrow size and tracking is 118px wide — and the row wraps
+  // rather than clipping when a value is longer), the takeaway and its chip. Type never drops
+  // below the table's (name at the body size, text-sm values and takeaway, text-xs labels — the
+  // table's header size); no nowrap, ellipsis, line clamp or fixed height anywhere: long content
+  // grows the card. role="list" is explicit: WebKit drops list semantics (and with them the
+  // aria-label) from a `list-style: none` list, which Tailwind's preflight makes every list.
   const cards = (
-    <ul className={cx('space-y-3 md:hidden', !bare && 'px-5 pb-4')} aria-label={caption} data-metric-cards>
+    <ul role="list" className={cx('space-y-3 md:hidden', !bare && 'px-5 py-4')} aria-label={caption} data-metric-cards>
       {metrics.map((row, index) => {
         const prior = hasComparatives ? formatMetricValue(row.prior_period) : ''
         return (
@@ -209,7 +213,7 @@ export default function FinancialMetricsTable({ metrics, notes, bare = false }: 
             data-metric-card
             className="min-w-0 rounded-lg border border-border-light bg-white p-3 dark:border-white/10 dark:bg-white/5"
           >
-            <div className="flex flex-col font-medium text-text-primary-light dark:text-text-primary-dark">
+            <div className="flex flex-col text-base font-medium text-text-primary-light dark:text-text-primary-dark">
               <span className="break-words">{row.metric}</span>
               <MetricSourceLink
                 url={row.source_url}
@@ -218,9 +222,9 @@ export default function FinancialMetricsTable({ metrics, notes, bare = false }: 
                 sectionRef={row.source_section_ref}
               />
             </div>
-            <dl className="mt-2 flex flex-wrap items-start gap-x-5 gap-y-2">
+            <dl className="mt-2 flex flex-wrap items-start gap-x-4 gap-y-2">
               <div className="min-w-0">
-                <dt className={EYEBROW}>Current period</dt>
+                <dt className={EYEBROW}>Current</dt>
                 <dd className="break-words font-data text-sm tabular-nums text-text-primary-light dark:text-text-primary-dark">
                   {formatMetricValue(row.current_period)}
                   {row.per_ads && <PerAdsNote perAds={row.per_ads} />}
@@ -228,7 +232,7 @@ export default function FinancialMetricsTable({ metrics, notes, bare = false }: 
               </div>
               {prior && (
                 <div className="min-w-0">
-                  <dt className={EYEBROW}>Prior period</dt>
+                  <dt className={EYEBROW}>Prior</dt>
                   <dd className="break-words font-data text-sm tabular-nums text-text-secondary-light dark:text-text-secondary-dark">
                     {prior}
                   </dd>
@@ -260,11 +264,14 @@ export default function FinancialMetricsTable({ metrics, notes, bare = false }: 
     </ul>
   )
 
+  // One element for the parent: SummaryBlocks' CardBody spaces its children with `space-y-4`,
+  // which reads sibling order, not display — a bare fragment would hand the desktop table a
+  // 16px top margin it never had when the (hidden) card list precedes it.
   const layouts = (
-    <>
+    <div>
       {cards}
       {table}
-    </>
+    </div>
   )
 
   // Embedded in a structured-page section Card — no wrapping Card / header (that would double the

@@ -127,13 +127,35 @@ describe('FinancialMetricsTable — stacked cards below md (EN-03)', () => {
     expect(cardsOf(noComparatives.container)).toHaveAttribute('aria-label', caption2!)
   })
 
-  it('labels the figures with the table’s column names, only where the table has those columns', () => {
+  it('labels the figures Current / Prior / Change, only where the table has those columns', () => {
     const { container } = render(<FinancialMetricsTable metrics={FULL} bare />)
-    for (const card of cardList(container)) {
-      expect(within(card).getByText('Current period')).toBeInTheDocument()
-      expect(within(card).getByText('Prior period')).toBeInTheDocument()
+    const cards = cardList(container)
+    expect(cards).toHaveLength(FULL.length)
+    for (const card of cards) {
+      expect(within(card).getByText('Current')).toBeInTheDocument()
+      expect(within(card).getByText('Prior')).toBeInTheDocument()
       expect(within(card).getByText('Change')).toBeInTheDocument()
     }
+  })
+
+  it('a row without a prior value among rows that have one: no Prior group, the Change group with the em dash', () => {
+    const { container } = render(
+      <FinancialMetricsTable
+        metrics={[
+          { metric: 'Revenue', current_period: '$100', prior_period: '$80', change_display: '+25.0%', change_direction: 'up', change_tone: 'gain' },
+          { metric: 'New metric', current_period: '$5', prior_period: '' },
+        ]}
+        bare
+      />,
+    )
+    const cards = cardList(container)
+    expect(cards).toHaveLength(2)
+    expect(within(cards[1]).queryByText('Prior')).not.toBeInTheDocument()
+    expect(within(cards[1]).getByText('Change')).toBeInTheDocument()
+    expect(within(cards[1]).getByText('—')).toBeInTheDocument()
+    expect(within(cards[0]).getByText('Prior')).toBeInTheDocument()
+    // the table keeps its column with an empty cell for that row
+    expect(bodyRows(container)[1].querySelectorAll('td')[2].textContent).toBe('')
   })
 
   it('without comparatives: no prior or change label, cell or chip in either layout', () => {
@@ -146,11 +168,13 @@ describe('FinancialMetricsTable — stacked cards below md (EN-03)', () => {
         bare
       />,
     )
-    expect(within(container).queryByText(/prior period/i)).not.toBeInTheDocument()
+    expect(within(container).queryByText(/prior/i)).not.toBeInTheDocument()
     expect(within(container).queryByText(/change/i)).not.toBeInTheDocument()
     expect(container.querySelectorAll('th')).toHaveLength(3)
-    for (const card of cardList(container)) {
-      expect(within(card).getAllByRole('term')).toHaveLength(1) // Current period only
+    const cards = cardList(container)
+    expect(cards).toHaveLength(2)
+    for (const card of cards) {
+      expect(within(card).getAllByRole('term')).toHaveLength(1) // Current only
       expect(within(card).queryByText('—')).not.toBeInTheDocument()
     }
   })
@@ -189,6 +213,7 @@ describe('FinancialMetricsTable — stacked cards below md (EN-03)', () => {
     const [gainCard, flatCard] = cardList(container)
     const gainChange = within(gainCard).getByText('-20.0%').closest('dd')!
     expect(gainChange.className).toMatch(/text-gain-text/)
+    expect(gainChange.className).toMatch(/dark:text-gain-dark/) // the dark pair rides along (DataTable's TONE)
     expect(gainChange.className).not.toMatch(/text-loss-text/)
     expect(gainChange.querySelector('svg')).not.toBeNull() // the direction glyph rides with the string
     const flatChange = within(flatCard).getByText('0.0%').closest('dd')!
@@ -227,25 +252,33 @@ describe('FinancialMetricsTable — stacked cards below md (EN-03)', () => {
     expect(card.querySelector('p')!.textContent).toBe(long[0].commentary)
   })
 
-  it('card type never drops below the table’s: values and takeaway text-sm, labels the table’s header size', () => {
+  it('card type never drops below the table’s: name at the body size, values and takeaway text-sm, labels the table’s header size', () => {
     const { container } = render(<FinancialMetricsTable metrics={FULL} bare />)
     const card = cardList(container)[0]
+    expect(card).toBeDefined()
     for (const dd of Array.from(card.querySelectorAll('dd'))) expect(dd.className).toMatch(/\btext-sm\b/)
     expect(within(card).getByText(FULL[0].commentary!).className).toMatch(/\btext-sm\b/)
     for (const dt of Array.from(card.querySelectorAll('dt'))) expect(dt.className).toMatch(/\btext-xs\b/)
+    // the name reads at the body size — larger than the table's text-sm cell, never smaller
+    expect(within(card).getByText(FULL[0].metric).parentElement!.className).toMatch(/\btext-base\b/)
     expect(tableOf(container).querySelector('thead tr')!.className).toMatch(/\btext-xs\b/)
     expect(tableOf(container).className).toMatch(/\btext-sm\b/)
   })
 
-  it('carries no duplicate ids across the two layouts', () => {
+  it('carries no static id in either layout (so nothing can collide; chip ids exist only while a popover is open)', () => {
     const { container } = render(<FinancialMetricsTable metrics={FULL} bare />)
-    const ids = Array.from(container.querySelectorAll('[id]')).map((el) => el.id)
-    expect(new Set(ids).size).toBe(ids.length)
+    expect(cardList(container)).toHaveLength(FULL.length)
+    expect(bodyRows(container)).toHaveLength(FULL.length)
+    expect(Array.from(container.querySelectorAll('[id]')).map((el) => el.id)).toEqual([])
   })
 
-  it('switches the two layouts by the md breakpoint classes (the browser spec proves the hiding)', () => {
+  it('switches the two layouts by the md breakpoint classes inside one wrapper (the browser spec proves the hiding)', () => {
     const { container } = render(<FinancialMetricsTable metrics={FULL} bare />)
     const tokens = (el: Element) => (el.getAttribute('class') ?? '').split(/\s+/)
+    // one element for the parent's space-y: the hidden list must not earn the desktop table a top margin
+    expect(container.children).toHaveLength(1)
+    expect(container.firstElementChild!.children).toHaveLength(2)
+    expect(cardsOf(container)).toHaveAttribute('role', 'list')
     expect(tokens(cardsOf(container))).toContain('md:hidden')
     expect(tokens(cardsOf(container))).not.toContain('hidden')
     const tableWrap = container.querySelector('[data-metric-table]')!
