@@ -158,7 +158,7 @@ full; the writer made no retry and no workaround and disclosed the denial in the
 in `APPOINTMENTS.json` (`classifier_denials`, seventh entry) and pursues nothing through another tool, sub-agent or turn.
 No output of this record depends on the refused read.
 
-## Registration (closures 158 and 159)
+## Registration (closures 158–160)
 
 `control/source-context-exclusion-158.json` (`f1fc6bfd7171aa1e84b339cd13e3d28f70dd63f123b950a1b528c03f0f9da03e`, 32,358 bytes;
 recorded 05:44:29Z; 288 → 292): resolves closure 157's provisional delta-reviewer label to `launched-2026-10-05T2250Z`
@@ -170,7 +170,9 @@ recorded 06:25:21Z; 292 → 303): resolves the three labels to launch-time ident
 `wf_011c4fa5-a5a` (3 lenses + 5 refuters, agent ids as in the workflow's journal) plus the single delta reviewer
 (`launched-2026-10-06T0614Z`), the CTO revision-5 writer (`launched-2026-10-06T0549Z`) and the COO update-02 writer
 (`launched-2026-10-06T0624Z`) — and annotates closure 140's registered H20 planner with the runtime subchat identity Astra reported
-(no new context; closure 140 not edited; resumability still UNVERIFIED). `prior_record` binds to closure 157's committed bytes (`a01b0dd5…`), whose scope
+(no new context; closure 140 not edited; resumability still UNVERIFIED).
+
+`control/source-context-exclusion-160.json` (afea62b2…; 303 → 304): pre-registers this record's single PR reviewer (`record-10-reviewer-01`) before launch; resolved in closure 161 (record 11). `prior_record` binds to closure 157's committed bytes (`a01b0dd5…`), whose scope
 sentence was amended after its `recorded_at` (stated there and here; conventions go in the next closure from now on). No context
 gains source A/B, reconciliation or blind financial judging eligibility.
 
