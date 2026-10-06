@@ -6319,5 +6319,13 @@ Full local and hosted verification plus independent exact-head review precede re
   substitute); other lanes reuse evidence, B32 stays unobserved, D3 held, optional follow-ups deferred. Readout contract
   revision 3 presented for acceptance with the exact G3 gap (item 14, bridged by the adapter; first customer part review
   pending). Record-10 merge's deploy steps verified skipped. Closure 161.
-- [ ] Astra (relayed by the founder): the five return fields of the record-11 brief (`ack_attempt`, `fallback_identity`,
-      `custody_totals_and_equality`, `manifest_identity`, `minutes_used`). Founder: accept or amend contract revision 3; D3 (held).
+- [x] Astra (relayed by the founder): the five return fields of the record-11 brief received 2026-10-06 and recorded in record 12.
+- 2026-10-06 (record 12, `runtime/control/DECISIONS-12.md`): Astra's five-field handback recorded as relayed — planner
+  acknowledged inside the 60-second bound (≤ 23 s; no input, no task); no fallback; custody `TOTAL=22` / `TOTAL=48` with zero stubs
+  or unreadable files and 69 of 69 originals equal (tool hash verified against the committed custody script); the complete
+  original H20 input-manifest identity NOT established in the evidence Astra checked (three component manifests identified and
+  equal to the committed E7 frozen-source-contract constants, nothing substituted); 12 minutes charged (42 charged / 138 remaining); R1 NOT_RELEASED. PR #1104 review record closed (merge
+  `88df1f7f`; deploy steps skipped). Closure 162.
+- [ ] Founder: relay the custodian's answer (do the three component manifests jointly enumerate the 69 inputs with per-file hash
+      and length?), then the manifest decision (keep record 05's gate, or supersede its predicate explicitly); accept or amend
+      contract revision 3; optionally the control reviewer's identity string; D3 (held).
