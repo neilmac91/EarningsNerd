@@ -15,9 +15,10 @@ a broken record never reaches a reviewer:
   a stamp without one is malformed, never repaired);
 * every non-blank line of the decisions section is a numbered entry and the numbers run contiguously from 1;
 * every JSON file parses, and so does every line of a JSON-lines file;
-* no private artifact URL (either link form), macOS home path (``/Users/``) or, anywhere under the chief's ``control/`` tree,
-  session upload-area path is written into the records — every file in the tree is scanned, whatever its suffix, the match
-  ignores case (host names are case-insensitive), the home path is matched as a leading path segment so the product's own
+* no private artifact link (either link form, however spelled: another case, an explicit port or a trailing dot on the host,
+  repeated slashes, percent-encoding), macOS home path (``/Users/``) or, anywhere under the chief's ``control/`` tree, session
+  upload-area path is written into the records — every file in the tree is scanned, whatever its suffix, the text is
+  case-folded and percent-decoded before matching, the home path is matched as a leading path segment so the product's own
   ``/api/users/…`` routes may still be cited, and a JSON document is also scanned after decoding, so an escaped spelling (a
   backslash-escaped solidus, a Unicode code-point escape) does not evade the check.
 
@@ -33,6 +34,7 @@ import json
 import re
 from datetime import datetime, timedelta
 from pathlib import Path
+from urllib.parse import unquote
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 RUNTIME = REPO_ROOT / "tasks" / "code-red-20261004" / "runtime"
@@ -62,9 +64,13 @@ COMMITTED_OFF_TREE_ROWS = (
 )
 
 # Strings that must never appear in the chief's own records (the repository is public; these belong to private stores).
-# Matched case-insensitively: host names are case-insensitive, and a path spelled in another case is still the same path.
-FORBIDDEN_EVERYWHERE = ("claude.ai/artifact", "claude.ai/code/artifact")
-FORBIDDEN_IN_CONTROL = FORBIDDEN_EVERYWHERE + (".claude/uploads",)
+# Every haystack is case-folded and percent-decoded first: host names are case-insensitive, a path in another case is the
+# same path, and ``%2F`` is a slash.
+# A private artifact link in either form, with or without an explicit port or a trailing dot on the host and with repeated
+# slashes tolerated; the session link form (``claude.ai/code/session_…``) is not a match.
+ARTIFACT_LINK = re.compile(r"claude\.ai\.?(?::\d{1,5})?/+(?:code/+)?artifact")
+# The session upload area, forbidden anywhere under the chief's ``control/`` tree and in the checkpoint.
+UPLOAD_AREA = ".claude/uploads"
 # The macOS home path is matched as a leading path segment (nothing word-like before the slash), so the product's own
 # ``/api/users/…`` routes, which a record may legitimately cite, are not caught; ``file:///Users/x`` and a quoted path are.
 HOME_PATH = re.compile(r"(?<!\w)/users/")
@@ -286,13 +292,13 @@ def test_records_carry_no_private_urls_or_local_machine_paths() -> None:
         # with escapes (``\/``, ``\uXXXX``) is caught as the consumer would read it. A document that does not decode fails here
         # as well as in the parse test.
         haystacks = [
-            s.lower()
+            unquote(s.lower())
             for s in (text, *(s for document in _json_documents(path, text) for s in _decoded_strings(document)))
         ]
-        needles = FORBIDDEN_IN_CONTROL if (path == CHECKPOINT or CONTROL in path.parents) else FORBIDDEN_EVERYWHERE
-        for needle in needles:
-            if any(needle in haystack for haystack in haystacks):
-                offenders.append(f"{path.relative_to(RUNTIME)}: {needle!r}")
+        if any(ARTIFACT_LINK.search(haystack) for haystack in haystacks):
+            offenders.append(f"{path.relative_to(RUNTIME)}: private artifact link")
         if any(HOME_PATH.search(haystack) for haystack in haystacks):
             offenders.append(f"{path.relative_to(RUNTIME)}: macOS home path")
+        if (path == CHECKPOINT or CONTROL in path.parents) and any(UPLOAD_AREA in haystack for haystack in haystacks):
+            offenders.append(f"{path.relative_to(RUNTIME)}: {UPLOAD_AREA!r}")
     assert not offenders, f"private or local-machine strings in the records: {offenders}"
