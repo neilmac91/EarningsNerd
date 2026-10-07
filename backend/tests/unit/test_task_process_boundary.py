@@ -1,4 +1,4 @@
-"""A real child/thread cannot survive deadline, disconnect or successful acknowledgement."""
+"""A real child/thread cannot survive deadline, handler cancellation or acknowledgement."""
 from __future__ import annotations
 
 import asyncio
@@ -50,12 +50,20 @@ async def test_running_native_work_is_killed_and_reaped_before_request_ends(monk
         while not ready.exists():
             await asyncio.sleep(0.005)
     assert children[0].returncode is None
+    with pytest.raises(RuntimeError, match="busy; retry delivery"):
+        await service.run_task_process(TaskEnvelope(kind="companyfacts", payload={"company_id": 8}))
+    assert len(children) == 1
     if cancel_request:
         task.cancel()
     with pytest.raises(asyncio.CancelledError if cancel_request else TimeoutError):
         await task
     assert children[0].returncode is not None and children[0].returncode < 0
     assert await children[0].wait() == children[0].returncode
+    # The next delivery is admitted after cleanup; neither deadline nor cancellation strands
+    # the sole child permit. Use a real fast child rather than reading the lock's internal state.
+    monkeypatch.setattr(service, "_command", lambda: (sys.executable, "-c", "import sys; sys.stdin.read()"))
+    await service.run_task_process(TaskEnvelope(kind="companyfacts", payload={"company_id": 9}))
+    assert len(children) == 2 and children[1].returncode == 0
 
 
 @pytest.mark.asyncio

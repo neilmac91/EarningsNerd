@@ -44,7 +44,12 @@ Google-signed OIDC audience and the dedicated service-account email; queue heade
 It executes existing services in a fresh Python child, killing and reaping that process at 480
 seconds or on cancellation. Task acknowledgement follows successful persistence, before the
 540-second dispatch and 600-second service deadlines. This bounds native threads as well as async
-work. The parent opens no SQL pool or startup schema path. Existing scheduled jobs remain primary
+work. An application guard admits only one native child per worker process and rejects overlapping
+delivery promptly for retry, holding that permit through kill/reap. HTTP/1.1 client disconnects do
+not reach Cloud Run containers; cleanup guarantees cover the work deadline or handler cancellation,
+not all transport loss. At-least-once delivery can still repeat completed work, so existing
+cache/upsert and notification ownership remain necessary. The parent opens no SQL pool or startup
+schema path. Existing scheduled jobs remain primary
 for fleet work; manual HTTP cohorts fan out at most 50 identifiers/pairs with stable retry names.
 Forced paid precompute is rejected in durable mode because it cannot be safely replayed.
 

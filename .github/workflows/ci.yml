@@ -653,8 +653,9 @@ jobs:
           # freshness stamp, XBRL L1, tickers) survive between requests (QW4, PR follow-up to the
           # filing-load audit). The 2026-09-27 source/session audit budgets four connections per
           # serving instance with no overflow. At the current two-instance cap, pregenerate's three
-          # sessions and one execution of each other job, configured application demand is 18 and
-          # preserves an operational database reserve. --max=2 pins the service-level limit across
+          # sessions and one execution of each other job, configured application demand is 18,
+          # or 21 with the optional worker's three connections; preserve a database reserve.
+          # --max=2 pins the service-level limit across
           # traffic-serving revisions while --max-instances=2 pins each new revision. Cloud Run can
           # briefly exceed a configured maximum, and jobs remain outside this service limit; measure
           # them before expanding traffic or schedules.
