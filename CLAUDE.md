@@ -137,7 +137,8 @@ Infra: `docker-compose up -d postgres redis` (local only — prod has no Redis).
     Dialogs only via `ui/Modal`; z from the ladder; eyebrows = `tracking-eyebrow`; chip/delta text = the
     700-level tokens; page bg = `background`, cards = `panel`, on every route. Gates: the design rules in
     `frontend/eslint.config.mjs` (raw hex/palette, `z-[N]`, off-ramp tracking, sub-scale type, `alert`)
-    and `tests/unit/dialogAllowlist.spec.ts`; the 700-level and surface clauses are review-checked.
+    `tests/unit/dialogAllowlist.spec.ts` and `tests/unit/bottomChromeLadder.spec.ts` (no fixed bottom chrome
+    outranks the workspace layers; the consent bar's inset); the 700-level and surface clauses are review-checked.
 12. **Rules become gates.** When a review or plan produces a "never do X again" rule, land the
     machine enforcement in the same PR (ESLint rule, allowlist spec, AST test, CI grep). Prose-only
     rules rot — see `lessons/arch-structural-gates-over-prose-rules.md`.

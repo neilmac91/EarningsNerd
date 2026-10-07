@@ -236,12 +236,48 @@ Popover          An anchored, light-dismiss surface that explains one control (t
                  is itself the EDGAR anchor (SourceTrace without a viewer, as on the landing demo) has no
                  second stop, so Tab leaves it as usual.
 
-Stacking         z-sticky 30 (in-page sticky chrome) · z-header 50 (site header; its menus ride it) ·
-                 z-overlay 60 (popovers incl. BellPopover, the selection pill) · z-modal 70 (dialogs + the source and viewer
-                 sheets — scrim AND panel) · z-toast 80 (the skip link; sonner manages its own toast layer).
-                 The copilot rail / workspace bottom sheets stay z-40 over z-30 scrims, so the in-sheet
+Stacking         z-sticky 30 (in-page sticky chrome) · z-consent 32 (the cookie-consent bar: above in-page
+                 sticky chrome, BENEATH the sheet scrims and the z-40 research chrome) · z-scrim 35 (the
+                 workspace / rail bottom-sheet scrims: above the bar, under the z-40 sheets they belong to) ·
+                 z-header 50 (site header; its menus ride it) · z-overlay 60 (popovers incl. BellPopover, the
+                 selection pill) · z-modal 70 (dialogs + the source and viewer sheets — scrim AND panel) ·
+                 z-toast 80 (the skip link; sonner manages its own toast layer).
+                 The copilot rail / workspace bottom sheets stay z-40 over z-scrim scrims, so the in-sheet
                  citation popovers (z-overlay) still sit above them. Never z-[N]; DataTable's internal z-[5]
                  sticky-cell layering is the one documented exemption.
+                 The consent layer: a lower z alone would let the launcher cover a consent choice, so while
+                 the bar is mounted CookieConsent publishes its height on <html> as `--consent-inset` plus
+                 `data-consent-visible` (lib/consentLayer), and every bottom-anchored layer above it adds the
+                 inset to its bottom offset — the Ask and feedback launchers and the coachmark through
+                 `BOTTOM_CHROME_OFFSET`, the workspace / rail sheets through `bottom-[var(--consent-inset,0px)]`
+                 (and the same subtraction from their vh cap), the desktop pane's sticky height likewise, and
+                 the document's `scroll-padding-bottom` (globals.css) reserves it so a focus or scrollIntoView
+                 never lands a control behind the bar (the desktop pane's composer scrolls clear on open). The
+                 coachmark is deferred, not dismissed, while the bar shows (`hooks/useConsentLayer`); the
+                 saved confirmation is a sonner toast, never a fixed corner element. Real modals cover the
+                 bar: beneath the settings dialog (z-modal) and beneath an open workspace / rail bottom sheet
+                 (whose z-scrim scrim dims it) its choices are inert — a tap there reaches the scrim and
+                 closes the sheet, storing nothing — and operable again once the modal closes, which is what
+                 the sheet's aria-modal and focus trap already tell keyboard and AT users. In-page sticky
+                 chrome stays below the bar: a section nav passing through the bar's region on a short phone
+                 must not paint over a choice. The site header (z-50, top-anchored) stays above it: on a
+                 short phone (320x568) its open mobile menu reaches the bar's region and covers a choice
+                 until the user closes the menu (user-opened, user-closed; before, the bar covered the menu's
+                 lower items instead).
+                 New fixed bottom chrome joins this band, never above it: a floating control takes
+                 `BOTTOM_CHROME_OFFSET` (a sheet takes `bottom-[var(--consent-inset,0px)]` and subtracts the
+                 inset from its vh cap) and is pinned in the gate with its reason — the pin list is
+                 shrink-only — while a transient confirmation is a sonner toast and a second bottom bar is a
+                 documented ladder change, not a z-50.
+                 Gate: tests/unit/bottomChromeLadder.spec.ts — no fixed chrome outranks the workspace layers
+                 at the launcher corner (a file with fixed chrome is held to its highest z token anywhere and
+                 to inline zIndex, so a z written apart from its `fixed` still counts; z-toast is exempt only
+                 as the top-anchored skip link), no in-page sticky chrome outranks the bar (the top-anchored
+                 site and page headers are pinned), the tokens sit on their rungs (sticky < consent < scrim <
+                 the pinned workspace level 40 < header), the pinned bottom chrome takes the inset (the sheets'
+                 anchor, no `bottom-0` behind any variant, the offset objects' `bottom` from
+                 BOTTOM_CHROME_OFFSET, the bar's layout-effect publish, the scroll padding) and the pinned
+                 scrims are full-viewport; every pin list is shrink-only in files, sites and z.
 
 Ask answer       <AskFilingAnswer>  — the SHIPPED copilot contract: status reading|streaming|done|error;
                  answer = GFM markdown (react-markdown + remark-gfm); markers [n] AND [F1]/[f1]/[F 1]
@@ -375,9 +411,9 @@ Recharts/rAF, which need numbers). **No raw ms or bezier strings anywhere else.*
 - **Reduced motion**: one source — `hooks/usePrefersReducedMotion`. Every animation needs a fallback:
   `animation: none` for transform entrances, static bone (shimmer), static tint (citation-flash),
   instant final value (count-up, Recharts `lineProps(reduced)`), `scroll-behavior: auto`. Known
-  gaps include the `animate-fade-up` entrances in `app/login/page.tsx`, `RegisterForm`, `AuthShell`
-  and `CookieConsent`, the streaming `animate-pulse` indicators in `CopilotMessage`, and standalone
-  `animate-spin` loaders; none has a `motion-reduce:` guard yet.
+  gaps include the `animate-fade-up` entrances in `app/login/page.tsx`, `RegisterForm` and `AuthShell`,
+  the streaming `animate-pulse` indicators in `CopilotMessage`, and standalone `animate-spin` loaders;
+  none has a `motion-reduce:` guard yet.
 - **Nothing decorative** — `animate-float` is retired. Signature set: count-up, citation-flash,
   skeleton→content, sparkline draw-in, check-pop.
 
