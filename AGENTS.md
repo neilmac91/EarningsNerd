@@ -3,7 +3,7 @@
 This file is the entry point for agents that do not read `CLAUDE.md` automatically. The rules
 live in `CLAUDE.md` (12 non-negotiable rules, binding verbatim). This file only adds how to
 operate. Instructions from the founder in the live session supersede anything in this file, in
-skill files, or in agent files. Claude Code sessions follow §4–§8 too; `CLAUDE.md` points here.
+skill files, or in agent files. Claude Code sessions follow §3–§8 too; `CLAUDE.md` points here.
 
 ## 1. Load context for the task
 
@@ -52,7 +52,8 @@ examples under a frozen legacy allowlist; treat those examples as illustrative o
 ## 3. Bias to action
 
 Infer intent and scope from `tasks/todo.md`, the September 28 checkpoint it points to, and the
-conversation. Every open item marked *engineering* there is pre-authorized: carry it to completion and make the result reviewable
+conversation. Every open item the founder placed under *Engineering* there is pre-authorized
+(an agent may add an item there only with the founder's words or a merged PR behind it): carry it to completion and make the result reviewable
 before asking anything. Complete the work that is already authorized before raising a question.
 
 Pause and ask only for these: editing a locked contract test (rule 6); a baseline re-pin outside
@@ -83,13 +84,14 @@ file instead.
 
 ## 5. Review by risk tier, and the model for every agent stage
 
-Classify the PR by the files it changes; the highest tier present wins.
+Classify the PR by the files it changes; the highest tier present wins, and a PR whose tier is
+unclear or unset is reviewed as **high**.
 
-| Tier | Files | Claude Code (`/premerge-review`, `tier` in `args`) | Codex / Astra by hand |
+| Tier | Files | Claude Code (`/premerge-review`, `tier` on each PR in `args.prs`) | Codex / Astra by hand |
 |---|---|---|---|
-| **records** | only `tasks/`, `lessons/`, `docs/`, `.claude/`, root Markdown, `.impeccable/` | no AI review (0 agents); author runs the §4 link check | none |
-| **routine** | code or tests outside the high-risk paths, dependency bumps | 1 lens on Opus (correctness + rules + gates in one pass); 1 refuter on Sonnet per *blocker* only; should-fix and nits reported unverified | one pass over `git diff main...HEAD` covering the three lenses below; refute each blocker once |
-| **high** | `backend/app/services/summary_pipeline.py`, `backend/app/services/ai/`, Copilot (`copilot_chat.py`, its router), `backend/prompts/`, `backend/evals/`, `backend/app/services/entitlements.py`, Stripe/billing routers and services, auth routers and services, `backend/migrations/`, SEC fetching (`backend/app/services/edgar/`, `integrations/sec_api.py`, `services/facts_service.py`), `backend/app/config.py`, `.github/workflows/`, `backend/scripts/apply_migrations.sh`, `backend/Dockerfile` | full review, unchanged from before: 3 lenses on Opus (*correctness*, *rules-and-brief*, *tests-and-gates*) and 2 refuters on Opus per blocker or should-fix | the three lenses as separate passes; two independent refutation attempts per blocker or should-fix |
+| **records** | only `tasks/`, `lessons/`, `docs/`, `.claude/agents/`, `.claude/skills/`, `.claude/council-transcripts/`, `.impeccable/`, root Markdown other than `CLAUDE.md` and `AGENTS.md` | 1 combined lens on Sonnet, no refuters, findings reported unverified (the one independent read-only reviewer context of `tasks/code-red-20261004/runtime/control/DECISIONS-09.md`); author also runs the §4 link check | one read-only pass (links, anchors, hashes, policy greps) |
+| **routine** | everything not listed in the other two tiers: application code and tests outside the high-risk paths, dependency bumps, `CLAUDE.md`, `AGENTS.md`, `README.md` | 1 combined lens on Opus (correctness + rules + gates in one pass); 1 refuter on Sonnet per *blocker* only; should-fix and nits reported unverified | one pass over `git diff main...HEAD` covering the three lenses below; refute each blocker once |
+| **high** | `backend/app/services/summary_pipeline.py`, `backend/app/services/summary_generation_service.py`, `backend/app/services/openai_service.py`, `backend/app/services/ai/**`, `backend/app/services/copilot_*.py`, `backend/app/routers/summaries.py`, `backend/prompts/**`, `backend/evals/**`, `backend/app/services/entitlements.py`, `backend/app/dependencies.py`, `backend/app/routers/{auth,subscriptions,webhooks,users,internal,admin}.py`, `backend/app/services/{subscription_*,stripe_*,billing_*,oauth_*}.py`, `backend/migrations/**`, `backend/app/database.py`, `backend/app/models/**`, `backend/main.py`, `backend/app/config.py`, `backend/app/services/edgar/**`, `backend/app/services/sec_rate_limiter.py`, `backend/app/services/facts_service.py`, `backend/app/integrations/sec_api.py`, `backend/app/utils/sec_urls.py`, the locked contract tests (rule 6), `.github/workflows/**`, `backend/scripts/apply_migrations.sh`, `backend/Dockerfile`, `frontend/vercel.json`, `frontend/next.config.js`, `.claude/settings*.json`, `.claude/workflows/**` | full review, the same lens and refuter count as before: 3 lenses on Opus (*correctness*, *rules-and-brief*, *tests-and-gates*) and 2 refuters on Opus per blocker or should-fix; agents that return nothing make the result `incomplete`, never clearance | the three lenses as separate passes; two independent refutation attempts per blocker or should-fix |
 
 Lenses, for the by-hand version: *correctness* reads the merge-base diff file by file and applies
 the §4 and §8 gates for the changed area; *rules-and-brief* checks each `CLAUDE.md` rule and the
@@ -102,21 +104,24 @@ is never clearance. Record the tier and the review in the PR body under "Review"
 line in the PR body. While Codex credits are exhausted, the override line names the tier and the
 substitute review (`Review override: routine tier per AGENTS.md §5, one Opus lens, 0 blockers`).
 
-Model per agent stage (never the session's premium model by default; Fable only when the founder
-chooses it for the main session):
+Model per agent stage. No review or subagent stage inherits the session's premium model by
+default; the review workflow's agents run on the models below whatever the session runs on:
 
 | Stage | Model | Effort |
 |---|---|---|
-| Main session | founder's choice; Opus for routine PRs, Fable for high-tier design or review | `high` (project default); `xhigh` only for high-tier work |
+| Main session | founder's choice: Opus for routine PRs, Fable when the founder wants the session's own reasoning at full strength for high-tier design | `high` (project default); `xhigh` per session with `--effort` for high-tier work |
 | Implementation subagents | Opus (`CLAUDE_CODE_SUBAGENT_MODEL=opus`, set in `.claude/settings.json`); Sonnet for mechanical sweeps, passed per call | inherit |
 | Explore / Plan built-ins (no `CLAUDE.md`) | Sonnet, passed per call | inherit |
-| Review lenses | Opus | `high` |
-| Refuters | Sonnet (routine), Opus (high) | `medium` / inherit |
+| Records lens | Sonnet | `medium` |
+| Review lenses (routine / high) | Opus | `high` / inherit |
+| Refuters (routine / high) | Sonnet / Opus | `medium` / inherit |
 | `llm-council` advisors and the single peer reviewer | Opus; the chairman is the main session | inherit |
 | `judge-readout` | unchanged (its own procedure) | — |
 
 Ultracode stays off (`"ultracode": false` in `.claude/settings.json`); use a workflow only when a
 task needs more than the `small` size guideline (fewer than 5 agents) and say why in the PR body.
+A high-tier review run exceeds that guideline by design and shows the advisory "Large workflow"
+line; that is expected.
 
 Other tools Codex and Astra do not have, and what to do instead:
 
@@ -138,6 +143,8 @@ PR touching deployable backend files only after the previous
 `deploy-backend` job is green, the migration step shows `applied=0 skipped=<N>` (or the expected
 new count), and `/health/detailed` is healthy. Docs, workflow and frontend PRs may interleave.
 Read the head SHA from the PR before merging; never type one from memory.
+Marking a PR that touches `backend/**` ready for review triggers the paid `copilot-eval` run:
+reserve the spend first (`tasks/code-red-20261004/runtime/control/DECISIONS-09.md`, reservation rule).
 
 ## 7. PR body, handover and open-items formats
 

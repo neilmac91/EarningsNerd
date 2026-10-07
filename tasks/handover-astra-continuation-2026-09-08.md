@@ -77,7 +77,7 @@ the dated ledger before recording a prerequisite as satisfied.
 
 ## 4. Remaining ordered plan
 
-Use the live [remaining-plan checklist](todo.md#remaining-master-plan--astra-checkpoint-2026-09-08)
+Use the live [remaining-plan checklist](archive/todo-ledger-through-2026-10-07.md#remaining-master-plan--astra-checkpoint-2026-09-08)
 and original wave-3 handover §2–§6. W3-10 Notable and Analysis wait on their named founder
 observations; W3-7 waits on the actual strong-judge artifact and then arm decision; W3-8a then
 W3-8b wait on that order or the existing more-than-one-week slip exception. Never two re-pin

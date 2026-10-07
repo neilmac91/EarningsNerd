@@ -1,25 +1,29 @@
 export const meta = {
   name: 'premerge-review',
-  description: 'Risk-tiered pre-merge review: records 0 agents; routine 1 Opus lens + Sonnet refuters for blockers; high 3 Opus lenses + 2 Opus refuters per blocker/should-fix',
+  description: 'Risk-tiered pre-merge review: records 1 Sonnet lens; routine 1 Opus lens + Sonnet refuters for blockers; high 3 Opus lenses + 2 Opus refuters per blocker/should-fix; missing tier reviews as high',
   phases: [
-    { title: 'Review', detail: 'routine: one combined lens on Opus; high: correctness / rules+brief / tests+gates on Opus', model: 'opus' },
+    { title: 'Review', detail: 'records: one combined lens on Sonnet; routine: one combined lens on Opus; high: correctness / rules+brief / tests+gates on Opus' },
     { title: 'Verify', detail: 'routine: one Sonnet refuter per blocker; high: two Opus refuters per blocker or should-fix' },
   ],
 }
 
 // args: { prs: [{ number, branch, title, base?, brief?, tier? }], tier? }
-// tier: 'records' | 'routine' | 'high' (AGENTS.md §5). Per-PR tier wins, then args.tier, then 'routine'.
-// Classify by the files the PR changes: records = only tasks/, lessons/, docs/, .claude/, root Markdown,
-// .impeccable/; high = summary pipeline, services/ai, Copilot, prompts, evals, entitlements/billing, auth,
-// migrations, SEC fetching, config.py, .github/workflows, apply_migrations.sh, Dockerfile; else routine.
+// tier: 'records' | 'routine' | 'high' (AGENTS.md §5 has the file list per tier). The PR's own tier wins;
+// args.tier may set 'routine' or 'high' for the batch; 'records' is accepted only on a PR itself; a PR
+// with no tier is reviewed as 'high'. An unknown tier fails the run before any agent starts.
 const PRS = args.prs
-const DEFAULT_TIER = args.tier || 'routine'
+const BATCH_TIER = args.tier === 'routine' || args.tier === 'high' ? args.tier : undefined
+if (args.tier && !BATCH_TIER) throw new Error(`args.tier may be routine or high, not "${args.tier}"; set records on the PR itself`)
 
 // Models are named per stage so no review agent inherits the session's premium model (AGENTS.md §5).
 const TIERS = {
-  records: { lenses: [], refuters: 0 },
+  records: { lenses: ['combined'], lensModel: 'sonnet', lensEffort: 'medium', refuters: 0, verify: [] },
   routine: { lenses: ['combined'], lensModel: 'opus', lensEffort: 'high', refuters: 1, refuterModel: 'sonnet', refuterEffort: 'medium', verify: ['blocker'] },
   high: { lenses: ['correctness', 'rules-and-brief', 'tests-and-gates'], lensModel: 'opus', refuters: 2, refuterModel: 'opus', verify: ['blocker', 'should-fix'] },
+}
+const tierOf = (pr) => pr.tier || BATCH_TIER || 'high'
+for (const pr of PRS) {
+  if (!TIERS[tierOf(pr)]) throw new Error(`unknown tier "${pr.tier}" for PR #${pr.number}; use records | routine | high`)
 }
 
 const FINDINGS_SCHEMA = {
@@ -73,7 +77,7 @@ const LENS_BODY = {
   'rules-and-brief': (pr) => `LENS: RULES AND BRIEF COMPLIANCE. Check every one of CLAUDE.md's 12 rules against the diff (one summary orchestrator; filing-only summaries; migrations no-Alembic/idempotent/lock-guarded; entitlements single source; SEC transport owners and limiter; contract tests locked — list any edits to test_summary_stream_contract / background-generation characterization / auth flow / Stripe webhook tests; datetime via app/utils/datetimes utcnow()/iso_z() and no datetime.utcnow()/naive now; config via Settings not os.getenv; validate at boundaries; Filing URL invariants; design-system; rules-become-gates). Then check the brief or PR body: every scope item done or explicitly reported undone? Anything done that was marked out of scope, or files that collide with another open PR on the same lines (gh api repos/neilmac91/EarningsNerd/pulls?state=open, then diff --stat the overlapping branches)? Docs changed where code changed ("docs vs code")?`,
   'tests-and-gates': (pr) => `LENS: TESTS AND GATES. For every new or changed test: does it live in a sanctioned root (backend/tests/{unit,integration,smoke,performance}, frontend/tests/{unit,e2e})? Would it FAIL on the defect it claims to guard (construct the counter-example mentally or with a quick python -c against the extracted function)? Is any allow-list/gate weaker than it looks (regex false negatives, exemptions that swallow the bad case, date-based tests that flip on a calendar day — compute the flip date)? Are removed tests' behaviours still covered elsewhere? For workflow changes: is there a test pinning the new knob (rule 12), and does the test read the right file/step name? Note any test that depends on network, wall-clock, or ordering.`,
 }
-LENS_BODY.combined = (pr) => `LENS: COMBINED (routine tier — one pass, three concerns, in this order of weight).
+LENS_BODY.combined = (pr) => `LENS: COMBINED (one pass, three concerns, in this order of weight).
 1. ${LENS_BODY.correctness(pr)}
 2. ${LENS_BODY['rules-and-brief'](pr)}
 3. ${LENS_BODY['tests-and-gates'](pr)}
@@ -96,48 +100,48 @@ Try to REFUTE it by reading the actual code on the branch (git show origin/${pr.
 const results = await pipeline(
   PRS,
   async (pr) => {
-    const tier = pr.tier || DEFAULT_TIER
+    const tier = tierOf(pr)
     const T = TIERS[tier]
-    if (!T) throw new Error(`unknown tier "${tier}" for PR #${pr.number}; use records | routine | high`)
-    if (T.lenses.length === 0) {
-      log(`PR #${pr.number}: ${tier} tier — no AI review; author runs the AGENTS.md §4 link check`)
-      return { pr, tier, findings: [] }
-    }
+    log(`PR #${pr.number}: ${tier} tier — ${T.lenses.length} ${T.lensModel} lens(es)`)
     const per = await parallel(T.lenses.map((key) => () =>
       agent(lensPrompt(pr, key), { label: `review:${pr.number}:${key}`, phase: 'Review', schema: FINDINGS_SCHEMA, model: T.lensModel, ...(T.lensEffort ? { effort: T.lensEffort } : {}) })
-        .then((r) => (r ? r.findings.map((f) => ({ ...f, lens: key })) : []))
+        .then((r) => (r ? r.findings.map((f) => ({ ...f, lens: key })) : null))
     ))
-    return { pr, tier, findings: per.filter(Boolean).flat() }
+    // A lens that returned nothing (skipped or died) is missing review output, never clearance.
+    const missing = T.lenses.filter((_, i) => per[i] === null)
+    return { pr, tier, findings: per.filter(Boolean).flat(), missingLenses: missing }
   },
-  async ({ pr, tier, findings }) => {
+  async ({ pr, tier, findings, missingLenses }) => {
     const T = TIERS[tier]
-    if (T.lenses.length === 0) {
-      return { pr: pr.number, branch: pr.branch, tier, mergeable: true, confirmed: [], refuted: [], unverified: [], nits: [], agents: 0 }
-    }
     const nits = findings.filter((f) => f.severity === 'nit')
     const toVerify = findings.filter((f) => T.verify.includes(f.severity))
     const unverified = findings.filter((f) => f.severity !== 'nit' && !T.verify.includes(f.severity))
-    log(`PR #${pr.number} (${tier}): ${toVerify.length} to verify, ${unverified.length} reported unverified, ${nits.length} nits; ${T.refuters} ${T.refuterModel} refuter(s) each`)
+    log(`PR #${pr.number} (${tier}): ${toVerify.length} to verify, ${unverified.length} reported unverified, ${nits.length} nits; ${T.refuters} ${T.refuterModel || ''} refuter(s) each${missingLenses.length ? `; MISSING lenses: ${missingLenses.join(', ')}` : ''}`)
     const verified = await parallel(toVerify.map((f) => () =>
       parallel(Array.from({ length: T.refuters }, (_, i) => () =>
         agent(refuterPrompt(pr, f, i), { label: `verify:${pr.number}:${f.file.split('/').pop()}#${i + 1}`, phase: 'Verify', schema: VERDICT_SCHEMA, model: T.refuterModel, ...(T.refuterEffort ? { effort: T.refuterEffort } : {}) })
       )).then((votes) => {
         const v = votes.filter(Boolean)
-        const stands = v.length > 0 && v.every((x) => !x.refuted)
+        // Fewer votes than refuters = a refuter returned nothing: the finding stays unverified, not refuted.
+        const complete = v.length === T.refuters
+        const stands = complete && v.every((x) => !x.refuted)
         const sev = v.map((x) => x.corrected_severity).filter(Boolean)[0] || f.severity
-        return { ...f, stands, severity: stands ? sev : f.severity, votes: v.map((x) => ({ refuted: x.refuted, reason: x.reason })) }
+        return { ...f, complete, stands, severity: stands ? sev : f.severity, votes: v.map((x) => ({ refuted: x.refuted, reason: x.reason })) }
       })
     ))
-    const confirmed = verified.filter(Boolean).filter((x) => x.stands)
-    const refuted = verified.filter(Boolean).filter((x) => !x.stands)
+    const confirmed = verified.filter(Boolean).filter((x) => x.complete && x.stands)
+    const refuted = verified.filter(Boolean).filter((x) => x.complete && !x.stands)
+    const unverifiedAll = unverified.concat(verified.filter(Boolean).filter((x) => !x.complete))
+    const incomplete = missingLenses.length > 0
     return {
       pr: pr.number,
       branch: pr.branch,
       tier,
-      mergeable: confirmed.filter((c) => c.severity === 'blocker').length === 0,
+      incomplete,
+      mergeable: !incomplete && confirmed.filter((c) => c.severity === 'blocker').length === 0 && unverifiedAll.filter((c) => c.severity === 'blocker').length === 0,
       confirmed,
       refuted: refuted.map((r) => ({ title: r.title, file: r.file, reasons: r.votes.map((v) => v.reason) })),
-      unverified,
+      unverified: unverifiedAll,
       nits,
       agents: T.lenses.length + toVerify.length * T.refuters,
     }

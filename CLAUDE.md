@@ -19,12 +19,16 @@ prod runs the L1 in-memory cache (ADR-0004).
 - Boundaries or data flow: `docs/ARCHITECTURE.md`. Settled decisions: `docs/adr/` — supersede
   with a new ADR, don't re-litigate.
 - Prompt, model, eval or AI-flag change: `backend/evals/RUNBOOK.md` — "Regression gate (B1)" and
-  "Judging a pull request's eval artifact" are MANDATORY, "Gotchas" before any paid run.
-- UI work: `frontend/DESIGN_SYSTEM.md` §1–§3 and §12 are MANDATORY; add `DESIGN.md` "Components"
-  and "Do's and Don'ts" for a new or changed component; both files in full for a token, theme or
-  typography change. Link both in UI subagent briefs.
-- Operating model (review tiers, model per agent stage, handover format, deploy discipline):
-  `AGENTS.md` §5–§7. Reference: `docs/CONFIGURATION.md`, `docs/OPERATIONS.md`,
+  "Judging a pull request's eval artifact" are MANDATORY, "Gotchas" before any paid run, plus the
+  section for the surface you touch (Copilot citation-fidelity audit, Multi-Period Analysis
+  gate, FPI adoption gate).
+- UI work: rule 11 applies (read `DESIGN.md` and `frontend/DESIGN_SYSTEM.md`). The rules live in
+  `DESIGN_SYSTEM.md` §1–§6 and §12 and in `DESIGN.md` from "Overview" on; `DESIGN.md`'s frontmatter
+  is the token snapshot that `frontend/tailwind.config.js` already defines, and `DESIGN_SYSTEM.md`
+  §7–§11 cover marketing, theme mechanics, exemptions, charts and motion — read those for such a
+  change. Link both files in UI subagent briefs.
+- Operating model (what pauses for the founder, verification proportionality, review tiers,
+  model per agent stage, deploy discipline, handover format): `AGENTS.md` §3–§7. Reference: `docs/CONFIGURATION.md`, `docs/OPERATIONS.md`,
   `docs/TROUBLESHOOTING.md`, `docs/DEPLOYMENT.md`.
 
 ## Design documentation
@@ -42,6 +46,7 @@ uvicorn main:app --reload --host 0.0.0.0 --port 8000   # Dev server
 pip install -r requirements-dev.txt                    # Pinned lint toolchain (same as CI)
 ruff check . && bandit -r app -ll && python -m pytest  # FULL local gate — run before every push
 python -m pytest -m ""                                 # Also the performance suite (real sleeps)
+python3 scripts/deploy_check.py                        # Pre-deploy validation
 ```
 
 Frontend (from `/frontend`):
@@ -119,7 +124,6 @@ Infra: `docker-compose up -d postgres redis` (local only — prod has no Redis).
     machine enforcement in the same PR (ESLint rule, allowlist spec, AST test, CI grep). Prose-only
     rules rot — see `lessons/arch-structural-gates-over-prose-rules.md`.
 
-
 ## Where things live
 
 - **Backend:** `app/routers/` = HTTP only; `app/services/` = business logic; `services/ai/` = AI
@@ -134,7 +138,7 @@ Infra: `docker-compose up -d postgres redis` (local only — prod has no Redis).
   env incl. `SKIP_REDIS_INIT=true` — patch `settings`, not env vars) and `frontend/tests/{unit,e2e}`.
   NO other test roots — a test outside these does not run in CI (gate:
   `frontend/tests/unit/testHomesAllowlist.spec.ts`; its one exemption is the hash-sealed judging
-  fixture pinned by a `code-sha256.json` in its package).
+  fixture pinned by a `code-sha256.json` in its package; offline proof run by the operator, not CI).
 - **Scripts:** one-offs in `backend/scripts/` with a docstring header; nothing executable at repo
   root. **Open items** → `tasks/todo.md`; finished work and the ledger → `tasks/archive/`;
   **lessons** → `lessons/` (one file per rule, never a monolith); **prompts** → `backend/prompts/*.md`.
@@ -149,26 +153,31 @@ Infra: `docker-compose up -d postgres redis` (local only — prod has no Redis).
 ## Deploy
 
 CI (`.github/workflows/ci.yml`): ruff + bandit + pytest; eslint + tsc + vitest; Playwright with NO
-backend; `eval-baseline` gates AI regressions against `backend/evals/baseline_scores.json`.
+backend; `eval-baseline` compares AI output against `backend/evals/baseline_scores.json` (advisory:
+`continue-on-error`, not a required check).
 `deploy-backend` runs on push to main when `backend/` changed outside `backend/tests/` (migrations
 through the `migration_ledger`, Cloud Run `earningsnerd-backend` in `earnings-nerd`/us-west1, job
 images); a failed deploy is not retried, so check its conclusion after every such merge. Vercel
-deploys the frontend on every push to main. Detail: `docs/DEPLOYMENT.md`.
+deploys the frontend on push to main (`docs/DEPLOYMENT.md`). Manual bootstrap:
+`tasks/gcp-deploy-runbook.md`.
 
 ## Workflow
 
-- **Review by risk tier** (`AGENTS.md` §5): records-only PRs get no AI review; routine code one
-  review lens; high-risk paths (summary pipeline, Copilot, prompts, entitlements and billing, auth,
-  migrations, SEC fetching, CI and deploy files) keep the full adversarial review. Every agent
-  stage names its model there; never put a subagent on the session's premium model by default.
-- **Plan** briefly when work has real dependencies or architectural choices; record open items in
-  `tasks/todo.md`, one line each. Ask only when a decision needs founder input; otherwise carry
-  authorized work through implementation, verification (`AGENTS.md` §4) and fixes, and report any
-  blocker precisely.
+- **Review by risk tier** (`AGENTS.md` §5): records-only PRs get one Sonnet lens; routine code one
+  Opus lens; high-risk paths (summary pipeline, Copilot, prompts, evals, entitlements and billing,
+  auth, migrations and schema, SEC fetching, config, CI and deploy files, settings and workflows)
+  keep the full adversarial review. Every agent stage names its model there; never put a subagent
+  on the session's premium model by default. Unsure of the tier: review as high.
+- **Plan** briefly when work has real dependencies or architectural choices; resolve routine
+  implementation choices directly and re-plan when evidence changes the approach; record open
+  items in `tasks/todo.md`, one line each. Ask only when a decision needs founder input; otherwise
+  carry authorized work through implementation, verification (`AGENTS.md` §4) and fixes,
+  preserve explicit approval and release boundaries, and report any blocker precisely.
 - **Delegate** bounded independent work when parallelism or context isolation helps, naming the
   model (`AGENTS.md` §5). The briefs under `.claude/agents/` are reading material, not subagents.
 - **After ANY user correction**, add or update a file in `lessons/` (format in its README).
 - **Bugs:** fix the root cause — no temporary patches. **Better approach:** say so first (2-4
-  tradeoff bullets), then proceed unless the alternative avoids serious risk. **Docs vs code:** code
+  tradeoff bullets), then proceed unless the alternative avoids serious risk; for non-trivial
+  changes ask "is there a more elegant way?" without over-engineering. **Docs vs code:** code
   is truth — fix the doc in the same PR. Skills: `.claude/skills/README.md`; `karpathy-guidelines`
   is the baseline (Think Before Coding, Simplicity First, Surgical Changes, Goal-Driven Execution).

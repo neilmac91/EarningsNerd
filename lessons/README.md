@@ -122,6 +122,7 @@ machine" only for that work; skip "Enforced by a machine gate" (CI fails those o
 
 ## Frontend & design system
 
+- frontend-busy-controls-stay-focusable.md — A control busy with its own request stays focusable: aria-disabled plus an early return, never native disabled (partly gated by `frontend/tests/unit/busyControlsStayFocusable.spec.ts` (AST scan of every .tsx); the keyboard and focus hand-off rules are not)
 - frontend-check-luminance-vs-background.md — Verify surface luminance against the actual background, not token validity
 - frontend-citation-offset-boundaries.md — Resolve citation starts to the first matched character's text node and pin the actual flash target
 - frontend-client-exports-need-next-build.md — Run next build before moving design-system client exports across page files
@@ -134,6 +135,7 @@ machine" only for that work; skip "Enforced by a machine gate" (CI fails those o
 - frontend-guard-submit-on-loading-buttons.md — Guard submit handlers with an early return when the button uses loading, not disabled
 - frontend-jsdom-sdk-browser-entry.md — Resolve browser SDK imports as browser code in jsdom tests while preserving real capture behavior
 - frontend-locked-page-dialog-scrolls-itself.md — A dialog that locks the page must bound itself to the viewport and scroll inside
+- frontend-native-modal-dialog-makes-body-portals-inert.md — Under a native showModal() dialog, portal into the dialog and preventDefault the keys you own (partly gated by `frontend/tests/unit/dialogAllowlist.spec.ts`; the keyboard and focus hand-off rules are not)
 - frontend-no-surface-fighting-global-colors.md — Never set a global element-level color that surfaces must opt out of
 - frontend-overrides-rot-when-the-constrained-package-moves.md — An npm override's meaning is set by the package it constrains — re-check every override on a major bump
 - frontend-preview-both-themes-before-done.md — Eyeball the deployed preview in both themes before declaring visual work done
@@ -156,8 +158,6 @@ machine" only for that work; skip "Enforced by a machine gate" (CI fails those o
 The rule is checked by the named gate; open the lesson only when that gate fails or you change it.
 
 - arch-sweep-dead-integration-consumers.md — When an integration is declared dead, sweep every consumer in the same pass — gate: `backend/tests/unit/test_dead_integrations_allowlist.py`
-- frontend-busy-controls-stay-focusable.md — A control busy with its own request stays focusable: aria-disabled plus an early return, never native disabled — gate: `frontend/tests/unit/busyControlsStayFocusable.spec.ts` (AST scan of every .tsx)
-- frontend-native-modal-dialog-makes-body-portals-inert.md — Under a native showModal() dialog, portal into the dialog and preventDefault the keys you own — gate: `frontend/tests/unit/dialogAllowlist.spec.ts`; CLAUDE.md rule 11
 - ops-a-review-you-triggered-is-a-review-you-wait-for.md — A review you triggered is a review you wait for; merging inside it discards what you asked for — gate: `.github/workflows/review-gate.yml` (required status check `review-gate`)
 - ops-deploy-detector-mirrors-the-image-context.md — Make the deploy change detector exclude exactly what `.dockerignore` excludes, and gate it with a test — gate: `backend/tests/unit/test_backend_deploy_scope.py`
 - ops-migrations-need-lock-timeout.md — Give every migration session a lock_timeout and every deploy job a timeout — idempotent is not lock-free — gate: `backend/tests/unit/test_migration_lock_safety.py`; CLAUDE.md rule 3
