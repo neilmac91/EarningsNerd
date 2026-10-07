@@ -11,7 +11,8 @@ import {
 /**
  * Pins the responsive-grid base-track gate (eslint.gridBaseTrack.mjs;
  * lessons/frontend-variable-text-must-not-size-a-wrapping-row.md). The rule must evaluate a whole
- * class string (every helper argument, template chunk and branch together) and understand variant
+ * class string (every helper argument and template chunk together, and each conditional branch with
+ * the text that is always there around it, never with a sibling branch) and understand variant
  * prefixes, so the cases below cover both directions: shapes that set a base track must pass, and
  * every spelling of a missing one must fail.
  */
@@ -99,11 +100,17 @@ ruleTester.run('responsive-grid-base-track', responsiveGridBaseTrack, {
     '<div className="lg:grid lg:grid-cols-[minmax(0,1fr)_13rem]" />',
     '<div className="grid lg:[&>div]:grid-cols-3" />',
     '<div className={`grid grid-cols-1 ${gap} md:grid-cols-2`} />',
-    // The base is in a different helper argument or branch from the variant columns.
+    // The base is always there, in a different helper argument from the variant columns, or in the
+    // same branch as them.
     "<div className={cx('grid grid-cols-1', wide && 'md:grid-cols-2')} />",
     "<div className={cx('grid', wide ? 'grid-cols-1 md:grid-cols-3' : 'grid-cols-2')} />",
+    "<div className={cx('grid', wide ? 'grid-cols-1 md:grid-cols-2' : 'grid-cols-1')} />",
     "<div className={clsx('grid grid-cols-1', { 'md:grid-cols-2': wide })} />",
     "const c = cx('grid', 'grid-cols-1', 'md:grid-cols-2')",
+    "<div className={cx('grid md:grid-cols-2', 'grid-cols-1')} />",
+    "<div className={cx('grid', wide && ['grid-cols-1', 'md:grid-cols-2'])} />",
+    // A branch inside a branch sees the text that is always there in the branch around it.
+    "<div className={cx('grid', wide && `grid-cols-1 ${three ? 'md:grid-cols-3' : 'md:grid-cols-2'}`)} />",
     "const GRID = 'grid grid-cols-1 gap-4 md:grid-cols-2'",
     '<Panel bodyClassName="grid grid-cols-1 sm:grid-cols-2" />',
     "<NavLink className={({ isActive }) => cx('grid grid-cols-1', isActive && 'md:grid-cols-2')} />",
@@ -119,6 +126,21 @@ ruleTester.run('responsive-grid-base-track', responsiveGridBaseTrack, {
     // A branch that is a grid on its own can't borrow the other branch's base.
     {
       code: "<div className={wide ? 'grid grid-cols-1 md:grid-cols-2' : 'grid md:grid-cols-3'} />",
+      errors: missing(),
+    },
+    // Variant columns in a branch can't borrow a sibling branch's base…
+    { code: "<div className={cx('grid gap-4', wide ? 'md:grid-cols-2' : 'grid-cols-1')} />", errors: missing() },
+    { code: "<div className={cx('grid', wide && 'md:grid-cols-2', !wide && 'grid-cols-1')} />", errors: missing() },
+    { code: "<div className={clsx('grid', { 'grid-cols-1': !wide, 'md:grid-cols-2': wide })} />", errors: missing() },
+    { code: "<div className={`grid ${wide ? 'md:grid-cols-2' : 'grid-cols-1'}`} />", errors: missing() },
+    { code: "<div className={clsx('grid', { [`md:grid-cols-${n}`]: wide })} />", errors: missing() },
+    // …and a base that is only sometimes there can't stand in for one that is always there.
+    { code: "<div className={cx('grid md:grid-cols-2', narrow && 'grid-cols-1')} />", errors: missing() },
+    { code: "<div className={cx('grid md:grid-cols-2', custom || 'grid-cols-1')} />", errors: missing() },
+    { code: "<div className={cx('grid md:grid-cols-2', custom ?? 'grid-cols-1')} />", errors: missing() },
+    { code: "<div className={clsx('grid md:grid-cols-2', { 'grid-cols-1': narrow })} />", errors: missing() },
+    {
+      code: "<div className={cx('grid', wide && `md:grid-cols-2 ${narrow ? 'grid-cols-1' : ''}`)} />",
       errors: missing(),
     },
     // A function's return value is a class string of its own.

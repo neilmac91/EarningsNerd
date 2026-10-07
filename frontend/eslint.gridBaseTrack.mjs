@@ -8,13 +8,20 @@
 // string and a regex selector sees one literal at a time. The regex flagged `cx('grid
 // grid-cols-1', c && 'md:grid-cols-2')` because the base is in a different argument, and missed
 // `grid md:!grid-cols-3`, `grid group-hover/card:grid-cols-2` and `grid grid-cols-none
-// md:grid-cols-3`. This rule parses each class token's variants and evaluates everything that lands
-// on one element together: a class attribute (`className`, `*ClassName`) and a class-helper call
-// (cx/clsx/…) with all their literal, template and branch text. A string in there that is a grid on
-// its own (it has `grid`) must also pass on its own, so one branch of a conditional can't borrow
-// another branch's base. Any other string or template literal is evaluated on its own, so a class
-// constant or map is gated too, and a function (`className={() => cx(…)}`) starts afresh. Pinned by
-// tests/unit/gridBaseTrackRule.spec.ts.
+// md:grid-cols-3`. This rule parses each class token's variants and evaluates what lands on one
+// element: a class attribute (`className`, `*ClassName`) or a class-helper call (cx/clsx/…), with
+// all its literal and template text. Text that is always there (a plain string, every helper
+// argument, array element and template chunk) is checked together. Text that is there only on some
+// renders (a ternary arm, an `&&`/`||`/`??` operand, an object key or value) is a branch, checked
+// together with the text that is always there around it and nothing else. So a base track satisfies
+// variant columns only where it is sure to render with them: in the same branch, or in text that is
+// always there. `cx('grid grid-cols-1', wide && 'md:grid-cols-2')` and `cx('grid md:grid-cols-2',
+// 'grid-cols-1')` pass; `cx('grid', wide ? 'md:grid-cols-2' : 'grid-cols-1')` (a branch borrows the
+// other arm's base) and `cx('grid md:grid-cols-2', narrow && 'grid-cols-1')` (the base is only
+// sometimes there) fail. A branch inside a branch also sees the text that is always there in its
+// enclosing branch. Any other string or template literal is evaluated on its own, so a class
+// constant or map is gated too, and a function (`className={() => cx(…)}`) starts afresh. Pinned
+// by tests/unit/gridBaseTrackRule.spec.ts.
 //
 // Out of scope, as for every class-string rule here: a class name assembled from fragments at
 // runtime, and a component whose own root is the grid while the caller passes only
@@ -80,51 +87,54 @@ export function gridBaseTrackProblem(classText) {
 }
 
 /** All literal text that can reach the class list, one piece per string literal or template (its
- *  chunks joined): both arms of a conditional or logical, helper-call arguments, array elements,
- *  object keys and values. */
-function collectStaticText(node, out) {
+ *  chunks joined), each tagged with its branch: a ternary arm, a logical operand, an object key or
+ *  value opens a branch inside the current one; everything else (helper-call arguments, array
+ *  elements, template expressions, `+` operands) stays in it. */
+function collectStaticText(node, out = [], branch = { parent: null }) {
   if (!node) return out
+  const sub = (child) => collectStaticText(child, out, branch)
+  const optional = (child) => collectStaticText(child, out, { parent: branch })
   switch (node.type) {
     case 'Literal':
-      if (typeof node.value === 'string') out.push(node.value)
+      if (typeof node.value === 'string') out.push({ text: node.value, branch })
       break
     case 'TemplateLiteral':
-      out.push(node.quasis.map((q) => q.value.cooked ?? q.value.raw).join(' '))
-      for (const e of node.expressions) collectStaticText(e, out)
+      out.push({ text: node.quasis.map((q) => q.value.cooked ?? q.value.raw).join(' '), branch })
+      for (const e of node.expressions) sub(e)
       break
     case 'JSXExpressionContainer':
     case 'TSAsExpression':
     case 'TSSatisfiesExpression':
     case 'TSNonNullExpression':
     case 'ChainExpression':
-      collectStaticText(node.expression, out)
+      sub(node.expression)
       break
     case 'ConditionalExpression':
-      collectStaticText(node.consequent, out)
-      collectStaticText(node.alternate, out)
+      optional(node.consequent)
+      optional(node.alternate)
       break
     case 'LogicalExpression':
-      collectStaticText(node.left, out)
-      collectStaticText(node.right, out)
+      optional(node.left)
+      optional(node.right)
       break
     case 'BinaryExpression':
       if (node.operator === '+') {
-        collectStaticText(node.left, out)
-        collectStaticText(node.right, out)
+        sub(node.left)
+        sub(node.right)
       }
       break
     case 'CallExpression':
-      if (node.callee.type === 'MemberExpression') collectStaticText(node.callee.object, out)
-      for (const a of node.arguments) collectStaticText(a, out)
+      if (node.callee.type === 'MemberExpression') sub(node.callee.object)
+      for (const a of node.arguments) sub(a)
       break
     case 'ArrayExpression':
-      for (const el of node.elements) collectStaticText(el, out)
+      for (const el of node.elements) sub(el)
       break
     case 'ObjectExpression':
       for (const p of node.properties) {
         if (p.type !== 'Property') continue
-        if (p.key.type === 'Literal') collectStaticText(p.key, out)
-        collectStaticText(p.value, out)
+        if (p.computed || p.key.type === 'Literal') optional(p.key)
+        optional(p.value)
       }
       break
   }
@@ -143,12 +153,6 @@ function insideUnit(node) {
   for (let p = node.parent; p && !isFunction(p); p = p.parent) if (isUnit(p)) return true
   return false
 }
-const isGridPiece = (text) =>
-  text.split(/\s+/).some((token) => {
-    const t = parseClassToken(token)
-    return t !== null && isGridDisplay(t)
-  })
-
 export const responsiveGridBaseTrack = {
   meta: {
     type: 'problem',
@@ -162,9 +166,16 @@ export const responsiveGridBaseTrack = {
     },
   },
   create(context) {
-    // The whole unit must pass, and so must each piece that is a grid by itself.
+    // Each branch must pass with the text that renders whenever it does: its own, and that of every
+    // branch enclosing it up to the always-there text. Siblings never count.
     const check = (node, pieces) => {
-      for (const text of [pieces.join(' '), ...pieces.filter(isGridPiece)]) {
+      for (const branch of new Set(pieces.map((p) => p.branch))) {
+        const present = new Set()
+        for (let b = branch; b; b = b.parent) present.add(b)
+        const text = pieces
+          .filter((p) => present.has(p.branch))
+          .map((p) => p.text)
+          .join(' ')
         const prefix = gridBaseTrackProblem(text)
         if (prefix !== null) {
           context.report({ node, messageId: 'missing', data: { fix: `${prefix}grid-cols-1` } })
@@ -174,16 +185,16 @@ export const responsiveGridBaseTrack = {
     }
     return {
       JSXAttribute(node) {
-        if (isClassAttribute(node) && !insideUnit(node)) check(node, collectStaticText(node.value, []))
+        if (isClassAttribute(node) && !insideUnit(node)) check(node, collectStaticText(node.value))
       },
       CallExpression(node) {
-        if (isHelperCall(node) && !insideUnit(node)) check(node, collectStaticText(node, []))
+        if (isHelperCall(node) && !insideUnit(node)) check(node, collectStaticText(node))
       },
       TemplateLiteral(node) {
-        if (!insideUnit(node)) check(node, collectStaticText(node, []))
+        if (!insideUnit(node)) check(node, collectStaticText(node))
       },
       Literal(node) {
-        if (typeof node.value === 'string' && !insideUnit(node)) check(node, [node.value])
+        if (typeof node.value === 'string' && !insideUnit(node)) check(node, collectStaticText(node))
       },
     }
   },

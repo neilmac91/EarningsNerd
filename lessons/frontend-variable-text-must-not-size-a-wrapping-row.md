@@ -35,4 +35,7 @@ before the fix and none after. A first draft was a `no-restricted-syntax` regex,
 both too narrow and too wide. It saw one literal at a time, so it flagged `cx('grid grid-cols-1',
 c && 'md:grid-cols-2')`. It missed `md:!grid-cols-3`, `group-hover/card:grid-cols-2` and
 `grid-cols-none`. The rule now parses each token's variants and evaluates a whole class attribute
-or `cx()` call together.
+or `cx()` call together. A conditional branch (ternary arm, `&&`/`||`/`??` operand, `clsx` object key)
+is checked with the text that always renders around it and never with a sibling branch. A later
+review found the first version let `cx('grid', wide ? 'md:grid-cols-2' : 'grid-cols-1')` borrow the
+other arm's base.

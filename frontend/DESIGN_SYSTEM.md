@@ -124,8 +124,11 @@ chrome only. Every Retry is RetryButton, gated in `busyControlsStayFocusable.spe
 A grid that sets its columns under a variant also sets its base track in the same class string:
 `grid grid-cols-1 md:grid-cols-3`, never `grid md:grid-cols-3`. Without the base, the phone layout is
 one implicit `auto` track that sizes to its widest content, so one long company name scrolls the page
-sideways. Gate: the ESLint rule `earningsnerd/responsive-grid-base-track` (`eslint.gridBaseTrack.mjs`);
-rules in `lessons/frontend-variable-text-must-not-size-a-wrapping-row.md`.
+sideways. The base must render whenever the variant columns do: in text that is always there, or in the
+same conditional branch (ternary arm, `&&` operand, `clsx` object key). `cx('grid grid-cols-1', wide &&
+'md:grid-cols-2')` is right; `cx('grid', wide ? 'md:grid-cols-2' : 'grid-cols-1')` is not. Gate: the ESLint
+rule `earningsnerd/responsive-grid-base-track` (`eslint.gridBaseTrack.mjs`); rules in
+`lessons/frontend-variable-text-must-not-size-a-wrapping-row.md`.
 
 ```
 Primary button   <Button>  ·  LIGHT: white label on bg-brand, hover bg-brand-strong, active bg-brand-emphasis
