@@ -113,7 +113,8 @@ not trigger Codex by themselves; an owner `@codex review` comment is needed (pre
 
 | # | Dispatch | Reserved | Telemetry actual | Status |
 | --- | --- | --- | --- | --- |
-| — | none yet | — | — | — |
+| D1 | #1119 (replaces #1096) `eval-baseline` by workflow dispatch on `claude/pr1096-deps-without-edgartools` at `76d2ba6d`, run [37695333206](https://github.com/neilmac91/EarningsNerd/actions/runs/37695333206), 22:18:33Z (off-peak; balance 37.57 at 22:18:07Z) | 0.40 | pending | running |
+| D2 | #1119 ready transition 22:19Z → `copilot-eval` (one run, E1 precedent) | 0.05 | pending | running |
 
 ## Lanes (Stage 1 triage, main `335ad94b` after #1111 merged at 20:01Z)
 
@@ -246,3 +247,12 @@ Pending.
   Observe-only: reported, not commented.
 - 21:37Z — **#1116 merged** `b96457d1` (head `52cf7a23` re-read; CI 37689522607 green; review-gate
   37689536809 pass). #1097 closed as superseded (comment 6047344689).
+- 22:13:46Z (observed) — #1117 (`codex/wave3-backend-build-cache`, ci only) merged by its owner:
+  the deploy job now builds with Buildx and a GHA cache. No deploy ran (workflow-only change), so the
+  #1119 merge is the first backend deploy on the new build path. #1114 and #1115 (Dependabot sharp
+  and next 16.4.0) opened and closed during the run (not by this session). #1118 (new draft,
+  `claude/agent-workflow-cost`, 22:10Z): observe-only. #1110 marked ready by the chief.
+- 22:18Z — #1096 replacement pushed (`76d2ba6d`; lane workflow round 1 confirmed one should-fix, a
+  README overstatement of the sqlalchemy ignore's reach, fixed in `76d2ba6d`; round 2 running) and
+  opened as **#1119**; D1 dispatched (the Actions dispatch API worked this run); marked ready 22:19Z
+  (D2 + Codex review). Balance USD 37.57 at 22:18:07Z.
