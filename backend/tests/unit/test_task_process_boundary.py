@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import asyncio
+import subprocess
 import sys
 
 import pytest
@@ -30,6 +31,17 @@ async def test_running_native_work_is_killed_and_reaped_before_request_ends(monk
     async def record(*args, **kwargs):
         process = await create(*args, **kwargs)
         children.append(process)
+        # Start the tested work deadline only once the controlled native thread is running.
+        # OS/Python startup under load is not the behavior this cleanup test measures.
+        try:
+            async with asyncio.timeout(2):
+                while not ready.exists():
+                    await asyncio.sleep(0.005)
+        except BaseException:
+            if process.returncode is None:
+                process.kill()
+            await process.wait()
+            raise
         return process
 
     monkeypatch.setattr(service.asyncio, "create_subprocess_exec", record)
@@ -62,6 +74,13 @@ async def test_worker_reports_process_failure_and_rejects_api_execution(monkeypa
 
 @pytest.mark.asyncio
 async def test_private_asgi_worker_has_its_own_work_deadline(monkeypatch):
+    # A fresh interpreter catches eager package imports hidden by pytest's loaded API modules.
+    probe = subprocess.run(
+        [sys.executable, "-c", "import task_worker_main,sys; "
+         "assert not {'main','app.database','app.models','app.routers.analysis'} & sys.modules.keys()"],
+        capture_output=True, text=True, timeout=15,
+    )
+    assert probe.returncode == 0, probe.stderr
     import main
     import task_worker_main
     from app.routers import tasks

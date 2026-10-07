@@ -37,7 +37,7 @@ class CompanyTask(BaseModel):
 
 
 class FilingsTask(CompanyTask):
-    filing_types: list[str] = Field(min_length=1, max_length=12)
+    filing_types: list[str] = Field(min_length=1)
 
 
 _token: str = ""

@@ -64,8 +64,11 @@ repository's GitHub cache quota; it does not remove older Artifact Registry imag
 
 The default remains `DURABLE_TASKS_ENABLED=false` and CPU always allocated. Keep one warm API
 instance and 1 GiB; do not reduce either as part of this rollout. Provision a dedicated Cloud Tasks
-queue in us-west1 with one concurrent dispatch, 0.2 dispatches/second, five attempts, a six-hour
-retry window and 30–900 second backoff. Enable the Cloud Tasks API; create a dedicated task
+queue in us-west1 with one concurrent dispatch, 0.2 dispatches/second, five attempts,
+`max-retry-duration=0s` and 30–900 second backoff. The finite attempt count controls retry exposure;
+a positive duration would allow retries past five until both conditions are satisfied
+([Google retry semantics](https://docs.cloud.google.com/tasks/docs/configuring-queues#retry)).
+Enable the Cloud Tasks API; create a dedicated task
 identity. Grant the API runtime `roles/cloudtasks.enqueuer` on that queue and
 `roles/iam.serviceAccountUser` on the task identity, and the task identity `roles/run.invoker` only
 on the private worker. Grant the Cloud Tasks primary service agent

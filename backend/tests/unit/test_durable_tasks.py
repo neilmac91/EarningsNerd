@@ -84,6 +84,10 @@ async def test_enqueue_is_bounded_deduplicated_and_never_contains_credentials(co
     assert task["dispatchDeadline"] == "540s"
     with pytest.raises(ValueError):
         await transport.enqueue_task("companyfacts", {"company_id": 7, "document": "private"})
+    # Supported forms plus amendment expansion can exceed twelve entries.
+    await transport.enqueue_task("filings", {"company_id": 7, "filing_types": ["10-K"] * 13})
+    with pytest.raises(ValueError, match="control-message size"):
+        await transport.enqueue_task("filings", {"company_id": 7, "filing_types": ["x" * 28_001]})
 
 
 @pytest.mark.asyncio
@@ -144,3 +148,9 @@ async def test_repeat_cached_visits_do_not_wait_on_the_control_plane(monkeypatch
     clock.timestamp = lambda: 201
     await filings._enqueue_visit_task(*args, key="filings:7", seconds=100)
     assert enqueue.await_count == 2
+    for index, error in enumerate((transport.TaskUnavailable("offline"), ValueError("oversized control"))):
+        clock.timestamp = lambda: 301 + index * 100
+        enqueue.side_effect = error
+        await filings._enqueue_visit_task(*args, key="filings:7", seconds=100)
+        await filings._enqueue_visit_task(*args, key="filings:7", seconds=100)
+        assert enqueue.await_count == 3 + index

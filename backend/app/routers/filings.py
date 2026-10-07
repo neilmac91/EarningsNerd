@@ -71,8 +71,8 @@ async def _enqueue_visit_task(kind: str, payload: dict, *, key: str, seconds: in
     try:
         await enqueue_task(kind, payload, dedupe_key=key, dedupe_seconds=seconds)
         expires = (int(now) // seconds + 1) * seconds
-    except TaskUnavailable:
-        logger.warning("On-visit task handoff unavailable kind=%s", kind, exc_info=True)
+    except (TaskUnavailable, ValueError):
+        logger.warning("On-visit task handoff unavailable kind=%s", kind)
         expires = now + 10  # a brief outage cooldown keeps cached page loads fast
     if len(_visit_task_handoffs) >= MAX_FILINGS_SYNC_ENTRIES:
         _visit_task_handoffs.pop(next(iter(_visit_task_handoffs)), None)
