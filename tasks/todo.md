@@ -6374,9 +6374,14 @@ provider calls. The rejected candidates were not logged, so the precise quoted s
 The selected critical excerpt predates the incident and was recovered read-only for three controlled
 draws of the original question, separately from the unchanged six-source/eighteen-draw gate.
 
-The repair gives only that admission reason one fresh private generation, sharing the selected
+A first three-draw original-question batch admitted 2/3 answers: the other candidate removed the
+inner quotation marks around revenue backlog from its cited excerpt. The source matcher correctly
+rejected that altered passage. The repair gives a quotation mismatch or pure referenced excerpt
+mismatch one fresh private generation, sharing the selected
 source, original deadline and provider accounting. The replacement still passes every admission
-check; other failures remain terminal. Prompt guidance requests exact contiguous direct quotations
+check; an excerpt rejection with missing/ambiguous identities, quoted labels or inadequate
+sources/excerpts is ineligible for regeneration.
+Prompt guidance preserves excerpt punctuation and requests exact contiguous direct quotations
 or cited paraphrases. New service/SDK/ASGI checks cover containment, bounded state and one quota
 charge, and the evaluator retains each generation separately. Locked contracts, model, flags,
 baseline, source selection and scoring thresholds remain unchanged. Full local, live evaluation,

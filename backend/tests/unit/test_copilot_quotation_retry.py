@@ -1,4 +1,4 @@
-"""A rejected quotation may buy one fresh attempt, never publication or a new quota unit.
+"""A narrowly rejected evidence candidate may buy one fresh attempt, never publication or a new quota unit.
 
 These checks compose the real service/admission, native SDK and ASGI quota owners. All
 provider traffic is mocked; the existing quotation verifier and locked contracts stay intact.
@@ -41,8 +41,8 @@ def filing():
     )
 
 
-def envelope(answer, *, excerpt=KNOWN, followups=FOLLOWUPS):
-    citations = [{"n": 1, "excerpt": excerpt, "section": "Item 2 — MD&A"}]
+def envelope(answer, *, excerpt=KNOWN, followups=FOLLOWUPS, section="Item 2 — MD&A", declarations=None):
+    citations = declarations if declarations is not None else [{"n": 1, "excerpt": excerpt, "section": section}]
     return (answer + "\n===CITATIONS===\n" + json.dumps(citations)
             + "\n===FOLLOWUPS===\n" + json.dumps(followups))
 
@@ -51,6 +51,8 @@ def rejected(surface="answer"):
     if surface == "not_disclosed":
         return (f'===NOT_DISCLOSED===\nThe filing does not explain "{INVENTED}".'
                 + "\n===FOLLOWUPS===\n" + json.dumps(FOLLOWUPS))
+    if surface == "citation_excerpt":
+        return envelope(f'Management said "{KNOWN}" [1].', excerpt=INVENTED)
     questions = FOLLOWUPS if surface == "answer" else [f'Why did management say "{INVENTED}"?', FOLLOWUPS[1]]
     answer = f'Management said "{INVENTED}" [1].' if surface == "answer" else f'Management said "{KNOWN}" [1].'
     return envelope(answer, followups=questions)
@@ -70,7 +72,7 @@ async def collect(selected_filing=None):
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("surface", ["answer", "followup", "not_disclosed"])
+@pytest.mark.parametrize("surface", ["answer", "followup", "not_disclosed", "citation_excerpt"])
 async def test_quotation_retry_safety_gate(monkeypatch, surface):
     """One grouped rule gate: a private mismatch retries fresh, once, with bounded custody."""
     selected = filing()
@@ -153,14 +155,15 @@ async def test_quotation_retry_safety_gate(monkeypatch, surface):
 
 
 @pytest.mark.asyncio
-async def test_retry_exhaustion_has_one_terminal_error_without_private_candidates(monkeypatch):
+@pytest.mark.parametrize("surface", ["answer", "citation_excerpt"])
+async def test_retry_exhaustion_has_one_terminal_error_without_private_candidates(monkeypatch, surface):
     calls, closed = [], []
 
     async def stream(*_args, **kwargs):
         attempt = len(calls) + 1
         calls.append(kwargs["deadline"])
         try:
-            yield rejected()
+            yield rejected(surface)
         finally:
             closed.append(attempt)
 
@@ -175,19 +178,44 @@ async def test_retry_exhaustion_has_one_terminal_error_without_private_candidate
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("case", ["malformed", "citation", "upstream", "ambiguous", "missing_source", "elided"])
+@pytest.mark.parametrize("case", [
+    "malformed", "citation", "upstream", "ambiguous", "missing_source", "elided",
+    "missing_source_excerpt", "quoted_section", "missing_id",
+    "short_excerpt", "short_source", "leading_zero_missing", "late_quoted_label",
+])
 async def test_other_rejections_do_not_buy_another_generation(monkeypatch, case):
     selected = filing()
     payload = {
         "malformed": 'A private answer [1].\n===CITATIONS===[{"n":1,',
-        "citation": envelope("The filing supports this claim [1].", excerpt=INVENTED),
+        "citation": envelope("The filing supports this claim [1].", declarations=[
+            {"n": 1, "excerpt": INVENTED, "section": "Item 2 — MD&A"},
+            {"n": 1, "excerpt": KNOWN, "section": "Item 2 — MD&A"},
+        ]),
         "upstream": STREAM_ERROR_SENTINEL + "offline provider failed",
         "ambiguous": envelope(f'The filing said "{KNOWN}" [1]. [More](https://example.invalid)'),
         "missing_source": f'The filing said "{KNOWN}".\n===CITATIONS===[]',
         "elided": envelope('The filing said "Demand ... across cloud services" [1].'),
+        "missing_source_excerpt": rejected("citation_excerpt"),
+        "quoted_section": envelope(f'Management said "{KNOWN}" [1].', excerpt=INVENTED,
+                                   section='Item 2 — "Management demand commentary"'),
+        "missing_id": envelope(f'Management said "{KNOWN}" [1]. Capacity investment continued [2].',
+                               excerpt=INVENTED),
+        "short_excerpt": envelope(f'Management said "{KNOWN}" [1].', excerpt='"Changed demand"'),
+        "short_source": rejected("citation_excerpt"),
+        "leading_zero_missing": envelope(
+            f'Management said "{KNOWN}" [1]. Capacity investment continued [01].', excerpt=INVENTED,
+        ),
+        "late_quoted_label": envelope(
+            f'Management said "{KNOWN}" [1]. Capacity investment continued [2].', declarations=[
+                {"n": 1, "excerpt": INVENTED, "section": "Item 2 — MD&A"},
+                {"n": 2, "excerpt": KNOWN, "section": 'Item 2 — "Management demand commentary"'},
+            ],
+        ),
     }[case]
-    if case == "missing_source":
+    if case in {"missing_source", "missing_source_excerpt"}:
         selected.content_cache.critical_excerpt = None
+    elif case == "short_source":
+        selected.content_cache.critical_excerpt = "Demand was robust."
     calls = []
 
     async def stream(*_args, **_kwargs):
@@ -294,7 +322,10 @@ def client():
 @pytest.mark.asyncio
 @pytest.mark.parametrize("is_pro", [False, True])
 @pytest.mark.parametrize("outcome", ["recovered", "exhausted"])
-async def test_real_asgi_retry_meters_once_and_refunds_only_terminal_failure(client, monkeypatch, is_pro, outcome):
+@pytest.mark.parametrize("surface", ["answer", "citation_excerpt"])
+async def test_real_asgi_retry_meters_once_and_refunds_only_terminal_failure(
+    client, monkeypatch, is_pro, outcome, surface,
+):
     from app.routers import summaries as router
 
     calls, between_attempts, charged, refunded, completed_cost = [], [], [], [], []
@@ -317,7 +348,7 @@ async def test_real_asgi_retry_meters_once_and_refunds_only_terminal_failure(cli
             between_attempts.append(_qa_state(user_id))
         merge_chat_usage(kwargs["usage_sink"], usage(attempt))
         yield (envelope(f'Management said "{KNOWN}" [1].')
-               if attempt == 2 and outcome == "recovered" else rejected())
+               if attempt == 2 and outcome == "recovered" else rejected(surface))
 
     monkeypatch.setattr(copilot_service.openai_service, "stream_chat_with_tools", stream)
     monkeypatch.setattr(router, "_meter_qa_best_effort", metering)

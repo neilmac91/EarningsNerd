@@ -78,15 +78,21 @@ _PUBLICATION_ERROR = "I couldn't verify the cited evidence, so I couldn't provid
 PROVIDER_STARTED_STAGE = "generating"  # progress stage emitted once the provider stream yields
 _STREAM_FAILURE = "I couldn't complete this answer. Please try again."
 _RETRYABLE_QUOTATION_FAILURE = "Unsupported prose quotation: quotation_not_in_source"
-_QUOTATION_RETRY_GUIDANCE = """Generate a fresh complete answer from the original filing and question.
-The previous candidate failed quotation matching. Do not reconstruct it. Use only filing-supported
+_EVIDENCE_RETRY_GUIDANCE = """Generate a fresh complete answer from the original filing and question.
+The previous candidate failed source matching. Do not reconstruct it. Use only filing-supported
 claims with the required source citations. Prefer concise paraphrases; any direct quotation must
-copy one exact contiguous source span. Keep displayed follow-up questions and not-disclosed
+copy one exact contiguous source span. Citation excerpts must preserve all source punctuation,
+including quotation marks inside the passage; escape them correctly in JSON, never remove them.
+Keep displayed follow-up questions and not-disclosed
 explanations free of quotation marks. Finish the complete citation and follow-up envelopes."""
 
 
 class _UnpublishableAnswer(ValueError):
     """A candidate cannot cross the publication boundary."""
+
+
+class _RegenerableEvidenceMismatch(_UnpublishableAnswer):
+    """Only referenced excerpt matching failed; identity, label and source checks passed."""
 
 
 SYSTEM_PROMPT = f"""You are EarningsNerd's "Ask this Filing" assistant. You answer questions about a \
@@ -103,6 +109,8 @@ Never stitch separate passages, insert ellipses, change source wording or number
 paraphrase inside quotation marks.
 - Keep the DISPLAYED text of follow-up questions, not-disclosed explanations, and citation \
 section labels free of quotation marks. JSON string delimiters are still required in the arrays.
+- Citation EXCERPTS must preserve the source's wording and punctuation, including quotation \
+marks inside the passage. Escape those marks in JSON; never remove them from the excerpt.
 - If the filing does not disclose what is asked, say so honestly — do NOT guess or fabricate.
 - For any specific financial figure (revenue, margins, EPS, YoY, etc.), you MUST call the provided \
 tools to get the exact value — never state a number from memory or compute it yourself. \
@@ -486,16 +494,21 @@ def _verify_citations(
     base_url = getattr(filing, "document_url", None) or getattr(filing, "sec_url", None) or ""
     by_marker: dict[str, dict] = {}
     declared: dict[str, dict] = {}
+    failed = False
+    excerpt_mismatch_only = len(normalized_source) >= _MIN_VERIFIABLE_LEN
     for cite in citations:
         excerpt = cite["excerpt"].strip()
         section_ref = cite.get("section") or cite.get("section_ref")
         key = str(cite["n"])
-        verified = (verify_whole_excerpt_in_text(excerpt, normalized_source)
-                    and not section_label_is_quoted(section_ref))
+        quoted_label = section_label_is_quoted(section_ref)
+        verified = verify_whole_excerpt_in_text(excerpt, normalized_source) and not quoted_label
+        colliding = key in declared and declared[key] != cite
         if key in referenced and (
-            not verified or (key in declared and declared[key] != cite)
+            not verified or colliding
         ):
-            raise _UnpublishableAnswer("Unverified or ambiguous referenced citation")
+            failed = True
+            excerpt_mismatch_only = (excerpt_mismatch_only and not quoted_label and not colliding
+                                    and len(normalize_for_match(strip_wrapping_quotes(excerpt))) >= _MIN_VERIFIABLE_LEN)
         declared[key] = cite
         fragment_url = (
             build_text_fragment_url(base_url, strip_wrapping_quotes(excerpt), source_span=True)
@@ -507,6 +520,13 @@ def _verify_citations(
             "verified": verified,
             "fragment_url": fragment_url,
         }
+    if failed:
+        # Check all referenced declarations before classifying an excerpt-only mismatch. A later
+        # identity collision, quoted label or missing literal must never buy another generation.
+        required_text = {key for key in referenced if not key.startswith("F")}
+        excerpt_mismatch_only = excerpt_mismatch_only and required_text <= declared.keys()
+        failure = _RegenerableEvidenceMismatch if excerpt_mismatch_only else _UnpublishableAnswer
+        raise failure("Unverified or ambiguous referenced citation")
     return by_marker
 
 
@@ -1571,7 +1591,7 @@ async def answer_filing_question(
     question: str,
     history: Optional[list[dict]] = None,
 ) -> AsyncGenerator[dict, None]:
-    """Publish one admitted answer, privately regenerating one mismatched quotation candidate.
+    """Publish one admitted answer, privately regenerating one mismatched evidence candidate.
 
     Both generations share the original source, usage accounting and provider deadline. Rejected
     prose is never exposed or reused; an incomplete envelope or another failure stays terminal.
@@ -1586,7 +1606,7 @@ async def answer_filing_question(
             candidate = _answer_filing_question_attempt(
                 filing=filing, question=question, history=history,
                 source_text=source_text, normalized_source=normalized_source,
-                usage_sink=usage_sink, deadline=deadline, quotation_retry=bool(attempt),
+                usage_sink=usage_sink, deadline=deadline, evidence_retry=bool(attempt),
             )
             try:
                 async for event in candidate:
@@ -1599,7 +1619,8 @@ async def answer_filing_question(
             except _UnpublishableAnswer as exc:
                 # Fixed owned reasons only. The discarded answer is never put into a new prompt.
                 logger.warning("Copilot candidate withheld at citation publication boundary: %s", exc)
-                if (attempt == 0 and str(exc) == _RETRYABLE_QUOTATION_FAILURE
+                if (attempt == 0 and (str(exc) == _RETRYABLE_QUOTATION_FAILURE
+                                     or isinstance(exc, _RegenerableEvidenceMismatch))
                         and asyncio.get_running_loop().time() < deadline):
                     continue
                 yield {"type": "error", "message": _PUBLICATION_ERROR}
@@ -1613,7 +1634,7 @@ async def answer_filing_question(
 
 async def _answer_filing_question_attempt(
     *, filing: Any, question: str, history: Optional[list[dict]], source_text: str,
-    normalized_source: str, usage_sink: dict[str, Any], deadline: float, quotation_retry: bool,
+    normalized_source: str, usage_sink: dict[str, Any], deadline: float, evidence_retry: bool,
 ) -> AsyncGenerator[dict, None]:
     """Stream a grounded answer to ``question`` about ``filing`` as event dicts.
 
@@ -1631,8 +1652,8 @@ async def _answer_filing_question_attempt(
     provider_stream = None
     try:
         messages = _build_messages(filing, source_text, question, history)
-        if quotation_retry:
-            messages[0]["content"] += "\n\n" + _QUOTATION_RETRY_GUIDANCE
+        if evidence_retry:
+            messages[0]["content"] += "\n\n" + _EVIDENCE_RETRY_GUIDANCE
 
         # P5/P6b numeric tool-use: bind tools to this filing's company, accession and native currency. ``run_tool`` opens its own
         # DB session per call (the request session is gone by now). Each distinct successful fact is

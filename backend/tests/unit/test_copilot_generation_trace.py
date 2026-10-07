@@ -1,4 +1,4 @@
-"""A private quotation regeneration retains each physical candidate's evidence boundary."""
+"""A private evidence regeneration retains each physical candidate's evidence boundary."""
 
 import json
 from datetime import date
@@ -89,7 +89,7 @@ async def test_private_generations_keep_separate_evidence_boundaries(outcome, mo
         assert trace['generation_options'] == generations[0]['generation_options']
         assert all(g['tool_schema'] == trace['tool_schema'] for g in generations)
         assert 'tool-round-mutation' not in json.dumps([g['initial_messages'] for g in generations])
-        assert generations[1]['initial_messages'][0]['content'].endswith(copilot_service._QUOTATION_RETRY_GUIDANCE)
+        assert generations[1]['initial_messages'][0]['content'].endswith(copilot_service._EVIDENCE_RETRY_GUIDANCE)
         assert replies[0][0].strip() not in json.dumps(generations[1]['initial_messages'])
         if outcome == 'rejected':
             assert row['error']['withheld_reason'] == DECLARATION_REASON
