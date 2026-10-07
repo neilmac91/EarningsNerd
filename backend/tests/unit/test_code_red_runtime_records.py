@@ -34,8 +34,9 @@ CONTROL = RUNTIME / "control"
 CHECKPOINT = RUNTIME / "CHECKPOINT.md"
 APPOINTMENTS = CONTROL / "APPOINTMENTS.json"
 
-# Every deliverables row is parsed, then its digest is validated, so a malformed digest fails instead of dropping the row.
-TABLE_ROW = re.compile(r"^\| `([^`]+)` \| `([^`]*)` \|", re.MULTILINE)
+# Every body row of the deliverables table must parse as | `path` | `digest` |, and its digest is then validated, so a
+# malformed or unbackticked row fails instead of being dropped.
+TABLE_ROW = re.compile(r"^\| `([^`]+)` \| `([^`]*)` \|")
 SHA256_HEX = re.compile(r"[0-9a-f]{64}")
 HEADER_STAMP = re.compile(r"\(updated (\d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ)\)")
 CLOSURE_NAME = re.compile(r"^source-context-exclusion-(\d+)\.json$")
@@ -64,7 +65,14 @@ def _section(text: str, heading: str) -> str:
 
 
 def _checkpoint_rows() -> list[tuple[str, str]]:
-    rows = TABLE_ROW.findall(_section(CHECKPOINT.read_text(encoding="utf-8"), DELIVERABLES_HEADING))
+    """Every body row of the deliverables table, each required to parse and to carry a well-formed digest."""
+    section = _section(CHECKPOINT.read_text(encoding="utf-8"), DELIVERABLES_HEADING)
+    pipe_lines = [line for line in section.splitlines() if line.startswith("|")]
+    assert len(pipe_lines) >= 3, "the deliverables table has no body rows"
+    _header, _separator, *body = pipe_lines
+    unparsed = [line for line in body if not TABLE_ROW.match(line)]
+    assert not unparsed, f"deliverables rows that do not parse as | `path` | `sha256` |: {unparsed}"
+    rows = [(match.group(1), match.group(2)) for match in map(TABLE_ROW.match, body) if match]
     malformed = [path for path, digest in rows if not SHA256_HEX.fullmatch(digest)]
     assert not malformed, f"hash rows whose digest is not 64 lowercase hex characters: {malformed}"
     return rows
