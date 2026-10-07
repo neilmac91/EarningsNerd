@@ -4,7 +4,53 @@ on:
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
     paths:
-      - 'backend/**'
+      # Only files that can change what the paid Copilot fidelity run measures. The set is the
+      # transitive import closure of evals.copilot_runner and evals.copilot_bootstrap plus the data
+      # they load at runtime (prompts, the golden set and sources, the model env file). Gate:
+      # backend/tests/unit/test_copilot_eval_paths.py recomputes the closure and fails when a reachable
+      # module falls outside this list, or when backend/tests/** or evals Markdown would trigger it.
+      - 'backend/app/__init__.py'
+      - 'backend/app/config.py'
+      - 'backend/app/database.py'
+      - 'backend/app/models/**'
+      - 'backend/app/schemas/**'
+      - 'backend/app/utils/**'
+      - 'backend/app/services/ai/**'
+      - 'backend/app/services/edgar/**'
+      - 'backend/app/services/__init__.py'
+      - 'backend/app/services/ai_metrics.py'
+      - 'backend/app/services/citation_markers.py'
+      - 'backend/app/services/content_cache.py'
+      - 'backend/app/services/copilot_service.py'
+      - 'backend/app/services/copilot_tools.py'
+      - 'backend/app/services/entitlements.py'
+      - 'backend/app/services/event_loop.py'
+      - 'backend/app/services/excerpt_provenance.py'
+      - 'backend/app/services/facts_service.py'
+      - 'backend/app/services/fallback_summary.py'
+      - 'backend/app/services/filing_amendment_service.py'
+      - 'backend/app/services/financial_basis.py'
+      - 'backend/app/services/llm_pricing.py'
+      - 'backend/app/services/metric_delta_service.py'
+      - 'backend/app/services/openai_service.py'
+      - 'backend/app/services/posthog_client.py'
+      - 'backend/app/services/prompt_loader.py'
+      - 'backend/app/services/provenance_service.py'
+      - 'backend/app/services/redis_service.py'
+      - 'backend/app/services/sec_rate_limiter.py'
+      - 'backend/app/services/subscription_service.py'
+      - 'backend/app/services/summary_generation_service.py'
+      - 'backend/app/services/summary_pipeline.py'
+      - 'backend/app/services/summary_request_evidence.py'
+      - 'backend/app/services/summary_schema.py'
+      - 'backend/app/services/summary_sections.py'
+      - 'backend/app/services/summary_versioning.py'
+      - 'backend/prompts/**'
+      - 'backend/evals/**'
+      - '!backend/evals/**.md'
+      - 'backend/requirements.txt'
+      - 'backend/requirements-dev.txt'
+      - '.github/ai-model.env'
       - '.github/workflows/copilot-eval.yml'
 
 permissions:
