@@ -11,8 +11,8 @@ a broken record never reaches a reviewer:
 * the checkpoint header and ``APPOINTMENTS.json`` are stamped no earlier than the newest closure (they are written last);
 * the chief's decisions are numbered contiguously from 1;
 * every JSON file parses;
-* no private artifact URL (either link form), local-machine home path or, in the chief's control files, session upload-area
-  path is written into the records — every file in the tree is scanned, whatever its suffix.
+* no private artifact URL (either link form), macOS home path (``/Users/``) or, in the chief's control files, session
+  upload-area path is written into the records — every file in the tree is scanned, whatever its suffix.
 
 Records-only PRs touch nothing under ``backend/``, yet CI runs the backend gate on every PR, so this test runs on each record PR;
 it lives under ``backend/tests/`` and therefore never triggers ``deploy-backend`` (the detector ignores that directory).
@@ -37,7 +37,7 @@ APPOINTMENTS = CONTROL / "APPOINTMENTS.json"
 HASH_ROW = re.compile(r"^\| `([^`]+)` \| `([0-9a-f]{64})` \|", re.MULTILINE)
 HEADER_STAMP = re.compile(r"\(updated (\d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ)\)")
 CLOSURE_NAME = re.compile(r"^source-context-exclusion-(\d+)\.json$")
-DELIVERABLES_HEADING = "## Deliverables and exact hashes"
+DELIVERABLES_HEADING = "## Deliverables and exact hashes (SHA-256)"
 DECISIONS_HEADING = "## Decisions taken by the chief"
 # Hash rows may point outside the runtime tree only into these trees (the chief-committed D1/D3/D5 deliverables).
 ALLOWED_OFF_TREE = (REPO_ROOT / "tasks" / "readiness-2026-09-21" / "beta",)
@@ -54,11 +54,11 @@ def _sha256(path: Path) -> str:
 
 
 def _section(text: str, heading: str) -> str:
-    """The body of one ``## `` section of CHECKPOINT.md, from its heading to the next ``## `` heading."""
-    assert heading in text, f"CHECKPOINT.md has no {heading!r} section"
-    start = text.index(heading)
-    end = text.find("\n## ", start + len(heading))
-    return text[start : end if end != -1 else None]
+    """The body of one ``## `` section of CHECKPOINT.md, from its heading line to the next ``## `` heading."""
+    match = re.search(rf"^{re.escape(heading)}\s*$", text, re.MULTILINE)
+    assert match, f"CHECKPOINT.md has no {heading!r} heading line"
+    end = text.find("\n## ", match.end())
+    return text[match.start() : end if end != -1 else None]
 
 
 def _checkpoint_rows() -> list[tuple[str, str]]:
@@ -80,7 +80,7 @@ def _stamp(value: str) -> datetime:
 
 
 def _runtime_files() -> set[Path]:
-    return {p for p in RUNTIME.rglob("*") if p.is_file() and p != CHECKPOINT and "__pycache__" not in p.parts}
+    return {p for p in RUNTIME.rglob("*") if p.is_file() and p != CHECKPOINT}
 
 
 def test_checkpoint_hash_rows_match_their_files() -> None:

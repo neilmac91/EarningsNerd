@@ -4,8 +4,9 @@
 
 ## Context
 
-CODE RED decision record 12 (PR #1105) first stated that "none of the three component hashes … appears
-anywhere in the repository". The search behind the sentence had been a `grep -r` filtered to Markdown,
+CODE RED decision record 12 (PR #1105) first stated, on the blocked head `17dbb5c5` (named with its correction
+in the commit message of `adf98331` on main), that "none of the three component hashes … appears anywhere in
+the repository". The search behind the sentence had been a `grep -r` filtered to Markdown,
 JSON and shell files; the hashes are Python constants in `backend/evals/acceptance_source_contract.py`,
 added in PR #1028. The record's independent reviewer found them with a `git grep` over all tracked files
 and blocked the head. The sentence was corrected before merge (commit `2903ca9f` on the PR #1105 branch,
