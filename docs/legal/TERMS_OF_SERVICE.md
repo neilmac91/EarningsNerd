@@ -159,7 +159,9 @@ are the entire agreement between us regarding the Service.
 
 ## 20. Contact
 
-**support@earningsnerd.io** · legal: **legal@earningsnerd.io** · **[Address, Switzerland]**
+Support and terms questions: **support@earningsnerd.io**. Billing: **billing@earningsnerd.io**.
+
+Operator: **Neil Mac Aogain**, as an individual. A suitable correspondence address remains a founder review item before launch.
 
 ---
 

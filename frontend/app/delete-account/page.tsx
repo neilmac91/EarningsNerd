@@ -1,5 +1,6 @@
 'use client'
 
+import { CONTACT_ADDRESSES, contactMailto } from '@/lib/contactAddresses'
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import Link from 'next/link'
@@ -123,7 +124,7 @@ export default function DeleteAccountPage() {
               description={
                 <>
                   Please try again or email{' '}
-                  <a href="mailto:privacy@earningsnerd.io" className="underline">privacy@earningsnerd.io</a>.
+                  <a href={contactMailto('privacy')} className="underline">{CONTACT_ADDRESSES.privacy}</a>.
                 </>
               }
             />
@@ -147,7 +148,7 @@ export default function DeleteAccountPage() {
               </Link>
               <p className="mt-4 text-sm text-text-secondary-light dark:text-text-secondary-dark">
                 Can&apos;t sign in? Email{' '}
-                <a href="mailto:privacy@earningsnerd.io" className="underline">privacy@earningsnerd.io</a>{' '}
+                <a href={contactMailto('privacy')} className="underline">{CONTACT_ADDRESSES.privacy}</a>{' '}
                 from your account email address and we&apos;ll process your deletion request.
               </p>
             </div>

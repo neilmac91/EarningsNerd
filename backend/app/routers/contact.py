@@ -168,7 +168,7 @@ async def send_contact_notifications(
 
     # Email to user (confirmation). Deliberately does NOT repeat the submitted message: the
     # recipient address is caller-supplied, so the confirmation carries only our own copy.
-    user_subject = "We received your message - EarningsNerd"
+    user_subject = "I received your message - EarningsNerd"
     user_html = f"""
     <html>
       <head>
@@ -183,13 +183,13 @@ async def send_contact_notifications(
       <body>
         <div class="container">
           <div class="header">
-            <h2>Thank You for Contacting EarningsNerd</h2>
+            <h2>Thanks for contacting EarningsNerd</h2>
           </div>
           <div class="content">
             <p>Hi {safe_name},</p>
-            <p>We&apos;ve received your message and will get back to you as soon as possible, typically within 1-2 business days.</p>
-            <p>If you need immediate assistance or have additional information to add, feel free to reply to this email.</p>
-            <p>Best regards,<br>The EarningsNerd Team</p>
+            <p>I&apos;ve received your message. I aim to reply within 2 business days.</p>
+            <p>If you have anything to add, just reply to this email.</p>
+            <p>Neil<br>Founder, EarningsNerd</p>
           </div>
           <div class="footer">
             <p>EarningsNerd - AI-Powered SEC Filing Analysis<br>
@@ -203,22 +203,17 @@ async def send_contact_notifications(
     # Send both emails
     # Note: In a production environment with high volume, consider using a job queue
     try:
-        # Send to admin (using environment variable or fallback)
-        from_email = settings.RESEND_FROM_EMAIL
-        if not from_email:
-            logger.warning("RESEND_FROM_EMAIL is not set, skipping admin notification")
+        # The inbox recipient is independent of the verified outbound sender.
+        admin_email = settings.CONTACT_NOTIFICATION_EMAIL
+        if not admin_email:
+            logger.warning("CONTACT_NOTIFICATION_EMAIL is not set, skipping admin notification")
         else:
             try:
-                # safe extraction of email
-                if "<" in from_email and ">" in from_email:
-                    admin_email = from_email.split("<")[-1].rstrip(">")
-                else:
-                    admin_email = from_email
-                
                 await send_email(
                     to=[admin_email],
                     subject=admin_subject,
                     html=admin_html,
+                    reply_to=submission.email,
                 )
                 logger.info(f"Admin notification email sent for submission #{submission_id}")
             except Exception as e:
@@ -234,6 +229,7 @@ async def send_contact_notifications(
             to=[submission.email],
             subject=user_subject,
             html=user_html,
+            reply_to=settings.RESEND_REPLY_TO_EMAIL,
         )
         logger.info(f"User confirmation email sent for submission #{submission_id}")
     except ResendError as e:

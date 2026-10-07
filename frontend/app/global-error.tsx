@@ -1,5 +1,6 @@
 'use client'
 
+import { CONTACT_ADDRESSES, contactMailto } from '@/lib/contactAddresses'
 import * as Sentry from '@sentry/nextjs'
 
 import { Inter } from 'next/font/google'
@@ -43,6 +44,11 @@ export default function GlobalError({
                                 Reload page
                             </button>
                         </div>
+                        <p className="mt-4 text-center text-sm text-text-secondary-light dark:text-text-secondary-dark">
+                          If the problem continues, email{' '}
+                          <a href={contactMailto('support')} className="break-all text-brand-strong underline dark:text-brand-strong-dark">{CONTACT_ADDRESSES.support}</a>.
+                        </p>
+
                         {process.env.NODE_ENV === 'development' && (
                             <div className="mt-8 overflow-auto rounded-lg bg-error-light/10 p-4 text-left text-sm text-error-light dark:bg-error-dark/10 dark:text-error-dark">
                                 <p className="font-mono">{error.message}</p>

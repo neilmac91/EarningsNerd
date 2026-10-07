@@ -8,7 +8,8 @@ from app.services.resend_service import send_email
 
 _LINE_BREAKS = re.compile(r"[\r\n]+")
 
-_DEFAULT_FOOTER = "You are receiving this email because you joined the EarningsNerd waitlist."
+_DEFAULT_FOOTER = "This email is about your EarningsNerd account or a request you made."
+_WAITLIST_FOOTER = "You are receiving this email because you joined the EarningsNerd waitlist."
 # Alert/digest emails are transactional opt-ins, not the waitlist — point recipients at prefs.
 _ALERT_FOOTER = (
     "You are receiving this because you track companies on EarningsNerd. "
@@ -36,6 +37,7 @@ def _wrap_html(body: str, footer: str = _DEFAULT_FOOTER) -> str:
                 <tr>
                   <td style="padding-top:32px;font-size:12px;color:#6B7280;">
                     {footer}
+                    <p>Questions? Reply to reach Neil, founder of EarningsNerd.</p>
                   </td>
                 </tr>
               </table>
@@ -101,7 +103,7 @@ def render_welcome_email(
         f"Verify your email to secure your place: {verification_link}\n\n"
         "We'll keep you posted as we open up access."
     )
-    return _wrap_html(html_body), text_body
+    return _wrap_html(html_body, footer=_WAITLIST_FOOTER), text_body
 
 
 def render_referral_success_email(
@@ -129,7 +131,7 @@ def render_referral_success_email(
         f"{referral_link}\n\n"
         "Thanks for spreading the word."
     )
-    return _wrap_html(html_body), text_body
+    return _wrap_html(html_body, footer=_WAITLIST_FOOTER), text_body
 
 
 async def send_waitlist_welcome_email(

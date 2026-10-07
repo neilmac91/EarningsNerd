@@ -1,5 +1,6 @@
 'use client'
 
+import { CONTACT_ADDRESSES, contactMailto } from '@/lib/contactAddresses'
 import { useState, useEffect, useLayoutEffect, useRef } from 'react'
 import { toast } from 'sonner'
 import { CookieIcon } from '@/lib/icons'
@@ -300,8 +301,8 @@ export default function CookieConsent({ onPreferencesChanged }: CookieConsentPro
           For more information, see our{' '}
           <Link href="/privacy" className="text-brand-strong dark:text-brand-strong-dark hover:underline">
             Privacy Policy
-          </Link>
-          .
+          </Link>. For cookie or privacy questions, email{' '}
+          <a href={contactMailto('privacy')} className="break-all text-brand-strong underline dark:text-brand-strong-dark">{CONTACT_ADDRESSES.privacy}</a>.
         </p>
       </ModalBody>
 

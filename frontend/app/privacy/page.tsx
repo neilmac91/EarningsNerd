@@ -1,3 +1,4 @@
+import { CONTACT_ADDRESSES, contactMailto } from '@/lib/contactAddresses'
 import { Metadata } from 'next'
 import Link from 'next/link'
 import { LEGAL_DATES } from '@/lib/legalDates'
@@ -24,7 +25,9 @@ export default function PrivacyPage() {
             Introduction
           </h2>
           <p className="text-text-secondary-light dark:text-text-secondary-dark">
-            EarningsNerd (&quot;we,&quot; &quot;our,&quot; or &quot;us&quot;) is committed to protecting your privacy. This Privacy Policy explains
+            EarningsNerd is operated by Neil, its founder, as an individual. Neil is responsible for the personal data
+            described in this policy and can be contacted at the privacy address below. References to &quot;we,&quot;
+            &quot;our,&quot; or &quot;us&quot; mean Neil operating EarningsNerd. This Privacy Policy explains
             how we collect, use, disclose, and safeguard your information when you visit our website and use our
             services. Please read this privacy policy carefully.
           </p>
@@ -124,6 +127,10 @@ export default function PrivacyPage() {
           </ul>
           <p className="mt-4 text-text-secondary-light dark:text-text-secondary-dark">
             You can manage your cookie preferences at any time through our cookie consent banner (shown on first visit) or through your browser settings. Note that disabling cookies may limit certain features. We respect the &quot;Do Not Track&quot; browser setting and will not track users who have enabled it.
+            For questions about cookies or consent, email{' '}
+            <a href={contactMailto('privacy')} className="text-brand-strong underline dark:text-brand-strong-dark">
+              {CONTACT_ADDRESSES.privacy}
+            </a>.
           </p>
         </section>
 
@@ -267,8 +274,8 @@ export default function PrivacyPage() {
             </li>
             <li>
               <strong>Right to Restrict Processing:</strong> You can request that we limit how we use your data by contacting us at{' '}
-              <a href="mailto:privacy@earningsnerd.io" className="text-brand-strong hover:text-brand-emphasis dark:text-brand-strong-dark dark:hover:text-brand-strong-dark">
-                privacy@earningsnerd.io
+              <a href={contactMailto('privacy')} className="text-brand-strong hover:text-brand-emphasis dark:text-brand-strong-dark dark:hover:text-brand-strong-dark">
+                {CONTACT_ADDRESSES.privacy}
               </a>
               .
             </li>
@@ -307,8 +314,8 @@ export default function PrivacyPage() {
             Our services are not directed to individuals under the age of 13 (or 16 in the EEA). We do not knowingly collect personal
             information from children under these ages. If you become aware that a child has provided us with personal
             information without parental consent, please contact us at{' '}
-            <a href="mailto:privacy@earningsnerd.io" className="text-brand-strong hover:text-brand-emphasis dark:text-brand-strong-dark dark:hover:text-brand-strong-dark">
-              privacy@earningsnerd.io
+            <a href={contactMailto('privacy')} className="text-brand-strong hover:text-brand-emphasis dark:text-brand-strong-dark dark:hover:text-brand-strong-dark">
+              {CONTACT_ADDRESSES.privacy}
             </a>
             , and we will take immediate steps to delete such information.
           </p>
@@ -347,14 +354,14 @@ export default function PrivacyPage() {
           <ul className="list-none space-y-2 text-text-secondary-light dark:text-text-secondary-dark mt-4">
             <li>
               <strong>Privacy Inquiries:</strong>{' '}
-              <a href="mailto:privacy@earningsnerd.io" className="text-brand-strong hover:text-brand-emphasis dark:text-brand-strong-dark dark:hover:text-brand-strong-dark">
-                privacy@earningsnerd.io
+              <a href={contactMailto('privacy')} className="text-brand-strong hover:text-brand-emphasis dark:text-brand-strong-dark dark:hover:text-brand-strong-dark">
+                {CONTACT_ADDRESSES.privacy}
               </a>
             </li>
             <li>
-              <strong>General Support:</strong>{' '}
-              <a href="mailto:hello@earningsnerd.io" className="text-brand-strong hover:text-brand-emphasis dark:text-brand-strong-dark dark:hover:text-brand-strong-dark">
-                hello@earningsnerd.io
+              <strong>Product Support:</strong>{' '}
+              <a href={contactMailto('support')} className="text-brand-strong hover:text-brand-emphasis dark:text-brand-strong-dark dark:hover:text-brand-strong-dark">
+                {CONTACT_ADDRESSES.support}
               </a>
             </li>
             <li>

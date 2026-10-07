@@ -1,5 +1,6 @@
 'use client'
 
+import { CONTACT_ADDRESSES, contactMailto } from '@/lib/contactAddresses'
 import { useEffect } from 'react'
 import * as Sentry from '@sentry/nextjs'
 import Link from 'next/link'
@@ -43,6 +44,11 @@ export default function Error({
             </>
           }
         />
+
+        <p className="mt-4 text-center text-sm text-text-secondary-light dark:text-text-secondary-dark">
+          If the problem continues, email{' '}
+          <a href={contactMailto('support')} className="break-all text-brand-strong underline dark:text-brand-strong-dark">{CONTACT_ADDRESSES.support}</a>.
+        </p>
 
         {process.env.NODE_ENV === 'development' && (
           <div className="rounded-lg border border-border-light bg-background-light p-4 text-left dark:border-border-dark dark:bg-white/5">

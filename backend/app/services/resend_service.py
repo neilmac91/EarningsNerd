@@ -54,6 +54,7 @@ async def send_email(
     from_email: str | None = None,
     *,
     idempotency_key: str | None = None,
+    reply_to: str | None = None,
 ) -> dict:
     if not settings.RESEND_API_KEY:
         # Nothing was sent: a durable delivery may retry once the secret is configured.
@@ -65,6 +66,11 @@ async def send_email(
         "subject": subject,
         "html": html,
     }
+    # Every transactional message is reply-able; form/feedback notices override this with the
+    # submitter so Neil can answer the person directly from Gmail.
+    reply_address = settings.RESEND_REPLY_TO_EMAIL if reply_to is None else reply_to
+    if reply_address:
+        payload["reply_to"] = reply_address
     headers = {
         "Authorization": f"Bearer {settings.RESEND_API_KEY}",
         "Content-Type": "application/json",

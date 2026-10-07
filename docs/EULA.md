@@ -215,8 +215,8 @@ you and the Developer regarding the App.
 
 For any question or claim regarding the App or this Agreement, contact:
 
-> **Neil Mac Aogain**,
-> **Mattenweg 2**,
-> **Zuchwil, Solothurn, 4528, Switzerland**
-> Email: **legal@earningsnerd.io**
+> **Neil Mac Aogain**, individual operator of EarningsNerd.
+> Email: **support@earningsnerd.io**
+
+A suitable correspondence address remains a founder review item before launch.
 

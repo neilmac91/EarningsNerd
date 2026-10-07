@@ -15,11 +15,15 @@ import sys
 import re
 import httpx
 from bs4 import BeautifulSoup
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from app.public_email_addresses import SUPPORT_EMAIL
 
 
 # SEC EDGAR rate limiting
 SEC_HEADERS = {
-    "User-Agent": "EarningsNerd contact@earningsnerd.io",
+    "User-Agent": f"EarningsNerd {SUPPORT_EMAIL}",
     "Accept-Encoding": "gzip, deflate",
 }
 

@@ -1,5 +1,6 @@
 'use client'
 
+import { CONTACT_ADDRESSES, contactMailto } from '@/lib/contactAddresses'
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { getCurrentUserSafe, exportUserData, deleteUserAccount } from '@/features/auth/api/auth-api'
@@ -151,7 +152,8 @@ export default function SettingsPage() {
           {exportMutation.isError && (
             <div className="mt-4 flex items-center text-sm text-error-light dark:text-error-dark">
               <WarningCircleIcon className="h-4 w-4 mr-2" />
-              Failed to export data. Please try again or contact support.
+              <span>Failed to export data. Please try again or email{' '}
+                <a href={contactMailto('privacy')} className="underline">{CONTACT_ADDRESSES.privacy}</a>.</span>
             </div>
           )}
         </Card>
@@ -248,7 +250,8 @@ export default function SettingsPage() {
               {deleteMutation.isError && (
                 <div className="flex items-center text-sm text-error-light dark:text-error-dark">
                   <WarningCircleIcon className="h-4 w-4 mr-2" />
-                  Failed to delete account. Please contact support.
+                  <span>Failed to delete account. Please email{' '}
+                    <a href={contactMailto('privacy')} className="underline">{CONTACT_ADDRESSES.privacy}</a>.</span>
                 </div>
               )}
             </div>

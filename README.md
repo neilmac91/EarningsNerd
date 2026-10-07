@@ -105,6 +105,15 @@ tests); the frontend deploys to Vercel via its GitHub integration. See
 Data export and account-deletion endpoints, cookie consent, and a documented retention policy are
 in place. See [`docs/DATA_COMPLIANCE.md`](./docs/DATA_COMPLIANCE.md).
 
+## Contact
+
+Questions, help and feedback: [support@earningsnerd.io](mailto:support@earningsnerd.io).
+Subscription questions: [billing@earningsnerd.io](mailto:billing@earningsnerd.io).
+Privacy requests: [privacy@earningsnerd.io](mailto:privacy@earningsnerd.io).
+Vulnerability reports: [security@earningsnerd.io](mailto:security@earningsnerd.io).
+Neil, the founder and individual operator, handles these messages personally.
+See [the email setup guide](docs/email-setup.md) for routing and operations.
+
 ## License
 
 Proprietary — all rights reserved. © 2026 Neil Mac Aogain.

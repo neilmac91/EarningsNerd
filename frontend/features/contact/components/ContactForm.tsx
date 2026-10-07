@@ -1,5 +1,6 @@
 'use client'
 
+import { CONTACT_ADDRESSES, contactMailto } from '@/lib/contactAddresses'
 import { useEffect, useRef, useState } from 'react'
 import { clsx } from 'clsx'
 import { submitContactForm } from '@/features/contact/api/contact-api'
@@ -116,8 +117,7 @@ export default function ContactForm() {
             Message sent
           </h3>
           <p className="text-text-secondary-light dark:text-text-secondary-dark">
-            Thank you for contacting us. We&apos;ve received your message and will get back to you within 1-2 business
-            days.
+            Thanks for your message. I&apos;m Neil, EarningsNerd&apos;s founder, and I aim to reply within 2 business days.
           </p>
           <button
             onClick={() => {
@@ -198,7 +198,7 @@ export default function ContactForm() {
             onChange={(e) => setSubject(e.target.value)}
             readOnly={isSubmitting}
             className="mt-2"
-            placeholder="How can we help?"
+            placeholder="How can I help?"
           />
         </div>
 
@@ -219,7 +219,7 @@ export default function ContactForm() {
             readOnly={isSubmitting}
             rows={6}
             className={clsx(inputClasses(), 'mt-2')}
-            placeholder="Tell us more about your inquiry..."
+            placeholder="Tell me more about your question..."
           />
           <p className="mt-2 text-sm text-text-tertiary-light dark:text-text-secondary-dark">
             Minimum 10 characters
@@ -230,6 +230,12 @@ export default function ContactForm() {
         {error && (
           <div className="rounded-lg bg-error-light/10 p-4 dark:bg-error-dark/15">
             <p className="text-sm text-error-light dark:text-error-dark">{error}</p>
+            <p className="mt-2 text-sm text-text-secondary-light dark:text-text-secondary-dark">
+              You can email me at{' '}
+              <a href={contactMailto('support')} className="break-all text-brand-strong underline dark:text-brand-strong-dark">
+                {CONTACT_ADDRESSES.support}
+              </a>.
+            </p>
           </div>
         )}
 
