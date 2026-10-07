@@ -37,6 +37,11 @@ function clampWidth(w: number): number {
   return Math.min(MAX_WIDTH, Math.max(MIN_WIDTH, w))
 }
 
+/** Where a closing pane may return focus: an element still in the document and outside the pane. */
+function isReturnTarget(el: HTMLElement | null | undefined, pane: HTMLElement | null): el is HTMLElement {
+  return !!el?.isConnected && !pane?.contains(el)
+}
+
 function readStoredWidth(): number {
   if (typeof window === 'undefined') return DEFAULT_WIDTH
   try {
@@ -165,14 +170,15 @@ export default function FilingWorkspace({
   const handleClose = useCallback(() => onOpenChange(false), [onOpenChange])
   // A provenance chip that opened the pane (the provider's opener, recorded by requestHighlight) is
   // where focus returns on close; otherwise the launcher, which remounts on close. The trap reads
-  // `.current` at cleanup time, so a getter resolves whichever applies at that moment (EN-01).
+  // `.current` at cleanup time, so a getter resolves whichever applies at that moment (EN-01). An
+  // opener inside the shell never qualifies: it is hidden with the pane it would return focus to.
   const peekOpener = viewer?.peekOpener
   const takeOpener = viewer?.takeOpener
   const restoreFocusRef = useMemo<RefObject<HTMLElement | null>>(
     () => ({
       get current() {
         const opener = peekOpener?.()
-        return opener?.isConnected ? opener : launcherRef.current
+        return isReturnTarget(opener, shellRef.current) ? opener : launcherRef.current
       },
     }),
     [peekOpener],
@@ -191,7 +197,7 @@ export default function FilingWorkspace({
     wasPaneOpen.current = paneOpen
     if (!was || paneOpen || !takeOpener) return
     const opener = takeOpener()
-    if (!opener?.isConnected) return
+    if (!isReturnTarget(opener, shellRef.current)) return
     const active = document.activeElement
     if (active !== null && active !== document.body && !shellRef.current?.contains(active)) return
     opener.focus({ preventScroll: true })

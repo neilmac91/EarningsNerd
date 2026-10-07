@@ -7,6 +7,7 @@ import {
   useFilingViewer,
 } from '@/features/filings/components/copilot/FilingViewerContext'
 import { SourceTrace } from '@/features/filings/components/SourceTrace'
+import CitationChip from '@/features/filings/components/copilot/CitationChip'
 import type { CopilotCitation } from '@/features/filings/api/copilot-api'
 
 type Props = Partial<React.ComponentProps<typeof FilingWorkspace>>
@@ -165,13 +166,15 @@ function CopilotCounter() {
   )
 }
 
-/** An Ask answer's citation chip, as CitationChip wires it: it lives inside the Answer panel. */
-function AnswerCitation() {
+// An Ask answer's citation, rendered by the real CitationChip inside the Answer panel.
+const ANSWER_CITATION: CopilotCitation = { n: 1, excerpt: EVIDENCE, section_ref: 'Item 1A', verified: true, fragment_url: `${URL}#:~:text=Our%20revenue` }
+
+/** A hypothetical in-pane caller that records itself as the opener (CitationChip no longer does). */
+function InPaneOpener() {
   const viewer = useFilingViewer()!
-  const citation = { n: 1, excerpt: EVIDENCE, section_ref: null, verified: true, fragment_url: null } as CopilotCitation
   return (
-    <button type="button" onClick={(e) => viewer.requestHighlight(citation, e.currentTarget)}>
-      [1]
+    <button type="button" onClick={(e) => viewer.requestHighlight(ANSWER_CITATION, e.currentTarget)}>
+      in-pane opener
     </button>
   )
 }
@@ -193,7 +196,8 @@ function Page({ initialOpen = false }: { initialOpen?: boolean }) {
         copilotBody={
           <>
             <CopilotCounter />
-            <AnswerCitation />
+            <CitationChip citation={ANSWER_CITATION} />
+            <InPaneOpener />
           </>
         }
         filingBody={<div data-testid="filing">filing</div>}
@@ -211,6 +215,7 @@ function Page({ initialOpen = false }: { initialOpen?: boolean }) {
 const dialog = () => document.querySelector<HTMLElement>('[role="dialog"][aria-label="Ask this Filing"]')!
 const chip = () => screen.getByRole('button', { name: 'Source: Verified in filing' })
 const filingTab = () => screen.getByRole('tab', { name: /filing/i })
+const answerChip = () => screen.getByRole('button', { name: /^Citation 1:/ })
 
 describe('FilingWorkspace opened by a provenance chip (EN-01)', () => {
   beforeEach(() => window.localStorage.clear())
@@ -313,7 +318,7 @@ describe('FilingWorkspace view switch from inside the pane (EN-01 follow-up)', (
 
   it('an answer citation hands focus to the Filing tab when it hides its own chip', () => {
     render(<Page initialOpen />)
-    const cite = screen.getByRole('button', { name: '[1]' })
+    const cite = answerChip()
     act(() => cite.focus())
     fireEvent.click(cite)
     expect(filingTab()).toHaveAttribute('aria-selected', 'true')
@@ -323,7 +328,7 @@ describe('FilingWorkspace view switch from inside the pane (EN-01 follow-up)', (
 
   it('a switch with focus already fallen to <body> also lands on the selected tab', () => {
     render(<Page initialOpen />)
-    fireEvent.click(screen.getByRole('button', { name: '[1]' })) // a click without focus
+    fireEvent.click(answerChip()) // a click without focus
     expect(document.activeElement).toBe(filingTab())
   })
 
@@ -341,6 +346,37 @@ describe('FilingWorkspace view switch from inside the pane (EN-01 follow-up)', (
     expect(document.activeElement).toBe(filingTab())
     fireEvent.keyDown(filingTab(), { key: 'ArrowLeft' })
     expect(document.activeElement).toBe(screen.getByRole('tab', { name: /answer/i }))
+  })
+
+  it('a summary chip stays the opener through an answer citation: closing returns focus to it', () => {
+    render(<Page />)
+    const c = chip()
+    act(() => c.focus())
+    fireEvent.click(c)
+    fireEvent.click(screen.getByRole('tab', { name: /answer/i }))
+    const cite = answerChip()
+    act(() => cite.focus())
+    fireEvent.click(cite)
+    expect(document.activeElement).toBe(filingTab())
+    // A keyboard user tabs to Close and presses it; focus goes back to the chip that opened the pane.
+    const close = screen.getByRole('button', { name: 'Close' })
+    act(() => close.focus())
+    fireEvent.click(close)
+    expect(dialog()).toHaveAttribute('aria-hidden', 'true')
+    expect(document.activeElement).toBe(c)
+  })
+
+  it('an element inside the pane is never where a closing pane returns focus', () => {
+    render(<Page initialOpen />)
+    const inPane = screen.getByRole('button', { name: 'in-pane opener' })
+    act(() => inPane.focus())
+    fireEvent.click(inPane) // records itself as the opener
+    const close = screen.getByRole('button', { name: 'Close' })
+    act(() => close.focus())
+    fireEvent.click(close)
+    expect(dialog()).toHaveAttribute('aria-hidden', 'true')
+    // Hidden with the pane, it cannot take focus in a browser; it is not a return target.
+    expect(document.activeElement).not.toBe(inPane)
   })
 
   it('opening a closed pane hands nothing off, whether the chip held focus or not', () => {
@@ -416,6 +452,40 @@ describe('FilingWorkspace sheet below lg, opened by a provenance chip (EN-01)', 
       expect(dialog()).toHaveAttribute('aria-hidden', 'true')
       // The opener was taken on the first close, so this close returns to the launcher, not the chip.
       expect(document.activeElement).toBe(screen.getByRole('button', { name: /ask this filing/i }))
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('an opener inside the sheet falls back to the launcher; a summary chip survives an answer citation', () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+    try {
+      render(<Page />)
+      fireEvent.click(screen.getByRole('button', { name: /ask this filing/i }))
+      const inPane = screen.getByRole('button', { name: 'in-pane opener' })
+      act(() => inPane.focus())
+      fireEvent.click(inPane) // an in-pane caller that records itself
+      fireEvent.keyDown(document.activeElement as HTMLElement, { key: 'Escape' })
+      expect(dialog()).toHaveAttribute('aria-hidden', 'true')
+      expect(document.activeElement).toBe(screen.getByRole('button', { name: /ask this filing/i }))
+
+      const c = chip()
+      act(() => c.focus())
+      fireEvent.click(c)
+      fireEvent.click(screen.getByRole('tab', { name: /answer/i }))
+      const cite = answerChip()
+      act(() => cite.focus())
+      fireEvent.click(cite)
+      expect(document.activeElement).toBe(filingTab())
+      // The focused chip's card closes after its blur delay (in Chromium the answer re-renders the
+      // chip and the card goes with it); until then it would own the first Escape, as it should.
+      act(() => {
+        vi.advanceTimersByTime(200)
+      })
+      expect(screen.queryByRole('group', { name: /^Citation 1:/ })).toBeNull()
+      fireEvent.keyDown(document.activeElement as HTMLElement, { key: 'Escape' })
+      expect(dialog()).toHaveAttribute('aria-hidden', 'true')
+      expect(document.activeElement).toBe(c)
     } finally {
       vi.useRealTimers()
     }

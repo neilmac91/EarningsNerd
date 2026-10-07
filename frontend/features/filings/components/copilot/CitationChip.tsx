@@ -162,10 +162,11 @@ export default function CitationChip({ citation }: CitationChipProps) {
 
   let trigger: React.ReactNode
   if (viewer) {
-    // In-app highlight is the primary action when the filing viewer is mounted; the chip is the
-    // opener the pane returns focus to on close.
+    // In-app highlight is the primary action when the filing viewer is mounted. The chip sits inside
+    // the pane it switches to the Filing tab, so it records no opener: closing the pane returns focus
+    // to whatever opened it, and the workspace hands focus to the Filing tab meanwhile.
     trigger = (
-      <button type="button" {...triggerHandlers} onClick={(e) => viewer.requestHighlight(citation, e.currentTarget)}>
+      <button type="button" {...triggerHandlers} onClick={() => viewer.requestHighlight(citation)}>
         {marker}
       </button>
     )
