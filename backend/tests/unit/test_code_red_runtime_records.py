@@ -3,12 +3,13 @@
 Every record PR's independent reviewer re-derived the same invariants by hand before merge. This test derives them in CI so
 a broken record never reaches a reviewer:
 
-* every row of ``CHECKPOINT.md``'s deliverables table carries a well-formed SHA-256 and names a file whose digest equals it, and
-  every file under the runtime tree has a row (the checkpoint is the durable index of the records) and the tree holds no
-  symbolic links;
+* every row of ``CHECKPOINT.md``'s deliverables table carries a well-formed SHA-256 and names a file whose digest equals it,
+  every file under the runtime tree has a row (the checkpoint is the durable index of the records), the off-tree deliverable
+  rows tabled at this commit stay tabled, and the tree holds no symbolic links;
 * the ``control/source-context-exclusion-NNN.json`` closures form an append-only chain anchored to the committed tail (closures
-  136–164 present, closure 164 pinned by digest): each one's ``prior_record`` hash equals the previous file, its counts equal its
-  lists, the previous ids are a prefix, nothing is duplicated, and the new entries are the ones it declares;
+  136–164 present, closure 164 pinned by digest) and numbered without gaps through the newest: each one's ``prior_record``
+  hash equals the previous file, its counts equal its lists, the previous ids are a prefix, nothing is duplicated, and the new
+  entries are the ones it declares;
 * the checkpoint header and ``APPOINTMENTS.json`` are stamped no earlier than the newest closure, compared at the closure's
   fractional precision (they are written last);
 * every non-blank line of the decisions section is a numbered entry and the numbers run contiguously from 1;
@@ -49,6 +50,14 @@ DECISIONS_HEADING = "## Decisions taken by the chief"
 DECISION_LINE = re.compile(r"^(\d+)\. \S")
 # Hash rows may point outside the runtime tree only into these trees (the chief-committed D1/D3/D5 deliverables).
 ALLOWED_OFF_TREE = (REPO_ROOT / "tasks" / "readiness-2026-09-21" / "beta",)
+# The off-tree rows tabled at this commit; later records may add rows but may not drop these (the hash gate on those
+# deliverables would otherwise disappear unnoticed, since completeness is checked for runtime-tree files only).
+COMMITTED_OFF_TREE_ROWS = (
+    "../../readiness-2026-09-21/beta/file_export_to_v1.py",
+    "../../readiness-2026-09-21/beta/fixture_check.py",
+    "../../readiness-2026-09-21/beta/export_operator.py",
+    "../../readiness-2026-09-21/beta/OPERATOR-RUNBOOK.md",
+)
 
 # Strings that must never appear in the chief's own records (the repository is public; these belong to private stores).
 FORBIDDEN_EVERYWHERE = ("claude.ai/artifact", "claude.ai/code/artifact", "/Users/")
@@ -144,15 +153,24 @@ def test_checkpoint_hash_rows_match_their_files() -> None:
 
 
 def test_every_runtime_file_has_a_checkpoint_row() -> None:
-    tabled = {(RUNTIME / rel).resolve() for rel, _ in _checkpoint_rows()}
+    rows = _checkpoint_rows()
+    tabled = {(RUNTIME / rel).resolve() for rel, _ in rows}
     untabled = sorted(str(p.relative_to(RUNTIME)) for p in _runtime_files() if p.resolve() not in tabled)
     assert not untabled, f"files under the runtime tree without a CHECKPOINT.md hash row: {untabled}"
+    present = {rel for rel, _ in rows}
+    dropped = sorted(rel for rel in COMMITTED_OFF_TREE_ROWS if rel not in present)
+    assert not dropped, f"committed off-tree deliverable rows are missing from CHECKPOINT.md: {dropped}"
 
 
 def test_closure_chain_is_append_only() -> None:
-    present = {int(CLOSURE_NAME.match(p.name).group(1)) for p in _closures()}
+    present = sorted(int(CLOSURE_NAME.match(p.name).group(1)) for p in _closures())
     missing = sorted(n for n in COMMITTED_CLOSURES if n not in present)
     assert not missing, f"committed exclusion closures are missing: {missing}"
+    expected = list(range(COMMITTED_CLOSURES.start, present[-1] + 1))
+    assert present == expected, (
+        f"exclusion closure numbers are not {expected[0]}..{expected[-1]} without gaps: "
+        f"missing {sorted(set(expected) - set(present))}, unexpected {sorted(set(present) - set(expected))}"
+    )
     tail_name, tail_sha = COMMITTED_TAIL
     assert _sha256(CONTROL / tail_name) == tail_sha, f"{tail_name} no longer has its committed digest"
     closures = _closures()
