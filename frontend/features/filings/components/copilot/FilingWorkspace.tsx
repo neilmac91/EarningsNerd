@@ -205,17 +205,29 @@ export default function FilingWorkspace({
 
   // A citation activated inside the Answer panel (an Ask answer's [n] chip) switches the pane to the
   // Filing tab, which hides the chip with its panel (and the answer re-renders it besides), so
-  // keyboard focus falls to <body> and the next Tab restarts at the top of the page. When the view
-  // switches with focus fallen (on <body>, or still on the panel just hidden: Chromium moves it off a
-  // hidden control only in a later task), hand it to the newly selected tab, the visible control that
-  // says where the user now is. Only a switch inside a pane that was already open: opening the pane
-  // moves no focus (EN-01), and a switch made from the tabs, the composer, or a chip outside the pane
-  // keeps its focus.
+  // keyboard focus falls to <body> and the next Tab restarts at the top of the page. When an
+  // activation inside the panels switches the view and focus fell (to <body>, or still on the panel
+  // just hidden: Chromium moves it off a hidden control only in a later task), hand it to the newly
+  // selected tab, the visible control that says where the user now is. Only such an activation, in a
+  // pane that was already open: opening the pane moves no focus (EN-01), and <body> after a summary
+  // chip's click is focus that was never anywhere (Safari and Firefox on macOS do not focus a clicked
+  // button), so it stays put; the tabs, the composer and a chip outside the pane keep their focus.
+  // The click marker lasts for its event's task (Enter and Space on a button click too); the effect
+  // of a discrete event runs inside it.
+  const panelActivation = useRef(false)
+  const markPanelActivation = useCallback(() => {
+    panelActivation.current = true
+    setTimeout(() => {
+      panelActivation.current = false
+    }, 0)
+  }, [])
   const shown = useRef({ view: activeView, open: paneOpen })
   useEffect(() => {
     const was = shown.current
     shown.current = { view: activeView, open: paneOpen }
-    if (!was.open || !paneOpen || was.view === activeView) return
+    const fromPanel = panelActivation.current
+    panelActivation.current = false
+    if (!fromPanel || !was.open || !paneOpen || was.view === activeView) return
     const active = document.activeElement
     const hiddenPanel = document.getElementById(PANE_PANEL_IDS[was.view])
     if (active !== null && active !== document.body && !hiddenPanel?.contains(active)) return
@@ -313,7 +325,7 @@ export default function FilingWorkspace({
                 onClose={() => onOpenChange(false)}
                 openOriginal={activeView === 'filing' ? openOriginal : null}
               />
-              <div className="flex min-h-0 flex-1 flex-col">
+              <div className="flex min-h-0 flex-1 flex-col" onClickCapture={markPanelActivation}>
                 <div
                   id={PANE_PANEL_IDS.copilot}
                   role="tabpanel"

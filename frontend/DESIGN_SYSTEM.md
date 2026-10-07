@@ -220,13 +220,15 @@ Popover          An anchored, light-dismiss surface that explains one control (t
                  the chip until the user asks for more, and the same hand-off applies from there — Tab on
                  the open chip moves to the popover's link, Tab past it closes the popover and resumes the
                  page after the chip, Shift+Tab returns to the chip, Escape closes the popover alone and
-                 refocuses the chip — taken in window capture, so the research pane or sheet beneath stays
-                 open until the next press (`useEvidencePopoverKeys`, gated by
+                 refocuses the chip when focus was in the popover (a hover-opened one leaves focus where it
+                 is) — taken in window capture, so the research pane or sheet beneath stays open until the
+                 next press (`useEvidencePopoverKeys`, gated by
                  tests/unit/evidencePopoverKeys.spec.tsx). On the
                  filing page a chip's activation is the in-app jump: it opens the research pane on the
                  Filing tab (the pane never stays silently closed); an answer's [n] chip, which that switch
                  hides with its panel, hands focus to the selected Filing tab rather than to <body>
-                 (FilingWorkspace); SourceTrace alone has a sheet, which a
+                 (FilingWorkspace; a chip outside the pane keeps or never takes focus, as the browser
+                 decides); SourceTrace alone has a sheet, which a
                  coarse pointer opens instead, carrying "Show in filing" beside the EDGAR link. A chip that
                  is itself the EDGAR anchor (SourceTrace without a viewer, as on the landing demo) has no
                  second stop, so Tab leaves it as usual.

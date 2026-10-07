@@ -386,13 +386,26 @@ describe('FilingWorkspace view switch from inside the pane (EN-01 follow-up)', (
     fireEvent.click(c)
     expect(dialog()).toHaveAttribute('aria-hidden', 'false')
     expect(document.activeElement).toBe(c)
+    // Back to Answer before closing, so the next open switches the view as it opens.
+    fireEvent.click(screen.getByRole('tab', { name: /answer/i }))
     fireEvent.click(screen.getByRole('button', { name: 'Close' }))
 
     // A click that never focused the chip (Safari does not focus buttons on click) opens the pane
-    // with focus on <body>, and it stays there: the open itself takes no focus (EN-01).
+    // on Filing with focus on <body>, and it stays there: the open itself takes no focus (EN-01).
     act(() => (document.activeElement as HTMLElement | null)?.blur())
     fireEvent.click(chip())
     expect(dialog()).toHaveAttribute('aria-hidden', 'false')
+    expect(filingTab()).toHaveAttribute('aria-selected', 'true')
+    expect(document.activeElement).toBe(document.body)
+  })
+
+  it('a summary chip clicked without focus switches an open pane and leaves focus on <body> (Safari)', () => {
+    render(<Page initialOpen />)
+    expect(screen.getByRole('tab', { name: /answer/i })).toHaveAttribute('aria-selected', 'true')
+    expect(document.activeElement).toBe(document.body)
+    fireEvent.click(chip()) // Safari and Firefox on macOS do not focus a clicked button
+    expect(filingTab()).toHaveAttribute('aria-selected', 'true')
+    // Not handed to the tab: the arrow keys and Space keep scrolling the page, not driving the tablist.
     expect(document.activeElement).toBe(document.body)
   })
 })

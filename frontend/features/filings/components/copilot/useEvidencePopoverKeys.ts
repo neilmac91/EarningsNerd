@@ -98,7 +98,8 @@ export function useEvidencePopoverKeys({
   useEffect(() => {
     if (!open || !ownsEscape) return
     const onKey = (e: globalThis.KeyboardEvent) => {
-      if (e.key !== 'Escape') return
+      // An Escape that cancels an IME composition (a hover card over the composer) is the IME's.
+      if (e.key !== 'Escape' || e.isComposing) return
       // A ui/Modal raised above the popover (UpgradeModal from the rail) shares this capture phase
       // and owns its own keys; stopping them here would close the popover under it instead.
       if (e.target instanceof Element && e.target.closest('[data-ui-modal="true"]')) return

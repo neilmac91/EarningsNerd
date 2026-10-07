@@ -181,6 +181,29 @@ describe.each([
     }
   })
 
+  it('Escape over a hover-opened popover closes it and leaves focus where the user is typing', () => {
+    const beneath = listenBeneath()
+    try {
+      render(
+        <>
+          <Page chip={chip} />
+          <input aria-label="composer" />
+        </>,
+      )
+      const composer = screen.getByRole('textbox', { name: 'composer' })
+      act(() => composer.focus())
+      fireEvent.mouseEnter(trigger())
+      expect(popover()).toBeInTheDocument()
+      fireEvent.keyDown(composer, { key: 'Escape' })
+      expect(popover()).toBeNull()
+      expect(document.activeElement).toBe(composer)
+      expect(beneath.trap).not.toHaveBeenCalled()
+      expect(beneath.rail).not.toHaveBeenCalled()
+    } finally {
+      beneath.remove()
+    }
+  })
+
   it('leaves Escape to a ui/Modal raised above an open popover', () => {
     render(
       <>
@@ -238,6 +261,18 @@ describe.each([
     } finally {
       vi.useRealTimers()
     }
+  })
+})
+
+describe('CitationChip and an IME', () => {
+  it('an Escape that ends an IME composition is not taken by the citation card', () => {
+    render(<Page chip={citationChip} />)
+    const t = screen.getByRole('button', { name: /citation 1: item 7 — md&a/i })
+    fireEvent.mouseEnter(t)
+    expect(screen.getByRole('group', { name: /citation 1: item 7 — md&a/i })).toBeInTheDocument()
+    // Not prevented: the composition, not the card, owns this key.
+    expect(fireEvent.keyDown(document.body, { key: 'Escape', isComposing: true })).toBe(true)
+    expect(screen.getByRole('group', { name: /citation 1: item 7 — md&a/i })).toBeInTheDocument()
   })
 })
 
