@@ -347,6 +347,23 @@ function SourceTraceInner({
 
   const Icon = isVerified ? CheckCircleIcon : ArrowSquareOutIcon
 
+  // The browser blurs a focused chip that a breakpoint hides (no relatedTarget, no client rects left)
+  // in a task of its own, which can run before the resize effect above sees the change. That focus
+  // goes to the twin now shown as well, so whichever comes first, keyboard focus never falls to
+  // <body>. Any other blur is the ordinary hover/focus close.
+  const handleTriggerBlur = (e: React.FocusEvent<HTMLElement>) => {
+    const chip = e.currentTarget
+    const twin =
+      layoutTwin && e.relatedTarget === null && chip.getClientRects().length === 0 ? shownTwin(chip, layoutTwin) : null
+    if (twin) {
+      clearCloseTimer()
+      setOpen(false)
+      twin.focus()
+      return
+    }
+    if (!isCoarse) scheduleClose()
+  }
+
   const handleTrigger = () => {
     // Toggle the panel on click: the sheet on a coarse pointer, the popover on a fine pointer with no
     // URL and no in-app jump. On fine pointers WITH a URL and no viewer the trigger is an <a>.
@@ -365,7 +382,7 @@ function SourceTraceInner({
     onMouseEnter: isCoarse ? undefined : openPanel,
     onMouseLeave: isCoarse ? undefined : scheduleClose,
     onFocus: isCoarse ? undefined : openPanel,
-    onBlur: isCoarse ? undefined : scheduleClose,
+    onBlur: handleTriggerBlur,
     onKeyDown: isCoarse ? undefined : keys.onTriggerKeyDown,
   }
 

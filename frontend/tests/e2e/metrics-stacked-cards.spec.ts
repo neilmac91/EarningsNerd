@@ -532,6 +532,26 @@ test.describe('a keyboard-opened popover across the md switch (Codex review of #
   })
 })
 
+test.describe('a hidden chip blurred before the resize (Codex review of #1108)', () => {
+  test.use({ viewport: { width: 767, height: 1024 } })
+
+  // Chromium blurs a focused element that turns display:none in a task of its own, which can run
+  // before the frame that dispatches `resize` (it did in CI). Flipping the two layouts with a style
+  // and no resize at all makes that order deterministic: the blur alone must hand focus to the twin.
+  test('a focused card chip hidden without a resize event still hands focus to the same chip in the table', async ({ page, baseURL }) => {
+    await openFiling(page, baseURL!)
+    const cardChip = page.locator(CARD).first().getByRole('button', { name: 'Source: Verified in filing' })
+    await cardChip.scrollIntoViewIfNeeded()
+    await cardChip.focus()
+    await page.addStyleTag({
+      content: `${CARDS} { display: none !important } ${TABLE} { display: block !important }`,
+    })
+    const tableChip = page.locator(`${TABLE} tbody tr`).first().getByRole('button', { name: 'Source: Verified in filing' })
+    await expect(tableChip).toBeFocused()
+    await expect(page.getByRole('group', { name: 'Source detail' })).toHaveCount(1)
+  })
+})
+
 test.describe('desktop 1440x900', () => {
   test.use({ viewport: { width: 1440, height: 900 } })
 

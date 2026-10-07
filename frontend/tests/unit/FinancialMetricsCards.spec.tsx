@@ -454,6 +454,16 @@ describe('FinancialMetricsTable — a breakpoint that hides an open chip (Codex 
     expect(screen.getAllByRole('group', { name: 'Source detail' })).toHaveLength(1)
   })
 
+  it('keyboard: when the browser blurs the hidden chip before any resize, focus still goes to its twin', () => {
+    setup('fine', 'table')
+    const cardChip = inLayout('cards').getByRole('link', { name: 'Source: Revenue · SEC XBRL' })
+    act(() => cardChip.focus())
+    hidden = 'cards' // the breakpoint flipped; Chromium's focus fixup blurs the chip in a task of its own
+    act(() => cardChip.blur())
+    expect(document.activeElement).toBe(inLayout('table').getByRole('link', { name: 'Source: Revenue · SEC XBRL' }))
+    expect(screen.getAllByRole('group', { name: 'Source detail' })).toHaveLength(1)
+  })
+
   it('a hover popover closes with its layout and moves no focus; a resize that keeps the chip shown keeps a sheet open', () => {
     setup('fine', 'cards')
     fireEvent.mouseEnter(inLayout('table').getByRole('link', { name: 'Source: Revenue · SEC XBRL' }))
