@@ -77,7 +77,10 @@ _COPILOT_MARKER_RE = re.compile(r"\[(F?\s*\d+)\]", re.IGNORECASE)
 _PUBLICATION_ERROR = "I couldn't verify the cited evidence, so I couldn't provide this answer."
 PROVIDER_STARTED_STAGE = "generating"  # progress stage emitted once the provider stream yields
 _STREAM_FAILURE = "I couldn't complete this answer. Please try again."
-_RETRYABLE_QUOTATION_FAILURE = "Unsupported prose quotation: quotation_not_in_source"
+_RETRYABLE_QUOTATION_FAILURES = frozenset({
+    "Unsupported prose quotation: quotation_not_in_source",
+    "Unsupported prose quotation: elided_quotation",
+})
 _EVIDENCE_RETRY_GUIDANCE = """Generate a fresh complete answer from the original filing and question.
 The previous candidate failed source matching. Do not reconstruct it. Use only filing-supported
 claims with the required source citations. Prefer concise paraphrases; any direct quotation must
@@ -1619,7 +1622,7 @@ async def answer_filing_question(
             except _UnpublishableAnswer as exc:
                 # Fixed owned reasons only. The discarded answer is never put into a new prompt.
                 logger.warning("Copilot candidate withheld at citation publication boundary: %s", exc)
-                if (attempt == 0 and (str(exc) == _RETRYABLE_QUOTATION_FAILURE
+                if (attempt == 0 and (str(exc) in _RETRYABLE_QUOTATION_FAILURES
                                      or isinstance(exc, _RegenerableEvidenceMismatch))
                         and asyncio.get_running_loop().time() < deadline):
                     continue

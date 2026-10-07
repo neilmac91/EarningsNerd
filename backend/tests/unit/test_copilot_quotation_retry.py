@@ -19,6 +19,7 @@ from app.services.ai.copilot_chat import merge_chat_usage
 from app.services.ai.provider_requests import signal_provider_start
 from app.services.openai_service import STREAM_ACTIVITY_SENTINEL, STREAM_ERROR_SENTINEL
 from tests.unit.test_copilot import _as_user, _asgi_post, _qa_state, _seed_filing, _wire_events
+from tests.unit.test_copilot import _fresh_ask_limiter as _fresh_ask_limiter
 from tests.unit.test_provider_resilience import chunk, event, service_for
 
 KNOWN = "Demand remained robust across cloud services."
@@ -53,6 +54,8 @@ def rejected(surface="answer"):
                 + "\n===FOLLOWUPS===\n" + json.dumps(FOLLOWUPS))
     if surface == "citation_excerpt":
         return envelope(f'Management said "{KNOWN}" [1].', excerpt=INVENTED)
+    if surface == "elided_quote":
+        return envelope('The filing said "Demand ... across cloud services" [1].')
     questions = FOLLOWUPS if surface == "answer" else [f'Why did management say "{INVENTED}"?', FOLLOWUPS[1]]
     answer = f'Management said "{INVENTED}" [1].' if surface == "answer" else f'Management said "{KNOWN}" [1].'
     return envelope(answer, followups=questions)
@@ -72,7 +75,7 @@ async def collect(selected_filing=None):
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("surface", ["answer", "followup", "not_disclosed", "citation_excerpt"])
+@pytest.mark.parametrize("surface", ["answer", "followup", "not_disclosed", "citation_excerpt", "elided_quote"])
 async def test_quotation_retry_safety_gate(monkeypatch, surface):
     """One grouped rule gate: a private mismatch retries fresh, once, with bounded custody."""
     selected = filing()
@@ -155,15 +158,16 @@ async def test_quotation_retry_safety_gate(monkeypatch, surface):
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("surface", ["answer", "citation_excerpt"])
+@pytest.mark.parametrize("surface", ["answer", "citation_excerpt", "elided_quote", "cross_cause"])
 async def test_retry_exhaustion_has_one_terminal_error_without_private_candidates(monkeypatch, surface):
     calls, closed = [], []
+    surfaces = ("answer", "elided_quote") if surface == "cross_cause" else (surface, surface)
 
     async def stream(*_args, **kwargs):
         attempt = len(calls) + 1
         calls.append(kwargs["deadline"])
         try:
-            yield rejected(surface)
+            yield rejected(surfaces[min(attempt - 1, 1)])
         finally:
             closed.append(attempt)
 
@@ -179,7 +183,7 @@ async def test_retry_exhaustion_has_one_terminal_error_without_private_candidate
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("case", [
-    "malformed", "citation", "upstream", "ambiguous", "missing_source", "elided",
+    "malformed", "citation", "upstream", "ambiguous", "missing_source",
     "missing_source_excerpt", "quoted_section", "missing_id",
     "short_excerpt", "short_source", "leading_zero_missing", "late_quoted_label",
 ])
@@ -194,7 +198,6 @@ async def test_other_rejections_do_not_buy_another_generation(monkeypatch, case)
         "upstream": STREAM_ERROR_SENTINEL + "offline provider failed",
         "ambiguous": envelope(f'The filing said "{KNOWN}" [1]. [More](https://example.invalid)'),
         "missing_source": f'The filing said "{KNOWN}".\n===CITATIONS===[]',
-        "elided": envelope('The filing said "Demand ... across cloud services" [1].'),
         "missing_source_excerpt": rejected("citation_excerpt"),
         "quoted_section": envelope(f'Management said "{KNOWN}" [1].', excerpt=INVENTED,
                                    section='Item 2 — "Management demand commentary"'),
@@ -322,7 +325,7 @@ def client():
 @pytest.mark.asyncio
 @pytest.mark.parametrize("is_pro", [False, True])
 @pytest.mark.parametrize("outcome", ["recovered", "exhausted"])
-@pytest.mark.parametrize("surface", ["answer", "citation_excerpt"])
+@pytest.mark.parametrize("surface", ["answer", "citation_excerpt", "elided_quote"])
 async def test_real_asgi_retry_meters_once_and_refunds_only_terminal_failure(
     client, monkeypatch, is_pro, outcome, surface,
 ):

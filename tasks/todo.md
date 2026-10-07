@@ -6376,8 +6376,11 @@ draws of the original question, separately from the unchanged six-source/eightee
 
 A first three-draw original-question batch admitted 2/3 answers: the other candidate removed the
 inner quotation marks around revenue backlog from its cited excerpt. The source matcher correctly
-rejected that altered passage. The repair gives a quotation mismatch or pure referenced excerpt
-mismatch one fresh private generation, sharing the selected
+rejected that altered passage. The next batch recovered one unsupported quotation but admitted only
+2/3 answers because another candidate inserted an ellipsis into a direct quotation. That correct
+`elided_quotation` rejection is retained; the repair permits that exact owned reason to use the same
+single recovery. A quotation mismatch or pure referenced excerpt mismatch gets one fresh private
+generation, sharing the selected
 source, original deadline and provider accounting. The replacement still passes every admission
 check; an excerpt rejection with missing/ambiguous identities, quoted labels or inadequate
 sources/excerpts is ineligible for regeneration.
