@@ -61,6 +61,7 @@ async def test_running_native_work_is_killed_and_reaped_before_request_ends(monk
     assert await children[0].wait() == children[0].returncode
     # The next delivery is admitted after cleanup; neither deadline nor cancellation strands
     # the sole child permit. Use a real fast child rather than reading the lock's internal state.
+    monkeypatch.setattr(settings, "TASKS_WORK_TIMEOUT_SECONDS", 2)
     monkeypatch.setattr(service, "_command", lambda: (sys.executable, "-c", "import sys; sys.stdin.read()"))
     await service.run_task_process(TaskEnvelope(kind="companyfacts", payload={"company_id": 9}))
     assert len(children) == 2 and children[1].returncode == 0

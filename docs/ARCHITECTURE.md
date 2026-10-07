@@ -45,8 +45,8 @@ It executes existing services in a fresh Python child, killing and reaping that 
 seconds or on cancellation. Task acknowledgement follows successful persistence, before the
 540-second dispatch and 600-second service deadlines. This bounds native threads as well as async
 work. An application guard admits only one native child per worker process and rejects overlapping
-delivery promptly for retry, holding that permit through kill/reap. HTTP/1.1 client disconnects do
-not reach Cloud Run containers; cleanup guarantees cover the work deadline or handler cancellation,
+delivery promptly for retry, holding that permit through kill/reap. [HTTP/1.1 client disconnects do
+not reach Cloud Run containers](https://docs.cloud.google.com/run/docs/troubleshooting#client_disconnect_does_not_propagate_to_cloud_run); cleanup guarantees cover the work deadline or handler cancellation,
 not all transport loss. At-least-once delivery can still repeat completed work, so existing
 cache/upsert and notification ownership remain necessary. The parent opens no SQL pool or startup
 schema path. Existing scheduled jobs remain primary
