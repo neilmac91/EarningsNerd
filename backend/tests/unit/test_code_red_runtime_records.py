@@ -11,7 +11,8 @@ a broken record never reaches a reviewer:
 * the checkpoint header and ``APPOINTMENTS.json`` are stamped no earlier than the newest closure (they are written last);
 * the chief's decisions are numbered contiguously from 1;
 * every JSON file parses;
-* no private artifact URL, local-machine home path or session upload-area path is written into the records.
+* no private artifact URL (either link form), local-machine home path or, in the chief's control files, session upload-area
+  path is written into the records — every file in the tree is scanned, whatever its suffix.
 
 Records-only PRs touch nothing under ``backend/``, yet CI runs the backend gate on every PR, so this test runs on each record PR;
 it lives under ``backend/tests/`` and therefore never triggers ``deploy-backend`` (the detector ignores that directory).
@@ -36,10 +37,13 @@ APPOINTMENTS = CONTROL / "APPOINTMENTS.json"
 HASH_ROW = re.compile(r"^\| `([^`]+)` \| `([0-9a-f]{64})` \|", re.MULTILINE)
 HEADER_STAMP = re.compile(r"\(updated (\d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ)\)")
 CLOSURE_NAME = re.compile(r"^source-context-exclusion-(\d+)\.json$")
+DELIVERABLES_HEADING = "## Deliverables and exact hashes"
 DECISIONS_HEADING = "## Decisions taken by the chief"
+# Hash rows may point outside the runtime tree only into these trees (the chief-committed D1/D3/D5 deliverables).
+ALLOWED_OFF_TREE = (REPO_ROOT / "tasks" / "readiness-2026-09-21" / "beta",)
 
 # Strings that must never appear in the chief's own records (the repository is public; these belong to private stores).
-FORBIDDEN_EVERYWHERE = ("claude.ai/artifact", "/Users/")
+FORBIDDEN_EVERYWHERE = ("claude.ai/artifact", "claude.ai/code/artifact", "/Users/")
 FORBIDDEN_IN_CONTROL = FORBIDDEN_EVERYWHERE + (".claude/uploads",)
 
 pytestmark = pytest.mark.skipif(not RUNTIME.is_dir(), reason="CODE RED runtime records are not present")
@@ -49,8 +53,16 @@ def _sha256(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
+def _section(text: str, heading: str) -> str:
+    """The body of one ``## `` section of CHECKPOINT.md, from its heading to the next ``## `` heading."""
+    assert heading in text, f"CHECKPOINT.md has no {heading!r} section"
+    start = text.index(heading)
+    end = text.find("\n## ", start + len(heading))
+    return text[start : end if end != -1 else None]
+
+
 def _checkpoint_rows() -> list[tuple[str, str]]:
-    return HASH_ROW.findall(CHECKPOINT.read_text(encoding="utf-8"))
+    return HASH_ROW.findall(_section(CHECKPOINT.read_text(encoding="utf-8"), DELIVERABLES_HEADING))
 
 
 def _closures() -> list[Path]:
@@ -78,12 +90,16 @@ def test_checkpoint_hash_rows_match_their_files() -> None:
     assert len(paths) == len(set(paths)), f"duplicate hash-row paths: {sorted(p for p in paths if paths.count(p) > 1)}"
     mismatched = []
     missing = []
+    escaped = []
     for rel, recorded in rows:
         target = (RUNTIME / rel).resolve()
-        if not target.is_file():
+        if not (target.is_relative_to(RUNTIME) or any(target.is_relative_to(root) for root in ALLOWED_OFF_TREE)):
+            escaped.append(rel)
+        elif not target.is_file():
             missing.append(rel)
         elif _sha256(target) != recorded:
             mismatched.append(rel)
+    assert not escaped, f"hash rows escape the permitted trees: {escaped}"
     assert not missing, f"hash rows name files that do not exist: {missing}"
     assert not mismatched, f"hash rows disagree with the files on disk: {mismatched}"
 
@@ -116,14 +132,14 @@ def test_closure_chain_is_append_only() -> None:
             assert data.get("all_previous_entries_preserved") is True, (
                 f"{path.name}: all_previous_entries_preserved is not true"
             )
-            declared = list(data.get("new_actual_contexts", [])) + list(data.get("new_provisional_contexts", []))
+            declared = list(data.get("new_actual_contexts") or []) + list(data.get("new_provisional_contexts") or [])
             assert sorted(declared) == sorted(ids[len(prev_ids) :]), (
                 f"{path.name}: declared new contexts != appended ids"
             )
-            assert sorted(data.get("new_context_roles", {})) == sorted(declared), (
+            assert sorted(data.get("new_context_roles") or {}) == sorted(declared), (
                 f"{path.name}: new_context_roles keys != new ids"
             )
-            resolved = data.get("provisional_labels_resolved", {})
+            resolved = data.get("provisional_labels_resolved") or {}
             unknown = sorted(label for label in resolved if label not in prev_ids)
             assert not unknown, f"{path.name}: resolves labels never registered: {unknown}"
         previous = (path, _sha256(path), data)
@@ -133,7 +149,7 @@ def test_checkpoint_and_appointments_are_stamped_after_the_newest_closure() -> N
     newest = json.loads(_closures()[-1].read_text(encoding="utf-8"))
     closure_stamp = _stamp(newest["recorded_at"])
     header = HEADER_STAMP.search(CHECKPOINT.read_text(encoding="utf-8"))
-    assert header, "CHECKPOINT.md header carries no '(updated …Z)' stamp"
+    assert header, "CHECKPOINT.md header carries no '(updated YYYY-MM-DDTHH:MM:SSZ)' stamp"
     assert _stamp(header.group(1)) >= closure_stamp, "CHECKPOINT.md is stamped earlier than the newest closure"
     appointments = json.loads(APPOINTMENTS.read_text(encoding="utf-8"))
     assert _stamp(appointments["updated_at"]) >= closure_stamp, (
@@ -142,10 +158,7 @@ def test_checkpoint_and_appointments_are_stamped_after_the_newest_closure() -> N
 
 
 def test_decisions_are_numbered_contiguously() -> None:
-    text = CHECKPOINT.read_text(encoding="utf-8")
-    start = text.index(DECISIONS_HEADING)
-    end = text.find("\n## ", start + len(DECISIONS_HEADING))
-    section = text[start : end if end != -1 else None]
+    section = _section(CHECKPOINT.read_text(encoding="utf-8"), DECISIONS_HEADING)
     numbers = [int(n) for n in re.findall(r"^(\d+)\. ", section, re.MULTILINE)]
     assert numbers, "no numbered decisions found"
     assert numbers == list(range(1, len(numbers) + 1)), f"decision numbering is not 1..{len(numbers)}: {numbers}"
@@ -164,8 +177,6 @@ def test_every_runtime_json_file_parses() -> None:
 def test_records_carry_no_private_urls_or_local_machine_paths() -> None:
     offenders = []
     for path in sorted(_runtime_files() | {CHECKPOINT}):
-        if path.suffix not in {".md", ".json", ".txt", ".sh", ".py"}:
-            continue
         text = path.read_text(encoding="utf-8", errors="replace")
         needles = FORBIDDEN_IN_CONTROL if (path == CHECKPOINT or path.parent == CONTROL) else FORBIDDEN_EVERYWHERE
         for needle in needles:

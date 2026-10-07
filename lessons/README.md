@@ -59,7 +59,7 @@ what applies to your task. Filenames are greppable: `arch-*`, `sec-*`, `test-*`,
 
 ## Testing & verification
 
-- [`test-absence-claims-come-from-git-grep.md`](./test-absence-claims-come-from-git-grep.md) — Make an absence claim only from `git grep` over every tracked file, and gate re-derived record invariants in CI
+- [`test-absence-claims-come-from-git-grep.md`](./test-absence-claims-come-from-git-grep.md) — Make an absence claim only from `git grep` over every tracked file (and never from a suffix allow-list in a test)
 
 - [`test-parser-callback-positions.md`](./test-parser-callback-positions.md) — Match whole-input callbacks to exact raw-source positions before accepting event capacity
 
