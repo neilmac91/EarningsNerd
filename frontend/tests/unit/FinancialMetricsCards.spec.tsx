@@ -328,7 +328,7 @@ describe('FinancialMetricsTable — stacked cards below md (EN-03): content pari
     const { container } = render(<FinancialMetricsTable metrics={FULL} bare />)
     expect(tokens(layout(container, 'cards'))).toContain('text-sm')
     const card = cardList(container)[0]
-    for (const sel of ['[data-metric-field="name"] > span', 'dd', '[data-metric-field="takeaway"] > span']) {
+    for (const sel of ['[data-metric-field="name"] > span', 'dd', '[data-metric-field="takeaway"] > span:first-child']) {
       for (const el of all(card, sel)) expect(tokens(el).filter((t) => /^text-(xs|data-xs|\[)/.test(t)), sel).toEqual([])
     }
   })

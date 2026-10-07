@@ -414,7 +414,8 @@ for (const theme of ['light', 'dark'] as const) {
       // value, change, takeaway and its chip, each inside the viewport at once
       const value = first.locator('[data-metric-field="current"]')
       const change = first.locator('[data-metric-field="change"]')
-      const takeaway = first.locator('[data-metric-field="takeaway"] > span')
+      // the takeaway text is the field's first child; the evidence chip's wrapper is a span too
+      const takeaway = first.locator('[data-metric-field="takeaway"] > span:first-child')
       const chip = first.getByRole('button', { name: 'Source: Verified in filing' })
       for (const [label, loc] of [['value', value], ['change', change], ['takeaway', takeaway], ['chip', chip]] as const) {
         await expect(loc).toBeVisible()
