@@ -62,12 +62,20 @@ updates:
         update-types:
           - "patch"
       minor-updates:
+        # Excluded packages get their own PRs instead of riding the weekly group.
+        # edgartools is held on 5.58.0 (decision D, issue #1063); its own PR is gated by the Ford test.
         exclude-patterns:
           - "sqlalchemy"
+          - "edgartools"
         applies-to: version-updates
         update-types:
           - "minor"
           - "patch"
+    ignore:
+      # SQLAlchemy stays on 2.0.x (#1010 set the <2.1 cap): 2.1 maps a bare postgresql:// URL to
+      # psycopg 3, which is not installed (#1095). 2.0.x patch updates still arrive.
+      - dependency-name: "sqlalchemy"
+        update-types: ["version-update:semver-minor"]
     reviewers:
       - "neilmac91"
     commit-message:

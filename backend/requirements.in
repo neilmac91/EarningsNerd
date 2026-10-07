@@ -4,21 +4,21 @@
 #   pip install pip-tools && pip-compile requirements.in -o requirements.txt
 # (Docker and CI install the pinned requirements.txt for reproducible builds.)
 
-fastapi>=0.141.1,<1.0.0
+fastapi>=0.142.2,<1.0.0
 uvicorn[standard]>=0.54.0,<1.0.0
 python-multipart>=0.0.28
 pydantic>=2.13.5,<3.0.0
 pydantic-settings>=2.15.0,<3.0.0
 email-validator>=2.3.0
 httpx>=0.28.1,<1
-python-dotenv==1.2.3
+python-dotenv==1.2.4
 sqlalchemy>=2.0.54,<2.1
 # Preserve the existing Linux/CI greenlet pin when compiling on macOS arm64,
 # which SQLAlchemy's platform marker omits. This does not enable async database use.
 greenlet==3.5.6
 psycopg2-binary==2.9.13
 redis==8.1.0
-openai>=3.20.0,<4.0.0
+openai>=3.23.0,<4.0.0
 beautifulsoup4==4.15.0
 # Allow pandas 3.x (validated: edgartools requires only pandas>=2.0.0, numpy 2.x already
 # in use, full backend suite passes on 3.0.x). lxml is held at
@@ -38,7 +38,7 @@ openpyxl>=3.1,<4
 # EdgarTools - unified SEC filing library (replaced arelle-release and
 # sec-edgar-downloader, both removed after verifying zero imports — issue #244)
 edgartools>=5.58.0
-posthog==7.60.1
+posthog==7.62.0
 json-repair>=0.63.5
 # Copilot reads an answer as the browser renders it (CommonMark) before publishing its quotations
 # (decision F). Already in the lock via rich; declared because app code imports it directly.
