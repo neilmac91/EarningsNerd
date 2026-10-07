@@ -17,6 +17,7 @@ machine" only for that work; skip "Enforced by a machine gate" (CI fails those o
 - ops-auth-lookups-must-let-request-cleanup-progress.md — Keep authentication pool waits off the event loop while preserving request-owned sessions
 - ops-bound-drain-batches-to-job-memory.md — Bound a regeneration batch by the job container's memory, not by its time budget alone
 - ops-continue-approved-engineering.md — Continue the approved queue after verified releases and preserve specific founder holds
+- ops-demote-a-lesson-only-when-its-whole-rule-is-gated.md — Demote a lesson from session reading only when every clause of its rule is machine-gated and proven on the bad case
 - ops-deploy-owned-state-needs-a-distinctive-name.md — Give deploy-owned tables a name nothing else could have created; CREATE TABLE IF NOT EXISTS adopts strangers
 - ops-finish-only-job-owned-read-transactions.md — Finish the CLI's read transaction before transport while preserving attached inputs
 - ops-fix-the-exact-cited-site.md — Fix and test the plan's exact cited site, not an adjacent manifestation
@@ -31,6 +32,7 @@ machine" only for that work; skip "Enforced by a machine gate" (CI fails those o
 - ops-serial-merge-adjacent-line-prs.md — Serialize merges of PRs that edit the same file within a few lines
 - ops-true-config-descriptions-grep-file-moves.md — Make canonized config descriptions literally true and grep the whole repo when moving files
 - ops-unmergeable-pr-runs-no-pull-request-workflows.md — Check the PR's mergeable state before diagnosing missing `pull_request` workflow runs
+- ops-validate-workflow-inputs-before-pipeline.md — Validate workflow inputs before `pipeline()`; a throw inside a stage is a silent drop, and a `null` agent result is no result, never clearance
 - ops-verify-env-updates-reach-session.md — Fingerprint env values in the running shell before debugging a rotated secret
 - ops-verify-plan-gaps-against-code.md — Re-read the actual code before implementing any plan item marked missing
 - ops-write-down-the-second-anomaly-before-chasing-the-first.md — Write down the second anomaly before chasing the first — a parked finding is a lost finding

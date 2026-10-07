@@ -142,6 +142,8 @@ Infra: `docker-compose up -d postgres redis` (local only — prod has no Redis).
 - **Scripts:** one-offs in `backend/scripts/` with a docstring header; nothing executable at repo
   root. **Open items** → `tasks/todo.md`; finished work and the ledger → `tasks/archive/`;
   **lessons** → `lessons/` (one file per rule, never a monolith); **prompts** → `backend/prompts/*.md`.
+  Founder deliberations (pricing, fundraising, strategy, council transcripts) never enter this
+  public repository (`AGENTS.md` §7).
 
 ## API conventions & code style
 

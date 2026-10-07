@@ -68,7 +68,7 @@ When the user says "council this" (or any trigger phrase), do two things before 
 - `CLAUDE.md` or `claude.md` in the project root or workspace (business context, preferences, constraints)
 - Any `memory/` folder (audience profiles, voice docs, business details, past decisions)
 - Any files the user explicitly referenced or attached
-- Recent council transcripts in this folder (to avoid re-counciling the same ground)
+- Recent council transcripts in `~/.claude/earningsnerd/council/` (to avoid re-counciling the same ground); they live outside the repository because it is public
 - Any other context files that seem relevant to the specific question (e.g., if they're asking about pricing, look for revenue data, past launch results, audience research)
 
 Use `Glob` and quick `Read` calls to find these. Don't spend more than 30 seconds on this. You're looking for the 2-3 files that would give advisors the context they need to give specific, grounded advice instead of generic takes.
@@ -261,7 +261,7 @@ Keep it scannable. Use bullet points. Include the before/after examples where re
 
 ### step 6: save the transcript (optional)
 
-Only save a transcript if the user asks for it or if the question is significant enough to reference later. If saving, write to `council-transcript-[timestamp].md` under `.claude/council-transcripts/` (create the directory if it doesn't exist).
+Only save a transcript if the user asks for it or if the question is significant enough to reference later. If saving, write to `council-transcript-[timestamp].md` under `~/.claude/earningsnerd/council/` on the founder's machine (create the directory if it doesn't exist). Never write it under the repository: the repository is public, and council questions carry pricing, fundraising and strategy deliberations (`AGENTS.md` §7). The six transcripts under `.claude/council-transcripts/` predate this rule.
 
 ---
 

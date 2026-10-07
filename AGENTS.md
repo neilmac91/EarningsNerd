@@ -74,7 +74,8 @@ file instead.
   also runs `npx vitest run tests/unit/designSnapshotParity.spec.ts` from `frontend/`; a
   `CLAUDE.md` change also runs `tests/unit/testHomesAllowlist.spec.ts`; a `.claude/settings.json`
   or `.claude/agents/` change also runs `backend/tests/unit/test_e8_launch_kit_matches_allow_rules.py`
-  and `test_agent_files_stack_truth.py`. Do not write tests for prose.
+  and `test_agent_files_stack_truth.py`; a `tasks/todo.md`, `lessons/` or `.claude/workflows/` change
+  also runs `test_agent_workflow_rules.py`. Do not write tests for prose.
 - Workflow-only PR (`.github/workflows/*.yml`): YAML parse plus the unit gates that read the
   workflows (`backend/tests/unit/test_migration_lock_safety.py`, `test_eval_parity.py`,
   `test_eval_measurement.py`, `test_data_completeness.py`, `test_backend_deploy_scope.py`,
@@ -157,6 +158,11 @@ this order: the date and author; where things stand (at most five lines: product
 balance, open PRs, holds by pointer); the open items, one line each with owner and next step; and
 what to doubt first. Anything longer belongs in the PR that produced it. Closed items leave
 `tasks/todo.md` in the PR that closes them; the file never grows into a ledger again.
+
+Founder deliberations (pricing, fundraising, strategy, council transcripts) never enter this
+repository: it is public, and history keeps what `main` drops. The `llm-council` skill writes
+transcripts to `~/.claude/earningsnerd/council/`; records that must be shared go through the
+founder's private store, not `tasks/`.
 
 ## 8. Commit hygiene
 

@@ -21,7 +21,7 @@ This directory contains Claude Code skills that provide specialized knowledge an
 
 ### Meta (`/meta`)
 Skills for reasoning and decision-making workflows:
-- **llm-council** - Pressure-test a high-stakes decision through 5 independent advisors (Contrarian, First Principles, Expansionist, Outsider, Executor), anonymous peer review, and a chairman synthesis. Triggers: "council this", "pressure-test this", "war room this".
+- **llm-council** - Pressure-test a high-stakes decision through 5 independent advisors (Contrarian, First Principles, Expansionist, Outsider, Executor), anonymous peer review, and a chairman synthesis. Triggers: "council this", "pressure-test this", "war room this". Transcripts go to `~/.claude/earningsnerd/council/`, never into the repository.
 - **judge-readout** - In a fresh chat, download the Monday `data-quality-weekly` generation artifact, judge its 24 retained attempts with `evals.judge_readout` over the subscription CLI, report and record the readout, and deliver it only after asking. Manual invocation only (`disable-model-invocation: true`).
 - **design-docs-maintenance** - The design-document parity procedure (sidecar, Impeccable `document`, panel harness), loaded only when a change touches the documented design system.
 - **karpathy-guidelines** - Baseline coding behaviour; `CLAUDE.md` names it.
