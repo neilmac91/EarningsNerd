@@ -35,6 +35,30 @@ reference is [`docs/CONFIGURATION.md`](./CONFIGURATION.md).
 
 ## How a summary is generated (the ONE orchestrator)
 
+### Durable after-response work
+
+With `DURABLE_TASKS_ENABLED`, on-visit filing refresh/history and timed-out coverage syncs hand
+identifier-only control messages to Cloud Tasks before claiming delivery. A private task-only
+Cloud Run service runs one delivery at a time. Its `task_worker_main:app` entrypoint verifies
+Google-signed OIDC audience and the dedicated service-account email; queue headers grant no access.
+It executes existing services in a fresh Python child, killing and reaping that process at 480
+seconds or on cancellation. Task acknowledgement follows successful persistence, before the
+540-second dispatch and 600-second service deadlines. This bounds native threads as well as async
+work. An application guard admits only one native child per worker process and rejects overlapping
+delivery promptly for retry, holding that permit through kill/reap. [HTTP/1.1 client disconnects do
+not reach Cloud Run containers](https://docs.cloud.google.com/run/docs/troubleshooting#client_disconnect_does_not_propagate_to_cloud_run); cleanup guarantees cover the work deadline or handler cancellation,
+not all transport loss. At-least-once delivery can still repeat completed work, so existing
+cache/upsert and notification ownership remain necessary. The parent opens no SQL pool or startup
+schema path. Existing scheduled jobs remain primary
+for fleet work; manual HTTP cohorts fan out at most 50 identifiers/pairs with stable retry names.
+Forced paid precompute is rejected in durable mode because it cannot be safely replayed.
+
+The API keeps its warm instance. Coverage retains its 20-second fast path and `syncing` polling;
+the local attempt is cancelled/drained before durable handoff. Summary generation retains its
+single pipeline and SSE contract. Its synchronous workers are owned and drained before releasing
+generation leadership. A valid cached excerpt no longer launches a redundant document download.
+
+
 There is a single generation pipeline — `app/services/summary_pipeline.py`
 (`stream_filing_summary`, a transport-agnostic async generator yielding plain event dicts).
 Every consumer drains it:
