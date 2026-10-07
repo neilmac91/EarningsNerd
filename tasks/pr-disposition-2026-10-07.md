@@ -223,3 +223,16 @@ Pending.
   failure (no Codex review then) re-run via the Actions API after Codex's completed review of `24dc595`.
 - 21:14Z — Read-only review of new observe-only #1113 started (`wf_9431c59e-422`). #1113 shares
   `frontend/DESIGN_SYSTEM.md` with #1081: simulate before #1081 merges.
+- 21:15:07Z — **#1102 merged** `fa7bf415` (head `24dc5957` re-read, `expectedHeadSha` pinned). Vercel
+  production status success 21:15:51Z; `www.earningsnerd.io` 200; evidence comment 6047011816.
+- 21:15Z — **Access gap:** the GitHub connector defangs bot mentions in comments it posts
+  (`@dependabot rebase` arrived on #1097 as "·@·d·ependabot r·ebase", comment 6046998252, with an
+  appended footer). This session therefore cannot issue `@dependabot` or `@codex` commands; not routed
+  around. Consequences: #1097 goes by maintainer replacement (cherry-pick of Dependabot's commit onto
+  current main; nothing pushed to the Dependabot branch); Codex reviews are triggered by a draft→ready
+  transition, which Codex reviews automatically.
+- 21:17:34Z — #1107 merged by its owner (`aa17bcb8`, frontend). Observe-only in this run; its Stage 1
+  should-fix findings move to follow-ups. #1108 now conflicts with main in `tasks/todo.md` (its owner's
+  lane); #1081's lane must re-integrate main and re-lint #1107's new files before pushing.
+- 21:22Z — #1097 replacement branch `claude/pr1097-frontend-minor-updates` = main `aa17bcb8` +
+  cherry-pick `-x` of `b0438bdc` (clean; package.json shows exactly the 8 reviewed versions); gate running.
