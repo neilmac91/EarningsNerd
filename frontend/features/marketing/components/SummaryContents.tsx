@@ -47,7 +47,7 @@ export default function SummaryContents() {
                 {FILING_NOTE}
               </span>
             </CardHeader>
-            <ol className="grid gap-x-6 px-3 py-2 sm:grid-cols-2">
+            <ol className="grid grid-cols-1 gap-x-6 px-3 py-2 sm:grid-cols-2">
               {SECTIONS.map((name, index) => (
                 <li
                   key={name}

@@ -21,7 +21,7 @@ export default function ChangeReportDemo() {
         <WhatChanged report={SAMPLE_CHANGE_REPORT} headingLevel="h4" />
       </div>
 
-      <div className="grid gap-4 px-6 pb-6 sm:grid-cols-2">
+      <div className="grid grid-cols-1 gap-4 px-6 pb-6 sm:grid-cols-2">
         <div>
           <div className={`${EYEBROW} text-text-tertiary-light dark:text-text-secondary-dark`}>New risk factors</div>
           <div role="status" aria-label={SKELETON_LABEL} className="flex flex-col gap-2">
