@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest'
-import { render, screen, within } from '@testing-library/react'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import { act, fireEvent, render, screen, within } from '@testing-library/react'
 import FinancialMetricsTable, { type FinancialMetric } from '@/features/summaries/components/FinancialMetricsTable'
 
 /**
@@ -382,5 +382,91 @@ describe('FinancialMetricsTable — stacked cards below md (EN-03): content pari
   it('renders nothing for no rows', () => {
     const { container } = render(<FinancialMetricsTable metrics={[]} bare />)
     expect(container).toBeEmptyDOMElement()
+  })
+})
+
+/**
+ * Codex review of #1108: a source surface opened from one layout must not outlive it. Rotating a
+ * phone across 768px hides the card list (CSS) while a card chip's sheet is open; the sheet used to
+ * stay over the table and, closed, return focus to the display:none chip. Here the breakpoint is
+ * modelled the way the browser reports it to SourceTrace: the hidden layout's elements have no client
+ * rects, and the viewport fires `resize`.
+ */
+describe('FinancialMetricsTable — a breakpoint that hides an open chip (Codex review of #1108)', () => {
+  let hidden: 'cards' | 'table' = 'table'
+  const restore: Array<() => void> = []
+  afterEach(() => {
+    restore.splice(0).forEach((undo) => undo())
+  })
+
+  function setup(pointer: 'coarse' | 'fine', initiallyHidden: 'cards' | 'table') {
+    hidden = initiallyHidden
+    const mm = vi.spyOn(window, 'matchMedia').mockImplementation(
+      (query: string) =>
+        ({
+          matches: query === '(pointer: coarse)' ? pointer === 'coarse' : false,
+          media: query,
+          addEventListener: () => {},
+          removeEventListener: () => {},
+          addListener: () => {},
+          removeListener: () => {},
+          onchange: null,
+          dispatchEvent: () => false,
+        }) as unknown as MediaQueryList,
+    )
+    const rects = vi.spyOn(HTMLElement.prototype, 'getClientRects').mockImplementation(function (this: HTMLElement) {
+      return (this.closest(`[data-metrics-layout="${hidden}"]`) ? [] : [{}]) as unknown as DOMRectList
+    })
+    restore.push(() => mm.mockRestore(), () => rects.mockRestore())
+    render(<FinancialMetricsTable metrics={FULL} />)
+  }
+  const inLayout = (layout: 'cards' | 'table') => within(document.querySelector<HTMLElement>(`[data-metrics-layout="${layout}"]`)!)
+  const crossBreakpoint = (nowHidden: 'cards' | 'table') => {
+    hidden = nowHidden
+    act(() => {
+      window.dispatchEvent(new Event('resize'))
+    })
+  }
+
+  it('touch: a card chip’s sheet closes when the cards are hidden, and focus goes to the same chip in the table', () => {
+    setup('coarse', 'table')
+    const cardChip = inLayout('cards').getAllByRole('button', { name: 'Source: Verified in filing' })[0]
+    act(() => cardChip.focus())
+    fireEvent.click(cardChip)
+    const sheet = screen.getByRole('dialog', { name: 'Source detail' })
+    expect(sheet.contains(document.activeElement)).toBe(true)
+
+    crossBreakpoint('cards') // rotated to landscape: the table is the layout shown
+    expect(screen.queryByRole('dialog', { name: 'Source detail' })).toBeNull()
+    expect(document.activeElement).toBe(inLayout('table').getAllByRole('button', { name: 'Source: Verified in filing' })[0])
+  })
+
+  it('keyboard: a table chip’s popover closes when the table is hidden, and focus goes to the same chip in its card', () => {
+    setup('fine', 'cards')
+    const tableChip = inLayout('table').getByRole('link', { name: 'Source: Revenue · SEC XBRL' })
+    act(() => tableChip.focus())
+    const tablePopover = screen.getByRole('group', { name: 'Source detail' })
+
+    crossBreakpoint('table') // narrowed below md: the cards are the layout shown
+    expect(tablePopover).not.toBeInTheDocument()
+    expect(document.activeElement).toBe(inLayout('cards').getByRole('link', { name: 'Source: Revenue · SEC XBRL' }))
+    // Focus on the twin opens the twin's own popover, as focus on any chip does: one surface, not two.
+    expect(screen.getAllByRole('group', { name: 'Source detail' })).toHaveLength(1)
+  })
+
+  it('a hover popover closes with its layout and moves no focus; a resize that keeps the chip shown keeps a sheet open', () => {
+    setup('fine', 'cards')
+    fireEvent.mouseEnter(inLayout('table').getByRole('link', { name: 'Source: Revenue · SEC XBRL' }))
+    expect(screen.getByRole('group', { name: 'Source detail' })).toBeInTheDocument()
+    crossBreakpoint('table')
+    expect(screen.queryByRole('group', { name: 'Source detail' })).toBeNull()
+    expect(document.activeElement).toBe(document.body)
+  })
+
+  it('touch: a resize that leaves the chip rendered (an on-screen keyboard, a small window change) keeps the sheet open', () => {
+    setup('coarse', 'table')
+    fireEvent.click(inLayout('cards').getAllByRole('button', { name: 'Source: Verified in filing' })[0])
+    crossBreakpoint('table') // still a phone: the cards stay shown
+    expect(screen.getByRole('dialog', { name: 'Source detail' })).toBeInTheDocument()
   })
 })

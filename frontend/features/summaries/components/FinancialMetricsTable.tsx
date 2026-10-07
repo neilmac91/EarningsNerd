@@ -1,6 +1,6 @@
 'use client'
 
-import type { ReactNode } from 'react'
+import { useId, type ReactNode } from 'react'
 import { MinusIcon, TrendDownIcon, TrendUpIcon } from '@/lib/icons'
 import { fmtCurrency, fmtPercent, fmtScale, parseNumeric } from '@/lib/format'
 import { directionText, type Direction } from '@/lib/financialTone'
@@ -78,7 +78,7 @@ const formatMetricValue = (value: string): string => {
  * card" are properties of the wrappers, not of the content.
  * ----------------------------------------------------------------------------------------------- */
 
-const nameField = (row: FinancialMetric): ReactNode => (
+const nameField = (row: FinancialMetric, twin?: string): ReactNode => (
   <div data-metric-field="name" className="flex flex-col font-medium text-text-primary-light dark:text-text-primary-dark">
     <span>{row.metric}</span>
     <MetricSourceLink
@@ -86,6 +86,7 @@ const nameField = (row: FinancialMetric): ReactNode => (
       verified={row.source_verified}
       concept={row.xbrl_concept}
       sectionRef={row.source_section_ref}
+      layoutTwin={twin}
     />
   </div>
 )
@@ -153,7 +154,7 @@ const changeField = (row: FinancialMetric, flow = false): ReactNode => {
   )
 }
 
-const takeawayField = (row: FinancialMetric): ReactNode => (
+const takeawayField = (row: FinancialMetric, twin?: string): ReactNode => (
   <div data-metric-field="takeaway" className="flex flex-col gap-1">
     <span className="text-text-secondary-light dark:text-text-secondary-dark">{row.commentary || '-'}</span>
     {row.commentary_evidence && (
@@ -162,6 +163,7 @@ const takeawayField = (row: FinancialMetric): ReactNode => (
         verified={row.commentary_evidence.verified}
         sectionRef={row.commentary_evidence.section_ref}
         excerpt={row.commentary_evidence.verified ? row.commentary_evidence.excerpt : null}
+        layoutTwin={twin}
       />
     )}
   </div>
@@ -180,9 +182,14 @@ const EYEBROW = 'text-xs font-semibold uppercase tracking-eyebrow text-text-tert
 const FIGURE = 'font-data text-sm tabular-nums'
 
 export default function FinancialMetricsTable({ metrics, notes, bare = false }: FinancialMetricsTableProps) {
+  const twinBase = useId()
   if (!metrics || metrics.length === 0) {
     return null
   }
+  // Every chip renders twice, once per layout; `layoutTwin` pairs the two copies so a source sheet or
+  // popover opened from one closes, with focus moving to the other, when a breakpoint hides its
+  // layout (a phone rotated across 768px). Per instance, so two tables on a page never pair.
+  const twin = (row: FinancialMetric, field: 'name' | 'takeaway') => `${twinBase}${metrics.indexOf(row)}-${field}`
 
   const hasComparatives = metrics.some((metric) => parseNumeric(metric.prior_period) !== null)
   const caption = hasComparatives
@@ -192,7 +199,7 @@ export default function FinancialMetricsTable({ metrics, notes, bare = false }: 
   // md and up: the DataTable exactly as before. Only the cell bodies moved into the shared
   // renderers; the nowrap wrappers, alignment, numeric face and tone column are the table's own.
   const columns: Column<FinancialMetric>[] = [
-    { key: 'metric', header: 'Metric', render: nameField },
+    { key: 'metric', header: 'Metric', render: (row) => nameField(row, twin(row, 'name')) },
     {
       key: 'current_period',
       header: 'Current Period',
@@ -224,7 +231,7 @@ export default function FinancialMetricsTable({ metrics, notes, bare = false }: 
           },
         ] satisfies Column<FinancialMetric>[])
       : []),
-    { key: 'commentary', header: 'Investor Takeaway', render: takeawayField },
+    { key: 'commentary', header: 'Investor Takeaway', render: (row) => takeawayField(row, twin(row, 'takeaway')) },
   ]
 
   // Two presentations of the same rows, switched by CSS alone (`md` = 768px, the documented
@@ -272,7 +279,7 @@ export default function FinancialMetricsTable({ metrics, notes, bare = false }: 
           data-metric-card
           className="min-w-0 rounded-lg border border-border-light bg-white p-3 [overflow-wrap:anywhere] dark:border-white/10 dark:bg-white/5"
         >
-          {nameField(row)}
+          {nameField(row, twin(row, 'name'))}
           <dl className="mt-2 flex flex-wrap gap-x-4 gap-y-2">
             <div className="min-w-0">
               <dt className={EYEBROW}>
@@ -296,7 +303,7 @@ export default function FinancialMetricsTable({ metrics, notes, bare = false }: 
             )}
           </dl>
           {row.per_ads && <div className="mt-1">{perAdsField(row)}</div>}
-          <div className="mt-3">{takeawayField(row)}</div>
+          <div className="mt-3">{takeawayField(row, twin(row, 'takeaway'))}</div>
         </li>
       ))}
     </ul>

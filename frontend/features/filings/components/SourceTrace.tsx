@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useId, useRef, useState, type ReactNode, type Ref } from 'react'
+import { useCallback, useEffect, useId, useMemo, useRef, useState, type ReactNode, type Ref, type RefObject } from 'react'
 import { createPortal } from 'react-dom'
 import { ArrowSquareOutIcon, CheckCircleIcon, FileTextIcon, XIcon } from '@/lib/icons'
 import { Button } from '@/components/ui'
@@ -45,6 +45,19 @@ interface SourceTraceProps {
    * anchors precisely; metrics (no verbatim excerpt) fall back to the section heading.
    */
   excerpt?: string | null
+  /**
+   * Pairs this chip with its copy in a component's other responsive layout (FinancialMetricsTable
+   * renders every chip in its phone cards and again in its md+ table, and CSS shows one copy). When
+   * a breakpoint hides the chip while its sheet or popover is open, the surface closes and focus that
+   * was on the chip or in the surface moves to the copy now shown.
+   */
+  layoutTwin?: string
+}
+
+/** The rendered copy of a chip paired by `layoutTwin`, other than `chip` itself. */
+function shownTwin(chip: HTMLElement, layoutTwin: string): HTMLElement | null {
+  const copies = Array.from(document.querySelectorAll<HTMLElement>('[data-layout-twin]'))
+  return copies.find((el) => el !== chip && el.dataset.layoutTwin === layoutTwin && el.getClientRects().length > 0) ?? null
 }
 
 interface PopoverPos {
@@ -130,7 +143,7 @@ export function SourceTracePanelBody({
   )
 }
 
-export function SourceTrace({ url, verified, sectionRef, label, note, excerpt }: SourceTraceProps) {
+export function SourceTrace({ url, verified, sectionRef, label, note, excerpt, layoutTwin }: SourceTraceProps) {
   const isVerified = verified === true
   const header = sectionRef?.trim() || null
   const chipLabel = label ?? (isVerified ? 'Verified in filing' : 'Cited')
@@ -149,6 +162,7 @@ export function SourceTrace({ url, verified, sectionRef, label, note, excerpt }:
       chipLabel={chipLabel}
       panelId={panelId}
       excerpt={excerpt?.trim() || null}
+      layoutTwin={layoutTwin}
     />
   )
 }
@@ -161,6 +175,7 @@ function SourceTraceInner({
   chipLabel,
   panelId,
   excerpt,
+  layoutTwin,
 }: {
   url: string | null
   isVerified: boolean
@@ -169,6 +184,7 @@ function SourceTraceInner({
   chipLabel: string
   panelId: string
   excerpt: string | null
+  layoutTwin?: string
 }) {
   const viewer = useFilingViewer()
   // In-app source highlight (item 1.4): prefer a verbatim excerpt (a verified risk-evidence span
@@ -258,6 +274,26 @@ function SourceTraceInner({
     }
   }, [open, isCoarse, computePos])
 
+  // A chip hidden by a breakpoint takes its surface with it. FinancialMetricsTable renders each chip
+  // twice (phone cards below md, the table at md+) and CSS shows one copy: rotating a phone across
+  // 768px with this sheet open left it over the other layout, and closing it then returned focus to a
+  // display:none chip. Whatever the pointer, an open surface whose chip is no longer rendered closes;
+  // focus that was on the chip or in the surface goes to the chip's twin now shown (the sheet's trap
+  // through `returnTarget`, the trap-less popover here).
+  useEffect(() => {
+    if (!open) return
+    const onResize = () => {
+      const chip = triggerRef.current
+      if (!chip || chip.getClientRects().length > 0) return
+      const active = document.activeElement
+      const held = active === chip || !!popoverRef.current?.contains(active)
+      setOpen(false)
+      if (held && !isCoarse && layoutTwin) shownTwin(chip, layoutTwin)?.focus()
+    }
+    window.addEventListener('resize', onResize)
+    return () => window.removeEventListener('resize', onResize)
+  }, [open, isCoarse, layoutTwin])
+
   // ESC closes either presentation when this panel owns the key (on a phone, the source sheet can
   // sit over the copilot sheet), so it owns the key: window capture runs ahead of the sheet's
   // document-level trap and the rail's own Escape listener, and stopping it there closes one layer
@@ -282,7 +318,18 @@ function SourceTraceInner({
 
   // The touch sheet is a modal layer: trap focus inside it while open and return it to the chip on
   // close (the chip stays mounted beneath the scrim: lessons/frontend-dialog-opener-outlives-the-dialog.md).
-  useSheetFocusTrap({ active: open && isCoarse, containerRef: sheetRef, onClose: closePanel, restoreFocusRef: triggerRef })
+  // Read at close: the chip, or its twin when a breakpoint hid the chip (see the resize effect above).
+  const returnTarget = useMemo<RefObject<HTMLElement | null>>(
+    () => ({
+      get current() {
+        const chip = triggerRef.current
+        if (chip && layoutTwin && chip.getClientRects().length === 0) return shownTwin(chip, layoutTwin) ?? chip
+        return chip
+      },
+    }),
+    [layoutTwin],
+  )
+  useSheetFocusTrap({ active: open && isCoarse, containerRef: sheetRef, onClose: closePanel, restoreFocusRef: returnTarget })
 
   // Fine pointer: Tab reaches the popover's EDGAR link and resumes the page after the chip; Escape
   // is handled above. See useEvidencePopoverKeys for the shared contract with CitationChip. With no
@@ -313,6 +360,7 @@ function SourceTraceInner({
   const triggerCommon = {
     ref: triggerRef as React.RefObject<HTMLButtonElement> & React.RefObject<HTMLAnchorElement>,
     'aria-label': `Source: ${chipLabel}`,
+    'data-layout-twin': layoutTwin,
     className: sourceTraceChipClass(isVerified),
     onMouseEnter: isCoarse ? undefined : openPanel,
     onMouseLeave: isCoarse ? undefined : scheduleClose,

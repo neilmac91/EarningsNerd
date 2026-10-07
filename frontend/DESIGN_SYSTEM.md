@@ -257,10 +257,14 @@ Metric cards     <FinancialMetricsTable> below md (768px): one stacked card per 
                  long values and an unbreakable token break inside their box. Sub-surface `rounded-lg border
                  border-border-light bg-white p-3 dark:border-white/10 dark:bg-white/5` inside the section panel
                  (HeroExample's; no nested shadow). The list is `role="list"` (WebKit drops list semantics from a
-                 `list-style: none` list) named by the table caption, in both caption variants. Gates:
-                 tests/unit/FinancialMetricsCards.spec.tsx (content parity, both layouts, every data variant) +
-                 tests/e2e/metrics-stacked-cards.spec.ts (the hidden layout, the one-line row, wrapping, the
-                 767/768 switch and the sibling-margin pin in a real browser).
+                 `list-style: none` list) named by the table caption, in both caption variants. Each chip's two
+                 copies share a per-instance `layoutTwin`: a source sheet or popover opened from one closes when
+                 a breakpoint hides its layout (a phone rotated across 768px), and focus that was in it goes to
+                 the twin now shown, never to a display:none chip (SourceTrace). Gates:
+                 tests/unit/FinancialMetricsCards.spec.tsx (content parity, both layouts, every data variant,
+                 the breakpoint close) + tests/e2e/metrics-stacked-cards.spec.ts (the hidden layout, the one-line
+                 row, wrapping, the 767/768 switch, the sibling-margin pin and rotation with a sheet open in a
+                 real browser).
 
 Ask answer       <AskFilingAnswer>  — the SHIPPED copilot contract: status reading|streaming|done|error;
                  answer = GFM markdown (react-markdown + remark-gfm); markers [n] AND [F1]/[f1]/[F 1]

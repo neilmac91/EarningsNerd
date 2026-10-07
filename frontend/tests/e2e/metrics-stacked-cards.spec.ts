@@ -442,6 +442,31 @@ for (const theme of ['light', 'dark'] as const) {
       await expect(chip).toBeFocused()
       expect(await probe(page).then((p) => p.dupIds)).toEqual([])
     })
+
+    // Codex review of #1108: the sheet belongs to the chip that opened it. Rotating across md hides
+    // that chip's layout; the sheet closes with it and focus lands on the same chip in the layout
+    // now shown, never on a display:none control. Both directions.
+    test('rotating with a chip sheet open closes it with its layout and hands focus to the same chip in the other layout', async ({ page, baseURL }) => {
+      await openFiling(page, baseURL!, { theme })
+      const cardChip = page.locator(CARD).first().getByRole('button', { name: 'Source: Verified in filing' })
+      await cardChip.scrollIntoViewIfNeeded()
+      await cardChip.tap()
+      const sheet = page.getByRole('dialog', { name: 'Source detail' })
+      await expect(sheet).toBeVisible()
+
+      await page.setViewportSize({ width: 844, height: 390 }) // landscape: the table is shown
+      await expectSingleLayout(page, 'table')
+      await expect(sheet).toHaveCount(0)
+      const tableChip = page.locator(`${TABLE} tbody tr`).first().getByRole('button', { name: 'Source: Verified in filing' })
+      await expect(tableChip).toBeFocused()
+
+      await tableChip.tap()
+      await expect(sheet).toBeVisible()
+      await page.setViewportSize({ width: 390, height: 844 }) // portrait again: the cards are shown
+      await expectSingleLayout(page, 'cards')
+      await expect(sheet).toHaveCount(0)
+      await expect(cardChip).toBeFocused()
+    })
   })
 }
 
@@ -480,6 +505,30 @@ test.describe('the switch is at 767 → 768 with no mixed state', () => {
       { TABLE, SECTION },
     )
     expect(Math.abs(offset.delta)).toBeLessThanOrEqual(0.5)
+  })
+})
+
+test.describe('a keyboard-opened popover across the md switch (Codex review of #1108)', () => {
+  test.use({ viewport: { width: 767, height: 1024 } })
+
+  test('a card chip focused at 767 loses its popover with the cards at 768, and focus moves to the same chip in the table', async ({ page, baseURL }) => {
+    await openFiling(page, baseURL!)
+    const cardChip = page.locator(CARD).first().getByRole('button', { name: 'Source: Verified in filing' })
+    await cardChip.scrollIntoViewIfNeeded()
+    await cardChip.focus()
+    const popovers = page.getByRole('group', { name: 'Source detail' })
+    await expect(popovers).toHaveCount(1)
+
+    await page.setViewportSize({ width: 768, height: 1024 })
+    await expectSingleLayout(page, 'table')
+    const tableChip = page.locator(`${TABLE} tbody tr`).first().getByRole('button', { name: 'Source: Verified in filing' })
+    await expect(tableChip).toBeFocused()
+    // Focus on the table's chip opens its own popover, as focus on any chip does: one surface, anchored
+    // to a rendered chip (the card's would sit at the hidden chip's empty rect).
+    await expect(popovers).toHaveCount(1)
+    const box = await popovers.first().boundingBox()
+    const anchor = await tableChip.boundingBox()
+    expect(box && anchor && Math.abs(box.x + box.width / 2 - (anchor.x + anchor.width / 2)) < 160).toBe(true)
   })
 })
 
