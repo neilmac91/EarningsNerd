@@ -122,7 +122,7 @@ numpy==2.4.6
     # via
     #   pandas
     #   rank-bm25
-openai==3.23.0
+openai==3.24.0
     # via -r requirements.in
 openpyxl==3.1.5
     # via -r requirements.in
@@ -142,7 +142,7 @@ pillow==12.3.0
     # via weasyprint
 pluggy==1.6.0
     # via pytest
-posthog==7.62.0
+posthog==7.62.1
     # via -r requirements.in
 psycopg2-binary==2.9.13
     # via -r requirements.in
