@@ -63,19 +63,29 @@ export function parseClassToken(token) {
 const isGridDisplay = (t) => t.utility === 'grid' || t.utility === 'inline-grid'
 const isCols = (t) => t.utility.startsWith('grid-cols-')
 
+// Tailwind's default min-width screens, smallest first (tailwind.config.js sets no custom
+// `screens`). Columns set under a screen still apply at every larger one, so `sm:grid-cols-2`
+// gives `hidden md:grid` its tracks. Every other variant (arbitrary `min-[…]` included) must match.
+const SCREENS = ['sm', 'md', 'lg', 'xl', '2xl']
+const variantHolds = (variant, displayVariants) =>
+  displayVariants.includes(variant) ||
+  (SCREENS.includes(variant) &&
+    displayVariants.some((d) => SCREENS.indexOf(d) >= SCREENS.indexOf(variant)))
+
 /** Returns null when the class text is fine, else the variant prefix whose base track is missing
  *  (`''` for the unprefixed base, `'sm:'` for `hidden sm:grid lg:grid-cols-4`). */
 export function gridBaseTrackProblem(classText) {
   const tokens = classText.split(/\s+/).filter(Boolean).map(parseClassToken).filter(Boolean)
   if (!tokens.some((t) => isCols(t) && t.variants.length > 0)) return null
-  // A base track has to apply whenever the grid display does: no variant it lacks, and not
-  // `grid-cols-none`, which leaves the tracks implicit again.
+  // A base track has to apply whenever the grid display does: every variant it carries holds
+  // there (the same variant, or a smaller screen), and not `grid-cols-none`, which leaves the
+  // tracks implicit again.
   const covers = (display) =>
     tokens.some(
       (t) =>
         isCols(t) &&
         t.utility !== 'grid-cols-none' &&
-        t.variants.every((v) => display.variants.includes(v)),
+        t.variants.every((v) => variantHolds(v, display.variants)),
     )
   const displays = tokens.filter(isGridDisplay)
   // No display token at all: a fragment (a constant, a caller's className) that will be joined to

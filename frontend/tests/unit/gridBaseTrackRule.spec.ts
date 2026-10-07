@@ -59,6 +59,10 @@ describe('gridBaseTrackProblem', () => {
     'lg:grid lg:grid-cols-2',
     'flex md:grid md:grid-cols-2',
     'hidden sm:grid sm:grid-cols-1 lg:grid-cols-4',
+    // A min-width screen's columns still apply at every larger screen (Tailwind's cascade).
+    'hidden md:grid sm:grid-cols-2',
+    'hidden xl:grid md:grid-cols-2 2xl:grid-cols-3',
+    'hidden dark:lg:grid sm:grid-cols-2',
     'grid-cols-1 lg:grid lg:grid-cols-3',
     'grid lg:[&>div]:grid-cols-3',
     'grid *:grid-cols-2',
@@ -79,6 +83,10 @@ describe('gridBaseTrackProblem', () => {
     ['md:grid-cols-2', ''],
     ['hidden sm:grid lg:grid-cols-4', 'sm:'],
     ['md:grid lg:grid-cols-3', 'md:'],
+    // Only a smaller or equal screen covers, and only a named screen: other variants must match.
+    ['hidden sm:grid md:grid-cols-2', 'sm:'],
+    ['hidden md:grid sm:dark:grid-cols-2', 'md:'],
+    ['hidden md:grid min-[600px]:grid-cols-2', 'md:'],
   ])('flags %j (missing %j base)', (classes, prefix) => {
     expect(gridBaseTrackProblem(classes)).toBe(prefix)
   })
@@ -98,6 +106,7 @@ ruleTester.run('responsive-grid-base-track', responsiveGridBaseTrack, {
   valid: [
     '<div className="grid grid-cols-1 gap-4 md:grid-cols-3" />',
     '<div className="lg:grid lg:grid-cols-[minmax(0,1fr)_13rem]" />',
+    '<div className="hidden md:grid sm:grid-cols-2" />',
     '<div className="grid lg:[&>div]:grid-cols-3" />',
     '<div className={`grid grid-cols-1 ${gap} md:grid-cols-2`} />',
     // The base is always there, in a different helper argument from the variant columns, or in the

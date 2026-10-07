@@ -40,4 +40,7 @@ is checked with the text that always renders around it and never with a sibling 
 review found the first version let `cx('grid', wide ? 'md:grid-cols-2' : 'grid-cols-1')` borrow the
 other arm's base. It also skipped any literal inside a class unit that the unit did not walk (a
 spread, an inline map lookup), so the gate failed open. Now a spread counts as written in place, and
-text no unit reaches is checked on its own.
+text no unit reaches is checked on its own. Codex's review of the merged rule found it demanded the
+display's exact prefix, so it flagged `hidden md:grid sm:grid-cols-2`. It then suggested a
+`md:grid-cols-1` that would override the two columns. Screens are min-width, so columns under a
+smaller screen now count at every larger one. Other variants still have to match.
