@@ -42,25 +42,28 @@ DATE = re.compile(
     rf"\b\d{{4}}-\d{{2}}-\d{{2}}\b|\b\d{{1,2}}\s+{MONTH}\s+\d{{4}}\b|\b{MONTH}\s+\d{{1,2}}\b",
     re.IGNORECASE,
 )
-HEADING = re.compile(r"^#{1,6}\s")
-# A quoted model literal, or the tier key the review script resolves at run time.
-MODEL_VALUE = re.compile(r"^(?:'(sonnet|opus|haiku|claude-[\w.-]+)'|\"(sonnet|opus|haiku|claude-[\w.-]+)\"|\w+\.(lensModel|refuterModel))$")
+HEADING = re.compile(r"^ {0,3}#{1,6}\s")
+SETEXT_UNDERLINE = re.compile(r"^ {0,3}(=+|-+)\s*$")
+# A quoted model literal, or the tier key the review script binds as `const T = TIERS[...]`.
+MODEL_VALUE = re.compile(r"^(?:'(sonnet|opus|haiku|claude-[\w.-]+)'|\"(sonnet|opus|haiku|claude-[\w.-]+)\"|T\.(lensModel|refuterModel))$")
+TIER_BINDING = re.compile(r"\bconst T = TIERS\[")
 MODEL_LITERAL = re.compile(r"'(sonnet|opus|haiku|claude-[\w.-]+)'")
-# The vote-counting bug shape: a missing vote silently counts as a refutation.
-MISSING_VOTE_IS_REFUTATION = re.compile(r"\.length\s*>\s*0\s*&&[^;\n]*\.every\(")
-INDEX_ENTRY = re.compile(r"^- (archive/)?([a-z0-9-]+\.md) — ", re.MULTILINE)
-# Council files committed before the rule (AGENTS.md §7); the set only shrinks.
-EXISTING_TRANSCRIPTS = frozenset(
-    [TRANSCRIPTS + name for name in (
-        "council-2026-06-28-q2-moat.md",
-        "council-transcript-2026-06-28-q3-pricing.md",
-        "council-transcript-2026-06-28-q4-beta-scope.md",
-        "council-transcript-2026-06-28-q5-distribution.md",
-        "council-transcript-2026-06-28-q6-fundraising.md",
-        "council-transcript-2026-06-28-q7-dormant-features.md",
-    )]
-    + ["tasks/council-prep.md"]
-)
+# The vote-counting bug shape: `.length` (bare, `> 0`, `>= 1`, `!== 0`) guarding `.every(` means a
+# missing vote silently counts as a refutation. Whitespace may span lines.
+MISSING_VOTE_IS_REFUTATION = re.compile(r"\.length\s*(?:>\s*0|>=\s*1|!==?\s*0)?\s*&&\s*\w+\.every\(")
+# `- file.md — rule` or the older link form `- [`file.md`](./file.md) — rule`.
+INDEX_ENTRY = re.compile(r"^- (?:\[`?)?(archive/)?([a-z0-9-]+\.md)(?:`?\]\([^)]*\))?\s+—\s", re.MULTILINE)
+# Council files committed before the rule (AGENTS.md §7), pinned to their blob hashes: each may
+# stay unchanged or be deleted, never grow a new deliberation. The set only shrinks.
+EXISTING_TRANSCRIPTS = {
+    TRANSCRIPTS + "council-2026-06-28-q2-moat.md": "52999e16463a49bf1fb4dbf5b89658d45ddac0f5",
+    TRANSCRIPTS + "council-transcript-2026-06-28-q3-pricing.md": "6e757761061fa3229f1db62912f8256bbb08525a",
+    TRANSCRIPTS + "council-transcript-2026-06-28-q4-beta-scope.md": "80754636095c5cf440be4310ded61d74743e93ac",
+    TRANSCRIPTS + "council-transcript-2026-06-28-q5-distribution.md": "1e246498440e29ca59a3920a120a68a17ce1b2b3",
+    TRANSCRIPTS + "council-transcript-2026-06-28-q6-fundraising.md": "886ce79d4fcd6ead43df6603329bebd7cfcf2ae9",
+    TRANSCRIPTS + "council-transcript-2026-06-28-q7-dormant-features.md": "30f8013f91c1a6edece216ea8dc2c60ffb13ce82",
+    "tasks/council-prep.md": "ff41f8caebbc7db62b9b239cbb29bc282b0bb63d",
+}
 # Either naming style the frozen set itself uses, in any text format.
 COUNCIL_FILE = re.compile(r"(^|/)council-[^/]*\.(md|txt|json)$")
 
@@ -72,11 +75,14 @@ def test_todo_is_one_page_of_open_items():
         "(AGENTS.md §7 — closed items leave the file, history goes to tasks/archive/)"
     )
     headings, fenced = [], False
-    for line in lines:
+    for i, line in enumerate(lines):
         if line.startswith("```"):
             fenced = not fenced
         elif not fenced and HEADING.match(line):
-            headings.append(line)
+            headings.append(line.lstrip())
+        elif (not fenced and line.strip() and not line.lstrip().startswith(("-", "*", "#"))
+              and i + 1 < len(lines) and SETEXT_UNDERLINE.match(lines[i + 1])):
+            headings.append("## " + line.strip())  # a setext heading counts like an ATX one
     assert headings and headings[0] == TODO_TITLE, f"tasks/todo.md must start with '{TODO_TITLE}'"
     sections = [h[3:].strip() for h in headings[1:] if h.startswith("## ")]
     others = [h for h in headings[1:] if not h.startswith("## ")]
@@ -149,7 +155,7 @@ def _split_top_level(args: str) -> list[str]:
 def _agent_calls(source: str):
     """Yield the argument text of every ``agent(`` call, comments removed, strings respected."""
     source = _strip_comments(source)
-    for match in re.finditer(r"(?<![\w.])agent\(", source):
+    for match in re.finditer(r"(?<![\w.])agent\s*\(", source):
         i = match.end()
         depth, quote, start = 1, None, i
         while i < len(source) and depth:
@@ -177,11 +183,9 @@ def _options_name_a_model(call: str) -> bool:
     if len(args) < 2 or not args[-1].startswith("{"):
         return False
     body = args[-1][1:].rsplit("}", 1)[0]
-    for entry in _split_top_level(body):
-        match = re.match(r"^\s*model\s*:\s*(.+?)\s*$", entry, re.DOTALL)
-        if match:
-            return bool(MODEL_VALUE.match(match.group(1)))
-    return False
+    values = [m.group(1) for m in (re.match(r"^\s*model\s*:\s*(.+?)\s*$", e, re.DOTALL) for e in _split_top_level(body)) if m]
+    # A JavaScript object literal keeps the LAST duplicate key, so every `model` entry must be sound.
+    return bool(values) and all(MODEL_VALUE.match(v) for v in values)
 
 
 def test_every_workflow_agent_call_names_its_model():
@@ -189,8 +193,11 @@ def test_every_workflow_agent_call_names_its_model():
     assert scripts, f"no workflow scripts under {WORKFLOWS}"
     unnamed = []
     for script in scripts:
-        calls = list(_agent_calls(script.read_text(encoding="utf-8")))
+        source = _strip_comments(script.read_text(encoding="utf-8"))
+        calls = list(_agent_calls(source))
         assert calls, f"{script.name} has no agent() call"
+        if any("T." in c for c in calls):
+            assert TIER_BINDING.search(source), f"{script.name} uses T.<model> without `const T = TIERS[...]`"
         unnamed += [f"{script.name}: agent({c[:60]}…" for c in calls if not _options_name_a_model(c)]
     assert not unnamed, (
         "workflow agent() calls whose options do not name a model inherit the session's premium "
@@ -276,23 +283,29 @@ def test_lessons_index_lists_every_lesson_exactly_once():
     assert not ghosts, f"lessons/README.md lists files that do not exist: {ghosts}"
 
 
-def _tracked_files() -> list[str]:
-    # Tracked and staged paths: a transcript added but not yet committed is caught too.
-    out = subprocess.run(["git", "ls-files", "-z"], cwd=ROOT, capture_output=True, check=True)  # noqa: S603, S607
-    return [p for p in out.stdout.decode().split("\0") if p]
+def _tracked_blobs() -> dict[str, str]:
+    # Tracked and staged paths with their blob hashes: a transcript added or edited but not yet
+    # committed is caught too.
+    out = subprocess.run(["git", "ls-files", "-s", "-z"], cwd=ROOT, capture_output=True, check=True)  # noqa: S603, S607
+    blobs = {}
+    for record in out.stdout.decode().split("\0"):
+        if record:
+            meta, path = record.split("\t", 1)
+            blobs[path] = meta.split()[1]
+    return blobs
 
 
-def test_no_new_council_transcripts_in_the_repository():
-    tracked = _tracked_files()
-    new_in_folder = sorted(p for p in tracked if p.startswith(TRANSCRIPTS) and p not in EXISTING_TRANSCRIPTS)
+def test_no_new_or_grown_council_transcripts_in_the_repository():
+    blobs = _tracked_blobs()
+    new_in_folder = sorted(p for p in blobs if p.startswith(TRANSCRIPTS) and p not in EXISTING_TRANSCRIPTS)
     elsewhere = sorted(
-        p for p in tracked
-        if not p.startswith(TRANSCRIPTS) and p not in EXISTING_TRANSCRIPTS and COUNCIL_FILE.search(p)
+        p for p in blobs if not p.startswith(TRANSCRIPTS) and p not in EXISTING_TRANSCRIPTS and COUNCIL_FILE.search(p)
     )
-    assert not new_in_folder and not elsewhere, (
+    changed = sorted(p for p, blob in EXISTING_TRANSCRIPTS.items() if p in blobs and blobs[p] != blob)
+    assert not new_in_folder and not elsewhere and not changed, (
         "founder deliberations never enter this public repository (AGENTS.md §7); the llm-council "
-        f"skill writes to ~/.claude/earningsnerd/council/. New transcripts: {new_in_folder + elsewhere}"
+        f"skill writes to ~/.claude/earningsnerd/council/. New: {new_in_folder + elsewhere}; edited: {changed}"
     )
-    gone = sorted(EXISTING_TRANSCRIPTS - set(tracked))
+    gone = sorted(set(EXISTING_TRANSCRIPTS) - set(blobs))
     if gone:
         raise AssertionError(f"remove these from EXISTING_TRANSCRIPTS, the set only shrinks: {gone}")
