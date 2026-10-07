@@ -4,11 +4,15 @@
 against DeepSeek whenever a `pull_request` touching its `paths:` filter is marked ready. The
 filter used to be `backend/**`, so a tests-only or docs-only backend change paid for a run that
 could not change its result. This gate reads the entry points from the workflow's own run steps,
-recomputes their transitive import closure, and fails when a reachable module falls outside the
-filter (the filter is stale) or when a path that cannot affect the run would trigger it
-(`backend/tests/**`, evals Markdown and the summary-eval modules, scripts, migrations).
-Runtime-loaded data the closure cannot see (prompts, the golden set and sources, the model env
-file, the requirements) is pinned by enumerating the real files. CLAUDE.md rule 12.
+recomputes their transitive import closure over every top-level package and module under
+`backend/` (tests and task_worker_main included, so the eval cannot quietly depend on code the
+filter excludes), and fails when a reachable module falls outside the filter (the filter is
+stale) or when a path that cannot affect the run would trigger it (routers, integrations,
+`main.py`, `task_worker_main.py`, `dependencies.py`, the Dockerfile, scripts, migrations, tests,
+evals Markdown and the summary-eval modules). Runtime-loaded data the closure cannot see
+(prompts, the golden set and sources, `app/data`, `app/assets`, the model env file, the
+requirements) is pinned by enumerating the real files, and a missing one is an error, never a
+silent drop. CLAUDE.md rule 12.
 """
 from __future__ import annotations
 
@@ -21,33 +25,51 @@ import yaml
 ROOT = Path(__file__).resolve().parents[3]
 BACKEND = ROOT / "backend"
 WORKFLOW = ROOT / ".github/workflows/copilot-eval.yml"
-LOCAL_PACKAGES = ("app", "evals", "main", "scripts")
-RUN_MODULE = re.compile(r"python -m (evals\.[\w.]+)")
+# Every top-level importable name under backend/: modules, packages and namespace packages (any
+# directory holding Python), so no local import is ever dropped as "not local".
+LOCAL_TOP_LEVEL = frozenset(
+    {p.stem for p in BACKEND.glob("*.py")}
+    | {d.name for d in BACKEND.iterdir() if d.is_dir() and any(d.glob("*.py"))}
+)
+PYTHON_INVOCATION = re.compile(r"\bpython3?\s+(-m\s+[\w.]+|\S+\.py)")
+RUN_MODULE = re.compile(r"\bpython3?\s+-m\s+(evals\.[\w.]+)")
+EXPECTED_ENTRY_POINTS = ["evals.copilot_bootstrap", "evals.copilot_runner"]
+COPILOT_EVAL_MODULES = {"__init__.py", "schema.py", "scorers.py"}
 
 
-def _rel(paths) -> list[str]:
-    return sorted(p.relative_to(ROOT).as_posix() for p in paths if p.is_file())
+def _existing(paths, what: str) -> list[str]:
+    """Repo-relative paths; a path that does not exist is an error, never a silent drop."""
+    missing = [p for p in paths if not Path(p).is_file()]
+    assert not missing, f"{what}: these inputs no longer exist, update the gate: {missing}"
+    return sorted(Path(p).relative_to(ROOT).as_posix() for p in paths)
+
+
+def _glob(pattern: str) -> list[Path]:
+    found = [p for p in BACKEND.glob(pattern) if p.is_file()]
+    assert found, f"no files match backend/{pattern}; update the gate"
+    return found
 
 
 # Loaded at runtime rather than imported, so the closure cannot discover them.
 def runtime_inputs() -> list[str]:
-    return _rel(
-        list(BACKEND.glob("prompts/*.md"))
-        + list(BACKEND.glob("evals/copilot_*.json"))
-        + [BACKEND / "requirements.txt", BACKEND / "requirements-dev.txt",
-           ROOT / ".github/ai-model.env", WORKFLOW]
+    return _existing(
+        _glob("prompts/*.md") + _glob("evals/copilot_*.json") + _glob("app/data/**/*") + _glob("app/assets/**/*")
+        + [BACKEND / "requirements.txt", BACKEND / "requirements-dev.txt", ROOT / ".github/ai-model.env", WORKFLOW],
+        "runtime inputs",
     )
 
 
 # Must never start the paid run: they cannot change its result.
 def non_triggers() -> list[str]:
-    return _rel(
-        list(BACKEND.glob("tests/**/*.py"))
-        + list(BACKEND.glob("evals/*.md"))
-        + list(BACKEND.glob("scripts/*"))
-        + list(BACKEND.glob("migrations/*"))
-        + [BACKEND / "evals/runner.py", BACKEND / "evals/regression_gate.py",
-           BACKEND / "evals/judge_readout.py", BACKEND / "evals/baseline_scores.json"]
+    summary_eval_modules = [
+        p for p in _glob("evals/*.py") if not p.name.startswith("copilot_") and p.name not in COPILOT_EVAL_MODULES
+    ]
+    return _existing(
+        _glob("tests/**/*.py") + _glob("evals/*.md") + summary_eval_modules + _glob("scripts/*") + _glob("migrations/*")
+        + _glob("app/routers/*.py") + _glob("app/integrations/*.py")
+        + [BACKEND / "main.py", BACKEND / "task_worker_main.py", BACKEND / "app/dependencies.py",
+           BACKEND / "Dockerfile", BACKEND / "evals/baseline_scores.json"],
+        "non-triggers",
     )
 
 
@@ -70,26 +92,33 @@ def _local_imports(module: str, is_package: bool, tree: ast.AST):
     for node in ast.walk(tree):
         if isinstance(node, ast.Import):
             for alias in node.names:
-                if alias.name.split(".")[0] in LOCAL_PACKAGES:
+                if alias.name.split(".")[0] in LOCAL_TOP_LEVEL:
                     yield alias.name
         elif isinstance(node, ast.ImportFrom):
             base = node.module or ""
             if node.level:
                 package = ".".join(anchor[: len(anchor) - (node.level - 1)])
                 base = f"{package}.{base}".strip(".") if base else package
-            if base.split(".")[0] in LOCAL_PACKAGES:
+            if base.split(".")[0] in LOCAL_TOP_LEVEL:
                 yield base
                 for alias in node.names:
                     yield f"{base}.{alias.name}"
 
 
+def _workflow() -> dict:
+    return yaml.load(WORKFLOW.read_text(encoding="utf-8"), Loader=yaml.BaseLoader)
+
+
 def entry_points() -> list[str]:
-    """The `python -m evals.<module>` commands the workflow actually runs."""
-    data = yaml.load(WORKFLOW.read_text(encoding="utf-8"), Loader=yaml.BaseLoader)
-    steps = data["jobs"]["copilot-eval"]["steps"]
-    found = sorted({m for step in steps for m in RUN_MODULE.findall(step.get("run", ""))})
-    assert found, "copilot-eval.yml runs no `python -m evals.<module>` step"
-    return found
+    """Every Python program the workflow's run steps execute; all of them must be `-m evals.<module>`."""
+    steps = _workflow()["jobs"]["copilot-eval"]["steps"]
+    runs = [step.get("run", "") for step in steps]
+    invocations = sorted({m for run in runs for m in PYTHON_INVOCATION.findall(run)})
+    modules = sorted({m for run in runs for m in RUN_MODULE.findall(run)})
+    unknown = [i for i in invocations if not i.startswith("-m evals.")]
+    assert not unknown, f"copilot-eval.yml runs Python the gate cannot trace: {unknown}"
+    assert modules, "copilot-eval.yml runs no `python -m evals.<module>` step"
+    return modules
 
 
 def reachable_files(roots=None) -> set[str]:
@@ -113,10 +142,15 @@ def reachable_files(roots=None) -> set[str]:
 
 
 def _pattern(glob: str) -> re.Pattern[str]:
-    # GitHub Actions path filters: `**` matches any characters (a leading `**/` also matches no
-    # directory at all), `*` any run except `/`, `?` one character except `/`, `+` one or more.
-    out = ""
-    i = 0
+    """GitHub Actions path-filter globs: `**` matches any characters (a leading `**/` also matches
+    no directory at all) and `*` any run except `/`. GitHub also defines `?`, `+` and `[…]` as
+    quantifiers and character classes of the preceding character; the filter uses none of them,
+    and the gate refuses them so a future pattern forces a deliberate matcher update instead of
+    being matched wrongly."""
+    unsupported = sorted(set(glob) & set("?+[]"))
+    if unsupported:
+        raise ValueError(f"pattern {glob!r} uses {unsupported}; teach _pattern GitHub's semantics first")
+    out, i = "", 0
     while i < len(glob):
         if glob.startswith("**/", i):
             out += "(?:.*/)?"
@@ -127,12 +161,6 @@ def _pattern(glob: str) -> re.Pattern[str]:
         elif glob[i] == "*":
             out += "[^/]*"
             i += 1
-        elif glob[i] == "?":
-            out += "[^/]"
-            i += 1
-        elif glob[i] == "+":
-            out += "[^/]+"
-            i += 1
         else:
             out += re.escape(glob[i])
             i += 1
@@ -140,8 +168,7 @@ def _pattern(glob: str) -> re.Pattern[str]:
 
 
 def workflow_filter() -> list[str]:
-    data = yaml.load(WORKFLOW.read_text(encoding="utf-8"), Loader=yaml.BaseLoader)
-    return list(data["on"]["pull_request"]["paths"])
+    return list(_workflow()["on"]["pull_request"]["paths"])
 
 
 def triggers(path: str, patterns: list[str]) -> bool:
@@ -155,16 +182,18 @@ def triggers(path: str, patterns: list[str]) -> bool:
 
 
 def test_entry_points_come_from_the_workflow_run_steps():
-    assert entry_points() == ["evals.copilot_bootstrap", "evals.copilot_runner"]
+    assert entry_points() == EXPECTED_ENTRY_POINTS
 
 
-def test_closure_is_nonempty_and_reaches_the_copilot_service():
+def test_closure_follows_every_top_level_backend_name():
+    assert {"app", "evals", "tests", "main", "task_worker_main", "scripts"} <= LOCAL_TOP_LEVEL, sorted(LOCAL_TOP_LEVEL)
     files = reachable_files()
     assert len(files) > 50, sorted(files)
     assert "backend/app/services/copilot_service.py" in files
     assert "backend/app/services/edgar/__init__.py" in files
     # Reached only through a relative import inside a package __init__ (app/schemas/__init__.py).
     assert "backend/app/schemas/contact.py" in files
+    assert not [f for f in files if f.startswith("backend/tests/")], "the eval must not import test code"
 
 
 def test_relative_imports_anchor_on_the_owning_package():
@@ -197,5 +226,9 @@ def test_filter_matcher_follows_github_semantics():
     assert triggers("backend/evals/copilot_runner.py", ["backend/evals/**", "!backend/evals/**.md"])
     assert triggers("docs/README.md", ["**/docs/**"]) and triggers("a/docs/b/c.md", ["**/docs/**"])
     assert triggers("backend/evals/copilot_x.json", ["backend/evals/copilot_*"])
-    assert triggers("a/b1.py", ["a/b?.py"]) and not triggers("a/b12.py", ["a/b?.py"])
-    assert triggers("a/b12.py", ["a/b+.py"]) and not triggers("a/b.py", ["a/b+.py"])
+    for unsupported in ("a/b?.py", "a/b+.py", "a/[bc].py"):
+        try:
+            _pattern(unsupported)
+        except ValueError:
+            continue
+        raise AssertionError(f"_pattern accepted {unsupported!r} without GitHub's quantifier semantics")
