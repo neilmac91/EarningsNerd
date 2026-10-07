@@ -316,3 +316,25 @@ Pending.
   Evidence comment 6048726325. **#1119 merged** `111e8ce4` (squash, `expectedHeadSha` pinned).
 - 23:12Z — **#1096 closed** as superseded (comment 6048731593). Main CI 37700883978 started; the
   deploy follows the test jobs.
+- 23:17Z — #1081 pushed `d7514ddf..b3b03a8c` (fast-forward) after a full local gate on `b3b03a8c`:
+  lint 0, tsc 0, vitest 1223, build 0. Every frontend file of #1108, #1110, #1113, #1118 and #1120
+  re-linted clean under the final rule; #1009's conflict set is unchanged (`pricing/page.tsx`,
+  `tasks/todo.md`, the same against main). Codex thread 4212882992 answered and resolved. PR body
+  updated; draft→ready at 23:18Z (Codex review of `b3b03a8`). Delta review `wf_d497c7b3-60c`
+  started. Safety-net check-in re-armed for 00:10Z (`trig_01YUfB3jk3jvQgbBQ2wbbW3t`).
+- 23:21Z — Codex on #1081 `b3b03a8`: one P2 (thread 4213020281). A responsive `grid-cols-none`
+  after a valid base (`grid grid-cols-1 sm:grid-cols-none md:grid-cols-2`) clears the tracks but
+  passes. Pre-existing since the rule's first version; `1a81a1ba` also let
+  `hidden md:grid sm:grid-cols-2 md:grid-cols-none` through. No file in the tree uses
+  `grid-cols-none`. Fix drafted locally: any reset under a variant is reported on its own, with a
+  `grid-cols-[auto]` hint. Mutation proof: without it, both cases pass (96/98).
+- 23:24:05Z — **#1119 deploy verified** (deploy job 113066259541, the first Buildx deploy):
+  - build and push about 82 s;
+  - `apply_migrations: applied=0 skipped=41`;
+  - revision `earningsnerd-backend-00446-vhw` at 100% (`100% LATEST`);
+  - all 8 job images updated;
+  - "Verify health" healthy;
+  - independent `/health/detailed` 200 healthy at 23:24:50Z (database 6.13 ms, SEC circuit closed).
+
+  Release comment 6048886899. The release record was added to
+  `tasks/review-evidence/deps-minor-2026-10-07/README.md`.

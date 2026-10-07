@@ -212,3 +212,27 @@ As written before the push: this is local, unpushed preparation. Independent exa
 remain release requirements. The change touches `backend/requirements*.txt`, so a merge triggers
 `deploy-backend`, with the usual serialized migration receipt and health verification. No provider
 call, workflow dispatch or production operation occurred.
+
+## Release record (added after merge)
+
+- **PR and merge:** #1119 at head `76d2ba6d`, squash-merged as `111e8ce4` at 2026-10-07T23:12Z. It
+  supersedes Dependabot #1096, closed with comment 6048731593.
+- **Paid validation on the exact head** (E1 precedent):
+  - eval-baseline dispatch run 37695333206: 70/70 scored, errors 0, regression gate PASS. Two
+    warnings:
+    - untraceable dollar figures (advisory);
+    - `mean_citation_fidelity` 0.8615 vs 0.9648. Every 7 October run reads 0.818–0.862, because the
+      eval harness's section extraction fell back to regex for 35/35 filings. That is not caused by
+      this diff and is queued as a follow-up.
+  - copilot-eval run 37695352886: accepted, 18/18, 0 errors.
+  - Cost: USD 0.181759 in total.
+- **Reviews:** Codex completed on `76d2ba6` with no findings. The independent three-lens exact-head
+  review found no blocker and no should-fix. Its two nits are corrected in this file.
+- **Deploy:** main CI run 37700883978, deploy job 113066259541. It was the first deploy built with
+  Buildx and the GHA cache (#1117).
+  - Migrations: `apply_migrations: applied=0 skipped=41`.
+  - Revision `earningsnerd-backend-00446-vhw` serves 100% of traffic.
+  - "Verify health" reported healthy.
+  - An independent `/health/detailed` read at 2026-10-07T23:24:50Z returned 200 healthy, with the
+    database at 6.13 ms and the SEC circuit closed.
+  - Release comment: #1119 comment 6048886899.
