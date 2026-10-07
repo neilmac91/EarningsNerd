@@ -338,7 +338,7 @@
     "claude-code-subagent:session_01GWYV7WXWstgVGQG43YcSM8:launched-after-this-record:record-13-reviewer-01": "resolved to claude-code-subagent:session_01GWYV7WXWstgVGQG43YcSM8:launched-2026-10-06T2306Z:record-13-reviewer-01"
   },
   "annotations": {
-    "codex-thread:01a102be-45bf-72f3-8b9a-a5ff7bb8adfe:/root/r1_package_boundary_review_20261004": "Named by identity string in Astra's 2026-10-06/07 relay (record 14) as 'the existing registered control reviewer' reused in record 12's manifest-distinction check (2 of the 12 minutes charged there; metadata only). Same registered engineering/control reviewer as closure 142; no eligibility change: still ineligible for source planning or authorship, reconciliation, blind financial judging and candidate generation; no new context."
+    "codex-thread:01a102be-45bf-72f3-8b9a-a5ff7bb8adfe:/root/r1_package_boundary_review_20261004": "Named by identity string in Astra's answer relayed by the founder on 2026-10-07 (record 14) as 'the existing registered control reviewer' reused in record 12's manifest-distinction check (2 of the 12 minutes charged there; metadata only). Same registered engineering/control reviewer as closure 142; no eligibility change: still ineligible for source planning or authorship, reconciliation, blind financial judging and candidate generation; no new context."
   },
   "conventions": {
     "workflow_lens_labels": "A review workflow's lens contexts are registered as claude-code-workflow:<run>:<agentId>:<record>-review-lens-<lens>-01 while the workflow journal labels the same agent ids review:<lens>; the agent id is the identity, the label is descriptive (applies to closures 157 and 159; stated here per the record-10 review nit)."

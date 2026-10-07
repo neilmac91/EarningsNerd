@@ -6296,7 +6296,7 @@ Full local and hosted verification plus independent exact-head review precede re
       and the project's region — the one condition for G1 to close; revoke the download key (recommended).
 - [x] PR #1099 merged to main `eccf45a3` (2026-10-05T21:59:56Z) after GitHub's Actions incident (five jobs platform-cancelled, re-run once);
       seven delta-review nits applied in record 09. Review rule from record 09: records-only PRs get one reviewer context; nits carried.
-- [x] (done 2026-10-06: PR #1101 merged `f0af2e3c` with gate `backend/tests/unit/test_backend_deploy_scope.py`; five merges since verified skipping) CTO (proposed, awaiting the founder's go-ahead as a deploy-pipeline change): exclude `backend/tests/` from `deploy-backend`'s path
+- [x] (done 2026-10-06: PR #1101 merged `f0af2e3c` with gate `backend/tests/unit/test_backend_deploy_scope.py`; five merges verified skipping — its own and the four since) CTO (proposed, awaiting the founder's go-ahead as a deploy-pipeline change): exclude `backend/tests/` from `deploy-backend`'s path
       filter, mirroring `.dockerignore`, plus a rule-12 gate — PR #1098 deployed unchanged application code because the filter is wider
       than the build context (`DECISIONS-09.md`).
 - [x] CTO/CEO: readout error-detail diagnostics (`ops/capacity/readout.py`, bounded worker, PR #1098): a structured, bounded
@@ -6352,7 +6352,8 @@ Full local and hosted verification plus independent exact-head review precede re
   and G5 untouched; nothing runs); the manifest control proceeds by one metadata-only custodian question with six return fields
   (no predicate change, nothing substituted); PR #1105 review record closed (merge `adf98331`; deploy steps skipped). Closure 163.
 - [x] Founder (2026-10-07 relay of Astra): the record-13 custodian question answered NO (0 / 69); the control reviewer's identity
-      string supplied (= closure 142); recorded in record 14. D3 still held.
+      string supplied (= closure 142); recorded in record 14; (a)/(b) not stated and not needed — (b) unavailable, the hold stands by
+      default (record 14). D3 still held.
 - 2026-10-07 (record 14, `runtime/control/DECISIONS-14.md`): the custodian's answer recorded as relayed — the three component
   manifests enumerate none of the 69 retained inputs (0 / 69 by SHA-256 and byte length; a comparison beyond the brief, disclosed and
   accepted); option (b) unavailable; record 05's gate unchanged; mismatch between artifact sets, not corruption; R1 NOT_RELEASED; 2

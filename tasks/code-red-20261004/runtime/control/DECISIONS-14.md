@@ -5,7 +5,7 @@ Recorded 2026-10-07T06:53:22Z by the chief (`https://claude.ai/code/session_01GW
 `dea20fe8` + `abf9d41e`, merged 23:24Z) onto `a64d4e60`, the merge of the founder's product-lane PR #1094 (frontend, EN-01, merged
 21:48Z; observed only — outside these records); this branch was restarted from `be43b490`. Records only: no code, workflow,
 migration, cloud, IAM or production change; no provider call; no reservation; no source material opened. The founder relayed
-Astra's custodian answer in writing after the record-13 report; it is recorded here as relayed, metadata only.
+Astra's custodian answer in writing on 2026-10-07 (after the record-13 report); it is recorded here as relayed, metadata only.
 
 ## What arrived
 
@@ -29,7 +29,7 @@ the reused control reviewer's identity string — a restatement of the contract-
 | 3. `per_file_hash_and_length` | Not returned as a property of the manifests' entries; the comparison basis (SHA-256 and byte length) was stated instead | Moot given field 2 |
 | 4. `components_used` | All three checked jointly; none contributes a matching entry | Consistent with record 12's reading that the triple is the E7 frozen source contract (30 filings, 92 captured records), a different collection from the 69 H20 inputs |
 | 5. `provenance` | Not returned; Astra states that both recovery ZIP identities and all three component-manifest identities were verified before the comparison | The identities verified are the ones record 12 recorded as relayed; no new identity is introduced |
-| 6. `minutes_used` | **2** ("additional preparation charge"); USD 0 provider spend; no source-role dispatch; no ledger write | Charged below as relayed by the founder (the founder's relay of a "preparation charge" is read as the record-05 consolidation; if the founder intends otherwise, the chief reverses it in the next record) |
+| 6. `minutes_used` | **2** ("additional preparation charge"); USD 0 provider spend; no source-role dispatch; no ledger write | Charged below as relayed by the founder, now and in the conservative direction for the allowance: record 13's "only what the founder consolidates" is read as satisfied by the founder's unqualified relay of a "preparation charge"; if the founder intends otherwise, the chief reverses it in the next record |
 
 ## Deviation from the brief — disclosed and accepted
 
