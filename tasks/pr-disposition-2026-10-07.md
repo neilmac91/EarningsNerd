@@ -211,3 +211,15 @@ Pending.
   `/home/user/wt/pr1081`, `/home/user/wt/pr1096r`.
 - 21:11Z — Lane workflow `wf_3832f533-85e` (implement → three-lens review → refuters → one fix round →
   delta re-review; local commits only) started for #1081 and the #1096 replacement.
+- 21:14–21:20Z — #1111's deploy confirmed before any backend merge of this run: deploy job
+  112992821258 success, `apply_migrations: applied=0 skipped=41`, revision
+  `earningsnerd-backend-00445-g7m` serving 100%, "Verify health" step green; independent
+  `/health/detailed` healthy at 20:34:56Z.
+- 21:21–21:24Z — Hold records refreshed (facts changed): #1009 comment 6046965161, #1035 comment
+  6046968560. #1095 closed with evidence comment 6046972898 (keep SQLAlchemy 2.0). #1074 kept
+  unchanged (no comment; its 10-03 records are current).
+- 21:25Z — #1102 local gate on main `335ad94b` + `24dc5957` (worktree `/home/user/wt/pr1102`, Node
+  22.23.2, npm 10.9.8): npm ci ok, lint 0, tsc 0, vitest 1106/1106, build 0. The 10-06 review-gate
+  failure (no Codex review then) re-run via the Actions API after Codex's completed review of `24dc595`.
+- 21:26Z — Read-only review of new observe-only #1113 started (`wf_9431c59e-422`). #1113 shares
+  `frontend/DESIGN_SYSTEM.md` with #1081: simulate before #1081 merges.
