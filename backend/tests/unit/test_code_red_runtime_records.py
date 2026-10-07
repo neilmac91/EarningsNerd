@@ -248,9 +248,12 @@ def test_decisions_are_numbered_contiguously() -> None:
 
 
 def _fold(text: str) -> str:
-    """Case-fold and percent-decode ``text`` to a fixed point, so a doubly encoded spelling is read as a consumer would."""
+    """Case-fold and percent-decode ``text`` to a fixed point, so a doubly encoded spelling is read as a consumer would.
+
+    The fold is re-applied after every decoding step: a percent-encoded upper-case letter decodes after the first fold.
+    """
     folded = text.lower()
-    while (decoded := unquote(folded)) != folded:
+    while (decoded := unquote(folded).lower()) != folded:
         folded = decoded
     return folded
 
