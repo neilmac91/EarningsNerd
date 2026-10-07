@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, type KeyboardEvent, type RefObject } from 'react'
+import { useCallback, useEffect, type KeyboardEvent, type RefObject } from 'react'
 import { getFocusable } from './useSheetFocusTrap'
 
 /**
@@ -13,8 +13,11 @@ import { getFocusable } from './useSheetFocusTrap'
  *  - Tab on the open chip moves focus to the popover's action (the EDGAR / "Open original" link);
  *  - Tab on that action closes the popover and focuses the element the page visits after the chip;
  *  - Shift+Tab on the action returns to the chip, popover kept;
- *  - Escape inside the popover closes it and refocuses the chip (`ownsEscape`), unless the chip
- *    already owns Escape in window capture and returns focus itself (SourceTrace).
+ *  - Escape while the popover is open closes it alone and refocuses the chip when focus was inside
+ *    it (`ownsEscape`), unless the chip already owns Escape and returns focus itself (SourceTrace).
+ *    The key is taken in window capture, ahead of the copilot sheet's document-level trap and the
+ *    rail's window listener, so the pane beneath stays open: one layer per press, whether focus is on
+ *    the chip or on its action. lessons/frontend-top-dialog-owns-the-keyboard.md
  *
  * Focus moves between the chip and the action synchronously, so the blur that would schedule a close
  * is cancelled by the popover's own onFocus (`holdOpen` covers the ordering either way). Pointer
@@ -87,18 +90,29 @@ export function useEvidencePopoverKeys({
         }
         close()
         if (trigger) focusNextAfter(trigger, popoverRef.current)
-        return
-      }
-      if (ownsEscape && e.key === 'Escape') {
-        e.preventDefault()
-        e.stopPropagation()
-        // Focus first, then close: the chip's own onFocus re-opens the popover, and in one batch the
-        // later close wins, so the user gets the chip back without the popover they just dismissed.
-        trigger?.focus()
-        close()
       }
     },
-    [triggerRef, popoverRef, close, holdOpen, ownsEscape],
+    [triggerRef, popoverRef, close, holdOpen],
   )
+
+  useEffect(() => {
+    if (!open || !ownsEscape) return
+    const onKey = (e: globalThis.KeyboardEvent) => {
+      if (e.key !== 'Escape') return
+      // A ui/Modal raised above the popover (UpgradeModal from the rail) shares this capture phase
+      // and owns its own keys; stopping them here would close the popover under it instead.
+      if (e.target instanceof Element && e.target.closest('[data-ui-modal="true"]')) return
+      e.preventDefault()
+      e.stopPropagation()
+      // Focus first, then close: the chip's own onFocus re-opens the popover, and in one batch the
+      // later close wins, so the user gets the chip back without the popover they just dismissed.
+      // Focus elsewhere (a hover-opened popover over the composer) stays where it is.
+      if (popoverRef.current?.contains(document.activeElement)) triggerRef.current?.focus()
+      close()
+    }
+    window.addEventListener('keydown', onKey, true)
+    return () => window.removeEventListener('keydown', onKey, true)
+  }, [open, ownsEscape, triggerRef, popoverRef, close])
+
   return { onTriggerKeyDown, onPopoverKeyDown }
 }

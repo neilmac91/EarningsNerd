@@ -219,8 +219,10 @@ Popover          An anchored, light-dismiss surface that explains one control (t
                  the hover/focus variant of this contract: they open on hover or focus, so focus stays on
                  the chip until the user asks for more, and the same hand-off applies from there — Tab on
                  the open chip moves to the popover's link, Tab past it closes the popover and resumes the
-                 page after the chip, Shift+Tab returns to the chip, Escape closes and refocuses the chip
-                 (`useEvidencePopoverKeys`, gated by tests/unit/evidencePopoverKeys.spec.tsx). On the
+                 page after the chip, Shift+Tab returns to the chip, Escape closes the popover alone and
+                 refocuses the chip — taken in window capture, so the research pane or sheet beneath stays
+                 open until the next press (`useEvidencePopoverKeys`, gated by
+                 tests/unit/evidencePopoverKeys.spec.tsx). On the
                  filing page a chip's activation is the in-app jump: it opens the research pane on the
                  Filing tab (the pane never stays silently closed); SourceTrace alone has a sheet, which a
                  coarse pointer opens instead, carrying "Show in filing" beside the EDGAR link. A chip that
