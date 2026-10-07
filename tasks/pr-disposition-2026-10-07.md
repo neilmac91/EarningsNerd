@@ -6,7 +6,7 @@ inventory of stale remote branches. Source instruction: the founder's live launc
 2026-10-07 (the "PR disposition sweep" prompt). Structure and evidence standard follow
 [`pr-disposition-2026-09-30.md`](pr-disposition-2026-09-30.md): checked means evidenced.
 
-**Stage:** 0 (preflight) recorded; Stage 1 (read-only triage) in progress. Nothing in Stage 0 or
+**Stage:** 0 (preflight) complete; Stage 1 (read-only triage) in progress. Nothing in Stage 0 or
 Stage 1 pushes, comments, labels, reviews or merges anything except this checkpoint.
 
 ## Session state
@@ -64,6 +64,43 @@ Dependency versions (from the diffs):
 | #1107 × #1110 | `lessons/README.md` | clean |
 | #1009 / #1035 / #1107 / #1108 / #1111 | `tasks/todo.md` | clean pairwise except as listed |
 
+### GitHub state and owners at start (Stage 0 readers, `wf_55262a8d-5f7`, read 19:50–19:58Z)
+
+| PR | Last push (first run for the head) | Checks on head | Codex on head | Hold / flags | Owner → rule |
+| --- | --- | --- | --- | --- | --- |
+| #1111 | 19:27:10Z (run 37674586346) | all green incl. eval-baseline, copilot-eval 37674643226 | review 5447320533 completed 19:30:46Z on `e2b4db6`, 1 unresolved P2 | body: "Deployment held"; new-head live artifacts required before merge | Codex lane, pushed < 1 h → **observe-only** |
+| #1110 | 19:23:13Z (run 37674087146) | all green; draft skips | 9 Codex reviews on older heads (last `e0f0086` 10:30:18Z); none on `0eac387` | none; DECISIONS-14 "Other executable work" item 2 names it | CODE RED chief, pushed < 1 h → **observe-only** |
+| #1108 | 18:17:28Z (run 37665686446) | CI green; review-gate 37676954482 in progress (marked ready 19:45:58Z by the owner account) | review running since 19:46:03Z on `6f6d85b` | none | product lane (EN-03), pushed < 12 h, marked ready during this read → **observe-only** |
+| #1107 | 18:18:37Z (run 37665833559; commits dated 00:34Z, pushed later) | CI green; review-gate 37676929238 in progress (marked ready 19:45:46Z) | review running since 19:45:50Z on `7d96c11` | none | product lane (EN-02), pushed < 12 h, live sibling #1108 → **observe-only** |
+| #1102 | 2026-10-06T06:24:24Z | CI green; review-gate failed (no Codex review; Dependabot PRs do not trigger Codex) | none | none | Dependabot, no live owner → actionable |
+| #1097 | 2026-10-05T07:46:44Z | review-gate failed; **secret-scan failed** (see below) | none | none | Dependabot → actionable |
+| #1096 | 2026-10-05T07:46:30Z | **backend-tests failed**; secret-scan failed; copilot-eval failed (no secrets on Dependabot runs); review-gate failed | none | none | Dependabot → actionable |
+| #1095 | 2026-10-05T07:44:39Z | **migrations-postgres failed**; secret-scan failed; copilot-eval failed (no secrets); review-gate failed; backend-tests green (SQLite) | none | none | Dependabot → actionable (founder decision: framework upgrade) |
+| #1081 | 2026-10-03T22:36:01Z | all green; review-gate 37186090832 passed via the body's `Review override:` (Codex quota messages 5977375613, 5977510418 on 10-04) | none | mergeable_state `dirty` | idle 93 h → actionable |
+| #1074 | 2026-10-03T03:10:12Z | green except Q1 copilot-eval (by design of the measurement) | summary 5965023258 completed on `437e245` | title and body: "measurement only, do not merge"; owner comment 5965114706 "Measurement complete: Not qualified … Do not merge." | measurement only, idle → **never merges**; keep vs close |
+| #1035 | 2026-09-30T21:54:08Z | green; draft skips | none | **hold record 5962533770** (owner, 2026-10-02T22:34Z): held draft at unchanged `23c948e9` | **held** |
+| #1009 | 2026-10-02T22:43:28Z | green; draft skips | older heads only (last 2026-09-28 on `561dc2b`) | **hold record 5920001935** (2026-09-30) and 5962292909 (2026-10-02) | **held** (pricing) |
+
+**Codex review quota: available.** The last quota message is 6027196631 (#1106, 2026-10-06T23:16:47Z).
+Codex completed reviews after it on #1109 (summary 6032808809, 2026-10-07T07:07:50Z), #1110 (nine
+reviews 08:08–10:30Z) and #1111 (review 5447320533, 19:30:46Z), and is running on #1107 and #1108.
+So the founder's quota-exhausted override clause does not apply to this run. Dependabot-opened PRs do
+not trigger Codex by themselves; an owner `@codex review` comment is needed (precedent #998, #1013).
+
+**Dependabot CI failures, root-caused from the job logs:**
+- #1095 `migrations-postgres` (job 111663839337): `create_engine` raises `ModuleNotFoundError: No module
+  named 'psycopg'`. SQLAlchemy 2.1 maps a bare `postgresql://` URL to the psycopg (v3) driver; this
+  repository ships only `psycopg2-binary==2.9.13`. `backend-tests` passed only because it runs on
+  SQLite. As merged, the deploy would fail to connect to Cloud SQL. **Blocker as-is.**
+- #1096 `backend-tests` (job 111664425766): 1 failed / 5710 passed —
+  `test_outlook_source_coverage.py::test_original_ford_complete_outlook_reaches_primary_and_forward_recovery_without_displacement`,
+  the edgartools 5.59.1 Ford regression the 09-30 run held back (decision D). **Blocker as-is.**
+- #1095–#1097 `secret-scan` (2026-10-05 runs): gitleaks scans every branch in the checkout and hit the
+  EN-01 branch's `keyfocus` false positive; main pinned it at `f8091c53` (2026-10-05T09:23Z, after these
+  runs). A rebase onto main clears it (#1102's later run passed).
+- `copilot-eval` and `review-gate` cannot pass on a Dependabot-triggered run (no secrets; no automatic
+  Codex review). Structural, not defects.
+
 ## Spend ledger (ceiling: USD 3.00 for the whole run)
 
 - Balance read (free `GET /user/balance`, session DeepSeek key, as the 09-30 run did):
@@ -95,3 +132,12 @@ Pending.
   and `tasks/todo.md`; #1081 conflicts in `frontend/DESIGN_SYSTEM.md`.
 - 19:50Z — Stage 0 GitHub-state readers launched (workflow `wf_55262a8d-5f7`: checks, Codex review
   state, comments, runs per PR; repo-wide Codex quota evidence).
+- 19:52Z — Checkpoint draft PR #1112 opened (tasks-only).
+- 19:53–19:56Z — Stage 1 read-only workflows launched: three-lens reviews with two refuters per serious
+  finding for #1081 (`wf_8f9a268e-3c0`), #1111 (`wf_223ecb9a-cf4`), #1110 (`wf_9e220d7e-580`), #1107
+  (`wf_be4079c4-111`), #1108 (`wf_93a7f868-83c`); dependency analysis for #1102, #1097, #1096, #1095
+  (`wf_46d39ae7-80a`); holds, #1074 and the branch inventory (`wf_697de371-944`).
+- 19:58Z — Stage 0 readers complete (13/13). Codex quota available (see above). #1107 and #1108 were
+  marked ready by the owner account at 19:45:46Z and 19:45:58Z, during this read.
+- 20:01Z — Dependabot failure logs read: #1095 psycopg driver default (blocker), #1096 Ford regression
+  (blocker), 10-05 secret-scan false positive (cleared on main).
