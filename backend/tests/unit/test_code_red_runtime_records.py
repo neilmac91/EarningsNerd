@@ -12,9 +12,11 @@ a broken record never reaches a reviewer:
 * the checkpoint header and ``APPOINTMENTS.json`` are stamped no earlier than the newest closure, compared at the closure's
   fractional precision (they are written last);
 * every non-blank line of the decisions section is a numbered entry and the numbers run contiguously from 1;
-* every JSON file parses;
+* every JSON file parses, and so does every line of a JSON-lines file;
 * no private artifact URL (either link form), macOS home path (``/Users/``) or, anywhere under the chief's ``control/`` tree,
-  session upload-area path is written into the records — every file in the tree is scanned, whatever its suffix.
+  session upload-area path is written into the records — every file in the tree is scanned, whatever its suffix, and a JSON
+  document is also scanned after decoding, so an escaped spelling (a backslash-escaped solidus, a Unicode code-point
+  escape) does not evade the check.
 
 Records-only PRs touch nothing under ``backend/``, yet CI runs the backend gate on every PR, so this test runs on each record PR;
 it lives under ``backend/tests/`` and therefore never triggers ``deploy-backend`` (the detector ignores that directory). The tree's
@@ -209,22 +211,53 @@ def test_decisions_are_numbered_contiguously() -> None:
     assert numbers == list(range(1, len(numbers) + 1)), f"decision numbering is not 1..{len(numbers)}: {numbers}"
 
 
+def _json_documents(path: Path, text: str) -> list[str]:
+    """The JSON documents a consumer decodes from ``path``: the whole file for ``.json``, each non-blank line for ``.jsonl``."""
+    if path.suffix == ".json":
+        return [text]
+    if path.suffix == ".jsonl":
+        return [line for line in text.splitlines() if line.strip()]
+    return []
+
+
+def _decoded_strings(document: str) -> list[str]:
+    """Every string a JSON consumer decodes from ``document`` — keys and values at any depth."""
+    found: list[str] = []
+    stack = [json.loads(document)]
+    while stack:
+        value = stack.pop()
+        if isinstance(value, str):
+            found.append(value)
+        elif isinstance(value, dict):
+            stack.extend(value.keys())
+            stack.extend(value.values())
+        elif isinstance(value, list):
+            stack.extend(value)
+    return found
+
+
 def test_every_runtime_json_file_parses() -> None:
     broken = []
-    for path in sorted(RUNTIME.rglob("*.json")):
-        try:
-            json.loads(path.read_text(encoding="utf-8"))
-        except ValueError as exc:  # pragma: no cover - the message is the point
-            broken.append(f"{path.relative_to(RUNTIME)}: {exc}")
-    assert not broken, f"JSON files under the runtime tree do not parse: {broken}"
+    for path in sorted(p for p in RUNTIME.rglob("*") if p.suffix in (".json", ".jsonl")):
+        for index, document in enumerate(_json_documents(path, path.read_text(encoding="utf-8")), start=1):
+            try:
+                json.loads(document)
+            except ValueError as exc:  # pragma: no cover - the message is the point
+                where = f" line {index}" if path.suffix == ".jsonl" else ""
+                broken.append(f"{path.relative_to(RUNTIME)}{where}: {exc}")
+    assert not broken, f"JSON documents under the runtime tree do not parse: {broken}"
 
 
 def test_records_carry_no_private_urls_or_local_machine_paths() -> None:
     offenders = []
     for path in sorted(_runtime_files() | {CHECKPOINT}):
         text = path.read_text(encoding="utf-8", errors="replace")
+        # The raw text catches every file; a JSON document is scanned again after decoding, so a forbidden string spelled
+        # with escapes (``\/``, ``\uXXXX``) is caught as the consumer would read it. A document that does not decode fails here
+        # as well as in the parse test.
+        haystacks = [text, *(s for document in _json_documents(path, text) for s in _decoded_strings(document))]
         needles = FORBIDDEN_IN_CONTROL if (path == CHECKPOINT or CONTROL in path.parents) else FORBIDDEN_EVERYWHERE
         for needle in needles:
-            if needle in text:
+            if any(needle in haystack for haystack in haystacks):
                 offenders.append(f"{path.relative_to(RUNTIME)}: {needle!r}")
     assert not offenders, f"private or local-machine strings in the records: {offenders}"
