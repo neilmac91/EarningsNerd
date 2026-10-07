@@ -171,7 +171,11 @@ the file changed.
   against runtime + eval requirements, using `httpx2.MockTransport`, blocked sockets and synthetic
   keys. Its [result](anthropic-shapes-1.11.0.txt) is `ANTHROPIC_SHAPES_OK 1.11.0 app`. It matches the
   1.9.0 receipt apart from the version.
-- python-dotenv and ruff are patch releases. `ruff check .` is clean below.
+- python-dotenv and ruff are patch releases. `ruff check .` is clean below. python-dotenv 1.2.4 also
+  fixes one parse: `KEY=   # comment` now gives an empty value instead of the comment text. That makes
+  `APPLE_CLIENT_ID` from `backend/.env.example` correctly empty for a developer who copied the file,
+  so Apple sign-in reads as unconfigured. Cloud Run has no `.env` file, so production is unaffected.
+  (Added after merge from the exact-head review's nit.)
 
 ## Verification
 
@@ -204,7 +208,7 @@ No new gate or contract is introduced, so no mutation proof applies.
 
 ## Release boundary
 
-This is local, unpushed preparation. Independent exact-head review and the hosted required checks
+As written before the push: this is local, unpushed preparation. Independent exact-head review and the hosted required checks
 remain release requirements. The change touches `backend/requirements*.txt`, so a merge triggers
 `deploy-backend`, with the usual serialized migration receipt and health verification. No provider
 call, workflow dispatch or production operation occurred.
