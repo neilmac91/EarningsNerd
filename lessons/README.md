@@ -5,45 +5,51 @@ lesson: an imperative one-line rule as the title, then Date/Area, **Context** (w
 **Rule** (mechanically followable), **Evidence** (file:line / PR refs).
 
 **Workflow**: after ANY correction from the founder — or any hard-won discovery — add or update a
-file here (never append to a monolith). At session start read "Operations & workflow" plus the
-section for your task area; skip "Enforced by a machine gate" (CI fails those on its own) and
+file here (never append to a monolith). At session start read "Operations & workflow (every
+task)" plus the section for your task area; read "Evals, judging, paid runs and the founder's
+machine" only for that work; skip "Enforced by a machine gate" (CI fails those on its own) and
 "Archived". Filenames are greppable by prefix: `arch-*`, `sec-*`, `test-*`, `frontend-*`,
 `evals-*`, `ops-*`. Entries are `file — rule`.
 
 
-## Operations & workflow (applies to every task)
+## Operations & workflow (every task)
 
-- ops-ai-evidence-is-not-human-acceptance.md — Use explicit model/source evidence when the founder cannot supply a human panel
 - ops-auth-lookups-must-let-request-cleanup-progress.md — Keep authentication pool waits off the event loop while preserving request-owned sessions
 - ops-bound-drain-batches-to-job-memory.md — Bound a regeneration batch by the job container's memory, not by its time budget alone
-- ops-capacity-projection-withholds-command-values.md — Withhold command values and execute the real readback projection in a privacy gate
 - ops-continue-approved-engineering.md — Continue the approved queue after verified releases and preserve specific founder holds
 - ops-deploy-owned-state-needs-a-distinctive-name.md — Give deploy-owned tables a name nothing else could have created; CREATE TABLE IF NOT EXISTS adopts strangers
-- ops-eval-gate-for-ai-changes.md — Gate every AI/prompt/model change on the eval regression gate — and re-pin the baseline in the same PR
-- ops-evidence-exports-verify-themselves-and-survive-git.md — An evidence export copies everything, verifies its copy, states its own eligibility, and is gated against ignore rules that silently drop inventoried files; a verdict that depends on another tool reruns that tool on the current inputs, and a receipt on disk is evidence only
 - ops-finish-only-job-owned-read-transactions.md — Finish the CLI's read transaction before transport while preserving attached inputs
 - ops-fix-the-exact-cited-site.md — Fix and test the plan's exact cited site, not an adjacent manifestation
-- ops-founder-runs-claude-in-the-mac-app.md — Address founder instructions to the Claude desktop app, and give `claude -p` its own login
 - ops-git-add-atomic-empty-status-gate.md — Require an empty git status after every completing commit; never chain add-path recovery
 - ops-grep-verify-negative-claims.md — Grep-verify every "no X exists" claim from a workstream report before it enters a synthesis
 - ops-job-success-needs-outcome-evidence.md — Persist actual job outcomes; swallowed failures and dry runs never advance last success
-- ops-judge-cli-pins-need-a-drift-plan.md — Pin the judge CLI by version, but decide in advance what happens when the container image drifts
 - ops-keep-moving-under-standing-authorization.md — Keep moving under a standing founder authorization; stop only at the boundaries still held
-- ops-keep-worktrees-out-of-icloud-documents.md — Keep worktrees, virtual environments and bytecode caches out of iCloud-synced Documents
 - ops-mutate-only-committed-state.md — mutation proofs run on committed state only; `git checkout --` restores HEAD, not your edit
 - ops-no-ddl-in-startup-path.md — Never run schema-altering DDL in the serving container's startup path
 - ops-one-test-process-per-worktree.md — one test process per worktree; never run pytest beside a running gate
-- ops-place-a-provider-stall-before-paying-again.md — Place a provider stall at one layer with free probes before paying for another corpus
-- ops-price-the-actual-provider-model.md — Price each actual returned model at its own published tariff
 - ops-release-cached-filing-reads-before-yield.md — Close completed filing reads before async dependency cleanup can be blocked by a competing checkout
-- ops-repin-binds-advisory-dims-sync-doc.md — A re-pin that first records an advisory eval dimension makes its "advisory" doc stale — sync it in the same PR
 - ops-serial-merge-adjacent-line-prs.md — Serialize merges of PRs that edit the same file within a few lines
-- ops-the-subscription-judge-has-a-usage-limit.md — probe `is_error` before a long judge run; an exhausted subscription looks like exit 1 with empty stderr
 - ops-true-config-descriptions-grep-file-moves.md — Make canonized config descriptions literally true and grep the whole repo when moving files
 - ops-unmergeable-pr-runs-no-pull-request-workflows.md — Check the PR's mergeable state before diagnosing missing `pull_request` workflow runs
 - ops-verify-env-updates-reach-session.md — Fingerprint env values in the running shell before debugging a rotated secret
 - ops-verify-plan-gaps-against-code.md — Re-read the actual code before implementing any plan item marked missing
 - ops-write-down-the-second-anomaly-before-chasing-the-first.md — Write down the second anomaly before chasing the first — a parked finding is a lost finding
+
+## Evals, judging, paid runs and the founder's machine (read for that work)
+
+- evals-accept-a-prompt-change-on-two-runs-not-one.md — one generated run sets a direction, never an effect size; report the range across two
+- evals-test-the-row-shape-the-producer-writes.md — a consumer of another module's records is tested on that producer's real row shape, and its identity rule against the committed data
+- ops-ai-evidence-is-not-human-acceptance.md — Use explicit model/source evidence when the founder cannot supply a human panel
+- ops-capacity-projection-withholds-command-values.md — Withhold command values and execute the real readback projection in a privacy gate
+- ops-eval-gate-for-ai-changes.md — Gate every AI/prompt/model change on the eval regression gate — and re-pin the baseline in the same PR
+- ops-evidence-exports-verify-themselves-and-survive-git.md — An evidence export copies everything, verifies its copy, states its own eligibility, and is gated against ignore rules that silently drop inventoried files; a verdict that depends on another tool reruns that tool on the current inputs, and a receipt on disk is evidence only
+- ops-founder-runs-claude-in-the-mac-app.md — Address founder instructions to the Claude desktop app, and give `claude -p` its own login
+- ops-judge-cli-pins-need-a-drift-plan.md — Pin the judge CLI by version, but decide in advance what happens when the container image drifts
+- ops-keep-worktrees-out-of-icloud-documents.md — Keep worktrees, virtual environments and bytecode caches out of iCloud-synced Documents
+- ops-place-a-provider-stall-before-paying-again.md — Place a provider stall at one layer with free probes before paying for another corpus
+- ops-price-the-actual-provider-model.md — Price each actual returned model at its own published tariff
+- ops-repin-binds-advisory-dims-sync-doc.md — A re-pin that first records an advisory eval dimension makes its "advisory" doc stale — sync it in the same PR
+- ops-the-subscription-judge-has-a-usage-limit.md — probe `is_error` before a long judge run; an exhausted subscription looks like exit 1 with empty stderr
 
 ## Architecture
 
@@ -144,11 +150,6 @@ section for your task area; skip "Enforced by a machine gate" (CI fails those on
 - frontend-validate-design-sidecars-in-their-consumer.md — Validate design-sidecar specimens in their consumer, and check what its engine reads
 - frontend-variable-text-must-not-size-a-wrapping-row.md — Keep variable-length text from sizing a wrapping row or an implicit grid track
 - frontend-verify-chart-annotations-on-dense-data.md — Acceptance-test chart annotations on a dense real-world series, never only fixtures
-
-## Evals
-
-- evals-accept-a-prompt-change-on-two-runs-not-one.md — one generated run sets a direction, never an effect size; report the range across two
-- evals-test-the-row-shape-the-producer-writes.md — a consumer of another module's records is tested on that producer's real row shape, and its identity rule against the committed data
 
 ## Enforced by a machine gate — not session reading
 
