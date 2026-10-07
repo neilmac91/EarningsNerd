@@ -3,11 +3,12 @@
 Every record PR's independent reviewer re-derived the same invariants by hand before merge. This test derives them in CI so
 a broken record never reaches a reviewer:
 
-* every file under the runtime tree is UTF-8 text without NUL bytes, so every other check reads what a consumer reads;
-* ``CHECKPOINT.md`` (a leading byte-order mark aside) hides nothing in an HTML comment, its first line is exactly
+* every file under the runtime tree is UTF-8 text without NUL bytes, named in plain text (no invisible characters, no
+  compatibility forms), so every other check reads what a consumer reads;
+* ``CHECKPOINT.md`` (a leading byte-order mark aside) holds no HTML comment and no HTML heading, its first line is exactly
   ``# <title> (updated <stamp>)`` with no markup characters in the title, and its deliverables and decisions headings are
-  each the only heading (ATX at any level, or setext) carrying that title, so the section checked is the one a reader sees
-  under it (a renamed section is no longer that section);
+  each the only heading carrying that title (ATX at any level or setext, also inside a list item or a block quote), so the
+  section checked is the one a reader sees under it (a renamed section is no longer that section);
 * every row of the deliverables table carries a well-formed SHA-256 and names a distinct file, by its plain relative path
   (no ``.`` or ``..`` detour, repeated slash, absolute path or symbolic link), whose digest equals it; no other line of the
   checkpoint, the table's header included, pairs a table pipe with a 64-hex digest; every file under the runtime tree has a
@@ -25,15 +26,16 @@ a broken record never reaches a reviewer:
 * every non-blank line of the decisions section is a numbered entry and the numbers run contiguously from 1;
 * every JSON file (``.json``) parses, and so does every line of a JSON-lines file (``.jsonl``, ``.ndjson``), suffixes
   matched in any case; a duplicate member name or a non-standard ``NaN``/``Infinity`` constant is an error;
-* no private artifact link (a claude.ai address whose path has an ``artifact`` segment, or ``artifacts/`` followed by an
-  id; the session link and the artifact gallery page are allowed), home-directory path (``/Users/…`` as a leading path
-  segment, behind a ``file:``, ``smb:`` or ``afp:`` host, or under a macOS ``/Volumes/`` prefix; the product's own
-  ``/api/users/…`` routes may still be cited) or, under the chief's ``control/`` tree and in the checkpoint, session
-  upload-area path (an ``uploads`` segment under ``.claude/``) is written into the records. Every file is scanned,
-  whatever its suffix, in four readings: as written and with HTML comments, tags and emphasis markers removed, each folded
-  twice by ``_fold`` (once reading backslashes as path separators, once decoding JSON and Markdown escapes). A match in any
-  reading fails. The gate guards against leaks, not a hostile writer: a link whose path contains a space, look-alike
-  letters from other scripts and drive-form home paths such as ``/c/Users`` are outside it.
+* the records carry no claude.ai address other than the session link (``claude.ai/code/session_<id>``, ending there),
+  so no private artifact link and no artifact gallery link by any route; no home-directory path (``/Users/…`` as a leading
+  path segment, behind a ``file:``, ``smb:``, ``afp:``, ``nfs:`` or ``vscode:`` host, or under a ``/Volumes/<name>/``
+  prefix; the product's own ``/api/users/…`` routes may still be cited); and, under the chief's ``control/`` tree and in
+  the checkpoint, no session upload-area path (an ``uploads`` segment under ``.claude/``). Every file is scanned, whatever
+  its suffix, as written and with HTML comments, tags and emphasis or code-span markers removed, each folded by ``_fold``
+  once reading backslashes as path separators (for the paths) and once decoding JSON and Markdown escapes (for the paths
+  and the address). A match in any reading fails. The gate guards against leaks, not a hostile writer: the name
+  ``claude.ai`` alone in prose, an address split by whitespace, look-alike letters, a volume name containing a space and
+  drive-form or container home paths such as ``/c/Users`` are outside it.
 
 Records-only PRs touch nothing under ``backend/``, yet CI runs the backend gate on every PR, so this test runs on each record PR;
 it lives under ``backend/tests/`` and therefore never triggers ``deploy-backend`` (the detector ignores that directory). The tree's
@@ -63,9 +65,14 @@ APPOINTMENTS = CONTROL / "APPOINTMENTS.json"
 LINE_END = re.compile(r"\r\n|\r|\n")
 # The checkpoint's first line: a level-1 heading whose title has no markup characters, then exactly one stamp.
 HEADER_LINE = re.compile(r"# [^\[\]()<>`*_&\\|#~]+ \(updated ([^()\s]+)\)[ \t]*")
-# CommonMark headings: an ATX line (one to six #, optional closing #s), or a text line underlined with = or -.
-ATX_HEADING = re.compile(r" {0,3}#{1,6}(?:[ \t]+(.*?))?(?:[ \t]+#+)?[ \t]*")
-SETEXT_UNDERLINE = re.compile(r" {0,3}(?:=+|-+)[ \t]*")
+# CommonMark headings, read inside list items and block quotes too (their markers and any indentation are stripped first):
+# an ATX line (one to six #, optional closing #s), or a paragraph of one or more lines underlined with = or -. A list
+# item's marker starts a new paragraph.
+CONTAINER_MARKERS = re.compile(r"(?:[ \t]*(?:>|[-*+](?=[ \t])|[0-9]{1,9}[.)](?=[ \t])))*[ \t]*")
+LIST_ITEM_START = re.compile(r"(?:[ \t]*>)*[ \t]*(?:[-*+]|[0-9]{1,9}[.)])(?=[ \t])")
+ATX_HEADING = re.compile(r"#{1,6}(?:[ \t]+(.*?))?(?:[ \t]+#+)?[ \t]*")
+SETEXT_UNDERLINE = re.compile(r"(?:=+|-+)[ \t]*")
+HTML_HEADING = re.compile(r"<[ \t]*/?[ \t]*h[1-6]\b", re.IGNORECASE)
 # Every body row of the deliverables table must parse as | `path` | `digest` |, and its digest is then validated, so a
 # malformed or unbackticked row fails instead of being dropped.
 TABLE_ROW = re.compile(r"^\| `([^`]+)` \| `([^`]*)` \|")
@@ -100,18 +107,19 @@ COMMITTED_OFF_TREE_ROWS = (
 # Each pattern runs over the folded readings of ``_readings`` (lower case, decoded); slash runs and dot segments are
 # tolerated inside a path, every path segment matched is non-empty (no backtracking over a run of slashes), and a path is
 # followed for at most 64 segments, so each scan stays linear in the text.
-# A private artifact link: a claude.ai address (any port, a trailing dot on the host) whose path reaches an ``artifact``
-# segment, or ``artifacts/`` followed by an id. The session link and the gallery page (``claude.ai/code/artifacts``) are
-# not matches. Tabs and line breaks are removed first, as URL parsers remove them.
-ARTIFACT_LINK = re.compile(r"claude\.ai\.?(?::\d*)?/+(?:[^/\s]+/+){0,64}?(?:artifact(?![\w-])|artifacts/+[0-9a-f]{8})")
-URL_WHITESPACE = re.compile(r"[\t\n\r]")
+# A claude.ai address that is not the session link: the host (a trailing dot or a port allowed) followed by a slash or a
+# backslash and anything but ``code/session_<id>`` ending there. Every artifact and gallery route, dot segments, ports and
+# escapes included, is therefore an offender, while the name alone in prose ("a private claude.ai artifact") is not.
+PRIVATE_LINK = re.compile(r"claude\.ai\.?(?::\d*)?[/\\](?!code/session_[0-9a-z]+(?![0-9a-z_/?#%&=+-]|\.\w))")
 # A home-directory path: ``/Users/`` as a leading path segment (nothing word-like before the slash, so the product's own
 # ``/api/users/…`` routes may be cited; a ``file:///Users/x`` URL and a Windows ``C:\\Users\\x`` path, read with forward
-# slashes, are leading segments), behind a ``file:``, ``smb:`` or ``afp:`` host, or under a macOS volume prefix.
+# slashes, are leading segments), behind a ``file:``, ``smb:``, ``afp:``, ``nfs:`` or ``vscode:`` host, or under a macOS
+# volume prefix whose segments hold no whitespace or prose punctuation (so a volume mentioned in a sentence or a table cell
+# next to an ``/api/users/…`` route is not read as one path).
 HOME_PATH = re.compile(
     r"(?<!\w)/users/"
-    r"|(?<![\w+.-])(?:file|smb|afp)://[^/\s]+/+users/"
-    r"|(?<!\w)/(?:system/+)?volumes/+(?:[^/\n]+/+){1,64}?users/"
+    r"|(?<![\w+.-])(?:file|smb|afp|nfs|vscode)://[^/\s]+/+users/"
+    r"|(?<!\w)/(?:system/+)?volumes/+(?:[^/\s|\"'`;,()<>]+/+){1,64}?users/"
 )
 # The session upload area: an ``uploads`` segment anywhere under ``.claude/``.
 UPLOAD_AREA = re.compile(r"\.claude/+(?:[^/\s]+/+){0,64}?uploads(?![\w-])")
@@ -127,8 +135,9 @@ JSON_ESCAPE = re.compile(r"\\(?:u([0-9a-fA-F]{4})|([\"\\/bfnrt]))")
 JSON_SIMPLE_ESCAPES = {'"': '"', "\\": "\\", "/": "/", "b": "\b", "f": "\f", "n": "\n", "r": "\r", "t": "\t"}
 MARKDOWN_ESCAPE = re.compile(r"\\([!-/:-@\[-`{-~])")
 # What a renderer hides or consumes around visible text: HTML comments (an unclosed one hides the rest of the text), HTML
-# tags, and emphasis or code-span markers.
-MARKUP = re.compile(r"<!--.*?(?:-->|\Z)|</?[a-z][a-z0-9-]*(?:[\s/][^<>]*)?>|[*_~`]", re.IGNORECASE | re.DOTALL)
+# tags, and emphasis, strikethrough or code-span markers (not the underscore, which is part of names and ids and is not
+# emphasis inside a word).
+MARKUP = re.compile(r"<!--.*?(?:-->|\Z)|</?[a-z][a-z0-9-]*(?:[\s/][^<>]*)?>|[*~`]", re.IGNORECASE | re.DOTALL)
 
 # The tree is a durable record: its absence is a failure, never a skip (a PR that deleted or renamed it would otherwise stay
 # green). The closure chain is anchored to its committed tail so no suffix of the chain can be removed.
@@ -185,24 +194,44 @@ def _checkpoint_lines() -> list[str]:
 
 
 def _heading_titles(lines: list[str]) -> list[tuple[int, str]]:
-    """``(line index, title)`` for every ATX or setext heading line of ``lines``."""
+    """``(first line index, title)`` for every ATX or setext heading of ``lines``, inside list items and block quotes too.
+
+    A setext title is the whole paragraph above its underline, its lines joined by single spaces.
+    """
+    content = [line[CONTAINER_MARKERS.match(line).end() :] for line in lines]
     titles = []
-    for index, line in enumerate(lines):
-        atx = ATX_HEADING.fullmatch(line)
+    for index, text in enumerate(content):
+        atx = ATX_HEADING.fullmatch(text)
         if atx:
             titles.append((index, (atx.group(1) or "").strip(" \t")))
-        elif line.strip(" \t") and index + 1 < len(lines) and SETEXT_UNDERLINE.fullmatch(lines[index + 1]):
-            titles.append((index, line.strip(" \t")))
+        elif (
+            SETEXT_UNDERLINE.fullmatch(text)
+            and index
+            and content[index - 1].strip(" \t")
+            and not ATX_HEADING.fullmatch(content[index - 1])
+        ):
+            first = index - 1
+            while (
+                first
+                and not LIST_ITEM_START.match(lines[first])
+                and content[first - 1].strip(" \t")
+                and not ATX_HEADING.fullmatch(content[first - 1])
+            ):
+                first -= 1
+            titles.append((first, " ".join(part.strip(" \t") for part in content[first:index])))
     return titles
 
 
 def _section(lines: list[str], heading: str) -> tuple[int, int]:
     """The ``[start, end)`` line range of one ``## `` section, from its heading line to the next ``## `` heading.
 
-    Nothing in the checkpoint may sit in an HTML comment, and the heading's title is carried by that one heading line only
-    (another heading level, a setext title or a copy in a code block fails), so the section checked is the one a reader sees.
+    Nothing in the checkpoint may sit in an HTML comment or an HTML heading, and the heading's title is carried by that one
+    heading line only (another heading level, a setext title, a heading in a list item or a block quote, or a copy in a code
+    block fails), so the section checked is the one a reader sees.
     """
-    assert not any("<!--" in line for line in lines), "CHECKPOINT.md hides text in an HTML comment"
+    assert not any("<!--" in line or HTML_HEADING.search(line) for line in lines), (
+        "CHECKPOINT.md holds an HTML comment or an HTML heading"
+    )
     title = heading.removeprefix("## ")
     copies = [index for index, text in _heading_titles(lines) if text == title]
     assert len(copies) == 1 and lines[copies[0]].rstrip(" \t") == heading, (
@@ -289,6 +318,10 @@ def test_runtime_tree_is_present() -> None:
     # to an absent target would otherwise escape every other test while storing its target path in Git).
     links = sorted(str(p.relative_to(RUNTIME)) for p in RUNTIME.rglob("*") if p.is_symlink())
     assert not links, f"symbolic links are not permitted in the runtime tree: {links}"
+    # Names are plain text, so no two records can look alike while differing in an invisible or compatibility character.
+    names = [p.relative_to(RUNTIME).as_posix() for p in RUNTIME.rglob("*")]
+    unplain = sorted(n for n in names if IGNORABLE.search(n) or unicodedata.normalize("NFKC", n) != n)
+    assert not unplain, f"runtime-tree names with invisible characters or compatibility forms: {unplain}"
 
 
 def test_every_record_is_utf8_text() -> None:
@@ -456,9 +489,11 @@ def _fold(text: str, *, escapes: bool) -> str:
     raise AssertionError(f"text did not settle after 64 decoding passes: {text[:80]!r}")
 
 
-def _readings(text: str) -> set[str]:
-    """``text`` as written and with the markup a renderer hides or consumes removed, each folded both ways."""
-    return {_fold(source, escapes=escapes) for source in (text, MARKUP.sub("", text)) for escapes in (False, True)}
+def _readings(text: str) -> tuple[set[str], set[str]]:
+    """``text`` as written and with the markup a renderer hides or consumes removed, folded with backslashes read as path
+    separators (the first set) and with escapes decoded (the second)."""
+    sources = (text, MARKUP.sub("", text))
+    return {_fold(source, escapes=False) for source in sources}, {_fold(source, escapes=True) for source in sources}
 
 
 def _json_documents(path: Path, text: str) -> list[tuple[str, str]]:
@@ -491,9 +526,12 @@ def test_every_runtime_json_file_parses() -> None:
 def test_records_carry_no_private_urls_or_local_machine_paths() -> None:
     offenders = []
     for path in sorted(_runtime_files() | {CHECKPOINT}):
-        readings = _readings(_text(path))
-        if any(ARTIFACT_LINK.search(URL_WHITESPACE.sub("", reading)) for reading in readings):
-            offenders.append(f"{path.relative_to(RUNTIME)}: private artifact link")
+        as_paths, decoded = _readings(_text(path))
+        readings = as_paths | decoded
+        # The address check reads escapes decoded: read as separators, a backslash after a session link (a Markdown hard
+        # line break, a JSON line-break escape) would look like a path; an address written with backslashes still fails.
+        if any(PRIVATE_LINK.search(reading) for reading in decoded):
+            offenders.append(f"{path.relative_to(RUNTIME)}: claude.ai address other than the session link")
         if any(HOME_PATH.search(reading) for reading in readings):
             offenders.append(f"{path.relative_to(RUNTIME)}: home-directory path")
         if (path == CHECKPOINT or CONTROL in path.parents) and any(UPLOAD_AREA.search(reading) for reading in readings):
