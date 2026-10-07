@@ -8,8 +8,17 @@ historical unchecked ledger items or CODE RED work.
 - [x] Add authenticated Cloud Tasks delivery with bounded concurrency, retries and ID-only payloads.
 - [x] Move on-visit work and legacy internal triggers behind an opt-in queue rollout; cancel/drain request-owned siblings.
 - [x] Cache Docker dependency layers through GitHub Actions, preserving image tags and deploy gates (PR #1117).
-- [ ] Verify focused behavior, locked-contract parity, complete backend gates and independent reviews.
+- [x] Verify focused behavior, locked-contract parity, complete backend gates and independent reviews.
 - [ ] Provision and verify delivery before switching CPU billing; keep minimum one instance and 1 GiB.
+
+Local gate: Ruff clean, Bandit no medium/high findings; `5811 passed, 39 skipped, 2 deselected,
+40 warnings in 310.68s`. Node runtime lockstep: three passed. Twenty-four deliberate mutation
+groups cover all 35 new or extended test functions; every defect was caught and restored before
+the full gate. Three-lens review and two fresh refutations cleared the upheld fixes; eleven locked
+contract anchors remain byte-identical. Single-child admission prevents per-process resource
+overlap and retains its permit through kill/reap. HTTP/1.1 transport loss is distinct from handler
+cancellation; existing duplicate-safe persistence remains necessary. Activation awaits the
+founder's specific IAM exception and a successful authenticated empty delivery probe.
 
 ## 2026-10-06 — EN-02: the consent bar yields to the research chrome (frontend)
 
