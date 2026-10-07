@@ -6,25 +6,28 @@ a broken record never reaches a reviewer:
 * every file under the runtime tree is UTF-8 text without NUL bytes, named in plain text (no invisible characters, no
   compatibility forms), so every other check reads what a consumer reads;
 * ``CHECKPOINT.md`` (a leading byte-order mark aside) is read with a CommonMark parser (GFM tables enabled, the pinned
-  ``markdown-it-py`` the backend already depends on): it holds no raw HTML, its first line is exactly
-  ``# <title> (updated <stamp>)`` with no markup characters in the title, and each of its deliverables and decisions titles
-  is rendered by exactly one heading, the ``## `` line itself (a copy at another level, setext, inside a list item or a
-  block quote, or spelled with escapes, character references or emphasis fails), so the section checked is the one a
-  reader sees under it (a renamed section is no longer that section);
-* every row of the deliverables table carries a well-formed SHA-256 and names a distinct file, by its plain relative path
-  (no ``.`` or ``..`` detour, repeated slash, absolute path or symbolic link), whose digest equals it; no other table in
-  the checkpoint, and not the deliverables table's header, shows a 64-hex digest; every file under the runtime tree has a
-  row (the checkpoint is the durable index of the records); the off-tree deliverable rows tabled at this commit stay
-  tabled; and the tree holds no symbolic links;
+  ``markdown-it-py`` the backend already depends on), and must nest well inside the depth the parser reads in full: it
+  holds no raw HTML, its first line is exactly ``# <title> (updated <stamp>)`` with no markup characters in the title,
+  and each of its deliverables and decisions titles is rendered by exactly one heading, the ``## `` line itself (a copy
+  at another level, setext, inside a list item or a block quote, or spelled with escapes, character references, emphasis
+  or invisible characters fails), so the section checked is the one a reader sees under it (a renamed section is no
+  longer that section);
+* the deliverables section renders exactly one table and nothing else (a blank line or text between its rows would end
+  the table and leave later rows outside it); every row carries a well-formed SHA-256 and names a distinct file, by its
+  plain relative path (no ``.`` or ``..`` detour, repeated slash, absolute path or symbolic link), whose digest equals
+  it; no other table in the checkpoint, and not the deliverables table's header, shows a 64-hex digest; every file under
+  the runtime tree has a row (the checkpoint is the durable index of the records); the off-tree deliverable rows tabled
+  at this commit stay tabled; and the tree holds no symbolic links;
 * every entry of the runtime tree named like a closure (case and punctuation aside) is a closure file named
-  ``source-context-exclusion-N.json`` directly under ``control/``, and the closures form an append-only chain anchored to the committed tail (closures
-  136–164 present, closure 164 pinned by digest) and numbered without gaps through the newest: each one's ``prior_record``
-  hash equals the previous file, its ``recorded_at`` is later than its predecessor's, its counts are integers equal to its
-  lists, its ids are strings, the previous ids are a prefix, nothing is duplicated, and the new entries are the ones it
-  declares;
-* the checkpoint header and ``APPOINTMENTS.json`` are stamped no earlier than the newest closure, compared at the closure's
-  fractional precision (they are written last); every stamp compared has the form ``YYYY-MM-DDTHH:MM:SS[.ffffff]``
-  followed by ``Z`` or ``+00:00`` (any other form, a missing offset included, is malformed and never repaired);
+  ``source-context-exclusion-N.json`` directly under ``control/``, and the closures form an append-only chain anchored
+  to the committed tail (closures 136–164 present, closure 164 pinned by digest) and numbered without gaps through the
+  newest: each one's ``prior_record`` hash equals the previous file, its ``recorded_at`` is later than its
+  predecessor's, its counts are integers equal to its lists, its ids are strings, the previous ids are a prefix, nothing
+  is duplicated, and the new entries are the ones it declares;
+* the checkpoint header and ``APPOINTMENTS.json`` are stamped no earlier than the newest closure, compared at the
+  closure's fractional precision (they are written last); every stamp compared has the form
+  ``YYYY-MM-DDTHH:MM:SS[.ffffff]`` followed by ``Z`` or ``+00:00`` (any other form, a missing offset included, is
+  malformed and never repaired);
 * every non-blank line of the decisions section is a numbered entry and the numbers run contiguously from 1;
 * every JSON file (``.json``) parses, and so does every line of a JSON-lines file (``.jsonl``, ``.ndjson``), suffixes
   matched in any case; a duplicate member name or a non-standard ``NaN``/``Infinity`` constant is an error;
@@ -33,12 +36,13 @@ a broken record never reaches a reviewer:
   home-directory path (``/Users/…`` as a leading path segment or right after a one-letter command-line option, behind a
   ``file:``, ``smb:``, ``afp:``, ``nfs:`` or ``vscode:`` host, or under a one- or two-segment ``/Volumes/`` prefix; the
   product's own ``/api/users/…`` routes may still be cited); and, under the chief's ``control/`` tree and in the
-  checkpoint, no session upload-area path (an ``uploads`` segment under ``.claude/``). Every file is scanned, whatever its
-  suffix, as written and with HTML comments, tags and emphasis or code-span markers removed, each line folded by ``_fold``
-  three ways: reading backslashes as path separators, decoding JSON and Markdown escapes, and both (the paths are matched
-  in the first and third readings, the address in the second). A match in any reading fails. The gate guards against
-  leaks, not a hostile writer: the name ``claude.ai`` alone in prose, an address or path split by whitespace, look-alike
-  letters, a volume name containing a space and drive-form or container home paths such as ``/c/Users`` are outside it.
+  checkpoint, no session upload-area path (an ``uploads`` segment under ``.claude/``). Every file is scanned, whatever
+  its suffix, as written and with HTML comments, tags and emphasis or code-span markers removed, each line folded by
+  ``_fold`` three ways: reading backslashes as path separators, decoding JSON and Markdown escapes, and both (the paths
+  are matched in every reading, the address only in the readings that keep backslashes); terminal colour codes are
+  removed first. A match in any reading fails. The gate guards against leaks, not a hostile writer: the name
+  ``claude.ai`` alone in prose, an address or path split by whitespace, look-alike letters, a volume name containing a
+  space and drive-form or container home paths such as ``/c/Users`` are outside it.
 
 Records-only PRs touch nothing under ``backend/``, yet CI runs the backend gate on every PR, so this test runs on each record PR;
 it lives under ``backend/tests/`` and therefore never triggers ``deploy-backend`` (the detector ignores that directory). The tree's
@@ -70,8 +74,11 @@ APPOINTMENTS = CONTROL / "APPOINTMENTS.json"
 LINE_END = re.compile(r"\r\n|\r|\n")
 # The checkpoint's first line: a level-1 heading whose title has no markup characters, then exactly one stamp.
 HEADER_LINE = re.compile(r"# [^\[\]()<>`*_&\\|#~]+ \(updated ([^()\s]+)\)[ \t]*")
-# The checkpoint is read as a renderer reads it: CommonMark with GFM tables (raw HTML is parsed, so it can be refused).
-MARKDOWN = MarkdownIt("commonmark").enable("table")
+# The checkpoint is read as a renderer reads it: CommonMark with GFM tables (raw HTML is parsed, so it can be refused). The
+# parser silently stops reading below its nesting limit (20 by default), so the limit is raised and a checkpoint nesting
+# anywhere near it fails rather than being read in part.
+MARKDOWN_NESTING = 200
+MARKDOWN = MarkdownIt("commonmark", {"maxNesting": MARKDOWN_NESTING}).enable("table")
 # Every body row of the deliverables table must parse as | `path` | `digest` |, and its digest is then validated, so a
 # malformed or unbackticked row fails instead of being dropped.
 TABLE_ROW = re.compile(r"^\| `([^`]+)` \| `([^`]*)` \|")
@@ -106,13 +113,16 @@ COMMITTED_OFF_TREE_ROWS = (
 # Each pattern runs over the folded readings of ``_readings`` (lower case, decoded); slash runs and dot segments are
 # tolerated inside a path, every path segment matched is non-empty (no backtracking over a run of slashes), and a path is
 # followed for at most 64 segments, so each scan stays linear in the text.
-# A claude.ai address that is not the session link: the host (a trailing dot or a port allowed) followed by a slash or a
-# backslash and anything but ``code/session_<id>`` ending there (a sentence's full stop, question mark or closing
-# underscore may follow; an empty id leaves room for a written placeholder such as ``session_<id>``). Every artifact and
-# gallery route, dot segments, ports and escapes included, is therefore an offender, while the name alone in prose ("a
-# private claude.ai artifact") is not.
+# A claude.ai address that is not the session link: the host (not a label of another domain or a segment of another path;
+# a trailing dot or a port allowed) followed by a slash or a backslash and anything but ``code/session_<id>`` ending there.
+# The id is the session's own or a written placeholder (``<id>``, ``{id}``, an ellipsis, or nothing, since the markup
+# reading drops an ``<id>`` tag and an emphasis underscore); after it only sentence or emphasis punctuation may follow
+# before whitespace, a closing bracket, quote, pipe or tag, or a Markdown hard line break.
+# Every artifact and gallery route, dot segments, ports and escapes included, is therefore an offender, while the name
+# alone in prose ("a private claude.ai artifact") is not.
 PRIVATE_LINK = re.compile(
-    r"claude\.ai\.?(?::\d*)?[/\\](?!code/session_[0-9a-z]*(?![0-9a-z/#%&=+-]|[._?][0-9a-z/#%&=+-]))"
+    r"(?<![\w-])(?<!\w[/\\])claude\.ai\.?(?::\d*)?[/\\](?!code/session_?(?:[0-9a-z]+|<[a-z ]{0,16}>|\{[a-z ]{0,16}\}|\.\.\.)?"
+    r"[.,;:!?*_~]*(?:\Z|[\s)\]\"'`>|<]|\\(?=\n|\Z)))"
 )
 # A home-directory path: ``/Users/`` as a leading path segment (no letter or digit before the slash, so the product's own
 # ``/api/users/…`` routes may be cited; a ``file:///Users/x`` URL, an underscore-emphasised path and a Windows
@@ -127,9 +137,11 @@ HOME_PATH = re.compile(
     r"|(?<![^\W_])/(?:system/+)?volumes/+(?:[^/\s|\"'`;,()<>]+/+){1,2}?users/"
 )
 # The session upload area: an ``uploads`` segment anywhere under ``.claude/`` (followed for at most 16 segments).
-UPLOAD_AREA = re.compile(r"\.claude/+(?:[^/\s]+/+){0,16}?uploads(?![0-9a-z-])")
-# Terminal colour and cursor codes (ANSI escape sequences), which a pasted terminal transcript may carry around a path.
-ANSI_ESCAPE = re.compile(r"\x1b\[[0-?]*[ -/]*[@-~]|\x1b[@-Z\\-_]")
+UPLOAD_AREA = re.compile(r"\.claude/+(?:[^/\s]+/+){0,16}?uploads(?![0-9a-z_-])")
+# Terminal colour and cursor codes, which a pasted terminal transcript may carry around a path: ANSI control sequences and
+# one- or two-byte escapes (the string terminator ESC backslash is kept, so it still reads as a separator), and a colour
+# code written out as text or with its escape character lost (``\\x1b[4m``, ``^[[4m``, ``[4m``).
+ANSI_ESCAPE = re.compile(r"\x1b(?:\[[0-?]*[ -/]*[@-~]|[#(-+]?[0-\[\]-~])|(?:\\x1b|\\033|\\e|\^\[)?\[[0-9;]{0,16}m")
 # Unicode Default_Ignorable_Code_Point (DerivedCoreProperties.txt): characters a renderer or an IDNA mapping drops silently.
 IGNORABLE = re.compile(
     "[\u00ad\u034f\u061c\u115f\u1160\u17b4\u17b5\u180b-\u180f\u200b-\u200f\u202a-\u202e\u2060-\u206f\u3164"
@@ -141,10 +153,15 @@ SLASH_ESCAPE = re.compile(r"\\([\\/])")
 JSON_ESCAPE = re.compile(r"\\(?:u([0-9a-fA-F]{4})|([\"\\/bfnrt]))")
 JSON_SIMPLE_ESCAPES = {'"': '"', "\\": "\\", "/": "/", "b": "\b", "f": "\f", "n": "\n", "r": "\r", "t": "\t"}
 MARKDOWN_ESCAPE = re.compile(r"\\([!-/:-@\[-`{-~])")
+# Characters that can start something ``_fold`` decodes or removes in ASCII text; an ASCII line without any of them only
+# needs its case folded (NFKC, the default-ignorable characters and the ideographic full stop are all non-ASCII).
+FOLD_TRIGGER = re.compile(r"[%&\\\x1b\[]")
 # What a renderer hides or consumes around visible text: HTML comments (an unclosed one hides the rest of the text), HTML
-# tags, and emphasis, strikethrough or code-span markers (not the underscore, which is part of names and ids and is not
-# emphasis inside a word).
-MARKUP = re.compile(r"<!--.*?(?:-->|\Z)|</?[a-z][a-z0-9-]*(?:[\s/][^<>]*)?>|[*~`]", re.IGNORECASE | re.DOTALL)
+# tags, emphasis, strikethrough or code-span markers, and underscores at a word's edge (underscore emphasis; an underscore
+# inside a word, as in names and ids, is not emphasis and is kept).
+MARKUP = re.compile(
+    r"<!--.*?(?:-->|\Z)|</?[a-z][a-z0-9-]*(?:[\s/][^<>]*)?>|[*~`]|(?<![^\W_])_+|_+(?![^\W_])", re.IGNORECASE | re.DOTALL
+)
 
 # The tree is a durable record: its absence is a failure, never a skip (a PR that deleted or renamed it would otherwise stay
 # green). The closure chain is anchored to its committed tail so no suffix of the chain can be removed.
@@ -199,14 +216,22 @@ def _load_object(path: Path) -> dict:
 def _checkpoint() -> tuple[list[str], list]:
     """CHECKPOINT.md's lines (split at Markdown line endings) and its CommonMark tokens; a leading byte-order mark is ignored."""
     text = _text(CHECKPOINT).removeprefix("\ufeff")
-    return LINE_END.split(text), MARKDOWN.parse(text)
+    try:
+        tokens = MARKDOWN.parse(text)
+    except RecursionError:
+        raise AssertionError("CHECKPOINT.md nests too deeply to be parsed") from None
+    deepest = max((token.level for token in tokens), default=0)
+    assert deepest < MARKDOWN_NESTING // 2, (
+        f"CHECKPOINT.md nests {deepest} levels deep; it must stay well inside the parser's {MARKDOWN_NESTING}-level limit"
+    )
+    return LINE_END.split(text), tokens
 
 
 def _rendered(inline) -> str:
-    """The text an inline token renders (escapes and character references decoded, emphasis markers dropped), with runs
-    of whitespace collapsed."""
+    """The text an inline token shows (escapes and character references decoded, emphasis markers and link targets
+    dropped, compatibility forms folded, invisible characters removed), with runs of whitespace collapsed."""
     parts = [" " if child.type in ("softbreak", "hardbreak") else child.content for child in inline.children or []]
-    return " ".join("".join(parts).split())
+    return " ".join(IGNORABLE.sub("", unicodedata.normalize("NFKC", "".join(parts))).split())
 
 
 def _section(lines: list[str], tokens: list, heading: str) -> tuple[int, int]:
@@ -254,8 +279,19 @@ def _checkpoint_rows() -> list[tuple[str, str]]:
         elif token.type == "table_close":
             table_line = None
         elif table_line is not None and not start <= table_line < end and token.type == "inline":
-            stray += HEX64.findall(token.content)
+            stray += HEX64.findall(_rendered(token))
     assert not stray, f"tables outside the deliverables section show digests that are never verified: {stray}"
+    # Every non-blank line of the section belongs to its one rendered table: a blank line between rows ends a CommonMark
+    # table, and the rows after it would render as plain text, outside the durable index.
+    tables = [token.map for token in tokens if token.type == "table_open" and start <= token.map[0] < end]
+    assert len(tables) == 1, f"the deliverables section must render exactly one table, not {len(tables)}"
+    first, last = tables[0]
+    outside = [
+        line
+        for index, line in enumerate(lines[start + 1 : end], start=start + 1)
+        if line.strip(" \t") and not first <= index < last
+    ]
+    assert not outside, f"deliverables lines that are not part of the rendered table: {outside}"
     table_lines = [line for line in lines[start + 1 : end] if line.strip(" \t")]
     assert len(table_lines) >= 3, "the deliverables table has no body rows"
     _header, _separator, *body = table_lines
@@ -485,6 +521,8 @@ def _fold(text: str, *, escapes: bool, separators: bool) -> str:
     only shortens the text and the other steps settle after one pass; a text still changing after 64 passes fails rather
     than being matched half-read.
     """
+    if text.isascii() and not FOLD_TRIGGER.search(text):
+        return text.lower()
     folded = text
     for _ in range(64):
         decoded = html.unescape(unquote(ANSI_ESCAPE.sub("", folded)))
@@ -507,8 +545,16 @@ def _readings(text: str) -> tuple[set[str], set[str]]:
     decoded) and the address readings (escapes decoded, backslashes kept)."""
     sources = (text, MARKUP.sub("", text))
 
+    folded: dict[tuple[str, bool, bool], str] = {}
+
     def fold(source: str, escapes: bool, separators: bool) -> str:
-        return "\n".join(_fold(line, escapes=escapes, separators=separators) for line in source.split("\n"))
+        lines = []
+        for line in source.split("\n"):
+            key = (line, escapes, separators)
+            if key not in folded:
+                folded[key] = _fold(line, escapes=escapes, separators=separators)
+            lines.append(folded[key])
+        return "\n".join(lines)
 
     paths = {fold(source, escapes, True) for source in sources for escapes in (False, True)}
     return paths, {fold(source, True, False) for source in sources}
@@ -549,8 +595,10 @@ def test_records_carry_no_private_urls_or_local_machine_paths() -> None:
         # break) would look like a path; an address written with backslashes still fails.
         if any(PRIVATE_LINK.search(reading) for reading in addresses):
             offenders.append(f"{path.relative_to(RUNTIME)}: claude.ai address other than the session link")
-        if any(HOME_PATH.search(reading) for reading in paths):
+        if any(HOME_PATH.search(reading) for reading in paths | addresses):
             offenders.append(f"{path.relative_to(RUNTIME)}: home-directory path")
-        if (path == CHECKPOINT or CONTROL in path.parents) and any(UPLOAD_AREA.search(reading) for reading in paths):
+        if (path == CHECKPOINT or CONTROL in path.parents) and any(
+            UPLOAD_AREA.search(reading) for reading in paths | addresses
+        ):
             offenders.append(f"{path.relative_to(RUNTIME)}: session upload area")
     assert not offenders, f"private or local-machine strings in the records: {offenders}"
