@@ -188,8 +188,8 @@ Pending.
   (blocker), 10-05 secret-scan false positive (cleared on main).
 - 20:01Z — #1111 merged by its owner (`335ad94b`) while its read-only review was running; main CI
   37678914838 success 20:13Z; `/health/detailed` healthy at 20:34:56Z (independent read).
-- 20:07–20:45Z — Stage 1 workflows complete: holds/#1074/branches (`wf_697de371-944`), #1081, #1108,
+- 20:07–20:40Z — Stage 1 workflows complete: holds/#1074/branches (`wf_697de371-944`), #1081, #1108,
   #1107, #1110, #1111 reviews, dependency analysis (`wf_46d39ae7-80a`). Recheck against `335ad94b`:
   no new conflicts; #1108 moved to `484a357a`.
-- 20:46Z — Integrated-#1081 simulation (worktree outside the repo, removed): no conflict with #1107 or
+- 20:50–20:57Z — Integrated-#1081 simulation (worktree outside the repo, removed): no conflict with #1107 or
   #1108. Stage 1 report sent to the founder; waiting for approval by number. Spend so far: USD 0.
