@@ -3,6 +3,7 @@ import { fileURLToPath } from 'node:url'
 import { ESLint, RuleTester } from 'eslint'
 import { describe, expect, it } from 'vitest'
 import {
+  clearedTrack,
   gridBaseTrackProblem,
   parseClassToken,
   responsiveGridBaseTrack,
@@ -97,6 +98,18 @@ describe('gridBaseTrackProblem', () => {
     ['grid [&:has(>img)]:grid-cols-2', ''],
   ])('flags %j (missing %j base)', (classes, prefix) => {
     expect(gridBaseTrackProblem(classes)).toBe(prefix)
+  })
+})
+
+describe('clearedTrack', () => {
+  it('finds a column reset under a variant, which overrides the base below it', () => {
+    expect(clearedTrack('grid grid-cols-1 sm:grid-cols-none md:grid-cols-2')).toBe('sm:grid-cols-none')
+    expect(clearedTrack('grid grid-cols-1 md:[grid-template-columns:none]')).toBe('md:[grid-template-columns:none]')
+  })
+
+  it('leaves an unprefixed reset to the base check', () => {
+    expect(clearedTrack('grid grid-cols-none')).toBeNull()
+    expect(clearedTrack('grid grid-cols-1 md:grid-cols-2')).toBeNull()
   })
 })
 
@@ -206,6 +219,15 @@ ruleTester.run('responsive-grid-base-track', responsiveGridBaseTrack, {
     // Columns set by an arbitrary property or under a self-targeting :has() variant count too.
     { code: '<div className="grid md:[grid-template-columns:1fr_1fr]" />', errors: missing() },
     { code: '<div className="grid [&:has(>img)]:grid-cols-2" />', errors: missing() },
+    // A reset under a variant clears the tracks from there up, whatever base sits below it.
+    {
+      code: '<div className="grid grid-cols-1 sm:grid-cols-none md:grid-cols-2" />',
+      errors: [{ messageId: 'cleared', data: { token: 'sm:grid-cols-none' } }],
+    },
+    {
+      code: '<div className="hidden md:grid sm:grid-cols-2 md:grid-cols-none" />',
+      errors: [{ messageId: 'cleared', data: { token: 'md:grid-cols-none' } }],
+    },
     // One report per element, however many chunks carry the variant columns.
     { code: "<div className={cx('grid', 'md:grid-cols-2', `lg:grid-cols-${n}`)} />", errors: missing() },
   ],

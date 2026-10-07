@@ -27,7 +27,8 @@
 // may drop or pick among them, or the body of a function (`className={() => cx(…)}`), which starts
 // afresh. Columns count in every spelling that sets this element's tracks: `grid-cols-*`, an
 // arbitrary `[grid-template-columns:…]`, under a self-targeting `[&:has(>img)]:`, and under a
-// smaller screen than the display's (screens are min-width). Pinned by
+// smaller screen than the display's (screens are min-width). A `grid-cols-none` under a variant
+// clears the tracks from there up, so it is reported on its own. Pinned by
 // tests/unit/gridBaseTrackRule.spec.ts.
 //
 // Out of scope, as for every class-string rule here: a class name assembled from fragments at
@@ -113,6 +114,17 @@ export function gridBaseTrackProblem(classText) {
   }
   const missing = displays.find((d) => !covers(d))
   return missing ? `${missing.variants.join(':')}:` : null
+}
+
+/** The first token that clears the column tracks under a variant (`sm:grid-cols-none`), else null.
+ *  It overrides the base below it, so from that variant up the tracks are implicit `auto` again:
+ *  the bug this rule exists for. Reported on its own, never weighed against other tokens. */
+export function clearedTrack(classText) {
+  for (const raw of classText.split(/\s+/)) {
+    const t = raw && parseClassToken(raw)
+    if (t && t.variants.length > 0 && NO_TRACKS.has(t.utility)) return raw
+  }
+  return null
 }
 
 const isHelperCall = (node) =>
@@ -207,6 +219,10 @@ export const responsiveGridBaseTrack = {
         'Responsive grid without a base track — add {{fix}} (minmax(0, 1fr); grid-cols-[auto] if a ' +
         'content-sized track is intended) beside the variant grid-cols-*, or the narrow layout sizes ' +
         'to its widest content and can scroll the page sideways.',
+      cleared:
+        '{{token}} clears the grid tracks under a variant, so from there up the layout sizes to its ' +
+        'widest content again — use grid-cols-[auto] if content-sized tracks are intended, or a ' +
+        'grid-cols-* template.',
     },
   },
   create(context) {
@@ -220,6 +236,11 @@ export const responsiveGridBaseTrack = {
           .filter((p) => present.has(p.branch))
           .map((p) => p.text)
           .join(' ')
+        const token = clearedTrack(text)
+        if (token !== null) {
+          context.report({ node, messageId: 'cleared', data: { token } })
+          return
+        }
         const prefix = gridBaseTrackProblem(text)
         if (prefix !== null) {
           context.report({ node, messageId: 'missing', data: { fix: `${prefix}grid-cols-1` } })

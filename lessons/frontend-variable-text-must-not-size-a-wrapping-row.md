@@ -47,4 +47,6 @@ smaller screen now count at every larger one. Other variants still have to match
 review found one more fail-open shape. The arguments of any call, not just a class helper, counted as
 always there, so `cx('grid', choose(wide, 'md:grid-cols-2', 'grid-cols-1'))` passed. Now only a
 helper's arguments and the receiver of `.join`, `.filter(Boolean)` or `.trim` count; any other
-call's inputs are checked on their own.
+call's inputs are checked on their own. Codex then found that a reset under a variant
+(`grid grid-cols-1 sm:grid-cols-none md:grid-cols-2`) clears the tracks from `sm` up while a base sits
+below it. Such a reset is now reported on its own; use `grid-cols-[auto]` for content-sized tracks.
