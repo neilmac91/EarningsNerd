@@ -6364,3 +6364,20 @@ Full local and hosted verification plus independent exact-head review precede re
 - [ ] Founder: relay the record-14 custody clarification (which retained input set record 05's predicate governs; whether an
       authoritative manifest exists for it — SHA-256, byte count, one-line provenance) and its six return fields; say so only if
       the 2 minutes are not consolidated; D3 (held).
+
+## Copilot quotation rejection recovery — 2026-10-07
+
+The founder reported the generic answer error for Alphabet filing 12038 and requested an independent
+repair. After CLI reauthentication, the bounded production readout found two
+`quotation_not_in_source` publication rejections at 2026-10-06T23:57:22Z and 23:57:33Z, after successful
+provider calls. The rejected candidates were not logged, so the precise quoted span is unavailable.
+The selected critical excerpt predates the incident and was recovered read-only for three controlled
+draws of the original question, separately from the unchanged six-source/eighteen-draw gate.
+
+The repair gives only that admission reason one fresh private generation, sharing the selected
+source, original deadline and provider accounting. The replacement still passes every admission
+check; other failures remain terminal. Prompt guidance requests exact contiguous direct quotations
+or cited paraphrases. New service/SDK/ASGI checks cover containment, bounded state and one quota
+charge, and the evaluator retains each generation separately. Locked contracts, model, flags,
+baseline, source selection and scoring thresholds remain unchanged. Full local, live evaluation,
+independent review and any deployment evidence are recorded in the repair PR.

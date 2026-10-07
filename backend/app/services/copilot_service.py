@@ -40,6 +40,7 @@ from markdown_it import MarkdownIt
 
 from app.config import settings
 from app.services import citation_markers, copilot_tools
+from app.services.ai.copilot_chat import chat_deadline
 from app.services.openai_service import (
     STREAM_ACTIVITY_SENTINEL,
     STREAM_ERROR_SENTINEL,
@@ -76,6 +77,12 @@ _COPILOT_MARKER_RE = re.compile(r"\[(F?\s*\d+)\]", re.IGNORECASE)
 _PUBLICATION_ERROR = "I couldn't verify the cited evidence, so I couldn't provide this answer."
 PROVIDER_STARTED_STAGE = "generating"  # progress stage emitted once the provider stream yields
 _STREAM_FAILURE = "I couldn't complete this answer. Please try again."
+_RETRYABLE_QUOTATION_FAILURE = "Unsupported prose quotation: quotation_not_in_source"
+_QUOTATION_RETRY_GUIDANCE = """Generate a fresh complete answer from the original filing and question.
+The previous candidate failed quotation matching. Do not reconstruct it. Use only filing-supported
+claims with the required source citations. Prefer concise paraphrases; any direct quotation must
+copy one exact contiguous source span. Keep displayed follow-up questions and not-disclosed
+explanations free of quotation marks. Finish the complete citation and follow-up envelopes."""
 
 
 class _UnpublishableAnswer(ValueError):
@@ -90,6 +97,12 @@ RULES:
 - Answer ONLY from the provided filing content. Never use outside knowledge or assumptions.
 - Every factual claim MUST be supported by a verbatim excerpt quoted directly from the filing.
 - Be precise, decisive, and concise. Use the filing's own numbers and language.
+- Prefer concise paraphrases in answer prose, with the required source markers. If you use \
+quotation marks, copy the entire quoted span contiguously and exactly from the supplied filing. \
+Never stitch separate passages, insert ellipses, change source wording or numbers, or put a \
+paraphrase inside quotation marks.
+- Keep the DISPLAYED text of follow-up questions, not-disclosed explanations, and citation \
+section labels free of quotation marks. JSON string delimiters are still required in the arrays.
 - If the filing does not disclose what is asked, say so honestly — do NOT guess or fabricate.
 - For any specific financial figure (revenue, margins, EPS, YoY, etc.), you MUST call the provided \
 tools to get the exact value — never state a number from memory or compute it yourself. \
@@ -1558,6 +1571,50 @@ async def answer_filing_question(
     question: str,
     history: Optional[list[dict]] = None,
 ) -> AsyncGenerator[dict, None]:
+    """Publish one admitted answer, privately regenerating one mismatched quotation candidate.
+
+    Both generations share the original source, usage accounting and provider deadline. Rejected
+    prose is never exposed or reused; an incomplete envelope or another failure stays terminal.
+    """
+    try:
+        source_text = _select_source_text(filing) or ""
+        normalized_source = normalize_for_match(source_text)
+        usage_sink: dict[str, Any] = {}
+        deadline = chat_deadline()
+        provider_started = False
+        for attempt in range(2):
+            candidate = _answer_filing_question_attempt(
+                filing=filing, question=question, history=history,
+                source_text=source_text, normalized_source=normalized_source,
+                usage_sink=usage_sink, deadline=deadline, quotation_retry=bool(attempt),
+            )
+            try:
+                async for event in candidate:
+                    if event.get("type") == "progress" and event.get("stage") == PROVIDER_STARTED_STAGE:
+                        if provider_started:
+                            continue
+                        provider_started = True
+                    yield event
+                return
+            except _UnpublishableAnswer as exc:
+                # Fixed owned reasons only. The discarded answer is never put into a new prompt.
+                logger.warning("Copilot candidate withheld at citation publication boundary: %s", exc)
+                if (attempt == 0 and str(exc) == _RETRYABLE_QUOTATION_FAILURE
+                        and asyncio.get_running_loop().time() < deadline):
+                    continue
+                yield {"type": "error", "message": _PUBLICATION_ERROR}
+                return
+            finally:
+                await candidate.aclose()
+    except Exception:  # noqa: BLE001 — cancellation still propagates
+        logger.exception("Copilot answer_filing_question failed")
+        yield {"type": "error", "message": _STREAM_FAILURE}
+
+
+async def _answer_filing_question_attempt(
+    *, filing: Any, question: str, history: Optional[list[dict]], source_text: str,
+    normalized_source: str, usage_sink: dict[str, Any], deadline: float, quotation_retry: bool,
+) -> AsyncGenerator[dict, None]:
     """Stream a grounded answer to ``question`` about ``filing`` as event dicts.
 
     Yields (in order):
@@ -1568,13 +1625,14 @@ async def answer_filing_question(
     * ``{"type": "complete", "answer", "citations", "grounded", "kind", "followups"}`` at the end.
     * ``{"type": "error", "message": ...}`` on any failure.
 
-    Ordinary failures become safe ``error`` events; cancellation still propagates. The filing source
-    text is normalized **once** here and reused for every excerpt.
+    Ordinary failures become safe ``error`` events; cancellation still propagates. The question
+    owner supplies the source normalized once and reused for every excerpt and generation.
     """
+    provider_stream = None
     try:
-        source_text = _select_source_text(filing) or ""
-        normalized_source = normalize_for_match(source_text)
         messages = _build_messages(filing, source_text, question, history)
+        if quotation_retry:
+            messages[0]["content"] += "\n\n" + _QUOTATION_RETRY_GUIDANCE
 
         # P5/P6b numeric tool-use: bind tools to this filing's company, accession and native currency. ``run_tool`` opens its own
         # DB session per call (the request session is gone by now). Each distinct successful fact is
@@ -1618,13 +1676,12 @@ async def answer_filing_question(
         last_progress = monotonic()
 
         # The wrapper accumulates actual model, usage and recorded call costs across tool rounds.
-        usage_sink: dict[str, Any] = {}
         model_name = openai_service.model
         # Emitted once, on the provider stream's first non-error chunk: the proof the model call
         # started, which the ask-stream router meters on (not the `reading` progress above, which
         # precedes the call). A failure or disconnect before this point costs the user nothing.
         provider_started = False
-        async for delta in openai_service.stream_chat_with_tools(
+        provider_stream = openai_service.stream_chat_with_tools(
             messages,
             copilot_tools.TOOLS,
             _run_tool,
@@ -1632,7 +1689,9 @@ async def answer_filing_question(
             max_tokens=settings.COPILOT_MAX_TOKENS,
             temperature=0.2,
             usage_sink=usage_sink,
-        ):
+            deadline=deadline,
+        )
+        async for delta in provider_stream:
             if not delta:
                 continue
 
@@ -1841,10 +1900,11 @@ async def answer_filing_question(
             "uncited_figures": uncited_figures,
             "usage": usage_payload,
         }
-    except _UnpublishableAnswer as exc:
-        # These reasons are application-owned constants, never candidate prose or excerpts.
-        logger.warning("Copilot candidate withheld at citation publication boundary: %s", exc)
-        yield {"type": "error", "message": _PUBLICATION_ERROR}
+    except _UnpublishableAnswer:
+        raise  # The question owner decides whether one fresh generation is possible.
     except Exception:  # noqa: BLE001 — never raise ordinary failures out of the SSE generator
         logger.exception("Copilot answer_filing_question failed")
         yield {"type": "error", "message": _STREAM_FAILURE}
+    finally:
+        if provider_stream is not None:
+            await provider_stream.aclose()
