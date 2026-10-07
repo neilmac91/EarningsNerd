@@ -7,7 +7,7 @@ import { API_ORIGIN, FILING } from './fixtures/filing3Api'
  *  - A Pro visitor opens a filing with no summary, so the page generates one at load, and it fails.
  *    On main focus stayed on <body>: the keyboard user tabbed through the site header (9 stops at
  *    1440px, 6 at 390px) to reach "Retry generation". Now the failure card's heading takes focus
- *    nobody holds, and one Tab reaches the Retry.
+ *    nobody holds, described by the failure's reason, and one Tab reaches the Retry.
  *  - "Retry generation" by keyboard hands focus to the progress card's heading (RetryButton); on main
  *    it fell to <body>. A run that fails again brings focus back to the new card's heading.
  *  - The monthly-limit card a free visitor gets takes focus the same way.
@@ -89,6 +89,8 @@ for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 
       await openFiling(page, baseURL!, { next: 'fail' })
       await expect(heading(page, ERROR_HEADING)).toBeFocused()
       await expect(page.locator('[role="alert"]', { has: heading(page, ERROR_HEADING) })).toContainText(FAILED)
+      // The focused title carries the reason, whatever the live announcement does when focus moves.
+      await expect(heading(page, ERROR_HEADING)).toHaveAccessibleDescription(FAILED)
       await page.keyboard.press('Tab')
       await expect(page.getByRole('button', { name: 'Retry generation' })).toBeFocused()
     })

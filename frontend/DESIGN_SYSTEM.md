@@ -123,10 +123,13 @@ chrome only. Every Retry is RetryButton, gated in `busyControlsStayFocusable.spe
 A Retry that restarts a stream, not a query (the filing page's "Retry generation"), is RetryButton too, given the
 stream's own failure, `{ failed: true, error, busy: false, retry }`: there is no query to hold, and the press
 clears the error in the render that starts the stream, so the card leaves with the press and its hand-off
-target is the progress card's heading. A card that ends a run the user is waiting on (a failed generation, the
+target is the progress card's heading. A failure built by hand like this is pinned, with its reason, in the
+gate's `ALLOW_HAND_BUILT_FAILURE`: every other failure RetryButton is given is `useRetainedFailure`'s, checked
+through same-file consts and through a component's prop to its call sites. A card that ends a run the user is waiting on (a failed generation, the
 monthly limit) takes focus when it appears, on its title (`GuidanceCard`'s `headingRef`: `tabIndex={-1}`, no
-outline), and only when nobody holds focus (`useFocusOnArrival`, `hooks/useFocusHandoff.ts`). Never on its
-button, where a key pressed as the card lands would act, and never away from a field, a link or a dialog.
+outline, described by the card's description), and only when nobody holds focus (`useFocusOnArrival`,
+`hooks/useFocusHandoff.ts`). Never on its button, where a key pressed as the card lands would act, and never
+away from a field, a link or an open modal dialog the card is not in.
 
 ```
 Primary button   <Button>  ·  LIGHT: white label on bg-brand, hover bg-brand-strong, active bg-brand-emphasis

@@ -57,7 +57,12 @@ name (it is the sanctioned wiring and label); a function of that name anywhere e
 hand-rolled Retry. Each has a shrink-only, capped allowlist with reasons: ALLOW_RETRY pins 5 wiring sites
 in 3 files (open rule (h) Retry buttons), ALLOW_RETRY_LABEL 11 labels in 11 files (4 error-boundary
 resets, 3 stream or answer restarts, 4 open rule (h) sites). Every Retry the retry-hardening follow-up
-converted fails both clauses at its 026d6df version (20 wiring and 10 label offenders in 6 files).
+converted fails both clauses at its 026d6df version (20 wiring and 10 label offenders in 6 files). A third
+clause (EN-05) checks what RetryButton is given: each element of its `failures` is `useRetainedFailure(…)`,
+inline, through a same-file const or either branch of a conditional, or, when it is a prop of the component
+rendering RetryButton, at every `<Component prop={…}>` call site (a prop nobody passes fails). Anything else is
+a failure built by hand, which skips the hold and can carry `busy: isFetching`: ALLOW_HAND_BUILT_FAILURE pins
+it by its text (1 site, the filing page's stream restart), capped and shrink-only.
 
 (e) A control unavailable after its own activation (`!dirty` after a save, an incomplete form, a
 cooldown, "Link sent") is aria-disabled with an early return too. A primary DS Button in that state
@@ -159,14 +164,19 @@ move focus a mouse user did not lose.
   its hand-off: the filing page's "Retry generation" passes the stream's own failure, `{ failed: true, error,
   busy: false, retry }`. Its press clears the error in the render that starts the stream, so the card leaves
   with the press and focus goes to the progress card's heading (`tabIndex={-1}`), in the branch that replaced it.
+  That literal is pinned in the gate's ALLOW_HAND_BUILT_FAILURE (d): a hand-built failure for a query would skip
+  the hold.
 - The other direction (EN-05, 2026-10-07): a card that ends a run the user is waiting on takes focus when it
   appears, only when nobody holds focus. A failed generation usually lands with focus on `<body>` (the page
   generates at load), and the keyboard user then tabbed through the site header to reach the Retry (9 stops
   at 1440px). `useFocusOnArrival(target, shown)` (`hooks/useFocusHandoff.ts`) focuses the card's title
   (`GuidanceCard`'s `headingRef`) after the commit, when focus is on `<body>`; a focused element that commit
-  removed (the progress heading) counts as nobody's. Focus in a field, on a link or in a dialog is never
-  moved, and a re-render while the card shows never takes it back. The title, not the Retry: a key pressed as
-  the card lands (Space to scroll, Enter) must not restart the run.
+  removed (the progress heading) counts as nobody's. Focus in a field or on a link is never moved, nor taken
+  from behind an open `aria-modal` dialog the card is not in (a control unmounting inside a dialog drops focus
+  to `<body>` too), and a re-render while the card shows never takes it back. The title, not the Retry: a key
+  pressed as the card lands (Space to scroll, Enter) must not restart the run. The title is described by the
+  card's description (`aria-describedby`), so a screen reader that cuts the live announcement short for the
+  focus move still reads why; whether it reads twice needs a real screen reader.
 - A fetch is in flight while `fetchStatus !== 'idle'`. A retry paused offline or in a hidden tab is still
   in flight, so `isFetching` alone would release the failure, and the busy state, too early.
 - When a retry fails again with the same message, the alert's text is unchanged, so nothing is announced.

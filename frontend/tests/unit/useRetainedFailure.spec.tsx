@@ -466,14 +466,16 @@ describe('useFocusHandoff', () => {
 
 describe('useFocusOnArrival', () => {
   /** A progress heading that `fail` replaces with a card whose heading takes focus on arrival. */
-  function Harness() {
+  function Harness({ modal = 'none' }: { modal?: 'none' | 'outside' | 'around' }) {
     const [failed, setFailed] = useState(false)
     const [renders, setRenders] = useState(0)
     const card = useRef<HTMLHeadingElement>(null)
     useFocusOnArrival(card, failed)
+    const surface = failed ? <h3 ref={card} tabIndex={-1}>Card</h3> : <h2 tabIndex={-1}>Progress</h2>
     return (
       <div data-renders={renders}>
-        {failed ? <h3 ref={card} tabIndex={-1}>Card</h3> : <h2 tabIndex={-1}>Progress</h2>}
+        {modal === 'around' ? <div role="dialog" aria-modal="true" aria-label="Sheet">{surface}</div> : surface}
+        {modal === 'outside' && <div role="dialog" aria-modal="true" aria-label="Dialog"><p>Open</p></div>}
         <button onClick={() => setFailed((f) => !f)}>fail</button>
         <button onClick={() => setRenders((n) => n + 1)}>rerender</button>
         <button>elsewhere</button>
@@ -503,6 +505,22 @@ describe('useFocusOnArrival', () => {
   it('a focused element the same commit removed counts as nobody holding focus', async () => {
     render(<Harness />)
     screen.getByRole('heading', { name: 'Progress' }).focus()
+    outside('fail')
+    await settle()
+    expect(document.activeElement).toBe(card())
+  })
+
+  it('never takes focus from behind an open modal dialog the target is not in, even with focus on <body>', async () => {
+    // A focused control that unmounts inside a dialog drops focus to <body> too: the dialog still owns the keyboard.
+    render(<Harness modal="outside" />)
+    expect(document.activeElement).toBe(document.body)
+    outside('fail')
+    await settle()
+    expect(document.activeElement).toBe(document.body)
+  })
+
+  it('a target inside the open modal dialog still takes focus nobody holds', async () => {
+    render(<Harness modal="around" />)
     outside('fail')
     await settle()
     expect(document.activeElement).toBe(card())

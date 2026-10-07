@@ -135,6 +135,8 @@ describe('StreamingSummaryDisplay focus around a failed generation', () => {
     await settle()
     expect(document.activeElement).toBe(heading('Generation interrupted'))
     expect(heading('Generation interrupted')).toHaveAttribute('tabindex', '-1')
+    // The reason rides on the focused title too, whatever the live announcement does when focus moves.
+    expect(heading('Generation interrupted')).toHaveAccessibleDescription(FAILED.error!)
     // The heading, not the Retry: a key pressed as the card lands never restarts the run.
     expect(heading('Generation interrupted').compareDocumentPosition(retry()) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
   })
@@ -202,21 +204,27 @@ describe('StreamingSummaryDisplay focus around a failed generation', () => {
 })
 
 describe('GuidanceCard headingRef', () => {
-  function WithRef() {
+  function WithRef({ title, description }: { title: string; description?: string }) {
     const ref = useRef<HTMLHeadingElement>(null)
-    return <GuidanceCard variant="error" title="With a ref" headingRef={ref} />
+    return <GuidanceCard variant="error" title={title} description={description} headingRef={ref} />
   }
 
-  it('makes the title a focus target only when a ref is passed', () => {
+  it('makes the title a focus target, described by the description, only when a ref is passed', () => {
     render(
       <>
-        <GuidanceCard variant="error" title="Without a ref" />
-        <WithRef />
+        <GuidanceCard variant="error" title="Without a ref" description="Plain reason." />
+        <WithRef title="With a ref" description="The reason." />
+        <WithRef title="No description" />
       </>,
     )
-    expect(screen.getByRole('heading', { name: 'Without a ref' })).not.toHaveAttribute('tabindex')
+    const plain = screen.getByRole('heading', { name: 'Without a ref' })
+    expect(plain).not.toHaveAttribute('tabindex')
+    expect(plain).not.toHaveAttribute('aria-describedby')
+    expect(screen.getByText('Plain reason.')).not.toHaveAttribute('id')
     const target = screen.getByRole('heading', { name: 'With a ref' })
     expect(target).toHaveAttribute('tabindex', '-1')
     expect(target.className).toContain('outline-none')
+    expect(target).toHaveAccessibleDescription('The reason.')
+    expect(screen.getByRole('heading', { name: 'No description' })).not.toHaveAttribute('aria-describedby')
   })
 })
