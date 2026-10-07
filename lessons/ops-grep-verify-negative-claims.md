@@ -27,4 +27,4 @@ had spot-checked only the highest-impact positives.
 ## Evidence
 
 - PR #653 review (2026-09-04), "Audit-content corrections" section; fixes landed in the same PR
-  (`docs/ENGINEERING_AUDIT_2026-09.md`, `tasks/todo.md`, lead-correction notes in appendices 01, 03, 04, 05).
+  (`docs/ENGINEERING_AUDIT_2026-09.md`, `tasks/archive/todo-ledger-through-2026-10-07.md`, lead-correction notes in appendices 01, 03, 04, 05).

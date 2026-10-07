@@ -4,8 +4,10 @@ Improve filing-grounded generation and evaluation without weakening source, qual
 
 ## Working agreement
 
-Read [AGENTS.md](../../../AGENTS.md), [CLAUDE.md](../../../CLAUDE.md), the
-[lessons index](../../../lessons/README.md), current handover and todo before editing.
+Read [AGENTS.md](../../../AGENTS.md), [CLAUDE.md](../../../CLAUDE.md) and the
+[lessons index](../../../lessons/README.md) sections for this area before editing. Open
+`tasks/todo.md` only when continuing an open item there; do not read handovers or the archived
+ledger for an isolated change.
 [Stack truth](../README.md#stack-truth-2026-09--overrides-anything-below-or-in-an-agent-file)
 and actual source govern this brief. Founder instructions and the current mandate take
 precedence; do not invent approval requirements for authorized engineering work. Secrets,

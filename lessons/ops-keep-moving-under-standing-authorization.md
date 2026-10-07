@@ -27,7 +27,7 @@ boundaries above are unchanged.
 
 **Evidence.** Founder message of 2026-09-07 on PR #754 ("approved. please proceed. going
 forward, i need you to keep making progress and not constantly wait for my approvals");
-`tasks/todo.md` E07b slice 2 record; `lessons/ops-continue-approved-engineering.md` (the
+`tasks/archive/todo-ledger-through-2026-10-07.md` E07b slice 2 record; `lessons/ops-continue-approved-engineering.md` (the
 earlier form of the same rule, scoped to releases).
 
 

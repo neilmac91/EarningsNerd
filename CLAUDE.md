@@ -10,62 +10,38 @@ TypeScript + Tailwind + React Query on Vercel | AI via OpenAI-compatible client 
 `AI_DEFAULT_MODEL`) | Stripe, Resend, PostHog + Vercel Analytics, Sentry. Redis is dev-only;
 prod runs the L1 in-memory cache (ADR-0004).
 
-## Context by task
+## Read by task — nothing else is mandatory
 
-- `lessons/README.md` — hard-won operating rules, one file each. Scan the index; open what applies.
-- `docs/adr/` — consult when changing architectural decisions; settled decisions (Cloud Run, edgartools, Redis-off-in-prod, React 18,
-  DeepSeek supersedes Gemini). Don't re-litigate; supersede with a new ADR.
-- `docs/ARCHITECTURE.md` — consult for service boundaries, data flow, and architectural changes.
-- [DESIGN.md](DESIGN.md), then [frontend/DESIGN_SYSTEM.md](frontend/DESIGN_SYSTEM.md) — MANDATORY
-  before UI work. The first records the visual system; the second supplies implementation
-  conventions and verification gates. Link both in UI subagent briefs.
-- `backend/evals/RUNBOOK.md` — MANDATORY before changing prompts, models, or AI flags.
-- Reference detail lives in `docs/CONFIGURATION.md` (env vars), `docs/OPERATIONS.md`
-  (health/metrics/runbook/admin), `docs/TROUBLESHOOTING.md`, `docs/DEPLOYMENT.md`.
+- Every session: this file, then the `lessons/README.md` sections for your task area (skip
+  "Enforced by a machine gate"; CI fails those on its own).
+- Continuing a plan or release: `tasks/todo.md`, the short open-items file. Handovers and the
+  ledger under `tasks/archive/` are history; open them only when an open item points there.
+- Boundaries or data flow: `docs/ARCHITECTURE.md`. Settled decisions: `docs/adr/` — supersede
+  with a new ADR, don't re-litigate.
+- Prompt, model, eval or AI-flag change: `backend/evals/RUNBOOK.md` — "Regression gate (B1)" and
+  "Judging a pull request's eval artifact" are MANDATORY, "Gotchas" before any paid run.
+- UI work: `frontend/DESIGN_SYSTEM.md` §1–§3 and §12 are MANDATORY; add `DESIGN.md` "Components"
+  and "Do's and Don'ts" for a new or changed component; both files in full for a token, theme or
+  typography change. Link both in UI subagent briefs.
+- Operating model (review tiers, model per agent stage, handover format, deploy discipline):
+  `AGENTS.md` §5–§7. Reference: `docs/CONFIGURATION.md`, `docs/OPERATIONS.md`,
+  `docs/TROUBLESHOOTING.md`, `docs/DEPLOYMENT.md`.
 
 ## Design documentation
 
-[DESIGN.md](DESIGN.md) is the root visual reference: the design direction, portable token snapshot
-and reusable component patterns. [frontend/DESIGN_SYSTEM.md](frontend/DESIGN_SYSTEM.md) remains the
-detailed implementation guide, including exceptions and the existing theme/token done-gate.
-[.impeccable/design.json](.impeccable/design.json) supplies preview components and metadata that
-extend the Markdown frontmatter; it is documentation, not a runtime theme or component library.
-Token definitions in `frontend/tailwind.config.js`, `frontend/app/globals.css`, and the actual
-components take precedence over stale documentation, under the conflict rules in
-[AGENTS.md](AGENTS.md#2-precedence-when-documents-conflict).
-
-When a change affects documented tokens, typography, reusable component states or visual
-conventions, refresh the affected `DESIGN.md` content and sidecar together in that PR. Update
-`frontend/DESIGN_SYSTEM.md` when its implementation guidance changes. Keep the snapshot's source
-revision and verification limits accurate. A route-specific content change that leaves the
-documented system intact does not require regenerating the snapshot. A routing-only edit to
-`DESIGN.md` (links or wording outside the frontmatter and the narrative the sidecar duplicates) can
-leave the sidecar unchanged. Impeccable then flags it in that working copy (the context check's
-`design-sidecar-stale` and the hook/live panel's "DESIGN.md is newer than .impeccable/design.json")
-because it compares file modification times, not content; both notices are expected, so do not touch
-the sidecar only to reset timestamps. Content parity is checked by
-`frontend/tests/unit/designSnapshotParity.spec.ts` (frontmatter vs token sources, sidecar vs
-frontmatter, duplicated narrative, specimen palette roles and panel fit). For a source-based
-refresh, run Impeccable's `document` command when available (`/impeccable document` in Claude Code,
-`$impeccable document` in Codex), then drop the synthetic tonal ramps it adds and re-apply the
-panel-fit rules to regenerated specimens (the spec names each failure); otherwise update from the
-same source files. When specimens change, render them with
-`frontend/scripts/impeccable-panel-harness.mjs`, which models the CSS the app actually serves. The
-live panel reads the sidecar only from `<project root>/.impeccable/design.json`; boot it from the
-repository root with a root `.impeccable/live/config.json` targeting `frontend/app/layout.tsx`
-rather than moving or copying the sidecar. Apply the existing change-area checks in AGENTS.md and
-rule 11.
+`DESIGN.md` and `frontend/DESIGN_SYSTEM.md` are documentation; the token sources and components
+take precedence ([precedence](AGENTS.md#2-precedence-when-documents-conflict)). When a change
+affects documented tokens, typography, reusable component states or visual conventions, load the
+`design-docs-maintenance` skill and refresh the docs and sidecar together in that PR.
 
 ## Commands
 
 Backend (from `/backend`):
 ```bash
 uvicorn main:app --reload --host 0.0.0.0 --port 8000   # Dev server
-pip install -r requirements-dev.txt                    # Pinned lint toolchain (same versions as CI)
+pip install -r requirements-dev.txt                    # Pinned lint toolchain (same as CI)
 ruff check . && bandit -r app -ll && python -m pytest  # FULL local gate — run before every push
-python -m pytest              # Fast lane: pytest.ini deselects performance (real sleeps)
-python -m pytest -m ""        # Everything, including the performance suite
-python3 scripts/deploy_check.py                        # Pre-deploy validation
+python -m pytest -m ""                                 # Also the performance suite (real sleeps)
 ```
 
 Frontend (from `/frontend`):
@@ -143,79 +119,56 @@ Infra: `docker-compose up -d postgres redis` (local only — prod has no Redis).
     machine enforcement in the same PR (ESLint rule, allowlist spec, AST test, CI grep). Prose-only
     rules rot — see `lessons/arch-structural-gates-over-prose-rules.md`.
 
+
 ## Where things live
 
-- **Backend:** `app/routers/` = HTTP only; `app/services/` = business logic. `services/ai/` holds
-  the AI internals (extraction, json_repair, section_recovery, markdown_render, xbrl_narrative,
-  copilot_chat, …) behind the `openai_service.py` façade. `services/edgar/` owns the SEC service
-  layer; existing EFTS (`integrations/sec_api.py`) and companyfacts (`services/facts_service.py`)
-  raw-HTTP fetches share the limiter/backoff without the breaker.
-  `app/integrations/` = third-party APIs (alpha_vantage, sec_api; finnhub/fmp/stocktwits were torn down in #657 and `test_dead_integrations_allowlist.py` keeps them gone).
-- **Frontend:** `features/<domain>/` = domain code (api/ + components/ + hooks/).
-  `components/` = `ui/` + app chrome ONLY (enforced by `componentsAllowlist.spec.ts`). Query keys
-  come from `lib/queryKeys.ts` (ESLint-enforced — no inline key arrays). All HTTP goes through the
-  shared axios client (`lib/api/client.ts`); raw `fetch` is sanctioned only for SSE readers and
-  Next ISR/server fetches. Blob downloads via `lib/downloadBlob.ts`.
-- **Tests:** `backend/tests/{unit,integration,smoke,performance}` (config + markers in
-  `backend/pytest.ini`; conftest auto-sets hermetic mock env incl. `SKIP_REDIS_INIT=true` — patch
-  `settings`, not env vars) and `frontend/tests/{unit,e2e}`. NO other test roots — a test outside
-  these does not run in CI. Gate: `frontend/tests/unit/testHomesAllowlist.spec.ts`; its one
-  exemption is a hash-sealed judging fixture pinned by a `code-sha256.json` in its package
-  (offline proof run by the operator, not by CI).
+- **Backend:** `app/routers/` = HTTP only; `app/services/` = business logic; `services/ai/` = AI
+  internals behind the `openai_service.py` façade; `services/edgar/` = SEC service layer (rule 5);
+  `app/integrations/` = third-party APIs (finnhub/fmp/stocktwits were torn down in #657;
+  `test_dead_integrations_allowlist.py` keeps them gone). Map: `docs/ARCHITECTURE.md`.
+- **Frontend:** `features/<domain>/` = domain code; `components/` = `ui/` + app chrome ONLY
+  (`componentsAllowlist.spec.ts`); query keys from `lib/queryKeys.ts` (ESLint-enforced); all HTTP
+  through `lib/api/client.ts` (raw `fetch` only for SSE readers and Next ISR/server fetches);
+  blob downloads via `lib/downloadBlob.ts`.
+- **Tests:** `backend/tests/{unit,integration,smoke,performance}` (conftest sets a hermetic mock
+  env incl. `SKIP_REDIS_INIT=true` — patch `settings`, not env vars) and `frontend/tests/{unit,e2e}`.
+  NO other test roots — a test outside these does not run in CI (gate:
+  `frontend/tests/unit/testHomesAllowlist.spec.ts`; its one exemption is the hash-sealed judging
+  fixture pinned by a `code-sha256.json` in its package).
 - **Scripts:** one-offs in `backend/scripts/` with a docstring header; nothing executable at repo
-  root. **Plans** → `tasks/todo.md`; finished plans → `tasks/archive/`; **lessons** → `lessons/`
-  (one file per rule; never back into a monolith). **Prompts** → `backend/prompts/*.md`.
+  root. **Open items** → `tasks/todo.md`; finished work and the ledger → `tasks/archive/`;
+  **lessons** → `lessons/` (one file per rule, never a monolith); **prompts** → `backend/prompts/*.md`.
 
 ## API conventions & code style
 
-- Routes are `/api/`-prefixed (admin at `/api/admin/`, cron triggers at `/internal/`); JWT via
+- Routes are `/api/`-prefixed (admin `/api/admin/`, cron triggers `/internal/`); JWT via
   `Authorization: Bearer`; long-running generation streams over SSE; Pydantic-validated JSON.
 - Python: type hints required, async for I/O, no raw SQL (SQLAlchemy ORM only).
   TypeScript: strict mode, interfaces for API responses.
 
 ## Deploy
 
-CI (`.github/workflows/ci.yml`): backend gate = ruff + bandit + pytest; frontend gate = eslint +
-tsc + vitest; e2e = Playwright (no backend running — specs must tolerate a dead API); the
-`eval-baseline` job gates AI regressions against `backend/evals/baseline_scores.json`.
-`deploy-backend` runs on push to main when `backend/` changed outside `backend/tests/`: applies not-yet-recorded
-`backend/migrations/*.sql` files to Cloud SQL through the `migration_ledger` table
-(`backend/scripts/apply_migrations.sh`; the `migrations-postgres` job proves the same script on
-`postgres:15` first), deploys the Cloud Run service (`earningsnerd-backend`, project
-`earnings-nerd`, us-west1, keyless WIF auth), refreshes the weekly pregenerate cron
-(Mondays 06:00 UTC), and updates the required pregenerate job image. Seven other configured job
-targets (filing-scan, filing-digest, backfill-facts, earnings-calendar-refresh, earnings-day-alerts,
-notable-filings, retention-purge) are updated only when found; CI skips missing jobs and does not provision them.
-Changes confined to `backend/tests/` still run all CI gates but do not deploy. A failed deploy is not retried,
-so check the job's conclusion after every merge touching deployable backend files. Frontend deploys via Vercel (`NEXT_PUBLIC_API_BASE_URL=https://api.earningsnerd.io`).
-Manual bootstrap: `tasks/gcp-deploy-runbook.md`. Full detail: `docs/DEPLOYMENT.md`.
+CI (`.github/workflows/ci.yml`): ruff + bandit + pytest; eslint + tsc + vitest; Playwright with NO
+backend; `eval-baseline` gates AI regressions against `backend/evals/baseline_scores.json`.
+`deploy-backend` runs on push to main when `backend/` changed outside `backend/tests/` (migrations
+through the `migration_ledger`, Cloud Run `earningsnerd-backend` in `earnings-nerd`/us-west1, job
+images); a failed deploy is not retried, so check its conclusion after every such merge. Vercel
+deploys the frontend on every push to main. Detail: `docs/DEPLOYMENT.md`.
 
 ## Workflow
 
-- **Planning:** use a short plan for work with meaningful dependencies or architectural choices;
-  record substantial work in `tasks/todo.md`. Resolve routine implementation choices directly.
-  Re-plan when evidence changes the approach; ask only when a decision needs founder input.
-- **Completion:** continue authorized work through implementation, applicable verification and
-  fixes for failures caused by the change. Make the result reviewable before returning; preserve
-  explicit approval and release boundaries. Report any remaining blocker precisely.
-- **Subagents:** delegate bounded independent work when parallelism or context isolation helps;
-  straightforward tasks can stay local. Use `.claude/agents/` for relevant specialist context.
-- **Verification:** apply the changed area's gates and `AGENTS.md` testing proportionality.
-  Once the required checks pass, repeat them only for new changes, failures or unresolved concerns.
-- **Self-improvement loop:** after ANY user correction, add or update a file in `lessons/`
-  (format in `lessons/README.md`). Review relevant lessons at session start.
-- **Elegance (balanced):** for non-trivial changes ask "is there a more elegant way?"; skip for
-  simple fixes — don't over-engineer.
-- **Autonomous bug fixing:** given a bug report, just fix it — find root causes, no temporary
-  patches, no hand-holding.
-- **Suggest better approaches:** if you see a clearly better way, say so before implementing
-  (2-4 tradeoff bullets); proceed with the request unless the alternative avoids serious risk.
-- **Docs vs code:** when they contradict, the code is truth — fix the doc in the same PR.
-- These reinforce the `karpathy-guidelines` skill (`.claude/skills/meta/karpathy-guidelines/`):
-  Think Before Coding, Simplicity First, Surgical Changes, Goal-Driven Execution.
-
-## Skills
-
-`.claude/skills/` (docs in its README): karpathy-guidelines, llm-council ("council this" /
-"pressure-test this"), stripe-best-practices, cloudflare-agents-sdk, react-best-practices,
-web-design-guidelines, vercel-deploy, voltagent. Invoke manually via `/<skill-name>`.
+- **Review by risk tier** (`AGENTS.md` §5): records-only PRs get no AI review; routine code one
+  review lens; high-risk paths (summary pipeline, Copilot, prompts, entitlements and billing, auth,
+  migrations, SEC fetching, CI and deploy files) keep the full adversarial review. Every agent
+  stage names its model there; never put a subagent on the session's premium model by default.
+- **Plan** briefly when work has real dependencies or architectural choices; record open items in
+  `tasks/todo.md`, one line each. Ask only when a decision needs founder input; otherwise carry
+  authorized work through implementation, verification (`AGENTS.md` §4) and fixes, and report any
+  blocker precisely.
+- **Delegate** bounded independent work when parallelism or context isolation helps, naming the
+  model (`AGENTS.md` §5). The briefs under `.claude/agents/` are reading material, not subagents.
+- **After ANY user correction**, add or update a file in `lessons/` (format in its README).
+- **Bugs:** fix the root cause — no temporary patches. **Better approach:** say so first (2-4
+  tradeoff bullets), then proceed unless the alternative avoids serious risk. **Docs vs code:** code
+  is truth — fix the doc in the same PR. Skills: `.claude/skills/README.md`; `karpathy-guidelines`
+  is the baseline (Think Before Coding, Simplicity First, Surgical Changes, Goal-Driven Execution).

@@ -9,5 +9,11 @@
       "Bash(/home/user/fable-judging/venv/bin/python /home/user/EarningsNerd/tasks/fable-e8-repin-2026-09-22/tools/readout.py:*)",
       "Bash(/home/user/fable-judging/venv/bin/python -m unittest:*)"
     ]
-  }
+  },
+  "env": {
+    "CLAUDE_CODE_SUBAGENT_MODEL": "opus"
+  },
+  "effortLevel": "high",
+  "ultracode": false,
+  "workflowSizeGuideline": "small"
 }

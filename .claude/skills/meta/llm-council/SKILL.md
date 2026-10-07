@@ -86,9 +86,10 @@ If the question is too vague ("council this: my business"), ask one clarifying q
 
 Save the framed question for the transcript.
 
-### step 2: convene the council (5 sub-agents in parallel)
+### step 2: convene the council (5 sub-agents in parallel, on Opus)
 
-Spawn all 5 advisors simultaneously as sub-agents. Each gets:
+Spawn all 5 advisors simultaneously as sub-agents with `model: "opus"` (never the session's
+premium model; `AGENTS.md` §5). Each gets:
 
 1. Their advisor identity and thinking style (from the descriptions above)
 2. The framed question
@@ -114,13 +115,15 @@ Respond from your perspective. Be direct and specific. Don't hedge or try to be 
 Keep your response between 150-300 words. No preamble. Go straight into your analysis.
 ```
 
-### step 3: peer review (5 sub-agents in parallel)
+### step 3: peer review (1 sub-agent, on Opus)
 
 This is the step that makes the council more than just "ask 5 times." It's the core of Karpathy's insight.
 
 Collect all 5 advisor responses. Anonymize them as Response A through E (randomize which advisor maps to which letter so there's no positional bias).
 
-Spawn 5 new sub-agents, one for each advisor. Each reviewer sees all 5 anonymized responses and answers three questions:
+Spawn ONE new sub-agent with `model: "opus"` (cost rule, 2026-10-07: one reviewer instead of five
+cuts the council from 10 agent calls to 6; the advisors stay independent, the cross-review loses
+only the five-way vote). The reviewer sees all 5 anonymized responses and answers three questions:
 
 1. Which response is the strongest and why? (pick one)
 2. Which response has the biggest blind spot and what is it?
@@ -163,7 +166,7 @@ Keep your review under 200 words. Be direct.
 
 ### step 4: chairman synthesis
 
-This is the final step. One agent gets everything: the original question, all 5 advisor responses (now de-anonymized so you can see which advisor said what), and all 5 peer reviews.
+This is the final step. The main session is the chairman (no further sub-agent). It has everything: the original question, all 5 advisor responses (now de-anonymized so you can see which advisor said what), and the peer review.
 
 The chairman's job is to produce the final council output. It follows this structure:
 
@@ -207,7 +210,7 @@ ADVISOR RESPONSES:
 [response]
 
 PEER REVIEWS:
-[all 5 peer reviews]
+[the peer review]
 
 Produce the council verdict using this exact structure:
 

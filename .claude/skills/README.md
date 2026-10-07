@@ -8,6 +8,8 @@ This directory contains Claude Code skills that provide specialized knowledge an
 |----------|-------|-------------|
 | **Meta** | [llm-council](./meta/llm-council/) | Run a decision through 5 AI advisors who peer-review each other, then a chairman synthesizes a verdict |
 | **Meta** | [judge-readout](./meta/judge-readout/) | Produce the weekly strong-judge readout (W3-7) from a Monday generation artifact through the founder's Claude subscription; manual only |
+| **Meta** | [design-docs-maintenance](./meta/design-docs-maintenance/) | Keep DESIGN.md, frontend/DESIGN_SYSTEM.md and the .impeccable sidecar in parity when documented tokens, typography or component states change (moved out of CLAUDE.md) |
+| **Meta** | [karpathy-guidelines](./meta/karpathy-guidelines/) | Think Before Coding, Simplicity First, Surgical Changes, Goal-Driven Execution |
 | **Payments** | [stripe-best-practices](./payments/stripe-best-practices/) | Stripe API integration patterns and best practices |
 | **Infrastructure** | [cloudflare-agents-sdk](./infrastructure/cloudflare-agents-sdk/) | Building AI agents on Cloudflare Workers |
 | **Frontend** | [react-best-practices](./frontend/react-best-practices/) | React/Next.js performance optimization (57 rules) |
@@ -21,6 +23,11 @@ This directory contains Claude Code skills that provide specialized knowledge an
 Skills for reasoning and decision-making workflows:
 - **llm-council** - Pressure-test a high-stakes decision through 5 independent advisors (Contrarian, First Principles, Expansionist, Outsider, Executor), anonymous peer review, and a chairman synthesis. Triggers: "council this", "pressure-test this", "war room this".
 - **judge-readout** - In a fresh chat, download the Monday `data-quality-weekly` generation artifact, judge its 24 retained attempts with `evals.judge_readout` over the subscription CLI, report and record the readout, and deliver it only after asking. Manual invocation only (`disable-model-invocation: true`).
+- **design-docs-maintenance** - The design-document parity procedure (sidecar, Impeccable `document`, panel harness), loaded only when a change touches the documented design system.
+- **karpathy-guidelines** - Baseline coding behaviour; `CLAUDE.md` names it.
+
+### Workflows (`.claude/workflows/`)
+- **premerge-review** - Risk-tiered PR review (`AGENTS.md` §5): `records` runs no agents, `routine` one Opus lens plus one Sonnet refuter per blocker, `high` three Opus lenses plus two Opus refuters per blocker or should-fix. Pass `tier` per PR in `args.prs`.
 
 ### Payments (`/payments`)
 Skills for payment processing integrations:

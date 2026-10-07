@@ -15,7 +15,7 @@ wait. A gate failure that a clean re-run cannot reproduce is first checked again
 before any test is called flaky or "fixed" by scoping.
 
 **Evidence.** W3-9 gate on `457933fd` (1 failed / 2703 passed) versus the verbose re-run on
-`70fca647` (2705 passed) with the worktree left alone; `tasks/todo.md` W3-9 section.
+`70fca647` (2705 passed) with the worktree left alone; `tasks/archive/todo-ledger-through-2026-10-07.md` W3-9 section.
 
 **Correction (2026-09-08, later the same day).** The parallel run was the trigger, not the whole
 cause. The SQLite file outlives the test process, and `test_tickers_filter_scopes_the_pass`
