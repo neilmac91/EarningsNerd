@@ -5,9 +5,9 @@ a broken record never reaches a reviewer:
 
 * every row of ``CHECKPOINT.md``'s deliverables table carries a well-formed SHA-256 and names a file whose digest equals it, and
   every file under the runtime tree has a row (the checkpoint is the durable index of the records);
-* the ``control/source-context-exclusion-NNN.json`` closures form an append-only chain: each one's ``prior_record`` hash equals the
-  previous file, its counts equal its lists, the previous ids are a prefix, nothing is duplicated, and the new entries are the
-  ones it declares;
+* the ``control/source-context-exclusion-NNN.json`` closures form an append-only chain anchored to the committed tail (closures
+  136–164 present, closure 164 pinned by digest): each one's ``prior_record`` hash equals the previous file, its counts equal its
+  lists, the previous ids are a prefix, nothing is duplicated, and the new entries are the ones it declares;
 * the checkpoint header and ``APPOINTMENTS.json`` are stamped no earlier than the newest closure, compared at the closure's
   fractional precision (they are written last);
 * every non-blank line of the decisions section is a numbered entry and the numbers run contiguously from 1;
@@ -16,7 +16,8 @@ a broken record never reaches a reviewer:
   session upload-area path is written into the records — every file in the tree is scanned, whatever its suffix.
 
 Records-only PRs touch nothing under ``backend/``, yet CI runs the backend gate on every PR, so this test runs on each record PR;
-it lives under ``backend/tests/`` and therefore never triggers ``deploy-backend`` (the detector ignores that directory).
+it lives under ``backend/tests/`` and therefore never triggers ``deploy-backend`` (the detector ignores that directory). The tree's
+absence fails the module rather than skipping it.
 """
 
 from __future__ import annotations
@@ -26,8 +27,6 @@ import json
 import re
 from datetime import datetime, timezone
 from pathlib import Path
-
-import pytest
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 RUNTIME = REPO_ROOT / "tasks" / "code-red-20261004" / "runtime"
@@ -52,7 +51,13 @@ ALLOWED_OFF_TREE = (REPO_ROOT / "tasks" / "readiness-2026-09-21" / "beta",)
 FORBIDDEN_EVERYWHERE = ("claude.ai/artifact", "claude.ai/code/artifact", "/Users/")
 FORBIDDEN_IN_CONTROL = FORBIDDEN_EVERYWHERE + (".claude/uploads",)
 
-pytestmark = pytest.mark.skipif(not RUNTIME.is_dir(), reason="CODE RED runtime records are not present")
+# The tree is a durable record: its absence is a failure, never a skip (a PR that deleted or renamed it would otherwise stay
+# green). The closure chain is anchored to its committed tail so no suffix of the chain can be removed.
+COMMITTED_CLOSURES = range(136, 165)
+COMMITTED_TAIL = (
+    "source-context-exclusion-164.json",
+    "3e486add2a9c136d8b434a3544bb1fb6a9c4287a82bda5e88def112582802eec",
+)
 
 
 def _sha256(path: Path) -> str:
@@ -70,14 +75,14 @@ def _section(text: str, heading: str) -> str:
 def _checkpoint_rows() -> list[tuple[str, str]]:
     """Every body row of the deliverables table, each required to parse and to carry a well-formed digest."""
     section = _section(CHECKPOINT.read_text(encoding="utf-8"), DELIVERABLES_HEADING)
-    pipe_lines = [line for line in section.splitlines() if line.startswith("|")]
-    assert len(pipe_lines) >= 3, "the deliverables table has no body rows"
-    _header, _separator, *body = pipe_lines
-    assert not TABLE_ROW.match(_header), (
-        f"the deliverables table's first pipe line is a data row, not the header: {_header!r}"
+    table_lines = [line for line in section.splitlines()[1:] if line.strip()]
+    assert len(table_lines) >= 3, "the deliverables table has no body rows"
+    _header, _separator, *body = table_lines
+    assert _header.startswith("|") and not TABLE_ROW.match(_header), (
+        f"the deliverables section's first line is not the table header: {_header!r}"
     )
     assert re.fullmatch(r"\|(?:-+\|)+", _separator), (
-        f"the deliverables table's second pipe line is not a separator row: {_separator!r}"
+        f"the deliverables section's second line is not the table's separator row: {_separator!r}"
     )
     unparsed = [line for line in body if not TABLE_ROW.match(line)]
     assert not unparsed, f"deliverables rows that do not parse as | `path` | `sha256` |: {unparsed}"
@@ -103,6 +108,11 @@ def _stamp(value: str) -> datetime:
 
 def _runtime_files() -> set[Path]:
     return {p for p in RUNTIME.rglob("*") if p.is_file() and p != CHECKPOINT}
+
+
+def test_runtime_tree_is_present() -> None:
+    missing = [str(p.relative_to(REPO_ROOT)) for p in (RUNTIME, CONTROL, CHECKPOINT, APPOINTMENTS) if not p.exists()]
+    assert not missing, f"the CODE RED runtime records are missing from the tree: {missing}"
 
 
 def test_checkpoint_hash_rows_match_their_files() -> None:
@@ -133,6 +143,11 @@ def test_every_runtime_file_has_a_checkpoint_row() -> None:
 
 
 def test_closure_chain_is_append_only() -> None:
+    present = {int(CLOSURE_NAME.match(p.name).group(1)) for p in _closures()}
+    missing = sorted(n for n in COMMITTED_CLOSURES if n not in present)
+    assert not missing, f"committed exclusion closures are missing: {missing}"
+    tail_name, tail_sha = COMMITTED_TAIL
+    assert _sha256(CONTROL / tail_name) == tail_sha, f"{tail_name} no longer has its committed digest"
     closures = _closures()
     assert len(closures) >= 2, "expected at least two exclusion closures"
     previous: tuple[Path, str, dict] | None = None
