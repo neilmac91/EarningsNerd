@@ -236,3 +236,13 @@ Pending.
   lane); #1081's lane must re-integrate main and re-lint #1107's new files before pushing.
 - 21:22Z — #1097 replacement branch `claude/pr1097-frontend-minor-updates` = main `aa17bcb8` +
   cherry-pick `-x` of `b0438bdc` (clean; package.json shows exactly the 8 reviewed versions); gate running.
+- 21:26Z — #1097 replacement **#1116** opened (draft) at `52cf7a23` (main `aa17bcb8` + cherry-pick of
+  `b0438bdc`, identical patch-id `68e807d1…`). Local gate: npm ci ok, lint 0, tsc 0, vitest 1129/1129,
+  build 0 (Next.js 16.3.8); lockfile regeneration drift is the class main already has (63 lines on
+  main; 111 here from sharp's extra platform packages). Marked ready 21:27Z (frontend only: no paid
+  job); Codex review triggered by the ready transition, completed 21:32:21Z with no findings.
+- 21:30Z — #1113 read-only review (`wf_9431c59e-422`): no blocker; one should-fix confirmed (no test
+  pins the in-panel click marker's `setTimeout(0)` reset, `FilingWorkspace.tsx:220`); 4 nits.
+  Observe-only: reported, not commented.
+- 21:37Z — **#1116 merged** `b96457d1` (head `52cf7a23` re-read; CI 37689522607 green; review-gate
+  37689536809 pass). #1097 closed as superseded (comment 6047344689).
