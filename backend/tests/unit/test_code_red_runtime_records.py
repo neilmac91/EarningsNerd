@@ -16,8 +16,9 @@ a broken record never reaches a reviewer:
 * every JSON file parses, and so does every line of a JSON-lines file;
 * no private artifact URL (either link form), macOS home path (``/Users/``) or, anywhere under the chief's ``control/`` tree,
   session upload-area path is written into the records — every file in the tree is scanned, whatever its suffix, the match
-  ignores case (host names are case-insensitive), and a JSON document is also scanned after decoding, so an escaped spelling
-  (a backslash-escaped solidus, a Unicode code-point escape) does not evade the check.
+  ignores case (host names are case-insensitive), the home path is matched as a leading path segment so the product's own
+  ``/api/users/…`` routes may still be cited, and a JSON document is also scanned after decoding, so an escaped spelling (a
+  backslash-escaped solidus, a Unicode code-point escape) does not evade the check.
 
 Records-only PRs touch nothing under ``backend/``, yet CI runs the backend gate on every PR, so this test runs on each record PR;
 it lives under ``backend/tests/`` and therefore never triggers ``deploy-backend`` (the detector ignores that directory). The tree's
@@ -61,8 +62,11 @@ COMMITTED_OFF_TREE_ROWS = (
 
 # Strings that must never appear in the chief's own records (the repository is public; these belong to private stores).
 # Matched case-insensitively: host names are case-insensitive, and a path spelled in another case is still the same path.
-FORBIDDEN_EVERYWHERE = ("claude.ai/artifact", "claude.ai/code/artifact", "/users/")
+FORBIDDEN_EVERYWHERE = ("claude.ai/artifact", "claude.ai/code/artifact")
 FORBIDDEN_IN_CONTROL = FORBIDDEN_EVERYWHERE + (".claude/uploads",)
+# The macOS home path is matched as a leading path segment (nothing word-like before the slash), so the product's own
+# ``/api/users/…`` routes, which a record may legitimately cite, are not caught; ``file:///Users/x`` and a quoted path are.
+HOME_PATH = re.compile(r"(?<!\w)/users/")
 
 # The tree is a durable record: its absence is a failure, never a skip (a PR that deleted or renamed it would otherwise stay
 # green). The closure chain is anchored to its committed tail so no suffix of the chain can be removed.
@@ -285,4 +289,6 @@ def test_records_carry_no_private_urls_or_local_machine_paths() -> None:
         for needle in needles:
             if any(needle in haystack for haystack in haystacks):
                 offenders.append(f"{path.relative_to(RUNTIME)}: {needle!r}")
+        if any(HOME_PATH.search(haystack) for haystack in haystacks):
+            offenders.append(f"{path.relative_to(RUNTIME)}: macOS home path")
     assert not offenders, f"private or local-machine strings in the records: {offenders}"
