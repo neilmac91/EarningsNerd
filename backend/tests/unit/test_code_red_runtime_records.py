@@ -3,16 +3,16 @@
 Every record PR's independent reviewer re-derived the same invariants by hand before merge. This test derives them in CI so
 a broken record never reaches a reviewer:
 
-* every hash row of ``CHECKPOINT.md`` names a file whose SHA-256 equals the recorded one, and every file under the runtime tree
-  has a row (the checkpoint is the durable index of the records);
+* every row of ``CHECKPOINT.md``'s deliverables table carries a well-formed SHA-256 and names a file whose digest equals it, and
+  every file under the runtime tree has a row (the checkpoint is the durable index of the records);
 * the ``control/source-context-exclusion-NNN.json`` closures form an append-only chain: each one's ``prior_record`` hash equals the
   previous file, its counts equal its lists, the previous ids are a prefix, nothing is duplicated, and the new entries are the
   ones it declares;
 * the checkpoint header and ``APPOINTMENTS.json`` are stamped no earlier than the newest closure (they are written last);
 * the chief's decisions are numbered contiguously from 1;
 * every JSON file parses;
-* no private artifact URL (either link form), macOS home path (``/Users/``) or, in the chief's control files, session
-  upload-area path is written into the records — every file in the tree is scanned, whatever its suffix.
+* no private artifact URL (either link form), macOS home path (``/Users/``) or, anywhere under the chief's ``control/`` tree,
+  session upload-area path is written into the records — every file in the tree is scanned, whatever its suffix.
 
 Records-only PRs touch nothing under ``backend/``, yet CI runs the backend gate on every PR, so this test runs on each record PR;
 it lives under ``backend/tests/`` and therefore never triggers ``deploy-backend`` (the detector ignores that directory).
@@ -34,7 +34,9 @@ CONTROL = RUNTIME / "control"
 CHECKPOINT = RUNTIME / "CHECKPOINT.md"
 APPOINTMENTS = CONTROL / "APPOINTMENTS.json"
 
-HASH_ROW = re.compile(r"^\| `([^`]+)` \| `([0-9a-f]{64})` \|", re.MULTILINE)
+# Every deliverables row is parsed, then its digest is validated, so a malformed digest fails instead of dropping the row.
+TABLE_ROW = re.compile(r"^\| `([^`]+)` \| `([^`]*)` \|", re.MULTILINE)
+SHA256_HEX = re.compile(r"[0-9a-f]{64}")
 HEADER_STAMP = re.compile(r"\(updated (\d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ)\)")
 CLOSURE_NAME = re.compile(r"^source-context-exclusion-(\d+)\.json$")
 DELIVERABLES_HEADING = "## Deliverables and exact hashes (SHA-256)"
@@ -62,7 +64,10 @@ def _section(text: str, heading: str) -> str:
 
 
 def _checkpoint_rows() -> list[tuple[str, str]]:
-    return HASH_ROW.findall(_section(CHECKPOINT.read_text(encoding="utf-8"), DELIVERABLES_HEADING))
+    rows = TABLE_ROW.findall(_section(CHECKPOINT.read_text(encoding="utf-8"), DELIVERABLES_HEADING))
+    malformed = [path for path, digest in rows if not SHA256_HEX.fullmatch(digest)]
+    assert not malformed, f"hash rows whose digest is not 64 lowercase hex characters: {malformed}"
+    return rows
 
 
 def _closures() -> list[Path]:
@@ -178,7 +183,7 @@ def test_records_carry_no_private_urls_or_local_machine_paths() -> None:
     offenders = []
     for path in sorted(_runtime_files() | {CHECKPOINT}):
         text = path.read_text(encoding="utf-8", errors="replace")
-        needles = FORBIDDEN_IN_CONTROL if (path == CHECKPOINT or path.parent == CONTROL) else FORBIDDEN_EVERYWHERE
+        needles = FORBIDDEN_IN_CONTROL if (path == CHECKPOINT or CONTROL in path.parents) else FORBIDDEN_EVERYWHERE
         for needle in needles:
             if needle in text:
                 offenders.append(f"{path.relative_to(RUNTIME)}: {needle!r}")
