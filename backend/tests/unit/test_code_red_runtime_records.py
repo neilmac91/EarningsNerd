@@ -8,16 +8,16 @@ a broken record never reaches a reviewer:
   rows tabled at this commit stay tabled, and the tree holds no symbolic links;
 * the ``control/source-context-exclusion-NNN.json`` closures form an append-only chain anchored to the committed tail (closures
   136–164 present, closure 164 pinned by digest) and numbered without gaps through the newest: each one's ``prior_record``
-  hash equals the previous file, its counts equal its lists, the previous ids are a prefix, nothing is duplicated, and the new
-  entries are the ones it declares;
+  hash equals the previous file, its ``recorded_at`` is later than its predecessor's, its counts equal its lists, the previous
+  ids are a prefix, nothing is duplicated, and the new entries are the ones it declares;
 * the checkpoint header and ``APPOINTMENTS.json`` are stamped no earlier than the newest closure, compared at the closure's
   fractional precision (they are written last);
 * every non-blank line of the decisions section is a numbered entry and the numbers run contiguously from 1;
 * every JSON file parses, and so does every line of a JSON-lines file;
 * no private artifact URL (either link form), macOS home path (``/Users/``) or, anywhere under the chief's ``control/`` tree,
-  session upload-area path is written into the records — every file in the tree is scanned, whatever its suffix, and a JSON
-  document is also scanned after decoding, so an escaped spelling (a backslash-escaped solidus, a Unicode code-point
-  escape) does not evade the check.
+  session upload-area path is written into the records — every file in the tree is scanned, whatever its suffix, the match
+  ignores case (host names are case-insensitive), and a JSON document is also scanned after decoding, so an escaped spelling
+  (a backslash-escaped solidus, a Unicode code-point escape) does not evade the check.
 
 Records-only PRs touch nothing under ``backend/``, yet CI runs the backend gate on every PR, so this test runs on each record PR;
 it lives under ``backend/tests/`` and therefore never triggers ``deploy-backend`` (the detector ignores that directory). The tree's
@@ -60,7 +60,8 @@ COMMITTED_OFF_TREE_ROWS = (
 )
 
 # Strings that must never appear in the chief's own records (the repository is public; these belong to private stores).
-FORBIDDEN_EVERYWHERE = ("claude.ai/artifact", "claude.ai/code/artifact", "/Users/")
+# Matched case-insensitively: host names are case-insensitive, and a path spelled in another case is still the same path.
+FORBIDDEN_EVERYWHERE = ("claude.ai/artifact", "claude.ai/code/artifact", "/users/")
 FORBIDDEN_IN_CONTROL = FORBIDDEN_EVERYWHERE + (".claude/uploads",)
 
 # The tree is a durable record: its absence is a failure, never a skip (a PR that deleted or renamed it would otherwise stay
@@ -188,6 +189,9 @@ def test_closure_chain_is_append_only() -> None:
             prior = data["prior_record"]
             assert prior["path"] == f"control/{prev_path.name}", f"{path.name}: prior_record.path is {prior['path']}"
             assert prior["sha256"] == prev_sha, f"{path.name}: prior_record.sha256 does not equal {prev_path.name}"
+            assert _stamp(data["recorded_at"]) > _stamp(prev_data["recorded_at"]), (
+                f"{path.name}: recorded_at is not later than {prev_path.name}'s"
+            )
             prev_ids = prev_data["excluded_context_ids"]
             assert data["previous_count"] == len(prev_ids), f"{path.name}: previous_count != len({prev_path.name} ids)"
             assert ids[: len(prev_ids)] == prev_ids, f"{path.name}: the previous closure's ids are not a prefix"
@@ -273,7 +277,10 @@ def test_records_carry_no_private_urls_or_local_machine_paths() -> None:
         # The raw text catches every file; a JSON document is scanned again after decoding, so a forbidden string spelled
         # with escapes (``\/``, ``\uXXXX``) is caught as the consumer would read it. A document that does not decode fails here
         # as well as in the parse test.
-        haystacks = [text, *(s for document in _json_documents(path, text) for s in _decoded_strings(document))]
+        haystacks = [
+            s.lower()
+            for s in (text, *(s for document in _json_documents(path, text) for s in _decoded_strings(document)))
+        ]
         needles = FORBIDDEN_IN_CONTROL if (path == CHECKPOINT or CONTROL in path.parents) else FORBIDDEN_EVERYWHERE
         for needle in needles:
             if any(needle in haystack for haystack in haystacks):
