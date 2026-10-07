@@ -19,9 +19,9 @@ deleting its line in the PR that closes it; a handover is a refresh of "Where th
   #1112 (PR disposition sweep), #1110 (CODE RED records gate), #1074 (Copilot prompt candidate,
   measurement only), #1035 (native delivery), #1009 (Pro pricing, held) drafts; #1096 Dependabot.
 - Review and models: PRs are reviewed by risk tier (`AGENTS.md` §5); `review-gate.yml` still needs a
-  Codex review or a `Review override:` line while Codex credits are exhausted. Marking a PR that
-  touches `backend/**` ready for review triggers the paid `copilot-eval` run: reserve first
-  (`DECISIONS-09.md`, reservation rule; `AGENTS.md` §6).
+  Codex review or a `Review override:` line while Codex credits are exhausted. Marking a PR ready
+  for review triggers the paid `copilot-eval` run when it touches that workflow's `paths:` filter
+  (`backend/**` until #1123 narrows it): reserve first (`DECISIONS-09.md`; `AGENTS.md` §6).
 
 ## Open items
 

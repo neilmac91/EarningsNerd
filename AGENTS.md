@@ -144,8 +144,9 @@ PR touching deployable backend files only after the previous
 `deploy-backend` job is green, the migration step shows `applied=0 skipped=<N>` (or the expected
 new count), and `/health/detailed` is healthy. Docs, workflow and frontend PRs may interleave.
 Read the head SHA from the PR before merging; never type one from memory.
-Marking a PR that touches `backend/**` ready for review triggers the paid `copilot-eval` run:
-reserve the spend first (`tasks/code-red-20261004/runtime/control/DECISIONS-09.md`, reservation rule).
+Marking a PR ready for review triggers the paid `copilot-eval` run when it touches that
+workflow's `paths:` filter (`backend/**` until #1123 narrows it): reserve the spend first
+(`tasks/code-red-20261004/runtime/control/DECISIONS-09.md`, reservation rule).
 
 ## 7. PR body, handover and open-items formats
 
