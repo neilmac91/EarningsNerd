@@ -4,7 +4,8 @@ Every record PR's independent reviewer re-derived the same invariants by hand be
 a broken record never reaches a reviewer:
 
 * every row of ``CHECKPOINT.md``'s deliverables table carries a well-formed SHA-256 and names a file whose digest equals it, and
-  every file under the runtime tree has a row (the checkpoint is the durable index of the records);
+  every file under the runtime tree has a row (the checkpoint is the durable index of the records) and the tree holds no
+  symbolic links;
 * the ``control/source-context-exclusion-NNN.json`` closures form an append-only chain anchored to the committed tail (closures
   136–164 present, closure 164 pinned by digest): each one's ``prior_record`` hash equals the previous file, its counts equal its
   lists, the previous ids are a prefix, nothing is duplicated, and the new entries are the ones it declares;
@@ -113,6 +114,10 @@ def _runtime_files() -> set[Path]:
 def test_runtime_tree_is_present() -> None:
     missing = [str(p.relative_to(REPO_ROOT)) for p in (RUNTIME, CONTROL, CHECKPOINT, APPOINTMENTS) if not p.exists()]
     assert not missing, f"the CODE RED runtime records are missing from the tree: {missing}"
+    # Records are plain files: a symbolic link is neither hashed nor scanned, so none may exist in the tree (a link to a directory or
+    # to an absent target would otherwise escape every other test while storing its target path in Git).
+    links = sorted(str(p.relative_to(RUNTIME)) for p in RUNTIME.rglob("*") if p.is_symlink())
+    assert not links, f"symbolic links are not permitted in the runtime tree: {links}"
 
 
 def test_checkpoint_hash_rows_match_their_files() -> None:
