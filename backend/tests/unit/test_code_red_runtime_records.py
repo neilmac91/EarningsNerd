@@ -10,7 +10,7 @@ a broken record never reaches a reviewer:
   ones it declares;
 * the checkpoint header and ``APPOINTMENTS.json`` are stamped no earlier than the newest closure, compared at the closure's
   fractional precision (they are written last);
-* every line of the decisions section is a numbered entry and the numbers run contiguously from 1;
+* every non-blank line of the decisions section is a numbered entry and the numbers run contiguously from 1;
 * every JSON file parses;
 * no private artifact URL (either link form), macOS home path (``/Users/``) or, anywhere under the chief's ``control/`` tree,
   session upload-area path is written into the records — every file in the tree is scanned, whatever its suffix.
