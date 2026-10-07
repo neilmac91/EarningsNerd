@@ -551,12 +551,31 @@ jobs:
       - name: Set up gcloud
         if: steps.changes.outputs.backend == 'true'
         uses: google-github-actions/setup-gcloud@v3
-      - name: Build and push image
+      - name: Configure registry authentication and image tag
         if: steps.changes.outputs.backend == 'true'
+        id: image
         run: |
           gcloud auth configure-docker us-west1-docker.pkg.dev --quiet
-          docker build -t "$IMAGE:${GITHUB_SHA::7}" -t "$IMAGE:latest" backend
-          docker push --all-tags "$IMAGE"
+          echo "sha_tag=${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
+      - name: Set up Docker Buildx
+        if: steps.changes.outputs.backend == 'true'
+        uses: docker/setup-buildx-action@v4
+      - name: Build and push image
+        if: steps.changes.outputs.backend == 'true'
+        uses: docker/build-push-action@v7
+        env:
+          DOCKER_BUILD_RECORD_UPLOAD: 'false'
+        with:
+          context: backend
+          platforms: linux/amd64
+          push: true
+          provenance: false
+          tags: |
+            ${{ env.IMAGE }}:${{ steps.image.outputs.sha_tag }}
+            ${{ env.IMAGE }}:latest
+          # Reuse dependency layers across releases without storing a cache tag in Artifact Registry.
+          cache-from: type=gha,scope=earningsnerd-backend,version=2,timeout=5m
+          cache-to: type=gha,scope=earningsnerd-backend,version=2,mode=max,timeout=5m,ignore-error=true
       - name: Apply database migrations
         if: steps.changes.outputs.backend == 'true'
         # Schema is created for fresh DBs by Base.metadata.create_all(), but that never ALTERs an

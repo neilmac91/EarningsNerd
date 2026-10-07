@@ -52,6 +52,14 @@ default. Auth is keyless via Workload Identity Federation (repo variables `GCP_W
 
 **Nothing manual is required for routine releases** — merge to `main` and the pipeline ships it.
 
+### Docker build caching
+
+Backend releases build with Docker Buildx and reuse dependency layers through a scoped GitHub
+Actions v2 cache. Registry authentication, the seven-character commit tag and `latest` tag are
+unchanged. Cache export failure does not block a successful image push; imports and exports each
+have a five-minute timeout. The first build or an evicted cache builds normally. This uses the
+repository's GitHub cache quota; it does not remove older Artifact Registry images.
+
 ### Read-only release configuration audit
 
 Dispatch the `Ops` workflow with `describe-service`, then `describe-jobs`, when an operator needs

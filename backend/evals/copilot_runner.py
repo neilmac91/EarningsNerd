@@ -190,10 +190,11 @@ class _WithheldReasons(logging.Filter):
     and tracebacks reach runner.log in the copilot-eval job (no root handler there).
     """
 
-    def __init__(self, sink: list[str]):
+    def __init__(self, sink: list[str], generations: list[dict] | None = None):
         from app.services.copilot_service import _UnpublishableAnswer, logger
         super().__init__()
         self.sink, self.withheld, self.service_log = sink, _UnpublishableAnswer, logger
+        self.generations = generations
 
     def __enter__(self):
         self.token = _ATTEMPT_CAPTURE.set(self)
@@ -207,7 +208,12 @@ class _WithheldReasons(logging.Filter):
     def filter(self, record: logging.LogRecord) -> bool:
         reason = record.args[0] if isinstance(record.args, tuple) and record.args else None
         if isinstance(reason, self.withheld) and _ATTEMPT_CAPTURE.get() is self:
-            self.sink.append(str(reason)[:200])
+            captured = str(reason)[:200]
+            self.sink.append(captured)
+            if self.generations:
+                # Admission runs after the provider stream closes. Its latest generation remains
+                # the owner until the service starts another fresh stream.
+                self.generations[-1]['withheld_reasons'].append(captured)
         return True
 
 
@@ -217,12 +223,24 @@ async def _answer(filing_snap, question: str, *, trace: dict | None = None) -> t
 
     original_stream = openai_service.stream_chat_with_tools
     def observed_stream(messages, tools, run_tool, **kwargs):
-        trace['initial_messages'] = deepcopy(messages)
-        trace['tool_schema'] = deepcopy(tools)
-        trace['generation_options'] = {k: kwargs.get(k) for k in ('model','max_tokens','temperature')}
+        generation = {
+            'generation_index': len(trace['generation_attempts']),
+            'initial_messages': deepcopy(messages),
+            'tool_schema': deepcopy(tools),
+            'generation_options': {k: kwargs.get(k) for k in ('model','max_tokens','temperature')},
+            'tool_results': [], 'candidate_deltas': [], 'provider_controls': [],
+            'withheld_reasons': [],
+        }
+        if not trace['generation_attempts']:
+            trace['initial_messages'] = deepcopy(generation['initial_messages'])
+            trace['tool_schema'] = deepcopy(generation['tool_schema'])
+            trace['generation_options'] = deepcopy(generation['generation_options'])
+        trace['generation_attempts'].append(generation)
         def observed_tool(name, args):
             result = run_tool(name, args)
-            trace['tool_results'].append({'name': name, 'args': deepcopy(args), 'result': deepcopy(result)})
+            observed = {'name': name, 'args': deepcopy(args), 'result': deepcopy(result)}
+            trace['tool_results'].append(observed)
+            generation['tool_results'].append(deepcopy(observed))
             return result
 
         async def observed_deltas():
@@ -233,10 +251,13 @@ async def _answer(filing_snap, question: str, *, trace: dict | None = None) -> t
                 async for delta in provider:
                     if delta.startswith(STREAM_ERROR_SENTINEL):
                         trace['provider_controls'].append({'type': 'error'})
+                        generation['provider_controls'].append({'type': 'error'})
                     elif delta.startswith(STREAM_ACTIVITY_SENTINEL):
                         trace['provider_controls'].append({'type': 'activity'})
+                        generation['provider_controls'].append({'type': 'activity'})
                     else:
                         trace['candidate_deltas'].append(delta)
+                        generation['candidate_deltas'].append(delta)
                     yield delta
 
         observed = observed_deltas()
@@ -251,8 +272,10 @@ async def _answer(filing_snap, question: str, *, trace: dict | None = None) -> t
         trace['provider_controls'] = []
         trace['service_events'] = []
         trace['withheld_reasons'] = []
+        trace['generation_attempts'] = []
     observer = patch.object(openai_service, 'stream_chat_with_tools', observed_stream) if trace is not None else nullcontext()
-    withheld = _WithheldReasons(trace['withheld_reasons']) if trace is not None else nullcontext()
+    withheld = (_WithheldReasons(trace['withheld_reasons'], trace['generation_attempts'])
+                if trace is not None else nullcontext())
     complete = None
     async with AsyncExitStack() as streams:
         with observer, withheld:
@@ -324,8 +347,12 @@ async def run(*, runs: int = 3, cases: list[CopilotGoldenCase] | None = None) ->
                 period_of_report=case.period_of_report, reporting_currency=case.reporting_currency).to_dict()
         except Exception as exc:
             row['error'] = {'type': type(exc).__name__, 'stage': 'answer_or_score'}
-            if row.get('tool_trace', {}).get('withheld_reasons'):
-                row['error']['withheld_reason'] = row['tool_trace']['withheld_reasons'][0]
+            trace = row.get('tool_trace', {})
+            generations = trace.get('generation_attempts', [])
+            terminal_reasons = (generations[-1]['withheld_reasons'] if generations
+                                else trace.get('withheld_reasons', []))
+            if terminal_reasons:
+                row['error']['withheld_reason'] = terminal_reasons[-1]
         row['elapsed_ms'] = round((time.monotonic() - started) * 1000, 2)
         report['results'].append(row)
     rows = report['results']
