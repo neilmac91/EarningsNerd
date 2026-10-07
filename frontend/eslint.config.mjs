@@ -243,8 +243,9 @@ const config = [
   },
   // Every grid that sets its columns under a variant also sets its base track
   // (lessons/frontend-variable-text-must-not-size-a-wrapping-row.md). A custom rule, not a selector:
-  // it evaluates a whole class string, every cx() argument and template chunk together, and parses
-  // variant prefixes. It is its own rule, so it covers the design-exempt files too.
+  // it evaluates a whole class string (the text that always renders together, each conditional
+  // branch with that text only) and parses variant prefixes. It is its own rule, so it covers the
+  // design-exempt files too.
   {
     files: ['**/*.ts', '**/*.tsx'],
     ignores: TEST_FILES,

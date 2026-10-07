@@ -43,4 +43,8 @@ spread, an inline map lookup), so the gate failed open. Now a spread counts as w
 text no unit reaches is checked on its own. Codex's review of the merged rule found it demanded the
 display's exact prefix, so it flagged `hidden md:grid sm:grid-cols-2`. It then suggested a
 `md:grid-cols-1` that would override the two columns. Screens are min-width, so columns under a
-smaller screen now count at every larger one. Other variants still have to match.
+smaller screen now count at every larger one. Other variants still have to match. The exact-head
+review found one more fail-open shape. The arguments of any call, not just a class helper, counted as
+always there, so `cx('grid', choose(wide, 'md:grid-cols-2', 'grid-cols-1'))` passed. Now only a
+helper's arguments and the receiver of `.join`, `.filter(Boolean)` or `.trim` count; any other
+call's inputs are checked on their own.

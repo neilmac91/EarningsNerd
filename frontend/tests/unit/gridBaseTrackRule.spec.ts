@@ -45,6 +45,9 @@ describe('parseClassToken', () => {
     // Self-targeting arbitrary variants still count.
     expect(parseClassToken('[&:hover]:grid-cols-2')).not.toBeNull()
     expect(parseClassToken('[.dark_&]:grid-cols-2')).not.toBeNull()
+    // A combinator inside :has() still styles this element.
+    expect(parseClassToken('[&:has(>img)]:grid-cols-2')).not.toBeNull()
+    expect(parseClassToken('[&:has(+aside:not(.x))]:grid-cols-2')).not.toBeNull()
   })
 })
 
@@ -64,6 +67,8 @@ describe('gridBaseTrackProblem', () => {
     'hidden xl:grid md:grid-cols-2 2xl:grid-cols-3',
     'hidden dark:lg:grid sm:grid-cols-2',
     'grid-cols-1 lg:grid lg:grid-cols-3',
+    'grid grid-cols-1 [&:has(>img)]:grid-cols-2',
+    'grid [grid-template-columns:minmax(0,1fr)] md:grid-cols-2',
     'grid lg:[&>div]:grid-cols-3',
     'grid *:grid-cols-2',
   ])('passes %j', (classes) => {
@@ -87,6 +92,9 @@ describe('gridBaseTrackProblem', () => {
     ['hidden sm:grid md:grid-cols-2', 'sm:'],
     ['hidden md:grid sm:dark:grid-cols-2', 'md:'],
     ['hidden md:grid min-[600px]:grid-cols-2', 'md:'],
+    // Columns set by an arbitrary property or under a self-targeting :has() variant count too.
+    ['grid md:[grid-template-columns:1fr_1fr]', ''],
+    ['grid [&:has(>img)]:grid-cols-2', ''],
   ])('flags %j (missing %j base)', (classes, prefix) => {
     expect(gridBaseTrackProblem(classes)).toBe(prefix)
   })
@@ -128,6 +136,8 @@ ruleTester.run('responsive-grid-base-track', responsiveGridBaseTrack, {
     // A lookup on an inline map is checked value by value, like a map constant: each value carries
     // its own base.
     "<div className={cx('grid gap-4', { 2: 'grid-cols-1 md:grid-cols-2', 3: 'grid-cols-1 md:grid-cols-3' }[cols])} />",
+    // A pass-through string method keeps its receiver whole.
+    "<div className={['grid grid-cols-1', wide && 'md:grid-cols-2'].filter(Boolean).join(' ')} />",
     // Not a class: a non-grid string is never parsed as a grid.
     "const label = 'Pricing'",
   ],
@@ -180,6 +190,22 @@ ruleTester.run('responsive-grid-base-track', responsiveGridBaseTrack, {
     },
     { code: "<div className={(0, 'grid md:grid-cols-2')} />", errors: missing() },
     { code: "<div className={cx('grid', tw`md:grid-cols-2`)} />", errors: missing() },
+    // Any other call may drop or pick among its inputs, so they are checked on their own and can't
+    // lend a base: a plain function, an array method, a filter with a predicate.
+    {
+      code: "<div className={cx('grid', choose(wide, 'md:grid-cols-2', 'grid-cols-1'))} />",
+      errors: missing(),
+    },
+    { code: "<div className={cx('grid md:grid-cols-2', withDefault(custom, 'grid-cols-1'))} />", errors: missing() },
+    { code: "<div className={cx('grid', ['md:grid-cols-2', 'grid-cols-1'].at(i))} />", errors: missing() },
+    {
+      code: "<div className={['grid md:grid-cols-2', 'grid-cols-1'].filter((c) => c !== 'grid-cols-1').join(' ')} />",
+      errors: missing(),
+    },
+    { code: '<div className={`grid md:grid-cols-2 ${f(\'grid-cols-1\')}`} />', errors: missing() },
+    // Columns set by an arbitrary property or under a self-targeting :has() variant count too.
+    { code: '<div className="grid md:[grid-template-columns:1fr_1fr]" />', errors: missing() },
+    { code: '<div className="grid [&:has(>img)]:grid-cols-2" />', errors: missing() },
     // One report per element, however many chunks carry the variant columns.
     { code: "<div className={cx('grid', 'md:grid-cols-2', `lg:grid-cols-${n}`)} />", errors: missing() },
   ],

@@ -11,24 +11,32 @@
 // md:grid-cols-3`. This rule parses each class token's variants and evaluates what lands on one
 // element: a class attribute (`className`, `*ClassName`) or a class-helper call (cx/clsx/…), with
 // all its literal and template text. Text that is always there (a plain string, every helper
-// argument, array element and template chunk) is checked together. Text that is there only on some
-// renders (a ternary arm, an `&&`/`||`/`??` operand, an object key or value) is a branch, checked
-// together with the text that is always there around it and nothing else. So a base track satisfies
-// variant columns only where it is sure to render with them: in the same branch, or in text that is
-// always there. `cx('grid grid-cols-1', wide && 'md:grid-cols-2')` and `cx('grid md:grid-cols-2',
+// argument, array element and template chunk, the receiver of `.join`/`.filter(Boolean)`/`.trim`)
+// is checked together. Text that is there only on some renders (a ternary arm, an `&&`/`||`/`??`
+// operand, an object key or value) is a branch, checked together with the text that is always
+// there around it and nothing else. So a base track satisfies variant columns only where it is
+// sure to render with them: in the same branch, or in text that is always there.
+// `cx('grid grid-cols-1', wide && 'md:grid-cols-2')` and `cx('grid md:grid-cols-2',
 // 'grid-cols-1')` pass; `cx('grid', wide ? 'md:grid-cols-2' : 'grid-cols-1')` (a branch borrows the
 // other arm's base) and `cx('grid md:grid-cols-2', narrow && 'grid-cols-1')` (the base is only
 // sometimes there) fail. A branch inside a branch also sees the text that is always there in its
 // enclosing branch, and a spread (`cx('grid', ...parts)`) counts as written in place. Any string or
 // template literal the unit does not reach this way is evaluated on its own, never skipped: a class
 // constant or map, a member lookup on an inline map (`cx('grid', { 2: 'md:grid-cols-2' }[n])`), a
-// sequence or tagged template, or the body of a function (`className={() => cx(…)}`), which starts
-// afresh. Pinned by tests/unit/gridBaseTrackRule.spec.ts.
+// sequence or tagged template, the arguments of any other call (`choose(wide, …)`, `.at(i)`), which
+// may drop or pick among them, or the body of a function (`className={() => cx(…)}`), which starts
+// afresh. Columns count in every spelling that sets this element's tracks: `grid-cols-*`, an
+// arbitrary `[grid-template-columns:…]`, under a self-targeting `[&:has(>img)]:`, and under a
+// smaller screen than the display's (screens are min-width). Pinned by
+// tests/unit/gridBaseTrackRule.spec.ts.
 //
 // Out of scope, as for every class-string rule here: a class name assembled from fragments at
 // runtime, and a component whose own root is the grid while the caller passes only
 // `md:grid-cols-*` (that call is flagged; adding a base there could override the component's own
-// base, so decide it in review and disable the line with a reason).
+// base, so decide it in review and disable the line with a reason). Fails closed by design: a base
+// that every arm of a conditional supplies is not combined into one for the text around it, so
+// `cx('grid md:grid-cols-3', compact ? 'grid-cols-1' : 'grid-cols-2')` is flagged; put the variant
+// columns in each arm.
 
 const CLASS_ATTRIBUTE = /^(class|className|\w+ClassName)$/
 const CLASS_HELPERS = new Set(['cx', 'clsx', 'cn', 'classNames', 'classnames', 'twMerge', 'twJoin'])
@@ -55,13 +63,22 @@ export function parseClassToken(token) {
   // whole token.
   const utility = parts.pop().replace(/^!|!$/g, '')
   const variants = parts.map((v, i) => (i === 0 ? v.replace(/^!/, '') : v))
-  const targetsOthers = (v) => v === '*' || v === '**' || (v.startsWith('[') && /&.*[>_+~]/.test(v))
+  // A combinator inside parentheses (`[&:has(>img)]`) still selects this element; only one outside
+  // them styles another element.
+  const outsideParens = (v) => {
+    let s = v
+    while (/\([^()]*\)/.test(s)) s = s.replace(/\([^()]*\)/g, '')
+    return s
+  }
+  const targetsOthers = (v) =>
+    v === '*' || v === '**' || (v.startsWith('[') && /&.*[>_+~]/.test(outsideParens(v)))
   if (variants.some(targetsOthers)) return null
   return { variants, utility }
 }
 
 const isGridDisplay = (t) => t.utility === 'grid' || t.utility === 'inline-grid'
-const isCols = (t) => t.utility.startsWith('grid-cols-')
+const isCols = (t) => t.utility.startsWith('grid-cols-') || t.utility.startsWith('[grid-template-columns:')
+const NO_TRACKS = new Set(['grid-cols-none', '[grid-template-columns:none]'])
 
 // Tailwind's default min-width screens, smallest first (tailwind.config.js sets no custom
 // `screens`). Columns set under a screen still apply at every larger one, so `sm:grid-cols-2`
@@ -84,7 +101,7 @@ export function gridBaseTrackProblem(classText) {
     tokens.some(
       (t) =>
         isCols(t) &&
-        t.utility !== 'grid-cols-none' &&
+        !NO_TRACKS.has(t.utility) &&
         t.variants.every((v) => variantHolds(v, display.variants)),
     )
   const displays = tokens.filter(isGridDisplay)
@@ -98,11 +115,28 @@ export function gridBaseTrackProblem(classText) {
   return missing ? `${missing.variants.join(':')}:` : null
 }
 
+const isHelperCall = (node) =>
+  node.type === 'CallExpression' && node.callee.type === 'Identifier' && CLASS_HELPERS.has(node.callee.name)
+/** `[…].join(' ')`, `.filter(Boolean)`, `.trim()`: string methods that keep every class of their
+ *  receiver. Any other call may drop or pick among its inputs. */
+const isPassThrough = (node) => {
+  const { callee } = node
+  if (callee.type !== 'MemberExpression' || callee.computed || callee.property.type !== 'Identifier') {
+    return false
+  }
+  const name = callee.property.name
+  if (name === 'join' || name === 'trim') return true
+  const [arg] = node.arguments
+  return name === 'filter' && node.arguments.length === 1 && arg.type === 'Identifier' &&
+    arg.name === 'Boolean'
+}
+
 /** All literal text that can reach the class list, one piece per string literal or template (its
  *  chunks joined), each tagged with its branch: a ternary arm, a logical operand, an object key or
- *  value opens a branch inside the current one; everything else (helper-call arguments, array
- *  elements, spreads, template expressions, `+` operands) stays in it. Every node it walks is added
- *  to `reached`, so the rule evaluates on its own only what no unit reached. */
+ *  value opens a branch inside the current one; everything else (helper-call arguments, the receiver
+ *  of a pass-through method, array elements, spreads, template expressions, `+` operands) stays in
+ *  it. Every node it walks is added to `reached`, so the rule evaluates on its own only what no unit
+ *  reached, such as the arguments of any other call. */
 function collectStaticText(node, reached, out = [], branch = { parent: null }) {
   if (!node) return out
   reached.add(node)
@@ -141,8 +175,8 @@ function collectStaticText(node, reached, out = [], branch = { parent: null }) {
       }
       break
     case 'CallExpression':
-      if (node.callee.type === 'MemberExpression') sub(node.callee.object)
-      for (const a of node.arguments) sub(a)
+      if (isHelperCall(node)) for (const a of node.arguments) sub(a)
+      else if (isPassThrough(node)) sub(node.callee.object)
       break
     case 'ArrayExpression':
       for (const el of node.elements) sub(el)
@@ -163,8 +197,6 @@ function collectStaticText(node, reached, out = [], branch = { parent: null }) {
 
 const isClassAttribute = (node) =>
   node.type === 'JSXAttribute' && node.name.type === 'JSXIdentifier' && CLASS_ATTRIBUTE.test(node.name.name)
-const isHelperCall = (node) =>
-  node.type === 'CallExpression' && node.callee.type === 'Identifier' && CLASS_HELPERS.has(node.callee.name)
 export const responsiveGridBaseTrack = {
   meta: {
     type: 'problem',
@@ -197,8 +229,8 @@ export const responsiveGridBaseTrack = {
     }
     // ESLint enters a node before its descendants, so a unit (class attribute, helper call,
     // template) has marked everything it evaluates before any of it is visited on its own. A node it
-    // did not reach (a function body, a member lookup, a sequence) falls through and is checked
-    // alone, so an unmodelled shape is gated, never skipped.
+    // did not reach (a function body, a member lookup, a sequence, another call's arguments) falls
+    // through and is checked alone, so an unmodelled shape is gated, never skipped.
     const reached = new WeakSet()
     const evaluate = (node, value) => {
       if (!reached.has(node)) check(node, collectStaticText(value, reached))
