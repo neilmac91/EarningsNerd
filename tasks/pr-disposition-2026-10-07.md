@@ -115,7 +115,9 @@ not trigger Codex by themselves; an owner `@codex review` comment is needed (pre
 | --- | --- | --- | --- | --- |
 | D1 | #1119 (replaces #1096) `eval-baseline` by workflow dispatch on `claude/pr1096-deps-without-edgartools` at `76d2ba6d`, run [37695333206](https://github.com/neilmac91/EarningsNerd/actions/runs/37695333206), 22:18:33Z (off-peak; balance 37.57 at 22:18:07Z) | 0.40 | **0.175148** (70 calls, 0 unknown; off-peak tokens × `llm_pricing`) | done: expected=attempted=scored=70, errors 0, pass_rate 1.0, gate_fail_rate 0.0; regression gate PASS (2 warnings: untraceable dollar figures 1.614 advisory; `mean_citation_fidelity` 0.8615 vs pinned 0.9648, checked below); artifact 11515377659 sha256 `ff36d3a2…` |
 | D2 | #1119 ready transition 22:18:43Z → `copilot-eval` run [37695352886](https://github.com/neilmac91/EarningsNerd/actions/runs/37695352886) at `76d2ba6d` (one run, E1 precedent) | 0.05 | **0.006611** (35 calls, 0 unknown, 0 peak) | done: **accepted, 18/18, 0 errors**; fingerprint `aeb56401`; artifact 11515695532 sha256 `e6af7057…` |
-| | **Total so far** | | **0.181759** of 3.00 | |
+| D3 | #1127 (replaces Dependabot #1124: openai 3.24.0, posthog 7.62.1) `eval-baseline` by workflow dispatch on `claude/pr1124-backend-minor-updates` at `4fbec187`, run [37704631398](https://github.com/neilmac91/EarningsNerd/actions/runs/37704631398), 23:51:46Z (off-peak; balance 36.83 at 23:51:42Z) | 0.40 | pending | running |
+| D4 | #1127 ready transition 23:52Z → `copilot-eval` (one run, E1 precedent) | 0.05 | pending | running |
+| | **Total so far** | | **0.181759** of 3.00 (D1–D2; D3–D4 pending) | |
 
 ## Lanes (Stage 1 triage, main `335ad94b` after #1111 merged at 20:01Z)
 
@@ -338,3 +340,35 @@ Pending.
 
   Release comment 6048886899. The release record was added to
   `tasks/review-evidence/deps-minor-2026-10-07/README.md`.
+- 23:29:52Z (observed) — Codex lane #1122 (`codex/wave3-durable-background-tasks`) merged by its owner at
+  23:19:32Z (`6393518c`), while #1119's deploy ran. Its deploy job 113068536115 succeeded: revision
+  `earningsnerd-backend-00447-hlv` at 100%, "Deployed 6393518 and verified healthy" (with
+  `DURABLE_TASKS_ENABLED=false`). Independent `/health/detailed` 200 healthy at 23:41:29Z.
+- 23:36–23:47Z — #1081 rounds:
+  - Delta review `wf_d497c7b3-60c` of `d7514ddf..b3b03a8c`: no blocker or should-fix, six nits.
+  - `ccc1bbf3`: a column reset under a variant is reported on its own (the Codex P2 on `b3b03a8c`).
+  - `daf52468`: carries the nits, including `SCREENS` pinned against `tailwind.config.js`.
+  - Codex on `daf52468`: P2, a combinator next to `&` inside `:where()` was dropped. Fixed in `1846bc78`.
+
+  Gates at each head: lint 0, tsc 0, vitest 1227 then 1229, build 0. The final rule still reports exactly
+  the 20 PR sites on main. Codex threads 4212882992, 4213020281 and 4213129431 were answered and resolved.
+- 23:38–23:47Z — New PRs during the run:
+  - #1121 (Codex lane, email setup, draft), #1123 (Claude lane, copilot-eval paths, draft) and #1126
+    (Claude lane, agent-workflow gates, draft): live owners, observe-only.
+  - #1124 (Dependabot pip, 2 updates) and #1125 (Dependabot frontend, 4 updates), both opened 23:14Z: no
+    live owner, so taken through the same process. #1124's group excludes edgartools, which shows #1119's
+    `dependabot.yml` change works.
+- 23:43–23:51Z — **#1125 merged** `0a5eeccc` (head `1b657b51` re-read, `expectedHeadSha` pinned):
+  - Codex triggered by a draft→ready cycle; no findings.
+  - `review-gate` 37703530386 success.
+  - Local gate on main + PR: vitest 1129, build 0; `npm audit` unchanged versus main.
+  - Independent review `wf_f3cb3d7c-25a`: no findings (lock scope and integrity, Sentry PII, posthog
+    consent).
+  - Vercel production success 23:51:58Z; `www` 200 at 23:52:32Z. Evidence comment 6049203118.
+- 23:50–23:52Z — **#1124 replacement #1127** (`claude/pr1124-backend-minor-updates`, `4fbec187` = main
+  `6393518c` + `cherry-pick -x` of `3ce33352`, identical patch-id):
+  - pip-tools 7.6.1 reproduces the lock byte for byte; a second compile is identical; 100/100 pins match.
+  - Gate: `pip check` clean, ruff clean, bandit 0 medium/high, `pip-audit` clean, pytest 5811 passed.
+  - SDK review: no findings. openai 3.24's client, errors and streaming are byte-identical to 3.23; only
+    the JSON key order of the request body changes. posthog 7.62.1 touches only `posthog.ai`, unused here.
+  - Opened as a draft at 23:51Z, D3 dispatched 23:51:46Z, ready 23:52Z (D4 + Codex).
