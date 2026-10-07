@@ -197,6 +197,25 @@ export default function FilingWorkspace({
     opener.focus({ preventScroll: true })
   }, [paneOpen, takeOpener])
 
+  // A citation activated inside the Answer panel (an Ask answer's [n] chip) switches the pane to the
+  // Filing tab, which hides the chip with its panel (and the answer re-renders it besides), so
+  // keyboard focus falls to <body> and the next Tab restarts at the top of the page. When the view
+  // switches with focus fallen (on <body>, or still on the panel just hidden: Chromium moves it off a
+  // hidden control only in a later task), hand it to the newly selected tab, the visible control that
+  // says where the user now is. Only a switch inside a pane that was already open: opening the pane
+  // moves no focus (EN-01), and a switch made from the tabs, the composer, or a chip outside the pane
+  // keeps its focus.
+  const shown = useRef({ view: activeView, open: paneOpen })
+  useEffect(() => {
+    const was = shown.current
+    shown.current = { view: activeView, open: paneOpen }
+    if (!was.open || !paneOpen || was.view === activeView) return
+    const active = document.activeElement
+    const hiddenPanel = document.getElementById(PANE_PANEL_IDS[was.view])
+    if (active !== null && active !== document.body && !hiddenPanel?.contains(active)) return
+    document.getElementById(PANE_TAB_IDS[activeView])?.focus({ preventScroll: true })
+  }, [activeView, paneOpen])
+
   const openOriginal = isHttpUrl(secUrl) ? (
     <a
       href={secUrl}

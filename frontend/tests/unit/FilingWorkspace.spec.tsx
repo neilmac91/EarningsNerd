@@ -165,6 +165,17 @@ function CopilotCounter() {
   )
 }
 
+/** An Ask answer's citation chip, as CitationChip wires it: it lives inside the Answer panel. */
+function AnswerCitation() {
+  const viewer = useFilingViewer()!
+  const citation = { n: 1, excerpt: EVIDENCE, section_ref: null, verified: true, fragment_url: null } as CopilotCitation
+  return (
+    <button type="button" onClick={(e) => viewer.requestHighlight(citation, e.currentTarget)}>
+      [1]
+    </button>
+  )
+}
+
 function Page({ initialOpen = false }: { initialOpen?: boolean }) {
   const [open, setOpen] = useState(initialOpen)
   const [tick, setTick] = useState(0)
@@ -179,7 +190,12 @@ function Page({ initialOpen = false }: { initialOpen?: boolean }) {
         onOpenChange={setOpen}
         summaryAvailable
         secUrl={URL}
-        copilotBody={<CopilotCounter />}
+        copilotBody={
+          <>
+            <CopilotCounter />
+            <AnswerCitation />
+          </>
+        }
         filingBody={<div data-testid="filing">filing</div>}
       >
         <p>
@@ -284,6 +300,64 @@ describe('FilingWorkspace opened by a provenance chip (EN-01)', () => {
     fireEvent.click(chip())
     fireEvent.click(screen.getByRole('button', { name: 'Close' }))
     expect(document.activeElement).toBe(other)
+  })
+})
+
+/**
+ * EN-01 follow-up: a keyboard activation of an answer's [n] chip switches the pane to the Filing tab,
+ * which hides the chip with its panel. Focus goes to the selected Filing tab instead of falling to
+ * <body>; a switch that leaves focus somewhere visible is not moved.
+ */
+describe('FilingWorkspace view switch from inside the pane (EN-01 follow-up)', () => {
+  beforeEach(() => window.localStorage.clear())
+
+  it('an answer citation hands focus to the Filing tab when it hides its own chip', () => {
+    render(<Page initialOpen />)
+    const cite = screen.getByRole('button', { name: '[1]' })
+    act(() => cite.focus())
+    fireEvent.click(cite)
+    expect(filingTab()).toHaveAttribute('aria-selected', 'true')
+    // jsdom, like Chromium when the effect runs, still reports the hidden chip as active: it fell.
+    expect(document.activeElement).toBe(filingTab())
+  })
+
+  it('a switch with focus already fallen to <body> also lands on the selected tab', () => {
+    render(<Page initialOpen />)
+    fireEvent.click(screen.getByRole('button', { name: '[1]' })) // a click without focus
+    expect(document.activeElement).toBe(filingTab())
+  })
+
+  it('a summary chip keeps its focus when it switches an open pane, and the tabs keep theirs', () => {
+    render(<Page initialOpen />)
+    const c = chip()
+    act(() => c.focus())
+    fireEvent.click(c)
+    expect(filingTab()).toHaveAttribute('aria-selected', 'true')
+    expect(document.activeElement).toBe(c)
+
+    const answer = screen.getByRole('tab', { name: /answer/i })
+    act(() => answer.focus())
+    fireEvent.keyDown(answer, { key: 'ArrowRight' })
+    expect(document.activeElement).toBe(filingTab())
+    fireEvent.keyDown(filingTab(), { key: 'ArrowLeft' })
+    expect(document.activeElement).toBe(screen.getByRole('tab', { name: /answer/i }))
+  })
+
+  it('opening a closed pane hands nothing off, whether the chip held focus or not', () => {
+    render(<Page />)
+    const c = chip()
+    act(() => c.focus())
+    fireEvent.click(c)
+    expect(dialog()).toHaveAttribute('aria-hidden', 'false')
+    expect(document.activeElement).toBe(c)
+    fireEvent.click(screen.getByRole('button', { name: 'Close' }))
+
+    // A click that never focused the chip (Safari does not focus buttons on click) opens the pane
+    // with focus on <body>, and it stays there: the open itself takes no focus (EN-01).
+    act(() => (document.activeElement as HTMLElement | null)?.blur())
+    fireEvent.click(chip())
+    expect(dialog()).toHaveAttribute('aria-hidden', 'false')
+    expect(document.activeElement).toBe(document.body)
   })
 })
 
