@@ -139,10 +139,15 @@ ignore rule, which decision D ruled out.
 A new pip `ignore` entry covers `sqlalchemy` `version-update:semver-minor`. The
 [#1010 split](../dependency-split-2026-09-28/README.md) capped SQLAlchemy at `<2.1` because 2.1
 maps a bare `postgresql://` URL to psycopg 3, which is not installed. Dependabot #1095 proposed
-2.1.2 anyway. SQLAlchemy 2.0.x patch updates, security updates included, still arrive. GitHub's
-options reference marks `ignore` as also applying to security updates, so a fix shipped only in
-2.1 would need a deliberate manual migration, which is the existing #1010 position. The YAML
-parses, and nothing else in the file changed.
+2.1.2 anyway. SQLAlchemy 2.0.x patch updates still arrive. The rule limits version updates only.
+For security-update jobs, dependabot-core's `IgnoreCondition#ignored_versions` keeps only an
+entry's explicit `versions` and drops its `update-types`, and this entry has no `versions`. A
+security fix shipped only in 2.1 can therefore still open a #1095-style PR. CI's
+`migrations-postgres` job will stop it, as it stopped #1095
+([111663839337](https://github.com/neilmac91/EarningsNerd/actions/runs/37279450106/job/111663839337):
+`No module named 'psycopg'`; backend-tests passed there on SQLite). Such a PR must be closed or
+migrated deliberately, which is the existing #1010 position. The YAML parses, and nothing else in
+the file changed.
 
 ## Compatibility notes
 
