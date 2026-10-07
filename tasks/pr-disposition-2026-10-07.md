@@ -22,7 +22,7 @@ Stage 1 pushes, comments, labels, reviews or merges anything except this checkpo
 - Local clone was shallow at start; unshallowed before computing ahead/behind and merge-tree results.
 - Worktrees for Stage 2 (if approved): `/home/user/wt/<lane>`, outside the repository root.
 
-### Open PRs at start (git facts, 2026-10-07T19:45Z)
+### Open PRs at start (git facts, 2026-10-07T19:43Z)
 
 | PR | Branch | Head | Draft | Ahead / behind main | Conflicts with main (merge-tree) | Diff vs merge base | Deploy class |
 | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -64,7 +64,7 @@ Dependency versions (from the diffs):
 | #1107 × #1110 | `lessons/README.md` | clean |
 | #1009 / #1035 / #1107 / #1108 / #1111 | `tasks/todo.md` | clean pairwise except as listed |
 
-### GitHub state and owners at start (Stage 0 readers, `wf_55262a8d-5f7`, read 19:50–19:58Z)
+### GitHub state and owners at start (Stage 0 readers, `wf_55262a8d-5f7`, read 19:44–19:51Z)
 
 | PR | Last push (first run for the head) | Checks on head | Codex on head | Hold / flags | Owner → rule |
 | --- | --- | --- | --- | --- | --- |
@@ -127,17 +127,17 @@ Pending.
 
 - 19:41Z — `gh auth status`: token invalid; switched to the GitHub MCP connector. Main `f26debcb`.
 - 19:42Z — DeepSeek balance USD 37.77 (floor 34.77).
-- 19:45Z — Clone unshallowed; ahead/behind, merge-tree and pairwise sequential-merge simulation
+- 19:43Z — Clone unshallowed; ahead/behind, merge-tree and pairwise sequential-merge simulation
   recorded above. #1035 merges cleanly with main (68 behind); #1009 conflicts in the pricing page
   and `tasks/todo.md`; #1081 conflicts in `frontend/DESIGN_SYSTEM.md`.
-- 19:50Z — Stage 0 GitHub-state readers launched (workflow `wf_55262a8d-5f7`: checks, Codex review
+- 19:44Z — Stage 0 GitHub-state readers launched (workflow `wf_55262a8d-5f7`: checks, Codex review
   state, comments, runs per PR; repo-wide Codex quota evidence).
-- 19:52Z — Checkpoint draft PR #1112 opened (tasks-only).
-- 19:53–19:56Z — Stage 1 read-only workflows launched: three-lens reviews with two refuters per serious
+- 19:47Z — Checkpoint draft PR #1112 opened (tasks-only).
+- 19:49–19:51Z — Stage 1 read-only workflows launched: three-lens reviews with two refuters per serious
   finding for #1081 (`wf_8f9a268e-3c0`), #1111 (`wf_223ecb9a-cf4`), #1110 (`wf_9e220d7e-580`), #1107
   (`wf_be4079c4-111`), #1108 (`wf_93a7f868-83c`); dependency analysis for #1102, #1097, #1096, #1095
   (`wf_46d39ae7-80a`); holds, #1074 and the branch inventory (`wf_697de371-944`).
-- 19:58Z — Stage 0 readers complete (13/13). Codex quota available (see above). #1107 and #1108 were
+- 19:51Z — Stage 0 readers complete (13/13). Codex quota available (see above). #1107 and #1108 were
   marked ready by the owner account at 19:45:46Z and 19:45:58Z, during this read.
-- 20:01Z — Dependabot failure logs read: #1095 psycopg driver default (blocker), #1096 Ford regression
+- 19:52Z — Dependabot failure logs read: #1095 psycopg driver default (blocker), #1096 Ford regression
   (blocker), 10-05 secret-scan false positive (cleared on main).
