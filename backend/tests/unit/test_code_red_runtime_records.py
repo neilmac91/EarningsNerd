@@ -15,12 +15,14 @@ a broken record never reaches a reviewer:
   a stamp without one is malformed, never repaired);
 * every non-blank line of the decisions section is a numbered entry and the numbers run contiguously from 1;
 * every JSON file parses, and so does every line of a JSON-lines file;
-* no private artifact link (either link form, however spelled: another case, an explicit port or a trailing dot on the host,
-  repeated slashes, percent-encoding), macOS home path (``/Users/``) or, anywhere under the chief's ``control/`` tree, session
-  upload-area path is written into the records — every file in the tree is scanned, whatever its suffix, the text is
-  case-folded and percent-decoded to a fixed point before matching, the home path is matched as a leading path segment so the product's own
-  ``/api/users/…`` routes may still be cited, and a JSON document is also scanned after decoding, so an escaped spelling (a
-  backslash-escaped solidus, a Unicode code-point escape) does not evade the check.
+* no private artifact link (either link form), home-directory path (``/Users/``) or, anywhere under the chief's ``control/``
+  tree, session upload-area path is written into the records — every file in the tree is scanned, whatever its suffix, and
+  each text (the raw file and every string of a decoded JSON document) is first read the way a browser or Markdown renderer
+  reads it, to a fixed point: percent-encoding and HTML character references decoded, Unicode compatibility forms folded,
+  invisible characters dropped, backslashes and ideographic full stops read as slashes and dots, case folded. A respelled
+  link or path (another case, an explicit port or a trailing dot on the host, repeated slashes, an escape of any of these
+  kinds) therefore does not evade the check; the home path is matched as a leading path segment, so the product's own
+  ``/api/users/…`` routes may still be cited.
 
 Records-only PRs touch nothing under ``backend/``, yet CI runs the backend gate on every PR, so this test runs on each record PR;
 it lives under ``backend/tests/`` and therefore never triggers ``deploy-backend`` (the detector ignores that directory). The tree's
@@ -30,8 +32,10 @@ absence fails the module rather than skipping it.
 from __future__ import annotations
 
 import hashlib
+import html
 import json
 import re
+import unicodedata
 from datetime import datetime, timedelta
 from pathlib import Path
 from urllib.parse import unquote
@@ -71,9 +75,15 @@ COMMITTED_OFF_TREE_ROWS = (
 ARTIFACT_LINK = re.compile(r"claude\.ai\.?(?::\d{1,5})?/+(?:code/+)?artifact")
 # The session upload area, forbidden anywhere under the chief's ``control/`` tree and in the checkpoint.
 UPLOAD_AREA = ".claude/uploads"
-# The macOS home path is matched as a leading path segment (nothing word-like before the slash), so the product's own
-# ``/api/users/…`` routes, which a record may legitimately cite, are not caught; ``file:///Users/x`` and a quoted path are.
+# A home-directory path is matched as a leading path segment (nothing word-like before the slash), so the product's own
+# ``/api/users/…`` routes, which a record may legitimately cite, are not caught; ``file:///Users/x``, a quoted path and a
+# Windows ``C:\\Users\\x`` (read with forward slashes) are.
 HOME_PATH = re.compile(r"(?<!\w)/users/")
+# Unicode Default_Ignorable_Code_Point (DerivedCoreProperties.txt): characters a renderer or an IDNA mapping drops silently.
+IGNORABLE = re.compile(
+    "[\u00ad\u034f\u061c\u115f\u1160\u17b4\u17b5\u180b-\u180f\u200b-\u200f\u202a-\u202e\u2060-\u206f\u3164"
+    "\ufe00-\ufe0f\ufeff\uffa0\ufff0-\ufff8\U0001bca0-\U0001bca3\U0001d173-\U0001d17a\U000e0000-\U000e0fff]"
+)
 
 # The tree is a durable record: its absence is a failure, never a skip (a PR that deleted or renamed it would otherwise stay
 # green). The closure chain is anchored to its committed tail so no suffix of the chain can be removed.
@@ -248,14 +258,22 @@ def test_decisions_are_numbered_contiguously() -> None:
 
 
 def _fold(text: str) -> str:
-    """Case-fold and percent-decode ``text`` to a fixed point, so a doubly encoded spelling is read as a consumer would.
+    """Read ``text`` the way a browser or Markdown renderer would, repeated until it no longer changes.
 
-    The fold is re-applied after every decoding step: a percent-encoded upper-case letter decodes after the first fold.
+    Each pass decodes percent-encoding and HTML character references, folds Unicode compatibility forms (NFKC: full-width
+    letters, ligatures), drops default-ignorable characters (zero-width characters, soft hyphens, variation selectors),
+    reads backslashes as slashes and ideographic full stops as dots (as URL parsers and IDNA do) and folds case, so a
+    nested or mixed encoding is read in full. Decoding only shortens the text and the other steps settle after one pass;
+    a text still changing after 64 passes fails rather than being matched half-read.
     """
-    folded = text.lower()
-    while (decoded := unquote(folded).lower()) != folded:
+    folded = text
+    for _ in range(64):
+        decoded = unicodedata.normalize("NFKC", html.unescape(unquote(folded)))
+        decoded = IGNORABLE.sub("", decoded).replace("\u3002", ".").replace("\\", "/").lower()
+        if decoded == folded:
+            return folded
         folded = decoded
-    return folded
+    raise AssertionError(f"text did not settle after 64 decoding passes: {text[:80]!r}")
 
 
 def _json_documents(path: Path, text: str) -> list[str]:
@@ -309,7 +327,7 @@ def test_records_carry_no_private_urls_or_local_machine_paths() -> None:
         if any(ARTIFACT_LINK.search(haystack) for haystack in haystacks):
             offenders.append(f"{path.relative_to(RUNTIME)}: private artifact link")
         if any(HOME_PATH.search(haystack) for haystack in haystacks):
-            offenders.append(f"{path.relative_to(RUNTIME)}: macOS home path")
+            offenders.append(f"{path.relative_to(RUNTIME)}: home-directory path")
         if (path == CHECKPOINT or CONTROL in path.parents) and any(UPLOAD_AREA in haystack for haystack in haystacks):
             offenders.append(f"{path.relative_to(RUNTIME)}: {UPLOAD_AREA!r}")
     assert not offenders, f"private or local-machine strings in the records: {offenders}"
