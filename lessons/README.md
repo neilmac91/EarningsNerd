@@ -46,6 +46,7 @@ what applies to your task. Filenames are greppable: `arch-*`, `sec-*`, `test-*`,
 - [`arch-redis-off-in-prod.md`](./arch-redis-off-in-prod.md) — Production runs with Redis OFF — the two-tier cache is L1-only in prod
 - [`arch-stop-tuning-prose-know-the-floor.md`](./arch-stop-tuning-prose-know-the-floor.md) — Stop tuning prompt prose when judge flags are heterogeneous or prompt-compliant
 - [`arch-structural-gates-over-prose-rules.md`](./arch-structural-gates-over-prose-rules.md) — Encode every "never do X again" rule as a machine-checked gate, not prose
+- [`arch-gate-reference-values-are-themselves-gated.md`](./arch-gate-reference-values-are-themselves-gated.md) — A gate that compares against a token or an exemption set must pin those too
 - [`arch-sweep-dead-integration-consumers.md`](./arch-sweep-dead-integration-consumers.md) — When an integration is declared dead, sweep every consumer in the same pass
 
 ## SEC / EDGAR data
@@ -90,6 +91,9 @@ what applies to your task. Filenames are greppable: `arch-*`, `sec-*`, `test-*`,
 - [`test-wire-format-coverage.md`](./test-wire-format-coverage.md) — Pin serialized wire formats with tests — suites that only check values let format drift through
 
 ## Frontend & design system
+
+- [`frontend-site-overlays-outrank-in-page-sticky-chrome.md`](./frontend-site-overlays-outrank-in-page-sticky-chrome.md) — A fixed site-level overlay ranks above in-page sticky chrome, and the ladder gate scans sticky sites too
+- [`frontend-reserve-fixed-chrome-with-scroll-padding.md`](./frontend-reserve-fixed-chrome-with-scroll-padding.md) — A focus scroll stops at the viewport edge, not at a fixed overlay: reserve the overlay with scroll-padding
 
 - [`frontend-design-docs-need-agent-entrypoints.md`](./frontend-design-docs-need-agent-entrypoints.md) — Connect new design references to agent entrypoints, authority and maintenance
 

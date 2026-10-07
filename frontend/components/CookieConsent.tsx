@@ -1,9 +1,16 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { CheckCircleIcon, CookieIcon } from '@/lib/icons'
+import { useState, useEffect, useLayoutEffect, useRef } from 'react'
+import { toast } from 'sonner'
+import { CookieIcon } from '@/lib/icons'
 import Link from 'next/link'
 import { Button, Modal, ModalBody, ModalFooter, ModalHeader } from '@/components/ui'
+import { isConsentLayerVisible, publishConsentLayer } from '@/lib/consentLayer'
+
+// Isomorphic layout effect (the repo's SSR-safe alias, as in ui/Input and useCountUp): useLayoutEffect
+// in the browser, where the consent inset must land before the bar's first paint; useEffect on a server
+// renderer, which never renders the bar anyway. The ladder gate reads the alias by its declaration.
+const useIsoLayoutEffect = typeof window !== 'undefined' ? useLayoutEffect : useEffect
 
 export interface CookiePreferences {
   essential: boolean
@@ -67,7 +74,7 @@ export default function CookieConsent({ onPreferencesChanged }: CookieConsentPro
   const [showBanner, setShowBanner] = useState(false)
   const [showSettings, setShowSettings] = useState(false)
   const [preferences, setPreferences] = useState<CookiePreferences>(DEFAULT_PREFERENCES)
-  const [saved, setSaved] = useState(false)
+  const barRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     // Check if user has already set preferences
@@ -87,7 +94,12 @@ export default function CookieConsent({ onPreferencesChanged }: CookieConsentPro
         saveCookiePreferences(dntPreferences)
         onPreferencesChanged?.(dntPreferences)
       } else {
-        // Show banner for first-time visitors
+        // Show banner for first-time visitors. Announce the consent layer in the same effect pass
+        // (height still 0): FilingWorkspace mounts earlier in the tree, so its coachmark decision
+        // and this flag land in one batched render and the nudge never points at a covered
+        // launcher, not even for a frame. The bar's layout effect below publishes the real height
+        // (and owns it: a re-run of this effect must not reset a measured inset to 0).
+        if (!isConsentLayerVisible()) publishConsentLayer(0)
         // eslint-disable-next-line react-hooks/set-state-in-effect -- mount-time init: banner visibility depends on localStorage/DNT, only readable client-side after hydration
         setShowBanner(true)
       }
@@ -97,6 +109,31 @@ export default function CookieConsent({ onPreferencesChanged }: CookieConsentPro
       onPreferencesChanged?.(existingPreferences)
     }
   }, [onPreferencesChanged])
+
+  // The consent layer (lib/consentLayer): while the bar is on screen its height is published as
+  // `--consent-inset` + `data-consent-visible` on <html>, and the bottom-anchored research chrome
+  // (launchers, coachmark, workspace sheets) adds that inset to its bottom offset instead of being
+  // covered — the bar sits BENEATH that chrome on z-consent. A layout effect so the offset lands
+  // before the bar's first paint; ResizeObserver follows reflow (text wrapping, orientation). The
+  // cleanup clears the layer the moment the bar unmounts (a choice was made).
+  useIsoLayoutEffect(() => {
+    if (!showBanner) return
+    const bar = barRef.current
+    if (!bar) return
+    const measure = () => publishConsentLayer(bar.getBoundingClientRect().height)
+    measure()
+    const observer = typeof ResizeObserver === 'function' ? new ResizeObserver(measure) : null
+    observer?.observe(bar)
+    return () => {
+      observer?.disconnect()
+      publishConsentLayer(null)
+    }
+  }, [showBanner])
+
+  // The confirmation is an ordinary top-centre toast (app/providers.tsx mounts the Toaster), not a
+  // fixed corner element: it must not share the bottom-right corner with the "Ask this Filing"
+  // launcher it used to cover.
+  const confirmSaved = () => toast.success('Cookie preferences saved')
 
   const handleAcceptAll = () => {
     const newPreferences: CookiePreferences = {
@@ -109,8 +146,7 @@ export default function CookieConsent({ onPreferencesChanged }: CookieConsentPro
     setPreferences(newPreferences)
     onPreferencesChanged?.(newPreferences)
     setShowBanner(false)
-    setSaved(true)
-    setTimeout(() => setSaved(false), 3000)
+    confirmSaved()
   }
 
   const handleRejectAll = () => {
@@ -122,8 +158,7 @@ export default function CookieConsent({ onPreferencesChanged }: CookieConsentPro
     setPreferences(newPreferences)
     onPreferencesChanged?.(newPreferences)
     setShowBanner(false)
-    setSaved(true)
-    setTimeout(() => setSaved(false), 3000)
+    confirmSaved()
   }
 
   const handleSavePreferences = () => {
@@ -131,8 +166,7 @@ export default function CookieConsent({ onPreferencesChanged }: CookieConsentPro
     onPreferencesChanged?.(preferences)
     setShowSettings(false)
     setShowBanner(false)
-    setSaved(true)
-    setTimeout(() => setSaved(false), 3000)
+    confirmSaved()
   }
 
   // The banner stays mounted beneath the settings dialog, so Cancel / Escape / the X return focus to
@@ -144,14 +178,7 @@ export default function CookieConsent({ onPreferencesChanged }: CookieConsentPro
     setShowSettings(true)
   }
 
-  if (!showBanner && !showSettings) {
-    return saved ? (
-      <div className="fixed bottom-4 right-4 z-50 bg-success-light dark:bg-success-dark text-white px-4 py-2 rounded-lg shadow-e2 flex items-center gap-2 animate-fade-up">
-        <CheckCircleIcon className="h-5 w-5" />
-        <span>Cookie preferences saved</span>
-      </div>
-    ) : null
-  }
+  if (!showBanner && !showSettings) return null
 
   // ui/Modal owns the dialog contract (focus in, Tab cycle, Escape, scroll lock, focus return);
   // Escape and the scrim close it exactly as Cancel does. The primitive also owns viewport
@@ -293,7 +320,17 @@ export default function CookieConsent({ onPreferencesChanged }: CookieConsentPro
 
   return (
     <>
-      <div className="fixed bottom-0 left-0 right-0 z-50 bg-panel-light dark:bg-panel-dark border-t border-border-light dark:border-border-dark shadow-e5 dark:shadow-none">
+      {/* z-consent: above in-page sticky chrome, beneath the workspace sheets' scrims (z-scrim: an open
+          sheet dims this bar and makes it inert, as any modal does) and the research chrome (sheets,
+          launchers, coachmark), which yields its height via --consent-inset (see the layout effect
+          above). pb-[env(safe-area-inset-bottom)] keeps the choices clear of the home indicator; the
+          measured height includes it. A named region so assistive tech can find it. */}
+      <div
+        ref={barRef}
+        role="region"
+        aria-label="Cookie consent"
+        className="fixed bottom-0 left-0 right-0 z-consent pb-[env(safe-area-inset-bottom)] bg-panel-light dark:bg-panel-dark border-t border-border-light dark:border-border-dark shadow-e5 dark:shadow-none"
+      >
         <div className="max-w-7xl mx-auto p-4 sm:p-6">
           <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
             <div className="flex items-start gap-3 flex-1">

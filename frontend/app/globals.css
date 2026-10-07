@@ -73,6 +73,11 @@
 @layer base {
   html {
     scroll-behavior: smooth;
+    /* The cookie-consent bar reserves the bottom of the scrollport while it is mounted
+       (--consent-inset, lib/consentLayer.ts): a focus or scrollIntoView never lands a control
+       behind the bar — opening the desktop Ask pane scrolls its composer clear of the bar.
+       Unset without the bar (0px). Gate: tests/unit/bottomChromeLadder.spec.ts. */
+    scroll-padding-bottom: var(--consent-inset, 0px);
   }
   @media (prefers-reduced-motion: reduce) {
     html {
