@@ -70,6 +70,12 @@ def _checkpoint_rows() -> list[tuple[str, str]]:
     pipe_lines = [line for line in section.splitlines() if line.startswith("|")]
     assert len(pipe_lines) >= 3, "the deliverables table has no body rows"
     _header, _separator, *body = pipe_lines
+    assert not TABLE_ROW.match(_header), (
+        f"the deliverables table's first pipe line is a data row, not the header: {_header!r}"
+    )
+    assert re.fullmatch(r"\|(?:-+\|)+", _separator), (
+        f"the deliverables table's second pipe line is not a separator row: {_separator!r}"
+    )
     unparsed = [line for line in body if not TABLE_ROW.match(line)]
     assert not unparsed, f"deliverables rows that do not parse as | `path` | `sha256` |: {unparsed}"
     rows = [(match.group(1), match.group(2)) for match in map(TABLE_ROW.match, body) if match]
