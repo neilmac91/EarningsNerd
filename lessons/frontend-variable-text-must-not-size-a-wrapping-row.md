@@ -38,4 +38,6 @@ c && 'md:grid-cols-2')`. It missed `md:!grid-cols-3`, `group-hover/card:grid-col
 or `cx()` call together. A conditional branch (ternary arm, `&&`/`||`/`??` operand, `clsx` object key)
 is checked with the text that always renders around it and never with a sibling branch. A later
 review found the first version let `cx('grid', wide ? 'md:grid-cols-2' : 'grid-cols-1')` borrow the
-other arm's base.
+other arm's base. It also skipped any literal inside a class unit that the unit did not walk (a
+spread, an inline map lookup), so the gate failed open. Now a spread counts as written in place, and
+text no unit reaches is checked on its own.

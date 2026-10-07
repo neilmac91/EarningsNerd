@@ -12,9 +12,9 @@ import {
  * Pins the responsive-grid base-track gate (eslint.gridBaseTrack.mjs;
  * lessons/frontend-variable-text-must-not-size-a-wrapping-row.md). The rule must evaluate a whole
  * class string (every helper argument and template chunk together, and each conditional branch with
- * the text that is always there around it, never with a sibling branch) and understand variant
- * prefixes, so the cases below cover both directions: shapes that set a base track must pass, and
- * every spelling of a missing one must fail.
+ * the text that is always there around it, never with a sibling branch), check on its own any text it
+ * does not walk, and understand variant prefixes, so the cases below cover both directions: shapes
+ * that set a base track must pass, and every spelling of a missing one must fail.
  */
 
 const frontendRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
@@ -114,6 +114,11 @@ ruleTester.run('responsive-grid-base-track', responsiveGridBaseTrack, {
     "const GRID = 'grid grid-cols-1 gap-4 md:grid-cols-2'",
     '<Panel bodyClassName="grid grid-cols-1 sm:grid-cols-2" />',
     "<NavLink className={({ isActive }) => cx('grid grid-cols-1', isActive && 'md:grid-cols-2')} />",
+    // A spread counts as written in place, so it can rely on the base that is always there.
+    "<div className={cx('grid grid-cols-1', ...(wide ? ['md:grid-cols-2'] : []))} />",
+    // A lookup on an inline map is checked value by value, like a map constant: each value carries
+    // its own base.
+    "<div className={cx('grid gap-4', { 2: 'grid-cols-1 md:grid-cols-2', 3: 'grid-cols-1 md:grid-cols-3' }[cols])} />",
     // Not a class: a non-grid string is never parsed as a grid.
     "const label = 'Pricing'",
   ],
@@ -155,6 +160,17 @@ ruleTester.run('responsive-grid-base-track', responsiveGridBaseTrack, {
     { code: "const c = cx('grid', 'gap-4', `md:grid-cols-${n}`)", errors: missing() },
     // A fragment joined to a grid elsewhere must carry its own base.
     { code: "const COLS = { two: 'md:grid-cols-2' }", errors: missing() },
+    // A spread is evaluated in place, not skipped.
+    { code: "<div className={cx('grid', ...(wide ? ['md:grid-cols-2'] : []))} />", errors: missing() },
+    { code: "<div className={cx(...['grid', 'md:grid-cols-2'])} />", errors: missing() },
+    // Text in a shape the unit does not walk is checked on its own, never skipped: an inline map
+    // lookup (one report per value, as for a map constant), a sequence, a tagged template.
+    {
+      code: "<div className={cx('grid gap-4', { 2: 'md:grid-cols-2', 3: 'md:grid-cols-3' }[cols])} />",
+      errors: [...missing(), ...missing()],
+    },
+    { code: "<div className={(0, 'grid md:grid-cols-2')} />", errors: missing() },
+    { code: "<div className={cx('grid', tw`md:grid-cols-2`)} />", errors: missing() },
     // One report per element, however many chunks carry the variant columns.
     { code: "<div className={cx('grid', 'md:grid-cols-2', `lg:grid-cols-${n}`)} />", errors: missing() },
   ],

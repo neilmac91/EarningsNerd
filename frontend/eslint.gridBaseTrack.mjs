@@ -19,9 +19,11 @@
 // 'grid-cols-1')` pass; `cx('grid', wide ? 'md:grid-cols-2' : 'grid-cols-1')` (a branch borrows the
 // other arm's base) and `cx('grid md:grid-cols-2', narrow && 'grid-cols-1')` (the base is only
 // sometimes there) fail. A branch inside a branch also sees the text that is always there in its
-// enclosing branch. Any other string or template literal is evaluated on its own, so a class
-// constant or map is gated too, and a function (`className={() => cx(…)}`) starts afresh. Pinned
-// by tests/unit/gridBaseTrackRule.spec.ts.
+// enclosing branch, and a spread (`cx('grid', ...parts)`) counts as written in place. Any string or
+// template literal the unit does not reach this way is evaluated on its own, never skipped: a class
+// constant or map, a member lookup on an inline map (`cx('grid', { 2: 'md:grid-cols-2' }[n])`), a
+// sequence or tagged template, or the body of a function (`className={() => cx(…)}`), which starts
+// afresh. Pinned by tests/unit/gridBaseTrackRule.spec.ts.
 //
 // Out of scope, as for every class-string rule here: a class name assembled from fragments at
 // runtime, and a component whose own root is the grid while the caller passes only
@@ -89,11 +91,13 @@ export function gridBaseTrackProblem(classText) {
 /** All literal text that can reach the class list, one piece per string literal or template (its
  *  chunks joined), each tagged with its branch: a ternary arm, a logical operand, an object key or
  *  value opens a branch inside the current one; everything else (helper-call arguments, array
- *  elements, template expressions, `+` operands) stays in it. */
-function collectStaticText(node, out = [], branch = { parent: null }) {
+ *  elements, spreads, template expressions, `+` operands) stays in it. Every node it walks is added
+ *  to `reached`, so the rule evaluates on its own only what no unit reached. */
+function collectStaticText(node, reached, out = [], branch = { parent: null }) {
   if (!node) return out
-  const sub = (child) => collectStaticText(child, out, branch)
-  const optional = (child) => collectStaticText(child, out, { parent: branch })
+  reached.add(node)
+  const sub = (child) => collectStaticText(child, reached, out, branch)
+  const optional = (child) => collectStaticText(child, reached, out, { parent: branch })
   switch (node.type) {
     case 'Literal':
       if (typeof node.value === 'string') out.push({ text: node.value, branch })
@@ -108,6 +112,9 @@ function collectStaticText(node, out = [], branch = { parent: null }) {
     case 'TSNonNullExpression':
     case 'ChainExpression':
       sub(node.expression)
+      break
+    case 'SpreadElement':
+      sub(node.argument)
       break
     case 'ConditionalExpression':
       optional(node.consequent)
@@ -132,7 +139,10 @@ function collectStaticText(node, out = [], branch = { parent: null }) {
       break
     case 'ObjectExpression':
       for (const p of node.properties) {
-        if (p.type !== 'Property') continue
+        if (p.type !== 'Property') {
+          sub(p)
+          continue
+        }
         if (p.computed || p.key.type === 'Literal') optional(p.key)
         optional(p.value)
       }
@@ -145,14 +155,6 @@ const isClassAttribute = (node) =>
   node.type === 'JSXAttribute' && node.name.type === 'JSXIdentifier' && CLASS_ATTRIBUTE.test(node.name.name)
 const isHelperCall = (node) =>
   node.type === 'CallExpression' && node.callee.type === 'Identifier' && CLASS_HELPERS.has(node.callee.name)
-/** A node inside one of these is evaluated as part of it, not on its own; a function between them
- *  ends the unit, since its return value is a class string of its own. */
-const isUnit = (node) => isClassAttribute(node) || isHelperCall(node) || node.type === 'TemplateLiteral'
-const isFunction = (node) => /^(ArrowFunctionExpression|FunctionExpression|FunctionDeclaration)$/.test(node.type)
-function insideUnit(node) {
-  for (let p = node.parent; p && !isFunction(p); p = p.parent) if (isUnit(p)) return true
-  return false
-}
 export const responsiveGridBaseTrack = {
   meta: {
     type: 'problem',
@@ -183,18 +185,26 @@ export const responsiveGridBaseTrack = {
         }
       }
     }
+    // ESLint enters a node before its descendants, so a unit (class attribute, helper call,
+    // template) has marked everything it evaluates before any of it is visited on its own. A node it
+    // did not reach (a function body, a member lookup, a sequence) falls through and is checked
+    // alone, so an unmodelled shape is gated, never skipped.
+    const reached = new WeakSet()
+    const evaluate = (node, value) => {
+      if (!reached.has(node)) check(node, collectStaticText(value, reached))
+    }
     return {
       JSXAttribute(node) {
-        if (isClassAttribute(node) && !insideUnit(node)) check(node, collectStaticText(node.value))
+        if (isClassAttribute(node)) evaluate(node, node.value)
       },
       CallExpression(node) {
-        if (isHelperCall(node) && !insideUnit(node)) check(node, collectStaticText(node))
+        if (isHelperCall(node)) evaluate(node, node)
       },
       TemplateLiteral(node) {
-        if (!insideUnit(node)) check(node, collectStaticText(node))
+        evaluate(node, node)
       },
       Literal(node) {
-        if (typeof node.value === 'string' && !insideUnit(node)) check(node, collectStaticText(node))
+        if (typeof node.value === 'string') evaluate(node, node)
       },
     }
   },
