@@ -6,7 +6,7 @@ inventory of stale remote branches. Source instruction: the founder's live launc
 2026-10-07 (the "PR disposition sweep" prompt). Structure and evidence standard follow
 [`pr-disposition-2026-09-30.md`](pr-disposition-2026-09-30.md): checked means evidenced.
 
-**Stage:** 0 (preflight) complete; Stage 1 (read-only triage) in progress. Nothing in Stage 0 or
+**Stage:** 0 and 1 complete; stopped for founder approval (Stage 2 not started). Nothing in Stage 0 or
 Stage 1 pushes, comments, labels, reviews or merges anything except this checkpoint.
 
 ## Session state
@@ -115,9 +115,54 @@ not trigger Codex by themselves; an owner `@codex review` comment is needed (pre
 | --- | --- | --- | --- | --- |
 | — | none yet | — | — | — |
 
-## Lanes
+## Lanes (Stage 1 triage, main `335ad94b` after #1111 merged at 20:01Z)
 
-Filled at the end of Stage 1 (owner, disposition, approval needed, expected spend).
+Reviews: three lenses plus two independent refuters per blocker or should-fix; a finding stands only
+when both refuters fail. Full outputs are retained outside git (session scratchpad `stage1/`).
+
+| PR | Owner / lane | Behind · conflicts · CI · Codex | Confirmed findings | Proposed disposition | Paid spend |
+| --- | --- | --- | --- | --- | --- |
+| #1111 | Codex lane | **merged by its owner at 20:01:35Z** (`335ad94b`, head `5d9b0b25`); main CI 37678914838 success; `/health/detailed` healthy 20:34Z | at the reviewed `e2b4db62`, still true on main: (1) the runner's aggregate trace mixes both generations, so the RUNBOOK's F-attribution triage replay reports recovered rows UNEXPLAINED (`copilot_runner.py:242/259`, RUNBOOK:875); (2) decision F's withheld path now regenerates privately with no recorded decision superseding F / decision 2 | out of scope (merged); follow-ups | — |
+| #1110 | CODE RED chief | 1 · none · green · Codex on older heads only | no blocker. Should-fix: lesson credits PR #1028 (constants came from #940); upload-area check skips `dispatch/` and root files; PR body describes `e0f00861`, no mutation proof for the last seven commits | observe-only | — |
+| #1108 | product lane (EN-03) | 3 · none · green · Codex 5447544265 on `6f6d85b`; owner pushed again (`484a357a`) | no blocker. Should-fix: focus falls to `<body>` when the viewport crosses 768px while a chip-opened sheet is open (`FinancialMetricsTable.tsx:267`) | observe-only | — |
+| #1107 | product lane (EN-02) | 3 · none · green · Codex running since 19:45:50Z | no blocker. Should-fix: sticky clause misses a split-literal z (`bottomChromeLadder.spec.ts:498`); DESIGN.md still claims revision `1a79637e`; the fixed-bottom-chrome rule has no gate. Preview in both themes not done | observe-only | — |
+| #1102 | Dependabot (security) | 7 · none · green except review-gate (no Codex on Dependabot PRs) | none. Lock-only; 3 nodes changed, integrity = registry; compression and proxy-addr dev-only via `@lhci/cli`, source-map-js build-only; `npm audit` 23 → 20 (critical 1 → 0) | merge (`@codex review` first) | 0 |
+| #1097 | Dependabot (minor) | 12 · none · secret-scan red (10-05 false positive, cleared on main), review-gate | none. Nits: Sentry 11.2 enables server Dedupe; posthog-js 1.435.6 starts recording the `oppref` ad-click id; Sentry source-map upload only exercised on Vercel. next 16.3.8 fixes GHSA-cjq9-62q9-8jv4 (SSRF; `images.remotePatterns` is configured) | after #1102: `@dependabot rebase`, re-gate, `@codex review`, merge | 0 |
+| #1096 | Dependabot (pip minor) | 12 · none · **backend-tests red** | **blocker:** edgartools 5.59.1 reverses decision D / issue #1063 and fails the Ford outlook test; no upstream fix through 5.61.1 | maintainer replacement without edgartools; E1 validation; close #1096 as superseded | ≈0.20–0.40 |
+| #1095 | Dependabot (sqlalchemy) | 12 · none · **migrations-postgres red** | **blockers:** SQLAlchemy 2.1 resolves a bare `postgresql://` URL to psycopg 3, which is not installed (`database.py:32`; the deploy would fail to connect); the PR lifts the deliberate `<2.1` cap set by #1010. Should-fix if adopted: psycopg 3 errors carry no `pgcode` (`subscription_webhook_service.py:137`); every bare-URL engine site must be covered | founder decision; recommend keep 2.0 and close | 0 |
+| #1081 | Claude session, idle 93 h | 24 · `frontend/DESIGN_SYSTEM.md` · green on old head · no Codex (quota messages 10-04; body carries a 10-04 override) | no blocker. Should-fix: the grid rule lets a conditional branch borrow a sibling's base track (`eslint.gridBaseTrack.mjs:167`); the DESIGN_SYSTEM.md conflict (keep both paragraphs). The rule reports 0 errors on main + #1081 | integrate main, fix the gate gap with spec cases and one mutation proof, `@codex review`, merge | 0 |
+| #1074 | measurement only | 38 · none · — | "Not qualified … Do not merge" (5965114706); Codex decided "Keep #1074 as the retained draft" (#1029 comment 5966195498); its 30 evidence files exist only on the branch; eval-baseline artifact 11262711816 expires 2026-10-17T03:20Z | keep (never merges) | 0 |
+| #1035 | Codex lane, held | 69 · none · green (old) | hold record 5962533770 is factually stale: base moved 29 → 69 behind and #1084 changed the adapter and pinned owners it relies on | hold; refresh the hold record | 0 |
+| #1009 | founder pricing hold | 41 · `pricing/page.tsx`, `tasks/todo.md` · green (old) | hold record 5920001935 is factually stale: it now conflicts in `pricing/page.tsx` as well; `check:pricing` exists; prerequisites unchanged | hold; refresh the hold record | 0 |
+
+Merging integrated #1081 creates no conflict in #1107 (`7d96c11e`) or #1108 (`484a357a`) (worktree
+simulation, main + #1081 with both DESIGN_SYSTEM.md paragraphs kept).
+
+### Proposed merge train
+
+1. #1102: frontend lock-only security patch; lowest risk; must precede #1097 (shared lockfile).
+2. #1097: after `@dependabot rebase` onto the post-#1102 main; frontend; carries the next SSRF fix.
+3. #1081: frontend; independent of 1–2; may interleave with the backend lane.
+4. #1096 replacement: the only deployable backend merge; starts only after #1111's deploy is
+   confirmed (deploy job green, migration tail, revision at 100%, health), then serial deploy
+   verification of its own.
+5. #1112 (this checkpoint): tasks-only, last.
+
+### Stale-branch inventory (18 branches heading no open PR)
+
+0 safe to delete, 4 keep, 14 ask. Keep: `claude/earnings-nerd-audit-plan-8iikp3`,
+`claude/earningsnerd-sections-review-prompt-aw2u7c` (both D8, held), `codex/wave3-h25-capacity-probe`
+(6 unique commits, no PR, cited by full SHA), `codex/wave3-thinking-low-pilot` (3 unique commits,
+cited). Every other branch's head survives in `refs/pull/<n>/head` of a closed PR, but each is cited
+by tasks/ evidence or its closing comment reserves the branch; none deleted without founder approval
+by name.
+
+### Dependabot alerts
+
+Not readable (no alerts tool in this session). Inferred from the security group and lockfile audit:
+#1102 closes compression (GHSA-vc2v-76pw-4v95, high), proxy-addr (GHSA-jqcg-44mw-7w3h, critical) and
+source-map-js (GHSA-68fv-2mgg-jv7q, high); #1097 closes next GHSA-cjq9-62q9-8jv4 and the sharp
+advisory; extract-zip #270 / #283 stay held (decision I).
 
 ## Final report
 
@@ -141,3 +186,10 @@ Pending.
   marked ready by the owner account at 19:45:46Z and 19:45:58Z, during this read.
 - 19:52Z — Dependabot failure logs read: #1095 psycopg driver default (blocker), #1096 Ford regression
   (blocker), 10-05 secret-scan false positive (cleared on main).
+- 20:01Z — #1111 merged by its owner (`335ad94b`) while its read-only review was running; main CI
+  37678914838 success 20:13Z; `/health/detailed` healthy at 20:34:56Z (independent read).
+- 20:07–20:45Z — Stage 1 workflows complete: holds/#1074/branches (`wf_697de371-944`), #1081, #1108,
+  #1107, #1110, #1111 reviews, dependency analysis (`wf_46d39ae7-80a`). Recheck against `335ad94b`:
+  no new conflicts; #1108 moved to `484a357a`.
+- 20:46Z — Integrated-#1081 simulation (worktree outside the repo, removed): no conflict with #1107 or
+  #1108. Stage 1 report sent to the founder; waiting for approval by number. Spend so far: USD 0.
