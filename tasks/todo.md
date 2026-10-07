@@ -6267,7 +6267,7 @@ Full local and hosted verification plus independent exact-head review precede re
 - [x] CTO/CEO: cause of the Ops identity's 403s established 2026-10-05T17:06Z by the existing read-only `logs-probe`
       (run 37345946128): `PERMISSION_DENIED: Permission denied for all log views` for
       `github-deployer@earnings-nerd.iam.gserviceaccount.com` (`runtime/control/DECISIONS-07.md`).
-- [ ] Founder: the two `gcloud projects add-iam-policy-binding` commands ran clean at ~20:17Z (founder statement), but the read-only
+- [x] (resolved 2026-10-06, record 10: IAM verified PERMITTED by `logs-probe` run 37418676235) Founder: the two `gcloud projects add-iam-policy-binding` commands ran clean at ~20:17Z (founder statement), but the read-only
       `logs-probe` re-run at 21:55Z (Ops run 37379102331) still printed `PERMISSION_DENIED: Permission denied for all log views` for
       `github-deployer@earnings-nerd.iam.gserviceaccount.com` — IAM is applied-per-founder, **verified DENIED** (`DECISIONS-09.md`).
       Founder: run the read-only policy check (`gcloud projects get-iam-policy earnings-nerd` filtered to that principal) and confirm
@@ -6292,16 +6292,16 @@ Full local and hosted verification plus independent exact-head review precede re
       (+ `fixture_check.py --adapter-only`; released consumer byte-unchanged); D4 offline dry run reproduces the September 30 readout
       (19 / 20 fields; completeness incomplete: n_after not observed). D1/D3 operator script `export_operator.py` + `OPERATOR-RUNBOOK.md`
       authored for the founder. Nothing marks cohort reporting, beta admission or capacity complete.
-- [ ] Founder: confirm the production PostHog host values (`POSTHOG_HOST`, frontend provider host; code defaults are US, you state EU)
+- [x] (resolved 2026-10-06, record 10: EU production host confirmed; G1 CLOSED; key kept active by the founder's choice) Founder: confirm the production PostHog host values (`POSTHOG_HOST`, frontend provider host; code defaults are US, you state EU)
       and the project's region — the one condition for G1 to close; revoke the download key (recommended).
 - [x] PR #1099 merged to main `eccf45a3` (2026-10-05T21:59:56Z) after GitHub's Actions incident (five jobs platform-cancelled, re-run once);
       seven delta-review nits applied in record 09. Review rule from record 09: records-only PRs get one reviewer context; nits carried.
-- [ ] CTO (proposed, awaiting the founder's go-ahead as a deploy-pipeline change): exclude `backend/tests/` from `deploy-backend`'s path
+- [x] (done 2026-10-06: PR #1101 merged `f0af2e3c` with gate `backend/tests/unit/test_backend_deploy_scope.py`; five merges verified skipping — its own and the four since) CTO (proposed, awaiting the founder's go-ahead as a deploy-pipeline change): exclude `backend/tests/` from `deploy-backend`'s path
       filter, mirroring `.dockerignore`, plus a rule-12 gate — PR #1098 deployed unchanged application code because the filter is wider
       than the build context (`DECISIONS-09.md`).
 - [x] CTO/CEO: readout error-detail diagnostics (`ops/capacity/readout.py`, bounded worker, PR #1098): a structured, bounded
       error reason beside each failed channel's `http_NNN`, never raw bodies; review findings applied; 6 unit tests.
-- [ ] Founder: the custody check (`runtime/tools/h20-custody-check.sh`) started 2026-10-05T17:29:39Z on the MacBook with both
+- [x] (resolved 2026-10-06, record 12: `TOTAL=22` / `TOTAL=48`, zero stubs or unreadable files, 69 of 69 equal; planner acknowledged) Founder: the custody check (`runtime/tools/h20-custody-check.sh`) started 2026-10-05T17:29:39Z on the MacBook with both
       real folder paths; send the chief only its two `TOTAL=` lines, give the saved file to Astra and send Astra's match
       counts; confirm in the Codex app whether the registered planner thread resumes. The two archives uploaded into the
       chief's session at ~17:52Z were not opened (classifier denial 5, `DECISIONS-07.md`); they do not shorten this route.
@@ -6351,5 +6351,16 @@ Full local and hosted verification plus independent exact-head review precede re
   (bound to `ad599074…`, 47,321 bytes; G3 set to "reviewed with a stated gap; bridged; first customer part review pending"; G4
   and G5 untouched; nothing runs); the manifest control proceeds by one metadata-only custodian question with six return fields
   (no predicate change, nothing substituted); PR #1105 review record closed (merge `adf98331`; deploy steps skipped). Closure 163.
-- [ ] Founder: relay the record-13 custodian question and its six return fields, then state (a) keep record 05's gate or (b)
-      supersede its predicate explicitly; optionally the control reviewer's identity string; D3 (held).
+- [x] Founder (2026-10-07 relay of Astra): the record-13 custodian question answered NO (0 / 69); the control reviewer's identity
+      string supplied (= closure 142); recorded in record 14; (a)/(b) not stated and not needed — (b) unavailable, the hold stands by
+      default (record 14). D3 still held.
+- 2026-10-07 (record 14, `runtime/control/DECISIONS-14.md`): the custodian's answer recorded as relayed — the three component
+  manifests enumerate none of the 69 retained inputs (0 / 69 by SHA-256 and byte length; a comparison beyond the brief, disclosed and
+  accepted); option (b) unavailable; record 05's gate unchanged; mismatch between artifact sets, not corruption; R1 NOT_RELEASED; 2
+  minutes charged (44 charged / 136 remaining); the control reviewer identified as the closure-142 entry and annotated; the next
+  two-part custody clarification briefed (governed input set; authoritative manifest); contract acceptance reaffirmed unchanged;
+  PR #1106 review record closed (merge `be43b490`; deploy steps skipped — fifth proof); the rule-12 runtime-records gate named as
+  the next executable chief work (reservation first). Closure 164.
+- [ ] Founder: relay the record-14 custody clarification (which retained input set record 05's predicate governs; whether an
+      authoritative manifest exists for it — SHA-256, byte count, one-line provenance) and its six return fields; say so only if
+      the 2 minutes are not consolidated; D3 (held).
