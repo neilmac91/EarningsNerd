@@ -8,8 +8,9 @@ a broken record never reaches a reviewer:
 * the ``control/source-context-exclusion-NNN.json`` closures form an append-only chain: each one's ``prior_record`` hash equals the
   previous file, its counts equal its lists, the previous ids are a prefix, nothing is duplicated, and the new entries are the
   ones it declares;
-* the checkpoint header and ``APPOINTMENTS.json`` are stamped no earlier than the newest closure (they are written last);
-* the chief's decisions are numbered contiguously from 1;
+* the checkpoint header and ``APPOINTMENTS.json`` are stamped no earlier than the newest closure, compared at the closure's
+  fractional precision (they are written last);
+* every line of the decisions section is a numbered entry and the numbers run contiguously from 1;
 * every JSON file parses;
 * no private artifact URL (either link form), macOS home path (``/Users/``) or, anywhere under the chief's ``control/`` tree,
   session upload-area path is written into the records — every file in the tree is scanned, whatever its suffix.
@@ -42,6 +43,8 @@ HEADER_STAMP = re.compile(r"\(updated (\d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ)\)")
 CLOSURE_NAME = re.compile(r"^source-context-exclusion-(\d+)\.json$")
 DELIVERABLES_HEADING = "## Deliverables and exact hashes (SHA-256)"
 DECISIONS_HEADING = "## Decisions taken by the chief"
+# Every non-blank line of the decisions section is one entry of the form ``N. text`` (a malformed entry fails, not vanishes).
+DECISION_LINE = re.compile(r"^(\d+)\. \S")
 # Hash rows may point outside the runtime tree only into these trees (the chief-committed D1/D3/D5 deliverables).
 ALLOWED_OFF_TREE = (REPO_ROOT / "tasks" / "readiness-2026-09-21" / "beta",)
 
@@ -90,12 +93,12 @@ def _closures() -> list[Path]:
 
 
 def _stamp(value: str) -> datetime:
-    """Parse ``…Z`` or ``…+00:00`` stamps, with or without fractional seconds, truncated to whole seconds."""
+    """Parse ``…Z`` or ``…+00:00`` stamps, keeping any fractional seconds (a stamp without a fraction is the exact second)."""
     text = value.strip().replace("Z", "+00:00")
     parsed = datetime.fromisoformat(text)
     if parsed.tzinfo is None:
         parsed = parsed.replace(tzinfo=timezone.utc)
-    return parsed.astimezone(timezone.utc).replace(microsecond=0)
+    return parsed.astimezone(timezone.utc)
 
 
 def _runtime_files() -> set[Path]:
@@ -178,7 +181,10 @@ def test_checkpoint_and_appointments_are_stamped_after_the_newest_closure() -> N
 
 def test_decisions_are_numbered_contiguously() -> None:
     section = _section(CHECKPOINT.read_text(encoding="utf-8"), DECISIONS_HEADING)
-    numbers = [int(n) for n in re.findall(r"^(\d+)\. ", section, re.MULTILINE)]
+    entries = [line for line in section.splitlines()[1:] if line.strip()]
+    malformed = [line for line in entries if not DECISION_LINE.match(line)]
+    assert not malformed, f"decisions section lines that are not numbered entries: {malformed}"
+    numbers = [int(match.group(1)) for match in map(DECISION_LINE.match, entries) if match]
     assert numbers, "no numbered decisions found"
     assert numbers == list(range(1, len(numbers) + 1)), f"decision numbering is not 1..{len(numbers)}: {numbers}"
 
