@@ -285,3 +285,34 @@ Pending.
   the rule, its spec, the lesson and `DESIGN_SYSTEM.md` changed). PR body updated: re-integration
   record, current gate, the stale 10-04 `Review override` line withdrawn so the review gate needs a
   real Codex review of this head. Draft→ready cycle at 22:56Z to trigger it.
+- 22:58Z — Codex review of #1081 `d7514dd`: one P2 finding (thread 4212882992). The rule demanded
+  the display's exact variant, so it flagged valid `hidden md:grid sm:grid-cols-2`, and its message
+  suggested `md:grid-cols-1`, which would override the two columns. Reproduced (4 failing cases),
+  fixed in `1a81a1ba` (local; a smaller screen's columns cover a larger screen's display). Gate:
+  lint 0, tsc 0, vitest 1211, build 0.
+- 23:08Z — #1081 exact-head review `wf_ddbc4a5f-497` (d7514ddf): **one should-fix confirmed** by
+  both refuters. Inside a class unit, any call's arguments counted as always-rendered, so
+  `cx('grid', choose(wide, 'md:grid-cols-2', 'grid-cols-1'))`, `.at(i)` and `.filter(pred)` lent a
+  base. Also four nits:
+  - arbitrary `[grid-template-columns:…]` columns are unchecked;
+  - `[&:has(>img)]:` is dropped as styling another element;
+  - a base supplied by every ternary arm is flagged;
+  - CLAUDE.md rule 11 and the `eslint.config.mjs` comment are stale.
+
+  Merge integrity is clean (the merge's patch-id equals main's own diff), and no `DESIGN.md` or
+  sidecar refresh is owed. Fixed in `b3b03a8c` (local): helper arguments only, plus the receiver
+  of `.join`, `.filter(Boolean)` or `.trim`. Carried in the same commit: the first two nits fixed,
+  the third documented as fail-closed, the docs updated. Proofs:
+  - the reverted CallExpression case fails 5 of the 94 spec cases;
+  - the final rule over main `d4c977f5` reports exactly the 20 sites the PR fixes (16 files) and
+    nothing else.
+- 23:10Z — #1119 exact-head review `wf_8e1db8eb-fd7` (`76d2ba6d`, three lenses): **no blocker, no
+  should-fix**. It re-verified the lock against #1096, the openai and fastapi wheel diffs, the
+  dependabot.yml semantics and both cited jobs. Nits (not pushed; README corrections land through
+  this checkpoint): the evidence README's release-boundary paragraph predates the push; the
+  python-dotenv 1.2.4 note omits the `KEY=   # comment` parser fix (local `.env.example` only).
+- 23:11:45Z — #1119 head `76d2ba6d` re-read, main `d4c977f5` unchanged, all checks green (CI
+  37695329830, Vercel success, review-gate success after Codex's completed no-findings review).
+  Evidence comment 6048726325. **#1119 merged** `111e8ce4` (squash, `expectedHeadSha` pinned).
+- 23:12Z — **#1096 closed** as superseded (comment 6048731593). Main CI 37700883978 started; the
+  deploy follows the test jobs.
