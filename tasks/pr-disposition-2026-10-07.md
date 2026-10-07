@@ -36,7 +36,7 @@ Stage 1 pushes, comments, labels, reviews or merges anything except this checkpo
 | #1095 | `dependabot/pip/backend/sqlalchemy-2.1.2` | `cf995353` | ready | 1 / 11 | none | requirements.in/.txt, +2 −2 | deployable backend (requirements only) |
 | #1081 | `claude/zealous-albattani-6ti8cx` | `53cc2762` | ready | 3 / 23 | `frontend/DESIGN_SYSTEM.md` | 22 files +400 −22 | frontend + lessons |
 | #1074 | `claude/copilot-prompt-candidate` | `437e245c` | draft | 10 / 37 | none | 32 files +4695 −2 | `backend/app` + tasks (measurement only) |
-| #1035 | `codex/wave3-native-delivery-capability` | `23c948e9` | draft | 2 / 68 | none | 5 files +629 −56 | deployable backend (`backend/app`) |
+| #1035 | `codex/wave3-native-delivery-capability` | `23c948e9` | draft | 2 / 68 | none | 5 files +629 −56 | deployable backend (`backend/evals`, `backend/scripts`, tests; eval-baseline runs) |
 | #1009 | `codex/wave3-launch-pricing-offer` | `be11df3a` | draft | 14 / 40 | `frontend/app/pricing/page.tsx`, `tasks/todo.md` | 13 files +405 −156 | frontend + docs/tasks |
 
 Dependency versions (from the diffs):
