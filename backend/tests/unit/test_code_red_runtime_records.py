@@ -11,7 +11,8 @@ a broken record never reaches a reviewer:
   hash equals the previous file, its ``recorded_at`` is later than its predecessor's, its counts equal its lists, the previous
   ids are a prefix, nothing is duplicated, and the new entries are the ones it declares;
 * the checkpoint header and ``APPOINTMENTS.json`` are stamped no earlier than the newest closure, compared at the closure's
-  fractional precision (they are written last);
+  fractional precision (they are written last), and every stamp compared carries an explicit UTC offset (``Z`` or ``+00:00``;
+  a stamp without one is malformed, never repaired);
 * every non-blank line of the decisions section is a numbered entry and the numbers run contiguously from 1;
 * every JSON file parses, and so does every line of a JSON-lines file;
 * no private artifact URL (either link form), macOS home path (``/Users/``) or, anywhere under the chief's ``control/`` tree,
@@ -30,7 +31,7 @@ from __future__ import annotations
 import hashlib
 import json
 import re
-from datetime import datetime, timezone
+from datetime import datetime, timedelta
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -115,12 +116,15 @@ def _closures() -> list[Path]:
 
 
 def _stamp(value: str) -> datetime:
-    """Parse ``…Z`` or ``…+00:00`` stamps, keeping any fractional seconds (a stamp without a fraction is the exact second)."""
+    """Parse a ``…Z`` or ``…+00:00`` stamp, keeping any fractional seconds (a stamp without a fraction is the exact second).
+
+    A stamp without an offset, or with a non-UTC offset, is malformed and fails here rather than being read as UTC.
+    """
     text = value.strip().replace("Z", "+00:00")
     parsed = datetime.fromisoformat(text)
-    if parsed.tzinfo is None:
-        parsed = parsed.replace(tzinfo=timezone.utc)
-    return parsed.astimezone(timezone.utc)
+    assert parsed.tzinfo is not None, f"stamp {value!r} carries no UTC offset"
+    assert parsed.utcoffset() == timedelta(0), f"stamp {value!r} is not UTC"
+    return parsed
 
 
 def _runtime_files() -> set[Path]:
