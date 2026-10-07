@@ -113,8 +113,9 @@ not trigger Codex by themselves; an owner `@codex review` comment is needed (pre
 
 | # | Dispatch | Reserved | Telemetry actual | Status |
 | --- | --- | --- | --- | --- |
-| D1 | #1119 (replaces #1096) `eval-baseline` by workflow dispatch on `claude/pr1096-deps-without-edgartools` at `76d2ba6d`, run [37695333206](https://github.com/neilmac91/EarningsNerd/actions/runs/37695333206), 22:18:33Z (off-peak; balance 37.57 at 22:18:07Z) | 0.40 | pending | running |
-| D2 | #1119 ready transition 22:19Z → `copilot-eval` (one run, E1 precedent) | 0.05 | pending | running |
+| D1 | #1119 (replaces #1096) `eval-baseline` by workflow dispatch on `claude/pr1096-deps-without-edgartools` at `76d2ba6d`, run [37695333206](https://github.com/neilmac91/EarningsNerd/actions/runs/37695333206), 22:18:33Z (off-peak; balance 37.57 at 22:18:07Z) | 0.40 | **0.175148** (70 calls, 0 unknown; off-peak tokens × `llm_pricing`) | done: expected=attempted=scored=70, errors 0, pass_rate 1.0, gate_fail_rate 0.0; regression gate PASS (2 warnings: untraceable dollar figures 1.614 advisory; `mean_citation_fidelity` 0.8615 vs pinned 0.9648, checked below); artifact 11515377659 sha256 `ff36d3a2…` |
+| D2 | #1119 ready transition 22:18:43Z → `copilot-eval` run [37695352886](https://github.com/neilmac91/EarningsNerd/actions/runs/37695352886) at `76d2ba6d` (one run, E1 precedent) | 0.05 | **0.006611** (35 calls, 0 unknown, 0 peak) | done: **accepted, 18/18, 0 errors**; fingerprint `aeb56401`; artifact 11515695532 sha256 `e6af7057…` |
+| | **Total so far** | | **0.181759** of 3.00 | |
 
 ## Lanes (Stage 1 triage, main `335ad94b` after #1111 merged at 20:01Z)
 
