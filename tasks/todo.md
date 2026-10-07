@@ -1,3 +1,16 @@
+## 2026-10-07 — Google Cloud cost optimisation (independent scope)
+
+Founder authorised durable background delivery and shared Docker build caching, while retaining
+one warm backend instance and mitigating performance risks. This task does not take up the
+historical unchecked ledger items or CODE RED work.
+
+- [x] Inventory after-response work; preserve the single summary pipeline and existing API/SSE contracts.
+- [x] Add authenticated Cloud Tasks delivery with bounded concurrency, retries and ID-only payloads.
+- [x] Move on-visit work and legacy internal triggers behind an opt-in queue rollout; cancel/drain request-owned siblings.
+- [x] Cache Docker dependency layers through GitHub Actions, preserving image tags and deploy gates (PR #1117).
+- [ ] Verify focused behavior, locked-contract parity, complete backend gates and independent reviews.
+- [ ] Provision and verify delivery before switching CPU billing; keep minimum one instance and 1 GiB.
+
 ## 2026-10-06 — EN-02: the consent bar yields to the research chrome (frontend)
 
 - Scope: critique finding EN-02 (`tasks/critique-handoff-2026-10-04.md`, P1). The cookie-consent bar (`fixed bottom-0 z-50`) sat over the z-40 "Ask this Filing" launcher, the first-run coachmark's target and the mobile sheet's composer. Reproduced on main a64d4e6 (Chromium 141, fresh storage, `/filing/3`): at 1440x900 the bar spans y 803-900, `elementFromPoint` at the launcher's centre is "Accept All" and a click on the launcher times out, the coachmark renders over the covered launcher; at 390x844 (Pro, sheet open) the composer is entirely behind the 177px bar; the saved toast lands in the launcher corner. One main-based branch, frontend only; consent semantics untouched (storage key and shape, `cookieConsentChanged`, analytics gating, DNT).
