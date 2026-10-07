@@ -72,8 +72,8 @@
 
    Mutation demonstration (the one the repository records, on committed state,
    restored with `git checkout --`, `git diff --stat` empty): `z-consent` →
-   `z-50` on the bar in components/CookieConsent.tsx fails the ladder check and
-   the bar check, naming the file. Every other clause was probed the same way on
+   `z-50` on the bar in components/CookieConsent.tsx fails the file-wide z check
+   and the bar check, naming the file. Every other clause was probed the same way on
    a scratch copy during review (the sticky nav at z-40, the scroll padding
    dropped, the offset literal, `lg:bottom-0`, an inline zIndex, a split z-50,
    the publish moved to useEffect, a bottom-anchored z-toast, consent raised to
