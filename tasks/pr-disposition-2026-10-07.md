@@ -168,9 +168,134 @@ Not readable (no alerts tool in this session). Inferred from the security group 
 source-map-js (GHSA-68fv-2mgg-jv7q, high); #1097 closes next GHSA-cjq9-62q9-8jv4 and the sharp
 advisory; extract-zip #270 / #283 stay held (decision I).
 
-## Final report
+## Final report (2026-10-08)
 
-Pending.
+**Count.**
+- **Open at the start:** 12 PRs, plus this checkpoint. 8 of the 12 now have a final state (merged,
+  replaced and closed, or closed). The other 4 stay open on purpose: #1009 and #1035 are held, and
+  #1108 and #1110 belong to live lanes.
+- **Opened during the run:** 15 PRs (#1113–#1127): 3 by this session (#1116, #1119, #1127), 4 by
+  Dependabot (#1114, #1115, #1124, #1125) and 8 by live lanes. Each has a state in the second
+  table.
+- **Open at the end:** «TBD».
+
+### Open at start
+
+| PR | Disposition | Outcome | Evidence |
+| --- | --- | --- | --- |
+| #1111 | observe-only (Codex lane, pushed < 1 h) | **merged by its owner** `335ad94b` (20:01Z) | deploy job 112992821258: `applied=0 skipped=41`, `00445-g7m` 100%, health verified; independent `/health/detailed` healthy 20:34:56Z; follow-ups below |
+| #1110 | observe-only (CODE RED chief) | **open**, owner lane | Stage 1 should-fix findings recorded in the Lanes table; no confirmed blocker, so no comment |
+| #1108 | observe-only (product lane EN-03) | **open**, owner lane | one should-fix (focus after crossing 768px with a chip-opened sheet open); no comment |
+| #1107 | observe-only (product lane EN-02) | **merged by its owner** `aa17bcb8` (21:17Z) | Stage 1 should-fix findings are follow-ups |
+| #1102 | merge | **merged** `fa7bf415` | Codex review completed with no findings; local gate on main+PR; Vercel production success; `www` 200; comment 6047011816 |
+| #1097 | maintainer replacement | **#1116 merged** `b96457d1`; #1097 **closed** | cherry-pick with identical patch-id; local gate 1129/1129; Codex no findings; comment 6047344689 |
+| #1096 | maintainer replacement without edgartools 5.59.1 | **#1119 merged** `111e8ce4`, deployed; #1096 **closed** | D1 70/70 PASS; D2 18/18; three-lens exact-head review clean; deploy job 113066259541 (first Buildx deploy): `applied=0 skipped=41`, `00446-vhw` 100%, healthy; release comment 6048886899; comment 6048731593 |
+| #1095 | founder decision → keep SQLAlchemy 2.0 | **closed** | comment 6046972898; the Dependabot `ignore` for sqlalchemy semver-minor landed in #1119 |
+| #1081 | integrate main, fix the gate gap, review, merge | **merged** `4e8252be` | two review rounds; four Codex rounds (three P2s fixed, two fail-closed P2s answered); the final rule reports exactly the 20 fixed sites on main; Vercel production success 23:56:08Z; `www` and `/pricing` 200; comment 6049249453 |
+| #1074 | measurement only, never merges | «TBD: closed after this PR merges» | its 30 evidence files are on main through this PR (`tasks/review-evidence/prompt-candidate-2026-10-02/`); a closing comment points there |
+| #1035 | hold | **held draft** | hold record refreshed: comment 6046968560 |
+| #1009 | hold (pricing) | **held draft** | hold record refreshed: comment 6046965161 |
+
+### Opened during the run
+
+| PR | Owner / lane | Outcome |
+| --- | --- | --- |
+| #1112 | this checkpoint | «TBD: merged» |
+| #1113 | product lane (EN-01 follow-up) | **open**, observe-only. One should-fix: no test pins the `setTimeout(0)` reset of the in-panel click marker (`FilingWorkspace.tsx:220`) |
+| #1114, #1115 | Dependabot (sharp security group; next 16.4.0) | closed 21:38–21:39Z after #1116 merged; not closed by this session |
+| #1116 | this session (replaces #1097) | **merged** `b96457d1` |
+| #1117 | Codex lane (CI, Buildx build cache) | **merged by its owner** `d4c977f5` |
+| #1118, #1120, #1121, #1123, #1126 | live Claude and Codex lanes, drafts | **open**, observe-only |
+| #1119 | this session (replaces #1096) | **merged** `111e8ce4`, deployed and verified |
+| #1122 | Codex lane (durable background tasks) | **merged by its owner** `6393518c` at 23:19Z; deploy job 113068536115 succeeded (`00447-hlv` 100%, healthy) |
+| #1124 | Dependabot pip (openai 3.24.0, posthog 7.62.1) | «TBD: replaced by #1127 and closed» |
+| #1125 | Dependabot frontend (4 updates) | **merged** `0a5eeccc`: Codex no findings; local gate; independent review clean; Vercel production success; comment 6049203118 |
+| #1127 | this session (replaces #1124) | «TBD: merged and deployed» |
+
+### Spend
+
+Four paid runs, all off-peak and all deepseek-flash, with 0 unknown-cost calls. Telemetry total
+«TBD» against the USD 3.00 ceiling (D1 0.175148, D2 0.006611, D3 «TBD», D4 0.006423). The DeepSeek
+balance went from USD 37.77 at 19:42Z to 36.83 at 23:51Z. Other agents share the account, so the
+balance is a cross-check, not the accounting.
+
+### Boundaries kept
+
+- No force-push or history rewrite. No push to main or to any `dependabot/*` branch; Dependabot
+  changes went through maintainer replacements or Dependabot's own PR.
+- Untouched: locked contract tests, baseline pins and thresholds, production flags, prices, trial,
+  promo, registration, Stripe, the AI provider and model, secrets, repository settings and rulesets,
+  and `tasks/code-red-20261004/`.
+- Held items stay held: #1009, #1035, Dependabot alert #270 and D8 (its two branches kept). No PR
+  marked "do not merge" or "measurement only" was merged.
+- No branch was deleted.
+- Every merge waited for: green checks, including Vercel; a completed Codex review of the exact head
+  (no override was used, since quota was available); no standing blocker or should-fix; and a
+  re-read head SHA with squash + `expectedHeadSha`. Backend merges were serial, each confirmed by its
+  deploy job, migration tail, revision at 100% and `/health/detailed`.
+- Refused or missing access was logged and not routed around:
+  - the `gh` token is invalid;
+  - Dependabot alerts are unreadable;
+  - the connector defangs `@dependabot` and `@codex` mentions.
+- Observe-only PRs got no push, merge, close or comment from this session.
+
+### Decisions needed from the founder
+
+1. **#1074's eval-baseline artifact 11262711816 expires 2026-10-17T03:20Z.** Its private copy is
+   still unconfirmed. The three copilot-fidelity artifacts expire 2027-01-01.
+2. **#1074 closure (a change from C6, "keep").** Its pre-registration, tools and review history now
+   live on main (landed by this PR), and the results stay in the #1029 and #1074 comments. So the
+   retained draft no longer protected anything. Reopen it if you want the draft kept.
+3. **Eval harness section-extraction fallback.** Every 7 October eval-baseline run fell back to regex
+   section extraction for 35/35 filings, against edgartools for 31/35 on 2–4 October. That drives
+   `mean_citation_fidelity` to 0.818–0.862 against the pinned 0.9648, a gate warning on every run.
+   `backend/evals/runner.py::_get_grounding` swallows the exception (`except Exception: sections =
+   None`), so the cause is silent. The same call path is used in production. Worth a diagnosis PR.
+4. **Branch deletion (approval by name).** Merged and safe once this PR lands:
+   `claude/pr1096-deps-without-edgartools`, `claude/pr1097-frontend-minor-updates`,
+   `claude/zealous-albattani-6ti8cx`, `claude/pr1124-backend-minor-updates` and
+   `claude/pr-disposition-sweep-64s71l`. Stage 1's 14 "ask" branches, each cited in tasks/ evidence
+   or reserved by a closing comment:
+   - `claude/earnings-nerd-bundle-reconstruct-j65fj5`
+   - `claude/g-stage1-arm-c`
+   - `claude/g-stage2-arm-b`
+   - `claude/practical-gauss-tdet7t`
+   - `claude/stoic-albattani-wulur7`
+   - `codex/measure-attribution-verify`
+   - `codex/measure-n-control-2`
+   - `codex/wave3-capacity-measurement`
+   - `codex/wave3-copilot-typed-evidence`
+   - `codex/wave3-e8-n-pilot`
+   - `codex/wave3-return-ratio-basis`
+   - `codex/wave3-segment-margin-basis`
+   - `codex/wave3-supported-financial-explanations`
+   - `codex/wave3-verify-ranking-measure`
+5. **#1081's grid gate: build an interval-aware evaluator?** It would remove the two fail-closed
+   false positives Codex found: arbitrary `min-[…]` screens, and a reset that applies only while the
+   element is hidden. Neither shape is in the tree today.
+6. **Frontend `npm audit` on main**, unchanged by this run's merges: 19 findings (2 moderate, 17
+   high); production-only, 7 (2 moderate, 5 high). This session cannot read Dependabot alerts, so
+   they are not triaged here.
+7. **Holds.** #1009 (pricing) and #1035 (native delivery) keep their prerequisites, as listed in the
+   refreshed hold records.
+
+### Queued follow-ups (not done)
+
+- **#1111 (Codex lane).**
+  - The runner's aggregate trace mixes both generations, so the RUNBOOK's F-attribution triage
+    replay reports recovered rows as UNEXPLAINED (`copilot_runner.py:242/259`, RUNBOOK:875).
+  - Decision F's withheld path now regenerates privately, but no recorded decision supersedes F or
+    decision 2.
+- **#1107, #1108, #1110, #1113:** the Stage 1 should-fix findings above, for their owner lanes.
+- **CI:** `eval-baseline` skips requirements-only diffs, such as an openai bump, on pull_request
+  events. This run used workflow dispatch instead (D1, D3). A path-filter change would make it
+  automatic.
+- **Process gap:** this session's GitHub connector cannot issue `@dependabot` or `@codex` commands,
+  so Codex reviews were triggered by draft→ready cycles.
+
+### Stage 3 (independent verification)
+
+«TBD»
 
 ## Log
 
