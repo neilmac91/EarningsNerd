@@ -25,8 +25,9 @@ site at or above the layer fails unless it is pinned as top-anchored chrome (sit
 (c) Prove non-occlusion with a hit test at each control's centre in a real browser at the shortest
 supported viewport (320x568) with the page unscrolled; a z-index comparison is not evidence.
 
-**Evidence**: `frontend/tailwind.config.js` (`consent: '35'`, between `sticky` 30 and the z-40
-workspace sheets); `frontend/tests/unit/bottomChromeLadder.spec.ts` ("no in-page sticky chrome ranks
-at or above z-consent", pins `Header` z-50 and `SecondaryHeader` z-40; mutation `z-sticky` → `z-40` on
-`SummaryBlocks.tsx` fails it); `frontend/tests/e2e/consent-bar-yields.spec.ts` "narrow and short
+**Evidence**: `frontend/tailwind.config.js` (`consent: '32'`, between `sticky` 30 and the `scrim` 35 /
+z-40 workspace sheets); `frontend/tests/unit/bottomChromeLadder.spec.ts` ("no in-page sticky chrome ranks
+at or above z-consent", pins `Header` z-50 and `SecondaryHeader` z-40; a scratch-copy probe `z-sticky` →
+`z-40` on `SummaryBlocks.tsx` fails it — the repository's one mutation demonstration is the bar's
+`z-consent` → `z-50`); `frontend/tests/e2e/consent-bar-yields.spec.ts` "narrow and short
 viewports › 320x568" (the choices hit themselves beside the unscrolled nav); DESIGN_SYSTEM §4 Stacking.

@@ -117,6 +117,17 @@ describe('CookieConsent owns the consent layer', () => {
     expect(consentEvents).toBe(1)
   })
 
+  it('unmounting the bar while it shows clears the layer and decides nothing', async () => {
+    const { unmount } = render(<CookieConsent />)
+    await screen.findByRole('region', { name: 'Cookie consent' })
+    expect(layerVisible()).toBe(true)
+    unmount()
+    expect(layerVisible()).toBe(false)
+    expect(inset()).toBe('')
+    expect(localStorage.getItem('cookie_consent')).toBeNull()
+    expect(consentEvents).toBe(0)
+  })
+
   it('stored preferences: no bar, no layer, no event', async () => {
     localStorage.setItem('cookie_consent', JSON.stringify({ essential: true, analytics: false, sessionRecording: false, timestamp: 'x' }))
     render(<CookieConsent />)

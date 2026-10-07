@@ -3,32 +3,36 @@
    -----------------------------------------------------------------------------
    The research chrome on the filing page is fixed bottom chrome: the "Ask this
    Filing" launcher and the first-run coachmark (z-40), the workspace / copilot
-   bottom sheets (z-40) over their scrims (z-30), and the feedback launcher
+   bottom sheets (z-40) over their scrims (z-scrim 35), and the feedback launcher
    (z-30, bottom-left). The cookie-consent bar used to sit over all of it at
    z-50: elementFromPoint at the launcher's centre returned "Accept All", the
    coachmark pointed at a covered launcher and the mobile sheet's composer was
    behind the bar. DESIGN_SYSTEM §4 Stacking now gives the bar its own layer,
-   z-consent (35), BENEATH that chrome, and the chrome adds the bar's height
-   (--consent-inset, published by CookieConsent through lib/consentLayer) to
-   its bottom offset while the bar is mounted, so both control sets stay usable.
-   The layer also sits ABOVE the page's own sticky chrome (z-sticky 30): a first
-   cut at 20 let the mobile section nav, in its unscrolled position on a short
-   phone, paint over "Accept All" (320x568).
+   z-consent (32), BENEATH the scrims and that chrome, and the chrome adds the
+   bar's height (--consent-inset, published by CookieConsent through
+   lib/consentLayer) to its bottom offset while the bar is mounted, so both
+   control sets stay usable; an open sheet's scrim dims the bar and makes it
+   inert, as any modal's backdrop does. The layer also sits ABOVE the page's own
+   sticky chrome (z-sticky 30): a first cut at 20 let the mobile section nav, in
+   its unscrolled position on a short phone, paint over "Accept All" (320x568).
 
    The scan reads each file's TypeScript AST (comments never count) and takes
    every string literal, and every template literal's static chunks joined,
-   whose class tokens include `fixed` (behind any variant prefix) as a fixed site. Its rank is the HIGHEST z
-   token in the list — unprefixed or behind any variant (`z-30 lg:z-50` ranks
-   50): a number, a zIndex ladder name, or 0 when absent / auto (a fixed element
-   at z-auto outranks nothing and is not counted).
-     exempt   z-overlay / z-modal / z-toast ride the documented transient layers
-              above the workspace — popovers, dialogs + the source and viewer
-              sheets, the skip link; a real modal may legitimately make the page
-              beneath it inert, and it is gone on dismissal.
-     pinned   the workspace layers and the feedback launcher, each file pinned
-              to its exact z counts with a reason (the dialogAllowlist idiom).
-              A pinned site that moves up OR down fails: lowering the sheet to
-              the consent layer would put it under the bar again.
+   whose class tokens include `fixed` (behind any variant prefix) as a fixed
+   site. Its rank is the HIGHEST z token in the list — unprefixed or behind any
+   variant (`z-30 lg:z-50` ranks 50): a number, a zIndex ladder name, or 0 when
+   absent / auto (a fixed element at z-auto outranks nothing and is not counted).
+     exempt   z-overlay / z-modal ride the documented transient layers above the
+              workspace — popovers, dialogs + the source and viewer sheets; a
+              real modal may legitimately make the page beneath it inert, and it
+              is gone on dismissal. z-toast is transient only as the top-anchored
+              skip link: bottom-anchored or unanchored it ranks as z-80 (the
+              retired cookie toast's shape — confirmations go through sonner).
+     pinned   the workspace layers (sheets and launcher at 40 over their z-scrim
+              scrims) and the feedback launcher, each file pinned to its exact z
+              counts with a reason (the dialogAllowlist idiom). A pinned site
+              that moves up OR down fails: lowering the sheet to the consent
+              layer would put it under the bar again.
      other    every other fixed site must rank below z-consent: no fixed chrome
               outranks the workspace layers at the launcher corner, and nothing
               ties with the bar (equal z is DOM order).
@@ -36,6 +40,10 @@
               passing through the bar's region never paints over a consent
               choice; the top-anchored site and page headers are pinned (they
               stick at the top of the viewport, away from the bar).
+     rungs    the tokens themselves are pinned to their rungs (sticky < consent
+              < scrim < the pinned workspace level 40 < header): every check
+              above compares against the tokens, so consent at 45 would pass
+              them all while putting the bar back over the launcher corner.
    Because a z can be written apart from its `fixed` (`clsx('fixed', 'z-50')`,
    `const z = 'z-50'`, `style={{ zIndex: 60 }}`), a file that has any fixed site
    is also held to its highest z token in ANY string literal and its highest
@@ -44,10 +52,13 @@
    A lower z alone would let the launcher cover a consent choice (the finding's
    addendum), so a second check keeps the fix honest: the pinned sheets anchor
    on `bottom-[var(--consent-inset,0px)]` and subtract the inset from their vh
-   cap, no pinned file carries a `bottom-0` anchor behind any variant (the lg+
-   docked overlay once did), the launcher / coachmark offset objects take their
-   `bottom` from BOTTOM_CHROME_OFFSET (not merely importing it), the bar itself
-   rides z-consent and calls publishConsentLayer inside a layout effect, and
+   cap, the pinned scrims are full-viewport `inset-0 bg-overlay` (never bottom
+   chrome of their own), no pinned file carries a `bottom-0` anchor behind any
+   variant (the lg+ docked overlay once did), the launcher / coachmark offset
+   objects take their `bottom` from BOTTOM_CHROME_OFFSET (not merely importing
+   it), the bar itself rides z-consent and calls publishConsentLayer inside a
+   layout effect (useLayoutEffect, or the repo's isomorphic alias declared as
+   `typeof window !== 'undefined' ? useLayoutEffect : useEffect`), and
    globals.css reserves the inset as the document's bottom scroll padding (a
    focus never lands a control behind the bar). Inline `position: 'fixed'`
    style objects (`as const` and parentheses included) are anchored popovers
@@ -55,10 +66,18 @@
    new one is reviewed here rather than slipping past the class-token scan.
    Every pin list is shrink-only in files, in sites and in z.
 
-   Mutations recorded in the PR: `z-consent` → `z-50` on the bar in
-   components/CookieConsent.tsx fails the ladder check, naming the file;
-   `z-sticky` → `z-40` on SummaryBlocks' section nav fails the sticky clause;
-   dropping the scroll padding from globals.css fails the inset clause.
+   Blind spots, by design: class names assembled at runtime from fragments and
+   a bottom offset applied through an unpinned style object are invisible to
+   the token scan; tests/e2e/consent-bar-yields.spec.ts proves the geometry.
+
+   Mutation demonstration (the one the repository records, on committed state,
+   restored with `git checkout --`, `git diff --stat` empty): `z-consent` →
+   `z-50` on the bar in components/CookieConsent.tsx fails the ladder check and
+   the bar check, naming the file. Every other clause was probed the same way on
+   a scratch copy during review (the sticky nav at z-40, the scroll padding
+   dropped, the offset literal, `lg:bottom-0`, an inline zIndex, a split z-50,
+   the publish moved to useEffect, a bottom-anchored z-toast, consent raised to
+   45): those are evidence in the PR, not repository mutations.
 ============================================================================= */
 
 import fs from 'node:fs'
@@ -71,21 +90,22 @@ const ROOT = path.join(__dirname, '../..')
 const SCAN_DIRS = ['app', 'components', 'features', 'hooks', 'lib']
 const Z_INDEX: Record<string, string> = createRequire(import.meta.url)('../../tailwind.config.js').theme.extend.zIndex
 const CONSENT_Z = Number(Z_INDEX.consent)
+const SCRIM_Z = Number(Z_INDEX.scrim)
 const CONSENT_LAYER_MODULE = '@/lib/consentLayer'
 const INSET_VAR = '--consent-inset'
 const INSET_ANCHOR = `bottom-[var(${INSET_VAR},0px)]`
-/** The documented transient layers above the workspace (popovers, dialogs + sheets, toasts / skip link). */
+/** The documented transient layers above the workspace (popovers, dialogs + sheets; z-toast only as the top-anchored skip link). */
 const TRANSIENT_LAYERS = new Set(['overlay', 'modal', 'toast'])
 
 // Shrink-only: lower a count or drop an entry when a site goes; never raise one to fit new fixed chrome.
 const PINNED: Record<string, { z: Record<string, number>; reason: string }> = {
   'features/filings/components/copilot/FilingWorkspace.tsx': {
-    z: { '40': 2, '30': 1 },
-    reason: 'the workspace sheet and the "Ask this Filing" launcher (z-40) over the mobile scrim (z-30)',
+    z: { '40': 2, '35': 1 },
+    reason: 'the workspace sheet and the "Ask this Filing" launcher (z-40) over the mobile scrim (z-scrim, above the bar)',
   },
   'features/filings/components/copilot/AskCopilotRail.tsx': {
-    z: { '40': 2, '30': 1 },
-    reason: 'the standalone copilot sheet and launcher (z-40) over their scrim (z-30)',
+    z: { '40': 2, '35': 1 },
+    reason: 'the standalone copilot sheet and launcher (z-40) over their scrim (z-scrim, above the bar)',
   },
   'features/filings/components/copilot/CopilotCoachmark.tsx': {
     z: { '40': 1 },
@@ -147,8 +167,16 @@ const classTokens = (text: string) => text.split(/\s+/).filter(Boolean)
 const isFixedClassList = (text: string) => classTokens(text).some((token) => utility(token) === 'fixed')
 const isStickyClassList = (text: string) => classTokens(text).some((token) => utility(token) === 'sticky')
 
-/** Numeric value of one z token name (a number or a ladder name); null for auto / transient / none. */
-function zValue(name: string, token: string): number | null {
+/** Vertical anchors a class list declares, behind any variant (inset-0 / inset-[…] / inset-y-* count as both). */
+const BOTTOM_ANCHOR = /^(-?bottom-|inset-0$|inset-\[|-?inset-y-)/
+const TOP_ANCHOR = /^(-?top-|inset-0$|inset-\[|-?inset-y-)/
+const hasAnchor = (text: string, anchor: RegExp) => classTokens(text).some((token) => anchor.test(utility(token)))
+/** z-toast rides the transient toast layer only as the top-anchored skip link; anywhere else it is a z-80 bar. */
+const toastIsTransient = (text: string) => hasAnchor(text, TOP_ANCHOR) && !hasAnchor(text, BOTTOM_ANCHOR)
+
+/** Numeric value of one z token name (a number or a ladder name) in its class list; null for auto / transient / none. */
+function zValue(name: string, token: string, text: string): number | null {
+  if (name === 'toast') return toastIsTransient(text) ? null : Number(Z_INDEX.toast)
   if (TRANSIENT_LAYERS.has(name) || name === 'auto') return null
   if (/^\d+$/.test(name)) return Number(name)
   if (name in Z_INDEX) return Number(Z_INDEX[name])
@@ -164,7 +192,7 @@ function maxZOf(text: string): number {
   for (const token of classTokens(text)) {
     const u = utility(token)
     if (!/^z-/.test(u)) continue
-    max = Math.max(max, zValue(u.slice(2), token) ?? 0)
+    max = Math.max(max, zValue(u.slice(2), token, text) ?? 0)
   }
   return max
 }
@@ -223,6 +251,23 @@ function containsCall(node: ts.Node, callee: string): boolean {
   return found
 }
 
+/** `useLayoutEffect`, plus any isomorphic alias declared as `typeof window !== 'undefined' ? useLayoutEffect : useEffect`. */
+function layoutEffectNames(sourceFile: ts.SourceFile): Set<string> {
+  const names = new Set(['useLayoutEffect'])
+  const visit = (node: ts.Node): void => {
+    if (ts.isVariableDeclaration(node) && ts.isIdentifier(node.name) && node.initializer) {
+      const init = unwrap(node.initializer)
+      if (ts.isConditionalExpression(init) && init.condition.getText(sourceFile).includes('typeof window')) {
+        const whenTrue = unwrap(init.whenTrue)
+        if (ts.isIdentifier(whenTrue) && whenTrue.text === 'useLayoutEffect') names.add(node.name.text)
+      }
+    }
+    ts.forEachChild(node, visit)
+  }
+  visit(sourceFile)
+  return names
+}
+
 function scanSource(source: string, fileName: string, offsetObjects: string[] = []): FileScan {
   const sourceFile = ts.createSourceFile(
     fileName,
@@ -231,6 +276,7 @@ function scanSource(source: string, fileName: string, offsetObjects: string[] = 
     true,
     fileName.endsWith('x') ? ts.ScriptKind.TSX : ts.ScriptKind.TS,
   )
+  const layoutEffects = layoutEffectNames(sourceFile)
   const out: FileScan = {
     fixed: [],
     sticky: [],
@@ -284,7 +330,7 @@ function scanSource(source: string, fileName: string, offsetObjects: string[] = 
         : undefined
       out.offsetObjects[node.name.text] = bottom ? usesChromeOffset(bottom.initializer) : false
     }
-    if (ts.isCallExpression(node) && ts.isIdentifier(node.expression) && node.expression.text === 'useLayoutEffect') {
+    if (ts.isCallExpression(node) && ts.isIdentifier(node.expression) && layoutEffects.has(node.expression.text)) {
       if (containsCall(node, 'publishConsentLayer')) out.publishesInLayoutEffect = true
     }
     ts.forEachChild(node, visit)
@@ -341,7 +387,12 @@ describe('no fixed bottom chrome outranks the workspace layers at the launcher c
     expect(rankOf('lg:hidden fixed inset-0 z-30 bg-overlay')).toBe(30)
     expect(rankOf('fixed inset-x-0 bottom-0 z-40 lg:static lg:z-auto')).toBe(40)
     expect(rankOf('fixed bottom-0 z-30 lg:z-50')).toBe(50) // the highest token, behind any variant
-    expect(rankOf('sr-only focus:not-sr-only focus:fixed focus:z-toast')).toBe('transient')
+    expect(rankOf('lg:hidden fixed inset-0 z-scrim bg-overlay')).toBe(SCRIM_Z)
+    expect(rankOf('sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-toast')).toBe('transient') // the skip link
+    expect(rankOf('fixed bottom-4 right-4 z-toast')).toBe(Number(Z_INDEX.toast)) // the retired cookie toast's shape
+    expect(rankOf('fixed z-toast')).toBe(Number(Z_INDEX.toast)) // unanchored: an inline-style bottom
+    expect(rankOf('fixed inset-0 z-toast')).toBe(Number(Z_INDEX.toast)) // inset-0 anchors the bottom too
+    expect(maxZOf('z-toast')).toBe(Number(Z_INDEX.toast)) // a z-toast written apart from its fixed is still z-80
     expect(rankOf('fixed inset-0 z-modal')).toBe('transient')
     expect(rankOf('fixed inset-0 z-overlay')).toBe('transient')
     expect(rankOf('fixed z-overlay md:z-50')).toBe(50) // a numeric beside a transient counts
@@ -398,6 +449,10 @@ describe('no fixed bottom chrome outranks the workspace layers at the launcher c
     // the bar publishes from a layout effect, not from anywhere
     expect(kinds('useLayoutEffect(() => { const m = () => publishConsentLayer(1); m() }, [])').layoutPublish).toBe(true)
     expect(kinds('useEffect(() => { publishConsentLayer(1) }, [])').layoutPublish).toBe(false)
+    // …or from the repo's isomorphic alias, recognised by its declaration, never by its name alone
+    expect(kinds("const useIsoLayoutEffect = typeof window !== 'undefined' ? useLayoutEffect : useEffect; useIsoLayoutEffect(() => { publishConsentLayer(1) }, [])").layoutPublish).toBe(true)
+    expect(kinds('const useIsoLayoutEffect = useEffect; useIsoLayoutEffect(() => { publishConsentLayer(1) }, [])').layoutPublish).toBe(false)
+    expect(kinds("const useIsoLayoutEffect = typeof window !== 'undefined' ? useEffect : useLayoutEffect; useIsoLayoutEffect(() => { publishConsentLayer(1) }, [])").layoutPublish).toBe(false)
     // comments never count; prose with the word is harmless (rank 0 is not counted)
     expect(kinds('// fixed bottom-0 z-50\n/* position: "fixed" */ const a = 1')).toEqual(none)
     expect(rankedCounts(scanSource('const t = "a fixed income table"', 'f.ts').fixed)).toEqual({})
@@ -461,6 +516,18 @@ describe('no fixed bottom chrome outranks the workspace layers at the launcher c
     }
   })
 
+  it('the ladder tokens sit on their rungs: sticky < consent < scrim < the pinned workspace level (40) < header', () => {
+    // Every check in this file compares against the tokens, so the tokens themselves are pinned here:
+    // consent at 45 would pass them all while putting the bar back over the launcher corner, and a
+    // scrim at or below the bar would leave it bright and pointer-operable under an open sheet.
+    const WORKSPACE_Z = Math.max(...Object.values(PINNED).flatMap(({ z }) => Object.keys(z).map(Number)))
+    expect(WORKSPACE_Z, 'the pinned workspace sheets / launcher / coachmark level').toBe(40)
+    expect(CONSENT_Z, 'the bar must outrank in-page sticky chrome').toBeGreaterThan(Number(Z_INDEX.sticky))
+    expect(SCRIM_Z, 'the sheet scrims must dim the bar').toBeGreaterThan(CONSENT_Z)
+    expect(SCRIM_Z, 'the scrims sit under the sheets they belong to').toBeLessThan(WORKSPACE_Z)
+    expect(Number(Z_INDEX.header), 'the site header stays above the workspace').toBeGreaterThan(WORKSPACE_Z)
+  })
+
   it.each(Object.entries(PINNED))('%s still declares exactly its pinned fixed sites', (file, { z, reason }) => {
     expect(fs.existsSync(path.join(ROOT, file)), `${file} is pinned but does not exist`).toBe(true)
     expect(reason.trim().length, `${file} needs a reason`).toBeGreaterThan(0)
@@ -476,6 +543,12 @@ describe('no fixed bottom chrome outranks the workspace layers at the launcher c
     for (const file of Object.keys(PINNED)) {
       const r = scan().get(file)
       for (const site of r?.fixed ?? []) {
+        if (site.rank === SCRIM_Z) {
+          // A pinned z-scrim site is a full-viewport scrim and nothing else: bottom chrome of its own there would sit over the bar uninset.
+          const base = classTokens(site.text).filter((token) => !token.includes(':'))
+          if (!base.includes('inset-0') || !base.includes('bg-overlay')) problems.push(`${file}: a z-scrim site that is not a full-viewport scrim (inset-0 bg-overlay) — "${site.text.slice(0, 60)}"`)
+          continue
+        }
         if (site.rank !== 40) continue
         const tokens = classTokens(site.text).filter((token) => !token.includes(':'))
         const bottom = tokens.filter((token) => /^bottom-/.test(token))

@@ -7,6 +7,11 @@ import Link from 'next/link'
 import { Button, Modal, ModalBody, ModalFooter, ModalHeader } from '@/components/ui'
 import { isConsentLayerVisible, publishConsentLayer } from '@/lib/consentLayer'
 
+// Isomorphic layout effect (the repo's SSR-safe alias, as in ui/Input and useCountUp): useLayoutEffect
+// in the browser, where the consent inset must land before the bar's first paint; useEffect on a server
+// renderer, which never renders the bar anyway. The ladder gate reads the alias by its declaration.
+const useIsoLayoutEffect = typeof window !== 'undefined' ? useLayoutEffect : useEffect
+
 export interface CookiePreferences {
   essential: boolean
   analytics: boolean
@@ -111,7 +116,7 @@ export default function CookieConsent({ onPreferencesChanged }: CookieConsentPro
   // covered — the bar sits BENEATH that chrome on z-consent. A layout effect so the offset lands
   // before the bar's first paint; ResizeObserver follows reflow (text wrapping, orientation). The
   // cleanup clears the layer the moment the bar unmounts (a choice was made).
-  useLayoutEffect(() => {
+  useIsoLayoutEffect(() => {
     if (!showBanner) return
     const bar = barRef.current
     if (!bar) return
@@ -315,10 +320,11 @@ export default function CookieConsent({ onPreferencesChanged }: CookieConsentPro
 
   return (
     <>
-      {/* z-consent: above in-page sticky chrome and the workspace scrims, beneath the research chrome
-          (sheets, launchers, coachmark), which yields its height via --consent-inset (see the layout
-          effect above). pb-[env(safe-area-inset-bottom)] keeps the choices clear of the home
-          indicator; the measured height includes it. A named region so assistive tech can find it. */}
+      {/* z-consent: above in-page sticky chrome, beneath the workspace sheets' scrims (z-scrim: an open
+          sheet dims this bar and makes it inert, as any modal does) and the research chrome (sheets,
+          launchers, coachmark), which yields its height via --consent-inset (see the layout effect
+          above). pb-[env(safe-area-inset-bottom)] keeps the choices clear of the home indicator; the
+          measured height includes it. A named region so assistive tech can find it. */}
       <div
         ref={barRef}
         role="region"

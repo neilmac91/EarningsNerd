@@ -1,6 +1,5 @@
-import { readFileSync } from 'node:fs'
-import path from 'node:path'
 import { test, expect, type Locator, type Page } from '@playwright/test'
+import { PANE, answerApi, type Theme } from './fixtures/filing3Api'
 
 /**
  * EN-02: the cookie-consent bar yields to the research chrome, in a real Chromium.
@@ -8,8 +7,8 @@ import { test, expect, type Locator, type Page } from '@playwright/test'
  * Before: the bar (fixed bottom-0 z-50) sat over the z-40 "Ask this Filing" launcher — elementFromPoint
  * at the launcher's centre returned "Accept All", a pointer click on it timed out, the first-run
  * coachmark pointed at the covered launcher, and with the mobile sheet open the composer textarea
- * was entirely behind the bar. Now the bar is on z-consent (35: above the page's sticky section nav
- * and the workspace scrims, beneath that z-40 chrome) and publishes its height as --consent-inset,
+ * was entirely behind the bar. Now the bar is on z-consent (32: above the page's sticky section nav,
+ * beneath the sheets' z-scrim scrims and that z-40 chrome) and publishes its height as --consent-inset,
  * which the launcher, the coachmark, the feedback launcher and the sheets add to their bottom offset
  * while the bar is mounted; the coachmark waits until the bar is gone and the "preferences saved"
  * confirmation is a top-centre toast.
@@ -17,8 +16,10 @@ import { test, expect, type Locator, type Page } from '@playwright/test'
  * Both control sets are checked in the states where each is meant to be active: with no modal open,
  * every consent choice and the launcher hit themselves and are inside the viewport, and they activate
  * by pointer and by keyboard; under a real modal (the settings dialog) the controls beneath are
- * legitimately inert and are re-tested operable after dismissal; under the mobile sheet, whose scrim
- * sits below the bar, a choice stays pointer-operable and resolves consent without closing the sheet.
+ * legitimately inert and are re-tested operable after dismissal; under the mobile sheet the bar is
+ * dimmed by the sheet's scrim (z-scrim, above it) and inert like any modal's backdrop — a tap there
+ * closes the sheet and stores nothing — and the choices are operable again once it is closed, which
+ * is what aria-modal and the sheet's focus trap already tell keyboard and AT users.
  * Consent semantics are unchanged: nothing is accepted or dismissed by the layout, and a choice
  * persists and fires `cookieConsentChanged` exactly as before.
  *
@@ -34,57 +35,16 @@ import { test, expect, type Locator, type Page } from '@playwright/test'
  * example). DOM, pointer and keyboard probes only: this is not a screen-reader test.
  */
 
-const API_ORIGIN = new URL(process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000').origin
-const SUMMARY = JSON.parse(readFileSync(path.join(__dirname, 'fixtures/filing-3-summary.json'), 'utf8')) as Record<string, unknown>
-const FOLDER = 'https://www.sec.gov/Archives/edgar/data/320193/000032019325000079/'
-const FILING = {
-  id: 3,
-  filing_type: '10-K',
-  filing_date: '2025-10-31T00:00:00+00:00',
-  accession_number: '0000320193-25-000079',
-  document_url: `${FOLDER}aapl-20250927.htm`,
-  sec_url: FOLDER,
-  company: { id: 1, ticker: 'AAPL', name: 'Apple Inc.', exchange: 'NASDAQ' },
-}
-const PANE = '[role="dialog"][aria-label="Ask this Filing"]'
 const COACH_TEXT = 'New: ask this filing anything'
 const SAVED_TEXT = 'Cookie preferences saved'
 const CONSENT_CHOICES = ['Accept All', 'Reject All', 'Customize'] as const
 
 type Rect = { x: number; y: number; w: number; h: number }
-type Theme = 'light' | 'dark'
 
 declare global {
   interface Window {
     __consentEvents?: unknown[]
   }
-}
-
-/** A Pro session: the Answer tab then carries the composer textarea the sheet checks are about. */
-async function answerApi(page: Page, baseURL: string) {
-  const origin = new URL(baseURL).origin
-  const cors = { 'access-control-allow-origin': origin, 'access-control-allow-credentials': 'true' }
-  await page.context().addCookies([{ name: 'en_session', value: '1', url: origin }])
-  await page.route((url) => url.origin === API_ORIGIN, (route) => {
-    const { pathname } = new URL(route.request().url())
-    const json = (status: number, body: unknown) => route.fulfill({ status, headers: cors, json: body })
-    switch (pathname) {
-      case '/api/filings/3':
-        return json(200, FILING)
-      case '/api/summaries/filing/3':
-        return json(200, SUMMARY)
-      case '/api/filings/3/content':
-        return json(200, { filing_id: 3, has_content: false, markdown_content: null })
-      case '/api/auth/me':
-        return json(200, { id: 1, email: 'pro@example.com', full_name: 'Pro User', is_pro: true, is_beta: false, is_admin: false, email_verified: true })
-      case '/api/subscriptions/subscription':
-        return json(200, { is_pro: true, stripe_customer_id: 'cus_1', stripe_subscription_id: 'sub_1', subscription_status: 'active', plan: 'pro', status: 'active', trial_end: null, current_period_end: null, cancel_at_period_end: false })
-      case '/api/subscriptions/usage':
-        return json(200, { summaries_used: 0, summaries_limit: 100, is_pro: true, month: '2026-10', qa_used: 0, qa_limit: 300, copilot_free_taste_used: 0, copilot_free_taste_total: 0, analysis_used: 0, analysis_limit: 50 })
-      default:
-        return json(404, { detail: 'Not found' })
-    }
-  })
 }
 
 interface OpenOptions {
@@ -97,7 +57,8 @@ interface OpenOptions {
 
 /** Fresh storage by default: no consent choice, first-run coachmark not yet seen, logged in (feedback launcher shown). */
 async function openFiling(page: Page, baseURL: string, { theme = 'light', consented = false, dnt = false }: OpenOptions = {}) {
-  await answerApi(page, baseURL)
+  // A Pro session: the Answer tab then carries the composer textarea the sheet checks are about.
+  await answerApi(page, baseURL, 'pro')
   await page.addInitScript(
     ({ theme, consented, dnt }: { theme: Theme; consented: boolean; dnt: boolean }) => {
       try {
@@ -141,6 +102,13 @@ const hitsItself = (loc: Locator) =>
     const r = el.getBoundingClientRect()
     const at = document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2)
     return at === el || el.contains(at)
+  })
+/** document.elementFromPoint at the element's centre is a sheet scrim: the element is inert under a real modal. */
+const hitsScrim = (loc: Locator) =>
+  loc.evaluate((el) => {
+    const r = el.getBoundingClientRect()
+    const at = document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2)
+    return !!at && at !== el && !el.contains(at) && at.classList.contains('bg-overlay')
   })
 const viewport = (page: Page) => page.evaluate(() => ({ w: window.innerWidth, h: window.innerHeight }))
 const overlaps = (a: Rect, b: Rect) => a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h
@@ -209,6 +177,7 @@ async function expectComposerClear(page: Page) {
   const c = await rectOf(composer(page))
   expect(inside(c, vp), 'composer outside the viewport').toBe(true)
   expect(overlaps(c, barRect), 'composer behind the bar').toBe(false)
+  expect(await hitsItself(composer(page)), 'composer is covered').toBe(true) // a rect alone is not occlusion evidence
   const pane = await rectOf(page.locator(PANE))
   expect(pane.y, 'the sheet runs off the top of the viewport').toBeGreaterThanOrEqual(0)
   expect(pane.y + pane.h, 'the pane runs under the bar').toBeLessThanOrEqual(barRect.y + 0.5)
@@ -291,8 +260,10 @@ for (const theme of ['light', 'dark'] as const) {
       await launcher(page).tap()
       await expect(page.locator(PANE)).toBeVisible()
       await expectComposerClear(page)
-      // The sheet's scrim sits below the bar: the choices stay visible and pointer-operable beside the sheet.
-      for (const name of CONSENT_CHOICES) expect(await hitsItself(page.getByRole('button', { name, exact: true }))).toBe(true)
+      // The sheet's scrim (z-scrim) sits above the bar: beneath this real modal every choice is inert, and the
+      // bar is dimmed, not hidden or clipped — still rendered at its full height under the scrim.
+      for (const name of CONSENT_CHOICES) expect(await hitsScrim(page.getByRole('button', { name, exact: true })), `${name} is not under the scrim`).toBe(true)
+      await expect(bar(page)).toBeVisible()
       await page.keyboard.press('Escape')
       await expect(page.locator(PANE)).toBeHidden()
       await expectBothControlSetsUsable(page)
@@ -318,23 +289,33 @@ for (const theme of ['light', 'dark'] as const) {
       expect(await coachmark(page).count()).toBe(0)
     })
 
-    test('a choice made while the sheet is open resolves consent and the sheet settles on the viewport bottom', async ({ page, baseURL }) => {
+    test('under the open sheet the bar is inert: a tap on a choice reaches the scrim, closes the sheet and stores nothing; the choice then persists', async ({ page, baseURL }) => {
       await openFiling(page, baseURL!, { theme })
       await expect(bar(page)).toBeVisible()
       await launcher(page).tap()
       await expect(page.locator(PANE)).toBeVisible()
       await expectComposerClear(page)
-      await page.getByRole('button', { name: 'Accept All' }).tap()
+      const accept = page.getByRole('button', { name: 'Accept All', exact: true })
+      expect(await hitsScrim(accept), 'Accept All is not under the sheet scrim').toBe(true)
+      expect(await hitsItself(feedbackLauncher(page)), 'the feedback launcher is not under the sheet scrim').toBe(false)
+      // A real touch at the choice's centre lands on the scrim: the sheet closes and consent is untouched.
+      const r = await rectOf(accept)
+      await page.touchscreen.tap(r.x + r.w / 2, r.y + r.h / 2)
+      await expect(page.locator(PANE)).toBeHidden()
+      await expect(bar(page)).toBeVisible()
+      expect(await stored(page), 'a tap on the scrim must not decide consent').toBeNull()
+      expect(await consentEvents(page)).toEqual([])
+      expect(await layer(page)).toMatchObject({ visible: true })
+      // Operable again once the sheet is closed: the same tap now accepts, exactly as before.
+      await expectBothControlSetsUsable(page)
+      await accept.tap()
       await expect(bar(page)).toHaveCount(0)
       expect(await stored(page)).toMatchObject({ essential: true, analytics: true, sessionRecording: false })
       expect(await consentEvents(page)).toHaveLength(1)
       expect(await layer(page)).toEqual({ visible: false, inset: '' })
-      await expect(page.locator(PANE)).toBeVisible()
       const vp = await viewport(page)
-      const pane = await rectOf(page.locator(PANE))
-      expect(Math.round(pane.y + pane.h)).toBe(vp.h) // bottom-[var(--consent-inset,0px)] back to 0
-      expect(inside(await rectOf(composer(page)), vp)).toBe(true)
-      expect(await hitsItself(composer(page))).toBe(true)
+      const l = await rectOf(launcher(page))
+      expect(Math.round(vp.h - (l.y + l.h))).toBe(20) // the chrome is back at its base offset
     })
 
     test('the coachmark is deferred while the bar shows and then points at the uncovered launcher', async ({ page, baseURL }) => {
@@ -425,9 +406,11 @@ test.describe('no bar', () => {
 
   test('Do Not Track: defaults saved silently, no bar, no layer', async ({ page, baseURL }) => {
     await openFiling(page, baseURL!, { dnt: true })
+    // The defaults are written by CookieConsent's mount effect, which can land after the launcher is
+    // visible on a busy machine: poll for the write rather than reading storage once.
+    await expect.poll(() => stored(page)).toMatchObject({ essential: true, analytics: false, sessionRecording: false })
     await expect(bar(page)).toHaveCount(0)
     expect(await layer(page)).toEqual({ visible: false, inset: '' })
-    expect(await stored(page)).toMatchObject({ essential: true, analytics: false, sessionRecording: false })
     expect(await consentEvents(page)).toHaveLength(1)
     expect(await page.getByText(SAVED_TEXT).count()).toBe(0)
   })

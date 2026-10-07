@@ -1,6 +1,7 @@
-import { readFileSync } from 'node:fs'
-import path from 'node:path'
 import { test, expect, type Page } from '@playwright/test'
+import { DOCUMENT, EXCERPT, PANE, answerApi, type Content, type Theme, type Who } from './fixtures/filing3Api'
+
+const CHIP = 'Source: Verified in filing'
 
 /**
  * EN-01: a provenance chip on the filing page always reaches the source, in a real Chromium.
@@ -14,70 +15,10 @@ import { test, expect, type Page } from '@playwright/test'
  * the same for an anonymous visitor and a Pro user.
  *
  * CI runs e2e with no backend (lessons/test-e2e-runs-without-backend.md): the API is answered inside
- * the browser with page.route fixtures (the summary is a trimmed copy of the public Apple FY2025 10-K
- * example, fixtures/filing-3-summary.json), so the server render falls back to the client fetch.
+ * the browser with page.route fixtures (fixtures/filing3Api.ts: the summary is a trimmed copy of the
+ * public Apple FY2025 10-K example), so the server render falls back to the client fetch.
  * DOM and keyboard probes only: this is not a screen-reader test.
  */
-
-const API_ORIGIN = new URL(process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000').origin
-const SUMMARY = JSON.parse(readFileSync(path.join(__dirname, 'fixtures/filing-3-summary.json'), 'utf8')) as Record<string, unknown>
-
-const FOLDER = 'https://www.sec.gov/Archives/edgar/data/320193/000032019325000079/'
-const DOCUMENT = `${FOLDER}aapl-20250927.htm`
-const FILING = {
-  id: 3,
-  filing_type: '10-K',
-  filing_date: '2025-10-31T00:00:00+00:00',
-  accession_number: '0000320193-25-000079',
-  document_url: DOCUMENT,
-  sec_url: FOLDER,
-  company: { id: 1, ticker: 'AAPL', name: 'Apple Inc.', exchange: 'NASDAQ' },
-}
-// The takeaway chip's verified excerpt (fixtures/filing-3-summary.json, Total net sales).
-const EXCERPT = 'Americas net sales increased during 2025 compared to 2024 primarily due to higher net sales of iPhone and Services.'
-const CHIP = 'Source: Verified in filing'
-const PANE = '[role="dialog"][aria-label="Ask this Filing"]'
-
-type Who = 'anon' | 'pro'
-type Content = 'none' | 'matched' | 'unmatched' | 'error'
-type Theme = 'light' | 'dark'
-
-async function answerApi(page: Page, baseURL: string, who: Who, content: Content) {
-  const origin = new URL(baseURL).origin
-  const cors = { 'access-control-allow-origin': origin, 'access-control-allow-credentials': 'true' }
-  if (who === 'pro') await page.context().addCookies([{ name: 'en_session', value: '1', url: origin }])
-  await page.route((url) => url.origin === API_ORIGIN, (route) => {
-    const { pathname } = new URL(route.request().url())
-    const json = (status: number, body: unknown) => route.fulfill({ status, headers: cors, json: body })
-    switch (pathname) {
-      case '/api/filings/3':
-        return json(200, FILING)
-      case '/api/summaries/filing/3':
-        return json(200, SUMMARY)
-      case '/api/filings/3/content':
-        if (content === 'error') return json(500, { detail: 'content unavailable' })
-        if (content === 'none') return json(200, { filing_id: 3, has_content: false, markdown_content: null })
-        return json(200, {
-          filing_id: 3,
-          has_content: true,
-          markdown_content:
-            content === 'matched'
-              ? `# Item 8. Financial Statements\n\nNet sales by reportable segment. ${EXCERPT} Europe net sales also increased.\n`
-              : '# Item 8. Financial Statements\n\nNothing cited in the summary appears in this text.\n',
-        })
-      case '/api/auth/me':
-        return who === 'anon'
-          ? json(401, { detail: 'Not authenticated' })
-          : json(200, { id: 1, email: 'pro@example.com', full_name: 'Pro User', is_pro: true, is_beta: false, is_admin: false, email_verified: true })
-      case '/api/subscriptions/subscription':
-        return json(200, { is_pro: true, stripe_customer_id: 'cus_1', stripe_subscription_id: 'sub_1', subscription_status: 'active', plan: 'pro', status: 'active', trial_end: null, current_period_end: null, cancel_at_period_end: false })
-      case '/api/subscriptions/usage':
-        return json(200, { summaries_used: 0, summaries_limit: 100, is_pro: true, month: '2026-10', qa_used: 0, qa_limit: 300, copilot_free_taste_used: 0, copilot_free_taste_total: 0, analysis_used: 0, analysis_limit: 50 })
-      default:
-        return json(404, { detail: 'Not found' })
-    }
-  })
-}
 
 async function openFiling(page: Page, baseURL: string, { who = 'anon', content = 'none', theme = 'light' }: { who?: Who; content?: Content; theme?: Theme } = {}) {
   await answerApi(page, baseURL, who, content)

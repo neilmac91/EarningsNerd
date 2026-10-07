@@ -520,14 +520,15 @@ export default function AskCopilotRail({
   // --- Panel (open, standalone overlay) ---
   return (
     <>
-      {/* Mobile-only scrim behind the bottom-sheet (z-30 < panel's z-40). Tapping it closes the
-          sheet. `lg:hidden` keeps it out of the desktop docked/static layout entirely. */}
+      {/* Mobile-only scrim behind the bottom-sheet (z-scrim: above the consent bar, which it dims and
+          makes inert like any modal backdrop; below the panel's z-40). Tapping it closes the sheet.
+          `lg:hidden` keeps it out of the desktop docked/static layout entirely. */}
       <button
         type="button"
         aria-hidden="true"
         tabIndex={-1}
         onClick={handleClose}
-        className="lg:hidden fixed inset-0 z-30 bg-overlay"
+        className="lg:hidden fixed inset-0 z-scrim bg-overlay"
       />
       <div
         ref={panelRef}

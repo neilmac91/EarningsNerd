@@ -27,8 +27,8 @@ the top of the page, then read the composer's rect and `elementFromPoint`" caugh
 scrolled first would not have.
 
 **Evidence**: `frontend/app/globals.css` (`html { scroll-padding-bottom: var(--consent-inset, 0px) }`);
-`frontend/tests/unit/bottomChromeLadder.spec.ts` (the scroll-padding clause; mutation to `0px` fails
-it); `frontend/tests/e2e/consent-bar-yields.spec.ts` `expectComposerClear` (desktop: waits for the
+`frontend/tests/unit/bottomChromeLadder.spec.ts` (the scroll-padding clause; a scratch-copy probe setting
+it to `0px` fails it — the repository's one mutation demonstration is the bar's `z-consent` → `z-50`); `frontend/tests/e2e/consent-bar-yields.spec.ts` `expectComposerClear` (desktop: waits for the
 focus scroll, then the pane's bottom ≤ the bar's top and the composer hits itself);
 harness jobs `A2after-launcher-click-pane-1440-pro`, `-1280x600-pro` in
 `tasks/critique-env-2026-10-04/jobs-en02.json` (scrollY 480 / 330 after the click, composer clear).

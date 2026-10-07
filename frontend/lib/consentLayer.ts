@@ -1,9 +1,10 @@
 /**
  * The consent layer: how the cookie-consent bar tells the rest of the chrome that it is there.
  *
- * The bar is fixed to the bottom of the viewport on `z-consent` (35): above the page's own chrome
+ * The bar is fixed to the bottom of the viewport on `z-consent` (32): above the page's own chrome
  * (in-page sticky chrome rides z-sticky 30, and a sticky section nav passing through the bar's
- * region must not paint over a consent choice) and above the z-30 workspace scrims, BENEATH the
+ * region must not paint over a consent choice), BENEATH the workspace sheets' scrims (z-scrim 35:
+ * an open mobile sheet dims the bar and makes it inert, as any modal's backdrop does) and the
  * research chrome it used to cover — the z-40 workspace sheets, "Ask this Filing" launcher and
  * coachmark (DESIGN_SYSTEM §4 Stacking). A lower z alone would let that chrome cover a consent
  * choice, so while the bar is mounted it publishes its height on <html>: `--consent-inset` (a CSS
