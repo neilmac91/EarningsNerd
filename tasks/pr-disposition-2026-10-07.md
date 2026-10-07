@@ -6,7 +6,7 @@ inventory of stale remote branches. Source instruction: the founder's live launc
 2026-10-07 (the "PR disposition sweep" prompt). Structure and evidence standard follow
 [`pr-disposition-2026-09-30.md`](pr-disposition-2026-09-30.md): checked means evidenced.
 
-**Stage:** 0 and 1 complete; stopped for founder approval (Stage 2 not started). Nothing in Stage 0 or
+**Stage:** 0 and 1 complete; Stage 2 (execution) in progress under the founder approval of 21:08Z. Nothing in Stage 0 or
 Stage 1 pushes, comments, labels, reviews or merges anything except this checkpoint.
 
 ## Session state
@@ -193,3 +193,21 @@ Pending.
   no new conflicts; #1108 moved to `484a357a`.
 - 20:50–20:57Z — Integrated-#1081 simulation (worktree outside the repo, removed): no conflict with #1107 or
   #1108. Stage 1 report sent to the founder; waiting for approval by number. Spend so far: USD 0.
+- ~21:08Z — **Founder approval** (live session): "i authorise you to take action to progress as per
+  the above plan. for any items pending my input, please analyse and determine the best path forward
+  and proceed based on your recommendation." Recommendations adopted for the open choices:
+  C1–C3 as planned; C4 replacement **with** edgartools moved out of the pip minor group (exclude, not
+  ignore: each new edgartools release then gets its own PR that the Ford test gates); C5 keep
+  SQLAlchemy 2.0, close #1095, Dependabot `ignore` for sqlalchemy semver-minor (2.0.x patches still
+  flow), landed in the C4 replacement; C6 keep #1074 untouched (artifact 11262711816 preservation is a
+  founder action before 2026-10-17T03:20Z); C7 refresh both hold records; C8 delete no branch; C9
+  #1111 follow-ups queued, not implemented in this run (Codex lane, post-merge); C10 this run's USD
+  3.00 treated as separately authorised, every paid run recorded here.
+- 21:04Z (observed) — the owner account commented `@codex review` on #1102 (6046805313); Codex
+  completed "Didn't find any major issues" on `24dc5957` (6046830986, 21:04:52Z).
+- 21:09Z — New PR #1113 (`claude/implementation-launch-prompt-ofvuc1-en01-focus`, product lane,
+  draft, opened 20:46Z): observe-only. Node 22.23.2 / npm 10.9.8 installed (SHA256 verified) for
+  CI-parity gates. Worktrees: `/home/user/wt/pr1102` (local main + #1102 gate, never pushed),
+  `/home/user/wt/pr1081`, `/home/user/wt/pr1096r`.
+- 21:15Z — Lane workflow `wf_3832f533-85e` (implement → three-lens review → refuters → one fix round →
+  delta re-review; local commits only) started for #1081 and the #1096 replacement.
