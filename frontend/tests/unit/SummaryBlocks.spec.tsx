@@ -206,7 +206,7 @@ describe('SummaryBlocks', () => {
     // One chip each for the quote, the metric takeaway, and the first (only cited) footnote. The
     // metric takeaway's chip also renders in the phone-card layout, which jsdom cannot hide
     // (vitest css: false); count it once by leaving the card copies out.
-    const chips = screen.getAllByText(/Verified in filing/i).filter((el) => !el.closest('[data-metric-card]'))
+    const chips = screen.getAllByText(/Verified in filing/i).filter((el) => !el.closest('[data-metrics-layout="cards"]'))
     expect(chips).toHaveLength(3)
   })
 

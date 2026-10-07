@@ -236,20 +236,31 @@ Stacking         z-sticky 30 (in-page sticky chrome) · z-header 50 (site header
 
 Metric cards     <FinancialMetricsTable> below md (768px): one stacked card per metric instead of the five-column
                  DataTable, switched by CSS alone (`md:hidden` cards, `hidden md:block` table — both in the DOM
-                 inside one wrapper, the inactive one display:none, so it adds no accessible content, Tab stop or
-                 id). A card carries every cell the table shows: name (body size, font-medium) + XBRL chip; a
-                 `<dl>` of Current / Prior / Change (short eyebrow labels in the table's header size so the three
-                 fit one line at 390px; the Change group only when the table has the comparative columns, the
-                 Prior group only for a row that has a prior value — the table shows an empty cell there; the
-                 change chip's tone from `change_tone`, its glyph from `change_direction`, the em dash when the
-                 server sent none); the takeaway and its evidence chip; the per-ADS note. The list is
-                 `role="list"` (WebKit drops list semantics from a `list-style: none` list) and takes the table
-                 caption as its accessible name. Sub-surface `rounded-lg border border-border-light bg-white p-3
-                 dark:border-white/10 dark:bg-white/5` inside the section panel (HeroExample's); text-sm values
-                 and takeaway, never nowrap / truncate / line-clamp / a clipping height — long values wrap. Gate:
-                 tests/unit/FinancialMetricsCards.spec.tsx (content parity, both layouts) +
-                 tests/e2e/metrics-stacked-cards.spec.ts (the hidden layout and the one-line row in a real
-                 browser).
+                 inside ONE wrapper so a parent's `space-y` hands neither a sibling margin; the inactive one is
+                 display:none, so it adds no accessible content, Tab stop or id — never a JS media query, which
+                 would SSR one layout and flip after hydration, and never a second DataTable responsive API).
+                 Both presentations render ONE set of field renderers (nameField / currentField / perAdsField /
+                 priorField / changeField / takeawayField), each marking its element `data-metric-field`; with
+                 `data-metrics-layout="cards|table"`, `data-metric-card`, `data-direction` and `data-tone` these
+                 are the parity anchors the render spec, the Playwright spec and the critique harness count —
+                 keep them. A card: name + XBRL chip; a `<dl>` of Current / Prior / Change (visible short labels
+                 in the table's header eyebrow with an sr-only "period", so the three groups sit on one line at
+                 390px and AT hears the column names; the Prior and Change groups whenever the table has those
+                 columns, mirroring its cells exactly — an empty Prior cell is an empty definition; the change
+                 glyph inline-block and aria-hidden, the string verbatim, the em dash when the server sent none;
+                 tone from `change_tone` through lib/financialTone.directionText + font-semibold for a move,
+                 pinned token-for-token to DataTable's td); the per-ADS note as its own line under the figures;
+                 the takeaway and its evidence chip. Figures `font-data text-sm tabular-nums`, prose text-sm,
+                 chips as they are — never smaller than the md table. Wrap contract: `[overflow-wrap:anywhere]`
+                 on the card (inherited; it also lowers a flex item's min-content, which `break-words` cannot)
+                 and `min-w-0` groups; never nowrap / truncate / line-clamp / a clipping height on card text —
+                 long values and an unbreakable token break inside their box. Sub-surface `rounded-lg border
+                 border-border-light bg-white p-3 dark:border-white/10 dark:bg-white/5` inside the section panel
+                 (HeroExample's; no nested shadow). The list is `role="list"` (WebKit drops list semantics from a
+                 `list-style: none` list) named by the table caption, in both caption variants. Gates:
+                 tests/unit/FinancialMetricsCards.spec.tsx (content parity, both layouts, every data variant) +
+                 tests/e2e/metrics-stacked-cards.spec.ts (the hidden layout, the one-line row, wrapping, the
+                 767/768 switch and the sibling-margin pin in a real browser).
 
 Ask answer       <AskFilingAnswer>  — the SHIPPED copilot contract: status reading|streaming|done|error;
                  answer = GFM markdown (react-markdown + remark-gfm); markers [n] AND [F1]/[f1]/[F 1]
