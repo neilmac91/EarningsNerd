@@ -6,6 +6,7 @@ import { ArrowSquareOutIcon, CheckCircleIcon } from '@/lib/icons'
 import { isXbrlCitation, type CopilotCitation } from '@/features/filings/api/copilot-api'
 import { useFilingViewer } from './FilingViewerContext'
 import { citationVerificationLabel, SOURCE_MATCH_SCOPE } from './citationVerification'
+import { useEvidencePopoverKeys } from './useEvidencePopoverKeys'
 
 // Only render a citation as an active link when it's an http(s) URL. Defense-in-depth against a
 // malicious/unexpected scheme (e.g. javascript:) reaching the href — the backend builds these from
@@ -45,6 +46,7 @@ export default function CitationChip({ citation }: CitationChipProps) {
   const popoverRef = useRef<HTMLSpanElement | null>(null)
   const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [pos, setPos] = useState<PopoverPos | null>(null)
+  const linkRef = useRef<HTMLAnchorElement | null>(null)
 
   const clearCloseTimer = () => {
     if (closeTimer.current) {
@@ -95,22 +97,41 @@ export default function CitationChip({ citation }: CitationChipProps) {
   // Clean up a pending close timer on unmount.
   useEffect(() => () => clearCloseTimer(), [])
 
-  // A fixed popover would detach from its chip on scroll/resize → just close it. Scroll doesn't
-  // bubble, so capture to catch scrolling in any ancestor (e.g. the rail's scroll container).
-  // Scrolling the portal itself or its excerpt must keep its content/actions reachable.
+  // A fixed popover would detach from its chip on scroll/resize. A hover popover just closes; one
+  // the keyboard owns (the chip focused, or focus inside the popover) re-anchors instead: focusing
+  // a chip the rail has to scroll into view used to close the popover the focus had just opened, so
+  // Tab could never reach "Open original" (EN-01). Scroll doesn't bubble, so capture to catch
+  // scrolling in any ancestor (e.g. the rail's scroll container). Scrolling the portal itself or its
+  // excerpt must keep its content/actions reachable.
   useEffect(() => {
     if (!pos) return
-    const dismiss = (event: Event) => {
+    const onMove = (event: Event) => {
       if (event.type === 'scroll' && event.target instanceof Node && popoverRef.current?.contains(event.target)) return
-      setPos(null)
+      const active = document.activeElement
+      const keyboardOwned = active === triggerRef.current || !!popoverRef.current?.contains(active)
+      if (keyboardOwned) openPopover()
+      else setPos(null)
     }
-    window.addEventListener('scroll', dismiss, { capture: true, passive: true })
-    window.addEventListener('resize', dismiss, { passive: true })
+    window.addEventListener('scroll', onMove, { capture: true, passive: true })
+    window.addEventListener('resize', onMove, { passive: true })
     return () => {
-      window.removeEventListener('scroll', dismiss, { capture: true })
-      window.removeEventListener('resize', dismiss)
+      window.removeEventListener('scroll', onMove, { capture: true })
+      window.removeEventListener('resize', onMove)
     }
-  }, [pos])
+  }, [pos, openPopover])
+
+  // Keyboard contract shared with SourceTrace (EN-01): Tab from the chip reaches "Open original", Tab
+  // past it resumes the page after the chip, Shift+Tab returns to the chip, Escape closes + refocuses.
+  const closePopover = useCallback(() => setPos(null), [])
+  const keys = useEvidencePopoverKeys({
+    open: pos !== null,
+    triggerRef,
+    popoverRef,
+    actionRef: linkRef,
+    close: closePopover,
+    holdOpen: clearCloseTimer,
+    ownsEscape: true,
+  })
 
   // XBRL figure chips ([F1]) read as hard data, distinct from filing-text excerpt chips ([1]):
   // the same bordered brand-tint chip (the v2.2 marker treatment), with the mono/tabular register
@@ -136,13 +157,15 @@ export default function CitationChip({ citation }: CitationChipProps) {
     onMouseLeave: scheduleClose,
     onFocus: openPopover,
     onBlur: scheduleClose,
+    onKeyDown: keys.onTriggerKeyDown,
   }
 
   let trigger: React.ReactNode
   if (viewer) {
-    // In-app highlight is the primary action when the filing viewer is mounted.
+    // In-app highlight is the primary action when the filing viewer is mounted; the chip is the
+    // opener the pane returns focus to on close.
     trigger = (
-      <button type="button" {...triggerHandlers} onClick={() => viewer.requestHighlight(citation)}>
+      <button type="button" {...triggerHandlers} onClick={(e) => viewer.requestHighlight(citation, e.currentTarget)}>
         {marker}
       </button>
     )
@@ -174,6 +197,7 @@ export default function CitationChip({ citation }: CitationChipProps) {
             onMouseLeave={scheduleClose}
             onFocus={clearCloseTimer}
             onBlur={scheduleClose}
+            onKeyDown={keys.onPopoverKeyDown}
             style={{ position: 'fixed', left: pos.left, top: pos.top, transform: 'translateX(-50%)',
               maxWidth: Math.max(0, window.innerWidth - 16), maxHeight: Math.max(0, window.innerHeight - 16),
               overflowY: 'auto' }}
@@ -203,6 +227,7 @@ export default function CitationChip({ citation }: CitationChipProps) {
             )}
             {viewer && isHttpUrl(fragment_url) && (
               <a
+                ref={linkRef}
                 href={fragment_url}
                 target="_blank"
                 rel="noopener noreferrer"

@@ -81,6 +81,8 @@ what applies to your task. Filenames are greppable: `arch-*`, `sec-*`, `test-*`,
 - [`test-persistent-sqlite-db-goes-stale.md`](./test-persistent-sqlite-db-goes-stale.md) — The test SQLite DB (earningsnerd.db, CWD-relative — usually backend/) is a persistent file — rm it after a schema change or rebase
 - [`test-proofs-run-on-committed-state.md`](./test-proofs-run-on-committed-state.md) — Mechanical proofs must run against committed state — a proof that cannot fail proves nothing
 - [`test-pure-move-ast-proof.md`](./test-pure-move-ast-proof.md) — Verify "pure move" refactors with an AST-normalized per-symbol diff, not by eyeballing the diff
+- [`test-leave-the-tree-alone-during-a-background-suite.md`](./test-leave-the-tree-alone-during-a-background-suite.md) — Leave the working tree untouched while a background full-suite run reads it
+- [`test-tracked-file-gates-run-after-staging.md`](./test-tracked-file-gates-run-after-staging.md) — Run a `git ls-files` gate after staging its own module, and select targets by name pattern
 - [`test-smoke-model-runs-before-sweeps.md`](./test-smoke-model-runs-before-sweeps.md) — Smoke one or two items and inspect raw output before any long or expensive model run
 - [`test-verify-orphaned-tests-before-adopting.md`](./test-verify-orphaned-tests-before-adopting.md) — Verify orphaned or uncollected tests before adopting them
 - [`test-vitest-for-copy-changes.md`](./test-vitest-for-copy-changes.md) — Run vitest before pushing any change to rendered text, numbers, or copy
@@ -88,6 +90,10 @@ what applies to your task. Filenames are greppable: `arch-*`, `sec-*`, `test-*`,
 - [`test-wire-format-coverage.md`](./test-wire-format-coverage.md) — Pin serialized wire formats with tests — suites that only check values let format drift through
 
 ## Frontend & design system
+
+- [`frontend-design-docs-need-agent-entrypoints.md`](./frontend-design-docs-need-agent-entrypoints.md) — Connect new design references to agent entrypoints, authority and maintenance
+
+- [`frontend-validate-design-sidecars-in-their-consumer.md`](./frontend-validate-design-sidecars-in-their-consumer.md) — Validate design-sidecar specimens in their consumer, and check what its engine reads
 
 - [`frontend-dialog-trap-arms-once-per-open.md`](./frontend-dialog-trap-arms-once-per-open.md) — Arm a dialog's focus trap once per open; never key its effect on a callback prop's identity
 
@@ -98,6 +104,10 @@ what applies to your task. Filenames are greppable: `arch-*`, `sec-*`, `test-*`,
 - [`frontend-native-modal-dialog-makes-body-portals-inert.md`](./frontend-native-modal-dialog-makes-body-portals-inert.md) — Under a native showModal() dialog, portal into the dialog and preventDefault the keys you own
 
 - [`frontend-dialog-opener-outlives-the-dialog.md`](./frontend-dialog-opener-outlives-the-dialog.md) — Keep a dialog's opener mounted while the dialog is open, so focus has somewhere to return
+
+- [`frontend-focus-opened-popovers-survive-the-focusing-scroll.md`](./frontend-focus-opened-popovers-survive-the-focusing-scroll.md) — A popover that opens on focus re-anchors on the scroll that focusing caused; only a hover popover closes on scroll
+
+- [`frontend-guard-a-loader-two-effects-can-start-in-one-commit.md`](./frontend-guard-a-loader-two-effects-can-start-in-one-commit.md) — Guard a loader with a synchronous in-flight ref when two effects can start it in one commit
 
 - [`frontend-trial-labels-use-entitlements.md`](./frontend-trial-labels-use-entitlements.md) — Derive current-trial presentation from the resolved entitlement
 
@@ -111,6 +121,7 @@ what applies to your task. Filenames are greppable: `arch-*`, `sec-*`, `test-*`,
 - [`frontend-route-redesign-needs-a-mount-gate.md`](./frontend-route-redesign-needs-a-mount-gate.md) — A self-omitting section needs a source-level mount gate — render tests cannot see it go missing
 - [`frontend-guard-submit-on-loading-buttons.md`](./frontend-guard-submit-on-loading-buttons.md) — Guard submit handlers with an early return when the button uses loading, not disabled
 - [`frontend-busy-controls-stay-focusable.md`](./frontend-busy-controls-stay-focusable.md) — A control busy with its own request stays focusable: aria-disabled plus an early return, never native disabled
+- [`frontend-spinner-gate-on-shared-errored-query.md`](./frontend-spinner-gate-on-shared-errored-query.md) — Gate a page's spinner on the retained failure when its children observe the same query
 - [`frontend-dialog-openers-stay-focusable.md`](./frontend-dialog-openers-stay-focusable.md) — Keep a dialog's opener focusable through its pending and cooldown states — aria-disabled, not native disabled
 - [`frontend-overrides-rot-when-the-constrained-package-moves.md`](./frontend-overrides-rot-when-the-constrained-package-moves.md) — An npm override's meaning is set by the package it constrains — re-check every override on a major bump
 - [`frontend-no-surface-fighting-global-colors.md`](./frontend-no-surface-fighting-global-colors.md) — Never set a global element-level color that surfaces must opt out of
@@ -126,6 +137,7 @@ what applies to your task. Filenames are greppable: `arch-*`, `sec-*`, `test-*`,
 ## Operations & workflow
 
 - [`ops-auth-lookups-must-let-request-cleanup-progress.md`](./ops-auth-lookups-must-let-request-cleanup-progress.md) — Keep authentication pool waits off the event loop while preserving request-owned sessions
+- [`ops-unmergeable-pr-runs-no-pull-request-workflows.md`](./ops-unmergeable-pr-runs-no-pull-request-workflows.md) — Check the PR's mergeable state before diagnosing missing `pull_request` workflow runs
 - [`ops-capacity-projection-withholds-command-values.md`](./ops-capacity-projection-withholds-command-values.md) — Withhold command values and execute the real readback projection in a privacy gate
 - [`ops-finish-only-job-owned-read-transactions.md`](./ops-finish-only-job-owned-read-transactions.md) — Finish the CLI's read transaction before transport while preserving attached inputs
 
@@ -153,6 +165,7 @@ what applies to your task. Filenames are greppable: `arch-*`, `sec-*`, `test-*`,
 - [`ops-lint-before-every-push.md`](./ops-lint-before-every-push.md) — Run ruff (and bandit) before every push, not just pytest
 - [`ops-deploy-owned-state-needs-a-distinctive-name.md`](./ops-deploy-owned-state-needs-a-distinctive-name.md) — Give deploy-owned tables a name nothing else could have created; CREATE TABLE IF NOT EXISTS adopts strangers
 - [`ops-migrations-need-lock-timeout.md`](./ops-migrations-need-lock-timeout.md) — Give every migration session a lock_timeout and every deploy job a timeout — idempotent is not lock-free
+- [`ops-deploy-detector-mirrors-the-image-context.md`](./ops-deploy-detector-mirrors-the-image-context.md) — Make the deploy change detector exclude exactly what `.dockerignore` excludes, and gate it with a test
 - [`ops-no-ddl-in-startup-path.md`](./ops-no-ddl-in-startup-path.md) — Never run schema-altering DDL in the serving container's startup path
 - [`ops-write-down-the-second-anomaly-before-chasing-the-first.md`](./ops-write-down-the-second-anomaly-before-chasing-the-first.md) — Write down the second anomaly before chasing the first — a parked finding is a lost finding
 - [`ops-place-a-provider-stall-before-paying-again.md`](./ops-place-a-provider-stall-before-paying-again.md) — Place a provider stall at one layer with free probes before paying for another corpus

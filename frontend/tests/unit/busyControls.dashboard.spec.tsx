@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { QueryClient, QueryClientProvider, onlineManager } from '@tanstack/react-query'
 import type { ReactNode } from 'react'
 import type { CurrentUser } from '@/features/auth/api/auth-api'
 import type { SavedSummary } from '@/features/summaries/api/summaries-api'
@@ -9,12 +9,15 @@ import DashboardPage from '@/app/dashboard/page'
 import { queryKeys } from '@/lib/queryKeys'
 
 /**
- * The dashboard's two Retry buttons and the saved-summary Delete keep keyboard focus through their
- * own request, and hand it to a stable heading when their own success unmounts them.
+ * The dashboard's Retry buttons (the account card, the plan strip, Your companies) and the saved-summary
+ * Delete keep keyboard focus through their own request, and hand it to a stable heading when they unmount
+ * while they hold it.
  *
- * Retry: a failed query has no data, so its refetch puts it back to pending and the page-wide skeleton
- * used to replace the error card (or the plan strip) and the focused Retry with it. A pressed Retry
- * now keeps its failure until the refetch settles (lib/useRetainedFailure).
+ * Retry: a failed query has no data, so any refetch (a press, a reconnect, an invalidation) puts it back to
+ * pending, and the page-wide skeleton used to replace the error card (or the plan strip) and the focused
+ * Retry with it. A failure the page has shown now stays up through any refetch until data replaces it
+ * (hooks/useRetainedFailure.tsx), its RetryButton busy; a RetryButton that unmounts while it holds focus,
+ * for any reason, hands focus to its heading. Nothing is armed by a press.
  *
  * Delete: aria-disabled + aria-busy + an early return while a delete is in flight, never native
  * `disabled`. It stays pending until the refetch drops the row, since the kept focus could otherwise
@@ -135,7 +138,11 @@ afterEach(() => {
   Object.values(api).forEach((mock) => mock.mockReset())
 })
 
-describe('Focus hand-offs fire only after their own press', () => {
+afterEach(() => onlineManager.setOnline(true))
+
+const title = () => screen.getByRole('heading', { level: 1, name: 'Dashboard' })
+
+describe('Nothing takes focus the user did not lose', () => {
   it('a cold load moves no focus', async () => {
     healthyApi()
     api.getSavedSummaries.mockResolvedValue([saved(1, 'Apple Inc.')])
@@ -204,7 +211,7 @@ describe('Dashboard Retry (the account could not load)', () => {
     expect(screen.getByText('Still unavailable')).toBeInTheDocument()
   })
 
-  it('a retry that failed again leaves no hand-off armed: a later recovery nobody pressed moves no focus', async () => {
+  it('after a retry that failed again and the user moved off it, a recovery nobody pressed moves no focus', async () => {
     healthyApi()
     api.getCurrentUserSafe.mockRejectedValueOnce(new Error('Server unavailable')).mockRejectedValueOnce(new Error('Still unavailable'))
     const { client } = renderDashboard()
@@ -331,7 +338,7 @@ describe('Plan and usage Retry', () => {
     expect(document.activeElement).toBe(logOut)
   })
 
-  it('a retry that failed again leaves no hand-off armed: a later recovery nobody pressed moves no focus', async () => {
+  it('after a retry that failed again and the user moved off it, a recovery nobody pressed moves no focus', async () => {
     healthyApi()
     api.getUsage.mockRejectedValueOnce(new Error('usage down')).mockRejectedValueOnce(new Error('usage still down'))
     const { client } = renderDashboard()
@@ -381,7 +388,7 @@ describe('Your companies Retry', () => {
     await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('heading', { name: 'Your companies' })))
   })
 
-  it('a retry that fails again leaves no hand-off armed: a later recovery nobody pressed moves no focus', async () => {
+  it('after a retry that failed again and the user moved off it, a recovery nobody pressed moves no focus', async () => {
     healthyApi()
     api.getWatchlistInsights.mockRejectedValueOnce(new Error('insights down')).mockRejectedValueOnce(new Error('still down'))
     const { client } = renderDashboard()
@@ -450,6 +457,286 @@ describe('Your companies Retry', () => {
     await waitFor(() => expect(retry.isConnected).toBe(false))
     await settle()
     expect(document.activeElement).toBe(logOut)
+  })
+})
+
+describe('Dashboard Retry through refetches nobody pressed, and offline', () => {
+  it('account card: a press paused offline is busy and inert, does not redirect, and a second press sends nothing', async () => {
+    healthyApi()
+    api.getCurrentUserSafe.mockRejectedValueOnce(new Error('account down'))
+    renderDashboard()
+    const retry = await screen.findByRole('button', { name: 'Retry' })
+    retry.focus()
+    onlineManager.setOnline(false)
+    fireEvent.click(retry)
+    await settle()
+    expectBusyAndFocused(retry)
+    fireEvent.click(retry)
+    await settle()
+    expect(api.getCurrentUserSafe).toHaveBeenCalledTimes(1)
+    expect(api.routerPush).not.toHaveBeenCalled()
+
+    // Back online the paused fetch runs once and fails: the card and its Retry stay, live, focused.
+    api.getCurrentUserSafe.mockRejectedValueOnce(new Error('account down'))
+    act(() => onlineManager.setOnline(true))
+    await waitFor(() => expect(retry).not.toHaveAttribute('aria-busy'))
+    expect(api.getCurrentUserSafe).toHaveBeenCalledTimes(2)
+    expect(document.activeElement).toBe(retry)
+  })
+
+  it('account card: a refetch nobody pressed keeps the card and the focused Retry busy; its success hands focus to the title', async () => {
+    healthyApi()
+    api.getCurrentUserSafe.mockRejectedValueOnce(new Error('account down'))
+    const { client } = renderDashboard()
+    const retry = await screen.findByRole('button', { name: 'Retry' })
+    retry.focus()
+    const background = deferred<CurrentUser>()
+    api.getCurrentUserSafe.mockReturnValueOnce(background.promise)
+    act(() => { void client.refetchQueries({ queryKey: queryKeys.currentUser() }) })
+    await settle()
+    expectBusyAndFocused(retry)
+    expect(screen.getByText('Unable to load your dashboard')).toBeInTheDocument()
+    await act(async () => background.resolve(user))
+    await waitFor(() => expect(retry.isConnected).toBe(false))
+    await settle()
+    expect(document.activeElement).toBe(title())
+  })
+
+  it('account card: a reconnect refetch keeps the card mounted, then hands focus to the title', async () => {
+    healthyApi()
+    api.getCurrentUserSafe.mockRejectedValueOnce(new Error('account down'))
+    renderDashboard()
+    const retry = await screen.findByRole('button', { name: 'Retry' })
+    retry.focus()
+    act(() => onlineManager.setOnline(false))
+    const background = deferred<CurrentUser>()
+    api.getCurrentUserSafe.mockReturnValueOnce(background.promise)
+    act(() => onlineManager.setOnline(true))
+    await waitFor(() => expect(api.getCurrentUserSafe).toHaveBeenCalledTimes(2))
+    expectBusyAndFocused(retry)
+    await act(async () => background.resolve(user))
+    await waitFor(() => expect(retry.isConnected).toBe(false))
+    await settle()
+    expect(document.activeElement).toBe(title())
+  })
+
+  it('account card: two presses offline, a failure, then a recovery nobody pressed leaves a user who moved off on <body>', async () => {
+    healthyApi()
+    api.getCurrentUserSafe.mockRejectedValueOnce(new Error('account down'))
+    const { client } = renderDashboard()
+    const retry = await screen.findByRole('button', { name: 'Retry' })
+    retry.focus()
+    onlineManager.setOnline(false)
+    fireEvent.click(retry)
+    fireEvent.click(retry)
+    api.getCurrentUserSafe.mockRejectedValueOnce(new Error('account down'))
+    act(() => onlineManager.setOnline(true))
+    await waitFor(() => expect(retry).not.toHaveAttribute('aria-busy'))
+    expect(api.getCurrentUserSafe).toHaveBeenCalledTimes(2)
+    retry.blur()
+    act(() => { void client.refetchQueries({ queryKey: queryKeys.currentUser() }) })
+    await screen.findByRole('heading', { name: 'Plan and usage' })
+    await settle()
+    expect(document.activeElement).toBe(document.body)
+  })
+
+  it('plan strip: a reconnect refetch keeps the strip (not the page skeleton) and the focused Retry busy; its success hands focus off', async () => {
+    healthyApi()
+    api.getUsage.mockRejectedValueOnce(new Error('usage down'))
+    renderDashboard()
+    const retry = within(await screen.findByRole('alert')).getByRole('button', { name: 'Retry' })
+    retry.focus()
+    act(() => onlineManager.setOnline(false))
+    const background = deferred<Usage>()
+    api.getUsage.mockReturnValueOnce(background.promise)
+    act(() => onlineManager.setOnline(true))
+    await waitFor(() => expect(api.getUsage).toHaveBeenCalledTimes(2))
+    expectBusyAndFocused(retry)
+    expect(screen.getByText('Jump to any company')).toBeInTheDocument()
+    await act(async () => background.resolve(usage))
+    await waitFor(() => expect(retry.isConnected).toBe(false))
+    await settle()
+    expect(document.activeElement).toBe(screen.getByRole('heading', { name: 'Plan and usage' }))
+  })
+
+  it('plan strip: a press offline is busy, and two presses send one request', async () => {
+    healthyApi()
+    api.getUsage.mockRejectedValueOnce(new Error('usage down'))
+    renderDashboard()
+    const retry = within(await screen.findByRole('alert')).getByRole('button', { name: 'Retry' })
+    retry.focus()
+    onlineManager.setOnline(false)
+    fireEvent.click(retry)
+    await settle()
+    expectBusyAndFocused(retry)
+    fireEvent.click(retry)
+    api.getUsage.mockResolvedValueOnce(usage)
+    act(() => onlineManager.setOnline(true))
+    await waitFor(() => expect(retry.isConnected).toBe(false))
+    expect(api.getUsage).toHaveBeenCalledTimes(2)
+  })
+
+  it('plan strip: two presses offline, a failure, then a recovery nobody pressed moves nothing', async () => {
+    healthyApi()
+    const resumed = deferred<Usage>()
+    api.getUsage.mockRejectedValueOnce(new Error('usage down')).mockReturnValueOnce(resumed.promise).mockResolvedValue(usage)
+    const { client } = renderDashboard()
+    const retry = within(await screen.findByRole('alert')).getByRole('button', { name: 'Retry' })
+    retry.focus()
+    act(() => onlineManager.setOnline(false))
+    fireEvent.click(retry)
+    await settle()
+    fireEvent.click(retry)
+    await settle()
+    act(() => onlineManager.setOnline(true))
+    await waitFor(() => expect(api.getUsage).toHaveBeenCalledTimes(2))
+    await act(async () => resumed.reject(new Error('still down')))
+    await waitFor(() => expect(retry).not.toHaveAttribute('aria-busy'))
+    expect(document.activeElement).toBe(retry)
+    retry.blur()
+    act(() => { void client.refetchQueries({ queryKey: queryKeys.usage.all() }) })
+    await screen.findByText('1 / 3 summaries')
+    await settle()
+    expect(document.activeElement).toBe(document.body)
+  })
+
+  it('Your companies: an invalidation (a watchlist change) keeps the card and the focused Retry busy; its success hands focus off', async () => {
+    healthyApi()
+    api.getWatchlistInsights.mockRejectedValueOnce(new Error('insights down'))
+    const { client } = renderDashboard()
+    const retry = await screen.findByRole('button', { name: 'Retry' })
+    retry.focus()
+    const background = deferred<unknown[]>()
+    api.getWatchlistInsights.mockReturnValueOnce(background.promise)
+    act(() => { void client.invalidateQueries({ queryKey: queryKeys.watchlistInsights() }) })
+    await settle()
+    expectBusyAndFocused(retry)
+    expect(screen.getByText('Unable to load your companies')).toBeInTheDocument()
+    await act(async () => background.resolve([]))
+    await waitFor(() => expect(retry.isConnected).toBe(false))
+    await settle()
+    expect(document.activeElement).toBe(screen.getByRole('heading', { name: 'Your companies' }))
+  })
+
+  it('Your companies: a press offline is busy and focused', async () => {
+    healthyApi()
+    api.getWatchlistInsights.mockRejectedValueOnce(new Error('insights down'))
+    renderDashboard()
+    const retry = await screen.findByRole('button', { name: 'Retry' })
+    retry.focus()
+    onlineManager.setOnline(false)
+    fireEvent.click(retry)
+    await settle()
+    expectBusyAndFocused(retry)
+  })
+
+  it('Your companies: a paused press whose fetch fails inside one notify batch, then a recovery nobody pressed, moves nothing', async () => {
+    healthyApi()
+    api.getWatchlistInsights.mockRejectedValueOnce(new Error('insights down'))
+    const { client } = renderDashboard()
+    const retry = await screen.findByRole('button', { name: 'Retry' })
+    retry.focus()
+    onlineManager.setOnline(false)
+    fireEvent.click(retry)
+    await settle()
+    api.getWatchlistInsights.mockRejectedValueOnce(new Error('insights down'))
+    act(() => onlineManager.setOnline(true))
+    await waitFor(() => expect(retry).not.toHaveAttribute('aria-busy'))
+    retry.blur()
+    act(() => { void client.refetchQueries({ queryKey: queryKeys.watchlistInsights() }) })
+    await waitFor(() => expect(screen.queryByText('Unable to load your companies')).not.toBeInTheDocument())
+    await settle()
+    expect(document.activeElement).toBe(document.body)
+  })
+
+  it('Your companies: one paused press, an instant failure on resume, then a reconnect recovery leaves focus on <body>', async () => {
+    const settle3 = async () => { await settle(); await settle(); await settle() }
+    healthyApi()
+    api.getWatchlistInsights.mockRejectedValue(new Error('insights down'))
+    renderDashboard()
+    await settle3()
+    onlineManager.setOnline(false)
+    api.getWatchlistInsights.mockReset()
+    api.getWatchlistInsights.mockImplementation(() => Promise.reject(new Error('again')))
+    const retry = screen.getByRole('button', { name: /^Retry$/ })
+    retry.focus()
+    fireEvent.click(retry)
+    await settle3()
+    act(() => onlineManager.setOnline(true))
+    await settle3()
+    await act(async () => { await new Promise((resolve) => setTimeout(resolve, 20)) })
+    await settle3()
+    expect(screen.getByText('Unable to load your companies')).toBeInTheDocument()
+    act(() => retry.blur())
+    const recovered = deferred<never[]>()
+    api.getWatchlistInsights.mockReset()
+    api.getWatchlistInsights.mockReturnValue(recovered.promise)
+    act(() => { onlineManager.setOnline(false); onlineManager.setOnline(true) })
+    await settle3()
+    await act(async () => recovered.resolve([]))
+    await settle3()
+    expect(screen.getByText('No companies yet')).toBeInTheDocument()
+    expect(document.activeElement).toBe(document.body)
+  })
+
+  it('a cold load offline shows the skeleton, not a blank page or a /login redirect', async () => {
+    healthyApi()
+    onlineManager.setOnline(false)
+    renderDashboard()
+    await settle()
+    expect(api.routerPush).not.toHaveBeenCalled()
+    expect(screen.getAllByRole('status').length).toBeGreaterThan(0)
+    expect(title()).toBeInTheDocument()
+  })
+})
+
+describe('Retry announcements', () => {
+  it('a refetch nobody pressed makes Retry busy under its own label, so its alert has nothing new to say', async () => {
+    healthyApi()
+    api.getCurrentUserSafe.mockRejectedValueOnce(new Error('account down'))
+    const { client } = renderDashboard()
+    const alert = await screen.findByRole('alert')
+    const retry = within(alert).getByRole('button', { name: 'Retry' })
+    const said = alert.textContent
+    const background = deferred<CurrentUser>()
+    api.getCurrentUserSafe.mockReturnValueOnce(background.promise)
+    act(() => { void client.refetchQueries({ queryKey: queryKeys.currentUser() }) })
+    await waitFor(() => expect(retry).toHaveAttribute('aria-busy', 'true'))
+    // Busy in every way but its words: aria-busy, aria-disabled, the spinner, a refused press.
+    expect(retry).toHaveAttribute('aria-disabled', 'true')
+    expect(retry.querySelector('svg')).not.toBeNull()
+    expect(retry).toHaveAccessibleName('Retry')
+    expect(alert.textContent).toBe(said)
+    fireEvent.click(retry)
+    await settle()
+    expect(api.getCurrentUserSafe).toHaveBeenCalledTimes(2)
+
+    await act(async () => background.reject(new Error('account down')))
+    await waitFor(() => expect(retry).not.toHaveAttribute('aria-busy'))
+    expect(alert.textContent).toBe(said)
+  })
+
+  it('its own press reads "Retrying…" while the press runs and "Retry" when it fails again; a later refetch nobody pressed keeps "Retry"', async () => {
+    healthyApi()
+    api.getCurrentUserSafe.mockRejectedValueOnce(new Error('account down'))
+    const { client } = renderDashboard()
+    const retry = within(await screen.findByRole('alert')).getByRole('button', { name: 'Retry' })
+    retry.focus()
+    const pressed = deferred<CurrentUser>()
+    api.getCurrentUserSafe.mockReturnValueOnce(pressed.promise)
+    fireEvent.click(retry)
+    expect(retry).toHaveAccessibleName('Retrying…')
+    await act(async () => pressed.reject(new Error('account down')))
+    await waitFor(() => expect(retry).not.toHaveAttribute('aria-busy'))
+    expect(retry).toHaveAccessibleName('Retry')
+
+    const background = deferred<CurrentUser>()
+    api.getCurrentUserSafe.mockReturnValueOnce(background.promise)
+    act(() => { void client.refetchQueries({ queryKey: queryKeys.currentUser() }) })
+    await waitFor(() => expect(retry).toHaveAttribute('aria-busy', 'true'))
+    expect(retry).toHaveAccessibleName('Retry')
+    await act(async () => background.resolve(user))
+    await waitFor(() => expect(retry.isConnected).toBe(false))
   })
 })
 

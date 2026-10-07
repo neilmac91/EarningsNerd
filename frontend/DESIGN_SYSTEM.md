@@ -3,7 +3,14 @@
 **Drop-in replacement for `frontend/DESIGN_SYSTEM.md`** (synced July 2026: single Sage accent,
 type v2, cream-audited contrast). Token *definitions* live in `frontend/tailwind.config.js`;
 this doc is the *how/why* + the rules learned the hard way. Read it before touching any UI;
-subagent briefs for UI work should link here.
+subagent briefs for UI work should link here and to [the root DESIGN.md](../DESIGN.md).
+
+Read `DESIGN.md` first for the visual direction and portable token/component snapshot. This guide
+retains implementation conventions, exceptions and verification gates; actual token definitions
+and component code take precedence over stale snapshots. Follow the
+[maintenance guidance in CLAUDE.md](../CLAUDE.md#design-documentation) when a change affects the
+documented system. The [.impeccable/design.json sidecar](../.impeccable/design.json) is a preview
+companion to `DESIGN.md`, not a replacement for the components or the checks below.
 
 > TL;DR: **brand = ONE Sage accent in both themes** (the sage/slate split is retired).
 > Mint/emerald/`primary`/blue/sky/teal are **not** brand. Contrast is audited against the warm
@@ -88,17 +95,31 @@ shared surface (it caused white-on-cream and dark-on-cream bugs across the app).
 ## 4. Canonical component patterns
 
 **Compose the component layer, don't hand-roll** — `components/ui/*` (Button, Badge, Input, Card,
-DataTable, Skeleton, GuidanceCard, Notice, Modal) + `components/AskFilingAnswer.tsx` (v2.2: reworked to
-the SHIPPED copilot data model — see below). Every component defines
-default / hover / active / focus-visible / disabled / loading plus the system states (empty,
-skeleton via the shared shimmer keyframe, error).
+DataTable, Skeleton, GuidanceCard, Notice, Modal) + `features/filings/components/AskFilingAnswer.tsx` (v2.2: reworked to
+the SHIPPED copilot data model — see below). Controls expose their applicable interaction and
+availability states; data surfaces supply loading, empty and error treatments as supported by
+their APIs. Passive Card and Badge primitives do not implement the full control-state set.
 
 A control that is busy, or unavailable as a result of its own activation, never takes native
 `disabled`: Chromium blurs a focused control that turns disabled, so keyboard focus falls to
 `<body>`. Busy is `<Button loading>`. Unavailable is `aria-disabled` plus an early return in the
-handler, styled with `primaryUnavailableClass` (primary Button) or `fieldUnavailableClass` (field).
-Text fields use `readOnly` while their own form submits. Gate: `tests/unit/busyControlsStayFocusable.spec.ts`;
+handler, styled with `primaryUnavailableClass` (primary Button), `secondaryUnavailableClass` (secondary
+Button; it fades the label and hairline, not the element, so the focus ring keeps its strength) or
+`fieldUnavailableClass` (field).
+A form that locks its text fields while it submits uses `readOnly`, never native `disabled` (`ContactForm` does;
+the login and register forms leave their fields editable). Gate: `tests/unit/busyControlsStayFocusable.spec.ts`;
 rules in `lessons/frontend-busy-controls-stay-focusable.md`.
+
+A Retry of a failed query is
+`<RetryButton failures={[useRetainedFailure(query, queryKey)]} focusTarget={headingRef}>`, never a hand-rolled
+`<Button loading={isFetching}>`. `queryKey` is the key the query's own `useQuery` was given: it is the hold's
+identity, so a key change (another user, a new search term) never holds the old query's error (gated in
+`tests/unit/useRetainedFailure.spec.tsx`). The error UI stays up through any refetch until data replaces it;
+the Retry is busy while the query has a fetch in flight (paused offline included), reads "Retrying…" only
+while its own press runs, and hands focus to `focusTarget` (a `tabIndex={-1}` heading, or a text field with
+`textField`) when it unmounts while focused. It lives beside its hook in `hooks/useRetainedFailure.tsx`, not in
+`components/ui`: it is query-coupled, the DS primitives stay free of react-query, and `components/` root is app
+chrome only. Every Retry is RetryButton, gated in `busyControlsStayFocusable.spec.ts` by wiring and by label.
 
 A grid that sets its columns under a variant also sets its base track in the same class string:
 `grid grid-cols-1 md:grid-cols-3`, never `grid md:grid-cols-3`. Without the base, the phone layout is
@@ -111,9 +132,10 @@ Primary button   <Button>  ·  LIGHT: white label on bg-brand, hover bg-brand-st
                  DARK: NAVY-INK label on bg-brand-dark (text-background-dark), hover bg-brand-strong-dark,
                  active bg-brand-fill-dark.  White-on-fill-dark is 3.7:1 — never revert to it.
 
-Secondary button <Button variant="secondary">  — panel fill + hairline + soft lift; BRIGHTENS on hover
-                 bg-panel-light border border-border-light shadow-e1 hover:bg-brand-weak hover:shadow-e2
-                 dark:bg-panel-dark dark:border-white/10 dark:shadow-none dark:hover:bg-white/5
+Secondary button <Button variant="secondary">  — brand hairline on transparent; tints on hover
+                 border border-brand-border bg-transparent text-brand-strong hover:bg-brand-weak
+                 active:bg-brand-border/60  dark:border-brand-border-dark dark:text-brand-strong-dark
+                 dark:hover:bg-brand-weak-dark dark:active:bg-brand-border-dark
                  (never hover:opacity — it darkens)
 
 Ghost button     <Button variant="ghost">  — brand.strong text on transparent, tint hover
@@ -199,6 +221,17 @@ Popover          An anchored, light-dismiss surface that explains one control (t
                  moves the trigger, or a resize, closes it (fixed at its rect, it would detach; the page
                  scrolling behind a fixed dialog does not move it); every close returns focus to
                  the trigger unless the user moved on. While a native <dialog> is open, it portals into it.
+                 The evidence popovers (SourceTrace's "Source detail", CitationChip's citation card) are
+                 the hover/focus variant of this contract: they open on hover or focus, so focus stays on
+                 the chip until the user asks for more, and the same hand-off applies from there — Tab on
+                 the open chip moves to the popover's link, Tab past it closes the popover and resumes the
+                 page after the chip, Shift+Tab returns to the chip, Escape closes and refocuses the chip
+                 (`useEvidencePopoverKeys`, gated by tests/unit/evidencePopoverKeys.spec.tsx). On the
+                 filing page a chip's activation is the in-app jump: it opens the research pane on the
+                 Filing tab (the pane never stays silently closed); SourceTrace alone has a sheet, which a
+                 coarse pointer opens instead, carrying "Show in filing" beside the EDGAR link. A chip that
+                 is itself the EDGAR anchor (SourceTrace without a viewer, as on the landing demo) has no
+                 second stop, so Tab leaves it as usual.
 
 Stacking         z-sticky 30 (in-page sticky chrome) · z-header 50 (site header; its menus ride it) ·
                  z-overlay 60 (popovers incl. BellPopover, the selection pill) · z-modal 70 (dialogs + the source and viewer
@@ -230,7 +263,8 @@ Ask answer       <AskFilingAnswer>  — the SHIPPED copilot contract: status rea
   bones are `aria-hidden` — a wrapper composed of raw bones needs `role="status"` + an sr-only label.
 - **Evidence identity:** the Ask-this-Filing header tile uses the Phosphor `quotes` glyph;
   `sparkle` appears ONLY on the "AI summary" chip.
-- Sortable table headers render as buttons with `aria-sort`, ▲/▼, and the brand focus ring.
+- Sortable table headers contain buttons with ▲/▼ and the brand focus ring; `aria-sort` belongs
+  to the enclosing header cell (`th`).
 - **Class maps outside JSX must sit under a `content` glob.** Tailwind generates only the classes
   it finds in the modules `tailwind.config.js` `content` scans. A class composed in an unscanned
   module ships unstyled and nothing reports it: `lib/financialTone.directionChip` lost its /20
@@ -269,8 +303,9 @@ tighter hairline strip). Muted text on the cream page ground is `text-secondary`
 ## 8. Theme mechanics
 
 - **One** `<ThemeToggle/>`, in the global `Header` (desktop + mobile). No page-level toggles.
-- `app/layout.tsx` runs a **pre-paint theme bootstrap script** (saved `localStorage.theme` else
-  system pref) to prevent FOUC. Keep `suppressHydrationWarning` on `<html>`.
+- `app/layout.tsx` runs a **pre-paint theme bootstrap script** (saved `localStorage.theme`, else
+  light; there is no system-preference detection) to prevent FOUC, and `ThemeProvider` re-syncs to
+  the same value after hydration. Keep `suppressHydrationWarning` on `<html>`.
 - Logo: `<EarningsNerdLogo mode="auto" />` follows the app theme — don't hardcode `mode="dark"`.
 - Fonts are self-hosted via `next/font` (Inter with `axes: ['opsz']`, Geist Mono, Newsreader) —
   see `app/layout.tsx`; SF Pro / New York are platform-licensed and must never be embedded.
@@ -334,9 +369,12 @@ Recharts/rAF, which need numbers). **No raw ms or bezier strings anywhere else.*
   AskFilingAnswer) — never on first paint of never-loading views.
 - **Stagger**: `animate-fade-up-stagger` + `--stagger-index` (0-based; step = fast; capped at 4;
   first paint only). `fade-up-delay-1/2/3` are retired.
-- **Reduced motion**: one source — `hooks/usePrefersReducedMotion`. Every animation has a fallback:
+- **Reduced motion**: one source — `hooks/usePrefersReducedMotion`. Every animation needs a fallback:
   `animation: none` for transform entrances, static bone (shimmer), static tint (citation-flash),
-  instant final value (count-up, Recharts `lineProps(reduced)`), `scroll-behavior: auto`.
+  instant final value (count-up, Recharts `lineProps(reduced)`), `scroll-behavior: auto`. Known
+  gaps include the `animate-fade-up` entrances in `app/login/page.tsx`, `RegisterForm`, `AuthShell`
+  and `CookieConsent`, the streaming `animate-pulse` indicators in `CopilotMessage`, and standalone
+  `animate-spin` loaders; none has a `motion-reduce:` guard yet.
 - **Nothing decorative** — `animate-float` is retired. Signature set: count-up, citation-flash,
   skeleton→content, sparkline draw-in, check-pop.
 
@@ -378,3 +416,5 @@ Recharts/rAF, which need numbers). **No raw ms or bezier strings anywhere else.*
    editing this section without editing the gate fails, and vice versa.
 4. **Verify in BOTH themes** on the Vercel preview — green CI ≠ correct visuals.
 5. Run `npm run typecheck`, `npm run lint` (`--max-warnings 0`), `npm run build`, `npm run test`.
+   `npm run test` includes `tests/unit/designSnapshotParity.spec.ts`, which fails until the root
+   `DESIGN.md` and its sidecar match the changed tokens ([maintenance guidance](../CLAUDE.md#design-documentation)).

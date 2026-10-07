@@ -6,7 +6,8 @@ import { queryKeys } from '@/lib/queryKeys'
 import { useQuery } from '@tanstack/react-query'
 import { ArrowRightIcon, NewspaperIcon } from '@/lib/icons'
 import { getDashboardFeed } from '@/features/dashboard/api/dashboard-api'
-import { Button, GuidanceCard, Skeleton } from '@/components/ui'
+import { GuidanceCard, Skeleton } from '@/components/ui'
+import { RetryButton, useRetainedFailure } from '@/hooks/useRetainedFailure'
 import WhatChangedCard from './WhatChangedCard'
 import FeedOnboarding from './FeedOnboarding'
 
@@ -22,12 +23,19 @@ export default function FilingFeed({
   /** Number of companies the user follows — the true overflow count and the empty-state switch. */
   watchlistCount?: number
 }) {
-  const { data, isLoading, isError, refetch, isFetching } = useQuery({
+  const feedQuery = useQuery({
     queryKey: queryKeys.dashboardFeed(),
     queryFn: () => getDashboardFeed(20),
     retry: false,
     enabled,
   })
+  const { data } = feedQuery
+  // A failure keeps the error card, and a focused Retry in it, through any refetch until data replaces
+  // it. An errored feed has no data, so its refetch goes back to pending, and the skeleton branch would
+  // replace the card. A fetch paused offline is still in flight.
+  const failure = useRetainedFailure(feedQuery, queryKeys.dashboardFeed())
+  const isError = failure.failed
+  const isLoading = feedQuery.isLoading && !failure.failed
 
   const visible = data ? data.slice(0, MAX_CARDS) : []
   // Overflow count comes from the watchlist (companies followed), never data.length — the feed array
@@ -81,9 +89,9 @@ export default function FilingFeed({
           title="Couldn't load your feed"
           description="Please retry in a moment."
           action={
-            <Button variant="secondary" onClick={() => refetch()} loading={isFetching} loadingText="Retrying…">
+            <RetryButton failures={[failure]} focusTarget={headingRef}>
               Retry
-            </Button>
+            </RetryButton>
           }
         />
       ) : !data || data.length === 0 ? (

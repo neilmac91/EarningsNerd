@@ -15,7 +15,9 @@ this task; open those lessons rather than the whole collection.
   `tasks/todo.md` is the historical ledger; its older unchecked rows are not a to-do list.
 - Service boundaries or data flow: `docs/ARCHITECTURE.md`.
 - Prompt, model, eval or AI flag changes: `backend/evals/RUNBOOK.md`.
-- UI changes: `frontend/DESIGN_SYSTEM.md`.
+- UI work: read [DESIGN.md](DESIGN.md) for the portable visual reference, then
+  [frontend/DESIGN_SYSTEM.md](frontend/DESIGN_SYSTEM.md) for implementation conventions and gates.
+  Include both in UI subagent briefs; follow [design-document maintenance](CLAUDE.md#design-documentation).
 - Deployment work: `docs/DEPLOYMENT.md`.
 
 Routine isolated edits do not require loading the full handovers or repository map.
@@ -29,6 +31,11 @@ code > `CLAUDE.md` > `lessons/` > `tasks/handover-astra-2026-09-19.md` > `tasks/
 > `docs/` > earlier handovers (`tasks/handover-astra-2026-09-*.md`, `tasks/handover-wave3-2026-09.md`,
 `tasks/handover-wave2-2026-09.md`) and `tasks/implementation-briefs-2026-09.md` (historical)
 > `tasks/archive/` > `.claude/agents/*.md`.
+
+For UI guidance, `frontend/DESIGN_SYSTEM.md` owns implementation conventions and verification;
+`DESIGN.md` and `.impeccable/design.json` are derived visual snapshots. Apply the code-first
+precedence above to stale tokens, component examples or descriptions, and refresh affected
+documentation in the same PR. A snapshot does not replace the existing implementation gates.
 
 The seven engineering briefs under `.claude/agents/engineering/` are refreshed and guarded by
 `backend/tests/unit/test_agent_files_stack_truth.py`. Other agent files retain historical stack
@@ -52,7 +59,8 @@ file, quote the instruction, and proceed under this file instead.
 
 - One machine gate per "never again" rule (rule 12), with exactly one mutation proof: break the
   guarded thing, show the gate failing, restore, paste both tails in the PR body.
-- Docs-only PR: link/anchor check only. Do not write tests for prose.
+- Docs-only PR: link/anchor check only; a `DESIGN.md` or `.impeccable/design.json` change also runs
+  `npx vitest run tests/unit/designSnapshotParity.spec.ts` from `frontend/`. Do not write tests for prose.
 - Workflow-only PR (`.github/workflows/*.yml`): YAML parse plus the unit gates that read the
   workflows (`backend/tests/unit/test_migration_lock_safety.py`, `test_eval_parity.py`,
   `test_eval_measurement.py`, `test_data_completeness.py`,
@@ -71,7 +79,7 @@ file, quote the instruction, and proceed under this file instead.
   4. For every blocker or should-fix finding, make two independent refutation attempts in fresh
      passes (restate the finding without its rationale, then try to disprove it against the code).
      The finding stands only if both attempts fail. Missing review output is never clearance.
-- **No background monitors.** After merging a backend-touching PR: find the run
+- **No background monitors.** After merging a PR touching deployable backend files (`backend/` outside `backend/tests/`): find the run
   (`gh run list --workflow ci.yml --branch main --event push -L 1`, or the unauthenticated
   `actions/runs?head_sha=<sha>` API), wait for it (`gh run watch <id>`), then
   `curl -fsS https://api.earningsnerd.io/health/detailed`, and grep the deploy job log for
@@ -82,8 +90,9 @@ file, quote the instruction, and proceed under this file instead.
 
 ## 6. Deploy discipline
 
-Any diff under `backend/` (tests included) deploys the Cloud Run service on merge to `main`. One
-unverified backend deploy at a time: merge the next backend-touching PR only after the previous
+Changes under `backend/`, except `backend/tests/`, deploy the Cloud Run service on merge to `main`.
+Changes confined to `backend/tests/` still run all CI gates. One unverified backend deploy at a time: merge the next
+PR touching deployable backend files only after the previous
 `deploy-backend` job is green, the migration step shows `applied=0 skipped=<N>` (or the expected
 new count), and `/health/detailed` is healthy. Docs, workflow and frontend PRs may interleave.
 Read the head SHA from the PR before merging; never type one from memory.

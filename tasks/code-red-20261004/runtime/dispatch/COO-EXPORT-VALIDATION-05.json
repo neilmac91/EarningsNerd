@@ -1,0 +1,109 @@
+{
+  "dispatch_id": "COO-EXPORT-VALIDATION-05",
+  "recorded_at": "2026-10-05T19:22:58.547486+00:00",
+  "dispatched_by": "chief session_01GWYV7WXWstgVGQG43YcSM8",
+  "officer": "COO",
+  "wave": "R3 (reporting groups G1–G3; export capability validation)",
+  "lane": "beta operations",
+  "role_label": "coo-export-capability-test-01",
+  "requested_model": "inherited (claude-fable-5-1)",
+  "authority": "Founder instruction 2026-10-05 ~19:12Z after PostHog support (Luke, ticket 76581, resolved) enabled the HogQL file-download batch export flag for the organisation: (1) record support-confirmed enablement, actual export validation pending; (2) run the previously agreed capability test for project 117863 — exactly three invented literal rows, no events, persons or customer-table access; (3) retain the exact query, run identity, terminal status, completed row count, every returned file part and file hashes, and verify the downloaded contents contain exactly the three expected rows; (4) the existing independent file-input contract review follows against those actual artifacts (separate context), reusing the released report consumer where compatible; (5) report which reporting prerequisites this evidence closes and the next executable dependency; do not mark cohort reporting or beta admission complete from a synthetic test. This does not authorize customer-data export, infer participant consent, change subscriptions or expand spending permissions; the USD 25 authorization is for DeepSeek, not a new PostHog charge. If the environment lacks required access, report the exact missing access and provide a narrowly scoped Codex-worker handoff.",
+  "repository_read_scope": {
+    "commit": "branch claude/vigilant-goodall-633yx3 at 39c74850 (main c780228a)",
+    "mode": "read-only repository; no git writes; PostHog MCP connector calls ONLY the four file-download batch-export tools and read-only info/learn; no execute-sql, no events/persons/sessions model, no other model or query; no customer or participant data; no production read; outbound HTTP only to the export's own download endpoint if an authentication context exists in the environment (none is known) — never extract or reuse connector credentials"
+  },
+  "measurable_output": [
+    "tasks/code-red-20261004/runtime/handbacks/coo/export-validation-01/EXPORT-CAPABILITY-RECEIPT-01.md (new file: receipt in the shape of the September 30 receipts, plus verification)",
+    "tasks/code-red-20261004/runtime/handbacks/coo/export-validation-01/export-capability-run.json (new file: exact query, request shape, run id, every poll status with timestamps, terminal status, records_completed, file ids; tool responses as returned, redacted of nothing except any credential or signed URL)",
+    "tasks/code-red-20261004/runtime/handbacks/coo/export-validation-01/parts/ (downloaded file parts, if and only if download was possible; invented-literal rows only)"
+  ],
+  "allowed_inputs": [
+    {
+      "label": "Exact agreed literal-only HogQL (three invented rows, 21 columns, LIMIT 10; the September 30 export attempt's query, sha 87c47aa6…)",
+      "path": "tasks/review-evidence/beta-readout-2026-09-30/literal-projection.hogql",
+      "sha256": "87c47aa644ef127eb8189db6e56cf0755d3158be59dcdadb74cecb33c253b3e4",
+      "bytes": 2923
+    },
+    {
+      "label": "September 30 export capability receipt (HTTP 403, no run)",
+      "path": "tasks/review-evidence/beta-readout-2026-09-30/export-capability.json",
+      "sha256": "b1bb12abac4c865aac33670a83a4116378778025b11e2f1ebb87caa469f93387",
+      "bytes": 1166
+    },
+    {
+      "label": "September 30 live literal projection + released consumer receipt",
+      "path": "tasks/review-evidence/beta-readout-2026-09-30/receipt.json",
+      "sha256": "5a5da5115de54f53c4ddaa454a88f493a76944598bffc46c581723631c996f21",
+      "bytes": 2223
+    },
+    {
+      "label": "September 30 evidence README (next executable step)",
+      "path": "tasks/review-evidence/beta-readout-2026-09-30/README.md",
+      "sha256": "17996acc339478fa710142586285ede4345c21c53135e7d3210c3f153c7f4466",
+      "bytes": 2932
+    },
+    {
+      "label": "Summary v1 readout runbook (file-input contract review checklist; released consumer contract)",
+      "path": "tasks/readiness-2026-09-21/beta/summary-v1-readout.md",
+      "sha256": "ffab744abf89efecaa574f057d217738057aeb00ac0cd3b6661f1ca9961b82be",
+      "bytes": 14372
+    },
+    {
+      "label": "Released consumer readout_v1.py (query-response JSON contract; unchanged)",
+      "path": "tasks/readiness-2026-09-21/beta/readout_v1.py",
+      "sha256": "a9e089cd1d45672833c49cb222c6cdaab52fe9bafbb2a3dddb5c82ae9b82272e",
+      "bytes": 15092
+    },
+    {
+      "label": "Export projection query posthog-v1-export.hogql (reference only; NOT to be run)",
+      "path": "tasks/readiness-2026-09-21/beta/posthog-v1-export.hogql",
+      "sha256": "fa060fe65a078f90d4836d2f60361ff36def4fdf0da34f0eb24b3dbdf0bf47ef",
+      "bytes": 2612
+    },
+    {
+      "label": "COO first deliverable (G1–G5 definitions)",
+      "path": "/tmp/claude-0/-home-user-EarningsNerd/27aa9761-b14a-5cab-9ee6-5f8ec27f49f3/scratchpad/handover/officers/coo/references/FIRST-DELIVERABLE.md",
+      "sha256": "c82773953be1e85daa87525003d1ade26db4e8f8e9df428f97fff80d10ee3f7f",
+      "bytes": 15184
+    },
+    {
+      "label": "COO report-route proposal 01",
+      "path": "tasks/code-red-20261004/runtime/handbacks/coo/REPORT-ROUTE-PROPOSAL-01.md",
+      "sha256": "0916b5f27190cb7805b561d82498552697375071f14121b5a91901ce24017810",
+      "bytes": 33854
+    },
+    {
+      "label": "Decision record 07 (PostHog route evidence; D5 privacy via record 02)",
+      "path": "tasks/code-red-20261004/runtime/control/DECISIONS-07.md",
+      "sha256": "0f511f5a9f6eeb97cd59886b732cb96adc6828d16373d1fae57198b980897bf0",
+      "bytes": 18305
+    }
+  ],
+  "procedure": [
+    "Verify all ten input hashes and byte lengths before relying on any input; stop on mismatch.",
+    "Run `learn -s \"file download batch export hogql\"` once (alone), then `info` for file-download-batch-exports-create / -retrieve / -count-rows-create / -cancel-create if not already known.",
+    "Use EXACTLY the retained query bytes of literal-projection.hogql (sha 87c47aa6…) as hogql_query; file {format: JSONLines, compression: null, max_size_mb: null}; hogql_modifiers {convertToProjectTimezone: false}; no data_interval bounds (the query has no placeholders).",
+    "First call file-download-batch-exports-count-rows-create with the same query and modifiers; retain the response; expected 3. If the count is not 3, stop and report (do not start an export).",
+    "Then call file-download-batch-exports-create ONCE. Retain the full response (run id). Poll file-download-batch-exports-retrieve every ~20 s, recording each status with a UTC timestamp, until a terminal status; stop polling after 20 minutes and report. Cancel only if the run exceeds 20 minutes.",
+    "On Completed: retain records_completed and the files array (UUIDs). Attempt the REST download ONLY if an authenticated PostHog HTTP context already exists in this environment (check for an environment variable whose NAME contains POSTHOG and a key; do not read connector internals, do not guess keys). If none exists, do not download; record the exact endpoint that needs authentication: GET https://<posthog host>/api/projects/117863/file_download_batch_exports/<run_id>/download/<file_uuid>/ (host as reported by the tools or the skill), the authentication context required, and write the narrow Codex-worker handoff (download each UUID, sha256 and byte length, verify exactly three JSONLines rows with the 21 expected column names from the query, retain files and hashes, no other API call).",
+    "If download was possible: save each part under parts/ named posthog-hogql-<run_id>-<part>.jsonl, compute sha256 and bytes, parse JSONLines, verify exactly three rows whose uuid values are the three literal UUIDs of the query and whose keys are exactly the 21 aliases; record any deviation (extra keys, type rendering, ordering).",
+    "Write the receipt and run JSON. Report which prerequisites the evidence closes (support-confirmed enablement: closed; G2 complete literal file receipt: closed only if files were downloaded and verified, otherwise 'run completed, file verification pending the download access'), what stays open (G3 review, G1 explicit access decision for the route, G4, G5), and the next executable dependency."
+  ],
+  "stop_conditions": [
+    "any tool or API response that names a payment, plan, billing, trial or FailedBilling status — stop and report; do not retry",
+    "any query other than the exact retained literal-only query; any events/persons/sessions model; any execute-sql call",
+    "any customer or participant data",
+    "more than one create call (a cancel after 20 minutes is permitted)",
+    "any invitation, flag, pricing, registration, load or production action",
+    "hash mismatch or missing input",
+    "any attempt to extract connector credentials or to send a signed URL anywhere"
+  ],
+  "spend": {
+    "reservation_usd": "0.000000",
+    "deepseek_calls_authorized": 0,
+    "ledger_written": false,
+    "posthog_charge_authorized": false,
+    "note": "PostHog usage is expected within the existing plan; any pricing signal is a stop condition, not a decision"
+  },
+  "one_writer_for_output_paths": true
+}

@@ -1,0 +1,146 @@
+{
+  "dispatch_id": "COO-ENVELOPE-DISPOSITION-01",
+  "recorded_at": "2026-10-04T14:49:36.659760+00:00",
+  "dispatched_by": "chief session_01GWYV7WXWstgVGQG43YcSM8",
+  "officer": "COO",
+  "wave": "R3 (C1 capacity disposition; administrative recommendation, not admission)",
+  "lane": "beta operations",
+  "role_label": "claude-r3-envelope-disposition-01",
+  "requested_model": "claude-fable-5-1",
+  "package_sha256": "38210de1cb945ac86cb74e60f087e78d1cee0448d8be7019a23099d5ba60bf0e",
+  "worker_identity": "recorded after launch in control/APPOINTMENTS.json and the next exclusion successor",
+  "one_active_writer_for_output": true,
+  "measurable_output": [
+    "tasks/code-red-20261004/runtime/handbacks/coo/CURRENT-BETA-OPERATING-ENVELOPE-DISPOSITION.md"
+  ],
+  "path_substitution": {
+    "outputs/code-red-20261004/worker-handoffs/coo/": "tasks/code-red-20261004/runtime/handbacks/coo/",
+    "outputs/code-red-20261004/control/": "package control/ (listed above)",
+    "outputs/code-red-20261004/officer-work/coo/": "package officers/coo (listed above)"
+  },
+  "entry_prerequisites": {
+    "1_ceo_names_worker_and_binds_hashes": "satisfied by this manifest",
+    "2_cto_named_dated_handback": "satisfied: handbacks/cto/envelope/* (authored by the chief acting as CTO; isolated adversarial lenses did not run \u2014 see its \u00a70)",
+    "3_ceo_policy_and_cfo_cost_policy": "satisfied as HOLD: control/SPEND-POLICY-STATEMENT.md (live ledger inaccessible; provider operating-spend field HOLD)",
+    "4_inputs_are_safe_summaries": "satisfied: no participant IDs, consent records, customer exports, raw source/candidate payload or credentials in any listed input"
+  },
+  "allowed_inputs": [
+    {
+      "label": "CEO directive (current)",
+      "path": "/tmp/claude-0/-home-user-EarningsNerd/27aa9761-b14a-5cab-9ee6-5f8ec27f49f3/scratchpad/handover/officers/coo/control/CEO-DIRECTIVE.md",
+      "sha256": "5008dbbc240ab9628b0d2f91913a14662e770347174990852eb21563eac0d48b",
+      "bytes": 4979
+    },
+    {
+      "label": "Chief transfer policy",
+      "path": "/tmp/claude-0/-home-user-EarningsNerd/27aa9761-b14a-5cab-9ee6-5f8ec27f49f3/scratchpad/handover/officers/coo/control/CHIEF-TRANSFER-POLICY.md",
+      "sha256": "c6b8dc3a47dfcdc115ac966ec1bf52793627e0fdad43574cba3573680d8b54d3",
+      "bytes": 10803
+    },
+    {
+      "label": "Current snapshot (package)",
+      "path": "/tmp/claude-0/-home-user-EarningsNerd/27aa9761-b14a-5cab-9ee6-5f8ec27f49f3/scratchpad/handover/officers/coo/control/CURRENT-SNAPSHOT.md",
+      "sha256": "5015c115573443e55b4c92717110161289053b7cb727cdf85c21854349fe95fe",
+      "bytes": 4046
+    },
+    {
+      "label": "Wave register",
+      "path": "/tmp/claude-0/-home-user-EarningsNerd/27aa9761-b14a-5cab-9ee6-5f8ec27f49f3/scratchpad/handover/officers/coo/control/WAVE-REGISTER.json",
+      "sha256": "55a602dfaa24457553ad324f2dd531c49f9bff27f3fa694447dfbb2f713bd16d",
+      "bytes": 2249
+    },
+    {
+      "label": "Handback contract",
+      "path": "/tmp/claude-0/-home-user-EarningsNerd/27aa9761-b14a-5cab-9ee6-5f8ec27f49f3/scratchpad/handover/officers/coo/control/HANDBACK-CONTRACT.md",
+      "sha256": "cc4d5b743cd78c65998b38efeeadc6cd51ef84939c56905bd6b687f0068f8e32",
+      "bytes": 1370
+    },
+    {
+      "label": "COO acknowledgement",
+      "path": "/tmp/claude-0/-home-user-EarningsNerd/27aa9761-b14a-5cab-9ee6-5f8ec27f49f3/scratchpad/handover/officers/coo/references/ACKNOWLEDGEMENT.md",
+      "sha256": "9ebffaa295a17708f2d11d1547ece65d7bfbdc311e2c38f73b734d6aeaab52c3",
+      "bytes": 1920
+    },
+    {
+      "label": "COO first deliverable (G1\u2013G5, C1)",
+      "path": "/tmp/claude-0/-home-user-EarningsNerd/27aa9761-b14a-5cab-9ee6-5f8ec27f49f3/scratchpad/handover/officers/coo/references/FIRST-DELIVERABLE.md",
+      "sha256": "c82773953be1e85daa87525003d1ade26db4e8f8e9df428f97fff80d10ee3f7f",
+      "bytes": 15184
+    },
+    {
+      "label": "COO worker prompt (held handover)",
+      "path": "/tmp/claude-0/-home-user-EarningsNerd/27aa9761-b14a-5cab-9ee6-5f8ec27f49f3/scratchpad/handover/officers/coo/officer/CLAUDE-IMPLEMENTATION-PROMPT.md",
+      "sha256": "bdfd29480f0dea2416363fbb33a33a1f2824b1d0593384abf649bd39cad17dcb",
+      "bytes": 9118
+    },
+    {
+      "label": "COO REQUIRED-FILES.json",
+      "path": "/tmp/claude-0/-home-user-EarningsNerd/27aa9761-b14a-5cab-9ee6-5f8ec27f49f3/scratchpad/handover/officers/coo/officer/REQUIRED-FILES.json",
+      "sha256": "bede6eda8b32f8116d2ca86810ab01be0c293ff820e3f92c784fa5e5dbd06f75",
+      "bytes": 4162
+    },
+    {
+      "label": "CTO current-beta operating-envelope handback (Markdown)",
+      "path": "tasks/code-red-20261004/runtime/handbacks/cto/envelope/CURRENT-BETA-OPERATING-ENVELOPE-HANDBACK.md",
+      "sha256": "62a0f60cbff1df2bc9ec3f3225ba84168478636fb87336545d255a062612f041",
+      "bytes": 36121
+    },
+    {
+      "label": "CTO current-beta operating-envelope bounds (JSON)",
+      "path": "tasks/code-red-20261004/runtime/handbacks/cto/envelope/CURRENT-BETA-OPERATING-ENVELOPE-BOUNDS.json",
+      "sha256": "2fc35be7e9c72fb9bbe5096f204227cf244c4d01bc11ed2448afba9c92db5f1b",
+      "bytes": 37658
+    },
+    {
+      "label": "CEO/CFO safe cost-policy statement",
+      "path": "tasks/code-red-20261004/runtime/control/SPEND-POLICY-STATEMENT.md",
+      "sha256": "2a2122c5a727a0190c7ca999c241c8ff4ab2008a476ca64707a82e87e9dafa0e",
+      "bytes": 1850
+    },
+    {
+      "label": "CEO ledger access statement",
+      "path": "tasks/code-red-20261004/runtime/control/LEDGER-ACCESS.md",
+      "sha256": "9d6143456b4b43c940f684638f9a65ed765bd6a0299084487f3a31aaf68d5e9f",
+      "bytes": 2225
+    },
+    {
+      "label": "CEO exclusion successor 136",
+      "path": "tasks/code-red-20261004/runtime/control/source-context-exclusion-136.json",
+      "sha256": "f6c065fd30650547e6cdb597faca44138ccd54bc50e5d9ab63b9883c61862f9a",
+      "bytes": 9672
+    },
+    {
+      "label": "CEO takeover record",
+      "path": "tasks/code-red-20261004/runtime/TAKEOVER.md",
+      "sha256": "af840e195c5d9a5c1b42d60ae906639d508b1437b93839ac5fe6742082db7e05",
+      "bytes": 6510
+    },
+    {
+      "label": "CEO repository snapshot",
+      "path": "tasks/code-red-20261004/runtime/control/REPOSITORY-SNAPSHOT.json",
+      "sha256": "a0666c424912e25b8dab6a689494d04dbe9507cc3bd7fdeb684a0734118741e9",
+      "bytes": 2770
+    },
+    {
+      "label": "CEO-recorded R1 status",
+      "path": "tasks/code-red-20261004/runtime/handbacks/cto/R1-STATUS.md",
+      "sha256": "fb3d032e41f460ed7e45e39de5bca4a84aeb0061438b490421b98de8018e29b7",
+      "bytes": 3985
+    }
+  ],
+  "stop_conditions": [
+    "hash mismatch",
+    "missing field or input",
+    "authority/eligibility conflict",
+    "any request for customer access, probe, cloud call, load, live job, config/flag/pricing/registration change, invitation, subscription, source work or E09 code",
+    "concurrent writer on the output path"
+  ],
+  "spend": {
+    "reservation_usd": "0.000000",
+    "deepseek_calls_authorized": 0,
+    "ledger_written": false
+  },
+  "source_dispatch_authorized": false,
+  "judge_dispatch_authorized": false,
+  "production_entry_authorized": false
+}

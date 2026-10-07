@@ -1,0 +1,1165 @@
+{
+  "schema_version": 1,
+  "revision": 5,
+  "dispatch_id": "CTO-ENVELOPE-HANDBACK-03",
+  "original_dispatch_id": "CTO-ENVELOPE-HANDBACK-01",
+  "observed_at": "2026-10-06T06:17:07Z",
+  "repository_commit": "e3eac7a7597b2900b8d41e12542aa2a683c2234a",
+  "repository_note": "Code, workflow and docs anchors read at e3eac7a7 — the branch commit the manifest names (claude/vigilant-goodall-633yx3, PR #1101, deploy-scoping correction) on main caa6defef2ac9b32cddf8bd7cad164230c132266; runtime records read at the same commit plus the two untracked working-tree files the manifest names (the 2026-10-06 receipt and closure 158). The non-tasks/ tree at e3eac7a7 differs from revision 4's anchor commit 0b8d39eb in exactly eight files: .github/workflows/ci.yml (one line, :535, the deploy change detector — no cited line moved; :400, :609, :612, :616–620, :628, :637, :651 re-read), .gitleaksignore, AGENTS.md, CLAUDE.md (Deploy section only; rule 5 unchanged), backend/tests/unit/test_backend_deploy_scope.py (new), backend/tests/unit/test_capacity_readout.py, docs/DEPLOYMENT.md (PR #1101 adds two lines at :46–50, so every cited line after :50 is two higher than in revision 4 — all fourteen re-read and renumbered in B01, B15, B16, B23, B28, B43) and ops/capacity/readout.py (PR #1098 diagnostics: the window cap moved :38 → :41–42 and the pool-timeout signature :128 → :183, both re-read; the committed log filter :240–248 is newly cited). No line cited in backend/app/**, backend/main.py, backend/Dockerfile, backend/requirements.txt, backend/scripts/pregenerate_examples.py, docs/OPERATIONS.md, lessons/sec-edgar-resilience-layer.md, .github/workflows/ops.yml or tasks/fleet-coordination-proposal-2026-09-19.md changed. tasks/todo.md changed: the PR #1069 bullet cited by B47/B51 is :6180 (:6147 at 100fb7d6; already :6180 at 0b8d39eb — a drift revision 4 did not catch because its check excluded tasks/). Branch movement during authoring (disclosed): at 2026-10-06T06:10:34Z, after every anchor had been read at e3eac7a7, another writer committed 1d2bfae21c08b035773c6393a94e81e83e09fdf2 (ci: review findings on the deploy-scope detector — --no-renames, deploy-step gating asserted, rename case, stale wording, lesson; 10 files, none under tasks/, backend/app/, ops/ or any other cited file). Each shifted cited line was re-read at 1d2bfae2: .github/workflows/ci.yml lines cited after :533 are four higher there (:499–533 one higher; :400 unchanged; the detector is :539 and gains --no-renames), docs/DEPLOYMENT.md lines cited after :47 are one higher (:160, :204, :225, :278, :283, :288, :347, :354, :384, :626–627, :667, :765, :770), CLAUDE.md changed in its Deploy wording only. The anchors in this file stay pinned to e3eac7a7 (repository_commit). Working tree: after the 25 inputs were verified and record 09 had been read, another writer modified control/DECISIONS-09.md (one insertion; working-tree SHA-256 be6fed3e…, 36,020 bytes) and control/LEDGER-ACCESS.md and added control/DECISIONS-10.md — none opened or used; the record-09 content relied on is the manifest-bound version, byte-identical to the committed file at e3eac7a7 and at 1d2bfae2 (bcc56ab2…, 35,869 bytes).",
+  "author": "cto-envelope-handback-rev5-author-01 — Claude Code subagent dispatched by the chief (session_01GWYV7WXWstgVGQG43YcSM8) under dispatch CTO-ENVELOPE-HANDBACK-03; requested model inherited (claude-fable-5-1); the worker cannot observe its served model or runtime id; provisional label pre-registered in closure 158 and resolved by the chief in the next closure. Isolated author; no adversarial lens ran on revision 5 itself; the revision-3 derived rows were refuted by two isolated refuters (record 02 Appendices A/B) and their qualifications remain folded in; the new and changed content of revisions 4 and 5 is author judgement, unrefuted.",
+  "dispatch_manifest": {
+    "path": "tasks/code-red-20261004/runtime/dispatch/CTO-ENVELOPE-HANDBACK-03.json",
+    "sha256": "0513f43f3a6cbff203696a4d4d64e50abb39c6947e001434358a917f1b12c93c",
+    "bytes": 13649,
+    "inputs_listed": 25,
+    "inputs_verified_by_sha256_and_length": 25
+  },
+  "bounds": [
+    {
+      "id": "B01",
+      "component": 1,
+      "bound": "Cloud Run service vCPU per instance",
+      "value": 1,
+      "unit": "vCPU",
+      "classification": "configured-deploy",
+      "enforcement_scope": "instance",
+      "evidence": "`.github/workflows/ci.yml:616` (`--cpu=1 --cpu-boost`); mirrored `docs/DEPLOYMENT.md:203` at `e3eac7a7` (`:201` before PR #1101 added two lines at `:46`–50; `:204` at `1d2bfae2`)",
+      "uncertainty": "Re-asserted on every backend deploy; current live value not re-read from Cloud Run here."
+    },
+    {
+      "id": "B02",
+      "component": 1,
+      "bound": "Cloud Run memory per instance",
+      "value": 1,
+      "unit": "GiB",
+      "classification": "configured-deploy",
+      "enforcement_scope": "instance",
+      "evidence": "`.github/workflows/ci.yml:616` (`--memory=1Gi`)",
+      "uncertainty": "As B01."
+    },
+    {
+      "id": "B03",
+      "component": 1,
+      "bound": "Cloud Run minimum instances",
+      "value": 1,
+      "unit": "instances",
+      "classification": "configured-deploy",
+      "enforcement_scope": "service",
+      "evidence": "`.github/workflows/ci.yml:617` (`--min-instances=1`)",
+      "uncertainty": "One warm instance; per-process caches survive between requests."
+    },
+    {
+      "id": "B04",
+      "component": 1,
+      "bound": "Cloud Run maximum instances (service-level and per-revision)",
+      "value": 2,
+      "unit": "instances",
+      "classification": "configured-deploy",
+      "enforcement_scope": "service",
+      "evidence": "`.github/workflows/ci.yml:617` (`--max=2 --max-instances=2`); `.github/workflows/ci.yml:612` (comment); service maxScale 2 and revision maxScale 2 confirmed live 2026-10-04 (`control/PRODUCTION-CONFIG-OBSERVATION-20261004.md` (SHA-256 `ea3689c8…`) §Service)",
+      "uncertainty": "Live value confirmed on the serving revision `earningsnerd-backend-00443-n58` (2026-10-04). Cloud Run can briefly exceed a configured maximum during scaling/rollout (vendor behaviour recorded in the workflow comment; magnitude unknown; configured overlap case up to +2 instances, B08). Jobs are outside this limit."
+    },
+    {
+      "id": "B05",
+      "component": 1,
+      "bound": "HTTP request concurrency per instance",
+      "value": 40,
+      "unit": "requests",
+      "classification": "configured-deploy",
+      "enforcement_scope": "instance",
+      "evidence": "`.github/workflows/ci.yml:617` (`--concurrency=40`); `containerConcurrency` 40 confirmed live 2026-10-04 (`control/PRODUCTION-CONFIG-OBSERVATION-20261004.md` (SHA-256 `ea3689c8…`) §Service)",
+      "uncertainty": "Upper bound on simultaneous requests per instance; generation concurrency is bounded separately (B41)."
+    },
+    {
+      "id": "B06",
+      "component": 1,
+      "bound": "Cloud Run request timeout / stream timeout",
+      "value": 600,
+      "unit": "seconds",
+      "classification": "configured-deploy",
+      "enforcement_scope": "instance",
+      "evidence": "`.github/workflows/ci.yml:617` (`--timeout=600`); `STREAM_TIMEOUT` `backend/app/config.py:546`; request timeout 600 s confirmed live 2026-10-04 (`control/PRODUCTION-CONFIG-OBSERVATION-20261004.md` (SHA-256 `ea3689c8…`) §Service)",
+      "uncertainty": "Streaming endpoints are excluded from the application timeout middleware (B27); the platform timeout is the outer bound."
+    },
+    {
+      "id": "B07",
+      "component": 1,
+      "bound": "Serving processes per instance",
+      "value": 1,
+      "unit": "processes",
+      "classification": "observed",
+      "enforcement_scope": "instance",
+      "evidence": "`control/PRODUCTION-CONFIG-OBSERVATION-20261004.md` (SHA-256 `ea3689c8…`) §Service (Ops `describe-service` run 37220896634, 2026-10-04T17:32Z: container command = image default, no override; `WEB_CONCURRENCY` and `UVICORN_WORKERS` not set; no gunicorn args) with `backend/Dockerfile:60` (`uvicorn main:app` without `--workers`); `control/DECISIONS-02.md` (SHA-256 `4d93171f…`) Appendix B, B08 row (the hidden `$WEB_CONCURRENCY` assumption, resolved by that read); tasks/fleet-coordination-proposal-2026-09-19.md:26 (same finding 2026-09-19)",
+      "uncertainty": "Observed on the serving revision on 2026-10-04 (uvicorn honours `$WEB_CONCURRENCY` only when `--workers` is absent, so the env read was the decisive input). A later deploy that set either would change it; the deploy workflow sets neither (`.github/workflows/ci.yml:620`)."
+    },
+    {
+      "id": "B08",
+      "component": 1,
+      "bound": "Fleet serving processes (steady / rollout)",
+      "value": {
+        "steady_max": 2,
+        "rollout_overlap_extra": null,
+        "configured_overlap_case_max_extra_instances": 2
+      },
+      "unit": "processes",
+      "classification": "observed",
+      "enforcement_scope": "fleet",
+      "evidence": "B04 × B07, both observed live 2026-10-04 (`control/PRODUCTION-CONFIG-OBSERVATION-20261004.md` (SHA-256 `ea3689c8…`) §Service); `control/DECISIONS-02.md` (SHA-256 `4d93171f…`) Appendix A (B08 row: 2 × 1; overlap extra unknown) and Appendix B (configured overlap case up to +2 instances = +8 connections, not +1)",
+      "uncertainty": "`steady_max` is a configured maximum observed live, not a measured instance count: the 2026-10-06 re-read supplied request series per revision and response code (B64) but no per-instance series was requested, so the realised instance count is still unobserved (B59). Realised rollout-overlap count and duration remain unknown: +1 draining instance reaches 22 connections, +2 reaches 26 > 22 usable (B19); neither is excluded by any retained observation."
+    },
+    {
+      "id": "B09",
+      "component": 1,
+      "bound": "SQLAlchemy engines per process",
+      "value": 1,
+      "unit": "engine",
+      "classification": "configured-code-default",
+      "enforcement_scope": "process",
+      "evidence": "`backend/app/database.py:32`–39 (module-level `create_engine`, PostgreSQL branch); tasks/fleet-coordination-proposal-2026-09-19.md:25",
+      "uncertainty": "One sync engine per importing process (API instance or job)."
+    },
+    {
+      "id": "B10",
+      "component": 1,
+      "bound": "Service DB pool per process (pool_size / max_overflow)",
+      "value": {
+        "pool_size": 4,
+        "max_overflow": 0,
+        "max_connections_per_process": 4
+      },
+      "unit": "connections",
+      "classification": "configured-deploy",
+      "enforcement_scope": "process",
+      "evidence": "`.github/workflows/ci.yml:620` (`DB_POOL_SIZE=4,DB_MAX_OVERFLOW=0`) overrides image ENV 5/5 (`backend/Dockerfile:45`–46) and code defaults 20/10 (`backend/app/database.py:12`–13); `DB_POOL_SIZE=4`, `DB_MAX_OVERFLOW=0` confirmed live 2026-10-04 (`control/PRODUCTION-CONFIG-OBSERVATION-20261004.md` (SHA-256 `ea3689c8…`) §Service)",
+      "uncertainty": "Production-effective values are the deploy values. Local/ad-hoc runs of the same code use 20/10 unless the environment sets them."
+    },
+    {
+      "id": "B11",
+      "component": 1,
+      "bound": "Pool checkout wait before fail-fast",
+      "value": 10,
+      "unit": "seconds",
+      "classification": "configured-code-default",
+      "enforcement_scope": "process",
+      "evidence": "`backend/app/database.py:22` (`DB_POOL_TIMEOUT` default 10; not set by deploy `.github/workflows/ci.yml:620` or image ENV)",
+      "uncertainty": "Effective 10 s unless a runtime env override exists (none in the workflow). Saturation surfaces as a fast error, not a hang."
+    },
+    {
+      "id": "B12",
+      "component": 1,
+      "bound": "Pool connection recycle",
+      "value": 1800,
+      "unit": "seconds",
+      "classification": "configured-code-default",
+      "enforcement_scope": "process",
+      "evidence": "`backend/Dockerfile:47` (image ENV 1800) overriding code default 3600 (`backend/app/database.py:15`); deploy does not set it",
+      "uncertainty": "Effective 1800 s assuming no runtime override."
+    },
+    {
+      "id": "B13",
+      "component": 1,
+      "bound": "DB connect timeout / pre-ping",
+      "value": {
+        "connect_timeout_seconds": 10,
+        "pool_pre_ping": true
+      },
+      "unit": "seconds / flag",
+      "classification": "configured-code-default",
+      "enforcement_scope": "process",
+      "evidence": "`backend/Dockerfile:48`; `backend/app/database.py:17`; `pool_pre_ping=True` `backend/app/database.py:32`–39 (PostgreSQL branch)",
+      "uncertainty": "—"
+    },
+    {
+      "id": "B14",
+      "component": 1,
+      "bound": "Cloud Run jobs: count and per-process pools",
+      "value": {
+        "jobs": 8,
+        "pregenerate_pool": 3,
+        "pregenerate_overflow": 0,
+        "other_seven_pool": 1,
+        "other_seven_overflow": 0
+      },
+      "unit": "connections",
+      "classification": "configured-deploy",
+      "enforcement_scope": "job process",
+      "evidence": "`.github/workflows/ci.yml:637` (pregenerate `DB_POOL_SIZE=3`); `.github/workflows/ci.yml:651` (six jobs `DB_POOL_SIZE=1`); backfill-facts same values in its own step; all eight jobs observed 2026-10-04 with pools 3+0 (pregenerate) / 1+0 (other seven) and `taskCount` 1 (`control/PRODUCTION-CONFIG-OBSERVATION-20261004.md` (SHA-256 `ea3689c8…`) §Jobs)",
+      "uncertainty": "Env is re-asserted only for jobs that exist (CI skips missing jobs); operator `--args` overrides are outside this source audit."
+    },
+    {
+      "id": "B15",
+      "component": 1,
+      "bound": "Configured maximum application DB demand (2 instances + pregenerate + one execution of each other job)",
+      "value": 18,
+      "unit": "connections",
+      "classification": "configured-deploy",
+      "enforcement_scope": "fleet",
+      "evidence": "`.github/workflows/ci.yml:609` (comment: 2×4 + 3 + 7×1 = 18); `docs/DEPLOYMENT.md:666` at `e3eac7a7` (`:664` before PR #1101; `:667` at `1d2bfae2`)",
+      "uncertainty": "Excludes rollout-overlap instances (+4 each; the configured overlap case is up to +2 instances = +8, so 26 > 22 usable is not excluded — record 02 Appendix B), repeated concurrent executions of one job, and non-application clients (Ops proxy sessions, Cloud SQL Studio, monthly export, platform agents, observers). This is configured demand, not measured load."
+    },
+    {
+      "id": "B16",
+      "component": 1,
+      "bound": "Cloud SQL tier",
+      "value": {
+        "bootstrap": "db-g1-small",
+        "current": null
+      },
+      "unit": "tier",
+      "classification": "configured-deploy",
+      "enforcement_scope": "external",
+      "evidence": "`docs/DEPLOYMENT.md:159` at `e3eac7a7` (`:157` before PR #1101; `:160` at `1d2bfae2`) (bootstrap runbook)",
+      "uncertainty": "Current tier not verified from this session (no cloud read)."
+    },
+    {
+      "id": "B17",
+      "component": 1,
+      "bound": "PostgreSQL max_connections",
+      "value": 25,
+      "unit": "connections",
+      "classification": "observed",
+      "enforcement_scope": "external",
+      "evidence": "COO FIRST-DELIVERABLE §“C1 — one capacity admission, still HOLD” (package `c8277395…`) (read-only SQL snapshot 2026-10-04 07:02:47 UTC); also measured 2026-09-19 (tasks/fleet-coordination-proposal-2026-09-19.md:28)",
+      "uncertainty": "Observed value; not a reserve policy."
+    },
+    {
+      "id": "B18",
+      "component": 1,
+      "bound": "superuser_reserved_connections / reserved_connections",
+      "value": {
+        "superuser_reserved_connections": 3,
+        "reserved_connections": null
+      },
+      "unit": "connections",
+      "classification": "observed",
+      "enforcement_scope": "external",
+      "evidence": "COO FIRST-DELIVERABLE §“C1 — one capacity admission, still HOLD” (package `c8277395…`) (same snapshot; `reserved_connections=null`)",
+      "uncertainty": "Null is unknown, not zero. Refuter qualification (`control/DECISIONS-02.md` (SHA-256 `4d93171f…`) Appendices A/B): PostgreSQL 15 has no `reserved_connections` GUC (it arrived in 16), so the null reads as 'parameter absent', which supports but does not prove B19. Re-observed null at 08:13:07Z on 2026-10-05 (B61). Re-observed null at 05:31:07Z on 2026-10-06 (B66)."
+    },
+    {
+      "id": "B19",
+      "component": 1,
+      "bound": "Usable non-superuser connections",
+      "value": 22,
+      "unit": "connections",
+      "classification": "assumed",
+      "enforcement_scope": "external",
+      "evidence": "Arithmetic on B17 − B18 (25 − 3). Not an operating reserve and not a policy number.",
+      "uncertainty": "Qualified by both refuters (`control/DECISIONS-02.md` (SHA-256 `4d93171f…`) Appendices A/B): 22 is the total non-superuser backend threshold that Cloud SQL agents, the monthly export and Ops proxy sessions also consume — a ceiling on everyone's backends, not an application-fillable figure; at the server limit new connects fail immediately (FATAL), not after the 10 s pool wait (B11). Any non-null `reserved_connections` would lower it."
+    },
+    {
+      "id": "B20",
+      "component": 1,
+      "bound": "Client backends observed at the snapshot",
+      "value": 6,
+      "unit": "backends",
+      "classification": "observed",
+      "enforcement_scope": "external",
+      "evidence": "COO FIRST-DELIVERABLE §“C1 — one capacity admission, still HOLD” (package `c8277395…`) (six client backends including the observer, 2026-10-04 07:02:47 UTC)",
+      "uncertainty": "A single light-traffic instant; not a peak and not evidence of spare capacity. A second instant (7 client backends including the observer, 08:13:07Z on 2026-10-05, outside the readout window) is B61. A third instant (6 client backends including the observer, 2026-10-06T05:31:07Z, about 21.5 h after the readout window) is B66. The in-window one-minute gauge (B63) counts backends per database, not clients."
+    },
+    {
+      "id": "B21",
+      "component": 1,
+      "bound": "Job task configuration (taskCount / maxRetries / timeout)",
+      "value": {
+        "taskCount": 1,
+        "maxRetries": 3,
+        "timeout_seconds": {
+          "filing-scan": 1800,
+          "pregenerate": 3600,
+          "backfill-facts": 3600,
+          "other_five_jobs": "900–3600 per the 2026-09-19 inventory"
+        },
+        "parallelism": {
+          "pregenerate_filing_scan_backfill_facts_executions_2026-10-05": 1,
+          "other_five_jobs": null
+        }
+      },
+      "unit": "tasks / retries / seconds",
+      "classification": "observed",
+      "enforcement_scope": "job",
+      "evidence": "tasks/fleet-coordination-proposal-2026-09-19.md:27 (live inventory 2026-09-19); `control/PRODUCTION-CONFIG-OBSERVATION-20261004.md` (SHA-256 `ea3689c8…`) §Jobs (`taskCount` 1 re-observed on all eight jobs 2026-10-04; retries/timeouts not printed by that operation); readout `cloud.json` (SHA-256 `2a177f6d…`) executions `f7lv2`, `fgrcd`, `gk9p6`, `nf566` (`parallelism` 1, `taskCount` 1, `maxRetries` 3, `timeout` 3600 s / 1800 s / 1800 s / 3600 s) Re-read identically on 2026-10-06 (readout `cloud.json` (SHA-256 `3bf59560…`): same `parallelism`, `taskCount`, `maxRetries` and timeouts).",
+      "uncertainty": "Parallelism, retries and timeouts are observed only for the three jobs that executed on 2026-10-05; the other five jobs rest on the dated 2026-09-19 inventory (parallelism omitted there is not zero)."
+    },
+    {
+      "id": "B22",
+      "component": 1,
+      "bound": "Simultaneous job executions",
+      "value": {
+        "overlap_20261004_lifetime_seconds": 11.657177,
+        "overlap_20261004_business_phase": "none (0.694726 s gap)",
+        "overlap_20261005_0600_lifetime_seconds": 24.94,
+        "overlap_20261005_0600_business_phase_seconds": 9.15,
+        "overlap_20261005_0700_lifetime_seconds": 24.97,
+        "overlap_20261005_0700_business_phase_seconds": 6.57,
+        "same_job_concurrent_executions": null
+      },
+      "unit": "seconds",
+      "classification": "observed",
+      "enforcement_scope": "fleet",
+      "evidence": "COO FIRST-DELIVERABLE §“C1 — one capacity admission, still HOLD” (package `c8277395…`) (2026-10-04 02:30–04:30 UTC window); `handbacks/coo/CAPACITY-READOUT-RECEIPT-20261005.md` (SHA-256 `eea93bba…`) §“Concurrency observed”; readout `database.jsonl` (SHA-256 `37094bf8…`) `historical_job_ledger` rows; readout `cloud.json` (SHA-256 `2a177f6d…`) executions (details in B60) 2026-10-06 re-read: `handbacks/coo/CAPACITY-READOUT-RECEIPT-20261006.md` (SHA-256 `fce1245d…`) §“Job executions and business phases”; readout `database.jsonl` (SHA-256 `3d30c4a5…`); readout `cloud.json` (SHA-256 `3bf59560…`) (identical executions and ledger rows); one-minute connection samples in B63.",
+      "uncertainty": "2026-10-05 is the first retained window in which job business phases overlap each other and the service (pregenerate × filing-scan at 06:00; backfill-facts × filing-scan at 07:00). The overlapping work was near-empty (B60): evidence that Monday overlap happens, not of load. No DB sample lies inside either overlap: the 2026-10-05 run had no Monitoring samples (B59) and the 2026-10-06 re-read's one-minute gauge (B63) has no sample between 06:00:18.8Z and 06:00:27.9Z or between 07:00:16.8Z and 07:00:23.4Z — the nearest samples (06:01–06:03Z, 07:01–07:03Z) show 3 application backends. Whether one job can run two executions concurrently remains unknown; the filing-scan execution listing was `partial` (page limit at 500 retained executions), so even in-window completeness for that job is not guaranteed by either receipt."
+    },
+    {
+      "id": "B23",
+      "component": 1,
+      "bound": "Job schedules (SEC- and DB-relevant)",
+      "value": {
+        "pregenerate": "Mon 06:00 UTC",
+        "filing-scan": "hourly 0 * * * *",
+        "filing-digest": "daily 08:00 UTC",
+        "backfill-facts": "Mon 07:00 UTC (runbook; confirmed read-only by Astra, record 02 D4; execution `nf566` observed starting 2026-10-05T07:00:04Z)",
+        "earnings-calendar-refresh": "daily 05:30 America/New_York",
+        "earnings-day-alerts": "daily 06:00 America/New_York",
+        "retention-purge": "Sun 03:00 UTC",
+        "notable-filings": "08:30 and 18:30 America/New_York (`docs/DEPLOYMENT.md:625`–626 at `e3eac7a7`, `:626`–627 at `1d2bfae2`: `--schedule=\"30 8,18 * * *\" --time-zone=\"America/New_York\"`, read by the revision-5 author; `:623`–624 before PR #1101, where the independent PR reviewer reported it for revision 3)"
+      },
+      "unit": "cron",
+      "classification": "configured-deploy",
+      "enforcement_scope": "external",
+      "evidence": "`docs/DEPLOYMENT.md:224`, `:277`, `:282`, `:287`, `:346`, `:353`, `:383`, `:625`–626 (runbook, re-read at `e3eac7a7`; each two lines lower before PR #1101 and one higher at `1d2bfae2`); `docs/OPERATIONS.md:93` (Monday 06:00–07:00 UTC overlap of pregenerate, filing-scan and backfill-facts with the service); tasks/fleet-coordination-proposal-2026-09-19.md:27; `control/DECISIONS-02.md` (SHA-256 `4d93171f…`) intro and D4 (backfill-facts Monday 07:00 UTC confirmed; readout window widened to 06:00–08:00 UTC); readout `cloud.json` (SHA-256 `2a177f6d…`) ; readout `cloud.json` (SHA-256 `3bf59560…`) (2026-10-06 re-read: the same four executions).",
+      "uncertainty": "Runbook values are creation-time commands, not a live Scheduler read; backfill-facts resolved (above); the notable-filings runbook lines are now read directly (above) — a creation-time command like the others, not a live Scheduler read. SEC-calling set per `control/DECISIONS-02.md` (SHA-256 `4d93171f…`) Appendix A: pregenerate, filing-scan (hourly), backfill-facts, earnings-calendar-refresh (EFTS) and notable-filings (EFTS); filing-digest, earnings-day-alerts and retention-purge do not call SEC."
+    },
+    {
+      "id": "B24",
+      "component": 1,
+      "bound": "Default worker-thread limiter per event loop (shared by health probes and summary DB units)",
+      "value": 40,
+      "unit": "threads",
+      "classification": "assumed",
+      "enforcement_scope": "process",
+      "evidence": "`docs/OPERATIONS.md:75` (anyio default limiter; the documented numbers are illustrative)",
+      "uncertainty": "Library default assumed; not observed."
+    },
+    {
+      "id": "B25",
+      "component": 1,
+      "bound": "EDGAR thread pool per process / EDGAR default timeout",
+      "value": {
+        "threads": 4,
+        "default_timeout_seconds": 15.0
+      },
+      "unit": "threads / seconds",
+      "classification": "configured-code-default",
+      "enforcement_scope": "process",
+      "evidence": "`backend/app/services/edgar/config.py:167`–169",
+      "uncertainty": "Env-overridable; deploy does not set them."
+    },
+    {
+      "id": "B26",
+      "component": 2,
+      "bound": "Request-level timeouts by path",
+      "value": {
+        "/api/summaries/": 120,
+        "/api/filings/": 60,
+        "/health": 5,
+        "default": 30,
+        "*/insiders": 75,
+        "streaming_and_progress": "excluded"
+      },
+      "unit": "seconds",
+      "classification": "configured-code-default",
+      "enforcement_scope": "process",
+      "evidence": "`backend/main.py:330`–344; `docs/OPERATIONS.md:315`",
+      "uncertainty": "Recorded as existing controls only; not used to derive any reserve or policy."
+    },
+    {
+      "id": "B27",
+      "component": 2,
+      "bound": "Pipeline backstop timeout / follower wait cap",
+      "value": {
+        "pipeline_timeout_seconds": 120,
+        "follower_wait_cap_seconds": 110,
+        "context_enrichment_timeout_seconds": 18
+      },
+      "unit": "seconds",
+      "classification": "configured-code-default",
+      "enforcement_scope": "process",
+      "evidence": "`backend/app/services/summary_pipeline.py:353`; `backend/app/services/summary_pipeline.py:91`; `backend/app/services/summary_pipeline.py:359`",
+      "uncertainty": "Back-pressure: excess generations queue on the semaphore inside this timeout (`backend/app/services/summary_pipeline.py:673`). Not used to choose policy numbers."
+    },
+    {
+      "id": "B28",
+      "component": 2,
+      "bound": "Provider budgets (summary / attempt / attempts / recovery)",
+      "value": {
+        "summary_budget_seconds": 75,
+        "attempt_cap_seconds": 45,
+        "max_summary_attempts": 3,
+        "recovery_attempt_timeout_seconds": 12
+      },
+      "unit": "seconds / attempts",
+      "classification": "configured-code-default",
+      "enforcement_scope": "process",
+      "evidence": "`backend/app/services/ai/provider_requests.py:22`–24; `backend/app/services/ai/section_recovery.py:122`; `docs/DEPLOYMENT.md:764` at `e3eac7a7` (`:762` before PR #1101; `:765` at `1d2bfae2`)",
+      "uncertainty": "—"
+    },
+    {
+      "id": "B29",
+      "component": 2,
+      "bound": "DB session released before admission/provider waits (E03)",
+      "value": true,
+      "unit": "design property",
+      "classification": "configured-code-default",
+      "enforcement_scope": "process",
+      "evidence": "`backend/app/services/summary_pipeline.py:384` (docstring: router releases its session before streaming; no ORM result survives into an admission or provider wait); MASTERPLAN-REVIEW E03 “delivered and subsequently strengthened”",
+      "uncertainty": "A design property of the code path, not a load-tested measurement; connection hold time per DB unit is not measured here."
+    },
+    {
+      "id": "B30",
+      "component": 2,
+      "bound": "Transactional lock waits (usage counters) / reservation TTL",
+      "value": {
+        "usage_counter_lock_timeout_ms": 3000,
+        "usage_reservation_ttl_seconds": 300
+      },
+      "unit": "ms / seconds",
+      "classification": "configured-code-default",
+      "enforcement_scope": "process",
+      "evidence": "`backend/app/config.py:464`; `backend/app/config.py:473`",
+      "uncertainty": "Per-transaction waits, not total deadlines."
+    },
+    {
+      "id": "B31",
+      "component": 2,
+      "bound": "Startup schema deadline / additive DDL lock timeout",
+      "value": {
+        "startup_schema_deadline_seconds": 60,
+        "additive_lock_timeout_ms": 5000
+      },
+      "unit": "seconds / ms",
+      "classification": "configured-code-default",
+      "enforcement_scope": "process",
+      "evidence": "`backend/app/config.py:469`; `backend/app/database.py:59`",
+      "uncertainty": "Startup only; a start that exceeds the deadline fails fast so Cloud Run keeps the last healthy revision."
+    },
+    {
+      "id": "B32",
+      "component": 2,
+      "bound": "DB operating reserve and wait/cleanup allowance under concurrent useful generation",
+      "value": null,
+      "unit": "connections / seconds",
+      "classification": "unknown",
+      "enforcement_scope": "fleet",
+      "evidence": "No retained observation ties pool `checked_out`, waits or pool-timeout log signatures to a window with concurrent generation; the COO windows carried light HTTP traffic and single-task jobs (COO FIRST-DELIVERABLE §“C1 — one capacity admission, still HOLD” (package `c8277395…`)); no DB sample lies inside the 11.66 s job overlap of 2026-10-04 (B22). The 2026-10-05 readout (Ops run 37282199614; `handbacks/coo/CAPACITY-READOUT-RECEIPT-20261005.md` (SHA-256 `eea93bba…`); readout `cloud.json` (SHA-256 `2a177f6d…`)) returned HTTP 403 on every Monitoring and Logging channel (B59). The 2026-10-06 re-read of the same 06:00–08:00 UTC window (Ops run 37418876945; `handbacks/coo/CAPACITY-READOUT-RECEIPT-20261006.md` (SHA-256 `fce1245d…`); readout `cloud.json` (SHA-256 `3bf59560…`); readout `database.jsonl` (SHA-256 `3d30c4a5…`)) read every channel: the application database showed 3 backends in 105 and 4 in 15 of 120 one-minute samples, at most 6 across all databases (B63); 95 HTTP 200 responses in two hours with p50 ≤ 61 ms (B64); 0 entries under the error/pool-timeout filter (B65); no sample inside the 9.15 s or 6.57 s business-phase overlaps (one-minute gauge; nearest samples 3); and no concurrent generation — the job ledger is identical to 2026-10-05 (`already_cached=15`, no `generated` counter, B60). These are samples under light HTTP traffic and near-empty single-task jobs, not under concurrent useful generation, so the quantity this bound defines is still unobserved; the SQL snapshots (B61, B66) are point-in-time reads outside the window.",
+      "uncertainty": "Resolving observation, named exactly: one bounded read-only Ops `capacity-readout` run (`.github/workflows/ops.yml:477`–483; ≤ 2 h window per `ops/capacity/readout.py:41`–42; existing scope, no widening) over a window that contains concurrent useful generation — reporting backend counts by database and state, the job ledger, the pool-timeout log signature (`ops/capacity/readout.py:183`) and `/metrics.provider_admission` peaks for the same window (B56) — when such a window exists in retained history; none does yet (every retained window is light traffic with near-empty jobs). Never new load, synthetic traffic, invitations or generation to create one. B62 is no longer a standing prerequisite: the channels were readable on 2026-10-06, and each run's own channel states are its evidence (verified per run). Owner of the re-run decision: COO/CEO; the CTO executes; not dispatched by this handback. The 2026-10-05 window supplies the no-load side of a baseline (3–4 application backends, ≤ 6 total, 0 error-filter entries) and no headroom figure; a job-overlap window evidences job-side concurrency, not cohort-shaped useful demand (COO disposition §4 item 1)."
+    },
+    {
+      "id": "B33",
+      "component": 2,
+      "bound": "Pool-saturation failure mode and alert thresholds",
+      "value": {
+        "behaviour": "fail-fast after 10 s wait",
+        "documented_warning": "checked_out > 8",
+        "documented_critical": "checked_out = pool_size"
+      },
+      "unit": "—",
+      "classification": "configured-code-default",
+      "enforcement_scope": "process",
+      "evidence": "B11; `docs/OPERATIONS.md:305`–313",
+      "uncertainty": "The documented warning threshold (> 8) is unreachable with pool 4 / overflow 0; only the critical threshold (= 4) can fire. Docs-vs-config inconsistency; code/deploy are truth (fix the doc separately). The founder-held D3 patch (`control/DECISIONS-02.md` (SHA-256 `4d93171f…`) D3 execution note; SHA-256 `21322a05…` per record 03) would correct the documented threshold; it is not applied."
+    },
+    {
+      "id": "B34",
+      "component": 3,
+      "bound": "SEC per-process token bucket / retries / backoff / Retry-After cap",
+      "value": {
+        "requests_per_second": 10,
+        "max_retries": 5,
+        "base_backoff_seconds": 1.0,
+        "max_retry_after_seconds": 120
+      },
+      "unit": "req/s / retries / seconds",
+      "classification": "configured-code-default",
+      "enforcement_scope": "process",
+      "evidence": "`backend/app/config.py:33`–35; `backend/app/services/sec_rate_limiter.py:57`; `backend/app/services/sec_rate_limiter.py:29`; `SEC_RATE_LIMIT_PER_SECOND` not set on the service or on any of the eight jobs, observed 2026-10-04 (`control/PRODUCTION-CONFIG-OBSERVATION-20261004.md` (SHA-256 `ea3689c8…`) §Service, §Jobs) → the code default is production-effective",
+      "uncertainty": "Every process (instance or job) carries its own full bucket. Capacity equals rate and the bucket starts full (`backend/app/services/sec_rate_limiter.py:57`; refill to full `:80`–83), so the first second after any ≥1 s idle gap can admit up to 2× the rate (`control/DECISIONS-02.md` (SHA-256 `4d93171f…`) D3). The limiter waits rather than rejects (`:85`–94); local throttling never moves `rate_limit_hits` (B39). The founder-held D3 patch would set this to 1 on every process; it is not applied (commit classifier-denied)."
+    },
+    {
+      "id": "B35",
+      "component": 3,
+      "bound": "SEC external cap",
+      "value": 10,
+      "unit": "req/s per user (SEC wording: regardless of the number of machines)",
+      "classification": "observed",
+      "enforcement_scope": "external",
+      "evidence": "`backend/app/services/sec_rate_limiter.py:4`; CLAUDE.md rule 5; SEC fair-access policy as read 2026-10-04 (`control/DECISIONS-02.md` (SHA-256 `4d93171f…`) D8): “no more than 10 requests per second, regardless of the number of machines used”",
+      "uncertainty": "How SEC attributes traffic (IP, declared identity) is external and unknown; all processes present one declared identity (`backend/app/config.py:32`), so the shared-budget reading is the conservative branch either way (`control/DECISIONS-02.md` (SHA-256 `4d93171f…`) Appendix B). Exceeding the cap risks blocking that fails filing fetches for every user behind the blocked identity."
+    },
+    {
+      "id": "B36",
+      "component": 3,
+      "bound": "Fleet SEC configured ceiling (two independent buckets per process)",
+      "value": {
+        "model": "app singleton bucket 10 req/s + edgartools internal bucket 9 req/s, both process-local and unoverridden on every process",
+        "per_process_sustained": 19,
+        "per_process_first_second": 29,
+        "steady_two_instances": 38,
+        "hourly_filing_scan_window_three_processes": 57,
+        "monday_0600_utc_four_processes": 76,
+        "monday_0700_utc_five_processes": 95,
+        "all_ten_processes": 190,
+        "founder_held_d3_patch_1_plus_1_per_process": {
+          "status": "prepared and gated locally; git commit denied by the platform classifier; NOT applied; founder decides (apply / change numbers / drop)",
+          "steady": 4,
+          "hourly_filing_scan_window": 6,
+          "monday_0600_utc": 8,
+          "monday_0700_utc": 10,
+          "daily_efts_job_over_a_running_scan": 8,
+          "all_ten_processes": 20,
+          "first_second_per_process": 3,
+          "first_second_monday_0700_utc": 15
+        }
+      },
+      "unit": "req/s",
+      "classification": "assumed",
+      "enforcement_scope": "fleet",
+      "evidence": "`control/DECISIONS-02.md` (SHA-256 `4d93171f…`) D3 and Appendix A (two-bucket arithmetic; the chief verified edgartools 5.58.0 `edgar/httpclient.py:196`–202 default `EDGAR_RATE_LIMIT_PER_SEC`=9, process-global at `:433`, source SHA-256 `63675da6…`, and pyrate-limiter 4.3.0 sliding-window admission); `control/PRODUCTION-CONFIG-OBSERVATION-20261004.md` (SHA-256 `ea3689c8…`) §Service and §Jobs (neither `SEC_RATE_LIMIT_PER_SECOND` nor `EDGAR_RATE_LIMIT_PER_SEC` set on the service or any job); `backend/app/config.py:33`; `backend/app/services/sec_rate_limiter.py:57`, `:80`–83 (app bucket starts full, refills to full); `backend/app/integrations/sec_api.py:9`–11 (edgartools' internal limiter is a separate bucket the app does not wrap); `backend/requirements.txt:52` (`edgartools==5.58.0`), `:172` (`pyrate-limiter==4.3.0`); process counts: B08 (two instances) plus the SEC-calling jobs enumerated in B23; `docs/OPERATIONS.md:96`",
+      "uncertainty": "Configured sustained ceilings, not realised demand (B39 unknown); revisions 1–3's 20/40/50 was a floor (record 02 D9). First second = 2 × 10 (app bucket full) + 9 (edgartools sliding window stays at rate). 38 and 76 are the same arithmetic (19 × processes) applied to the steady state and to the Monday 06:00 UTC overlap D3 enumerates for the patched values; fleet first-second sums are not stated here. The five-process Monday 07:00 count assumes the pregenerate run is still active at 07:00 — on 2026-10-05 it finished in 33 s with near-empty work (B60), a fact that lowers no ceiling (its timeout is 3600 s). Not covered by either model: rollout-overlap instances, manual/operator executions, any path outside both limiters, SEC's enforcement window. Egress identity is moot for compliance (B37, D8). Under the patch the Monday 07:00 scheduled sum is exactly 10 with no headroom and all-active is 20 (D3; Appendix B §5 row). Only lower per-process budgets on both buckets change the configured ceiling; the numbers are the founder's (Slice B)."
+    },
+    {
+      "id": "B37",
+      "component": 3,
+      "bound": "Egress identity and its relevance to the SEC cap",
+      "value": {
+        "egress": "dynamic egress IP (no VPC connector, no direct-VPC annotation, `vpc-access-egress` unset)",
+        "compliance_consequence": "none — closed by record 02 D8: SEC's cap is per user regardless of the number of machines"
+      },
+      "unit": "—",
+      "classification": "observed",
+      "enforcement_scope": "external",
+      "evidence": "`control/PRODUCTION-CONFIG-OBSERVATION-20261004.md` (SHA-256 `ea3689c8…`) §Service (Ops `describe-service` 2026-10-04); `control/DECISIONS-02.md` (SHA-256 `4d93171f…`) D8; tasks/fleet-coordination-proposal-2026-09-19.md:29 (no fixed egress arrangement observed 2026-09-15)",
+      "uncertainty": "Instances and jobs may present different addresses; that does not make them separate users, so B36's shared-budget reading stands and resolving egress relaxes nothing. How SEC attributes traffic is external and unknown; the D3 decision does not depend on it, and Slice A ownership does not depend on it (COO constraint)."
+    },
+    {
+      "id": "B38",
+      "component": 3,
+      "bound": "SEC breaker/limiter coverage by path",
+      "value": {
+        "edgartools_and_compat_fetches": "limiter + breaker",
+        "efts_full_text_and_companyfacts": "limiter only",
+        "local_parsing": "breaker-exempt",
+        "user_facing_wait": "single token (`execute`)",
+        "jobs": "may use backoff ladder",
+        "edgartools_internal_limiter": "second process-global bucket (edgartools default 9 req/s, `EDGAR_RATE_LIMIT_PER_SEC`), not wrapped by the app limiter",
+        "backoff_counter_paths": "`execute_with_backoff` only: `facts_service.py:1922` (companyfacts), `integrations/sec_api.py:218` (EFTS)",
+        "single_token_paths": "`execute`: `edgar/compat.py:149`, `:423`, `:509`; `edgar/xbrl_service.py:882`; `edgar/company_sic.py:19`"
+      },
+      "unit": "—",
+      "classification": "configured-code-default",
+      "enforcement_scope": "process",
+      "evidence": "`lessons/sec-edgar-resilience-layer.md:22`; CLAUDE.md rule 5; `backend/app/integrations/sec_api.py:9`–11; `backend/app/services/facts_service.py:1922`; `backend/app/integrations/sec_api.py:218`; `backend/app/services/edgar/compat.py:149`, `:423`, `:509`; `backend/app/services/edgar/xbrl_service.py:882`; `backend/app/services/edgar/company_sic.py:19`",
+      "uncertainty": "The allowlist gate bounds `sec.gov` literals; it does not prove every call's routing. Caller lists are from a bounded grep at this checkout."
+    },
+    {
+      "id": "B39",
+      "component": 3,
+      "bound": "Observed aggregate SEC rate / 429 / IP-block incidents; what `rate_limit_hits` measures",
+      "value": null,
+      "unit": "req/s / incidents",
+      "classification": "unknown",
+      "enforcement_scope": "fleet",
+      "evidence": "No retained aggregate measurement or incident in the allowed inputs; neither readout of the 2026-10-05 window carries `rate_limit_hits` or any `/metrics` field (`handbacks/coo/CAPACITY-READOUT-RECEIPT-20261005.md` (SHA-256 `eea93bba…`); `handbacks/coo/CAPACITY-READOUT-RECEIPT-20261006.md` (SHA-256 `fce1245d…`) §“What the receipt does NOT contain”), and the 2026-10-06 run's Cloud Logging query is the readout's committed error/pool-timeout filter (`ops/capacity/readout.py:240`–248), not an SEC 403/429 search (B65). Counter semantics verified at main `0b8d39eb` in `backend/app/services/sec_rate_limiter.py`, a file unchanged at `e3eac7a7` and `1d2bfae2` (not in either diff from `0b8d39eb`): `_wait_for_token` (`:72`–98) increments only `_total_requests` (`:98`); `_rate_limit_hits` increments only at `:153`, inside `execute_with_backoff` (`:119`–181), after `is_rate_limit_error(e)` is true (`:149`–153); `_is_rate_limit_error` (`:184`–196) returns directly for an `httpx.HTTPStatusError` — true only for status 429 (`:186`–188) — and applies the message fallback (“rate limit”, “too many requests”, “429”, “throttl”, `:190`–196) only to non-`HTTPStatusError` exceptions; `execute()` (`:100`–117) never increments; only two call sites use the backoff path (B38); edgartools traffic never touches the counter (`backend/app/integrations/sec_api.py:9`–11). Matches `control/DECISIONS-03.md` (SHA-256 `56bfb21b…`) §“D3 / D6” and `control/DECISIONS-05.md` (SHA-256 `d3723842…`) correction.",
+      "uncertainty": "Consequence: local throttling never moves the counter, so a flat `rate_limit_hits` is not evidence of safe aggregate traffic; a rise records a recognised rate-limit error on a backoff path (EFTS, companyfacts) and stays a conservative stop signal (record 02 D6 condition 1 as corrected by record 03). An SEC 403 is re-raised uncounted. Resolving observation: per-process `/metrics.sec_rate_limiter` (`total_requests`, `rate_limit_hits`; `docs/OPERATIONS.md:85`) on every instance plus job logs (a job's counters die with its process) in one window — unchanged and not performed — and a Cloud Logging search for SEC 403/429, now feasible for the Ops identity (Logging read PERMITTED on 2026-10-06, B62) but not run: the readout's committed filter does not search for SEC status codes and none of the fourteen existing Ops operations (`.github/workflows/ops.yml:36`–49) performs that search, so it is a CEO-approved read-only observation in its own right (none proposed or dispatched here). Admin-authenticated and per process; a fleet figure needs every instance and job in the window."
+    },
+    {
+      "id": "B40",
+      "component": 3,
+      "bound": "Provider stream ceilings per process",
+      "value": {
+        "MAX_CONCURRENT_GENERATIONS": 6,
+        "RECOVERY_MAX_CONCURRENCY": 3,
+        "AI_CHAT_MAX_INFLIGHT": 8,
+        "max_streams_per_process": 17
+      },
+      "unit": "streams",
+      "classification": "configured-code-default",
+      "enforcement_scope": "process",
+      "evidence": "`backend/app/config.py:489`; `backend/app/config.py:492`; `backend/app/config.py:501`; `backend/app/services/ai/provider_admission.py:1` (docstring)",
+      "uncertainty": "Not overridden by the deploy env (`.github/workflows/ci.yml:620`; live env confirmed 2026-10-04, `control/PRODUCTION-CONFIG-OBSERVATION-20261004.md` (SHA-256 `ea3689c8…`) §Service); effective as coded."
+    },
+    {
+      "id": "B41",
+      "component": 3,
+      "bound": "Fleet provider stream ceiling",
+      "value": {
+        "two_instances": 34,
+        "plus_pregenerate_tight": 37,
+        "plus_pregenerate_loose": 43
+      },
+      "unit": "streams",
+      "classification": "assumed",
+      "enforcement_scope": "fleet",
+      "evidence": "Derived: 2 × B40 + pregenerate. `control/DECISIONS-02.md` (SHA-256 `4d93171f…`) Appendix A (B41 row: the pregenerate process is sequential (B48) with recovery after the primary stream, so its tight bound is 3 and the fleet figure 37; 43 remains a valid loose bound; none of the other seven jobs reaches the provider) and Appendix B (every provider stream is inside one of the three bounds, verified from source; B41 stands)",
+      "uncertainty": "Configured upper bound; realised concurrency unknown (B56). A Copilot question may issue up to 4 sequential streams and a summary up to 3 attempts plus recovery — call counts, not simultaneous streams. Published provider concurrency for `deepseek-flash` is 2,500 (B46, dated 2026-10-04), far above 37; account-specific overrides unverified."
+    },
+    {
+      "id": "B42",
+      "component": 3,
+      "bound": "Provider retry policy",
+      "value": {
+        "sdk_max_retries": 0,
+        "application_attempts": 3,
+        "retry_after_cap_seconds": 5,
+        "deadline_extended_by_retry": false
+      },
+      "unit": "—",
+      "classification": "configured-code-default",
+      "enforcement_scope": "process",
+      "evidence": "`backend/app/services/openai_service.py:121`; `backend/app/services/ai/provider_requests.py:172`; `backend/app/services/ai/provider_requests.py:135`; B28",
+      "uncertainty": "—"
+    },
+    {
+      "id": "B43",
+      "component": 3,
+      "bound": "Cancellation and drain on timeout/disconnect",
+      "value": true,
+      "unit": "design property",
+      "classification": "configured-code-default",
+      "enforcement_scope": "process",
+      "evidence": "`backend/app/services/ai/provider_requests.py:95` (outcome `cancelled`, settled); `docs/DEPLOYMENT.md:769` at `e3eac7a7` (`:767` before PR #1101; `:770` at `1d2bfae2`)",
+      "uncertainty": "Design property; provider-side billing for a cancelled stream is provider behaviour (unknown)."
+    },
+    {
+      "id": "B44",
+      "component": 3,
+      "bound": "Chat admission queue semantics",
+      "value": {
+        "waits_only_within_own_budget": true,
+        "rejected_counter": "provider_admission.rejected"
+      },
+      "unit": "—",
+      "classification": "configured-code-default",
+      "enforcement_scope": "process",
+      "evidence": "`backend/app/services/ai/provider_admission.py:1`; `docs/OPERATIONS.md:85`",
+      "uncertainty": "Slot, not rate; summary path never queues behind chat."
+    },
+    {
+      "id": "B45",
+      "component": 3,
+      "bound": "In-flight generation dedup / ownership",
+      "value": {
+        "scope": "process-local dict",
+        "cross_instance_duplicate_generation_possible": true
+      },
+      "unit": "—",
+      "classification": "configured-code-default",
+      "enforcement_scope": "process",
+      "evidence": "`backend/app/services/summary_pipeline.py:90`; tasks/fleet-coordination-proposal-2026-09-19.md:25 (process-local leaders); Slice A proposal tasks/fleet-coordination-proposal-2026-09-19.md:125",
+      "uncertainty": "With two instances the same filing can be generated twice; keep-better/accepted-publisher behaviour per the proposal; E09 Slice A implementation remains held."
+    },
+    {
+      "id": "B46",
+      "component": 3,
+      "bound": "Provider account quota / rate limits (DeepSeek) — published, dated",
+      "value": {
+        "requests_per_minute_limit": "none published",
+        "concurrency_limit_deepseek_flash": 2500,
+        "concurrency_limit_deepseek_v4_pro": 500,
+        "over_limit_response": "HTTP 429",
+        "source_read_date": "2026-10-04"
+      },
+      "unit": "concurrent requests (published)",
+      "classification": "observed",
+      "enforcement_scope": "external",
+      "evidence": "`control/DECISIONS-02.md` (SHA-256 `4d93171f…`) D7 (DeepSeek public rate-limit page read 2026-10-04 by the chief); `control/DECISIONS-06.md` (SHA-256 `08f9c060…`) (the committed file; revision 4 cited the pre-commit `13f852f0…`, 14,904 bytes) C1 item 4 (closed on D7)",
+      "uncertainty": "Published, dated figures — not an account measurement; account-specific overrides are not verified; no provider call was made. Re-read if the account, model or provider changes."
+    },
+    {
+      "id": "B47",
+      "component": 3,
+      "bound": "Metering and refund rule",
+      "value": {
+        "metered_at": "provider call start",
+        "refund_on": "provider-side failure, timeout, partial verdict",
+        "refund_on_client_cancellation": false
+      },
+      "unit": "—",
+      "classification": "configured-code-default",
+      "enforcement_scope": "process",
+      "evidence": "`tasks/todo.md:6180` (the PR #1069 entry's backend bullet at `e3eac7a7` and `1d2bfae2` — metering at provider-call start, refunds only for provider-side failure, timeout or partial verdict, account-keyed burst limiters; `:6147` at `100fb7d6`, revisions 1–3's anchor commit; already `:6180` at `0b8d39eb`, a drift revision 4 did not catch because its unchanged-tree check excluded `tasks/`) (PR1069 package); summary_pipeline comments near the lease/refund paths",
+      "uncertainty": "—"
+    },
+    {
+      "id": "B48",
+      "component": 3,
+      "bound": "Pregenerate job provider concurrency",
+      "value": {
+        "generations_at_a_time": 1,
+        "loop": "sequential per ticker and form"
+      },
+      "unit": "streams",
+      "classification": "configured-code-default",
+      "enforcement_scope": "job process",
+      "evidence": "`backend/scripts/pregenerate_examples.py:86`–91 (awaited per ticker/form inside one loop; the `await pregenerate_for_ticker` is the last line of the range)",
+      "uncertainty": "Section recovery runs after the primary stream inside each generation (up to 3 recovery streams, B40), so the tight simultaneous-stream bound for the pregenerate process is 3 (`control/DECISIONS-02.md` (SHA-256 `4d93171f…`) Appendix A); 9 (6 + 3) remains the loose bound."
+    },
+    {
+      "id": "B49",
+      "component": 4,
+      "bound": "Registration mode",
+      "value": {
+        "REGISTRATION_MODE": "invite_only"
+      },
+      "unit": "—",
+      "classification": "configured-deploy",
+      "enforcement_scope": "service",
+      "evidence": "`.github/workflows/ci.yml:620`; `REGISTRATION_MODE=invite_only` confirmed live 2026-10-04 (`control/PRODUCTION-CONFIG-OBSERVATION-20261004.md` (SHA-256 `ea3689c8…`) §Service)",
+      "uncertainty": "Accounts are bounded by issued invites; invitations remain separately controlled (no invitations under CODE RED)."
+    },
+    {
+      "id": "B50",
+      "component": 4,
+      "bound": "Per-user monthly caps",
+      "value": {
+        "free_summaries": 5,
+        "pro_summaries_guardrail": 300,
+        "pro_copilot_questions": 1000,
+        "pro_analysis_fresh_generations": 100
+      },
+      "unit": "per user per month",
+      "classification": "configured-code-default",
+      "enforcement_scope": "account",
+      "evidence": "`backend/app/services/entitlements.py:32`; `backend/app/config.py:462`; `backend/app/config.py:513`; `backend/app/config.py:526`",
+      "uncertainty": "Plan truth lives in `entitlements.py`; values not changed by the deploy env."
+    },
+    {
+      "id": "B51",
+      "component": 4,
+      "bound": "Per-account burst limiters (summary generation, Copilot questions)",
+      "value": {
+        "generate_stream_per_account": "5 per 60 s",
+        "ask_stream_per_account": "10 per 60 s",
+        "key": "account id only (`include_client_ip=False`)",
+        "algorithm": "per-process sliding window",
+        "max_keys_per_limiter_per_process": 10000,
+        "when_full": "unseen keys fail closed; active buckets never evicted"
+      },
+      "unit": "requests per account per window",
+      "classification": "configured-code-default",
+      "enforcement_scope": "process",
+      "evidence": "`backend/app/routers/summaries.py:60`–65 (`SUMMARY_LIMITER = RateLimiter(limit=5, window_seconds=60)`, `ASK_LIMITER = RateLimiter(limit=10, window_seconds=60)`, keyed on the account alone), `:217`–223 and `:456`–462 (`enforce_rate_limit` with keys `summary:{user}` / `ask:{user}`); `backend/app/services/rate_limiter.py:13`–14 (per-process sliding windows), `:40`–41 (fail closed at `max_keys`); `backend/app/config.py:170`–171 (`RATE_LIMITER_MAX_KEYS` default 10,000; not set by the deploy, `.github/workflows/ci.yml:620`); PR1069 entry `tasks/todo.md:6180` (the PR #1069 entry's backend bullet at `e3eac7a7` and `1d2bfae2` — metering at provider-call start, refunds only for provider-side failure, timeout or partial verdict, account-keyed burst limiters; `:6147` at `100fb7d6`, revisions 1–3's anchor commit; already `:6180` at `0b8d39eb`, a drift revision 4 did not catch because its unchanged-tree check excluded `tasks/`)",
+      "uncertainty": "Process-local: with two instances one account can be admitted up to twice these counts per minute across the fleet (arithmetic, not observed); the monthly caps (B50) remain the account-level bound. Limiters on other routers (filings, insiders, analysis) were outside this bounded read."
+    },
+    {
+      "id": "B52",
+      "component": 4,
+      "bound": "Guest (unauthenticated) generation path",
+      "value": {
+        "guest_generation_path": "none",
+        "generate_stream_auth": "`Depends(get_current_user)` — 401 without a valid JWT",
+        "ask_stream_auth": "`Depends(require_copilot_or_taste)`",
+        "other_generation_triggers": "`/internal/jobs/precompute` (shared internal token) and admin stale-refresh (`_require_admin`): system-initiated, uncapped by design",
+        "ENABLE_GUEST_DAILY_QUOTA": "dead deploy config — removed at every deploy; no Settings field or code reads it"
+      },
+      "unit": "—",
+      "classification": "configured-code-default",
+      "enforcement_scope": "service",
+      "evidence": "`backend/app/routers/summaries.py:175`–186 (`generate-stream` → `current_user: User = Depends(get_current_user)`), `:436`–441 (`ask-stream` → `Depends(require_copilot_or_taste)`, defined `backend/app/dependencies.py:51`), `:146`–173, `:610`–611, `:656`–657 (progress / read / what-changed are DB reads that generate nothing); `backend/app/routers/auth.py:379`–391 (`get_current_user` raises 401 without a token); pipeline callers at this checkout: `summaries.py:312`, `summary_generation_service.py:609` ← `precompute_service.py:193` ← `internal.py:305` (`_require_internal_token`, `:27`–36) and `admin.py:946` (`_require_admin`, `:34`, checked at `:913`); grep over `backend/app`, `backend/main.py` and `docs/CONFIGURATION.md` finds `ENABLE_GUEST_DAILY_QUOTA` only at `.github/workflows/ci.yml:619`; record 02 Appendix B (B54 row); `control/PRODUCTION-CONFIG-OBSERVATION-20261004.md` (SHA-256 `ea3689c8…`) hygiene note",
+      "uncertainty": "Resolved from source at this checkout. `backend/scripts/gen_summary_stream_frames.py:76` is a local script, not a route. The dead env name is a hygiene item for the owner of the next `ci.yml` change (no PR opened here)."
+    },
+    {
+      "id": "B53",
+      "component": 4,
+      "bound": "Intended cohort size (settled, not enrolled or consented)",
+      "value": "10–20",
+      "unit": "participants",
+      "classification": "observed",
+      "enforcement_scope": "—",
+      "evidence": "COO FIRST-DELIVERABLE §“C1 — one capacity admission, still HOLD” (package `c8277395…`); CEO-DIRECTIVE",
+      "uncertainty": "Not enrollment, consent or a safe participant count."
+    },
+    {
+      "id": "B54",
+      "component": 4,
+      "bound": "Configured permitted monthly demand ceiling if all 20 were Pro at guardrail",
+      "value": {
+        "summaries": 6000,
+        "copilot_questions": 20000,
+        "analysis_generations": 2000
+      },
+      "unit": "per month",
+      "classification": "assumed",
+      "enforcement_scope": "fleet",
+      "evidence": "Arithmetic on B50 × 20.",
+      "uncertainty": "A ceiling of metered, user-originated, admitted uses enforced per calendar month (`control/DECISIONS-02.md` (SHA-256 `4d93171f…`) Appendices A/B); it does not bound provider requests — retries (×3), section recovery, cross-instance duplicates (B45) and unmetered system generation (pregenerate, `/internal/jobs/precompute`, admin refresh) sit outside it; “20” assumes one account per participant. Expected useful demand unknown (B56)."
+    },
+    {
+      "id": "B55",
+      "component": 4,
+      "bound": "Instantaneous demand bounds and back-pressure",
+      "value": {
+        "http_per_instance": 40,
+        "generations_per_process": 6,
+        "excess_generations": "queue inside the 120 s pipeline timeout"
+      },
+      "unit": "—",
+      "classification": "configured-code-default",
+      "enforcement_scope": "process",
+      "evidence": "B05; B40; `backend/app/services/summary_pipeline.py:673`",
+      "uncertainty": "Overload becomes timeouts/503s, not process crashes; user-visible failure rate under overload unknown."
+    },
+    {
+      "id": "B56",
+      "component": 4,
+      "bound": "Retained useful-work (generation) evidence under concurrency",
+      "value": null,
+      "unit": "—",
+      "classification": "unknown",
+      "enforcement_scope": "fleet",
+      "evidence": "None in the allowed inputs. CI eval-baseline runs at `EVAL_CONCURRENCY=2` (`.github/workflows/ci.yml:400`) are CI measurements, not production; COO windows are light HTTP traffic and single-task jobs. Neither readout of the 2026-10-05 window adds any: the job ledger reports `already_cached=15` and no `generated` counter (unknown, not zero; B60), and the 2026-10-06 run's request and latency samples (B64: 95 requests in two hours) are light HTTP traffic the readout cannot attribute to generation (`handbacks/coo/CAPACITY-READOUT-RECEIPT-20261006.md` (SHA-256 `fce1245d…`) §“What the receipt does NOT contain”).",
+      "uncertainty": "Resolving observation: the B32 observation (a retained window with concurrent useful generation; B62 verified per run) plus `/metrics.provider_admission` peaks in the same window. Execution success is not a business outcome; request counts are not generations."
+    },
+    {
+      "id": "B57",
+      "component": 4,
+      "bound": "Existing stop / rollback signals and levers",
+      "value": {
+        "health": "/health/detailed (database healthy + latency, breaker state)",
+        "metrics": "/metrics: database.checked_out, provider_admission.in_flight/rejected/peak_in_flight, sec_rate_limiter.rate_limit_hits, thread_pool.anyio.tasks_waiting",
+        "logs": "pool-timeout signature (QueuePool limit / connection pool exhausted)",
+        "rollback": "Ops `rollback-traffic` operation; deploy routes traffic --to-latest",
+        "provisional_stop_conditions": "record 02 D6 as corrected by record 03 (four conditions; §4 item 4)"
+      },
+      "unit": "—",
+      "classification": "configured-code-default",
+      "enforcement_scope": "service",
+      "evidence": "`docs/OPERATIONS.md:85`; `ops/capacity/readout.py:183` (pool-timeout signature) and `:240`–248 (the committed log filter); `.github/workflows/ops.yml:641`; `.github/workflows/ci.yml:628`; `control/DECISIONS-02.md` (SHA-256 `4d93171f…`) D6; `control/DECISIONS-03.md` (SHA-256 `56bfb21b…`) (D6 condition 1 corrected) ; `handbacks/coo/CAPACITY-READOUT-RECEIPT-20261006.md` (SHA-256 `fce1245d…`) §“Error logs in the window” (B65).",
+      "uncertainty": "Thresholds for a beta are not evidenced; D6's conditions are provisional until COO items 1 and 2 supply baselines (record 06 item 5). The `capacity-readout` operation does not carry `rate_limit_hits`. The log-based signals' observation channel is evidenced for the Ops identity on 2026-10-06 (B62): the committed error/pool-timeout filter returned 0 entries over the quiet 2026-10-05 window (B65) — a channel check and a no-load baseline, not a threshold; the SEC 403/429 search is not part of that filter and was not run (B39). Access was HTTP 403 on 2026-10-05 and is verified per run (B59). Documented suggestions are partly stale (B33)."
+    },
+    {
+      "id": "B58",
+      "component": 4,
+      "bound": "Provider spend authority provenance (successor ledger)",
+      "value": {
+        "ledger": "successor private artifact “CODE RED Spend Ledger” (record 02 D1); last document identity in the allowed inputs: SHA-256 `b4ce7016ed1996c345dfc40fc3565cfc1e964963bfc866af1df79f49660f9c36`, 31,690 bytes, version 5 after event 4 (record 08); the event-5 document identity is not in the allowed inputs",
+        "shared_ceiling_usd": "25.000000",
+        "ceiling_history": "15 → 25 by ledger event 2 at 2026-10-05T00:10:56Z (founder authorization; `authorization_changed: true`; balances, reservations and holds unchanged)",
+        "event_chain_after_event_2": "event 3 (2026-10-05T17:54:35Z): the unreserved PR #1098 copilot-eval run recorded as use (USD 0.005575) plus a USD 0.010000 reservation for its re-trigger; event 4 (2026-10-05T18:21:22Z): the re-trigger settled at actual cost USD 0.025568 (reservation undersized by USD 0.015568, kept visible); event 5 (2026-10-06, before PR #1101 left draft): a USD 0.060000 reservation for the one copilot-eval run PR #1101 triggers on ready-for-review (reservation rule: dearest measured run × 2, rounded up)",
+        "recorded_use_against_ceiling_usd": "0.578659",
+        "retained_holds_usd": "1.881713",
+        "active_reservations": 1,
+        "active_reservation_usd": "0.060000",
+        "conditional_unreserved_usd": "22.479628",
+        "cumulative_recorded_usage": "2,419 calls / USD 4.362908 after event 4 (telemetry estimate; a reservation adds no usage; the post-event-5 figure is not in the allowed inputs)",
+        "paid_dispatch": "every other paid trigger HELD until a reservation is written before it"
+      },
+      "unit": "USD",
+      "classification": "observed",
+      "enforcement_scope": "—",
+      "evidence": "manifest `dispatch/CTO-ENVELOPE-HANDBACK-03.json` (SHA-256 `0513f43f…`) `required_changes` B58 (event-5 figures; reconciliation 25.000000 − 0.578659 − 1.881713 − 0.060000 = 22.479628); `control/DECISIONS-08.md` (SHA-256 `22098e30…`) §“Ledger event 4” (use 0.553091 → 0.578659; headroom 22.539628; document `b4ce7016…`); `control/DECISIONS-09.md` (SHA-256 `bcc56ab2…`) §“Reservation rule (refined)” (USD 0.06 = 0.025568 × 2, rounded up; the 0.015568 overrun stays visible) and §Spend (22.539628 before event 5); `control/DECISIONS-07.md` (SHA-256 `0f511f5a…`) §“Chief defect — unreserved paid CI run … (ledger event 3)”; `control/DECISIONS-06.md` (SHA-256 `08f9c060…`) §“Ledger event 2”; `control/DECISIONS-02.md` (SHA-256 `4d93171f…`) D1 (successor designation); `control/DECISIONS-03.md` (SHA-256 `56bfb21b…`) §D1 (event 1); commit `e3eac7a7` message (“Reservation for this PR's copilot-eval run written in the private ledger (event 5) before it leaves draft”); `control/LEDGER-ACCESS.md` not opened (outside the allowed inputs; modified in the working tree by another writer during authoring)",
+      "uncertainty": "Provenance only; no spend is proposed and none is authorised to this handback (manifest `spend`: 0 calls, USD 0.000000, no ledger write). The ceiling is not concurrency, capacity or runtime-budget admission; the provider operating-spend field's value attaches to a C1 admission decision that does not exist (record 06 item 6). The active reservation is for a CI eval run, not a production generation. Unknown cost is never zero: the Monday pregenerate's provider use inside the 2026-10-05 window has no counter in either readout (B60) and no ledger estimate; cancelled-stream billing (B43) and cross-instance duplicates (B45) remain unmeasured."
+    },
+    {
+      "id": "B59",
+      "component": 2,
+      "bound": "Capacity-readout observation-channel availability for the 2026-10-05 06:00–08:00 UTC window: two dated runs (37282199614 on 2026-10-05; 37418876945 on 2026-10-06)",
+      "value": {
+        "run_37282199614_20261005": {
+          "cloud_run_job_executions": "read (complete for 7 jobs; `partial` for filing-scan — page limit at 500 retained executions)",
+          "cloud_sql_snapshot_and_job_ledger": "read (08:13:07Z, outside the window)",
+          "monitoring_cloudsql_num_backends": "unavailable — HTTP 403, 0 pages",
+          "monitoring_run_request_count": "unavailable — HTTP 403",
+          "monitoring_run_request_latencies": "unavailable — HTTP 403",
+          "logging_error_entries_and_pool_timeout_signatures": "unavailable — HTTP 403"
+        },
+        "run_37418876945_20261006": {
+          "cloud_run_job_executions": "read (complete for 7 jobs; `partial` for filing-scan — 5 pages, 500 retained executions inspected; both in-window executions found)",
+          "cloud_sql_snapshot_and_job_ledger": "read (05:31:07Z on 2026-10-06, about 21.5 h after the window; ledger `row_limit` 1000, `truncated` false)",
+          "monitoring_cloudsql_num_backends": "complete — 1 page, 4 series (one per database) × 120 one-minute samples, 06:01:00Z–08:00:00Z",
+          "monitoring_run_request_count": "complete — 1 page, 6 series (one per response code, revision 00443-n58) × 120 samples",
+          "monitoring_run_request_latencies": "complete — 1 page, 6 series × 120 samples (distributions)",
+          "logging_error_entries_and_pool_timeout_signatures": "complete — 1 page, 0 entries, `outside_scope_count` 0"
+        }
+      },
+      "unit": "—",
+      "classification": "observed",
+      "enforcement_scope": "external",
+      "evidence": "`handbacks/coo/CAPACITY-READOUT-RECEIPT-20261005.md` (SHA-256 `eea93bba…`) §“What the receipt does NOT contain”; readout `cloud.json` (SHA-256 `2a177f6d…`) blocks `database_connections`, `request_count`, `request_latencies`, `error_logs` (`state: unavailable`, `error: http_403`, `pages: 0`); `handbacks/coo/CAPACITY-READOUT-RECEIPT-20261006.md` (SHA-256 `fce1245d…`) §“Channel availability — B59 for this run, B62 evidence”; readout `cloud.json` (SHA-256 `3bf59560…`) (the same four blocks `state: complete`, `pages: 1`, with 4 / 6 / 6 series of 120 points and `items: []` for logs; `executions` `state` per job in both files)",
+      "uncertainty": "Channel availability is a property of each run, not of the identity in general: the 2026-10-04 run (37184184008, attempt 2) had Monitoring samples, the 2026-10-05 run none, the 2026-10-06 run all; the 2026-10-04 → 2026-10-05 change is unexplained in the allowed inputs (record 07 §R3 establishes the class — a missing Logging/Monitoring read role — not the cause of the change), so access is verified per run (B62). The filing-scan listing is `partial` in both runs (page limit at 500 retained executions), so in-window completeness for that job is not guaranteed. `complete` describes the channel read, not load: samples are not instantaneous peaks and quiet or empty data cannot prove headroom."
+    },
+    {
+      "id": "B60",
+      "component": 1,
+      "bound": "2026-10-05 06:00–08:00 UTC job executions and business-phase overlaps (job ledger)",
+      "value": {
+        "executions_in_window": 4,
+        "pregenerate_f7lv2": {
+          "lifetime_seconds": 33.09,
+          "business_phase_seconds": 15.01,
+          "already_cached": 15,
+          "generated": null
+        },
+        "filing_scan_fgrcd_0600": {
+          "lifetime_seconds": 24.94,
+          "business_phase_seconds": 9.15,
+          "companies_scanned": 7,
+          "filings_upserted": 0,
+          "source_errors": 0
+        },
+        "filing_scan_gk9p6_0700": {
+          "lifetime_seconds": 24.97,
+          "business_phase_seconds": 6.57,
+          "companies_scanned": 0,
+          "filings_upserted": 0,
+          "source_errors": 0
+        },
+        "backfill_facts_nf566_0700": {
+          "lifetime_seconds": 29.07,
+          "business_phase_seconds": 8.34,
+          "filings_processed": 0,
+          "facts_inserted": 0,
+          "extract_errors": 0
+        },
+        "business_phase_overlap_0600_pregenerate_x_filing_scan_seconds": 9.15,
+        "business_phase_overlap_0700_backfill_facts_x_filing_scan_seconds": 6.57,
+        "other_five_jobs_executions": 0
+      },
+      "unit": "seconds / counters",
+      "classification": "observed",
+      "enforcement_scope": "fleet",
+      "evidence": "readout `database.jsonl` (SHA-256 `37094bf8…`) `historical_job_ledger` rows (started_at/finished_at/status/`numeric_counters`; `counter_scope`: absent values are unknown, not zero); readout `cloud.json` (SHA-256 `2a177f6d…`) `executions` (startTime/completionTime, `succeededCount` 1, image digest `444f06cf…` = the serving revision's image); `handbacks/coo/CAPACITY-READOUT-RECEIPT-20261005.md` (SHA-256 `eea93bba…`) tables Re-read identically by the 2026-10-06 run: readout `database.jsonl` (SHA-256 `3d30c4a5…`) (the same four ledger rows and counters); readout `cloud.json` (SHA-256 `3bf59560…`) (the same four executions); `handbacks/coo/CAPACITY-READOUT-RECEIPT-20261006.md` (SHA-256 `fce1245d…`) §“Job executions and business phases”.",
+      "uncertainty": "Near-empty work (7 companies scanned, 0 filings processed or upserted, 15 examples already cached): evidence that Monday job overlap with the service happens, not evidence of load or capacity. The pregenerate `generated` counter is absent, so provider calls in the window are unknown, not zero (B58). All four executions ran at `taskCount` 1 / `parallelism` 1 (B21). The filing-scan listing is `partial` in both runs (B59)."
+    },
+    {
+      "id": "B61",
+      "component": 1,
+      "bound": "SQL snapshot at readout dispatch (2026-10-05T08:13:07Z, outside the 06:00–08:00 window)",
+      "value": {
+        "max_connections": 25,
+        "superuser_reserved_connections": 3,
+        "reserved_connections": null,
+        "client_backends_total": 7,
+        "client_backends_active_visible": 1,
+        "client_backends_idle_visible": 6,
+        "client_backends_same_database_role": 5,
+        "server_processes": 7,
+        "backends_total": 14
+      },
+      "unit": "connections / backends",
+      "classification": "observed",
+      "enforcement_scope": "external",
+      "evidence": "readout `database.jsonl` (SHA-256 `37094bf8…`) `current_database_snapshot` (`connections_include_observer: true`; the active backend is the observer's own query; server processes: archiver, autovacuum launcher, background writer, checkpointer, dataplex worker, logical replication launcher, walwriter); `handbacks/coo/CAPACITY-READOUT-RECEIPT-20261005.md` (SHA-256 `eea93bba…`) §“Current SQL snapshot”",
+      "uncertainty": "A point-in-time read 13 minutes after the window closed and about 72 minutes after the last job execution: a light-traffic instant, not a window sample, not a peak and not spare capacity. State/user details may be restricted by database privileges (`activity_visibility`). Values agree with B17/B18/B20 (2026-10-04). The next instant is B66 (2026-10-06T05:31:07Z: 6 client backends, 13 in total)."
+    },
+    {
+      "id": "B62",
+      "component": 2,
+      "bound": "Monitoring/Logging read access for the Ops Workload Identity Federation identity (sub-dependency of B32, B56 and the log-based stop signals) — observed per run",
+      "value": {
+        "state_20261006": "available — read-only `logs-probe` (Ops run 37418676235, job 112122928339, 2026-10-06T05:28:21Z) printed `logs-probe: logging.read PERMITTED (3 recent entries visible)`; the `capacity-readout` run 37418876945 (05:30:33–05:31:11Z) then read all four Monitoring/Logging channels `complete` (B59)",
+        "state_history": "2026-10-04 run 37184184008 (attempt 2): Monitoring samples present; 2026-10-05 08:12Z run 37282199614: HTTP 403 on four channels; 2026-10-05 17:06Z probe run 37345946128: `logging.read DENIED` (record 07 §R3 — the identity lacked a Logging read role); 2026-10-05 ~18:29Z: founder authorizes `roles/logging.viewer` and `roles/monitoring.viewer` for the Ops deployer service account (`github-deployer@…`), project-level, project `earnings-nerd` (record 08 item 2); ~20:17Z: founder reports both binding commands run clean (record 09 item 0); 21:55:53Z probe run 37379102331: still DENIED (record 09: ‘applied’ is not ‘verified’); 2026-10-06 05:28Z: PERMITTED (above)",
+        "provenance_of_the_change": "the founder's binding of the two viewer roles — per the Astra morning handover of 2026-10-06 as relayed in the receipt (applied after explicit founder confirmation, with an authenticated policy readback; metadata only); no policy document, IAM readback or audit-log entry is in the repository or the allowed inputs; effective between 2026-10-05T21:55:53Z (DENIED) and 2026-10-06T05:28:21Z (PERMITTED); no cloud, IAM or production change by the chief or any delegate",
+        "verification_rule": "verified per run: each readout's own channel states (`complete` / `unavailable`) are the evidence for that run; access is not assumed permanent and no readout is interpreted without them"
+      },
+      "unit": "—",
+      "classification": "observed",
+      "enforcement_scope": "external",
+      "evidence": "`handbacks/coo/CAPACITY-READOUT-RECEIPT-20261006.md` (SHA-256 `fce1245d…`) header, §“Run identity” and §“Channel availability — B59 for this run, B62 evidence”; readout `cloud.json` (SHA-256 `3bf59560…`) (four channels `state: complete`); `control/DECISIONS-07.md` (SHA-256 `0f511f5a…`) §“R3 — B62 cause established” (probe 37345946128 DENIED; the missing-role class); `control/DECISIONS-08.md` (SHA-256 `22098e30…`) §“Founder instructions” item 2 (roles, principal, project; grant pending the founder's run); `control/DECISIONS-09.md` (SHA-256 `bcc56ab2…`) §“Founder instruction received 2026-10-05 ~20:17Z” items 0 and 2 (probe 37379102331 DENIED; three states authorized → applied → verified); `.github/workflows/ops.yml:410`–419 (the `logs-probe` step and its PERMITTED/DENIED lines); `control/DECISIONS-06.md` (SHA-256 `08f9c060…`) C1 item 1 (the receipt route for B32)",
+      "uncertainty": "The 2026-10-04 Monitoring samples are unexplained: a role present on 2026-10-04 was absent on 2026-10-05 and the cause of that change is not established in the allowed inputs (record 07 §R3), so a future run may again return 403 — hence the per-run rule. The binding itself is reported from the founder's side (metadata only) and not read by this handback; record 09's three-state distinction (authorized → applied → verified) applies to any future change. Any grant, revocation or IAM read is the founder's; none is proposed. Monitoring access is evidenced only through the readout's channel states (no Monitoring probe exists); the `logs-probe` evidences Logging."
+    },
+    {
+      "id": "B63",
+      "component": 2,
+      "bound": "2026-10-05 06:00–08:00 UTC window: Cloud SQL `num_backends` one-minute samples by database (Cloud Monitoring gauge; 2026-10-06 re-read)",
+      "value": {
+        "samples_per_database": 120,
+        "sample_times": "06:01:00Z–08:00:00Z, one per minute",
+        "earningsnerd_application_database": "min 3; max 4; 3 in 105 sampled minutes, 4 in 15 consecutive sampled minutes 07:46:00Z–08:00:00Z",
+        "cloudsqladmin_platform_agent": "2 constant",
+        "postgres": "0 constant",
+        "template1": "0 constant",
+        "total_across_databases": "min 5; max 6",
+        "nearest_samples_to_the_0600_overlap": "06:01, 06:02, 06:03Z: application 3, total 5",
+        "nearest_samples_to_the_0700_overlap": "07:01, 07:02, 07:03Z: application 3, total 5",
+        "samples_inside_the_overlaps": "none exist — the business-phase overlaps (06:00:18.8–06:00:27.9Z, 9.15 s; 07:00:16.8–07:00:23.4Z, 6.57 s) fall between one-minute samples",
+        "coincidence_recorded": "the rise to 4 from 07:46Z coincides with the window's busiest request decile (07:40–07:49Z, 29 requests; B64); coincidence, not cause"
+      },
+      "unit": "backends (one-minute gauge samples)",
+      "classification": "observed",
+      "enforcement_scope": "external",
+      "evidence": "`handbacks/coo/CAPACITY-READOUT-RECEIPT-20261006.md` (SHA-256 `fce1245d…`) §“Database connections in the window”; readout `cloud.json` (SHA-256 `3bf59560…`) block `database_connections` (`state: complete`, `metricKind: GAUGE`, 4 series on `cloudsql_database` `earnings-nerd:earningsnerd-db`, 120 points each; every figure here recomputed from the points by this author and equal to the receipt's); the readout's own interpretation line (“Samples are not instantaneous peaks. Empty/partial/unavailable data cannot prove headroom.”)",
+      "uncertainty": "A one-minute gauge cannot resolve the 9.15 s and 6.57 s overlaps, and no sample exists inside them (never to be filled in). The series counts backends per database, not per client, pool or instance: it does not attribute the 3–4 to the two service pools (4 each, B10), the job pools (3 / 1, B14) or Ops sessions, and it shows neither pool sizes nor pool peaks (the configured 4 + 4 + 3 + 1 are maxima, B10/B14/B15, not counts of open connections). `cloudsqladmin` 2 is the platform-agent share of B19's 22. A sampled total of ≤ 6 against 22 usable under light traffic and near-empty jobs is a quiet-Monday baseline, not headroom, not an operating reserve (B32) and not a policy number."
+    },
+    {
+      "id": "B64",
+      "component": 4,
+      "bound": "2026-10-05 06:00–08:00 UTC window: HTTP requests and latency to the serving revision (Cloud Run `request_count` / `request_latencies`, one-minute deltas; 2026-10-06 re-read)",
+      "value": {
+        "revision": "earningsnerd-backend-00443-n58 — the only revision with traffic in the window (00444-bxs was deployed later on 2026-10-05, record 08)",
+        "series": "6 response-code series × 120 one-minute DELTA samples each (count and distribution)",
+        "requests_200": 95,
+        "requests_401": "1 (interval ending 06:49Z; ≈ 5.7 ms)",
+        "requests_302_404_405_502": "0 each (series present, zero deltas)",
+        "minutes_with_200_responses": "28 of 120 in the count series; the latency series has non-empty distributions in 33 minutes — the two metrics' per-minute alignment differs at 14 boundaries, totals agree at 95",
+        "max_200_in_one_minute": "9 (interval ending 07:48Z)",
+        "mean_requests_per_minute": "≈ 0.79",
+        "ten_minute_buckets_200": "labelled by sample-interval end time (the receipt's convention): 06:00 0 · 06:10 7 · 06:20 4 · 06:30 11 · 06:40 18 · 06:50 3 · 07:00 2 · 07:10 9 · 07:20 2 · 07:30 4 · 07:40 29 · 07:50 6; labelled by start time the boundary minutes move (06:30 13 · 06:40 19 · 06:50 0 · 07:10 11 · 07:20 0), total 95 either way",
+        "latency_200_approximate_upper_bounds_ms": "p50 ≤ 61; p90 ≤ 309; p95 ≤ 548; p99 ≤ 1,563; max ≤ 1,563 (cumulative counts over exponential buckets, scale 10 ms, growth 1.1, 135 finite buckets — bucket upper bounds, not exact percentiles)",
+        "per_minute_mean_latency_200_ms": "28–628 across the 33 minutes with data"
+      },
+      "unit": "requests / ms",
+      "classification": "observed",
+      "enforcement_scope": "service",
+      "evidence": "`handbacks/coo/CAPACITY-READOUT-RECEIPT-20261006.md` (SHA-256 `fce1245d…`) §“HTTP requests to the service in the window” and §“Latency”; readout `cloud.json` (SHA-256 `3bf59560…`) blocks `request_count` and `request_latencies` (`state: complete`, `metricKind: DELTA`, resource `cloud_run_revision` `earningsnerd-backend-00443-n58`; every figure here recomputed from the points by this author and equal to the receipt's under the end-time labelling); `control/DECISIONS-08.md` (SHA-256 `22098e30…`) deploy table (revision 00444-bxs rolled 2026-10-05 18:28Z)",
+      "uncertainty": "Light traffic (≈ 0.8 requests per minute) under invite-only registration; the readout cannot tell generation requests from reads, health probes or SSE streams, so this is not useful-work evidence (B56) and supports no participant or throughput envelope. Per revision, not per instance (B08 unobserved). Requests reaching the revision are not SEC or provider calls (B39, B58). Percentiles are bucket upper bounds; per-minute means are per-minute, not per-request. A quiet-Monday baseline for COO item 5, not a threshold."
+    },
+    {
+      "id": "B65",
+      "component": 4,
+      "bound": "2026-10-05 06:00–08:00 UTC window: Cloud Logging entries under the readout's committed filter (2026-10-06 re-read)",
+      "value": {
+        "filter": "`ops/capacity/readout.py:240`–248 — entries in project `earnings-nerd`, `location` us-west1, from the service's revisions (`cloud_run_revision`, `earningsnerd-backend`) or the eight jobs (`cloud_run_job`), with `severity>=ERROR OR \"QueuePool limit\" OR \"connection pool exhausted\"`, timestamps within the window, ordered ascending, page size 100",
+        "state": "complete — 1 page",
+        "entries_matched": 0,
+        "outside_scope_count": 0,
+        "pool_timeout_signature_hits": "0 (no entry to classify; classifier at `:183`)"
+      },
+      "unit": "log entries",
+      "classification": "observed",
+      "enforcement_scope": "service",
+      "evidence": "`handbacks/coo/CAPACITY-READOUT-RECEIPT-20261006.md` (SHA-256 `fce1245d…`) §“Error logs in the window”; readout `cloud.json` (SHA-256 `3bf59560…`) block `error_logs` (`state: complete`, `pages: 1`, `items: []`, `outside_scope_count: 0`); `ops/capacity/readout.py:178`–184 and `:240`–248 at `e3eac7a7` (unchanged at `1d2bfae2`)",
+      "uncertainty": "Absence within that filter, in that window, for those resources: not proof that no error occurred elsewhere (other severities, other resource types, other windows, or messages without the two pool-timeout phrases). The filter is not an SEC 403/429 search (B39). With no generation and near-empty jobs in the window, 0 is the no-load value of the D6 log-based signals' channel — evidence that the channel can be read (B62), not a threshold and not evidence that the signals would fire under load."
+    },
+    {
+      "id": "B66",
+      "component": 1,
+      "bound": "SQL snapshot at the 2026-10-06 readout dispatch (2026-10-06T05:31:07Z, about 21.5 h after the 2026-10-05 window)",
+      "value": {
+        "max_connections": 25,
+        "superuser_reserved_connections": 3,
+        "reserved_connections": null,
+        "client_backends_total": 6,
+        "client_backends_active_visible": 1,
+        "client_backends_idle_visible": 5,
+        "client_backends_same_database_role": 4,
+        "server_processes": 7,
+        "backends_total": 13
+      },
+      "unit": "connections / backends",
+      "classification": "observed",
+      "enforcement_scope": "external",
+      "evidence": "readout `database.jsonl` (SHA-256 `3d30c4a5…`) `current_database_snapshot` (`connections_include_observer: true`; the active backend is the observer's own query; server processes: archiver, autovacuum launcher, background writer, checkpointer, dataplex worker, logical replication launcher, walwriter); `handbacks/coo/CAPACITY-READOUT-RECEIPT-20261006.md` (SHA-256 `fce1245d…`) §“Current SQL snapshot”",
+      "uncertainty": "A point-in-time read at dispatch time, outside any observed window: a light-traffic instant, not a window sample, not a peak and not spare capacity. Beside B61 (14 backends, 7 client, 5 under the application role at 2026-10-05T08:13:07Z) and B20 (6 client at 2026-10-04 07:02:47Z) — three instants that agree on the server parameters (B17/B18) and differ by one or two idle client backends. State/user details may be restricted (`activity_visibility`). `reserved_connections` null = parameter absent on PostgreSQL 15 (B18), never zero."
+    }
+  ],
+  "determination": {
+    "existing_controls_suffice": "undetermined",
+    "necessary_e09_subset": null,
+    "missing_decision": "The founder's D3 decision on the prepared per-process SEC budget patch — apply as prepared (`SEC_RATE_LIMIT_PER_SECOND=1` and `EDGAR_RATE_LIMIT_PER_SEC=1` on the service and all eight jobs; patch SHA-256 `21322a05…`, 20,062 bytes, applies cleanly to main `c780228a` per record 08), change the numbers, or drop it — which is the founder's retained E09 Slice B policy allocation (approved aggregate SEC rate across service and jobs, burst/headroom, maximum wait/error tolerance). Record 08 item 4 records the founder's instruction to keep deployment held pending that specific decision and presents the three options (apply 1 + 1 as written; change the numbers; keep holding); through record 09 the decision is still pending (“D3 held”). The configured ceiling therefore stays 19 req/s sustained per process (38 steady, 95 at Monday 07:00 UTC, 190 all-active) against SEC's 10 req/s per user. No E09 code subset is demonstrated necessary for current-beta safety; the E09 implementation hold (including dormant lease/schema/runtime code) is unchanged.",
+    "missing_observations": [
+      "B32 DB operating reserve under concurrent generation — one bounded read-only capacity-readout (same scope, ≤ 2 h, no widening) over a retained window that contains concurrent useful generation; no such window exists yet in retained history; B62 is verified per run rather than a standing prerequisite; COO/CEO decision, CTO executes; never new load, synthetic traffic, invitations or generation to create one",
+      "B39 realised aggregate SEC rate — per-process /metrics.sec_rate_limiter on every instance plus job logs in one window (unchanged; not performed), and a Cloud Logging search for SEC 403/429 (feasible for the Ops identity since 2026-10-06; not run; the readout's committed filter is not such a search and no existing Ops operation performs one); rate_limit_hits counts only recognised rate-limit errors on backoff paths, so a flat counter closes nothing",
+      "B56 useful-work evidence under concurrency — the B32 window plus /metrics.provider_admission peaks"
+    ],
+    "what_each_missing_item_resolves": {
+      "founder_d3_decision": "fixes the configured fleet SEC ceiling (B36) one way or the other and records the Slice B policy allocation; apply → scheduled overlaps ≤ 10 with no headroom, all-active 20; change → the founder's numbers; drop → the 19/190 ceiling stands as the recorded policy",
+      "B32": "a DB-connection sample inside a concurrent-generation window (component 2), the pool-timeout signature under load, the useful-work basis of component 4 (B56) and the load side of the baselines COO item 5 needs for thresholds; the quiet-Monday figures (B63–B65) are the no-load side of those baselines, not thresholds",
+      "B39": "whether the configured SEC ceiling is ever drawn in practice and whether SEC has answered 403/429; with B32 it supplies the remaining baseline for item 5"
+    },
+    "closed_since_revision_3": [
+      "B37 egress identity — observed dynamic; moot for the SEC cap (record 02 D8)",
+      "B46 provider account limits — published, dated (record 02 D7; record 06 item 4)",
+      "B07/B08 one serving process per instance — observed (PRODUCTION-CONFIG-OBSERVATION 2026-10-04)",
+      "B51/B52 burst limiter values and guest path — resolved from source at this checkout",
+      "B23 backfill-facts schedule — Mon 07:00 UTC confirmed (record 02 D4; execution observed 2026-10-05)"
+    ],
+    "evidence_ids": [
+      "B04",
+      "B07",
+      "B08",
+      "B10",
+      "B11",
+      "B15",
+      "B17",
+      "B18",
+      "B19",
+      "B21",
+      "B22",
+      "B23",
+      "B27",
+      "B28",
+      "B29",
+      "B34",
+      "B35",
+      "B36",
+      "B37",
+      "B38",
+      "B39",
+      "B40",
+      "B41",
+      "B43",
+      "B45",
+      "B46",
+      "B47",
+      "B49",
+      "B50",
+      "B51",
+      "B52",
+      "B55",
+      "B56",
+      "B57",
+      "B58",
+      "B59",
+      "B60",
+      "B61",
+      "B62",
+      "B63",
+      "B64",
+      "B65",
+      "B66"
+    ],
+    "hazard_ranking_for_current_beta": [
+      {
+        "hazard": "Aggregate SEC request rate exceeds SEC's 10 req/s per-user cap by configuration in every state (38 steady, 57 hourly filing-scan window, 95 Monday 07:00 UTC, 190 all-active; first second up to 29 per process) → block → filing fetch failures for all users",
+        "evidence": "configured ceilings on two unoverridden buckets per process (Ops read 2026-10-04); no incident retained; realised rate unknown (B39); rate_limit_hits cannot show local throttling; the 0 entries under the readout's error filter in the quiet window (B65) are not an SEC 403/429 search",
+        "existing_control": "per-process buckets that wait rather than reject; per-call Retry-After backoff on two paths (does not pause the bucket); breaker on edgartools/compat paths; nothing fleet-wide",
+        "mitigation_without_e09_code": "lower both per-process budgets on every process (the founder-held D3 patch 1 + 1: scheduled overlaps ≤ 10 with no headroom, all-active 20 — configuration, not E09 code); the numbers are the founder's (Slice B)"
+      },
+      {
+        "hazard": "DB connection saturation when configured demand (18) meets rollout overlap (+4, or +8 in the configured two-instance case) and non-application clients against the 22 non-superuser threshold (B15, B19)",
+        "evidence": "configured arithmetic; 6, 7 and 6 client backends at three light instants (B20, B61, B66); the 2026-10-05 window's one-minute gauge sampled 3–4 application backends and ≤ 6 in total under light traffic and near-empty jobs with no sample inside either overlap (B63) — a quiet baseline, not headroom; no saturation observed or excluded",
+        "existing_control": "pool 4/0 per process; 10 s fail-fast wait (B11); E03 release before waits (B29); FATAL at the server limit",
+        "mitigation_without_e09_code": "the B32 observation over a retained window with concurrent useful generation (B62 verified per run; no new load); Cloud SQL sizing is a separate decision"
+      },
+      {
+        "hazard": "Cross-instance duplicate generation of one filing (B45)",
+        "evidence": "process-local dedup by design",
+        "existing_control": "keep-better publication; provider budgets; shared spend ceiling (25)",
+        "mitigation_without_e09_code": "none; cost/consistency issue, not demonstrated as a user-safety issue at 10–20 participants; Slice A decision retained by the founder"
+      },
+      {
+        "hazard": "Provider concurrency-limit exhaustion (B46)",
+        "evidence": "published 2,500 concurrent for deepseek-flash (dated 2026-10-04) vs configured fleet ceiling 37 tight / 43 loose (B41); account-specific overrides unverified",
+        "existing_control": "per-process stream ceilings (B40); retries with fixed deadline (B42)",
+        "mitigation_without_e09_code": "none needed on the published figures; re-read if the account, model or provider changes"
+      },
+      {
+        "hazard": "Observation access is verified per run, not permanent: the Ops identity read nothing from Monitoring/Logging on 2026-10-05 and everything on 2026-10-06 (B59, B62); the 2026-10-04 → 2026-10-05 change is unexplained, so the D6 log-based stop signals and any future B32 sample depend on each run's own channel states",
+        "evidence": "HTTP 403 on four channels in run 37282199614; probes DENIED at 17:06Z and 21:55Z on 2026-10-05; probe PERMITTED at 05:28Z and four channels complete in run 37418876945 on 2026-10-06; the bindings reported from the founder's side (metadata only)",
+        "existing_control": "/health/detailed and admin /metrics remain readable per process (B57); each readout records its own channel states",
+        "mitigation_without_e09_code": "read each receipt's channel states before relying on it; any further IAM question is the founder's; no cloud read by this handback"
+      }
+    ],
+    "closed_since_revision_4": [
+      "B62 Monitoring/Logging read access for the Ops identity — observed available on 2026-10-06 (logs-probe PERMITTED; four readout channels complete); verified per run, not assumed permanent; the 2026-10-04 → 2026-10-05 change stays unexplained",
+      "B59 — second dated observation of the same window (2026-10-06 run) with every channel complete; the 2026-10-05 observation retained as history",
+      "B23 notable-filings schedule — runbook lines read directly at this checkout (previously reviewer-reported); live Scheduler still not read",
+      "Revision 4's observation-blindness hazard — lifted for 2026-10-06; retained as the per-run verification rule"
+    ]
+  },
+  "counts_unchanged": {
+    "dossiers": "3/30",
+    "weekly_readouts": "0/2",
+    "reporting_groups": 5,
+    "capacity_decisions": 1
+  },
+  "spend": {
+    "new_calls": 0,
+    "new_spend_usd": "0.000000",
+    "reservations": 0
+  },
+  "external_mutations": 0,
+  "next_owner": "COO disposition-update worker (provisional label coo-envelope-disposition-update-02, pre-registered in closure 158): per-item state for the eight C1 items after the chief binds a dispatch manifest with this revision's hashes"
+}

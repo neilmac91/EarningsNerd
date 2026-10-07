@@ -4,6 +4,7 @@ import { formatCompanyName } from '@/lib/formatCompanyName'
 import { useParams, useRouter } from 'next/navigation'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { getFiling, Filing } from '@/features/filings/api/filings-api'
+import { originalDocumentUrl } from '@/features/filings/lib/originalDocumentUrl'
 import { saveSummary, getSavedSummaryStatus, type Summary } from '@/features/summaries/api/summaries-api'
 import AskCopilotRail from '@/features/filings/components/copilot/AskCopilotRail'
 import FilingViewer from '@/features/filings/components/copilot/FilingViewer'
@@ -127,6 +128,10 @@ function FilingDetailView({ filingId, initialFiling, initialSummary }: { filingI
     const snippet = text.length > 1500 ? `${text.slice(0, 1500)}…` : text
     handleAskCopilot(`Explain this excerpt: "${snippet}"`, 'selection')
   }, [handleAskCopilot])
+  // A provenance chip (SourceTrace in the summary, CitationChip in an answer) opens the pane on the
+  // Filing tab through the viewer provider. It is a source lookup, not an Ask entry: no
+  // copilotEntryClicked, no prefill, and no plan or sign-in check (EN-01).
+  const openPaneForSource = useCallback(() => setCopilotOpen(true), [])
 
   // Smart back navigation handler
   const handleBack = () => {
@@ -268,11 +273,16 @@ function FilingDetailView({ filingId, initialFiling, initialSummary }: { filingI
     )
   }
 
+  // "Open original" and the viewer's empty-state CTA land on the primary document (document_url),
+  // with the EDGAR folder (sec_url) as the fallback; derived from the filing, never hard-coded.
+  const originalUrl = originalDocumentUrl(filing)
+
   return (
     <FilingViewerProvider
       filingId={filing.id}
       ticker={filing.company?.ticker ?? null}
       filingType={filing.filing_type}
+      onRequestOpen={openPaneForSource}
     >
     <div className="min-h-screen bg-background-light dark:bg-background-dark">
       {/* Header */}
@@ -346,7 +356,7 @@ function FilingDetailView({ filingId, initialFiling, initialSummary }: { filingI
         onOpenChange={setCopilotOpen}
         summaryAvailable={hasSummaryContent}
         demoMode={demoMode}
-        secUrl={filing.sec_url ?? filing.document_url ?? null}
+        secUrl={originalUrl}
         copilotBody={
           <AskCopilotRail
             key={filing.id}
@@ -368,7 +378,7 @@ function FilingDetailView({ filingId, initialFiling, initialSummary }: { filingI
             key={filing.id}
             filingId={filing.id}
             filingLabel={`${filing.company?.ticker || formatCompanyName(filing.company?.name) || 'Filing'} ${filing.filing_type}`}
-            secUrl={filing.sec_url ?? filing.document_url ?? null}
+            secUrl={originalUrl}
             embedded
           />
         }

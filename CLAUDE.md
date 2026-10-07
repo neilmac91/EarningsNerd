@@ -16,10 +16,45 @@ prod runs the L1 in-memory cache (ADR-0004).
 - `docs/adr/` — consult when changing architectural decisions; settled decisions (Cloud Run, edgartools, Redis-off-in-prod, React 18,
   DeepSeek supersedes Gemini). Don't re-litigate; supersede with a new ADR.
 - `docs/ARCHITECTURE.md` — consult for service boundaries, data flow, and architectural changes.
-- `frontend/DESIGN_SYSTEM.md` — MANDATORY before any UI work; link it in subagent briefs.
+- [DESIGN.md](DESIGN.md), then [frontend/DESIGN_SYSTEM.md](frontend/DESIGN_SYSTEM.md) — MANDATORY
+  before UI work. The first records the visual system; the second supplies implementation
+  conventions and verification gates. Link both in UI subagent briefs.
 - `backend/evals/RUNBOOK.md` — MANDATORY before changing prompts, models, or AI flags.
 - Reference detail lives in `docs/CONFIGURATION.md` (env vars), `docs/OPERATIONS.md`
   (health/metrics/runbook/admin), `docs/TROUBLESHOOTING.md`, `docs/DEPLOYMENT.md`.
+
+## Design documentation
+
+[DESIGN.md](DESIGN.md) is the root visual reference: the design direction, portable token snapshot
+and reusable component patterns. [frontend/DESIGN_SYSTEM.md](frontend/DESIGN_SYSTEM.md) remains the
+detailed implementation guide, including exceptions and the existing theme/token done-gate.
+[.impeccable/design.json](.impeccable/design.json) supplies preview components and metadata that
+extend the Markdown frontmatter; it is documentation, not a runtime theme or component library.
+Token definitions in `frontend/tailwind.config.js`, `frontend/app/globals.css`, and the actual
+components take precedence over stale documentation, under the conflict rules in
+[AGENTS.md](AGENTS.md#2-precedence-when-documents-conflict).
+
+When a change affects documented tokens, typography, reusable component states or visual
+conventions, refresh the affected `DESIGN.md` content and sidecar together in that PR. Update
+`frontend/DESIGN_SYSTEM.md` when its implementation guidance changes. Keep the snapshot's source
+revision and verification limits accurate. A route-specific content change that leaves the
+documented system intact does not require regenerating the snapshot. A routing-only edit to
+`DESIGN.md` (links or wording outside the frontmatter and the narrative the sidecar duplicates) can
+leave the sidecar unchanged. Impeccable then flags it in that working copy (the context check's
+`design-sidecar-stale` and the hook/live panel's "DESIGN.md is newer than .impeccable/design.json")
+because it compares file modification times, not content; both notices are expected, so do not touch
+the sidecar only to reset timestamps. Content parity is checked by
+`frontend/tests/unit/designSnapshotParity.spec.ts` (frontmatter vs token sources, sidecar vs
+frontmatter, duplicated narrative, specimen palette roles and panel fit). For a source-based
+refresh, run Impeccable's `document` command when available (`/impeccable document` in Claude Code,
+`$impeccable document` in Codex), then drop the synthetic tonal ramps it adds and re-apply the
+panel-fit rules to regenerated specimens (the spec names each failure); otherwise update from the
+same source files. When specimens change, render them with
+`frontend/scripts/impeccable-panel-harness.mjs`, which models the CSS the app actually serves. The
+live panel reads the sidecar only from `<project root>/.impeccable/design.json`; boot it from the
+repository root with a root `.impeccable/live/config.json` targeting `frontend/app/layout.tsx`
+rather than moving or copying the sidecar. Apply the existing change-area checks in AGENTS.md and
+rule 11.
 
 ## Commands
 
@@ -95,8 +130,10 @@ Infra: `docker-compose up -d postgres redis` (local only — prod has no Redis).
     `https://www.sec.gov/Archives/edgar/data/{cik}/{accession}/` with CIK leading zeros stripped
     and accession dashes removed — build it ONLY with `app/utils/sec_urls.py` (see
     `lessons/sec-filing-url-format.md`; tests in `tests/unit/test_filing_url_listeners.py`).
-11. **Design system:** any theme/token change is app-wide (public + authed). Done-gate = the
-    legacy-color grep in `DESIGN_SYSTEM.md` returns nothing AND both themes verified on preview.
+11. **Design system:** read `DESIGN.md` and `frontend/DESIGN_SYSTEM.md` before UI work and apply
+    the [design-document maintenance guidance](#design-documentation) when the documented system changes.
+    Any theme/token change is app-wide (public + authed). Done-gate = the legacy-color grep in
+    `frontend/DESIGN_SYSTEM.md` returns nothing AND both themes verified on preview.
     Dialogs only via `ui/Modal`; z from the ladder; eyebrows = `tracking-eyebrow`; chip/delta text = the
     700-level tokens; page bg = `background`, cards = `panel`, on every route. Gates: the design rules in
     `frontend/eslint.config.mjs` (raw hex/palette, `z-[N]`, off-ramp tracking, sub-scale type, `alert`)
@@ -140,7 +177,7 @@ Infra: `docker-compose up -d postgres redis` (local only — prod has no Redis).
 CI (`.github/workflows/ci.yml`): backend gate = ruff + bandit + pytest; frontend gate = eslint +
 tsc + vitest; e2e = Playwright (no backend running — specs must tolerate a dead API); the
 `eval-baseline` job gates AI regressions against `backend/evals/baseline_scores.json`.
-`deploy-backend` runs on push to main when `backend/` changed: applies not-yet-recorded
+`deploy-backend` runs on push to main when `backend/` changed outside `backend/tests/`: applies not-yet-recorded
 `backend/migrations/*.sql` files to Cloud SQL through the `migration_ledger` table
 (`backend/scripts/apply_migrations.sh`; the `migrations-postgres` job proves the same script on
 `postgres:15` first), deploys the Cloud Run service (`earningsnerd-backend`, project
@@ -148,8 +185,8 @@ tsc + vitest; e2e = Playwright (no backend running — specs must tolerate a dea
 (Mondays 06:00 UTC), and updates the required pregenerate job image. Seven other configured job
 targets (filing-scan, filing-digest, backfill-facts, earnings-calendar-refresh, earnings-day-alerts,
 notable-filings, retention-purge) are updated only when found; CI skips missing jobs and does not provision them.
-Only a backend-touching push to main deploys; a failed deploy is not retried, so check the job's
-conclusion after every backend merge. Frontend deploys via Vercel (`NEXT_PUBLIC_API_BASE_URL=https://api.earningsnerd.io`).
+Changes confined to `backend/tests/` still run all CI gates but do not deploy. A failed deploy is not retried,
+so check the job's conclusion after every merge touching deployable backend files. Frontend deploys via Vercel (`NEXT_PUBLIC_API_BASE_URL=https://api.earningsnerd.io`).
 Manual bootstrap: `tasks/gcp-deploy-runbook.md`. Full detail: `docs/DEPLOYMENT.md`.
 
 ## Workflow

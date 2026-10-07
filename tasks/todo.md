@@ -1,3 +1,74 @@
+## 2026-10-05 — EN-01: provenance chips always reach the source (frontend)
+
+- Scope: critique finding EN-01 (`tasks/critique-handoff-2026-10-04.md`, P1). A Trace-to-Source chip was a silent no-op while the research pane was closed (the provider flipped a hidden tab), touch had no fallback, "Open in SEC EDGAR" was unreachable by keyboard (Tab left the chip for the next chip), "Open original" pointed at the EDGAR folder index and an unverified metric chip read "Source: Source". Baseline main fae3367 (#1089 merged; frontend tree 047c28f, unchanged since the critique's 756c2ff). Reproduced before editing with the critique harness (jobs V-chip-closed-pane{,-anon,-free,-dark,-touch}, V-chip-keyboard-edgar): 0 visible dialogs after the click in every scenario, no sheet on touch, Tab from the chip landed on "Source: Source".
+- Design: `FilingViewerProvider` takes `onRequestOpen`; `requestHighlight(citation, from)` records the opener, sets the request, selects the Filing view and calls it synchronously (never an effect on the request nonce, so a pane the user closed cannot reopen from a stale request). The page passes `() => setCopilotOpen(true)` without the Copilot-entry analytics (a chip is not a Copilot entry). FilingWorkspace returns focus to the opener: `peekOpener` feeds the mobile sheet trap's `restoreFocusRef`; `takeOpener` runs once when the pane closes and focus fell to `<body>`, and leaves focus alone otherwise. FilingViewer's `load` carries an in-flight ref (two effects start it in one commit; lesson `frontend-guard-a-loader-two-effects-can-start-in-one-commit.md`). Coarse pointer: the sheet always, with "Show in filing" (the in-app jump) before the EDGAR link, trapped by `useSheetFocusTrap`, focus restored to the chip. Fine pointer: a highlightable chip is the jump button; else a URL chip is the anchor; else the toggle. Both evidence popovers (SourceTrace, CitationChip) hand the keyboard over through `useEvidencePopoverKeys` (Tab → the action link, Tab past → the page resumes after the chip, Shift+Tab → chip, Escape → chip focused then closed) and re-anchor instead of closing on the scroll that focusing caused (lesson `frontend-focus-opened-popovers-survive-the-focusing-scroll.md`; only Chromium showed it). `originalDocumentUrl(filing)` = `document_url`, else `sec_url`, else null, feeds FilingWorkspace's "Open original" and FilingViewer's CTA; citation deep links (`fragment_url`, `#:~:text=`) are untouched. MetricSourceLink's unverified label falls back to SourceTrace's "Cited". DESIGN_SYSTEM §4 documents the hover/focus popover variant.
+- Plan independence: the chip → pane → document route has no plan or auth input. New rule-12 gate `sourceAccessPlanIndependent.spec.ts` (AST over the route's modules: no import from `features/subscriptions`, `features/auth` or any entitlement module; none of isPro / is_pro / isAuthenticated / subscription / currentUser / getCurrentUserSafe / getSubscriptionStatus). Mutation proof on the committed tree: `import { getSubscriptionStatus } from '@/features/subscriptions/api/subscriptions-api'` added to FilingViewerContext.tsx fails it; reverted, it passes. Ask entitlements untouched (AskCopilotRail, CopilotTeaser, `entitlements.py` are not in the diff); after a chip-open the Ask tab shows the same teaser / composer / usage line per plan as the launcher-opened rail.
+- Specs (unit, jsdom, React 18.3.1): SourceTraceActivation (fine pointer: one request and one open per activation, popover closes, opener recorded, metric fallback to the heading; coarse: sheet with the EDGAR link and "Show in filing", focus on "Close source detail", scrim tabindex -1, the jump sends one request with the chip as opener, no jump without a target, Escape and the close button return to the chip), evidencePopoverKeys (describe.each SourceTrace / CitationChip: Tab, Shift+Tab, Escape, a scroll re-anchors a keyboard-owned popover and closes a hover one, the hover timer; a chip that is itself the link leaves Tab alone), originalDocumentUrl, FilingWorkspace (a closed pane opens on Filing, an open one switches, a closed one stays closed through re-renders, conversation continuity, focus returns to the chip once when fallen to body and is left alone otherwise, the mobile sheet with the blur delay), FilingViewerEmbedded (empty-state CTA href, error state, unmatched banner, repeated activation: two highlights, one fetch), SourceSpanClick (one `source_span_click` per activation; 0 for the tap, 1 for "Show in filing"), metric-trace-to-source ("Source: Cited"); trace-to-source-demo unchanged and green. E2E `tests/e2e/filing-source-chip.spec.ts` (Chromium against `next start`, the API answered by page.route fixtures): anon/pro × light/dark closed → Filing with the empty state and both document links on `document_url`, already-open switch, closed stays closed then reopens, matched highlight (`CSS.highlights`), unmatched banner, fetch failure with Try again, keyboard Tab / Shift+Tab / Escape / Tab past, touch sheet → "Show in filing" → pane, Escape on the sheet.
+- Gates on 5548113: lint 0 warnings, tsc clean, vitest 144 files / 1104 tests passed, `next build` OK (CI env). E2E full run against `next start`: 47 passed, 3 skipped (env-gated), the new spec 12/12 after two spec-side fixes (the consent seed is `cookie_consent`, the app's key; the Tab-past case refocuses the chip first). Detector `scans/detect-5548113.json` (engine 0.1.11): the same 4 baseline warnings (side-tab x3, bounce-easing x1), none in touched files.
+- Critique-harness evidence (`tasks/critique-env-2026-10-04/jobs-en01.json`, 18 jobs, run at 5548113 with the before run's cache, fixture 66647fd…, summary cache 1412895…; records in the session scratchpad `evidence-after-5548113/` beside `evidence-before-756c2ff/`): desktop pro / anon / free / dark: visible dialogs 0 → 1, Filing selected, empty state, "Open original" and the CTA → `…/aapl-20250927.htm`, Escape → hidden with focus on the chip; the already-open pane switches Answer → Filing without closing; keyboard: popover 0 → 1 on focus, Tab → "Open in SEC EDGAR" (href keeps the `#:~:text=` fragment), Shift+Tab → chip, Escape → chip, Tab past → "Source: Cited" (the next chip, no longer "Source: Source"); touch: sheet with the EDGAR link and "Show in filing", focus on "Close source detail", the jump closes the sheet and opens the pane on Filing, Escape → hidden with focus on the chip; sheet Escape and close → chip; pro,content: highlight ranges 1, a repeated activation highlights again, the closed pane is still closed 1.5 s later; Ask tab after a chip-open: anon teaser (Sign in / Upgrade to Pro, no textbox), free composer with "2 of 3 free questions left · Upgrade for unlimited", pro "263 of 300 questions left this month"; the landing demo toggles 1 → 0 → 1 in both themes. verify_trace.mjs: desktop click and Enter → pane visible on Filing; mobile tap → the sheet.
+- Limits: DOM and keyboard probes, no screen reader. The mobile pane opened by "Show in filing" gives initial focus to its first focusable, the Answer tab (`useSheetFocusTrap`'s first-focusable rule, pre-existing). Opening the pane from a chip dismisses the first-run coachmark through the existing open-dismisses effect in FilingWorkspace, so a user whose first pane open came from a chip never sees the launcher hint (coachmark policy is not EN-01; left as is, named). verify_trace.mjs's "consented" variants seed `cookie-consent` while the app reads `cookie_consent`, so both variants ran with the bar visible; the chip is not covered and the results were identical (harness cleanup, deferred). The before-set eval probes (semicolon steps) errored on the DSL split; the before counts and screenshots stand.
+- Review follow-up (same night, one isolated reviewer over `git diff fae3367 5548113`; upheld findings fixed in 9c0555f):
+  - Real defect (confirmed at the browser-primitive level by the reviewer, then in the harness): closing a chip-opened pane from its own Close button, or with Escape while a pane control had focus, left focus on `<body>` and lost the opener. The focus-return effect runs synchronously after the closing click or keydown, before Chromium moves focus off the now-hidden control, so it saw the stale control, bailed, and had already taken the opener. Focus still inside the hidden shell now counts as fallen. Unit case (jsdom keeps the hidden Close active, as Chromium does at that moment; fails on the old effect), e2e case (Close, and Escape with focus on the Filing tab), harness job `V-chip-close-from-inside` (both routes return focus to the chip in Chromium 141).
+  - The mobile sheet's restore target falls back to the launcher when the recorded opener has unmounted (a detached node is no longer handed to the trap).
+  - Gate `sourceAccessPlanIndependent.spec.ts` widened: CitationChip and SecondaryPaneTabs in scope; re-exports, dynamic `import()` and `require()`; identity strings (`/api/auth`, `/api/subscriptions`, `en_session`); more identifiers (useAuth, useCurrentUser, usePlan, useSubscription, useEntitlements, getCurrentUser, getUsage, isPaid, CurrentUser, SubscriptionStatus, the free-taste fields) and `lib/planLimits`; one hop into `@/hooks`, `@/lib`, `@/components`, `@/features/filings` and relative imports for their module reach (a second hop is not followed; generic names plan / tier / usage are not listed on purpose); page-client's `openPaneForSource` pinned to `useCallback(() => setCopilotOpen(true), [])` and its `onRequestOpen` wiring; the self-probe calls the real scanner. Mutants killed on the committed tree (worktree of 9c0555f): the pre-review effect (the Close-button case fails), `if (isPro) setCopilotOpen(true)` in page-client (the page case fails), the forbidden import in FilingViewerContext (the module case fails), `hooks/useMediaQuery` re-exporting from `features/auth` (the hop fails); reverted, all pass.
+  - Specs: evidencePopoverKeys asserts Tab reached the action before Shift+Tab and Escape are judged (both passed on the baseline before, trivially); FilingViewerEmbedded's href cases say they pin the `secUrl` prop pass-through (the ordering lives in originalDocumentUrl.spec.ts and the e2e). E2E: the pointer moves off the chip before each Escape (the pane narrows the column, Chromium re-dispatches mousemove, and a chip under the pointer would open its hover popover and take the key).
+  - DESIGN_SYSTEM §4: the sheet is SourceTrace's (CitationChip has none); a chip that is itself the EDGAR anchor has no second stop. Nits left as they are: `aria-expanded` on the fine-pointer jump button (it reflects the popover that button controls via `aria-controls`; the e2e Tab-past case reads it), a `setPos` per scroll tick while keyboard-owned (no jank measured).
+  - CI secret-scan on 9c0555f: gitleaks' generic-api-key rule read a `jobs-en01.json` step named keyfocus, followed by a screenshot step with a longer name, as a key with a value (entropy 3.62). Not a credential. The reviewed fingerprints are in `.gitleaksignore` (the scan walks every commit, so the first docs commit, which quoted the two steps in this entry and in the ignore file's own comment, needed its own), and the two steps are swapped so the squash commit on main never re-matches (gitleaks 8.24.3 clean over `origin/main..HEAD` locally). Lesson: a scanner reads prose too; describe a false positive, never paste it.
+  - Gates after the fixes: lint 0 warnings, tsc clean, vitest 144 files / 1106 tests, `next build` OK (CI env). Harness re-run at 9c0555f (19 jobs, same cache and fixture): every earlier result unchanged plus the close-from-inside routes; detector unchanged. E2E full run at 9c0555f against `next start` (CI env): 50 passed, 3 skipped (env-gated), 0 failed; `filing-source-chip.spec.ts` 13/13.
+- [ ] Deferred, named: FilingViewer's "Try again" stays a plain Button (rule (h) open item, pinned in the Retry gate; converting it is not EN-01); desktop close focus outside the chip route, focus rings and error focus (EN-05); the consent bar over the launcher and the mobile sheet (EN-02); stacked metric cards below md (EN-03); EN-04; risk-card headlines; detector and doc cleanups.
+
+## 2026-10-04 — retry hardening: one RetryButton, failures held through any refetch (frontend)
+
+- Closes the "Retry hardening follow-up" (2026-10-03 feed section) and BillingPanel's Retry from rule (h). Design C of three, chosen by the founder on 2026-10-04 after a judge panel; the judges' must-fixes and grafts are folded in.
+- **Visible behavior change (founder-acknowledged):** a failure a component has shown stays on screen through ANY refetch, pressed or not (a reconnect, window focus, an invalidation, a new observer), until data replaces it, with its Retry busy. Before, only a press held it, and any other refetch swapped the error UI for its skeleton, dropping a focused Retry to `<body>`. The pin "only a Retry press holds the failure" (`busyControls.forms.spec.tsx`) is inverted on purpose; it is not a rule-6 contract test. CI's e2e runs against a dead API, where error cards now stay up through refetches.
+- `useRetainedFailure` (`hooks/useRetainedFailure.tsx`) is derived from the query's state on each render, with no press or fetch tracking left to wedge (a retry paused offline, a second press, a settle inside one notify batch). The hold is tied to the failing query (`errorUpdatedAt` + `errorUpdateCount`; the second round below adds its key), so a key change shows the new query's first load (another user, a new search term), never the old error; CompanySearch's reset key is gone.
+- `<RetryButton>` owns busy state (`fetchStatus !== 'idle'`, paused included, whoever started the fetch), the press (failed queries only) and the focus hand-off (`useFocusHandoff`, `hooks/useFocusHandoff.ts`): it fires only when the Retry unmounts while it holds focus, whatever the cause, and a text-field target skips it after a pointer press. Press-armed hand-offs are deleted everywhere (the dashboard's two, YourCompanies, FilingFeed, CompanySearch, pricing). "Retrying…" shows only while its own press runs; a refetch nobody pressed leaves it busy under its own label, so the card's `role=alert` is not re-announced at every reconnect.
+- Converted: the dashboard's account, plan and Your companies Retry buttons, FilingFeed's Retry, CompanySearch's "Try again", the pricing page's three (its identity and details Notices are keyed, so one RetryButton is never reused across Notices) and BillingPanel's two (it now holds its failures and hands focus to the "Billing" heading).
+- Also fixed here: the dashboard sent a user whose `/me` was paused offline to `/login` (now only a confirmed guest, `user === null`, redirects; a cold load offline shows the skeleton); the settings page looped on `/me` without bound after a non-401 failure (its spinner now gates on the retained failure; new lesson `frontend-spinner-gate-on-shared-errored-query.md`).
+- RetryButton's home: co-located in `hooks/useRetainedFailure.tsx`, documented in its header and DESIGN_SYSTEM §4. No clean home exists: `components/ui` is DS primitives without react-query (and synced upstream), `components/` root is app chrome only (`componentsAllowlist.spec.ts`, ARCHITECTURE.md), and `features/<domain>` is one domain while RetryButton serves four plus the pricing page. The hand-off hook has its own file.
+- Gate (rule 12, `busyControlsStayFocusable.spec.ts`): every Retry of a query is RetryButton, seen by its wiring (`loading` from a fetching flag, a handler reaching `refetch…` or a failure's `retry`, through the gate's binding resolver; ALLOW_RETRY pins 5 sites in 3 files) and by its label (a "Retrying…" loadingText, or a Retry / Try again label, on any other element; ALLOW_RETRY_LABEL pins 12 labels in 12 files: 4 error-boundary resets, 4 stream or generation restarts, 4 open rule-(h) sites). Both are shrink-only and capped, with reasons. At 026d6df the six converted files give 18 wiring and 10 label offenders, and each file fails both clauses on its own.
+- Specs: 38 new or inverted page-level cases in `busyControls.{dashboard,forms,settings,watchlist}.spec.tsx` and `CompanySearch.spec.tsx` (design C's 28 scratch cases, the judges' ports from designs A and B, and the must-fix pins), plus `useRetainedFailure.spec.tsx` (13 hook-level cases). 35 of the 38 fail on the pre-conversion sources; the 3 that pass there are controls. Mutants killed: the hold without its query identity (5 cases fail), `errorUpdateCount > 0` alone (1), an always-on or never-on "Retrying…" (2 and 1), unkeyed pricing Notices (1), the settings page's old spinner gate (the `/me` bound: 11 calls in 200 ms).
+- Review follow-up (same day, upheld findings and mutation survivors):
+  - Pointer origin (rule (g)): a tap on a busy text-field Retry (CompanySearch's "Try again") was refused by the DS Button's `loading` guard before onClick, while its focus forgot the earlier press, so its later unmount focused the field and raised the touch keyboard. `useFocusHandoff` now takes the origin at pointerdown (`onPointerDown`, which a busy Button does not swallow); the focus a pointerdown starts keeps the mark, and only a focus no pointerdown started forgets it. RetryButton passes it. Limit (documented in the hook and the lesson): a pointerdown that starts neither a focus nor a click leaves its mark for one keyboard focus.
+  - Gate scope: the busy-controls gate scans hooks/ and lib/ `.tsx` too, so a native `disabled` on RetryButton fails it; RetryButton's own definition (by file and function name) is the one exemption from the two Retry clauses. RetryButton's unit case pins `not.toBeDisabled()` while busy (lesson (c) says why that is not a per-site repeat).
+  - Gate heuristics: `fetchStatus` counts as a fetching name in the wiring clause; `invalidateQueries` / `resetQueries` count as a pressed refetch written inline in a handler (through bindings they reached 20 mutation and submit handlers in 15 files, none a Retry); the label scan resolves same-file string consts. At 026d6df the six converted files now give 20 wiring and 10 label offenders.
+  - New rule-12 gate for `frontend-spinner-gate-on-shared-errored-query.md`: `spinnerGateHoldsFailure.spec.ts` fails on an `if (…) return <JSX>` or `… ? <JSX> :` in app/ whose condition reads `isLoading` / `isPending` of a query observed by two or more modules without that query's `!useRetainedFailure(…).failed` under `&&`. 5 safe sites in 4 files pinned with reasons (shrink-only, capped); limits in the lesson's Rule. It fails on the settings page's old `if (userLoading)`.
+  - Killers committed for the first mutation run's upheld survivors, in `useRetainedFailure.spec.tsx` (the hold's identity: same millisecond with different counts, the same Error twice in one millisecond, equal counts at different times; the hand-off: a kept node blurred in the same task, focus taken in the same task; RetryButton: a tap, Tab away and back) and `CompanySearch.spec.tsx` (back to an earlier failed term shows no error from the term in between). Each fails on its mutant; the pointer-origin pins fail on the code before it and on five narrower mutants.
+  - The pricing case "a Notice that clears without a Retry press does not take focus" is renamed to what it proves: "a Notice that clears while its Retry does not hold focus moves no focus".
+- Second review round (same day, upheld findings and mutation survivors):
+  - Real defect: the hold's identity collided across keys. Two keys that each fail once in the same millisecond share `errorUpdatedAt` and `errorUpdateCount`, so switching keys held the old key's error through the new key's first load (on 44835fe the hook returned `{failed: true, busy: true, error: 'a down'}`). `useRetainedFailure(query, queryKey)` now records and compares `hashKey(queryKey)` with the two counters; every caller passes its own query's key (the dashboard's user, usage, subscription and insights, FilingFeed, CompanySearch, the pricing page's three, BillingPanel's two, the settings page). The record branch no longer compares the error object (a failure of the same query always moves its count). New AST gate in `useRetainedFailure.spec.tsx`: every caller's key is the same expression as its own query's `queryKey:`; it fails on a sibling's key and on CompanySearch passing the undebounced term.
+  - Killers committed in `useRetainedFailure.spec.tsx`, each failing its mutant: same millisecond, same count, different keys (fails on 44835fe's hook and without the key); a reset of the same key (fails on a key-only identity); the same query failing again in the same millisecond with another Error (fails without the count); a reset whose refetch fails again (fails without the time); data then a background refetch (UR10: a release that ignores `status` showed the old error over loaded data; the hook was right, the case was missing); FH05 (a tap on the busy Retry's spinner, `e.target` for `e.currentTarget`), FH09 (a tap on it busy and unfocused, Tab away and back), FH12 (a tap then a keyboard press), FH13 (a pointer press on a heading-target Retry still hands off), FH23 (`preventScroll: true`).
+  - Spinner gate (`spinnerGateHoldsFailure.spec.ts`): a hold counts only as a conjunct (parentheses and nested `&&` operands; never `||`, `?:`, a call or a negated compound), with the reviewer's four probes as expected offenders; pins are `condition [families]`, so a pinned condition that starts reading another shared family fails (S14, the watchlist hook); new shapes: `isFetching` / `isRefetching` / `fetchStatus` fail held or not, `status` compared with `'pending'`, a call around the JSX, a ternary in the return. No new offender on the tree.
+  - Busy-controls gate: `astBindings.ts` binds function declarations, so a Retry refetching through `function reload() { … }` fails the wiring clause (G08); the tree stays green.
+- Third review round (same day, upheld findings and round 3's proven mutation survivors):
+  - Spinner gate: a fetch flag is never pinnable. A pinned site could fold `isFetching` of a family it already reads into a pinned name (the admin layout's `const isLoading = firstLoad || isFetching`, the watchlist hook's `isReady: !isLoading && !isFetching`) and pass, since its pin's text and families stayed the same. The scan now reports the families a gate reads a fetch flag of apart from the pin, and such a gate fails whatever ALLOW pins: both forms fail in the fixture with their pins matched, and the admin layout and watchlist page fail with that edit made to the real files. `status === 'pending'` read through a same-file hook (`const { status } = useAuthGate()` over `return { status }`, or `return { userStatus: userQuery.status }`) is now followed, as the spec header and the lesson already said. No new offender on the tree.
+  - Killers committed for round 3's proven survivors, each failing its mutant: `useRetainedFailure.spec.tsx` (H02: a key change that shows the other query's cached failure without refetching records it under its own key, so its refetch is held; H11: a reset whose refetch fails again unrendered, then a refetch, does not hold the old failure; H16: data that lands with a refetch already running ends the hold), `spinnerGateHoldsFailure.spec.ts` (D08: `!(failure.failed)` is a hold; F14: a ternary with an `undefined` branch and F15: `createPortal(<Spinner />, document.body)` are renders), `busyControlsStayFocusable.spec.ts` (G05: a function declaration binds in its own block; G06: an overload resolves to its implementation). The two gate fixes fail on the round-2 scan too (a pinnable fetch flag, `status` not followed through a hook, and a fetch read left unmarked, destructured or as a member).
+  - Fixed after round 4 (PK-H10): a shown failure was released when the query failed again and refetched before React rendered that second failure, at any time difference. That contradicted the approved contract (a rendered failure stays until data replaces it), so the hook now holds through it: on the same key a higher `errorUpdateCount` is the same query failing again (a reset starts the count over at 0), and the record moves to the new count, keeping the error that was shown. Pinned in `useRetainedFailure.spec.tsx`; it fails on the previous hook, and `>=` for `>` fails four cases (it would rebuild the record every render).
+  - Four more spinner-gate edges pinned, each killing the mutant that let it through: a ternary whose only render is its false branch, a call whose JSX is not its first argument, a destructured fetch flag held (directly, renamed `fetchStatus`, through a const and through a hook), and a query member other than `status` compared with 'pending'.
+  - E2E flake, pre-existing on main (#1082): in "Resend link keeps focus through a successful send", sendsAnother's `waitForRequest` was set up once aria-busy showed, which can be before the first send's request event, so it took the first send for a second one (main failed it about 2 in 10 dark runs). The spec now waits for the first send at the route (`expect.poll(() => requests.resend).toBe(1)`; the route's 400 ms answer keeps the button busy) before the busy-phase check. The other two sendsAnother calls run after the first send's answer is on screen, so they cannot catch its request event. Proof, `--repeat-each=20` against `next start` builds of main 1a79637 and of this branch (dbfc0c5; this round changes no app code), API answered in the browser: the old spec failed 2 of 100 on main (dark, both at the busy-phase check) and 1 of 100 on the branch (light, the same line); the fixed spec passed 100 of 100 on each, the successful-send case 20/20 in each theme.
+- Runtime: the unit tests render react 18.3.1; the App Router runs Next's vendored React 19.3.0-canary-cbb046ab-20260731 (next 16.3.6, `create-compiler-aliases.js`; there is no pages/ router). The hand-off ran in Chromium under both, 7/7 scenarios each, including a reused node and a deep subtree removal.
+- Full gate: `npm run lint` (0 warnings), `tsc -p tsconfig.ci.json` clean, vitest 136 files / 993 tests passed, `next build` OK; Playwright e2e against `next start` with no API: 37 passed, 3 skipped (env-gated: no backend, `NO_PRIOR_PERIOD_URL`, `SMOKE_BASE_URL`). Real-build keyboard pass on the same build (React 19 canary, API answered in the browser), both themes, 8/8: a keyboard press reads "Retrying…" and lands focus on the Dashboard title; a reconnect refetch nobody pressed keeps "Retry" busy and focused, then lands on the title; a recovery while focus is on another control in the card moves nothing; the settings page over a `/me` 503 sends 2 `/me` calls in ~2 s and shows the billing Notice. After the review follow-up: lint (0 warnings), tsc clean, vitest 139 files / 1023 tests passed, `next build` OK. Not re-run then: e2e and the browser pass (the follow-up changes no markup; RetryButton only gains a pointerdown handler), and no touch-device pass of the pointer origin yet. After the second review round: lint (0 warnings), tsc clean, vitest 139 files / 1036 tests passed, `next build` OK; e2e and the browser pass not re-run (no markup change: the hook gains its key argument, the rest is specs and gates). After the third review round: lint (0 warnings), tsc clean, vitest 139 files / 1043 tests passed, `next build` OK; the resend e2e spec as above; the browser pass not re-run (no app code changed: specs, gates and docs).
+- [ ] Still open in rule (h), each pinned in the Retry gate's allowlists: the filing page's Retry generation / Retry / Regenerate Analysis, the company page's filings Retry, EarningsCalendarPage's "Try again", FullTextSearch's Retry and FilingViewer's "Try again"; outside the Retry gate, FeedbackRow on a status-filtered list, the dashboard header's Log out, and PopularTickerChips' add and YourCompanies' remove when their refetch fails.
+
+## 2026-10-03 — the email-verification prompt's Resend keeps keyboard focus (frontend)
+
+- EmailVerificationModal's "Resend link" turned natively `disabled={resent}` on success while focused: Chromium blurred it and focus fell to `<body>` inside the open dialog (real Chromium: the next Tab restarted at ✕). A failed resend, including the backend's 429, was swallowed silently.
+- Design: a judge panel weighed three approaches (stay unavailable with a secondary unavailable look; stay live with status lines; a 30 s cooldown). The rule-(e) design won 2 of 3 judges.
+- Resend is now a phase machine (idle, sending, sent, failed, limited). "Link sent" and a 429 leave it aria-disabled with an early return and the new `secondaryUnavailableClass`, which fades the label and hairline, not the element, so the focus ring keeps its strength (light 1.97:1, dark 2.85:1; the native `opacity-50` would give 1.39:1 and 1.66:1). The send is announced by an always-mounted `role="status"` line; a failure by an error Notice keyed per failure, so each one is announced. The last failure's Notice stays through the next send: unmounting it re-centred the panel, and on a phone a quick second tap landed on "I've verified" (or the scrim) and closed the dialog mid-send (review finding, measured in Chromium). A 429 locks Resend for the prompt (the route charges the per-IP bucket before the per-address check rejects). Only a new prompt (closed to open) re-arms Resend, never one still sending.
+- Gate: `busyControlsStayFocusable.spec.ts` now also fails on post-success names (`resent`, `saved`, `copied`, `succeeded`/`success`, `cooldown`) feeding `disabled={…}`, with zero pins.
+- Specs: `busyControls.admin-auth.spec.tsx` (7 cases; reverting native `disabled`, `aria-disabled`, the unavailable, email and reopen guards, the status region, the 429 lock, the kept and keyed Notice, or the email fallback fails at least one; the handler's `sending` check is an equivalent mutant, since the DS Button's `loading` already refuses the press), and the backend-free e2e `tests/e2e/email-verification-resend.spec.ts` (light and dark: settle-before-read focus checks, a bounded wait that no second send leaves, the unavailable look's computed opacity, ring and dark hairline; and a phone-width double tap after a failure).
+- Review: three lenses, three skeptics per finding. Upheld and fixed: the panel shift under a second tap; e2e "no second send" reads that ran before a dropped guard's request could leave; a no-email case that passed without its guard. Refuted 4.
+- [ ] Follow-ups found here, not in this diff: natively `disabled` secondary and ghost Buttons still tint on hover and press in dark (`dark:hover:`/`dark:active:` out-order `disabled:hover:bg-transparent`; fix in Button.tsx with both-theme checks); `fieldUnavailableClass` (`aria-disabled:opacity-60`), AlertBell's pending `opacity-60` and VerificationBanner's busy `aria-disabled:opacity-50` fade the focus ring of a focusable control the same way (convert, then gate "no element opacity on an aria-disabled control"); the DS ring tokens are under 3:1 on panel even when enabled (a token decision, rule 11); `handleRefresh` in EmailVerificationModal invalidates the current user twice and closes without checking; VerificationBanner still swallows a 429.
+
+## 2026-10-03 — the dashboard feed's Retry keeps keyboard focus (frontend)
+
+- Same bug as the dashboard's other Retry buttons: the errored feed has no data, so its refetch went back to pending and FilingFeed's skeleton branch replaced the error card and its focused Retry.
+- FilingFeed now runs its own query through `useRetainedFailure`. Retry is the DS `<Button loading>`, busy while `fetchStatus !== 'idle'`, so a retry pressed offline waits paused and still busy, and a press during a refetch nobody pressed (a feed that still has data stays on the card) sends nothing. A successful Retry hands focus to the "What's new" heading, only when focus fell to `<body>`; a retry that fails again disarms.
+- Spec: `busyControls.watchlist.spec.tsx` ("FilingFeed Retry", 5 cases). Removing any of 9 guards fails at least one case.
+- Review: three lenses, three skeptics per finding; nothing upheld. Added anyway: a case pinning Retry busy during a refetch nobody pressed (the narrower `busy = failure.retrying` survived the first 4). Refuted 2/3: "a repeat failure is not re-announced". The button's "Retrying…" to "Retry" swap sits inside the card's `role=alert`, which is atomic and assertive in Chromium's tree, so the whole alert is presented again.
+- [ ] Still open in rule (h): ~~EmailVerificationModal~~ (done, see the section above), the filing page's Retry / Regenerate, FeedbackRow on a status-filtered list, the dashboard header's Log out, PopularTickerChips' add when its refetch fails, YourCompanies' remove focus when its refetch fails, the company page's filings Retry, EarningsCalendarPage's "Try again", FullTextSearch's Retry and FilingViewer's "Try again". (BillingPanel's Retry: done, see 2026-10-04.)
+- [x] Retry hardening follow-up: done, see the 2026-10-04 section.
+
 ## 2026-10-03 — Your companies Retry and the search's "Try Again" keep keyboard focus (frontend)
 
 - Both had the bug #1075 fixed on the dashboard's own Retry buttons. The query has no data after it errors, so a refetch put it back to pending, and the control unmounted: YourCompanies' skeleton branch replaced its error card, and CompanySearch's alert rendered only while `isError`.
@@ -6,7 +77,7 @@
 - `useRetainedFailure` and CompanySearch's busy state treat `fetchStatus !== 'idle'` as in flight, so a retry paused offline or in a hidden tab keeps its failure and busy button.
 - Review: five lenses, three skeptics per finding. Fixed: the Escape and term-change hand-off, the paused retry, the unannounced same-text failure, an unpinned `<body>` guard, and a remove pin that bypassed the page's wiring (now in `busyControls.dashboard.spec.tsx`).
 - Specs: `busyControls.dashboard.spec.tsx` (Your companies Retry, now rendering the real component, and the remove whose refetch fails, which shows why YourCompanies' remove needs no cache prune) and `CompanySearch.spec.tsx`.
-- [ ] Still open in rule (h): FilingFeed's Retry, EmailVerificationModal, the filing page's Retry / Regenerate, FeedbackRow on a status-filtered list, the dashboard header's Log out, PopularTickerChips' add when the insights refetch after it fails, YourCompanies' remove focus when its refetch fails, the company page's filings Retry, EarningsCalendarPage's "Try again", FullTextSearch's Retry and FilingViewer's "Try again".
+- [ ] Still open in rule (h): ~~FilingFeed's Retry~~ (done, see the section above), EmailVerificationModal, the filing page's Retry / Regenerate, FeedbackRow on a status-filtered list, the dashboard header's Log out, PopularTickerChips' add when the insights refetch after it fails, YourCompanies' remove focus when its refetch fails, the company page's filings Retry, EarningsCalendarPage's "Try again", FullTextSearch's Retry and FilingViewer's "Try again".
 
 ## 2026-10-03 — dashboard Retry, Delete and Manage subscription keep keyboard focus (frontend)
 
@@ -16,8 +87,8 @@
 - Review: five lenses, each finding refuted by three skeptics. Upheld and fixed here: a press-armed hand-off outlived a failed retry; the Stripe hold never settled after an aborted navigation; and four test gaps.
 - [ ] Still open in rule (h): EmailVerificationModal, FilingFeed Retry, the filing page's Retry / Regenerate, FeedbackRow on a status-filtered list, the dashboard header's Log out (no in-flight guard), ~~YourCompanies' Retry and CompanySearch's "Try Again"~~ (done, see the section above).
 - [ ] Observed during review, outside this bug class:
-  - A dashboard Retry pressed while offline pauses the user query, and the redirect effect sends the user to `/login`.
-  - `components/Header.tsx` observes the current user with `refetchOnWindowFocus: true`. That refetch nobody pressed can still replace a focused account-error Retry with the skeleton.
+  - ~~A dashboard Retry pressed while offline pauses the user query, and the redirect effect sends the user to `/login`.~~ (done, 2026-10-04: only a confirmed guest redirects)
+  - ~~`components/Header.tsx` observes the current user with `refetchOnWindowFocus: true`. That refetch nobody pressed can still replace a focused account-error Retry with the skeleton.~~ (done, 2026-10-04: a shown failure holds through any refetch)
   - A Pro user whose subscription call fails sees a "Free" badge beside "Unable to load plan details". BillingPanel avoids this.
   - The saved-summaries error card has no Retry, though it says "Please retry in a moment."
 - The plan Retry now refetches only the queries that failed. Refetching a healthy sibling too let the failed one recover first, which unmounted the focused Retry, and the alert could then come back if the sibling failed (Codex P2 on #1075).
@@ -6121,3 +6192,200 @@ Full local and hosted verification plus independent exact-head review precede re
   unchanged retry or broader export followed. A new input format still needs review.
 - Documentation and synthetic evidence only. No customer query, source-role work,
   E7/E8 admission, production flag, price change, invitation or model call.
+
+## 2026-10-02 — security review work packages WP-01 to WP-06 (PR #1069)
+
+- [x] CI: checksum-pinned `secret-scan` job over branch and remote refs with reviewed fingerprints in `.gitleaksignore`; tracked dotenv example files gated to placeholders; `deploy-backend` routes traffic `--to-latest --clear-tags`; `ops.yml` fails on tagged traffic targets, reads dispatch inputs through `env:`, checks out without persisted credentials and runs only from `main`.
+- [x] Backend: recipient names enter email templates only through escaping helpers (AST gate); waitlist and signup names bounded and control-character free; waitlist status lookup rate limited and trimmed; contact confirmation no longer echoes the message. Summaries and Copilot answers are metered when the provider call starts, refunded only for provider-side failure, timeout or a partial verdict; per-user burst limiters keyed on the account alone (AST gate). Social sign-in creation is gated like email registration (invite and verified-email checks in one helper, AST gate); Apple state bound to the browser; invite redeemed in the insert transaction.
+- [ ] Founder console actions from the private remediation plan (credential rotation and push protection, removing the existing revision tags after the deploy, scoping the WIF trust to `main`) are not code and remain open.
+- [ ] Remaining packages WP-07 onward follow in their own PRs.
+
+## 2026-10-04 — H20 partial note-input binding
+
+- Bind the source owner's two ordered 15-note sets and exact U001 origin context to externally
+  pinned approval files and the independent complete original packet contract. Preserve both
+  representations, byte spans, source labels and all outstanding closure obligations.
+- Offline metadata preflight only: no source payload fixture, graph/schema1 change, prompt,
+  provider call, reservation or source/capacity/admission claim. Held PR1035 remains unchanged.
+- Three synthetic guards cover contract authority/scope, native byte custody and non-admission.
+  Focused checks and one mutation per guard precede independent review and the full backend gate.
+  Interface and remaining gates: [H20 note inputs](readiness-2026-09-21/acceptance/h20-note-inputs.md).
+
+## 2026-10-04 — H20 joint native input custody
+
+- Bind independently pinned original/review packets by exact whole-packet identity, preserve
+  the whole source-unit manifest and native structural labels, and render same/foreign-packet
+  dependency context under the existing aggregate context limits. Bind source-control hashes.
+- Add explicit prompt/graph/journal/replay schema2 hooks while preserving schema1 behavior,
+  node kinds and complete-child parent inputs. Refuse schema2 journals at the current native
+  delivery adapter before process work. No provider call, source acceptance or capacity claim.
+- Three synthetic guards and one committed-state mutation each cover the new boundaries.
+  Full H20 mappings, larger closures, modality delivery and capacity proofs remain separate;
+  held PR1035 is unchanged. Accept the exact source-approved note-v2 status without admitting
+  unknown successors. [Interface and limitations](readiness-2026-09-21/acceptance/h20-note-inputs.md).
+
+## 2026-10-04 — CODE RED chief takeover (Fable chief session; tasks-only, PR #1086 merged + decisions PR)
+
+- Recorded single-writer takeover under `tasks/code-red-20261004/runtime/`: verified founder package
+  (`e5316f50…`, 0 manifest mismatches), observed runtime identity, fresh main/PR-owner snapshot at
+  `100fb7d6`, append-only exclusion successors 136 and 137, appointments, CEO/CFO spend statement.
+  Live spend ledger was on the founder's machine and unreachable from the cloud session at takeover:
+  paid dispatch, reservations and ledger writes held; the successor ledger was designated later the same
+  day (see the ticked item below). Zero DeepSeek calls / USD 0.
+- R1 stays `BLOCKED_SOURCE_OWNED_PACKING` (no worker launched; founder-dependent item recorded).
+- CPO lane: isolated coordinator produced the R1→R2 admission status (A1–A9) and process handback;
+  two independent verifier passes: administrative pass, execution not admitted, candidate HOLD.
+- CTO lane: current-beta operating-envelope handback (58 classified bounds, verified anchors; revision 2
+  after a placeholder defect). Determination undetermined; no E09 code subset demonstrated necessary;
+  aggregate SEC rate across instances and jobs is the evidence-supported hazard; E09 hold unchanged.
+  Authored in the chief context because the isolated workflow launch was denied by the auto-mode
+  classifier; no isolated adversarial review ran.
+- COO lane: operating-envelope disposition HOLD with eight named missing inputs/decisions and owners;
+  capacity unadmitted; counts unchanged (3/30 dossiers, 0/2 readouts, 5 groups + 1 capacity decision).
+- [ ] Founder + Astra: H20-only packing/closure refinement (frozen H20 input set; 27 = remaining dossiers,
+      not the worklist) by the registered source-only planner (closure 140; controls package hash-verified,
+      `DECISIONS-04.md`; 30 of 180 minutes charged, 150 remain). Blocked on (a) the founder materialising the
+      cloud-only custody files (Keep Downloaded applied; still 18/21 and 14/48 cloud-only — bounded discrepancy
+      investigation next) and the two-part
+      hash-and-length verification (11 of 39 local files verified so far, 0 mismatches), (b) the planner's
+      runtime availability, unverified — any fresh context must be registered before release, and (c) the
+      release receipt (`DECISIONS-05.md`). Implementation stays HELD pending the source-owned refinement.
+      Chief then sets `R1-STATUS.md`.
+- [x] Ledger: Astra confirmed byte-identity with snapshot `99c7259f…`; successor ledger designated as a
+      private artifact (document SHA-256 `53e84868…` at designation; event 1 written 2026-10-04 → `beef4ca0…`;
+      event 2 written 2026-10-05T00:10:56Z recording the founder's shared ceiling raise USD 15 → 25, document now
+      `f4dd36fb…`, reconciled headroom USD 22.570771); chief sole writer; paid dispatch still needs a reservation
+      there (`runtime/control/DECISIONS-02.md` D1, `DECISIONS-03.md`, `DECISIONS-06.md`, `LEDGER-ACCESS.md`).
+- Overnight 2026-10-05 (founder directive 00:02Z, `runtime/control/DECISIONS-06.md`): PR #1092 merged; wave table
+      recorded (owners, remaining counts, one blocker each, next deliverable); C1 items 4, 6 (dependency) and 8
+      closed by their named owner on records 02 D7/D1/D9, B37 by D8 — five of eight C1 items open; only R3 has an
+      executable deliverable overnight (08:10Z readout → CTO handback rev 4 → COO disposition update). USD 0.
+- [x] COO/CEO: one bounded read-only Ops `capacity-readout` over Monday 06:00–08:00 UTC dispatched 2026-10-05T08:12Z
+      (run 37282199614, success; receipt `runtime/handbacks/coo/CAPACITY-READOUT-RECEIPT-20261005.md`). Monitoring and
+      Logging channels returned HTTP 403, so B32/B56 stay unknown by this route; two Monday business-phase overlaps
+      (9.15 s, 6.57 s) observed with near-empty work.
+- [x] CTO/CEO: cause of the Ops identity's 403s established 2026-10-05T17:06Z by the existing read-only `logs-probe`
+      (run 37345946128): `PERMISSION_DENIED: Permission denied for all log views` for
+      `github-deployer@earnings-nerd.iam.gserviceaccount.com` (`runtime/control/DECISIONS-07.md`).
+- [x] (resolved 2026-10-06, record 10: IAM verified PERMITTED by `logs-probe` run 37418676235) Founder: the two `gcloud projects add-iam-policy-binding` commands ran clean at ~20:17Z (founder statement), but the read-only
+      `logs-probe` re-run at 21:55Z (Ops run 37379102331) still printed `PERMISSION_DENIED: Permission denied for all log views` for
+      `github-deployer@earnings-nerd.iam.gserviceaccount.com` — IAM is applied-per-founder, **verified DENIED** (`DECISIONS-09.md`).
+      Founder: run the read-only policy check (`gcloud projects get-iam-policy earnings-nerd` filtered to that principal) and confirm
+      both roles appear on project `earnings-nerd`; then the chief re-runs one `logs-probe` and, on PERMITTED, COO/CEO dispatch the
+      bounded `capacity-readout` over the Monday 06:00–08:00 UTC window (B32/B56).
+- [x] COO: report-route proposal 01 delivered 2026-10-05 by a bounded worker (`runtime/handbacks/coo/REPORT-ROUTE-PROPOSAL-01.md`):
+      the blocked batch-export contract beside a PostHog query-route readout contract (the official MCP `execute-sql` route
+      returned an invented-literal row for project 117863, `DECISIONS-07.md`); three options, no recommendation of spend.
+- [x] PostHog ticket 76581 RESOLVED by support 2026-10-05 (HogQL file-download exports enabled for the team; founder-relayed).
+      COO export capability test dispatched (`runtime/dispatch/COO-EXPORT-VALIDATION-05.json`: exact September 30 literal query,
+      three invented rows, no customer tables) RAN: count 3, run `01a10d89-1ee8-0000-3e2c-9000712c9502` Completed, records_completed 3, one part; file
+      download needs the founder's authenticated PostHog context (handoff in `runtime/handbacks/coo/export-validation-01/`);
+      independent G3 file-input contract review follows the part. Nothing credited from a synthetic test (`DECISIONS-08.md`).
+- [x] Founder: option C adopted 2026-10-05 (ticket 76581 open; query route prepared without spend or customer data); COO contract
+      draft delivered (`runtime/handbacks/coo/QUERY-ROUTE-READOUT-CONTRACT-DRAFT-01.md`, `DECISIONS-08.md`).
+- [x] Founder: file-download route selected (~20:17Z); COO contract revision 3 for that route and the D1–D5 decisions file delivered;
+      founder adopted D1–D5 as recommended (~21:15Z): O2 founder-operated legs, G1 text recorded (production-host confirmation
+      outstanding), founder-side private store, no second export + one offline dry run, Option A adapter (`DECISIONS-09.md`).
+- [x] Export part downloaded by the founder's Codex operator on PostHog EU cloud (20:52:57Z; `67bc4e91…`, 2,092 bytes) and verified;
+      single G3 review 01: rendering accept, consumer-as-is reject, checklist 14 / 1 / 1 — settles G2 and G3-with-gap only
+      (`runtime/handbacks/coo/export-validation-01/`). D5 adapter `tasks/readiness-2026-09-21/beta/file_export_to_v1.py` authored
+      (+ `fixture_check.py --adapter-only`; released consumer byte-unchanged); D4 offline dry run reproduces the September 30 readout
+      (19 / 20 fields; completeness incomplete: n_after not observed). D1/D3 operator script `export_operator.py` + `OPERATOR-RUNBOOK.md`
+      authored for the founder. Nothing marks cohort reporting, beta admission or capacity complete.
+- [x] (resolved 2026-10-06, record 10: EU production host confirmed; G1 CLOSED; key kept active by the founder's choice) Founder: confirm the production PostHog host values (`POSTHOG_HOST`, frontend provider host; code defaults are US, you state EU)
+      and the project's region — the one condition for G1 to close; revoke the download key (recommended).
+- [x] PR #1099 merged to main `eccf45a3` (2026-10-05T21:59:56Z) after GitHub's Actions incident (five jobs platform-cancelled, re-run once);
+      seven delta-review nits applied in record 09. Review rule from record 09: records-only PRs get one reviewer context; nits carried.
+- [x] (done 2026-10-06: PR #1101 merged `f0af2e3c` with gate `backend/tests/unit/test_backend_deploy_scope.py`; five merges verified skipping — its own and the four since) CTO (proposed, awaiting the founder's go-ahead as a deploy-pipeline change): exclude `backend/tests/` from `deploy-backend`'s path
+      filter, mirroring `.dockerignore`, plus a rule-12 gate — PR #1098 deployed unchanged application code because the filter is wider
+      than the build context (`DECISIONS-09.md`).
+- [x] CTO/CEO: readout error-detail diagnostics (`ops/capacity/readout.py`, bounded worker, PR #1098): a structured, bounded
+      error reason beside each failed channel's `http_NNN`, never raw bodies; review findings applied; 6 unit tests.
+- [x] (resolved 2026-10-06, record 12: `TOTAL=22` / `TOTAL=48`, zero stubs or unreadable files, 69 of 69 equal; planner acknowledged) Founder: the custody check (`runtime/tools/h20-custody-check.sh`) started 2026-10-05T17:29:39Z on the MacBook with both
+      real folder paths; send the chief only its two `TOTAL=` lines, give the saved file to Astra and send Astra's match
+      counts; confirm in the Codex app whether the registered planner thread resumes. The two archives uploaded into the
+      chief's session at ~17:52Z were not opened (classifier denial 5, `DECISIONS-07.md`); they do not shorten this route.
+- [x] PR #1098 merged to main `c780228a` (2026-10-05T18:17:54Z); the reserved `copilot-eval` re-trigger cost USD 0.025568
+      against a USD 0.010000 reservation (excess unreserved; ledger event 4; `DECISIONS-08.md`); the merge's `deploy-backend`
+      run verified and recorded there; closure 151 resolves the delta reviewer.
+- [x] Chief defect recorded (`DECISIONS-07.md`, ledger event 3): marking PR #1098 ready triggered the paid `copilot-eval`
+      workflow without a reservation (29 calls, telemetry USD 0.005575; cancel request ineffective); recorded as use,
+      USD 0.010000 reserved for the one required re-trigger; rule: reserve before marking a `backend/**`-touching PR ready.
+- [ ] Founder: apply (or change the numbers in) the handed-over patch pinning `SEC_RATE_LIMIT_PER_SECOND=1`
+      and `EDGAR_RATE_LIMIT_PER_SEC=1` on the service and all eight jobs with its rule-12 gate — the chief's
+      commit of it was classifier-denied (Production Deploy); the exact patch, fleet assumptions and decision are presented in
+      `DECISIONS-08.md` (SHA-256 `21322a05…`, applies to `c780228a`); the chief reserves from the dearest measured `copilot-eval`
+      run (≥ USD 0.03, `DECISIONS-08.md`) before any PR carrying it is marked ready.
+- [x] Item 8 closed by the CEO as its named owner on the two refuter appendices (`DECISIONS-02.md` D9,
+      `DECISIONS-06.md`).
+- [x] CTO handback revision 4 (62 bounds; B59–B62; determination still undetermined, no E09 subset demonstrated
+      necessary; `CORRECTION-03.md`) and COO disposition update 01 (HOLD stands; C1 items 2 closed, 1 dependency-closed,
+      5 open, 2 with B62) delivered 2026-10-05 by bounded workers (closure 147).
+- [ ] Docs-vs-config: `docs/OPERATIONS.md` alert threshold `database.checked_out > 8` is unreachable with
+      the deployed pool 4 / overflow 0 (handback B33); fix the doc separately.
+- 2026-10-06 morning (record 10, `runtime/control/DECISIONS-10.md`): Astra's handover processed — the founder's IAM bindings
+  **verified PERMITTED** (`logs-probe` run 37418676235) and the Monday 06:00–08:00 UTC `capacity-readout` re-run with every
+  channel complete (run 37418876945; receipt `handbacks/coo/CAPACITY-READOUT-RECEIPT-20261006.md`; B62 evidenced; B32 still
+  unobserved under its definition); **G1 CLOSED** on the production-host confirmation; R1 custody totals received (bootstrap 22
+  vs 21 unresolved; manifest comparison BLOCKED; planner runtime identity annotated; resumability UNVERIFIED). Ledger events 5
+  (reservation USD 0.06) and 6 (settled at actual USD 0.011828; headroom 22.527800). Deploy-scoping correction (Astra's patch)
+  reviewed, revised and merged as PR #1101 (`f0af2e3c`); the merge's `deploy-backend` run skipped every deploy step — the
+  correction's first live proof; lesson `lessons/ops-deploy-detector-mirrors-the-image-context.md`. CTO envelope revision 5
+  (66 bounds; determination unchanged); COO disposition update 02 (The COO HOLD stands: B32, B39 and B56 remain unknown in revision 5, the re-read window had no concurrent generation and no sample inside either overlap, no qualifying retained window is known, D3 is open and C5 undetermined.) Closures 158–160.
+- 2026-10-06 (record 11, `runtime/control/DECISIONS-11.md`): the founder's four bounded decisions recorded — one planner
+  acknowledgment attempt (≤ 60 s) with an administrative fallback; bootstrap count resolved (21 + `.DS_Store`, Finder metadata
+  excluded); local availability to be restored and verified; the manifest identity a retained-evidence retrieval task (no
+  substitute); other lanes reuse evidence, B32 stays unobserved, D3 held, optional follow-ups deferred. Readout contract
+  revision 3 presented for acceptance with the exact G3 gap (item 14, bridged by the adapter; first customer part review
+  pending). Record-10 merge's deploy steps verified skipped. Closure 161.
+- [x] Astra (relayed by the founder): the five return fields of the record-11 brief received 2026-10-06 and recorded in record 12.
+- 2026-10-06 (record 12, `runtime/control/DECISIONS-12.md`): Astra's five-field handback recorded as relayed — planner
+  acknowledged inside the 60-second bound (≤ 23 s; no input, no task); no fallback; custody `TOTAL=22` / `TOTAL=48` with zero stubs
+  or unreadable files and 69 of 69 originals equal (tool hash verified against the committed custody script); the complete
+  original H20 input-manifest identity NOT established in the evidence Astra checked (three component manifests identified and
+  equal to the committed E7 frozen-source-contract constants, nothing substituted); 12 minutes charged (42 charged / 138 remaining); R1 NOT_RELEASED. PR #1104 review record closed (merge
+  `88df1f7f`; deploy steps skipped). Closure 162.
+- [x] Founder (2026-10-06 evening): chose the chief's recommendation on the manifest control (custodian question first) and
+      ACCEPTED readout contract revision 3 with the record-11 text — recorded in record 13.
+- 2026-10-06 (record 13, `runtime/control/DECISIONS-13.md`): readout contract revision 3 ACCEPTED by the founder with the CEO
+  (bound to `ad599074…`, 47,321 bytes; G3 set to "reviewed with a stated gap; bridged; first customer part review pending"; G4
+  and G5 untouched; nothing runs); the manifest control proceeds by one metadata-only custodian question with six return fields
+  (no predicate change, nothing substituted); PR #1105 review record closed (merge `adf98331`; deploy steps skipped). Closure 163.
+- [x] Founder (2026-10-07 relay of Astra): the record-13 custodian question answered NO (0 / 69); the control reviewer's identity
+      string supplied (= closure 142); recorded in record 14; (a)/(b) not stated and not needed — (b) unavailable, the hold stands by
+      default (record 14). D3 still held.
+- 2026-10-07 (record 14, `runtime/control/DECISIONS-14.md`): the custodian's answer recorded as relayed — the three component
+  manifests enumerate none of the 69 retained inputs (0 / 69 by SHA-256 and byte length; a comparison beyond the brief, disclosed and
+  accepted); option (b) unavailable; record 05's gate unchanged; mismatch between artifact sets, not corruption; R1 NOT_RELEASED; 2
+  minutes charged (44 charged / 136 remaining); the control reviewer identified as the closure-142 entry and annotated; the next
+  two-part custody clarification briefed (governed input set; authoritative manifest); contract acceptance reaffirmed unchanged;
+  PR #1106 review record closed (merge `be43b490`; deploy steps skipped — fifth proof); the rule-12 runtime-records gate named as
+  the next executable chief work (reservation first). Closure 164.
+- [ ] Founder: relay the record-14 custody clarification (which retained input set record 05's predicate governs; whether an
+      authoritative manifest exists for it — SHA-256, byte count, one-line provenance) and its six return fields; say so only if
+      the 2 minutes are not consolidated; D3 (held).
+
+## Copilot quotation rejection recovery — 2026-10-07
+
+The founder reported the generic answer error for Alphabet filing 12038 and requested an independent
+repair. After CLI reauthentication, the bounded production readout found two
+`quotation_not_in_source` publication rejections at 2026-10-06T23:57:22Z and 23:57:33Z, after successful
+provider calls. The rejected candidates were not logged, so the precise quoted span is unavailable.
+The selected critical excerpt predates the incident and was recovered read-only for three controlled
+draws of the original question, separately from the unchanged six-source/eighteen-draw gate.
+
+A first three-draw original-question batch admitted 2/3 answers: the other candidate removed the
+inner quotation marks around revenue backlog from its cited excerpt. The source matcher correctly
+rejected that altered passage. The next batch recovered one unsupported quotation but admitted only
+2/3 answers because another candidate inserted an ellipsis into a direct quotation. That correct
+`elided_quotation` rejection is retained; the repair permits that exact owned reason to use the same
+single recovery. A quotation mismatch or pure referenced excerpt mismatch gets one fresh private
+generation, sharing the selected
+source, original deadline and provider accounting. The replacement still passes every admission
+check; an excerpt rejection with missing/ambiguous identities, quoted labels or inadequate
+sources/excerpts is ineligible for regeneration.
+Prompt guidance preserves excerpt punctuation and requests exact contiguous direct quotations
+or cited paraphrases. New service/SDK/ASGI checks cover containment, bounded state and one quota
+charge, and the evaluator retains each generation separately. Locked contracts, model, flags,
+baseline, source selection and scoring thresholds remain unchanged. Full local, live evaluation,
+independent review and any deployment evidence are recorded in the repair PR.

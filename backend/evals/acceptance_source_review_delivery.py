@@ -431,7 +431,10 @@ def _observe_version(
 
 def _journal_binding(journal_root: Path) -> dict[str, Any]:
     with execution._connect(journal_root, read_only=True) as db:
-        return execution._load_binding(journal_root, db)
+        binding = execution._load_binding(journal_root, db)
+    if binding["schema_version"] != 1:
+        raise ValueError("joint-input journal needs a separately versioned delivery contract")
+    return binding
 
 
 def _pending_reservation(journal_root: Path, reservation_id: str, prompt_bytes: bytes) -> dict[str, Any]:

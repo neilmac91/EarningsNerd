@@ -33,8 +33,8 @@ inspect their actual installation steps.
 ## Implementation and verification
 
 Extend the existing workflow; do not supply a parallel deployment example or unpinned tool installs.
-Only a main push changing a backend path runs backend deployment; backend tests count as backend
-changes. Docs/workflow-only changes can pass CI while deployment steps skip. Inspect actual steps.
+Only a main push changing `backend/` outside `backend/tests/` runs backend deployment; changes confined to
+`backend/tests/` run every CI gate but do not deploy (`backend/.dockerignore` excludes `tests/`). Docs/workflow-only changes can pass CI while deployment steps skip. Inspect actual steps.
 
 One unverified backend deployment at a time. Confirm the actual migration ledger tail, serving
 revision/traffic and detailed health before the next backend merge. Existing SQL files remain

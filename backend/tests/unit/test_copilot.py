@@ -565,7 +565,7 @@ async def test_service_publication_boundary(client, monkeypatch, case):
         assert len(terminal) == 1
         if expected is None:
             assert terminal == [{"type": "error", "message": copilot_service._PUBLICATION_ERROR}]
-            assert _qa_state(uid) == ([], 0, 2)
+            assert _qa_state(uid) == ([], 0, 2)  # the unit counted at provider start is refunded
             assert completed_cost == []
         else:
             complete = terminal[0]
@@ -589,7 +589,32 @@ async def test_service_publication_boundary(client, monkeypatch, case):
         }
         assert all(event["type"] != "token" for event in events)
         assert "MODEL PRIVATE" not in json.dumps(events)
-        assert pending_quota == (0, 2)
+        # Metered when the provider stream started, before any verdict (Pro: monthly; Free: lifetime).
+        assert pending_quota == ((1, 2) if is_pro else (0, 3))
+
+
+@pytest.mark.unit
+@pytest.mark.asyncio
+async def test_service_marks_provider_start_on_the_first_chunk_only(monkeypatch):
+    """The `generating` progress marks the provider's first chunk: it follows the pre-call `reading`
+    progress exactly once, and a stream whose first chunk is the error sentinel never emits it."""
+    chunks = ["Revenue rose. ", "===CITATIONS===[]"]
+    monkeypatch.setattr(
+        copilot_service.openai_service, "stream_chat_with_tools", _chunks_to_async_gen(chunks)
+    )
+    events = await _collect(_fake_filing(), "How did revenue do?")
+    stages = [e.get("stage") for e in events if e["type"] == "progress"]
+    assert stages[:2] == ["reading", copilot_service.PROVIDER_STARTED_STAGE]
+    assert stages.count(copilot_service.PROVIDER_STARTED_STAGE) == 1
+
+    monkeypatch.setattr(
+        copilot_service.openai_service,
+        "stream_chat_with_tools",
+        _chunks_to_async_gen([copilot_service.STREAM_ERROR_SENTINEL + "model exploded"]),
+    )
+    events = await _collect(_fake_filing(), "How did revenue do?")
+    assert [e["type"] for e in events] == ["progress", "error"]
+    assert events[0]["stage"] == "reading"
 
 
 @pytest.mark.unit
@@ -1282,7 +1307,8 @@ async def test_stream_chat_with_tools_yields_error_sentinel_on_failure():
 
 @pytest.mark.requires_db
 def test_endpoint_does_not_increment_qa_on_error(client, monkeypatch):
-    """A generation that fails (only an ``error`` event, no ``complete``) must NOT consume quota."""
+    """A generation that fails (only an ``error`` event, no ``complete``) must NOT consume quota:
+    the unit counted when the provider stream started is refunded on the error event."""
     async def _fake_answer(*, filing, question, history=None):
         yield {"type": "progress", "stage": "reading"}
         yield {"type": "error", "message": "model down"}
@@ -1889,9 +1915,11 @@ async def test_service_complete_event_carries_coverage_counters(monkeypatch):
 #
 # The endpoint's gate and cap checks are plain reads, so concurrent questions could all pass them.
 # reserve_qa_use (Pro, monthly `qa`) and reserve_qa_taste_use (Free, LIFETIME `qa_taste`) are the
-# serialized decisions: a unit is held under a lease while the answer streams, converted in the
-# metering commit on `complete`, and released on an error event, a raised pipeline error or a
-# metering failure. PostgreSQL concurrency lives in tests/integration/test_usage_counter_transactions.py.
+# serialized decisions: a unit is held under a lease until the provider stream starts (the first
+# non-error event), when the metering commit converts it into a counted unit. A provider-side
+# failure after that (an error event, a raised pipeline error) refunds the unit; a client
+# disconnect does not. A metering failure or an error before the provider started releases the
+# lease. PostgreSQL concurrency lives in tests/integration/test_usage_counter_transactions.py.
 
 @pytest.fixture(autouse=True)
 def _fresh_ask_limiter(monkeypatch):
@@ -1938,14 +1966,18 @@ def _insert_lease(uid, kind, month, *, expired=False):
 
 
 @pytest.mark.requires_db
-def test_endpoint_pro_lease_is_held_while_answering_and_converted_on_complete(client, monkeypatch):
+def test_endpoint_pro_lease_is_converted_when_the_provider_stream_starts(client, monkeypatch):
     import app.routers.summaries as summaries_router
     from app.services.subscription_service import QA_RESERVATION_KIND, get_current_month
 
     seen = []
 
     async def _observing_answer(*, filing, question, history=None):
-        seen.append(_qa_state(_observing_answer.uid))
+        seen.append(_qa_state(_observing_answer.uid))  # before the provider is called
+        yield {"type": "progress", "stage": "reading"}  # the event right before the model call
+        seen.append(_qa_state(_observing_answer.uid))  # still held: the provider has not started
+        yield {"type": "progress", "stage": copilot_service.PROVIDER_STARTED_STAGE}  # the provider has started
+        seen.append(_qa_state(_observing_answer.uid))  # while the provider streams
         yield {"type": "complete", "answer": "ok", "citations": [], "grounded": 0, "kind": "answer"}
 
     monkeypatch.setattr(summaries_router, "answer_filing_question", _observing_answer)
@@ -1953,37 +1985,108 @@ def test_endpoint_pro_lease_is_held_while_answering_and_converted_on_complete(cl
         _observing_answer.uid = uid
         resp = client.post(f"/api/summaries/filing/{fid}/ask-stream", json={"question": "Q?"})
         assert resp.status_code == 200
-        assert seen == [([(QA_RESERVATION_KIND, get_current_month())], 0, 0)]  # held, nothing counted
-        assert _qa_state(uid) == ([], 1, 0)  # converted: one counted unit, no lease left
+        assert seen == [
+            ([(QA_RESERVATION_KIND, get_current_month())], 0, 0),  # held until the provider starts
+            ([(QA_RESERVATION_KIND, get_current_month())], 0, 0),  # the pre-call progress meters nothing
+            ([], 1, 0),  # converted at provider start: one counted unit, no lease left
+        ]
+        assert _qa_state(uid) == ([], 1, 0)  # complete settles it
 
 
 @pytest.mark.requires_db
-def test_endpoint_error_event_releases_the_pro_lease(client, monkeypatch):
+def test_endpoint_error_event_after_the_provider_started_refunds_the_unit(client, monkeypatch):
     import app.routers.summaries as summaries_router
+
+    seen = []
 
     async def _failing_answer(*, filing, question, history=None):
         yield {"type": "progress", "stage": "reading"}
+        yield {"type": "progress", "stage": copilot_service.PROVIDER_STARTED_STAGE}  # the provider has started
+        seen.append(_qa_state(_failing_answer.uid))
         yield {"type": "error", "message": "model down"}
 
     monkeypatch.setattr(summaries_router, "answer_filing_question", _failing_answer)
     with _as_user(is_pro=True) as uid, _seed_filing() as fid:
+        _failing_answer.uid = uid
         assert client.post(f"/api/summaries/filing/{fid}/ask-stream", json={"question": "Q?"}).status_code == 200
-        assert _qa_state(uid) == ([], 0, 0)
+        assert seen == [([], 1, 0)]  # counted when the provider started
+        assert _qa_state(uid) == ([], 0, 0)  # the provider-side failure refunded it
 
 
 @pytest.mark.requires_db
-def test_endpoint_raised_pipeline_error_releases_the_lease(client, monkeypatch):
+def test_endpoint_error_event_before_the_provider_started_releases_the_lease(client, monkeypatch):
     import app.routers.summaries as summaries_router
+
+    async def _failing_answer(*, filing, question, history=None):
+        yield {"type": "error", "message": "could not build the prompt"}
+
+    monkeypatch.setattr(summaries_router, "answer_filing_question", _failing_answer)
+    with _as_user(is_pro=True) as uid, _seed_filing() as fid:
+        assert client.post(f"/api/summaries/filing/{fid}/ask-stream", json={"question": "Q?"}).status_code == 200
+        assert _qa_state(uid) == ([], 0, 0)  # never metered; the lease was released
+
+
+@pytest.mark.requires_db
+@pytest.mark.parametrize("is_pro", [True, False], ids=["monthly", "lifetime"])
+@pytest.mark.parametrize("start", ["progress", "signal"])
+def test_endpoint_raised_pipeline_error_refunds_the_unit(client, monkeypatch, is_pro, start):
+    """The router refunds escaping ordinary failures, including a not-yet-adopted start signal.
+
+    Ordinary SDK failures already normalize to error events; this exercises the separate raised
+    exception contract. Both scopes must convert exactly one unit and then refund only that unit.
+    """
+    import app.routers.summaries as summaries_router
+    from app.services.ai.provider_requests import signal_provider_start
+
+    metered_states = []
+    original_meter = summaries_router._meter_qa_best_effort
+
+    def _observing_meter(user_id, is_free_taste=False, token=None):
+        scope = original_meter(user_id, is_free_taste, token)
+        metered_states.append(_qa_state(user_id))
+        return scope
 
     async def _exploding_answer(*, filing, question, history=None):
         yield {"type": "progress", "stage": "reading"}
+        if start == "progress":
+            yield {"type": "progress", "stage": copilot_service.PROVIDER_STARTED_STAGE}
+        else:
+            signal_provider_start()
+            # No await or yield after the signal: its scheduled charge is still pending when
+            # this task raises, and no subsequent event lets the loop adopt the charge first.
         raise RuntimeError("provider down")
 
+    monkeypatch.setattr(summaries_router, "_meter_qa_best_effort", _observing_meter)
     monkeypatch.setattr(summaries_router, "answer_filing_question", _exploding_answer)
-    with _as_user(is_pro=True) as uid, _seed_filing() as fid:
+    with _as_user(is_pro=is_pro, free_taste_used=1) as uid, _seed_filing() as fid:
         with pytest.raises(RuntimeError):
             client.post(f"/api/summaries/filing/{fid}/ask-stream", json={"question": "Q?"})
-        assert _qa_state(uid) == ([], 0, 0)  # released now, not after the lease TTL
+        assert metered_states == [([], 1, 1) if is_pro else ([], 0, 2)]
+        assert _qa_state(uid) == ([], 0, 1)  # refund exactly this charge; preserve pre-existing taste
+
+
+@pytest.mark.requires_db
+def test_endpoint_failure_after_the_reading_progress_but_before_the_provider_started_releases_the_lease(
+    client, monkeypatch
+):
+    """The `reading` progress precedes the model call, so a stream that dies between it and the
+    provider's first chunk (a raise here; a client disconnect takes the same path) never meters."""
+    import app.routers.summaries as summaries_router
+
+    seen = []
+
+    async def _dying_answer(*, filing, question, history=None):
+        yield {"type": "progress", "stage": "reading"}
+        seen.append(_qa_state(_dying_answer.uid))
+        raise RuntimeError("prompt build failed before the provider was called")
+
+    monkeypatch.setattr(summaries_router, "answer_filing_question", _dying_answer)
+    with _as_user(is_pro=True) as uid, _seed_filing() as fid:
+        _dying_answer.uid = uid
+        with pytest.raises(RuntimeError):
+            client.post(f"/api/summaries/filing/{fid}/ask-stream", json={"question": "Q?"})
+        assert seen[0][1:] == (0, 0)  # nothing counted on the pre-call progress
+        assert _qa_state(uid) == ([], 0, 0)  # the lease was released, not converted
 
 
 @pytest.mark.requires_db
@@ -2023,13 +2126,18 @@ def test_endpoint_free_taste_lease_is_lifetime_scoped_and_converts_to_the_lifeti
 
     async def _observing_answer(*, filing, question, history=None):
         seen.append(_qa_state(_observing_answer.uid))
+        yield {"type": "progress", "stage": copilot_service.PROVIDER_STARTED_STAGE}  # the provider has started
+        seen.append(_qa_state(_observing_answer.uid))
         yield {"type": "complete", "answer": "ok", "citations": [], "grounded": 0, "kind": "answer"}
 
     monkeypatch.setattr(summaries_router, "answer_filing_question", _observing_answer)
     with _as_user(is_pro=False, free_taste_used=1) as uid, _seed_filing() as fid:
         _observing_answer.uid = uid
         assert client.post(f"/api/summaries/filing/{fid}/ask-stream", json={"question": "Q?"}).status_code == 200
-        assert seen == [([(QA_TASTE_RESERVATION_KIND, LIFETIME_SCOPE)], 0, 1)]
+        assert seen == [
+            ([(QA_TASTE_RESERVATION_KIND, LIFETIME_SCOPE)], 0, 1),  # held until the provider starts
+            ([], 0, 2),  # converted at provider start into the lifetime counter
+        ]
         assert _qa_state(uid) == ([], 0, 2)  # lifetime counter 1 → 2, monthly cap untouched
 
 
@@ -2107,8 +2215,10 @@ def _wire_events(sent):
 
 @pytest.mark.requires_db
 @pytest.mark.asyncio
-async def test_endpoint_client_disconnect_mid_answer_releases_the_lease(client, monkeypatch):
-    """Disconnect while the real service buffers prose closes the upstream and releases quota."""
+async def test_endpoint_client_disconnect_mid_answer_keeps_the_counted_unit(client, monkeypatch):
+    """Disconnect while the real service buffers prose closes the upstream but keeps the unit
+    counted when the provider stream started: the provider bill accrued, and a refund here would
+    let a client sample answers for free by leaving before ``complete``."""
     streaming, closed = asyncio.Event(), asyncio.Event()
 
     async def _slow_stream(*_args, **_kwargs):
@@ -2129,7 +2239,7 @@ async def test_endpoint_client_disconnect_mid_answer_releases_the_lease(client, 
         assert sent[0]["status"] == 200
         assert closed.is_set()
         assert all(event["type"] == "progress" for event in _wire_events(sent))
-        assert _qa_state(uid) == ([], 0, 2)
+        assert _qa_state(uid) == ([], 0, 3)  # no lease left; the unit stays counted
 
 
 @pytest.mark.requires_db
@@ -2158,3 +2268,126 @@ def test_analysis_metering_converts_the_lease_in_the_counter_commit(client, monk
         with SessionLocal() as db:
             assert db.query(UsageReservation).filter_by(user_id=uid).count() == 0
             assert get_user_analysis_count(uid, get_current_month(), db) == 1
+
+
+@pytest.mark.requires_db
+@pytest.mark.asyncio
+async def test_endpoint_client_disconnect_at_the_provider_request_keeps_the_counted_unit(client, monkeypatch):
+    """The chat layer holds prose back (240 chars) and tool-round output until the round closes, so
+    a provider request can be in flight before any chunk reaches the route. The request dispatcher's
+    provider-start signal starts the metering write at the request itself; a client that leaves at
+    that instant has consumed the unit, and ``finally`` settles the write instead of releasing
+    the lease for a request that was already issued."""
+    from app.services.ai.provider_requests import signal_provider_start
+
+    requested, closed = asyncio.Event(), asyncio.Event()
+
+    async def _request_then_hold(*_args, **_kwargs):
+        try:
+            signal_provider_start()  # the request leaves ...
+            requested.set()          # ... and the client leaves before any chunk is yielded
+            await asyncio.sleep(30)
+            yield "never reached"
+        finally:
+            closed.set()
+
+    monkeypatch.setattr(copilot_service.openai_service, "stream_chat_with_tools", _request_then_hold)
+    with _as_user(is_pro=False, free_taste_used=2) as uid, _seed_filing() as fid:
+        sent = await asyncio.wait_for(
+            _asgi_post(f"/api/summaries/filing/{fid}/ask-stream", {"question": "Q?"}, disconnect_after=requested),
+            timeout=10,
+        )
+        assert sent[0]["status"] == 200
+        assert closed.is_set()
+        assert all(event["type"] == "progress" for event in _wire_events(sent))  # nothing but `reading`
+        assert _qa_state(uid) == ([], 0, 3)  # the request was issued: counted, no lease left
+
+
+@pytest.mark.asyncio
+async def test_chat_layer_fires_the_provider_start_signal_before_the_first_request(monkeypatch):
+    """`stream_chat_with_tools` fires the one-shot provider-start signal immediately before its
+    first provider request, once per armed context, so a caller metering on the signal counts the
+    unit at the request and not after the prose holdback or a tool round."""
+    from types import SimpleNamespace as NS
+
+    from app.services.ai.provider_requests import provider_start_signal
+    from app.services.openai_service import openai_service as svc
+
+    def _chunk(content=None, tool_call=None):
+        delta = NS(content=content, tool_calls=[tool_call] if tool_call else None)
+        return NS(choices=[NS(delta=delta)])
+
+    async def _round(chunks):
+        for c in chunks:
+            yield c
+
+    rounds = iter([
+        _round([_chunk(tool_call=NS(index=0, id="c1", function=NS(name="get_financial_fact", arguments='{"concept":"revenue"}')))]),
+        _round([_chunk(content="Revenue was $10B [F1].")]),
+    ])
+    order: list[str] = []
+
+    async def _fake_create(**_kwargs):
+        order.append("request")
+        return next(rounds)
+
+    monkeypatch.setattr(svc, "client", NS(chat=NS(completions=NS(create=_fake_create))))
+    with provider_start_signal(lambda: order.append("signal")):
+        async for _delta in svc.stream_chat_with_tools(
+            [{"role": "user", "content": "q"}],
+            [{"type": "function", "function": {"name": "get_financial_fact"}}],
+            lambda name, args: {"value": 1, "cite": "F1"},
+        ):
+            pass
+    assert order == ["signal", "request", "request"]  # once, before the first request; not again on the tool round
+
+
+@pytest.mark.requires_db
+@pytest.mark.asyncio
+async def test_endpoint_client_disconnect_at_the_sdk_boundary_keeps_the_counted_unit(client, monkeypatch):
+    """Real wrapper, fake SDK: the client leaves the moment the completions request is created,
+    while the only chunk so far is short enough for the wrapper's prose holdback, so no wrapper
+    event (and no `generating` marker) ever reaches the route. The provider request was issued,
+    so the unit must be counted: the dispatcher's signal at the request site starts the metering
+    write and the route's shielded finally settles it instead of releasing the lease."""
+    from types import SimpleNamespace as NS
+
+    from app.services.openai_service import openai_service as svc
+
+    requested, closed = asyncio.Event(), asyncio.Event()
+
+    class _HeldStream:
+        """One short chunk (below the 240-char holdback), then nothing until cancelled."""
+
+        def __init__(self):
+            self.sent = False
+
+        def __aiter__(self):
+            return self
+
+        async def __anext__(self):
+            if not self.sent:
+                self.sent = True
+                return NS(choices=[NS(delta=NS(content="Revenue ", tool_calls=None))], model="deepseek-flash")
+            await asyncio.sleep(30)  # cancelled by the disconnect
+            raise StopAsyncIteration
+
+        async def close(self):
+            closed.set()
+
+    async def _fake_create(**_kwargs):
+        requested.set()  # the provider request leaves; the client disconnects right here
+        return _HeldStream()
+
+    monkeypatch.setattr(svc.client.chat.completions, "create", _fake_create)
+    with _as_user(is_pro=False, free_taste_used=2) as uid, _seed_filing() as fid:
+        sent = await asyncio.wait_for(
+            _asgi_post(f"/api/summaries/filing/{fid}/ask-stream", {"question": "Q?"}, disconnect_after=requested),
+            timeout=15,
+        )
+        assert sent[0]["status"] == 200
+        assert closed.is_set()  # the upstream stream was closed on the way out
+        events = _wire_events(sent)
+        assert all(event["type"] == "progress" and event.get("stage") != copilot_service.PROVIDER_STARTED_STAGE
+                   for event in events)  # no wrapper event reached the client: only the pre-call `reading`
+        assert _qa_state(uid) == ([], 0, 3)  # the request was issued: counted, no lease left

@@ -13,6 +13,8 @@ import { Button, buttonVariants, SkeletonText } from '@/components/ui'
 interface FilingViewerProps {
   filingId: number
   filingLabel: string
+  // The original document for "Open original" and the empty/error-state CTA: `document_url`, then
+  // `sec_url` (the page derives it with `originalDocumentUrl`; the folder index is the fallback only).
   secUrl: string | null
   // When true, render body-only inside FilingWorkspace's secondary-pane shell (no fixed drawer, no
   // own header/close). Visibility is driven by the shared `activeView` ('filing') from context, and
@@ -43,7 +45,14 @@ export default function FilingViewer({ filingId, filingLabel, secUrl, embedded =
   // Embedded: visibility follows the shared view state. Standalone: local citation-driven open state.
   const active = embedded ? viewer?.activeView === 'filing' : localOpen
 
+  // One request at a time. `statusRef` mirrors state, which the effects below read in the same pass
+  // before a `setStatus('loading')` lands, so a chip activation on a closed pane (the request effect
+  // and the first-activation effect both see 'idle') would otherwise fetch twice in parallel, and
+  // whichever answer settled last would win (EN-01).
+  const inFlight = useRef(false)
   const load = useCallback(async () => {
+    if (inFlight.current) return
+    inFlight.current = true
     setStatus('loading')
     try {
       const c = await fetchFilingContent(filingId)
@@ -55,6 +64,8 @@ export default function FilingViewer({ filingId, filingLabel, secUrl, embedded =
       }
     } catch {
       setStatus('error')
+    } finally {
+      inFlight.current = false
     }
   }, [filingId])
 

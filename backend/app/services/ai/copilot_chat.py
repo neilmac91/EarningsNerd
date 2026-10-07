@@ -16,7 +16,9 @@ from typing import Any, AsyncGenerator, Dict, List, Optional
 from app.config import settings
 from app.services.ai import provider_admission
 from app.services.ai.model_flags import _thinking_disabled_model
-from app.services.ai.provider_requests import close_stream, is_timeout, retry_delay, transient
+from app.services.ai.provider_requests import (
+    close_stream, is_timeout, retry_delay, signal_provider_start, transient,
+)
 from app.services.ai_metrics import record_ai_call
 
 logger = logging.getLogger(__name__)
@@ -42,6 +44,11 @@ STREAM_ACTIVITY_SENTINEL = "\x00\x00__OPENAI_STREAM_ACTIVITY__\x00\x00"
 # inter-tool narration is short ("Let me compute the margins…"); real answers blow past it.
 _TOOL_ROUND_HOLDBACK_CHARS = 240
 _CHAT_SECONDS = 75.0
+
+
+def chat_deadline() -> float:
+    """The provider budget for one user question, including any private regeneration."""
+    return asyncio.get_running_loop().time() + _CHAT_SECONDS
 
 
 def merge_chat_usage(total: dict[str, Any], attempt: dict[str, Any]) -> None:
@@ -90,6 +97,10 @@ class _CopilotChatMixin:
                 async with provider_admission.admit(remaining):
                     try:
                         async with asyncio.timeout_at(deadline):
+                            # The metering signal: a provider request is about to leave. Fired here,
+                            # at the request site, so a caller that meters on it is never behind the
+                            # prose holdback or a tool round (one-shot per armed context).
+                            signal_provider_start()
                             stream = await self.client.chat.completions.create(**kwargs)
                             async for chunk in stream:
                                 if getattr(chunk, "model", None):
@@ -199,6 +210,7 @@ class _CopilotChatMixin:
         temperature: float = 0.2,
         max_rounds: int = 4,
         usage_sink: Optional[Dict[str, Any]] = None,
+        deadline: Optional[float] = None,
     ) -> AsyncGenerator[str, None]:
         """Stream a chat completion that may call tools, executing them server-side between rounds.
 
@@ -223,13 +235,15 @@ class _CopilotChatMixin:
             max_tokens: Max completion tokens per round.
             temperature: Sampling temperature.
             max_rounds: Hard cap on tool-call rounds to bound latency/loops.
+            deadline: Earlier parent deadline; a new generation cannot renew its question's budget.
 
         Yields:
             Assistant answer ``delta.content`` strings in order. On any failure yields a single chunk
             prefixed with ``STREAM_ERROR_SENTINEL`` (so the consumer can surface a real error instead
             of streaming it as the answer) rather than raising, so the SSE contract is never broken.
         """
-        deadline = asyncio.get_running_loop().time() + _CHAT_SECONDS
+        own_deadline = chat_deadline()
+        deadline = min(deadline, own_deadline) if deadline is not None else own_deadline
         model_name = model or self.model
         disable_thinking = _thinking_disabled_model(model_name, getattr(settings, "OPENAI_BASE_URL", None))
         try:

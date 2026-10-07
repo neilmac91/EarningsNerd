@@ -1,10 +1,12 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, fireEvent } from '@testing-library/react'
+import { useCallback, useState } from 'react'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { act, render, screen, fireEvent } from '@testing-library/react'
 import FilingWorkspace from '@/features/filings/components/copilot/FilingWorkspace'
 import {
   FilingViewerProvider,
   useFilingViewer,
 } from '@/features/filings/components/copilot/FilingViewerContext'
+import { SourceTrace } from '@/features/filings/components/SourceTrace'
 import type { CopilotCitation } from '@/features/filings/api/copilot-api'
 
 type Props = Partial<React.ComponentProps<typeof FilingWorkspace>>
@@ -143,5 +145,205 @@ describe('FilingWorkspace', () => {
     const after = Number(screen.getByRole('separator').getAttribute('aria-valuenow'))
     expect(after).toBe(before + 24)
     expect(Number(window.localStorage.getItem('copilot:paneWidth'))).toBe(after)
+  })
+})
+
+/**
+ * EN-01: the page wiring. A provenance chip in the summary opens the pane on the Filing tab through
+ * the provider's onRequestOpen; an open pane switches without closing; a closed pane never reopens on
+ * its own; the copilot body survives; focus returns to the chip that opened the pane.
+ */
+const EVIDENCE = 'Our revenue is concentrated among a small number of large customers.'
+const URL = 'https://www.sec.gov/Archives/edgar/data/320193/000032019325000079/aapl-20250927.htm'
+
+function CopilotCounter() {
+  const [n, setN] = useState(0)
+  return (
+    <button type="button" onClick={() => setN((v) => v + 1)}>
+      asked {n}
+    </button>
+  )
+}
+
+function Page({ initialOpen = false }: { initialOpen?: boolean }) {
+  const [open, setOpen] = useState(initialOpen)
+  const [tick, setTick] = useState(0)
+  const openForSource = useCallback(() => setOpen(true), [])
+  return (
+    <FilingViewerProvider filingId={3} ticker="AAPL" filingType="10-K" onRequestOpen={openForSource}>
+      <button type="button" onClick={() => setTick((t) => t + 1)}>
+        unrelated {tick}
+      </button>
+      <FilingWorkspace
+        open={open}
+        onOpenChange={setOpen}
+        summaryAvailable
+        secUrl={URL}
+        copilotBody={<CopilotCounter />}
+        filingBody={<div data-testid="filing">filing</div>}
+      >
+        <p>
+          Total net sales rose. <SourceTrace url={URL} verified sectionRef="Item 1A · Risk Factors" excerpt={EVIDENCE} />
+        </p>
+      </FilingWorkspace>
+    </FilingViewerProvider>
+  )
+}
+
+// The shell keeps its dialog role while hidden, but an aria-hidden element has no accessible name in
+// the a11y tree, so it is located by its attributes rather than by role + name.
+const dialog = () => document.querySelector<HTMLElement>('[role="dialog"][aria-label="Ask this Filing"]')!
+const chip = () => screen.getByRole('button', { name: 'Source: Verified in filing' })
+const filingTab = () => screen.getByRole('tab', { name: /filing/i })
+
+describe('FilingWorkspace opened by a provenance chip (EN-01)', () => {
+  beforeEach(() => window.localStorage.clear())
+
+  it('a chip activation opens a closed pane on the Filing tab', () => {
+    render(<Page />)
+    expect(dialog()).toHaveAttribute('aria-hidden', 'true')
+    fireEvent.click(chip())
+    expect(dialog()).toHaveAttribute('aria-hidden', 'false')
+    expect(filingTab()).toHaveAttribute('aria-selected', 'true')
+    expect(screen.getByTestId('filing').parentElement).not.toHaveClass('hidden')
+    // The launcher is gone and no Ask affordance took the activation as its own.
+    expect(screen.queryByRole('button', { name: /ask this filing/i })).toBeNull()
+  })
+
+  it('a chip activation while the pane is open switches it to Filing without closing it', () => {
+    render(<Page initialOpen />)
+    expect(screen.getByRole('tab', { name: /answer/i })).toHaveAttribute('aria-selected', 'true')
+    fireEvent.click(chip())
+    expect(dialog()).toHaveAttribute('aria-hidden', 'false')
+    expect(filingTab()).toHaveAttribute('aria-selected', 'true')
+  })
+
+  it('a pane the user closed stays closed through re-renders and reopens only on a new activation', () => {
+    render(<Page />)
+    fireEvent.click(chip())
+    fireEvent.click(screen.getByRole('button', { name: 'Close' }))
+    expect(dialog()).toHaveAttribute('aria-hidden', 'true')
+    // Unrelated state changes re-render everything; the stale request must not reopen the pane.
+    fireEvent.click(screen.getByRole('button', { name: /unrelated/i }))
+    fireEvent.click(screen.getByRole('button', { name: /unrelated/i }))
+    expect(dialog()).toHaveAttribute('aria-hidden', 'true')
+    fireEvent.click(chip())
+    expect(dialog()).toHaveAttribute('aria-hidden', 'false')
+    expect(filingTab()).toHaveAttribute('aria-selected', 'true')
+  })
+
+  it('the copilot body keeps its state across chip activations and tab switches (continuity)', () => {
+    render(<Page initialOpen />)
+    fireEvent.click(screen.getByRole('button', { name: /asked 0/ }))
+    fireEvent.click(screen.getByRole('button', { name: /asked 1/ }))
+    fireEvent.click(chip())
+    expect(filingTab()).toHaveAttribute('aria-selected', 'true')
+    fireEvent.click(screen.getByRole('tab', { name: /answer/i }))
+    expect(screen.getByRole('button', { name: /asked 2/ })).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Close' }))
+    fireEvent.click(chip())
+    fireEvent.click(screen.getByRole('tab', { name: /answer/i }))
+    expect(screen.getByRole('button', { name: /asked 2/ })).toBeInTheDocument()
+  })
+
+  it('when the pane closes with focus fallen to <body>, focus returns to the chip that opened it, once', () => {
+    render(<Page />)
+    const c = chip()
+    fireEvent.click(c) // a click without focus: the opener is recorded, focus stays on <body>
+    expect(document.activeElement).toBe(document.body)
+    fireEvent.click(screen.getByRole('button', { name: 'Close' }))
+    expect(document.activeElement).toBe(c)
+
+    // A later launcher-driven open and close does not return to the stale chip: the opener was taken.
+    act(() => c.blur())
+    expect(document.activeElement).toBe(document.body)
+    fireEvent.click(screen.getByRole('button', { name: /ask this filing/i }))
+    fireEvent.click(screen.getByRole('button', { name: 'Close' }))
+    expect(document.activeElement).toBe(document.body)
+  })
+
+  it('closing from the pane\'s own Close button returns focus to the chip (focus is still on the hidden Close when the effect runs)', () => {
+    render(<Page />)
+    const chip = screen.getByRole('button', { name: 'Source: Verified in filing' })
+    fireEvent.click(chip)
+    expect(dialog().getAttribute('aria-hidden')).toBe('false')
+    // A keyboard user tabbed to Close and pressed it; jsdom, like Chromium at the moment the effect
+    // runs, still reports the now-hidden Close as the active element.
+    const close = screen.getByRole('button', { name: 'Close' })
+    act(() => close.focus())
+    expect(document.activeElement).toBe(close)
+    fireEvent.click(close)
+    expect(dialog().getAttribute('aria-hidden')).toBe('true')
+    expect(document.activeElement).toBe(chip)
+  })
+
+  it('focus the pane never held is left alone on close', () => {
+    render(<Page />)
+    const other = screen.getByRole('button', { name: /unrelated/i })
+    act(() => other.focus())
+    fireEvent.click(chip())
+    fireEvent.click(screen.getByRole('button', { name: 'Close' }))
+    expect(document.activeElement).toBe(other)
+  })
+})
+
+describe('FilingWorkspace sheet below lg, opened by a provenance chip (EN-01)', () => {
+  let matchMedia: ReturnType<typeof vi.spyOn>
+  let rects: ReturnType<typeof vi.spyOn>
+  beforeEach(() => {
+    window.localStorage.clear()
+    // Below lg the shell is a modal bottom sheet (focus trapped); the pointer stays fine so the chip
+    // itself opens the pane rather than the source sheet.
+    matchMedia = vi.spyOn(window, 'matchMedia').mockImplementation(
+      (query: string) =>
+        ({
+          matches: query === '(max-width: 1023.98px)',
+          media: query,
+          addEventListener: () => {},
+          removeEventListener: () => {},
+          addListener: () => {},
+          removeListener: () => {},
+          onchange: null,
+          dispatchEvent: () => false,
+        }) as unknown as MediaQueryList,
+    )
+    rects = vi.spyOn(HTMLElement.prototype, 'getClientRects').mockReturnValue([{}] as unknown as DOMRectList)
+  })
+  afterEach(() => {
+    matchMedia.mockRestore()
+    rects.mockRestore()
+  })
+
+  it('the sheet takes focus on open and returns it to the chip on close; a launcher-opened sheet returns to the launcher', () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+    try {
+      render(<Page />)
+      const c = chip()
+      act(() => c.focus())
+      fireEvent.click(c)
+      expect(dialog()).toHaveAttribute('aria-hidden', 'false')
+      expect(dialog().contains(document.activeElement)).toBe(true)
+      fireEvent.keyDown(document.activeElement as HTMLElement, { key: 'Escape' })
+      expect(dialog()).toHaveAttribute('aria-hidden', 'true')
+      expect(document.activeElement).toBe(c)
+      // Focus returning to the chip opens its detail popover, as any focus on a chip does.
+      expect(screen.getByRole('group', { name: 'Source detail' })).toBeInTheDocument()
+
+      // The launcher takes focus; the chip's popover closes after its blur delay, as in a browser.
+      const launcher = screen.getByRole('button', { name: /ask this filing/i })
+      act(() => launcher.focus())
+      act(() => {
+        vi.advanceTimersByTime(200)
+      })
+      expect(screen.queryByRole('group', { name: 'Source detail' })).toBeNull()
+      fireEvent.click(launcher)
+      expect(dialog().contains(document.activeElement)).toBe(true)
+      fireEvent.keyDown(document.activeElement as HTMLElement, { key: 'Escape' })
+      expect(dialog()).toHaveAttribute('aria-hidden', 'true')
+      // The opener was taken on the first close, so this close returns to the launcher, not the chip.
+      expect(document.activeElement).toBe(screen.getByRole('button', { name: /ask this filing/i }))
+    } finally {
+      vi.useRealTimers()
+    }
   })
 })
