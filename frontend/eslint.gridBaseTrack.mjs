@@ -23,11 +23,12 @@
 // enclosing branch, and a spread (`cx('grid', ...parts)`) counts as written in place. Any string or
 // template literal the unit does not reach this way is evaluated on its own, never skipped: a class
 // constant or map, a member lookup on an inline map (`cx('grid', { 2: 'md:grid-cols-2' }[n])`), a
-// sequence or tagged template, the arguments of any other call (`choose(wide, …)`, `.at(i)`), which
-// may drop or pick among them, or the body of a function (`className={() => cx(…)}`), which starts
-// afresh. Columns count in every spelling that sets this element's tracks: `grid-cols-*`, an
-// arbitrary `[grid-template-columns:…]`, under a self-targeting `[&:has(>img)]:`, and under a
-// smaller screen than the display's (screens are min-width). A `grid-cols-none` under a variant
+// sequence or tagged template, the inputs of any other call (the arguments of `choose(wide, …)`, the
+// receiver of `.at(i)`), which may drop or pick among them, or the body of a function
+// (`className={() => cx(…)}`), which starts afresh. Columns count as `grid-cols-*` or an arbitrary
+// `[grid-template-columns:…]` (not the `[grid-template:…]`/`[grid:…]` shorthands), under a
+// self-targeting `[&:has(>img)]:` too, and under a smaller screen than the display's (screens are
+// min-width). A `grid-cols-none` under a variant
 // clears the tracks from there up, so it is reported on its own. Pinned by
 // tests/unit/gridBaseTrackRule.spec.ts.
 //
@@ -65,10 +66,13 @@ export function parseClassToken(token) {
   const utility = parts.pop().replace(/^!|!$/g, '')
   const variants = parts.map((v, i) => (i === 0 ? v.replace(/^!/, '') : v))
   // A combinator inside parentheses (`[&:has(>img)]`) still selects this element; only one outside
-  // them styles another element.
+  // them styles another element. A `&` inside them (`[:where(&)>div]`) is kept, so its combinator
+  // still counts.
   const outsideParens = (v) => {
     let s = v
-    while (/\([^()]*\)/.test(s)) s = s.replace(/\([^()]*\)/g, '')
+    while (/\([^()]*\)/.test(s)) {
+      s = s.replace(/\(([^()]*)\)/g, (_, inner) => (inner.includes('&') ? '&' : ''))
+    }
     return s
   }
   const targetsOthers = (v) =>
@@ -84,7 +88,7 @@ const NO_TRACKS = new Set(['grid-cols-none', '[grid-template-columns:none]'])
 // Tailwind's default min-width screens, smallest first (tailwind.config.js sets no custom
 // `screens`). Columns set under a screen still apply at every larger one, so `sm:grid-cols-2`
 // gives `hidden md:grid` its tracks. Every other variant (arbitrary `min-[…]` included) must match.
-const SCREENS = ['sm', 'md', 'lg', 'xl', '2xl']
+export const SCREENS = ['sm', 'md', 'lg', 'xl', '2xl']
 const variantHolds = (variant, displayVariants) =>
   displayVariants.includes(variant) ||
   (SCREENS.includes(variant) &&
@@ -129,7 +133,7 @@ export function clearedTrack(classText) {
 
 const isHelperCall = (node) =>
   node.type === 'CallExpression' && node.callee.type === 'Identifier' && CLASS_HELPERS.has(node.callee.name)
-/** `[…].join(' ')`, `.filter(Boolean)`, `.trim()`: string methods that keep every class of their
+/** `[…].join(' ')`, `.filter(Boolean)`, `.trim()`: array and string methods that keep every class of their
  *  receiver. Any other call may drop or pick among its inputs. */
 const isPassThrough = (node) => {
   const { callee } = node

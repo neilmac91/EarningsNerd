@@ -1,8 +1,10 @@
+import { createRequire } from 'node:module'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { ESLint, RuleTester } from 'eslint'
 import { describe, expect, it } from 'vitest'
 import {
+  SCREENS,
   clearedTrack,
   gridBaseTrackProblem,
   parseClassToken,
@@ -49,6 +51,8 @@ describe('parseClassToken', () => {
     // A combinator inside :has() still styles this element.
     expect(parseClassToken('[&:has(>img)]:grid-cols-2')).not.toBeNull()
     expect(parseClassToken('[&:has(+aside:not(.x))]:grid-cols-2')).not.toBeNull()
+    // …but a `&` inside them keeps its combinator: this styles the child div.
+    expect(parseClassToken('[:where(&)>div]:grid-cols-2')).toBeNull()
   })
 })
 
@@ -96,8 +100,19 @@ describe('gridBaseTrackProblem', () => {
     // Columns set by an arbitrary property or under a self-targeting :has() variant count too.
     ['grid md:[grid-template-columns:1fr_1fr]', ''],
     ['grid [&:has(>img)]:grid-cols-2', ''],
+    ['grid [grid-template-columns:none] md:grid-cols-2', ''],
   ])('flags %j (missing %j base)', (classes, prefix) => {
     expect(gridBaseTrackProblem(classes)).toBe(prefix)
+  })
+})
+
+describe('screen order', () => {
+  it("mirrors Tailwind's default min-width screens, which tailwind.config.js does not override", () => {
+    const require = createRequire(import.meta.url)
+    const config = require('../../tailwind.config.js')
+    expect(config.theme?.screens).toBeUndefined()
+    expect(config.theme?.extend?.screens).toBeUndefined()
+    expect(Object.keys(require('tailwindcss/defaultTheme').screens)).toEqual(SCREENS)
   })
 })
 
