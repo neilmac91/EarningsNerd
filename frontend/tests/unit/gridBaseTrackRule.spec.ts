@@ -53,6 +53,8 @@ describe('parseClassToken', () => {
     expect(parseClassToken('[&:has(+aside:not(.x))]:grid-cols-2')).not.toBeNull()
     // …but a `&` inside them keeps its combinator: this styles the child div.
     expect(parseClassToken('[:where(&)>div]:grid-cols-2')).toBeNull()
+    expect(parseClassToken('[:where(&_.foo)]:grid-cols-2')).toBeNull()
+    expect(parseClassToken('[:is(&:hover)]:grid-cols-2')).not.toBeNull()
   })
 })
 

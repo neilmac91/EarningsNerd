@@ -66,12 +66,12 @@ export function parseClassToken(token) {
   const utility = parts.pop().replace(/^!|!$/g, '')
   const variants = parts.map((v, i) => (i === 0 ? v.replace(/^!/, '') : v))
   // A combinator inside parentheses (`[&:has(>img)]`) still selects this element; only one outside
-  // them styles another element. A `&` inside them (`[:where(&)>div]`) is kept, so its combinator
-  // still counts.
+  // them styles another element. Parentheses that contain the `&` itself keep their content
+  // (`[:where(&_.foo)]`, `[:where(&)>div]`), so a combinator next to it still counts.
   const outsideParens = (v) => {
     let s = v
     while (/\([^()]*\)/.test(s)) {
-      s = s.replace(/\(([^()]*)\)/g, (_, inner) => (inner.includes('&') ? '&' : ''))
+      s = s.replace(/\(([^()]*)\)/g, (_, inner) => (inner.includes('&') ? inner : ''))
     }
     return s
   }
