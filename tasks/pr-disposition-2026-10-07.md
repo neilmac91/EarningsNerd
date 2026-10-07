@@ -257,3 +257,20 @@ Pending.
   README overstatement of the sqlalchemy ignore's reach, fixed in `76d2ba6d`; round 2 running) and
   opened as **#1119**; D1 dispatched (the Actions dispatch API worked this run); marked ready 22:19Z
   (D2 + Codex review). Balance USD 37.57 at 22:18:07Z.
+- 22:17Z — Lane workflow `wf_3832f533-85e` stopped by an operator interrupt during its round-2 delta
+  reviews (#1081 `4cba0bf9`, #1096r `76d2ba6d`); no round-2 result was recorded. Both heads get fresh
+  exact-head reviews instead (below).
+- 22:22–22:30Z — #1074's 30 evidence files (`tasks/review-evidence/prompt-candidate-2026-10-02/`,
+  unchanged from `437e245c`; no `backend/` file) landed on this checkpoint branch (`6e5e3aee`) so
+  #1074 can close after this PR merges without stranding its pre-registration, tools and review
+  history. Gates on that tree: backend pytest 5759 passed, 39 skipped; frontend vitest 1129/1129;
+  `test_review_evidence_links` passes; the relative link to `../g-stage2-2026-10-02/README.md`
+  resolves. D1/D2 results recorded (`405565db`).
+- 22:39Z — Independent exact-head review of #1119 `76d2ba6d` started (`wf_fb41f1a6-737`, two
+  lenses, two refuters per serious finding; a first launch with a mistyped main SHA was stopped
+  before any result and relaunched with `d4c977f5`).
+- 22:42Z — #1081 worktree: main `d4c977f5` merged into `4cba0bf9` with no conflict (`d7514ddf`,
+  local). New open PRs since the last entry: #1120 (product lane EN-05, draft, 22:24Z): observe-only.
+  Simulated merges of `d7514ddf` with #1108, #1110, #1113, #1118 and #1120 are clean, and every
+  frontend file they change lints clean under #1081's rule (`eslint --stdin` on the merged trees).
+- 22:44Z — Exact-head review of #1081 `d7514ddf` started (`wf_f00af592-b15`).
