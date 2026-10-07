@@ -50,3 +50,17 @@ from opening. BellPopover now yields keys targeted inside the shared Modal marke
 test home covers the delayed popover mount, first Escape closing Feedback alone, and second Escape
 closing the remaining popover. A current-source real-page dev probe with fixture API replies
 reproduced the sequence; production-build confirmation belongs to the final parent integration gate.
+
+**Additional evidence (2026-10-07)**: the same ordering defeated a popover that handled Escape in
+React. EN-01 gave CitationChip's citation card `ownsEscape` through its own `onKeyDown`, which React
+dispatches from the root, after every `document`-capture listener and only for keys targeted inside
+the card. In Chromium on `main` (`f26debcb`), Escape with focus on a `[1]` chip in an Ask answer
+closed the whole research pane (focus fell to `<body>` at 1440×900), and at 390×844 Escape from the
+card's "Open original" link closed the sheet too, because the sheet's document-level trap saw the
+key first. A popover over a trapped layer is a top layer like any dialog: `useEvidencePopoverKeys`
+now takes Escape in window capture while the card is open (yielding to the `data-ui-modal` marker,
+as above), so one press closes the card and the next closes the pane. Gate: the shared contract in
+`tests/unit/evidencePopoverKeys.spec.tsx` runs both chips with a document-capture stand-in for the
+trap and a window listener for the rail, and asserts neither sees the first Escape; with the
+handler back in React, CitationChip fails 2 of 18. `tests/e2e/citation-chip-keyboard.spec.ts` covers
+both widths in a real browser.
