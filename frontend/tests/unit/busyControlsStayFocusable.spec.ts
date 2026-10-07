@@ -313,10 +313,6 @@ const ALLOW_RETRY_LABEL: Record<string, { sites: string[]; reason: string }> = {
   'app/global-error.tsx': { sites: ['button "Try again"'], reason: ERROR_BOUNDARY_RESET },
   'app/dashboard/error.tsx': { sites: ['Button "Try Again"'], reason: ERROR_BOUNDARY_RESET },
   'components/GlobalErrorBoundary.tsx': { sites: ['Button "Try again"'], reason: ERROR_BOUNDARY_RESET },
-  'app/filing/[id]/StreamingSummaryDisplay.tsx': {
-    sites: ['Button "Retry generation"'],
-    reason: STREAM_RESTART + "The filing page's Retry generation is also open in rule (h).",
-  },
   'features/summaries/components/SummaryDisplay.tsx': {
     sites: ['Button "Retry"'],
     reason: STREAM_RESTART + "The filing page's summary Retry regenerates it; open in rule (h).",
@@ -346,8 +342,8 @@ const ALLOW_RETRY_LABEL: Record<string, { sites: string[]; reason: string }> = {
     reason: '"Try again" for the filing text, a hand-rolled fetch, not a query: open in rule (h).',
   },
 }
-const MAX_RETRY_LABEL_ALLOWLIST_SIZE = 12
-const MAX_RETRY_LABEL_PINNED_SITES = 12
+const MAX_RETRY_LABEL_ALLOWLIST_SIZE = 11
+const MAX_RETRY_LABEL_PINNED_SITES = 11
 
 /** Sites not covered by their file's pins, as `file:line: expr`. Each pin covers one site. */
 function unpinned(foundSites: Map<string, Site[]>, allow: Record<string, { sites: string[] }>): string[] {

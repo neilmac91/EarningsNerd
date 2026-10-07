@@ -7,13 +7,14 @@ import { act, fireEvent, render, renderHook, screen, waitFor } from '@testing-li
 import { QueryClient, QueryClientProvider, onlineManager, useQuery } from '@tanstack/react-query'
 import { useRef, useState, type ReactNode } from 'react'
 import { RetryButton, useRetainedFailure } from '@/hooks/useRetainedFailure'
-import { useFocusHandoff } from '@/hooks/useFocusHandoff'
+import { useFocusHandoff, useFocusOnArrival } from '@/hooks/useFocusHandoff'
 import { bindingResolver, type Binding } from './astBindings'
 
 /**
  * hooks/useRetainedFailure.tsx and hooks/useFocusHandoff.ts on their own: the failure a component has shown
- * is held through any refetch of that query until data replaces it, and a focused control that unmounts
- * hands focus to its target (lessons/frontend-busy-controls-stay-focusable.md (g)). The pages' Retry
+ * is held through any refetch of that query until data replaces it, a focused control that unmounts
+ * hands focus to its target, and a surface that arrives takes focus nobody holds
+ * (lessons/frontend-busy-controls-stay-focusable.md (g)). The pages' Retry
  * buttons are pinned in busyControls.{dashboard,forms,settings,watchlist}.spec.tsx and CompanySearch.spec.tsx.
  * The last block gates the hook's callers: each passes the key its own query was given.
  */
@@ -460,6 +461,74 @@ describe('useFocusHandoff', () => {
     expect(focus).toHaveBeenCalledTimes(1)
     expect(focus).toHaveBeenCalledWith({ preventScroll: true })
     expect(document.activeElement).toBe(screen.getByRole('heading', { name: 'Target A' }))
+  })
+})
+
+describe('useFocusOnArrival', () => {
+  /** A progress heading that `fail` replaces with a card whose heading takes focus on arrival. */
+  function Harness() {
+    const [failed, setFailed] = useState(false)
+    const [renders, setRenders] = useState(0)
+    const card = useRef<HTMLHeadingElement>(null)
+    useFocusOnArrival(card, failed)
+    return (
+      <div data-renders={renders}>
+        {failed ? <h3 ref={card} tabIndex={-1}>Card</h3> : <h2 tabIndex={-1}>Progress</h2>}
+        <button onClick={() => setFailed((f) => !f)}>fail</button>
+        <button onClick={() => setRenders((n) => n + 1)}>rerender</button>
+        <button>elsewhere</button>
+      </div>
+    )
+  }
+  const outside = (name: string) => act(() => { screen.getByRole('button', { name }).click() })
+  const card = () => screen.getByRole('heading', { name: 'Card' })
+
+  it('focus nobody holds goes to the target when the surface arrives', async () => {
+    render(<Harness />)
+    expect(document.activeElement).toBe(document.body)
+    outside('fail')
+    await settle()
+    expect(document.activeElement).toBe(card())
+  })
+
+  it('focus somebody holds is never moved', async () => {
+    render(<Harness />)
+    const elsewhere = screen.getByRole('button', { name: 'elsewhere' })
+    elsewhere.focus()
+    outside('fail')
+    await settle()
+    expect(document.activeElement).toBe(elsewhere)
+  })
+
+  it('a focused element the same commit removed counts as nobody holding focus', async () => {
+    render(<Harness />)
+    screen.getByRole('heading', { name: 'Progress' }).focus()
+    outside('fail')
+    await settle()
+    expect(document.activeElement).toBe(card())
+  })
+
+  it('once per arrival: a re-render while shown never takes focus back, a new arrival does', async () => {
+    render(<Harness />)
+    outside('fail')
+    await settle()
+    act(() => card().blur())
+    outside('rerender')
+    await settle()
+    expect(document.activeElement).toBe(document.body)
+    outside('fail')
+    outside('fail')
+    await settle()
+    expect(document.activeElement).toBe(card())
+  })
+
+  it('focuses the target with preventScroll, so an arrival never scrolls the page', async () => {
+    render(<Harness />)
+    const focus = vi.spyOn(HTMLElement.prototype, 'focus')
+    outside('fail')
+    await settle()
+    expect(focus).toHaveBeenCalledTimes(1)
+    expect(focus).toHaveBeenCalledWith({ preventScroll: true })
   })
 })
 

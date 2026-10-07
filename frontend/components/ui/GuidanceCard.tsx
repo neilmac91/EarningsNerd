@@ -13,7 +13,7 @@
    name; this surface is the empty/error guidance card only.
 ============================================================================= */
 
-import { type ReactNode } from 'react'
+import { type ReactNode, type Ref } from 'react'
 import { cx } from './cx'
 
 export type GuidanceCardVariant = 'empty' | 'error'
@@ -23,6 +23,8 @@ export interface GuidanceCardProps {
   /** Defaults: magnifier (empty) / alert circle (error). */
   icon?: ReactNode
   title: string
+  /** Makes the title a focus target (tabIndex={-1}, no outline), for a card that takes focus when it appears. */
+  headingRef?: Ref<HTMLHeadingElement>
   description?: ReactNode
   /** Usually a <Button> — primary for empty, secondary for error retry. */
   action?: ReactNode
@@ -55,7 +57,7 @@ function DefaultIcon({ variant }: { variant: GuidanceCardVariant }) {
   )
 }
 
-export function GuidanceCard({ variant = 'empty', icon, title, description, action, className }: GuidanceCardProps) {
+export function GuidanceCard({ variant = 'empty', icon, title, headingRef, description, action, className }: GuidanceCardProps) {
   return (
     <div
       role={variant === 'error' ? 'alert' : 'status'}
@@ -68,7 +70,13 @@ export function GuidanceCard({ variant = 'empty', icon, title, description, acti
       <span className={cx('flex h-11 w-11 items-center justify-center rounded-full border', ICON_WRAP[variant])}>
         {icon ?? <DefaultIcon variant={variant} />}
       </span>
-      <h3 className="mt-4 text-base font-semibold">{title}</h3>
+      <h3
+        ref={headingRef}
+        tabIndex={headingRef ? -1 : undefined}
+        className={cx('mt-4 text-base font-semibold', headingRef ? 'outline-none' : undefined)}
+      >
+        {title}
+      </h3>
       {description ? (
         <p className="mt-1.5 max-w-[38ch] text-sm leading-relaxed text-text-secondary-light dark:text-text-secondary-dark">
           {description}

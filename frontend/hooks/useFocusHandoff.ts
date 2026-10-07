@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useRef, type MouseEvent, type PointerEvent, type RefObject } from 'react'
+import { useCallback, useEffect, useRef, type MouseEvent, type PointerEvent, type RefObject } from 'react'
 
 export interface FocusHandoff {
   /** The control's callback ref: it sees the control leave. */
@@ -85,4 +85,22 @@ export function useFocusHandoff(
     pointerFocus.current = false
   }, [])
   return { attach, onFocus, onPointerDown, onPress }
+}
+
+/**
+ * The other direction: a surface the user has to act on arrives (a failed generation's card), and focus
+ * goes to `target`, its heading with tabIndex={-1}, when `shown` turns true. Only if nobody holds focus
+ * (it is on <body>), the same check the hand-off makes: focus in a field, on a link or in a dialog is
+ * never moved. The arrival is read after the commit, so a focused element the same commit removed (the
+ * progress card's heading the error card replaced) has already dropped focus to <body>. The heading, not
+ * the card's button: a key pressed as the card lands (Space to scroll, Enter) never activates its action.
+ * Once per arrival: a re-render while shown never takes focus back.
+ */
+export function useFocusOnArrival(target: RefObject<HTMLElement | null>, shown: boolean): void {
+  useEffect(() => {
+    if (!shown) return
+    const active = document.activeElement
+    if (active !== null && active !== document.body) return
+    target.current?.focus({ preventScroll: true })
+  }, [target, shown])
 }
