@@ -516,6 +516,8 @@ jobs:
       id-token: write # mint the OIDC token Workload Identity Federation exchanges
     env:
       IMAGE: us-west1-docker.pkg.dev/earnings-nerd/earningsnerd/backend
+      DURABLE_TASKS_ENABLED: ${{ vars.GCP_DURABLE_TASKS_ENABLED || 'false' }}
+      TASKS_WORKER_URL: ${{ vars.GCP_TASKS_WORKER_URL || '' }}
       # Pinned proxy build, verified with sha256sum before it runs. Digest computed 2026-09-04 from two
       # independent downloads of this exact object (the bucket publishes no checksum sidecar; the
       # binary reports `2.14.0+linux.amd64`). Bump version + digest together, in BOTH workflows —
@@ -620,6 +622,28 @@ jobs:
           done
 
           bash backend/scripts/apply_migrations.sh
+      - name: Update configured private task worker
+        if: steps.changes.outputs.backend == 'true'
+        run: |
+          set -euo pipefail
+          if [ "$DURABLE_TASKS_ENABLED" != "true" ]; then
+            echo "Durable task worker rollout is disabled."
+            exit 0
+          fi
+          test -n "$TASKS_WORKER_URL"
+          # An enabled rollout requires this pre-provisioned private service. Fail before moving
+          # the API if its worker is absent or the configured OIDC audience points elsewhere.
+          worker_url=$(gcloud run services describe earningsnerd-task-worker --region=us-west1 --format='value(status.url)')
+          test "$worker_url" = "$TASKS_WORKER_URL"
+          gcloud run services update earningsnerd-task-worker --region=us-west1 \
+            --image="$IMAGE:${GITHUB_SHA::7}" \
+            --cpu=1 --memory=2Gi --cpu-throttling --cpu-boost \
+            --min=0 --min-instances=0 --max=1 --max-instances=1 --concurrency=1 --timeout=600 \
+            --command=uvicorn \
+            --args='task_worker_main:app,--host,0.0.0.0,--port,8080,--proxy-headers,--forwarded-allow-ips=*' \
+            --update-env-vars=ENVIRONMENT=production,SKIP_REDIS_INIT=true,DURABLE_TASKS_ENABLED=true,TASKS_WORKER_PROCESS=true,TASKS_PROJECT_ID=earnings-nerd,TASKS_LOCATION=us-west1,TASKS_QUEUE=earningsnerd-background,TASKS_WORKER_URL=${TASKS_WORKER_URL},TASKS_INVOKER_EMAIL=earningsnerd-tasks@earnings-nerd.iam.gserviceaccount.com,DB_POOL_SIZE=3,DB_MAX_OVERFLOW=0,OPENAI_BASE_URL=${OPENAI_BASE_URL},AI_DEFAULT_MODEL=${AI_DEFAULT_MODEL},SENTRY_RELEASE=${GITHUB_SHA},ENABLE_FPI_FILINGS=true,NOTABLE_FILINGS_ENABLED=true,AI_EVIDENCE_SNAP=true,AI_FIGURE_TRACE_GATE=false,AI_FORWARD_QUOTE_GATE=false,AI_ATTRIBUTION_GATE=false,AI_ATTRIBUTION_VERIFY=false,USE_STRUCTURED_OUTPUT=false,CALENDAR_INDEX_FILTER_ENABLED=true,USE_STATEMENT_FINANCIALS=true \
+            --quiet
+          gcloud run services update-traffic earningsnerd-task-worker --region=us-west1 --to-latest --clear-tags --quiet
       - name: Deploy Cloud Run service
         if: steps.changes.outputs.backend == 'true'
         run: |
@@ -629,18 +653,23 @@ jobs:
           # freshness stamp, XBRL L1, tickers) survive between requests (QW4, PR follow-up to the
           # filing-load audit). The 2026-09-27 source/session audit budgets four connections per
           # serving instance with no overflow. At the current two-instance cap, pregenerate's three
-          # sessions and one execution of each other job, configured application demand is 18 and
-          # preserves an operational database reserve. --max=2 pins the service-level limit across
+          # sessions and one execution of each other job, configured application demand is 18,
+          # or 21 with the optional worker's three connections; preserve a database reserve.
+          # --max=2 pins the service-level limit across
           # traffic-serving revisions while --max-instances=2 pins each new revision. Cloud Run can
           # briefly exceed a configured maximum, and jobs remain outside this service limit; measure
           # them before expanding traffic or schedules.
+          cpu_billing=--no-cpu-throttling
+          if [ "$DURABLE_TASKS_ENABLED" = "true" ]; then
+            cpu_billing=--cpu-throttling
+          fi
           gcloud run deploy earningsnerd-backend --region=us-west1 \
             --image="$IMAGE:${GITHUB_SHA::7}" \
-            --cpu=1 --memory=1Gi --cpu-boost \
+            --cpu=1 --memory=1Gi --cpu-boost "$cpu_billing" \
             --min-instances=1 --max=2 --max-instances=2 --concurrency=40 --timeout=600 \
             --update-secrets=OPENAI_API_KEY=DEEPSEEK_API_KEY:latest \
             --remove-env-vars=ENABLE_GUEST_DAILY_QUOTA \
-            --update-env-vars=ENVIRONMENT=production,OPENAI_BASE_URL=${OPENAI_BASE_URL},AI_DEFAULT_MODEL=${AI_DEFAULT_MODEL},COOKIE_DOMAIN=.earningsnerd.io,SENTRY_RELEASE=${GITHUB_SHA},TRUSTED_PROXY_HOPS=1,ENABLE_FPI_FILINGS=true,STREAM_SECTION_REVEAL=true,REGISTRATION_MODE=invite_only,DB_POOL_SIZE=4,DB_MAX_OVERFLOW=0,NOTABLE_FILINGS_ENABLED=true,AI_EVIDENCE_SNAP=true,AI_FIGURE_TRACE_GATE=false,AI_FORWARD_QUOTE_GATE=false,AI_ATTRIBUTION_GATE=false,AI_ATTRIBUTION_VERIFY=false,USE_STRUCTURED_OUTPUT=false,CALENDAR_INDEX_FILTER_ENABLED=true,USE_STATEMENT_FINANCIALS=true \
+            --update-env-vars=ENVIRONMENT=production,OPENAI_BASE_URL=${OPENAI_BASE_URL},AI_DEFAULT_MODEL=${AI_DEFAULT_MODEL},COOKIE_DOMAIN=.earningsnerd.io,SENTRY_RELEASE=${GITHUB_SHA},TRUSTED_PROXY_HOPS=1,ENABLE_FPI_FILINGS=true,STREAM_SECTION_REVEAL=true,REGISTRATION_MODE=invite_only,DB_POOL_SIZE=4,DB_MAX_OVERFLOW=0,NOTABLE_FILINGS_ENABLED=true,AI_EVIDENCE_SNAP=true,AI_FIGURE_TRACE_GATE=false,AI_FORWARD_QUOTE_GATE=false,AI_ATTRIBUTION_GATE=false,AI_ATTRIBUTION_VERIFY=false,USE_STRUCTURED_OUTPUT=false,CALENDAR_INDEX_FILTER_ENABLED=true,USE_STATEMENT_FINANCIALS=true,DURABLE_TASKS_ENABLED=${DURABLE_TASKS_ENABLED},TASKS_WORKER_PROCESS=false,TASKS_PROJECT_ID=earnings-nerd,TASKS_LOCATION=us-west1,TASKS_QUEUE=earningsnerd-background,TASKS_WORKER_URL=${TASKS_WORKER_URL},TASKS_INVOKER_EMAIL=earningsnerd-tasks@earnings-nerd.iam.gserviceaccount.com \
             --quiet
           # Always route live traffic to the new revision. A prior manual `--no-traffic --tag`
           # deploy can pin traffic to an old revision, which silently makes every CD deploy "dark"

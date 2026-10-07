@@ -37,6 +37,7 @@ from app.schemas.analysis import (
     StreamRequest,
 )
 from app.services import facts_service, trend_analysis_service
+from app.services.durable_tasks import enqueue_task
 from app.services.posthog_client import capture_analysis_inference
 from app.services.rate_limiter import RateLimiter, enforce_rate_limit
 from app.services.subscription_service import (
@@ -63,8 +64,8 @@ XLSX_LIMITER = RateLimiter(limit=10, window_seconds=60)
 # `syncing: true` and letting the fetch finish in the background (frontend budget is ~30s).
 COVERAGE_SYNC_WAIT_SECONDS = 20.0
 
-# Strong references to background sync tasks (the summary_pipeline._spawn_background pattern) so
-# the event loop can't garbage-collect one mid-fetch after we answer `syncing: true`.
+# Strong references for the legacy mode's syncs that outlive `syncing: true` responses.
+# Durable mode instead cancels request-owned work before handing it to the queue.
 _background_syncs: set[asyncio.Task] = set()
 
 
@@ -119,18 +120,41 @@ async def get_coverage(
     db.close()
 
     task = asyncio.create_task(_ingest_with_own_session(company_id))
-    _background_syncs.add(task)
-    task.add_done_callback(_background_syncs.discard)
-    done, _pending = await asyncio.wait({task}, timeout=COVERAGE_SYNC_WAIT_SECONDS)
+    if settings.DURABLE_TASKS_ENABLED:
+        # The request owns this attempt until it finishes or reaches the frontend's wait budget.
+        # Stop it before durable delivery takes over; a disconnect must not leave a local sync
+        # running without a request to keep Cloud Run's CPU allocated.
+        try:
+            done, _pending = await asyncio.wait({task}, timeout=COVERAGE_SYNC_WAIT_SECONDS)
+        finally:
+            with anyio.CancelScope(shield=True):
+                if not task.done():
+                    task.cancel()
+                await asyncio.gather(task, return_exceptions=True)
+    else:
+        _background_syncs.add(task)
+        task.add_done_callback(_background_syncs.discard)
+        done, _pending = await asyncio.wait({task}, timeout=COVERAGE_SYNC_WAIT_SECONDS)
 
     sync: dict = {"synced": False}
+    handoff_pending = task not in done
     if task in done:
         try:
             sync = task.result()
         except Exception:  # noqa: BLE001 - a failed sync degrades to whatever the DB already has
             logger.exception("companyfacts sync failed inside coverage for %s", company_ticker)
-    else:
-        # First-touch sync still running — serve what exists and tell the client to retry.
+        if settings.DURABLE_TASKS_ENABLED and sync.get("waited") and not sync.get("synced"):
+            # Cancelling a timed-out local leader wakes followers before its queue handoff finishes.
+            # They must join durable delivery instead of reporting missing facts as final coverage.
+            handoff_pending = True
+    if handoff_pending:
+        if settings.DURABLE_TASKS_ENABLED:
+            await enqueue_task(
+                "companyfacts", {"company_id": company_id},
+                dedupe_key=f"companyfacts:{company_id}", dedupe_seconds=60,
+            )
+        # First-touch sync is continuing through durable delivery (or the legacy local task).
+        # Serve what exists and tell the client to retry only after delivery was accepted.
         periods = trend_analysis_service.available_periods(db, company_id)
         return CoverageResponse(
             ticker=company_ticker,
