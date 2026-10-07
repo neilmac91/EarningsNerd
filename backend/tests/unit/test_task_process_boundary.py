@@ -76,11 +76,34 @@ async def test_worker_reports_process_failure_and_rejects_api_execution(monkeypa
 async def test_private_asgi_worker_has_its_own_work_deadline(monkeypatch):
     # A fresh interpreter catches eager package imports hidden by pytest's loaded API modules.
     probe = subprocess.run(
-        [sys.executable, "-c", "import task_worker_main,sys; "
-         "assert not {'main','app.database','app.models','app.routers.analysis'} & sys.modules.keys()"],
+        [sys.executable, "-c", "import task_worker_main,sys,logging; "
+         "assert not {'main','app.database','app.models','app.routers.analysis'} & sys.modules.keys(); "
+         "assert all(not logging.getLogger(name).isEnabledFor(logging.INFO) "
+         "for name in ('httpx','httpcore','urllib3','edgar')); "
+         "logging.getLogger('httpx').info('apikey=synthetic-test-credential'); "
+         "logging.getLogger(__name__).info('Worker ready')"],
         capture_output=True, text=True, timeout=15,
     )
     assert probe.returncode == 0, probe.stderr
+    assert "Worker ready" in probe.stdout
+    assert "synthetic-test-credential" not in probe.stdout + probe.stderr
+    # A fresh exec does not inherit the parent's logger levels. Exercise child startup too,
+    # replacing only business work so this logging check cannot query a database or provider.
+    child_probe = subprocess.run(
+        [sys.executable, "-c", "import asyncio,io,sys,logging; "
+         "from app.services import task_process as process; "
+         "process.run_background_task=lambda envelope: asyncio.sleep(0); "
+         "sys.stdin=io.StringIO('{\"kind\":\"probe\",\"payload\":{}}'); "
+         "assert process.main()==0; "
+         "assert all(not logging.getLogger(name).isEnabledFor(logging.INFO) "
+         "for name in ('httpx','httpcore','urllib3','edgar')); "
+         "logging.getLogger('httpx').info('apikey=synthetic-test-credential'); "
+         "logging.getLogger(__name__).info('Child ready')"],
+        capture_output=True, text=True, timeout=15,
+    )
+    assert child_probe.returncode == 0, child_probe.stderr
+    assert "Child ready" in child_probe.stdout
+    assert "synthetic-test-credential" not in child_probe.stdout + child_probe.stderr
     import main
     import task_worker_main
     from app.routers import tasks

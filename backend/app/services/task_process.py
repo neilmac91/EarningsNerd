@@ -5,8 +5,10 @@ import asyncio
 import logging
 import sys
 
+from app.config import settings
 from app.services.background_task_runner import run_background_task
 from app.services.durable_tasks import TaskEnvelope
+from app.services.logging_service import configure_logging
 from app.services.request_work import request_work_scope
 
 
@@ -16,7 +18,7 @@ async def _execute(envelope: TaskEnvelope) -> None:
 
 
 def main() -> int:
-    logging.basicConfig(level=logging.INFO)
+    configure_logging(level="INFO", json_format=settings.ENVIRONMENT == "production")
     try:
         envelope = TaskEnvelope.model_validate_json(sys.stdin.read(28_001))
         asyncio.run(_execute(envelope))
