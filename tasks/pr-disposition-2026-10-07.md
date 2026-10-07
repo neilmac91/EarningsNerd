@@ -274,3 +274,14 @@ Pending.
   Simulated merges of `d7514ddf` with #1108, #1110, #1113, #1118 and #1120 are clean, and every
   frontend file they change lints clean under #1081's rule (`eslint --stdin` on the merged trees).
 - 22:44Z — Exact-head review of #1081 `d7514ddf` started (`wf_f00af592-b15`).
+- 22:45Z — #1081 local gate on `d7514ddf` (Node 22.23.2, npm 10.9.8): npm ci ok, lint 0, tsc 0,
+  vitest 147 files / 1204 tests, build 0.
+- ~22:50Z — **Container restart.** Both running reviews (`wf_fb41f1a6-737` for #1119,
+  `wf_f00af592-b15` for #1081) were lost before any result; the disk (worktrees, local commits,
+  toolchain) survived. Relaunched unchanged at 22:54Z: #1119 `wf_8e1db8eb-fd7`, #1081
+  `wf_ddbc4a5f-497`.
+- 22:55–22:56Z — #1081 pushed `53cc2762..d7514ddf` (fast-forward). Diff vs main touches only
+  `frontend/` and `lessons/`; the 20 layout-class edits are byte-identical to the 10-04 head (only
+  the rule, its spec, the lesson and `DESIGN_SYSTEM.md` changed). PR body updated: re-integration
+  record, current gate, the stale 10-04 `Review override` line withdrawn so the review gate needs a
+  real Codex review of this head. Draft→ready cycle at 22:56Z to trigger it.
