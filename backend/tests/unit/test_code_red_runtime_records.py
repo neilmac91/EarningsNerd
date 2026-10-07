@@ -18,7 +18,7 @@ a broken record never reaches a reviewer:
 * no private artifact link (either link form, however spelled: another case, an explicit port or a trailing dot on the host,
   repeated slashes, percent-encoding), macOS home path (``/Users/``) or, anywhere under the chief's ``control/`` tree, session
   upload-area path is written into the records — every file in the tree is scanned, whatever its suffix, the text is
-  case-folded and percent-decoded before matching, the home path is matched as a leading path segment so the product's own
+  case-folded and percent-decoded to a fixed point before matching, the home path is matched as a leading path segment so the product's own
   ``/api/users/…`` routes may still be cited, and a JSON document is also scanned after decoding, so an escaped spelling (a
   backslash-escaped solidus, a Unicode code-point escape) does not evade the check.
 
@@ -247,6 +247,14 @@ def test_decisions_are_numbered_contiguously() -> None:
     assert numbers == list(range(1, len(numbers) + 1)), f"decision numbering is not 1..{len(numbers)}: {numbers}"
 
 
+def _fold(text: str) -> str:
+    """Case-fold and percent-decode ``text`` to a fixed point, so a doubly encoded spelling is read as a consumer would."""
+    folded = text.lower()
+    while (decoded := unquote(folded)) != folded:
+        folded = decoded
+    return folded
+
+
 def _json_documents(path: Path, text: str) -> list[str]:
     """The JSON documents a consumer decodes from ``path``: the whole file for ``.json``, each non-blank line for ``.jsonl``."""
     if path.suffix == ".json":
@@ -292,7 +300,7 @@ def test_records_carry_no_private_urls_or_local_machine_paths() -> None:
         # with escapes (``\/``, ``\uXXXX``) is caught as the consumer would read it. A document that does not decode fails here
         # as well as in the parse test.
         haystacks = [
-            unquote(s.lower())
+            _fold(s)
             for s in (text, *(s for document in _json_documents(path, text) for s in _decoded_strings(document)))
         ]
         if any(ARTIFACT_LINK.search(haystack) for haystack in haystacks):
