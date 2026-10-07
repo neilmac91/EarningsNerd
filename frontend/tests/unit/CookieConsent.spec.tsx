@@ -1,7 +1,12 @@
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { toast } from 'sonner'
 import CookieConsent, { type CookiePreferences } from '@/components/CookieConsent'
+
+// The "Cookie preferences saved" confirmation is a sonner toast (top-centre Toaster in app/providers.tsx)
+// since EN-02: it must not share the bottom-right corner with the "Ask this Filing" launcher.
+vi.mock('sonner', () => ({ toast: { success: vi.fn() } }))
 
 /**
  * The cookie settings panel is a ui/Modal dialog (DESIGN_SYSTEM §4, gated by dialogAllowlist.spec.ts).
@@ -25,6 +30,7 @@ describe('CookieConsent settings dialog', () => {
   beforeEach(() => {
     localStorage.clear()
     consentEvents = []
+    vi.mocked(toast.success).mockClear()
     window.addEventListener('cookieConsentChanged', onConsentEvent)
   })
   afterEach(() => {
@@ -64,7 +70,8 @@ describe('CookieConsent settings dialog', () => {
     expect(onPreferencesChanged).toHaveBeenCalledWith(
       expect.objectContaining({ essential: true, analytics: true, sessionRecording: false }),
     )
-    expect(screen.getByText('Cookie preferences saved')).toBeInTheDocument()
+    expect(toast.success).toHaveBeenCalledTimes(1)
+    expect(toast.success).toHaveBeenCalledWith('Cookie preferences saved')
   })
 
   it.each([
@@ -103,5 +110,6 @@ describe('CookieConsent settings dialog', () => {
     await user.click(await screen.findByRole('button', { name: 'Reject All' }))
     expect(stored()).toMatchObject({ essential: true, analytics: false, sessionRecording: false })
     expect(consentEvents.map((e) => e.analytics)).toEqual([true, false])
+    expect(toast.success).toHaveBeenCalledTimes(2)
   })
 })
