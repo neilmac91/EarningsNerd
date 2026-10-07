@@ -473,6 +473,24 @@ describe('FinancialMetricsTable — a breakpoint that hides an open chip (Codex 
     expect(document.activeElement).toBe(document.body)
   })
 
+  it('touch: a ui/Modal raised above the sheet keeps focus when a rotation closes the sheet beneath it', () => {
+    setup('coarse', 'table')
+    fireEvent.click(inLayout('cards').getAllByRole('button', { name: 'Source: Verified in filing' })[0])
+    expect(screen.getByRole('dialog', { name: 'Source detail' })).toBeInTheDocument()
+    // An upper layer (the Feedback dialog, through ui/Modal's marker) opened over the sheet holds focus.
+    const upper = document.createElement('div')
+    upper.setAttribute('data-ui-modal', 'true')
+    upper.innerHTML = '<button type="button">modal action</button>'
+    document.body.appendChild(upper)
+    restore.push(() => upper.remove())
+    const inModal = within(upper).getByRole('button', { name: 'modal action' })
+    act(() => inModal.focus())
+
+    crossBreakpoint('cards') // rotated: the sheet's chip is hidden, so the sheet closes beneath the modal
+    expect(screen.queryByRole('dialog', { name: 'Source detail' })).toBeNull()
+    expect(document.activeElement).toBe(inModal)
+  })
+
   it('touch: a resize that leaves the chip rendered (an on-screen keyboard, a small window change) keeps the sheet open', () => {
     setup('coarse', 'table')
     fireEvent.click(inLayout('cards').getAllByRole('button', { name: 'Source: Verified in filing' })[0])

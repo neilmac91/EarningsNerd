@@ -319,9 +319,14 @@ function SourceTraceInner({
   // The touch sheet is a modal layer: trap focus inside it while open and return it to the chip on
   // close (the chip stays mounted beneath the scrim: lessons/frontend-dialog-opener-outlives-the-dialog.md).
   // Read at close: the chip, or its twin when a breakpoint hid the chip (see the resize effect above).
+  // A ui/Modal raised above the sheet that holds focus keeps it: the sheet closing beneath it (a
+  // rotation hid its chip) is not the top layer's close, so focus stays where it is (the current
+  // element, refocused as a no-op). lessons/frontend-top-dialog-owns-the-keyboard.md (e)
   const returnTarget = useMemo<RefObject<HTMLElement | null>>(
     () => ({
       get current() {
+        const active = document.activeElement
+        if (active instanceof HTMLElement && active.closest('[data-ui-modal="true"]')) return active
         const chip = triggerRef.current
         if (chip && layoutTwin && chip.getClientRects().length === 0) return shownTwin(chip, layoutTwin) ?? chip
         return chip
