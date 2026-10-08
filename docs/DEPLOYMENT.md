@@ -60,6 +60,57 @@ unchanged. Cache export failure does not block a successful image push; imports 
 have a five-minute timeout. The first build or an evicted cache builds normally. This uses the
 repository's GitHub cache quota; it does not remove older Artifact Registry images.
 
+### Durable background delivery rollout
+
+The default remains `DURABLE_TASKS_ENABLED=false` and CPU always allocated. Keep one warm API
+instance and 1 GiB; do not reduce either as part of this rollout. Provision a dedicated Cloud Tasks
+queue in us-west1 with one concurrent dispatch, 0.2 dispatches/second, five attempts,
+`max-retry-duration=0s` and 30–900 second backoff. The finite attempt count controls retry exposure;
+a positive duration would allow retries past five until both conditions are satisfied
+([Google retry semantics](https://docs.cloud.google.com/tasks/docs/configuring-queues#retry)).
+Enable the Cloud Tasks API; create a dedicated task
+identity. Grant the API runtime `roles/cloudtasks.enqueuer` on that queue and
+`roles/iam.serviceAccountUser` on the task identity, and the task identity `roles/run.invoker` only
+on the private worker. Grant the Cloud Tasks primary service agent
+`service-PROJECT_NUMBER@gcp-sa-cloudtasks.iam.gserviceaccount.com`
+`roles/iam.serviceAccountUser` on that task identity as required by Google's
+[authenticated HTTP task setup](https://docs.cloud.google.com/tasks/docs/creating-http-target-tasks).
+IAM changes require the founder's specific approval.
+
+Bootstrap `earningsnerd-task-worker` using a verified image built from this migration; an older
+live image does not contain the worker entrypoint. Set ingress to `all` so Cloud Tasks can reach
+it, enforce IAM authentication, and grant neither `allUsers` nor `allAuthenticatedUsers` access.
+Use minimum zero, maximum one, concurrency one, 1 CPU, 2 GiB and request-based CPU.
+Override the image command to `uvicorn` with args
+`task_worker_main:app,--host,0.0.0.0,--port,8080,--proxy-headers,--forwarded-allow-ips=*`.
+Do not launch it through `main:app`: the API's HTTP middleware deadline is shorter than task work.
+The parent imports no database engine; its isolated child uses `DB_POOL_SIZE=3`,
+`DB_MAX_OVERFLOW=0`, and the existing Cloud SQL socket. Budget three additional connections.
+Use the existing runtime identity and Secret Manager references needed for SQL, SEC, AI and email;
+do not copy secret values into commands, tasks, source or logs. Match current generation flags.
+Set `TASKS_WORKER_PROCESS=true`, `DURABLE_TASKS_ENABLED=true`, and the complete `TASKS_*` queue,
+worker-origin and identity settings on the worker.
+
+First enqueue an authenticated `probe` with an empty payload. It verifies delivery without SQL
+business work, SEC calls, email or AI generation. Confirm worker completion logs and task removal.
+Then set nonsecret repository variables `GCP_TASKS_WORKER_URL` and
+`GCP_DURABLE_TASKS_ENABLED=true`. CI requires the existing worker and updates its pinned image
+before deploying the API, routing worker traffic to the latest revision and clearing tags; it
+also pins queue handoff and request-based CPU together. Verify the
+current-head CI run, API detailed health, service minimum one/memory 1 GiB, worker command and
+revision, and authenticated task success. Watch task retry/errors, API latency and SQL connections
+before expanding workload. Cold worker starts affect queued work, not the warm API.
+
+For rollback, set `GCP_DURABLE_TASKS_ENABLED=false` and restore API `DURABLE_TASKS_ENABLED=false`
+with `--no-cpu-throttling`; keep the worker available to finish queued work. Do not pause the queue
+or delete it with unfinished tasks. Future CI pins the flag-off API back to always allocated CPU.
+
+Cloud Tasks can duplicate a delivery. Existing cache/upsert/delivery ownership remains the
+idempotency authority; force-generating a paid summary is deliberately excluded. Ordinary API
+SEC read-only timeout tails and SDK telemetry remain best effort; they do not perform the durable
+business mutations above. A slow native summary worker can extend cleanup, so monitor error tails
+and latency during the billing-mode change rather than claiming all thread operations are bounded.
+
 ### Read-only release configuration audit
 
 Dispatch the `Ops` workflow with `describe-service`, then `describe-jobs`, when an operator needs
