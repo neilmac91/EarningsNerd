@@ -74,9 +74,9 @@ service follows in a second stage, once the insider endpoint fits that budget. S
 
 | Component | Value | Justification |
 |-----------|-------|---------------|
-| **Bucket Size** | 10 tokens | Match SEC's 10 req/sec |
-| **Request Spacing** | 100ms minimum | `10 req/sec = 1 req/100ms` |
-| **Burst Allowance** | Up to 10 queued | Handle batch operations |
+| **Bucket Size** | `SEC_RATE_LIMIT_PER_SECOND` tokens (10 by default, 1 in production) | Match SEC's 10 req/sec |
+| **Request Spacing** | 1/rate once the bucket is empty | `10 req/sec = 1 req/100ms` at the default |
+| **Burst Allowance** | Up to the bucket size at once (it starts full) | Handle batch operations |
 | **Backoff Base** | 1.0 second | Per `SEC_BASE_BACKOFF_SECONDS` config |
 | **Backoff Multiplier** | 2x exponential | 1s → 2s → 4s → 8s → 16s |
 | **Max Retries** | 5 attempts | Per `SEC_MAX_RETRIES` config |

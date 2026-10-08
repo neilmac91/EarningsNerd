@@ -1,6 +1,6 @@
 """Rule-12 gate for the per-process SEC request budgets the deploy pins (CODE RED decision D3).
 
-Every production process carries TWO independent SEC token buckets: the app singleton
+Every production process carries TWO independent SEC limiters: the app singleton
 (``SEC_RATE_LIMIT_PER_SECOND``, ``app/services/sec_rate_limiter.py``) and edgartools' own
 (``EDGAR_RATE_LIMIT_PER_SEC``, read once at import by ``edgar/httpclient.py``). The app bucket
 starts full with capacity equal to rate; edgartools' is a pyrate-limiter sliding window that admits at
@@ -57,7 +57,7 @@ SERVICE_STEP = "Deploy Cloud Run service"
 SERVICE = "earningsnerd-backend"
 LOOP_STEP = "Update filing-scan + digest + calendar + alert + notable + retention job images"
 # Every Cloud Run process update a deploy step can make; the target follows the subcommand.
-UPDATE = re.compile(r"gcloud run (?:deploy|(?:services|jobs) (?:create|deploy|replace|update))\s+(\"?[$\w-]+\"?)")
+UPDATE = re.compile(r"gcloud (?:(?:alpha|beta) )?run (?:deploy|(?:services|jobs) (?:create|deploy|replace|update))(?:\s|\\)+(\"?[$\w-]+\"?)")
 STAGED_UNPINNED = {"service"}  # pinned in stage 2, once the insider endpoint fits the budget
 DEFAULTS = {"SEC_RATE_LIMIT_PER_SECOND": 10, "EDGAR_RATE_LIMIT_PER_SEC": 9}  # code and library defaults
 
@@ -124,6 +124,7 @@ def test_no_deploy_step_updates_a_process_without_both_pins():
     loop_jobs = _loop_jobs(_run(LOOP_STEP))
     targets = []
     for step in _deploy_job()["steps"]:
+        assert "deploy-cloudrun" not in step.get("uses", ""), "Cloud Run updates go through gcloud, where this gate sees them"
         if "run" not in step:
             continue
         run = "\n".join(line for line in step["run"].splitlines() if not line.lstrip().startswith("#"))

@@ -127,24 +127,27 @@ every window, giving 6 req/s sustained with no job running and 12 req/s in the M
 overlap, over the cap. Each task runs in a fresh child with fresh limiters, so a handover between
 two children inside one second can briefly admit up to 4 req/s from the worker. A filing-scan run
 through the worker (`/internal/jobs/filing-scan`) is bounded by its 480 s work timeout
-(`TASKS_WORK_TIMEOUT_SECONDS`), about 450 watched companies at 1 req/s; the fleet-wide scan belongs
+(`TASKS_WORK_TIMEOUT_SECONDS`), about 450 watched companies at 1 req/s; the scheduled scan belongs
 on the Cloud Run job (1,800 s).
 
-Not bounded by this pin: rollout-overlap instances, manual job executions and operator one-shots,
-and any request outside both limiters. Neither the jobs nor the worker (it serves only `/health` and
-its task endpoint) expose limiter state: the pin shows as longer execution times and, when SEC
-pushes back, as app-bucket 429 backoff warnings in their logs. Lowering the budget shows up as
-longer SEC waits inside a process (the limiter waits, it does not reject, and waits are not
-counted): `rate_limit_hits` increments only when a backoff-path request receives a recognised SEC
-429, so a flat counter is not evidence of safe aggregate traffic, while a rising one is SEC pushing
-back. SEC 403 responses are not counted there; they show in logs.
+Not bounded by this pin: rollout-overlap instances, manual job executions and operator one-shots, a
+job or worker created by hand without the pins (the runbook commands in `docs/DEPLOYMENT.md` set
+them, and CI sets them on the next deployable merge), and any request outside both limiters. Neither
+the jobs nor the worker (it serves only `/health` and its task endpoint) expose limiter state: the
+pin shows as longer execution times and, when SEC pushes back, as app-bucket 429 backoff warnings in
+their logs. Lowering the budget shows up as longer SEC waits inside a process (the limiter waits, it
+does not reject, and waits are not counted): `rate_limit_hits` increments only when a backoff-path
+request receives a recognised SEC 429, so a flat counter is not evidence of safe aggregate traffic,
+while a rising one is SEC pushing back. SEC 403 responses are not counted there; they show in logs.
 
 To change or undo the pins, set new values in the `ci.yml` maps, or add
 `--remove-env-vars=SEC_RATE_LIMIT_PER_SECOND,EDGAR_RATE_LIMIT_PER_SEC` to each update, in a change
-that also touches a deployable `backend/` path. `--update-env-vars` only sets keys, so deleting them
-from `ci.yml`, or reverting the change that added them, leaves the pins live; a change confined to
-`ci.yml` does not deploy at all. Ops `describe-jobs` (`docs/DEPLOYMENT.md`) lists the env names
-present on each job after a deploy.
+that also touches a deployable `backend/` path and updates the gate
+(`tests/unit/test_sec_process_budgets.py`, and the backfill-facts map in
+`tests/unit/test_data_completeness.py`); when adding `--remove-env-vars`, drop the keys from that
+update's map. `--update-env-vars` only sets keys, so deleting them from `ci.yml`, or reverting the
+change that added them, leaves the pins live; a change confined to `ci.yml` does not deploy at all.
+Ops `describe-jobs` (`docs/DEPLOYMENT.md`) lists the env names present on each job after a deploy.
 
 ### AI call telemetry (`ai_call` / `ai_summary` log lines)
 
