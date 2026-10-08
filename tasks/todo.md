@@ -6439,9 +6439,18 @@ Full local and hosted verification plus independent exact-head review precede re
   check — disclosed; headroom 22.369715; paid dispatch HELD); chief defect 5 (event 11's entry) corrected by event 12; Codex reviews
   again from 2026-10-07 and the review-override exception rests while it does; PR #1109 review record closed (merge `f26debcb`; deploy
   steps skipped — sixth proof; the gate merge — seventh); PRs #1107/#1108 observed only; R1 unchanged. Closure 165.
-- [ ] Founder: relay the record-14 custody clarification (which retained input set record 05's predicate governs; whether an
-      authoritative manifest exists for it — SHA-256, byte count, one-line provenance) and its six return fields; say so only if
-      the 2 minutes are not consolidated; D3 (held).
+- 2026-10-08 (record 16, `runtime/control/DECISIONS-16.md`): the founder's two instructions — the custody question
+  investigated and decided by the chief under the founder's delegation (13 read-only agents; R1 held under record 05's gate as
+  written; governed set and authoritative manifest not determinable from committed evidence; one metadata-only step A and
+  outcomes A/B/C fixed in advance, form (b) only on the founder's one written line) and the D3 patch to be applied, staged by
+  the founder's choice (stage 1: the eight jobs and the task worker; stage 2: the API service after the insider panel fits the
+  budget). PR #1128 review record closed (merge `a3bc888b`; deploy steps skipped — eighth proof). Closures 166–167.
+- [x] Founder: relay the record-14 custody clarification — replaced by record 16's step A (the founder delegated the custody
+      question to the chief on 2026-10-08); D3 — applied by the founder's instruction, staged (record 16).
+- [ ] Founder (optional, no deadline): relay record 16's custody step A (five metadata fields) once; on outcome B, the one line
+      "I adopt record 16's form (b) for R1".
+- [ ] Chief: D3 stage 1 PR (eight jobs + task worker pinned; reservation before ready; deploy verified), then stage 2 (insider
+      panel within the budget; API service pinned).
 
 ## Copilot quotation rejection recovery — 2026-10-07
 
