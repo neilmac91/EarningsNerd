@@ -1,13 +1,14 @@
 """Machine gates for the agent-workflow rules of #1118 (CLAUDE.md rule 12).
 
-Four prose rules from AGENTS.md §5 and §7 would otherwise rot:
+Five prose rules from AGENTS.md §5 and §7 would otherwise rot:
 
 - ``tasks/todo.md`` is one page of open items, never a dated ledger again (§7). The old file grew
   to 6,406 lines because every session prepended a ``## <date> — …`` section.
 - Every ``agent(`` call in ``.claude/workflows/*.js`` names its ``model`` in its options object
-  with a literal or a tier key the script defines (§5), and every tier of the review script names
-  a lens model and, when it refutes, a refuter model, so no review stage inherits the session's
-  premium model or runs on ``undefined``.
+  with one of the aliases ``sonnet``, ``opus`` or ``haiku`` or a tier key the script defines (§5),
+  and every tier of the review script names a lens model and, when it refutes, a refuter model, so
+  no review stage inherits the session's premium model, names it by its full ID, or runs on
+  ``undefined``.
 - Workflow scripts validate their inputs before ``pipeline()``/``parallel()`` (a throw inside a
   stage is a silent drop) and never count a missing vote as a refutation
   (``lessons/ops-validate-workflow-inputs-before-pipeline.md``). These text checks are the first
@@ -46,17 +47,22 @@ DATE = re.compile(
 )
 HEADING = re.compile(r"^ {0,3}#{1,6}\s")
 SETEXT_UNDERLINE = re.compile(r"^ {0,3}(=+|-+)\s*$")
-# A quoted model literal, or the tier key the review script binds as `const T = TIERS[...]`.
-MODEL_VALUE = re.compile(r"^(?:'(sonnet|opus|haiku|claude-[\w.-]+)'|\"(sonnet|opus|haiku|claude-[\w.-]+)\"|T\.(lensModel|refuterModel))$")
+# One of the three aliases AGENTS.md §5 names, quoted, or the tier key the review script binds as
+# `const T = TIERS[...]`. A full model ID is refused on purpose: the aliases cannot spell the premium
+# session model, so a stage cannot be pinned to it by name either (the same set as
+# `frontend/tests/unit/premergeReviewWorkflow.spec.ts` allows).
+MODEL_ALIAS = "(sonnet|opus|haiku)"
+MODEL_VALUE = re.compile(rf"^(?:'{MODEL_ALIAS}'|\"{MODEL_ALIAS}\"|T\.(lensModel|refuterModel))$")
 TIER_BINDING = re.compile(r"\bconst T = TIERS\[")
-MODEL_LITERAL = re.compile(r"'(sonnet|opus|haiku|claude-[\w.-]+)'")
+MODEL_LITERAL = re.compile(rf"'{MODEL_ALIAS}'")
 # The vote-counting bug shape: `.length` (bare, `> 0`, `>= 1`, `!== 0`) guarding `.every(` means a
 # missing vote silently counts as a refutation. Whitespace may span lines.
 MISSING_VOTE_IS_REFUTATION = re.compile(r"\.length\s*(?:>\s*0|>=\s*1|!==?\s*0)?\s*&&\s*\w+\.every\(")
 # `- file.md — rule` or the older link form `- [`file.md`](./file.md) — rule`.
 INDEX_ENTRY = re.compile(r"^- (?:\[`?)?(archive/)?([a-z0-9-]+\.md)(?:`?\]\([^)]*\))?\s+—\s", re.MULTILINE)
 # Council files committed before the rule (AGENTS.md §7), pinned to their blob hashes: each may
-# stay unchanged or be deleted, never grow a new deliberation. The set only shrinks.
+# stay unchanged, move (a same-content rename, as the `tasks/` retention proposal would do) or be
+# deleted, never grow a new deliberation. The set only shrinks.
 EXISTING_TRANSCRIPTS = {
     TRANSCRIPTS + "council-2026-06-28-q2-moat.md": "52999e16463a49bf1fb4dbf5b89658d45ddac0f5",
     TRANSCRIPTS + "council-transcript-2026-06-28-q3-pricing.md": "6e757761061fa3229f1db62912f8256bbb08525a",
@@ -179,7 +185,7 @@ def _agent_calls(source: str):
 
 def _options_name_a_model(call: str) -> bool:
     """True when the call's last argument is an object literal whose top-level ``model`` value is a
-    quoted literal or a tier key the script defines (``T.lensModel`` / ``T.refuterModel``), so a
+    quoted alias or a tier key the script defines (``T.lensModel`` / ``T.refuterModel``), so a
     misspelled key cannot evaluate to ``undefined`` and inherit the session model."""
     args = _split_top_level(call)
     if len(args) < 2 or not args[-1].startswith("{"):
@@ -299,15 +305,16 @@ def _tracked_blobs() -> dict[str, str]:
 
 def test_no_new_or_grown_council_transcripts_in_the_repository():
     blobs = _tracked_blobs()
-    new_in_folder = sorted(p for p in blobs if p.startswith(TRANSCRIPTS) and p not in EXISTING_TRANSCRIPTS)
-    elsewhere = sorted(
-        p for p in blobs if not p.startswith(TRANSCRIPTS) and p not in EXISTING_TRANSCRIPTS and COUNCIL_FILE.search(p)
-    )
-    changed = sorted(p for p, blob in EXISTING_TRANSCRIPTS.items() if p in blobs and blobs[p] != blob)
-    assert not new_in_folder and not elsewhere and not changed, (
+    # Keyed by content, not path: every file in the transcripts folder and every council-named file
+    # anywhere must carry a pinned blob. A new file or an edit is a new blob; a rename is not.
+    pinned = set(EXISTING_TRANSCRIPTS.values())
+    council = sorted(p for p in blobs if p.startswith(TRANSCRIPTS) or COUNCIL_FILE.search(p))
+    unpinned = [p for p in council if blobs[p] not in pinned]
+    assert not unpinned, (
         "founder deliberations never enter this public repository (AGENTS.md §7); the llm-council "
-        f"skill writes to ~/.claude/earningsnerd/council/. New: {new_in_folder + elsewhere}; edited: {changed}"
+        f"skill writes to ~/.claude/earningsnerd/council/. New or edited: {unpinned}"
     )
-    gone = sorted(set(EXISTING_TRANSCRIPTS) - set(blobs))
+    tracked = set(blobs.values())
+    gone = sorted(p for p, blob in EXISTING_TRANSCRIPTS.items() if blob not in tracked)
     if gone:
-        raise AssertionError(f"remove these from EXISTING_TRANSCRIPTS, the set only shrinks: {gone}")
+        raise AssertionError(f"remove these from EXISTING_TRANSCRIPTS (their content left the tree), the set only shrinks: {gone}")
