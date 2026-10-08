@@ -183,10 +183,14 @@ ENTRY = re.compile(r"^python -m (evals\.[\w.]+)((?:\s+(?:--[\w-]+|\"[^\"`()\\]*\
 INTEGER = re.compile(r"^\d+$")
 # A dotted name in a string literal with a local head joins the closure like an import statement: the longest
 # prefix that is a local module (`importlib.import_module("app.x")`; `mock.patch("app.x.Class.method")` and
-# `pkgutil.resolve_name("app.x:Class")` import `app.x`; a lazy loader). A one-segment prefix counts only in the
-# `module:attr` form and only for a top-level module file (`"task_worker_main:app"`, `"main:app"`): a bare top-level
-# package is never a find, since every parent package is in the closure already and `"app.state"` names nothing, and
-# a bare word is never a module, since `"main"` is a branch name too.
+# `pkgutil.resolve_name("app.x:Class")` import `app.x`). A one-segment prefix counts only in the `module:attr` form
+# and only for a top-level module file (`"task_worker_main:app"`, `"main:app"`): a bare top-level package is never a
+# find, since every parent package is in the closure already and `"app.state"` names nothing, and a bare word is never
+# a module, since `"main"` is a branch name too. A lazy loader, an importer call whose argument has a constant head
+# and a variable tail (`import_module(f"app.integrations.{name}")`, `import_module("app.integrations." + name)`,
+# `patch(f"app.services.copilot_service.{attr}")`), imports the longest module prefix of the head and, when that
+# prefix is a package, every module under it, loudly: any of them may load.
+IMPORTERS = frozenset({"import_module", "resolve_name", "patch", "__import__", "import_string"})
 DOTTED = re.compile(r"^[A-Za-z_]\w*(?:\.[A-Za-z_]\w*)*(?::[A-Za-z_]\w*(?:\.[A-Za-z_]\w*)*)?$")
 # A flag of an entry command: `--name`, or `--name=value` with the value checked as a path.
 FLAG = re.compile(r"^--[\w-]+$")
@@ -315,7 +319,7 @@ def _recursive_literals(tree: ast.AST) -> set[int]:
         id(part) for node in ast.walk(tree)
         if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute) and node.func.attr == "rglob"
         for a in node.args + [keyword.value for keyword in node.keywords]
-        for part in (a.values if isinstance(a, ast.JoinedStr) else [a]) if isinstance(part, ast.Constant)
+        for part in ast.walk(a) if isinstance(part, ast.Constant)  # every constant of the operand, a chain's included
     }
 
 
@@ -409,7 +413,7 @@ def _fold(node: ast.AST, aliases: set[str] | frozenset[str], files: set[str] | f
     `here = abspath(__file__); here = dirname(here)` builds paths on the module's directory and, bound twice, is
     mixed, read both ways), and None for a part this gate cannot know (another
     name, a call, an f-string part with a conversion or a format spec). Follows `+`, an f-string, a `%` template with
-    `%s` fields, a `.format` template with plain positional or keyword fields, `sep.join([...])`, `os.path.join(...)`,
+    `%s` fields, a `.format` template with plain positional or keyword fields, `sep.join([...])` and `"".join([...])`, `os.path.join(...)`,
     `Path(a, b, ...)`, `joinpath(...)` and `/` (a separator between the operands), `with_name` on the module file
     (its directory, a separator, the name), and the wrappers `resolve()`, `absolute()`, `abspath()`, `realpath()`,
     `str()`, `os.fspath()` and `Path(x)`."""
@@ -484,8 +488,8 @@ def _fold(node: ast.AST, aliases: set[str] | frozenset[str], files: set[str] | f
         if name == "joinpath" and receiver is not None and args:
             return joined([receiver, *args])
         if name == "join" and receiver is not None and len(args) == 1 and isinstance(args[0], (ast.List, ast.Tuple)) \
-                and [piece.text for piece in fold(receiver)] == ["/"]:  # `os.sep.join([dir, "x"])`, `"/".join(...)`
-            return joined(args[0].elts)
+                and [piece.text for piece in fold(receiver)] in (["/"], [""]):  # `os.sep.join([dir, "x"])`, `"".join([dir, "/x"])`
+            return joined(args[0].elts) if fold(receiver)[0].text == "/" else [piece for part in args[0].elts for piece in fold(part)]
         if (name == "join" or name.endswith("Path")) and args:  # `os.path.join(dir, "x")`, `Path(dir, "x")`
             return joined(args)
         template = _literal(receiver) if name == "format" and receiver is not None else None
@@ -605,8 +609,9 @@ def _sibling_literals(tree: ast.AST) -> tuple[set[int], dict[int, str], set[int]
     since `dir + "_backup"` is another directory; its leading slashes dropped, it is returned in `joined` under the
     first constant it came from (`join(dir, "baselines", "*.json")` is `baselines/*.json`; `dir / "README.md"` is
     `README.md`), the other constants in `skip`, which `_named_in` does not read on their own. A glob (`glob`,
-    `rglob`, `iglob`, or `glob.glob` with `root_dir=`) on the module's directory anchors its pattern constants, an
-    f-string's parts included, and `join(dir, f"{stem}*.md")` reads as `glob(f"{stem}*.md")` would. A literal built on
+    `rglob`, `iglob`, or `glob.glob` with `root_dir=`) on the module's directory anchors its pattern: folded the same
+    way when it is built from several constants (`"*" + ".json"`, `join("baselines", "*.json")`), else its constant
+    parts, an f-string's included, and `join(dir, f"{stem}*.md")` reads as `glob(f"{stem}*.md")` would. A literal built on
     any other receiver (an output directory, `parents[1]`, a parameter) and a bare word anywhere else (a dict key, a
     column name) is not a folder. The ids anchored through a mixed name (one also bound to something else) are
     returned in `loose` too: `_named_in` reads those both anchored and as spelled."""
@@ -630,6 +635,15 @@ def _sibling_literals(tree: ast.AST) -> tuple[set[int], dict[int, str], set[int]
         parts = operand.values if isinstance(operand, ast.JoinedStr) else [operand]
         return {id(part) for part in parts if isinstance(part, ast.Constant)}
 
+    def pattern(operand: ast.AST) -> set[int]:  # a glob's pattern built from several constants is the one string it builds
+        tail = list(itertools.takewhile(lambda piece: piece.text is not None and piece.text not in (DIR, FILE), fold(operand)))
+        nodes = [piece.node for piece in tail if piece.node is not None and piece.text]
+        if len(nodes) < 2:
+            return constants(operand)
+        joined[id(nodes[0])] = "".join(piece.text for piece in tail)  # `"*" + ".json"`, `join("baselines", "*.json")`
+        skip.update(id(constant) for constant in nodes[1:] if constant is not nodes[0])
+        return {id(nodes[0])}
+
     ids: set[int] = set()
     joined: dict[int, str] = {}
     skip: set[int] = set()
@@ -650,13 +664,13 @@ def _sibling_literals(tree: ast.AST) -> tuple[set[int], dict[int, str], set[int]
             if pieces is None:
                 continue
             for operand in [*node.args, *(keyword.value for keyword in node.keywords if keyword.arg != "root_dir")]:
-                read |= constants(operand)
+                read |= pattern(operand)
         elif name in {"glob", "rglob"} and isinstance(node.func, ast.Attribute):  # `dir.glob("*.md")`, `rglob`
             pieces = fold(node.func.value)
             if not _is_module_dir(node.func.value, aliases, files, slashed, seps):
                 continue
             for operand in [*node.args, *(keyword.value for keyword in node.keywords)]:
-                read |= constants(operand)
+                read |= pattern(operand)
         else:
             if isinstance(node, ast.AugAssign) and isinstance(node.op, ast.Add):  # `p += "/baselines"` on the directory name
                 pieces, operands = fold(node.target) + fold(node.value), _add_chain(node.value)
@@ -842,6 +856,24 @@ def _local_imports(module: str, is_package: bool, tree: ast.AST):
                     if found is not None and (n > 1 or found.name != "__init__.py"):  # a bare top-level package is never a find
                         yield ".".join(parts[:n])
                         break
+        elif isinstance(node, ast.Call) and node.args and not isinstance(node.args[0], ast.Constant):
+            func = node.func
+            name = func.attr if isinstance(func, ast.Attribute) else func.id if isinstance(func, ast.Name) else ""
+            if name not in IMPORTERS:
+                continue
+            pieces = _fold(node.args[0], frozenset(), frozenset())  # `import_module(f"app.integrations.{name}")`: the constant head
+            head = "".join(piece.text for piece in itertools.takewhile(lambda piece: piece.text is not None and piece.text not in (DIR, FILE), pieces))
+            parts = head.split(":")[0].rstrip(".").split(".")
+            if not DOTTED.match(head.split(":")[0].rstrip(".")) or parts[0] not in LOCAL_TOP_LEVEL or len(parts) < 2:
+                continue
+            for n in range(len(parts), 1, -1):  # the longest module prefix of the head; a package means any module under it
+                found = _module_path(".".join(parts[:n]))
+                if found is not None:
+                    yield ".".join(parts[:n])
+                    if found.name == "__init__.py":
+                        package = "/".join(parts[:n]) + "/"
+                        yield from (_module_name("backend/" + path) for path in TRACKED_PY if path.startswith(package))
+                    break
 
 
 def _workflow() -> dict:
@@ -1379,6 +1411,14 @@ def test_relative_imports_anchor_on_the_owning_package():
     tree = ast.parse('b = pkgutil.resolve_name("main:app"); c = "app:thing"; d = "task_worker_main"')
     assert set(_local_imports("evals.copilot_runner", False, tree)) == {"main"}
     assert set(_local_imports("evals.copilot_runner", False, ast.parse('e = mock.patch("task_worker_main.app")'))) == {"task_worker_main"}
+    # A lazy loader, an importer call with a constant head and a variable tail, imports the longest module prefix of the
+    # head and, for a package, every module under it; a logger name built the same way is not an import.
+    integrations = {_module_name(p) for p in TRACKED if p.startswith("backend/app/integrations/") and p.endswith(".py")}
+    assert len(integrations) >= 2
+    for spelling in ('importlib.import_module(f"app.integrations.{name}")', 'import_module("app.integrations." + name)', 'pkgutil.resolve_name(f"app.integrations.{name}:Client")'):
+        assert set(_local_imports("evals.copilot_runner", False, ast.parse(f"m = {spelling}"))) == {"app.integrations"} | integrations, spelling
+    assert set(_local_imports("evals.copilot_runner", False, ast.parse('p = patch(f"app.services.copilot_service.{attr}")'))) == {"app.services.copilot_service"}
+    assert set(_local_imports("evals.copilot_runner", False, ast.parse('log = logging.getLogger(f"app.integrations.{name}"); q = importlib.import_module(f"{pkg}.x"); r = importlib.import_module(f"app.{name}")'))) == set()
 
 
 def test_every_reachable_module_and_runtime_input_triggers_the_run():
@@ -1702,6 +1742,13 @@ def test_data_directories_and_named_files_are_inputs():
             assert _named_in(ast.parse(spelling), "backend/evals/copilot_runner.py") == beside_json, spelling
         assert _named_in(ast.parse("HERE = Path(__file__)\nHERE = HERE.resolve().parent\nd = HERE / 'baselines'\n"), "backend/evals/copilot_runner.py") == baselines
         assert _named_in(ast.parse("here = os.path.abspath(__file__)\nhere = os.path.dirname(here)\nfs = os.listdir(here)\n"), "backend/evals/copilot_runner.py") == {p for p in evals_all if p.count("/") == 2}
+        # A glob's pattern built from several constants is the one string it builds; `"".join` concatenates.
+        for spelling in ('Path(__file__).parent.glob("*" + ".json")', 'glob.glob("*" + ".json", root_dir=os.path.dirname(__file__))', 'Path(__file__).parent.glob("".join(["*", ".json"]))',
+                         'glob.glob("".join([os.path.dirname(__file__), "/*.json"]))'):
+            assert _named_in(ast.parse(f"fs = {spelling}"), "backend/evals/copilot_runner.py") == beside_json, spelling
+        assert _named_in(ast.parse('fs = Path(__file__).parent.glob(os.path.join("baselines", "*.json"))'), "backend/evals/copilot_runner.py") == baselines_json
+        assert _named_in(ast.parse('fs = Path(__file__).parent.rglob("*" + ".md")'), "backend/evals/copilot_runner.py") == {p for p in evals_all if p.endswith(".md")}
+        assert _named_in(ast.parse('fs = out.glob("*" + ".json"); gs = Path(__file__).parent.glob("*" + sub)'), "backend/evals/copilot_runner.py") == set()
         assert _named_in(ast.parse('d = "%s/%s" % (os.path.dirname(__file__), sub); e = "%d/*.json" % n; g = "{}/*.json".format(out); h = "{:>3}/x".format(os.path.dirname(__file__)); i = "%s_backup" % os.path.dirname(__file__); j = ", ".join([os.path.dirname(__file__), "*.json"])'),
                          "backend/evals/copilot_runner.py") == set()
         # A `..` or `.` head followed by a name names nothing: a lone `..` names nothing, and the name is the limit of a
