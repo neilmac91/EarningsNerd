@@ -17,12 +17,23 @@ The workflow is read as an allowlist, not a denylist (its `on:` block included: 
 types and paths, nothing else), and only tracked files count anywhere: the import walk resolves
 modules against `git ls-files`, so a gitignored eval report or an untracked package that shadows an
 installed import never moves the gate. Every argument of an entry command that is not a flag or an
-integer is a path: a tracked file or directory is an input of the run, a gitignored path or one under
-`$RUNNER_TEMP` followed by a plain path is run-local, anything else with a `$` in it is untraced.
-Named-file detection covers every tracked file: a literal's path segments must end the tracked path,
-and a literal without a `..` segment reaches only `backend/`, where the run works, so a same-named copy
-elsewhere cannot turn the gate red; a `.py` named by path (run by subprocess) is a named file, and a
-dotted module name in a string literal that resolves to a local module joins the closure. The workflow, each job and each step may
+integer is a path (quotes are removed first, as bash removes them, so a quoted `"--opt=value"` is
+split like a bare one): a tracked file or directory is an input of the run, a gitignored path or one
+under `$RUNNER_TEMP` followed by a plain path is run-local, anything else with a `$` in it is untraced
+(a single-quoted argument is literal to bash, so its `$` names a directory, never a variable).
+Named-file detection covers every tracked file and directory: a literal is normalised (`a/../b` is
+`b`; a `sqlite:///` prefix is dropped, any other URL is skipped) and its segments must
+end the tracked path. A bare name reaches only `backend/` files, where the run works, so a same-named
+copy elsewhere (a font the frontend also ships, an evidence copy of a report under `tasks/`) cannot
+turn the gate red, and it never names a directory (`app`, `unit` and `support` occur as ordinary
+words); a path of two or more segments names files and directories, prefers `backend/` and otherwise
+reaches the whole repository (`Path(__file__).resolve().parents[2]` is the repository root); a path
+with a leading `..` reaches it unconditionally. A path spelled one segment per literal
+(`ROOT / "docs" / "x.md"`) is a bare name each: that is the limit of per-literal matching. A `.py`
+named by path (run by subprocess) is a named file and a module of the closure, so its imports are
+followed (a bare `.py` name such as `__init__.py` matches every backend file so named, loudly), and
+a dotted module name in a string literal that resolves to a local module joins the closure. The
+workflow, each job and each step may
 carry only known keys (so a `container:`, `services:` or `strategy:` needs a deliberate entry).
 Every simple command of every `run:` step (split on `&&`, `||`, `;`, `|` and `&` outside quotes; a
 backslash or a `${` anywhere is refused) must be exactly `python -m evals.<module>` with plain
@@ -42,11 +53,14 @@ Runtime-loaded data the closure cannot see is pinned by enumerating the real fil
 the golden set and sources, every file under the data directories of `app/` (the directories
 there without Python: `app/data` and `app/assets` today; they trigger the run whether or not a
 closure module reads them, which costs about one run a month), the files the run steps install or
-load, the workflow itself, and every tracked non-Python file under `backend/` whose basename a
-closure module names in a string literal (so `with_name("baseline_scores.json")`,
-`/ "index_membership.json"` or a tests fixture named in the eval's code makes that file a required
-input, whatever the path spelling around it, and naming a non-trigger is reported). CLAUDE.md
-rule 12.
+load, the workflow itself, and every tracked file a closure module names in a string literal under
+the rules above (so `with_name("baseline_scores.json")`, `/ "index_membership.json"` or a tests
+fixture named in the eval's code makes that file a required input, and naming a non-trigger is
+reported; the artifacts the run writes are exempt only as bare names in `evals/` modules, so a
+literal that spells a directory to one of those names points at a committed file and is matched).
+Every tracked file under `evals/` is a trigger, a module, Markdown or listed summary-eval data, so a
+new data file or directory there is classified deliberately (the filter's `copilot_*` does not cross
+a `/`). CLAUDE.md rule 12.
 """
 from __future__ import annotations
 
@@ -54,6 +68,7 @@ import ast
 import posixpath
 import re
 import subprocess
+import sys
 from pathlib import Path
 from unittest import mock
 
@@ -95,10 +110,12 @@ NON_ASCII = re.compile("[^\x20-\x7e\t\n]")
 ENTRY = re.compile(r"^python -m (evals\.[\w.]+)((?:\s+(?:--[\w-]+|\"[^\"`()\\]*\"|'[^'\\]*'|[\w./$:=-]+|2>&1))*)$")
 # Commands whose file operands are inputs of the run: each operand must trigger the run.
 # Every argument of an entry command is a path unless it is a flag or an integer (`--runs 3`), and a
-# `--opt=value` is split at its `=` as argparse reads it. The run may read a path, so it must be a
-# tracked file or directory (then an input of the run), gitignored (the run writes it) or under
-# `$RUNNER_TEMP` followed by a plain path (no `$`, no `..`); anything else with a `$` in it, a flag
-# such as `--preparation$X` included, is untraced.
+# `--opt=value` is split at its `=` as argparse reads it, after its quotes are removed as bash removes
+# them. The run may read a path, so it must be a tracked file or directory (then an input of the run),
+# gitignored (the run writes it) or under `$RUNNER_TEMP` followed by a plain path (no `$`, no `..`);
+# anything else with a `$` in it, a flag such as `--preparation$X` included, is untraced. Only an
+# unquoted or double-quoted `$` expands: a single-quoted `'$RUNNER_TEMP/x'` is the literal path
+# `$RUNNER_TEMP/x` to bash, traced as such.
 INTEGER = re.compile(r"^\d+$")
 # A dotted module name in a string literal (`importlib.import_module("app.x")`, `pkgutil`, a lazy loader)
 # that resolves to a local module joins the closure like an import statement.
@@ -169,20 +186,36 @@ DATA_DIRS = sorted({
     if not any(p.startswith(f"backend/app/{d}/") and p.endswith(".py") for p in TRACKED)
 })
 DATA_DIRS = [f"app/{d}" for d in DATA_DIRS]
-# Every tracked file in the repository, keyed by basename, so a string literal naming one makes it a
-# required input whatever the path spelling around it (a non-trigger so named is reported, a `.py` run
-# by path included). The literal's path segments must end the tracked path, and a literal without a
-# `..` segment reaches only `backend/`, where the run works: a copy of the same name elsewhere in the
-# repository is not what the run reads, so it cannot turn the gate red. A URL's last segment is not a
-# name, and neither are the artifacts the run writes under its output directory (and may read back
-# there: `evals/copilot_bootstrap`), which only a module under `evals/` may name as such; each of those
-# names must still occur in the closure.
+# Every tracked file and directory (stored with a trailing `/`) in the repository, keyed by last
+# segment, so a string literal naming one makes it (or every tracked file under it) a required input (a non-trigger so named is reported,
+# a `.py` run by path included). The literal is normalised and its segments must end the tracked path.
+# A bare name reaches only `backend/` files, where the run works: a copy of the same name elsewhere in
+# the repository is not what the run reads, so it cannot turn the gate red, and a bare directory name
+# is an ordinary word too often (`app`, `unit`, `support` occur in the closure today). A path of two or
+# more segments names files and directories, prefers `backend/` and otherwise reaches the whole
+# repository (eval modules anchor on the repository root through `parents[2]`), and a path with a
+# leading `..` reaches it unconditionally. A URL's last segment is not a name (a `sqlite:///` prefix
+# is dropped first, since a relative SQLite URL names a local file), and neither is a bare artifact name the run writes under its
+# output directory (and may read back there: `evals/copilot_bootstrap`) in a module under `evals/`;
+# a path to such a name is a committed file. Each artifact name must still occur in the closure.
 RUN_ARTIFACTS = frozenset({
     "filing.html", "xbrl.json", "sections.json", "excerpt.txt", "preparation.json", "prepared-source.db", "copilot-eval.json", "copilot-eval.md",
 })
+LOCAL_URL = re.compile(r"^sqlite:///")
 NAMED_CANDIDATES: dict[str, list[str]] = {}
+NAMED_DIRS: dict[str, list[str]] = {}
 for _p in sorted(TRACKED):
-    NAMED_CANDIDATES.setdefault(_p.rsplit("/", 1)[-1], []).append(_p)
+    _parts = _p.split("/")
+    NAMED_CANDIDATES.setdefault(_parts[-1], []).append(_p)
+    for _i in range(1, len(_parts)):
+        _d = "/".join(_parts[:_i]) + "/"
+        if _d not in NAMED_DIRS.get(_parts[_i - 1], []):
+            NAMED_DIRS.setdefault(_parts[_i - 1], []).append(_d)
+# Summary-eval data under evals/ that the Copilot run never reads. Every other tracked file under
+# evals/ is a trigger, a module, Markdown or listed here, so a new data file or directory there (a
+# `copilot_questions/` the filter's `copilot_*` would not reach, since `*` does not cross `/`) is
+# classified deliberately: a Copilot input joins the filter, summary-eval data joins this list.
+SUMMARY_EVAL_DATA = ["evals/baseline_scores.json", "evals/golden_set.json", "evals/weekly_cohort.json", "evals/reports/.gitignore"]
 
 
 def _existing(paths, what: str) -> list[str]:
@@ -202,17 +235,27 @@ def _named_in(tree: ast.AST, module: str = "backend/evals/") -> set[str]:
     """Repo-relative paths of tracked files a string literal in `tree` names (see NAMED_CANDIDATES)."""
     found: set[str] = set()
     for node in ast.walk(tree):
-        if not (isinstance(node, ast.Constant) and isinstance(node.value, str)) or "://" in node.value:
+        if not (isinstance(node, ast.Constant) and isinstance(node.value, str)):
             continue
-        parts = node.value.split("/")
+        value = LOCAL_URL.sub("", node.value)
+        if "://" in value:
+            continue
+        parts = posixpath.normpath(value).split("/")  # `..` survives only at the start
         segments = [s for s in parts if s not in ("", ".", "..")]
-        if not segments or (segments[-1] in RUN_ARTIFACTS and module.startswith("backend/evals/")):
+        if not segments or (len(segments) == 1 and segments[0] in RUN_ARTIFACTS and module.startswith("backend/evals/")):
             continue
-        suffix, outside = "/".join(segments), ".." in parts
-        for candidate in NAMED_CANDIDATES.get(segments[-1], []):
-            if (outside or candidate.startswith("backend/")) and (candidate == suffix or candidate.endswith("/" + suffix)):
-                found.add(candidate)
+        suffix, outside, spelled = "/".join(segments), parts[0] == "..", len(segments) > 1
+        candidates = NAMED_CANDIDATES.get(segments[-1], []) + (NAMED_DIRS.get(segments[-1], []) if outside or spelled else [])
+        matches = [c for c in candidates if c.rstrip("/") == suffix or c.rstrip("/").endswith("/" + suffix)]
+        inside = [c for c in matches if c.startswith("backend/")]
+        for candidate in matches if outside or (spelled and not inside) else inside:
+            found.update([p for p in TRACKED if p.startswith(candidate)] if candidate.endswith("/") else [candidate])
     return found
+
+
+def _module_name(path: str) -> str:
+    """`backend/scripts/seed.py` -> `scripts.seed`; a package's `__init__.py` is the package."""
+    return ".".join(path[len("backend/") : -len(".py")].removesuffix("/__init__").split("/"))
 
 
 def named_files(closure: set[str]) -> set[str]:
@@ -241,7 +284,8 @@ def non_triggers(closure: set[str]) -> list[str]:
     top_level = [ROOT / p for p in TRACKED if p.startswith("backend/") and p.count("/") == 1 and p not in inputs]
     candidates = _existing(
         _glob("tests/**/*") + _glob("evals/**/*.md") + summary_eval_modules + _glob("scripts/*") + _glob("migrations/*")
-        + _glob("app/routers/*.py") + _glob("app/integrations/*.py") + top_level + [BACKEND / "evals/baseline_scores.json"],
+        + _glob("app/routers/*.py") + _glob("app/integrations/*.py") + top_level + [BACKEND / p for p in SUMMARY_EVAL_DATA]
+        + _glob("evals/baselines/*.json"),
         "non-triggers",
     )
     # Outside backend/, everything the run does not load is a non-trigger too, so a `.github/**` or
@@ -335,23 +379,28 @@ def _classify(command: str, workdir: str = "") -> tuple[str, object]:
     return "untraced", command
 
 
-def _entry_paths(command: str, workdir: str) -> list[tuple[str, str]]:
-    """(repo-relative path, value as written) for every argument of an entry command that may be a path."""
+def _entry_paths(command: str, workdir: str) -> list[tuple[str, str, bool]]:
+    """(repo-relative path, value as written, single-quoted) for every argument of an entry command that
+    may be a path; quotes are removed as bash removes them, and a single-quoted value is literal to bash,
+    so a `$` in it never expands."""
     found = []
     for token in re.findall(r"\"[^\"]*\"|'[^']*'|\S+", ENTRY.match(command).group(2)):
-        if token == "2>&1" or FLAG.match(token):
+        bare = token.strip("\"'")
+        if bare == "2>&1" or FLAG.match(bare):
             continue
-        name, _, value = token.partition("=")
-        raw = (value if token.startswith("--") and FLAG.match(name) else token).strip("\"'")
+        name, _, value = bare.partition("=")
+        raw = value if bare.startswith("--") and FLAG.match(name) else bare
         if not raw or INTEGER.match(raw):
             continue
-        found.append((posixpath.normpath((Path(workdir) / raw).as_posix() if workdir else raw), raw))
+        found.append((posixpath.normpath((Path(workdir) / raw).as_posix() if workdir else raw), raw, token.startswith("'")))
     return found
 
 
 def _ignored(rel: str) -> bool:
-    """Whether the repository's own ignore rules cover `rel` (the user's global excludes are not consulted);
-    a gitignored path is something the run writes, never an input."""
+    """Whether the repository's own ignore rules cover `rel` (the user's global excludes are not consulted;
+    a per-clone `.git/info/exclude` still is, no git option disables it, and CI's checkout has none, so a
+    local one can only make a local run more lenient); a gitignored path is something the run writes,
+    never an input."""
     try:
         command = ["git", "-c", "core.excludesFile=/dev/null", "check-ignore", "-q", "--", rel]
         return subprocess.run(command, cwd=ROOT, capture_output=True).returncode == 0  # noqa: S603, S607
@@ -464,11 +513,12 @@ def _read_steps(workflow: dict) -> tuple[list[str], list[str]]:
                     untraced.append(f"{job_name}: `{command}` runs from {workdir or '.'!r}, not {ENTRY_WORKDIR!r}; python -m would import from there first")
                 elif kind == "entry":
                     modules.add(value)
-                    for rel, raw in _entry_paths(command, workdir):
-                        if raw.startswith("$RUNNER_TEMP/") and "$" not in raw[len("$RUNNER_TEMP/"):] and ".." not in raw.split("/"):
+                    for rel, raw, literal in _entry_paths(command, workdir):
+                        expands = "$" in raw and not literal
+                        if expands and raw.startswith("$RUNNER_TEMP/") and "$" not in raw[len("$RUNNER_TEMP/"):] and ".." not in raw.split("/"):
                             continue
-                        tracked = [] if "$" in raw else [p for p in TRACKED if rel == "." or p == rel or p.startswith(rel + "/")]
-                        if "$" in raw or not (tracked or _ignored(rel)):
+                        tracked = [] if expands else [p for p in TRACKED if rel == "." or p == rel or p.startswith(rel + "/")]
+                        if expands or not (tracked or _ignored(rel)):
                             untraced.append(f"{job_name}: `{command}` reads {raw!r}, which is neither tracked, gitignored nor under $RUNNER_TEMP")
                         entry_files.update(tracked)
                 elif kind == "install":
@@ -515,6 +565,9 @@ def reachable_files(roots=None) -> set[str]:
         stack.extend(".".join(parts[:i]) for i in range(1, len(parts)))
         tree = ast.parse(path.read_text(encoding="utf-8"))
         stack.extend(_local_imports(module, path.name == "__init__.py", tree))
+        # A `.py` the module runs by path (subprocess) is a module too: its own imports are followed.
+        named = _named_in(tree, path.relative_to(ROOT).as_posix())
+        stack.extend(_module_name(p) for p in named if p.startswith("backend/") and p.endswith(".py"))
     return {_module_path(m).relative_to(ROOT).as_posix() for m in seen}
 
 
@@ -601,13 +654,27 @@ def test_run_commands_outside_the_allowlist_are_rejected():
     # gitignored path or `$RUNNER_TEMP` is run-local, anything else is untraced.
     assert _entry_paths(
         'python -m evals.copilot_runner --preparation evals/reports/copilot/preparation.json --output evals/reports/copilot --runs 3 2>&1', "backend"
-    ) == [("backend/evals/reports/copilot/preparation.json", "evals/reports/copilot/preparation.json"), ("backend/evals/reports/copilot", "evals/reports/copilot")]
-    assert _entry_paths('python -m evals.copilot_bootstrap --database "$RUNNER_TEMP/copilot fidelity.db" --runs 3 --output=out --quiet', "backend") == [
-        ("backend/$RUNNER_TEMP/copilot fidelity.db", "$RUNNER_TEMP/copilot fidelity.db"), ("backend/out", "out"),  # `3` is not a path; `--opt=value` is split
+    ) == [
+        ("backend/evals/reports/copilot/preparation.json", "evals/reports/copilot/preparation.json", False),
+        ("backend/evals/reports/copilot", "evals/reports/copilot", False),
     ]
-    assert _entry_paths("python -m evals.copilot_runner --preparation=tests/x.json --sources ..", "backend") == [("backend/tests/x.json", "tests/x.json"), (".", "..")]
+    assert _entry_paths('python -m evals.copilot_bootstrap --database "$RUNNER_TEMP/copilot fidelity.db" --runs 3 --output=out --quiet', "backend") == [
+        ("backend/$RUNNER_TEMP/copilot fidelity.db", "$RUNNER_TEMP/copilot fidelity.db", False), ("backend/out", "out", False),  # `3` is not a path; `--opt=value` is split
+    ]
+    assert _entry_paths("python -m evals.copilot_runner --preparation=tests/x.json --sources ..", "backend") == [
+        ("backend/tests/x.json", "tests/x.json", False), (".", "..", False),
+    ]
+    # Quotes come off before the split, as bash removes them; a single-quoted `$` is literal to bash, so the
+    # run reads a directory named `$RUNNER_TEMP`, not the runner's.
+    assert _entry_paths("python -m evals.copilot_runner \"--preparation=tests/x.json\" '--sources=$RUNNER_TEMP/s' --output '$RUNNER_TEMP/o' \"--runs=3\"", "backend") == [
+        ("backend/tests/x.json", "tests/x.json", False), ("backend/$RUNNER_TEMP/s", "$RUNNER_TEMP/s", True), ("backend/$RUNNER_TEMP/o", "$RUNNER_TEMP/o", True),
+    ]
     runner = {"working-directory": "backend"}
     assert _read_steps({"jobs": {"j": {"steps": [{"run": 'python -m evals.copilot_runner --output "$RUNNER_TEMP/out" --preparation evals/reports/copilot/preparation.json', **runner}]}}}) == (["evals.copilot_runner"], [])
+    for spelling in ("--preparation tests/fixtures/companyfacts_sample.json", '"--preparation=tests/fixtures/companyfacts_sample.json"'):
+        assert _read_steps({"jobs": {"j": {"steps": [{"run": f"python -m evals.copilot_runner {spelling}", **runner}]}}}) == (
+            ["evals.copilot_runner"], ["backend/tests/fixtures/companyfacts_sample.json"],
+        ), spelling
     assert _read_steps({"jobs": {"j": {"steps": [{"run": "python -m evals.copilot_runner --preparation tests/fixtures/companyfacts_sample.json", **runner}]}}}) == (
         ["evals.copilot_runner"], ["backend/tests/fixtures/companyfacts_sample.json"],
     )
@@ -683,6 +750,10 @@ def test_an_untraceable_shell_action_env_or_job_is_rejected():
         {"jobs": {"j": {"steps": [{"run": "python -m evals.copilot_runner --$X=evals/reports/copilot", "working-directory": "backend"}]}}},
         {"jobs": {"j": {"steps": [{"run": 'python -m evals.copilot_bootstrap --database "$RUNNER_TEMP/$X/../copilot.db" --output evals/reports/copilot', "working-directory": "backend"}]}}},
         {"jobs": {"j": {"steps": [{"run": "python -m evals.copilot_bootstrap --database $RUNNER_TEMP/o$IFS--preparation$IFS../x --output evals/reports/copilot", "working-directory": "backend"}]}}},
+        {"jobs": {"j": {"steps": [{"run": "python -m evals.copilot_runner --preparation '$RUNNER_TEMP/preparation.json'", "working-directory": "backend"}]}}},
+        {"jobs": {"j": {"steps": [{"run": "python -m evals.copilot_runner '--preparation=$RUNNER_TEMP/preparation.json'", "working-directory": "backend"}]}}},
+        {"jobs": {"j": {"steps": [{"run": 'python -m evals.copilot_runner "--preparation=tests/fixtures/prep/preparation.json"', "working-directory": "backend"}]}}},
+        {"jobs": {"j": {"steps": [{"run": 'python -m evals.copilot_runner "--preparation=../docs/no-such-file.md"', "working-directory": "backend"}]}}},
         {"on": {"pull_request": {"types": ["ready_for_review"], "paths": ["backend/app/**"]}, "pull_request_target": {"types": ["ready_for_review"]}}, "jobs": {"j": {"steps": [step]}}},
         {"on": {"pull_request": {"types": ["ready_for_review"], "paths": ["backend/app/**"], "paths-ignore": ["backend/tests/**"]}}, "jobs": {"j": {"steps": [step]}}},
         {"on": ["pull_request", "push"], "jobs": {"j": {"steps": [step]}}},
@@ -762,6 +833,12 @@ def test_closure_follows_every_top_level_backend_name():
     assert not [f for f in files if f.startswith("backend/tests/")], "the eval must not import test code"
     # The summary-eval modules exempted from the non-trigger list must really be in the closure.
     assert {f"backend/evals/{m}" for m in COPILOT_EVAL_MODULES} <= files
+    # A `.py` run by path is a module of the closure too, so its own imports are followed.
+    assert _module_name("backend/scripts/seed.py") == "scripts.seed" and _module_name("backend/app/edgar/__init__.py") == "app.edgar"
+    script = next(p for p in sorted(TRACKED) if p.startswith("backend/scripts/") and p.endswith(".py") and "from app.database import" in (ROOT / p).read_text(encoding="utf-8"))
+    with mock.patch.object(sys.modules[__name__], "_named_in", lambda tree, module="": {script} if module.endswith("copilot_runner.py") else set()):
+        hopped = reachable_files(["evals.copilot_runner"])
+    assert script in hopped and "backend/app/database.py" in hopped and script not in files
 
 
 def test_relative_imports_anchor_on_the_owning_package():
@@ -813,25 +890,44 @@ def test_data_directories_and_named_files_are_inputs():
         "xbrl.json": ["backend/tests/fixtures/x/xbrl.json"], "baseline_scores.json": ["backend/evals/baseline_scores.json"],
         "copilot-eval.md": ["tasks/review-evidence/probe/copilot-eval.md", "backend/tests/fixtures/copilot-eval.md"],
         font: [f"backend/app/assets/fonts/{font}", f"frontend/scripts/brand/fonts/{font}"],
-        "seed.py": ["backend/scripts/seed.py"],
+        "seed.py": ["backend/scripts/seed.py"], "CONFIGURATION.md": ["docs/CONFIGURATION.md"], "seed.db": ["backend/tests/fixtures/seed.db"],
     }
-    with mock.patch.dict(NAMED_CANDIDATES, injected):
+    with mock.patch.dict(NAMED_CANDIDATES, injected), mock.patch.dict(NAMED_DIRS, {"x": ["backend/tests/fixtures/x/"], "brand": ["frontend/scripts/brand/"]}):
         assert _named_in(ast.parse('u = "https://example.com/files/baseline_scores.json"')) == set()
+        # A relative SQLite URL names its file; any other URL is skipped.
+        for url in ("sqlite:///tests/fixtures/seed.db", "sqlite:///./tests/fixtures/seed.db"):
+            assert _named_in(ast.parse(f'e = create_engine("{url}")'), "backend/app/x.py") == {"backend/tests/fixtures/seed.db"}, url
+        assert _named_in(ast.parse('e = "sqlite:///"; m = "sqlite:///:memory:"; f = "file:///tests/fixtures/seed.db"'), "backend/app/x.py") == set()
         assert "xbrl.json" in RUN_ARTIFACTS and _named_in(ast.parse('a = _artifact(folder, "xbrl.json", xbrl)'), "backend/evals/copilot_bootstrap.py") == set()
         assert _named_in(ast.parse('p = "xbrl.json"'), "backend/app/services/copilot_service.py") == {"backend/tests/fixtures/x/xbrl.json"}
-        # A bare name, or any literal without `..`, reaches only backend/: the frontend copy of the font and a
-        # committed evidence copy of the run's report are not what the run reads. A `..` path reaches outside.
+        # The artifact exemption covers a bare name only: a path to that name is a committed file, even in evals/.
+        assert _named_in(ast.parse('p = "fixtures/x/xbrl.json"'), "backend/evals/copilot_bootstrap.py") == {"backend/tests/fixtures/x/xbrl.json"}
+        # A literal is normalised before matching, so a `..` in the middle of a path does not hide the file.
+        assert _named_in(ast.parse('p = "evals/../tests/fixtures/x/xbrl.json"'), "backend/app/x.py") == {"backend/tests/fixtures/x/xbrl.json"}
+        # A bare name reaches only backend/ files: the frontend copy of the font and a committed evidence copy of
+        # the run's report are not what the run reads. A path of two or more segments prefers backend/ and
+        # otherwise reaches the whole repository; a leading `..` reaches it unconditionally.
         assert _named_in(ast.parse(f'p = ASSETS / "fonts" / "{font}"'), "backend/app/services/pdf_branding.py") == {f"backend/app/assets/fonts/{font}"}
         assert _named_in(ast.parse(f'p = "fonts/{font}"'), "backend/app/services/pdf_branding.py") == {f"backend/app/assets/fonts/{font}"}
         assert _named_in(ast.parse(f'p = "../frontend/scripts/brand/fonts/{font}"'), "backend/app/x.py") == {f"frontend/scripts/brand/fonts/{font}"}
         assert _named_in(ast.parse("out = output / 'copilot-eval.md'"), "backend/evals/copilot_runner.py") == set()
         assert _named_in(ast.parse("p = 'copilot-eval.md'"), "backend/app/x.py") == {"backend/tests/fixtures/copilot-eval.md"}
+        assert _named_in(ast.parse('p = "CONFIGURATION.md"'), "backend/app/x.py") == set()
+        assert _named_in(ast.parse('p = ROOT / "docs" / "CONFIGURATION.md"'), "backend/app/x.py") == set()  # one segment per literal: bare names
+        for literal in ('"docs/CONFIGURATION.md"', '"/../docs/CONFIGURATION.md"', '"../docs/CONFIGURATION.md"'):
+            assert _named_in(ast.parse(f"p = {literal}"), "backend/evals/copilot_runner.py") == {"docs/CONFIGURATION.md"}, literal
         # The segments must end the tracked path: `assets/x.woff2` is not `assets/fonts/x.woff2`.
         assert _named_in(ast.parse(f'p = "assets/{font}"'), "backend/app/x.py") == set()
         # A `.py` run by path is a named file (the closure walk sees only imports).
         assert _named_in(ast.parse('subprocess.run(["python", "scripts/seed.py"])'), "backend/app/x.py") == {"backend/scripts/seed.py"}
-    assert "package.json" in NAMED_CANDIDATES and _named_in(ast.parse('p = "frontend/package.json"'), "backend/app/x.py") == set()
-    assert _named_in(ast.parse('p = "../frontend/package.json"'), "backend/app/x.py") == {"frontend/package.json"}
+        # A spelled directory names every tracked file under it; a bare directory name is an ordinary word.
+        assert _named_in(ast.parse('d = "x"; e = "brand"'), "backend/app/x.py") == set()
+        assert _named_in(ast.parse('d = "fixtures/x"'), "backend/app/x.py") == {p for p in TRACKED if p.startswith("backend/tests/fixtures/x/")}
+        assert _named_in(ast.parse('d = "scripts/brand"'), "backend/app/x.py") == {p for p in TRACKED if p.startswith("frontend/scripts/brand/")}
+    assert "package.json" in NAMED_CANDIDATES and _named_in(ast.parse('p = "package.json"'), "backend/app/x.py") == set()
+    for literal in ('"frontend/package.json"', '"../frontend/package.json"'):
+        assert _named_in(ast.parse(f"p = {literal}"), "backend/app/x.py") == {"frontend/package.json"}, literal
+    assert _named_in(ast.parse('d = "tests/fixtures"'), "backend/app/x.py") == {p for p in TRACKED if p.startswith("backend/tests/fixtures/")}
     # The live index holds tracked `.py` files too, so a script run by path is named.
     script = next(p for p in sorted(TRACKED) if p.startswith("backend/scripts/") and p.endswith(".py"))
     assert _named_in(ast.parse(f'subprocess.run(["python", "{script[len("backend/"):]}"])'), "backend/app/x.py") == {script}
@@ -851,6 +947,16 @@ def test_data_directories_and_named_files_are_inputs():
     }
     stale = sorted(RUN_ARTIFACTS - written)
     assert not stale, f"RUN_ARTIFACTS names artifacts the eval no longer writes: {stale}"
+
+
+def test_every_file_under_evals_is_classified():
+    patterns, closure = workflow_filter(), reachable_files()
+    known = set(non_triggers(closure)) | closure
+    unclassified = [p for p in sorted(TRACKED) if p.startswith("backend/evals/") and not triggers(p, patterns) and p not in known]
+    assert not unclassified, (
+        "a new file under backend/evals/ is classified deliberately: a Copilot input joins the filter, summary-eval data joins "
+        f"SUMMARY_EVAL_DATA (the filter's `copilot_*` does not cross a `/`): {unclassified}"
+    )
 
 
 def test_every_filter_pattern_matches_an_input_of_the_eval():

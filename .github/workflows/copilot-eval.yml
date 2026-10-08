@@ -11,8 +11,9 @@ on:
       # the requirements and model env files it installs and loads) and this workflow. Gate:
       # backend/tests/unit/test_copilot_eval_paths.py recomputes the closure from the run steps
       # below and fails when a reachable module or runtime input falls outside this list, when
-      # backend/tests/**, evals Markdown, scripts, migrations or a top-level backend file would
-      # trigger the run, or when a pattern matches nothing the eval uses; it also reads every run
+      # backend/tests/**, evals Markdown, scripts, migrations or a top-level backend file the run
+      # does not install would trigger the run, when a file under backend/evals/ is neither a trigger
+      # nor listed, or when a pattern matches nothing the eval uses; it also reads every run
       # step below as an allowlist, so an untraced program fails it.
       # `backend/app/*` is every file directly under app/ (not its subdirectories).
       - 'backend/app/*'
