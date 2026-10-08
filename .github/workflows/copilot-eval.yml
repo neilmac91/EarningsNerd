@@ -5,12 +5,15 @@ on:
     types: [opened, synchronize, reopened, ready_for_review]
     paths:
       # Only files that can change what the paid Copilot fidelity run measures: the directories the
-      # transitive import closure of evals.copilot_bootstrap and evals.copilot_runner lives in, plus
-      # the data they load at runtime (prompts, the golden set and sources, the model env file) and
-      # this workflow. Gate: backend/tests/unit/test_copilot_eval_paths.py recomputes the closure from
-      # the run steps below and fails when a reachable module or runtime input falls outside this
-      # list, or when backend/tests/**, evals Markdown, scripts or migrations would trigger the run;
-      # it also reads every run step below as an allowlist, so an untraced program fails it.
+      # transitive import closure of evals.copilot_bootstrap and evals.copilot_runner lives in, the
+      # data directories under app/ (kept whether or not the eval reads them today; one merge a
+      # month touches them), the data the eval loads at runtime (prompts, the golden set and sources,
+      # the requirements and model env files it installs and loads) and this workflow. Gate:
+      # backend/tests/unit/test_copilot_eval_paths.py recomputes the closure from the run steps
+      # below and fails when a reachable module or runtime input falls outside this list, when
+      # backend/tests/**, evals Markdown, scripts, migrations or a top-level backend file would
+      # trigger the run, or when a pattern matches nothing the eval uses; it also reads every run
+      # step below as an allowlist, so an untraced program fails it.
       # `backend/app/*` is every file directly under app/ (not its subdirectories).
       - 'backend/app/*'
       - 'backend/app/models/**'
