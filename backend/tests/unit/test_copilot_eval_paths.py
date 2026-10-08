@@ -13,9 +13,13 @@ the summary-eval modules; files directly under `app/` trigger as a group so a ne
 cannot fall outside the filter; a non-trigger the closure starts to import or name is reported as
 such), or when a filter pattern matches nothing the eval uses.
 
-The workflow is read as an allowlist, not a denylist, and only tracked files count anywhere: the
-import walk resolves modules against `git ls-files`, so a gitignored eval report or an untracked
-package that shadows an installed import never moves the gate. The workflow, each job and each step may
+The workflow is read as an allowlist, not a denylist (its `on:` block included: pull_request with
+types and paths, nothing else), and only tracked files count anywhere: the import walk resolves
+modules against `git ls-files`, so a gitignored eval report or an untracked package that shadows an
+installed import never moves the gate. Every argument of an entry command that is not a flag or an
+integer is a path: a tracked file or directory is an input of the run, a gitignored path or one under
+`$RUNNER_TEMP` is run-local, anything else (a bare `$VAR`, `$RUNNER_TEMP/..`) is untraced. Named-file
+detection covers every tracked non-Python file in the repository. The workflow, each job and each step may
 carry only known keys (so a `container:`, `services:` or `strategy:` needs a deliberate entry).
 Every simple command of every `run:` step (split on `&&`, `||`, `;`, `|` and `&` outside quotes; a
 backslash or a `${` anywhere is refused) must be exactly `python -m evals.<module>` with plain
@@ -48,6 +52,7 @@ import posixpath
 import re
 import subprocess
 from pathlib import Path
+from unittest import mock
 
 import yaml
 
@@ -86,10 +91,11 @@ NON_ASCII = re.compile("[^\x20-\x7e\t\n]")
 # arguments and `2>&1`. No other interpreter spelling, no flag before `-m`, no `(`, backtick or `\`.
 ENTRY = re.compile(r"^python -m (evals\.[\w.]+)((?:\s+(?:--[\w-]+|\"[^\"`()\\]*\"|'[^'\\]*'|[\w./$:=-]+|2>&1))*)$")
 # Commands whose file operands are inputs of the run: each operand must trigger the run.
-# A path-valued argument of an entry command (it contains a `/` or has an alphabetic extension, so
-# `--runs 3` is not one). The run may read it, so it must be a tracked file or directory (then an
-# input of the run), gitignored (the run writes it) or under `$RUNNER_TEMP`; anything else is untraced.
-ENTRY_PATH = re.compile(r"/|^[\w.-]+\.[A-Za-z]{1,5}$")
+# Every argument of an entry command is a path unless it is a flag or an integer (`--runs 3`), and a
+# `--opt=value` is split at its `=` as argparse reads it. The run may read a path, so it must be a
+# tracked file or directory (then an input of the run), gitignored (the run writes it) or under
+# `$RUNNER_TEMP` with no `..`; anything else, a bare `$VAR` included, is untraced.
+INTEGER = re.compile(r"^\d+$")
 INSTALL = re.compile(r"^pip install((?: -r [\w./-]+)+)$")
 LOAD_ENV = re.compile(r"^grep -v '[^']*' ([\w./-]+) >> \"\$GITHUB_ENV\"$")
 # The fixed shell commands the workflow uses; a new one needs a deliberate entry here.
@@ -120,23 +126,28 @@ WORKFLOW_ENV = {
     "SKIP_REDIS_INIT", "SECRET_KEY", "STRIPE_SECRET_KEY", "STRIPE_WEBHOOK_SECRET", "PWNED_PASSWORD_CHECK_ENABLED",
     "USE_STATEMENT_FINANCIALS", "AI_FALLBACK_MODEL", "AI_FALLBACK_BASE_URL", "OPENAI_API_KEY",
 }
-# The env file is appended to $GITHUB_ENV verbatim, so only comment, blank and `KEY=value` lines for
-# these keys are allowed (a `KEY<<EOF` heredoc or any other key is refused).
+# The env file is appended to $GITHUB_ENV through `grep -v '^#'`, so only column-0 comments, empty
+# lines and `KEY=value` lines for these keys are allowed (an indented comment or a blank line would
+# reach the runner's env-file parser; a `KEY<<EOF` heredoc or any other key is refused).
 ENV_FILE_KEYS = {"AI_DEFAULT_MODEL", "OPENAI_BASE_URL"}
-ENV_FILE_LINE = re.compile(r"^(?:\s*(?:#.*)?|([A-Z_][A-Z0-9_]*)=.*)$")
+ENV_FILE_LINE = re.compile(r"^(?:#.*|([A-Z_][A-Z0-9_]*)=.*|)$")
 # Requirement-file lines: a nested requirements or constraints file in any pip spelling is traced;
 # every other line must be blank, a comment or an exact `name==version` pin (a PEP 440 version, extras
 # and a marker allowed; no `1.*` wildcard, no `1.tar.gz` and no `1+a.zip` local label, which pip installs
-# as a local archive), so a local path, a `name @ file:` reference, a URL or any other option is refused.
-REQ_NESTED = re.compile(r"^\s*(?:(?:-r|-c)\s*|(?:--requirement|--constraint)(?:=|\s+))(\S+)\s*(?:#.*)?$")
+# as a local archive; a `#` starts a comment only after whitespace, as pip reads it, so `foo==1#.zip` is
+# the archive `foo==1#.zip`), so a local path, a `name @ file:` reference, a URL or any other option is refused.
+REQ_NESTED = re.compile(r"^\s*(?:(?:-r|-c)\s*|(?:--requirement|--constraint)(?:=|\s+))(\S+)(?:\s+#.*)?\s*$")
 REQ_PIN = re.compile(
     r"^\s*[A-Za-z0-9][A-Za-z0-9._-]*(?:\[[A-Za-z0-9,._ -]*\])?=="
     r"\d+(?:\.\d+)*(?:(?:a|b|rc)\d+)?(?:\.post\d+)?(?:\.dev\d+)?"
-    r"(?:\s*;[^#]*)?\s*(?:#.*)?$"
+    r"(?:\s*;[^#]*)?\s*(?:(?<=\s)#.*)?$"
 )
 # The keys the workflow, a job and a step may carry; anything else (`container:`, `services:`,
 # `strategy:`, a job-level `uses:`) can run or redirect code the closure never sees.
 TOP_KEYS = {"name", "on", "permissions", "concurrency", "jobs", "defaults", "env"}
+# The only event is pull_request, with its types and the paths filter; another event (or a second
+# pull_request-shaped one such as pull_request_target) would start the paid run outside the filter.
+ON_KEYS = {"types", "paths"}
 JOB_KEYS = {"name", "if", "runs-on", "timeout-minutes", "env", "steps", "defaults", "permissions"}
 STEP_KEYS = {"name", "id", "if", "uses", "with", "run", "shell", "working-directory", "env"}
 # `python -m` puts the working directory first on sys.path, so an entry step runs from here exactly.
@@ -149,14 +160,14 @@ DATA_DIRS = sorted({
     if not any(p.startswith(f"backend/app/{d}/") and p.endswith(".py") for p in TRACKED)
 })
 DATA_DIRS = [f"app/{d}" for d in DATA_DIRS]
-# Every tracked non-Python file under backend/, keyed by basename, so a string literal naming one
-# makes it a required input whatever the path spelling around it. A URL's last segment is not a
+# Every tracked non-Python file in the repository, keyed by basename, so a string literal naming one
+# makes it a required input whatever the path spelling around it (a non-trigger so named is reported). A URL's last segment is not a
 # name, and neither are the artifacts the run writes under its output directory (and may read back
 # there: `evals/copilot_bootstrap`), which only a module under `evals/` may name as such; each of those
 # names must still occur in the closure.
 RUN_ARTIFACTS = frozenset({"filing.html", "xbrl.json", "sections.json", "excerpt.txt", "preparation.json"})
 NAMED_CANDIDATES: dict[str, list[str]] = {}
-for _p in sorted(p for p in TRACKED if p.startswith("backend/") and not p.endswith(".py")):
+for _p in sorted(p for p in TRACKED if not p.endswith(".py")):
     NAMED_CANDIDATES.setdefault(_p.rsplit("/", 1)[-1], []).append(_p)
 
 
@@ -206,7 +217,8 @@ def non_triggers(closure: set[str]) -> list[str]:
     summary_eval_modules = [
         p for p in _glob("evals/*.py") if not p.name.startswith("copilot_") and p.name not in COPILOT_EVAL_MODULES
     ]
-    top_level = [ROOT / p for p in TRACKED if p.startswith("backend/") and p.count("/") == 1 and p not in step_inputs()]
+    inputs = set(step_inputs())
+    top_level = [ROOT / p for p in TRACKED if p.startswith("backend/") and p.count("/") == 1 and p not in inputs]
     candidates = _existing(
         _glob("tests/**/*") + _glob("evals/**/*.md") + summary_eval_modules + _glob("scripts/*") + _glob("migrations/*")
         + _glob("app/routers/*.py") + _glob("app/integrations/*.py") + top_level + [BACKEND / "evals/baseline_scores.json"],
@@ -214,9 +226,9 @@ def non_triggers(closure: set[str]) -> list[str]:
     )
     # Outside backend/, everything the run does not load is a non-trigger too, so a `.github/**` or
     # `frontend/**` pattern cannot pay for runs the eval cannot feel.
-    used = set(step_inputs()) | {WORKFLOW.relative_to(ROOT).as_posix()}
+    used = inputs | {WORKFLOW.relative_to(ROOT).as_posix()}
     candidates += sorted(p for p in TRACKED if not p.startswith("backend/") and p not in used)
-    overlap = sorted(set(candidates) & (closure | named_files(closure)))
+    overlap = sorted(set(candidates) & (closure | named_files(closure) | inputs))
     assert not overlap, (
         "the eval now imports or names these non-triggers; they can change its result, so the filter must name them "
         f"(a name the eval only writes belongs in RUN_ARTIFACTS): {overlap}"
@@ -301,20 +313,24 @@ def _classify(command: str, workdir: str = "") -> tuple[str, object]:
 
 
 def _entry_paths(command: str, workdir: str) -> list[tuple[str, str]]:
-    """(repo-relative path, token as written) for every path-valued argument of an entry command."""
+    """(repo-relative path, value as written) for every argument of an entry command that may be a path."""
     found = []
     for token in re.findall(r"\"[^\"]*\"|'[^']*'|\S+", ENTRY.match(command).group(2)):
-        raw = token.strip("\"'")
-        if token.startswith("--") or token == "2>&1" or not ENTRY_PATH.search(raw):
+        if token == "2>&1" or (token.startswith("--") and "=" not in token):
+            continue
+        raw = (token.split("=", 1)[1] if token.startswith("--") else token).strip("\"'")
+        if not raw or INTEGER.match(raw):
             continue
         found.append((posixpath.normpath((Path(workdir) / raw).as_posix() if workdir else raw), raw))
     return found
 
 
 def _ignored(rel: str) -> bool:
-    """Whether git ignores `rel`; a gitignored path is something the run writes, never an input."""
+    """Whether the repository's own ignore rules cover `rel` (the user's global excludes are not consulted);
+    a gitignored path is something the run writes, never an input."""
     try:
-        return subprocess.run(["git", "check-ignore", "-q", "--", rel], cwd=ROOT, capture_output=True).returncode == 0  # noqa: S603, S607
+        command = ["git", "-c", "core.excludesFile=/dev/null", "check-ignore", "-q", "--", rel]
+        return subprocess.run(command, cwd=ROOT, capture_output=True).returncode == 0  # noqa: S603, S607
     except OSError:
         return False
 
@@ -387,6 +403,12 @@ def _read_steps(workflow: dict) -> tuple[list[str], list[str]]:
     """(modules the run steps execute, files they install or load), with everything else rejected."""
     modules, requirement_files, env_files, entry_files, untraced = set(), set(), set(), set(), []
     untraced += _unknown_keys(workflow, TOP_KEYS, "workflow") + _env_problems(workflow, "workflow")
+    if "on" in workflow:  # the probes below omit it; the real workflow always carries it
+        on = workflow["on"]
+        if not isinstance(on, dict) or set(on) != {"pull_request"} or not isinstance(on["pull_request"], dict):
+            untraced.append(f"workflow: `on:` must be exactly pull_request with types and paths, not {on!r}")
+        else:
+            untraced += _unknown_keys(on["pull_request"], ON_KEYS, "on.pull_request")
     for job_name, job in workflow["jobs"].items():
         untraced += _unknown_keys(job, JOB_KEYS, f"{job_name} job") + _env_problems(job, f"{job_name} job")
         for step in job.get("steps", []):
@@ -419,9 +441,9 @@ def _read_steps(workflow: dict) -> tuple[list[str], list[str]]:
                 elif kind == "entry":
                     modules.add(value)
                     for rel, raw in _entry_paths(command, workdir):
-                        if raw.startswith("$RUNNER_TEMP/"):
+                        if raw.startswith("$RUNNER_TEMP/") and ".." not in raw.split("/"):
                             continue
-                        tracked = [p for p in TRACKED if p == rel or p.startswith(rel.rstrip("/") + "/")]
+                        tracked = [] if "$" in raw else [p for p in TRACKED if rel == "." or p == rel or p.startswith(rel + "/")]
                         if "$" in raw or not (tracked or _ignored(rel)):
                             untraced.append(f"{job_name}: `{command}` reads {raw!r}, which is neither tracked, gitignored nor under $RUNNER_TEMP")
                         entry_files.update(tracked)
@@ -556,9 +578,10 @@ def test_run_commands_outside_the_allowlist_are_rejected():
     assert _entry_paths(
         'python -m evals.copilot_runner --preparation evals/reports/copilot/preparation.json --output evals/reports/copilot --runs 3 2>&1', "backend"
     ) == [("backend/evals/reports/copilot/preparation.json", "evals/reports/copilot/preparation.json"), ("backend/evals/reports/copilot", "evals/reports/copilot")]
-    assert _entry_paths('python -m evals.copilot_bootstrap --database "$RUNNER_TEMP/copilot fidelity.db" --runs 3 --output out', "backend") == [
-        ("backend/$RUNNER_TEMP/copilot fidelity.db", "$RUNNER_TEMP/copilot fidelity.db"),  # `3` and `out` are not paths
+    assert _entry_paths('python -m evals.copilot_bootstrap --database "$RUNNER_TEMP/copilot fidelity.db" --runs 3 --output=out --quiet', "backend") == [
+        ("backend/$RUNNER_TEMP/copilot fidelity.db", "$RUNNER_TEMP/copilot fidelity.db"), ("backend/out", "out"),  # `3` is not a path; `--opt=value` is split
     ]
+    assert _entry_paths("python -m evals.copilot_runner --preparation=tests/x.json --sources ..", "backend") == [("backend/tests/x.json", "tests/x.json"), (".", "..")]
     runner = {"working-directory": "backend"}
     assert _read_steps({"jobs": {"j": {"steps": [{"run": 'python -m evals.copilot_runner --output "$RUNNER_TEMP/out" --preparation evals/reports/copilot/preparation.json', **runner}]}}}) == (["evals.copilot_runner"], [])
     assert _read_steps({"jobs": {"j": {"steps": [{"run": "python -m evals.copilot_runner --preparation tests/fixtures/companyfacts_sample.json", **runner}]}}}) == (
@@ -566,12 +589,18 @@ def test_run_commands_outside_the_allowlist_are_rejected():
     )
     fixtures = sorted(p for p in TRACKED if p.startswith("backend/tests/fixtures/acquisition_period/"))
     assert fixtures and _read_steps({"jobs": {"j": {"steps": [{"run": "python -m evals.copilot_runner --sources tests/fixtures/acquisition_period", **runner}]}}})[1] == fixtures
+    # The `=` spelling, a bare directory name and `..` are the same inputs; `Dockerfile` is a tracked file.
+    assert _read_steps({"jobs": {"j": {"steps": [{"run": "python -m evals.copilot_runner --preparation=tests/fixtures/companyfacts_sample.json", **runner}]}}})[1] == ["backend/tests/fixtures/companyfacts_sample.json"]
+    assert len(_read_steps({"jobs": {"j": {"steps": [{"run": "python -m evals.copilot_runner --sources tests", **runner}]}}})[1]) > 100
+    assert len(_read_steps({"jobs": {"j": {"steps": [{"run": "python -m evals.copilot_runner --sources ..", **runner}]}}})[1]) > 1000
+    assert _read_steps({"jobs": {"j": {"steps": [{"run": "python -m evals.copilot_runner --sources Dockerfile", **runner}]}}})[1] == ["backend/Dockerfile"]
 
 
 def test_an_untraceable_shell_action_env_or_job_is_rejected():
     step = {"run": "python -m evals.copilot_runner", "working-directory": "backend"}
     checkout = {"uses": "actions/checkout@v7"}
     assert _read_steps({"jobs": {"j": {"steps": [checkout, step]}}}) == (["evals.copilot_runner"], [])
+    assert _read_steps({"on": {"pull_request": {"types": ["opened", "ready_for_review"], "paths": ["backend/app/**"]}}, "jobs": {"j": {"steps": [step]}}}) == (["evals.copilot_runner"], [])
     assert _read_steps({"jobs": {"j": {"steps": [{"shell": "bash -e {0}", **step}]}}})[0] == ["evals.copilot_runner"]
     assert _read_steps({"jobs": {"j": {"steps": [{"shell": "sh", **step}]}}})[0] == ["evals.copilot_runner"]
     assert _read_steps({"jobs": {"j": {"defaults": {"run": {"working-directory": "backend"}}, "steps": [{"run": "python -m evals.copilot_runner"}]}}})[0] == ["evals.copilot_runner"]
@@ -621,6 +650,14 @@ def test_an_untraceable_shell_action_env_or_job_is_rejected():
         {"jobs": {"j": {"steps": [{"run": "python -m evals.copilot_runner --preparation tests/fixtures/prep/preparation.json", "working-directory": "backend"}]}}},
         {"jobs": {"j": {"steps": [{"run": 'python -m evals.copilot_bootstrap --database "$HOME/copilot.db" --output evals/reports/copilot', "working-directory": "backend"}]}}},
         {"jobs": {"j": {"steps": [{"run": "python -m evals.copilot_runner --preparation ../preparation.json", "working-directory": "backend"}]}}},
+        {"jobs": {"j": {"steps": [{"run": "python -m evals.copilot_runner --preparation=tests/fixtures/prep/preparation.json", "working-directory": "backend"}]}}},
+        {"jobs": {"j": {"steps": [{"run": "python -m evals.copilot_runner --sources $PWD", "working-directory": "backend"}]}}},
+        {"jobs": {"j": {"steps": [{"run": "python -m evals.copilot_runner --sources $GITHUB_WORKSPACE/backend", "working-directory": "backend"}]}}},
+        {"jobs": {"j": {"steps": [{"run": 'python -m evals.copilot_runner --preparation "$RUNNER_TEMP/../preparation.json"', "working-directory": "backend"}]}}},
+        {"jobs": {"j": {"steps": [{"run": "python -m evals.copilot_runner --output outdir-x", "working-directory": "backend"}]}}},
+        {"on": {"pull_request": {"types": ["ready_for_review"], "paths": ["backend/app/**"]}, "pull_request_target": {"types": ["ready_for_review"]}}, "jobs": {"j": {"steps": [step]}}},
+        {"on": {"pull_request": {"types": ["ready_for_review"], "paths": ["backend/app/**"], "paths-ignore": ["backend/tests/**"]}}, "jobs": {"j": {"steps": [step]}}},
+        {"on": ["pull_request", "push"], "jobs": {"j": {"steps": [step]}}},
         {"jobs": {"j": {"steps": [{"uses": "actions/checkout@v7", "with": {"repository": "x/y", "path": "z"}}, step]}}},
     ):
         try:
@@ -653,10 +690,10 @@ def test_requirement_and_env_files_are_traced(tmp_path):
     (base / "e.txt").write_text(
         "-e ../local-pkg\n./vendored\ngit+https://x/y.git\n--index-url https://x\nhttps://x/y.whl\nbackend/scripts/vendored_pkg\n"
         "pkg @ file:///x/pkg\n${GITHUB_WORKSPACE}/backend/scripts/pkg\ndist/pkg-1.0-py3-none-any.whl\nrequests>=1\nrequests\nrequests==1\n"
-        "-r d.txt -e ./pkg\nfoo==1.*\nfoo==1.tar.gz\nfoo==1+a.zip\nfoo==1+local\n"
+        "-r d.txt -e ./pkg\nfoo==1.*\nfoo==1.tar.gz\nfoo==1+a.zip\nfoo==1+local\nfoo==1#.zip\n-r d.txt# y\n"
     )
     nested, problems = _requirement_inputs(str(base / "e.txt"))
-    assert len(problems) == 16 and nested == [], (nested, problems)
+    assert len(problems) == 18 and nested == [], (nested, problems)
     # `-r=g.txt` names `=g.txt` to pip, so that is the file traced.
     (base / "f.txt").write_text("-r=g.txt\n")
     (base / "=g.txt").write_text("numpy==1\n")
@@ -664,8 +701,8 @@ def test_requirement_and_env_files_are_traced(tmp_path):
     assert REQ_PIN.match("python-dateutil==2.9.0.post0") and REQ_PIN.match("x==1.0rc1 ; python_version < '3.12'  # why")
     (base / "ok.env").write_text("# c\n\nAI_DEFAULT_MODEL=x\nOPENAI_BASE_URL=y\n")
     assert _env_file_problems(str(base / "ok.env")) == []
-    (base / "bad.env").write_text("AI_DEFAULT_MODEL=x\nPYTHONPATH<<EOF\nbackend/scripts\nEOF\nFOO=1\n")
-    assert len(_env_file_problems(str(base / "bad.env"))) == 4
+    (base / "bad.env").write_text("AI_DEFAULT_MODEL=x\nPYTHONPATH<<EOF\nbackend/scripts\nEOF\nFOO=1\n  # indented\n   \n")
+    assert len(_env_file_problems(str(base / "bad.env"))) == 6
     # An env file is checked as an env file whatever its name, because the command decides.
     (base / "model.txt").write_text("PYTHONPATH=backend/scripts\n")
     wf = {"jobs": {"j": {"steps": [
@@ -737,11 +774,15 @@ def test_data_directories_and_named_files_are_inputs():
     assert _named_in(ast.parse('x = "baseline"; y = "scores.json"; z = "metadata"')) == set()
     # A gitignored report the eval writes and names (`copilot-eval.json`) is not a candidate.
     assert _named_in(ast.parse('out = output / "copilot-eval.json"')) == set()
-    # A URL's last segment is not a name, and neither is an artifact the eval only writes.
-    assert _named_in(ast.parse('u = "https://example.com/files/baseline_scores.json"')) == set()
-    assert "xbrl.json" in RUN_ARTIFACTS and _named_in(ast.parse('a = _artifact(folder, "xbrl.json", xbrl)'), "backend/evals/copilot_bootstrap.py") == set()
-    # An app module naming an artifact basename is not writing an artifact: a tracked file of that name would be reported.
-    assert _named_in(ast.parse('p = "sections.json"'), "backend/app/services/copilot_service.py") == set(NAMED_CANDIDATES.get("sections.json", []))
+    # A URL's last segment is not a name, and neither is an artifact the eval only writes; an app module
+    # naming an artifact basename is not writing an artifact, so a tracked file of that name is reported.
+    # The candidates are injected, so these hold whether or not the tree has such a file today.
+    with mock.patch.dict(NAMED_CANDIDATES, {"xbrl.json": ["backend/tests/fixtures/x/xbrl.json"], "baseline_scores.json": ["backend/evals/baseline_scores.json"]}):
+        assert _named_in(ast.parse('u = "https://example.com/files/baseline_scores.json"')) == set()
+        assert "xbrl.json" in RUN_ARTIFACTS and _named_in(ast.parse('a = _artifact(folder, "xbrl.json", xbrl)'), "backend/evals/copilot_bootstrap.py") == set()
+        assert _named_in(ast.parse('p = "xbrl.json"'), "backend/app/services/copilot_service.py") == {"backend/tests/fixtures/x/xbrl.json"}
+    # A file outside backend/ is a candidate too (it is a non-trigger, so naming it is reported).
+    assert "package.json" in NAMED_CANDIDATES and _named_in(ast.parse('p = "frontend/package.json"'), "backend/app/x.py") >= {"frontend/package.json"}
     # A tests fixture named by a closure module would be reported, because every tracked file counts.
     fixture = next(
         p for p in sorted(TRACKED)
