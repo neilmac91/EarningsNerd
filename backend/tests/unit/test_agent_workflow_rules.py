@@ -10,7 +10,9 @@ Four prose rules from AGENTS.md §5 and §7 would otherwise rot:
   premium model or runs on ``undefined``.
 - Workflow scripts validate their inputs before ``pipeline()``/``parallel()`` (a throw inside a
   stage is a silent drop) and never count a missing vote as a refutation
-  (``lessons/ops-validate-workflow-inputs-before-pipeline.md``).
+  (``lessons/ops-validate-workflow-inputs-before-pipeline.md``). These text checks are the first
+  line; ``frontend/tests/unit/premergeReviewWorkflow.spec.ts`` runs the review script with stubbed
+  agents and asserts what each stage actually receives, which catches what a regex cannot.
 - ``lessons/README.md`` lists every lesson exactly once and nothing that does not exist, so a
   lesson cannot fall out of session reading by accident.
 - Founder deliberations never enter this public repository (§7): no new file under
@@ -251,7 +253,7 @@ def test_review_tiers_name_lens_and_refuter_models():
 
 
 def _call_bodies(source: str, name: str):
-    for match in re.finditer(rf"(?<![\w.]){name}\(", source):
+    for match in re.finditer(rf"(?<![\w.]){name}\s*\(", source):
         yield _balanced(source, match.end() - 1, "(", ")")
 
 
