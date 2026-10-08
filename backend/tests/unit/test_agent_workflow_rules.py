@@ -58,11 +58,14 @@ MODEL_VALUE = re.compile(rf"^(?:'{MODEL_ALIAS}'|\"{MODEL_ALIAS}\"|T\.(lensModel|
 TIER_BINDING = re.compile(r"\bconst T = TIERS\[")
 MODEL_LITERAL = re.compile(rf"'{MODEL_ALIAS}'")
 # The vote-counting bug shape: a `.length` guard (bare, `> 0`, `>= 1`, `!== 0`, parenthesised or
-# not, on the array or on a `.filter(…)` of it) joined by `&&` or `?` to an `.every(` means a
-# missing vote silently counts as a refutation. Whitespace may span lines.
+# not, on the array, an optional chain or a `.filter(…)` of it) joined by `&&` or `?` to an
+# `.every(` or `!….some(`, in either order, means a missing vote silently counts as a refutation.
+# Whitespace may span lines; a `.filter(…)` may hold one level of nested parentheses.
+_ARR = r"[\w.?]+(?:\.filter\((?:[^()]|\([^()]*\))*\))?"
+_LENGTH_GUARD = rf"\(?\s*{_ARR}\.length\s*(?:>\s*0|>=\s*1|!==?\s*0)?\s*\)?"
+_ALL_VOTES = rf"!?\s*{_ARR}\.(?:every|some)\("
 MISSING_VOTE_IS_REFUTATION = re.compile(
-    r"\(?\s*[\w.]+(?:\.filter\([^()]*\))?\.length\s*(?:>\s*0|>=\s*1|!==?\s*0)?\s*\)?\s*(?:&&|\?)\s*"
-    r"[\w.]+(?:\.filter\([^()]*\))?\.every\("
+    rf"{_LENGTH_GUARD}\s*(?:&&|\?)\s*{_ALL_VOTES}|{_ALL_VOTES}.*?\)\s*&&\s*{_LENGTH_GUARD}(?!\s*=)"
 )
 SPECS = ROOT / "frontend" / "tests" / "unit"
 # `- file.md — rule` or the older link form `- [`file.md`](./file.md) — rule`.
@@ -279,7 +282,8 @@ def _stage_bodies(source: str, call_body: str):
         if not re.fullmatch(r"\w+", arg):
             continue
         for match in re.finditer(
-            rf"(?:\b(?:const|let|var)\s+{arg}\s*=\s*(?:async\s*)?(?:\([^)]*\)|\w+)\s*=>\s*|\bfunction\s+{arg}\s*\([^)]*\)\s*)",
+            rf"(?:\b(?:const|let|var)\s+{arg}\s*=\s*(?:async\s*)?(?:(?:\([^)]*\)|\w+)\s*=>|function\s*\([^)]*\))\s*"
+            rf"|\b(?:async\s+)?function\s+{arg}\s*\([^)]*\)\s*)",
             source,
         ):
             rest = source[match.end():]
@@ -291,13 +295,22 @@ def test_workflow_scripts_validate_before_pipeline_and_count_every_vote():
     for shape in (
         "v.length > 0 && v.every(", "(v.length > 0) && v.every(", "v.length > 0 ? v.every(x) : false",
         "v.length > 0 && v.filter(Boolean).every(", "votes.filter(Boolean).length > 0 && votes.filter(Boolean).every(",
+        "votes.filter((x) => x).length > 0 && votes.every(", "v?.length > 0 && v.every(",
+        "v.every((x) => !x.refuted) && v.length > 0", "v.length > 0 && !v.some((x) => x.refuted)",
         "v.length && v.every(", "v.length\n  >= 1 && v.every(", "v.length !== 0 && v.every(",
     ):
         assert MISSING_VOTE_IS_REFUTATION.search(shape), shape
-    for shape in ("complete && v.every(", "v.length === T.refuters && v.every(", "v.length === 2 && v.every("):
+    for shape in (
+        "complete && v.every(", "v.length === T.refuters && v.every(", "v.length === 2 && v.every(",
+        "v.every((x) => !x.refuted) && v.length === T.refuters",
+    ):
         assert not MISSING_VOTE_IS_REFUTATION.search(shape), shape
-    probe = "const stage = async (pr) => { if (!TIERS[pr.tier]) throw new Error('x') }\nawait pipeline(PRS, stage)\n"
-    assert any(re.search(r"\bthrow\b", t) for b in _call_bodies(probe, "pipeline") for t in _stage_bodies(probe, b))
+    for probe in (
+        "const stage = async (pr) => { if (!TIERS[pr.tier]) throw new Error('x') }\nawait pipeline(PRS, stage)\n",
+        "const stage = async function (pr) { throw new Error('x') }\nawait pipeline(PRS, stage)\n",
+        "async function stage(pr) { throw new Error('x') }\nawait parallel(PRS.map((p) => () => stage(p)))\nawait pipeline(PRS, stage)\n",
+    ):
+        assert any(re.search(r"\bthrow\b", t) for b in _call_bodies(probe, "pipeline") for t in _stage_bodies(probe, b)), probe
     problems = []
     for script in sorted(WORKFLOWS.glob("*.js")):
         source = _strip_comments(script.read_text(encoding="utf-8"))
@@ -310,12 +323,20 @@ def test_workflow_scripts_validate_before_pipeline_and_count_every_vote():
     assert not problems, "\n".join(problems)
 
 
+def _spec_reads(spec_source: str, script_name: str) -> bool:
+    """True when the spec names the script's path in code (not a comment) and reads a file."""
+    code = _strip_comments(spec_source)
+    return bool(re.search(rf"['\"`][^'\"`\n]*\.claude/workflows/{re.escape(script_name)}['\"`]", code)) and bool(
+        re.search(r"\breadFile(?:Sync)?\s*\(", code)
+    )
+
+
 def test_every_workflow_script_has_a_behavioural_spec():
-    specs = {p.name: p.read_text(encoding="utf-8") for p in SPECS.glob("*.spec.ts")}
-    missing = [
-        s.name for s in sorted(WORKFLOWS.glob("*.js"))
-        if not any(f".claude/workflows/{s.name}" in text for text in specs.values())
-    ]
+    # The same files vitest runs: tests/unit/**/*.spec.ts?(x).
+    specs = [p.read_text(encoding="utf-8") for ext in ("*.spec.ts", "*.spec.tsx") for p in SPECS.rglob(ext)]
+    assert not _spec_reads(" * see .claude/workflows/premerge-review.js\nreadFileSync(x)", "premerge-review.js")
+    assert _spec_reads("const S = path.join(root, '.claude/workflows/premerge-review.js')\nreadFileSync(S)", "premerge-review.js")
+    missing = [s.name for s in sorted(WORKFLOWS.glob("*.js")) if not any(_spec_reads(text, s.name) for text in specs)]
     assert not missing, (
         "every workflow script needs a spec under frontend/tests/unit/ that loads it and runs it with "
         f"stubbed agent/pipeline/parallel (the text checks above catch recorded shapes only): {missing}"
