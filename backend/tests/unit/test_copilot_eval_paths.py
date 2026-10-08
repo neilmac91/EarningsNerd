@@ -113,9 +113,9 @@ the rules above (so `with_name("baseline_scores.json")`, `/ "index_membership.js
 fixture named in the eval's code makes that file a required input, and naming a deliberate
 non-trigger is reported; the artifacts the run writes are exempt only as bare names in `evals/` modules, so a
 literal that spells a directory to one of those names points at a committed file and is matched).
-Every tracked file under `evals/` is a trigger, a module, Markdown or listed summary-eval data, so a
-new data file or directory there is classified deliberately (the filter's `copilot_*` does not cross
-a `/`). The non-triggers are of two kinds: the deliberate categories (tests, scripts, migrations,
+Every tracked file under `backend/` is a trigger, a module of the closure or a non-trigger of a stated
+category, so a new file or directory there, which `backend/**` used to cover and the filter's `copilot_*`
+does not reach (`*` does not cross a `/`), is classified deliberately. The non-triggers are of two kinds: the deliberate categories (tests, scripts, migrations,
 routers, integrations, top-level files, the summary eval's modules and data), where the eval
 importing or naming a file is reported and only dropping the dependency or reclassifying the file
 here clears it; and the catch-alls (Markdown under `evals/`, everything outside `backend/` that the
@@ -125,6 +125,7 @@ filter entry clears the gate. CLAUDE.md rule 12.
 from __future__ import annotations
 
 import ast
+import copy
 import fnmatch
 import functools
 import itertools
@@ -194,9 +195,14 @@ INTEGER = re.compile(r"^\d+$")
 # `patch(f"app.services.copilot_service.{attr}")`), imports the longest module prefix of the head and, when that
 # prefix is a package, every module under it, loudly: any of them may load. A one-segment head is a package too
 # (`import_module(f"evals.{name}")` is every module under `evals`; a namespace package such as `scripts` likewise), the
-# relative form (`import_module(f".{name}", __name__)`) anchors as `from . import` does, an importer imported under
-# another name counts, and so does the keyword spelling (`import_module(name=...)`, `patch(target=...)`).
-IMPORTERS = frozenset({"import_module", "resolve_name", "patch", "__import__", "import_string"})
+# relative form (`import_module(f".{name}", __name__)`) anchors as `from . import` does, on `__package__`, a package's
+# own `__name__` or a constant package, and so does a constant relative target (`import_module(".x", __package__)`,
+# `"..integrations.sec_api"`), which imports that module alone, as does a bare module name (`import_module("main")`);
+# `__name__` and `__package__` in the head or the package are the module's own names (`f"{__package__}.{name}"`), a
+# plain module's `__name__` anchoring `..x` on its parent package as importlib does; an importer imported or assigned
+# under another name counts (`load = importlib.import_module`), and so does the keyword spelling (`import_module(name=...)`,
+# `patch(target=...)`); `runpy.run_module` and `pydoc.locate` are importers too.
+IMPORTERS = frozenset({"import_module", "resolve_name", "patch", "__import__", "import_string", "run_module", "locate"})
 IMPORTER_ARGS = frozenset({"name", "target", "dotted_path", "import_name"})  # the keyword each importer takes its target in
 DOTTED = re.compile(r"^[A-Za-z_]\w*(?:\.[A-Za-z_]\w*)*(?::[A-Za-z_]\w*(?:\.[A-Za-z_]\w*)*)?$")
 # A flag of an entry command: `--name`, or `--name=value` with the value checked as a path.
@@ -292,9 +298,10 @@ for _p in sorted(TRACKED):
         if _d not in NAMED_DIRS.get(_parts[_i - 1], []):
             NAMED_DIRS.setdefault(_parts[_i - 1], []).append(_d)
 # Summary-eval data under evals/ that the Copilot run never reads. Every other tracked file under
-# evals/ is a trigger, a module, Markdown or listed here, so a new data file or directory there (a
-# `copilot_questions/` the filter's `copilot_*` would not reach, since `*` does not cross `/`) is
-# classified deliberately: a Copilot input joins the filter, summary-eval data joins this list.
+# backend/ is a trigger, a closure module or a non-trigger of a stated category (Markdown the run does not
+# read is one, wherever it sits), so a new data file or directory there (a `copilot_questions/` the
+# filter's `copilot_*` would not reach, since `*` does not cross `/`) is classified deliberately: a
+# Copilot input joins the filter, summary-eval data joins this list, anything else a category here.
 SUMMARY_EVAL_DATA = ["evals/baseline_scores.json", "evals/golden_set.json", "evals/weekly_cohort.json", "evals/reports/.gitignore"]
 
 
@@ -419,8 +426,9 @@ def _fold(node: ast.AST, aliases: set[str] | frozenset[str], files: set[str] | f
     the module file as `FILE` (`__file__`, a name in `files`; a name in both sets is the directory, so
     `here = abspath(__file__); here = dirname(here)` builds paths on the module's directory and, bound twice, is
     mixed, read both ways, and the file under `.parent`, `parents[0]`, `dirname`, `with_name`, `with_suffix` and
-    `with_stem`, so `p = Path(__file__)` in one function and `p = Path(__file__).parent` in another lose no read on
-    `p`), and None for a part this gate cannot know (another
+    `with_stem` when the name itself, wrapped or not, is the receiver, so `p = Path(__file__)` in one function and
+    `p = Path(__file__).parent` in another lose no read on `p`, while a directory computed from the file,
+    `THIS.parent.parent` or `dirname(dirname(HERE))`, is unknown), and None for a part this gate cannot know (another
     name, a call, an f-string part with a conversion or a format spec). Follows `+`, an f-string, a `%` template with
     `%s` fields, a `.format` template with plain positional or keyword fields, `sep.join([...])` and `"".join([...])`, `os.path.join(...)`,
     `Path(a, b, ...)`, `joinpath(...)` and `/` (a separator between the operands), `with_name` on the module file
@@ -437,12 +445,27 @@ def _fold(node: ast.AST, aliases: set[str] | frozenset[str], files: set[str] | f
             pieces.extend((_SEPARATOR if i else []) + fold(part))
         return pieces
 
-    def is_file(piece: _Piece) -> bool:  # the module file, or a name bound to both the file and its directory, the file here
-        return piece.text == FILE or piece.text == DIR and piece.source in files
+    def unwrapped(expr: ast.AST) -> ast.AST:  # `Path(x)`, `abspath(x)`, `str(x)`, `os.fspath(x)`, `x.resolve()`, `x.absolute()`: `x`
+        while isinstance(expr, ast.Call):
+            func = expr.func
+            name = func.attr if isinstance(func, ast.Attribute) else func.id if isinstance(func, ast.Name) else ""
+            if name in {"resolve", "absolute"} and isinstance(func, ast.Attribute) and not expr.args:
+                expr = func.value
+            elif (name.endswith("Path") or name in {"abspath", "realpath", "str", "fspath"}) and len(expr.args) == 1 and not expr.keywords:
+                expr = expr.args[0]
+            else:
+                break
+        return expr
 
-    def directory_of(inner: list[_Piece]) -> list[_Piece]:  # `.parent`, `parents[0]`, `dirname` of the module file
-        parts = [piece for piece in inner if piece.text != ""]
-        return [_Piece(DIR, None, parts[0].source)] if len(parts) == 1 and is_file(parts[0]) else _UNKNOWN
+    def is_both(expr: ast.AST) -> bool:  # the name itself, bound to both the module file and its directory: the file here
+        core = unwrapped(expr)
+        return isinstance(core, ast.Name) and core.id in aliases and core.id in files
+
+    def directory_of(expr: ast.AST) -> list[_Piece]:  # `.parent`, `parents[0]`, `dirname` of the module file
+        parts = [piece for piece in fold(expr) if piece.text != ""]
+        if len(parts) == 1 and (parts[0].text == FILE or parts[0].text == DIR and is_both(expr)):
+            return [_Piece(DIR, None, parts[0].source)]
+        return _UNKNOWN  # a directory computed from the file (`THIS.parent.parent`, `dirname(dirname(HERE))`) is not the file
 
     if isinstance(node, ast.Name):
         if node.id in aliases:  # before `files`: a name bound to both builds paths as the directory
@@ -460,11 +483,11 @@ def _fold(node: ast.AST, aliases: set[str] | frozenset[str], files: set[str] | f
         if node.attr == "sep" and (isinstance(node.value, ast.Name) and node.value.id == "os"
                                    or isinstance(node.value, ast.Attribute) and node.value.attr == "path"):
             return _SEPARATOR
-        return directory_of(fold(node.value)) if node.attr == "parent" else _UNKNOWN
+        return directory_of(node.value) if node.attr == "parent" else _UNKNOWN
     if isinstance(node, ast.Subscript):  # `parents[0]`
         value, index = node.value, node.slice
         if isinstance(value, ast.Attribute) and value.attr == "parents" and isinstance(index, ast.Constant) and index.value == 0:
-            return directory_of(fold(value.value))
+            return directory_of(value.value)
         return _UNKNOWN
     if isinstance(node, ast.BinOp):
         if isinstance(node.op, ast.Add):
@@ -492,10 +515,10 @@ def _fold(node: ast.AST, aliases: set[str] | frozenset[str], files: set[str] | f
         if name in {"resolve", "absolute"} and receiver is not None and not args:
             return fold(receiver)
         if name == "dirname" and len(args) == 1:
-            return directory_of(fold(args[0]))
+            return directory_of(args[0])
         named = args[0] if len(args) == 1 else next((keyword.value for keyword in node.keywords if keyword.arg == "name"), None)
         if name == "with_name" and receiver is not None and named is not None:  # `Path(__file__).with_name("x")`, `with_name(name="x")`
-            directory = directory_of(fold(receiver))
+            directory = directory_of(receiver)
             return directory + _SEPARATOR + fold(named) if directory != _UNKNOWN else _UNKNOWN
         if name in {"with_suffix", "with_stem"} and receiver is not None:  # `Path(__file__).with_suffix(".json")`, `with_name("x.md").with_stem("y")`
             new = args[0] if len(args) == 1 and not node.keywords else \
@@ -503,7 +526,7 @@ def _fold(node: ast.AST, aliases: set[str] | frozenset[str], files: set[str] | f
             if new is None:
                 return _UNKNOWN
             inner = [piece for piece in fold(receiver) if piece.text != ""]
-            if inner and is_file(inner[-1]):  # the module file is its directory, a separator, its stem and `.py`
+            if inner and (inner[-1].text == FILE or len(inner) == 1 and inner[0].text == DIR and is_both(receiver)):  # the module file: its directory, a separator, its stem and `.py`
                 inner[-1:] = [_Piece(DIR, None, inner[-1].source), _SEPARATOR[0], _Piece(STEM, None, None), _Piece(".py", None, None)]
             kept, last = inner, []  # the pieces before the last part of the path, and the pieces of that part
             for i in range(len(inner) - 1, -1, -1):
@@ -519,7 +542,7 @@ def _fold(node: ast.AST, aliases: set[str] | frozenset[str], files: set[str] | f
                 kept = inner[:i]
                 last.insert(0, piece)
             stem, suffix = posixpath.splitext("".join(piece.text for piece in last))
-            if not stem:  # a path with no last part (a directory, a separator): pathlib raises
+            if not stem:  # no last part this gate can name: the module's directory itself (pathlib builds a sibling of it, outside it, the `parents[1]` limit), a separator, an unknown part
                 return _UNKNOWN
             carried = [_Piece("", piece.node, None) for piece in last if piece.node is not None]  # the replaced text's constants, not read on their own
             if name == "with_suffix":
@@ -621,8 +644,10 @@ def _module_aliases(tree: ast.AST) -> tuple[set[str], set[str], set[str], set[st
 
 
 def _listed_dirs(tree: ast.AST) -> set[str]:
-    """How the module lists its own directory: `"one"` level (`iterdir()` on it, `listdir`/`scandir` of it, what
-    `glob("*")` names) and/or `"all"` levels (`walk()` on it, `os.walk` of it, what `rglob("*")` names)."""
+    """How the module lists its own directory: `"one"` level (`iterdir()` on it, `listdir`/`scandir` of it, a `glob` on it
+    whose whole pattern this gate cannot know, `PATTERN = "*.json"; dir.glob(PATTERN)`, what `glob("*")` names) and/or
+    `"all"` levels (`walk()` on it, `os.walk` of it, an `rglob` or a `recursive=True` glob of an unknown pattern, what
+    `rglob("*")` names): a part this gate cannot know is a `*`, the whole pattern included."""
     aliases, files, _, slashed = _module_aliases(tree)  # a mixed name lists loudly too
     seps = _sep_names(tree)
     depths: set[str] = set()
@@ -637,6 +662,14 @@ def _listed_dirs(tree: ast.AST) -> set[str]:
         for target in (receiver, argument):
             if target is not None and _is_module_dir(target, aliases, files, slashed, seps):
                 depths.add("all" if name == "walk" else "one")
+        if name in {"glob", "rglob", "iglob"}:  # `dir.glob(pattern)`, `glob.glob(pattern, root_dir=dir)` with no constant in the pattern
+            root_dir = [keyword.value for keyword in node.keywords if keyword.arg == "root_dir"]
+            operands = list(node.args) + [keyword.value for keyword in node.keywords if keyword.arg not in {"root_dir", "recursive", "case_sensitive", "include_hidden"}]
+            target = root_dir[0] if root_dir else func.value if isinstance(func, ast.Attribute) else None
+            unknown = operands and all(piece.node is None for operand in operands for piece in _fold(operand, aliases, files, slashed, seps))
+            if target is not None and unknown and _is_module_dir(target, aliases, files, slashed, seps):
+                recursive = any(keyword.arg == "recursive" and isinstance(keyword.value, ast.Constant) and keyword.value.value is True for keyword in node.keywords)
+                depths.add("all" if name == "rglob" or recursive else "one")
     return depths
 
 
@@ -681,14 +714,16 @@ def _sibling_literals(tree: ast.AST, module: str = "backend/evals/") -> tuple[se
         """A glob's pattern is the one string it builds (`"*" + ".json"`, `join("baselines", "*.json")`), a part this gate
         cannot know a `*`, whatever the spelling (`"baselines/" + model + "*.json"`, `f"baselines/{model}*.json"` and
         `join("baselines", f"{stem}*.json")` alike read `baselines/*.json`; `"*" + suffix`, `f"*{suffix}"` and
-        `"*%s" % suffix` read `*`, every file there): the loud superset. A lone constant is read as written."""
+        `"*%s" % suffix` read `*`, every file there; `"../**/" + "*.ini"` and `f"../**/{name}.ini"` keep the spelled
+        `**` and read every level): the loud superset. A lone constant is read as written."""
         pieces = fold(operand)
         nodes = [piece.node for piece in pieces if piece.node is not None and piece.text]
         if not nodes:
             return set()
         if len(nodes) == 1 and all(piece.text is not None and piece.text not in (DIR, FILE) for piece in pieces):
             return {id(nodes[0])}
-        joined[id(nodes[0])] = re.sub(r"\*+", "*", "".join(piece.text if piece.text is not None and piece.text not in (DIR, FILE) else "*" for piece in pieces))
+        built = "".join(piece.text if piece.text is not None and piece.text not in (DIR, FILE) else "\0" for piece in pieces)
+        joined[id(nodes[0])] = re.sub(r"\*?\0+\*?", "*", built)  # an unknown part and a `*` beside it are one `*`; a spelled `**` keeps its depth
         skip.update(id(piece.node) for piece in pieces if piece.node is not None and piece.node is not nodes[0])
         return {id(nodes[0])}
 
@@ -831,10 +866,10 @@ def named_files(closure: set[str]) -> set[str]:
 
 
 # Loaded at runtime rather than imported, so the closure cannot discover them.
-def runtime_inputs(closure: set[str]) -> list[str]:
+def runtime_inputs(closure: set[str], named: set[str] | None = None) -> list[str]:
     return _existing(
         _glob("prompts/*.md") + _glob("evals/copilot_*.json") + [f for d in DATA_DIRS for f in _glob(f"{d}/**/*")]
-        + [ROOT / p for p in step_inputs()] + [WORKFLOW] + [ROOT / p for p in named_files(closure)],
+        + [ROOT / p for p in step_inputs()] + [WORKFLOW] + [ROOT / p for p in (named_files(closure) if named is None else named)],
         "runtime inputs",
     )
 
@@ -863,8 +898,8 @@ def non_triggers(closure: set[str]) -> list[str]:
         "the eval now imports or names these files, which are non-triggers by design: remove the dependency, rename a copy that only shares a file's name, or reclassify "
         f"them in this gate deliberately (a name the eval only writes belongs in RUN_ARTIFACTS): {overlap}"
     )
-    used = inputs | named | {WORKFLOW.relative_to(ROOT).as_posix()}
-    markdown = _existing(_glob("evals/**/*.md"), "non-triggers")
+    used = set(runtime_inputs(closure, named))  # every prompt, the copilot JSON, the data directories, the step inputs, the workflow, the named files
+    markdown = sorted(p for p in TRACKED if p.startswith("backend/") and p.endswith(".md"))  # tracked, so it exists at the commit
     return deliberate + [p for p in markdown if p not in used] + sorted(p for p in TRACKED if not p.startswith("backend/") and p not in used)
 
 
@@ -883,8 +918,15 @@ def _local_imports(module: str, is_package: bool, tree: ast.AST):
     is the parent. Each further dot climbs one package.
     """
     anchor = module.split(".") if is_package else module.split(".")[:-1]
-    importers = IMPORTERS | {alias.asname for node in ast.walk(tree) if isinstance(node, ast.ImportFrom)
-                             for alias in node.names if alias.name in IMPORTERS and alias.asname}
+    importers = set(IMPORTERS)
+    for node in ast.walk(tree):
+        if isinstance(node, ast.ImportFrom):  # `from importlib import import_module as load`
+            importers |= {alias.asname for alias in node.names if alias.name in IMPORTERS and alias.asname}
+        elif isinstance(node, ast.Assign) and len(node.targets) == 1 and isinstance(node.targets[0], ast.Name):  # `load = importlib.import_module`
+            value = node.value
+            if isinstance(value, ast.Attribute) and value.attr in IMPORTERS or isinstance(value, ast.Name) and value.id in IMPORTERS:
+                importers.add(node.targets[0].id)
+    own = {"__name__": module, "__package__": ".".join(anchor)}  # the module's own names: constants to this gate
     for node in ast.walk(tree):
         if isinstance(node, ast.Import):
             for alias in node.names:
@@ -913,18 +955,25 @@ def _local_imports(module: str, is_package: bool, tree: ast.AST):
             if name not in importers:
                 continue
             target = node.args[0] if node.args else next((keyword.value for keyword in node.keywords if keyword.arg in IMPORTER_ARGS), None)
-            if target is None or isinstance(target, ast.Constant):  # a constant target is read above
+            if target is None or isinstance(target, ast.Constant) and not isinstance(target.value, str):
                 continue
-            pieces = _fold(target, frozenset(), frozenset())  # `import_module(f"app.integrations.{name}")`: the constant head
+            constant = isinstance(target, ast.Constant)  # a constant target, a bare module name or a relative name included, is one import
+            pieces = _fold(_OwnNames(own).visit(copy.deepcopy(target)), frozenset(), frozenset())  # the constant head of `import_module(f"app.integrations.{name}")`
             head = "".join(piece.text for piece in itertools.takewhile(lambda piece: piece.text is not None and piece.text not in (DIR, FILE), pieces)).split(":")[0]
             package = node.args[1] if len(node.args) > 1 else next((keyword.value for keyword in node.keywords if keyword.arg == "package"), None)
-            if head.startswith(".") and isinstance(package, ast.Name) and package.id in {"__name__", "__package__"}:
-                # `import_module(f".{name}", __name__)`: relative to the package named, as `from . import` is; a plain
-                # module's `__name__` is no package, and Python imports nothing through it
-                if package.id == "__name__" and not is_package:
+            if head.startswith("."):
+                # relative to the package named, as importlib resolves it: `__package__` is the owning package, `__name__` the
+                # module itself (so `.x` from a plain module loads nothing new and `..x` a sibling), a constant package itself
+                if isinstance(package, ast.Name) and package.id in own:
+                    base = own[package.id].split(".")
+                elif isinstance(package, ast.Constant) and isinstance(package.value, str) and DOTTED.match(package.value) and ":" not in package.value:
+                    base = package.value.split(".")
+                else:
                     continue
                 level = len(head) - len(head.lstrip("."))
-                head = ".".join(anchor[: len(anchor) - (level - 1)]) + "." + head[level:]
+                if level > len(base):
+                    continue
+                head = ".".join(base[: len(base) - (level - 1)]) + "." + head[level:]
             head = head.rstrip(".")
             parts = head.split(".")
             if not DOTTED.match(head) or parts[0] not in LOCAL_TOP_LEVEL:
@@ -935,9 +984,19 @@ def _local_imports(module: str, is_package: bool, tree: ast.AST):
                     continue
                 if found is not None:
                     yield ".".join(parts[:n])
-                if found is None or found.name == "__init__.py":  # a package, a namespace package too
+                if not constant and (found is None or found.name == "__init__.py"):  # a variable tail under a package, a namespace package too: any module may load
                     yield from (_module_name("backend/" + path) for path in TRACKED_PY if path.startswith(package_dir))
                 break
+
+
+class _OwnNames(ast.NodeTransformer):
+    """`__name__` and `__package__` in an importer's target are the module's own dotted names, constants to this gate."""
+
+    def __init__(self, names: dict[str, str]) -> None:
+        self.names = names
+
+    def visit_Name(self, node: ast.Name) -> ast.AST:  # noqa: N802 (ast's visitor naming)
+        return ast.Constant(self.names[node.id]) if node.id in self.names else node
 
 
 def _workflow() -> dict:
@@ -1494,21 +1553,40 @@ def test_relative_imports_anchor_on_the_owning_package():
     # A one-segment head is a package too, every module under it, a namespace package (`scripts`, no `__init__.py`)
     # included; a partial last segment (`runner_`) is the package before it.
     evals_modules = {_module_name(p) for p in TRACKED if p.startswith("backend/evals/") and p.endswith(".py")}
-    scripts = {_module_name(p) for p in TRACKED if p.startswith("backend/scripts/") and p.endswith(".py")}
-    assert len(evals_modules) > 2 and len(scripts) > 2 and "backend/scripts/__init__.py" not in TRACKED
-    for spelling in ('importlib.import_module(f"evals.{name}")', 'import_module("evals." + name)', 'importlib.import_module(f"evals.runner_{name}")', '__import__(f"evals.{name}")'):
+    assert len(evals_modules) > 2
+    for spelling in ('importlib.import_module(f"evals.{name}")', 'import_module("evals." + name)', 'importlib.import_module(f"evals.runner_{name}")', '__import__(f"evals.{name}")',
+                     'runpy.run_module(f"evals.{name}")', 'pydoc.locate(f"evals.{name}")'):
         assert set(_local_imports("app.services.copilot_service", False, ast.parse(f"m = {spelling}"))) == {"evals"} | evals_modules, spelling
-    assert set(_local_imports("evals.copilot_runner", False, ast.parse('m = importlib.import_module(f"scripts.{name}")'))) == scripts
-    # The relative form anchors as `from . import` does: on the package from its `__init__`, on the parent package from a
-    # module's `__package__`; a module's `__name__` is no package, so Python imports nothing through it, and a relative
-    # name with no package names nothing.
+    # A namespace package (no `__init__.py`) is a package too; the probe is injected, so the case holds whatever `scripts/` holds.
+    with mock.patch.object(sys.modules[__name__], "TRACKED_PY", TRACKED_PY | {"probe_ns/a.py", "probe_ns/b.py"}), mock.patch.object(sys.modules[__name__], "LOCAL_TOP_LEVEL", LOCAL_TOP_LEVEL | {"probe_ns"}):
+        assert set(_local_imports("evals.copilot_runner", False, ast.parse('m = importlib.import_module(f"probe_ns.{name}")'))) == {"probe_ns.a", "probe_ns.b"}
+    # The relative form anchors as importlib does: on the package from its `__init__`'s `__name__`, on the owning package
+    # from `__package__`, on the module itself from a plain module's `__name__` (`.x` loads nothing new, `..x` a sibling);
+    # a relative name with no package names nothing.
     assert set(_local_imports("evals", True, ast.parse('m = import_module(f".{name}", __name__)'))) == {"evals"} | evals_modules
     assert set(_local_imports("evals.copilot_runner", False, ast.parse('m = import_module(f".{name}", package=__package__)'))) == {"evals"} | evals_modules
-    assert set(_local_imports("evals.copilot_runner", False, ast.parse('m = import_module(f".{name}", __name__); n = import_module(f".{name}")'))) == set()
+    assert set(_local_imports("evals.copilot_runner", False, ast.parse('m = import_module(f".{name}", __name__)'))) == {"evals.copilot_runner"}
+    assert set(_local_imports("evals.copilot_runner", False, ast.parse('n = import_module(f".{name}"); o = import_module(f"...{name}", __package__)'))) == set()
+    services = {_module_name(p) for p in TRACKED if p.startswith("backend/app/services/") and p.endswith(".py")}
+    assert len(services) > 2
+    assert set(_local_imports("app.services.copilot_service", False, ast.parse('m = import_module(f"..{name}", __name__)'))) == {"app.services"} | services
+    # `__name__` and `__package__` in the head are the module's own names.
+    assert set(_local_imports("evals.copilot_runner", False, ast.parse('m = import_module(f"{__package__}.{name}")'))) == {"evals"} | evals_modules
+    assert set(_local_imports("evals", True, ast.parse('m = import_module(f"{__name__}.{name}")'))) == {"evals"} | evals_modules
+    # A constant target of any shape in an importer call is one import: a bare module name, a top-level package, a relative name.
+    assert set(_local_imports("evals.copilot_runner", False, ast.parse('a = importlib.import_module("main"); b = __import__("task_worker_main"); c = importlib.import_module("evals")'))) == {"main", "task_worker_main", "evals"}
+    assert set(_local_imports("evals.copilot_runner", False, ast.parse('load = importlib.import_module\nm = load(f"evals.{name}")'))) == {"evals"} | evals_modules
     # An importer imported under another name, and the keyword spelling.
     for spelling in ('from importlib import import_module as load\nm = load(f"app.integrations.{name}")', 'm = importlib.import_module(name=f"app.integrations.{name}")',
                      'p = mock.patch(target=f"app.integrations.{name}")'):
         assert set(_local_imports("evals.copilot_runner", False, ast.parse(spelling))) == {"app.integrations"} | integrations, spelling
+    # A constant relative target imports that module alone, anchored the same way (a package too, not every module under
+    # it); a constant package anchors a relative head; a relative target with no package, or a package that is not local, names nothing.
+    summary_module = sorted(m for m in evals_modules if m != "evals" and not m.startswith("evals.copilot_"))[0]
+    assert set(_local_imports("evals.copilot_runner", False, ast.parse(f'm = importlib.import_module(".{summary_module[6:]}", __package__)'))) == {summary_module}
+    assert set(_local_imports("app.services.copilot_service", False, ast.parse('m = import_module("..integrations.sec_api", __package__); r = import_module("..routers", package=__package__)'))) == {"app.integrations.sec_api", "app.routers"}
+    assert set(_local_imports("app.services.copilot_service", False, ast.parse('m = import_module(f".{name}", "evals")'))) == {"evals"} | evals_modules
+    assert set(_local_imports("evals.copilot_runner", False, ast.parse('m = import_module(".x"); n = import_module(".x", "os"); p = mock.patch(".x"); q = import_module("nothing_here")'))) == set()
 
 
 def test_every_reachable_module_and_runtime_input_triggers_the_run():
@@ -1852,6 +1930,12 @@ def test_data_directories_and_named_files_are_inputs():
         for spelling in ("fs = p.parent.glob('*.json')", "fs = glob.glob(os.path.join(p.parents[0], '*.json'))", "fs = glob.glob(os.path.join(os.path.dirname(p), '*.json'))"):
             assert _named_in(ast.parse(both + spelling), "backend/evals/copilot_runner.py") == beside_json, spelling
         assert _named_in(ast.parse(both + "d = p.with_name('baselines')"), "backend/evals/copilot_runner.py") == baselines
+        # A directory computed from the module file is not the file again: `THIS.parent.parent` and `dirname(dirname(HERE))`
+        # are unknown, and the literal joined to them is read as spelled (the bare name reaches `backend/requirements.txt`).
+        assert "backend/requirements.txt" in TRACKED
+        for spelling in ("THIS = Path(__file__).resolve()\nd = THIS.parent.parent / 'requirements.txt'\n", "HERE = os.path.abspath(__file__)\nd = os.path.join(os.path.dirname(os.path.dirname(HERE)), 'requirements.txt')\n",
+                         "THIS = Path(__file__)\nd = THIS.parents[0].parent / 'requirements.txt'\n", both + "d = p.parent.parent / 'requirements.txt'\n", "THIS = Path(__file__).resolve()\nd = THIS.parent.with_name('requirements.txt')\n"):
+            assert _named_in(ast.parse(spelling), "backend/app/config.py") == {"backend/requirements.txt"}, spelling
         # A glob's pattern built from several constants is the one string it builds; `"".join` concatenates.
         for spelling in ('Path(__file__).parent.glob("*" + ".json")', 'glob.glob("*" + ".json", root_dir=os.path.dirname(__file__))', 'Path(__file__).parent.glob("".join(["*", ".json"]))',
                          'glob.glob("".join([os.path.dirname(__file__), "/*.json"]))'):
@@ -1868,7 +1952,23 @@ def test_data_directories_and_named_files_are_inputs():
         copilot_json = {p for p in one_level_all if posixpath.basename(p).startswith("copilot_") and p.endswith(".json")}
         assert copilot_json and _named_in(ast.parse('fs = Path(__file__).parent.glob("copilot_" + stem + ".json")'), "backend/evals/copilot_runner.py") == copilot_json
         assert _named_in(ast.parse('fs = Path(__file__).parent.rglob("*" + sub)'), "backend/evals/copilot_runner.py") == evals_all
-        assert _named_in(ast.parse('fs = out.glob("*" + sub); gs = Path(__file__).parent.glob(sub); hs = Path(__file__).parent.glob(f"{stem}")'), "backend/evals/copilot_runner.py") == set()
+        assert _named_in(ast.parse('fs = out.glob("*" + sub); gs = out.glob(sub)'), "backend/evals/copilot_runner.py") == set()
+        # A glob whose whole pattern this gate cannot know lists the module's directory, one level or every level.
+        for spelling in ('Path(__file__).parent.glob(sub)', 'Path(__file__).parent.glob(f"{stem}")', 'glob.glob(PATTERN, root_dir=os.path.dirname(__file__))', 'glob.iglob(pattern=PATTERN, root_dir=Path(__file__).parent)'):
+            assert _named_in(ast.parse(f"fs = {spelling}"), "backend/evals/copilot_runner.py") == one_level_all, spelling
+        for spelling in ('Path(__file__).parent.rglob(sub)', 'glob.glob(PATTERN, root_dir=os.path.dirname(__file__), recursive=True)'):
+            assert _named_in(ast.parse(f"fs = {spelling}"), "backend/evals/copilot_runner.py") == evals_all, spelling
+        # A `**/` glued to a name keeps its depth, and `**/` matches no directory too: the file beside the module is read.
+        assert "backend/evals/golden_set.json" in TRACKED
+        assert _named_in(ast.parse('fs = Path(__file__).parent.glob("**/" + "golden_set.json")'), "backend/evals/copilot_runner.py") == {"backend/evals/golden_set.json"}
+        routers = {p for p in TRACKED if p.startswith("backend/app/routers/") and not p.endswith("/.gitignore")}
+        assert len(routers) > 2 and _named_in(ast.parse('fs = Path(__file__).parent.glob("**/" + "routers")'), "backend/app/config.py") == routers
+        # A spelled `**` keeps its depth when the pattern is built from several parts, with or without a name in it.
+        backend_ini = {p for p in TRACKED if p.startswith("backend/") and p.endswith(".ini")}
+        assert "backend/pytest.ini" in backend_ini
+        for spelling in ('glob.glob(os.path.join("..", "**", "*.ini"), root_dir=os.path.dirname(__file__))', 'Path(__file__).parent.glob("../**/" + "*.ini")', 'Path(__file__).parent.glob(f"../**/{name}.ini")',
+                         'glob.glob("../**/*.ini", root_dir=os.path.dirname(__file__))'):
+            assert _named_in(ast.parse(f"fs = {spelling}"), "backend/evals/copilot_runner.py") == backend_ini, spelling
         assert _named_in(ast.parse('d = "%s/%s" % (os.path.dirname(__file__), sub); e = "%d/*.json" % n; g = "{}/*.json".format(out); h = "{:>3}/x".format(os.path.dirname(__file__)); i = "%s_backup" % os.path.dirname(__file__); j = ", ".join([os.path.dirname(__file__), "*.json"])'),
                          "backend/evals/copilot_runner.py") == set()
         # A `..` or `.` head followed by a name names nothing: a lone `..` names nothing, and the name is the limit of a
@@ -1949,14 +2049,24 @@ def test_data_directories_and_named_files_are_inputs():
     assert not stale, f"RUN_ARTIFACTS names artifacts the eval no longer writes: {stale}"
 
 
-def test_every_file_under_evals_is_classified():
+def test_every_file_under_backend_is_classified():
+    """Every tracked file under `backend/`, which `backend/**` used to cover, is a trigger, a module of the closure or a
+    non-trigger of a stated category, so a new file or directory there is classified deliberately: `lessons/test-gates-must-be-as-wide-as-their-rule.md`."""
     patterns, closure = workflow_filter(), reachable_files()
-    known = set(non_triggers(closure)) | closure
-    unclassified = [p for p in sorted(TRACKED) if p.startswith("backend/evals/") and not triggers(p, patterns) and p not in known]
-    assert not unclassified, (
-        "a new file under backend/evals/ is classified deliberately: a Copilot input joins the filter, summary-eval data joins "
-        f"SUMMARY_EVAL_DATA (the filter's `copilot_*` does not cross a `/`): {unclassified}"
+
+    def unclassified(tracked: set[str]) -> list[str]:
+        with mock.patch.object(sys.modules[__name__], "TRACKED", tracked):
+            known = set(non_triggers(closure)) | closure
+            return [p for p in sorted(tracked) if p.startswith("backend/") and not triggers(p, patterns) and p not in known]
+
+    assert not unclassified(TRACKED), (
+        "a new file under backend/ is classified deliberately: a Copilot input joins the filter, summary-eval data joins "
+        f"SUMMARY_EVAL_DATA, anything else a non-trigger category in this gate (the filter's `copilot_*` does not cross a `/`): {unclassified(TRACKED)}"
     )
+    # A new directory, a data file in a known one and a new file under evals/ are reported; Markdown the run does not read is
+    # a non-trigger wherever it sits (the injected paths hold whatever the tree holds).
+    assert unclassified(TRACKED | {"backend/newdir/x.json", "backend/docs/x.csv", "backend/evals/x.json"}) == ["backend/docs/x.csv", "backend/evals/x.json", "backend/newdir/x.json"]
+    assert unclassified(TRACKED | {"backend/docs/x.md", "backend/newdir/README.md"}) == []
 
 
 def test_every_filter_pattern_matches_an_input_of_the_eval():
