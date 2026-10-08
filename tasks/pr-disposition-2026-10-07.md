@@ -290,7 +290,8 @@ balance is a cross-check, not the accounting.
    element is hidden. Neither shape is in the tree today.
 6. **Frontend `npm audit` on main**, unchanged by this run's merges: 19 findings (2 moderate, 17
    high); production-only, 7 (2 moderate, 5 high). This session cannot read Dependabot alerts, so
-   they are not triaged here.
+   they are not triaged here. The only alert signal it can see is GitHub's push banner: 4 open on
+   main (3 high, 1 moderate) at 00:17Z. One of them is likely the held extract-zip #270.
 7. **Holds.** #1009 (pricing) and #1035 (native delivery) keep their prerequisites, as listed in the
    refreshed hold records.
 
