@@ -35,7 +35,8 @@ interface FilingViewerContextValue {
    * the pane passes none, so this keeps the one before it), or null. FilingWorkspace never returns
    * focus to one inside the pane (`isReturnTarget`). Owned by the provider and mutated only here:
    * `peekOpener` reads it (the mobile sheet's focus-restore target), `takeOpener` reads and forgets it
-   * (FilingWorkspace, when the pane closes). Never a trigger for anything.
+   * (FilingWorkspace, when the pane closes), both as the copy now shown (`renderedCopy`: a metric chip
+   * a breakpoint hid since resolves to its rendered twin). Never a trigger for anything.
    */
   peekOpener: () => HTMLElement | null
   takeOpener: () => HTMLElement | null
