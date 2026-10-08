@@ -84,6 +84,8 @@ file instead.
   workflows (`backend/tests/unit/test_migration_lock_safety.py`, `test_eval_parity.py`,
   `test_eval_measurement.py`, `test_data_completeness.py`, `test_backend_deploy_scope.py`,
   `frontend/tests/unit/nodeVersionLockstep.spec.ts`; for `copilot-eval.yml` also
+  `test_copilot_gate.py`, `test_copilot_live_regressions.py` and `test_retired_model_ids.py`, which
+  pin its event set, step names and flags, run its steps and check its model ids, and
   `test_copilot_eval_paths.py` once #1123 merges: it refuses any key, env, action input or run
   command it does not know, so a new step fails it locally before it fails `backend-tests`).
 - Do not add a second test for a rule that is already gated. Do not write tests for reversible,
