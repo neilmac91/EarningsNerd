@@ -6,8 +6,16 @@ inventory of stale remote branches. Source instruction: the founder's live launc
 2026-10-07 (the "PR disposition sweep" prompt). Structure and evidence standard follow
 [`pr-disposition-2026-09-30.md`](pr-disposition-2026-09-30.md): checked means evidenced.
 
-**Stage:** 0 and 1 complete; Stage 2 (execution) in progress under the founder approval of 21:08Z. Nothing in Stage 0 or
-Stage 1 pushes, comments, labels, reviews or merges anything except this checkpoint.
+**Stage:** the run is complete; nothing in this file is pending work.
+- Stages 0 and 1 (read-only) ran from 19:41 to 20:57Z.
+- Stage 2 (execution) ran from 21:08Z, under the founder approval given then, to 00:12Z on 8 October.
+- Stage 3 (independent verification) ran from 00:04 to 00:21Z.
+
+Merging this file is the run's last step, and #1074 closes right after it. The sections before
+[Final report](#final-report-2026-10-08) are snapshots from the stage that wrote them: Session state
+and the start tables at 19:43–19:51Z, Lanes and the branch inventory at Stage 1. The Final report and
+the Log record the end state and take precedence over the snapshots. Stages 0 and 1 pushed,
+commented on, labelled, reviewed and merged nothing except this checkpoint.
 
 ## Session state
 
@@ -20,7 +28,7 @@ Stage 1 pushes, comments, labels, reviews or merges anything except this checkpo
   comments: readable). **Gap:** no tool in this session reads the Dependabot alerts API, so alerts
   are not listed from the API (see Stage 1).
 - Local clone was shallow at start; unshallowed before computing ahead/behind and merge-tree results.
-- Worktrees for Stage 2 (if approved): `/home/user/wt/<lane>`, outside the repository root.
+- Worktrees for Stage 2: `/home/user/wt/<lane>`, outside the repository root (all removed at the end).
 
 ### Open PRs at start (git facts, 2026-10-07T19:43Z)
 
@@ -70,7 +78,7 @@ Dependency versions (from the diffs):
 | --- | --- | --- | --- | --- | --- |
 | #1111 | 19:27:10Z (run 37674586346) | all green incl. eval-baseline, copilot-eval 37674643226 | review 5447320533 completed 19:30:46Z on `e2b4db6`, 1 unresolved P2 | body: "Deployment held"; new-head live artifacts required before merge | Codex lane, pushed < 1 h → **observe-only** |
 | #1110 | 19:23:13Z (run 37674087146) | all green; draft skips | 9 Codex reviews on older heads (last `e0f0086` 10:30:18Z); none on `0eac387` | none; DECISIONS-14 "Other executable work" item 2 names it | CODE RED chief, pushed < 1 h → **observe-only** |
-| #1108 | 18:17:28Z (run 37665686446) | CI green; review-gate 37676954482 in progress (marked ready 19:45:58Z by the owner account) | review running since 19:46:03Z on `6f6d85b` | none | product lane (EN-03), pushed < 12 h, marked ready during this read → **observe-only** |
+| #1108 | 18:17:28Z (run 37665686446) | CI green; review-gate 37676954482 in progress (marked ready 19:45:56Z by the owner account) | review running since 19:46:03Z on `6f6d85b` | none | product lane (EN-03), pushed < 12 h, marked ready during this read → **observe-only** |
 | #1107 | 18:18:37Z (run 37665833559; commits dated 00:34Z, pushed later) | CI green; review-gate 37676929238 in progress (marked ready 19:45:44Z) | review running since 19:45:50Z on `7d96c11` | none | product lane (EN-02), pushed < 12 h, live sibling #1108 → **observe-only** |
 | #1102 | 2026-10-06T06:24:24Z | CI green; review-gate failed (no Codex review; Dependabot PRs do not trigger Codex) | none | none | Dependabot, no live owner → actionable |
 | #1097 | 2026-10-05T07:46:44Z | review-gate failed; **secret-scan failed** (see below) | none | none | Dependabot → actionable |
