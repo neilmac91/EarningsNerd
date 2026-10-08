@@ -6380,7 +6380,7 @@ Full local and hosted verification plus independent exact-head review precede re
 - [x] Chief defect recorded (`DECISIONS-07.md`, ledger event 3): marking PR #1098 ready triggered the paid `copilot-eval`
       workflow without a reservation (29 calls, telemetry USD 0.005575; cancel request ineffective); recorded as use,
       USD 0.010000 reserved for the one required re-trigger; rule: reserve before marking a `backend/**`-touching PR ready.
-- [ ] Founder: apply (or change the numbers in) the handed-over patch pinning `SEC_RATE_LIMIT_PER_SECOND=1`
+- [x] Founder: apply (or change the numbers in) the handed-over patch pinning `SEC_RATE_LIMIT_PER_SECOND=1`
       and `EDGAR_RATE_LIMIT_PER_SEC=1` on the service and all eight jobs with its rule-12 gate — the chief's
       commit of it was classifier-denied (Production Deploy); the exact patch, fleet assumptions and decision are presented in
       `DECISIONS-08.md` (SHA-256 `21322a05…`, applies to `c780228a`); the chief reserves from the dearest measured `copilot-eval`
@@ -6445,19 +6445,31 @@ Full local and hosted verification plus independent exact-head review precede re
   outcomes A/B/C fixed in advance, form (b) only on the founder's one written line) and the D3 patch to be applied, staged by
   the founder's choice (stage 1: the eight jobs and the task worker; stage 2: the API service after the insider panel fits the
   budget). PR #1128 review record closed (merge `a3bc888b`; deploy steps skipped — eighth proof). Closures 166–167.
+- 2026-10-08 (record 17, `runtime/control/DECISIONS-17.md`): D3 stage 1 merged (PR #1131 → `da636f6c`) and deployed — the
+  eight jobs and the task worker pinned to 1 + 1, the API service at the defaults; the deploy was also the first rollout of
+  durable background tasks (repository variables switched on at 00:09–00:42Z outside this session; chief defect 6). D3
+  stage 2 put back to the founder (options A/B/C, A recommended; the Monday overlap is 12 req/s with the worker). PR #1129
+  review record closed (merge `2129a803`; ninth deploy-skip proof). Ledger events 35–36. Burst figures corrected. Closure 168.
 - [x] Founder: relay the record-14 custody clarification — replaced by record 16's step A (the founder delegated the custody
       question to the chief on 2026-10-08); D3 — applied by the founder's instruction, staged (record 16).
 - [ ] Founder (optional, no deadline): relay record 16's custody step A (five metadata fields) once; on outcome B, the one line
       "I adopt record 16's form (b) for R1".
-- [ ] Chief: D3 stage 1 PR (eight jobs + task worker pinned; reservation before ready; deploy verified), then stage 2 (insider
-      endpoint within the budget; API service pinned; `eval-baseline` reserved before its first `backend/app/` push, draft or not).
-- [ ] Founder (optional, now): the D3 staging answer rested on an overstated premise (the insider panel is off in production;
+- [x] Chief: D3 stage 1 PR (eight jobs + task worker pinned; reservation before ready; deploy verified) — merged `da636f6c`,
+      deployed 2026-10-08T20:17Z (record 17).
+- [ ] Founder (decision): D3 stage 2 — option A (recommended: gate the insider endpoint while its panel is off, delete the
+      dead fuzzy-search fallback, pin the API service), B (rework the insider scan first, then pin) or C (stop at stage 1 for
+      the service); with A or B, the Monday 07:00 UTC overlap choice (record 17). Then the chief's stage-2 PR.
+- [x] Founder (optional, now; folded into record 17's option A): the D3 staging answer rested on an overstated premise (the insider panel is off in production;
       record 16) — say "pin the API service now" to pin it with stage 1, otherwise staging stands.
-- [ ] Founder (future, before durable tasks are enabled): the Monday 07:00 UTC overlap is then 12 req/s configured against SEC's
-      10 (record 16) — move a Monday job, hold the worker off in that window, or accept it.
+- [x] Founder (future, before durable tasks are enabled): the Monday 07:00 UTC overlap is then 12 req/s configured against SEC's
+      10 (record 16) — overtaken: durable tasks went live with the stage-1 deploy; the choice is now part of the stage-2
+      decision (record 17).
+- [ ] Founder (durable-tasks rollout owner): run the post-deploy checks in `docs/DEPLOYMENT.md` (authenticated task
+      success, retries and errors, API latency, SQL connections) or ask the chief to roll it back (record 17).
 - [ ] Chief: make the backend suite hermetic — 11 tests send live requests to SEC (efts, data, www) and Yahoo Finance on
       every full run, CI included (record 16); fix them and land an outbound-network block in the test configuration as
-      the rule-12 gate (check rule 6 before touching any locked SSE contract test).
+      the rule-12 gate (check rule 6 before touching any locked SSE contract test). Pre-registered as
+      `test-hermeticity-pr-01` (closure 168).
 
 ## Copilot quotation rejection recovery — 2026-10-07
 
