@@ -55,9 +55,19 @@ handler is left to the label clause. By its label: any element but RetryButton w
 included. RetryButton's own definition is the one exemption from both Retry clauses, by file and function
 name (it is the sanctioned wiring and label); a function of that name anywhere else is just another
 hand-rolled Retry. Each has a shrink-only, capped allowlist with reasons: ALLOW_RETRY pins 5 wiring sites
-in 3 files (open rule (h) Retry buttons), ALLOW_RETRY_LABEL 12 labels in 12 files (4 error-boundary
-resets, 4 stream or generation restarts, 4 open rule (h) sites). Every Retry the retry-hardening follow-up
-converted fails both clauses at its 026d6df version (20 wiring and 10 label offenders in 6 files).
+in 3 files (open rule (h) Retry buttons), ALLOW_RETRY_LABEL 11 labels in 11 files (4 error-boundary
+resets, 3 stream or answer restarts, 4 open rule (h) sites). Every Retry the retry-hardening follow-up
+converted fails both clauses at its 026d6df version (20 wiring and 10 label offenders in 6 files). A third
+clause (EN-05) checks what RetryButton is given: each element of its `failures` is `useRetainedFailure(…)` (the
+hook its module exports, under any name an import gives it; a same-named local or a shadowing parameter is not it),
+inline, through a same-file `const` or either branch of a conditional, or, when it is a prop of the component
+rendering RetryButton, at every JSX use of that component (by its declared name in its own file, by any
+imported name elsewhere; a prop nobody passes fails). RetryButton is matched under its import aliases too. What
+the scan cannot prove counts as built by hand: a `let`, a spread element, an empty list (a visible Retry whose
+press retries nothing), any JSX spread on RetryButton (a
+forwarding wrapper) or into such a component. A failure built by hand skips the hold and can carry
+`busy: isFetching`: ALLOW_HAND_BUILT_FAILURE pins it by its text (1 site, the filing page's stream restart),
+capped; converting another stream restart moves its pin there from ALLOW_RETRY_LABEL.
 
 (e) A control unavailable after its own activation (`!dirty` after a save, an incomplete form, a
 cooldown, "Link sent") is aria-disabled with an early return too. A primary DS Button in that state
@@ -155,6 +165,24 @@ move focus a mouse user did not lose.
   focus nor a click (a touch scroll begun on the Retry, or a Safari mouse press on a busy one, since Safari
   does not focus buttons on click) leaves its mark for the next focus, so one keyboard focus right after it
   skips the hand-off. That errs toward no touch keyboard.
+- A Retry that restarts a stream (SSE), not a query, has no failure to hold, but it is still RetryButton for
+  its hand-off: the filing page's "Retry generation" passes the stream's own failure, `{ failed: true, error,
+  busy: false, retry }`. Its press clears the error in the render that starts the stream, so the card leaves
+  with the press when the run starts (a signed-out press starts none, so the card and its focused Retry stay)
+  and focus goes to the progress card's heading (`tabIndex={-1}`), in the branch that replaced it.
+  That literal is pinned in the gate's ALLOW_HAND_BUILT_FAILURE (d): a hand-built failure for a query would skip
+  the hold.
+- The other direction (EN-05, 2026-10-07): a card that ends a run the user is waiting on takes focus when it
+  appears, only when nobody holds focus. A failed generation usually lands with focus on `<body>` (the page
+  generates at load), and the keyboard user then tabbed through the site header to reach the Retry (9 stops
+  at 1440px). `useFocusOnArrival(target, shown)` (`hooks/useFocusHandoff.ts`) focuses the card's title
+  (`GuidanceCard`'s `headingRef`) after the commit, when focus is on `<body>`; a focused element that commit
+  removed (the progress heading) counts as nobody's. Focus in a field or on a link is never moved, nor taken
+  from behind an open `aria-modal` dialog the card is not in (a control unmounting inside a dialog drops focus
+  to `<body>` too), and a re-render while the card shows never takes it back. The title, not the Retry: a key
+  pressed as the card lands (Space to scroll, Enter) must not restart the run. The title is described by the
+  card's description (`aria-describedby`), so a screen reader that cuts the live announcement short for the
+  focus move still reads why; whether it reads twice needs a real screen reader.
 - A fetch is in flight while `fetchStatus !== 'idle'`. A retry paused offline or in a hidden tab is still
   in flight, so `isFetching` alone would release the failure, and the busy state, too early.
 - When a retry fails again with the same message, the alert's text is unchanged, so nothing is announced.
@@ -170,7 +198,9 @@ move focus a mouse user did not lose.
 
 (h) The scan cannot see post-success flips outside its names, unmounts, or a busy flag under another
 name. Those stay per-site specs plus a real-browser keyboard pass. Known open cases, same class, not
-yet fixed: the filing page's Retry generation / Retry / Regenerate Analysis; FeedbackRow's status
+yet fixed: the filing page's summary Retry ("Summary temporarily unavailable") and Regenerate Analysis, and
+focus after a generation that succeeds (the progress heading a keyboard Retry focused leaves with the run, and
+focus falls to `<body>`, where it always ended after a finished generation); FeedbackRow's status
 select when the list is filtered by status (its own update removes the row); the dashboard header's
 Log out (no in-flight guard); PopularTickerChips' add when the insights refetch after it fails (the
 chip goes live again, and with no row to prune it needs the added ticker remembered); YourCompanies'
@@ -185,7 +215,9 @@ RetryButton: the dashboard's account, plan and Your companies Retry buttons, Fil
 CompanySearch's "Try again" (a tap on it busy no longer raises the keyboard when it goes), the pricing
 page's three and BillingPanel's two (`busyControls.dashboard.spec.tsx`, `busyControls.watchlist.spec.tsx`,
 `CompanySearch.spec.tsx`, `busyControls.forms.spec.tsx`, `busyControls.settings.spec.tsx`,
-`useRetainedFailure.spec.tsx`); and EmailVerificationModal's Resend (`busyControls.admin-auth.spec.tsx`
+`useRetainedFailure.spec.tsx`); the filing page's Retry generation and the arrival of its failure card
+(`StreamingSummaryDisplay.spec.tsx`, `useRetainedFailure.spec.tsx`, e2e `summary-generation-focus.spec.ts`); and
+EmailVerificationModal's Resend (`busyControls.admin-auth.spec.tsx`
 plus the e2e `email-verification-resend.spec.ts`). The dashboard's saved-summary Delete and Manage
 subscription are fixed too (`busyControls.dashboard.spec.tsx`).
 
