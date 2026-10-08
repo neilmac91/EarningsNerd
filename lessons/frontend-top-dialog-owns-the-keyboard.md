@@ -42,6 +42,18 @@ closes the upper dialog and the next closes the source sheet. The browser probe 
 controls with fixture API responses; the source sheet's separate focus-containment limitation
 predates this Escape change.
 
+**Additional evidence (2026-10-08)**: the converse holds for a layer that is not modal. SourceTrace's
+fine-pointer popover kept its window-capture Escape listener while it waited out its close delay,
+and until its effect cleanup ran, a moment after it left the DOM. In EN-03 (#1108), a window
+narrowed below `lg` turned the research pane into the modal copilot sheet, whose trap took focus
+from a metric chip with its popover open. In CI the popover's listener stopped that Escape, and the
+sheet stayed open. The popover now leaves a key typed inside an `aria-modal` layer that does not
+hold its chip to that layer. The `aria-modal` objection above is about the touch sheet, which can
+sit over the copilot sheet, and still applies to it. Gates: the fine-pointer cases in
+`SourceTraceEscapeLayer.spec.tsx` (without the check, 1 of the file's 5 cases fails) and the
+`metrics-stacked-cards.spec.ts` case that sends Escape as the sheet takes focus (8 of 8 runs fail
+on the pre-fix build).
+
 The same sibling-listener failure also occurred in BellPopover: start a calendar alert toggle,
 open the global Feedback dialog while the request is pending, then let the request fail. The
 error popover correctly preserves textarea focus in Feedback, but its unconditional window-capture

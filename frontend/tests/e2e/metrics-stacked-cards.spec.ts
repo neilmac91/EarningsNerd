@@ -596,6 +596,44 @@ test.describe('the research pane a metric chip opened, across the md switch', ()
     await expect(page.locator(PANE)).toBeHidden()
     await expect(page.locator(CARD).nth(ROW).getByRole('button', { name: VERIFIED })).toBeFocused()
   })
+
+  // CI failed the case above: Escape left the sheet open. The browser had blurred the hidden table chip
+  // before the sheet's trap engaged, so the blur hand-off focused the card chip and opened its popover;
+  // the trap then took focus, and the popover's window-capture Escape listener, still attached while
+  // the popover waits out its close delay and for a moment after it closes, stopped the key. A style
+  // flips the layouts first, which fixes that order, and the key is sent in the microtask after focus
+  // enters the sheet: the trap has armed by then, and no scroll or timer has closed the popover yet.
+  test('keyboard, the blur first: Escape sent as the sheet takes focus closes the sheet, not the card chip’s popover', async ({ page, baseURL }) => {
+    await openFiling(page, baseURL!)
+    const tableChip = page.locator(`${TABLE} tbody tr`).nth(ROW).getByRole('button', { name: VERIFIED })
+    await tableChip.scrollIntoViewIfNeeded()
+    await tableChip.focus()
+    await page.keyboard.press('Enter')
+    await expect(page.locator(PANE)).toBeVisible()
+
+    await page.addStyleTag({ content: `${CARDS} { display: block !important } ${TABLE} { display: none !important }` })
+    const cardChip = page.locator(CARD).nth(ROW).getByRole('button', { name: VERIFIED })
+    await expect(cardChip).toBeFocused()
+    await expect(page.getByRole('group', { name: 'Source detail' })).toHaveCount(1)
+
+    await page.evaluate((pane) => {
+      const w = window as unknown as { __escapeSent?: { popovers: number } }
+      document.querySelector(pane)!.addEventListener(
+        'focusin',
+        () =>
+          queueMicrotask(() => {
+            w.__escapeSent = { popovers: document.querySelectorAll('[role="group"][aria-label="Source detail"]').length }
+            document.activeElement!.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }))
+          }),
+        { once: true },
+      )
+    }, PANE)
+    await page.setViewportSize({ width: 700, height: 900 })
+    // The key went in while the popover was still up: the order under test held.
+    await expect.poll(() => page.evaluate(() => (window as unknown as { __escapeSent?: { popovers: number } }).__escapeSent)).toEqual({ popovers: 1 })
+    await expect(page.locator(PANE)).toBeHidden()
+    await expect(cardChip).toBeFocused()
+  })
 })
 
 test.describe('the research pane a metric chip opened, across the md switch, on touch', () => {

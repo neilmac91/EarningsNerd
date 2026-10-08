@@ -301,6 +301,17 @@ function SourceTraceInner({
       // listener shares window with ours, so stopPropagation alone cannot shield it. Do not use
       // aria-modal here: a lower copilot sheet can also retain focus beneath the source sheet.
       if (e.target instanceof Element && e.target.closest('[data-ui-modal="true"]')) return
+      // The popover is no layer of its own, so a key typed inside a modal layer that does not hold its
+      // chip belongs to that layer (useSheetFocusTrap reads it the same way). That is the copilot
+      // sheet a narrowed window turns the pane into: its trap takes focus from the chip while this
+      // listener is still attached (the popover waits out CLOSE_DELAY_MS, and the listener leaves in
+      // the effect cleanup, a moment after the popover does), and the sheet's Escape must still close
+      // the sheet. Only the touch sheet sits over the copilot sheet, which is why the line above
+      // cannot use aria-modal.
+      if (!isCoarse && e.target instanceof Element) {
+        const layer = e.target.closest('[aria-modal="true"]')
+        if (layer && !layer.contains(triggerRef.current)) return
+      }
       e.stopPropagation()
       // A keyboard user who tabbed into the popover's EDGAR link gets the chip back, not <body>.
       // (The sheet's trap restores focus to the chip itself on close.)
