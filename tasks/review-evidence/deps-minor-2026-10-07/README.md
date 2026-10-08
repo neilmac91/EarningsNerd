@@ -221,9 +221,11 @@ call, workflow dispatch or production operation occurred.
   - eval-baseline dispatch run 37695333206: 70/70 scored, errors 0, regression gate PASS. Two
     warnings:
     - untraceable dollar figures (advisory);
-    - `mean_citation_fidelity` 0.8615 vs 0.9648. Every 7 October run reads 0.818–0.862, because the
-      eval harness's section extraction fell back to regex for 35/35 filings. That is not caused by
-      this diff and is queued as a follow-up.
+    - `mean_citation_fidelity` 0.8615 vs 0.9648. Every 7 October run that finished before 23:12Z
+      reads 0.818–0.862, because the eval harness's section extraction fell back to regex for
+      35/35 filings. A run that finished at 23:13Z read 0.871 (8 runs in all; see decision 3 of
+      `tasks/pr-disposition-2026-10-07.md`). This is not caused by this diff and is queued as a
+      follow-up.
   - copilot-eval run 37695352886: accepted, 18/18, 0 errors.
   - Cost: USD 0.181759 in total.
 - **Reviews:** Codex completed on `76d2ba6` with no findings. The independent three-lens exact-head

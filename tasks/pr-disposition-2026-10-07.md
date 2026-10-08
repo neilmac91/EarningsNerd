@@ -234,25 +234,32 @@ balance is a cross-check, not the accounting.
   changes went through maintainer replacements or Dependabot's own PR.
 - Untouched: locked contract tests, baseline pins and thresholds, production flags, prices, trial,
   promo, registration, Stripe, the AI provider and model, secrets, repository settings and rulesets,
-  and `tasks/code-red-20261004/`.
+  and `tasks/code-red-20261004/`. The nearest any merge came: #1081 added a base `grid-cols-1` to one
+  class string each in `app/pricing/page.tsx`, `PricingSection.tsx`, `AuthShell.tsx` and
+  `admin/invites/page.tsx`. That is layout only, with no change to price, plan or registration
+  logic. #1009, the pricing hold, already conflicted in `pricing/page.tsx`.
 - Held items stay held: #1009, #1035, Dependabot alert #270 and D8 (its two branches kept). No PR
   marked "do not merge" or "measurement only" was merged.
 - No branch was deleted by hand, and none of the 18 stale-inventory branches was touched.
   **Correction (Stage 3):** this line first read "No branch was deleted", which was wrong. The
   repository has `delete_branch_on_merge: true`, so GitHub removed the head branch of every PR merged
-  in the run: #1102, #1116, #1119, #1125, #1081 and #1127. Dependabot deleted its own branches when
+  in the run. That covers the sweep's merges (#1102, #1116, #1119, #1125, #1081 and #1127) and the
+  owner-lane merges (#1111, #1107, #1117 and #1122). Dependabot deleted its own branches when
   #1095, #1096, #1097 and #1124 closed. Every one of those heads is kept in `refs/pull/<n>/head`, and
   the merged ones are also on main as squash commits. Merging this PR removes
   `claude/pr-disposition-sweep-64s71l` the same way. Repository settings are out of scope, so the
   setting was left alone.
 - Every merge waited for: green checks, including Vercel; a completed Codex review of the exact head
   (no override was used, since quota was available); no standing blocker or should-fix; and a
-  re-read head SHA with squash + `expectedHeadSha`. Backend merges were serial, each confirmed by its
+  re-read head SHA with squash + `expectedHeadSha`. One case needs saying: #1081 merged with two Codex
+  P2s on its exact head. Both were reproduced and both are fail-closed false positives on shapes that
+  do not exist in the tree. They were answered, resolved and put to the founder as decision 5. Backend merges were serial, each confirmed by its
   deploy job, migration tail, revision at 100% and `/health/detailed`.
 - Refused or missing access was logged and not routed around:
   - the `gh` token is invalid;
   - Dependabot alerts are unreadable;
-  - the connector defangs `@dependabot` and `@codex` mentions.
+  - the connector defangs bot @-mentions. This was seen for `@dependabot` (comment 6046998252);
+    `@codex` was not tried and is assumed to behave the same.
 - Observe-only PRs got no push, merge, close or comment from this session.
 
 ### Decisions needed from the founder
@@ -306,12 +313,22 @@ balance is a cross-check, not the accounting.
 - **CI:** `eval-baseline` skips requirements-only diffs, such as an openai bump, on pull_request
   events. This run used workflow dispatch instead (D1, D3). A path-filter change would make it
   automatic.
-- **Process gap:** this session's GitHub connector cannot issue `@dependabot` or `@codex` commands,
-  so Codex reviews were triggered by draft→ready cycles.
+- **Process gap:** this session's GitHub connector defangs bot @-mentions. This was seen for
+  `@dependabot` and assumed for `@codex`, so Codex reviews were triggered by draft→ready cycles.
 
 ### Stage 3 (independent verification)
 
-«TBD»
+Stage 3 ran as workflow `wf_a62e9e1a-2e7` from 00:04 to 00:21Z: three fresh read-only agents, none
+of which had seen the run. Each checked the record against primary sources (the REST API, PR
+timelines, job logs, git objects and live `/health/detailed`). They made 243 checks in total.
+
+| Lens | Checks | Confirmed | Discrepancies (all fixed in this file unless noted) |
+| --- | --- | --- | --- |
+| PR outcomes and comments | 108 | Every merge SHA and time; every closure; every head SHA; all cited comment IDs; #1081's 5 Codex threads all answered and resolved; holds unchanged; no sweep comment on any observe-only PR; 12 open at start, 15 + this PR opened | **wrong:** "8 of 12" (it is 7, with #1074 pending); "no branch was deleted"; decision 4 named four branches already gone; two closing comments said a branch stayed (now edited in place). **imprecise:** #1074's evidence was written as already on main; the #1112 count; #1108's head at 20:40Z; six timestamps off by 2–5 s |
+| Deploys, health and spend | 58 | All four deploys (`00445`–`00448`, `applied=0 skipped=41`, healthy); the spend recomputed from every `ai_call` line comes to exactly USD 0.363258; all runs off-peak and deepseek-flash; artifact IDs and sha256 prefixes; no other paid steps on session branches | **imprecise:** decision 3's range (now 0.818–0.871 across 8 runs); #1122's merge happened before #1119's deploy started, not during it; #1119's release comment blamed the push-run skip on the path filter (edited in place: it is the job-level `if`). **unverifiable:** the session's own health reads and DeepSeek balance reads (the record already treats balance as a cross-check) |
+| Boundaries | 77 | The six merges touch no locked file, workflow, `backend/app`, prompt, eval or code-red path; no secrets; extract-zip unchanged; this branch touches only `tasks/`; the 30 #1074 files are byte-identical to `437e245c`; all 18 inventoried branches present; no force-push; every squash tree equals the merge-tree of its cited head; Codex completed on every exact merged head | **imprecise:** branch auto-delete also covered the four owner-lane merges; #1081's layout edits to the pricing and auth files; `@codex` defanging is assumed, not observed; #1081 merged with two answered Codex P2s; the README's fidelity range. **unverifiable:** that `expectedHeadSha` was passed (GitHub does not record it; every merged head matches the head re-read before merging), and alert #270 (alerts API 403) |
+
+None of the lenses found a boundary breach or a wrong merge.
 
 ## Log
 
