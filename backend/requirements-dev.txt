@@ -7,3 +7,6 @@ bandit==1.9.4
 # Dependency-vulnerability audit for requirements.txt (ci.yml "Dependency audit" step; advisory
 # until the file audits clean, then blocking).
 pip-audit==2.10.1
+# Parallel test runner for the gate: pytest.ini's addopts carry `-n auto`, so `python -m pytest`
+# needs it (pytest itself is pinned in requirements.txt).
+pytest-xdist==3.8.0

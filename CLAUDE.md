@@ -61,10 +61,12 @@ rule 11.
 Backend (from `/backend`):
 ```bash
 uvicorn main:app --reload --host 0.0.0.0 --port 8000   # Dev server
-pip install -r requirements-dev.txt                    # Pinned lint toolchain (same versions as CI)
+pip install -r requirements-dev.txt                    # Pinned lint toolchain + pytest-xdist (same versions as CI)
 ruff check . && bandit -r app -ll && python -m pytest  # FULL local gate — run before every push
-python -m pytest              # Fast lane: pytest.ini deselects performance (real sleeps)
+python -m pytest              # Fast lane, parallel (`-n auto`); deselects performance (real sleeps)
+python -m pytest -n 0 tests/unit/test_x.py             # Serial: one file, a debugger, or `-p no:randomly` repros
 python -m pytest -m ""        # Everything, including the performance suite
+python -m pytest -o addopts= -m performance tests/performance  # Performance suite alone, serial (CI's step)
 python3 scripts/deploy_check.py                        # Pre-deploy validation
 ```
 
@@ -159,10 +161,12 @@ Infra: `docker-compose up -d postgres redis` (local only — prod has no Redis).
   Next ISR/server fetches. Blob downloads via `lib/downloadBlob.ts`.
 - **Tests:** `backend/tests/{unit,integration,smoke,performance}` (config + markers in
   `backend/pytest.ini`; conftest auto-sets hermetic mock env incl. `SKIP_REDIS_INIT=true` — patch
-  `settings`, not env vars) and `frontend/tests/{unit,e2e}`. NO other test roots — a test outside
-  these does not run in CI. Gate: `frontend/tests/unit/testHomesAllowlist.spec.ts`; its one
-  exemption is a hash-sealed judging fixture pinned by a `code-sha256.json` in its package
-  (offline proof run by the operator, not by CI).
+  `settings`, not env vars — and a private temp SQLite DB per process/xdist worker, so tests must
+  not depend on order or on another test's leftovers: `lessons/ops-one-test-process-per-worktree.md`)
+  and `frontend/tests/{unit,e2e}`. NO other test roots — a test outside these does not run in CI.
+  Gate: `frontend/tests/unit/testHomesAllowlist.spec.ts`; its one exemption is a hash-sealed
+  judging fixture pinned by a `code-sha256.json` in its package (offline proof run by the operator,
+  not by CI).
 - **Scripts:** one-offs in `backend/scripts/` with a docstring header; nothing executable at repo
   root. **Plans** → `tasks/todo.md`; finished plans → `tasks/archive/`; **lessons** → `lessons/`
   (one file per rule; never back into a monolith). **Prompts** → `backend/prompts/*.md`.

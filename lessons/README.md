@@ -81,7 +81,7 @@ what applies to your task. Filenames are greppable: `arch-*`, `sec-*`, `test-*`,
 - [`test-isolate-process-wide-contextvars.md`](./test-isolate-process-wide-contextvars.md) — Isolate process-wide ContextVars per test; CI's file order can hide a leak
 - [`test-judge-context-parity.md`](./test-judge-context-parity.md) — Give an LLM judge the same (or a superset of the) grounding the generator used
 - [`test-one-test-home.md`](./test-one-test-home.md) — Tests live in exactly one home per stack — a test outside it does not run in CI
-- [`test-persistent-sqlite-db-goes-stale.md`](./test-persistent-sqlite-db-goes-stale.md) — The test SQLite DB (earningsnerd.db, CWD-relative — usually backend/) is a persistent file — rm it after a schema change or rebase
+- [`test-persistent-sqlite-db-goes-stale.md`](./test-persistent-sqlite-db-goes-stale.md) — The dev SQLite DB (backend/earningsnerd.db) is persistent — rm it after a schema change; the test suite never uses it
 - [`test-proofs-run-on-committed-state.md`](./test-proofs-run-on-committed-state.md) — Mechanical proofs must run against committed state — a proof that cannot fail proves nothing
 - [`test-pure-move-ast-proof.md`](./test-pure-move-ast-proof.md) — Verify "pure move" refactors with an AST-normalized per-symbol diff, not by eyeballing the diff
 - [`test-leave-the-tree-alone-during-a-background-suite.md`](./test-leave-the-tree-alone-during-a-background-suite.md) — Leave the working tree untouched while a background full-suite run reads it
@@ -155,7 +155,7 @@ what applies to your task. Filenames are greppable: `arch-*`, `sec-*`, `test-*`,
 - [`ops-continue-approved-engineering.md`](./ops-continue-approved-engineering.md) — Continue the approved queue after verified releases and preserve specific founder holds
 
 - [`ops-keep-moving-under-standing-authorization.md`](./ops-keep-moving-under-standing-authorization.md) — Keep moving under a standing founder authorization; stop only at the boundaries still held
-- `ops-one-test-process-per-worktree.md` — one test process per worktree; never run pytest beside a running gate.
+- `ops-one-test-process-per-worktree.md` — each test process owns its database; a test must never depend on another test's leftovers.
 - `ops-mutate-only-committed-state.md` — mutation proofs run on committed state only; `git checkout --` restores HEAD, not your edit.
 
 - [`ops-job-success-needs-outcome-evidence.md`](./ops-job-success-needs-outcome-evidence.md) — Persist actual job outcomes; swallowed failures and dry runs never advance last success
