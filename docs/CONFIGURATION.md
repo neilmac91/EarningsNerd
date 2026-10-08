@@ -73,6 +73,14 @@ code default. Production cache policy remains Redis-off/L1-only (ADR-0004).
 | `REGISTRATION_MODE` | `"public"` | Validated public or invite_only registration, enforced on `/api/auth/register` and on the Google/Apple callbacks (an invited social sign-up sends the invite in the body of `POST /api/auth/google|apple/start`, never in a URL); CI explicitly sets invite_only on the service. |
 | `INVITE_EXPIRY_HOURS` | `168` | Invite token lifetime, hours. |
 | `INTERNAL_JOB_TOKEN` | `""` | Shared internal-job endpoint secret; unset endpoints return 503. |
+| `DURABLE_TASKS_ENABLED` | `false` | Opt-in queue handoff for on-visit work and internal jobs. Enable after authenticated worker delivery is verified; keep CPU always allocated until then. |
+| `TASKS_PROJECT_ID` | `""` | Project containing the task queue; required when durable delivery is enabled. |
+| `TASKS_LOCATION` | `"us-west1"` | Queue region; co-locate with the API and worker. |
+| `TASKS_QUEUE` | `"earningsnerd-background"` | Dedicated background queue with one concurrent delivery. |
+| `TASKS_WORKER_URL` | `""` | Exact HTTPS run.app origin of the private worker, also its expected OIDC audience. |
+| `TASKS_INVOKER_EMAIL` | `""` | Dedicated task service account whose verified email is accepted by the worker. |
+| `TASKS_WORKER_PROCESS` | `false` | Enable only on the private task-only service; permits isolated child execution. |
+| `TASKS_WORK_TIMEOUT_SECONDS` | `480` | Hard child work deadline, greater than zero and at most 480 seconds; child is killed and reaped before HTTP completion on timeout or disconnect. |
 | `POSTHOG_API_KEY` | `""` | Server-side PostHog credential. |
 | `POSTHOG_HOST` | `"https://us.i.posthog.com"` | Server-side PostHog ingestion origin. |
 | `SENTRY_DSN` | `""` | Error tracking DSN; empty disables SDK setup. |

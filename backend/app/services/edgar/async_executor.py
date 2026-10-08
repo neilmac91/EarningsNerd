@@ -24,6 +24,8 @@ from concurrent.futures import ThreadPoolExecutor
 from functools import wraps
 from typing import Callable, TypeVar, ParamSpec, Awaitable
 
+from app.services.request_work import run_executor_work
+
 from .config import EDGAR_THREAD_POOL_SIZE, EDGAR_DEFAULT_TIMEOUT_SECONDS
 from .exceptions import EdgarTimeoutError, translate_edgartools_exception
 from .circuit_breaker import edgar_circuit_breaker
@@ -75,14 +77,11 @@ async def run_in_executor(
     Raises:
         EdgarError: Translated from any EdgarTools exception
     """
-    loop = asyncio.get_running_loop()
-
     try:
         # Run the sync function in our dedicated thread pool (lazily (re)created if shut down)
-        result = await loop.run_in_executor(
-            _get_executor(),
-            lambda: func(*args, **kwargs)
-        )
+        # Keep its concurrent future visible to request cleanup even if the asyncio
+        # waiter times out: cancelling a waiter cannot terminate a running thread.
+        result = await run_executor_work(_get_executor(), func, *args, **kwargs)
         return result
     except Exception as exc:
         # Translate EdgarTools exceptions to our types

@@ -150,7 +150,7 @@ machine" only for that work; skip "Enforced by a machine gate" (CI fails those o
 - frontend-top-dialog-owns-the-keyboard.md — The top dialog owns the keyboard: listen in window capture and stop the keys it handles
 - frontend-trial-labels-use-entitlements.md — Derive current-trial presentation from the resolved entitlement
 - frontend-validate-design-sidecars-in-their-consumer.md — Validate design-sidecar specimens in their consumer, and check what its engine reads
-- frontend-variable-text-must-not-size-a-wrapping-row.md — Keep variable-length text from sizing a wrapping row or an implicit grid track
+- frontend-variable-text-must-not-size-a-wrapping-row.md — Every responsive grid sets its base track (gated: ESLint `earningsnerd/responsive-grid-base-track`); variable-length text must not size a wrapping row (`[contain:inline-size]`, `min-w-0`, `truncate`; review-checked)
 - frontend-verify-chart-annotations-on-dense-data.md — Acceptance-test chart annotations on a dense real-world series, never only fixtures
 
 ## Enforced by a machine gate — not session reading
