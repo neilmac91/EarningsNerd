@@ -1376,8 +1376,9 @@ def test_relative_imports_anchor_on_the_owning_package():
     assert set(_local_imports("evals.copilot_runner", False, tree)) == {"app.integrations.sec_api", "app.services.copilot_service", "app.services"}
     # A one-segment module counts only in the `module:attr` form, and only a top-level module file, never a package or a
     # bare word.
-    tree = ast.parse('b = pkgutil.resolve_name("main:app"); c = "app:thing"; d = "task_worker_main"; e = "main.app"')
+    tree = ast.parse('b = pkgutil.resolve_name("main:app"); c = "app:thing"; d = "task_worker_main"')
     assert set(_local_imports("evals.copilot_runner", False, tree)) == {"main"}
+    assert set(_local_imports("evals.copilot_runner", False, ast.parse('e = mock.patch("task_worker_main.app")'))) == {"task_worker_main"}
 
 
 def test_every_reachable_module_and_runtime_input_triggers_the_run():
