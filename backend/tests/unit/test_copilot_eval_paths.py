@@ -2161,6 +2161,10 @@ def test_every_file_under_backend_is_classified():
     with mock.patch.object(sys.modules[__name__], "TRACKED", TRACKED | injected):
         listed = set(non_triggers(closure)) & injected
     assert listed == {"backend/docs/x.md", "backend/evals/sub/NOTES.md"}
+    # The documentation Markdown is a non-trigger only while the filter does not cover it: a filter reaching
+    # `backend/evals/**` makes the evals Markdown a trigger by the directory-glob design, listed here no more.
+    with mock.patch.object(sys.modules[__name__], "workflow_filter", lambda: [*patterns, "backend/evals/**"]):
+        assert not [p for p in non_triggers(closure) if p.startswith("backend/evals/") and p.endswith(".md")]
 
 
 def test_every_filter_pattern_matches_an_input_of_the_eval():
