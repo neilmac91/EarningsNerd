@@ -7,6 +7,7 @@ session back, keeps the account and sets no cookie. The failure is injected insi
 own session (a ``before_flush`` listener), not by patching a function, so the test holds wherever
 the delete code lives.
 """
+import re
 import uuid
 from contextlib import contextmanager
 
@@ -67,6 +68,16 @@ def _cleared_session_cookies() -> list[str]:
     return expected.headers.getlist("set-cookie")
 
 
+_EXPIRES = re.compile(r"expires=[^;]+;")
+
+
+def _clock_free(headers: list[str]) -> list[str]:
+    """``delete_cookie`` stamps ``expires`` with the current second, so two calls a moment apart
+    can differ there; every other byte of every header still has to match."""
+    assert all(len(_EXPIRES.findall(header)) == 1 for header in headers), headers
+    return [_EXPIRES.sub("expires=<now>;", header) for header in headers]
+
+
 def _audit_rows(email: str) -> list[tuple[str, str, str]]:
     db = SessionLocal()
     try:
@@ -97,7 +108,8 @@ def test_delete_account_audits_deletes_and_clears_session_cookies(client):
         assert set(body["third_party_deletions"]) == {"stripe", "posthog", "sentry"}
         cleared = _cleared_session_cookies()
         assert len(cleared) >= 2
-        assert resp.headers.get_list("set-cookie") == cleared  # byte-identical, in order
+        # Byte-identical (bar the clock) and in order: access + presence, then refresh.
+        assert _clock_free(resp.headers.get_list("set-cookie")) == _clock_free(cleared)
         assert not _user_exists(uid)
         assert _audit_rows(email) == [("user_deleted", str(uid), "success")]
 
