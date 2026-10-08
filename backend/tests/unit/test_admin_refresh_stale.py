@@ -229,7 +229,7 @@ def test_sql_stale_filter_matches_python_is_stale(client, as_admin):
     # change to either (e.g. != vs < semantics) fails loudly instead of silently diverging.
     from app.database import SessionLocal
     from app.models import Summary
-    from app.routers.admin import _stale_summary_filter
+    from app.services.admin_summary_service import _stale_summary_filter
     from app.services.summary_versioning import is_stale
 
     sv, pv = SUMMARY_SCHEMA_VERSION, SUMMARY_PROMPT_VERSION

@@ -5,7 +5,6 @@ They allow clearing cached summaries and XBRL data to fix issues with stale data
 """
 from fastapi import APIRouter, HTTPException, Depends, status
 from fastapi.responses import JSONResponse
-from sqlalchemy import func
 from sqlalchemy.orm import Session
 from pydantic import BaseModel, EmailStr, Field
 from typing import Optional
@@ -14,7 +13,7 @@ import logging
 
 from app.config import settings
 from app.database import get_db
-from app.models import Filing, Summary, SavedSummary, User, SummaryGenerationProgress
+from app.models import User
 from app.models.feedback import Feedback
 from app.routers.auth import get_current_user
 from app.schemas.feedback import FeedbackAdminItem, FeedbackStatusUpdate, FeedbackStatus, FeedbackType
@@ -23,11 +22,11 @@ from app.services.edgar import clear_xbrl_cache, get_xbrl_cache_stats
 from app.services.resend_service import send_email, ResendError
 from app.services import admin_feedback_service
 from app.services import admin_filing_service
+from app.services import admin_summary_service
 from app.services import invite_service
 from app.services import audit_service
 from app.services.email_service import send_invite_email
-from app.services.summary_refresh import generation_failed, stale_filter
-from app.services.summary_versioning import SUMMARY_PROMPT_VERSION, SUMMARY_SCHEMA_VERSION, is_stale
+from app.services.summary_versioning import SUMMARY_PROMPT_VERSION, SUMMARY_SCHEMA_VERSION
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -48,13 +47,6 @@ def _require_admin(user: User) -> None:
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Admin access required"
         )
-
-
-def _chunked(seq, size=900):
-    """Yield successive `size`-length slices so a bulk IN(...) can't exceed a DB parameter cap
-    (SQLite's 999, PostgreSQL's bind-parameter ceiling)."""
-    for i in range(0, len(seq), size):
-        yield seq[i:i + size]
 
 
 class EmailTestRequest(BaseModel):
@@ -584,48 +576,14 @@ async def reset_all_summaries(
     """
     _require_admin(current_user)
 
-    # Select only the columns we need (id + filing_id). Summary has large JSON/text columns we
-    # never read here, so loading full ORM objects for a bulk op wastes memory + DB I/O.
-    query = db.query(Summary.id, Summary.filing_id)
-    if filing_type:
-        query = query.join(Filing, Filing.id == Summary.filing_id).filter(
-            Filing.filing_type == filing_type
-        )
-    summaries = query.all()
-
-    # Pinned (saved) summaries, scoped to the same filter so we don't load every bookmark in the DB.
-    pinned_query = db.query(SavedSummary.summary_id).join(
-        Summary, Summary.id == SavedSummary.summary_id
+    plan = admin_summary_service.select_reset_candidates(
+        db, filing_type=filing_type, include_saved=include_saved
     )
-    if filing_type:
-        pinned_query = pinned_query.join(Filing, Filing.id == Summary.filing_id).filter(
-            Filing.filing_type == filing_type
-        )
-    pinned_ids = {sid for (sid,) in pinned_query.all()}
-
-    to_delete = [s for s in summaries if include_saved or s.id not in pinned_ids]
-    skipped = [s for s in summaries if not include_saved and s.id in pinned_ids]
-
-    delete_ids = [s.id for s in to_delete]
-    delete_filing_ids = sorted({s.filing_id for s in to_delete})
-    skipped_saved = [{"filing_id": s.filing_id, "summary_id": s.id} for s in skipped]
+    delete_ids = plan.delete_ids
+    skipped_saved = plan.skipped_saved
 
     if not dry_run and delete_ids:
-        # Chunk every IN-list so a large reset can't exceed a DB parameter cap (SQLite's 999, etc.).
-        # When including saved summaries, drop their bookmarks first so the FK doesn't block.
-        if include_saved:
-            for chunk in _chunked(delete_ids):
-                db.query(SavedSummary).filter(
-                    SavedSummary.summary_id.in_(chunk)
-                ).delete(synchronize_session=False)
-        # Clear progress so regeneration starts clean (XBRL + content cache are intentionally kept).
-        for chunk in _chunked(delete_filing_ids):
-            db.query(SummaryGenerationProgress).filter(
-                SummaryGenerationProgress.filing_id.in_(chunk)
-            ).delete(synchronize_session=False)
-        for chunk in _chunked(delete_ids):
-            db.query(Summary).filter(Summary.id.in_(chunk)).delete(synchronize_session=False)
-        db.commit()
+        admin_summary_service.delete_summaries(db, plan)
         audit_service.create_audit_log(
             db=db,
             action="summaries_bulk_reset",
@@ -649,7 +607,7 @@ async def reset_all_summaries(
         "dry_run": dry_run,
         "filing_type": filing_type,
         "include_saved": include_saved,
-        "total_matched": len(summaries),
+        "total_matched": plan.total_matched,
         "deleted_count": len(delete_ids),
         "skipped_saved_count": len(skipped_saved),
         "skipped_saved": skipped_saved,
@@ -667,10 +625,6 @@ async def reset_all_summaries(
 # runs synchronously in the request, so the batch is capped to stay well within the Cloud Run request
 # timeout and avoid holding a DB connection for a long op. Large backlogs = repeated calls / a job.
 _REFRESH_STALE_MAX_BATCH = 10
-
-
-# One SQL encoding of staleness, shared with the job-side drain (scripts/refresh_stale_summaries.py).
-_stale_summary_filter = stale_filter
 
 
 @router.post("/summaries/refresh-stale")
@@ -710,77 +664,23 @@ async def refresh_stale_summaries(
     _require_admin(current_user)
     limit = max(1, min(limit, _REFRESH_STALE_MAX_BATCH))
 
-    query = (
-        db.query(Summary.id, Summary.filing_id, Summary.schema_version, Summary.prompt_version)
-        .join(Filing, Filing.id == Summary.filing_id)
-        .filter(_stale_summary_filter(schema_version_lt))
+    stale_total, candidate_filing_ids = admin_summary_service.select_stale_candidates(
+        db, schema_version_lt=schema_version_lt, filing_type=filing_type, limit=limit
     )
-    if filing_type:
-        query = query.filter(Filing.filing_type == filing_type)
-    stale_total = query.count()
-    # Randomized order (not filing_date DESC): a filing that keep-better-loses every time would
-    # otherwise park itself at a deterministic head-of-line and wedge every subsequent batch. Random
-    # sampling turns a permanent wedge into a diminishing nuisance.
-    candidates = query.order_by(func.random()).limit(limit).all()
-    candidate_filing_ids = [c.filing_id for c in candidates]
 
-    # Honest per-filing outcomes: a keep-better gate-keep regenerates nothing (the stored better
-    # version stays), so counting every non-raising call as "regenerated" would report progress the
-    # batch didn't make while the stale_total never moves. Classify by re-reading the row's stamps.
+    # Per-filing outcomes (see admin_summary_service.regenerate_in_place); a dry run regenerates nothing.
     updated: list[int] = []
     kept_by_gate: list[int] = []
     failed: list[int] = []
     if not dry_run and candidate_filing_ids:
-        from app.services.summary_generation_service import generate_summary_background
-
-        # Guard the admin session against N+1 re-expiry across the loop's own commits; generation
-        # runs in the pipeline's OWN sessions, so this only protects rows/audit held here.
-        prev_expire = db.expire_on_commit
-        db.expire_on_commit = False
-        try:
-            for fid in candidate_filing_ids:
-                try:
-                    outcome = await generate_summary_background(fid, None, force_regenerate=True)
-                except Exception:  # noqa: BLE001 — one filing's failure must not abort the batch
-                    logger.warning("refresh-stale: regeneration failed for filing %s", fid, exc_info=True)
-                    failed.append(fid)
-                    continue
-                if generation_failed(outcome):  # a terminal error event is a failed paid attempt, not a gate keep
-                    logger.warning("refresh-stale: generation ended in a terminal error for filing %s", fid)
-                    failed.append(fid)
-                    continue
-                # Re-read the (separately-committed) row's stamps: current => actually updated;
-                # still stale => the keep-better gate kept the stored version (not regenerated).
-                # Commit first to end this session's read transaction so the fresh SELECT sees the
-                # generation session's commit (no writes pending here, so it's a transaction reset).
-                db.commit()
-                stamp = (
-                    db.query(Summary.schema_version, Summary.prompt_version)
-                    .filter(Summary.filing_id == fid)
-                    .first()
-                )
-                if stamp is not None and not is_stale(stamp[0], stamp[1]):
-                    updated.append(fid)
-                else:
-                    kept_by_gate.append(fid)
-            audit_service.create_audit_log(
-                db=db,
-                action="summaries_refresh_stale",
-                user_id=current_user.id,
-                user_email=getattr(current_user, "email", None),
-                entity_type="summaries",
-                details={
-                    "filing_type": filing_type,
-                    "schema_version_lt": schema_version_lt,
-                    "stale_total": stale_total,
-                    "updated_count": len(updated),
-                    "kept_by_gate_count": len(kept_by_gate),
-                    "failed_count": len(failed),
-                },
-                status="success",
-            )
-        finally:
-            db.expire_on_commit = prev_expire
+        updated, kept_by_gate, failed = await admin_summary_service.regenerate_in_place(
+            db,
+            candidate_filing_ids,
+            actor=current_user,
+            filing_type=filing_type,
+            schema_version_lt=schema_version_lt,
+            stale_total=stale_total,
+        )
         logger.info(
             "Admin %s refresh-stale: updated %d, kept-by-gate %d, failed %d of %d stale (filing_type=%s)",
             current_user.id, len(updated), len(kept_by_gate), len(failed), stale_total, filing_type,
