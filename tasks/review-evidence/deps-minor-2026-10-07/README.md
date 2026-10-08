@@ -171,7 +171,11 @@ the file changed.
   against runtime + eval requirements, using `httpx2.MockTransport`, blocked sockets and synthetic
   keys. Its [result](anthropic-shapes-1.11.0.txt) is `ANTHROPIC_SHAPES_OK 1.11.0 app`. It matches the
   1.9.0 receipt apart from the version.
-- python-dotenv and ruff are patch releases. `ruff check .` is clean below.
+- python-dotenv and ruff are patch releases. `ruff check .` is clean below. python-dotenv 1.2.4 also
+  fixes one parse: `KEY=   # comment` now gives an empty value instead of the comment text. That makes
+  `APPLE_CLIENT_ID` from `backend/.env.example` correctly empty for a developer who copied the file,
+  so Apple sign-in reads as unconfigured. Cloud Run has no `.env` file, so production is unaffected.
+  (Added after merge from the exact-head review's nit.)
 
 ## Verification
 
@@ -204,7 +208,33 @@ No new gate or contract is introduced, so no mutation proof applies.
 
 ## Release boundary
 
-This is local, unpushed preparation. Independent exact-head review and the hosted required checks
+As written before the push: this is local, unpushed preparation. Independent exact-head review and the hosted required checks
 remain release requirements. The change touches `backend/requirements*.txt`, so a merge triggers
 `deploy-backend`, with the usual serialized migration receipt and health verification. No provider
 call, workflow dispatch or production operation occurred.
+
+## Release record (added after merge)
+
+- **PR and merge:** #1119 at head `76d2ba6d`, squash-merged as `111e8ce4` at 2026-10-07T23:12Z. It
+  supersedes Dependabot #1096, closed with comment 6048731593.
+- **Paid validation on the exact head** (E1 precedent):
+  - eval-baseline dispatch run 37695333206: 70/70 scored, errors 0, regression gate PASS. Two
+    warnings:
+    - untraceable dollar figures (advisory);
+    - `mean_citation_fidelity` 0.8615 vs 0.9648. Every 7 October run that finished before 23:12Z
+      reads 0.818–0.862, because the eval harness's section extraction fell back to regex for
+      35/35 filings. A run that finished at 23:13Z read 0.871 (8 runs in all; see decision 3 of
+      `tasks/pr-disposition-2026-10-07.md`). This is not caused by this diff and is queued as a
+      follow-up.
+  - copilot-eval run 37695352886: accepted, 18/18, 0 errors.
+  - Cost: USD 0.181759 in total.
+- **Reviews:** Codex completed on `76d2ba6` with no findings. The independent three-lens exact-head
+  review found no blocker and no should-fix. Its two nits are corrected in this file.
+- **Deploy:** main CI run 37700883978, deploy job 113066259541. It was the first deploy built with
+  Buildx and the GHA cache (#1117).
+  - Migrations: `apply_migrations: applied=0 skipped=41`.
+  - Revision `earningsnerd-backend-00446-vhw` serves 100% of traffic.
+  - "Verify health" reported healthy.
+  - An independent `/health/detailed` read at 2026-10-07T23:24:50Z returned 200 healthy, with the
+    database at 6.13 ms and the SEC circuit closed.
+  - Release comment: #1119 comment 6048886899.
