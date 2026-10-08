@@ -149,6 +149,7 @@ def test_patch_invalid_status_returns_422(client, as_admin):
 def test_patch_missing_id_returns_404(client, as_admin):
     resp = client.patch("/api/admin/feedback/99999999", json={"status": "resolved"})
     assert resp.status_code == 404, resp.text
+    assert resp.json() == {"detail": "Feedback not found"}
 
 
 @pytest.mark.requires_db

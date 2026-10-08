@@ -167,6 +167,14 @@ def test_resend_on_used_invite_returns_409(client, as_admin):
 def test_resend_not_found_returns_404(client, as_admin):
     resp = client.post("/api/admin/invites/99999999/resend", json={})
     assert resp.status_code == 404
+    assert resp.json() == {"detail": "Invite not found"}
+
+
+@pytest.mark.requires_db
+def test_revoke_not_found_returns_404(client, as_admin):
+    resp = client.post("/api/admin/invites/99999999/revoke")
+    assert resp.status_code == 404
+    assert resp.json() == {"detail": "Invite not found"}
 
 
 @pytest.mark.requires_db
