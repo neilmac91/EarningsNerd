@@ -3,6 +3,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { isXbrlCitation, type CopilotCitation } from '@/features/filings/api/copilot-api'
 import analytics from '@/lib/analytics'
+import { renderedCopy } from '@/features/filings/lib/layoutTwin'
 
 export interface CitationHighlightRequest {
   citation: CopilotCitation
@@ -109,11 +110,13 @@ export function FilingViewerProvider({
   }, [filingId, ticker, filingType])
   const clearRequest = useCallback(() => setRequest(null), [])
   const openFiling = useCallback(() => setActiveView('filing'), [])
-  const peekOpener = useCallback(() => opener.current, [])
+  // Read as the copy now shown: a metric chip that a breakpoint hid after it opened the pane (EN-03
+  // renders each one in two layouts) resolves to its rendered twin, so focus returns to the same chip.
+  const peekOpener = useCallback(() => renderedCopy(opener.current), [])
   const takeOpener = useCallback(() => {
     const el = opener.current
     opener.current = null
-    return el
+    return renderedCopy(el)
   }, [])
 
   const value = useMemo(
