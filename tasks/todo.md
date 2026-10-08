@@ -6451,6 +6451,8 @@ Full local and hosted verification plus independent exact-head review precede re
       "I adopt record 16's form (b) for R1".
 - [ ] Chief: D3 stage 1 PR (eight jobs + task worker pinned; reservation before ready; deploy verified), then stage 2 (insider
       endpoint within the budget; API service pinned; `eval-baseline` reserved before its first `backend/app/` push, draft or not).
+- [ ] Founder (optional, now): the D3 staging answer rested on an overstated premise (the insider panel is off in production;
+      record 16) — say "pin the API service now" to pin it with stage 1, otherwise staging stands.
 - [ ] Founder (future, before durable tasks are enabled): the Monday 07:00 UTC overlap is then 12 req/s configured against SEC's
       10 (record 16) — move a Monday job, hold the worker off in that window, or accept it.
 - [ ] Chief: make the backend suite hermetic — 11 tests send live requests to SEC (efts, data, www) and Yahoo Finance on
