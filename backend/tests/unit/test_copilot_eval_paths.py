@@ -96,8 +96,8 @@ step, job and workflow level; every step `uses:` must be one of three pinned Git
 only its known `with:` inputs; no job may `uses:` a reusable workflow; `env:` at every level may
 set only the keys the workflow is known to use, and the loaded env file only `KEY=value` lines for
 its two known keys. The gate guards against drift; a deliberate edit of the workflow is itself in
-the filter, pays for one run and is reviewed as a high-risk workflow change (the high tier of AGENTS.md §5 once
-#1118 lands; the full three-lens review until then).
+the filter, pays for one run and is reviewed as a high-risk workflow change: three lenses and two refutation
+attempts per finding, the review AGENTS.md §5 describes.
 
 Runtime-loaded data the closure cannot see is pinned by enumerating the real files: the prompts,
 the golden set and sources, every file under the data directories of `app/` (the directories
@@ -1577,7 +1577,10 @@ def test_data_directories_and_named_files_are_inputs():
             assert _named_in(ast.parse(spelling), "backend/evals/copilot_runner.py") == beside_json, spelling
         assert _named_in(ast.parse("HERE = os.path.dirname(__file__) + '/'\nfs = os.listdir(HERE)\n"), "backend/evals/copilot_runner.py") == {p for p in evals_all if p.count("/") == 2}
         assert _named_in(ast.parse("p = os.path.dirname(__file__)\np += '/baselines'\n"), "backend/evals/copilot_runner.py") == baselines
-        assert _named_in(ast.parse("def a(root):\n    return root\ndef b():\n    root = Path(__file__).parent\n    HERE = str(root) + '/'\n    return glob.glob(HERE + '*.json')\n"), "backend/evals/copilot_runner.py") == beside_json  # `HERE` is mixed through `root`
+        assert _named_in(ast.parse("def a(root):\n    return root\ndef b():\n    root = Path(__file__).parent\n    HERE = str(root) + '/'\n    return glob.glob(HERE + '*.json')\n"), "backend/evals/copilot_runner.py") == beside_json
+        slashed = ("def a():\n    root = Path(__file__).parent\n    return root / 'copilot_golden_set.json'\n"
+                   "def b():\n    root = Path(__file__).resolve().parents[1]\n    HERE = str(root) + '/'\n    return glob.glob(HERE + 'tests/fixtures/companyfacts_sample.json')\n")
+        assert {"backend/evals/copilot_golden_set.json", "backend/tests/fixtures/companyfacts_sample.json"} <= _named_in(ast.parse(slashed), "backend/evals/copilot_runner.py")  # `HERE` is mixed through `root`, so its literal is read as spelled too
         assert _named_in(ast.parse('d = os.path.dirname(__file__) + "/"; e = os.path.dirname(__file__) + "/" + sub; g = HERE + "baselines"; h = os.path.dirname(__file__) + sep + "*.json"'), "backend/evals/copilot_runner.py") == set()
         assert _named_in(ast.parse("HERE = f'{Path(__file__).parent}'\nfs = glob.glob(HERE + 'baselines')\n"), "backend/evals/copilot_runner.py") == set()  # `evalsbaselines` again
         # A `..` or `.` head followed by a name names nothing: a lone `..` names nothing, and the name is the limit of a
