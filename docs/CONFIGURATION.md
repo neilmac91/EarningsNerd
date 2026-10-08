@@ -177,11 +177,12 @@ code default. Production cache policy remains Redis-off/L1-only (ADR-0004).
 | `STREAM_SECTION_REVEAL` | `false` | Progressive section previews with non-streaming fallback; CI enables on the service. |
 
 **Library-read SEC budget (not a Settings field).** edgartools paces its own EDGAR HTTP (submissions,
-filing objects, XBRL) with a second process-global token bucket read once at import:
+filing objects, XBRL) with a second process-global limiter, a sliding window read once at import:
 `EDGAR_RATE_LIMIT_PER_SEC` (library default `9`; `edgar/httpclient.py` in the pinned release). The app
-never wraps that traffic in `sec_rate_limiter`, so a process's configured SEC ceiling is the sum of both
-buckets. Production pins both to `1` on every job and the task worker, and on the API service in a second stage
-(`.github/workflows/ci.yml`; gate `backend/tests/unit/test_sec_process_budgets.py`); leave it unset locally.
+wraps that traffic in `sec_rate_limiter` only in the SIC lookup (`app/services/edgar/company_sic.py`), so a
+process's configured SEC ceiling is at most the sum of both. Production pins both to `1` on every job and the
+task worker, and on the API service in a second stage (`.github/workflows/ci.yml`; gate
+`backend/tests/unit/test_sec_process_budgets.py`); leave it unset locally.
 
 Current-bound-ID subscription created/updated reconciliation makes one Stripe read with zero SDK
 retries and a dedicated transport closed after every outcome. These connect/read inactivity limits

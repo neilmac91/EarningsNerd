@@ -17,8 +17,8 @@ change it on purpose, and the arithmetic below is asserted for the fully pinned 
 
 This gate asserts the configured values and the arithmetic ``docs/OPERATIONS.md`` states. It does
 NOT prove a fleet guarantee: rollout-overlap instances, manual job executions and operator
-one-shots, first-second bursts (the app bucket admits twice its budget in its first second) and
-any request outside both limiters are not bounded by configuration.
+one-shots, handovers between task children inside one second, and any request outside both
+limiters are not bounded by configuration.
 """
 import inspect
 import re
@@ -54,6 +54,10 @@ OPERATIONS = ROOT / "docs/OPERATIONS.md"
 WORKER = "earningsnerd-task-worker"
 WORKER_STEP = "Update configured private task worker"  # exits early unless GCP_DURABLE_TASKS_ENABLED
 SERVICE_STEP = "Deploy Cloud Run service"
+SERVICE = "earningsnerd-backend"
+LOOP_STEP = "Update filing-scan + digest + calendar + alert + notable + retention job images"
+# Every Cloud Run process update a deploy step can make; the target follows the subcommand.
+UPDATE = re.compile(r"gcloud run (?:deploy|(?:services|jobs) (?:create|deploy|replace|update))\s+(\"?[$\w-]+\"?)")
 STAGED_UNPINNED = {"service"}  # pinned in stage 2, once the insider endpoint fits the budget
 DEFAULTS = {"SEC_RATE_LIMIT_PER_SECOND": 10, "EDGAR_RATE_LIMIT_PER_SEC": 9}  # code and library defaults
 
@@ -78,14 +82,18 @@ def _env_map(run):
 def _process_env_maps():
     """Name → env map for every production process the deploy configures."""
     service = _run(SERVICE_STEP)
-    loop = _run("Update filing-scan + digest + calendar + alert + notable + retention job images")
-    loop_jobs = re.search(r"for job in ((?:earningsnerd-[a-z-]+\s*)+); do", loop).group(1).split()
+    loop = _run(LOOP_STEP)
+    loop_jobs = _loop_jobs(loop)
     maps = {"service": _env_map(service),
             "earningsnerd-pregenerate": _env_map(_run("Update pregenerate job image")),
             "earningsnerd-backfill-facts": _env_map(_run("Update backfill-facts job image and scheduled entrypoint")),
             WORKER: _env_map(_run(WORKER_STEP))}
     maps.update({job: _env_map(loop) for job in loop_jobs})
     return service, maps
+
+
+def _loop_jobs(loop_run):
+    return re.search(r"for job in ((?:earningsnerd-[a-z-]+\s*)+); do", loop_run).group(1).split()
 
 
 def _service_instances(service_run):
@@ -111,23 +119,27 @@ def test_every_production_process_pins_both_sec_buckets_to_one():
 
 
 def test_no_deploy_step_updates_a_process_without_both_pins():
-    """A future process step must not escape the inventory above."""
-    staged = []
+    """A future process step must not escape the inventory above: every update targets an inventoried
+    process exactly once, every update carries both pins, and only the staged service goes without them."""
+    loop_jobs = _loop_jobs(_run(LOOP_STEP))
+    targets = []
     for step in _deploy_job()["steps"]:
         if "run" not in step:
             continue
         run = "\n".join(line for line in step["run"].splitlines() if not line.lstrip().startswith("#"))
-        updates = re.findall(r"gcloud run (?:deploy|(?:services|jobs) (?:create|deploy|replace|update))\s", run)
+        updates = UPDATE.findall(run)
         maps = re.findall(r"--update-env-vars=(\S+)", run)
         assert len(maps) == len(updates), f"{step.get('name')}: every process update carries one env map"
-        for value in maps:
+        for target, value in zip(updates, maps):
             env = dict(item.split("=", 1) for item in value.split(","))
-            if step.get("name") == SERVICE_STEP:
-                staged.append(step["name"])
-                assert not any(key in env for key in BUDGET_ENV), "the service is pinned in stage 2"
-                continue
-            assert all(env.get(key) == str(PINNED_PER_BUCKET) for key in BUDGET_ENV), step.get("name")
-    assert staged == [SERVICE_STEP]  # the only process update without the pins is the staged service
+            names = loop_jobs if target.strip('"') == "$job" else [target.strip('"')]
+            for name in names:
+                targets.append(name)
+                if name == SERVICE:  # staged: pinned in stage 2, together with STAGED_UNPINNED
+                    assert not any(key in env for key in BUDGET_ENV), "the service is pinned in stage 2"
+                    continue
+                assert all(env.get(key) == str(PINNED_PER_BUCKET) for key in BUDGET_ENV), name
+    assert sorted(targets) == sorted(EXPECTED_JOBS | {SERVICE, WORKER})  # each process updated exactly once
 
 
 def test_configured_sums_fit_the_published_cap_in_every_scheduled_overlap():
@@ -152,24 +164,29 @@ def test_configured_sums_fit_the_published_cap_in_every_scheduled_overlap():
     worker = _service_instances(_run(WORKER_STEP)) * per_process[WORKER]
     assert worker == 2 and steady + worker == 6
     assert monday + worker == 12 and monday + worker > SEC_PUBLISHED_CAP_PER_SECOND  # documented, not bounded
-    # First second: the app bucket starts full (2 x its budget); edgartools' sliding window stays at rate.
-    first_second = {name: 2 * int(env["SEC_RATE_LIMIT_PER_SECOND"]) + int(env["EDGAR_RATE_LIMIT_PER_SEC"])
-                    for name, env in maps.items()}
-    assert first_second["service"] == 3
-    monday_first_second = (_service_instances(service) * first_second["service"]
-                           + sum(first_second[f"earningsnerd-{job}"] for job in SCHEDULED_OVERLAPS["Monday 07:00 UTC"]))
-    assert monday_first_second == 15
-    assert monday_first_second + first_second[WORKER] == 18  # each task child starts a full app bucket
+    # Any one second: a full app bucket at rate R admits up to 2R-1 (capacity equals rate); edgartools' sliding
+    # window never exceeds its rate. At the pinned R=1 that is one app request per second, so the ceiling in any
+    # second, the first included, equals the sustained sum.
+    def ceiling(env):
+        return (2 * int(env["SEC_RATE_LIMIT_PER_SECOND"]) - 1) + int(env["EDGAR_RATE_LIMIT_PER_SEC"])
+
+    assert {name: ceiling(env) for name, env in maps.items()} == per_process
+    assert 2 * DEFAULTS["SEC_RATE_LIMIT_PER_SECOND"] - 1 == 19  # the defaults' first-second app burst, as documented
+    monday_ceiling = (_service_instances(service) * ceiling(maps["service"])
+                      + sum(ceiling(maps[f"earningsnerd-{job}"]) for job in SCHEDULED_OVERLAPS["Monday 07:00 UTC"]))
+    assert monday_ceiling == SEC_PUBLISHED_CAP_PER_SECOND
+    assert 2 * ceiling(maps[WORKER]) == 4  # a handover between two fresh task children inside one second
     doc = " ".join(OPERATIONS.read_text().split())  # Markdown wraps lines; compare on normalized whitespace
     for statement in (
         "two service instances run at the defaults, 38 req/s configured",
         "4 req/s sustained with no job running",
         "10 req/s in the Monday 07:00 UTC overlap",
         "20 req/s if every job ran at once",
-        "first-second ceiling is 3 req/s",
-        "Monday 07:00 UTC overlap's is 15 req/s",
+        "up to 2R−1 requests in its first second (19 at the default 10)",
+        "ceiling is 2 req/s in every second, the first included",
+        "Monday 07:00 UTC overlap's ceiling in any second is 10 req/s",
         "6 req/s sustained with no job running and 12 req/s in the Monday 07:00 UTC overlap",
-        "first-second ceiling there to 18 req/s",
+        "briefly admit up to 4 req/s from the worker",
     ):
         assert statement in doc, f"docs/OPERATIONS.md must state: {statement}"
 
@@ -185,3 +202,4 @@ def test_pinned_edgartools_reads_the_second_bucket_from_the_env_name_we_pin():
     httpclient = pytest.importorskip("edgar.httpclient")  # installed in CI from requirements.txt
     source = inspect.getsource(httpclient.get_edgar_rate_limit_per_sec)
     assert '"EDGAR_RATE_LIMIT_PER_SEC"' in source
+    assert f'"{DEFAULTS["EDGAR_RATE_LIMIT_PER_SEC"]}"' in source  # the library default the staged sums use
