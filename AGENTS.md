@@ -105,9 +105,13 @@ tests are byte-identical. A refutation restates the finding without its rational
 disprove it against the code; the finding stands only if the attempts fail. Missing review output
 is never clearance. Record the tier and the review in the PR body under "Review".
 
-`review-gate.yml` still requires a Codex review of the PR head or a `Review override: <reason>`
-line in the PR body. While Codex credits are exhausted, the override line names the tier and the
-substitute review (`Review override: routine tier per AGENTS.md §5, one Opus lens, 0 blockers`).
+`review-gate.yml` requires a Codex review of the PR head (comment `@codex review` after each
+push) or a `Review override: <reason>` line in the PR body, and an override line passes the gate
+the moment the PR is marked ready, before Codex reviews. So record the tier as a `Review tier:
+<tier> — <what ran>` line, which the gate ignores, and write `Review override:` only while Codex
+cannot review (credits exhausted, service down), naming the tier and the substitute review
+(`Review override: routine tier per AGENTS.md §5, one Opus lens, 0 blockers`). Codex reviews
+again since 2026-10-07 (CODE RED record 15), so the override exception rests.
 
 Model per agent stage. No review or subagent stage inherits the session's premium model by
 default; the review workflow's agents run on the models below whatever the session runs on:
