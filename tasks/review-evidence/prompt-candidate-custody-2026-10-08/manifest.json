@@ -1,11 +1,77 @@
 {
- "generated_at": "2026-10-08T05:53:41Z",
+ "generated_at": "2026-10-08T06:17:22Z",
  "repo": "neilmac91/EarningsNerd",
- "purpose": "Codex handover on #1029 comment 5966195498: private preservation and independent custody verification of the four archives of the Copilot prompt-candidate measurement (#1074, handback 5965113700).",
+ "purpose": "Codex handover on #1029 comment 5966195498: private preservation and independent custody verification of the four archives of the Copilot prompt-candidate measurement (#1074, handback 5965113700). Also lists the eight archives cited by the 2026-10-02 close-out (ledger rows D28-D34 and the post-#1066 control), none of them preserved yet.",
  "privacy": "Identifiers, sizes, expiry and hashes only; no artifact content.",
- "artifact_count": 4,
- "total_bytes": 239869284,
+ "artifact_count": 12,
+ "total_bytes": 644613214,
  "artifacts": [
+  {
+   "artifact_id": 11245228632,
+   "artifact_name": "eval-report-37048017303",
+   "run_id": 37048017303,
+   "workflow_name": "CI",
+   "run_event": "pull_request",
+   "head_sha": "5d6a4f98372207359dbdc41543b1fad3c1a64299",
+   "head_branch": "claude/copilot-eval-withhold-reason",
+   "run_conclusion": "success",
+   "size_in_bytes": 3721798,
+   "digest": "sha256:a75ccf02676ac6f70f629c9a23f787f03b7015b1973b1cab69e2c2cf0cad31aa",
+   "created_at": "2026-10-02T18:41:56Z",
+   "expires_at": "2026-10-16T18:41:54Z",
+   "expired": false,
+   "sets": [
+    "close_out_2026_10_02_cited"
+   ],
+   "notes": [
+    "D29: eval-baseline in CI, #1056 (decision 2) draft at 5d6a4f98; ledger zip sha256 a75ccf02... (digest matches)"
+   ],
+   "sha256": "a75ccf02676ac6f70f629c9a23f787f03b7015b1973b1cab69e2c2cf0cad31aa"
+  },
+  {
+   "artifact_id": 11246628128,
+   "artifact_name": "eval-report-37051282050",
+   "run_id": 37051282050,
+   "workflow_name": "CI",
+   "run_event": "pull_request",
+   "head_sha": "4eab995f36fae7a486591ca2011cba9a205a072a",
+   "head_branch": "claude/citation-alignment",
+   "run_conclusion": "success",
+   "size_in_bytes": 3719626,
+   "digest": "sha256:a1c732455d0547332069a6cf6bba5a3add965518569b20976067723d3fe67166",
+   "created_at": "2026-10-02T19:10:42Z",
+   "expires_at": "2026-10-16T19:10:41Z",
+   "expired": false,
+   "sets": [
+    "close_out_2026_10_02_cited"
+   ],
+   "notes": [
+    "D31: eval-baseline in CI, #1060 (decisions 3-4) draft at 4eab995f; ledger zip sha256 a1c73245... (digest matches). Also cited in #1029 comment 5961781714 as the main-equivalent comparison run for #1065"
+   ],
+   "sha256": "a1c732455d0547332069a6cf6bba5a3add965518569b20976067723d3fe67166"
+  },
+  {
+   "artifact_id": 11251327456,
+   "artifact_name": "eval-report-37061778841",
+   "run_id": 37061778841,
+   "workflow_name": "CI",
+   "run_event": "pull_request",
+   "head_sha": "2c81186af9e1ccf2e586f85a2c134c65357d41e3",
+   "head_branch": "claude/returns-current-period-guard",
+   "run_conclusion": "success",
+   "size_in_bytes": 3729647,
+   "digest": "sha256:d8f003bd3a2d58fa19d75d14626f455d1e9effd4dfd96f2daa6faaa84ace882f",
+   "created_at": "2026-10-02T20:48:01Z",
+   "expires_at": "2026-10-16T20:48:00Z",
+   "expired": false,
+   "sets": [
+    "close_out_2026_10_02_cited"
+   ],
+   "notes": [
+    "D33: eval-baseline in CI, #1065 (decision 5) at 2c81186a; cited only in #1029 comment 5961781714 (70/70, USD 0.178632). Not in main's ledger table, and no digest recorded anywhere to cross-check"
+   ],
+   "sha256": "d8f003bd3a2d58fa19d75d14626f455d1e9effd4dfd96f2daa6faaa84ace882f"
+  },
   {
    "artifact_id": 11262711816,
    "artifact_name": "eval-report-37092291865",
@@ -27,6 +93,116 @@
     "row R(i): eval-baseline on the frozen head 437e245c (#1074 opened as a draft); pass, 70/70; USD 0.175401; #1029 comment 5965022094"
    ],
    "sha256": "b2faabf1726d63c600ad469a08dec0647cda692ebd90f2a030ea1ba6f9959a65"
+  },
+  {
+   "artifact_id": 11238871458,
+   "artifact_name": "copilot-fidelity-37034659514",
+   "run_id": 37034659514,
+   "workflow_name": "Copilot filing fidelity",
+   "run_event": "pull_request",
+   "head_sha": "74e7e2b57ad4fe4ce16e06827fcd0818be4d2425",
+   "head_branch": "claude/pr1023-diagnostic",
+   "run_conclusion": "success",
+   "size_in_bytes": 78711997,
+   "digest": "sha256:4d20818226aafcb7ea1133e63eae75dc7a1ee4bd185bebed173a9477f57452a6",
+   "created_at": "2026-10-02T16:34:50Z",
+   "expires_at": "2026-12-31T16:32:44Z",
+   "expired": false,
+   "sets": [
+    "close_out_2026_10_02_cited"
+   ],
+   "notes": [
+    "D28: copilot-eval, #1036 ready at 74e7e2b5 (final-report row #1036); ledger zip sha256 4d208182... (digest matches)"
+   ],
+   "sha256": "4d20818226aafcb7ea1133e63eae75dc7a1ee4bd185bebed173a9477f57452a6"
+  },
+  {
+   "artifact_id": 11244959434,
+   "artifact_name": "copilot-fidelity-37049387017",
+   "run_id": 37049387017,
+   "workflow_name": "Copilot filing fidelity",
+   "run_event": "pull_request",
+   "head_sha": "5d6a4f98372207359dbdc41543b1fad3c1a64299",
+   "head_branch": "claude/copilot-eval-withhold-reason",
+   "run_conclusion": "success",
+   "size_in_bytes": 78712611,
+   "digest": "sha256:9a19b2c2660500880add66b3732ecf12d0b8c045cad218882bc14467b67a6f45",
+   "created_at": "2026-10-02T18:45:46Z",
+   "expires_at": "2026-12-31T18:43:41Z",
+   "expired": false,
+   "sets": [
+    "close_out_2026_10_02_cited"
+   ],
+   "notes": [
+    "D30: copilot-eval, #1056 ready at 5d6a4f98; ledger zip sha256 9a19b2c2... (digest matches)"
+   ],
+   "sha256": "9a19b2c2660500880add66b3732ecf12d0b8c045cad218882bc14467b67a6f45"
+  },
+  {
+   "artifact_id": 11247287404,
+   "artifact_name": "copilot-fidelity-37052760996",
+   "run_id": 37052760996,
+   "workflow_name": "Copilot filing fidelity",
+   "run_event": "pull_request",
+   "head_sha": "4eab995f36fae7a486591ca2011cba9a205a072a",
+   "head_branch": "claude/citation-alignment",
+   "run_conclusion": "success",
+   "size_in_bytes": 78712302,
+   "digest": "sha256:1361a7d6175003131e00cf65323951a1fc452930e07aa80f99e16c7cf3d424c4",
+   "created_at": "2026-10-02T19:16:13Z",
+   "expires_at": "2026-12-31T19:14:04Z",
+   "expired": false,
+   "sets": [
+    "close_out_2026_10_02_cited"
+   ],
+   "notes": [
+    "D32: copilot-eval, #1060 ready at 4eab995f; ledger zip sha256 1361a7d6... (digest matches)"
+   ],
+   "sha256": "1361a7d6175003131e00cf65323951a1fc452930e07aa80f99e16c7cf3d424c4"
+  },
+  {
+   "artifact_id": 11251670162,
+   "artifact_name": "copilot-fidelity-37063120532",
+   "run_id": 37063120532,
+   "workflow_name": "Copilot filing fidelity",
+   "run_event": "pull_request",
+   "head_sha": "2c81186af9e1ccf2e586f85a2c134c65357d41e3",
+   "head_branch": "claude/returns-current-period-guard",
+   "run_conclusion": "success",
+   "size_in_bytes": 78723841,
+   "digest": "sha256:4e1df8436740ebb9c9cdaaae464a303247d23270ca731c6ffdab9bd5ff468394",
+   "created_at": "2026-10-02T20:52:26Z",
+   "expires_at": "2026-12-31T20:50:19Z",
+   "expired": false,
+   "sets": [
+    "close_out_2026_10_02_cited"
+   ],
+   "notes": [
+    "D34: copilot-eval, #1065 at 2c81186a; cited only in #1029 comment 5961781714 (18/18, USD 0.005538). Not in main's ledger table, and no digest recorded anywhere to cross-check"
+   ],
+   "sha256": "4e1df8436740ebb9c9cdaaae464a303247d23270ca731c6ffdab9bd5ff468394"
+  },
+  {
+   "artifact_id": 11255526100,
+   "artifact_name": "copilot-fidelity-37072989252",
+   "run_id": 37072989252,
+   "workflow_name": "Copilot filing fidelity",
+   "run_event": "pull_request",
+   "head_sha": "b7bd5d193eaf5c5acf4e01981651833cc1667eae",
+   "head_branch": "codex/wave3-optional-anthropic-refresh",
+   "run_conclusion": "success",
+   "size_in_bytes": 78712108,
+   "digest": "sha256:fe4b718ef8be6907068cdb2ddc83727e1550eecc3b4131030855a3d0775b5f0c",
+   "created_at": "2026-10-02T22:33:51Z",
+   "expires_at": "2026-12-31T22:31:58Z",
+   "expired": false,
+   "sets": [
+    "close_out_2026_10_02_cited"
+   ],
+   "notes": [
+    "Post-#1066 control: copilot-eval of #1067 head b7bd5d19 (merge ref bc0a96c3), in prompt-candidate-2026-10-02/run_validity_post1066.txt. The full digest and size there match the API exactly"
+   ],
+   "sha256": "fe4b718ef8be6907068cdb2ddc83727e1550eecc3b4131030855a3d0775b5f0c"
   },
   {
    "artifact_id": 11263461343,

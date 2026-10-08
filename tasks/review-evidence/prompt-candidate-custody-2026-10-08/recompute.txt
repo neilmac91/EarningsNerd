@@ -1,0 +1,45 @@
+recompute_archives.py on the session's scratch copies of the twelve zips (named as preserve_artifacts.py names them), 2026-10-08T06:19Z.
+Then four negative checks, each on a temporary copy of the kit or of one zip (OK lines omitted). Paths are relative to the test directory.
+
+$ python3 -I recompute_archives.py zips
+OK  eval-report-37048017303-11245228632.zip (hashes)
+OK  eval-report-37051282050-11246628128.zip (hashes)
+OK  eval-report-37061778841-11251327456.zip (hashes)
+OK  eval-report-37092291865-11262711816.zip (figures and hashes)
+OK  copilot-fidelity-37034659514-11238871458.zip (hashes)
+OK  copilot-fidelity-37049387017-11244959434.zip (hashes)
+OK  copilot-fidelity-37052760996-11247287404.zip (hashes)
+OK  copilot-fidelity-37063120532-11251670162.zip (hashes)
+OK  copilot-fidelity-37072989252-11255526100.zip (hashes)
+OK  copilot-fidelity-37092951315-11263461343.zip (figures and hashes)
+OK  copilot-fidelity-37093200860-11262737450.zip (figures and hashes)
+OK  copilot-fidelity-37093395884-11263523013.zip (figures and hashes)
+12/12 present archives match; 0 not present
+exit 0
+
+# N1: one byte appended to the Q3 zip
+$ python3 -I recompute_archives.py zips-n1
+BAD copilot-fidelity-37093395884-11263523013.zip (figures and hashes)
+    zip sha256 differs from manifest
+11/12 present archives match; 0 not present
+exit 1
+
+# N2: EXPECTED Q1 calls changed from 31 to 30 in a copy of the script
+$ python3 -I kit2/recompute_archives.py zips
+BAD copilot-fidelity-37092951315-11263461343.zip (figures and hashes)
+    calls: expected 30, got 31
+11/12 present archives match; 0 not present
+exit 1
+
+# N3: Q2 runner.log hash replaced by zeros in a copy of members.tsv
+$ python3 -I kit3/recompute_archives.py zips
+BAD copilot-fidelity-37093200860-11262737450.zip (figures and hashes)
+    member runner.log differs from members.tsv
+11/12 present archives match; 0 not present
+exit 1
+
+# N4: the eval-baseline zip missing
+$ python3 -I recompute_archives.py zips-n4
+--  eval-report-37092291865-11262711816.zip not in zips-n4
+11/11 present archives match; 1 not present
+exit 0
