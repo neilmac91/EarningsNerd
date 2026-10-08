@@ -95,10 +95,11 @@ export function useFocusHandoff(
  * control unmounting inside a dialog also drops focus to <body>, and the dialog still owns the keyboard.
  * The arrival is read after the commit, so a focused element the same commit removed (the progress
  * card's heading the error card replaced) has already dropped focus to <body>. The heading, not the
- * card's button: a key pressed as the card lands (Space to scroll, Enter) never activates its action.
- * Once per arrival: a re-render while shown never takes focus back.
+ * card's button: a key pressed as the card lands (Space to scroll, Enter) never activates its action, and
+ * the target's type (a heading) holds every caller to that. Once per arrival: a re-render while shown never
+ * takes focus back.
  */
-export function useFocusOnArrival(target: RefObject<HTMLElement | null>, shown: boolean): void {
+export function useFocusOnArrival(target: RefObject<HTMLHeadingElement | null>, shown: boolean): void {
   useEffect(() => {
     const node = target.current
     if (!shown || !node) return

@@ -59,10 +59,13 @@ in 3 files (open rule (h) Retry buttons), ALLOW_RETRY_LABEL 11 labels in 11 file
 resets, 3 stream or answer restarts, 4 open rule (h) sites). Every Retry the retry-hardening follow-up
 converted fails both clauses at its 026d6df version (20 wiring and 10 label offenders in 6 files). A third
 clause (EN-05) checks what RetryButton is given: each element of its `failures` is `useRetainedFailure(…)`,
-inline, through a same-file const or either branch of a conditional, or, when it is a prop of the component
-rendering RetryButton, at every `<Component prop={…}>` call site (a prop nobody passes fails). Anything else is
-a failure built by hand, which skips the hold and can carry `busy: isFetching`: ALLOW_HAND_BUILT_FAILURE pins
-it by its text (1 site, the filing page's stream restart), capped and shrink-only.
+inline, through a same-file `const` or either branch of a conditional, or, when it is a prop of the component
+rendering RetryButton, at every JSX use of that component (by its declared name in its own file, by any
+imported name elsewhere; a prop nobody passes fails). RetryButton is matched under its import aliases too. What
+the scan cannot prove counts as built by hand: a `let`, a spread element, any JSX spread on RetryButton (a
+forwarding wrapper) or into such a component. A failure built by hand skips the hold and can carry
+`busy: isFetching`: ALLOW_HAND_BUILT_FAILURE pins it by its text (1 site, the filing page's stream restart),
+capped; converting another stream restart moves its pin there from ALLOW_RETRY_LABEL.
 
 (e) A control unavailable after its own activation (`!dirty` after a save, an incomplete form, a
 cooldown, "Link sent") is aria-disabled with an early return too. A primary DS Button in that state
@@ -163,7 +166,8 @@ move focus a mouse user did not lose.
 - A Retry that restarts a stream (SSE), not a query, has no failure to hold, but it is still RetryButton for
   its hand-off: the filing page's "Retry generation" passes the stream's own failure, `{ failed: true, error,
   busy: false, retry }`. Its press clears the error in the render that starts the stream, so the card leaves
-  with the press and focus goes to the progress card's heading (`tabIndex={-1}`), in the branch that replaced it.
+  with the press when the run starts (a signed-out press starts none, so the card and its focused Retry stay)
+  and focus goes to the progress card's heading (`tabIndex={-1}`), in the branch that replaced it.
   That literal is pinned in the gate's ALLOW_HAND_BUILT_FAILURE (d): a hand-built failure for a query would skip
   the hold.
 - The other direction (EN-05, 2026-10-07): a card that ends a run the user is waiting on takes focus when it

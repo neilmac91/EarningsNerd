@@ -406,8 +406,10 @@ export default function StreamingSummaryDisplay({
               // RetryButton (secondary by default: an error retry is never the page's primary action).
               // It restarts the SSE stream, not a query, so its failure is the stream's own state, not
               // useRetainedFailure's hold: a press clears the error in the render that starts the stream,
-              // so this card never shows a run in flight (busy stays false) and leaves with the press.
-              // Focus then goes to the progress card's heading, in the branch that replaced this one.
+              // so this card never shows a run in flight (busy stays false) and leaves with the press when
+              // the run starts; focus then goes to the progress card's heading, in the branch that replaced
+              // this one. A signed-out press starts no run: the card stays, with the sign-in message, and
+              // its Retry keeps focus.
               <RetryButton
                 failures={[{ failed: true, error: error || message, busy: false, retry: onRetry }]}
                 focusTarget={progressHeadingRef}
