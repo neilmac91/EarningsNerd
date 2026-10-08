@@ -15,20 +15,24 @@ cannot fall outside the filter; a non-trigger the closure starts to import is re
 The workflow is read as an allowlist, not a denylist. Every simple command of every `run:` step
 (split on `&&`, `||`, `;`, `|` and `&` outside quotes; a backslash anywhere is refused) must be
 exactly `python -m evals.<module>` with plain arguments, one of the few fixed shell commands the
-workflow uses, or an install / env-load command whose file operands become required inputs below.
-The shell must be bare `bash`/`sh` (flags and `{0}` only) at step, job and workflow level, every
-step `uses:` must be one of three pinned GitHub actions, and no job may `uses:` a reusable
-workflow. Anything else (a chained `python -c`, an interpreter or shell called by path, a script
+workflow uses, or an install / env-load command whose file operands become required inputs below
+(a requirements file's own `-r`/`-c` lines included). The shell must be bare `bash`/`sh` (flags and
+`{0}` only) at step, job and workflow level; every step `uses:` must be one of three pinned GitHub
+actions with only its known `with:` inputs; no job may `uses:` a reusable workflow; and no `env:`
+at any level, nor the loaded env file, may set a variable that runs or redirects code
+(`BASH_ENV`, `PYTHONPATH`, `PYTHONSTARTUP`, `LD_PRELOAD`, pip's config and index variables). Anything else (a chained `python -c`, an interpreter or shell called by path, a script
 executed directly, a versioned interpreter, `pytest`, `uv run`, `node`, `source`, a command
 substitution, a custom shell template, a local or docker action, a command-running action) is a
 program whose imports the closure cannot see, so it fails the gate until it is traced or allowed.
 
 Runtime-loaded data the closure cannot see is pinned by enumerating the real files: the prompts,
 the golden set and sources, the workflow itself, and the requirements and env files the run steps
-name (derived from the steps, so a new `-r` file cannot be installed unseen). `app/data` and
-`app/assets` are read by services the gate finds through a path literal in any common spelling
-(`/ "data"`, `/ 'data'`, `joinpath("data")`, `os.path.join(…, "data", …)`, `"data/…"`, `"app/data/…"`)
-under `app/` and `evals/`; each directory triggers the run only while one of its readers is in the
+name (derived from the steps, so a new `-r` file cannot be installed unseen). The data
+directories under `app/` (every directory there without Python: `app/data` and `app/assets` today)
+are read by services the gate finds through a path literal in any common spelling (`/ "data"`,
+`/ 'data'`, `joinpath("data")`, `os.path.join(os.path.dirname(__file__), "..", "data", …)`,
+`Path(base, "data")`, `"data/…"`, `"../data/…"`, `f"{base}/data/…"`, `files("app.data")`) under
+`app/` and `evals/`; each directory triggers the run only while one of its readers is in the
 closure, and is a non-trigger otherwise. CLAUDE.md rule 12.
 """
 from __future__ import annotations
@@ -67,17 +71,41 @@ SAFE_COMMANDS = (
 )
 # A bare shell with flags and the `{0}` script placeholder only; `bash scripts/x.sh {0}` is a program.
 SHELL = re.compile(r"^(bash|sh)(?: -[A-Za-z]+)*(?: \{0\})?$")
-# The only actions a step may use, pinned to a major version; a job-level `uses:` (a reusable
-# workflow), a local action and a docker or command-running action can run anything.
+# The only actions a step may use, pinned to a major version, each with the `with:` inputs it may
+# take; a job-level `uses:` (a reusable workflow), a local action, a docker or command-running action
+# and a file-naming input (`python-version-file`, checkout's `repository`/`path`) can run or overlay
+# code the closure never sees.
 ALLOWED_ACTIONS = re.compile(r"^actions/(checkout|setup-python|upload-artifact)@v\d+$")
-# Directories a service reads at run time, located by a path literal in any common spelling; the
-# gate finds their readers by that literal under app/ and evals/, so the map cannot go stale silently.
-DATA_DIRS = {"app/data": "data", "app/assets": "assets"}
+ALLOWED_INPUTS = {
+    "actions/checkout": set(),
+    "actions/setup-python": {"python-version"},
+    "actions/upload-artifact": {"name", "path", "if-no-files-found", "retention-days"},
+}
+# Variables that make a shell or Python run or import code from somewhere the closure cannot see.
+FORBIDDEN_ENV = {
+    "BASH_ENV", "ENV", "PYTHONPATH", "PYTHONSTARTUP", "PYTHONHOME", "PYTHONUSERBASE", "LD_PRELOAD",
+    "LD_LIBRARY_PATH", "PIP_CONFIG_FILE", "PIP_REQUIREMENT", "PIP_CONSTRAINT", "PIP_INDEX_URL",
+    "PIP_EXTRA_INDEX_URL", "PIP_FIND_LINKS", "NODE_OPTIONS",
+}
+# Every directory under app/ that holds data rather than Python; a service reads one through a path
+# literal, and the gate finds those readers under app/ and evals/ by any common spelling, so the
+# map cannot go stale silently and a new data directory is noticed.
+DATA_DIRS = {
+    f"app/{d.name}": d.name
+    for d in sorted((BACKEND / "app").iterdir())
+    if d.is_dir() and not d.name.startswith(("_", ".")) and not any(d.rglob("*.py"))
+}
 
 
 def _reader_pattern(name: str) -> re.Pattern[str]:
     return re.compile(
-        rf"(?:/\s*|joinpath\(\s*|join\([^)\n]*?)([\"']){name}\1(?!\w)|([\"'])(?:backend/)?(?:app/)?{name}/[^\"'\n]+\2"
+        # a path component: `/ "data"`, `.joinpath("data")`, `os.path.join(os.path.dirname(__file__), "..", "data")`, `Path(base, "data")`
+        # (two levels of nested calls; `str.join` is not a path builder)
+        rf"(?:/\s*|(?:(?:os\.path|posixpath)\.join|\.joinpath|\b(?:Pure)?(?:Posix|Windows)?Path)\((?:[^()\n]|\((?:[^()\n]|\([^()\n]*\))*\))*?)([\"']){name}\1(?!\w)"
+        # a local path string: `"data/x.json"`, `"../data/x"`, `"app/data/x"`, `f"{base}/data/x"` (a URL with `/data/` in it is not one)
+        rf"|f?([\"'])(?:\{{[^}}\n]*\}}/|\.\.?/)*(?:backend/)?(?:app/)?{name}/[^\"'\n]+\2"
+        # a package resource: `files("app.data")`
+        rf"|([\"'])app\.{name}\3"
     )
 
 
@@ -101,8 +129,6 @@ def _data_dir_readers() -> dict[str, set[str]]:
         for d, name in DATA_DIRS.items():
             if _reader_pattern(name).search(text):
                 readers[d].add("backend/" + p.relative_to(BACKEND).as_posix())
-    for d, found in readers.items():
-        assert found, f"no module locates backend/{d} by a path literal; update DATA_DIRS"
     return readers
 
 
@@ -227,16 +253,48 @@ def _shell_of(*levels: dict) -> str:
     return ""
 
 
+def _forbidden_env(scope: dict) -> list[str]:
+    return sorted(k for k in scope.get("env", {}) if str(k).upper() in FORBIDDEN_ENV)
+
+
+def _nested_inputs(path: str) -> list[str]:
+    """Files a requirements file pulls in with `-r`/`-c`, and the keys an env file sets."""
+    file = ROOT / path
+    if not file.is_file():
+        return []
+    found = []
+    for line in file.read_text(encoding="utf-8").splitlines():
+        m = re.match(r"^\s*-(?:r|c)\s+(\S+)", line)
+        if m:
+            found.append((file.parent / m.group(1)).resolve().relative_to(ROOT).as_posix())
+    return found
+
+
+def _env_file_keys(path: str) -> list[str]:
+    file = ROOT / path
+    return re.findall(r"^\s*([A-Za-z_][A-Za-z0-9_]*)=", file.read_text(encoding="utf-8"), re.M) if file.is_file() else []
+
+
 def _read_steps(workflow: dict) -> tuple[list[str], list[str]]:
     """(modules the run steps execute, files they install or load), with everything else rejected."""
     modules, inputs, untraced = set(), set(), []
+    if _forbidden_env(workflow):
+        untraced.append(f"workflow env sets {_forbidden_env(workflow)}")
     for job_name, job in workflow["jobs"].items():
         if "uses" in job:
             untraced.append(f"{job_name}: job-level uses {job['uses']} (a reusable workflow can run anything)")
+        if _forbidden_env(job):
+            untraced.append(f"{job_name}: job env sets {_forbidden_env(job)}")
         for step in job.get("steps", []):
+            if _forbidden_env(step):
+                untraced.append(f"{job_name}: step env sets {_forbidden_env(step)}")
             uses = str(step.get("uses", ""))
             if uses and not ALLOWED_ACTIONS.match(uses):
                 untraced.append(f"{job_name}: action {uses} is not one of the allowed actions")
+            elif uses:
+                extra = sorted(set(step.get("with", {})) - ALLOWED_INPUTS[uses.split("@")[0]])
+                if extra:
+                    untraced.append(f"{job_name}: action {uses} takes inputs the gate does not know: {extra}")
             if "run" not in step:
                 continue
             shell = _shell_of(step, job, workflow)
@@ -255,6 +313,11 @@ def _read_steps(workflow: dict) -> tuple[list[str], list[str]]:
                     inputs.update(value)
                 elif kind == "untraced":
                     untraced.append(f"{job_name}: {command}")
+    for path in sorted(inputs):
+        inputs.update(_nested_inputs(path))
+        bad = sorted(k for k in _env_file_keys(path) if k.upper() in FORBIDDEN_ENV)
+        if bad:
+            untraced.append(f"{path} sets {bad}")
     assert not untraced, f"copilot-eval.yml runs programs the gate cannot trace: {untraced}"
     assert modules, "copilot-eval.yml runs no `python -m evals.<module>` step"
     return sorted(modules), sorted(inputs)
@@ -372,6 +435,11 @@ def test_an_untraceable_shell_action_or_job_is_rejected():
     step = {"run": "python -m evals.copilot_runner"}
     checkout = {"uses": "actions/checkout@v7"}
     assert _read_steps({"jobs": {"j": {"steps": [checkout, step]}}}) == (["evals.copilot_runner"], [])
+    assert _read_steps({"jobs": {"j": {"env": {"SECRET_KEY": "x"}, "steps": [{"uses": "actions/setup-python@v7", "with": {"python-version": "3.11"}}, step]}}})[0] == ["evals.copilot_runner"]
+    # A requirements file's own `-r`/`-c` lines are inputs too, and the loaded env file may not redirect code.
+    assert _nested_inputs("backend/requirements-eval.txt") == ["backend/requirements.txt"]
+    assert _nested_inputs("backend/requirements.txt") == []
+    assert set(_env_file_keys(".github/ai-model.env")) == {"AI_DEFAULT_MODEL", "OPENAI_BASE_URL"}
     assert _read_steps({"jobs": {"j": {"steps": [{"shell": "bash -e {0}", **step}]}}})[0] == ["evals.copilot_runner"]
     assert _read_steps({"jobs": {"j": {"steps": [{"shell": "sh", **step}]}}})[0] == ["evals.copilot_runner"]
     for workflow in (
@@ -389,6 +457,11 @@ def test_an_untraceable_shell_action_or_job_is_rejected():
         {"jobs": {"j": {"steps": [{"uses": "actions/checkout@main"}, step]}}},
         {"jobs": {"j": {"steps": [step]}, "k": {"uses": "./.github/workflows/extra.yml"}}},
         {"jobs": {"j": {"steps": [{"run": 'python -m evals.copilot_runner --x "a\\"; bash x.sh"'}]}}},
+        {"env": {"BASH_ENV": "scripts/ci_env.sh"}, "jobs": {"j": {"steps": [step]}}},
+        {"jobs": {"j": {"env": {"PYTHONPATH": "backend/scripts"}, "steps": [step]}}},
+        {"jobs": {"j": {"steps": [{"env": {"bash_env": "x.sh"}, **step}]}}},
+        {"jobs": {"j": {"steps": [{"uses": "actions/setup-python@v7", "with": {"python-version-file": ".python-version"}}, step]}}},
+        {"jobs": {"j": {"steps": [{"uses": "actions/checkout@v7", "with": {"repository": "x/y", "path": "z"}}, step]}}},
     ):
         try:
             _read_steps(workflow)
@@ -436,11 +509,19 @@ def test_files_that_cannot_change_the_result_do_not_trigger_the_run():
 def test_data_directories_follow_their_readers():
     for spelling in (
         'Path(__file__).resolve().parents[1] / "data" / "x.json"', "parent / 'data'", 'base.joinpath("data", "x.json")',
-        'os.path.join(here, "data", "x.json")', 'open("data/x.json")', "Path('app/data/x.json')", '"backend/app/data/x.json"',
+        'os.path.join(here, "data", "x.json")', 'os.path.join(os.path.dirname(__file__), "..", "data", "x.json")',
+        'os.path.join(os.path.dirname(os.path.abspath(__file__)), "data")', 'Path(base, "data", "x.json")',
+        'open("data/x.json")', "Path('app/data/x.json')", '"backend/app/data/x.json"', '"../data/x.json"',
+        'f"{BASE}/data/x.json"', 'importlib.resources.files("app.data")',
     ):
         assert _reader_pattern("data").search(spelling), spelling
-    for spelling in ('payload["data"]', "row.get('data')", '"metadata"', '"data_dir"', '{"data": 1}', '"database"'):
+    for spelling in (
+        'payload["data"]', "row.get('data')", '"metadata"', '"data_dir"', '{"data": 1}', '"database"', '"metadata/x"', 'x.data',
+        '", ".join(row["data"] for row in rows)', '"https://data.sec.gov/api/xbrl"',
+        'r"^https://www\\.sec\\.gov/Archives/edgar/data/[1-9]"', '"/var/lib/data/x"',
+    ):
         assert not _reader_pattern("data").search(spelling), spelling
+    assert set(DATA_DIRS) == {"app/data", "app/assets"}, f"a new data directory under app/: decide whether the eval reads it: {sorted(DATA_DIRS)}"
     readers = _data_dir_readers()
     assert "backend/app/services/index_membership_service.py" in readers["app/data"]
     assert "backend/app/services/pdf_branding.py" in readers["app/assets"]
