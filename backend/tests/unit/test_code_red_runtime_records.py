@@ -125,16 +125,23 @@ COMMITTED_OFF_TREE_ROWS = (
 # followed by a slash or a backslash and anything but ``code/session_<id>`` ending there.
 # The id is the session's own or a written placeholder (``<id>``, ``{id}``, an ellipsis, or nothing, since the markup
 # reading drops an ``<id>`` tag and an emphasis underscore); after it only sentence or emphasis punctuation may follow
-# before whitespace, a closing bracket, quote, pipe or tag, or a Markdown hard line break (before any line ending).
+# before whitespace, a closing bracket, quote (typographic included), pipe or tag, a dash, or a Markdown hard line break
+# (before any line ending).
 # Every artifact and gallery route, dot segments, ports and escapes included, is therefore an offender, while the name
 # alone in prose ("a private claude.ai artifact") is not.
 PRIVATE_LINK = re.compile(
     r"(?<![0-9a-z])(?<![0-9a-z]-)(?<!\w[/\\])claude\.ai\.?(?::\d*)?[/\\]"
-    r"(?!code/session_?(?:[0-9a-z]+|<[a-z ]{0,16}>|\{[a-z ]{0,16}\}|\.\.\.)?[.,;:!?*_~]*(?:\Z|[\s)\]\"'`>|<]|\\(?=[\r\n]|\Z)))"
+    r"(?!code/session_?(?:[0-9a-z]+|<[a-z ]{0,16}>|\{[a-z ]{0,16}\}|\.\.\.)?[.,;:!?*_~]*"
+    r"(?:\Z|[\s)\]\"'`>|<\u2013\u2014\u2019\u201d\u00bb\u203a]|\\(?=[\r\n]|\Z)))"
 )
+# A code span that closes directly after a session link (then a slash and a second code span, or a hyphenated word): the
+# markup reading leaves a space where that backtick was, so text written right after the code span is not read as part of
+# the link.
+SESSION_CODE_END = re.compile(r"(session_[^`\s]{0,64})`", re.IGNORECASE)
 # A claude.ai host that is a segment of another path (an archive or reader proxy wrapping the address, or a folder named
-# after the host) followed within 16 segments by an artifact route: the wrapped form of a private artifact link.
-WRAPPED_LINK = re.compile(r"(?<=\w[/\\])claude\.ai\.?(?::\d*)?[/\\]+(?:[^/\\\s]+[/\\]+){0,16}?artifacts?(?![0-9a-z])")
+# after the host) followed within 16 segments by an artifact route (an ``artifact`` or ``artifacts`` segment, not a name that
+# starts with it): the wrapped form of a private artifact link.
+WRAPPED_LINK = re.compile(r"(?<=\w[/\\])claude\.ai\.?(?::\d*)?[/\\]+(?:[^/\\\s]+[/\\]+){0,16}?artifacts?(?![\w.-])")
 # A home-directory path: ``/Users/`` as a leading path segment (no letter or digit before the slash, so the product's own
 # ``/api/users/…`` routes may be cited; a ``file:///Users/x`` URL, an underscore-emphasised path and a Windows
 # ``C:\\Users\\x`` path, read with forward slashes, are leading segments) or right after a one-letter command-line option
@@ -603,7 +610,7 @@ def _readings(text: str) -> tuple[set[str], set[str]]:
     decoded, and once more after removing terminal codes and decoding the JSON escapes a single time, as a JSON consumer
     does, so a backslash that a later decoding step produces is not read as an escape) and the address readings (escapes
     decoded, backslashes kept)."""
-    sources = (text, MARKUP.sub("", text))
+    sources = (text, MARKUP.sub("", SESSION_CODE_END.sub(r"\1 ", text)))
 
     folded: dict[tuple[str, bool, bool], str] = {}
 
