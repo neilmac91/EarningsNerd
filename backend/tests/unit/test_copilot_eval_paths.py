@@ -182,10 +182,12 @@ ENTRY = re.compile(r"^python -m (evals\.[\w.]+)((?:\s+(?:--[\w-]+|\"[^\"`()\\]*\
 # reads it; a directory argument means every tracked file under it but a `.gitignore`.
 INTEGER = re.compile(r"^\d+$")
 # A dotted name in a string literal with a local head joins the closure like an import statement: the longest
-# prefix of two or more segments that is a local module (`importlib.import_module("app.x")`; `mock.patch("app.x.Class.method")`
-# and `pkgutil.resolve_name("app.x:Class")` import `app.x`; a lazy loader). A bare top-level package is never a
-# find: every parent package is in the closure already, and `"app.state"` names nothing.
-DOTTED = re.compile(r"^[A-Za-z_]\w*(?:\.[A-Za-z_]\w*)+(?::[A-Za-z_]\w*(?:\.[A-Za-z_]\w*)*)?$")
+# prefix that is a local module (`importlib.import_module("app.x")`; `mock.patch("app.x.Class.method")` and
+# `pkgutil.resolve_name("app.x:Class")` import `app.x`; a lazy loader). A one-segment prefix counts only in the
+# `module:attr` form and only for a top-level module file (`"task_worker_main:app"`, `"main:app"`): a bare top-level
+# package is never a find, since every parent package is in the closure already and `"app.state"` names nothing, and
+# a bare word is never a module, since `"main"` is a branch name too.
+DOTTED = re.compile(r"^[A-Za-z_]\w*(?:\.[A-Za-z_]\w*)*(?::[A-Za-z_]\w*(?:\.[A-Za-z_]\w*)*)?$")
 # A flag of an entry command: `--name`, or `--name=value` with the value checked as a path.
 FLAG = re.compile(r"^--[\w-]+$")
 INSTALL = re.compile(r"^pip install((?: -r [\w./-]+)+)$")
@@ -403,7 +405,9 @@ def _fold(node: ast.AST, aliases: set[str] | frozenset[str], files: set[str] | f
     """The string `node` builds, piece by piece, as Python builds it: a constant as written, `os.sep`, `os.path.sep`,
     a `sep` imported from `os` or a `"/"` as a separator, the module's directory as `DIR` (a name in `aliases`, with
     a separator after it when the name is in `slashed`; `.parent`, `parents[0]` or `dirname` of the module file) and
-    the module file as `FILE` (`__file__`, a name in `files`), and None for a part this gate cannot know (another
+    the module file as `FILE` (`__file__`, a name in `files`; a name in both sets is the directory where a path is
+    built on it and the file under `.parent` or `dirname`, so `here = abspath(__file__); here = dirname(here)` is read
+    both ways, loudly), and None for a part this gate cannot know (another
     name, a call, an f-string part with a conversion or a format spec). Follows `+`, an f-string, a `%` template with
     `%s` fields, a `.format` template with plain positional or keyword fields, `sep.join([...])`, `os.path.join(...)`,
     `Path(a, b, ...)`, `joinpath(...)` and `/` (a separator between the operands), `with_name` on the module file
@@ -420,13 +424,17 @@ def _fold(node: ast.AST, aliases: set[str] | frozenset[str], files: set[str] | f
         return pieces
 
     def directory_of(inner: list[_Piece]) -> list[_Piece]:  # `.parent`, `parents[0]`, `dirname` of the module file
-        return [_Piece(DIR, None, inner[0].source)] if [piece.text for piece in inner if piece.text != ""] == [FILE] else _UNKNOWN
+        texts = [piece.text for piece in inner if piece.text != ""]
+        # A name bound to both the module file and its directory (`here = abspath(__file__); here = dirname(here)`)
+        # folds to the directory; under `.parent` or `dirname` it is read as the file too, loudly, never silently.
+        both = texts == [DIR] and inner[0].source in files and inner[0].source in aliases
+        return [_Piece(DIR, None, inner[0].source)] if texts == [FILE] or both else _UNKNOWN
 
     if isinstance(node, ast.Name):
+        if node.id in aliases:  # before `files`: a name bound to both builds paths as the directory
+            return [_Piece(DIR, None, node.id)] + (_SEPARATOR if node.id in slashed else [])
         if node.id == "__file__" or node.id in files:
             return [_Piece(FILE, None, node.id)]
-        if node.id in aliases:
-            return [_Piece(DIR, None, node.id)] + (_SEPARATOR if node.id in slashed else [])
         return _SEPARATOR if node.id in seps else _UNKNOWN
     if isinstance(node, ast.Constant):
         return [_Piece(node.value, node, None)] if isinstance(node.value, str) else _UNKNOWN
@@ -832,10 +840,12 @@ def _local_imports(module: str, is_package: bool, tree: ast.AST):
                     yield f"{base}.{alias.name}"
         elif isinstance(node, ast.Constant) and isinstance(node.value, str) and DOTTED.match(node.value):
             parts = node.value.split(":")[0].split(".")  # `pkgutil.resolve_name("app.x:Class")` imports `app.x`
-            if parts[0] in LOCAL_TOP_LEVEL:  # `mock.patch("app.x.Class.method")` imports `app.x`, the longest module prefix
-                found = next((".".join(parts[:n]) for n in range(len(parts), 1, -1) if _module_path(".".join(parts[:n])) is not None), None)
-                if found is not None:
-                    yield found
+            if parts[0] in LOCAL_TOP_LEVEL and (len(parts) > 1 or ":" in node.value):  # a bare word is never a module
+                for n in range(len(parts), 0, -1):  # `mock.patch("app.x.Class.method")` imports `app.x`, the longest module prefix
+                    found = _module_path(".".join(parts[:n]))
+                    if found is not None and (n > 1 or found.name != "__init__.py"):  # a bare top-level package is never a find
+                        yield ".".join(parts[:n])
+                        break
 
 
 def _workflow() -> dict:
@@ -1368,6 +1378,10 @@ def test_relative_imports_anchor_on_the_owning_package():
     tree = ast.parse('p = patch("app.integrations.sec_api.SECFullTextSearchClient.search"); q = pkgutil.resolve_name("app.services.copilot_service:CopilotService"); '
                      'r = pkgutil.resolve_name("app.services:thing"); s = "app.state.ready"; u = "companies.id"; v = "uvicorn.error"')
     assert set(_local_imports("evals.copilot_runner", False, tree)) == {"app.integrations.sec_api", "app.services.copilot_service", "app.services"}
+    # A one-segment module counts only in the `module:attr` form, and only a top-level module file, never a package or a
+    # bare word.
+    tree = ast.parse('a = uvicorn_target("task_worker_main:app"); b = pkgutil.resolve_name("main:app"); c = "app:thing"; d = "main"; e = "main.app"')
+    assert set(_local_imports("evals.copilot_runner", False, tree)) == {"task_worker_main", "main"}
 
 
 def test_every_reachable_module_and_runtime_input_triggers_the_run():
@@ -1683,6 +1697,14 @@ def test_data_directories_and_named_files_are_inputs():
                          "p = os.path.dirname(__file__)\np += os.sep\nfs = glob.glob(p + '*.json')\n", "p = os.path.dirname(__file__)\np += '/'\nfs = glob.glob('%s*.json' % p)\n"):
             assert _named_in(ast.parse(spelling), "backend/evals/copilot_runner.py") == beside_json, spelling
         assert _named_in(ast.parse("HERE = os.path.dirname(__file__) + '/'\nHERE += 'baselines'\n"), "backend/evals/copilot_runner.py") == baselines
+        # A name bound to both the module file and its directory builds paths as the directory and is the file under
+        # `.parent`, `parents[0]` or `dirname`: `here = abspath(__file__); here = dirname(here)`, the common idiom.
+        for spelling in ("here = os.path.abspath(__file__)\nhere = os.path.dirname(here)\nfs = glob.glob(os.path.join(here, '*.json'))\n",
+                         "HERE = Path(__file__)\nHERE = HERE.resolve().parent\nfs = HERE.glob('*.json')\n",
+                         "def a():\n    p = Path(__file__)\n    return p\ndef b():\n    p = Path(__file__).parent\n    return glob.glob(os.path.join(p, '*.json'))\n"):
+            assert _named_in(ast.parse(spelling), "backend/evals/copilot_runner.py") == beside_json, spelling
+        assert _named_in(ast.parse("HERE = Path(__file__)\nHERE = HERE.resolve().parent\nd = HERE / 'baselines'\n"), "backend/evals/copilot_runner.py") == baselines
+        assert _named_in(ast.parse("here = os.path.abspath(__file__)\nhere = os.path.dirname(here)\nfs = os.listdir(here)\n"), "backend/evals/copilot_runner.py") == {p for p in evals_all if p.count("/") == 2}
         assert _named_in(ast.parse('d = "%s/%s" % (os.path.dirname(__file__), sub); e = "%d/*.json" % n; g = "{}/*.json".format(out); h = "{:>3}/x".format(os.path.dirname(__file__)); i = "%s_backup" % os.path.dirname(__file__); j = ", ".join([os.path.dirname(__file__), "*.json"])'),
                          "backend/evals/copilot_runner.py") == set()
         # A `..` or `.` head followed by a name names nothing: a lone `..` names nothing, and the name is the limit of a
