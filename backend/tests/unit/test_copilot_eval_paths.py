@@ -801,6 +801,7 @@ def test_an_untraceable_shell_action_env_or_job_is_rejected():
         {"jobs": {"j": {"steps": [{"run": "python -m evals.copilot_runner '--preparation=$RUNNER_TEMP/preparation.json'", "working-directory": "backend"}]}}},
         {"jobs": {"j": {"steps": [{"run": 'python -m evals.copilot_runner "--preparation=tests/fixtures/prep/preparation.json"', "working-directory": "backend"}]}}},
         {"jobs": {"j": {"steps": [{"run": 'python -m evals.copilot_runner "--preparation=../docs/no-such-file.md"', "working-directory": "backend"}]}}},
+        {"jobs": {"j": {"steps": [{"run": "python -m evals.copilot_runner --output evals/reports", "working-directory": "backend"}]}}},  # only a .gitignore is tracked there
         {"on": {"pull_request": {"types": ["ready_for_review"], "paths": ["backend/app/**"]}, "pull_request_target": {"types": ["ready_for_review"]}}, "jobs": {"j": {"steps": [step]}}},
         {"on": {"pull_request": {"types": ["ready_for_review"], "paths": ["backend/app/**"], "paths-ignore": ["backend/tests/**"]}}, "jobs": {"j": {"steps": [step]}}},
         {"on": ["pull_request", "push"], "jobs": {"j": {"steps": [step]}}},
