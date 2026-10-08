@@ -83,7 +83,9 @@ file instead.
 - Workflow-only PR (`.github/workflows/*.yml`): YAML parse plus the unit gates that read the
   workflows (`backend/tests/unit/test_migration_lock_safety.py`, `test_eval_parity.py`,
   `test_eval_measurement.py`, `test_data_completeness.py`, `test_backend_deploy_scope.py`,
-  `frontend/tests/unit/nodeVersionLockstep.spec.ts`).
+  `frontend/tests/unit/nodeVersionLockstep.spec.ts`; for `copilot-eval.yml` also
+  `test_copilot_eval_paths.py` once #1123 merges: it refuses any key, env, action input or run
+  command it does not know, so a new step fails it locally before it fails `backend-tests`).
 - Do not add a second test for a rule that is already gated. Do not write tests for reversible,
   low-impact changes that merely mirror the implementation.
 
