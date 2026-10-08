@@ -98,6 +98,9 @@ def test_production_pins_match_defaults_pregenerate_and_ops_visibility(tmp_path)
 @pytest.mark.parametrize("defect", ["missing", "comment", "duplicate-key", "duplicate-step", "wrong-command", "guard-value"])
 def test_pin_parser_rejects_unusable_service_evidence(monkeypatch, tmp_path, defect):
     source = pin_baseline.CI_PATH.read_text()
+    # Mutate the selected public API step even when a private worker appears earlier in CI.
+    prefix, source = source.split("- name: Deploy Cloud Run service", 1)
+    source = "- name: Deploy Cloud Run service" + source
     if defect == "missing":
         source = source.replace("- name: Deploy Cloud Run service", "- name: Retired service step")
     elif defect == "comment":
@@ -111,7 +114,7 @@ def test_pin_parser_rejects_unusable_service_evidence(monkeypatch, tmp_path, def
     elif defect == "guard-value":
         source = source.replace("AI_EVIDENCE_SNAP=true", "AI_EVIDENCE_SNAP=1", 1)
     path = tmp_path / "ci.yml"
-    path.write_text(source)
+    path.write_text(prefix + source)
     monkeypatch.setattr(pin_baseline, "CI_PATH", path)
     with pytest.raises(ValueError, match="Cannot pin"):
         pin_baseline.production_env()
@@ -190,11 +193,12 @@ def test_ops_renderer_rejects_unresolved_traffic_before_describing(resources, de
     describe.assert_not_called()
 
 
-def test_deploy_routes_traffic_to_latest_and_clears_revision_tags():
+@pytest.mark.parametrize("step", ["Deploy Cloud Run service", "Update configured private task worker"])
+def test_deploy_routes_traffic_to_latest_and_clears_revision_tags(step):
     """A tagged revision stays addressable at its own URL at 0% traffic, so a leftover tag keeps a
     retired image serving beside the release; every deploy must clear tags when it routes traffic."""
     job = _workflow("ci.yml")["jobs"]["deploy-backend"]
-    run = _step(job, "Deploy Cloud Run service")["run"]
+    run = _step(job, step)["run"]
     executable = [line.strip() for line in run.splitlines() if line.strip() and not line.lstrip().startswith("#")]
     traffic = [line for line in executable if "update-traffic" in line]
     assert len(traffic) == 1, f"expected exactly one update-traffic command, found {traffic}"

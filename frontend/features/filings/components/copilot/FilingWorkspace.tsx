@@ -9,6 +9,8 @@ import { isHttpUrl } from './CitationChip'
 import { useFilingViewer } from './FilingViewerContext'
 import { useSheetFocusTrap } from './useSheetFocusTrap'
 import { useMediaQuery } from '@/hooks/useMediaQuery'
+import { useConsentLayer } from '@/hooks/useConsentLayer'
+import { BOTTOM_CHROME_OFFSET } from '@/lib/consentLayer'
 
 // Below lg the secondary pane is a modal bottom-sheet; at lg+ it's a static side pane (no modal).
 const MOBILE_MEDIA_QUERY = '(max-width: 1023.98px)'
@@ -16,15 +18,18 @@ const MOBILE_MEDIA_QUERY = '(max-width: 1023.98px)'
 // One-time discovery nudge (ping + coachmark) keyed in localStorage so it never nags twice.
 const COACH_KEY = 'en:copilot-coachmark-v1'
 
-// Hero launcher pinned bottom-RIGHT, clear of the iOS home indicator / Android nav bar. max() keeps a
-// 1.25rem base gap on flat phones and adds the inset on notched ones (needs viewport-fit=cover).
+// Hero launcher pinned bottom-RIGHT, clear of the iOS home indicator / Android nav bar and of the
+// cookie-consent bar: BOTTOM_CHROME_OFFSET keeps a 1.25rem base gap on flat phones, adds the
+// safe-area inset on notched ones (needs viewport-fit=cover) and the bar's height while it is
+// mounted (`--consent-inset`, lib/consentLayer) — the bar sits beneath this z-40 chrome on z-consent
+// and must never be covered by it, nor cover it.
 const LAUNCHER_OFFSET: CSSProperties = {
-  bottom: 'max(1.25rem, env(safe-area-inset-bottom))',
+  bottom: BOTTOM_CHROME_OFFSET,
   right: 'max(1.25rem, env(safe-area-inset-right))',
 }
 // The coachmark floats just above the launcher.
 const COACHMARK_OFFSET: CSSProperties = {
-  bottom: 'calc(max(1.25rem, env(safe-area-inset-bottom)) + 4rem)',
+  bottom: `calc(${BOTTOM_CHROME_OFFSET} + 4rem)`,
   right: 'max(1.25rem, env(safe-area-inset-right))',
 }
 
@@ -56,9 +61,11 @@ function readStoredWidth(): number {
 
 // The secondary pane's container: a bottom-sheet below lg, a static full-height pane on lg+ (it fills
 // the grid cell; PaneResizer + the sticky cell wrapper provide width/height). One element, two CSS
-// personalities — so each body mounts exactly once across breakpoints.
+// personalities — so each body mounts exactly once across breakpoints. The sheet rests on the
+// cookie-consent bar while that is mounted (bottom = --consent-inset) and gives up the same height
+// from its 85vh cap, so its composer stays inside the viewport above the bar (EN-02).
 const SHELL_CLASSES =
-  'fixed inset-x-0 bottom-0 z-40 flex max-h-[85vh] flex-col rounded-t-2xl border border-border-light bg-panel-light text-text-primary-light dark:border-white/10 dark:bg-panel-dark dark:text-text-primary-dark shadow-e5 dark:shadow-none lg:static lg:inset-auto lg:z-auto lg:h-full lg:max-h-none lg:w-full lg:rounded-none lg:border-y-0 lg:shadow-none'
+  'fixed inset-x-0 bottom-[var(--consent-inset,0px)] z-40 flex max-h-[calc(85vh_-_var(--consent-inset,0px))] flex-col rounded-t-2xl border border-border-light bg-panel-light text-text-primary-light dark:border-white/10 dark:bg-panel-dark dark:text-text-primary-dark shadow-e5 dark:shadow-none lg:static lg:inset-auto lg:z-auto lg:h-full lg:max-h-none lg:w-full lg:rounded-none lg:border-y-0 lg:shadow-none'
 
 interface FilingWorkspaceProps {
   /** Whether the Copilot pane is open (drives the two-column desktop layout + launcher). */
@@ -143,8 +150,12 @@ export default function FilingWorkspace({
     if (open) dismissCoach()
   }, [open, dismissCoach])
   // Show the nudge only once there's a summary to ask about and the rail is closed — but never in
-  // demo mode, where the curated first impression stays calm (the launcher remains, just no nudge).
-  const showAttention = coachMounted && !coachDismissed && summaryAvailable && !open && !demoMode
+  // demo mode, where the curated first impression stays calm (the launcher remains, just no nudge),
+  // and not while the cookie-consent bar is up: the launcher has moved up to clear the bar, and a
+  // coachmark must not compete with the consent choice. It is deferred, not dismissed — once the
+  // bar is gone it shows (unless the user already dismissed it) and points at a visible launcher.
+  const consentVisible = useConsentLayer()
+  const showAttention = coachMounted && !coachDismissed && summaryAvailable && !open && !demoMode && !consentVisible
 
   // Below lg the bottom-sheet acts as a modal (focus trap + scrim); at lg+ it's a static side pane.
   const isMobile = useMediaQuery(MOBILE_MEDIA_QUERY)
@@ -251,7 +262,8 @@ export default function FilingWorkspace({
   return (
     <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_var(--copilot-w)]" style={style}>
       <div className="min-w-0">{children}</div>
-      <div className="relative min-w-0 lg:sticky lg:top-16 lg:h-[calc(100vh-4rem)]">
+      {/* The desktop pane is sticky under the 4rem header and ends where the consent bar begins. */}
+      <div className="relative min-w-0 lg:sticky lg:top-16 lg:h-[calc(100vh_-_4rem_-_var(--consent-inset,0px))]">
         {summaryAvailable && (
           <>
             {/* Launcher (closed) */}
@@ -299,15 +311,16 @@ export default function FilingWorkspace({
               />
             )}
 
-            {/* Mobile-only scrim behind the bottom-sheet (z-30 < shell's z-40). Tapping it closes
-                the sheet. `lg:hidden` keeps it out of the desktop static-pane layout entirely. */}
+            {/* Mobile-only scrim behind the bottom-sheet (z-scrim: above the consent bar, which it dims
+                and makes inert like any modal backdrop; below the shell's z-40). Tapping it closes the
+                sheet. `lg:hidden` keeps it out of the desktop static-pane layout entirely. */}
             {paneOpen && (
               <button
                 type="button"
                 aria-hidden="true"
                 tabIndex={-1}
                 onClick={handleClose}
-                className="lg:hidden fixed inset-0 z-30 bg-overlay"
+                className="lg:hidden fixed inset-0 z-scrim bg-overlay"
               />
             )}
 

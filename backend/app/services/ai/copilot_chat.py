@@ -46,6 +46,11 @@ _TOOL_ROUND_HOLDBACK_CHARS = 240
 _CHAT_SECONDS = 75.0
 
 
+def chat_deadline() -> float:
+    """The provider budget for one user question, including any private regeneration."""
+    return asyncio.get_running_loop().time() + _CHAT_SECONDS
+
+
 def merge_chat_usage(total: dict[str, Any], attempt: dict[str, Any]) -> None:
     """Merge recorded call totals without pricing again or turning unknowns into zero.
 
@@ -205,6 +210,7 @@ class _CopilotChatMixin:
         temperature: float = 0.2,
         max_rounds: int = 4,
         usage_sink: Optional[Dict[str, Any]] = None,
+        deadline: Optional[float] = None,
     ) -> AsyncGenerator[str, None]:
         """Stream a chat completion that may call tools, executing them server-side between rounds.
 
@@ -229,13 +235,15 @@ class _CopilotChatMixin:
             max_tokens: Max completion tokens per round.
             temperature: Sampling temperature.
             max_rounds: Hard cap on tool-call rounds to bound latency/loops.
+            deadline: Earlier parent deadline; a new generation cannot renew its question's budget.
 
         Yields:
             Assistant answer ``delta.content`` strings in order. On any failure yields a single chunk
             prefixed with ``STREAM_ERROR_SENTINEL`` (so the consumer can surface a real error instead
             of streaming it as the answer) rather than raising, so the SSE contract is never broken.
         """
-        deadline = asyncio.get_running_loop().time() + _CHAT_SECONDS
+        own_deadline = chat_deadline()
+        deadline = min(deadline, own_deadline) if deadline is not None else own_deadline
         model_name = model or self.model
         disable_thinking = _thinking_disabled_model(model_name, getattr(settings, "OPENAI_BASE_URL", None))
         try:

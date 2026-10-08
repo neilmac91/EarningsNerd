@@ -21,7 +21,8 @@ from datetime import timedelta
 from typing import AsyncIterator, List, Optional
 
 import anyio
-from fastapi.concurrency import run_in_threadpool
+# Keep the existing dispatch seam for lifecycle tests while tracking actual worker futures.
+from app.services.request_work import RequestWork, run_owned_sync as run_in_threadpool
 from sqlalchemy import inspect as sa_inspect
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import joinedload
@@ -332,24 +333,13 @@ def _get_generation_semaphore() -> asyncio.Semaphore:
     return _generation_semaphore
 
 
-# Strong references to fire-and-forget background tasks (e.g. the cached-content refresh),
-# so the event loop doesn't garbage-collect them mid-execution. Each task removes itself on
-# completion. See https://docs.python.org/3/library/asyncio-task.html#asyncio.create_task.
-_background_tasks: set[asyncio.Task] = set()
-
-
-def _spawn_background(coro) -> None:
-    """Schedule a fire-and-forget coroutine, keeping a strong reference until it finishes."""
-    task = asyncio.create_task(coro)
-    _background_tasks.add(task)
-    task.add_done_callback(_background_tasks.discard)
-
-
-# Pipeline-level hard timeout. This is a *backstop* against a genuine hang/runaway — it sits
+# Pipeline outcome timeout. This is a *backstop* against a genuine hang/runaway — it sits
 # deliberately above the sum of the per-step budgets (≈15s fetch + 18s enrichment + 75s AI
 # fallback ≈ 108s) so the per-step timeouts remain the primary controls and the AI fallback
 # always gets to produce a (partial) result rather than being pre-empted into a timeout error.
 # The whole pipeline body runs inside `asyncio.timeout(PIPELINE_TIMEOUT_SECONDS)`.
+# Final cleanup may exceed this deadline while a synchronous worker finishes; cancelling its
+# asyncio waiter cannot kill its thread, and releasing ownership early would abandon that work.
 PIPELINE_TIMEOUT_SECONDS = 120
 
 # Timeout for XBRL/excerpt enrichment. XBRL fetch starts concurrently with the filing
@@ -427,10 +417,16 @@ async def stream_filing_summary(
     charge_future: Optional[asyncio.Future] = None
     summary_task: Optional[asyncio.Task] = None
     provider_started_waiter: Optional[asyncio.Future] = None
+    xbrl_task: Optional[asyncio.Task] = None
+    sections_task: Optional[asyncio.Task] = None
+    fetch_task: Optional[asyncio.Task] = None
+    excerpt_task: Optional[asyncio.Task] = None
+    worker_owner = RequestWork(enabled=settings.DURABLE_TASKS_ENABLED)
 
     async def run_sync_db(func, *args, **kwargs):
         """Run a complete, session-owning DB unit in the thread pool."""
-        return await run_in_threadpool(func, *args, **kwargs)
+        with worker_owner.activate():
+            return await run_in_threadpool(func, *args, **kwargs)
 
     async def settle_charge() -> None:
         """Wait for an in-flight charge write and adopt what it committed. Needed when the await
@@ -731,7 +727,8 @@ async def stream_filing_summary(
                         logger.warning(f"[stream:{filing_id}] Error updating XBRL data: {str(xbrl_error)}")
                         pass
                     return None
-                xbrl_task = asyncio.create_task(fetch_xbrl())
+                with worker_owner.activate():
+                    xbrl_task = asyncio.create_task(fetch_xbrl())
 
             # Fetch edgartools-parsed sections in parallel with the document fetch (needs only
             # accession + CIK). High-precision excerpt source; the regex extractor is the fallback.
@@ -755,7 +752,8 @@ async def stream_filing_summary(
                     except Exception as sections_error:  # noqa: BLE001
                         logger.warning(f"[stream:{filing_id}] Section parse failed: {sections_error}")
                         return None
-                sections_task = asyncio.create_task(fetch_sections())
+                with worker_owner.activate():
+                    sections_task = asyncio.create_task(fetch_sections())
 
             # Step 1: File Validation
             # DB OP: Record progress
@@ -764,27 +762,6 @@ async def stream_filing_summary(
             logger.info(f"[stream:{filing_id}] Yielding fetching stage")
             yield {'type': 'progress', 'stage': 'fetching', 'message': 'Step 1: File Validation - Confirming document is accessible and parsable...', 'percent': 5, 'elapsed_seconds': int(time.time() - pipeline_started_at)}
 
-            # Background refresh task definition
-            async def background_fetch_and_update():
-                try:
-                    logger.info(f"[stream:{filing_id}] Background refresh: fetching doc")
-                    text = await sec_edgar_service.get_filing_document(filing_document_url, timeout=30.0)
-                    if not text:
-                        return
-
-                    def update_cache_sync():
-                        with database.SessionLocal() as bg_session:
-                            bg_filing = bg_session.query(Filing).options(joinedload(Filing.content_cache)).filter(Filing.id == filing_id).first()
-                            if bg_filing:
-                                # Update cache using service logic to re-extract
-                                get_or_cache_excerpt(bg_session, bg_filing, text)
-                                bg_session.commit()
-
-                    await run_sync_db(update_cache_sync)
-                    logger.info(f"[stream:{filing_id}] Background refresh completed")
-                except Exception as e:
-                    logger.warning(f"[stream:{filing_id}] Background refresh failed: {e}", exc_info=True)
-
             filing_text = ""
 
             if cache_is_valid:
@@ -792,8 +769,9 @@ async def stream_filing_summary(
                 filing_text = ""  # Empty text signals usage of excerpt to downstream services if robustness is handled
                 logger.info(f"[stream:{filing_id}] Skipping main thread SEC fetch, using cache.")
 
-                # Spawn background refresh (strong-referenced so it isn't GC'd mid-flight)
-                _spawn_background(background_fetch_and_update())
+                # get_or_cache_excerpt returns an existing excerpt without updating its timestamp.
+                # Fetching this accession again cannot refresh the valid cache, so reuse it until
+                # the existing 24-hour TTL sends generation through the awaited document path.
 
                 # Yield immediate progress
                 yield {'type': 'progress', 'stage': 'fetching', 'message': 'Cached content found. Loading immediately...', 'percent': 15}
@@ -803,7 +781,8 @@ async def stream_filing_summary(
                 # pipeline). Falls back to the cover-page doc so a content-light 6-K still yields text.
                 yield {'type': 'progress', 'stage': 'fetching', 'message': 'Retrieving 6-K exhibits from EDGAR...', 'percent': 10}
                 try:
-                    filing_text = await get_sixk_text(filing_accession_number, company_cik) or ""
+                    with worker_owner.activate():
+                        filing_text = await get_sixk_text(filing_accession_number, company_cik) or ""
                 except Exception as sixk_error:  # noqa: BLE001 — extractor is defensive, but never break the stream
                     logger.warning(f"[stream:{filing_id}] 6-K exhibit extraction failed: {sixk_error}")
                     filing_text = ""
@@ -959,11 +938,12 @@ async def stream_filing_summary(
             statement_source = None
             report_period = filing_fields.get("report_period")
             if filing_text and report_period is not None:
-                statement_source = await run_in_threadpool(
-                    acquire_statement_context, filing_text, accession=filing_accession_number,
-                    document_url=filing_document_url, form=filing_type,
-                    report_period=report_period.date().isoformat(),
-                )
+                with worker_owner.activate():
+                    statement_source = await run_in_threadpool(
+                        acquire_statement_context, filing_text, accession=filing_accession_number,
+                        document_url=filing_document_url, form=filing_type,
+                        report_period=report_period.date().isoformat(),
+                    )
             if is_six_k:
                 # W3-8b: deterministic pre-classification of the final 6-K grounding selects the prompt
                 # variant and is recorded on the stored summary for audit. Placed after every grounding
@@ -1031,7 +1011,7 @@ async def stream_filing_summary(
                 begin_charge()
                 provider_started.set()
 
-            with provider_start_signal(on_provider_start):  # armed in the task's context
+            with provider_start_signal(on_provider_start), worker_owner.activate():
                 summary_task = asyncio.create_task(openai_service.summarize_filing(
                     filing_text,
                     company_name,
@@ -1526,6 +1506,18 @@ async def stream_filing_summary(
                 await asyncio.gather(summary_task, return_exceptions=True)
             if provider_started_waiter is not None and not provider_started_waiter.done():
                 provider_started_waiter.cancel()
+            # Document failures and disconnects can exit before these siblings reach their normal
+            # join points. Cancel and drain every request-owned coroutine before releasing its
+            # generation slot; none may continue as post-response enrichment.
+            owned_siblings = [
+                task for task in (xbrl_task, sections_task, fetch_task, excerpt_task, provider_started_waiter)
+                if task is not None
+            ]
+            for task in owned_siblings:
+                if not task.done():
+                    task.cancel()
+            if owned_siblings:
+                await asyncio.gather(*owned_siblings, return_exceptions=True)
             # A reservation still held here was never converted (failure or disconnect before the
             # provider call started, or no account row to count against): give the quota unit back
             # now. A unit counted at provider start is NOT touched here — see the metering point.
@@ -1542,6 +1534,9 @@ async def stream_filing_summary(
                     await run_sync_db(release_reservation_sync)
                 except Exception as release_error:  # the lease expires on its own; never mask the outcome
                     logger.warning(f"[stream:{filing_id}] Could not release usage reservation: {release_error}")
+            # Coroutine cancellation does not terminate its running SQL/Edgar worker. Join the
+            # actual concurrent futures after quota settlement, while ownership is still held.
+            await worker_owner.drain()
         # Release the generation slot first (only if actually acquired), then in-flight leadership,
         # so a queued generation can start as soon as this one is done.
         if generation_slot_held and generation_semaphore is not None:

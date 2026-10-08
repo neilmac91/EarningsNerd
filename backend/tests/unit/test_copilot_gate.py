@@ -412,7 +412,7 @@ def test_withheld_rows_name_their_own_reason_and_still_fail_the_run(tmp_path, mo
     monkeypatch.setattr(settings, 'OPENAI_API_KEY', 'offline-test')
     monkeypatch.setattr(sys, 'argv', ['copilot_runner', '--preparation', str(path), '--output', str(output)])
     monkeypatch.setattr(runner, '_snapshot_for_case', lambda case: sourced())
-    replies = iter(['quotation', 'declaration'])
+    replies = iter(['quotation', 'quotation', 'declaration'])
     async def stream(messages, tools, run_tool, **kwargs):
         yield reply(next(replies, 'published'))
     monkeypatch.setattr(copilot_service.openai_service, 'stream_chat_with_tools', stream)
@@ -428,7 +428,7 @@ def test_withheld_rows_name_their_own_reason_and_still_fail_the_run(tmp_path, mo
         telemetry.setLevel(level)
     report = json.loads((output/'copilot-eval.json').read_text())
     rows = report['results']
-    assert [row['tool_trace']['withheld_reasons'] for row in rows[:2]] == [[F_REASON], ['Invalid citation declaration']]
+    assert [row['tool_trace']['withheld_reasons'] for row in rows[:2]] == [[F_REASON, F_REASON], ['Invalid citation declaration']]
     assert [row.get('error') for row in rows[:2]] == [
         {'type': 'ValueError', 'stage': 'answer_or_score', 'withheld_reason': F_REASON},
         {'type': 'ValueError', 'stage': 'answer_or_score', 'withheld_reason': 'Invalid citation declaration'}]
@@ -479,7 +479,7 @@ async def test_withheld_capture_keeps_service_lines_in_runner_log(monkeypatch, c
     import logging
     from app.services import copilot_service
     monkeypatch.setattr(logging.getLogger(), 'handlers', [])  # the job's root logger
-    replies = iter(['quotation', 'crash'])
+    replies = iter(['quotation', 'quotation', 'crash'])
     async def stream(messages, tools, run_tool, **kwargs):
         if next(replies) == 'crash':
             raise RuntimeError('offline provider crash')
@@ -489,7 +489,7 @@ async def test_withheld_capture_keeps_service_lines_in_runner_log(monkeypatch, c
     for trace in traces:
         with pytest.raises(ValueError, match='provider error event'):
             await runner._answer(sourced(), 'Describe the business.', trace=trace)
-    assert [trace['withheld_reasons'] for trace in traces] == [[F_REASON], []]
+    assert [trace['withheld_reasons'] for trace in traces] == [[F_REASON, F_REASON], []]
     printed = capsys.readouterr().err
     assert 'Copilot candidate withheld at citation publication boundary: ' + F_REASON + '\n' in printed
     assert 'Copilot answer_filing_question failed\nTraceback (most recent call last):' in printed

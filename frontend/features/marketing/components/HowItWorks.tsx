@@ -30,7 +30,7 @@ const STEPS = [
  */
 export default function HowItWorks() {
   return (
-    <ol className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+    <ol className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
       {STEPS.map((step) => {
         const Icon = step.icon
         return (
