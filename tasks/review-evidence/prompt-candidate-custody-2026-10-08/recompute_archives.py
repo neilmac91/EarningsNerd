@@ -16,8 +16,8 @@ prompt-candidate archives it then recomputes the figures posted on #1029 (commen
   tokens, fingerprints, cost). A call is unknown when its cache-hit, cache-miss or completion
   token count is missing (copilot_cost_runnerlog.py checks cache-hit and completion; a missing
   cache-miss count would stop that script).
-An archive that cannot be read (not a zip, a corrupt member, a listed member or the report missing)
-is reported BAD with the reason, and the remaining archives are still checked.
+An archive that cannot be read (not a readable file, not a zip, a corrupt member, a listed member or
+the report missing) is reported BAD with the reason, and the remaining archives are still checked.
 
 Cost uses the deepseek-flash rates pinned at the run's merge ref 3a5c5894
 (backend/app/services/llm_pricing.py: 0.003 cache hit, 0.15 cache miss, 0.60 output, USD per 1M
@@ -159,9 +159,9 @@ def main() -> int:
             continue
         problems = []
         expected = EXPECTED.get(item["artifact_name"])
-        if sha256_bytes(path.read_bytes()) != item["sha256"]:
-            problems.append("zip sha256 differs from manifest")
         try:
+            if sha256_bytes(path.read_bytes()) != item["sha256"]:
+                problems.append("zip sha256 differs from manifest")
             with zipfile.ZipFile(path) as z:
                 for member, (size, digest) in members.get(item["artifact_name"], {}).items():
                     body = z.read(member)

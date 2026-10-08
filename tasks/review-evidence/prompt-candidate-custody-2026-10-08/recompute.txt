@@ -53,8 +53,9 @@ BAD eval-report-37092291865-11262711816.zip (figures and hashes)
 exit 1
 
 Added 2026-10-08T17:50Z, before merge, by the PR disposition sweep session after its review of this kit. The script
-now exits 1 for a folder that holds no archive and 2 for a path that is not a directory. Three runs on the
-final head; the 11 "not present" lines are omitted from P1.
+now exits 1 for a folder that holds no archive and 2 for a path that is not a directory, and an archive path
+it cannot read as a file is a BAD line rather than a stop. Four runs on the final head; the "not present"
+lines are omitted from P1 and N8.
 
 # N6: an empty folder
 $ python3 -I recompute_archives.py empty
@@ -72,3 +73,11 @@ $ python3 -I recompute_archives.py zips
 OK  eval-report-37092291865-11262711816.zip (figures and hashes)
 1/1 present archives match; 11 not present
 exit 0
+
+# N8: the P1 zip plus a directory named like the D28 archive
+$ python3 -I recompute_archives.py zips-dir
+OK  eval-report-37092291865-11262711816.zip (figures and hashes)
+BAD copilot-fidelity-37034659514-11238871458.zip (hashes)
+    unreadable: IsADirectoryError: [Errno 21] Is a directory: 'zips-dir/copilot-fidelity-37034659514-11238871458.zip'
+1/2 present archives match; 10 not present
+exit 1

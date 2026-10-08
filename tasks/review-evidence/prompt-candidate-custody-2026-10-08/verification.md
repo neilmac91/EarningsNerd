@@ -60,7 +60,7 @@ Supporting facts the verifiers also confirmed:
   | Q2 | 0.02 | 0.006646 | +0.0134 |
   | Q3 | 0.01 | 0.006753 | +0.0032 |
 
-  Three of the four exceed the ±0.01 that two cent-rounded readings allow. The pattern fits charges debited after the reading that followed each run: under-reads early, then catch-up. The handback's seven readings are 43.12 → 42.96 → 42.94 → 42.93 → 42.91 → 42.91 → 42.90. The four per-run drops above sum to 0.21; the remaining 0.01 is the 42.94 → 42.93 step between the Q1 and Q2 runs, which the table assigns to no run and which fits the same late-debit pattern. Over the whole lane the balance fell 0.22 against a known 0.221175, which is within resolution. The correction is posted on #1029 (comment 6054003539).
+  Three of the four exceed the ±0.01 that two cent-rounded readings allow. The pattern fits charges debited after the reading that followed each run: under-reads early, then catch-up. The handback's chain of readings is 43.12 → 42.96 → 42.94 → 42.93 → 42.91 → 42.91 → 42.90 (42.96 was read twice, after eval-baseline and before Q1, so the per-run comments hold eight reads). The four per-run drops above sum to 0.21. The remaining 0.01 is the 42.94 → 42.93 step between the Q1 and Q2 runs: 42.94 at 03:24:55Z after Q1 (5965051343) and 42.93 at 03:26:17Z before Q2's trigger (5965077411). The table assigns it to no run, and it fits the same late-debit pattern. Over the whole lane the balance fell 0.22 against a known 0.221175, which is within resolution. The per-run gaps are posted on #1029 (comment 6054003539); the 0.01 reconciliation is recorded only here and in the README.
 
 ## Other clarifications to the handback
 
