@@ -10,8 +10,8 @@ import type { CopilotCitation } from '@/features/filings/api/copilot-api'
  * portal at the end of <body>, so the page's own tab order never reached the link: Tab left the chip
  * for the next chip and the popover closed on blur. useEvidencePopoverKeys hands the keys over:
  * Tab from the chip → the popover's action; Tab past it → the page resumes after the chip; Shift+Tab
- * → back to the chip; Escape → closed and the chip refocused (SourceTrace's own window-capture
- * Escape, CitationChip's handler).
+ * → back to the chip; Escape → closed and the chip refocused, in window capture so the pane beneath
+ * stays open (SourceTrace's own listener, CitationChip's through the hook's `ownsEscape`).
  */
 
 const EVIDENCE = 'Our revenue is concentrated among a small number of large customers.'
@@ -49,6 +49,32 @@ function Page({ chip }: { chip: React.ReactNode }) {
       <button type="button">after</button>
     </>
   )
+}
+
+/**
+ * Stand-ins for the layers beneath a chip on the filing page: the copilot sheet's trap (a
+ * document-level capture listener that closes on Escape) and the rail's window listener (bubble
+ * phase, skips a prevented Escape).
+ */
+function listenBeneath() {
+  const trap = vi.fn()
+  const rail = vi.fn()
+  const onTrap = (e: KeyboardEvent) => {
+    if (e.key === 'Escape') trap()
+  }
+  const onRail = (e: KeyboardEvent) => {
+    if (e.key === 'Escape' && !e.defaultPrevented) rail()
+  }
+  document.addEventListener('keydown', onTrap, true)
+  window.addEventListener('keydown', onRail)
+  return {
+    trap,
+    rail,
+    remove: () => {
+      document.removeEventListener('keydown', onTrap, true)
+      window.removeEventListener('keydown', onRail)
+    },
+  }
 }
 
 const sourceChip = <SourceTrace url={URL} verified sectionRef="Item 1A · Risk Factors" excerpt={EVIDENCE} />
@@ -116,14 +142,85 @@ describe.each([
   })
 
   it('Escape with focus on the action closes the popover and refocuses the chip', () => {
-    render(<Page chip={chip} />)
+    const beneath = listenBeneath()
+    try {
+      render(<Page chip={chip} />)
+      const t = trigger()
+      act(() => t.focus())
+      fireEvent.keyDown(t, { key: 'Tab' })
+      expect(document.activeElement).toBe(action())
+      fireEvent.keyDown(action(), { key: 'Escape' })
+      expect(popover()).toBeNull()
+      expect(document.activeElement).toBe(t)
+      // The copilot sheet's trap and the rail's listener never saw it: the pane stays open.
+      expect(beneath.trap).not.toHaveBeenCalled()
+      expect(beneath.rail).not.toHaveBeenCalled()
+    } finally {
+      beneath.remove()
+    }
+  })
+
+  it('Escape with focus on the chip closes only the popover; the next Escape reaches the pane beneath', () => {
+    const beneath = listenBeneath()
+    try {
+      render(<Page chip={chip} />)
+      const t = trigger()
+      act(() => t.focus())
+      expect(popover()).toBeInTheDocument()
+      fireEvent.keyDown(t, { key: 'Escape' })
+      expect(popover()).toBeNull()
+      expect(document.activeElement).toBe(t)
+      expect(beneath.trap).not.toHaveBeenCalled()
+      expect(beneath.rail).not.toHaveBeenCalled()
+      // One layer per press: with the popover closed, Escape belongs to the pane again.
+      fireEvent.keyDown(t, { key: 'Escape' })
+      expect(beneath.trap).toHaveBeenCalledTimes(1)
+      expect(beneath.rail).toHaveBeenCalledTimes(1)
+    } finally {
+      beneath.remove()
+    }
+  })
+
+  it('Escape over a hover-opened popover closes it and leaves focus where the user is typing', () => {
+    const beneath = listenBeneath()
+    try {
+      render(
+        <>
+          <Page chip={chip} />
+          <input aria-label="composer" />
+        </>,
+      )
+      const composer = screen.getByRole('textbox', { name: 'composer' })
+      act(() => composer.focus())
+      fireEvent.mouseEnter(trigger())
+      expect(popover()).toBeInTheDocument()
+      fireEvent.keyDown(composer, { key: 'Escape' })
+      expect(popover()).toBeNull()
+      expect(document.activeElement).toBe(composer)
+      expect(beneath.trap).not.toHaveBeenCalled()
+      expect(beneath.rail).not.toHaveBeenCalled()
+    } finally {
+      beneath.remove()
+    }
+  })
+
+  it('leaves Escape to a ui/Modal raised above an open popover', () => {
+    render(
+      <>
+        <Page chip={chip} />
+        <div data-ui-modal="true">
+          <button type="button">modal action</button>
+        </div>
+      </>,
+    )
     const t = trigger()
-    act(() => t.focus())
-    fireEvent.keyDown(t, { key: 'Tab' })
-    expect(document.activeElement).toBe(action())
-    fireEvent.keyDown(action(), { key: 'Escape' })
-    expect(popover()).toBeNull()
-    expect(document.activeElement).toBe(t)
+    fireEvent.mouseEnter(t)
+    expect(popover()).toBeInTheDocument()
+    const inModal = screen.getByRole('button', { name: 'modal action' })
+    act(() => inModal.focus())
+    // Not prevented by the popover: the modal's own listener owns this key.
+    expect(fireEvent.keyDown(inModal, { key: 'Escape' })).toBe(true)
+    expect(popover()).toBeInTheDocument()
   })
 
   it('a scroll re-anchors a keyboard-owned popover and closes a hover one', () => {
@@ -164,6 +261,18 @@ describe.each([
     } finally {
       vi.useRealTimers()
     }
+  })
+})
+
+describe('CitationChip and an IME', () => {
+  it('an Escape that ends an IME composition is not taken by the citation card', () => {
+    render(<Page chip={citationChip} />)
+    const t = screen.getByRole('button', { name: /citation 1: item 7 — md&a/i })
+    fireEvent.mouseEnter(t)
+    expect(screen.getByRole('group', { name: /citation 1: item 7 — md&a/i })).toBeInTheDocument()
+    // Not prevented: the composition, not the card, owns this key.
+    expect(fireEvent.keyDown(document.body, { key: 'Escape', isComposing: true })).toBe(true)
+    expect(screen.getByRole('group', { name: /citation 1: item 7 — md&a/i })).toBeInTheDocument()
   })
 })
 
