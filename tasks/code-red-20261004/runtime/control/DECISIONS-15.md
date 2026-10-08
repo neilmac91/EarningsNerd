@@ -1,14 +1,17 @@
 # Decision record 15 — the rule-12 runtime-records gate merged (PR #1110) after 14 paid runs, each settled — 13 reserved before they fired, one recorded after the founder's ready action triggered it; Codex reviews again from 2026-10-07 (no override used; its 18 findings over 14 reviews verified, 17 fixed and one declined with reasons); an adversarial sweep and six verification rounds; the eval's non-acceptances disclosed; one ledger slip corrected; PR #1109 review record closed; sixth and seventh deploy-skip proofs; ledger events 7–34; closure 165 (chief, 2026-10-08)
 
 Recorded 2026-10-08T03:51:14Z by the chief (`https://claude.ai/code/session_01GWYV7WXWstgVGQG43YcSM8`). From this record on, model
-identifiers are not written into these public records (a harness rule for anything pushed to the repository); contexts are
-identified by their context id and launch time, and a model change of the chief session is recorded as an event without naming
-the models. Context: record 14 merged to main as `f26debcb43f8c49eeca34e76cef6bc0e394a920e` (PR #1109, squash of
+identifiers are not written into these public records (a harness rule for record content, PR text and commit messages; only a
+commit's required co-author trailer names one); contexts are identified by their context id and launch time, and a model change
+of the chief session is recorded as an event without naming the models. One such event so far: the founder changed the chief
+session's model on 2026-10-07 between 10:38:52Z and 12:46:55Z (the commits `a154b316` and `e1ab73e4` of PR #1110); the session
+and its link are unchanged, and the checkpoint header no longer names a model. Context: record 14 merged to main as `f26debcb43f8c49eeca34e76cef6bc0e394a920e` (PR #1109, squash of
 `4b814581` + `f0f3dc53`, merged 2026-10-07T07:12:27Z); the runtime-records gate merged to main as `e144ef3d2dedcb15603cd3267ab719478d925360`
 (PR #1110, squash of 29 commits from `e9911039` to `471a253c`, merged 2026-10-08T03:35:55Z; main also carries other work merged meanwhile — PRs #1111, #1102, #1107,
 #1116, #1117, #1119, #1122, #1125, #1081, #1127 and #1112, none touching these records); this branch was restarted from `e144ef3d`. This record is
 records only: no code, workflow, migration, cloud, IAM or production change; no provider call by this record; no reservation written
-by this record (every paid run of the gate PR was reserved and settled by ledger events 7–34, all before this record); no
+by this record (every paid run of the gate PR was settled, and all but run 10 reserved before it fired, by ledger events 7–34, all
+written before this record); no
 source material opened.
 
 ## What this record closes
@@ -21,7 +24,8 @@ source material opened.
    JSON file does not parse strictly, or a private address, home path or upload-area path appears in any reading of any record —
    before any reviewer sees it. This record is the first the gate checks.
 2. The gate PR's 14 paid `copilot-eval` runs were each settled at actual cost; 13 were reserved before they fired, and run 10, which
-   the founder's marking the PR ready triggered while the chief held it in draft, was recorded immediately after. Paid dispatch is
+   the founder's marking the PR ready triggered while the chief held it in draft, was recorded after it had run (event 25 at
+   22:20:03Z: 2 min 19 s after the ready action at 22:17:44Z, 1 s after the run's job completed). Paid dispatch is
    HELD again. Six runs were not accepted by the eval's own citation check; disclosed below, not caused by this PR.
 3. Codex reviews pull requests again from 2026-10-07; its 18 findings on the gate (over 14 reviews) were each verified, and 17 were
    fixed and one declined with reasons; the founder's review-override exception rests while Codex reviews.
@@ -77,7 +81,9 @@ job 113133832463).
 `runtime-records-gate-review-01`; all read-only; identities in closure 165):
 
 - Three lenses (anchors, code, policy) on `e9911039`, refuters only for blocker and should-fix findings (workflow `wf_1cf4ba90-7d3`,
-  3 lens contexts + 5 refuter contexts, 07:14–07:41Z): **no blocker**; two should-fix findings — the forbidden-strings test scanned
+  3 lens contexts + 5 refuter contexts, 07:14–07:41Z; five findings went to refuters: three held — the suffix allow-list, raised by
+  two lenses, and the second link form — one was refuted as a should-fix and applied as a nit, and one was refuted and not
+  applied): **no blocker**; two should-fix findings — the forbidden-strings test scanned
   only `.md`, `.json` and `.sh` files and so skipped the tree's tracked `.jsonl` (the very defect the lesson records, reproduced in
   the gate's own code), and the second artifact-link form (the `/code/` path variant) was not a needle; nits — hash rows read from
   the deliverables section only, an escaping-row guard, null-safe closure fields, the stamp message naming its convention, the
@@ -129,7 +135,7 @@ job 113133832463).
   `a9b94c75` (haystacks case-folded and percent-decoded; the link matched by a pattern tolerating a port, a trailing dot and repeated
   slashes in either form; the session link form still allowed); `37327581` (5449103836, 22:20:52Z, the review the founder's ready action triggered) — one P2: a blank line between deliverables rows ended the rendered table while the rows after it still passed — fixed in `7128fa73` (the section must render exactly one table), pushed with the head `37c3ce12`; `37c3ce12` (comment 6050959961, 2026-10-08T02:31:03Z, on request) — no findings; `839113b1` (5450842952, 02:58:00Z, on request) — one P2: the bare session route and an empty session id passed the allow-list — fixed in `03b5cefc` (a written placeholder is read as an id before markup is removed, so the allow-list requires an id or a placeholder in every reading); `03b5cefc` (comment 6051427239, 03:14:56Z, on request) — no findings; `471a253c`, the final head (comment 6051589810, 03:30:42Z, on request) — no findings. Every finding was verified by the chief before the fix or the decline, and every
   thread answered (with the fixing commit, or the reasons) and resolved. Through review 9 the PR went back to draft before each fix was
-  pushed, so no paid run fired on a push; after the founder marked it ready (2026-10-07T22:17:46Z) the chief left it ready and wrote a
+  pushed, so no paid run fired on a push; after the founder marked it ready (2026-10-07T22:17:44Z; run 10 started 22:17:46Z) the chief left it ready and wrote a
   reservation before each push instead. No `Review override:` line was used at any point; `review-gate` passed on the Codex Completed
   row at every head that left draft or was pushed while ready (from run 37591507559 on the first to run 37722713664 on the final
   head).
@@ -162,7 +168,7 @@ meanwhile, outside these records).
 | 7 (`defe0281`) | 19, 09:50:31Z | 09:52:28Z; ready | 37603580135 / 112733565805 | success — accepted 18 / 18 / 18 / 18 / 0 | 34; 0.012222; 977,469 / 3,808 | 20, 10:00:00Z; 0.047778 |
 | 8 (`e692da12`) | 21, 10:05:36Z | 10:11:35Z; ready | 37605751354 / 112740678346 | failure — not accepted: 17 scored / 17 passed / 1 error, one draw withheld at the citation publication boundary (unverified or ambiguous referenced citation) | 33; 0.005937; 945,184 / 3,714 | 22, 10:14:51Z; 0.054063 |
 | 9 (`e0f00861`) | 23, 10:21:03Z | 10:26:02Z; ready | 37607362138 / 112746008321 | success — accepted 18 / 18 / 18 / 18 / 0 | 33; 0.005913; 945,194 / 3,675 | 24, 10:33:59Z; 0.054087 |
-| 10 (`37327581`) | 25, 22:20:03Z — recorded after the trigger: the founder marked the PR ready at 22:17:46Z, while the chief held it in draft for further verification | 22:17:46Z; ready (founder) | 37695253262 / 113045269828 | success — accepted 18 / 18 / 18 / 18 / 0 | 34; 0.006290; 996,356 (990,583 cache hits) / 4,086 | 26, 22:47:36Z; 0.053710 |
+| 10 (`37327581`) | 25, 22:20:03Z — recorded after the trigger: the founder marked the PR ready at 22:17:44Z, while the chief held it in draft for further verification; written after the run's job completed (22:20:02Z) | 22:17:46Z; ready (founder) | 37695253262 / 113045269828 | success — accepted 18 / 18 / 18 / 18 / 0 | 34; 0.006290; 996,356 (990,583 cache hits) / 4,086 | 26, 22:47:36Z; 0.053710 |
 | 11 (`37c3ce12`) | 27, 2026-10-08T02:27:31Z | 02:28:02Z; push while ready | 37718004123 / 113118877598 | failure — not accepted: 17 scored / 17 passed / 1 error, one draw withheld at the citation publication boundary | 38; 0.014386; 1,113,252 (1,106,807 cache hits) / 4,843 | 28, 02:31:05Z; 0.045614 |
 | 12 (`839113b1`) | 29, 02:53:01Z | 02:53:26Z; push | 37720074791 / 113125466027 | success — accepted 18 / 18 / 18 / 18 / 0 | 34; 0.012848; 996,381 (990,711) / 4,339 | 30, 02:58:22Z; 0.047152 |
 | 13 (`03b5cefc`) | 31, 03:10:25Z | 03:10:48Z; push | 37721483659 / 113129895701 | failure — not accepted: 17 scored / 17 passed / 1 error, one draw withheld at the citation publication boundary | 36; 0.013696; 1,062,930 (1,056,887) / 4,618 | 32, 03:13:31Z; 0.046304 |
@@ -198,13 +204,13 @@ From 2026-10-07 the Codex connector posts real review summaries: PR #1109's summ
 `f0f3dc5` **Completed** at 07:07:50Z (no findings); PR #1110's summary comment 6033721005, updated in place, showed Completed after
 each of its fourteen reviews (the last on `471a253`, 03:30:43Z). `review-gate` passed on the Completed row each time. Consequences recorded here:
 
-- The founder's Codex-credit exception (`Review override: <reason>` in the PR body with an independent current-head review
-  recorded) applies **only while Codex's quota is exhausted** (record 09). It was used on #1091–#1106 while the connector returned
-  usage-limit comments; it was **not** used on #1109 or #1110 and is not used again unless the connector's usage-limit comment
+- The founder's Codex-credit exception (the standing authorization recorded at takeover, `TAKEOVER.md`: `Review override:
+  <reason>` in the PR body with an independent current-head review recorded) applies **only while Codex's quota is exhausted**.
+  It was used on every earlier PR from this branch (#1086–#1106); it was **not** used on #1109 or #1110 and is not used again unless the connector's usage-limit comment
   returns. Records stop describing the quota as exhausted.
 - The independent read-only review of every PR continues unchanged (records-only rule: one reviewer context plus the same context's
   delta check; code-bearing: the lean three-lens workflow plus one delta reviewer). Codex's review is additional, never a
-  substitute, and is never claimed where it did not happen. Its non-optional findings are verified and fixed. On a backend/**-touching
+  substitute, and is never claimed where it did not happen. Its non-optional findings are verified, then fixed or declined with reasons on their thread. On a backend/**-touching
   PR every un-draft, and every push while the PR is ready, fires one paid run, so each needs a reservation first — fourteen runs here,
   USD 0.158085 in all.
 - Observed only, not acted on: the founder's product-owner PRs #1107 (EN-02), merged to main as `aa17bcb8`, and #1108 (EN-03),
@@ -238,7 +244,9 @@ contexts and five refuter contexts of workflow `wf_1cf4ba90-7d3` (registered per
 identity), the delta reviewer `launched-2026-10-07T0747Z:pr-1110-delta-reviewer-01` (one context across its 22 delta
 checks) and the 164 agents of the adversarial sweep and the six verification workflows (registered as
 `claude-code-workflow:<workflow>:<agent>:<label>`; read-only against the records in isolated worktrees; results returned to the
-chief only); pre-registers this record's single PR reviewer (`record-15-reviewer-01`). The Codex connector is GitHub's own app, not a
+chief only); pre-registers this record's single PR reviewer (`record-15-reviewer-01`). Closure 164's label named the three-lens
+workflow and its delta reviewer; the 164 sweep and verification agents were launched under it without being named there. That is
+stated here, not hidden: they are registered now as actual contexts, with no eligibility. The Codex connector is GitHub's own app, not a
 registered context. No context gains source A/B, reconciliation or blind financial judging eligibility; all earlier identities and
 adverse histories retained.
 
@@ -250,7 +258,8 @@ Since record 14: **479 DeepSeek calls; USD 0.158085** (the 14 `copilot-eval` run
 0 active reservations; conditional unreserved 22.527800 → 22.369715; holds unchanged; paid dispatch HELD. External mutations
 by the chief: PR #1109 body edited, marked ready, squash-merged `f26debcb`; PR #1110 opened (draft), body edited, marked ready
 9 times by the chief (once by the founder) and converted back to draft 9 times, 4 pushes while ready (each under a
-reservation), 4 `@codex review` requests, 18 Codex threads answered and resolved, three standing-down comments,
+reservation), two force-pushes of its own branch while in draft (`c4b065bf` → `6a7a3f27` at 09:35:21Z and `23c10170` →
+`e1ab73e4` at 12:47:14Z; no run fired on either replaced head), 4 `@codex review` requests, 18 Codex threads answered and resolved, three standing-down comments,
 squash-merged `e144ef3d`; the private ledger artifact republished 28 times (versions 8
 to 35); branch restarts and pushes; this record's PR.
 
