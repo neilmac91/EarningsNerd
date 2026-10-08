@@ -1,27 +1,35 @@
 from fastapi import APIRouter, HTTPException, Depends, status, Request
 from fastapi.responses import JSONResponse
-from sqlalchemy.orm import Session, joinedload
-from sqlalchemy import desc, func
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm import Session
 from typing import List, Optional, Dict, Any
 from pydantic import BaseModel, EmailStr, Field, field_validator
 import jwt
 from app.database import get_db
-from app.models import Watchlist, Company, User, Filing, Summary, WaitlistSignup
+from app.models import User, Filing, Summary
 from app.routers.auth import get_current_user
 from app.services.summary_generation_service import get_generation_progress_snapshot
 from app.services.summary_placeholders import is_summary_placeholder
 from app.config import settings
+from app.services import watchlist_service
 from app.services.rate_limiter import RateLimiter, enforce_rate_limit
 from app.services.turnstile import enforce_turnstile
 from app.utils.text import has_control_characters
 from app.services.waitlist_service import (
     REFERRAL_BONUS,
+    WaitlistAlreadyJoined,
+    WaitlistReferralNotFound,
+    WaitlistSignupFailed,
     build_referral_link,
     build_verification_link,
     calculate_waitlist_position,
+    count_referrals,
+    count_signups,
+    create_signup,
     create_verification_token,
-    generate_unique_referral_code,
+    find_signup_by_email,
+    mark_email_verified,
+    mark_welcome_email_sent,
+    rollback_welcome_email_sent,
 )
 from app.services.email_service import (
     send_referral_success_email,
@@ -53,27 +61,13 @@ async def add_to_watchlist(
     db: Session = Depends(get_db)
 ):
     """Add company to watchlist"""
-    company = db.query(Company).filter(Company.ticker == ticker.upper()).first()
-    if not company:
+    try:
+        watchlist_item, company = watchlist_service.add_company(db, current_user.id, ticker)
+    except watchlist_service.WatchlistCompanyNotFound:
         raise HTTPException(status_code=404, detail="Company not found")
-    
-    # Check if already in watchlist
-    existing = db.query(Watchlist).filter(
-        Watchlist.user_id == current_user.id,
-        Watchlist.company_id == company.id
-    ).first()
-    
-    if existing:
+    except watchlist_service.AlreadyOnWatchlist:
         raise HTTPException(status_code=400, detail="Company already in watchlist")
-    
-    watchlist_item = Watchlist(
-        user_id=current_user.id,
-        company_id=company.id
-    )
-    db.add(watchlist_item)
-    db.commit()
-    db.refresh(watchlist_item)
-    
+
     return {
         "id": watchlist_item.id,
         "company_id": watchlist_item.company_id,
@@ -91,14 +85,8 @@ async def get_watchlist(
     db: Session = Depends(get_db)
 ):
     """Get user's watchlist"""
-    watchlist_items = (
-        db.query(Watchlist)
-        .options(joinedload(Watchlist.company))
-        .filter(Watchlist.user_id == current_user.id)
-        .order_by(desc(Watchlist.created_at))
-        .all()
-    )
-    
+    watchlist_items = watchlist_service.list_items(db, current_user.id)
+
     result = []
     for item in watchlist_items:
         company = item.company
@@ -123,20 +111,12 @@ async def remove_from_watchlist(
     db: Session = Depends(get_db)
 ):
     """Remove company from watchlist"""
-    company = db.query(Company).filter(Company.ticker == ticker.upper()).first()
-    if not company:
+    try:
+        watchlist_service.remove_company(db, current_user.id, ticker)
+    except watchlist_service.WatchlistCompanyNotFound:
         raise HTTPException(status_code=404, detail="Company not found")
-    
-    watchlist_item = db.query(Watchlist).filter(
-        Watchlist.user_id == current_user.id,
-        Watchlist.company_id == company.id
-    ).first()
-    
-    if not watchlist_item:
+    except watchlist_service.NotOnWatchlist:
         raise HTTPException(status_code=404, detail="Company not in watchlist")
-
-    db.delete(watchlist_item)
-    db.commit()
 
     return {"status": "success"}
 
@@ -232,68 +212,16 @@ async def get_watchlist_insights(
     db: Session = Depends(get_db)
 ):
     """Return enriched status information for the user's watchlist."""
-    watchlist_items = (
-        db.query(Watchlist)
-        .options(joinedload(Watchlist.company))
-        .filter(Watchlist.user_id == current_user.id)
-        .order_by(desc(Watchlist.created_at))
-        .all()
-    )
+    rows = watchlist_service.load_insight_rows(db, current_user.id)
 
     insights: List[WatchlistInsightResponse] = []
-    company_ids = [item.company_id for item in watchlist_items if item.company_id]
-    if not company_ids:
+    if rows is None:
         return insights
+    latest_filing_by_company = rows.latest_filing_by_company
+    filing_counts = rows.filing_counts
+    summary_by_filing = rows.summary_by_filing
 
-    latest_dates_subq = (
-        db.query(
-            Filing.company_id,
-            func.max(Filing.filing_date).label("latest_date"),
-        )
-        .filter(Filing.company_id.in_(company_ids))
-        .group_by(Filing.company_id)
-        .subquery()
-    )
-
-    latest_filings = (
-        db.query(Filing)
-        .join(
-            latest_dates_subq,
-            (Filing.company_id == latest_dates_subq.c.company_id)
-            & (Filing.filing_date == latest_dates_subq.c.latest_date),
-        )
-        .order_by(desc(Filing.id))
-        .all()
-    )
-    # Same-day tie-break: a company that files (e.g.) a 10-K and a 10-Q on the same date matches the
-    # max-date join twice. Order by id desc and keep the FIRST (highest id) so "latest filing" is
-    # deterministic — mirrors the dashboard feed's (filing_date, id) desc tie-break so the insights
-    # page and the "Your companies" rows it powers land on the same filing.
-    latest_filing_by_company: Dict[int, Filing] = {}
-    for filing in latest_filings:
-        latest_filing_by_company.setdefault(filing.company_id, filing)
-
-    filing_counts = dict(
-        db.query(Filing.company_id, func.count(Filing.id))
-        .filter(Filing.company_id.in_(company_ids))
-        .group_by(Filing.company_id)
-        .all()
-    )
-
-    latest_filing_ids = [filing.id for filing in latest_filings]
-    summary_by_filing: Dict[int, Summary] = {}
-    if latest_filing_ids:
-        summaries = (
-            db.query(Summary)
-            .filter(Summary.filing_id.in_(latest_filing_ids))
-            .order_by(desc(Summary.updated_at), desc(Summary.created_at))
-            .all()
-        )
-        for summary in summaries:
-            if summary.filing_id not in summary_by_filing:
-                summary_by_filing[summary.filing_id] = summary
-
-    for item in watchlist_items:
+    for item in rows.watchlist_items:
         company = item.company
         if not company:
             continue
@@ -433,8 +361,16 @@ async def join_waitlist(
             detail="Invalid submission.",
         )
 
-    existing = db.query(WaitlistSignup).filter(WaitlistSignup.email == payload.email).first()
-    if existing:
+    try:
+        joined = create_signup(
+            db,
+            email=payload.email,
+            name=payload.name,
+            referral_code=payload.referral_code,
+            source=payload.source,
+        )
+    except WaitlistAlreadyJoined as exc:
+        existing = exc.signup
         return {
             "success": False,
             "error": "already_registered",
@@ -443,64 +379,22 @@ async def join_waitlist(
             "referral_code": existing.referral_code,
             "referral_link": build_referral_link(existing.referral_code),
         }
-
-    referrer: Optional[WaitlistSignup] = None
-    if payload.referral_code:
-        referrer = (
-            db.query(WaitlistSignup)
-            .filter(WaitlistSignup.referral_code == payload.referral_code)
-            .first()
-        )
-        if not referrer:
-            return JSONResponse(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                content={
-                    "success": False,
-                    "error": "invalid_referral",
-                    "message": "Referral code not recognized.",
-                },
-            )
-        referrer.priority_score += 1
-
-    total_signups = db.query(func.count(WaitlistSignup.id)).scalar() or 0
-    base_position = total_signups + 1
-    referral_code = generate_unique_referral_code(db)
-
-    signup = WaitlistSignup(
-        email=payload.email,
-        name=payload.name,
-        referral_code=referral_code,
-        referred_by=payload.referral_code,
-        source=payload.source,
-        position=base_position,
-        priority_score=0,
-    )
-    db.add(signup)
-
-    try:
-        db.commit()
-    except IntegrityError:
-        db.rollback()
-        existing = db.query(WaitlistSignup).filter(WaitlistSignup.email == payload.email).first()
-        if existing:
-            referral_link = build_referral_link(existing.referral_code)
-            position = calculate_waitlist_position(existing.position, existing.priority_score)
-            return {
+    except WaitlistReferralNotFound:
+        return JSONResponse(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            content={
                 "success": False,
-                "error": "already_registered",
-                "message": "This email is already on the waitlist!",
-                "position": position,
-                "referral_code": existing.referral_code,
-                "referral_link": referral_link,
-            }
+                "error": "invalid_referral",
+                "message": "Referral code not recognized.",
+            },
+        )
+    except WaitlistSignupFailed:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Unable to create waitlist signup.",
         )
 
-    db.refresh(signup)
-    if referrer:
-        db.refresh(referrer)
+    signup, referrer, total_signups = joined.signup, joined.referrer, joined.total_signups
 
     position = calculate_waitlist_position(signup.position, signup.priority_score)
     referral_link = build_referral_link(signup.referral_code)
@@ -516,11 +410,10 @@ async def join_waitlist(
             referral_link=referral_link,
             verification_link=verification_link,
         )
-        signup.welcome_email_sent = True
-        db.commit()
+        mark_welcome_email_sent(db, signup)
         email_sent = True
     except Exception:
-        db.rollback()
+        rollback_welcome_email_sent(db)
         logger.exception("Waitlist welcome email failed for signup %s", signup.id)
 
     if referrer:
@@ -556,19 +449,14 @@ async def get_waitlist_status(email: EmailStr, request: Request, db: Session = D
         error_detail="Too many status checks. Please try again later.",
     )
     normalized_email = email.strip().lower()
-    signup = db.query(WaitlistSignup).filter(WaitlistSignup.email == normalized_email).first()
+    signup = find_signup_by_email(db, normalized_email)
     if not signup:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Email not found on the waitlist.",
         )
 
-    referrals_count = (
-        db.query(func.count(WaitlistSignup.id))
-        .filter(WaitlistSignup.referred_by == signup.referral_code)
-        .scalar()
-        or 0
-    )
+    referrals_count = count_referrals(db, signup.referral_code)
     position = calculate_waitlist_position(signup.position, signup.priority_score)
     return WaitlistStatusResponse(
         position=position,
@@ -579,7 +467,7 @@ async def get_waitlist_status(email: EmailStr, request: Request, db: Session = D
 
 @waitlist_router.get("/stats")
 async def get_waitlist_stats(db: Session = Depends(get_db)):
-    total_signups = db.query(func.count(WaitlistSignup.id)).scalar() or 0
+    total_signups = count_signups(db)
     return {"total_signups": int(total_signups)}
 
 
@@ -612,15 +500,11 @@ async def verify_waitlist_email(token: str, db: Session = Depends(get_db)):
             detail="Invalid verification token.",
         )
 
-    signup = db.query(WaitlistSignup).filter(WaitlistSignup.email == email).first()
-    if not signup:
+    if not mark_email_verified(db, email):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Waitlist entry not found.",
         )
-
-    signup.email_verified = True
-    db.commit()
 
     return {"success": True, "message": "Email verified."}
 
