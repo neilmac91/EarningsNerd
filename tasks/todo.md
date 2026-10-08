@@ -6398,6 +6398,15 @@ Full local and hosted verification plus independent exact-head review precede re
   two-part custody clarification briefed (governed input set; authoritative manifest); contract acceptance reaffirmed unchanged;
   PR #1106 review record closed (merge `be43b490`; deploy steps skipped — fifth proof); the rule-12 runtime-records gate named as
   the next executable chief work (reservation first). Closure 164.
+- 2026-10-08 (record 15, `runtime/control/DECISIONS-15.md`): the rule-12 runtime-records gate merged (PR #1110 → `e144ef3d`;
+  `backend/tests/unit/test_code_red_runtime_records.py` + lesson `test-absence-claims-come-from-git-grep.md`; three-lens review, one delta
+  reviewer across 22 checks, an adversarial sweep and six verification rounds, Codex's 18 findings over 14 reviews verified — seventeen fixed,
+  one declined with reasons; no override) after 14 paid `copilot-eval`
+  runs, each settled at actual cost (events 7–34; USD 0.158085, 479 calls; run 10, triggered by the founder's ready action, recorded
+  after the fact; six runs not accepted by the eval's own citation
+  check — disclosed; headroom 22.369715; paid dispatch HELD); chief defect 5 (event 11's entry) corrected by event 12; Codex reviews
+  again from 2026-10-07 and the review-override exception rests while it does; PR #1109 review record closed (merge `f26debcb`; deploy
+  steps skipped — sixth proof; the gate merge — seventh); PRs #1107/#1108 observed only; R1 unchanged. Closure 165.
 - [ ] Founder: relay the record-14 custody clarification (which retained input set record 05's predicate governs; whether an
       authoritative manifest exists for it — SHA-256, byte count, one-line provenance) and its six return fields; say so only if
       the 2 minutes are not consolidated; D3 (held).
