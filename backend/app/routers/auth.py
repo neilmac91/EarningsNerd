@@ -27,7 +27,13 @@ from app.services.rate_limiter import RateLimiter, enforce_rate_limit
 from app.services.pwned_passwords import is_password_pwned
 from app.services.turnstile import enforce_turnstile
 from app.utils.text import has_control_characters
-from app.services import audit_service, invite_service, login_lockout, refresh_token_service
+from app.services import (
+    audit_service,
+    auth_account_service,
+    invite_service,
+    login_lockout,
+    refresh_token_service,
+)
 from app.services.oauth_verify import _verify_apple_id_token, _verify_google_id_token
 from app.services.password_utils import (
     _DUMMY_PASSWORD_HASH,
@@ -35,11 +41,7 @@ from app.services.password_utils import (
     validate_password_strength,
     verify_password,
 )
-from app.services.refresh_token_service import (
-    revoke_all_for_user,
-    RefreshTokenError,
-    RefreshTokenReuseError,
-)
+from app.services.refresh_token_service import RefreshTokenError, RefreshTokenReuseError
 from app.services.posthog_client import (
     EVENT_INVITE_REDEEMED,
     EVENT_SIGNUP_COMPLETED,
@@ -69,9 +71,6 @@ RESET_RESEND_IP_LIMITER = RateLimiter(limit=20, window_seconds=3600)  # 20/hr pe
 OAUTH_START_LIMITER = RateLimiter(limit=20, window_seconds=60)
 # Per-account failed-login lockout is now durable + anti-enumeration (services/login_lockout,
 # keyed on the email hash and backed by the DB), replacing the old in-memory RateLimiter here.
-
-EMAIL_VERIFY_EXPIRY_HOURS = 24
-PASSWORD_RESET_EXPIRY_HOURS = 1
 
 # Google/Apple OAuth FLOW endpoints (the redirect + Google token-exchange run in this router). The
 # JWKS fetch + id-token verification moved to app.services.oauth_verify (roadmap S3) and are
@@ -196,17 +195,6 @@ class ChangePasswordRequest(BaseModel):
 
 
 # ─── Token helpers ──────────────────────────────────────────────────────────────
-
-def _generate_token() -> tuple[str, str]:
-    """Return (raw_token_to_email, sha256_hash_to_store). Never store the raw token."""
-    raw = secrets.token_urlsafe(32)
-    hashed = hashlib.sha256(raw.encode()).hexdigest()
-    return raw, hashed
-
-
-def _hash_token(raw: str) -> str:
-    return hashlib.sha256(raw.encode()).hexdigest()
-
 
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -> str:
     now = datetime.now(timezone.utc)
@@ -366,12 +354,6 @@ def _get_token_from_request(
     return cookie_token
 
 
-def _lookup_auth_user(db: Session, email: str) -> Optional[User]:
-    # Pool checkout can wait. Keep it off the event loop so other requests can
-    # finish and run their request-owned Session cleanup, returning pool slots.
-    return db.query(User).filter(User.email == email).first()
-
-
 async def get_current_user(
     request: Request,
     credentials: HTTPAuthorizationCredentials = Depends(security),
@@ -401,7 +383,9 @@ async def get_current_user(
     except jwt.PyJWTError:
         raise credentials_exception
 
-    user = await run_in_threadpool(_lookup_auth_user, db, email)
+    # Pool checkout can wait. Keep it off the event loop so other requests can
+    # finish and run their request-owned Session cleanup, returning pool slots.
+    user = await run_in_threadpool(auth_account_service.find_user_by_email, db, email)
     if user is None:
         raise credentials_exception
     if not user.is_active:
@@ -453,7 +437,8 @@ async def get_current_user_optional(
         return None
 
     try:
-        user = await run_in_threadpool(_lookup_auth_user, db, email)
+        # Off the event loop for the same pool-progress reason as get_current_user.
+        user = await run_in_threadpool(auth_account_service.find_user_by_email, db, email)
         if user and not user.is_active:
             logger.warning(f"Optional auth: user id={user.id} is inactive")
             return None
@@ -468,10 +453,7 @@ async def get_current_user_optional(
 async def _send_verification_email_safe(db: Session, user: User) -> None:
     """Generate + persist a verification token and email the link.
     Falls back to logging the link when Resend is unconfigured (dev)."""
-    raw_token, hashed = _generate_token()
-    user.email_verification_token = hashed
-    user.email_verification_expires = datetime.now(timezone.utc) + timedelta(hours=EMAIL_VERIFY_EXPIRY_HOURS)
-    db.commit()
+    raw_token = auth_account_service.issue_email_verification_token(db, user)
 
     link = f"{settings.FRONTEND_URL}/verify-email?token={raw_token}"
     try:
@@ -598,35 +580,22 @@ async def register(
     # whether the account is new (hash + insert) vs. existing (no insert) — closes the timing oracle.
     hashed_password = await asyncio.to_thread(get_password_hash, user_data.password)
 
-    existing_user = db.query(User).filter(User.email == user_data.email).first()
+    existing_user = auth_account_service.find_user_by_email(db, user_data.email)
     if existing_user:
         # Don't reveal existence in the response; alert the real owner out-of-band instead.
         await _send_account_exists_email_safe(existing_user)
         return _REGISTER_OPAQUE
 
-    user = User(
+    # Inserts the account and, in the same transaction, redeems the validated invite (beta tag).
+    user = auth_account_service.create_password_account(
+        db,
         email=user_data.email,
         hashed_password=hashed_password,
         full_name=user_data.full_name,
-        email_verified=False,
+        invite=invite,
     )
-    db.add(user)
-    try:
-        db.flush()
-        # Closed beta: consume the (already-validated) single-use invite in the SAME transaction as
-        # the insert and tag the user beta-eligible, so the 100%-off promo applies at checkout. A
-        # lost redemption race rolls the account back too (the invite's single-use invariant holds),
-        # and a failed insert never burns an invite.
-        if invite is not None:
-            if not invite_service.redeem_invite(db, invite, user, commit=False):
-                db.rollback()
-                return _REGISTER_OPAQUE
-            user.is_beta = True
-        db.commit()
-        db.refresh(user)
-    except IntegrityError:
-        # Lost a concurrent-create race for the same email — stay opaque (treat as existing).
-        db.rollback()
+    if user is None:
+        # A lost invite-redemption race or a lost concurrent-create race: stay opaque (rolled back).
         return _REGISTER_OPAQUE
     redeemed = invite is not None
 
@@ -687,7 +656,7 @@ async def login(
             headers={"Retry-After": str(lock_seconds)},
         )
 
-    user = db.query(User).filter(User.email == user_data.email).first()
+    user = auth_account_service.find_user_by_email(db, user_data.email)
     hashed_ip = _hashed_client_ip(request)
 
     # Always run bcrypt — against the real hash if we have one, else a fixed dummy — so the
@@ -710,9 +679,8 @@ async def login(
             detail="Incorrect email or password"
         )
 
-    login_lockout.clear_failures(db, user_data.email)  # a successful login resets the lockout
-    user.last_login_at = datetime.now(timezone.utc)
-    db.commit()
+    # Resets the lockout and stamps last_login_at in one commit.
+    auth_account_service.record_password_login(db, user, user_data.email)
     access_token = issue_session(db, user, response, request)
     audit_service.log_login_success(db, user.id, user.email, ip_address=hashed_ip)
     return {"access_token": access_token, "token_type": "bearer"}
@@ -767,19 +735,12 @@ async def verify_email(
     db: Session = Depends(get_db),
 ):
     """Verify a user's email address using the single-use token from the verification email."""
-    hashed = _hash_token(payload.token)
-    now = datetime.now(timezone.utc)
-
-    user = db.query(User).filter(User.email_verification_token == hashed).first()
-    if not user:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid or expired verification link.")
-    if user.email_verification_expires and user.email_verification_expires < now:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Verification link has expired. Request a new one.")
-
-    user.email_verified = True
-    user.email_verification_token = None
-    user.email_verification_expires = None
-    db.commit()
+    try:
+        user = auth_account_service.verify_email_token(db, payload.token)
+    except auth_account_service.AccountTokenInvalidError:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid or expired verification link.") from None
+    except auth_account_service.AccountTokenExpiredError:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Verification link has expired. Request a new one.") from None
 
     # Grant the reverse trial only now, on verification — so no-card Pro requires a real, verified
     # inbox rather than being handed to any freshly-registered (unverified) address. Behind the flag
@@ -789,13 +750,11 @@ async def verify_email(
     # "trial started" event. (start_reverse_trial is also internally idempotent.)
     if settings.REVERSE_TRIAL_ENABLED:
         from app.services.entitlements import is_pro_user
-        from app.services.subscription_sync import start_reverse_trial
         if not is_pro_user(user):
             try:
-                start_reverse_trial(db, user, settings.REVERSE_TRIAL_DAYS)
-                db.commit()
-            except Exception:
-                db.rollback()
+                # Rolls the grant back before raising, so the warning below follows the rollback.
+                auth_account_service.commit_reverse_trial(db, user, settings.REVERSE_TRIAL_DAYS)
+            except auth_account_service.ReverseTrialError:
                 logger.warning("Failed to start reverse trial for user %s on verify", user.id, exc_info=True)
             else:
                 try:
@@ -827,7 +786,7 @@ async def resend_verification(
         error_detail="Too many resend requests. Please wait before trying again.",
         include_client_ip=False,
     )
-    user = db.query(User).filter(User.email == payload.email).first()
+    user = auth_account_service.find_user_by_email(db, payload.email)
     # Always return the same response (anti-enumeration)
     opaque = {"message": "If that email has an unverified account, a new verification link is on its way."}
     if not user or user.email_verified:
@@ -857,15 +816,12 @@ async def forgot_password(
     )
     opaque = {"message": "If an account exists for that email, a password reset link is on its way."}
 
-    user = db.query(User).filter(User.email == payload.email).first()
+    user = auth_account_service.find_user_by_email(db, payload.email)
     if not user or not user.hashed_password:
         # Unknown email, or a social-only account with no password — reveal nothing extra.
         return opaque
 
-    raw_token, hashed = _generate_token()
-    user.password_reset_token = hashed
-    user.password_reset_expires = datetime.now(timezone.utc) + timedelta(hours=PASSWORD_RESET_EXPIRY_HOURS)
-    db.commit()
+    raw_token = auth_account_service.issue_password_reset_token(db, user)
 
     reset_link = f"{settings.FRONTEND_URL}/reset-password?token={raw_token}"
     try:
@@ -885,14 +841,12 @@ async def reset_password(
     db: Session = Depends(get_db),
 ):
     """Set a new password using the single-use token from the reset email."""
-    hashed = _hash_token(payload.token)
-    now = datetime.now(timezone.utc)
-
-    user = db.query(User).filter(User.password_reset_token == hashed).first()
-    if not user:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid or expired reset link.")
-    if user.password_reset_expires and user.password_reset_expires < now:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Reset link has expired. Request a new one.")
+    try:
+        user = auth_account_service.find_password_reset_user(db, payload.token)
+    except auth_account_service.AccountTokenInvalidError:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid or expired reset link.") from None
+    except auth_account_service.AccountTokenExpiredError:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Reset link has expired. Request a new one.") from None
 
     if await is_password_pwned(payload.new_password):
         raise HTTPException(
@@ -900,15 +854,10 @@ async def reset_password(
             detail="This password has appeared in a known data breach. Please choose a different password.",
         )
 
-    user.hashed_password = await asyncio.to_thread(get_password_hash, payload.new_password)
-    user.password_reset_token = None
-    user.password_reset_expires = None
-    # The user proved control of their inbox, so confirm the email too.
-    user.email_verified = True
-    # Reset is account recovery: revoke every existing session so a stolen/active refresh token
-    # can't outlive the reset. The attacker is evicted; the legitimate owner logs in fresh.
-    revoke_all_for_user(db, user.id)
-    db.commit()
+    hashed_password = await asyncio.to_thread(get_password_hash, payload.new_password)
+    # Sets the password, burns the token, confirms the email (the user proved control of the inbox)
+    # and revokes every session (account recovery evicts an attacker), in one commit.
+    auth_account_service.complete_password_reset(db, user, hashed_password)
     return {"message": "Password updated. You can now log in with your new password."}
 
 
@@ -951,15 +900,15 @@ async def change_password(
             detail="This password has appeared in a known data breach. Please choose a different password.",
         )
 
-    current_user.hashed_password = await asyncio.to_thread(get_password_hash, payload.new_password)
+    new_password_hash = await asyncio.to_thread(get_password_hash, payload.new_password)
     # A password change must evict every existing session (a stolen/old refresh token must not
     # survive it). Revoke all, then re-issue for THIS device so the acting user isn't logged out
-    # moments later when their short-lived access token expires. No intermediate commit: the
-    # password change, the revocation, and the new token are committed together by the single
-    # db.commit() inside issue_session (called with the default commit=True), so a failure there
-    # rolls the whole change back (no password-changed-but-500 inconsistency) and saves a commit
-    # round-trip. This atomicity is the reason the pw-hash write above is NOT committed on its own.
-    revoke_all_for_user(db, current_user.id)
+    # moments later when their short-lived access token expires. No intermediate commit:
+    # stage_password_change only stages the new hash and the revocation, and the single commit
+    # inside issue_session (refresh_token_service.mint_refresh_token, default commit=True) commits
+    # them with the new token, so a failure there rolls the whole change back (no
+    # password-changed-but-500 inconsistency) and saves a commit round-trip.
+    auth_account_service.stage_password_change(db, current_user, new_password_hash)
     issue_session(db, current_user, response, request)
     return {"message": "Password updated."}
 

@@ -12,9 +12,11 @@ mocked, mirroring test_apple_signin.py):
   - a lost invite-redemption race rolls the account back on both the social and the email path,
     and the email path's response stays byte-identical to the success response
 
-Structural gate (CLAUDE.md rule 12): every ``User(`` construction in app/routers/auth.py sits in a
-function that calls the gate helper, or is register() (whose gate is the REGISTRATION_MODE check
-at the top of the handler). A fourth creation path cannot appear silently.
+Structural gate (CLAUDE.md rule 12): every ``User(`` construction on the account-creation paths
+(app/routers/auth.py and the services it delegates to, ``ACCOUNT_CREATION_MODULES``) sits in a
+function that calls the gate helper, or is create_password_account(), which has no gate of its own:
+its gate is the REGISTRATION_MODE check at the top of register(), so register() must be its only
+caller anywhere in app/. A fourth creation path cannot appear silently.
 """
 import ast
 import inspect
@@ -33,8 +35,14 @@ from app.models import InviteCode, OAuthAccount, OAuthState, User
 from app.routers import auth as auth_module
 from app.services import invite_service
 
-AUTH_ROUTER = Path(__file__).resolve().parents[2] / "app" / "routers" / "auth.py"
+APP_DIR = Path(__file__).resolve().parents[2] / "app"
+ACCOUNT_CREATION_MODULES = (
+    APP_DIR / "routers" / "auth.py",
+    APP_DIR / "services" / "auth_account_service.py",
+)
 GATE_HELPER = "_oauth_new_account_gate"
+# register()'s insert. Ungated by design: register() runs the invite gate before calling it.
+PASSWORD_ACCOUNT_CREATOR = "create_password_account"
 VALID_PASSWORD = "Sup3rSecretPassw0rd"  # >=12 chars, upper+lower+digit; test fixture, not a credential  # gitleaks:allow
 PROVIDERS = ("google", "apple")
 
@@ -392,32 +400,75 @@ class _UserConstructionFinder(ast.NodeVisitor):
         self.generic_visit(node)
 
 
-def test_every_user_construction_in_the_auth_router_is_gated():
-    tree = ast.parse(AUTH_ROUTER.read_text(encoding="utf-8"))
-    finder = _UserConstructionFinder()
-    finder.visit(tree)
+def _function_defs(tree: ast.AST, name: str) -> list[ast.AST]:
+    return [
+        node for node in ast.walk(tree)
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and node.name == name
+    ]
 
-    functions = {where for where, _ in finder.constructions}
-    assert "register" in functions, "scanner found no User( in register() — the walk is broken"
+
+def test_every_user_construction_on_the_account_creation_paths_is_gated():
+    constructions: list[tuple[str, str, int]] = []
+    gate_callers: set[tuple[str, str]] = set()
+    gates: list[ast.AST] = []
+    for path in ACCOUNT_CREATION_MODULES:
+        rel = path.relative_to(APP_DIR).as_posix()
+        tree = ast.parse(path.read_text(encoding="utf-8"))
+        finder = _UserConstructionFinder()
+        finder.visit(tree)
+        constructions += [(rel, where, line) for where, line in finder.constructions]
+        gate_callers |= {(rel, where) for where in finder.gate_callers}
+        gates += _function_defs(tree, GATE_HELPER)
+
+    functions = {where for _, where, _ in constructions}
+    assert PASSWORD_ACCOUNT_CREATOR in functions, (
+        f"scanner found no User( in {PASSWORD_ACCOUNT_CREATOR}() — the walk is broken"
+    )
     assert len(functions) >= 2, "the OAuth creation path constructs no User — the walk is broken"
 
     ungated = sorted(
-        (where, line) for where, line in finder.constructions
-        if where != "register" and where not in finder.gate_callers
+        (rel, where, line) for rel, where, line in constructions
+        if where != PASSWORD_ACCOUNT_CREATOR and (rel, where) not in gate_callers
     )
     assert not ungated, (
-        f"User(...) constructed outside the gate in app/routers/auth.py: {ungated}. Every account "
-        f"creation path must call {GATE_HELPER}() (REGISTRATION_MODE + email_verified) in the same "
-        "function, or be register() itself."
+        f"User(...) constructed outside the gate: {ungated}. Every account creation path must call "
+        f"{GATE_HELPER}() (REGISTRATION_MODE + email_verified) in the same function, or be "
+        f"{PASSWORD_ACCOUNT_CREATOR}() (reached only from register(), which gates it)."
     )
 
-    gate = next(
-        node for node in ast.walk(tree)
-        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and node.name == GATE_HELPER
-    )
-    body = ast.unparse(gate)
+    assert len(gates) == 1, f"expected one {GATE_HELPER} definition, found {len(gates)}"
+    body = ast.unparse(gates[0])
     assert "settings.REGISTRATION_MODE" in body and "validate_invite_hash" in body, (
         f"{GATE_HELPER} no longer reads REGISTRATION_MODE / validates the invite"
+    )
+
+
+def test_password_account_creation_is_reached_only_through_the_register_gate():
+    """``create_password_account`` inserts an account without checking REGISTRATION_MODE, because
+    register() validates the invite first. Any other reference to it would be an ungated way in."""
+    references: list[tuple[str, str]] = []
+    for py in sorted(APP_DIR.rglob("*.py")):
+        rel = py.relative_to(APP_DIR).as_posix()
+        tree = ast.parse(py.read_text(encoding="utf-8"))
+        for fn in ast.walk(tree):
+            if not isinstance(fn, (ast.FunctionDef, ast.AsyncFunctionDef)) or fn.name == PASSWORD_ACCOUNT_CREATOR:
+                continue
+            for node in ast.walk(fn):
+                named = node.id if isinstance(node, ast.Name) else node.attr if isinstance(node, ast.Attribute) else None
+                if named == PASSWORD_ACCOUNT_CREATOR:
+                    references.append((rel, fn.name))
+    assert sorted(set(references)) == [("routers/auth.py", "register")], (
+        f"{PASSWORD_ACCOUNT_CREATOR} is referenced from {sorted(set(references))}; only "
+        "routers/auth.py::register may call it, after its REGISTRATION_MODE + validate_invite gate."
+    )
+
+    (register,) = _function_defs(ast.parse((APP_DIR / "routers" / "auth.py").read_text(encoding="utf-8")), "register")
+    body = ast.unparse(register)
+    assert "settings.REGISTRATION_MODE" in body and "invite_service.validate_invite(" in body, (
+        "register() no longer gates account creation on REGISTRATION_MODE + validate_invite"
+    )
+    assert body.index("invite_service.validate_invite(") < body.index(PASSWORD_ACCOUNT_CREATOR), (
+        "register() must validate the invite before it creates the account"
     )
 
 
