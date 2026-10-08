@@ -42,21 +42,37 @@ ROUTERS_DIR = BACKEND_DIR / "app" / "routers"
 
 # Router file (relative to backend/) -> its ceiling. Counted on origin/main da636f6 (2026-10-08) by
 # this file's own walk. Lower an entry when a PR moves work into app/services/; delete it at zero.
+# The blank line between entries is deliberate: git conflicts on edits to adjacent lines, so the
+# spacing lets sibling PRs that lower different ceilings merge in any order.
 ROUTER_ORM_CEILINGS: dict[str, int] = {
     "app/routers/admin.py": 52,
+
     "app/routers/analysis.py": 10,
+
     "app/routers/auth.py": 60,
+
     "app/routers/companies.py": 21,
+
     "app/routers/contact.py": 5,
+
     "app/routers/feedback.py": 5,
+
     "app/routers/filings.py": 39,
+
     "app/routers/internal.py": 18,
+
     "app/routers/saved_summaries.py": 21,
+
     "app/routers/sitemap.py": 7,
+
     "app/routers/subscriptions.py": 3,
+
     "app/routers/summaries.py": 31,
+
     "app/routers/users.py": 18,
+
     "app/routers/watchlist.py": 49,
+
     "app/routers/webhooks.py": 1,
 }
 
