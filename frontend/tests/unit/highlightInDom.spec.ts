@@ -5,30 +5,204 @@ import {
   highlightExcerptInDom,
 } from '@/features/filings/components/copilot/highlightInDom'
 
-// jsdom supports TreeWalker + Range but not scrollIntoView / the CSS Custom Highlight API; the
-// helper feature-detects both, so here we just verify location + the block flash + scroll call.
+interface Geometry {
+  left?: number
+  top?: number
+  width?: number
+  height?: number
+  clientWidth?: number
+  clientHeight?: number
+  scrollWidth?: number
+  scrollHeight?: number
+  /** A scroll box's computed overflow on each axis (the helper scrolls only boxes that can scroll). */
+  overflowX?: string
+  overflowY?: string
+}
+
+/** jsdom has no layout: give one element a viewport rectangle, its scroll metrics and its overflow. */
+function place(el: HTMLElement, g: Geometry) {
+  const { left = 0, top = 0, width = 0, height = 0 } = g
+  if (g.overflowX) el.style.overflowX = g.overflowX
+  if (g.overflowY) el.style.overflowY = g.overflowY
+  vi.spyOn(el, 'getBoundingClientRect').mockReturnValue({
+    x: left, y: top, left, top, width, height, right: left + width, bottom: top + height, toJSON: () => ({}),
+  } as DOMRect)
+  for (const key of ['clientWidth', 'clientHeight', 'scrollWidth', 'scrollHeight'] as const) {
+    if (g[key] !== undefined) Object.defineProperty(el, key, { configurable: true, value: g[key] })
+  }
+}
+
+/** jsdom has no Element.scrollTo either; a spec that wants the smooth call gives the element one. */
+function stubScrollTo(el: HTMLElement) {
+  const scrollTo = vi.fn()
+  Object.defineProperty(el, 'scrollTo', { configurable: true, value: scrollTo })
+  return scrollTo
+}
+
+// jsdom supports TreeWalker + Range but has no layout, no Element.scrollTo, no scrollIntoView and no
+// CSS Custom Highlight API; the helper feature-detects them, so here the geometry is stubbed per
+// element and we verify location, the block flash and the scroll. The scroll moves the container it
+// is given and the scroll boxes inside it, never anything outside it: scrollIntoView also scrolled
+// the page, which slid the whole filing page sideways when the reader overflowed its pane (EN-04).
 describe('highlightExcerptInDom', () => {
   beforeEach(() => {
     Element.prototype.scrollIntoView = vi.fn()
+    vi.spyOn(window, 'scrollTo').mockImplementation(() => {})
     // The adopted-sheet memo is module-level; start every spec from a fresh document.
     __resetCitationHighlightStyleForTests()
   })
 
-  it('locates an excerpt spanning multiple inline elements and flashes the enclosing block', () => {
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
+
+  it('locates an excerpt spanning multiple inline elements, flashes the enclosing block and centres it in the container', () => {
     const container = document.createElement('div')
     container.innerHTML =
       '<p>Some intro.</p><p>Revenue <strong>increased</strong> to $391.0B this year.</p>'
     document.body.appendChild(container)
+    const [intro, passage] = container.querySelectorAll('p')
+    place(container, { top: 100, height: 400, clientHeight: 400, scrollHeight: 2000, overflowY: 'auto' })
+    place(intro, { top: 120, height: 40 })
+    place(passage, { top: 900, height: 40 })
+    const scrollTo = stubScrollTo(container)
 
     const found = highlightExcerptInDom(container, 'Revenue increased to $391.0B this year')
 
     expect(found).toBe(true)
-    const [intro, passage] = container.querySelectorAll('p')
     expect(intro).not.toHaveClass('citation-flash')
     expect(passage).toHaveClass('citation-flash')
-    expect(vi.mocked(Element.prototype.scrollIntoView).mock.contexts).toEqual([passage])
+    // The passage's offset in the container (900 - 100), less half the free height ((400 - 40) / 2).
+    expect(scrollTo.mock.calls).toEqual([[{ top: 620, behavior: 'smooth' }]])
+    expect(Element.prototype.scrollIntoView).not.toHaveBeenCalled()
+    expect(window.scrollTo).not.toHaveBeenCalled()
 
     document.body.removeChild(container)
+  })
+
+  describe('scrolls inside the container only (EN-04)', () => {
+    it('a cited cell in a wide table scrolls its own box sideways to the nearest edge and the container down to it', () => {
+      const container = document.createElement('div')
+      container.innerHTML =
+        '<p>The following table shows net sales by reportable segment.</p>' +
+        '<div class="box"><table><tbody><tr><td>Americas</td><td>Reportable since fiscal 2013 after the segment change</td></tr></tbody></table></div>'
+      document.body.appendChild(container)
+      const box = container.querySelector<HTMLElement>('.box')!
+      const cell = container.querySelectorAll('td')[1]
+      place(container, { left: 0, top: 0, width: 400, height: 300, clientWidth: 400, clientHeight: 300, scrollWidth: 400, scrollHeight: 1000, overflowX: 'auto', overflowY: 'auto' })
+      place(box, { left: 16, top: 400, width: 368, height: 60, clientWidth: 368, clientHeight: 60, scrollWidth: 1200, scrollHeight: 60, overflowX: 'auto', overflowY: 'auto' })
+      place(cell, { left: 900, top: 410, width: 100, height: 30 })
+      const containerScroll = stubScrollTo(container)
+      const boxScroll = stubScrollTo(box)
+
+      expect(highlightExcerptInDom(container, 'Reportable since fiscal 2013 after the segment change')).toBe(true)
+
+      // Sideways: the cell's right edge (1000) to the box's right edge (16 + 368).
+      expect(boxScroll.mock.calls).toEqual([[{ left: 616, behavior: 'smooth' }]])
+      // Down: the cell's offset (410) less half the free height ((300 - 30) / 2).
+      expect(containerScroll.mock.calls).toEqual([[{ top: 275, behavior: 'smooth' }]])
+      expect(Element.prototype.scrollIntoView).not.toHaveBeenCalled()
+      expect(window.scrollTo).not.toHaveBeenCalled()
+      container.remove()
+    })
+
+    it('a cell left of the box\'s view scrolls the box back to the cell\'s start', () => {
+      const container = document.createElement('div')
+      container.innerHTML =
+        '<div class="box"><table><tbody><tr><td>Net sales by reportable segment for the year</td><td>Total</td></tr></tbody></table></div>'
+      document.body.appendChild(container)
+      const box = container.querySelector<HTMLElement>('.box')!
+      box.scrollLeft = 500
+      place(container, { left: 0, top: 0, width: 400, height: 300, clientWidth: 400, clientHeight: 300, scrollWidth: 400, scrollHeight: 300, overflowX: 'auto', overflowY: 'auto' })
+      place(box, { left: 16, top: 0, width: 368, height: 60, clientWidth: 368, clientHeight: 60, scrollWidth: 1200, scrollHeight: 60, overflowX: 'auto', overflowY: 'auto' })
+      place(container.querySelector('td')!, { left: -100, top: 10, width: 200, height: 30 })
+
+      expect(highlightExcerptInDom(container, 'Net sales by reportable segment for the year')).toBe(true)
+
+      // Without Element.scrollTo (jsdom, old engines) the offsets are assigned: 500 + (-100 - 16).
+      expect(box.scrollLeft).toBe(384)
+      expect(Element.prototype.scrollIntoView).not.toHaveBeenCalled()
+      container.remove()
+    })
+
+    it('a passage taller than the container is aligned to its start, not centred past it', () => {
+      const container = document.createElement('div')
+      container.innerHTML = '<p>Intro.</p><p>Gross margin expanded on a favourable product mix this quarter.</p>'
+      document.body.appendChild(container)
+      const passage = container.querySelectorAll('p')[1]
+      place(container, { top: 50, height: 300, clientHeight: 300, scrollHeight: 3000, overflowY: 'auto' })
+      place(passage, { top: 850, height: 500 })
+      const scrollTo = stubScrollTo(container)
+
+      expect(highlightExcerptInDom(container, 'Gross margin expanded on a favourable product mix')).toBe(true)
+
+      expect(scrollTo.mock.calls).toEqual([[{ top: 800, behavior: 'smooth' }]])
+      container.remove()
+    })
+
+    it('each box sees the cell where the box inside it moved it: the container does not also scroll sideways', () => {
+      const container = document.createElement('div')
+      container.innerHTML =
+        '<div class="box"><table><tbody><tr><td>Americas</td><td>Reportable since fiscal 2013 after the segment change</td></tr></tbody></table></div>'
+      document.body.appendChild(container)
+      const box = container.querySelector<HTMLElement>('.box')!
+      // The container itself can scroll sideways too (something else in it is wider than it).
+      place(container, { left: 0, top: 0, width: 400, height: 300, clientWidth: 400, clientHeight: 300, scrollWidth: 600, scrollHeight: 1000, overflowX: 'auto', overflowY: 'auto' })
+      place(box, { left: 16, top: 400, width: 368, height: 60, clientWidth: 368, clientHeight: 60, scrollWidth: 1200, scrollHeight: 60, overflowX: 'auto', overflowY: 'auto' })
+      place(container.querySelectorAll('td')[1], { left: 900, top: 410, width: 100, height: 30 })
+      const containerScroll = stubScrollTo(container)
+      const boxScroll = stubScrollTo(box)
+
+      expect(highlightExcerptInDom(container, 'Reportable since fiscal 2013 after the segment change')).toBe(true)
+
+      // The box brings the cell to its right edge (384), inside the container's 400px view, so the
+      // container only scrolls down; read from the cell's first position, it would scroll right too.
+      expect(boxScroll.mock.calls).toEqual([[{ left: 616, behavior: 'smooth' }]])
+      expect(containerScroll.mock.calls).toEqual([[{ top: 275, behavior: 'smooth' }]])
+      container.remove()
+    })
+
+    it('leaves a box that cannot scroll alone, even when its content overflows it', () => {
+      const container = document.createElement('div')
+      container.innerHTML = '<p>Intro.</p><blockquote><p>Operating expenses declined as headcount stayed flat.</p></blockquote>'
+      document.body.appendChild(container)
+      const quote = container.querySelector('blockquote')!
+      place(container, { left: 0, top: 0, width: 400, height: 300, clientWidth: 400, clientHeight: 300, scrollWidth: 400, scrollHeight: 1000, overflowY: 'auto' })
+      // overflow: visible (unset): wider content spills out of it, but it is not a scroll box.
+      place(quote, { left: 16, top: 400, width: 368, height: 60, clientWidth: 368, clientHeight: 60, scrollWidth: 900, scrollHeight: 120 })
+      place(quote.querySelector('p')!, { left: 116, top: 440, width: 900, height: 30 })
+      const containerScroll = stubScrollTo(container)
+      const quoteScroll = stubScrollTo(quote)
+
+      expect(highlightExcerptInDom(container, 'Operating expenses declined as headcount stayed flat')).toBe(true)
+
+      // Were it a scroll box, it would move 100 right and 25 down to show the passage.
+      expect(quoteScroll).not.toHaveBeenCalled()
+      expect(containerScroll.mock.calls).toEqual([[{ top: 305, behavior: 'smooth' }]])
+      container.remove()
+    })
+
+    it('scrolls nothing outside the container, even an ancestor that could scroll to the passage', () => {
+      const page = document.createElement('div')
+      const container = document.createElement('div')
+      container.innerHTML = '<p>Intro.</p><p>Operating expenses declined as headcount stayed flat.</p>'
+      page.appendChild(container)
+      document.body.appendChild(page)
+      const passage = container.querySelectorAll('p')[1]
+      place(page, { left: 0, top: 0, width: 1440, height: 900, clientWidth: 1440, clientHeight: 900, scrollWidth: 1793, scrollHeight: 4000, overflowX: 'auto', overflowY: 'auto' })
+      place(container, { left: 1020, top: 64, width: 772, height: 800, clientWidth: 772, clientHeight: 800, scrollWidth: 772, scrollHeight: 5000, overflowX: 'auto', overflowY: 'auto' })
+      place(passage, { left: 1036, top: 2000, width: 740, height: 60 })
+      const pageScroll = stubScrollTo(page)
+      const containerScroll = stubScrollTo(container)
+
+      expect(highlightExcerptInDom(container, 'Operating expenses declined as headcount stayed flat')).toBe(true)
+
+      expect(containerScroll).toHaveBeenCalledTimes(1)
+      expect(pageScroll).not.toHaveBeenCalled()
+      expect(window.scrollTo).not.toHaveBeenCalled()
+      expect(Element.prototype.scrollIntoView).not.toHaveBeenCalled()
+      page.remove()
+    })
   })
 
   it('returns false when the passage is not present', () => {
@@ -108,6 +282,10 @@ describe('highlightExcerptInDom', () => {
           passage.appendChild(document.createTextNode(''))
         }
         document.body.appendChild(container)
+        // The scroll target is the passage itself: it alone sits at 600, so only it yields this offset.
+        place(container, { top: 0, height: 300, clientHeight: 300, scrollHeight: 3000, overflowY: 'auto' })
+        place(intro, { top: 200, height: 30 })
+        place(passage, { top: 600, height: 30 })
         try {
           expect(highlightExcerptInDom(container, excerpt)).toBe(true)
           const highlight = highlights.get('copilot-citation') as { range: Range }
@@ -119,7 +297,9 @@ describe('highlightExcerptInDom', () => {
           expect(container.querySelectorAll('.citation-flash')).toHaveLength(1)
           expect(passage).toHaveClass('citation-flash')
           expect(intro).not.toHaveClass('citation-flash')
-          expect(vi.mocked(Element.prototype.scrollIntoView).mock.contexts).toEqual([passage])
+          // No Element.scrollTo in jsdom: the offset is assigned, 600 - (300 - 30) / 2.
+          expect(container.scrollTop).toBe(465)
+          expect(Element.prototype.scrollIntoView).not.toHaveBeenCalled()
         } finally {
           container.remove()
         }

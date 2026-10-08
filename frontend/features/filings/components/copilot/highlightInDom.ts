@@ -5,7 +5,7 @@
  * pure {@link findExcerptMatch} matcher, maps the resulting offsets back to a DOM Range, then:
  *   - paints the exact span via the CSS Custom Highlight API when supported (`::highlight(...)`),
  *   - flashes the enclosing block (works everywhere, incl. browsers without the Highlight API),
- *   - scrolls the passage into view.
+ *   - scrolls the passage into view inside the container, and only there.
  * Returns true when a passage was located and highlighted.
  */
 import { findExcerptMatch } from './excerptMatch'
@@ -87,6 +87,58 @@ function flashBlock(node: Node) {
   flashElement(el)
 }
 
+/** A box that can scroll on this axis: its computed overflow there is auto, scroll or hidden. */
+const SCROLLS = /^(auto|scroll|hidden)$/
+
+const clamp = (value: number, max: number) => Math.min(Math.max(value, 0), Math.max(max, 0))
+
+/**
+ * Bring `target` into view inside `container` and nowhere else (EN-04). Each scroll box from the
+ * target up to and including the container moves: a wide table's own box sideways to its nearest
+ * edge, the reader down or up so the passage sits in its middle (or starts at its top when it is the
+ * taller of the two). Each box sees the target where the boxes inside it will have moved it. Nothing
+ * outside the container scrolls: scrollIntoView scrolled every scrollable ancestor, the page
+ * included, and with a reader wider than its pane that slid the whole filing page sideways. jsdom
+ * and old engines have no Element.scrollTo: the offsets are assigned instead.
+ */
+function revealWithin(container: HTMLElement, target: HTMLElement): void {
+  if (target === container || !container.contains(target)) return
+  let { left: tLeft, right: tRight, top: tTop, bottom: tBottom } = target.getBoundingClientRect()
+  for (let box = target.parentElement; box; box = box === container ? null : box.parentElement) {
+    const style = getComputedStyle(box)
+    const b = box.getBoundingClientRect()
+    const left = b.left + box.clientLeft
+    const top = b.top + box.clientTop
+    let x = box.scrollLeft
+    let y = box.scrollTop
+    if (SCROLLS.test(style.overflowX) && box.scrollWidth > box.clientWidth) {
+      if (tLeft < left || tRight - tLeft > box.clientWidth) x += tLeft - left
+      else if (tRight > left + box.clientWidth) x += tRight - (left + box.clientWidth)
+      x = clamp(x, box.scrollWidth - box.clientWidth)
+    }
+    if (SCROLLS.test(style.overflowY) && box.scrollHeight > box.clientHeight) {
+      y += tTop - top - Math.max(0, (box.clientHeight - (tBottom - tTop)) / 2)
+      y = clamp(y, box.scrollHeight - box.clientHeight)
+    }
+    const dx = x - box.scrollLeft
+    const dy = y - box.scrollTop
+    if (!dx && !dy) continue
+    const to: ScrollToOptions = {}
+    if (dx) to.left = x
+    if (dy) to.top = y
+    if (typeof box.scrollTo === 'function') {
+      box.scrollTo({ ...to, behavior: 'smooth' })
+    } else {
+      if (dx) box.scrollLeft = x
+      if (dy) box.scrollTop = y
+    }
+    tLeft -= dx
+    tRight -= dx
+    tTop -= dy
+    tBottom -= dy
+  }
+}
+
 export function clearCitationHighlight(): void {
   const highlights = (CSS as unknown as { highlights?: Map<string, unknown> }).highlights
   if (highlights) highlights.delete(HIGHLIGHT_NAME)
@@ -122,8 +174,6 @@ export function highlightExcerptInDom(container: HTMLElement, excerpt: string): 
   flashBlock(startLoc.node)
 
   const target = startLoc.node.parentElement
-  if (target && typeof target.scrollIntoView === 'function') {
-    target.scrollIntoView({ behavior: 'smooth', block: 'center' })
-  }
+  if (target) revealWithin(container, target)
   return true
 }
