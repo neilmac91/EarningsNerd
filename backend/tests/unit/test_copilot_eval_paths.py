@@ -45,8 +45,7 @@ is matched at any depth already, so `**/dir/*.md` is the same read) and the file
 there, segment by segment, `**` at any depth; a bare pattern such as `*.md` counts only on the
 module's own directory (`Path(__file__).parent.glob("*.md")`), one level for `glob` and every level
 for `rglob` or a leading `**`, and a leading `..` climbs that many directories above the module
-(`glob("../*.txt")` reads `backend/*.txt`; `join(dir, "..", "*.txt")` spells the `..` in a literal of
-its own and stays a pattern on the module's directory, the per-literal limit below; `rglob("../p")` is
+(`glob("../*.txt")` reads `backend/*.txt`; `rglob("../p")` is
 read as the climb and then every `p` below it, more than pathlib's `**/../p` reads, and the excess
 is loud, never silent), so
 `REPORTS_DIR.glob("*.json")` on the run's report directory is not seen; a folder name held in a variable first (`NAME = "questions"; with_name(NAME)`) is a bare
@@ -55,9 +54,14 @@ two or more segments names files and
 directories, prefers `backend/` and otherwise reaches the whole repository
 (`Path(__file__).resolve().parents[2]` is the repository root); a path with a leading `..` reaches
 it unconditionally, unless it is anchored on the module's own location, where it resolves there
-(a lone `..` or `.` so anchored names nothing, and a `..` in a later operand of a `join` climbs from the
-operand before it, so it is read as a literal in its own right; a lone `**` so anchored reads what
-`rglob("*")` reads). A named directory means every tracked file under it but a `.gitignore`. A path spelled one segment per literal
+(a lone `..` or `.` so anchored names nothing; a lone `**` so anchored reads what `rglob("*")` reads).
+A literal joined to the module's own location by `/`, `with_name`, `join`, `joinpath` or a `Path(...)`
+constructor is read where Python reads it (`dir / "README.md"` is the file beside the module, not every
+`README.md`), the constant operands of a `join`, a `joinpath` or a constructor, up to its first other
+operand, are the one path they build (`join(dir, "baselines", "*.json")` reads `baselines/*.json` there,
+and `join(dir, "baselines", "../../app/config.py")` is `../app/config.py` from it), and the literals
+after a name or an f-string operand (`join(dir, sub, "*.json")`) are bare words, the limit of a variable;
+a leading `**` in such a path keeps the any-depth reading of a spelled directory. A named directory means every tracked file under it but a `.gitignore`. A path spelled one segment per literal
 (`ROOT / "docs" / "x.md"`) is a bare name each: that is the limit of per-literal matching. A `.py`
 named by path (run by subprocess) is a named file and a module of the closure, so its imports are
 followed (a bare `.py` name such as `__init__.py` matches every backend file so named, loudly), and
@@ -374,65 +378,88 @@ def _listed_dirs(tree: ast.AST) -> set[str]:
     return depths
 
 
-def _sibling_literals(tree: ast.AST) -> tuple[set[int], set[int]]:
+def _literal(node: ast.AST) -> ast.Constant | None:
+    """The string constant `node` is, or the one part of an f-string that holds nothing else (`f"name"`); else None."""
+    if isinstance(node, ast.JoinedStr) and len(node.values) == 1:
+        node = node.values[0]
+    return node if isinstance(node, ast.Constant) and isinstance(node.value, str) else None
+
+
+def _sibling_literals(tree: ast.AST) -> tuple[set[int], dict[int, str], set[int]]:
     """ids of the string constants (an f-string's parts included) that build a path from the module's own location:
     `with_name` on the module file; `joinpath`, `glob`, `rglob` or `/` on the module's directory, or `glob.glob` with
     `root_dir=` that directory; `join` or a `Path` constructor whose first operand is the module's directory; the
     directory written as `Path(__file__).parent`, `os.path.dirname(__file__)`, wrapped in `resolve()`, `absolute()`,
     `abspath()`, `realpath()` or `Path(...)`, or a name assigned from one of them, and the module file likewise
     `__file__`, `Path(__file__)`, wrapped, or a name assigned from one of them (a plain, an annotated, a walrus or a
-    tuple assignment; an attribute such as `self.here` is not followed). Every operand of a `join`, a `joinpath` or
-    a constructor counts, but a `..` in an operand after the first climbs from the operand before it, not from the
-    module's directory, so such an operand is also returned in `later` and `_named_in` reads it as a literal in its
-    own right. A literal joined to any other receiver (an output directory, `parents[1]`, a parameter) and a bare word
-    anywhere else (a dict key, a column name) is not a folder."""
+    tuple assignment; an attribute such as `self.here` is not followed). A literal so joined (by `/`, `with_name`,
+    `join`, `joinpath` or a constructor) is read where Python reads it, and the constant operands of a `join`, a
+    `joinpath` or a constructor, up to its first other operand, build one path: the first of them is returned in
+    `joined` with that path (`join(dir, "baselines", "*.json")` is `baselines/*.json`; `dir / "README.md"` is
+    `README.md`) and the rest in `skip`, which `_named_in` does not read on their own; the literals after a name or an
+    f-string operand are not anchored (`join(dir, sub, "*.json")` reads a directory this gate cannot know), but a
+    first operand that is an f-string with a formatted value has its literal parts read on the module's directory, as
+    a `glob` of it would. A literal joined to any other receiver (an output directory, `parents[1]`, a parameter) and
+    a bare word anywhere else (a dict key, a column name) is not a folder."""
     aliases, files = _module_aliases(tree)
     ids: set[int] = set()
-    later: set[int] = set()
+    joined: dict[int, str] = {}
+    skip: set[int] = set()
     for node in ast.walk(tree):
-        trailing: list[ast.AST] = []
+        chained = False
         if isinstance(node, ast.Call):
             func = node.func
             name = func.attr if isinstance(func, ast.Attribute) else func.id if isinstance(func, ast.Name) else ""
             operands = list(node.args) + [keyword.value for keyword in node.keywords]
             root_dir = [keyword.value for keyword in node.keywords if keyword.arg == "root_dir"]
             if name == "with_name" and isinstance(func, ast.Attribute):
-                anchored = _is_module_file(func.value, files)
+                anchored, chained = _is_module_file(func.value, files), True
             elif name in {"glob", "iglob"} and root_dir:  # `glob.glob(p, root_dir=dir)`, `iglob`, or `glob` imported bare
                 anchored = any(_is_module_dir(r, aliases, files) for r in root_dir)
                 operands = [operand for operand in operands if not any(operand is r for r in root_dir)]
             elif name in {"joinpath", "glob", "rglob"} and isinstance(func, ast.Attribute):
-                anchored = _is_module_dir(func.value, aliases, files)
-                trailing = operands[1:] if name == "joinpath" else []
+                anchored, chained = _is_module_dir(func.value, aliases, files), name == "joinpath"
             elif name == "join" or name.endswith("Path"):
                 anchored = bool(node.args) and _is_module_dir(node.args[0], aliases, files)
-                operands, trailing = operands[1:], operands[2:]
+                operands, chained = operands[1:], True
             else:
                 continue
         elif isinstance(node, ast.BinOp) and isinstance(node.op, ast.Div):
-            anchored, operands = _is_module_dir(node.left, aliases, files), [node.right]
+            anchored, operands, chained = _is_module_dir(node.left, aliases, files), [node.right], True
         else:
             continue
         if not anchored:
             continue
+        if chained:  # `join(dir, "baselines", "*.json")` builds the one path `baselines/*.json`; `dir / "x"` is `x`
+            head: list[ast.Constant] = []
+            for operand in operands:
+                literal = _literal(operand)
+                if literal is None:
+                    break
+                head.append(literal)
+            if head:
+                ids.add(id(head[0]))
+                joined[id(head[0])] = "/".join(literal.value for literal in head)
+                skip.update(id(literal) for literal in head[1:])
+            elif operands and isinstance(operands[0], ast.JoinedStr):  # `join(dir, f"{stem}*.md")` reads as `glob(f"{stem}*.md")`
+                ids.update(id(part) for part in operands[0].values if isinstance(part, ast.Constant))
+            continue
         for operand in operands:
             parts = operand.values if isinstance(operand, ast.JoinedStr) else [operand]
             ids.update(id(part) for part in parts if isinstance(part, ast.Constant))
-            if any(operand is after for after in trailing):
-                later.update(id(part) for part in parts if isinstance(part, ast.Constant))
-    return ids, later
+    return ids, joined, skip
 
 
 def _named_in(tree: ast.AST, module: str = "backend/evals/") -> set[str]:
     """Repo-relative paths of tracked files a string literal in `tree` names (see NAMED_CANDIDATES)."""
-    found, (sibling, later), recursive = set(), _sibling_literals(tree), _recursive_literals(tree)
+    found, (sibling, joined, skip), recursive = set(), _sibling_literals(tree), _recursive_literals(tree)
     listed = _listed_dirs(tree)
     if listed:
         found.update(_glob_matches(posixpath.dirname(module) + "/", ["*"], "all" in listed))
     for node in ast.walk(tree):
-        if not (isinstance(node, ast.Constant) and isinstance(node.value, str)):
+        if not (isinstance(node, ast.Constant) and isinstance(node.value, str)) or id(node) in skip:
             continue
-        value = LOCAL_URL.sub("", node.value)
+        value = LOCAL_URL.sub("", joined.get(id(node), node.value))
         if "://" in value:
             continue
         parts = posixpath.normpath(value).split("/")  # `..` survives only at the start
@@ -442,8 +469,10 @@ def _named_in(tree: ast.AST, module: str = "backend/evals/") -> set[str]:
             segments, deep = segments[1:], True
         cut = next((i for i, segment in enumerate(segments) if GLOB.search(segment)), len(segments))
         pattern, segments, globbed = segments[cut:], segments[:cut], cut < len(segments)
-        climbs = parts[0] == ".." and id(node) not in later  # a `..` after an earlier operand climbs from that one
-        anchored = id(node) in sibling and (climbs or (not segments and (globbed or deep)))
+        climbs = parts[0] == ".."
+        # A joined path resolves on the module's directory as Python resolves it, unless a leading `**` leaves its
+        # directory to be matched at any depth, as a spelled directory is.
+        anchored = id(node) in sibling and (climbs or (id(node) in joined and not deep) or (not segments and (globbed or deep)))
         if anchored and not (segments or globbed or deep):  # a lone `..` or `.` joined to the module's directory names nothing
             continue
         if anchored:
@@ -917,7 +946,7 @@ def test_run_commands_outside_the_allowlist_are_rejected():
     assert _read_steps({"jobs": {"j": {"steps": [{"run": "python -m evals.copilot_runner --preparation tests/fixtures/companyfacts_sample.json", **runner}]}}}) == (
         ["evals.copilot_runner"], ["backend/tests/fixtures/companyfacts_sample.json"],
     )
-    fixtures = sorted(p for p in TRACKED if p.startswith("backend/tests/fixtures/acquisition_period/"))
+    fixtures = sorted(p for p in TRACKED if p.startswith("backend/tests/fixtures/acquisition_period/") and not p.endswith("/.gitignore"))
     assert fixtures and _read_steps({"jobs": {"j": {"steps": [{"run": "python -m evals.copilot_runner --sources tests/fixtures/acquisition_period", **runner}]}}})[1] == fixtures
     # The `=` spelling, a bare directory name and `..` are the same inputs; `Dockerfile` is a tracked file.
     assert _read_steps({"jobs": {"j": {"steps": [{"run": "python -m evals.copilot_runner --preparation=tests/fixtures/companyfacts_sample.json", **runner}]}}})[1] == ["backend/tests/fixtures/companyfacts_sample.json"]
@@ -1265,26 +1294,51 @@ def test_data_directories_and_named_files_are_inputs():
         assert _named_in(ast.parse('d = Path(__file__).parent / "../assets"'), "backend/app/services/x.py") == app_assets
         assert _named_in(ast.parse('d = os.path.join(os.path.dirname(__file__), "../requirements.txt"); e = Path(__file__).parent / "../nothing-here.txt"'), "backend/evals/copilot_runner.py") == {"backend/requirements.txt"}
         assert _named_in(ast.parse('fs = Path(__file__).parent.glob("../app/assets/*")'), "backend/evals/copilot_runner.py") == {p for p in app_assets if p.count("/") == 3}
-        # A lone `..` joined to the module's directory names nothing: `join(dir, "..", "data", "x.json")` spells it in a
-        # literal of its own, and the parent directory is not what the code reads (its other literals still count).
-        membership = {p for p in TRACKED if p.startswith("backend/") and p.endswith("/index_membership.json")}
-        assert membership
-        assert _named_in(ast.parse('d = os.path.join(os.path.dirname(__file__), "..", "data", "index_membership.json"); e = Path(__file__).parent / ".." / "data"'), "backend/app/services/x.py") == membership
+        # The constant operands of a `join` build one path, resolved on the module's directory as Python resolves it:
+        # `join(dir, "..", "data", "x.json")` from `app/services/` is `app/data/x.json`. A lone `..` or `.` so joined
+        # names nothing: the parent directory is not what the code reads. A `/` chain is still one literal per segment.
+        assert "backend/app/data/index_membership.json" in TRACKED
+        assert _named_in(ast.parse('d = os.path.join(os.path.dirname(__file__), "..", "data", "index_membership.json"); e = Path(__file__).parent / ".." / "data"'), "backend/app/services/x.py") == {"backend/app/data/index_membership.json"}
         assert _named_in(ast.parse('d = os.path.join(os.path.dirname(__file__), "..", "requirements.txt"); b = os.path.abspath(os.path.join(os.path.dirname(__file__), "..")); c = Path(__file__).parent / "."'), "backend/evals/copilot_runner.py") == {"backend/requirements.txt"}
-        # A `..` in a later operand of a `join` or `joinpath` climbs from the operand before it, not from the module's
-        # directory, so it is read as a literal in its own right (a leading `..` reaches the whole repository, as
-        # elsewhere); a bare pattern in a later operand is still anchored on the module's directory, and a lone `**`
-        # there reads what `rglob("*")` reads.
-        # From `backend/evals/`, climbing two levels from the module's directory would leave `app/config.py` at the
-        # repository root, where it does not exist; read as a literal, the `..` reaches `backend/app/config.py`.
+        # A `..` in a later operand climbs from the operand before it, as Python resolves the joined path: from
+        # `backend/evals/`, `baselines/../../app/config.py` is `backend/app/config.py` (climbing two levels from the
+        # module's directory would leave it at the repository root, where it does not exist).
         assert "backend/app/config.py" in TRACKED and "app/config.py" not in TRACKED
-        for spelling in ('os.path.join(os.path.dirname(__file__), "baselines", "../../app/config.py")', 'Path(__file__).parent.joinpath("baselines", "../../app/config.py")'):
-            assert "backend/app/config.py" in _named_in(ast.parse(f"d = {spelling}"), "backend/evals/copilot_runner.py"), spelling
+        for spelling in ('os.path.join(os.path.dirname(__file__), "baselines", "../../app/config.py")', 'Path(__file__).parent.joinpath("baselines", "../../app/config.py")', 'Path(Path(__file__).parent, "baselines", "../../app/config.py")'):
+            assert _named_in(ast.parse(f"d = {spelling}"), "backend/evals/copilot_runner.py") == {"backend/app/config.py"}, spelling
+        # A pattern after a sibling folder is matched there, not on the module's directory: `join(dir, "baselines",
+        # "*.json")` reads the JSON directly under `baselines/`, neither every file there nor the JSON beside the module
+        # (the summary eval's data, deliberate non-triggers, which the code does not read). A `..` before the pattern
+        # climbs back: `join(dir, "baselines", "../*.json")` is the JSON beside the module, loudly.
         evals_all = {p for p in TRACKED if p.startswith("backend/evals/") and not p.endswith("/.gitignore")}
-        assert _named_in(ast.parse('fs = glob.glob(os.path.join(os.path.dirname(__file__), "**", "*.json"), recursive=True)'), "backend/evals/copilot_runner.py") == evals_all
-        # `join(dir, "baselines", "*.json")`: `baselines` is the sibling folder (every file under it) and `*.json` a bare
-        # pattern on the module's directory, each read on its own, the per-literal limit.
-        assert _named_in(ast.parse('fs = glob.glob(os.path.join(os.path.dirname(__file__), "baselines", "*.json"), recursive=True)'), "backend/evals/copilot_runner.py") == baselines | {p for p in evals_all if p.count("/") == 2 and p.endswith(".json")}
+        beside_json = {p for p in evals_all if p.count("/") == 2 and p.endswith(".json")}
+        baselines_json = {p for p in baselines if p.count("/") == 3 and p.endswith(".json")}
+        assert baselines_json and baselines_json < baselines and beside_json & {f"backend/{p}" for p in SUMMARY_EVAL_DATA}
+        for spelling in ('glob.glob(os.path.join(os.path.dirname(__file__), "baselines", "*.json"))', 'Path(__file__).parent.joinpath("baselines", "*.json")',
+                         'glob.glob(Path(Path(__file__).parent, "baselines", "*.json"))', 'glob.glob(os.path.join(os.path.dirname(__file__), f"baselines", "*.json"))'):
+            assert _named_in(ast.parse(f"fs = {spelling}"), "backend/evals/copilot_runner.py") == baselines_json, spelling
+        for spelling in ('glob.glob(os.path.join(os.path.dirname(__file__), "baselines", "../*.json"))', 'Path(__file__).parent.joinpath("reports", "../*.json")', 'glob.glob(Path(Path(__file__).parent, "reports", "../*.json"))'):
+            assert _named_in(ast.parse(f"fs = {spelling}"), "backend/evals/copilot_runner.py") == beside_json, spelling
+        assert _named_in(ast.parse('fs = glob.glob(os.path.join(os.path.dirname(__file__), "reports", "../../*.txt"))'), "backend/evals/copilot_runner.py") == backend_txt
+        # A literal joined to the module's own location is read where Python reads it: `join(dir, "README.md")`,
+        # `dir / "README.md"` and `with_name("README.md")` are the file beside the module, not every `README.md`, and
+        # `join(dir, "baselines", "README.md")` is the one under `baselines/`; a `/` chain is still one literal per segment.
+        readmes = {p for p in TRACKED if p.startswith("backend/") and p.endswith("/README.md")}
+        assert len(readmes) > 1 and "backend/evals/README.md" in readmes
+        for spelling in ('os.path.join(os.path.dirname(__file__), "README.md")', 'Path(__file__).parent / "README.md"', 'Path(__file__).with_name("README.md")'):
+            assert _named_in(ast.parse(f"d = {spelling}"), "backend/evals/copilot_runner.py") == {"backend/evals/README.md"}, spelling
+        assert _named_in(ast.parse('d = Path(__file__).parent.joinpath("baselines", "README.md")'), "backend/evals/copilot_runner.py") == {"backend/evals/baselines/README.md"}
+        # A name or an f-string operand ends the path: the literals after it are bare words (a directory this gate
+        # cannot know), while a first operand that is an f-string reads as a `glob` of it would.
+        for spelling in ('glob.glob(os.path.join(os.path.dirname(__file__), sub, "*.json"))', 'Path(__file__).parent.joinpath(f"{sub}", "*.json")', 'glob.glob(os.path.join(os.path.dirname(__file__), "baselines", f"{stem}.json"))'):
+            assert _named_in(ast.parse(f"fs = {spelling}"), "backend/evals/copilot_runner.py") <= baselines, spelling
+            assert not _named_in(ast.parse(f"fs = {spelling}"), "backend/evals/copilot_runner.py") & beside_json, spelling
+        assert _named_in(ast.parse('fs = glob.glob(os.path.join(os.path.dirname(__file__), f"{stem}*.md"))'), "backend/evals/copilot_runner.py") == beside_module
+        # A `**` operand reads every level: `join(dir, "**", "*.json")` is every JSON under the module's directory, and
+        # `join(dir, "**", "baselines", "*.json")` keeps the any-depth reading of a spelled directory.
+        assert _named_in(ast.parse('fs = glob.glob(os.path.join(os.path.dirname(__file__), "**", "*.json"), recursive=True)'), "backend/evals/copilot_runner.py") == {p for p in evals_all if p.endswith(".json")}
+        assert _named_in(ast.parse('fs = glob.glob(os.path.join(os.path.dirname(__file__), "**", "baselines", "*.json"), recursive=True)'), "backend/evals/copilot_runner.py") == baselines_json
+        assert _named_in(ast.parse('fs = glob.glob(os.path.join(os.path.dirname(__file__), "**", "fixtures", "*.json"), recursive=True)'), "backend/tests/x.py") == json_fixtures & top_fixtures
         backend_all = {p for p in TRACKED if p.startswith("backend/") and not p.endswith("/.gitignore")}
         assert _named_in(ast.parse('fs = glob.glob("../**", root_dir=os.path.dirname(__file__), recursive=True)'), "backend/evals/copilot_runner.py") == backend_all
         fixtures_all = {p for p in TRACKED if p.startswith("backend/tests/fixtures/") and not p.endswith("/.gitignore")}
@@ -1299,8 +1353,6 @@ def test_data_directories_and_named_files_are_inputs():
         assert _named_in(ast.parse('w = os.walk(top=os.path.dirname(__file__))'), "backend/evals/copilot_runner.py") == every_evals
         # `rglob("../p")` with a plain operand reads every `p` below the climbed directory, more than pathlib's
         # `**/../p` does; the excess is loud, never silent.
-        readmes = {p for p in TRACKED if p.startswith("backend/") and p.endswith("/README.md")}
-        assert len(readmes) > 1
         assert _named_in(ast.parse('fs = Path(__file__).parent.rglob("../README.md")'), "backend/evals/copilot_runner.py") == readmes
         # `iterdir()`, `listdir` and `scandir` on the module's directory read what `glob("*")` reads; `glob.glob`
         # with `root_dir=` that directory anchors its pattern there; a tuple assignment creates an alias too.
