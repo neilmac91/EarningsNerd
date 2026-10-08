@@ -5,8 +5,10 @@
    -----------------------------------------------------------------------------
    The ONE single-choice toggle group: lifted from the calendar's Week / Month
    switch (its recipe, unchanged), shared by the calendar view and the filings
-   index's form filter. A role="group" of real <button>s with aria-pressed —
-   every option is visible, so this is not a radiogroup or a tablist.
+   index's form filter; the remaining hand-rolled aria-pressed toggles (period
+   pickers, chart ranges, search and insider filters) migrate as they are
+   touched. A role="group" of real <button>s with aria-pressed — every option
+   is visible, so this is not a radiogroup or a tablist.
      - shell:    panel fill + hairline + e1 lift, rounded-lg (12), p-1.
                  dark: fill contrast + hairline, shadow-none.
      - segment:  rounded (8) · 12/600 · secondary ink → primary on hover.
@@ -17,6 +19,10 @@
                  adaptive = 36px below sm, 26px from sm up.
      - mono:     an option whose label is a code (10-K, 10-Q) sets it in the
                  data face, so a form code reads the same here as in the rows.
+     - fullWidth: below sm the segments stretch across the row and WRAP when
+                 their labels outgrow it (a 10-K/10-Q filer with amendments has
+                 six options; a 320px card holds four), so no filter is clipped
+                 or scrolled out of reach; from sm the group is one auto-width row.
    Focus-visible = ring-brand. No hover:opacity anywhere (it darkens).
 ============================================================================= */
 
@@ -39,7 +45,8 @@ export interface SegmentedControlProps<T extends string> {
   value: T
   onChange: (value: T) => void
   size?: SegmentedControlSize
-  /** Stretch the segments across the row below sm (phone toolbars); auto width from sm up. */
+  /** Stretch the segments across the row below sm (phone toolbars), wrapping them when the labels
+      outgrow the card; auto width, one row, from sm up. */
   fullWidth?: boolean
   className?: string
 }
@@ -76,7 +83,7 @@ export function SegmentedControl<T extends string>({
   className,
 }: SegmentedControlProps<T>) {
   return (
-    <div role="group" aria-label={label} className={cx(SHELL, fullWidth && 'flex w-full sm:inline-flex sm:w-auto', className)}>
+    <div role="group" aria-label={label} className={cx(SHELL, fullWidth && 'flex w-full flex-wrap gap-1 sm:inline-flex sm:w-auto sm:flex-nowrap sm:gap-0', className)}>
       {options.map((option) => {
         const selected = option.value === value
         return (

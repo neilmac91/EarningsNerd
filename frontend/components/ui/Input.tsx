@@ -55,9 +55,9 @@ const PAD = 'px-3.5 py-2.5'
     class order, wins) — the two search fields hand-rolled that gamble (v2.2). */
 const PAD_ICON = 'py-2.5 pl-11 pr-3.5'
 
-/** v3.1 — field density. `comfortable` (default) is the form field (44px). `compact` is the TOOLBAR
-    field (the filings index's year filter, beside a SegmentedControl): 36px from sm up, while phones
-    keep the 44px touch height. Named `density` (DataTable's vocabulary), not `size` — `size` is a
+/** v3.1 — field density. `comfortable` (default) is the form field (42px: 10px padding, a 20px line, 1px
+    borders). `compact` is the TOOLBAR field (the filings index's year filter, beside a SegmentedControl):
+    36px from sm up, while phones keep the standard 42px height. Named `density` (DataTable's vocabulary), not `size` — `size` is a
     native <input>/<select> attribute. EXPLICIT sides per density, never an override on top of PAD:
     cx does no tailwind-merge, so two padding utilities resolve by stylesheet order, not class order. */
 export type FieldDensity = 'comfortable' | 'compact'
@@ -71,7 +71,7 @@ export interface InputClassesOptions {
   /** Reserve the pl-11 leading-icon inset (you render the icon — absolute,
       left-3.5, centered, pointer-events-none, muted tone). */
   leadingIcon?: boolean
-  /** v3.1: `compact` = the 36px toolbar field from sm up (phones keep 44px). */
+  /** v3.1: `compact` = the 36px toolbar field from sm up (phones keep the standard 42px). */
   density?: FieldDensity
   className?: string
 }
@@ -279,7 +279,7 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(function 
 /* --------------------------------------------------------------- Select -- */
 
 export interface SelectProps extends SelectHTMLAttributes<HTMLSelectElement>, FieldExtras {
-  /** v3.1: `compact` = the 36px toolbar select from sm up (phones keep 44px). */
+  /** v3.1: `compact` = the 36px toolbar select from sm up (phones keep the standard 42px). */
   density?: FieldDensity
 }
 

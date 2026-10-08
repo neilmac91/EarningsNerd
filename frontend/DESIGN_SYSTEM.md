@@ -161,7 +161,7 @@ Link as button   buttonVariants({ variant, size })  — the class-string factory
                  styled as buttons; <Button> composes the same factory. Raw fields that the
                  <Input> component can't wrap use inputClasses({ invalid, density }).
                  Toolbar fields (v3.1): density="compact" on <Select>/inputClasses = 36px from sm
-                 up, phones keep the 44px touch height. `density`, not `size` (a native attribute);
+                 up, phones keep the standard 42px field height. `density`, not `size` (a native attribute);
                  each density has its own EXPLICIT padding sides (never an override on top).
 
 Accent text/link text-brand-strong dark:text-brand-strong-dark   (never brand.DEFAULT as text on cream)
@@ -203,11 +203,15 @@ Semantic card    <Card as="section">  — same recipe on a semantic element.
 
 Segmented ctrl   <SegmentedControl label options value onChange size="sm|md|adaptive" fullWidth>  — v3.1, the
                  ONE single-choice toggle group (lifted from the calendar's Week/Month switch; the calendar
-                 and the filings form filter both use it). role="group" of <button aria-pressed> — every option
+                 and the filings form filter use it; the remaining hand-rolled aria-pressed toggles — period
+                 pickers, chart ranges, search and insider filters — migrate as they are touched).
+                 role="group" of <button aria-pressed> — every option
                  is visible, so not a radiogroup/tablist. Shell = panel + hairline + e1, rounded-lg, p-1;
                  segment rounded (8) 12/600; selected = the primary colorway (bg-brand + white; dark NAVY ink on
                  brand-dark). sm 26px · md 36px · adaptive 36px below sm, 26px from sm up. `mono` options set
-                 codes (10-K) in the data face. One selected colour per group — never an ink fill for "All".
+                 codes (10-K) in the data face. `fullWidth` stretches the segments below sm and WRAPS them when
+                 the labels outgrow the card (a 10-K/10-Q filer with amendments has six options) — never clip or
+                 scroll a filter. One selected colour per group — never an ink fill for "All".
 
 Index list       <FilingIndex> (features/filings/components) — the recipe for a list of primary documents:
                  ONE surface (the section Card), hairline rows and year groups (DataTable manners: hover
