@@ -48,7 +48,7 @@ describe('WhatChanged (A5)', () => {
     // which duplicated the Outlook section) is no longer surfaced.
     expect(text).toContain('Revenue up 25.0%')
     expect(text).not.toContain('Revenue accelerated while margins compressed')
-    // The headline leads — before the metric chips, not as a footer.
+    // The headline leads — before the metric rows, not as a footer.
     const headlineIndex = text.indexOf('Revenue up 25.0%')
     const netIncomeIndex = text.indexOf('Net income')
     expect(netIncomeIndex).toBeGreaterThan(-1)
@@ -73,5 +73,61 @@ describe('WhatChanged (A5)', () => {
     }
     const { container } = render(<WhatChanged report={partial} />)
     expect(container.textContent).toContain('Some figures were withheld')
+  })
+
+  // ---- 2026-10 rebuild (docs/design/filings-index-review.md) ----
+
+  it('colours each change from the server tone, never re-derived from direction', () => {
+    const debt: ChangeReport = {
+      ...baseReport,
+      metrics: {
+        ...baseReport.metrics!,
+        items: [
+          // Inverted register: debt fell, so the server sends tone 'gain' with direction 'down'.
+          { metric: 'long_term_debt', label: 'Long-term debt', direction: 'down', pct: -9.3, current: 98_959e6, prior: 109_106e6, display: '−9.3%', tone: 'gain' },
+          // A rise the server calls a loss.
+          { metric: 'current_liabilities', label: 'Current liabilities', direction: 'up', pct: 4, current: 104e6, prior: 100e6, display: '+4.0%', tone: 'loss' },
+        ],
+      },
+    }
+    render(<WhatChanged report={debt} />)
+    expect(screen.getByText('−9.3%').className).toContain('text-gain-text')
+    expect(screen.getByText('+4.0%').className).toContain('text-loss-text')
+  })
+
+  it('shows prior and current figures in the data face as a table, with no trend icons', () => {
+    const real: ChangeReport = {
+      ...baseReport,
+      metrics: {
+        ...baseReport.metrics!,
+        items: [
+          { metric: 'revenue', label: 'Revenue', direction: 'up', pct: 7.8, current: 394_328e6, prior: 365_817e6, display: '+7.8%', tone: 'gain' },
+          { metric: 'eps_diluted', label: 'Diluted EPS', direction: 'up', pct: 8.9, current: 6.11, prior: 5.61, display: '+8.9%', tone: 'gain' },
+        ],
+      },
+    }
+    const { container } = render(<WhatChanged report={real} />)
+    for (const header of ['Metric', 'Prior', 'Current', 'Change']) {
+      expect(screen.getByRole('columnheader', { name: header })).toBeInTheDocument()
+    }
+    expect(screen.getByRole('rowheader', { name: 'Revenue' })).toBeInTheDocument()
+    expect(screen.getByText('$394.3B').className).toContain('font-data')
+    expect(screen.getByText('$365.8B')).toBeInTheDocument()
+    expect(screen.getByText('$6.11')).toBeInTheDocument()
+    expect(screen.getByText('$5.61')).toBeInTheDocument()
+    expect(container.querySelectorAll('table svg')).toHaveLength(0)
+  })
+
+  it('states the comparison as a sentence, never as an uppercase eyebrow', () => {
+    const { container } = render(<WhatChanged report={baseReport} />)
+    expect(container.textContent).toContain('Quarter over quarter, against the 10-Q for the quarter ended Dec 31, 2023.')
+    expect(screen.getByText('Quarter over quarter').className).not.toContain('uppercase')
+    expect(screen.getByRole('link', { name: /prior 10-Q/i }).textContent).not.toContain('↗')
+  })
+
+  it('nests its subheadings one level below its own heading', () => {
+    render(<WhatChanged report={baseReport} headingLevel="h4" />)
+    expect(screen.getByRole('heading', { level: 4, name: 'What changed' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { level: 5, name: /New risk factors/ })).toBeInTheDocument()
   })
 })
