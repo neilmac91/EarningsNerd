@@ -14,7 +14,7 @@ import logging
 
 from app.config import settings
 from app.database import get_db
-from app.models import Filing, Summary, SavedSummary, User, SummaryGenerationProgress, FilingContentCache
+from app.models import Filing, Summary, SavedSummary, User, SummaryGenerationProgress
 from app.models.feedback import Feedback
 from app.routers.auth import get_current_user
 from app.schemas.feedback import FeedbackAdminItem, FeedbackStatusUpdate, FeedbackStatus, FeedbackType
@@ -22,6 +22,7 @@ from app.schemas.feedback import FeedbackAdminItem, FeedbackStatusUpdate, Feedba
 from app.services.edgar import clear_xbrl_cache, get_xbrl_cache_stats
 from app.services.resend_service import send_email, ResendError
 from app.services import admin_feedback_service
+from app.services import admin_filing_service
 from app.services import invite_service
 from app.services import audit_service
 from app.services.email_service import send_invite_email
@@ -377,30 +378,15 @@ async def delete_filing_summary(
     """
     _require_admin(current_user)
 
-    # Find the filing
-    filing = db.query(Filing).filter(Filing.id == filing_id).first()
-    if not filing:
+    try:
+        summary_deleted = admin_filing_service.delete_filing_summary(db, filing_id, actor=current_user)
+    except admin_filing_service.FilingNotFoundError:
         raise HTTPException(status_code=404, detail="Filing not found")
-
-    # Delete summary if exists
-    summary = db.query(Summary).filter(Summary.filing_id == filing_id).first()
-    if summary:
-        db.delete(summary)
-        logger.info(f"Admin {current_user.id} deleted summary for filing {filing_id}")
-
-    # Delete progress record to allow fresh generation
-    progress = db.query(SummaryGenerationProgress).filter(
-        SummaryGenerationProgress.filing_id == filing_id
-    ).first()
-    if progress:
-        db.delete(progress)
-
-    db.commit()
 
     return {
         "message": f"Summary deleted for filing {filing_id}",
         "filing_id": filing_id,
-        "summary_deleted": summary is not None
+        "summary_deleted": summary_deleted
     }
 
 
@@ -417,16 +403,10 @@ async def clear_filing_xbrl(
     """
     _require_admin(current_user)
 
-    # Find the filing
-    filing = db.query(Filing).filter(Filing.id == filing_id).first()
-    if not filing:
+    try:
+        had_xbrl = admin_filing_service.clear_filing_xbrl(db, filing_id)
+    except admin_filing_service.FilingNotFoundError:
         raise HTTPException(status_code=404, detail="Filing not found")
-
-    # Clear XBRL data
-    had_xbrl = filing.xbrl_data is not None
-    filing.xbrl_data = None
-
-    db.commit()
     logger.info(f"Admin {current_user.id} cleared XBRL data for filing {filing_id}")
 
     return {
@@ -454,46 +434,10 @@ async def reset_filing(
     """
     _require_admin(current_user)
 
-    # Find the filing
-    filing = db.query(Filing).filter(Filing.id == filing_id).first()
-    if not filing:
+    try:
+        deleted = admin_filing_service.reset_filing(db, filing_id)
+    except admin_filing_service.FilingNotFoundError:
         raise HTTPException(status_code=404, detail="Filing not found")
-
-    deleted = {
-        "summary": False,
-        "xbrl_data": False,
-        "content_cache": False,
-        "progress": False
-    }
-
-    # Delete summary
-    summary = db.query(Summary).filter(Summary.filing_id == filing_id).first()
-    if summary:
-        db.delete(summary)
-        deleted["summary"] = True
-
-    # Clear XBRL data
-    if filing.xbrl_data is not None:
-        filing.xbrl_data = None
-        deleted["xbrl_data"] = True
-
-    # Delete content cache
-    content_cache = db.query(FilingContentCache).filter(
-        FilingContentCache.filing_id == filing_id
-    ).first()
-    if content_cache:
-        db.delete(content_cache)
-        deleted["content_cache"] = True
-
-    # Delete progress record
-    progress = db.query(SummaryGenerationProgress).filter(
-        SummaryGenerationProgress.filing_id == filing_id
-    ).first()
-    if progress:
-        db.delete(progress)
-        deleted["progress"] = True
-
-    db.commit()
     logger.info(f"Admin {current_user.id} reset filing {filing_id}: {deleted}")
 
     return {
@@ -544,27 +488,6 @@ async def get_cache_stats(
     return get_xbrl_cache_stats()
 
 
-def _extract_xbrl_years(xbrl_data: dict) -> set:
-    """Extract all years from XBRL data periods."""
-    years = set()
-    if not xbrl_data:
-        return years
-
-    # Check common metric keys that have period data
-    for key in ["revenue", "net_income", "total_assets", "earnings_per_share"]:
-        entries = xbrl_data.get(key, [])
-        if isinstance(entries, list):
-            for entry in entries:
-                period = entry.get("period") if isinstance(entry, dict) else None
-                if period and isinstance(period, str) and len(period) >= 4:
-                    try:
-                        year = int(period[:4])
-                        years.add(year)
-                    except ValueError:
-                        pass
-    return years
-
-
 @router.get("/filings/audit-xbrl")
 async def audit_stale_xbrl(
     current_user: User = Depends(get_current_user),
@@ -584,48 +507,12 @@ async def audit_stale_xbrl(
     """
     _require_admin(current_user)
 
-    # Find all filings with XBRL data
-    filings_with_xbrl = db.query(Filing).filter(
-        Filing.xbrl_data.isnot(None)
-    ).all()
-
-    stale_filings = []
-    for filing in filings_with_xbrl:
-        # Get the expected year from filing period
-        expected_year = None
-        if filing.period_end_date:
-            expected_year = filing.period_end_date.year
-        elif filing.filing_date:
-            expected_year = filing.filing_date.year
-
-        if not expected_year:
-            continue
-
-        # Extract years from XBRL data
-        xbrl_years = _extract_xbrl_years(filing.xbrl_data)
-
-        if not xbrl_years:
-            continue
-
-        # Check if any XBRL year is too far from expected
-        max_xbrl_year = max(xbrl_years)
-        year_diff = expected_year - max_xbrl_year
-
-        if year_diff > year_threshold:
-            stale_filings.append({
-                "filing_id": filing.id,
-                "company_id": filing.company_id,
-                "filing_type": filing.filing_type,
-                "filing_date": filing.filing_date.isoformat() if filing.filing_date else None,
-                "period_end_date": filing.period_end_date.isoformat() if filing.period_end_date else None,
-                "expected_year": expected_year,
-                "xbrl_years": sorted(xbrl_years, reverse=True),
-                "max_xbrl_year": max_xbrl_year,
-                "year_difference": year_diff
-            })
+    total_filings_with_xbrl, stale_filings = admin_filing_service.audit_stale_xbrl(
+        db, year_threshold=year_threshold
+    )
 
     return {
-        "total_filings_with_xbrl": len(filings_with_xbrl),
+        "total_filings_with_xbrl": total_filings_with_xbrl,
         "stale_filings_count": len(stale_filings),
         "year_threshold": year_threshold,
         "stale_filings": stale_filings
@@ -652,62 +539,11 @@ async def bulk_reset_stale_xbrl(
     """
     _require_admin(current_user)
 
-    # Find all filings with XBRL data
-    filings_with_xbrl = db.query(Filing).filter(
-        Filing.xbrl_data.isnot(None)
-    ).all()
-
-    affected_filings = []
-    for filing in filings_with_xbrl:
-        # Get the expected year from filing period
-        expected_year = None
-        if filing.period_end_date:
-            expected_year = filing.period_end_date.year
-        elif filing.filing_date:
-            expected_year = filing.filing_date.year
-
-        if not expected_year:
-            continue
-
-        # Extract years from XBRL data
-        xbrl_years = _extract_xbrl_years(filing.xbrl_data)
-
-        if not xbrl_years:
-            continue
-
-        # Check if any XBRL year is too far from expected
-        max_xbrl_year = max(xbrl_years)
-        year_diff = expected_year - max_xbrl_year
-
-        if year_diff > year_threshold:
-            affected_filings.append({
-                "filing_id": filing.id,
-                "expected_year": expected_year,
-                "max_xbrl_year": max_xbrl_year,
-                "year_difference": year_diff
-            })
-
-            if not dry_run:
-                # Reset the filing
-                # Clear XBRL data
-                filing.xbrl_data = None
-
-                # Delete summary if exists
-                summary = db.query(Summary).filter(Summary.filing_id == filing.id).first()
-                if summary:
-                    db.delete(summary)
-
-                # Delete progress if exists
-                progress = db.query(SummaryGenerationProgress).filter(
-                    SummaryGenerationProgress.filing_id == filing.id
-                ).first()
-                if progress:
-                    db.delete(progress)
-
-                logger.info(f"Admin {current_user.id} bulk-reset filing {filing.id} (stale XBRL)")
+    affected_filings = admin_filing_service.bulk_reset_stale_xbrl(
+        db, year_threshold=year_threshold, dry_run=dry_run, actor=current_user
+    )
 
     if not dry_run:
-        db.commit()
         logger.info(f"Admin {current_user.id} bulk-reset {len(affected_filings)} filings with stale XBRL data")
 
     return {
