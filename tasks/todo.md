@@ -6439,9 +6439,25 @@ Full local and hosted verification plus independent exact-head review precede re
   check — disclosed; headroom 22.369715; paid dispatch HELD); chief defect 5 (event 11's entry) corrected by event 12; Codex reviews
   again from 2026-10-07 and the review-override exception rests while it does; PR #1109 review record closed (merge `f26debcb`; deploy
   steps skipped — sixth proof; the gate merge — seventh); PRs #1107/#1108 observed only; R1 unchanged. Closure 165.
-- [ ] Founder: relay the record-14 custody clarification (which retained input set record 05's predicate governs; whether an
-      authoritative manifest exists for it — SHA-256, byte count, one-line provenance) and its six return fields; say so only if
-      the 2 minutes are not consolidated; D3 (held).
+- 2026-10-08 (record 16, `runtime/control/DECISIONS-16.md`): the founder's two instructions — the custody question
+  investigated and decided by the chief under the founder's delegation (13 read-only agents; R1 held under record 05's gate as
+  written; governed set and authoritative manifest not determinable from committed evidence; one metadata-only step A and
+  outcomes A/B/C fixed in advance, form (b) only on the founder's one written line) and the D3 patch to be applied, staged by
+  the founder's choice (stage 1: the eight jobs and the task worker; stage 2: the API service after the insider panel fits the
+  budget). PR #1128 review record closed (merge `a3bc888b`; deploy steps skipped — eighth proof). Closures 166–167.
+- [x] Founder: relay the record-14 custody clarification — replaced by record 16's step A (the founder delegated the custody
+      question to the chief on 2026-10-08); D3 — applied by the founder's instruction, staged (record 16).
+- [ ] Founder (optional, no deadline): relay record 16's custody step A (five metadata fields) once; on outcome B, the one line
+      "I adopt record 16's form (b) for R1".
+- [ ] Chief: D3 stage 1 PR (eight jobs + task worker pinned; reservation before ready; deploy verified), then stage 2 (insider
+      endpoint within the budget; API service pinned; `eval-baseline` reserved before its first `backend/app/` push, draft or not).
+- [ ] Founder (optional, now): the D3 staging answer rested on an overstated premise (the insider panel is off in production;
+      record 16) — say "pin the API service now" to pin it with stage 1, otherwise staging stands.
+- [ ] Founder (future, before durable tasks are enabled): the Monday 07:00 UTC overlap is then 12 req/s configured against SEC's
+      10 (record 16) — move a Monday job, hold the worker off in that window, or accept it.
+- [ ] Chief: make the backend suite hermetic — 11 tests send live requests to SEC (efts, data, www) and Yahoo Finance on
+      every full run, CI included (record 16); fix them and land an outbound-network block in the test configuration as
+      the rule-12 gate (check rule 6 before touching any locked SSE contract test).
 
 ## Copilot quotation rejection recovery — 2026-10-07
 
