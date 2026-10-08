@@ -1,6 +1,6 @@
-# Decision record 16 — the founder's two instructions of 2026-10-08: the custody question investigated and decided (R1 held under record 05's gate; the governed set and its manifest not determinable from committed evidence; one metadata-only custody step and its outcomes fixed in advance); the D3 SEC-budget patch to be applied, staged by the founder's choice (jobs and task worker first, the API service after the insider panel fits the budget); PR #1128 review record; eighth deploy-skip proof; closures 166–167 (chief, 2026-10-08)
+# Decision record 16 — the founder's two instructions of 2026-10-08: the custody question investigated and decided (R1 held under record 05's gate; the governed set and its manifest not determinable from committed evidence; one metadata-only custody step and its outcomes fixed in advance); the D3 SEC-budget patch to be applied, staged by the founder's choice (jobs and task worker first, the API service after the insider endpoint fits the budget); PR #1128 review record; eighth deploy-skip proof; closures 166–167 (chief, 2026-10-08)
 
-Recorded 2026-10-08T17:57:53Z by the chief (`https://claude.ai/code/session_01GWYV7WXWstgVGQG43YcSM8`). Context: record 15 merged to main
+Recorded 2026-10-08T17:57:53Z, amended 2026-10-08T18:24:49Z and 2026-10-08T18:40:15Z after the record-16 review, by the chief (`https://claude.ai/code/session_01GWYV7WXWstgVGQG43YcSM8`). Context: record 15 merged to main
 as `a3bc888beafd38f33ce7ba456561edaa8f593acf` (PR #1128, merged 2026-10-08T04:19:26Z); this branch was restarted from it, carries
 closure 166 (`e295791e`, pushed 06:02Z before any context was launched for these instructions) and merges main `2aa0ddd6` (PRs
 #1108, #1113 and #1120 merged meanwhile, none touching these records). Records only: no code, workflow, migration, cloud, IAM or
@@ -15,7 +15,11 @@ production change; no provider call; no reservation; no source material opened.
 2. **The founder's answer to one question the chief put after the D3 investigation** (2026-10-08, about 17:50Z): asked how to activate
    D3 given that 1 + 1 req/s on the API service breaks the insider panel's first view (below), the founder chose **"Stage it"** — pin
    the eight jobs and the task worker now; pin the API service in a follow-up PR once the insider panel is made budget-aware; same
-   numbers, staged.
+   numbers, staged. **The question as put overstated the user-visible effect** (found after the answer): the panel ships behind
+   `NEXT_PUBLIC_ENABLE_INSIDER_ACTIVITY`, off by default and documented as off in production (finding 5), so what 1 + 1 on the
+   service breaks is the public endpoint's cold fetch, and an abandoned fetch can still hold the instance's edgartools budget and
+   degrade summary grounding under concurrency. The staged choice stands; the founder may instead say "pin the API service now"
+   (founder item below).
 
 ## Part A — the custody question (record 14's two-part clarification)
 
@@ -181,7 +185,8 @@ one; its `copilot-eval` reservation before it leaves draft and before each push 
   record listed only a fetch and two patch files, which understated it):
   - **Three live SEC requests.** `investigate:production-risk` fetched the submissions JSON of three issuers (CIKs 320193, 19617 and
     895421) from `data.sec.gov` at 06:49:00–06:49:05Z, 1.5 s apart, with an EarningsNerd contact User-Agent, into `/tmp`, to count
-    Form 4 filings. No other agent of either workflow called SEC; the limiter probes ran offline.
+    Form 4 filings. The limiter probes ran offline, but three agents' full test-suite runs also reached SEC (see "Live outbound
+    requests from local test runs" under Spend).
   - **Package downloads and installs from PyPI.** `investigate:limiters` downloaded the edgartools 5.58.0 wheel (06:05Z) and
     `investigate:production-risk` three wheels (edgartools, httpxthrottlecache and pyrate-limiter; 06:33Z) to compare with the pinned
     release, and installed pydantic-settings and httpx into a throwaway `/tmp` environment (06:42Z); `investigate:patch-fit` created
@@ -192,7 +197,10 @@ one; its `copilot-eval` reservation before it leaves draft and before each push 
     `investigate:topology`); `d3-port-check/`, `d3-mutate.py`, `d3-full-pytest.log` and two port patches (`investigate:patch-fit`);
     two candidate patches (the cross-checker). Copies, clones and one temporary worktree under `/tmp` (the worktree removed by its
     author); candidate ports tried only in isolated copies.
-  No production, cloud, provider or repository write, and no excluded path opened. Closure 167 was amended in place before merge to
+  No production, cloud or provider write and no excluded path opened; the only writes inside the repository's `.git` were the
+  fetched remote-tracking refs and the admin metadata of two temporary worktrees (`/tmp/d3-budget-wt`, added and removed by
+  `investigate:production-risk`; `investigate:patch-fit`'s isolated worktree, created and removed by the workflow runner). Closure
+  167 was amended in place before merge to
   carry these annotations (it was never on main); its prior-record link is unchanged. No context gains source A/B, reconciliation or
   blind financial judging eligibility; all earlier identities and adverse histories retained.
 
@@ -203,12 +211,30 @@ External mutations by the chief: PR #1128 marked ready and squash-merged `a3bc88
 committed and pushed; draft PR #1129 opened (this record); main merged into it (`24e86073`); record 16 pushed (`b8f737b0`); this
 review's corrections pushed; PR #1129's title and description edited; no ledger write.
 
+**Live outbound requests from local test runs (found after review).** The backend test suite is not hermetic. A network-guarded
+full run of the stage-1 port (2026-10-08 18:32–18:39Z; every outbound DNS lookup blocked and every proxy request logged; 5,825
+passed) counted 72 outbound attempts from 11 tests: 60 to `efts.sec.gov` (one test in
+`tests/integration/test_company_miss_path_cik_fallback.py` and four in `tests/unit/test_filings_endpoint_db_first.py`, 12 each,
+retries against the blocked proxy included), 10 to `data.sec.gov` (`tests/integration/test_stream_latency.py` and three tests in
+`tests/integration/test_summary_stream_heartbeat.py`), one to `www.sec.gov` and one to Yahoo Finance
+(`tests/smoke/test_critical_paths.py`). Every unguarded full run therefore sends live requests to SEC over whatever network it has:
+the chief's full run of the stage-1 port at about 18:03:50–18:11Z (the `data.sec.gov` tunnel the reviewer found in the proxy status,
+open 18:03:56–18:08:52Z, was one of them); the D3 investigation's three full runs (`investigate:docs-tests` 06:22–06:30Z,
+`investigate:patch-fit` 06:25–06:32Z, the cross-checker 07:02–07:09Z); any earlier unguarded full local run; and every CI
+`backend-tests` run. The record as first amended said no agent but `investigate:production-risk` called SEC; that was wrong. With
+live responses the count per run is likely lower (no retries); it was not measured. Every guarded test still passed, so the calls
+are incidental. The fix — the 11 tests made hermetic and an outbound-network block in the test configuration as the rule-12 gate —
+is queued as its own PR.
+
 ## Founder actions this record needs
 
 1. **Custody step A (optional, no deadline):** relay the five-field metadata request above once to the custody side. If the answer is
    outcome B and you agree, add the one line "I adopt record 16's form (b) for R1".
 2. **D3:** nothing now — staged as you chose; stage 1 is the next PR.
-3. **Durable tasks (future, before `GCP_DURABLE_TASKS_ENABLED` is turned on):** with the task worker enabled, the configured Monday
+3. **Optional, D3:** the staged choice stands. If, knowing the panel is off in production, you prefer to pin the API service now
+   with stage 1, say "pin the API service now"; the chief then adds the service pin to the stage-1 PR (the public insider endpoint
+   would then time out on cold fetches until stage 2).
+4. **Durable tasks (future, before `GCP_DURABLE_TASKS_ENABLED` is turned on):** with the task worker enabled, the configured Monday
    07:00 UTC overlap is 12 req/s against SEC's 10, and 1 + 1 is already the per-process floor. Decide then between moving a Monday
    job, holding the worker off during that window, or accepting the overlap.
 

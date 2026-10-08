@@ -6453,6 +6453,9 @@ Full local and hosted verification plus independent exact-head review precede re
       endpoint within the budget; API service pinned; `eval-baseline` reserved before its first `backend/app/` push, draft or not).
 - [ ] Founder (future, before durable tasks are enabled): the Monday 07:00 UTC overlap is then 12 req/s configured against SEC's
       10 (record 16) — move a Monday job, hold the worker off in that window, or accept it.
+- [ ] Chief: make the backend suite hermetic — 11 tests send live requests to SEC (efts, data, www) and Yahoo Finance on
+      every full run, CI included (record 16); fix them and land an outbound-network block in the test configuration as
+      the rule-12 gate (check rule 6 before touching any locked SSE contract test).
 
 ## Copilot quotation rejection recovery — 2026-10-07
 
