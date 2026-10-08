@@ -205,17 +205,20 @@ export default function FilingWorkspace({
 
   // A citation activated inside the Answer panel (an Ask answer's [n] chip) switches the pane to the
   // Filing tab, which hides the chip with its panel (and the answer re-renders it besides), so
-  // keyboard focus falls to <body> and the next Tab restarts at the top of the page. When an
+  // keyboard focus falls to <body> and the next Tab restarts at the top of the page. When a keyboard
   // activation inside the panels switches the view and focus fell (to <body>, or still on the panel
   // just hidden: Chromium moves it off a hidden control only in a later task), hand it to the newly
   // selected tab, the visible control that says where the user now is. Only such an activation, in a
   // pane that was already open: opening the pane moves no focus (EN-01), and <body> after a summary
   // chip's click is focus that was never anywhere (Safari and Firefox on macOS do not focus a clicked
   // button), so it stays put; the tabs, the composer and a chip outside the pane keep their focus.
-  // The click marker lasts for its event's task (Enter and Space on a button click too); the effect
-  // of a discrete event runs inside it.
+  // Keyboard only (Enter or Space on a button: a click with detail 0), as AskCopilotRail hands its
+  // composer focus only to a keyboard user: a pointer's click leaves focus to the pointer, so the tab
+  // never takes the arrow keys and Space from someone who clicked. The marker lasts for its event's
+  // task; the effect of a discrete event runs inside it.
   const panelActivation = useRef(false)
-  const markPanelActivation = useCallback(() => {
+  const markPanelActivation = useCallback((e: { detail: number }) => {
+    if (e.detail !== 0) return
     panelActivation.current = true
     setTimeout(() => {
       panelActivation.current = false

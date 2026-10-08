@@ -187,6 +187,9 @@ for (const vp of [
       await chip.focus()
       await page.keyboard.press('Enter')
       await expect(page.locator(PANE).getByRole('tab', { name: 'Filing' })).toBeFocused()
+      // The [1] card the focus opened goes with its hidden chip; until then it would own the first
+      // Escape, as it should (its close delay outlives the switch if the chip ever stops remounting).
+      await expect(page.locator(CARD)).toHaveCount(0)
 
       await page.keyboard.press('Escape')
       await expect.poll(() => paneOpen(page)).toBe(false)

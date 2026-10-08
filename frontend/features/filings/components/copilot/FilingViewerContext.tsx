@@ -30,10 +30,11 @@ interface FilingViewerContextValue {
   setActiveView: (view: CopilotView) => void
   openFiling: () => void
   /**
-   * The element outside the pane whose activation last requested a highlight, or null. Owned by the
-   * provider and mutated only here: `peekOpener` reads it (the mobile sheet's focus-restore target),
-   * `takeOpener` reads and forgets it (FilingWorkspace, when the pane closes). Never a trigger for
-   * anything.
+   * The element whose activation last requested a highlight with an opener (an activation from inside
+   * the pane passes none, so this keeps the one before it), or null. FilingWorkspace never returns
+   * focus to one inside the pane (`isReturnTarget`). Owned by the provider and mutated only here:
+   * `peekOpener` reads it (the mobile sheet's focus-restore target), `takeOpener` reads and forgets it
+   * (FilingWorkspace, when the pane closes). Never a trigger for anything.
    */
   peekOpener: () => HTMLElement | null
   takeOpener: () => HTMLElement | null

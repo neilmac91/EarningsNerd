@@ -328,8 +328,33 @@ describe('FilingWorkspace view switch from inside the pane (EN-01 follow-up)', (
 
   it('a switch with focus already fallen to <body> also lands on the selected tab', () => {
     render(<Page initialOpen />)
-    fireEvent.click(answerChip()) // a click without focus
+    fireEvent.click(answerChip()) // a keyboard click (detail 0) after the chip remounted and focus fell
     expect(document.activeElement).toBe(filingTab())
+  })
+
+  // Pre-merge review of #1113: a pointer's click leaves focus to the pointer. With the tab focused, the
+  // arrow keys would drive the tablist (ArrowLeft flips back to Answer) and Space would stop scrolling.
+  it('a pointer click on an answer citation switches to Filing and hands no focus to the tab', () => {
+    render(<Page initialOpen />)
+    const cite = answerChip()
+    act(() => cite.focus()) // Chromium focuses a clicked button
+    fireEvent.click(cite, { detail: 1 })
+    expect(filingTab()).toHaveAttribute('aria-selected', 'true')
+    expect(document.activeElement).not.toBe(filingTab())
+  })
+
+  // The marker ends with its click's task: a keyboard click inside the panels that switches nothing
+  // (the composer, an answer's text) must not arm a hand-off for a later switch from outside the pane.
+  it('a click inside the pane that switches nothing arms no hand-off for a later summary chip (the marker ends with its task)', async () => {
+    render(<Page initialOpen />)
+    fireEvent.click(screen.getByRole('button', { name: /asked 0/ }))
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 0))
+    })
+    act(() => (document.activeElement as HTMLElement | null)?.blur())
+    fireEvent.click(chip()) // a summary chip clicked without focus (Safari and Firefox on macOS)
+    expect(filingTab()).toHaveAttribute('aria-selected', 'true')
+    expect(document.activeElement).toBe(document.body)
   })
 
   it('a summary chip keeps its focus when it switches an open pane, and the tabs keep theirs', () => {

@@ -62,5 +62,6 @@ now takes Escape in window capture while the card is open (yielding to the `data
 as above), so one press closes the card and the next closes the pane. Gate: the shared contract in
 `tests/unit/evidencePopoverKeys.spec.tsx` runs both chips with a document-capture stand-in for the
 trap and a window listener for the rail, and asserts neither sees the first Escape; with the
-handler back in React, CitationChip fails 2 of 18. `tests/e2e/citation-chip-keyboard.spec.ts` covers
+handler back in React (main's hook before this fix), 3 of the file's 21 cases fail: Escape on the
+chip, on its action, and over a hover-opened card. `tests/e2e/citation-chip-keyboard.spec.ts` covers
 both widths in a real browser.

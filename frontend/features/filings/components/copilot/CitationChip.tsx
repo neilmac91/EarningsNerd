@@ -121,7 +121,8 @@ export default function CitationChip({ citation }: CitationChipProps) {
   }, [pos, openPopover])
 
   // Keyboard contract shared with SourceTrace (EN-01): Tab from the chip reaches "Open original", Tab
-  // past it resumes the page after the chip, Shift+Tab returns to the chip, Escape closes + refocuses.
+  // past it resumes the page after the chip, Shift+Tab returns to the chip, Escape closes the card (and
+  // returns focus to the chip when it was inside the card).
   const closePopover = useCallback(() => setPos(null), [])
   const keys = useEvidencePopoverKeys({
     open: pos !== null,
