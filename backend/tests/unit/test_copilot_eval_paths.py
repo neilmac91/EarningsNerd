@@ -37,11 +37,13 @@ must be the module file or its directory, written as `Path(__file__).parent`, `p
 tuple assignment; the module file
 may itself be held in a name (`THIS = Path(__file__).resolve(); THIS.parent / "x"`) and the directory
 wrapped in `abspath`, `realpath`, `str`, `os.fspath` or a `Path(...)` constructor, the module file likewise; the
-directory glued to a literal by `+` or inside an f-string (`dirname(__file__) + "/*.json"`, `f"{HERE}/baselines"`)
-reads as a `join` of the two, the literal's leading slash dropped, a `+` chain read as the one string it builds
-(`dir + "/" + "*.json"`, `dir + os.sep + "x"`), a name assigned the directory with a trailing `/` or `os.sep`
-(`dir + "/"`, `f"{dir}/"`) is the directory and a literal glued to it needs no slash, and `p += "/x"` on such a name reads `x` beside the module
-and leaves `p` mixed, while a suffix without a slash, `dirname(__file__) +
+string an expression builds is folded once, as Python builds it, over `+` and `+=`, an f-string, a `%` or `.format`
+template, `sep.join([...])`, `os.path.join`, `Path(...)`, `joinpath`, `/` and `with_name`, with `os.sep`, `os.path.sep`
+or a `sep` imported from `os` a slash, so `dirname(__file__) + "/*.json"`, `dir + "/" + "*.json"`, `f"{dir}{os.sep}*.json"`,
+`"%s/*.json" % dir`, `"{}/*.json".format(dir)`, `os.sep.join([dir, "*.json"])` and `join(dir, "") + "*.json"` all read
+`*.json` beside the module; a name assigned the directory with a separator after it (`dir + "/"`, `f"{dir}{os.sep}"`,
+`p += os.sep`) is the directory and a literal glued to it needs no slash, `p += "/x"` on the directory name reads `x`
+beside the module and leaves `p` mixed, while a suffix without a slash, `dirname(__file__) +
 "_backup"`, is another directory and names nothing; so `REPORTS_DIR.joinpath("x")` or
 `parents[1] / "x"` names nothing) also names a folder directly beside the module, and a `..` path
 anchored there resolves there (`../assets` from `app/services/` is `app/assets`, not every `assets`
@@ -59,7 +61,7 @@ for `rglob` or a leading `**`, and a leading `..` climbs that many directories a
 read as the climb and then every `p` below it, more than pathlib's `**/../p` reads, and the excess
 is loud, never silent), so
 `REPORTS_DIR.glob("*.json")` on the run's report directory is not seen; a folder name held in a variable first (`NAME = "questions"; with_name(NAME)`) is a bare
-word to this gate and is not seen, the same limit as a path spelled one segment per literal; a path of
+word to this gate and is not seen, the same limit as a path spelled one segment per literal on another receiver; a path of
 two or more segments names files and
 directories, prefers `backend/` and otherwise reaches the whole repository
 (`Path(__file__).resolve().parents[2]` is the repository root); a path with a leading `..` reaches
@@ -78,7 +80,8 @@ the module's directory anchors a literal wherever the name is used; where it is 
 (a parameter, a loop target, `parents[1]` in another function), the literal is read both anchored and as
 spelled, since the anchored reading alone could resolve to a path beside the module that does not exist and
 go unseen, and the spelled reading alone would lose a bare pattern or a listing on it. A named directory means every tracked file under it but a `.gitignore`. A path spelled one segment per literal
-(`ROOT / "docs" / "x.md"`) is a bare name each: that is the limit of per-literal matching. A `.py`
+on another receiver (`ROOT / "docs" / "x.md"`) is a bare name each: that is the limit of per-literal matching;
+on the module's own directory a `/` chain is the one path it builds. A `.py`
 named by path (run by subprocess) is a named file and a module of the closure, so its imports are
 followed (a bare `.py` name such as `__init__.py` matches every backend file so named, loudly), and
 a dotted module name in a string literal that resolves to a local module joins the closure. The
@@ -95,9 +98,9 @@ URL or any other option is refused). The shell must be bare `bash`/`sh` (flags a
 step, job and workflow level; every step `uses:` must be one of three pinned GitHub actions with
 only its known `with:` inputs; no job may `uses:` a reusable workflow; `env:` at every level may
 set only the keys the workflow is known to use, and the loaded env file only `KEY=value` lines for
-its two known keys. The gate guards against drift; a deliberate edit of the workflow is itself in
+its two known keys, column-0 comments and empty lines. The gate guards against drift; a deliberate edit of the workflow is itself in
 the filter, pays for one run and is reviewed as a high-risk workflow change: three lenses and two refutation
-attempts per finding, the review AGENTS.md §5 describes.
+attempts per blocker or should-fix finding, the review AGENTS.md §5 describes.
 
 Runtime-loaded data the closure cannot see is pinned by enumerating the real files: the prompts,
 the golden set and sources, every file under the data directories of `app/` (the directories
@@ -121,11 +124,14 @@ from __future__ import annotations
 
 import ast
 import fnmatch
+import itertools
 import posixpath
 import re
+import string
 import subprocess
 import sys
 from collections import Counter
+from typing import NamedTuple
 from pathlib import Path
 from unittest import mock
 
@@ -175,9 +181,11 @@ ENTRY = re.compile(r"^python -m (evals\.[\w.]+)((?:\s+(?:--[\w-]+|\"[^\"`()\\]*\
 # `$RUNNER_TEMP/x` to bash, traced as such. An empty argument is the working directory, as `Path("")`
 # reads it; a directory argument means every tracked file under it but a `.gitignore`.
 INTEGER = re.compile(r"^\d+$")
-# A dotted module name in a string literal (`importlib.import_module("app.x")`, `pkgutil`, a lazy loader)
-# that resolves to a local module joins the closure like an import statement.
-DOTTED = re.compile(r"^[A-Za-z_]\w*(?:\.[A-Za-z_]\w*)+$")
+# A dotted name in a string literal with a local head joins the closure like an import statement: the longest
+# prefix of two or more segments that is a local module (`importlib.import_module("app.x")`; `mock.patch("app.x.Class.method")`
+# and `pkgutil.resolve_name("app.x:Class")` import `app.x`; a lazy loader). A bare top-level package is never a
+# find: every parent package is in the closure already, and `"app.state"` names nothing.
+DOTTED = re.compile(r"^[A-Za-z_]\w*(?:\.[A-Za-z_]\w*)+(?::[A-Za-z_]\w*(?:\.[A-Za-z_]\w*)*)?$")
 # A flag of an entry command: `--name`, or `--name=value` with the value checked as a path.
 FLAG = re.compile(r"^--[\w-]+$")
 INSTALL = re.compile(r"^pip install((?: -r [\w./-]+)+)$")
@@ -290,69 +298,12 @@ def _glob(pattern: str) -> list[Path]:
     return found
 
 
-def _is_module_file(node: ast.AST, files: frozenset[str] | set[str] = frozenset()) -> bool:
-    """`__file__`, `Path(__file__)`, a name assigned from one of them (`files`), or any of these wrapped in
-    `resolve()`, `absolute()`, `abspath()`, `realpath()`, `str()` or `os.fspath()`."""
-    if isinstance(node, ast.Name):
-        return node.id == "__file__" or node.id in files
-    if isinstance(node, ast.Call):
-        func = node.func
-        name = func.attr if isinstance(func, ast.Attribute) else func.id if isinstance(func, ast.Name) else ""
-        if name.endswith("Path") or name in {"abspath", "realpath", "str", "fspath"}:
-            return len(node.args) == 1 and _is_module_file(node.args[0], files)
-        if name in {"resolve", "absolute"} and isinstance(func, ast.Attribute):
-            return not node.args and _is_module_file(func.value, files)
-    return False
-
-
-def _is_module_dir(node: ast.AST, aliases: set[str], files: frozenset[str] | set[str] = frozenset()) -> bool:
-    """`Path(__file__).parent`, `os.path.dirname(__file__)` (the module file written as `_is_module_file` reads it),
-    either wrapped in `resolve()`, `absolute()`, `abspath()`, `realpath()`, `str()`, `os.fspath()` or a `Path(...)`
-    constructor, or a name assigned from one of them, or `parents[0]`, any of these with a `/` or `os.sep` appended
-    or alone in an f-string (`dirname(__file__) + "/"`, `f"{HERE}/"`, `f"{HERE}"`); `parents[1]`, `with_name(...)`
-    and every other receiver is some other directory."""
-    if isinstance(node, ast.Name):
-        return node.id in aliases
-    if _ends_in_separator(node):  # `dirname(__file__) + "/"`, `f"{HERE}/"`, `f"{HERE}"`
-        return _is_module_dir(_before_separator(node), aliases, files)
-    if isinstance(node, ast.Attribute):
-        return node.attr == "parent" and _is_module_file(node.value, files)
-    if isinstance(node, ast.Subscript):  # `parents[0]`
-        value, index = node.value, node.slice
-        return (isinstance(value, ast.Attribute) and value.attr == "parents" and isinstance(index, ast.Constant)
-                and index.value == 0 and _is_module_file(value.value, files))
-    if isinstance(node, ast.Call):
-        func = node.func
-        if isinstance(func, ast.Attribute) and func.attr in {"resolve", "absolute"} and not node.args:
-            return _is_module_dir(func.value, aliases, files)
-        name = func.attr if isinstance(func, ast.Attribute) else func.id if isinstance(func, ast.Name) else ""
-        if (name.endswith("Path") or name in {"abspath", "realpath", "str", "fspath"}) and len(node.args) == 1:
-            return _is_module_dir(node.args[0], aliases, files)
-        return name == "dirname" and len(node.args) == 1 and _is_module_file(node.args[0], files)
-    return False
-
-
-def _ends_in_separator(node: ast.AST) -> bool:
-    """`x + "/"`, `x + os.sep`, `f"{x}/"` or `f"{x}"`: a directory string with or without a trailing slash."""
-    if isinstance(node, ast.BinOp) and isinstance(node.op, ast.Add):
-        return _is_separator(node.right)
-    return (isinstance(node, ast.JoinedStr) and len(node.values) in (1, 2) and isinstance(node.values[0], ast.FormattedValue)
-            and (len(node.values) == 1 or _is_separator(node.values[1])))
-
-
-def _before_separator(node: ast.BinOp | ast.JoinedStr) -> ast.AST:
-    """The `x` of `_ends_in_separator`."""
-    return node.left if isinstance(node, ast.BinOp) else node.values[0].value
-
-
-def _is_separator(node: ast.AST) -> bool:
-    """`"/"`, `os.sep` or `os.path.sep`."""
-    literal = _literal(node)
-    if literal is not None:
-        return literal.value == "/"
-    return (isinstance(node, ast.Attribute) and node.attr == "sep"
-            and (isinstance(node.value, ast.Name) and node.value.id == "os"
-                 or isinstance(node.value, ast.Attribute) and node.value.attr == "path"))
+def _add_chain(node: ast.AST) -> list[ast.AST]:
+    """The operands of a left-to-right `+` chain (`a + b + c` is `(a + b) + c`), or `[node]`."""
+    operands = [node]
+    while isinstance(operands[0], ast.BinOp) and isinstance(operands[0].op, ast.Add):
+        operands[0:1] = [operands[0].left, operands[0].right]
+    return operands
 
 
 def _recursive_literals(tree: ast.AST) -> set[int]:
@@ -402,25 +353,6 @@ def _bindings(tree: ast.AST) -> Counter[str]:
     return bound
 
 
-def _source_name(node: ast.AST) -> str | None:
-    """The name at the root of a module-location expression (`HERE`, `HERE.parent`, `abspath(HERE)`,
-    `Path(HERE).resolve()`, `THIS.parents[0]`), through the wrappers `_is_module_dir` and `_is_module_file` accept."""
-    if isinstance(node, ast.Name):
-        return node.id
-    if isinstance(node, ast.Attribute):
-        return _source_name(node.value)
-    if isinstance(node, ast.Subscript):
-        return _source_name(node.value)
-    if _ends_in_separator(node):  # `HERE = root + "/"`, `HERE = f"{root}/"`
-        return _source_name(_before_separator(node))
-    if isinstance(node, ast.Call):
-        func = node.func
-        if isinstance(func, ast.Attribute) and func.attr in {"resolve", "absolute"}:
-            return _source_name(func.value)
-        return _source_name(node.args[0]) if node.args else None
-    return None
-
-
 def _assigned(tree: ast.AST) -> list[tuple[ast.Name, ast.AST]]:
     """(name, value) for every plain, annotated or walrus assignment to a name, a tuple assignment unpacked element by
     element (`HERE, OUT = Path(__file__).parent, None`)."""
@@ -437,51 +369,212 @@ def _assigned(tree: ast.AST) -> list[tuple[ast.Name, ast.AST]]:
     return pairs
 
 
-def _module_aliases(tree: ast.AST) -> tuple[set[str], set[str], set[str]]:
-    """Names assigned the module's directory, names assigned the module file (by a plain, an annotated, a walrus or a
-    tuple assignment; passes until no new name is found, so a name assigned from an alias counts whatever
-    order the module binds them in and `here = abspath(here)` keeps `here`; an attribute is not followed), and the
-    `mixed` names among them, bound to something else somewhere in the module (a
-    parameter, a loop or `with` target, an import, another value), a name assigned from a mixed name among them. A
-    literal anchored on a mixed name is read both
-    anchored and as spelled: its anchored reading alone could resolve to a path beside the module that does not exist
-    (the name is `parents[1]` in another function) and go unseen, and the spelled reading alone would lose a bare
-    pattern, a listing or a sibling folder on it."""
-    bound = _bindings(tree)
-    aliases: set[str] = set()  # names holding the module's directory
-    files: set[str] = set()  # names holding the module file
+def _literal(node: ast.AST) -> ast.Constant | None:
+    """The string constant `node` is, or the one part of an f-string that holds nothing else (`f"name"`); else None."""
+    if isinstance(node, ast.JoinedStr) and len(node.values) == 1:
+        node = node.values[0]
+    return node if isinstance(node, ast.Constant) and isinstance(node.value, str) else None
+
+
+def _sep_names(tree: ast.AST) -> frozenset[str]:
+    """Names bound to the separator by an import: `from os import sep`, `from os.path import sep as SEP`."""
+    return frozenset(alias.asname or alias.name for node in ast.walk(tree) if isinstance(node, ast.ImportFrom)
+                     and node.module in {"os", "os.path"} for alias in node.names if alias.name == "sep")
+
+
+DIR, FILE = "<the module's directory>", "<the module file>"
+
+
+class _Piece(NamedTuple):
+    """A piece of the string an expression builds (`_fold`)."""
+
+    text: str | None  # the text as written, `/` for a separator, `DIR` or `FILE`, None for a part this gate cannot know
+    node: ast.Constant | None  # the constant the text came from, whose id `_named_in` reads
+    source: str | None  # for `DIR` or `FILE`: the name it was built from (`HERE`, `__file__`), for mixedness
+
+
+_UNKNOWN = [_Piece(None, None, None)]
+_SEPARATOR = [_Piece("/", None, None)]
+PERCENT = re.compile(r"(%(?:\(\w*\))?[-+ #0]*\d*(?:\.\d+)?[a-zA-Z%])")  # a `%`-format placeholder
+
+
+def _fold(node: ast.AST, aliases: set[str] | frozenset[str], files: set[str] | frozenset[str],
+          slashed: set[str] | frozenset[str] = frozenset(), seps: frozenset[str] = frozenset()) -> list[_Piece]:
+    """The string `node` builds, piece by piece, as Python builds it: a constant as written, `os.sep`, `os.path.sep`,
+    a `sep` imported from `os` or a `"/"` as a separator, the module's directory as `DIR` (a name in `aliases`, with
+    a separator after it when the name is in `slashed`; `.parent`, `parents[0]` or `dirname` of the module file) and
+    the module file as `FILE` (`__file__`, a name in `files`), and None for a part this gate cannot know (another
+    name, a call, an f-string part with a conversion or a format spec). Follows `+`, an f-string, a `%` template with
+    `%s` fields, a `.format` template with plain positional or keyword fields, `sep.join([...])`, `os.path.join(...)`,
+    `Path(a, b, ...)`, `joinpath(...)` and `/` (a separator between the operands), `with_name` on the module file
+    (its directory, a separator, the name), and the wrappers `resolve()`, `absolute()`, `abspath()`, `realpath()`,
+    `str()`, `os.fspath()` and `Path(x)`."""
+
+    def fold(part: ast.AST) -> list[_Piece]:
+        return _fold(part, aliases, files, slashed, seps)
+
+    def joined(parts: list[ast.AST]) -> list[_Piece]:  # `os.path.join(a, b)`: a separator between the operands
+        pieces: list[_Piece] = []
+        for i, part in enumerate(parts):
+            pieces.extend((_SEPARATOR if i else []) + fold(part))
+        return pieces
+
+    def directory_of(inner: list[_Piece]) -> list[_Piece]:  # `.parent`, `parents[0]`, `dirname` of the module file
+        return [_Piece(DIR, None, inner[0].source)] if [piece.text for piece in inner if piece.text != ""] == [FILE] else _UNKNOWN
+
+    if isinstance(node, ast.Name):
+        if node.id == "__file__" or node.id in files:
+            return [_Piece(FILE, None, node.id)]
+        if node.id in aliases:
+            return [_Piece(DIR, None, node.id)] + (_SEPARATOR if node.id in slashed else [])
+        return _SEPARATOR if node.id in seps else _UNKNOWN
+    if isinstance(node, ast.Constant):
+        return [_Piece(node.value, node, None)] if isinstance(node.value, str) else _UNKNOWN
+    if isinstance(node, ast.JoinedStr):
+        return [piece for part in node.values for piece in fold(part)]
+    if isinstance(node, ast.FormattedValue):
+        return fold(node.value) if node.conversion == -1 and node.format_spec is None else _UNKNOWN
+    if isinstance(node, ast.Attribute):
+        if node.attr == "sep" and (isinstance(node.value, ast.Name) and node.value.id == "os"
+                                   or isinstance(node.value, ast.Attribute) and node.value.attr == "path"):
+            return _SEPARATOR
+        return directory_of(fold(node.value)) if node.attr == "parent" else _UNKNOWN
+    if isinstance(node, ast.Subscript):  # `parents[0]`
+        value, index = node.value, node.slice
+        if isinstance(value, ast.Attribute) and value.attr == "parents" and isinstance(index, ast.Constant) and index.value == 0:
+            return directory_of(fold(value.value))
+        return _UNKNOWN
+    if isinstance(node, ast.BinOp):
+        if isinstance(node.op, ast.Add):
+            return fold(node.left) + fold(node.right)
+        if isinstance(node.op, ast.Div):
+            return joined([node.left, node.right])
+        template = _literal(node.left) if isinstance(node.op, ast.Mod) else None
+        if template is None:
+            return _UNKNOWN
+        args = list(node.right.elts) if isinstance(node.right, ast.Tuple) else [node.right]  # `"%s/*.json" % dir`
+        pieces = []
+        for i, chunk in enumerate(PERCENT.split(template.value)):
+            if i % 2 == 0:
+                pieces.append(_Piece(chunk, template, None))
+            elif chunk == "%%":
+                pieces.append(_Piece("%", template, None))
+            else:
+                pieces.extend(fold(args.pop(0)) if chunk == "%s" and args else _UNKNOWN)
+        return pieces
+    if isinstance(node, ast.Call):
+        func = node.func
+        name = func.attr if isinstance(func, ast.Attribute) else func.id if isinstance(func, ast.Name) else ""
+        receiver = func.value if isinstance(func, ast.Attribute) else None
+        args = node.args
+        if name in {"resolve", "absolute"} and receiver is not None and not args:
+            return fold(receiver)
+        if name == "dirname" and len(args) == 1:
+            return directory_of(fold(args[0]))
+        named = args[0] if len(args) == 1 else next((keyword.value for keyword in node.keywords if keyword.arg == "name"), None)
+        if name == "with_name" and receiver is not None and named is not None:  # `Path(__file__).with_name("x")`, `with_name(name="x")`
+            directory = directory_of(fold(receiver))
+            return directory + _SEPARATOR + fold(named) if directory != _UNKNOWN else _UNKNOWN
+        if (name.endswith("Path") or name in {"abspath", "realpath", "str", "fspath"}) and len(args) == 1 and not node.keywords:
+            return fold(args[0])
+        if name == "joinpath" and receiver is not None and args:
+            return joined([receiver, *args])
+        if name == "join" and receiver is not None and len(args) == 1 and isinstance(args[0], (ast.List, ast.Tuple)) \
+                and [piece.text for piece in fold(receiver)] == ["/"]:  # `os.sep.join([dir, "x"])`, `"/".join(...)`
+            return joined(args[0].elts)
+        if (name == "join" or name.endswith("Path")) and args:  # `os.path.join(dir, "x")`, `Path(dir, "x")`
+            return joined(args)
+        template = _literal(receiver) if name == "format" and receiver is not None else None
+        if template is None:
+            return _UNKNOWN
+        keywords = {keyword.arg: keyword.value for keyword in node.keywords if keyword.arg}  # `"{}/*.json".format(dir)`
+        try:
+            fields = list(string.Formatter().parse(template.value))
+        except ValueError:
+            return _UNKNOWN
+        pieces, auto = [], 0
+        for text, field, spec, conversion in fields:
+            pieces.append(_Piece(text, template, None))
+            if field is None:
+                continue
+            if field == "":
+                value, auto = (args[auto] if auto < len(args) else None), auto + 1
+            elif field.isdigit():
+                value = args[int(field)] if int(field) < len(args) else None
+            else:
+                value = keywords.get(field)
+            pieces.extend(fold(value) if value is not None and not spec and conversion is None else _UNKNOWN)
+        return pieces
+    return _UNKNOWN
+
+
+def _is_module_dir(node: ast.AST, aliases: set[str] | frozenset[str], files: set[str] | frozenset[str] = frozenset(),
+                   slashed: set[str] | frozenset[str] = frozenset(), seps: frozenset[str] = frozenset()) -> bool:
+    """The module's directory, with or without a trailing separator, in any spelling `_fold` reads
+    (`Path(__file__).parent`, `parents[0]`, `os.path.dirname(__file__)`, a wrapper or a name assigned from one of
+    them, `dirname(__file__) + "/"`, `f"{HERE}{os.sep}"`, `os.path.join(HERE, "")`); `parents[1]`, `with_name(...)`
+    and every other receiver is some other directory."""
+    texts = [piece.text for piece in _fold(node, aliases, files, slashed, seps) if piece.text != ""]
+    return texts in ([DIR], [DIR, "/"])
+
+
+def _module_aliases(tree: ast.AST) -> tuple[set[str], set[str], set[str], set[str]]:
+    """Names assigned the module's directory (`aliases`), names assigned the module file (`files`), by a plain, an
+    annotated, a walrus or a tuple assignment of any spelling `_fold` reads (passes until no new name is found, so a
+    name assigned from an alias counts whatever order the module binds them in and `here = abspath(here)` keeps
+    `here`; an attribute is not followed); the `mixed` names among them, bound to something else somewhere in the
+    module (a parameter, a loop or `with` target, an import, another value), a name assigned from a mixed name among
+    them; and the `slashed` names, assigned the directory with a separator after it (`HERE = dirname(__file__) + "/"`,
+    `HERE = f"{dir}{os.sep}"`, `p += os.sep`), so a literal glued to them needs no slash. A literal anchored on a
+    mixed name is read both anchored and as spelled: its anchored reading alone could resolve to a path beside the
+    module that does not exist (the name is `parents[1]` in another function) and go unseen, and the spelled reading
+    alone would lose a bare pattern, a listing or a sibling folder on it."""
+    bound, seps = _bindings(tree), _sep_names(tree)
+    aliases: set[str] = set()
+    files: set[str] = set()
+    slashed: set[str] = set()
     dirs_bound: Counter[str] = Counter()
     files_bound: Counter[str] = Counter()
     pairs_seen: set[tuple[str, str]] = set()  # (target, the name its value is built from)
     while True:  # a name assigned the module's file or directory, then names assigned from those, until no new one
-        known = len(aliases) + len(files)
+        known = len(aliases) + len(files) + len(slashed)
         dirs_bound, files_bound = Counter(), Counter()
         for target, value in _assigned(tree):
-                if _is_module_file(value, files):
-                    files_bound[target.id] += 1
-                    files.add(target.id)  # known at once, so `A = parent; B = A; C = B` is followed in one pass
-                elif _is_module_dir(value, aliases, files):
-                    dirs_bound[target.id] += 1
-                    aliases.add(target.id)
-                else:
-                    continue
-                source = _source_name(value)
-                if source is not None and source != target.id:
-                    pairs_seen.add((target.id, source))
-        if len(aliases) + len(files) == known:
+            pieces = _fold(value, aliases, files, slashed, seps)
+            texts = [piece.text for piece in pieces if piece.text != ""]
+            if texts == [FILE]:
+                files_bound[target.id] += 1
+                files.add(target.id)  # known at once, so `A = parent; B = A; C = B` is followed in one pass
+            elif texts in ([DIR], [DIR, "/"]):
+                dirs_bound[target.id] += 1
+                aliases.add(target.id)
+                if texts[-1] == "/":
+                    slashed.add(target.id)
+            else:
+                continue
+            source = next((piece.source for piece in pieces if piece.text != ""), None)
+            if source is not None and source != target.id:
+                pairs_seen.add((target.id, source))
+        for node in ast.walk(tree):  # `p += os.sep` on a name holding the directory: slash-terminated from here on
+            if (isinstance(node, ast.AugAssign) and isinstance(node.op, ast.Add) and isinstance(node.target, ast.Name)
+                    and node.target.id in aliases and [piece.text for piece in _fold(node.value, aliases, files, slashed, seps) if piece.text != ""] == ["/"]):
+                dirs_bound[node.target.id] += 1
+                slashed.add(node.target.id)
+        if len(aliases) + len(files) + len(slashed) == known:
             break
     mixed = {name for name, n in dirs_bound.items() if n != bound[name]} | {name for name, n in files_bound.items() if n != bound[name]}
     while True:  # a name assigned from a mixed name is mixed too (`base = root`, with `root` also `parents[1]` elsewhere)
         grown = mixed | {target for target, source in pairs_seen if source in mixed}
         if grown == mixed:
-            return aliases, files, mixed
+            return aliases, files, mixed, slashed
         mixed = grown
 
 
 def _listed_dirs(tree: ast.AST) -> set[str]:
     """How the module lists its own directory: `"one"` level (`iterdir()` on it, `listdir`/`scandir` of it, what
     `glob("*")` names) and/or `"all"` levels (`walk()` on it, `os.walk` of it, what `rglob("*")` names)."""
-    aliases, files, _ = _module_aliases(tree)  # a mixed name lists loudly too
+    aliases, files, _, slashed = _module_aliases(tree)  # a mixed name lists loudly too
+    seps = _sep_names(tree)
     depths: set[str] = set()
     for node in ast.walk(tree):
         if not isinstance(node, ast.Call):
@@ -492,123 +585,101 @@ def _listed_dirs(tree: ast.AST) -> set[str]:
         keyed = [keyword.value for keyword in node.keywords if keyword.arg in {"path", "top"}]
         argument = (node.args[0] if node.args else keyed[0] if keyed else None) if name in {"listdir", "scandir", "walk"} else None
         for target in (receiver, argument):
-            if target is not None and _is_module_dir(target, aliases, files):
+            if target is not None and _is_module_dir(target, aliases, files, slashed, seps):
                 depths.add("all" if name == "walk" else "one")
     return depths
 
 
-def _literal(node: ast.AST) -> ast.Constant | None:
-    """The string constant `node` is, or the one part of an f-string that holds nothing else (`f"name"`); else None."""
-    if isinstance(node, ast.JoinedStr) and len(node.values) == 1:
-        node = node.values[0]
-    return node if isinstance(node, ast.Constant) and isinstance(node.value, str) else None
-
-
 def _sibling_literals(tree: ast.AST) -> tuple[set[int], dict[int, str], set[int], set[int]]:
-    """ids of the string constants (an f-string's parts included) that build a path from the module's own location:
-    `with_name` on the module file; `joinpath`, `glob`, `rglob`, `/` or `+` on the module's directory, `+=` onto a
-    name holding it, an f-string with the directory first, or `glob.glob` with `root_dir=` that directory; `join` or a
-    `Path` constructor whose first operand is the module's directory; the directory written as
-    `Path(__file__).parent`, `os.path.dirname(__file__)`, wrapped in `resolve()`, `absolute()`, `abspath()`,
-    `realpath()`, `str()`, `os.fspath()` or `Path(...)`, with a `/` or `os.sep` appended, or a name assigned from one
-    of them, and the module file likewise `__file__`, `Path(__file__)`, wrapped, or a name assigned from one of them
-    (a plain, an annotated, a walrus or a tuple assignment; an attribute such as `self.here` is not followed). A
-    literal so joined (by `/`, `with_name`, `join`, `joinpath` or a constructor) is read where Python reads it, and
-    the constant operands of a `join`, a `joinpath` or a constructor, up to its first other operand, build one path:
-    the first of them is returned in `joined` with that path (`join(dir, "baselines", "*.json")` is
-    `baselines/*.json`; `dir / "README.md"` is `README.md`) and the rest in `skip`, which `_named_in` does not read on
-    their own; a `+` chain's constants and `os.sep` operands are the one string they build, its leading slash dropped
-    (`dir + "/" + "*.json"` and `dir + os.sep + "*.json"` are `*.json`), a string without one is another directory
-    (`dir + "_backup"`) unless the name before it was assigned the directory with a `/` or `os.sep` appended
-    (`HERE = dirname(__file__) + "/"` or `f"{dirname(__file__)}/"`; `HERE + "*.json"`); the literals after a name or an
-    f-string with a formatted value are not anchored (`join(dir, sub, "*.json")` reads a directory this gate cannot
-    know), but a first operand that is such an f-string has its literal parts read on the module's directory, as a
-    `glob` of it would. A literal joined to any other receiver (an output directory, `parents[1]`, a parameter) and
-    a bare word anywhere else (a dict key, a column name) is not a folder. The ids anchored through a mixed name (one
-    also bound to something else) are returned in `loose` too: `_named_in` reads those both anchored and as spelled."""
-    aliases, files, mixed = _module_aliases(tree)
-    exact_aliases, exact_files = aliases - mixed, files - mixed
-    slashed = {target.id for target, value in _assigned(tree)  # `HERE = dirname(__file__) + "/"`: a glued literal needs no slash
-               if _ends_in_separator(value) and not (isinstance(value, ast.JoinedStr) and len(value.values) == 1)}
-    inner = {id(node.left) for node in ast.walk(tree)  # the left half of a longer `+` chain, read with the whole chain
-             if isinstance(node, ast.BinOp) and isinstance(node.op, ast.Add) and isinstance(node.left, ast.BinOp) and isinstance(node.left.op, ast.Add)}
+    """ids of the string constants that build a path from the module's own location, read where Python reads them.
+    Every string expression is folded once (`_fold`): `+` and `+=`, an f-string, a `%` or `.format` template,
+    `sep.join([...])`, `os.path.join`, `Path(...)`, `joinpath`, `/` and `with_name`, with `os.sep` a slash and the
+    module's directory or file a token. A fold that starts with the module's directory anchors the string after it,
+    up to the first part this gate cannot know (a name, a call: `join(dir, sub, "*.json")` reads a directory this gate
+    cannot know, the limit of a variable): the string must begin with a slash (`join(dir, "x")`, `dir + "/x"`,
+    `f"{dir}{os.sep}*.json"`, `"%s/*.json" % dir`, `os.sep.join([dir, "x"])`, `HERE + "x"` with `HERE = dir + "/"`),
+    since `dir + "_backup"` is another directory; its leading slashes dropped, it is returned in `joined` under the
+    first constant it came from (`join(dir, "baselines", "*.json")` is `baselines/*.json`; `dir / "README.md"` is
+    `README.md`), the other constants in `skip`, which `_named_in` does not read on their own. A glob (`glob`,
+    `rglob`, `iglob`, or `glob.glob` with `root_dir=`) on the module's directory anchors its pattern constants, an
+    f-string's parts included, and `join(dir, f"{stem}*.md")` reads as `glob(f"{stem}*.md")` would. A literal built on
+    any other receiver (an output directory, `parents[1]`, a parameter) and a bare word anywhere else (a dict key, a
+    column name) is not a folder. The ids anchored through a mixed name (one also bound to something else) are
+    returned in `loose` too: `_named_in` reads those both anchored and as spelled."""
+    aliases, files, mixed, slashed = _module_aliases(tree)
+    seps = _sep_names(tree)
 
-    def is_dir(node: ast.AST, exact: bool = False) -> bool:
-        return _is_module_dir(node, exact_aliases if exact else aliases, exact_files if exact else files)
+    def fold(node: ast.AST) -> list[_Piece]:
+        return _fold(node, aliases, files, slashed, seps)
 
-    def is_file(node: ast.AST, exact: bool = False) -> bool:
-        return _is_module_file(node, exact_files if exact else files)
+    def head(pieces: list[_Piece]) -> int:  # the first piece with text, past the empty string a template starts with
+        return next((i for i, piece in enumerate(pieces) if piece.text != ""), 0)
+
+    def anchored(pieces: list[_Piece]) -> bool:
+        return bool(pieces) and pieces[head(pieces)].text == DIR
+
+    def exact(pieces: list[_Piece]) -> bool:
+        source = pieces[head(pieces)].source
+        return source is None or source not in mixed
+
+    def constants(operand: ast.AST) -> set[int]:  # a glob's pattern, an f-string's parts included
+        parts = operand.values if isinstance(operand, ast.JoinedStr) else [operand]
+        return {id(part) for part in parts if isinstance(part, ast.Constant)}
 
     ids: set[int] = set()
     joined: dict[int, str] = {}
     skip: set[int] = set()
     loose: set[int] = set()
+    consumed: set[int] = set()  # the parts of a string already read as a whole
     for node in ast.walk(tree):
-        chained = glued = slashed_left = False
+        if id(node) in consumed:
+            continue
+        read: set[int] = set()
         if isinstance(node, ast.Call):
             func = node.func
             name = func.attr if isinstance(func, ast.Attribute) else func.id if isinstance(func, ast.Name) else ""
-            operands = list(node.args) + [keyword.value for keyword in node.keywords]
             root_dir = [keyword.value for keyword in node.keywords if keyword.arg == "root_dir"]
-            if name == "with_name" and isinstance(func, ast.Attribute):
-                anchored, exact, chained = is_file(func.value), is_file(func.value, True), True
-            elif name in {"glob", "iglob"} and root_dir:  # `glob.glob(p, root_dir=dir)`, `iglob`, or `glob` imported bare
-                anchored, exact = any(is_dir(r) for r in root_dir), any(is_dir(r, True) for r in root_dir)
-                operands = [operand for operand in operands if not any(operand is r for r in root_dir)]
-            elif name in {"joinpath", "glob", "rglob"} and isinstance(func, ast.Attribute):
-                anchored, exact, chained = is_dir(func.value), is_dir(func.value, True), name == "joinpath"
-            elif name == "join" or name.endswith("Path"):
-                anchored, exact = bool(node.args) and is_dir(node.args[0]), bool(node.args) and is_dir(node.args[0], True)
-                operands, chained = operands[1:], True
+        else:
+            name, root_dir = "", []
+        if name in {"glob", "iglob"} and root_dir:  # `glob.glob(p, root_dir=dir)`, `iglob`, or `glob` imported bare
+            pieces = next((fold(r) for r in root_dir if _is_module_dir(r, aliases, files, slashed, seps)), None)
+            if pieces is None:
+                continue
+            for operand in [*node.args, *(keyword.value for keyword in node.keywords if keyword.arg != "root_dir")]:
+                read |= constants(operand)
+        elif name in {"glob", "rglob"} and isinstance(node.func, ast.Attribute):  # `dir.glob("*.md")`, `rglob`
+            pieces = fold(node.func.value)
+            if not _is_module_dir(node.func.value, aliases, files, slashed, seps):
+                continue
+            for operand in [*node.args, *(keyword.value for keyword in node.keywords)]:
+                read |= constants(operand)
+        else:
+            if isinstance(node, ast.AugAssign) and isinstance(node.op, ast.Add):  # `p += "/baselines"` on the directory name
+                pieces, operands = fold(node.target) + fold(node.value), _add_chain(node.value)
+            elif isinstance(node, ast.BinOp) and isinstance(node.op, ast.Add):
+                pieces, operands = fold(node), _add_chain(node)[1:]
+            elif isinstance(node, ast.BinOp) and isinstance(node.op, (ast.Div, ast.Mod)):
+                pieces, operands = fold(node), [node.right]
+            elif isinstance(node, ast.JoinedStr):
+                pieces, operands = fold(node), node.values[1:]
+            elif name in {"join", "joinpath", "with_name", "format"} or name.endswith("Path"):
+                pieces, operands = fold(node), (node.args if name in {"joinpath", "with_name"} else node.args[1:])
             else:
                 continue
-        elif isinstance(node, ast.BinOp) and isinstance(node.op, ast.Div):
-            anchored, exact, operands, chained = is_dir(node.left), is_dir(node.left, True), [node.right], True
-        elif isinstance(node, ast.BinOp) and isinstance(node.op, ast.Add) and id(node) not in inner:  # `dir + "/" + "*.json"`
-            operands = [node]
-            while isinstance(operands[0], ast.BinOp) and isinstance(operands[0].op, ast.Add):
-                operands[0:1] = [operands[0].left, operands[0].right]
-            first, operands = operands[0], operands[1:]
-            anchored, exact, chained, glued = is_dir(first), is_dir(first, True), True, True
-            slashed_left = isinstance(first, ast.Name) and first.id in slashed
-        elif isinstance(node, ast.AugAssign) and isinstance(node.op, ast.Add):  # `p += "/baselines"` on the directory name
-            anchored, exact, operands, chained, glued = is_dir(node.target), is_dir(node.target, True), [node.value], True, True
-            slashed_left = isinstance(node.target, ast.Name) and node.target.id in slashed
-        elif isinstance(node, ast.JoinedStr) and len(node.values) > 1 and isinstance(node.values[0], ast.FormattedValue):
-            first = node.values[0].value  # `f"{HERE}/baselines"`: the literal right after the directory
-            anchored, exact, operands, chained, glued = is_dir(first), is_dir(first, True), node.values[1:2], True, True
-            slashed_left = isinstance(first, ast.Name) and first.id in slashed
-        else:
-            continue
-        if not anchored:
-            continue
-        read: set[int] = set()  # the literals this read anchors
-        if chained:  # `join(dir, "baselines", "*.json")` builds the one path `baselines/*.json`; `dir / "x"` is `x`
-            head: list[ast.Constant] = []
-            pieces: list[str] = []  # what the constants spell: glued, the one string they build; joined, a segment each
-            for operand in operands:
-                literal = _literal(operand)
-                if literal is None and glued and _is_separator(operand):  # `dir + os.sep + "x"`
-                    pieces.append("/")
-                    continue
-                if literal is None:
-                    break
-                head.append(literal)
-                pieces.append(literal.value)
-            if glued and not (slashed_left or "".join(pieces).startswith("/")):  # `dirname(__file__) + "_backup"` is another directory
-                head = []
-            if head:
-                read.add(id(head[0]))
-                joined[id(head[0])] = "".join(pieces).lstrip("/") if glued else "/".join(pieces)
-                skip.update(id(literal) for literal in head[1:])
-            elif operands and isinstance(operands[0], ast.JoinedStr):  # `join(dir, f"{stem}*.md")` reads as `glob(f"{stem}*.md")`
-                read.update(id(part) for part in operands[0].values if isinstance(part, ast.Constant))
-        else:
-            for operand in operands:
-                parts = operand.values if isinstance(operand, ast.JoinedStr) else [operand]
-                read.update(id(part) for part in parts if isinstance(part, ast.Constant))
+            if not anchored(pieces):
+                continue
+            tail = list(itertools.takewhile(lambda piece: piece.text is not None, pieces[head(pieces) + 1:]))
+            text = "".join(piece.text for piece in tail)
+            nodes = [piece.node for piece in tail if piece.node is not None and piece.text]
+            if text.startswith("/") and nodes:
+                read.add(id(nodes[0]))
+                joined[id(nodes[0])] = text.lstrip("/")
+                skip.update(id(constant) for constant in nodes[1:] if constant is not nodes[0])
+            elif operands and isinstance(operands[0], ast.JoinedStr) and not text.strip("/"):
+                read |= constants(operands[0])  # `join(dir, f"{stem}*.md")` reads as `glob(f"{stem}*.md")`
+            consumed.update(id(part) for part in ast.walk(node) if part is not node)
         ids |= read
-        if not exact:
+        if not exact(pieces):
             loose |= read
     return ids, joined, skip, loose
 
@@ -722,7 +793,7 @@ def non_triggers(closure: set[str]) -> list[str]:
     )
     overlap = sorted(set(deliberate) & (closure | named | inputs))
     assert not overlap, (
-        "the eval now imports or names these files, which are non-triggers by design: remove the dependency, or reclassify "
+        "the eval now imports or names these files, which are non-triggers by design: remove the dependency, rename a copy that only shares a file's name, or reclassify "
         f"them in this gate deliberately (a name the eval only writes belongs in RUN_ARTIFACTS): {overlap}"
     )
     used = inputs | named | {WORKFLOW.relative_to(ROOT).as_posix()}
@@ -760,8 +831,11 @@ def _local_imports(module: str, is_package: bool, tree: ast.AST):
                 for alias in node.names:
                     yield f"{base}.{alias.name}"
         elif isinstance(node, ast.Constant) and isinstance(node.value, str) and DOTTED.match(node.value):
-            if node.value.split(".")[0] in LOCAL_TOP_LEVEL and _module_path(node.value) is not None:
-                yield node.value
+            parts = node.value.split(":")[0].split(".")  # `pkgutil.resolve_name("app.x:Class")` imports `app.x`
+            if parts[0] in LOCAL_TOP_LEVEL:  # `mock.patch("app.x.Class.method")` imports `app.x`, the longest module prefix
+                found = next((".".join(parts[:n]) for n in range(len(parts), 1, -1) if _module_path(".".join(parts[:n])) is not None), None)
+                if found is not None:
+                    yield found
 
 
 def _workflow() -> dict:
@@ -1289,6 +1363,11 @@ def test_relative_imports_anchor_on_the_owning_package():
     # A dotted module name in a string literal that resolves to a local module is an import too.
     tree = ast.parse('m = importlib.import_module("app.integrations.sec_api"); x = "sqlalchemy.orm"; y = "app.no_such.module"')
     assert set(_local_imports("app.services.copilot_service", False, tree)) == {"app.integrations.sec_api"}
+    # A dotted string naming a module attribute (a `mock.patch` target, a `pkgutil.resolve_name` reference) imports the
+    # longest module prefix; a bare top-level package is never a find.
+    tree = ast.parse('p = patch("app.integrations.sec_api.SECFullTextSearchClient.search"); q = pkgutil.resolve_name("app.integrations.sec_api:SECFullTextSearchClient"); '
+                     'r = pkgutil.resolve_name("app.services:thing"); s = "app.state.ready"; u = "companies.id"; v = "uvicorn.error"')
+    assert set(_local_imports("evals.copilot_runner", False, tree)) == {"app.integrations.sec_api", "app.services"}
 
 
 def test_every_reachable_module_and_runtime_input_triggers_the_run():
@@ -1459,7 +1538,7 @@ def test_data_directories_and_named_files_are_inputs():
         assert _named_in(ast.parse('fs = Path(__file__).parent.glob("../app/assets/*")'), "backend/evals/copilot_runner.py") == {p for p in app_assets if p.count("/") == 3}
         # The constant operands of a `join` build one path, resolved on the module's directory as Python resolves it:
         # `join(dir, "..", "data", "x.json")` from `app/services/` is `app/data/x.json`. A lone `..` or `.` so joined
-        # names nothing: the parent directory is not what the code reads. A `/` chain is still one literal per segment.
+        # names nothing: the parent directory is not what the code reads.
         data_file = sorted(p for p in TRACKED if p.startswith("backend/app/data/") and p.count("/") == 3 and not p.endswith("/.gitignore"))
         assert data_file, "backend/app/data/ holds no tracked file; pick another data directory under app/"
         assert _named_in(ast.parse(f'd = os.path.join(os.path.dirname(__file__), "..", "data", "{data_file[0].rsplit("/", 1)[1]}"); e = Path(__file__).parent / ".." / "data"'), "backend/app/services/x.py") == {data_file[0]}
@@ -1486,14 +1565,14 @@ def test_data_directories_and_named_files_are_inputs():
         assert _named_in(ast.parse('fs = glob.glob(os.path.join(os.path.dirname(__file__), "reports", "../../*.txt"))'), "backend/evals/copilot_runner.py") == backend_txt
         # A literal joined to the module's own location is read where Python reads it: `join(dir, "probe.md")`,
         # `dir / "probe.md"` and `with_name("probe.md")` are the file beside the module, not every `probe.md` under
-        # `backend/`, and `join(dir, "baselines", "probe.md")` is the one under `baselines/`; a `/` chain is still one
-        # literal per segment. The probe files are injected, so the case holds whatever the tree holds.
+        # `backend/`, and `join(dir, "baselines", "probe.md")` or `dir / "baselines" / "probe.md"` is the one under
+        # `baselines/`. The probe files are injected, so the case holds whatever the tree holds.
         probe = {"backend/evals/probe.md", "backend/evals/baselines/probe.md", "backend/app/probe.md"}
         with mock.patch.object(sys.modules[__name__], "TRACKED", TRACKED | probe), mock.patch.dict(NAMED_CANDIDATES, {"probe.md": sorted(probe)}):
             for spelling in ('os.path.join(os.path.dirname(__file__), "probe.md")', 'Path(__file__).parent / "probe.md"', 'Path(__file__).with_name("probe.md")'):
                 assert _named_in(ast.parse(f"d = {spelling}"), "backend/evals/copilot_runner.py") == {"backend/evals/probe.md"}, spelling
             assert _named_in(ast.parse('d = Path(__file__).parent.joinpath("baselines", "probe.md")'), "backend/evals/copilot_runner.py") == {"backend/evals/baselines/probe.md"}
-            assert _named_in(ast.parse('d = Path(__file__).parent / "baselines" / "probe.md"'), "backend/evals/copilot_runner.py") >= probe  # the chain's limit, loudly
+            assert _named_in(ast.parse('d = Path(__file__).parent / "baselines" / "probe.md"'), "backend/evals/copilot_runner.py") == {"backend/evals/baselines/probe.md"}
             # `here = abspath(here)` keeps `here` exact (a mixed name would read the probe as spelled too, all three copies).
             assert _named_in(ast.parse("here = os.path.dirname(__file__)\nhere = os.path.abspath(here)\nd = os.path.join(here, 'probe.md')"), "backend/evals/copilot_runner.py") == {"backend/evals/probe.md"}
         readmes = {p for p in TRACKED if p.startswith("backend/") and p.endswith("/README.md")}
@@ -1583,6 +1662,29 @@ def test_data_directories_and_named_files_are_inputs():
         assert {"backend/evals/copilot_golden_set.json", "backend/tests/fixtures/companyfacts_sample.json"} <= _named_in(ast.parse(slashed), "backend/evals/copilot_runner.py")  # `HERE` is mixed through `root`, so its literal is read as spelled too
         assert _named_in(ast.parse('d = os.path.dirname(__file__) + "/"; e = os.path.dirname(__file__) + "/" + sub; g = HERE + "baselines"; h = os.path.dirname(__file__) + sep + "*.json"'), "backend/evals/copilot_runner.py") == set()
         assert _named_in(ast.parse("HERE = f'{Path(__file__).parent}'\nfs = glob.glob(HERE + 'baselines')\n"), "backend/evals/copilot_runner.py") == set()  # `evalsbaselines` again
+        # `os.sep` inside an f-string is a slash too, and the parts after the directory are one string; the right side of
+        # `+=` is a chain as well.
+        for spelling in ("fs = glob.glob(f'{os.path.dirname(__file__)}{os.sep}*.json')\n", "fs = glob.glob(f'{Path(__file__).parent}{os.path.sep}*.json')\n",
+                         "HERE = f'{os.path.dirname(__file__)}{os.sep}'\nfs = glob.glob(HERE + '*.json')\n", "HERE = f'{os.path.dirname(__file__)}{os.path.sep}'\nfs = os.listdir(HERE)\n"):
+            expected = {p for p in evals_all if p.count("/") == 2} if "listdir" in spelling else beside_json
+            assert _named_in(ast.parse(spelling), "backend/evals/copilot_runner.py") == expected, spelling
+        for spelling in ("B = os.path.dirname(__file__)\nB += os.sep + 'baselines'\n", "B = os.path.dirname(__file__)\nB += '/' + 'baselines'\n", "B = os.path.dirname(__file__)\nB += '/' + 'base' + 'lines'\n"):
+            assert _named_in(ast.parse(spelling), "backend/evals/copilot_runner.py") == baselines, spelling
+        assert _named_in(ast.parse("B = os.path.dirname(__file__)\nB += os.sep + sub\nfs = glob.glob(f'{os.path.dirname(__file__)}{sep}*.json')\n"), "backend/evals/copilot_runner.py") == set()
+        # The string is folded once, whatever builds it: a `%` or `.format` template, `sep.join`, `join(dir, "")`, a
+        # `sep` imported from `os`, an f-string ending in a slash as the left operand, `p += os.sep` then `p + x`.
+        for spelling in ('glob.glob("%s/*.json" % os.path.dirname(__file__))', 'glob.glob("%s%s*.json" % (os.path.dirname(__file__), os.sep))',
+                         'glob.glob("{}/*.json".format(Path(__file__).parent))', 'glob.glob("{0}/{1}".format(os.path.dirname(__file__), "*.json"))',
+                         'glob.glob("{here}/*.json".format(here=os.path.dirname(__file__)))', 'glob.glob(os.sep.join([os.path.dirname(__file__), "*.json"]))',
+                         'glob.glob("/".join((str(Path(__file__).parent), "*.json")))', 'glob.glob(os.path.join(os.path.dirname(__file__), "") + "*.json")',
+                         'glob.glob(f"{os.path.dirname(__file__)}/" + "*.json")', 'glob.glob(f"{os.path.dirname(__file__)}{os.sep}" "*.json")'):
+            assert _named_in(ast.parse(f"fs = {spelling}"), "backend/evals/copilot_runner.py") == beside_json, spelling
+        for spelling in ("from os import sep\nfs = glob.glob(os.path.dirname(__file__) + sep + '*.json')\n", "from os.path import sep as SEP\nfs = glob.glob(f'{Path(__file__).parent}{SEP}*.json')\n",
+                         "p = os.path.dirname(__file__)\np += os.sep\nfs = glob.glob(p + '*.json')\n", "p = os.path.dirname(__file__)\np += '/'\nfs = glob.glob('%s*.json' % p)\n"):
+            assert _named_in(ast.parse(spelling), "backend/evals/copilot_runner.py") == beside_json, spelling
+        assert _named_in(ast.parse("HERE = os.path.dirname(__file__) + '/'\nHERE += 'baselines'\n"), "backend/evals/copilot_runner.py") == baselines
+        assert _named_in(ast.parse('d = "%s/%s" % (os.path.dirname(__file__), sub); e = "%d/*.json" % n; g = "{}/*.json".format(out); h = "{:>3}/x".format(os.path.dirname(__file__)); i = "%s_backup" % os.path.dirname(__file__); j = ", ".join([os.path.dirname(__file__), "*.json"])'),
+                         "backend/evals/copilot_runner.py") == set()
         # A `..` or `.` head followed by a name names nothing: a lone `..` names nothing, and the name is the limit of a
         # variable (`join(dir, "..", sub)` reads somewhere under the parent, which the gate cannot narrow without naming
         # all of it).
