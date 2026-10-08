@@ -1,14 +1,19 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
-import ReactMarkdown from 'react-markdown'
+import ReactMarkdown, { type Components } from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { ArrowClockwiseIcon, ArrowSquareOutIcon, FileTextIcon, XIcon } from '@/lib/icons'
 import { fetchFilingContent } from '@/features/filings/api/filing-content-api'
 import { isHttpUrl } from './CitationChip'
 import { useFilingViewer } from './FilingViewerContext'
 import { clearCitationHighlight, highlightExcerptInDom } from './highlightInDom'
+import ReaderTable from './ReaderTable'
 import { Button, buttonVariants, SkeletonText } from '@/components/ui'
+
+// The reader's own markdown renderers: each table scrolls sideways in a box of its own (EN-04).
+// Module-level, so ReactMarkdown sees the same object on every render.
+const READER_COMPONENTS: Components = { table: ReaderTable }
 
 interface FilingViewerProps {
   filingId: number
@@ -168,12 +173,22 @@ export default function FilingViewer({ filingId, filingLabel, secUrl, embedded =
           {/* .filing-reader is the serif's ONE surface — the filing's own words
               (Newsreader 19/1.7, 68ch measure, reader tables). It replaces the
               Tailwind prose stack per MIGRATION v2.1 §e.1: the two must never
-              coexist (double margins), and the class carries its own measure. */}
+              coexist (double margins), and the class carries its own measure and
+              width (as wide as this pane, never wider: EN-04).
+              A named tab stop, so the arrow keys scroll it from the top: Chromium
+              made the scroller one on its own only while nothing inside it could
+              take focus, and a wide table's scroll region can. Inset ring: an
+              outer one would sit over the pane's tabs and border. */}
           <div
             ref={contentRef}
-            className="filing-reader min-h-0 flex-1 overflow-y-auto break-words px-4 py-4"
+            role="region"
+            aria-label={`${filingLabel} · filing text`}
+            tabIndex={0}
+            className="filing-reader min-h-0 flex-1 overflow-y-auto break-words px-4 py-4 focus-visible:outline-none focus-visible:shadow-[inset_0_0_0_3px_rgba(79,122,99,0.5)] dark:focus-visible:shadow-[inset_0_0_0_3px_rgba(127,178,149,0.55)]"
           >
-            <ReactMarkdown remarkPlugins={[remarkGfm]}>{content || ''}</ReactMarkdown>
+            <ReactMarkdown remarkPlugins={[remarkGfm]} components={READER_COMPONENTS}>
+              {content || ''}
+            </ReactMarkdown>
           </div>
         </div>
       )}

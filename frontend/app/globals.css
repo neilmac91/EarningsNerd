@@ -298,6 +298,13 @@
   font-optical-sizing: auto;
   font-size: 1.1875rem;       /* 19px — Newsreader's x-height needs the bump */
   line-height: 1.7;
+  /* As wide as its pane, never wider (EN-04). In the pane the reader is a column flex item, and
+     the auto inline margins above turn off stretch, so with no width it took its widest table's
+     width (the 9-column segment table, ~770px): it spilled out of the 420px pane, the page scrolled
+     sideways on a desktop and the phone sheet clipped it. 100% restores the block layout this
+     rule assumes: the pane's width up to the 88ch rail. Reader-only: .markdown-body fills its
+     parent already, and its tables keep their own rules. */
+  width: 100%;
 }
 /* .markdown-body stays on the body sans (the AI summary is not the filing's words). */
 .markdown-body {
@@ -310,6 +317,12 @@
 :is(.markdown-body, .filing-reader) > table,
 :is(.markdown-body, .filing-reader) > figure,
 :is(.markdown-body, .filing-reader) > pre { max-width: none; }
+/* A reader table scrolls sideways in a box of its own (FilingViewer → ReaderTable, EN-04). The box
+   is the reader's child, so it takes the table's escape from the 68ch measure and the table's 2rem
+   rhythm (keeping the box's focus ring tight to the table); the table inside fills the box with no
+   margin. Reader-only: the AI summary's tables are not boxed. */
+.filing-reader > .filing-table-scroll { max-width: none; margin-top: 2rem; margin-bottom: 2rem; }
+.filing-reader > .filing-table-scroll > table { margin-top: 0; margin-bottom: 0; }
 :is(.markdown-body, .filing-reader) > :first-child { margin-top: 0; }
 
 :is(.markdown-body, .filing-reader) p { @apply text-text-secondary-light dark:text-text-secondary-dark; margin-top: 0; margin-bottom: 1em; }
