@@ -1495,7 +1495,7 @@ def test_data_directories_and_named_files_are_inputs():
             assert _named_in(ast.parse(spelling), "backend/evals/copilot_runner.py") == beside_json, spelling
         for spelling in ('Path(f"{Path(__file__).parent}/baselines")', 'os.path.dirname(__file__) + "/baselines"', 'f"{os.path.dirname(__file__)}/baselines/"'):
             assert _named_in(ast.parse(f"d = {spelling}"), "backend/evals/copilot_runner.py") == baselines, spelling
-        assert _named_in(ast.parse('d = os.path.dirname(__file__) + "_backup"; e = f"{Path(__file__).parent}_backup/*.json"; g = out + "/*.json"; h = f"{out}/baselines"'), "backend/evals/copilot_runner.py") == set()
+        assert _named_in(ast.parse('d = os.path.dirname(__file__) + "baselines"; e = f"{Path(__file__).parent}baselines/*.json"; g = out + "/*.json"; h = f"{out}/baselines"'), "backend/evals/copilot_runner.py") == set()  # `evalsbaselines`, not `evals/baselines`
         # A `..` or `.` head followed by a name names nothing: a lone `..` names nothing, and the name is the limit of a
         # variable (`join(dir, "..", sub)` reads somewhere under the parent, which the gate cannot narrow without naming
         # all of it).
