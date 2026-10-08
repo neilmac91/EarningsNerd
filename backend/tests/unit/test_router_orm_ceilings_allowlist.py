@@ -45,7 +45,6 @@ ROUTERS_DIR = BACKEND_DIR / "app" / "routers"
 # The blank line between entries is deliberate: git conflicts on edits to adjacent lines, so the
 # spacing lets sibling PRs that lower different ceilings merge in any order.
 ROUTER_ORM_CEILINGS: dict[str, int] = {
-    "app/routers/admin.py": 52,
 
     "app/routers/analysis.py": 10,
 
