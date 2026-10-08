@@ -6,7 +6,7 @@ never restated here. This file replaced the ledger on 2026-10-07; the ledger is
 rows are history unless an item below carries them. Format: `AGENTS.md` §7. Close an item by
 deleting its line in the PR that closes it; a handover is a refresh of "Where things stand".
 
-## Where things stand — 2026-10-07
+## Where things stand — 2026-10-08
 
 - Production: the last recorded state is the ledger's "2026-10-04 — CODE RED chief takeover"
   section and its records under `code-red-20261004/runtime/`; verify the latest `deploy-backend`
@@ -15,9 +15,11 @@ deleting its line in the PR that closes it; a handover is a refresh of "Where th
   `handover-astra-2026-09-19.md` §5 and the September 28 checkpoint in
   `continuation-plan-2026-09-26.md` stays held. The E7/R1/H20 acceptance programme and the CODE RED
   records are a separate task; nothing here redesigns, lifts or restates them.
-- Open PRs on 2026-10-07: #1113 (EN-01 follow-up), #1108 (EN-03), #1081 (grid base tracks) ready;
-  #1112 (PR disposition sweep), #1110 (CODE RED records gate), #1074 (Copilot prompt candidate,
-  measurement only), #1035 (native delivery), #1009 (Pro pricing, held) drafts; #1096 Dependabot.
+- Open PRs on 2026-10-08: #1113 (EN-01 follow-up), #1108 (EN-03), #1110 (CODE RED records gate)
+  ready; #1112 (PR disposition sweep), #1121 (founder role contacts), #1120 (EN-05 part), #1074
+  (Copilot prompt candidate, measurement only), #1035 (native delivery), #1009 (Pro pricing, held)
+  drafts; from the agent-workflow-cost task: #1123 (copilot-eval paths, changes CI behaviour) and
+  #1126 (process gates, stacked on #1118) drafts.
 - Review and models: PRs are reviewed by risk tier (`AGENTS.md` §5); `review-gate.yml` still needs a
   Codex review or a `Review override:` line while Codex credits are exhausted. Marking a PR ready
   for review triggers the paid `copilot-eval` run when it touches that workflow's `paths:` filter
@@ -31,6 +33,7 @@ Founder:
 - [ ] With Astra: the H20-only packing/closure refinement by the registered source-only planner (`DECISIONS-04.md`, `DECISIONS-05.md`; ledger, CODE RED section, which records the implementation hold).
 - [ ] Console actions from the private security remediation plan: credential rotation and push protection, removing the old revision tags, scoping the WIF trust to `main` (PR #1069 follow-up; not code).
 - [ ] Decide the founder decisions listed in the agent-workflow-cost PR (review tiers, repository visibility, the review-gate override, `tasks/` retention).
+- [ ] Cloud Tasks delivery (PR #1122): provision and verify delivery before switching CPU billing; keep minimum one instance and 1 GiB. Activation needs your specific IAM exception and a successful authenticated empty delivery probe (ledger, "2026-10-07 — Google Cloud cost optimisation").
 - [ ] Upstream DS-source sync (DS-01, P0), external work in the DS source project: apply the upstream-sync notes §1–15 (the ledger cites `tasks/upstream-sync.md`, which is not in the repository), regenerate `_ds_bundle.js`, republish and link the package rather than re-vendoring (ledger, "2026-10-02 — design-v3 remediation series").
 - [ ] Publish an archive repository or release asset for the removed `frontend/design/landing-redesign` export (a public-account action); until then its 34 files are preserved at commit `02628e5`.
 
@@ -45,5 +48,5 @@ Engineering:
 
 ## What to doubt first
 
-- An item above may already be closed by a PR merged after 2026-10-07: check `git log` before starting it.
+- An item above may already be closed by a PR merged after 2026-10-08: check `git log` before starting it.
 - The ledger's older unchecked rows and the dated handovers are not a queue (`AGENTS.md` §1).

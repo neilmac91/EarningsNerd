@@ -102,6 +102,16 @@ class Settings(BaseSettings):
     # Unset disables those endpoints (they 503). Set to a long random string in prod.
     INTERNAL_JOB_TOKEN: str = ""
 
+    # Opt-in rollout: queue delivery must be verified before enabling request-based CPU billing.
+    DURABLE_TASKS_ENABLED: bool = False
+    TASKS_PROJECT_ID: str = ""
+    TASKS_LOCATION: str = "us-west1"
+    TASKS_QUEUE: str = "earningsnerd-background"
+    TASKS_WORKER_URL: str = ""
+    TASKS_INVOKER_EMAIL: str = ""
+    TASKS_WORKER_PROCESS: bool = False
+    TASKS_WORK_TIMEOUT_SECONDS: float = Field(default=480, gt=0, le=480)
+
     # PostHog (server-side tracking)
     POSTHOG_API_KEY: str = ""
     POSTHOG_HOST: str = "https://us.i.posthog.com"
@@ -709,4 +719,3 @@ class Settings(BaseSettings):
         return (not warnings), warnings
 
 settings = Settings()
-

@@ -35,7 +35,7 @@ export default function EvidenceSection() {
           </div>
 
           {/* The real five-column table needs the wider column; the trace card takes the rest. */}
-          <div className="mt-10 grid items-start gap-6 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
+          <div className="mt-10 grid grid-cols-1 items-start gap-6 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
             <div className="min-w-0">
               {/* FinancialMetricsTable owns its card header, so the design's right-aligned period
                   note renders as a data-register line above the card instead of inside it. */}

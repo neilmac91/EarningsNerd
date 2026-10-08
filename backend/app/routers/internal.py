@@ -4,24 +4,38 @@ These let an external scheduler kick the Phase 2 filing scan / digest without a 
 job, gated by a shared-secret header (`X-Internal-Token`). There is no user session here, so the
 normal `is_admin` gating doesn't apply — auth is the constant-time token compare below.
 
-Each trigger returns 202 immediately and runs the work in a background task (the scan/digest can be
-slow; we don't want to hold the request open and hit Cloud Run's HTTP timeout). The Cloud Run *job*
-remains the primary, more robust mechanism for production scheduling — see docs/DEPLOYMENT.md.
+With durable tasks enabled, each trigger returns 202 only after queue acceptance; the worker
+awaits completion in its own request. Flag-off deployments retain their legacy background task
+behaviour. Cloud Run jobs remain the primary mechanism for fleet-wide scheduling.
 """
 from __future__ import annotations
 
 import hmac
 import logging
-from typing import Optional
+from typing import Any, Optional
 
 from fastapi import APIRouter, BackgroundTasks, Depends, Header, HTTPException, Response, status
 from pydantic import BaseModel, Field
 
 from app.config import settings
 from app.services import filing_scan_service, retention_service
+from app.services.durable_tasks import TaskUnavailable
+from app.services.internal_task_runner import enqueue_internal_job
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
+
+
+async def _enqueue_durable(job: str, arguments: dict[str, Any] | None = None) -> dict[str, int]:
+    try:
+        return await enqueue_internal_job(job, arguments)
+    except TaskUnavailable as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="The job could not be queued. Please retry.",
+        ) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
 
 
 def _require_internal_token(x_internal_token: Optional[str] = Header(None)) -> None:
@@ -64,13 +78,19 @@ async def _run_daily_digest() -> None:
 
 @router.post("/jobs/filing-scan", status_code=status.HTTP_202_ACCEPTED, dependencies=[Depends(_require_internal_token)])
 async def trigger_filing_scan(background: BackgroundTasks):
-    background.add_task(_run_filing_scan)
+    if settings.DURABLE_TASKS_ENABLED:
+        await _enqueue_durable("filing-scan")
+    else:
+        background.add_task(_run_filing_scan)
     return {"status": "accepted", "job": "filing-scan"}
 
 
 @router.post("/jobs/filing-digest", status_code=status.HTTP_202_ACCEPTED, dependencies=[Depends(_require_internal_token)])
 async def trigger_filing_digest(background: BackgroundTasks):
-    background.add_task(_run_daily_digest)
+    if settings.DURABLE_TASKS_ENABLED:
+        await _enqueue_durable("filing-digest")
+    else:
+        background.add_task(_run_daily_digest)
     return {"status": "accepted", "job": "filing-digest"}
 
 
@@ -90,7 +110,10 @@ def _run_retention_purge(dry_run: bool) -> None:
 @router.post("/jobs/retention-purge", status_code=status.HTTP_202_ACCEPTED, dependencies=[Depends(_require_internal_token)])
 async def trigger_retention_purge(background: BackgroundTasks, dry_run: bool = False):
     """Apply (or with ``dry_run`` preview) the scheduled retention purge; counts only in the logs."""
-    background.add_task(_run_retention_purge, dry_run)
+    if settings.DURABLE_TASKS_ENABLED:
+        await _enqueue_durable("retention-purge", {"dry_run": dry_run})
+    else:
+        background.add_task(_run_retention_purge, dry_run)
     return {"status": "accepted", "job": "retention-purge", "dry_run": dry_run}
 
 
@@ -125,14 +148,20 @@ async def _run_earnings_alerts() -> None:
 @router.post("/jobs/earnings-calendar-refresh", status_code=status.HTTP_202_ACCEPTED, dependencies=[Depends(_require_internal_token)])
 async def trigger_earnings_refresh(background: BackgroundTasks):
     """Daily ingest: Alpha Vantage bulk estimates + EDGAR 8-K Item 2.02 sweep + rescore."""
-    background.add_task(_run_earnings_refresh)
+    if settings.DURABLE_TASKS_ENABLED:
+        await _enqueue_durable("earnings-calendar-refresh")
+    else:
+        background.add_task(_run_earnings_refresh)
     return {"status": "accepted", "job": "earnings-calendar-refresh"}
 
 
 @router.post("/jobs/earnings-day-alerts", status_code=status.HTTP_202_ACCEPTED, dependencies=[Depends(_require_internal_token)])
 async def trigger_earnings_alerts(background: BackgroundTasks):
     """Send one batched email per opted-in user whose watched companies report today."""
-    background.add_task(_run_earnings_alerts)
+    if settings.DURABLE_TASKS_ENABLED:
+        await _enqueue_durable("earnings-day-alerts")
+    else:
+        background.add_task(_run_earnings_alerts)
     return {"status": "accepted", "job": "earnings-day-alerts"}
 
 
@@ -152,9 +181,13 @@ def _run_backfill_facts() -> None:
 
 
 @router.post("/jobs/backfill-facts", status_code=status.HTTP_202_ACCEPTED, dependencies=[Depends(_require_internal_token)])
-async def trigger_backfill_facts(background: BackgroundTasks):
-    background.add_task(_run_backfill_facts)
-    return {"status": "accepted", "job": "backfill-facts"}
+async def trigger_backfill_facts(background: BackgroundTasks, limit: Optional[int] = None):
+    accepted = {}
+    if settings.DURABLE_TASKS_ENABLED:
+        accepted = await _enqueue_durable("backfill-facts", {"limit": limit})
+    else:
+        background.add_task(_run_backfill_facts)
+    return {"status": "accepted", "job": "backfill-facts", **accepted}
 
 
 class NotableFilingsScanRequest(BaseModel):
@@ -187,7 +220,10 @@ async def trigger_notable_filings_scan(
 ):
     """Sweep EDGAR full-text search for notable filings into the notable_filings table."""
     days = req.days if req else None
-    background.add_task(_run_notable_filings_scan, days)
+    if settings.DURABLE_TASKS_ENABLED:
+        await _enqueue_durable("notable-filings-scan", {"days": days})
+    else:
+        background.add_task(_run_notable_filings_scan, days)
     return {"status": "accepted", "job": "notable-filings-scan", "days": days}
 
 
@@ -225,12 +261,20 @@ async def _run_sync_companyfacts(
 @router.post("/jobs/sync-companyfacts", status_code=status.HTTP_202_ACCEPTED, dependencies=[Depends(_require_internal_token)])
 async def trigger_sync_companyfacts(req: SyncCompanyfactsRequest, background: BackgroundTasks):
     tickers = [t.strip().upper() for t in req.tickers if t and t.strip()]
-    background.add_task(_run_sync_companyfacts, tickers, req.watchlist_only, req.limit, req.force)
+    accepted = {}
+    if settings.DURABLE_TASKS_ENABLED:
+        accepted = await _enqueue_durable("sync-companyfacts", {
+            "tickers": tickers, "watchlist_only": req.watchlist_only,
+            "limit": req.limit, "force": req.force,
+        })
+    else:
+        background.add_task(_run_sync_companyfacts, tickers, req.watchlist_only, req.limit, req.force)
     return {
         "status": "accepted",
         "job": "sync-companyfacts",
         "tickers": len(tickers),
         "watchlist_only": req.watchlist_only,
+        **accepted,
     }
 
 
@@ -270,12 +314,19 @@ async def _run_backfill_filing_history(
 @router.post("/jobs/backfill-filing-history", status_code=status.HTTP_202_ACCEPTED, dependencies=[Depends(_require_internal_token)])
 async def trigger_backfill_filing_history(req: BackfillFilingHistoryRequest, background: BackgroundTasks):
     tickers = [t.strip().upper() for t in req.tickers if t and t.strip()]
-    background.add_task(_run_backfill_filing_history, tickers, req.watchlist_only, req.limit)
+    accepted = {}
+    if settings.DURABLE_TASKS_ENABLED:
+        accepted = await _enqueue_durable("backfill-filing-history", {
+            "tickers": tickers, "watchlist_only": req.watchlist_only, "limit": req.limit,
+        })
+    else:
+        background.add_task(_run_backfill_filing_history, tickers, req.watchlist_only, req.limit)
     return {
         "status": "accepted",
         "job": "backfill-filing-history",
         "tickers": len(tickers),
         "watchlist_only": req.watchlist_only,
+        **accepted,
     }
 
 
@@ -307,7 +358,8 @@ async def trigger_precompute(req: PrecomputeRequest, background: BackgroundTasks
     """Pre-generate (and cache) the latest 10-K/10-Q analyses for the given tickers.
 
     ``dry_run=true`` runs synchronously and returns the coverage report (no generation). A real run
-    is fire-and-forget (202) — generation is slow, so we don't hold the request open."""
+    is accepted asynchronously (202); durable mode bounds fanout and excludes forced paid
+    generation so task retries cannot intentionally regenerate an already cached summary."""
     from app.services import precompute_service
 
     tickers = [t.strip().upper() for t in req.tickers if t and t.strip()]
@@ -326,6 +378,12 @@ async def trigger_precompute(req: PrecomputeRequest, background: BackgroundTasks
         out = await precompute_service.precompute(tickers, forms=forms, force=False, dry_run=True)
         return {"status": "ok", "job": "precompute", "dry_run": True, **out}
 
+    accepted = {}
+    if settings.DURABLE_TASKS_ENABLED:
+        accepted = await _enqueue_durable("precompute", {
+            "tickers": tickers, "forms": forms, "force": req.force,
+        })
+    else:
+        background.add_task(_run_precompute, tickers, forms, req.force)
     response.status_code = status.HTTP_202_ACCEPTED
-    background.add_task(_run_precompute, tickers, forms, req.force)
-    return {"status": "accepted", "job": "precompute", "tickers": len(tickers), "forms": forms}
+    return {"status": "accepted", "job": "precompute", "tickers": len(tickers), "forms": forms, **accepted}

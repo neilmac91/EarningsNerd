@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import json
 from datetime import datetime, timedelta
 from app.utils.datetimes import utcnow
 from typing import Dict, List, Optional, Tuple
@@ -14,6 +15,7 @@ from app.schemas.fundamentals import FundamentalsResponse
 from app.services.company_resolution import resolve_or_create_company_by_cik
 from app.services.edgar.compat import sec_edgar_service
 from app.services.edgar.exceptions import EdgarError as SECEdgarServiceError
+from app.services.durable_tasks import enqueue_task, TaskUnavailable
 from pydantic import BaseModel
 
 logger = logging.getLogger(__name__)
@@ -57,6 +59,24 @@ _refreshing_keys: set = set()
 # EFTS walk before the first one stamps history_backfilled_at. Keyed by company id; check-and-add is
 # synchronous (no await between), so it collapses the burst to one walk per company per process.
 _history_backfilling_ids: set = set()
+_visit_task_handoffs: dict[str, float] = {}
+
+
+async def _enqueue_visit_task(kind: str, payload: dict, *, key: str, seconds: int) -> None:
+    """A queue outage must not hide already-persisted filings from the reader."""
+    cache_key = f"{kind}:{key}:{json.dumps(payload, sort_keys=True)}"
+    now = utcnow().timestamp()
+    if now < _visit_task_handoffs.get(cache_key, 0):
+        return
+    try:
+        await enqueue_task(kind, payload, dedupe_key=key, dedupe_seconds=seconds)
+        expires = (int(now) // seconds + 1) * seconds
+    except (TaskUnavailable, ValueError):
+        logger.warning("On-visit task handoff unavailable kind=%s", kind)
+        expires = now + 10  # a brief outage cooldown keeps cached page loads fast
+    if len(_visit_task_handoffs) >= MAX_FILINGS_SYNC_ENTRIES:
+        _visit_task_handoffs.pop(next(iter(_visit_task_handoffs)), None)
+    _visit_task_handoffs[cache_key] = expires
 
 
 async def _refresh_company_filings(
@@ -260,7 +280,14 @@ async def get_company_filings(
     # the EFTS round-trips. Serving still uses whatever rows exist now; the backfill surfaces on the
     # next full-history fetch.
     if settings.ENABLE_HISTORY_BACKFILL_ON_VISIT and needs_history_backfill:
-        background.add_task(_run_history_backfill_on_visit, company_id)
+        if settings.DURABLE_TASKS_ENABLED:
+            # Release the serving read before any queue/control-plane wait.
+            db.close()
+            await _enqueue_visit_task(
+                "history", {"company_id": company_id}, key=f"history:{company_id}", seconds=300,
+            )
+        else:
+            background.add_task(_run_history_backfill_on_visit, company_id)
 
     # B2 fast path: a recently-synced ticker serves its list from the DB (already populated by a
     # prior live fetch) without the 3-5s SEC round-trip. Falls through to the DB-first / live paths
@@ -278,9 +305,15 @@ async def get_company_filings(
     # fetch below.
     cached = get_cached_filings()
     if cached:
-        background.add_task(
-            _refresh_company_filings, company_cik, ticker_upper, types_list, company_id
-        )
+        if settings.DURABLE_TASKS_ENABLED:
+            await _enqueue_visit_task(
+                "filings", {"company_id": company_id, "filing_types": types_list},
+                key=f"filings:{company_id}", seconds=int(FILINGS_LIST_TTL.total_seconds()),
+            )
+        else:
+            background.add_task(
+                _refresh_company_filings, company_cik, ticker_upper, types_list, company_id
+            )
         return cached
 
     try:
