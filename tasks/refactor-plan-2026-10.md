@@ -442,7 +442,7 @@ Dead code (zero callers in `app/`, `evals/`, `scripts/` by `git grep`): `_illega
 **Public surface.** One app importer: `backend/app/routers/analysis.py:39`
 (`from app.services import facts_service, trend_analysis_service`), which looks up `available_periods`
 (:158, :170), `build_dataset` (:207, :237), `has_cached_analysis` (:357), `stream_trend_narrative`
-(:374) and `PROMPT_VERSION` (:441) on the module object at call time. No `backend/evals/*.py` imports
+(:374) and `PROMPT_VERSION` (:441) on the module object at call time. No module under `backend/evals/` imports
 it. Tests import 23 names including privates (`_growth`, `_fmt_growth`, `_pp_delta`,
 `_point_citation`, `_cagr`, `_has_minimum_analysis_data`, `NOT_MEANINGFUL`):
 `backend/tests/unit/test_trend_analysis_service.py:16`, `backend/tests/unit/test_analysis_stream.py:16`,
@@ -582,7 +582,7 @@ backend/app/services/openai_service.py        ← façade + OpenAIService; summa
 
 **Anchor tests to add first** (O0, tests-only; fixtures are JSON, no provider calls):
 - A1 provider-request snapshot: patch `_request_content` and `_assemble_structured_summary` (pattern
-  `backend/tests/unit/test_verbatim_contract.py:167-196`), run `generate_structured_summary` for
+  `backend/tests/unit/test_verbatim_contract.py:170-193`), run `generate_structured_summary` for
   10-K, 10-Q, 20-F and 6-K with `sixk_class`, under `USE_STRUCTURED_OUTPUT` on and off, and compare the
   full `create_kwargs` (messages, model, temperature, max_tokens, response_format) to a fixture.
   Existing coverage is substring-only (`backend/tests/unit/test_structured_output_flag.py:36-76`,
