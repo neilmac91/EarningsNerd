@@ -60,6 +60,8 @@ what applies to your task. Filenames are greppable: `arch-*`, `sec-*`, `test-*`,
 
 ## Testing & verification
 
+- [`test-absence-claims-come-from-git-grep.md`](./test-absence-claims-come-from-git-grep.md) — Make an absence claim only from `git grep` over every tracked file (and never from a suffix allow-list in a test)
+
 - [`test-parser-callback-positions.md`](./test-parser-callback-positions.md) — Match whole-input callbacks to exact raw-source positions before accepting event capacity
 
 - [`test-adversarial-lens-verification.md`](./test-adversarial-lens-verification.md) — Verify large mechanical changes with independent adversarial lenses, not one review pass

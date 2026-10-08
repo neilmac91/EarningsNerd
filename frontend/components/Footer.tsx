@@ -31,7 +31,7 @@ export default function Footer() {
   return (
     <footer className="border-t border-border-light bg-background-light dark:border-white/[0.06] dark:bg-background-dark">
       <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
-        <div className="grid gap-10 md:grid-cols-[1.5fr_1fr_1fr_1fr]">
+        <div className="grid grid-cols-1 gap-10 md:grid-cols-[1.5fr_1fr_1fr_1fr]">
           {/* Brand column */}
           <div>
             <EarningsNerdLogo variant="icon-only" iconClassName="h-8 w-8" mode="auto" />

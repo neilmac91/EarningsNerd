@@ -12,7 +12,7 @@ import { directionChip } from '@/lib/financialTone'
  */
 export default function AuthShell({ children }: { children: React.ReactNode }) {
   return (
-    <div className="grid min-h-screen lg:grid-cols-2">
+    <div className="grid grid-cols-1 min-h-screen lg:grid-cols-2">
       {/* Form pane */}
       <div className="flex min-h-screen flex-col bg-background-light dark:bg-background-dark">
         <div className="flex items-center justify-between px-6 py-6 sm:px-10">
