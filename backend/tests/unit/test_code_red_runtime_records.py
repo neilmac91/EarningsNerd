@@ -125,17 +125,21 @@ COMMITTED_OFF_TREE_ROWS = (
 # A claude.ai address that is not the session link: the host (not a label of another domain, whose letters, digits and
 # inner hyphens are ASCII in these lower-cased readings, nor a segment of another path; a trailing dot or a port allowed)
 # followed by a slash or a backslash and anything but ``code/session_<id>`` ending there.
-# The id is the session's own or a written placeholder (``<id>``, ``{id}``, an ellipsis, or nothing, since the markup
-# reading drops an ``<id>`` tag and an emphasis underscore; no other letter follows ``session``); after it only sentence
-# or emphasis punctuation may follow before whitespace, a closing bracket, quote (typographic included), pipe or tag, a
-# dash, or a Markdown hard line break (before any line ending).
+# The id is the session's own or a written placeholder (``<id>``, ``{id}``, ``*`` or an ellipsis; the markup reading, which
+# would drop an ``<id>`` tag and the emphasis underscore before a placeholder, reads every placeholder as a plain id), so
+# the bare route and an empty id are not the session link; after it only sentence or emphasis punctuation may follow
+# before whitespace, a closing bracket, quote (typographic included), pipe or tag, a dash, or a Markdown hard line break
+# (before any line ending).
 # Every artifact and gallery route, dot segments, ports and escapes included, is therefore an offender, while the name
 # alone in prose ("a private claude.ai artifact") is not.
 PRIVATE_LINK = re.compile(
     r"(?<![0-9a-z])(?<![0-9a-z]-)(?<!\w[/\\])claude\.ai\.?(?::\d*)?[/\\]"
-    r"(?!code/session(?:_[0-9a-z]*|_?(?:<[a-z ]{0,16}>|\{[a-z ]{0,16}\}|\.\.\.))?[.,;:!?*_~]*"
+    r"(?!code/session_(?:[0-9a-z]+|<[a-z -]{0,32}>|\{[a-z _-]{0,32}\}|\.\.\.|\*)[.,;:!?*_~]*"
     r"(?:\Z|[\s)\]\"'`>|<\u2013\u2014\u2019\u201d\u00bb\u203a]|\\(?=[\r\n]|\Z)))"
 )
+# A written placeholder for the session id: the markup reading replaces it with a plain id before removing markup, which
+# would drop an ``<id>`` tag and the emphasis underscore before ``{id}``, ``*`` or an ellipsis.
+SESSION_PLACEHOLDER = re.compile(r"session_(?:<[a-z -]{0,32}>|\{[a-z _-]{0,32}\}|\.\.\.|\u2026|\*)", re.IGNORECASE)
 # A code span that closes directly after a session link (then a slash and a second code span, or a hyphenated word): the
 # markup reading leaves a space where that backtick was, so text written right after the code span is not read as part of
 # the link.
@@ -623,7 +627,7 @@ def _readings(text: str) -> tuple[set[str], set[str]]:
     decoded, and once more after removing terminal codes and decoding the JSON escapes a single time, as a JSON consumer
     does, so a backslash that a later decoding step produces is not read as an escape) and the address readings (escapes
     decoded, backslashes kept)."""
-    sources = (text, MARKUP.sub("", SESSION_CODE_END.sub(r"\1 ", text)))
+    sources = (text, MARKUP.sub("", SESSION_CODE_END.sub(r"\1 ", SESSION_PLACEHOLDER.sub("session_id", text))))
 
     folded: dict[tuple[str, bool, bool], str] = {}
 
