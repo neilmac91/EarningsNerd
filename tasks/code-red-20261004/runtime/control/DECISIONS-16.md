@@ -25,17 +25,22 @@ records name; every candidate manifest; the rules and the other blockers; a repo
 files except the acceptance evidence directory and `tasks/review-evidence/`); three independent path-forward designs
 (integrity-first, progress-first, governance-first); three judges (a records auditor, a custody-risk officer, a CEO lens), who
 split one vote each; two adversarial refuters of the leading design. No source material, custody input, custodian mapping or excluded
-path was opened; nothing was sent anywhere. Two disclosed deviations: some readers grepped code lines beyond the label's stated scope
-(H20 acceptance modules and test fixtures under `backend/evals/` and `backend/tests/`, for identities and wording only, no values
-read); one judge wrote and deleted a temporary scratchpad file to recompute a digest. Closure 167 registers all 13 identities and
-annotates both.
+path was opened; nothing was sent anywhere. Disclosed deviations (from the agents' transcripts, after review): (1) scope — several
+of the 13 agents (readers, designers and judges) read code, `lessons/` and `tasks/todo.md` lines beyond the label's stated
+"committed records and committed E7 constants", among them the H20 acceptance modules and test fixtures under `backend/evals/`
+and `backend/tests/`, for identities and wording; one reader read the H20 accession constant there (an identity, not a source
+value); (2) writes outside the repository, against the label's "no writes" — `read:repo-crosscheck` wrote `ids.txt` (committed
+record hashes with their file names) and `judge:1` wrote `p16.txt` (449 B: the binding preimage of committed control hashes, byte
+counts and file names) into the chief's scratchpad, both still there; `judge:3` wrote the same preimage to a scratchpad file and
+deleted it. Record 16 as first pushed attributed the only write to `judge:3`; that was wrong. Closure 167 registers all 13
+identities and annotates each of these.
 
 **The answers (the chief's bounded reading of committed evidence, not a custodian designation).**
 
 | Return field (record 14) | Chief's answer | Basis |
 |---|---|---|
-| `governed_set` | **Not determinable from committed evidence.** Record 05's predicate, read as written, governs the clean approved inputs that the retained custody and control chain selects for the registered planner, with the governing controls released alongside ("restore the custody/control chain first, then the inputs it selects"; "every selected original and governing control"; record 03: "whatever the custody process releases as clean approved inputs"). No record names that set by count or category. Candidate populations, by category only: (i) the 69 recovered planning-folder files (21 bootstrap + 48 predecessor) or a control-selected subset of them; (ii) H20's frozen source packets or source units under PR1084's offline custody, whose packet-contract and unit-manifest identities were pinned externally before recovery; (iii) the predecessor planner's private clean inputs named in `R1-STATUS.md`. The "69" is a two-folder file count (the custody tool counts every regular file), and those folders also hold controls | Records 03, 05, 11, 14; `R1-STATUS.md`; `tools/h20-custody-check.sh` |
-| `authoritative_manifest_exists` | **Not established in committed or relayed evidence; non-existence not proven** (bounded to Astra's searches for records 10, 12 and 14 and to tracked files outside the two excluded directories). The committed evidence shows pre-recovery per-member references (SHA-256 and byte length) for at most about 17 of the 69 (record 05's table: 11 verified; record 08: two control anchors and 15 predecessor pairs). The selection controls the records name — the allowlist successor `4987539c…` (2,020 B), the controls package's `01-INPUT-SELECTION.md` `b1cf7fd6…` (3,793 B), the receipt template `b06cf6a0…` (898 B) — were checked by hash only and never read by the chief; by size none can carry 69 SHA-256 digests, but each may designate the set | Records 04, 05, 08, 10, 12, 14; `git grep` |
+| `governed_set` | **Not determinable from committed evidence.** Record 05's predicate, read as written, governs the clean approved inputs that the retained custody and control chain selects for the registered planner, with the governing controls released alongside ("restore the custody/control chain first, then the inputs it selects"; "every selected original and governing control"; record 03: "whatever the custody process releases as clean approved inputs"). No record names that set by count or category. Candidate populations, by category only: (i) the 69 recovered planning-folder files (21 bootstrap + 48 predecessor) or a control-selected subset of them; (ii) H20's frozen source packets or source units under PR1084's offline custody, whose packet-contract and unit-manifest identities were pinned externally before recovery; (iii) the predecessor planner's private clean inputs named in `R1-STATUS.md`. The "69" is a two-folder file count (the custody tool counts every regular file), and those folders also hold controls | Records 03, 05, 06 (the R1 row), 11, 14; `R1-STATUS.md` (and the `MILESTONE-778e639a.json` it cites); `backend/evals/acceptance_h20_*_inputs.py` (identities only); `tools/h20-custody-check.sh` |
+| `authoritative_manifest_exists` | **Not established in committed or relayed evidence; non-existence not proven** (bounded to Astra's searches for records 10, 12 and 14 and to tracked files outside the two excluded directories). The committed evidence shows pre-recovery per-member references (SHA-256 and byte length) for at most about 17 of the 69 (record 05's table: 11 verified; record 08: two control anchors and 15 predecessor pairs; the bound assumes record 05's 11 are among record 08's 17). The selection controls the records name — the allowlist successor `4987539c…` (2,020 B), the controls package's `01-INPUT-SELECTION.md` `b1cf7fd6…` (3,793 B), the receipt template `b06cf6a0…` (898 B) — were checked by hash only and never read by the chief; by size none can carry 69 SHA-256 digests in hex (about 4.4 KB before any names; in base64, about 3.0 KB, the 3,793 B file could), but each may designate the set | Records 04, 05, 08, 10, 12, 14; `git grep` |
 | `authoritative_manifest_sha256` / `_bytes` / `provenance` | null | — |
 | `minutes_used` | 0 against the R1 allowance (the chief's investigation is not allowance time) | Record 12 |
 
@@ -82,7 +87,10 @@ successor's hash used as a manifest identity; the E7 triple; any list or manifes
   controls that already existed, never a manifest computed from current bytes; the allowlist successor may serve as the designating
   control but never as a reference or as the field value. **Form (b) takes effect only on one written line from the founder — "I adopt
   record 16's form (b) for R1" — which can travel with the step-A answer**, so it costs no extra round trip and is the founder's own
-  word, not an inference. The comparison then runs under the existing gate as in A.
+  word, not an inference. Adopting form (b) is the founder's supersession of record 05's predicate value — the field becomes the
+  hash of a new binding statement instead of one that comes from the existing custody process — and record 17 records it as such.
+  The binding statement is produced on the custody side (Astra); the chief only recomputes its SHA-256 and bytes. The comparison
+  then runs under the existing gate as in A.
 - **C — no designating control, or incomplete coverage, or disagreeing references.** R1 stays NOT_RELEASED; the chief records the
   counts. What remains is founder-only, each in the founder's own words in its own record: (W1) releasing only the covered subset (an
   omission, record 05's scope decision); (W2) re-baselining from recovered bytes; (W3) binding to the E7 triple; (W4) accepting
@@ -108,8 +116,8 @@ commit again, the chief reports the denial and does not route around it.
 **Investigation before applying** (closure 166's label; workflow `wf_6eb86498-eec`, six read-only agents, 06:04–07:11Z; resolved
 with the PR's review contexts in a later closure). Findings the chief verified:
 
-1. The patch no longer applies whole: its service hunk fails since PR #1117 (Docker layer caching) and PR #1122 (private task
-   worker) rewrote the deploy job; the job, docs and test hunks apply.
+1. The patch no longer applies whole: its service hunk fails since PR #1122 (private task worker) rewrote the deploy job (at PR
+   #1117 every hunk still applied, at offset +23); the job, docs and test hunks apply.
 2. **PR #1122's private task worker is a new SEC-calling process** (each task runs in a child process that inherits the worker's env
    and reaches SEC); the original gate passes with it unpinned. The port pins it and extends the gate to every Cloud Run update step.
    The worker's deploy step runs only with `GCP_DURABLE_TASKS_ENABLED=true` (off on the last deploy), so its pin takes effect when it
@@ -120,8 +128,10 @@ with the PR's review contexts in a later closure). Findings the chief verified:
 4. **Jobs at 1 + 1 have ample headroom:** notable-filings at most ~100 s of SEC time against a 900 s timeout; earnings-calendar
    refresh at most ~40 s against 1,800 s; pregenerate under a minute; backfill-facts about 0 requests; digest, alerts and retention 0;
    filing-scan ~1.05 s per watched company against 1,800 s (fails only above ~1,700 watched companies).
-5. **The API service at 1 + 1 breaks the insider panel's first view:** a cold fetch makes one submissions request and up to 60 Form 4
-   downloads through edgartools — at least ~63 s at 1 req/s, past the 60 s server and 30 s client timeouts — and the abandoned
+5. **The API service at 1 + 1 breaks the insider endpoint's cold fetch** (`GET /api/companies/{ticker}/insiders`; its company-page
+   panel ships behind `NEXT_PUBLIC_ENABLE_INSIDER_ACTIVITY`, off by default and documented as off in production, but the endpoint
+   is public with a 30 per minute per-IP limit): a cold fetch makes one submissions request and up to 60 Form 4 downloads through
+   edgartools — at least ~63 s at 1 req/s, past the 60 s server and 30 s client timeouts — and the abandoned
    thread keeps the instance's whole edgartools budget and one of its four pool threads; summary grounding then falls back under
    concurrency, and timeouts count toward the SEC circuit breaker (5 consecutive failures; 30 s recovery).
 6. Rollback is not a revert: `--update-env-vars` only sets keys, so a rollback must set or remove both keys explicitly.
@@ -129,15 +139,20 @@ with the PR's review contexts in a later closure). Findings the chief verified:
 
 **The founder's choice: staged.** Stage 1 (the D3 PR, next): pin both SEC buckets to 1 on the eight jobs and the task worker; extend
 the gate; docs state the staged arithmetic; one `backend/docs/` paragraph makes the merge deploy. Stage 2 (a later PR): make the
-insider panel fit the budget and pin the API service, which completes the fleet bound. Until stage 2 the two service instances stay at
-the defaults (10 + 9 each), the dominant unbounded term; the fleet does not meet SEC's 10 req/s per-user cap by configuration until
-stage 2 lands. Stage 2 touches `backend/app/`, so it also arms `eval-baseline`.
+insider endpoint fit the budget and pin the API service, which completes the per-process pins. Until stage 2 the two service instances
+stay at the defaults (10 + 9 each), the dominant unbounded term. After stage 2 the configured Monday 07:00 UTC overlap is 10 req/s
+with the task worker disabled — at the cap, no headroom — and 12 req/s with it enabled (10 counting only the bucket each job uses);
+1 + 1 is the per-process floor, so no setting brings that overlap back to the cap, and enabling durable tasks is a founder decision
+(founder item below). Stage 2 touches `backend/app/`, so it also arms `eval-baseline`.
 
 **Execution rules.** Stage 1 is code-bearing: the lean three-lens review and one delta reviewer (closure 166's label); a ledger
 reservation of USD 0.060000 written before the PR leaves draft and before each push while it is ready (`copilot-eval` runs on
 `backend/**`); Codex reviews it; merge only with every check green; the deploy log verified (eight jobs updated with maps ending in
-both pins; the worker step skipped while disabled; the service unchanged). Stage 2's contexts are pre-registered in closure 167; its
-reservation is sized for `copilot-eval` and `eval-baseline` together before it leaves draft.
+both pins; the worker step skipped while disabled; the service redeployed with the new image and its SEC env still at the
+defaults). Stage 2's contexts are pre-registered in closure 167. `eval-baseline` has no draft guard (it runs on every
+`pull_request` event whose diff touches `backend/app/`, `backend/evals/` or `backend/prompts/`, draft or not; record 10 shows it on
+a draft head), so stage 2's `eval-baseline` reservation is written before its first push of such a change and before each later
+one; its `copilot-eval` reservation before it leaves draft and before each push while ready.
 
 ## PR #1128 review record closed (decision record 15)
 
@@ -160,24 +175,42 @@ reservation is sized for `copilot-eval` and `eval-baseline` together before it l
   `record-16-reviewer-01`.
 - `control/source-context-exclusion-167.json` (492 → 506): resolves `custody-question-investigation-01` to the 13
   launch-time identities of workflow `wf_283b58bb-e1f` (registered as `claude-code-workflow:<workflow>:<agent>:<label>`), annotated with
-  the two disclosed deviations; pre-registers `d3-stage-2-pr-01` (the stage-2 PR's investigation, three-lens review with refuters and
+  its disclosed deviations; pre-registers `d3-stage-2-pr-01` (the stage-2 PR's investigation, three-lens review with refuters and
   delta reviewer). `d3-sec-budget-pr-01` stays provisional until its review contexts have run; its six investigation agents
-  (`wf_6eb86498-eec`) are resolved with them. Disclosed for that workflow: one agent ran `git fetch origin main` in the main checkout
-  (it moved the remote-tracking ref only); the cross-checker wrote two candidate patch files into the chief's scratchpad, outside the
-  repository; candidate ports were tried only in isolated copies. No context gains source A/B, reconciliation or blind financial judging
-  eligibility; all earlier identities and adverse histories retained.
+  (`wf_6eb86498-eec`) are resolved with them. Disclosed for that workflow (from its transcripts, after review; the first push of this
+  record listed only a fetch and two patch files, which understated it):
+  - **Three live SEC requests.** `investigate:production-risk` fetched the submissions JSON of three issuers (CIKs 320193, 19617 and
+    895421) from `data.sec.gov` at 06:49:00–06:49:05Z, 1.5 s apart, with an EarningsNerd contact User-Agent, into `/tmp`, to count
+    Form 4 filings. No other agent of either workflow called SEC; the limiter probes ran offline.
+  - **Package downloads and installs from PyPI.** `investigate:limiters` downloaded the edgartools 5.58.0 wheel (06:05Z) and
+    `investigate:production-risk` three wheels (edgartools, httpxthrottlecache and pyrate-limiter; 06:33Z) to compare with the pinned
+    release, and installed pydantic-settings and httpx into a throwaway `/tmp` environment (06:42Z); `investigate:patch-fit` created
+    `venv-d3` in the chief's scratchpad and installed the backend runtime and development requirements into it (06:18Z, 06:25Z), which
+    `investigate:docs-tests` and the cross-checker then used to run the suite.
+  - **`git fetch`** in the main checkout by all six agents (remote-tracking refs only; no checkout, commit or push).
+  - **Scratchpad writes, outside the repository:** `ci-main.yml`, `ops-main.yml` and `deployment-main.md` (copies of tracked files;
+    `investigate:topology`); `d3-port-check/`, `d3-mutate.py`, `d3-full-pytest.log` and two port patches (`investigate:patch-fit`);
+    two candidate patches (the cross-checker). Copies, clones and one temporary worktree under `/tmp` (the worktree removed by its
+    author); candidate ports tried only in isolated copies.
+  No production, cloud, provider or repository write, and no excluded path opened. Closure 167 was amended in place before merge to
+  carry these annotations (it was never on main); its prior-record link is unchanged. No context gains source A/B, reconciliation or
+  blind financial judging eligibility; all earlier identities and adverse histories retained.
 
 ## Spend
 
 Since record 15: **0 DeepSeek calls; USD 0; 0 ledger events; 0 reservations** (headroom unchanged at 22.369715; holds 1.881713).
 External mutations by the chief: PR #1128 marked ready and squash-merged `a3bc888b`; this branch restarted and pushed; closure 166
-committed and pushed; draft PR #1129 opened (this record); main merged into it; no ledger write.
+committed and pushed; draft PR #1129 opened (this record); main merged into it (`24e86073`); record 16 pushed (`b8f737b0`); this
+review's corrections pushed; PR #1129's title and description edited; no ledger write.
 
 ## Founder actions this record needs
 
 1. **Custody step A (optional, no deadline):** relay the five-field metadata request above once to the custody side. If the answer is
    outcome B and you agree, add the one line "I adopt record 16's form (b) for R1".
-2. **D3:** nothing — staged as you chose; stage 1 is the next PR.
+2. **D3:** nothing now — staged as you chose; stage 1 is the next PR.
+3. **Durable tasks (future, before `GCP_DURABLE_TASKS_ENABLED` is turned on):** with the task worker enabled, the configured Monday
+   07:00 UTC overlap is 12 req/s against SEC's 10, and 1 + 1 is already the per-process floor. Decide then between moving a Monday
+   job, holding the worker off during that window, or accepting the overlap.
 
 Nothing in this record releases input, dispatches the planner, runs an export or operator leg, admits capacity, invites anyone,
 changes a flag, adds load, implements E09 beyond D3 as instructed, redefines record 05's gate or changes the accepted reporting

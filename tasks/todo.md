@@ -6450,7 +6450,9 @@ Full local and hosted verification plus independent exact-head review precede re
 - [ ] Founder (optional, no deadline): relay record 16's custody step A (five metadata fields) once; on outcome B, the one line
       "I adopt record 16's form (b) for R1".
 - [ ] Chief: D3 stage 1 PR (eight jobs + task worker pinned; reservation before ready; deploy verified), then stage 2 (insider
-      panel within the budget; API service pinned).
+      endpoint within the budget; API service pinned; `eval-baseline` reserved before its first `backend/app/` push, draft or not).
+- [ ] Founder (future, before durable tasks are enabled): the Monday 07:00 UTC overlap is then 12 req/s configured against SEC's
+      10 (record 16) — move a Monday job, hold the worker off in that window, or accept it.
 
 ## Copilot quotation rejection recovery — 2026-10-07
 
