@@ -5,6 +5,18 @@ Provides shared fixtures and markers for all test suites.
 """
 
 import os
+import shutil
+import tempfile
+
+# Every pytest process owns a private SQLite database in a fresh temp directory: one per session,
+# and under pytest-xdist one per worker (each worker is its own process and imports this file).
+# Set before any app import, so Settings reads it and app.database binds its engine to it. No test
+# touches backend/earningsnerd.db (the dev server's default), two runs in one worktree never share
+# a file, and every run starts from the current schema (create_all never ALTERs a stale file).
+# Unconditional like the keys below: a developer's own DATABASE_URL must never reach the suite.
+# Removed in pytest_unconfigure. Gate: tests/unit/test_test_database_isolation.py.
+_TEST_DB_DIR = tempfile.mkdtemp(prefix=f"earningsnerd-tests-{os.environ.get('PYTEST_XDIST_WORKER', 'main')}-")
+os.environ["DATABASE_URL"] = "sqlite:///" + os.path.join(_TEST_DB_DIR, "earningsnerd.db")
 
 # Set mock environment variables for all tests at module level to avoid Pydantic validation errors at import time
 os.environ["SECRET_KEY"] = "test-secret-key-must-be-long-enough-123"
@@ -25,6 +37,25 @@ os.environ["PWNED_PASSWORD_CHECK_ENABLED"] = "false"
 
 
 import pytest  # noqa: E402
+from sqlalchemy import Table, event  # noqa: E402
+
+
+@event.listens_for(Table, "before_create")
+def _sqlite_never_reuses_ids(table, connection, **kw):
+    """Every SQLite table the suite creates gets AUTOINCREMENT ids, as PostgreSQL sequences behave.
+
+    Without it SQLite hands out max(rowid)+1, so deleting a test's newest parent frees its id for the
+    next test. SQLite here enforces no foreign keys, so a child row the first test left behind (a
+    ``filing_content_cache`` row for its filing, say) then belongs to the next test's new filing and
+    silently reroutes that test. Covers the shared engine and every engine a test creates; a no-op
+    for composite and non-integer keys.
+    """
+    if connection.dialect.name == "sqlite":
+        table.dialect_options["sqlite"]["autoincrement"] = True
+
+
+def pytest_unconfigure(config):
+    shutil.rmtree(_TEST_DB_DIR, ignore_errors=True)
 
 
 @pytest.fixture(autouse=True)
