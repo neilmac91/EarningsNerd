@@ -1,31 +1,23 @@
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from fastapi.responses import JSONResponse
-from sqlalchemy import func
 from sqlalchemy.orm import Session
 from pydantic import BaseModel, field_validator
 from typing import List, Dict, Any, Optional
-from datetime import datetime, timezone
-from app.utils.datetimes import iso_z, utcnow
+from datetime import datetime
+from app.utils.datetimes import utcnow
 import logging
 
 from app.config import settings
 from app.database import get_db
-from app.models import (
-    BillingPayment,
-    Company,
-    Filing,
-    NotificationLog,
-    SavedSummary,
-    User,
-    UserSearch,
-    UserUsage,
-    Watchlist,
-)
+from app.models import User
 from app.routers.auth import get_current_user, _clear_auth_cookie, _clear_refresh_cookie
+# Module imports, not function imports: the service functions stay patchable at their home, and no
+# handler below can shadow a service function of the same name.
+from app.services import user_account_service, user_data_export_service, user_notification_feed_service
 from app.services.audit_service import log_user_deletion, log_data_export
 from app.services.entitlements import get_entitlements
 from app.services.notification_service import (
-    coerce_to_entitlement,
+    apply_preference_update,
     get_or_create_preferences,
 )
 
@@ -106,10 +98,7 @@ async def update_profile(
 ):
     """Update editable profile fields (currently the display name)."""
     data = payload.model_dump(exclude_unset=True)
-    if "full_name" in data:
-        current_user.full_name = data["full_name"]
-    db.commit()
-    db.refresh(current_user)
+    user_account_service.apply_profile_update(db, current_user, data)
     return {
         "id": current_user.id,
         "email": current_user.email,
@@ -193,13 +182,7 @@ async def update_notification_preferences(
     if "digest" in data and data["digest"] not in VALID_DIGESTS:
         raise HTTPException(status_code=400, detail=f"digest must be one of {sorted(VALID_DIGESTS)}")
 
-    for field, value in data.items():
-        setattr(prefs, field, value)
-
-    ent = get_entitlements(current_user)
-    coerce_to_entitlement(prefs, ent)  # force Pro-only toggles off if not entitled
-    db.commit()
-    db.refresh(prefs)
+    ent = apply_preference_update(db, prefs, data, current_user)
     return _prefs_response(prefs, ent)
 
 
@@ -225,63 +208,28 @@ class NotificationListResponse(BaseModel):
     unread_count: int
 
 
-def _as_utc(dt: Optional[datetime]) -> Optional[datetime]:
-    """Treat naive datetimes (SQLite) as UTC so aware/naive comparisons never raise."""
-    if dt is None:
-        return None
-    return dt if dt.tzinfo is not None else dt.replace(tzinfo=timezone.utc)
-
-
-def _unread_count(db: Session, user: User) -> int:
-    """Count of successfully-sent alerts logged since the user last opened the bell.
-
-    One aggregate statement (E10c): the bell polls this every minute per open session and the
-    log is never purged, so the count must not grow with account age. ``created_at`` is a
-    timezone-aware column; an aware-UTC bound value compares correctly on PostgreSQL
-    (timestamptz) and on SQLite (both sides are rendered as naive UTC text).
-    """
-    query = db.query(func.count(NotificationLog.id)).filter(
-        NotificationLog.user_id == user.id, NotificationLog.status == "sent"
-    )
-    seen = _as_utc(user.notifications_seen_at)
-    if seen is not None:
-        query = query.filter(NotificationLog.created_at > seen)
-    return query.scalar() or 0
-
-
 def _notifications_payload(db: Session, user: User, limit: int) -> NotificationListResponse:
     """Recent filing alerts (newest first) + unread count for the in-app bell.
 
-    Reads the same ``notification_log`` rows the alert scanner writes (channel-agnostic), so no
-    extra delivery path is needed — opening the bell surfaces whatever alerts were recorded.
+    The list is read and shaped before the count is taken, as one response.
     """
-    seen = _as_utc(user.notifications_seen_at)
-    rows = (
-        db.query(NotificationLog, Filing, Company)
-        .join(Filing, NotificationLog.filing_id == Filing.id)
-        .join(Company, Filing.company_id == Company.id)
-        .filter(
-            NotificationLog.user_id == user.id,
-            NotificationLog.status == "sent",
-        )
-        .order_by(NotificationLog.created_at.desc())
-        .limit(limit)
-        .all()
-    )
+    entries = user_notification_feed_service.recent_notifications(db, user, limit)
     items = [
         NotificationItem(
-            id=log.id,
-            filing_id=filing.id,
-            ticker=company.ticker,
-            company_name=company.name,
-            filing_type=filing.filing_type,
-            filing_date=filing.filing_date,
-            created_at=log.created_at,
-            read=bool(seen and (c := _as_utc(log.created_at)) and c <= seen),
+            id=entry.id,
+            filing_id=entry.filing_id,
+            ticker=entry.ticker,
+            company_name=entry.company_name,
+            filing_type=entry.filing_type,
+            filing_date=entry.filing_date,
+            created_at=entry.created_at,
+            read=entry.read,
         )
-        for log, filing, company in rows
+        for entry in entries
     ]
-    return NotificationListResponse(items=items, unread_count=_unread_count(db, user))
+    return NotificationListResponse(
+        items=items, unread_count=user_notification_feed_service.unread_count(db, user)
+    )
 
 
 @router.get("/me/notifications", response_model=NotificationListResponse)
@@ -305,12 +253,7 @@ async def mark_notifications_seen(
     response is built from a fresh, in-session user — robust regardless of ``expire_on_commit`` — and
     so it works for the test stand-in (a non-session user) too.
     """
-    user = db.get(User, current_user.id)
-    if user is not None:
-        user.notifications_seen_at = datetime.now(timezone.utc)
-        db.commit()
-    else:
-        user = current_user
+    user = user_notification_feed_service.mark_seen(db, current_user)
     return _notifications_payload(db, user, 20)
 
 
@@ -325,106 +268,7 @@ async def export_user_data(
     Returns all personal data associated with the user account in JSON format.
     """
     try:
-        # Collect profile data
-        profile_data = {
-            "user_id": current_user.id,
-            "email": current_user.email,
-            "full_name": current_user.full_name,
-            "is_active": current_user.is_active,
-            "is_pro": current_user.is_pro,
-            "stripe_customer_id": current_user.stripe_customer_id,
-            "stripe_subscription_id": current_user.stripe_subscription_id,
-            "created_at": current_user.created_at.isoformat() if current_user.created_at else None,
-            "updated_at": current_user.updated_at.isoformat() if current_user.updated_at else None,
-        }
-
-        # Collect search history
-        searches = db.query(UserSearch).filter(UserSearch.user_id == current_user.id).all()
-        searches_data = [
-            {
-                "id": search.id,
-                "query": search.query,
-                "company_id": search.company_id,
-                "created_at": search.created_at.isoformat() if search.created_at else None,
-            }
-            for search in searches
-        ]
-
-        # Collect saved summaries
-        saved_summaries = db.query(SavedSummary).filter(SavedSummary.user_id == current_user.id).all()
-        saved_summaries_data = [
-            {
-                "id": summary.id,
-                "summary_id": summary.summary_id,
-                "notes": summary.notes,
-                "created_at": summary.created_at.isoformat() if summary.created_at else None,
-            }
-            for summary in saved_summaries
-        ]
-
-        # Collect watchlist
-        watchlist = db.query(Watchlist).filter(Watchlist.user_id == current_user.id).all()
-        watchlist_data = [
-            {
-                "id": item.id,
-                "company_id": item.company_id,
-                "created_at": item.created_at.isoformat() if item.created_at else None,
-            }
-            for item in watchlist
-        ]
-
-        # Collect usage data
-        usage = db.query(UserUsage).filter(UserUsage.user_id == current_user.id).all()
-        usage_data = [
-            {
-                "id": usage_item.id,
-                "month": usage_item.month,
-                "summary_count": usage_item.summary_count,
-                "created_at": usage_item.created_at.isoformat() if usage_item.created_at else None,
-                "updated_at": usage_item.updated_at.isoformat() if usage_item.updated_at else None,
-            }
-            for usage_item in usage
-        ]
-
-        # Export every retained observation owned by this account, across live/test modes.
-        payments = db.query(BillingPayment).filter(BillingPayment.user_id == current_user.id).all()
-        payments_data = [
-            {
-                "stripe_payment_id": payment.stripe_payment_id,
-                "livemode": payment.livemode,
-                "stripe_invoice_id": payment.stripe_invoice_id,
-                "source_event_id": payment.source_event_id,
-                "source_api_version": payment.source_api_version,
-                "amount_minor": payment.amount_minor,
-                "currency": payment.currency,
-                "payment_type": payment.payment_type,
-                # SQLite drops timezone metadata; both columns store UTC instants.
-                "paid_at": iso_z(payment.paid_at.replace(tzinfo=timezone.utc) if payment.paid_at.tzinfo is None
-                                 else payment.paid_at.astimezone(timezone.utc)),
-                "observed_at": iso_z(payment.observed_at.replace(tzinfo=timezone.utc) if payment.observed_at.tzinfo is None
-                                     else payment.observed_at.astimezone(timezone.utc)),
-                "subscription_invoice": payment.subscription_invoice,
-                "user_id": payment.user_id,
-                "attribution": payment.attribution,
-                "stripe_customer_id": payment.stripe_customer_id,
-                "stripe_subscription_id": payment.stripe_subscription_id,
-                "is_beta_observed": payment.is_beta_observed,
-                "invite_cohort_observed": payment.invite_cohort_observed,
-                "billing_cycle": payment.billing_cycle,
-            }
-            for payment in payments
-        ]
-
-        # Compile export
-        export_data = {
-            "profile": profile_data,
-            "searches": searches_data,
-            "saved_summaries": saved_summaries_data,
-            "watchlist": watchlist_data,
-            "usage": usage_data,
-            "billing_payments": payments_data,
-            "export_timestamp": utcnow().isoformat(),
-        }
+        export_data = user_data_export_service.build_user_data_export(db, current_user)
 
         logger.info(f"User data export completed for user {current_user.id}")
 
@@ -538,8 +382,7 @@ async def delete_user_account(
         )
 
         # Delete user from database (cascade delete will handle related records)
-        db.delete(current_user)
-        db.commit()
+        user_account_service.delete_user(db, current_user)
 
         # Clear all session cookies (access + session-presence + refresh) using the same helpers
         # as logout. The previous code cleared a non-existent "auth_token" cookie, leaving the real
@@ -563,7 +406,7 @@ async def delete_user_account(
         }
 
     except Exception as e:
-        db.rollback()
+        user_account_service.rollback_account_deletion(db)
         logger.error(f"Error deleting user account {current_user.id}: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
