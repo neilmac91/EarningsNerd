@@ -71,7 +71,7 @@ Dependency versions (from the diffs):
 | #1111 | 19:27:10Z (run 37674586346) | all green incl. eval-baseline, copilot-eval 37674643226 | review 5447320533 completed 19:30:46Z on `e2b4db6`, 1 unresolved P2 | body: "Deployment held"; new-head live artifacts required before merge | Codex lane, pushed < 1 h → **observe-only** |
 | #1110 | 19:23:13Z (run 37674087146) | all green; draft skips | 9 Codex reviews on older heads (last `e0f0086` 10:30:18Z); none on `0eac387` | none; DECISIONS-14 "Other executable work" item 2 names it | CODE RED chief, pushed < 1 h → **observe-only** |
 | #1108 | 18:17:28Z (run 37665686446) | CI green; review-gate 37676954482 in progress (marked ready 19:45:58Z by the owner account) | review running since 19:46:03Z on `6f6d85b` | none | product lane (EN-03), pushed < 12 h, marked ready during this read → **observe-only** |
-| #1107 | 18:18:37Z (run 37665833559; commits dated 00:34Z, pushed later) | CI green; review-gate 37676929238 in progress (marked ready 19:45:46Z) | review running since 19:45:50Z on `7d96c11` | none | product lane (EN-02), pushed < 12 h, live sibling #1108 → **observe-only** |
+| #1107 | 18:18:37Z (run 37665833559; commits dated 00:34Z, pushed later) | CI green; review-gate 37676929238 in progress (marked ready 19:45:44Z) | review running since 19:45:50Z on `7d96c11` | none | product lane (EN-02), pushed < 12 h, live sibling #1108 → **observe-only** |
 | #1102 | 2026-10-06T06:24:24Z | CI green; review-gate failed (no Codex review; Dependabot PRs do not trigger Codex) | none | none | Dependabot, no live owner → actionable |
 | #1097 | 2026-10-05T07:46:44Z | review-gate failed; **secret-scan failed** (see below) | none | none | Dependabot → actionable |
 | #1096 | 2026-10-05T07:46:30Z | **backend-tests failed**; secret-scan failed; copilot-eval failed (no secrets on Dependabot runs); review-gate failed | none | none | Dependabot → actionable |
@@ -114,9 +114,9 @@ not trigger Codex by themselves; an owner `@codex review` comment is needed (pre
 | # | Dispatch | Reserved | Telemetry actual | Status |
 | --- | --- | --- | --- | --- |
 | D1 | #1119 (replaces #1096) `eval-baseline` by workflow dispatch on `claude/pr1096-deps-without-edgartools` at `76d2ba6d`, run [37695333206](https://github.com/neilmac91/EarningsNerd/actions/runs/37695333206), 22:18:33Z (off-peak; balance 37.57 at 22:18:07Z) | 0.40 | **0.175148** (70 calls, 0 unknown; off-peak tokens × `llm_pricing`) | done: expected=attempted=scored=70, errors 0, pass_rate 1.0, gate_fail_rate 0.0; regression gate PASS (2 warnings: untraceable dollar figures 1.614 advisory; `mean_citation_fidelity` 0.8615 vs pinned 0.9648, checked below); artifact 11515377659 sha256 `ff36d3a2…` |
-| D2 | #1119 ready transition 22:18:43Z → `copilot-eval` run [37695352886](https://github.com/neilmac91/EarningsNerd/actions/runs/37695352886) at `76d2ba6d` (one run, E1 precedent) | 0.05 | **0.006611** (35 calls, 0 unknown, 0 peak) | done: **accepted, 18/18, 0 errors**; fingerprint `aeb56401`; artifact 11515695532 sha256 `e6af7057…` |
+| D2 | #1119 ready transition 22:18:41Z → `copilot-eval` run [37695352886](https://github.com/neilmac91/EarningsNerd/actions/runs/37695352886) at `76d2ba6d` (one run, E1 precedent) | 0.05 | **0.006611** (35 calls, 0 unknown, 0 peak) | done: **accepted, 18/18, 0 errors**; fingerprint `aeb56401`; artifact 11515695532 sha256 `e6af7057…` |
 | D3 | #1127 (replaces Dependabot #1124: openai 3.24.0, posthog 7.62.1) `eval-baseline` by workflow dispatch on `claude/pr1124-backend-minor-updates` at `4fbec187`, run [37704631398](https://github.com/neilmac91/EarningsNerd/actions/runs/37704631398), 23:51:46Z (off-peak; balance 36.83 at 23:51:42Z) | 0.40 | **0.175076** (70 calls, 0 unknown; off-peak tokens × `llm_pricing`) | done: expected=attempted=scored=70, errors 0, pass_rate 1.0, gate_fail_rate 0.0; regression gate PASS (2 warnings: untraceable dollar figures 1.4 advisory; `mean_citation_fidelity` 0.8514 vs pinned 0.9648, the same harness fallback as D1); artifact 11519073370 sha256 `e3378f1f…` |
-| D4 | #1127 ready transition 23:52:02Z → `copilot-eval` run [37704656898](https://github.com/neilmac91/EarningsNerd/actions/runs/37704656898) at `4fbec187` (one run, E1 precedent) | 0.05 | **0.006423** (34 calls, 0 unknown, 0 peak) | done: **accepted, 18/18, 0 errors**; artifact 11518798415 sha256 `60495688…` |
+| D4 | #1127 ready transition 23:52:01Z → `copilot-eval` run [37704656898](https://github.com/neilmac91/EarningsNerd/actions/runs/37704656898) at `4fbec187` (one run, E1 precedent) | 0.05 | **0.006423** (34 calls, 0 unknown, 0 peak) | done: **accepted, 18/18, 0 errors**; artifact 11518798415 sha256 `60495688…` |
 | | **Total** | | **0.363258** of 3.00 | |
 
 ## Lanes (Stage 1 triage, main `335ad94b` after #1111 merged at 20:01Z)
@@ -171,13 +171,22 @@ advisory; extract-zip #270 / #283 stay held (decision I).
 ## Final report (2026-10-08)
 
 **Count.**
-- **Open at the start:** 12 PRs, plus this checkpoint. 8 of the 12 now have a final state (merged,
-  replaced and closed, or closed). The other 4 stay open on purpose: #1009 and #1035 are held, and
-  #1108 and #1110 belong to live lanes.
-- **Opened during the run:** 15 PRs (#1113–#1127): 3 by this session (#1116, #1119, #1127), 4 by
-  Dependabot (#1114, #1115, #1124, #1125) and 8 by live lanes. Each has a state in the second
-  table.
-- **Open at the end:** «TBD».
+- **Open at the start:** 12 PRs. 7 of them reached a final state during the run: merged, replaced
+  and closed, or closed. #1074 closes once this PR lands its evidence on main. That leaves 4 open on
+  purpose: #1009 and #1035 are held, and #1108 and #1110 belong to live lanes.
+- **Opened during the run:** 16 PRs. One is this checkpoint, #1112 (19:47Z). The other 15 are
+  #1113–#1127: 3 by this session (#1116, #1119, #1127), 4 by Dependabot (#1114, #1115, #1124, #1125)
+  and 8 by live lanes. Each has a state in the second table.
+- **Open at the end:** 12 at 00:16Z, just before this PR merged. They are #1009, #1035, #1074, #1108,
+  #1110, #1112, #1113, #1118, #1120, #1121, #1123 and #1126. Merging this PR and closing #1074 brings
+  the count to **10**:
+  - 2 held: #1009 and #1035;
+  - 8 owned by live lanes: #1108, #1110, #1113, #1118, #1120, #1121, #1123 and #1126.
+
+  28 PRs passed through the run: 12 open at the start and 16 opened during it. The sweep merged 7:
+  #1102, #1081, #1116, #1119, #1125, #1127 and this PR. It closed 5 without merging: #1095, #1097,
+  #1096 and #1124, plus #1074 right after this PR. Owner lanes merged 4 (#1111, #1107, #1117 and
+  #1122), and Dependabot closed 2 of its own (#1114 and #1115).
 
 ### Open at start
 
@@ -192,7 +201,7 @@ advisory; extract-zip #270 / #283 stay held (decision I).
 | #1096 | maintainer replacement without edgartools 5.59.1 | **#1119 merged** `111e8ce4`, deployed; #1096 **closed** | D1 70/70 PASS; D2 18/18; three-lens exact-head review clean; deploy job 113066259541 (first Buildx deploy): `applied=0 skipped=41`, `00446-vhw` 100%, healthy; release comment 6048886899; comment 6048731593 |
 | #1095 | founder decision → keep SQLAlchemy 2.0 | **closed** | comment 6046972898; the Dependabot `ignore` for sqlalchemy semver-minor landed in #1119 |
 | #1081 | integrate main, fix the gate gap, review, merge | **merged** `4e8252be` | two review rounds; four Codex rounds (three P2s fixed, two fail-closed P2s answered); the final rule reports exactly the 20 fixed sites on main; Vercel production success 23:56:08Z; `www` and `/pricing` 200; comment 6049249453 |
-| #1074 | measurement only, never merges | «TBD: closed after this PR merges» | its 30 evidence files are on main through this PR (`tasks/review-evidence/prompt-candidate-2026-10-02/`); a closing comment points there |
+| #1074 | measurement only, never merges | **closed, never merged**, right after this PR merges | its 30 evidence files land on main with this PR (`tasks/review-evidence/prompt-candidate-2026-10-02/`), and the closing comment points there. The closure is verified in the founder message, not in this file, because this file merges first |
 | #1035 | hold | **held draft** | hold record refreshed: comment 6046968560 |
 | #1009 | hold (pricing) | **held draft** | hold record refreshed: comment 6046965161 |
 
@@ -200,7 +209,7 @@ advisory; extract-zip #270 / #283 stay held (decision I).
 
 | PR | Owner / lane | Outcome |
 | --- | --- | --- |
-| #1112 | this checkpoint | «TBD: merged» |
+| #1112 | this checkpoint | merged as the run's last step after a Codex review of its exact head. The merge SHA is in the founder message |
 | #1113 | product lane (EN-01 follow-up) | **open**, observe-only. One should-fix: no test pins the `setTimeout(0)` reset of the in-panel click marker (`FilingWorkspace.tsx:220`) |
 | #1114, #1115 | Dependabot (sharp security group; next 16.4.0) | closed 21:38–21:39Z after #1116 merged; not closed by this session |
 | #1116 | this session (replaces #1097) | **merged** `b96457d1` |
@@ -210,7 +219,7 @@ advisory; extract-zip #270 / #283 stay held (decision I).
 | #1122 | Codex lane (durable background tasks) | **merged by its owner** `6393518c` at 23:19Z; deploy job 113068536115 succeeded (`00447-hlv` 100%, healthy) |
 | #1124 | Dependabot pip (openai 3.24.0, posthog 7.62.1) | **closed** as superseded by #1127 (comment 6049316739) |
 | #1125 | Dependabot frontend (4 updates) | **merged** `0a5eeccc`: Codex no findings; local gate; independent review clean; Vercel production success; comment 6049203118 |
-| #1127 | this session (replaces #1124) | «TBD: merged and deployed» |
+| #1127 | this session (replaces #1124) | **merged** `41248d01`, deployed and verified. Deploy job 113080756294: `applied=0 skipped=41`; `00448-qk7` at 100% from 00:10:40Z; in-job health healthy at 00:11:20Z; independent `/health/detailed` 200 healthy at 00:12:01Z. Release comment 6049437703 |
 
 ### Spend
 
@@ -228,7 +237,14 @@ balance is a cross-check, not the accounting.
   and `tasks/code-red-20261004/`.
 - Held items stay held: #1009, #1035, Dependabot alert #270 and D8 (its two branches kept). No PR
   marked "do not merge" or "measurement only" was merged.
-- No branch was deleted.
+- No branch was deleted by hand, and none of the 18 stale-inventory branches was touched.
+  **Correction (Stage 3):** this line first read "No branch was deleted", which was wrong. The
+  repository has `delete_branch_on_merge: true`, so GitHub removed the head branch of every PR merged
+  in the run: #1102, #1116, #1119, #1125, #1081 and #1127. Dependabot deleted its own branches when
+  #1095, #1096, #1097 and #1124 closed. Every one of those heads is kept in `refs/pull/<n>/head`, and
+  the merged ones are also on main as squash commits. Merging this PR removes
+  `claude/pr-disposition-sweep-64s71l` the same way. Repository settings are out of scope, so the
+  setting was left alone.
 - Every merge waited for: green checks, including Vercel; a completed Codex review of the exact head
   (no override was used, since quota was available); no standing blocker or should-fix; and a
   re-read head SHA with squash + `expectedHeadSha`. Backend merges were serial, each confirmed by its
@@ -248,14 +264,13 @@ balance is a cross-check, not the accounting.
    retained draft no longer protected anything. Reopen it if you want the draft kept.
 3. **Eval harness section-extraction fallback.** Every 7 October eval-baseline run fell back to regex
    section extraction for 35/35 filings, against edgartools for 31/35 on 2–4 October. That drives
-   `mean_citation_fidelity` to 0.818–0.862 against the pinned 0.9648, a gate warning on every run.
+   `mean_citation_fidelity` to 0.818–0.871 (8 runs) against the pinned 0.9648, a gate warning on every run.
    `backend/evals/runner.py::_get_grounding` swallows the exception (`except Exception: sections =
    None`), so the cause is silent. The same call path is used in production. Worth a diagnosis PR.
-4. **Branch deletion (approval by name).** Merged and safe once this PR lands:
-   `claude/pr1096-deps-without-edgartools`, `claude/pr1097-frontend-minor-updates`,
-   `claude/zealous-albattani-6ti8cx`, `claude/pr1124-backend-minor-updates` and
-   `claude/pr-disposition-sweep-64s71l`. Stage 1's 14 "ask" branches, each cited in tasks/ evidence
-   or reserved by a closing comment:
+4. **Branch deletion (approval by name).** The merged sweep branches need no decision: GitHub's
+   delete-on-merge setting already removed them (see Boundaries kept), and it removes this PR's branch
+   when it merges. Stage 1's 14 "ask" branches are still there. Each is cited in tasks/ evidence or
+   reserved by a closing comment:
    - `claude/earnings-nerd-bundle-reconstruct-j65fj5`
    - `claude/g-stage1-arm-c`
    - `claude/g-stage2-arm-b`
@@ -312,14 +327,15 @@ balance is a cross-check, not the accounting.
   (`wf_be4079c4-111`), #1108 (`wf_93a7f868-83c`); dependency analysis for #1102, #1097, #1096, #1095
   (`wf_46d39ae7-80a`); holds, #1074 and the branch inventory (`wf_697de371-944`).
 - 19:51Z — Stage 0 readers complete (13/13). Codex quota available (see above). #1107 and #1108 were
-  marked ready by the owner account at 19:45:46Z and 19:45:58Z, during this read.
+  marked ready by the owner account at 19:45:44Z and 19:45:56Z, during this read.
 - 19:52Z — Dependabot failure logs read: #1095 psycopg driver default (blocker), #1096 Ford regression
   (blocker), 10-05 secret-scan false positive (cleared on main).
 - 20:01Z — #1111 merged by its owner (`335ad94b`) while its read-only review was running; main CI
   37678914838 success 20:13Z; `/health/detailed` healthy at 20:34:56Z (independent read).
 - 20:07–20:40Z — Stage 1 workflows complete: holds/#1074/branches (`wf_697de371-944`), #1081, #1108,
   #1107, #1110, #1111 reviews, dependency analysis (`wf_46d39ae7-80a`). Recheck against `335ad94b`:
-  no new conflicts; #1108 moved to `484a357a`.
+  no new conflicts; #1108 moved to `54856d48` (it moved again to `484a357a` at about 20:56Z, and is now
+  at `72b2d6c3`).
 - 20:50–20:57Z — Integrated-#1081 simulation (worktree outside the repo, removed): no conflict with #1107 or
   #1108. Stage 1 report sent to the founder; waiting for approval by number. Spend so far: USD 0.
 - ~21:08Z — **Founder approval** (live session): "i authorise you to take action to progress as per
@@ -352,23 +368,23 @@ balance is a cross-check, not the accounting.
   failure (no Codex review then) re-run via the Actions API after Codex's completed review of `24dc595`.
 - 21:14Z — Read-only review of new observe-only #1113 started (`wf_9431c59e-422`). #1113 shares
   `frontend/DESIGN_SYSTEM.md` with #1081: simulate before #1081 merges.
-- 21:15:07Z — **#1102 merged** `fa7bf415` (head `24dc5957` re-read, `expectedHeadSha` pinned). Vercel
-  production status success 21:15:51Z; `www.earningsnerd.io` 200; evidence comment 6047011816.
+- 21:15:08Z — **#1102 merged** `fa7bf415` (head `24dc5957` re-read, `expectedHeadSha` pinned). Vercel
+  production status success 21:15:47Z; `www.earningsnerd.io` 200; evidence comment 6047011816.
 - 21:15Z — **Access gap:** the GitHub connector defangs bot mentions in comments it posts
   (`@dependabot rebase` arrived on #1097 as "·@·d·ependabot r·ebase", comment 6046998252, with an
   appended footer). This session therefore cannot issue `@dependabot` or `@codex` commands; not routed
   around. Consequences: #1097 goes by maintainer replacement (cherry-pick of Dependabot's commit onto
   current main; nothing pushed to the Dependabot branch); Codex reviews are triggered by a draft→ready
   transition, which Codex reviews automatically.
-- 21:17:34Z — #1107 merged by its owner (`aa17bcb8`, frontend). Observe-only in this run; its Stage 1
+- 21:17:36Z — #1107 merged by its owner (`aa17bcb8`, frontend). Observe-only in this run; its Stage 1
   should-fix findings move to follow-ups. #1108 now conflicts with main in `tasks/todo.md` (its owner's
   lane); #1081's lane must re-integrate main and re-lint #1107's new files before pushing.
 - 21:22Z — #1097 replacement branch `claude/pr1097-frontend-minor-updates` = main `aa17bcb8` +
   cherry-pick `-x` of `b0438bdc` (clean; package.json shows exactly the 8 reviewed versions); gate running.
-- 21:26Z — #1097 replacement **#1116** opened (draft) at `52cf7a23` (main `aa17bcb8` + cherry-pick of
+- 21:27:20Z — #1097 replacement **#1116** opened (draft) at `52cf7a23` (main `aa17bcb8` + cherry-pick of
   `b0438bdc`, identical patch-id `68e807d1…`). Local gate: npm ci ok, lint 0, tsc 0, vitest 1129/1129,
   build 0 (Next.js 16.3.8); lockfile regeneration drift is the class main already has (63 lines on
-  main; 111 here from sharp's extra platform packages). Marked ready 21:27Z (frontend only: no paid
+  main; 111 here from sharp's extra platform packages). Marked ready 21:27:28Z (frontend only: no paid
   job); Codex review triggered by the ready transition, completed 21:32:21Z with no findings.
 - 21:30Z — #1113 read-only review (`wf_9431c59e-422`): no blocker; one should-fix confirmed (no test
   pins the in-panel click marker's `setTimeout(0)` reset, `FilingWorkspace.tsx:220`); 4 nits.
@@ -379,7 +395,7 @@ balance is a cross-check, not the accounting.
   the deploy job now builds with Buildx and a GHA cache. No deploy ran (workflow-only change), so the
   #1119 merge is the first backend deploy on the new build path. #1114 and #1115 (Dependabot sharp
   and next 16.4.0) opened and closed during the run (not by this session). #1118 (new draft,
-  `claude/agent-workflow-cost`, 22:10Z): observe-only. #1110 marked ready by the chief.
+  `claude/agent-workflow-cost`, 22:10Z): observe-only. #1110 was marked ready by the chief at 22:17:44Z.
 - 22:18Z — #1096 replacement pushed (`76d2ba6d`; lane workflow round 1 confirmed one should-fix, a
   README overstatement of the sqlalchemy ignore's reach, fixed in `76d2ba6d`; round 2 running) and
   opened as **#1119**; D1 dispatched (the Actions dispatch API worked this run); marked ready 22:19Z
@@ -466,7 +482,8 @@ balance is a cross-check, not the accounting.
   Release comment 6048886899. The release record was added to
   `tasks/review-evidence/deps-minor-2026-10-07/README.md`.
 - 23:29:52Z (observed) — Codex lane #1122 (`codex/wave3-durable-background-tasks`) merged by its owner at
-  23:19:32Z (`6393518c`), while #1119's deploy ran. Its deploy job 113068536115 succeeded: revision
+  23:19:32Z (`6393518c`). At that moment #1119's main CI run 37700883978 was still running its test
+  jobs; its deploy job started at 23:20:37Z. The two deploys ran one after the other, not together. Its deploy job 113068536115 succeeded: revision
   `earningsnerd-backend-00447-hlv` at 100%, "Deployed 6393518 and verified healthy" (with
   `DURABLE_TASKS_ENABLED=false`). Independent `/health/detailed` 200 healthy at 23:41:29Z.
 - 23:36–23:47Z — #1081 rounds:
@@ -496,7 +513,7 @@ balance is a cross-check, not the accounting.
   - Gate: `pip check` clean, ruff clean, bandit 0 medium/high, `pip-audit` clean, pytest 5811 passed.
   - SDK review: no findings. openai 3.24's client, errors and streaming are byte-identical to 3.23; only
     the JSON key order of the request body changes. posthog 7.62.1 touches only `posthog.ai`, unused here.
-  - Opened as a draft at 23:51Z, D3 dispatched 23:51:46Z, ready 23:52Z (D4 + Codex).
+  - Opened as a draft at 23:51Z, D3 dispatched 23:51:46Z, ready 23:52:01Z (D4 + Codex).
 - 23:52–23:56Z — **#1081 merged** `4e8252be` (head `1846bc78` re-read; CI 37704184147 green;
   review-gate success; `clean`; simulated merge onto main `0a5eeccc` clean). Before the merge, two more
   Codex P2s on `1846bc78` were answered without a build (threads 4213192961 and 4213192965), with
@@ -511,3 +528,25 @@ balance is a cross-check, not the accounting.
 - 00:02Z — Head `4fbec187` re-read; 23/23 checks green; `clean`. Evidence comment 6049314355.
   **#1127 merged** `41248d01`; **#1124 closed** as superseded (comment 6049316739). The deploy is
   watched.
+- 00:12Z — **#1127 deploy verified.** Main CI 37705611585 on `41248d01` succeeded. In deploy job
+  113080756294:
+  - `apply_migrations: applied=0 skipped=41`;
+  - revision `earningsnerd-backend-00448-qk7` serving 100 percent from 00:10:40Z;
+  - all 8 job images updated;
+  - "Deployed 41248d0 and verified healthy" at 00:11:20Z.
+
+  Independent `/health/detailed` 200 healthy at 00:12:01Z. Release comment 6049437703.
+- 00:04–00:16Z — **Stage 3** (`wf_a62e9e1a-2e7`, three fresh read-only agents, lenses: PR outcomes,
+  deploys and spend, boundaries). Corrections applied in this file:
+  - The record said no branch was deleted. In fact the repository's delete-on-merge setting and
+    Dependabot removed the branches of merged and closed PRs (see Boundaries kept).
+  - My closing comments 6048731593 (#1096) and 6049316739 (#1124) said the branch was left in place.
+    Both were edited in place with a correction and the `refs/pull/<n>/head` SHA.
+  - Count wording fixed (7 of 12 final, 16 opened including this PR). Decision 3's range is now
+    0.818–0.871 across 8 runs.
+  - Timestamps corrected to the API values: #1102 merged 21:15:08Z and its Vercel deploy 21:15:47Z;
+    #1107 merged 21:17:36Z; #1107 and #1108 marked ready 19:45:44Z and 19:45:56Z; #1116 opened
+    21:27:20Z; #1110 marked ready 22:17:44Z; the D2 and D4 ready transitions were 22:18:41Z and
+    23:52:01Z.
+  - #1108's head at 20:40Z was `54856d48`, not `484a357a`. #1122's merge came before #1119's deploy
+    job started; the two deploys ran one after the other.
