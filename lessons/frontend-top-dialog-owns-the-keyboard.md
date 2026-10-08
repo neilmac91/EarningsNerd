@@ -42,6 +42,18 @@ closes the upper dialog and the next closes the source sheet. The browser probe 
 controls with fixture API responses; the source sheet's separate focus-containment limitation
 predates this Escape change.
 
+**Additional evidence (2026-10-08)**: the converse holds for a layer that is not modal. SourceTrace's
+fine-pointer popover kept its window-capture Escape listener while it waited out its close delay,
+and until its effect cleanup ran, a moment after it left the DOM. In EN-03 (#1108), a window
+narrowed below `lg` turned the research pane into the modal copilot sheet, whose trap took focus
+from a metric chip with its popover open. In CI the popover's listener stopped that Escape, and the
+sheet stayed open. The popover now leaves a key typed inside an `aria-modal` layer that does not
+hold its chip to that layer. The `aria-modal` objection above is about the touch sheet, which can
+sit over the copilot sheet, and still applies to it. Gates: the fine-pointer cases in
+`SourceTraceEscapeLayer.spec.tsx` (without the check, 1 of the file's 5 cases fails) and the
+`metrics-stacked-cards.spec.ts` case that sends Escape as the sheet takes focus (8 of 8 runs fail
+on the pre-fix build).
+
 The same sibling-listener failure also occurred in BellPopover: start a calendar alert toggle,
 open the global Feedback dialog while the request is pending, then let the request fail. The
 error popover correctly preserves textarea focus in Feedback, but its unconditional window-capture
@@ -50,3 +62,18 @@ from opening. BellPopover now yields keys targeted inside the shared Modal marke
 test home covers the delayed popover mount, first Escape closing Feedback alone, and second Escape
 closing the remaining popover. A current-source real-page dev probe with fixture API replies
 reproduced the sequence; production-build confirmation belongs to the final parent integration gate.
+
+**Additional evidence (2026-10-07)**: the same ordering defeated a popover that handled Escape in
+React. EN-01 gave CitationChip's citation card `ownsEscape` through its own `onKeyDown`, which React
+dispatches from the root, after every `document`-capture listener and only for keys targeted inside
+the card. In Chromium on `main` (`f26debcb`), Escape with focus on a `[1]` chip in an Ask answer
+closed the whole research pane (focus fell to `<body>` at 1440×900), and at 390×844 Escape from the
+card's "Open original" link closed the sheet too, because the sheet's document-level trap saw the
+key first. A popover over a trapped layer is a top layer like any dialog: `useEvidencePopoverKeys`
+now takes Escape in window capture while the card is open (yielding to the `data-ui-modal` marker,
+as above), so one press closes the card and the next closes the pane. Gate: the shared contract in
+`tests/unit/evidencePopoverKeys.spec.tsx` runs both chips with a document-capture stand-in for the
+trap and a window listener for the rail, and asserts neither sees the first Escape; with the
+handler back in React (main's hook before this fix), 3 of the file's 21 cases fail: Escape on the
+chip, on its action, and over a hover-opened card. `tests/e2e/citation-chip-keyboard.spec.ts` covers
+both widths in a real browser.

@@ -7,8 +7,9 @@ import type { Page } from '@playwright/test'
  * (lessons/test-e2e-runs-without-backend.md), so every request to the API origin is fulfilled from
  * these fixtures — the public Apple FY2025 10-K as filing 3, its summary a trimmed copy in
  * filing-3-summary.json, and the session / subscription endpoints for an anonymous visitor or a Pro
- * user. Shared by filing-source-chip.spec.ts (EN-01) and consent-bar-yields.spec.ts (EN-02); a spec
- * seeds its own browser state (theme, consent, coachmark) in its own addInitScript.
+ * user. Shared by filing-source-chip.spec.ts (EN-01), consent-bar-yields.spec.ts (EN-02) and
+ * citation-chip-keyboard.spec.ts (EN-01 follow-up, which routes the Ask stream on top); a spec seeds
+ * its own browser state (theme, consent, coachmark) in its own addInitScript.
  */
 export const API_ORIGIN = new URL(process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000').origin
 export const SUMMARY = JSON.parse(readFileSync(path.join(__dirname, 'filing-3-summary.json'), 'utf8')) as Record<string, unknown>
