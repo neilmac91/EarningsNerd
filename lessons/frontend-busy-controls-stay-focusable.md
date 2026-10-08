@@ -205,13 +205,14 @@ select when the list is filtered by status (its own update removes the row); the
 Log out (no in-flight guard); PopularTickerChips' add when the insights refetch after it fails (the
 chip goes live again, and with no row to prune it needs the added ticker remembered); YourCompanies'
 remove when the insights refetch after it fails (the error card replaces the list and focus falls to
-`<body>` with no hand-off); the company page's filings Retry, EarningsCalendarPage's "Try again",
+`<body>` with no hand-off); EarningsCalendarPage's "Try again",
 FullTextSearch's Retry and FilingViewer's "Try again" (each pinned in the Retry gate's allowlists, so a
 conversion must remove its pins). The scan cannot see how a press was made either: the text-field
 hand-off's pointer origin (g) is pinned in `useRetainedFailure.spec.tsx` (a tap on a busy Retry, focused or
 not, a tap on the busy Retry's spinner, a tap then Tab away and back, a tap then a keyboard press, a click
 that starts no focus) and needs a touch-device pass. Fixed, all on
-RetryButton: the dashboard's account, plan and Your companies Retry buttons, FilingFeed's Retry,
+RetryButton: the dashboard's account, plan and Your companies Retry buttons, FilingFeed's Retry, the
+company page's filings Retry (`FilingIndex.spec.tsx`, its pins removed from the Retry gate in #1133),
 CompanySearch's "Try again" (a tap on it busy no longer raises the keyboard when it goes), the pricing
 page's three and BillingPanel's two (`busyControls.dashboard.spec.tsx`, `busyControls.watchlist.spec.tsx`,
 `CompanySearch.spec.tsx`, `busyControls.forms.spec.tsx`, `busyControls.settings.spec.tsx`,

@@ -4,6 +4,11 @@
 
 > Reviewed 2026-10-08 against `neilmac91/EarningsNerd@main` (tree `2129a80`), `frontend/`.
 > Visual companion (live target, both themes, states, redline): `Filings Index Review.dc.html`.
+>
+> Implemented in PR #1133. Where the target below and the code differ, the code is truth: the toolbar
+> select ships as `<Select density="compact">` (`size` is a native attribute), the year groups are
+> rendered inline by `FilingIndex` (no separate `FilingYearGroup`), fields keep their standard 42px
+> height on phones (not 44px), and a full-width `SegmentedControl` wraps its segments below `sm`.
 
 ## Verdict
 

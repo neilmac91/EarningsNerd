@@ -218,6 +218,33 @@ components:
     textColor: "{colors.text-primary-dark}"
     rounded: "{rounded.lg}"
     backgroundColor: "rgba(255,255,255,0.05)"
+  input-compact:
+    backgroundColor: "{colors.white}"
+    textColor: "{colors.text-primary-light}"
+    rounded: "{rounded.lg}"
+    padding: "0.375rem 0.75rem"
+    height: "2.25rem"
+  segmented-control:
+    backgroundColor: "{colors.panel-light}"
+    textColor: "{colors.text-secondary-light}"
+    rounded: "{rounded.lg}"
+    padding: "0.25rem"
+  segmented-control-selected:
+    backgroundColor: "{colors.brand}"
+    textColor: "{colors.white}"
+    rounded: "0.5rem"
+    fontSize: "0.75rem"
+    fontWeight: 600
+    height: "1.625rem"
+  segmented-control-dark:
+    backgroundColor: "{colors.panel-dark}"
+    textColor: "{colors.text-secondary-dark}"
+    rounded: "{rounded.lg}"
+    padding: "0.25rem"
+  segmented-control-selected-dark:
+    backgroundColor: "{colors.brand-dark}"
+    textColor: "{colors.background-dark}"
+    rounded: "0.5rem"
   card:
     backgroundColor: "{colors.panel-light}"
     textColor: "{colors.text-primary-light}"
@@ -386,7 +413,7 @@ Borders are thin separators and control boundaries. Tables use row hairlines rat
 
 ## Components
 
-Components are **refined, readable and quietly confident**. Reuse [`components/ui`](frontend/components/ui) and its supported variants. The sidecar's ten samples are static, dependency-free visual translations; they do not replace the React components, form guards, routing, sorting or dialog focus management.
+Components are **refined, readable and quietly confident**. Reuse [`components/ui`](frontend/components/ui) and its supported variants. The sidecar's eleven samples are static, dependency-free visual translations; they do not replace the React components, form guards, routing, sorting or dialog focus management.
 
 ### Buttons
 
@@ -398,9 +425,13 @@ Components are **refined, readable and quietly confident**. Reuse [`components/u
 
 [`Button.tsx`](frontend/components/ui/Button.tsx) also exports `buttonVariants` for real links styled as buttons. Standard color feedback uses the fast motion token. Spinner animation remains the existing utility with a reduced-motion fallback; this document introduces no new timing for it.
 
+### Segmented controls
+
+[`SegmentedControl.tsx`](frontend/components/ui/SegmentedControl.tsx) is the shared single-choice toggle group: a `role="group"` of `aria-pressed` buttons with every option visible, so it is neither a radiogroup nor a tablist. The shell is the panel fill with a hairline, 12px radius, 4px padding and the small lift; dark mode keeps the fill and a white 10% hairline with no shadow. Segments have an 8px radius and 12px semibold labels in secondary ink that turn primary on hover; the selected segment takes the primary-button colorway (sage with a white label, light sage with a navy label in dark mode). Segments are 26px high (`sm`), 36px (`md`) or adaptive (36px below `sm`, 26px from `sm`). Options that are codes (10-K, 10-Q) set their label in the data face. A full-width group stretches its segments below `sm` and wraps them when the labels outgrow the card, so no option is clipped or scrolled out of reach. The calendar's Week/Month switch and the filings index's form filter use it; one selected colour per group, and "All" is a segment like any other, never an ink fill.
+
 ### Chips
 
-Pill-shaped, 12px semibold labels with 10px horizontal and 2px vertical padding. Brand/pro variants use the sage tint and hairline; only pro uppercases its label. Solid chips use deep sage with white labels in light mode and navy labels on light sage in dark mode. Quiet chips, info/warning tints and gain/loss chips keep their distinct meanings. `new` adds the existing warning-tint pulse dot, which becomes static for reduced motion.
+Pill-shaped, 12px semibold labels with 10px horizontal and 2px vertical padding. Brand/pro variants use the sage tint and hairline; only pro uppercases its label. Solid chips use deep sage with white labels in light mode and navy labels on light sage in dark mode. Quiet chips, info/warning tints and gain/loss chips keep their distinct meanings. `new` adds the existing warning-tint pulse dot, which becomes static for reduced motion. Info is a UI-state tint, not a document-type colour: the filings index sets form codes typographically.
 
 ### Cards / Containers
 
@@ -408,7 +439,7 @@ The base [`Card`](frontend/components/ui/Card.tsx) supplies shape, fill, border 
 
 ### Inputs / Fields
 
-[`Input.tsx`](frontend/components/ui/Input.tsx) shares a bright white light fill and translucent white dark fill, 12px radius, hairline and 14px text. Standard padding is 10px vertical / 14px horizontal. Search fields explicitly reserve 44px on the leading side for their icon. Hover strengthens the border; focus shows the brand border/ring. Invalid fields use the error treatment with an associated error message. The composer textarea is transparent inside its own field shell to avoid double borders.
+[`Input.tsx`](frontend/components/ui/Input.tsx) shares a bright white light fill and translucent white dark fill, 12px radius, hairline and 14px text. Standard padding is 10px vertical / 14px horizontal. Search fields explicitly reserve 44px on the leading side for their icon. Hover strengthens the border; focus shows the brand border/ring. Invalid fields use the error treatment with an associated error message. The composer textarea is transparent inside its own field shell to avoid double borders. A compact density (`density="compact"` on `inputClasses` and `Select`) gives toolbar fields, such as the filings index's year filter beside a segmented control, a 36px height with 6px vertical and 12px horizontal padding from `sm`; below `sm` they keep the standard field height.
 
 ### Navigation
 
@@ -417,6 +448,10 @@ The base [`Card`](frontend/components/ui/Card.tsx) supplies shape, fill, border 
 ### Data tables and charts
 
 [`DataTable.tsx`](frontend/components/ui/DataTable.tsx) supports comfortable and compact density, row hairlines, optional sticky columns, right-aligned mono numeric cells, sorting, loading, empty and error states. Sort controls are buttons; `aria-sort` belongs to the header cell. Financial tones come from the existing helpers. Chart captions, axes and tooltips keep their theme-aware styles; use the categorical sequence described in Colors. The summary's Financial Highlights ([`FinancialMetricsTable.tsx`](frontend/features/summaries/components/FinancialMetricsTable.tsx)) stacks each metric into one card below `md` (768px) — name with its XBRL chip, the current, prior and change figures under eyebrow labels in the data face, then the takeaway with its chip — and keeps the DataTable unchanged from `md` up; both presentations are rendered and switched by CSS, so the inactive one is `display:none` (out of the accessibility tree and the tab order) and the active one carries the caption (the table's `<caption>`, the list's `aria-label`).
+
+### Index lists
+
+The company filings list ([`FilingIndex.tsx`](frontend/features/filings/components/FilingIndex.tsx)) is the recipe for a list of primary documents: one card, year groups and rows separated by hairlines in the table manner, one grid template shared by the column header and every row, and each row a single link named by its period of report, with EDGAR as a sibling link in the actions track. Form codes are set in the data face with no per-type colour, stripe, tint or icon; the latest filing's lead carries the page's one primary action; rows brighten on hover like interactive cards. Loading keeps the list's own tracks as a skeleton, and errors render a notice with a retry in place.
 
 ### Dialogs and evidence
 

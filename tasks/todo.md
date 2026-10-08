@@ -6483,3 +6483,19 @@ or cited paraphrases. New service/SDK/ASGI checks cover containment, bounded sta
 charge, and the evaluator retains each generation separately. Locked contracts, model, flags,
 baseline, source selection and scoring thresholds remain unchanged. Full local, live evaluation,
 independent review and any deployment evidence are recorded in the repair PR.
+
+## Filings index + Change Report rebuild — 2026-10-08
+
+Implements the filings-list and Change Report design review (`docs/design/filings-index-review.md`) as
+three commits (PR #1133): `ui/SegmentedControl` + `density="compact"` fields; the company page's filings
+list rebuilt as `features/filings/components/FilingIndex` (one card, hairline rows named by period of
+report, EDGAR as a sibling link, form + year filters, the latest-filing lead as the one primary action,
+Notice + RetryButton in place); and `WhatChanged` as a Metric · Prior · Current · Change table toned by
+the server's `tone`, with the landing demo's placeholder skeleton risk columns removed. Opening the PR
+found and fixed a React 18 ref type, sr-only prefixes whose trailing space was trimmed from accessible
+names, a DESIGN_SYSTEM.md claim of a stripe lint gate that does not exist yet, the 44px field height
+(fields are 42px), and a full-width segmented group that overflowed 320px cards with five form codes
+(it wraps below `sm`). DESIGN.md and `.impeccable/design.json` record the new primitive, the compact
+density and the index-list recipe. Deferred, as the review planned: the `border-l-*` + `rounded-*`
+stripe lint (SummaryBlock.tsx still carries one) and the risk-factor diff (the backend sends `risks: null`).
+
