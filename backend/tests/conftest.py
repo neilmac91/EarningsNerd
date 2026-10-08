@@ -58,6 +58,21 @@ def pytest_unconfigure(config):
     shutil.rmtree(_TEST_DB_DIR, ignore_errors=True)
 
 
+@pytest.fixture(scope="session", autouse=True)
+def _suite_schema():
+    """Each process's fresh database starts with the current schema, as the app's startup gives it.
+
+    Tests that write through ``SessionLocal`` without creating tables (``test_copilot_tools.py``,
+    and every file that relies on ``TestClient(app)`` running the lifespan first) otherwise depend
+    on an earlier test in the same process having created them.
+    """
+    import app.models  # noqa: F401 — registers every table on Base.metadata
+    from app.database import Base, engine
+
+    Base.metadata.create_all(bind=engine)
+    yield
+
+
 @pytest.fixture(autouse=True)
 def _reset_delivery_ownership():
     """Durable delivery ownership rows (E11b-1) must not leak between tests.
