@@ -9,14 +9,11 @@ import { getCompanyFilings, Filing } from '@/features/filings/api/filings-api'
 import { getSummary } from '@/features/summaries/api/summaries-api'
 import { addToWatchlist, removeFromWatchlist, getWatchlist, WatchlistItem } from '@/features/watchlist/api/watchlist-api'
 import { getCurrentUserSafe } from '@/features/auth/api/auth-api'
-import { ArrowRightIcon, ArrowSquareOutIcon, CaretDownIcon, CircleNotchIcon, FileTextIcon, FunnelIcon, SparkleIcon, StarIcon, WarningCircleIcon } from '@/lib/icons'
-import { Badge, Button, buttonVariants, Card, GuidanceCard, Skeleton } from '@/components/ui'
+import { CircleNotchIcon, FileTextIcon, StarIcon } from '@/lib/icons'
+import { Button, buttonVariants, GuidanceCard } from '@/components/ui'
 import { toast } from 'sonner'
 import Link from 'next/link'
-// formatLocalDate (not date-fns format(new Date(...))): filing dates are UTC-midnight instants;
-// local-TZ rendering shifts the calendar day west of UTC and, now that this page is
-// server-rendered with data, would also cause a server/client hydration mismatch.
-import { fmtCurrency, fmtPercent, formatLocalDate } from '@/lib/format'
+import { fmtCurrency, fmtPercent } from '@/lib/format'
 import { directionText, directionOf } from '@/lib/financialTone'
 import analytics from '@/lib/analytics'
 import { getEntryPoint } from '@/lib/entryPoint'
@@ -25,17 +22,18 @@ import PeerComparisonPanel from '@/features/peers/components/PeerComparisonPanel
 import CompanyLogo from '@/components/CompanyLogo'
 import InsiderActivityPanel from '@/features/insiders/components/InsiderActivityPanel'
 import { queryKeys } from '@/lib/queryKeys'
-import { recommendedFilingNoun, selectRecommendedFiling } from '@/features/filings/lib/recommendedFiling'
-import { fiscalYear, groupByFiscalYear } from '@/features/filings/lib/fiscalYear'
-import FilingsHistoryNote from '@/features/filings/components/FilingsHistoryNote'
-import SupersededFilingNotice from '@/features/filings/components/SupersededFilingNotice'
+import { selectRecommendedFiling } from '@/features/filings/lib/recommendedFiling'
+import { groupByFiscalYear } from '@/features/filings/lib/fiscalYear'
+// The filings list: one surface, hairline rows, one link per filing (design review 2026-10-08).
+// It owns the form/year filters and renders dates through formatLocalDate (filing dates are
+// UTC-midnight instants; local-TZ rendering would shift the day west of UTC and mismatch hydration).
+import { FilingIndex } from '@/features/filings/components/FilingIndex'
+import { useRetainedFailure } from '@/hooks/useRetainedFailure'
 
 // How many filings to request once the visitor asks for the full backfilled history (vs the
 // backend's default recent cap). P1-6: deep 10-K/10-Q history since 2001 is well under this.
 const FULL_HISTORY_LIMIT = 300
 
-// Display order for the filing-type filter chips; unknown types sort to the end alphabetically.
-const FILING_TYPE_ORDER = ['10-K', '10-Q', '20-F', '6-K', '40-F']
 // Foreign private issuer forms — a company that files any of these is an FPI, which we use to show
 // the honest "insider reporting not required for FPIs" state instead of an empty insider panel.
 const FPI_FILING_TYPES = ['20-F', '40-F', '6-K']
@@ -64,8 +62,6 @@ export default function CompanyPageClient({ initialCompany, initialFilings }: Co
     }
     return new Set([currentYear])
   })
-  const [filterType, setFilterType] = useState<string | null>(null)
-  const [filterYear, setFilterYear] = useState<string | null>(null)
   const [showFullHistory, setShowFullHistory] = useState(false)
   const hasTrackedCompanyView = useRef(false)
   const filingsHeadingRef = useRef<HTMLHeadingElement>(null)
@@ -85,8 +81,9 @@ export default function CompanyPageClient({ initialCompany, initialFilings }: Co
   // so the deep-backfilled 10-K/10-Q history (P1-6) surfaces. The limit is part of the query key so
   // the two views cache independently.
   const historyLimit = showFullHistory ? FULL_HISTORY_LIMIT : undefined
-  const { data: filings, isLoading: filingsLoading, isError: filingsError, error: filingsErrorData, refetch: refetchFilings, isFetching: filingsRefetching } = useQuery<Filing[]>({
-    queryKey: queryKeys.companyFilings(normalizedTicker, historyLimit),
+  const filingsKey = queryKeys.companyFilings(normalizedTicker, historyLimit)
+  const filingsQuery = useQuery<Filing[]>({
+    queryKey: filingsKey,
     queryFn: () => getCompanyFilings(normalizedTicker, undefined, historyLimit),
     enabled: !!company && !!normalizedTicker,
     retry: 1,
@@ -94,6 +91,12 @@ export default function CompanyPageClient({ initialCompany, initialFilings }: Co
     initialData: historyLimit === undefined ? initialFilings : undefined,
     initialDataUpdatedAt: 0,
   })
+  const { data: filings, isFetching: filingsRefetching } = filingsQuery
+  // A failure keeps the error Notice, and a focused Retry in it, through any refetch until data
+  // replaces it: an errored list has no data, so its refetch goes back to pending, and the skeleton
+  // would otherwise replace the Notice (RetryButton + useRetainedFailure, DESIGN_SYSTEM §4).
+  const filingsFailure = useRetainedFailure(filingsQuery, filingsKey)
+  const filingsLoading = filingsQuery.isLoading && !filingsFailure.failed
 
   const { data: currentUser } = useQuery({
     queryKey: queryKeys.currentUser(),
@@ -180,52 +183,19 @@ export default function CompanyPageClient({ initialCompany, initialFilings }: Co
     }
   }, [company])
 
-  // Memoize filtered and grouped filings to avoid recalculating on every render.
-  // Declared before the early returns below so hook order stays stable across renders.
-  const { groupedFilings, sortedYears, recommendedFiling, availableFilingTypes, availableYears, oldestFilingDate } = useMemo(() => {
-    const filtered = (filings ?? []).filter(
-      (f) =>
-        (!filterType || f.filing_type === filterType) &&
-        (!filterYear || fiscalYear(f) === filterYear),
-    )
-
-    // Distinct filing types present, in canonical display order — drives the filter chips so the
-    // UI adapts to whatever the company actually files (10-K/10-Q for domestic, 20-F/6-K for FPIs)
-    // instead of hardcoding domestic forms.
-    const availableFilingTypes = Array.from(
-      new Set((filings ?? []).map((f) => f.filing_type)),
-    ).sort((a, b) => {
-      const ia = FILING_TYPE_ORDER.indexOf(a)
-      const ib = FILING_TYPE_ORDER.indexOf(b)
-      return (ia === -1 ? 99 : ia) - (ib === -1 ? 99 : ib) || a.localeCompare(b)
-    })
-
-    // Distinct report years present (newest first) — drives the year-filter chips. Computed from
-    // the FULL list so the year options don't change as the user filters by type.
-    const availableYears = Array.from(
-      new Set((filings ?? []).map((f) => fiscalYear(f)).filter(Boolean)),
-    ).sort((a, b) => parseInt(b) - parseInt(a))
-
-    // Group filings by report year (calendar year of report end, filing-date fallback).
-    const grouped = groupByFiscalYear(filtered)
-
-    // Sort years in descending order (newest first)
-    const years = Object.keys(grouped).sort((a, b) => parseInt(b) - parseInt(a))
-
-    // Recommended filing: the company's single MOST RECENT filing of any type. Computed from the
-    // FULL list (not the active type filter) so the recommendation is stable as the user filters.
-    const recommendedFiling = selectRecommendedFiling(filings)
-
-    // P0-5: earliest filing_date in the FULL list (not the active filter) — drives the
-    // "Showing filings since …" honesty note under the list. ISO strings compare
-    // lexicographically, so no Date instantiation per iteration.
-    const oldestFilingDate = (filings ?? []).reduce<string | null>(
-      (oldest, f) => (!oldest || f.filing_date < oldest ? f.filing_date : oldest),
-      null,
-    )
-
-    return { groupedFilings: grouped, sortedYears: years, recommendedFiling, availableFilingTypes, availableYears, oldestFilingDate }
-  }, [filings, filterType, filterYear])
+  // Derived from the FULL list (the filters live in FilingIndex), declared before the early returns
+  // below so hook order stays stable across renders.
+  const { sortedYears, recommendedFiling, isFpi } = useMemo(() => {
+    // Report years present, newest first (calendar year of report end, filing-date fallback).
+    const years = Object.keys(groupByFiscalYear(filings ?? [])).sort((a, b) => parseInt(b) - parseInt(a))
+    return {
+      sortedYears: years,
+      // Recommended ("Latest") filing: the company's single MOST RECENT non-superseded filing of any
+      // type, from the FULL list so it stays stable as the user filters.
+      recommendedFiling: selectRecommendedFiling(filings),
+      isFpi: (filings ?? []).some((f) => FPI_FILING_TYPES.includes(f.filing_type)),
+    }
+  }, [filings])
 
   // A4: default the filing list to the most recent ~3 years that actually have filings (older years
   // stay collapsed behind their headers) — instead of only the current calendar year, which is empty
@@ -352,41 +322,6 @@ export default function CompanyPageClient({ initialCompany, initialFilings }: Co
     setExpandedYears(newExpanded)
   }
 
-  // Get styling for filing type. Annual reports (10-K + the foreign 20-F/40-F) share the brand
-  // accent; interim reports (10-Q + the foreign 6-K) share the info accent — so an FPI page reads
-  // consistently with a domestic one (annual = brand, interim = info).
-  const getFilingTypeStyles = (filingType: string) => {
-    switch (filingType.replace(/\/A$/, '')) {
-      case '10-K':
-      case '20-F':
-      case '40-F':
-        return {
-          borderColor: 'border-l-brand-strong dark:border-l-brand-strong-dark',
-          bgColor: 'bg-brand-weak dark:bg-white/5',
-          hoverBg: 'hover:bg-brand-weak dark:hover:bg-white/10',
-          iconColor: 'text-brand-strong dark:text-brand-strong-dark',
-          badgeVariant: 'brand',
-        } as const
-      case '10-Q':
-      case '6-K':
-        return {
-          borderColor: 'border-l-info-light dark:border-l-info-dark',
-          bgColor: 'bg-info-light/10 dark:bg-info-dark/10',
-          hoverBg: 'hover:bg-info-light/15 dark:hover:bg-info-dark/15',
-          iconColor: 'text-info-light dark:text-info-dark',
-          badgeVariant: 'info',
-        } as const
-      default:
-        return {
-          borderColor: 'border-l-border-light dark:border-l-border-dark',
-          bgColor: 'bg-background-light dark:bg-background-dark',
-          hoverBg: 'hover:bg-background-light dark:hover:bg-background-dark',
-          iconColor: 'text-text-tertiary-light dark:text-text-secondary-dark',
-          badgeVariant: 'neutral',
-        } as const
-    }
-  }
-
   return (
     <div className="min-h-screen bg-background-light dark:bg-background-dark">
       {/* Header */}
@@ -459,255 +394,46 @@ export default function CompanyPageClient({ initialCompany, initialFilings }: Co
         {/* Insider (Form 4) activity — self-fetches; live SEC read, off by default. FPIs are
             exempt from Form 4 reporting, so the panel shows an honest note (no live read). */}
         {ENABLE_INSIDER_ACTIVITY && (
-          <InsiderActivityPanel
-            ticker={normalizedTicker}
-            isFpi={filingsLoading ? undefined : availableFilingTypes.some((t) => FPI_FILING_TYPES.includes(t))}
-          />
+          <InsiderActivityPanel ticker={normalizedTicker} isFpi={filingsLoading ? undefined : isFpi} />
         )}
 
-        {/* Filings Section */}
-        <Card as="section" className="p-6">
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between mb-6">
-            <h2
-              ref={filingsHeadingRef}
-              tabIndex={-1}
-              className="text-xl font-semibold text-text-primary-light outline-none dark:text-text-primary-dark"
-            >
-              SEC Filings
-            </h2>
-            {filings && filings.length > 0 && (availableFilingTypes.length > 1 || availableYears.length > 1) && (
-              <div className="flex flex-wrap items-center gap-2">
-                <FunnelIcon className="h-4 w-4 text-text-tertiary-light dark:text-text-secondary-dark" />
-                {availableFilingTypes.length > 1 && (
-                  <div className="flex flex-wrap items-center gap-2">
-                    <button
-                      onClick={() => setFilterType(null)}
-                      className={`px-3 py-1.5 text-xs sm:px-4 sm:py-2 sm:text-sm font-medium rounded-lg transition-colors ${
-                        filterType === null
-                          ? 'bg-text-primary-light dark:bg-text-primary-dark text-panel-light dark:text-background-dark'
-                          : 'bg-background-light dark:bg-white/5 text-text-secondary-light dark:text-text-secondary-dark hover:bg-brand-weak dark:hover:bg-white/10'
-                      }`}
-                    >
-                      All Types
-                    </button>
-                    {availableFilingTypes.map((ft) => (
-                      <button
-                        key={ft}
-                        onClick={() => setFilterType(ft)}
-                        className={`px-3 py-1.5 text-xs sm:px-4 sm:py-2 sm:text-sm font-medium rounded-lg transition-colors ${
-                          filterType === ft
-                            ? 'bg-brand hover:bg-brand-strong active:bg-brand-emphasis text-white dark:bg-brand-dark dark:text-background-dark dark:hover:bg-brand-strong-dark'
-                            : 'bg-brand-weak dark:bg-white/5 text-brand-strong dark:text-brand-strong-dark hover:bg-brand-weak/70 dark:hover:bg-white/10'
-                        }`}
-                      >
-                        {ft}
-                      </button>
-                    ))}
-                  </div>
-                )}
-                {availableYears.length > 1 && (
-                  <label className="sr-only" htmlFor="filing-year-filter">Filter filings by report year</label>
-                )}
-                {availableYears.length > 1 && (
-                  <select
-                    id="filing-year-filter"
-                    value={filterYear ?? ''}
-                    onChange={(e) => setFilterYear(e.target.value || null)}
-                    className="px-3 py-1.5 text-xs sm:py-2 sm:text-sm font-medium rounded-lg bg-background-light dark:bg-white/5 text-text-secondary-light dark:text-text-secondary-dark border border-border-light dark:border-white/10 focus:outline-none focus:ring-2 focus:ring-brand"
-                  >
-                    <option value="">All report years</option>
-                    {availableYears.map((y) => (
-                      <option key={y} value={y}>Report year {y}</option>
-                    ))}
-                  </select>
-                )}
-              </div>
-            )}
-          </div>
-
-          {ENABLE_RECOMMENDED_FILING && !filingsLoading && !filingsError && recommendedFiling && (
-            // Highlighted inset INSIDE the section card: a flat brand-weak TINT box
-            // (like the billing trial box) — the old gradient is banned (DS §7).
-            <div className="mb-6 rounded-xl border border-brand-border dark:border-brand-border-dark bg-brand-weak dark:bg-white/5 p-4 sm:p-5">
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <div className="flex items-start gap-3">
-                  <SparkleIcon className="mt-0.5 h-5 w-5 flex-shrink-0 text-brand-strong dark:text-brand-strong-dark" />
-                  <div>
-                    <div className="flex items-center gap-2">
-                      {/* Solid emphasis chip (primary-button colorway) — the tint Badge would
-                          vanish against this brand-weak banner. */}
-                      <Badge variant="solid">Recommended</Badge>
-                      <span className="text-sm font-semibold text-text-primary-light dark:text-text-primary-dark">
-                        {recommendedFiling.filing_type} · {formatLocalDate(recommendedFiling.filing_date, 'MMM d, yyyy')}
-                      </span>
-                    </div>
-                    <p className="mt-1 text-sm text-text-secondary-light dark:text-text-secondary-dark">
-                      Not sure where to start? This is {companyDisplayName}&apos;s most recent{' '}
-                      {recommendedFilingNoun(recommendedFiling)}. Start with its AI summary.
-                    </p>
-                  </div>
-                </div>
-                <Link href={`/filing/${recommendedFiling.id}`} className={buttonVariants({ variant: 'primary' })}>
-                  Summarize this filing
-                  <ArrowRightIcon className="h-4 w-4" />
-                </Link>
-              </div>
-            </div>
-          )}
-
-          {filingsLoading ? (
-            <div role="status" aria-label="Loading filings" className="space-y-4">
-              <Skeleton className="h-12 rounded-xl" />
-              <Skeleton className="h-12 rounded-xl" />
-              <Skeleton className="h-12 rounded-xl" />
-              <span className="sr-only">Loading filings…</span>
-            </div>
-          ) : filingsError ? (
-            // Inline error (not GuidanceCard) — this state lives INSIDE the section card.
-            <div role="alert" className="space-y-2 py-4">
-              <p className="flex items-center gap-2 text-sm font-medium text-error-light dark:text-error-dark">
-                <WarningCircleIcon className="h-4 w-4 flex-shrink-0" />
-                Unable to load filings right now.
-              </p>
-              <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark">
-                {filingsErrorData instanceof Error ? filingsErrorData.message : 'Please try again shortly.'}
-              </p>
-              <Button variant="secondary" size="sm" onClick={() => refetchFilings()} loading={filingsRefetching} loadingText="Retrying…">
-                Retry
-              </Button>
-            </div>
-          ) : sortedYears.length > 0 ? (
-            <div className="space-y-4">
-              {sortedYears.map((year) => {
-                const yearFilings = groupedFilings[year]
-                const isExpanded = expandedYears.has(year)
-                const filingCount = yearFilings?.length || 0
-
-                return (
-                  <div key={year} className="border border-border-light dark:border-border-dark rounded-xl overflow-hidden">
-                    {/* Year Header */}
-                    <button
-                      onClick={() => toggleYear(year)}
-                      className="w-full flex items-center justify-between px-4 py-3 bg-background-light dark:bg-white/5 hover:bg-brand-weak dark:hover:bg-white/10 transition-colors text-left"
-                    >
-                      <div className="flex items-center space-x-3">
-                        {isExpanded ? (
-                          <CaretDownIcon className="h-5 w-5 text-text-tertiary-light dark:text-text-secondary-dark" />
-                        ) : (
-                          <CaretDownIcon className="h-5 w-5 text-text-tertiary-light dark:text-text-secondary-dark -rotate-90" />
-                        )}
-                        <span className="font-semibold text-text-primary-light dark:text-text-primary-dark text-lg">Report year {year}</span>
-                        <span className="text-sm text-text-tertiary-light dark:text-text-secondary-dark">({filingCount} {filingCount === 1 ? 'filing' : 'filings'})</span>
-                      </div>
-                    </button>
-
-                    {/* Year Filings */}
-                    {isExpanded && yearFilings && (
-                      <div className="p-4 space-y-3 bg-panel-light dark:bg-panel-dark">
-                        {yearFilings.map((filing) => {
-                          const styles = getFilingTypeStyles(filing.filing_type)
-                          return (
-                            <div
-                              key={filing.id}
-                              className={`border-l-4 ${styles.borderColor} border-r border-t border-b border-border-light dark:border-border-dark rounded-xl p-4 ${styles.bgColor} ${styles.hoverBg} transition-colors`}
-                            >
-                              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                                <div className="flex-1">
-                                  <div className="flex items-center space-x-3">
-                                    <FileTextIcon className={`h-5 w-5 ${styles.iconColor}`} />
-                                    <div>
-                                      <div className="flex flex-wrap items-center gap-2">
-                                        <Badge variant={styles.badgeVariant}>{filing.filing_type}</Badge>
-                                        <SupersededFilingNotice filing={filing} filings={filings} />
-                                        {ENABLE_RECOMMENDED_FILING && recommendedFiling?.id === filing.id && (
-                                          /* Solid emphasis chip — sits on the row's brand-weak tint,
-                                             where the tint Badge would vanish (see banner note). */
-                                          <Badge variant="solid" icon={<SparkleIcon className="h-3 w-3" />}>
-                                            Recommended
-                                          </Badge>
-                                        )}
-                                        <span className="text-sm text-text-tertiary-light dark:text-text-secondary-dark">
-                                          {formatLocalDate(filing.filing_date, 'MMM d, yyyy')}
-                                        </span>
-                                      </div>
-                                    </div>
-                                  </div>
-                                </div>
-                                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-2 sm:ml-4">
-                                  {filing.sec_url && (
-                                    <a
-                                      href={filing.sec_url}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                      className={buttonVariants({ variant: 'secondary' })}
-                                      title="Open original filing on SEC EDGAR"
-                                    >
-                                      <ArrowSquareOutIcon className="h-4 w-4" />
-                                      <span>View on SEC EDGAR</span>
-                                    </a>
-                                  )}
-                                  <Link href={`/filing/${filing.id}`} className={buttonVariants({ variant: 'primary' })}>
-                                    Generate Filing Summary
-                                  </Link>
-                                </div>
-                              </div>
-                            </div>
-                          )
-                        })}
-                      </div>
-                    )}
-                  </div>
-                )
-              })}
-              {!showFullHistory && (
-                // P1-6: the default view serves the recent cap; load the full backfilled 10-K/10-Q
-                // history (since 2001) on demand.
-                <div className="pt-2 text-center">
-                  {/* `loading`, not `disabled`: a background refetch (reconnect, invalidation) can
-                      start while this button holds focus, and a focused button that turns
-                      disabled is blurred to <body> in Chromium. `loading` keeps the click guard.
-                      Activating it unmounts it (the unseeded full-history key swaps the list for
-                      the skeleton), so focus moves to the section heading first, not to <body>. */}
-                  <Button
-                    variant="secondary"
-                    onClick={(e) => {
-                      // Only a keyboard (or AT) user holding this button loses focus when it unmounts.
-                      if (document.activeElement === e.currentTarget) filingsHeadingRef.current?.focus({ preventScroll: true })
-                      setShowFullHistory(true)
-                    }}
-                    loading={filingsRefetching}
-                    loadingText="Loading full history…"
-                  >
-                    Show full history
-                  </Button>
-                </div>
-              )}
-              <FilingsHistoryNote oldestFilingDate={oldestFilingDate} cik={company?.cik} />
-            </div>
-          ) : filings && filings.length > 0 ? (
-            // The company HAS filings but the active type/year filter matched none — a filter-
-            // specific empty state (not the absolute "no filings") with a way back.
-            <div role="status" className="text-center py-12">
-              <FileTextIcon className="h-12 w-12 text-text-tertiary-light dark:text-text-secondary-dark mx-auto mb-4" />
-              <p className="text-text-tertiary-light dark:text-text-secondary-dark">No filings match this filter.</p>
+        {/* SEC filings. Keyed on the ticker so its filters reset on a soft navigation to another company. */}
+        <FilingIndex
+          key={normalizedTicker}
+          companyName={companyDisplayName}
+          filings={filings}
+          status={filingsLoading ? 'loading' : filingsFailure.failed ? 'error' : 'ready'}
+          failure={filingsFailure}
+          headingRef={filingsHeadingRef}
+          latest={ENABLE_RECOMMENDED_FILING ? recommendedFiling : null}
+          expandedYears={expandedYears}
+          onToggleYear={toggleYear}
+          cik={company?.cik}
+          footerAction={
+            showFullHistory ? undefined : (
+              // P1-6: the default view serves the recent cap; load the full backfilled 10-K/10-Q
+              // history (since 2001) on demand. `loading`, not `disabled`: a background refetch
+              // (reconnect, invalidation) can start while this button holds focus, and a focused
+              // button that turns disabled is blurred to <body> in Chromium. Activating it unmounts
+              // it (the unseeded full-history key swaps the list for the skeleton), so focus moves
+              // to the section heading first, not to <body>.
               <Button
                 variant="secondary"
-                className="mt-4"
-                onClick={() => { setFilterType(null); setFilterYear(null) }}
+                className="w-full sm:w-auto"
+                onClick={(e) => {
+                  // Only a keyboard (or AT) user holding this button loses focus when it unmounts.
+                  if (document.activeElement === e.currentTarget) filingsHeadingRef.current?.focus({ preventScroll: true })
+                  setShowFullHistory(true)
+                }}
+                loading={filingsRefetching}
+                loadingText="Loading full history…"
               >
-                Clear filters
+                Show full history
               </Button>
-            </div>
-          ) : (
-            // Inline empty — inside the section card, so no nested GuidanceCard panel.
-            <div role="status" className="text-center py-12">
-              <FileTextIcon className="h-12 w-12 text-text-tertiary-light dark:text-text-secondary-dark mx-auto mb-4" />
-              <p className="text-text-tertiary-light dark:text-text-secondary-dark">No filings found for this company.</p>
-            </div>
-          )}
-        </Card>
+            )
+          }
+        />
       </main>
     </div>
   )
 }
-

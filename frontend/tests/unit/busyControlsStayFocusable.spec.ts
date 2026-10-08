@@ -496,8 +496,8 @@ const MAX_HAND_BUILT_FAILURE_SITES = 1
 /** Open rule (h) cases, pinned by exact expression. Shrink-only: converting one to RetryButton removes its pin. */
 const ALLOW_RETRY: Record<string, { sites: string[]; reason: string }> = {
   'app/company/[ticker]/page-client.tsx': {
-    sites: ['filingsRefetching', 'filingsRefetching', '() => refetchFilings()'],
-    reason: "The filings Retry and Show full history: open in rule (h), the company page's own follow-up.",
+    sites: ['filingsRefetching'],
+    reason: "Show full history: its loading is the page's own history fetch, not a Retry. Open in rule (h), the company page's own follow-up.",
   },
   'features/calendar/components/EarningsCalendarPage.tsx': {
     sites: ['() => query.refetch()'],
@@ -509,7 +509,7 @@ const ALLOW_RETRY: Record<string, { sites: string[]; reason: string }> = {
   },
 }
 const MAX_RETRY_ALLOWLIST_SIZE = 3
-const MAX_RETRY_PINNED_SITES = 5
+const MAX_RETRY_PINNED_SITES = 3
 
 /**
  * Every element the label scan sees that is not a RetryButton, pinned by `Tag "label"`, with a reason.
@@ -539,10 +539,6 @@ const ALLOW_RETRY_LABEL: Record<string, { sites: string[]; reason: string }> = {
     sites: ['Button "Retry"'],
     reason: STREAM_RESTART + "The design system's reference copilot answer (0 importers), as CopilotMessage.",
   },
-  'app/company/[ticker]/page-client.tsx': {
-    sites: ['Button "Retry"'],
-    reason: "The filings Retry: open in rule (h), the company page's own follow-up (also in ALLOW_RETRY).",
-  },
   'features/calendar/components/EarningsCalendarPage.tsx': {
     sites: ['Button "Try again"'],
     reason: '"Try again" on the calendar error card: open in rule (h) (also in ALLOW_RETRY).',
@@ -556,8 +552,8 @@ const ALLOW_RETRY_LABEL: Record<string, { sites: string[]; reason: string }> = {
     reason: '"Try again" for the filing text, a hand-rolled fetch, not a query: open in rule (h).',
   },
 }
-const MAX_RETRY_LABEL_ALLOWLIST_SIZE = 11
-const MAX_RETRY_LABEL_PINNED_SITES = 11
+const MAX_RETRY_LABEL_ALLOWLIST_SIZE = 10
+const MAX_RETRY_LABEL_PINNED_SITES = 10
 
 /** Sites not covered by their file's pins, as `file:line: expr`. Each pin covers one site. */
 function unpinned(foundSites: Map<string, Site[]>, allow: Record<string, { sites: string[] }>): string[] {

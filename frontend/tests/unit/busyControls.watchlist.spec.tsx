@@ -25,7 +25,7 @@ import FilingFeed from '@/features/dashboard/components/FilingFeed'
  *
  * Where a control's own success (or activation) unmounts it, focus is handed to a stable target
  * before it can fall to <body>: the search field after an add from the results, the "Your
- * companies" heading after a removal drops the row, the "SEC Filings" heading when "Show full
+ * companies" heading after a removal drops the row, the "SEC filings" heading when "Show full
  * history" swaps the list, and the feed's "What's new" heading when an add replaces the onboarding
  * panel that held the chip or search. jsdom does move focus to <body> when the focused node is removed, so
  * those cases fail without the hand-off.
@@ -392,7 +392,7 @@ describe('Company page', () => {
     await expectSettledAndFocused(button)
   })
 
-  it('hands focus to the "SEC Filings" heading when activating "Show full history" removes the button', async () => {
+  it('hands focus to the "SEC filings" heading when activating "Show full history" removes the button', async () => {
     api.getWatchlist.mockResolvedValue([])
     api.getCompanyFilings.mockResolvedValueOnce(filings)
     renderCompanyPage()
@@ -407,7 +407,7 @@ describe('Company page', () => {
     // The full-history key has no seed, so the list (and this button) gives way to the skeleton.
     await waitFor(() => expect(button).not.toBeInTheDocument())
     expect(screen.getByRole('status', { name: 'Loading filings' })).toBeInTheDocument()
-    const heading = screen.getByRole('heading', { name: 'SEC Filings' })
+    const heading = screen.getByRole('heading', { name: 'SEC filings' })
     expect(document.activeElement).toBe(heading)
     await waitFor(() => expect(api.getCompanyFilings).toHaveBeenCalledWith('AAPL', undefined, 300))
 
@@ -425,7 +425,7 @@ describe('Company page', () => {
     const button = await screen.findByRole('button', { name: 'Show full history' })
     await waitFor(() => expect(button).not.toHaveAttribute('aria-busy'))
     api.getCompanyFilings.mockReturnValue(deferred<Filing[]>().promise)
-    const elsewhere = screen.getByRole('heading', { name: 'SEC Filings' })
+    const elsewhere = screen.getByRole('heading', { name: 'SEC filings' })
     expect(document.activeElement).not.toBe(button)
     fireEvent.click(button)
 
