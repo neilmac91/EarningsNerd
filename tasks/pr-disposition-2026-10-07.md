@@ -115,9 +115,9 @@ not trigger Codex by themselves; an owner `@codex review` comment is needed (pre
 | --- | --- | --- | --- | --- |
 | D1 | #1119 (replaces #1096) `eval-baseline` by workflow dispatch on `claude/pr1096-deps-without-edgartools` at `76d2ba6d`, run [37695333206](https://github.com/neilmac91/EarningsNerd/actions/runs/37695333206), 22:18:33Z (off-peak; balance 37.57 at 22:18:07Z) | 0.40 | **0.175148** (70 calls, 0 unknown; off-peak tokens × `llm_pricing`) | done: expected=attempted=scored=70, errors 0, pass_rate 1.0, gate_fail_rate 0.0; regression gate PASS (2 warnings: untraceable dollar figures 1.614 advisory; `mean_citation_fidelity` 0.8615 vs pinned 0.9648, checked below); artifact 11515377659 sha256 `ff36d3a2…` |
 | D2 | #1119 ready transition 22:18:43Z → `copilot-eval` run [37695352886](https://github.com/neilmac91/EarningsNerd/actions/runs/37695352886) at `76d2ba6d` (one run, E1 precedent) | 0.05 | **0.006611** (35 calls, 0 unknown, 0 peak) | done: **accepted, 18/18, 0 errors**; fingerprint `aeb56401`; artifact 11515695532 sha256 `e6af7057…` |
-| D3 | #1127 (replaces Dependabot #1124: openai 3.24.0, posthog 7.62.1) `eval-baseline` by workflow dispatch on `claude/pr1124-backend-minor-updates` at `4fbec187`, run [37704631398](https://github.com/neilmac91/EarningsNerd/actions/runs/37704631398), 23:51:46Z (off-peak; balance 36.83 at 23:51:42Z) | 0.40 | pending | running |
-| D4 | #1127 ready transition 23:52Z → `copilot-eval` (one run, E1 precedent) | 0.05 | pending | running |
-| | **Total so far** | | **0.181759** of 3.00 (D1–D2; D3–D4 pending) | |
+| D3 | #1127 (replaces Dependabot #1124: openai 3.24.0, posthog 7.62.1) `eval-baseline` by workflow dispatch on `claude/pr1124-backend-minor-updates` at `4fbec187`, run [37704631398](https://github.com/neilmac91/EarningsNerd/actions/runs/37704631398), 23:51:46Z (off-peak; balance 36.83 at 23:51:42Z) | 0.40 | **0.175076** (70 calls, 0 unknown; off-peak tokens × `llm_pricing`) | done: expected=attempted=scored=70, errors 0, pass_rate 1.0, gate_fail_rate 0.0; regression gate PASS (2 warnings: untraceable dollar figures 1.4 advisory; `mean_citation_fidelity` 0.8514 vs pinned 0.9648, the same harness fallback as D1); artifact 11519073370 sha256 `e3378f1f…` |
+| D4 | #1127 ready transition 23:52:02Z → `copilot-eval` run [37704656898](https://github.com/neilmac91/EarningsNerd/actions/runs/37704656898) at `4fbec187` (one run, E1 precedent) | 0.05 | **0.006423** (34 calls, 0 unknown, 0 peak) | done: **accepted, 18/18, 0 errors**; artifact 11518798415 sha256 `60495688…` |
+| | **Total** | | **0.363258** of 3.00 | |
 
 ## Lanes (Stage 1 triage, main `335ad94b` after #1111 merged at 20:01Z)
 
@@ -208,14 +208,14 @@ advisory; extract-zip #270 / #283 stay held (decision I).
 | #1118, #1120, #1121, #1123, #1126 | live Claude and Codex lanes, drafts | **open**, observe-only |
 | #1119 | this session (replaces #1096) | **merged** `111e8ce4`, deployed and verified |
 | #1122 | Codex lane (durable background tasks) | **merged by its owner** `6393518c` at 23:19Z; deploy job 113068536115 succeeded (`00447-hlv` 100%, healthy) |
-| #1124 | Dependabot pip (openai 3.24.0, posthog 7.62.1) | «TBD: replaced by #1127 and closed» |
+| #1124 | Dependabot pip (openai 3.24.0, posthog 7.62.1) | **closed** as superseded by #1127 (comment 6049316739) |
 | #1125 | Dependabot frontend (4 updates) | **merged** `0a5eeccc`: Codex no findings; local gate; independent review clean; Vercel production success; comment 6049203118 |
 | #1127 | this session (replaces #1124) | «TBD: merged and deployed» |
 
 ### Spend
 
 Four paid runs, all off-peak and all deepseek-flash, with 0 unknown-cost calls. Telemetry total
-«TBD» against the USD 3.00 ceiling (D1 0.175148, D2 0.006611, D3 «TBD», D4 0.006423). The DeepSeek
+**USD 0.363258** against the USD 3.00 ceiling (D1 0.175148, D2 0.006611, D3 0.175076, D4 0.006423). The DeepSeek
 balance went from USD 37.77 at 19:42Z to 36.83 at 23:51Z. Other agents share the account, so the
 balance is a cross-check, not the accounting.
 
@@ -497,3 +497,17 @@ balance is a cross-check, not the accounting.
   - SDK review: no findings. openai 3.24's client, errors and streaming are byte-identical to 3.23; only
     the JSON key order of the request body changes. posthog 7.62.1 touches only `posthog.ai`, unused here.
   - Opened as a draft at 23:51Z, D3 dispatched 23:51:46Z, ready 23:52Z (D4 + Codex).
+- 23:52–23:56Z — **#1081 merged** `4e8252be` (head `1846bc78` re-read; CI 37704184147 green;
+  review-gate success; `clean`; simulated merge onto main `0a5eeccc` clean). Before the merge, two more
+  Codex P2s on `1846bc78` were answered without a build (threads 4213192961 and 4213192965), with
+  the decision put to the founder. Both are fail-closed false positives on shapes absent from the
+  tree: arbitrary `min-[…]` screens, and a reset that applies only while the element is hidden.
+  Vercel production success 23:56:08Z; `www` and `/pricing` 200. Evidence comment 6049249453.
+- 23:54–00:01Z — #1127 results:
+  - D4 copilot-eval 37704656898: accepted 18/18, USD 0.006423.
+  - Codex on `4fbec18`: no findings.
+  - D3 eval-baseline 37704631398: 70/70 PASS, USD 0.175076.
+  - PR CI 37704612545: green.
+- 00:02Z — Head `4fbec187` re-read; 23/23 checks green; `clean`. Evidence comment 6049314355.
+  **#1127 merged** `41248d01`; **#1124 closed** as superseded (comment 6049316739). The deploy is
+  watched.
