@@ -274,7 +274,8 @@ Metric cards     <FinancialMetricsTable> below md (768px): one stacked card per 
                  DataTable, switched by CSS alone (`md:hidden` cards, `hidden md:block` table — both in the DOM
                  inside ONE wrapper so a parent's `space-y` hands neither a sibling margin; the inactive one is
                  display:none, so it adds no accessible content, Tab stop or id — never a JS media query, which
-                 would SSR one layout and flip after hydration, and never a second DataTable responsive API).
+                 would SSR one layout and flip after hydration; no DataTable responsive API either, as a shared
+                 one is deferred work, so the switch stays local to this component).
                  Both presentations render ONE set of field renderers (nameField / currentField / perAdsField /
                  priorField / changeField / takeawayField), each marking its element `data-metric-field`; with
                  `data-metrics-layout="cards|table"`, `data-metric-card`, `data-direction` and `data-tone` these
@@ -296,7 +297,9 @@ Metric cards     <FinancialMetricsTable> below md (768px): one stacked card per 
                  `list-style: none` list) named by the table caption, in both caption variants. Each chip's two
                  copies share a per-instance `layoutTwin`: a source sheet or popover opened from one closes when
                  a breakpoint hides its layout (a phone rotated across 768px), and focus that was in it goes to
-                 the twin now shown, never to a display:none chip (SourceTrace). Gates:
+                 the twin now shown, never to a display:none chip (SourceTrace). The research pane a chip opened
+                 returns focus the same way: its opener is read as the copy now shown
+                 (`features/filings/lib/layoutTwin.ts`, through FilingViewerContext). Gates:
                  tests/unit/FinancialMetricsCards.spec.tsx (content parity, both layouts, every data variant,
                  the breakpoint close) + tests/e2e/metrics-stacked-cards.spec.ts (the hidden layout, the one-line
                  row, wrapping, the 767/768 switch, the sibling-margin pin and rotation with a sheet open in a

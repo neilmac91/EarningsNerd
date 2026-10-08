@@ -504,6 +504,7 @@ test.describe('the switch is at 767 → 768 with no mixed state', () => {
       },
       { TABLE, SECTION },
     )
+    expect(offset.body).toBe(true) // the table sits in the section's body, not its header
     expect(Math.abs(offset.delta)).toBeLessThanOrEqual(0.5)
   })
 })
@@ -530,6 +531,23 @@ test.describe('a keyboard-opened popover across the md switch (Codex review of #
     const anchor = await tableChip.boundingBox()
     expect(box && anchor && Math.abs(box.x + box.width / 2 - (anchor.x + anchor.width / 2)) < 160).toBe(true)
   })
+
+  // Pre-merge review of #1108: focus INSIDE the popover (its EDGAR link, one Tab from the chip) goes to
+  // the twin too, and from a row other than the first, so the twin is the same row's chip.
+  test('focus on a card chip’s popover link at 767 moves to the same row’s table chip at 768', async ({ page, baseURL }) => {
+    await openFiling(page, baseURL!)
+    const row = 2 // the third metric: its takeaway carries a verified chip
+    const cardChip = page.locator(CARD).nth(row).getByRole('button', { name: 'Source: Verified in filing' })
+    await cardChip.scrollIntoViewIfNeeded()
+    await cardChip.focus()
+    await page.keyboard.press('Tab')
+    const edgar = page.getByRole('group', { name: 'Source detail' }).getByRole('link', { name: /open in sec edgar/i })
+    await expect(edgar).toBeFocused()
+
+    await page.setViewportSize({ width: 768, height: 1024 })
+    await expectSingleLayout(page, 'table')
+    await expect(page.locator(`${TABLE} tbody tr`).nth(row).getByRole('button', { name: 'Source: Verified in filing' })).toBeFocused()
+  })
 })
 
 test.describe('a hidden chip blurred before the resize (Codex review of #1108)', () => {
@@ -549,6 +567,53 @@ test.describe('a hidden chip blurred before the resize (Codex review of #1108)',
     const tableChip = page.locator(`${TABLE} tbody tr`).first().getByRole('button', { name: 'Source: Verified in filing' })
     await expect(tableChip).toBeFocused()
     await expect(page.getByRole('group', { name: 'Source detail' })).toHaveCount(1)
+  })
+})
+
+// Pre-merge review of #1108: a chip that opens the research pane is remembered as the pane's opener,
+// and the pane can outlive the layout that chip was in (a window narrowed, a phone rotated, the pane
+// still open as the sheet below lg). Closing it must return focus to the same chip in the layout now
+// shown, not to the display:none copy that opened it (focus would fall to <body>).
+const PANE = '[role="dialog"][aria-label="Ask this Filing"]'
+const VERIFIED = 'Source: Verified in filing'
+const ROW = 5 // the sixth metric, so a twin that lost its row would land on another chip
+
+test.describe('the research pane a metric chip opened, across the md switch', () => {
+  test.use({ viewport: { width: 1440, height: 900 } })
+
+  test('keyboard: a table chip opens the pane; narrowed below md, closing the pane returns focus to the same chip in its card', async ({ page, baseURL }) => {
+    await openFiling(page, baseURL!)
+    const tableChip = page.locator(`${TABLE} tbody tr`).nth(ROW).getByRole('button', { name: VERIFIED })
+    await tableChip.scrollIntoViewIfNeeded()
+    await tableChip.focus()
+    await page.keyboard.press('Enter')
+    await expect(page.locator(PANE)).toBeVisible()
+
+    await page.setViewportSize({ width: 700, height: 900 }) // below md: the cards; below lg: the pane is a sheet
+    await expectSingleLayout(page, 'cards')
+    await expect(page.locator(PANE)).toHaveAttribute('aria-modal', 'true')
+    await page.keyboard.press('Escape')
+    await expect(page.locator(PANE)).toBeHidden()
+    await expect(page.locator(CARD).nth(ROW).getByRole('button', { name: VERIFIED })).toBeFocused()
+  })
+})
+
+test.describe('the research pane a metric chip opened, across the md switch, on touch', () => {
+  test.use({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true })
+
+  test('touch: a card chip opens the pane through its sheet; rotated, closing the pane returns focus to the same chip in the table', async ({ page, baseURL }) => {
+    await openFiling(page, baseURL!)
+    const cardChip = page.locator(CARD).nth(ROW).getByRole('button', { name: VERIFIED })
+    await cardChip.scrollIntoViewIfNeeded()
+    await cardChip.tap()
+    await page.getByRole('dialog', { name: 'Source detail' }).getByRole('button', { name: 'Show in filing' }).tap()
+    await expect(page.locator(PANE)).toBeVisible()
+
+    await page.setViewportSize({ width: 844, height: 390 }) // landscape: the table; still a sheet below lg
+    await expectSingleLayout(page, 'table')
+    await page.keyboard.press('Escape')
+    await expect(page.locator(PANE)).toBeHidden()
+    await expect(page.locator(`${TABLE} tbody tr`).nth(ROW).getByRole('button', { name: VERIFIED })).toBeFocused()
   })
 })
 

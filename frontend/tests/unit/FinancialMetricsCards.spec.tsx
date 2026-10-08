@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { act, fireEvent, render, screen, within } from '@testing-library/react'
 import FinancialMetricsTable, { type FinancialMetric } from '@/features/summaries/components/FinancialMetricsTable'
+import { FilingViewerProvider } from '@/features/filings/components/copilot/FilingViewerContext'
 
 /**
  * EN-03: below md each metric is one stacked card; at/above md the DataTable is unchanged. The two
@@ -271,7 +272,7 @@ describe('FinancialMetricsTable — stacked cards below md (EN-03): content pari
     for (const el of [card, ...all(card, '*')]) {
       if (el.closest('svg')) continue // the direction glyph is a fixed-size icon, not text
       expect(el.getAttribute('class') ?? '', el.tagName).not.toMatch(
-        /\b(whitespace-nowrap|whitespace-pre|truncate|line-clamp-\d+|overflow-hidden|overflow-x-hidden|h-\d+(\.\d+)?|max-h-\S+)\b/,
+        /\b(whitespace-nowrap|whitespace-pre|truncate|text-ellipsis|text-clip|line-clamp-\d+|overflow-(x-|y-)?(hidden|clip|auto|scroll)|break-keep|h-\d+(\.\d+)?|max-h-\S+)\b/,
       )
       expect(el.getAttribute('style')).toBeNull()
     }
@@ -349,6 +350,28 @@ describe('FinancialMetricsTable — stacked cards below md (EN-03): content pari
     expect(all(container, '[aria-hidden="true"]').filter((e) => e.tagName.toLowerCase() !== 'svg')).toHaveLength(0)
   })
 
+  it('pairs every chip with exactly one twin: one copy per layout, keyed by its instance, row and field', () => {
+    const { container } = render(
+      <>
+        <FinancialMetricsTable metrics={FULL} bare />
+        <FinancialMetricsTable metrics={FULL} bare />
+      </>,
+    )
+    const copies = all(container, '[data-layout-twin]')
+    expect(copies.length).toBeGreaterThan(0)
+    const byKey = new Map<string, HTMLElement[]>()
+    for (const el of copies) byKey.set(el.dataset.layoutTwin!, [...(byKey.get(el.dataset.layoutTwin!) ?? []), el])
+    for (const [key, pair] of byKey) {
+      expect(pair, key).toHaveLength(2)
+      const layouts = pair.map((el) => el.closest('[data-metrics-layout]')!.getAttribute('data-metrics-layout')).sort()
+      expect(layouts, key).toEqual(['cards', 'table'])
+      // both copies belong to one table: the same wrapper holds the two layouts
+      expect(pair[0].closest('[data-metrics-layout]')!.parentElement).toBe(pair[1].closest('[data-metrics-layout]')!.parentElement)
+    }
+    // two instances never share a key, and each row's chips keep their own (2 tables x (2 name + 1 takeaway) chips)
+    expect(byKey.size).toBe(2 * 3)
+  })
+
   it('switches the two layouts by the md breakpoint classes inside one wrapper, the list an explicit role="list"', () => {
     const { container } = render(<FinancialMetricsTable metrics={FULL} bare />)
     // one element for the parent's space-y: a hidden sibling must not earn the other layout a margin
@@ -399,7 +422,7 @@ describe('FinancialMetricsTable — a breakpoint that hides an open chip (Codex 
     restore.splice(0).forEach((undo) => undo())
   })
 
-  function setup(pointer: 'coarse' | 'fine', initiallyHidden: 'cards' | 'table') {
+  function setup(pointer: 'coarse' | 'fine', initiallyHidden: 'cards' | 'table', { withViewer = false } = {}) {
     hidden = initiallyHidden
     const mm = vi.spyOn(window, 'matchMedia').mockImplementation(
       (query: string) =>
@@ -418,7 +441,9 @@ describe('FinancialMetricsTable — a breakpoint that hides an open chip (Codex 
       return (this.closest(`[data-metrics-layout="${hidden}"]`) ? [] : [{}]) as unknown as DOMRectList
     })
     restore.push(() => mm.mockRestore(), () => rects.mockRestore())
-    render(<FinancialMetricsTable metrics={FULL} />)
+    // With the filing page's viewer mounted, a chip that can jump in-app is a button and its popover's
+    // EDGAR link takes the next Tab (useEvidencePopoverKeys); without it the chip is that link itself.
+    render(withViewer ? <FilingViewerProvider><FinancialMetricsTable metrics={FULL} /></FilingViewerProvider> : <FinancialMetricsTable metrics={FULL} />)
   }
   const inLayout = (layout: 'cards' | 'table') => within(document.querySelector<HTMLElement>(`[data-metrics-layout="${layout}"]`)!)
   const crossBreakpoint = (nowHidden: 'cards' | 'table') => {
@@ -464,7 +489,7 @@ describe('FinancialMetricsTable — a breakpoint that hides an open chip (Codex 
     expect(screen.getAllByRole('group', { name: 'Source detail' })).toHaveLength(1)
   })
 
-  it('a hover popover closes with its layout and moves no focus; a resize that keeps the chip shown keeps a sheet open', () => {
+  it('a hover popover closes with its layout and moves no focus (no keyboard focus to hand over)', () => {
     setup('fine', 'cards')
     fireEvent.mouseEnter(inLayout('table').getByRole('link', { name: 'Source: Revenue · SEC XBRL' }))
     expect(screen.getByRole('group', { name: 'Source detail' })).toBeInTheDocument()
@@ -496,5 +521,29 @@ describe('FinancialMetricsTable — a breakpoint that hides an open chip (Codex 
     fireEvent.click(inLayout('cards').getAllByRole('button', { name: 'Source: Verified in filing' })[0])
     crossBreakpoint('table') // still a phone: the cards stay shown
     expect(screen.getByRole('dialog', { name: 'Source detail' })).toBeInTheDocument()
+  })
+
+  // Pre-merge review of #1108: every case above starts from row 0, which is also first in document
+  // order, so a twin key that lost its row (or its instance) would still have resolved to the right
+  // element. These pin the key itself and a hand-off from another row.
+  it('keyboard: a chip in another row hands focus to that row’s twin, not to the first chip of the layout', () => {
+    setup('fine', 'cards')
+    const tableChip = inLayout('table').getByRole('link', { name: 'Source: Cited' }) // row 1's name chip
+    act(() => tableChip.focus())
+    crossBreakpoint('table')
+    expect(document.activeElement).toBe(inLayout('cards').getByRole('link', { name: 'Source: Cited' }))
+  })
+
+  it('keyboard: focus in the popover (its EDGAR link) also goes to the twin when the breakpoint hides the chip', () => {
+    setup('fine', 'table', { withViewer: true })
+    const cardChip = inLayout('cards').getByRole('button', { name: 'Source: Revenue · SEC XBRL' })
+    act(() => cardChip.focus())
+    fireEvent.keyDown(cardChip, { key: 'Tab' }) // the popover's EDGAR link takes the next Tab
+    const edgar = within(screen.getByRole('group', { name: 'Source detail' })).getByRole('link', { name: /open in sec edgar/i })
+    expect(document.activeElement).toBe(edgar)
+
+    crossBreakpoint('cards') // widened past md: the table is the layout shown
+    expect(edgar).not.toBeInTheDocument()
+    expect(document.activeElement).toBe(inLayout('table').getByRole('button', { name: 'Source: Revenue · SEC XBRL' }))
   })
 })

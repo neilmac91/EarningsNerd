@@ -7,6 +7,7 @@ import { Button } from '@/components/ui'
 import { useFilingViewer } from '@/features/filings/components/copilot/FilingViewerContext'
 import { useSheetFocusTrap } from '@/features/filings/components/copilot/useSheetFocusTrap'
 import { useEvidencePopoverKeys } from '@/features/filings/components/copilot/useEvidencePopoverKeys'
+import { shownTwin } from '@/features/filings/lib/layoutTwin'
 
 /**
  * Shared "Trace to Source" provenance affordance — the ambient, on-brand way every metric and risk
@@ -52,12 +53,6 @@ interface SourceTraceProps {
    * was on the chip or in the surface moves to the copy now shown.
    */
   layoutTwin?: string
-}
-
-/** The rendered copy of a chip paired by `layoutTwin`, other than `chip` itself. */
-function shownTwin(chip: HTMLElement, layoutTwin: string): HTMLElement | null {
-  const copies = Array.from(document.querySelectorAll<HTMLElement>('[data-layout-twin]'))
-  return copies.find((el) => el !== chip && el.dataset.layoutTwin === layoutTwin && el.getClientRects().length > 0) ?? null
 }
 
 interface PopoverPos {
