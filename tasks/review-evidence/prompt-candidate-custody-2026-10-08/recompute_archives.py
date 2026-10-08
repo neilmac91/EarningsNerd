@@ -16,8 +16,8 @@ prompt-candidate archives it then recomputes the figures posted on #1029 (commen
   tokens, fingerprints, cost). A call is unknown when its cache-hit, cache-miss or completion
   token count is missing (copilot_cost_runnerlog.py checks cache-hit and completion; a missing
   cache-miss count would stop that script).
-An archive that cannot be read (not a zip, a listed member or the report missing) is reported BAD
-with the reason, and the remaining archives are still checked.
+An archive that cannot be read (not a zip, a corrupt member, a listed member or the report missing)
+is reported BAD with the reason, and the remaining archives are still checked.
 
 Cost uses the deepseek-flash rates pinned at the run's merge ref 3a5c5894
 (backend/app/services/llm_pricing.py: 0.003 cache hit, 0.15 cache miss, 0.60 output, USD per 1M
@@ -167,7 +167,7 @@ def main() -> int:
                     actual = eval_report(z) if item["artifact_name"].startswith("eval-report") else copilot(z)
                     problems += [f"{k}: expected {expected[k]!r}, got {actual.get(k)!r}"
                                  for k in expected if actual.get(k) != expected[k]]
-        except (zipfile.BadZipFile, KeyError, StopIteration, ValueError, UnicodeDecodeError) as exc:
+        except Exception as exc:  # noqa: BLE001 - any unreadable archive is a BAD line, never a stop
             problems.append(f"unreadable: {type(exc).__name__}: {exc}")
         failures += bool(problems)
         scope = "figures and hashes" if expected else "hashes"
