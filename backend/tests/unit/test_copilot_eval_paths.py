@@ -31,13 +31,18 @@ words), except that in an eval module a literal that builds a path from the modu
 (`Path(__file__).with_name("questions")`, `Path(__file__).parent / "questions"`, a `Path(dir, "questions")`
 constructor or a `join` on that directory, a keyword argument or an f-string part included; the receiver
 must be the module file or its directory, written as `Path(__file__).parent`, `os.path.dirname(__file__)`
-or a name assigned from one of them, so `REPORTS_DIR.joinpath("x")` or `parents[1] / "x"` names
-nothing) also names a folder directly beside the module; a glob names the directory before its first
-pattern segment (`dir/*.md` spells `dir`, wherever the literal sits and whatever the receiver) and the
-files its pattern matches there, segment by segment, one level for `glob` and every level for `rglob`
-or `**`; a bare pattern such as `*.md` counts only on the module's own directory
-(`Path(__file__).parent.glob("*.md")`), so `REPORTS_DIR.glob("*.json")` on the run's report directory
-is not seen; a folder name held in a variable first (`NAME = "questions"; with_name(NAME)`) is a bare
+or a name assigned from one of them, by a plain, an annotated or a walrus assignment, so
+`REPORTS_DIR.joinpath("x")` or `parents[1] / "x"` names nothing) also names a folder directly beside
+the module; `rglob(p)` is `glob("**/" + p)`, and a leading `**` is stripped and remembered, so
+`glob("**/name")` is the bare name `name`; a glob names the directory before its first pattern
+segment (`dir/*.md` spells `dir`, wherever the literal sits and whatever the receiver; the directory
+is matched at any depth already, so `**/dir/*.md` is the same read) and the files its pattern matches
+there, segment by segment, `**` at any depth; a bare pattern such as `*.md` counts only on the
+module's own directory (`Path(__file__).parent.glob("*.md")`), one level for `glob` and every level
+for `rglob` or a leading `**`, and a leading `..` climbs that many directories above the module
+(`glob("../*.txt")` reads `backend/*.txt`; `join(dir, "..", "*.txt")` spells the `..` in a literal of
+its own and stays a pattern on the module's directory, the per-literal limit below), so
+`REPORTS_DIR.glob("*.json")` on the run's report directory is not seen; a folder name held in a variable first (`NAME = "questions"; with_name(NAME)`) is a bare
 word to this gate and is not seen, the same limit as a path spelled one segment per literal; a path of
 two or more segments names files and
 directories, prefers `backend/` and otherwise reaches the whole repository
@@ -284,17 +289,17 @@ def _is_module_dir(node: ast.AST, aliases: set[str]) -> bool:
 
 
 def _recursive_literals(tree: ast.AST) -> set[int]:
-    """ids of the string constants passed to any `rglob(...)`: their pattern applies at every depth."""
+    """ids of the string constants passed to any `rglob(...)`, positional or `pattern=`: `rglob(p)` is `glob("**/" + p)`."""
     return {
         id(a) for node in ast.walk(tree)
         if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute) and node.func.attr == "rglob"
-        for a in node.args if isinstance(a, ast.Constant)
+        for a in node.args + [keyword.value for keyword in node.keywords] if isinstance(a, ast.Constant)
     }
 
 
 def _glob_matches(directory: str, pattern: list[str], recursive: bool) -> set[str]:
     """Tracked files under `directory` whose relative path matches `pattern` segment by segment (`fnmatch`); `**`
-    matches any run of segments and `rglob` prefixes one, so `glob("*.md")` is one level and `rglob` every level."""
+    matches any run of segments and `recursive` prefixes one, so `glob("*.md")` is one level and `rglob` every level."""
     def matches(parts: list[str], pat: list[str]) -> bool:
         if not pat:
             return not parts
@@ -309,13 +314,15 @@ def _sibling_literals(tree: ast.AST) -> set[int]:
     """ids of the string constants (an f-string's parts included) that build a path from the module's own location:
     `with_name` on the module file; `joinpath`, `glob`, `rglob` or `/` on the module's directory; `join` or a `Path`
     constructor whose first operand is the module's directory; the directory written as `Path(__file__).parent`,
-    `os.path.dirname(__file__)` or a name assigned from one of them. A literal joined to any other receiver (an output
-    directory, `parents[1]`, a parameter) and a bare word anywhere else (a dict key, a column name) is not a folder."""
+    `os.path.dirname(__file__)` or a name assigned from one of them (a plain, an annotated or a walrus assignment; an
+    attribute such as `self.here` is not followed). A literal joined to any other receiver (an output directory,
+    `parents[1]`, a parameter) and a bare word anywhere else (a dict key, a column name) is not a folder."""
     aliases: set[str] = set()
     for _ in range(2):  # a name assigned the module's directory, then a name assigned from that one
         for node in ast.walk(tree):
-            if isinstance(node, ast.Assign) and _is_module_dir(node.value, aliases):
-                aliases.update(target.id for target in node.targets if isinstance(target, ast.Name))
+            if isinstance(node, (ast.Assign, ast.AnnAssign, ast.NamedExpr)) and node.value is not None and _is_module_dir(node.value, aliases):
+                targets = node.targets if isinstance(node, ast.Assign) else [node.target]
+                aliases.update(target.id for target in targets if isinstance(target, ast.Name))
     ids: set[int] = set()
     for node in ast.walk(tree):
         if isinstance(node, ast.Call):
@@ -354,11 +361,17 @@ def _named_in(tree: ast.AST, module: str = "backend/evals/") -> set[str]:
             continue
         parts = posixpath.normpath(value).split("/")  # `..` survives only at the start
         segments = [s for s in parts if s not in ("", ".", "..")]
+        deep = id(node) in recursive  # `rglob(p)` is `glob("**/" + p)`: a leading `**` is stripped and remembered
+        while segments and segments[0] == "**":
+            segments, deep = segments[1:], True
         cut = next((i for i, segment in enumerate(segments) if GLOB.search(segment)), len(segments))
         pattern, segments, globbed = segments[cut:], segments[:cut], cut < len(segments)
-        if globbed and not segments:  # `.glob("*.md")` on the module's own directory
+        if globbed and not segments:  # `.glob("*.md")` on the module's own directory, or `..` directories above it
             if id(node) in sibling:
-                found.update(_glob_matches(posixpath.dirname(module) + "/", pattern, id(node) in recursive))
+                base = posixpath.dirname(module)
+                for _ in range(parts.count("..")):
+                    base = posixpath.dirname(base)
+                found.update(_glob_matches(base + "/" if base else "", pattern, deep))
             continue
         if not segments or (len(segments) == 1 and segments[0] in RUN_ARTIFACTS and module.startswith("backend/evals/")):
             continue
@@ -371,8 +384,8 @@ def _named_in(tree: ast.AST, module: str = "backend/evals/") -> set[str]:
         matches = [c for c in files + dirs if c.rstrip("/") == suffix or c.rstrip("/").endswith("/" + suffix)]
         inside = [c for c in matches if c.startswith("backend/")]
         for candidate in matches if outside or (spelled and not inside) else inside:
-            if candidate.endswith("/") and globbed:
-                found.update(_glob_matches(candidate, pattern, id(node) in recursive))
+            if candidate.endswith("/") and globbed:  # the directory is matched at any depth already (`**/dir/*` is `dir/*`)
+                found.update(_glob_matches(candidate, pattern, False))
             elif candidate.endswith("/"):  # a `.gitignore` tells git what not to track; the run never reads one
                 found.update(p for p in TRACKED if p.startswith(candidate) and not p.endswith("/.gitignore"))
             else:
@@ -1109,10 +1122,15 @@ def test_data_directories_and_named_files_are_inputs():
         assert beside_module and all_evals_md - beside_module
         assert _named_in(ast.parse('fs = Path(__file__).parent.glob("*.md")'), "backend/evals/copilot_runner.py") == beside_module
         assert _named_in(ast.parse('fs = Path(__file__).parent.rglob("*.md")'), "backend/evals/copilot_runner.py") == all_evals_md
-        assert _named_in(ast.parse('fs = Path(__file__).parent.glob("copilot_*.json")'), "backend/evals/copilot_runner.py") == {"backend/evals/copilot_golden_set.json", "backend/evals/copilot_sources.json"}
-        assert _named_in(ast.parse("H = Path(__file__).resolve().parent" + chr(10) + "D = H" + chr(10) + "x = list(D.glob('*.md'))"), "backend/evals/copilot_runner.py") == beside_module
-        services_json = {p for p in TRACKED if p.startswith("backend/app/services/") and p.count("/") == 3 and p.endswith(".json")}
-        assert _named_in(ast.parse('fs = Path(__file__).parent.glob("*.json")'), "backend/app/services/x.py") == services_json
+        copilot_json = {p for p in TRACKED if p.startswith("backend/evals/copilot_") and p.count("/") == 2 and p.endswith(".json")}
+        assert copilot_json and copilot_json < {p for p in TRACKED if p.startswith("backend/evals/copilot_")}
+        assert _named_in(ast.parse('fs = Path(__file__).parent.glob("copilot_*.json")'), "backend/evals/copilot_runner.py") == copilot_json
+        for alias in ("D = H", "D: Path = H", "D: Final[Path] = H", "x = (D := H)"):  # an alias of an alias, however assigned
+            assert _named_in(ast.parse("H = Path(__file__).resolve().parent" + chr(10) + alias + chr(10) + "x = list(D.glob('*.md'))"), "backend/evals/copilot_runner.py") == beside_module, alias
+        assert _named_in(ast.parse("HERE: Path = Path(__file__).parent" + chr(10) + "Q = HERE / 'baselines'"), "backend/evals/copilot_runner.py") == baselines
+        services_py = {p for p in TRACKED if p.startswith("backend/app/services/") and p.count("/") == 3 and p.endswith(".py")}
+        assert services_py
+        assert _named_in(ast.parse('fs = Path(__file__).parent.glob("*.py")'), "backend/app/services/x.py") == services_py
         assert _named_in(ast.parse('x = "*"; y = "a*b"; r = re.compile("</?[A-Za-z][^>]*>")'), "backend/evals/copilot_runner.py") == set()
         # A glob with a directory part spells that directory wherever the literal sits and whatever the receiver, and names
         # what its pattern matches there.
@@ -1120,7 +1138,25 @@ def test_data_directories_and_named_files_are_inputs():
         json_fixtures = {p for p in TRACKED if p.startswith("backend/tests/fixtures/") and p.endswith(".json")}
         assert top_fixtures and json_fixtures - top_fixtures
         assert _named_in(ast.parse('fs = BACKEND.glob("tests/fixtures/*"); z = "baselines/*"'), "backend/evals/copilot_runner.py") == top_fixtures | baselines
-        assert _named_in(ast.parse('fs = BACKEND.glob("tests/fixtures/**/*.json"); gs = BACKEND.rglob("tests/fixtures/*.json")'), "backend/evals/copilot_runner.py") == json_fixtures
+        assert _named_in(ast.parse('fs = BACKEND.glob("tests/fixtures/**/*.json")'), "backend/evals/copilot_runner.py") == json_fixtures
+        # `rglob(p)` is `glob("**/" + p)`: the recursion comes before the directory, which a spelled directory matches at
+        # any depth already, so `rglob("tests/fixtures/*.json")` is the JSON directly under that directory, and
+        # `glob("**/name")` is the bare name `name`.
+        assert json_fixtures & top_fixtures and json_fixtures - top_fixtures
+        assert _named_in(ast.parse('gs = BACKEND.rglob("tests/fixtures/*.json")'), "backend/evals/copilot_runner.py") == json_fixtures & top_fixtures
+        assert _named_in(ast.parse('gs = BACKEND.glob("**/tests/fixtures/*.json")'), "backend/evals/copilot_runner.py") == json_fixtures & top_fixtures
+        assert "companyfacts_sample.json" in NAMED_CANDIDATES
+        facts = set(NAMED_CANDIDATES["companyfacts_sample.json"])
+        for spelling in ('BACKEND.glob("**/companyfacts_sample.json")', 'BACKEND.rglob("companyfacts_sample.json")', 'BACKEND.rglob(pattern="companyfacts_sample.json")'):
+            assert _named_in(ast.parse(f"f = next({spelling}, None)"), "backend/evals/copilot_runner.py") == facts, spelling
+        assert _named_in(ast.parse('fs = Path(__file__).parent.rglob(pattern="*.md")'), "backend/evals/copilot_runner.py") == all_evals_md
+        # A bare pattern with a leading `..` is matched that many directories above the module, not in its own.
+        backend_txt = {p for p in TRACKED if p.startswith("backend/") and p.count("/") == 1 and p.endswith(".txt")}
+        root_md = {p for p in TRACKED if "/" not in p and p.endswith(".md")}
+        assert backend_txt and root_md
+        assert _named_in(ast.parse('fs = Path(__file__).parent.glob("../*.txt")'), "backend/evals/copilot_runner.py") == backend_txt
+        assert _named_in(ast.parse('fs = os.path.join(os.path.dirname(__file__), "../../*.md")'), "backend/evals/copilot_runner.py") == root_md
+        assert _named_in(ast.parse('fs = parents[1].glob("../*.txt")'), "backend/evals/copilot_runner.py") == set()
         # Every spelling that builds a path from the module counts: a `Path` constructor, a bare `join` on a name assigned
         # the module's directory, a keyword argument, an f-string.
         for spelling in ('Path(Path(__file__).parent, "baselines")', 'Path(__file__).with_name(name="baselines")', 'Path(__file__).parent / f"baselines"'):
@@ -1131,6 +1167,9 @@ def test_data_directories_and_named_files_are_inputs():
         # `parents[1]`.
         assert _named_in(ast.parse('a = output.joinpath("baselines"); b = out / "baselines"; c = list(output.glob("*.json")); d = Path(out, "baselines")'), "backend/evals/copilot_runner.py") == set()
         assert _named_in(ast.parse('R = Path(__file__).with_name("reports"); x = list(R.glob("*.json")); y = list(Path(__file__).resolve().parents[1].glob("*.py"))'), "backend/evals/copilot_runner.py") == set()
+        # `with_name`, `.parent`, `dirname` and `Path(...)` anchor only on the module file itself.
+        for spelling in ('output.with_name("baselines")', 'out.parent / "baselines"', 'os.path.join(os.path.dirname(output), "baselines")', 'Path(out).parent / "baselines"', 'Path(output).with_name("baselines")'):
+            assert _named_in(ast.parse(f"d = {spelling}"), "backend/evals/copilot_runner.py") == set(), spelling
         assert _named_in(ast.parse('d = "baselines"; e = "evals"'), "backend/app/x.py") == set()
         assert _named_in(ast.parse('e = "evals"'), "backend/evals/copilot_runner.py") == set()
         assert _named_in(ast.parse('d = Path(__file__).with_name("baselines")'), "backend/evals/sub/x.py") == set()  # beside the module only
