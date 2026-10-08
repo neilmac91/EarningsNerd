@@ -13,8 +13,9 @@ the summary-eval modules; files directly under `app/` trigger as a group so a ne
 cannot fall outside the filter; a non-trigger the closure starts to import or name is reported as
 such), or when a filter pattern matches nothing the eval uses.
 
-The workflow is read as an allowlist, not a denylist, and only its tracked files count (a local
-eval run's gitignored reports never turn the gate red). The workflow, each job and each step may
+The workflow is read as an allowlist, not a denylist, and only tracked files count anywhere: the
+import walk resolves modules against `git ls-files`, so a gitignored eval report or an untracked
+package that shadows an installed import never moves the gate. The workflow, each job and each step may
 carry only known keys (so a `container:`, `services:` or `strategy:` needs a deliberate entry).
 Every simple command of every `run:` step (split on `&&`, `||`, `;`, `|` and `&` outside quotes; a
 backslash or a `${` anywhere is refused) must be exactly `python -m evals.<module>` with plain
@@ -53,18 +54,33 @@ ROOT = Path(__file__).resolve().parents[3]
 BACKEND = ROOT / "backend"
 WORKFLOW = ROOT / ".github/workflows/copilot-eval.yml"
 # Only tracked files count: a gitignored eval report or a scratch file must never move the gate.
-TRACKED = frozenset(
-    p for p in subprocess.run(["git", "ls-files", "-z"], cwd=ROOT, capture_output=True, check=True).stdout.decode().split("\0") if p  # noqa: S603, S607
-)
+GIT_PROBLEMS: list[str] = []
+
+
+def _tracked() -> frozenset[str]:
+    try:
+        listing = subprocess.run(["git", "ls-files", "-z"], cwd=ROOT, capture_output=True, check=True)  # noqa: S603, S607
+    except (OSError, subprocess.CalledProcessError) as exc:  # a collection error would stop the whole suite
+        GIT_PROBLEMS.append(f"git ls-files failed: {exc}")
+        return frozenset()
+    return frozenset(p for p in listing.stdout.decode().split("\0") if p)
+
+
+TRACKED = _tracked()
+# Tracked Python under backend/, relative to it; the import walk never consults the working tree.
+TRACKED_PY = frozenset(p[len("backend/"):] for p in TRACKED if p.startswith("backend/") and p.endswith(".py"))
 # Every top-level importable name under backend/: modules, packages and namespace packages (any
 # non-hidden directory holding Python at any depth), so no local import is ever dropped as "not local".
 LOCAL_TOP_LEVEL = frozenset(
-    {p.stem for p in BACKEND.glob("*.py")}
-    | {d.name for d in BACKEND.iterdir() if d.is_dir() and not d.name.startswith(".") and any(d.rglob("*.py"))}
+    {p[: -len(".py")] for p in TRACKED_PY if "/" not in p}
+    | {p.split("/", 1)[0] for p in TRACKED_PY if "/" in p and not p.startswith(".")}
 )
 EXPECTED_ENTRY_POINTS = ["evals.copilot_bootstrap", "evals.copilot_runner"]
 # Summary-eval modules the copilot modules import; they must stay in the closure to keep triggering.
 COPILOT_EVAL_MODULES = {"__init__.py", "schema.py", "scorers.py"}
+# Any control character but tab and newline (so \r, \v, \f, NEL and the Unicode line separators): a
+# `\v#` reads as a comment to a line splitter and as a command to bash.
+CONTROL_CHAR = re.compile("[\x00-\x08\x0b-\x1f\x7f\x85\u2028\u2029]")
 # The only entry form: the bare interpreter, `-m evals.<module>`, then flags, quoted or bare
 # arguments and `2>&1`. No other interpreter spelling, no flag before `-m`, no `(`, backtick or `\`.
 ENTRY = re.compile(r"^python -m (evals\.[\w.]+)((?:\s+(?:--[\w-]+|\"[^\"`()\\]*\"|'[^'\\]*'|[\w./$:=-]+|2>&1))*)$")
@@ -91,6 +107,8 @@ ALLOWED_INPUTS = {
     "actions/setup-python": {"python-version"},
     "actions/upload-artifact": {"name", "path", "if-no-files-found", "retention-days"},
 }
+# setup-python without a literal version reads the repository's `.python-version`, outside the filter.
+PYTHON_VERSION = re.compile(r"^\d+(?:\.\d+){1,2}$")
 # The environment the workflow is known to set (job and step `env:`); any other key, above all
 # one that runs or redirects code (BASH_ENV, PATH, PYTHONPATH, PIP_*), needs a deliberate entry.
 WORKFLOW_ENV = {
@@ -102,10 +120,15 @@ WORKFLOW_ENV = {
 ENV_FILE_KEYS = {"AI_DEFAULT_MODEL", "OPENAI_BASE_URL"}
 ENV_FILE_LINE = re.compile(r"^(?:\s*(?:#.*)?|([A-Z_][A-Z0-9_]*)=.*)$")
 # Requirement-file lines: a nested requirements or constraints file in any pip spelling is traced;
-# every other line must be blank, a comment or an exact `name==version` pin (extras and a marker
-# allowed), so a local path, a `name @ file:` reference, a URL or any other option is refused.
-REQ_NESTED = re.compile(r"^\s*(?:-r|-c|--requirement|--constraint)(?:=|\s+|(?=[^\s=-]))\s*(\S+)")
-REQ_PIN = re.compile(r"^\s*[A-Za-z0-9][A-Za-z0-9._-]*(?:\[[A-Za-z0-9,._ -]*\])?==[A-Za-z0-9.*+!-]+(?:\s*;[^#]*)?\s*(?:#.*)?$")
+# every other line must be blank, a comment or an exact `name==version` pin (a PEP 440 version, extras
+# and a marker allowed; no `1.*` wildcard and no `1.tar.gz`, which pip installs as a local archive), so
+# a local path, a `name @ file:` reference, a URL or any other option is refused.
+REQ_NESTED = re.compile(r"^\s*(?:-r|-c|--requirement|--constraint)(?:=|\s+|(?=[^\s=-]))\s*(\S+)\s*(?:#.*)?$")
+REQ_PIN = re.compile(
+    r"^\s*[A-Za-z0-9][A-Za-z0-9._-]*(?:\[[A-Za-z0-9,._ -]*\])?=="
+    r"\d+(?:\.\d+)*(?:(?:a|b|rc)\d+)?(?:\.post\d+)?(?:\.dev\d+)?(?:\+[A-Za-z0-9]+(?:\.[A-Za-z0-9]+)*)?"
+    r"(?:\s*;[^#]*)?\s*(?:#.*)?$"
+)
 # The keys the workflow, a job and a step may carry; anything else (`container:`, `services:`,
 # `strategy:`, a job-level `uses:`) can run or redirect code the closure never sees.
 TOP_KEYS = {"name", "on", "permissions", "concurrency", "jobs", "defaults", "env"}
@@ -122,7 +145,10 @@ DATA_DIRS = sorted({
 })
 DATA_DIRS = [f"app/{d}" for d in DATA_DIRS]
 # Every tracked non-Python file under backend/, keyed by basename, so a string literal naming one
-# makes it a required input whatever the path spelling around it.
+# makes it a required input whatever the path spelling around it. A URL's last segment is not a
+# name, and neither are the artifacts the run writes under its output directory (and may read back
+# there: `evals/copilot_bootstrap`); each of those names must still occur in the closure.
+RUN_ARTIFACTS = frozenset({"filing.html", "xbrl.json", "sections.json", "excerpt.txt", "preparation.json"})
 NAMED_CANDIDATES: dict[str, list[str]] = {}
 for _p in sorted(p for p in TRACKED if p.startswith("backend/") and not p.endswith(".py")):
     NAMED_CANDIDATES.setdefault(_p.rsplit("/", 1)[-1], []).append(_p)
@@ -145,9 +171,10 @@ def _named_in(tree: ast.AST) -> set[str]:
     """Repo-relative paths of candidate files whose basename a string literal in `tree` names."""
     found: set[str] = set()
     for node in ast.walk(tree):
-        if isinstance(node, ast.Constant) and isinstance(node.value, str):
+        if isinstance(node, ast.Constant) and isinstance(node.value, str) and "://" not in node.value:
             base = node.value.rsplit("/", 1)[-1]
-            found.update(NAMED_CANDIDATES.get(base, []))
+            if base not in RUN_ARTIFACTS:
+                found.update(NAMED_CANDIDATES.get(base, []))
     return found
 
 
@@ -180,16 +207,18 @@ def non_triggers(closure: set[str]) -> list[str]:
         "non-triggers",
     )
     overlap = sorted(set(candidates) & (closure | named_files(closure)))
-    assert not overlap, f"the eval now imports or names these non-triggers; they can change its result, so the filter must name them: {overlap}"
+    assert not overlap, (
+        "the eval now imports or names these non-triggers; they can change its result, so the filter must name them "
+        f"(a name the eval only writes belongs in RUN_ARTIFACTS): {overlap}"
+    )
     return candidates
 
 
 def _module_path(module: str) -> Path | None:
-    base = BACKEND.joinpath(*module.split("."))
-    if base.with_suffix(".py").is_file():
-        return base.with_suffix(".py")
-    if (base / "__init__.py").is_file():
-        return base / "__init__.py"
+    rel = "/".join(module.split("."))
+    for candidate in (f"{rel}.py", f"{rel}/__init__.py"):
+        if candidate in TRACKED_PY:
+            return BACKEND / candidate
     return None
 
 
@@ -223,7 +252,7 @@ def _workflow() -> dict:
 def _simple_commands(run_text: str):
     """Each simple command of a run step: lines split on `&&`, `||`, `;`, `|` and `&` outside quotes
     (`>&` stays a redirection); blank lines and comments skipped."""
-    for line in run_text.splitlines():
+    for line in run_text.split("\n"):  # bash breaks lines on \n only; splitlines() would also break on \v, \f, NEL
         line = line.strip()
         if not line or line.startswith("#"):
             continue
@@ -337,9 +366,12 @@ def _read_steps(workflow: dict) -> tuple[list[str], list[str]]:
             if uses and not ALLOWED_ACTIONS.match(uses):
                 untraced.append(f"{job_name}: action {uses} is not one of the allowed actions")
             elif uses:
-                extra = sorted(set(step.get("with", {})) - ALLOWED_INPUTS[uses.split("@")[0]])
+                inputs = step.get("with") or {}
+                extra = sorted(set(inputs) - ALLOWED_INPUTS[uses.split("@")[0]])
                 if extra:
                     untraced.append(f"{job_name}: action {uses} takes inputs the gate does not know: {extra}")
+                if uses.startswith("actions/setup-python@") and not PYTHON_VERSION.match(str(inputs.get("python-version", ""))):
+                    untraced.append(f"{job_name}: {uses} must pin a literal python-version; without one it reads the root .python-version")
             if "run" not in step:
                 continue
             shell = _run_setting("shell", step, job, workflow)
@@ -348,8 +380,8 @@ def _read_steps(workflow: dict) -> tuple[list[str], list[str]]:
                 continue
             workdir = _run_setting("working-directory", step, job, workflow)
             run = str(step["run"])
-            if "\\" in run or "${" in run or "${" in workdir:
-                untraced.append(f"{job_name}: a backslash or `${{` in a run step can change what bash runs: {run.strip()[:60]}")
+            if "\\" in run or "${" in run or "${" in workdir or CONTROL_CHAR.search(run):
+                untraced.append(f"{job_name}: a backslash, a `${{` or a control character in a run step can change what bash runs: {run.strip()[:60]!r}")
                 continue
             for command in _simple_commands(run):
                 kind, value = _classify(command, workdir)
@@ -515,9 +547,9 @@ def test_an_untraceable_shell_action_env_or_job_is_rejected():
         {"jobs": {"j": {"steps": [{"uses": "actions/github-script@v7", "with": {"script": "x"}}, step]}}},
         {"jobs": {"j": {"steps": [{"uses": "actions/checkout@main"}, step]}}},
         {"jobs": {"j": {"steps": [step]}, "k": {"uses": "./.github/workflows/extra.yml"}}},
-        {"jobs": {"j": {"steps": [{"run": 'python -m evals.copilot_runner --x "a\\"; bash x.sh"'}]}}},
-        {"jobs": {"j": {"steps": [{"run": 'python -m evals.copilot_runner --output "${{ vars.COPILOT_OUT }}"'}]}}},
-        {"jobs": {"j": {"steps": [{"run": 'python -m evals.copilot_runner --output "${X@P}"'}]}}},
+        {"jobs": {"j": {"steps": [{"run": 'python -m evals.copilot_runner --x "a\\"; bash x.sh"', "working-directory": "backend"}]}}},
+        {"jobs": {"j": {"steps": [{"run": 'python -m evals.copilot_runner --output "${{ vars.COPILOT_OUT }}"', "working-directory": "backend"}]}}},
+        {"jobs": {"j": {"steps": [{"run": 'python -m evals.copilot_runner --output "${X@P}"', "working-directory": "backend"}]}}},
         {"env": {"BASH_ENV": "scripts/ci_env.sh"}, "jobs": {"j": {"steps": [step]}}},
         {"jobs": {"j": {"env": {"PYTHONPATH": "backend/scripts"}, "steps": [step]}}},
         {"jobs": {"j": {"env": {"PATH": "backend/scripts/bin:/usr/bin"}, "steps": [step]}}},
@@ -526,6 +558,12 @@ def test_an_untraceable_shell_action_env_or_job_is_rejected():
         {"jobs": {"j": {"env": "${{ fromJSON(vars.E) }}", "steps": [step]}}},
         {"jobs": {"j": {"steps": [{"env": {"bash_env": "x.sh"}, **step}]}}},
         {"jobs": {"j": {"steps": [{"uses": "actions/setup-python@v7", "with": {"python-version-file": ".python-version"}}, step]}}},
+        {"jobs": {"j": {"steps": [{"uses": "actions/setup-python@v7"}, step]}}},
+        {"jobs": {"j": {"steps": [{"uses": "actions/setup-python@v7", "with": {"python-version": "${{ vars.PY }}"}}, step]}}},
+        {"jobs": {"j": {"steps": [{"run": "python -m evals.copilot_runner\x0b# ; bash evil.sh", "working-directory": "backend"}]}}},
+        {"jobs": {"j": {"steps": [{"run": "python -m evals.copilot_runner\r# ; bash evil.sh", "working-directory": "backend"}]}}},
+        {"jobs": {"j": {"steps": [{"run": "python -m evals.copilot_runner\u2028# ; bash evil.sh", "working-directory": "backend"}]}}},
+        {"jobs": {"j": {"steps": [{"run": "python -m evals.copilot_runner --output \"x\x0by\"", "working-directory": "backend"}]}}},
         {"jobs": {"j": {"steps": [{"uses": "actions/checkout@v7", "with": {"repository": "x/y", "path": "z"}}, step]}}},
     ):
         try:
@@ -533,6 +571,18 @@ def test_an_untraceable_shell_action_env_or_job_is_rejected():
         except AssertionError:
             continue
         raise AssertionError(f"accepted a workflow the gate cannot trace: {workflow}")
+    # An expression or a backslash in an otherwise valid entry step is rejected by that check alone.
+    for run in (
+        'python -m evals.copilot_runner --output "${{ vars.COPILOT_OUT }}"',
+        'python -m evals.copilot_runner --output "${X@P}"',
+        'python -m evals.copilot_runner --x "a\\"; bash x.sh"',
+    ):
+        try:
+            _read_steps({"jobs": {"j": {"steps": [{"run": run, "working-directory": "backend"}]}}})
+        except AssertionError as e:
+            assert "`${`" in str(e), str(e)
+        else:
+            raise AssertionError(f"accepted an expression in a run step: {run}")
 
 
 def test_requirement_and_env_files_are_traced(tmp_path):
@@ -546,8 +596,11 @@ def test_requirement_and_env_files_are_traced(tmp_path):
     (base / "e.txt").write_text(
         "-e ../local-pkg\n./vendored\ngit+https://x/y.git\n--index-url https://x\nhttps://x/y.whl\nbackend/scripts/vendored_pkg\n"
         "pkg @ file:///x/pkg\n${GITHUB_WORKSPACE}/backend/scripts/pkg\ndist/pkg-1.0-py3-none-any.whl\nrequests>=1\nrequests\nrequests==1\n"
+        "-r d.txt -e ./pkg\nfoo==1.*\nfoo==1.tar.gz\n"
     )
-    assert len(_requirement_inputs(str(base / "e.txt"))[1]) == 11
+    nested, problems = _requirement_inputs(str(base / "e.txt"))
+    assert len(problems) == 14 and nested == [], (nested, problems)
+    assert REQ_PIN.match("python-dateutil==2.9.0.post0") and REQ_PIN.match("x==1.0rc1 ; python_version < '3.12'  # why")
     (base / "ok.env").write_text("# c\n\nAI_DEFAULT_MODEL=x\nOPENAI_BASE_URL=y\n")
     assert _env_file_problems(str(base / "ok.env")) == []
     (base / "bad.env").write_text("AI_DEFAULT_MODEL=x\nPYTHONPATH<<EOF\nbackend/scripts\nEOF\nFOO=1\n")
@@ -567,6 +620,11 @@ def test_requirement_and_env_files_are_traced(tmp_path):
     assert _requirement_inputs("backend/requirements.txt") == ([], [])
     assert _requirement_inputs("backend/requirements-dev.txt") == ([], [])
     assert _env_file_problems(".github/ai-model.env") == []
+
+
+def test_tracked_files_come_from_git():
+    assert not GIT_PROBLEMS, GIT_PROBLEMS
+    assert "backend/evals/copilot_runner.py" in TRACKED
 
 
 def test_closure_follows_every_top_level_backend_name():
@@ -618,6 +676,9 @@ def test_data_directories_and_named_files_are_inputs():
     assert _named_in(ast.parse('x = "baseline"; y = "scores.json"; z = "metadata"')) == set()
     # A gitignored report the eval writes and names (`copilot-eval.json`) is not a candidate.
     assert _named_in(ast.parse('out = output / "copilot-eval.json"')) == set()
+    # A URL's last segment is not a name, and neither is an artifact the eval only writes.
+    assert _named_in(ast.parse('u = "https://example.com/files/baseline_scores.json"')) == set()
+    assert "xbrl.json" in RUN_ARTIFACTS and _named_in(ast.parse('a = _artifact(folder, "xbrl.json", xbrl)')) == set()
     # A tests fixture named by a closure module would be reported, because every tracked file counts.
     fixture = next(
         p for p in sorted(TRACKED)
@@ -626,6 +687,14 @@ def test_data_directories_and_named_files_are_inputs():
     assert _named_in(ast.parse(f'f = Path("{fixture}")')) == {fixture}
     closure = reachable_files()
     assert "backend/evals/copilot_golden_set.json" in named_files(closure)
+    written = {
+        node.value.rsplit("/", 1)[-1]
+        for path in closure
+        for node in ast.walk(ast.parse((ROOT / path).read_text(encoding="utf-8")))
+        if isinstance(node, ast.Constant) and isinstance(node.value, str)
+    }
+    stale = sorted(RUN_ARTIFACTS - written)
+    assert not stale, f"RUN_ARTIFACTS names artifacts the eval no longer writes: {stale}"
 
 
 def test_every_filter_pattern_matches_an_input_of_the_eval():
