@@ -27,7 +27,7 @@ from app.services.rate_limiter import RateLimiter, enforce_rate_limit
 from app.services.pwned_passwords import is_password_pwned
 from app.services.turnstile import enforce_turnstile
 from app.utils.text import has_control_characters
-from app.services import audit_service, invite_service, login_lockout
+from app.services import audit_service, invite_service, login_lockout, refresh_token_service
 from app.services.oauth_verify import _verify_apple_id_token, _verify_google_id_token
 from app.services.password_utils import (
     _DUMMY_PASSWORD_HASH,
@@ -36,9 +36,6 @@ from app.services.password_utils import (
     verify_password,
 )
 from app.services.refresh_token_service import (
-    create_refresh_token,
-    rotate_refresh_token,
-    revoke_refresh_token,
     revoke_all_for_user,
     RefreshTokenError,
     RefreshTokenReuseError,
@@ -339,23 +336,22 @@ def issue_session(
     """Issue a full session on ``response``: set the access + presence cookies and the refresh cookie.
 
     The single mint point for the login paths. By default a NEW refresh token is minted and committed
-    (login, change-password, OAuth callbacks). Pass ``refresh_token=`` with ``commit=False`` when the
-    caller already rotated + committed one (the ``/refresh`` endpoint). ``create_refresh_token`` can
-    raise ``IntegrityError`` on a concurrent OAuth first-login, so callers that need the OAuth conflict
-    redirect wrap this in their own try/except; every other caller lets it propagate. Returns the raw
-    access token (body responses echo it).
+    (login, change-password, OAuth callbacks) through ``refresh_token_service.mint_refresh_token``.
+    Pass ``refresh_token=`` with ``commit=False`` when the caller already rotated + committed one (the
+    ``/refresh`` endpoint). The mint can raise ``IntegrityError`` on a concurrent OAuth first-login,
+    so callers that need the OAuth conflict redirect wrap this in their own try/except; every other
+    caller lets it propagate. Returns the raw access token (body responses echo it).
     """
     access_token = create_access_token(data={"sub": user.email})
     _set_auth_cookie(response, access_token)
     if refresh_token is None:
-        _, refresh_token = create_refresh_token(
+        refresh_token = refresh_token_service.mint_refresh_token(
             db,
             user,
             user_agent=request.headers.get("user-agent"),
             ip=_client_ip(request),
+            commit=commit,
         )
-        if commit:
-            db.commit()
     _set_refresh_cookie(response, refresh_token)
     return access_token
 
@@ -735,15 +731,14 @@ async def refresh(
         raw_token = body.refresh_token
 
     try:
-        user, new_refresh_token = rotate_refresh_token(
+        # Commits the rotation; on a replay it commits the chain revocation before re-raising.
+        user, new_refresh_token = refresh_token_service.rotate_and_commit(
             db,
             raw_token,
             user_agent=request.headers.get("user-agent"),
             ip=_client_ip(request),
         )
-        db.commit()
     except RefreshTokenReuseError as exc:
-        db.commit()
         _clear_refresh_cookie(response)
         _clear_auth_cookie(response)
         logger.warning(f"Refresh reuse detected: {exc}")
@@ -1469,8 +1464,7 @@ async def logout(
 ):
     """Revoke the refresh token (if present) and clear both auth cookies."""
     raw_token = request.cookies.get(settings.REFRESH_COOKIE_NAME)
-    if revoke_refresh_token(db, raw_token):
-        db.commit()
+    refresh_token_service.revoke_and_commit(db, raw_token)
     _clear_auth_cookie(response)
     _clear_refresh_cookie(response)
     if current_user:
@@ -1486,8 +1480,7 @@ async def logout_all(
     current_user: User = Depends(get_current_user),
 ):
     """Revoke every refresh token for the user (sign out all devices) and clear this session."""
-    revoked = revoke_all_for_user(db, current_user.id)
-    db.commit()
+    revoked = refresh_token_service.revoke_all_and_commit(db, current_user.id)
     _clear_auth_cookie(response)
     _clear_refresh_cookie(response)
     audit_service.log_logout(db, current_user.id, current_user.email, ip_address=_hashed_client_ip(request))
