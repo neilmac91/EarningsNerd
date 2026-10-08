@@ -14,8 +14,9 @@ Five prose rules from AGENTS.md §5 and §7 would otherwise rot:
   vote as a refutation (``lessons/ops-validate-workflow-inputs-before-pipeline.md``). These text
   checks catch the recorded shapes only, so every script must also have a behavioural spec under
   ``frontend/tests/unit/`` that loads it (``premergeReviewWorkflow.spec.ts`` runs the review script
-  with stubbed agents and asserts what each stage actually receives); a second script is never
-  guarded by the regexes alone.
+  with stubbed agents and asserts what each stage actually receives and returns); a second
+  script cannot land without a spec that names its path in code and reads a file. What that spec
+  asserts is review-checked, not gated.
 - ``lessons/README.md`` lists every lesson exactly once and nothing that does not exist, so a
   lesson cannot fall out of session reading by accident.
 - Founder deliberations never enter this public repository (§7): no new file under
@@ -49,6 +50,9 @@ DATE = re.compile(
 )
 HEADING = re.compile(r"^ {0,3}#{1,6}\s")
 SETEXT_UNDERLINE = re.compile(r"^ {0,3}(=+|-+)\s*$")
+# A fence line: a backtick fence's info string cannot hold a backtick, so "```x``` is the command" is
+# inline code, not a fence that would hide every heading after it.
+FENCE = re.compile(r"^ {0,3}(?:```[^`]*|~~~.*)$")
 # One of the three aliases AGENTS.md §5 names, quoted, or the tier key the review script binds as
 # `const T = TIERS[...]`. A full model ID is refused on purpose: the aliases cannot spell the premium
 # session model, so a stage cannot be pinned to it by name either (the same set as
@@ -87,21 +91,29 @@ EXISTING_TRANSCRIPTS = {
 COUNCIL_FILE = re.compile(r"(^|/)council-[^/]*\.(md|txt|json)$")
 
 
-def test_todo_is_one_page_of_open_items():
-    lines = TODO.read_text(encoding="utf-8").splitlines()
-    assert len(lines) <= TODO_MAX_LINES, (
-        f"tasks/todo.md has {len(lines)} lines; it is the open-items page, not the ledger "
-        "(AGENTS.md §7 — closed items leave the file, history goes to tasks/archive/)"
-    )
+def _headings(lines: list[str]) -> list[str]:
+    """ATX and setext headings outside code fences, as `#…` lines."""
     headings, fenced = [], False
     for i, line in enumerate(lines):
-        if line.startswith("```"):
+        if FENCE.match(line):
             fenced = not fenced
         elif not fenced and HEADING.match(line):
             headings.append(line.lstrip())
         elif (not fenced and line.strip() and not line.lstrip().startswith(("-", "*", "#"))
               and i + 1 < len(lines) and SETEXT_UNDERLINE.match(lines[i + 1])):
             headings.append("## " + line.strip())  # a setext heading counts like an ATX one
+    return headings
+
+
+def test_todo_is_one_page_of_open_items():
+    lines = TODO.read_text(encoding="utf-8").splitlines()
+    assert len(lines) <= TODO_MAX_LINES, (
+        f"tasks/todo.md has {len(lines)} lines; it is the open-items page, not the ledger "
+        "(AGENTS.md §7 — closed items leave the file, history goes to tasks/archive/)"
+    )
+    assert _headings(["# T", "```inline``` code", "## 2026-10-08 — x"]) == ["# T", "## 2026-10-08 — x"]
+    assert _headings(["# T", "```", "## hidden", "```", "## shown", "Setext", "---"]) == ["# T", "## shown", "## Setext"]
+    headings = _headings(lines)
     assert headings and headings[0] == TODO_TITLE, f"tasks/todo.md must start with '{TODO_TITLE}'"
     sections = [h[3:].strip() for h in headings[1:] if h.startswith("## ")]
     others = [h for h in headings[1:] if not h.startswith("## ")]
