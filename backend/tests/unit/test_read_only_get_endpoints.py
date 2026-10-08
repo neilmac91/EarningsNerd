@@ -12,9 +12,13 @@ every hit). Two AST checks over every ``@<router>.get`` handler in ``app/routers
 2. **Body check** — the handler body (nested defs included) must not contain a session write
    (``db.add/add_all/delete/commit/flush/merge`` on a name called ``db``/``session``), a
    ``BackgroundTasks`` parameter or ``.add_task(`` call, or ``asyncio.create_task(``. This catches
-   the ``get_*``/``search_*`` handlers the name check cannot. Limitation: a write hidden behind a
-   helper outside the handler body (even in the same module) is not seen — that remains a review
-   concern.
+   the ``get_*``/``search_*`` handlers the name check cannot. The check follows the handler into
+   every module-level function it reaches under ``app/`` (same module, ``from app.x import f``,
+   ``x_service.f`` on an imported module, a function handed to ``run_in_threadpool``, a
+   ``Depends(...)`` dependency), transitively, so moving a write into ``app/services/`` keeps it in
+   view; there a session is also any parameter annotated ``Session``. Limitation: methods reached
+   through an instance or a class (``limiter.check()``, ``Service(db).run()``) are not followed —
+   that remains a review concern.
 
 Both allow-lists are shrink-only: a NEW hit fails with file:line and the remedy; an allow-listed
 handler that no longer trips the check fails too (prune the entry — the fix is done); an entry
@@ -51,6 +55,10 @@ ALLOWED_SIDE_EFFECTING_GETS: dict[tuple[str, str], str] = {
         "Apple sign-in GET start commits the single-use nonce/state row for the form_post callback; "
         "the signed SameSite=None, Secure cookie separately binds it to the initiating browser"
     ),
+    ("app/routers/auth.py", "google_login"): (
+        "shares _start_google with POST /google/start, which stores the OAuth state row only for a "
+        "live invite; the GET passes invite=None, so the reachable write never runs on this route"
+    ),
     ("app/routers/auth.py", "google_callback"): (
         "OAuth redirect callback — the provider returns the user via GET by protocol; creates or "
         "links the account (db.add/flush)"
@@ -69,6 +77,14 @@ ALLOWED_SIDE_EFFECTING_GETS: dict[tuple[str, str], str] = {
     ("app/routers/summaries.py", "get_summary_progress"): (
         "progress heartbeat: marks an orphaned/stalled generation row as a retryable error on read "
         "(db.commit) so the client never sees an eternal 'generating'"
+    ),
+    ("app/routers/users.py", "get_notification_preferences"): (
+        "lazy create: get_or_create_preferences inserts the default preferences row on first read "
+        "(db.add/commit); the response is the defaults either way"
+    ),
+    ("app/routers/users.py", "export_user_data"): (
+        "audit trail: the GDPR export records who downloaded their data "
+        "(log_data_export -> create_audit_log, db.add/commit); the response is a read"
     ),
 }
 
@@ -104,16 +120,19 @@ def _is_mutating_name(name: str) -> bool:
 def _side_effect_markers(fn: ast.AST) -> list[str]:
     """Human-readable markers (``kind@line``) for every side-effect construct in the handler body."""
     markers: list[str] = []
+    session_names = set(_SESSION_NAMES)
     for arg in [*fn.args.args, *fn.args.kwonlyargs]:
         if arg.annotation is not None and "BackgroundTasks" in ast.unparse(arg.annotation):
             markers.append(f"param {arg.arg}: BackgroundTasks")
+        if arg.annotation is not None and "Session" in ast.unparse(arg.annotation):
+            session_names.add(arg.arg)
     for node in ast.walk(fn):
         if not (isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)):
             continue
         func = node.func
         if (
             isinstance(func.value, ast.Name)
-            and func.value.id in _SESSION_NAMES
+            and func.value.id in session_names
             and func.attr in _SESSION_WRITES
         ):
             markers.append(f"{func.value.id}.{func.attr}()@{node.lineno}")
@@ -126,6 +145,108 @@ def _side_effect_markers(fn: ast.AST) -> list[str]:
         ):
             markers.append(f"asyncio.create_task()@{node.lineno}")
     return markers
+
+
+_PARSED: dict[Path, ast.Module] = {}
+_BINDINGS: dict[Path, dict[str, tuple[str, str | None]]] = {}
+
+
+def _module(path: Path) -> ast.Module:
+    if path not in _PARSED:
+        _PARSED[path] = ast.parse(path.read_text(encoding="utf-8"))
+    return _PARSED[path]
+
+
+def _module_path(dotted: str) -> Path | None:
+    """``app.services.audit_service`` -> its file (a module or a package ``__init__``); None outside app."""
+    if dotted.split(".")[0] != "app":
+        return None
+    base = BACKEND_DIR.joinpath(*dotted.split("."))
+    for candidate in (base.with_suffix(".py"), base / "__init__.py"):
+        if candidate.is_file():
+            return candidate
+    return None
+
+
+def _bindings(path: Path) -> dict[str, tuple[str, str | None]]:
+    """Local name -> (app module, symbol) for every app import in ``path`` (function-local ones
+    included); the symbol is None when the name is bound to the module itself."""
+    if path not in _BINDINGS:
+        package = list(path.relative_to(BACKEND_DIR).with_suffix("").parts)[:-1]
+        table: dict[str, tuple[str, str | None]] = {}
+        for node in ast.walk(_module(path)):
+            if isinstance(node, ast.ImportFrom):
+                base = package[: len(package) - node.level + 1] if node.level else []
+                module = ".".join([*base, *([node.module] if node.module else [])])
+                for alias in node.names:
+                    local = alias.asname or alias.name
+                    if _module_path(f"{module}.{alias.name}"):
+                        table[local] = (f"{module}.{alias.name}", None)
+                    elif _module_path(module):
+                        table[local] = (module, alias.name)
+            elif isinstance(node, ast.Import):
+                for alias in node.names:
+                    if alias.asname and _module_path(alias.name):
+                        table[alias.asname] = (alias.name, None)
+        _BINDINGS[path] = table
+    return _BINDINGS[path]
+
+
+def _top_level_function(path: Path, name: str) -> ast.AST | None:
+    for node in _module(path).body:
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and node.name == name:
+            return node
+    return None
+
+
+def _resolve(module: str, symbol: str, depth: int = 0) -> tuple[Path, ast.AST] | None:
+    """The module-level function ``module.symbol``, following re-exports (``from .x import f``)."""
+    path = _module_path(module)
+    if path is None or depth > 8:
+        return None
+    fn = _top_level_function(path, symbol)
+    if fn is not None:
+        return path, fn
+    bound = _bindings(path).get(symbol)
+    return _resolve(bound[0], bound[1], depth + 1) if bound and bound[1] is not None else None
+
+
+def _referenced_functions(path: Path, fn: ast.AST) -> list[tuple[Path, ast.AST]]:
+    """App functions ``fn`` names: called, handed to ``run_in_threadpool``, or used in ``Depends``."""
+    bindings = _bindings(path)
+    out: list[tuple[Path, ast.AST]] = []
+    for node in ast.walk(fn):
+        target = None
+        if isinstance(node, ast.Name) and isinstance(node.ctx, ast.Load):
+            bound = bindings.get(node.id)
+            if bound is not None and bound[1] is not None:
+                target = _resolve(*bound)
+            elif bound is None:
+                local = _top_level_function(path, node.id)
+                target = (path, local) if local is not None else None
+        elif isinstance(node, ast.Attribute) and isinstance(node.value, ast.Name):
+            bound = bindings.get(node.value.id)
+            if bound is not None and bound[1] is None:
+                target = _resolve(bound[0], node.attr)
+        if target is not None:
+            out.append(target)
+    return out
+
+
+def _reachable_markers(path: Path, handler: ast.AST) -> list[str]:
+    """Side-effect markers in every app function the handler reaches, transitively."""
+    seen = {(path, handler.lineno)}
+    stack = _referenced_functions(path, handler)
+    markers: list[str] = []
+    while stack:
+        fn_path, fn = stack.pop()
+        if (fn_path, fn.lineno) in seen:
+            continue
+        seen.add((fn_path, fn.lineno))
+        rel = fn_path.relative_to(BACKEND_DIR).as_posix()
+        markers.extend(f"{marker} in {rel}::{fn.name}" for marker in _side_effect_markers(fn))
+        stack.extend(_referenced_functions(fn_path, fn))
+    return sorted(markers)
 
 
 def _check(found: dict[tuple[str, str], str], allowed: dict[tuple[str, str], str], what: str, remedy: str):
@@ -165,7 +286,7 @@ def test_get_handler_bodies_have_no_side_effects():
     for py in _scanned_files():
         rel = py.relative_to(BACKEND_DIR).as_posix()
         for fn in _get_handlers(py):
-            markers = _side_effect_markers(fn)
+            markers = _side_effect_markers(fn) + _reachable_markers(py, fn)
             if markers:
                 found[(rel, fn.name)] = ", ".join(markers)
 
