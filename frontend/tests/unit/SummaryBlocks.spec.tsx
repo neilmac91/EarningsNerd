@@ -96,9 +96,11 @@ describe('SummaryBlocks', () => {
     // paragraph + bullets
     expect(screen.getByText('Revenue surged on data-center demand.')).toBeInTheDocument()
     expect(screen.getByText('Revenue up 85% YoY')).toBeInTheDocument()
-    // metrics → FinancialMetricsTable: server-computed change chip rendered verbatim (no client math)
-    expect(screen.getByText('+85.0%')).toBeInTheDocument()
-    expect(screen.getByText('Data-center growth.')).toBeInTheDocument()
+    // metrics → FinancialMetricsTable: server-computed change chip rendered verbatim (no client math).
+    // The rows render twice — the md table and the phone cards are both in the DOM, switched by CSS
+    // that jsdom does not apply (vitest css: false) — so each string is found in both layouts.
+    expect(screen.getAllByText('+85.0%')).toHaveLength(2)
+    expect(screen.getAllByText('Data-center growth.')).toHaveLength(2)
     // quote + speaker
     expect(screen.getByText(/We see unprecedented demand/)).toBeInTheDocument()
     expect(screen.getByText(/CEO/)).toBeInTheDocument()
@@ -201,8 +203,11 @@ describe('SummaryBlocks', () => {
       },
     ]
     render(<SummaryBlocks sections={cited} summary={summary} />)
-    // One chip each for the quote, the metric takeaway, and the first (only cited) footnote.
-    expect(screen.getAllByText(/Verified in filing/i)).toHaveLength(3)
+    // One chip each for the quote, the metric takeaway, and the first (only cited) footnote. The
+    // metric takeaway's chip also renders in the phone-card layout, which jsdom cannot hide
+    // (vitest css: false); count it once by leaving the card copies out.
+    const chips = screen.getAllByText(/Verified in filing/i).filter((el) => !el.closest('[data-metrics-layout="cards"]'))
+    expect(chips).toHaveLength(3)
   })
 
   it('shows an empty state when there are no sections', () => {

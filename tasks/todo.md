@@ -2,7 +2,7 @@
 
 One page, newest first, one line per open item with its owner and next step. Holds are pointers,
 never restated here. This file replaced the ledger on 2026-10-07; the ledger is
-`archive/todo-ledger-through-2026-10-07.md` (6,437 lines, June 2026 → closure 165 of 8 October 2026;
+`archive/todo-ledger-through-2026-10-07.md` (6,459 lines, June 2026 → closure 165 of 8 October 2026;
 ledger-format entries merged to `main` after the ledger closed were moved there unchanged) and its
 unchecked rows are history unless an item below carries them. Format: `AGENTS.md` §7. Close an item by
 deleting its line in the PR that closes it; a handover is a refresh of "Where things stand".
@@ -16,12 +16,12 @@ deleting its line in the PR that closes it; a handover is a refresh of "Where th
   `handover-astra-2026-09-19.md` §5 and the September 28 checkpoint in
   `continuation-plan-2026-09-26.md` stays held. The E7/R1/H20 acceptance programme and the CODE RED
   records are a separate task; nothing here redesigns, lifts or restates them.
-- Open PRs on 2026-10-08: #1113 (EN-01 follow-up) and #1108 (EN-03) ready; #1121 (founder role
-  contacts), #1120 (EN-05 part), #1035 (native delivery), #1009 (Pro pricing, held) drafts; from the
+- Open PRs on 2026-10-08: #1120 (EN-05 part) ready; #1121 (founder role contacts), #1035 (native
+  delivery), #1009 (Pro pricing, held), #1129 and #1130 (opened by other sessions) drafts; from the
   agent-workflow-cost task: #1123 (copilot-eval paths, changes CI behaviour) and #1126 (process
-  gates, stacked on #1118) drafts. #1110 (CODE RED records gate) and #1112 (PR disposition sweep)
-  merged on 2026-10-08; record 15 (`code-red-20261004/runtime/control/DECISIONS-15.md`) is the
-  latest CODE RED record.
+  gates, stacked on #1118) drafts. #1108 (EN-03), #1110 (CODE RED records gate), #1112 (PR
+  disposition sweep) and #1113 (EN-01 follow-up) merged on 2026-10-08; record 15
+  (`code-red-20261004/runtime/control/DECISIONS-15.md`) is the latest CODE RED record.
 - Review and models: PRs are reviewed by risk tier (`AGENTS.md` §5); `review-gate.yml` needs a Codex
   review or a `Review override:` line; Codex reviews again since 2026-10-07, so the override
   exception rests while it does (CODE RED record 15). Marking a PR ready for review triggers the
@@ -43,7 +43,9 @@ Founder:
 Engineering:
 - [ ] Docs-vs-config: `docs/OPERATIONS.md` alert threshold `database.checked_out > 8` is unreachable with the deployed pool 4 / overflow 0 (handback B33); fix the doc.
 - [ ] Security review packages WP-07 onward, each in its own PR (PR #1069 series).
-- [ ] Frontend deferred, named: EN-04, EN-05 (desktop close focus, focus rings, error focus), the desktop pane's unscrolled overhang for a chip-opened Filing tab, risk-card headlines, detector and doc cleanups, the harness `verify_probe.mjs` / `verify_trace.mjs` consent seed (ledger, "2026-10-06 — EN-02").
+- [ ] Frontend deferred, named: EN-04, EN-05 (desktop close focus, focus rings, error focus), the desktop pane's unscrolled overhang for a chip-opened Filing tab, risk-card headlines, detector and doc cleanups, the harness `verify_probe.mjs` / `verify_trace.mjs` consent seed (ledger, "2026-10-06 — EN-02"); from the EN-01 follow-up and EN-03 sections (merged 2026-10-08): memoizing CopilotMessage's
+  `ReactMarkdown` components (safe with `isReturnTarget`), `GenericTable` at phone width and a server-side
+  "—" for a missing prior value.
 - [ ] UI and a11y follow-ups recorded in the ledger's 2026-10-03/04 sections (lines 76, 104–110, 168–172): dark-mode hover tint on natively disabled secondary/ghost Buttons, opacity fading the focus ring on aria-disabled controls, DS focus-ring tokens under 3:1, EmailVerificationModal's double user invalidation, the "Free" badge when the subscription call fails, the saved-summaries error card without Retry, Modal Escape `preventDefault`, the stale popover rectangle, sr-only ticker context; and the optional zero-spend class-7 snapshot check (line 140).
 - [ ] Rule (h) Retry-gate residue: FilingViewer "Try again" stays a plain Button; Analysis Run keeps native `disabled` because `analysis-api.spec.ts` pins it (needs a PR-body-documented contract change, rule 6); EmailVerificationModal's post-success `disabled={resent}`; InsiderActivityPanel's 600-level gain/loss text (ledger, 2026-10-03/04 sections).
 - [ ] Copilot prompt fix candidate (arm B's deletion plus an answer-text quotation rule), judged against the diagnosis's acceptance checks 1–5 with aggregates of at least three runs; needs its own authorization and ceiling (ledger, "2026-09-30 — Copilot tool nonexecution diagnosis").
