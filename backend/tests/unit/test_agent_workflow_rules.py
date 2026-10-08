@@ -390,7 +390,7 @@ def test_every_demoted_lesson_names_an_existing_gate():
         paths = re.findall(r"`([\w./-]+\.(?:py|ts|tsx|yml|yaml|mjs|js|sh))`", gate[1]) if len(gate) == 2 else []
         if not any((ROOT / p).is_file() for p in paths):
             bad.append(entry[:80])
-    assert not bad, f"demoted lessons must name a gate file that exists in the tree (`— gate: \`path\``): {bad}"
+    assert not bad, f"demoted lessons must name a gate file that exists in the tree (`— gate: path`): {bad}"
 
 
 def _tracked_blobs() -> dict[str, str]:
