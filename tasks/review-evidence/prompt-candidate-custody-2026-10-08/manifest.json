@@ -1,0 +1,98 @@
+{
+ "generated_at": "2026-10-08T05:53:41Z",
+ "repo": "neilmac91/EarningsNerd",
+ "purpose": "Codex handover on #1029 comment 5966195498: private preservation and independent custody verification of the four archives of the Copilot prompt-candidate measurement (#1074, handback 5965113700).",
+ "privacy": "Identifiers, sizes, expiry and hashes only; no artifact content.",
+ "artifact_count": 4,
+ "total_bytes": 239869284,
+ "artifacts": [
+  {
+   "artifact_id": 11262711816,
+   "artifact_name": "eval-report-37092291865",
+   "run_id": 37092291865,
+   "workflow_name": "CI",
+   "run_event": "pull_request",
+   "head_sha": "437e245c824516ec8a552c2fd6dced0e0bc0091f",
+   "head_branch": "claude/copilot-prompt-candidate",
+   "run_conclusion": "success",
+   "size_in_bytes": 3714305,
+   "digest": "sha256:b2faabf1726d63c600ad469a08dec0647cda692ebd90f2a030ea1ba6f9959a65",
+   "created_at": "2026-10-03T03:20:09Z",
+   "expires_at": "2026-10-17T03:20:08Z",
+   "expired": false,
+   "sets": [
+    "prompt_candidate_2026_10_03"
+   ],
+   "notes": [
+    "row R(i): eval-baseline on the frozen head 437e245c (#1074 opened as a draft); pass, 70/70; USD 0.175401; #1029 comment 5965022094"
+   ],
+   "sha256": "b2faabf1726d63c600ad469a08dec0647cda692ebd90f2a030ea1ba6f9959a65"
+  },
+  {
+   "artifact_id": 11263461343,
+   "artifact_name": "copilot-fidelity-37092951315",
+   "run_id": 37092951315,
+   "workflow_name": "Copilot filing fidelity",
+   "run_event": "pull_request",
+   "head_sha": "437e245c824516ec8a552c2fd6dced0e0bc0091f",
+   "head_branch": "claude/copilot-prompt-candidate",
+   "run_conclusion": "failure",
+   "size_in_bytes": 78717527,
+   "digest": "sha256:0280b6ec48e2f359972eec0d0fad2a4861e2b721a99059688fcb6a837294bfc9",
+   "created_at": "2026-10-03T03:24:32Z",
+   "expires_at": "2027-01-01T03:21:55Z",
+   "expired": false,
+   "sets": [
+    "prompt_candidate_2026_10_03"
+   ],
+   "notes": [
+    "Q1: valid; checks 4 and 5 fail (AAPL d0 withheld by decision F, quotation_not_in_source); USD 0.032375; #1029 comment 5965051343"
+   ],
+   "sha256": "0280b6ec48e2f359972eec0d0fad2a4861e2b721a99059688fcb6a837294bfc9"
+  },
+  {
+   "artifact_id": 11262737450,
+   "artifact_name": "copilot-fidelity-37093200860",
+   "run_id": 37093200860,
+   "workflow_name": "Copilot filing fidelity",
+   "run_event": "pull_request",
+   "head_sha": "437e245c824516ec8a552c2fd6dced0e0bc0091f",
+   "head_branch": "claude/copilot-prompt-candidate",
+   "run_conclusion": "success",
+   "size_in_bytes": 78717910,
+   "digest": "sha256:4dbdd9e450386d36f4cf07f58c87a276ec62b78e122a952d66a04f132aa029fe",
+   "created_at": "2026-10-03T03:28:48Z",
+   "expires_at": "2027-01-01T03:26:25Z",
+   "expired": false,
+   "sets": [
+    "prompt_candidate_2026_10_03"
+   ],
+   "notes": [
+    "Q2: valid; checks 1-5 and R(ii) pass; USD 0.006646; #1029 comment 5965077411"
+   ],
+   "sha256": "4dbdd9e450386d36f4cf07f58c87a276ec62b78e122a952d66a04f132aa029fe"
+  },
+  {
+   "artifact_id": 11263523013,
+   "artifact_name": "copilot-fidelity-37093395884",
+   "run_id": 37093395884,
+   "workflow_name": "Copilot filing fidelity",
+   "run_event": "pull_request",
+   "head_sha": "437e245c824516ec8a552c2fd6dced0e0bc0091f",
+   "head_branch": "claude/copilot-prompt-candidate",
+   "run_conclusion": "success",
+   "size_in_bytes": 78719542,
+   "digest": "sha256:93748f158813046391cc9ec8da8bfa3d9a2d54dbcfcc900c63692aad698c8f42",
+   "created_at": "2026-10-03T03:32:25Z",
+   "expires_at": "2027-01-01T03:30:03Z",
+   "expired": false,
+   "sets": [
+    "prompt_candidate_2026_10_03"
+   ],
+   "notes": [
+    "Q3: valid; checks 3 and 4 fail under the strict reading (raw audit flags F-verified spans); USD 0.006753; #1029 comment 5965107573"
+   ],
+   "sha256": "93748f158813046391cc9ec8da8bfa3d9a2d54dbcfcc900c63692aad698c8f42"
+  }
+ ]
+}

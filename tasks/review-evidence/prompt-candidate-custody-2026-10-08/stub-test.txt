@@ -1,0 +1,30 @@
+Stub test of preserve_artifacts.py against this folder's manifest.json (2026-10-08, 05:54Z).
+A stub 'gh' served the operator's scratch copies of the four zips; run 3 prepends one byte to Q3's zip.
+
+$ PATH=stub:$PATH python3 -I preserve_artifacts.py dest            # run 1: fresh
+OK  2026-10-17T03:20:08Z eval-report-37092291865-11262711816.zip downloaded
+OK  2027-01-01T03:21:55Z copilot-fidelity-37092951315-11263461343.zip downloaded
+OK  2027-01-01T03:26:25Z copilot-fidelity-37093200860-11262737450.zip downloaded
+OK  2027-01-01T03:30:03Z copilot-fidelity-37093395884-11263523013.zip downloaded
+4/4 verified; details in dest/verification.json
+exit 0
+
+$ PATH=stub:$PATH python3 -I preserve_artifacts.py dest            # run 2: re-run skips verified zips
+OK  2026-10-17T03:20:08Z eval-report-37092291865-11262711816.zip present
+OK  2027-01-01T03:21:55Z copilot-fidelity-37092951315-11263461343.zip present
+OK  2027-01-01T03:26:25Z copilot-fidelity-37093200860-11262737450.zip present
+OK  2027-01-01T03:30:03Z copilot-fidelity-37093395884-11263523013.zip present
+4/4 verified; details in dest/verification.json
+exit 0
+
+$ STUB_CORRUPT=1 PATH=stub:$PATH python3 -I preserve_artifacts.py dest2   # run 3: one corrupted zip
+OK  2026-10-17T03:20:08Z eval-report-37092291865-11262711816.zip downloaded
+OK  2027-01-01T03:21:55Z copilot-fidelity-37092951315-11263461343.zip downloaded
+OK  2027-01-01T03:26:25Z copilot-fidelity-37093200860-11262737450.zip downloaded
+BAD 2027-01-01T03:30:03Z copilot-fidelity-37093395884-11263523013.zip downloaded
+3/4 verified; details in dest2/verification.json
+exit 1
+
+$ python3 -I preserve_artifacts.py "iCloud Drive/x"                # run 4: iCloud destination
+Refusing iCloud Drive/x: choose a folder outside iCloud-synced locations.
+exit 2
