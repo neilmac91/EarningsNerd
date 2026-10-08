@@ -91,6 +91,7 @@ machine" only for that work; skip "Enforced by a machine gate" (CI fails those o
 
 ## Testing & verification
 
+- test-absence-claims-come-from-git-grep.md — Make an absence claim only from `git grep` over every tracked file (and never from a suffix allow-list in a test)
 - test-adversarial-lens-verification.md — Verify large mechanical changes with independent adversarial lenses, not one review pass
 - test-audit-every-judge-channel-for-truncation.md — Audit every grounding channel the judge sees for its own truncation cap
 - test-audit-file-relative-shims-on-move.md — Audit __file__-relative shims whenever relocating a test or script

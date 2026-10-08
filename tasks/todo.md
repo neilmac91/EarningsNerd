@@ -2,8 +2,9 @@
 
 One page, newest first, one line per open item with its owner and next step. Holds are pointers,
 never restated here. This file replaced the ledger on 2026-10-07; the ledger is
-`archive/todo-ledger-through-2026-10-07.md` (6,406 lines, June → 7 October 2026) and its unchecked
-rows are history unless an item below carries them. Format: `AGENTS.md` §7. Close an item by
+`archive/todo-ledger-through-2026-10-07.md` (6,437 lines, June 2026 → closure 165 of 8 October 2026;
+ledger-format entries merged to `main` after the ledger closed were moved there unchanged) and its
+unchecked rows are history unless an item below carries them. Format: `AGENTS.md` §7. Close an item by
 deleting its line in the PR that closes it; a handover is a refresh of "Where things stand".
 
 ## Where things stand — 2026-10-08
@@ -15,13 +16,15 @@ deleting its line in the PR that closes it; a handover is a refresh of "Where th
   `handover-astra-2026-09-19.md` §5 and the September 28 checkpoint in
   `continuation-plan-2026-09-26.md` stays held. The E7/R1/H20 acceptance programme and the CODE RED
   records are a separate task; nothing here redesigns, lifts or restates them.
-- Open PRs on 2026-10-08: #1113 (EN-01 follow-up), #1108 (EN-03), #1110 (CODE RED records gate)
-  ready; #1112 (PR disposition sweep), #1121 (founder role contacts), #1120 (EN-05 part), #1074
-  (Copilot prompt candidate, measurement only), #1035 (native delivery), #1009 (Pro pricing, held)
-  drafts; from the agent-workflow-cost task: #1123 (copilot-eval paths, changes CI behaviour) and
-  #1126 (process gates, stacked on #1118) drafts.
-- Review and models: PRs are reviewed by risk tier (`AGENTS.md` §5); `review-gate.yml` still needs a
-  Codex review or a `Review override:` line while Codex credits are exhausted. Marking a PR that
+- Open PRs on 2026-10-08: #1113 (EN-01 follow-up) and #1108 (EN-03) ready; #1121 (founder role
+  contacts), #1120 (EN-05 part), #1035 (native delivery), #1009 (Pro pricing, held) drafts; from the
+  agent-workflow-cost task: #1123 (copilot-eval paths, changes CI behaviour) and #1126 (process
+  gates, stacked on #1118) drafts. #1110 (CODE RED records gate) and #1112 (PR disposition sweep)
+  merged on 2026-10-08; record 15 (`code-red-20261004/runtime/control/DECISIONS-15.md`) is the
+  latest CODE RED record.
+- Review and models: PRs are reviewed by risk tier (`AGENTS.md` §5); `review-gate.yml` needs a Codex
+  review or a `Review override:` line; Codex reviews again since 2026-10-07, so the override
+  exception rests while it does (CODE RED record 15). Marking a PR that
   touches `backend/**` ready for review triggers the paid `copilot-eval` run: reserve first
   (`DECISIONS-09.md`, reservation rule; `AGENTS.md` §6).
 
