@@ -286,10 +286,12 @@ function retryLabelSites(source: string, fileName: string): Site[] {
 /**
  * What RetryButton is given: each element of its `failures={[…]}` is the query's retained failure,
  * `useRetainedFailure(query, queryKey)`, written inline, held by a same-file `const`, or as either branch of a
- * conditional. Anything else is a failure built by hand, `{ failed, error, busy, retry }`: it skips the hold
+ * conditional. The hook is the one its module exports, under whatever name an import of hooks/useRetainedFailure
+ * gives it: a same-named local (a lookalike, or a parameter shadowing the import) is a call of anything else. Anything else is a failure built by hand, `{ failed, error, busy, retry }`: it skips the hold
  * (a refetch nobody pressed swaps the card, and its focused Retry, for a skeleton), and its `busy` can be
  * `isFetching`, the bug the wiring clause catches on `loading`. What the scan cannot prove counts as built by
- * hand too: a `failures` that is not an array literal, a spread element, a call of anything else, a `let` or
+ * hand too: a `failures` that is not an array literal, an empty one (a visible Retry whose press retries
+ * nothing), a spread element, a call of anything else, a `let` or
  * `var` (a later assignment can replace it), and any JSX spread on a RetryButton (`{...props}` can carry
  * `failures`, so a forwarding wrapper fails here). RetryButton is matched by its own name and by any local
  * name an import gives it (`{ RetryButton as Again }`). `expr` is the element's text.
@@ -305,14 +307,25 @@ const RETAINED_FAILURE = 'useRetainedFailure'
 interface FailureProp { component: string; prop: string; line: number; isDefault: boolean }
 
 /** Whether an expression is a retained failure, resolved in its own file. */
-function retainedIn(sf: ts.SourceFile): (e: ts.Expression) => boolean {
+function retainedIn(sf: ts.SourceFile, fileName: string): (e: ts.Expression) => boolean {
   const visible = bindingResolver(sf)
   const isConst = (binding: Binding) =>
     ts.isVariableDeclaration(binding.decl) && (ts.getCombinedNodeFlags(binding.decl) & ts.NodeFlags.Const) !== 0
+  // The hook as this file names it: what an import of its module binds (an alias included) with no local
+  // binding shadowing that name, or, in the module itself, its own top-level declaration.
+  const home = withoutExtension(RETRY_BUTTON.file)
+  const ownModule = withoutExtension(fileName) === home
+  const imported = new Set(importedNames(sf, fileName, (m) => withoutExtension(m) === home, RETAINED_FAILURE, false))
+  const isHook = (callee: ts.Expression): boolean => {
+    if (!ts.isIdentifier(callee)) return false
+    const local = visible(callee)
+    if (ownModule) return callee.text === RETAINED_FAILURE && !!local && ts.isFunctionDeclaration(local.decl) && local.decl.parent === sf
+    return imported.has(callee.text) && !local
+  }
   const retained = (e: ts.Expression, seen = new Set<Binding>()): boolean => {
     if (ts.isParenthesizedExpression(e)) return retained(e.expression, seen)
     if (ts.isConditionalExpression(e)) return retained(e.whenTrue, seen) && retained(e.whenFalse, seen)
-    if (ts.isCallExpression(e)) return ts.isIdentifier(e.expression) && e.expression.text === RETAINED_FAILURE
+    if (ts.isCallExpression(e)) return isHook(e.expression)
     if (ts.isIdentifier(e)) {
       const binding = visible(e)
       if (!binding?.init || seen.has(binding) || !isConst(binding)) return false
@@ -384,7 +397,7 @@ const jsxOf = (attr: ts.Node): ts.JsxOpeningElement | ts.JsxSelfClosingElement |
 /** RetryButton's failures in one file: those built by hand, and those that arrive as a prop (followed by propPassSites). */
 function failureScan(source: string, fileName: string): { handBuilt: Site[]; props: FailureProp[] } {
   const sf = ts.createSourceFile(fileName, source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX)
-  const retained = retainedIn(sf)
+  const retained = retainedIn(sf, fileName)
   const retryNames = retryButtonNames(sf, fileName)
   const handBuilt: Site[] = []
   const props: FailureProp[] = []
@@ -404,6 +417,7 @@ function failureScan(source: string, fileName: string): { handBuilt: Site[]; pro
         const value = node.initializer && ts.isJsxExpression(node.initializer) ? node.initializer.expression : undefined
         if (!value) flag(node)
         else if (!ts.isArrayLiteralExpression(value)) check(value)
+        else if (value.elements.length === 0) flag(value)
         else for (const item of value.elements) {
           if (ts.isSpreadElement(item)) flag(item)
           else check(item)
@@ -423,7 +437,7 @@ function failureScan(source: string, fileName: string): { handBuilt: Site[]; pro
  */
 function propPassSites(source: string, fileName: string, props: (FailureProp & { file: string })[], passed: Set<string>): Site[] {
   const sf = ts.createSourceFile(fileName, source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX)
-  const retained = retainedIn(sf)
+  const retained = retainedIn(sf, fileName)
   const local = new Map<string, (FailureProp & { file: string })[]>()
   for (const p of props) {
     const home = withoutExtension(p.file)
@@ -876,7 +890,7 @@ describe('a Retry of a query is RetryButton (rule-12 gate)', () => {
 
   it("sees a failure built by hand in RetryButton's failures, and not the retained one, however it is held", () => {
     const fixture = [
-      "import { RetryButton as Again, type RetryButtonProps } from '@/hooks/useRetainedFailure'",
+      "import { RetryButton as Again, useRetainedFailure, type RetryButtonProps } from '@/hooks/useRetainedFailure'",
       'export function X({ fromProp, other }: { fromProp: RetainedFailure; other: number }, extra: RetainedFailure) {',
       '  const failure = useRetainedFailure(query, key)',
       '  const alias = failure',
@@ -922,6 +936,37 @@ describe('a Retry of a query is RetryButton (rule-12 gate)', () => {
     expect(props).toEqual([{ component: 'X', prop: 'fromProp', line: 22, isDefault: false }])
   })
 
+  it('takes useRetainedFailure only as the hook its module exports, under any imported name, and fails an empty list', () => {
+    const lines = (scan: ReturnType<typeof failureScan>) => scan.handBuilt.map((site) => `${site.line}: ${site.expr}`)
+    const aliased = [
+      "import { RetryButton, useRetainedFailure as useHold } from '@/hooks/useRetainedFailure'",
+      'export function A() {',
+      '  const held = useHold(query, key)',
+      '  return (<>',
+      '    <RetryButton failures={[held]} focusTarget={ref} />', // the hook under an import alias: retained
+      '    <RetryButton failures={[]} focusTarget={ref} />', // an empty list: a Retry whose press retries nothing
+      '  </>)',
+      '}',
+      'export function B(useHold: () => RetainedFailure) {',
+      '  return <RetryButton failures={[useHold()]} focusTarget={ref} />', // a parameter shadows the import
+      '}',
+    ].join('\n')
+    expect(lines(failureScan(aliased, 'fixture.tsx'))).toEqual(['6: []', '10: useHold()'])
+    const lookalike = [
+      "import { RetryButton } from '@/hooks/useRetainedFailure'",
+      'function useRetainedFailure() { return { failed: true, error: null, busy: false, retry: () => {} } }',
+      'export const C = () => <RetryButton failures={[useRetainedFailure(q, k)]} focusTarget={ref} />', // a same-named local
+    ].join('\n')
+    expect(lines(failureScan(lookalike, 'fixture.tsx'))).toEqual(['3: useRetainedFailure(q, k)'])
+    const unimported = "import { RetryButton } from '@/hooks/useRetainedFailure'\nexport const D = () => <RetryButton failures={[useRetainedFailure(q, k)]} focusTarget={ref} />"
+    expect(lines(failureScan(unimported, 'fixture.tsx'))).toEqual(['2: useRetainedFailure(q, k)']) // never imported here
+    const ownModule = [
+      'export function useRetainedFailure(query: Q, key: K) { return hold(query, key) }',
+      'export const E = () => <RetryButton failures={[useRetainedFailure(q, k)]} focusTarget={ref} />', // the hook's own module
+    ].join('\n')
+    expect(lines(failureScan(ownModule, 'hooks/useRetainedFailure.tsx'))).toEqual([])
+  })
+
   it('follows a failure prop to every use of its component, under any imported name, and fails a spread or an unproven prop', () => {
     const component = [
       "import { RetryButton } from '@/hooks/useRetainedFailure'",
@@ -935,6 +980,7 @@ describe('a Retry of a query is RetryButton (rule-12 gate)', () => {
     const threaded = props.map((p) => ({ ...p, file: 'features/x/Card.tsx' }))
     const caller = [
       "import Renamed from '@/features/x/Card'", // a default import may take any name
+      "import { useRetainedFailure } from '@/hooks/useRetainedFailure'",
       'export function Page({ rest }: { rest: object }) {',
       '  const held = useRetainedFailure(query, key)',
       '  const loose = { failed: true, error: null, busy: q.isFetching, retry: q.refetch }',
@@ -949,8 +995,8 @@ describe('a Retry of a query is RetryButton (rule-12 gate)', () => {
     ].join('\n')
     const passed = new Set<string>()
     expect(propPassSites(caller, 'app/page.tsx', threaded, passed).map((site) => `${site.line}: ${site.expr}`)).toEqual([
-      '7: Renamed failure={loose}',
-      '8: Renamed {...rest}',
+      '8: Renamed failure={loose}',
+      '9: Renamed {...rest}',
     ])
     expect([...passed]).toEqual(['features/x/Card.tsx:Card.failure'])
     // A `Card` imported from another module is another component: it passes nothing for this one.

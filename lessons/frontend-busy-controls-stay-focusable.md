@@ -58,11 +58,13 @@ hand-rolled Retry. Each has a shrink-only, capped allowlist with reasons: ALLOW_
 in 3 files (open rule (h) Retry buttons), ALLOW_RETRY_LABEL 11 labels in 11 files (4 error-boundary
 resets, 3 stream or answer restarts, 4 open rule (h) sites). Every Retry the retry-hardening follow-up
 converted fails both clauses at its 026d6df version (20 wiring and 10 label offenders in 6 files). A third
-clause (EN-05) checks what RetryButton is given: each element of its `failures` is `useRetainedFailure(…)`,
+clause (EN-05) checks what RetryButton is given: each element of its `failures` is `useRetainedFailure(…)` (the
+hook its module exports, under any name an import gives it; a same-named local or a shadowing parameter is not it),
 inline, through a same-file `const` or either branch of a conditional, or, when it is a prop of the component
 rendering RetryButton, at every JSX use of that component (by its declared name in its own file, by any
 imported name elsewhere; a prop nobody passes fails). RetryButton is matched under its import aliases too. What
-the scan cannot prove counts as built by hand: a `let`, a spread element, any JSX spread on RetryButton (a
+the scan cannot prove counts as built by hand: a `let`, a spread element, an empty list (a visible Retry whose
+press retries nothing), any JSX spread on RetryButton (a
 forwarding wrapper) or into such a component. A failure built by hand skips the hold and can carry
 `busy: isFetching`: ALLOW_HAND_BUILT_FAILURE pins it by its text (1 site, the filing page's stream restart),
 capped; converting another stream restart moves its pin there from ALLOW_RETRY_LABEL.

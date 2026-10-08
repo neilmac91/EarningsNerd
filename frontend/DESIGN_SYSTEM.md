@@ -125,11 +125,12 @@ stream's own failure, `{ failed: true, error, busy: false, retry }`: there is no
 clears the error in the render that starts the stream, so the card leaves with the press when the run starts
 and its hand-off target is the progress card's heading. A failure built by hand like this is pinned, with its
 reason, in the gate's `ALLOW_HAND_BUILT_FAILURE`. Every other failure RetryButton is given must be
-`useRetainedFailure`'s, which the gate proves through same-file `const`s, through a component's prop to its call
-sites (under any imported name), and under RetryButton's own import aliases; what it cannot prove (a `let`, a
-JSX spread on RetryButton or into such a component) fails as built by hand. A card that ends a run the user is waiting on (a failed generation, the
-monthly limit) takes focus when it appears, on its title (`GuidanceCard`'s `headingRef`: `tabIndex={-1}`, no
-outline, described by the card's description), and only when nobody holds focus (`useFocusOnArrival`,
+`useRetainedFailure`'s, the hook its module exports under any imported name (a same-named local is not it),
+which the gate proves through same-file `const`s, through a component's prop to its call sites (under any
+imported name), and under RetryButton's own import aliases; what it cannot prove (a `let`, a JSX spread on
+RetryButton or into such a component, an empty list) fails as built by hand. A card that ends a run the user is
+waiting on (a failed generation, the monthly limit) takes focus when it appears, on its title
+(`GuidanceCard`'s `headingRef`: `tabIndex={-1}`, no outline, described by the card's description), and only when nobody holds focus (`useFocusOnArrival`,
 `hooks/useFocusHandoff.ts`). Never on its button, where a key pressed as the card lands would act, and never
 away from a field, a link or an open modal dialog the card is not in.
 
