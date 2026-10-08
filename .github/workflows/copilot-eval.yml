@@ -14,12 +14,12 @@ on:
       # eval names counts, Markdown and files outside backend/ included), when a file the eval
       # cannot feel would trigger the run (backend/tests/**, scripts, migrations, routers,
       # integrations, a top-level backend file the run does not install, the summary eval's modules
-      # and data, and docs/ or evals/ Markdown or a file outside backend/ that the eval does not
-      # name; Markdown inside one of these directories triggers by design), when a tracked file
-      # under backend/ is neither a trigger, a closure module nor a non-trigger of a stated category
-      # (Markdown in a new directory and a top-level data file included), or when a pattern matches
-      # nothing the eval uses; it also reads every run step below as an allowlist, so an untraced
-      # program fails it.
+      # and data, and documentation Markdown directly under docs/ or evals/ or a file outside backend/
+      # that the eval does not name; Markdown inside one of these directories triggers by design),
+      # when a tracked file under backend/ is neither a trigger, a closure module nor a non-trigger of
+      # a stated category (Markdown in a new directory and a top-level file that is not tooling
+      # included), or when a pattern matches nothing the eval uses; it also reads every run step
+      # below as an allowlist, so an untraced program fails it.
       # `backend/app/*` is every file directly under app/ (not its subdirectories).
       - 'backend/app/*'
       - 'backend/app/models/**'
