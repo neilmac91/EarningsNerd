@@ -1275,9 +1275,11 @@ def test_data_directories_and_named_files_are_inputs():
         # directory, so it is read as a literal in its own right (a leading `..` reaches the whole repository, as
         # elsewhere); a bare pattern in a later operand is still anchored on the module's directory, and a lone `**`
         # there reads what `rglob("*")` reads.
-        assert "backend/requirements.txt" in TRACKED
-        for spelling in ('os.path.join(os.path.dirname(__file__), "baselines", "../requirements.txt")', 'Path(__file__).parent.joinpath("baselines", "../requirements.txt")'):
-            assert "backend/requirements.txt" in _named_in(ast.parse(f"d = {spelling}"), "backend/evals/copilot_runner.py"), spelling
+        # From `backend/evals/`, climbing two levels from the module's directory would leave `app/config.py` at the
+        # repository root, where it does not exist; read as a literal, the `..` reaches `backend/app/config.py`.
+        assert "backend/app/config.py" in TRACKED and "app/config.py" not in TRACKED
+        for spelling in ('os.path.join(os.path.dirname(__file__), "baselines", "../../app/config.py")', 'Path(__file__).parent.joinpath("baselines", "../../app/config.py")'):
+            assert "backend/app/config.py" in _named_in(ast.parse(f"d = {spelling}"), "backend/evals/copilot_runner.py"), spelling
         evals_all = {p for p in TRACKED if p.startswith("backend/evals/") and not p.endswith("/.gitignore")}
         assert _named_in(ast.parse('fs = glob.glob(os.path.join(os.path.dirname(__file__), "**", "*.json"), recursive=True)'), "backend/evals/copilot_runner.py") == evals_all
         # `join(dir, "baselines", "*.json")`: `baselines` is the sibling folder (every file under it) and `*.json` a bare
