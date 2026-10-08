@@ -113,6 +113,16 @@ describe('premerge-review.js behaves as AGENTS.md §5 promises', () => {
     expect(result.mergeable).toBe(false)
   })
 
+  it('leaves a high-tier finding unverified when one of its two refuters returns nothing, never confirmed on a single vote', async () => {
+    const { agent, calls } = stub((label) => label.startsWith('verify:') && label.endsWith('#1'))
+    const [result] = (await load()({ prs: [pr('high')] }, agent)) as Array<{ confirmed: unknown[]; refuted: unknown[]; unverified: unknown[]; mergeable: boolean }>
+    expect(calls.filter((c) => c.label.startsWith('verify:')).length).toBe(12)
+    expect(result.confirmed).toHaveLength(0)
+    expect(result.refuted).toHaveLength(0)
+    expect(result.unverified).toHaveLength(6)
+    expect(result.mergeable).toBe(false)
+  })
+
   it('leaves a finding unverified when a refuter returns nothing, never refuted', async () => {
     const { agent } = stub((label) => label.startsWith('verify:'))
     const [result] = (await load()({ prs: [pr('routine')] }, agent)) as Array<{ refuted: unknown[]; unverified: Array<{ severity: string }>; mergeable: boolean }>
