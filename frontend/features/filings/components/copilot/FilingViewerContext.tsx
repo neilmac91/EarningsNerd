@@ -18,8 +18,10 @@ interface FilingViewerContextValue {
   request: CitationHighlightRequest | null
   /**
    * Record a passage to highlight, switch the pane to the filing view and ask the page to open the
-   * pane (`onRequestOpen`). `opener` is the activating element (the chip): the workspace returns
-   * focus to it when the pane closes, so a keyboard user lands back where they left (EN-01).
+   * pane (`onRequestOpen`). `opener` is the activating element when it sits outside the pane (a
+   * summary chip): the workspace returns focus to it when the pane closes, so a keyboard user lands
+   * back where they left (EN-01). An activation from inside the pane (an answer's [n] chip) passes
+   * none and leaves the pane's opener as it was.
    */
   requestHighlight: (citation: CopilotCitation, opener?: HTMLElement | null) => void
   clearRequest: () => void
@@ -29,9 +31,12 @@ interface FilingViewerContextValue {
   setActiveView: (view: CopilotView) => void
   openFiling: () => void
   /**
-   * The element whose activation last requested a highlight, or null. Owned by the provider and
-   * mutated only here: `peekOpener` reads it (the mobile sheet's focus-restore target), `takeOpener`
-   * reads and forgets it (FilingWorkspace, when the pane closes). Never a trigger for anything.
+   * The element whose activation last requested a highlight with an opener (an activation from inside
+   * the pane passes none, so this keeps the one before it), or null. FilingWorkspace never returns
+   * focus to one inside the pane (`isReturnTarget`). Owned by the provider and mutated only here:
+   * `peekOpener` reads it (the mobile sheet's focus-restore target), `takeOpener` reads and forgets it
+   * (FilingWorkspace, when the pane closes), both as the copy now shown (`renderedCopy`: a metric chip
+   * a breakpoint hid since resolves to its rendered twin). Never a trigger for anything.
    */
   peekOpener: () => HTMLElement | null
   takeOpener: () => HTMLElement | null
@@ -41,16 +46,17 @@ const FilingViewerContext = createContext<FilingViewerContextValue | null>(null)
 
 /**
  * Coordinates the in-app filing viewer (P7) and which body the secondary pane shows (1.1). A
- * `CitationChip` deep in the Copilot answer, or a `SourceTrace` chip in the summary, calls
- * `requestHighlight(citation, opener)`; that records the passage to highlight, switches the pane to
- * the filing view AND asks the page to open the pane (`onRequestOpen`), so the sibling `FilingViewer`
- * is visible, loads, and scrolls to the cited text, or shows its truthful empty state when the filing
- * has no in-app text yet. The open is a direct call from the activation, never an effect on the
- * request nonce: a pane the user closed can therefore never reopen on its own from a stale request
- * (EN-01). The `[Answer · Filing]` tabs flip `activeView` directly, and `openFiling()` opens the filing
- * view with no citation (the viewer just loads the full filing). Kept tiny (a request channel + view
- * state + the opener) so it doesn't couple the chip, the tabs, and the viewer beyond the citation
- * payload. Nothing here reads plan or auth state: source access is the same for every visitor.
+ * `SourceTrace` chip in the summary calls `requestHighlight(citation, opener)`, and a `CitationChip`
+ * deep in the Copilot answer calls it without an opener; that records the passage to highlight,
+ * switches the pane to the filing view AND asks the page to open the pane (`onRequestOpen`), so the
+ * sibling `FilingViewer` is visible, loads, and scrolls to the cited text, or shows its truthful empty
+ * state when the filing has no in-app text yet. The open is a direct call from the activation, never
+ * an effect on the request nonce: a pane the user closed can therefore never reopen on its own from a
+ * stale request (EN-01). The `[Answer · Filing]` tabs flip `activeView` directly, and `openFiling()`
+ * opens the filing view with no citation (the viewer just loads the full filing). Kept tiny (a request
+ * channel + view state + the opener) so it doesn't couple the chip, the tabs, and the viewer beyond
+ * the citation payload. Nothing here reads plan or auth state: source access is the same for every
+ * visitor.
  */
 export function FilingViewerProvider({
   children,
@@ -96,7 +102,7 @@ export function FilingViewerProvider({
         action: 'scroll_highlight',
       })
     }
-    opener.current = from ?? null
+    if (from !== undefined) opener.current = from
     setRequest((prev) => ({ citation, nonce: (prev?.nonce ?? 0) + 1 }))
     // A citation always means "show me that passage" — switch the pane to the filing view...
     setActiveView('filing')
