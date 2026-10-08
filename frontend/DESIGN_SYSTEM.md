@@ -335,6 +335,22 @@ Metric cards     <FinancialMetricsTable> below md (768px): one stacked card per 
                  row, wrapping, the 767/768 switch, the sibling-margin pin and rotation with a sheet open in a
                  real browser).
 
+Filing reader    <FilingViewer> (`.filing-reader`) fills its pane and never exceeds it: the reader-only rule
+                 sets `width: 100%`, up to the 88ch rail (a column-flex child with auto inline margins is not
+                 stretched, so without it the reader took its widest table's width; `min-w-0` does not bound
+                 that). Each table sits in its own horizontal scroll box (`ReaderTable`, `.filing-table-scroll`,
+                 which takes the table's 68ch escape and 2rem rhythm); never make the reader or the sheet scroll
+                 sideways for a table, and never `overflow-x-hidden` it away. While, and only while, a table is
+                 wider than its box, the box is a scroll region: `role="region"`, `tabIndex={0}`,
+                 `aria-label="Scrollable table: <the heading above it>"`, the brand focus ring; a table that fits
+                 stays out of the tab order. The reader itself is a tab stop too (`role="region"`, named
+                 "<filing> · filing text", `tabIndex={0}`, the ring inset as in MonthView), so the arrow keys
+                 scroll it from the top: Chromium made the scroller one on its own only while nothing in it was
+                 focusable. A citation jump (highlightInDom) scrolls the reader and the table's box only, never
+                 the page (no scrollIntoView). The AI summary's `.markdown-body` is untouched. Gates:
+                 tests/unit/highlightInDom.spec.ts + tests/e2e/filing-reader-wide-tables.spec.ts (synthetic
+                 fixture text, 1440x900 and a 390x844 touch sheet).
+
 Ask answer       <AskFilingAnswer>  — the SHIPPED copilot contract: status reading|streaming|done|error;
                  answer = GFM markdown (react-markdown + remark-gfm); markers [n] AND [F1]/[f1]/[F 1]
                  (case/whitespace tolerant) become chips showing the BRACKETED marker; unmatched markers
