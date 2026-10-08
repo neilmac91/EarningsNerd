@@ -10,10 +10,21 @@ filter excludes), and fails when a reachable module falls outside the filter (th
 stale) or when a path that cannot affect the run would trigger it (routers, integrations,
 `main.py`, `task_worker_main.py`, the Dockerfile, scripts, migrations, tests, evals Markdown and
 the summary-eval modules; files directly under `app/` trigger as a group so a new top-level module
-cannot fall outside the filter). Runtime-loaded data the closure cannot see
-(prompts, the golden set and sources, `app/data`, `app/assets`, the model env file, the
-requirements) is pinned by enumerating the real files, and a missing one is an error, never a
-silent drop. CLAUDE.md rule 12.
+cannot fall outside the filter).
+
+The run steps are read as an allowlist, not a denylist: every simple command of every `run:` step
+(split on `&&`, `||`, `;` and `|` outside quotes) must be exactly `python -m evals.<module>` with
+plain arguments or one of the few fixed shell commands the workflow uses, under a bash or sh shell
+at every level. Anything else (a chained `python -c`, an interpreter or shell called by path, a
+script executed directly, a versioned interpreter, `pytest`, `uv run`, `node`, `source`, a command
+substitution, a Python `shell:` on the step, the job or the workflow, a local action) is a program
+whose imports the closure cannot see, so it fails the gate until it is traced or allowed here.
+
+Runtime-loaded data the closure cannot see is pinned by enumerating the real files (prompts, the
+golden set and sources, the model env file, the requirements), and a missing one is an error, never
+a silent drop. `app/data` and `app/assets` are read by services the gate finds through their
+`/ "data"` and `/ "assets"` path components; each directory triggers the run only while one of
+its readers is in the closure, and is a non-trigger otherwise. CLAUDE.md rule 12.
 """
 from __future__ import annotations
 
@@ -27,18 +38,31 @@ ROOT = Path(__file__).resolve().parents[3]
 BACKEND = ROOT / "backend"
 WORKFLOW = ROOT / ".github/workflows/copilot-eval.yml"
 # Every top-level importable name under backend/: modules, packages and namespace packages (any
-# directory holding Python), so no local import is ever dropped as "not local".
+# non-hidden directory holding Python at any depth), so no local import is ever dropped as "not local".
 LOCAL_TOP_LEVEL = frozenset(
     {p.stem for p in BACKEND.glob("*.py")}
-    | {d.name for d in BACKEND.iterdir() if d.is_dir() and any(d.glob("*.py"))}
+    | {d.name for d in BACKEND.iterdir() if d.is_dir() and not d.name.startswith(".") and any(d.rglob("*.py"))}
 )
-# Any program token that could run Python: every interpreter spelling (python, python3, python3.11,
-# with or without flags), pytest, and a shell that could wrap one. Each must be the exact
-# `python -m evals.<module>` form or the gate cannot trace what the run executes.
-PROGRAM = re.compile(r"(?<![\w/.-])(python[\w.]*|pytest|bash|sh)\b(.*)$")
-RUN_MODULE = re.compile(r"^\s+-m\s+(evals\.[\w.]+)(?:\s|$)")
 EXPECTED_ENTRY_POINTS = ["evals.copilot_bootstrap", "evals.copilot_runner"]
+# Summary-eval modules the copilot modules import; they must stay in the closure to keep triggering.
 COPILOT_EVAL_MODULES = {"__init__.py", "schema.py", "scorers.py"}
+# The only entry form: the bare interpreter, `-m evals.<module>`, then flags, quoted or bare
+# arguments and `2>&1`. No other interpreter spelling, no flag before `-m`, no `(` or backtick.
+ENTRY = re.compile(r"^python -m (evals\.[\w.]+)((?:\s+(?:--[\w-]+|\"[^\"`()]*\"|'[^']*'|[\w./$:=-]+|2>&1))*)$")
+# The fixed shell commands the workflow uses; a new one needs a deliberate entry here.
+SAFE_COMMANDS = (
+    re.compile(r"^mkdir -p [\w./-]+$"),
+    re.compile(r"^tee [\w./-]+$"),
+    re.compile(r"^pip install(?: -r [\w./-]+)+$"),
+    re.compile(r"^grep -v '[^']*' [\w./-]+ >> \"\$GITHUB_ENV\"$"),
+    re.compile(r"^if \[ -f [\w./-]+ \]$"),
+    re.compile(r"^then cat [\w./-]+ >> \"\$GITHUB_STEP_SUMMARY\"$"),
+    re.compile(r"^fi$"),
+)
+SHELL = re.compile(r"^(bash|sh)(\s|$)")
+# Directories a service reads at run time, located by a `/ "<name>"` path component; the gate finds
+# their readers by that literal, so the map cannot go stale silently.
+DATA_DIRS = {"app/data": re.compile(r'/\s*"data"'), "app/assets": re.compile(r'/\s*"assets"')}
 
 
 def _existing(paths, what: str) -> list[str]:
@@ -54,23 +78,45 @@ def _glob(pattern: str) -> list[Path]:
     return found
 
 
+def _data_dir_readers() -> dict[str, set[str]]:
+    readers: dict[str, set[str]] = {d: set() for d in DATA_DIRS}
+    for p in (BACKEND / "app").rglob("*.py"):
+        text = p.read_text(encoding="utf-8")
+        for d, pattern in DATA_DIRS.items():
+            if pattern.search(text):
+                readers[d].add("backend/" + p.relative_to(BACKEND).as_posix())
+    for d, found in readers.items():
+        assert found, f"no module locates backend/{d} by its path component; update DATA_DIRS"
+    return readers
+
+
+def _data_dirs_read_by(closure: set[str]) -> tuple[list[str], list[str]]:
+    """(directories a closure module reads, directories none does)."""
+    readers = _data_dir_readers()
+    read = sorted(d for d, found in readers.items() if found & closure)
+    unread = sorted(d for d in readers if d not in read)
+    return read, unread
+
+
 # Loaded at runtime rather than imported, so the closure cannot discover them.
-def runtime_inputs() -> list[str]:
+def runtime_inputs(closure: set[str]) -> list[str]:
+    read, _ = _data_dirs_read_by(closure)
     return _existing(
-        _glob("prompts/*.md") + _glob("evals/copilot_*.json") + _glob("app/data/**/*") + _glob("app/assets/**/*")
+        _glob("prompts/*.md") + _glob("evals/copilot_*.json") + [f for d in read for f in _glob(f"{d}/**/*")]
         + [BACKEND / "requirements.txt", BACKEND / "requirements-dev.txt", ROOT / ".github/ai-model.env", WORKFLOW],
         "runtime inputs",
     )
 
 
 # Must never start the paid run: they cannot change its result.
-def non_triggers() -> list[str]:
+def non_triggers(closure: set[str]) -> list[str]:
+    _, unread = _data_dirs_read_by(closure)
     summary_eval_modules = [
         p for p in _glob("evals/*.py") if not p.name.startswith("copilot_") and p.name not in COPILOT_EVAL_MODULES
     ]
     return _existing(
         _glob("tests/**/*") + _glob("evals/**/*.md") + summary_eval_modules + _glob("scripts/*") + _glob("migrations/*")
-        + _glob("app/routers/*.py") + _glob("app/integrations/*.py")
+        + _glob("app/routers/*.py") + _glob("app/integrations/*.py") + [f for d in unread for f in _glob(f"{d}/**/*")]
         + [BACKEND / "main.py", BACKEND / "task_worker_main.py", BACKEND / "Dockerfile", BACKEND / "evals/baseline_scores.json"],
         "non-triggers",
     )
@@ -112,29 +158,77 @@ def _workflow() -> dict:
     return yaml.load(WORKFLOW.read_text(encoding="utf-8"), Loader=yaml.BaseLoader)
 
 
-def entry_points() -> list[str]:
-    """Every Python program any job's run steps execute; all of them must be `python -m evals.<module>`.
+def _simple_commands(run_text: str):
+    """Each simple command of a run step: lines split on `&&`, `||`, `;`, `|` and `&` outside quotes
+    (`>&` stays a redirection); blank lines and comments skipped."""
+    for line in run_text.splitlines():
+        line = line.strip()
+        if not line or line.startswith("#"):
+            continue
+        parts, quote, start, i = [], None, 0, 0
+        while i < len(line):
+            ch = line[i]
+            if quote:
+                if ch == quote:
+                    quote = None
+            elif ch in "'\"":
+                quote = ch
+            elif ch in "|&;" and not (ch == "&" and i > 0 and line[i - 1] == ">"):
+                parts.append(line[start:i])
+                if i + 1 < len(line) and line[i + 1] in "|&":
+                    i += 1
+                start = i + 1
+            i += 1
+        parts.append(line[start:])
+        for part in parts:
+            if part.strip():
+                yield part.strip()
 
-    A `python -c`, a heredoc, an interpreter flag before `-m`, a versioned interpreter, a `pytest`
-    or a shell wrapper, and a step whose `shell:` is Python are all programs the gate cannot
-    trace, so each fails here rather than slipping past the filter.
-    """
+
+def _classify(command: str) -> tuple[str, str | None]:
+    entry = ENTRY.match(command)
+    if entry:
+        return "entry", entry.group(1)
+    if any(p.match(command) for p in SAFE_COMMANDS):
+        return "safe", None
+    return "untraced", command
+
+
+def _shell_of(*levels: dict) -> str:
+    for level in levels:
+        shell = str(level.get("shell", "") or level.get("defaults", {}).get("run", {}).get("shell", ""))
+        if shell:
+            return shell
+    return ""
+
+
+def _entry_points(workflow: dict) -> list[str]:
+    """Every Python module the run steps execute, with everything else rejected (see the docstring)."""
     modules, untraced = set(), []
-    for job_name, job in _workflow()["jobs"].items():
+    for job_name, job in workflow["jobs"].items():
         for step in job.get("steps", []):
-            shell = str(step.get("shell", ""))
-            if shell.startswith("python"):
-                untraced.append(f"{job_name}: step with shell: {shell}")
-            for line in str(step.get("run", "")).splitlines():
-                for program, rest in PROGRAM.findall(line):
-                    module = RUN_MODULE.match(rest)
-                    if program.startswith("python") and module:
-                        modules.add(module.group(1))
-                    else:
-                        untraced.append(f"{job_name}: {line.strip()}")
+            uses = str(step.get("uses", ""))
+            if uses.startswith("."):
+                untraced.append(f"{job_name}: local action {uses} can run anything")
+            if "run" not in step:
+                continue
+            shell = _shell_of(step, job, workflow)
+            if shell and not SHELL.match(shell):
+                untraced.append(f"{job_name}: run step under shell: {shell}")
+                continue
+            for command in _simple_commands(str(step["run"])):
+                kind, value = _classify(command)
+                if kind == "entry":
+                    modules.add(value)
+                elif kind == "untraced":
+                    untraced.append(f"{job_name}: {command}")
     assert not untraced, f"copilot-eval.yml runs programs the gate cannot trace: {untraced}"
     assert modules, "copilot-eval.yml runs no `python -m evals.<module>` step"
     return sorted(modules)
+
+
+def entry_points() -> list[str]:
+    return _entry_points(_workflow())
 
 
 def reachable_files(roots=None) -> set[str]:
@@ -201,14 +295,50 @@ def test_entry_points_come_from_the_workflow_run_steps():
     assert entry_points() == EXPECTED_ENTRY_POINTS
 
 
-def test_untraceable_python_invocations_are_rejected():
-    for line in ('python -c "import scripts.x"', "python - <<'PY'", "python3.11 -m scripts.seed",
-                 "python -u -m evals.copilot_runner", "PYTHONPATH=. pytest tests/x", "bash scripts/x.sh"):
-        found = PROGRAM.findall(line)
-        assert found, line
-        assert not all(p.startswith("python") and RUN_MODULE.match(r) for p, r in found), line
-    assert [(p, bool(RUN_MODULE.match(r))) for p, r in PROGRAM.findall("python -m evals.copilot_runner --runs 3")] == [("python", True)]
-    assert not PROGRAM.findall("pip install -r backend/requirements.txt")
+def test_run_commands_outside_the_allowlist_are_rejected():
+    rejected = (
+        'python -c "import scripts.x"', "python - <<'PY'", "python3.11 -m scripts.seed", "python3.11 -m evals.copilot_runner",
+        "python -u -m evals.copilot_runner", "PYTHONPATH=. pytest tests/x", "bash scripts/x.sh", "sh -c 'python scripts/x.py'",
+        '/usr/bin/python3 -c "import scripts.x"', ".venv/bin/python -m scripts.seed", "./scripts/post.sh", "scripts/post.py",
+        "uv run evals/x.py", "source scripts/env.sh", "node scripts/x.js", "ipython -m evals.copilot_runner",
+        'python -m evals.copilot_runner --runs 3 && python -c "import scripts.seed"',
+        "python -m evals.copilot_runner | python3 scripts/x.py", "python -m evals.copilot_runner; bash x.sh",
+        "python -m evals.copilot_runner || ./fallback.sh", "mkdir -p x & python scripts/x.py",
+        'python -m evals.copilot_runner --output "$(cat x)"', "python -m evals.copilot_runner `cat x`",
+        "python -m evals.copilot_runner $(cat flags)", "tee x.log | python scripts/x.py",
+    )
+    for line in rejected:
+        assert "untraced" in [_classify(c)[0] for c in _simple_commands(line)], line
+    accepted = (
+        "mkdir -p evals/reports/copilot",
+        'python -m evals.copilot_bootstrap --database "$RUNNER_TEMP/copilot-fidelity.db" --output evals/reports/copilot 2>&1 | tee evals/reports/copilot/preparation.log',
+        'if [ -f evals/reports/copilot/copilot-eval.md ]; then cat evals/reports/copilot/copilot-eval.md >> "$GITHUB_STEP_SUMMARY"; fi',
+        "# a comment\n\npip install -r backend/requirements.txt -r backend/requirements-dev.txt",
+    )
+    for line in accepted:
+        assert all(_classify(c)[0] != "untraced" for c in _simple_commands(line)), line
+    assert [_classify(c) for c in _simple_commands("python -m evals.copilot_runner --runs 3 2>&1 | tee x.log")] == [
+        ("entry", "evals.copilot_runner"), ("safe", None),
+    ]
+
+
+def test_an_inherited_python_shell_or_a_local_action_is_rejected():
+    step = {"run": "python -m evals.copilot_runner"}
+    assert _entry_points({"jobs": {"j": {"steps": [step]}}}) == ["evals.copilot_runner"]
+    assert _entry_points({"jobs": {"j": {"steps": [{"shell": "bash -e {0}", **step}]}}}) == ["evals.copilot_runner"]
+    for workflow in (
+        {"jobs": {"j": {"steps": [{"shell": "python {0}", **step}]}}},
+        {"jobs": {"j": {"defaults": {"run": {"shell": "python"}}, "steps": [step]}}},
+        {"defaults": {"run": {"shell": "python {0}"}}, "jobs": {"j": {"steps": [step]}}},
+        {"jobs": {"j": {"steps": [{"shell": "/usr/bin/env python3 {0}", **step}]}}},
+        {"jobs": {"j": {"steps": [{"shell": "pwsh", **step}]}}},
+        {"jobs": {"j": {"steps": [{"uses": "./.github/actions/seed"}, step]}}},
+    ):
+        try:
+            _entry_points(workflow)
+        except AssertionError:
+            continue
+        raise AssertionError(f"accepted a workflow the gate cannot trace: {workflow}")
 
 
 def test_closure_follows_every_top_level_backend_name():
@@ -220,6 +350,8 @@ def test_closure_follows_every_top_level_backend_name():
     # Reached only through a relative import inside a package __init__ (app/schemas/__init__.py).
     assert "backend/app/schemas/contact.py" in files
     assert not [f for f in files if f.startswith("backend/tests/")], "the eval must not import test code"
+    # The summary-eval modules exempted from the non-trigger list must really be in the closure.
+    assert {f"backend/evals/{m}" for m in COPILOT_EVAL_MODULES} <= files
 
 
 def test_relative_imports_anchor_on_the_owning_package():
@@ -230,18 +362,30 @@ def test_relative_imports_anchor_on_the_owning_package():
 
 def test_every_reachable_module_and_runtime_input_triggers_the_run():
     patterns = workflow_filter()
-    inputs = runtime_inputs()
+    closure = reachable_files()
+    inputs = runtime_inputs(closure)
     assert len(inputs) > 10, inputs
-    missing = sorted(p for p in reachable_files() | set(inputs) if not triggers(p, patterns))
+    missing = sorted(p for p in closure | set(inputs) if not triggers(p, patterns))
     assert not missing, f"copilot-eval.yml paths no longer cover inputs of the eval: {missing}"
 
 
 def test_files_that_cannot_change_the_result_do_not_trigger_the_run():
     patterns = workflow_filter()
-    candidates = non_triggers()
+    candidates = non_triggers(reachable_files())
     assert len(candidates) > 100, candidates
     wrong = [p for p in candidates if triggers(p, patterns)]
     assert not wrong, f"copilot-eval.yml would pay for a run these paths cannot affect: {wrong}"
+
+
+def test_data_directories_follow_their_readers():
+    readers = _data_dir_readers()
+    assert "backend/app/services/index_membership_service.py" in readers["app/data"]
+    assert "backend/app/services/pdf_branding.py" in readers["app/assets"]
+    read, unread = _data_dirs_read_by(reachable_files())
+    assert sorted(read + unread) == sorted(DATA_DIRS)
+    # Today no closure module reads either directory, so both are non-triggers; a closure module
+    # that starts reading one moves it into the required inputs and the filter must name it.
+    assert read == [], read
 
 
 def test_filter_matcher_follows_github_semantics():

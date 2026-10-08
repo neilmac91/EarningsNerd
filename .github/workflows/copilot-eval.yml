@@ -9,15 +9,14 @@ on:
       # the data they load at runtime (prompts, the golden set and sources, the model env file) and
       # this workflow. Gate: backend/tests/unit/test_copilot_eval_paths.py recomputes the closure from
       # the run steps below and fails when a reachable module or runtime input falls outside this
-      # list, or when backend/tests/**, evals Markdown, scripts or migrations would trigger the run.
+      # list, or when backend/tests/**, evals Markdown, scripts or migrations would trigger the run;
+      # it also reads every run step below as an allowlist, so an untraced program fails it.
       # `backend/app/*` is every file directly under app/ (not its subdirectories).
       - 'backend/app/*'
       - 'backend/app/models/**'
       - 'backend/app/schemas/**'
       - 'backend/app/services/**'
       - 'backend/app/utils/**'
-      - 'backend/app/data/**'
-      - 'backend/app/assets/**'
       - 'backend/prompts/**'
       - 'backend/evals/__init__.py'
       - 'backend/evals/copilot_*'
