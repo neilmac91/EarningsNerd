@@ -10,11 +10,14 @@ on:
       # month touches them), the data the eval loads at runtime (prompts, the golden set and sources,
       # the requirements and model env files it installs and loads) and this workflow. Gate:
       # backend/tests/unit/test_copilot_eval_paths.py recomputes the closure from the run steps
-      # below and fails when a reachable module or runtime input falls outside this list, when
-      # backend/tests/**, evals Markdown, scripts, migrations or a top-level backend file the run
-      # does not install would trigger the run, when a file under backend/evals/ is neither a trigger
-      # nor listed, or when a pattern matches nothing the eval uses; it also reads every run
-      # step below as an allowlist, so an untraced program fails it.
+      # below and fails when a reachable module or runtime input falls outside this list (a file the
+      # eval names counts, evals Markdown and files outside backend/ included), when a file the eval
+      # cannot feel would trigger the run (backend/tests/**, scripts, migrations, routers,
+      # integrations, a top-level backend file the run does not install, the summary eval's modules
+      # and data, and evals Markdown or a file outside backend/ that the eval does not name), when a
+      # file under backend/evals/ is neither a trigger nor listed, or when a pattern matches nothing
+      # the eval uses; it also reads every run step below as an allowlist, so an untraced program
+      # fails it.
       # `backend/app/*` is every file directly under app/ (not its subdirectories).
       - 'backend/app/*'
       - 'backend/app/models/**'
