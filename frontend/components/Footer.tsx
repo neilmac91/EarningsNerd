@@ -79,7 +79,7 @@ export default function Footer() {
             href="https://logo.dev"
             target="_blank"
             rel="noopener noreferrer"
-            className="underline underline-offset-2 hover:text-text-secondary-light dark:hover:text-text-primary-dark"
+            className="underline underline-offset-2 hover:text-text-secondary-light dark:hover:text-text-primary-dark focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark"
           >
             Logo.dev
           </a>

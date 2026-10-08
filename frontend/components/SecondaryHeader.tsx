@@ -37,7 +37,7 @@ export default function SecondaryHeader({
             // the caret on the page edge.
             <Link
               href={backHref}
-              className="-ml-3.5 inline-flex min-h-11 min-w-11 items-center justify-center text-sm font-medium text-text-secondary-light dark:text-text-secondary-dark transition hover:text-text-primary-light dark:hover:text-text-primary-dark sm:ml-0 sm:min-h-0 sm:min-w-0 sm:justify-start"
+              className="-ml-3.5 inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg text-sm font-medium text-text-secondary-light dark:text-text-secondary-dark transition hover:text-text-primary-light dark:hover:text-text-primary-dark sm:ml-0 sm:min-h-0 sm:min-w-0 sm:justify-start focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark"
             >
               <CaretLeftIcon aria-hidden="true" className="h-4 w-4 sm:mr-1" />
               <span className="sr-only sm:not-sr-only">{backLabel}</span>

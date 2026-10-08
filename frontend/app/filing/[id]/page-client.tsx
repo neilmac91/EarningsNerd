@@ -291,7 +291,7 @@ function FilingDetailView({ filingId, initialFiling, initialSummary }: { filingI
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-4">
             <button
               onClick={handleBack}
-              className="text-brand-strong dark:text-brand-strong-dark hover:underline inline-flex items-center space-x-1 transition-colors group"
+              className="text-brand-strong dark:text-brand-strong-dark hover:underline inline-flex items-center space-x-1 rounded-lg transition-colors group focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark"
             >
               <span className="group-hover:-translate-x-1 transition-transform">←</span>
               <span>Back</span>

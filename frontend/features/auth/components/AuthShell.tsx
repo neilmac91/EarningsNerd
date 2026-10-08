@@ -16,7 +16,7 @@ export default function AuthShell({ children }: { children: React.ReactNode }) {
       {/* Form pane */}
       <div className="flex min-h-screen flex-col bg-background-light dark:bg-background-dark">
         <div className="flex items-center justify-between px-6 py-6 sm:px-10">
-          <Link href="/" className="flex items-center gap-2.5">
+          <Link href="/" className="flex items-center gap-2.5 rounded-lg focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark">
             <EarningsNerdLogo iconClassName="h-8 w-8" wordmarkClassName="text-lg" />
           </Link>
           <div className="flex items-center gap-2">
