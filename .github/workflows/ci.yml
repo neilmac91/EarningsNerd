@@ -697,7 +697,8 @@ jobs:
       - name: Update filing-scan + digest + calendar + alert + notable + retention job images
         if: steps.changes.outputs.backend == 'true'
         # The jobs + their Cloud Scheduler triggers are created once out-of-band (see DEPLOYMENT.md);
-        # CI only bumps the image. Skip each gracefully if it hasn't been created yet so CD never fails.
+        # CI bumps the image and sets the DB pool and SEC budget keys. Skip each gracefully if it hasn't been
+        # created yet so CD never fails.
         run: |
           for job in earningsnerd-filing-scan earningsnerd-filing-digest earningsnerd-earnings-calendar-refresh earningsnerd-earnings-day-alerts earningsnerd-notable-filings earningsnerd-retention-purge; do
             if gcloud run jobs describe "$job" --region=us-west1 >/dev/null 2>&1; then
