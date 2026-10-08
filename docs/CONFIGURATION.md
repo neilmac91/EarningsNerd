@@ -47,7 +47,7 @@ code default. Production cache policy remains Redis-off/L1-only (ADR-0004).
 | `SKIP_REDIS_INIT` | `false` | Skip Redis initialization; true in hermetic tests and Redis-off deployments. |
 | `SEC_EDGAR_BASE_URL` | `"https://data.sec.gov"` | SEC submissions/companyfacts API origin; calls must use the EDGAR service layer. |
 | `SEC_USER_AGENT` | `"EarningsNerd/1.0 (contact@earningsnerd.io)"` | SEC contact identity; use a reachable operator address. |
-| `SEC_RATE_LIMIT_PER_SECOND` | `10` | Per-process SEC request ceiling; SEC traffic from other processes also counts at the IP. |
+| `SEC_RATE_LIMIT_PER_SECOND` | `10` | Per-process ceiling of the app's own SEC token bucket (capacity equals rate). SEC's 10 req/s applies per user across every process, so production pins `1` on every job and the task worker, and on the API service once the insider endpoint fits that budget (`ci.yml`); edgartools' separate bucket is `EDGAR_RATE_LIMIT_PER_SEC` (see below the table). |
 | `SEC_MAX_RETRIES` | `5` | EDGAR retry limit. |
 | `SEC_BASE_BACKOFF_SECONDS` | `1.0` | Initial EDGAR retry backoff, seconds. |
 | `COMPANYFACTS_SYNC_TTL_HOURS` | `24` | Companyfacts freshness, hours; a newer Filing can force a refresh earlier. |
@@ -175,6 +175,13 @@ code default. Production cache policy remains Redis-off/L1-only (ADR-0004).
 | `STREAM_HEARTBEAT_INTERVAL` | `3` | SSE heartbeat cadence, seconds. |
 | `STREAM_TIMEOUT` | `600` | SSE timeout, seconds. |
 | `STREAM_SECTION_REVEAL` | `false` | Progressive section previews with non-streaming fallback; CI enables on the service. |
+
+**Library-read SEC budget (not a Settings field).** edgartools paces its own EDGAR HTTP (submissions,
+filing objects, XBRL) with a second process-global token bucket read once at import:
+`EDGAR_RATE_LIMIT_PER_SEC` (library default `9`; `edgar/httpclient.py` in the pinned release). The app
+never wraps that traffic in `sec_rate_limiter`, so a process's configured SEC ceiling is the sum of both
+buckets. Production pins both to `1` on every job and the task worker, and on the API service in a second stage
+(`.github/workflows/ci.yml`; gate `backend/tests/unit/test_sec_process_budgets.py`); leave it unset locally.
 
 Current-bound-ID subscription created/updated reconciliation makes one Stripe read with zero SDK
 retries and a dedicated transport closed after every outcome. These connect/read inactivity limits

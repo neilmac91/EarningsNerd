@@ -88,13 +88,45 @@ process: `in_flight`, `admitted`, `peak_in_flight`; and the chat-only slot gate
 counted but bounded by its own semaphores and never waits here) and
 `sec_rate_limiter` (the process-local SEC token bucket: `total_requests`, `rate_limit_hits`,
 `current_tokens`, `requests_per_second`). Both are per process: the load on the shared provider
-key or the SEC IP is the sum over the API instances and every job that ran in the window
-(pregenerate, filing-scan and backfill-facts each carry their own bucket, and their Monday
-06:00–07:00 UTC schedules overlap each other and the service). A rising `rejected` count means
-chat callers are timing out in the queue rather than at the provider; `rate_limit_hits` climbing on
-the service while a job runs is the aggregate SEC budget being exceeded, which only lower
-per-process budgets on the service and jobs can fix. This addition changes no capacity or
-startup/probe deadlines.
+key or on SEC is the sum over the API instances and every job that ran in the window (every
+SEC-calling job carries its own buckets: pregenerate, the hourly filing-scan, backfill-facts and the
+EFTS jobs notable-filings and earnings-calendar-refresh; pregenerate at Monday 06:00 UTC, the hourly
+scan and backfill-facts at Monday 07:00 UTC overlap each other and the service in the 06:00–08:00
+window). A rising `rejected` count means chat callers are timing out in the queue rather than at the
+provider; `rate_limit_hits` climbing on the service while a job runs is the aggregate SEC budget
+being exceeded, which only lower per-process budgets on the service and jobs can fix. This addition
+changes no capacity or startup/probe deadlines.
+
+#### SEC budgets per process (deploy-pinned, staged)
+
+Each process holds two independent SEC token buckets, both starting full with capacity equal to
+rate: the app's `SEC_RATE_LIMIT_PER_SECOND` (code default 10) and edgartools'
+`EDGAR_RATE_LIMIT_PER_SEC` (library default 9, read once at import; the app never wraps that
+traffic). SEC allows 10 requests per second per user regardless of machines, so the deploy pins both
+to `1` on every Cloud Run job and on the private task worker (`ci.yml`; gate
+`tests/unit/test_sec_process_budgets.py`). The API service is pinned in a second stage, once the
+insider endpoint fits a 1 req/s edgartools budget: a cold load fetches one submissions document and
+up to 60 Form 4 filings through edgartools, at least ~63 s at 1 req/s, past its 60 s server and 30 s
+client timeouts (its company-page panel is off in production; the endpoint is public). Until then
+the two service instances run at the defaults, 38 req/s configured, and no window is bounded by
+configuration. Once the service is pinned, the configured sustained sums are: 4 req/s sustained with
+no job running (two instances), 6 in the hourly filing-scan window, 8 at Monday 06:00 UTC, 10 req/s
+in the Monday 07:00 UTC overlap (pregenerate still running, scan, backfill-facts) — at the cap with
+no headroom — and 20 req/s if every job ran at once, which configuration does not prevent. The app
+bucket starts full (capacity equals rate), so a process admits twice its app budget in its first
+second; edgartools' pyrate-limiter bucket is a sliding window that never exceeds its rate per
+rolling second. Under this pin a process's first-second ceiling is 3 req/s and the Monday 07:00 UTC
+overlap's is 15 req/s. The private task worker (`earningsnerd-task-worker`, one instance running one
+isolated child per delivery) is deployed only with `GCP_DURABLE_TASKS_ENABLED=true`; enabled, it
+adds 2 req/s to every window, giving 6 req/s sustained with no job running and 12 req/s in the
+Monday 07:00 UTC overlap, over the cap, and each task child starts a full app bucket, raising the
+first-second ceiling there to 18 req/s. The worker serves no `/metrics` (only `/health`), so its
+buckets show only in its logs. Not bounded by this pin: rollout-overlap instances, manual job
+executions and operator one-shots, and any request outside both limiters. Lowering the budget shows
+up as longer SEC waits inside a process (the limiter waits, it does not reject, and waits are not
+counted): `rate_limit_hits` increments only when a backoff-path request receives a recognised SEC
+429, so a flat counter is not evidence of safe aggregate traffic, while a rising one is SEC pushing
+back. SEC 403 responses are not counted there and show only in logs and the circuit breaker.
 
 ### AI call telemetry (`ai_call` / `ai_summary` log lines)
 
@@ -310,7 +342,7 @@ the job retries it with backoff, re-keying it if the replay window closed. Histo
 | `cache.xbrl_l1.utilization_percent` | > 80% | > 95% |
 | `cache.redis.healthy` | - | `false` |
 | `circuit_breaker.sec_edgar.state` | `half_open` | `open` |
-| `database.checked_out` | > 8 | = pool_size |
+| `database.checked_out` | ≥ pool_size − 1 (3 on the deployed service pool 4 / overflow 0) | = pool_size |
 
 ## Request Timeout Configuration
 
