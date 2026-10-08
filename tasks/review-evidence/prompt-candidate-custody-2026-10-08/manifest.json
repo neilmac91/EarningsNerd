@@ -1,7 +1,7 @@
 {
  "generated_at": "2026-10-08T06:17:22Z",
  "repo": "neilmac91/EarningsNerd",
- "purpose": "Codex handover on #1029 comment 5966195498: private preservation and independent custody verification of the four archives of the Copilot prompt-candidate measurement (#1074, handback 5965113700). Also lists the eight archives cited by the 2026-10-02 close-out (ledger rows D28-D34 and the post-#1066 control), none of them preserved yet.",
+ "purpose": "Codex handover on #1029 comment 5966195498: private preservation and independent custody verification of the four archives of the Copilot prompt-candidate measurement (#1074, handback 5965113700). Also lists the eight archives cited by the 2026-10-02 close-out (ledger rows D28-D32, D33-D34 in #1029 comment 5961781714, and the post-#1066 control), none of them preserved yet.",
  "privacy": "Identifiers, sizes, expiry and hashes only; no artifact content.",
  "artifact_count": 12,
  "total_bytes": 644613214,

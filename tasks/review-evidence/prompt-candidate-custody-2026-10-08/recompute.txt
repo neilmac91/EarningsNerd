@@ -1,5 +1,5 @@
-recompute_archives.py on the session's scratch copies of the twelve zips (named as preserve_artifacts.py names them), 2026-10-08T06:19Z.
-Then four negative checks, each on a temporary copy of the kit or of one zip (OK lines omitted). Paths are relative to the test directory.
+recompute_archives.py on the session's scratch copies of the twelve zips (named as preserve_artifacts.py names them), 2026-10-08T06:36Z.
+Then five negative checks, each on a temporary copy of the kit or of the zip folder (OK lines omitted). Paths are relative to the test directory.
 
 $ python3 -I recompute_archives.py zips
 OK  eval-report-37048017303-11245228632.zip (hashes)
@@ -43,3 +43,11 @@ $ python3 -I recompute_archives.py zips-n4
 --  eval-report-37092291865-11262711816.zip not in zips-n4
 11/11 present archives match; 1 not present
 exit 0
+
+# N5: the eval-baseline zip replaced by a JSON error body (not a zip)
+$ python3 -I recompute_archives.py zips-n5
+BAD eval-report-37092291865-11262711816.zip (figures and hashes)
+    zip sha256 differs from manifest
+    unreadable: BadZipFile: File is not a zip file
+11/12 present archives match; 0 not present
+exit 1

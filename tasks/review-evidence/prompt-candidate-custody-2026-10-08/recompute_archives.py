@@ -13,12 +13,16 @@ prompt-candidate archives it then recomputes the figures posted on #1029 (commen
   cost from tokens, and ci-execution.txt source_sha;
 - copilot-fidelity: summary counts, accepted, withheld reasons, the system prompt hash on every row,
   per-question tool-use strings, and the runner.log `ai_call` tally (calls, unknown usage, peak,
-  tokens, fingerprints, cost).
+  tokens, fingerprints, cost). A call is unknown when its cache-hit, cache-miss or completion
+  token count is missing (copilot_cost_runnerlog.py checks cache-hit and completion; a missing
+  cache-miss count would stop that script).
+An archive that cannot be read (not a zip, a listed member or the report missing) is reported BAD
+with the reason, and the remaining archives are still checked.
 
 Cost uses the deepseek-flash rates pinned at the run's merge ref 3a5c5894
 (backend/app/services/llm_pricing.py: 0.003 cache hit, 0.15 cache miss, 0.60 output, USD per 1M
-tokens; peak calls x2.0), summed over tokens and rounded once to 6 decimals, as the posted figures
-were. Archives missing from the folder are listed, not failed. Exit 0 when every present archive
+tokens; backend/app/config.py AI_PEAK_PRICE_MULTIPLIER 2.0 for peak calls), summed over tokens
+and rounded once to 6 decimals per run, as the posted per-run figures were. Archives missing from the folder are listed, not failed. Exit 0 when every present archive
 matches, 1 otherwise.
 """
 import hashlib
@@ -115,8 +119,8 @@ def copilot(z: zipfile.ZipFile) -> dict:
         tally["peak"] += call.get("peak") is True
         fingerprints[call.get("system_fingerprint")] += 1
         u = call.get("usage") or {}
-        if all(u.get(k) is None for k in ("prompt_tokens", "cache_hit_tokens", "cache_miss_tokens", "completion_tokens")):
-            tally["unknown"] += 1
+        if any(u.get(k) is None for k in ("cache_hit_tokens", "cache_miss_tokens", "completion_tokens")):
+            tally["unknown"] += 1  # a priced bucket is missing, so the call's cost is unknown
             continue
         tally["hit"] += u.get("cache_hit_tokens") or 0
         tally["miss"] += u.get("cache_miss_tokens") or 0
@@ -150,18 +154,21 @@ def main() -> int:
             missing.append(path.name)
             continue
         problems = []
+        expected = EXPECTED.get(item["artifact_name"])
         if sha256_bytes(path.read_bytes()) != item["sha256"]:
             problems.append("zip sha256 differs from manifest")
-        with zipfile.ZipFile(path) as z:
-            for member, (size, digest) in members.get(item["artifact_name"], {}).items():
-                body = z.read(member)
-                if len(body) != size or sha256_bytes(body) != digest:
-                    problems.append(f"member {member} differs from members.tsv")
-            expected = EXPECTED.get(item["artifact_name"])
-            if expected:
-                actual = eval_report(z) if item["artifact_name"].startswith("eval-report") else copilot(z)
-                problems += [f"{k}: expected {expected[k]!r}, got {actual.get(k)!r}"
-                             for k in expected if actual.get(k) != expected[k]]
+        try:
+            with zipfile.ZipFile(path) as z:
+                for member, (size, digest) in members.get(item["artifact_name"], {}).items():
+                    body = z.read(member)
+                    if len(body) != size or sha256_bytes(body) != digest:
+                        problems.append(f"member {member} differs from members.tsv")
+                if expected:
+                    actual = eval_report(z) if item["artifact_name"].startswith("eval-report") else copilot(z)
+                    problems += [f"{k}: expected {expected[k]!r}, got {actual.get(k)!r}"
+                                 for k in expected if actual.get(k) != expected[k]]
+        except (zipfile.BadZipFile, KeyError, StopIteration, ValueError, UnicodeDecodeError) as exc:
+            problems.append(f"unreadable: {type(exc).__name__}: {exc}")
         failures += bool(problems)
         scope = "figures and hashes" if expected else "hashes"
         print(f"{'OK ' if not problems else 'BAD'} {path.name} ({scope})")

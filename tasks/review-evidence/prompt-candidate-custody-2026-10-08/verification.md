@@ -31,7 +31,7 @@ The critic then checked each of 35 claims in the handback's outcome, evidence, t
 - **Safety:** no archive contains absolute paths, `..` entries or symlinks.
 - **Q2 and Q3:** `preparation.database_sha256` matches `prepared-source.db`, and every `preparation.sources` hash matches its extracted file.
 
-## Telemetry and outcomes: every posted figure reproduces
+## Telemetry and outcomes: every posted run figure reproduces
 
 | Run | Recomputed from the raw files | Posted |
 | --- | --- | --- |
@@ -44,13 +44,13 @@ Supporting facts the verifiers also confirmed:
 - **Prompt identity:** every one of the 54 rows carries the system prompt `a22fb4cd…09f5` (5289 characters).
 - **Merge ref and tree:** every run used merge ref `3a5c5894`, whose parents are `82556d6e` and `437e245c`, and `git diff --quiet 437e245c 3a5c5894 -- backend .github` exits 0.
 - **Tool-use strings:** they are as posted. 10-K: 27/27 across the three runs. 20-F tool-using question-runs: 1/3, 2/3 and 2/3.
-- **Rates:** `llm_pricing.py` holds deepseek-flash at 0.003 / 0.15 / 0.60 USD per 1M tokens, with a peak multiplier of 2.0. These rates are identical at `3a5c5894`, at `437e245c` and on main.
+- **Rates:** `llm_pricing.py` holds deepseek-flash at 0.003 / 0.15 / 0.60 USD per 1M tokens, and `config.py`'s `AI_PEAK_PRICE_MULTIPLIER` is 2.0. Both are identical at `3a5c5894`, at `437e245c` and on main.
 
 **Lane total.** The exact total is 0.221175672. The sum of the per-run figures rounded to 6 decimals is 0.221175, which is the posted figure. If each call is rounded first, as the logs' own `estimated_cost_usd` does, the sum is 0.221181.
 
 ## Critic: 33 of 35 handback claims confirmed
 
-- **UNVERIFIED: the DeepSeek balance readings.** Neither the archives nor the provider records them; only the operator reported them.
+- **UNVERIFIED: the DeepSeek balance readings.** No archive records them and no provider-side record was obtained; only the operator reported them.
 - **CONTRADICTED: "Every gap is within cent resolution."** It is wrong per run. For each run, the balance drop and its known cost were:
 
   | Run | Balance drop | Known cost | Gap |
@@ -60,13 +60,13 @@ Supporting facts the verifiers also confirmed:
   | Q2 | 0.02 | 0.006646 | +0.0134 |
   | Q3 | 0.01 | 0.006753 | +0.0032 |
 
-  Three of the four exceed the ±0.01 that two cent-rounded readings allow. The pattern fits charges debited after the reading that followed each run: under-reads early, then catch-up. Over the whole lane the balance fell 0.22 against a known 0.221175, which is within resolution. The correction is posted on #1029.
+  Three of the four exceed the ±0.01 that two cent-rounded readings allow. The pattern fits charges debited after the reading that followed each run: under-reads early, then catch-up. Over the whole lane the balance fell 0.22 against a known 0.221175, which is within resolution. The correction is posted on #1029 (comment 6054003539).
 
 ## Other clarifications to the handback
 
 - **The eval-baseline archive records cost 0.0** (`total_cost_usd` and every row's `cost_usd`). Its 0.175401 is priced from the token telemetry.
 - **Peak status of the 70 eval calls:** those calls carry no timestamps or peak flags. The off-peak status rests on the job's timestamps on Saturday 2026-10-03, because at 03:xx UTC on a weekday those calls would have been peak.
-- **"0 table figures in quotation marks"** counts `quote_inventory.py`'s table-figure heuristic. Q3 ASML d2 quoted two figure-bearing MD&A sentences, as contiguous verbatim spans that decision F verified.
+- **"0 table figures in quotation marks"** counts `quote_inventory.py`'s table-figure heuristic. Q3 ASML d2 quoted two figure-bearing MD&A sentences, which decision F's normalised check found in the source (it folds the source's space before each comma) and published.
 
 ## Merge ref reproducibility
 
@@ -82,8 +82,8 @@ Both parents stay reachable: `82556d6e` is on main, and `437e245c` is the head o
 
 ## Limits
 
-- The balance readings are not checked against a provider invoice. The ledger's 7.346893 base is historical and unreconciled, as Codex's handover says.
+- The balance readings are not checked against a provider invoice. The ledger's 7.346893 base is historical and unreconciled, as Codex's disposition says (#1029 comment 5964926509).
 - The regression-gate step's log was not read, only its `success` conclusion.
-- The arm-B comparison and the pre-window gates (5565 passed, M0–M4, three-lens APPROVE) were not re-derived from archives. They are on record in the evidence folder, and in [final-review-437e245c.md](final-review-437e245c.md) for the final review round.
+- The arm-B comparison and the pre-window gates (5565 passed, M0–M4, three-lens APPROVE) were not re-derived from archives. The 5565-passed gate is on record in #1029 comment 5964670480 and the handback, the mutations in the evidence folder's `mutations.txt`, and the final review in [final-review-437e245c.md](final-review-437e245c.md) for the final review round.
 - `f_attribution.py` reproduces against a backend export of `437e245c` or `3a5c5894`. The current main's `copilot_service.py` differs.
 - The verifiers' own scripts and fresh extractions stayed in the session's scratch space, which is not durable. [recompute_archives.py](recompute_archives.py) re-derives the headline figures from preserved zips without them.
