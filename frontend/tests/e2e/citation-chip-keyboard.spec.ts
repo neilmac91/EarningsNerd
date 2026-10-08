@@ -1,6 +1,5 @@
-import { readFileSync } from 'node:fs'
-import path from 'node:path'
 import { test, expect, type Page } from '@playwright/test'
+import { API_ORIGIN, DOCUMENT, PANE, answerApi } from './fixtures/filing3Api'
 
 /**
  * EN-01 follow-up: an Ask answer's citation chip ([1]) and the research pane it lives in, by keyboard,
@@ -15,25 +14,11 @@ import { test, expect, type Page } from '@playwright/test'
  *  - A summary chip that opened the pane gets focus back when the pane closes, even after a citation
  *    was followed from the answer (the answer's chip never replaces the pane's opener).
  *
- * CI runs e2e with no backend (lessons/test-e2e-runs-without-backend.md): the API, including the
- * Ask stream, is answered inside the browser with page.route fixtures for a Pro visitor. DOM and
- * keyboard probes only: this is not a screen-reader test.
+ * CI runs e2e with no backend (lessons/test-e2e-runs-without-backend.md): the API is answered inside
+ * the browser for a Pro visitor by fixtures/filing3Api.ts, and this spec adds the Ask stream (with the
+ * CORS preflight its POST sends). DOM and keyboard probes only: this is not a screen-reader test.
  */
 
-const API_ORIGIN = new URL(process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000').origin
-const SUMMARY = JSON.parse(readFileSync(path.join(__dirname, 'fixtures/filing-3-summary.json'), 'utf8')) as Record<string, unknown>
-
-const FOLDER = 'https://www.sec.gov/Archives/edgar/data/320193/000032019325000079/'
-const DOCUMENT = `${FOLDER}aapl-20250927.htm`
-const FILING = {
-  id: 3,
-  filing_type: '10-K',
-  filing_date: '2025-10-31T00:00:00+00:00',
-  accession_number: '0000320193-25-000079',
-  document_url: DOCUMENT,
-  sec_url: FOLDER,
-  company: { id: 1, ticker: 'AAPL', name: 'Apple Inc.', exchange: 'NASDAQ' },
-}
 // A completed Ask answer with three verified citations, in the wire shape copilot-api.ts admits.
 const ANSWER = {
   type: 'complete',
@@ -48,47 +33,31 @@ const ANSWER = {
   ],
   followups: ['Which segment declined in 2025?', 'What drove the lower effective tax rate?'],
 }
-const PANE = '[role="dialog"][aria-label="Ask this Filing"]'
 const LAUNCHER = 'button[aria-haspopup="dialog"][aria-label="Ask this Filing"]'
 const SUMMARY_CHIP = 'Source: Verified in filing'
 const CARD = '[role="group"][aria-label^="Citation 1:"]'
 
 async function openFiling(page: Page, baseURL: string) {
-  const origin = new URL(baseURL).origin
+  await answerApi(page, baseURL, 'pro')
+  // Registered last, so it runs first: the Ask stream and its preflight. Every other request falls
+  // through to answerApi's routes.
   const cors = {
-    'access-control-allow-origin': origin,
+    'access-control-allow-origin': new URL(baseURL).origin,
     'access-control-allow-credentials': 'true',
     'access-control-allow-headers': 'content-type',
     'access-control-allow-methods': 'GET, POST, OPTIONS',
   }
-  await page.context().addCookies([{ name: 'en_session', value: '1', url: origin }])
-  await page.route((url) => url.origin === API_ORIGIN, (route) => {
-    const request = route.request()
-    if (request.method() === 'OPTIONS') return route.fulfill({ status: 204, headers: cors })
-    const json = (status: number, body: unknown) => route.fulfill({ status, headers: cors, json: body })
-    switch (new URL(request.url()).pathname) {
-      case '/api/filings/3':
-        return json(200, FILING)
-      case '/api/summaries/filing/3':
-        return json(200, SUMMARY)
-      case '/api/filings/3/content':
-        return json(200, { filing_id: 3, has_content: false, markdown_content: null })
-      case '/api/auth/me':
-        return json(200, { id: 1, email: 'pro@example.com', full_name: 'Pro User', is_pro: true, is_beta: false, is_admin: false, email_verified: true })
-      case '/api/subscriptions/subscription':
-        return json(200, { is_pro: true, stripe_customer_id: 'cus_1', stripe_subscription_id: 'sub_1', subscription_status: 'active', plan: 'pro', status: 'active', trial_end: null, current_period_end: null, cancel_at_period_end: false })
-      case '/api/subscriptions/usage':
-        return json(200, { summaries_used: 0, summaries_limit: 100, is_pro: true, month: '2026-10', qa_used: 0, qa_limit: 300, copilot_free_taste_used: 0, copilot_free_taste_total: 0, analysis_used: 0, analysis_limit: 50 })
-      case '/api/summaries/filing/3/ask-stream':
-        return route.fulfill({
-          status: 200,
-          headers: { ...cors, 'content-type': 'text/event-stream', 'cache-control': 'no-cache' },
-          body: `data: ${JSON.stringify({ type: 'progress', stage: 'reading' })}\n\ndata: ${JSON.stringify(ANSWER)}\n\n`,
-        })
-      default:
-        return json(404, { detail: 'Not found' })
-    }
-  })
+  await page.route(
+    (url) => url.origin === API_ORIGIN && url.pathname === '/api/summaries/filing/3/ask-stream',
+    (route) =>
+      route.request().method() === 'OPTIONS'
+        ? route.fulfill({ status: 204, headers: cors })
+        : route.fulfill({
+            status: 200,
+            headers: { ...cors, 'content-type': 'text/event-stream', 'cache-control': 'no-cache' },
+            body: `data: ${JSON.stringify({ type: 'progress', stage: 'reading' })}\n\ndata: ${JSON.stringify(ANSWER)}\n\n`,
+          }),
+  )
   // Consent answered and the first-run coachmark seen: neither is under test here.
   await page.addInitScript(() => {
     try {
