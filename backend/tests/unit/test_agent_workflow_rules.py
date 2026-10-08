@@ -18,7 +18,10 @@ Five prose rules from AGENTS.md §5 and §7 would otherwise rot:
   script cannot land without a spec that names its path in code and reads a file. What that spec
   asserts is review-checked, not gated.
 - ``lessons/README.md`` lists every lesson exactly once and nothing that does not exist, so a
-  lesson cannot fall out of session reading by accident.
+  lesson cannot fall out of session reading by accident, and every lesson it demotes to "Enforced
+  by a machine gate" names a gate path that exists (the mechanical half of
+  ``lessons/ops-demote-a-lesson-only-when-its-whole-rule-is-gated.md``; whether the gate covers the
+  whole rule is review-checked).
 - Founder deliberations never enter this public repository (§7): no new file under
   ``.claude/council-transcripts/`` and no council transcript anywhere else in the tree.
 """
@@ -50,9 +53,10 @@ DATE = re.compile(
 )
 HEADING = re.compile(r"^ {0,3}#{1,6}\s")
 SETEXT_UNDERLINE = re.compile(r"^ {0,3}(=+|-+)\s*$")
-# A fence line: a backtick fence's info string cannot hold a backtick, so "```x``` is the command" is
-# inline code, not a fence that would hide every heading after it.
-FENCE = re.compile(r"^ {0,3}(?:```[^`]*|~~~.*)$")
+# A fence line: three or more backticks (a closing fence may be longer than its opening) with no
+# backtick after them, since a backtick fence's info string cannot hold one; so "```x``` is the
+# command" is inline code, not a fence that would hide every heading after it.
+FENCE = re.compile(r"^ {0,3}(?:`{3,}[^`]*|~{3,}.*)$")
 # One of the three aliases AGENTS.md §5 names, quoted, or the tier key the review script binds as
 # `const T = TIERS[...]`. A full model ID is refused on purpose: the aliases cannot spell the premium
 # session model, so a stage cannot be pinned to it by name either (the same set as
@@ -113,6 +117,7 @@ def test_todo_is_one_page_of_open_items():
     )
     assert _headings(["# T", "```inline``` code", "## 2026-10-08 — x"]) == ["# T", "## 2026-10-08 — x"]
     assert _headings(["# T", "```", "## hidden", "```", "## shown", "Setext", "---"]) == ["# T", "## shown", "## Setext"]
+    assert _headings(["# T", "```", "x", "````", "## 2026-10-08 — ledger"]) == ["# T", "## 2026-10-08 — ledger"]
     headings = _headings(lines)
     assert headings and headings[0] == TODO_TITLE, f"tasks/todo.md must start with '{TODO_TITLE}'"
     sections = [h[3:].strip() for h in headings[1:] if h.startswith("## ")]
@@ -368,6 +373,24 @@ def test_lessons_index_lists_every_lesson_exactly_once():
     assert not unlisted, f"lessons not in lessons/README.md: {unlisted}"
     ghosts = sorted(set(listed) - set(files))
     assert not ghosts, f"lessons/README.md lists files that do not exist: {ghosts}"
+
+
+GATED_SECTION = re.compile(r"^## Enforced by a machine gate.*?(?=^## |\Z)", re.MULTILINE | re.DOTALL)
+
+
+def test_every_demoted_lesson_names_an_existing_gate():
+    index = (LESSONS / "README.md").read_text(encoding="utf-8")
+    section = GATED_SECTION.search(index)
+    assert section, "lessons/README.md has no 'Enforced by a machine gate' section"
+    entries = [line for line in section.group(0).splitlines() if INDEX_ENTRY.match(line)]
+    assert entries, "the machine-gate section lists no lessons"
+    bad = []
+    for entry in entries:
+        gate = entry.split("— gate:", 1)
+        paths = re.findall(r"`([\w./-]+\.(?:py|ts|tsx|yml|yaml|mjs|js|sh))`", gate[1]) if len(gate) == 2 else []
+        if not any((ROOT / p).is_file() for p in paths):
+            bad.append(entry[:80])
+    assert not bad, f"demoted lessons must name a gate file that exists in the tree (`— gate: \`path\``): {bad}"
 
 
 def _tracked_blobs() -> dict[str, str]:

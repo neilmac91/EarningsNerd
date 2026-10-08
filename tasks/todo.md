@@ -39,7 +39,6 @@ Founder:
 
 Engineering:
 - [ ] Docs-vs-config: `docs/OPERATIONS.md` alert threshold `database.checked_out > 8` is unreachable with the deployed pool 4 / overflow 0 (handback B33); fix the doc.
-- [ ] Docs-vs-code: `backend/evals/RUNBOOK.md` line 831 says any ready backend PR starts the paid Copilot run; reword to the `copilot-eval.yml` `paths:` filter (#1123) in the next PR that deploys the backend anyway, because editing the RUNBOOK deploys.
 - [ ] Security review packages WP-07 onward, each in its own PR (PR #1069 series).
 - [ ] Frontend deferred, named: EN-04, EN-05 (desktop close focus, focus rings, error focus), the desktop pane's unscrolled overhang for a chip-opened Filing tab, risk-card headlines, detector and doc cleanups, the harness `verify_probe.mjs` / `verify_trace.mjs` consent seed (ledger, "2026-10-06 — EN-02").
 - [ ] UI and a11y follow-ups recorded in the ledger's 2026-10-03/04 sections (lines 76, 104–110, 168–172): dark-mode hover tint on natively disabled secondary/ghost Buttons, opacity fading the focus ring on aria-disabled controls, DS focus-ring tokens under 3:1, EmailVerificationModal's double user invalidation, the "Free" badge when the subscription call fails, the saved-summaries error card without Retry, Modal Escape `preventDefault`, the stale popover rectangle, sr-only ticker context; and the optional zero-spend class-7 snapshot check (line 140).

@@ -20,6 +20,8 @@ stayed green. The test that cites a lesson proves the clause it tests, not the l
 - Prove the gate on the bad case for the clause you rely on (plant it, run the gate, restore). A
   gate that reads `git ls-files` needs the mutation staged, or it passes vacuously.
 - Record the clause-to-gate mapping in the PR body, not only "gated by X".
+- Name the gate file in the index entry (`— gate: \`path\``); `test_every_demoted_lesson_names_an_existing_gate`
+  fails when that file does not exist, which is the mechanical half of this rule.
 
 ## Evidence
 
