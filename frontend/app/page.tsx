@@ -1,3 +1,4 @@
+import { CONTACT_ADDRESSES } from '@/lib/contactAddresses'
 import type { Metadata } from 'next'
 
 // Rule 2.1: Direct imports, no barrel files
@@ -56,26 +57,30 @@ export const metadata: Metadata = {
   },
 }
 
-// Foundational structured data: Organization + WebSite with a SearchAction
+// Foundational structured data: individual publisher + WebSite with a SearchAction
 // (ticker search resolves to /company/{ticker}).
 const JSON_LD = {
   '@context': 'https://schema.org',
   '@graph': [
     {
-      '@type': 'Organization',
-      '@id': `${SITE_URL}/#organization`,
-      name: 'EarningsNerd',
-      url: SITE_URL,
-      // Google requires a raster logo ≥112px for the Organization rich result.
-      logo: `${SITE_URL}/icons/icon-512.png`,
-      description: 'AI-powered SEC filing analysis. 10-K and 10-Q summaries sourced from SEC EDGAR.',
+      '@type': 'Person',
+      '@id': `${SITE_URL}/#founder`,
+      name: 'Neil',
+      url: `${SITE_URL}/contact`,
+      description: 'Individual founder and operator of EarningsNerd.',
+      contactPoint: [
+        { '@type': 'ContactPoint', contactType: 'customer support', email: CONTACT_ADDRESSES.support },
+        { '@type': 'ContactPoint', contactType: 'billing', email: CONTACT_ADDRESSES.billing },
+        { '@type': 'ContactPoint', contactType: 'privacy', email: CONTACT_ADDRESSES.privacy },
+        { '@type': 'ContactPoint', contactType: 'security', email: CONTACT_ADDRESSES.security },
+      ],
     },
     {
       '@type': 'WebSite',
       '@id': `${SITE_URL}/#website`,
       name: 'EarningsNerd',
       url: SITE_URL,
-      publisher: { '@id': `${SITE_URL}/#organization` },
+      publisher: { '@id': `${SITE_URL}/#founder` },
       potentialAction: {
         '@type': 'SearchAction',
         target: {

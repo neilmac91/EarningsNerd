@@ -1,5 +1,6 @@
 'use client'
 
+import { CONTACT_ADDRESSES, contactMailto } from '@/lib/contactAddresses'
 import Link from 'next/link'
 import { ArrowLeftIcon, FileTextIcon, ShieldCheckIcon } from '@/lib/icons'
 import EarningsNerdLogo from '@/components/EarningsNerdLogo'
@@ -32,7 +33,15 @@ export default function AuthShell({ children }: { children: React.ReactNode }) {
         </div>
 
         <div className="flex flex-1 items-center justify-center px-6 pb-16 sm:px-10">
-          <div className="w-full max-w-[400px] animate-fade-up">{children}</div>
+          <div className="w-full max-w-[400px] animate-fade-up">
+            {children}
+            <p className="mt-8 text-center text-sm text-text-secondary-light dark:text-text-secondary-dark">
+              Need help? Email{' '}
+              <a href={contactMailto('support')} className="break-all text-brand-strong underline dark:text-brand-strong-dark">
+                {CONTACT_ADDRESSES.support}
+              </a>.
+            </p>
+          </div>
         </div>
       </div>
 

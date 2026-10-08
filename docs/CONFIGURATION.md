@@ -46,7 +46,7 @@ code default. Production cache policy remains Redis-off/L1-only (ADR-0004).
 | `REDIS_URL` | `"redis://localhost:6379"` | Local Redis endpoint. Production uses the L1 in-memory cache (ADR-0004). |
 | `SKIP_REDIS_INIT` | `false` | Skip Redis initialization; true in hermetic tests and Redis-off deployments. |
 | `SEC_EDGAR_BASE_URL` | `"https://data.sec.gov"` | SEC submissions/companyfacts API origin; calls must use the EDGAR service layer. |
-| `SEC_USER_AGENT` | `"EarningsNerd/1.0 (contact@earningsnerd.io)"` | SEC contact identity; use a reachable operator address. |
+| `SEC_USER_AGENT` | `"EarningsNerd/1.0 (support@earningsnerd.io)"` | SEC contact identity; use a reachable operator address. |
 | `SEC_RATE_LIMIT_PER_SECOND` | `10` | Per-process SEC request ceiling; SEC traffic from other processes also counts at the IP. |
 | `SEC_MAX_RETRIES` | `5` | EDGAR retry limit. |
 | `SEC_BASE_BACKOFF_SECONDS` | `1.0` | Initial EDGAR retry backoff, seconds. |
@@ -88,6 +88,9 @@ code default. Production cache policy remains Redis-off/L1-only (ADR-0004).
 | `RESEND_API_KEY` | `""` | Outbound email credential; required for sending. |
 | `RESEND_BASE_URL` | `"https://api.resend.com"` | Resend API origin. |
 | `RESEND_FROM_EMAIL` | `"EarningsNerd <hello@inbound.earningsnerd.io>"` | Sender on a Resend-verified domain; complete surrounding quotes are normalized away. |
+| `RESEND_REPLY_TO_EMAIL` | `"support@earningsnerd.io"` | Reply destination for transactional mail; defaults to the shared public role config. |
+| `CONTACT_NOTIFICATION_EMAIL` | `"support@earningsnerd.io"` | Workspace recipient for contact-form notifications, independent of the sending address. |
+| `FEEDBACK_NOTIFICATION_EMAIL` | `"support@earningsnerd.io"` | Workspace recipient for beta-feedback notifications, independent of the sending address. |
 | `RESEND_WEBHOOK_SECRET` | `""` | Resend/Svix webhook signature secret. |
 | `FRONTEND_URL` | `"https://earningsnerd.io"` | Public frontend origin used in email links. |
 | `DATA_QUALITY_REPORT_EMAIL` | `"neil@earningsnerd.io"` | Recipient of the operator-run data-quality report. |

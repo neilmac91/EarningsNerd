@@ -142,7 +142,6 @@ def _backfill_sic(*, tickers: list[str] | None, limit: int | None, dry_run: bool
 
 if __name__ == "__main__":
     os.environ.setdefault("SKIP_REDIS_INIT", "true")
-    os.environ.setdefault("EDGAR_IDENTITY", "EarningsNerd support@earningsnerd.io")
     logging.basicConfig(level=logging.INFO)
 
     parser = argparse.ArgumentParser(description="Backfill financial_fact from filings' XBRL.")
@@ -183,6 +182,9 @@ if __name__ == "__main__":
             "--dry-run is supported only with --remediate-financials or --backfill-company-sic"
         )
 
+    from app.public_email_addresses import SUPPORT_EMAIL
+
+    os.environ.setdefault("EDGAR_IDENTITY", f"EarningsNerd {SUPPORT_EMAIL}")
     tickers = [t.strip() for t in args.tickers.split(",")] if args.tickers else None
     if args.backfill_company_sic:
         _backfill_sic(tickers=tickers, limit=args.limit, dry_run=args.dry_run)

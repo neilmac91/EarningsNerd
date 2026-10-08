@@ -1,5 +1,6 @@
 'use client'
 
+import { CONTACT_ADDRESSES, contactMailto } from '@/lib/contactAddresses'
 import { useState, Suspense, useRef, useEffect, useCallback } from 'react'
 import { useQuery, useMutation } from '@tanstack/react-query'
 import { createCheckoutSession, getSubscriptionStatus, getUsage } from '@/features/subscriptions/api/subscriptions-api'
@@ -544,8 +545,13 @@ function PricingContent({ billingCycle, setBillingCycle, billingResolved }: {
               <p className="text-text-secondary-light dark:text-text-secondary-dark">
                 You can cancel anytime and keep Pro until the end of the period you&apos;ve paid for,
                 with no further charges. Except where required by law, fees already paid are
-                non-refundable (see our Terms). If something isn&apos;t working right, contact us and
-                we&apos;ll make it right.
+                non-refundable (see our Terms). If you have a billing question, email me at{' '}
+                <a href={contactMailto('billing')} className="text-brand-strong underline dark:text-brand-strong-dark">
+                  {CONTACT_ADDRESSES.billing}
+                </a>. For product help, use{' '}
+                <a href={contactMailto('support')} className="text-brand-strong underline dark:text-brand-strong-dark">
+                  {CONTACT_ADDRESSES.support}
+                </a>.
               </p>
             </div>
           </div>

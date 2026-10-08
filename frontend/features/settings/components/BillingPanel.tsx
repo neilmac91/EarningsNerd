@@ -1,5 +1,6 @@
 'use client'
 
+import { CONTACT_ADDRESSES, contactMailto } from '@/lib/contactAddresses'
 import { getCurrentUserSafe } from '@/features/auth/api/auth-api'
 import { useRef } from 'react'
 import { useMutation, useQuery } from '@tanstack/react-query'
@@ -84,6 +85,10 @@ export default function BillingPanel() {
             </RetryButton>
           }
         />
+        <p className="mt-4 text-sm text-text-secondary-light dark:text-text-secondary-dark">
+          Need help? Email{' '}
+          <a href={contactMailto('billing')} className="break-all text-brand-strong underline dark:text-brand-strong-dark">{CONTACT_ADDRESSES.billing}</a>.
+        </p>
       </Card>
     )
   }
@@ -206,6 +211,10 @@ export default function BillingPanel() {
           </div>
         </div>
       )}
+      <p className="mt-4 text-sm text-text-secondary-light dark:text-text-secondary-dark">
+        Billing questions? Email{' '}
+        <a href={contactMailto('billing')} className="break-all text-brand-strong underline dark:text-brand-strong-dark">{CONTACT_ADDRESSES.billing}</a>.
+      </p>
     </Card>
   )
 }

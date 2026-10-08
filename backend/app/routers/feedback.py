@@ -8,7 +8,6 @@ friction. The submitter's user id is recorded for follow-up; the IP is hashed fo
 import hashlib
 import html
 import logging
-from email.utils import parseaddr
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.orm import Session
@@ -97,11 +96,9 @@ async def submit_feedback(
 
 
 async def _notify_admin(user: User, feedback: Feedback) -> None:
-    from_email = settings.RESEND_FROM_EMAIL
-    if not from_email:
+    admin_email = settings.FEEDBACK_NOTIFICATION_EMAIL
+    if not admin_email:
         return
-    # parseaddr robustly extracts the address from "Name <addr>" (falls back to the raw value).
-    admin_email = parseaddr(from_email)[1] or from_email
     safe_email = html.escape(user.email or "")
     safe_message = html.escape(feedback.message)
     page_html = (
@@ -121,4 +118,5 @@ async def _notify_admin(user: User, feedback: Feedback) -> None:
         # Plain-text subject: use the raw email, not the HTML-escaped one (no &amp; entities here).
         subject=f"[Beta feedback] {feedback.type} from {user.email or ''}",
         html=body,
+        reply_to=user.email,
     )

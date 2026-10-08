@@ -11,6 +11,7 @@ const ALLOWED_PATHS = new Set([
   '/pricing',
   '/privacy',
   '/security',
+  '/.well-known/security.txt',
   '/contact',
   '/robots.txt',
   '/sitemap.xml',

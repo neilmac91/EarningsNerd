@@ -1,3 +1,4 @@
+import { CONTACT_ADDRESSES, contactMailto } from '@/lib/contactAddresses'
 import { Metadata } from 'next'
 import Link from 'next/link'
 import { LEGAL_DATES } from '@/lib/legalDates'
@@ -218,17 +219,17 @@ export default function SecurityPage() {
             Responsible Disclosure
           </h2>
           <p className="text-text-secondary-light dark:text-text-secondary-dark">
-            If you discover a security vulnerability in our platform, we encourage responsible disclosure. Please
-            report security issues to us privately so we can address them before they are publicly disclosed.
+            If you discover a security vulnerability, please report it privately to me, Neil, EarningsNerd&apos;s founder,
+            so I can investigate before it is publicly disclosed. I aim to reply within 2 business days.
           </p>
           <p className="text-text-secondary-light dark:text-text-secondary-dark">
             To report a security vulnerability:
           </p>
           <ul className="list-disc space-y-2 pl-6 text-text-secondary-light dark:text-text-secondary-dark">
             <li>
-              Email us at{' '}
-              <a href="mailto:security@earningsnerd.io" className="text-brand-strong hover:text-brand-emphasis dark:text-brand-strong-dark dark:hover:text-brand-strong-dark">
-                security@earningsnerd.io
+              Email me at{' '}
+              <a href={contactMailto('security')} className="text-brand-strong hover:text-brand-emphasis dark:text-brand-strong-dark dark:hover:text-brand-strong-dark">
+                {CONTACT_ADDRESSES.security}
               </a>
             </li>
             <li>Provide detailed information about the vulnerability, including steps to reproduce</li>
@@ -279,14 +280,14 @@ export default function SecurityPage() {
           <ul className="list-none space-y-2 text-text-secondary-light dark:text-text-secondary-dark">
             <li>
               General inquiries:{' '}
-              <Link href="/contact" className="text-brand-strong hover:text-brand-emphasis dark:text-brand-strong-dark dark:hover:text-brand-strong-dark">
-                Contact form
-              </Link>
+              <a href={contactMailto('support')} className="text-brand-strong underline dark:text-brand-strong-dark">
+                {CONTACT_ADDRESSES.support}
+              </a>
             </li>
             <li>
               Security issues:{' '}
-              <a href="mailto:security@earningsnerd.io" className="text-brand-strong hover:text-brand-emphasis dark:text-brand-strong-dark dark:hover:text-brand-strong-dark">
-                security@earningsnerd.io
+              <a href={contactMailto('security')} className="text-brand-strong hover:text-brand-emphasis dark:text-brand-strong-dark dark:hover:text-brand-strong-dark">
+                {CONTACT_ADDRESSES.security}
               </a>
             </li>
           </ul>

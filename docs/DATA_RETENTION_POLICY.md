@@ -303,7 +303,7 @@ Users can delete their account at any time via `DELETE /api/users/me` (see secti
 
 ### 5.4 Right to Restriction (GDPR Art. 18)
 
-Users can request processing restriction by contacting privacy@earningsnerd.com
+Users can request processing restriction by contacting privacy@earningsnerd.io
 
 ---
 
@@ -436,13 +436,13 @@ In event of data restoration from backup:
 ## 11. Contact & Questions
 
 For questions about this policy:
-- **Privacy Team**: privacy@earningsnerd.com
+- **Privacy contact (Neil)**: privacy@earningsnerd.io
 - **Data Protection Officer** (if appointed): TBD
 
 For user data requests:
-- **Account Deletion**: Use in-app settings or email privacy@earningsnerd.com
-- **Data Export**: Use in-app settings or email privacy@earningsnerd.com
-- **Other Requests**: privacy@earningsnerd.com
+- **Account Deletion**: Use in-app settings or email privacy@earningsnerd.io
+- **Data Export**: Use in-app settings or email privacy@earningsnerd.io
+- **Other Requests**: privacy@earningsnerd.io
 
 ---
 

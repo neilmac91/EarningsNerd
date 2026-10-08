@@ -5,7 +5,7 @@
  * page's legal-text change. Kept per-document on purpose — the documents change independently.
  */
 export const LEGAL_DATES = {
-  terms: 'June 16, 2026',
-  privacy: 'June 22, 2026',
-  security: 'June 22, 2026',
+  terms: 'October 8, 2026',
+  privacy: 'October 8, 2026',
+  security: 'October 8, 2026',
 } as const

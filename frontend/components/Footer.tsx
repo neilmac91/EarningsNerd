@@ -1,3 +1,4 @@
+import { CONTACT_ADDRESSES, contactMailto } from '@/lib/contactAddresses'
 import Link from 'next/link'
 import EarningsNerdLogo from '@/components/EarningsNerdLogo'
 import { ENABLE_ANALYSIS, ENABLE_CALENDAR } from '@/lib/featureFlags'
@@ -17,6 +18,7 @@ const FOOTER_LINKS: Record<string, FooterLink[]> = {
   ],
   Resources: [
     { label: 'Contact', href: '/contact' },
+    { label: CONTACT_ADDRESSES.support, href: contactMailto('support') },
   ],
   Legal: [
     { label: 'Privacy', href: '/privacy' },

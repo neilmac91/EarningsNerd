@@ -17,7 +17,7 @@ EU and UK **GDPR**, and, where applicable, the California **CCPA/CPRA**.
 
 The data controller is:
 
-> **[Neil Mac Aogain]**
+> **Neil Mac Aogain**, individual operator of EarningsNerd
 > **[Street address]**
 > **[Postal code, City], Switzerland**
 > Privacy contact: **privacy@earningsnerd.io**

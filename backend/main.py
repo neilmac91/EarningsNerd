@@ -80,6 +80,7 @@ from app.routers import (
     peers,
     insiders,
     calendar,
+    security_contact,
 )
 
 def _run_on_daemon_thread(loop: asyncio.AbstractEventLoop, name: str, step) -> asyncio.Future:
@@ -413,6 +414,7 @@ app.include_router(admin.router, prefix="/api/admin", tags=["Admin"])
 app.include_router(internal.router, prefix="/internal", tags=["Internal"])
 app.include_router(dashboard.router, prefix="/api/dashboard", tags=["Dashboard"])
 app.include_router(calendar.router, prefix="/api/calendar", tags=["Calendar"])
+app.include_router(security_contact.router, tags=["Security Contact"])
 
 
 # SEC EDGAR circuit-breaker handler: when the breaker is open we are deliberately
