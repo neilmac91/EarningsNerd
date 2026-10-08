@@ -2,7 +2,8 @@
 
 Tokens follow the email-verification pattern in ``auth.py`` — only the SHA-256 hash is stored; the
 raw token lives only in the magic link. Eligibility is recorded on the ``User`` (``is_beta``) at
-redemption, so the checkout promo never depends on a client-supplied parameter.
+redemption, so the checkout promo never depends on a client-supplied parameter. The admin surface
+(``routers/admin.py``) lists, revokes and re-issues invites through the functions at the bottom.
 """
 from __future__ import annotations
 
@@ -114,3 +115,74 @@ def redeem_invite(db: Session, invite: InviteCode, user, *, commit: bool = True)
     if commit:
         db.commit()
     return result.rowcount == 1
+
+
+class InviteNotFoundError(Exception):
+    """No invite has the requested id (the admin router maps it to 404 "Invite not found")."""
+
+
+class InviteAlreadyRedeemedError(Exception):
+    """The invite was redeemed, so it can be neither revoked nor re-sent (409 "Invite already redeemed")."""
+
+
+def invite_status(invite: InviteCode) -> str:
+    # "used" outranks "revoked": once an invite has been redeemed, that fact is the truth worth
+    # surfacing even if the row also carries a revoke flag (e.g. legacy data), so redemption
+    # history is never masked.
+    if invite.used_at is not None:
+        return "used"
+    if invite.is_revoked:
+        return "revoked"
+    exp = invite.expires_at
+    if exp is not None:
+        if exp.tzinfo is None:
+            exp = exp.replace(tzinfo=timezone.utc)
+        if exp < datetime.now(timezone.utc):
+            return "expired"
+    return "pending"
+
+
+def list_recent_invites(db: Session) -> list[InviteCode]:
+    """The 200 most recently created invites, newest first."""
+    return db.query(InviteCode).order_by(InviteCode.created_at.desc()).limit(200).all()
+
+
+def revoke_invite(db: Session, invite_id: int) -> InviteCode:
+    """Revoke an unused invite so its link can no longer be redeemed, and commit."""
+    invite = db.query(InviteCode).filter(InviteCode.id == invite_id).first()
+    if not invite:
+        raise InviteNotFoundError(invite_id)
+    if invite.used_at is not None:
+        # A redeemed invite can't be "un-redeemed"; revoking it would only corrupt its status.
+        raise InviteAlreadyRedeemedError(invite_id)
+    invite.is_revoked = True
+    db.commit()
+    return invite
+
+
+def reissue_invite(
+    db: Session,
+    invite_id: int,
+    *,
+    created_by: Optional[int],
+    expires_in_hours: Optional[int],
+) -> tuple[InviteCode, str, str]:
+    """Revoke an unused invite and mint its replacement (same email + cohort); returns ``mint_invite``'s
+    (row, raw_token, magic_link)."""
+    old = db.query(InviteCode).filter(InviteCode.id == invite_id).first()
+    if not old:
+        raise InviteNotFoundError(invite_id)
+    if old.used_at is not None:
+        raise InviteAlreadyRedeemedError(invite_id)
+
+    # Revoke the old invite BEFORE minting the replacement so there is never a window in which two
+    # links for the same invitee are simultaneously redeemable. mint_invite's commit persists the
+    # revoke (on the already-tracked ``old`` row) and the new row in a single transaction.
+    old.is_revoked = True
+    return mint_invite(
+        db,
+        created_by=created_by,
+        email=old.email,
+        expires_in_hours=expires_in_hours,
+        cohort=old.cohort,
+    )

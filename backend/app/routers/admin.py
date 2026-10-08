@@ -9,12 +9,12 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 from pydantic import BaseModel, EmailStr, Field
 from typing import Optional
-from datetime import datetime, timezone
+from datetime import datetime
 import logging
 
 from app.config import settings
 from app.database import get_db
-from app.models import Filing, Summary, SavedSummary, User, SummaryGenerationProgress, FilingContentCache, InviteCode
+from app.models import Filing, Summary, SavedSummary, User, SummaryGenerationProgress, FilingContentCache
 from app.models.feedback import Feedback
 from app.routers.auth import get_current_user
 from app.schemas.feedback import FeedbackAdminItem, FeedbackStatusUpdate, FeedbackStatus, FeedbackType
@@ -132,23 +132,6 @@ class ResendInviteResponse(InviteResponse):
     revoked_invite_id: int
 
 
-def _invite_status(invite: InviteCode) -> str:
-    # "used" outranks "revoked": once an invite has been redeemed, that fact is the truth worth
-    # surfacing even if the row also carries a revoke flag (e.g. legacy data), so redemption
-    # history is never masked.
-    if invite.used_at is not None:
-        return "used"
-    if invite.is_revoked:
-        return "revoked"
-    exp = invite.expires_at
-    if exp is not None:
-        if exp.tzinfo is None:
-            exp = exp.replace(tzinfo=timezone.utc)
-        if exp < datetime.now(timezone.utc):
-            return "expired"
-    return "pending"
-
-
 @router.post("/invites", response_model=InviteResponse)
 async def mint_invite(
     payload: MintInviteRequest,
@@ -204,13 +187,13 @@ async def list_invites(
 ):
     """Admin-only: list recent invites with derived status (pending/used/revoked/expired)."""
     _require_admin(current_user)
-    rows = db.query(InviteCode).order_by(InviteCode.created_at.desc()).limit(200).all()
+    rows = invite_service.list_recent_invites(db)
     return {
         "invites": [
             {
                 "id": r.id,
                 "email": r.email,
-                "status": _invite_status(r),
+                "status": invite_service.invite_status(r),
                 "cohort": r.cohort,
                 "expires_at": r.expires_at,
                 "used_at": r.used_at,
@@ -230,14 +213,12 @@ async def revoke_invite(
 ):
     """Admin-only: revoke an unused invite so its link can no longer be redeemed."""
     _require_admin(current_user)
-    invite = db.query(InviteCode).filter(InviteCode.id == invite_id).first()
-    if not invite:
+    try:
+        invite = invite_service.revoke_invite(db, invite_id)
+    except invite_service.InviteNotFoundError:
         raise HTTPException(status_code=404, detail="Invite not found")
-    if invite.used_at is not None:
-        # A redeemed invite can't be "un-redeemed"; revoking it would only corrupt its status.
+    except invite_service.InviteAlreadyRedeemedError:
         raise HTTPException(status_code=409, detail="Invite already redeemed")
-    invite.is_revoked = True
-    db.commit()
     logger.info("Admin %s revoked invite %s", current_user.id, invite_id)
     try:
         audit_service.create_audit_log(
@@ -250,7 +231,7 @@ async def revoke_invite(
         )
     except Exception:
         logger.warning("Failed to write audit log for invite_revoked", exc_info=True)
-    return {"message": "Invite revoked", "invite_id": invite_id, "status": _invite_status(invite)}
+    return {"message": "Invite revoked", "invite_id": invite_id, "status": invite_service.invite_status(invite)}
 
 
 @router.post("/invites/{invite_id}/resend", response_model=ResendInviteResponse)
@@ -267,24 +248,18 @@ async def resend_invite(
     best-effort. The raw token is never persisted nor written to the audit log.
     """
     _require_admin(current_user)
-    old = db.query(InviteCode).filter(InviteCode.id == invite_id).first()
-    if not old:
-        raise HTTPException(status_code=404, detail="Invite not found")
-    if old.used_at is not None:
-        raise HTTPException(status_code=409, detail="Invite already redeemed")
-
     expires_in_hours = payload.expires_in_hours if payload else None
-    # Revoke the old invite BEFORE minting the replacement so there is never a window in which two
-    # links for the same invitee are simultaneously redeemable. mint_invite's commit persists the
-    # revoke (on the already-tracked ``old`` row) and the new row in a single transaction.
-    old.is_revoked = True
-    invite, _raw, link = invite_service.mint_invite(
-        db,
-        created_by=current_user.id,
-        email=old.email,
-        expires_in_hours=expires_in_hours,
-        cohort=old.cohort,
-    )
+    try:
+        invite, _raw, link = invite_service.reissue_invite(
+            db,
+            invite_id,
+            created_by=current_user.id,
+            expires_in_hours=expires_in_hours,
+        )
+    except invite_service.InviteNotFoundError:
+        raise HTTPException(status_code=404, detail="Invite not found")
+    except invite_service.InviteAlreadyRedeemedError:
+        raise HTTPException(status_code=409, detail="Invite already redeemed")
 
     emailed = False
     if invite.email:
