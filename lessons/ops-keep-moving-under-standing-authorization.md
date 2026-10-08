@@ -10,7 +10,8 @@ pauses had each cost a turn of wall-clock time on a queue whose value depends on
 **Rule.** When the founder gives a standing authorization in their own words, treat it as
 durable for the rest of the engagement and record it in `tasks/todo.md` the same day: proceed
 through every step it covers without asking again, and keep the routine gates (draft-first,
-full local gate, independent lens, one paid evaluation per backend PR at ready, fixes pushed as
+full local gate, independent lens, one paid evaluation at ready for a PR that touches the
+`copilot-eval` workflow's `paths:` filter (`backend/**` before #1123, the eval's own inputs after it), fixes pushed as
 draft) as the discipline that makes autonomy safe. Ask only for the boundaries the founder still
 holds — production flags, capacity, prices, trial/promo/registration policy, legal, destructive
 data or history operations, historical replay, locked contract tests, live email or job
@@ -21,7 +22,7 @@ say what it now covers in the ledger entry that records it.
 **Widened 2026-09-07 (evening).** Before going to sleep the founder said: "proceed … please get
 as much done tonight as you can … you have my approval to perform additional paid evaluations
 if you deem them to be necessary." The authorization now covers more than one paid Copilot run
-per backend PR when a re-run is needed (a fix pushed after ready, or a second evaluation that a
+per PR that starts the run when a re-run is needed (a fix pushed after ready, or a second evaluation that a
 finding makes worthwhile), still one at a time and each recorded with its reason. The held
 boundaries above are unchanged.
 
