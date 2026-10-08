@@ -1365,9 +1365,9 @@ def test_relative_imports_anchor_on_the_owning_package():
     assert set(_local_imports("app.services.copilot_service", False, tree)) == {"app.integrations.sec_api"}
     # A dotted string naming a module attribute (a `mock.patch` target, a `pkgutil.resolve_name` reference) imports the
     # longest module prefix; a bare top-level package is never a find.
-    tree = ast.parse('p = patch("app.integrations.sec_api.SECFullTextSearchClient.search"); q = pkgutil.resolve_name("app.integrations.sec_api:SECFullTextSearchClient"); '
+    tree = ast.parse('p = patch("app.integrations.sec_api.SECFullTextSearchClient.search"); q = pkgutil.resolve_name("app.services.copilot_service:CopilotService"); '
                      'r = pkgutil.resolve_name("app.services:thing"); s = "app.state.ready"; u = "companies.id"; v = "uvicorn.error"')
-    assert set(_local_imports("evals.copilot_runner", False, tree)) == {"app.integrations.sec_api", "app.services"}
+    assert set(_local_imports("evals.copilot_runner", False, tree)) == {"app.integrations.sec_api", "app.services.copilot_service", "app.services"}
 
 
 def test_every_reachable_module_and_runtime_input_triggers_the_run():
