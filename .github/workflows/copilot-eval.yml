@@ -17,6 +17,8 @@ on:
       - 'backend/app/schemas/**'
       - 'backend/app/services/**'
       - 'backend/app/utils/**'
+      - 'backend/app/data/**'
+      - 'backend/app/assets/**'
       - 'backend/prompts/**'
       - 'backend/evals/__init__.py'
       - 'backend/evals/copilot_*'

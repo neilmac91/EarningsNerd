@@ -7,33 +7,31 @@ could not change its result. This gate reads the entry points from the workflow'
 recomputes their transitive import closure over every top-level package and module under
 `backend/` (tests and task_worker_main included, so the eval cannot quietly depend on code the
 filter excludes), and fails when a reachable module falls outside the filter (the filter is
-stale) or when a path that cannot affect the run would trigger it (routers, integrations,
+stale), when a path that cannot affect the run would trigger it (routers, integrations,
 `main.py`, `task_worker_main.py`, the Dockerfile, scripts, migrations, tests, evals Markdown and
 the summary-eval modules; files directly under `app/` trigger as a group so a new top-level module
-cannot fall outside the filter; a non-trigger the closure starts to import is reported as such).
+cannot fall outside the filter; a non-trigger the closure starts to import or name is reported as
+such), or when a filter pattern matches nothing the eval uses.
 
 The workflow is read as an allowlist, not a denylist. Every simple command of every `run:` step
-(split on `&&`, `||`, `;`, `|` and `&` outside quotes; a backslash anywhere is refused) must be
-exactly `python -m evals.<module>` with plain arguments, one of the few fixed shell commands the
-workflow uses, or an install / env-load command whose file operands become required inputs below
-(a requirements file's own `-r`/`-c` lines included). The shell must be bare `bash`/`sh` (flags and
-`{0}` only) at step, job and workflow level; every step `uses:` must be one of three pinned GitHub
-actions with only its known `with:` inputs; no job may `uses:` a reusable workflow; and no `env:`
-at any level, nor the loaded env file, may set a variable that runs or redirects code
-(`BASH_ENV`, `PYTHONPATH`, `PYTHONSTARTUP`, `LD_PRELOAD`, pip's config and index variables). Anything else (a chained `python -c`, an interpreter or shell called by path, a script
-executed directly, a versioned interpreter, `pytest`, `uv run`, `node`, `source`, a command
-substitution, a custom shell template, a local or docker action, a command-running action) is a
-program whose imports the closure cannot see, so it fails the gate until it is traced or allowed.
+(split on `&&`, `||`, `;`, `|` and `&` outside quotes; a backslash or a `${` anywhere is refused)
+must be exactly `python -m evals.<module>` with plain arguments, one of the few fixed shell
+commands the workflow uses, or an install / env-load command whose file operands become required
+inputs below (requirement files are followed through `-r`/`-c`/`--requirement`/`--constraint` at
+every depth, and any other option line, local path or URL in them is refused). The shell must be
+bare `bash`/`sh` (flags and `{0}` only) at step, job and workflow level; every step `uses:` must be
+one of three pinned GitHub actions with only its known `with:` inputs; no job may `uses:` a
+reusable workflow; `env:` at every level may set only the keys the workflow is known to use, and
+the loaded env file only `KEY=value` lines for its two known keys.
 
 Runtime-loaded data the closure cannot see is pinned by enumerating the real files: the prompts,
-the golden set and sources, the workflow itself, and the requirements and env files the run steps
-name (derived from the steps, so a new `-r` file cannot be installed unseen). The data
-directories under `app/` (every directory there without Python: `app/data` and `app/assets` today)
-are read by services the gate finds through a path literal in any common spelling (`/ "data"`,
-`/ 'data'`, `joinpath("data")`, `os.path.join(os.path.dirname(__file__), "..", "data", …)`,
-`Path(base, "data")`, `"data/…"`, `"../data/…"`, `f"{base}/data/…"`, `files("app.data")`) under
-`app/` and `evals/`; each directory triggers the run only while one of its readers is in the
-closure, and is a non-trigger otherwise. CLAUDE.md rule 12.
+the golden set and sources, every file under the data directories of `app/` (the directories
+there without Python: `app/data` and `app/assets` today; they trigger the run whether or not a
+closure module reads them, which costs about one run a month), the files the run steps install or
+load, the workflow itself, and every non-Python file under `app/`, `evals/` or `prompts/` whose
+basename a closure module names in a string literal (so `with_name("baseline_scores.json")` or
+`/ "index_membership.json"` in the eval's code makes that file a required input, whatever the
+path spelling around it). CLAUDE.md rule 12.
 """
 from __future__ import annotations
 
@@ -81,32 +79,31 @@ ALLOWED_INPUTS = {
     "actions/setup-python": {"python-version"},
     "actions/upload-artifact": {"name", "path", "if-no-files-found", "retention-days"},
 }
-# Variables that make a shell or Python run or import code from somewhere the closure cannot see.
-FORBIDDEN_ENV = {
-    "BASH_ENV", "ENV", "PYTHONPATH", "PYTHONSTARTUP", "PYTHONHOME", "PYTHONUSERBASE", "LD_PRELOAD",
-    "LD_LIBRARY_PATH", "PIP_CONFIG_FILE", "PIP_REQUIREMENT", "PIP_CONSTRAINT", "PIP_INDEX_URL",
-    "PIP_EXTRA_INDEX_URL", "PIP_FIND_LINKS", "NODE_OPTIONS",
+# The environment the workflow is known to set (job and step `env:`); any other key, above all
+# one that runs or redirects code (BASH_ENV, PATH, PYTHONPATH, PIP_*), needs a deliberate entry.
+WORKFLOW_ENV = {
+    "SKIP_REDIS_INIT", "SECRET_KEY", "STRIPE_SECRET_KEY", "STRIPE_WEBHOOK_SECRET", "PWNED_PASSWORD_CHECK_ENABLED",
+    "USE_STATEMENT_FINANCIALS", "AI_FALLBACK_MODEL", "AI_FALLBACK_BASE_URL", "OPENAI_API_KEY",
 }
-# Every directory under app/ that holds data rather than Python; a service reads one through a path
-# literal, and the gate finds those readers under app/ and evals/ by any common spelling, so the
-# map cannot go stale silently and a new data directory is noticed.
-DATA_DIRS = {
-    f"app/{d.name}": d.name
-    for d in sorted((BACKEND / "app").iterdir())
+# The env file is appended to $GITHUB_ENV verbatim, so only comment, blank and `KEY=value` lines for
+# these keys are allowed (a `KEY<<EOF` heredoc or any other key is refused).
+ENV_FILE_KEYS = {"AI_DEFAULT_MODEL", "OPENAI_BASE_URL"}
+ENV_FILE_LINE = re.compile(r"^(?:\s*(?:#.*)?|([A-Z_][A-Z0-9_]*)=.*)$")
+# Requirement-file lines: a nested requirements or constraints file in any pip spelling is traced;
+# any other option line, and a local path or URL spec, installs code the closure cannot see.
+REQ_NESTED = re.compile(r"^\s*(?:-r|-c|--requirement|--constraint)(?:=|\s+|(?=[^\s=-]))\s*(\S+)")
+REQ_FOREIGN = re.compile(r"^\s*(?:-|\.|/|file:|git\+|https?://)")
+# Every directory under app/ that holds data rather than Python: always an input of the run.
+DATA_DIRS = sorted(
+    f"app/{d.name}" for d in (BACKEND / "app").iterdir()
     if d.is_dir() and not d.name.startswith(("_", ".")) and not any(d.rglob("*.py"))
-}
-
-
-def _reader_pattern(name: str) -> re.Pattern[str]:
-    return re.compile(
-        # a path component: `/ "data"`, `.joinpath("data")`, `os.path.join(os.path.dirname(__file__), "..", "data")`, `Path(base, "data")`
-        # (two levels of nested calls; `str.join` is not a path builder)
-        rf"(?:/\s*|(?:(?:os\.path|posixpath)\.join|\.joinpath|\b(?:Pure)?(?:Posix|Windows)?Path)\((?:[^()\n]|\((?:[^()\n]|\([^()\n]*\))*\))*?)([\"']){name}\1(?!\w)"
-        # a local path string: `"data/x.json"`, `"../data/x"`, `"app/data/x"`, `f"{base}/data/x"` (a URL with `/data/` in it is not one)
-        rf"|f?([\"'])(?:\{{[^}}\n]*\}}/|\.\.?/)*(?:backend/)?(?:app/)?{name}/[^\"'\n]+\2"
-        # a package resource: `files("app.data")`
-        rf"|([\"'])app\.{name}\3"
-    )
+)
+# Files a closure module could load at run time, keyed by basename, so a string literal naming one
+# makes it a required input whatever the path spelling around it.
+NAMED_CANDIDATES: dict[str, list[str]] = {}
+for _p in sorted(list(BACKEND.glob("app/**/*")) + list(BACKEND.glob("evals/**/*")) + list(BACKEND.glob("prompts/**/*")) + list(BACKEND.glob("requirements*.txt"))):
+    if _p.is_file() and _p.suffix != ".py" and "__pycache__" not in _p.parts:
+        NAMED_CANDIDATES.setdefault(_p.name, []).append(_p.relative_to(ROOT).as_posix())
 
 
 def _existing(paths, what: str) -> list[str]:
@@ -122,49 +119,46 @@ def _glob(pattern: str) -> list[Path]:
     return found
 
 
-def _data_dir_readers() -> dict[str, set[str]]:
-    readers: dict[str, set[str]] = {d: set() for d in DATA_DIRS}
-    for p in list((BACKEND / "app").rglob("*.py")) + list((BACKEND / "evals").rglob("*.py")):
-        text = p.read_text(encoding="utf-8")
-        for d, name in DATA_DIRS.items():
-            if _reader_pattern(name).search(text):
-                readers[d].add("backend/" + p.relative_to(BACKEND).as_posix())
-    return readers
+def _named_in(tree: ast.AST) -> set[str]:
+    """Repo-relative paths of candidate files whose basename a string literal in `tree` names."""
+    found: set[str] = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Constant) and isinstance(node.value, str):
+            base = node.value.rsplit("/", 1)[-1]
+            found.update(NAMED_CANDIDATES.get(base, []))
+    return found
 
 
-def _data_dirs_read_by(closure: set[str]) -> tuple[list[str], list[str]]:
-    """(directories a closure module reads, directories none does)."""
-    readers = _data_dir_readers()
-    read = sorted(d for d, found in readers.items() if found & closure)
-    unread = sorted(d for d in readers if d not in read)
-    return read, unread
+def named_files(closure: set[str]) -> set[str]:
+    found: set[str] = set()
+    for path in closure:
+        found |= _named_in(ast.parse((ROOT / path).read_text(encoding="utf-8")))
+    return found
 
 
 # Loaded at runtime rather than imported, so the closure cannot discover them.
 def runtime_inputs(closure: set[str]) -> list[str]:
-    read, _ = _data_dirs_read_by(closure)
     return _existing(
-        _glob("prompts/*.md") + _glob("evals/copilot_*.json") + [f for d in read for f in _glob(f"{d}/**/*")]
-        + [ROOT / p for p in step_inputs()] + [WORKFLOW],
+        _glob("prompts/*.md") + _glob("evals/copilot_*.json") + [f for d in DATA_DIRS for f in _glob(f"{d}/**/*")]
+        + [ROOT / p for p in step_inputs()] + [WORKFLOW] + [ROOT / p for p in named_files(closure)],
         "runtime inputs",
     )
 
 
-# Must never start the paid run: they cannot change its result. A candidate the closure imports is
-# reported, so the two lists cannot silently contradict each other.
+# Must never start the paid run: they cannot change its result. A candidate the closure imports or
+# names is reported, so the two lists cannot silently contradict each other.
 def non_triggers(closure: set[str]) -> list[str]:
-    _, unread = _data_dirs_read_by(closure)
     summary_eval_modules = [
         p for p in _glob("evals/*.py") if not p.name.startswith("copilot_") and p.name not in COPILOT_EVAL_MODULES
     ]
     candidates = _existing(
         _glob("tests/**/*") + _glob("evals/**/*.md") + summary_eval_modules + _glob("scripts/*") + _glob("migrations/*")
-        + _glob("app/routers/*.py") + _glob("app/integrations/*.py") + [f for d in unread for f in _glob(f"{d}/**/*")]
+        + _glob("app/routers/*.py") + _glob("app/integrations/*.py")
         + [BACKEND / "main.py", BACKEND / "task_worker_main.py", BACKEND / "Dockerfile", BACKEND / "evals/baseline_scores.json"],
         "non-triggers",
     )
-    overlap = sorted(set(candidates) & closure)
-    assert not overlap, f"the eval now imports these non-triggers; they can change its result, so the filter must name them: {overlap}"
+    overlap = sorted(set(candidates) & (closure | named_files(closure)))
+    assert not overlap, f"the eval now imports or names these non-triggers; they can change its result, so the filter must name them: {overlap}"
     return candidates
 
 
@@ -253,41 +247,58 @@ def _shell_of(*levels: dict) -> str:
     return ""
 
 
-def _forbidden_env(scope: dict) -> list[str]:
-    return sorted(k for k in scope.get("env", {}) if str(k).upper() in FORBIDDEN_ENV)
+def _env_problems(scope: dict, where: str) -> list[str]:
+    env = scope.get("env", None)
+    if env is None:
+        return []
+    if not isinstance(env, dict):
+        return [f"{where}: env is not a mapping ({str(env)[:40]!r})"]
+    unknown = sorted(k for k in env if str(k) not in WORKFLOW_ENV)
+    return [f"{where}: env sets keys the gate does not know: {unknown}"] if unknown else []
 
 
-def _nested_inputs(path: str) -> list[str]:
-    """Files a requirements file pulls in with `-r`/`-c`, and the keys an env file sets."""
+def _requirement_inputs(path: str) -> tuple[list[str], list[str]]:
+    """(every requirements/constraints file `path` pulls in, at any depth; problems found)."""
+    seen, problems, stack = [], [], [path]
+    while stack:
+        current = stack.pop()
+        if current in seen:
+            continue
+        seen.append(current)
+        file = ROOT / current
+        if not file.is_file():
+            continue
+        for line in file.read_text(encoding="utf-8").splitlines():
+            nested = REQ_NESTED.match(line)
+            if nested:
+                stack.append((file.parent / nested.group(1)).resolve().relative_to(ROOT).as_posix())
+            elif REQ_FOREIGN.match(line):
+                problems.append(f"{current}: {line.strip()[:60]}")
+    return seen[1:], problems
+
+
+def _env_file_problems(path: str) -> list[str]:
     file = ROOT / path
     if not file.is_file():
         return []
-    found = []
+    problems = []
     for line in file.read_text(encoding="utf-8").splitlines():
-        m = re.match(r"^\s*-(?:r|c)\s+(\S+)", line)
-        if m:
-            found.append((file.parent / m.group(1)).resolve().relative_to(ROOT).as_posix())
-    return found
-
-
-def _env_file_keys(path: str) -> list[str]:
-    file = ROOT / path
-    return re.findall(r"^\s*([A-Za-z_][A-Za-z0-9_]*)=", file.read_text(encoding="utf-8"), re.M) if file.is_file() else []
+        m = ENV_FILE_LINE.match(line)
+        if not m or (m.group(1) and m.group(1) not in ENV_FILE_KEYS):
+            problems.append(f"{path}: {line.strip()[:60]}")
+    return problems
 
 
 def _read_steps(workflow: dict) -> tuple[list[str], list[str]]:
     """(modules the run steps execute, files they install or load), with everything else rejected."""
     modules, inputs, untraced = set(), set(), []
-    if _forbidden_env(workflow):
-        untraced.append(f"workflow env sets {_forbidden_env(workflow)}")
+    untraced += _env_problems(workflow, "workflow")
     for job_name, job in workflow["jobs"].items():
         if "uses" in job:
             untraced.append(f"{job_name}: job-level uses {job['uses']} (a reusable workflow can run anything)")
-        if _forbidden_env(job):
-            untraced.append(f"{job_name}: job env sets {_forbidden_env(job)}")
+        untraced += _env_problems(job, f"{job_name} job")
         for step in job.get("steps", []):
-            if _forbidden_env(step):
-                untraced.append(f"{job_name}: step env sets {_forbidden_env(step)}")
+            untraced += _env_problems(step, f"{job_name} step")
             uses = str(step.get("uses", ""))
             if uses and not ALLOWED_ACTIONS.match(uses):
                 untraced.append(f"{job_name}: action {uses} is not one of the allowed actions")
@@ -302,8 +313,8 @@ def _read_steps(workflow: dict) -> tuple[list[str], list[str]]:
                 untraced.append(f"{job_name}: run step under shell: {shell}")
                 continue
             run = str(step["run"])
-            if "\\" in run:
-                untraced.append(f"{job_name}: a backslash in a run step can desynchronise the quote scan: {run.strip()[:60]}")
+            if "\\" in run or "${" in run:
+                untraced.append(f"{job_name}: a backslash or `${{` in a run step can change what bash runs: {run.strip()[:60]}")
                 continue
             for command in _simple_commands(run):
                 kind, value = _classify(command, str(step.get("working-directory", "")))
@@ -314,10 +325,12 @@ def _read_steps(workflow: dict) -> tuple[list[str], list[str]]:
                 elif kind == "untraced":
                     untraced.append(f"{job_name}: {command}")
     for path in sorted(inputs):
-        inputs.update(_nested_inputs(path))
-        bad = sorted(k for k in _env_file_keys(path) if k.upper() in FORBIDDEN_ENV)
-        if bad:
-            untraced.append(f"{path} sets {bad}")
+        if path.endswith(".txt"):
+            nested, problems = _requirement_inputs(path)
+            inputs.update(nested)
+            untraced += problems
+        else:
+            untraced += _env_file_problems(path)
     assert not untraced, f"copilot-eval.yml runs programs the gate cannot trace: {untraced}"
     assert modules, "copilot-eval.yml runs no `python -m evals.<module>` step"
     return sorted(modules), sorted(inputs)
@@ -335,6 +348,8 @@ def reachable_files(roots=None) -> set[str]:
     """Repo-relative paths of every local module the entry points import, transitively."""
     seen: set[str] = set()
     stack = list(roots or entry_points())
+    # `python -m pkg` runs pkg/__main__.py as well as the package's __init__.
+    stack += [f"{m}.__main__" for m in list(stack)]
     while stack:
         module = stack.pop()
         if module in seen:
@@ -431,17 +446,13 @@ def test_run_commands_outside_the_allowlist_are_rejected():
     assert _classify("grep -v '^#' .github/ai-model.env >> \"$GITHUB_ENV\"") == ("input", [".github/ai-model.env"])
 
 
-def test_an_untraceable_shell_action_or_job_is_rejected():
+def test_an_untraceable_shell_action_env_or_job_is_rejected():
     step = {"run": "python -m evals.copilot_runner"}
     checkout = {"uses": "actions/checkout@v7"}
     assert _read_steps({"jobs": {"j": {"steps": [checkout, step]}}}) == (["evals.copilot_runner"], [])
-    assert _read_steps({"jobs": {"j": {"env": {"SECRET_KEY": "x"}, "steps": [{"uses": "actions/setup-python@v7", "with": {"python-version": "3.11"}}, step]}}})[0] == ["evals.copilot_runner"]
-    # A requirements file's own `-r`/`-c` lines are inputs too, and the loaded env file may not redirect code.
-    assert _nested_inputs("backend/requirements-eval.txt") == ["backend/requirements.txt"]
-    assert _nested_inputs("backend/requirements.txt") == []
-    assert set(_env_file_keys(".github/ai-model.env")) == {"AI_DEFAULT_MODEL", "OPENAI_BASE_URL"}
     assert _read_steps({"jobs": {"j": {"steps": [{"shell": "bash -e {0}", **step}]}}})[0] == ["evals.copilot_runner"]
     assert _read_steps({"jobs": {"j": {"steps": [{"shell": "sh", **step}]}}})[0] == ["evals.copilot_runner"]
+    assert _read_steps({"jobs": {"j": {"env": {"SECRET_KEY": "x"}, "steps": [{"uses": "actions/setup-python@v7", "with": {"python-version": "3.11"}}, {"env": {"OPENAI_API_KEY": "k"}, **step}]}}})[0] == ["evals.copilot_runner"]
     for workflow in (
         {"jobs": {"j": {"steps": [{"shell": "python {0}", **step}]}}},
         {"jobs": {"j": {"defaults": {"run": {"shell": "python"}}, "steps": [step]}}},
@@ -457,8 +468,14 @@ def test_an_untraceable_shell_action_or_job_is_rejected():
         {"jobs": {"j": {"steps": [{"uses": "actions/checkout@main"}, step]}}},
         {"jobs": {"j": {"steps": [step]}, "k": {"uses": "./.github/workflows/extra.yml"}}},
         {"jobs": {"j": {"steps": [{"run": 'python -m evals.copilot_runner --x "a\\"; bash x.sh"'}]}}},
+        {"jobs": {"j": {"steps": [{"run": 'python -m evals.copilot_runner --output "${{ vars.COPILOT_OUT }}"'}]}}},
+        {"jobs": {"j": {"steps": [{"run": 'python -m evals.copilot_runner --output "${X@P}"'}]}}},
         {"env": {"BASH_ENV": "scripts/ci_env.sh"}, "jobs": {"j": {"steps": [step]}}},
         {"jobs": {"j": {"env": {"PYTHONPATH": "backend/scripts"}, "steps": [step]}}},
+        {"jobs": {"j": {"env": {"PATH": "backend/scripts/bin:/usr/bin"}, "steps": [step]}}},
+        {"jobs": {"j": {"env": {"PIP_EDITABLE": "backend/scripts/pkg"}, "steps": [step]}}},
+        {"jobs": {"j": {"env": {"HOME": "/tmp/x"}, "steps": [step]}}},
+        {"jobs": {"j": {"env": "${{ fromJSON(vars.E) }}", "steps": [step]}}},
         {"jobs": {"j": {"steps": [{"env": {"bash_env": "x.sh"}, **step}]}}},
         {"jobs": {"j": {"steps": [{"uses": "actions/setup-python@v7", "with": {"python-version-file": ".python-version"}}, step]}}},
         {"jobs": {"j": {"steps": [{"uses": "actions/checkout@v7", "with": {"repository": "x/y", "path": "z"}}, step]}}},
@@ -470,14 +487,39 @@ def test_an_untraceable_shell_action_or_job_is_rejected():
         raise AssertionError(f"accepted a workflow the gate cannot trace: {workflow}")
 
 
+def test_requirement_and_env_files_are_traced():
+    # Probe files must live under the repository, because inputs are repo-relative paths.
+    base = ROOT / "backend" / "tests" / "unit" / "_copilot_eval_paths_probe"
+    base.mkdir(exist_ok=True)
+    try:
+        (base / "a.txt").write_text("requests==1\n-r b.txt\n")
+        (base / "b.txt").write_text("--requirement=c.txt\n-cd.txt\n")
+        (base / "c.txt").write_text("--constraint d.txt\nnumpy==1\n")
+        (base / "d.txt").write_text("numpy==1\n")
+        rel = base.relative_to(ROOT).as_posix()
+        nested, problems = _requirement_inputs(f"{rel}/a.txt")
+        assert sorted(nested) == [f"{rel}/b.txt", f"{rel}/c.txt", f"{rel}/d.txt"] and problems == []
+        (base / "e.txt").write_text("-e ../local-pkg\n./vendored\ngit+https://x/y.git\n--index-url https://x\nhttps://x/y.whl\nrequests==1\n")
+        assert len(_requirement_inputs(f"{rel}/e.txt")[1]) == 5
+        (base / "ok.env").write_text("# c\n\nAI_DEFAULT_MODEL=x\nOPENAI_BASE_URL=y\n")
+        assert _env_file_problems(f"{rel}/ok.env") == []
+        (base / "bad.env").write_text("AI_DEFAULT_MODEL=x\nPYTHONPATH<<EOF\nbackend/scripts\nEOF\nFOO=1\n")
+        assert len(_env_file_problems(f"{rel}/bad.env")) == 4
+    finally:
+        for f in base.iterdir():
+            f.unlink()
+        base.rmdir()
+    assert _requirement_inputs("backend/requirements.txt") == ([], [])
+    assert _requirement_inputs("backend/requirements-dev.txt") == ([], [])
+    assert _env_file_problems(".github/ai-model.env") == []
+
+
 def test_closure_follows_every_top_level_backend_name():
     assert {"app", "evals", "tests", "main", "task_worker_main", "scripts"} <= LOCAL_TOP_LEVEL, sorted(LOCAL_TOP_LEVEL)
     files = reachable_files()
     assert len(files) > 50, sorted(files)
     assert "backend/app/services/copilot_service.py" in files
     assert "backend/app/services/edgar/__init__.py" in files
-    # Reached only through a relative import inside a package __init__ (app/schemas/__init__.py).
-    assert "backend/app/schemas/contact.py" in files
     assert not [f for f in files if f.startswith("backend/tests/")], "the eval must not import test code"
     # The summary-eval modules exempted from the non-trigger list must really be in the closure.
     assert {f"backend/evals/{m}" for m in COPILOT_EVAL_MODULES} <= files
@@ -506,33 +548,25 @@ def test_files_that_cannot_change_the_result_do_not_trigger_the_run():
     assert not wrong, f"copilot-eval.yml would pay for a run these paths cannot affect: {wrong}"
 
 
-def test_data_directories_follow_their_readers():
-    for spelling in (
-        'Path(__file__).resolve().parents[1] / "data" / "x.json"', "parent / 'data'", 'base.joinpath("data", "x.json")',
-        'os.path.join(here, "data", "x.json")', 'os.path.join(os.path.dirname(__file__), "..", "data", "x.json")',
-        'os.path.join(os.path.dirname(os.path.abspath(__file__)), "data")', 'Path(base, "data", "x.json")',
-        'open("data/x.json")', "Path('app/data/x.json')", '"backend/app/data/x.json"', '"../data/x.json"',
-        'f"{BASE}/data/x.json"', 'importlib.resources.files("app.data")',
+def test_data_directories_and_named_files_are_inputs():
+    assert DATA_DIRS == ["app/assets", "app/data"], f"a new data directory under app/ joins the filter: {DATA_DIRS}"
+    # A string literal naming a candidate file makes it an input, whatever the path spelling around it.
+    for source in (
+        'BASELINE = Path(__file__).with_name("baseline_scores.json")',
+        'p = os.path.join(\n    os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "evals", "baseline_scores.json"\n)',
+        'p = "../evals/baseline_scores.json"', "p = f'{base}/baseline_scores.json'",
     ):
-        assert _reader_pattern("data").search(spelling), spelling
-    for spelling in (
-        'payload["data"]', "row.get('data')", '"metadata"', '"data_dir"', '{"data": 1}', '"database"', '"metadata/x"', 'x.data',
-        '", ".join(row["data"] for row in rows)', '"https://data.sec.gov/api/xbrl"',
-        'r"^https://www\\.sec\\.gov/Archives/edgar/data/[1-9]"', '"/var/lib/data/x"',
-    ):
-        assert not _reader_pattern("data").search(spelling), spelling
-    assert set(DATA_DIRS) == {"app/data", "app/assets"}, f"a new data directory under app/: decide whether the eval reads it: {sorted(DATA_DIRS)}"
-    readers = _data_dir_readers()
-    assert "backend/app/services/index_membership_service.py" in readers["app/data"]
-    assert "backend/app/services/pdf_branding.py" in readers["app/assets"]
-    patterns = workflow_filter()
-    read, unread = _data_dirs_read_by(reachable_files())
-    assert sorted(read + unread) == sorted(DATA_DIRS)
-    # A directory a closure module reads must trigger the run; one no closure module reads must not.
-    for d in read:
-        assert all(triggers(f, patterns) for f in _existing(_glob(f"{d}/**/*"), d)), f"{d} is read by the eval; name it in the filter"
-    for d in unread:
-        assert not any(triggers(f, patterns) for f in _existing(_glob(f"{d}/**/*"), d)), f"nothing in the eval reads {d}"
+        assert _named_in(ast.parse(source)) == {"backend/evals/baseline_scores.json"}, source
+    assert _named_in(ast.parse('x = "baseline"; y = "scores.json"; z = "metadata"')) == set()
+    closure = reachable_files()
+    assert "backend/evals/copilot_golden_set.json" in named_files(closure)
+
+
+def test_every_filter_pattern_matches_an_input_of_the_eval():
+    closure = reachable_files()
+    used = closure | set(runtime_inputs(closure))
+    idle = [raw for raw in workflow_filter() if not raw.startswith("!") and not any(_pattern(raw).match(p) for p in used)]
+    assert not idle, f"copilot-eval.yml paths that match nothing the eval uses would pay for runs that cannot change its result: {idle}"
 
 
 def test_filter_matcher_follows_github_semantics():
