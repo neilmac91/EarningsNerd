@@ -18,9 +18,9 @@ a broken record never reaches a reviewer:
 * the deliverables section renders exactly one table and nothing else (a blank line or text between its rows would end
   the table and leave later rows outside it); every row carries a well-formed SHA-256 and names a distinct file, by its
   plain relative path (no ``.`` or ``..`` detour, repeated slash, absolute path or symbolic link), whose digest equals
-  it; no other table in the checkpoint, and not the deliverables table's header, shows a 64-hex digest as rendered;
-  every file under the runtime tree has a row (the checkpoint is the durable index of the records); the off-tree
-  deliverable rows tabled at this commit stay tabled; and the tree holds no symbolic links;
+  it; no other table in the checkpoint, nor the deliverables table's header or a row's cells after its digest, shows a
+  64-hex digest as rendered; every file under the runtime tree has a row (the checkpoint is the durable index of the
+  records); the off-tree deliverable rows tabled at this commit stay tabled; and the tree holds no symbolic links;
 * every entry of the runtime tree named like a closure (case and punctuation aside) is a closure file named
   ``source-context-exclusion-N.json`` directly under ``control/``, and the closures form an append-only chain anchored
   to the committed tail (closures 136–164 present, closure 164 pinned by digest) and numbered without gaps through the
@@ -66,9 +66,11 @@ import unicodedata
 from collections import Counter
 from datetime import datetime
 from pathlib import Path
+from typing import TypeVar
 from urllib.parse import unquote
 
 from markdown_it import MarkdownIt
+from markdown_it.token import Token
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 RUNTIME = REPO_ROOT / "tasks" / "code-red-20261004" / "runtime"
@@ -124,14 +126,14 @@ COMMITTED_OFF_TREE_ROWS = (
 # inner hyphens are ASCII in these lower-cased readings, nor a segment of another path; a trailing dot or a port allowed)
 # followed by a slash or a backslash and anything but ``code/session_<id>`` ending there.
 # The id is the session's own or a written placeholder (``<id>``, ``{id}``, an ellipsis, or nothing, since the markup
-# reading drops an ``<id>`` tag and an emphasis underscore); after it only sentence or emphasis punctuation may follow
-# before whitespace, a closing bracket, quote (typographic included), pipe or tag, a dash, or a Markdown hard line break
-# (before any line ending).
+# reading drops an ``<id>`` tag and an emphasis underscore; no other letter follows ``session``); after it only sentence
+# or emphasis punctuation may follow before whitespace, a closing bracket, quote (typographic included), pipe or tag, a
+# dash, or a Markdown hard line break (before any line ending).
 # Every artifact and gallery route, dot segments, ports and escapes included, is therefore an offender, while the name
 # alone in prose ("a private claude.ai artifact") is not.
 PRIVATE_LINK = re.compile(
     r"(?<![0-9a-z])(?<![0-9a-z]-)(?<!\w[/\\])claude\.ai\.?(?::\d*)?[/\\]"
-    r"(?!code/session_?(?:[0-9a-z]+|<[a-z ]{0,16}>|\{[a-z ]{0,16}\}|\.\.\.)?[.,;:!?*_~]*"
+    r"(?!code/session(?:_[0-9a-z]*|_?(?:<[a-z ]{0,16}>|\{[a-z ]{0,16}\}|\.\.\.))?[.,;:!?*_~]*"
     r"(?:\Z|[\s)\]\"'`>|<\u2013\u2014\u2019\u201d\u00bb\u203a]|\\(?=[\r\n]|\Z)))"
 )
 # A code span that closes directly after a session link (then a slash and a second code span, or a hyphenated word): the
@@ -237,7 +239,7 @@ def _load_object(path: Path) -> dict:
     return data
 
 
-def _checkpoint() -> tuple[list[str], list]:
+def _checkpoint() -> tuple[list[str], list[Token]]:
     """CHECKPOINT.md's lines (split at Markdown line endings) and its CommonMark tokens; a leading byte-order mark is ignored."""
     text = _text(CHECKPOINT).removeprefix("\ufeff")
     try:
@@ -251,14 +253,14 @@ def _checkpoint() -> tuple[list[str], list]:
     return LINE_END.split(text), tokens
 
 
-def _rendered(inline) -> str:
+def _rendered(inline: Token) -> str:
     """The text an inline token shows (escapes and character references decoded, emphasis markers and link targets
     dropped, compatibility forms folded, invisible characters removed), with runs of whitespace collapsed."""
     parts = [" " if child.type in ("softbreak", "hardbreak") else child.content for child in inline.children or []]
     return " ".join(IGNORABLE.sub("", unicodedata.normalize("NFKC", "".join(parts))).split())
 
 
-def _section(lines: list[str], tokens: list, heading: str) -> tuple[int, int]:
+def _section(lines: list[str], tokens: list[Token], heading: str) -> tuple[int, int]:
     """The ``[start, end)`` line range of one ``## `` section, from its heading line to the next top-level heading of level
     one or two.
 
@@ -307,10 +309,12 @@ def _checkpoint_rows() -> list[tuple[str, str]]:
     """Every body row of the deliverables table, each required to parse and to carry a well-formed digest."""
     lines, tokens = _checkpoint()
     start, end = _section(lines, tokens, DELIVERABLES_HEADING)
-    # Digests shown (as rendered) in another table, or in the deliverables table's header row, are never verified.
+    # Digests shown (as rendered) in another table, in the deliverables table's header row or in a row's cells after its
+    # path and digest are never verified.
     stray = []
     table_line = None
     in_head = False
+    cell = 0
     for token in tokens:
         if token.type == "table_open":
             table_line = token.map[0]
@@ -318,11 +322,17 @@ def _checkpoint_rows() -> list[tuple[str, str]]:
             table_line = None
         elif token.type in ("thead_open", "thead_close"):
             in_head = token.type == "thead_open"
-        elif table_line is not None and token.type == "inline" and (in_head or not start <= table_line < end):
+        elif token.type == "tr_open":
+            cell = 0
+        elif token.type in ("th_open", "td_open"):
+            cell += 1
+        elif (
+            table_line is not None and token.type == "inline" and (in_head or cell > 2 or not start <= table_line < end)
+        ):
             stray += HEX64.findall(_rendered(token))
     assert not stray, (
-        f"tables outside the deliverables section, or the deliverables table's header, show digests that are never "
-        f"verified: {stray}"
+        "tables outside the deliverables section, or the deliverables table's header or cells after a row's digest, show "
+        f"digests that are never verified: {stray}"
     )
     # Every non-blank line of the section belongs to its one rendered table: a blank line between rows ends a CommonMark
     # table, and the rows after it would render as plain text, outside the durable index.
@@ -386,7 +396,10 @@ def _stamp(value: object, source: str) -> datetime:
         raise AssertionError(f"{source}: {value!r} is not a valid date and time ({exc})") from None
 
 
-def _member(data: dict, key: str, kind: type, where: str, *, optional: bool = False):
+Member = TypeVar("Member")
+
+
+def _member(data: dict, key: str, kind: type[Member], where: str, *, optional: bool = False) -> Member:
     """``data[key]``, required to be exactly ``kind`` (an optional member may be absent or null: then it is empty)."""
     value = data.get(key)
     if optional and value is None:
