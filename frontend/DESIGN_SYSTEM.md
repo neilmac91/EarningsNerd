@@ -162,8 +162,15 @@ Link as button   buttonVariants({ variant, size })  — the class-string factory
                  <Input> component can't wrap use inputClasses({ invalid }).
 
 Accent text/link text-brand-strong dark:text-brand-strong-dark   (never brand.DEFAULT as text on cream)
-Focus ring       focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark;
-                 destructive + invalid fields use shadow-ring-error
+Focus ring       focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark;
+                 destructive + invalid fields use shadow-ring-error. There is no global :focus-visible rule, so
+                 a control without the recipe draws the browser's own outline (`auto`), unlike its neighbours.
+                 A control that is a block of its own (a logo link, an icon button, a menu row) takes a radius
+                 (`rounded-lg`) so the ring follows its shape. Every Tab stop in the site chrome carries it (the
+                 skip link the same triple on `focus:`): gate tests/unit/siteChromeFocusRing.spec.ts reads the
+                 AST of the chrome files (SiteChrome, Header, ThemeToggle, UserMenu, NotificationBell,
+                 SecondaryHeader, Footer, AuthShell); `buttonVariants(…)` composes it; a className it cannot
+                 read fails. tests/e2e/chrome-focus-ring.spec.ts walks the chrome with Tab in both themes.
 
 Card / panel     bg-panel-light dark:bg-panel-dark + border + shadow-e2 dark:shadow-none
                  (e1 chips · e2 cards · e3 hero/featured · e4/e5 menus & overlays)
@@ -256,6 +263,17 @@ Popover          An anchored, light-dismiss surface that explains one control (t
                  carrying "Show in filing" beside the EDGAR link. A chip that is itself the EDGAR anchor
                  (SourceTrace without a viewer, as on the landing demo) has no second stop, so Tab leaves it
                  as usual.
+
+Research pane    FilingWorkspace: a side pane at lg+ (nothing trapped), the modal copilot sheet below lg
+                 (useSheetFocusTrap). Opening moves focus only away from a control that leaves with the open: a
+                 keyboard press on the launcher or the coachmark's Try hands it to the pane's selected tab
+                 (useFocusHandoff, keyboardOnly), where the rail's composer takes it when the visitor can ask; a
+                 chip, an in-page Ask button or starter, and the control Ctrl/⌘+K or "/" was pressed on keep it.
+                 Closing (Escape, ×) moves only focus that fell (on <body>, or still in the hidden pane), to the
+                 first that can take it: the provenance chip that opened the pane, the control focused as it
+                 opened, the launcher (it remounts on close). Focus the user moved elsewhere stays. Below lg the
+                 sheet's trap restores to the chip or the launcher. Gates: tests/unit/FilingWorkspace.spec.tsx,
+                 tests/e2e/pane-close-focus.spec.ts (every open route x Escape and × at 1440, the sheet at 390).
 
 Stacking         z-sticky 30 (in-page sticky chrome) · z-consent 32 (the cookie-consent bar: above in-page
                  sticky chrome, BENEATH the sheet scrims and the z-40 research chrome) · z-scrim 35 (the

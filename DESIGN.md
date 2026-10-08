@@ -412,7 +412,7 @@ The base [`Card`](frontend/components/ui/Card.tsx) supplies shape, fill, border 
 
 ### Navigation
 
-[`Header.tsx`](frontend/components/Header.tsx) uses a sticky, translucent page-ground strip and hairline with 14px medium-weight links. Desktop links have a 32px gap, secondary ink at rest, primary ink on hover and a visible brand focus ring. The header currently does not implement a route-active link color; do not invent one in this snapshot. Below `lg`, links move into the collapsible menu and the menu trigger maintains a 44px minimum target. Logo and theme toggle belong to the shared header.
+[`Header.tsx`](frontend/components/Header.tsx) uses a sticky, translucent page-ground strip and hairline with 14px medium-weight links. Desktop links have a 32px gap, secondary ink at rest, primary ink on hover and a visible brand focus ring. Every header control (logo, links, theme toggle, the account and notification menus and their items, the mobile menu button and its links) shows that ring on keyboard focus, never the browser's outline. The header currently does not implement a route-active link color; do not invent one in this snapshot. Below `lg`, links move into the collapsible menu and the menu trigger maintains a 44px minimum target. Logo and theme toggle belong to the shared header.
 
 ### Data tables and charts
 

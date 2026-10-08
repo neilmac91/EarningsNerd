@@ -31,3 +31,17 @@ pass (both themes, 1440 and 375) returns focus to Customize after Escape, Cancel
 A static gate cannot see "the opener unmounts" in general; the per-consumer spec is the enforcement
 (rule 12). Rule (d): each close-path case reopens Customize and asserts the dismissed edit is gone and
 a Save stores the saved choice; dropping the reset in `handleOpenSettings` fails all three.
+
+**Additional evidence (2026-10-08)**: the filing page's research pane cannot keep rule (a) as written.
+Its launcher floats in the corner where the open pane's composer sits, and hiding it with CSS would
+drop its focus all the same. So the pane meets the rule's purpose by other means (EN-05 part a). At
+open, a launcher or coachmark Try that leaves with the pane hands keyboard focus to the pane's
+selected tab (`useFocusHandoff`, `keyboardOnly`). The pane also records the control that held focus
+as it opened: an in-page Ask button or starter, or the control a Ctrl/⌘+K or "/" was pressed on. On
+close, focus that fell goes to the opening chip, else that control, else the remounted launcher. On
+`main` (`da636f6c`), every one of these routes left `<body>` focused after Escape or ×, and a visitor
+who cannot ask lost focus already at open. One existing unit case had pinned `<body>` after a
+launcher-driven close (rule (b)); it now expects the launcher. Rule (c)'s per-consumer specs are
+`tests/unit/FilingWorkspace.spec.tsx` and `tests/e2e/pane-close-focus.spec.ts`: every open route x
+(Escape, ×) at 1440x900, with the next Tab checked, and the sheet at 390x844, whose trap already
+restored focus. On the pre-fix build, 20 of the 24 e2e cases fail.
