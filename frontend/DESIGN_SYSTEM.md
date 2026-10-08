@@ -279,6 +279,41 @@ Stacking         z-sticky 30 (in-page sticky chrome) · z-consent 32 (the cookie
                  BOTTOM_CHROME_OFFSET, the bar's layout-effect publish, the scroll padding) and the pinned
                  scrims are full-viewport; every pin list is shrink-only in files, sites and z.
 
+Metric cards     <FinancialMetricsTable> below md (768px): one stacked card per metric instead of the five-column
+                 DataTable, switched by CSS alone (`md:hidden` cards, `hidden md:block` table — both in the DOM
+                 inside ONE wrapper so a parent's `space-y` hands neither a sibling margin; the inactive one is
+                 display:none, so it adds no accessible content, Tab stop or id — never a JS media query, which
+                 would SSR one layout and flip after hydration; no DataTable responsive API either, as a shared
+                 one is deferred work, so the switch stays local to this component).
+                 Both presentations render ONE set of field renderers (nameField / currentField / perAdsField /
+                 priorField / changeField / takeawayField), each marking its element `data-metric-field`; with
+                 `data-metrics-layout="cards|table"`, `data-metric-card`, `data-direction` and `data-tone` these
+                 are the parity anchors the render spec, the Playwright spec and the critique harness count —
+                 keep them. A card: name + XBRL chip; a `<dl>` of Current / Prior / Change (visible short labels
+                 in the table's header eyebrow with an sr-only "period", so the three groups sit on one line at
+                 390px and AT hears the column names; the Prior and Change groups whenever the table has those
+                 columns, mirroring its cells exactly — an empty Prior cell is an empty definition; the change
+                 glyph inline-block and aria-hidden, the string verbatim, the em dash when the server sent none;
+                 tone from `change_tone` through lib/financialTone.directionText + font-semibold for a move,
+                 pinned token-for-token to DataTable's td); the per-ADS note as its own line under the figures;
+                 the takeaway and its evidence chip. Figures `font-data text-sm tabular-nums`, prose text-sm,
+                 chips as they are — never smaller than the md table. Wrap contract: `[overflow-wrap:anywhere]`
+                 on the card (inherited; it also lowers a flex item's min-content, which `break-words` cannot)
+                 and `min-w-0` groups; never nowrap / truncate / line-clamp / a clipping height on card text —
+                 long values and an unbreakable token break inside their box. Sub-surface `rounded-lg border
+                 border-border-light bg-white p-3 dark:border-white/10 dark:bg-white/5` inside the section panel
+                 (HeroExample's; no nested shadow). The list is `role="list"` (WebKit drops list semantics from a
+                 `list-style: none` list) named by the table caption, in both caption variants. Each chip's two
+                 copies share a per-instance `layoutTwin`: a source sheet or popover opened from one closes when
+                 a breakpoint hides its layout (a phone rotated across 768px), and focus that was in it goes to
+                 the twin now shown, never to a display:none chip (SourceTrace). The research pane a chip opened
+                 returns focus the same way: its opener is read as the copy now shown
+                 (`features/filings/lib/layoutTwin.ts`, through FilingViewerContext). Gates:
+                 tests/unit/FinancialMetricsCards.spec.tsx (content parity, both layouts, every data variant,
+                 the breakpoint close) + tests/e2e/metrics-stacked-cards.spec.ts (the hidden layout, the one-line
+                 row, wrapping, the 767/768 switch, the sibling-margin pin and rotation with a sheet open in a
+                 real browser).
+
 Ask answer       <AskFilingAnswer>  — the SHIPPED copilot contract: status reading|streaming|done|error;
                  answer = GFM markdown (react-markdown + remark-gfm); markers [n] AND [F1]/[f1]/[F 1]
                  (case/whitespace tolerant) become chips showing the BRACKETED marker; unmatched markers
