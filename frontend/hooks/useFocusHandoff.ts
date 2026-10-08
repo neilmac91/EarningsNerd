@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useRef, type MouseEvent, type PointerEvent, type RefObject } from 'react'
+import { useCallback, useEffect, useRef, type MouseEvent, type PointerEvent, type RefObject } from 'react'
 
 export interface FocusHandoff {
   /** The control's callback ref: it sees the control leave. */
@@ -85,4 +85,27 @@ export function useFocusHandoff(
     pointerFocus.current = false
   }, [])
   return { attach, onFocus, onPointerDown, onPress }
+}
+
+/**
+ * The other direction: a surface the user has to act on arrives (a failed generation's card), and focus
+ * goes to `target`, its heading with tabIndex={-1}, when `shown` turns true. Only if nobody holds focus
+ * (it is on <body>), the same check the hand-off makes: focus in a field or on a link is never moved. Nor
+ * is focus taken from behind an open modal dialog (`aria-modal="true"`) the target is not in: a focused
+ * control unmounting inside a dialog also drops focus to <body>, and the dialog still owns the keyboard.
+ * The arrival is read after the commit, so a focused element the same commit removed (the progress
+ * card's heading the error card replaced) has already dropped focus to <body>. The heading, not the
+ * card's button: a key pressed as the card lands (Space to scroll, Enter) never activates its action, and
+ * the target's type (a heading) holds every caller to that. Once per arrival: a re-render while shown never
+ * takes focus back.
+ */
+export function useFocusOnArrival(target: RefObject<HTMLHeadingElement | null>, shown: boolean): void {
+  useEffect(() => {
+    const node = target.current
+    if (!shown || !node) return
+    const active = document.activeElement
+    if (active !== null && active !== document.body) return
+    for (const dialog of document.querySelectorAll('[aria-modal="true"]')) if (!dialog.contains(node)) return
+    node.focus({ preventScroll: true })
+  }, [target, shown])
 }
