@@ -21,6 +21,7 @@ from app.schemas.feedback import FeedbackAdminItem, FeedbackStatusUpdate, Feedba
 # EdgarTools migration: Using new edgar module
 from app.services.edgar import clear_xbrl_cache, get_xbrl_cache_stats
 from app.services.resend_service import send_email, ResendError
+from app.services import admin_feedback_service
 from app.services import invite_service
 from app.services import audit_service
 from app.services.email_service import send_invite_email
@@ -322,15 +323,7 @@ async def list_feedback(
     and ``type`` query params narrow the result when provided.
     """
     _require_admin(current_user)
-    query = (
-        db.query(Feedback, User.email)
-        .outerjoin(User, Feedback.user_id == User.id)
-    )
-    if status is not None:
-        query = query.filter(Feedback.status == status)
-    if type is not None:
-        query = query.filter(Feedback.type == type)
-    rows = query.order_by(Feedback.created_at.desc()).limit(200).all()
+    rows = admin_feedback_service.list_feedback(db, feedback_status=status, feedback_type=type)
     return {"feedback": [_feedback_item(row, email) for row, email in rows]}
 
 
@@ -347,14 +340,11 @@ async def update_feedback_status(
     re-resolved). An invalid status is rejected with 422 by the schema before this runs.
     """
     _require_admin(current_user)
-    feedback = db.query(Feedback).filter(Feedback.id == feedback_id).first()
+    new_status = payload.status
+    feedback = admin_feedback_service.set_feedback_status(db, feedback_id, new_status)
     if not feedback:
         raise HTTPException(status_code=404, detail="Feedback not found")
 
-    new_status = payload.status
-    feedback.status = new_status
-    db.commit()
-    db.refresh(feedback)
     logger.info("Admin %s set feedback %s status to %s", current_user.id, feedback_id, new_status)
 
     try:
@@ -370,11 +360,7 @@ async def update_feedback_status(
     except Exception:
         logger.warning("Failed to write audit log for feedback_status_changed", exc_info=True)
 
-    # Re-resolve the submitter's email (null-safe when user_id is null/deleted).
-    user_email = None
-    if feedback.user_id is not None:
-        submitter = db.query(User).filter(User.id == feedback.user_id).first()
-        user_email = submitter.email if submitter else None
+    user_email = admin_feedback_service.submitter_email(db, feedback)
     return _feedback_item(feedback, user_email)
 
 
