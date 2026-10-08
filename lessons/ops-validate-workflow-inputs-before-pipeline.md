@@ -22,7 +22,11 @@ turned missing review output into clearance, the opposite of AGENTS.md §5.
   unverified. Never fold it into "no findings" or "refuted". `v.length > 0 && v.every(...)` is the
   bug shape; require `v.length === expected`.
 - Simulate the script with stubbed `agent`/`pipeline`/`parallel` for every tier and for a null
-  lens and a null refuter before committing it (`node -e` with `new Function`).
+  lens and a null refuter before committing it (`node -e` with `new Function`), and keep that
+  simulation as the script's own spec under `frontend/tests/unit/` (gate:
+  `test_every_workflow_script_has_a_behavioural_spec`). The text checks in
+  `test_agent_workflow_rules.py` catch the recorded shapes only; a throw in a stage or a loosened
+  vote count can always be written another way.
 
 ## Evidence
 

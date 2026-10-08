@@ -10,10 +10,12 @@ Five prose rules from AGENTS.md §5 and §7 would otherwise rot:
   no review stage inherits the session's premium model, names it by its full ID, or runs on
   ``undefined``.
 - Workflow scripts validate their inputs before ``pipeline()``/``parallel()`` (a throw inside a
-  stage is a silent drop) and never count a missing vote as a refutation
-  (``lessons/ops-validate-workflow-inputs-before-pipeline.md``). These text checks are the first
-  line; ``frontend/tests/unit/premergeReviewWorkflow.spec.ts`` runs the review script with stubbed
-  agents and asserts what each stage actually receives, which catches what a regex cannot.
+  stage, inline or in a stage function bound by name, is a silent drop) and never count a missing
+  vote as a refutation (``lessons/ops-validate-workflow-inputs-before-pipeline.md``). These text
+  checks catch the recorded shapes only, so every script must also have a behavioural spec under
+  ``frontend/tests/unit/`` that loads it (``premergeReviewWorkflow.spec.ts`` runs the review script
+  with stubbed agents and asserts what each stage actually receives); a second script is never
+  guarded by the regexes alone.
 - ``lessons/README.md`` lists every lesson exactly once and nothing that does not exist, so a
   lesson cannot fall out of session reading by accident.
 - Founder deliberations never enter this public repository (§7): no new file under
@@ -55,14 +57,20 @@ MODEL_ALIAS = "(sonnet|opus|haiku)"
 MODEL_VALUE = re.compile(rf"^(?:'{MODEL_ALIAS}'|\"{MODEL_ALIAS}\"|T\.(lensModel|refuterModel))$")
 TIER_BINDING = re.compile(r"\bconst T = TIERS\[")
 MODEL_LITERAL = re.compile(rf"'{MODEL_ALIAS}'")
-# The vote-counting bug shape: `.length` (bare, `> 0`, `>= 1`, `!== 0`) guarding `.every(` means a
+# The vote-counting bug shape: a `.length` guard (bare, `> 0`, `>= 1`, `!== 0`, parenthesised or
+# not, on the array or on a `.filter(…)` of it) joined by `&&` or `?` to an `.every(` means a
 # missing vote silently counts as a refutation. Whitespace may span lines.
-MISSING_VOTE_IS_REFUTATION = re.compile(r"\.length\s*(?:>\s*0|>=\s*1|!==?\s*0)?\s*&&\s*\w+\.every\(")
+MISSING_VOTE_IS_REFUTATION = re.compile(
+    r"\(?\s*[\w.]+(?:\.filter\([^()]*\))?\.length\s*(?:>\s*0|>=\s*1|!==?\s*0)?\s*\)?\s*(?:&&|\?)\s*"
+    r"[\w.]+(?:\.filter\([^()]*\))?\.every\("
+)
+SPECS = ROOT / "frontend" / "tests" / "unit"
 # `- file.md — rule` or the older link form `- [`file.md`](./file.md) — rule`.
 INDEX_ENTRY = re.compile(r"^- (?:\[`?)?(archive/)?([a-z0-9-]+\.md)(?:`?\]\([^)]*\))?\s+—\s", re.MULTILINE)
 # Council files committed before the rule (AGENTS.md §7), pinned to their blob hashes: each may
 # stay unchanged, move (a same-content rename, as the `tasks/` retention proposal would do) or be
-# deleted, never grow a new deliberation. The set only shrinks.
+# deleted (no test edit needed; a stale entry may be removed at leisure), never grow a new
+# deliberation. The set only shrinks.
 EXISTING_TRANSCRIPTS = {
     TRANSCRIPTS + "council-2026-06-28-q2-moat.md": "52999e16463a49bf1fb4dbf5b89658d45ddac0f5",
     TRANSCRIPTS + "council-transcript-2026-06-28-q3-pricing.md": "6e757761061fa3229f1db62912f8256bbb08525a",
@@ -263,17 +271,55 @@ def _call_bodies(source: str, name: str):
         yield _balanced(source, match.end() - 1, "(", ")")
 
 
+def _stage_bodies(source: str, call_body: str):
+    """The call's inline text plus the body of every stage it passes by name (an arrow function or
+    a `function` bound to that name; one level, the shape the lesson records)."""
+    yield call_body
+    for arg in _split_top_level(call_body):
+        if not re.fullmatch(r"\w+", arg):
+            continue
+        for match in re.finditer(
+            rf"(?:\b(?:const|let|var)\s+{arg}\s*=\s*(?:async\s*)?(?:\([^)]*\)|\w+)\s*=>\s*|\bfunction\s+{arg}\s*\([^)]*\)\s*)",
+            source,
+        ):
+            rest = source[match.end():]
+            yield _balanced(source, match.end()) if rest.startswith("{") else rest.split("\n", 1)[0]
+
+
 def test_workflow_scripts_validate_before_pipeline_and_count_every_vote():
+    # The shapes the gate must see (and the sound shapes it must not flag), so a widening is checked.
+    for shape in (
+        "v.length > 0 && v.every(", "(v.length > 0) && v.every(", "v.length > 0 ? v.every(x) : false",
+        "v.length > 0 && v.filter(Boolean).every(", "votes.filter(Boolean).length > 0 && votes.filter(Boolean).every(",
+        "v.length && v.every(", "v.length\n  >= 1 && v.every(", "v.length !== 0 && v.every(",
+    ):
+        assert MISSING_VOTE_IS_REFUTATION.search(shape), shape
+    for shape in ("complete && v.every(", "v.length === T.refuters && v.every(", "v.length === 2 && v.every("):
+        assert not MISSING_VOTE_IS_REFUTATION.search(shape), shape
+    probe = "const stage = async (pr) => { if (!TIERS[pr.tier]) throw new Error('x') }\nawait pipeline(PRS, stage)\n"
+    assert any(re.search(r"\bthrow\b", t) for b in _call_bodies(probe, "pipeline") for t in _stage_bodies(probe, b))
     problems = []
     for script in sorted(WORKFLOWS.glob("*.js")):
         source = _strip_comments(script.read_text(encoding="utf-8"))
         for name in ("pipeline", "parallel"):
             for body in _call_bodies(source, name):
-                if re.search(r"\bthrow\b", body):
+                if any(re.search(r"\bthrow\b", text) for text in _stage_bodies(source, body)):
                     problems.append(f"{script.name}: `throw` inside a {name}() stage is a silent drop; validate before the call")
         if MISSING_VOTE_IS_REFUTATION.search(source):
             problems.append(f"{script.name}: `.length > 0 && ….every(` counts a missing vote as a refutation; require the expected count")
     assert not problems, "\n".join(problems)
+
+
+def test_every_workflow_script_has_a_behavioural_spec():
+    specs = {p.name: p.read_text(encoding="utf-8") for p in SPECS.glob("*.spec.ts")}
+    missing = [
+        s.name for s in sorted(WORKFLOWS.glob("*.js"))
+        if not any(f".claude/workflows/{s.name}" in text for text in specs.values())
+    ]
+    assert not missing, (
+        "every workflow script needs a spec under frontend/tests/unit/ that loads it and runs it with "
+        f"stubbed agent/pipeline/parallel (the text checks above catch recorded shapes only): {missing}"
+    )
 
 
 def test_lessons_index_lists_every_lesson_exactly_once():
@@ -314,7 +360,3 @@ def test_no_new_or_grown_council_transcripts_in_the_repository():
         "founder deliberations never enter this public repository (AGENTS.md §7); the llm-council "
         f"skill writes to ~/.claude/earningsnerd/council/. New or edited: {unpinned}"
     )
-    tracked = set(blobs.values())
-    gone = sorted(p for p, blob in EXISTING_TRANSCRIPTS.items() if blob not in tracked)
-    if gone:
-        raise AssertionError(f"remove these from EXISTING_TRANSCRIPTS (their content left the tree), the set only shrinks: {gone}")
