@@ -8,8 +8,9 @@ recomputes their transitive import closure over every top-level package and modu
 `backend/` (tests and task_worker_main included, so the eval cannot quietly depend on code the
 filter excludes), and fails when a reachable module falls outside the filter (the filter is
 stale) or when a path that cannot affect the run would trigger it (routers, integrations,
-`main.py`, `task_worker_main.py`, `dependencies.py`, the Dockerfile, scripts, migrations, tests,
-evals Markdown and the summary-eval modules). Runtime-loaded data the closure cannot see
+`main.py`, `task_worker_main.py`, the Dockerfile, scripts, migrations, tests, evals Markdown and
+the summary-eval modules; files directly under `app/` trigger as a group so a new top-level module
+cannot fall outside the filter). Runtime-loaded data the closure cannot see
 (prompts, the golden set and sources, `app/data`, `app/assets`, the model env file, the
 requirements) is pinned by enumerating the real files, and a missing one is an error, never a
 silent drop. CLAUDE.md rule 12.
@@ -31,8 +32,11 @@ LOCAL_TOP_LEVEL = frozenset(
     {p.stem for p in BACKEND.glob("*.py")}
     | {d.name for d in BACKEND.iterdir() if d.is_dir() and any(d.glob("*.py"))}
 )
-PYTHON_INVOCATION = re.compile(r"\bpython3?\s+(-m\s+[\w.]+|\S+\.py)")
-RUN_MODULE = re.compile(r"\bpython3?\s+-m\s+(evals\.[\w.]+)")
+# Any program token that could run Python: every interpreter spelling (python, python3, python3.11,
+# with or without flags), pytest, and a shell that could wrap one. Each must be the exact
+# `python -m evals.<module>` form or the gate cannot trace what the run executes.
+PROGRAM = re.compile(r"(?<![\w/.-])(python[\w.]*|pytest|bash|sh)\b(.*)$")
+RUN_MODULE = re.compile(r"^\s+-m\s+(evals\.[\w.]+)(?:\s|$)")
 EXPECTED_ENTRY_POINTS = ["evals.copilot_bootstrap", "evals.copilot_runner"]
 COPILOT_EVAL_MODULES = {"__init__.py", "schema.py", "scorers.py"}
 
@@ -65,10 +69,9 @@ def non_triggers() -> list[str]:
         p for p in _glob("evals/*.py") if not p.name.startswith("copilot_") and p.name not in COPILOT_EVAL_MODULES
     ]
     return _existing(
-        _glob("tests/**/*.py") + _glob("evals/*.md") + summary_eval_modules + _glob("scripts/*") + _glob("migrations/*")
+        _glob("tests/**/*") + _glob("evals/**/*.md") + summary_eval_modules + _glob("scripts/*") + _glob("migrations/*")
         + _glob("app/routers/*.py") + _glob("app/integrations/*.py")
-        + [BACKEND / "main.py", BACKEND / "task_worker_main.py", BACKEND / "app/dependencies.py",
-           BACKEND / "Dockerfile", BACKEND / "evals/baseline_scores.json"],
+        + [BACKEND / "main.py", BACKEND / "task_worker_main.py", BACKEND / "Dockerfile", BACKEND / "evals/baseline_scores.json"],
         "non-triggers",
     )
 
@@ -110,15 +113,28 @@ def _workflow() -> dict:
 
 
 def entry_points() -> list[str]:
-    """Every Python program the workflow's run steps execute; all of them must be `-m evals.<module>`."""
-    steps = _workflow()["jobs"]["copilot-eval"]["steps"]
-    runs = [step.get("run", "") for step in steps]
-    invocations = sorted({m for run in runs for m in PYTHON_INVOCATION.findall(run)})
-    modules = sorted({m for run in runs for m in RUN_MODULE.findall(run)})
-    unknown = [i for i in invocations if not i.startswith("-m evals.")]
-    assert not unknown, f"copilot-eval.yml runs Python the gate cannot trace: {unknown}"
+    """Every Python program any job's run steps execute; all of them must be `python -m evals.<module>`.
+
+    A `python -c`, a heredoc, an interpreter flag before `-m`, a versioned interpreter, a `pytest`
+    or a shell wrapper, and a step whose `shell:` is Python are all programs the gate cannot
+    trace, so each fails here rather than slipping past the filter.
+    """
+    modules, untraced = set(), []
+    for job_name, job in _workflow()["jobs"].items():
+        for step in job.get("steps", []):
+            shell = str(step.get("shell", ""))
+            if shell.startswith("python"):
+                untraced.append(f"{job_name}: step with shell: {shell}")
+            for line in str(step.get("run", "")).splitlines():
+                for program, rest in PROGRAM.findall(line):
+                    module = RUN_MODULE.match(rest)
+                    if program.startswith("python") and module:
+                        modules.add(module.group(1))
+                    else:
+                        untraced.append(f"{job_name}: {line.strip()}")
+    assert not untraced, f"copilot-eval.yml runs programs the gate cannot trace: {untraced}"
     assert modules, "copilot-eval.yml runs no `python -m evals.<module>` step"
-    return modules
+    return sorted(modules)
 
 
 def reachable_files(roots=None) -> set[str]:
@@ -183,6 +199,16 @@ def triggers(path: str, patterns: list[str]) -> bool:
 
 def test_entry_points_come_from_the_workflow_run_steps():
     assert entry_points() == EXPECTED_ENTRY_POINTS
+
+
+def test_untraceable_python_invocations_are_rejected():
+    for line in ('python -c "import scripts.x"', "python - <<'PY'", "python3.11 -m scripts.seed",
+                 "python -u -m evals.copilot_runner", "PYTHONPATH=. pytest tests/x", "bash scripts/x.sh"):
+        found = PROGRAM.findall(line)
+        assert found, line
+        assert not all(p.startswith("python") and RUN_MODULE.match(r) for p, r in found), line
+    assert [(p, bool(RUN_MODULE.match(r))) for p, r in PROGRAM.findall("python -m evals.copilot_runner --runs 3")] == [("python", True)]
+    assert not PROGRAM.findall("pip install -r backend/requirements.txt")
 
 
 def test_closure_follows_every_top_level_backend_name():

@@ -10,9 +10,8 @@ on:
       # this workflow. Gate: backend/tests/unit/test_copilot_eval_paths.py recomputes the closure from
       # the run steps below and fails when a reachable module or runtime input falls outside this
       # list, or when backend/tests/**, evals Markdown, scripts or migrations would trigger the run.
-      - 'backend/app/__init__.py'
-      - 'backend/app/config.py'
-      - 'backend/app/database.py'
+      # `backend/app/*` is every file directly under app/ (not its subdirectories).
+      - 'backend/app/*'
       - 'backend/app/models/**'
       - 'backend/app/schemas/**'
       - 'backend/app/services/**'
