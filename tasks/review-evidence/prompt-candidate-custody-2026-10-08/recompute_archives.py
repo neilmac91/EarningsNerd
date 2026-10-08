@@ -23,7 +23,8 @@ Cost uses the deepseek-flash rates pinned at the run's merge ref 3a5c5894
 (backend/app/services/llm_pricing.py: 0.003 cache hit, 0.15 cache miss, 0.60 output, USD per 1M
 tokens; backend/app/config.py AI_PEAK_PRICE_MULTIPLIER 2.0 for peak calls), summed over tokens
 and rounded once to 6 decimals per run, as the posted per-run figures were. Archives missing from the folder are listed, not failed. Exit 0 when every present archive
-matches, 1 otherwise.
+matches, 1 otherwise. A folder that holds none of the archives exits 1, and a path that is not a
+directory exits 2, so a mistyped path never prints a passing summary line.
 """
 import hashlib
 import json
@@ -142,6 +143,9 @@ def main() -> int:
         print(__doc__)
         return 2
     folder = Path(sys.argv[1]).expanduser().resolve()
+    if not folder.is_dir():
+        print(f"{folder} is not a directory: give the folder preserve_artifacts.py filled")
+        return 2
     manifest = json.loads((HERE / "manifest.json").read_text())
     members = {}
     for line in (HERE / "members.tsv").read_text().splitlines()[1:]:
@@ -177,6 +181,9 @@ def main() -> int:
     for name in missing:
         print(f"--  {name} not in {folder}")
     present = len(manifest["artifacts"]) - len(missing)
+    if not present:
+        print(f"no archive found in {folder}: check the path ({len(missing)} not present)")
+        return 1
     print(f"{present - failures}/{present} present archives match; {len(missing)} not present")
     return 1 if failures else 0
 

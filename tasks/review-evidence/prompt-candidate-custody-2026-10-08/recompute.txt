@@ -51,3 +51,24 @@ BAD eval-report-37092291865-11262711816.zip (figures and hashes)
     unreadable: BadZipFile: File is not a zip file
 11/12 present archives match; 0 not present
 exit 1
+
+Added 2026-10-08T17:50Z, before merge, by the PR disposition sweep session after its review of this kit. The script
+now exits 1 for a folder that holds no archive and 2 for a path that is not a directory. Three runs on the
+final head; the 11 "not present" lines are omitted from P1.
+
+# N6: an empty folder
+$ python3 -I recompute_archives.py empty
+(12 "not present" lines)
+no archive found in empty: check the path (12 not present)
+exit 1
+
+# N7: a mistyped path
+$ python3 -I recompute_archives.py zips-typo
+zips-typo is not a directory: give the folder preserve_artifacts.py filled
+exit 2
+
+# P1: a fresh Actions download of eval-report-37092291865 (artifact 11262711816, sha256 b2faabf1…9a65) alone
+$ python3 -I recompute_archives.py zips
+OK  eval-report-37092291865-11262711816.zip (figures and hashes)
+1/1 present archives match; 11 not present
+exit 0

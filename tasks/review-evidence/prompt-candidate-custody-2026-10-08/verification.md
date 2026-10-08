@@ -60,7 +60,7 @@ Supporting facts the verifiers also confirmed:
   | Q2 | 0.02 | 0.006646 | +0.0134 |
   | Q3 | 0.01 | 0.006753 | +0.0032 |
 
-  Three of the four exceed the ±0.01 that two cent-rounded readings allow. The pattern fits charges debited after the reading that followed each run: under-reads early, then catch-up. Over the whole lane the balance fell 0.22 against a known 0.221175, which is within resolution. The correction is posted on #1029 (comment 6054003539).
+  Three of the four exceed the ±0.01 that two cent-rounded readings allow. The pattern fits charges debited after the reading that followed each run: under-reads early, then catch-up. The handback's seven readings are 43.12 → 42.96 → 42.94 → 42.93 → 42.91 → 42.91 → 42.90. The four per-run drops above sum to 0.21; the remaining 0.01 is the 42.94 → 42.93 step between the Q1 and Q2 runs, which the table assigns to no run and which fits the same late-debit pattern. Over the whole lane the balance fell 0.22 against a known 0.221175, which is within resolution. The correction is posted on #1029 (comment 6054003539).
 
 ## Other clarifications to the handback
 
@@ -78,7 +78,7 @@ git merge-tree --write-tree 82556d6ec232e8ae5f0dfa4c951aa6fb5c695e39 \
                             437e245c824516ec8a552c2fd6dced0e0bc0091f  # e8e617c1ec589b7ab775364844632bc20f95069c
 ```
 
-Both parents stay reachable: `82556d6e` is on main, and `437e245c` is the head of the kept branch `claude/copilot-prompt-candidate` and of `refs/pull/1074/head`. The validity diff can be rerun as `git diff --quiet 437e245c $(git merge-tree --write-tree 82556d6e 437e245c) -- backend .github`.
+Both parents stay reachable: `82556d6e` is on main, and `437e245c` is the head of the branch `claude/copilot-prompt-candidate` (kept by the founder's decision of 2026-10-08) and of `refs/pull/1074/head`. The validity diff can be rerun as `git diff --quiet 437e245c $(git merge-tree --write-tree 82556d6e 437e245c) -- backend .github`.
 
 ## Limits
 
