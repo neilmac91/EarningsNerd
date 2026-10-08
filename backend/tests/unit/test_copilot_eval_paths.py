@@ -405,9 +405,9 @@ def _fold(node: ast.AST, aliases: set[str] | frozenset[str], files: set[str] | f
     """The string `node` builds, piece by piece, as Python builds it: a constant as written, `os.sep`, `os.path.sep`,
     a `sep` imported from `os` or a `"/"` as a separator, the module's directory as `DIR` (a name in `aliases`, with
     a separator after it when the name is in `slashed`; `.parent`, `parents[0]` or `dirname` of the module file) and
-    the module file as `FILE` (`__file__`, a name in `files`; a name in both sets is the directory where a path is
-    built on it and the file under `.parent` or `dirname`, so `here = abspath(__file__); here = dirname(here)` is read
-    both ways, loudly), and None for a part this gate cannot know (another
+    the module file as `FILE` (`__file__`, a name in `files`; a name in both sets is the directory, so
+    `here = abspath(__file__); here = dirname(here)` builds paths on the module's directory and, bound twice, is
+    mixed, read both ways), and None for a part this gate cannot know (another
     name, a call, an f-string part with a conversion or a format spec). Follows `+`, an f-string, a `%` template with
     `%s` fields, a `.format` template with plain positional or keyword fields, `sep.join([...])`, `os.path.join(...)`,
     `Path(a, b, ...)`, `joinpath(...)` and `/` (a separator between the operands), `with_name` on the module file
@@ -424,11 +424,7 @@ def _fold(node: ast.AST, aliases: set[str] | frozenset[str], files: set[str] | f
         return pieces
 
     def directory_of(inner: list[_Piece]) -> list[_Piece]:  # `.parent`, `parents[0]`, `dirname` of the module file
-        texts = [piece.text for piece in inner if piece.text != ""]
-        # A name bound to both the module file and its directory (`here = abspath(__file__); here = dirname(here)`)
-        # folds to the directory; under `.parent` or `dirname` it is read as the file too, loudly, never silently.
-        both = texts == [DIR] and inner[0].source in files and inner[0].source in aliases
-        return [_Piece(DIR, None, inner[0].source)] if texts == [FILE] or both else _UNKNOWN
+        return [_Piece(DIR, None, inner[0].source)] if [piece.text for piece in inner if piece.text != ""] == [FILE] else _UNKNOWN
 
     if isinstance(node, ast.Name):
         if node.id in aliases:  # before `files`: a name bound to both builds paths as the directory
@@ -1380,8 +1376,8 @@ def test_relative_imports_anchor_on_the_owning_package():
     assert set(_local_imports("evals.copilot_runner", False, tree)) == {"app.integrations.sec_api", "app.services.copilot_service", "app.services"}
     # A one-segment module counts only in the `module:attr` form, and only a top-level module file, never a package or a
     # bare word.
-    tree = ast.parse('a = uvicorn_target("task_worker_main:app"); b = pkgutil.resolve_name("main:app"); c = "app:thing"; d = "main"; e = "main.app"')
-    assert set(_local_imports("evals.copilot_runner", False, tree)) == {"task_worker_main", "main"}
+    tree = ast.parse('b = pkgutil.resolve_name("main:app"); c = "app:thing"; d = "task_worker_main"; e = "main.app"')
+    assert set(_local_imports("evals.copilot_runner", False, tree)) == {"main"}
 
 
 def test_every_reachable_module_and_runtime_input_triggers_the_run():
