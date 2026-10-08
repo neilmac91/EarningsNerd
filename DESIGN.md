@@ -416,7 +416,7 @@ The base [`Card`](frontend/components/ui/Card.tsx) supplies shape, fill, border 
 
 ### Data tables and charts
 
-[`DataTable.tsx`](frontend/components/ui/DataTable.tsx) supports comfortable and compact density, row hairlines, optional sticky columns, right-aligned mono numeric cells, sorting, loading, empty and error states. Sort controls are buttons; `aria-sort` belongs to the header cell. Financial tones come from the existing helpers. Chart captions, axes and tooltips keep their theme-aware styles; use the categorical sequence described in Colors.
+[`DataTable.tsx`](frontend/components/ui/DataTable.tsx) supports comfortable and compact density, row hairlines, optional sticky columns, right-aligned mono numeric cells, sorting, loading, empty and error states. Sort controls are buttons; `aria-sort` belongs to the header cell. Financial tones come from the existing helpers. Chart captions, axes and tooltips keep their theme-aware styles; use the categorical sequence described in Colors. The summary's Financial Highlights ([`FinancialMetricsTable.tsx`](frontend/features/summaries/components/FinancialMetricsTable.tsx)) stacks each metric into one card below `md` (768px) — name with its XBRL chip, the current, prior and change figures under eyebrow labels in the data face, then the takeaway with its chip — and keeps the DataTable unchanged from `md` up; both presentations are rendered and switched by CSS, so the inactive one is `display:none` (out of the accessibility tree and the tab order) and the active one carries the caption (the table's `<caption>`, the list's `aria-label`).
 
 ### Dialogs and evidence
 

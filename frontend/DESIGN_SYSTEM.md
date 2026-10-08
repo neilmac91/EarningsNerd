@@ -120,6 +120,19 @@ while its own press runs, and hands focus to `focusTarget` (a `tabIndex={-1}` he
 `textField`) when it unmounts while focused. It lives beside its hook in `hooks/useRetainedFailure.tsx`, not in
 `components/ui`: it is query-coupled, the DS primitives stay free of react-query, and `components/` root is app
 chrome only. Every Retry is RetryButton, gated in `busyControlsStayFocusable.spec.ts` by wiring and by label.
+A Retry that restarts a stream, not a query (the filing page's "Retry generation"), is RetryButton too, given the
+stream's own failure, `{ failed: true, error, busy: false, retry }`: there is no query to hold, and the press
+clears the error in the render that starts the stream, so the card leaves with the press when the run starts
+and its hand-off target is the progress card's heading. A failure built by hand like this is pinned, with its
+reason, in the gate's `ALLOW_HAND_BUILT_FAILURE`. Every other failure RetryButton is given must be
+`useRetainedFailure`'s, the hook its module exports under any imported name (a same-named local is not it),
+which the gate proves through same-file `const`s, through a component's prop to its call sites (under any
+imported name), and under RetryButton's own import aliases; what it cannot prove (a `let`, a JSX spread on
+RetryButton or into such a component, an empty list) fails as built by hand. A card that ends a run the user is
+waiting on (a failed generation, the monthly limit) takes focus when it appears, on its title
+(`GuidanceCard`'s `headingRef`: `tabIndex={-1}`, no outline, described by the card's description), and only when nobody holds focus (`useFocusOnArrival`,
+`hooks/useFocusHandoff.ts`). Never on its button, where a key pressed as the card lands would act, and never
+away from a field, a link or an open modal dialog the card is not in.
 
 A grid that sets its columns under a variant also sets its base track in the same class string:
 `grid grid-cols-1 md:grid-cols-3`, never `grid md:grid-cols-3`. Without the base, the phone layout is
@@ -224,17 +237,25 @@ Popover          An anchored, light-dismiss surface that explains one control (t
                  moves the trigger, or a resize, closes it (fixed at its rect, it would detach; the page
                  scrolling behind a fixed dialog does not move it); every close returns focus to
                  the trigger unless the user moved on. While a native <dialog> is open, it portals into it.
-                 The evidence popovers (SourceTrace's "Source detail", CitationChip's citation card) are
-                 the hover/focus variant of this contract: they open on hover or focus, so focus stays on
-                 the chip until the user asks for more, and the same hand-off applies from there — Tab on
-                 the open chip moves to the popover's link, Tab past it closes the popover and resumes the
-                 page after the chip, Shift+Tab returns to the chip, Escape closes and refocuses the chip
-                 (`useEvidencePopoverKeys`, gated by tests/unit/evidencePopoverKeys.spec.tsx). On the
-                 filing page a chip's activation is the in-app jump: it opens the research pane on the
-                 Filing tab (the pane never stays silently closed); SourceTrace alone has a sheet, which a
-                 coarse pointer opens instead, carrying "Show in filing" beside the EDGAR link. A chip that
-                 is itself the EDGAR anchor (SourceTrace without a viewer, as on the landing demo) has no
-                 second stop, so Tab leaves it as usual.
+                 The evidence popovers (SourceTrace's "Source detail", CitationChip's citation card) are the
+                 hover/focus variant of this contract: they open on hover or focus, so focus stays on the chip
+                 until the user asks for more, and the same hand-off applies from there — Tab on the open chip
+                 moves to the popover's link, Tab past it closes the popover and resumes the page after the
+                 chip, Shift+Tab returns to the chip, Escape closes the popover alone and refocuses the chip
+                 when focus was in the popover (a hover-opened one leaves focus where it is) — taken in window
+                 capture, so the research pane or sheet beneath stays open until the next press
+                 (`useEvidencePopoverKeys`, gated by tests/unit/evidencePopoverKeys.spec.tsx). A key typed
+                 inside a modal layer that does not hold the chip is that layer's: SourceTrace's popover
+                 leaves Escape to the copilot sheet a narrowed window turned the pane into
+                 (tests/unit/SourceTraceEscapeLayer.spec.tsx). On the filing page a chip's activation is the
+                 in-app jump: it opens the research pane on the Filing tab (the pane never stays silently
+                 closed); an answer's [n] chip activated by the keyboard, which that switch hides with its
+                 panel, hands focus to the selected Filing tab rather than to <body> (a pointer's click leaves
+                 focus to the pointer) (FilingWorkspace; a chip outside the pane keeps or never takes focus,
+                 as the browser decides); SourceTrace alone has a sheet, which a coarse pointer opens instead,
+                 carrying "Show in filing" beside the EDGAR link. A chip that is itself the EDGAR anchor
+                 (SourceTrace without a viewer, as on the landing demo) has no second stop, so Tab leaves it
+                 as usual.
 
 Stacking         z-sticky 30 (in-page sticky chrome) · z-consent 32 (the cookie-consent bar: above in-page
                  sticky chrome, BENEATH the sheet scrims and the z-40 research chrome) · z-scrim 35 (the
@@ -278,6 +299,41 @@ Stacking         z-sticky 30 (in-page sticky chrome) · z-consent 32 (the cookie
                  anchor, no `bottom-0` behind any variant, the offset objects' `bottom` from
                  BOTTOM_CHROME_OFFSET, the bar's layout-effect publish, the scroll padding) and the pinned
                  scrims are full-viewport; every pin list is shrink-only in files, sites and z.
+
+Metric cards     <FinancialMetricsTable> below md (768px): one stacked card per metric instead of the five-column
+                 DataTable, switched by CSS alone (`md:hidden` cards, `hidden md:block` table — both in the DOM
+                 inside ONE wrapper so a parent's `space-y` hands neither a sibling margin; the inactive one is
+                 display:none, so it adds no accessible content, Tab stop or id — never a JS media query, which
+                 would SSR one layout and flip after hydration; no DataTable responsive API either, as a shared
+                 one is deferred work, so the switch stays local to this component).
+                 Both presentations render ONE set of field renderers (nameField / currentField / perAdsField /
+                 priorField / changeField / takeawayField), each marking its element `data-metric-field`; with
+                 `data-metrics-layout="cards|table"`, `data-metric-card`, `data-direction` and `data-tone` these
+                 are the parity anchors the render spec, the Playwright spec and the critique harness count —
+                 keep them. A card: name + XBRL chip; a `<dl>` of Current / Prior / Change (visible short labels
+                 in the table's header eyebrow with an sr-only "period", so the three groups sit on one line at
+                 390px and AT hears the column names; the Prior and Change groups whenever the table has those
+                 columns, mirroring its cells exactly — an empty Prior cell is an empty definition; the change
+                 glyph inline-block and aria-hidden, the string verbatim, the em dash when the server sent none;
+                 tone from `change_tone` through lib/financialTone.directionText + font-semibold for a move,
+                 pinned token-for-token to DataTable's td); the per-ADS note as its own line under the figures;
+                 the takeaway and its evidence chip. Figures `font-data text-sm tabular-nums`, prose text-sm,
+                 chips as they are — never smaller than the md table. Wrap contract: `[overflow-wrap:anywhere]`
+                 on the card (inherited; it also lowers a flex item's min-content, which `break-words` cannot)
+                 and `min-w-0` groups; never nowrap / truncate / line-clamp / a clipping height on card text —
+                 long values and an unbreakable token break inside their box. Sub-surface `rounded-lg border
+                 border-border-light bg-white p-3 dark:border-white/10 dark:bg-white/5` inside the section panel
+                 (HeroExample's; no nested shadow). The list is `role="list"` (WebKit drops list semantics from a
+                 `list-style: none` list) named by the table caption, in both caption variants. Each chip's two
+                 copies share a per-instance `layoutTwin`: a source sheet or popover opened from one closes when
+                 a breakpoint hides its layout (a phone rotated across 768px), and focus that was in it goes to
+                 the twin now shown, never to a display:none chip (SourceTrace). The research pane a chip opened
+                 returns focus the same way: its opener is read as the copy now shown
+                 (`features/filings/lib/layoutTwin.ts`, through FilingViewerContext). Gates:
+                 tests/unit/FinancialMetricsCards.spec.tsx (content parity, both layouts, every data variant,
+                 the breakpoint close) + tests/e2e/metrics-stacked-cards.spec.ts (the hidden layout, the one-line
+                 row, wrapping, the 767/768 switch, the sibling-margin pin and rotation with a sheet open in a
+                 real browser).
 
 Ask answer       <AskFilingAnswer>  — the SHIPPED copilot contract: status reading|streaming|done|error;
                  answer = GFM markdown (react-markdown + remark-gfm); markers [n] AND [F1]/[f1]/[F 1]

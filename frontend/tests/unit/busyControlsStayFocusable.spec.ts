@@ -38,7 +38,9 @@ import { bindingResolver, type Binding } from './astBindings'
  * Retry or Try again, a same-file string const included). Each has its own shrink-only, capped allowlist with
  * reasons: ALLOW_RETRY and ALLOW_RETRY_LABEL. RetryButton's own definition is the one exemption from both
  * Retry clauses (it is the sanctioned wiring and label); the busy-disabled clause still scans it. Every Retry
- * converted in the retry-hardening follow-up fails both at its pre-conversion version (026d6df).
+ * converted in the retry-hardening follow-up fails both at its pre-conversion version (026d6df). A third clause
+ * holds what RetryButton is given: each of its `failures` is `useRetainedFailure(…)`'s, or a failure built by
+ * hand that ALLOW_HAND_BUILT_FAILURE pins (a stream restart, which has no query to hold).
  */
 const BUSY = /pending|loading|submitting|saving|sending|streaming|running|busy|refetching|fetching|mutating|deleting|removing|inflight/i
 /** Flags a control's own success sets, which leave it unavailable while it still holds focus. */
@@ -281,6 +283,216 @@ function retryLabelSites(source: string, fileName: string): Site[] {
   return outsideRetryButton(source, fileName, sites)
 }
 
+/**
+ * What RetryButton is given: each element of its `failures={[…]}` is the query's retained failure,
+ * `useRetainedFailure(query, queryKey)`, written inline, held by a same-file `const`, or as either branch of a
+ * conditional. The hook is the one its module exports, under whatever name an import of hooks/useRetainedFailure
+ * gives it: a same-named local (a lookalike, or a parameter shadowing the import) is a call of anything else. Anything else is a failure built by hand, `{ failed, error, busy, retry }`: it skips the hold
+ * (a refetch nobody pressed swaps the card, and its focused Retry, for a skeleton), and its `busy` can be
+ * `isFetching`, the bug the wiring clause catches on `loading`. What the scan cannot prove counts as built by
+ * hand too: a `failures` that is not an array literal, an empty one (a visible Retry whose press retries
+ * nothing), a spread element, a call of anything else, a `let` or
+ * `var` (a later assignment can replace it), and any JSX spread on a RetryButton (`{...props}` can carry
+ * `failures`, so a forwarding wrapper fails here). RetryButton is matched by its own name and by any local
+ * name an import gives it (`{ RetryButton as Again }`). `expr` is the element's text.
+ *
+ * A failure that arrives as a destructured prop of the component rendering RetryButton (YourCompanies'
+ * `failure`) is followed to every JSX use of that component in the scanned files (FailureProp, propPassSites):
+ * by its declared name in its own file, and elsewhere by the local name an import of its module gives it (a
+ * default import may take any name). The value passed there must be retained the same way; a use that spreads props into it (`{...rest}`)
+ * cannot be proven and fails, and a prop no scanned file passes fails as unproven. One hop only: a value that
+ * is itself a prop at the call site fails.
+ */
+const RETAINED_FAILURE = 'useRetainedFailure'
+interface FailureProp { component: string; prop: string; line: number; isDefault: boolean }
+
+/** Whether an expression is a retained failure, resolved in its own file. */
+function retainedIn(sf: ts.SourceFile, fileName: string): (e: ts.Expression) => boolean {
+  const visible = bindingResolver(sf)
+  const isConst = (binding: Binding) =>
+    ts.isVariableDeclaration(binding.decl) && (ts.getCombinedNodeFlags(binding.decl) & ts.NodeFlags.Const) !== 0
+  // The hook as this file names it: what an import of its module binds (an alias included) with no local
+  // binding shadowing that name, or, in the module itself, its own top-level declaration.
+  const home = withoutExtension(RETRY_BUTTON.file)
+  const ownModule = withoutExtension(fileName) === home
+  const imported = new Set(importedNames(sf, fileName, (m) => withoutExtension(m) === home, RETAINED_FAILURE, false))
+  const isHook = (callee: ts.Expression): boolean => {
+    if (!ts.isIdentifier(callee)) return false
+    const local = visible(callee)
+    if (ownModule) return callee.text === RETAINED_FAILURE && !!local && ts.isFunctionDeclaration(local.decl) && local.decl.parent === sf
+    return imported.has(callee.text) && !local
+  }
+  const retained = (e: ts.Expression, seen = new Set<Binding>()): boolean => {
+    if (ts.isParenthesizedExpression(e)) return retained(e.expression, seen)
+    if (ts.isConditionalExpression(e)) return retained(e.whenTrue, seen) && retained(e.whenFalse, seen)
+    if (ts.isCallExpression(e)) return isHook(e.expression)
+    if (ts.isIdentifier(e)) {
+      const binding = visible(e)
+      if (!binding?.init || seen.has(binding) || !isConst(binding)) return false
+      return retained(binding.init, new Set([...seen, binding]))
+    }
+    return false
+  }
+  return (e) => retained(e)
+}
+
+/** Local names an import in this file gives `exported` (a named export) or the default export of a module. */
+function importedNames(sf: ts.SourceFile, fileName: string, from: (specifier: string) => boolean, exported: string, isDefault: boolean): string[] {
+  const names: string[] = []
+  for (const statement of sf.statements) {
+    if (!ts.isImportDeclaration(statement) || !ts.isStringLiteral(statement.moduleSpecifier)) continue
+    if (!from(resolveModule(fileName, statement.moduleSpecifier.text))) continue
+    const clause = statement.importClause
+    if (!clause) continue
+    if (isDefault && clause.name) names.push(clause.name.text)
+    if (clause.namedBindings && ts.isNamedImports(clause.namedBindings)) {
+      for (const el of clause.namedBindings.elements) {
+        const imported = (el.propertyName ?? el.name).text
+        if (imported === exported || (isDefault && imported === 'default')) names.push(el.name.text)
+      }
+    }
+  }
+  return names
+}
+
+/** A module specifier as a path from the frontend root without an extension ('@/x/y' and './y' alike). */
+function resolveModule(fileName: string, specifier: string): string {
+  if (specifier.startsWith('@/')) return specifier.slice(2)
+  if (specifier.startsWith('.')) return path.posix.join(path.posix.dirname(fileName), specifier)
+  return specifier
+}
+const withoutExtension = (file: string) => file.replace(/\.(tsx?|jsx?)$/, '').replace(/\/index$/, '')
+
+/** RetryButton's local names in this file: its own, and any an import from its module gives it. */
+function retryButtonNames(sf: ts.SourceFile, fileName: string): Set<string> {
+  const home = withoutExtension(RETRY_BUTTON.file)
+  return new Set([RETRY_BUTTON.name, ...importedNames(sf, fileName, (m) => withoutExtension(m) === home, RETRY_BUTTON.name, false)])
+}
+
+/** The component a destructured prop belongs to, the prop's name, and whether it is its module's default export. */
+function propOf(sf: ts.SourceFile, e: ts.Expression): { component: string; prop: string; isDefault: boolean } | null {
+  if (!ts.isIdentifier(e)) return null
+  const decl = bindingResolver(sf)(e)?.decl
+  if (!decl || !ts.isBindingElement(decl) || !ts.isObjectBindingPattern(decl.parent)) return null
+  const param = decl.parent.parent
+  if (!ts.isParameter(param)) return null
+  const fn = param.parent
+  const name = ts.isFunctionDeclaration(fn)
+    ? fn.name?.text
+    : (ts.isArrowFunction(fn) || ts.isFunctionExpression(fn)) && ts.isVariableDeclaration(fn.parent) && ts.isIdentifier(fn.parent.name)
+      ? fn.parent.name.text
+      : undefined
+  if (!name) return null
+  const exportsDefault =
+    (ts.isFunctionDeclaration(fn) &&
+      !!fn.modifiers?.some((m) => m.kind === ts.SyntaxKind.ExportKeyword) &&
+      !!fn.modifiers?.some((m) => m.kind === ts.SyntaxKind.DefaultKeyword)) ||
+    sf.statements.some((st) => ts.isExportAssignment(st) && !st.isExportEquals && ts.isIdentifier(st.expression) && st.expression.text === name)
+  return { component: name, prop: (decl.propertyName ?? decl.name).getText(sf), isDefault: exportsDefault }
+}
+
+const jsxOf = (attr: ts.Node): ts.JsxOpeningElement | ts.JsxSelfClosingElement | null =>
+  attr.parent && (ts.isJsxOpeningElement(attr.parent.parent) || ts.isJsxSelfClosingElement(attr.parent.parent)) ? attr.parent.parent : null
+
+/** RetryButton's failures in one file: those built by hand, and those that arrive as a prop (followed by propPassSites). */
+function failureScan(source: string, fileName: string): { handBuilt: Site[]; props: FailureProp[] } {
+  const sf = ts.createSourceFile(fileName, source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX)
+  const retained = retainedIn(sf, fileName)
+  const retryNames = retryButtonNames(sf, fileName)
+  const handBuilt: Site[] = []
+  const props: FailureProp[] = []
+  const lineOf = (node: ts.Node) => sf.getLineAndCharacterOfPosition(node.getStart(sf)).line + 1
+  const flag = (node: ts.Node) => handBuilt.push({ line: lineOf(node), expr: node.getText(sf).replace(/\s+/g, ' ') })
+  const check = (e: ts.Expression) => {
+    if (retained(e)) return
+    const prop = propOf(sf, e)
+    if (prop) props.push({ ...prop, line: lineOf(e) })
+    else flag(e)
+  }
+  const visit = (node: ts.Node): void => {
+    const element = ts.isJsxAttribute(node) || ts.isJsxSpreadAttribute(node) ? jsxOf(node) : null
+    if (element && retryNames.has(element.tagName.getText(sf))) {
+      if (ts.isJsxSpreadAttribute(node)) flag(node)
+      else if (ts.isJsxAttribute(node) && node.name.getText(sf) === 'failures') {
+        const value = node.initializer && ts.isJsxExpression(node.initializer) ? node.initializer.expression : undefined
+        if (!value) flag(node)
+        else if (!ts.isArrayLiteralExpression(value)) check(value)
+        else if (value.elements.length === 0) flag(value)
+        else for (const item of value.elements) {
+          if (ts.isSpreadElement(item)) flag(item)
+          else check(item)
+        }
+      }
+    }
+    ts.forEachChild(node, visit)
+  }
+  visit(sf)
+  return { handBuilt, props }
+}
+
+/**
+ * Every JSX use in one file of a component given in `props` (by its declared name in its own file, and by any
+ * local name an import of its module gives it): `passed` marks each prop seen, a value that is not a retained failure is a site,
+ * `Component prop={…}`, and so is a spread into it (`Component {...rest}`).
+ */
+function propPassSites(source: string, fileName: string, props: (FailureProp & { file: string })[], passed: Set<string>): Site[] {
+  const sf = ts.createSourceFile(fileName, source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX)
+  const retained = retainedIn(sf, fileName)
+  const local = new Map<string, (FailureProp & { file: string })[]>()
+  for (const p of props) {
+    const home = withoutExtension(p.file)
+    // Its declared name in its own file; elsewhere only what an import of its module binds (another file's
+    // `Card` from another module is another component).
+    const names = [
+      ...(withoutExtension(fileName) === home ? [p.component] : []),
+      ...importedNames(sf, fileName, (m) => withoutExtension(m) === home, p.component, p.isDefault),
+    ]
+    for (const name of new Set(names)) local.set(name, [...(local.get(name) ?? []), p])
+  }
+  const sites: Site[] = []
+  const site = (node: ts.Node, tag: string) => {
+    const { line } = sf.getLineAndCharacterOfPosition(node.getStart(sf))
+    sites.push({ line: line + 1, expr: `${tag} ${node.getText(sf).replace(/\s+/g, ' ')}` })
+  }
+  const visit = (node: ts.Node): void => {
+    const element = ts.isJsxAttribute(node) || ts.isJsxSpreadAttribute(node) ? jsxOf(node) : null
+    const tag = element?.tagName.getText(sf)
+    const uses = tag ? local.get(tag) : undefined
+    if (element && tag && uses) {
+      if (ts.isJsxSpreadAttribute(node)) site(node, tag)
+      else if (ts.isJsxAttribute(node)) {
+        for (const p of uses.filter((u) => u.prop === node.name.getText(sf))) {
+          passed.add(`${p.file}:${p.component}.${p.prop}`)
+          const value = node.initializer && ts.isJsxExpression(node.initializer) ? node.initializer.expression : undefined
+          if (!value || !retained(value)) site(node, tag)
+        }
+      }
+    }
+    ts.forEachChild(node, visit)
+  }
+  visit(sf)
+  return sites
+}
+
+/**
+ * Failures built by hand, pinned by the element's exact text (whitespace collapsed), so a change to one (a
+ * `busy` fed by a fetching flag) fails until it is re-reviewed. Capped. The one sanctioned way in is a stream
+ * restart converted to RetryButton: that change raises both caps by one as its ALLOW_RETRY_LABEL pin, and that
+ * list's caps, go down by one. Anything else only shrinks it.
+ */
+const ALLOW_HAND_BUILT_FAILURE: Record<string, { sites: string[]; reason: string }> = {
+  'app/filing/[id]/StreamingSummaryDisplay.tsx': {
+    sites: ['{ failed: true, error: error || message, busy: false, retry: onRetry }'],
+    reason:
+      'Retry generation restarts the SSE stream, not a query: there is no query to hold. Its press clears the ' +
+      'error in the render that starts the stream, so the card never shows a run in flight (busy is false) and ' +
+      'leaves with the press when the run starts (a signed-out press starts none: the card stays, Retry focused); ' +
+      'RetryButton is there for the hand-off to the progress heading (EN-05).',
+  },
+}
+const MAX_HAND_BUILT_FAILURE_FILES = 1
+const MAX_HAND_BUILT_FAILURE_SITES = 1
+
 /** Open rule (h) cases, pinned by exact expression. Shrink-only: converting one to RetryButton removes its pin. */
 const ALLOW_RETRY: Record<string, { sites: string[]; reason: string }> = {
   'app/company/[ticker]/page-client.tsx': {
@@ -307,16 +519,14 @@ const ERROR_BOUNDARY_RESET =
   "A React error boundary's reset: it re-renders the crashed subtree, with no query to hold a failure for or to " +
   'retry, and nothing it refetches can swap it for a skeleton.'
 const STREAM_RESTART =
-  'Restarts a streamed generation or answer (SSE), not a query refetch: no fetchStatus, no failure to hold. '
+  'Restarts a streamed generation or answer (SSE), not a query refetch, so there is no query to hold. Not yet ' +
+  "converted: converting one makes it RetryButton with a failure built by hand, as the filing page's Retry " +
+  'generation is, moving its pin (and one from each cap) from this list to ALLOW_HAND_BUILT_FAILURE. '
 const ALLOW_RETRY_LABEL: Record<string, { sites: string[]; reason: string }> = {
   'app/error.tsx': { sites: ['Button "Try again"'], reason: ERROR_BOUNDARY_RESET },
   'app/global-error.tsx': { sites: ['button "Try again"'], reason: ERROR_BOUNDARY_RESET },
   'app/dashboard/error.tsx': { sites: ['Button "Try Again"'], reason: ERROR_BOUNDARY_RESET },
   'components/GlobalErrorBoundary.tsx': { sites: ['Button "Try again"'], reason: ERROR_BOUNDARY_RESET },
-  'app/filing/[id]/StreamingSummaryDisplay.tsx': {
-    sites: ['Button "Retry generation"'],
-    reason: STREAM_RESTART + "The filing page's Retry generation is also open in rule (h).",
-  },
   'features/summaries/components/SummaryDisplay.tsx': {
     sites: ['Button "Retry"'],
     reason: STREAM_RESTART + "The filing page's summary Retry regenerates it; open in rule (h).",
@@ -346,8 +556,8 @@ const ALLOW_RETRY_LABEL: Record<string, { sites: string[]; reason: string }> = {
     reason: '"Try again" for the filing text, a hand-rolled fetch, not a query: open in rule (h).',
   },
 }
-const MAX_RETRY_LABEL_ALLOWLIST_SIZE = 12
-const MAX_RETRY_LABEL_PINNED_SITES = 12
+const MAX_RETRY_LABEL_ALLOWLIST_SIZE = 11
+const MAX_RETRY_LABEL_PINNED_SITES = 11
 
 /** Sites not covered by their file's pins, as `file:line: expr`. Each pin covers one site. */
 function unpinned(foundSites: Map<string, Site[]>, allow: Record<string, { sites: string[] }>): string[] {
@@ -366,6 +576,9 @@ function unpinned(foundSites: Map<string, Site[]>, allow: Record<string, { sites
 const found = new Map<string, Site[]>()
 const foundRetry = new Map<string, Site[]>()
 const foundRetryLabel = new Map<string, Site[]>()
+const foundHandBuilt = new Map<string, Site[]>()
+const failureProps: (FailureProp & { file: string })[] = []
+const sources = new Map<string, string>()
 const scanned: string[] = []
 for (const abs of ROOTS.flatMap((root) => walk(path.join(frontendRoot, root), []))) {
   const rel = path.relative(frontendRoot, abs).split(path.sep).join('/')
@@ -377,6 +590,21 @@ for (const abs of ROOTS.flatMap((root) => walk(path.join(frontendRoot, root), []
   if (retries.length) foundRetry.set(rel, retries)
   const labels = retryLabelSites(source, rel)
   if (labels.length) foundRetryLabel.set(rel, labels)
+  const { handBuilt, props } = failureScan(source, rel)
+  if (handBuilt.length) foundHandBuilt.set(rel, handBuilt)
+  failureProps.push(...props.map((prop) => ({ ...prop, file: rel })))
+  sources.set(rel, source)
+}
+// A failure that arrives as a prop: its value at every call site, and a prop no scanned file passes.
+const passedProps = new Set<string>()
+for (const [rel, source] of sources) {
+  const sites = propPassSites(source, rel, failureProps, passedProps)
+  if (sites.length) foundHandBuilt.set(rel, [...(foundHandBuilt.get(rel) ?? []), ...sites])
+}
+for (const prop of failureProps) {
+  if (passedProps.has(`${prop.file}:${prop.component}.${prop.prop}`)) continue
+  const site = { line: prop.line, expr: `${prop.component} ${prop.prop}: never passed` }
+  foundHandBuilt.set(prop.file, [...(foundHandBuilt.get(prop.file) ?? []), site])
 }
 
 describe('busy controls stay focusable (rule-12 gate)', () => {
@@ -660,6 +888,132 @@ describe('a Retry of a query is RetryButton (rule-12 gate)', () => {
     ])
   })
 
+  it("sees a failure built by hand in RetryButton's failures, and not the retained one, however it is held", () => {
+    const fixture = [
+      "import { RetryButton as Again, useRetainedFailure, type RetryButtonProps } from '@/hooks/useRetainedFailure'",
+      'export function X({ fromProp, other }: { fromProp: RetainedFailure; other: number }, extra: RetainedFailure) {',
+      '  const failure = useRetainedFailure(query, key)',
+      '  const alias = failure',
+      '  const built = { failed: q.isError, error: q.error, busy: q.isFetching, retry: () => void q.refetch() }',
+      '  let reassigned = useRetainedFailure(query, key)',
+      '  reassigned = built',
+      '  return (<>',
+      '    <RetryButton failures={[failure]} focusTarget={ref}>Retry</RetryButton>', // a const
+      '    <RetryButton failures={[useRetainedFailure(q, k)]} focusTarget={ref} />', // inline
+      '    <RetryButton failures={[a ? failure : (alias)]} focusTarget={ref} />', // both branches, an alias
+      '    <RetryButton failures={[{ failed: q.isError, error: q.error, busy: q.isFetching, retry: q.refetch }]} focusTarget={ref} />',
+      '    <RetryButton failures={[failure, built]} focusTarget={ref} />', // a const holding a literal
+      '    <RetryButton failures={[a ? failure : built]} focusTarget={ref} />', // one branch built by hand
+      '    <RetryButton failures={list} focusTarget={ref} />', // not an array literal
+      '    <RetryButton failures={[...list]} focusTarget={ref} />', // a spread element
+      '    <RetryButton failures={[makeFailure(q)]} focusTarget={ref} />', // a call of anything else
+      '    <RetryButton failures={[extra]} focusTarget={ref} />', // a plain parameter, not a prop
+      '    <RetryButton failures={[reassigned]} focusTarget={ref} />', // a let: a later assignment replaced it
+      '    <RetryButton {...{ failures: [built] }} focusTarget={ref} />', // a JSX spread can carry failures
+      '    <Again failures={[built]} focusTarget={ref}>Reload list</Again>', // RetryButton under an import alias
+      '    <RetryButton failures={[fromProp]} focusTarget={ref} />', // a prop: followed to its call sites
+      '    <Other failures={[{ failed: true }]} />', // not RetryButton
+      '  </>)',
+      '}',
+      'export function Forward(props: RetryButtonProps) {',
+      '  return <RetryButton size="sm" {...props} />', // a forwarding wrapper: the spread carries failures
+      '}',
+    ].join('\n')
+    const { handBuilt, props } = failureScan(fixture, 'fixture.tsx')
+    expect(handBuilt.map((site) => `${site.line}: ${site.expr}`)).toEqual([
+      '12: { failed: q.isError, error: q.error, busy: q.isFetching, retry: q.refetch }',
+      '13: built',
+      '14: a ? failure : built',
+      '15: list',
+      '16: ...list',
+      '17: makeFailure(q)',
+      '18: extra',
+      '19: reassigned',
+      '20: {...{ failures: [built] }}',
+      '21: built',
+      '27: {...props}',
+    ])
+    expect(props).toEqual([{ component: 'X', prop: 'fromProp', line: 22, isDefault: false }])
+  })
+
+  it('takes useRetainedFailure only as the hook its module exports, under any imported name, and fails an empty list', () => {
+    const lines = (scan: ReturnType<typeof failureScan>) => scan.handBuilt.map((site) => `${site.line}: ${site.expr}`)
+    const aliased = [
+      "import { RetryButton, useRetainedFailure as useHold } from '@/hooks/useRetainedFailure'",
+      'export function A() {',
+      '  const held = useHold(query, key)',
+      '  return (<>',
+      '    <RetryButton failures={[held]} focusTarget={ref} />', // the hook under an import alias: retained
+      '    <RetryButton failures={[]} focusTarget={ref} />', // an empty list: a Retry whose press retries nothing
+      '  </>)',
+      '}',
+      'export function B(useHold: () => RetainedFailure) {',
+      '  return <RetryButton failures={[useHold()]} focusTarget={ref} />', // a parameter shadows the import
+      '}',
+    ].join('\n')
+    expect(lines(failureScan(aliased, 'fixture.tsx'))).toEqual(['6: []', '10: useHold()'])
+    const lookalike = [
+      "import { RetryButton } from '@/hooks/useRetainedFailure'",
+      'function useRetainedFailure() { return { failed: true, error: null, busy: false, retry: () => {} } }',
+      'export const C = () => <RetryButton failures={[useRetainedFailure(q, k)]} focusTarget={ref} />', // a same-named local
+    ].join('\n')
+    expect(lines(failureScan(lookalike, 'fixture.tsx'))).toEqual(['3: useRetainedFailure(q, k)'])
+    const unimported = "import { RetryButton } from '@/hooks/useRetainedFailure'\nexport const D = () => <RetryButton failures={[useRetainedFailure(q, k)]} focusTarget={ref} />"
+    expect(lines(failureScan(unimported, 'fixture.tsx'))).toEqual(['2: useRetainedFailure(q, k)']) // never imported here
+    const ownModule = [
+      'export function useRetainedFailure(query: Q, key: K) { return hold(query, key) }',
+      'export const E = () => <RetryButton failures={[useRetainedFailure(q, k)]} focusTarget={ref} />', // the hook's own module
+    ].join('\n')
+    expect(lines(failureScan(ownModule, 'hooks/useRetainedFailure.tsx'))).toEqual([])
+  })
+
+  it('follows a failure prop to every use of its component, under any imported name, and fails a spread or an unproven prop', () => {
+    const component = [
+      "import { RetryButton } from '@/hooks/useRetainedFailure'",
+      'export default function Card({ failure }: { failure: RetainedFailure }) {',
+      '  return <RetryButton failures={[failure]} focusTarget={ref}>Retry</RetryButton>',
+      '}',
+    ].join('\n')
+    const { handBuilt, props } = failureScan(component, 'features/x/Card.tsx')
+    expect(handBuilt).toEqual([])
+    expect(props).toEqual([{ component: 'Card', prop: 'failure', line: 3, isDefault: true }])
+    const threaded = props.map((p) => ({ ...p, file: 'features/x/Card.tsx' }))
+    const caller = [
+      "import Renamed from '@/features/x/Card'", // a default import may take any name
+      "import { useRetainedFailure } from '@/hooks/useRetainedFailure'",
+      'export function Page({ rest }: { rest: object }) {',
+      '  const held = useRetainedFailure(query, key)',
+      '  const loose = { failed: true, error: null, busy: q.isFetching, retry: q.refetch }',
+      '  return (<>',
+      '    <Renamed failure={held} />', // retained: passes
+      '    <Renamed failure={loose} />', // built by hand at the call site
+      '    <Renamed {...rest} />', // a spread could carry the failure
+      "    <Card failure={loose} />", // no Card is imported here: another component, not followed
+      '    <Other failure={loose} />', // another component: not followed
+      '  </>)',
+      '}',
+    ].join('\n')
+    const passed = new Set<string>()
+    expect(propPassSites(caller, 'app/page.tsx', threaded, passed).map((site) => `${site.line}: ${site.expr}`)).toEqual([
+      '8: Renamed failure={loose}',
+      '9: Renamed {...rest}',
+    ])
+    expect([...passed]).toEqual(['features/x/Card.tsx:Card.failure'])
+    // A `Card` imported from another module is another component: it passes nothing for this one.
+    const unrelated = new Set<string>()
+    expect(propPassSites("import Card from '@/features/y/Other'\nexport const P = () => <Card failure={x} />", 'app/p.tsx', threaded, unrelated)).toEqual([])
+    expect(unrelated.size).toBe(0)
+  })
+
+  it('no failure built by hand for RetryButton outside the allowlist', () => {
+    expect(unpinned(foundHandBuilt, ALLOW_HAND_BUILT_FAILURE), RETRY_GATE_MESSAGE).toEqual([])
+  })
+
+  it.each(Object.keys(ALLOW_HAND_BUILT_FAILURE))('%s still has its pinned failure built by hand (remove the pins of converted ones)', (file) => {
+    const actual = (foundHandBuilt.get(file) ?? []).map((site) => site.expr).sort()
+    expect(actual).toEqual([...ALLOW_HAND_BUILT_FAILURE[file].sites].sort())
+  })
+
   it('no hand-rolled Retry outside the allowlist, by its wiring', () => {
     expect(unpinned(foundRetry, ALLOW_RETRY), RETRY_GATE_MESSAGE).toEqual([])
   })
@@ -668,14 +1022,20 @@ describe('a Retry of a query is RetryButton (rule-12 gate)', () => {
     expect(unpinned(foundRetryLabel, ALLOW_RETRY_LABEL), RETRY_GATE_MESSAGE).toEqual([])
   })
 
-  it('both allowlists are shrink-only, and every entry has a reason', () => {
+  it('the three allowlists are shrink-only, and every entry has a reason', () => {
     const pinned = (allow: Record<string, { sites: string[] }>) =>
       Object.values(allow).reduce((sum, { sites }) => sum + sites.length, 0)
     expect(Object.keys(ALLOW_RETRY).length).toBeLessThanOrEqual(MAX_RETRY_ALLOWLIST_SIZE)
     expect(pinned(ALLOW_RETRY)).toBeLessThanOrEqual(MAX_RETRY_PINNED_SITES)
     expect(Object.keys(ALLOW_RETRY_LABEL).length).toBeLessThanOrEqual(MAX_RETRY_LABEL_ALLOWLIST_SIZE)
     expect(pinned(ALLOW_RETRY_LABEL)).toBeLessThanOrEqual(MAX_RETRY_LABEL_PINNED_SITES)
-    for (const [file, { reason }] of [...Object.entries(ALLOW_RETRY), ...Object.entries(ALLOW_RETRY_LABEL)]) {
+    expect(Object.keys(ALLOW_HAND_BUILT_FAILURE).length).toBeLessThanOrEqual(MAX_HAND_BUILT_FAILURE_FILES)
+    expect(pinned(ALLOW_HAND_BUILT_FAILURE)).toBeLessThanOrEqual(MAX_HAND_BUILT_FAILURE_SITES)
+    for (const [file, { reason }] of [
+      ...Object.entries(ALLOW_RETRY),
+      ...Object.entries(ALLOW_RETRY_LABEL),
+      ...Object.entries(ALLOW_HAND_BUILT_FAILURE),
+    ]) {
       expect(reason.trim().length, `${file} needs a reason`).toBeGreaterThan(0)
     }
   })
