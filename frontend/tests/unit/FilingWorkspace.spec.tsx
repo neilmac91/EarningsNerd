@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { act, render, screen, fireEvent } from '@testing-library/react'
 import FilingWorkspace from '@/features/filings/components/copilot/FilingWorkspace'
@@ -276,11 +276,14 @@ describe('FilingWorkspace opened by a provenance chip (EN-01)', () => {
     expect(document.activeElement).toBe(c)
 
     // A later launcher-driven open and close does not return to the stale chip: the opener was taken.
+    // Focus falls to the launcher instead (EN-05a). This case pinned <body> here before: that was the
+    // bug, not the contract (lessons/frontend-dialog-opener-outlives-the-dialog.md (b)).
     act(() => c.blur())
     expect(document.activeElement).toBe(document.body)
     fireEvent.click(screen.getByRole('button', { name: /ask this filing/i }))
     fireEvent.click(screen.getByRole('button', { name: 'Close' }))
-    expect(document.activeElement).toBe(document.body)
+    expect(document.activeElement).not.toBe(c)
+    expect(document.activeElement).toBe(screen.getByRole('button', { name: /ask this filing/i }))
   })
 
   it('closing from the pane\'s own Close button returns focus to the chip (focus is still on the hidden Close when the effect runs)', () => {
@@ -400,8 +403,10 @@ describe('FilingWorkspace view switch from inside the pane (EN-01 follow-up)', (
     act(() => close.focus())
     fireEvent.click(close)
     expect(dialog()).toHaveAttribute('aria-hidden', 'true')
-    // Hidden with the pane, it cannot take focus in a browser; it is not a return target.
+    // Hidden with the pane, it cannot take focus in a browser; it is not a return target. The launcher,
+    // which remounted with the close, takes it (EN-05a).
     expect(document.activeElement).not.toBe(inPane)
+    expect(document.activeElement).toBe(screen.getByRole('button', { name: /ask this filing/i }))
   })
 
   it('opening a closed pane hands nothing off, whether the chip held focus or not', () => {
@@ -432,6 +437,187 @@ describe('FilingWorkspace view switch from inside the pane (EN-01 follow-up)', (
     expect(filingTab()).toHaveAttribute('aria-selected', 'true')
     // Not handed to the tab: the arrow keys and Space keep scrolling the page, not driving the tablist.
     expect(document.activeElement).toBe(document.body)
+  })
+})
+
+/**
+ * EN-05a: the other routes that open the pane. The page's Ask entries (the callout's button and
+ * starters, a follow-up) and the rail's Ctrl/⌘+K and "/" open it without recording an opener, and the
+ * launcher and the coachmark's Try leave the DOM as it opens. This stand-in page opens the pane the
+ * same ways: an Ask button outside the pane, a Ctrl+K listener on window, the launcher and the Try.
+ * It also closes on Escape from a window listener, as AskCopilotRail does, so Escape and × are each
+ * a close path.
+ */
+function AskPage() {
+  const [open, setOpen] = useState(false)
+  const [askShown, setAskShown] = useState(true)
+  const openForSource = useCallback(() => setOpen(true), [])
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault()
+        setOpen(true)
+      } else if (e.key === 'Escape' && open && !e.defaultPrevented) {
+        setOpen(false)
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [open])
+  return (
+    <FilingViewerProvider filingId={3} ticker="AAPL" filingType="10-K" onRequestOpen={openForSource}>
+      <button type="button">elsewhere</button>
+      {askShown && (
+        <button type="button" onClick={() => setOpen(true)}>
+          Ask in page
+        </button>
+      )}
+      <button type="button" onClick={() => setAskShown(false)}>
+        remove ask
+      </button>
+      <FilingWorkspace
+        open={open}
+        onOpenChange={setOpen}
+        summaryAvailable
+        secUrl={URL}
+        copilotBody={<CopilotCounter />}
+        filingBody={<div data-testid="filing">filing</div>}
+      >
+        <p>
+          Total net sales rose. <SourceTrace url={URL} verified sectionRef="Item 1A · Risk Factors" excerpt={EVIDENCE} />
+        </p>
+      </FilingWorkspace>
+    </FilingViewerProvider>
+  )
+}
+
+const launcher = () => screen.getByRole('button', { name: /ask this filing/i })
+const answerTab = () => screen.getByRole('tab', { name: /answer/i })
+const askInPage = () => screen.getByRole('button', { name: 'Ask in page' })
+const elsewhere = () => screen.getByRole('button', { name: 'elsewhere' })
+/** The launcher's hand-off runs in a microtask after the commit that removed it (useFocusHandoff). */
+const settle = () => act(async () => {})
+/** A keyboard user's Escape from wherever focus is (the rail's window listener closes the pane). */
+const pressEscape = () => fireEvent.keyDown(document.activeElement ?? document.body, { key: 'Escape' })
+/** A keyboard user's ×: Tab to it and press Enter (a click with detail 0). */
+const pressClose = () => {
+  const close = screen.getByRole('button', { name: 'Close' })
+  act(() => close.focus())
+  fireEvent.click(close)
+}
+
+describe('FilingWorkspace returns focus on close for every route that opens it, lg+ (EN-05a)', () => {
+  beforeEach(() => window.localStorage.clear())
+
+  for (const [path, close] of [
+    ['Escape', pressEscape],
+    ['×', pressClose],
+  ] as const) {
+    it(`a keyboard press on the launcher hands focus into the pane; ${path} returns it to the launcher`, async () => {
+      render(<AskPage />)
+      act(() => launcher().focus())
+      fireEvent.click(launcher()) // Enter or Space: a click with detail 0
+      await settle()
+      expect(dialog()).toHaveAttribute('aria-hidden', 'false')
+      // The launcher left with the open; a visitor who cannot ask has no composer to take focus, so
+      // the hand-off is all there is: the selected tab, the pane's first stop.
+      expect(document.activeElement).toBe(answerTab())
+      close()
+      expect(dialog()).toHaveAttribute('aria-hidden', 'true')
+      expect(document.activeElement).toBe(launcher())
+    })
+
+    it(`an Ask button outside the pane keeps focus as it opens and gets it back on ${path}`, async () => {
+      render(<AskPage />)
+      act(() => askInPage().focus())
+      fireEvent.click(askInPage())
+      await settle()
+      expect(dialog()).toHaveAttribute('aria-hidden', 'false')
+      expect(document.activeElement).toBe(askInPage())
+      // The rail focuses its composer on open; the user works in the pane, then closes it.
+      act(() => answerTab().focus())
+      close()
+      expect(dialog()).toHaveAttribute('aria-hidden', 'true')
+      expect(document.activeElement).toBe(askInPage())
+    })
+
+    it(`Ctrl+K pressed on a control outside the pane returns focus to it on ${path}`, () => {
+      render(<AskPage />)
+      act(() => elsewhere().focus())
+      fireEvent.keyDown(elsewhere(), { key: 'k', ctrlKey: true })
+      expect(dialog()).toHaveAttribute('aria-hidden', 'false')
+      act(() => answerTab().focus())
+      close()
+      expect(document.activeElement).toBe(elsewhere())
+    })
+
+    it(`the coachmark's Try by keyboard hands focus into the pane; ${path} returns it to the launcher`, async () => {
+      render(<AskPage />)
+      const tryIt = screen.getByRole('button', { name: /try it/i })
+      act(() => tryIt.focus())
+      fireEvent.click(tryIt)
+      await settle()
+      expect(screen.queryByRole('button', { name: /try it/i })).toBeNull()
+      expect(document.activeElement).toBe(answerTab())
+      close()
+      expect(document.activeElement).toBe(launcher())
+    })
+  }
+
+  it('Ctrl+K pressed with nothing focused returns focus to the launcher', () => {
+    render(<AskPage />)
+    expect(document.activeElement).toBe(document.body)
+    fireEvent.keyDown(document.body, { key: 'k', ctrlKey: true })
+    act(() => answerTab().focus())
+    pressEscape()
+    expect(document.activeElement).toBe(launcher())
+  })
+
+  it('an opener that left the page while the pane was open falls back to the launcher', () => {
+    render(<AskPage />)
+    act(() => askInPage().focus())
+    fireEvent.click(askInPage())
+    fireEvent.click(screen.getByRole('button', { name: 'remove ask' }))
+    expect(screen.queryByRole('button', { name: 'Ask in page' })).toBeNull()
+    act(() => answerTab().focus())
+    pressClose()
+    expect(document.activeElement).toBe(launcher())
+  })
+
+  it('a pointer press on the launcher hands nothing off; a close with focus on <body> still lands on the launcher', async () => {
+    render(<AskPage />)
+    act(() => launcher().focus()) // Chromium focuses a clicked button
+    fireEvent.click(launcher(), { detail: 1 })
+    await settle()
+    // Not handed to the tab: a pointer's press leaves focus to the pointer (the arrow keys would
+    // drive the tablist), as the citation hand-off does.
+    expect(document.activeElement).toBe(document.body)
+    pressEscape()
+    expect(document.activeElement).toBe(launcher())
+  })
+
+  it('focus the user moved out of the pane before closing it is left alone', async () => {
+    render(<AskPage />)
+    act(() => launcher().focus())
+    fireEvent.click(launcher())
+    await settle()
+    act(() => elsewhere().focus())
+    pressEscape()
+    expect(dialog()).toHaveAttribute('aria-hidden', 'true')
+    expect(document.activeElement).toBe(elsewhere())
+  })
+
+  it('a launcher press while the Filing view is selected hands focus to the Filing tab', async () => {
+    render(<AskPage />)
+    fireEvent.click(chip())
+    expect(filingTab()).toHaveAttribute('aria-selected', 'true')
+    pressClose()
+    expect(document.activeElement).toBe(chip())
+    act(() => launcher().focus())
+    fireEvent.click(launcher())
+    await settle()
+    expect(filingTab()).toHaveAttribute('aria-selected', 'true')
+    expect(document.activeElement).toBe(filingTab())
   })
 })
 
@@ -526,6 +712,25 @@ describe('FilingWorkspace sheet below lg, opened by a provenance chip (EN-01)', 
       expect(document.activeElement).toBe(c)
     } finally {
       vi.useRealTimers()
+    }
+  })
+
+  // EN-05a leaves the sheet as it was: its trap moves focus in on open and returns it to the chip or
+  // the launcher on close; the desktop opener and the launcher's hand-off add nothing below lg.
+  it('the sheet path is unchanged: an Ask button or a keyboard press on the launcher, closed by Escape or ×, returns to the launcher', async () => {
+    render(<AskPage />)
+    for (const open of [() => askInPage(), () => launcher()]) {
+      for (const close of [pressEscape, pressClose]) {
+        act(() => open().focus())
+        fireEvent.click(open())
+        await settle()
+        expect(dialog()).toHaveAttribute('aria-hidden', 'false')
+        // The trap's first focusable, before any hand-off could run.
+        expect(document.activeElement).toBe(answerTab())
+        close()
+        expect(dialog()).toHaveAttribute('aria-hidden', 'true')
+        expect(document.activeElement).toBe(launcher())
+      }
     }
   })
 })

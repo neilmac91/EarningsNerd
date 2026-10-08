@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode, type RefObject } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode, type RefObject } from 'react'
 import { ArrowSquareOutIcon, SparkleIcon } from '@/lib/icons'
 import PaneResizer from './PaneResizer'
 import SecondaryPaneTabs, { PANE_PANEL_IDS, PANE_TAB_IDS } from './SecondaryPaneTabs'
@@ -10,6 +10,7 @@ import { useFilingViewer } from './FilingViewerContext'
 import { useSheetFocusTrap } from './useSheetFocusTrap'
 import { useMediaQuery } from '@/hooks/useMediaQuery'
 import { useConsentLayer } from '@/hooks/useConsentLayer'
+import { useFocusHandoff } from '@/hooks/useFocusHandoff'
 import { BOTTOM_CHROME_OFFSET } from '@/lib/consentLayer'
 
 // Below lg the secondary pane is a modal bottom-sheet; at lg+ it's a static side pane (no modal).
@@ -112,7 +113,7 @@ export default function FilingWorkspace({
   const viewer = useFilingViewer()
   const activeView = viewer?.activeView ?? 'copilot'
   const shellRef = useRef<HTMLDivElement>(null)
-  const launcherRef = useRef<HTMLButtonElement>(null)
+  const launcherRef = useRef<HTMLButtonElement | null>(null)
 
   // Hydrate the persisted width after mount (keeps SSR markup deterministic, avoids hydration drift).
   useEffect(() => {
@@ -195,24 +196,71 @@ export default function FilingWorkspace({
     [peekOpener],
   )
   useSheetFocusTrap({ active: modalActive, containerRef: shellRef, onClose: handleClose, restoreFocusRef })
-  // On lg+ nothing traps focus: when a chip-opened pane closes, the shell goes display:none and any
-  // focus inside it falls to <body>. Hand it back to the chip, only when it fell (focus the pane never
-  // held is never moved), then forget the opener so a later launcher-driven open does not return to a
-  // stale chip. This effect runs synchronously after the closing click or keydown, before Chromium
-  // has moved focus off the now-hidden control (that happens in a later task), so focus still inside
-  // the shell is focus that has fallen. lessons/frontend-busy-controls-stay-focusable.md (g),
-  // "after it" form; lessons/frontend-dialog-opener-outlives-the-dialog.md (b).
+  // Where focus was as the pane opened: the control a keyboard user pressed (an in-page Ask button or
+  // starter) or pressed Ctrl/⌘+K or "/" on. The page's Ask entries and the rail's shortcuts open the
+  // pane without telling it who asked, so it is read here, in the opening commit, before the rail moves
+  // focus to its composer (a frame later). <body> when the opener left with the open (the launcher,
+  // the coachmark's Try) or nothing held focus; an element inside the shell never counts.
+  const paneOpener = useRef<HTMLElement | null>(null)
+  useLayoutEffect(() => {
+    if (!paneOpen) return
+    const active = document.activeElement
+    paneOpener.current =
+      active instanceof HTMLElement && active !== document.body && !shellRef.current?.contains(active) ? active : null
+  }, [paneOpen])
+  // On lg+ nothing traps focus: when the pane closes, the shell goes display:none and any focus inside
+  // it falls to <body>. Hand it on, only when it fell (focus the pane never held is never moved), to the
+  // first of: the provenance chip that opened the pane (EN-01), the control focus was on as it opened,
+  // the launcher, which has remounted by now (EN-05). A candidate that left the page, sits in the
+  // pane, or cannot take focus (hidden since) is passed over. Both openers are forgotten on every
+  // close, so a later open never returns to a stale one. This effect runs synchronously after the
+  // closing click or keydown, before Chromium has moved focus off the now-hidden control (that happens
+  // in a later task), so focus still inside the shell is focus that has fallen. Below lg the sheet's
+  // trap has already restored focus (to the chip or the launcher) in its cleanup, so this finds it
+  // placed and leaves it. lessons/frontend-busy-controls-stay-focusable.md (g), "after it" form;
+  // lessons/frontend-dialog-opener-outlives-the-dialog.md (b).
   const wasPaneOpen = useRef(paneOpen)
   useEffect(() => {
     const was = wasPaneOpen.current
     wasPaneOpen.current = paneOpen
-    if (!was || paneOpen || !takeOpener) return
-    const opener = takeOpener()
-    if (!isReturnTarget(opener, shellRef.current)) return
+    if (!was || paneOpen) return
+    const candidates = [takeOpener?.() ?? null, paneOpener.current, launcherRef.current]
+    paneOpener.current = null
     const active = document.activeElement
     if (active !== null && active !== document.body && !shellRef.current?.contains(active)) return
-    opener.focus({ preventScroll: true })
+    for (const el of candidates) {
+      if (!isReturnTarget(el, shellRef.current)) continue
+      el.focus({ preventScroll: true })
+      if (document.activeElement === el) return
+    }
   }, [paneOpen, takeOpener])
+
+  // The launcher and the coachmark's Try leave the page as the pane they open appears, so a keyboard
+  // press on either drops focus to <body> at open. The rail then moves it to its composer, but only for
+  // a visitor who can ask: anyone else had nothing focused in the pane until they Tabbed from the top
+  // of the page. Each hands its focus to the pane's selected tab instead, the first stop inside it (the
+  // stop the sheet's trap moves focus to below lg), and the rail's composer takes it from there when it
+  // can. Keyboard only: a pointer's press leaves focus to the pointer, as the citation hand-off below
+  // does, so the tab never takes the arrow keys and Space from someone who clicked. A chip outside the
+  // pane stays put as it opens it (EN-01): it never unmounts, so it hands nothing off.
+  const selectedTab = useMemo<RefObject<HTMLElement | null>>(
+    () => ({
+      get current() {
+        return shellRef.current?.querySelector<HTMLElement>('[role="tab"][aria-selected="true"]') ?? null
+      },
+    }),
+    [],
+  )
+  const launcherHandoff = useFocusHandoff(selectedTab, { keyboardOnly: true })
+  const tryHandoff = useFocusHandoff(selectedTab, { keyboardOnly: true })
+  const attachLauncherHandoff = launcherHandoff.attach
+  const launcherCallbackRef = useCallback(
+    (el: HTMLButtonElement | null) => {
+      launcherRef.current = el
+      attachLauncherHandoff(el)
+    },
+    [attachLauncherHandoff],
+  )
 
   // A citation activated inside the Answer panel (an Ask answer's [n] chip) switches the pane to the
   // Filing tab, which hides the chip with its panel (and the answer re-renders it besides), so
@@ -270,9 +318,14 @@ export default function FilingWorkspace({
             {!open && (
               <>
                 <button
-                  ref={launcherRef}
+                  ref={launcherCallbackRef}
                   type="button"
-                  onClick={() => onOpenChange(true)}
+                  onFocus={launcherHandoff.onFocus}
+                  onPointerDown={launcherHandoff.onPointerDown}
+                  onClick={(e) => {
+                    launcherHandoff.onPress(e)
+                    onOpenChange(true)
+                  }}
                   aria-haspopup="dialog"
                   aria-expanded={false}
                   style={LAUNCHER_OFFSET}
@@ -293,6 +346,7 @@ export default function FilingWorkspace({
                 {showAttention && (
                   <CopilotCoachmark
                     onTry={() => onOpenChange(true)}
+                    tryHandoff={tryHandoff}
                     onDismiss={dismissCoach}
                     style={COACHMARK_OFFSET}
                   />
