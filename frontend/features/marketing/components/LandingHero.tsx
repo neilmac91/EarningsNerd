@@ -25,7 +25,7 @@ export default function LandingHero({
   return (
     <section aria-labelledby="hero-h" className="bg-background-light dark:bg-background-dark">
       <div className="mx-auto max-w-7xl px-4 pb-14 pt-12 sm:px-6 sm:pb-20 sm:pt-16 lg:px-8 lg:pb-24 lg:pt-20">
-        <div className="grid items-start gap-10 lg:grid-cols-2 lg:gap-16">
+        <div className="grid grid-cols-1 items-start gap-10 lg:grid-cols-2 lg:gap-16">
           <div className="min-w-0">
             <HeroHeadline />
             <p className="mt-5 max-w-[560px] text-base leading-relaxed text-text-secondary-light dark:text-text-secondary-dark sm:text-lg">

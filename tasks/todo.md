@@ -1,3 +1,25 @@
+## 2026-10-07 — Google Cloud cost optimisation (independent scope)
+
+Founder authorised durable background delivery and shared Docker build caching, while retaining
+one warm backend instance and mitigating performance risks. This task does not take up the
+historical unchecked ledger items or CODE RED work.
+
+- [x] Inventory after-response work; preserve the single summary pipeline and existing API/SSE contracts.
+- [x] Add authenticated Cloud Tasks delivery with bounded concurrency, retries and ID-only payloads.
+- [x] Move on-visit work and legacy internal triggers behind an opt-in queue rollout; cancel/drain request-owned siblings.
+- [x] Cache Docker dependency layers through GitHub Actions, preserving image tags and deploy gates (PR #1117).
+- [x] Verify focused behavior, locked-contract parity, complete backend gates and independent reviews.
+- [ ] Provision and verify delivery before switching CPU billing; keep minimum one instance and 1 GiB.
+
+Local gate: Ruff clean, Bandit no medium/high findings; `5811 passed, 39 skipped, 2 deselected,
+40 warnings in 310.68s`. Node runtime lockstep: three passed. Twenty-four deliberate mutation
+groups cover all 35 new or extended test functions; every defect was caught and restored before
+the full gate. Three-lens review and two fresh refutations cleared the upheld fixes; eleven locked
+contract anchors remain byte-identical. Single-child admission prevents per-process resource
+overlap and retains its permit through kill/reap. HTTP/1.1 transport loss is distinct from handler
+cancellation; existing duplicate-safe persistence remains necessary. Activation awaits the
+founder's specific IAM exception and a successful authenticated empty delivery probe.
+
 ## 2026-10-06 — EN-03: stacked metric cards below md (frontend)
 
 - Scope: critique finding EN-03 (`tasks/critique-handoff-2026-10-04.md`, P1). Below 768px the five-column Financial Highlights DataTable squeezed into a 300px box: five columns of 83-115px, a horizontal scroll inside the section, the takeaway and its provenance chip off-screen, and near-empty rows of 771 / 101 / 271 / 161 / 109 / 771 / 301px (the cached production summary of `/filing/3`, 7 rows, measured on main a64d4e6 at 390x844 and 320x568). One main-based branch, frontend only; no backend, export or subscription change; `GenericTable`, a shared DataTable responsive API and the PDF/CSV exports untouched. PR #1108.

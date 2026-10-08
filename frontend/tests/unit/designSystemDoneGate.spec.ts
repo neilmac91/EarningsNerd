@@ -342,6 +342,7 @@ describe('tailwind content scans every module that composes classes', () => {
     'design/': 'design-handoff mock-ups and bundles; the app imports none of it',
     'tailwind.config.js': 'the token definitions themselves; class names appear as keys and comments',
     'eslint.config.mjs': 'lint config; its design-rule selectors and messages name the banned classes, and it never ships',
+    'eslint.gridBaseTrack.mjs': 'lint rule; its comments and message name the grid classes it checks, and it never ships',
   }
   const isAppCode = (file: string): boolean =>
     !Object.keys(NOT_APP_CODE).some((p) => (p.endsWith('/') ? file.startsWith(p) : file === p))
