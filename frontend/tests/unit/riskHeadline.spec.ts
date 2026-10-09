@@ -152,6 +152,13 @@ describe('deriveRiskHeadline', () => {
     expect(deriveRiskHeadline("The filing states 'We face material risks.' More details follow.", 0)).toBe(
       "The filing states 'We face material risks.'…",
     )
+    // The next sentence may open with a quote mark and a currency sign before its first figure.
+    expect(deriveRiskHeadline("Liquidity may be constrained. '$5 per unit' fees could reduce demand materially.", 0)).toBe(
+      'Liquidity may be constrained…',
+    )
+    expect(deriveRiskHeadline('Liquidity may be constrained. “$5 per unit” fees could reduce demand materially.', 0)).toBe(
+      'Liquidity may be constrained…',
+    )
   })
 
   it('cuts a long sentence at its first ";" or ":" when the clause before it can stand as a heading', () => {

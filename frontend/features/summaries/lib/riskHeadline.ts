@@ -77,9 +77,10 @@ const ABBREVIATION_ALTERNATION = ABBREVIATIONS.map(caseInsensitive).join('|')
 
 // A sentence end: ".", "!" or "?" (not closing a one-letter word or an abbreviation), any closing
 // quotes or brackets (captured, so the headline keeps a quotation it closes), then a capitalised
-// word, a figure or an opening quote, or the end of the text.
+// word or a figure, after any opening quotes or brackets and a currency sign ("'$5 per unit'"), or
+// the end of the text.
 const SENTENCE_END = new RegExp(
-  `(?<!\\b[A-Za-z])(?<!\\b(?:${ABBREVIATION_ALTERNATION}))[.!?](["”’')\\]]*)(?=\\s+["“‘'(\\[$€£]?[A-Z0-9]|\\s*$)`,
+  `(?<!\\b[A-Za-z])(?<!\\b(?:${ABBREVIATION_ALTERNATION}))[.!?](["”’')\\]]*)(?=\\s+["“‘'(\\[]*[$€£¥]?[A-Z0-9]|\\s*$)`,
   'g',
 )
 
