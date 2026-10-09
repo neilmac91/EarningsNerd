@@ -6564,12 +6564,17 @@ Full local and hosted verification plus independent exact-head review precede re
   and an independent read-only check). Ledger events 39–44 (USD 0.743983). Chief defect 8. Closure 170. For the CPO:
   `eval-baseline`'s `mean_citation_fidelity` reads 0.83–0.86 against a baseline of 0.9648 on all six runs measured
   that day, before and after stage 2 (an advisory warning).
-- [ ] Founder (optional): set the repository's squash default to "Default to pull request title and description", so a
+- 2026-10-09 (record 20, `runtime/control/DECISIONS-20.md`): PR #1155 (record 19) merged `8ff4c532` (thirteenth
+  deploy-skip proof); three later deploys by other writers kept every pin. The founder's instruction on the open items:
+  the durable-tasks post-deploy checks taken on by the chief; the squash default and custody step A recommended and
+  prepared for the founder. Capacity baseline (no 5xx, mean 60 ms, 5–6 of 25 connections). Closure 171.
+- [ ] Founder (optional; recommended, record 20): set the repository's squash default to "Pull request title and
+      description" (Settings → General → Pull Requests → "Allow squash merging" → "Default commit message"), so a
       squash merge without an explicit message carries the reviewed PR text (record 18, chief defect 7).
 - [x] Founder: relay the record-14 custody clarification — replaced by record 16's step A (the founder delegated the custody
       question to the chief on 2026-10-08); D3 — applied by the founder's instruction, staged (record 16).
-- [ ] Founder (optional, no deadline): relay record 16's custody step A (five metadata fields) once; on outcome B, the one line
-      "I adopt record 16's form (b) for R1".
+- [ ] Founder (optional; recommended now, record 20): relay record 16's custody step A (five metadata fields) once — the
+      chief prepared the message — with "If the answer is outcome B, I adopt record 16's form (b) for R1" if you agree.
 - [x] Chief: D3 stage 1 PR (eight jobs + task worker pinned; reservation before ready; deploy verified) — merged `da636f6c`,
       deployed 2026-10-08T20:17Z (record 17).
 - [x] Founder (decision): D3 stage 2 — chose option A, guard then pin, and to move backfill-facts (record 17).
@@ -6586,8 +6591,12 @@ Full local and hosted verification plus independent exact-head review precede re
       the deploy's echoed commands (record 19).
 - [ ] Chief: after Monday 2026-10-12, read the 06:00–08:00 UTC window (the first with the whole fleet pinned and
       backfill-facts at 07:30) with the read-only `capacity-readout`: SEC errors, breaker opens, job outcomes (record 19).
-- [ ] Chief (small): `ops.yml` `describe-jobs` and `describe-service` print the two SEC pin values for every job and the
-      task worker (non-secret), with the visibility test extended; no operation reads them back today (record 19).
+- [ ] Chief: the read-back PR (`ops-readback-pr-01`, record 20): `describe-service` reads back the task worker (revision,
+      traffic, command, sizing, ingress, invoker policy, SEC pins) and the service's minimum instances, CPU and memory;
+      `describe-jobs` prints and checks both SEC pins per job; `capacity-readout` adds the worker's requests and errors and
+      the Cloud Tasks queue; tests and docs; one reserved `copilot-eval` run; no deploy (records 19–20).
+- [ ] Chief: complete the durable-tasks post-deploy checklist (`docs/DEPLOYMENT.md`) from the read-backs and a readout,
+      with an independent check (`durable-tasks-check-01`); baseline already read (record 20).
 - [ ] Workflow owner: `review-gate.yml:61` re-runs the gate on any comment containing "@codex review", including Codex's own
       summary boilerplate, which cancelled a required run on PR #1131 (record 17); exclude the Codex connector's comments.
 - [x] Founder (optional, now; folded into record 17's option A): the D3 staging answer rested on an overstated premise (the insider panel is off in production;
@@ -6595,8 +6604,9 @@ Full local and hosted verification plus independent exact-head review precede re
 - [x] Founder (future, before durable tasks are enabled): the Monday 07:00 UTC overlap is then 12 req/s configured against SEC's
       10 (record 16) — overtaken: the stage-1 deploy was the first CI rollout of durable tasks; the choice is now part of the stage-2
       decision (record 17).
-- [ ] Founder (durable-tasks rollout owner; rollout confirmed intended): run the post-deploy checks in `docs/DEPLOYMENT.md`
-      (authenticated task success, retries and errors, API latency, SQL connections) (record 17).
+- [x] Founder (durable-tasks rollout owner; rollout confirmed intended): run the post-deploy checks in `docs/DEPLOYMENT.md`
+      (authenticated task success, retries and errors, API latency, SQL connections) (record 17) — taken on by the chief
+      on the founder's instruction of 2026-10-09 (record 20).
 - [x] Chief: make the backend suite hermetic — 11 tests send live requests to SEC (efts, data, www) and Yahoo Finance on
       every full run, CI included (record 16); fix them and land an outbound-network block in the test configuration as
       the rule-12 gate (check rule 6 before touching any locked SSE contract test). Pre-registered as
