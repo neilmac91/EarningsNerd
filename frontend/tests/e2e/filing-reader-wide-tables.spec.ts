@@ -88,7 +88,7 @@ interface TableBox {
 }
 
 interface Layout {
-  doc: { scrollWidth: number; clientWidth: number; scrollX: number }
+  doc: { scrollWidth: number; clientWidth: number; scrollX: number; scrollY: number }
   /** The part of the reader the user can see: its scrollport, within the pane and the viewport. */
   visible: Box
   pane: Box
@@ -152,6 +152,7 @@ const layout = (page: Page): Promise<Layout> =>
           scrollWidth: document.documentElement.scrollWidth,
           clientWidth: document.documentElement.clientWidth,
           scrollX: window.scrollX,
+          scrollY: window.scrollY,
         },
         visible,
         pane: p,
@@ -212,9 +213,12 @@ test.describe('desktop 1440x900: the reader stays in its pane', () => {
       expect.soft(bottom.doc.scrollWidth, 'no sideways scroll at the statements').toBe(bottom.doc.clientWidth)
     })
 
-    test(`${theme}: a citation jump scrolls the reader only, never the page sideways`, async ({ page, baseURL }) => {
+    test(`${theme}: a citation jump scrolls the reader only, never the page`, async ({ page, baseURL }) => {
       const chip = await openPage(page, baseURL!, theme)
-      expect(await page.evaluate(() => window.scrollX)).toBe(0)
+      // In view first, so the click itself does not scroll the page: from here on only the jump could.
+      await chip.scrollIntoViewIfNeeded()
+      const before = await page.evaluate(() => ({ x: window.scrollX, y: window.scrollY }))
+      expect(before.x).toBe(0)
       await chip.click()
       await readerReady(page)
       await highlighted(page)
@@ -222,6 +226,9 @@ test.describe('desktop 1440x900: the reader stays in its pane', () => {
 
       const l = await layout(page)
       expect.soft(l.doc.scrollX, 'the page did not scroll sideways').toBe(0)
+      // With the reader capped to its pane, scrollIntoView no longer slides the page sideways, but it
+      // still scrolls it down: this is the in-app check that the jump moves the reader alone.
+      expect.soft(l.doc.scrollY, 'the page did not scroll up or down').toBe(before.y)
       expect.soft(l.doc.scrollWidth, 'the page has no sideways scroll').toBe(l.doc.clientWidth)
       expect.soft(l.cited, 'the cited passage is highlighted').not.toBeNull()
       if (l.cited) expect.soft(within(l.cited, l.visible), `the cited passage ${JSON.stringify(l.cited)} is visible inside the reader ${JSON.stringify(l.visible)}`).toBe(true)
@@ -236,7 +243,9 @@ test.describe('desktop 1440x900: the reader stays in its pane', () => {
       await filingTab.click()
       await readerReady(page)
 
-      // Every box: a named, focusable region exactly when its table is wider than it.
+      // Every box: a named, focusable region exactly when its table is wider than it. The box measures
+      // itself in a ResizeObserver callback and React commits the attributes a frame or two later, so
+      // each check retries until they settle (a single read raced them: role null on a scrolling box).
       const check = async () => {
         const { tables } = await layout(page)
         expect(tables.every((t) => t.box)).toBe(true)
@@ -250,12 +259,12 @@ test.describe('desktop 1440x900: the reader stays in its pane', () => {
         expect(tables.find((t) => t.columns === 9)?.box?.role).toBe('region')
         expect(tables.some((t) => t.box && t.box.scrollWidth <= t.box.clientWidth)).toBe(true)
       }
-      await check()
+      await expect(check).toPass({ timeout: 5_000 })
       // Hidden behind the Answer tab and shown again, the boxes re-measure.
       await page.locator(PANE).getByRole('tab', { name: 'Answer' }).click()
       await filingTab.click()
       await readerReady(page)
-      await check()
+      await expect(check).toPass({ timeout: 5_000 })
 
       // After the pane's Close, Tab reaches the reader itself, still at its top (Chromium made the scroller
       // a tab stop on its own only while nothing in it was focusable; a table's region is), then the first
