@@ -1,10 +1,18 @@
+## 2026-10-09 — Design critique 2026-10: loading and motion (PR 4 of the stack; frontend)
+
+- Scope: register P-09 on top of PR 3 (#1148). Acceptance: no `min-h-screen` spinner under app/dashboard; a reduced-motion run shows no running animation.
+- Shipped: account settings and watchlist insights load as their own page: the header (and the watchlist's add field, which needs no data) over bones in the shapes of the cards that replace them, so the first card lands where its bone stood and the content crossfades in. `hooks/useContentIn` is the one skeleton→content handoff (DataTable and AskFilingAnswer moved onto it; the class now lands on the commit that reveals the content). Every Tailwind animation utility stops under reduced motion (21 sites guarded: auth entrances, Copilot streaming dots, spinners). The page gates keep their exact conditions, so the `/me` loop guard and its pins are unchanged.
+- Gates (rule 12): `earningsnerd/no-unguarded-animation` (ESLint: `motion-safe:` or a same-variant `motion-reduce:animate-none` beside every `animate-*`); `designRules.spec.ts` holds the globals.css animation classes to their reduced-motion blocks; `fullPageSpinnerGate.spec.ts` (no spinner screen; shrink-only allowlist of three: the server-seeded company and filing pages, and the `/filing/<TICKER>` view); `tests/e2e/loading-and-motion.spec.ts`.
+- Not done: the three allowlisted spinner screens wait for their pages' next rework.
+- Verification: see the PR body.
+
 ## 2026-10-09 — Design critique 2026-10: the homepage (PR 3 of the stack; frontend + one additive backend field)
 
 - Scope: canvas 1d (homepage search) on top of PR 2 (#1147).
 - Shipped: the company search names the filing a pick lands on: `latest_filing` on `/api/companies/search` (additive; `latest_filing_service`: the newest stored filing of the company list's forms that still stands, with summary readiness; DB-only, three queries per search, `company_list_forms` now shared with the filings list) and a second line in each option in the filing identity vocabulary; the price shows only when the search returned one (the unresolvable "Loading price..." and the pre/post-market third line are gone); a visual count + keyboard hint under the listbox. `HeroExample` as one surface (identity line, hairline figure strip, one evidence row from the live summary's first located risk excerpt, text-link CTA; no frame mockup, nested cards or sparkle chip). `TrustStrip` under the hero.
 - Not done, founder call: making "Find filings" the hero's one primary action (the canvas) would demote "See a live example", today's tracked hero CTA.
 - Verification: see the PR body.
-- [ ] Next in the stack: PR 4 loading and motion (P-09).
+- [x] Next in the stack: PR 4 loading and motion (P-09).
 
 ## 2026-10-09 — Design critique 2026-10: the company page (PR 2 of the stack; frontend)
 
