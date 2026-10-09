@@ -1,11 +1,11 @@
 """Company filing lists behind ``GET /api/filings/company/{ticker}`` (``app/routers/filings.py``).
 
 Moved verbatim from the router so it stays HTTP only: the B2 freshness cache, the DB-first
-background refresh, the on-visit history backfill and its durable-task handoff, the CIK-first
-company persistence on a miss, the filing-type defaults, the cached reads and the cold live fetch's
-persistence. The router keeps the SEC awaits, the ``BackgroundTasks`` scheduling, the error mapping
-and the fallback log lines; the skip, background-failure and handoff warnings moved here with their
-code, so they now log as ``app.services.filing_list_service``.
+background refresh, the on-visit history backfill, the CIK-first company persistence on a miss, the
+filing-type defaults, the cached reads and the cold live fetch's persistence. The router keeps the
+SEC awaits, the ``BackgroundTasks`` scheduling, the durable-task handoff (it does no database work),
+the error mapping and the fallback log lines; the skip and background-failure warnings moved here
+with their code, so they now log as ``app.services.filing_list_service``.
 
 The background tasks open their own short-lived sessions. Everything else is one synchronous unit
 on the request's session, run where the router used to run it (on the event loop). The request's
@@ -17,7 +17,6 @@ before it closes: after a commit the rows are expired, and a lazy read after the
 a connection out again (``lessons/ops-release-cached-filing-reads-before-yield.md``).
 """
 import asyncio
-import json
 import logging
 from datetime import datetime, timedelta
 from typing import Any, Callable, Dict, List, Optional, Tuple, TypeVar
@@ -28,7 +27,6 @@ from app.config import settings
 from app.database import SessionLocal
 from app.models import Company, Filing
 from app.services.company_resolution import resolve_or_create_company_by_cik
-from app.services.durable_tasks import enqueue_task, TaskUnavailable
 from app.services.edgar.compat import sec_edgar_service
 from app.utils.datetimes import utcnow
 
@@ -75,24 +73,6 @@ _refreshing_keys: set = set()
 # EFTS walk before the first one stamps history_backfilled_at. Keyed by company id; check-and-add is
 # synchronous (no await between), so it collapses the burst to one walk per company per process.
 _history_backfilling_ids: set = set()
-_visit_task_handoffs: dict[str, float] = {}
-
-
-async def enqueue_visit_task(kind: str, payload: dict, *, key: str, seconds: int) -> None:
-    """A queue outage must not hide already-persisted filings from the reader."""
-    cache_key = f"{kind}:{key}:{json.dumps(payload, sort_keys=True)}"
-    now = utcnow().timestamp()
-    if now < _visit_task_handoffs.get(cache_key, 0):
-        return
-    try:
-        await enqueue_task(kind, payload, dedupe_key=key, dedupe_seconds=seconds)
-        expires = (int(now) // seconds + 1) * seconds
-    except (TaskUnavailable, ValueError):
-        logger.warning("On-visit task handoff unavailable kind=%s", kind)
-        expires = now + 10  # a brief outage cooldown keeps cached page loads fast
-    if len(_visit_task_handoffs) >= MAX_FILINGS_SYNC_ENTRIES:
-        _visit_task_handoffs.pop(next(iter(_visit_task_handoffs)), None)
-    _visit_task_handoffs[cache_key] = expires
 
 
 async def refresh_company_filings(

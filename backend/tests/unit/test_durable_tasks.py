@@ -14,8 +14,8 @@ from fastapi import FastAPI
 
 from app.config import settings
 from app.routers import tasks
+from app.routers import filings
 from app.services import durable_tasks as transport, filing_history_service as history
-from app.services import filing_list_service
 from app.utils.datetimes import utcnow
 
 
@@ -136,21 +136,21 @@ def test_partial_history_keeps_retry_eligible_without_losing_inserted_rows(monke
 
 @pytest.mark.asyncio
 async def test_repeat_cached_visits_do_not_wait_on_the_control_plane(monkeypatch):
-    monkeypatch.setattr(filing_list_service, "_visit_task_handoffs", {})
+    monkeypatch.setattr(filings, "_visit_task_handoffs", {})
     clock = SimpleNamespace(timestamp=lambda: 101)
-    monkeypatch.setattr(filing_list_service, "utcnow", lambda: clock)
+    monkeypatch.setattr(filings, "utcnow", lambda: clock)
     enqueue = AsyncMock()
-    monkeypatch.setattr(filing_list_service, "enqueue_task", enqueue)
+    monkeypatch.setattr(filings, "enqueue_task", enqueue)
     args = ("filings", {"company_id": 7, "filing_types": ["10-K"]})
-    await filing_list_service.enqueue_visit_task(*args, key="filings:7", seconds=100)
-    await filing_list_service.enqueue_visit_task(*args, key="filings:7", seconds=100)
+    await filings._enqueue_visit_task(*args, key="filings:7", seconds=100)
+    await filings._enqueue_visit_task(*args, key="filings:7", seconds=100)
     enqueue.assert_awaited_once()
     clock.timestamp = lambda: 201
-    await filing_list_service.enqueue_visit_task(*args, key="filings:7", seconds=100)
+    await filings._enqueue_visit_task(*args, key="filings:7", seconds=100)
     assert enqueue.await_count == 2
     for index, error in enumerate((transport.TaskUnavailable("offline"), ValueError("oversized control"))):
         clock.timestamp = lambda: 301 + index * 100
         enqueue.side_effect = error
-        await filing_list_service.enqueue_visit_task(*args, key="filings:7", seconds=100)
-        await filing_list_service.enqueue_visit_task(*args, key="filings:7", seconds=100)
+        await filings._enqueue_visit_task(*args, key="filings:7", seconds=100)
+        await filings._enqueue_visit_task(*args, key="filings:7", seconds=100)
         assert enqueue.await_count == 3 + index

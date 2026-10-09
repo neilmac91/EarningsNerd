@@ -1,5 +1,7 @@
 import asyncio
 import logging
+import json
+from app.utils.datetimes import utcnow
 from typing import List, Optional
 
 from fastapi import APIRouter, HTTPException, Depends, Query, BackgroundTasks
@@ -10,10 +12,32 @@ from app.schemas.fundamentals import FundamentalsResponse
 # EdgarTools migration: Using new edgar module for SEC services
 from app.services.edgar.compat import sec_edgar_service
 from app.services.edgar.exceptions import EdgarError as SECEdgarServiceError
+from app.services.durable_tasks import enqueue_task, TaskUnavailable
 from app.services import filing_list_service, filing_read_service
 from pydantic import BaseModel
 
 logger = logging.getLogger(__name__)
+
+# The durable-task handoff stays here: it does no database work, and its outage warning keeps the
+# app.routers.filings logger name. Bounded by filing_list_service.MAX_FILINGS_SYNC_ENTRIES.
+_visit_task_handoffs: dict[str, float] = {}
+
+
+async def _enqueue_visit_task(kind: str, payload: dict, *, key: str, seconds: int) -> None:
+    """A queue outage must not hide already-persisted filings from the reader."""
+    cache_key = f"{kind}:{key}:{json.dumps(payload, sort_keys=True)}"
+    now = utcnow().timestamp()
+    if now < _visit_task_handoffs.get(cache_key, 0):
+        return
+    try:
+        await enqueue_task(kind, payload, dedupe_key=key, dedupe_seconds=seconds)
+        expires = (int(now) // seconds + 1) * seconds
+    except (TaskUnavailable, ValueError):
+        logger.warning("On-visit task handoff unavailable kind=%s", kind)
+        expires = now + 10  # a brief outage cooldown keeps cached page loads fast
+    if len(_visit_task_handoffs) >= filing_list_service.MAX_FILINGS_SYNC_ENTRIES:
+        _visit_task_handoffs.pop(next(iter(_visit_task_handoffs)), None)
+    _visit_task_handoffs[cache_key] = expires
 
 
 router = APIRouter()
@@ -128,7 +152,7 @@ async def get_company_filings(
         if settings.DURABLE_TASKS_ENABLED:
             # Release the serving read before any queue/control-plane wait.
             filing_list_service.release_request_session(db)
-            await filing_list_service.enqueue_visit_task(
+            await _enqueue_visit_task(
                 "history", {"company_id": company_id}, key=f"history:{company_id}", seconds=300,
             )
         else:
@@ -151,7 +175,7 @@ async def get_company_filings(
     cached = get_cached_filings()
     if cached:
         if settings.DURABLE_TASKS_ENABLED:
-            await filing_list_service.enqueue_visit_task(
+            await _enqueue_visit_task(
                 "filings", {"company_id": company_id, "filing_types": types_list},
                 key=f"filings:{company_id}",
                 seconds=int(filing_list_service.FILINGS_LIST_TTL.total_seconds()),

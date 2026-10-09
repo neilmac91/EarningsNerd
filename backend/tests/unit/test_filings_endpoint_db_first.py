@@ -48,7 +48,7 @@ def client(db_engine, monkeypatch):
     # The background refresh opens its OWN SessionLocal — point it at the same in-memory engine.
     monkeypatch.setattr(filing_list_service, "SessionLocal", TestingSession)
 
-    # An unstamped company enqueues the on-visit deep-history backfill (filings.py:127-135), whose
+    # An unstamped company enqueues the on-visit deep-history backfill (filings.py:151-159), whose
     # only network I/O is this EFTS walk. Stub it like the pool-lifetime test below: no windows
     # fetched, so nothing is persisted and the company stays unstamped.
     async def _no_history_fetch(*, cik, ticker, efts_client=None):

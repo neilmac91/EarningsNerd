@@ -4,13 +4,15 @@ The company-list route's error mapping had no route-level test: the miss path's 
 (including a failure inside the CIK-first persistence), the cold live fetch's timeout / SEC-error /
 unexpected-error fallbacks with and without rows to fall back on, the skip warnings and the old
 cgi-bin URL rewrite in the live persistence, filing-type parsing, and the durable-task handoff
-payloads with their release-before-enqueue ordering. This suite pins them so moving the route's
-database work into ``app/services/`` is provably behaviour-neutral. SEC calls are patched on the
-shared ``sec_edgar_service`` singleton; every test runs on a private SQLite engine.
+payloads with their release-before-enqueue ordering and their outage warning (still logged from
+the router). This suite pins them so moving the route's database work into ``app/services/`` is
+provably behaviour-neutral. SEC calls are patched on the shared ``sec_edgar_service`` singleton;
+every test runs on a private SQLite engine.
 """
 import asyncio
 import logging
 from datetime import datetime, timezone
+from unittest.mock import AsyncMock
 
 import pytest
 from fastapi.testclient import TestClient
@@ -23,7 +25,9 @@ import app.models  # noqa: F401 — register models on Base.metadata
 from app.config import settings
 from app.database import Base, get_db
 from app.models import Company, Filing
+from app.routers import filings as filings_mod
 from app.services import filing_list_service
+from app.services.durable_tasks import TaskUnavailable
 from app.services.edgar.compat import sec_edgar_service
 from app.services.edgar.exceptions import EdgarError
 
@@ -399,8 +403,8 @@ def test_durable_handoff_payloads_and_pool_release(tmp_path, monkeypatch):
     monkeypatch.setattr(settings, "DURABLE_TASKS_ENABLED", True)
     monkeypatch.setattr(settings, "ENABLE_HISTORY_BACKFILL_ON_VISIT", True)
     monkeypatch.setattr(settings, "ENABLE_FPI_FILINGS", False)
-    monkeypatch.setattr(filing_list_service, "enqueue_task", enqueue)
-    monkeypatch.setattr(filing_list_service, "_visit_task_handoffs", {})
+    monkeypatch.setattr(filings_mod, "enqueue_task", enqueue)
+    monkeypatch.setattr(filings_mod, "_visit_task_handoffs", {})
     monkeypatch.setattr(filing_list_service, "_filings_synced_at", {})
     monkeypatch.setattr(sec_edgar_service, "get_filings", get_filings)
     monkeypatch.setitem(main.app.dependency_overrides, get_db, override_get_db)
@@ -417,6 +421,63 @@ def test_durable_handoff_payloads_and_pool_release(tmp_path, monkeypatch):
          f"filings:{company_id}", 10800, 0),
     ]
     assert fetched == []
+
+
+def test_durable_handoff_outage_serves_cached_rows_and_warns_from_the_router(
+    client, sessions, monkeypatch, caplog
+):
+    """A queue outage on both handoffs still serves the persisted rows, without an SEC call, and
+    each warning comes from the router's logger, as on the base router."""
+    with sessions() as s:
+        company_id = _seed_company(s, ticker="DUR", backfilled=False).id
+        _seed_filing(s, company_id, "0000000002", "0000000002-25-000001")
+
+    async def enqueue(kind, payload, *, dedupe_key=None, dedupe_seconds=None):
+        raise TaskUnavailable("offline")
+
+    fetched = []
+
+    async def get_filings(cik, types):
+        fetched.append(cik)
+        return []
+
+    monkeypatch.setattr(settings, "DURABLE_TASKS_ENABLED", True)
+    monkeypatch.setattr(settings, "ENABLE_HISTORY_BACKFILL_ON_VISIT", True)
+    monkeypatch.setattr(filings_mod, "enqueue_task", enqueue)
+    monkeypatch.setattr(filings_mod, "_visit_task_handoffs", {})
+    monkeypatch.setattr(sec_edgar_service, "get_filings", get_filings)
+
+    with caplog.at_level(logging.WARNING, logger=ROUTER_LOGGER):
+        resp = client.get("/api/filings/company/dur")
+
+    assert resp.status_code == 200
+    assert [row["accession_number"] for row in resp.json()] == ["0000000002-25-000001"]
+    assert _router_records(caplog) == [
+        (logging.WARNING, "On-visit task handoff unavailable kind=history"),
+        (logging.WARNING, "On-visit task handoff unavailable kind=filings"),
+    ]
+    assert fetched == []
+
+
+@pytest.mark.asyncio
+async def test_handoff_cache_evicts_at_the_freshness_cache_bound(monkeypatch):
+    """The router's handoff cache shares filing_list_service.MAX_FILINGS_SYNC_ENTRIES and evicts
+    its oldest entry first."""
+    monkeypatch.setattr(filing_list_service, "MAX_FILINGS_SYNC_ENTRIES", 2)
+    monkeypatch.setattr(filings_mod, "_visit_task_handoffs", {})
+    enqueue = AsyncMock()
+    monkeypatch.setattr(filings_mod, "enqueue_task", enqueue)
+
+    for company_id in (1, 2, 3):
+        await filings_mod._enqueue_visit_task(
+            "history", {"company_id": company_id}, key=f"history:{company_id}", seconds=300,
+        )
+
+    assert enqueue.await_count == 3
+    assert list(filings_mod._visit_task_handoffs) == [
+        'history:history:2:{"company_id": 2}',
+        'history:history:3:{"company_id": 3}',
+    ]
 
 
 def test_recent_and_single_filing_reads(client, sessions):
