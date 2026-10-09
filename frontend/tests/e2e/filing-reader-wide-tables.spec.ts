@@ -49,11 +49,16 @@ async function readerReady(page: Page) {
   await expect(page.locator(`${READER} table`).filter({ hasText: 'Reportable since' })).toHaveCount(1)
 }
 
-/** The cited passage is highlighted (CSS Custom Highlight API: one Range registered). */
+/** The cited passage is highlighted (CSS Custom Highlight API: one Range registered), and it is the cited text. */
 async function highlighted(page: Page) {
   await expect
     .poll(() => page.evaluate(() => (CSS as unknown as { highlights: Map<string, { size: number }> }).highlights.get('copilot-citation')?.size ?? 0))
     .toBe(1)
+  const text = await page.evaluate(() => {
+    const highlight = (CSS as unknown as { highlights: Map<string, Set<Range>> }).highlights.get('copilot-citation')
+    return highlight ? Array.from(highlight)[0].toString() : ''
+  })
+  expect(text.replace(/\s+/g, ' ').trim()).toBe(EXCERPT)
 }
 
 /** Wait until the citation's smooth scroll has stopped: nothing scrolled for three samples running. */
@@ -69,6 +74,7 @@ async function settled(page: Page) {
     previous = now
     await page.waitForTimeout(100)
   }
+  expect(stable, 'the citation scroll settles').toBeGreaterThanOrEqual(3)
 }
 
 interface Box {

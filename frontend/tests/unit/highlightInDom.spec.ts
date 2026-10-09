@@ -129,6 +129,28 @@ describe('highlightExcerptInDom', () => {
       container.remove()
     })
 
+    it('a cell wider than its box shows its start, and a passage near the end stops at the last scroll position', () => {
+      const container = document.createElement('div')
+      container.innerHTML =
+        '<div class="box"><table><tbody><tr><td>Americas</td><td>Reportable since fiscal 2013 after the segment change</td></tr></tbody></table></div>'
+      document.body.appendChild(container)
+      const box = container.querySelector<HTMLElement>('.box')!
+      place(container, { left: 0, top: 0, width: 400, height: 300, clientWidth: 400, clientHeight: 300, scrollWidth: 400, scrollHeight: 1000, overflowX: 'auto', overflowY: 'auto' })
+      place(box, { left: 16, top: 950, width: 368, height: 40, clientWidth: 368, clientHeight: 40, scrollWidth: 1200, scrollHeight: 40, overflowX: 'auto', overflowY: 'auto' })
+      // The cell (500 to 900) is wider than the 368px box: its start goes to the box's left edge, not its
+      // end to the right one, which would hide where the cited text begins.
+      place(container.querySelectorAll('td')[1], { left: 500, top: 955, width: 400, height: 30 })
+      const containerScroll = stubScrollTo(container)
+      const boxScroll = stubScrollTo(box)
+
+      expect(highlightExcerptInDom(container, 'Reportable since fiscal 2013 after the segment change')).toBe(true)
+
+      expect(boxScroll.mock.calls).toEqual([[{ left: 484, behavior: 'smooth' }]])
+      // Centring (955 - 135 = 820) would scroll past the end: the reader stops at 1000 - 300.
+      expect(containerScroll.mock.calls).toEqual([[{ top: 700, behavior: 'smooth' }]])
+      container.remove()
+    })
+
     it('a cell left of the box\'s view scrolls the box back to the cell\'s start', () => {
       const container = document.createElement('div')
       container.innerHTML =

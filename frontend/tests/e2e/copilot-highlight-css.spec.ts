@@ -154,7 +154,8 @@ test.describe('Copilot citation highlight', () => {
       const found = m.highlightExcerptInDom(reader, sentence)
       // Let the smooth scroll finish: nothing moves for three frames running.
       let last = ''
-      for (let stable = 0, i = 0; stable < 3 && i < 300; i++) {
+      let stable = 0
+      for (let i = 0; stable < 3 && i < 300; i++) {
         await new Promise((r) => requestAnimationFrame(r))
         const now = [window.scrollX, window.scrollY, reader.scrollTop, box.scrollLeft].join()
         stable = now === last ? stable + 1 : 0
@@ -165,6 +166,7 @@ test.describe('Copilot citation highlight', () => {
       const r = reader.getBoundingClientRect()
       const out = {
         found,
+        settled: stable >= 3,
         windowScroll: [window.scrollX, window.scrollY],
         boxScrollLeft: box.scrollLeft,
         readerScrollTop: reader.scrollTop,
@@ -179,6 +181,7 @@ test.describe('Copilot citation highlight', () => {
     }, cited)
 
     expect(result.found).toBe(true)
+    expect(result.settled, 'the scroll settles').toBe(true)
     expect(result.windowScroll).toEqual([0, 0])
     expect(result.boxScrollLeft).toBeGreaterThan(0)
     expect(result.readerScrollTop).toBeGreaterThan(0)
