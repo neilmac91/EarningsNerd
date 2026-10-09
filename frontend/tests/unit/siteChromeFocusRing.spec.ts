@@ -77,6 +77,8 @@ function thirdPartyTags(source: string, fileName: string): string[] {
     if (clause?.namedBindings && ts.isNamedImports(clause.namedBindings)) {
       for (const el of clause.namedBindings.elements) modules.set(el.name.text, pkg)
     }
+    // A namespace import (`import * as Menu from '…'`) renders as <Menu.Root>.
+    if (clause?.namedBindings && ts.isNamespaceImport(clause.namedBindings)) modules.set(clause.namedBindings.name.text, pkg)
   }
   const tags = new Set<string>()
   const visit = (node: ts.Node): void => {
@@ -290,6 +292,21 @@ describe('every Tab stop in the site chrome carries the brand focus ring (EN-05c
   })
 
   it('every third-party component the chrome renders is classified', () => {
+    // The reader itself, on a fixed source: default, named and namespace imports all count; a local
+    // module does not.
+    const fixture = [
+      "import Link from 'next/link'",
+      "import { Toaster } from 'sonner'",
+      "import * as Menu from '@radix-ui/react-menu'",
+      "import { Local } from '@/components/Local'",
+      'export const A = () => (<><Link href="/" /><Toaster /><Menu.Root><Menu.Item /></Menu.Root><Local /></>)',
+    ].join('\n')
+    expect(thirdPartyTags(fixture, 'fixture.tsx').sort()).toEqual([
+      '@radix-ui/react-menu Menu.Item',
+      '@radix-ui/react-menu Menu.Root',
+      'next/link Link',
+      'sonner Toaster',
+    ])
     const used = new Set(discovered.flatMap((file) => thirdPartyTags(readFileSync(path.join(ROOT, file), 'utf8'), file)))
     expect([...used].filter((tag) => !(tag in THIRD_PARTY)), 'classify each in THIRD_PARTY').toEqual([])
     expect(Object.keys(THIRD_PARTY).filter((tag) => !used.has(tag)), 'no longer rendered: drop it').toEqual([])
