@@ -243,7 +243,7 @@
    "filing_type_key": "6-K",
    "primary_excerpt": "<filing_excerpt argument>",
    "stream_cb": null,
-   "unit_index": "<TableUnitIndex>",
+   "unit_index": "<TableUnitIndex over <filing_text argument>>",
    "xbrl_metrics": null
   },
   "positional_args": 1

@@ -251,7 +251,7 @@
    "filing_type_key": "20-F",
    "primary_excerpt": "<filing_excerpt argument>",
    "stream_cb": null,
-   "unit_index": "<TableUnitIndex>",
+   "unit_index": "<TableUnitIndex over <filing_text argument>>",
    "xbrl_metrics": "<xbrl_metrics argument>"
   },
   "positional_args": 1

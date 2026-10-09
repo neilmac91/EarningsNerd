@@ -36,6 +36,7 @@ from unittest.mock import AsyncMock
 import pytest
 
 from app.config import settings
+from app.services.ai.source_units import TableUnitIndex
 from app.services.openai_service import OpenAIService
 
 _FIXTURES = Path(__file__).resolve().parents[1] / "fixtures"
@@ -143,6 +144,11 @@ _A1_XBRL = {
                    "prior": {"value": 180_300_000, "period": "2024-12-31"}},
     "operating_cash_flow": {"current": {"value": 320_900_000, "period": "2025-12-31"}},
 }
+# The full source document, kept distinct from every excerpt, as summary_pipeline.py:1015-1021 passes them: the
+# prompt reads only the excerpt, while the unit index reads only the document. A swap of either provenance changes
+# the snapshot (the sentinel line enters the prompt, or a keyword names the other argument).
+_A1_RAW_DOCUMENT = ("<html><body><p>RAW SOURCE DOCUMENT SENTINEL: this line reaches the provider request only if "
+                    "the raw document replaces the excerpt.</p></body></html>")
 _A1_CASES = [(form, sixk_class, structured)
              for form, sixk_class in (("10-K", None), ("10-Q", None), ("20-F", None), ("6-K", "governance"))
              for structured in (False, True)]
@@ -162,8 +168,12 @@ def _a1_readable(create_kwargs):
 
 
 def _a1_describe(value, excerpt, xbrl):
+    if isinstance(value, str) and value == _A1_RAW_DOCUMENT:
+        return "<filing_text argument>"
     if isinstance(value, str) and value == excerpt:
         return "<filing_excerpt argument>"
+    if isinstance(value, TableUnitIndex):  # named by the source it holds: its provenance is the pin
+        return f"<TableUnitIndex over {_a1_describe(value._html, excerpt, xbrl)}>"
     if value is None or isinstance(value, (str, int, float, bool)):
         return value
     if isinstance(value, dict) and value == xbrl:
@@ -188,7 +198,8 @@ async def test_a1_primary_provider_request_matches_snapshot(monkeypatch, tmp_pat
     monkeypatch.setattr(service, "_request_content", request)
     monkeypatch.setattr(service, "_assemble_structured_summary", AsyncMock(return_value={}))
     excerpt, xbrl = (_A1_SPARSE_EXCERPT, None) if form == "6-K" else (_A1_EXCERPT, copy.deepcopy(_A1_XBRL))
-    await service.generate_structured_summary(excerpt, "Anchor Holdings Inc.", form, xbrl, filing_excerpt=excerpt,
+    await service.generate_structured_summary(_A1_RAW_DOCUMENT, "Anchor Holdings Inc.", form, xbrl,
+                                              filing_excerpt=excerpt,
                                               **({"sixk_class": sixk_class} if sixk_class else {}))
     request.assert_awaited_once()
     call = request.await_args
