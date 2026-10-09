@@ -147,6 +147,7 @@ what applies to your task. Filenames are greppable: `arch-*`, `sec-*`, `test-*`,
 
 ## Operations & workflow
 
+- [`ops-hand-over-when-the-harness-refuses-the-conversation.md`](./ops-hand-over-when-the-harness-refuses-the-conversation.md) — Hand over to a fresh session when the harness refuses the conversation, not the action
 - [`ops-ci-images-avoid-docker-hub.md`](./ops-ci-images-avoid-docker-hub.md) — Pull CI and deploy images through a mirror, never anonymously from Docker Hub
 - [`ops-auth-lookups-must-let-request-cleanup-progress.md`](./ops-auth-lookups-must-let-request-cleanup-progress.md) — Keep authentication pool waits off the event loop while preserving request-owned sessions
 - [`ops-unmergeable-pr-runs-no-pull-request-workflows.md`](./ops-unmergeable-pr-runs-no-pull-request-workflows.md) — Check the PR's mergeable state before diagnosing missing `pull_request` workflow runs
