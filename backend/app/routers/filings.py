@@ -16,6 +16,7 @@ from app.services.company_resolution import resolve_or_create_company_by_cik
 from app.services.edgar.compat import sec_edgar_service
 from app.services.edgar.exceptions import EdgarError as SECEdgarServiceError
 from app.services.durable_tasks import enqueue_task, TaskUnavailable
+from app.services import filing_read_service
 from pydantic import BaseModel
 
 logger = logging.getLogger(__name__)
@@ -447,14 +448,10 @@ async def get_company_filings(
 @router.get("/{filing_id}", response_model=FilingResponse)
 async def get_filing(filing_id: int, db: Session = Depends(get_db)):
     """Get a specific filing"""
-    from sqlalchemy.orm import joinedload
-    try:
-        filing = db.query(Filing).options(joinedload(Filing.company)).filter(Filing.id == filing_id).first()
-        if not filing:
-            raise HTTPException(status_code=404, detail="Filing not found")
-        return FilingResponse.from_orm(filing)
-    finally:
-        db.close()
+    filing = filing_read_service.filing_by_id(db, filing_id, FilingResponse.from_orm)
+    if filing is None:
+        raise HTTPException(status_code=404, detail="Filing not found")
+    return filing
 
 
 class FilingContentResponse(BaseModel):
@@ -473,27 +470,17 @@ async def get_filing_content(filing_id: int, db: Session = Depends(get_db)):
     200 with ``has_content=false`` when it exists but has no cached markdown yet (caller falls back
     to the SEC deep link).
     """
-    from sqlalchemy.orm import joinedload
-
-    try:
-        filing = (
-            db.query(Filing)
-            .options(joinedload(Filing.content_cache))
-            .filter(Filing.id == filing_id)
-            .first()
-        )
-        if not filing:
-            raise HTTPException(status_code=404, detail="Filing not found")
-
-        cache = filing.content_cache
-        markdown = getattr(cache, "markdown_content", None) if cache else None
+    def build(markdown: Optional[str]) -> FilingContentResponse:
         return FilingContentResponse(
             filing_id=filing_id,
             has_content=bool(markdown),
             markdown_content=markdown or None,
         )
-    finally:
-        db.close()
+
+    content = filing_read_service.filing_content(db, filing_id, build)
+    if content is None:
+        raise HTTPException(status_code=404, detail="Filing not found")
+    return content
 
 
 @router.get("/{filing_id}/fundamentals", response_model=FundamentalsResponse)
@@ -504,15 +491,10 @@ async def get_filing_fundamentals(filing_id: int, db: Session = Depends(get_db))
     immutable, document-faithful snapshot. A single indexed DB read, no live SEC calls. Returns empty
     `concepts` when the filing's facts aren't populated yet (they backfill when it's summarized).
     """
-    from app.services import facts_service
-
-    try:
-        data = facts_service.get_filing_fundamentals(db, filing_id)
-        if data is None:
-            raise HTTPException(status_code=404, detail="Filing not found")
-        return data
-    finally:
-        db.close()
+    data = filing_read_service.filing_fundamentals(db, filing_id)
+    if data is None:
+        raise HTTPException(status_code=404, detail="Filing not found")
+    return data
 
 
 @router.get("/recent/latest", response_model=List[FilingResponse])
@@ -521,11 +503,4 @@ async def get_recent_filings(
     db: Session = Depends(get_db)
 ):
     """Get recent filings across all companies"""
-    from sqlalchemy import desc
-    from sqlalchemy.orm import joinedload
-    # Use joinedload to eagerly load company relationship, avoiding N+1 queries
-    try:
-        filings = db.query(Filing).options(joinedload(Filing.company)).order_by(desc(Filing.filing_date)).limit(limit).all()
-        return [FilingResponse.from_orm(filing) for filing in filings]
-    finally:
-        db.close()
+    return filing_read_service.recent_filings(db, limit, FilingResponse.from_orm)
