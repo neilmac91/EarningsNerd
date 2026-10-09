@@ -612,16 +612,31 @@ Recharts/rAF, which need numbers). **No raw ms or bezier strings anywhere else.*
 
 - **Count-up is `hooks/useCountUp`** (rAF, slow/standard, `format` per content fundamentals —
   `"$391.0B"` — render in `tnum font-data`) — the `animate-count-up` keyframe is retired; it was a fade.
-- **Skeleton→content**: `animate-content-in` fires on the loading→loaded flip (wired in DataTable +
-  AskFilingAnswer) — never on first paint of never-loading views.
+- **Skeleton→content**: `hooks/useContentIn(loading)` returns `animate-content-in motion-reduce:animate-none`
+  from the render where `loading` turns false (DataTable, AskFilingAnswer, the account settings and
+  watchlist pages) — never on first paint of never-loading views. It catches the flip during render, so
+  the class lands on the same commit as the content it reveals.
+- **Loading**: a page never swaps itself for a full-page spinner. It renders its own frame and header, and
+  any control that needs no data (the watchlist's add field), over bones in the shapes of the cards that
+  will replace them (`/dashboard/settings`: Profile's fields and Save, Billing's rows; `/dashboard/watchlist`:
+  the insight card's name, actions and tiles; `app/dashboard/page.tsx` keeps its plainer card bones). The
+  header never moves and the first card lands where its bones stood. Raw bones are `aria-hidden`, so the
+  group carries one `role="status"` with a named wait ("Loading your settings"). Gate:
+  `tests/unit/fullPageSpinnerGate.spec.ts` (a `min-h-screen` element holding only spinners and sr-only
+  text), with a shrink-only allowlist of three server-seeded or legacy routes.
 - **Stagger**: `animate-fade-up-stagger` + `--stagger-index` (0-based; step = fast; capped at 4;
   first paint only). `fade-up-delay-1/2/3` are retired.
-- **Reduced motion**: one source — `hooks/usePrefersReducedMotion`. Every animation needs a fallback:
-  `animation: none` for transform entrances, static bone (shimmer), static tint (citation-flash),
-  instant final value (count-up, Recharts `lineProps(reduced)`), `scroll-behavior: auto`. Known
-  gaps include the `animate-fade-up` entrances in `app/login/page.tsx`, `RegisterForm` and `AuthShell`,
-  the streaming `animate-pulse` indicators in `CopilotMessage`, and standalone `animate-spin` loaders;
-  none has a `motion-reduce:` guard yet.
+- **Reduced motion**: one source for JS — `hooks/usePrefersReducedMotion`. Every animation stops. A
+  Tailwind `animate-*` utility has `motion-reduce:animate-none` beside it in the class text that always
+  renders with it, with the same variants in the same order (stacked `group-*`/`peer-*`/`after:` variants
+  compose the selector in sequence) and `!` when the animation has it, or is written `motion-safe:`: a
+  spinner becomes its static glyph,
+  a skeleton a static bone, an entrance shows at once. A `globals.css` animation class stops itself in a
+  `prefers-reduced-motion: reduce` block (citation-flash keeps a static tint). Count-up shows its final
+  value, Recharts takes `lineProps(reduced)`, `scroll-behavior` is `auto`. Gates: the
+  `earningsnerd/no-unguarded-animation` ESLint rule for the utilities; `tests/unit/designRules.spec.ts`
+  for the globals.css classes; `tests/e2e/loading-and-motion.spec.ts` finds no animation under reduced
+  motion on the home, sign-in and sign-up pages or in the dashboard loading states.
 - **Nothing decorative** — `animate-float` is retired. Signature set: count-up, citation-flash,
   skeleton→content, sparkline draw-in, check-pop.
 

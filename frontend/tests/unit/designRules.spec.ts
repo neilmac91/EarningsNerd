@@ -1,8 +1,16 @@
+import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { ESLint, RuleTester } from 'eslint'
 import { describe, expect, it } from 'vitest'
-import { noFormCodeBadge, noSideStripe, sideStripe } from '../../eslint.designRules.mjs'
+import {
+  noFormCodeBadge,
+  noSideStripe,
+  noUnguardedAnimation,
+  SELF_GUARDED_ANIMATIONS,
+  sideStripe,
+  unguardedAnimation,
+} from '../../eslint.designRules.mjs'
 
 /**
  * Pins the 2026-10 critique's design gates (eslint.designRules.mjs):
@@ -10,6 +18,10 @@ import { noFormCodeBadge, noSideStripe, sideStripe } from '../../eslint.designRu
  *    Evaluated on whole class strings, so a stripe split across template chunks or cx() arguments
  *    is caught, while a quotation's unrounded 2px bar and the Callout's full hairline pass.
  *  - no-form-code-badge (P-04): a form code is text in the data face, never a <Badge>.
+ *  - no-unguarded-animation (P-09): every animation utility stops under reduced motion, through
+ *    motion-safe: or a motion-reduce:animate-none with the same variants that always renders with it.
+ *    The globals.css classes it exempts must stop themselves there, and so must every other animation
+ *    globals.css declares.
  */
 
 const frontendRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
@@ -90,8 +102,130 @@ ruleTester.run('no-form-code-badge', noFormCodeBadge, {
   ],
 })
 
+describe('unguardedAnimation', () => {
+  it('passes motion-safe:, a same-variant guard, globals.css classes that guard themselves, and animate-none', () => {
+    expect(unguardedAnimation('h-4 w-4 animate-spin motion-reduce:animate-none')).toBeNull()
+    expect(unguardedAnimation('motion-safe:animate-content-in rounded-xl')).toBeNull()
+    expect(unguardedAnimation('dark:motion-safe:animate-pulse')).toBeNull()
+    expect(
+      unguardedAnimation('[&>:last-child]:after:animate-pulse motion-reduce:[&>:last-child]:after:animate-none'),
+    ).toBeNull()
+    // motion-reduce may sit anywhere among the guard's variants; the others keep the animation's order.
+    expect(unguardedAnimation('md:hover:animate-spin md:motion-reduce:hover:animate-none')).toBeNull()
+    // An important guard covers a plain animation and an important one.
+    expect(unguardedAnimation('animate-spin motion-reduce:!animate-none')).toBeNull()
+    expect(unguardedAnimation('!animate-spin motion-reduce:!animate-none')).toBeNull()
+    expect(unguardedAnimation('animate-fadeIn animate-check-pop animate-on-scroll animate-none')).toBeNull()
+  })
+
+  it('flags an animation with no guard, or a guard whose variants differ', () => {
+    expect(unguardedAnimation('h-4 w-4 animate-spin')).toEqual({
+      token: 'animate-spin',
+      guard: 'motion-reduce:animate-none',
+      safe: 'motion-safe:animate-spin',
+    })
+    // A variant raises specificity or moves the rule later, so the bare guard loses to it.
+    expect(unguardedAnimation('dark:animate-pulse motion-reduce:animate-none')?.guard).toBe('motion-reduce:dark:animate-none')
+    expect(unguardedAnimation('[&>:last-child]:after:animate-pulse motion-reduce:animate-none')?.token).toBe(
+      '[&>:last-child]:after:animate-pulse',
+    )
+    expect(unguardedAnimation('animate-fade-up motion-safe:animate-none')?.token).toBe('animate-fade-up')
+    expect(unguardedAnimation('!animate-shimmer')?.safe).toBe('motion-safe:!animate-shimmer')
+    // An animation that runs only under reduced motion.
+    expect(unguardedAnimation('motion-reduce:animate-bounce motion-reduce:animate-none')?.token).toBe('motion-reduce:animate-bounce')
+  })
+
+  it('flags a guard whose variants come in another order, or that is less important than the animation', () => {
+    // Stacked selector variants compose in order, so this guard selects other elements.
+    expect(
+      unguardedAnimation('group-hover:peer-focus:animate-spin peer-focus:group-hover:motion-reduce:animate-none')?.guard,
+    ).toBe('motion-reduce:group-hover:peer-focus:animate-none')
+    expect(unguardedAnimation('hover:after:animate-pulse motion-reduce:after:hover:animate-none')?.token).toBe(
+      'hover:after:animate-pulse',
+    )
+    // An !important animation wins the cascade over a plain guard.
+    expect(unguardedAnimation('!animate-spin motion-reduce:animate-none')).toEqual({
+      token: '!animate-spin',
+      guard: 'motion-reduce:!animate-none',
+      safe: 'motion-safe:!animate-spin',
+    })
+    expect(unguardedAnimation('md:!animate-spin motion-reduce:md:animate-none')?.guard).toBe('motion-reduce:md:!animate-none')
+  })
+})
+
+ruleTester.run('no-unguarded-animation', noUnguardedAnimation, {
+  valid: [
+    '<CircleNotchIcon className="h-4 w-4 animate-spin motion-reduce:animate-none" />',
+    '<div className="motion-safe:animate-fade-up" />',
+    // The guard is always there around the branch that animates.
+    "<div className={cx('motion-reduce:animate-none', streaming && 'animate-pulse')} />",
+    "const CONTENT_IN = 'animate-content-in motion-reduce:animate-none'",
+    '<div className="animate-check-pop" />',
+  ],
+  invalid: [
+    { code: '<CircleNotchIcon className="h-8 w-8 animate-spin text-brand-strong" />', errors: [{ messageId: 'unguarded' }] },
+    // A guard on one branch does not cover the animation that always renders.
+    { code: "<div className={cx('animate-pulse', calm && 'motion-reduce:animate-none')} />", errors: [{ messageId: 'unguarded' }] },
+    // Template chunks are one class string; the guard is missing from both.
+    { code: '<form className={`animate-fade-up ${gap}`} />', errors: [{ messageId: 'unguarded' }] },
+    // A class constant is checked on its own.
+    { code: "const SPIN = 'animate-spin'", errors: [{ messageId: 'unguarded' }] },
+  ],
+})
+
+/** Every style rule in a stylesheet, with whether a `prefers-reduced-motion: reduce` query holds it. */
+function cssRules(css: string, reduced = false): Array<{ selector: string; body: string; reduced: boolean }> {
+  const rules: Array<{ selector: string; body: string; reduced: boolean }> = []
+  const text = css.replace(/\/\*[\s\S]*?\*\//g, '')
+  let i = 0
+  while (i < text.length) {
+    const open = text.indexOf('{', i)
+    if (open < 0) break
+    let depth = 1
+    let close = open + 1
+    for (; close < text.length && depth > 0; close++) {
+      if (text[close] === '{') depth++
+      else if (text[close] === '}') depth--
+    }
+    const prelude = text.slice(i, open).split(/[;}]/).pop()!.trim()
+    const body = text.slice(open + 1, close - 1)
+    if (prelude.startsWith('@media') || prelude.startsWith('@layer') || prelude.startsWith('@supports')) {
+      rules.push(...cssRules(body, reduced || /prefers-reduced-motion:\s*reduce/.test(prelude)))
+    } else if (!prelude.startsWith('@')) {
+      rules.push({ selector: prelude, body, reduced })
+    }
+    i = close
+  }
+  return rules
+}
+
+describe('globals.css animations stop under reduced motion', () => {
+  const rules = cssRules(readFileSync(path.join(frontendRoot, 'app/globals.css'), 'utf8'))
+  const classes = (selector: string) => [...selector.matchAll(/\.([\w-]+)/g)].map((m) => m[1])
+  const stopped = new Set(
+    rules.filter((r) => r.reduced && /(animation|transition)\s*:\s*none/.test(r.body)).flatMap((r) => classes(r.selector)),
+  )
+
+  it('reads the stylesheet', () => {
+    expect(rules.length).toBeGreaterThan(50)
+    expect(stopped.size).toBeGreaterThan(0)
+  })
+
+  it('every class the rule exempts stops itself in a reduced-motion block', () => {
+    expect([...SELF_GUARDED_ANIMATIONS].filter((name) => !stopped.has(name))).toEqual([])
+  })
+
+  it('every other animation it declares does too', () => {
+    const animated = rules
+      .filter((r) => !r.reduced && /(^|[;\s])animation(-name)?\s*:\s*(?!none)/.test(r.body))
+      .flatMap((r) => classes(r.selector))
+    expect(animated.length).toBeGreaterThan(0)
+    expect(animated.filter((name) => !stopped.has(name))).toEqual([])
+  })
+})
+
 describe('the repository config', () => {
-  it('runs both rules as errors on app code', async () => {
+  it('runs the three rules as errors on app code', async () => {
     const eslint = new ESLint({ cwd: frontendRoot })
     const [result] = await eslint.lintText(
       [
@@ -100,6 +234,7 @@ describe('the repository config', () => {
         '  return (',
         '    <div className={`border-l-4 ${tone} rounded-xl p-4`}>',
         '      <Badge variant="neutral">{form.filing_type}</Badge>',
+        '      <span className="animate-spin" />',
         '    </div>',
         '  )',
         '}',
@@ -110,6 +245,7 @@ describe('the repository config', () => {
     expect(result.messages.map((m) => m.ruleId).sort()).toEqual([
       'earningsnerd/no-form-code-badge',
       'earningsnerd/no-side-stripe',
+      'earningsnerd/no-unguarded-animation',
     ])
     expect(result.messages.every((m) => m.severity === 2)).toBe(true)
   })

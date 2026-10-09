@@ -1,3 +1,12 @@
+## 2026-10-09 — Design critique 2026-10: loading and motion (PR 4 of the stack; frontend)
+
+- Scope: register P-09 on top of PR 3 (#1148). Acceptance: no `min-h-screen` spinner under app/dashboard; a reduced-motion run shows no running animation.
+- Shipped: account settings and watchlist insights load as their own page: the header (and the watchlist's add field, which needs no data) over bones in the shapes of the cards that replace them, so the first card lands where its bone stood and the content crossfades in. `hooks/useContentIn` is the one skeleton→content handoff (DataTable and AskFilingAnswer moved onto it; the class now lands on the commit that reveals the content). Every Tailwind animation utility stops under reduced motion (21 sites guarded: auth entrances, Copilot streaming dots, spinners). The page gates keep their exact conditions, so the `/me` loop guard and its pins are unchanged.
+- Gates (rule 12): `earningsnerd/no-unguarded-animation` (ESLint: `motion-safe:` or a same-variant `motion-reduce:animate-none` beside every `animate-*`); `designRules.spec.ts` holds the globals.css animation classes to their reduced-motion blocks; `fullPageSpinnerGate.spec.ts` (no spinner screen; shrink-only allowlist of three: the server-seeded company and filing pages, and the `/filing/<TICKER>` view); `tests/e2e/loading-and-motion.spec.ts`.
+- Codex review (two P2s on `no-unguarded-animation`): the rule compared variants as a set, but stacked selector variants compose in order (`group-hover:peer-focus:` and `peer-focus:group-hover:` select different elements), so a reordered guard passed without stopping anything; and `splitClassToken` dropped the `!` modifier, so a plain guard passed beside `!animate-spin`, which wins the cascade. The rule now needs the same variants in the same order (`motion-reduce` anywhere) and a guard at least as important, and its suggestions keep both. `splitClassToken` reports `important`.
+- Not done: the three allowlisted spinner screens wait for their pages' next rework.
+- Verification: see the PR body.
+
 ## 2026-10-09 — Design critique 2026-10: the homepage (PR 3 of the stack; frontend + one additive backend field)
 
 - Scope: canvas 1d (homepage search) on top of PR 2 (#1147).
@@ -9,7 +18,7 @@
 - #1147's seventh Codex round moved this entry's readiness rule (`summaryPlaceholder.ts`) down into the company page and extended it to a stored failure, a writer error that the filing page shows as "Summary temporarily unavailable" whatever the body says. The search's `summary_ready` now excludes it too (`raw_summary.writer_error`, read in the database as `data_quality_service` reads the quality tier), so a result and the lead it opens still agree.
 - #1147's eleventh Codex round gave that rule one precise home, `summary_placeholders.is_summary_ready` (the case-sensitive in-progress marker, failure filler, a writer error, an empty body). The search's `summary_ready` now calls it, so prose about "generating summary reports" counts as a summary there as on the page, and failure filler does not.
 - Codex review, fourth round (P2): the search's `latest_filing` timestamps went out through `isoformat()` (`+00:00` from PostgreSQL, no zone from SQLite), where CLAUDE.md rule 7 asks for `iso_z()`. They now take `iso_z(ensure_utc(…))`, one form from both databases. The client reads only the date part, so nothing it shows changes; the filings list's older `isoformat()` stays as it is.
-- [ ] Next in the stack: PR 4 loading and motion (P-09).
+- [x] Next in the stack: PR 4 loading and motion (P-09).
 
 ## 2026-10-09 — Design critique 2026-10: the company page (PR 2 of the stack; frontend)
 
