@@ -1,32 +1,51 @@
 import { test, expect, type Locator, type Page } from '@playwright/test'
-import { answerApi, type Theme, type Who } from './fixtures/filing3Api'
+import { API_ORIGIN, answerApi, type Theme, type Who } from './fixtures/filing3Api'
 
 /**
  * EN-05c: every keyboard stop in the site chrome shows the brand focus ring (DESIGN_SYSTEM.md §4,
  * `shadow-ring-brand` / `shadow-ring-brand-dark`), never the browser's default outline, in both themes,
  * in a real Chromium. On main the logo link, the theme toggle, the filing page's "← Back", the mobile
  * menu button and its links, the account and notification menus' items, the page header's back link,
- * the footer's Logo.dev link and the auth header's logo drew Chromium's `outline: auto` instead.
+ * the footer's Logo.dev link and the auth header's logo drew Chromium's `outline: auto` instead, and so
+ * did the verification banner's two buttons and the cookie-consent bar's and settings dialog's Privacy
+ * links, while the dialog's checkboxes drew @tailwindcss/forms' blue ring around the brand one.
  *
  * Each case walks the page with the keyboard (Tab from the top, Enter to open a menu) and reads the
- * computed style of every stop it passes: the ring's box-shadow present and no visible outline (the
- * recipe's `outline-none` is a 2px transparent outline). The static gate is
- * tests/unit/siteChromeFocusRing.spec.ts; this is the rendered proof. CI runs e2e with no backend
+ * computed style of every stop it passes: the ring's box-shadow present, no other visible shadow layer,
+ * and no visible outline (the recipe's `outline-none` is a 2px transparent outline). The static gate is
+ * tests/unit/siteChromeFocusRing.spec.ts, which sees class names; this is the rendered proof of what
+ * they compute to (the tokens, the dark variant, a plugin's base style). CI runs e2e with no backend
  * (lessons/test-e2e-runs-without-backend.md): fixtures/filing3Api.ts answers the API in the browser.
  * Computed style only: nobody looked at a screen here, and this is not a contrast measurement.
  */
 
 const RING: Record<Theme, string> = { light: 'rgba(79, 122, 99, 0.5)', dark: 'rgba(127, 178, 149, 0.55)' }
 
-async function visit(page: Page, baseURL: string, path: string, who: Who, theme: Theme) {
+/** `firstVisit`: no consent stored (the bar shows) and a signed-in user who has not verified (the banner shows). */
+async function visit(page: Page, baseURL: string, path: string, who: Who, theme: Theme, firstVisit = false) {
   await answerApi(page, baseURL, who)
-  await page.addInitScript((t) => {
-    try {
-      localStorage.setItem('theme', t)
-      localStorage.setItem('en:copilot-coachmark-v1', '1')
-      localStorage.setItem('cookie_consent', JSON.stringify({ essential: true, analytics: false, sessionRecording: false, timestamp: new Date().toISOString() }))
-    } catch {}
-  }, theme)
+  if (firstVisit) {
+    // Registered after answerApi's catch-all, so it answers /api/auth/me first.
+    await page.route(
+      (url) => url.origin === API_ORIGIN && url.pathname === '/api/auth/me',
+      (route) =>
+        route.fulfill({
+          status: 200,
+          headers: { 'access-control-allow-origin': new URL(baseURL).origin, 'access-control-allow-credentials': 'true' },
+          json: { id: 2, email: 'new@example.com', full_name: 'New User', is_pro: false, is_beta: false, is_admin: false, email_verified: false },
+        }),
+    )
+  }
+  await page.addInitScript(
+    ({ t, consent }) => {
+      try {
+        localStorage.setItem('theme', t)
+        localStorage.setItem('en:copilot-coachmark-v1', '1')
+        if (consent) localStorage.setItem('cookie_consent', JSON.stringify({ essential: true, analytics: false, sessionRecording: false, timestamp: new Date().toISOString() }))
+      } catch {}
+    },
+    { t: theme, consent: !firstVisit },
+  )
   await page.goto(path)
 }
 
@@ -44,22 +63,37 @@ const current = (page: Page): Promise<Stop> =>
     if (!el || el === document.body) return { name: 'BODY', focusVisible: false, boxShadow: '', outline: '' }
     const s = getComputedStyle(el)
     const visibleOutline = s.outlineStyle !== 'none' && s.outlineColor !== 'rgba(0, 0, 0, 0)' && s.outlineWidth !== '0px'
+    const labelledBy = el.getAttribute('aria-labelledby')
+    const label = labelledBy ? document.getElementById(labelledBy)?.textContent : null
     return {
-      name: (el.getAttribute('aria-label') ?? el.textContent ?? '').trim().replace(/\s+/g, ' ').slice(0, 40),
+      name: (el.getAttribute('aria-label') ?? label ?? el.textContent ?? '').trim().replace(/\s+/g, ' ').slice(0, 40),
       focusVisible: el.matches(':focus-visible'),
       boxShadow: s.boxShadow,
       outline: visibleOutline ? `${s.outlineStyle} ${s.outlineWidth} ${s.outlineColor}` : 'none',
     }
   })
 
-/** The stop shows the brand ring for `theme` and no outline (polled: some controls transition box-shadow). */
+/**
+ * The box-shadow layers other than `theme`'s ring that show: not transparent and not 0px all round. The
+ * shadow utilities compose with Tailwind's ring variables, so a layer here is another ring drawn with the
+ * brand one (the forms plugin's blue ring on a checkbox was one).
+ */
+const otherShadows = (boxShadow: string, theme: Theme) =>
+  boxShadow
+    .split(/,(?![^(]*\))/)
+    .map((layer) => layer.trim())
+    .filter((layer) => layer && layer !== 'none' && !layer.includes(RING[theme]))
+    .filter((layer) => !layer.startsWith('rgba(0, 0, 0, 0)') && !/ 0px 0px 0px 0px( inset)?$/.test(layer))
+
+/** The stop shows the brand ring for `theme`, nothing else, and no outline (polled: some controls transition box-shadow). */
 async function expectRing(page: Page, theme: Theme) {
   await expect
     .poll(async () => {
       const s = await current(page)
-      return `${s.name} | focus-visible ${s.focusVisible} | ring ${s.boxShadow.includes(RING[theme])} | outline ${s.outline}`
+      const others = otherShadows(s.boxShadow, theme)
+      return `${s.name} | focus-visible ${s.focusVisible} | ring ${s.boxShadow.includes(RING[theme])} | other shadows ${others.join(' + ') || 'none'} | outline ${s.outline}`
     })
-    .toMatch(/\| focus-visible true \| ring true \| outline none$/)
+    .toMatch(/\| focus-visible true \| ring true \| other shadows none \| outline none$/)
 }
 
 /**
@@ -134,6 +168,30 @@ for (const theme of ['light', 'dark'] as const) {
         await page.keyboard.press('Tab')
         await expect(logoDev).toBeFocused()
         await expectRing(page, theme)
+      })
+
+      test('a first visit by an unverified user: the verification banner, the consent bar, its settings dialog', async ({ page, baseURL }) => {
+        await visit(page, baseURL!, '/pricing', 'pro', theme, true)
+        const resend = page.getByRole('button', { name: 'Resend link' })
+        const bar = page.getByRole('region', { name: 'Cookie consent' })
+        await expect(resend).toBeVisible()
+        await expect(bar).toBeVisible()
+        // The banner sits under the header: Tab from the top through it.
+        const banner = resend.locator('..')
+        const stops = await tabThrough(page, theme, [banner], banner.getByRole('button', { name: 'Dismiss' }))
+        expect(stops).toEqual(['Resend link', 'Dismiss'])
+        // The bar comes after the footer in the DOM: from the footer's last link, Tab to its Privacy link.
+        await page.locator('footer a').last().focus()
+        await tabThrough(page, theme, [bar], bar.getByRole('link', { name: 'Learn more' }), 6)
+        // Its settings dialog, opened by keyboard: every stop once round (the checkboxes, the Privacy link).
+        await bar.getByRole('button', { name: 'Customize' }).focus()
+        await page.keyboard.press('Enter')
+        const dialog = page.getByRole('dialog', { name: 'Cookie Preferences' })
+        await expect(dialog).toBeVisible()
+        await expect(dialog.getByRole('button', { name: 'Close' })).toBeFocused()
+        await expectRing(page, theme)
+        const inDialog = await tabThrough(page, theme, [dialog], dialog.getByRole('button', { name: 'Save Preferences' }), 8)
+        expect(inDialog).toEqual(['Analytics Cookies', 'Session Recording', 'Privacy Policy', 'Cancel', 'Save Preferences'])
       })
 
       test('the auth routes’ header: logo, theme toggle, Back to home', async ({ page, baseURL }) => {

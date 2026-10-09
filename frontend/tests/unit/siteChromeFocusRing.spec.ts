@@ -20,10 +20,17 @@ import { describe, expect, it } from 'vitest'
  * triple must sit in the template's static text. The DS components (<Button>, <Input>) are not scanned
  * here: they own the recipe.
  *
+ * A checkbox or radio also takes off @tailwindcss/forms' own focus ring (`focus:ring-0 focus:ring-offset-0`):
+ * the plugin's base style draws a blue (#2563eb) ring with a white offset on any focus, and the shadow
+ * utilities compose with it, so the triple alone shows the brand ring inside a blue one. A control that
+ * is statically `disabled` is not a Tab stop.
+ *
  * Scope: the chrome a keyboard user tabs through on every route — the skip link, the site header (both
- * widths, its account and notification menus), the theme toggle, the page header with its back link,
- * the footer, and the auth routes' header. A page's own controls are not chrome; the filing page's
- * "← Back" is checked in a real browser (tests/e2e/chrome-focus-ring.spec.ts).
+ * widths, its account and notification menus), the theme toggle, the verification banner under it, the
+ * page header with its back link, the footer, the cookie-consent bar and its settings dialog, and the
+ * auth routes' header (app/layout.tsx mounts the banner and the consent bar beside the header and
+ * footer). A page's own controls are not chrome; the filing page's "← Back" is checked in a real
+ * browser (tests/e2e/chrome-focus-ring.spec.ts).
  */
 const ROOT = path.resolve(__dirname, '../..')
 
@@ -33,8 +40,10 @@ const CHROME_FILES = [
   'components/ThemeToggle.tsx',
   'features/auth/components/UserMenu.tsx',
   'features/notifications/components/NotificationBell.tsx',
+  'features/auth/components/VerificationBanner.tsx',
   'components/SecondaryHeader.tsx',
   'components/Footer.tsx',
+  'components/CookieConsent.tsx',
   'features/auth/components/AuthShell.tsx',
 ]
 
@@ -42,6 +51,8 @@ const RINGS = [
   ['focus-visible:outline-none', 'focus-visible:shadow-ring-brand', 'dark:focus-visible:shadow-ring-brand-dark'],
   ['focus:outline-none', 'focus:shadow-ring-brand', 'dark:focus:shadow-ring-brand-dark'],
 ]
+/** @tailwindcss/forms rings a focused checkbox or radio itself; these take that ring off. */
+const FORMS_RING_OFF = ['focus:ring-0', 'focus:ring-offset-0']
 const INTRINSIC = new Set(['a', 'button', 'input', 'select', 'textarea', 'summary'])
 
 interface Finding {
@@ -88,7 +99,16 @@ function missingRings(source: string, fileName = 'chrome.tsx'): { stops: number;
           ? Number(tabIndex.expression.getText(sf))
           : undefined
       const removed = tabIndexValue !== undefined && tabIndexValue < 0
-      const tabbable = (INTRINSIC.has(tag) || linkNames.has(tag) || (tabIndexValue !== undefined && tabIndexValue >= 0)) && !removed
+      // `disabled` or `disabled={true}`; a dynamic value may be enabled, so it still counts.
+      const disabled = attr('disabled')
+      const staticallyDisabled =
+        disabled !== undefined &&
+        (!disabled.initializer ||
+          (ts.isJsxExpression(disabled.initializer) && disabled.initializer.expression?.kind === ts.SyntaxKind.TrueKeyword))
+      const tabbable =
+        (INTRINSIC.has(tag) || linkNames.has(tag) || (tabIndexValue !== undefined && tabIndexValue >= 0)) && !removed && !staticallyDisabled
+      const typeAttr = attr('type')?.initializer
+      const toggle = tag === 'input' && !!typeAttr && ts.isStringLiteral(typeAttr) && ['checkbox', 'radio'].includes(typeAttr.text)
       if (tabbable) {
         stops += 1
         const line = sf.getLineAndCharacterOfPosition(node.getStart(sf)).line + 1
@@ -98,6 +118,8 @@ function missingRings(source: string, fileName = 'chrome.tsx'): { stops: number;
         else if (tokens === null) findings.push({ line, tag, problem: 'a className the scan cannot read' })
         else if (tokens !== 'factory' && !RINGS.some((ring) => ring.every((t) => tokens.includes(t)))) {
           findings.push({ line, tag, problem: `missing ${RINGS[0].filter((t) => !tokens.includes(t)).join(' ')}` })
+        } else if (toggle && tokens !== 'factory' && !FORMS_RING_OFF.every((t) => tokens.includes(t))) {
+          findings.push({ line, tag, problem: `missing ${FORMS_RING_OFF.filter((t) => !tokens.includes(t)).join(' ')} (the forms plugin's ring)` })
         }
       }
     }
@@ -135,7 +157,7 @@ describe('every Tab stop in the site chrome carries the brand focus ring (EN-05c
     const src = `
       import NextLink from 'next/link'
       import { buttonVariants } from '@/components/ui'
-      export function A({ c }: { c: string }) {
+      export function A({ c, busy }: { c: string; busy: boolean }) {
         return (
           <nav>
             <NextLink href="/" className="flex">logo</NextLink>
@@ -148,17 +170,23 @@ describe('every Tab stop in the site chrome carries the brand focus ring (EN-05c
             <NextLink href="/p" className={buttonVariants({ variant: 'ghost' })}>cta</NextLink>
             <NextLink href="/q" className={\`\${c} ${ring}\`}>ok</NextLink>
             <a href="#main" className="sr-only focus:outline-none focus:shadow-ring-brand dark:focus:shadow-ring-brand-dark">skip</a>
+            <input type="checkbox" className="h-5 w-5 ${ring}" />
+            <input type="radio" className="focus:ring-0 focus:ring-offset-0 ${ring}" />
+            <input type="checkbox" disabled className="h-5 w-5" />
+            <button disabled={busy} className="p-2">busy</button>
           </nav>
         )
       }`
     const { stops, findings } = missingRings(src)
-    expect(stops).toBe(9)
+    expect(stops).toBe(12)
     expect(findings.map((f) => `${f.tag}: ${f.problem}`)).toEqual([
       'NextLink: missing focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark',
       'button: missing dark:focus-visible:shadow-ring-brand-dark',
       'a: no className, so the browser default outline',
       'div: no className, so the browser default outline',
       'button: a className the scan cannot read',
+      "input: missing focus:ring-0 focus:ring-offset-0 (the forms plugin's ring)",
+      'button: missing focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark',
     ])
   })
 })

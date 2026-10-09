@@ -79,7 +79,7 @@ export default function VerificationBanner() {
             onClick={handleResend}
             aria-disabled={loading || undefined}
             aria-busy={loading || undefined}
-            className="inline-flex shrink-0 items-center gap-1.5 font-semibold underline-offset-2 hover:underline aria-disabled:opacity-50"
+            className="inline-flex shrink-0 items-center gap-1.5 rounded-lg font-semibold underline-offset-2 hover:underline aria-disabled:opacity-50 focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark"
           >
             {loading && <CircleNotchIcon className="h-3.5 w-3.5 animate-spin" />}
             Resend link
@@ -89,7 +89,7 @@ export default function VerificationBanner() {
           type="button"
           onClick={handleDismiss}
           aria-label="Dismiss"
-          className="shrink-0 rounded p-1 transition-colors hover:bg-warning-dark/15"
+          className="shrink-0 rounded p-1 transition-colors hover:bg-warning-dark/15 focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark"
         >
           <XIcon className="h-4 w-4" />
         </button>
