@@ -204,8 +204,30 @@ telemetry cost and released the rest. Holds unchanged (1.881713). See `DECISIONS
 | 37 | 2026-10-09T07:48:27Z | reservation (PR #1145, backend test hermeticity, on leaving draft; head `f30ec068`) | headroom 22.302925 | `cb4a7d50…`, 113,220 B (version 38) |
 | 38 | 2026-10-09T07:55:01Z | settlement of 37 (run 37901177082 on `f30ec068`, success: accepted 18 / 18) | actual 0.013699, 36 calls; released 0.046301; use → 0.769061 (944 calls); headroom 22.349226 | `54b94cd8…`, 114,888 B (version 39) |
 
-Cumulative recorded usage after the last event: 3,003 calls / USD 4.553310. Paid dispatch is HELD until the next reservation is
+Cumulative recorded usage after event 38: 3,003 calls / USD 4.553310. Paid dispatch is HELD until the next reservation is
 written. Measured `copilot-eval` runs on comparable code now end … / 0.014129 / 0.006790 / 0.013699; the next `copilot-eval`
 reservation stays at USD 0.060000. `eval-baseline`, first needed by the D3 stage-2 PR (it touches `backend/app/`): four runs on
 other writers' PRs, read from their public job logs, cost 0.351572 / 0.361439 / 0.361183 / 0.351671, so each push that fires it
 is reserved at the dearest × 2, rounded up: USD 0.730000 (`DECISIONS-18.md`).
+
+### Events 39–44 — the D3 stage-2 PR's paid runs (recorded here 2026-10-09T11:54:08Z)
+
+Written by the chief as sole writer under the hash-chain rule, each publish preceded by a readback of the published file and
+followed by a readback with the new hash. Each reservation was written before the action that fired its runs (opening the draft,
+leaving draft, the push of `daab3df1`); exactly the reserved runs fired, and each settlement recorded their actual telemetry cost
+from the public job logs and released the rest. Event 40 records one errored `eval-baseline` call that reported no usage at the
+dearest call of the same run (unknown cost is never zero). Holds unchanged (1.881713). See `DECISIONS-19.md`.
+
+| Event | Written | Kind | Figures | Document after |
+|---|---|---|---|---|
+| 39 | 2026-10-09T09:04:20Z | reservation (PR #1151, `eval-baseline` on opening the draft; head `ffefef67`) | 0.730000; headroom 21.619226 | `d0abc240…`, 117,618 B (version 40) |
+| 40 | 2026-10-09T09:19:54Z | settlement of 39 (run 37909028862, success: 70 of 70 scored) | actual 0.360096 (0.353243 measured + 0.006853 estimated), 71 calls; released 0.369904; use → 1.129157 (1,015 calls); headroom 21.989130 | `f3c18e55…`, 120,052 B (version 41) |
+| 41 | 2026-10-09T09:20:39Z | reservation (PR #1151, `copilot-eval` on leaving draft) | 0.060000; headroom 21.929130 | `7576382e…`, 122,568 B (version 42) |
+| 42 | 2026-10-09T09:26:40Z | settlement of 41 (run 37910693958, success: accepted 18 / 18) | actual 0.012763, 34 calls; released 0.047237; use → 1.141920 (1,049 calls); headroom 21.976367 | `99ea0f46…`, 124,330 B (version 43) |
+| 43 | 2026-10-09T09:38:08Z | reservation (PR #1151, the push of `daab3df1`: one `eval-baseline` 0.730000 and one `copilot-eval` 0.060000) | 0.790000; headroom 21.186367 | `0b97fae0…`, 126,875 B (version 44) |
+| 44 | 2026-10-09T10:02:18Z | settlement of 43 (runs 37912586500, 70 of 70, and 37912586726, accepted 18 / 18) | actual 0.371124 (0.358240 + 0.012884), 104 calls; released 0.418876; use → 1.513044 (1,153 calls); headroom 21.605243 | `54794629…`, 129,259 B (version 45) |
+
+Cumulative recorded usage after the last event: 3,212 calls / USD 5.297293. Paid dispatch is HELD until the next reservation is
+written. Measured `eval-baseline` runs now end … / 0.351671 / 0.360096 / 0.358240 (the dearest still 0.361439), so the next
+reservation stays at USD 0.730000 per push; measured `copilot-eval` runs end … / 0.013699 / 0.012763 / 0.012884, and the next
+stays at USD 0.060000.

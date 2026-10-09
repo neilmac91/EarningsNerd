@@ -16,6 +16,7 @@ When nothing usable remains the headline is ``None`` and the card falls back to 
 from __future__ import annotations
 
 import logging
+import re
 from typing import Any, Optional
 
 from sqlalchemy import desc
@@ -23,6 +24,7 @@ from sqlalchemy.orm import Session, defer, joinedload
 
 from app.models import Filing, Summary, Watchlist
 from app.services import metric_delta_service
+from app.services.copilot_tools import canonical_unit
 from app.services.edgar.models import MetricChange
 from app.services.summary_generation_service import get_generation_progress_snapshot
 from app.services.summary_placeholders import is_summary_placeholder
@@ -109,8 +111,23 @@ def _current_and_prior(
     return cur_value, cur_period, prior_value, cur_tag, prior_tag
 
 
+def reporting_currency(xbrl: Optional[dict]) -> Optional[str]:
+    """A filing's as-filed reporting currency from its stored XBRL, as an ISO 4217 code ("USD",
+    "CNY"). None when the extraction never resolved one."""
+    unit = canonical_unit(xbrl.get("reporting_currency")) if isinstance(xbrl, dict) else None
+    return unit if unit and re.fullmatch(r"[A-Z]{3}", unit) else None
+
+
 def compute_what_changed(current_xbrl: Optional[dict], prior_xbrl: Optional[dict]) -> Optional[dict]:
     """Deterministic period-over-period headline from stored XBRL. None if nothing usable."""
+    # Never difference amounts across reporting currencies. An issuer that changes its reporting
+    # currency restates its comparatives in the new one, so its own filing's comparative stands in
+    # for the prior filing's amounts, and a metric without one is withheld. An unknown currency on
+    # either side proves no change, so the prior filing is used as before.
+    current_currency, prior_currency = reporting_currency(current_xbrl), reporting_currency(prior_xbrl)
+    if current_currency and prior_currency and current_currency != prior_currency:
+        prior_xbrl = None
+
     data: dict[str, tuple[float, Optional[float]]] = {}
     tags: dict[str, tuple[Optional[str], Optional[str]]] = {}
     for metric, _label in _DELTA_METRICS:

@@ -153,7 +153,7 @@ const isPassThrough = (node) => {
  *  of a pass-through method, array elements, spreads, template expressions, `+` operands) stays in
  *  it. Every node it walks is added to `reached`, so the rule evaluates on its own only what no unit
  *  reached, such as the arguments of any other call. */
-function collectStaticText(node, reached, out = [], branch = { parent: null }) {
+export function collectStaticText(node, reached, out = [], branch = { parent: null }) {
   if (!node) return out
   reached.add(node)
   const sub = (child) => collectStaticText(child, reached, out, branch)
@@ -213,6 +213,47 @@ function collectStaticText(node, reached, out = [], branch = { parent: null }) {
 
 const isClassAttribute = (node) =>
   node.type === 'JSXAttribute' && node.name.type === 'JSXIdentifier' && CLASS_ATTRIBUTE.test(node.name.name)
+
+/** The class text each branch renders with: its own pieces plus those of every branch enclosing it,
+ *  up to the always-there text. Siblings never count. */
+export function branchTexts(pieces) {
+  return [...new Set(pieces.map((p) => p.branch))].map((branch) => {
+    const present = new Set()
+    for (let b = branch; b; b = b.parent) present.add(b)
+    return pieces
+      .filter((p) => present.has(p.branch))
+      .map((p) => p.text)
+      .join(' ')
+  })
+}
+
+/** Visitors that hand `check(node, pieces)` every class unit once: a class attribute, a class-helper
+ *  call or, when no unit reached it, a lone template or string literal. ESLint enters a node before
+ *  its descendants, so a unit marks everything it evaluates before any of it is visited on its own;
+ *  a node it did not reach (a function body, a member lookup, a sequence, another call's arguments)
+ *  falls through and is checked alone, so an unmodelled shape is gated, never skipped. Shared by
+ *  every class-string rule (eslint.designRules.mjs too). */
+export function classUnitVisitors(check) {
+  const reached = new WeakSet()
+  const evaluate = (node, value) => {
+    if (!reached.has(node)) check(node, collectStaticText(value, reached))
+  }
+  return {
+    JSXAttribute(node) {
+      if (isClassAttribute(node)) evaluate(node, node.value)
+    },
+    CallExpression(node) {
+      if (isHelperCall(node)) evaluate(node, node)
+    },
+    TemplateLiteral(node) {
+      evaluate(node, node)
+    },
+    Literal(node) {
+      if (typeof node.value === 'string') evaluate(node, node)
+    },
+  }
+}
+
 export const responsiveGridBaseTrack = {
   meta: {
     type: 'problem',
@@ -232,14 +273,8 @@ export const responsiveGridBaseTrack = {
   create(context) {
     // Each branch must pass with the text that renders whenever it does: its own, and that of every
     // branch enclosing it up to the always-there text. Siblings never count.
-    const check = (node, pieces) => {
-      for (const branch of new Set(pieces.map((p) => p.branch))) {
-        const present = new Set()
-        for (let b = branch; b; b = b.parent) present.add(b)
-        const text = pieces
-          .filter((p) => present.has(p.branch))
-          .map((p) => p.text)
-          .join(' ')
+    return classUnitVisitors((node, pieces) => {
+      for (const text of branchTexts(pieces)) {
         const token = clearedTrack(text)
         if (token !== null) {
           context.report({ node, messageId: 'cleared', data: { token } })
@@ -251,29 +286,7 @@ export const responsiveGridBaseTrack = {
           return
         }
       }
-    }
-    // ESLint enters a node before its descendants, so a unit (class attribute, helper call,
-    // template) has marked everything it evaluates before any of it is visited on its own. A node it
-    // did not reach (a function body, a member lookup, a sequence, another call's arguments) falls
-    // through and is checked alone, so an unmodelled shape is gated, never skipped.
-    const reached = new WeakSet()
-    const evaluate = (node, value) => {
-      if (!reached.has(node)) check(node, collectStaticText(value, reached))
-    }
-    return {
-      JSXAttribute(node) {
-        if (isClassAttribute(node)) evaluate(node, node.value)
-      },
-      CallExpression(node) {
-        if (isHelperCall(node)) evaluate(node, node)
-      },
-      TemplateLiteral(node) {
-        evaluate(node, node)
-      },
-      Literal(node) {
-        if (typeof node.value === 'string') evaluate(node, node)
-      },
-    }
+    })
   },
 }
 

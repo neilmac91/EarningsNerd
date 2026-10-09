@@ -2,7 +2,7 @@
 
 One page, newest first, one line per open item with its owner and next step. Holds are pointers,
 never restated here. This file replaced the ledger on 2026-10-07; the ledger is
-`archive/todo-ledger-through-2026-10-07.md` (6,514 lines, June 2026 → closure 169 of 9 October 2026;
+`archive/todo-ledger-through-2026-10-07.md` (6,536 lines, June 2026 → closure 170 of 9 October 2026;
 ledger-format entries merged to `main` after the ledger closed were moved there unchanged) and its
 unchecked rows are history unless an item below carries them. Format: `AGENTS.md` §7. Close an item by
 deleting its line in the PR that closes it; a handover is a refresh of "Where things stand".
@@ -25,8 +25,11 @@ deleting its line in the PR that closes it; a handover is a refresh of "Where th
   `tests/support/network_gate.py` as its gate) and #1149 (record 18) merged on 2026-10-08/09;
   #1151 (D3 stage 2, option A: the API service pinned, the insider endpoint off behind a
   server-side switch, the fuzzy-search fallback deleted) merged and deployed on 2026-10-09, after
-  the founder moved `backfill-facts-weekly` to `30 7 * * 1`; record 18
-  (`code-red-20261004/runtime/control/DECISIONS-18.md`) is the latest CODE RED record.
+  the founder moved `backfill-facts-weekly` to `30 7 * * 1`; #1146 (design critique 2026-10, part 1:
+  the filing page), #1154 (architecture docs) and #1155 (record 19) merged on 2026-10-09; record 19
+  (`code-red-20261004/runtime/control/DECISIONS-19.md`) is the latest CODE RED record, and it notes
+  for the CPO that `eval-baseline`'s `mean_citation_fidelity` read 0.83–0.86 against its 0.9648
+  baseline on all six runs of 2026-10-09 (advisory).
 - Review and models: PRs are reviewed by risk tier (`AGENTS.md` §5); `review-gate.yml` needs a Codex
   review or a `Review override:` line; Codex reviews again since 2026-10-07, so the override
   exception rests while it does (CODE RED record 15). Marking a PR ready for review triggers the
@@ -46,7 +49,9 @@ Founder:
 - [ ] Publish an archive repository or release asset for the removed `frontend/design/landing-redesign` export (a public-account action); until then its 34 files are preserved at commit `02628e5`.
 
 Engineering:
-- [ ] CODE RED chief: confirm #1151's pins after its deploy (`deploy-backend` green on 2026-10-09 at 11:40 UTC, run 37924352506): Ops `describe-service` prints both SEC limits and `ENABLE_INSIDER_ACTIVITY` for the serving revision and the pregenerate job, `describe-jobs` lists the env names on each job, and admin `/metrics` shows `sec_rate_limiter.requests_per_second` (`docs/OPERATIONS.md`, "SEC budgets per process").
+- [ ] CODE RED chief: after Monday 2026-10-12, read the 06:00–08:00 UTC window, the first with the whole fleet pinned and `backfill-facts` at 07:30, with the read-only `capacity-readout`: SEC errors, breaker opens, job outcomes (`DECISIONS-19.md`).
+- [ ] CODE RED chief (small): `ops.yml` `describe-jobs` and `describe-service` print the two SEC pin values for every job and the task worker, with the visibility test extended; no operation reads them back today (`DECISIONS-19.md`).
+- [ ] Design critique 2026-10, the rest of the stack (#1146 was part 1, the filing page): PR 2 company page (1b: filings-index patches 0001–0002, identity on the lead, Compare periods card; removes the two pinned lint disables), PR 3 homepage (1d: search listbox identity line with backend support, single-surface example, trust strip), PR 4 loading and motion (P-09); outside the repo, P-01 republish the design-system package in Claude Design (ledger, "2026-10-09 — Design critique 2026-10").
 - [ ] Workflow owner: `review-gate.yml:61` re-runs the gate on any comment containing "@codex review", Codex's own summary boilerplate included, which cancelled a required run on PR #1131 (`DECISIONS-17.md`); exclude the Codex connector's comments.
 - [ ] Once #1123 merges: `backend/evals/RUNBOOK.md`'s live-acceptance paragraph says `ready_for_review` and later non-draft pushes start the `copilot-eval` run; add that this holds only for a PR inside the workflow's `paths:` filter. A docs PR: the file is under `backend/`, so it deploys (#1123 review rounds 34–35).
 - [ ] Security review packages WP-07 onward, each in its own PR (PR #1069 series).
