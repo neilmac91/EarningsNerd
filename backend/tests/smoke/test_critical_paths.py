@@ -143,6 +143,27 @@ class TestRootEndpoint:
 class TestCompanyEndpoints:
     """Test company-related endpoints."""
 
+    @pytest.fixture(autouse=True)
+    def _no_live_providers(self, monkeypatch):
+        """Stub the two network seams these routes call so the smoke stays hermetic.
+
+        Search asks SEC for its ticker list (compat._get_cached_tickers -> www.sec.gov) and falls
+        through to edgartools find() on no match; trending/search quote every row via Yahoo. Stub
+        search_company itself (an empty ticker fixture would still reach edgartools) and the
+        quote function the router resolves by global name at call time.
+        """
+        import app.routers.companies as companies_router
+        from app.services.edgar.compat import sec_edgar_service
+
+        async def no_results(query):
+            return []
+
+        async def no_quote(ticker):
+            return None
+
+        monkeypatch.setattr(sec_edgar_service, "search_company", no_results)
+        monkeypatch.setattr(companies_router, "get_stock_quote", no_quote)
+
     def test_company_search_endpoint_exists(self, client):
         """Company search endpoint should exist and respond."""
         # Search with a valid query

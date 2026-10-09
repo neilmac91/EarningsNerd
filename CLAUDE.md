@@ -159,7 +159,8 @@ Infra: `docker-compose up -d postgres redis` (local only — prod has no Redis).
   Next ISR/server fetches. Blob downloads via `lib/downloadBlob.ts`.
 - **Tests:** `backend/tests/{unit,integration,smoke,performance}` (config + markers in
   `backend/pytest.ini`; conftest auto-sets hermetic mock env incl. `SKIP_REDIS_INIT=true` — patch
-  `settings`, not env vars) and `frontend/tests/{unit,e2e}`. NO other test roots — a test outside
+  `settings`, not env vars — and registers `tests/support/network_gate.py`: a test that reaches a
+  non-loopback host fails, so fake the SEC/Yahoo boundary) and `frontend/tests/{unit,e2e}`. NO other test roots — a test outside
   these does not run in CI. Gate: `frontend/tests/unit/testHomesAllowlist.spec.ts`; its one
   exemption is a hash-sealed judging fixture pinned by a `code-sha256.json` in its package
   (offline proof run by the operator, not by CI).
