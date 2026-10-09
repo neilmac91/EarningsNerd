@@ -151,13 +151,16 @@ Infra: `docker-compose up -d postgres redis` (local only — prod has no Redis).
 
 ## Where things live
 
-- **Backend:** `app/routers/` = HTTP only; `app/services/` = business logic. `services/ai/` holds
-  the AI internals (extraction, json_repair, section_recovery, markdown_render, xbrl_narrative,
-  copilot_chat, …) behind the `openai_service.py` façade. `services/summary_stages/` holds the stages
-  of the ONE orchestrator (`summary_pipeline.stream_filing_summary` is the stage map); a stage reaches
-  every collaborator as `summary_pipeline.<name>` so test patches on the pipeline module keep working
-  (gate: `tests/unit/test_summary_stages_seams.py`). `services/edgar/` owns the SEC service
-  layer; existing EFTS (`integrations/sec_api.py`) and companyfacts (`services/facts_service.py`)
+- **Backend:** `app/routers/` = HTTP only (per-router ORM ceilings, lowered by each thinning PR:
+  `tests/unit/test_router_orm_ceilings_allowlist.py`); `app/services/` = business logic, free of
+  fastapi/starlette outside a 3-file allow-list (`tests/unit/test_services_http_free_allowlist.py`).
+  `services/ai/` holds the AI internals (extraction, json_repair, section_recovery,
+  markdown_render, xbrl_narrative, copilot_chat, …) behind the `openai_service.py` façade.
+  `services/summary_stages/` holds the stages of the ONE orchestrator
+  (`summary_pipeline.stream_filing_summary` is the stage map); a stage reaches every collaborator as
+  `summary_pipeline.<name>` so test patches on the pipeline module keep working (gate:
+  `tests/unit/test_summary_stages_seams.py`). `services/edgar/` owns the SEC service layer;
+  existing EFTS (`integrations/sec_api.py`) and companyfacts (`services/facts_service.py`)
   raw-HTTP fetches share the limiter/backoff without the breaker.
   `app/integrations/` = third-party APIs (alpha_vantage, sec_api; finnhub/fmp/stocktwits were torn down in #657 and `test_dead_integrations_allowlist.py` keeps them gone).
 - **Frontend:** `features/<domain>/` = domain code (api/ + components/ + hooks/).

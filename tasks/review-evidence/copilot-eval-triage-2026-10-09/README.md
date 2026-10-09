@@ -1,6 +1,6 @@
 # Replay tool for the copilot-eval triage rule, generation-aware (2026-10-09)
 
-`f_attribution.py` here (sha256 `43a7e8638def21be0ba65796d5276a9af0030cf1e8bf91b57f2636eaa77238ee`) is
+`f_attribution.py` here (sha256 `22dd3061ece406135db34176e87ada12ace8907b1a4613ca22bf7753ff43a9fb`) is
 the replay tool that `backend/evals/RUNBOOK.md` names for condition (3) of the triage rule for a red
 copilot-eval run. It succeeds `../f-quote-containment-2026-10-01/f1-attribution-2026-10-02/f_attribution.py`
 (sha256 `a88162d7…`). That copy is unchanged, because preregistrations and scope hashes pin it. Like its
@@ -41,6 +41,9 @@ which caused two problems:
    - an unverified citation, then a quotation;
    - a record the replay does not reproduce;
    - a row that recovers on its second generation (the aggregate trace still cannot recover).
+5. A run without a report is refused (exit 2). An empty list wrote a zero-row report and exited 0, which
+   met condition (3) without replaying a row (Codex review on #1166). Added after the validation below,
+   which ran the earlier revision (sha256 `43a7e863…`); it changes nothing for one or more reports.
 
 ## Validation on real reports (`replay-red-runs.txt`)
 
