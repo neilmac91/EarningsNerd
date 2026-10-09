@@ -15,6 +15,7 @@ const baseReport: ChangeReport = {
     ],
     data_quality: 'ok',
   },
+  reporting_currency: 'USD',
   risks: { new: ['Cybersecurity breach exposure'], resolved: ['Legacy litigation overhang'], carried_count: 7 },
   key_changes: 'Revenue accelerated while margins compressed on higher R&D investment.',
   has_changes: true,
@@ -169,6 +170,36 @@ describe('WhatChanged (A5)', () => {
     expect(screen.getByText('$6.11')).toBeInTheDocument()
     expect(screen.getByText('$5.61')).toBeInTheDocument()
     expect(container.querySelectorAll('table svg')).toHaveLength(0)
+  })
+
+  describe('amounts in the filer’s own currency', () => {
+    // The items are raw XBRL amounts in the filer's reporting currency; a foreign filer's are not dollars.
+    const items: ChangeReport['metrics'] = {
+      ...baseReport.metrics!,
+      items: [
+        { metric: 'revenue', label: 'Revenue', direction: 'up', pct: 21.2, current: 45.1e12, prior: 37.2e12, display: '+21.2%', tone: 'gain' },
+        { metric: 'eps_diluted', label: 'Diluted EPS', direction: 'up', pct: 103.9, current: 365.94, prior: 179.47, display: '+103.9%', tone: 'gain' },
+      ],
+    }
+
+    it('labels them with the reporting currency the report names', () => {
+      render(<WhatChanged report={{ ...baseReport, metrics: items, reporting_currency: 'JPY' }} />)
+      const table = within(document.querySelector<HTMLElement>('[data-change-layout="table"]')!)
+      expect(table.getByRole('row', { name: /Revenue/ })).toHaveTextContent(/¥37\.2T\s*¥45\.1T/)
+      expect(table.getByRole('row', { name: /Diluted EPS/ })).toHaveTextContent(/¥179\.47\s*¥365\.94/)
+      expect(document.body.textContent).not.toContain('$')
+    })
+
+    it('shows them unlabelled, never as dollars, when the currency is unknown', () => {
+      for (const reporting_currency of [null, undefined]) {
+        const { unmount } = render(<WhatChanged report={{ ...baseReport, metrics: items, reporting_currency }} />)
+        const table = within(document.querySelector<HTMLElement>('[data-change-layout="table"]')!)
+        expect(table.getByRole('row', { name: /Revenue/ })).toHaveTextContent(/37\.2T\s*45\.1T/)
+        expect(table.getByRole('row', { name: /Diluted EPS/ })).toHaveTextContent(/179\.47\s*365\.94/)
+        expect(document.body.textContent).not.toMatch(/[$¥]/)
+        unmount()
+      }
+    })
   })
 
   it('states the comparison as a sentence, never as an uppercase eyebrow', () => {

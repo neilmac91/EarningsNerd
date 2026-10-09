@@ -5,7 +5,7 @@ import { useParams } from 'next/navigation'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { getFiling, Filing } from '@/features/filings/api/filings-api'
 import { originalDocumentUrl } from '@/features/filings/lib/originalDocumentUrl'
-import { saveSummary, getSavedSummaryStatus, type Summary } from '@/features/summaries/api/summaries-api'
+import { saveSummary, getSavedSummaryStatus, type ChangeReport, type Summary } from '@/features/summaries/api/summaries-api'
 import AskCopilotRail from '@/features/filings/components/copilot/AskCopilotRail'
 import FilingViewer from '@/features/filings/components/copilot/FilingViewer'
 import FilingWorkspace from '@/features/filings/components/copilot/FilingWorkspace'
@@ -43,9 +43,11 @@ interface FilingSeedProps {
    * the backend confirmed no summary exists; `undefined` means unknown (client refetches). */
   initialFiling?: Filing
   initialSummary?: Summary | null
+  /** The change report, read with them, so What changed is in the first render (no late insert). */
+  initialChangeReport?: ChangeReport
 }
 
-function FilingDetailView({ filingId, initialFiling, initialSummary }: { filingId: number } & FilingSeedProps) {
+function FilingDetailView({ filingId, initialFiling, initialSummary, initialChangeReport }: { filingId: number } & FilingSeedProps) {
   // debug/demo URL flags. Read post-hydration from window.location rather than useSearchParams():
   // this page statically renders (ISR), and a useSearchParams() outside Suspense would bail the
   // whole tree out of the server HTML — the exact thing the SSR seeds exist for. Both flags only
@@ -334,6 +336,7 @@ function FilingDetailView({ filingId, initialFiling, initialSummary }: { filingI
               isAuthenticated={isAuthenticated}
               onRetry={handleRegenerateSummary}
               onAsk={handleAskCopilot}
+              initialChangeReport={initialChangeReport}
             />
           ) : isAuthResolved && !isAuthenticated && filing && !summaryLoading ? (
             // No displayable summary (query settled) + signed out: generation requires an account,
@@ -377,7 +380,7 @@ function FilingDetailView({ filingId, initialFiling, initialSummary }: { filingI
   )
 }
 
-export default function FilingPageClient({ initialFiling, initialSummary }: FilingSeedProps = {}) {
+export default function FilingPageClient({ initialFiling, initialSummary, initialChangeReport }: FilingSeedProps = {}) {
   const params = useParams()
   const identifier = params.id as string
   const isTickerView = !/^\d+$/.test(identifier)
@@ -387,5 +390,12 @@ export default function FilingPageClient({ initialFiling, initialSummary }: Fili
   }
 
   const filingId = parseInt(identifier, 10)
-  return <FilingDetailView filingId={filingId} initialFiling={initialFiling} initialSummary={initialSummary} />
+  return (
+    <FilingDetailView
+      filingId={filingId}
+      initialFiling={initialFiling}
+      initialSummary={initialSummary}
+      initialChangeReport={initialChangeReport}
+    />
+  )
 }

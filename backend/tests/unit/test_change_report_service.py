@@ -117,6 +117,24 @@ class TestAssembleReport:
         # metrics may still come from the current filing's in-instance comparative (none here)
         assert out["has_changes"] in (True, False)
 
+    def test_reporting_currency_labels_the_raw_amounts(self):
+        # The items carry raw XBRL amounts in the filer's own currency: a yen filer's report must say
+        # JPY so the client never prints its amounts as dollars.
+        yen = SimpleNamespace(**{**vars(self.CURRENT_FILING), "filing_type": "20-F",
+                                 "xbrl_data": {**self.CURRENT_FILING.xbrl_data, "reporting_currency": "jpy"}})
+        assert svc.assemble_report(yen, self.PRIOR_FILING, None, None)["reporting_currency"] == "JPY"
+        rmb = SimpleNamespace(**{**vars(yen), "xbrl_data": {**yen.xbrl_data, "reporting_currency": "RMB"}})
+        assert svc.assemble_report(rmb, None, None, None)["reporting_currency"] == "CNY"
+
+    def test_reporting_currency_is_none_when_unknown_or_malformed(self):
+        assert svc.assemble_report(self.CURRENT_FILING, None, None, None)["reporting_currency"] is None
+        for bad in ("", "US Dollars", "USD/shares", "pure", 840, None):
+            filing = SimpleNamespace(**{**vars(self.CURRENT_FILING),
+                                        "xbrl_data": {**self.CURRENT_FILING.xbrl_data, "reporting_currency": bad}})
+            assert svc.assemble_report(filing, None, None, None)["reporting_currency"] is None, bad
+        no_xbrl = SimpleNamespace(id=5, filing_type="10-K", filing_date=None, period_end_date=None, xbrl_data=None)
+        assert svc.assemble_report(no_xbrl, None, None, None)["reporting_currency"] is None
+
     def test_10k_is_year_over_year(self):
         cf = SimpleNamespace(id=5, filing_type="10-K", filing_date=None, period_end_date=None, xbrl_data=None)
         out = svc.assemble_report(cf, None, None, None)

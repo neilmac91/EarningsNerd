@@ -3,7 +3,7 @@ import type { ReactNode } from 'react'
 import { ArrowSquareOutIcon } from '@/lib/icons'
 import { cx } from '@/components/ui'
 import type { Filing } from '@/features/filings/api/filings-api'
-import { periodLabel } from '@/features/filings/lib/filingPeriod'
+import { periodKind, periodLabel } from '@/features/filings/lib/filingPeriod'
 import { originalDocumentUrl } from '@/features/filings/lib/originalDocumentUrl'
 import SupersededFilingNotice from '@/features/filings/components/SupersededFilingNotice'
 import { formatCompanyName } from '@/lib/formatCompanyName'
@@ -38,9 +38,10 @@ function periodPhrase(filing: Pick<Filing, 'filing_type' | 'report_date'>): stri
   return label ? label.charAt(0).toLowerCase() + label.slice(1) : null
 }
 
-/** "10-K · fiscal year ended Sep 24, 2022": the current page's crumb. */
+/** "10-K · Sep 24, 2022", the period's end: the current page's crumb. An 8-K's report date is an
+ *  event's, not a period's end, so its crumb names the filed date instead. */
 export function filingCrumb(filing: Pick<Filing, 'filing_type' | 'report_date' | 'filing_date'>): string {
-  const ended = formatLocalDate(filing.report_date, 'MMM d, yyyy')
+  const ended = periodKind(filing.filing_type) === 'event' ? '' : formatLocalDate(filing.report_date, 'MMM d, yyyy')
   const filed = formatLocalDate(filing.filing_date, 'MMM d, yyyy')
   return ended ? `${filing.filing_type} · ${ended}` : filed ? `${filing.filing_type} · filed ${filed}` : filing.filing_type
 }

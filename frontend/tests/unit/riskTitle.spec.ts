@@ -113,6 +113,21 @@ describe('excerptHeadings', () => {
     ).toEqual(['Item 1A', 'Item 1A (2)', 'Item 1A (3)'])
   })
 
+  it('stays unique when a clause itself ends in an occurrence number', () => {
+    expect(excerptHeadings(['Foo bar (2). One.', 'Foo bar. Two.', 'Foo bar. Three.'])).toEqual([
+      'Foo bar (2)',
+      'Foo bar',
+      'Foo bar (3)',
+    ])
+  })
+
+  it('keeps the filing’s own casing: the heading is its words, not a recased copy', () => {
+    expect(excerptHeadings(['iPhone net sales depend on new models. More.', 'eBay-style marketplaces compete.'])).toEqual([
+      'iPhone net sales depend on new models',
+      'eBay-style marketplaces compete',
+    ])
+  })
+
   it('falls back to the positional label for an excerpt with nothing to read', () => {
     expect(excerptHeadings(['…', 'Real text.'])).toEqual(['Risk 1', 'Real text'])
   })

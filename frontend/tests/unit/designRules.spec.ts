@@ -47,6 +47,9 @@ ruleTester.run('no-side-stripe', noSideStripe, {
     "<div className={cx('rounded-lg', quote && 'border-t')} />",
     // Siblings never combine: the stripe and the rounding are on different branches.
     "<div className={cx(a ? 'border-l-4' : 'rounded-xl')} />",
+    // A hairline-width border on a Card is a divider, not a stripe; a stripe on an unrounded element passes.
+    '<Card className="border-l p-4" />',
+    '<Section className="border-l-4 p-4" />',
   ],
   invalid: [
     { code: '<div className="rounded-r-lg border-l-4 shadow-e1" />', errors: [{ messageId: 'stripe' }] },
@@ -56,6 +59,9 @@ ruleTester.run('no-side-stripe', noSideStripe, {
     { code: "<div className={cx('rounded-xl p-4', flagged && 'border-l-4')} />", errors: [{ messageId: 'stripe' }] },
     // A class constant is checked on its own.
     { code: "const CARD = 'border-l-8 rounded-lg'", errors: [{ messageId: 'stripe' }] },
+    // Card rounds itself (its recipe sets the radius), so the stripe alone is the stripe card.
+    { code: '<Card className="border-l-4 border-l-warning-light p-4" />', errors: [{ messageId: 'stripe' }] },
+    { code: "<ui.Card className={cx('p-4', flagged && 'border-l-4')} />", errors: [{ messageId: 'stripe' }] },
   ],
 })
 
@@ -64,6 +70,9 @@ ruleTester.run('no-form-code-badge', noFormCodeBadge, {
     '<Badge variant="brand">Full summary</Badge>',
     '<span className="font-data font-semibold">{filing.filing_type}</span>',
     '<Badge variant="warning">Partial</Badge>',
+    // Descriptive props may name the form: they describe the badge, they are not its content.
+    '<Badge variant="warning" title={`Amends the ${filing.filing_type}`}>Superseded</Badge>',
+    '<Badge aria-label={`${filing.form_type} superseded`}>Superseded</Badge>',
   ],
   invalid: [
     { code: '<Badge variant="neutral">{filing.filing_type}</Badge>', errors: [{ messageId: 'badge' }] },
@@ -74,6 +83,10 @@ ruleTester.run('no-form-code-badge', noFormCodeBadge, {
     },
     { code: '<Badge>10-Q</Badge>', errors: [{ messageId: 'badge' }] },
     { code: "<Badge>{'20-F/A'}</Badge>", errors: [{ messageId: 'badge' }] },
+    // A form field by its short name, a template literal, and the member-expression spelling.
+    { code: '<Badge>{f.form}</Badge>', errors: [{ messageId: 'badge' }] },
+    { code: '<Badge>{`10-K`}</Badge>', errors: [{ messageId: 'badge' }] },
+    { code: '<ui.Badge variant="neutral">{filing.filing_type}</ui.Badge>', errors: [{ messageId: 'badge' }] },
   ],
 })
 

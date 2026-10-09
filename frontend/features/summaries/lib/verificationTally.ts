@@ -6,8 +6,11 @@ import type { Summary } from '@/features/summaries/api/summaries-api'
  * figures "matched the company's XBRL", excerpts "located in the filing text", the rest "withheld";
  * never "verified" without saying against what.
  *
- * - figures: the Financial highlights rows (every `metrics` block), matched = rows whose value the
- *   server matched against the SEC-filed XBRL value (`source_verified`, the chip's "SEC XBRL").
+ * - figures: the Financial highlights rows (every `metrics` block) the server could check at all
+ *   (`source_checkable`: a concept it maps, of at least $1M), and of those the rows whose value it
+ *   matched against the SEC-filed XBRL value (`source_verified`, the chip's "SEC XBRL"). Per-share
+ *   figures, ratios, margins and segment lines are never checked, so they are never counted as
+ *   misses. A payload from before the flag yields no figures count rather than a wrong one.
  * - excerpts: the source-first risk projection's own counts (backend provenance_service).
  *
  * Null when neither applies, so a legacy summary shows no tally rather than a zero.
@@ -30,8 +33,9 @@ export function verificationTally(summary: Summary | null | undefined): Verifica
     .flatMap((section) => section.blocks)
     .filter((block) => block.kind === 'metrics')
     .flatMap((block) => block.metric_rows ?? [])
-  const figures = rows.length > 0
-    ? { matched: rows.filter((row) => row.source_verified === true).length, total: rows.length }
+  const checkable = rows.filter((row) => row.source_checkable === true)
+  const figures = checkable.length > 0
+    ? { matched: checkable.filter((row) => row.source_verified === true).length, total: checkable.length }
     : null
 
   const raw = summary.raw_summary

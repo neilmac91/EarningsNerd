@@ -518,6 +518,9 @@ export interface ChangeReport {
   comparison_basis: string | null
   prior_filing: PriorFilingRef | null
   metrics: WhatChangedMetrics | null
+  /** The filer's as-filed reporting currency ("USD", "JPY", an ISO 4217 code): every metric item's
+   *  current/prior amount is in it. Null (or absent, from an older backend) when unknown. */
+  reporting_currency?: string | null
   risks: RiskDiff | null
   /** @deprecated T1.6: always null — the What-changed lead is now metrics.headline; kept for API compat. */
   key_changes: string | null

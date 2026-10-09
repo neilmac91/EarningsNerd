@@ -60,7 +60,7 @@ const FilingViewerContext = createContext<FilingViewerContextValue | null>(null)
  * sibling `FilingViewer` is visible, loads, and scrolls to the cited text, or shows its truthful empty
  * state when the filing has no in-app text yet. The open is a direct call from the activation, never
  * an effect on the request nonce: a pane the user closed can therefore never reopen on its own from a
- * stale request (EN-01). The `[Answer · Filing]` tabs flip `activeView` directly, and `openFiling()`
+ * stale request (EN-01). The `[Filing · Ask]` tabs flip `activeView` directly, and `openFiling()`
  * opens the filing view with no citation (the viewer just loads the full filing). Kept tiny (a request
  * channel + view state + the opener) so it doesn't couple the chip, the tabs, and the viewer beyond
  * the citation payload. Nothing here reads plan or auth state: source access is the same for every

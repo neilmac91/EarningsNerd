@@ -2,7 +2,7 @@ import type { Filing } from '@/features/filings/api/filings-api'
 import { formatLocalDate } from '@/lib/format'
 
 /**
- * What a filing covers, for the filing index (features/filings/components/FilingIndex.tsx).
+ * What a filing covers: the period phrase of the filing identity strip and the filings index rows.
  *
  * The row's NAME is its period of report — "Quarter ended Jul 26, 2026", "Fiscal year ended Jan 25,
  * 2026" — because that is what an analyst searches by; the filed date sits in its own column.
@@ -20,7 +20,9 @@ const ANNUAL_FORMS = ['10-K', '20-F', '40-F']
 /** Display order for the form filter; unknown forms sort to the end, alphabetically. */
 export const FORM_ORDER = ['10-K', '10-Q', '20-F', '6-K', '40-F']
 
-export type PeriodKind = 'annual' | 'quarter' | 'period'
+/** `event`: a current report (8-K), whose report date is the date of the earliest event it
+ *  reports, not the end of a period. */
+export type PeriodKind = 'annual' | 'quarter' | 'period' | 'event'
 
 /** The form without its amendment suffix: '10-K/A' → '10-K'. */
 export function baseForm(filingType: string): string {
@@ -35,6 +37,7 @@ export function periodKind(filingType: string): PeriodKind {
   const form = baseForm(filingType).toUpperCase()
   if (ANNUAL_FORMS.includes(form)) return 'annual'
   if (form === '10-Q') return 'quarter'
+  if (form === '8-K') return 'event'
   return 'period'
 }
 
@@ -42,6 +45,7 @@ const LEAD: Record<PeriodKind, string> = {
   annual: 'Fiscal year ended',
   quarter: 'Quarter ended',
   period: 'Period ended',
+  event: 'Event date',
 }
 
 /** "Quarter ended Jul 26, 2026"; null when the filing has no usable period of report. */

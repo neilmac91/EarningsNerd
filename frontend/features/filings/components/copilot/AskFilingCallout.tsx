@@ -32,12 +32,13 @@ export default function AskFilingCallout({ filingType, subjectLabel, onAsk }: As
           <ChatCircleTextIcon className="h-5 w-5" aria-hidden="true" />
         </span>
         <div className="min-w-0">
-          <h3
+          {/* h2: a sibling of the summary's sections (each an h2), not a subsection of the last one. */}
+          <h2
             id="ask-filing-callout-heading"
             className="text-base font-semibold text-text-primary-light dark:text-text-primary-dark"
           >
             Ask {subjectLabel} anything
-          </h3>
+          </h2>
           <p className="mt-0.5 text-sm text-text-secondary-light dark:text-text-secondary-dark">
             Get plain-English answers, each cited to the exact filing text. Try a starter question:
           </p>

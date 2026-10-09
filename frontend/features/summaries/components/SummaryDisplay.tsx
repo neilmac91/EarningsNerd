@@ -7,7 +7,7 @@ import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import AiDisclaimer from '@/components/AiDisclaimer'
 import type { Filing } from '@/features/filings/api/filings-api'
-import { getWhatChanged, type Summary } from '@/features/summaries/api/summaries-api'
+import { getWhatChanged, type ChangeReport, type Summary } from '@/features/summaries/api/summaries-api'
 import { WhatChanged } from '@/features/filings/components/WhatChanged'
 import AskFilingCallout from '@/features/filings/components/copilot/AskFilingCallout'
 import { SummaryBlocks } from '@/features/summaries/components/SummaryBlocks'
@@ -58,6 +58,8 @@ export interface SummaryDisplayProps {
   onRetry?: () => void
   /** Opens the Copilot rail with an optional pre-filled question; `surface` attributes the entry point. */
   onAsk: (prefill: string, surface: string) => void
+  /** The server-read change report: What changed renders with the summary, not after it. */
+  initialChangeReport?: ChangeReport
 }
 
 export function SummaryDisplay({
@@ -71,6 +73,7 @@ export function SummaryDisplay({
   isAuthenticated,
   onRetry,
   onAsk,
+  initialChangeReport,
 }: SummaryDisplayProps) {
   const markdownContent = summary.business_overview || ''
   // S4 honest degradation, decoupled: ALWAYS strip internal failure notices (they're not
@@ -90,10 +93,13 @@ export function SummaryDisplay({
 
   // A5 "What Changed": deterministic period-over-period diff (metric deltas, risk changes, key
   // changes). DB-only/cheap on the backend; only renders when there's something material to report.
+  // Seeded from the server read, so the section is in the first render: a late insert pushed every
+  // later section down and renumbered the table of contents.
   const { data: changeReport } = useQuery({
     queryKey: queryKeys.whatChanged(filing.id),
     queryFn: () => getWhatChanged(filing.id),
     staleTime: 10 * 60 * 1000,
+    initialData: initialChangeReport,
   })
 
   const fallbackMessage = 'Summary temporarily unavailable. Please retry.'
@@ -234,7 +240,8 @@ export function SummaryDisplay({
 
       {metadata?.action_items && Array.isArray(metadata.action_items) && metadata.action_items.length > 0 && (
         <Card as="section" className="p-6">
-          <h3 className="text-lg font-semibold text-text-primary-light dark:text-text-primary-dark mb-1">Suggested follow-ups</h3>
+          {/* h2, like the summary's sections: it follows them as a sibling, not inside the last one. */}
+          <h2 className="text-lg font-semibold text-text-primary-light dark:text-text-primary-dark mb-1">Suggested follow-ups</h2>
           <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark mb-3">Tap a question to ask the Copilot.</p>
           <ul className="space-y-2">
             {metadata.action_items.map((item: string, index: number) => (

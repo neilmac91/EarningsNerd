@@ -5,7 +5,7 @@ import { Card, cx } from '@/components/ui'
 import type { ChangeReport, WhatChangedMetricItem } from '@/features/summaries/api/summaries-api'
 import { periodKind } from '@/features/filings/lib/filingPeriod'
 import { directionText } from '@/lib/financialTone'
-import { fmtCurrency, formatLocalDate } from '@/lib/format'
+import { fmtCurrency, fmtScale, formatLocalDate } from '@/lib/format'
 
 /**
  * A5 "What Changed": a calm, deterministic period-over-period change report — a numbered section of
@@ -46,16 +46,22 @@ const GLYPH: Record<WhatChangedMetricItem['direction'], string> = { up: '▲', d
 
 const SUBHEADING = { h2: 'h3', h3: 'h4', h4: 'h5' } as const
 const PER_SHARE = /eps|per_share/i
-const PERIOD_NOUN = { annual: 'year', quarter: 'quarter', period: 'period' } as const
+// An 8-K (`event`) has no change report; its noun is here only to keep the map total.
+const PERIOD_NOUN = { annual: 'year', quarter: 'quarter', period: 'period', event: 'period' } as const
 
 const INK = 'text-text-primary-light dark:text-text-primary-dark'
 const MUTED = 'text-text-secondary-light dark:text-text-secondary-dark'
 const HAIRLINE = 'border-border-light dark:border-white/10'
 
-/** Formatting only (no client math): "$394.3B"; per-share figures keep cents ("$6.11"). */
-function figure(item: WhatChangedMetricItem, value: number | null): string {
+/** Formatting only (no client math), in the filer's own reporting currency: "$394.3B", "¥37.2T";
+ *  per-share figures keep cents ("$6.11"). The amounts are raw XBRL values in that currency (a
+ *  foreign filer reports in its own), so an unknown currency shows them unlabelled ("394.3B"),
+ *  never as dollars. */
+function figure(item: WhatChangedMetricItem, value: number | null, currency: string | null | undefined): string {
   if (value == null || !Number.isFinite(value)) return '—'
-  return PER_SHARE.test(item.metric) ? fmtCurrency(value, { digits: 2, compact: false }) : fmtCurrency(value)
+  const perShare = PER_SHARE.test(item.metric)
+  if (currency) return perShare ? fmtCurrency(value, { currency, digits: 2, compact: false }) : fmtCurrency(value, { currency })
+  return perShare ? fmtScale(value, { digits: 2 }) : fmtScale(value)
 }
 
 /** The served change: its direction glyph, then the display string, both in the tone's ink. */
@@ -86,7 +92,7 @@ export function WhatChanged({
   bare?: boolean
 }) {
   if (!report.has_changes) return null
-  const { metrics, risks, comparison_basis: basis, prior_filing: prior } = report
+  const { metrics, risks, comparison_basis: basis, prior_filing: prior, reporting_currency: currency } = report
   const Sub = SUBHEADING[Heading]
   const priorEnded = prior?.period_end_date ? formatLocalDate(prior.period_end_date, 'MMM d, yyyy') : ''
 
@@ -141,8 +147,8 @@ export function WhatChanged({
                 {metrics.items.map((item) => (
                   <tr key={item.metric} className={cx('border-t', HAIRLINE)}>
                     <th scope="row" className={cx('py-2.5 pr-4 text-left font-medium', INK)}>{item.label}</th>
-                    <td className={cx('py-2.5 pl-4 text-right font-data tabular-nums', MUTED)}>{figure(item, item.prior)}</td>
-                    <td className={cx('py-2.5 pl-4 text-right font-data tabular-nums', INK)}>{figure(item, item.current)}</td>
+                    <td className={cx('py-2.5 pl-4 text-right font-data tabular-nums', MUTED)}>{figure(item, item.prior, currency)}</td>
+                    <td className={cx('py-2.5 pl-4 text-right font-data tabular-nums', INK)}>{figure(item, item.current, currency)}</td>
                     <td className="whitespace-nowrap py-2.5 pl-4 text-right font-data font-semibold tabular-nums">
                       <Change item={item} />
                     </td>
@@ -165,10 +171,10 @@ export function WhatChanged({
                 <div className={cx('flex flex-wrap items-baseline justify-between gap-x-3 text-xs', MUTED)}>
                   <span className="font-data tabular-nums">
                     <span className="sr-only">Prior </span>
-                    {figure(item, item.prior)}
+                    {figure(item, item.prior, currency)}
                     <span aria-hidden="true"> → </span>
                     <span className="sr-only">, current </span>
-                    {figure(item, item.current)}
+                    {figure(item, item.current, currency)}
                   </span>
                   <span>{READ_AS[item.tone] ?? READ_AS.flat}</span>
                 </div>

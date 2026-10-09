@@ -124,7 +124,9 @@ function HeroExample({
               </span>
               <span className="font-data text-xs text-text-secondary-light dark:text-text-secondary-dark">
                 {data.ticker}
+                {/* The middot is visual only; assistive tech hears a comma, not "AAPL10-K". */}
                 <span aria-hidden="true"> · </span>
+                <span className="sr-only">, </span>
                 {/* The form is text in the data face, never a Badge (2026-10 critique P-04). */}
                 <span className="font-semibold text-text-primary-light dark:text-text-primary-dark">{data.filingType}</span>
               </span>

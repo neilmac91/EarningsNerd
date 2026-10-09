@@ -349,12 +349,15 @@ Filing identity  <FilingIdentity filing>  (features/filings, 2026-10 critique P-
                  a breadcrumb to the company (focus-ringed links), the company as the page h1 with its ticker
                  in the data face (hairline pill on panel), a marker only when true (Superseded), then ONE
                  data-face line: form (font-semibold ink) · period of report ("fiscal year ended Sep 24,
-                 2022", from report_date — fiscal-year labels wait for XBRL dei fields) · filed date ·
+                 2022", from report_date — fiscal-year labels wait for XBRL dei fields; an 8-K's report
+                 date is its event's, "event date Oct 27, 2022", and its crumb names the filed date) · filed date ·
                  exchange · "Original on SEC EDGAR ↗" (sage ink, brand-hairline underline). Middots are
                  aria-hidden with an sr-only comma. No form Badge, no "AI analysis" chip. Its `children` slot
                  takes the verification tally (VerificationTallyLine): scoped counts only — "6 of 6
-                 highlighted figures matched the company's XBRL · 3 of 4 risk excerpts located in the filing
-                 text · 1 withheld"; the check glyph only when nothing was left unmatched.
+                 checkable figures matched the company's XBRL · 3 of 4 risk excerpts located in the filing
+                 text · 1 withheld"; the check glyph only when nothing was left unmatched. Checkable = the
+                 rows the server could check (`source_checkable`: a concept it maps, of at least $1M);
+                 per-share figures, ratios, margins and segment lines are never counted as misses.
 
 Section ledger   <SummaryBlocks>  (P-05/P-07) — sections sit on the page ground with no card: index + h2 (see
                  §3), body `space-y-4`, `space-y-11` between sections; the sticky TOC sits on the reading
@@ -385,9 +388,10 @@ Provenance chip  <SourceTrace>  (P-10) — `sourceTraceChipClass(selected)`: 12p
                  its 16px leading + 1px padding + 1px hairline (no fixed or min height, so a long label wraps
                  in a phone card), 16px radius (a pill on one line, a rounded box when wrapped), panel fill,
                  secondary ink, hover brightens. Glyph = what it cites: `quotes` for a filing passage, braces
-                 (`kind="xbrl"`, MetricSourceLink) for an XBRL figure, the arrow for "Cited". The chip whose
-                 passage the open pane shows is `selected`: brand tint + aria-current (the highlight request's
-                 sourceId + the viewer context's paneOpen). Labels and accessible names are unchanged
+                 (`kind="xbrl"`, MetricSourceLink) for an XBRL figure, the arrow for "Cited". The chip the open
+                 pane's Filing view is answering is `selected`: brand tint + aria-current (the highlight
+                 request's sourceId + the viewer context's paneOpen), whether the pane shows its passage or
+                 says why it cannot (text not in-app yet, passage not pinpointed). Labels and accessible names are unchanged
                  ("Source: Verified in filing").
 
 Source pane      <FilingWorkspace>  (P-06) — the research pane is named for the source: header "Source" + the

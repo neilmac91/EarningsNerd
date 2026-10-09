@@ -5,6 +5,7 @@ import FilingPageClient from './page-client'
 import {
   fetchFilingServer,
   fetchFilingSummaryServer,
+  fetchWhatChangedServer,
   summaryHasDisplayableContent,
   toExcerpt,
 } from '@/lib/serverApi'
@@ -133,9 +134,10 @@ export default async function FilingPage({ params }: FilingPageProps) {
   if (!isNumericId(id)) return <FilingPageClient />
 
   const filingId = Number(id)
-  const [filingResult, summaryResult] = await Promise.all([
+  const [filingResult, summaryResult, changeResult] = await Promise.all([
     fetchFilingServer(filingId),
     fetchFilingSummaryServer(filingId),
+    fetchWhatChangedServer(filingId),
   ])
 
   // Real 404 status for unknown filing ids (was a 200 "Filing not found" soft-404).
@@ -144,6 +146,8 @@ export default async function FilingPage({ params }: FilingPageProps) {
   const filing = filingResult.status === 'ok' ? filingResult.data : undefined
   // `null` = confirmed no summary; `undefined` = unknown (backend unreachable) → client refetches.
   const summary = summaryResult.status === 'ok' ? summaryResult.data : undefined
+  // Unknown (backend unreachable) leaves the client to fetch it, as before.
+  const changeReport = changeResult.status === 'ok' ? changeResult.data : undefined
 
   return (
     <>
@@ -153,7 +157,7 @@ export default async function FilingPage({ params }: FilingPageProps) {
           dangerouslySetInnerHTML={{ __html: JSON.stringify(buildJsonLd(filing)) }}
         />
       )}
-      <FilingPageClient initialFiling={filing} initialSummary={summary} />
+      <FilingPageClient initialFiling={filing} initialSummary={summary} initialChangeReport={changeReport} />
     </>
   )
 }

@@ -278,7 +278,7 @@ export default function FilingWorkspace({
             {!open && (
               <>
                 {/* "Source ⌘K" (P-06): a secondary control, panel fill and hairline, floating over
-                    the page with the e3 lift; the kbd hint reads at 9.6:1 on its cream key, never
+                    the page with the e3 lift; the kbd hint reads at 9.3:1 on its cream key, never
                     white on cream again. No sparkle: the pane is the source, not a chat feature. */}
                 <button
                   ref={launcherRef}

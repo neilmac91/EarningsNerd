@@ -16,7 +16,9 @@ describe('periodLabel: the filing index row name', () => {
     ['20-F', 'Fiscal year ended Jul 26, 2026'],
     ['40-F', 'Fiscal year ended Jul 26, 2026'],
     ['6-K', 'Period ended Jul 26, 2026'],
-    ['8-K', 'Period ended Jul 26, 2026'],
+    // A current report's date is its event's, never a period's end.
+    ['8-K', 'Event date Jul 26, 2026'],
+    ['8-K/A', 'Event date Jul 26, 2026'],
   ])('%s → %s', (filing_type, label) => {
     expect(periodLabel({ filing_type, report_date: AT })).toBe(label)
   })
@@ -42,6 +44,8 @@ describe('form helpers', () => {
     expect(periodKind('20-F/A')).toBe('annual')
     expect(periodKind('10-Q')).toBe('quarter')
     expect(periodKind('6-K')).toBe('period')
+    expect(periodKind('8-K')).toBe('event')
+    expect(periodKind('8-K/A')).toBe('event')
   })
 
   it('orders the form filter canonically, unknown forms last and alphabetical, without duplicates', () => {
