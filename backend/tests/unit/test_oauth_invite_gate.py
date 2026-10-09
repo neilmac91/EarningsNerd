@@ -39,8 +39,9 @@ APP_DIR = Path(__file__).resolve().parents[2] / "app"
 ACCOUNT_CREATION_MODULES = (
     APP_DIR / "routers" / "auth.py",
     APP_DIR / "services" / "auth_account_service.py",
+    APP_DIR / "services" / "oauth_account_service.py",
 )
-GATE_HELPER = "_oauth_new_account_gate"
+GATE_HELPER = "oauth_new_account_gate"
 # register()'s insert. Ungated by design: register() runs the invite gate before calling it.
 PASSWORD_ACCOUNT_CREATOR = "create_password_account"
 VALID_PASSWORD = "Sup3rSecretPassw0rd"  # >=12 chars, upper+lower+digit; test fixture, not a credential  # gitleaks:allow
