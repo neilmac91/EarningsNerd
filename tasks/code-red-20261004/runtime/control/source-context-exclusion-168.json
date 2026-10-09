@@ -6,7 +6,7 @@
   },
   "previous_count": 506,
   "all_previous_entries_preserved": true,
-  "exclusion_count": 531,
+  "exclusion_count": 532,
   "excluded_context_ids": [
     "/root",
     "/root/beta_measurement",
@@ -538,7 +538,8 @@
     "claude-code-workflow:wf_41c365bd-3e9:ab731ba5acc23e6a6:refute:plan",
     "claude-code-subagent:session_01GWYV7WXWstgVGQG43YcSM8:launched-2026-10-08T1929Z:d3-sec-budget-delta-reviewer-01",
     "claude-code-subagent:session_01GWYV7WXWstgVGQG43YcSM8:launched-after-this-record:record-17-reviewer-01",
-    "claude-code-subagent:session_01GWYV7WXWstgVGQG43YcSM8:launched-after-this-record:test-hermeticity-pr-01"
+    "claude-code-subagent:session_01GWYV7WXWstgVGQG43YcSM8:launched-after-this-record:test-hermeticity-pr-01",
+    "claude-code-subagent:session_01GWYV7WXWstgVGQG43YcSM8:launched-after-this-record:record-17-delta-reviewer-01"
   ],
   "new_actual_contexts": [
     "claude-code-subagent:session_01GWYV7WXWstgVGQG43YcSM8:launched-2026-10-08T1758Z:record-16-reviewer-01",
@@ -567,7 +568,8 @@
   ],
   "new_provisional_contexts": [
     "claude-code-subagent:session_01GWYV7WXWstgVGQG43YcSM8:launched-after-this-record:record-17-reviewer-01",
-    "claude-code-subagent:session_01GWYV7WXWstgVGQG43YcSM8:launched-after-this-record:test-hermeticity-pr-01"
+    "claude-code-subagent:session_01GWYV7WXWstgVGQG43YcSM8:launched-after-this-record:test-hermeticity-pr-01",
+    "claude-code-subagent:session_01GWYV7WXWstgVGQG43YcSM8:launched-after-this-record:record-17-delta-reviewer-01"
   ],
   "new_context_roles": {
     "claude-code-subagent:session_01GWYV7WXWstgVGQG43YcSM8:launched-2026-10-08T1758Z:record-16-reviewer-01": "Single isolated read-only reviewer of PR #1129 (record 16) launched 2026-10-08T17:58Z (transcript 2026-10-08T17:58:46.248Z to 2026-10-08T18:44:34.349Z; requested model inherited from the chief session; served model not observable by the chief): NO BLOCKER on b8f737b0 (6 should-fix and 7 nits, applied in ace8e31b), deltas NO BLOCKER on ace8e31b (1 should-fix, 5 nits and one data.sec.gov connection to attribute, applied in 3c4eb1a1) and 3c4eb1a1 (2 nits, applied in 331827d6), final delta NO BLOCKER bound to 331827d6; resolves closure 166's provisional label record-16-reviewer-01; management context — never a source, reconciliation or judging role",
@@ -594,17 +596,18 @@
     "claude-code-workflow:wf_41c365bd-3e9:ab731ba5acc23e6a6:refute:plan": "adversarial refuter of the judged plan (refute:plan) of the chief's read-only D3 stage-2 design investigation (workflow wf_41c365bd-3e9; transcript 2026-10-08T19:31:08.503Z to 2026-10-08T19:48:46.394Z; probes offline, sockets disabled or fake transports): findings in DECISIONS-17; registered under closure 167's label d3-stage-2-pr-01, which stays provisional; management context — never a source, reconciliation or judging role",
     "claude-code-subagent:session_01GWYV7WXWstgVGQG43YcSM8:launched-2026-10-08T1929Z:d3-sec-budget-delta-reviewer-01": "Single isolated read-only delta reviewer of PR #1131 (D3 stage 1) launched 2026-10-08T19:29Z (transcript 2026-10-08T19:29:39.697Z to 2026-10-08T19:51:14.837Z; one context across three checks; targeted tests under the network guard; mutation scripts in scratchpad copies only): no blocker on 31a6132a (1 should-fix, 5 nits, applied in f307a12d), no blocker on f307a12d (2 nits: one fixed in cf64574d, one recorded as a known gate limit), NO BLOCKER bound to cf64574d; resolves part of closure 166's label d3-sec-budget-pr-01; management context — never a source, reconciliation or judging role",
     "claude-code-subagent:session_01GWYV7WXWstgVGQG43YcSM8:launched-after-this-record:record-17-reviewer-01": "Provisional label: the single isolated read-only reviewer of the record-17 PR (one context for the review and its deltas), launched after this closure is recorded; resolved to its launch-time identity in the next closure; management context — never a source, reconciliation or judging role",
-    "claude-code-subagent:session_01GWYV7WXWstgVGQG43YcSM8:launched-after-this-record:test-hermeticity-pr-01": "Provisional label: the contexts of the backend test-hermeticity PR (the 11 tests that send live requests to SEC and Yahoo Finance made hermetic, and an outbound-network block in the test configuration as the rule-12 gate; DECISIONS-16 and DECISIONS-17): its read-only investigation workflow over the repository's tests and code, the lean three-lens review (refuters only for blocker or should-fix findings) and its single delta reviewer (one context), launched after this closure is recorded; no network beyond GitHub reads and no full test suite outside the network guard; resolved to launch-time identities in a later closure; management context — never a source, reconciliation or judging role"
+    "claude-code-subagent:session_01GWYV7WXWstgVGQG43YcSM8:launched-after-this-record:test-hermeticity-pr-01": "Provisional label: the contexts of the backend test-hermeticity PR (the 11 tests that send live requests to SEC and Yahoo Finance made hermetic, and an outbound-network block in the test configuration as the rule-12 gate; DECISIONS-16 and DECISIONS-17): its read-only investigation workflow over the repository's tests and code, the lean three-lens review (refuters only for blocker or should-fix findings) and its single delta reviewer (one context), launched after this closure is recorded; no network beyond GitHub reads and no full test suite outside the network guard; resolved to launch-time identities in a later closure; management context — never a source, reconciliation or judging role",
+    "claude-code-subagent:session_01GWYV7WXWstgVGQG43YcSM8:launched-after-this-record:record-17-delta-reviewer-01": "Provisional label: a fresh single isolated read-only delta reviewer of the record-17 PR (one context for the delta checks of the amended head and any later head), needed because record-17-reviewer-01's context ended with a container restart after it returned its verdict; launched after this amended closure is pushed; resolved to its launch-time identity in the next closure; management context — never a source, reconciliation or judging role"
   },
   "provisional_labels_resolved": {
     "claude-code-subagent:session_01GWYV7WXWstgVGQG43YcSM8:launched-after-this-record:record-16-reviewer-01": "resolved to claude-code-subagent:session_01GWYV7WXWstgVGQG43YcSM8:launched-2026-10-08T1758Z:record-16-reviewer-01",
     "claude-code-subagent:session_01GWYV7WXWstgVGQG43YcSM8:launched-after-this-record:d3-sec-budget-pr-01": "resolved to the 13 launch-time identities registered by this closure: the six investigation agents of workflow wf_6eb86498-eec, the three lens and three refuter contexts of workflow wf_4ccc6fc9-a48, and the delta reviewer claude-code-subagent:session_01GWYV7WXWstgVGQG43YcSM8:launched-2026-10-08T1929Z:d3-sec-budget-delta-reviewer-01"
   },
   "annotations": {
-    "claude-code-subagent:session_01GWYV7WXWstgVGQG43YcSM8:launched-2026-10-08T1758Z:record-16-reviewer-01": "Disclosed side effects (DECISIONS-17, from its transcript): 19 read-only gh api GET requests to GitHub; one read of the session proxy's status page; the runtime-records gate and git apply --check run inside scratchpad copies; scratchpad writes (its tools directory); no repository write, no SEC or provider request; no eligibility change.",
-    "claude-code-workflow:wf_41c365bd-3e9:a65a69d7b824ceeed:read:history-and-constraints": "Disclosed (DECISIONS-17): three read-only gh api GET requests to GitHub for the insider service's commit history; no eligibility change.",
+    "claude-code-subagent:session_01GWYV7WXWstgVGQG43YcSM8:launched-2026-10-08T1758Z:record-16-reviewer-01": "Disclosed side effects (DECISIONS-17, from its transcript): 19 commands issuing 39 read-only gh api GET requests to GitHub; one read of the session proxy's status page; the runtime-records gate and git apply --check run inside scratchpad copies; scratchpad writes (its tools directory); no repository write, no SEC or provider request; no eligibility change.",
+    "claude-code-workflow:wf_41c365bd-3e9:a65a69d7b824ceeed:read:history-and-constraints": "Disclosed (DECISIONS-17): 3 commands issuing 7 read-only gh api GET requests to GitHub (the insider service's commit history and PR #330's title and body); no eligibility change.",
     "claude-code-workflow:wf_41c365bd-3e9:ab731ba5acc23e6a6:refute:plan": "Disclosed deviation (DECISIONS-17): ran five targeted test files (89 passed) in the chief's scratchpad worktree without the network guard; none of them is among the 11 tests that make outbound requests; the run modified that worktree's gitignored backend/earningsnerd.db; no repository write, no SEC request; no eligibility change.",
-    "claude-code-subagent:session_01GWYV7WXWstgVGQG43YcSM8:launched-after-this-record:d3-stage-2-pr-01": "Partly launched, not resolved: the nine identities of the stage-2 design workflow wf_41c365bd-3e9 (2026-10-08 18:06-19:48Z) are registered by this closure. No agent of it ran the full test suite or made an SEC request; the only network use was three read-only GitHub GETs (read:history-and-constraints). The label stays provisional for the stage-2 PR's remaining contexts (investigation, three-lens review with refuters, delta reviewer), whose scope follows the founder's stage-2 decision (DECISIONS-17)."
+    "claude-code-subagent:session_01GWYV7WXWstgVGQG43YcSM8:launched-after-this-record:d3-stage-2-pr-01": "Partly launched, not resolved: the nine identities of the stage-2 design workflow wf_41c365bd-3e9 (2026-10-08 18:06-19:48Z) are registered by this closure. No agent of it ran the full test suite or made an SEC request; the only network use was 7 read-only GitHub GETs in 3 commands (read:history-and-constraints). The label stays provisional for the stage-2 PR's remaining contexts (investigation, three-lens review with refuters, delta reviewer), whose scope follows the founder's stage-2 decision: option A, guard then pin (DECISIONS-17)."
   },
   "conventions": {
     "workflow_lens_labels": "A review workflow's lens contexts are registered as claude-code-workflow:<run>:<agentId>:<record>-review-lens-<lens>-01 while the workflow journal labels the same agent ids review:<lens>; the agent id is the identity, the label is descriptive (applies to closures 157 and 159; stated here per the record-10 review nit)."
@@ -616,6 +619,6 @@
   "h20_complete": 19,
   "h20_partial": 5,
   "dossiers": "3/30",
-  "scope": "Append-only: resolution of closure 166's record-16-reviewer-01 label to its launch-time identity and of its d3-sec-budget-pr-01 label to 13 launch-time identities (the D3 port investigation's six agents, the stage-1 review's six and its delta reviewer); registration of the nine identities of the D3 stage-2 design workflow under closure 167's d3-stage-2-pr-01 label, which stays provisional; pre-registration of the record-17 reviewer and the test-hermeticity PR's contexts before launch. No context gains source A/B, reconciliation or blind financial judging eligibility; all earlier identities and adverse histories retained.",
-  "recorded_at": "2026-10-08T20:30:18.632811+00:00"
+  "scope": "Append-only: resolution of closure 166's record-16-reviewer-01 label to its launch-time identity and of its d3-sec-budget-pr-01 label to 13 launch-time identities (the D3 port investigation's six agents, the stage-1 review's six and its delta reviewer); registration of the nine identities of the D3 stage-2 design workflow under closure 167's d3-stage-2-pr-01 label, which stays provisional; pre-registration of the record-17 reviewer, its delta reviewer and the test-hermeticity PR's contexts before launch. No context gains source A/B, reconciliation or blind financial judging eligibility; all earlier identities and adverse histories retained. Amended in place before merge (never on main) after record-17-reviewer-01's review: the side-effect counts corrected and the record-17 delta reviewer pre-registered; prior_record and every earlier entry unchanged.",
+  "recorded_at": "2026-10-09T06:14:32.230170+00:00"
 }
