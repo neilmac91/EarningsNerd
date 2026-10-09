@@ -5,6 +5,8 @@ import Link from 'next/link'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 
 import CompanySearch from '@/features/companies/components/CompanySearch'
+import { getCompany } from '@/features/companies/api/companies-api'
+import { tickerShaped } from '@/features/companies/lib/tickerShape'
 import CompanyLogo from '@/components/CompanyLogo'
 import { Badge, Button, Card, Notice, Skeleton } from '@/components/ui'
 import { getCurrentUserSafe } from '@/features/auth/api/auth-api'
@@ -44,9 +46,31 @@ import TrendCharts from './TrendCharts'
  * instantly, then the AI narrative streams in with source-linked citations. Free users get the full
  * picker plus the PeekLocked sample instead of live results (zero AI cost, maximum clarity about
  * what Pro unlocks).
+ *
+ * `?ticker=` (the homepage's "Try it on Apple" links to /analysis?ticker=AAPL) preselects that
+ * company and nothing more: a run costs AI, so only the user's "Run analysis" starts one.
  */
 export default function AnalysisPageClient() {
-  const [ticker, setTicker] = useState<string | null>(null)
+  // The linked ticker is read after hydration, as the filing page reads its URL flags: this page
+  // renders statically, and useSearchParams() outside Suspense would drop it from the server HTML.
+  // A malformed value is never sent; a ticker-shaped one is resolved through the company API before
+  // the page trusts it, so an unknown ticker leaves the empty picker.
+  const [linkedTicker, setLinkedTicker] = useState<string | null>(null)
+  useEffect(() => {
+    const linked = tickerShaped(new URLSearchParams(window.location.search).get('ticker'))
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- one-shot post-hydration read of the URL; reading window.location during render would mismatch the server HTML
+    if (linked) setLinkedTicker(linked)
+  }, [])
+  const { data: linkedCompany } = useQuery({
+    queryKey: queryKeys.company(linkedTicker ?? ''),
+    queryFn: () => getCompany(linkedTicker as string),
+    enabled: !!linkedTicker,
+    retry: false,
+    staleTime: 10 * 60 * 1000,
+  })
+  // The user's own pick always wins, including one made while the link resolves.
+  const [pickedTicker, setPickedTicker] = useState<string | null>(null)
+  const ticker = pickedTicker ?? (linkedCompany?.ticker ? linkedCompany.ticker.toUpperCase() : null)
   const [mode, setMode] = useState<AnalysisMode>('annual')
   const [range, setRange] = useState<PeriodRange | null>(null)
   const [dataset, setDataset] = useState<AnalysisDataset | null>(null)
@@ -105,7 +129,7 @@ export default function AnalysisPageClient() {
     (nextTicker: string) => {
       resetResults()
       setMode('annual')
-      setTicker(nextTicker.toUpperCase())
+      setPickedTicker(nextTicker.toUpperCase())
     },
     [resetResults]
   )
@@ -239,7 +263,8 @@ export default function AnalysisPageClient() {
   const paywalled = narrative.status === 'error' && isAnalysisPaywallError(narrative.error || '')
 
   return (
-    <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-8 sm:px-6">
+    // The page's one <main> landmark (the root layout's #main is a non-landmark skip-link target).
+    <main className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-8 sm:px-6">
       <header className="flex flex-col gap-1">
         <div className="flex items-center gap-2">
           <h1 className="text-2xl font-semibold text-text-primary-light dark:text-text-primary-dark">
@@ -391,6 +416,6 @@ export default function AnalysisPageClient() {
         </Link>
         .
       </AiDisclaimer>
-    </div>
+    </main>
   )
 }
