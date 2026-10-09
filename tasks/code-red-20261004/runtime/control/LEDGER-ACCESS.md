@@ -188,6 +188,24 @@ rest. Holds unchanged (1.881713). See `DECISIONS-17.md`.
 | 35 | 2026-10-08T19:30:48Z | reservation (PR #1131, D3 stage 1, on leaving draft; head at writing `31a6132a`) | headroom 22.309715 | `3667842a…`, 108,881 B (version 36) |
 | 36 | 2026-10-08T20:07:32Z | settlement of 35 (run 37836232244 on `cf64574d`, success: accepted 18 / 18) | actual 0.006790, 36 calls; released 0.053210; use → 0.755362 (908 calls); headroom 22.362925 | `f138dc97…`, 110,613 B (version 37) |
 
-Cumulative recorded usage after the last event: 2,967 calls / USD 4.539611. Paid dispatch is HELD until the next reservation is
+Cumulative recorded usage after event 36: 2,967 calls / USD 4.539611. Paid dispatch is HELD until the next reservation is
 written. Measured `copilot-eval` runs on comparable code now end … / 0.013696 / 0.014129 / 0.006790; the next reservation stays
 at the dearest measured run × 2 (USD 0.060000) unless a dearer run is measured.
+
+### Events 37–38 — the test-hermeticity PR's paid run (recorded here 2026-10-09T08:25:13Z)
+
+Written by the chief as sole writer under the hash-chain rule, each publish preceded by a readback of the published file and
+followed by a readback with the new hash. Event 37 reserved USD 0.060000 (dearest measured comparable run 0.025568 × headroom
+factor 2, rounded up) before PR #1145 left draft at `f30ec068`; exactly one run fired. Event 38 recorded that run's actual
+telemetry cost and released the rest. Holds unchanged (1.881713). See `DECISIONS-18.md`.
+
+| Event | Written | Kind | Figures | Document after |
+|---|---|---|---|---|
+| 37 | 2026-10-09T07:48:27Z | reservation (PR #1145, backend test hermeticity, on leaving draft; head `f30ec068`) | headroom 22.302925 | `cb4a7d50…`, 113,220 B (version 38) |
+| 38 | 2026-10-09T07:55:01Z | settlement of 37 (run 37901177082 on `f30ec068`, success: accepted 18 / 18) | actual 0.013699, 36 calls; released 0.046301; use → 0.769061 (944 calls); headroom 22.349226 | `54b94cd8…`, 114,888 B (version 39) |
+
+Cumulative recorded usage after the last event: 3,003 calls / USD 4.553310. Paid dispatch is HELD until the next reservation is
+written. Measured `copilot-eval` runs on comparable code now end … / 0.014129 / 0.006790 / 0.013699; the next `copilot-eval`
+reservation stays at USD 0.060000. `eval-baseline`, first needed by the D3 stage-2 PR (it touches `backend/app/`): four runs on
+other writers' PRs, read from their public job logs, cost 0.351572 / 0.361439 / 0.361183 / 0.351671, so each push that fires it
+is reserved at the dearest × 2, rounded up: USD 0.730000 (`DECISIONS-18.md`).
