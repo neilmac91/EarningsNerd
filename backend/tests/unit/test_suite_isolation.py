@@ -1,4 +1,5 @@
-"""Each pytest process owns a private, Postgres-like SQLite database (gates for the parallel suite).
+"""Each pytest process owns a private, PostgreSQL-like SQLite database, and process state set by one
+test never reaches the next (gates for the parallel, order-independent suite).
 
 ``backend/tests/conftest.py`` points ``DATABASE_URL`` at a fresh temp directory before any app import:
 one per session, and one per pytest-xdist worker, because every worker is its own process. Without it
@@ -11,10 +12,15 @@ test (or the app lifespan of an earlier ``TestClient``) having created its table
 The same conftest gives SQLite tables AUTOINCREMENT ids. PostgreSQL never hands out a sequence value
 twice; SQLite's default max(rowid)+1 re-issues a deleted test's id to the next test, where a child row
 the first test left behind (SQLite here enforces no foreign keys) silently joins the new parent.
+
+Conftest's autouse resets are pinned by probe pairs: one test leaves the state dirty, the next asserts
+the clean default. Under ``-n auto`` and random order a pair can land on two workers or run reversed,
+which proves nothing, so ``test_isolation_probes_hold_in_a_fresh_serial_process`` runs every probe in
+a fixed order in one fresh process.
 """
 import os
 import stat
-import subprocess  # nosec B404 - runs this repo's own pytest on one node of this file
+import subprocess  # nosec B404 - runs this repo's own pytest on fixed nodes of the suite
 import sys
 import tempfile
 from pathlib import Path
@@ -26,8 +32,20 @@ from sqlalchemy.orm import Session
 from app.config import settings
 from app.database import Base, SessionLocal, engine
 from app.models import Company
+from tests.support.summary_stream_harness import CANONICAL_PAYLOAD
 
 BACKEND_DIR = Path(__file__).resolve().parents[2]
+_THIS = Path(__file__).relative_to(BACKEND_DIR).as_posix()
+_AI_METRICS = "tests/unit/test_ai_metrics.py"
+# Order matters: the schema probe must be the process's first test; each dirtying probe precedes
+# the probe that asserts the reset.
+_ORDERED_PROBES = [
+    f"{_THIS}::test_probe_reads_the_schema_without_creating_it",
+    f"{_THIS}::test_probe_mutates_the_canonical_payload_like_the_pipeline",
+    f"{_THIS}::test_probe_next_test_sees_the_pristine_canonical_payload",
+    f"{_AI_METRICS}::test_isolation_probe_leaves_the_trigger_set_like_a_script_entrypoint",
+    f"{_AI_METRICS}::test_isolation_next_test_starts_from_the_default_trigger",
+]
 
 
 def test_the_suite_database_is_a_private_temp_file_per_process():
@@ -45,20 +63,33 @@ def test_the_suite_database_is_a_private_temp_file_per_process():
 
 
 def test_probe_reads_the_schema_without_creating_it():
-    # Run on its own in a fresh process by the next test. Creates nothing: it passes only if
-    # conftest gave this process's new database the schema before the first test.
+    # Creates nothing: as a fresh process's first test it passes only if conftest gave the new
+    # database the schema before any test ran.
     with SessionLocal() as db:
         assert db.query(Company).filter(Company.cik == "probe-never-seeded").count() == 0
 
 
-def test_a_fresh_process_has_the_schema_before_its_first_test():
-    probe = f"{Path(__file__).relative_to(BACKEND_DIR)}::test_probe_reads_the_schema_without_creating_it"
+def test_probe_mutates_the_canonical_payload_like_the_pipeline():
+    # The pipeline finalizes the provider's payload in place; with the harness that is this dict.
+    CANONICAL_PAYLOAD["raw_summary"]["quality"] = {"tier": "probe"}
+    CANONICAL_PAYLOAD["status"] = "probe"
+
+
+def test_probe_next_test_sees_the_pristine_canonical_payload():
+    assert CANONICAL_PAYLOAD["status"] == "complete"
+    assert "quality" not in CANONICAL_PAYLOAD["raw_summary"]
+
+
+def test_isolation_probes_hold_in_a_fresh_serial_process():
     env = {k: v for k, v in os.environ.items() if not k.startswith(("PYTEST_", "DATABASE_URL"))}
-    result = subprocess.run(  # nosec B603 - fixed argv: this interpreter running pytest on one node
-        [sys.executable, "-m", "pytest", "-q", "-n", "0", "-p", "no:cacheprovider", "-p", "no:randomly", probe],
+    result = subprocess.run(  # nosec B603 - fixed argv: this interpreter running pytest on fixed nodes
+        [sys.executable, "-m", "pytest", "-q", "-n", "0", "-p", "no:cacheprovider", "-p", "no:randomly",
+         *_ORDERED_PROBES],
         cwd=BACKEND_DIR, env=env, capture_output=True, text=True, timeout=120,
     )
-    assert result.returncode == 0, result.stdout[-2000:] + result.stderr[-2000:]
+    assert result.returncode == 0 and f"{len(_ORDERED_PROBES)} passed" in result.stdout, (
+        result.stdout[-3000:] + result.stderr[-2000:]
+    )
 
 
 def test_sqlite_never_reissues_a_deleted_id():

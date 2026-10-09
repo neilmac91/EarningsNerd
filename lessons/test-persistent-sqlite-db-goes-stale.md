@@ -21,5 +21,5 @@ the code disagree — not a stale file.
 
 **Evidence**: PR #567 (the original lesson; two occurrences documented);
 `backend/app/database.py` (`create_all` semantics — creates, never alters);
-`backend/tests/conftest.py` and `backend/tests/unit/test_suite_database_isolation.py` (the
+`backend/tests/conftest.py` and `backend/tests/unit/test_suite_isolation.py` (the
 per-process temp database).

@@ -37,7 +37,7 @@ running the suspect leaker and the victim in that order in one process
 (`python -m pytest -n 0 -p no:randomly <leaker> <victim>`), never accepted as a flake. Do not
 edit a checkout while a run reads it (`test-leave-the-tree-alone-during-a-background-suite.md`).
 
-**Enforcement.** `backend/tests/unit/test_suite_database_isolation.py` fails if the suite database
+**Enforcement.** `backend/tests/unit/test_suite_isolation.py` fails if the suite database
 is not a private per-process temp file or if SQLite re-issues a deleted id. CI's backend step runs
 the same parallel `python -m pytest`, so every PR exercises a different test-to-worker split.
 
