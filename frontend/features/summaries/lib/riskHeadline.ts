@@ -100,6 +100,8 @@ const COMPOUND_UNIT_HEAD = /^(?:basis|percentage|square|cubic|metric)$/i
 // A currency code or symbol standing before its amount ("EUR 2.5 billion", "$ 4.1").
 const CURRENCY = /^(?:USD|EUR|GBP|JPY|CHF|CNY|RMB|US\$|\$|€|£|¥)$/
 const STARTS_WITH_FIGURE = /^[(\[]?[$€£¥]?\d/
+// A bare figure, not a token that merely ends in digits (a URL, "riskfactors2025", "10-K2025").
+const FIGURE = /^[$€£¥]?\d(?:[\d,.]*\d)?%?$/
 const QUANTITY_QUALIFIER = /^(?:approximately|approx|nearly|almost|roughly|around|some|least|most|only|just|exactly)$/i
 const MONTH = /^(?:January|February|March|April|May|June|July|August|September|October|November|December|Jan|Feb|Mar|Apr|Jun|Jul|Aug|Sept?|Oct|Nov|Dec)$/
 const UPPERCASE_START = /^\p{Lu}/u
@@ -170,7 +172,7 @@ const isWeakEnd = (tokens: Token[], i: number, prefix: string): boolean => {
   // A figure directly before a lower-case content word is counting it ("3,200 | employees", "18 |
   // months"): not when punctuation ends the figure ("in 2027, recognized") or a function word follows
   // ("16% of", "2023 and").
-  if (next !== undefined && /\d[\d%]*$/.test(word) && /^\p{Ll}/u.test(next) && !isFunctionWord(next)) return true
+  if (next !== undefined && FIGURE.test(word) && /^\p{Ll}/u.test(next) && !isFunctionWord(next)) return true
   if (next !== undefined && COMPOUND_UNIT_HEAD.test(bare(word))) return true
   if (next !== undefined && SCALE_WORD.test(bare(word)) && COMPOUND_UNIT_HEAD.test(bare(next))) return true
   if (next !== undefined && /\d/.test(word) && bare(next).toLowerCase() === 'per') return true

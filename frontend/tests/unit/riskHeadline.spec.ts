@@ -290,6 +290,10 @@ describe('deriveRiskHeadline', () => {
       ],
     ]
     for (const [excerpt, headline] of cases) expect(deriveRiskHeadline(excerpt, 0)).toBe(headline)
+    // Only a bare figure counts: a token that merely ends in digits (a URL) is not cut away.
+    expect(
+      deriveRiskHeadline('Risk disclosures are posted at investor.example.com/secfilings/annualreports/form10k/riskfactors2025 every quarter.', 0),
+    ).toBe('Risk disclosures are posted at investor.example.com/secfilings/annualreports/form10k/riskfactors2025…')
   })
 
   it('never splits a day-first date ("27 September 2025") at the cap', () => {
