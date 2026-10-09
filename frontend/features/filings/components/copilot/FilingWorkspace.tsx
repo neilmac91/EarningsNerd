@@ -281,7 +281,9 @@ export default function FilingWorkspace({
                 >
                   <SparkleIcon className="h-4 w-4" />
                   Ask this Filing
-                  <kbd className="ml-1 hidden rounded border border-border-light bg-background-light px-1.5 py-0.5 text-data-xs font-semibold leading-none sm:inline-block">
+                  {/* The keycap darkens the pill it sits on (AskCopilotRail's launcher recipe) and keeps the
+                      pill's label ink: a cream fill under that white ink measured 1.11:1. */}
+                  <kbd className="ml-1 hidden rounded border border-black/25 bg-black/10 px-1.5 py-0.5 text-data-xs font-semibold leading-none sm:inline-block">
                     ⌘K
                   </kbd>
                   {/* First-run "new" dot — static (the decorative ping ring was removed for
