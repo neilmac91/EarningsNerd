@@ -64,7 +64,19 @@ async def test_pipeline_stops_owned_sdk_task_before_releasing_slot(stop, monkeyp
             patch.setattr(pipeline.openai_service, "summarize_filing", service.summarize_filing)
             patch.setattr(settings, "STREAM_HEARTBEAT_INTERVAL", 0.01)
             if stop == "service_timeout":
-                patch.setattr(provider_requests, "SUMMARY_SECONDS", 0.04)
+                # The service's own request budget, armed only after the stream is open, as the
+                # `timeout` case below does for the pipeline's deadline: a 40 ms real budget raced
+                # the first heartbeat under parallel load. The budget's asyncio.timeout is the first
+                # one provider_requests enters; it keeps its real cancellation.
+                service_deadlines = []
+
+                def recorded_timeout(seconds):
+                    service_deadlines.append(asyncio.timeout(seconds))
+                    return service_deadlines[-1]
+
+                patch.setattr(provider_requests, "asyncio", SimpleNamespace(
+                    **{**vars(asyncio), "timeout": recorded_timeout}
+                ))
                 patch.setattr(
                     pipeline, "generate_xbrl_summary", lambda **kwargs: {**CANONICAL_PAYLOAD, "status": "partial"}
                 )
@@ -92,6 +104,8 @@ async def test_pipeline_stops_owned_sdk_task_before_releasing_slot(stop, monkeyp
                         break
                 if stop == "timeout":
                     deadline.reschedule(asyncio.get_running_loop().time())
+                if stop == "service_timeout":
+                    service_deadlines[0].reschedule(asyncio.get_running_loop().time())
                 if stop == "close":
                     await gen.aclose()
                 elif stop == "cancel":
