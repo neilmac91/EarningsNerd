@@ -15,6 +15,9 @@
        never nested inside the row link.
      - States in place: a ledger-shaped skeleton, Notice + RetryButton, a
        filter-empty line that names the filters, an honest no-filings line.
+     - A filing with no period of report (routine for a 6-K) is named by its
+       filed date in the lead and says so in its row; it still groups under the
+       calendar year of its filing date (fiscalYear's documented fallback).
    The page keeps the queries, the SSR seed + A4 year expansion, the prefetch and
    the "Show full history" control (passed in as `footerAction`); the filters
    live here, reset per company by the page's `key`.
@@ -248,8 +251,9 @@ export function FilingIndex({
         </div>
       )}
 
+      {/* The footer hairline is inset like the group and row hairlines above it (one alignment per surface). */}
       {status === 'ready' && total > 0 && ((view.oldest && cik) || footerAction) && (
-        <div className={cx(HAIRLINE, 'mt-1 flex flex-col gap-3 px-4 py-3.5 sm:flex-row sm:items-center sm:justify-between sm:gap-6 sm:px-6')}>
+        <div className={cx(HAIRLINE, 'mx-4 mt-1 flex flex-col gap-3 py-3.5 sm:mx-6 sm:flex-row sm:items-center sm:justify-between sm:gap-6')}>
           <FilingsHistoryNote oldestFilingDate={view.oldest} cik={cik} />
           {footerAction}
         </div>
@@ -267,16 +271,22 @@ function emptyTitle(form: string, year: string): string {
 /** The one primary action on the page: an inset well (the card's darker neighbour), no tint, no icon. */
 function LatestFilingLead({ filing, companyName }: { filing: Filing; companyName: string }) {
   const filed = fmt(filing.filing_date)
+  const period = periodLabel(filing)
   return (
     <div className="mx-4 mt-4 flex flex-col gap-4 rounded-lg bg-background-light p-4 dark:bg-background-dark sm:mx-6 sm:mt-5 sm:flex-row sm:items-center sm:justify-between sm:gap-6 sm:p-5">
       <div className="min-w-0">
         <p className={cx('text-xs font-semibold', MUTED)}>Latest filing</p>
         <p className="mt-1.5 flex flex-wrap items-baseline gap-x-2.5 gap-y-0.5">
           <span className={cx('font-data text-sm font-semibold', INK)}>{filing.filing_type}</span>
-          <span className={cx('font-heading text-lg font-semibold', INK)}>{periodLabel(filing) ?? `Filed ${filed}`}</span>
+          <span className={cx('font-heading text-lg font-semibold', INK)}>{period ?? `Filed ${filed}`}</span>
         </p>
         <p className={cx('mt-1 text-sm', MUTED)}>
-          Filed <span className="tnum">{filed}</span>. {companyName}’s most recent {recommendedFilingNoun(filing)}. Start with its AI summary.
+          {period && (
+            <>
+              Filed <span className="tnum">{filed}</span>.{' '}
+            </>
+          )}
+          {companyName}’s most recent {recommendedFilingNoun(filing)}. Start with its AI summary.
         </p>
       </div>
       <Link
@@ -326,7 +336,7 @@ function FilingIndexRow({ filing, filings, isLatest }: { filing: Filing; filings
         <span className={cx('font-data text-sm font-semibold', INK)}>{filing.filing_type}</span>{' '}
         <span className="min-w-0 md:py-3 md:pr-3">
           <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
-            <span className={cx('text-sm font-medium', period ? INK : MUTED)}>{period ?? 'No period of report'}</span>{' '}
+            <span className={cx('text-sm font-medium', period ? INK : MUTED)}>{period ?? 'Period of report not stated'}</span>{' '}
             {isLatest && <Badge variant="brand">Latest</Badge>}{' '}
             {superseded && (
               <Badge variant="warning" title="A later amendment supersedes this filing. The original remains available.">

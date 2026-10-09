@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { QueryClient, QueryClientProvider, onlineManager, useQuery } from '@tanstack/react-query'
 import type { ReactNode } from 'react'
 import type { Company } from '@/features/companies/api/companies-api'
@@ -26,7 +26,8 @@ import FilingFeed from '@/features/dashboard/components/FilingFeed'
  * Where a control's own success (or activation) unmounts it, focus is handed to a stable target
  * before it can fall to <body>: the search field after an add from the results, the "Your
  * companies" heading after a removal drops the row, the "SEC filings" heading when "Show full
- * history" swaps the list, and the feed's "What's new" heading when an add replaces the onboarding
+ * history" swaps the list or when a successful filings Retry drops its Notice, and the feed's "What's new"
+ * heading when an add replaces the onboarding
  * panel that held the chip or search. jsdom does move focus to <body> when the focused node is removed, so
  * those cases fail without the hand-off.
  */
@@ -415,6 +416,36 @@ describe('Company page', () => {
     await waitFor(() => expect(screen.queryByRole('status', { name: 'Loading filings' })).not.toBeInTheDocument())
     expect(document.activeElement).toBe(heading)
     expect(api.getCompanyFilings).toHaveBeenCalledTimes(2)
+  })
+
+  it('keeps the filings error Notice and its focused Retry through the retry, then hands focus to the "SEC filings" heading', async () => {
+    api.getWatchlist.mockResolvedValue([])
+    api.getCompany.mockResolvedValue(company)
+    api.getSummary.mockResolvedValue(null)
+    api.getCurrentUserSafe.mockResolvedValue({ id: 1, email: 'a@example.test' })
+    // Unseeded, so the list really loads; the query retries once, so the first load fails twice.
+    api.getCompanyFilings.mockRejectedValueOnce(new Error('down')).mockRejectedValueOnce(new Error('down'))
+    renderWithClient(<CompanyPageClient initialCompany={company} />)
+
+    const alert = await screen.findByRole('alert', {}, { timeout: 5000 })
+    expect(alert).toHaveTextContent('Couldn’t load filings')
+    const retry = within(alert).getByRole('button', { name: 'Retry' })
+    const refetch = deferred<Filing[]>()
+    api.getCompanyFilings.mockReturnValue(refetch.promise)
+    retry.focus()
+    fireEvent.click(retry)
+
+    // The failure is retained through the refetch: the same Notice stays (no skeleton replaces it)
+    // and Retry is busy, still focused.
+    await waitFor(() => expect(retry).toHaveAttribute('aria-busy', 'true'))
+    expectBusyAndFocused(retry)
+    expect(screen.getByRole('alert')).toBe(alert)
+    expect(screen.queryByRole('status', { name: 'Loading filings' })).not.toBeInTheDocument()
+
+    await act(async () => refetch.resolve(filings))
+    await waitFor(() => expect(screen.queryByRole('alert')).not.toBeInTheDocument())
+    expect(screen.getByRole('link', { name: /^10-K\s+Fiscal year ended Sep 27, 2025/ })).toBeInTheDocument()
+    expect(document.activeElement).toBe(screen.getByRole('heading', { name: 'SEC filings' }))
   })
 
   it('leaves focus alone when "Show full history" is activated without holding it (a mouse click)', async () => {

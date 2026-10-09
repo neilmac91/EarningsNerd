@@ -152,6 +152,18 @@ describe('FilingIndex', () => {
     expect(screen.getByRole('link', { name: /^10-K\s+Fiscal year ended Jan 28, 2024\s+Superseded/ })).toHaveAttribute('href', '/filing/7')
   })
 
+  it('names a filing without a period of report by its filed date, once, and says so in its row', () => {
+    // Routine for a 6-K: EDGAR's submissions feed often has no reportDate for it.
+    const sixK = filing(9, '6-K', '2024-11-20', '', { report_date: undefined })
+    render(<Harness filings={[sixK]} latest={sixK} initiallyOpen={['2024']} />)
+    const lead = screen.getByText('Latest filing').parentElement!
+    expect(lead.textContent).toContain('Filed Nov 20, 2024')
+    expect(lead.textContent?.match(/Filed Nov 20, 2024/g)).toHaveLength(1)
+    expect(screen.getByRole('link', { name: /^6-K\s+Period of report not stated\s+Latest\s+Filed Nov 20, 2024$/ })).toHaveAttribute('href', '/filing/9')
+    // It still groups under the calendar year of its filing date.
+    expect(screen.getByRole('button', { name: /Report year 2024/ })).toBeInTheDocument()
+  })
+
   it('shows the failure in place, as a Notice whose Retry is RetryButton', () => {
     const retry = vi.fn()
     render(<Harness status="error" failure={{ failed: true, error: new Error('down'), busy: false, retry }} />)
