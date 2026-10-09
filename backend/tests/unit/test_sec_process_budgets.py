@@ -6,19 +6,20 @@ Every production process carries TWO independent SEC limiters: the app singleton
 starts full with capacity equal to rate; edgartools' is a pyrate-limiter sliding window that admits at
 most its rate per rolling second. SEC's fair-access policy allows 10 requests per second per user
 "regardless of the number of machines used", so configured budgets must be summed over every
-process that can run at the same time: up to two service instances, the Cloud Run jobs and, once
-its rollout is enabled, the private task worker (one instance running one isolated child at a time).
+process that can run at the same time: up to two service instances, the Cloud Run jobs and, when
+its rollout is enabled (it is in production), the private task worker (one instance running one
+isolated child at a time).
 
-The pins are staged (CODE RED decision record 16). Every job and the task worker are pinned now. The
-API service is pinned in a second stage, once the insider endpoint's cold fetch (one submissions document
-and up to 60 Form 4 filings through edgartools) fits a 1 req/s budget; until then the service carries
-no budget key and runs at the code and library defaults. This gate holds both halves: stage 2 must
-change it on purpose, and the arithmetic below is asserted for the fully pinned fleet.
+Every process is pinned (CODE RED decision records 16 and 17 staged it: the jobs and the worker
+first, the API service once the two request paths that could not fit 1 req/s were removed — the
+insider endpoint is off unless ENABLE_INSIDER_ACTIVITY, and company search no longer falls back to
+edgartools; the deploy pins that switch off). The Monday arithmetic assumes the Cloud Scheduler crons,
+time zones and job timeouts docs/DEPLOYMENT.md and the runbook document, which this gate pins.
 
 This gate asserts the configured values and the arithmetic ``docs/OPERATIONS.md`` states. It does
 NOT prove a fleet guarantee: rollout-overlap instances, manual job executions and operator
-one-shots, handovers between task children inside one second, and any request outside both
-limiters are not bounded by configuration.
+one-shots, job task retries (each attempt restarts its timeout), handovers between task children
+inside one second, and any request outside both limiters are not bounded by configuration.
 """
 import inspect
 import re
@@ -39,16 +40,35 @@ EXPECTED_JOBS = {
     "earningsnerd-backfill-facts", "earningsnerd-earnings-calendar-refresh",
     "earningsnerd-earnings-day-alerts", "earningsnerd-notable-filings", "earningsnerd-retention-purge",
 }
-# Scheduled overlaps of SEC-calling jobs with the service (cron schedules in docs/DEPLOYMENT.md;
-# filing-scan is hourly, pregenerate Monday 06:00 UTC, backfill-facts Monday 07:00 UTC, the EFTS
-# jobs notable-filings and earnings-calendar-refresh daily). Job timeouts reach 3600 s, so a
-# Monday pregenerate can still be running when backfill-facts and the 07:00 scan start.
+# Scheduled overlaps of SEC-calling jobs with the service (the schedules below; filing-scan hourly with a
+# 1,800 s timeout, pregenerate Monday 06:00 UTC and backfill-facts Monday 07:30 UTC with 3,600 s, the
+# EFTS jobs notable-filings and earnings-calendar-refresh daily in America/New_York, outside Monday
+# 06:00-08:30 UTC). On a first attempt a Monday pregenerate can still be running at the 07:00 scan but
+# has ended by 07:30; backfill-facts can meet a scan still running or the 08:00 one, not pregenerate. A
+# retried attempt restarts its timeout, so retries are outside this model (docs/OPERATIONS.md).
 SCHEDULED_OVERLAPS = {
     "no job running": (),
     "hourly filing-scan window": ("filing-scan",),
     "Monday 06:00 UTC": ("pregenerate", "filing-scan"),
-    "Monday 07:00 UTC": ("pregenerate", "filing-scan", "backfill-facts"),
+    "Monday 07:00 UTC": ("pregenerate", "filing-scan"),
+    "Monday 07:30-08:30 UTC": ("filing-scan", "backfill-facts"),
     "daily EFTS job over a running scan": ("filing-scan", "notable-filings"),
+}
+# The schedules the overlap model assumes, as docs/DEPLOYMENT.md and the runbook create them: scheduler
+# job -> (cron, time zone, Cloud Run job, per-attempt task timeout in s). Scheduler and job are created by
+# hand, so this pins the documented values, not the live ones; a create command without --time-zone runs
+# in Etc/UTC.
+SCHEDULES = {
+    ROOT / "docs/DEPLOYMENT.md": {
+        "filing-scan-hourly": ("0 * * * *", "Etc/UTC", "earningsnerd-filing-scan", 1800),
+        "backfill-facts-weekly": ("30 7 * * 1", "Etc/UTC", "earningsnerd-backfill-facts", 3600),
+        "earnings-calendar-refresh-daily": (
+            "30 5 * * *", "America/New_York", "earningsnerd-earnings-calendar-refresh", 1800),
+        "notable-filings-scan": ("30 8,18 * * *", "America/New_York", "earningsnerd-notable-filings", 900),
+    },
+    ROOT / "tasks/gcp-deploy-runbook.md": {
+        "earningsnerd-pregenerate-weekly": ("0 6 * * 1", "Etc/UTC", "earningsnerd-pregenerate", 3600),
+    },
 }
 OPERATIONS = ROOT / "docs/OPERATIONS.md"
 WORKER = "earningsnerd-task-worker"
@@ -56,9 +76,14 @@ WORKER_STEP = "Update configured private task worker"  # exits early unless GCP_
 SERVICE_STEP = "Deploy Cloud Run service"
 SERVICE = "earningsnerd-backend"
 LOOP_STEP = "Update filing-scan + digest + calendar + alert + notable + retention job images"
-# Every Cloud Run process update a deploy step can make; the target follows the subcommand.
-UPDATE = re.compile(r"gcloud (?:(?:alpha|beta) )?run (?:deploy|(?:services|jobs) (?:create|deploy|replace|update))(?:\s|\\)+(\"?[$\w-]+\"?)")
-STAGED_UNPINNED = {"service"}  # pinned in stage 2, once the insider endpoint fits the budget
+# Every Cloud Run process update a deploy step can make; the target follows the subcommand. Global
+# flags may precede `run` (`gcloud --quiet run ...`), and worker pools count as processes too.
+UPDATE = re.compile(
+    r"gcloud (?:--[\w-]+(?:=\S+)? )*(?:(?:alpha|beta) )?run "
+    r"(?:deploy|(?:services|jobs|worker-pools) (?:create|deploy|replace|update))(?:\s|\\)+(\"?[$\w-]+\"?)"
+)
+# Any line shaped like a Cloud Run process update; each one must be readable by UPDATE (fail closed).
+UPDATE_SHAPED = re.compile(r"\bgcloud\b.*\brun\b.*\b(?:create|deploy|replace|update)\b")
 DEFAULTS = {"SEC_RATE_LIMIT_PER_SECOND": 10, "EDGAR_RATE_LIMIT_PER_SEC": 9}  # code and library defaults
 
 
@@ -110,24 +135,43 @@ def test_every_production_process_pins_both_sec_buckets_to_one():
     assert set(maps) - {"service", WORKER} == EXPECTED_JOBS
     for name, env in maps.items():
         for key in BUDGET_ENV:
-            if name in STAGED_UNPINNED:
-                assert key not in env, f"{name} is pinned in stage 2: update STAGED_UNPINNED with it"
-            else:
-                assert env.get(key) == str(PINNED_PER_BUCKET), f"{name} must pin {key}={PINNED_PER_BUCKET}"
+            assert env.get(key) == str(PINNED_PER_BUCKET), f"{name} must pin {key}={PINNED_PER_BUCKET}"
+    # The pinned service cannot carry the insider endpoint's cold fetch (decision record 17), so the
+    # deploy re-asserts the switch off; test_prod_flag_visibility pins the same value.
+    assert maps["service"].get("ENABLE_INSIDER_ACTIVITY") == "false"
     assert _service_instances(service) == 2
     assert _service_instances(_run(WORKER_STEP)) == 1
 
 
 def test_no_deploy_step_updates_a_process_without_both_pins():
     """A future process step must not escape the inventory above: every update targets an inventoried
-    process exactly once, every update carries both pins, and only the staged service goes without them."""
+    process exactly once and carries both pins. Updates hidden from this reading fail too: a Cloud Run
+    deploy action, a local composite action, a script a deploy step calls (it must resolve against the
+    repository root, backend/ or the step's working directory) that updates Cloud Run, and any line
+    shaped like a Cloud Run update that UPDATE cannot read. Not covered: an update assembled without a
+    literal gcloud line, such as a subprocess argument list in a script, and a script called without a
+    .sh or .py extension."""
     loop_jobs = _loop_jobs(_run(LOOP_STEP))
     targets = []
     for step in _deploy_job()["steps"]:
-        assert "deploy-cloudrun" not in step.get("uses", ""), "Cloud Run updates go through gcloud, where this gate sees them"
+        uses = step.get("uses", "")
+        assert "deploy-cloudrun" not in uses, "Cloud Run updates go through gcloud, where this gate sees them"
+        assert not uses.startswith("./"), f"{step.get('name')}: a local action would hide its gcloud calls from this gate"
         if "run" not in step:
             continue
         run = "\n".join(line for line in step["run"].splitlines() if not line.lstrip().startswith("#"))
+        bases = [ROOT, ROOT / "backend"] + ([ROOT / step["working-directory"]] if "working-directory" in step else [])
+        for script in re.findall(r"[\w./-]+\.(?:sh|py)\b", run):
+            paths = [base / script for base in bases if (base / script).is_file()]
+            assert paths, f"{step.get('name')}: {script} does not resolve, so this gate cannot read it"
+            for path in paths:  # every candidate: a same-named script elsewhere must not hide the one that runs
+                text = path.read_text().replace("\\\n", " ")
+                assert not UPDATE_SHAPED.search(text), f"{path.relative_to(ROOT)} updates Cloud Run outside this gate"
+        for line in run.replace("\\\n", " ").splitlines():
+            # A traffic switch is not a process update; strip only that token, so a create or update sharing
+            # its line is still read.
+            if UPDATE_SHAPED.search(re.sub(r"\bupdate-traffic\b", "", line)):
+                assert UPDATE.search(line), f"{step.get('name')}: a Cloud Run update this gate cannot read: {line.strip()[:100]}"
         updates = UPDATE.findall(run)
         maps = re.findall(r"--update-env-vars=(\S+)", run)
         assert len(maps) == len(updates), f"{step.get('name')}: every process update carries one env map"
@@ -136,35 +180,25 @@ def test_no_deploy_step_updates_a_process_without_both_pins():
             names = loop_jobs if target.strip('"') == "$job" else [target.strip('"')]
             for name in names:
                 targets.append(name)
-                if name == SERVICE:  # staged: pinned in stage 2, together with STAGED_UNPINNED
-                    assert not any(key in env for key in BUDGET_ENV), "the service is pinned in stage 2"
-                    continue
                 assert all(env.get(key) == str(PINNED_PER_BUCKET) for key in BUDGET_ENV), name
     assert sorted(targets) == sorted(EXPECTED_JOBS | {SERVICE, WORKER})  # each process updated exactly once
 
 
 def test_configured_sums_fit_the_published_cap_in_every_scheduled_overlap():
     service, maps = _process_env_maps()
-    per_process = {name: sum(_budget(env, key) for key in BUDGET_ENV) for name, env in maps.items()}
-    # Stage 1: the service still runs at the defaults, so no window is bounded by configuration.
-    assert per_process["service"] == 19 and _service_instances(service) * per_process["service"] == 38
-    # The fully pinned fleet (after stage 2), which the arithmetic below states.
-    maps = {name: (dict(env, **{key: str(PINNED_PER_BUCKET) for key in BUDGET_ENV}) if name in STAGED_UNPINNED else env)
-            for name, env in maps.items()}
     per_process = {name: sum(int(env[key]) for key in BUDGET_ENV) for name, env in maps.items()}
     steady = _service_instances(service) * per_process["service"]
     assert steady == 4
-    for label, jobs in SCHEDULED_OVERLAPS.items():
-        total = steady + sum(per_process[f"earningsnerd-{job}"] for job in jobs)
-        assert total <= SEC_PUBLISHED_CAP_PER_SECOND, f"{label}: {total} req/s configured"
-    monday = steady + sum(per_process[f"earningsnerd-{job}"] for job in SCHEDULED_OVERLAPS["Monday 07:00 UTC"])
-    assert monday == SEC_PUBLISHED_CAP_PER_SECOND  # exactly at the cap: no headroom
+    windows = {label: steady + sum(per_process[f"earningsnerd-{job}"] for job in jobs)
+               for label, jobs in SCHEDULED_OVERLAPS.items()}
+    assert windows["hourly filing-scan window"] == 6
+    assert max(windows.values()) == 8 and all(total <= SEC_PUBLISHED_CAP_PER_SECOND for total in windows.values())
     all_active = steady + sum(value for name, value in per_process.items() if name not in ("service", WORKER))
     assert all_active == 20 and all_active > SEC_PUBLISHED_CAP_PER_SECOND  # documented, not bounded
-    # The optional task worker adds one process to every window once its rollout is enabled.
+    # The task worker (enabled in production) adds one process to every window.
     worker = _service_instances(_run(WORKER_STEP)) * per_process[WORKER]
     assert worker == 2 and steady + worker == 6
-    assert monday + worker == 12 and monday + worker > SEC_PUBLISHED_CAP_PER_SECOND  # documented, not bounded
+    assert max(windows.values()) + worker == SEC_PUBLISHED_CAP_PER_SECOND  # at the cap: no headroom
     # Any one second: a full app bucket at rate R admits up to 2R-1 (capacity equals rate); edgartools' sliding
     # window never exceeds its rate. At the pinned R=1 that is one app request per second, so the ceiling in any
     # second, the first included, equals the sustained sum.
@@ -173,23 +207,43 @@ def test_configured_sums_fit_the_published_cap_in_every_scheduled_overlap():
 
     assert {name: ceiling(env) for name, env in maps.items()} == per_process
     assert 2 * DEFAULTS["SEC_RATE_LIMIT_PER_SECOND"] - 1 == 19  # the defaults' first-second app burst, as documented
-    monday_ceiling = (_service_instances(service) * ceiling(maps["service"])
-                      + sum(ceiling(maps[f"earningsnerd-{job}"]) for job in SCHEDULED_OVERLAPS["Monday 07:00 UTC"]))
-    assert monday_ceiling == SEC_PUBLISHED_CAP_PER_SECOND
-    assert 2 * ceiling(maps[WORKER]) == 4  # a handover between two fresh task children inside one second
+    handover = 2 * ceiling(maps[WORKER])  # two fresh task children inside one second
+    assert handover == 4 and max(windows.values()) + handover == 12
     doc = " ".join(OPERATIONS.read_text().split())  # Markdown wraps lines; compare on normalized whitespace
     for statement in (
-        "two service instances run at the defaults, 38 req/s configured",
         "4 req/s sustained with no job running",
-        "10 req/s in the Monday 07:00 UTC overlap",
+        "6 in the hourly filing-scan window, and at most 8 req/s in any scheduled overlap",
         "20 req/s if every job ran at once",
         "up to 2R−1 requests in its first second (19 at the default 10)",
         "ceiling is 2 req/s in every second, the first included",
-        "Monday 07:00 UTC overlap's ceiling in any second is 10 req/s",
-        "6 req/s sustained with no job running and 12 req/s in the Monday 07:00 UTC overlap",
-        "briefly admit up to 4 req/s from the worker",
+        "6 req/s sustained with no job running and at most 10 req/s in any scheduled overlap, at the cap",
+        "briefly admit up to 4 req/s from the worker, 12 req/s in such a second",
+        "backfill-facts at `30 7 * * 1`",
     ):
         assert statement in doc, f"docs/OPERATIONS.md must state: {statement}"
+
+
+def _commands(path):
+    """The document's shell commands: comment lines dropped, backslash continuations joined."""
+    lines = [line for line in path.read_text().splitlines() if not line.lstrip().startswith("#")]
+    return re.sub(r"\\[ \t]*\n[ \t]*", " ", "\n".join(lines)).splitlines()
+
+
+def _flag(command, name):
+    return [value for _, value in re.findall(rf"--{name}=([\"']?)(.+?)\1(?=\s|$)", command)]
+
+
+def test_the_overlap_model_matches_the_documented_schedules():
+    for path, schedules in SCHEDULES.items():
+        commands = _commands(path)
+        for scheduler, (cron, zone, job, timeout) in schedules.items():
+            creates = [line for line in commands if re.search(rf"\bscheduler jobs create http {re.escape(scheduler)}(?=\s|$)", line)]
+            assert len(creates) == 1, f"{path.name}: {scheduler} needs exactly one create command (found {len(creates)})"
+            assert _flag(creates[0], "schedule") == [cron], f"{path.name}: {scheduler} must be scheduled at {cron!r}"
+            assert (_flag(creates[0], "time-zone") or ["Etc/UTC"]) == [zone], f"{path.name}: {scheduler} must run in {zone}"
+            jobs = [line for line in commands if re.search(rf"\brun jobs create {re.escape(job)}(?=\s|$)", line)]
+            assert len(jobs) == 1 and _flag(jobs[0], "task-timeout") == [str(timeout)], (
+                f"{path.name}: {job} must time out each attempt at {timeout} s")
 
 
 def test_dev_default_and_limiter_accept_the_pinned_budget():

@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { QueryClient, QueryClientProvider, onlineManager, useQuery } from '@tanstack/react-query'
 import type { ReactNode } from 'react'
 import type { Company } from '@/features/companies/api/companies-api'
@@ -25,7 +25,7 @@ import FilingFeed from '@/features/dashboard/components/FilingFeed'
  *
  * Where a control's own success (or activation) unmounts it, focus is handed to a stable target
  * before it can fall to <body>: the search field after an add from the results, the "Your
- * companies" heading after a removal drops the row, the "SEC Filings" heading when "Show full
+ * companies" heading after a removal drops the row, the "SEC filings" heading when "Show full
  * history" swaps the list, and the feed's "What's new" heading when an add replaces the onboarding
  * panel that held the chip or search. jsdom does move focus to <body> when the focused node is removed, so
  * those cases fail without the hand-off.
@@ -392,7 +392,7 @@ describe('Company page', () => {
     await expectSettledAndFocused(button)
   })
 
-  it('hands focus to the "SEC Filings" heading when activating "Show full history" removes the button', async () => {
+  it('hands focus to the "SEC filings" heading when activating "Show full history" removes the button', async () => {
     api.getWatchlist.mockResolvedValue([])
     api.getCompanyFilings.mockResolvedValueOnce(filings)
     renderCompanyPage()
@@ -407,7 +407,7 @@ describe('Company page', () => {
     // The full-history key has no seed, so the list (and this button) gives way to the skeleton.
     await waitFor(() => expect(button).not.toBeInTheDocument())
     expect(screen.getByRole('status', { name: 'Loading filings' })).toBeInTheDocument()
-    const heading = screen.getByRole('heading', { name: 'SEC Filings' })
+    const heading = screen.getByRole('heading', { name: 'SEC filings' })
     expect(document.activeElement).toBe(heading)
     await waitFor(() => expect(api.getCompanyFilings).toHaveBeenCalledWith('AAPL', undefined, 300))
 
@@ -425,13 +425,44 @@ describe('Company page', () => {
     const button = await screen.findByRole('button', { name: 'Show full history' })
     await waitFor(() => expect(button).not.toHaveAttribute('aria-busy'))
     api.getCompanyFilings.mockReturnValue(deferred<Filing[]>().promise)
-    const elsewhere = screen.getByRole('heading', { name: 'SEC Filings' })
+    const elsewhere = screen.getByRole('heading', { name: 'SEC filings' })
     expect(document.activeElement).not.toBe(button)
     fireEvent.click(button)
 
     await waitFor(() => expect(button).not.toBeInTheDocument())
     expect(document.activeElement).not.toBe(elsewhere)
   })
+
+  it('keeps the filings error Notice and its focused Retry through the retry, then hands focus to the "SEC filings" heading', async () => {
+    api.getWatchlist.mockResolvedValue([])
+    api.getCompany.mockResolvedValue(company)
+    api.getSummary.mockResolvedValue(null)
+    api.getCurrentUserSafe.mockResolvedValue({ id: 1, email: 'a@example.test' })
+    // No seed, and the filings query retries once (TanStack's real 1s delay) before it reports the
+    // failure, so this test has a longer budget than the default.
+    api.getCompanyFilings.mockRejectedValueOnce(new Error('down')).mockRejectedValueOnce(new Error('down'))
+    renderWithClient(<CompanyPageClient initialCompany={company} />)
+
+    const alert = await screen.findByRole('alert', {}, { timeout: 4000 })
+    expect(alert).toHaveTextContent('Couldn’t load filings')
+    const retry = within(alert).getByRole('button', { name: 'Retry' })
+    const refetch = deferred<Filing[]>()
+    api.getCompanyFilings.mockReturnValue(refetch.promise)
+    retry.focus()
+    fireEvent.click(retry)
+
+    // An errored list has no data, so its retry goes back to pending: the Notice stays, not the
+    // skeleton, with the pressed Retry busy and focused.
+    await waitFor(() => expect(retry).toHaveAttribute('aria-busy', 'true'))
+    expectBusyAndFocused(retry)
+    expect(screen.getByRole('alert')).toBe(alert)
+    expect(screen.queryByRole('status', { name: 'Loading filings' })).not.toBeInTheDocument()
+
+    await act(async () => refetch.resolve(filings))
+    await waitFor(() => expect(screen.queryByRole('alert')).not.toBeInTheDocument())
+    expect(screen.getByRole('link', { name: /^10-K\s+Fiscal year ended Sep 27, 2025/ })).toBeInTheDocument()
+    expect(document.activeElement).toBe(screen.getByRole('heading', { name: 'SEC filings' }))
+  }, 10_000)
 })
 
 describe('FilingFeed onboarding', () => {

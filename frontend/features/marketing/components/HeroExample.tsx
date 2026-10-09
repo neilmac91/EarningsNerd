@@ -2,18 +2,27 @@ import { format, parseISO } from 'date-fns'
 import ExampleCtaLink from '@/features/marketing/components/ExampleCtaLink'
 import CompanyLogo from '@/components/CompanyLogo'
 import { Badge } from '@/components/ui/Badge'
-import { ArrowRightIcon, ArrowSquareOutIcon, CheckCircleIcon, MinusIcon, SparkleIcon, TrendDownIcon, TrendUpIcon } from '@/lib/icons'
+import { cx } from '@/components/ui'
+import { ArrowRightIcon, ArrowSquareOutIcon, CheckCircleIcon, QuotesIcon } from '@/lib/icons'
 import { exampleFilingHref } from '@/lib/featureFlags'
 import { directionOf, directionText } from '@/lib/financialTone'
+import { Sep } from '@/features/filings/components/FilingIdentity'
+import { sourceTraceChipClass } from '@/features/filings/lib/sourceTraceChip'
+import { excerptHeadings } from '@/features/summaries/lib/riskTitle'
 import { AAPL_FY22_EDGAR_URL } from '@/features/marketing/lib/landing-samples'
 import type { ExampleData, ExampleMetric } from '@/lib/serverApi'
 
 /**
- * Hero product visual. When the pre-generated example summary is reachable it
- * renders the REAL thing (excerpt, metrics, quality verdict — fetched
- * server-side with hourly ISR), so the preview can never drift from what a
- * click delivers. Falls back to a verified static snapshot of Apple's FY 2022
- * 10-K (filed 2022-10-28; figures checked against the filing's XBRL).
+ * Hero product visual (2026-10 critique, homepage 1d): the example IS the product, on one surface.
+ * The filing's identity in the data face, the summary's opening, a hairline strip of the filing's
+ * figures, and, when the live summary has one, one evidence row: a risk excerpt the server located
+ * in the filing text, headed by its own opening clause, with its chip. No browser-frame mockup, no
+ * card inside the card, no sparkle chip, no tinted call to action.
+ *
+ * When the pre-generated example summary is reachable it renders the REAL thing (fetched
+ * server-side with hourly ISR), so the preview can never drift from what a click delivers. Falls
+ * back to a verified static snapshot of Apple's FY 2022 10-K (filed 2022-10-28; figures checked
+ * against the filing's XBRL), which has no evidence row: its excerpt is not verified here.
  */
 
 // Static fallback — every value verified against Apple's FY 2022 10-K XBRL.
@@ -46,30 +55,36 @@ const formatDelta = (delta?: number | null): string | null => {
   return `${delta >= 0 ? '+' : ''}${delta.toFixed(1)}%`
 }
 
-// Inside-card eyebrow register (11px uppercase tracked, tertiary on the white field surface).
-const EYEBROW =
-  'text-data-xs font-semibold uppercase tracking-eyebrow text-text-tertiary-light dark:text-text-secondary-dark'
+const INK = 'text-text-primary-light dark:text-text-primary-dark'
+const MUTED = 'text-text-secondary-light dark:text-text-secondary-dark'
+const HAIRLINE = 'border-border-light dark:border-white/10'
+const GLYPH = { up: '▲', down: '▼', flat: '' } as const
+/** The evidence row's excerpt, cut on a word with an ellipsis: the chip links to the whole passage. */
+const MAX_EXCERPT = 180
 
-function MetricCell({ metric, isFallback }: { metric: ExampleMetric; isFallback: boolean }) {
+function clip(text: string): string {
+  if (text.length <= MAX_EXCERPT) return text
+  const cut = text.slice(0, MAX_EXCERPT)
+  return `${cut.slice(0, cut.lastIndexOf(' ')).replace(/[\s.,;:]+$/, '')} …`
+}
+
+/** One figure in the hairline strip: label, value, and its change, direction in a glyph, never colour alone. */
+function Figure({ metric, isFallback }: { metric: ExampleMetric; isFallback: boolean }) {
   const delta = formatDelta(metric.deltaPercent)
-  // Direction never rides on colour alone (financialTone rule): the glyph carries it, and a flat
-  // delta is neither gain nor loss.
   const direction = directionOf(metric.deltaPercent)
-  const DeltaIcon = direction === 'up' ? TrendUpIcon : direction === 'down' ? TrendDownIcon : MinusIcon
   return (
-    <div
-      className="min-w-0 rounded-lg border border-border-light bg-white p-3 transition-colors duration-fast hover:border-brand-border dark:border-white/10 dark:bg-white/5 dark:hover:border-brand-border-dark"
-      title={isFallback ? FALLBACK_CONCEPTS[metric.label] : 'Reported in the filing’s XBRL data'}
-    >
-      <div className={`truncate ${EYEBROW}`}>{metric.label}</div>
-      <div className="tnum mt-1 whitespace-nowrap font-data text-sm font-semibold text-text-primary-light dark:text-text-primary-dark sm:text-base">
-        {metric.value}
-      </div>
+    <div className="min-w-0 py-3 pl-3 first:pl-0" title={isFallback ? FALLBACK_CONCEPTS[metric.label] : 'Reported in the filing’s XBRL data'}>
+      <dt className={cx('truncate text-xs', MUTED)}>{metric.label}</dt>
+      <dd className={cx('mt-1 whitespace-nowrap font-data text-sm font-semibold tabular-nums sm:text-base', INK)}>{metric.value}</dd>
       {delta && (
-        <div className={`tnum mt-0.5 flex items-center gap-0.5 font-data text-xs font-medium ${directionText[direction]}`}>
-          <DeltaIcon className="h-3 w-3 shrink-0" aria-hidden="true" />
+        <dd className={cx('mt-0.5 whitespace-nowrap font-data text-xs font-medium tabular-nums', directionText[direction])}>
+          {GLYPH[direction] && (
+            <span aria-hidden="true" className="mr-1">
+              {GLYPH[direction]}
+            </span>
+          )}
           {delta}
-        </div>
+        </dd>
       )}
     </div>
   )
@@ -98,87 +113,107 @@ function HeroExample({
   const filedLabel = Number.isNaN(parsedDate.getTime())
     ? null
     : format(parsedDate, 'MMM d, yyyy')
+  const evidence = data.evidence ?? null
 
   return (
-    <div className="relative min-w-0 max-w-full">
-      {/* Browser frame: panel + hairline + e3 (DS §7); no title-bar dots, no ambient glow. */}
-      <div className="mockup-frame relative shadow-e3 dark:shadow-none">
-        {/* Title bar: the summary's address + the "AI summary" chip (sparkle lives ONLY here, DS §4). */}
-        <div className="mockup-frame-titlebar flex flex-wrap items-center justify-between gap-x-2 gap-y-1.5 px-4 py-2.5">
-          <span className="min-w-0 truncate font-data text-xs text-text-secondary-light dark:text-text-secondary-dark">
-            {isFallback ? 'earningsnerd.io · example summary' : `earningsnerd.io/filing/${data.filingId}`}
-          </span>
-          <Badge variant="brand" icon={<SparkleIcon className="h-3 w-3" aria-hidden="true" />}>
-            AI summary
-          </Badge>
+    <section
+      aria-label="Example summary"
+      className="min-w-0 max-w-full rounded-xl border border-border-light bg-panel-light shadow-e2 dark:border-white/10 dark:bg-panel-dark dark:shadow-none"
+    >
+      <div className="flex flex-col gap-4 p-5 sm:p-6">
+        <div className="flex items-center justify-between gap-3">
+          <p className={cx('text-xs font-medium', MUTED)}>Example summary</p>
+          {data.qualityTier === 'full' && (
+            <Badge variant="brand" icon={<CheckCircleIcon className="h-3 w-3" aria-hidden="true" />}>
+              Full summary
+            </Badge>
+          )}
+          {data.qualityTier === 'partial' && <Badge variant="warning">Partial</Badge>}
         </div>
 
-        {/* Page content */}
-        <div className="flex flex-col gap-3.5 p-4 sm:p-5">
-          {/* Header area */}
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <div className="flex min-w-0 flex-wrap items-center gap-2">
-              <CompanyLogo decorative ticker={data.ticker} name={data.companyName} size={24} priority />
-              <span className="min-w-0 break-words text-sm font-semibold text-text-primary-light dark:text-text-primary-dark">
-                {data.companyName}
-              </span>
-              <span className="font-data text-xs text-text-secondary-light dark:text-text-secondary-dark">{data.ticker}</span>
-              <Badge variant="neutral">{data.filingType}</Badge>
-              {data.qualityTier === 'full' && (
-                <Badge variant="brand" icon={<CheckCircleIcon className="h-3 w-3" aria-hidden="true" />}>
-                  Full summary
-                </Badge>
-              )}
-              {data.qualityTier === 'partial' && <Badge variant="warning">Partial</Badge>}
-            </div>
+        {/* The filing's identity, as the filing page states it: company, then one data-face line. */}
+        <div className="flex min-w-0 flex-wrap items-center gap-x-2.5 gap-y-1">
+          <CompanyLogo decorative ticker={data.ticker} name={data.companyName} size={24} priority />
+          <span className={cx('min-w-0 break-words text-sm font-semibold', INK)}>{data.companyName}</span>
+          <span className={cx('flex flex-wrap items-center gap-x-2 font-data text-xs tabular-nums', MUTED)}>
+            <span>{data.ticker}</span>
+            <Sep />
+            {/* The form is text in the data face, never a Badge (2026-10 critique P-04). */}
+            <span className={cx('font-semibold', INK)}>{data.filingType}</span>
             {filedLabel && (
-              <span className="tnum whitespace-nowrap font-data text-xs text-text-secondary-light dark:text-text-secondary-dark">
-                filed {filedLabel}
-              </span>
+              <>
+                <Sep />
+                <span className="whitespace-nowrap">filed {filedLabel}</span>
+              </>
+            )}
+          </span>
+        </div>
+
+        <p className={cx('text-sm leading-relaxed', MUTED)}>{data.excerpt}</p>
+
+        {/* The filing's figures: one hairline strip, no boxes. */}
+        {data.metrics.length > 0 && (
+          <dl className={cx('grid grid-cols-3 divide-x border-y', HAIRLINE, 'divide-border-light dark:divide-white/10')}>
+            {data.metrics.map((metric) => (
+              <Figure key={metric.label} metric={metric} isFallback={isFallback} />
+            ))}
+          </dl>
+        )}
+
+        {/* One evidence row, the filing page's own (P-03): the filing's words, located in its text. */}
+        {evidence && (
+          <div className="flex flex-col gap-2">
+            <p className={cx('text-sm font-semibold', INK)}>{excerptHeadings([evidence.excerpt])[0]}</p>
+            <blockquote className={cx('border-l-2 pl-3.5 text-sm leading-relaxed', HAIRLINE, MUTED)}>
+              {clip(evidence.excerpt)}
+            </blockquote>
+            {evidence.url && (
+              <div>
+                <a href={evidence.url} target="_blank" rel="noopener noreferrer" className={sourceTraceChipClass()}>
+                  <QuotesIcon className="h-3 w-3 shrink-0" aria-hidden="true" />
+                  Located in the filing
+                  <span className="sr-only"> (opens in a new tab)</span>
+                </a>
+              </div>
             )}
           </div>
+        )}
 
-          {/* Executive snapshot — real summary text */}
-          <div className="rounded-lg border border-border-light bg-white p-4 dark:border-white/10 dark:bg-white/5">
-            <div className={`mb-2 ${EYEBROW}`}>Executive snapshot</div>
-            <p className="text-sm leading-relaxed text-text-secondary-light dark:text-text-secondary-dark">{data.excerpt}</p>
-          </div>
-
-          {/* Metrics — with the receipt: where the numbers come from */}
-          {data.metrics.length > 0 && (
-            <div className="grid grid-cols-3 gap-2.5">
-              {data.metrics.map((metric) => (
-                <MetricCell key={metric.label} metric={metric} isFallback={isFallback} />
-              ))}
-            </div>
+        <a
+          href={data.secUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className={cx(
+            'inline-flex items-center gap-1 font-data text-xs underline-offset-2 transition-colors duration-fast',
+            'hover:text-brand-strong hover:underline dark:hover:text-brand-strong-dark',
+            MUTED,
           )}
-          <a
-            href={data.secUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-1 font-data text-data-xs text-text-secondary-light underline-offset-2 transition-colors duration-fast hover:text-brand-strong hover:underline dark:text-text-secondary-dark dark:hover:text-brand-strong-dark"
-          >
-            <ArrowSquareOutIcon className="h-3 w-3 shrink-0" aria-hidden="true" />
-            {data.metrics.length > 0
-              ? "Figures from the company's XBRL filing · verify on SEC EDGAR"
-              : 'Source filing · read on SEC EDGAR'}
-          </a>
+        >
+          <ArrowSquareOutIcon className="h-3 w-3 shrink-0" aria-hidden="true" />
+          {data.metrics.length > 0
+            ? "Figures from the company's XBRL filing · verify on SEC EDGAR"
+            : 'Source filing · read on SEC EDGAR'}
+        </a>
 
-          {/* Footer CTA into the real example */}
-          <ExampleCtaLink
-            href={ctaHref}
-            placement={ctaPlacement}
-            className="group flex items-center justify-between gap-2 rounded-lg border border-brand-border bg-brand-weak px-4 py-3 transition-colors duration-fast hover:border-brand-strong dark:border-brand-border-dark dark:bg-brand-weak-dark dark:hover:border-brand-dark focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark"
-          >
-            <span className="text-sm font-semibold text-brand-strong dark:text-brand-strong-dark">{ctaLabel}</span>
-            <ArrowRightIcon
-              className="h-3.5 w-3.5 shrink-0 text-brand-strong transition-transform duration-fast group-hover:translate-x-0.5 motion-reduce:group-hover:translate-x-0 dark:text-brand-strong-dark"
-              aria-hidden="true"
-            />
-          </ExampleCtaLink>
-        </div>
+        {/* Into the real example: a text link (the hero's primary action lives beside the headline). */}
+        <ExampleCtaLink
+          href={ctaHref}
+          placement={ctaPlacement}
+          className={cx(
+            'group -ml-2 inline-flex h-9 items-center gap-1.5 self-start rounded-lg px-2 text-sm font-semibold',
+            'text-brand-strong transition-colors duration-fast hover:bg-brand-weak',
+            'focus-visible:outline-none focus-visible:shadow-ring-brand',
+            'dark:text-brand-strong-dark dark:hover:bg-brand-weak-dark dark:focus-visible:shadow-ring-brand-dark',
+          )}
+        >
+          {ctaLabel}
+          <ArrowRightIcon
+            className="h-3.5 w-3.5 shrink-0 transition-transform duration-fast group-hover:translate-x-0.5 motion-reduce:group-hover:translate-x-0"
+            aria-hidden="true"
+          />
+        </ExampleCtaLink>
       </div>
-    </div>
+    </section>
   )
 }
 

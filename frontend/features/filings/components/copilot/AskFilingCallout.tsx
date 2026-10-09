@@ -1,6 +1,6 @@
 'use client'
 
-import { SparkleIcon } from '@/lib/icons'
+import { ChatCircleTextIcon } from '@/lib/icons'
 import { starterQuestions } from './starterQuestions'
 import { Button } from '@/components/ui'
 
@@ -29,15 +29,16 @@ export default function AskFilingCallout({ filingType, subjectLabel, onAsk }: As
     >
       <div className="flex items-start gap-3">
         <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-brand-strong text-white dark:bg-brand-dark dark:text-background-dark">
-          <SparkleIcon className="h-5 w-5" aria-hidden="true" />
+          <ChatCircleTextIcon className="h-5 w-5" aria-hidden="true" />
         </span>
         <div className="min-w-0">
-          <h3
+          {/* h2: a sibling of the summary's sections (each an h2), not a subsection of the last one. */}
+          <h2
             id="ask-filing-callout-heading"
             className="text-base font-semibold text-text-primary-light dark:text-text-primary-dark"
           >
             Ask {subjectLabel} anything
-          </h3>
+          </h2>
           <p className="mt-0.5 text-sm text-text-secondary-light dark:text-text-secondary-dark">
             Get plain-English answers, each cited to the exact filing text. Try a starter question:
           </p>
@@ -53,7 +54,7 @@ export default function AskFilingCallout({ filingType, subjectLabel, onAsk }: As
               </button>
             ))}
           </div>
-          <Button className="mt-4" onClick={() => onAsk('', 'summary_cta')} leftIcon={<SparkleIcon className="h-4 w-4" aria-hidden="true" />}>
+          <Button className="mt-4" onClick={() => onAsk('', 'summary_cta')} leftIcon={<ChatCircleTextIcon className="h-4 w-4" aria-hidden="true" />}>
             Ask this filing
           </Button>
         </div>
