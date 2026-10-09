@@ -48,6 +48,7 @@ from app.services.summary_generation_service import (
     mark_stale_progress_as_error,
     progress_as_dict,
 )
+from app.services.summary_placeholders import is_summary_ready
 from app.services.summary_request_evidence import SummaryRequestEvidence
 from app.services.summary_pipeline import (
     stream_filing_summary, to_sse, snapshot_generation_user, load_generation_user,
@@ -194,8 +195,9 @@ async def generate_summary_stream(
     generation requires an account.
 
     Args:
-        force: If True, delete existing summary and regenerate from scratch.
-               Use this for "Regenerate Analysis" functionality.
+        force: If True, regenerate a stored summary in place ("Regenerate Analysis"; Pro-only
+               while the stored summary is one the filing page shows). A stored row the page
+               cannot show is regenerated in place for any caller, with or without force.
         entry_point: Where the visitor entered the funnel (forwarded by the
                      frontend for activation analytics, e.g. "homepage").
         ph_id: Legacy client hint, accepted for compatibility but never used as account identity.
@@ -233,15 +235,24 @@ async def generate_summary_stream(
 
         # Check if summary already exists
         summary = db.query(Summary).filter(Summary.filing_id == filing_id).first()
+        refresh_unready = False
         if summary:
-            if force:
+            # The body this route would replay, judged by the filing page's readiness rule
+            # (is_summary_ready). A row the page cannot show as a summary (failure filler, a writer
+            # error, an empty body, an earlier pipeline's in-progress marker) is not one: replaying it
+            # hands back the failure card, or a page that never leaves "generating". Any signed-in
+            # user replaces it in place, metered as a fresh generation.
+            served_overview = source_safe_business_overview(summary, filing)
+            stored_raw = summary.raw_summary if isinstance(summary.raw_summary, dict) else {}
+            refresh_unready = not is_summary_ready(served_overview, stored_raw.get("writer_error"))
+            if force or refresh_unready:
                 # Force regeneration triggers a fresh, paid LLM run, so it's Pro-only (Free 403; anyone
                 # unauthenticated already got 401 at the endpoint) — otherwise it's a denial-of-wallet /
                 # "wipe a popular filing for everyone" vector. Resolved via the entitlements SSoT (not
                 # the is_pro mirror) so a lagging mirror can't wrongly grant/deny it. NB this gate sits
-                # inside `if summary`: when no summary exists yet, force is a harmless no-op, so a
-                # failed-generation retry stays open to Free users.
-                if not is_pro_user(current_user):
+                # inside `if summary` and spares a row the page cannot show: there is nothing to wipe,
+                # so retrying a failed or missing summary stays open to Free users.
+                if not refresh_unready and not is_pro_user(current_user):
                     raise HTTPException(
                         status_code=status.HTTP_403_FORBIDDEN,
                         detail="Regenerating an analysis is a Pro feature.",
@@ -251,8 +262,12 @@ async def generate_summary_stream(
                 # saved_summaries bookmark FK'd to it — survives (T1.4). Deleting the row here would
                 # both destroy the bookmark and raise an FK violation on any bookmarked summary in
                 # Postgres. Keep-better applies: a fresh run that comes back below the stored tier keeps
-                # the stored summary. We still clear XBRL + progress so regeneration re-fetches fresh data.
-                logger.info(f"[stream:{filing_id}] Force regeneration requested - refreshing in place")
+                # the stored summary, unless the page cannot show the stored row. We still clear XBRL +
+                # progress so regeneration re-fetches fresh data.
+                if refresh_unready:
+                    logger.info(f"[stream:{filing_id}] Stored summary is not ready (failure or stale marker) - regenerating in place")
+                else:
+                    logger.info(f"[stream:{filing_id}] Force regeneration requested - refreshing in place")
 
                 if filing.xbrl_data is not None:
                     filing.xbrl_data = None
@@ -270,7 +285,7 @@ async def generate_summary_stream(
                 # Capture the response before closing the dependency's read transaction.
                 payload = {
                     'type': 'complete',
-                    'summary': source_safe_business_overview(summary, filing),
+                    'summary': served_overview,
                     'summary_id': summary.id,
                 }
                 db.close()
@@ -317,7 +332,7 @@ async def generate_summary_stream(
                 telemetry_entry_point=telemetry_entry_point,
                 telemetry_ctx=telemetry_ctx,
                 emit_funnel_telemetry=analytics_consent,
-                force_regenerate=force,
+                force_regenerate=force or refresh_unready,
                 request_evidence=evidence,
             )) as events:
                 async for event in events:

@@ -78,6 +78,7 @@ from app.services.provenance_service import (
     replace_business_overview_risks,
     source_safe_business_overview,
 )
+from app.services.summary_placeholders import is_summary_ready
 from app.services.summary_versioning import SUMMARY_PROMPT_VERSION, SUMMARY_SCHEMA_VERSION
 from app.services.summary_schema import TRACKED_SECTIONS_V2
 
@@ -1312,9 +1313,17 @@ async def stream_filing_summary(
                         # delete+insert, guarded by a keep-better gate.
                         existing = session.query(Summary).filter(Summary.filing_id == filing_id).first()
                         if existing is not None:
-                            stored_tier = ((existing.raw_summary or {}).get("quality") or {}).get("tier")
+                            stored_raw = existing.raw_summary if isinstance(existing.raw_summary, dict) else {}
+                            stored_tier = (stored_raw.get("quality") or {}).get("tier")
                             new_tier = (quality or {}).get("tier")
-                            if quality_tier_rank(new_tier) < quality_tier_rank(stored_tier):
+                            # Keep-better protects only a stored row the filing page shows (the body
+                            # the router would replay, by the same rule): failure filler or a stale
+                            # in-progress marker never outranks a fresh result.
+                            stored_shown = is_summary_ready(
+                                source_safe_business_overview(existing, filing_for_cache),
+                                stored_raw.get("writer_error"),
+                            )
+                            if stored_shown and quality_tier_rank(new_tier) < quality_tier_rank(stored_tier):
                                 # Never let a refresh downgrade a stored higher tier (a 75s AI-timeout
                                 # XBRL fallback comes back "partial"; keep the stored "full").
                                 logger.info(
