@@ -6566,12 +6566,13 @@ Full local and hosted verification plus independent exact-head review precede re
   that day, before and after stage 2 (an advisory warning).
 - 2026-10-09 (record 20, `runtime/control/DECISIONS-20.md`): PR #1155 (record 19) merged `8ff4c532` (thirteenth
   deploy-skip proof); three later deploys by other writers kept every pin. The founder's instruction on the open items:
-  the durable-tasks post-deploy checks taken on by the chief; the squash default and custody step A recommended and
-  prepared for the founder. Capacity baseline (no 5xx, mean 60 ms, 5–6 of 25 connections). Closure 171.
+  the durable-tasks post-deploy checks taken on by the chief; the squash default attempted by the chief and refused by
+  the classifier (denials 9 and 10); custody step A recommended and prepared for the founder. Capacity baseline (no 5xx, mean 60 ms, 5–6 of 25 connections). Closure 171.
 - [ ] Founder (optional; recommended, record 20): set the repository's squash default to "Pull request title and
       description" (Settings → General → Pull Requests → "Allow squash merging" → "Default commit message"), so a
       squash merge without an explicit message carries the reviewed PR text (record 18, chief defect 7). Within the chief's
-      remit by the founder's instruction, but this session's GitHub tools cannot set it (record 20).
+      remit by the founder's instruction; the chief's one attempt was refused by the auto-mode classifier
+      (classifier denial 9, record 20).
 - [x] Founder: relay the record-14 custody clarification — replaced by record 16's step A (the founder delegated the custody
       question to the chief on 2026-10-08); D3 — applied by the founder's instruction, staged (record 16).
 - [ ] Founder (optional; recommended now, record 20): relay record 16's custody step A (five metadata fields) once — the

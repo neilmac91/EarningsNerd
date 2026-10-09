@@ -1,6 +1,6 @@
-# Decision record 20 — the record-19 PR merged (PR #1155; thirteenth deploy-skip proof); three later deploys by other writers kept every pin; the founder's instruction of 2026-10-09 on the open items: each analysed and decided (the durable-tasks post-deploy checks taken on by the chief; the squash default and custody step A recommended and prepared for the founder, who alone can act on them); a capacity baseline; the read-back PR and the Monday readout planned; closure 171 (chief, 2026-10-09)
+# Decision record 20 — the record-19 PR merged (PR #1155; thirteenth deploy-skip proof); three later deploys by other writers kept every pin; the founder's instruction of 2026-10-09 on the open items: each analysed and decided (the durable-tasks post-deploy checks taken on by the chief; the squash default attempted by the chief and refused by the auto-mode classifier, so the founder's click; custody step A recommended and prepared for the founder, who alone can relay it); a capacity baseline; the read-back PR and the Monday readout planned; closure 171 (chief, 2026-10-09)
 
-Recorded 2026-10-09T19:56:39Z, amended 2026-10-09T20:51:12Z after the record-20 review, its delta checks and Codex's review, by
+Recorded 2026-10-09T19:56:39Z, amended 2026-10-09T20:58:23Z after the record-20 review, its delta checks and Codex's review, by
 the chief (`https://claude.ai/code/session_01GWYV7WXWstgVGQG43YcSM8`).
 Context: record 19 merged to main as `8ff4c532` (PR #1155, 2026-10-09T12:37:28Z); main has since moved to `25da25bb` through other
 writers' PRs; this branch was restarted from `25da25bb`. Records only: no code, workflow, migration, cloud, IAM or production
@@ -73,14 +73,17 @@ description.
   runtime effect; reversible at any time.
 - Cons: it changes every writer's default; long descriptions (sections, links, the generator footer) become commit bodies on main;
   a description edited after review flows in unreviewed.
-- **Decision: "Pull request title and description", applied by the chief where its tools allow.** The founder's instruction
-  ("for optional steps, go for it") puts this setting within the chief's remit, superseding record 18's line (Codex's review
-  of this PR made the point). The chief keeps passing an explicit title and message on every merge either way. This session's
-  GitHub tools (the GitHub MCP server: pull requests, issues, files, branches, Actions, reviews and auto-merge) have no
-  repository-settings operation (a search of the tool list at 20:50Z found none), and the session routes GitHub actions
-  through those tools, so the chief cannot apply it and does not reach for a raw API write instead. It stays the founder's
-  click: Settings → General → Pull Requests → under "Allow squash merging", set "Default commit message" to "Pull request
-  title and description".
+- **Decision: "Pull request title and description", attempted by the chief; refused by the classifier.** The founder's
+  instruction ("for optional steps, go for it") puts this setting within the chief's remit, superseding record 18's line
+  (Codex's review of this PR made the point). The chief keeps passing an explicit title and message on every merge either
+  way. The session's GitHub MCP server has no repository-settings operation (a search of the tool list at 20:50Z found none);
+  the session's instructions name the preconfigured `gh` command-line client as the next route. At 20:57Z the chief made one
+  attempt through it (a `PATCH` of the repository setting the squash title to the pull request's title and the message to its
+  description). Claude Code's auto-mode classifier refused it before it ran (reason "Permission Grant"; classifier denial 9),
+  so nothing was sent and the setting is as it was. The read-back that followed (a public `GET` of the repository's settings,
+  with local reads of this record) was refused the same way (denial 10). Neither is retried through any other tool or route.
+  It stays the founder's click: Settings → General → Pull Requests → under "Allow squash merging", set "Default commit
+  message" to "Pull request title and description".
 
 **3. Custody step A for R1 (optional; record 16).** One metadata-only request to the custody side, relayed once by the founder,
 answered from retained controls; its outcomes A, B and C were fixed in advance.
@@ -174,8 +177,8 @@ headroom 21.605243; cumulative 3,212 calls / USD 5.297293. The read-back PR's `c
 
 ## Founder actions this record needs
 
-1. **Squash default (optional, recommended; the chief's GitHub tools cannot set it):** Settings → General → Pull Requests →
-   "Allow squash merging" → "Default commit message": "Pull request title and description".
+1. **Squash default (optional, recommended; the chief's one attempt was refused by the classifier, denial 9):** Settings →
+   General → Pull Requests → "Allow squash merging" → "Default commit message": "Pull request title and description".
 2. **Custody step A (optional, recommended now):** send the prepared relay (appendix) once to the custody side; if you agree,
    also tell the chief, in your own words, "If the answer is outcome B, I adopt record 16's form (b) for R1" (now or with the
    answer).
