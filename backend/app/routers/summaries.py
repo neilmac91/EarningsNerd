@@ -240,19 +240,26 @@ async def generate_summary_stream(
             # The body this route would replay, judged by the filing page's readiness rule
             # (is_summary_ready). A row the page cannot show as a summary (failure filler, a writer
             # error, an empty body, an earlier pipeline's in-progress marker) is not one: replaying it
-            # hands back the failure card, or a page that never leaves "generating". Any signed-in
-            # user replaces it in place, metered as a fresh generation.
+            # hands back the failure card, or a page that never leaves "generating".
             served_overview = source_safe_business_overview(summary, filing)
             stored_raw = summary.raw_summary if isinstance(summary.raw_summary, dict) else {}
             refresh_unready = not is_summary_ready(served_overview, stored_raw.get("writer_error"))
-            if force or refresh_unready:
+            if refresh_unready:
+                # Such a row counts as a missing summary: any signed-in user regenerates it, with or
+                # without force, metered as a fresh generation, and nothing is cleared here. The
+                # pipeline updates the row in place (force_regenerate below) and re-checks it once it
+                # owns the generation (replace_unready_only). A row another request makes ready in
+                # between is served or kept, along with the XBRL and progress that request wrote.
+                logger.info(f"[stream:{filing_id}] Stored summary is not ready (failure or stale marker) - regenerating in place")
+            elif force:
                 # Force regeneration triggers a fresh, paid LLM run, so it's Pro-only (Free 403; anyone
                 # unauthenticated already got 401 at the endpoint) — otherwise it's a denial-of-wallet /
                 # "wipe a popular filing for everyone" vector. Resolved via the entitlements SSoT (not
                 # the is_pro mirror) so a lagging mirror can't wrongly grant/deny it. NB this gate sits
-                # inside `if summary` and spares a row the page cannot show: there is nothing to wipe,
-                # so retrying a failed or missing summary stays open to Free users.
-                if not refresh_unready and not is_pro_user(current_user):
+                # inside `if summary`, past a row the page cannot show: when no summary the page shows
+                # exists yet, force is a harmless no-op, so a failed-generation retry stays open to Free
+                # users.
+                if not is_pro_user(current_user):
                     raise HTTPException(
                         status_code=status.HTTP_403_FORBIDDEN,
                         detail="Regenerating an analysis is a Pro feature.",
@@ -262,12 +269,8 @@ async def generate_summary_stream(
                 # saved_summaries bookmark FK'd to it — survives (T1.4). Deleting the row here would
                 # both destroy the bookmark and raise an FK violation on any bookmarked summary in
                 # Postgres. Keep-better applies: a fresh run that comes back below the stored tier keeps
-                # the stored summary, unless the page cannot show the stored row. We still clear XBRL +
-                # progress so regeneration re-fetches fresh data.
-                if refresh_unready:
-                    logger.info(f"[stream:{filing_id}] Stored summary is not ready (failure or stale marker) - regenerating in place")
-                else:
-                    logger.info(f"[stream:{filing_id}] Force regeneration requested - refreshing in place")
+                # the stored summary. We still clear XBRL + progress so regeneration re-fetches fresh data.
+                logger.info(f"[stream:{filing_id}] Force regeneration requested - refreshing in place")
 
                 if filing.xbrl_data is not None:
                     filing.xbrl_data = None

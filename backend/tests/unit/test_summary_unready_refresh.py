@@ -14,16 +14,19 @@ user had no way out and a stale marker never left "generating". Now:
 
 Keep-better protects only a row the page shows: a refresh that comes back below a not-ready row's
 stored tier still replaces it. A refresh that fails saves nothing, so the stored row survives for
-the next retry. The locked anchors (test_summary_request_evidence, the background characterization)
-are untouched; their stored bodies are ready.
+the next retry. An unready row counts as a missing summary throughout: the route clears nothing for
+it (no XBRL, no progress), and the pipeline re-reads it at admission, after a joined leader
+finishes, and at save. The locked anchors (test_summary_request_evidence, the background
+characterization) are untouched; their stored bodies are ready.
 """
+import asyncio
 from types import SimpleNamespace
 
 import pytest
 from fastapi.testclient import TestClient
 
 from app.database import SessionLocal, engine
-from app.models import Base, Summary
+from app.models import Base, Filing, Summary, SummaryGenerationProgress
 from app.routers.auth import get_current_user
 from app.services.summary_generation_service import generate_summary_background
 from main import app
@@ -202,13 +205,15 @@ async def test_admin_refresh_replaces_an_unready_row_even_when_the_refresh_is_pa
     assert raw.get("quality", {}).get("tier") == "partial"
 
 
-# --- Admitted for an unready row, the run re-checks it (Codex review on #1166) ----------------------
+# --- Admitted for an unready row, the run re-checks it (Codex review on #1166, two rounds) ----------
 # The route decides from the row it read; another request (another process, or a run that finished in
 # between) may make the row ready before this run reaches the pipeline or while it generates. A run
 # admitted only for an unready row must then serve or keep that summary, never pay for another one
-# under the waived Pro gate or replace a summary readers now see.
+# under the waived Pro gate or replace a summary readers now see. Nor may it have cleared what that
+# request wrote on the way, and a leader it joined that failed leaves it a missing summary to claim.
 
 OTHER_READY = "# Summary\n\nA summary another request finished first."
+WINNER_XBRL = {"revenue": [{"period": "FY2025", "value": 1000}]}
 
 
 def _make_ready(filing_id):
@@ -219,11 +224,19 @@ def _make_ready(filing_id):
         db.commit()
 
 
-def test_a_row_made_ready_before_the_pipeline_starts_is_served_not_regenerated(monkeypatch):
+@pytest.mark.parametrize("query", ["", "?force=true"])
+def test_a_row_made_ready_before_the_pipeline_starts_is_served_with_nothing_cleared(monkeypatch, query):
+    # The other request's run fetched the filing's XBRL and recorded progress early, then saves its
+    # summary after this route has read the row as unready. This run serves that summary and rebuilds
+    # neither, so the route must not have cleared them: the change report reads that XBRL.
     from app.routers import summaries
 
     filing_id = seed_company_filing()
     stored_id = _seed_summary(filing_id, FAILURE_FILLER)
+    with SessionLocal() as db:
+        db.get(Filing, filing_id).xbrl_data = WINNER_XBRL
+        db.add(SummaryGenerationProgress(filing_id=filing_id, stage="summarizing"))
+        db.commit()
     original = summaries.load_generation_user
 
     def ready_in_between(snapshot):
@@ -232,12 +245,15 @@ def test_a_row_made_ready_before_the_pipeline_starts_is_served_not_regenerated(m
 
     monkeypatch.setattr(summaries, "load_generation_user", ready_in_between)
     with stream_boundaries() as summarize:
-        response = _post(filing_id, "?force=true")
+        response = _post(filing_id, query)
 
     assert response.status_code == 200
     assert "A summary another request finished first." in response.text
     summarize.assert_not_called()
     assert _stored(filing_id)[:2] == (stored_id, OTHER_READY)
+    with SessionLocal() as db:
+        assert db.get(Filing, filing_id).xbrl_data == WINNER_XBRL
+        assert db.get(SummaryGenerationProgress, filing_id) is not None
 
 
 def test_a_row_made_ready_during_generation_is_kept_not_replaced():
@@ -255,6 +271,48 @@ def test_a_row_made_ready_during_generation_is_kept_not_replaced():
     assert response.status_code == 200
     summarize.assert_awaited_once()
     assert _stored(filing_id)[:2] == (stored_id, OTHER_READY)
+
+
+@pytest.mark.asyncio
+async def test_a_follower_of_a_failed_unready_refresh_generates_instead_of_serving_the_row():
+    # Two visitors on one process refresh the same unready row, and the second joins the first. The
+    # first fails and saves nothing, so the unready row is still there. The follower claims the
+    # generation, as a follower of a failed first generation does; serving the row would hand it
+    # the failure card (or "generating" for good) as its result.
+    from app.services import summary_pipeline as pipeline
+
+    filing_id = seed_company_filing()
+    stored_id = _seed_summary(filing_id, FAILURE_FILLER)
+    leader = pipeline._claim_inflight(filing_id)  # the first visitor's run, generating
+    joined = asyncio.Event()
+
+    async def follow():
+        events = []
+        async for event in pipeline.stream_filing_summary(
+            filing_id=filing_id, current_user=None, user_id=None, telemetry_distinct_id="t",
+            telemetry_entry_point=None, telemetry_ctx={}, emit_funnel_telemetry=False,
+            force_regenerate=True, replace_unready_only=True,
+        ):
+            events.append(event)
+            if event.get("stage") == "queued":
+                joined.set()
+        return events
+
+    with stream_boundaries() as summarize:
+        follower = asyncio.create_task(follow())
+        try:
+            await asyncio.wait_for(joined.wait(), 2)
+            pipeline._release_inflight(filing_id, leader)  # the first run failed: nothing saved
+            events = await asyncio.wait_for(follower, 5)
+        finally:
+            follower.cancel()
+            await asyncio.gather(follower, return_exceptions=True)
+
+    summarize.assert_awaited_once()
+    assert events[-1]["type"] == "complete"
+    row_id, overview, _ = _stored(filing_id)
+    assert row_id == stored_id
+    assert FAILURE_FILLER not in overview
 
 
 @pytest.mark.asyncio

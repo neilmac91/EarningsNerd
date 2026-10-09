@@ -377,9 +377,12 @@ async def stream_filing_summary(
     inside the worker; no ORM query result survives into an admission or provider wait.
 
     ``replace_unready_only`` marks a run the caller admitted only because the stored row was one the
-    filing page cannot show (``is_summary_ready``), with the Pro gate waived for that reason. Another
-    run may make the row ready in between, so this run re-reads it: a row that is ready by admission
-    is served, not regenerated, and one that becomes ready during generation is kept, not replaced.
+    filing page cannot show (``is_summary_ready``), with the Pro gate waived for that reason. The run
+    treats such a row as a missing summary and re-reads it at each step, since another run may make it
+    ready in between. A row that is ready by admission, or after a joined leader finishes, is served,
+    not regenerated. A row that becomes ready during generation is kept, not replaced. A row still
+    unready after a joined leader fails is not served: this run claims the generation, as a follower
+    of a failed first generation does.
     """
     pipeline_started_at = time.time()
     stage_started_at = pipeline_started_at
@@ -543,10 +546,15 @@ async def stream_filing_summary(
                     persisted_filing = s.query(Filing).options(
                         joinedload(Filing.content_cache)
                     ).filter(Filing.id == filing_id).first()
-                    return {
-                        "business_overview": source_safe_business_overview(summ, persisted_filing),
-                        "id": summ.id,
-                    } if summ else None
+                    if not summ:
+                        return None
+                    overview = source_safe_business_overview(summ, persisted_filing)
+                    raw = summ.raw_summary if isinstance(summ.raw_summary, dict) else {}
+                    # A run admitted to replace an unready row counts that row as absent: a leader that
+                    # failed left it in place, so this run claims the generation instead of serving it.
+                    if replace_unready_only and not is_summary_ready(overview, raw.get("writer_error")):
+                        return None
+                    return {"business_overview": overview, "id": summ.id}
 
             waited = 0.0
             joined_generation = False
