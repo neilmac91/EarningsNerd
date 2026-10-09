@@ -90,6 +90,7 @@ what applies to your task. Filenames are greppable: `arch-*`, `sec-*`, `test-*`,
 - [`test-tracked-file-gates-run-after-staging.md`](./test-tracked-file-gates-run-after-staging.md) — Run a `git ls-files` gate after staging its own module, and select targets by name pattern
 - [`test-smoke-model-runs-before-sweeps.md`](./test-smoke-model-runs-before-sweeps.md) — Smoke one or two items and inspect raw output before any long or expensive model run
 - [`test-verify-orphaned-tests-before-adopting.md`](./test-verify-orphaned-tests-before-adopting.md) — Verify orphaned or uncollected tests before adopting them
+- [`test-verbatim-fixtures-keep-the-source-bytes.md`](./test-verbatim-fixtures-keep-the-source-bytes.md) — Copy verbatim fixtures from the source payload and assert them on textContent
 - [`test-vitest-for-copy-changes.md`](./test-vitest-for-copy-changes.md) — Run vitest before pushing any change to rendered text, numbers, or copy
 - [`test-vitest4-mock-error-tracking.md`](./test-vitest4-mock-error-tracking.md) — Plain-function error mocks avoid handled-error failures; reproduced on Vitest 4 and rechecked on Vitest 5
 - [`test-wire-format-coverage.md`](./test-wire-format-coverage.md) — Pin serialized wire formats with tests — suites that only check values let format drift through
@@ -146,6 +147,7 @@ what applies to your task. Filenames are greppable: `arch-*`, `sec-*`, `test-*`,
 
 ## Operations & workflow
 
+- [`ops-ci-images-avoid-docker-hub.md`](./ops-ci-images-avoid-docker-hub.md) — Pull CI and deploy images through a mirror, never anonymously from Docker Hub
 - [`ops-auth-lookups-must-let-request-cleanup-progress.md`](./ops-auth-lookups-must-let-request-cleanup-progress.md) — Keep authentication pool waits off the event loop while preserving request-owned sessions
 - [`ops-unmergeable-pr-runs-no-pull-request-workflows.md`](./ops-unmergeable-pr-runs-no-pull-request-workflows.md) — Check the PR's mergeable state before diagnosing missing `pull_request` workflow runs
 - [`ops-capacity-projection-withholds-command-values.md`](./ops-capacity-projection-withholds-command-values.md) — Withhold command values and execute the real readback projection in a privacy gate

@@ -101,7 +101,10 @@ jobs:
     timeout-minutes: 15
     services:
       postgres:
-        image: postgres:15
+        # Google's Docker Hub mirror, never Docker Hub itself: runners share IPs, and on 2026-10-09
+        # Docker Hub's unauthenticated pull limit failed this required job on every PR and skipped
+        # deploy-backend on main. Same image and digest. Gate: tests/unit/test_ci_images_avoid_docker_hub.py.
+        image: mirror.gcr.io/library/postgres:15
         env:
           POSTGRES_USER: earningsnerd
           POSTGRES_PASSWORD: earningsnerd

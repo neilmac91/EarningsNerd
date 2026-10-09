@@ -455,11 +455,21 @@ Trust strip      <TrustStrip>  under the hero: a hairline-topped list of plain s
                  "the filing's own words".
 
 Evidence rows    <SummaryRisks>  (P-03) — one hairline list inside the section: a row is an h3 (14/600, the
-                 opening clause of the row's own verbatim excerpt, unique per row via excerptHeadings — the
+                 opening words of the row's own verbatim excerpt, unique per row via excerptHeadings — the
                  server withholds model titles), the excerpt in blockquote manners (border-l-2 hairline, no
                  fill, no radius, 14px secondary) and the provenance chip; a lead line above and a data-face
                  tally below ("3 of 4 excerpts located in the filing text · 1 withheld …"). No stripe, no
-                 trend glyph, no nested evidence box.
+                 trend glyph, no nested evidence box. The row wraps a long unbreakable token
+                 ([overflow-wrap:anywhere]).
+                 Heading rule (riskHeadline.ts, inside excerptHeadings): a verbatim prefix of the excerpt, never
+                 recased and never whitespace-normalised (one enclosing quote pair is dropped first, only when
+                 it wraps the whole span). The first sentence stays whole when it fits in 100 characters; a
+                 longer one is cut at its first ";" or ":" only where the clause can stand as a heading,
+                 otherwise capped on a whole content word that splits no figure from its unit or label, no
+                 date, name, bracket or quotation. Never at a comma or a dash. "…" whenever the excerpt goes
+                 on; "Risk n" when no heading fits. Gates: riskHeadline.spec.ts (the rule, on the production,
+                 backend-fixture and eval spans), riskTitle.spec.ts (what excerptHeadings adds around it),
+                 SummaryRisks.spec.tsx (the wiring), tests/e2e/risk-evidence-rows.spec.ts (layout).
 
 Callout          <Callout label tone="neutral|caution">  (P-08; replaces SummaryBlock) — an inset well:
                  `rounded border bg-panel-light px-4 py-3.5` (dark: white/10 hairline on panel-dark), no
