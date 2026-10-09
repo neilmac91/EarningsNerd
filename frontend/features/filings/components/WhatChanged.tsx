@@ -8,8 +8,10 @@ const DIR_ICON = { up: TrendUpIcon, down: TrendDownIcon, flat: MinusIcon } as co
 
 /**
  * A5 "What Changed": a calm, deterministic period-over-period change report — metric deltas, new /
- * no-longer-cited risk factors, and management's note — shown at the top of a filing summary. Renders
- * nothing unless there is something material to report (has_changes).
+ * no-longer-cited risk factors, and management's note. On the filing page SummaryDisplay renders it
+ * below the structured summary and the "Ask this filing" callout, before the trend chart, the AI
+ * disclaimer and the suggested follow-ups; the landing page's Change Report demo renders it too.
+ * Renders nothing unless there is something material to report (has_changes).
  */
 export function WhatChanged({
   report,
