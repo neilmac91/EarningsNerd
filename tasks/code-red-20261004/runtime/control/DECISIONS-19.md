@@ -1,6 +1,6 @@
 # Decision record 19 — the record-18 PR merged (PR #1149; twelfth deploy-skip proof); D3 stage 2 merged and deployed (PR #1151): every production process now runs both SEC limiters at 1, the insider endpoint is switched off and the dead fuzzy-search fallback is gone; the founder moved `backfill-facts-weekly`; ledger events 39–44; chief defect 8 (a search printed one line of an excluded directory); closure 170 (chief, 2026-10-09)
 
-Recorded 2026-10-09T11:54:08Z, amended 2026-10-09T12:16:25Z after the record-19 review, by the chief
+Recorded 2026-10-09T11:54:08Z, amended 2026-10-09T12:22:47Z after the record-19 review and its delta check, by the chief
 (`https://claude.ai/code/session_01GWYV7WXWstgVGQG43YcSM8`). Context: record 18 merged to main as
 `76d45732027f43dfb7cb81dc0f6d4a97903b90b5` (PR #1149, 2026-10-09T09:02:04Z); D3 stage 2 merged as
 `ae5b0f1c606346e2e1e6902145f03e729cb80a21` (PR #1151, 2026-10-09T11:32:19Z) and deployed; this branch was restarted from
@@ -135,11 +135,15 @@ Side effects, from the transcripts:
 
 **Scratch copies of the excluded directories.** The review above showed that scratch copies of the repository hold both
 excluded directories, just as the checkout does. At 12:14–12:15Z the chief removed ten stale scratch worktrees (saving two
-worktrees' uncommitted diffs first) and deleted the 65 copies of the two directories left in other scratch extracts, listing
-paths only and reading nothing. Only this PR's review worktree keeps them, as a checkout. Rule (from this record): an agent's
-repository copy excludes the two directories (`git archive <sha> -- . ':!tasks/readiness-2026-09-21/acceptance'
-':!tasks/review-evidence'`), which the chief's review prompts now state for every copy. No machine gate: scratch copies
-are outside the repository.
+worktrees' uncommitted diffs first) and deleted the 65 copies of the two directories left in other scratch extracts. The
+review's delta check then found them still held as git objects by seven throwaway repositories built from extracts, and in the
+history of twelve stale scratch clones; the chief deleted those nineteen repositories at 12:22Z and switched this PR's review
+worktree to a sparse checkout without the two paths. Every step listed paths only and read nothing. No scratch copy remains; the
+repository's own checkout holds them, as it always has. Rule (from this record): an agent's repository copy excludes the two
+directories (`git archive <sha> -- . ':!tasks/readiness-2026-09-21/acceptance' ':!tasks/review-evidence'`), and the chief's
+review worktrees use a sparse checkout without them (`git sparse-checkout set --no-cone '/*' '!/tasks/review-evidence/'
+'!/tasks/readiness-2026-09-21/acceptance/'`); the chief's review prompts state both. No machine gate: scratch copies are outside
+the repository.
 
 ## Spend
 
