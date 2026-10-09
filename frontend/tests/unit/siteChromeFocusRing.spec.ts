@@ -13,8 +13,8 @@ import { describe, expect, it } from 'vitest'
  * since it must show on any focus.
  *
  * The scan reads the TypeScript AST of each chrome file below and checks every element a user can Tab
- * to (a, button, input, select, textarea, summary, next/link's Link, or anything with a tabIndex of 0
- * or more). Its className must carry the whole triple, or be the DS factory `buttonVariants(…)`, which
+ * to (a, button, input, select, textarea, summary, next/link's Link, or anything with a tabIndex the scan
+ * cannot prove negative: 0 or more, or a dynamic value such as a roving `tabIndex={selected ? 0 : -1}`). Its className must carry the whole triple, or be the DS factory `buttonVariants(…)`, which
  * composes it (pinned below). A className the scan cannot read (a variable, a call to anything else)
  * fails: the ring has to be visible in the file. Dynamic `${…}` parts of a template are ignored, so the
  * triple must sit in the template's static text. The DS components (<Button>, <Input>) are not scanned
@@ -193,6 +193,21 @@ function missingRingsInHeaderActions(source: string, fileName = 'page.tsx'): { s
   return result
 }
 
+/**
+ * What each branch of a tabIndex expression can be: 'negative' (a negative literal), 'unset' (undefined or
+ * null, which leaves the element's own tabbability) or 'stop' (0 or more, or anything the scan cannot
+ * evaluate). Conditionals and parentheses are followed into their branches.
+ */
+function tabIndexBranches(e: ts.Expression): Array<'negative' | 'unset' | 'stop'> {
+  if (ts.isParenthesizedExpression(e)) return tabIndexBranches(e.expression)
+  if (ts.isConditionalExpression(e)) return [...tabIndexBranches(e.whenTrue), ...tabIndexBranches(e.whenFalse)]
+  if (ts.isPrefixUnaryExpression(e) && e.operator === ts.SyntaxKind.MinusToken && ts.isNumericLiteral(e.operand) && Number(e.operand.text) > 0) {
+    return ['negative']
+  }
+  if (e.kind === ts.SyntaxKind.NullKeyword || (ts.isIdentifier(e) && e.text === 'undefined')) return ['unset']
+  return ['stop']
+}
+
 function scan(root: ts.Node, sf: ts.SourceFile): { stops: number; findings: Finding[] } {
   // next/link's default export under whatever name the file imports it as.
   const linkNames = defaultImportNames(sf, (m) => m === 'next/link')
@@ -203,12 +218,14 @@ function scan(root: ts.Node, sf: ts.SourceFile): { stops: number; findings: Find
       const tag = node.tagName.getText(sf)
       const attrs = node.attributes.properties.filter(ts.isJsxAttribute)
       const attr = (name: string) => attrs.find((a) => a.name.getText(sf) === name)
+      // A tabIndex is read branch by branch (see tabIndexBranches): it removes a stop only when every
+      // branch is negative (`tabIndex={-1}`), and makes one when any branch may be 0 or more, a dynamic
+      // value included (`tabIndex={selected ? 0 : -1}`, a roving stop), just as a dynamic `disabled` may
+      // leave a control enabled. `tabIndex={ref ? -1 : undefined}` on a focus target is neither.
       const tabIndex = attr('tabIndex')?.initializer
-      const tabIndexValue =
-        tabIndex && ts.isJsxExpression(tabIndex) && tabIndex.expression
-          ? Number(tabIndex.expression.getText(sf))
-          : undefined
-      const removed = tabIndexValue !== undefined && tabIndexValue < 0
+      const branches = tabIndex && ts.isJsxExpression(tabIndex) && tabIndex.expression ? tabIndexBranches(tabIndex.expression) : []
+      const removed = branches.length > 0 && branches.every((b) => b === 'negative')
+      const indexed = branches.some((b) => b === 'stop')
       // `disabled` or `disabled={true}`; a dynamic value may be enabled, so it still counts.
       const disabled = attr('disabled')
       const staticallyDisabled =
@@ -216,7 +233,7 @@ function scan(root: ts.Node, sf: ts.SourceFile): { stops: number; findings: Find
         (!disabled.initializer ||
           (ts.isJsxExpression(disabled.initializer) && disabled.initializer.expression?.kind === ts.SyntaxKind.TrueKeyword))
       const tabbable =
-        (INTRINSIC.has(tag) || linkNames.has(tag) || (tabIndexValue !== undefined && tabIndexValue >= 0)) && !removed && !staticallyDisabled
+        (INTRINSIC.has(tag) || linkNames.has(tag) || indexed) && !removed && !staticallyDisabled
       const typeAttr = attr('type')?.initializer
       const toggle = tag === 'input' && !!typeAttr && ts.isStringLiteral(typeAttr) && ['checkbox', 'radio'].includes(typeAttr.text)
       if (tabbable) {
@@ -381,7 +398,7 @@ describe('every Tab stop in the site chrome carries the brand focus ring (EN-05c
     const src = `
       import NextLink from 'next/link'
       import { buttonVariants } from '@/components/ui'
-      export function A({ c, busy }: { c: string; busy: boolean }) {
+      export function A({ c, busy, selected }: { c: string; busy: boolean; selected: boolean }) {
         return (
           <nav>
             <NextLink href="/" className="flex">logo</NextLink>
@@ -398,11 +415,13 @@ describe('every Tab stop in the site chrome carries the brand focus ring (EN-05c
             <input type="radio" className="focus:ring-0 focus:ring-offset-0 ${ring}" />
             <input type="checkbox" disabled className="h-5 w-5" />
             <button disabled={busy} className="p-2">busy</button>
+            <li tabIndex={selected ? 0 : -1} className="p-1">roving</li>
+            <h1 tabIndex={selected ? -1 : undefined}>focus target</h1>
           </nav>
         )
       }`
     const { stops, findings } = missingRings(src)
-    expect(stops).toBe(12)
+    expect(stops).toBe(13)
     expect(findings.map((f) => `${f.tag}: ${f.problem}`)).toEqual([
       'NextLink: missing focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark',
       'button: missing dark:focus-visible:shadow-ring-brand-dark',
@@ -411,6 +430,7 @@ describe('every Tab stop in the site chrome carries the brand focus ring (EN-05c
       'button: a className the scan cannot read',
       "input: missing focus:ring-0 focus:ring-offset-0 (the forms plugin's ring)",
       'button: missing focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark',
+      'li: missing focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark',
     ])
   })
 })
