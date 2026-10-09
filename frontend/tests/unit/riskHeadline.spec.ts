@@ -137,6 +137,18 @@ describe('deriveRiskHeadline', () => {
     expect(deriveRiskHeadline('We face credit risks.', 0)).toBe('We face credit risks')
   })
 
+  it('drops a whole ASCII ellipsis at a sentence break, as it drops a period', () => {
+    expect(deriveRiskHeadline('Our suppliers may fail... Production could stop if they do.', 0)).toBe('Our suppliers may fail…')
+    // A period before the ellipsis, and the spaced form legal text uses, go whole too.
+    expect(deriveRiskHeadline('Our suppliers may fail.... Production could stop if they do.', 0)).toBe('Our suppliers may fail…')
+    expect(deriveRiskHeadline('Our suppliers may fail . . . Production could stop if they do.', 0)).toBe('Our suppliers may fail…')
+    expect(deriveRiskHeadline('Our suppliers may fail...', 0)).toBe('Our suppliers may fail')
+    // Inside a closing quotation it stays, with the quote.
+    expect(deriveRiskHeadline('Our supplier warned that “production may stop...” Other risks follow below.', 0)).toBe(
+      'Our supplier warned that “production may stop...”…',
+    )
+  })
+
   it('skips a first sentence too short to head the row rather than ending on it', () => {
     expect(deriveRiskHeadline('Risks. Tariffs could hurt margins this year.', 0)).toBe('Risks. Tariffs could hurt margins this year')
     expect(deriveRiskHeadline('Demand softened! Management cut guidance.', 0)).toBe('Demand softened! Management cut guidance')
