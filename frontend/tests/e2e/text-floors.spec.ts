@@ -4,8 +4,9 @@ import { settled } from './fixtures/contrast'
 import { answerApi, API_ORIGIN } from './fixtures/filing3Api'
 
 /**
- * Text floors on the main routes, read from what Chromium renders (critique v3.1 DC-TERTIARY).
- * DOM and computed-style measurements only: this is not a screen-reader or visual test.
+ * Text floors on the main routes, read from what Chromium renders (critique v3.1 DC-TERTIARY and
+ * DET-OVL-1). DOM and computed-style measurements only: this is not a screen-reader
+ * or visual test.
  *
  * Muted ink (DESIGN_SYSTEM §2 and §7, the rule-12 gate for DC-TERTIARY): every piece of text painted
  * in the tertiary ink clears 4.5:1 against what is actually behind it. Tertiary (#6B7280) measures
@@ -14,6 +15,11 @@ import { answerApi, API_ORIGIN } from './fixtures/filing3Api'
  * The ink is read from tailwind.config.js, so a token change cannot leave the census looking at a
  * colour nothing uses; the census must also find tertiary text, or a broken probe would pass.
  * Light theme only: every dark pairing is the secondary-dark ink, which this change leaves alone.
+ *
+ * Heading outline (DET-OVL-1): no route skips a level, in DOM order (how the Impeccable detector
+ * reads it) and in the accessibility tree. The footer's column titles (h3) sit under the footer's
+ * own visually hidden h2, so a page whose content ends at h1 (the 404, /analysis, /search) no longer
+ * jumps from h1 to h3.
  *
  * CI runs e2e with no backend (lessons/test-e2e-runs-without-backend.md): the API origin is answered
  * inside the browser.
@@ -130,11 +136,32 @@ const inkCensus = (page: Page, ink: string) =>
     return found
   }, ink)
 
+/** Heading levels in DOM order (the detector's reading) and as the accessibility tree exposes them. */
+const headingSkips = (page: Page) =>
+  page.evaluate(() => {
+    const all = [...document.querySelectorAll('h1, h2, h3, h4, h5, h6')]
+    const exposed = all.filter((h) => !h.closest('[aria-hidden="true"]') && h.checkVisibility({ visibilityProperty: true }))
+    const skips = (list: Element[]) => {
+      const out: string[] = []
+      let prev = 0
+      let prevText = ''
+      for (const h of list) {
+        const level = Number(h.tagName[1])
+        const text = (h.textContent ?? '').replace(/\s+/g, ' ').trim().slice(0, 40)
+        if (prev && level > prev + 1) out.push(`h${prev} "${prevText}" -> h${level} "${text}"`)
+        prev = level
+        prevText = text
+      }
+      return out
+    }
+    return { dom: skips(all), exposed: skips(exposed), footer: [...document.querySelectorAll('footer h2, footer h3')].map((h) => h.tagName) }
+  })
+
 test.describe('main routes at 1440x900, light theme', () => {
   test.use({ viewport: { width: 1440, height: 900 } })
 
   for (const route of ROUTES) {
-    test(`${route.name}: muted ink clears AA`, async ({ page, baseURL }) => {
+    test(`${route.name}: muted ink clears AA and the heading outline skips no level`, async ({ page, baseURL }) => {
       await visit(page, baseURL!, route)
       await page.mouse.move(0, 0)
 
@@ -151,6 +178,11 @@ test.describe('main routes at 1440x900, light theme', () => {
         await settled(header)
         expect.soft((await inkCensus(page, TERTIARY_INK)).filter((c) => c.ratio < 4.5), 'tertiary text under 4.5:1 with a year header hovered').toEqual([])
       }
+
+      const outline = await headingSkips(page)
+      expect.soft(outline.dom, `skipped heading levels on ${route.name} (DOM order)`).toEqual([])
+      expect.soft(outline.exposed, `skipped heading levels on ${route.name} (accessibility tree)`).toEqual([])
+      expect.soft(outline.footer, 'the footer opens its own section before its column titles').toEqual(['H2', 'H3', 'H3', 'H3'])
     })
   }
 })
