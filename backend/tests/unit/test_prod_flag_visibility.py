@@ -24,6 +24,8 @@ PROD_ENV_PINS = {
     # Founder-approved W3-1 observation: keep the live service filter, not the old plan's false.
     "CALENDAR_INDEX_FILTER_ENABLED": "true", "ENABLE_FPI_FILINGS": "true",
     "STREAM_SECTION_REVEAL": "true", "REGISTRATION_MODE": "invite_only",
+    # CODE RED D3 stage 2: the pinned service cannot carry the insider endpoint's cold fetch.
+    "ENABLE_INSIDER_ACTIVITY": "false",
 }
 INTENTIONAL_PROD_OVERRIDES = {
     # Delegated Sep28 rollout: source-faithful labels and seven observed scheduled days.
@@ -167,6 +169,7 @@ def test_ops_renderer_binds_masked_values_to_distinct_resources(resources):
         assert "AI_FIGURE_TRACE_GATE = <secret-ref>" in rendered
         assert "AI_FALLBACK_API_KEY = <set; value withheld>" in rendered
         assert "USE_STATEMENT_FINANCIALS = <NOT SET -> Settings default applies (True)>" in rendered
+        assert "EDGAR_RATE_LIMIT_PER_SEC = <NOT SET -> edgartools default 9>" in rendered
         assert "verify these against the reported image before pinning" in rendered
     assert "hidden-credential" not in output and "hidden-reference" not in output
     assert "stale-template" not in output

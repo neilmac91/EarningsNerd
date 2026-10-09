@@ -244,15 +244,13 @@ async def get_company_filings(
     # ($BABA) list their filings instead of showing an empty state. An explicit ?filing_types=
     # query always wins. Page-scoped: only this endpoint expands — the dashboard feed / scanner /
     # alerts keep their own form sets (see tasks/fpi-support-roadmap.md, Phase 5).
-    if filing_types:
-        types_list = [t.strip() for t in filing_types.split(",")]
-    elif settings.ENABLE_FPI_FILINGS:
-        types_list = ["10-K", "10-Q", "20-F", "6-K", "40-F"]
-    else:
-        types_list = ["10-K", "10-Q"]
-
+    # The default set lives in latest_filing_service, so search names the same latest filing.
     from app.services.filing_amendment_service import expand_amendment_forms
-    types_list = expand_amendment_forms(types_list)
+    from app.services.latest_filing_service import company_list_forms
+    if filing_types:
+        types_list = expand_amendment_forms([t.strip() for t in filing_types.split(",")])
+    else:
+        types_list = company_list_forms()
     company_id = company.id
     company_cik = company.cik
     needs_history_backfill = company.history_backfilled_at is None

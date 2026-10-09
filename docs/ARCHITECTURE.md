@@ -89,6 +89,23 @@ stream_filing_summary(filing_id, ...)
   → events: progress → chunk → (partial|complete) | error
 ```
 
+The generator itself is a short stage map (`_stage_sequence()` in `summary_pipeline.py`) over
+`app/services/summary_stages/`, one shared `GenerationRun` per generation:
+
+| stage module | owns |
+|---|---|
+| `generation_run.py` | the run state (timings, lease/charge, owned tasks, filing snapshot) and the former closures: `run_sync_db`, `settle_charge`, `refund_charge`, `begin_charge`/`charge_lease` (metering at provider start), `release()` (the `finally`) |
+| `admission.py` | `load_filing` (snapshot + existing-summary short-circuit), `join_or_lead` (A3 in-flight dedup), `admit` (24h cache validity, usage/fair-use gate, generation slot) |
+| `fetch.py` | `fetch_document` (starts the XBRL/section tasks; cached text, 6-K exhibits, or the SEC fetch with heartbeats) |
+| `enrichment.py` | `start_enrichment_tasks`, `parse_and_enrich` (progress, excerpt, bounded join) |
+| `generation.py` | `generate` (provider task under the metering signal, heartbeats/previews, 75s fallback, error payload) |
+| `finalize.py` | `finalize` (projection, quality verdict + measurement logs, persist, usage, telemetry, terminal events) |
+| `failure.py` | `timed_out`, `failed` (the two `except` bodies) |
+
+The stage modules reach every collaborator as `summary_pipeline.<name>` at call time (the patch
+seams the tests rely on); `tests/unit/test_summary_stages_seams.py` gates that, the terminal-event
+protocol and the orchestrator's length.
+
 Product invariant: summaries are **filing-only** — no content from outside the chosen
 filing (including prior filings) enters user-visible output. Cross-filing insight lives in
 explicit surfaces (Multi-Period Analysis, change reports). `Summary.filing_id` is UNIQUE;
@@ -141,7 +158,7 @@ frontend/
 
 | Service | Purpose |
 |---|---|
-| `summary_pipeline.py` | THE summary orchestrator (see above) |
+| `summary_pipeline.py` + `summary_stages/` | THE summary orchestrator (see above): the stage map, its stages and the patch seams the tests rely on |
 | `summary_generation_service.py` | Headless drain for batch callers + quality verdict helpers (`assess_quality`, `calculate_section_coverage`) |
 | `openai_service.py` | Façade over `app/services/ai/*` — orchestration core (`summarize_filing`, `generate_structured_summary`) stays here |
 | `entitlements.py` | **Single source of truth** for plan gates (Free vs Pro); defines `FREE_TIER_SUMMARY_LIMIT = 5` |
@@ -335,11 +352,15 @@ unused since generation became account-required in #619; kept because migrations
 
 - `FilingContentCache.markdown_*` columns are inert legacy (dropping needs a destructive
   migration).
-- Recorded follow-ups from the 2026-07 refactor (see `tasks/architecture-refactor-plan.md`
-  delta log): unify the two companyfacts fetchers on the async+limiter pattern; the
-  concept-list registries stay deliberately separate (orderings encode tag priority);
-  `_parse_company_facts` never populates its `total_liabilities`/`cash_and_equivalents`
-  buckets (pinned as characterization, fix pending).
+- Recorded follow-up from the 2026-07 refactor (see `tasks/architecture-refactor-plan.md`
+  delta log): the three concept-list registries (`facts_service`, `edgar/xbrl_service`,
+  `edgar/instance_extractor`) stay deliberately separate, because their orderings encode tag
+  priority; unifying them would change which tag wins. The other two follow-ups on that list are
+  done: both companyfacts fetchers run on the shared SEC limiter (WS-8, 2026-09-04, made
+  `facts_service`'s sync fetcher a bridge onto the rate-limited async one; the `xbrl_service`
+  fallback was already limiter-wired), and `_parse_company_facts` has filled its
+  `total_liabilities`/`cash_and_equivalents` buckets since 2026-09-05, pinned by
+  `backend/tests/unit/test_companyfacts_fixture.py`.
 
 ## Decision records
 

@@ -64,7 +64,7 @@ export default function PopularTickerChips() {
           className={CHIP_CLASSES}
         >
           {pendingTicker === ticker ? (
-            <CircleNotchIcon className="h-3.5 w-3.5 animate-spin" />
+            <CircleNotchIcon className="h-3.5 w-3.5 animate-spin motion-reduce:animate-none" />
           ) : (
             <PlusIcon className="h-3.5 w-3.5 text-brand-strong dark:text-brand-strong-dark" />
           )}

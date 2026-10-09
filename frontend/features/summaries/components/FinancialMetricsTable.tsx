@@ -309,7 +309,7 @@ export default function FinancialMetricsTable({ metrics, notes, bare = false }: 
     </ul>
   )
 
-  // One element for the parent: SummaryBlocks' CardBody spaces its children with `space-y-4`,
+  // One element for the parent: a SummaryBlocks section body spaces its children with `space-y-4`,
   // whose selector (`> :not([hidden]) ~ :not([hidden])`) reads sibling order, not display — a bare
   // fragment would hand the desktop table a 16px top margin it never had when the (CSS-hidden)
   // card list precedes it, and the phone list one when the table precedes it.
