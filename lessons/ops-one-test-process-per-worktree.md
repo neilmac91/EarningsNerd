@@ -42,24 +42,25 @@ eight cross-test dependencies, each fixed at the root:
 - A shared-deadline test's 40 ms budget left 15 ms of slack and failed under load even when warm;
   it now expires the shared deadline while the recovery request is in flight.
 
-**Rule.** A worktree may run more than one pytest process; each owns its database. Within a
-process, tests still share that database and every module-level global, in whatever order xdist
-produces (and pytest-randomly, when installed locally for a hunt). So a test must not depend on another test's order or leftovers: scope
-its assertions to its own rows, undo every override it makes before the context it overrides
-exits (`monkeypatch.context()` inside `stream_boundaries`), and reset process-wide state in a
-conftest autouse fixture. A real-time budget in a test must not race a wall-clock margin: arm or
-expire the deadline once the operation under test is under way, by rescheduling the real
-`asyncio.timeout` it entered, as the provider-lifecycle and shared-deadline tests do. A "passes alone, fails in the suite" result is reproduced first by
-running the suspect leaker and the victim in that order in one process
-(`python -m pytest -n 0 -p no:randomly <leaker> <victim>`), never accepted as a flake. Do not
-edit a checkout while a run reads it (`test-leave-the-tree-alone-during-a-background-suite.md`).
+**Rule.** A worktree may run more than one pytest process; each owns its database. Within a process,
+tests still share that database and every module-level global, in whatever order xdist produces (and
+pytest-randomly, when installed locally for a hunt). So a test must not depend on another test's
+order or leftovers: scope its assertions to its own rows, undo every override it makes before the
+context it overrides exits (`monkeypatch.context()` inside `stream_boundaries`), and reset
+process-wide state in a conftest autouse fixture. A real-time budget in a test must not race a
+wall-clock margin: arm or expire the deadline once the operation under test is under way, by
+rescheduling the real `asyncio.timeout` it entered, as the provider-lifecycle and shared-deadline
+tests do. A "passes alone, fails in the suite" result is reproduced first by running the suspect
+leaker and the victim in that order in one process (`python -m pytest -n 0 -p no:randomly <leaker>
+<victim>`), never accepted as a flake. Do not edit a checkout while a run reads it
+(`test-leave-the-tree-alone-during-a-background-suite.md`).
 
 **Enforcement.** `backend/tests/unit/test_suite_isolation.py` fails if the suite database is not a
 private per-process temp file, if a fresh process lacks the schema before its first test, if SQLite
-re-issues a deleted id, if the SDK is cold before a fresh process's first test, if a mock is left
-on the generation singletons, or if a conftest reset (the canonical payload, the `ai_metrics`
-trigger) stops holding; it runs those probe pairs in a fixed order in a fresh serial process, because `-n auto`
-and random order can split or reverse a definition-order pair. CI's backend step runs the same
+re-issues a deleted id, if the SDK is cold before a fresh process's first test, if a mock is left on
+the generation singletons, or if a conftest reset (the canonical payload, the `ai_metrics` trigger)
+stops holding; it runs those probe pairs in a fixed order in a fresh serial process, because `-n
+auto` and random order can split or reverse a definition-order pair. CI's backend step runs the same
 parallel `python -m pytest`, so every PR exercises a different test-to-worker split.
 
 **Evidence.** W3-9 gate on `457933fd` (1 failed / 2703 passed) versus the verbose re-run on
