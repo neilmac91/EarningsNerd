@@ -1,0 +1,28 @@
+{
+ "source_sha": "da636f6c",
+ "source_full_sha": "da636f6c57241273fb99444cb8f1e92a03c24522",
+ "frontend_tree": "c7ab0045812d1689bf921df911a6bb91a2309394",
+ "frontend_dirty": true,
+ "run_at": "2026-10-08T23:59:22+00:00",
+ "launcher": "/root/.claude/plugins/cache/impeccable/impeccable/4.5.0/skills/impeccable/scripts/impeccable",
+ "engine_version": "0.1.11",
+ "targets_passed": 31,
+ "exit_code": 2,
+ "exit_meaning": "findings",
+ "raw_entries": 4,
+ "distinct_findings": 4,
+ "by_antipattern": {
+  "bounce-easing": 1,
+  "side-tab": 3
+ },
+ "by_file": {
+  "frontend/app/globals.css": 1,
+  "frontend/features/summaries/components/SummaryBlock.tsx": 1,
+  "frontend/features/summaries/components/SummaryBlocks.tsx": 1,
+  "frontend/app/company/[ticker]/page-client.tsx": 1
+ },
+ "severities": {
+  "warning": 4
+ },
+ "stderr_lines": 0
+}
