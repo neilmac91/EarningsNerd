@@ -9,21 +9,25 @@ import SupersededFilingNotice from '@/features/filings/components/SupersededFili
 import { formatCompanyName } from '@/lib/formatCompanyName'
 import { formatLocalDate } from '@/lib/format'
 
+// The identity vocabulary, shared with the company page's lead (CompanyIdentity): one breadcrumb,
+// the h1 with its ticker pill, data-face fact lines split by middots, quiet source links.
 const INK = 'text-text-primary-light dark:text-text-primary-dark'
 const MUTED = 'text-text-secondary-light dark:text-text-secondary-dark'
 const FOCUS = 'focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark'
-// The quiet source link: sage ink, a brand-hairline underline that darkens on hover.
-const LINK = cx(
+/** The quiet source link: sage ink, a brand-hairline underline that darkens on hover. */
+export const IDENTITY_LINK = cx(
   'rounded-sm text-brand-strong underline decoration-brand-border underline-offset-4 transition-colors duration-fast',
   'hover:decoration-current dark:text-brand-strong-dark dark:decoration-brand-border-dark',
   FOCUS,
 )
-// A crumb: sage ink, underlined on hover only.
-const CRUMB = cx('rounded-sm text-brand-strong hover:underline hover:underline-offset-4 dark:text-brand-strong-dark', FOCUS)
+/** A crumb: sage ink, underlined on hover only. */
+export const IDENTITY_CRUMB = cx('rounded-sm text-brand-strong hover:underline hover:underline-offset-4 dark:text-brand-strong-dark', FOCUS)
+/** A data-face line of facts: wraps between facts, 12px on phones, 14px from sm. */
+export const IDENTITY_FACTS = cx('flex flex-wrap items-center gap-x-2.5 gap-y-1 font-data text-xs tabular-nums sm:text-sm', MUTED)
 
 /** A middot between data-face facts. Assistive tech hears a comma instead: the middot is visual
  *  only, and without a separator the facts would run together. */
-const Sep = () => (
+export const Sep = () => (
   <>
     <span aria-hidden="true" className={MUTED}>
       ·
@@ -32,8 +36,23 @@ const Sep = () => (
   </>
 )
 
+/** The ticker beside the h1, in the data face: a quiet pill, never a status colour. */
+export function TickerPill({ ticker }: { ticker: string }) {
+  return (
+    <span
+      className={cx(
+        'rounded-full border border-border-light bg-panel-light px-2.5 py-0.5 font-data text-sm font-semibold',
+        'dark:border-white/10 dark:bg-panel-dark',
+        MUTED,
+      )}
+    >
+      {ticker}
+    </span>
+  )
+}
+
 /** "fiscal year ended Sep 24, 2022": the period of report as a phrase inside the identity line. */
-function periodPhrase(filing: Pick<Filing, 'filing_type' | 'report_date'>): string | null {
+export function periodPhrase(filing: Pick<Filing, 'filing_type' | 'report_date'>): string | null {
   const label = periodLabel(filing)
   return label ? label.charAt(0).toLowerCase() + label.slice(1) : null
 }
@@ -69,13 +88,13 @@ export function FilingIdentity({ filing, children }: { filing: Filing; children?
         <ol className="flex flex-wrap items-center gap-2 text-sm">
           {company ? (
             <li>
-              <Link href={`/company/${company.ticker}`} className={CRUMB}>
+              <Link href={`/company/${company.ticker}`} className={IDENTITY_CRUMB}>
                 {name}
               </Link>
             </li>
           ) : (
             <li>
-              <Link href="/" className={CRUMB}>
+              <Link href="/" className={IDENTITY_CRUMB}>
                 Home
               </Link>
             </li>
@@ -93,21 +112,11 @@ export function FilingIdentity({ filing, children }: { filing: Filing; children?
         <h1 className="min-w-0 break-words text-2xl font-semibold sm:text-3xl">
           {name ?? `${filing.filing_type} summary`}
         </h1>
-        {company?.ticker && (
-          <span
-            className={cx(
-              'rounded-full border border-border-light bg-panel-light px-2.5 py-0.5 font-data text-sm font-semibold',
-              'dark:border-white/10 dark:bg-panel-dark',
-              MUTED,
-            )}
-          >
-            {company.ticker}
-          </span>
-        )}
+        {company?.ticker && <TickerPill ticker={company.ticker} />}
         <SupersededFilingNotice filing={filing} />
       </div>
 
-      <p className={cx('flex flex-wrap items-center gap-x-2.5 gap-y-1 font-data text-xs tabular-nums sm:text-sm', MUTED)}>
+      <p className={IDENTITY_FACTS}>
         <span className={cx('font-semibold', INK)}>{filing.filing_type}</span>
         {period && (
           <>
@@ -130,7 +139,7 @@ export function FilingIdentity({ filing, children }: { filing: Filing; children?
         {original && (
           <>
             <Sep />
-            <a href={original} target="_blank" rel="noopener noreferrer" className={cx(LINK, 'inline-flex items-center gap-1')}>
+            <a href={original} target="_blank" rel="noopener noreferrer" className={cx(IDENTITY_LINK, 'inline-flex items-center gap-1')}>
               Original on SEC EDGAR
               <ArrowSquareOutIcon aria-hidden="true" className="h-3.5 w-3.5" />
             </a>

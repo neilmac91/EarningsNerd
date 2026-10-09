@@ -1,3 +1,4 @@
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { render, screen, within } from '@testing-library/react'
 import { SummaryBlocks } from '@/features/summaries/components/SummaryBlocks'
 import type { ChangeReport, RenderedSection, Summary } from '@/features/summaries/api/summaries-api'
@@ -394,5 +395,73 @@ describe('SummaryBlocks', () => {
     render(<SummaryBlocks sections={sections} summary={summary} whatChanged={empty} />)
     expect(screen.queryByRole('region', { name: 'What changed' })).toBeNull()
     expect(within(screen.getByRole('navigation', { name: 'Summary sections' })).getAllByRole('link')).toHaveLength(sections.length)
+  })
+
+  describe('arriving at a named section', () => {
+    // The company page's Compare periods card links to /filing/{id}#what-changed; the change report
+    // renders after the browser's own jump to the fragment has found nothing.
+    const REPORT: ChangeReport = {
+      has_prior: true,
+      comparison_basis: 'Year over year',
+      prior_filing: { filing_id: 7, filing_type: '10-K', filing_date: '2021-10-29', period_end_date: '2021-09-25' },
+      metrics: {
+        headline: 'Revenue up 7.8%',
+        items: [
+          { metric: 'revenue', label: 'Revenue', direction: 'up', pct: 7.8, current: 394_328e6, prior: 365_817e6, display: '+7.8%', tone: 'gain' },
+        ],
+        data_quality: 'ok',
+      },
+      risks: null,
+      key_changes: null,
+      has_changes: true,
+    }
+    // jsdom has no scrollIntoView; record which element each call scrolls to.
+    const scrolledTo = () => vi.mocked(Element.prototype.scrollIntoView).mock.contexts.map((el) => (el as Element).id)
+    const jsdomScrollIntoView = Element.prototype.scrollIntoView
+
+    afterEach(() => {
+      window.history.replaceState(null, '', window.location.pathname)
+      Element.prototype.scrollIntoView = jsdomScrollIntoView
+    })
+
+    function arriveWith(hash: string) {
+      window.history.replaceState(null, '', hash || window.location.pathname)
+      Element.prototype.scrollIntoView = vi.fn()
+    }
+
+    it('lands on the section once it renders, and only once', () => {
+      arriveWith('#what-changed')
+      const { rerender } = render(<SummaryBlocks sections={sections} summary={summary} whatChanged={null} />)
+      // The report has not arrived: there is nothing to land on yet, so the page stays put.
+      expect(scrolledTo()).toEqual([])
+      rerender(<SummaryBlocks sections={sections} summary={summary} whatChanged={REPORT} />)
+      expect(scrolledTo()).toEqual(['what-changed'])
+      expect(document.getElementById('what-changed')).toHaveAttribute('aria-labelledby')
+      // A later section change never moves the reader again.
+      rerender(<SummaryBlocks sections={sections.slice(0, 3)} summary={summary} whatChanged={REPORT} />)
+      rerender(<SummaryBlocks sections={sections} summary={summary} whatChanged={REPORT} />)
+      expect(scrolledTo()).toEqual(['what-changed'])
+    })
+
+    it('lands on a section that renders with the page', () => {
+      arriveWith('#financial-highlights')
+      render(<SummaryBlocks sections={sections} summary={summary} whatChanged={REPORT} />)
+      expect(scrolledTo()).toEqual(['financial-highlights'])
+    })
+
+    it('stays put for a page opened without one, even when a fragment is set later', () => {
+      arriveWith('')
+      const { rerender } = render(<SummaryBlocks sections={sections} summary={summary} whatChanged={null} />)
+      // A table-of-contents click sets the fragment; the report arriving after it must not jump the page.
+      window.history.replaceState(null, '', '#what-changed')
+      rerender(<SummaryBlocks sections={sections} summary={summary} whatChanged={REPORT} />)
+      expect(scrolledTo()).toEqual([])
+    })
+
+    it('ignores a fragment that names no section', () => {
+      arriveWith('#main-content')
+      render(<SummaryBlocks sections={sections} summary={summary} whatChanged={REPORT} />)
+      expect(scrolledTo()).toEqual([])
+    })
   })
 })

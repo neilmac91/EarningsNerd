@@ -224,6 +224,30 @@ components:
     textColor: "{colors.text-primary-dark}"
     rounded: "{rounded.lg}"
     backgroundColor: "rgba(255,255,255,0.05)"
+  input-compact:
+    backgroundColor: "{colors.white}"
+    textColor: "{colors.text-primary-light}"
+    rounded: "{rounded.lg}"
+    padding: "0.375rem 0.75rem"
+    height: "2.25rem"
+  segmented-control:
+    backgroundColor: "{colors.panel-light}"
+    textColor: "{colors.text-secondary-light}"
+    rounded: "{rounded.lg}"
+    padding: "0.25rem"
+  segmented-control-selected:
+    backgroundColor: "{colors.brand}"
+    textColor: "{colors.white}"
+    rounded: "{rounded.DEFAULT}"
+    padding: "0 0.875rem"
+    height: "1.625rem"
+  segmented-control-dark:
+    backgroundColor: "{colors.panel-dark}"
+    textColor: "{colors.text-secondary-dark}"
+    rounded: "{rounded.lg}"
+  segmented-control-selected-dark:
+    backgroundColor: "{colors.brand-dark}"
+    textColor: "{colors.background-dark}"
   card:
     backgroundColor: "{colors.panel-light}"
     textColor: "{colors.text-primary-light}"
@@ -279,7 +303,7 @@ The system is refined, readable and quietly confident. Inter headings organize t
 - Compact controls and data tables within more generous page layouts.
 - Source context, visible focus and truthful state feedback.
 
-This document records the implementation at [`1a79637e4094f8f6ceeb9802014a6a1172283416`](https://github.com/neilmac91/EarningsNerd/tree/1a79637e4094f8f6ceeb9802014a6a1172283416), updated for the October 2026 design critique's filing-page changes (tertiary ink `#636A77`, the section-title role, the callout well, evidence rows, the filing identity strip and the Source pane); the links below open the current files. Token definitions remain in [`frontend/tailwind.config.js`](frontend/tailwind.config.js) and [`frontend/app/globals.css`](frontend/app/globals.css); the frontmatter is their portable snapshot, and [`designSnapshotParity.spec.ts`](frontend/tests/unit/designSnapshotParity.spec.ts) checks it against them. [`frontend/DESIGN_SYSTEM.md`](frontend/DESIGN_SYSTEM.md) retains current implementation conventions and verification gates. [AGENTS.md](AGENTS.md) and [CLAUDE.md](CLAUDE.md#design-documentation) route UI work through both documents and define maintenance. Actual token definitions and component code take precedence over a stale snapshot. Refresh affected visual content and [its sidecar](.impeccable/design.json) together when the documented system changes; routing-only edits can leave an unchanged sidecar intact. The descriptive language above was confirmed by the project owner.
+This document records the implementation at [`1a79637e4094f8f6ceeb9802014a6a1172283416`](https://github.com/neilmac91/EarningsNerd/tree/1a79637e4094f8f6ceeb9802014a6a1172283416), updated for the October 2026 design critique's filing-page changes (tertiary ink `#636A77`, the section-title role, the callout well, evidence rows, the filing identity strip and the Source pane) and its company-page changes (the segmented control, the compact toolbar field, the filings index, the company lead and the Compare periods card); the links below open the current files. Token definitions remain in [`frontend/tailwind.config.js`](frontend/tailwind.config.js) and [`frontend/app/globals.css`](frontend/app/globals.css); the frontmatter is their portable snapshot, and [`designSnapshotParity.spec.ts`](frontend/tests/unit/designSnapshotParity.spec.ts) checks it against them. [`frontend/DESIGN_SYSTEM.md`](frontend/DESIGN_SYSTEM.md) retains current implementation conventions and verification gates. [AGENTS.md](AGENTS.md) and [CLAUDE.md](CLAUDE.md#design-documentation) route UI work through both documents and define maintenance. Actual token definitions and component code take precedence over a stale snapshot. Refresh affected visual content and [its sidecar](.impeccable/design.json) together when the documented system changes; routing-only edits can leave an unchanged sidecar intact. The descriptive language above was confirmed by the project owner.
 
 The public homepage was inspected visually and sampled for computed styles in light mode on 2026-10-04. Dark treatments and responsive rules below were extracted from source; this pass does not claim a visual audit of authenticated routes or dark mode. Sidecar component samples illustrate appearance without reproducing application behavior; their dark treatment follows the app's own `html.dark` theme signal and their responsive rules follow the space available to them. The sidecar carries no tonal ramps: the project defines no tonal scale, and Impeccable's detector accepts every ramp step as a palette color.
 
@@ -403,6 +427,8 @@ Components are **refined, readable and quietly confident**. Reuse [`components/u
 - **Destructive:** error fill with white label; darker error hover and active states. Preserve its error focus ring.
 - **Focus and busy:** use the shared focus recipe. Loading keeps the resting appearance, adds a spinner and `aria-busy`, and refuses repeated activation. Controls made unavailable by their own request stay focusable using the established `aria-disabled`/handler guards. A form that locks its text fields while submitting uses `readOnly` rather than native `disabled`; the contact form does, while login and registration leave fields editable. Native disabled styles exist for other unavailable states.
 
+A single-choice toggle group is the [`SegmentedControl`](frontend/components/ui/SegmentedControl.tsx): a panel shell with a hairline, 8px segments with 12px semibold labels, the pressed segment in the primary colorway (navy label on light sage in dark mode), and codes such as 10-K in the data face. Its options are all visible, so it is a group of pressed buttons rather than tabs or radios. On a phone, a full-width control spans its row with 36px segments and wraps whole segments onto another row when they do not fit; a label never breaks.
+
 [`Button.tsx`](frontend/components/ui/Button.tsx) also exports `buttonVariants` for real links styled as buttons. Standard color feedback uses the fast motion token. Spinner animation remains the existing utility with a reduced-motion fallback; this document introduces no new timing for it.
 
 ### Chips
@@ -417,9 +443,11 @@ The base [`Card`](frontend/components/ui/Card.tsx) supplies shape, fill, border 
 
 The filing summary is a document rather than a stack of cards: its sections sit on the page ground under section titles, and hairlines live inside the content. A callout inside a section is an inset well ([`Callout`](frontend/features/summaries/components/Callout.tsx)): panel fill, one hairline, the 8px radius and no shadow, with its tone carried by the label word. A thick left border on a rounded container, the side-tab stripe, is not part of the system.
 
+A list of primary documents is one surface ([`FilingIndex`](frontend/features/filings/components/FilingIndex.tsx)): hairline rows and year groups inside the section card, one link per row named by its form, period and filed date, the original on EDGAR as a sibling link, and no per-form color. The company page leads with the filing page's identity vocabulary ([`CompanyIdentity`](frontend/features/companies/components/CompanyIdentity.tsx)) and its one primary action, opening the latest filing; the watchlist sits beside it as a secondary button. Beside the filings, the Compare periods card ([`ComparePeriodsCard`](frontend/features/filings/components/ComparePeriodsCard.tsx)) previews the newest annual report's change report in that report's own vocabulary and links to it.
+
 ### Inputs / Fields
 
-[`Input.tsx`](frontend/components/ui/Input.tsx) shares a bright white light fill and translucent white dark fill, 12px radius, hairline and 14px text. Standard padding is 10px vertical / 14px horizontal. Search fields explicitly reserve 44px on the leading side for their icon. Hover strengthens the border; focus shows the brand border/ring. Invalid fields use the error treatment with an associated error message. The composer textarea is transparent inside its own field shell to avoid double borders.
+[`Input.tsx`](frontend/components/ui/Input.tsx) shares a bright white light fill and translucent white dark fill, 12px radius, hairline and 14px text. Standard padding is 10px vertical / 14px horizontal. Search fields explicitly reserve 44px on the leading side for their icon. Hover strengthens the border; focus shows the brand border/ring. Invalid fields use the error treatment with an associated error message. A toolbar field beside a segmented control uses the compact density: 36px tall from `sm` up, keeping the 44px touch height on phones. The composer textarea is transparent inside its own field shell to avoid double borders.
 
 ### Navigation
 
