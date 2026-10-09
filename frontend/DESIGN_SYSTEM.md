@@ -382,10 +382,18 @@ unless the heading sits on a surface that inverts against its theme.
 
 **Outline: never skip a level.** Pick the element for its place in the page outline and set the
 size with classes: a section directly under the page h1 is an h2 whatever its type size (the pricing
-plans, the analysis chart panels). The footer opens its own section with a visually hidden h2
-("Site links") before its h3 column titles, so a page whose content ends at h1 (the 404, /analysis,
-/search) does not jump from h1 to h3. `tests/e2e/text-floors.spec.ts` checks the main routes in DOM
-order and in the accessibility tree.
+plans, the analysis chart panels). `GuidanceCard` titles itself h3 by default, for a card inside an
+h2 section; where the card stands in for the page's content directly under the h1, pass
+`headingLevel="h2"` (the filing page's signup gate, failure and monthly-limit cards and a stored
+summary's writer error; the watchlist's empty and error cards; the waitlist example's fallbacks).
+The footer opens its own section with a visually hidden h2 ("Site links") before its h3 column
+titles, so a page whose content ends at h1 (the 404, /analysis, /search) does not jump from h1 to h3.
+`tests/e2e/text-floors.spec.ts` checks the routes and states it visits, in DOM order and in the
+accessibility tree: home, /pricing, /company/AAPL, /filing/3 with a summary, a signed-in /dashboard,
+the 404, and four page-level card states (a filing without a summary for a guest and for a
+signed-in reader whose run fails, a writer error, an empty watchlist). Known exception, not
+visited: /waitlist when its example loads (the example has no heading, so the h1 is followed by the
+problem cards' h3).
 
 ## 6. Cards must *lift*, not tint
 

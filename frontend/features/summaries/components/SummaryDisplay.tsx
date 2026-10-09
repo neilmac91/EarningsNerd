@@ -142,6 +142,7 @@ export function SummaryDisplay({
         <GuidanceCard
           variant="error"
           title="Summary temporarily unavailable"
+          headingLevel="h2"
           description={fallbackMessage}
           action={
             onRetry ? (

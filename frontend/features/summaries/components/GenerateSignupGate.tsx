@@ -43,6 +43,7 @@ export function GenerateSignupGate({ filing, entryPoint }: { filing: Filing; ent
     <GuidanceCard
       icon={<SparkleIcon className="h-5 w-5" aria-hidden="true" />}
       title="Create a free account to analyze this filing"
+      headingLevel="h2"
       description={
         <>
           Free accounts get {FREE_SUMMARY_LIMIT} AI summaries a month, no credit card required.

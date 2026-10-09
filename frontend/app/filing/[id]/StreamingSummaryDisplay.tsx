@@ -383,6 +383,7 @@ export default function StreamingSummaryDisplay({
         <GuidanceCard
           icon={<SparkleIcon className="h-5 w-5" aria-hidden="true" />}
           title="You've hit this month's free limit"
+          headingLevel="h2"
           headingRef={failureHeadingRef}
           description={
             trialEligible
@@ -399,6 +400,7 @@ export default function StreamingSummaryDisplay({
         <GuidanceCard
           variant="error"
           title="Generation interrupted"
+          headingLevel="h2"
           headingRef={failureHeadingRef}
           description={error || message || 'Generation timed out. Please retry to continue.'}
           action={

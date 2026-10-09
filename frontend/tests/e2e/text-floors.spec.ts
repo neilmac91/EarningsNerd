@@ -1,7 +1,7 @@
 import { createRequire } from 'node:module'
 import { test, expect, type Page } from '@playwright/test'
 import { settled } from './fixtures/contrast'
-import { answerApi, API_ORIGIN, PANE } from './fixtures/filing3Api'
+import { answerApi, API_ORIGIN, PANE, SUMMARY } from './fixtures/filing3Api'
 
 /**
  * Text floors on the main routes, read from what Chromium renders (critique v3.1 DC-TERTIARY,
@@ -16,14 +16,17 @@ import { answerApi, API_ORIGIN, PANE } from './fixtures/filing3Api'
  * colour nothing uses; the census must also find tertiary text, or a broken probe would pass.
  * Light theme only: every dark pairing is the secondary-dark ink, which this change leaves alone.
  *
- * Heading outline (DET-OVL-1): no route skips a level, in DOM order (how the Impeccable detector
- * reads it) and in the accessibility tree. The footer's column titles (h3) sit under the footer's
- * own visually hidden h2, so a page whose content ends at h1 (the 404, /analysis, /search) no longer
- * jumps from h1 to h3.
+ * Heading outline (DET-OVL-1, DESIGN_SYSTEM §5): no visited route or state skips a level, in DOM
+ * order (how the Impeccable detector reads it) and in the accessibility tree. The footer's column
+ * titles (h3) sit under the footer's own visually hidden h2, so a page whose content ends at h1 (the
+ * 404, /analysis, /search) no longer jumps from h1 to h3; a GuidanceCard that stands in for a page's
+ * content under the h1 titles itself h2 (the four page-level card states below).
  *
- * Body text (DET-OVL-2, the detector's two rules): no paragraph of body text on the homepage sets
- * its line height under 1.3 times its size, and at 390px no body paragraph on the filing page, with
- * the Ask sheet open or closed, runs closer than the documented 16px gutter to the viewport edge.
+ * Body text (DET-OVL-2): regression checks for the detector's two rules, not a documented design
+ * rule (DESIGN.md lets local leading utilities override the scale): no paragraph of body text on the
+ * homepage sets its line height under 1.3 times its size, and at 390px no body paragraph on the
+ * filing page, with the Ask sheet open or closed, runs closer than the page's 16px side gutter to the
+ * viewport edge. A deliberate exception updates these cases in the same change.
  *
  * CI runs e2e with no backend (lessons/test-e2e-runs-without-backend.md): the API origin is answered
  * inside the browser.
@@ -188,6 +191,79 @@ test.describe('main routes at 1440x900, light theme', () => {
       expect.soft(outline.dom, `skipped heading levels on ${route.name} (DOM order)`).toEqual([])
       expect.soft(outline.exposed, `skipped heading levels on ${route.name} (accessibility tree)`).toEqual([])
       expect.soft(outline.footer, 'the footer opens its own section before its column titles').toEqual(['H2', 'H3', 'H3', 'H3'])
+    })
+  }
+})
+
+/**
+ * A GuidanceCard that stands in for a page's content sits directly under the page h1, so its title is
+ * an h2 there (it is an h3 by default, for a card inside an h2 section). These are the states where a
+ * reader lands on one: a guest, or a signed-in user whose run fails, opening a filing that has no
+ * summary yet (the company page's "Open filing" leads here); a stored summary whose writer failed; an
+ * empty watchlist. Outline only: the watchlist's muted ink is a named candidate, not this gate's.
+ */
+const CARD_STATES: { name: string; route: Route; card: string }[] = [
+  {
+    name: 'filing without a summary, guest (the signup gate)',
+    route: { ...ROUTES[3], open: (p, b) => noSummary(p, b, 'anon'), ready: (p) => expect(p.getByRole('link', { name: 'Create free account' })).toBeVisible() },
+    card: 'Create a free account to analyze this filing',
+  },
+  {
+    name: 'filing without a summary, signed in, the run fails',
+    route: { ...ROUTES[3], open: (p, b) => noSummary(p, b, 'pro'), ready: (p) => expect(p.getByRole('button', { name: 'Retry generation' })).toBeVisible() },
+    card: 'Generation interrupted',
+  },
+  {
+    name: 'filing whose stored summary has a writer error',
+    route: {
+      ...ROUTES[3],
+      open: async (p, b) => {
+        await answerApi(p, b, 'anon')
+        await p.route((url) => url.origin === API_ORIGIN && url.pathname === '/api/summaries/filing/3', (r) =>
+          r.fulfill({ status: 200, headers: corsFor(b), json: { ...SUMMARY, raw_summary: { ...(SUMMARY.raw_summary as object), writer_error: 'writer failed' } } }),
+        )
+      },
+      ready: (p) => expect(p.getByRole('button', { name: 'Retry' })).toBeVisible(),
+    },
+    card: 'Summary temporarily unavailable',
+  },
+  {
+    name: 'empty watchlist',
+    route: {
+      name: 'watchlist',
+      path: '/dashboard/watchlist',
+      open: async (p, b) => {
+        await answerSiteApi(p, b, true)
+        await p.route((url) => url.origin === API_ORIGIN && url.pathname === '/api/watchlist/insights', (r) =>
+          r.fulfill({ status: 200, headers: corsFor(b), json: [] }),
+        )
+      },
+      ready: (p) => expect(p.getByRole('heading', { level: 1, name: 'Watchlist insights' })).toBeVisible(),
+    },
+    card: 'No watchlist companies yet',
+  },
+]
+
+const corsFor = (baseURL: string) => ({ 'access-control-allow-origin': new URL(baseURL).origin, 'access-control-allow-credentials': 'true' })
+/** The filing fixture with no stored summary: a guest gets the signup gate; a signed-in run starts and fails (the stream is not answered). */
+async function noSummary(page: Page, baseURL: string, who: 'anon' | 'pro') {
+  await answerApi(page, baseURL, who)
+  await page.route((url) => url.origin === API_ORIGIN && url.pathname === '/api/summaries/filing/3', (r) =>
+    r.fulfill({ status: 404, headers: corsFor(baseURL), json: { detail: 'Summary not found' } }),
+  )
+}
+
+test.describe('page-level guidance cards at 1440x900, light theme', () => {
+  test.use({ viewport: { width: 1440, height: 900 } })
+
+  for (const state of CARD_STATES) {
+    test(`${state.name}: the card's title is an h2 under the page h1, no level skipped`, async ({ page, baseURL }) => {
+      await visit(page, baseURL!, state.route)
+      const outline = await headingSkips(page)
+      expect.soft(outline.dom, `skipped heading levels: ${state.name} (DOM order)`).toEqual([])
+      expect.soft(outline.exposed, `skipped heading levels: ${state.name} (accessibility tree)`).toEqual([])
+      // Anti-vacuity: the card is on the page, as the h2 the outline needs.
+      await expect(page.getByRole('heading', { level: 2, name: state.card })).toBeVisible()
     })
   }
 })
