@@ -26,7 +26,7 @@ from app.config import settings
 from app.database import Base, get_db
 from app.models import Company, Filing
 from app.routers import filings as filings_mod
-from app.services import filing_list_service
+from app.services import filing_amendment_service, filing_list_service
 from app.services.durable_tasks import TaskUnavailable
 from app.services.edgar.compat import sec_edgar_service
 from app.services.edgar.exceptions import EdgarError
@@ -288,6 +288,37 @@ def test_live_persistence_failure_rolls_back_and_maps_to_500(client, sessions, m
 
     assert resp.status_code == 500
     assert resp.json() == {"detail": "Error fetching filings: Invalid isoformat string: 'not-a-date'"}
+    with sessions() as s:
+        assert s.query(Filing).count() == 0
+    assert filing_list_service._filings_synced_at == {}
+
+
+def test_live_persistence_failure_after_flush_is_rolled_back_before_the_fallback(
+    client, sessions, monkeypatch, caplog
+):
+    """A failure after the batch flush (marking superseded filings) is rolled back before the
+    fallback read: the flushed, uncommitted row is neither served nor kept, and the route maps the
+    error to its 500."""
+    with sessions() as s:
+        _seed_company(s)
+    accession = "0000000002-26-000001"
+
+    async def get_filings(cik, types):
+        return [{"accession_number": accession, "filing_type": "10-K", "filing_date": "2026-02-19",
+                 "sec_url": _archive(cik, accession), "document_url": _archive(cik, accession) + "a.htm"}]
+
+    def failing_supersede(db, company_id):
+        raise RuntimeError("supersede failed")
+
+    monkeypatch.setattr(sec_edgar_service, "get_filings", get_filings)
+    monkeypatch.setattr(filing_amendment_service, "mark_superseded_filings", failing_supersede)
+
+    with caplog.at_level(logging.INFO, logger=ROUTER_LOGGER):
+        resp = client.get("/api/filings/company/cold")
+
+    assert resp.status_code == 500
+    assert resp.json() == {"detail": "Error fetching filings: supersede failed"}
+    assert _router_records(caplog) == [(logging.ERROR, "Unexpected error fetching filings for COLD")]
     with sessions() as s:
         assert s.query(Filing).count() == 0
     assert filing_list_service._filings_synced_at == {}

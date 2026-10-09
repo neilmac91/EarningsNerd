@@ -5,6 +5,7 @@ from SEC in the BACKGROUND — the request never blocks on a SEC round-trip. Onl
 (empty DB) does a synchronous, bounded live fetch. These tests run against a real in-memory SQLite
 DB (so the actual queries execute) with SEC faked at the compat boundary.
 """
+import asyncio
 from datetime import datetime, timezone
 
 import pytest
@@ -15,6 +16,7 @@ from sqlalchemy.pool import QueuePool, StaticPool
 from unittest.mock import AsyncMock
 
 import main
+from app.config import settings
 from app.database import Base, get_db
 import app.models  # noqa: F401 — register models on Base.metadata
 from app.models import Company, Filing
@@ -121,6 +123,98 @@ def test_db_first_serves_persisted_rows_without_blocking_on_sec(client, monkeypa
     assert sec_mock.await_count == 1
 
 
+def test_db_first_background_refresh_persists_new_rows_and_stamps_the_list_fresh(client, monkeypatch):
+    """The refresh runs after the response on its OWN session (the patched SessionLocal): the newly
+    listed filing lands in the DB, the (ticker, types) is stamped fresh for the B2 fast path, and the
+    in-flight key is cleared."""
+    tc, TestingSession = client
+    monkeypatch.setattr(settings, "DURABLE_TASKS_ENABLED", False)
+    with TestingSession() as s:
+        company = _seed_company(s)
+        company.history_backfilled_at = datetime(2026, 1, 1, tzinfo=timezone.utc)  # refresh only
+        s.commit()
+        _seed_filing(s, company, "0000895421-25-000010", "10-K", 2025)
+
+    new_url = "https://www.sec.gov/Archives/edgar/data/895421/000089542126000010/"
+    sec_mock = AsyncMock(return_value=[{
+        "accession_number": "0000895421-26-000010", "filing_type": "10-K",
+        "filing_date": "2026-02-19", "report_date": "2025-12-31",
+        "document_url": new_url + "primary.htm", "sec_url": new_url,
+    }])
+    monkeypatch.setattr(filings_mod.sec_edgar_service, "get_filings", sec_mock)
+
+    resp = tc.get("/api/filings/company/TESTCO")
+
+    # The response was served from the persisted row; the refresh then added the new one.
+    assert resp.status_code == 200
+    assert [f["accession_number"] for f in resp.json()] == ["0000895421-25-000010"]
+    with TestingSession() as s:
+        assert s.query(Filing).filter(Filing.accession_number == "0000895421-26-000010").count() == 1
+    assert sec_mock.await_count == 1
+    types = tuple(sec_mock.await_args.args[1])
+    assert ("TESTCO", types) in filing_list_service._filings_synced_at
+    assert filing_list_service._refreshing_keys == set()
+
+
+@pytest.mark.asyncio
+async def test_background_refresh_collapses_a_concurrent_burst(client, monkeypatch):
+    """Check-and-add on the in-flight key has no await between them, so a burst of refreshes for
+    one (ticker, types) makes one SEC call; the key clears when that call's refresh finishes."""
+    _tc, TestingSession = client
+    with TestingSession() as s:
+        company_id = _seed_company(s).id
+    release = asyncio.Event()
+    calls = []
+
+    async def get_filings(cik, types):
+        calls.append(cik)
+        await release.wait()
+        return []
+
+    monkeypatch.setattr(filings_mod.sec_edgar_service, "get_filings", get_filings)
+    burst = [
+        asyncio.create_task(
+            filing_list_service.refresh_company_filings("0000895421", "TESTCO", ["10-K"], company_id)
+        )
+        for _ in range(3)
+    ]
+    await asyncio.sleep(0)  # every refresh reaches its guard; the first one holds the key
+    assert filing_list_service._refreshing_keys == {("TESTCO", ("10-K",))}
+
+    release.set()
+    await asyncio.gather(*burst)
+
+    assert calls == ["0000895421"]
+    assert filing_list_service._refreshing_keys == set()
+    assert ("TESTCO", ("10-K",)) in filing_list_service._filings_synced_at
+
+
+@pytest.mark.asyncio
+async def test_history_backfill_collapses_a_concurrent_burst(monkeypatch):
+    """Same guard for the on-visit history backfill, keyed by company id: one walk, run on the
+    module's own session factory, and the id clears when it finishes."""
+    release = asyncio.Event()
+    calls = []
+
+    async def backfill(company_id, *, session_factory):
+        calls.append((company_id, session_factory))
+        await release.wait()
+
+    monkeypatch.setattr(filing_history_service, "backfill_company_by_id", backfill)
+    monkeypatch.setattr(filing_list_service, "_history_backfilling_ids", set())
+    burst = [
+        asyncio.create_task(filing_list_service.run_history_backfill_on_visit(7)) for _ in range(3)
+    ]
+    await asyncio.sleep(0)
+    assert filing_list_service._history_backfilling_ids == {7}
+
+    release.set()
+    await asyncio.gather(*burst)
+
+    assert calls == [(7, filing_list_service.SessionLocal)]
+    assert filing_list_service._history_backfilling_ids == set()
+
+
 def test_cold_empty_db_does_synchronous_bounded_fetch_and_persists(client, monkeypatch):
     tc, TestingSession = client
     with TestingSession() as s:
@@ -153,7 +247,8 @@ def test_cold_empty_db_does_synchronous_bounded_fetch_and_persists(client, monke
 
 
 def test_sec_network_phases_do_not_retain_queuepool_connections(tmp_path, monkeypatch):
-    """Warm background, cold-list and company-miss SEC waits all release the one-slot pool."""
+    """Warm background, cold-list and company-miss SEC waits all release the one-slot pool, and
+    each route returns with it released, before the dependency finalizer runs."""
     engine = create_engine(
         f"sqlite:///{tmp_path / 'filings-lifetime.db'}",
         connect_args={"check_same_thread": False},
@@ -164,10 +259,15 @@ def test_sec_network_phases_do_not_retain_queuepool_connections(tmp_path, monkey
     )
     Base.metadata.create_all(bind=engine)
     TestingSession = sessionmaker(bind=engine, autocommit=False, autoflush=False)
+    held_at_finalizer = []
 
     def override_get_db():
         with TestingSession() as db:
             yield db
+            # The function-scoped finalizer runs once the route has returned (in the thread pool).
+            # The route must already have released its connection; the live path does that in its
+            # finally, after building the response.
+            held_at_finalizer.append(engine.pool.checkedout())
 
     phases = []
 
@@ -248,6 +348,7 @@ def test_sec_network_phases_do_not_retain_queuepool_connections(tmp_path, monkey
         "filings:0000000003",
         "history:MISSING",
     ]
+    assert held_at_finalizer == [0, 0, 0]  # WARM (cached), COLD (live), MISSING (miss + live)
 
 
 @pytest.mark.parametrize("synced_forms, expected_fetches", [
