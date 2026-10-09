@@ -581,7 +581,8 @@
       "**Don't** use the legacy 10px radius for new components or uppercase ordinary card titles.",
       "**Don't** apply the filing reader's serif to AI summaries or cap pane-filling summaries to a prose rail.",
       "**Don't** treat illustrative sidecar markup as production tokens or behavior, or add synthetic tonal ramps to the sidecar.",
-      "**Don't** create another dialog primitive or remove existing reduced-motion fallbacks."
+      "**Don't** create another dialog primitive or remove existing reduced-motion fallbacks.",
+      "**Don't** put a thick left stripe on a rounded container or set a form code as a chip; callouts are inset wells and forms are data-face text."
     ]
   }
 }
