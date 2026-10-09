@@ -137,9 +137,19 @@ def test_names_the_newest_standing_filing_and_its_summary_readiness(client, db):
     assert latest["report_date"].startswith("2025-12-27")
 
 
-def test_a_placeholder_summary_is_not_ready(client, db):
-    _seed(db, [("10-Q", "2026-01-30", "2025-12-27", None)], summaries={0: "Generating summary..."})
-    assert _search(client)["latest_filing"]["summary_ready"] is False
+@pytest.mark.parametrize(
+    ("body", "ready"),
+    [
+        ("Generating summary...", False),
+        ("## Executive Summary\n\nSummary temporarily unavailable. Please retry.", False),
+        ("Apple reworked its revenue-generating summary reports.", True),
+    ],
+)
+def test_a_placeholder_summary_is_not_ready(client, db, body, ready):
+    """The filing page's readiness rule (is_summary_ready): the in-progress marker and failure filler are
+    not a summary to open, while prose that mentions generating summaries is."""
+    _seed(db, [("10-Q", "2026-01-30", "2025-12-27", None)], summaries={0: body})
+    assert _search(client)["latest_filing"]["summary_ready"] is ready
 
 
 @pytest.mark.parametrize(("raw_summary", "ready"), [({"writer_error": "timeout"}, False), ({"status": "complete"}, True)])
