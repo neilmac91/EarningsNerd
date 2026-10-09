@@ -8,23 +8,24 @@ const headingText = (el: Element) => (/^H[1-6]$/.test(el.tagName) ? (el.textCont
 const isTableBox = (el: Element) => el.classList.contains('filing-table-scroll')
 
 /**
- * A scrolling table's region name: the filing section it sits under, when a heading precedes it. A
- * section with more than one table numbers them ("table 2 of 3"): statements often share one heading,
- * and two regions with one name cannot be told apart in a landmark list.
+ * A scrolling table's region name: the filing section it sits under, when a heading precedes it.
+ * Tables whose headings read the same are numbered across the reader ("table 2 of 3"): statements
+ * often share one heading, notes repeat a heading's text ("Revenue"), and two regions with one name
+ * cannot be told apart in a landmark list.
  */
 export function regionName(box: HTMLElement): string {
-  let heading = ''
-  let index = 1
-  for (let el = box.previousElementSibling; el && !heading; el = el.previousElementSibling) {
-    heading = headingText(el)
-    if (!heading && isTableBox(el)) index++
+  // One pass over the box's siblings: each table box with the text of the heading it sits under.
+  const tables: Array<[Element, string]> = []
+  let current = ''
+  for (const el of Array.from(box.parentElement?.children ?? [box])) {
+    const text = headingText(el)
+    if (text) current = text
+    else if (isTableBox(el)) tables.push([el, current])
   }
-  let count = index
-  for (let el = box.nextElementSibling; el && !headingText(el); el = el.nextElementSibling) {
-    if (isTableBox(el)) count++
-  }
+  const heading = tables.find(([el]) => el === box)?.[1] ?? ''
+  const peers = tables.filter(([, text]) => text === heading).map(([el]) => el)
   const name = heading ? `Scrollable table: ${heading}` : 'Scrollable table'
-  return count > 1 ? `${name}, table ${index} of ${count}` : name
+  return peers.length > 1 ? `${name}, table ${peers.indexOf(box) + 1} of ${peers.length}` : name
 }
 
 /**

@@ -2,8 +2,8 @@ import { describe, it, expect } from 'vitest'
 import { regionName } from '@/features/filings/components/copilot/ReaderTable'
 
 // A filing-reader table that scrolls is a named region (EN-04). Its name is the section it sits
-// under; statements often share one heading, so a section with several tables numbers them, and no
-// two regions in the reader share a name.
+// under; statements often share one heading, and notes repeat a heading's text, so tables whose
+// headings read the same are numbered across the reader, and no two regions share a name.
 describe('ReaderTable regionName', () => {
   function reader(html: string) {
     const el = document.createElement('div')
@@ -28,6 +28,20 @@ describe('ReaderTable regionName', () => {
       'Scrollable table: Item 8. Financial Statements, table 2 of 3',
       'Scrollable table: Item 8. Financial Statements, table 3 of 3',
       'Scrollable table: Note 2 – Revenue',
+    ])
+  })
+
+  it('numbers tables across sections whose headings read the same, so their regions still differ', () => {
+    // Two notes both headed "Revenue", one table each: per-section numbering alone named both
+    // "Scrollable table: Revenue", and a landmark list could not tell them apart.
+    const boxes = reader(
+      `<h3>Revenue</h3>${box}<h3>Leases</h3>${box}<h3>Revenue</h3><p>Disaggregated.</p>${box}${box}`,
+    )
+    expect(boxes.map(regionName)).toEqual([
+      'Scrollable table: Revenue, table 1 of 3',
+      'Scrollable table: Leases',
+      'Scrollable table: Revenue, table 2 of 3',
+      'Scrollable table: Revenue, table 3 of 3',
     ])
   })
 })
