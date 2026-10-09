@@ -228,6 +228,9 @@ jobs:
               "USE_STRUCTURED_OUTPUT", "CALENDAR_INDEX_FILTER_ENABLED",
               "REGISTRATION_MODE", "AI_FALLBACK_MODEL", "AI_FALLBACK_BASE_URL",
               "SENTRY_RELEASE", "DB_POOL_SIZE", "DB_MAX_OVERFLOW",
+              # CODE RED D3: the per-process SEC pins, durable delivery and the insider switch.
+              "SEC_RATE_LIMIT_PER_SECOND", "EDGAR_RATE_LIMIT_PER_SEC", "DURABLE_TASKS_ENABLED",
+              "ENABLE_INSIDER_ACTIVITY",
           }
           # Defaults from app/config.py; never include credentials in this allow-list.
           flag_defaults = {
@@ -245,6 +248,9 @@ jobs:
               "REGISTRATION_MODE": "public",
               "AI_FALLBACK_MODEL": "",
               "AI_FALLBACK_BASE_URL": "",
+              "SEC_RATE_LIMIT_PER_SECOND": 10,
+              "DURABLE_TASKS_ENABLED": False,
+              "ENABLE_INSIDER_ACTIVITY": False,
           }
           def show(label, containers):
               if len(containers) != 1:
@@ -266,6 +272,9 @@ jobs:
                   if flag not in seen:
                       message = "Settings default applies (True)" if default is True else f"Settings default applies ({default!r})"
                       print(f"{flag} = <NOT SET -> {message}>")
+              # Not a Settings field: edgartools reads it at import, so its default is the library's.
+              if "EDGAR_RATE_LIMIT_PER_SEC" not in seen:
+                  print("EDGAR_RATE_LIMIT_PER_SEC = <NOT SET -> edgartools default 9>")
           show("Serving revision: " + latest, revision["spec"]["containers"])
           show("Job: earningsnerd-pregenerate", pregenerate["spec"]["template"]["spec"]["template"]["spec"]["containers"])
           service_max = svc.get("metadata", {}).get("annotations", {}).get("run.googleapis.com/maxScale")
