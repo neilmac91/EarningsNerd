@@ -423,6 +423,15 @@ describe('deriveRiskHeadline', () => {
         0,
       ),
     ).toBe("The phrase 'material risks', as used in our customer agreements, permits termination without notice…")
+    // Brackets are read in order: a fragment's stray closer early on does not cancel one opened later.
+    for (const [open, close] of [['(', ')'], ['[', ']'], ['“', '”']]) {
+      expect(
+        deriveRiskHeadline(
+          `Our obligations${close} and our reliance on a single contract manufacturer ${open}which assembles substantially all of our flagship units in two facilities${close} expose us to supply disruption.`,
+          0,
+        ),
+      ).toBe(`Our obligations${close} and our reliance on a single contract manufacturer…`)
+    }
   })
 
   it('keeps the excerpt’s own whitespace and casing (verbatim, not normalised)', () => {

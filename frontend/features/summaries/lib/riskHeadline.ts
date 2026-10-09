@@ -143,7 +143,18 @@ const wordCount = (text: string): number => tokensOf(text).filter((t) => /[\p{L}
 /** The word without surrounding quotes, brackets or punctuation ("(“U.S." -> "U.S", "2025," -> "2025"). */
 const bare = (word: string): string => word.replace(/^[^\p{L}\p{N}$€£]+|[^\p{L}\p{N}%]+$/gu, '')
 
-const count = (text: string, ch: string): number => text.split(ch).length - 1
+/**
+ * Whether a bracket pair is still open at the end of the text, read in order. A closer with nothing open
+ * is ignored, so a stray ")" early in a fragment cannot cancel a "(" opened later.
+ */
+const pairOpen = (text: string, open: string, close: string): boolean => {
+  let depth = 0
+  for (const ch of text) {
+    if (ch === open) depth += 1
+    else if (ch === close && depth > 0) depth -= 1
+  }
+  return depth > 0
+}
 
 const isFunctionWord = (word: string): boolean => FUNCTION_WORDS.has(bare(word).toLowerCase())
 
@@ -181,11 +192,11 @@ const singleQuoteOpen = (text: string): boolean => {
 
 /** Whether the text leaves a bracket or a quotation open: ( [ “, a single quotation or a straight double quote. */
 const leavesOpen = (text: string): boolean =>
-  count(text, '(') > count(text, ')') ||
-  count(text, '[') > count(text, ']') ||
-  count(text, '“') > count(text, '”') ||
+  pairOpen(text, '(', ')') ||
+  pairOpen(text, '[', ']') ||
+  pairOpen(text, '“', '”') ||
   singleQuoteOpen(text) ||
-  count(text, '"') % 2 === 1
+  (text.split('"').length - 1) % 2 === 1
 
 /** Whether ending a headline after tokens[i] would split something the reader needs whole. */
 const isWeakEnd = (tokens: Token[], i: number, prefix: string): boolean => {
