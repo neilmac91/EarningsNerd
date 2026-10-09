@@ -85,14 +85,16 @@ Each was checked against `main` at `da636f6`:
    and the import blocks (:21-25, :84-87). Two are measurement-only reverts of #899, one is
    superseded by #899, one is already main's text; only `codex/wave3-return-ratio-basis` and
    `codex/wave3-thinking-low-pilot` carry unmerged changes, and those are not one line: an import of
-   `return_ratio_basis` at :22 plus the rule at :428 that interpolates it, and unlanded prompt bytes
+   `return_ratio_basis` after :22 plus the rule at :428 that interpolates it, and unlanded prompt bytes
    in `backend/prompts/10k-analyst-agent.md`, `10q-analyst-agent.md`, `20f-analyst-agent.md` and
-   `backend/app/services/ai/xbrl_narrative.py`. Picking any of it is a prompt change under the RUNBOOK
-   gate (founder item 3).
+   `backend/app/services/ai/xbrl_narrative.py` (their three-dot diffs also touch `ai/cash_claims.py`,
+   `ai/debt_scope.py`, `ai/markdown_render.py`, `financial_basis.py`, `summary_schema.py` and
+   `summary_versioning.py`, landed status unchecked). Picking any of it is a prompt change under the
+   RUNBOOK gate (founder item 3).
 7. **The two codex xbrl branches would revert #1122 if rebased naively.** Their one unlanded line is
-   the tuple at `backend/app/services/edgar/xbrl_service.py:463` gaining `"shareholders_equity",
+   the tuple at `backend/app/services/edgar/xbrl_service.py:464` gaining `"shareholders_equity",
    "total_assets"`; the rest of their hunk is on main (`:1243-1251`), and a two-dot diff shows they
-   would put `asyncio.to_thread` back where `run_owned_sync` now is (`:38`, `:680`). Cherry-pick the
+   would put `asyncio.to_thread` back where `run_owned_sync` now is (`:37`, `:680`). Cherry-pick the
    one line or close them; never rebase them onto a split.
 8. **The eval cost figure lives in AGENTS.md, not the RUNBOOK.** "an `eval-baseline` run is about
    USD 0.30" is [AGENTS.md](../AGENTS.md) §3 (line 54); the RUNBOOK gives only the call count for
@@ -124,8 +126,8 @@ USD 0.06, reserved first). Wave 0 is free only once #1123 is merged (founder ite
 Eight PRs are open on 2026-10-08 (#1133, #1132, #1126, #1123, #1121, #1118, #1035, #1009); none
 changes any of the six modules (checked file by file). Two of them collide with files this plan
 edits: the heads of #1126 and #1118 (`claude/agent-workflow-gates`, `claude/agent-workflow-cost`)
-rewrite the CLAUDE.md hunk at lines 149–165, which contains the rule-5 line F1 edits (:152), and both
-engineering briefs F1 edits; the head of #1121 (`codex/wave3-email-setup`) edits
+rewrite the CLAUDE.md hunk at lines 149–165, which contains the rule-5 line F1 edits (:152), and touch
+both engineering briefs F1 edits (at their lines 7–8, a different hunk from F1's :30 and :25); the head of #1121 (`codex/wave3-email-setup`) edits
 `backend/scripts/backfill_facts.py` at lines X4 does not touch (:145, :185 vs :79). So F1 merges after
 the two agent-workflow PRs or rebases over them, and X4 rebases over #1121. Remote branches that do
 touch the six modules, measured as `git diff origin/main...origin/<branch>`:
@@ -137,7 +139,7 @@ touch the six modules, measured as `git diff origin/main...origin/<branch>`:
 | `codex/wave3-copilot-typed-evidence` | M1 | +8/−1 inside `SYSTEM_PROMPT` | founder item 3 |
 | `codex/measure-n-control-2`, `codex/wave3-e8-n-pilot` ("MEASUREMENT ONLY") | M4 | 27-line revert of #899 in `generate_structured_summary` | close |
 | `codex/wave3-supported-financial-explanations`, `codex/wave3-segment-margin-basis` | M4 | superseded by #899 / already main's text (#932) | close |
-| `codex/wave3-return-ratio-basis`, `codex/wave3-thinking-low-pilot` | M4, M5 | two unlanded `openai_service.py` lines (import :22, rule :428), unlanded prompt bytes in the three `backend/prompts/` analyst prompts (10k, 10q, 20f) and `ai/xbrl_narrative.py`, one tuple line at `xbrl_service.py:463`; would revert #1122 | dispose before O2 and X2 (founder item 3); any pick is a prompt change under the RUNBOOK gate |
+| `codex/wave3-return-ratio-basis`, `codex/wave3-thinking-low-pilot` | M4, M5 | two unlanded `openai_service.py` lines (import after :22, rule :428), unlanded prompt bytes in the three `backend/prompts/` analyst prompts (10k, 10q, 20f) and `ai/xbrl_narrative.py`, one tuple line at `xbrl_service.py:464`; would revert #1122 | dispose before O2 and X2 (founder item 3); any pick is a prompt change under the RUNBOOK gate |
 
 ### Code Red D3 stage 2 is file-disjoint
 
@@ -176,7 +178,7 @@ Only two of the locked files reference any of the six modules:
 | M5 → M6, module level | `backend/app/services/edgar/xbrl_service.py:43-58` binds 14 names by `from .instance_extractor import` | M6 keeps a façade exporting those names; the M6 split never edits `xbrl_service.py`; tests that patch `xbrl_module.DURATION_CONCEPTS` etc. (`backend/tests/unit/test_accession_xbrl_extraction.py:602-605,715-720,796-800,880-886`) keep working only while M5 keeps name-binding imports |
 | M5 → M2, lazy, PRIVATE | `backend/app/services/edgar/xbrl_service.py:1002` imports `_classify_duration` inside the T9-pinned parser | M2's façade re-exports `_classify_duration`; the import is re-pointed only when M5 moves that code (X2) |
 | M2 → M5, lazy | `backend/app/services/facts_service.py:690,759` import `edgar.compat.xbrl_service` | no module-level edge either way; `facts/concepts.py` must never import `app.services.edgar` at module level, and `facts/__init__.py` must not eagerly import a module that does |
-| M1 → M4, import time | `backend/app/services/copilot_service.py:44-47` binds the singleton | about 60 sites (61 tests, the eval runner) patch `copilot_service.openai_service.stream_chat_with_tools` on the singleton object; safe under any move that calls the singleton's attribute at call time |
+| M1 → M4, import time | `backend/app/services/copilot_service.py:44-47` binds the singleton | over 40 sites (eight copilot test files and the eval runner) patch `copilot_service.openai_service.stream_chat_with_tools` on the singleton object; safe under any move that calls the singleton's attribute at call time |
 | M3 → M4, lazy | `backend/app/services/trend_analysis_service.py:1728` | `backend/tests/unit/test_copilot_cost.py:177` swaps the module attribute and relies on this laziness |
 | `peers_service.py:22` → M2 PRIVATE | imports `_unit_for` at module level | façade re-export |
 | `backend/scripts/backfill_facts.py:60,79` → M2, M5 PRIVATE | `_fetch_companyfacts_sync`, `_extract_from_filing_instance_sync` | façade re-exports or a one-line re-point in X4 |
@@ -187,12 +189,14 @@ Only two of the locked files reference any of the six modules:
 
 `docs/ARCHITECTURE.md:341` (buckets "fix pending", see correction 1);
 `docs/audit-2026-09/03-data-platform.md:106,125,180,198` and
-`docs/audit-2026-09/06-unfinished-work-inventory.md:59` (still describe the removed `sleep(0.2)`);
+`docs/audit-2026-09/06-unfinished-work-inventory.md:59` (still describe the pre-fix un-metered
+companyfacts fetcher; :106 names the 0.2 s sleep);
 `docs/audit-2026-09/06-unfinished-work-inventory.md:60` (says persisted `Filing.xbrl_data` is never
 read; `xbrl_service.py:680` reads it). Founder item 7 schedules a docs-only PR for these four. Two
 more ride code PRs because their files deploy: `docs/OPERATIONS.md:230` ("In xbrl_service.py
 `_cache_max_size`") moves with X1, and the stale `PROMPT_VERSION` comment at
-`backend/app/services/trend_analysis_service.py:34-35` is fixed in T1, which moves `PROMPT_VERSION`.
+`backend/app/services/trend_analysis_service.py:34-40` (its v2–v4 bump notes) is fixed in T1, which
+moves `PROMPT_VERSION`.
 
 ---
 
@@ -251,6 +255,7 @@ backend/app/services/copilot/
   resolution.py    ← clusters J + I (C:1424–1588)
   envelope.py      ← the two exceptions (C:93–98) + clusters C and D (C:395–533)
   prompt.py        ← (C3, gated) SYSTEM_PROMPT, sentinels, _EVIDENCE_RETRY_GUIDANCE, cluster A
+  __init__.py      ← empty
 backend/app/services/copilot_service.py  ← answer_filing_question + the attempt loop (decomposed in place) + re-exports; ≈ 750 lines after C1, ≈ 800 after C2
 ```
 
@@ -278,15 +283,14 @@ policy and `provider_stream.aclose()` C:1927–1934. Result: the loop drops from
 4. `_verify_citations` classification matrix (C:487–533): excerpt-only mismatch →
    `_RegenerableEvidenceMismatch`; quoted label, colliding duplicate, short excerpt, short source,
    referenced-but-undeclared → `_UnpublishableAnswer` (:511–513, :529–531).
-5. Heartbeat progress every three seconds (C:1751–1753) at generator level, patching `monotonic` on
-   the loop's module; today pinned only through the ASGI test via the façade name (`test_copilot.py:519`).
-6. A pre-attempt failure yields one `{"type":"error","message":_STREAM_FAILURE}` (C:1633–1635);
-   existing stream-error pins exercise only the in-attempt path (C:1726).
+5. A pre-attempt failure yields one `{"type":"error","message":_STREAM_FAILURE}` (C:1633–1635);
+   existing stream-error pins exercise only the in-attempt path (C:1726). (The heartbeat at
+   C:1751–1753 is already pinned by `test_copilot.py:519`, and the loop stays in place, so no anchor.)
 
 **Traps.**
-- Patch bindings that survive a move because they bind to shared objects: about 60 sites on the
-  `openai_service` singleton (`stream_chat_with_tools`: 61 in tests, 1 in the eval runner) and 17 on
-  the `copilot_tools` module object
+- Patch bindings that survive a move because they bind to shared objects: over 40 sites on the
+  `openai_service` singleton (`stream_chat_with_tools`, in eight copilot test files and the eval
+  runner) and 17 on the `copilot_tools` module object
   (`run_tool`); new modules must keep calling `copilot_tools.run_tool` and `openai_service.<attr>` as
   attributes at call time.
 - Patch bindings on the `copilot_service` MODULE namespace that go blind when the reading code
@@ -365,14 +369,14 @@ including the private ones production and tests import, and the SAME `_inflight_
 backend/app/services/facts/
   concepts.py      ← cluster A helpers, _classify_duration, _is_financial_sic, every registry and constant
                      (F:38–98, 358–370, 1129–1202, 1312, 1611–1624); byte-identical tuples; never imports edgar at module level
-  normalize.py     ← normalize_standardized_to_facts
   reconcile.py     ← cluster B
   transport.py     ← cluster C (the rule-5 owner; the prose updates above ride this PR)
-  upsert.py        ← _lock_fact_companies, upsert_facts (split), process_filing_facts, upsert_facts_bulk
+  upsert.py        ← normalize_standardized_to_facts, _lock_fact_companies, upsert_facts (split), process_filing_facts, upsert_facts_bulk
   companyfacts.py  ← cluster G minus the leaves; normalize_companyfacts (split)
   derive.py        ← cluster H
   ingest.py        ← cluster J (owns _inflight_syncs)
   jobs.py          ← cluster E; backfill_facts (split);   fundamentals.py ← cluster F
+  __init__.py      ← empty (the cycle rule below depends on it)
 ```
 
 Phase maps (each step ≤80 lines):
@@ -414,8 +418,9 @@ dry-run and flags-only (`test_facts_service.py:608-736`).
   `backend/tests/unit/test_analysis_coverage_pool_lifetime.py:78` patches
   `facts_service._fetch_companyfacts_async` and expects `ingest_companyfacts_by_id` (F:2082) to see
   it; :81 and :140 call `facts_service._inflight_syncs.clear()` in place. After the split each needs a
-  one-line re-point to the leaf module (`facts.upsert`, `facts.ingest`) in the same PR, and
-  `ingest.py` must own the one `_inflight_syncs` object the façade re-exports.
+  one-line re-point to the module that READS the name (`facts.jobs` for `backfill_facts`,
+  `facts.ingest` for the ingest path) in the PR that moves the reader (F4), and `ingest.py` must own
+  the one `_inflight_syncs` object the façade re-exports.
 - `test_facts_service.py:1278-1292` reads the URL off `request_fn.__closure__` by the free-variable
   name `url`; the `_get` closure (F:1916) must keep that name.
 - Commit ownership is per function and must not move: `upsert_facts` F:648–649,
@@ -440,8 +445,8 @@ dry-run and flags-only (`test_facts_service.py:608-736`).
 edits): ~300 moved, ~50 added; `F` → ~1,850. F2 companyfacts + derive with the `normalize_companyfacts`
 split: ~600 moved, ~60 added; `F` → ~1,250. F3 writers + reconcile with the `upsert_facts` split:
 ~520 moved, ~50 added, 1–2 patch-target edits; `F` → ~730. F4 jobs + ingest + fundamentals with the
-`backfill_facts` split: ~700 moved, ~60 added, 1 patch-target edit; `F` → ≤60. Nine new files; longest
-function ≤80 everywhere.
+`backfill_facts` split: ~700 moved, ~60 added, three patch-target edits; `F` → ≤60. Nine new modules
+plus an empty `__init__.py`; longest function ≤80 everywhere.
 
 ### M3 — `backend/app/services/trend_analysis_service.py` (1,923 lines; `T:` below)
 
@@ -494,6 +499,7 @@ backend/app/services/trend_analysis/
   citations.py     ← cluster F;   fidelity.py ← cluster G
   cache.py         ← cluster H + PROMPT_VERSION
   narrative.py     ← stream_trend_narrative (split into phases)
+  __init__.py      ← empty
 backend/app/services/trend_analysis_service.py  ← ~60-line façade (re-exports + __all__)
 ```
 
@@ -524,6 +530,9 @@ Phase maps (each step ≤60 lines):
    cached row (the fingerprint comparison is T:1753).
 4. A raising detector does not break `build_dataset` (the swallow at T:726–733 has no test).
 5. Exact key sets of the fresh (T:1906–1923) and cached (T:1761–1774) complete events.
+6. `_persist_analysis` regenerates in place: two calls for one key keep the same `row.id` with new
+   `narrative_md` and `prompt_version` (T:1643–1701); the router's PDF export relies on that id
+   stability (`backend/app/routers/analysis.py:438-449`) and nothing pins it.
 Already covered, no anchor needed: marker ordering, CAGR window, pp deltas, derived-Q4 badging
 (`test_trend_analysis_service.py:510-532,602,622,641-858`).
 
@@ -568,14 +577,14 @@ backend file because every quality rider lands in one of those two methods.
 | `generate_structured_summary` | O:223–472 (250 lines) | the ONLY prompt-building code in the file: `get_prompt` O:264, `get_structured_prompt` O:398, system literal O:440–450, user f-string O:401–435, `schema_template` O:293–384, params O:438–455 |
 | `_assemble_structured_summary` | O:474–560 (87) | JSON repair, grounding keys, `_recover_missing_sections` O:529–535, `_apply_structured_fallbacks` O:552–556 |
 | `_stream_collect`, `_partial_markdown_preview` | O:562–616, O:618–679 | the streaming preview path tests inject on a bare mixin (`backend/tests/unit/test_acceptance_meter.py:24-27,64`) |
-| `summarize_filing` | O:682–1233 (552 lines) | post-provider finalization; uses `self.` exactly four times (O:704, O:808, O:859, O:1000) |
+| `summarize_filing` | O:682–1233 (552 lines) | post-provider finalization; uses `self.` on exactly four lines (O:704, O:808, O:859 twice, O:1000) |
 
 Phase map of `summarize_filing` (every phase after P0 is post-provider, so none emits prompt bytes):
-P0 primary extraction O:702–709 → P0b error envelope O:711–733 → P1 strip, taxonomy and table
-guards O:735–761 → P2 risk projection O:763–786 → P3 forward-quote gate O:788–800 → P3b attribution
+P0 primary extraction O:702–709 → P0b error envelope O:711–734 → P1 strip, taxonomy and table
+guards O:735–761 → P2 risk projection O:762–782 → P3 forward-quote gate O:784–800 → P3b attribution
 gate and the one side provider call `self._verify_attributions` O:801–816 → P4 source binders and
-evidence snap O:818–885 (flags `EVIDENCE_SNAP_MIN_SCORE` O:852, `AI_EVIDENCE_SNAP` O:853) → P5
-coverage snapshot O:887–921 → P6 compat strings with the nested `_stringify` O:923–957 → P7 render
+evidence snap O:818–886 (flags `EVIDENCE_SNAP_MIN_SCORE` O:852, `AI_EVIDENCE_SNAP` O:853) → P5
+coverage snapshot O:887–921 → P6 compat strings with the nested `_stringify` O:923–958 → P7 render
 O:959–1001 → P8 raw_summary payload O:1003–1037 → P9 title O:1039–1061 → P10 legacy cards
 O:1064–1135 → P11 insights O:1137–1181 → P12 status and message O:1184–1207 → P13 return O:1210–1233.
 
@@ -588,11 +597,13 @@ O:1064–1135 → P11 insights O:1137–1181 → P12 status and message O:1184�
 
 **Seams to cut.** Keep `summarize_filing` on the class as a ~70-line orchestrator (the
 `_LLM_ENTRYPOINTS` check at `backend/tests/unit/test_llm_no_pii.py:22-25,52-58`, the exact signature
-pin at `backend/tests/unit/test_filing_only_inputs.py:89-117`, the forwarding pin at :121–143, and all
-27 patch sites keep working). Move the post-provider phases into `ai/summary_finalize.py` as functions
+pin at `backend/tests/unit/test_filing_only_inputs.py:89-117`, the forwarding pin at :121–145, and all
+~28 `summarize_filing` patch sites keep working). Move the post-provider phases into `ai/summary_finalize.py` as functions
 over a `SummaryRun` dataclass, 1:1 with the phase map; pass the four `self` dependencies in as
-arguments (`layout = self._SECTION_LAYOUT[...]`, `fallback_render = self._build_structured_markdown`)
-and keep `await self._verify_attributions` in the orchestrator. The decomposition is prompt-identical
+arguments (`layout = self._SECTION_LAYOUT[...]`, `fallback_render = self._build_structured_markdown`),
+pass `snap_evidence` in the same way from the façade's module binding (so the spy at
+`backend/tests/unit/test_statement_relationship_integration.py:357-368` keeps seeing it without
+`ai/` importing the façade), and keep `await self._verify_attributions` in the orchestrator. The decomposition is prompt-identical
 by construction, which keeps the baseline pin valid (`backend/evals/RUNBOOK.md:530-535`). Optionally
 (O2) move prompt assembly O:261–456 to `ai/summary_prompt.py` with `schema_template` as a module
 constant, proven byte-identical by anchor A1.
@@ -600,7 +611,7 @@ constant, proven byte-identical by anchor A1.
 **Target layout:**
 
 ```
-backend/app/services/ai/summary_finalize.py   ← SummaryRun + 14 phase functions (≤80 lines each; ~520 lines)
+backend/app/services/ai/summary_finalize.py   ← SummaryRun + one function per phase P0b–P12 (≤80 lines each; ~520 lines); P3b's `await self._verify_attributions` and the P13 return stay in the orchestrator
 backend/app/services/ai/summary_prompt.py     ← (O2, gated) build_primary_request; schema_template constant
 backend/app/services/openai_service.py        ← façade + OpenAIService; summarize_filing ≈ 70 lines; ~840 lines after O1, ~670 after O2
 ```
@@ -618,36 +629,38 @@ backend/app/services/openai_service.py        ← façade + OpenAIService; summa
   conditional audit keys). Today only `backend/tests/unit/test_source_first_risks.py:180` touches this.
 - A3 error envelope (O:717–733) for a non-timeout extraction failure; timeout propagation is already
   pinned (`test_filing_only_inputs.py:121-143`, `backend/tests/unit/test_provider_resilience.py:615`).
-- A4 status and message thresholds (O:1184–1207: 0.5, 0.7, zero cards → "error").
+- A4 status and message thresholds (O:1184–1207: 0.5, 0.7; no sections and zero covered sections → "error", O:1199).
 - A5 title derivation (O:1047–1061).
 - A6 aliasing invariant: `result["raw_summary"]["sections"] is result["raw_summary"]["structured"]["sections"]`
-  and no `_`-prefixed key inside `raw_summary["structured"]`; the in-place binders depend on it
-  (O:742–745, O:792–796, O:875–882).
+  and no `_`-prefixed top-level key inside `raw_summary["structured"]` (the nested
+  `sections["_risk_source_projection"]`, O:782, is the sanctioned exception); the in-place binders
+  depend on it (O:754–755, O:787–790, O:875–882).
 
 **Traps.**
 - `backend/tests/unit/test_evidence_snap.py:231-239` reads `openai_service.py` as TEXT and asserts
-  five literals with their exact indentation (O:853–855, O:832, O:550, O:1025). O1 must redirect that
+  five literals with their exact indentation (O:848, O:853–855, O:832, O:550, O:1020). O1 must redirect that
   test in the same PR (an ordinary unit test, not a locked anchor).
 - MRO: `_request_content` (`backend/app/services/ai/provider_requests.py:210`) calls
-  `self._stream_collect` (:291), which calls `self._partial_markdown_preview` (O:601); keep these
+  `self._stream_collect` (:290), which calls `self._partial_markdown_preview` (O:601); keep these
   `self.` calls, never module functions.
-- `client`: seven `create` patches and 12+ direct `service.client = …` assignments mean the request
-  must stay `self.client.chat.completions.create` (`provider_requests.py:237,297`, O:577).
+- `client`: nine `create` patches and 13 direct `service.client = …` assignments mean the request
+  must stay `self.client.chat.completions.create` (`provider_requests.py:238,298`, O:577).
 - `get_prompt` and `snap_evidence` are monkeypatched on the façade module
   (`test_sixk_variant_wiring.py:30,36,55-57`; `backend/tests/unit/test_statement_relationship_integration.py:251,357-362`);
   the orchestrator must keep calling them by the façade's binding, or those tests get a one-line
   re-point in the same PR.
 - Usage accounting fires at provider start inside `_request_content` (`signal_provider_start()`
-  `provider_requests.py:289`, armed by `summary_pipeline.py:1010-1014`); the ContextVars are
+  `provider_requests.py:288`, armed by `summary_pipeline.py:1010-1014`); the ContextVars are
   task-local, so phases must stay in the same task. The one threadpool hop (O:848) carries no provider call.
 - `@bounded_summary` (O:222, O:681) shares one deadline ContextVar (`provider_requests.py:80-87`);
   `summarize_filing` must keep re-raising `asyncio.TimeoutError` (O:711–713) so the pipeline's
   deterministic fallback runs.
 - In-place mutation order: `sections_info` is one object shared by `structured_summary["sections"]`
-  (O:749), the render envelope (O:988) and `raw_summary["sections"]` (O:1022); private keys are popped
-  in order (O:765, O:832, O:869, O:873, O:975–983) before embedding at O:1021. Phases must not copy or reorder.
+  (O:749), the render envelope (O:988) and `raw_summary["sections"]` (O:1012); private keys are popped
+  in order (O:765, O:832, O:869, O:873, O:977–985) before embedding at O:1011. Phases must not copy or reorder.
 - `ai/summary_finalize.py` must not import `summary_pipeline` or `summary_generation_service` (both
-  import the façade: cycle) nor `app.models` (`test_llm_no_pii.py:35-49` walks `app.services.ai`).
+  import the façade: cycle) and must not bind a `User` name (`test_llm_no_pii.py:35-49` walks
+  `app.services.ai` with `hasattr(mod, "User")`; keeping `app.models` out of it is the simple way).
 - Open branches: see correction 6. O1 never conflicts with them; O2 would, so O2 waits for founder item 3.
 - Eval triggers: every `settings.*` read is at O:120–137, O:170, O:396, O:656, O:799, O:813,
   O:852–853; O1 reads none of them differently. The paid job still arms on every push.
@@ -663,17 +676,17 @@ longest function → 87 (`_assemble_structured_summary`).
 
 | Cluster | Functions (def range) | Notes |
 |---|---|---|
-| A. Two-tier cache | `_get_cache_lock` X:113–123, `clear_xbrl_cache` X:126–136, `_cache_set_sync` X:149–197, `get_xbrl_cache_stats` X:200–235 | state X:90–110 (`_XBRL_CACHE_VERSION` "v6", `_xbrl_cache`, `_cache_max_size`, counters, lazy loop-bound lock); `get_xbrl_data` mutates the counters through `global` X:676 |
+| A. Two-tier cache | `_get_cache_lock` X:113–123, `clear_xbrl_cache` X:126–136, `async_clear_xbrl_cache` X:139–146 (tests only), `_cache_set_sync` X:149–197, `get_xbrl_cache_stats` X:200–235 | state X:90–110 (`_XBRL_CACHE_VERSION` "v6", `_xbrl_cache`, `_cache_max_size`, counters, lazy loop-bound lock); `get_xbrl_data` mutates the counters through `global` X:676 |
 | B. Filing-instance extraction (sync, executor-run) | `_extract_segments` X:238–293, `_source_duration` X:296–304, `_extract_from_filing_instance_sync` X:307–545 | run by `_fetch_from_filing_instance` X:802–815 under `run_in_executor_with_timeout` X:809–812; deliberately breaker-exempt (comment X:29–35, S4 review finding 2); network inside the lambda = `resolve_filing_by_accession` X:320 and edgartools `filing.xbrl()` X:337 |
 | C. Sections extraction | `_extract_sections_sync` X:553–631 | run by `get_filing_sections` X:817–848 (form gate :829–831, 30s/40s timeout :837); zero unit coverage |
 | D. Service class | `EdgarXBRLService` X:634–1312: `get_xbrl_data` X:646–728, `get_filing_sections` X:817–848, `extract_standardized_metrics` X:1054–1312 | singleton `edgar_xbrl_service` X:1316 |
 | E. Persisted-snapshot-first and orchestration | `_persisted_xbrl` X:731–755 (`@staticmethod`, own `SessionLocal`), `_get_from_redis` X:757, `_set_to_redis` X:766, `_fetch_xbrl_data` X:775–800 | `run_owned_sync(self._persisted_xbrl, …)` X:680 (`backend/app/services/request_work.py:95-108`); never move it under the 4-thread edgar pool |
-| F. Companyfacts fallback transport and parser | `_fallback_to_company_facts` X:850–889, `_parse_company_facts` X:891–1052 | `sec_rate_limiter.execute` single wait X:883, no breaker (comment X:868–872); `CASH_TAG_CANDIDATES` X:69–75; inline concept lists X:1036–1047; lazy `_classify_duration` X:1002; neither method reads `self` |
+| F. Companyfacts fallback transport and parser | `_fallback_to_company_facts` X:850–889, `_parse_company_facts` X:891–1052 | `sec_rate_limiter.execute` single wait X:883, no breaker (comment X:868–872); `CASH_TAG_CANDIDATES` X:69–75; inline concept lists X:1036–1047; lazy `_classify_duration` X:1002; neither method uses instance state (the transport delegates to `self._parse_company_facts` at X:885) |
 
 **Public surface.** `edgar/__init__.py:36-40` re-exports `EdgarXBRLService`, `edgar_xbrl_service`,
 `clear_xbrl_cache`, `get_xbrl_cache_stats` (`__all__` :50–83); `backend/app/routers/admin.py:22,559,562,583`
 and `backend/app/services/metrics_service.py:91` use the last two; `backend/app/services/edgar/compat.py:21`
-wraps the singleton as `XBRLServiceCompat` (:534–577, instance :582), which `summary_pipeline.py:36`,
+wraps the singleton as `XBRLServiceCompat` (:532–577, instance :582), which `summary_pipeline.py:36`,
 `backend/app/routers/summaries.py:646-647`, `facts_service.py:690-692,759-761`, `backend/evals/runner.py:107`
 and `backend/evals/copilot_bootstrap.py:100-106` import. The private `_extract_from_filing_instance_sync`
 is imported by `backend/scripts/backfill_facts.py:79` and eight test files; `_extract_segments` by
@@ -681,7 +694,8 @@ is imported by `backend/scripts/backfill_facts.py:79` and eight test files; `_ex
 `backend/tests/unit/test_cash_registry_consistency.py:31,40`.
 
 **Seams to cut.** Clusters A, B, C and F are each self-contained; D and E stay together as the
-service. The riskiest cut is B, because about 35 test sites patch names on the MODULE namespace that B
+service. The riskiest cut is B, because about 30 test sites (27 single-line patches plus three
+multi-line helpers) patch names on the MODULE namespace that B
 reads: `resolve_filing_by_accession` (`test_accession_xbrl_extraction.py:329-333`, `test_fpi_currency.py:84-88`,
 `test_cash_financial_applicability.py:75`, `test_data_completeness.py:85`, `test_financing_source.py:61`,
 `test_financial_statement_extraction.py:314-317`, `backend/evals/acceptance_archive.py:604`) and the
@@ -707,10 +721,10 @@ backend/app/services/edgar/
 
 Phase maps:
 - `_extract_from_filing_instance_sync` X:307–545 → resolve and gates X:320–340, result and currency
-  vote X:342–366, financial-institution statement path X:368–389, duration loop X:391–435, dividends
+  vote X:342–367, financial-institution statement path X:368–389, duration loop X:391–435, dividends
   fallback X:437–452 (uncovered inside the extractor), statement emit + instant loop X:454–478, debt
-  observations X:480–499, ADS ratio X:501–506, segments X:508–522 (always stubbed in tests), anchor
-  requirement + fiscal labels + classification X:524–545. `_record_currency` closes over
+  observations X:480–499, ADS ratio X:501–506, segments X:508–519 (always stubbed in tests), anchor
+  requirement + fiscal labels + classification X:521–545. `_record_currency` closes over
   `currency_votes`; pass it explicitly.
 - `_parse_company_facts` X:891–1052 → shape, `_is_target`, `_duration_penalty` X:897–932,
   `filter_and_sort` X:934–962, `select_fact_data_with_concept`/`select_fact_data` X:964–998,
@@ -730,19 +744,20 @@ Phase maps:
 1. Companyfacts transport with `httpx.AsyncClient` mocked: `sec_rate_limiter.execute` (not
    `execute_with_backoff`) called once, `User-Agent == EDGAR_IDENTITY`, `timeout=30.0`, non-200 →
    None, result == `_parse_company_facts(json, accession)`. Today the method is only patched away
-   (`test_accession_xbrl_extraction.py:416,448`; `acceptance_archive.py:634`).
+   (`test_accession_xbrl_extraction.py:416,430,448`; `acceptance_archive.py:630`).
 2. Sections: `_extract_sections_sync` over a fake `obj` for 10-K, 10-Q and 20-F plus the
    `_SECTION_MIN_CHARS` stub rejection; `get_filing_sections` form gate (X:830) and timeout choice
    (X:837). Zero coverage today.
 3. Segment wiring inside the extractor (X:508–522) with `_extract_segments` un-stubbed.
 4. Dividends component fallback inside the extractor (X:437–452).
-5. `get_xbrl_data` L1 expiry branch (X:696–702) via `get_xbrl_cache_stats()` deltas.
-6. Standardized label inheritance (X:1294–1304) and the two pass-throughs (X:1306–1311).
+5. `get_xbrl_data` L1 expiry branch (X:698–702) via `get_xbrl_cache_stats()` deltas.
+6. Standardized label inheritance (X:1294–1305) and the two pass-throughs (X:1306–1311).
 
 **Traps.**
 - `_cache_max_size` is REBOUND as an int by `backend/tests/unit/test_two_tier_cache.py:61-62,148-150,341-343`;
-  a re-export does not carry a rebinding, so X1's cache module needs a function API and those three
-  sites a retarget.
+  a re-export does not carry a rebinding, so X1's cache module needs a function API and those sites a
+  retarget, together with the from-import of the name at :16 (read at :58, :336; restored at
+  :80/:159/:364).
 - `_persisted_xbrl` is a `@staticmethod` patched on the class (`acceptance_archive.py:636-637`) and on
   instances (`test_cash_financial_applicability.py:148`); keep it a staticmethod on the class.
 - Rule 5 documentation that names this file and moves with X2: `lessons/sec-edgar-resilience-layer.md:25`,
@@ -753,8 +768,8 @@ Phase maps:
 - Concept lists are behaviour (`lessons/sec-xbrl-period-selection.md:16-18`): the inline lists
   X:1036–1047 and `CASH_TAG_CANDIDATES` move byte-identical and the façade keeps
   `xbrl_service.CASH_TAG_CANDIDATES`.
-- Accession and period invariants: fallback facts carry the target `accn` (X:908–913, X:979–985);
-  `period_start` only from the source fact, never synthesised (X:296–304, X:1023).
+- Accession and period invariants: fallback facts carry the target `accn` (X:908–913, X:979–986);
+  `period_start` only from the source fact, never synthesised (X:296–304, X:1025).
 - `datetime.now()` naive stamps at X:180, 207, 692, 713, 722 are not gated; leave them in a move.
 - New leaf modules that call edgartools rely on `set_identity` (X:78, `client.py:49`) having run;
   importing them through the package keeps that order.
@@ -765,15 +780,15 @@ Phase maps:
 edits, the `_classify_duration` import re-pointed at `facts.concepts`; `X` → ~950. X3 standardized:
 259 into ~9 helpers (+80), 1 delegating method, no retargets; `X` → ~700. X4 instance: ~308 into ~8
 phase functions (+70), ~35 patch retargets in 8 test files + `acceptance_archive.py:604` +
-`backfill_facts.py:79`; `X` → ~400; longest function ≤80. X5 (optional) sections ~180; `X` → ~300.
+`backfill_facts.py:79`; `X` → ~400; longest function ≤80. X5 (optional) sections ~85 (~115 with `get_filing_sections`); `X` → ~300.
 
 ### M6 — `backend/app/services/edgar/instance_extractor.py` (1,229 lines; `IE:` below)
 
 This module's problem is breadth, not length: 40 top-level functions, none over 69 lines, no
 `__all__`, no module state beyond constants and a logger (IE:25). It makes no network calls of its
 own; the fetch boundary is `filing.xbrl()` at `xbrl_service.py:337`, and IE only receives duck-typed
-edgartools objects (`xb.facts.query()` IE:230 and IE:676, `by_dimension` IE:815–819,
-`xb.statements.income_statement()` IE:1040–1043). Whether edgartools performs hidden I/O behind
+edgartools objects (`xb.facts.query()` IE:231, IE:682 and IE:816, `by_dimension` IE:815–819,
+`xb.statements.income_statement()` IE:1038). Whether edgartools performs hidden I/O behind
 `company.is_financial_institution()` (IE:1016–1018) is unverified from the repo; the plan treats the
 module as breaker-exempt local parsing, as `docs/ARCHITECTURE.md` does.
 
@@ -795,10 +810,10 @@ module as breaker-exempt local parsing, as `docs/ARCHITECTURE.md` does.
 **Public surface.** `xbrl_service.py:43-58` binds 14 names by `from .instance_extractor import`.
 `backend/app/services/ai/acquisition_period.py:9` imports `duration_in_window`.
 `backend/evals/build_golden_set.py` lazily imports `duration_in_window` (:151),
-`duration_series_with_currency` (:167, :189, :227, :251), `instant_series_with_currency` (:169) and
-`DURATION_CONCEPTS` (:189, :251), and mirrors the registries by copy (:37–60, :78–104);
+`duration_series_with_currency` (:168, :189, :227, :251), `instant_series_with_currency` (:169) and
+`DURATION_CONCEPTS` (:189, :251), and mirrors the registries by copy (:37–67, :78–104);
 `backend/tests/unit/test_accession_xbrl_extraction.py:503-541` pins that mirror against
-`DURATION_CONCEPTS`. Fourteen test files import it, seven of them private names (`_parse_decimals`,
+`DURATION_CONCEPTS`. Fourteen test files import it; three of them import seven private names (`_parse_decimals`,
 `_resolve_period_value`, `_period_marker`, `_statement_period_columns`, `_truthy_flag`, `_currency`,
 `_reporting_currency`: `test_accession_xbrl_extraction.py:234,245`,
 `backend/tests/unit/test_financial_statement_extraction.py:14-16`, `backend/tests/unit/test_fpi_currency.py:15-16`).
@@ -813,19 +828,19 @@ J→I; no sibling in `edgar/` imports IE back (`debt_concepts.py`, `statement_pa
 import order: `edgar/__init__.py:35-36` imports `.client` then `.xbrl_service`, which imports IE, so
 sub-modules must use relative imports and never `from app.services.edgar import …`.
 
-**Target layout** (sub-package; IE kept as an explicit re-export façade of all 29 public names plus
+**Target layout** (sub-package; IE kept as an explicit re-export façade of the 27 public names it
+defines, the two it re-imports from `debt_concepts`, plus
 the 7 test-imported private names, so every current import path keeps working):
 
 ```
 backend/app/services/edgar/instance/
-  core.py                ← clusters A + B (~150 lines)
-  contexts.py            ← DURATION_WINDOWS, duration_in_window, _unanimous_start
-  query.py               ← _CONCEPT_NAMESPACES, _fact_records_with_concept
+  core.py                ← clusters A + B + C + D (~215 lines: primitives, currency, DURATION_WINDOWS/duration_in_window, _CONCEPT_NAMESPACES/_fact_records_with_concept)
   concepts.py            ← cluster E registries, byte-identical order
   series.py              ← cluster F (~200)
   debt.py                ← cluster G;   segments.py ← cluster H
   financial_profiles.py  ← cluster I (keep the lazy edgartools enum import at IE:981 lazy)
   statements.py          ← cluster J (~270, the largest piece)
+  __init__.py            ← empty
 backend/app/services/edgar/instance_extractor.py  ← ~45-line façade
 ```
 
@@ -838,12 +853,12 @@ backend/app/services/edgar/instance_extractor.py  ← ~45-line façade
 2. `_reporting_currency` full tie-break (IE:283–291): equal period-end counts → present at the period
    of report → non-USD → alphabetical; `test_fpi_currency.py:109-122` covers only the "more periods"
    and None cases.
-3. `duration_series_with_starts` `selected_sources` contract (clear-on-entry IE:389–390, row shape
-   IE:427–433); today only indirect via `backend/tests/unit/test_financing_source.py:67-150`.
+3. `duration_series_with_starts` `selected_sources` contract (clear-on-entry IE:397–398, row shape
+   IE:434–438); today only indirect via `backend/tests/unit/test_financing_source.py:67-150`.
 4. `_one_undimensioned_instant_fact`: a row without currency is never an observation even when
-   `reporting_currency` is None (IE:644–645); entity whitespace normalisation (IE:647–648).
-5. `_statement_period_columns`: 20-F/40-F accept `(FY)` (IE:1075) and `(end, marker)` de-dup
-   (IE:1086–1090); tests cover 10-Q quarter-vs-YTD only (`test_financial_statement_extraction.py:379-400`).
+   `reporting_currency` is None (IE:644–645); entity whitespace normalisation (IE:648–650).
+5. `_statement_period_columns`: 20-F/40-F accept `(FY)` (IE:1072, IE:1081–1083) and `(end, marker)`
+   de-dup (IE:1089–1092); tests cover 10-Q quarter-vs-YTD only (`test_financial_statement_extraction.py:379-400`).
 6. `cash_financial_classification` outcome matrix (IE:985–1004).
 
 **Traps.**
@@ -853,8 +868,8 @@ backend/app/services/edgar/instance_extractor.py  ← ~45-line façade
 - Keep `xbrl_service.py:43-58` as name-binding imports; switching xbrl_service to attribute access
   (`concepts.DURATION_CONCEPTS`) silently blinds the monkeypatches above.
 - No case-insensitive DataFrame column lookup exists here (contrast
-  `backend/app/services/ownership_extractor.py:71-75`); the NaN/NA guards at IE:187–189, 253–254,
-  593–594, 635–636, 798–800, 1103–1105 are load-bearing.
+  `backend/app/services/ownership_extractor.py:71-75`); the NaN/NA guards at IE:191–194, 253–256,
+  593–594, 798–800 and 1105–1108, and the instant-type check at IE:635–636, are load-bearing.
 - `FINANCIAL_PROFILES` is a mutable list of dicts read by clusters I and J; keep one object.
 - Renaming any of the four names `build_golden_set.py` imports breaks golden-set regeneration; the move
   keeps them.
@@ -888,9 +903,21 @@ their parent, only top-level functions and class methods budgeted); any function
 that is not listed is held to the **new-function ceiling of 80 lines**; any NEW module created under
 `app/services/copilot/`, `app/services/facts/`, `app/services/trend_analysis/`,
 `app/services/edgar/instance/`, `app/services/edgar/xbrl_*.py` or `app/services/ai/summary_*.py` is
-held to **400 lines**, so bloat cannot simply move. Mutation proof for the PR body: pad one budgeted
-function by one line, show the row fail, restore; pad a budgeted file by one blank line, show the
-file row fail, restore (both on committed state, per `lessons/test-proofs-run-on-committed-state.md`).
+held to **600 lines** (the largest planned modules, `copilot/quotations.py` at ~417 and
+`ai/summary_finalize.py` at ~520, fit; functions ≤80 still bound bloat), so bloat cannot simply move.
+The gate also asserts the ratchet is not stale: a ceiling more than 100 file lines or 20 function
+lines above the actual size fails with "lower the ceiling". Each budget file also carries a
+`forbidden_imports` list of (file glob, forbidden module prefix) pairs that the same test enforces
+with a module-level-import AST walk (empty at W0.G; F1 adds `app/services/facts/concepts.py →
+app.services.edgar`, X1 adds `app/services/edgar/xbrl_*.py → app.services.edgar.xbrl_service`, I1
+adds `app/services/edgar/instance/* → app.services.edgar.xbrl_service` and the absolute
+`app.services.edgar` package import), so the plan's own never-rules are gates, not prose
+(`lessons/arch-structural-gates-over-prose-rules.md`). W0.G also checks in the AST per-symbol move
+proof as `backend/tests/support/ast_move_proof.py` (tests-only, so it does not deploy), which every
+pure-move PR and its reviewers run. Mutation proof for the PR body (one, per AGENTS.md §4): pad one
+budgeted function by one line on committed state, show the row fail, restore
+(`lessons/test-proofs-run-on-committed-state.md`); the first `forbidden_imports` row gets its own
+proof when it lands.
 
 | File | Ceiling (lines) | Function ceilings today |
 |---|---:|---|
@@ -902,7 +929,7 @@ file row fail, restore (both on committed state, per `lessons/test-proofs-run-on
 | `app/services/edgar/instance_extractor.py` | 1,229 | (none over 80) |
 
 End-state targets the ratchet drives toward: façades ≤60 lines for M2 and M3, ≤300 for M5, ≈45 for
-M6, ≈670–840 for M4, ≈800 for M1; every function ≤80 lines; every new module ≤400 lines.
+M6, ≈670–840 for M4, ≈800 for M1; every function ≤80 lines; every new module ≤600 lines.
 
 ---
 
@@ -914,7 +941,9 @@ run fully in parallel; until #1123 lands each still arms `copilot-eval` once whe
 every push, draft or not, so merges are serial (one verified deploy at a time, AGENTS.md §6) and
 pushes are batched (push once when the local gate is green; stay draft until review so `copilot-eval`
 fires once; a second push within a run cancels the first, `.github/workflows/ci.yml:290-292`); (3) a
-Code Red reservation is written before each paid trigger; (4) leaf-first: a module is moved before it
+Code Red reservation is written before each paid trigger, as a records-only commit under
+`tasks/code-red-20261004/runtime/` and never inside a refactor PR (those records are digest-indexed
+and gated by `backend/tests/unit/test_code_red_runtime_records.py`); (4) leaf-first: a module is moved before it
 is split, and a module is split only after its anchors are green, and every Wave 1 PR also depends on
 W0.G because it lowers its module's budget file; (5) PRs in one wave edit disjoint files, including
 test files (anchors go in NEW test files; each module has its own budget file) and docs. The two
@@ -931,17 +960,20 @@ lands (its filter drops `backend/tests/**`); AST = pure-move proof required.
 
 | PR | Files | Triggers | Depends on |
 |---|---|---|---|
-| W0.G size-budget gate | new `backend/tests/unit/test_hot_module_size_budget.py` + six budget files under `backend/tests/unit/size_budgets/` | CE* | — |
-| C0 copilot anchors (6) | new `backend/tests/unit/test_copilot_refactor_anchors.py` | CE* | — |
+| W0.G size-budget gate | new `backend/tests/unit/test_hot_module_size_budget.py`, six budget files under `backend/tests/unit/size_budgets/`, `backend/tests/support/ast_move_proof.py` | CE* | — |
+| C0 copilot anchors (5) | new `backend/tests/unit/test_copilot_refactor_anchors.py` | CE* | — |
 | F0 facts anchors (6) | new `backend/tests/unit/test_facts_refactor_anchors.py` | CE* | — |
-| T0 trend anchors (5) | new `backend/tests/unit/test_trend_refactor_anchors.py` | CE* | — |
+| T0 trend anchors (6) | new `backend/tests/unit/test_trend_refactor_anchors.py` | CE* | — |
 | O0 openai anchors (A1–A6) | new `backend/tests/unit/test_summarize_filing_anchors.py` + JSON fixtures under `backend/tests/fixtures/` | CE* | — |
 | X0 xbrl anchors (6) | new `backend/tests/unit/test_xbrl_service_anchors.py` | CE* | — |
 | I0 instance anchors (6) | new `backend/tests/unit/test_instance_extractor_anchors.py` | CE* | — |
 
 Merging #1123 first (a workflow and one test file; no deploy; one USD 0.06 run for its own un-draft)
 makes all seven free; otherwise each costs one reserved USD 0.06 run at un-draft (USD 0.42 in all).
-Exit gate: all seven merged; each anchor shown to FAIL under a spot mutation of its guarded behaviour
+Anchors patch shared objects (singletons, `settings`, third-party modules) wherever possible; an
+anchor that must patch a name on one of the six modules is listed as a re-point in the PR that moves
+its reader: T1 re-points T0's detector anchor (`trend_analysis.detectors._DETECTORS`), F4 re-points
+F0's default-fetcher and remediate anchors (`facts.jobs`). Exit gate: all seven merged; each anchor shown to FAIL under a spot mutation of its guarded behaviour
 (table in the PR body, as the 2026-07 plan did); baseline recorded {backend test count, wall time,
 green SHA}. Until the hermetic-suite gate lands (founder item 2), every full local run and CI run of
 the backend suite sends live requests to SEC (`tasks/todo.md:6458`); Wave 0 adds no such test.
@@ -950,12 +982,12 @@ the backend suite sends live requests to SEC (`tasks/todo.md:6458`); Wave 0 adds
 
 | PR | What | Files | Triggers | Depends on |
 |---|---|---|---|---|
-| I1 | M6 split into `edgar/instance/` + façade | `instance_extractor.py`, new `edgar/instance/*` | D, E, CE, AST | I0 |
-| T1 | M3 leaf moves (periods, formatting, series, detectors, citations, fidelity, cache) + façade; fixes the stale `PROMPT_VERSION` comment (T:34–35) as it moves | `trend_analysis_service.py`, new `trend_analysis/*` | D, E, CE, AST | T0 |
-| C1 | M1 pure moves (quotations, fact_guards, claim_repair, resolution, envelope) + façade; ~8 test re-points | `copilot_service.py`, new `copilot/*`, `test_copilot_prose_quotations.py`, `test_copilot_quotation_retry.py` | D, E, CE, AST | C0 |
-| F1 | M2 leaves + transport + façade; the seven rule-5 prose edits | `facts_service.py`, new `facts/{__init__,concepts,transport}.py`, CLAUDE.md:105/152, ARCHITECTURE.md:189, ADR-0003:30, `lessons/sec-edgar-resilience-layer.md:23-24`, two agent briefs, the allowlist docstring | D, E, CE, AST | F0; merges after #1126/#1118 or rebases over them (founder item 9) |
-| X1 | M5 cache → `xbrl_cache.py` with a function API; 3 test retargets; `docs/OPERATIONS.md:230` | `xbrl_service.py`, new `xbrl_cache.py`, `test_two_tier_cache.py` | D, E, CE, AST | X0 |
-| O1 | M4 `summarize_filing` post-provider phases → `ai/summary_finalize.py`; `test_evidence_snap.py:231-239` redirected | `openai_service.py`, new `ai/summary_finalize.py`, `test_evidence_snap.py` | D, E, CE, AST | O0 |
+| I1 | M6 split into `edgar/instance/` + façade; adds its `forbidden_imports` rows | `instance_extractor.py`, new `edgar/instance/*`, `size_budgets/instance_extractor.json` | D, E, CE, AST | I0, W0.G |
+| T1 | M3 leaf moves (periods, formatting, series, detectors, citations, fidelity, cache) + façade; fixes the stale `PROMPT_VERSION` comment block (T:34–40) as it moves; re-points T0's detector anchor | `trend_analysis_service.py`, new `trend_analysis/*`, `test_trend_refactor_anchors.py`, `size_budgets/trend_analysis_service.json` | D, E, CE, AST | T0, W0.G |
+| C1 | M1 pure moves (quotations, fact_guards, claim_repair, resolution, envelope) + façade; ~8 test re-points | `copilot_service.py`, new `copilot/*`, `test_copilot_prose_quotations.py`, `test_copilot_quotation_retry.py`, `size_budgets/copilot_service.json` | D, E, CE, AST | C0, W0.G |
+| F1 | M2 leaves + transport + façade; the seven rule-5 prose edits; adds the `concepts.py → app.services.edgar` forbidden-import row | `facts_service.py`, new `facts/{__init__,concepts,transport}.py`, `size_budgets/facts_service.json`, CLAUDE.md:105/152, ARCHITECTURE.md:189, ADR-0003:30, `lessons/sec-edgar-resilience-layer.md:23-24`, two agent briefs, the allowlist docstring | D, E, CE, AST | F0, W0.G; merges after #1126/#1118 or rebases over them (founder item 9) |
+| X1 | M5 cache → `xbrl_cache.py` with a function API; the `test_two_tier_cache.py` retargets; `docs/OPERATIONS.md:230`; adds the `xbrl_*.py → xbrl_service` forbidden-import row | `xbrl_service.py`, new `xbrl_cache.py`, `test_two_tier_cache.py`, `docs/OPERATIONS.md`, `size_budgets/xbrl_service.json` | D, E, CE, AST | X0, W0.G |
+| O1 | M4 `summarize_filing` post-provider phases → `ai/summary_finalize.py`; `test_evidence_snap.py:231-239` redirected; `snap_evidence` passed in from the façade's binding | `openai_service.py`, new `ai/summary_finalize.py`, `test_evidence_snap.py`, `size_budgets/openai_service.json` | D, E, CE, AST | O0, W0.G |
 
 Every Wave 1 PR lowers the rows in its own budget file. Merge order recommendation (smallest blast
 radius first, verified deploy between each): I1 → T1 → X1 → C1 → F1 → O1. F1 and X2 (next wave) touch
@@ -967,8 +999,8 @@ serial.
 | PR | What | Files | Triggers | Depends on |
 |---|---|---|---|---|
 | T2 → T3 → T4 | M3 dataset + observations; narrative + final façade (+ `docs/ARCHITECTURE.md:158`); then the three splits | M3 files only | D, E, CE (T2/T3: AST) | T1 |
-| F2 → F3 → F4 | M2 companyfacts + derive (split `normalize_companyfacts`); writers + reconcile (split `upsert_facts`; re-point `test_job_reporting.py:242`); jobs + ingest + fundamentals (split `backfill_facts`; re-point `test_analysis_coverage_pool_lifetime.py:78`) | M2 files + the two named tests | D, E, CE, AST | F1 |
-| X2 → X3 → X4 (→ X5) | M5 companyfacts (+ re-point the `_classify_duration` import to `facts.concepts`; the six rule-5 doc edits); standardized; instance (35 retargets, `backfill_facts.py:79`, `acceptance_archive.py:604`; folds I2's re-points, not its deletion); optional sections | X2: `xbrl_service.py`, new `xbrl_companyfacts.py`, `docs/ARCHITECTURE.md:181,185-187`, `lessons/sec-edgar-resilience-layer.md:25`, `lessons/sec-runtime-facts-carry-no-duration.md:12,29`, `backend/evals/RUNBOOK.md:793`, and the docstring that today sits at `copilot_service.py:1355` (after C1 it lives in `copilot/claim_repair.py`); X3/X4: M5 files, the retargeted tests, `scripts/backfill_facts.py` (rebase over #1121), `evals/acceptance_archive.py` | D, E, CE, AST | X1, F1 (X2 needs `facts.concepts`), I1 (X4 folds I2), C1 (the docstring's new home) |
+| F2 → F3 → F4 | M2 companyfacts + derive (split `normalize_companyfacts`); writers + reconcile (split `upsert_facts`); jobs + ingest + fundamentals (split `backfill_facts`; re-point `test_job_reporting.py:242` to `app.services.facts.jobs.process_filing_facts`, `test_analysis_coverage_pool_lifetime.py:78` to `app.services.facts.ingest._fetch_companyfacts_async`, and F0's default-fetcher and remediate anchors to `facts.jobs`) | M2 files + `size_budgets/facts_service.json`; F4 also the two named tests and `test_facts_refactor_anchors.py` | D, E, CE, AST | F1 |
+| X2 → X3 → X4 (→ X5) | M5 companyfacts (+ re-point the `_classify_duration` import to `facts.concepts`; the six rule-5 doc edits); standardized; instance (35 retargets, `backfill_facts.py:79`, `acceptance_archive.py:604`; folds I2's re-points, not its deletion); optional sections | X2: `xbrl_service.py`, new `xbrl_companyfacts.py`, `docs/ARCHITECTURE.md:78,181,185-187`, `lessons/sec-edgar-resilience-layer.md:25`, `lessons/sec-runtime-facts-carry-no-duration.md:12,29`, `backend/evals/RUNBOOK.md:793`, and the docstring that today sits at `copilot_service.py:1355` (after C1 it lives in `copilot/claim_repair.py`); X3/X4: M5 files, the retargeted tests, `scripts/backfill_facts.py` (rebase over #1121), `evals/acceptance_archive.py` | D, E, CE, AST | X1, F1 (X2 needs `facts.concepts`), I1 (X4 folds I2), C1 (the docstring's new home) |
 | C2 | M1 attempt-loop decomposition in place (FactRegistry, SentinelScanner, `_admit_not_disclosed`, `_admit_answer`) | `copilot_service.py` | D, E, CE | C1 |
 
 ### Wave 3 — gated follow-ups and the ratchet
@@ -993,8 +1025,11 @@ practice because a second push cancels an in-progress `eval-baseline` run. 20–
 
 1. **Spend and reservation protocol for the refactor.** A ceiling of about USD 15 for the paid evals
    this plan triggers, under the Code Red rule that every paid trigger is reserved first. Without a
-   stated ceiling, AGENTS.md §3 treats this as "a new paid evaluation programme". Recommendation: set
-   USD 20 and require one push per PR per round.
+   stated ceiling, AGENTS.md §3 treats this as "a new paid evaluation programme". Decide the
+   reservation form too: one programme-level hold (USD 20) written once as a records-only PR and drawn
+   down per run, or the per-push line record 16 requires for D3 stage 2 (which would mean one
+   records-only PR per push, kept out of the refactor PRs either way). Recommendation: one hold, USD
+   20, and one push per PR per round.
 2. **Hermetic suite before Wave 1.** Eleven backend tests reach SEC and Yahoo on every full run
    (`tasks/todo.md:6458`, chief's open item). Wave 1 means ~20 CI runs plus local gates.
    Recommendation: land the outbound-network block first; otherwise say explicitly that the
@@ -1011,12 +1046,18 @@ practice because a second push cancels an in-progress `eval-baseline` run. 20–
 5. **Where the copilot loop lives.** Recommendation: in place (C2), not `copilot/stream.py`, because a
    move changes the logger name the eval runner's withheld-answer filter listens on
    (`backend/evals/copilot_runner.py:201`) and costs five more test re-points.
-6. **New-code ceilings in the gate**: 80 lines per function, 400 per new module. Recommendation: adopt;
-   the only functions the plan leaves between 60 and 80 are orchestrators.
+6. **New-code ceilings in the gate, and the freeze they impose on other lanes**: 80 lines per
+   function, 600 per new module. From W0.G the six files cannot grow in any lane; a ceiling is raised
+   only with founder sign-off recorded in the budget file's `note`, and riders in flight against
+   `generate_structured_summary` (22 commits in 30 days land there) merge before W0.G or wait for O2.
+   Recommendation: adopt; the only functions the plan leaves between 60 and 80 are orchestrators.
 7. **A docs-only PR for the stale statements found tonight** (ARCHITECTURE.md:341 buckets, the two
    audit docs' `sleep(0.2)` rows, the unfinished-work row about `Filing.xbrl_data`). Recommendation:
    yes, any lane, no gate beyond the link check. (OPERATIONS.md:230 rides X1 and the `PROMPT_VERSION`
-   comment rides T1, because those files deploy.)
+   comment rides T1, because those files deploy.) Separately, the naive `datetime.now()` stamps at
+   `backend/app/services/edgar/xbrl_service.py:180,207,692,713,722` and the `datetime.now(timezone.utc)`
+   calls at `backend/app/services/facts_service.py:715,1954,1983` are a rule-7 follow-up outside this
+   plan; the moves leave them as they are.
 8. **Merge #1123 before Wave 0.** It narrows `copilot-eval` so tests-only PRs stop arming a paid run;
    without it Wave 0 costs seven reserved USD 0.06 runs. Recommendation: merge it first.
 9. **F1 rewrites CLAUDE.md rule 5's owner file name** (:105, :152) and the two engineering briefs,
@@ -1041,8 +1082,9 @@ read the full plan; their corrections are folded in above and listed in the PR b
 **Per-PR gates (binding on every execution agent):**
 - Backend: from `backend/`, `ruff check . && bandit -r app -ll && python -m pytest` before every push
   (AGENTS.md §8), plus `python -m pytest -m performance` when a PR touches streaming code (M1, M3, M4).
-- Pure moves carry the AST per-symbol proof (`lessons/test-pure-move-ast-proof.md`), run on committed
-  state; zero undisclosed deltas or the "pure move" claim is false. Reviewers re-run the proof.
+- Pure moves carry the AST per-symbol proof (`lessons/test-pure-move-ast-proof.md`) produced by
+  `backend/tests/support/ast_move_proof.py` (checked in by W0.G), run on committed state; zero
+  undisclosed deltas or the "pure move" claim is false. Reviewers re-run the proof.
 - Prompt bytes: C1/C3 prove `SYSTEM_PROMPT` sha256 and `_build_messages` equality; T1–T4 prove the
   selection messages (anchor T0.2); O1/O2 prove `create_kwargs` (anchor A1). An intentional byte change
   is a RUNBOOK event (`backend/evals/RUNBOOK.md:530-535`) and never rides a refactor PR.
@@ -1058,10 +1100,10 @@ read the full plan; their corrections are folded in above and listed in the PR b
   patch target the plan did not list goes blind; the AST proof shows an undisclosed delta; the
   `eval-baseline` report shows a non-zero delta on a pure move. Stop, report, re-plan.
 
-**Payoff.** Six files of 1,229–2,153 lines become façades of 45–840 lines over 35 cohesive modules
-of ≤400 lines; the twenty functions over 80 lines become ≤80 (the 552-line `summarize_filing` becomes
-a 70-line orchestrator); every refactor PR is behaviour-preserving by proof, not by assertion; and
-the gate keeps it that way.
+**Payoff.** Six files of 1,229–2,153 lines become façades of 45–840 lines over about 40 cohesive
+modules of ≤600 lines; the twenty functions over 80 lines become ≤80 (the 552-line `summarize_filing`
+becomes a 70-line orchestrator); every refactor PR is behaviour-preserving by proof, not by
+assertion; and the gate keeps it that way.
 
 ---
 
