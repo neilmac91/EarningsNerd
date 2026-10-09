@@ -556,12 +556,9 @@ Recharts/rAF, which need numbers). **No raw ms or bezier strings anywhere else.*
   first paint only). `fade-up-delay-1/2/3` are retired.
 - **Reduced motion**: one source — `hooks/usePrefersReducedMotion`. Every animation needs a fallback:
   `animation: none` for transform entrances, static bone (shimmer), static tint (citation-flash),
-  instant final value (count-up, Recharts `lineProps(reduced)`), `scroll-behavior: auto`. A pulse or
-  ping loop (`animate-pulse`, `animate-ping`) carries its fallback in the same class string:
-  `motion-reduce:` + the loop's own variants + `animate-none` (or the loop is `motion-safe:`), gated by
-  `tests/unit/pulseMotionReduce.spec.ts`. Known gaps include the `animate-fade-up` entrances in
-  `app/login/page.tsx`, `RegisterForm` and `AuthShell`, and standalone `animate-spin` loaders; none
-  has a `motion-reduce:` guard yet.
+  instant final value (count-up, Recharts `lineProps(reduced)`), `scroll-behavior: auto`. Known
+  gaps include the `animate-fade-up` entrances in `app/login/page.tsx`, `RegisterForm` and `AuthShell`,
+  and standalone `animate-spin` loaders; none has a `motion-reduce:` guard yet.
 - **Nothing decorative** — `animate-float` is retired. Signature set: count-up, citation-flash,
   skeleton→content, sparkline draw-in, check-pop.
 
