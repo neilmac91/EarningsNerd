@@ -120,6 +120,7 @@ export const SAMPLE_CHANGE_REPORT: ChangeReport = {
       { metric: 'eps_diluted', label: 'Diluted EPS', direction: 'up', pct: 8.9, current: 6.11, prior: 5.61, display: '+8.9%', tone: 'gain' },
     ],
   },
+  reporting_currency: 'USD',
   risks: null,
   key_changes: null,
   has_changes: true,

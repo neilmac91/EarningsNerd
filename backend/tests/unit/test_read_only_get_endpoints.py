@@ -30,7 +30,8 @@ handler that no longer trips the check fails too (prune the entry — the fix is
 whose file has been deleted is tolerated so a teardown PR and this gate merge in either order.
 Every entry carries its one-line justification. An exemption is a shape, not a name: each
 side-effecting GET also pins the functions (``file::qualname``) where its writes may happen, so a
-new write reached from an exempt handler fails, and a moved write updates its pin.
+write in a new, unpinned function reached from an exempt handler fails, and a moved write updates its
+pin. Pins are per function: a further write inside an already-pinned function is a review concern.
 """
 import ast
 import sys

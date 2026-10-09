@@ -1,5 +1,8 @@
 # Dockerfile for EarningsNerd Backend - Cloud Run Deployment
-FROM python:3.11-slim
+# The base comes through Google's Docker Hub mirror: the deploy builds on GitHub-hosted runners, whose
+# shared IPs hit Docker Hub's unauthenticated pull limit (2026-10-09). Same image and digest.
+# Gate: backend/tests/unit/test_ci_images_avoid_docker_hub.py.
+FROM mirror.gcr.io/library/python:3.11-slim
 
 # Set working directory
 WORKDIR /app
