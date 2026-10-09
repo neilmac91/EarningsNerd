@@ -333,6 +333,9 @@ async def generate_summary_stream(
                 telemetry_ctx=telemetry_ctx,
                 emit_funnel_telemetry=analytics_consent,
                 force_regenerate=force or refresh_unready,
+                # Admitted for an unready row: the pipeline re-checks it, so a row another request has
+                # since made ready is served, not regenerated or replaced under the waived Pro gate.
+                replace_unready_only=refresh_unready,
                 request_evidence=evidence,
             )) as events:
                 async for event in events:

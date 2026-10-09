@@ -200,3 +200,77 @@ async def test_admin_refresh_replaces_an_unready_row_even_when_the_refresh_is_pa
     assert row_id == stored_id
     assert STALE_MARKER not in overview
     assert raw.get("quality", {}).get("tier") == "partial"
+
+
+# --- Admitted for an unready row, the run re-checks it (Codex review on #1166) ----------------------
+# The route decides from the row it read; another request (another process, or a run that finished in
+# between) may make the row ready before this run reaches the pipeline or while it generates. A run
+# admitted only for an unready row must then serve or keep that summary, never pay for another one
+# under the waived Pro gate or replace a summary readers now see.
+
+OTHER_READY = "# Summary\n\nA summary another request finished first."
+
+
+def _make_ready(filing_id):
+    with SessionLocal() as db:
+        row = db.query(Summary).filter(Summary.filing_id == filing_id).one()
+        row.business_overview = OTHER_READY
+        row.raw_summary = {"quality": {"tier": "full"}}
+        db.commit()
+
+
+def test_a_row_made_ready_before_the_pipeline_starts_is_served_not_regenerated(monkeypatch):
+    from app.routers import summaries
+
+    filing_id = seed_company_filing()
+    stored_id = _seed_summary(filing_id, FAILURE_FILLER)
+    original = summaries.load_generation_user
+
+    def ready_in_between(snapshot):
+        _make_ready(filing_id)  # after the route's decision, before the pipeline's first read
+        return original(snapshot)
+
+    monkeypatch.setattr(summaries, "load_generation_user", ready_in_between)
+    with stream_boundaries() as summarize:
+        response = _post(filing_id, "?force=true")
+
+    assert response.status_code == 200
+    assert "A summary another request finished first." in response.text
+    summarize.assert_not_called()
+    assert _stored(filing_id)[:2] == (stored_id, OTHER_READY)
+
+
+def test_a_row_made_ready_during_generation_is_kept_not_replaced():
+    filing_id = seed_company_filing()
+    stored_id = _seed_summary(filing_id, FAILURE_FILLER)
+
+    async def finished_elsewhere(*_args, **_kwargs):
+        _make_ready(filing_id)  # another process saves while this run generates
+        return CANONICAL_PAYLOAD
+
+    with stream_boundaries() as summarize:
+        summarize.side_effect = finished_elsewhere
+        response = _post(filing_id)
+
+    assert response.status_code == 200
+    summarize.assert_awaited_once()
+    assert _stored(filing_id)[:2] == (stored_id, OTHER_READY)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(("replace_unready_only", "generates"), [(True, False), (False, True)])
+async def test_only_a_run_admitted_for_an_unready_row_serves_a_ready_one(replace_unready_only, generates):
+    # The control: a forced run (a Pro "Regenerate") still regenerates a ready row; the flag alone
+    # turns the same call into a replay.
+    from app.services import summary_pipeline as pipeline
+
+    filing_id = seed_company_filing()
+    _seed_summary(filing_id, READY_BODY)
+    with stream_boundaries() as summarize:
+        events = [event async for event in pipeline.stream_filing_summary(
+            filing_id=filing_id, current_user=None, user_id=None, telemetry_distinct_id="t",
+            telemetry_entry_point=None, telemetry_ctx={}, emit_funnel_telemetry=False,
+            force_regenerate=True, replace_unready_only=replace_unready_only,
+        )]
+    assert events[-1]["type"] == "complete"
+    assert summarize.await_count == (1 if generates else 0)

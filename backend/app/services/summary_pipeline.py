@@ -365,6 +365,7 @@ async def stream_filing_summary(
     telemetry_ctx: dict,
     emit_funnel_telemetry: bool = True,
     force_regenerate: bool = False,
+    replace_unready_only: bool = False,
     request_evidence: SummaryRequestEvidence | None = None,
 ) -> AsyncIterator[dict]:
     """Run the summary pipeline for ``filing_id``, yielding event dicts.
@@ -374,6 +375,11 @@ async def stream_filing_summary(
     summary short-circuit) and for capturing the telemetry context before invoking this — the
     router releases its session before streaming. Each DB unit here owns its session
     inside the worker; no ORM query result survives into an admission or provider wait.
+
+    ``replace_unready_only`` marks a run the caller admitted only because the stored row was one the
+    filing page cannot show (``is_summary_ready``), with the Pro gate waived for that reason. Another
+    run may make the row ready in between, so this run re-reads it: a row that is ready by admission
+    is served, not regenerated, and one that becomes ready during generation is kept, not replaced.
     """
     pipeline_started_at = time.time()
     stage_started_at = pipeline_started_at
@@ -498,9 +504,14 @@ async def stream_filing_summary(
                         "cache_updated_at": cache.updated_at if cache else None,
                         "cache_created_at": cache.created_at if cache else None,
                     } if filing else None
-                    summary_fields = {
-                        "business_overview": source_safe_business_overview(summary, filing), "id": summary.id,
-                    } if summary else None
+                    summary_fields = None
+                    if summary:
+                        overview = source_safe_business_overview(summary, filing)
+                        raw = summary.raw_summary if isinstance(summary.raw_summary, dict) else {}
+                        summary_fields = {
+                            "business_overview": overview, "id": summary.id,
+                            "ready": is_summary_ready(overview, raw.get("writer_error")),
+                        }
                     return filing_fields, summary_fields
 
             filing_fields, summary_fields = await run_sync_db(get_filing_and_summary_sync)
@@ -512,7 +523,8 @@ async def stream_filing_summary(
                 yield {'type': 'error', 'message': 'Filing not found'}
                 return
 
-            if summary_fields and not force_regenerate:
+            # A run admitted to replace an unready row serves the row once another run has made it ready.
+            if summary_fields and (not force_regenerate or (replace_unready_only and summary_fields["ready"])):
                 if request_evidence is not None:
                     request_evidence.delivery_path = "pipeline_cache"
                 logger.info(f"[stream:{filing_id}] Existing summary found. Returning it.")
@@ -1323,6 +1335,14 @@ async def stream_filing_summary(
                                 source_safe_business_overview(existing, filing_for_cache),
                                 stored_raw.get("writer_error"),
                             )
+                            if stored_shown and replace_unready_only:
+                                # This run was admitted only to replace a row the page cannot show,
+                                # and another run made it ready meanwhile: keep that summary.
+                                logger.info(
+                                    "[stream:%s] unready refresh: the stored summary became ready meanwhile; keeping it",
+                                    filing_id,
+                                )
+                                return existing.id
                             if stored_shown and quality_tier_rank(new_tier) < quality_tier_rank(stored_tier):
                                 # Never let a refresh downgrade a stored higher tier (a 75s AI-timeout
                                 # XBRL fallback comes back "partial"; keep the stored "full").

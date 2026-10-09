@@ -36,9 +36,12 @@ development).
    replaced by a non-Pro request. Cost stays inside each user's quota: the unit is counted when the
    provider starts and refunded when the run errors or comes back partial. Bookmarks survive, because
    the row is updated in place. One rule decides on the route and in keep-better: `is_summary_ready`,
-   applied to the body the route would serve. Con: a Free user's successful Retry spends one monthly
-   unit. Two instances could both regenerate the same row at the same moment, as with a first
-   generation: each user is metered and the last write wins.
+   applied to the body the route would serve. A run admitted for an unready row re-checks it (Codex
+   review on #1166). If another request has made the row ready before the run reaches the pipeline,
+   the run serves that summary. If the row becomes ready while the run generates, the run keeps it. So
+   the waived Pro gate never pays for a second summary or replaces one that readers already see. Con: a
+   Free user's successful Retry spends one monthly unit. Two runs can still both generate inside that
+   window, and each user is metered.
 5. An operator drain of failure rows. A complement, not a substitute: users recover without it. Not run.
    No drain is authorized, and the production count of such rows is unknown.
 
@@ -47,12 +50,18 @@ not spend a user's unit silently, so filler keeps its card and an explicit Retry
 existing auto-run, because the page already treats it as "no summary yet", as it does a missing row.
 
 **Shipped.** `routers/summaries.py`: `refresh_unready`, judged by `is_summary_ready` on
-`source_safe_business_overview` (the body the route would replay). `summary_pipeline.py`: keep-better
-applies only when the stored row passes the same rule. The background path is otherwise unchanged; the
+`source_safe_business_overview` (the body the route would replay), and passed on as
+`replace_unready_only`. `summary_pipeline.py`: keep-better applies only when the stored row passes the
+same rule, and a `replace_unready_only` run serves or keeps a row that has become ready. The background path is otherwise unchanged; the
 keep-better rule also applies to admin refresh-stale. Pinned by
-`tests/unit/test_summary_unready_refresh.py`: the truth table, a failed refresh keeping the row, and
-keep-better on both paths. Mutation proofs: dropping any of the four new conditions fails 2 to 8 of its
-11 cases. The company lead keeps "Open latest filing" over an unready row (#1147, tenth round): the
+`tests/unit/test_summary_unready_refresh.py` covers:
+- the truth table;
+- a failed refresh keeping the row;
+- keep-better on both paths;
+- a row made ready before the pipeline starts, and one made ready during generation;
+- the flag's control.
+
+Mutation proofs: dropping any one of the new conditions fails between 1 and 8 of its 15 cases. The company lead keeps "Open latest filing" over an unready row (#1147, tenth round): the
 page it opens now resolves for everyone.
 
 **Revisit** if failure rows turn out to be common in production. A drain is then cheaper than waiting for
