@@ -888,18 +888,43 @@ the generic label, never a pass. The scorer, thresholds and locked stream contra
 
 **Triage rule for a red copilot-eval run** (founder approval, 2026-10-02 13:10Z: "Go with your
 recommendation on all open points"; recorded in `tasks/pr-disposition-2026-09-30.md`, log entry
-13:10Z). A red copilot-eval run may be recorded as not caused by a PR only when ALL hold: (1) every
-errored row carries a decision-F prose-quotation withhold reason (named in the report); (2) the PR
-changes no Copilot model-facing bytes (system prompt, tool schema, context building, generation
-options) and no decision-F prose-quotation logic beyond a behaviour-preserving refactor proven
-offline; (3) offline replay of each such row's retained candidate gives the same F reason under
-main's code (f_attribution exit 0, 0 UNEXPLAINED); (4) every other row passes; (5) the PR records
-the red run, the attribution and this rule in a comment. Any other failure — including non-F
-publication withholds — blocks as before. The run is never re-run to obtain a green result outside a
-predeclared protocol. This does not change accepted, error counting, thresholds or exit codes.
+13:10Z. Widened on 2026-10-09 from decision-F reasons to every named publication withhold, under the
+founder's delegation of the open decisions: `tasks/decisions-2026-10-09-design-followups.md`,
+decision D. From 3 to 9 October, after #1052 began verifying whole citation excerpts, 16 runs went
+red on PRs that change no Copilot code. 13 of them carried `Unverified or ambiguous referenced
+citation`, which the F-only rule left blocking. In all 17 such rows the model had cited table or KPI
+cells as an elided or short excerpt: 15 on one BABA question, 2 on one ASML question.) A red
+copilot-eval run may be recorded as not caused by a PR only when ALL hold:
+(1) every errored row carries a named publication-withhold reason (`publication withheld: <reason>`
+in the report): a decision-F prose-quotation reason, or any other reason the service logs at the
+publication boundary, such as `Unverified or ambiguous referenced citation` or `Invalid citation
+declaration`. A provider failure, a timeout or the generic `operationally incomplete attempt` label
+is not one;
+(2) the PR changes no Copilot model-facing bytes (system prompt, tool schema and tool results, context
+building including source selection and extraction, generation options), no publication-boundary
+logic (citation parsing and verification, decision F, the private regeneration) and no Copilot eval
+harness (runner, scorers, golden set and sources, `copilot-eval.yml`), beyond a behaviour-preserving
+refactor proven offline;
+(3) offline replay of each such row's retained generations under main's code reproduces the run: the
+replay tool exits 0 with 0 UNEXPLAINED, and each such row is classified with its recorded reason
+("other reason" whose `other_reason` equals the row's `tool_trace.withheld_reasons`, or
+"F-withheld" with the row's decision-F code). A row the replay does not reproduce is UNEXPLAINED, and
+blocks;
+(4) every other row passes;
+(5) the PR records the red run, the attribution and this rule in a comment.
+Any other failure blocks as before. A PR that changes this rule does not apply it to its own run. The
+run is never re-run to obtain a green result outside a predeclared protocol: `copilot-eval.yml`
+fails a re-run attempt before it spends (`tests/unit/test_copilot_eval_rerun_refusal.py`), and a
+draft-to-ready toggle on an unchanged head is a re-run too, used only inside a predeclared protocol.
+A new run comes from a new push. This does not change accepted, error counting, thresholds or exit
+codes.
 Condition (1) is read off each errored row in the per-row verdict column of `copilot-eval.md` (the
 `Failures:` line lists each label only once); the replay tool for (3) is
-`tasks/review-evidence/f-quote-containment-2026-10-01/f1-attribution-2026-10-02/f_attribution.py`.
+`tasks/review-evidence/copilot-eval-triage-2026-10-09/f_attribution.py`. It replays each generation
+from `tool_trace.generation_attempts` and enforces decision F, as production does. Its predecessor
+(`tasks/review-evidence/f-quote-containment-2026-10-01/f1-attribution-2026-10-02/f_attribution.py`,
+kept unchanged for the records that pin it) predates #1111's second generation and exits 3 on any
+report that holds a recovered row.
 
 **Gating rule — two different standards (July 2026, learned the hard way):**
 - **Resolver/guard changes** gate DETERMINISTICALLY: the offline suites replay real failure shapes

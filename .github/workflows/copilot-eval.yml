@@ -32,6 +32,13 @@ jobs:
       AI_FALLBACK_BASE_URL: ''
     steps:
       - uses: actions/checkout@v7
+      - name: Refuse a re-run (backend/evals/RUNBOOK.md, triage rule for a red copilot-eval run)
+        # A red run is triaged and recorded, never re-run to obtain a green result. A re-run attempt
+        # fails here, before any spend; a new run comes from a new push.
+        if: github.run_attempt != '1'
+        run: |
+          echo "::error::copilot-eval is never re-run to obtain a green result (backend/evals/RUNBOOK.md, triage rule for a red copilot-eval run). Triage and record the red run; a new run comes from a new push."
+          exit 1
       - name: Load AI model configuration
         run: grep -v '^#' .github/ai-model.env >> "$GITHUB_ENV"
       - uses: actions/setup-python@v7
