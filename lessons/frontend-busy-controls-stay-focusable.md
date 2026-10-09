@@ -54,9 +54,10 @@ handler is left to the label clause. By its label: any element but RetryButton w
 "Retrying" or whose label starts "Retry" or "Try again", a same-file string const (`{retryLabel}`)
 included. RetryButton's own definition is the one exemption from both Retry clauses, by file and function
 name (it is the sanctioned wiring and label); a function of that name anywhere else is just another
-hand-rolled Retry. Each has a shrink-only, capped allowlist with reasons: ALLOW_RETRY pins 5 wiring sites
-in 3 files (open rule (h) Retry buttons), ALLOW_RETRY_LABEL 11 labels in 11 files (4 error-boundary
-resets, 3 stream or answer restarts, 4 open rule (h) sites). Every Retry the retry-hardening follow-up
+hand-rolled Retry. Each has a shrink-only, capped allowlist with reasons: ALLOW_RETRY pins 3 wiring sites
+in 3 files (open rule (h) sites: Show full history's own history fetch, the calendar's and full-text
+search's Retry handlers), ALLOW_RETRY_LABEL 10 labels in 10 files (4 error-boundary resets, 3 stream or
+answer restarts, 3 open rule (h) sites). Every Retry the retry-hardening follow-up
 converted fails both clauses at its 026d6df version (20 wiring and 10 label offenders in 6 files). A third
 clause (EN-05) checks what RetryButton is given: each element of its `failures` is `useRetainedFailure(…)` (the
 hook its module exports, under any name an import gives it; a same-named local or a shadowing parameter is not it),
@@ -212,7 +213,8 @@ hand-off's pointer origin (g) is pinned in `useRetainedFailure.spec.tsx` (a tap 
 not, a tap on the busy Retry's spinner, a tap then Tab away and back, a tap then a keyboard press, a click
 that starts no focus) and needs a touch-device pass. Fixed, all on
 RetryButton: the dashboard's account, plan and Your companies Retry buttons, FilingFeed's Retry, the
-company page's filings Retry (`FilingIndex.spec.tsx`, its pins removed from the Retry gate in #1133),
+company page's filings Retry (`FilingIndex.spec.tsx` for the control, `busyControls.watchlist.spec.tsx` for the
+hold through its retry and the hand-off to the "SEC filings" heading; its pins removed from the Retry gate in #1133),
 CompanySearch's "Try again" (a tap on it busy no longer raises the keyboard when it goes), the pricing
 page's three and BillingPanel's two (`busyControls.dashboard.spec.tsx`, `busyControls.watchlist.spec.tsx`,
 `CompanySearch.spec.tsx`, `busyControls.forms.spec.tsx`, `busyControls.settings.spec.tsx`,

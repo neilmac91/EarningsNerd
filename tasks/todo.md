@@ -6498,4 +6498,9 @@ names, a DESIGN_SYSTEM.md claim of a stripe lint gate that does not exist yet, t
 (it wraps below `sm`). DESIGN.md and `.impeccable/design.json` record the new primitive, the compact
 density and the index-list recipe. Deferred, as the review planned: the `border-l-*` + `rounded-*`
 stripe lint (SummaryBlock.tsx still carries one) and the risk-factor diff (the backend sends `risks: null`).
+A read-only PR sweep then found the table's Prior/Current figures assumed USD: the change report's
+`metrics` now carry the issuer's `currency`, the client formats with it and shows bare figures when it
+is unknown (`lessons/frontend-xbrl-figures-carry-their-reporting-currency.md`), a null `display` is a
+dash, the lead no longer repeats "Filed …" for a filing without a period of report, the footer hairline
+is inset like the rows, and the company page's filings Retry has its page-level spec.
 

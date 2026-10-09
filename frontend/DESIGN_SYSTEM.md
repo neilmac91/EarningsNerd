@@ -207,7 +207,8 @@ Segmented ctrl   <SegmentedControl label options value onChange size="sm|md|adap
                  pickers, chart ranges, search and insider filters — migrate as they are touched).
                  role="group" of <button aria-pressed> — every option
                  is visible, so not a radiogroup/tablist. Shell = panel + hairline + e1, rounded-lg, p-1;
-                 segment rounded (8) 12/600; selected = the primary colorway (bg-brand + white; dark NAVY ink on
+                 segment rounded (8), 600 weight — 12px labels at 26px (sm; adaptive from sm up), 14px at 36px
+                 (md; adaptive below sm); selected = the primary colorway (bg-brand + white; dark NAVY ink on
                  brand-dark). sm 26px · md 36px · adaptive 36px below sm, 26px from sm up. `mono` options set
                  codes (10-K) in the data face. `fullWidth` stretches the segments below sm and WRAPS them when
                  the labels outgrow the card (a 10-K/10-Q filer with amendments has six options) — never clip or
@@ -216,7 +217,8 @@ Segmented ctrl   <SegmentedControl label options value onChange size="sm|md|adap
 Index list       <FilingIndex> (features/filings/components) — the recipe for a list of primary documents:
                  ONE surface (the section Card), hairline rows and year groups (DataTable manners: hover
                  bg-white / dark:bg-white/[0.03], never darker), no stripes, no row tints, no per-type colour,
-                 no per-row icon. One grid template for the column header and every row (form · period ·
+                 no per-row document icon (the md-up caret in the actions track is the row's aria-hidden
+                 navigation affordance, not a type signal). One grid template for the column header and every row (form · period ·
                  filed · actions) so values align across groups. The row is ONE <Link>, named by its own
                  content (no aria-label); a secondary target (EDGAR) is a SIBLING anchor absolutely placed in
                  the actions track — never an <a> inside the row link. 48px rows from md, 64px two-line rows

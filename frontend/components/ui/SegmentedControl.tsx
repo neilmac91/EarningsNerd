@@ -11,7 +11,8 @@
    is visible, so this is not a radiogroup or a tablist.
      - shell:    panel fill + hairline + e1 lift, rounded-lg (12), p-1.
                  dark: fill contrast + hairline, shadow-none.
-     - segment:  rounded (8) · 12/600 · secondary ink → primary on hover.
+     - segment:  rounded (8) · 600 · 12px at 26px, 14px at 36px · secondary ink →
+                 primary on hover.
                  Selected = the primary-button colorway: bg-brand + white;
                  dark FLIPS to navy ink on brand-dark (white on brand.fill-dark
                  is 3.7:1 — never revert to it).
