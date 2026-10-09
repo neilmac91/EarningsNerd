@@ -8,7 +8,6 @@ import remarkGfm from 'remark-gfm'
 import AiDisclaimer from '@/components/AiDisclaimer'
 import type { Filing } from '@/features/filings/api/filings-api'
 import { getWhatChanged, type ChangeReport, type Summary } from '@/features/summaries/api/summaries-api'
-import { WHAT_CHANGED_ID, WhatChanged } from '@/features/filings/components/WhatChanged'
 import AskFilingCallout from '@/features/filings/components/copilot/AskFilingCallout'
 import { SummaryBlocks } from '@/features/summaries/components/SummaryBlocks'
 import { ChartErrorBoundary } from '@/components/ChartErrorBoundary'
@@ -19,8 +18,8 @@ import { stripInternalNotices } from '@/lib/stripInternalNotices'
 import { stripLeadingExecutiveHeading } from '@/lib/stripLeadingExecutiveHeading'
 import { ENABLE_QUALITY_BADGE, ENABLE_FINANCIAL_CHARTS } from '@/lib/featureFlags'
 import { queryKeys } from '@/lib/queryKeys'
+import { ChangeReportCard } from './ChangeReportCard'
 import { SummaryActionsBar, type SaveMutation } from './SummaryActionsBar'
-import { useSectionArrival } from '../hooks/useSectionArrival'
 import { useSummaryExports } from '../hooks/useSummaryExports'
 
 // Multi-period fundamentals trend (item 2.5), filing-scoped only — the company page no longer shows
@@ -120,10 +119,6 @@ export function SummaryDisplay({
   // tables — one home per number). Computed on read by the backend from the enriched raw_summary.
   const renderedSections = summary.rendered_sections ?? []
   const hasSections = renderedSections.length > 0
-  // A legacy markdown summary keeps the change report as a card under the markdown, and the company
-  // page's "Open change report" still names it, so the card lands that link as the section would.
-  const legacyChangeReport = !hasSections && hasPolishedMarkdown && Boolean(changeReport?.has_changes)
-  useSectionArrival(legacyChangeReport ? WHAT_CHANGED_ID : '')
 
   interface MetadataSections {
     action_items?: string[]
@@ -198,7 +193,7 @@ export function SummaryDisplay({
               derived markdown (belt-and-suspenders for the corpus-refresh cutover). */}
           {/* A5 "What changed" vs the prior comparable filing rides inside the structured page as a
               numbered section (2026-10 critique P-07); a legacy markdown summary keeps it as a card
-              under the markdown. */}
+              under the markdown, the one the page shows where it has no summary at all. */}
           {hasSections ? (
             <SummaryBlocks sections={renderedSections} summary={summary} whatChanged={changeReport} />
           ) : hasPolishedMarkdown ? (
@@ -210,7 +205,7 @@ export function SummaryDisplay({
                   </ReactMarkdown>
                 </CardBody>
               </Card>
-              {changeReport?.has_changes && <WhatChanged report={changeReport} id={WHAT_CHANGED_ID} />}
+              <ChangeReportCard filingId={filing.id} initialReport={initialChangeReport} />
             </>
           ) : null}
 

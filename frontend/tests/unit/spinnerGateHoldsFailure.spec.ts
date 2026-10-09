@@ -382,8 +382,9 @@ const ALLOW: Allow = {
     ],
     reason:
       "The summary pane's chain: the signup gate (GenerateSignupGate), the spinner and StreamingSummaryDisplay " +
-      'swap only each other, and none observes a shared query. The copilot rail (AskCopilotRail), which observes ' +
-      "/me, is FilingWorkspace's copilotBody, outside the swap.",
+      'swap only each other, and none observes /me. The change report card under the gate and under a failed run ' +
+      'observes whatChanged, which no gate reads, so a refetch on its mount cannot swap it out. The copilot rail ' +
+      "(AskCopilotRail), which observes /me, is FilingWorkspace's copilotBody, outside the swap.",
   },
 }
 const MAX_ALLOWLIST_SIZE = 4

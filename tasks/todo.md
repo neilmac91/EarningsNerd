@@ -14,6 +14,7 @@
 - Not done, founder call: making "Find filings" the hero's one primary action (the canvas) would demote "See a live example", today's tracked hero CTA.
 - Verification: see the PR body.
 - Codex review (two P2s): the hero's evidence row read only `sections.risks`, but a v1 or unstamped summary keeps its projected risks under `sections.risk_factors` (provenance_service), so `pickEvidence` now reads both, as SummaryBlocks does. On same-day filings the search took the higher row id while the company page kept the list's order, so `selectRecommendedFiling` now breaks the tie the same way. Pinned by a frontend case for each, and by a backend case for the search's tie.
+- Codex review, second round (P2): the search's `summary_ready` excludes placeholder bodies (`is_summary_placeholder`), but the company page called any stored summary ready, so a result without the label could land on a lead saying "summary ready" over "Generating summary…". `features/summaries/lib/summaryPlaceholder` mirrors the backend tokens (a spec holds the two lists equal) and the lead's label and action use `isSummaryReady`.
 - [x] Next in the stack: PR 4 loading and motion (P-09).
 
 ## 2026-10-09 — Design critique 2026-10: the company page (PR 2 of the stack; frontend)
@@ -22,6 +23,10 @@
 - Shipped: patches 0001 and 0002 as their own commits (two fixes on this base: the React 18 `RefObject<HTMLHeadingElement>` prop and the sr-only "Report year" / "Filed" spaces moved outside their spans, where a computed name keeps them); `CompanyIdentity` (the filing page's identity vocabulary on the company lead: breadcrumb, h1 + ticker pill, exchange · quote · CIK · company on SEC EDGAR, and "Latest filing" form · period · filed · "summary ready"); the page's one primary action moved into the lead ("Open latest summary", "Summarize latest filing" until a summary is known) with the watchlist as a labelled secondary Button; FilingIndex keeps the "Latest" marker and drops its in-list lead; `ComparePeriodsCard` beside the filings on lg+ for `selectComparisonFiling` (the newest annual report with an earlier annual period listed), in the change report's own vocabulary, linking to `/filing/{id}#what-changed`; `useSectionArrival` in SummaryBlocks so that link lands once the section renders; `recommendedFilingNoun` and `ANNUAL_FILING_TYPES` removed (orphaned by the lead's move); `edgarCompanyUrl` / `displayCik`.
 - Verification: see the PR body (lint, tsc, vitest, build, Playwright, screenshots at 1280 and 390 in both themes).
 - Codex review (P2): under a legacy markdown summary (`rendered_sections: []`) the change report is a card under the markdown, which carried no `what-changed` id, and only SummaryBlocks ran the arrival hook, so Compare periods' "Open change report" opened the filing without landing. The card now takes `id={WHAT_CHANGED_ID}` and SummaryDisplay arrives at it. `useSectionArrival` moved to `features/summaries/hooks/`, and the id is exported beside `WhatChanged`, so the link and its target share one definition.
+- Codex review, second round (P2): DESIGN.md gained the segmented control and the compact toolbar field, new reusable states, but the sidecar did not. The frontmatter now carries `segmented-control` (with its selected and dark variants) and `input-compact`, and the sidecar has a "Segmented control" specimen (the form filter beside a compact Select) that passes designSnapshotParity. Its fit was measured in Chromium with the panel's nesting at 300–400px in both themes; the panel harness needs the Impeccable skill, which this environment lacks. The filings index, company lead and Compare periods card are compositions and stay prose, as #1146's identity strip and evidence rows did.
+- Codex review, third round (P2): the form filter is one SegmentedControl row with an option per form, amendments included (All, 10-K, 10-Q, 10-K/A, 10-Q/A). At 320px its segments shrank to 49px and the codes broke inside them ("10-" over "K/A"); with unbroken labels the row runs to 347px and scrolls the page sideways. Segment labels no longer break, and `fullWidth` wraps whole segments onto another row below sm. Measured in Chromium with the project's compiled CSS at 320 and 375px: two rows and no sideways scroll.
+- Codex review, fourth round (P2): the wrapping full-width state is a reusable component state, so DESIGN.md now states it and the sidecar's Segmented control specimen shows it. Below 640px of available width it is the filter as phones see it (five options with amendments, a full-width wrapping control, 36px segments, the 44px select); from 640px a container query makes it the one-row toolbar. Measured at 300, 330, 400 and 1200px in both themes.
+- Codex review, fifth round (P2): Compare periods links to `/filing/{id}#what-changed` for any annual report with an earlier annual period, but the filing page mounted the report only inside a summary, so a signed-out visitor on a filing with no summary met the signup gate and no report, and the fragment had nowhere to land. The report is computed from stored XBRL and needs no summary: `ChangeReportCard` (features/summaries) is the card under a legacy markdown summary, under the signup gate, and under a run that ended in an error or at the monthly limit (StreamingSummaryDisplay's `afterFailure` slot), with the section's id and arrival. It stays out while a run is in flight, whose summary holds the report as a section.
 - Limits: sector and the fiscal-year convention (1b's "Technology hardware", "Fiscal year ends late September") wait for the company payload; the drawn ledger columns (fiscal period, per-row summary status) wait for per-filing summary status in the filings payload; the change report's risk diff waits for the backend's source-projected contract, so the card shows no risk line.
 - [ ] Next in the stack: PR 3 homepage (1d), PR 4 loading and motion (P-09).
 
@@ -6493,6 +6498,12 @@ Full local and hosted verification plus independent exact-head review precede re
   proof; chief defect 7: its squash message carries superseded branch messages). The backend suite made hermetic and gated
   (PR #1145 → `4c0563ad`; eleventh deploy-skip proof; ledger events 37–38). D3 stage 2 implemented, reviewed (no blocker),
   fixed and held on a local branch; `eval-baseline` measured, so each push to it is reserved at USD 0.730000. Closure 169.
+- 2026-10-09 (record 19, `runtime/control/DECISIONS-19.md`): PR #1149 (record 18) merged `76d45732` (twelfth deploy-skip
+  proof). D3 stage 2 merged (PR #1151 → `ae5b0f1c`) after the founder moved backfill-facts to Monday 07:30, and deployed:
+  every production process runs both SEC limiters at 1 and the insider endpoint is off (deploy log, `describe-service`
+  and an independent read-only check). Ledger events 39–44 (USD 0.743983). Chief defect 8. Closure 170. For the CPO:
+  `eval-baseline`'s `mean_citation_fidelity` reads 0.83–0.86 against a baseline of 0.9648 on all six runs measured
+  that day, before and after stage 2 (an advisory warning).
 - [ ] Founder (optional): set the repository's squash default to "Default to pull request title and description", so a
       squash merge without an explicit message carries the reviewed PR text (record 18, chief defect 7).
 - [x] Founder: relay the record-14 custody clarification — replaced by record 16's step A (the founder delegated the custody
@@ -6502,15 +6513,21 @@ Full local and hosted verification plus independent exact-head review precede re
 - [x] Chief: D3 stage 1 PR (eight jobs + task worker pinned; reservation before ready; deploy verified) — merged `da636f6c`,
       deployed 2026-10-08T20:17Z (record 17).
 - [x] Founder (decision): D3 stage 2 — chose option A, guard then pin, and to move backfill-facts (record 17).
-- [ ] Founder: move `backfill-facts-weekly` to `30 7 * * 1` (`gcloud scheduler jobs update http backfill-facts-weekly
+- [x] Founder: move `backfill-facts-weekly` to `30 7 * * 1` (`gcloud scheduler jobs update http backfill-facts-weekly
       --location=us-west1 --schedule="30 7 * * 1"`) before the stage-2 PR merges; check it with `gcloud scheduler jobs
       describe backfill-facts-weekly --location=us-west1 --format="value(schedule,timeZone)"` (expect `30 7 * * 1` and
-      `Etc/UTC`); tell the chief (records 17–18).
-- [ ] Chief: D3 stage-2 PR, option A — insider endpoint behind a server-side switch (off unless set), the always-failing
+      `Etc/UTC`); tell the chief (records 17–18). Done 2026-10-09T11:30:47Z (record 19).
+- [x] Chief: D3 stage-2 PR, option A — insider endpoint behind a server-side switch (off unless set), the always-failing
       fuzzy-search fallback deleted, the API service pinned, the gate's staged exemption removed, docs and schedule line
       updated, and the deploy job printing its variable-driven switches with a test (chief defect 6's rule 12 enforcement).
       Implemented, reviewed (three-lens and delta: no blocker) and held on a local branch until record 18 merges; every push
-      that fires `eval-baseline` reserved at USD 0.730000 first (record 18).
+      that fires `eval-baseline` reserved at USD 0.730000 first (record 18). Merged `ae5b0f1c` (PR #1151) and deployed;
+      the service's and pregenerate's pins read back with `describe-service`, the worker's and the seven other jobs' from
+      the deploy's echoed commands (record 19).
+- [ ] Chief: after Monday 2026-10-12, read the 06:00–08:00 UTC window (the first with the whole fleet pinned and
+      backfill-facts at 07:30) with the read-only `capacity-readout`: SEC errors, breaker opens, job outcomes (record 19).
+- [ ] Chief (small): `ops.yml` `describe-jobs` and `describe-service` print the two SEC pin values for every job and the
+      task worker (non-secret), with the visibility test extended; no operation reads them back today (record 19).
 - [ ] Workflow owner: `review-gate.yml:61` re-runs the gate on any comment containing "@codex review", including Codex's own
       summary boilerplate, which cancelled a required run on PR #1131 (record 17); exclude the Codex connector's comments.
 - [x] Founder (optional, now; folded into record 17's option A): the D3 staging answer rested on an overstated premise (the insider panel is off in production;

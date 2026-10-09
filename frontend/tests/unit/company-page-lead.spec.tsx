@@ -125,6 +125,16 @@ describe('Company page lead', () => {
     expect(within(header).getByText('summary ready')).toBeInTheDocument()
   })
 
+  it('says nothing is ready while the summary is a placeholder, as the company search does', async () => {
+    api.getSummary.mockResolvedValue({ id: 5, filing_id: 12, business_overview: 'Generating summary...' })
+    renderPage([QUARTER, ANNUAL, PRIOR_ANNUAL])
+    const header = screen.getByRole('banner')
+    await waitFor(() => expect(api.getSummary).toHaveBeenCalledWith(12))
+    expect(await within(header).findByRole('link', { name: 'Summarize latest filing' })).toHaveAttribute('href', '/filing/12')
+    expect(within(header).queryByText('summary ready')).toBeNull()
+    expect(within(header).queryByRole('link', { name: 'Open latest summary' })).toBeNull()
+  })
+
   it('keeps the watchlist a secondary action with a visible label for a signed-in visitor', async () => {
     api.getSummary.mockResolvedValue(null)
     const { container } = renderPage([QUARTER, ANNUAL, PRIOR_ANNUAL], { signedIn: true })
