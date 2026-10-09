@@ -18,6 +18,21 @@ os.environ["SKIP_REDIS_INIT"] = "true"
 # Disable the HaveIBeenPwned network call in tests so the suite stays hermetic and offline.
 os.environ["PWNED_PASSWORD_CHECK_ENABLED"] = "false"
 
+# A developer's backend/.env can carry live provider keys (telemetry, email, market data, bot checks);
+# pinned empty here (env beats .env in Settings), Sentry's sender, PostHog, Resend, Alpha Vantage and
+# Turnstile stay off in tests and never trip the network gate below or fail a request on a real key. A
+# test that needs a key patches `settings`, as before. The list is kept by hand: pin a key here when a
+# development .env value changes a test's outcome.
+os.environ["SENTRY_DSN"] = ""
+os.environ["POSTHOG_API_KEY"] = ""
+os.environ["RESEND_API_KEY"] = ""
+os.environ["ALPHA_VANTAGE_API_KEY"] = ""
+os.environ["TURNSTILE_SECRET_KEY"] = ""
+
+# Outbound-network gate (rule 12): any attempt to reach a non-loopback host fails the test that
+# made it, or the session when no running test owns it. Pinned by tests/unit/test_network_gate.py.
+pytest_plugins = ("tests.support.network_gate",)
+
 # NOTE: custom markers are registered in backend/pytest.ini (single source of test config).
 # Shared fixtures are added below as the Wave 0 characterization anchors are written and a
 # fixture is repeated across ≥2 of them.
@@ -64,3 +79,35 @@ def _isolate_ai_call_trigger():
     token = ai_metrics.set_trigger("user")
     yield
     ai_metrics.reset_trigger(token)
+
+
+# Stream tests that drive the real ``stream_filing_summary`` with a mocked 10-K (CIK 1234567890)
+# but patch only the document fetch and the AI call. The pipeline also starts its two
+# edgartools-backed enrichment seams, and offline those reached data.sec.gov / www.sec.gov
+# (submissions JSON, companyfacts fallback). These tests time heartbeats and fetch latency, not
+# enrichment, so stub exactly those seams, as tests/support/summary_stream_harness.py does for the
+# anchors. The list is explicit so no test that exercises enrichment is silently stubbed; the files
+# themselves stay unedited.
+_OFFLINE_ENRICHMENT_FILES = frozenset({
+    "integration/test_summary_stream_heartbeat.py",
+    "integration/test_stream_latency.py",
+    "performance/test_concurrent_streams.py",
+})
+
+
+@pytest.fixture(autouse=True)
+def _offline_stream_enrichment(request):
+    if f"{request.path.parent.name}/{request.path.name}" not in _OFFLINE_ENRICHMENT_FILES:
+        yield
+        return
+    from contextlib import ExitStack
+    from unittest.mock import AsyncMock, patch
+
+    from app.services import summary_pipeline
+
+    with ExitStack() as stack:
+        for seam in ("get_xbrl_data", "get_filing_sections"):
+            # patch.object (not monkeypatch) deletes the instance attribute on exit, so nothing
+            # is left behind on the shared xbrl_service singleton.
+            stack.enter_context(patch.object(summary_pipeline.xbrl_service, seam, AsyncMock(return_value=None)))
+        yield
