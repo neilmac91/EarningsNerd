@@ -1,6 +1,6 @@
 # Decision record 20 — the record-19 PR merged (PR #1155; thirteenth deploy-skip proof); three later deploys by other writers kept every pin; the founder's instruction of 2026-10-09 on the open items: each analysed and decided (the durable-tasks post-deploy checks taken on by the chief; the squash default and custody step A recommended and prepared for the founder, who alone can act on them); a capacity baseline; the read-back PR and the Monday readout planned; closure 171 (chief, 2026-10-09)
 
-Recorded 2026-10-09T19:56:39Z, amended 2026-10-09T20:34:00Z after the record-20 review, by the chief
+Recorded 2026-10-09T19:56:39Z, amended 2026-10-09T20:44:22Z after the record-20 review and its delta check, by the chief
 (`https://claude.ai/code/session_01GWYV7WXWstgVGQG43YcSM8`).
 Context: record 19 merged to main as `8ff4c532` (PR #1155, 2026-10-09T12:37:28Z); main has since moved to `25da25bb` through other
 writers' PRs; this branch was restarted from `25da25bb`. Records only: no code, workflow, migration, cloud, IAM or production
@@ -135,19 +135,21 @@ pre-registers, before any launch: `record-20-reviewer-01` (this record's reviewe
 Side effects of `record-19-reviewer-01`, from its transcript and reports (as amended after this record's review): 68 read-only
 GitHub requests over five rounds (41 `gh api --method GET`, logged in its scratchpad; 14 read-only GitHub MCP calls; 13 GETs of
 signed job-log URLs into its scratchpad); the runtime-records gate under the network guard, five runs with no attempt: the first
-(11:57Z) in the chief's detached review worktree, then a full checkout (the gate reads only the runtime directory), the others in
-scratchpad archives excluding the two directories; one recursive count-only `grep -rlc 'run\.app'` over the four `s2-delta*`
-scratch directories (12:10:49Z), whose `tree/` copies then still held both excluded directories, so grep read their files: its
-output was filtered to drop every `/tree/` path and nothing from them was printed (the chief deleted those copies at 12:15Z);
-count-only `run.app` greps of other agents' scratch logs; reads, through its own scripts that masked or redacted before printing,
-of the permitted excerpts of the chief's transcript (the excluded-directory line reduced to its path, line number, length and a
-route flag) and of the transcripts of the three `wf_5b0ebda7-c4f` agents (with that workflow's journal and meta files),
-`record-18-reviewer-01` and the stage-2 delta reviewer; path-only `find` sweeps of the filesystem and `/tmp`; hash-only `git log`
-scans of the repositories under `/tmp`, `/root`, `/home`, `/opt` and `/var/tmp`, and `git cat-file -e` checks of scratch and
-`/tmp` repositories and of the repository itself (paths, flags and hashes only); two raw deploy logs redacted and the raw copies
-deleted; tool outputs the runner saved for it, redacted; one fragment of an already-expired signed-URL query shown in its own tool
-output early on and written nowhere; one refusal by a built-in safety check (below); no repository write, no SEC, production,
-`run.app` or Google Cloud request.
+(11:57Z) in the chief's detached review worktree, then a full checkout (the gate reads only the runtime records and the four
+tabled deliverables under `tasks/readiness-2026-09-21/beta`, nothing under the two excluded directories), the others in scratchpad
+archives excluding the two directories; one recursive `grep -rlc 'run\.app'` (which lists matching file names) over the four
+`s2-delta*` scratch directories (12:10:49Z), whose `tree/` copies then still held both excluded directories, so grep read their
+files: its output was filtered to drop every `/tree/` path and nothing from them was printed (the chief deleted those copies at
+12:15Z); count-only `run.app` greps of other agents' scratch logs; reads, through its own scripts, which redacted, masked or
+printed only selected fields, of the permitted excerpts of the chief's transcript (the excluded-directory line reduced to its
+path, line number, length and a route flag), of the transcripts of the three `wf_5b0ebda7-c4f` agents (with that workflow's
+journal and meta files), `record-18-reviewer-01` and the stage-2 delta reviewer, and of the journals of `wf_41c365bd-3e9` and
+`wf_9110300a-448` (event-type counts, agent ids and labels only); path-only `find` sweeps of the filesystem and `/tmp`; hash-only
+`git log` scans of the repositories under `/tmp`, `/root`, `/home`, `/opt` and `/var/tmp`, and `git cat-file -e` checks of scratch
+and `/tmp` repositories and of the repository itself (paths, flags and hashes only); two raw deploy logs redacted and the raw
+copies deleted; tool outputs the runner saved for it, redacted; one fragment of an already-expired signed-URL query shown in its
+own tool output early on and written nowhere; one refusal by a built-in safety check (below); no repository write, no SEC,
+production, `run.app` or Google Cloud request.
 
 **Two refusals by a built-in safety check (not classifier denials).** Claude Code's built-in check refuses an `rm` whose target it
 cannot resolve, such as an unguarded shell variable. It refused the record-19 reviewer's `rm -f $L/$f/job.log` at 12:04:16Z (not
@@ -189,8 +191,10 @@ retained custody controls as they are:
 
 1. designating_control: which retained control designates the set released to the registered planner: its SHA-256, byte
    count, retention time (UTC) and one line of provenance (no path); and that set's count by category (bootstrap-side /
-   predecessor-side / other; selected inputs / governing controls). If the designated set lies outside the 69, say so by
-   category. If no retained control designates it, say so in one sentence.
+   predecessor-side / other; selected inputs / governing controls). If the designated set lies outside the 69 (category ii:
+   H20's frozen source packets or source units under PR1084's offline custody; category iii: the predecessor planner's
+   private clean inputs named in R1-STATUS.md), say so by category. If no retained control designates it, say so in one
+   sentence.
 2. reference_controls: each retained control that carries, per member of that set, both SHA-256 and byte length: its
    identity, bytes, retention time (UTC), one line of provenance (no path), and how many members it covers with both values.
    Consider at least: the receipt template; the 2026-10-04T08:09:23Z custody receipt (beyond the triple); handback v2
