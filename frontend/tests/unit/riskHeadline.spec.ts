@@ -262,15 +262,25 @@ describe('deriveRiskHeadline', () => {
       'We must repay the 5.25% Sr. Notes due 2030 at maturity or refinance them on worse terms',
     )
     // Unless the capitalised word carries on the company's name.
-    // A defined-term alias after a suffix keeps the sentence going ("Acme Inc. (“Acme”) and it may…").
-    for (const alias of ['("Acme")', '(“Acme”)']) {
-      expect(
-        deriveRiskHeadline(`Our sole supplier is Acme Inc. ${alias} and it may terminate our agreement without notice, which could disrupt our production and harm results.`, 0),
-      ).toBe(`Our sole supplier is Acme Inc. ${alias} and it may terminate our agreement without notice…`)
-    }
     expect(deriveRiskHeadline('We buy cells from Contemporary Amperex Technology Co. Limited (CATL). We have no contract.', 0)).toBe(
       'We buy cells from Contemporary Amperex Technology Co. Limited (CATL)…',
     )
+    // A parenthetical after a suffix keeps the sentence going: a defined-term alias, or a ticker after
+    // any company suffix ("Acme Inc. (NASDAQ: ACME) and it may…"). "N.V." and "S.A." never end one.
+    for (const name of [
+      'Acme Inc. ("Acme")',
+      'Acme Inc. (“Acme”)',
+      'Acme Inc. (NASDAQ: ACME)',
+      'Acme Corp. (NYSE: ACME)',
+      'Acme Ltd. (LSE: ACME)',
+      'Acme Co. (ACME)',
+      'Acme N.V. (ACME)',
+      'Acme S.A. (ACME)',
+    ]) {
+      expect(
+        deriveRiskHeadline(`Our sole supplier is ${name} and it may terminate our agreement without notice, which could disrupt our production and harm results.`, 0),
+      ).toBe(`Our sole supplier is ${name} and it may terminate our agreement without notice…`)
+    }
     expect(deriveRiskHeadline('Under ASU No. 2023-07 the Company discloses significant segment expenses. More.', 0)).toBe(
       'Under ASU No. 2023-07 the Company discloses significant segment expenses…',
     )
