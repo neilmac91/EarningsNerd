@@ -235,6 +235,13 @@ describe('deriveRiskHeadline', () => {
     expect(deriveRiskHeadline('Our sole supplier is Acme Inc. Production may stop if the supplier fails.', 0)).toBe(
       'Our sole supplier is Acme Inc.…',
     )
+    expect(deriveRiskHeadline('Our sole supplier is Acme Co. Production may stop if the supplier fails.', 0)).toBe(
+      'Our sole supplier is Acme Co.…',
+    )
+    // Unless the capitalised word carries on the company's name.
+    expect(deriveRiskHeadline('We buy cells from Contemporary Amperex Technology Co. Limited (CATL). We have no contract.', 0)).toBe(
+      'We buy cells from Contemporary Amperex Technology Co. Limited (CATL)…',
+    )
     expect(deriveRiskHeadline('Under ASU No. 2023-07 the Company discloses significant segment expenses. More.', 0)).toBe(
       'Under ASU No. 2023-07 the Company discloses significant segment expenses…',
     )
@@ -374,6 +381,10 @@ describe('deriveRiskHeadline', () => {
         0,
       ),
     ).toBe('Our largest customer agreement describes the fee…')
+    // A sentence break inside a quotation is the quoted sentence's, not the excerpt's.
+    expect(
+      deriveRiskHeadline('Our supplier warned that “production may stop. Delays could persist.” Other risks follow below.', 0),
+    ).toBe('Our supplier warned that “production may stop. Delays could persist.”…')
   })
 
   it('keeps the excerpt’s own whitespace and casing (verbatim, not normalised)', () => {
