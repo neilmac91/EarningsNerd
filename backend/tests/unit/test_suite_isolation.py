@@ -20,6 +20,7 @@ a fixed order in one fresh process.
 """
 import ast
 import os
+import platform
 import stat
 import subprocess  # nosec B404 - runs this repo's own pytest on fixed nodes of the suite
 import sys
@@ -38,9 +39,10 @@ from tests.support.summary_stream_harness import CANONICAL_PAYLOAD
 BACKEND_DIR = Path(__file__).resolve().parents[2]
 _THIS = Path(__file__).relative_to(BACKEND_DIR).as_posix()
 _AI_METRICS = "tests/unit/test_ai_metrics.py"
-# Order matters: the schema probe must be the process's first test; each dirtying probe precedes
-# the probe that asserts the reset.
+# Order matters: the first two probes must run before any other test in the process; each dirtying
+# probe precedes the probe that asserts the reset.
 _ORDERED_PROBES = [
+    f"{_THIS}::test_probe_the_sdk_request_path_is_warm_before_the_first_test",
     f"{_THIS}::test_probe_reads_the_schema_without_creating_it",
     f"{_THIS}::test_probe_mutates_the_canonical_payload_like_the_pipeline",
     f"{_THIS}::test_probe_next_test_sees_the_pristine_canonical_payload",
@@ -61,6 +63,14 @@ def test_the_suite_database_is_a_private_temp_file_per_process():
     assert db.parent.name.startswith(f"earningsnerd-tests-{worker}-"), db
     # mkdtemp creates an owner-only directory; a fixed shared path would not be 0o700.
     assert stat.S_IMODE(db.parent.stat().st_mode) == 0o700, db.parent
+
+
+def test_probe_the_sdk_request_path_is_warm_before_the_first_test():
+    # As a fresh process's first test this passes only if conftest made an SDK request first: a
+    # client's first request probes the platform, and nothing else here fills platform's cache.
+    # Without the warm-up, whichever test made the process's first request paid ~60 ms inside its
+    # own real-time budget.
+    assert platform._platform_cache
 
 
 def test_probe_reads_the_schema_without_creating_it():

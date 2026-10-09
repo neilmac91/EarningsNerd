@@ -73,6 +73,45 @@ def pytest_unconfigure(config):
 
 
 @pytest.fixture(scope="session", autouse=True)
+def _warm_openai_sdk():
+    """Pay the OpenAI SDK's first-request cost before any test, not inside one.
+
+    A process's first SDK request costs about 60-70 ms on a quiet machine (lazy imports, response
+    model setup, a platform probe in a thread) and about 2 ms afterwards, for any client. Whichever
+    test made the first request paid it inside its own real-time budget, so tight provider deadlines
+    passed or failed by test order. One offline plain and one streamed completion warm the process;
+    the first probe in ``tests/unit/test_suite_isolation.py`` checks it ran.
+    """
+    import asyncio
+    import json
+
+    import httpx2
+    from openai import AsyncOpenAI
+
+    base = {"id": "warm", "created": 1, "model": "warm"}
+    chunk = {**base, "object": "chat.completion.chunk",
+             "choices": [{"index": 0, "delta": {"content": "w"}, "finish_reason": None}]}
+    completion = {**base, "object": "chat.completion",
+                  "choices": [{"index": 0, "message": {"role": "assistant", "content": "w"}, "finish_reason": "stop"}]}
+
+    def respond(request):
+        if json.loads(request.content).get("stream"):
+            body = f"data: {json.dumps(chunk)}\n\ndata: [DONE]\n\n".encode()
+            return httpx2.Response(200, headers={"content-type": "text/event-stream"}, content=body)
+        return httpx2.Response(200, json=completion)
+
+    async def warm():
+        async with AsyncOpenAI(api_key="offline-warm", base_url="https://warm.invalid/v1", max_retries=0,
+                               http_client=httpx2.AsyncClient(transport=httpx2.MockTransport(respond))) as client:
+            await client.chat.completions.create(model="warm", messages=[])
+            stream = await client.chat.completions.create(model="warm", messages=[], stream=True)
+            async for _ in stream:
+                pass
+
+    asyncio.run(warm())
+
+
+@pytest.fixture(scope="session", autouse=True)
 def _suite_schema():
     """Each process's fresh database starts with the current schema, as the app's startup gives it.
 
