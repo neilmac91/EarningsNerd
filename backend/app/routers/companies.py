@@ -7,6 +7,7 @@ from app.services.company_coverage import UNSUPPORTED_FOREIGN_REASON, unsupporte
 # EdgarTools migration: Using new edgar module for SEC services
 from app.services.edgar.compat import sec_edgar_service
 from app.services.edgar.exceptions import EdgarError as SECEdgarServiceError
+from app.services.latest_filing_service import LatestFilingRef
 from pydantic import BaseModel
 from datetime import datetime, timedelta
 from app.utils.datetimes import utcnow
@@ -140,6 +141,9 @@ class CompanyResponse(BaseModel):
     # state instead of a bare "Company not found".
     coverage_status: Optional[str] = None
     coverage_reason: Optional[str] = None
+    # Search only: the filing the company page leads with (latest_filing_service), so the results
+    # can say which filing a pick lands on. Absent when no such filing is stored yet.
+    latest_filing: Optional[LatestFilingRef] = None
 
     class Config:
         from_attributes = True
@@ -203,7 +207,7 @@ async def search_companies(
                 db, sec_results, primary_by_cik, conflict.response_ciks
             )
 
-        company_rows = company_lookup_service.release_company_rows(db, companies)
+        company_rows, latest_by_company = company_lookup_service.release_search_rows(db, companies)
 
         # Fetch stock quotes for all companies in parallel (but don't fail if some fail)
         quote_tasks = [_get_stock_quote_with_timeout(row["ticker"]) for row in company_rows]
@@ -215,7 +219,8 @@ async def search_companies(
             quote = stock_quotes[i] if not isinstance(stock_quotes[i], Exception) else None
             result.append(CompanyResponse(
                 **row,
-                stock_quote=quote
+                stock_quote=quote,
+                latest_filing=latest_by_company.get(row["id"]),
             ))
         
         return result

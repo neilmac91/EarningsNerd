@@ -97,7 +97,7 @@ export default function WatchlistAddSearch() {
           className={inputClasses({ leadingIcon: true })}
         />
         {(isLoading || addMutation.isPending) && (
-          <CircleNotchIcon className="absolute right-3 top-1/2 h-5 w-5 -translate-y-1/2 animate-spin text-brand-strong dark:text-brand-strong-dark" />
+          <CircleNotchIcon className="absolute right-3 top-1/2 h-5 w-5 -translate-y-1/2 animate-spin motion-reduce:animate-none text-brand-strong dark:text-brand-strong-dark" />
         )}
       </div>
 

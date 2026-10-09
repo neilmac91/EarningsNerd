@@ -14,7 +14,7 @@ Outcomes the router turns into a log line or an HTTP error are signalled with
 ``SearchUpsertConflict`` or a ``None`` return.
 """
 from datetime import datetime, timedelta
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 from sqlalchemy import desc, func
 from sqlalchemy.exc import IntegrityError
@@ -22,6 +22,7 @@ from sqlalchemy.orm import Session
 
 from app.models import Company, Filing
 from app.services.company_resolution import resolve_or_create_company_by_cik
+from app.services.latest_filing_service import LatestFilingRef, latest_filings
 
 
 class SearchUpsertConflict(Exception):
@@ -53,11 +54,16 @@ def release_company_row(db: Session, company: Company) -> dict:
     return company_row
 
 
-def release_company_rows(db: Session, companies: List[Company]) -> List[dict]:
-    """Snapshot each company's response fields in order, then release the request's connection."""
+def release_search_rows(
+    db: Session, companies: List[Company]
+) -> Tuple[List[dict], Dict[int, LatestFilingRef]]:
+    """Snapshot each company's response fields in order, and the filing each company page leads
+    with (keyed by company id, absent when none is stored), then release the request's connection.
+    """
     company_rows = [company_identity(company) for company in companies]
+    latest_by_company = latest_filings(db, [row["id"] for row in company_rows])
     db.close()
-    return company_rows
+    return company_rows, latest_by_company
 
 
 def upsert_search_results(

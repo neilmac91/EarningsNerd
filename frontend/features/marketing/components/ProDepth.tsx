@@ -149,7 +149,7 @@ export default function ProDepth() {
                     </span>
                     <div>
                       <h4 className="text-base leading-5">{extra.title}</h4>
-                      <p className="mt-1 text-sm leading-[18px] text-text-secondary-light dark:text-text-secondary-dark">
+                      <p className="mt-1 text-sm text-text-secondary-light dark:text-text-secondary-dark">
                         {extra.description}
                       </p>
                     </div>

@@ -91,7 +91,10 @@ export class GlobalErrorBoundary extends Component<Props, State> {
 
             <p className="text-center text-xs text-text-secondary-light dark:text-text-secondary-dark">
               If this problem persists, please contact{' '}
-              <a href="mailto:support@earningsnerd.io" className="text-brand-strong hover:underline dark:text-brand-strong-dark">
+              <a
+                href="mailto:support@earningsnerd.io"
+                className="rounded text-brand-strong hover:underline focus-visible:outline-none focus-visible:shadow-ring-brand dark:text-brand-strong-dark dark:focus-visible:shadow-ring-brand-dark"
+              >
                 support@earningsnerd.io
               </a>
             </p>

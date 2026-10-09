@@ -109,7 +109,7 @@ export default function NotificationPreferencesForm() {
           <BellIcon className="h-5 w-5 text-brand-strong dark:text-brand-strong-dark" />
           Filing Alerts
         </h2>
-        {mutation.isPending && <CircleNotchIcon className="h-4 w-4 animate-spin text-text-tertiary-light dark:text-text-secondary-dark" />}
+        {mutation.isPending && <CircleNotchIcon className="h-4 w-4 animate-spin motion-reduce:animate-none text-text-tertiary-light dark:text-text-secondary-dark" />}
       </div>
       <p className="text-text-secondary-light dark:text-text-secondary-dark mb-4">
         Get notified when companies on your watchlist file with the SEC.

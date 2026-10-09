@@ -2,11 +2,9 @@
 
 import { useId, useState } from 'react'
 import { Card, CardTitle } from '@/components/ui/Card'
-import { CheckCircleIcon } from '@/lib/icons'
-import {
-  SourceTracePanelBody,
-  sourceTraceChipClass,
-} from '@/features/filings/components/SourceTrace'
+import { QuotesIcon } from '@/lib/icons'
+import { SourceTracePanelBody } from '@/features/filings/components/SourceTrace'
+import { sourceTraceChipClass } from '@/features/filings/lib/sourceTraceChip'
 
 /**
  * Landing-page demo of the product's Trace-to-Source chip with its provenance panel open, so a
@@ -44,9 +42,11 @@ export default function TraceToSourceDemo({ trace }: { trace: TraceSample }) {
             aria-expanded={open}
             aria-controls={panelId}
             onClick={() => setOpen((value) => !value)}
-            className={sourceTraceChipClass(true)}
+            className={sourceTraceChipClass()}
           >
-            <CheckCircleIcon className="h-3 w-3 shrink-0" aria-hidden="true" />
+            {/* The product chip's glyph for a filing passage; the selected tint belongs to the
+                research pane, which the landing demo does not have. */}
+            <QuotesIcon className="h-3 w-3 shrink-0" aria-hidden="true" />
             Verified in filing
           </button>
         </p>

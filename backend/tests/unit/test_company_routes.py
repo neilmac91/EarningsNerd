@@ -358,9 +358,11 @@ def test_trending_orders_by_recent_filing_count_and_honours_limit(client, overri
         assert resp.status_code == 200
         assert resp.json() == [
             {"id": 2, "cik": "0000000002", "ticker": "TWO", "name": "Two", "exchange": None,
-             "stock_quote": None, "coverage_status": None, "coverage_reason": None},
+             "stock_quote": None, "coverage_status": None, "coverage_reason": None,
+             "latest_filing": None},
             {"id": 1, "cik": "0000000001", "ticker": "ONE", "name": "One", "exchange": "NYSE",
-             "stock_quote": None, "coverage_status": None, "coverage_reason": None},
+             "stock_quote": None, "coverage_status": None, "coverage_reason": None,
+             "latest_filing": None},
         ]
         limited = client.get("/api/companies/trending", params={"limit": 1})
         assert [r["ticker"] for r in limited.json()] == ["TWO"]
@@ -381,7 +383,7 @@ def test_unsupported_foreign_ticker_short_circuits_before_sec(client, monkeypatc
     assert resp.json() == {
         "id": 0, "cik": "", "ticker": "TCEHY", "name": "Tencent Holdings Ltd", "exchange": None,
         "stock_quote": None, "coverage_status": "unsupported_foreign",
-        "coverage_reason": UNSUPPORTED_FOREIGN_REASON,
+        "coverage_reason": UNSUPPORTED_FOREIGN_REASON, "latest_filing": None,
     }
 
 
@@ -400,7 +402,7 @@ def test_stored_company_is_served_without_sec(client, monkeypatch):
     assert resp.status_code == 200
     assert resp.json() == {
         "id": company_id, "cik": NEW_CIK, "ticker": "ZZ2", "name": "Zeta Two", "exchange": "NYSE",
-        "stock_quote": None, "coverage_status": None, "coverage_reason": None,
+        "stock_quote": None, "coverage_status": None, "coverage_reason": None, "latest_filing": None,
     }
 
 
