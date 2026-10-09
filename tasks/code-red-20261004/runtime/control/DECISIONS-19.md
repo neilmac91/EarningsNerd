@@ -1,6 +1,6 @@
 # Decision record 19 — the record-18 PR merged (PR #1149; twelfth deploy-skip proof); D3 stage 2 merged and deployed (PR #1151): every production process now runs both SEC limiters at 1, the insider endpoint is switched off and the dead fuzzy-search fallback is gone; the founder moved `backfill-facts-weekly`; ledger events 39–44; chief defect 8 (a search printed one line of an excluded directory); closure 170 (chief, 2026-10-09)
 
-Recorded 2026-10-09T11:54:08Z, amended 2026-10-09T12:26:29Z after the record-19 review and its delta checks, by the chief
+Recorded 2026-10-09T11:54:08Z, amended 2026-10-09T12:28:30Z after the record-19 review and its delta checks, by the chief
 (`https://claude.ai/code/session_01GWYV7WXWstgVGQG43YcSM8`). Context: record 18 merged to main as
 `76d45732027f43dfb7cb81dc0f6d4a97903b90b5` (PR #1149, 2026-10-09T09:02:04Z); D3 stage 2 merged as
 `ae5b0f1c606346e2e1e6902145f03e729cb80a21` (PR #1151, 2026-10-09T11:32:19Z) and deployed; this branch was restarted from
@@ -133,21 +133,21 @@ Side effects, from the transcripts:
   `httpclient.py` (paths only) and a read of that file, and its own comparison script with `python3 -I`; the refuter ran a
   comparison script with `python3 -I`. No request to SEC, Google Cloud or any production host; no repository write.
 
-**Scratch copies of the excluded directories.** The review above showed that scratch copies of the repository hold both
-excluded directories, just as the checkout does. At 12:14–12:15Z the chief removed ten stale scratch worktrees (saving two
-worktrees' uncommitted diffs first) and deleted the 65 copies of the two directories left in other scratch extracts. The
-review's delta check then found them still held as git objects by seven throwaway repositories built from extracts, and in the
-history of twelve stale scratch clones; the chief deleted those nineteen repositories at 12:22Z and switched this PR's review
-worktree to a sparse checkout without the two paths. Its third check found five more full copies directly under `/tmp`, outside
-the scratchpad, whose names and times (2026-10-08 06:07–07:03Z) match the D3 investigation; the chief saved their uncommitted
-diffs (excluding the two directories) and deleted them at 12:26Z. Every step listed paths only and read nothing. A path-only
-sweep of the filesystem and a hash-only history scan of every git repository under `/tmp`, `/root`, `/home`, `/opt` and
-`/var/tmp` then found the two directories only in the repository's own checkout and in git history shared with this PR's
-review worktree, as they always have been. Rule (from this record): an agent's repository copy excludes the two
-directories (`git archive <sha> -- . ':!tasks/readiness-2026-09-21/acceptance' ':!tasks/review-evidence'`), and the chief's
-review worktrees use a sparse checkout without them (`git sparse-checkout set --no-cone '/*' '!/tasks/review-evidence/'
-'!/tasks/readiness-2026-09-21/acceptance/'`); the chief's review prompts state both. No machine gate: scratch copies are outside
-the repository.
+**Scratch copies of the excluded directories.** The review above showed that scratch copies of the repository hold both excluded
+directories, just as the checkout does. At 12:14–12:15Z the chief removed ten stale scratch worktrees (saving two worktrees'
+uncommitted diffs first) and deleted the 65 copies of the two directories left in other scratch extracts. The review's delta check
+then found them still held as git objects by seven throwaway repositories built from extracts, and in the history of twelve stale
+scratch clones; the chief deleted those nineteen repositories at 12:22Z and switched this PR's review worktree to a sparse
+checkout without the two paths. Its third check found five more full copies directly under `/tmp`, outside the scratchpad, whose
+names and times (2026-10-08 06:07–07:03Z) match the D3 investigation; the chief saved their uncommitted diffs (excluding the two
+directories) and deleted them at 12:26Z. Every step listed paths only and read nothing under the two directories (saving the diffs
+read tracked changes elsewhere). A path-only sweep of the filesystem and a hash-only history scan of every git repository under
+`/tmp`, `/root`, `/home`, `/opt` and `/var/tmp` then found the two directories only in the repository's own checkout and in git
+history shared with this PR's review worktree, as they always have been. Rule (from this record): an agent's repository copy
+excludes the two directories (`git archive <sha> -- . ':!tasks/readiness-2026-09-21/acceptance' ':!tasks/review-evidence'`), and
+the chief's review worktrees use a sparse checkout without them (`git sparse-checkout set --no-cone '/*'
+'!/tasks/review-evidence/' '!/tasks/readiness-2026-09-21/acceptance/'`); the chief's review prompts state both. No machine gate:
+scratch copies are outside the repository.
 
 ## Spend
 
