@@ -13,11 +13,12 @@ plain space, but a string matcher passed with `exact: false` is not normalised, 
 render failed `getByText(span, { exact: false })`.
 
 **Rule**: Build a verbatim fixture by copying it from the source payload with a script, never by
-retyping it, and write invisible characters as escapes (` `) so a reader sees them. Assert
+retyping it, and write invisible characters as escapes (`\u00a0`) so a reader sees them. Assert
 verbatim content on `textContent` with `startsWith` / `toContain`, not with Testing Library's
 whitespace-normalising text matchers.
 
 **Evidence**: `frontend/tests/e2e/fixtures/filing-3-risks.json` (copied from
 `raw_summary.sections.risks` of the critique harness's cached `GET /api/summaries/filing/3`, body
-sha256 `1412895e…`); `frontend/tests/unit/riskHeadline.spec.ts` (`September 27`);
-`frontend/tests/unit/SummaryRisks.spec.tsx` (the Evidence box compared by `textContent`).
+sha256 `1412895e…`), which `frontend/tests/unit/riskHeadline.spec.ts` and
+`frontend/tests/unit/SummaryRisks.spec.tsx` now import rather than retype; the third span's
+`September\u00a027`; `SummaryRisks.spec.tsx` compares the Evidence box by `textContent`.

@@ -341,17 +341,26 @@ Risk cards       <SummaryRisks> renders each server-projected risk as <SummaryBl
                  trend. The glyph is aria-hidden, shrink-0 and level with the title's first line. The h4 title is
                  `deriveRiskHeadline(supporting_evidence, index)` (features/summaries/lib/riskHeadline.ts): a
                  verbatim prefix of the card's own verified excerpt (never a model label, never recased or
-                 rewritten): the first sentence, cut at its first `;` `:` or dash when that leaves 4+ words; what
-                 is still over 100 characters is capped on a whole content word (not a function word, not inside a
-                 figure and its unit, a date, a capitalised name or an open bracket or quotation) with an ellipsis;
-                 a comma never cuts, because on real spans it ends on a leading date, a qualifier or a list item. An
-                 excerpt under 3 words keeps the positional "Filing excerpt n". The full excerpt still renders
-                 below in the cream Evidence inset at text-sm (14px); its eyebrow is the text-data-xs tracked
-                 uppercase label in secondary ink (9.28:1 on cream; tertiary measured 4.35:1). The SourceTrace
-                 header and the PDF / CSV risk rows still read "Filing excerpt" (the backend's label). Gates:
-                 tests/unit/riskHeadline.spec.ts (the production filing-3 spans and the edge cases),
+                 rewritten). A first sentence of up to 100 characters is the title whole, so a hedge or a turn
+                 inside it ("; however, ...") stays. A longer one is cut at its first `;` or `:` when the clause
+                 can stand as a heading (4+ words, not a leading date or qualifier such as "As of ..." or "In
+                 ...", not before "however" or "but", no bracket left open); otherwise it is capped on a whole
+                 content word (not a function word, not inside a figure and its unit, a date, a capitalised name
+                 or an open bracket or quotation). A comma or a dash never cuts: on real spans a comma ends on a
+                 leading date, a qualifier or a list item, and a dash marks a range or an aside. A trailing `…`
+                 means the excerpt goes on below. An excerpt under 3 words, or one where fewer than 4 whole words
+                 fit under the cap, keeps the positional "Filing excerpt n". Two recorded exceptions: the title
+                 is quoted filing text, so it is exempt from sentence case (a span can open lower-case or in
+                 Title Case) and must never be recased; and it keeps SummaryBlock's per-variant secondary title
+                 ink, as every SummaryBlock variant does, rather than the global heading ink (§5). The title and
+                 the evidence wrap a long unbreakable token (`[overflow-wrap:anywhere]`, the h4 `min-w-0`). The
+                 full excerpt still renders below in the cream Evidence inset at text-sm (14px); its eyebrow is
+                 the text-data-xs tracked uppercase label in secondary ink (9.28:1 on cream; tertiary measured
+                 4.35:1). The SourceTrace header and the PDF / CSV risk rows still read "Filing excerpt" (the
+                 backend's label). Gates: tests/unit/riskHeadline.spec.ts (the one place exact headlines are
+                 pinned: the production filing-3 spans read from the e2e fixture, and the edge cases),
                  tests/unit/SummaryRisks.spec.tsx, tests/e2e/risk-card-headlines.spec.ts (390 and 1440, both
-                 themes: headline, glyph, 14px, eyebrow contrast, wrapping).
+                 themes: headline, glyph, 14px, eyebrow contrast, wrapping, a long unbreakable token at 390).
 
 Ask answer       <AskFilingAnswer>  — the SHIPPED copilot contract: status reading|streaming|done|error;
                  answer = GFM markdown (react-markdown + remark-gfm); markers [n] AND [F1]/[f1]/[F 1]
