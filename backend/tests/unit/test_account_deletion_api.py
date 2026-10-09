@@ -1,11 +1,13 @@
 """DELETE /api/users/me: account deletion (GDPR Art. 17), characterized over HTTP.
 
-Pins what the handler does and in which order: the ``user_deleted`` audit row commits before the
-account row is deleted; the session cookies are cleared with the logout helpers (access +
-session-presence, then refresh) only after the delete commits; and a failed delete rolls the
-session back, keeps the account and sets no cookie. The failure is injected inside the request's
-own session (a ``before_flush`` listener), not by patching a function, so the test holds wherever
-the delete code lives.
+Pins what is observable over HTTP: the ``user_deleted`` audit row commits before the account row
+is deleted (a failed delete still leaves it behind); on success the Set-Cookie headers equal the
+logout helpers' output in call order (access + session-presence, then refresh); and a failed delete
+rolls the session back before it closes, keeps the account and sends no Set-Cookie at all. Whether
+the cookies are cleared before or after the delete is not observable here: when the handler raises
+HTTPException, FastAPI builds the 500 without the headers set on the injected ``response``. The
+failure is injected inside the request's own session (a ``before_flush`` listener), not by
+patching a function, so the test holds wherever the delete code lives.
 """
 import re
 import uuid
