@@ -194,10 +194,13 @@ describe('as a card, where the summary has no sections to hold it', () => {
   it.each([
     ['its fallback body', { ...LEGACY, business_overview: 'Summary temporarily unavailable. Please retry.' }],
     ['a writer error over its sections', { ...SUMMARY, raw_summary: { writer_error: 'timeout' } }],
+    ['placeholder filler', { ...LEGACY, business_overview: 'Summary generation requires OpenAI API key. Please configure OPENAI_API_KEY in your .env file.' }],
   ])('stays under a stored summary that failed (%s)', (_, failed) => {
     api.getWhatChanged.mockReturnValue(new Promise(() => {}))
     display(REPORT, failed as Summary)
     expect(screen.getByRole('heading', { name: 'Summary temporarily unavailable' })).toBeInTheDocument()
+    // The error card, never the stored text: "requires OpenAI API key" is operator configuration.
+    expect(screen.queryByText(/OPENAI_API_KEY/)).toBeNull()
     expect(screen.queryByRole('navigation', { name: 'Summary sections' })).toBeNull()
     expect(screen.getByRole('region', { name: 'What changed' })).toHaveAttribute('id', 'what-changed')
     expect(scrolledTo()).toEqual(['what-changed'])

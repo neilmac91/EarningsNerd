@@ -30,7 +30,8 @@ describe('summary placeholder', () => {
 })
 
 describe('a stored summary that failed', () => {
-  it('is the filing page error card: a writer error, the fallback body, or nothing left to show', () => {
+  it('is the filing page error card: filler, a writer error, the fallback body, or nothing left to show', () => {
+    expect(isSummaryFailure({ business_overview: 'Summary generation requires OpenAI API key. Please configure OPENAI_API_KEY in your .env file.' })).toBe(true)
     expect(isSummaryFailure({ business_overview: 'Apple designs devices.', raw_summary: { writer_error: 'timeout' } })).toBe(true)
     expect(isSummaryFailure({ business_overview: `## Executive Summary\n\n${SUMMARY_FALLBACK_MESSAGE}` })).toBe(true)
     expect(isSummaryFailure({ business_overview: '*Auto-generated from structured data*\n\n## Executive Summary\n' })).toBe(true)
@@ -43,6 +44,7 @@ describe('summary ready', () => {
     expect(isSummaryReady({ business_overview: 'Apple designs devices.' })).toBe(true)
     expect(isSummaryReady({ business_overview: 'Generating summary...' })).toBe(false)
     expect(isSummaryReady({ business_overview: SUMMARY_FALLBACK_MESSAGE })).toBe(false)
+    expect(isSummaryReady({ business_overview: 'Summary generation requires OpenAI API key. Please configure OPENAI_API_KEY in your .env file.' })).toBe(false)
     expect(isSummaryReady({ business_overview: 'Apple designs devices.', raw_summary: { writer_error: 'timeout' } })).toBe(false)
     expect(isSummaryReady({ business_overview: '   ' })).toBe(false)
     expect(isSummaryReady({ business_overview: null })).toBe(false)

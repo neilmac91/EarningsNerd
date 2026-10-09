@@ -125,12 +125,13 @@ describe('Company page lead', () => {
     expect(within(header).getByText('summary ready')).toBeInTheDocument()
   })
 
-  // A row the filing page will not show as a summary is not one: a placeholder it treats as generation
-  // in progress, and a stored failure it shows as "Summary temporarily unavailable".
+  // A row the filing page will not show as a summary is not one: "Generating summary" it treats as a
+  // run to start, and other filler or a stored failure it shows as "Summary temporarily unavailable".
   it.each([
     ['a placeholder', { business_overview: 'Generating summary...' }],
     ['a writer error', { business_overview: 'Apple designs devices.', raw_summary: { writer_error: 'timeout' } }],
     ['the fallback body', { business_overview: 'Summary temporarily unavailable. Please retry.' }],
+    ['the API-key placeholder', { business_overview: 'Summary generation requires OpenAI API key. Please configure OPENAI_API_KEY in your .env file.' }],
   ])('says nothing is ready while the stored summary is %s', async (_, stored) => {
     api.getSummary.mockResolvedValue({ id: 5, filing_id: 12, ...stored })
     renderPage([QUARTER, ANNUAL, PRIOR_ANNUAL])

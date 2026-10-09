@@ -18,7 +18,8 @@ export const isSummaryPlaceholder = (text: string | null | undefined): boolean =
   return SUMMARY_PLACEHOLDER_TOKENS.some((token) => lowered.includes(token))
 }
 
-/** The body the pipeline stores in place of a summary it could not write. */
+/** The body the pipeline stores in place of a summary it could not write, and the filing page's
+ *  error card copy. */
 export const SUMMARY_FALLBACK_MESSAGE = 'Summary temporarily unavailable. Please retry.'
 
 /** The markdown the filing page renders: the internal notices, then a leading "Executive Summary"
@@ -29,17 +30,21 @@ export const cleanSummaryMarkdown = (markdown: string): string =>
 type StoredSummary = { business_overview?: string | null; raw_summary?: unknown } | null | undefined
 
 /**
- * A stored summary that failed, which the filing page shows as its "Summary temporarily unavailable"
- * card instead of the body: a writer error, the fallback body, or nothing left once the notices are
- * stripped. SummaryDisplay decides its error card with it, so readiness below is that page's own rule.
+ * A stored summary the filing page shows as its "Summary temporarily unavailable" card, with Retry,
+ * instead of the body: placeholder filler (the fallback body among it, and never its text: "requires
+ * OpenAI API key" is operator configuration), a writer error, or nothing left once the notices are
+ * stripped. SummaryDisplay decides its error card with it. A "Generating summary" body never reaches
+ * the card: useSummaryGeneration treats it as no summary and starts the run.
  */
 export const isSummaryFailure = (summary: StoredSummary): boolean => {
   const raw = summary?.raw_summary && typeof summary.raw_summary === 'object' ? (summary.raw_summary as { writer_error?: unknown }) : null
-  const body = cleanSummaryMarkdown(summary?.business_overview ?? '').trim()
-  return Boolean(raw?.writer_error) || body === SUMMARY_FALLBACK_MESSAGE || body.length === 0
+  return (
+    isSummaryPlaceholder(summary?.business_overview) ||
+    Boolean(raw?.writer_error) ||
+    cleanSummaryMarkdown(summary?.business_overview ?? '').trim().length === 0
+  )
 }
 
-/** A summary a reader can open now: the filing page shows its body, and the body is not placeholder
- *  filler, so the company page's "summary ready" never promises a summary that page will not show. */
-export const isSummaryReady = (summary: StoredSummary): boolean =>
-  !isSummaryPlaceholder(summary?.business_overview) && !isSummaryFailure(summary)
+/** A summary a reader can open now: the filing page shows its body, so the company page's "summary
+ *  ready" never promises a summary that page will not show. */
+export const isSummaryReady = (summary: StoredSummary): boolean => !isSummaryFailure(summary)
