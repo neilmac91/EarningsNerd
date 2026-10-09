@@ -1057,6 +1057,8 @@ async def google_callback(
             invite_code_hash=invite_code_hash,
         )
     except oauth_account_service.OAuthSignInRefused as refused:
+        if refused.lost_create_race:
+            logger.warning("%s OAuth IntegrityError creating account", "google")
         return RedirectResponse(f"{frontend_url}/login?error={refused.error_code}", status_code=302)
 
     redirect = RedirectResponse(url=frontend_url, status_code=302)
@@ -1209,6 +1211,8 @@ async def apple_callback(
             invite_code_hash=invite_code_hash,
         )
     except oauth_account_service.OAuthSignInRefused as refused:
+        if refused.lost_create_race:
+            logger.warning("%s OAuth IntegrityError creating account", "apple")
         return _apple_redirect(f"{frontend_url}/login?error={refused.error_code}")
 
     redirect = _apple_redirect(frontend_url)

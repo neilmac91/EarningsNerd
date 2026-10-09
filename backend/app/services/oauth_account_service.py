@@ -10,7 +10,6 @@ reach it as the small exceptions below, carrying the ``/login?error=`` code wher
 """
 from __future__ import annotations
 
-import logging
 import secrets
 from datetime import datetime, timedelta, timezone
 from typing import Optional
@@ -23,18 +22,21 @@ from app.config import settings
 from app.models import InviteCode, OAuthAccount, OAuthState, User
 from app.services import invite_service, refresh_token_service
 
-logger = logging.getLogger(__name__)
-
 # Lifetime of an OAuth state row; the router gives its state cookies the same max-age.
 OAUTH_STATE_TTL_SECONDS = 600  # 10 minutes
 
 
 class OAuthSignInRefused(Exception):
-    """The provider identity may not sign in; ``error_code`` is the ``/login?error=`` value."""
+    """The provider identity may not sign in; ``error_code`` is the ``/login?error=`` value.
 
-    def __init__(self, error_code: str) -> None:
+    ``lost_create_race`` marks a new account's insert that lost a concurrent first sign-in for the
+    same email (already rolled back): the router logs that case before redirecting.
+    """
+
+    def __init__(self, error_code: str, *, lost_create_race: bool = False) -> None:
         super().__init__(error_code)
         self.error_code = error_code
+        self.lost_create_race = lost_create_race
 
 
 class OAuthAccountConflictError(Exception):
@@ -86,9 +88,11 @@ def oauth_create_account(
     """Create the User for a first social sign-in, or say why not.
 
     Returns ``(user, None)`` with the row flushed but not committed (``mint_oauth_refresh_token``
-    commits it together with the provider link and the session), or ``(None, error_code)`` after
-    rolling back. When invite-only mode requires an invite it is consumed here, inside the same
-    transaction, so a lost redemption race never leaves an account behind.
+    commits it together with the provider link and the session), or ``(None, error_code)`` when the
+    gate refuses or (after rolling back) the invite's redemption race is lost. When invite-only mode
+    requires an invite it is consumed here, inside the same transaction, so a lost redemption race
+    never leaves an account behind. An insert that loses a concurrent first sign-in for the same
+    email is rolled back and raises :class:`OAuthSignInRefused` with ``lost_create_race`` set.
     """
     error_code, invite = oauth_new_account_gate(
         db, email=email, email_verified=email_verified, invite_code_hash=invite_code_hash
@@ -100,10 +104,9 @@ def oauth_create_account(
     try:
         db.flush()
     except IntegrityError:
-        # Lost a concurrent first-sign-in race for the same email.
+        # Lost a concurrent first-sign-in race for the same email. The router logs it.
         db.rollback()
-        logger.warning("%s OAuth IntegrityError creating account", provider)
-        return None, f"{provider}_account_conflict"
+        raise OAuthSignInRefused(f"{provider}_account_conflict", lost_create_race=True) from None
     if invite is not None:
         if not invite_service.redeem_invite(db, invite, user, commit=False):
             db.rollback()

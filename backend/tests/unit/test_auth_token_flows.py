@@ -14,7 +14,8 @@ router as well as after the move, so it proves the refactor preserved behaviour:
   - the exact Set-Cookie headers, in order, of every session-issuing or session-clearing endpoint
     (cookie values and expiry stamps redacted)
   - the OAuth callbacks when the refresh-token write loses a race (IntegrityError at the flush):
-    the conflict redirect, no session cookie, nothing persisted
+    the conflict redirect, no session cookie, nothing persisted; likewise when a first sign-in's
+    new-account insert loses a concurrent create for the same email, with the router's warning
   - logout and logout-all commit their own revocations (with no audit row committing after them),
     and unlinking a provider commits the delete itself before its oauth_unlinked audit row
 
@@ -653,3 +654,47 @@ def test_oauth_link_that_loses_the_race_redirects_with_a_conflict(
         r.name == "app.routers.auth" and r.getMessage() == f"{label} OAuth IntegrityError for sub={sub}"
         for r in caplog.records
     )
+
+
+@pytest.fixture
+def lose_the_create_race():
+    """Arm with an email: the next flush that inserts a User with that email first has a competing
+    request commit an account for it, so that flush raises IntegrityError (UNIQUE users.email), the
+    concurrent first sign-in a new-account callback turns into an account-conflict redirect."""
+    armed: dict = {}
+
+    def _before_flush(session, _flush_context, _instances):
+        email = armed.get("email")
+        if email is None or not any(isinstance(obj, User) and obj.email == email for obj in session.new):
+            return
+        armed["email"] = None
+        armed["winner_id"] = _seed_verified(email)
+
+    event.listen(Session, "before_flush", _before_flush)
+    yield armed
+    event.remove(Session, "before_flush", _before_flush)
+
+
+@pytest.mark.requires_db
+@pytest.mark.parametrize("provider", ["google", "apple"])
+def test_oauth_first_sign_in_that_loses_the_create_race_redirects_with_a_conflict(
+    client, monkeypatch, caplog, lose_the_create_race, provider
+):
+    email = _email()
+    sub = f"{provider}_{uuid.uuid4().hex}"
+    lose_the_create_race["email"] = email
+
+    with caplog.at_level(logging.WARNING, logger="app.routers.auth"):
+        resp = _oauth_callback(client, monkeypatch, provider, sub, email)
+    assert lose_the_create_race["email"] is None, "the race was never injected"
+    assert resp.status_code == 302
+    assert resp.headers["location"] == f"{settings.FRONTEND_URL}/login?error={provider}_account_conflict"
+    assert _cookies(resp) == ([] if provider == "google" else [APPLE_STATE_CLEARED])
+    with SessionLocal() as db:
+        assert [u.id for u in db.query(User).filter(User.email == email)] == [lose_the_create_race["winner_id"]]
+        assert db.query(OAuthAccount).filter_by(provider_account_id=sub).count() == 0
+        assert db.query(RefreshToken).filter_by(user_id=lose_the_create_race["winner_id"]).count() == 0
+    assert [
+        (r.name, r.levelno, r.getMessage()) for r in caplog.records
+        if r.getMessage().endswith("OAuth IntegrityError creating account")
+    ] == [("app.routers.auth", logging.WARNING, f"{provider} OAuth IntegrityError creating account")]
