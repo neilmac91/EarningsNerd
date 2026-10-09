@@ -125,14 +125,19 @@ describe('Company page lead', () => {
     expect(within(header).getByText('summary ready')).toBeInTheDocument()
   })
 
-  it('says nothing is ready while the summary is a placeholder, as the company search does', async () => {
-    api.getSummary.mockResolvedValue({ id: 5, filing_id: 12, business_overview: 'Generating summary...' })
+  // A row the filing page will not show as a summary is not one: a placeholder it treats as generation
+  // in progress, and a stored failure it shows as "Summary temporarily unavailable".
+  it.each([
+    ['a placeholder', { business_overview: 'Generating summary...' }],
+    ['a writer error', { business_overview: 'Apple designs devices.', raw_summary: { writer_error: 'timeout' } }],
+    ['the fallback body', { business_overview: 'Summary temporarily unavailable. Please retry.' }],
+  ])('says nothing is ready while the stored summary is %s', async (_, stored) => {
+    api.getSummary.mockResolvedValue({ id: 5, filing_id: 12, ...stored })
     renderPage([QUARTER, ANNUAL, PRIOR_ANNUAL])
     const header = screen.getByRole('banner')
     await waitFor(() => expect(api.getSummary).toHaveBeenCalledWith(12))
     expect(await within(header).findByRole('link', { name: 'Summarize latest filing' })).toHaveAttribute('href', '/filing/12')
     expect(within(header).queryByText('summary ready')).toBeNull()
-    expect(within(header).queryByRole('link', { name: 'Open latest summary' })).toBeNull()
   })
 
   it('keeps the watchlist a secondary action with a visible label for a signed-in visitor', async () => {

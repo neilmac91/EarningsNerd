@@ -227,8 +227,8 @@ export default function CompanyPageClient({ initialCompany, initialFilings }: Co
     staleTime: 60_000,
     retry: false,
   })
-  // Ready means a body worth opening: an interim or error placeholder ("Generating summary…") is not,
-  // the rule the company search's `summary_ready` applies, so a result and this lead agree.
+  // Ready means the filing page will show the summary: a placeholder ("Generating summary…") or a
+  // stored failure (its "Summary temporarily unavailable" card) is a row, not a summary to open.
   const summaryReady = isSummaryReady(latestSummary)
 
   // Handle case where ticker might not be available

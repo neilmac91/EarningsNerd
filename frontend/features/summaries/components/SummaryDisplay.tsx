@@ -14,13 +14,12 @@ import { ChartErrorBoundary } from '@/components/ChartErrorBoundary'
 import { Button } from '@/components/ui/Button'
 import { Badge, Card, CardBody, GuidanceCard } from '@/components/ui'
 import { ChatCircleTextIcon } from '@/lib/icons'
-import { stripInternalNotices } from '@/lib/stripInternalNotices'
-import { stripLeadingExecutiveHeading } from '@/lib/stripLeadingExecutiveHeading'
 import { ENABLE_QUALITY_BADGE, ENABLE_FINANCIAL_CHARTS } from '@/lib/featureFlags'
 import { queryKeys } from '@/lib/queryKeys'
 import { ChangeReportCard } from './ChangeReportCard'
 import { SummaryActionsBar, type SaveMutation } from './SummaryActionsBar'
 import { useSummaryExports } from '../hooks/useSummaryExports'
+import { SUMMARY_FALLBACK_MESSAGE, cleanSummaryMarkdown, isSummaryFailure } from '../lib/summaryPlaceholder'
 
 // Multi-period fundamentals trend (item 2.5), filing-scoped only — the company page no longer shows
 // a company-wide trend (it would "refresh" on every new filing rather than reflect this document).
@@ -82,7 +81,7 @@ export function SummaryDisplay({
   const cleanedMarkdown = useMemo(
     // Strip internal notices first (drops the optional leading disclaimer), then the now-leading
     // "## Executive Summary" H2 so the card shows ONE header — the DS CardTitle (T1.7).
-    () => stripLeadingExecutiveHeading(stripInternalNotices(markdownContent)),
+    () => cleanSummaryMarkdown(markdownContent),
     [markdownContent]
   )
   const rawSummary = summary.raw_summary && typeof summary.raw_summary === 'object' ? summary.raw_summary : null
@@ -102,18 +101,17 @@ export function SummaryDisplay({
     initialData: initialChangeReport,
   })
 
-  const fallbackMessage = 'Summary temporarily unavailable. Please retry.'
-  const writerError = rawSummary?.writer_error
+  const fallbackMessage = SUMMARY_FALLBACK_MESSAGE
   const writerFallback = rawSummary?.writer?.fallback_used === true
-  const trimmedMarkdown = cleanedMarkdown.trim()
-  const isFallbackMessage = trimmedMarkdown === fallbackMessage
-  const hasPolishedMarkdown = trimmedMarkdown.length > 0 && !isFallbackMessage && !writerError
+  // A stored summary that failed (a writer error, the fallback body, nothing left once the notices
+  // are stripped) shows the error card, not its body. The company page's "summary ready" reads the
+  // same rule (isSummaryReady), so its lead never offers a summary this page will not show.
+  const isError = isSummaryFailure(summary)
+  const hasPolishedMarkdown = !isError
 
   const isPartial = rawSummary?.status === 'partial'
   const showQualityBadge = !demoMode && ENABLE_QUALITY_BADGE && Boolean(quality?.tier)
   const showRegenerate = Boolean(!demoMode && isPro && (isPartial || writerFallback || isPartialQuality) && onRetry)
-
-  const isError = Boolean(writerError) || isFallbackMessage || (!hasPolishedMarkdown && trimmedMarkdown.length === 0)
 
   // T2: the single structured projection the page renders (metrics, risks-with-provenance, prose,
   // tables — one home per number). Computed on read by the backend from the enriched raw_summary.
