@@ -135,7 +135,7 @@ touch the six modules, measured as `git diff origin/main...origin/<branch>`:
 | `codex/wave3-copilot-typed-evidence` | M1 | +8/−1 inside `SYSTEM_PROMPT` | founder item 3 |
 | `codex/measure-n-control-2`, `codex/wave3-e8-n-pilot` ("MEASUREMENT ONLY") | M4 | 27-line revert of #899 in `generate_structured_summary` | close |
 | `codex/wave3-supported-financial-explanations`, `codex/wave3-segment-margin-basis` | M4 | superseded by #899 / already main's text (#932) | close |
-| `codex/wave3-return-ratio-basis`, `codex/wave3-thinking-low-pilot` | M4, M5 | two unlanded `openai_service.py` lines (import :22, rule :428), unlanded prompt bytes in three `backend/prompts/*-analyst-agent.md` files and `ai/xbrl_narrative.py`, one tuple line at `xbrl_service.py:463`; would revert #1122 | dispose before O2 and X2 (founder item 3); any pick is a prompt change under the RUNBOOK gate |
+| `codex/wave3-return-ratio-basis`, `codex/wave3-thinking-low-pilot` | M4, M5 | two unlanded `openai_service.py` lines (import :22, rule :428), unlanded prompt bytes in the three `backend/prompts/` analyst prompts (10k, 10q, 20f) and `ai/xbrl_narrative.py`, one tuple line at `xbrl_service.py:463`; would revert #1122 | dispose before O2 and X2 (founder item 3); any pick is a prompt change under the RUNBOOK gate |
 
 ### Code Red D3 stage 2 is file-disjoint
 
@@ -992,8 +992,8 @@ practice because a second push cancels an in-progress `eval-baseline` run. 20–
    (kept on 2026-10-08) and `codex/wave3-copilot-typed-evidence` before C3; cherry-pick the one
    unlanded xbrl line and the one prompt rule from `codex/wave3-return-ratio-basis` /
    `codex/wave3-thinking-low-pilot` or close them before O2 and X2. The pick is not one line: two
-   `openai_service.py` lines, prompt bytes in three `backend/prompts/*-analyst-agent.md` files and in
-   `ai/xbrl_narrative.py`; it is a prompt change that needs the RUNBOOK gate and a re-pin decision.
+   `openai_service.py` lines, prompt bytes in the three `backend/prompts/` analyst prompts (10k, 10q, 20f)
+   and in `ai/xbrl_narrative.py`; it is a prompt change that needs the RUNBOOK gate and a re-pin decision.
 4. **Dead-code deletions that change tests**: M3's four dead helpers plus `compact_dataset_for_prompt`
    and its four tests; M6's `_fact_records`. Recommendation: yes, as Wave 3 PRs with `rg` → 0 proofs.
 5. **Where the copilot loop lives.** Recommendation: in place (C2), not `copilot/stream.py`, because a
