@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import TraceToSourceDemo from '@/features/marketing/components/TraceToSourceDemo'
 import { SAMPLE_TRACE } from '@/features/marketing/lib/landing-samples'
-import { sourceTraceChipClass } from '@/features/filings/components/SourceTrace'
+import { sourceTraceChipClass } from '@/features/filings/lib/sourceTraceChip'
 
 describe('TraceToSourceDemo (landing evidence section)', () => {
   it('renders the claim with its provenance panel open and a real EDGAR link', () => {
