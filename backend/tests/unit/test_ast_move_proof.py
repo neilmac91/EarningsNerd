@@ -4,7 +4,8 @@ The hot-module refactor (``tasks/refactor-plan-2026-10.md``) proves every "pure 
 so each verdict it can return is pinned here on small synthetic modules: an honest move passes, and a
 changed token, a dropped symbol, a duplicated definition, a changed class member, a changed arm of a
 rebound name, a changed guard, a statement moved out of its guard and an added import-time side effect
-(including an assignment whose value calls) each fail; a disclosed delta passes with its diff shown.
+(an assignment whose value calls, and a call in a new class body, default, decorator or lambda default)
+each fail; a disclosed delta passes with its diff shown.
 """
 from tests.support.ast_move_proof import compare, render
 
@@ -144,6 +145,24 @@ def test_a_new_assignment_that_calls_runs_at_import():
     assert report.side_effects == {"REGISTERED": "app/x/helpers.py"}
     assert report.added == {"__all__": "app/x.py", "KEY": "app/x/helpers.py"}  # a lambda's call runs later
 
+
+
+def test_definition_time_calls_in_new_classes_defs_and_lambdas_run_at_import():
+    """A new class body, a def's defaults or decorator, and a lambda's defaults all run at import; a def's
+    body, a lambda's body, a docstring and an inert decorator such as ``property`` do not."""
+    added = (
+        "\nclass Registry:\n    'Docstring.'\n    token = register()\n\n"
+        "    @property\n    def size(self):\n        return len(self.token)\n"
+        "\ndef helper(value=register()):\n    return value\n"
+        "\n@atexit.register\ndef hook():\n    pass\n"
+        "\nHANDLER = lambda value=register(): value\n"
+        "\n@dataclass(frozen=True)\nclass Row:\n    key: str\n"
+        "\ndef later():\n    return register()\n"
+    )
+    report = compare(OLD, _move(**{"app/x/helpers.py": HELPERS + added}))
+    assert not report.ok
+    assert report.side_effects == dict.fromkeys(("Registry.token", "helper", "hook", "HANDLER"), "app/x/helpers.py")
+    assert {"Registry", "Registry.expr:'Docstring.'", "Registry.size", "Row", "Row.key", "later"} <= set(report.added)
 
 def test_an_added_import_time_side_effect_fails_until_disclosed():
     files = _move(**{"app/x/helpers.py": HELPERS + "\nsettings.STRICT = False\nregister(clip)\n"})

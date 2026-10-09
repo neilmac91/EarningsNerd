@@ -25,9 +25,12 @@ not symbols: a move rewrites them by design.
 
 Verdicts: MISSING (defined before, nowhere after), CHANGED (the normalised text differs), DUPLICATE
 (defined in more than one new file, e.g. a ``logger`` per sub-module, whose logger NAME changes with
-the module), SIDE EFFECT (a NEW statement that runs code at import, which a move never adds: an
-``effect:``, ``expr:`` or ``guard:`` statement, or an assignment whose value makes a call) and ADDED
-(other new symbols, such as the helpers a split introduces, or a façade's ``__all__``). The exit status is 0 only when nothing is MISSING, CHANGED, DUPLICATE or SIDE EFFECT
+the module), SIDE EFFECT (a NEW symbol that runs code at import, which a move never adds: an
+``effect:`` assignment, a ``guard:`` block, or any symbol that makes a call at import, counting a class
+body, a def's decorators, defaults and annotations and a lambda's defaults, but not a def's or a
+lambda's body; ``property``, ``staticmethod``, ``classmethod``, ``dataclass`` and the like are inert
+decorators) and ADDED (other new symbols, such as the helpers a split introduces, or a façade's
+``__all__``). The exit status is 0 only when nothing is MISSING, CHANGED, DUPLICATE or SIDE EFFECT
 beyond the symbols passed with ``--allow``; each allowed symbol is a disclosed delta the PR body must
 list, and its diff is printed with it.
 """
@@ -85,23 +88,48 @@ def _assignment_key(targets: list[ast.expr]) -> str:
     return key if all(n.isidentifier() for n in names) else "effect:" + key
 
 
+# Decorators that only wrap the function in a descriptor or generate methods: applying one has no effect
+# outside the class or module, so a new method or class may carry them (a property's setter included).
+_INERT_DECORATORS = frozenset({"property", "staticmethod", "classmethod", "cached_property", "abstractmethod",
+                               "functools.cached_property", "abc.abstractmethod", "dataclass",
+                               "dataclasses.dataclass"})
+
+
+def _decorator_runs(decorator: ast.expr) -> bool:
+    """Applying a decorator calls it at import, unless it is an inert one whose own arguments make no call."""
+    call = decorator if isinstance(decorator, ast.Call) else None
+    name = ast.unparse(call.func if call else decorator)
+    if name in _INERT_DECORATORS or name.endswith((".setter", ".getter", ".deleter")):
+        return call is not None and any(_calls(arg) for arg in (*call.args, *call.keywords))
+    return True
+
+
 def _calls(node: ast.AST) -> bool:
-    """Whether evaluating the expression makes a call (a lambda's body runs later, so it is skipped)."""
+    """Whether running this code at import makes a call. The body of a def or a lambda runs later, but
+    its decorators, defaults and annotations run now, and so does a class body."""
+    if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+        if any(_decorator_runs(decorator) for decorator in node.decorator_list):
+            return True
+        if isinstance(node, ast.ClassDef):
+            return any(_calls(part) for part in (*node.bases, *node.keywords, *node.body))
+        return _calls(node.args) or (node.returns is not None and _calls(node.returns))
     if isinstance(node, ast.Lambda):
-        return False
+        return _calls(node.args)
     if isinstance(node, (ast.Call, ast.Await)):
         return True
     return any(_calls(child) for child in ast.iter_child_nodes(node))
 
 
 def _runs_at_import(name: str, text: str) -> bool:
-    """A NEW module-level statement that executes code when the module is imported."""
-    if name.startswith(("effect:", "expr:", "guard:")):
+    """A NEW symbol that executes code when its module is imported. An attribute or item assignment and a
+    guard block always do. Anything else, a class member included (keyed ``Class.member``), does when it
+    makes a call at import (``_calls``): a docstring or a plain constant does not."""
+    owner, _, member = name.partition(".")
+    if not (member and owner.isidentifier()):
+        member = name
+    if member.startswith(("effect:", "guard:")):
         return True
-    if "." in name:  # a class member: it runs with the class body, which the class's own symbol covers
-        return False
-    return any(isinstance(stmt, (ast.Assign, ast.AnnAssign, ast.AugAssign)) and stmt.value is not None
-               and _calls(stmt.value) for stmt in ast.parse(text).body)
+    return any(_calls(stmt) for stmt in ast.parse(text).body)
 
 
 def _guards(body: list[ast.stmt]) -> list[ast.stmt]:
