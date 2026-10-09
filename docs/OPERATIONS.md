@@ -120,8 +120,10 @@ edgartools calls queued behind that work (a company's first filings list, 6-K te
 run in-process when durable tasks are off) can time out after 15 s (30 s for 6-K text), and five
 timeouts in a row open the shared SEC circuit breaker for 30 s, which fails summary document fetches on
 that instance meanwhile (Circuit Breaker Management below). A synchronous precompute dry run on
-`/internal` makes at least one request per job, so above about 20 jobs it outlasts the 30 s request
-timeout.
+`/internal` makes at least one request per job, so the route caps it at 20 jobs (tickers × forms),
+which normally fits the 30 s request timeout; a job that needs a mega-filer's full submissions history
+(about 43 requests) or other SEC traffic on the instance can still push it past. Split a larger
+preview into batches.
 
 The configured sustained sums are: 4 req/s sustained with no job running (two service instances), 6
 in the hourly filing-scan window, and at most 8 req/s in any scheduled overlap — Monday 06:00 and
