@@ -5,7 +5,7 @@
     "description": "Bounce and elastic easing feel dated and tacky. Real objects decelerate smoothly — use exponential easing (ease-out-quart/quint/expo) instead.",
     "severity": "warning",
     "category": "slop",
-    "file": "/tmp/claude-0/-home-user-EarningsNerd/623e5abd-98ea-5ef8-bc8d-6df1d408ff4a/scratchpad/clean-wt/frontend/app/globals.css",
+    "file": "/home/user/EarningsNerd/frontend/app/globals.css",
     "line": 64,
     "snippet": "cubic-bezier(0.34, 1.56, 0.64, 1)"
   },
@@ -15,7 +15,7 @@
     "description": "Thick colored border on one side of a card — the most recognizable tell of AI-generated UIs. Use a subtler accent or remove it entirely.",
     "severity": "warning",
     "category": "slop",
-    "file": "/tmp/claude-0/-home-user-EarningsNerd/623e5abd-98ea-5ef8-bc8d-6df1d408ff4a/scratchpad/clean-wt/frontend/features/summaries/components/SummaryBlock.tsx",
+    "file": "/home/user/EarningsNerd/frontend/features/summaries/components/SummaryBlock.tsx",
     "line": 42,
     "snippet": "border-l-4"
   },
@@ -25,7 +25,7 @@
     "description": "Thick colored border on one side of a card — the most recognizable tell of AI-generated UIs. Use a subtler accent or remove it entirely.",
     "severity": "warning",
     "category": "slop",
-    "file": "/tmp/claude-0/-home-user-EarningsNerd/623e5abd-98ea-5ef8-bc8d-6df1d408ff4a/scratchpad/clean-wt/frontend/features/summaries/components/SummaryBlocks.tsx",
+    "file": "/home/user/EarningsNerd/frontend/features/summaries/components/SummaryBlocks.tsx",
     "line": 184,
     "snippet": "border-l-4"
   }
