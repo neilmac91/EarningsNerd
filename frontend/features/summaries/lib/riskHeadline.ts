@@ -130,8 +130,9 @@ const COMPARATIVE = /^(?:more|less|fewer|greater|larger|smaller|higher|lower|rat
 // A currency code or symbol standing before its amount ("EUR 2.5 billion", "$ 4.1").
 const CURRENCY = /^(?:USD|EUR|GBP|JPY|CHF|CNY|RMB|US\$|\$|€|£|¥)$/
 const STARTS_WITH_FIGURE = /^[(\[]?[$€£¥]?\d/
-// A bare figure, not a token that merely ends in digits (a URL, "riskfactors2025", "10-K2025").
-const FIGURE = /^[$€£¥]?\d(?:[\d,.]*\d)?%?$/
+// A bare figure, not a token that merely ends in digits (a URL, "riskfactors2025", "10-K2025"). A
+// trailing "+" is part of it ("3,200+ employees").
+const FIGURE = /^[$€£¥]?\d(?:[\d,.]*\d)?%?\+?$/
 // A unit written with a capital, which the counted-noun check (a lower-case next word) misses: power and
 // energy, frequency, data and rates, and oil-and-gas volumes ("100 | MW", "2.4 | GHz", "10 | Gbps").
 const UPPERCASE_UNIT = /^(?:[kKMGT]?Wh?|[kKMGT]?Hz|[KMGT]bps|[KMGTP]B|M{0,2}cf|[BT]cf|M{0,2}Btu|M{0,2}BOE|M{0,2}bbls?)$/
