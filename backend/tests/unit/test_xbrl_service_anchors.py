@@ -54,7 +54,10 @@ class _Frame:
         self._records, self._broken = records, broken
         self.empty = not records and not broken
 
-    def to_dict(self, orient):  # noqa: ARG002 - pandas signature
+    def to_dict(self, orient):
+        # Records are the only shape the extractor loops consume; another orientation would hand
+        # them a dict of columns from a real DataFrame (instance_extractor.py:236, :689, :825).
+        assert orient == "records", f"to_dict({orient!r}): the extractor reads frames as records"
         if self._broken:
             raise RuntimeError("frame failed to materialise")
         return [dict(row) for row in self._records]
@@ -64,7 +67,10 @@ class _Query:
     def __init__(self, xb):
         self._xb, self._concept, self._axis = xb, None, None
 
-    def by_concept(self, concept, exact=False):  # noqa: ARG002
+    def by_concept(self, concept, exact=False):
+        # edgartools matches by regex unless exact=True, which would pull in longer tags that
+        # start with the concept (instance_extractor.py:231, :682, :817 all pass exact=True).
+        assert exact is True, f"by_concept({concept!r}) without exact=True matches by regex in edgartools"
         self._concept = concept
         return self
 
