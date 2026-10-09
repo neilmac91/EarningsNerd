@@ -7,8 +7,9 @@ import { regionName } from '@/features/filings/components/copilot/ReaderTable'
 describe('ReaderTable regionName', () => {
   function reader(html: string) {
     const el = document.createElement('div')
+    el.className = 'filing-reader'
     el.innerHTML = html
-    return Array.from(el.querySelectorAll<HTMLElement>(':scope > .filing-table-scroll'))
+    return Array.from(el.querySelectorAll<HTMLElement>('.filing-table-scroll'))
   }
   const box = '<div class="filing-table-scroll"><table></table></div>'
 
@@ -42,6 +43,20 @@ describe('ReaderTable regionName', () => {
       'Scrollable table: Leases',
       'Scrollable table: Revenue, table 2 of 3',
       'Scrollable table: Revenue, table 3 of 3',
+    ])
+  })
+
+  it('reads headings and tables in document order across the reader, not only among siblings', () => {
+    // react-markdown renders a blockquote's heading and table inside the <blockquote>: a sibling
+    // scan named both tables "Scrollable table: Revenue".
+    const boxes = reader(
+      `<blockquote><h3>Revenue</h3>${box}</blockquote><blockquote><h3>Revenue</h3>${box}</blockquote>` +
+        `<h3>Leases</h3><blockquote>${box}</blockquote>`,
+    )
+    expect(boxes.map(regionName)).toEqual([
+      'Scrollable table: Revenue, table 1 of 2',
+      'Scrollable table: Revenue, table 2 of 2',
+      'Scrollable table: Leases',
     ])
   })
 })
