@@ -24,9 +24,8 @@ import CitationChip, { isHttpUrl } from './CitationChip'
    are admitted, and AskCopilotRail moves a message from 'reading' straight to
    'done' or 'error' (its token callback is a no-op). So the reading state's
    single calm indicator stays until the complete answer replaces it, and the
-   assistant's background tool activity is never surfaced. The 'streaming'
-   branch below (raw text plus a caret) is unused by the rail; whether to
-   delete it is a pending decision, so it stays, guarded for reduced motion. */
+   assistant's background tool activity is never surfaced. There is no
+   token-by-token state, so no raw-text view and no caret. */
 
 export interface CopilotMessageData {
   id: string
@@ -35,9 +34,8 @@ export interface CopilotMessageData {
   citations?: CopilotCitation[]
   grounded?: number
   kind?: 'answer' | 'not_disclosed'
-  // 'reading' (waiting for the admitted answer), 'done', 'error'. 'streaming' (raw text while tokens
-  // arrive) is accepted but never set by AskCopilotRail: answers arrive whole.
-  status?: 'reading' | 'streaming' | 'done' | 'error'
+  // 'reading' (waiting for the admitted answer), then 'done' or 'error': answers arrive whole.
+  status?: 'reading' | 'done' | 'error'
   error?: string
   // 2-3 suggested next questions, shown as tappable chips under the latest answer.
   followups?: string[]
@@ -191,13 +189,6 @@ function MarkdownProse({ children }: { children: string }) {
       </ReactMarkdown>
     </div>
   )
-}
-
-// The 'streaming' status's raw-text view (whitespace-preserving, no per-frame markdown re-parse).
-// Unreachable from the rail today: Ask answers arrive whole (see the header note), so no message is
-// ever 'streaming'. Kept until the pending decision on removing the streaming path.
-function StreamingText({ children }: { children: string }) {
-  return <div className={`whitespace-pre-wrap ${ANSWER_REGISTER}`}>{children}</div>
 }
 
 // Replace inline `[n]`/`[F#]` markers with interactive CitationChips via the shared walker (also
@@ -420,12 +411,10 @@ export default function CopilotMessage({
     )
   }
 
-  // --- Assistant: reading / streaming / done answer ---
+  // --- Assistant: reading / done answer ---
   const isReading = message.status === 'reading' && message.content.length === 0
-  const isStreaming = message.status === 'streaming'
   const isDone = message.status === 'done'
-  // Inject interactive citation chips only once citations are known (a completed `answer`). A
-  // 'streaming' message (never set by the rail) would keep `[n]` markers as plain text.
+  // Inject interactive citation chips only once citations are known (a completed `answer`).
   // (The not_disclosed branch already returned above, so this is always an `answer`.)
   const citations = message.citations
   const showChips = isDone && !!citations && citations.length > 0
@@ -448,17 +437,10 @@ export default function CopilotMessage({
                 <MarkdownProseWithCitations citations={citations!}>
                   {message.content}
                 </MarkdownProseWithCitations>
-              ) : isStreaming ? (
-                <StreamingText>{message.content}</StreamingText>
               ) : (
                 <MarkdownProse>{message.content}</MarkdownProse>
               )}
             </div>
-            {isStreaming && (
-              <span className="ml-0.5 inline-block animate-pulse text-brand-strong motion-reduce:animate-none dark:text-brand-strong-dark" aria-hidden="true">
-                ▍
-              </span>
-            )}
           </div>
 
           {message.status === 'done' && (

@@ -337,7 +337,8 @@ Metric cards     <FinancialMetricsTable> below md (768px): one stacked card per 
                  row, wrapping, the 767/768 switch, the sibling-margin pin and rotation with a sheet open in a
                  real browser).
 
-Ask answer       <AskFilingAnswer>  — the SHIPPED copilot contract: status reading|streaming|done|error;
+Ask answer       <AskFilingAnswer>  — the SHIPPED copilot contract: status reading|done|error (this reference
+                 also draws a `streaming` caret state; the production renderer has none);
                  answer = GFM markdown (react-markdown + remark-gfm); markers [n] AND [F1]/[f1]/[F 1]
                  (case/whitespace tolerant) become chips showing the BRACKETED marker; unmatched markers
                  stay literal text — never a dead button. CopilotCitation = { n, excerpt, section_ref,
@@ -352,7 +353,7 @@ Ask answer       <AskFilingAnswer>  — the SHIPPED copilot contract: status rea
                  which implements the same contract plus viewer deep-linking, popovers and follow-ups —
                  change copilot rendering THERE, styled to this design. Its answers arrive whole: the
                  rail takes a message from reading (one pulse dot, "Reading the filing…") straight to
-                 done or error and never sets streaming, so no token text or caret is shown.
+                 done or error; there is no streaming status, token text or caret.
 ```
 
 - **Radius scale is 4 / 8 / 12 / 16 / 24** — buttons + inputs 12 (`rounded-lg`), chips full,
