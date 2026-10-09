@@ -47,4 +47,6 @@ CLAUDE.md rule 11.
 - A new or changed reusable component: `frontend/DESIGN_SYSTEM.md` §1–§6 and §12, plus the
   `DESIGN.md` "Components" and "Do's and Don'ts" sections.
 - Route-specific content or layout that uses existing components and tokens: `DESIGN_SYSTEM.md`
-  §1–§3 and §12 only. The ESLint design rules and the vitest gates catch the rest.
+  §1–§6 and §12 and `DESIGN.md` from "Overview" on, as rule 11 requires. The ESLint design rules
+  and the vitest gates catch the mechanical slips; the 700-level and surface clauses are checked
+  in review.

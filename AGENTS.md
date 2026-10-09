@@ -20,9 +20,10 @@ machine gate" section.
 - Service boundaries or data flow: `docs/ARCHITECTURE.md`.
 - Prompt, model, eval or AI flag changes: `backend/evals/RUNBOOK.md`, sections "Regression gate
   (B1)" and "Judging a pull request's eval artifact" (mandatory), "Gotchas" before any paid run.
-- UI work: `frontend/DESIGN_SYSTEM.md` §1–§3 and §12 (mandatory), [DESIGN.md](DESIGN.md)
-  "Components" and "Do's and Don'ts" for a new or changed component, both in full for a token,
-  theme or typography change. Include both in UI subagent briefs; follow the
+- UI work: rule 11 (read [DESIGN.md](DESIGN.md) and `frontend/DESIGN_SYSTEM.md`):
+  `DESIGN_SYSTEM.md` §1–§6 and §12 and `DESIGN.md` from "Overview" on (mandatory), both in full
+  for a token, theme or typography change, and `DESIGN_SYSTEM.md` §7–§11 for a marketing, theme,
+  exemption, chart or motion change. Include both in UI subagent briefs; follow the
   `design-docs-maintenance` skill (`.claude/skills/meta/design-docs-maintenance/SKILL.md`).
 - Deployment work: `docs/DEPLOYMENT.md`.
 
@@ -69,8 +70,9 @@ file instead.
 
 - One machine gate per "never again" rule (rule 12), with exactly one mutation proof: break the
   guarded thing, show the gate failing, restore, paste both tails in the PR body.
-- Records-only PR (`tasks/`, `lessons/`, `docs/`, `.claude/`, root Markdown, `.impeccable/`):
-  link/anchor check only, no AI review (§5). A `DESIGN.md` or `.impeccable/design.json` change
+- Records-only PR (§5's records tier: `tasks/`, `lessons/`, `docs/`, `.claude/agents/`,
+  `.claude/skills/`, `.impeccable/`, root Markdown other than `CLAUDE.md` and `AGENTS.md`): the
+  link/anchor check plus §5's one Sonnet lens. A `DESIGN.md` or `.impeccable/design.json` change
   also runs `npx vitest run tests/unit/designSnapshotParity.spec.ts` from `frontend/`; a
   `CLAUDE.md` change also runs `tests/unit/testHomesAllowlist.spec.ts`; a `.claude/settings.json`
   or `.claude/agents/` change also runs `backend/tests/unit/test_e8_launch_kit_matches_allow_rules.py`
@@ -100,7 +102,7 @@ unclear or unset is reviewed as **high**.
 |---|---|---|---|
 | **records** | only `tasks/`, `lessons/`, `docs/`, `.claude/agents/`, `.claude/skills/`, `.impeccable/`, root Markdown other than `CLAUDE.md` and `AGENTS.md` (`.claude/council-transcripts/` holds six files from before §7's rule; a new file there is forbidden, and `test_agent_workflow_rules.py` fails on it) | 1 combined lens on Sonnet, no refuters, findings reported unverified (the one independent read-only reviewer context of `tasks/code-red-20261004/runtime/control/DECISIONS-09.md`); author also runs the §4 link check | one read-only pass (links, anchors, hashes, policy greps) |
 | **routine** | everything not listed in the other two tiers: application code and tests outside the high-risk paths, dependency bumps, `CLAUDE.md`, `AGENTS.md`, `README.md` | 1 combined lens on Opus (correctness + rules + gates in one pass); 1 refuter on Sonnet per *blocker* only; should-fix and nits reported unverified | one pass over `git diff main...HEAD` covering the three lenses below; refute each blocker once |
-| **high** | `backend/app/services/summary_pipeline.py`, `backend/app/services/summary_generation_service.py`, `backend/app/services/openai_service.py`, `backend/app/services/ai/**`, `backend/app/services/copilot_*.py`, `backend/app/routers/summaries.py`, `backend/prompts/**`, `backend/evals/**`, `backend/app/services/entitlements.py`, `backend/app/dependencies.py`, `backend/app/routers/{auth,subscriptions,webhooks,users,internal,admin}.py`, `backend/app/services/{subscription_*,stripe_*,billing_*,oauth_*}.py`, `backend/migrations/**`, `backend/app/database.py`, `backend/app/models/**`, `backend/main.py`, `backend/app/config.py`, `backend/app/services/edgar/**`, `backend/app/services/sec_rate_limiter.py`, `backend/app/services/facts_service.py`, `backend/app/integrations/sec_api.py`, `backend/app/utils/sec_urls.py`, the locked contract tests (rule 6), `.github/workflows/**`, `backend/scripts/apply_migrations.sh`, `backend/Dockerfile`, `frontend/vercel.json`, `frontend/next.config.js`, `.claude/settings*.json`, `.claude/workflows/**` | full review, the same lens and refuter count as before: 3 lenses on Opus (*correctness*, *rules-and-brief*, *tests-and-gates*) and 2 refuters on Opus per blocker or should-fix; agents that return nothing make the result `incomplete`, never clearance | the three lenses as separate passes; two independent refutation attempts per blocker or should-fix |
+| **high** | `backend/app/services/summary_pipeline.py`, `backend/app/services/summary_stages/**`, `backend/app/services/summary_generation_service.py`, `backend/app/services/openai_service.py`, `backend/app/services/ai/**`, `backend/app/services/copilot_*.py`, `backend/app/routers/summaries.py`, `backend/prompts/**`, `backend/evals/**`, `backend/app/services/entitlements.py`, `backend/app/dependencies.py`, `backend/app/routers/{auth,subscriptions,webhooks,users,internal,admin}.py`, `backend/app/services/{subscription_*,stripe_*,billing_*,oauth_*}.py`, `backend/app/services/{password_utils,pwned_passwords,refresh_token_service,login_lockout,auth_account_service,user_account_service,user_data_export_service,invite_service}.py`, `backend/app/services/admin_*_service.py` (where Lane B moved the high-tier routers' logic), `backend/migrations/**`, `backend/app/database.py`, `backend/app/models/**`, `backend/main.py`, `backend/app/config.py`, `backend/app/services/edgar/**`, `backend/app/services/sec_rate_limiter.py`, `backend/app/services/facts_service.py`, `backend/app/integrations/sec_api.py`, `backend/app/utils/sec_urls.py`, the locked contract tests (rule 6), `.github/workflows/**`, `backend/scripts/apply_migrations.sh`, `backend/Dockerfile`, `frontend/vercel.json`, `frontend/next.config.js`, `.claude/settings*.json`, `.claude/workflows/**` | full review, the same lens and refuter count as before: 3 lenses on Opus (*correctness*, *rules-and-brief*, *tests-and-gates*) and 2 refuters on Opus per blocker or should-fix; agents that return nothing make the result `incomplete`, never clearance | the three lenses as separate passes; two independent refutation attempts per blocker or should-fix |
 
 Lenses, for the by-hand version: *correctness* reads the merge-base diff file by file and applies
 the §4 and §8 gates for the changed area; *rules-and-brief* checks each `CLAUDE.md` rule and the
