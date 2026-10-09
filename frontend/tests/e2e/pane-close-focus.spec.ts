@@ -11,7 +11,8 @@ import { PANE, answerApi, type Who } from './fixtures/filing3Api'
  *    Tab continues from there, and Shift+Tab comes back. On main focus fell to <body> on every one of
  *    these routes (EN-01 fixed only the summary chip's).
  *  - A visitor who cannot ask (anonymous here) has no composer to take focus: a keyboard press on the
- *    launcher or the coachmark's Try, which leave with the open, hands focus to the selected tab.
+ *    launcher or the coachmark's Try, which leave with the open, hands focus to the selected tab. That
+ *    is the side pane's rule; below lg the sheet's trap lands on its first stop, Close, instead.
  *  - At 390x844 the pane is the bottom sheet, whose trap already returned focus; it stays as it was.
  *
  * CI runs e2e with no backend (lessons/test-e2e-runs-without-backend.md): fixtures/filing3Api.ts answers
@@ -19,7 +20,7 @@ import { PANE, answerApi, type Who } from './fixtures/filing3Api'
  * anonymous one. DOM and keyboard probes only: this is not a screen-reader test.
  */
 
-const LAUNCHER = 'button[aria-haspopup="dialog"][aria-label="Ask this Filing"]'
+const LAUNCHER = 'button[aria-label="Source"]'
 const CALLOUT = 'section[aria-labelledby="ask-filing-callout-heading"]'
 
 async function openFiling(page: Page, baseURL: string, who: Who, coachmark = false) {
@@ -40,8 +41,8 @@ async function openFiling(page: Page, baseURL: string, who: Who, coachmark = fal
 }
 
 const paneOpen = (page: Page) => page.locator(PANE).evaluate((el) => getComputedStyle(el).display !== 'none')
-// The page header's "← Back" (its arrow glyph is part of the accessible name).
-const back = (page: Page) => page.getByRole('button', { name: '← Back', exact: true })
+// The identity strip's breadcrumb link back to the company: a page control outside the pane.
+const crumb = (page: Page) => page.getByRole('navigation', { name: 'Breadcrumb' }).getByRole('link').first()
 const calloutAsk = (page: Page) => page.locator(CALLOUT).getByRole('button', { name: 'Ask this filing', exact: true })
 const calloutStarter = (page: Page) => page.locator(CALLOUT).getByRole('button').first()
 
@@ -96,22 +97,22 @@ const ROUTES: Route[] = [
     inPane: (page) => page.locator(PANE).getByPlaceholder('Ask about this filing…'),
   },
   {
-    name: 'Ctrl+K on the page header’s Back',
+    name: 'Ctrl+K on the identity strip’s breadcrumb',
     who: 'pro',
     open: async (page) => {
-      await back(page).focus()
+      await crumb(page).focus()
       await page.keyboard.press('Control+k')
-      return back(page)
+      return crumb(page)
     },
     inPane: (page) => page.locator(PANE).getByPlaceholder('Ask about this filing…'),
   },
   {
-    name: '"/" on the page header’s Back',
+    name: '"/" on the identity strip’s breadcrumb',
     who: 'pro',
     open: async (page) => {
-      await back(page).focus()
+      await crumb(page).focus()
       await page.keyboard.press('/')
-      return back(page)
+      return crumb(page)
     },
     inPane: (page) => page.locator(PANE).getByPlaceholder('Ask about this filing…'),
   },
@@ -162,7 +163,7 @@ const ROUTES: Route[] = [
       await page.keyboard.press('Enter')
       return page.locator(LAUNCHER)
     },
-    inPane: (page) => page.locator(PANE).getByRole('tab', { name: 'Answer' }),
+    inPane: (page) => page.locator(PANE).getByRole('tab', { name: 'Ask' }),
   },
   {
     name: 'the coachmark’s Try, by keyboard, for a visitor who cannot ask',
@@ -173,7 +174,7 @@ const ROUTES: Route[] = [
       await page.keyboard.press('Enter')
       return page.locator(LAUNCHER)
     },
-    inPane: (page) => page.locator(PANE).getByRole('tab', { name: 'Answer' }),
+    inPane: (page) => page.locator(PANE).getByRole('tab', { name: 'Ask' }),
   },
 ]
 

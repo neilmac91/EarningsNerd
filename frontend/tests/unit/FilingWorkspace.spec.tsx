@@ -304,7 +304,7 @@ describe('FilingWorkspace opened by a provenance chip (EN-01)', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Source' }))
     fireEvent.click(screen.getByRole('button', { name: 'Close' }))
     expect(document.activeElement).not.toBe(c)
-    expect(document.activeElement).toBe(screen.getByRole('button', { name: /ask this filing/i }))
+    expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Source' }))
   })
 
   it('closing from the pane\'s own Close button returns focus to the chip (focus is still on the hidden Close when the effect runs)', () => {
@@ -450,7 +450,7 @@ describe('FilingWorkspace view switch from inside the pane (EN-01 follow-up)', (
     // Hidden with the pane, it cannot take focus in a browser; it is not a return target. The launcher,
     // which remounted with the close, takes it (EN-05a).
     expect(document.activeElement).not.toBe(inPane)
-    expect(document.activeElement).toBe(screen.getByRole('button', { name: /ask this filing/i }))
+    expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Source' }))
   })
 
   it('opening a closed pane hands nothing off, whether the chip held focus or not', () => {
@@ -535,8 +535,8 @@ function AskPage() {
   )
 }
 
-const launcher = () => screen.getByRole('button', { name: /ask this filing/i })
-const answerTab = () => screen.getByRole('tab', { name: /answer/i })
+const launcher = () => screen.getByRole('button', { name: 'Source' })
+const answerTab = () => screen.getByRole('tab', { name: 'Ask' })
 const askInPage = () => screen.getByRole('button', { name: 'Ask in page' })
 const elsewhere = () => screen.getByRole('button', { name: 'elsewhere' })
 /** The launcher's hand-off runs in a microtask after the commit that removed it (useFocusHandoff). */
