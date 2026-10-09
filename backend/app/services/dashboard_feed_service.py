@@ -187,7 +187,15 @@ def compute_what_changed(current_xbrl: Optional[dict], prior_xbrl: Optional[dict
             parts.append(f"{it['label']} {it['direction']} {it['pct']:.1f}%")
         else:
             parts.append(f"{it['label']} {it['direction']}")
-    return {"headline": "; ".join(parts), "items": items, "data_quality": data_quality}
+    # The issuer's reporting currency (xbrl_service keeps FPIs' figures in their own currency), so a
+    # client that shows the raw current/prior amounts formats them with the right symbol instead of
+    # assuming "$". None when the extract carries none; the client then shows a bare figure.
+    reporting_currency = current_xbrl.get("reporting_currency") if isinstance(current_xbrl, dict) else None
+    if not reporting_currency and isinstance(current_xbrl, dict):
+        revenue_series = current_xbrl.get("revenue") or []
+        reporting_currency = revenue_series[0].get("currency") if revenue_series and isinstance(revenue_series[0], dict) else None
+    currency = str(reporting_currency).strip().upper() or None if reporting_currency else None
+    return {"headline": "; ".join(parts), "items": items, "data_quality": data_quality, "currency": currency}
 
 
 # --------------------------------------------------------------------------- summary status

@@ -490,7 +490,8 @@ export interface WhatChangedMetricItem {
   current: number
   prior: number | null
   // Server-computed display string (one delta policy) + design-system tone; rendered verbatim.
-  display: string
+  // null when no delta can be stated (a zero prior); the client shows a dash.
+  display: string | null
   tone: 'gain' | 'loss' | 'flat'
 }
 
@@ -498,6 +499,10 @@ export interface WhatChangedMetrics {
   headline: string
   items: WhatChangedMetricItem[]
   data_quality: 'ok' | 'partial'
+  /** The issuer's reporting currency (ISO 4217) for the raw `current` / `prior` figures; FPIs report in
+      their own currency, so a "$" default would mislabel them. Absent/null on older reports: show the
+      figures without a symbol. */
+  currency?: string | null
 }
 
 export interface RiskDiff {

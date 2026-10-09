@@ -5,7 +5,7 @@ import { Card, cx } from '@/components/ui'
 import type { ChangeReport, WhatChangedMetricItem } from '@/features/summaries/api/summaries-api'
 import { periodKind } from '@/features/filings/lib/filingPeriod'
 import { directionText } from '@/lib/financialTone'
-import { fmtCurrency, formatLocalDate } from '@/lib/format'
+import { fmtCurrency, fmtScale, formatLocalDate } from '@/lib/format'
 
 /**
  * A5 "What Changed": a calm, deterministic period-over-period change report — shown at the top of a
@@ -38,10 +38,21 @@ const INK = 'text-text-primary-light dark:text-text-primary-dark'
 const MUTED = 'text-text-secondary-light dark:text-text-secondary-dark'
 const HAIRLINE = 'border-border-light dark:border-white/10'
 
-/** Formatting only (no client math): "$394.3B"; per-share figures keep cents ("$6.11"). */
-function figure(item: WhatChangedMetricItem, value: number | null): string {
+/** Formatting only (no client math): "$394.3B"; per-share figures keep cents ("$6.11"). The symbol
+    comes from the report's reporting currency — XBRL keeps an FPI's DKK or CNY figures in that
+    currency, so a "$" default would be a mislabel (lessons/frontend-xbrl-figures-carry-their-
+    reporting-currency.md). Without one, the figure is bare: "394.3B". */
+function figure(item: WhatChangedMetricItem, value: number | null, currency: string | null): string {
   if (value == null || !Number.isFinite(value)) return '—'
-  return PER_SHARE.test(item.metric) ? fmtCurrency(value, { digits: 2, compact: false }) : fmtCurrency(value)
+  const perShare = PER_SHARE.test(item.metric)
+  if (!currency) return perShare ? fmtScale(value, { digits: 2 }) : fmtScale(value)
+  return perShare ? fmtCurrency(value, { currency, digits: 2, compact: false }) : fmtCurrency(value, { currency })
+}
+
+/** The payload's currency only when it is an ISO 4217 code (Intl throws on anything else). */
+function reportCurrency(code: string | null | undefined): string | null {
+  const upper = (code ?? '').trim().toUpperCase()
+  return /^[A-Z]{3}$/.test(upper) ? upper : null
 }
 
 export function WhatChanged({
@@ -55,6 +66,7 @@ export function WhatChanged({
   if (!report.has_changes) return null
   const { metrics, risks, comparison_basis: basis, prior_filing: prior } = report
   const Sub = SUBHEADING[Heading]
+  const currency = reportCurrency(metrics?.currency)
   const priorEnded = prior?.period_end_date ? formatLocalDate(prior.period_end_date, 'MMM d, yyyy') : ''
 
   return (
@@ -110,10 +122,10 @@ export function WhatChanged({
               {metrics.items.map((item) => (
                 <tr key={item.metric} className={cx('border-t', HAIRLINE)}>
                   <th scope="row" className={cx('py-2.5 pr-4 text-left font-medium', INK)}>{item.label}</th>
-                  <td className={cx('py-2.5 pl-4 text-right font-data tabular-nums', MUTED)}>{figure(item, item.prior)}</td>
-                  <td className={cx('py-2.5 pl-4 text-right font-data tabular-nums', INK)}>{figure(item, item.current)}</td>
+                  <td className={cx('py-2.5 pl-4 text-right font-data tabular-nums', MUTED)}>{figure(item, item.prior, currency)}</td>
+                  <td className={cx('py-2.5 pl-4 text-right font-data tabular-nums', INK)}>{figure(item, item.current, currency)}</td>
                   <td className={cx('py-2.5 pl-4 text-right font-data font-semibold tabular-nums', TONE_TEXT[item.tone] ?? TONE_TEXT.flat)}>
-                    {item.display}
+                    {item.display ?? '—'}
                   </td>
                 </tr>
               ))}

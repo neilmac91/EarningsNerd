@@ -116,6 +116,7 @@ what applies to your task. Filenames are greppable: `arch-*`, `sec-*`, `test-*`,
 - [`frontend-guard-a-loader-two-effects-can-start-in-one-commit.md`](./frontend-guard-a-loader-two-effects-can-start-in-one-commit.md) — Guard a loader with a synchronous in-flight ref when two effects can start it in one commit
 
 - [`frontend-trial-labels-use-entitlements.md`](./frontend-trial-labels-use-entitlements.md) — Derive current-trial presentation from the resolved entitlement
+- [`frontend-xbrl-figures-carry-their-reporting-currency.md`](./frontend-xbrl-figures-carry-their-reporting-currency.md) — Format XBRL figures with the payload's reporting currency, never a default dollar sign
 
 - [`test-smoke-targets-feature-semantics.md`](./test-smoke-targets-feature-semantics.md) — Distinguish the actual smoke target from similarly named calls to action
 

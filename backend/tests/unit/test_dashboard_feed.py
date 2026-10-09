@@ -104,6 +104,19 @@ def test_in_instance_comparative_used_when_no_prior_filing():
     assert out["items"][0]["pct"] == 20.0
 
 
+def test_reporting_currency_rides_on_the_metrics():
+    """The client formats the raw current/prior figures: it needs the issuer's currency (PR #1133),
+    never a "$" default (a DKK filer's 309B is not $309B)."""
+    prior = {"revenue": _series(("2023-03-31", 80.0))}
+    current = {"revenue": _series(("2024-03-31", 100.0)), "reporting_currency": "dkk"}
+    assert compute_what_changed(current, prior)["currency"] == "DKK"
+    # Falls back to the revenue series' own currency, as xbrl_service does.
+    tagged = {"revenue": [dict(_series(("2024-03-31", 100.0))[0], currency="CNY")]}
+    assert compute_what_changed(tagged, prior)["currency"] == "CNY"
+    # Unknown stays None: the client shows a bare figure rather than guessing a symbol.
+    assert compute_what_changed({"revenue": _series(("2024-03-31", 100.0))}, prior)["currency"] is None
+
+
 def test_missing_xbrl_returns_none():
     assert compute_what_changed(None, None) is None
     assert compute_what_changed({}, {}) is None

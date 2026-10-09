@@ -104,8 +104,9 @@ export const SAMPLE_ASK = {
   ] satisfies CopilotCitation[],
 } as const
 
-/** Change Report demo (WhatChanged): FY2022 vs FY2021 XBRL deltas. Risk lines are left to the
- *  live report (the page renders skeleton bones in their place). */
+/** Change Report demo (WhatChanged): FY2022 vs FY2021 XBRL deltas. Risk lines are omitted until
+ *  verbatim lines are captured from the live report; with `risks: null` WhatChanged renders no risk
+ *  block (ChangeReportDemo). */
 export const SAMPLE_CHANGE_REPORT: ChangeReport = {
   has_prior: true,
   comparison_basis: 'Year over year',
@@ -113,6 +114,7 @@ export const SAMPLE_CHANGE_REPORT: ChangeReport = {
   prior_filing: null,
   metrics: {
     headline: 'Revenue, net income and diluted EPS all rose against the prior fiscal year.',
+    currency: 'USD',
     data_quality: 'ok',
     items: [
       { metric: 'revenue', label: 'Revenue', direction: 'up', pct: 7.8, current: 394328e6, prior: 365817e6, display: '+7.8%', tone: 'gain' },

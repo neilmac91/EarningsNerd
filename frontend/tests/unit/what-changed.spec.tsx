@@ -14,6 +14,7 @@ const baseReport: ChangeReport = {
       { metric: 'net_income', label: 'Net income', direction: 'down', pct: 20, current: 20, prior: 25, display: '−20.0%', tone: 'loss' },
     ],
     data_quality: 'ok',
+    currency: 'USD',
   },
   risks: { new: ['Cybersecurity breach exposure'], resolved: ['Legacy litigation overhang'], carried_count: 7 },
   key_changes: 'Revenue accelerated while margins compressed on higher R&D investment.',
@@ -116,6 +117,52 @@ describe('WhatChanged (A5)', () => {
     expect(screen.getByText('$6.11')).toBeInTheDocument()
     expect(screen.getByText('$5.61')).toBeInTheDocument()
     expect(container.querySelectorAll('table svg')).toHaveLength(0)
+  })
+
+  it('formats the figures in the report’s reporting currency, never a default dollar sign', () => {
+    const dkk: ChangeReport = {
+      ...baseReport,
+      metrics: {
+        ...baseReport.metrics!,
+        currency: 'dkk',
+        items: [{ metric: 'revenue', label: 'Revenue', direction: 'up', pct: 3.1, current: 309_000e6, prior: 299_700e6, display: '+3.1%', tone: 'gain' }],
+      },
+    }
+    const { container } = render(<WhatChanged report={dkk} />)
+    const table = container.querySelector('table')!
+    expect(table.textContent).toContain('DKK')
+    expect(table.textContent).not.toContain('$')
+  })
+
+  it('shows bare figures when the report carries no currency (never guesses a symbol)', () => {
+    const bare: ChangeReport = {
+      ...baseReport,
+      metrics: {
+        ...baseReport.metrics!,
+        currency: null,
+        items: [
+          { metric: 'revenue', label: 'Revenue', direction: 'up', pct: 7.8, current: 394_328e6, prior: 365_817e6, display: '+7.8%', tone: 'gain' },
+          { metric: 'eps_diluted', label: 'Diluted EPS', direction: 'up', pct: 8.9, current: 6.11, prior: 5.61, display: '+8.9%', tone: 'gain' },
+        ],
+      },
+    }
+    const { container } = render(<WhatChanged report={bare} />)
+    expect(screen.getByText('394.3B')).toBeInTheDocument()
+    expect(screen.getByText('6.11')).toBeInTheDocument()
+    expect(container.querySelector('table')!.textContent).not.toContain('$')
+  })
+
+  it('shows a dash where the server states no change (a zero prior)', () => {
+    const zeroPrior: ChangeReport = {
+      ...baseReport,
+      metrics: {
+        ...baseReport.metrics!,
+        items: [{ metric: 'net_income', label: 'Net income', direction: 'up', pct: null, current: 12e6, prior: 0, display: null, tone: 'flat' }],
+      },
+    }
+    render(<WhatChanged report={zeroPrior} />)
+    const row = screen.getByRole('rowheader', { name: 'Net income' }).parentElement!
+    expect(row.lastElementChild!.textContent).toBe('—')
   })
 
   it('states the comparison as a sentence, never as an uppercase eyebrow', () => {
