@@ -101,7 +101,7 @@ shared surface (it caused white-on-cream and dark-on-cream bugs across the app).
 ## 4. Canonical component patterns
 
 **Compose the component layer, don't hand-roll** — `components/ui/*` (Button, Badge, Input, Card,
-DataTable, Skeleton, GuidanceCard, Notice, Modal) + `features/filings/components/AskFilingAnswer.tsx` (v2.2: reworked to
+DataTable, Skeleton, GuidanceCard, Notice, Modal, SegmentedControl) + `features/filings/components/AskFilingAnswer.tsx` (v2.2: reworked to
 the SHIPPED copilot data model — see below). Controls expose their applicable interaction and
 availability states; data surfaces supply loading, empty and error treatments as supported by
 their APIs. Passive Card and Badge primitives do not implement the full control-state set.
@@ -165,7 +165,10 @@ Ghost button     <Button variant="ghost">  — brand.strong text on transparent,
 
 Link as button   buttonVariants({ variant, size })  — the class-string factory for <Link>/<a>
                  styled as buttons; <Button> composes the same factory. Raw fields that the
-                 <Input> component can't wrap use inputClasses({ invalid }).
+                 <Input> component can't wrap use inputClasses({ invalid, density }).
+                 Toolbar fields (v3.1): density="compact" on <Select>/inputClasses = 36px from sm
+                 up, phones keep the 44px touch height. `density`, not `size` (a native attribute);
+                 each density has its own EXPLICIT padding sides (never an override on top).
 
 Accent text/link text-brand-strong dark:text-brand-strong-dark   (never brand.DEFAULT as text on cream)
 Focus ring       focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark;
@@ -183,11 +186,11 @@ Delta text       text-gain-text dark:text-gain-dark  /  text-loss-text dark:text
 
 Solid chip       <Badge variant="solid">  — the primary colorway as a chip (brand.strong fill +
                  white label; dark: NAVY ink on brand.dark) for brand-weak TINTED grounds where the
-                 tint chips vanish ("Recommended"). <Badge variant="info"> = the info STATE tint
+                 tint chips vanish. <Badge variant="info"> = the info STATE tint
                  (light label ink = info.text), never a form category: a form code (10-K, 10-Q, 6-K …)
                  is text in the data face, never a Badge (gate: earningsnerd/no-form-code-badge,
                  eslint.designRules.mjs); <Badge variant="warning"> = warning tint
-                 (replaces raw-amber hand-rolls). beat/miss/new double as tonal recipes via icon={null}.
+                 (replaces raw-amber hand-rolls; "Superseded"). beat/miss/new double as tonal recipes via icon={null}.
 
 Inline notice    <Notice variant="error|info|success">  — compact icon + title + message + action
                  for form/auth flows and in-card states (role="alert" on error; action slot takes a
@@ -203,6 +206,28 @@ Chat composer    <Textarea variant="composer">  — transparent, auto-growing, c
                  focus-within:shadow-ring-brand (never double chrome).
 
 Semantic card    <Card as="section">  — same recipe on a semantic element.
+
+Segmented ctrl   <SegmentedControl label options value onChange size="sm|md|adaptive" fullWidth>  — v3.1, the
+                 ONE single-choice toggle group (lifted from the calendar's Week/Month switch; the calendar
+                 and the filings form filter both use it). role="group" of <button aria-pressed> — every option
+                 is visible, so not a radiogroup/tablist. Shell = panel + hairline + e1, rounded-lg, p-1;
+                 segment rounded (8) 12/600; selected = the primary colorway (bg-brand + white; dark NAVY ink on
+                 brand-dark). sm 26px · md 36px · adaptive 36px below sm, 26px from sm up. `mono` options set
+                 codes (10-K) in the data face. One selected colour per group — never an ink fill for "All".
+
+Index list       <FilingIndex> (features/filings/components) — the recipe for a list of primary documents:
+                 ONE surface (the section Card), hairline rows and year groups (DataTable manners: hover
+                 bg-white / dark:bg-white/[0.03], never darker), no stripes, no row tints, no per-type colour,
+                 no per-row icon. One grid template for the column header and every row (form · period ·
+                 filed · actions) so values align across groups. The row is ONE <Link>, named by its own
+                 content (no aria-label); a secondary target (EDGAR) is a SIBLING anchor absolutely placed in
+                 the actions track — never an <a> inside the row link. 48px rows from md, 64px two-line rows
+                 on phones with a 44px EDGAR square. Group headers are <h3><button aria-expanded
+                 aria-controls>; collapsed lists stay in the DOM with `hidden`. One primary action per screen
+                 (the latest-filing lead); rows never carry a primary button. Choosing a year filter opens
+                 its group. Skeleton = the ledger's own tracks; errors = Notice + RetryButton in place.
+                 Gate: a `border-l|s-(2|4|8)` side stripe on a rounded box is lint-banned
+                 (earningsnerd/no-side-stripe, eslint.designRules.mjs).
 
 Dialog           <Modal open onClose labelledBy="<id>" size="sm|md|lg" dismissible initialFocusRef>
                    <ModalHeader id="<id>" onClose icon={…?} tone="brand|success|warning|error">Title</ModalHeader>
