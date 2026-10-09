@@ -150,7 +150,9 @@ class TestCompanyEndpoints:
         Search asks SEC for its ticker list (compat._get_cached_tickers -> www.sec.gov) and falls
         through to edgartools find() on no match; trending/search quote every row via Yahoo. Stub
         search_company itself (an empty ticker fixture would still reach edgartools) and the
-        quote function the router resolves by global name at call time.
+        quote function the router resolves by global name at call time. With no results the search
+        route returns early; its full body (CIK upsert, primary ticker, quotes) is covered offline
+        by tests/unit/test_company_routes_pool_lifetime.py.
         """
         import app.routers.companies as companies_router
         from app.services.edgar.compat import sec_edgar_service

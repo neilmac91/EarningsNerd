@@ -18,10 +18,13 @@ os.environ["SKIP_REDIS_INIT"] = "true"
 # Disable the HaveIBeenPwned network call in tests so the suite stays hermetic and offline.
 os.environ["PWNED_PASSWORD_CHECK_ENABLED"] = "false"
 
-# A developer's backend/.env can carry live telemetry keys; pinned empty here (env beats .env in Settings),
-# Sentry's background sender and PostHog stay off in tests and never trip the network gate below.
+# A developer's backend/.env can carry live provider keys (telemetry, email, market data); pinned empty
+# here (env beats .env in Settings), Sentry's sender, PostHog, Resend and Alpha Vantage stay off in tests
+# and never trip the network gate below. A test that needs a key patches `settings`, as before.
 os.environ["SENTRY_DSN"] = ""
 os.environ["POSTHOG_API_KEY"] = ""
+os.environ["RESEND_API_KEY"] = ""
+os.environ["ALPHA_VANTAGE_API_KEY"] = ""
 
 # Outbound-network gate (rule 12): any attempt to reach a non-loopback host fails the test that
 # made it, or the session when no running test owns it. Pinned by tests/unit/test_network_gate.py.

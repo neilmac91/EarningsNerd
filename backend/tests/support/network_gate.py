@@ -6,8 +6,8 @@ plugin (registered by ``tests/conftest.py``) turns that rule into a gate.
 
 An *attempt* is any of:
   * a DNS lookup of a name that is not local -- ``socket.getaddrinfo``, ``gethostbyname``,
-    ``gethostbyname_ex`` or ``gethostbyaddr`` (the paths requests/urllib3, httpx/httpcore, anyio
-    and asyncio take);
+    ``gethostbyname_ex``, ``gethostbyaddr`` or a reverse ``getnameinfo`` of a non-local address (the
+    paths requests/urllib3, httpx/httpcore, anyio and asyncio take);
   * ``connect``/``connect_ex``/``sendto``/``sendmsg`` on an AF_INET/AF_INET6 socket to a non-loopback address,
     to a name that is not local, to port 53 anywhere (a DNS query to a local stub resolver), or to
     a loopback proxy endpoint that was configured when the session started.
@@ -16,8 +16,9 @@ Each attempt is BLOCKED (it raises ``OSError``, like an offline host) and RECORD
 is not a gate -- code under test routinely swallows network errors, so the test would still pass --
 so every attempt is charged to an owner:
   * made on behalf of the running test (its own thread; an asyncio task or anyio worker carrying
-    its context; a thread it started; work it submitted to a ``ThreadPoolExecutor``, asyncio's
-    default executor included) -> that test's report is FAILED;
+    its context, even on a loop another test started; a thread it started; work it submitted to a
+    ``ThreadPoolExecutor``, asyncio's default executor included) -> that test's report is FAILED,
+    in whichever phase made it (setup and teardown included; a skip or an xfail does not hide it);
   * anything else (a thread or task that outlived the test that started it, collection-time
     imports, session-scoped fixtures) -> a *stray*: listed in the terminal summary with its owner
     and the test running at the time, and the session exits non-zero. A long-lived worker thread
@@ -28,8 +29,10 @@ Unaffected: loopback/unspecified addresses (127.0.0.0/8, ::1, 0.0.0.0, ::), AF_U
 in-process ASGI/TestClient transport (opens no socket) and libpq/psycopg2 (connects in C, below
 this gate; CI's PostgreSQL URLs are loopback). Outside the gate: subprocesses, C-level resolvers
 (uvloop, c-ares, libpq), sockets made from the C-level ``_socket.socket`` class, a client given an
-explicit ``proxy=`` argument, an env proxy re-added after import with ``NO_PROXY`` removed, and
-attempts made after the session finished.
+explicit ``proxy=`` argument, an env proxy re-added after import with ``NO_PROXY`` removed, names
+under ``.localhost`` and this machine's own hostname (treated as local, so they reach the system
+resolver, which normally answers them without a query), and attempts made after the session
+finished.
 
 Proxies: an ``HTTPS_PROXY`` pointing at a loopback proxy would carry a request out through an
 allowed loopback connect. At import the gate records every configured proxy endpoint, removes
@@ -64,9 +67,10 @@ _LOCAL_NAMES = frozenset(
 )
 _STDLIB = sysconfig.get_paths()["stdlib"]
 _HINT = (
-    "Fake the boundary instead (monkeypatch the SEC/Yahoo client or service call; patch settings, "
-    "not env vars). The attempt was blocked with OSError, which the code under test may have "
-    "swallowed -- without this gate the test could pass while reaching for the network."
+    "Fake the boundary instead (monkeypatch the client or service call; patch settings, not env "
+    "vars); a provider key that arrives from backend/.env gets an empty pin in tests/conftest.py, "
+    "not an edit to the test. The attempt was blocked with OSError, which the code under test may "
+    "have swallowed -- without this gate the test could pass while reaching for the network."
 )
 
 
@@ -98,9 +102,11 @@ _strays: dict[tuple, Attempt] = {}
 
 
 def _owner() -> str | None:
-    owner = getattr(_TLS, "owner", None)  # executor work: the test that submitted it
+    # A carried context wins: an asyncio task scheduled by this test on a loop another test started
+    # (whose thread carries that test's executor tag) still belongs to this test.
+    owner = _OWNER.get()  # main thread, asyncio tasks, anyio/to_thread workers
     if owner is None:
-        owner = _OWNER.get()  # main thread, asyncio tasks, anyio/to_thread workers
+        owner = getattr(_TLS, "owner", None)  # executor work: the test that submitted it
     if owner is None:
         owner = getattr(threading.current_thread(), "_network_gate_owner", None)  # thread start
     return owner
@@ -242,6 +248,7 @@ def _install() -> None:
 
     real_getaddrinfo, real_byname = socket.getaddrinfo, socket.gethostbyname
     real_byname_ex, real_byaddr = socket.gethostbyname_ex, socket.gethostbyaddr
+    real_nameinfo = socket.getnameinfo
     real_connect, real_connect_ex, real_sendto = socket.socket.connect, socket.socket.connect_ex, socket.socket.sendto
     real_sendmsg = getattr(socket.socket, "sendmsg", None)  # absent on Windows
     real_start, real_submit = threading.Thread.start, ThreadPoolExecutor.submit
@@ -267,6 +274,13 @@ def _install() -> None:
         if (ip is not None and not _is_local_ip(ip)) or (ip is None and _lookup_target(name) is not None):
             _block_lookup(f"reverse {name}")
         return real_byaddr(host)
+
+    def getnameinfo(sockaddr, flags):  # reverse DNS, unless the caller asked for the numeric host
+        name = _text(sockaddr[0]) if isinstance(sockaddr, tuple) and sockaddr else ""
+        ip = _ip(name)
+        if ip is not None and not _is_local_ip(ip) and not flags & socket.NI_NUMERICHOST:
+            _block_lookup(f"reverse {name}")
+        return real_nameinfo(sockaddr, flags)
 
     def connect(self, address):
         if (target := _endpoint_target(self, address)) is not None:
@@ -307,6 +321,7 @@ def _install() -> None:
 
     socket.getaddrinfo, socket.gethostbyname = getaddrinfo, gethostbyname
     socket.gethostbyname_ex, socket.gethostbyaddr = gethostbyname_ex, gethostbyaddr
+    socket.getnameinfo = getnameinfo
     socket.socket.connect, socket.socket.connect_ex, socket.socket.sendto = connect, connect_ex, sendto
     if real_sendmsg is not None:
         socket.socket.sendmsg = sendmsg
