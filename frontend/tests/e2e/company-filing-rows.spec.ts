@@ -111,10 +111,14 @@ for (const theme of ['light', 'dark'] as const) {
     expect(new Set(boxes.map((b) => b.background)).size, 'one fill for 10-K and 10-Q rows').toBe(1)
     expect(new Set(boxes.map((b) => b.borderColors[0])).size, 'one hairline for 10-K and 10-Q rows').toBe(1)
 
-    // The filing date inside each row clears AA against what is painted behind it.
-    for (let i = 0; i < FILINGS.length; i++) {
-      const date = all.nth(i).getByText(/^[A-Z][a-z]{2} \d{1,2}, \d{4}$/)
-      expect(await textContrast(date), `${FILINGS[i].filing_type} row date`).toBeGreaterThanOrEqual(4.5)
+    // The filing date inside each row clears AA against what is painted behind it. Dark theme only:
+    // in light theme the date is tertiary ink, which text-floors.spec.ts's census already holds to 4.5:1
+    // on this page (one test per rule, AGENTS.md §4).
+    if (theme === 'dark') {
+      for (let i = 0; i < FILINGS.length; i++) {
+        const date = all.nth(i).getByText(/^[A-Z][a-z]{2} \d{1,2}, \d{4}$/)
+        expect(await textContrast(date), `${FILINGS[i].filing_type} row date`).toBeGreaterThanOrEqual(4.5)
+      }
     }
   })
 }

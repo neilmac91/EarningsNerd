@@ -10,7 +10,8 @@
 
      - CopilotCitation { n, excerpt, section_ref, verified, fragment_url } —
        marker ids are `n` (1, 2… for excerpts; "F1"/"F 2" for XBRL facts).
-     - status: 'reading' | 'streaming' | 'done' | 'error'.
+     - status: 'reading' | 'done' | 'error' (answers arrive whole; this
+       reference keeps a 'streaming' caret state the live Ask never reaches).
      - answer is GFM MARKDOWN — react-markdown + remark-gfm (already app deps
        via the live copilot; this file adds no new dependency to the app).
      - Marker grammar: [n] AND [F1]/[f1]/[F 1] — case/whitespace tolerant.

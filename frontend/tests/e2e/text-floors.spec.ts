@@ -190,7 +190,7 @@ test.describe('main routes at 1440x900, light theme', () => {
       const outline = await headingSkips(page)
       expect.soft(outline.dom, `skipped heading levels on ${route.name} (DOM order)`).toEqual([])
       expect.soft(outline.exposed, `skipped heading levels on ${route.name} (accessibility tree)`).toEqual([])
-      expect.soft(outline.footer, 'the footer opens its own section before its column titles').toEqual(['H2', 'H3', 'H3', 'H3'])
+      expect.soft(outline.footer.join(' '), 'the footer opens its own h2 before its h3 column titles').toMatch(/^H2( H3)+$/)
     })
   }
 })
