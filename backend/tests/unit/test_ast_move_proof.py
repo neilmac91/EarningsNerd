@@ -3,11 +3,13 @@
 The hot-module refactor (``tasks/refactor-plan-2026-10.md``) proves every "pure move" with this tool,
 so each verdict it can return is pinned here on small synthetic modules: an honest move passes, and a
 changed token, a dropped symbol, a duplicated definition, a changed class member, a changed arm of a
-rebound name, a changed guard, a statement moved out of its guard and an added import-time side effect
-(an assignment whose value calls; a call in a new class body, default, decorator or lambda default; a
-class keyword such as ``metaclass=``; ``raise``, ``assert`` or ``del``; a value that subscripts, unpacks,
-reads an attribute or applies an operator; and an evaluated annotation) and a reordered symbol each fail; a
-disclosed delta passes with its diff shown.
+rebound name, a changed guard (one around imports alone included), a statement moved out of its guard and
+an added import-time side effect (an assignment whose value calls; a call in a new class body, default,
+decorator or lambda default; a class keyword such as ``metaclass=``; ``raise``, ``assert`` or ``del``; a
+value that subscripts, unpacks, reads an attribute or applies an operator; an evaluated annotation; a block
+whose body holds only imports or ``pass``, outside the ``if TYPE_CHECKING:`` exemption; and a ``.setter``
+on a name that is not a property bound earlier in its class) and a reordered symbol each fail; a disclosed
+delta passes with its diff shown.
 """
 from tests.support.ast_move_proof import compare, render
 
@@ -127,6 +129,15 @@ def test_a_changed_guard_fails_even_when_its_body_is_identical():
     assert compare(negated, {"app/x/a.py": negated.replace("if FLAG:", "if not FLAG:")}).missing == ["guard:if FLAG"]
 
 
+def test_a_widened_handler_fails_when_its_body_only_imports():
+    """``except Exception`` around an import alone also hides every error the imported module raises."""
+    fallback = "try:\n    import plugin\nexcept ImportError:\n    pass\n"
+    assert compare(fallback, {"app/x/a.py": fallback}).ok
+    report = compare(fallback, {"app/x/a.py": fallback.replace("except ImportError:", "except Exception:")})
+    assert report.missing == ["guard:try except ImportError"]
+    assert report.side_effects == {"guard:try except Exception": "app/x/a.py"}
+
+
 def test_a_statement_moved_out_of_its_guard_fails():
     old = "if FLAG:\n    A = 1\n    B = 2\n"
     report = compare(old, {"app/x/a.py": "if FLAG:\n    A = 1\nB = 2\n"})
@@ -134,11 +145,33 @@ def test_a_statement_moved_out_of_its_guard_fails():
     assert report.moved == 2  # A and B themselves are unchanged
 
 
-def test_an_import_only_block_is_not_a_symbol():
+def test_a_block_runs_at_import_whatever_its_body_holds():
+    """A block's header runs at import even when its body holds only imports or ``pass``: ``if register()``
+    calls, and ``while True`` never finishes importing. A class body runs at import too."""
+    added = ("\nif register():\n    import plugin\n"
+             "\nwhile True:\n    pass\n"
+             "\nfor _ in hook():\n    import plugin\n"
+             "\nwith patch_env():\n    import plugin\n"
+             "\nclass Plugin:\n    if register():\n        import plugin\n")
+    report = compare(OLD, _move(**{"app/x/helpers.py": HELPERS + added}))
+    assert not report.ok
+    assert set(report.side_effects) == {"guard:if register()", "guard:while True", "guard:for _ in hook()",
+                                        "guard:with patch_env()", "Plugin.guard:if register()"}
+
+
+def test_only_an_import_only_type_checking_block_is_not_a_symbol():
+    """``if TYPE_CHECKING:`` with only imports and no ``else`` never runs its body, so it is exempt; an
+    ``else`` or any other test makes it a block like any other."""
     old = "from typing import TYPE_CHECKING\n\nif TYPE_CHECKING:\n    from x import Y\n\nA = 1\n"
     report = compare(old, {"app/x/a.py": "A = 1\n"})
     assert report.ok, render(report)
     assert report.moved == 1
+    added = ("\nif TYPE_CHECKING:\n    from x import Y\nelse:\n    import plugin\n"
+             "\nif not TYPE_CHECKING:\n    import plugin\n"
+             "\nif TYPE_CHECKING or register():\n    from x import Y\n")
+    others = compare("A = 1\n", {"app/x/a.py": "A = 1\n" + added})
+    assert set(others.side_effects) == {"guard:if TYPE_CHECKING", "guard:if not TYPE_CHECKING",
+                                        "guard:if TYPE_CHECKING or register()"}
 
 
 def test_a_new_assignment_that_calls_runs_at_import():
@@ -165,6 +198,24 @@ def test_definition_time_calls_in_new_classes_defs_and_lambdas_run_at_import():
     assert not report.ok
     assert report.side_effects == dict.fromkeys(("Registry.token", "helper", "hook", "HANDLER"), "app/x/helpers.py")
     assert {"Registry", "Registry.expr:'Docstring.'", "Registry.size", "Row", "Row.key", "later"} <= set(report.added)
+
+
+def test_a_property_accessor_is_inert_only_on_a_property_bound_earlier_in_its_class():
+    """``@size.setter`` calls ``size.setter`` at class creation, which copies the property when ``size`` is
+    one of the class's own. ``@registry.setter`` calls whatever ``registry`` is, on a method or at module
+    level, and so does ``@width.setter`` once ``width`` is rebound between the property and its setter."""
+    added = ("\nclass Box:\n"
+             "    @property\n    def size(self):\n        return 1\n\n"
+             "    @registry.setter\n    def hook(self, value):\n        pass\n\n"
+             "    @size.setter\n    def size(self, value):\n        pass\n\n"
+             "    @size.deleter\n    def size(self):\n        pass\n\n"
+             "    @property\n    def width(self):\n        return 1\n\n"
+             "    width = registry\n\n"
+             "    @width.setter\n    def width(self, value):\n        pass\n"
+             "\n@registry.setter\ndef handler(value):\n    pass\n")
+    report = compare(OLD, _move(**{"app/x/helpers.py": HELPERS + added}))
+    assert set(report.side_effects) == {"Box.hook", "Box.width", "handler"}
+    assert {"Box", "Box.size"} <= set(report.added)  # a method between a property and its setter is fine
 
 
 def test_only_inert_definitions_are_added_and_everything_else_runs_at_import():
