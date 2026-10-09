@@ -26,7 +26,7 @@ const FILING: Filing = {
   sec_url: 'https://www.sec.gov/edgar/3',
 }
 
-const item = (metric: string, label: string, display: string, direction: WhatChangedMetricItem['direction'], tone: WhatChangedMetricItem['tone']): WhatChangedMetricItem => ({
+const item = (metric: string, label: string, display: string | null, direction: WhatChangedMetricItem['direction'], tone: WhatChangedMetricItem['tone']): WhatChangedMetricItem => ({
   metric,
   label,
   direction,
@@ -90,6 +90,19 @@ describe('ComparePeriodsCard', () => {
     // The glyph is visual only; the signed string carries the direction.
     expect(within(rows[0]).getByText('▲')).toHaveAttribute('aria-hidden', 'true')
     expect(screen.getByText('1 more in the change report.')).toBeInTheDocument()
+  })
+
+  it('shows the figure dash for a change from zero and speaks its direction, with no figures to infer it from', async () => {
+    // No percentage is meaningful from a zero prior: the server sends the direction and display null.
+    api.getWhatChanged.mockResolvedValue({
+      ...REPORT,
+      metrics: { ...REPORT.metrics!, items: [{ ...item('net_income', 'Net income', null, 'up', 'gain'), prior: 0 }] },
+    })
+    renderCard()
+    const [row] = within(await screen.findByRole('list')).getAllByRole('listitem')
+    expect(row).toHaveTextContent(/^Net income▲Up —Favorable$/)
+    expect(within(row).getByText('—')).toHaveAttribute('aria-hidden', 'true')
+    expect(within(row).getByText('Up')).toHaveClass('sr-only')
   })
 
   it('links to the change report on the filing page', async () => {

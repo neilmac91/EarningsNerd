@@ -167,7 +167,7 @@ Link as button   buttonVariants({ variant, size })  — the class-string factory
                  styled as buttons; <Button> composes the same factory. Raw fields that the
                  <Input> component can't wrap use inputClasses({ invalid, density }).
                  Toolbar fields (v3.1): density="compact" on <Select>/inputClasses = 36px from sm
-                 up, phones keep the 44px touch height. `density`, not `size` (a native attribute);
+                 up, phones keep the standard 42px field height. `density`, not `size` (a native attribute);
                  each density has its own EXPLICIT padding sides (never an override on top).
 
 Accent text/link text-brand-strong dark:text-brand-strong-dark   (never brand.DEFAULT as text on cream)
@@ -219,7 +219,8 @@ Segmented ctrl   <SegmentedControl label options value onChange size="sm|md|adap
                  ONE single-choice toggle group (lifted from the calendar's Week/Month switch; the calendar
                  and the filings form filter both use it). role="group" of <button aria-pressed> — every option
                  is visible, so not a radiogroup/tablist. Shell = panel + hairline + e1, rounded-lg, p-1;
-                 segment rounded (8) 12/600; selected = the primary colorway (bg-brand + white; dark NAVY ink on
+                 segment rounded (8), 600 weight — 12px labels at 26px (sm; adaptive from sm up), 14px at 36px
+                 (md; adaptive below sm); selected = the primary colorway (bg-brand + white; dark NAVY ink on
                  brand-dark). sm 26px · md 36px · adaptive 36px below sm, 26px from sm up. `mono` options set
                  codes (10-K) in the data face. One selected colour per group — never an ink fill for "All".
                  `fullWidth` stretches the segments across a phone row and wraps them onto another row when
@@ -229,7 +230,8 @@ Segmented ctrl   <SegmentedControl label options value onChange size="sm|md|adap
 Index list       <FilingIndex> (features/filings/components) — the recipe for a list of primary documents:
                  ONE surface (the section Card), hairline rows and year groups (DataTable manners: hover
                  bg-white / dark:bg-white/[0.03], never darker), no stripes, no row tints, no per-type colour,
-                 no per-row icon. One grid template for the column header and every row (form · period ·
+                 no per-row document icon (the md-up caret in the actions track is an aria-hidden navigation cue,
+                 not a type signal). One grid template for the column header and every row (form · period ·
                  filed · actions) so values align across groups. The row is ONE <Link>, named by its own
                  content (no aria-label); a secondary target (EDGAR) is a SIBLING anchor absolutely placed in
                  the actions track — never an <a> inside the row link. 48px rows from md, 64px two-line rows
@@ -403,8 +405,9 @@ Section ledger   <SummaryBlocks>  (P-05/P-07) — sections sit on the page groun
                  close with a hairline, outer cells flush with the text edge, no outer frame). Body ink for
                  paragraphs and bullets. The change report is the section after the first metrics section
                  (`<WhatChanged bare>`): Metric · Prior · Current · Change · Read as, the change the server's
-                 display string in its TONE's ink with a ▲/▼ text glyph for the arithmetic direction
-                 (aria-hidden), "Read as" = the tone in words (Favorable / Unfavorable / Neutral); below sm a
+                 display string (the em dash when it sends none: a zero prior) in its TONE's ink with a ▲/▼
+                 text glyph for the arithmetic direction (aria-hidden; sr-only words state it where no signed
+                 string does), "Read as" = the tone in words (Favorable / Unfavorable / Neutral); below sm a
                  stacked row per metric (name + change, then prior → current + Read as), switched by CSS.
                  A fragment the page was OPENED with (/filing/{id}#what-changed, from Compare periods) is
                  honoured once its section renders (features/summaries/hooks/useSectionArrival); later
@@ -430,7 +433,7 @@ Compare periods  <ComparePeriodsCard filing>  (features/filings, critique 1b + P
                  report: an <aside> Card (p-5, h2 18/600) beside the filings index on lg+ (grid-cols-1 base,
                  lg 1fr + 20rem), shown only for selectComparisonFiling (the newest annual report with an
                  earlier annual period listed). Up to three hairline rows: metric · the change in WhatChanged's
-                 own vocabulary (exported Change: ▲/▼ glyph + the server's display string in its tone's ink)
+                 own vocabulary (exported Change: ▲/▼ glyph + the server's display string or —, in its tone's ink)
                  · the Read-as word; "N more in the change report."; a sage text link "Open change report →"
                  to /filing/{id}#what-changed. Same GET and query key as the filing page's section. States in
                  place: ledger bones, Notice + RetryButton, a plain line when nothing is comparable. No risk
@@ -451,11 +454,21 @@ Trust strip      <TrustStrip>  under the hero: a hairline-topped list of plain s
                  "the filing's own words".
 
 Evidence rows    <SummaryRisks>  (P-03) — one hairline list inside the section: a row is an h3 (14/600, the
-                 opening clause of the row's own verbatim excerpt, unique per row via excerptHeadings — the
+                 opening words of the row's own verbatim excerpt, unique per row via excerptHeadings — the
                  server withholds model titles), the excerpt in blockquote manners (border-l-2 hairline, no
                  fill, no radius, 14px secondary) and the provenance chip; a lead line above and a data-face
                  tally below ("3 of 4 excerpts located in the filing text · 1 withheld …"). No stripe, no
-                 trend glyph, no nested evidence box.
+                 trend glyph, no nested evidence box. The row wraps a long unbreakable token
+                 ([overflow-wrap:anywhere]).
+                 Heading rule (riskHeadline.ts, inside excerptHeadings): a verbatim prefix of the excerpt, never
+                 recased and never whitespace-normalised (one enclosing quote pair is dropped first, only when
+                 it wraps the whole span). The first sentence stays whole when it fits in 100 characters; a
+                 longer one is cut at its first ";" or ":" only where the clause can stand as a heading,
+                 otherwise capped on a whole content word that splits no figure from its unit or label, no
+                 date, name, bracket or quotation. Never at a comma or a dash. "…" whenever the excerpt goes
+                 on; "Risk n" when no heading fits. Gates: riskHeadline.spec.ts (the rule, on the production,
+                 backend-fixture and eval spans), riskTitle.spec.ts (what excerptHeadings adds around it),
+                 SummaryRisks.spec.tsx (the wiring), tests/e2e/risk-evidence-rows.spec.ts (layout).
 
 Callout          <Callout label tone="neutral|caution">  (P-08; replaces SummaryBlock) — an inset well:
                  `rounded border bg-panel-light px-4 py-3.5` (dark: white/10 hairline on panel-dark), no
@@ -513,7 +526,8 @@ Filing reader    <FilingViewer> (`.filing-reader`) fills its pane and never exce
                  tests/e2e/copilot-highlight-css.spec.ts (a far-right table cell revealed in its own box
                  in real layout, the page unmoved).
 
-Ask answer       <AskFilingAnswer>  — the SHIPPED copilot contract: status reading|streaming|done|error;
+Ask answer       <AskFilingAnswer>  — the SHIPPED copilot contract: status reading|done|error (this reference
+                 also draws a `streaming` caret state; the production renderer has none);
                  answer = GFM markdown (react-markdown + remark-gfm); markers [n] AND [F1]/[f1]/[F 1]
                  (case/whitespace tolerant) become chips showing the BRACKETED marker; unmatched markers
                  stay literal text — never a dead button. CopilotCitation = { n, excerpt, section_ref,
@@ -525,8 +539,10 @@ Ask answer       <AskFilingAnswer>  — the SHIPPED copilot contract: status rea
                  attestation. Never conflate source matching with support for every answer claim.
                  REPO REALITY: this file is the design-system REFERENCE implementation (0 importers).
                  The wired production renderer is features/filings/components/copilot/CopilotMessage.tsx,
-                 which implements the same contract plus viewer deep-linking, popovers, streaming-perf
-                 rendering and follow-ups — change copilot rendering THERE, styled to this design.
+                 which implements the same contract plus viewer deep-linking, popovers and follow-ups —
+                 change copilot rendering THERE, styled to this design. Its answers arrive whole: the
+                 rail takes a message from reading (one pulse dot, "Reading the filing…") straight to
+                 done or error; there is no streaming status, token text or caret.
 ```
 
 - **Radius scale is 4 / 8 / 12 / 16 / 24** — buttons + inputs 12 (`rounded-lg`), chips full,
@@ -555,6 +571,21 @@ Type v2 supersedes the old "no global heading color" rule: the global `h1–h6` 
 dark-hero bug that motivated the old rule can't recur. Don't add per-heading color overrides
 unless the heading sits on a surface that inverts against its theme.
 
+**Outline: never skip a level.** Pick the element for its place in the page outline and set the
+size with classes: a section directly under the page h1 is an h2 whatever its type size (the pricing
+plans, the analysis chart panels). `GuidanceCard` titles itself h3 by default, for a card inside an
+h2 section; where the card stands in for the page's content directly under the h1, pass
+`headingLevel="h2"` (the filing page's signup gate, failure and monthly-limit cards and a stored
+summary's writer error; the watchlist's empty and error cards; the waitlist example's fallbacks).
+The footer opens its own section with a visually hidden h2 ("Site links") before its h3 column
+titles, so a page whose content ends at h1 (the 404, /analysis, /search) does not jump from h1 to h3.
+`tests/e2e/text-floors.spec.ts` checks the routes and states it visits, in DOM order and in the
+accessibility tree: home, /pricing, /company/AAPL, /filing/3 with a summary, a signed-in /dashboard,
+the 404, and four page-level card states (a filing without a summary for a guest and for a
+signed-in reader whose run fails, a writer error, an empty watchlist). Known exception, not
+visited: /waitlist when its example loads (the example has no heading, so the h1 is followed by the
+problem cards' h3).
+
 ## 6. Cards must *lift*, not tint
 
 `brand-weak` (#ECF2EE) is **darker** than the cream page (#F4F3EE) — as a card *fill* it's
@@ -574,7 +605,10 @@ remaining consumer is `AuthShell`). Container rhythm on the landing: hero + head
 every other section `max-w-5xl`, section padding `py-20 sm:py-24` (the measured-claims band is a
 tighter hairline strip). Muted text on the cream page ground is `text-secondary`;
 `text-tertiary-light` (`#636A77`, 4.9:1 on cream) carries captions, counts and micro-labels on either
-ground; copy the reader must read stays secondary.
+ground; copy the reader must read stays secondary, including the point-of-use AI disclaimer
+(`AiDisclaimer`) and the footer's "Data sourced from SEC EDGAR … Not investment advice" line. Gate:
+`tests/e2e/text-floors.spec.ts` measures every tertiary-ink text on the main routes against its
+rendered ground.
 
 ## 8. Theme mechanics
 

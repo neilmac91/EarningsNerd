@@ -265,9 +265,11 @@ function PanelCard({
     <Card as="section" className={cx('p-5', expanded && 'md:col-span-2')}>
       <div className="mb-3 flex items-start justify-between gap-2">
         <div className="min-w-0">
-          <h3 className="text-sm font-semibold text-text-primary-light dark:text-text-primary-dark">
+          {/* h2: the chart panels sit beside the narrative's and the metrics table's h2 sections
+              under the page h1 (an h3 here skipped a level). */}
+          <h2 className="text-sm font-semibold text-text-primary-light dark:text-text-primary-dark">
             {panel.title}
-          </h3>
+          </h2>
           <PanelLegend items={legendItems} />
           <ReconciliationBadge reconciled={hasUnverified ? false : undefined} />
         </div>

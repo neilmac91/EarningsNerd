@@ -138,8 +138,10 @@ Infra: `docker-compose up -d postgres redis` (local only — prod has no Redis).
     700-level tokens; page bg = `background`, cards = `panel`, on every route. Gates: the design rules in
     `frontend/eslint.config.mjs` (raw hex/palette, `z-[N]`, off-ramp tracking, sub-scale type, `alert`,
     a responsive grid's base track, a side-tab stripe on a rounded container, a form code inside a `Badge`)
-    `tests/unit/dialogAllowlist.spec.ts` and `tests/unit/bottomChromeLadder.spec.ts` (no fixed bottom chrome
-    outranks the workspace layers; the consent bar's inset); the 700-level and surface clauses are review-checked.
+    `tests/unit/dialogAllowlist.spec.ts`, `tests/unit/bottomChromeLadder.spec.ts` (no fixed bottom chrome
+    outranks the workspace layers; the consent bar's inset) and `tests/e2e/text-floors.spec.ts` (muted text clears
+    4.5:1 on what is behind it; no checked route skips a heading level); the 700-level and surface clauses are
+    review-checked.
 12. **Rules become gates.** When a review or plan produces a "never do X again" rule, land the
     machine enforcement in the same PR (ESLint rule, allowlist spec, AST test, CI grep). Prose-only
     rules rot — see `lessons/arch-structural-gates-over-prose-rules.md`.
@@ -148,7 +150,10 @@ Infra: `docker-compose up -d postgres redis` (local only — prod has no Redis).
 
 - **Backend:** `app/routers/` = HTTP only; `app/services/` = business logic. `services/ai/` holds
   the AI internals (extraction, json_repair, section_recovery, markdown_render, xbrl_narrative,
-  copilot_chat, …) behind the `openai_service.py` façade. `services/edgar/` owns the SEC service
+  copilot_chat, …) behind the `openai_service.py` façade. `services/summary_stages/` holds the stages
+  of the ONE orchestrator (`summary_pipeline.stream_filing_summary` is the stage map); a stage reaches
+  every collaborator as `summary_pipeline.<name>` so test patches on the pipeline module keep working
+  (gate: `tests/unit/test_summary_stages_seams.py`). `services/edgar/` owns the SEC service
   layer; existing EFTS (`integrations/sec_api.py`) and companyfacts (`services/facts_service.py`)
   raw-HTTP fetches share the limiter/backoff without the breaker.
   `app/integrations/` = third-party APIs (alpha_vantage, sec_api; finnhub/fmp/stocktwits were torn down in #657 and `test_dead_integrations_allowlist.py` keeps them gone).

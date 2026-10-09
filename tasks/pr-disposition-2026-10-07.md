@@ -274,6 +274,9 @@ balance is a cross-check, not the accounting.
 
 1. **#1074's eval-baseline artifact 11262711816 expires 2026-10-17T03:20Z.** Its private copy is
    still unconfirmed. The three copilot-fidelity artifacts expire 2027-01-01.
+   **Done (reported 2026-10-09):** the founder preserved it with the other eleven custody-kit
+   archives, 12/12 verified (#1029 comment 6088504990;
+   `tasks/review-evidence/prompt-candidate-custody-2026-10-08/README.md`).
 2. **#1074 closure (a change from C6, "keep").** Its pre-registration, tools and review history now
    live on main (landed by this PR), and the results stay in the #1029 and #1074 comments. So the
    retained draft no longer protected anything. Reopen it if you want the draft kept.
