@@ -142,10 +142,14 @@ original proposal; these notes are authoritative for what actually shipped.
   one PR needs a reason (`lessons/ops-keep-moving-under-standing-authorization.md`). The floor: when a
   balance reading is under USD 25, paid runs stop until the founder answers, because production calls
   the same provider.
+  The first reading, USD 28.38 on 2026-10-09, leaves USD 3.38 above that floor. That covers Wave 0's
+  `copilot-eval` runs (about USD 0.10), but not Waves 1–3 (USD 13.8–16.4 estimated). Before Wave 1's
+  first paid run, the founder tops up the balance or lowers the floor. This is the plan's one open
+  founder action.
 
 | Date | PR | Head | Run or balance read | Job | Reason | Reserved (USD) | Cost (USD) | Running total |
 |---|---|---|---|---|---|---:|---:|---:|
-| — | — | — | — | — | — | — | — | 0.00 |
+| 2026-10-09 12:49Z | — | main `8ff4c532` | balance read: USD 28.38 available, all topped up ([run 37932600962](https://github.com/neilmac91/EarningsNerd/actions/runs/37932600962)) | `deepseek-balance` | before the Wave 0 un-drafts; no inference call | — | 0.00 | 0.00 |
 
 ---
 
@@ -1457,7 +1461,9 @@ main at `76d45732`), the decision and what it changes. Nothing in this plan now 
      PRs move rule 5's text, and the path edit is one line either way.
 
 One founder item outside this plan still touches it: #1118's decision 5, whether #1123 merges, which
-changes only what Wave 0's un-drafts cost.
+changes only what Wave 0's un-drafts cost. One founder action inside it surfaced on 2026-10-09 (Implementation Notes,
+Spend log). The provider balance read USD 28.38 against decision 1's USD 25 floor, so Waves 1–3 need a
+top-up, or a lower floor, before Wave 1's first paid run.
 
 ---
 
