@@ -6574,7 +6574,8 @@ Full local and hosted verification plus independent exact-head review precede re
 - [x] Founder: relay the record-14 custody clarification — replaced by record 16's step A (the founder delegated the custody
       question to the chief on 2026-10-08); D3 — applied by the founder's instruction, staged (record 16).
 - [ ] Founder (optional; recommended now, record 20): relay record 16's custody step A (five metadata fields) once — the
-      chief prepared the message — with "If the answer is outcome B, I adopt record 16's form (b) for R1" if you agree.
+      text is in DECISIONS-20's appendix — and, if you agree, tell the chief in your own words "If the answer is outcome
+      B, I adopt record 16's form (b) for R1" (now or with the answer).
 - [x] Chief: D3 stage 1 PR (eight jobs + task worker pinned; reservation before ready; deploy verified) — merged `da636f6c`,
       deployed 2026-10-08T20:17Z (record 17).
 - [x] Founder (decision): D3 stage 2 — chose option A, guard then pin, and to move backfill-facts (record 17).
@@ -6594,7 +6595,8 @@ Full local and hosted verification plus independent exact-head review precede re
 - [ ] Chief: the read-back PR (`ops-readback-pr-01`, record 20): `describe-service` reads back the task worker (revision,
       traffic, command, sizing, ingress, invoker policy, SEC pins) and the service's minimum instances, CPU and memory;
       `describe-jobs` prints and checks both SEC pins per job; `capacity-readout` adds the worker's requests and errors and
-      the Cloud Tasks queue; tests and docs; one reserved `copilot-eval` run; no deploy (records 19–20).
+      the Cloud Tasks queue; tests and docs; one reserved `copilot-eval` run on leaving draft, each later push's run
+      reserved first; no deploy (records 19–20).
 - [ ] Chief: complete the durable-tasks post-deploy checklist (`docs/DEPLOYMENT.md`) from the read-backs and a readout,
       with an independent check (`durable-tasks-check-01`); baseline already read (record 20).
 - [ ] Workflow owner: `review-gate.yml:61` re-runs the gate on any comment containing "@codex review", including Codex's own
