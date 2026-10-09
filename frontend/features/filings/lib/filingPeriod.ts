@@ -14,7 +14,7 @@ import { formatLocalDate } from '@/lib/format'
  * payload to carry XBRL dei:DocumentFiscalPeriodFocus / DocumentFiscalYearFocus.
  */
 
-/** Annual reports: the domestic 10-K plus the foreign-issuer 20-F / 40-F (mirrors recommendedFiling.ts). */
+/** Annual reports: the domestic 10-K plus the foreign-issuer 20-F / 40-F (tasks/fpi-support-roadmap.md). */
 const ANNUAL_FORMS = ['10-K', '20-F', '40-F']
 
 /** Display order for the form filter; unknown forms sort to the end, alphabetically. */
