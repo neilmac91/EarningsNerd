@@ -10,8 +10,10 @@ import { MagnifyingGlassIcon } from '@/lib/icons'
  * the app does not serve. Next's stock page in its place read "404 | This page could not be found."
  * in the OS colour scheme, with no way back. It renders inside the root layout, so the site header,
  * footer and the skip link's #main wrapper surround it; this <main> is the page's one landmark.
- * Next sends the 404 status and a noindex robots tag; the <title> below is hoisted into <head>, as
- * Next's own 404 does. A client component, like app/error.tsx: buttonVariants() is a client export,
+ * Next sends the 404 status and a noindex robots tag. React hoists the <title> below into <head>, as
+ * Next's own 404 does: it names the tab when a route calls notFound(); on an unmatched URL the root
+ * layout's default title comes first, as it did before Next's own (Next documents `metadata` only for
+ * global-not-found). A client component, like app/error.tsx: buttonVariants() is a client export,
  * which a server component cannot call (lessons/frontend-client-exports-need-next-build.md).
  */
 export default function NotFound() {
