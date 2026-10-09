@@ -56,10 +56,11 @@ export function SummaryBlock({ type = 'neutral', title, children }: SummaryBlock
       <div className="flex items-start gap-3">
         {title && (
           // The glyph sits on the title's first line (20px icon, 2px down a 24px line), so a
-          // headline that wraps keeps it beside its opening words; shrink-0 keeps it whole.
-          <div className="mb-2 flex items-start gap-2">
+          // headline that wraps keeps it beside its opening words; shrink-0 keeps it whole. A title
+          // quoted from a filing can hold one long token (a URL): it wraps inside the card.
+          <div className="mb-2 flex min-w-0 items-start gap-2">
             <Icon aria-hidden="true" className={`mt-0.5 h-5 w-5 shrink-0 ${style.iconColor}`} />
-            <h4 className={`font-semibold ${style.titleColor}`}>{title}</h4>
+            <h4 className={`min-w-0 font-semibold [overflow-wrap:anywhere] ${style.titleColor}`}>{title}</h4>
           </div>
         )}
       </div>

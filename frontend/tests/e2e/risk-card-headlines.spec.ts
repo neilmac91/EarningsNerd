@@ -9,12 +9,15 @@ import { API_ORIGIN, SUMMARY, answerApi, type Theme } from './fixtures/filing3Ap
  * Risk cards on the filing page (founder option b), in a real Chromium at 390 and 1440 in both themes:
  *
  *   - each card is titled with a verbatim prefix of its own verified excerpt (an h4, as before), not
- *     "Filing excerpt n", and the full excerpt still renders below it as the evidence;
+ *     "Filing excerpt n", within the cap and ellipsed when the excerpt goes on, and the full excerpt
+ *     still renders below it as the evidence (the exact headlines are pinned in
+ *     tests/unit/riskHeadline.spec.ts, not here);
  *   - the glyph beside the title is the neutral quotation mark, not the bearish trend arrow, level with
  *     the first line of a headline that wraps;
  *   - the evidence text computes to 14px, and its "Evidence" eyebrow reaches 4.5:1 against the box
  *     it sits on (computed colours, WCAG relative luminance);
- *   - headings and evidence wrap inside their card: nothing scrolls sideways.
+ *   - headings and evidence wrap inside their card, a long unbreakable token (a URL) included:
+ *     nothing scrolls sideways.
  *
  * The four risks are the production filing-3 spans (fixtures/filing-3-risks.json, copied verbatim
  * from raw_summary.sections.risks of the critique harness's cached GET /api/summaries/filing/3,
@@ -24,16 +27,11 @@ import { API_ORIGIN, SUMMARY, answerApi, type Theme } from './fixtures/filing3Ap
  * not a screen-reader test.
  */
 
-const RISKS = JSON.parse(readFileSync(path.join(__dirname, 'fixtures/filing-3-risks.json'), 'utf8')) as Array<{
-  supporting_evidence: string
-}>
-const HEADLINES = [
-  'Tariffs and other measures that are applied to the Company’s products or their components…',
-  'Substantially all of the Company’s hardware products are manufactured by outsourcing partners…',
-  'As of September\u00a027, 2025, the total amount of gross unrecognized tax benefits was $23.2 billion…',
-  'Regardless of the merit of particular claims, defending against litigation or responding…',
-]
+type Risk = { supporting_evidence: string } & Record<string, unknown>
+const RISKS = JSON.parse(readFileSync(path.join(__dirname, 'fixtures/filing-3-risks.json'), 'utf8')) as Risk[]
 const SECTION = '#risks'
+/** RISK_HEADLINE_MAX_CHARS plus the ellipsis. */
+const MAX_HEADLINE = 101
 
 /** The path geometry of a Phosphor glyph, as the installed package renders it. */
 const pathsOf = (icon: ComponentType): string[] =>
@@ -51,10 +49,10 @@ test.beforeAll(async () => {
   expect(QUOTES).not.toEqual(TREND_DOWN)
 })
 
-async function openRisks(page: Page, baseURL: string, theme: Theme) {
+async function openRisks(page: Page, baseURL: string, theme: Theme, risks: Risk[] = RISKS) {
   await answerApi(page, baseURL)
   const summary = structuredClone(SUMMARY) as { raw_summary: { sections: Record<string, unknown> } }
-  summary.raw_summary.sections.risks = RISKS
+  summary.raw_summary.sections.risks = risks
   const origin = new URL(baseURL).origin
   // Registered after answerApi, so it answers the summary first; everything else falls through.
   await page.route(
@@ -155,12 +153,15 @@ for (const viewport of VIEWPORTS) {
         const m = await measure(page)
         expect(m.dark).toBe(theme === 'dark')
         expect(m.cards).toHaveLength(RISKS.length)
-        expect.soft(m.cards.map((c) => c.headline)).toEqual(HEADLINES)
         for (const [i, card] of m.cards.entries()) {
           const excerpt = RISKS[i].supporting_evidence
           expect.soft(card.level).toBe('H4')
           // Verbatim: the headline (without its ellipsis) opens the excerpt; the excerpt renders whole.
+          // All four production spans run past the cap, so each headline is cut and ellipsed.
+          expect.soft(card.headline, 'not the positional fallback').not.toMatch(/^Filing excerpt \d+$/)
           expect.soft(excerpt.startsWith(card.headline.replace(/…$/, '')), card.headline).toBe(true)
+          expect.soft(card.headline.endsWith('…'), card.headline).toBe(true)
+          expect.soft(card.headline.length, card.headline).toBeLessThanOrEqual(MAX_HEADLINE)
           expect.soft(card.evidence).toBe(excerpt)
           expect.soft(card.glyph, 'quotation glyph').toEqual(QUOTES)
           expect.soft(card.glyph, 'not the bearish arrow').not.toEqual(TREND_DOWN)
@@ -182,3 +183,26 @@ for (const viewport of VIEWPORTS) {
     }
   })
 }
+
+// A heading quoted from a filing can carry one long unbreakable token. The span is synthetic: no
+// production risk span has one, but nothing in the rule stops it.
+const LONG_TOKEN: Risk = {
+  ...RISKS[0],
+  supporting_evidence: 'Risk disclosures are posted at investor.example.com/secfilings/annualreports/form10k/riskfactors2025 every quarter.',
+}
+
+test.describe('a risk heading with a long unbreakable token at 390', () => {
+  test.use({ viewport: { width: 390, height: 844 } })
+
+  test('wraps the token inside the card in the heading and the evidence', async ({ page, baseURL }) => {
+    await openRisks(page, baseURL!, 'light', [LONG_TOKEN])
+    const m = await measure(page)
+    expect(m.cards).toHaveLength(1)
+    const [card] = m.cards
+    expect(card.headline).toContain('investor.example.com/secfilings/annualreports/form10k/riskfactors2025')
+    expect.soft(card.headlineInside, 'heading inside the card').toBe(true)
+    expect.soft(card.boxInside, 'evidence inside the card').toBe(true)
+    expect.soft(card.cardOverflow).toBeLessThanOrEqual(0)
+    expect.soft(m.pageOverflow).toBeLessThanOrEqual(0)
+  })
+})

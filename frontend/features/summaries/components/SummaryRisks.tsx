@@ -54,7 +54,7 @@ export function SummaryRisks({ risks, projection }: SummaryRisksProps) {
           title={deriveRiskHeadline(risk.supporting_evidence, index)}
         >
           <div className="space-y-2">
-            <div className="mt-2 rounded border border-border-light bg-background-light p-2 text-sm text-text-secondary-light dark:border-border-dark dark:bg-background-dark dark:text-text-secondary-dark">
+            <div className="mt-2 rounded border border-border-light bg-background-light p-2 text-sm text-text-secondary-light [overflow-wrap:anywhere] dark:border-border-dark dark:bg-background-dark dark:text-text-secondary-dark">
               <span className="mr-2 text-data-xs font-semibold uppercase tracking-eyebrow text-text-secondary-light dark:text-text-secondary-dark">
                 Evidence
               </span>
