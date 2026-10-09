@@ -1,10 +1,13 @@
 import { ReactNode } from 'react'
-import { MinusIcon, TrendDownIcon, TrendUpIcon } from '@/lib/icons'
+import { MinusIcon, QuotesIcon, TrendDownIcon, TrendUpIcon } from '@/lib/icons'
 
-type Sentiment = 'bullish' | 'bearish' | 'neutral'
+// 'excerpt' is not a sentiment: a verbatim filing passage (the risk cards) states no trend, so it
+// takes the neutral quotation glyph instead of the bearish arrow while keeping the card on the
+// panel fill (CLAUDE.md rule 11: cards = panel), which 'neutral' would swap for the page ground.
+type Variant = 'bullish' | 'bearish' | 'neutral' | 'excerpt'
 
 interface SummaryBlockProps {
-  type?: Sentiment
+  type?: Variant
   title?: string
   children: ReactNode
 }
@@ -31,6 +34,13 @@ export function SummaryBlock({ type = 'neutral', title, children }: SummaryBlock
       icon: MinusIcon,
       iconColor: 'text-text-tertiary-light dark:text-text-secondary-dark',
       titleColor: 'text-text-secondary-light dark:text-text-secondary-dark'
+    },
+    excerpt: {
+      border: 'border-border-light dark:border-border-dark',
+      bg: 'bg-panel-light dark:bg-panel-dark',
+      icon: QuotesIcon,
+      iconColor: 'text-text-tertiary-light dark:text-text-secondary-dark',
+      titleColor: 'text-text-secondary-light dark:text-text-secondary-dark'
     }
   }
 
@@ -38,20 +48,22 @@ export function SummaryBlock({ type = 'neutral', title, children }: SummaryBlock
   const Icon = style.icon
 
   return (
-    <div className={`
+    <div data-summary-block={type} className={`
       relative overflow-hidden rounded-r-lg border-l-4 shadow-e1 dark:shadow-none transition hover:shadow-e2
       ${style.border} ${style.bg}
       p-5 mb-4
     `}>
       <div className="flex items-start gap-3">
         {title && (
-          <div className="mb-2 flex items-center gap-2">
-            <Icon className={`h-5 w-5 ${style.iconColor}`} />
+          // The glyph sits on the title's first line (20px icon, 2px down a 24px line), so a
+          // headline that wraps keeps it beside its opening words; shrink-0 keeps it whole.
+          <div className="mb-2 flex items-start gap-2">
+            <Icon aria-hidden="true" className={`mt-0.5 h-5 w-5 shrink-0 ${style.iconColor}`} />
             <h4 className={`font-semibold ${style.titleColor}`}>{title}</h4>
           </div>
         )}
       </div>
-      
+
       <div className="text-text-secondary-light dark:text-text-secondary-dark leading-relaxed text-sm">
         {children}
       </div>

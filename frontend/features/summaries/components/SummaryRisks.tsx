@@ -46,15 +46,16 @@ export function SummaryRisks({ risks, projection }: SummaryRisksProps) {
     <div className="space-y-4">
       <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark">{notice}</p>
       {risks.map((risk, index) => (
-        // Titled with a verbatim prefix of the card's own verified excerpt (never a model label).
+        // Titled with a verbatim prefix of the card's own verified excerpt (never a model label),
+        // under the neutral quotation glyph: the passage is filing text, not a bearish signal.
         <SummaryBlock
           key={`${risk.summary}-${index}`}
-          type="bearish"
+          type="excerpt"
           title={deriveRiskHeadline(risk.supporting_evidence, index)}
         >
           <div className="space-y-2">
-            <div className="mt-2 rounded border border-border-light bg-background-light p-2 text-xs text-text-secondary-light dark:border-border-dark dark:bg-background-dark dark:text-text-secondary-dark">
-              <span className="mr-2 text-data-xs font-semibold uppercase tracking-eyebrow text-text-tertiary-light dark:text-text-secondary-dark">
+            <div className="mt-2 rounded border border-border-light bg-background-light p-2 text-sm text-text-secondary-light dark:border-border-dark dark:bg-background-dark dark:text-text-secondary-dark">
+              <span className="mr-2 text-data-xs font-semibold uppercase tracking-eyebrow text-text-secondary-light dark:text-text-secondary-dark">
                 Evidence
               </span>
               {risk.supporting_evidence}
