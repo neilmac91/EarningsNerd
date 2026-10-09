@@ -184,8 +184,9 @@ Focus ring       focus-visible:outline-none focus-visible:shadow-ring-brand dark
                  className it cannot read fails. A third-party component the chrome renders must be
                  classified in the gate (a provider renders no control); Sonner's Toaster takes the ring
                  through `toastOptions.classNames` with `!` on the shadow, since Sonner's own injected
-                 :focus-visible shadow matches or outranks a utility class, and the gate pins every slot. It is the rule's one gate; a page's other controls (the filing
-                 page's "← Back") carry the recipe but sit outside it.
+                 :focus-visible shadow matches or outranks a utility class, and the gate pins every slot. It is
+                 the rule's one gate; a page's other controls (the filing identity strip's breadcrumb) carry the
+                 recipe but sit outside it.
 
 Card / panel     bg-panel-light dark:bg-panel-dark + border + shadow-e2 dark:shadow-none
                  (e1 chips · e2 cards · e3 hero/featured · e4/e5 menus & overlays)

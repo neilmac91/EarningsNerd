@@ -31,8 +31,8 @@ import { describe, expect, it } from 'vitest'
  * widget), the auth routes' shell and the page header, with every module they import. The page header
  * also renders the controls a page passes into its `actions` slot (the dashboard's "Log out"), so every
  * `<SecondaryHeader actions={…}>` in the app is scanned too, and its controls must be written inline. A
- * page's other controls are not chrome: the filing page's "← Back" carries the recipe but is outside
- * this gate. This is the rule's one gate (AGENTS.md §4): no e2e walk repeats it.
+ * page's other controls are not chrome: the filing identity strip's breadcrumb carries the recipe but
+ * is outside this gate. This is the rule's one gate (AGENTS.md §4): no e2e walk repeats it.
  */
 const ROOT = path.resolve(__dirname, '../..')
 
