@@ -61,7 +61,7 @@ const ABBREVIATION_ALTERNATION = ABBREVIATIONS.map(caseInsensitive).join('|')
 // quotes or brackets (captured, so the headline keeps a quotation it closes), then a capitalised
 // word, a figure or an opening quote, or the end of the text.
 const SENTENCE_END = new RegExp(
-  `(?<!\\b[A-Za-z])(?<!\\b(?:${ABBREVIATION_ALTERNATION}))[.!?](["”’)\\]]*)(?=\\s+["“‘(\\[$€£]?[A-Z0-9]|\\s*$)`,
+  `(?<!\\b[A-Za-z])(?<!\\b(?:${ABBREVIATION_ALTERNATION}))[.!?](["”’')\\]]*)(?=\\s+["“‘'(\\[$€£]?[A-Z0-9]|\\s*$)`,
   'g',
 )
 
@@ -127,7 +127,8 @@ const WORD_CHAR = /[\p{L}\p{N}]/u
 /**
  * Whether a single quotation, curly or straight, is still open at the end of the text. "’" and "'"
  * are also apostrophes, so the marks are read in order. "‘" opens, and so does "'" at the start of a
- * word (after a space or a bracket, before a letter or figure). Any other mark closes only a
+ * word (after a space or a bracket, before anything but a space or closing punctuation: "'subject",
+ * "'$5"). Any other mark closes only a
  * quotation already open, and never when it reads as an apostrophe: between letters ("Company’s",
  * "Company's") or after an s ("customers’ agreements"). That last case is ambiguous ("‘annual
  * reviews’" closes there), so it errs open: the headline stops before the quotation rather than risk
@@ -140,7 +141,7 @@ const singleQuoteOpen = (text: string): boolean => {
     if (mark !== '‘' && mark !== '’' && mark !== "'") continue
     const before = text[i - 1] ?? ''
     const after = text[i + 1] ?? ''
-    if (mark === '‘' || (mark === "'" && !WORD_CHAR.test(before) && WORD_CHAR.test(after))) depth++
+    if (mark === '‘' || (mark === "'" && !WORD_CHAR.test(before) && /[^\s.,;:!?)\]]/.test(after))) depth++
     else if (depth > 0) {
       const apostrophe = LETTER.test(before) && (LETTER.test(after) || /[sS]/.test(before))
       if (!apostrophe) depth--

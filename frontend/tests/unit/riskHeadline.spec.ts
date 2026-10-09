@@ -147,6 +147,10 @@ describe('deriveRiskHeadline', () => {
       'We maintain insurance coverage; however, such coverage may not be adequate to cover all losses',
     )
     expect(deriveRiskHeadline('Item 1A: “substantially dependent on TSMC.”', 0)).toBe('Item 1A: “substantially dependent on TSMC.”')
+    // A sentence that ends inside straight quotes ends there too, keeping its closing quote.
+    expect(deriveRiskHeadline("The filing states 'We face material risks.' More details follow.", 0)).toBe(
+      "The filing states 'We face material risks.'…",
+    )
   })
 
   it('cuts a long sentence at its first ";" or ":" when the clause before it can stand as a heading', () => {
@@ -344,6 +348,13 @@ describe('deriveRiskHeadline', () => {
         0,
       ),
     ).toBe('Our largest customer describes these supply arrangements…')
+    // A straight quote opens before a figure or currency sign as well as before a letter.
+    expect(
+      deriveRiskHeadline(
+        "Our largest customer agreement describes the fee as '$5 per unit subject to annual escalation and quarterly adjustment' in each contract year.",
+        0,
+      ),
+    ).toBe('Our largest customer agreement describes the fee…')
   })
 
   it('keeps the excerpt’s own whitespace and casing (verbatim, not normalised)', () => {
