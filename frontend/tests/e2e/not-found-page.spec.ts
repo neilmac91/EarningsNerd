@@ -70,10 +70,17 @@ for (const theme of ['light', 'dark'] as const) {
   })
 }
 
-test('the 404 is a real page: Tab reaches its links, and Home leaves it', async ({ page }) => {
+test('the 404 is a real page: Tab reaches its links, and Enter on the homepage link leaves it', async ({ page }) => {
   await open404(page, 'light')
-  const home = page.getByRole('main').getByRole('link', { name: 'Go to the homepage' })
-  await home.focus()
+  const main = page.getByRole('main')
+  const home = main.getByRole('link', { name: 'Go to the homepage' })
+  // A click on the heading moves the sequential focus starting point there, so Tab walks the card in order.
+  await main.getByRole('heading', { level: 1 }).click()
+  await page.keyboard.press('Tab')
+  await expect(home).toBeFocused()
+  await page.keyboard.press('Tab')
+  await expect(main.getByRole('link', { name: 'Open your dashboard' })).toBeFocused()
+  await page.keyboard.press('Shift+Tab')
   await expect(home).toBeFocused()
   await page.keyboard.press('Enter')
   await expect(page).toHaveURL(/\/$/)

@@ -3,8 +3,8 @@ import type { Locator } from '@playwright/test'
 /**
  * WCAG contrast of an element's text against what is actually painted behind it, from the
  * browser's own resolved colours: the element's ink composited over its effective background, which
- * is every ancestor's background-color composited from the nearest opaque one up to the element
- * itself (the html/body ground when nothing is opaque). Background images and gradients are not
+ * is every background-color from the nearest opaque ancestor (up to and including <html>) down to
+ * the element itself, over white when none is opaque. Background images and gradients are not
  * read — the surfaces measured with it are flat token fills. A DOM measurement, not a screen-reader
  * or visual test.
  */
@@ -43,9 +43,11 @@ export const textContrast = (loc: Locator): Promise<number> =>
     return Math.round(((hi + 0.05) / (lo + 0.05)) * 100) / 100
   })
 
-/** Every CSS transition or animation on the element and its subtree has finished. */
+/** Every finite CSS transition or animation on the element and its subtree has finished (an
+ *  infinite loop, such as a pulse, never finishes, so it is not awaited). */
 export const settled = (loc: Locator): Promise<void> =>
   loc.evaluate(async (el) => {
     await new Promise(requestAnimationFrame)
-    await Promise.all(el.getAnimations({ subtree: true }).map((a) => a.finished))
+    const finite = el.getAnimations({ subtree: true }).filter((a) => a.effect?.getTiming().iterations !== Infinity)
+    await Promise.all(finite.map((a) => a.finished))
   })

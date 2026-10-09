@@ -13,21 +13,29 @@
    and nothing in CI looked. A loop composed apart from its guard (`cx('animate-
    pulse', …)`) fails too: put the guard in the same literal.
 
-   Scope: every tracked, non-binary file under app, components, features, hooks
-   and lib (`git ls-files`, so a new file counts once it is staged). Code files
-   are read through the TypeScript AST, so a comment never counts; any other text
-   file is read line by line with CSS comments removed (an `@apply` line is a
-   class string). No allowlist: every existing loop is guarded.
+   Scope: every tracked, non-binary file under each directory Tailwind reads
+   classes from (tailwind.config.js `content`: app, components, features, hooks
+   and lib today; designSystemDoneGate.spec.ts keeps every class-composing module
+   inside one), listed by `git ls-files`, so a new file counts once it is staged.
+   Code files are read through the TypeScript AST, so a comment never counts; any
+   other text file is read line by line with CSS comments removed (an `@apply`
+   line is a class string). No allowlist: every existing loop is guarded.
 ============================================================================= */
 
 import { execFileSync } from 'node:child_process'
 import fs from 'node:fs'
+import { createRequire } from 'node:module'
 import path from 'node:path'
 import ts from 'typescript'
 import { describe, expect, it } from 'vitest'
 
 const FRONTEND = path.join(__dirname, '../..')
-const SCAN_DIRS = ['app', 'components', 'features', 'hooks', 'lib']
+/** The directories of tailwind.config.js `content` (every entry is `./<dir>/**…`), read from the config Tailwind uses. */
+const SCAN_DIRS: string[] = (createRequire(import.meta.url)('../../tailwind.config.js').content as string[]).map((glob) => {
+  const dir = /^\.\/([^/*]+)\//.exec(glob)?.[1]
+  if (!dir) throw new Error(`content entry ${JSON.stringify(glob)} is not ./<dir>/**; teach this gate its shape`)
+  return dir
+})
 const BINARY = /\.(png|jpe?g|gif|webp|avif|ico|svg|woff2?|ttf|otf|eot|mp4|webm|pdf|zip)$/i
 const CODE = /\.(js|jsx|ts|tsx|mjs|cjs)$/
 
@@ -90,7 +98,8 @@ describe('pulse/ping loops respect reduced motion', () => {
     expect(unguardedLoops('animate-pulse motion-reduce:transition-none')).toEqual(['animate-pulse'])
   })
 
-  it('finds no unguarded loop in app, components, features, hooks or lib', () => {
+  it('finds no unguarded loop in any directory Tailwind reads classes from', () => {
+    expect(SCAN_DIRS).toEqual(expect.arrayContaining(['app', 'components', 'features', 'hooks', 'lib']))
     const { files, loops, offenders } = scan()
     // Anti-vacuity: a broken walk and a clean tree both look green, so the scan must see the app and its loops.
     expect(files).toBeGreaterThan(100)
