@@ -49,10 +49,11 @@ export function ComparePeriodsCard({ filing }: { filing: Filing }) {
       <h2 id={headingId} ref={headingRef} tabIndex={-1} className={cx('text-lg font-semibold outline-none', INK)}>
         Compare periods
       </h2>
+      {/* Two short lines, so a narrow card never breaks a date across them. */}
       <p className={cx('mt-1 font-data text-xs tabular-nums', MUTED)}>
         {filing.filing_type} · year ended {day(filing.report_date)}
-        {priorEnded && ` vs ${priorEnded}`}
       </p>
+      {priorEnded && <p className={cx('font-data text-xs tabular-nums', MUTED)}>vs year ended {priorEnded}</p>}
 
       {failure.failed ? (
         <div className="mt-4">

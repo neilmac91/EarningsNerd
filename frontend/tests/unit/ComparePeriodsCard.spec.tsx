@@ -72,8 +72,9 @@ describe('ComparePeriodsCard', () => {
     api.getWhatChanged.mockResolvedValue(REPORT)
     renderCard()
     const card = screen.getByRole('complementary', { name: 'Compare periods' })
-    expect(card).toHaveTextContent('10-K · year ended Sep 27, 2025')
-    await waitFor(() => expect(card).toHaveTextContent('10-K · year ended Sep 27, 2025 vs Sep 28, 2024'))
+    expect(within(card).getByText('10-K · year ended Sep 27, 2025')).toBeInTheDocument()
+    // The prior period on its own line once the report names it, so no date breaks across lines.
+    expect(await within(card).findByText('vs year ended Sep 28, 2024')).toBeInTheDocument()
     expect(api.getWhatChanged).toHaveBeenCalledWith(3)
   })
 
