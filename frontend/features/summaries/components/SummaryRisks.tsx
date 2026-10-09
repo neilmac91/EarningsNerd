@@ -1,6 +1,7 @@
 import React from 'react'
 import { SummaryBlock } from '@/features/summaries/components/SummaryBlock'
 import { SourceTrace } from '@/features/filings/components/SourceTrace'
+import { deriveRiskHeadline } from '@/features/summaries/lib/riskHeadline'
 import type { RiskFactor } from '@/types/summary'
 
 interface SummaryRisksProps {
@@ -45,10 +46,11 @@ export function SummaryRisks({ risks, projection }: SummaryRisksProps) {
     <div className="space-y-4">
       <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark">{notice}</p>
       {risks.map((risk, index) => (
+        // Titled with a verbatim prefix of the card's own verified excerpt (never a model label).
         <SummaryBlock
           key={`${risk.summary}-${index}`}
           type="bearish"
-          title={`Filing excerpt ${index + 1}`}
+          title={deriveRiskHeadline(risk.supporting_evidence, index)}
         >
           <div className="space-y-2">
             <div className="mt-2 rounded border border-border-light bg-background-light p-2 text-xs text-text-secondary-light dark:border-border-dark dark:bg-background-dark dark:text-text-secondary-dark">

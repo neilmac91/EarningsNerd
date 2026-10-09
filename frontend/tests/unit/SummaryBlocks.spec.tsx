@@ -148,8 +148,10 @@ describe('SummaryBlocks', () => {
 
   it('renders the risks section with its evidence + trace-to-source provenance', () => {
     render(<SummaryBlocks sections={sections} summary={summary} />)
-    expect(screen.getByRole('heading', { level: 4, name: 'Filing excerpt 1' })).toBeInTheDocument()
-    expect(screen.getByText(/substantially dependent on TSMC/)).toBeInTheDocument()
+    // The card is titled from its own excerpt (it fits whole here), and the excerpt still renders
+    // in full in the card's Evidence box.
+    expect(screen.getByRole('heading', { level: 4, name: 'Item 1A: “substantially dependent on TSMC.”' })).toBeInTheDocument()
+    expect(screen.getByText('Evidence').parentElement).toHaveTextContent('Item 1A: “substantially dependent on TSMC.”')
     // source_verified: true → the shared SourceTrace renders the "Verified in filing" affordance.
     expect(screen.getByText(/Verified in filing/i)).toBeInTheDocument()
   })
@@ -241,27 +243,31 @@ describe('SummaryBlocks', () => {
     expect(mobileNav.querySelectorAll('a')).toHaveLength(sections.length)
   })
 
-  it('uses neutral headings instead of model-authored risk labels', () => {
+  it('titles risks from their own excerpts, never from model-authored labels', () => {
     const riskSections: RenderedSection[] = [
       { id: 'investment-risks-concerns', role: 'risks', title: 'Investment Risks & Concerns', blocks: [] },
     ]
-    const untitled = {
+    // Model-authored labels in summary/title/description must never reach a heading: the heading
+    // is a verbatim prefix of the card's verified excerpt, or the positional fallback when the
+    // excerpt is too short to title the card.
+    const labelled = {
       business_overview: 'x',
       raw_summary: {
         risk_source_context_version: 1,
         sections: {
           risks: [
-            { summary: 'Filing excerpt', supporting_evidence: 'Item 1A: verbatim quote one.' },
-            { summary: 'Filing excerpt', supporting_evidence: 'Item 1A: verbatim quote two.' },
+            { summary: 'Customer concentration', supporting_evidence: 'Item 1A: verbatim quote one.' },
+            { summary: 'Filing excerpt', title: 'FX headwinds', supporting_evidence: 'Item 1A: verbatim quote two.' },
+            { summary: 'Filing excerpt', description: 'Supply shock', supporting_evidence: 'Tariffs.' },
           ],
-          _risk_source_projection: { version: 1, verified_count: 2, withheld_count: 0 },
+          _risk_source_projection: { version: 1, verified_count: 3, withheld_count: 0 },
         },
       },
     } as unknown as Summary
-    render(<SummaryBlocks sections={riskSections} summary={untitled} />)
+    render(<SummaryBlocks sections={riskSections} summary={labelled} />)
     const headings = screen.getAllByRole('heading', { level: 4 }).map((h) => h.textContent)
-    expect(headings).toEqual(['Filing excerpt 1', 'Filing excerpt 2'])
-    expect(screen.queryByText(/Customer concentration|FX headwinds/)).not.toBeInTheDocument()
+    expect(headings).toEqual(['Item 1A: verbatim quote one', 'Item 1A: verbatim quote two', 'Filing excerpt 3'])
+    expect(screen.queryByText(/Customer concentration|FX headwinds|Supply shock/)).not.toBeInTheDocument()
   })
 
   it('matches the risks section by role and renders only owner-projected excerpts', () => {

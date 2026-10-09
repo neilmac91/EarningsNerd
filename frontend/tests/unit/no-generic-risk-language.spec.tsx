@@ -41,8 +41,11 @@ describe('Risk factors include supporting evidence', () => {
 
     render(<SummaryBlocks sections={sections} summary={summary} />)
 
-    expect(screen.getByRole('heading', { level: 4, name: 'Filing excerpt 1' })).toBeInTheDocument()
-    expect(screen.getByText(/Item 1A:/i)).toBeInTheDocument()
+    // Titled from its own excerpt (which fits whole), and the excerpt renders in its Evidence box.
+    expect(
+      screen.getByRole('heading', { level: 4, name: 'Item 1A: “Supply chain constraints persisted through Q3.”' }),
+    ).toBeInTheDocument()
+    expect(screen.getByText('Evidence').parentElement).toHaveTextContent('Item 1A: “Supply chain constraints persisted through Q3.”')
     expect(screen.getByText(/1 item withheld/)).toBeInTheDocument()
     expect(screen.queryByText('Generic statement with no evidence.')).not.toBeInTheDocument()
   })
