@@ -13,8 +13,9 @@ import { describe, expect, it } from 'vitest'
  * since it must show on any focus.
  *
  * The scan reads the TypeScript AST of each chrome file below and checks every element a user can Tab
- * to (a, button, input, select, textarea, summary, next/link's Link, or anything with a tabIndex the scan
- * cannot prove negative: 0 or more, or a dynamic value such as a roving `tabIndex={selected ? 0 : -1}`). Its className must carry the whole triple, or be the DS factory `buttonVariants(…)`, which
+ * to (a, button, input, select, textarea, summary, next/link's Link, anything with a tabIndex the scan
+ * cannot prove negative: 0 or more, or a dynamic value such as a roving `tabIndex={selected ? 0 : -1}`,
+ * and any contentEditable region the scan cannot prove off). Its className must carry the whole triple, or be the DS factory `buttonVariants(…)`, which
  * composes it (pinned below). A className the scan cannot read (a variable, a call to anything else)
  * fails: the ring has to be visible in the file. Dynamic `${…}` parts of a template are ignored, so the
  * triple must sit in the template's static text. The DS components (<Button>, <Input>) are not scanned
@@ -226,6 +227,14 @@ function scan(root: ts.Node, sf: ts.SourceFile): { stops: number; findings: Find
       const branches = tabIndex && ts.isJsxExpression(tabIndex) && tabIndex.expression ? tabIndexBranches(tabIndex.expression) : []
       const removed = branches.length > 0 && branches.every((b) => b === 'negative')
       const indexed = branches.some((b) => b === 'stop')
+      // An editable region is a Tab stop of its own, unless provably off (`false`, "false", "inherit");
+      // a bare or dynamic contentEditable may be on.
+      const editable = attr('contentEditable') ?? attr('contenteditable')
+      const editableOff =
+        !!editable?.initializer &&
+        ((ts.isStringLiteral(editable.initializer) && ['false', 'inherit'].includes(editable.initializer.text)) ||
+          (ts.isJsxExpression(editable.initializer) && editable.initializer.expression?.kind === ts.SyntaxKind.FalseKeyword))
+      const editableStop = editable !== undefined && !editableOff
       // `disabled` or `disabled={true}`; a dynamic value may be enabled, so it still counts.
       const disabled = attr('disabled')
       const staticallyDisabled =
@@ -233,7 +242,7 @@ function scan(root: ts.Node, sf: ts.SourceFile): { stops: number; findings: Find
         (!disabled.initializer ||
           (ts.isJsxExpression(disabled.initializer) && disabled.initializer.expression?.kind === ts.SyntaxKind.TrueKeyword))
       const tabbable =
-        (INTRINSIC.has(tag) || linkNames.has(tag) || indexed) && !removed && !staticallyDisabled
+        (INTRINSIC.has(tag) || linkNames.has(tag) || indexed || editableStop) && !removed && !staticallyDisabled
       const typeAttr = attr('type')?.initializer
       const toggle = tag === 'input' && !!typeAttr && ts.isStringLiteral(typeAttr) && ['checkbox', 'radio'].includes(typeAttr.text)
       if (tabbable) {
@@ -417,11 +426,14 @@ describe('every Tab stop in the site chrome carries the brand focus ring (EN-05c
             <button disabled={busy} className="p-2">busy</button>
             <li tabIndex={selected ? 0 : -1} className="p-1">roving</li>
             <h1 tabIndex={selected ? -1 : undefined}>focus target</h1>
+            <div contentEditable className="p-1">notes</div>
+            <div contentEditable={selected} className="p-1">maybe</div>
+            <div contentEditable={false} className="p-1">static</div>
           </nav>
         )
       }`
     const { stops, findings } = missingRings(src)
-    expect(stops).toBe(13)
+    expect(stops).toBe(15)
     expect(findings.map((f) => `${f.tag}: ${f.problem}`)).toEqual([
       'NextLink: missing focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark',
       'button: missing dark:focus-visible:shadow-ring-brand-dark',
@@ -431,6 +443,8 @@ describe('every Tab stop in the site chrome carries the brand focus ring (EN-05c
       "input: missing focus:ring-0 focus:ring-offset-0 (the forms plugin's ring)",
       'button: missing focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark',
       'li: missing focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark',
+      'div: missing focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark',
+      'div: missing focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark',
     ])
   })
 })
