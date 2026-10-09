@@ -438,11 +438,12 @@ describe('Company page', () => {
     api.getCompany.mockResolvedValue(company)
     api.getSummary.mockResolvedValue(null)
     api.getCurrentUserSafe.mockResolvedValue({ id: 1, email: 'a@example.test' })
-    // No seed, and the filings query retries once before it reports the failure.
+    // No seed, and the filings query retries once (TanStack's real 1s delay) before it reports the
+    // failure, so this test has a longer budget than the default.
     api.getCompanyFilings.mockRejectedValueOnce(new Error('down')).mockRejectedValueOnce(new Error('down'))
     renderWithClient(<CompanyPageClient initialCompany={company} />)
 
-    const alert = await screen.findByRole('alert', {}, { timeout: 5000 })
+    const alert = await screen.findByRole('alert', {}, { timeout: 4000 })
     expect(alert).toHaveTextContent('Couldn’t load filings')
     const retry = within(alert).getByRole('button', { name: 'Retry' })
     const refetch = deferred<Filing[]>()
@@ -461,7 +462,7 @@ describe('Company page', () => {
     await waitFor(() => expect(screen.queryByRole('alert')).not.toBeInTheDocument())
     expect(screen.getByRole('link', { name: /^10-K\s+Fiscal year ended Sep 27, 2025/ })).toBeInTheDocument()
     expect(document.activeElement).toBe(screen.getByRole('heading', { name: 'SEC filings' }))
-  })
+  }, 10_000)
 })
 
 describe('FilingFeed onboarding', () => {

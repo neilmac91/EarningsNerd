@@ -130,7 +130,7 @@ describe('ChangeReportDemo', () => {
     for (const layout of ['table', 'rows']) {
       const scope = within(container.querySelector<HTMLElement>(`[data-change-layout="${layout}"]`)!)
       for (const item of SAMPLE_CHANGE_REPORT.metrics!.items) {
-        expect(scope.getByText(item.display)).toBeInTheDocument()
+        expect(scope.getByText(item.display as string)).toBeInTheDocument()
       }
     }
     // The chrome-neutralising wrapper targets `[&>section]`: WhatChanged's section must stay its

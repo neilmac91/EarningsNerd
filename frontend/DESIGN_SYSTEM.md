@@ -405,8 +405,9 @@ Section ledger   <SummaryBlocks>  (P-05/P-07) — sections sit on the page groun
                  close with a hairline, outer cells flush with the text edge, no outer frame). Body ink for
                  paragraphs and bullets. The change report is the section after the first metrics section
                  (`<WhatChanged bare>`): Metric · Prior · Current · Change · Read as, the change the server's
-                 display string in its TONE's ink with a ▲/▼ text glyph for the arithmetic direction
-                 (aria-hidden), "Read as" = the tone in words (Favorable / Unfavorable / Neutral); below sm a
+                 display string (the em dash when it sends none: a zero prior) in its TONE's ink with a ▲/▼
+                 text glyph for the arithmetic direction (aria-hidden; sr-only words state it where no signed
+                 string does), "Read as" = the tone in words (Favorable / Unfavorable / Neutral); below sm a
                  stacked row per metric (name + change, then prior → current + Read as), switched by CSS.
                  A fragment the page was OPENED with (/filing/{id}#what-changed, from Compare periods) is
                  honoured once its section renders (features/summaries/hooks/useSectionArrival); later
@@ -432,7 +433,7 @@ Compare periods  <ComparePeriodsCard filing>  (features/filings, critique 1b + P
                  report: an <aside> Card (p-5, h2 18/600) beside the filings index on lg+ (grid-cols-1 base,
                  lg 1fr + 20rem), shown only for selectComparisonFiling (the newest annual report with an
                  earlier annual period listed). Up to three hairline rows: metric · the change in WhatChanged's
-                 own vocabulary (exported Change: ▲/▼ glyph + the server's display string in its tone's ink)
+                 own vocabulary (exported Change: ▲/▼ glyph + the server's display string or —, in its tone's ink)
                  · the Read-as word; "N more in the change report."; a sage text link "Open change report →"
                  to /filing/{id}#what-changed. Same GET and query key as the filing page's section. States in
                  place: ledger bones, Notice + RetryButton, a plain line when nothing is comparable. No risk

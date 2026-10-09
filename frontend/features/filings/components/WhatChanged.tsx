@@ -21,7 +21,7 @@ import { fmtCurrency, fmtScale, formatLocalDate } from '@/lib/format'
  *    VERBATIM, or the figure dash when it sends none (a zero prior: no percentage is meaningful),
  *    coloured by the server's `tone` (metric-aware: a fall in debt is a gain — DESIGN_SYSTEM §10),
  *    never re-derived from `direction`. A ▲/▼ text glyph states the arithmetic direction
- *    (aria-hidden: the signed string carries it, or words do when there is none) and "Read as"
+ *    (aria-hidden: a signed display string carries it, and words do where none does) and "Read as"
  *    states the tone in words, so direction and valence never share one signal. Below `sm` each
  *    metric is a stacked row — name and change, then prior → current and "Read as" — switched by
  *    CSS alone, like the metric cards (the inactive layout is display:none);
@@ -47,9 +47,12 @@ export const READ_AS: Record<WhatChangedMetricItem['tone'], string> = {
 }
 
 const GLYPH: Record<WhatChangedMetricItem['direction'], string> = { up: '▲', down: '▼', flat: '' }
-/** The direction in words, for a change served without a display string: no signed string carries
- *  it past the aria-hidden glyph, and the Compare periods card shows no figures to infer it from. */
+/** The direction in words, where no signed display string carries it past the aria-hidden glyph: a
+ *  zero prior's missing string, or "0.0%" for a change that rounds away. The Compare periods card
+ *  shows no figures to infer it from. */
 const SPOKEN_DIRECTION: Record<WhatChangedMetricItem['direction'], string> = { up: 'Up', down: 'Down', flat: 'Unchanged' }
+/** A display string that states its own direction ("+7.8%", "−3.4%"). */
+const SIGNED = /^[+−-]/
 
 const SUBHEADING = { h2: 'h3', h3: 'h4', h4: 'h5' } as const
 const PER_SHARE = /eps|per_share/i
@@ -73,10 +76,12 @@ function figure(item: WhatChangedMetricItem, value: number | null, currency: str
 
 /** The served change: its direction glyph, then the display string, both in the tone's ink. Shared
  *  with the company page's Compare periods card, so a change reads the same in both places. A zero
- *  prior has no meaningful percentage, so the server sends no display string: the cell shows the
- *  figure dash, and assistive tech hears the direction in words. */
+ *  prior has no meaningful percentage, so the server sends no display string and the cell shows the
+ *  figure dash. Where no signed string states the direction (that dash, or "0.0%" for a change that
+ *  rounds away), assistive tech hears it in words. */
 export function Change({ item }: { item: WhatChangedMetricItem }) {
   const glyph = GLYPH[item.direction]
+  const spoken = item.display == null || (glyph && !SIGNED.test(item.display)) ? SPOKEN_DIRECTION[item.direction] : null
   return (
     <span className={TONE_TEXT[item.tone] ?? TONE_TEXT.flat}>
       {glyph && (
@@ -84,12 +89,8 @@ export function Change({ item }: { item: WhatChangedMetricItem }) {
           {glyph}
         </span>
       )}
-      {item.display ?? (
-        <>
-          <span aria-hidden="true">—</span>
-          <span className="sr-only">{SPOKEN_DIRECTION[item.direction]}</span>
-        </>
-      )}
+      {spoken && <span className="sr-only">{`${spoken} `}</span>}
+      {item.display ?? <span aria-hidden="true">—</span>}
     </span>
   )
 }

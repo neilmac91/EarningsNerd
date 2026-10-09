@@ -100,7 +100,7 @@ describe('ComparePeriodsCard', () => {
     })
     renderCard()
     const [row] = within(await screen.findByRole('list')).getAllByRole('listitem')
-    expect(row).toHaveTextContent(/^Net income▲—UpFavorable$/)
+    expect(row).toHaveTextContent(/^Net income▲Up —Favorable$/)
     expect(within(row).getByText('—')).toHaveAttribute('aria-hidden', 'true')
     expect(within(row).getByText('Up')).toHaveClass('sr-only')
   })
