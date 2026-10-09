@@ -29,7 +29,7 @@ const root = () => document.documentElement
 const inset = () => root().style.getPropertyValue(CONSENT_INSET_PROPERTY)
 const layerVisible = () => root().hasAttribute(CONSENT_VISIBLE_ATTRIBUTE)
 const COACH_KEY = 'en:copilot-coachmark-v1'
-const COACH_TEXT = 'New: the filing beside its summary'
+const COACH_TEXT = 'New: ask this filing anything'
 
 describe('lib/consentLayer', () => {
   afterEach(() => publishConsentLayer(null))

@@ -35,7 +35,7 @@ import { PANE, answerApi, type Theme } from './fixtures/filing3Api'
  * example). DOM, pointer and keyboard probes only: this is not a screen-reader test.
  */
 
-const COACH_TEXT = 'New: the filing beside its summary'
+const COACH_TEXT = 'New: ask this filing anything'
 const SAVED_TEXT = 'Cookie preferences saved'
 const CONSENT_CHOICES = ['Accept All', 'Reject All', 'Customize'] as const
 

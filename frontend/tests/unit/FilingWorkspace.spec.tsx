@@ -150,13 +150,13 @@ describe('FilingWorkspace', () => {
     // Non-demo, closed: the contextual coachmark nudge appears alongside the launcher.
     const { unmount } = renderWorkspace({ open: false })
     expect(screen.getByRole('button', { name: 'Source' })).toBeInTheDocument()
-    expect(screen.getByText(/the filing beside its summary/i)).toBeInTheDocument()
+    expect(screen.getByText(/ask this filing anything/i)).toBeInTheDocument()
     unmount()
 
     // Demo mode, closed: launcher still present, but the nudge is suppressed (calm first impression).
     renderWorkspace({ open: false, demoMode: true })
     expect(screen.getByRole('button', { name: 'Source' })).toBeInTheDocument()
-    expect(screen.queryByText(/the filing beside its summary/i)).toBeNull()
+    expect(screen.queryByText(/ask this filing anything/i)).toBeNull()
   })
 
   it('shows the resize separator when open and persists a keyboard resize', () => {
