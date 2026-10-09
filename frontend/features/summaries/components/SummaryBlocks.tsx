@@ -6,7 +6,8 @@ import FinancialMetricsTable from '@/features/summaries/components/FinancialMetr
 import { Callout } from '@/features/summaries/components/Callout'
 import { SummaryRisks } from '@/features/summaries/components/SummaryRisks'
 import { SourceTrace } from '@/features/filings/components/SourceTrace'
-import { WhatChanged } from '@/features/filings/components/WhatChanged'
+import { WHAT_CHANGED_ID, WhatChanged } from '@/features/filings/components/WhatChanged'
+import { useSectionArrival } from '@/features/summaries/hooks/useSectionArrival'
 import { SectionEmpty } from './SectionEmpty'
 import { normalizeRisk } from '@/lib/formatters'
 import type { RiskFactor } from '@/types/summary'
@@ -41,9 +42,6 @@ const TONE_VARIANT: Record<string, 'brand' | 'warning'> = {
   positive: 'brand',
   cautious: 'warning',
 }
-
-// The period comparison joins the page as a numbered section of its own (2026-10 critique P-07).
-const WHAT_CHANGED_ID = 'what-changed'
 
 const INK = 'text-text-primary-light dark:text-text-primary-dark'
 const MUTED = 'text-text-secondary-light dark:text-text-secondary-dark'
@@ -100,6 +98,8 @@ export function SummaryBlocks({ sections, summary, whatChanged }: SummaryBlocksP
       }
     } | undefined
   )?._risk_source_projection : undefined
+  const withChanges = Boolean(whatChanged?.has_changes) && !(sections ?? []).some((section) => section.id === WHAT_CHANGED_ID)
+  useSectionArrival([...(sections ?? []).map((section) => section.id), ...(withChanges ? [WHAT_CHANGED_ID] : [])].join(' '))
 
   if (!sections?.length) {
     return <SectionEmpty label="summary" />
@@ -115,7 +115,7 @@ export function SummaryBlocks({ sections, summary, whatChanged }: SummaryBlocksP
       section.blocks.map((block, i) => <BlockView key={i} block={block} />)
     ),
   }))
-  if (whatChanged?.has_changes && !sections.some((section) => section.id === WHAT_CHANGED_ID)) {
+  if (whatChanged && withChanges) {
     const metricsAt = sections.findIndex((section) => section.blocks.some((block) => block.kind === 'metrics'))
     pageSections.splice(metricsAt === -1 ? 1 : metricsAt + 1, 0, {
       id: WHAT_CHANGED_ID,
