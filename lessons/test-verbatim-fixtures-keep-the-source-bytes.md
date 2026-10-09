@@ -2,7 +2,7 @@
 
 Date: 2026-10-08   Area: test
 
-**Context**: The risk-card headline is a verbatim prefix of the card's projected filing excerpt.
+**Context**: A risk heading is a verbatim prefix of its row's projected filing excerpt.
 Its unit spec was first written with the four production filing-3 spans typed in by hand, and it
 passed. The Playwright check, which serves the spans copied from the cached production payload,
 failed on one of them: the filing joins "September" and "27" with a U+00A0 no-break space, and
@@ -21,4 +21,6 @@ whitespace-normalising text matchers.
 `raw_summary.sections.risks` of the critique harness's cached `GET /api/summaries/filing/3`, body
 sha256 `1412895e…`), which `frontend/tests/unit/riskHeadline.spec.ts` and
 `frontend/tests/unit/SummaryRisks.spec.tsx` now import rather than retype; the third span's
-`September\u00a027`; `SummaryRisks.spec.tsx` compares the Evidence box by `textContent`.
+`September\u00a027`; `SummaryRisks.spec.tsx` compares each row's blockquote by `textContent`. Main's
+first evidence-row headings (#1146) collapsed whitespace and rewrote that span's no-break space; the
+rule that replaced them keeps it.
