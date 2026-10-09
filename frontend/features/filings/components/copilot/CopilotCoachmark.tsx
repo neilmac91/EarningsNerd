@@ -1,7 +1,7 @@
 'use client'
 
 import type { CSSProperties } from 'react'
-import { SparkleIcon, XIcon } from '@/lib/icons'
+import { ChatCircleTextIcon, XIcon } from '@/lib/icons'
 import { Button } from '@/components/ui'
 import type { FocusHandoff } from '@/hooks/useFocusHandoff'
 
@@ -17,7 +17,8 @@ interface CopilotCoachmarkProps {
 }
 
 /**
- * One-time, contextual nudge anchored above the "Ask this Filing" launcher, shown the first time a
+ * One-time, contextual nudge anchored above the "Source" launcher (it opens the pane on Ask, its
+ * initial tab), shown the first time a
  * user reaches a filing summary (NN/g: a coachmark earns its place only to signal a genuinely new /
  * non-obvious affordance, fired at a contextual moment — not a launch-time tour). Purely
  * presentational: the parent owns the once-only / persisted visibility. Entrance motion is gated
@@ -39,7 +40,7 @@ export default function CopilotCoachmark({ onTry, tryHandoff, onDismiss, style }
         <XIcon className="h-4 w-4" />
       </button>
       <div className="flex items-start gap-2 pr-5">
-        <SparkleIcon className="mt-0.5 h-4 w-4 shrink-0 text-brand-strong dark:text-brand-strong-dark" aria-hidden="true" />
+        <ChatCircleTextIcon className="mt-0.5 h-4 w-4 shrink-0 text-brand-strong dark:text-brand-strong-dark" aria-hidden="true" />
         <div>
           <p className="text-sm font-semibold text-text-primary-light dark:text-text-primary-dark">
             New: ask this filing anything
@@ -57,7 +58,7 @@ export default function CopilotCoachmark({ onTry, tryHandoff, onDismiss, style }
               tryHandoff?.onPress(e)
               onTry()
             }}
-            leftIcon={<SparkleIcon className="h-3.5 w-3.5" aria-hidden="true" />}
+            leftIcon={<ChatCircleTextIcon className="h-3.5 w-3.5" aria-hidden="true" />}
           >
             Try it
           </Button>

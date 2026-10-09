@@ -21,7 +21,7 @@ const NAV_LINKS = [
   // entries appear only when the features are live. Search ships hidden (founder decision — see
   // ENABLE_FULLTEXT_SEARCH); flip the flag to reintroduce it.
   ...(ENABLE_FULLTEXT_SEARCH ? [{ href: '/search', label: 'Search' }] : []),
-  ...(ENABLE_ANALYSIS ? [{ href: '/analysis', label: 'Multi-Period Analysis' }] : []),
+  ...(ENABLE_ANALYSIS ? [{ href: '/analysis', label: 'Multi-period analysis' }] : []),
   ...(ENABLE_CALENDAR ? [{ href: '/calendar', label: 'Calendar' }] : []),
   { href: '/pricing', label: 'Pricing' },
   { href: '/contact', label: 'Contact' },
@@ -93,7 +93,7 @@ export default function Header({
         </div>
 
         {/* Center: Nav links (desktop). Inline nav switches on at `lg` (not `md`): the full product
-            labels — "Multi-Period Analysis" plus flag-gated Calendar — overflow the logo/CTAs in the
+            labels — "Multi-period analysis" plus flag-gated Calendar — overflow the logo/CTAs in the
             768–1023px band, so tablet widths use the hamburger menu below. Keep the desktop nav, the
             desktop CTA block, and the two mobile blocks on the SAME breakpoint. */}
         <nav className="hidden items-center gap-8 lg:flex" aria-label="Main navigation">
