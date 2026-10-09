@@ -333,6 +333,11 @@ describe('deriveRiskHeadline', () => {
         'Our operations depend on a unionised workforce, and a single union now represents a total of 3,200 employees at our largest manufacturing sites.',
         'Our operations depend on a unionised workforce, and a single union now represents a total…',
       ],
+      // A count with a trailing "+" is a figure too: never "3,200+…" before "employees".
+      [
+        'Our operations depend on a unionised workforce, and a single union represents approximately 3,200+ employees at our largest sites.',
+        'Our operations depend on a unionised workforce, and a single union represents…',
+      ],
       // A figure before "per", and the "up to" before it: never "$5…" nor "prices up…".
       [
         'The Board approved a dividend and the Company expects to repurchase additional shares at prices up to $5 per share during the year.',
