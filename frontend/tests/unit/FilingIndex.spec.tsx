@@ -1,6 +1,6 @@
 import React, { createRef, useState } from 'react'
 import { describe, expect, it, vi } from 'vitest'
-import { fireEvent, render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, within } from '@testing-library/react'
 import { FilingIndex, type FilingIndexProps } from '@/features/filings/components/FilingIndex'
 import type { Filing } from '@/features/filings/api/filings-api'
 import type { RetainedFailure } from '@/hooks/useRetainedFailure'
@@ -121,6 +121,18 @@ describe('FilingIndex', () => {
     expect(screen.getByRole('button', { name: 'All' })).toHaveAttribute('aria-pressed', 'false')
     expect(screen.getByText('2 of 6 filings')).toBeInTheDocument()
     expect(screen.queryByRole('link', { name: /^10-Q\s/ })).toBeNull()
+  })
+
+  it('keeps every form option on a phone: with amendments the filter wraps instead of overflowing', () => {
+    const withAmendments = [...FILINGS, filing(7, '10-K/A', '2026-03-10', '2026-01-25'), filing(8, '10-Q/A', '2025-12-01', '2025-10-26')]
+    render(<Harness filings={withAmendments} />)
+    const group = screen.getByRole('group', { name: 'Filter by form' })
+    expect(within(group).getAllByRole('button').map((b) => b.textContent)).toEqual(['All', '10-K', '10-Q', '10-K/A', '10-Q/A'])
+    // Below sm the segments stretch across the card and wrap onto another row rather than spill out of
+    // it (five mono segments need about 320px); from sm up they are one row. A label never breaks
+    // ("10-" over "K/A"), so a segment that does not fit moves whole.
+    expect(group).toHaveClass('w-full', 'flex-wrap', 'sm:flex-nowrap')
+    for (const segment of within(group).getAllByRole('button')) expect(segment).toHaveClass('whitespace-nowrap')
   })
 
   it('opens the group of a chosen year (a filter always shows its result)', () => {

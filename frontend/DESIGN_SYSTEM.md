@@ -214,6 +214,9 @@ Segmented ctrl   <SegmentedControl label options value onChange size="sm|md|adap
                  segment rounded (8) 12/600; selected = the primary colorway (bg-brand + white; dark NAVY ink on
                  brand-dark). sm 26px · md 36px · adaptive 36px below sm, 26px from sm up. `mono` options set
                  codes (10-K) in the data face. One selected colour per group — never an ink fill for "All".
+                 `fullWidth` stretches the segments across a phone row and wraps them onto another row when
+                 they do not fit (a form filter with amendments), so every option stays visible; from sm up
+                 it is one auto-width row.
 
 Index list       <FilingIndex> (features/filings/components) — the recipe for a list of primary documents:
                  ONE surface (the section Card), hairline rows and year groups (DataTable manners: hover
