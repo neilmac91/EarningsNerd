@@ -335,11 +335,15 @@ unused since generation became account-required in #619; kept because migrations
 
 - `FilingContentCache.markdown_*` columns are inert legacy (dropping needs a destructive
   migration).
-- Recorded follow-ups from the 2026-07 refactor (see `tasks/architecture-refactor-plan.md`
-  delta log): unify the two companyfacts fetchers on the async+limiter pattern; the
-  concept-list registries stay deliberately separate (orderings encode tag priority);
-  `_parse_company_facts` never populates its `total_liabilities`/`cash_and_equivalents`
-  buckets (pinned as characterization, fix pending).
+- Recorded follow-up from the 2026-07 refactor (see `tasks/architecture-refactor-plan.md`
+  delta log): the three concept-list registries (`facts_service`, `edgar/xbrl_service`,
+  `edgar/instance_extractor`) stay deliberately separate, because their orderings encode tag
+  priority; unifying them would change which tag wins. The other two follow-ups on that list are
+  done: both companyfacts fetchers run on the shared SEC limiter (WS-8, 2026-09-04, made
+  `facts_service`'s sync fetcher a bridge onto the rate-limited async one; the `xbrl_service`
+  fallback was already limiter-wired), and `_parse_company_facts` has filled its
+  `total_liabilities`/`cash_and_equivalents` buckets since 2026-09-05, pinned by
+  `backend/tests/unit/test_companyfacts_fixture.py`.
 
 ## Decision records
 
