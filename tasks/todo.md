@@ -1,3 +1,33 @@
+## 2026-10-09 — Hot-module refactor: the founder's delegation, the decisions and Wave 0 (lane D)
+
+The founder delegated the open decisions of `tasks/refactor-plan-2026-10.md` on 2026-10-09: "please
+analyse the pros and cons of the decisions needed for these aspects of the plan and make an expert
+decision. I trust you on this and give you full authority to proceed based on the decision you make."
+This records it as a standing authorization (`lessons/ops-keep-moving-under-standing-authorization.md`).
+
+- **Covers:** the plan's decisions 1 and 3–9, and the work they start: Wave 0 (the size-budget gate and
+  six anchor PRs), the dead-code PR and the moves, under the plan's own gates. Paid runs come under the
+  plan's USD 18 refactor ceiling: balance read first, a reservation stated in each PR body, every run
+  logged (decision 1).
+- **Does not cover** the boundaries the founder still holds:
+  - production flags;
+  - the AI provider and its prompts (a prompt byte change is a RUNBOOK event and never rides a
+    refactor PR);
+  - locked contract tests;
+  - destructive data or history operations (branch deletion stays on the 2026-10-07 sweep's
+    approval-by-name list);
+  - anything the CODE RED chief holds.
+
+- [x] Plan and decisions: `tasks/refactor-plan-2026-10.md` (#1136), reviewed independently and corrected.
+- [ ] Docs, decision 7: `docs/ARCHITECTURE.md` and dated correction notes in two audit appendices (#1154).
+- [ ] W0.G: the size-budget gate and the AST move proof (#1156).
+- [ ] The six Wave 0 anchor PRs (C0, F0, T0, O0, X0, I0).
+- [ ] Wave 1: the dead-code PR, then I1, O1, T1, X1, C1 and F1, one verified deploy at a time.
+- [ ] Rule-7 follow-up, outside the plan. The naive `datetime.now()` stamps at
+  `backend/app/services/edgar/xbrl_service.py:180,207,692,713,722`, and the `datetime.now(timezone.utc)`
+  calls at `backend/app/services/facts_service.py:715,1954,1983`, should go through
+  `app/utils/datetimes.py`. The refactor's moves leave them as they are.
+
 ## 2026-10-07 — Google Cloud cost optimisation (independent scope)
 
 Founder authorised durable background delivery and shared Docker build caching, while retaining

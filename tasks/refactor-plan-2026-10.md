@@ -45,17 +45,26 @@ original proposal; these notes are authoritative for what actually shipped.
 
 - **2026-10-09, decisions.** The founder delegated the open decisions (items 1 and 3–9) to the plan's
   author with full authority; each is decided under [Founder decisions](#founder-decisions-decided-2026-10-09)
-  with the options weighed, on evidence re-checked against main at `76d45732`. Three decisions change
-  the plan as first proposed, and the sections below are updated to match: spend (decision 1: the
-  refactor's own ceiling and log, not the Code Red ledger), dead code (decision 4: deleted before the
-  moves, as T-dead and I-dead in Wave 1, with the test edits corrected) and ceiling raises (decision 6:
-  a file ceiling is raised by the PR author with a recorded reason; the long-function ceilings are
-  frozen inside the gate).
-- **Spend log** (decision 1; every paid run a PR of this plan fires, at its measured cost):
+  with the options weighed, on evidence checked against main at `76d45732` and again at `ae5b0f1c`.
+  Seven decisions change the plan as first proposed (1, 3, 4, 6, 7, 8 and 9), and the sections below
+  are updated to match.
+- **2026-10-09, decisions review.** An independent reviewer checked the decisions against the code and
+  their propagation through the plan: DISAGREE, with one blocker (a binding per-PR gate still demanded
+  a Code Red reservation), twelve should-fix findings and ten nits. All are folded in. The substantive
+  changes: decision 1 states a reservation in the PR body before each paid trigger and logs runs in
+  tasks-only PRs; decision 4 merges the two dead-code PRs and corrects two facts; decision 6 adds the
+  measured rider rate, a rider rule and an earlier O1 and O2; decision 7 adds dated correction notes
+  to the audit appendices; decision 9 no longer waits on #1118 or #1126.
+- **Spend log** (decision 1). Rows land in tasks-only PRs, batched once per wave and never in a
+  refactor PR, because a push to a code-bearing PR re-fires `eval-baseline` and parallel PRs would
+  collide on the running total. Each balance reading gets its own row. A second `copilot-eval` run on
+  one PR needs a reason (`lessons/ops-keep-moving-under-standing-authorization.md`). The floor: when a
+  balance reading is under USD 25, paid runs stop until the founder answers, because production calls
+  the same provider.
 
-| Date | PR | Head | Run | Job | Cost (USD) | Running total |
-|---|---|---|---|---|---:|---:|
-| — | — | — | — | — | — | 0.00 |
+| Date | PR | Head | Run or balance read | Job | Reason | Reserved (USD) | Cost (USD) | Running total |
+|---|---|---|---|---|---|---:|---:|---:|
+| — | — | — | — | — | — | — | — | 0.00 |
 
 ---
 
@@ -112,8 +121,8 @@ Each was checked against `main` at `da636f6`:
 7. **The two codex xbrl branches would revert #1122 if rebased naively.** Their one unlanded line is
    the tuple at `backend/app/services/edgar/xbrl_service.py:464` gaining `"shareholders_equity",
    "total_assets"`; the rest of their hunk is on main (`:1243-1251`), and a two-dot diff shows they
-   would put `asyncio.to_thread` back where `run_owned_sync` now is (`:37`, `:680`). Cherry-pick the
-   one line or close them; never rebase them onto a split.
+   would put `asyncio.to_thread` back where `run_owned_sync` now is (`:37`, `:680`). Decision 3 leaves
+   them unpicked and open as evidence; never rebase them onto a split.
 8. **The eval cost figure lives in AGENTS.md, not the RUNBOOK.** "an `eval-baseline` run is about
    USD 0.30" is [AGENTS.md](../AGENTS.md) §3 (line 54); the RUNBOOK gives only the call count for
    the comparison harness (`backend/evals/RUNBOOK.md:162`). The `copilot-eval` reservation figure,
@@ -147,7 +156,7 @@ Each was checked against `main` at `da636f6`:
 | Cloud Run deploy | a merge to `main` changes any `backend/` path outside `backend/tests/` | deploys the API service and refreshes the jobs; one unverified deploy at a time, so code-bearing merges are serial | `.github/workflows/ci.yml:544-557` (detector), `backend/tests/unit/test_backend_deploy_scope.py`, [AGENTS.md](../AGENTS.md) §6 |
 | `eval-baseline` (summary eval, paid) | every `pull_request` event, draft or not, whose diff touches `backend/app/*`, `backend/evals/*` or `backend/prompts/*`; also manual dispatch | measured at USD 0.35–0.36 per run (four runs, record 18; AGENTS.md says 0.30) and ~6 min; advisory (`continue-on-error`), but the report must be read before an AI-relevant merge | `.github/workflows/ci.yml:282-336`, `backend/evals/RUNBOOK.md:339-345`, [AGENTS.md](../AGENTS.md) §3, `tasks/code-red-20261004/runtime/control/DECISIONS-18.md:119-127` |
 | `copilot-eval` (paid) | a non-draft PR whose diff touches `backend/**`; re-runs on each push while ready | measured USD 0.006–0.026 per run (settled Code Red runs: `tasks/code-red-20261004/runtime/control/DECISIONS-09.md:149`, `tasks/code-red-20261004/runtime/control/DECISIONS-18.md:168-169`); the Code Red reserves 0.06 | `.github/workflows/copilot-eval.yml:3-8,20`; `tasks/code-red-20261004/runtime/control/DECISIONS-16.md:152-159` |
-| This plan's spend rule (decision 1) | before any paid run a PR of this plan fires | read the provider balance first (`.github/workflows/deepseek-balance.yml`, a dispatch that makes no inference call), then log each paid run at its measured cost in the Spend log; programme ceiling USD 18 | [AGENTS.md](../AGENTS.md) §3; decision 1 |
+| This plan's spend rule (decision 1) | before any paid run a PR of this plan fires | read the provider balance first (`.github/workflows/deepseek-balance.yml`, a dispatch that makes no inference call), state the reservation in the PR body (dearest measured run × 2: USD 0.06 a `copilot-eval` run, USD 0.73 an `eval-baseline` push), then log each paid run at its measured cost in the Spend log; programme ceiling USD 18 | [AGENTS.md](../AGENTS.md) §3; decision 1 |
 | Code Red ledger reservation (Code Red PRs only) | before any paid trigger the Code Red chief, its officers or its workers fire | "every paid action still needs a reservation written first" (`copilot-eval` USD 0.06 per run, `eval-baseline` USD 0.73 per push); the chief is the ledger's only writer, and its USD 25 ceiling is shared by the chief, officers and workers; other writers' paid runs are not in it | `tasks/code-red-20261004/runtime/CHECKPOINT.md:373`; `tasks/code-red-20261004/runtime/control/LEDGER-ACCESS.md:47,65-66`; `tasks/code-red-20261004/runtime/control/DECISIONS-18.md:121-124` |
 
 Open draft PR #1123 narrows `copilot-eval` to the eval's import closure (`backend/app/services/**`,
@@ -167,8 +176,9 @@ table below, all evidence-only by decision 3. Two of them collide with files thi
 edits: the heads of #1126 and #1118 (`claude/agent-workflow-gates`, `claude/agent-workflow-cost`)
 rewrite the CLAUDE.md hunk at lines 149–165, which contains the rule-5 line F1 edits (:152), and touch
 the engineering brief F1 edits (`backend-developer.md`, at its lines 7–8, a different hunk from F1's :30); the head of #1121 (`codex/wave3-email-setup`) edits
-`backend/scripts/backfill_facts.py` at lines X4 does not touch (:145, :185 vs :79). So F1 merges after
-the two agent-workflow PRs or rebases over them, and X4 rebases over #1121. Remote branches that do
+`backend/scripts/backfill_facts.py` at lines X4 does not touch (:145, :185 vs :79). Whichever of F1 and
+the two agent-workflow PRs lands second resolves that CLAUDE.md hunk (decision 9), and X4 rebases
+over #1121. Remote branches that do
 touch the six modules, measured as `git diff origin/main...origin/<branch>`:
 
 | Branch | Module | Hunk | Disposition for this plan |
@@ -245,10 +255,11 @@ The Stripe tests (`backend/tests/unit/test_subscription_webhook_sync.py` and
 `docs/audit-2026-09/06-unfinished-work-inventory.md:59` (still describe the pre-fix un-metered
 companyfacts fetcher; :106 names the 0.2 s sleep);
 `docs/audit-2026-09/06-unfinished-work-inventory.md:60` (says persisted `Filing.xbrl_data` is never
-read; `xbrl_service.py:680` reads it). Decision 7 fixes the living one, `docs/ARCHITECTURE.md`, in a
-docs-only PR and leaves the audit appendices as written: each is a dated report "reproduced as
-written" (`docs/audit-2026-09/03-data-platform.md:3`), and none of their rows has been updated since
-2026-09-06. Two more statements ride code PRs: `docs/OPERATIONS.md:260` ("In xbrl_service.py
+read; `xbrl_service.py:680` reads it). Two more rows say the same: `docs/audit-2026-09/03-data-platform.md:181` (the buckets "Open") and
+`docs/audit-2026-09/06-unfinished-work-inventory.md:58` (row 34, "fix pending"). Decision 7 rewrites
+the living doc's bullet (`docs/ARCHITECTURE.md:338-342`) and adds one dated correction note to each of
+the two appendices, the convention they already use (`docs/audit-2026-09/03-data-platform.md:14,83`),
+leaving their rows as written. Two more statements ride code PRs: `docs/OPERATIONS.md:260` ("In xbrl_service.py
 `_cache_max_size`") is accurate today (`backend/app/services/edgar/xbrl_service.py:98`) and goes stale
 only when X1 moves the cache, so X1 edits it; the stale `PROMPT_VERSION` comment at
 `backend/app/services/trend_analysis_service.py:34-40` (its v2–v4 bump notes) sits in a file that
@@ -632,8 +643,8 @@ CAGR window, pp deltas, derived-Q4 badging (`:602,622,641-858`), coverage shape 
 **Estimated diff size.** T0 +130–180 test lines. T1 leaf moves (periods, formatting, series,
 detectors, citations, fidelity, cache + façade) ±800, `T` → ~1,150. T2 dataset + observations ±870,
 `T` → ~330. T3 narrative + final façade and docs ±300, `T` → ~60. T4 the three splits inside the new
-modules: +70/−30, +100/−40, +90/−40. T-dead (decision 4; Wave 1, before T1; deletes the two
-`TestPromptRendering` tests and two trailing assertions) about −130.
+modules: +70/−30, +100/−40, +90/−40. The dead-code PR (decision 4; Wave 1, before T1 and I1)
+removes about 130 lines here, two dead-renderer tests and two trailing assertions included.
 
 ### M4 — `backend/app/services/openai_service.py` (1,252 lines; `O:` below)
 
@@ -685,7 +696,7 @@ constant, proven byte-identical by anchor A1.
 
 ```
 backend/app/services/ai/summary_finalize.py   ← SummaryRun + one function per phase P0b–P12 (≤80 lines each; ~520 lines); P3b's `await self._verify_attributions` and the P13 return stay in the orchestrator
-backend/app/services/ai/summary_prompt.py     ← (O2, gated) build_primary_request; schema_template constant
+backend/app/services/ai/summary_prompt.py     ← (O2) build_primary_request; schema_template constant
 backend/app/services/openai_service.py        ← façade + OpenAIService; summarize_filing ≈ 70 lines; ~840 lines after O1, ~670 after O2
 ```
 
@@ -744,7 +755,7 @@ backend/app/services/openai_service.py        ← façade + OpenAIService; summa
 
 **Estimated diff size.** O0 +250–350 test lines and 2–4 JSON fixtures. O1: façade −480/+75
 (O:735–1231 moved, orchestrator ≈ 70 lines), +520 new module, `test_evidence_snap.py:231-239`
-redirected; file 1,252 → ~840; longest function 552 → 250. O2 (gated): façade −200/+30; file → ~670;
+redirected; file 1,252 → ~840; longest function 552 → 250. O2: façade −200/+30; file → ~670;
 longest function → 87 (`_assemble_structured_summary`).
 
 ### M5 — `backend/app/services/edgar/xbrl_service.py` (1,316 lines; `X:` below)
@@ -963,8 +974,8 @@ Already covered, no anchor needed: the `cash_financial_classification` outcome m
 **Estimated diff size.** I0 +150 test lines. I1 mechanical split: −1,229 / +~1,330 app lines (same
 bytes plus headers and the façade), zero test edits, `xbrl_service.py:43-58` unchanged; arms
 eval-baseline with an expected zero delta. I2 (optional, folded into X4): repoint xbrl_service,
-build_golden_set and acquisition_period at the sub-modules (~25 lines). Deleting `_fact_records` is
-I-dead, a separate Wave 1 PR that lands before I1 (decision 4).
+build_golden_set and acquisition_period at the sub-modules (~25 lines). Deleting `_fact_records` rides
+the dead-code PR, which lands before I1 (decision 4).
 
 ---
 
@@ -978,14 +989,16 @@ today's sizes as ceilings. The ceilings live in one JSON file per module under
 so a PR that shrinks a module edits only its own budget file and the waves stay file-disjoint
 (`lessons/ops-serial-merge-adjacent-line-prs.md`). Each file has five keys: `files` (path → ceiling),
 `functions` (`path::name` or `path::Class.name` → ceiling), `names` (the base file's top-level names
-at `da636f6`, each mapped to the sub-module that defines it after its move, `null` until moved),
+at `da636f6`, each mapped to the sub-module that defines it after its move, `null` until moved; a
+deliberate deletion, such as the dead-code PR's, removes the name and records why in `note`),
 `forbidden_imports` (list of [file glob, forbidden module prefix]) and `note` (free text; every raised
 ceiling records a dated line here: the PR, the row, old → new and why extraction was not possible
 in that PR; decision 6). Each later
 PR that shrinks a file or function lowers its ceiling in the same commit (a ratchet); a PR that would
 grow one fails CI with a message naming the row. The twenty long-function rows are also frozen
 inside the test itself at their W0.G values, keyed by `name` or `Class.name` so a re-key keeps the
-freeze: a JSON row above its frozen value fails, so raising one means editing the gate (decision 6). A move PR re-keys a function row to its destination
+freeze: a JSON row above its W0.G value fails, so taking one past that means editing the gate. Below
+it, raising a row the ratchet has lowered is a ceiling raise like any other (decision 6). A move PR re-keys a function row to its destination
 path at the same number (a re-key is not a raise); a row whose function is absent from its file fails
 as stale; a function in a new module with no row is held to 80.
 
@@ -1060,8 +1073,8 @@ run fully in parallel; until #1123 lands each still arms `copilot-eval` once whe
 every push, draft or not, so merges are serial (one verified deploy at a time, AGENTS.md §6) and
 pushes are batched (push once when the local gate is green; stay draft until review so `copilot-eval`
 fires once; a second push within a run cancels the first, `.github/workflows/ci.yml:290-292`); (3) paid
-runs follow decision 1 (read the provider balance, then log each run at its measured cost); no
-refactor PR writes under `tasks/code-red-20261004/runtime/`, whose records are digest-indexed and
+runs follow decision 1 (read the provider balance, state the reservation in the PR body, log each run
+at its measured cost in a tasks-only PR); no refactor PR writes under `tasks/code-red-20261004/runtime/`, whose records are digest-indexed and
 gated by `backend/tests/unit/test_code_red_runtime_records.py`; (4) leaf-first: a module is moved before it
 is split, and a module is split only after its anchors are green, and every Wave 1 PR also depends on
 W0.G because it lowers its module's budget file; (5) PRs in one wave edit disjoint files, including
@@ -1105,17 +1118,18 @@ network-reaching test.
 
 | PR | What | Files | Triggers | Depends on |
 |---|---|---|---|---|
-| I-dead | M6 dead code: delete `_fact_records` (IE:240–243); `git grep -w` over `backend/` finds no other reference, before and after | `instance_extractor.py`, `size_budgets/instance_extractor.json` | D, E, CE | I0, W0.G |
-| T-dead | M3 dead code: delete `_illegal_refs` (T:1450), `_mismatch_details` (T:1582), `_retry_instruction` (T:1593), `NOT_ENOUGH_DATA_SENTINEL` (T:1356) and `compact_dataset_for_prompt` (T:756); delete the two `TestPromptRendering` tests (`test_trend_analysis_service.py:960-1002`) and only the trailing dead-renderer assertions of the two CAGR tests (:853–855, :883–884), whose live assertions stay; `git grep -w` → 0 for each name | `trend_analysis_service.py`, `test_trend_analysis_service.py`, `size_budgets/trend_analysis_service.json` | D, E, CE | T0, W0.G |
-| I1 | M6 split into `edgar/instance/` + façade; adds its `forbidden_imports` rows | `instance_extractor.py`, new `edgar/instance/*`, `size_budgets/instance_extractor.json` | D, E, CE, AST | I-dead, I0, W0.G |
-| T1 | M3 leaf moves (periods, formatting, series, detectors, citations, fidelity, cache) + façade; fixes the stale `PROMPT_VERSION` comment block (T:34–40) as it moves; re-points T0's detector anchor | `trend_analysis_service.py`, new `trend_analysis/*`, `test_trend_refactor_anchors.py`, `size_budgets/trend_analysis_service.json` | D, E, CE, AST | T-dead, T0, W0.G |
+| Dead | M3 and M6 dead code in one PR (one deploy, one or two `eval-baseline` runs). Delete `_illegal_refs` (T:1450), `_mismatch_details` (T:1582), `_retry_instruction` (T:1593), `NOT_ENOUGH_DATA_SENTINEL` (T:1356), `compact_dataset_for_prompt` (T:756) and `_fact_records` (IE:240–243). Delete the two dead-renderer methods of `TestPromptRendering` (`test_trend_analysis_service.py:961-1002`), keeping the class and its third test (:1004–1013, live `marker_index`), and only the trailing dead-renderer assertions of the two CAGR tests (:853–855, :883–884). Rewrite the comment at IE:44, which names `_fact_records` where it means `_fact_records_with_concept`. Remove the six names from the two budget files' `names` with a `note` line. `git grep -w <name> -- backend/` → 0 for each name afterwards (`tasks/` cites them legitimately) | `trend_analysis_service.py`, `instance_extractor.py`, `test_trend_analysis_service.py`, `size_budgets/trend_analysis_service.json`, `size_budgets/instance_extractor.json` | D, E, CE | T0, I0, W0.G |
+| I1 | M6 split into `edgar/instance/` + façade; adds its `forbidden_imports` rows | `instance_extractor.py`, new `edgar/instance/*`, `size_budgets/instance_extractor.json` | D, E, CE, AST | Dead, I0, W0.G |
+| T1 | M3 leaf moves (periods, formatting, series, detectors, citations, fidelity, cache) + façade; fixes the stale `PROMPT_VERSION` comment block (T:34–40) as it moves; re-points T0's detector anchor | `trend_analysis_service.py`, new `trend_analysis/*`, `test_trend_refactor_anchors.py`, `size_budgets/trend_analysis_service.json` | D, E, CE, AST | Dead, T0, W0.G |
 | C1 | M1 pure moves (quotations, fact_guards, claim_repair, resolution, envelope) + façade with `__all__`; ~10 test re-points incl. the two source-level gates | `copilot_service.py`, new `copilot/*`, `test_copilot_prose_quotations.py`, `test_copilot_quotation_retry.py`, `test_copilot.py`, `size_budgets/copilot_service.json` | D, E, CE, AST | C0, W0.G |
-| F1 | M2 leaves + transport + façade with `__all__`; the six rule-5 prose edits; adds the `concepts.py → app.services.edgar` forbidden-import row | `facts_service.py`, new `facts/{__init__,concepts,transport}.py`, `size_budgets/facts_service.json`, CLAUDE.md:105/152, ARCHITECTURE.md:189, ADR-0003:30, `lessons/sec-edgar-resilience-layer.md:23-24`, `backend-developer.md:30`, the allowlist docstring | D, E, CE, AST | F0, W0.G; merges after #1126/#1118 or rebases over them (decision 9) |
+| F1 | M2 leaves + transport + façade with `__all__`; the six rule-5 prose edits; adds the `concepts.py → app.services.edgar` forbidden-import row | `facts_service.py`, new `facts/{__init__,concepts,transport}.py`, `size_budgets/facts_service.json`, CLAUDE.md:105/152, ARCHITECTURE.md:189, ADR-0003:30, `lessons/sec-edgar-resilience-layer.md:23-24`, `backend-developer.md:30`, the allowlist docstring | D, E, CE, AST | F0, W0.G; does not wait for #1126/#1118 (decision 9) |
 | X1 | M5 cache → `xbrl_cache.py` with a function API; the `test_two_tier_cache.py` retargets; `docs/OPERATIONS.md:260`; adds the forbidden-import row for the five named `xbrl_*` modules → `xbrl_service` | `xbrl_service.py`, new `xbrl_cache.py`, `test_two_tier_cache.py`, `docs/OPERATIONS.md`, `size_budgets/xbrl_service.json` | D, E, CE, AST | X0, W0.G |
 | O1 | M4 `summarize_filing` post-provider phases → `ai/summary_finalize.py`; `test_evidence_snap.py:231-239` redirected; `snap_evidence` passed in from the façade's binding | `openai_service.py`, new `ai/summary_finalize.py`, `test_evidence_snap.py`, `size_budgets/openai_service.json` | D, E, CE, AST | O0, W0.G |
 
-Every Wave 1 PR lowers the rows in its own budget file. Merge order recommendation (smallest blast
-radius first, verified deploy between each): I-dead → I1 → T-dead → T1 → X1 → C1 → F1 → O1. F1 and X2 (next wave) touch
+Every Wave 1 PR lowers the rows in its own budget file. Merge order (a verified deploy between each):
+Dead → I1 → O1 → T1 → X1 → C1 → F1. The dead-code PR and I1, the simplest move, prove the process
+first. O1 follows at once because `openai_service.py` takes most of the freeze's riders (decision 6):
+14 of its 19 commits since 2026-09-09 grew `summarize_filing`. F1 and X2 (next wave) touch
 adjacent lines of `docs/ARCHITECTURE.md` and of `lessons/sec-edgar-resilience-layer.md`; keep them
 serial.
 
@@ -1126,6 +1140,7 @@ serial.
 | T2 → T3 → T4 | M3 dataset + observations; narrative + final façade (+ `docs/ARCHITECTURE.md:158`); then the three splits | M3 files only | D, E, CE (T2/T3: AST) | T1 |
 | F2 → F3 → F4 | M2 companyfacts + derive (split `normalize_companyfacts`); writers + reconcile (split `upsert_facts`); jobs + ingest + fundamentals (split `backfill_facts`; re-point `test_job_reporting.py:242` to `app.services.facts.jobs.process_filing_facts`, `test_analysis_coverage_pool_lifetime.py:78` to `app.services.facts.ingest._fetch_companyfacts_async`, and F0's default-fetcher and remediate anchors to `facts.jobs`) | M2 files + `size_budgets/facts_service.json`; F4 also the two named tests and `test_facts_refactor_anchors.py` | D, E, CE, AST | F1 |
 | X2 → X3 → X4 (→ X5) | M5 companyfacts (+ re-point the `_classify_duration` import to `facts.concepts`; the six rule-5 doc edits); standardized; instance (about 30 test retargets in 7 files, `backfill_facts.py:79`, `acceptance_archive.py:604`; folds I2's re-points, not its deletion); optional sections | X2: `xbrl_service.py`, new `xbrl_companyfacts.py`, `docs/ARCHITECTURE.md:181,185-187`, `lessons/sec-edgar-resilience-layer.md:25`, `lessons/sec-runtime-facts-carry-no-duration.md:12,29`, `backend/evals/RUNBOOK.md:793`, and the docstring that today sits at `copilot_service.py:1355` (after C1 it lives in `copilot/claim_repair.py`); X3/X4: M5 files, the retargeted tests, `scripts/backfill_facts.py` (rebase over #1121), `evals/acceptance_archive.py` | D, E, CE, AST | X1, F1 (X2 needs `facts.concepts`), I1 (X4 folds I2), C1 (the docstring's new home) |
+| O2 | M4 prompt assembly → `ai/summary_prompt.py`; A1 proves bytes identical; redirects the text pin in `test_verbatim_contract.py:19-21`; first in Wave 2, because prompt riders wait for it (decision 6) | `openai_service.py`, new `ai/summary_prompt.py`, `test_verbatim_contract.py`, `size_budgets/openai_service.json` | D, E, CE, AST | O1 |
 | C2 | M1 attempt-loop decomposition in place (FactRegistry, SentinelScanner, `_admit_not_disclosed`, `_admit_answer`) | `copilot_service.py` | D, E, CE | C1 |
 
 ### Wave 3 — follow-ups and the ratchet
@@ -1133,16 +1148,19 @@ serial.
 | PR | What | Gate |
 |---|---|---|
 | C3 | M1 prompt module (`copilot/prompt.py`: `SYSTEM_PROMPT`, sentinels, cluster A) | after C2; no branch gate (decision 3) |
-| O2 | M4 prompt assembly → `ai/summary_prompt.py`; A1 proves bytes identical; redirects the text pin in `test_verbatim_contract.py:19-21` | after O1; no branch gate (decision 3) |
 | Ratchet | final ceilings: façades and new modules at their end-state sizes | after the last split |
 
-Spend estimate for the whole plan (decision 1): 20–21 code-bearing PRs (Wave 1 eight, Wave 2 ten
-plus the optional X5, Wave 3 two); at two pushes each, 40–42 `eval-baseline` runs ≈ USD 14.40–15.10 at
-the measured USD 0.36 (record 18; USD 12.00–12.60 at AGENTS.md's 0.30) and 20–42 `copilot-eval` runs
-≈ USD 0.12–1.10 at the measured USD 0.006–0.026, plus up to USD 0.20 for Wave 0's un-drafts if #1123
-has not landed: about USD 14.5–16.4 in all, under the USD 18 ceiling, each run logged at its measured
-cost, and less in practice because a branch opens its PR only once it is review-clean and a second
-push cancels an in-progress `eval-baseline` run. 20–21 serialized deploys.
+Spend estimate for the whole plan (decision 1). There are 19–20 code-bearing PRs: Wave 1 seven,
+Wave 2 eleven plus the optional X5, Wave 3 one.
+- `eval-baseline`: at two pushes each, plus up to two rebase pushes (X3 and X4 over #1121), 38–42 runs
+  ≈ USD 13.68–15.12 at the measured USD 0.36 (record 18; AGENTS.md says 0.30).
+- `copilot-eval`: 19–40 runs ≈ USD 0.11–1.04 at the measured USD 0.006–0.026.
+- Tests-only un-drafts (Wave 0 and the Ratchet PR), if #1123 has not landed: up to USD 0.21.
+
+That is about USD 13.8–16.4 in all, 57–90 paid runs. It is under the USD 18 ceiling with about USD 1.6
+of headroom, roughly four `eval-baseline` runs. A cancelled run still bills for the calls it made
+(`tasks/code-red-20261004/runtime/control/SPEND-POLICY-STATEMENT.md:11`), so a second push saves
+nothing; pushing once per review round is what keeps the count down. 19–20 serialized deploys.
 
 ---
 
@@ -1160,16 +1178,21 @@ main at `76d45732`), the decision and what it changes. Nothing in this plan now 
      (`tasks/code-red-20261004/runtime/control/LEDGER-ACCESS.md:47`), and one USD 25 ceiling shared by
      the chief, its officers and its workers (:65–66), with USD 22.35 of headroom left
      (`tasks/code-red-20261004/runtime/CHECKPOINT.md:373`). A USD 20 hold would take almost all of it,
-     and either form makes about 60 paid refactor runs wait on the chief's records PRs. Other writers'
+     and either form makes 57–90 paid refactor runs wait on ledger events only the chief can write. Other writers'
      paid runs are already outside the ledger: record 18 measured four on other lanes' PRs
      (`tasks/code-red-20261004/runtime/control/DECISIONS-18.md:121-124`).
    - For (c): [AGENTS.md](../AGENTS.md) §3 asks a new paid programme for a stated ceiling and for the
      balance to be read first; (c) meets both without coupling two programmes. What it gives up is the
-     ledger's hash chain; for about USD 15–16.5 in total a plain per-run log is proportionate.
+     ledger's hash chain; for about USD 14–16.4 in total a plain per-run log is proportionate.
    - **Decision: (c).** The ceiling is USD 18 for every paid run this plan's PRs fire. Before each wave,
      and before un-drafting a PR whose un-draft is paid, dispatch `.github/workflows/deepseek-balance.yml`
-     (it makes no inference call) and note the balance. Log every paid run (PR, head, run id, job,
-     measured cost from the eval report or the job log) in the Spend log under Implementation Notes.
+     (it makes no inference call) and note the balance; under USD 25, stop and ask, because production
+     calls the same provider. Before each paid trigger, the PR body states a reservation at the dearest
+     measured run × 2 (USD 0.06 a `copilot-eval` run, USD 0.73 an `eval-baseline` push: the
+     reservation rule of `tasks/code-red-20261004/runtime/control/DECISIONS-09.md:147-150`). That
+     meets the "reserve the spend first" sentence #1118 and #1126 bring to AGENTS.md §6 without the
+     Code Red ledger. Log every paid run (PR, head, run id, job, reason, measured cost from the eval
+     report or the job log) in the Spend log, batched in a tasks-only PR per wave.
      A code-bearing branch opens its PR only once its local gate and local review are clean, and
      pushes once per review round. If the log passes USD 15 with work left that would cross 18, stop
      and put it to the founder. A PR run by the Code Red chief or one of its officers or workers
@@ -1181,9 +1204,10 @@ main at `76d45732`), the decision and what it changes. Nothing in this plan now 
    `tasks/code-red-20261004/runtime/control/DECISIONS-18.md:38-76`). No decision needed; the item
    stays so the numbering of items 3–9 holds.
 3. **Stale branches: evidence only. None merges, none is rebased onto a split, none is deleted.**
-   - Evidence. None of the ten branches heads an open PR. The 2026-10-07 disposition sweep classed each
-     as evidence: `claude/copilot-prompt-candidate`'s PR #1074 closed as measurement-only, never
-     merging, with its 30 evidence files landed on main (`tasks/pr-disposition-2026-10-07.md:46,212`);
+   - Evidence. None of the ten branches heads an open PR. The 2026-10-07 disposition sweep left eight of
+     them on its "approval by name" deletion list and kept `codex/wave3-thinking-low-pilot`;
+     `claude/copilot-prompt-candidate`'s PR #1074 closed as measurement-only, never merging, with its 30
+     evidence files landed on main (`tasks/pr-disposition-2026-10-07.md:46,212`);
      the G-stage arms say "DO NOT MERGE"; `codex/measure-n-control-2` and `codex/wave3-e8-n-pilot` are
      measurement-only; `supported-financial-explanations` and `segment-margin-basis` are superseded.
      Candidate r (`codex/wave3-return-ratio-basis`) was implemented but never accepted: its
@@ -1200,60 +1224,92 @@ main at `76d45732`), the decision and what it changes. Nothing in this plan now 
      gate and an adoption decision, which a refactor must not carry.
    - **Decision: (c).** C3 and O2 lose their branch gates and run after C2 and O1. Any future use of
      this content is a fresh PR from current main, under the RUNBOOK gate where it changes prompt
-     bytes. Branch deletion stays where the 10-07 sweep left it.
+     bytes. Branch deletion stays where the 10-07 sweep left it. One open item will edit `SYSTEM_PROMPT`,
+     the copilot prompt-fix candidate (`tasks/todo.md:242`); whichever of it and C3 lands second rebases,
+     which is mechanical because C3 is a pure move.
 4. **Dead code: delete it, before the moves, with the test edits corrected.**
    - Evidence. `_illegal_refs` (T:1450), `_mismatch_details` (T:1582), `_retry_instruction` (T:1593),
-     `NOT_ENOUGH_DATA_SENTINEL` (T:1356) and `_fact_records` (IE:240) have no reference in `backend/`
-     beyond their definitions (`git grep -w`). `compact_dataset_for_prompt` (T:756) is called only by
-     four tests, and the plan was wrong about them: only the two `TestPromptRendering` tests are about it
-     (`backend/tests/unit/test_trend_analysis_service.py:960-1002`). The other two pin live CAGR
+     `NOT_ENOUGH_DATA_SENTINEL` (T:1356) and `_fact_records` (IE:240) have no caller in `backend/`
+     (`git grep -w`); the one other hit is a comment at IE:44 that names `_fact_records` where it means
+     the live `_fact_records_with_concept`. `compact_dataset_for_prompt` (T:756) is called only by four
+     tests, and the plan was wrong about them. Only two `TestPromptRendering` methods are about it
+     (`backend/tests/unit/test_trend_analysis_service.py:961-1002`); the class's third test (:1004–1013)
+     covers the live `marker_index`. The other two pin live CAGR
      markers and windows (:831–856, :858–885) and end with one assertion on the dead renderer's text
      (:853–855, :883–884); deleting them would lose live coverage this plan cites.
    - Options. (a) Keep the dead code. (b) Delete it in Wave 3, after the moves, as first proposed.
      (c) Delete it before the moves.
    - (a) leaves code every reader must check and the moves must carry. (b) moves dead code into new
-     modules only to delete it there: double churn and larger move proofs. (c) costs the same two
-     deploys and two `eval-baseline` runs as (b), only earlier.
-   - **Decision: (c).** T-dead and I-dead open Wave 1, each before its module's first move. T-dead
-     deletes the five names and the two `TestPromptRendering` tests, and removes only the trailing
-     dead-renderer assertions from the two CAGR tests, which keep every live assertion. I-dead deletes
-     `_fact_records`. Each PR proves `git grep -w` → 0 for every deleted name.
+     modules only to delete it there: double churn and larger move proofs. (c) costs what (b) costs,
+     only earlier, and one PR for both modules costs one deploy and one or two `eval-baseline` runs.
+   - **Decision: (c), as one dead-code PR.** It opens Wave 1, before T1 and I1. It deletes the six
+     names and the two dead-renderer methods, removes only the trailing dead-renderer assertions from
+     the two CAGR tests, which keep every live assertion, and corrects the IE:44 comment. It removes
+     the six names from the budget files' `names` with a `note` line. It proves
+     `git grep -w <name> -- backend/` → 0 for each name.
 5. **The copilot attempt loop stays in place (C2).**
    - Options. (a) Decompose it in place in `copilot_service.py`. (b) Move it to `copilot/stream.py`.
-   - Against (b): the eval runner attaches its withheld-answer filter to `copilot_service`'s own logger
-     (`backend/evals/copilot_runner.py:194-201`). A logging filter sees only records logged by that
-     logger, so the moved loop's records would bypass it, silently. (b) also costs five more test
-     re-points, and the locked T5 anchor binds the router's name either way.
+   - Against (b): moving cluster K whole would take `answer_filing_question`, and with it the
+     withheld-answer log line (C:1624), out of `copilot_service`. The eval runner attaches its filter to
+     that module's own logger (`backend/evals/copilot_runner.py:194-201`), and a logging filter sees
+     only records logged by that logger, so it would stop seeing them, silently. Moving only the attempt
+     loop keeps that line in place but still costs five more test re-points. The locked T5 anchor binds
+     the router's name either way.
    - **Decision: (a).**
 6. **New-code ceilings and the freeze: adopted. A file ceiling may be raised by the PR author with a
    recorded reason; a long-function ceiling never rises.**
-   - Evidence. On 2026-10-09 no open PR changes any of the six files (25 open PRs checked); only the
-     ten evidence branches of decision 3 do. The freeze costs no live lane anything today.
+   - Evidence. On 2026-10-09 no open PR changes any of the six files (25 open PRs checked); only the ten
+     evidence branches of decision 3 do. But riders are frequent. Of the commits since 2026-09-09:
+     - `openai_service.py`: 19 commits; 14 grew `summarize_filing`, 6 grew `generate_structured_summary`
+       and 16 grew the file.
+     - `xbrl_service.py`: 10 commits; 7 grew `_extract_from_filing_instance_sync` and 4 grew
+       `extract_standardized_metrics`.
+     - `copilot_service.py`: 11 of 13 commits grew the file.
+     - `facts_service.py` and `trend_analysis_service.py`: 2 of 2 and 2 of 3 grew the file, and none
+       grew a long function beyond one trend commit.
+
+     So the freeze will meet a product change every few days on the summary path.
    - Options for raising a ceiling. (a) Founder sign-off for every raise, as first proposed. (b) Any
      raise, with a reason recorded. (c) Split: a file ceiling may be raised by the PR author with a
-     recorded reason; the ceiling of one of the twenty long functions never rises.
+     recorded reason; a long function never grows past its W0.G size, and a rider extracts first.
    - (a) puts a solo founder on the path of routine fixes to files that change weekly (25 commits since
      August on `openai_service.py` alone). (b) lets the giant functions grow while the refactor splits
      them. (c) keeps the founder out of routine fixes and keeps the one invariant that matters
      absolute: a fix inside a 200-line function extracts a helper first, which is the refactor's
      direction anyway.
-   - **Decision: (c).** The gate holds the twenty long-function rows' W0.G values in a frozen table
-     inside the test and fails any JSON row above its frozen value, so raising one means editing the
-     gate. A file-ceiling raise lands with a dated `note` line (PR, row, old → new, why extraction was
-     not possible in that PR) and a "Ceiling raise" paragraph in its PR body. New code stays at 80
-     lines per function and 600 per new module, as specified.
-7. **Docs: fix the living architecture doc now; leave the audit appendices as written.**
-   - Evidence. `docs/ARCHITECTURE.md:337-342` says the two companyfacts fetchers still need unifying on
+   - **Decision: (c), with a rider rule and an earlier O1 and O2.**
+     - **Freeze.** The gate holds the twenty long-function rows' W0.G values in a frozen table inside
+       the test and fails any JSON row above them, so taking one past its W0.G size means editing the
+       gate. Below that, raising a row the ratchet lowered is a ceiling raise like a file's, which the
+       rider rule exists to avoid.
+     - **Raises.** A file-ceiling raise lands with a dated `note` line (PR, row, old → new, why
+       extraction was not possible in that PR) and a "Ceiling raise" paragraph in its PR body.
+     - **Rider rule.** A change that must grow `summarize_filing` before O1 lands first extracts the
+       phase it touches into a helper, along O1's phase map (M4), or waits for O1. A prompt change that
+       must grow `generate_structured_summary` before O2 lands extracts along O2's boundary or waits.
+       The same holds for `_extract_from_filing_instance_sync` until X4 and
+       `extract_standardized_metrics` until X3. Riders on the other sixteen long functions are rare
+       (above).
+     - **Sequencing.** O1 moves to the front of Wave 1's code moves (after the dead-code PR and I1),
+       and O2 to the front of Wave 2 (it was Wave 3), so the freeze's busiest window is short.
+     - **New code.** It stays at 80 lines per function and 600 per new module, as specified.
+7. **Docs: fix the living architecture doc now; add dated correction notes to the audit appendices.**
+   - Evidence. `docs/ARCHITECTURE.md:338-342` says the two companyfacts fetchers still need unifying on
      the limiter and that `_parse_company_facts` never fills two buckets. Both are false: WS-8
      (`d517ef19`, 2026-09-04) made the facts fetcher a bridge onto the rate-limited async fetcher (the
      xbrl twin was already limiter-wired), and `499648e6` (2026-09-05) fills both buckets, pinned by
      the locked T9 test (`backend/tests/unit/test_companyfacts_fixture.py:116-127`). The audit
      appendices each call themselves a "workstream report reproduced as written"
-     (`docs/audit-2026-09/03-data-platform.md:3`, `docs/audit-2026-09/06-unfinished-work-inventory.md:3`),
-     and none of their rows has been updated since 2026-09-06.
-   - **Decision:** one docs-only PR now for `docs/ARCHITECTURE.md`'s residual-debt bullet (no deploy, no
-     paid run). The audit appendices stay as written: patching two rows of a dated report would imply
-     its other rows are current. `docs/OPERATIONS.md:260` is accurate today and changes with X1; the
+     (`docs/audit-2026-09/03-data-platform.md:3`, `docs/audit-2026-09/06-unfinished-work-inventory.md:3`).
+     They keep their rows and carry dated correction notes above them instead
+     (`docs/audit-2026-09/03-data-platform.md:14,83`, `docs/audit-2026-09/01-deploy-pipeline.md:89`).
+     Their stale rows still mislead whoever executes from them: `06-unfinished-work-inventory.md:58-60`
+     lists both done items as open and says the persisted `Filing.xbrl_data` is never read, which
+     `backend/app/services/edgar/xbrl_service.py:680` now does.
+   - **Decision:** one docs-only PR now (#1154; no deploy, no paid run). It rewrites
+     `docs/ARCHITECTURE.md:338-342`, and adds one dated correction note to each of the two appendices
+     with their rows left as written: that is the appendices' own convention, and a note names exactly
+     what changed. `docs/OPERATIONS.md:260` is accurate today and changes with X1; the
      `PROMPT_VERSION` comment rides T1. Separately, the naive `datetime.now()` stamps at
      `backend/app/services/edgar/xbrl_service.py:180,207,692,713,722` and the
      `datetime.now(timezone.utc)` calls at `backend/app/services/facts_service.py:715,1954,1983` are a
@@ -1267,16 +1323,19 @@ main at `76d45732`), the decision and what it changes. Nothing in this plan now 
      Neither waiting on it nor deciding it here is proportionate to that.
    - **Decision: (b).** If #1123 lands first, Wave 0's un-drafts are free; otherwise they are logged
      under decision 1. Whether #1123 merges stays #1118's decision 5.
-9. **F1 edits rule 5's owner path, after #1126 and #1118.**
-   - Options. (a) Approve the path edit in F1, ordered after #1126 and #1118 or rebased over them.
-     (b) Keep companyfacts fetching in `facts_service.py` so rule 5's text never changes.
-   - (b) would bend the module layout around one sentence. CLAUDE.md already says the code is the truth
-     and the doc is fixed in the same PR; the edit changes a file path, not the rule.
-   - **Decision: (a).** F1's PR body states that rule 5's substance is unchanged and lists the six prose
-     files it edits. If #1126 or #1118 is still open when F1 is ready, F1 rebases over it.
+9. **F1 edits rule 5's owner path, and waits for no other lane.**
+   - Options. (a) Approve the path edit in F1 and order F1 after #1126 and #1118. (b) Approve the path
+     edit and let F1 land whenever it is ready. (c) Keep companyfacts fetching in `facts_service.py` so
+     rule 5's text never changes.
+   - (c) would bend the module layout around one sentence; CLAUDE.md already says the code is the truth
+     and the doc is fixed in the same PR, and the edit changes a file path, not the rule. (a) would hold
+     F1, and behind it F2–F4 and X2–X5, on #1118, whose own merge waits on founder decisions.
+   - **Decision: (b).** F1's PR body states that rule 5's substance is unchanged and lists the six prose
+     files it edits. Whichever of F1 and #1118/#1126 lands second resolves the CLAUDE.md conflict: those
+     PRs move rule 5's text, and the path edit is one line either way.
 
-Two founder items outside this plan still touch it: #1118's decision 5 (whether #1123 merges) and the
-Code Red's `backfill-facts-weekly` move, which gates #1151 and so the first deploy slot before Wave 1.
+One founder item outside this plan still touches it: #1118's decision 5, whether #1123 merges, which
+changes only what Wave 0's un-drafts cost.
 
 ---
 
@@ -1310,14 +1369,17 @@ above); their corrections are folded in above and listed in the PR body.
 - Prompt bytes: C1/C3 prove `SYSTEM_PROMPT` sha256 and `_build_messages` equality; T1–T4 prove the
   selection messages (anchor T0.2); O1/O2 prove `create_kwargs` (anchor A1). An intentional byte change
   is a RUNBOOK event (`backend/evals/RUNBOOK.md:530-535`) and never rides a refactor PR.
-- Every code-bearing PR writes its Code Red reservation before its first push and reads the
-  `eval-baseline` report (expected: zero delta) before merge; after merge, the deploy log and
+- Every code-bearing PR follows decision 1 before its first push (balance read, the reservation stated
+  in its PR body, never a Code Red ledger write), and reads the `eval-baseline` report (expected: zero
+  delta) before merge; after merge, the deploy log and
   `/health/detailed` are checked before the next merge (AGENTS.md §5–§6).
 - Locked tests (rule 6): the harness, T1, T2, T5, T9 and the rest of the inventory are byte-identical
   in every PR; the only sanctioned edits are the explicit re-points named in this plan, which are all
   in ordinary unit tests.
-- The size-budget gate's ceilings move down in the same commit as the code that shrinks them; a PR
-  that needs a ceiling raised stops and says why.
+- The size-budget gate's ceilings move down in the same commit as the code that shrinks them. A PR that
+  must raise a file ceiling records a dated `note` line and a "Ceiling raise" paragraph; a long function
+  never grows past its W0.G size, and a rider follows decision 6's rule (extract first, or wait for the
+  function's split).
 - Stop conditions: an anchor fails for a reason the PR did not intend; a locked test needs an edit; a
   patch target the plan did not list goes blind; the AST proof shows an undisclosed delta; the
   `eval-baseline` report shows a non-zero delta on a pure move. Stop, report, re-plan.
@@ -1334,5 +1396,5 @@ keeps it that way.
 
 Approved on 2026-10-09 under the founder's delegation ([Founder decisions](#founder-decisions-decided-2026-10-09)).
 Persist this document as `tasks/refactor-plan-2026-10.md` (this PR). **Wave 0** starts the same day:
-the size-budget gate PR and the six anchor PRs in parallel, then T-dead and I-dead open Wave 1.
+the size-budget gate PR and the six anchor PRs in parallel, then the dead-code PR opens Wave 1.
 Record every deviation, and every paid run, in the Implementation Notes section above.
