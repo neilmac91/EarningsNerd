@@ -1,7 +1,7 @@
 'use client'
 
 import type { CSSProperties } from 'react'
-import { SparkleIcon, XIcon } from '@/lib/icons'
+import { FileTextIcon, XIcon } from '@/lib/icons'
 import { Button } from '@/components/ui'
 
 interface CopilotCoachmarkProps {
@@ -14,7 +14,7 @@ interface CopilotCoachmarkProps {
 }
 
 /**
- * One-time, contextual nudge anchored above the "Ask this Filing" launcher, shown the first time a
+ * One-time, contextual nudge anchored above the "Source" launcher, shown the first time a
  * user reaches a filing summary (NN/g: a coachmark earns its place only to signal a genuinely new /
  * non-obvious affordance, fired at a contextual moment — not a launch-time tour). Purely
  * presentational: the parent owns the once-only / persisted visibility. Entrance motion is gated
@@ -36,16 +36,16 @@ export default function CopilotCoachmark({ onTry, onDismiss, style }: CopilotCoa
         <XIcon className="h-4 w-4" />
       </button>
       <div className="flex items-start gap-2 pr-5">
-        <SparkleIcon className="mt-0.5 h-4 w-4 shrink-0 text-brand-strong dark:text-brand-strong-dark" aria-hidden="true" />
+        <FileTextIcon className="mt-0.5 h-4 w-4 shrink-0 text-brand-strong dark:text-brand-strong-dark" aria-hidden="true" />
         <div>
           <p className="text-sm font-semibold text-text-primary-light dark:text-text-primary-dark">
-            New: ask this filing anything
+            New: the filing beside its summary
           </p>
           <p className="mt-0.5 text-xs text-text-secondary-light dark:text-text-secondary-dark">
-            Get plain-English answers, each cited to the exact filing text.
+            Read the filing’s own text, or ask it a question and get answers cited to that text.
           </p>
-          <Button size="sm" className="mt-2" onClick={onTry} leftIcon={<SparkleIcon className="h-3.5 w-3.5" aria-hidden="true" />}>
-            Try it
+          <Button size="sm" className="mt-2" onClick={onTry} leftIcon={<FileTextIcon className="h-3.5 w-3.5" aria-hidden="true" />}>
+            Open Source
           </Button>
         </div>
       </div>

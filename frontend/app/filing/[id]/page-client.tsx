@@ -15,6 +15,10 @@ import { getSubscriptionStatus } from '@/features/subscriptions/api/subscription
 import { getCurrentUserSafe } from '@/features/auth/api/auth-api'
 import { CircleNotchIcon } from '@/lib/icons'
 import Link from 'next/link'
+// formatLocalDate (not date-fns format(new Date(...))): filing dates are UTC-midnight instants;
+// local-TZ rendering shifts the calendar day west of UTC and, now that this page is
+// server-rendered with data, would also cause a server/client hydration mismatch.
+import { formatLocalDate } from '@/lib/format'
 import { useEffect, useMemo, useRef, useState, useCallback } from 'react'
 import analytics from '@/lib/analytics'
 import { getEntryPoint } from '@/lib/entryPoint'
@@ -244,6 +248,11 @@ function FilingDetailView({ filingId, initialFiling, initialSummary }: { filingI
   // "Open original" and the viewer's empty-state CTA land on the primary document (document_url),
   // with the EDGAR folder (sec_url) as the fallback; derived from the filing, never hard-coded.
   const originalUrl = originalDocumentUrl(filing)
+  // The research pane's subtitle: the filing it shows, in the identity strip's vocabulary.
+  const filed = formatLocalDate(filing.filing_date, 'MMM d, yyyy')
+  const sourceLabel = [filing.company?.ticker || formatCompanyName(filing.company?.name), filing.filing_type, filed && `filed ${filed}`]
+    .filter(Boolean)
+    .join(' · ')
   // What the server matched, once a summary is on the page (never during generation).
   const tally = summary && hasSummaryContent ? verificationTally(summary) : null
 
@@ -253,6 +262,7 @@ function FilingDetailView({ filingId, initialFiling, initialSummary }: { filingI
       ticker={filing.company?.ticker ?? null}
       filingType={filing.filing_type}
       onRequestOpen={openPaneForSource}
+      paneOpen={copilotOpen}
     >
     <div className="min-h-screen bg-background-light dark:bg-background-dark">
       {/* The filing identity strip (2026-10 critique P-04): breadcrumb, company + ticker, one
@@ -273,6 +283,7 @@ function FilingDetailView({ filingId, initialFiling, initialSummary }: { filingI
         summaryAvailable={hasSummaryContent}
         demoMode={demoMode}
         secUrl={originalUrl}
+        sourceLabel={sourceLabel}
         copilotBody={
           <AskCopilotRail
             key={filing.id}

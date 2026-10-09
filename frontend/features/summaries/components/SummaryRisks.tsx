@@ -57,26 +57,28 @@ export function SummaryRisks({ risks, projection }: SummaryRisksProps) {
         Excerpts are the filing’s own words; each heading is its excerpt’s opening clause. Selected excerpts are not a
         complete risk inventory.
       </p>
-      <ul role="list" className={`border-t ${HAIRLINE}`}>
-        {shown.map((risk, index) => (
-          <li key={`${index}-${headings[index]}`} className={`flex flex-col gap-2 border-b py-4 ${HAIRLINE}`}>
-            <h3 className="text-sm font-semibold">{headings[index]}</h3>
-            <blockquote className={`border-l-2 pl-3.5 text-sm leading-relaxed ${HAIRLINE} ${MUTED}`}>
-              {risk.supporting_evidence}
-            </blockquote>
-            {(risk.source_url?.trim() || risk.source_section_ref?.trim()) && (
-              <div>
-                <SourceTrace
-                  url={risk.source_url}
-                  verified={risk.source_verified === true}
-                  sectionRef={risk.source_section_ref}
-                  excerpt={risk.supporting_evidence}
-                />
-              </div>
-            )}
-          </li>
-        ))}
-      </ul>
+      {shown.length > 0 && (
+        <ul role="list" className={`border-t ${HAIRLINE}`}>
+          {shown.map((risk, index) => (
+            <li key={`${index}-${headings[index]}`} className={`flex flex-col gap-2 border-b py-4 ${HAIRLINE}`}>
+              <h3 className="text-sm font-semibold">{headings[index]}</h3>
+              <blockquote className={`border-l-2 pl-3.5 text-sm leading-relaxed ${HAIRLINE} ${MUTED}`}>
+                {risk.supporting_evidence}
+              </blockquote>
+              {(risk.source_url?.trim() || risk.source_section_ref?.trim()) && (
+                <div>
+                  <SourceTrace
+                    url={risk.source_url}
+                    verified={risk.source_verified === true}
+                    sectionRef={risk.source_section_ref}
+                    excerpt={risk.supporting_evidence}
+                  />
+                </div>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
       <p className={`font-data text-xs tabular-nums ${MUTED}`}>
         {`${verified} of ${plural(total, 'excerpt', 'excerpts')} located in the filing text`}
         {withheld > 0 && ` · ${withheld} withheld because the evidence could not be matched`}

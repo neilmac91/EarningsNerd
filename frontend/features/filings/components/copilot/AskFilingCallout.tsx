@@ -1,6 +1,6 @@
 'use client'
 
-import { SparkleIcon } from '@/lib/icons'
+import { ChatCircleTextIcon } from '@/lib/icons'
 import { starterQuestions } from './starterQuestions'
 import { Button } from '@/components/ui'
 
@@ -29,7 +29,7 @@ export default function AskFilingCallout({ filingType, subjectLabel, onAsk }: As
     >
       <div className="flex items-start gap-3">
         <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-brand-strong text-white dark:bg-brand-dark dark:text-background-dark">
-          <SparkleIcon className="h-5 w-5" aria-hidden="true" />
+          <ChatCircleTextIcon className="h-5 w-5" aria-hidden="true" />
         </span>
         <div className="min-w-0">
           <h3
@@ -53,7 +53,7 @@ export default function AskFilingCallout({ filingType, subjectLabel, onAsk }: As
               </button>
             ))}
           </div>
-          <Button className="mt-4" onClick={() => onAsk('', 'summary_cta')} leftIcon={<SparkleIcon className="h-4 w-4" aria-hidden="true" />}>
+          <Button className="mt-4" onClick={() => onAsk('', 'summary_cta')} leftIcon={<ChatCircleTextIcon className="h-4 w-4" aria-hidden="true" />}>
             Ask this filing
           </Button>
         </div>
