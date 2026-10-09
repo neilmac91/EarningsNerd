@@ -22,7 +22,7 @@ const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one :
  * The risks section as evidence rows (2026-10 critique P-03): one hairline list inside the section,
  * where each row is a heading, the excerpt in blockquote manners (2px hairline, no fill, no radius)
  * and its provenance chip. No stripe card, no trend glyph, no nested evidence box, nothing below the
- * 12px floor.
+ * 12px floor. A long unbreakable token (a URL) wraps inside the row, in the heading and the excerpt.
  *
  * Every item reaching this component is an original filing span projected by the server; unmatched
  * and model-only risks are withheld there, and the server labels every projected risk "Filing
@@ -60,7 +60,7 @@ export function SummaryRisks({ risks, projection }: SummaryRisksProps) {
       {shown.length > 0 && (
         <ul role="list" className={`border-t ${HAIRLINE}`}>
           {shown.map((risk, index) => (
-            <li key={`${index}-${headings[index]}`} className={`flex flex-col gap-2 border-b py-4 ${HAIRLINE}`}>
+            <li key={`${index}-${headings[index]}`} className={`flex flex-col gap-2 border-b py-4 [overflow-wrap:anywhere] ${HAIRLINE}`}>
               <h3 className="text-sm font-semibold">{headings[index]}</h3>
               <blockquote className={`border-l-2 pl-3.5 text-sm leading-relaxed ${HAIRLINE} ${MUTED}`}>
                 {risk.supporting_evidence}
