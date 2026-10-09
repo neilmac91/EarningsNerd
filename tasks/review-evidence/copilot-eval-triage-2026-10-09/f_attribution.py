@@ -15,7 +15,9 @@ generation never triggered the retry it triggered in the run. The changes, nothi
   generation path; the predecessor let it through because the runs it read could predate F;
 * a row whose replayed withhold reasons (``replay_logged``) differ from the run's
   ``tool_trace.withheld_reasons`` is not reproduced: a published row counts as a replay mismatch
-  (UNEXPLAINED) and a withheld row is UNEXPLAINED, so exit 0 means every recorded reason reproduced.
+  (UNEXPLAINED) and a withheld row is UNEXPLAINED, so exit 0 means every recorded reason reproduced;
+* a run without a report to replay is refused (exit 2): an empty list would write a zero-row report and
+  exit 0, meeting the triage rule's condition (3) without replaying a row.
 
 A withheld replay ends in an error event that names no path, so the checked surfaces read the path from
 the checked call (the not-disclosed path checks an empty markdown and the reason first).
@@ -533,6 +535,8 @@ def main():
         report = self_test()
         json.dump(report, open(args.out, "w"), indent=1, ensure_ascii=False)
         return 0
+    if not args.runs:
+        parser.error("name one or more copilot-eval reports to replay")
     report = analyse(args.runs)
     json.dump(report, open(args.out, "w"), indent=1, ensure_ascii=False)
     return print_report(report)
