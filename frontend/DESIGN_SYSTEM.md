@@ -167,7 +167,7 @@ Link as button   buttonVariants({ variant, size })  — the class-string factory
                  styled as buttons; <Button> composes the same factory. Raw fields that the
                  <Input> component can't wrap use inputClasses({ invalid, density }).
                  Toolbar fields (v3.1): density="compact" on <Select>/inputClasses = 36px from sm
-                 up, phones keep the 44px touch height. `density`, not `size` (a native attribute);
+                 up, phones keep the standard 42px field height. `density`, not `size` (a native attribute);
                  each density has its own EXPLICIT padding sides (never an override on top).
 
 Accent text/link text-brand-strong dark:text-brand-strong-dark   (never brand.DEFAULT as text on cream)
@@ -219,7 +219,8 @@ Segmented ctrl   <SegmentedControl label options value onChange size="sm|md|adap
                  ONE single-choice toggle group (lifted from the calendar's Week/Month switch; the calendar
                  and the filings form filter both use it). role="group" of <button aria-pressed> — every option
                  is visible, so not a radiogroup/tablist. Shell = panel + hairline + e1, rounded-lg, p-1;
-                 segment rounded (8) 12/600; selected = the primary colorway (bg-brand + white; dark NAVY ink on
+                 segment rounded (8), 600 weight — 12px labels at 26px (sm; adaptive from sm up), 14px at 36px
+                 (md; adaptive below sm); selected = the primary colorway (bg-brand + white; dark NAVY ink on
                  brand-dark). sm 26px · md 36px · adaptive 36px below sm, 26px from sm up. `mono` options set
                  codes (10-K) in the data face. One selected colour per group — never an ink fill for "All".
                  `fullWidth` stretches the segments across a phone row and wraps them onto another row when
@@ -229,7 +230,8 @@ Segmented ctrl   <SegmentedControl label options value onChange size="sm|md|adap
 Index list       <FilingIndex> (features/filings/components) — the recipe for a list of primary documents:
                  ONE surface (the section Card), hairline rows and year groups (DataTable manners: hover
                  bg-white / dark:bg-white/[0.03], never darker), no stripes, no row tints, no per-type colour,
-                 no per-row icon. One grid template for the column header and every row (form · period ·
+                 no per-row document icon (the md-up caret in the actions track is an aria-hidden navigation cue,
+                 not a type signal). One grid template for the column header and every row (form · period ·
                  filed · actions) so values align across groups. The row is ONE <Link>, named by its own
                  content (no aria-label); a secondary target (EDGAR) is a SIBLING anchor absolutely placed in
                  the actions track — never an <a> inside the row link. 48px rows from md, 64px two-line rows
@@ -403,8 +405,9 @@ Section ledger   <SummaryBlocks>  (P-05/P-07) — sections sit on the page groun
                  close with a hairline, outer cells flush with the text edge, no outer frame). Body ink for
                  paragraphs and bullets. The change report is the section after the first metrics section
                  (`<WhatChanged bare>`): Metric · Prior · Current · Change · Read as, the change the server's
-                 display string in its TONE's ink with a ▲/▼ text glyph for the arithmetic direction
-                 (aria-hidden), "Read as" = the tone in words (Favorable / Unfavorable / Neutral); below sm a
+                 display string (the em dash when it sends none: a zero prior) in its TONE's ink with a ▲/▼
+                 text glyph for the arithmetic direction (aria-hidden; sr-only words state it where no signed
+                 string does), "Read as" = the tone in words (Favorable / Unfavorable / Neutral); below sm a
                  stacked row per metric (name + change, then prior → current + Read as), switched by CSS.
                  A fragment the page was OPENED with (/filing/{id}#what-changed, from Compare periods) is
                  honoured once its section renders (features/summaries/hooks/useSectionArrival); later
@@ -430,7 +433,7 @@ Compare periods  <ComparePeriodsCard filing>  (features/filings, critique 1b + P
                  report: an <aside> Card (p-5, h2 18/600) beside the filings index on lg+ (grid-cols-1 base,
                  lg 1fr + 20rem), shown only for selectComparisonFiling (the newest annual report with an
                  earlier annual period listed). Up to three hairline rows: metric · the change in WhatChanged's
-                 own vocabulary (exported Change: ▲/▼ glyph + the server's display string in its tone's ink)
+                 own vocabulary (exported Change: ▲/▼ glyph + the server's display string or —, in its tone's ink)
                  · the Read-as word; "N more in the change report."; a sage text link "Open change report →"
                  to /filing/{id}#what-changed. Same GET and query key as the filing page's section. States in
                  place: ledger bones, Notice + RetryButton, a plain line when nothing is comparable. No risk
