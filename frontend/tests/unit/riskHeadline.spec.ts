@@ -231,6 +231,10 @@ describe('deriveRiskHeadline', () => {
       'The Company relies on J.P. Morgan Chase Bank, N.A. as its sole depositary for these accounts',
     )
     expect(deriveRiskHeadline('Apple Inc. faces new tariff exposure. Details follow.', 0)).toBe('Apple Inc. faces new tariff exposure…')
+    // A company suffix before a capitalised word does end the sentence, and keeps its period.
+    expect(deriveRiskHeadline('Our sole supplier is Acme Inc. Production may stop if the supplier fails.', 0)).toBe(
+      'Our sole supplier is Acme Inc.…',
+    )
     expect(deriveRiskHeadline('Under ASU No. 2023-07 the Company discloses significant segment expenses. More.', 0)).toBe(
       'Under ASU No. 2023-07 the Company discloses significant segment expenses…',
     )

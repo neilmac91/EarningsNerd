@@ -47,14 +47,18 @@ const MIN_CLAUSE_WORDS = 4
 /** The positional title a card keeps when its excerpt cannot give a meaningful headline. */
 export const riskHeadlineFallback = (index: number): string => `Filing excerpt ${index + 1}`
 
-// Abbreviations whose trailing period is not a sentence end ("Apple Inc. faces", "ASU No. 2023-07",
-// "Q1 vs. Q2", "Sept. 2025"). Lowercase here; matched case-insensitively letter by letter so the
-// surrounding character classes can stay case-sensitive.
+// Abbreviations whose trailing period never ends a sentence: a title, label or month always has
+// more to come ("ASU No. 2023-07", "Q1 vs. Q2", "Sept. 2025", "Dr. Smith"). Lowercase here; matched
+// case-insensitively letter by letter so the surrounding character classes can stay case-sensitive.
 const ABBREVIATIONS = [
-  'inc', 'co', 'corp', 'ltd', 'llc', 'plc', 'vs', 'approx', 'no', 'nos', 'mr', 'mrs', 'ms', 'dr',
-  'jr', 'sr', 'st', 'incl', 'est', 'etc', 'dept', 'govt', 'fig', 'mfg', 'intl', 'assn', 'bros', 'univ',
+  'co', 'vs', 'approx', 'no', 'nos', 'mr', 'mrs', 'ms', 'dr', 'jr', 'sr', 'st', 'incl', 'est', 'dept',
+  'govt', 'fig', 'mfg', 'intl', 'assn', 'bros', 'univ',
   'jan', 'feb', 'mar', 'apr', 'jun', 'jul', 'aug', 'sep', 'sept', 'oct', 'nov', 'dec',
 ]
+// A company suffix or "etc." can end a sentence ("Our sole supplier is Acme Inc. Production may
+// stop"): its period ends one when a capitalised word follows, as any period does, and a lower-case
+// one keeps it mid-sentence ("Apple Inc. faces"). Its period stays with the word in the headline.
+const TERMINAL_ABBREVIATION = /\b(?:inc|corp|ltd|llc|plc|etc)$/i
 const caseInsensitive = (word: string): string => word.replace(/[a-z]/g, (c) => `[${c.toUpperCase()}${c}]`)
 const ABBREVIATION_ALTERNATION = ABBREVIATIONS.map(caseInsensitive).join('|')
 
@@ -193,8 +197,10 @@ const firstSentence = (text: string): string => {
   for (const match of text.matchAll(SENTENCE_END)) {
     const at = match.index ?? 0
     const closers = match[1] ?? ''
-    // A bare terminal period is dropped; one inside a closing quotation stays with its quote.
-    const sentence = closers ? text.slice(0, at + 1 + closers.length) : text.slice(0, match[0].startsWith('.') ? at : at + 1)
+    // A bare terminal period is dropped; one inside a closing quotation, or one that closes a company
+    // suffix ("Acme Inc."), stays.
+    const keepsPeriod = !match[0].startsWith('.') || TERMINAL_ABBREVIATION.test(text.slice(0, at))
+    const sentence = closers ? text.slice(0, at + 1 + closers.length) : text.slice(0, keepsPeriod ? at + 1 : at)
     if (wordCount(sentence) >= MIN_EXCERPT_WORDS) return sentence
   }
   return text
