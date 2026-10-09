@@ -122,11 +122,12 @@ ALLOWED_WRITE_SITES: dict[tuple[str, str], frozenset[str]] = {
         "app/services/refresh_token_service.py::create_refresh_token",
     }),
     ("app/routers/companies.py", "search_companies"): frozenset({
-        "app/routers/companies.py::search_companies",
+        "app/services/company_lookup_service.py::resolve_search_conflict",
+        "app/services/company_lookup_service.py::upsert_search_results",
         "app/services/company_resolution.py::resolve_or_create_company_by_cik",
     }),
     ("app/routers/companies.py", "get_company"): frozenset({
-        "app/routers/companies.py::get_company",
+        "app/services/company_lookup_service.py::persist_sec_company",
         "app/services/company_resolution.py::resolve_or_create_company_by_cik",
     }),
     ("app/routers/filings.py", "get_company_filings"): frozenset({
