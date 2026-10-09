@@ -49,6 +49,51 @@
 - Limits: DOM, keyboard and screenshot probes in Chromium; no screen reader, Safari or device; production has no in-app filing text for most filings, so the Filing tab often shows its empty state; the fiscal-year label ("FY2022") waits for XBRL dei fields; "Latest filing" is not shown on the filing page (no cheap source of truth without a company-filings fetch that schedules SEC refreshes).
 - [ ] Next in the stack: PR 2 company page (1b: filings-index patches 0001–0002, identity on the lead, Compare periods card; removes the two pinned lint disables), PR 3 homepage (1d: search listbox identity line with backend support, single-surface example, trust strip), PR 4 loading and motion (P-09). Outside the repo: P-01 republish the design-system package in Claude Design.
 
+## 2026-10-09 — Hot-module refactor: the founder's delegation, the decisions and Wave 0 (lane D)
+
+The founder delegated the open decisions of `tasks/refactor-plan-2026-10.md` on 2026-10-09: "please
+analyse the pros and cons of the decisions needed for these aspects of the plan and make an expert
+decision. I trust you on this and give you full authority to proceed based on the decision you make."
+This records it as a standing authorization (`lessons/ops-keep-moving-under-standing-authorization.md`).
+
+- **Covers:** the plan's decisions 1 and 3–9, and the work they start: Wave 0 (the size-budget gate and
+  six anchor PRs), the dead-code PR and the moves, under the plan's own gates. Paid runs come under the
+  plan's USD 18 refactor ceiling: balance read first, a reservation stated in each PR body, every run
+  logged (decision 1).
+- **Does not cover** the boundaries the founder still holds:
+  - production flags;
+  - the AI provider and its prompts (a prompt byte change is a RUNBOOK event and never rides a
+    refactor PR);
+  - locked contract tests;
+  - destructive data or history operations (branch deletion stays on the 2026-10-07 sweep's
+    approval-by-name list);
+  - anything the CODE RED chief holds.
+
+- [x] Plan and decisions: `tasks/refactor-plan-2026-10.md` (#1136), reviewed independently and corrected.
+- [x] Docs, decision 7: `docs/ARCHITECTURE.md` and dated correction notes in two audit appendices (#1154, merged as `69b59203`).
+- [ ] W0.G: the size-budget gate and the AST move proof (#1156). An adversarial review found one
+  blocker (a budget-file edit alone could bypass decision 6). It is fixed in W0.G's second commit,
+  and fourteen probes check the fix.
+- [ ] The six Wave 0 anchor PRs, each verified on current main: C0 #1157, T0 #1158, F0 #1159,
+  X0 #1160, O0 #1161 and I0 #1162. The independent review, including xdist and Lane C runs, found two
+  issues, fixed in C0 and O0.
+- [ ] Wave 1: the dead-code PR, then I1, O1, T1, X1, C1 and F1, one verified deploy at a time.
+- [ ] Rule-7 follow-up, outside the plan. The naive `datetime.now()` stamps at
+  `backend/app/services/edgar/xbrl_service.py:180,207,692,713,722`, and the `datetime.now(timezone.utc)`
+  calls at `backend/app/services/facts_service.py:715,1954,1983`, should go through
+  `app/utils/datetimes.py`. The refactor's moves leave them as they are.
+- [ ] Wave 0 found three behaviour bugs and one dead prompt branch. Each is fixed outside the
+  refactor, with the anchor that pins today's behaviour updated in the same PR (plan, Implementation
+  Notes, "Follow-ups for non-move PRs"):
+  - a missing entity id counts as the entity "nan" and drops the debt observation
+    (`instance_extractor.py:648-650`);
+  - a numeric `filing_date` from the model raises out of `summarize_filing`
+    (`openai_service.py:1051`);
+  - model-supplied top-level keys survive into the stored structured summary (rule 9);
+  - the OUTPUT REFERENCE branch is dead. The loader's markers (`prompt_loader.py:50-54`) never match,
+    so each prompt loads whole into the system message, and the model still sees the format.
+    Reviving or deleting the branch changes prompt bytes, a RUNBOOK event for the founder.
+
 ## 2026-10-08 — EN-04: wide filing tables stay inside the in-app filing reader (frontend)
 
 - Scope: critique finding EN-04 (P2 today, P1 once in-app filing text ships), parts a to d, as its own main-based branch, frontend only. No production filing is known to have in-app text (every id sampled on 2026-10-04 returned `has_content=false`, and nothing at main writes `FilingContentCache.markdown_content`), so it was reproduced with the critique environment's synthetic, labelled text for a Pro visitor (`tests/e2e/fixtures/filing-3-content.md`, a byte copy of `tasks/critique-env-2026-10-04/fixtures/filing-3-content.md`, whose `PROVENANCE.json` says `"synthetic": true`), on `main` `da636f6c` in Chromium 141. At 1440x900 the reader was 772px wide inside its 418px-wide parent (the 420px pane), the document 1793px wide against 1440, and a "Verified in filing" jump scrolled the window 290px sideways and left the cited passage outside the reader's visible area. At 390x844 (touch) the sheet clipped 72 text blocks, the 9-column table and the cited passage, with no way to scroll to them. Every flex ancestor stayed at the pane's width: the reader's auto inline margins turn off stretch, so it took its content's min-content width, and `min-w-0` on the chain cannot bound that (not added). The archive's phone check cannot see the bug: on main's build the reader's `scrollWidth === clientWidth` (772) and the document's scroll width equals its client width (390).
