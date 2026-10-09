@@ -1,11 +1,11 @@
 import { createRequire } from 'node:module'
 import { test, expect, type Page } from '@playwright/test'
 import { settled } from './fixtures/contrast'
-import { answerApi, API_ORIGIN } from './fixtures/filing3Api'
+import { answerApi, API_ORIGIN, PANE } from './fixtures/filing3Api'
 
 /**
- * Text floors on the main routes, read from what Chromium renders (critique v3.1 DC-TERTIARY and
- * DET-OVL-1). DOM and computed-style measurements only: this is not a screen-reader
+ * Text floors on the main routes, read from what Chromium renders (critique v3.1 DC-TERTIARY,
+ * DET-OVL-1 and DET-OVL-2). DOM and computed-style measurements only: this is not a screen-reader
  * or visual test.
  *
  * Muted ink (DESIGN_SYSTEM §2 and §7, the rule-12 gate for DC-TERTIARY): every piece of text painted
@@ -21,6 +21,10 @@ import { answerApi, API_ORIGIN } from './fixtures/filing3Api'
  * own visually hidden h2, so a page whose content ends at h1 (the 404, /analysis, /search) no longer
  * jumps from h1 to h3.
  *
+ * Body text (DET-OVL-2, the detector's two rules): no paragraph of body text on the homepage sets
+ * its line height under 1.3 times its size, and at 390px no body paragraph on the filing page, with
+ * the Ask sheet open or closed, runs closer than the documented 16px gutter to the viewport edge.
+ *
  * CI runs e2e with no backend (lessons/test-e2e-runs-without-backend.md): the API origin is answered
  * inside the browser.
  */
@@ -33,6 +37,7 @@ const hexToRgb = (hex: string) => {
   return `rgb(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255})`
 }
 const TERTIARY_INK = hexToRgb(TAILWIND.theme.extend.colors.text.tertiary.light)
+const LAUNCHER = 'button[aria-haspopup="dialog"][aria-label="Ask this Filing"]'
 
 const FOLDER = 'https://www.sec.gov/Archives/edgar/data/320193/000032019325000079/'
 const companyFiling = (id: number, filing_type: string, filing_date: string, report_date: string) => ({
@@ -185,4 +190,56 @@ test.describe('main routes at 1440x900, light theme', () => {
       expect.soft(outline.footer, 'the footer opens its own section before its column titles').toEqual(['H2', 'H3', 'H3', 'H3'])
     })
   }
+})
+
+/** Body text with a line height under 1.3 times its size (the detector's tight-leading rule). */
+const tightLeading = (page: Page) =>
+  page.evaluate(() => {
+    const out: string[] = []
+    for (const el of document.querySelectorAll('body *')) {
+      if (/^H[1-6]$/.test(el.tagName) || !el.checkVisibility()) continue
+      const own = [...el.childNodes].filter((n) => n.nodeType === Node.TEXT_NODE).map((n) => n.textContent ?? '').join('').trim()
+      if (own.length <= 10 || (el.textContent ?? '').trim().length <= 50) continue
+      const s = getComputedStyle(el)
+      const ratio = parseFloat(s.lineHeight) / parseFloat(s.fontSize)
+      if (ratio < 1.3) out.push(`${own.slice(0, 40)} (${s.fontSize} / ${s.lineHeight})`)
+    }
+    return out
+  })
+
+/** Body paragraphs whose box runs closer than 16px to either viewport edge (the detector's rule). */
+const edgeParagraphs = (page: Page) =>
+  page.evaluate(() => {
+    const vw = document.documentElement.clientWidth
+    const out: string[] = []
+    for (const el of document.querySelectorAll('p, li')) {
+      const own = [...el.childNodes].filter((n) => n.nodeType === Node.TEXT_NODE).map((n) => n.textContent ?? '').join('').trim()
+      if (own.length <= 10 || (el.textContent ?? '').trim().length <= 40 || el.closest('nav, header') || !el.checkVisibility()) continue
+      const s = getComputedStyle(el)
+      const box = el.getBoundingClientRect()
+      const ownGround = s.backgroundColor !== 'rgba(0, 0, 0, 0)' && s.backgroundColor !== 'transparent'
+      if (ownGround || s.position === 'fixed' || s.position === 'absolute' || box.width / vw <= 0.5) continue
+      if (box.left < 16 || box.right > vw - 16) out.push(`${own.slice(0, 40)} (left ${Math.round(box.left)}px, right ${Math.round(vw - box.right)}px)`)
+    }
+    return out
+  })
+
+for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 }]) {
+  test(`homepage body text keeps at least 1.3 line height at ${viewport.width}px`, async ({ page, baseURL }) => {
+    await page.setViewportSize(viewport)
+    await visit(page, baseURL!, ROUTES[0])
+    await expect(page.getByRole('heading', { name: 'Also in Pro' })).toBeAttached()
+    expect(await tightLeading(page)).toEqual([])
+  })
+}
+
+test('at 390px the filing page keeps body text 16px off the edges, with the Ask sheet closed and open', async ({ page, baseURL }) => {
+  await page.setViewportSize({ width: 390, height: 844 })
+  await visit(page, baseURL!, { ...ROUTES[3], open: (p, b) => answerApi(p, b, 'pro'), ready: (p) => expect(p.getByRole('heading', { level: 1 })).toBeVisible() })
+  expect.soft(await edgeParagraphs(page), 'sheet closed').toEqual([])
+
+  await page.locator(LAUNCHER).click()
+  await expect(page.locator(PANE).getByPlaceholder('Ask about this filing…')).toBeVisible()
+  await settled(page.locator(PANE))
+  expect(await edgeParagraphs(page), 'sheet open').toEqual([])
 })
