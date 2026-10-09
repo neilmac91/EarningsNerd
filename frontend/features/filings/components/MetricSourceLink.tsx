@@ -28,6 +28,7 @@ export function MetricSourceLink({ url, verified, concept, sectionRef, layoutTwi
       url={url}
       verified={isVerified}
       sectionRef={sectionRef}
+      kind="xbrl"
       label={isVerified ? `${concept ? `${concept} · ` : ''}SEC XBRL` : undefined}
       note={isVerified ? 'Matched against the SEC-filed XBRL value' : null}
       layoutTwin={layoutTwin}

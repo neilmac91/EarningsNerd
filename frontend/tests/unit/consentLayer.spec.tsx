@@ -177,11 +177,11 @@ describe('FilingWorkspace defers the coachmark while the consent bar is visible'
   it('no coachmark while the bar is up; it appears, pointing at the visible launcher, once the bar is gone', () => {
     publishConsentLayer(97)
     renderClosed()
-    expect(screen.getByRole('button', { name: 'Ask this Filing' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Source' })).toBeInTheDocument()
     expect(screen.queryByText(COACH_TEXT)).not.toBeInTheDocument()
     act(() => publishConsentLayer(null))
     expect(screen.getByText(COACH_TEXT)).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Ask this Filing' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Source' })).toBeInTheDocument()
     expect(localStorage.getItem(COACH_KEY)).toBeNull() // deferred, not dismissed
   })
 

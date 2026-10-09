@@ -1,0 +1,27 @@
+{
+  "files": {
+    "app/services/openai_service.py": 1252
+  },
+  "functions": {
+    "app/services/openai_service.py::OpenAIService.summarize_filing": 552,
+    "app/services/openai_service.py::OpenAIService.generate_structured_summary": 250,
+    "app/services/openai_service.py::OpenAIService._assemble_structured_summary": 87
+  },
+  "names": {
+    "OpenAIService": null,
+    "OpenAIService._assemble_structured_summary": null,
+    "OpenAIService._parse_and_clean_text": null,
+    "OpenAIService._partial_markdown_preview": null,
+    "OpenAIService._stream_collect": null,
+    "OpenAIService._verify_attributions": null,
+    "OpenAIService.generate_structured_summary": null,
+    "OpenAIService.get_model_for_filing": null,
+    "OpenAIService.get_model_for_task": null,
+    "OpenAIService.summarize_filing": null,
+    "_segments_not_applicable": null,
+    "logger": null,
+    "openai_service": null
+  },
+  "forbidden_imports": [],
+  "note": "W0.G baseline (tasks/refactor-plan-2026-10.md, 'The size-budget gate' and decision 6): ceilings are the sizes measured on main ae5b0f1c on 2026-10-09, identical to the plan's da636f6 values. Lower a ceiling in the commit that shrinks the code (a move re-keys a function row to its new path at the same number). Raise a FILE ceiling only with a dated raise line appended here, 'YYYY-MM-DD PR #N: <path> <old> -> <new> (<why extraction was not possible>)', and a 'Ceiling raise' paragraph in the PR body. Only the twenty long functions frozen in the gate have function rows, and none may go above its W0.G size; every other function is held to 80 lines. names: every name this file defined at W0.G (module level, and members of its module-level classes); a move maps a module-level name to the module that now defines it; a deliberate deletion removes the name and records why here."
+}

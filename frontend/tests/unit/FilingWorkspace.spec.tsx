@@ -36,29 +36,43 @@ function renderWorkspace(props: Props = {}, extra?: React.ReactNode) {
 describe('FilingWorkspace', () => {
   beforeEach(() => window.localStorage.clear())
 
-  it('mounts the summary and BOTH bodies, with the [Answer · Filing] tabs', () => {
+  it('mounts the summary and BOTH bodies, with the [Filing · Ask] tabs, the filing first', () => {
     renderWorkspace()
     expect(screen.getByTestId('summary')).toBeInTheDocument()
     // Both bodies stay mounted (stream-safe); the inactive one is hidden via CSS, not unmounted.
     expect(screen.getByTestId('copilot')).toBeInTheDocument()
     expect(screen.getByTestId('filing')).toBeInTheDocument()
-    expect(screen.getByRole('tab', { name: /answer/i })).toHaveAttribute('aria-selected', 'true')
+    // The filing leads the tab order (2026-10 critique P-06); the conversation stays the initial view
+    // until in-app filing text is reliably available.
+    expect(screen.getAllByRole('tab').map((t) => t.textContent)).toEqual(['Filing', 'Ask'])
+    expect(screen.getByRole('tab', { name: 'Ask' })).toHaveAttribute('aria-selected', 'true')
     expect(screen.getByRole('tab', { name: /filing/i })).toHaveAttribute('aria-selected', 'false')
+  })
+
+  it('is named for the source: a "Source" pane labelled "Filing source and Ask", an aside on lg+', () => {
+    renderWorkspace({ sourceLabel: 'AAPL · 10-K · filed Oct 28, 2022' })
+    const pane = screen.getByRole('complementary', { name: 'Filing source and Ask' })
+    expect(pane).not.toHaveAttribute('aria-modal')
+    expect(screen.queryByRole('dialog')).toBeNull()
+    expect(pane).toHaveTextContent('Source')
+    expect(pane).toHaveTextContent('AAPL · 10-K · filed Oct 28, 2022')
+    // No sparkle anywhere in the pane chrome: its tab glyphs are the file and the speech bubble.
+    expect(screen.getByRole('tablist', { name: 'Source pane views' })).toBeInTheDocument()
   })
 
   it('switches the active view via the tabs', () => {
     renderWorkspace()
     fireEvent.click(screen.getByRole('tab', { name: /filing/i }))
     expect(screen.getByRole('tab', { name: /filing/i })).toHaveAttribute('aria-selected', 'true')
-    expect(screen.getByRole('tab', { name: /answer/i })).toHaveAttribute('aria-selected', 'false')
-    // "Open original" appears on the filing tab.
-    expect(screen.getByRole('link', { name: /open original/i })).toHaveAttribute(
+    expect(screen.getByRole('tab', { name: 'Ask' })).toHaveAttribute('aria-selected', 'false')
+    // "Original on SEC EDGAR" sits in the Filing tab's footer.
+    expect(screen.getByRole('link', { name: /original on sec edgar/i })).toHaveAttribute(
       'href',
       'https://sec.gov/x',
     )
 
-    fireEvent.click(screen.getByRole('tab', { name: /answer/i }))
-    expect(screen.getByRole('tab', { name: /answer/i })).toHaveAttribute('aria-selected', 'true')
+    fireEvent.click(screen.getByRole('tab', { name: 'Ask' }))
+    expect(screen.getByRole('tab', { name: 'Ask' })).toHaveAttribute('aria-selected', 'true')
   })
 
   it('flips to the filing view when a citation requests a highlight', () => {
@@ -78,14 +92,14 @@ describe('FilingWorkspace', () => {
       )
     }
     renderWorkspace({}, <Citer />)
-    expect(screen.getByRole('tab', { name: /answer/i })).toHaveAttribute('aria-selected', 'true')
+    expect(screen.getByRole('tab', { name: 'Ask' })).toHaveAttribute('aria-selected', 'true')
     fireEvent.click(screen.getByRole('button', { name: 'cite' }))
     expect(screen.getByRole('tab', { name: /filing/i })).toHaveAttribute('aria-selected', 'true')
   })
 
   it('moves between tabs with arrow keys (roving tabindex)', () => {
     renderWorkspace()
-    const answer = screen.getByRole('tab', { name: /answer/i })
+    const answer = screen.getByRole('tab', { name: 'Ask' })
     expect(answer).toHaveAttribute('tabindex', '0')
     expect(screen.getByRole('tab', { name: /filing/i })).toHaveAttribute('tabindex', '-1')
 
@@ -96,7 +110,7 @@ describe('FilingWorkspace', () => {
 
   it('wires tabs to their panels (aria-controls / role=tabpanel)', () => {
     renderWorkspace()
-    const answerTab = screen.getByRole('tab', { name: /answer/i })
+    const answerTab = screen.getByRole('tab', { name: 'Ask' })
     const panelId = answerTab.getAttribute('aria-controls')!
     const panel = document.getElementById(panelId)!
     expect(panel).toHaveAttribute('role', 'tabpanel')
@@ -112,7 +126,14 @@ describe('FilingWorkspace', () => {
 
   it('shows the launcher (and no tabs/resizer) when closed', () => {
     renderWorkspace({ open: false })
-    expect(screen.getByRole('button', { name: /ask this filing/i })).toBeInTheDocument()
+    const launcher = screen.getByRole('button', { name: 'Source' })
+    // "Source ⌘K" as a secondary control (P-06): panel fill, no sparkle, the shortcut announced, and
+    // its key hint in secondary ink on a cream key (never white on cream).
+    expect(launcher).toHaveTextContent('Source⌘K')
+    expect(launcher).toHaveClass('bg-panel-light')
+    expect(launcher).not.toHaveClass('bg-brand')
+    expect(launcher).toHaveAttribute('aria-keyshortcuts', 'Meta+K Control+K')
+    expect(launcher.querySelector('kbd')).toHaveClass('bg-background-light', 'text-text-secondary-light')
     expect(screen.queryByRole('tab')).toBeNull()
     expect(screen.queryByRole('separator')).toBeNull()
   })
@@ -121,20 +142,20 @@ describe('FilingWorkspace', () => {
     renderWorkspace({ summaryAvailable: false })
     expect(screen.getByTestId('summary')).toBeInTheDocument()
     expect(screen.queryByRole('tab')).toBeNull()
-    expect(screen.queryByRole('button', { name: /ask this filing/i })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Source' })).toBeNull()
     expect(screen.queryByRole('separator')).toBeNull()
   })
 
   it('silences the first-run nudge in demo mode but keeps the launcher', () => {
     // Non-demo, closed: the contextual coachmark nudge appears alongside the launcher.
     const { unmount } = renderWorkspace({ open: false })
-    expect(screen.getByRole('button', { name: /ask this filing/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Source' })).toBeInTheDocument()
     expect(screen.getByText(/ask this filing anything/i)).toBeInTheDocument()
     unmount()
 
     // Demo mode, closed: launcher still present, but the nudge is suppressed (calm first impression).
     renderWorkspace({ open: false, demoMode: true })
-    expect(screen.getByRole('button', { name: /ask this filing/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Source' })).toBeInTheDocument()
     expect(screen.queryByText(/ask this filing anything/i)).toBeNull()
   })
 
@@ -184,7 +205,7 @@ function Page({ initialOpen = false }: { initialOpen?: boolean }) {
   const [tick, setTick] = useState(0)
   const openForSource = useCallback(() => setOpen(true), [])
   return (
-    <FilingViewerProvider filingId={3} ticker="AAPL" filingType="10-K" onRequestOpen={openForSource}>
+    <FilingViewerProvider filingId={3} ticker="AAPL" filingType="10-K" onRequestOpen={openForSource} paneOpen={open}>
       <button type="button" onClick={() => setTick((t) => t + 1)}>
         unrelated {tick}
       </button>
@@ -210,9 +231,9 @@ function Page({ initialOpen = false }: { initialOpen?: boolean }) {
   )
 }
 
-// The shell keeps its dialog role while hidden, but an aria-hidden element has no accessible name in
-// the a11y tree, so it is located by its attributes rather than by role + name.
-const dialog = () => document.querySelector<HTMLElement>('[role="dialog"][aria-label="Ask this Filing"]')!
+// The shell is an aside on lg+ and a dialog below it; while hidden (aria-hidden) it has no accessible
+// name in the a11y tree, so it is located by its label attribute rather than by role + name.
+const dialog = () => document.querySelector<HTMLElement>('[aria-label="Filing source and Ask"]')!
 const chip = () => screen.getByRole('button', { name: 'Source: Verified in filing' })
 const filingTab = () => screen.getByRole('tab', { name: /filing/i })
 const answerChip = () => screen.getByRole('button', { name: /^Citation 1:/ })
@@ -228,12 +249,12 @@ describe('FilingWorkspace opened by a provenance chip (EN-01)', () => {
     expect(filingTab()).toHaveAttribute('aria-selected', 'true')
     expect(screen.getByTestId('filing').parentElement).not.toHaveClass('hidden')
     // The launcher is gone and no Ask affordance took the activation as its own.
-    expect(screen.queryByRole('button', { name: /ask this filing/i })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Source' })).toBeNull()
   })
 
   it('a chip activation while the pane is open switches it to Filing without closing it', () => {
     render(<Page initialOpen />)
-    expect(screen.getByRole('tab', { name: /answer/i })).toHaveAttribute('aria-selected', 'true')
+    expect(screen.getByRole('tab', { name: 'Ask' })).toHaveAttribute('aria-selected', 'true')
     fireEvent.click(chip())
     expect(dialog()).toHaveAttribute('aria-hidden', 'false')
     expect(filingTab()).toHaveAttribute('aria-selected', 'true')
@@ -259,11 +280,11 @@ describe('FilingWorkspace opened by a provenance chip (EN-01)', () => {
     fireEvent.click(screen.getByRole('button', { name: /asked 1/ }))
     fireEvent.click(chip())
     expect(filingTab()).toHaveAttribute('aria-selected', 'true')
-    fireEvent.click(screen.getByRole('tab', { name: /answer/i }))
+    fireEvent.click(screen.getByRole('tab', { name: 'Ask' }))
     expect(screen.getByRole('button', { name: /asked 2/ })).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: 'Close' }))
     fireEvent.click(chip())
-    fireEvent.click(screen.getByRole('tab', { name: /answer/i }))
+    fireEvent.click(screen.getByRole('tab', { name: 'Ask' }))
     expect(screen.getByRole('button', { name: /asked 2/ })).toBeInTheDocument()
   })
 
@@ -278,7 +299,7 @@ describe('FilingWorkspace opened by a provenance chip (EN-01)', () => {
     // A later launcher-driven open and close does not return to the stale chip: the opener was taken.
     act(() => c.blur())
     expect(document.activeElement).toBe(document.body)
-    fireEvent.click(screen.getByRole('button', { name: /ask this filing/i }))
+    fireEvent.click(screen.getByRole('button', { name: 'Source' }))
     fireEvent.click(screen.getByRole('button', { name: 'Close' }))
     expect(document.activeElement).toBe(document.body)
   })
@@ -296,6 +317,29 @@ describe('FilingWorkspace opened by a provenance chip (EN-01)', () => {
     fireEvent.click(close)
     expect(dialog().getAttribute('aria-hidden')).toBe('true')
     expect(document.activeElement).toBe(chip)
+  })
+
+  it('the chip whose passage the open pane shows is selected (brand tint, aria-current), and only then', () => {
+    render(<Page />)
+    expect(chip()).not.toHaveAttribute('aria-current')
+    expect(chip()).toHaveClass('bg-panel-light', 'text-xs', 'font-medium', 'font-data')
+    fireEvent.click(chip())
+    expect(chip()).toHaveAttribute('aria-current', 'true')
+    expect(chip()).toHaveClass('bg-brand-weak', 'text-brand-strong')
+    // The Ask tab hides the passage: the chip is no longer the one on screen.
+    fireEvent.click(screen.getByRole('tab', { name: 'Ask' }))
+    expect(chip()).not.toHaveAttribute('aria-current')
+    fireEvent.click(filingTab())
+    expect(chip()).toHaveAttribute('aria-current', 'true')
+    // An answer's citation shows its own passage, so the summary chip lets go.
+    fireEvent.click(screen.getByRole('tab', { name: 'Ask' }))
+    fireEvent.click(answerChip())
+    expect(filingTab()).toHaveAttribute('aria-selected', 'true')
+    expect(chip()).not.toHaveAttribute('aria-current')
+    // A closed pane shows nothing.
+    fireEvent.click(chip())
+    fireEvent.click(screen.getByRole('button', { name: 'Close' }))
+    expect(chip()).not.toHaveAttribute('aria-current')
   })
 
   it('focus the pane never held is left alone on close', () => {
@@ -365,12 +409,12 @@ describe('FilingWorkspace view switch from inside the pane (EN-01 follow-up)', (
     expect(filingTab()).toHaveAttribute('aria-selected', 'true')
     expect(document.activeElement).toBe(c)
 
-    const answer = screen.getByRole('tab', { name: /answer/i })
+    const answer = screen.getByRole('tab', { name: 'Ask' })
     act(() => answer.focus())
     fireEvent.keyDown(answer, { key: 'ArrowRight' })
     expect(document.activeElement).toBe(filingTab())
     fireEvent.keyDown(filingTab(), { key: 'ArrowLeft' })
-    expect(document.activeElement).toBe(screen.getByRole('tab', { name: /answer/i }))
+    expect(document.activeElement).toBe(screen.getByRole('tab', { name: 'Ask' }))
   })
 
   it('a summary chip stays the opener through an answer citation: closing returns focus to it', () => {
@@ -378,7 +422,7 @@ describe('FilingWorkspace view switch from inside the pane (EN-01 follow-up)', (
     const c = chip()
     act(() => c.focus())
     fireEvent.click(c)
-    fireEvent.click(screen.getByRole('tab', { name: /answer/i }))
+    fireEvent.click(screen.getByRole('tab', { name: 'Ask' }))
     const cite = answerChip()
     act(() => cite.focus())
     fireEvent.click(cite)
@@ -412,7 +456,7 @@ describe('FilingWorkspace view switch from inside the pane (EN-01 follow-up)', (
     expect(dialog()).toHaveAttribute('aria-hidden', 'false')
     expect(document.activeElement).toBe(c)
     // Back to Answer before closing, so the next open switches the view as it opens.
-    fireEvent.click(screen.getByRole('tab', { name: /answer/i }))
+    fireEvent.click(screen.getByRole('tab', { name: 'Ask' }))
     fireEvent.click(screen.getByRole('button', { name: 'Close' }))
 
     // A click that never focused the chip (Safari does not focus buttons on click) opens the pane
@@ -426,7 +470,7 @@ describe('FilingWorkspace view switch from inside the pane (EN-01 follow-up)', (
 
   it('a summary chip clicked without focus switches an open pane and leaves focus on <body> (Safari)', () => {
     render(<Page initialOpen />)
-    expect(screen.getByRole('tab', { name: /answer/i })).toHaveAttribute('aria-selected', 'true')
+    expect(screen.getByRole('tab', { name: 'Ask' })).toHaveAttribute('aria-selected', 'true')
     expect(document.activeElement).toBe(document.body)
     fireEvent.click(chip()) // Safari and Firefox on macOS do not focus a clicked button
     expect(filingTab()).toHaveAttribute('aria-selected', 'true')
@@ -470,6 +514,9 @@ describe('FilingWorkspace sheet below lg, opened by a provenance chip (EN-01)', 
       act(() => c.focus())
       fireEvent.click(c)
       expect(dialog()).toHaveAttribute('aria-hidden', 'false')
+      // Below lg the pane is a real dialog: modal, focus trapped (P-06).
+      expect(dialog()).toHaveAttribute('role', 'dialog')
+      expect(dialog()).toHaveAttribute('aria-modal', 'true')
       expect(dialog().contains(document.activeElement)).toBe(true)
       fireEvent.keyDown(document.activeElement as HTMLElement, { key: 'Escape' })
       expect(dialog()).toHaveAttribute('aria-hidden', 'true')
@@ -478,7 +525,7 @@ describe('FilingWorkspace sheet below lg, opened by a provenance chip (EN-01)', 
       expect(screen.getByRole('group', { name: 'Source detail' })).toBeInTheDocument()
 
       // The launcher takes focus; the chip's popover closes after its blur delay, as in a browser.
-      const launcher = screen.getByRole('button', { name: /ask this filing/i })
+      const launcher = screen.getByRole('button', { name: 'Source' })
       act(() => launcher.focus())
       act(() => {
         vi.advanceTimersByTime(200)
@@ -489,7 +536,7 @@ describe('FilingWorkspace sheet below lg, opened by a provenance chip (EN-01)', 
       fireEvent.keyDown(document.activeElement as HTMLElement, { key: 'Escape' })
       expect(dialog()).toHaveAttribute('aria-hidden', 'true')
       // The opener was taken on the first close, so this close returns to the launcher, not the chip.
-      expect(document.activeElement).toBe(screen.getByRole('button', { name: /ask this filing/i }))
+      expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Source' }))
     } finally {
       vi.useRealTimers()
     }
@@ -499,18 +546,18 @@ describe('FilingWorkspace sheet below lg, opened by a provenance chip (EN-01)', 
     vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
     try {
       render(<Page />)
-      fireEvent.click(screen.getByRole('button', { name: /ask this filing/i }))
+      fireEvent.click(screen.getByRole('button', { name: 'Source' }))
       const inPane = screen.getByRole('button', { name: 'in-pane opener' })
       act(() => inPane.focus())
       fireEvent.click(inPane) // an in-pane caller that records itself
       fireEvent.keyDown(document.activeElement as HTMLElement, { key: 'Escape' })
       expect(dialog()).toHaveAttribute('aria-hidden', 'true')
-      expect(document.activeElement).toBe(screen.getByRole('button', { name: /ask this filing/i }))
+      expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Source' }))
 
       const c = chip()
       act(() => c.focus())
       fireEvent.click(c)
-      fireEvent.click(screen.getByRole('tab', { name: /answer/i }))
+      fireEvent.click(screen.getByRole('tab', { name: 'Ask' }))
       const cite = answerChip()
       act(() => cite.focus())
       fireEvent.click(cite)

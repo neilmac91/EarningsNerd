@@ -81,7 +81,7 @@ export default function VerificationBanner() {
             aria-busy={loading || undefined}
             className="inline-flex shrink-0 items-center gap-1.5 font-semibold underline-offset-2 hover:underline aria-disabled:opacity-50"
           >
-            {loading && <CircleNotchIcon className="h-3.5 w-3.5 animate-spin" />}
+            {loading && <CircleNotchIcon className="h-3.5 w-3.5 animate-spin motion-reduce:animate-none" />}
             Resend link
           </button>
         )}

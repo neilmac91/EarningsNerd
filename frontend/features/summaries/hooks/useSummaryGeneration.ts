@@ -14,6 +14,7 @@ import {
 import type { Filing } from '@/features/filings/api/filings-api'
 import { queryKeys } from '@/lib/queryKeys'
 import analytics from '@/lib/analytics'
+import { IN_PROGRESS_MARKER } from '../lib/summaryPlaceholder'
 
 const getFriendlyErrorMessage = (error: unknown): string | null => {
   if (!error) return null
@@ -122,7 +123,7 @@ export function useSummaryGeneration({
     initialDataUpdatedAt: 0,
   })
 
-  const summaryHasPlaceholder = !!(summary?.business_overview && summary.business_overview.includes('Generating summary'))
+  const summaryHasPlaceholder = !!(summary?.business_overview && summary.business_overview.includes(IN_PROGRESS_MARKER))
   const hasSummaryContent = !!(summary?.business_overview && !summaryHasPlaceholder)
   // L1: a surfaced terminal error also ends generation. Without this, an errored run that left the
   // "Generating summary" placeholder in place would keep isGenerating — and the 1s progress poll —
@@ -152,7 +153,7 @@ export function useSummaryGeneration({
       setIsStreaming(true)
       setStreamingText('')
       setStreamingStage('initializing')
-      setStreamingMessage(options?.force ? 'Regenerating analysis...' : 'Initializing AI analysis...')
+      setStreamingMessage(options?.force ? 'Regenerating the summary…' : 'Reading the filing…')
 
       try {
         await generateSummaryStream(
