@@ -122,8 +122,12 @@ function HeroExample({
               <span className="min-w-0 break-words text-sm font-semibold text-text-primary-light dark:text-text-primary-dark">
                 {data.companyName}
               </span>
-              <span className="font-data text-xs text-text-secondary-light dark:text-text-secondary-dark">{data.ticker}</span>
-              <Badge variant="neutral">{data.filingType}</Badge>
+              <span className="font-data text-xs text-text-secondary-light dark:text-text-secondary-dark">
+                {data.ticker}
+                <span aria-hidden="true"> · </span>
+                {/* The form is text in the data face, never a Badge (2026-10 critique P-04). */}
+                <span className="font-semibold text-text-primary-light dark:text-text-primary-dark">{data.filingType}</span>
+              </span>
               {data.qualityTier === 'full' && (
                 <Badge variant="brand" icon={<CheckCircleIcon className="h-3 w-3" aria-hidden="true" />}>
                   Full summary
