@@ -123,3 +123,29 @@ def test_detector_sees_both_sides_of_a_rename(tmp_path):
     (repo / "backend/tests/test_helper.py").write_text("def test_value():\n    assert 1 == 1\n")
     git("commit", "-q", "-am", "change confined to tests")
     assert _run_detector(detect, repo, env, tmp_path / "github-output-tests") == "backend=false"
+
+
+REPORT_STEP = "Report variable-driven rollout switches"
+
+
+def test_deploy_reports_every_variable_driven_switch(tmp_path):
+    """Repository variables change without a commit, so a deploy can roll out more than its diff: PR
+    #1131's merge rolled out durable tasks switched on hours earlier (CODE RED decision record 17).
+    Every deploy-backend env entry set from a repository variable is printed by an ungated step that
+    runs before the detector, so every main push, deploying or not, shows what a deploy would apply."""
+    deploy = _workflow()["jobs"]["deploy-backend"]
+    names = [step.get("name") for step in deploy["steps"]]
+    report = next(step for step in deploy["steps"] if step.get("name") == REPORT_STEP)
+    assert "if" not in report and names.index(REPORT_STEP) < names.index("Detect backend changes")
+    switches = [key for key, value in deploy["env"].items() if "vars." in value]
+    assert switches, "deploy-backend reads no repository variable: update this gate"
+    for key in switches:
+        assert f"{key}=" in report["run"], f"{key} is set from a repository variable but the deploy does not report it"
+    summary = tmp_path / "summary"
+    env = {**os.environ, "DURABLE_TASKS_ENABLED": "true", "TASKS_WORKER_URL": "https://worker.example",
+           "GITHUB_STEP_SUMMARY": str(summary)}
+    result = subprocess.run(["bash", "-e", "-c", report["run"]], capture_output=True, text=True, env=env,
+                            timeout=30, check=False)
+    assert result.returncode == 0, result.stderr
+    line = "Variable-driven rollout switches: DURABLE_TASKS_ENABLED=true TASKS_WORKER_URL=set"
+    assert result.stdout.strip() == line and summary.read_text().strip() == line

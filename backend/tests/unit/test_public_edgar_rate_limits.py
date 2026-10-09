@@ -2,8 +2,9 @@
 
 /api/companies/{ticker}/insiders and /api/search/full-text hit SEC EDGAR live on every
 request (no DB cache), so without a per-IP limit an anonymous burst can drain the
-process-wide 10 req/s SEC budget for everyone. These tests pin that both endpoints 429
-past their limit — with the upstream call faked so no test touches the network.
+process-wide SEC budget for everyone. These tests pin that both endpoints 429 past their
+limit, and that the insider endpoint answers 404 without touching SEC unless
+ENABLE_INSIDER_ACTIVITY is set — with the upstream call faked so no test touches the network.
 """
 from unittest.mock import AsyncMock
 
@@ -11,6 +12,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 import main
+from app.config import Settings, settings
 from app.routers import insiders as insiders_mod
 from app.routers import search as search_mod
 from app.schemas.insiders import InsiderActivityResponse, InsiderActivitySummary
@@ -22,7 +24,21 @@ def client():
     return TestClient(main.app)
 
 
+def test_insiders_endpoint_is_404_without_any_sec_call_unless_enabled(client, monkeypatch):
+    monkeypatch.setattr(settings, "ENABLE_INSIDER_ACTIVITY", False)
+    fetch = AsyncMock()
+    monkeypatch.setattr(insiders_mod.insider_service, "get_insider_activity", fetch)
+    limiter = RateLimiter(limit=1, window_seconds=60)
+    monkeypatch.setattr(insiders_mod, "_insiders_rate_limiter", limiter)
+
+    for _ in range(3):  # also never reaches (or spends) the per-IP limiter
+        assert client.get("/api/companies/AAPL/insiders").status_code == 404
+    fetch.assert_not_called()
+    assert Settings.model_fields["ENABLE_INSIDER_ACTIVITY"].default is False
+
+
 def test_insiders_endpoint_429s_past_per_ip_limit(client, monkeypatch):
+    monkeypatch.setattr(settings, "ENABLE_INSIDER_ACTIVITY", True)
     monkeypatch.setattr(insiders_mod, "_insiders_rate_limiter", RateLimiter(limit=3, window_seconds=60))
     fake = InsiderActivityResponse(
         ticker="AAPL",

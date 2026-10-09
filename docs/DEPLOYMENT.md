@@ -344,8 +344,11 @@ gcloud scheduler jobs create http filing-digest-daily --location=us-west1 --sche
   --uri="https://us-west1-run.googleapis.com/apis/run.googleapis.com/v1/namespaces/earnings-nerd/jobs/earningsnerd-filing-digest:run" \
   --http-method=POST --oauth-service-account-email="${SA}"
 
-# Facts backfill weekly (Mondays 07:00 UTC — after the scan has ingested the week's filings)
-gcloud scheduler jobs create http backfill-facts-weekly --location=us-west1 --schedule="0 7 * * 1" \
+# Facts backfill weekly (Mondays 07:30 UTC — after the scan has ingested the week's filings, and after
+# pregenerate's 06:00 run has ended, so the SEC overlap stays at the cap; docs/OPERATIONS.md "SEC budgets
+# per process"). An existing job moves with: gcloud scheduler jobs update http backfill-facts-weekly
+# --location=us-west1 --schedule="30 7 * * 1"
+gcloud scheduler jobs create http backfill-facts-weekly --location=us-west1 --schedule="30 7 * * 1" \
   --uri="https://us-west1-run.googleapis.com/apis/run.googleapis.com/v1/namespaces/earnings-nerd/jobs/earningsnerd-backfill-facts:run" \
   --http-method=POST --oauth-service-account-email="${SA}"
 ```

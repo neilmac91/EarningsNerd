@@ -4,6 +4,7 @@ import logging
 
 from fastapi import APIRouter, HTTPException, Query, Request
 
+from app.config import settings
 from app.schemas.insiders import InsiderActivityResponse
 from app.services import insider_service
 from app.services.edgar.circuit_breaker import CircuitOpenError
@@ -14,9 +15,10 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
-# Unauthenticated + always a LIVE SEC EDGAR read (no DB cache): every request consumes the
-# process-wide 10 req/s SEC budget, so an anonymous burst here starves every other EDGAR
-# consumer. 30/min/IP is far above any legitimate single-user browsing rate.
+# Off unless settings.ENABLE_INSIDER_ACTIVITY (404): a cold load is a live edgartools fan-out of
+# about two SEC requests per Form 4, far past the deploy-pinned 1 req/s budget. When on it is
+# unauthenticated and always a LIVE SEC EDGAR read (no DB cache), so an anonymous burst would
+# starve every other EDGAR consumer; 30/min/IP is far above any single-user browsing rate.
 _insiders_rate_limiter = RateLimiter(limit=30, window_seconds=60)
 
 
@@ -35,8 +37,10 @@ async def get_company_insiders(
 
     Live SEC EDGAR read (no DB): resolves the ticker, pulls its most recent
     Form 4 filings, and returns a buy/sell signal — with a Rule 10b5-1 split —
-    plus the most recent individual transactions.
+    plus the most recent individual transactions. 404 unless ENABLE_INSIDER_ACTIVITY.
     """
+    if not settings.ENABLE_INSIDER_ACTIVITY:
+        raise HTTPException(status_code=404, detail="Not found")
     enforce_rate_limit(
         request,
         _insiders_rate_limiter,
