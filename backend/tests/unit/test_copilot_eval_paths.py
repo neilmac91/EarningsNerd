@@ -82,7 +82,9 @@ too (`glob.glob(join(dir, sub, "*.json"))`, `(dir / sub).glob("*.json")` and `gl
 read one level down, loudly, `(dir / "baselines" / sub).glob("*.json")` reads `baselines/*/*.json`, and such a glob's
 pattern is read as spelled too, since the anchored reading alone can resolve to nothing (`(dir / sub).glob("tests/fixtures/*.json")`
 names the fixtures); `glob.glob(join(dir, PATTERN))` lists the directory, `listdir(join(dir, sub))` two levels
-and `os.walk(join(dir, sub))` every level); a leading `**` in such a path is
+and `os.walk(join(dir, sub))` every level, and a `..` among such a receiver's or listing's segments climbs first, as in a
+joined path: `(dir / ".." / sub).glob("*.json")` and `listdir(join(dir, "..", sub))` read `../*/*.json` and `../*/*`); a
+leading `**` in such a path is
 read at every depth below the module's directory, as a `..` before
 it climbs first (`join(dir, "**", "routers")` is every `routers` below it and everything under one;
 `join(dir, "..", "**", "baselines", "*.json")` is every `baselines/*.json` below the parent). A name assigned
@@ -691,37 +693,50 @@ def _segments(pieces: list[_Piece]) -> int:
     return count
 
 
-def _below_segments(pieces: list[_Piece]) -> list[str]:
-    """`dir / sub`, `join(dir, "baselines", sub)` or `dir / f"{kind}_x"`: the module's directory, then segments at least one
-    of which this gate cannot know, as glob patterns: a segment it knows as written, one it knows in part with `*` for
-    the parts it cannot know (`*_x`), one it cannot know at all `*`; separators collapsed and a trailing one ignored
-    (`HERE = dir + "/"` then `join(HERE, sub)`, `join(dir, sub, "")`). Empty when the tail does not begin with a slash
-    (`dir + sub`) or holds no unknown part: `dir / "baselines"` is a spelled directory, read as one."""
+def _below_segments(pieces: list[_Piece]) -> list[str] | None:
+    """`dir / sub`, `join(dir, "baselines", sub)`, `dir / f"{kind}_x"` or `join(dir, "..", sub)`: the module's directory, then
+    segments at least one of which this gate cannot know, as glob patterns: a segment it knows as written, one it knows
+    in part with `*` for the parts it cannot know (`*_x`), one it cannot know at all `*`; separators collapsed and a
+    trailing one ignored (`HERE = dir + "/"` then `join(HERE, sub)`, `join(dir, sub, "")`); a `.` dropped and a `..`
+    taking the segment before it or, with none left, kept in front as a climb above the module's directory
+    (`join(dir, "..", sub)` is `["..", "*"]`; `join(dir, sub, "..")` is the directory itself, an empty list). None when the
+    tail does not begin with a slash (`dir + sub`) or holds no unknown part: `dir / "baselines"` is a spelled directory,
+    read as one."""
     texts = [piece for piece in pieces if piece.text != ""]
     tail = texts[1:]
     if not texts or texts[0].text != DIR or not tail or tail[0].text is None or tail[0].text in (DIR, FILE) or not tail[0].text.startswith("/"):
-        return []
+        return None
     if not any(piece.text is None or piece.text in (DIR, FILE) for piece in tail):
-        return []
+        return None
     built = "".join("\0" if piece.text is None or piece.text in (DIR, FILE) else piece.text for piece in tail)
-    return [re.sub(r"\*?\0+\*?", "*", segment) for segment in built.split("/") if segment]
+    segments: list[str] = []
+    for segment in built.split("/"):
+        if segment == ".." and segments and segments[-1] != "..":
+            segments.pop()
+        elif segment == "..":
+            segments.append("..")
+        elif segment and segment != ".":
+            segments.append(re.sub(r"\*?\0+\*?", "*", segment))
+    return segments
 
 
-def _unknown_levels(pieces: list[_Piece]) -> int:
-    """How many segments `_below_segments` reads after the module's directory, else 0."""
-    return len(_below_segments(pieces))
+def _climb(under: list[str]) -> tuple[int, list[str]]:
+    """The leading `..` of `_below_segments`' result as a count of directories above the module's, and the segments after."""
+    climbs = next((i for i, segment in enumerate(under) if segment != ".."), len(under))
+    return climbs, under[climbs:]
 
 
-def _listed_dirs(tree: ast.AST) -> set[int | str]:
-    """How the module lists its own directory, as levels: 1 for `iterdir()` on it, `listdir`/`scandir` of it or a `glob`
-    on it whose whole pattern this gate cannot know (`PATTERN = "*.json"; dir.glob(PATTERN)`, `glob.glob(join(dir,
-    PATTERN))`, what `glob("*")` names), one more per slash in such a pattern (`glob.glob(join(dir, sub, PATTERN))` and
-    `dir.glob(join(sub, PATTERN))` read two levels down), and `"all"` for `walk()` on it, `os.walk` of it, an `rglob` or a
-    `recursive=True` glob of an unknown pattern (what `rglob("*")` names): a part this gate cannot know is a `*`, the
-    whole pattern included."""
+def _listed_dirs(tree: ast.AST) -> set[tuple[int, int | str]]:
+    """How the module lists its own directory, as (directories climbed above it, levels): (0, 1) for `iterdir()` on it,
+    `listdir`/`scandir` of it or a `glob` on it whose whole pattern this gate cannot know (`PATTERN = "*.json";
+    dir.glob(PATTERN)`, `glob.glob(join(dir, PATTERN))`, what `glob("*")` names), one level more per further segment of
+    such a pattern, separators collapsed and a trailing one ignored (`glob.glob(join(dir, sub, PATTERN))` and
+    `dir.glob(join(sub, PATTERN))` read two levels down) and per unknown segment of the directory listed (`listdir(join(dir, sub))` two levels; `listdir(join(dir, "..", sub))` climbs one and
+    lists two), and `"all"` for `walk()` on it, `os.walk` of it, an `rglob` or a `recursive=True` glob of an unknown
+    pattern (what `rglob("*")` names): a part this gate cannot know is a `*`, the whole pattern included."""
     aliases, files, _, slashed = _module_aliases(tree)  # a mixed name lists loudly too
     seps = _sep_names(tree)
-    depths: set[int | str] = set()
+    depths: set[tuple[int, int | str]] = set()
     for node in ast.walk(tree):
         if not isinstance(node, ast.Call):
             continue
@@ -731,25 +746,29 @@ def _listed_dirs(tree: ast.AST) -> set[int | str]:
         keyed = [keyword.value for keyword in node.keywords if keyword.arg in {"path", "top"}]
         argument = (node.args[0] if node.args else keyed[0] if keyed else None) if name in {"listdir", "scandir", "walk"} else None
         for target in (receiver, argument):
-            if target is not None and _is_module_dir(target, aliases, files, slashed, seps):
-                depths.add("all" if name == "walk" else 1)
-            elif target is not None and (levels := _unknown_levels(_fold(target, aliases, files, slashed, seps))):  # `listdir(join(dir, sub))`: two levels
-                depths.add("all" if name == "walk" else 1 + levels)
+            if target is None:
+                continue
+            if _is_module_dir(target, aliases, files, slashed, seps):
+                depths.add((0, "all" if name == "walk" else 1))
+            elif (under := _below_segments(_fold(target, aliases, files, slashed, seps))) is not None:  # `listdir(join(dir, sub))`: two levels
+                climbs, rest = _climb(under)
+                depths.add((climbs, "all" if name == "walk" else 1 + len(rest)))
         if name in {"glob", "rglob", "iglob"}:  # `dir.glob(pattern)`, `glob.glob(pattern, root_dir=dir)` with no constant in the pattern
             root_dir = [keyword.value for keyword in node.keywords if keyword.arg == "root_dir"]
             operands = list(node.args) + [keyword.value for keyword in node.keywords if keyword.arg not in {"root_dir", "recursive", "case_sensitive", "include_hidden"}]
             target = root_dir[0] if root_dir else func.value if isinstance(func, ast.Attribute) else None
             unknown = operands and all(piece.node is None for operand in operands for piece in _fold(operand, aliases, files, slashed, seps))
             recursive = any(keyword.arg == "recursive" and isinstance(keyword.value, ast.Constant) and keyword.value.value is True for keyword in node.keywords)
-            below = 0 if target is None else _unknown_levels(_fold(target, aliases, files, slashed, seps))  # `(dir / sub).glob(PATTERN)`: one more
-            if target is not None and unknown and (below or _is_module_dir(target, aliases, files, slashed, seps)):
-                levels = below + sum(_segments(_fold(operand, aliases, files, slashed, seps)) for operand in operands)  # `dir.glob(join(sub, PATTERN))`: two
-                depths.add("all" if name == "rglob" or recursive else levels)
+            under = None if target is None or _is_module_dir(target, aliases, files, slashed, seps) else _below_segments(_fold(target, aliases, files, slashed, seps))
+            if target is not None and unknown and (under is not None or _is_module_dir(target, aliases, files, slashed, seps)):  # `(dir / sub).glob(PATTERN)`: one more
+                climbs, rest = _climb(under or [])
+                levels = len(rest) + sum(_segments(_fold(operand, aliases, files, slashed, seps)) for operand in operands)  # `dir.glob(join(sub, PATTERN))`: two
+                depths.add((climbs, "all" if name == "rglob" or recursive else levels))
             elif name != "rglob" and not root_dir and operands:  # `glob.glob(join(dir, sub, PATTERN))`: the directory, then nothing this gate can know, a `*` per segment
                 pieces = [piece for piece in _fold(operands[0], aliases, files, slashed, seps) if piece.text != ""]
                 if (len(pieces) > 2 and pieces[0].text == DIR and pieces[1].text == "/" and all(piece.text in (None, "/") for piece in pieces[1:])
                         and any(piece.text is None for piece in pieces[1:])):
-                    depths.add("all" if recursive else _segments(pieces[1:]))
+                    depths.add((0, "all" if recursive else _segments(pieces[1:])))
     return depths
 
 
@@ -816,8 +835,8 @@ def _sibling_literals(tree: ast.AST, module: str = "backend/evals/") -> tuple[se
     def deeper(found: set[int], under: list[str]) -> set[int]:
         """The receiver's or `root_dir`'s segments after the module's directory, under the pattern's id in `below`, and
         the id in `loose`: `(dir / sub).glob("*.json")` and `glob.glob("*.json", root_dir=join(dir, sub))` read
-        `*/*.json` beside the module, `(dir / "baselines" / sub).glob("*.json")` reads `baselines/*/*.json`, and each
-        pattern is read as spelled too."""
+        `*/*.json` beside the module, `(dir / "baselines" / sub).glob("*.json")` reads `baselines/*/*.json`,
+        `(dir / ".." / sub).glob("*.json")` climbs first and reads `../*/*.json`, and each pattern is read as spelled too."""
         if under:
             for i in found:
                 below[i] = under
@@ -877,12 +896,12 @@ def _sibling_literals(tree: ast.AST, module: str = "backend/evals/") -> tuple[se
         if name in {"glob", "iglob"} and root_dir:  # `glob.glob(p, root_dir=dir)`, `iglob`, or `glob` imported bare
             pieces = fold(root_dir[0])
             under = [] if _is_module_dir(root_dir[0], aliases, files, slashed, seps) else _below_segments(pieces)  # `root_dir=join(dir, sub)`
-            if not under and not _is_module_dir(root_dir[0], aliases, files, slashed, seps):
+            if under is None:
                 continue
             for operand in [*node.args, *(keyword.value for keyword in node.keywords if keyword.arg != "root_dir")]:
                 read |= deeper(pattern(operand), under)
         elif (name in {"glob", "iglob"} and isinstance(node.func, ast.Attribute) and not _is_module_dir(node.func.value, aliases, files, slashed, seps)
-              and not _unknown_levels(fold(node.func.value))):  # the `glob` module, not a receiver such as `dir / sub`
+              and _below_segments(fold(node.func.value)) is None):  # the `glob` module, not a receiver such as `dir / sub`
             operands = [*node.args, *(keyword.value for keyword in node.keywords if keyword.arg not in {"recursive", "include_hidden"})]
             anchored_operands = [operand for operand in operands if anchored(fold(operand))]
             if not anchored_operands:  # `glob.glob(join(dir, PATTERN))`: a path built on the directory, every unknown part a `*`
@@ -894,7 +913,7 @@ def _sibling_literals(tree: ast.AST, module: str = "backend/evals/") -> tuple[se
         elif name in {"glob", "rglob"} and isinstance(node.func, ast.Attribute):  # `dir.glob("*.md")`, `rglob`, `(dir / sub).glob("*.json")`
             pieces = fold(node.func.value)
             under = [] if _is_module_dir(node.func.value, aliases, files, slashed, seps) else _below_segments(pieces)
-            if not under and not _is_module_dir(node.func.value, aliases, files, slashed, seps):
+            if under is None:
                 continue
             for operand in [*node.args, *(keyword.value for keyword in node.keywords)]:
                 read |= deeper(pattern(operand), under)
@@ -924,8 +943,11 @@ def _sibling_literals(tree: ast.AST, module: str = "backend/evals/") -> tuple[se
 def _named_in(tree: ast.AST, module: str = "backend/evals/") -> set[str]:
     """Repo-relative paths of tracked files a string literal in `tree` names (see NAMED_CANDIDATES)."""
     found, (sibling, joined, skip, loose, below), recursive = set(), _sibling_literals(tree, module), _recursive_literals(tree)
-    for levels in _listed_dirs(tree):  # `glob("*")` one level, `glob.glob(join(dir, sub, PATTERN))` two, `rglob` or `walk` every
-        found.update(_glob_matches(posixpath.dirname(module) + "/", ["*"] * (1 if levels == "all" else levels), levels == "all"))
+    for climbs, levels in _listed_dirs(tree):  # `glob("*")` one level, `glob.glob(join(dir, sub, PATTERN))` two, `rglob` or `walk` every, `listdir(join(dir, "..", sub))` above
+        base = posixpath.dirname(module)
+        for _ in range(climbs):
+            base = posixpath.dirname(base)
+        found.update(_glob_matches(base + "/" if base else "", ["*"] * (1 if levels == "all" else levels), levels == "all"))
     for node in ast.walk(tree):
         if not (isinstance(node, ast.Constant) and isinstance(node.value, str)) or id(node) in skip:
             continue
@@ -948,8 +970,12 @@ def _named_in(tree: ast.AST, module: str = "backend/evals/") -> set[str]:
         if anchored:
             # Anchored on the module's own location: `.glob("*.md")` on its directory, or a `..` path from it
             # (`../assets` from `app/services/` is `app/assets`, not every `assets` directory in the repository), or
-            # below the receiver's segments after it (`(dir / sub).glob(p)`: `*/p`), which a `..` climbs out of first.
-            base, under = posixpath.dirname(module), below.get(id(node), [])
+            # below the receiver's segments after it (`(dir / sub).glob(p)`: `*/p`), which a `..` climbs out of first,
+            # after a `..` among those segments has climbed (`(dir / ".." / sub).glob(p)`: `../*/p`).
+            climbs, under = _climb(below.get(id(node), []))
+            base = posixpath.dirname(module)
+            for _ in range(climbs):
+                base = posixpath.dirname(base)
             for _ in range(parts.count("..")):
                 if under:
                     under = under[:-1]
@@ -1393,32 +1419,69 @@ def _changes_sys_path(tree: ast.AST) -> bool:
     gate does not know, `site.addsitedir(...)`) except the reads it knows: the right side of `in`/`not in`, an argument of
     `len`, `list`, `tuple`, `sorted`, `set`, `print`, `repr`, `str`, `enumerate`, `reversed`, `iter`, `any`, `all` or `bool`,
     a `for` or comprehension iterable, an item or slice read, a `+` operand, a formatted value, `.index`, `.count` or `.copy`, and the alias
-    `p = sys.path` alone, whose name is then read the same way. `sys` spelled `import sys as s`, `os.sys`, `__import__("sys")`
-    or `importlib.import_module("sys")` and the list `from sys import path as p` count; `getattr(sys, "path")` and
+    `p = sys.path` alone (`q = p` too), whose name is then read the same way and changed by `p += [...]` or any method, in the
+    function that binds it, or everywhere when bound at module level, so another function's `p` is not the list; the list
+    assigned to anything but a plain name (`self.p = sys.path`, `d["p"] = sys.path`) is a change, since what holds it cannot be
+    followed. `sys` spelled `import sys as s`, `os.sys` under any name of `os`, `__import__("sys")`, under an alias too,
+    `importlib.import_module("sys")` or `import_module("sys")` imported bare or under another name, a name bound to one of
+    those calls (`s = __import__("sys")`), and the list `from sys import path as p` count; `getattr(sys, "path")` and
     `vars(sys)["path"]` are a stated limit."""
-    sys_names, path_names, site_names, addsitedir_names = {"sys"}, set(), {"site"}, set()
+    sys_names, site_names, addsitedir_names, loaders, dunders = {"sys"}, {"site"}, set(), set(), {"__import__"}
+    os_names: set[str] = {"os"}
+    path_names: set[tuple[int | None, str]] = set()  # (the binding function's id, or None at module level, the name)
+    parents = {id(child): parent for parent in ast.walk(tree) for child in ast.iter_child_nodes(parent)}
+
+    def scope_of(node: ast.AST) -> int | None:
+        """The innermost function enclosing `node`, by id, or None at module level."""
+        while (node := parents.get(id(node))) is not None:
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda)):
+                return id(node)
+        return None
+
     for node in ast.walk(tree):
         if isinstance(node, ast.Import):
             sys_names |= {alias.asname or "sys" for alias in node.names if alias.name == "sys"}
             site_names |= {alias.asname or "site" for alias in node.names if alias.name == "site"}
+            os_names |= {alias.asname or "os" for alias in node.names if alias.name == "os"}
         elif isinstance(node, ast.ImportFrom) and node.module == "sys":
-            path_names |= {alias.asname or "path" for alias in node.names if alias.name == "path"}
+            path_names |= {(scope_of(node), alias.asname or "path") for alias in node.names if alias.name == "path"}
         elif isinstance(node, ast.ImportFrom) and node.module == "site":
             addsitedir_names |= {alias.asname or "addsitedir" for alias in node.names if alias.name == "addsitedir"}
+        elif isinstance(node, ast.ImportFrom) and node.module == "importlib":
+            loaders |= {alias.asname or "import_module" for alias in node.names if alias.name == "import_module"}
+
+    def aliased(names: set[str]) -> set[str]:
+        """`names` and every name bound to one of them by a plain assignment, transitively (`imp = __import__`, `load = imp`)."""
+        while True:
+            more = {target.id for node in ast.walk(tree) if isinstance(node, ast.Assign) and isinstance(node.value, ast.Name) and node.value.id in names
+                    for target in node.targets if isinstance(target, ast.Name)}
+            if more <= names:
+                return names
+            names = names | more
+
+    loaders, dunders = aliased(loaders), aliased(dunders)
 
     def is_sys(expr: ast.AST) -> bool:
         return (isinstance(expr, ast.Name) and expr.id in sys_names
-                or isinstance(expr, ast.Attribute) and expr.attr == "sys" and isinstance(expr.value, ast.Name) and expr.value.id == "os"
+                or isinstance(expr, ast.Attribute) and expr.attr == "sys" and isinstance(expr.value, ast.Name) and expr.value.id in os_names
                 or isinstance(expr, ast.Call) and bool(expr.args) and isinstance(expr.args[0], ast.Constant) and expr.args[0].value == "sys"
-                and (isinstance(expr.func, ast.Name) and expr.func.id == "__import__" or isinstance(expr.func, ast.Attribute) and expr.func.attr == "import_module"))
+                and (isinstance(expr.func, ast.Name) and expr.func.id in dunders | loaders or isinstance(expr.func, ast.Attribute) and expr.func.attr == "import_module"))
+
+    while True:  # `s = __import__("sys")`, `s = os.sys`: the module under another name
+        more = {target.id for node in ast.walk(tree) if isinstance(node, ast.Assign) and is_sys(node.value) for target in node.targets if isinstance(target, ast.Name)}
+        if more <= sys_names:
+            break
+        sys_names |= more
 
     def is_path(expr: ast.AST) -> bool:
-        return isinstance(expr, ast.Attribute) and expr.attr == "path" and is_sys(expr.value) or isinstance(expr, ast.Name) and expr.id in path_names
+        return (isinstance(expr, ast.Attribute) and expr.attr == "path" and is_sys(expr.value)
+                or isinstance(expr, ast.Name) and ((scope_of(expr), expr.id) in path_names or (None, expr.id) in path_names))
 
-    for node in ast.walk(tree):  # `p = sys.path`: the list under another name
-        if isinstance(node, ast.Assign) and is_path(node.value):
-            path_names |= {target.id for target in node.targets if isinstance(target, ast.Name)}
-    parents = {id(child): parent for parent in ast.walk(tree) for child in ast.iter_child_nodes(parent)}
+    while True:  # `p = sys.path`, then `q = p`: the list under another name, in the function that binds it
+        more = {(scope_of(node), target.id) for node in ast.walk(tree) if isinstance(node, ast.Assign) and is_path(node.value) for target in node.targets if isinstance(target, ast.Name)}
+        if more <= path_names:
+            break
+        path_names |= more
     reads = {"len", "list", "tuple", "sorted", "set", "print", "repr", "str", "enumerate", "reversed", "iter", "any", "all", "bool"}
     for node in ast.walk(tree):
         if isinstance(node, ast.Call):
@@ -1426,14 +1489,14 @@ def _changes_sys_path(tree: ast.AST) -> bool:
             if (isinstance(func, ast.Attribute) and func.attr == "addsitedir" and isinstance(func.value, ast.Name) and func.value.id in site_names
                     or isinstance(func, ast.Name) and func.id in addsitedir_names):
                 return True
-        if not is_path(node) or isinstance(node, ast.Name) and isinstance(node.ctx, ast.Store):
-            continue
         parent = parents.get(id(node))
+        if not is_path(node) or isinstance(node, ast.Name) and isinstance(node.ctx, ast.Store) and not isinstance(parent, ast.AugAssign):
+            continue  # a name rebound is not the list changed; `p += [...]` on the alias is
         read = (isinstance(parent, ast.Compare) and node in parent.comparators and all(isinstance(op, (ast.In, ast.NotIn)) for op in parent.ops)
                 or isinstance(parent, ast.Call) and node in parent.args and isinstance(parent.func, ast.Name) and parent.func.id in reads
                 or isinstance(parent, (ast.For, ast.AsyncFor, ast.comprehension)) and parent.iter is node
                 or isinstance(parent, ast.Subscript) and parent.value is node and isinstance(parent.ctx, ast.Load)
-                or isinstance(parent, ast.Assign) and parent.value is node
+                or isinstance(parent, ast.Assign) and parent.value is node and all(isinstance(target, ast.Name) for target in parent.targets)
                 or isinstance(parent, ast.BinOp) and isinstance(parent.op, ast.Add)
                 or isinstance(parent, ast.FormattedValue)
                 or isinstance(parent, ast.Attribute) and parent.attr in {"index", "count", "copy"})
@@ -1817,13 +1880,18 @@ def test_relative_imports_anchor_on_the_owning_package():
                    "import sys\np = sys.path\np.insert(0, 'x')", "import sys\ndel sys.path[0]"):
         assert _changes_sys_path(ast.parse(source)), source
     for source in ("import sys\nsys.path: list = ['x']", "import sys\nsys.path[0] += 'x'", "import sys\nfix(sys.path)", "import sys\nsys.path.__setitem__(0, 'x')",
-                   "import sys\np = sys.path\nfix(p)"):
+                   "import sys\np = sys.path\nfix(p)", "from sys import path\npath += ['x']", "import sys\np = sys.path\np += ['x']", "import sys\nself.p = sys.path",
+                   "import sys\nd['p'] = sys.path", "import sys\np = sys.path\nq = p\nq.insert(0, 'x')", "from importlib import import_module\nimport_module('sys').path.insert(0, 'x')",
+                   "from importlib import import_module as im\nim('sys').path.append('x')", "imp = __import__\nimp('sys').path.insert(0, 'x')", "imp = __import__\nload = imp\nload('sys').path.pop()",
+                   "import os as o\no.sys.path.insert(0, 'x')", "s = __import__('sys')\ns.path.insert(0, 'x')", "import os\ns = os.sys\ns.path.append('x')",
+                   "import sys\ndef f():\n    p = sys.path\n    p.insert(0, 'x')", "import sys\np = sys.path\ndef g():\n    p.insert(0, 'x')"):
         assert _changes_sys_path(ast.parse(source)), source  # every use this gate does not know as a read is a change
     for source in ("cmd = ['python', '-c', 'import sys; print(sys.path)']", "import sys\nok = 'x' in sys.path", "n = len(sys.path)", "import os\np = os.path.join('a', 'b')",
                    "import sys\np = sys.path", "import sys\nfirst = sys.path[0]", "import sys\nfor p in sys.path:\n    pass", "import sys\nall_paths = sys.path + ['x']",
                    "import sys\nprint(sys.path)", "import sys\ni = sys.path.index('x')", "import sys\nmsg = f'{sys.path}'", "import sys\np = sys.path\nn = len(p)",
-                   "import sys\nps = [p for p in sys.path]", "import sys\nps = {p: 1 for p in sys.path if p}"):
-        assert not _changes_sys_path(ast.parse(source)), source
+                   "import sys\nps = [p for p in sys.path]", "import sys\nps = {p: 1 for p in sys.path if p}", "import sys\np = sys.path\nq = p\nn = len(q)",
+                   "import sys\np = sys.path\np = ['x']", "import sys\ndef f():\n    p = sys.path\n    return len(p)\ndef g(p):\n    p.insert(0, 'x')"):
+        assert not _changes_sys_path(ast.parse(source)), source  # an alias is the list in the function that binds it, not in another
     with mock.patch.object(sys.modules[__name__], "entry_points", lambda: ["evals.copilot_runner"]), \
             mock.patch.object(Path, "read_text", return_value="import sys\nsys.path.insert(0, 'x')\n"):
         try:
@@ -2111,6 +2179,18 @@ def test_data_directories_and_named_files_are_inputs():
             # A `..` climbs out of the receiver's segments first: `(dir / sub).glob("../*.json")` is `*.json` beside the module,
             # not `backend/*/*.json` (which the planted `backend/other/z.json` would show).
             assert _named_in(ast.parse('fs = (Path(__file__).parent / sub).glob("../*.json")'), "backend/evals/copilot_runner.py") == {p for p in evals_all if p.count("/") == 2 and p.endswith(".json")}
+            # A `..` among the receiver's segments climbs first, as in a joined path: `(dir / ".." / sub).glob("*.json")`,
+            # `root_dir=join(dir, "..", sub)` and `listdir(join(dir, "..", sub))` read `../*/*.json` and `../*/*`, which the planted
+            # `backend/other/z.json` shows, and `(dir / sub / "..").glob("*.json")` is the directory itself.
+            up_json = {p for p in TRACKED | planted if p.startswith("backend/") and p.count("/") == 2 and p.endswith(".json")}
+            assert "backend/other/z.json" in up_json
+            for spelling in ('(Path(__file__).parent / ".." / sub).glob("*.json")', 'glob.glob("*.json", root_dir=os.path.join(os.path.dirname(__file__), "..", sub))',
+                             'Path(__file__).parent.joinpath("..", sub).glob("*.json")', '(Path(__file__).parent / "." / ".." / sub).glob("*.json")'):
+                assert _named_in(ast.parse(f"fs = {spelling}"), "backend/evals/copilot_runner.py") == up_json, spelling
+            up_all = {p for p in TRACKED | planted if p.startswith("backend/") and p.count("/") == 2 and not p.endswith("/.gitignore")}
+            assert _named_in(ast.parse('fs = os.listdir(os.path.join(os.path.dirname(__file__), "..", sub))'), "backend/evals/copilot_runner.py") == up_all
+            assert _named_in(ast.parse('fs = (Path(__file__).parent / ".." / sub).glob(PATTERN)'), "backend/evals/copilot_runner.py") == up_all
+            assert _named_in(ast.parse('fs = (Path(__file__).parent / sub / "..").glob("*.json")'), "backend/evals/copilot_runner.py") == {p for p in evals_all if p.count("/") == 2 and p.endswith(".json")}
         # A name bound to such a directory first (`d = HERE / sub`) is not followed: the stated limit of a folder name held in a variable.
         assert _named_in(ast.parse('d = Path(__file__).parent / sub\nfs = d.glob("*.json")'), "backend/evals/copilot_runner.py") == set()
         # Separators collapse and a trailing one is ignored, so a slash-terminated alias reads the same depth as the plain directory.
