@@ -2,7 +2,7 @@ import { test, expect, type Locator, type Page } from '@playwright/test'
 import { textContrast } from './fixtures/contrast'
 
 /**
- * The company page's filing list (critique v3.1 CLEAN-R3 and CLEAN-R4), in a real Chromium.
+ * The company page's filing list (critique v3.1 CLEAN-R2, CLEAN-R3 and CLEAN-R4), in a real Chromium.
  *
  * CLEAN-R3: each filing row was a card with a 4px type-coloured left stripe and a type tint: sage
  * for 10-K/20-F/40-F, the status-blue `info` colour for 10-Q/6-K, so an interim filing read like an
@@ -14,6 +14,11 @@ import { textContrast } from './fixtures/contrast'
  * CLEAN-R4: each report-year header is a disclosure button: `aria-expanded` follows the panel, and
  * while the panel is open `aria-controls` names it (a collapsed panel is not rendered, so there is
  * nothing to name). DOM measurements only: this is not a screen-reader test.
+ *
+ * CLEAN-R2: every row's link to its filing page, and the Recommended card's, read "Open filing",
+ * which is true whether or not the filing already has a summary (they used to say "Generate Filing
+ * Summary" and "Summarize this filing" for every filing). Each link's accessible name goes on to
+ * name its filing's type and date, so the rows' links are told apart in a links list.
  *
  * CI runs e2e with no backend (lessons/test-e2e-runs-without-backend.md): the server-side fetch
  * fails, the page falls back to its client shell, and the browser's API calls are answered here.
@@ -56,13 +61,21 @@ async function openCompany(page: Page, baseURL: string, theme: Theme) {
     } catch {}
   }, theme)
   await page.goto('/company/AAPL')
-  await expect(page.getByRole('link', { name: 'Generate Filing Summary' })).toHaveCount(FILINGS.length)
+  await expect(rows(page)).toHaveCount(FILINGS.length)
 }
 
 const yearButton = (page: Page, year: string) => page.getByRole('button', { name: new RegExp(`^Report year ${year}\\b`) })
-/** A filing row: the card that holds a filing's "Generate Filing Summary" link. */
-const rows = (page: Page) =>
-  page.getByRole('link', { name: 'Generate Filing Summary' }).locator('xpath=ancestor::div[contains(concat(" ", @class, " "), " rounded-xl ")][1]')
+/** The filing rows: the cards inside the open report-year panels, newest first. */
+const rows = (page: Page) => page.locator('[id^="filings-year-"] > div')
+/** A filing link's own label, without its visually hidden tail. */
+const visibleLabel = (link: Locator) =>
+  link.evaluate((el) =>
+    [...el.childNodes]
+      .filter((n) => !(n instanceof Element && n.classList.contains('sr-only')))
+      .map((n) => n.textContent ?? '')
+      .join('')
+      .trim(),
+  )
 
 const boxOf = (row: Locator) =>
   row.evaluate((el) => {
@@ -112,14 +125,14 @@ test('report-year headers are disclosure buttons that expose their state and pan
     expect(panelId, `${year} names its open panel`).toBeTruthy()
     const panel = page.locator(`[id="${panelId}"]`)
     await expect(panel).toHaveCount(1)
-    await expect(panel.getByRole('link', { name: 'Generate Filing Summary' })).toHaveCount(year === '2025' ? 3 : 1)
+    await expect(panel.locator(':scope > div')).toHaveCount(year === '2025' ? 3 : 1)
   }
 
   // Pointer: collapse 2025.
   await yearButton(page, '2025').click()
   await expect(yearButton(page, '2025')).toHaveAttribute('aria-expanded', 'false')
   await expect(yearButton(page, '2025')).not.toHaveAttribute('aria-controls', /.+/)
-  await expect(page.getByRole('link', { name: 'Generate Filing Summary' })).toHaveCount(1)
+  await expect(rows(page)).toHaveCount(1)
 
   // Keyboard: Enter and Space on the focused header toggle it back and forth.
   await yearButton(page, '2025').focus()
@@ -128,4 +141,32 @@ test('report-year headers are disclosure buttons that expose their state and pan
   await expect(yearButton(page, '2025')).toBeFocused()
   await page.keyboard.press('Space')
   await expect(yearButton(page, '2025')).toHaveAttribute('aria-expanded', 'false')
+})
+
+test('every filing link reads "Open filing" and names its filing', async ({ page, baseURL }) => {
+  await openCompany(page, baseURL!, 'light')
+  const all = rows(page)
+  const names: string[] = []
+  for (const [i, f] of FILINGS.entries()) {
+    const date = await all.nth(i).getByText(/^[A-Z][a-z]{2} \d{1,2}, \d{4}$/).innerText()
+    const name = `Open filing (${f.filing_type}, filed ${date})`
+    const link = all.nth(i).getByRole('link', { name, exact: true })
+    await expect(link).toHaveAttribute('href', `/filing/${f.id}`)
+    expect(await visibleLabel(link), `${f.filing_type} ${date} row`).toBe('Open filing')
+    names.push(name)
+  }
+  expect(new Set(names).size, 'one accessible name per row').toBe(FILINGS.length)
+
+  // The Recommended card opens the same page under the same label and the same name as its row.
+  const card = page.getByText('Not sure where to start?').locator('xpath=ancestor::div[contains(concat(" ", @class, " "), " rounded-xl ")][1]')
+  const cardLink = card.getByRole('link')
+  await expect(cardLink).toHaveCount(1)
+  expect(await visibleLabel(cardLink)).toBe('Open filing')
+  const href = await cardLink.getAttribute('href')
+  const recommended = FILINGS.find((f) => `/filing/${f.id}` === href)
+  expect(recommended, `the card links one of the listed filings (${href})`).toBeTruthy()
+  await expect(cardLink).toHaveAccessibleName(names[FILINGS.indexOf(recommended!)])
+
+  // Neither promise survives anywhere on the page.
+  await expect(page.getByText(/Generate Filing Summary|Summarize this filing/)).toHaveCount(0)
 })

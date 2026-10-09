@@ -531,8 +531,13 @@ export default function CompanyPageClient({ initialCompany, initialFilings }: Co
                     </p>
                   </div>
                 </div>
+                {/* "Open filing" is true whether or not a summary exists yet; the hidden tail names the
+                    filing, as each row's link does. */}
                 <Link href={`/filing/${recommendedFiling.id}`} className={buttonVariants({ variant: 'primary' })}>
-                  Summarize this filing
+                  Open filing{' '}
+                  <span className="sr-only">
+                    ({recommendedFiling.filing_type}, filed {formatLocalDate(recommendedFiling.filing_date, 'MMM d, yyyy')})
+                  </span>
                   <ArrowRightIcon className="h-4 w-4" />
                 </Link>
               </div>
@@ -634,8 +639,14 @@ export default function CompanyPageClient({ initialCompany, initialFilings }: Co
                                       <span>View on SEC EDGAR</span>
                                     </a>
                                   )}
+                                  {/* The filing page shows the summary when there is one and offers to
+                                      generate it when there is not, so the label promises neither. The
+                                      hidden tail tells the rows' links apart in a links list. */}
                                   <Link href={`/filing/${filing.id}`} className={buttonVariants({ variant: 'primary' })}>
-                                    Generate Filing Summary
+                                    Open filing{' '}
+                                    <span className="sr-only">
+                                      ({filing.filing_type}, filed {formatLocalDate(filing.filing_date, 'MMM d, yyyy')})
+                                    </span>
                                   </Link>
                                 </div>
                               </div>
