@@ -12,8 +12,10 @@ independent review lenses confirmed it.
 
 **Rule**: a surface that renders a raw XBRL amount takes its currency from the payload — the
 report-level `reporting_currency` or a fact's `unit` through `currencyFromUnit` — and passes it to
-`fmtCurrency`. When the payload names none, show a bare scaled figure (`fmtScale`: "394.3B") rather
-than falling back to "$". A payload that starts exposing raw amounts carries the currency alongside
+`fmtCurrency`. Canonicalise the legacy aliases first (RMB → CNY, as `canonical_unit` does) and format
+only a code the runtime's Intl supports: `Intl.NumberFormat` accepts any well-formed three-letter
+token ("FOO 394.3B"). When the payload names none, or the code is not a real currency, show a bare
+scaled figure (`fmtScale`: "394.3B") rather than falling back to "$". A payload that starts exposing raw amounts carries the currency alongside
 them in the same change (an additive field), and the component's spec pins a non-USD case and the
 no-currency case.
 

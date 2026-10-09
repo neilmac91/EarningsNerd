@@ -49,10 +49,22 @@ function figure(item: WhatChangedMetricItem, value: number | null, currency: str
   return perShare ? fmtCurrency(value, { currency, digits: 2, compact: false }) : fmtCurrency(value, { currency })
 }
 
-/** The payload's currency only when it is an ISO 4217 code (Intl throws on anything else). */
+/** The legacy alias some stored extracts carry (the backend canonicalises it too). */
+const CURRENCY_ALIASES: Record<string, string> = { RMB: 'CNY' }
+/** The currencies this runtime can actually format. Intl.NumberFormat accepts any well-formed
+    three-letter token ("FOO 394.3B"), so a code outside this set gets no symbol. */
+const SUPPORTED_CURRENCIES: ReadonlySet<string> | null = (() => {
+  const intl = Intl as unknown as { supportedValuesOf?: (key: string) => string[] }
+  return typeof intl.supportedValuesOf === 'function' ? new Set(intl.supportedValuesOf('currency')) : null
+})()
+
+/** The payload's currency only as a real, formattable ISO 4217 code; otherwise null (bare figures). */
 function reportCurrency(code: string | null | undefined): string | null {
   const upper = (code ?? '').trim().toUpperCase()
-  return /^[A-Z]{3}$/.test(upper) ? upper : null
+  const canonical = CURRENCY_ALIASES[upper] ?? upper
+  if (!/^[A-Z]{3}$/.test(canonical)) return null
+  if (SUPPORTED_CURRENCIES && !SUPPORTED_CURRENCIES.has(canonical)) return null
+  return canonical
 }
 
 export function WhatChanged({

@@ -1,5 +1,5 @@
 import React from 'react'
-import { render, screen } from '@testing-library/react'
+import { cleanup, render, screen } from '@testing-library/react'
 import { WhatChanged } from '@/features/filings/components/WhatChanged'
 import type { ChangeReport } from '@/features/summaries/api/summaries-api'
 
@@ -132,6 +132,24 @@ describe('WhatChanged (A5)', () => {
     const table = container.querySelector('table')!
     expect(table.textContent).toContain('DKK')
     expect(table.textContent).not.toContain('$')
+  })
+
+  it('canonicalises the legacy RMB alias and refuses tokens that are not real currencies', () => {
+    const withCurrency = (currency: string): ChangeReport => ({
+      ...baseReport,
+      metrics: {
+        ...baseReport.metrics!,
+        currency,
+        items: [{ metric: 'revenue', label: 'Revenue', direction: 'up', pct: 3.1, current: 394_300e6, prior: 382_400e6, display: '+3.1%', tone: 'gain' }],
+      },
+    })
+    const rmb = render(<WhatChanged report={withCurrency('RMB')} />).container.querySelector('table')!.textContent!
+    expect(rmb).not.toContain('RMB')
+    expect(rmb).toMatch(/CN¥|CNY/)
+    cleanup()
+    const foo = render(<WhatChanged report={withCurrency('FOO')} />).container.querySelector('table')!.textContent!
+    expect(foo).not.toContain('FOO')
+    expect(foo).toContain('394.3B')
   })
 
   it('shows bare figures when the report carries no currency (never guesses a symbol)', () => {

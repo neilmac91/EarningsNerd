@@ -16,6 +16,7 @@ When nothing usable remains the headline is ``None`` and the card falls back to 
 from __future__ import annotations
 
 import logging
+import re
 from typing import Any, Optional
 
 from sqlalchemy import desc
@@ -109,6 +110,22 @@ def _current_and_prior(
     return cur_value, cur_period, prior_value, cur_tag, prior_tag
 
 
+# The legacy alias some extracts still carry (copilot_tools.canonical_unit and metric_delta_service
+# map it the same way); anything that is not a three-letter code is not a currency the client can name.
+_CURRENCY_ALIASES = {"RMB": "CNY"}
+
+
+def _iso_currency(value: Any) -> Optional[str]:
+    """An ISO 4217-shaped code for the client's formatter: aliases canonicalised, anything else None.
+    The client additionally keeps only codes its Intl runtime supports, so a malformed token never
+    becomes a symbol."""
+    if not isinstance(value, str):
+        return None
+    code = value.strip().upper()
+    code = _CURRENCY_ALIASES.get(code, code)
+    return code if re.fullmatch(r"[A-Z]{3}", code) else None
+
+
 def compute_what_changed(current_xbrl: Optional[dict], prior_xbrl: Optional[dict]) -> Optional[dict]:
     """Deterministic period-over-period headline from stored XBRL. None if nothing usable."""
     data: dict[str, tuple[float, Optional[float]]] = {}
@@ -194,8 +211,8 @@ def compute_what_changed(current_xbrl: Optional[dict], prior_xbrl: Optional[dict
     if not reporting_currency and isinstance(current_xbrl, dict):
         revenue_series = current_xbrl.get("revenue") or []
         reporting_currency = revenue_series[0].get("currency") if revenue_series and isinstance(revenue_series[0], dict) else None
-    currency = str(reporting_currency).strip().upper() or None if reporting_currency else None
-    return {"headline": "; ".join(parts), "items": items, "data_quality": data_quality, "currency": currency}
+    return {"headline": "; ".join(parts), "items": items, "data_quality": data_quality,
+            "currency": _iso_currency(reporting_currency)}
 
 
 # --------------------------------------------------------------------------- summary status

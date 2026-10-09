@@ -113,6 +113,9 @@ def test_reporting_currency_rides_on_the_metrics():
     # Falls back to the revenue series' own currency, as xbrl_service does.
     tagged = {"revenue": [dict(_series(("2024-03-31", 100.0))[0], currency="CNY")]}
     assert compute_what_changed(tagged, prior)["currency"] == "CNY"
+    # The legacy RMB alias is canonicalised; a token that is not a three-letter code is dropped.
+    assert compute_what_changed({**current, "reporting_currency": "RMB"}, prior)["currency"] == "CNY"
+    assert compute_what_changed({**current, "reporting_currency": "pure"}, prior)["currency"] is None
     # Unknown stays None: the client shows a bare figure rather than guessing a symbol.
     assert compute_what_changed({"revenue": _series(("2024-03-31", 100.0))}, prior)["currency"] is None
 
