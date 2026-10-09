@@ -67,10 +67,20 @@ the trigger list and proposed by cross-session message (about 22:50Z) that the e
 trigger, stay the single writer while it held every write until the founder decides; it reported reads only (the handover records
 on main, the gate test, `ops.yml`, session metadata, the trigger list and one page of this session's event log), nothing opened under
 the excluded directories, no push, PR, ledger write, closure, trigger or agent. This session accepted at 22:52Z and listed its own
-writes to that point (the two trigger operations; nothing else). **Single writer: this session**, pending the founder's
-confirmation (founder action 1, below); if the founder names the other session instead, this session stops before any further
-write and hands over the ledger version and hash, the closure draft, the branch heads and the trigger id. The second session is
-registered in closure 172 as a read-only context.
+writes to that point (the two trigger operations; nothing else). **Single writer: this session.** The second session then relayed
+(22:59Z and 23:00Z) that the founder confirmed in that session at about 23:00Z, in these words: "the earlier session is the chief";
+this session has no direct word from the founder yet and acts on the relayed confirmation (founder action 1, below, asks only for
+an overrule if the founder wants one). The second session's complete activity, as it disclosed it: repository reads on main only
+(the handover records, the lessons index, the records gate test, `ops.yml`, `ci.yml`, `ops/capacity/readout.py` and
+`snapshot.sql`, the capacity and workflow tests, `docs/DEPLOYMENT.md` and `docs/OPERATIONS.md`; nothing under the two excluded
+directories opened, listed or searched); two read-backs of the private ledger (the page and the document, the same hash as above;
+no write); session reads through the platform's tools (this session three times, itself, the predecessor and the two backlog
+sessions; the trigger list once; two pages of this session's event log and seven of the predecessor's); GitHub reads (the
+`deepseek-balance` run list, the open-PR list; no write); one self check-in Routine for 23:44Z into its own session, created and
+then deleted (`trig_01XhF6Jaxm4UwWCqV8tV7RkG`); three cross-session messages to this session; no agent, workflow, push, PR, commit
+or closure. It stands down to read-only for good. It also passed one observation, taken up in the Plan: open PR #1123 would change
+which paths fire `copilot-eval`, so before event 45 the chief re-checks whether a `backend/tests`-only PR still fires the paid
+run. The second session is registered in closure 172 as a read-only context (amended in place before merge with this list).
 
 ## PR #1167 review record closed (decision record 20)
 
@@ -162,15 +172,16 @@ ledger by event 45, the reservation for the read-back PR's `copilot-eval` run, t
 4. **The predecessor's refusals were not classifier denials.** They came from a safety check separate from the auto-mode
    classifier, reacting to the conversation rather than to the actions; by record 20's convention such refusals are disclosed in
    the decision records (here) and not added to `classifier_denials`.
-5. **The duplicate launch** (above): two successor sessions created six minutes apart with the same brief; both have written nothing
-   to the repository or the ledger at the time of the agreement; the second holds every write.
+5. **The duplicate launch** (above): two successor sessions created six minutes apart with the same brief; both had written nothing
+   to the repository or the ledger at the time of the agreement; the second holds every write and has stood down, the founder's
+   confirmation reaching this session as relayed by the second.
 6. **The successor's side effects to this record:** read-only GitHub requests (runs, jobs, one PR, the open PR list, the balance
    job's log); two pages of the predecessor's session event log through the platform's session API (its own transcript events,
    summarised through a redacting script; one path fragment of the predecessor's scratchpad seen in its tool calls, written nowhere);
    two signed job-log downloads (the #1169 and #1166 deploy logs) into the scratchpad, each read through the redacting filter
    and the raw copies deleted; the private ledger read back once; the two
-   trigger operations; the agent copy and a virtual environment with the pinned backend toolchain in the scratchpad; two cross-session
-   messages (one received, one sent). No SEC, production, `run.app` or Google Cloud request; no repository write before this PR.
+   trigger operations; the agent copy and a virtual environment with the pinned backend toolchain in the scratchpad; four cross-session
+   messages (three received, one sent). No SEC, production, `run.app` or Google Cloud request; no repository write before this PR.
 
 ## Plan
 
@@ -188,7 +199,9 @@ ledger by event 45, the reservation for the read-back PR's `copilot-eval` run, t
    aggregates only; tests and docs in the same PR; it deploys nothing (workflow, `ops/`, `backend/tests/` and docs only). Order:
    design and review in draft → **ledger event 45** (the founder's floor, a fresh balance reading above USD 5, a reservation of USD
    0.060000) → ready (one `copilot-eval` run) → Codex → explicit squash merge → **event 46** settles the run. Any later push while
-   ready is reserved first the same way.
+   ready is reserved first the same way. Before event 45 the chief re-reads `copilot-eval.yml`'s trigger paths on main (open PR
+   #1123 proposes narrowing them): if a `backend/tests`-only PR no longer fires the paid run, no reservation is needed and the
+   floor reading is still taken and recorded.
 3. **The checks:** after it merges, `describe-service`, `describe-jobs` and a `capacity-readout` over a past window of at most two
    hours; the `docs/DEPLOYMENT.md` durable-tasks checklist completed from them; one read-only context (`durable-tasks-check-01`)
    checks the reading independently; record 22 (`record-22-reviewer-01`).
@@ -217,8 +230,10 @@ retained holds 1.881713; headroom 21.605243; cumulative 3,212 calls / USD 5.2972
 
 ## Founder actions this record needs
 
-1. **Confirm the single writer** (new): this session continues as the sole chief and writer, and the second successor session
-   (`session_0172iDJgYdJweV79iRjtmgc2`) stays read-only; or name the second session instead, and this session hands over.
+1. **The single writer** (new; confirmed as relayed): the founder's words in the second session at about 23:00Z, "the earlier
+   session is the chief", reached this session through that session's message. Nothing further is needed unless the founder wants
+   to overrule it here; if the founder names the second session (`session_0172iDJgYdJweV79iRjtmgc2`) instead, this session hands
+   over.
 2. **Squash default** (optional, recommended; carried from record 20): Settings → General → Pull Requests → "Allow squash merging"
    → "Default commit message": "Pull request title and description".
 3. **Custody step A** (optional, recommended now; carried from record 20): send the prepared relay (`DECISIONS-20.md`'s appendix) once

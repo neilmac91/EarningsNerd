@@ -6627,8 +6627,8 @@ Full local and hosted verification plus independent exact-head review precede re
   deploy step. The founder's USD 5 DeepSeek-balance floor recorded as a stop condition beside the reservation rule. A duplicate
   second successor session holds every write pending the founder's confirmation. Chief defect 9; classifier denials 11–12.
   Lesson `lessons/ops-hand-over-when-the-harness-refuses-the-conversation.md`.
-- [ ] Founder (record 21): confirm the single writer — the earlier successor session continues; the second session stays
-      read-only — or name the second session instead.
+- [x] Founder (record 21): confirm the single writer — confirmed in the second session at about 23:00Z ("the earlier session
+      is the chief"), as that session relayed; the second session stood down to read-only; overrule only if wanted.
 - [ ] Founder (optional; recommended, record 20): set the repository's squash default to "Pull request title and
       description" (Settings → General → Pull Requests → "Allow squash merging" → "Default commit message"), so a
       squash merge without an explicit message carries the reviewed PR text (record 18, chief defect 7). Within the chief's
