@@ -7,8 +7,8 @@ ephemeral (logging, metrics, elapsed math) or is written to / compared against a
 
 DELIBERATE EXCEPTION — do NOT route these through `utcnow()`: the three naive `DateTime`
 columns `OAuthState.expires_at` and `RefreshToken.expires_at`/`revoked_at` store naive UTC on
-purpose and are written/compared with the stdlib `datetime.utcnow()` in `routers/auth.py` and
-`services/refresh_token_service.py`. Mixing an aware value with those naive columns raises
+purpose and are written/compared with the stdlib `datetime.utcnow()` in
+`services/oauth_account_service.py` and `services/refresh_token_service.py`. Mixing an aware value with those naive columns raises
 "can't compare offset-naive and offset-aware datetimes" (Postgres returns tz-aware, SQLite
 returns naive). Keep both the column and its comparisons naive — see those models' docstrings.
 The retention purge (`services/retention_service.py`) compares them with a naive projection of
