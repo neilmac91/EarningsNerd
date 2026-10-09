@@ -224,6 +224,30 @@ components:
     textColor: "{colors.text-primary-dark}"
     rounded: "{rounded.lg}"
     backgroundColor: "rgba(255,255,255,0.05)"
+  input-compact:
+    backgroundColor: "{colors.white}"
+    textColor: "{colors.text-primary-light}"
+    rounded: "{rounded.lg}"
+    padding: "0.375rem 0.75rem"
+    height: "2.25rem"
+  segmented-control:
+    backgroundColor: "{colors.panel-light}"
+    textColor: "{colors.text-secondary-light}"
+    rounded: "{rounded.lg}"
+    padding: "0.25rem"
+  segmented-control-selected:
+    backgroundColor: "{colors.brand}"
+    textColor: "{colors.white}"
+    rounded: "{rounded.DEFAULT}"
+    padding: "0 0.875rem"
+    height: "1.625rem"
+  segmented-control-dark:
+    backgroundColor: "{colors.panel-dark}"
+    textColor: "{colors.text-secondary-dark}"
+    rounded: "{rounded.lg}"
+  segmented-control-selected-dark:
+    backgroundColor: "{colors.brand-dark}"
+    textColor: "{colors.background-dark}"
   card:
     backgroundColor: "{colors.panel-light}"
     textColor: "{colors.text-primary-light}"
