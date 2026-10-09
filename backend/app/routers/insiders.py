@@ -2,7 +2,7 @@
 
 import logging
 
-from fastapi import APIRouter, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 
 from app.config import settings
 from app.schemas.insiders import InsiderActivityResponse
@@ -22,7 +22,18 @@ router = APIRouter()
 _insiders_rate_limiter = RateLimiter(limit=30, window_seconds=60)
 
 
-@router.get("/{ticker}/insiders", response_model=InsiderActivityResponse)
+def _require_insider_activity() -> None:
+    # A route dependency runs before query validation, so while off the route answers exactly like
+    # an unknown path (FastAPI's own 404 body), whatever the query string.
+    if not settings.ENABLE_INSIDER_ACTIVITY:
+        raise HTTPException(status_code=404, detail="Not Found")
+
+
+@router.get(
+    "/{ticker}/insiders",
+    response_model=InsiderActivityResponse,
+    dependencies=[Depends(_require_insider_activity)],
+)
 async def get_company_insiders(
     request: Request,
     ticker: str,
@@ -39,8 +50,6 @@ async def get_company_insiders(
     Form 4 filings, and returns a buy/sell signal — with a Rule 10b5-1 split —
     plus the most recent individual transactions. 404 unless ENABLE_INSIDER_ACTIVITY.
     """
-    if not settings.ENABLE_INSIDER_ACTIVITY:
-        raise HTTPException(status_code=404, detail="Not found")
     enforce_rate_limit(
         request,
         _insiders_rate_limiter,

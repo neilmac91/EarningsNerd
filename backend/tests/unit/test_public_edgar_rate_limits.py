@@ -31,8 +31,9 @@ def test_insiders_endpoint_is_404_without_any_sec_call_unless_enabled(client, mo
     limiter = RateLimiter(limit=1, window_seconds=60)
     monkeypatch.setattr(insiders_mod, "_insiders_rate_limiter", limiter)
 
-    for _ in range(3):  # also never reaches (or spends) the per-IP limiter
-        assert client.get("/api/companies/AAPL/insiders").status_code == 404
+    for query in ("", "", "?window_days=0"):  # never reaches (or spends) the per-IP limiter or validation
+        response = client.get(f"/api/companies/AAPL/insiders{query}")
+        assert response.status_code == 404 and response.json() == client.get("/api/no-such-route").json()
     fetch.assert_not_called()
     assert Settings.model_fields["ENABLE_INSIDER_ACTIVITY"].default is False
 

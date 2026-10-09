@@ -90,7 +90,7 @@ gcloud run deploy earningsnerd-backend \
   --cpu=1 --memory=1Gi --cpu-boost \
   --min-instances=1 --max=2 --max-instances=2 --concurrency=40 --timeout=600 \
   --set-secrets=DATABASE_URL=DATABASE_URL:latest,OPENAI_API_KEY=OPENAI_API_KEY:latest,SECRET_KEY=SECRET_KEY:latest,STRIPE_SECRET_KEY=STRIPE_SECRET_KEY:latest,STRIPE_PUBLISHABLE_KEY=STRIPE_PUBLISHABLE_KEY:latest,STRIPE_WEBHOOK_SECRET=STRIPE_WEBHOOK_SECRET:latest,RESEND_API_KEY=RESEND_API_KEY:latest,RESEND_FROM_EMAIL=RESEND_FROM_EMAIL:latest,FINNHUB_API_KEY=FINNHUB_API_KEY:latest \
-  --set-env-vars="^@^ENVIRONMENT=production@SKIP_REDIS_INIT=true@OPENAI_BASE_URL=https://api.deepseek.com/v1@AI_DEFAULT_MODEL=deepseek-flash@SEC_EDGAR_BASE_URL=https://data.sec.gov@FINNHUB_API_BASE=https://finnhub.io/api/v1@EARNINGS_WHISPERS_API_BASE=https://www.earningswhispers.com/api@CORS_ORIGINS_STR=https://earningsnerd.io,https://www.earningsnerd.io"
+  --set-env-vars="^@^ENVIRONMENT=production@SKIP_REDIS_INIT=true@OPENAI_BASE_URL=https://api.deepseek.com/v1@AI_DEFAULT_MODEL=deepseek-flash@SEC_EDGAR_BASE_URL=https://data.sec.gov@FINNHUB_API_BASE=https://finnhub.io/api/v1@EARNINGS_WHISPERS_API_BASE=https://www.earningswhispers.com/api@CORS_ORIGINS_STR=https://earningsnerd.io,https://www.earningsnerd.io@SEC_RATE_LIMIT_PER_SECOND=1@EDGAR_RATE_LIMIT_PER_SEC=1@ENABLE_INSIDER_ACTIVITY=false"
 ```
 ✅ Success: prints `Service [earningsnerd-backend] revision ... has been deployed` and a `Service URL`.
 

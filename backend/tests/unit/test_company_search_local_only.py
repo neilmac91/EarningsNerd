@@ -13,13 +13,17 @@ from app.services.edgar.compat import sec_edgar_service
 TICKERS = {"0": {"ticker": "AAPL", "title": "Apple Inc.", "cik_str": 320193}}
 
 
+class _EdgartoolsCalled(BaseException):
+    """Not an Exception, so no `except Exception` in the code under test can swallow it."""
+
+
 @pytest.mark.asyncio
 async def test_unmatched_query_returns_empty_without_any_edgartools_call(monkeypatch):
     async def cached_tickers():
         return TICKERS
 
     def no_edgartools(*args, **kwargs):
-        raise AssertionError("company search must not build an edgartools Company")
+        raise _EdgartoolsCalled("company search must not build an edgartools Company")
 
     monkeypatch.setattr(sec_edgar_service, "_get_cached_tickers", cached_tickers)
     monkeypatch.setattr(edgar_client_module, "EdgarCompany", no_edgartools)

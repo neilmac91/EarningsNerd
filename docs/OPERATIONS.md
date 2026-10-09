@@ -90,11 +90,11 @@ counted but bounded by its own semaphores and never waits here) and
 `current_tokens`, `requests_per_second`). Both are per process: the load on the shared provider
 key or on SEC is the sum over the API instances and every job that ran in the window (every
 SEC-calling job carries its own buckets: pregenerate, the hourly filing-scan, backfill-facts and the
-EFTS jobs notable-filings and earnings-calendar-refresh; pregenerate at Monday 06:00 UTC, the hourly
-scan and backfill-facts at Monday 07:30 UTC overlap each other and the service in the 06:00–08:30
+EFTS jobs notable-filings and earnings-calendar-refresh; pregenerate at Monday 06:00 UTC and
+backfill-facts at Monday 07:30 UTC each overlap the hourly scan and the service in the 06:00–08:30
 window). A rising `rejected` count means chat callers are timing out in the queue rather than at the
 provider; `rate_limit_hits` climbing on the service while a job runs is the aggregate SEC budget
-being exceeded; the per-process pins below bound it. This addition
+being exceeded; the per-process pins below bound the configured sum, not observed traffic. This addition
 changes no capacity or startup/probe deadlines.
 
 #### SEC budgets per process (deploy-pinned)
@@ -109,16 +109,24 @@ API service, every Cloud Run job and the private task worker (`ci.yml`; gate
 `tests/unit/test_sec_process_budgets.py`; CODE RED decision records 16 and 17 staged it, the jobs and
 the worker first). Two request paths could not fit the service's 1 req/s and were removed with the
 pin: the insider endpoint (`GET /api/companies/{ticker}/insiders`, a cold load of about two edgartools
-requests per Form 4, up to 60) answers 404 unless `ENABLE_INSIDER_ACTIVITY` is set, and company search
-answers from the cached SEC ticker file only (its edgartools fuzzy fallback never returned a company).
-Under load the pin shows as queueing: a cold summary's XBRL enrichment (15 s budget) can fall back to
-companyfacts when several generations run at once on one instance.
+requests per Form 4 for up to 60 Form 4s, so about 120) answers 404 unless `ENABLE_INSIDER_ACTIVITY` is
+set (the deploy pins it `false`), and company search answers from the cached SEC ticker file only (its
+edgartools fuzzy fallback never returned a company). Under load the pin shows as queueing. When several
+generations run at once on one instance, a cold summary's XBRL enrichment (15 s budget) can fall back
+to companyfacts and its section parsing to the regex excerpt; a mega-filer's filing older than its
+recent submissions window needs about 43 history requests, past every enrichment budget; and a
+company's first filings list, coverage and full-text search each wait for their request. Breaker-wrapped
+edgartools calls queued behind that work (a company's first filings list, 6-K text, and visit refreshes
+run in-process when durable tasks are off) can time out after 15 s, and five timeouts in a row open the
+shared SEC circuit breaker for 30 s, which fails summary document fetches on that instance meanwhile
+(Circuit Breaker Management below). A synchronous precompute dry run on `/internal` makes at least one
+request per job, so above about 20 jobs it outlasts the 30 s request timeout.
 
 The configured sustained sums are: 4 req/s sustained with no job running (two service instances), 6
 in the hourly filing-scan window, and at most 8 req/s in any scheduled overlap — Monday 06:00 and
-07:00 UTC (pregenerate, which can run until 07:00, with a scan), Monday 07:30–08:30 UTC
+07:00 UTC (pregenerate, whose first attempt can run until 07:00, with a scan), Monday 07:30–08:30 UTC
 (backfill-facts with a scan) and a daily EFTS job over a running scan — and 20 req/s if every job ran
-at once, which configuration does not prevent. A full bucket at rate R admits up to 2R−1 requests in
+at once (22 with the worker, 24 in a handover second), which configuration does not prevent. A full bucket at rate R admits up to 2R−1 requests in
 its first second (19 at the default 10), but at the pinned rate of 1 the bucket never holds more than
 one token, so admissions are at least 1 s apart, and edgartools' window never exceeds its rate per
 rolling second: under the pin a process's ceiling is 2 req/s in every second, the first included, so
@@ -133,14 +141,20 @@ work timeout (`TASKS_WORK_TIMEOUT_SECONDS`), about 450 watched companies at 1 re
 scan belongs on the Cloud Run job (1,800 s).
 
 The Monday figures assume the Cloud Scheduler crons in `docs/DEPLOYMENT.md`: backfill-facts at
-`30 7 * * 1`, so it never meets pregenerate (`0 6 * * 1`, 3,600 s timeout). At the earlier
-`0 7 * * 1` the 07:00 overlap would carry pregenerate, the scan and backfill-facts: 12 req/s with the
-worker. The schedulers are created by hand, so the repository cannot enforce them; the gate checks
-the documented crons.
+`30 7 * * 1`, so it starts after a first attempt of pregenerate (`0 6 * * 1`, 3,600 s timeout) has
+ended. At the earlier `0 7 * * 1` the 07:00 overlap would carry pregenerate, the scan and
+backfill-facts: 12 req/s with the worker, 14 in a handover second. The schedulers are created by hand,
+so the repository cannot enforce them; the gate checks the documented crons, time zones and task
+timeouts. Check the live schedule with `gcloud scheduler jobs describe backfill-facts-weekly
+--location=us-west1 --format="value(schedule,timeZone)"`.
 
 Not bounded by this pin: rollout-overlap instances, manual job executions and operator one-shots, a
-scheduler cron moved by hand, a job or worker created by hand without the pins (the runbook commands in `docs/DEPLOYMENT.md` set
-them, and CI sets them on the next deployable merge), and any request outside both limiters. Neither
+job task retried after a failure or timeout (no documented create command sets `--max-retries`, so
+Cloud Run's default of three retries applies, and each attempt restarts its task timeout: a retried
+pregenerate can still be running at 07:30 and meet backfill-facts and a scan, 10 req/s or 12 with the
+worker, and a retried scan can meet the next one), a scheduler cron moved by hand, the service, a job
+or the worker created by hand without the pins (the commands in `docs/DEPLOYMENT.md` and the runbook
+set them, and CI sets them on the next deployable merge), and any request outside both limiters. Neither
 the jobs nor the worker (it serves only `/health` and its task endpoint) expose limiter state: the
 pin shows as longer execution times and, when SEC pushes back, as app-bucket 429 backoff warnings in
 their logs. Lowering the budget shows up as longer SEC waits inside a process (the limiter waits, it
@@ -154,8 +168,13 @@ that also touches a deployable `backend/` path and updates the gate
 (`tests/unit/test_sec_process_budgets.py`, and the backfill-facts map in
 `tests/unit/test_data_completeness.py`); when adding `--remove-env-vars`, drop the keys from that
 update's map. `--update-env-vars` only sets keys, so deleting them from `ci.yml`, or reverting the
-change that added them, leaves the pins live; a change confined to `ci.yml` does not deploy at all.
-Ops `describe-jobs` (`docs/DEPLOYMENT.md`) lists the env names present on each job after a deploy.
+change that added them, leaves the pins live; a change confined to `ci.yml` does not deploy at all. A revert of stage 2 also
+restores the public insider endpoint and the edgartools search fallback while the service stays
+pinned, so in the same change remove the service pins or keep the insider switch and local-only search.
+After a deploy, Ops `describe-service` (`docs/DEPLOYMENT.md`) prints `SEC_RATE_LIMIT_PER_SECOND`,
+`EDGAR_RATE_LIMIT_PER_SEC` and `ENABLE_INSIDER_ACTIVITY` for the serving revision and the pregenerate
+job, admin `/metrics` shows `sec_rate_limiter.requests_per_second` for the instance that answers, and
+Ops `describe-jobs` lists the env names present on each job.
 
 ### AI call telemetry (`ai_call` / `ai_summary` log lines)
 

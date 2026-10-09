@@ -5,6 +5,7 @@ backend/tests/ before testing for ^backend/, and every deploy step is gated on t
 (lessons/ops-deploy-detector-mirrors-the-image-context.md).
 """
 import os
+import re
 import subprocess
 from pathlib import Path
 
@@ -126,21 +127,34 @@ def test_detector_sees_both_sides_of_a_rename(tmp_path):
 
 
 REPORT_STEP = "Report variable-driven rollout switches"
+VAR_REF = re.compile(r"\bvars\.([A-Za-z_][A-Za-z0-9_]*)")
+AUTH_IDENTITY = {"GCP_WIF_PROVIDER", "GCP_DEPLOYER_SA"}  # who deploys, not what the deploy applies
 
 
 def test_deploy_reports_every_variable_driven_switch(tmp_path):
     """Repository variables change without a commit, so a deploy can roll out more than its diff: PR
     #1131's merge rolled out durable tasks switched on hours earlier (CODE RED decision record 17).
     Every deploy-backend env entry set from a repository variable is printed by an ungated step that
-    runs before the detector, so every main push, deploying or not, shows what a deploy would apply."""
+    runs before the detector, so every main push, deploying or not, shows what a deploy would apply.
+    A variable read anywhere else in the job (a step's env, `with` or `run`, the job `if`) fails,
+    apart from the deploy identity, so every switch goes through the reported job env. The gate makes
+    the values readable; reading them before a merge stays a review rule."""
     deploy = _workflow()["jobs"]["deploy-backend"]
     names = [step.get("name") for step in deploy["steps"]]
     report = next(step for step in deploy["steps"] if step.get("name") == REPORT_STEP)
     assert "if" not in report and names.index(REPORT_STEP) < names.index("Detect backend changes")
-    switches = [key for key, value in deploy["env"].items() if "vars." in value]
+    switches = [key for key, value in deploy["env"].items() if VAR_REF.search(value)]
     assert switches, "deploy-backend reads no repository variable: update this gate"
-    for key in switches:
-        assert f"{key}=" in report["run"], f"{key} is set from a repository variable but the deploy does not report it"
+    outside = {**deploy, "env": {key: value for key, value in deploy["env"].items() if key not in switches}}
+    stray = set(VAR_REF.findall(yaml.safe_dump(outside, width=10**6))) - AUTH_IDENTITY
+    assert not stray, f"repository variables read outside the reported job env: {sorted(stray)}"
+    sentinels = {key: f"sentinel-{index}" for index, key in enumerate(switches)}
+    probe = subprocess.run(["bash", "-e", "-c", report["run"]], capture_output=True, text=True, timeout=30,
+                           env={**os.environ, **sentinels, "GITHUB_STEP_SUMMARY": str(tmp_path / "probe")})
+    assert probe.returncode == 0, probe.stderr
+    printed = probe.stdout.split()
+    for key, sentinel in sentinels.items():  # what the step prints, not what its source mentions
+        assert f"{key}={sentinel}" in printed or f"{key}=set" in printed, f"the deploy does not report {key}"
     summary = tmp_path / "summary"
     env = {**os.environ, "DURABLE_TASKS_ENABLED": "true", "TASKS_WORKER_URL": "https://worker.example",
            "GITHUB_STEP_SUMMARY": str(summary)}

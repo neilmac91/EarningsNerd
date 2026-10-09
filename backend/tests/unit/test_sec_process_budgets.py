@@ -13,13 +13,13 @@ isolated child at a time).
 Every process is pinned (CODE RED decision records 16 and 17 staged it: the jobs and the worker
 first, the API service once the two request paths that could not fit 1 req/s were removed — the
 insider endpoint is off unless ENABLE_INSIDER_ACTIVITY, and company search no longer falls back to
-edgartools). The Monday arithmetic assumes the Cloud Scheduler crons docs/DEPLOYMENT.md documents,
-which this gate pins.
+edgartools; the deploy pins that switch off). The Monday arithmetic assumes the Cloud Scheduler crons,
+time zones and job timeouts docs/DEPLOYMENT.md and the runbook document, which this gate pins.
 
 This gate asserts the configured values and the arithmetic ``docs/OPERATIONS.md`` states. It does
 NOT prove a fleet guarantee: rollout-overlap instances, manual job executions and operator
-one-shots, handovers between task children inside one second, and any request outside both
-limiters are not bounded by configuration.
+one-shots, job task retries (each attempt restarts its timeout), handovers between task children
+inside one second, and any request outside both limiters are not bounded by configuration.
 """
 import inspect
 import re
@@ -40,11 +40,12 @@ EXPECTED_JOBS = {
     "earningsnerd-backfill-facts", "earningsnerd-earnings-calendar-refresh",
     "earningsnerd-earnings-day-alerts", "earningsnerd-notable-filings", "earningsnerd-retention-purge",
 }
-# Scheduled overlaps of SEC-calling jobs with the service (the crons below; filing-scan hourly with a
+# Scheduled overlaps of SEC-calling jobs with the service (the schedules below; filing-scan hourly with a
 # 1,800 s timeout, pregenerate Monday 06:00 UTC and backfill-facts Monday 07:30 UTC with 3,600 s, the
-# EFTS jobs notable-filings and earnings-calendar-refresh daily). A Monday pregenerate can still be
-# running at the 07:00 scan but has ended by 07:30; backfill-facts can meet a scan still running or
-# the 08:00 one, never pregenerate.
+# EFTS jobs notable-filings and earnings-calendar-refresh daily in America/New_York, outside Monday
+# 06:00-08:30 UTC). On a first attempt a Monday pregenerate can still be running at the 07:00 scan but
+# has ended by 07:30; backfill-facts can meet a scan still running or the 08:00 one, not pregenerate. A
+# retried attempt restarts its timeout, so retries are outside this model (docs/OPERATIONS.md).
 SCHEDULED_OVERLAPS = {
     "no job running": (),
     "hourly filing-scan window": ("filing-scan",),
@@ -53,11 +54,21 @@ SCHEDULED_OVERLAPS = {
     "Monday 07:30-08:30 UTC": ("filing-scan", "backfill-facts"),
     "daily EFTS job over a running scan": ("filing-scan", "notable-filings"),
 }
-# The crons the overlap model assumes, as docs/DEPLOYMENT.md and the runbook create them. Cloud
-# Scheduler jobs are created by hand, so this pins the documented schedule, not the live one.
+# The schedules the overlap model assumes, as docs/DEPLOYMENT.md and the runbook create them: scheduler
+# job -> (cron, time zone, Cloud Run job, per-attempt task timeout in s). Scheduler and job are created by
+# hand, so this pins the documented values, not the live ones; a create command without --time-zone runs
+# in Etc/UTC.
 SCHEDULES = {
-    ROOT / "docs/DEPLOYMENT.md": {"filing-scan-hourly": "0 * * * *", "backfill-facts-weekly": "30 7 * * 1"},
-    ROOT / "tasks/gcp-deploy-runbook.md": {"earningsnerd-pregenerate-weekly": "0 6 * * 1"},
+    ROOT / "docs/DEPLOYMENT.md": {
+        "filing-scan-hourly": ("0 * * * *", "Etc/UTC", "earningsnerd-filing-scan", 1800),
+        "backfill-facts-weekly": ("30 7 * * 1", "Etc/UTC", "earningsnerd-backfill-facts", 3600),
+        "earnings-calendar-refresh-daily": (
+            "30 5 * * *", "America/New_York", "earningsnerd-earnings-calendar-refresh", 1800),
+        "notable-filings-scan": ("30 8,18 * * *", "America/New_York", "earningsnerd-notable-filings", 900),
+    },
+    ROOT / "tasks/gcp-deploy-runbook.md": {
+        "earningsnerd-pregenerate-weekly": ("0 6 * * 1", "Etc/UTC", "earningsnerd-pregenerate", 3600),
+    },
 }
 OPERATIONS = ROOT / "docs/OPERATIONS.md"
 WORKER = "earningsnerd-task-worker"
@@ -71,6 +82,8 @@ UPDATE = re.compile(
     r"gcloud (?:--[\w-]+(?:=\S+)? )*(?:(?:alpha|beta) )?run "
     r"(?:deploy|(?:services|jobs|worker-pools) (?:create|deploy|replace|update))(?:\s|\\)+(\"?[$\w-]+\"?)"
 )
+# Any line shaped like a Cloud Run process update; each one must be readable by UPDATE (fail closed).
+UPDATE_SHAPED = re.compile(r"\bgcloud\b.*\brun\b.*\b(?:create|deploy|replace|update)\b")
 DEFAULTS = {"SEC_RATE_LIMIT_PER_SECOND": 10, "EDGAR_RATE_LIMIT_PER_SEC": 9}  # code and library defaults
 
 
@@ -123,6 +136,9 @@ def test_every_production_process_pins_both_sec_buckets_to_one():
     for name, env in maps.items():
         for key in BUDGET_ENV:
             assert env.get(key) == str(PINNED_PER_BUCKET), f"{name} must pin {key}={PINNED_PER_BUCKET}"
+    # The pinned service cannot carry the insider endpoint's cold fetch (decision record 17), so the
+    # deploy re-asserts the switch off; test_prod_flag_visibility pins the same value.
+    assert maps["service"].get("ENABLE_INSIDER_ACTIVITY") == "false"
     assert _service_instances(service) == 2
     assert _service_instances(_run(WORKER_STEP)) == 1
 
@@ -130,7 +146,10 @@ def test_every_production_process_pins_both_sec_buckets_to_one():
 def test_no_deploy_step_updates_a_process_without_both_pins():
     """A future process step must not escape the inventory above: every update targets an inventoried
     process exactly once and carries both pins. Updates hidden from this reading fail too: a Cloud Run
-    deploy action, a local composite action, or a script a deploy step calls that updates Cloud Run."""
+    deploy action, a local composite action, a script a deploy step calls (it must resolve against the
+    repository root, backend/ or the step's working directory) that updates Cloud Run, and any line
+    shaped like a Cloud Run update that UPDATE cannot read. Not covered: an update assembled without a
+    literal gcloud line, such as a subprocess argument list in a script."""
     loop_jobs = _loop_jobs(_run(LOOP_STEP))
     targets = []
     for step in _deploy_job()["steps"]:
@@ -140,9 +159,15 @@ def test_no_deploy_step_updates_a_process_without_both_pins():
         if "run" not in step:
             continue
         run = "\n".join(line for line in step["run"].splitlines() if not line.lstrip().startswith("#"))
+        bases = [ROOT, ROOT / "backend"] + ([ROOT / step["working-directory"]] if "working-directory" in step else [])
         for script in re.findall(r"[\w./-]+\.(?:sh|py)\b", run):
-            text = (ROOT / script).read_text() if (ROOT / script).is_file() else ""
-            assert not UPDATE.search(text) and "gcloud run" not in text, f"{script} updates Cloud Run outside this gate"
+            paths = [base / script for base in bases if (base / script).is_file()]
+            assert paths, f"{step.get('name')}: {script} does not resolve, so this gate cannot read it"
+            text = paths[0].read_text()
+            assert not UPDATE_SHAPED.search(text.replace("\\\n", " ")), f"{script} updates Cloud Run outside this gate"
+        for line in run.replace("\\\n", " ").splitlines():
+            if UPDATE_SHAPED.search(line) and "update-traffic" not in line:
+                assert UPDATE.search(line), f"{step.get('name')}: a Cloud Run update this gate cannot read: {line.strip()[:100]}"
         updates = UPDATE.findall(run)
         maps = re.findall(r"--update-env-vars=(\S+)", run)
         assert len(maps) == len(updates), f"{step.get('name')}: every process update carries one env map"
@@ -194,13 +219,27 @@ def test_configured_sums_fit_the_published_cap_in_every_scheduled_overlap():
         assert statement in doc, f"docs/OPERATIONS.md must state: {statement}"
 
 
-def test_the_overlap_model_matches_the_documented_crons():
-    for path, crons in SCHEDULES.items():
-        text = path.read_text()
-        for job, cron in crons.items():
-            create = rf'scheduler jobs create http {re.escape(job)}(?:\s|\\)+(?:--[\w-]+=\S+(?:\s|\\)+)*?--schedule="([^"]+)"'
-            found = re.findall(create, text)
-            assert found == [cron], f"{path.name}: {job} must be scheduled at {cron!r} (found {found})"
+def _commands(path):
+    """The document's shell commands: comment lines dropped, backslash continuations joined."""
+    lines = [line for line in path.read_text().splitlines() if not line.lstrip().startswith("#")]
+    return re.sub(r"\\[ \t]*\n[ \t]*", " ", "\n".join(lines)).splitlines()
+
+
+def _flag(command, name):
+    return [value for _, value in re.findall(rf"--{name}=([\"']?)(.+?)\1(?=\s|$)", command)]
+
+
+def test_the_overlap_model_matches_the_documented_schedules():
+    for path, schedules in SCHEDULES.items():
+        commands = _commands(path)
+        for scheduler, (cron, zone, job, timeout) in schedules.items():
+            creates = [line for line in commands if re.search(rf"\bscheduler jobs create http {re.escape(scheduler)}(?=\s|$)", line)]
+            assert len(creates) == 1, f"{path.name}: {scheduler} needs exactly one create command (found {len(creates)})"
+            assert _flag(creates[0], "schedule") == [cron], f"{path.name}: {scheduler} must be scheduled at {cron!r}"
+            assert (_flag(creates[0], "time-zone") or ["Etc/UTC"]) == [zone], f"{path.name}: {scheduler} must run in {zone}"
+            jobs = [line for line in commands if re.search(rf"\brun jobs create {re.escape(job)}(?=\s|$)", line)]
+            assert len(jobs) == 1 and _flag(jobs[0], "task-timeout") == [str(timeout)], (
+                f"{path.name}: {job} must time out each attempt at {timeout} s")
 
 
 def test_dev_default_and_limiter_accept_the_pinned_budget():
