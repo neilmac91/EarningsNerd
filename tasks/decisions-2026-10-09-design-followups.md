@@ -306,3 +306,10 @@ the merged stack had not been looked at in production.
     markdown, which the page replaces on `complete` with the stored row. Its unit stays counted, unless
     the result was partial and refunded. If a lost race should cost nothing, refund on all three paths
     together (Codex review on #1166, third finding of the second round).
+11. **Founder's call: draw once per code state, not per head commit.** `copilot-eval.yml`'s gate
+    keys on the head commit. A commit that changes nothing under `backend/` or `.github/` is therefore a
+    new head and buys a new draw. The RUNBOOK forbids that outside a predeclared protocol, but only in
+    prose. Closing it means keying draws on those two trees. That would also stop a protocol from
+    drawing identical code several times through the PR gate, so such measurements would need a
+    dispatch-only path of their own. It changes how measurement protocols work, so it is the founder's
+    decision.
