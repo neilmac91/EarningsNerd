@@ -12,6 +12,8 @@ what applies to your task. Filenames are greppable: `arch-*`, `sec-*`, `test-*`,
 
 ## Architecture
 
+- [`arch-moved-code-resolves-seams-through-the-patched-module.md`](./arch-moved-code-resolves-seams-through-the-patched-module.md) — Code moved out of a patched module keeps resolving its collaborators through that module at call time
+
 - [`arch-qualified-income-deltas-need-source-ownership.md`](./arch-qualified-income-deltas-need-source-ownership.md) — Withhold qualified income arithmetic when attribution and entity ownership are unsupported
 
 - [`arch-acquisition-period-withholding-needs-whole-claims.md`](./arch-acquisition-period-withholding-needs-whole-claims.md) — Preserve closed authored continuations when withholding ambiguous acquisition-period claims
@@ -140,9 +142,11 @@ what applies to your task. Filenames are greppable: `arch-*`, `sec-*`, `test-*`,
 - [`frontend-theme-migration-app-wide.md`](./frontend-theme-migration-app-wide.md) — Treat a design-token/theme migration as app-wide by default
 - [`frontend-verify-chart-annotations-on-dense-data.md`](./frontend-verify-chart-annotations-on-dense-data.md) — Acceptance-test chart annotations on a dense real-world series, never only fixtures
 - [`frontend-variable-text-must-not-size-a-wrapping-row.md`](./frontend-variable-text-must-not-size-a-wrapping-row.md) — Keep variable-length text from sizing a wrapping row or an implicit grid track
+- [`frontend-hidden-name-tails-bring-their-own-space.md`](./frontend-hidden-name-tails-bring-their-own-space.md) — A visually hidden tail on a control's name brings its own space and starts with a word or bracket
 
 ## Operations & workflow
 
+- [`ops-ci-images-avoid-docker-hub.md`](./ops-ci-images-avoid-docker-hub.md) — Pull CI and deploy images through a mirror, never anonymously from Docker Hub
 - [`ops-auth-lookups-must-let-request-cleanup-progress.md`](./ops-auth-lookups-must-let-request-cleanup-progress.md) — Keep authentication pool waits off the event loop while preserving request-owned sessions
 - [`ops-unmergeable-pr-runs-no-pull-request-workflows.md`](./ops-unmergeable-pr-runs-no-pull-request-workflows.md) — Check the PR's mergeable state before diagnosing missing `pull_request` workflow runs
 - [`ops-capacity-projection-withholds-command-values.md`](./ops-capacity-projection-withholds-command-values.md) — Withhold command values and execute the real readback projection in a privacy gate

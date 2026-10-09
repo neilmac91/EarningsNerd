@@ -487,7 +487,8 @@ Source pane      <FilingWorkspace>  (P-06) — the research pane is named for th
                  hairline, e3; aria-keyshortcuts) whose kbd hint is secondary ink on a cream key. A chip opens
                  the pane on Filing; the initial tab stays Ask until in-app filing text is reliably available.
 
-Ask answer       <AskFilingAnswer>  — the SHIPPED copilot contract: status reading|streaming|done|error;
+Ask answer       <AskFilingAnswer>  — the SHIPPED copilot contract: status reading|done|error (this reference
+                 also draws a `streaming` caret state; the production renderer has none);
                  answer = GFM markdown (react-markdown + remark-gfm); markers [n] AND [F1]/[f1]/[F 1]
                  (case/whitespace tolerant) become chips showing the BRACKETED marker; unmatched markers
                  stay literal text — never a dead button. CopilotCitation = { n, excerpt, section_ref,
@@ -499,8 +500,10 @@ Ask answer       <AskFilingAnswer>  — the SHIPPED copilot contract: status rea
                  attestation. Never conflate source matching with support for every answer claim.
                  REPO REALITY: this file is the design-system REFERENCE implementation (0 importers).
                  The wired production renderer is features/filings/components/copilot/CopilotMessage.tsx,
-                 which implements the same contract plus viewer deep-linking, popovers, streaming-perf
-                 rendering and follow-ups — change copilot rendering THERE, styled to this design.
+                 which implements the same contract plus viewer deep-linking, popovers and follow-ups —
+                 change copilot rendering THERE, styled to this design. Its answers arrive whole: the
+                 rail takes a message from reading (one pulse dot, "Reading the filing…") straight to
+                 done or error; there is no streaming status, token text or caret.
 ```
 
 - **Radius scale is 4 / 8 / 12 / 16 / 24** — buttons + inputs 12 (`rounded-lg`), chips full,
@@ -529,6 +532,21 @@ Type v2 supersedes the old "no global heading color" rule: the global `h1–h6` 
 dark-hero bug that motivated the old rule can't recur. Don't add per-heading color overrides
 unless the heading sits on a surface that inverts against its theme.
 
+**Outline: never skip a level.** Pick the element for its place in the page outline and set the
+size with classes: a section directly under the page h1 is an h2 whatever its type size (the pricing
+plans, the analysis chart panels). `GuidanceCard` titles itself h3 by default, for a card inside an
+h2 section; where the card stands in for the page's content directly under the h1, pass
+`headingLevel="h2"` (the filing page's signup gate, failure and monthly-limit cards and a stored
+summary's writer error; the watchlist's empty and error cards; the waitlist example's fallbacks).
+The footer opens its own section with a visually hidden h2 ("Site links") before its h3 column
+titles, so a page whose content ends at h1 (the 404, /analysis, /search) does not jump from h1 to h3.
+`tests/e2e/text-floors.spec.ts` checks the routes and states it visits, in DOM order and in the
+accessibility tree: home, /pricing, /company/AAPL, /filing/3 with a summary, a signed-in /dashboard,
+the 404, and four page-level card states (a filing without a summary for a guest and for a
+signed-in reader whose run fails, a writer error, an empty watchlist). Known exception, not
+visited: /waitlist when its example loads (the example has no heading, so the h1 is followed by the
+problem cards' h3).
+
 ## 6. Cards must *lift*, not tint
 
 `brand-weak` (#ECF2EE) is **darker** than the cream page (#F4F3EE) — as a card *fill* it's
@@ -548,7 +566,10 @@ remaining consumer is `AuthShell`). Container rhythm on the landing: hero + head
 every other section `max-w-5xl`, section padding `py-20 sm:py-24` (the measured-claims band is a
 tighter hairline strip). Muted text on the cream page ground is `text-secondary`;
 `text-tertiary-light` (`#636A77`, 4.9:1 on cream) carries captions, counts and micro-labels on either
-ground; copy the reader must read stays secondary.
+ground; copy the reader must read stays secondary, including the point-of-use AI disclaimer
+(`AiDisclaimer`) and the footer's "Data sourced from SEC EDGAR … Not investment advice" line. Gate:
+`tests/e2e/text-floors.spec.ts` measures every tertiary-ink text on the main routes against its
+rendered ground.
 
 ## 8. Theme mechanics
 

@@ -89,6 +89,23 @@ stream_filing_summary(filing_id, ...)
   → events: progress → chunk → (partial|complete) | error
 ```
 
+The generator itself is a short stage map (`_stage_sequence()` in `summary_pipeline.py`) over
+`app/services/summary_stages/`, one shared `GenerationRun` per generation:
+
+| stage module | owns |
+|---|---|
+| `generation_run.py` | the run state (timings, lease/charge, owned tasks, filing snapshot) and the former closures: `run_sync_db`, `settle_charge`, `refund_charge`, `begin_charge`/`charge_lease` (metering at provider start), `release()` (the `finally`) |
+| `admission.py` | `load_filing` (snapshot + existing-summary short-circuit), `join_or_lead` (A3 in-flight dedup), `admit` (24h cache validity, usage/fair-use gate, generation slot) |
+| `fetch.py` | `fetch_document` (starts the XBRL/section tasks; cached text, 6-K exhibits, or the SEC fetch with heartbeats) |
+| `enrichment.py` | `start_enrichment_tasks`, `parse_and_enrich` (progress, excerpt, bounded join) |
+| `generation.py` | `generate` (provider task under the metering signal, heartbeats/previews, 75s fallback, error payload) |
+| `finalize.py` | `finalize` (projection, quality verdict + measurement logs, persist, usage, telemetry, terminal events) |
+| `failure.py` | `timed_out`, `failed` (the two `except` bodies) |
+
+The stage modules reach every collaborator as `summary_pipeline.<name>` at call time (the patch
+seams the tests rely on); `tests/unit/test_summary_stages_seams.py` gates that, the terminal-event
+protocol and the orchestrator's length.
+
 Product invariant: summaries are **filing-only** — no content from outside the chosen
 filing (including prior filings) enters user-visible output. Cross-filing insight lives in
 explicit surfaces (Multi-Period Analysis, change reports). `Summary.filing_id` is UNIQUE;
@@ -141,7 +158,7 @@ frontend/
 
 | Service | Purpose |
 |---|---|
-| `summary_pipeline.py` | THE summary orchestrator (see above) |
+| `summary_pipeline.py` + `summary_stages/` | THE summary orchestrator (see above): the stage map, its stages and the patch seams the tests rely on |
 | `summary_generation_service.py` | Headless drain for batch callers + quality verdict helpers (`assess_quality`, `calculate_section_coverage`) |
 | `openai_service.py` | Façade over `app/services/ai/*` — orchestration core (`summarize_filing`, `generate_structured_summary`) stays here |
 | `entitlements.py` | **Single source of truth** for plan gates (Free vs Pro); defines `FREE_TIER_SUMMARY_LIMIT = 5` |
