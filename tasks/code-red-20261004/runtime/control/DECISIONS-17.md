@@ -1,6 +1,6 @@
-# Decision record 17 — D3 stage 1 merged and deployed (the eight Cloud Run jobs and the task worker pinned to 1 + 1; PR #1131), and its deploy found to be the first CI rollout of durable background tasks (intended, the founder confirms); D3 stage 2 re-scoped by its design investigation and decided by the founder (option A: guard, then pin; backfill-facts moved off Monday 07:00); the backend suite's live requests (fix pre-registered); PR #1129 review record; ninth deploy-skip proof; ledger events 35–36; superseded burst figures corrected; chief defect 6; closure 168 (chief, 2026-10-08)
+# Decision record 17 — D3 stage 1 merged and deployed (the eight Cloud Run jobs and the task worker pinned to 1 + 1; PR #1131), and its deploy found to be the first CI rollout of durable background tasks (intended, the founder confirms); D3 stage 2 re-scoped by its design investigation and decided by the founder (option A: guard, then pin; backfill-facts to move off Monday 07:00, the founder's scheduler change, pending); the backend suite's live requests (fix pre-registered); PR #1129 review record; ninth deploy-skip proof; ledger events 35–36; superseded burst figures corrected; chief defect 6; closure 168 (chief, 2026-10-08)
 
-Recorded 2026-10-08T20:30:19Z, amended 2026-10-09T06:14:33Z after the record-17 review and the founder's answers, by the chief (`https://claude.ai/code/session_01GWYV7WXWstgVGQG43YcSM8`). Context: record 16 merged
+Recorded 2026-10-08T20:30:19Z, amended 2026-10-09T06:14:33Z after the record-17 review and the founder's answers and 2026-10-09T06:32:09Z after its delta review, by the chief (`https://claude.ai/code/session_01GWYV7WXWstgVGQG43YcSM8`). Context: record 16 merged
 to main as `2129a8035c0a36325ec5c820225dfacb4ac428c5` (PR #1129, 2026-10-08T18:53:40Z); D3 stage 1 merged as
 `da636f6c57241273fb99444cb8f1e92a03c24522` (PR #1131, 20:08:15Z); this branch was restarted from `da636f6c`. Records only: no
 code, workflow, migration, cloud, IAM or production change in this PR; no provider call; no reservation; no source material
@@ -43,7 +43,8 @@ arithmetic, the limits and the rollback. Eight files, +305 / −24, four commits
   workflow's concurrency group. Codex's summary comment (6068000391, created 20:00:55Z) carries the literal text "@codex
   review" in its boilerplate, so it fired an `issue_comment` run (37836273930, triggered by the Codex connector) whose
   re-run job re-ran 37836232169 at 20:01:11Z; that re-run took the concurrency group and cancelled 37836232918's job at
-  20:02:19Z, so the merge was refused on the required check. The chief re-ran 37836232918 once (attempt 2, success
+  20:02:19Z. The chief's merge at 20:05:17Z was refused ("Required status check \"review-gate\" is cancelled"),
+  13 s after 37836232169's re-run had itself succeeded (20:05:04Z). The chief re-ran 37836232918 once (attempt 2, success
   20:05:38–20:05:54Z) and squash-merged with the expected head `cf64574d` at 20:08:15Z. The gate's trigger
   (`review-gate.yml:61`, any comment containing "@codex review") matching Codex's own boilerplate is a latent cancel
   cascade; it is noted for the workflow's owner (todo).
@@ -100,6 +101,8 @@ the rollout was intended (below). Rule: before merging a deploying PR, read the 
 `deploy-backend` log (a skip job prints them), note when they were read (they can change after that log), and state in the PR
 what the deploy will roll out beyond its own diff. Machine enforcement (rule 12) goes in the stage-2 PR, which edits the
 deploy job anyway: the job prints its variable-driven switches in one line before deploying, and a test pins that line.
+That gate makes the values readable in every `deploy-backend` run, deploying or not; it cannot make the chief read them
+before merging or state them in the PR, which stays a review-checked rule.
 
 ## D3 stage 2 — what its design investigation found; the founder's decision
 
@@ -196,9 +199,9 @@ line), record 08's fleet assumption (29 in the first second; under the pin 3, an
 11 and the checkpoint's PR #1088 review record state a first-second ceiling of 29 per process at the defaults and 3 per
 process (15 at Monday 07:00; 30 for ten processes) under the pin. Stage 1's review established that the app's bucket starts full with capacity equal to its
 rate and refills continuously, so in any one second it admits at most 2R − 1 requests: 19 at the default 10, 1 at the pin.
-Corrected: **28 per process at the defaults** (19 + edgartools' 9); **under the pin, 2 per process**, 10 in the Monday 07:00
-UTC overlap with the service pinned and the worker held, 12 with the worker (up to 14 during a task-child handover), and 20
-for ten processes (not 30). The
+Corrected: **28 per process at the defaults** (19 + edgartools' 9); **under the pin, 2 per process**; on the schedule before
+the founder's backfill-facts move, 10 in the Monday 07:00 UTC overlap with the service pinned and the worker held, 12 with
+the worker (up to 14 during a task-child handover); after the move, 8, 10 and 12; and 20 for ten processes (not 30). The
 sustained figures (19 per process at the defaults, 2 under the pin) are unchanged. The earlier records are not edited; this
 entry supersedes those figures and checkpoint decision 11 points here. The CTO handback's bound B36 carries the old figure
 until its owner's next revision.
@@ -254,7 +257,9 @@ The chief put three questions to the founder after this record was first pushed.
    service pinned to 1 + 1 with the gate's staged exemption removed. It runs under closure 167's label `d3-stage-2-pr-01`;
    `eval-baseline` is reserved before its first push touching `backend/app/`, draft or not, and `copilot-eval` before it leaves
    draft.
-2. **The Monday 07:00 UTC overlap: "Move backfill-facts (Recommended)".** The founder moves the `backfill-facts-weekly` Cloud
+2. **The Monday 07:00 UTC overlap: "Move backfill-facts (Recommended)".** The option read: "You change the
+   backfill-facts-weekly Cloud Scheduler job from 07:00 to 07:30 Monday (one gcloud command; it makes ~0 SEC requests
+   anyway). The overlap is then 10 = the cap." The founder moves the `backfill-facts-weekly` Cloud
    Scheduler job from `0 7 * * 1` to `30 7 * * 1` (one `gcloud scheduler jobs update http` command; the chief has no cloud
    access). Then, with the service pinned and the worker enabled, the 07:00 overlap is configured at 10 req/s (two service
    instances, pregenerate if still running, the hourly scan and the worker at 2 each), with up to 2 more in a second in which

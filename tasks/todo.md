@@ -6447,10 +6447,10 @@ Full local and hosted verification plus independent exact-head review precede re
   the founder's choice (stage 1: the eight jobs and the task worker; stage 2: the API service after the insider panel fits the
   budget). PR #1128 review record closed (merge `a3bc888b`; deploy steps skipped — eighth proof). Closures 166–167.
 - 2026-10-08 (record 17, `runtime/control/DECISIONS-17.md`): D3 stage 1 merged (PR #1131 → `da636f6c`) and deployed — the
-  eight jobs and the task worker pinned to 1 + 1, the API service at the defaults; the deploy was also the first rollout of
+  eight jobs and the task worker pinned to 1 + 1, the API service at the defaults; the deploy was also the first CI rollout of
   durable background tasks (repository variables switched on at 00:09–00:42Z outside this session; intended, the founder
-  confirms; chief defect 6). D3 stage 2 decided by the founder: option A (guard, then pin); backfill-facts moved to Monday
-  07:30 so the 07:00 overlap stays at 10. PR #1129
+  confirms; chief defect 6). D3 stage 2 decided by the founder: option A (guard, then pin); the founder to move backfill-facts to
+  Monday 07:30 (pending), so the 07:00 overlap will be 10 once the service is pinned. PR #1129
   review record closed (merge `2129a803`; ninth deploy-skip proof). Ledger events 35–36. Burst figures corrected. Closure 168.
 - [x] Founder: relay the record-14 custody clarification — replaced by record 16's step A (the founder delegated the custody
       question to the chief on 2026-10-08); D3 — applied by the founder's instruction, staged (record 16).
@@ -6469,7 +6469,7 @@ Full local and hosted verification plus independent exact-head review precede re
 - [x] Founder (optional, now; folded into record 17's option A): the D3 staging answer rested on an overstated premise (the insider panel is off in production;
       record 16) — say "pin the API service now" to pin it with stage 1, otherwise staging stands.
 - [x] Founder (future, before durable tasks are enabled): the Monday 07:00 UTC overlap is then 12 req/s configured against SEC's
-      10 (record 16) — overtaken: durable tasks went live with the stage-1 deploy; the choice is now part of the stage-2
+      10 (record 16) — overtaken: the stage-1 deploy was the first CI rollout of durable tasks; the choice is now part of the stage-2
       decision (record 17).
 - [ ] Founder (durable-tasks rollout owner; rollout confirmed intended): run the post-deploy checks in `docs/DEPLOYMENT.md`
       (authenticated task success, retries and errors, API latency, SQL connections) (record 17).
