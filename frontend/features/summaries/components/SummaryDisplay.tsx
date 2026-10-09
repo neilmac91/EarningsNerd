@@ -14,7 +14,7 @@ import { SummaryBlocks } from '@/features/summaries/components/SummaryBlocks'
 import { ChartErrorBoundary } from '@/components/ChartErrorBoundary'
 import { Button } from '@/components/ui/Button'
 import { Badge, Card, CardBody, GuidanceCard } from '@/components/ui'
-import { FileTextIcon, SparkleIcon } from '@/lib/icons'
+import { ChatCircleTextIcon } from '@/lib/icons'
 import { stripInternalNotices } from '@/lib/stripInternalNotices'
 import { stripLeadingExecutiveHeading } from '@/lib/stripLeadingExecutiveHeading'
 import { ENABLE_QUALITY_BADGE, ENABLE_FINANCIAL_CHARTS } from '@/lib/featureFlags'
@@ -104,6 +104,8 @@ export function SummaryDisplay({
   const hasPolishedMarkdown = trimmedMarkdown.length > 0 && !isFallbackMessage && !writerError
 
   const isPartial = rawSummary?.status === 'partial'
+  const showQualityBadge = !demoMode && ENABLE_QUALITY_BADGE && Boolean(quality?.tier)
+  const showRegenerate = Boolean(!demoMode && isPro && (isPartial || writerFallback || isPartialQuality) && onRetry)
 
   const isError = Boolean(writerError) || isFallbackMessage || (!hasPolishedMarkdown && trimmedMarkdown.length === 0)
 
@@ -153,53 +155,57 @@ export function SummaryDisplay({
         />
       ) : (
         <>
-          {/* Summary header: title + honest quality badge + Pro Regenerate affordance. The body is
-              the structured page below (T2) — a number has exactly one home there, so no leading
-              markdown card or duplicate metrics table renders anymore. */}
-          <div className="flex items-center justify-between gap-3">
-            <div className="flex items-center gap-2">
-              <FileTextIcon className="h-5 w-5 text-brand-strong dark:text-brand-strong-dark" />
-              <h2 className="text-lg font-semibold text-text-primary-light dark:text-text-primary-dark">Summary</h2>
+          {/* Honest quality badge + Pro Regenerate affordance, when either applies. No "Summary"
+              heading of its own: the numbered sections below are the document's headings under the
+              page's h1 (2026-10 critique P-05). The body is the structured page (T2) — a number has
+              exactly one home there, so no leading markdown card or duplicate metrics table renders. */}
+          {(showQualityBadge || showRegenerate) && (
+            <div className="flex flex-wrap items-center justify-between gap-3">
               {/* S4 quality badge: honest signal of full vs partial output. Suppressed in demo mode
                   so a first-time visitor never meets "Partial" on the curated example (plan 1.3). */}
-              {!demoMode && ENABLE_QUALITY_BADGE && quality?.tier && (
+              {showQualityBadge && quality?.tier ? (
                 <Badge
                   variant={quality.tier === 'full' ? 'brand' : 'warning'}
                   title={quality.reasons && quality.reasons.length ? quality.reasons.join('; ') : undefined}
                 >
                   {quality.tier === 'full' ? 'Full summary' : partialBadgeLabel(quality.reasons)}
                 </Badge>
+              ) : (
+                <span />
+              )}
+              {/* Pro-only force-regeneration (backend gates it to Pro); hidden in demo mode. */}
+              {showRegenerate && (
+                <Button variant="secondary" onClick={onRetry}>
+                  Regenerate summary
+                </Button>
               )}
             </div>
-            {/* Pro-only force-regeneration (backend gates it to Pro); hidden in demo mode. */}
-            {!demoMode && isPro && (isPartial || writerFallback || isPartialQuality) && onRetry && (
-              <Button variant="secondary" onClick={onRetry}>
-                Regenerate Analysis
-              </Button>
-            )}
-          </div>
+          )}
 
           {/* The ONE structured surface (T2): render_sections projection → per-section Cards + a
               sticky TOC. A legacy summary that produced no structured sections falls back to the
               derived markdown (belt-and-suspenders for the corpus-refresh cutover). */}
+          {/* A5 "What changed" vs the prior comparable filing rides inside the structured page as a
+              numbered section (2026-10 critique P-07); a legacy markdown summary keeps it as a card
+              under the markdown. */}
           {hasSections ? (
-            <SummaryBlocks sections={renderedSections} summary={summary} />
+            <SummaryBlocks sections={renderedSections} summary={summary} whatChanged={changeReport} />
           ) : hasPolishedMarkdown ? (
-            <Card as="section" className="overflow-hidden">
-              <CardBody className="markdown-body text-text-secondary-light dark:text-text-secondary-dark">
-                <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                  {cleanedMarkdown}
-                </ReactMarkdown>
-              </CardBody>
-            </Card>
+            <>
+              <Card as="section" className="overflow-hidden">
+                <CardBody className="markdown-body text-text-secondary-light dark:text-text-secondary-dark">
+                  <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                    {cleanedMarkdown}
+                  </ReactMarkdown>
+                </CardBody>
+              </Card>
+              {changeReport?.has_changes && <WhatChanged report={changeReport} />}
+            </>
           ) : null}
 
           {/* Turn the just-finished read into the next action — placed high, directly under the
               summary (T1.7 defect f). */}
           <AskFilingCallout filingType={filing.filing_type} subjectLabel={askSubjectLabel} onAsk={onAsk} />
-
-          {/* A5: What Changed vs the prior comparable filing */}
-          {changeReport?.has_changes && <WhatChanged report={changeReport} />}
 
           {/* 2.5 + roadmap B: multi-period trend of the standardized fundamentals (revenue/NI/EPS/…)
               *as reported in this filing* — the filing's own comparative years, an immutable snapshot
@@ -238,7 +244,7 @@ export function SummaryDisplay({
                   onClick={() => onAsk(item, 'followup')}
                   className="group flex w-full items-start gap-2 rounded-lg border border-border-light dark:border-white/10 bg-background-light/60 dark:bg-white/5 px-3 py-2 text-left text-sm text-text-secondary-light dark:text-text-secondary-dark transition-colors hover:border-brand-border hover:text-brand-strong dark:hover:text-brand-strong-dark focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark"
                 >
-                  <SparkleIcon className="mt-0.5 h-4 w-4 shrink-0 text-brand-strong dark:text-brand-strong-dark" aria-hidden="true" />
+                  <ChatCircleTextIcon className="mt-0.5 h-4 w-4 shrink-0 text-brand-strong dark:text-brand-strong-dark" aria-hidden="true" />
                   <span>{item}</span>
                 </button>
               </li>

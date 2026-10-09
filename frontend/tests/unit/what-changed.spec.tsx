@@ -1,5 +1,5 @@
 import React from 'react'
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import { WhatChanged } from '@/features/filings/components/WhatChanged'
 import type { ChangeReport } from '@/features/summaries/api/summaries-api'
 
@@ -90,9 +90,62 @@ describe('WhatChanged (A5)', () => {
         ],
       },
     }
-    render(<WhatChanged report={debt} />)
-    expect(screen.getByText('−9.3%').className).toContain('text-gain-text')
-    expect(screen.getByText('+4.0%').className).toContain('text-loss-text')
+    const { container } = render(<WhatChanged report={debt} />)
+    // Both presentations (the sm+ table and the phone rows) colour from the same served tone.
+    for (const layout of ['table', 'rows']) {
+      const scope = within(container.querySelector<HTMLElement>(`[data-change-layout="${layout}"]`)!)
+      expect(scope.getByText('−9.3%').className).toContain('text-gain-text')
+      expect(scope.getByText('+4.0%').className).toContain('text-loss-text')
+    }
+  })
+
+  // ---- 2026-10 critique P-07: direction and meaning, never one signal ----
+
+  it('marks the arithmetic direction with a glyph and states the tone in words', () => {
+    const debt: ChangeReport = {
+      ...baseReport,
+      metrics: {
+        ...baseReport.metrics!,
+        items: [
+          { metric: 'long_term_debt', label: 'Total term debt', direction: 'down', pct: -7.3, current: 110.1e9, prior: 118.7e9, display: '−7.3%', tone: 'gain' },
+          { metric: 'research_and_development', label: 'R&D', direction: 'up', pct: 19.8, current: 26.3e9, prior: 21.9e9, display: '+19.8%', tone: 'flat' },
+        ],
+      },
+    }
+    const { container } = render(<WhatChanged report={debt} />)
+    const table = within(container.querySelector<HTMLElement>('[data-change-layout="table"]')!)
+    expect(table.getByRole('columnheader', { name: 'Read as' })).toBeInTheDocument()
+    const debtRow = table.getByRole('row', { name: /Total term debt/ })
+    expect(debtRow).toHaveTextContent('▼−7.3%')
+    expect(debtRow).toHaveTextContent('Favorable')
+    const rdRow = table.getByRole('row', { name: /R&D/ })
+    expect(rdRow).toHaveTextContent('▲+19.8%')
+    expect(rdRow).toHaveTextContent('Neutral')
+    // The glyph is decorative: the signed string already carries the direction.
+    expect(table.getByText('▼')).toHaveAttribute('aria-hidden', 'true')
+  })
+
+  it('stacks each metric below sm with prior → current and "Read as" kept', () => {
+    const { container } = render(<WhatChanged report={baseReport} />)
+    const rows = container.querySelector<HTMLElement>('[data-change-layout="rows"]')!
+    expect(rows).toHaveClass('sm:hidden')
+    expect(container.querySelector('[data-change-layout="table"]')).toHaveClass('hidden', 'sm:block')
+    const items = within(rows).getAllByRole('listitem')
+    expect(items).toHaveLength(2)
+    expect(items[0]).toHaveTextContent('Revenue')
+    expect(items[0]).toHaveTextContent('Prior $80.0 → , current $100.0')
+    expect(items[0]).toHaveTextContent('Favorable')
+    expect(items[1]).toHaveTextContent('Unfavorable')
+  })
+
+  it('renders bare inside a summary section: no card and no heading of its own', () => {
+    const { container } = render(<WhatChanged report={baseReport} bare />)
+    expect(container.querySelector('section')).toBeNull()
+    expect(screen.queryByRole('heading', { name: 'What changed' })).toBeNull()
+    expect(container.textContent).toContain('Quarter over quarter, against the 10-Q for the quarter ended Dec 31, 2023.')
+    expect(screen.getByRole('link', { name: /prior 10-Q/i })).toHaveAttribute('href', '/filing/11')
+    // The risk subheads sit one level under the section's h2.
+    expect(screen.getByRole('heading', { level: 3, name: /New risk factors/ })).toBeInTheDocument()
   })
 
   it('shows prior and current figures in the data face as a table, with no trend icons', () => {

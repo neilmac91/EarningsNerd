@@ -126,8 +126,12 @@ describe('ChangeReportDemo', () => {
     expect(screen.getByRole('heading', { name: 'What changed' })).toBeInTheDocument()
     expect(screen.getByText(SAMPLE_CHANGE_REPORT.comparison_basis as string)).toBeInTheDocument()
     expect(screen.getByText(SAMPLE_CHANGE_REPORT.metrics!.headline as string)).toBeInTheDocument()
-    for (const item of SAMPLE_CHANGE_REPORT.metrics!.items) {
-      expect(screen.getByText(item.display)).toBeInTheDocument()
+    // The table (sm+) and the stacked rows (below sm) both carry every served change.
+    for (const layout of ['table', 'rows']) {
+      const scope = within(container.querySelector<HTMLElement>(`[data-change-layout="${layout}"]`)!)
+      for (const item of SAMPLE_CHANGE_REPORT.metrics!.items) {
+        expect(scope.getByText(item.display)).toBeInTheDocument()
+      }
     }
     // The chrome-neutralising wrapper targets `[&>section]`: WhatChanged's section must stay its
     // direct child, or the frame grows a second border.
