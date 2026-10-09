@@ -127,7 +127,7 @@ Eight PRs are open on 2026-10-08 (#1133, #1132, #1126, #1123, #1121, #1118, #103
 changes any of the six modules (checked file by file). Two of them collide with files this plan
 edits: the heads of #1126 and #1118 (`claude/agent-workflow-gates`, `claude/agent-workflow-cost`)
 rewrite the CLAUDE.md hunk at lines 149–165, which contains the rule-5 line F1 edits (:152), and touch
-both engineering briefs F1 edits (at their lines 7–8, a different hunk from F1's :30 and :25); the head of #1121 (`codex/wave3-email-setup`) edits
+the engineering brief F1 edits (`backend-developer.md`, at its lines 7–8, a different hunk from F1's :30); the head of #1121 (`codex/wave3-email-setup`) edits
 `backend/scripts/backfill_facts.py` at lines X4 does not touch (:145, :185 vs :79). So F1 merges after
 the two agent-workflow PRs or rebases over them, and X4 rebases over #1121. Remote branches that do
 touch the six modules, measured as `git diff origin/main...origin/<branch>`:
@@ -327,7 +327,7 @@ the `_verify_citations` matrix (`test_copilot_quotation_retry.py:78-159,185-230`
   auto-cover new files.
 
 **Estimated diff size.** C0 +150–250 test lines. C1 pure moves: −1,225/+1,225 across five new
-modules plus ~100 lines of imports and re-exports; ~8 test re-points; optional re-point of
+modules plus ~100 lines of imports and re-exports; ~10 test re-points in three files; optional re-point of
 `copilot_scorers.py:34-41`; AST per-symbol proof. C2 in-place decomposition: net +40–60 lines, loop
 297 → ≤80. C3 (gated): ~250 lines moved.
 
@@ -573,8 +573,9 @@ CAGR window, pp deltas, derived-Q4 badging (`:602,622,641-858`), coverage shape 
   anchor 2 prove it.
 - No SEC transport, no datetime calls, no module-level mutable state (constants only, T:41–123, 145,
   225, 717, 816–826, 1356–1363, 1468–1483).
-- Docs to touch in the move PR: `docs/ARCHITECTURE.md:158` (catalog row), the comment at
-  `backend/app/models/trend_analysis.py:32`.
+- Docs to touch: `docs/ARCHITECTURE.md:158` (catalog row; T3 updates it with the final façade). The
+  comment at `backend/app/models/trend_analysis.py:32` names `trend_analysis_service.PROMPT_VERSION`,
+  which the façade keeps re-exporting, so it stays true and needs no edit.
 
 **Estimated diff size.** T0 +130–180 test lines. T1 leaf moves (periods, formatting, series,
 detectors, citations, fidelity, cache + façade) ±800, `T` → ~1,150. T2 dataset + observations ±870,
@@ -648,7 +649,7 @@ backend/app/services/openai_service.py        ← façade + OpenAIService; summa
   result (O:1210–1229 plus the conditional `message`) and of `raw_summary` (O:1003–1037 including the
   conditional audit keys). Today only `backend/tests/unit/test_source_first_risks.py:180` touches this.
 - A3 error envelope (O:717–734) for a non-timeout extraction failure: `message`, `summary_title`,
-  `sections == []`, the insights and the legacy keys; `backend/tests/unit/test_eval_attempt_diagnostics.py:291-313`
+  `sections == []`, the insights and the legacy keys; `backend/tests/unit/test_eval_attempt_diagnostics.py:291-323`
   already pins status, code and detail, and timeout propagation is pinned by
   `test_filing_only_inputs.py:121-145` and `backend/tests/unit/test_provider_resilience.py:615`.
 - A4 status and message thresholds (O:1184–1207: 0.5, 0.7; no sections and zero covered sections → "error", O:1199).
@@ -924,9 +925,10 @@ today's sizes as ceilings. The ceilings live in one JSON file per module under
 `trend_analysis_service.json`, `openai_service.json`, `xbrl_service.json`, `instance_extractor.json`),
 so a PR that shrinks a module edits only its own budget file and the waves stay file-disjoint
 (`lessons/ops-serial-merge-adjacent-line-prs.md`). Each file has five keys: `files` (path → ceiling),
-`functions` (`path::name` or `path::Class.name` → ceiling), `existing` (the module paths frozen from
-`git ls-tree da636f6`, so "new" is testable), `forbidden_imports` (list of [file glob, forbidden
-module prefix]) and `note` (free text; a raised ceiling records the founder sign-off here). Each later
+`functions` (`path::name` or `path::Class.name` → ceiling), `names` (the base file's top-level names
+at `da636f6`, each mapped to the sub-module that defines it after its move, `null` until moved),
+`forbidden_imports` (list of [file glob, forbidden module prefix]) and `note` (free text; a raised
+ceiling records the founder sign-off here). Each later
 PR that shrinks a file or function lowers its ceiling in the same commit (a ratchet); a PR that would
 grow one fails CI with a message naming the row. A move PR re-keys a function row to its destination
 path at the same number (a re-key is not a raise); a row whose function is absent from its file fails
@@ -936,17 +938,18 @@ Mechanics (prototyped tonight against `da636f6`; passes with these rows, fails o
 file size = the count of `\n` bytes (what `wc -l` prints); function size = `end_lineno - lineno + 1`
 for every `ast.FunctionDef` AND `ast.AsyncFunctionDef` that is a direct child of the module or of a
 module-level class, counted from the `def`/`async def` line with decorators excluded, physical lines
-including blanks, comments and docstring (six of the twenty rows are `async def`, including the three
-largest; two carry `@bounded_summary`, which must not be counted); nested defs and lambdas count
+including blanks, comments and docstring (six of the twenty rows are `async def`, including the largest,
+`summarize_filing` at 552, and four of the eight rows over 200 lines; two carry `@bounded_summary`,
+which must not be counted); nested defs and lambdas count
 inside their parent and have no row; classes have no row; the key is `name` or `Class.name`. Any
 function in a budgeted file that is not listed is held to the **new-function ceiling of 80 lines**
 (ten unlisted functions sit at 60–79 today, `_extract_sections_sync` at 79). Any NEW module, meaning
 a path under `app/services/copilot/`, `app/services/facts/`, `app/services/trend_analysis/`,
 `app/services/edgar/instance/`, or one of `edgar/xbrl_cache.py`, `edgar/xbrl_instance.py`,
 `edgar/xbrl_companyfacts.py`, `edgar/xbrl_standardized.py`, `edgar/xbrl_sections.py`,
-`ai/summary_finalize.py`, `ai/summary_prompt.py` that is absent from the budget file's `existing`
-list (a glob such as `xbrl_*.py` would match the existing 1,316-line `xbrl_service.py` and be red on
-day one), is held to **600 lines** (the largest planned modules, `copilot/quotations.py` at ~417 and
+`ai/summary_finalize.py`, `ai/summary_prompt.py` (none of the eleven locations exists at `da636f6`,
+so "new" needs no list; a glob such as `xbrl_*.py` would match the existing 1,316-line `xbrl_service.py`
+and be red on day one), is held to **600 lines** (the largest planned modules, `copilot/quotations.py` at ~417 and
 `ai/summary_finalize.py` at ~520, fit; functions ≤80 still bound bloat), so bloat cannot simply move.
 The gate also asserts the ratchet is not stale: a ceiling more than 100 file lines or 20 function
 lines above the actual size fails with "lower the ceiling". Each budget file also carries a
@@ -955,12 +958,20 @@ with a module-level-import AST walk (empty at W0.G; F1 adds `app/services/facts/
 app.services.edgar`, X1 adds the five named `edgar/xbrl_*` modules → `app.services.edgar.xbrl_service`, I1
 adds `app/services/edgar/instance/* → app.services.edgar.xbrl_service` and the absolute
 `app.services.edgar` package import), so the plan's own never-rules are gates, not prose
-(`lessons/arch-structural-gates-over-prose-rules.md`). W0.G also checks in the AST per-symbol move
+(`lessons/arch-structural-gates-over-prose-rules.md`). The walk resolves `ImportFrom.level` against
+the importing file's package before matching, because the package uses relative imports
+(`backend/app/services/edgar/xbrl_service.py:43`, `backend/app/services/edgar/instance_extractor.py:23`)
+and the new sub-modules must (M6 seams): `from ..xbrl_service import x` in `edgar/instance/core.py`
+counts as `app.services.edgar.xbrl_service`, and `from .. import xbrl_service` counts as both the
+package and the module; an absolute-prefix match alone would leave the three rows as prose. W0.G also checks in the AST per-symbol move
 proof as `backend/tests/support/ast_move_proof.py` (tests-only, so it does not deploy), which every
 pure-move PR and its reviewers run. Mutation proof for the PR body (one, per AGENTS.md §4): pad one
 budgeted function by one line on committed state, show the row fail, restore
-(`lessons/test-proofs-run-on-committed-state.md`); the first `forbidden_imports` row gets its own
-proof when it lands.
+(`lessons/test-proofs-run-on-committed-state.md`); each `forbidden_imports` row gets its own proof
+when it lands, written in the relative form the package uses (F1: `from ..edgar import compat` in
+`facts/concepts.py`; X1: `from .xbrl_service import get_xbrl_data` in `edgar/xbrl_cache.py`; I1:
+`from ..xbrl_service import get_xbrl_data` in `edgar/instance/core.py`), on committed state, shown
+failing, then restored.
 
 | File | Ceiling (lines) | Function ceilings today |
 |---|---:|---|
@@ -977,10 +988,11 @@ M6, ≈670–840 for M4, ≈800 for M1; every function a named PR splits ≤80 l
 `derive_q4_eps_facts` 97, `_assemble_structured_summary` 87, `upsert_facts_bulk` 84,
 `derive_same_period_metrics` 84, `get_xbrl_data` 83) ratcheting at today's size until a Wave 3
 S-PR splits them; every new module ≤600 lines. The façade contract is gated the same way: each budget
-file carries `names`, the base file's top-level names at `da636f6`, and the gate asserts each still
-resolves on the façade; after a move the façade declares `__all__` (ruff's F401 would otherwise fail
-re-export-only imports, `backend/ruff.toml` ignores F401 only for `__init__.py`) and each moved name
-is the same object as the sub-module's.
+file carries `names`, the base file's top-level names at `da636f6` mapped to the sub-module that
+defines each after its move (`null` until moved), and the gate asserts each still resolves on the
+façade and, once mapped, is the same object as the sub-module's (constants carry no `__module__`,
+so the map is what makes that check possible); after a move the façade declares `__all__` (ruff's F401 would otherwise fail
+re-export-only imports, `backend/ruff.toml` ignores F401 only for `__init__.py`).
 
 ---
 
@@ -1051,7 +1063,7 @@ serial.
 |---|---|---|---|---|
 | T2 → T3 → T4 | M3 dataset + observations; narrative + final façade (+ `docs/ARCHITECTURE.md:158`); then the three splits | M3 files only | D, E, CE (T2/T3: AST) | T1 |
 | F2 → F3 → F4 | M2 companyfacts + derive (split `normalize_companyfacts`); writers + reconcile (split `upsert_facts`); jobs + ingest + fundamentals (split `backfill_facts`; re-point `test_job_reporting.py:242` to `app.services.facts.jobs.process_filing_facts`, `test_analysis_coverage_pool_lifetime.py:78` to `app.services.facts.ingest._fetch_companyfacts_async`, and F0's default-fetcher and remediate anchors to `facts.jobs`) | M2 files + `size_budgets/facts_service.json`; F4 also the two named tests and `test_facts_refactor_anchors.py` | D, E, CE, AST | F1 |
-| X2 → X3 → X4 (→ X5) | M5 companyfacts (+ re-point the `_classify_duration` import to `facts.concepts`; the six rule-5 doc edits); standardized; instance (35 retargets, `backfill_facts.py:79`, `acceptance_archive.py:604`; folds I2's re-points, not its deletion); optional sections | X2: `xbrl_service.py`, new `xbrl_companyfacts.py`, `docs/ARCHITECTURE.md:78,181,185-187`, `lessons/sec-edgar-resilience-layer.md:25`, `lessons/sec-runtime-facts-carry-no-duration.md:12,29`, `backend/evals/RUNBOOK.md:793`, and the docstring that today sits at `copilot_service.py:1355` (after C1 it lives in `copilot/claim_repair.py`); X3/X4: M5 files, the retargeted tests, `scripts/backfill_facts.py` (rebase over #1121), `evals/acceptance_archive.py` | D, E, CE, AST | X1, F1 (X2 needs `facts.concepts`), I1 (X4 folds I2), C1 (the docstring's new home) |
+| X2 → X3 → X4 (→ X5) | M5 companyfacts (+ re-point the `_classify_duration` import to `facts.concepts`; the six rule-5 doc edits); standardized; instance (about 30 test retargets in 7 files, `backfill_facts.py:79`, `acceptance_archive.py:604`; folds I2's re-points, not its deletion); optional sections | X2: `xbrl_service.py`, new `xbrl_companyfacts.py`, `docs/ARCHITECTURE.md:181,185-187`, `lessons/sec-edgar-resilience-layer.md:25`, `lessons/sec-runtime-facts-carry-no-duration.md:12,29`, `backend/evals/RUNBOOK.md:793`, and the docstring that today sits at `copilot_service.py:1355` (after C1 it lives in `copilot/claim_repair.py`); X3/X4: M5 files, the retargeted tests, `scripts/backfill_facts.py` (rebase over #1121), `evals/acceptance_archive.py` | D, E, CE, AST | X1, F1 (X2 needs `facts.concepts`), I1 (X4 folds I2), C1 (the docstring's new home) |
 | C2 | M1 attempt-loop decomposition in place (FactRegistry, SentinelScanner, `_admit_not_disclosed`, `_admit_answer`) | `copilot_service.py` | D, E, CE | C1 |
 
 ### Wave 3 — gated follow-ups and the ratchet
@@ -1111,8 +1123,8 @@ practice because a second push cancels an in-progress `eval-baseline` run. 20–
    plan; the moves leave them as they are.
 8. **Merge #1123 before Wave 0.** It narrows `copilot-eval` so tests-only PRs stop arming a paid run;
    without it Wave 0 costs seven reserved USD 0.06 runs. Recommendation: merge it first.
-9. **F1 rewrites CLAUDE.md rule 5's owner file name** (:105, :152) and the two engineering briefs,
-   which the open agent-workflow PRs #1126 and #1118 also rewrite. Approve the rule-text edit riding
+9. **F1 rewrites CLAUDE.md rule 5's owner file name** (:105, :152) and `backend-developer.md:30`,
+   both files the open agent-workflow PRs #1126 and #1118 also rewrite (the brief at its lines 7–8). Approve the rule-text edit riding
    a refactor PR, and the order: F1 after those two land (or rebased over them).
 
 ---
@@ -1124,11 +1136,13 @@ file:line inventories (clusters, public surface by caller, patch targets by name
 sites, eval triggers, traps, anchor gaps, diff estimates) and answered a fixed list of true/false
 claims each; the plan author spot-checked the load-bearing ones (dead-code callers by `git grep`, the
 router bindings, the T9 bucket pin, the source-text pin in `test_evidence_snap.py`, the private
-imports in `scripts/backfill_facts.py`, the compat shim). Three adversarial lenses then re-verified the
-whole document against the code (citations: every file:line resolves and says what the plan says;
-sequencing: dependencies, open branches, Code Red, deploy and eval triggers; gates and locks: anchors,
-locked tests, allowlists, monkeypatch bindings, the size-gate numbers), and one independent reviewer
-read the full plan; their corrections are folded in above and listed in the PR body.
+imports in `scripts/backfill_facts.py`, the compat shim). Four adversarial lens passes then re-verified the
+whole document against the code (citations, in two passes over M1–M3 and M4–M6: every file:line
+resolves and says what the plan says; sequencing: dependencies, open branches, Code Red, deploy and
+eval triggers; gates and locks: anchors, locked tests, allowlists, monkeypatch bindings, the size-gate
+numbers), and one independent reviewer read the full plan and then re-reviewed the final head (a
+delta pass over the folded corrections, with the size table reproduced under the counting rule
+above); their corrections are folded in above and listed in the PR body.
 
 **Per-PR gates (binding on every execution agent):**
 - Backend: from `backend/`, `ruff check . && bandit -r app -ll && python -m pytest` before every push
@@ -1141,7 +1155,7 @@ read the full plan; their corrections are folded in above and listed in the PR b
   `backend/tests/support/ast_move_proof.py` (checked in by W0.G), run on committed state; zero
   undisclosed deltas or the "pure move" claim is false. Reviewers re-run the proof. Every façade PR
   declares `__all__` and keeps the budget file's `names` gate green (each top-level name of the base
-  file at `da636f6` still resolves on the façade and is the same object as the sub-module's).
+  file at `da636f6` still resolves on the façade and, once mapped, is the same object as the sub-module's).
 - Prompt bytes: C1/C3 prove `SYSTEM_PROMPT` sha256 and `_build_messages` equality; T1–T4 prove the
   selection messages (anchor T0.2); O1/O2 prove `create_kwargs` (anchor A1). An intentional byte change
   is a RUNBOOK event (`backend/evals/RUNBOOK.md:530-535`) and never rides a refactor PR.
