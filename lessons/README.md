@@ -12,6 +12,8 @@ what applies to your task. Filenames are greppable: `arch-*`, `sec-*`, `test-*`,
 
 ## Architecture
 
+- [`arch-moved-code-resolves-seams-through-the-patched-module.md`](./arch-moved-code-resolves-seams-through-the-patched-module.md) — Code moved out of a patched module keeps resolving its collaborators through that module at call time
+
 - [`arch-qualified-income-deltas-need-source-ownership.md`](./arch-qualified-income-deltas-need-source-ownership.md) — Withhold qualified income arithmetic when attribution and entity ownership are unsupported
 
 - [`arch-acquisition-period-withholding-needs-whole-claims.md`](./arch-acquisition-period-withholding-needs-whole-claims.md) — Preserve closed authored continuations when withholding ambiguous acquisition-period claims
@@ -88,12 +90,14 @@ what applies to your task. Filenames are greppable: `arch-*`, `sec-*`, `test-*`,
 - [`test-tracked-file-gates-run-after-staging.md`](./test-tracked-file-gates-run-after-staging.md) — Run a `git ls-files` gate after staging its own module, and select targets by name pattern
 - [`test-smoke-model-runs-before-sweeps.md`](./test-smoke-model-runs-before-sweeps.md) — Smoke one or two items and inspect raw output before any long or expensive model run
 - [`test-verify-orphaned-tests-before-adopting.md`](./test-verify-orphaned-tests-before-adopting.md) — Verify orphaned or uncollected tests before adopting them
+- [`test-verbatim-fixtures-keep-the-source-bytes.md`](./test-verbatim-fixtures-keep-the-source-bytes.md) — Copy verbatim fixtures from the source payload and assert them on textContent
 - [`test-vitest-for-copy-changes.md`](./test-vitest-for-copy-changes.md) — Run vitest before pushing any change to rendered text, numbers, or copy
 - [`test-vitest4-mock-error-tracking.md`](./test-vitest4-mock-error-tracking.md) — Plain-function error mocks avoid handled-error failures; reproduced on Vitest 4 and rechecked on Vitest 5
 - [`test-wire-format-coverage.md`](./test-wire-format-coverage.md) — Pin serialized wire formats with tests — suites that only check values let format drift through
 
 ## Frontend & design system
 
+- [`frontend-xbrl-amounts-carry-their-own-currency.md`](./frontend-xbrl-amounts-carry-their-own-currency.md) — Label an XBRL amount with the filer's reporting currency, never with a default dollar sign
 - [`frontend-site-overlays-outrank-in-page-sticky-chrome.md`](./frontend-site-overlays-outrank-in-page-sticky-chrome.md) — A fixed site-level overlay ranks above in-page sticky chrome, and the ladder gate scans sticky sites too
 - [`frontend-reserve-fixed-chrome-with-scroll-padding.md`](./frontend-reserve-fixed-chrome-with-scroll-padding.md) — A focus scroll stops at the viewport edge, not at a fixed overlay: reserve the overlay with scroll-padding
 
@@ -123,7 +127,7 @@ what applies to your task. Filenames are greppable: `arch-*`, `sec-*`, `test-*`,
 - [`frontend-sitemap-cache-ownership.md`](./frontend-sitemap-cache-ownership.md) — Cache the rendered sitemap hourly while bypassing Next's fetch Data Cache
 - [`frontend-jsdom-sdk-browser-entry.md`](./frontend-jsdom-sdk-browser-entry.md) — Resolve browser SDK imports as browser code in jsdom tests while preserving real capture behavior
 - [`frontend-check-luminance-vs-background.md`](./frontend-check-luminance-vs-background.md) — Verify surface luminance against the actual background, not token validity
-- [`frontend-client-exports-need-next-build.md`](./frontend-client-exports-need-next-build.md) — Run next build before moving design-system client exports across page files
+- [`frontend-client-exports-need-next-build.md`](./frontend-client-exports-need-next-build.md) — Never call a 'use client' module's export from server code; the gate checks what next build may not render
 - [`frontend-route-redesign-needs-a-mount-gate.md`](./frontend-route-redesign-needs-a-mount-gate.md) — A self-omitting section needs a source-level mount gate — render tests cannot see it go missing
 - [`frontend-guard-submit-on-loading-buttons.md`](./frontend-guard-submit-on-loading-buttons.md) — Guard submit handlers with an early return when the button uses loading, not disabled
 - [`frontend-busy-controls-stay-focusable.md`](./frontend-busy-controls-stay-focusable.md) — A control busy with its own request stays focusable: aria-disabled plus an early return, never native disabled
@@ -139,9 +143,11 @@ what applies to your task. Filenames are greppable: `arch-*`, `sec-*`, `test-*`,
 - [`frontend-theme-migration-app-wide.md`](./frontend-theme-migration-app-wide.md) — Treat a design-token/theme migration as app-wide by default
 - [`frontend-verify-chart-annotations-on-dense-data.md`](./frontend-verify-chart-annotations-on-dense-data.md) — Acceptance-test chart annotations on a dense real-world series, never only fixtures
 - [`frontend-variable-text-must-not-size-a-wrapping-row.md`](./frontend-variable-text-must-not-size-a-wrapping-row.md) — Keep variable-length text from sizing a wrapping row or an implicit grid track
+- [`frontend-hidden-name-tails-bring-their-own-space.md`](./frontend-hidden-name-tails-bring-their-own-space.md) — A visually hidden tail on a control's name brings its own space and starts with a word or bracket
 
 ## Operations & workflow
 
+- [`ops-ci-images-avoid-docker-hub.md`](./ops-ci-images-avoid-docker-hub.md) — Pull CI and deploy images through a mirror, never anonymously from Docker Hub
 - [`ops-auth-lookups-must-let-request-cleanup-progress.md`](./ops-auth-lookups-must-let-request-cleanup-progress.md) — Keep authentication pool waits off the event loop while preserving request-owned sessions
 - [`ops-unmergeable-pr-runs-no-pull-request-workflows.md`](./ops-unmergeable-pr-runs-no-pull-request-workflows.md) — Check the PR's mergeable state before diagnosing missing `pull_request` workflow runs
 - [`ops-capacity-projection-withholds-command-values.md`](./ops-capacity-projection-withholds-command-values.md) — Withhold command values and execute the real readback projection in a privacy gate
@@ -161,6 +167,7 @@ what applies to your task. Filenames are greppable: `arch-*`, `sec-*`, `test-*`,
 - [`ops-job-success-needs-outcome-evidence.md`](./ops-job-success-needs-outcome-evidence.md) — Persist actual job outcomes; swallowed failures and dry runs never advance last success
 
 - [`ops-eval-gate-for-ai-changes.md`](./ops-eval-gate-for-ai-changes.md) — Gate every AI/prompt/model change on the eval regression gate — and re-pin the baseline in the same PR
+- [`ops-copilot-eval-red-is-triaged-never-rerun.md`](./ops-copilot-eval-red-is-triaged-never-rerun.md) — Triage a red copilot-eval run by the RUNBOOK rule; never re-run it to get a green one
 - [`ops-a-review-you-triggered-is-a-review-you-wait-for.md`](./ops-a-review-you-triggered-is-a-review-you-wait-for.md) — A review you triggered is a review you wait for; merging inside it discards what you asked for
 - [`ops-bound-drain-batches-to-job-memory.md`](./ops-bound-drain-batches-to-job-memory.md) — Bound a regeneration batch by the job container's memory, not by its time budget alone
 - [`ops-founder-runs-claude-in-the-mac-app.md`](./ops-founder-runs-claude-in-the-mac-app.md) — Address founder instructions to the Claude desktop app, and give `claude -p` its own login

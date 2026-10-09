@@ -330,6 +330,14 @@ async def trigger_backfill_filing_history(req: BackfillFilingHistoryRequest, bac
     }
 
 
+# A dry run makes at least one serial SEC request per job, and the API service is pinned to 1 SEC
+# request per second per bucket (docs/OPERATIONS.md), so a preview of up to 20 jobs normally fits the
+# /internal route's 30 s request timeout; a job that needs a mega-filer's full submissions history
+# (about 43 requests) or other SEC traffic on the instance can still push it past.
+# tests/unit/test_internal_durable_tasks.py ties this cap to that timeout.
+DRY_RUN_MAX_JOBS = 20
+
+
 class PrecomputeRequest(BaseModel):
     """Roadmap A1: warm the cold path by pre-generating analyses for an explicit ticker list.
 
@@ -368,12 +376,14 @@ async def trigger_precompute(req: PrecomputeRequest, background: BackgroundTasks
     forms = [f.strip().upper() for f in req.forms if f and f.strip()] or ["10-K"]
 
     if req.dry_run:
-        # A dry run does a couple of (serial) SEC round-trips per job, so a large cohort would blow
-        # the request/gateway timeout. Cap the synchronous preview; use a real run for the full fleet.
-        if len(tickers) * len(forms) > 100:
+        # Reject a preview too large to finish inside the request timeout instead of letting it 504.
+        if len(tickers) * len(forms) > DRY_RUN_MAX_JOBS:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Dry run is capped at 100 total jobs (tickers x forms) to avoid gateway timeouts.",
+                detail=(
+                    f"Dry run is capped at {DRY_RUN_MAX_JOBS} total jobs (tickers x forms) so the "
+                    "synchronous preview normally fits the request timeout; split a larger preview into batches."
+                ),
             )
         out = await precompute_service.precompute(tickers, forms=forms, force=False, dry_run=True)
         return {"status": "ok", "job": "precompute", "dry_run": True, **out}

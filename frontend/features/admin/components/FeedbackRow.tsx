@@ -113,7 +113,7 @@ export default function FeedbackRow({ feedback }: FeedbackRowProps) {
             </select>
             {statusMutation.isPending && (
               <CircleNotchIcon
-                className="pointer-events-none absolute right-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 animate-spin text-text-secondary-light dark:text-text-secondary-dark"
+                className="pointer-events-none absolute right-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 animate-spin motion-reduce:animate-none text-text-secondary-light dark:text-text-secondary-dark"
                 aria-hidden="true"
               />
             )}

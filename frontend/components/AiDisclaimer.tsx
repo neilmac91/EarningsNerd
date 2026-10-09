@@ -23,7 +23,7 @@ export default function AiDisclaimer({
 }) {
   return (
     <p
-      className={`text-xs text-text-tertiary-light dark:text-text-secondary-dark${className ? ` ${className}` : ''}`}
+      className={`text-xs text-text-secondary-light dark:text-text-secondary-dark${className ? ` ${className}` : ''}`}
     >
       {lead && <>AI-generated. Informational only, not investment advice. </>}
       {children}

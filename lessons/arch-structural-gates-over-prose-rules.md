@@ -26,7 +26,8 @@ The read-only GET gate follows each handler into the app code it reaches, transi
 functions, and every method of a class or module-level instance it names (2026-10-08, when the
 router ORM ratchet began moving writes into `app/services/`). Each exemption also pins the functions
 where its writes may happen. A write moved into a helper or a service therefore stays in view and
-moves its pin; a new write reached from an exempt GET fails; and the stale-entry check fires only
+moves its pin; a write in a new, unpinned function reached from an exempt GET fails (pins are per
+function, so a further write inside a pinned function stays a review concern); and the stale-entry check fires only
 once no reachable write remains, so a refactor cannot hide a surviving OAuth state write and then
 remove its exception. Methods on objects the walk cannot name (parameters, `self` attributes, return
 values) are still not followed. For the Apple OAuth start, the database state row is single-use and
