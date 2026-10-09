@@ -27,8 +27,8 @@ coordinated change is needed across lanes.
 
 **No application code is modified by this document.** It is the execution spec. Its factual claims
 were verified against the code by six independent read-only module analysts (one per module), then
-re-verified by three adversarial lenses and one independent whole-plan reviewer, whose corrections
-are folded in (see [Verification](#verification-how-the-plans-claims-were-checked-and-how-execution-is-verified)).
+re-verified by adversarial lenses and an independent whole-plan reviewer, whose corrections are
+folded in (see [Verification](#verification-how-the-plans-claims-were-checked-and-how-execution-is-verified)).
 
 ---
 
@@ -82,10 +82,14 @@ Each was checked against `main` at `da636f6`:
    `generate_structured_summary`'s prompt region (`backend/app/services/openai_service.py:293-384,412,427,428`)
    and the import blocks (:21-25, :84-87). Two are measurement-only reverts of #899, one is
    superseded by #899, one is already main's text; only `codex/wave3-return-ratio-basis` and
-   `codex/wave3-thinking-low-pilot` carry unmerged prompt-byte changes (founder item 3).
+   `codex/wave3-thinking-low-pilot` carry unmerged changes, and those are not one line: an import of
+   `return_ratio_basis` at :22 plus the rule at :428 that interpolates it, and unlanded prompt bytes
+   in `backend/prompts/10k-analyst-agent.md`, `10q-analyst-agent.md`, `20f-analyst-agent.md` and
+   `backend/app/services/ai/xbrl_narrative.py`. Picking any of it is a prompt change under the RUNBOOK
+   gate (founder item 3).
 7. **The two codex xbrl branches would revert #1122 if rebased naively.** Their one unlanded line is
    the tuple at `backend/app/services/edgar/xbrl_service.py:463` gaining `"shareholders_equity",
-   "total_assets"`; the rest of their hunk is on main (`:1256-1264`), and a two-dot diff shows they
+   "total_assets"`; the rest of their hunk is on main (`:1243-1251`), and a two-dot diff shows they
    would put `asyncio.to_thread` back where `run_owned_sync` now is (`:38`, `:680`). Cherry-pick the
    one line or close them; never rebase them onto a split.
 8. **The eval cost figure lives in AGENTS.md, not the RUNBOOK.** "an `eval-baseline` run is about
@@ -101,39 +105,46 @@ Each was checked against `main` at `da636f6`:
 
 | Trigger | Fires when | Cost or effect | Source |
 |---|---|---|---|
-| Cloud Run deploy | a merge to `main` changes any `backend/` path outside `backend/tests/` | deploys the API service and refreshes the jobs; one unverified deploy at a time, so code-bearing merges are serial | `.github/workflows/ci.yml:533-545` (detector), `backend/tests/unit/test_backend_deploy_scope.py`, [AGENTS.md](../AGENTS.md) §6 |
+| Cloud Run deploy | a merge to `main` changes any `backend/` path outside `backend/tests/` | deploys the API service and refreshes the jobs; one unverified deploy at a time, so code-bearing merges are serial | `.github/workflows/ci.yml:533-546` (detector), `backend/tests/unit/test_backend_deploy_scope.py`, [AGENTS.md](../AGENTS.md) §6 |
 | `eval-baseline` (summary eval, paid) | every `pull_request` event, draft or not, whose diff touches `backend/app/*`, `backend/evals/*` or `backend/prompts/*`; also manual dispatch | about USD 0.30 and ~6 min per run; advisory (`continue-on-error`), but the report must be read before an AI-relevant merge | `.github/workflows/ci.yml:282-336`, `backend/evals/RUNBOOK.md:339-345`, [AGENTS.md](../AGENTS.md) §3 |
 | `copilot-eval` (paid) | a non-draft PR whose diff touches `backend/**`; re-runs on each push while ready | about USD 0.06 per run | `.github/workflows/copilot-eval.yml:3-8,20`; `tasks/code-red-20261004/runtime/control/DECISIONS-16.md:152-159` |
-| Code Red ledger reservation | before any paid trigger fires | "no paid trigger without a reservation written first"; stage 2's rule for `eval-baseline` is "before its first push touching `backend/app/`, draft or not, and before each later one" | `tasks/code-red-20261004/runtime/CHECKPOINT.md:346`; `DECISIONS-16.md:155-159` |
+| Code Red ledger reservation | before any paid trigger fires | "no paid trigger without a reservation written first" (CHECKPOINT); for `eval-baseline`, "before its first push of such a change and before each later one", draft or not (record 16) | `tasks/code-red-20261004/runtime/CHECKPOINT.md:346`; `tasks/code-red-20261004/runtime/control/DECISIONS-16.md:155-159` |
 
 Open draft PR #1123 narrows `copilot-eval` to the eval's import closure (`backend/app/services/**`,
 `models/**`, `schemas/**`, `utils/**`, `backend/app/*`, prompts, golden set, requirements). Every
 module in this plan lives under `backend/app/services/`, so #1123 does not spare the code-bearing
-PRs; it does spare tests-only PRs. Tests-only PRs never arm `eval-baseline` and never deploy, which
-is why Wave 0 is free.
+PRs; it does spare tests-only PRs. Tests-only PRs never arm `eval-baseline` and never deploy, but on
+today's main they still arm `copilot-eval` once each when marked ready for review (`backend/**`,
+USD 0.06, reserved first). Wave 0 is free only once #1123 is merged (founder item 8).
 
 ### Open branches and PRs that touch these modules
 
 Eight PRs are open on 2026-10-08 (#1133, #1132, #1126, #1123, #1121, #1118, #1035, #1009); none
-changes any of the six modules (checked file by file). Remote branches that do, measured as
-`git diff origin/main...origin/<branch>`:
+changes any of the six modules (checked file by file). Two of them collide with files this plan
+edits: the heads of #1126 and #1118 (`claude/agent-workflow-gates`, `claude/agent-workflow-cost`)
+rewrite the CLAUDE.md hunk at lines 149–165, which contains the rule-5 line F1 edits (:152), and both
+engineering briefs F1 edits; the head of #1121 (`codex/wave3-email-setup`) edits
+`backend/scripts/backfill_facts.py` at lines X4 does not touch (:145, :185 vs :79). So F1 merges after
+the two agent-workflow PRs or rebases over them, and X4 rebases over #1121. Remote branches that do
+touch the six modules, measured as `git diff origin/main...origin/<branch>`:
 
 | Branch | Module | Hunk | Disposition for this plan |
 |---|---|---|---|
-| `claude/copilot-prompt-candidate` (kept by founder decision of 2026-10-08, PR #1130) | M1 | +3/−2 inside `SYSTEM_PROMPT`; also test and `tasks/review-evidence/` files | M1 leaves `SYSTEM_PROMPT` and cluster A in `copilot_service.py` until this branch is merged or closed (founder item 3) |
+| `claude/copilot-prompt-candidate` (kept by founder decision of 2026-10-08, PR #1130) | M1 | +5/−2 inside `SYSTEM_PROMPT`; also test and `tasks/review-evidence/` files | M1 leaves `SYSTEM_PROMPT` and cluster A in `copilot_service.py` until this branch is merged or closed (founder item 3) |
 | `claude/g-stage1-arm-c`, `claude/g-stage2-arm-b` ("DO NOT MERGE" experiments) | M1 | 1–5 lines inside `SYSTEM_PROMPT` | close |
 | `codex/wave3-copilot-typed-evidence` | M1 | +8/−1 inside `SYSTEM_PROMPT` | founder item 3 |
 | `codex/measure-n-control-2`, `codex/wave3-e8-n-pilot` ("MEASUREMENT ONLY") | M4 | 27-line revert of #899 in `generate_structured_summary` | close |
 | `codex/wave3-supported-financial-explanations`, `codex/wave3-segment-margin-basis` | M4 | superseded by #899 / already main's text (#932) | close |
-| `codex/wave3-return-ratio-basis`, `codex/wave3-thinking-low-pilot` | M4, M5 | one unlanded prompt rule at `openai_service.py:428` plus one tuple line at `xbrl_service.py:463`; would revert #1122 | cherry-pick or close before M4 PR O2 and M5 PR X2 (founder item 3) |
+| `codex/wave3-return-ratio-basis`, `codex/wave3-thinking-low-pilot` | M4, M5 | two unlanded `openai_service.py` lines (import :22, rule :428), unlanded prompt bytes in three `backend/prompts/*-analyst-agent.md` files and `ai/xbrl_narrative.py`, one tuple line at `xbrl_service.py:463`; would revert #1122 | dispose before O2 and X2 (founder item 3); any pick is a prompt change under the RUNBOOK gate |
 
 ### Code Red D3 stage 2 is file-disjoint
 
 Stage 2 makes the insider endpoint fit the 1 req/s edgartools budget and pins the API service
-(`tasks/code-red-20261004/runtime/control/DECISIONS-16.md:135-150`). Its files are
-`backend/app/services/insider_service.py` (imports only `ownership_extractor` :30, the edgar
-exceptions :106 and `run_with_circuit_breaker` :169), `backend/app/routers/insiders.py` and
-`.github/workflows/ci.yml`. None of the six modules is touched. The couplings are runtime and
+(`tasks/code-red-20261004/runtime/control/DECISIONS-16.md:135-150`). Stage 2 is not drafted yet;
+its expected files, inferred from the record, are `backend/app/services/insider_service.py` (imports
+only `ownership_extractor` :30, edgartools' `Company` :104, the edgar exceptions :106 and
+`run_with_circuit_breaker` :169), `backend/app/routers/insiders.py` and `.github/workflows/ci.yml`.
+None of the six modules is touched, and no PR in this plan edits `ci.yml`. The couplings are runtime and
 procedural only: the same 4-thread edgar pool and breaker, the one-deploy-at-a-time rule, and the
 reservation rule above, which this plan adopts for every code-bearing PR.
 
@@ -172,12 +183,14 @@ Only two of the locked files reference any of the six modules:
 
 ### Stale documentation found tonight (not edited: this PR carries only this file)
 
-`docs/ARCHITECTURE.md:341` (buckets "fix pending", see correction 1); `docs/OPERATIONS.md:230`
-("In xbrl_service.py `_cache_max_size`", moves with X1); `docs/audit-2026-09/03-data-platform.md:106,125,180,198`
-and `docs/audit-2026-09/06-unfinished-work-inventory.md:59` (still describe the removed
-`sleep(0.2)`); `docs/audit-2026-09/06-unfinished-work-inventory.md:60` (says persisted
-`Filing.xbrl_data` is never read; `xbrl_service.py:680` reads it); the `PROMPT_VERSION` comment at
-`backend/app/services/trend_analysis_service.py:34-35`. Founder item 7 schedules a docs-only PR.
+`docs/ARCHITECTURE.md:341` (buckets "fix pending", see correction 1);
+`docs/audit-2026-09/03-data-platform.md:106,125,180,198` and
+`docs/audit-2026-09/06-unfinished-work-inventory.md:59` (still describe the removed `sleep(0.2)`);
+`docs/audit-2026-09/06-unfinished-work-inventory.md:60` (says persisted `Filing.xbrl_data` is never
+read; `xbrl_service.py:680` reads it). Founder item 7 schedules a docs-only PR for these four. Two
+more ride code PRs because their files deploy: `docs/OPERATIONS.md:230` ("In xbrl_service.py
+`_cache_max_size`") moves with X1, and the stale `PROMPT_VERSION` comment at
+`backend/app/services/trend_analysis_service.py:34-35` is fixed in T1, which moves `PROMPT_VERSION`.
 
 ---
 
@@ -840,16 +853,22 @@ backend/app/services/edgar/instance_extractor.py  ← ~45-line façade
 **Estimated diff size.** I0 +150 test lines. I1 mechanical split: −1,229 / +~1,330 app lines (same
 bytes plus headers and the façade), zero test edits, `xbrl_service.py:43-58` unchanged; arms
 eval-baseline with an expected zero delta. I2 (optional, folded into X4): repoint xbrl_service,
-build_golden_set and acquisition_period at the sub-modules (~25 lines) and delete `_fact_records`.
+build_golden_set and acquisition_period at the sub-modules (~25 lines). Deleting `_fact_records` is
+a separate Wave 3 PR gated on founder item 4.
 
 ---
 
 ## The size-budget gate (rule 12)
 
 Prose ceilings rot; this one is a test. `W0.G` adds
-`backend/tests/unit/test_hot_module_size_budget.py` (tests-only: no deploy, no paid eval) with
-today's sizes as ceilings. Each later PR that shrinks a file or function lowers its ceiling in the
-same commit (a ratchet); a PR that would grow one fails CI with a message naming the row.
+`backend/tests/unit/test_hot_module_size_budget.py` (tests-only: no deploy, no `eval-baseline`) with
+today's sizes as ceilings. The ceilings live in one JSON file per module under
+`backend/tests/unit/size_budgets/` (`copilot_service.json`, `facts_service.json`,
+`trend_analysis_service.json`, `openai_service.json`, `xbrl_service.json`, `instance_extractor.json`),
+so a PR that shrinks a module edits only its own budget file and the waves stay file-disjoint
+(`lessons/ops-serial-merge-adjacent-line-prs.md`). Each later PR that shrinks a file or function
+lowers its ceiling in the same commit (a ratchet); a PR that would grow one fails CI with a message
+naming the row.
 
 Mechanics (prototyped tonight against `da636f6`; passes with these rows, fails on a one-line pad):
 `wc -l` per file; `ast` per function and method (`end_lineno - lineno + 1`, nested defs counted inside
@@ -877,31 +896,39 @@ M6, ≈670–840 for M4, ≈800 for M1; every function ≤80 lines; every new mo
 
 ## Waves (file-disjoint PRs, dependencies, triggers)
 
-Rules that shape the order: (1) tests-only PRs are free (no deploy, no paid eval) and can run fully in
-parallel; (2) every code-bearing PR deploys on merge and arms `eval-baseline` on every push, draft or
-not, so merges are serial (one verified deploy at a time, AGENTS.md §6) and pushes are batched (push
-once when the local gate is green; stay draft until review so `copilot-eval` fires once); (3) a Code
-Red reservation is written before each paid trigger; (4) leaf-first: a module is moved before it is
-split, and a module is split only after its anchors are green; (5) PRs in one wave edit disjoint
-files, including test files (anchors go in NEW test files) and docs (`docs/ARCHITECTURE.md` is the one
-shared doc: F1 edits :189, X2 edits :181/:185–187, T3 edits :158, so those three merge serially with a
-rebase between, per `lessons/ops-serial-merge-adjacent-line-prs.md`).
+Rules that shape the order: (1) tests-only PRs never deploy and never arm `eval-baseline`, so they
+run fully in parallel; until #1123 lands each still arms `copilot-eval` once when marked ready
+(USD 0.06, reserved first); (2) every code-bearing PR deploys on merge and arms `eval-baseline` on
+every push, draft or not, so merges are serial (one verified deploy at a time, AGENTS.md §6) and
+pushes are batched (push once when the local gate is green; stay draft until review so `copilot-eval`
+fires once; a second push within a run cancels the first, `.github/workflows/ci.yml:290-292`); (3) a
+Code Red reservation is written before each paid trigger; (4) leaf-first: a module is moved before it
+is split, and a module is split only after its anchors are green, and every Wave 1 PR also depends on
+W0.G because it lowers its module's budget file; (5) PRs in one wave edit disjoint files, including
+test files (anchors go in NEW test files; each module has its own budget file) and docs. The two
+adjacent-line collisions that remain are `docs/ARCHITECTURE.md:181-189` (F1 edits :189, X2 edits
+:181 and :185–187) and `lessons/sec-edgar-resilience-layer.md:23-25` (F1 edits :23–24, X2 edits :25):
+F1 and X2 merge serially with a rebase between (`lessons/ops-serial-merge-adjacent-line-prs.md`); T3's
+edit at `docs/ARCHITECTURE.md:158` is same-file only and merges cleanly.
 
 Legend: D = deploys on merge; E = arms `eval-baseline` on every push (reservation first); CE = arms
-`copilot-eval` when ready; AST = pure-move proof required.
+`copilot-eval` when marked ready and on each push while ready; CE* = the same, but only until #1123
+lands (its filter drops `backend/tests/**`); AST = pure-move proof required.
 
-### Wave 0 — the gate and the anchors (tests-only, all parallel, no spend)
+### Wave 0 — the gate and the anchors (tests-only, all parallel; no deploy, no `eval-baseline`)
 
 | PR | Files | Triggers | Depends on |
 |---|---|---|---|
-| W0.G size-budget gate | new `backend/tests/unit/test_hot_module_size_budget.py` | none | — |
-| C0 copilot anchors (6) | new `backend/tests/unit/test_copilot_refactor_anchors.py` | none | — |
-| F0 facts anchors (6) | new `backend/tests/unit/test_facts_refactor_anchors.py` | none | — |
-| T0 trend anchors (5) | new `backend/tests/unit/test_trend_refactor_anchors.py` | none | — |
-| O0 openai anchors (A1–A6) | new `backend/tests/unit/test_summarize_filing_anchors.py` + JSON fixtures under `backend/tests/fixtures/` | none | — |
-| X0 xbrl anchors (6) | new `backend/tests/unit/test_xbrl_service_anchors.py` | none | — |
-| I0 instance anchors (6) | new `backend/tests/unit/test_instance_extractor_anchors.py` | none | — |
+| W0.G size-budget gate | new `backend/tests/unit/test_hot_module_size_budget.py` + six budget files under `backend/tests/unit/size_budgets/` | CE* | — |
+| C0 copilot anchors (6) | new `backend/tests/unit/test_copilot_refactor_anchors.py` | CE* | — |
+| F0 facts anchors (6) | new `backend/tests/unit/test_facts_refactor_anchors.py` | CE* | — |
+| T0 trend anchors (5) | new `backend/tests/unit/test_trend_refactor_anchors.py` | CE* | — |
+| O0 openai anchors (A1–A6) | new `backend/tests/unit/test_summarize_filing_anchors.py` + JSON fixtures under `backend/tests/fixtures/` | CE* | — |
+| X0 xbrl anchors (6) | new `backend/tests/unit/test_xbrl_service_anchors.py` | CE* | — |
+| I0 instance anchors (6) | new `backend/tests/unit/test_instance_extractor_anchors.py` | CE* | — |
 
+Merging #1123 first (a workflow and one test file; no deploy; one USD 0.06 run for its own un-draft)
+makes all seven free; otherwise each costs one reserved USD 0.06 run at un-draft (USD 0.42 in all).
 Exit gate: all seven merged; each anchor shown to FAIL under a spot mutation of its guarded behaviour
 (table in the PR body, as the 2026-07 plan did); baseline recorded {backend test count, wall time,
 green SHA}. Until the hermetic-suite gate lands (founder item 2), every full local run and CI run of
@@ -912,15 +939,16 @@ the backend suite sends live requests to SEC (`tasks/todo.md:6458`); Wave 0 adds
 | PR | What | Files | Triggers | Depends on |
 |---|---|---|---|---|
 | I1 | M6 split into `edgar/instance/` + façade | `instance_extractor.py`, new `edgar/instance/*` | D, E, CE, AST | I0 |
-| T1 | M3 leaf moves (periods, formatting, series, detectors, citations, fidelity, cache) + façade | `trend_analysis_service.py`, new `trend_analysis/*` | D, E, CE, AST | T0 |
+| T1 | M3 leaf moves (periods, formatting, series, detectors, citations, fidelity, cache) + façade; fixes the stale `PROMPT_VERSION` comment (T:34–35) as it moves | `trend_analysis_service.py`, new `trend_analysis/*` | D, E, CE, AST | T0 |
 | C1 | M1 pure moves (quotations, fact_guards, claim_repair, resolution, envelope) + façade; ~8 test re-points | `copilot_service.py`, new `copilot/*`, `test_copilot_prose_quotations.py`, `test_copilot_quotation_retry.py` | D, E, CE, AST | C0 |
-| F1 | M2 leaves + transport + façade; the seven rule-5 prose edits | `facts_service.py`, new `facts/{__init__,concepts,transport}.py`, CLAUDE.md, ARCHITECTURE.md:189, ADR-0003, the lesson, two agent briefs, the allowlist docstring | D, E, CE, AST | F0 |
+| F1 | M2 leaves + transport + façade; the seven rule-5 prose edits | `facts_service.py`, new `facts/{__init__,concepts,transport}.py`, CLAUDE.md:105/152, ARCHITECTURE.md:189, ADR-0003:30, `lessons/sec-edgar-resilience-layer.md:23-24`, two agent briefs, the allowlist docstring | D, E, CE, AST | F0; merges after #1126/#1118 or rebases over them (founder item 9) |
 | X1 | M5 cache → `xbrl_cache.py` with a function API; 3 test retargets; `docs/OPERATIONS.md:230` | `xbrl_service.py`, new `xbrl_cache.py`, `test_two_tier_cache.py` | D, E, CE, AST | X0 |
 | O1 | M4 `summarize_filing` post-provider phases → `ai/summary_finalize.py`; `test_evidence_snap.py:231-239` redirected | `openai_service.py`, new `ai/summary_finalize.py`, `test_evidence_snap.py` | D, E, CE, AST | O0 |
 
-Every Wave 1 PR lowers its rows in the size-budget gate. Merge order recommendation (smallest blast
+Every Wave 1 PR lowers the rows in its own budget file. Merge order recommendation (smallest blast
 radius first, verified deploy between each): I1 → T1 → X1 → C1 → F1 → O1. F1 and X2 (next wave) touch
-adjacent lines of `docs/ARCHITECTURE.md`; keep them serial.
+adjacent lines of `docs/ARCHITECTURE.md` and of `lessons/sec-edgar-resilience-layer.md`; keep them
+serial.
 
 ### Wave 2 — remaining moves and the long-function splits (serial within a module, parallel across modules)
 
@@ -928,7 +956,7 @@ adjacent lines of `docs/ARCHITECTURE.md`; keep them serial.
 |---|---|---|---|---|
 | T2 → T3 → T4 | M3 dataset + observations; narrative + final façade (+ `docs/ARCHITECTURE.md:158`); then the three splits | M3 files only | D, E, CE (T2/T3: AST) | T1 |
 | F2 → F3 → F4 | M2 companyfacts + derive (split `normalize_companyfacts`); writers + reconcile (split `upsert_facts`; re-point `test_job_reporting.py:242`); jobs + ingest + fundamentals (split `backfill_facts`; re-point `test_analysis_coverage_pool_lifetime.py:78`) | M2 files + the two named tests | D, E, CE, AST | F1 |
-| X2 → X3 → X4 (→ X5) | M5 companyfacts (+ re-point the `_classify_duration` import to `facts.concepts`; 6 doc edits incl. `docs/ARCHITECTURE.md:181,185-187`); standardized; instance (35 retargets, `backfill_facts.py:79`, `acceptance_archive.py:604`; folds I2); optional sections | M5 files, the retargeted tests, `scripts/backfill_facts.py`, `evals/acceptance_archive.py` | D, E, CE, AST | X1, F1 (X2 needs `facts.concepts`), I1 (X4 folds I2) |
+| X2 → X3 → X4 (→ X5) | M5 companyfacts (+ re-point the `_classify_duration` import to `facts.concepts`; the six rule-5 doc edits); standardized; instance (35 retargets, `backfill_facts.py:79`, `acceptance_archive.py:604`; folds I2's re-points, not its deletion); optional sections | X2: `xbrl_service.py`, new `xbrl_companyfacts.py`, `docs/ARCHITECTURE.md:181,185-187`, `lessons/sec-edgar-resilience-layer.md:25`, `lessons/sec-runtime-facts-carry-no-duration.md:12,29`, `backend/evals/RUNBOOK.md:793`, and the docstring that today sits at `copilot_service.py:1355` (after C1 it lives in `copilot/claim_repair.py`); X3/X4: M5 files, the retargeted tests, `scripts/backfill_facts.py` (rebase over #1121), `evals/acceptance_archive.py` | D, E, CE, AST | X1, F1 (X2 needs `facts.concepts`), I1 (X4 folds I2), C1 (the docstring's new home) |
 | C2 | M1 attempt-loop decomposition in place (FactRegistry, SentinelScanner, `_admit_not_disclosed`, `_admit_answer`) | `copilot_service.py` | D, E, CE | C1 |
 
 ### Wave 3 — gated follow-ups and the ratchet
@@ -937,13 +965,15 @@ adjacent lines of `docs/ARCHITECTURE.md`; keep them serial.
 |---|---|---|
 | C3 | M1 prompt module (`copilot/prompt.py`: `SYSTEM_PROMPT`, sentinels, cluster A) | founder item 3 (the four copilot branches disposed) |
 | O2 | M4 prompt assembly → `ai/summary_prompt.py`; A1 proves bytes identical | founder item 3 (the two codex branches with unmerged prompt bytes disposed) |
-| T5, I2-del | M3 dead code (4 functions + the `compact_dataset_for_prompt` tests); M6 `_fact_records` | founder item 4 |
-| Docs | the stale-doc fixes listed under Ground truth | founder item 7 |
+| T5, I2-del | M3 dead code (4 functions + the `compact_dataset_for_prompt` tests); M6 `_fact_records` (its re-points already rode X4) | founder item 4 |
+| Docs | the four `docs/` fixes listed under Ground truth (docs-only: no deploy, no eval) | founder item 7 |
 | Ratchet | final ceilings: façades and new modules at their end-state sizes | after the last split |
 
-Spend estimate for the whole plan (founder item 1): about 20 code-bearing PRs; at two pushes each,
-~40 `eval-baseline` runs ≈ USD 12 and ~20–30 `copilot-eval` runs ≈ USD 1.5–2; about USD 14–15 in
-all, each run reserved first under the Code Red ledger. About 20 serialized deploys.
+Spend estimate for the whole plan (founder item 1): 20–22 code-bearing PRs (Wave 1 six, Wave 2 ten
+plus the optional X5, Wave 3 four); at two pushes each, ~40 `eval-baseline` runs ≈ USD 12.00 and
+20–30 `copilot-eval` runs ≈ USD 1.20–1.80, plus USD 0.42 for Wave 0's un-drafts if #1123 has not
+landed; about USD 13.6–14.2 in all, each run reserved first under the Code Red ledger, and less in
+practice because a second push cancels an in-progress `eval-baseline` run. 20–22 serialized deploys.
 
 ---
 
@@ -961,8 +991,9 @@ all, each run reserved first under the Code Red ledger. About 20 serialized depl
    experiments and the two measurement-only openai branches; decide `claude/copilot-prompt-candidate`
    (kept on 2026-10-08) and `codex/wave3-copilot-typed-evidence` before C3; cherry-pick the one
    unlanded xbrl line and the one prompt rule from `codex/wave3-return-ratio-basis` /
-   `codex/wave3-thinking-low-pilot` or close them before O2 and X2 (a cherry-picked prompt rule is a
-   prompt change and needs the RUNBOOK gate and a re-pin decision).
+   `codex/wave3-thinking-low-pilot` or close them before O2 and X2. The pick is not one line: two
+   `openai_service.py` lines, prompt bytes in three `backend/prompts/*-analyst-agent.md` files and in
+   `ai/xbrl_narrative.py`; it is a prompt change that needs the RUNBOOK gate and a re-pin decision.
 4. **Dead-code deletions that change tests**: M3's four dead helpers plus `compact_dataset_for_prompt`
    and its four tests; M6's `_fact_records`. Recommendation: yes, as Wave 3 PRs with `rg` → 0 proofs.
 5. **Where the copilot loop lives.** Recommendation: in place (C2), not `copilot/stream.py`, because a
@@ -970,9 +1001,15 @@ all, each run reserved first under the Code Red ledger. About 20 serialized depl
    (`backend/evals/copilot_runner.py:201`) and costs five more test re-points.
 6. **New-code ceilings in the gate**: 80 lines per function, 400 per new module. Recommendation: adopt;
    the only functions the plan leaves between 60 and 80 are orchestrators.
-7. **A docs-only PR for the stale statements found tonight** (ARCHITECTURE.md:341 buckets, OPERATIONS.md:230,
-   the two audit docs' `sleep(0.2)` rows, the unfinished-work row about `Filing.xbrl_data`, the
-   `PROMPT_VERSION` comment). Recommendation: yes, any lane, no gate beyond the link check.
+7. **A docs-only PR for the stale statements found tonight** (ARCHITECTURE.md:341 buckets, the two
+   audit docs' `sleep(0.2)` rows, the unfinished-work row about `Filing.xbrl_data`). Recommendation:
+   yes, any lane, no gate beyond the link check. (OPERATIONS.md:230 rides X1 and the `PROMPT_VERSION`
+   comment rides T1, because those files deploy.)
+8. **Merge #1123 before Wave 0.** It narrows `copilot-eval` so tests-only PRs stop arming a paid run;
+   without it Wave 0 costs seven reserved USD 0.06 runs. Recommendation: merge it first.
+9. **F1 rewrites CLAUDE.md rule 5's owner file name** (:105, :152) and the two engineering briefs,
+   which the open agent-workflow PRs #1126 and #1118 also rewrite. Approve the rule-text edit riding
+   a refactor PR, and the order: F1 after those two land (or rebased over them).
 
 ---
 
