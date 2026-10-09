@@ -3,14 +3,15 @@
 The error mapping of these three routes had no route-level test: the SEC-unavailable 503s, the
 generic 500 detail strings, the 404, the unsupported-foreign response, which get-by-ticker failures
 stay outside its wrapped 500, and the multi-CIK concurrent-search recovery (its
-``company_upsert_conflict`` line on the router's logger, its commit and the resolver's ``path``
-labels). This suite pins them for the move of the routes' database work into
-``app/services/company_lookup_service.py``. Row counts cannot see a dropped recovery commit here:
-under SQLite's legacy transaction handling the per-row SAVEPOINT is the outermost transaction and
-its RELEASE commits, so a commit spy pins it instead. Transaction placement beyond what these
-tests observe (e.g. the post-commit refresh, which changes no response) rests on the move being
-verbatim. SEC calls and Yahoo quotes are patched; rows live in the shared test DB (trending uses
-a private engine) and every shared-DB row this file creates is deleted.
+``company_upsert_conflict`` line on the router's logger, its commit, the resolver's ``path``
+labels, which errors enter it and the generic 500 when it fails too). This suite pins them for the
+move of the routes' database work into ``app/services/company_lookup_service.py``. Row counts
+cannot see a dropped recovery commit here: under SQLite's legacy transaction handling the per-row
+SAVEPOINT is the outermost transaction and its RELEASE commits, so a commit spy pins it instead.
+Transaction placement beyond what these tests observe (e.g. the post-commit refresh, which changes
+no response) rests on the move being verbatim. SEC calls and Yahoo quotes are patched; rows live
+in the shared test DB (trending uses a private engine) and every shared-DB row this file creates
+is deleted.
 """
 import logging
 from datetime import datetime, timedelta, timezone
@@ -18,7 +19,7 @@ from datetime import datetime, timedelta, timezone
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy.exc import IntegrityError, OperationalError
 from sqlalchemy.orm import sessionmaker
 
 import app.routers.companies as companies_router
@@ -115,22 +116,31 @@ def resolver_paths(monkeypatch):
     return paths
 
 
-def _spy_commits(monkeypatch, db, caplog, fail_first=False):
+def _unique_cik_violation():
+    return IntegrityError("INSERT INTO companies", {}, Exception("UNIQUE constraint failed"))
+
+
+def _spy_commits(monkeypatch, db, caplog, fail_first=None):
     """Per ``db.commit()``, how many ``company_upsert_conflict`` lines were logged before it.
 
-    ``fail_first`` makes the first commit raise the unique-CIK IntegrityError instead.
+    ``fail_first`` (an exception) makes the first commit raise it instead.
     """
     calls = []
     real_commit = db.commit
 
     def commit():
         calls.append(sum("company_upsert_conflict" in r.getMessage() for r in caplog.records))
-        if fail_first and len(calls) == 1:
-            raise IntegrityError("INSERT INTO companies", {}, Exception("UNIQUE constraint failed"))
+        if fail_first is not None and len(calls) == 1:
+            raise fail_first
         real_commit()
 
     monkeypatch.setattr(db, "commit", commit)
     return calls
+
+
+def _router_log(caplog):
+    """(level, message) of each record on the router's logger, in order."""
+    return [(r.levelno, r.getMessage()) for r in caplog.records if r.name == "app.routers.companies"]
 
 
 # --- /search ---------------------------------------------------------------------------------
@@ -241,7 +251,7 @@ def test_search_conflict_raised_by_the_batch_commit_takes_the_same_recovery(
     """The batch commit, not only the flush, sits inside the conflict handling: its IntegrityError
     logs the same conflict line and recovers to a 200 in SEC order."""
     db = SessionLocal()
-    commits = _spy_commits(monkeypatch, db, caplog, fail_first=True)
+    commits = _spy_commits(monkeypatch, db, caplog, fail_first=_unique_cik_violation())
     override_db(db)
     monkeypatch.setattr(
         sec_edgar_service, "search_company", _sec(_hit(RACED_CIK, "ZZ1"), _hit(NEW_CIK, "ZZ2", "Zeta Two"))
@@ -257,6 +267,60 @@ def test_search_conflict_raised_by_the_batch_commit_takes_the_same_recovery(
         f"company_upsert_conflict cik={RACED_CIK},{NEW_CIK} ticker=zeta path=companies.search",
     ]
     assert commits == [0, 1]
+
+
+def test_search_conflict_recovery_failure_is_the_generic_500(client, monkeypatch, override_db, caplog):
+    """The recovery runs inside the route's generic handler: when it fails too (here the per-row
+    resolve), the conflict line is followed by the generic ERROR line and the generic 500, not by
+    the app's global handler."""
+    db = SessionLocal()
+    commits = _spy_commits(monkeypatch, db, caplog, fail_first=_unique_cik_violation())
+    override_db(db)
+    failure = OperationalError("SELECT companies", {}, Exception("database is locked"))
+
+    def resolver_down(_db, **_kwargs):
+        raise failure
+
+    monkeypatch.setattr(company_lookup_service, "resolve_or_create_company_by_cik", resolver_down)
+    monkeypatch.setattr(
+        sec_edgar_service, "search_company", _sec(_hit(RACED_CIK, "ZZ1"), _hit(NEW_CIK, "ZZ2", "Zeta Two"))
+    )
+    monkeypatch.setattr(sec_edgar_service, "primary_ticker_for_cik", _primary_from_cik)
+
+    with caplog.at_level(logging.WARNING, logger="app.routers.companies"):
+        resp = TestClient(app, raise_server_exceptions=False).get("/api/companies/search", params={"q": "zeta"})
+
+    assert resp.status_code == 500
+    assert resp.json() == {"detail": "An unexpected error occurred while searching for companies."}
+    assert _router_log(caplog) == [
+        (logging.WARNING, f"company_upsert_conflict cik={RACED_CIK},{NEW_CIK} ticker=zeta path=companies.search"),
+        (logging.ERROR, f"Unexpected error searching companies for 'zeta': {failure}"),
+    ]
+    assert commits == [0]  # the recovery's own commit never ran
+
+
+def test_search_non_integrity_commit_failure_skips_the_conflict_recovery(
+    client, monkeypatch, override_db, caplog, resolver_paths
+):
+    """Only the unique-CIK IntegrityError enters the conflict recovery: another database error at
+    the batch commit goes straight to the generic 500, with no conflict line and no recovery."""
+    db = SessionLocal()
+    failure = OperationalError("COMMIT", {}, Exception("database is locked"))
+    commits = _spy_commits(monkeypatch, db, caplog, fail_first=failure)
+    override_db(db)
+    monkeypatch.setattr(sec_edgar_service, "search_company", _sec(_hit(NEW_CIK, "ZZ2", "Zeta Two")))
+    monkeypatch.setattr(sec_edgar_service, "primary_ticker_for_cik", _primary_from_cik)
+
+    with caplog.at_level(logging.WARNING, logger="app.routers.companies"):
+        resp = client.get("/api/companies/search", params={"q": "zeta"})
+
+    assert resp.status_code == 500
+    assert resp.json() == {"detail": "An unexpected error occurred while searching for companies."}
+    assert _router_log(caplog) == [
+        (logging.ERROR, f"Unexpected error searching companies for 'zeta': {failure}"),
+    ]
+    assert commits == [0]
+    assert resolver_paths == []
 
 
 # --- /trending -------------------------------------------------------------------------------
