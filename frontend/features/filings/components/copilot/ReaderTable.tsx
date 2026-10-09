@@ -14,15 +14,22 @@ const isTableBox = (el: Element) => el.classList.contains('filing-table-scroll')
  * cannot be told apart in a landmark list.
  */
 export function regionName(box: HTMLElement): string {
-  // One pass over the reader's headings and table boxes in document order (a blockquote or list
-  // nests both inside it): each table box with the text of the heading it sits under.
+  // One pass over the reader's headings and table boxes in document order. The heading a table sits
+  // under is the last one before it whose own container also holds the table: a heading inside a
+  // blockquote or list item names that container's tables only, and the section's heading applies
+  // again after it.
   const root = box.closest('.filing-reader') ?? box.parentElement ?? box
+  const headings: Element[] = []
   const tables: Array<[Element, string]> = []
-  let current = ''
   for (const el of Array.from(root.querySelectorAll('h1, h2, h3, h4, h5, h6, .filing-table-scroll'))) {
-    const text = headingText(el)
-    if (text) current = text
-    else if (isTableBox(el)) tables.push([el, current])
+    if (headingText(el)) headings.push(el)
+    else if (isTableBox(el)) {
+      let scope = ''
+      for (let i = headings.length - 1; i >= 0 && !scope; i--) {
+        if (headings[i].parentElement?.contains(el)) scope = headingText(headings[i])
+      }
+      tables.push([el, scope])
+    }
   }
   const heading = tables.find(([el]) => el === box)?.[1] ?? ''
   const peers = tables.filter(([, text]) => text === heading).map(([el]) => el)

@@ -59,4 +59,18 @@ describe('ReaderTable regionName', () => {
       'Scrollable table: Leases',
     ])
   })
+
+  it('a heading names only the tables in its own container: a quoted heading does not leak to the tables after the quote', () => {
+    const boxes = reader(
+      `<h2>Item 8</h2><blockquote><h3>Quoted note</h3>${box}</blockquote>${box}` +
+        `<ul><li><h4>Listed</h4></li><li>${box}</li></ul>`,
+    )
+    expect(boxes.map(regionName)).toEqual([
+      'Scrollable table: Quoted note',
+      // Back outside the quote, the enclosing section's heading applies again.
+      'Scrollable table: Item 8, table 1 of 2',
+      // A list item's heading does not reach into the next item.
+      'Scrollable table: Item 8, table 2 of 2',
+    ])
+  })
 })

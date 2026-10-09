@@ -342,10 +342,10 @@ Filing reader    <FilingViewer> (`.filing-reader`) fills its pane and never exce
                  which takes the table's 68ch escape and 2rem rhythm); never make the reader or the sheet scroll
                  sideways for a table, and never `overflow-x-hidden` it away. While, and only while, a table is
                  wider than its box, the box is a scroll region: `role="region"`, `tabIndex={0}`,
-                 `aria-label="Scrollable table: <the heading above it>"` (", table 2 of 3" when tables sit under
-                 headings that read the same, in one section or several, so no two regions share a name), the
-                 brand focus ring; a table that fits
-                 stays out of the tab order. The reader itself is a tab stop too (`role="region"`, named
+                 `aria-label="Scrollable table: <the heading above it>"` (the last heading before it whose own
+                 container, the reader or a blockquote or list item, also holds it; ", table 2 of 3" when tables
+                 sit under headings that read the same, in one section or several, so no two regions share a
+                 name), the brand focus ring; a table that fits stays out of the tab order. The reader itself is a tab stop too (`role="region"`, named
                  "<filing> · filing text", `tabIndex={0}`, the ring inset as in MonthView), so the arrow keys
                  scroll it from the top: Chromium made the scroller one on its own only while nothing in it was
                  focusable. A citation jump (highlightInDom) scrolls the reader and the table's box only, never
