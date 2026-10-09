@@ -132,9 +132,10 @@ def test_names_the_newest_standing_filing_and_its_summary_readiness(client, db):
         "report_date": latest["report_date"],
         "summary_ready": True,
     }
-    # The filings list's own serialization, so the client formats both the same way.
-    assert latest["filing_date"].startswith("2026-01-30")
-    assert latest["report_date"].startswith("2025-12-27")
+    # The canonical wire form (iso_z): UTC with a Z, whether the database returned the column naive
+    # (SQLite, as here) or aware (PostgreSQL).
+    assert latest["filing_date"] == "2026-01-30T00:00:00Z"
+    assert latest["report_date"] == "2025-12-27T00:00:00Z"
 
 
 @pytest.mark.parametrize(

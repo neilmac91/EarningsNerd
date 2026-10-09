@@ -19,6 +19,7 @@ from app.config import settings
 from app.models import Filing, Summary
 from app.services.filing_amendment_service import expand_amendment_forms
 from app.services.summary_placeholders import is_summary_ready
+from app.utils.datetimes import ensure_utc, iso_z
 
 DOMESTIC_FORMS = ["10-K", "10-Q"]
 # Foreign private issuers: 20-F annual, 6-K interim, 40-F (tasks/fpi-support-roadmap.md).
@@ -31,7 +32,8 @@ def company_list_forms() -> list[str]:
 
 
 class LatestFilingRef(BaseModel):
-    """The filing a search result leads to, in the filings list's own fields and serialization."""
+    """The filing a search result leads to, in the filings list's own fields. Its timestamps take the
+    canonical wire form (UTC, ``Z``), the same from PostgreSQL and SQLite."""
 
     id: int
     filing_type: str
@@ -41,7 +43,8 @@ class LatestFilingRef(BaseModel):
 
 
 def _iso(value: Optional[datetime]) -> Optional[str]:
-    return value.isoformat() if value else None
+    # SQLite returns these timezone-aware columns naive and PostgreSQL aware; ensure_utc gives iso_z one form.
+    return iso_z(ensure_utc(value)) if value else None
 
 
 def latest_filings(db: Session, company_ids: list[int]) -> dict[int, LatestFilingRef]:
