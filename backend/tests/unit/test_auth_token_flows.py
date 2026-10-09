@@ -2,8 +2,8 @@
 Characterization of the auth flows no other test drives end to end.
 
 Written against the router before its ORM work moved into app/services/ (the router-ORM ratchet,
-tests/unit/test_router_orm_ceilings_allowlist.py) and kept unchanged through that move, so it
-proves the refactor preserved behaviour:
+tests/unit/test_router_orm_ceilings_allowlist.py), and every test here passes on that pre-move
+router as well as after the move, so it proves the refactor preserved behaviour:
 
   - email verification: verify, single use, unknown and expired links, resend (opaque; a resend
     supersedes the earlier link; a verified account gets no mail)
@@ -15,6 +15,8 @@ proves the refactor preserved behaviour:
     (cookie values and expiry stamps redacted)
   - the OAuth callbacks when the refresh-token write loses a race (IntegrityError at the flush):
     the conflict redirect, no session cookie, nothing persisted
+  - logout and logout-all commit their own revocations (with no audit row committing after them),
+    and unlinking a provider commits the delete itself before its oauth_unlinked audit row
 
 Real endpoints against the app's SQLite database, like the rest of the auth suite. Mail is captured
 by patching app.services.email_service (the router imports the senders at call time). SQLite hands
@@ -39,7 +41,7 @@ from sqlalchemy.orm.attributes import set_committed_value
 from main import app
 from app.config import settings
 from app.database import SessionLocal
-from app.models import OAuthAccount, RefreshToken, Subscription, User
+from app.models import AuditLog, OAuthAccount, RefreshToken, Subscription, User
 from app.routers import auth as auth_module
 from app.services.posthog_client import EVENT_TRIAL_STARTED
 from tests.support.summary_stream_harness import reset_rate_limiters
@@ -438,6 +440,93 @@ def test_refresh_replay_revokes_the_live_chain(client, mail):
         assert db.query(RefreshToken).filter(
             RefreshToken.user_id == user_id, RefreshToken.revoked_at.is_(None)
         ).count() == 0
+
+
+# ── logout: each endpoint commits its own revocation ──────────────────────────
+
+def _audit_actions(user_id: int, action: str) -> list[tuple[str, dict]]:
+    with SessionLocal() as db:
+        return [
+            (row.entity_type, row.details)
+            for row in db.query(AuditLog).filter(AuditLog.user_id == str(user_id), AuditLog.action == action)
+        ]
+
+
+def _live_refresh_tokens(user_id: int) -> int:
+    with SessionLocal() as db:
+        return db.query(RefreshToken).filter(
+            RefreshToken.user_id == user_id, RefreshToken.revoked_at.is_(None)
+        ).count()
+
+
+@pytest.fixture
+def no_audit_rows(monkeypatch):
+    """Make every audit write a no-op, so its commit can no longer carry an endpoint's pending writes."""
+    monkeypatch.setattr("app.services.audit_service.create_audit_log", lambda *args, **kwargs: None)
+
+
+@pytest.mark.requires_db
+def test_logout_with_only_the_refresh_cookie_revokes_it(client, mail):
+    """No live access token: there is no current user and so no audit row whose commit could carry
+    the revocation. Logout's own commit must persist it."""
+    email, _ = _register(client, mail)
+    user_id = _user(email).id
+    assert _login(client, email).status_code == 200
+    refresh = client.cookies.get("earningsnerd_refresh_token")
+    client.cookies.delete("earningsnerd_access_token")
+    client.cookies.delete("en_session")
+
+    resp = client.post("/api/auth/logout")
+    assert resp.status_code == 200 and resp.json() == {"status": "success"}
+    assert _cookies(resp) == ACCESS_CLEARED + REFRESH_CLEARED
+    assert _audit_actions(user_id, "logout") == []
+    assert _live_refresh_tokens(user_id) == 0
+
+    client.cookies.clear()
+    assert client.post("/api/auth/refresh", json={"refresh_token": refresh}).status_code == 401
+
+
+@pytest.mark.requires_db
+def test_logout_all_commits_its_revocation_without_the_audit_row(client, mail, no_audit_rows):
+    email, _ = _register(client, mail)
+    user_id = _user(email).id
+    assert _login(client, email).status_code == 200
+    other_device = client.cookies.get("earningsnerd_refresh_token")
+    client.cookies.clear()
+    assert _login(client, email).status_code == 200
+
+    resp = client.post("/api/auth/logout-all")
+    assert resp.status_code == 200 and resp.json() == {"status": "success", "sessions_revoked": 2}
+    assert _live_refresh_tokens(user_id) == 0
+
+    client.cookies.clear()
+    assert client.post("/api/auth/refresh", json={"refresh_token": other_device}).status_code == 401
+
+
+# ── connections: unlinking a linked provider ──────────────────────────────────
+
+@pytest.mark.requires_db
+@pytest.mark.parametrize("audited", [True, False], ids=["audited", "audit-write-skipped"])
+def test_unlinking_a_linked_provider_deletes_the_link_then_audits_it(client, mail, request, audited):
+    """The delete commits on its own, before the oauth_unlinked audit row; with the audit write made
+    a no-op the link must still be gone."""
+    email, _ = _register(client, mail)  # a password account, so the link is not its last method
+    user_id = _user(email).id
+    with SessionLocal() as db:
+        db.add(OAuthAccount(
+            user_id=user_id, provider="google", provider_account_id=f"google_{uuid.uuid4().hex}",
+            provider_email=email,
+        ))
+        db.commit()
+    assert _login(client, email).status_code == 200
+    if not audited:
+        request.getfixturevalue("no_audit_rows")
+
+    resp = client.delete("/api/auth/connections/google")
+    assert resp.status_code == 200 and resp.json() == {"status": "success", "unlinked": "google"}
+    with SessionLocal() as db:
+        assert db.query(OAuthAccount).filter_by(user_id=user_id).count() == 0
+    assert _audit_actions(user_id, "oauth_unlinked") == ([("user", {"provider": "google"})] if audited else [])
 
 
 # ── OAuth callbacks: success cookies and the lost refresh-token race ──────────
