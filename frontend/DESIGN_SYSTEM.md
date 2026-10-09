@@ -342,14 +342,18 @@ Filing reader    <FilingViewer> (`.filing-reader`) fills its pane and never exce
                  which takes the table's 68ch escape and 2rem rhythm); never make the reader or the sheet scroll
                  sideways for a table, and never `overflow-x-hidden` it away. While, and only while, a table is
                  wider than its box, the box is a scroll region: `role="region"`, `tabIndex={0}`,
-                 `aria-label="Scrollable table: <the heading above it>"`, the brand focus ring; a table that fits
+                 `aria-label="Scrollable table: <the heading above it>"` (", table 2 of 3" when the heading has
+                 several tables, so no two regions share a name), the brand focus ring; a table that fits
                  stays out of the tab order. The reader itself is a tab stop too (`role="region"`, named
                  "<filing> · filing text", `tabIndex={0}`, the ring inset as in MonthView), so the arrow keys
                  scroll it from the top: Chromium made the scroller one on its own only while nothing in it was
                  focusable. A citation jump (highlightInDom) scrolls the reader and the table's box only, never
-                 the page (no scrollIntoView). The AI summary's `.markdown-body` is untouched. Gates:
-                 tests/unit/highlightInDom.spec.ts + tests/e2e/filing-reader-wide-tables.spec.ts (synthetic
-                 fixture text, 1440x900 and a 390x844 touch sheet).
+                 the page (no scrollIntoView): smoothly, or in one jump under prefers-reduced-motion. The AI
+                 summary's `.markdown-body` is untouched. Gates: tests/unit/highlightInDom.spec.ts,
+                 tests/unit/readerTableRegionName.spec.ts, tests/e2e/filing-reader-wide-tables.spec.ts
+                 (synthetic fixture text, 1440x900 and a 390x844 touch sheet) and
+                 tests/e2e/copilot-highlight-css.spec.ts (a far-right table cell revealed in its own box in
+                 real layout, the page unmoved).
 
 Ask answer       <AskFilingAnswer>  — the SHIPPED copilot contract: status reading|streaming|done|error;
                  answer = GFM markdown (react-markdown + remark-gfm); markers [n] AND [F1]/[f1]/[F 1]
