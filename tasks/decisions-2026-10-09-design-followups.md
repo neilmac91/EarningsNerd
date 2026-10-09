@@ -67,18 +67,21 @@ existing auto-run, because the page already treats it as "no summary yet", as it
 - The background path is otherwise unchanged; the keep-better rule also applies to admin
   refresh-stale.
 
-`tests/unit/test_summary_unready_refresh.py` (19 cases) covers:
-- the truth table;
+`tests/unit/test_summary_unready_refresh.py` (21 cases) covers:
+- the truth table, and metering (a Free user at the monthly cap gets the paywall frame);
 - a failed refresh keeping the row;
 - keep-better on both paths;
 - a row made ready before the pipeline starts (served, with the other run's XBRL and progress intact);
 - a row made ready during generation;
-- a follower of a failed refresh claiming the generation;
+- a follower of a failed refresh claiming the generation, and a follower of one that succeeds being
+  served;
 - a forced retry with no stored row, which serves a summary saved before admission and keeps one saved
   during generation;
 - the flag's control.
 
-Mutation proofs: dropping any one of the ten conditions fails between 1 and 11 of the 19 cases.
+Mutation proofs: dropping any one of the ten conditions fails between 1 and 12 of the 21 cases. Every
+seeded row has a later row beside it, so a save that deletes and re-inserts cannot keep its id on SQLite
+and pass as an update in place.
 
 The company lead keeps "Open latest filing" over an unready row (#1147, tenth round): the page it opens
 now resolves for every signed-in user, within their quota.
@@ -206,6 +209,8 @@ draft-to-ready toggle and a reopen all replay the first draw.
 - A head where nothing drew still draws, including a re-run of an attempt that failed before its
   runner step.
 - A failed read of the earlier runs fails closed.
+- It reads every page of the head's runs (Codex), and it finds a draw by its runner step whatever the
+  job is called, since a `name:` or a matrix changes the job name the API reports (pre-merge review).
 
 The first version gated only re-run attempts and left toggles to the RUNBOOK text, because gating them
 would also block predeclared protocols that toggle on a frozen head (the prompt candidate's Q1 to Q3).
