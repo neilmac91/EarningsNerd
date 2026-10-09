@@ -19,7 +19,8 @@
    inside one), listed by `git ls-files`, so a new file counts once it is staged.
    Code files are read through the TypeScript AST, so a comment never counts; any
    other text file is read line by line with CSS comments removed (an `@apply`
-   line is a class string). No allowlist: every existing loop is guarded.
+   line is a class string, ended by its `;` or brace). No allowlist: every
+   existing loop is guarded.
 ============================================================================= */
 
 import { execFileSync } from 'node:child_process'
@@ -42,9 +43,12 @@ const CODE = /\.(js|jsx|ts|tsx|mjs|cjs)$/
 /** A pulse/ping utility behind any variant prefix (dark:, [&>:last-child]:after:, …), with an optional `!`. */
 const LOOP = /^(.*?)!?animate-(pulse|ping)$/
 
+/** The class tokens of one string: whitespace separates them, and so do the `;` and braces of an `@apply` line. */
+const classTokens = (s: string): string[] => s.split(/[\s;{}]+/).filter(Boolean)
+
 /** The unguarded pulse/ping tokens of one class string. */
 function unguardedLoops(classString: string): string[] {
-  const tokens = classString.split(/\s+/).filter(Boolean)
+  const tokens = classTokens(classString)
   const present = new Set(tokens.map((t) => t.replace(/!(?=animate-none$)/, '')))
   return tokens.filter((token) => {
     const match = LOOP.exec(token)
@@ -78,7 +82,7 @@ function scan(): { files: number; loops: number; offenders: string[] } {
     const source = fs.readFileSync(path.join(FRONTEND, file), 'utf8')
     const strings = CODE.test(file) ? codeStrings(file, source) : source.replace(/\/\*[\s\S]*?\*\//g, '').split('\n')
     for (const s of strings) {
-      loops += s.split(/\s+/).filter((t) => LOOP.test(t)).length
+      loops += classTokens(s).filter((t) => LOOP.test(t)).length
       for (const token of unguardedLoops(s)) offenders.push(`${file}: ${token}`)
     }
   }
@@ -96,6 +100,10 @@ describe('pulse/ping loops respect reduced motion', () => {
     // The guard must carry the loop's own variants, or the variant's specificity wins under reduced motion.
     expect(unguardedLoops('hover:animate-pulse motion-reduce:animate-none')).toEqual(['hover:animate-pulse'])
     expect(unguardedLoops('animate-pulse motion-reduce:transition-none')).toEqual(['animate-pulse'])
+    // A stylesheet line as globals.css writes it: the `;` and braces end a class, they are not part of it.
+    expect(unguardedLoops('.dot { @apply h-2 w-2 rounded-full animate-pulse; }')).toEqual(['animate-pulse'])
+    expect(unguardedLoops('.dot{@apply animate-ping}')).toEqual(['animate-ping'])
+    expect(unguardedLoops('.dot { @apply h-2 w-2 animate-pulse motion-reduce:animate-none; }')).toEqual([])
   })
 
   it('finds no unguarded loop in any directory Tailwind reads classes from', () => {
