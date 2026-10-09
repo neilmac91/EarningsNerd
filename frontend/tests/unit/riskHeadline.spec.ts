@@ -159,6 +159,10 @@ describe('deriveRiskHeadline', () => {
     expect(deriveRiskHeadline('Liquidity may be constrained. “$5 per unit” fees could reduce demand materially.', 0)).toBe(
       'Liquidity may be constrained…',
     )
+    // Or with any capital letter, not only an ASCII one.
+    expect(deriveRiskHeadline('Liquidity may be constrained. Élan could terminate the agreement and halt our production.', 0)).toBe(
+      'Liquidity may be constrained…',
+    )
   })
 
   it('cuts a long sentence at its first ";" or ":" when the clause before it can stand as a heading', () => {
@@ -329,6 +333,13 @@ describe('deriveRiskHeadline', () => {
     expect(
       deriveRiskHeadline('Risk disclosures are posted at investor.example.com/secfilings/annualreports/form10k/riskfactors2025 every quarter.', 0),
     ).toBe('Risk disclosures are posted at investor.example.com/secfilings/annualreports/form10k/riskfactors2025…')
+    // A unit written with a capital stays with its figure too ("100 MW").
+    expect(
+      deriveRiskHeadline(
+        'Our data centers depend on uninterrupted access to contracted renewable energy capacity totaling 100 MW during periods of peak demand.',
+        0,
+      ),
+    ).toBe('Our data centers depend on uninterrupted access to contracted renewable energy capacity totaling…')
   })
 
   it('never splits a day-first date ("27 September 2025") at the cap', () => {
@@ -404,6 +415,14 @@ describe('deriveRiskHeadline', () => {
     expect(
       deriveRiskHeadline('Our supplier warned that “production may stop. Delays could persist.” Other risks follow below.', 0),
     ).toBe('Our supplier warned that “production may stop. Delays could persist.”…')
+    // A quote after a plural closes the quotation before punctuation; only before a word does it read as
+    // a possessive ("customers’ agreements").
+    expect(
+      deriveRiskHeadline(
+        "The phrase 'material risks', as used in our customer agreements, permits termination without notice and could materially disrupt our operations.",
+        0,
+      ),
+    ).toBe("The phrase 'material risks', as used in our customer agreements, permits termination without notice…")
   })
 
   it('keeps the excerpt’s own whitespace and casing (verbatim, not normalised)', () => {

@@ -80,8 +80,8 @@ const ABBREVIATION_ALTERNATION = ABBREVIATIONS.map(caseInsensitive).join('|')
 // word or a figure, after any opening quotes or brackets and a currency sign ("'$5 per unit'"), or
 // the end of the text.
 const SENTENCE_END = new RegExp(
-  `(?<!\\b[A-Za-z])(?<!\\b(?:${ABBREVIATION_ALTERNATION}))[.!?](["”’')\\]]*)(?=\\s+["“‘'(\\[]*[$€£¥]?[A-Z0-9]|\\s*$)`,
-  'g',
+  `(?<!\\b[A-Za-z])(?<!\\b(?:${ABBREVIATION_ALTERNATION}))[.!?](["”’')\\]]*)(?=\\s+["“‘'(\\[]*[$€£¥]?[\\p{Lu}0-9]|\\s*$)`,
+  'gu',
 )
 
 // ";" or ":" before a space (so "10:30" survives). Never a dash (see step 4 above).
@@ -122,6 +122,9 @@ const CURRENCY = /^(?:USD|EUR|GBP|JPY|CHF|CNY|RMB|US\$|\$|€|£|¥)$/
 const STARTS_WITH_FIGURE = /^[(\[]?[$€£¥]?\d/
 // A bare figure, not a token that merely ends in digits (a URL, "riskfactors2025", "10-K2025").
 const FIGURE = /^[$€£¥]?\d(?:[\d,.]*\d)?%?$/
+// A unit written with a capital, which the counted-noun check (a lower-case next word) misses: power and
+// energy, frequency, data and rates, and oil-and-gas volumes ("100 | MW", "2.4 | GHz", "10 | Gbps").
+const UPPERCASE_UNIT = /^(?:[kKMGT]?Wh?|[kKMGT]?Hz|[KMGT]bps|[KMGTP]B|M{0,2}cf|[BT]cf|M{0,2}Btu|M{0,2}BOE|M{0,2}bbls?)$/
 const QUANTITY_QUALIFIER = /^(?:approximately|approx|nearly|almost|roughly|around|some|least|most|only|just|exactly)$/i
 const MONTH = /^(?:January|February|March|April|May|June|July|August|September|October|November|December|Jan|Feb|Mar|Apr|Jun|Jul|Aug|Sept?|Oct|Nov|Dec)$/
 const UPPERCASE_START = /^\p{Lu}/u
@@ -167,7 +170,9 @@ const singleQuoteOpen = (text: string): boolean => {
     const after = text[i + 1] ?? ''
     if (mark === '‘' || (mark === "'" && !WORD_CHAR.test(before) && /[^\s.,;:!?)\]]/.test(after))) depth++
     else if (depth > 0) {
-      const apostrophe = LETTER.test(before) && (LETTER.test(after) || /[sS]/.test(before))
+      // After an s it is a possessive only where the phrase can go on ("customers’ agreements"); before
+      // punctuation or the end it closes the quotation ("'material risks', as used").
+      const apostrophe = LETTER.test(before) && (LETTER.test(after) || (/[sS]/.test(before) && /\s/.test(after)))
       if (!apostrophe) depth--
     }
   }
@@ -193,6 +198,7 @@ const isWeakEnd = (tokens: Token[], i: number, prefix: string): boolean => {
   // months"): not when punctuation ends the figure ("in 2027, recognized") or a function word follows
   // ("16% of", "2023 and").
   if (next !== undefined && FIGURE.test(word) && /^\p{Ll}/u.test(next) && !isFunctionWord(next)) return true
+  if (next !== undefined && FIGURE.test(word) && UPPERCASE_UNIT.test(bare(next))) return true
   if (next !== undefined && COMPOUND_UNIT_HEAD.test(bare(word))) return true
   if (next !== undefined && COMPARATIVE.test(bare(word)) && /^(?:than|so)$/i.test(bare(next))) return true
   if (next !== undefined && SCALE_WORD.test(bare(word)) && COMPOUND_UNIT_HEAD.test(bare(next))) return true
