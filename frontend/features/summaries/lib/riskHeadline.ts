@@ -17,8 +17,9 @@
  *      bracket or quotation. A one-letter word ("U.S.", initials) or a title, label or month
  *      abbreviation ("No.", "Dr.", "Sept.") does not end one. A company or name suffix does ("Acme
  *      Co. | Production may stop", "John Smith Jr. | His departure"), unless the company's name
- *      goes on ("Technology Co. Limited"), a defined-term alias follows ("Acme Inc. (“Acme”) and"),
- *      or "Sr." means Senior before a title or an instrument ("Sr. Vice President", "Sr. Notes").
+ *      goes on ("Technology Co. Limited"), a parenthetical follows (an alias or a ticker: "Acme Inc.
+ *      (“Acme”) and", "Acme Inc. (NASDAQ: ACME) and"), or "Sr." means Senior before a title or an
+ *      instrument ("Sr. Vice President", "Sr. Notes").
  *   3. If it fits in RISK_HEADLINE_MAX_CHARS it is the headline, whole: a sentence that fits is
  *      never cut, so a hedge or a turn later in it ("; however, coverage may not be adequate")
  *      stays in the heading.
@@ -69,8 +70,9 @@ const ABBREVIATIONS = [
 // Vice President of Sales", "the 5.25% Sr. Notes due 2030"), which keeps the sentence going.
 const TERMINAL_ABBREVIATION = /\b(?:co|inc|corp|ltd|llc|plc|etc|jr|sr)$/i
 const NAME_GOES_ON = /^\s+(?:co|inc|incorporated|corp|corporation|ltd|limited|llc|llp|lp|plc|ag|gmbh|sa|nv|bv)\b/i
-// A defined-term alias after the name keeps the sentence going too ("Acme Inc. (“Acme”) and it may…").
-const ALIAS_GOES_ON = /^\s+\(\s*["“'‘]/
+// A parenthetical after the suffix keeps the sentence going too, a defined-term alias or a ticker
+// ("Acme Inc. (“Acme”) and it may…", "Acme Inc. (NASDAQ: ACME) and it may…").
+const PARENTHETICAL_GOES_ON = /^\s+\(/
 const SENIOR = /\bsr$/i
 const SENIOR_GOES_ON =
   /^\s+(?:vice|director|manager|executive|officer|counsel|partner|analyst|advisor|associate|consultant|accountant|engineer|economist|notes?|secured|unsecured|subordinated|debt|credit|loan|term|facility)\b/i
@@ -263,7 +265,7 @@ const firstSentence = (text: string): string => {
     const before = text.slice(0, at)
     const after = text.slice(at + match[0].length)
     const suffix = TERMINAL_ABBREVIATION.test(before)
-    if (suffix && (NAME_GOES_ON.test(after) || ALIAS_GOES_ON.test(after) || (SENIOR.test(before) && SENIOR_GOES_ON.test(after)))) continue
+    if (suffix && (NAME_GOES_ON.test(after) || PARENTHETICAL_GOES_ON.test(after) || (SENIOR.test(before) && SENIOR_GOES_ON.test(after)))) continue
     // A bare terminal period is dropped; one inside a closing quotation, or one that closes a company
     // or name suffix ("Acme Inc.", "Smith Jr."), stays.
     const keepsPeriod = !match[0].startsWith('.') || suffix
