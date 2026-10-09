@@ -1,12 +1,16 @@
 """Route characterization for /api/companies search, trending and get-by-ticker.
 
 The error mapping of these three routes had no route-level test: the SEC-unavailable 503s, the
-generic 500 detail strings, the 404, the unsupported-foreign response and the multi-CIK
-concurrent-search recovery (with its ``company_upsert_conflict`` line on the router's logger). This
-suite pins them so moving the routes' database work into
-``app/services/company_lookup_service.py`` is provably behaviour-neutral. SEC calls and Yahoo
-quotes are patched; rows live in the shared test DB (trending uses a private engine) and every
-shared-DB row this file creates is deleted.
+generic 500 detail strings, the 404, the unsupported-foreign response, which get-by-ticker failures
+stay outside its wrapped 500, and the multi-CIK concurrent-search recovery (its
+``company_upsert_conflict`` line on the router's logger, its commit and the resolver's ``path``
+labels). This suite pins them for the move of the routes' database work into
+``app/services/company_lookup_service.py``. Row counts cannot see a dropped recovery commit here:
+under SQLite's legacy transaction handling the per-row SAVEPOINT is the outermost transaction and
+its RELEASE commits, so a commit spy pins it instead. Transaction placement beyond what these
+tests observe (e.g. the post-commit refresh, which changes no response) rests on the move being
+verbatim. SEC calls and Yahoo quotes are patched; rows live in the shared test DB (trending uses
+a private engine) and every shared-DB row this file creates is deleted.
 """
 import logging
 from datetime import datetime, timedelta, timezone
@@ -14,11 +18,13 @@ from datetime import datetime, timedelta, timezone
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import sessionmaker
 
 import app.routers.companies as companies_router
 from app.database import SessionLocal, get_db
 from app.models import Company, Filing
+from app.services import company_lookup_service
 from app.services.company_coverage import UNSUPPORTED_FOREIGN_REASON
 from app.services.edgar.compat import sec_edgar_service
 from app.services.edgar.exceptions import EdgarError
@@ -94,6 +100,39 @@ def override_db():
         db.close()
 
 
+@pytest.fixture()
+def resolver_paths(monkeypatch):
+    """The ``path`` label each call to the CIK-first resolver passes (it names the call site in
+    ``company_resolution``'s ``company_upsert_conflict`` warning)."""
+    paths = []
+    real = company_lookup_service.resolve_or_create_company_by_cik
+
+    def recording(db, **kwargs):
+        paths.append(kwargs["path"])
+        return real(db, **kwargs)
+
+    monkeypatch.setattr(company_lookup_service, "resolve_or_create_company_by_cik", recording)
+    return paths
+
+
+def _spy_commits(monkeypatch, db, caplog, fail_first=False):
+    """Per ``db.commit()``, how many ``company_upsert_conflict`` lines were logged before it.
+
+    ``fail_first`` makes the first commit raise the unique-CIK IntegrityError instead.
+    """
+    calls = []
+    real_commit = db.commit
+
+    def commit():
+        calls.append(sum("company_upsert_conflict" in r.getMessage() for r in caplog.records))
+        if fail_first and len(calls) == 1:
+            raise IntegrityError("INSERT INTO companies", {}, Exception("UNIQUE constraint failed"))
+        real_commit()
+
+    monkeypatch.setattr(db, "commit", commit)
+    return calls
+
+
 # --- /search ---------------------------------------------------------------------------------
 
 
@@ -137,11 +176,11 @@ def test_search_database_failure_is_the_generic_500(client, monkeypatch, overrid
 
 
 def test_search_race_keeps_every_cik_in_sec_order_and_logs_on_the_router_logger(
-    client, monkeypatch, override_db, caplog
+    client, monkeypatch, override_db, caplog, resolver_paths
 ):
     """Two CIKs, one raced: the batch flush hits unique-CIK, the recovery re-resolves BOTH (the
-    genuinely-new one is not dropped), the response keeps SEC order, and the conflict line names
-    every response CIK on ``app.routers.companies``."""
+    genuinely-new one is not dropped), the response keeps SEC order, the conflict line names
+    every response CIK on ``app.routers.companies``, and the recovery commits after that line."""
     seed = SessionLocal()
     seed.add(Company(cik=RACED_CIK, ticker="ZZ1", name="Zeta Corp"))
     seed.commit()
@@ -166,6 +205,7 @@ def test_search_race_keeps_every_cik_in_sec_order_and_logs_on_the_router_logger(
         return real_query(*args, **kwargs)
 
     monkeypatch.setattr(db, "query", flaky_query)
+    commits = _spy_commits(monkeypatch, db, caplog)
     override_db(db)
     monkeypatch.setattr(
         sec_edgar_service, "search_company", _sec(_hit(RACED_CIK, "ZZ1"), _hit(NEW_CIK, "ZZ2", "Zeta Two"))
@@ -183,12 +223,40 @@ def test_search_race_keeps_every_cik_in_sec_order_and_logs_on_the_router_logger(
         logging.WARNING,
         f"company_upsert_conflict cik={RACED_CIK},{NEW_CIK} ticker=zeta path=companies.search",
     )]
+    # The flush failed inside its SAVEPOINT, so the batch commit never ran: the only commit is the
+    # recovery's, after the conflict line.
+    assert commits == [1]
+    assert resolver_paths == ["companies.search", "companies.search"]
     verify = SessionLocal()
     try:
         assert verify.query(Company).filter(Company.cik == RACED_CIK).count() == 1
         assert verify.query(Company).filter(Company.cik == NEW_CIK).count() == 1
     finally:
         verify.close()
+
+
+def test_search_conflict_raised_by_the_batch_commit_takes_the_same_recovery(
+    client, monkeypatch, override_db, caplog
+):
+    """The batch commit, not only the flush, sits inside the conflict handling: its IntegrityError
+    logs the same conflict line and recovers to a 200 in SEC order."""
+    db = SessionLocal()
+    commits = _spy_commits(monkeypatch, db, caplog, fail_first=True)
+    override_db(db)
+    monkeypatch.setattr(
+        sec_edgar_service, "search_company", _sec(_hit(RACED_CIK, "ZZ1"), _hit(NEW_CIK, "ZZ2", "Zeta Two"))
+    )
+    monkeypatch.setattr(sec_edgar_service, "primary_ticker_for_cik", _primary_from_cik)
+
+    with caplog.at_level(logging.WARNING, logger="app.routers.companies"):
+        resp = client.get("/api/companies/search", params={"q": "zeta"})
+
+    assert resp.status_code == 200
+    assert [(r["cik"], r["ticker"]) for r in resp.json()] == [(RACED_CIK, "ZZ1"), (NEW_CIK, "ZZ2")]
+    assert [r.getMessage() for r in caplog.records if "company_upsert_conflict" in r.getMessage()] == [
+        f"company_upsert_conflict cik={RACED_CIK},{NEW_CIK} ticker=zeta path=companies.search",
+    ]
+    assert commits == [0, 1]
 
 
 # --- /trending -------------------------------------------------------------------------------
@@ -289,6 +357,43 @@ def test_miss_with_sec_error_is_503(client, monkeypatch):
     assert resp.json() == {"detail": "SEC EDGAR is temporarily unavailable. Please retry shortly."}
 
 
+def test_stored_ticker_lookup_failure_is_not_the_wrapped_500(client, monkeypatch, override_db):
+    """The stored-ticker SELECT runs outside the miss path's try, so its failure reaches the app's
+    global handler instead of becoming "Error fetching company: ..."."""
+    db = SessionLocal()
+
+    def broken_query(*_a, **_k):
+        raise RuntimeError("db down")
+
+    monkeypatch.setattr(db, "query", broken_query)
+    override_db(db)
+    resp = TestClient(app, raise_server_exceptions=False).get("/api/companies/ZZ2")
+    assert resp.status_code == 500
+    assert resp.json() == {"detail": "db down", "type": "internal_server_error"}
+
+
+def test_post_persist_release_failure_is_not_the_wrapped_500(client, monkeypatch, override_db):
+    """The release after the persistence unit also runs outside the try (unlike the persistence
+    unit itself, below)."""
+    db = SessionLocal()
+    real_close = db.close
+    closes = []
+
+    def close():
+        closes.append(1)
+        if len(closes) == 2:  # 1: before the SEC wait; 2: after the persistence unit
+            raise RuntimeError("release failed")
+        real_close()
+
+    monkeypatch.setattr(db, "close", close)
+    override_db(db)
+    monkeypatch.setattr(sec_edgar_service, "search_company", _sec(_hit(NEW_CIK, "ZZ2", "Zeta Two")))
+    monkeypatch.setattr(sec_edgar_service, "primary_ticker_for_cik", _primary_from_cik)
+    resp = TestClient(app, raise_server_exceptions=False).get("/api/companies/ZZ2")
+    assert resp.status_code == 500
+    assert resp.json() == {"detail": "release failed", "type": "internal_server_error"}
+
+
 def test_miss_with_unpersistable_sec_hit_is_the_wrapped_500(client, monkeypatch):
     """A failure inside the persistence unit keeps its wrapped 500 detail (str of the error)."""
     async def search(_query):
@@ -301,11 +406,12 @@ def test_miss_with_unpersistable_sec_hit_is_the_wrapped_500(client, monkeypatch)
     assert resp.json() == {"detail": "Error fetching company: 'name'"}
 
 
-def test_miss_persists_the_sec_hit_under_its_primary_ticker(client, monkeypatch):
+def test_miss_persists_the_sec_hit_under_its_primary_ticker(client, monkeypatch, resolver_paths):
     monkeypatch.setattr(sec_edgar_service, "search_company", _sec(_hit(NEW_CIK, "ZZ2-PA", "Zeta Two")))
     monkeypatch.setattr(sec_edgar_service, "primary_ticker_for_cik", _primary_from_cik)
     resp = client.get("/api/companies/ZZ2-PA")
     assert resp.status_code == 200
+    assert resolver_paths == ["companies.get_company"]
     body = resp.json()
     assert (body["cik"], body["ticker"], body["name"], body["exchange"]) == (NEW_CIK, "ZZ2", "Zeta Two", "NASDAQ")
     verify = SessionLocal()
