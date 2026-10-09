@@ -17,7 +17,7 @@ an earlier pipeline's "Generating summary" marker row on every visit. The page t
 summary" and starts a run, gets the marker back, and stays on "generating" for every user.
 
 **Evidence.** The current pipeline never stores a failure row: an error payload returns before the save
-(`summary_pipeline.py`, the `summary_status == "error"` branch). The rows a reader can meet are older:
+(`summary_stages/generation.py` since #1144, the `summary_status == "error"` branch). The rows a reader can meet are older:
 the writer-era fallback body and `writer_error` rows, earlier pipelines' in-progress markers, and the
 background path's "requires OpenAI API key" placeholder, written only when the key is unset (local
 development).
@@ -37,18 +37,23 @@ development).
    provider starts and refunded when the run errors or comes back partial. Bookmarks survive, because
    the row is updated in place. One rule decides on the route and in keep-better: `is_summary_ready`,
    applied to the body the route would serve. A run admitted for an unready row treats that row as a
-   missing summary at every step (two Codex review rounds on #1166):
+   missing summary at every step (three Codex review rounds on #1166):
    - The route clears nothing for it. A Pro Regenerate still clears the filing's XBRL and progress.
    - If another request makes the row ready before the run reaches the pipeline, or before a leader
      the run joined finishes, the run serves that summary.
    - If the row becomes ready while the run generates, the run keeps it.
    - If a leader the run joined fails, the run claims the generation, as a follower of a failed first
      generation does.
+   - At save, the run reads the row under the lock its UPDATE takes (`FOR NO KEY UPDATE` on PostgreSQL;
+     Codex P1 when #1166 left draft). A save from another instance therefore commits first and is read
+     here and kept. Without the lock it could land between this run's read and its write and be
+     overwritten.
 
    So the waived Pro gate never replaces a summary that readers already see and never wipes XBRL that
    another run fetched. Within one instance it never pays for a second summary. Con: a Free user's
    successful Retry spends one monthly unit. Two runs on different instances can still both generate
-   inside that window, and each user is metered; the first summary saved is kept (follow-up 10).
+   inside that window, and each user is metered; the first summary saved is kept, on any instance, by
+   the save's row lock (follow-up 10).
 5. An operator drain of failure rows. A complement, not a substitute: users recover without it. Not run.
    No drain is authorized, and the production count of such rows is unknown.
 
@@ -61,27 +66,33 @@ existing auto-run, because the page already treats it as "no summary yet", as it
   `source_safe_business_overview` (the body the route would replay). It is passed on as
   `replace_unready_only`, and the route clears nothing for such a row. A forced run with no stored row
   passes the flag too (pre-merge review): it also waives no Pro gate.
-- `summary_pipeline.py`: keep-better applies only when the stored row passes the same rule. A
-  `replace_unready_only` run serves or keeps a row that has become ready, and does not serve one that is
-  still unready after a joined leader fails.
+- The pipeline, which #1144 split into `summary_stages/` while this PR was open (the flag is a
+  `GenerationRun` field): in `finalize.py`, keep-better applies only when the stored row passes the same
+  rule, and the save reads the row under the lock its UPDATE takes. A `replace_unready_only` run serves
+  or keeps a row that has become ready (`admission.py`, `finalize.py`), and does not serve one that is
+  still unready after a joined leader fails (`admission.py`). The port onto #1144 is a pure translation:
+  `prove_summary_pipeline_move.py` leaves the same three residual hunks, line for line, for main's
+  stages against main's pre-split pipeline and for these stages against this branch's pre-merge one.
 - The background path is otherwise unchanged; the keep-better rule also applies to admin
   refresh-stale.
 
-`tests/unit/test_summary_unready_refresh.py` (21 cases) covers:
+`tests/unit/test_summary_unready_refresh.py` (22 cases) covers:
 - the truth table, and metering (a Free user at the monthly cap gets the paywall frame);
 - a failed refresh keeping the row;
 - keep-better on both paths;
 - a row made ready before the pipeline starts (served, with the other run's XBRL and progress intact);
-- a row made ready during generation;
+- a row made ready during generation, and the save's read taking the row lock its write takes, pinned
+  as PostgreSQL runs it (SQLite omits the clause);
 - a follower of a failed refresh claiming the generation, and a follower of one that succeeds being
   served;
 - a forced retry with no stored row, which serves a summary saved before admission and keeps one saved
   during generation;
 - the flag's control.
 
-Mutation proofs: dropping any one of the ten conditions fails between 1 and 12 of the 21 cases. Every
-seeded row has a later row beside it, so a save that deletes and re-inserts cannot keep its id on SQLite
-and pass as an update in place.
+Mutation proofs, on the merged head: dropping any one of the eleven conditions (the ten above and the
+save's row lock) fails between 1 and 13 of the 22 cases. A plain `FOR UPDATE`, which would block the
+`saved_summaries` foreign-key checks, fails 1. Every seeded row has a later row beside it, so a save
+that deletes and re-inserts cannot keep its id on SQLite and pass as an update in place: it fails 9.
 
 The company lead keeps "Open latest filing" over an unready row (#1147, tenth round): the page it opens
 now resolves for every signed-in user, within their quota.
