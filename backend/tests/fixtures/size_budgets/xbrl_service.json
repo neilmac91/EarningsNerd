@@ -1,0 +1,47 @@
+{
+  "files": {
+    "app/services/edgar/xbrl_service.py": 1316
+  },
+  "functions": {
+    "app/services/edgar/xbrl_service.py::EdgarXBRLService.extract_standardized_metrics": 259,
+    "app/services/edgar/xbrl_service.py::_extract_from_filing_instance_sync": 239,
+    "app/services/edgar/xbrl_service.py::EdgarXBRLService._parse_company_facts": 162,
+    "app/services/edgar/xbrl_service.py::EdgarXBRLService.get_xbrl_data": 83
+  },
+  "names": {
+    "CASH_TAG_CANDIDATES": null,
+    "EdgarXBRLService": null,
+    "EdgarXBRLService._fallback_to_company_facts": null,
+    "EdgarXBRLService._fetch_from_filing_instance": null,
+    "EdgarXBRLService._fetch_xbrl_data": null,
+    "EdgarXBRLService._get_from_redis": null,
+    "EdgarXBRLService._parse_company_facts": null,
+    "EdgarXBRLService._persisted_xbrl": null,
+    "EdgarXBRLService._set_to_redis": null,
+    "EdgarXBRLService.extract_standardized_metrics": null,
+    "EdgarXBRLService.get_filing_sections": null,
+    "EdgarXBRLService.get_xbrl_data": null,
+    "_SECTION_MIN_CHARS": null,
+    "_XBRL_CACHE_VERSION": null,
+    "_cache_evictions": null,
+    "_cache_hits": null,
+    "_cache_lock": null,
+    "_cache_max_size": null,
+    "_cache_misses": null,
+    "_cache_set_sync": null,
+    "_cache_ttl": null,
+    "_extract_from_filing_instance_sync": null,
+    "_extract_sections_sync": null,
+    "_extract_segments": null,
+    "_get_cache_lock": null,
+    "_source_duration": null,
+    "_xbrl_cache": null,
+    "async_clear_xbrl_cache": null,
+    "clear_xbrl_cache": null,
+    "edgar_xbrl_service": null,
+    "get_xbrl_cache_stats": null,
+    "logger": null
+  },
+  "forbidden_imports": [],
+  "note": "W0.G baseline (tasks/refactor-plan-2026-10.md, 'The size-budget gate' and decision 6): ceilings are the sizes measured on main ae5b0f1c on 2026-10-09, identical to the plan's da636f6 values. Lower a ceiling in the commit that shrinks the code (a move re-keys a function row to its new path at the same number). Raise a FILE ceiling only with a dated line appended here (PR, row, old -> new, why extraction was not possible in that PR) and a 'Ceiling raise' paragraph in the PR body; a long-function ceiling never rises (frozen in the gate). names: every name this file defined at W0.G (module level, and members of its module-level classes); a move maps a module-level name to the module that now defines it; a deliberate deletion removes the name and records why here."
+}
