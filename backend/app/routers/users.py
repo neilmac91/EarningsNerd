@@ -11,8 +11,8 @@ from app.config import settings
 from app.database import get_db
 from app.models import User
 from app.routers.auth import get_current_user, _clear_auth_cookie, _clear_refresh_cookie
-# Module imports, not function imports: the service functions stay patchable at their home, and no
-# handler below can shadow a service function of the same name.
+# The user_* services are imported as modules, not functions: their functions stay patchable at
+# their home, and no handler below can shadow a service function of the same name.
 from app.services import user_account_service, user_data_export_service, user_notification_feed_service
 from app.services.audit_service import log_user_deletion, log_data_export
 from app.services.entitlements import get_entitlements

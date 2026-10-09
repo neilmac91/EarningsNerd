@@ -12,6 +12,7 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.models import Company, Filing, NotificationLog, User
+from app.utils.datetimes import utcnow
 
 
 @dataclass(frozen=True)
@@ -95,7 +96,7 @@ def mark_seen(db: Session, current_user: User) -> User:
     """
     user = db.get(User, current_user.id)
     if user is not None:
-        user.notifications_seen_at = datetime.now(timezone.utc)
+        user.notifications_seen_at = utcnow()
         db.commit()
     else:
         user = current_user
