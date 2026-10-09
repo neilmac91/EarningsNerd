@@ -110,7 +110,7 @@ export default function UserMenu({ user }: { user: MenuUser }) {
               href={`/check-email?email=${encodeURIComponent(user.email)}`}
               role="menuitem"
               onClick={() => setOpen(false)}
-              className="mx-1 mb-1 flex items-center gap-2 rounded-lg bg-warning-light/10 dark:bg-warning-dark/10 px-2.5 py-2 text-sm font-medium text-warning-light dark:text-warning-dark transition-colors hover:bg-warning-light/20 dark:hover:bg-warning-dark/20"
+              className="mx-1 mb-1 flex items-center gap-2 rounded-lg bg-warning-light/10 dark:bg-warning-dark/10 px-2.5 py-2 text-sm font-medium text-warning-light dark:text-warning-dark transition-colors hover:bg-warning-light/20 dark:hover:bg-warning-dark/20 focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark"
             >
               <WarningCircleIcon className="h-4 w-4" />
               Verify your email
@@ -124,7 +124,7 @@ export default function UserMenu({ user }: { user: MenuUser }) {
                 href={href}
                 role="menuitem"
                 onClick={() => setOpen(false)}
-                className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-text-secondary-light dark:text-text-secondary-dark transition-colors hover:bg-white/5 hover:text-text-primary-light dark:hover:text-text-primary-dark"
+                className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-text-secondary-light dark:text-text-secondary-dark transition-colors hover:bg-white/5 hover:text-text-primary-light dark:hover:text-text-primary-dark focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark"
               >
                 <Icon className="h-4 w-4 text-text-secondary-light dark:text-text-secondary-dark" />
                 {label}
@@ -138,7 +138,7 @@ export default function UserMenu({ user }: { user: MenuUser }) {
                 href="/admin/invites"
                 role="menuitem"
                 onClick={() => setOpen(false)}
-                className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-text-secondary-light dark:text-text-secondary-dark transition-colors hover:bg-white/5 hover:text-text-primary-light dark:hover:text-text-primary-dark"
+                className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-text-secondary-light dark:text-text-secondary-dark transition-colors hover:bg-white/5 hover:text-text-primary-light dark:hover:text-text-primary-dark focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark"
               >
                 <ShieldIcon className="h-4 w-4 text-text-secondary-light dark:text-text-secondary-dark" />
                 Admin · Invites
@@ -147,7 +147,7 @@ export default function UserMenu({ user }: { user: MenuUser }) {
                 href="/admin/feedback"
                 role="menuitem"
                 onClick={() => setOpen(false)}
-                className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-text-secondary-light dark:text-text-secondary-dark transition-colors hover:bg-white/5 hover:text-text-primary-light dark:hover:text-text-primary-dark"
+                className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-text-secondary-light dark:text-text-secondary-dark transition-colors hover:bg-white/5 hover:text-text-primary-light dark:hover:text-text-primary-dark focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark"
               >
                 <ChatTextIcon className="h-4 w-4 text-text-secondary-light dark:text-text-secondary-dark" />
                 Admin · Feedback
@@ -160,7 +160,7 @@ export default function UserMenu({ user }: { user: MenuUser }) {
               type="button"
               role="menuitem"
               onClick={handleLogout}
-              className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-text-secondary-light dark:text-text-secondary-dark transition-colors hover:bg-white/5 hover:text-text-primary-light dark:hover:text-text-primary-dark"
+              className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-text-secondary-light dark:text-text-secondary-dark transition-colors hover:bg-white/5 hover:text-text-primary-light dark:hover:text-text-primary-dark focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark"
             >
               <SignOutIcon className="h-4 w-4 text-text-secondary-light dark:text-text-secondary-dark" />
               Log out

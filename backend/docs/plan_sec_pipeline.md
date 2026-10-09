@@ -66,15 +66,14 @@ backend/
 
 The values above are the code default (`SEC_RATE_LIMIT_PER_SECOND=10`). SEC's 10 req/s applies per
 user across every process, so production pins this bucket and edgartools' separate one
-(`EDGAR_RATE_LIMIT_PER_SEC`) to `1` on every Cloud Run job and on the private task worker; the API
-service follows in a second stage, once the insider endpoint fits that budget. See `docs/OPERATIONS.md`,
-"SEC budgets per process".
+(`EDGAR_RATE_LIMIT_PER_SEC`) to `1` on the API service, every Cloud Run job and the private task worker.
+See `docs/OPERATIONS.md`, "SEC budgets per process".
 
 ### Throttling Approach
 
 | Component | Value | Justification |
 |-----------|-------|---------------|
-| **Bucket Size** | `SEC_RATE_LIMIT_PER_SECOND` tokens (10 by default; 1 on the jobs and task worker, and on the API service after stage 2) | Match SEC's 10 req/sec |
+| **Bucket Size** | `SEC_RATE_LIMIT_PER_SECOND` tokens (10 by default; 1 on every production process) | Match SEC's 10 req/sec |
 | **Request Spacing** | 1/rate once the bucket is empty | `10 req/sec = 1 req/100ms` at the default |
 | **Burst Allowance** | Up to the bucket size at once (it starts full) | Handle batch operations |
 | **Backoff Base** | 1.0 second | Per `SEC_BASE_BACKOFF_SECONDS` config |

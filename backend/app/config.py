@@ -422,6 +422,13 @@ class Settings(BaseSettings):
     # their own form sets until a later phase. Toggle with ENABLE_FPI_FILINGS=true.
     ENABLE_FPI_FILINGS: bool = False
 
+    # Insider-activity endpoint (GET /api/companies/{ticker}/insiders). A cold load is a live
+    # edgartools fan-out of about two SEC requests per Form 4 (up to 60 Form 4s), which cannot fit the
+    # deploy-pinned 1 req/s budget (CODE RED D3, docs/OPERATIONS.md), so the endpoint answers 404
+    # unless this is set. Its company-page panel is dark too (frontend NEXT_PUBLIC_ENABLE_INSIDER_
+    # ACTIVITY); turning both on needs a budget-aware insider scan first (decision record 17).
+    ENABLE_INSIDER_ACTIVITY: bool = False
+
     # Restrict the public earnings calendar (and homepage "Reporting This Week" strip) to companies
     # in the S&P 500 or Nasdaq 100 — a tight, defensible, high-signal universe (~515 tickers) instead
     # of the full Alpha Vantage long tail. Membership is the committed app/data/index_membership.json
