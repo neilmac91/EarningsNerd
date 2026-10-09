@@ -185,7 +185,9 @@ export default function FilingViewer({ filingId, filingLabel, secUrl, embedded =
               A named tab stop, so the arrow keys scroll it from the top: Chromium
               made the scroller one on its own only while nothing inside it could
               take focus, and a wide table's scroll region can. Inset ring: an
-              outer one would sit over the pane's tabs and border. */}
+              outer one would sit over what borders the reader, the "Showing ·"
+              line and the pane's tabs above it and the "Original on SEC EDGAR"
+              footer's hairline below. */}
           <div
             ref={contentRef}
             role="region"

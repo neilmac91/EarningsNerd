@@ -415,13 +415,14 @@ Filing reader    <FilingViewer> (`.filing-reader`) fills its pane and never exce
                  name), the brand focus ring; a table that fits stays out of the tab order. The reader itself is a tab stop too (`role="region"`, named
                  "<filing> · filing text", `tabIndex={0}`, the ring inset as in MonthView), so the arrow keys
                  scroll it from the top: Chromium made the scroller one on its own only while nothing in it was
-                 focusable. A citation jump (highlightInDom) scrolls the reader and the table's box only, never
-                 the page (no scrollIntoView): smoothly, or in one jump under prefers-reduced-motion. The AI
-                 summary's `.markdown-body` is untouched. Gates: tests/unit/highlightInDom.spec.ts,
-                 tests/unit/readerTableRegionName.spec.ts, tests/e2e/filing-reader-wide-tables.spec.ts
-                 (synthetic fixture text, 1440x900 and a 390x844 touch sheet) and
-                 tests/e2e/copilot-highlight-css.spec.ts (a far-right table cell revealed in its own box in
-                 real layout, the page unmoved).
+                 focusable. In the Source pane's Filing tab, Tab goes Filing tab → reader → each scrolling
+                 table's region → "Original on SEC EDGAR". A citation jump (highlightInDom) scrolls the reader
+                 and the table's box only, never the page (no scrollIntoView): smoothly, or in one jump under
+                 prefers-reduced-motion. The AI summary's `.markdown-body` is untouched. Gates:
+                 tests/unit/highlightInDom.spec.ts, tests/unit/readerTableRegionName.spec.ts,
+                 tests/e2e/filing-reader-wide-tables.spec.ts (synthetic fixture text, 1440x900 and a 390x844
+                 touch sheet) and tests/e2e/copilot-highlight-css.spec.ts (a far-right table cell revealed in
+                 its own box in real layout, the page unmoved).
 
 Ask answer       <AskFilingAnswer>  — the SHIPPED copilot contract: status reading|streaming|done|error;
                  answer = GFM markdown (react-markdown + remark-gfm); markers [n] AND [F1]/[f1]/[F 1]
