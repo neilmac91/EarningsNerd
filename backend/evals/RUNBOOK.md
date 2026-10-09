@@ -829,9 +829,13 @@ regression can't hide from the harness).
 **Complete live acceptance (same-repository PR, explicit Ready for review opt-in):**
 `copilot-eval.yml` stays skipped while the PR is draft. After the full offline gate and three
 independent review lenses, the orchestrator marks it ready. The dedicated workflow responds to
-`ready_for_review` and subsequent non-draft pushes; existing summary CI does not claim an automatic
-restart on that event. Acceptance still requires its separate full summary artifact against the
-sole unchanged baseline.
+`ready_for_review` and subsequent non-draft pushes, but only for a pull request whose diff matches
+its `paths:` filter: the eval's import closure, its runtime data and the workflow itself, gated by
+`tests/unit/test_copilot_eval_paths.py`. A pull request whose files all fall outside the filter
+(routers, tests, scripts and migrations, for example) never starts it and needs no copilot-eval
+artifact. Existing summary CI does not claim an automatic restart on that event. Where the
+workflow runs, acceptance still requires its separate full summary artifact against the sole
+unchanged baseline.
 
 The workflow prepares six verified accessions/five issuers in a new file-backed SQLite database
 using only `copilot_sources.json` identities and the production SEC/excerpt/fact paths. It records

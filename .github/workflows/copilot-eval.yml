@@ -4,7 +4,39 @@ on:
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
     paths:
-      - 'backend/**'
+      # Only files that can change what the paid Copilot fidelity run measures: the directories the
+      # transitive import closure of evals.copilot_bootstrap and evals.copilot_runner lives in, the
+      # data directories under app/ (kept whether or not the eval reads them today; one merge a
+      # month touches them), the data the eval loads at runtime (prompts, the golden set and sources,
+      # the requirements and model env files it installs and loads) and this workflow. Gate:
+      # backend/tests/unit/test_copilot_eval_paths.py recomputes the closure from the run steps
+      # below and fails when a reachable module or runtime input falls outside this list (a file the
+      # eval names counts, Markdown and files outside backend/ included), when a file the eval
+      # cannot feel would trigger the run (backend/tests/**, scripts, migrations, routers,
+      # integrations, a top-level backend file that is tooling by shape, the summary eval's modules
+      # and data, and documentation Markdown directly under backend/docs/, evals/ or evals/baselines/
+      # or a file outside backend/ that the eval does not name; Markdown inside a filter directory,
+      # a README under app/ or prompts/, triggers by design), when a tracked file under backend/ is
+      # neither a trigger, a closure module nor a non-trigger of a stated category (Markdown in a new
+      # directory and a top-level file that is not tooling included), or when a pattern matches
+      # nothing the eval uses; it also reads every run step below as an allowlist, so an untraced
+      # program fails it.
+      # `backend/app/*` is every file directly under app/ (not its subdirectories).
+      - 'backend/app/*'
+      - 'backend/app/models/**'
+      - 'backend/app/schemas/**'
+      - 'backend/app/services/**'
+      - 'backend/app/utils/**'
+      - 'backend/app/data/**'
+      - 'backend/app/assets/**'
+      - 'backend/prompts/**'
+      - 'backend/evals/__init__.py'
+      - 'backend/evals/copilot_*'
+      - 'backend/evals/schema.py'
+      - 'backend/evals/scorers.py'
+      - 'backend/requirements.txt'
+      - 'backend/requirements-dev.txt'
+      - '.github/ai-model.env'
       - '.github/workflows/copilot-eval.yml'
 
 permissions:
