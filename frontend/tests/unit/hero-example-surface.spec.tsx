@@ -97,6 +97,15 @@ describe('pickEvidence', () => {
     ).toEqual({ excerpt: 'Located excerpt.', url: 'https://www.sec.gov/b' })
   })
 
+  it('reads a v1 summary, whose risks are under risk_factors, as the summary page does', () => {
+    const located = [{ supporting_evidence: 'Located in a v1 summary.', source_verified: true, source_url: 'https://www.sec.gov/c' }]
+    const v1 = { raw_summary: { risk_source_context_version: 1, sections: { risk_factors: located } } }
+    expect(pickEvidence(v1 as Parameters<typeof pickEvidence>[0])).toEqual({
+      excerpt: 'Located in a v1 summary.',
+      url: 'https://www.sec.gov/c',
+    })
+  })
+
   it('needs the source owner, drops a non-https link, and tolerates junk', () => {
     const located = [{ supporting_evidence: 'Located.', source_verified: true, source_url: 'javascript:alert(1)' }]
     expect(pickEvidence(summary(located, null))).toBeNull()

@@ -56,6 +56,13 @@ describe('selectRecommendedFiling', () => {
     expect(rec?.filing_type).toBe('10-K')
   })
 
+  it('breaks a same-day tie toward the higher id, as the company search does, in any list order', () => {
+    const earlier = filing(7, '6-K', '2026-03-02')
+    const later = filing(9, '6-K', '2026-03-02')
+    expect(selectRecommendedFiling([earlier, later])?.id).toBe(9)
+    expect(selectRecommendedFiling([later, earlier])?.id).toBe(9)
+  })
+
   it('does not mutate the caller\'s array', () => {
     const filings = [filing(1, '10-K', '2025-07-30'), filing(2, '10-Q', '2026-04-29')]
     const before = filings.map((f) => f.id)

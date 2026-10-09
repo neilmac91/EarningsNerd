@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, render, screen, within } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { SummaryDisplay } from '@/features/summaries/components/SummaryDisplay'
@@ -83,12 +83,12 @@ const REPORT: ChangeReport = {
   has_changes: true,
 }
 
-function display(initialChangeReport?: ChangeReport) {
+function display(initialChangeReport?: ChangeReport, summary: Summary = SUMMARY) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   const wrapper = ({ children }: { children: ReactNode }) => <QueryClientProvider client={client}>{children}</QueryClientProvider>
   return render(
     <SummaryDisplay
-      summary={SUMMARY}
+      summary={summary}
       filing={FILING}
       isPro={false}
       isSaved={false}
@@ -154,5 +154,39 @@ describe('the summary page outline', () => {
     display(REPORT)
     const outline = screen.getAllByRole('heading', { level: 2 }).map((h) => h.textContent)
     expect(outline).toEqual(['Executive assessment', 'Financial highlights', 'What changed', 'Risks', 'Ask AAPL’s 10-K anything'])
+  })
+})
+
+describe('under a legacy markdown summary', () => {
+  // rendered_sections: [] takes the markdown fallback, where the change report is a card under the
+  // markdown. The company page's "Open change report" (/filing/{id}#what-changed) still lands on it.
+  const LEGACY = { ...SUMMARY, rendered_sections: [] } as Summary
+  const jsdomScrollIntoView = Element.prototype.scrollIntoView
+  // jsdom has no scrollIntoView; record which element each call scrolls to.
+  const scrolledTo = () => vi.mocked(Element.prototype.scrollIntoView).mock.contexts.map((el) => (el as Element).id)
+
+  beforeEach(() => {
+    window.history.replaceState(null, '', '#what-changed')
+    Element.prototype.scrollIntoView = vi.fn()
+  })
+  afterEach(() => {
+    window.history.replaceState(null, '', window.location.pathname)
+    Element.prototype.scrollIntoView = jsdomScrollIntoView
+  })
+
+  it('gives the card the id the link names, and lands on it', () => {
+    api.getWhatChanged.mockReturnValue(new Promise(() => {}))
+    display(REPORT, LEGACY)
+    expect(screen.queryByRole('navigation', { name: 'Summary sections' })).toBeNull()
+    expect(screen.getByRole('region', { name: 'What changed' })).toHaveAttribute('id', 'what-changed')
+    expect(scrolledTo()).toEqual(['what-changed'])
+  })
+
+  it('lands on it when the report arrives after the summary', async () => {
+    api.getWhatChanged.mockResolvedValue(REPORT)
+    display(undefined, LEGACY)
+    expect(scrolledTo()).toEqual([])
+    await screen.findByRole('region', { name: 'What changed' })
+    expect(scrolledTo()).toEqual(['what-changed'])
   })
 })
