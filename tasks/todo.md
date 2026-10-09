@@ -28,8 +28,8 @@ deleting its line in the PR that closes it; a handover is a refresh of "Where th
   the founder moved `backfill-facts-weekly` to `30 7 * * 1`; #1146, #1147, #1148 and #1150 (design
   critique 2026-10, parts 1–4: the filing page, the company page, the homepage, loading and motion),
   #1154 (architecture docs), #1155 (record 19), #1136 (the hot-module refactor plan, lane D: the
-  founder delegated its decisions 1 and 3–9 as a standing authorization) and #1158, #1159, #1160 and
-  #1162 (its Wave 0 test anchors T0, F0, X0 and I0) merged on 2026-10-09; record 19
+  founder delegated its decisions 1 and 3–9 as a standing authorization) and #1158–#1162 (its Wave 0
+  test anchors T0, F0, X0, O0 and I0) merged on 2026-10-09; record 19
   (`code-red-20261004/runtime/control/DECISIONS-19.md`) is the latest CODE RED record, and it notes
   for the CPO that `eval-baseline`'s `mean_citation_fidelity` read 0.83–0.86 against its 0.9648
   baseline on all six runs of 2026-10-09 (advisory).
@@ -54,7 +54,7 @@ Founder:
 - [ ] Publish an archive repository or release asset for the removed `frontend/design/landing-redesign` export (a public-account action); until then its 34 files are preserved at commit `02628e5`.
 
 Engineering:
-- [ ] Hot-module refactor, lane D, under the founder's standing authorization (`refactor-plan-2026-10.md`; ledger, "2026-10-09 — Hot-module refactor", which states what it does not cover): W0.G (#1156) and the anchor PRs C0 (#1157) and O0 (#1161), then Wave 1 one verified deploy at a time; outside the plan, the Rule-7 follow-up and Wave 0's three behaviour bugs, each with its anchor updated in the same PR.
+- [ ] Hot-module refactor, lane D, under the founder's standing authorization (`refactor-plan-2026-10.md`; ledger, "2026-10-09 — Hot-module refactor", which states what it does not cover and lists Wave 0's PRs): the rest of Wave 0 (the size-budget gate W0.G and the anchor PRs not yet merged), then Wave 1 one verified deploy at a time; outside the plan, the Rule-7 follow-up and Wave 0's three behaviour bugs, each with its anchor updated in the same PR.
 - [ ] CODE RED chief: after Monday 2026-10-12, read the 06:00–08:00 UTC window, the first with the whole fleet pinned and `backfill-facts` at 07:30, with the read-only `capacity-readout`: SEC errors, breaker opens, job outcomes (`DECISIONS-19.md`).
 - [ ] CODE RED chief (small): `ops.yml` `describe-jobs` and `describe-service` print the two SEC pin values for every job and the task worker, with the visibility test extended; no operation reads them back today (`DECISIONS-19.md`).
 - [ ] Design critique 2026-10, what remains after its four PRs (#1146, #1147, #1148, #1150): outside the repo, P-01 republish the design-system package in Claude Design; in it, the three allowlisted full-page spinner screens wait for their pages' next rework (ledger, "2026-10-09 — Design critique 2026-10" sections).
