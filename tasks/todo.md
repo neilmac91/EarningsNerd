@@ -23,7 +23,10 @@ deleting its line in the PR that closes it; a handover is a refresh of "Where th
   #1129 and #1130 (CODE RED record 16 and the prompt-candidate custody kit) merged on 2026-10-08;
   #1131 (D3 stage 1, deployed), #1132 (record 17), #1145 (the backend suite made hermetic, with
   `tests/support/network_gate.py` as its gate) and #1149 (record 18) merged on 2026-10-08/09;
-  record 18 (`code-red-20261004/runtime/control/DECISIONS-18.md`) is the latest CODE RED record.
+  #1151 (D3 stage 2, option A: the API service pinned, the insider endpoint off behind a
+  server-side switch, the fuzzy-search fallback deleted) merged and deployed on 2026-10-09, after
+  the founder moved `backfill-facts-weekly` to `30 7 * * 1`; record 18
+  (`code-red-20261004/runtime/control/DECISIONS-18.md`) is the latest CODE RED record.
 - Review and models: PRs are reviewed by risk tier (`AGENTS.md` §5); `review-gate.yml` needs a Codex
   review or a `Review override:` line; Codex reviews again since 2026-10-07, so the override
   exception rests while it does (CODE RED record 15). Marking a PR that
@@ -34,20 +37,17 @@ deleting its line in the PR that closes it; a handover is a refresh of "Where th
 
 Founder:
 - [ ] Optional, no deadline: relay record 16's custody step A (five metadata fields) once; on outcome B, the one line "I adopt record 16's form (b) for R1" (`code-red-20261004/runtime/control/DECISIONS-16.md`; the record-14 relay is replaced by it, and the D3 patch of `DECISIONS-08.md` is applied by your instruction, staged).
-- [ ] Move `backfill-facts-weekly` to `30 7 * * 1` before the D3 stage-2 PR merges (`gcloud scheduler jobs update http backfill-facts-weekly --location=us-west1 --schedule="30 7 * * 1"`; check with `gcloud scheduler jobs describe backfill-facts-weekly --location=us-west1 --format="value(schedule,timeZone)"`, expect `30 7 * * 1` and `Etc/UTC`); tell the chief (`DECISIONS-17.md`, `DECISIONS-18.md`).
-- [ ] Durable-tasks rollout owner (the rollout with D3 stage 1 confirmed intended): run the post-deploy checks in `docs/DEPLOYMENT.md` (authenticated task success, retries and errors, API latency, SQL connections) (`DECISIONS-17.md`).
+- [ ] Durable-tasks rollout owner (PR #1122's Cloud Tasks rollout, live with request-based CPU since D3 stage 1's deploy and confirmed intended): run the post-deploy checks in `docs/DEPLOYMENT.md` (authenticated task success, retries and errors, API latency, SQL connections) (`DECISIONS-17.md`).
 - [ ] Optional: set the repository's squash default to "Default to pull request title and description", so a squash merge without an explicit message carries the reviewed PR text (`DECISIONS-18.md`, chief defect 7).
 - [ ] With Astra: the H20-only packing/closure refinement by the registered source-only planner (`DECISIONS-04.md`, `DECISIONS-05.md`; ledger, CODE RED section, which records the implementation hold).
 - [ ] Console actions from the private security remediation plan: credential rotation and push protection, removing the old revision tags, scoping the WIF trust to `main` (PR #1069 follow-up; not code).
 - [ ] Decide the founder decisions listed in the agent-workflow-cost PR (review tiers, repository visibility, the review-gate override, `tasks/` retention).
-- [ ] Cloud Tasks delivery (PR #1122): provision and verify delivery before switching CPU billing; keep minimum one instance and 1 GiB. Activation needs your specific IAM exception and a successful authenticated empty delivery probe (ledger, "2026-10-07 — Google Cloud cost optimisation").
 - [ ] Upstream DS-source sync (DS-01, P0), external work in the DS source project: apply the upstream-sync notes §1–15 (the ledger cites `tasks/upstream-sync.md`, which is not in the repository), regenerate `_ds_bundle.js`, republish and link the package rather than re-vendoring (ledger, "2026-10-02 — design-v3 remediation series").
 - [ ] Publish an archive repository or release asset for the removed `frontend/design/landing-redesign` export (a public-account action); until then its 34 files are preserved at commit `02628e5`.
 
 Engineering:
-- [ ] D3 stage-2 PR, option A (the insider endpoint behind a server-side switch, off unless set; the always-failing fuzzy-search fallback deleted; the API service pinned; the gate's staged exemption removed; docs and the schedule line updated; the deploy job printing its variable-driven switches, with a test): implemented, reviewed and held on a local branch until record 18 merged, which it has (`76d45732`); every push that fires `eval-baseline` is reserved at USD 0.730000 first (`DECISIONS-17.md`, `DECISIONS-18.md`).
+- [ ] CODE RED chief: confirm #1151's pins after its deploy (`deploy-backend` green on 2026-10-09 at 11:40 UTC, run 37924352506): Ops `describe-service` prints both SEC limits and `ENABLE_INSIDER_ACTIVITY` for the serving revision and the pregenerate job, `describe-jobs` lists the env names on each job, and admin `/metrics` shows `sec_rate_limiter.requests_per_second` (`docs/OPERATIONS.md`, "SEC budgets per process").
 - [ ] Workflow owner: `review-gate.yml:61` re-runs the gate on any comment containing "@codex review", Codex's own summary boilerplate included, which cancelled a required run on PR #1131 (`DECISIONS-17.md`); exclude the Codex connector's comments.
-- [ ] Docs-vs-config: `docs/OPERATIONS.md` alert threshold `database.checked_out > 8` is unreachable with the deployed pool 4 / overflow 0 (handback B33); fix the doc.
 - [ ] Security review packages WP-07 onward, each in its own PR (PR #1069 series).
 - [ ] Frontend deferred, named: EN-04, EN-05 (a) the desktop close path for a launcher-, ⌘K-, "/"-, CTA- or coachmark-opened pane and (c) the logo, theme toggle and "← Back" focus rings (part (b), a failed generation's focus, merged in #1120), focus after a generation that succeeds, the desktop pane's unscrolled overhang for a chip-opened Filing tab, risk-card headlines, detector and doc cleanups, the harness `verify_probe.mjs` / `verify_trace.mjs` consent seed (ledger, "2026-10-06 — EN-02"); from the EN-01 follow-up and EN-03 sections (merged 2026-10-08): memoizing CopilotMessage's
   `ReactMarkdown` components (safe with `isReturnTarget`), `GenericTable` at phone width and a server-side
