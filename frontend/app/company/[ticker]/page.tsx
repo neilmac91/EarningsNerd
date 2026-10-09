@@ -4,6 +4,7 @@ import { notFound, permanentRedirect } from 'next/navigation'
 import CompanyPageClient from './page-client'
 import { fetchCompanyServer, fetchCompanyFilingsServer } from '@/lib/serverApi'
 import type { Company } from '@/features/companies/api/companies-api'
+import { edgarCompanyUrl } from '@/features/companies/lib/edgar'
 
 const SITE_URL = 'https://www.earningsnerd.io'
 
@@ -80,7 +81,7 @@ const buildJsonLd = (company: Company) => ({
       tickerSymbol: company.ticker,
       url: `${SITE_URL}/company/${company.ticker}`,
       ...(company.cik
-        ? { sameAs: [`https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&CIK=${company.cik}`] }
+        ? { sameAs: [edgarCompanyUrl(company.cik)] }
         : {}),
     },
   ],

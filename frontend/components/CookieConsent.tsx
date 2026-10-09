@@ -258,7 +258,7 @@ export default function CookieConsent({ onPreferencesChanged }: CookieConsentPro
                   }
                   aria-labelledby="cookie-analytics-title"
                   aria-describedby="cookie-analytics-desc"
-                  className="h-5 w-5 rounded border-border-light text-brand-strong focus:shadow-ring-brand"
+                  className="h-5 w-5 rounded border-border-light text-brand-strong focus:ring-0 focus:ring-offset-0 focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark"
                 />
               </div>
             </div>
@@ -289,7 +289,7 @@ export default function CookieConsent({ onPreferencesChanged }: CookieConsentPro
                   }
                   aria-labelledby="cookie-recording-title"
                   aria-describedby="cookie-recording-desc"
-                  className="h-5 w-5 rounded border-border-light text-brand-strong focus:shadow-ring-brand"
+                  className="h-5 w-5 rounded border-border-light text-brand-strong focus:ring-0 focus:ring-offset-0 focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark"
                 />
               </div>
             </div>
@@ -298,7 +298,7 @@ export default function CookieConsent({ onPreferencesChanged }: CookieConsentPro
 
         <p className="mt-4 text-xs text-text-secondary-light dark:text-text-secondary-dark">
           For more information, see our{' '}
-          <Link href="/privacy" className="text-brand-strong dark:text-brand-strong-dark hover:underline">
+          <Link href="/privacy" className="text-brand-strong dark:text-brand-strong-dark hover:underline focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark">
             Privacy Policy
           </Link>
           .
@@ -342,7 +342,7 @@ export default function CookieConsent({ onPreferencesChanged }: CookieConsentPro
                 <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark">
                   We use cookies to enhance your experience and analyze site usage. You can choose
                   which cookies to accept.{' '}
-                  <Link href="/privacy" className="text-brand-strong dark:text-brand-strong-dark hover:underline">
+                  <Link href="/privacy" className="text-brand-strong dark:text-brand-strong-dark hover:underline focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark">
                     Learn more
                   </Link>
                 </p>
