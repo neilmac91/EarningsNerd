@@ -2,7 +2,8 @@
 
 The hot-module refactor (``tasks/refactor-plan-2026-10.md``) proves every "pure move" with this tool,
 so each verdict it can return is pinned here on small synthetic modules: an honest move passes, and a
-changed token, a dropped symbol, a duplicated definition and a changed class member each fail.
+changed token, a dropped symbol, a duplicated definition, a changed class member, a changed arm of a
+rebound name and an added import-time side effect each fail; a disclosed delta passes with its diff shown.
 """
 from tests.support.ast_move_proof import compare, render
 
@@ -91,3 +92,41 @@ def test_a_symbol_defined_twice_fails_until_disclosed():
 def test_a_changed_class_member_is_named_by_its_qualified_key():
     report = compare(OLD, _move(**{"app/x/service.py": SERVICE.replace("retries = 3", "retries = 4")}))
     assert list(report.changed) == ["Service.retries"]
+
+
+FALLBACK = '''try:
+    from json_repair import repair_json
+    _HAS_JSON_REPAIR = True
+except ImportError:
+    _HAS_JSON_REPAIR = False
+'''
+
+
+def test_every_definition_of_a_rebound_name_is_compared():
+    """The copilot_service.py:57-62 shape: flipping the try arm alone must not pass as a pure move."""
+    assert compare(FALLBACK, {"app/x/repair.py": FALLBACK}).ok
+    flipped = FALLBACK.replace("_HAS_JSON_REPAIR = True", "_HAS_JSON_REPAIR = False")
+    report = compare(FALLBACK, {"app/x/repair.py": flipped})
+    assert list(report.changed) == ["_HAS_JSON_REPAIR"]
+    assert "+_HAS_JSON_REPAIR = False" in report.changed["_HAS_JSON_REPAIR"]
+
+
+def test_an_added_import_time_side_effect_fails_until_disclosed():
+    files = _move(**{"app/x/helpers.py": HELPERS + "\nsettings.STRICT = False\nregister(clip)\n"})
+    report = compare(OLD, files)
+    assert not report.ok
+    assert report.side_effects == {"effect:settings.STRICT": "app/x/helpers.py",
+                                   "expr:register(clip)": "app/x/helpers.py"}
+    disclosed = compare(OLD, files, frozenset({"effect:settings.STRICT", "expr:register(clip)"}))
+    assert disclosed.ok
+    assert disclosed.allowed == {"effect:settings.STRICT": "added in app/x/helpers.py",
+                                 "expr:register(clip)": "added in app/x/helpers.py"}
+
+
+def test_an_allowed_change_still_prints_its_diff():
+    report = compare(OLD, _move(**{"app/x/helpers.py": HELPERS.replace("LIMIT = 8_000", "LIMIT = 9_000")}),
+                     frozenset({"LIMIT"}))
+    assert report.ok
+    rendered = render(report)
+    assert "ALLOWED    LIMIT (disclosed delta)" in rendered
+    assert "-LIMIT = 8000" in rendered and "+LIMIT = 9000" in rendered

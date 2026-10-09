@@ -12,15 +12,21 @@ every docstring still counts), and diff per symbol name. Run it from ``backend/`
 The old file is read from ``--base`` (a git ref) and the new files from ``--head`` (default ``HEAD``),
 or from the working tree with ``--worktree``. A symbol is a module-level function, class (its header:
 decorators, bases and keywords), class member (method or class attribute, keyed ``Class.member``),
-assignment (keyed by its target names) or other module-level expression statement. Statements inside
-module-level ``if``/``try``/``with``/``for``/``while`` blocks are read as module-level. Import
-statements and module docstrings are not symbols: a move rewrites them by design.
+assignment (keyed by its target names; one that sets an attribute or item, such as
+``settings.FLAG = False``, keys as ``effect:<target>``) or other module-level expression statement
+(``expr:<text>``). Statements inside module-level ``if``/``try``/``with``/``for``/``while`` blocks are
+read as module-level. A name bound more than once in one file (a ``try``/``except`` fallback, an
+``if``/``else`` pair, a property and its setter) keeps every definition in source order, so a change to
+any one of them is CHANGED. Import statements and module docstrings are not symbols: a move rewrites
+them by design.
 
 Verdicts: MISSING (defined before, nowhere after), CHANGED (the normalised text differs), DUPLICATE
 (defined in more than one new file, e.g. a ``logger`` per sub-module, whose logger NAME changes with
-the module) and ADDED (new symbols, such as the helpers a split introduces, or a façade's
-``__all__``). The exit status is 0 only when nothing is MISSING, CHANGED or DUPLICATE beyond the
-symbols passed with ``--allow``; each allowed symbol is a disclosed delta the PR body must list.
+the module), SIDE EFFECT (a NEW ``effect:`` or ``expr:`` statement: code that runs at import, which a
+move never adds) and ADDED (other new symbols, such as the helpers a split introduces, or a façade's
+``__all__``). The exit status is 0 only when nothing is MISSING, CHANGED, DUPLICATE or SIDE EFFECT
+beyond the symbols passed with ``--allow``; each allowed symbol is a disclosed delta the PR body must
+list, and its diff is printed with it.
 """
 from __future__ import annotations
 
@@ -68,10 +74,25 @@ def _is_docstring(node: ast.stmt) -> bool:
     return isinstance(node, ast.Expr) and isinstance(node.value, ast.Constant) and isinstance(node.value.value, str)
 
 
+def _assignment_key(targets: list[ast.expr]) -> str:
+    """Key an assignment by its target names; one that sets an attribute or an item is a side effect."""
+    names = [n for t in targets for n in _target_names(t)]
+    key = ",".join(names)
+    return key if all(n.isidentifier() for n in names) else "effect:" + key
+
+
+def _is_side_effect(name: str) -> bool:
+    return name.startswith(("effect:", "expr:"))
+
+
 def symbols(source: str) -> dict[str, str]:
     """Map every symbol the source defines to its normalised (``ast.unparse``) text."""
     tree = ast.parse(source)
     found: dict[str, str] = {}
+
+    def put(key: str, text: str) -> None:
+        found[key] = f"{found[key]}\n{text}" if key in found else text  # every definition, in source order
+
     body = list(tree.body)
     if body and _is_docstring(body[0]):
         body = body[1:]  # the module docstring is rewritten by a move by design
@@ -79,7 +100,7 @@ def symbols(source: str) -> dict[str, str]:
         if isinstance(node, (ast.Import, ast.ImportFrom)):
             continue
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
-            found[node.name] = ast.unparse(node)
+            put(node.name, ast.unparse(node))
         elif isinstance(node, ast.ClassDef):
             members = [m for m in _flatten(node.body) if not isinstance(m, (ast.Import, ast.ImportFrom))]
             header = ast.ClassDef(
@@ -87,7 +108,7 @@ def symbols(source: str) -> dict[str, str]:
                 body=[ast.Pass()], decorator_list=node.decorator_list,
                 **({"type_params": node.type_params} if hasattr(node, "type_params") else {}),
             )
-            found[node.name] = ast.unparse(ast.fix_missing_locations(header))
+            put(node.name, ast.unparse(ast.fix_missing_locations(header)))
             for member in members:
                 if isinstance(member, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
                     key = member.name
@@ -99,16 +120,16 @@ def symbols(source: str) -> dict[str, str]:
                     continue
                 else:
                     key = "expr:" + ast.unparse(member)
-                found[f"{node.name}.{key}"] = ast.unparse(member)
+                put(f"{node.name}.{key}", ast.unparse(member))
         elif isinstance(node, ast.Assign):
-            found[",".join(n for t in node.targets for n in _target_names(t))] = ast.unparse(node)
+            put(_assignment_key(node.targets), ast.unparse(node))
         elif isinstance(node, (ast.AnnAssign, ast.AugAssign)):
-            found[",".join(_target_names(node.target))] = ast.unparse(node)
+            put(_assignment_key([node.target]), ast.unparse(node))
         elif isinstance(node, ast.Pass):
             continue
         else:
             text = ast.unparse(node)
-            found["expr:" + text] = text
+            put("expr:" + text, text)
     return found
 
 
@@ -118,12 +139,27 @@ class Report:
     missing: list[str] = field(default_factory=list)
     changed: dict[str, str] = field(default_factory=dict)  # symbol -> unified diff
     duplicate: dict[str, list[str]] = field(default_factory=dict)  # symbol -> new files
+    side_effects: dict[str, str] = field(default_factory=dict)  # new import-time statement -> new file
     added: dict[str, str] = field(default_factory=dict)  # symbol -> new file
-    allowed: list[str] = field(default_factory=list)
+    allowed: dict[str, str] = field(default_factory=dict)  # disclosed symbol -> what changed
 
     @property
     def ok(self) -> bool:
-        return not (self.missing or self.changed or self.duplicate)
+        return not (self.missing or self.changed or self.duplicate or self.side_effects)
+
+
+def _delta(name: str, text: str | None, homes: list[str], new_by_file: dict[str, dict[str, str]]) -> str:
+    """What happened to one symbol, for a disclosed (allowed) delta."""
+    if text is None:
+        return f"added in {', '.join(homes)}"
+    if not homes:
+        return "missing"
+    if len(homes) > 1:
+        return f"defined in {', '.join(homes)}"
+    new_text = new_by_file[homes[0]][name]
+    if new_text == text:
+        return "unchanged"
+    return "\n".join(difflib.unified_diff(text.splitlines(), new_text.splitlines(), "old", homes[0], lineterm="", n=1))
 
 
 def compare(old_source: str, new_sources: dict[str, str], allow: frozenset[str] = frozenset()) -> Report:
@@ -138,7 +174,7 @@ def compare(old_source: str, new_sources: dict[str, str], allow: frozenset[str] 
     for name, text in old.items():
         homes = where.get(name, [])
         if name in allow:
-            report.allowed.append(name)
+            report.allowed[name] = _delta(name, text, homes, new_by_file)
             continue
         if not homes:
             report.missing.append(name)
@@ -153,11 +189,16 @@ def compare(old_source: str, new_sources: dict[str, str], allow: frozenset[str] 
             continue
         report.moved += 1
     for name, homes in where.items():
-        if name not in old:
-            if len(homes) > 1 and name not in allow:
-                report.duplicate[name] = homes
-            else:
-                report.added[name] = homes[0]
+        if name in old:
+            continue
+        if name in allow:
+            report.allowed[name] = _delta(name, None, homes, new_by_file)
+        elif len(homes) > 1:
+            report.duplicate[name] = homes
+        elif _is_side_effect(name):
+            report.side_effects[name] = homes[0]
+        else:
+            report.added[name] = homes[0]
     return report
 
 
@@ -180,15 +221,17 @@ def render(report: Report) -> str:
         lines.append(f"CHANGED    {name}\n{diff}")
     for name, homes in sorted(report.duplicate.items()):
         lines.append(f"DUPLICATE  {name}: {', '.join(homes)}")
+    for name, home in sorted(report.side_effects.items()):
+        lines.append(f"SIDE EFFECT {name} ({home}): runs at import; a move never adds one")
     for name, home in sorted(report.added.items()):
         lines.append(f"ADDED      {name} ({home})")
-    for name in sorted(report.allowed):
-        lines.append(f"ALLOWED    {name} (disclosed delta)")
+    for name, delta in sorted(report.allowed.items()):
+        lines.append(f"ALLOWED    {name} (disclosed delta)\n{delta}")
     verdict = "OK" if report.ok else "FAILED"
     lines.append(
         f"pure move: {verdict} ({report.moved} symbols identical, {len(report.missing)} missing, "
-        f"{len(report.changed)} changed, {len(report.duplicate)} duplicated, {len(report.added)} added, "
-        f"{len(report.allowed)} allowed)"
+        f"{len(report.changed)} changed, {len(report.duplicate)} duplicated, "
+        f"{len(report.side_effects)} side effects, {len(report.added)} added, {len(report.allowed)} allowed)"
     )
     return "\n".join(lines)
 

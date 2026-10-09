@@ -6,33 +6,40 @@ Each module has one budget file, ``tests/fixtures/size_budgets/<module>.json``, 
 module edits only its own budget file. The gate enforces:
 
 * file ceilings: each of the six base files stays at or under its ``files`` row; a NEW module in one of
-  the refactor's destinations (``FAMILIES``) is held to 600 lines;
-* function ceilings: every function in a budgeted file stays at or under its ``functions`` row, or at
-  or under 80 lines when it has none;
+  the refactor's destinations (``FAMILIES``) is held to 600 lines. A base file's row above its W0.G
+  value (``W0G_FILE_CEILINGS``) needs a dated raise line in the note;
+* function ceilings (decision 6): every function in a budgeted file stays at or under 80 lines. Only the
+  twenty long functions in ``FROZEN_LONG_FUNCTIONS`` may have a ``functions`` row, one row each, never
+  above the W0.G size frozen there, so letting any other function past 80, or a long one past its W0.G
+  size, means editing this gate. The freeze follows a long function anywhere in ``app/``: a function
+  bearing one of the twenty names stays at or under that name's W0.G size wherever it lives;
 * the ratchet: a row whose file or function no longer exists is stale, as is a row more than 100 file
   lines or 20 function lines above the actual size, or a function row at or under 80 (the default
   already covers it);
-* the freeze (decision 6): ``FROZEN_LONG_FUNCTIONS`` below holds the twenty long functions' W0.G sizes;
-  a row above its frozen value fails, so raising one means editing this gate;
 * the façade contract: every name a base file defined at W0.G (module-level names, and the members of
-  its module-level classes) still resolves on the base module; once a budget file maps a module-level
-  name to the module that now defines it, the façade's binding must be that module's object;
+  its module-level classes) still resolves on the base module. A module-level name with no mapping must
+  still be defined in the base file itself; once a move maps it to the module that now defines it, the
+  façade's binding must be that module's object;
 * ``forbidden_imports`` rows ``[file glob, module]`` or ``[file glob, module, "exact"]``: no import
   statement in a matching file, lazy imports inside functions included and relative imports resolved
   against the file's package, may import that module (or, without ``"exact"``, anything under it).
 
 Counting rule (pinned by ``test_the_counting_rule``): a file's size is its count of newline bytes (what
 ``wc -l`` prints). A function's size is ``end_lineno - lineno + 1`` from its ``def`` line, decorators
-excluded, blanks, comments and docstring included, for every ``def``/``async def`` at module level or
-in a module-level class body, including those inside module-level ``if``/``try``/``with``/``for``/
-``while`` blocks; nested functions and lambdas count inside their parent.
+excluded, blanks, comments and docstring included, for every ``def``/``async def`` that is not inside
+another function: at module level, in a class body (a nested class keys as ``Outer.Inner.name``), and
+inside any block (``if``/``try``/``except``/``with``/``for``/``while``/``match``). Nested functions and
+lambdas count inside their parent.
 
 To change a ceiling: lower it in the commit that shrinks the code; a move re-keys a function row to its
-new path at the same number. To raise a FILE ceiling, append a dated line to the budget file's ``note``
-(the PR, the row, old -> new, and why extraction was not possible in that PR) and add a "Ceiling raise"
-paragraph to the PR body. A long-function ceiling never rises. Stated limits: dynamic imports
-(``importlib``, ``__import__``) are invisible to the import rows, and names bound only by import
-statements are not part of the façade contract (whoever imports such a name fails on its own import).
+new path at the same number. To raise a FILE ceiling, append a dated raise line to the budget file's
+``note``, ``YYYY-MM-DD PR #N: <path> <old> -> <new> (<why extraction was not possible>)``, and add a
+"Ceiling raise" paragraph to the PR body. A long function's ceiling never goes above its W0.G size.
+Stated limits: dynamic imports (``importlib``, ``__import__``) and attribute access through a parent
+package's import (``import app.services.edgar.compat``, then ``app.services.edgar.xbrl_service.x``) are
+invisible to the import rows; names bound only by import statements are not part of the façade contract
+(whoever imports such a name fails on its own import); removing a name from ``names``, and a file raise
+that stays at or under the W0.G value, are not machine-checked: the note records why, and review checks it.
 """
 from __future__ import annotations
 
@@ -40,6 +47,7 @@ import ast
 import fnmatch
 import importlib
 import json
+import re
 from pathlib import Path
 
 import pytest
@@ -78,8 +86,19 @@ FAMILIES: dict[str, tuple[str, tuple[str, ...]]] = {
     "instance_extractor": ("app/services/edgar/instance_extractor.py", ("app/services/edgar/instance/",)),
 }
 
+# The six base files' ceilings at W0.G. A files row above its value needs a dated raise line in the note.
+W0G_FILE_CEILINGS: dict[str, int] = {
+    "app/services/copilot_service.py": 1934,
+    "app/services/facts_service.py": 2153,
+    "app/services/trend_analysis_service.py": 1923,
+    "app/services/openai_service.py": 1252,
+    "app/services/edgar/xbrl_service.py": 1316,
+    "app/services/edgar/instance_extractor.py": 1229,
+}
+
 # Decision 6: the twenty long functions' sizes at W0.G, keyed by their own name (a row re-keyed to a new
-# path or class keeps its freeze). A budget row for one of these names may only go DOWN.
+# path or class keeps its freeze). These are the only names that may have a functions row, and a row
+# may never go above the size here.
 FROZEN_LONG_FUNCTIONS: dict[str, int] = {
     "_answer_filing_question_attempt": 297,
     "_resolve_citations": 114,
@@ -103,48 +122,58 @@ FROZEN_LONG_FUNCTIONS: dict[str, int] = {
     "get_xbrl_data": 83,
 }
 
-_COMPOUND = (ast.If, ast.Try, ast.With, ast.AsyncWith, ast.For, ast.AsyncFor, ast.While, ast.TryStar)
 _RAISE_HELP = (
-    "extract code instead of growing it; to raise a FILE ceiling, append a dated line to the budget "
-    "file's note (PR, row, old -> new, why extraction was not possible) and add a 'Ceiling raise' "
-    "paragraph to the PR body. A long-function ceiling never rises (tasks/refactor-plan-2026-10.md, "
-    "decision 6)."
+    "extract code instead of growing it. To raise a FILE ceiling, append a dated raise line to the budget "
+    "file's note, 'YYYY-MM-DD PR #N: <path> <old> -> <new> (<why extraction was not possible>)', and add a "
+    "'Ceiling raise' paragraph to the PR body. A function stays at or under 80 lines, and a long "
+    "function's ceiling never goes above its W0.G size (tasks/refactor-plan-2026-10.md, decision 6)."
 )
+_SCOPES = (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef, ast.Lambda,
+           ast.ListComp, ast.SetComp, ast.DictComp, ast.GeneratorExp)
 
 
 def _load_budgets() -> dict[str, dict]:
     return {path.stem: json.loads(path.read_text()) for path in sorted(BUDGET_DIR.glob("*.json"))}
 
 
-def _flatten(body: list[ast.stmt]) -> list[ast.stmt]:
-    """Statements at this level, reading through compound blocks (but never into a def or class)."""
-    out: list[ast.stmt] = []
-    for node in body:
-        if isinstance(node, _COMPOUND):
-            for name in ("body", "orelse", "finalbody"):
-                out.extend(_flatten(getattr(node, name, []) or []))
-            for handler in getattr(node, "handlers", []) or []:
-                out.extend(_flatten(handler.body))
-        else:
-            out.append(node)
-    return out
-
-
 def function_sizes(source: str) -> dict[str, int]:
-    """``name`` or ``Class.name`` -> size, under the counting rule in the module docstring."""
+    """``name``, ``Class.name`` or ``Outer.Inner.name`` -> size, under the counting rule above."""
     sizes: dict[str, int] = {}
 
-    def record(key: str, node: ast.FunctionDef | ast.AsyncFunctionDef) -> None:
-        sizes[key] = max(sizes.get(key, 0), node.end_lineno - node.lineno + 1)
+    def visit(node: ast.AST, prefix: str) -> None:
+        for child in ast.iter_child_nodes(node):
+            if isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                key = prefix + child.name  # its body, nested defs included, counts inside it
+                sizes[key] = max(sizes.get(key, 0), child.end_lineno - child.lineno + 1)
+            elif isinstance(child, ast.ClassDef):
+                visit(child, f"{prefix}{child.name}.")
+            elif isinstance(child, (ast.stmt, ast.match_case, ast.excepthandler)):
+                visit(child, prefix)
 
-    for node in _flatten(ast.parse(source).body):
-        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
-            record(node.name, node)
-        elif isinstance(node, ast.ClassDef):
-            for member in _flatten(node.body):
-                if isinstance(member, (ast.FunctionDef, ast.AsyncFunctionDef)):
-                    record(f"{node.name}.{member.name}", member)
+    visit(ast.parse(source), "")
     return sizes
+
+
+def defined_names(source: str) -> set[str]:
+    """The module-level names the source binds itself (def, class, assignment target), in any block."""
+    names: set[str] = set()
+
+    def visit(node: ast.AST) -> None:
+        for child in ast.iter_child_nodes(node):
+            if isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+                names.add(child.name)
+            elif isinstance(child, ast.Name) and isinstance(child.ctx, ast.Store):
+                names.add(child.id)
+            elif not isinstance(child, _SCOPES):
+                visit(child)
+
+    visit(ast.parse(source))
+    return names
+
+
+def raise_line(path: str, ceiling: int) -> re.Pattern[str]:
+    """A dated raise line that names the file and its new ceiling (the format in ``_RAISE_HELP``)."""
+    return re.compile(rf"\b\d{{4}}-\d{{2}}-\d{{2}} PR #\d+: {re.escape(path)} \d+ -> {ceiling}\b")
 
 
 def _line_count(rel_path: str) -> int:
@@ -299,22 +328,51 @@ def test_ceilings_ratchet_and_never_go_stale(budgets, stem):
     assert stale == []
 
 
-def test_long_function_ceilings_never_rise(budgets):
-    raised = []
+def test_function_rows_are_the_frozen_twenty_and_never_rise(budgets):
+    problems, keyed = [], {}
     for stem, data in budgets.items():
         for key, ceiling in data["functions"].items():
             name = key.partition("::")[2].rpartition(".")[2]
             frozen = FROZEN_LONG_FUNCTIONS.get(name)
-            if frozen is not None and ceiling > frozen:
-                raised.append(f"{stem}.json {key}: {ceiling} is above its W0.G size {frozen}. A long "
-                              "function's ceiling never rises: extract a helper first (decision 6).")
-    assert raised == []
+            if frozen is None:
+                problems.append(f"{stem}.json {key}: only the twenty W0.G long functions have rows; every other "
+                                f"function is held to {NEW_FUNCTION_CEILING} lines: extract a helper (decision 6)")
+            elif name in keyed:
+                problems.append(f"{stem}.json {key}: {name} already has the row {keyed[name]}; "
+                                "one row per long function")
+            elif ceiling > frozen:
+                problems.append(f"{stem}.json {key}: {ceiling} is above its W0.G size {frozen}; a long function's "
+                                "ceiling never goes above it: extract a helper first (decision 6)")
+            keyed.setdefault(name, key)
+    assert problems == []
+
+
+def test_a_long_function_stays_within_its_w0g_size_anywhere_in_app():
+    grown = []
+    for path in sorted(APP_DIR.rglob("*.py")):
+        for qualname, size in function_sizes(path.read_text()).items():
+            frozen = FROZEN_LONG_FUNCTIONS.get(qualname.rpartition(".")[2])
+            if frozen is not None and size > frozen:
+                grown.append(f"{_rel(path)}::{qualname} is {size} lines, above its W0.G size {frozen} (decision 6)")
+    assert grown == []
+
+
+def test_a_file_ceiling_above_its_w0g_value_has_a_dated_raise_line(budgets):
+    unrecorded = []
+    for stem, data in budgets.items():
+        for path, ceiling in data["files"].items():
+            w0g = W0G_FILE_CEILINGS.get(path)
+            if w0g is not None and ceiling > w0g and not raise_line(path, ceiling).search(data["note"]):
+                unrecorded.append(f"{stem}.json files row {path}: {ceiling} is above its W0.G value {w0g} with no "
+                                  f"raise line in note: {_RAISE_HELP}")
+    assert unrecorded == []
 
 
 @pytest.mark.parametrize("stem", sorted(FAMILIES))
 def test_facade_names_still_resolve(budgets, stem):
     base = FAMILIES[stem][0]
     facade = importlib.import_module(_module_name(base))
+    defined = defined_names((BACKEND_DIR / base).read_text())
     broken = []
     for name, home in budgets[stem]["names"].items():
         owner, _, member = name.partition(".")
@@ -330,6 +388,8 @@ def test_facade_names_still_resolve(budgets, stem):
             module = importlib.import_module(home)
             if getattr(facade, name) is not getattr(module, name, object()):
                 broken.append(f"{name}: the façade's binding is not {home}.{name}; re-export that object itself")
+        elif not member and name not in defined:
+            broken.append(f"{name}: {base} no longer defines it; map it in names to the module that now does")
     assert broken == []
 
 
@@ -344,8 +404,9 @@ def test_forbidden_imports(budgets, stem):
             violations.append(f"row {row}: no file matches {pattern!r}; fix or delete the row")
         for path in matched:
             for line, candidates in imported_modules(path, (BACKEND_DIR / path).read_text()):
-                if any(_forbidden(c, module, exact) for c in candidates):
-                    violations.append(f"{path}:{line} imports {sorted(candidates)[0]}, which row {row} forbids")
+                hits = sorted(c for c in candidates if _forbidden(c, module, exact))
+                if hits:
+                    violations.append(f"{path}:{line} imports {hits[0]}, which row {row} forbids")
     assert violations == []
 
 
@@ -388,10 +449,62 @@ def test_the_counting_rule():
         "    def hidden():\n"         # inside a module-level block: still budgeted
         "        pass\n"
         "\n"
+        "try:\n"
+        "    pass\n"
+        "except ImportError:\n"
+        "    def fallback():\n"       # inside an except handler: still budgeted
+        "        return 3\n"
+        "\n"
+        "match command:\n"
+        "    case 'go':\n"
+        "        def in_case():\n"    # inside a match case: still budgeted
+        "            return 4\n"
+        "\n"
         "class Box:\n"
         "    def method(self):\n"
         "        # comments and blanks count\n"
         "\n"
         "        return 2\n"
+        "\n"
+        "    class Inner:\n"
+        "        def deep(self):\n"   # a nested class keys as Outer.Inner.name
+        "            return 5\n"
     )
-    assert function_sizes(source) == {"decorated": 5, "hidden": 2, "Box.method": 4}
+    assert function_sizes(source) == {
+        "decorated": 5, "hidden": 2, "fallback": 2, "in_case": 2, "Box.method": 4, "Box.Inner.deep": 2,
+    }
+
+
+def test_defined_names_reads_bindings_but_not_imports_or_inner_scopes():
+    source = (
+        "import os\n"
+        "from typing import Any\n"
+        "LIMIT = 3\n"
+        "a, (b, *c) = 1, (2, 3)\n"
+        "total: int = 0\n"
+        "try:\n"
+        "    import json\n"
+        "    HAS_JSON = True\n"
+        "except ImportError:\n"
+        "    HAS_JSON = False\n"
+        "def run(x):\n"
+        "    inner = x\n"
+        "class Box:\n"
+        "    member = 1\n"
+        "squares = [n * n for n in range(3)]\n"
+        "os.environ['X'] = '1'\n"
+    )
+    assert defined_names(source) == {"LIMIT", "a", "b", "c", "total", "HAS_JSON", "run", "Box", "squares"}
+
+
+@pytest.mark.parametrize(
+    ("note", "matches"),
+    [
+        ("W0.G baseline. 2026-10-20 PR #1200: app/services/facts_service.py 2153 -> 2160 (one-off)", True),
+        ("2026-10-20 PR #1200: app/services/facts_service.py 2153 -> 2161 (the row says 2160)", False),
+        ("PR #1200: app/services/facts_service.py 2153 -> 2160 (undated)", False),
+        ("2026-10-20 PR #1200: app/services/facts_servicexpy 2153 -> 2160 (another path)", False),
+    ],
+)
+def test_the_raise_line_format(note, matches):
+    assert bool(raise_line("app/services/facts_service.py", 2160).search(note)) is matches
