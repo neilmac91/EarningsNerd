@@ -345,12 +345,12 @@ Risk cards       <SummaryRisks> renders each server-projected risk as <SummaryBl
                  inside it ("; however, ...") stays. A longer one is cut at its first `;` or `:` when the clause
                  can stand as a heading (4+ words, not a leading date or qualifier such as "As of ..." or "In
                  ...", not before "however" or "but", no bracket left open); otherwise it is capped on a whole
-                 content word (not a function word, not inside a figure and its unit, a date, a capitalised name
-                 or an open bracket or quotation). A comma or a dash never cuts: on real spans a comma ends on a
-                 leading date, a qualifier or a list item, and a dash marks a range or an aside. A trailing `…`
-                 means the excerpt goes on below. An excerpt under 3 words, one where fewer than 4 whole words
-                 fit under the cap, or one whose cap falls inside a bracket opened in its first words keeps the
-                 positional "Filing excerpt n". Two recorded exceptions: the title
+                 content word (not a function word, not inside a figure and its unit or label, a date, a
+                 capitalised name or an open bracket or quotation). A comma or a dash never cuts: on real spans
+                 a comma ends on a leading date, a qualifier or a list item, and a dash marks a range or an
+                 aside. A trailing `…` means the excerpt goes on below. An excerpt under 3 words, one where
+                 fewer than 4 whole words fit under the cap, or one whose cap falls inside a bracket opened in
+                 its first words keeps the positional "Filing excerpt n". Two recorded exceptions: the title
                  is quoted filing text, so it is exempt from sentence case (a span can open lower-case or in
                  Title Case) and must never be recased; and it keeps SummaryBlock's per-variant secondary title
                  ink, as every SummaryBlock variant does, rather than the global heading ink (§5). The title and

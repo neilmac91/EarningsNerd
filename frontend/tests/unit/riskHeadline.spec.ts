@@ -253,6 +253,35 @@ describe('deriveRiskHeadline', () => {
     expect(long.charAt(headline.length - 1)).toBe(' ')
   })
 
+  it('never splits a figure from its unit or label at the cap', () => {
+    const cases: Array<[string, string]> = [
+      // A two-word unit: never "200 basis…" or a bare "2…" before "percentage points".
+      [
+        'Our borrowing costs could increase and reduce consolidated earnings by approximately 200 basis points next year.',
+        'Our borrowing costs could increase and reduce consolidated earnings by approximately…',
+      ],
+      [
+        'Our borrowing costs could increase and reduce our consolidated gross margin by approximately 2 percentage points next year.',
+        'Our borrowing costs could increase and reduce our consolidated gross margin by approximately…',
+      ],
+      // A figure before "per", and the "up to" before it: never "$5…" nor "prices up…".
+      [
+        'The Board approved a dividend and the Company expects to repurchase additional shares at prices up to $5 per share during the year.',
+        'The Board approved a dividend and the Company expects to repurchase additional shares at prices…',
+      ],
+      // A currency code or a label before its figure: never "EUR…" or "Item…".
+      [
+        'The Company has significant exposure to foreign currency movements, including its liabilities of EUR 2.5 billion due in the next year.',
+        'The Company has significant exposure to foreign currency movements, including its liabilities…',
+      ],
+      [
+        'Risks related to our indebtedness and our ability to comply with our covenants are described further under Item 1A of this report.',
+        'Risks related to our indebtedness and our ability to comply with our covenants are described further…',
+      ],
+    ]
+    for (const [excerpt, headline] of cases) expect(deriveRiskHeadline(excerpt, 0)).toBe(headline)
+  })
+
   it('never splits a day-first date ("27 September 2025") at the cap', () => {
     // "27" ends at character 100 and "September" runs past it: the cut moves back to a whole phrase.
     expect(
@@ -308,6 +337,13 @@ describe('deriveRiskHeadline', () => {
         0,
       ),
     ).toBe('Our customers’ agreements describe these supply arrangements…')
+    // Straight single quotes are read the same way; "Company's" stays an apostrophe.
+    expect(
+      deriveRiskHeadline(
+        "Our largest customer describes these supply arrangements as 'subject to annual renegotiation and termination without notice' in each year.",
+        0,
+      ),
+    ).toBe('Our largest customer describes these supply arrangements…')
   })
 
   it('keeps the excerpt’s own whitespace and casing (verbatim, not normalised)', () => {

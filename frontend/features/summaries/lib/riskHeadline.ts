@@ -26,9 +26,10 @@
  *      claims") or a list item ("... in China mainland"). Nor does a dash: filings use it for ranges
  *      ("2019 – 2022") and asides ("authorities—particularly China—could").
  *   5. Otherwise the headline is the longest prefix within the cap that ends on a whole content
- *      word, never on a function word, never splitting a figure from its unit ("$2.7 | billion"),
- *      a date ("December | 31", "27 | September"), a capitalised name ("New | York") or an open
- *      bracket or quotation, and keeping at least MIN_CLAUSE_WORDS words. When no prefix avoids
+ *      word, never on a function word, never splitting a figure from its unit or label ("$2.7 |
+ *      billion", "200 basis | points", "$5 | per share", "EUR | 2.5", "Item | 1A"), a date ("December |
+ *      31", "27 | September"), a capitalised name ("New | York") or an open bracket or quotation, and
+ *      keeping at least MIN_CLAUSE_WORDS words. When no prefix avoids
  *      every split (an all-caps run reads as one long name) it ends on the last content word that
  *      leaves nothing open; when there is none, or fewer than MIN_CLAUSE_WORDS whole words fit (one
  *      long token or URL), the card keeps the fallback.
@@ -88,10 +89,16 @@ const FUNCTION_WORDS = new Set(
     'that which who whom whose where when while if because such including is are was were be been ' +
     'being can could may might will would shall should must has have had do does did its it their ' +
     'our his her your my this these those any each other not no also both either all certain per ' +
-    'via upon among between about against through during within before after since until whether so'
+    'via upon among between about against through during within before after since until whether so up'
   ).split(' '),
 )
-const SCALE_WORD = /^(?:million|billion|trillion|thousand|percent|basis)\b/i
+const SCALE_WORD = /^(?:million|billion|trillion|thousand|percent|percentage|basis|square|cubic|metric)\b/i
+// The first word of a two-word unit ("basis points", "percentage points", "square feet"): a headline
+// never ends on it, and never on the figure or scale word just before it ("12.5 million | square feet").
+const COMPOUND_UNIT_HEAD = /^(?:basis|percentage|square|cubic|metric)$/i
+// A currency code or symbol standing before its amount ("EUR 2.5 billion", "$ 4.1").
+const CURRENCY = /^(?:USD|EUR|GBP|JPY|CHF|CNY|RMB|US\$|\$|€|£|¥)$/
+const STARTS_WITH_FIGURE = /^[(\[]?[$€£¥]?\d/
 const MONTH = /^(?:January|February|March|April|May|June|July|August|September|October|November|December|Jan|Feb|Mar|Apr|Jun|Jul|Aug|Sept?|Oct|Nov|Dec)$/
 const UPPERCASE_START = /^\p{Lu}/u
 const TRAILING_SEPARATORS = /[\s,;:—–-]+$/
@@ -115,27 +122,34 @@ const isFunctionWord = (word: string): boolean => FUNCTION_WORDS.has(bare(word).
 
 const LETTER = /\p{L}/u
 
+const WORD_CHAR = /[\p{L}\p{N}]/u
+
 /**
- * Whether a curly single quotation is still open at the end of the text. "’" is also the apostrophe,
- * so it is read in order: it closes only a quotation already open, and never when it reads as an
- * apostrophe, between letters ("Company’s") or after an s ("customers’ agreements"). That last case
- * is ambiguous ("‘annual reviews’" closes there), so it errs open: the headline stops before the
- * quotation rather than risk leaving it unclosed.
+ * Whether a single quotation, curly or straight, is still open at the end of the text. "’" and "'"
+ * are also apostrophes, so the marks are read in order. "‘" opens, and so does "'" at the start of a
+ * word (after a space or a bracket, before a letter or figure). Any other mark closes only a
+ * quotation already open, and never when it reads as an apostrophe: between letters ("Company’s",
+ * "Company's") or after an s ("customers’ agreements"). That last case is ambiguous ("‘annual
+ * reviews’" closes there), so it errs open: the headline stops before the quotation rather than risk
+ * leaving it unclosed.
  */
 const singleQuoteOpen = (text: string): boolean => {
   let depth = 0
   for (let i = 0; i < text.length; i++) {
-    if (text[i] === '‘') depth++
-    else if (text[i] === '’' && depth > 0) {
-      const before = text[i - 1] ?? ''
-      const apostrophe = LETTER.test(before) && (LETTER.test(text[i + 1] ?? '') || /[sS]/.test(before))
+    const mark = text[i]
+    if (mark !== '‘' && mark !== '’' && mark !== "'") continue
+    const before = text[i - 1] ?? ''
+    const after = text[i + 1] ?? ''
+    if (mark === '‘' || (mark === "'" && !WORD_CHAR.test(before) && WORD_CHAR.test(after))) depth++
+    else if (depth > 0) {
+      const apostrophe = LETTER.test(before) && (LETTER.test(after) || /[sS]/.test(before))
       if (!apostrophe) depth--
     }
   }
   return depth > 0
 }
 
-/** Whether the text leaves a bracket or a quotation open: ( [ “ ‘ or a straight double quote. */
+/** Whether the text leaves a bracket or a quotation open: ( [ “, a single quotation or a straight double quote. */
 const leavesOpen = (text: string): boolean =>
   count(text, '(') > count(text, ')') ||
   count(text, '[') > count(text, ']') ||
@@ -150,6 +164,11 @@ const isWeakEnd = (tokens: Token[], i: number, prefix: string): boolean => {
   const previous = tokens[i - 1]?.text
   if (isFunctionWord(word)) return true
   if (next !== undefined && /\d/.test(word) && SCALE_WORD.test(bare(next))) return true
+  if (next !== undefined && COMPOUND_UNIT_HEAD.test(bare(word))) return true
+  if (next !== undefined && SCALE_WORD.test(bare(word)) && COMPOUND_UNIT_HEAD.test(bare(next))) return true
+  if (next !== undefined && /\d/.test(word) && bare(next).toLowerCase() === 'per') return true
+  // A label or currency before its figure: "Item | 1A", "Note | 12", "Topic | 842", "EUR | 2.5".
+  if (next !== undefined && STARTS_WITH_FIGURE.test(next) && (CURRENCY.test(word) || UPPERCASE_START.test(bare(word)))) return true
   if (MONTH.test(bare(word))) return true
   if (previous !== undefined && /^\d{1,2},?$/.test(word) && MONTH.test(bare(previous))) return true
   // A day before its month ("27 | September 2025", the day-first order international filers use).
