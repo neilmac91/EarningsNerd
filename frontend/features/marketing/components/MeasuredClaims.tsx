@@ -27,7 +27,7 @@ export default function MeasuredClaims() {
     <section aria-label="Product capabilities" className="border-y border-border-light dark:border-white/10">
       <div className="mx-auto max-w-5xl px-4 py-7 sm:px-6 lg:px-8 lg:py-10">
         <SectionImpression section="measured_claims">
-          <dl className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4 lg:gap-10">
+          <dl className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4 lg:gap-10">
             {CLAIMS.map((claim) => (
               <div key={claim.figure} className="flex min-w-0 flex-col gap-1.5">
                 <dt className="font-data tnum text-2xl font-semibold text-text-primary-light dark:text-text-primary-dark lg:text-3xl">

@@ -7,9 +7,12 @@ import { useFocusHandoff } from '@/hooks/useFocusHandoff'
 
 /**
  * A Retry for a failed query: `useRetainedFailure` owns the error UI's condition, `<RetryButton>` owns the
- * control (busy state, the press, the focus hand-off). Every Retry of a query goes through both. Gates:
- * tests/unit/busyControlsStayFocusable.spec.ts (every Retry is RetryButton) and tests/unit/useRetainedFailure.spec.tsx
- * (every caller passes its own query's key); rules: lessons/frontend-busy-controls-stay-focusable.md (d), (g).
+ * control (busy state, the press, the focus hand-off). Every Retry of a query goes through both. A Retry that
+ * restarts a stream instead (the filing page's Retry generation) has no query to hold: it gives RetryButton a
+ * failure built from the stream's own state, pinned in the gate's ALLOW_HAND_BUILT_FAILURE. Gates:
+ * tests/unit/busyControlsStayFocusable.spec.ts (every Retry is RetryButton, and each of its failures is
+ * useRetainedFailure's or pinned) and tests/unit/useRetainedFailure.spec.tsx (every caller passes its own
+ * query's key); rules: lessons/frontend-busy-controls-stay-focusable.md (d), (g).
  *
  * Why RetryButton lives here and not in a file of its own: it has no clean home. components/ui is the
  * design system's primitives, kept free of react-query; components/ root is app chrome only
@@ -28,7 +31,7 @@ export interface RetainedFailure {
   error: unknown
   /** A fetch is in flight, including one paused offline or in a hidden tab (`fetchStatus !== 'idle'`). */
   busy: boolean
-  /** Refetch. Only `<RetryButton>` calls it. */
+  /** Refetch (for a stream restart, restart the stream). Only `<RetryButton>` calls it. */
   retry: () => void
 }
 

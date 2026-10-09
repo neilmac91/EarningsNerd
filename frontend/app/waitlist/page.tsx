@@ -73,7 +73,7 @@ export default function WaitlistPage() {
       </section>
 
       <section className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
-        <div className="grid gap-6 md:grid-cols-3">
+        <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
           {[
             {
               title: 'Filings are long and dense.',
@@ -121,7 +121,7 @@ export default function WaitlistPage() {
               Join the waitlist
             </a>
           </div>
-          <div className="mt-8 grid gap-6 md:grid-cols-4">
+          <div className="mt-8 grid grid-cols-1 gap-6 md:grid-cols-4">
             {[
               {
                 step: '01',
@@ -162,7 +162,7 @@ export default function WaitlistPage() {
       </section>
 
       <section className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
-        <div className="grid gap-6 md:grid-cols-2">
+        <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
           {[
             {
               title: 'Structured AI summaries',
@@ -202,7 +202,7 @@ export default function WaitlistPage() {
           <p className="mt-3 text-sm text-text-secondary-light dark:text-text-secondary-dark">
             Data is sourced directly from SEC EDGAR. We focus on clarity, not hype.
           </p>
-          <div className="mt-6 grid gap-4 md:grid-cols-3">
+          <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-3">
             {[
               {
                 title: 'Source: SEC EDGAR',

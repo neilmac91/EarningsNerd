@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { fireEvent, render, screen } from '@testing-library/react'
+import { act, fireEvent, render, screen } from '@testing-library/react'
 import { SourceTrace } from '@/features/filings/components/SourceTrace'
+import { FilingViewerProvider } from '@/features/filings/components/copilot/FilingViewerContext'
 import { Modal } from '@/components/ui/Modal'
 
 /**
@@ -86,4 +87,110 @@ describe('SourceTrace owns Escape while its panel is open', () => {
     expect(source).not.toBeInTheDocument()
   })
 
+})
+
+/**
+ * A fine pointer: the chip's hover/focus popover is no layer of its own. Below lg the research pane is
+ * a modal sheet whose trap takes focus when a window narrows; a popover that was open on a page chip
+ * (EN-03's layout-twin hand-off focuses one as the table hides) then waits out its close delay with
+ * focus already in the sheet. Escape typed in the sheet is the sheet's: in CI the popover's
+ * window-capture listener stopped it and the copilot sheet stayed open
+ * (metrics-stacked-cards.spec.ts, "the research pane a metric chip opened").
+ */
+describe('the popover leaves Escape to a modal layer that holds focus but not its chip', () => {
+  let matchMedia: ReturnType<typeof vi.spyOn>
+  beforeEach(() => {
+    vi.useFakeTimers()
+    matchMedia = vi.spyOn(window, 'matchMedia').mockImplementation(
+      (query: string) =>
+        ({
+          matches: false, // a fine pointer: never '(pointer: coarse)'
+          media: query,
+          addEventListener: () => {},
+          removeEventListener: () => {},
+          addListener: () => {},
+          removeListener: () => {},
+          onchange: null,
+          dispatchEvent: () => false,
+        }) as unknown as MediaQueryList,
+    )
+  })
+  afterEach(() => {
+    matchMedia.mockRestore()
+    vi.useRealTimers()
+  })
+
+  const chip = () => screen.getByRole('button', { name: 'Source: Verified in filing' })
+  const popover = () => screen.queryByRole('group', { name: 'Source detail' })
+  function Page({ chipInSheet = false }: { chipInSheet?: boolean }) {
+    const trace = <SourceTrace url="https://www.sec.gov/x.htm" verified sectionRef="Item 8" excerpt="Total net sales" />
+    return (
+      <FilingViewerProvider>
+        {chipInSheet ? null : trace}
+        <div role="dialog" aria-modal="true" aria-label="Ask this Filing">
+          <button>Answer</button>
+          {chipInSheet ? trace : null}
+        </div>
+      </FilingViewerProvider>
+    )
+  }
+  function withListenersBeneath(run: (trap: ReturnType<typeof vi.fn>, rail: ReturnType<typeof vi.fn>) => void) {
+    // Stand-ins for the copilot sheet's trap (document capture) and the rail's listener (window bubble).
+    const trap = vi.fn()
+    const rail = vi.fn()
+    document.addEventListener('keydown', trap, true)
+    window.addEventListener('keydown', rail)
+    try {
+      run(trap, rail)
+    } finally {
+      document.removeEventListener('keydown', trap, true)
+      window.removeEventListener('keydown', rail)
+    }
+  }
+
+  it('Escape in the copilot sheet reaches the sheet while a page chip’s popover is still closing', () => {
+    withListenersBeneath((trap, rail) => {
+      render(<Page />)
+      act(() => chip().focus())
+      expect(popover()).toBeInTheDocument()
+      // The sheet's trap takes focus: the chip blurs and its popover waits out the close delay.
+      act(() => screen.getByRole('button', { name: 'Answer' }).focus())
+      expect(popover()).toBeInTheDocument()
+      fireEvent.keyDown(screen.getByRole('button', { name: 'Answer' }), { key: 'Escape' })
+      expect(trap).toHaveBeenCalledTimes(1)
+      expect(rail).toHaveBeenCalledTimes(1)
+      act(() => vi.runAllTimers())
+      expect(popover()).not.toBeInTheDocument()
+    })
+  })
+
+  it('a chip inside that layer keeps the key: Escape closes its popover alone', () => {
+    withListenersBeneath((trap, rail) => {
+      render(<Page chipInSheet />)
+      act(() => chip().focus())
+      expect(popover()).toBeInTheDocument()
+      fireEvent.keyDown(chip(), { key: 'Escape' })
+      expect(popover()).not.toBeInTheDocument()
+      expect(trap).not.toHaveBeenCalled()
+      expect(rail).not.toHaveBeenCalled()
+    })
+  })
+
+  it('with no modal layer around the focus, the popover still owns Escape', () => {
+    withListenersBeneath((trap, rail) => {
+      render(
+        <FilingViewerProvider>
+          <SourceTrace url="https://www.sec.gov/x.htm" verified sectionRef="Item 8" excerpt="Total net sales" />
+          <button>Elsewhere</button>
+        </FilingViewerProvider>,
+      )
+      act(() => chip().focus())
+      act(() => screen.getByRole('button', { name: 'Elsewhere' }).focus())
+      expect(popover()).toBeInTheDocument()
+      fireEvent.keyDown(screen.getByRole('button', { name: 'Elsewhere' }), { key: 'Escape' })
+      expect(popover()).not.toBeInTheDocument()
+      expect(trap).not.toHaveBeenCalled()
+      expect(rail).not.toHaveBeenCalled()
+    })
+  })
 })

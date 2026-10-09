@@ -141,7 +141,7 @@ async function drawBrandFooter(
 /* ---------------------------------------------------------------------------
    Header strip — company, ticker · metric, and the series legend. The Recharts
    <svg> carries the plot only; the company/metric/legend live outside it (the
-   page picker + TrendCharts' <h3>/PanelLegend), so an exported PNG that
+   page picker + TrendCharts' <h2>/PanelLegend), so an exported PNG that
    serializes the SVG alone is unidentifiable. Redraw them onto the canvas from
    the same data that drives the UI, so a shared image says which company, which
    metric, and which series — with no drift from what the user saw.

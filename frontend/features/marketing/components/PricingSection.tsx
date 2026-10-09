@@ -194,7 +194,7 @@ export default function PricingSection({
             </div>
           </div>
 
-          <div className="mt-10 grid items-stretch gap-6 md:grid-cols-2">
+          <div className="mt-10 grid grid-cols-1 items-stretch gap-6 md:grid-cols-2">
             <Card className="flex flex-col p-5 sm:p-7">
               <h3 className="text-xl">Free</h3>
               <div className="mt-3 flex items-baseline gap-1.5">

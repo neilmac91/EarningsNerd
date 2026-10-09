@@ -1,0 +1,71 @@
+$ sha256sum copilot-<run>/{a.zip,copilot-eval.json,runner.log}
+(artifacts: retained copies, paths relative to the lane scratch directory)
+
+c5b686423c77eb05417e40fb38c55049ce8e66989537dcd4b0b5bb4308713a35  copilot-37049387017/copilot-eval.json
+0e0a35075c6bf97ee6a1d366f8df26f7e4b75e12a93d6d0c58f18f5867124e14  copilot-37049387017/runner.log
+9a19b2c2660500880add66b3732ecf12d0b8c045cad218882bc14467b67a6f45  copilot-37049387017/a.zip
+7228731894cf63e5d2c11fc6869930f322830129992065f5f2a114023bb58133  copilot-37052760996/copilot-eval.json
+aaed6743e651278b65fd55181c897bc59b46cdc95a584db3b7fffd87605bfcfe  copilot-37052760996/runner.log
+1361a7d6175003131e00cf65323951a1fc452930e07aa80f99e16c7cf3d424c4  copilot-37052760996/a.zip
+c392e17422561bf513ff066346af1199c0fe9c184a8e7ee6956dc7b836ffc050  copilot-37063120532/copilot-eval.json
+81eecd8ff1315aa3131788083781d96dbd6c8e3d54e10fffe9ceaa04131f3033  copilot-37063120532/runner.log
+(no zip retained for 37063120532; inputs are the unpacked copilot-eval.json and runner.log)
+7ac0b18bb57272f39162edf121073baac4cdb895da8ab4a22d982f2fcfcd8c74  copilot-37029156902/copilot-eval.json
+ebcd1db4d221988d67c4cccf19ac25f41737e48953de45f7c9e1342bfda07a4d  copilot-37029156902/runner.log
+9fd89c2aa507b437a049e7f955756618df854cb71ada78347b57d05d4ec405c2  copilot-37029156902/a.zip
+
+$ python tasks/review-evidence/g-stage1-2026-10-02/g_decide.py main-37049387017=copilot-37049387017/copilot-eval.json main-37052760996=copilot-37052760996/copilot-eval.json main-37063120532=copilot-37063120532/copilot-eval.json armB-37029156902=copilot-37029156902/copilot-eval.json
+(artifacts: retained copies, paths relative to the lane scratch directory)
+
+main-37049387017: 20-F question-runs tool-using 0/3; 10-K 3/3; draws with tools 10/18
+   AAPL  sales-gross-profit-2025          draws=TTT tool-using=True
+   ASML  us-gaap-sales-net-income-2025    draws=--- tool-using=False
+   BABA  native-revenue-2026              draws=--- tool-using=False
+   BABA  viewed-native-revenue-2025       draws=--T tool-using=False
+   MSFT  sales-diluted-eps-2025           draws=TTT tool-using=True
+   TSLA  sales-operating-income-2024      draws=TTT tool-using=True
+main-37052760996: 20-F question-runs tool-using 0/3; 10-K 3/3; draws with tools 11/18
+   AAPL  sales-gross-profit-2025          draws=TTT tool-using=True
+   ASML  us-gaap-sales-net-income-2025    draws=--T tool-using=False
+   BABA  native-revenue-2026              draws=--- tool-using=False
+   BABA  viewed-native-revenue-2025       draws=--T tool-using=False
+   MSFT  sales-diluted-eps-2025           draws=TTT tool-using=True
+   TSLA  sales-operating-income-2024      draws=TTT tool-using=True
+main-37063120532: 20-F question-runs tool-using 1/3; 10-K 3/3; draws with tools 11/18
+   AAPL  sales-gross-profit-2025          draws=TTT tool-using=True
+   ASML  us-gaap-sales-net-income-2025    draws=-TT tool-using=True
+   BABA  native-revenue-2026              draws=--- tool-using=False
+   BABA  viewed-native-revenue-2025       draws=--- tool-using=False
+   MSFT  sales-diluted-eps-2025           draws=TTT tool-using=True
+   TSLA  sales-operating-income-2024      draws=TTT tool-using=True
+armB-37029156902: 20-F question-runs tool-using 3/3; 10-K 3/3; draws with tools 18/18
+   AAPL  sales-gross-profit-2025          draws=TTT tool-using=True
+   ASML  us-gaap-sales-net-income-2025    draws=TTT tool-using=True
+   BABA  native-revenue-2026              draws=TTT tool-using=True
+   BABA  viewed-native-revenue-2025       draws=TTT tool-using=True
+   MSFT  sales-diluted-eps-2025           draws=TTT tool-using=True
+   TSLA  sales-operating-income-2024      draws=TTT tool-using=True
+exit 0
+
+$ python tasks/review-evidence/g-stage2-2026-10-02/copilot_cost_runnerlog.py copilot-<run>/runner.log ...
+(artifacts: retained copies, paths relative to the lane scratch directory)
+
+copilot-37049387017 calls 28 peak 0 unknown 0 hit 863616 miss 5291 completion 3196 usd 0.005302 log_estimate 0.005298
+copilot-37052760996 calls 29 peak 0 unknown 0 hit 895739 miss 5427 completion 3270 usd 0.005463 log_estimate 0.005459
+copilot-37063120532 calls 29 peak 0 unknown 0 hit 890993 miss 5326 completion 3444 usd 0.005538 log_estimate 0.005535
+copilot-37029156902 calls 36 peak 0 unknown 0 hit 946804 miss 184219 completion 4766 usd 0.033333 log_estimate 0.033335
+exit 0
+
+$ python tasks/review-evidence/pr1021-qualification-2026-10-01/prose_quote_audit.py <run>/copilot-eval.json (summary per run)
+(artifacts: retained copies, paths relative to the lane scratch directory)
+
+37049387017 exit 2 | composed rows 0 | no-source rows 0 | uncited answers 0 | uncited-figure rows 3 | tool-less rows 8
+37052760996 exit 2 | composed rows 0 | no-source rows 0 | uncited answers 0 | uncited-figure rows 3 | tool-less rows 7
+37063120532 exit 2 | composed rows 0 | no-source rows 0 | uncited answers 0 | uncited-figure rows 3 | tool-less rows 7
+37029156902 exit 2 | composed rows 0 | no-source rows 0 | uncited answers 0 | uncited-figure rows 4 | tool-less rows 0
+
+uncited figures (sum of score.uncited_figures) per run and question:
+37049387017 3 {'MSFT sales-diluted-eps-2025': 3}
+37052760996 3 {'MSFT sales-diluted-eps-2025': 3}
+37063120532 3 {'MSFT sales-diluted-eps-2025': 3}
+37029156902 4 {'MSFT sales-diluted-eps-2025': 3, 'BABA native-revenue-2026': 1}

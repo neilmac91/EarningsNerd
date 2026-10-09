@@ -1,0 +1,36 @@
+# Both replay tools over the copilot-eval reds on PRs that change no Copilot code, 2026-10-03 to 10-09
+# Code: this branch (main 1f43d7f + summary changes; copilot_service/copilot_tools/provenance_service identical to main).
+# Columns: run (-a1 = first attempt of a re-run), report sha256[:16], rows with generation_attempts,
+# predecessor exit, successor exit, each withheld row: successor classification and whether replay_logged == recorded reasons.
+37102020155 7d49a95122ac7210 generations=0 predecessor_exit=0 successor_exit=0
+    BABA viewed-native-revenue-2025 d0: other reason, reproduced=True, recorded=['Unverified or ambiguous referenced citation']
+37354664320 6c59e856aa1e9a56 generations=0 predecessor_exit=0 successor_exit=3
+    BABA viewed-native-revenue-2025 d0: UNEXPLAINED, reproduced=False, recorded=['Unverified or ambiguous referenced citation']
+    BABA viewed-native-revenue-2025 d1: UNEXPLAINED, reproduced=False, recorded=['Unverified or ambiguous referenced citation']
+    BABA viewed-native-revenue-2025 d2: UNEXPLAINED, reproduced=False, recorded=['Unverified or ambiguous referenced citation']
+    ASML us-gaap-sales-net-income-2025 d0: UNEXPLAINED, reproduced=False, recorded=['Unsupported prose quotation: quotation_not_in_source']
+37591507299 c9e82e868228bec5 generations=0 predecessor_exit=0 successor_exit=3
+    BABA viewed-native-revenue-2025 d0: UNEXPLAINED, reproduced=False, recorded=['Unverified or ambiguous referenced citation']
+    BABA viewed-native-revenue-2025 d1: UNEXPLAINED, reproduced=False, recorded=['Unverified or ambiguous referenced citation']
+    BABA viewed-native-revenue-2025 d2: UNEXPLAINED, reproduced=False, recorded=['Unverified or ambiguous referenced citation']
+37596562861 f5426a84e262ef4e generations=0 predecessor_exit=0 successor_exit=3
+    BABA viewed-native-revenue-2025 d2: UNEXPLAINED, reproduced=False, recorded=['Unverified or ambiguous referenced citation']
+37602360863 0451199a17a615d1 generations=0 predecessor_exit=0 successor_exit=3
+    BABA viewed-native-revenue-2025 d1: UNEXPLAINED, reproduced=False, recorded=['Unverified or ambiguous referenced citation']
+    ASML us-gaap-sales-net-income-2025 d2: UNEXPLAINED, reproduced=False, recorded=['Unsupported prose quotation: quotation_not_in_source']
+37605751354 0d04814a6c24619a generations=0 predecessor_exit=0 successor_exit=3
+    BABA viewed-native-revenue-2025 d0: UNEXPLAINED, reproduced=False, recorded=['Unverified or ambiguous referenced citation']
+37700200842-a1 274621419c86f569 generations=18 predecessor_exit=3 successor_exit=0
+    BABA viewed-native-revenue-2025 d1: other reason, reproduced=True, recorded=['Unverified or ambiguous referenced citation', 'Unverified or ambiguous referenced citation']
+37718004123 d694b9b71a1602da generations=18 predecessor_exit=0 successor_exit=0
+    BABA viewed-native-revenue-2025 d1: other reason, reproduced=True, recorded=['Unverified or ambiguous referenced citation', 'Unverified or ambiguous referenced citation']
+37721483659 4260413ef813e01f generations=18 predecessor_exit=0 successor_exit=0
+    BABA viewed-native-revenue-2025 d2: other reason, reproduced=True, recorded=['Unverified or ambiguous referenced citation', 'Unverified or ambiguous referenced citation']
+37935449192-a1 322aed8159c02be7 generations=18 predecessor_exit=0 successor_exit=0
+    BABA viewed-native-revenue-2025 d1: other reason, reproduced=True, recorded=['Unverified or ambiguous referenced citation', 'Unverified or ambiguous referenced citation']
+37943905552 3eb19cc32962c488 generations=18 predecessor_exit=3 successor_exit=0
+    ASML us-gaap-sales-net-income-2025 d1: other reason, reproduced=True, recorded=['Unverified or ambiguous referenced citation']
+37946561164 c2ee93f9dd802942 generations=18 predecessor_exit=0 successor_exit=0
+    BABA viewed-native-revenue-2025 d1: other reason, reproduced=True, recorded=['Unverified or ambiguous referenced citation', 'Unverified or ambiguous referenced citation']
+37958886664-a1 a6d3bad4fe7c998e generations=18 predecessor_exit=3 successor_exit=0
+    ASML us-gaap-sales-net-income-2025 d1: other reason, reproduced=True, recorded=['Unverified or ambiguous referenced citation']

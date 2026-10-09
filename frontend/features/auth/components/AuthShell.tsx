@@ -12,11 +12,11 @@ import { directionChip } from '@/lib/financialTone'
  */
 export default function AuthShell({ children }: { children: React.ReactNode }) {
   return (
-    <div className="grid min-h-screen lg:grid-cols-2">
+    <div className="grid grid-cols-1 min-h-screen lg:grid-cols-2">
       {/* Form pane */}
       <div className="flex min-h-screen flex-col bg-background-light dark:bg-background-dark">
         <div className="flex items-center justify-between px-6 py-6 sm:px-10">
-          <Link href="/" className="flex items-center gap-2.5">
+          <Link href="/" className="flex items-center gap-2.5 rounded-lg focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark">
             <EarningsNerdLogo iconClassName="h-8 w-8" wordmarkClassName="text-lg" />
           </Link>
           <div className="flex items-center gap-2">
@@ -32,7 +32,7 @@ export default function AuthShell({ children }: { children: React.ReactNode }) {
         </div>
 
         <div className="flex flex-1 items-center justify-center px-6 pb-16 sm:px-10">
-          <div className="w-full max-w-[400px] animate-fade-up">{children}</div>
+          <div className="w-full max-w-[400px] animate-fade-up motion-reduce:animate-none">{children}</div>
         </div>
       </div>
 

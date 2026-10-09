@@ -89,7 +89,8 @@ The parent imports no database engine; its isolated child uses `DB_POOL_SIZE=3`,
 Use the existing runtime identity and Secret Manager references needed for SQL, SEC, AI and email;
 do not copy secret values into commands, tasks, source or logs. Match current generation flags.
 Set `TASKS_WORKER_PROCESS=true`, `DURABLE_TASKS_ENABLED=true`, and the complete `TASKS_*` queue,
-worker-origin and identity settings on the worker.
+worker-origin and identity settings on the worker, plus `SEC_RATE_LIMIT_PER_SECOND=1` and
+`EDGAR_RATE_LIMIT_PER_SEC=1` (`docs/OPERATIONS.md`, "SEC budgets per process").
 
 First enqueue an authenticated `probe` with an empty payload. It verifies delivery without SQL
 business work, SEC calls, email or AI generation. Confirm worker completion logs and task removal.
@@ -115,8 +116,10 @@ and latency during the billing-mode change rather than claiming all thread opera
 
 Dispatch the `Ops` workflow with `describe-service`, then `describe-jobs`, when an operator needs
 independent release evidence through the repository's existing keyless WIF identity. The first
-operation reports the serving revision image, `SENTRY_RELEASE`, service pool values, and both
-service and revision `maxScale` for operator comparison. The second reports image, task count, and
+operation reports the serving revision image, `SENTRY_RELEASE`, service pool values, the allow-listed
+flag and SEC-pin values (`SEC_RATE_LIMIT_PER_SECOND`, `EDGAR_RATE_LIMIT_PER_SEC`,
+`DURABLE_TASKS_ENABLED`, `ENABLE_INSIDER_ACTIVITY`) for the serving revision and the pregenerate job, and
+both service and revision `maxScale` for operator comparison. The second reports image, task count, and
 pool values for all eight expected jobs, and fails when their release or connection budget
 invariants drift. `describe-jobs` also fails if any expected job, including
 `earningsnerd-retention-purge`, is missing or unreadable.
@@ -262,7 +265,7 @@ gcloud run deploy earningsnerd-backend \
   --add-cloudsql-instances=earnings-nerd:us-west1:earningsnerd-db \
   --cpu=1 --memory=1Gi --cpu-boost --min-instances=1 --max=2 --max-instances=2 --concurrency=40 --timeout=600 \
   --set-secrets=DATABASE_URL=DATABASE_URL:latest,OPENAI_API_KEY=OPENAI_API_KEY:latest,SECRET_KEY=SECRET_KEY:latest,STRIPE_SECRET_KEY=STRIPE_SECRET_KEY:latest,STRIPE_PUBLISHABLE_KEY=STRIPE_PUBLISHABLE_KEY:latest,STRIPE_WEBHOOK_SECRET=STRIPE_WEBHOOK_SECRET:latest,RESEND_API_KEY=RESEND_API_KEY:latest,RESEND_FROM_EMAIL=RESEND_FROM_EMAIL:latest \
-  --set-env-vars="^@^ENVIRONMENT=production@SKIP_REDIS_INIT=true@OPENAI_BASE_URL=https://api.deepseek.com/v1@SEC_EDGAR_BASE_URL=https://data.sec.gov@CORS_ORIGINS_STR=https://earningsnerd.io,https://www.earningsnerd.io@COOKIE_DOMAIN=.earningsnerd.io"
+  --set-env-vars="^@^ENVIRONMENT=production@SKIP_REDIS_INIT=true@OPENAI_BASE_URL=https://api.deepseek.com/v1@SEC_EDGAR_BASE_URL=https://data.sec.gov@CORS_ORIGINS_STR=https://earningsnerd.io,https://www.earningsnerd.io@COOKIE_DOMAIN=.earningsnerd.io@SEC_RATE_LIMIT_PER_SECOND=1@EDGAR_RATE_LIMIT_PER_SEC=1@ENABLE_INSIDER_ACTIVITY=false"
 ```
 
 ### 7. Verify
@@ -302,7 +305,7 @@ SA="$(gcloud projects describe earnings-nerd --format='value(projectNumber)')-co
 # NOTE: app/config.py requires SECRET_KEY and OPENAI_API_KEY at import — the job crashes on startup
 # without them, even though the scan itself makes no AI calls. RESEND_API_KEY is needed to send mail.
 SECRETS=DATABASE_URL=DATABASE_URL:latest,SECRET_KEY=SECRET_KEY:latest,OPENAI_API_KEY=OPENAI_API_KEY:latest,RESEND_API_KEY=RESEND_API_KEY:latest,RESEND_FROM_EMAIL=RESEND_FROM_EMAIL:latest
-ENVV="^@^ENVIRONMENT=production@SKIP_REDIS_INIT=true@SEC_EDGAR_BASE_URL=https://data.sec.gov"
+ENVV="^@^ENVIRONMENT=production@SKIP_REDIS_INIT=true@SEC_EDGAR_BASE_URL=https://data.sec.gov@SEC_RATE_LIMIT_PER_SECOND=1@EDGAR_RATE_LIMIT_PER_SEC=1"
 
 # Real-time scan job
 gcloud run jobs create earningsnerd-filing-scan --region=us-west1 \
@@ -343,8 +346,12 @@ gcloud scheduler jobs create http filing-digest-daily --location=us-west1 --sche
   --uri="https://us-west1-run.googleapis.com/apis/run.googleapis.com/v1/namespaces/earnings-nerd/jobs/earningsnerd-filing-digest:run" \
   --http-method=POST --oauth-service-account-email="${SA}"
 
-# Facts backfill weekly (Mondays 07:00 UTC — after the scan has ingested the week's filings)
-gcloud scheduler jobs create http backfill-facts-weekly --location=us-west1 --schedule="0 7 * * 1" \
+# Facts backfill weekly (Mondays 07:30 UTC — after the scan has ingested the week's filings, and after a
+# first attempt of pregenerate's 06:00 run has ended, so the SEC overlap stays at the cap;
+# docs/OPERATIONS.md "SEC budgets per process"). Move an existing job, then check it:
+# gcloud scheduler jobs update http backfill-facts-weekly --location=us-west1 --schedule="30 7 * * 1"
+# gcloud scheduler jobs describe backfill-facts-weekly --location=us-west1 --format="value(schedule,timeZone)"
+gcloud scheduler jobs create http backfill-facts-weekly --location=us-west1 --schedule="30 7 * * 1" \
   --uri="https://us-west1-run.googleapis.com/apis/run.googleapis.com/v1/namespaces/earnings-nerd/jobs/earningsnerd-backfill-facts:run" \
   --http-method=POST --oauth-service-account-email="${SA}"
 ```
@@ -381,7 +388,7 @@ Create them once, with one Cloud Scheduler trigger each:
 CONN=earnings-nerd:us-west1:earningsnerd-db
 SA="$(gcloud projects describe earnings-nerd --format='value(projectNumber)')-compute@developer.gserviceaccount.com"
 SECRETS=DATABASE_URL=DATABASE_URL:latest,SECRET_KEY=SECRET_KEY:latest,OPENAI_API_KEY=OPENAI_API_KEY:latest,RESEND_API_KEY=RESEND_API_KEY:latest,RESEND_FROM_EMAIL=RESEND_FROM_EMAIL:latest,ALPHA_VANTAGE_API_KEY=ALPHA_VANTAGE_API_KEY:latest
-ENVV="^@^ENVIRONMENT=production@SKIP_REDIS_INIT=true"
+ENVV="^@^ENVIRONMENT=production@SKIP_REDIS_INIT=true@SEC_RATE_LIMIT_PER_SECOND=1@EDGAR_RATE_LIMIT_PER_SEC=1"
 
 # Daily refresh job
 gcloud run jobs create earningsnerd-earnings-calendar-refresh --region=us-west1 \
@@ -672,7 +679,7 @@ otherwise). Create it once, with one Cloud Scheduler trigger:
 CONN=earnings-nerd:us-west1:earningsnerd-db
 SA="$(gcloud projects describe earnings-nerd --format='value(projectNumber)')-compute@developer.gserviceaccount.com"
 SECRETS=DATABASE_URL=DATABASE_URL:latest,SECRET_KEY=SECRET_KEY:latest
-ENVV="^@^ENVIRONMENT=production@SKIP_REDIS_INIT=true"
+ENVV="^@^ENVIRONMENT=production@SKIP_REDIS_INIT=true@SEC_RATE_LIMIT_PER_SECOND=1@EDGAR_RATE_LIMIT_PER_SEC=1"
 
 gcloud run jobs create earningsnerd-notable-filings --region=us-west1 \
   --image=us-west1-docker.pkg.dev/earnings-nerd/earningsnerd/backend:latest \
