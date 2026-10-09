@@ -261,7 +261,7 @@ export default function CompanyPageClient({ initialCompany, initialFilings }: Co
   if (companyLoading) {
     return (
       <div role="status" aria-label="Loading company" className="min-h-screen flex items-center justify-center">
-        <CircleNotchIcon className="h-8 w-8 animate-spin text-brand-strong dark:text-brand-strong-dark" />
+        <CircleNotchIcon className="h-8 w-8 animate-spin motion-reduce:animate-none text-brand-strong dark:text-brand-strong-dark" />
         <span className="sr-only">Loading company…</span>
       </div>
     )
