@@ -751,9 +751,9 @@ async def verify_email(
         from app.services.entitlements import is_pro_user
         if not is_pro_user(user):
             try:
-                # Rolls the grant back before raising, so the warning below follows the rollback.
-                auth_account_service.commit_reverse_trial(db, user, settings.REVERSE_TRIAL_DAYS)
-            except auth_account_service.ReverseTrialError:
+                auth_account_service.grant_reverse_trial(db, user, settings.REVERSE_TRIAL_DAYS)
+            except Exception:
+                auth_account_service.discard_reverse_trial(db)
                 logger.warning("Failed to start reverse trial for user %s on verify", user.id, exc_info=True)
             else:
                 try:

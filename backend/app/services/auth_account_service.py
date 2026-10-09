@@ -33,11 +33,6 @@ class AccountTokenExpiredError(Exception):
     """The token names an account, but its expiry has passed."""
 
 
-class ReverseTrialError(Exception):
-    """Granting or committing the reverse trial failed; the grant was rolled back. ``__cause__`` is
-    the original error."""
-
-
 def _generate_token() -> tuple[str, str]:
     """Return (raw_token_to_email, sha256_hash_to_store). Never store the raw token."""
     raw = secrets.token_urlsafe(32)
@@ -140,17 +135,18 @@ def verify_email_token(db: Session, raw_token: str) -> User:
     return user
 
 
-def commit_reverse_trial(db: Session, user: User, days: int) -> None:
+def grant_reverse_trial(db: Session, user: User, days: int) -> None:
     """Grant the no-card reverse trial and commit it in its own transaction, so a failure cannot undo
-    the verification committed before it. On failure the grant is rolled back and
-    :class:`ReverseTrialError` raised from the original error; a failing rollback propagates as is.
-    The caller decides eligibility (``entitlements.is_pro_user``)."""
-    try:
-        subscription_sync.start_reverse_trial(db, user, days)
-        db.commit()
-    except Exception as exc:
-        db.rollback()
-        raise ReverseTrialError() from exc
+    the verification committed before it. Whatever the grant or the commit raises propagates
+    unchanged: the caller catches it, calls :func:`discard_reverse_trial`, and logs it as the
+    original error. The caller decides eligibility (``entitlements.is_pro_user``)."""
+    subscription_sync.start_reverse_trial(db, user, days)
+    db.commit()
+
+
+def discard_reverse_trial(db: Session) -> None:
+    """Roll back a failed :func:`grant_reverse_trial`; a failing rollback propagates."""
+    db.rollback()
 
 
 def issue_password_reset_token(db: Session, user: User) -> str:

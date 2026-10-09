@@ -337,7 +337,7 @@ def test_a_failed_reverse_trial_still_verifies(client, mail, events, monkeypatch
     monkeypatch.setattr(settings, "REVERSE_TRIAL_ENABLED", True)
 
     def _boom(db, user, days):
-        user.is_pro = True  # a half-applied grant, which the rollback must discard
+        user.is_pro = True  # a half-applied grant: it must not persist
         raise RuntimeError("billing store down")
 
     monkeypatch.setattr("app.services.subscription_sync.start_reverse_trial", _boom)
@@ -352,11 +352,13 @@ def test_a_failed_reverse_trial_still_verifies(client, mail, events, monkeypatch
     assert user.email_verified is True and user.is_pro is False
     assert _subscriptions(user_id) == []
     assert events == []
-    assert any(
-        r.name == "app.routers.auth" and r.levelno == logging.WARNING and r.exc_info
+    (warning,) = [
+        r for r in caplog.records
+        if r.name == "app.routers.auth" and r.levelno == logging.WARNING
         and r.getMessage() == f"Failed to start reverse trial for user {user_id} on verify"
-        for r in caplog.records
-    )
+    ]
+    # The warning carries the original failure, not a wrapper, as its exception.
+    assert warning.exc_info[0] is RuntimeError and str(warning.exc_info[1]) == "billing store down"
 
 
 @pytest.mark.requires_db
