@@ -17,6 +17,8 @@
                  adaptive = 36px below sm, 26px from sm up.
      - mono:     an option whose label is a code (10-K, 10-Q) sets it in the
                  data face, so a form code reads the same here as in the rows.
+     - labels never break (10-K/A breaks at its hyphen and slash otherwise);
+                 fullWidth wraps whole segments onto another row instead.
    Focus-visible = ring-brand. No hover:opacity anywhere (it darkens).
 ============================================================================= */
 
@@ -39,7 +41,8 @@ export interface SegmentedControlProps<T extends string> {
   value: T
   onChange: (value: T) => void
   size?: SegmentedControlSize
-  /** Stretch the segments across the row below sm (phone toolbars); auto width from sm up. */
+  /** Stretch the segments across the row below sm (phone toolbars), wrapping onto another row when
+   *  they do not fit, so every option stays visible; one auto-width row from sm up. */
   fullWidth?: boolean
   className?: string
 }
@@ -50,7 +53,7 @@ const SHELL = cx(
 )
 
 const SEGMENT = cx(
-  'inline-flex items-center justify-center rounded font-semibold transition-colors duration-fast',
+  'inline-flex items-center justify-center whitespace-nowrap rounded font-semibold transition-colors duration-fast',
   'focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark',
 )
 
@@ -76,7 +79,7 @@ export function SegmentedControl<T extends string>({
   className,
 }: SegmentedControlProps<T>) {
   return (
-    <div role="group" aria-label={label} className={cx(SHELL, fullWidth && 'flex w-full sm:inline-flex sm:w-auto', className)}>
+    <div role="group" aria-label={label} className={cx(SHELL, fullWidth && 'flex w-full flex-wrap gap-y-1 sm:inline-flex sm:w-auto sm:flex-nowrap', className)}>
       {options.map((option) => {
         const selected = option.value === value
         return (

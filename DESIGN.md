@@ -224,6 +224,30 @@ components:
     textColor: "{colors.text-primary-dark}"
     rounded: "{rounded.lg}"
     backgroundColor: "rgba(255,255,255,0.05)"
+  input-compact:
+    backgroundColor: "{colors.white}"
+    textColor: "{colors.text-primary-light}"
+    rounded: "{rounded.lg}"
+    padding: "0.375rem 0.75rem"
+    height: "2.25rem"
+  segmented-control:
+    backgroundColor: "{colors.panel-light}"
+    textColor: "{colors.text-secondary-light}"
+    rounded: "{rounded.lg}"
+    padding: "0.25rem"
+  segmented-control-selected:
+    backgroundColor: "{colors.brand}"
+    textColor: "{colors.white}"
+    rounded: "{rounded.DEFAULT}"
+    padding: "0 0.875rem"
+    height: "1.625rem"
+  segmented-control-dark:
+    backgroundColor: "{colors.panel-dark}"
+    textColor: "{colors.text-secondary-dark}"
+    rounded: "{rounded.lg}"
+  segmented-control-selected-dark:
+    backgroundColor: "{colors.brand-dark}"
+    textColor: "{colors.background-dark}"
   card:
     backgroundColor: "{colors.panel-light}"
     textColor: "{colors.text-primary-light}"
@@ -403,7 +427,7 @@ Components are **refined, readable and quietly confident**. Reuse [`components/u
 - **Destructive:** error fill with white label; darker error hover and active states. Preserve its error focus ring.
 - **Focus and busy:** use the shared focus recipe. Loading keeps the resting appearance, adds a spinner and `aria-busy`, and refuses repeated activation. Controls made unavailable by their own request stay focusable using the established `aria-disabled`/handler guards. A form that locks its text fields while submitting uses `readOnly` rather than native `disabled`; the contact form does, while login and registration leave fields editable. Native disabled styles exist for other unavailable states.
 
-A single-choice toggle group is the [`SegmentedControl`](frontend/components/ui/SegmentedControl.tsx): a panel shell with a hairline, 8px segments with 12px semibold labels, the pressed segment in the primary colorway (navy label on light sage in dark mode), and codes such as 10-K in the data face. Its options are all visible, so it is a group of pressed buttons rather than tabs or radios.
+A single-choice toggle group is the [`SegmentedControl`](frontend/components/ui/SegmentedControl.tsx): a panel shell with a hairline, 8px segments with 12px semibold labels, the pressed segment in the primary colorway (navy label on light sage in dark mode), and codes such as 10-K in the data face. Its options are all visible, so it is a group of pressed buttons rather than tabs or radios. On a phone, a full-width control spans its row with 36px segments and wraps whole segments onto another row when they do not fit; a label never breaks.
 
 [`Button.tsx`](frontend/components/ui/Button.tsx) also exports `buttonVariants` for real links styled as buttons. Standard color feedback uses the fast motion token. Spinner animation remains the existing utility with a reduced-motion fallback; this document introduces no new timing for it.
 

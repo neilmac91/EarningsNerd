@@ -222,6 +222,9 @@ Segmented ctrl   <SegmentedControl label options value onChange size="sm|md|adap
                  segment rounded (8) 12/600; selected = the primary colorway (bg-brand + white; dark NAVY ink on
                  brand-dark). sm 26px · md 36px · adaptive 36px below sm, 26px from sm up. `mono` options set
                  codes (10-K) in the data face. One selected colour per group — never an ink fill for "All".
+                 `fullWidth` stretches the segments across a phone row and wraps them onto another row when
+                 they do not fit (a form filter with amendments), so every option stays visible; from sm up
+                 it is one auto-width row.
 
 Index list       <FilingIndex> (features/filings/components) — the recipe for a list of primary documents:
                  ONE surface (the section Card), hairline rows and year groups (DataTable manners: hover
@@ -405,8 +408,11 @@ Section ledger   <SummaryBlocks>  (P-05/P-07) — sections sit on the page groun
                  stacked row per metric (name + change, then prior → current + Read as), switched by CSS.
                  A fragment the page was OPENED with (/filing/{id}#what-changed, from Compare periods) is
                  honoured once its section renders (features/summaries/hooks/useSectionArrival); later
-                 renders never move the reader. A legacy markdown summary's change-report card carries the
-                 same id (WHAT_CHANGED_ID, exported beside WhatChanged) and lands the same way.
+                 renders never move the reader. Where the page has no structured summary to hold it, the
+                 report is a card of its own (features/summaries ChangeReportCard): under a legacy markdown
+                 summary, under the signup gate, and under a run that ended in an error or at the monthly
+                 limit. It needs no summary, carries the same id (WHAT_CHANGED_ID, exported beside
+                 WhatChanged) and lands the same way.
 
 Company identity <CompanyIdentity company latest summaryReady actions>  (features/companies, critique 1b) — the
                  Filing identity vocabulary reused on the company lead (IDENTITY_* classes, Sep, TickerPill
