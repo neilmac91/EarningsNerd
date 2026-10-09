@@ -20,13 +20,14 @@ finishes, and at save. The locked anchors (test_summary_request_evidence, the ba
 characterization) are untouched; their stored bodies are ready.
 """
 import asyncio
+import uuid
 from types import SimpleNamespace
 
 import pytest
 from fastapi.testclient import TestClient
 
 from app.database import SessionLocal, engine
-from app.models import Base, Filing, Summary, SummaryGenerationProgress
+from app.models import Base, Filing, Summary, SummaryGenerationProgress, User, UserUsage
 from app.routers.auth import get_current_user
 from app.services.summary_generation_service import generate_summary_background
 from main import app
@@ -75,7 +76,12 @@ def _seed_summary(filing_id, body, raw_summary=None):
         row = Summary(filing_id=filing_id, business_overview=body, raw_summary=raw_summary)
         db.add(row)
         db.commit()
-        return row.id
+        row_id = row.id
+        # A later row, so a delete and re-insert cannot come back with the same id: SQLite reuses the
+        # highest id once it is deleted, which would pass an "updated in place" check.
+        db.add(Summary(filing_id=seed_company_filing(), business_overview=READY_BODY))
+        db.commit()
+        return row_id
 
 
 def _stored(filing_id):
@@ -353,6 +359,81 @@ async def test_a_follower_of_a_failed_unready_refresh_generates_instead_of_servi
     row_id, overview, _ = _stored(filing_id)
     assert row_id == stored_id
     assert FAILURE_FILLER not in overview
+
+
+@pytest.mark.asyncio
+async def test_a_follower_of_a_refresh_that_succeeds_is_served_its_summary():
+    # The other half of the join: the leader saves a summary the page shows, and the follower serves
+    # it without a generation of its own (tests-and-gates review on #1166).
+    from app.services import summary_pipeline as pipeline
+
+    filing_id = seed_company_filing()
+    stored_id = _seed_summary(filing_id, FAILURE_FILLER)
+    leader = pipeline._claim_inflight(filing_id)  # the first visitor's run, generating
+    joined = asyncio.Event()
+
+    async def follow():
+        events = []
+        async for event in pipeline.stream_filing_summary(
+            filing_id=filing_id, current_user=None, user_id=None, telemetry_distinct_id="t",
+            telemetry_entry_point=None, telemetry_ctx={}, emit_funnel_telemetry=False,
+            force_regenerate=True, replace_unready_only=True,
+        ):
+            events.append(event)
+            if event.get("stage") == "queued":
+                joined.set()
+        return events
+
+    with stream_boundaries() as summarize:
+        follower = asyncio.create_task(follow())
+        try:
+            await asyncio.wait_for(joined.wait(), 2)
+            _make_ready(filing_id)  # the first run saves its summary
+            pipeline._release_inflight(filing_id, leader)
+            events = await asyncio.wait_for(follower, 5)
+        finally:
+            follower.cancel()
+            await asyncio.gather(follower, return_exceptions=True)
+
+    summarize.assert_not_called()
+    assert events[-1]["type"] == "complete"
+    assert "A summary another request finished first." in events[-1]["summary"]
+    assert _stored(filing_id)[:2] == (stored_id, OTHER_READY)
+
+
+def test_a_refresh_is_metered_like_any_generation():
+    # A Free user already at the monthly cap gets the cap's paywall frame, not a free generation: the
+    # waived Pro gate is not a waived quota (tests-and-gates review on #1166).
+    from sqlalchemy.orm import joinedload
+
+    from app.services.subscription_service import FREE_TIER_SUMMARY_LIMIT, get_current_month
+
+    filing_id = seed_company_filing()
+    stored_id = _seed_summary(filing_id, FAILURE_FILLER)
+    with SessionLocal() as db:
+        user = User(email=f"cap-{uuid.uuid4().hex}@example.com", hashed_password="x",
+                    email_verified=True, is_active=True, is_pro=False)
+        db.add(user)
+        db.commit()
+        uid = user.id
+        db.add(UserUsage(user_id=uid, month=get_current_month(), summary_count=FREE_TIER_SUMMARY_LIMIT))
+        db.commit()
+        user = db.query(User).options(joinedload(User.subscription)).filter(User.id == uid).first()
+        db.expunge(user)
+    app.dependency_overrides[get_current_user] = lambda: user
+    try:
+        with stream_boundaries(patch_usage_limit=False) as summarize:
+            response = _post(filing_id)
+    finally:
+        with SessionLocal() as db:
+            db.query(UserUsage).filter(UserUsage.user_id == uid).delete()
+            db.query(User).filter(User.id == uid).delete()
+            db.commit()
+
+    assert response.status_code == 200
+    assert '"type": "error"' in response.text and "Upgrade to Pro" in response.text
+    summarize.assert_not_called()
+    assert _stored(filing_id)[:2] == (stored_id, FAILURE_FILLER)
 
 
 @pytest.mark.asyncio

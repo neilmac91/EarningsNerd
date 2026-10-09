@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { render, screen, waitFor, within } from '@testing-library/react'
+import { act, render, screen, waitFor, within } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import type { ReactNode } from 'react'
 import type { Company } from '@/features/companies/api/companies-api'
@@ -50,6 +50,16 @@ vi.mock('next/link', () => ({
     <a href={href} {...props}>{children}</a>
   ),
 }))
+
+// A case about the summary read's result lets the read land before it asserts: the lead says "Open
+// latest filing" while the read is pending too, so an assertion made before then proves nothing.
+async function settleSummaryRead() {
+  await waitFor(() => expect(api.getSummary).toHaveBeenCalledWith(12))
+  await act(async () => {
+    await api.getSummary.mock.results[0].value
+    await new Promise((resolve) => setTimeout(resolve, 0))
+  })
+}
 
 const COMPANY: Company = { id: 1, cik: '320193', ticker: 'AAPL', name: 'Apple Inc.', exchange: 'NASDAQ' }
 const filing = (id: number, filing_type: string, filed: string, report: string): Filing => ({
@@ -160,7 +170,9 @@ describe('Company page lead', () => {
     api.getSummary.mockResolvedValue({ id: 5, filing_id: 12, ...stored })
     renderPage([QUARTER, ANNUAL, PRIOR_ANNUAL])
     const header = screen.getByRole('banner')
-    expect(await within(header).findByRole('link', { name: 'Open latest filing' })).toHaveAttribute('href', '/filing/12')
+    // The lead also says "Open latest filing" while the read is pending, so the read must land first.
+    await settleSummaryRead()
+    expect(within(header).getByRole('link', { name: 'Open latest filing' })).toHaveAttribute('href', '/filing/12')
     expect(within(header).queryByText('summary ready')).toBeNull()
     expect(within(header).queryByRole('link', { name: /Summarize|Open latest summary/ })).toBeNull()
   })

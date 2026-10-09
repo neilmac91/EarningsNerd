@@ -254,7 +254,10 @@ describe('SummaryBlocks', () => {
     const stack = first.parentElement as HTMLElement
     expect(stack.className).toMatch(/(^|\s)space-y-11(\s|$)/)
     expect(stack.firstElementChild).toBe(first)
-    expect(stack.contains(screen.getByRole('navigation', { name: 'Jump to section' }))).toBe(false)
+    const phoneNav = screen.getByRole('navigation', { name: 'Jump to section' })
+    expect(stack.contains(phoneNav)).toBe(false)
+    // Out of the stack, the nav carries the stack's gap itself, so phones keep the space above 01.
+    expect(phoneNav.className).toMatch(/(^|\s)mb-11(\s|$)/)
   })
 
   it('heads each risk with its own excerpt, never a model-authored label', () => {
