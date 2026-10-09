@@ -58,7 +58,8 @@ async function highlighted(page: Page) {
     const highlight = (CSS as unknown as { highlights: Map<string, Set<Range>> }).highlights.get('copilot-citation')
     return highlight ? Array.from(highlight)[0].toString() : ''
   })
-  expect(text.replace(/\s+/g, ' ').trim()).toBe(EXCERPT)
+  // The match covers the excerpt's words; the sentence's closing stop stays outside it.
+  expect(text.replace(/\s+/g, ' ').trim()).toBe(EXCERPT.replace(/[.!?]$/, ''))
 }
 
 /** Wait until the citation's smooth scroll has stopped: nothing scrolled for three samples running. */
