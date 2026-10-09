@@ -6479,6 +6479,12 @@ Full local and hosted verification plus independent exact-head review precede re
   proof; chief defect 7: its squash message carries superseded branch messages). The backend suite made hermetic and gated
   (PR #1145 → `4c0563ad`; eleventh deploy-skip proof; ledger events 37–38). D3 stage 2 implemented, reviewed (no blocker),
   fixed and held on a local branch; `eval-baseline` measured, so each push to it is reserved at USD 0.730000. Closure 169.
+- 2026-10-09 (record 19, `runtime/control/DECISIONS-19.md`): PR #1149 (record 18) merged `76d45732` (twelfth deploy-skip
+  proof). D3 stage 2 merged (PR #1151 → `ae5b0f1c`) after the founder moved backfill-facts to Monday 07:30, and deployed:
+  every production process runs both SEC limiters at 1 and the insider endpoint is off (deploy log, `describe-service`
+  and an independent read-only check). Ledger events 39–44 (USD 0.743983). Chief defect 8. Closure 170. For the CPO:
+  `eval-baseline`'s `mean_citation_fidelity` reads 0.83–0.86 against a baseline of 0.9648 on all six runs measured
+  that day, before and after stage 2 (an advisory warning).
 - [ ] Founder (optional): set the repository's squash default to "Default to pull request title and description", so a
       squash merge without an explicit message carries the reviewed PR text (record 18, chief defect 7).
 - [x] Founder: relay the record-14 custody clarification — replaced by record 16's step A (the founder delegated the custody
@@ -6488,15 +6494,21 @@ Full local and hosted verification plus independent exact-head review precede re
 - [x] Chief: D3 stage 1 PR (eight jobs + task worker pinned; reservation before ready; deploy verified) — merged `da636f6c`,
       deployed 2026-10-08T20:17Z (record 17).
 - [x] Founder (decision): D3 stage 2 — chose option A, guard then pin, and to move backfill-facts (record 17).
-- [ ] Founder: move `backfill-facts-weekly` to `30 7 * * 1` (`gcloud scheduler jobs update http backfill-facts-weekly
+- [x] Founder: move `backfill-facts-weekly` to `30 7 * * 1` (`gcloud scheduler jobs update http backfill-facts-weekly
       --location=us-west1 --schedule="30 7 * * 1"`) before the stage-2 PR merges; check it with `gcloud scheduler jobs
       describe backfill-facts-weekly --location=us-west1 --format="value(schedule,timeZone)"` (expect `30 7 * * 1` and
-      `Etc/UTC`); tell the chief (records 17–18).
-- [ ] Chief: D3 stage-2 PR, option A — insider endpoint behind a server-side switch (off unless set), the always-failing
+      `Etc/UTC`); tell the chief (records 17–18). Done 2026-10-09T11:30:47Z (record 19).
+- [x] Chief: D3 stage-2 PR, option A — insider endpoint behind a server-side switch (off unless set), the always-failing
       fuzzy-search fallback deleted, the API service pinned, the gate's staged exemption removed, docs and schedule line
       updated, and the deploy job printing its variable-driven switches with a test (chief defect 6's rule 12 enforcement).
       Implemented, reviewed (three-lens and delta: no blocker) and held on a local branch until record 18 merges; every push
-      that fires `eval-baseline` reserved at USD 0.730000 first (record 18).
+      that fires `eval-baseline` reserved at USD 0.730000 first (record 18). Merged `ae5b0f1c` (PR #1151) and deployed;
+      the service's and pregenerate's pins read back with `describe-service`, the worker's and the seven other jobs' from
+      the deploy's echoed commands (record 19).
+- [ ] Chief: after Monday 2026-10-12, read the 06:00–08:00 UTC window (the first with the whole fleet pinned and
+      backfill-facts at 07:30) with the read-only `capacity-readout`: SEC errors, breaker opens, job outcomes (record 19).
+- [ ] Chief (small): `ops.yml` `describe-jobs` and `describe-service` print the two SEC pin values for every job and the
+      task worker (non-secret), with the visibility test extended; no operation reads them back today (record 19).
 - [ ] Workflow owner: `review-gate.yml:61` re-runs the gate on any comment containing "@codex review", including Codex's own
       summary boilerplate, which cancelled a required run on PR #1131 (record 17); exclude the Codex connector's comments.
 - [x] Founder (optional, now; folded into record 17's option A): the D3 staging answer rested on an overstated premise (the insider panel is off in production;
