@@ -484,27 +484,34 @@ Source pane      <FilingWorkspace>  (P-06) — the research pane is named for th
                  hairline, e3; aria-keyshortcuts) whose kbd hint is secondary ink on a cream key. A chip opens
                  the pane on Filing; the initial tab stays Ask until in-app filing text is reliably available.
 
-Filing reader    <FilingViewer> (`.filing-reader`) fills its pane and never exceeds it: the reader-only rule
-                 sets `width: 100%`, up to the 88ch rail (a column-flex child with auto inline margins is not
-                 stretched, so without it the reader took its widest table's width; `min-w-0` does not bound
-                 that). Each table sits in its own horizontal scroll box (`ReaderTable`, `.filing-table-scroll`,
-                 which takes the table's 68ch escape and 2rem rhythm); never make the reader or the sheet scroll
-                 sideways for a table, and never `overflow-x-hidden` it away. While, and only while, a table is
-                 wider than its box, the box is a scroll region: `role="region"`, `tabIndex={0}`,
-                 `aria-label="Scrollable table: <the heading above it>"` (the last heading before it whose own
-                 container, the reader or a blockquote or list item, also holds it; ", table 2 of 3" when tables
-                 sit under headings that read the same, in one section or several, so no two regions share a
-                 name), the brand focus ring; a table that fits stays out of the tab order. The reader itself is a tab stop too (`role="region"`, named
-                 "<filing> · filing text", `tabIndex={0}`, the ring inset as in MonthView), so the arrow keys
-                 scroll it from the top: Chromium made the scroller one on its own only while nothing in it was
-                 focusable. In the Source pane's Filing tab, Tab goes Filing tab → reader → each scrolling
-                 table's region → "Original on SEC EDGAR". A citation jump (highlightInDom) scrolls the reader
-                 and the table's box only, never the page (no scrollIntoView): smoothly, or in one jump under
-                 prefers-reduced-motion. The AI summary's `.markdown-body` is untouched. Gates:
-                 tests/unit/highlightInDom.spec.ts, tests/unit/readerTableRegionName.spec.ts,
-                 tests/e2e/filing-reader-wide-tables.spec.ts (synthetic fixture text, 1440x900 and a 390x844
-                 touch sheet) and tests/e2e/copilot-highlight-css.spec.ts (a far-right table cell revealed in
-                 its own box in real layout, the page unmoved).
+Filing reader    <FilingViewer> (`.filing-reader`) fills its pane and never exceeds it: the reader-only
+                 rule sets `width: 100%`, up to the 88ch rail (a column-flex child with auto inline
+                 margins is not stretched, so without it the reader took its widest table's width;
+                 `min-w-0` does not bound that). Each table sits in its own horizontal scroll box
+                 (`ReaderTable`, `.filing-table-scroll`, which takes the table's 2rem rhythm wherever it
+                 sits and, at the reader's top level, its escape from the 68ch measure); never make the
+                 reader or the sheet scroll sideways for a table, and never `overflow-x-hidden` it away.
+                 While, and only while, a table is wider than its box, the box is a scroll region:
+                 `role="region"`, `tabIndex={0}`, `aria-label="Scrollable table: <the heading above it>"`
+                 (the last heading before it whose own container, the reader or a blockquote or list item,
+                 also holds it; ", table 2 of 3" when tables sit under headings that read the same, in one
+                 section or several, so no two regions share a name), the brand focus ring; a table that
+                 fits stays out of the tab order. The reader itself is a tab stop too (`role="region"`,
+                 named "<filing> · filing text", `tabIndex={0}`, the ring inset as in MonthView), so the
+                 arrow keys scroll it from the top: Chromium made the scroller one on its own only while
+                 nothing in it was focusable. In the Source pane's Filing tab, Tab goes Filing tab →
+                 reader → each scrolling table's region (and any link in the text) → "Original on SEC
+                 EDGAR"; when the cited passage cannot be found, the notice's "Open original" link comes
+                 before the reader. A citation jump (highlightInDom) scrolls the reader and the table's
+                 box only, never the page (no scrollIntoView), and centres the passage in the reader's
+                 on-screen part (above the fold and the consent bar, before the desktop pane sticks):
+                 smoothly, or in one jump under prefers-reduced-motion. A box names itself only when it
+                 starts to overflow, never on every resize (the name scans the whole reader). The AI
+                 summary's `.markdown-body` is untouched. Gates: tests/unit/highlightInDom.spec.ts,
+                 tests/unit/readerTableRegionName.spec.ts, tests/e2e/filing-reader-wide-tables.spec.ts
+                 (synthetic fixture text, 1440x900 and a 390x844 touch sheet) and
+                 tests/e2e/copilot-highlight-css.spec.ts (a far-right table cell revealed in its own box
+                 in real layout, the page unmoved).
 
 Ask answer       <AskFilingAnswer>  — the SHIPPED copilot contract: status reading|streaming|done|error;
                  answer = GFM markdown (react-markdown + remark-gfm); markers [n] AND [F1]/[f1]/[F 1]

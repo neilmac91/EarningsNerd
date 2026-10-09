@@ -11,6 +11,7 @@
 import { findExcerptMatch } from './excerptMatch'
 import { flashElement } from '@/lib/citationFlash'
 import { prefersReducedMotion } from '@/hooks/usePrefersReducedMotion'
+import { CONSENT_INSET_PROPERTY } from '@/lib/consentLayer'
 
 const HIGHLIGHT_NAME = 'copilot-citation'
 
@@ -93,11 +94,14 @@ const SCROLLS = /^(auto|scroll|hidden)$/
 
 const clamp = (value: number, max: number) => Math.min(Math.max(value, 0), Math.max(max, 0))
 
+/** The consent bar's height while it shows (lib/consentLayer publishes it on <html>), else 0. */
+const consentInset = () => parseFloat(document.documentElement.style.getPropertyValue(CONSENT_INSET_PROPERTY)) || 0
+
 /**
  * Bring `target` into view inside `container` and nowhere else (EN-04). Each scroll box from the
  * target up to and including the container moves: a wide table's own box sideways to its nearest
- * edge, the reader down or up so the passage sits in its middle (or starts at its top when it is the
- * taller of the two). Each box sees the target where the boxes inside it will have moved it. Nothing
+ * edge, the reader down or up so the passage sits in the middle of its on-screen part (or starts at
+ * its top when it is the taller of the two). Each box sees the target where the boxes inside it will have moved it. Nothing
  * outside the container scrolls: scrollIntoView scrolled every scrollable ancestor, the page
  * included, and with a reader wider than its pane that slid the whole filing page sideways. The
  * scroll is smooth, except under prefers-reduced-motion, where it jumps ('auto': neither the reader
@@ -121,7 +125,13 @@ function revealWithin(container: HTMLElement, target: HTMLElement): void {
       x = clamp(x, box.scrollWidth - box.clientWidth)
     }
     if (SCROLLS.test(style.overflowY) && box.scrollHeight > box.clientHeight) {
-      y += tTop - top - Math.max(0, (box.clientHeight - (tBottom - tTop)) / 2)
+      // Centre in the part of the box on screen: before the desktop pane sticks, its lower part sits
+      // below the fold (and the consent bar covers the bottom while it shows), and this never scrolls
+      // the page to make up for it. A box wholly off screen centres in its own height.
+      const viewTop = Math.max(top, 0)
+      const viewBottom = Math.min(top + box.clientHeight, window.innerHeight - consentInset())
+      const [from, height] = viewBottom > viewTop ? [viewTop, viewBottom - viewTop] : [top, box.clientHeight]
+      y += tTop - from - Math.max(0, (height - (tBottom - tTop)) / 2)
       y = clamp(y, box.scrollHeight - box.clientHeight)
     }
     const dx = x - box.scrollLeft

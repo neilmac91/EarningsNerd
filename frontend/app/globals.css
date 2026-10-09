@@ -318,11 +318,13 @@
 :is(.markdown-body, .filing-reader) > figure,
 :is(.markdown-body, .filing-reader) > pre { max-width: none; }
 /* A reader table scrolls sideways in a box of its own (FilingViewer → ReaderTable, EN-04). The box
-   is the reader's child, so it takes the table's escape from the 68ch measure and the table's 2rem
-   rhythm (keeping the box's focus ring tight to the table); the table inside fills the box with no
-   margin. Reader-only: the AI summary's tables are not boxed. */
-.filing-reader > .filing-table-scroll { max-width: none; margin-top: 2rem; margin-bottom: 2rem; }
-.filing-reader > .filing-table-scroll > table { margin-top: 0; margin-bottom: 0; }
+   takes the table's 2rem rhythm wherever it sits, a blockquote or list item included (keeping the
+   box's focus ring tight to the table), and at the reader's top level the table's escape from the
+   68ch measure; the table inside fills the box with no margin. Reader-only: the AI summary's tables
+   are not boxed. */
+.filing-reader .filing-table-scroll { margin-top: 2rem; margin-bottom: 2rem; }
+.filing-reader > .filing-table-scroll { max-width: none; }
+.filing-reader .filing-table-scroll > table { margin-top: 0; margin-bottom: 0; }
 :is(.markdown-body, .filing-reader) > :first-child { margin-top: 0; }
 
 :is(.markdown-body, .filing-reader) p { @apply text-text-secondary-light dark:text-text-secondary-dark; margin-top: 0; margin-bottom: 1em; }

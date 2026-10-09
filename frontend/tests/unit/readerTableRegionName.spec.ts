@@ -1,5 +1,7 @@
-import { describe, it, expect } from 'vitest'
-import { regionName } from '@/features/filings/components/copilot/ReaderTable'
+import { describe, it, expect, vi, afterEach } from 'vitest'
+import { createElement } from 'react'
+import { act, render } from '@testing-library/react'
+import ReaderTable, { regionName } from '@/features/filings/components/copilot/ReaderTable'
 
 // A filing-reader table that scrolls is a named region (EN-04). Its name is the section it sits
 // under; statements often share one heading, and notes repeat a heading's text, so tables whose
@@ -72,5 +74,47 @@ describe('ReaderTable regionName', () => {
       // A list item's heading does not reach into the next item.
       'Scrollable table: Item 8, table 2 of 2',
     ])
+  })
+})
+
+// regionName scans the whole reader, and on a pane drag every table's observer fires each frame: a box
+// names itself when it starts to overflow and drops the name when it fits, never on a resize that
+// leaves it as it was.
+describe('ReaderTable naming', () => {
+  afterEach(() => vi.unstubAllGlobals())
+
+  it('scans the reader once per overflow change, not on every resize', () => {
+    let notify = () => {}
+    vi.stubGlobal('ResizeObserver', class {
+      constructor(callback: () => void) { notify = callback }
+      observe() {}
+      disconnect() {}
+    })
+    const { container } = render(
+      createElement('div', { className: 'filing-reader' }, createElement('h2', null, 'Item 8'), createElement(ReaderTable, null, createElement('tbody'))),
+    )
+    const box = container.querySelector<HTMLElement>('.filing-table-scroll')!
+    const widths = (scroll: number) => {
+      Object.defineProperty(box, 'scrollWidth', { configurable: true, value: scroll })
+      Object.defineProperty(box, 'clientWidth', { configurable: true, value: 400 })
+    }
+    const scans = vi.spyOn(Element.prototype, 'querySelectorAll')
+    const resize = () => act(() => notify())
+
+    widths(900)
+    resize()
+    resize()
+    resize()
+    expect(box).toHaveAttribute('aria-label', 'Scrollable table: Item 8')
+    expect(scans).toHaveBeenCalledTimes(1)
+
+    widths(400)
+    resize()
+    resize()
+    expect(box).not.toHaveAttribute('role')
+    widths(900)
+    resize()
+    expect(box).toHaveAttribute('aria-label', 'Scrollable table: Item 8')
+    expect(scans).toHaveBeenCalledTimes(2)
   })
 })

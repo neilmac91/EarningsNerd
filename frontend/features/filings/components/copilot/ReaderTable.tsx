@@ -54,7 +54,17 @@ export default function ReaderTable({ node: _n, ...rest }: ComponentProps<'table
   useEffect(() => {
     const box = boxRef.current
     if (!box || typeof ResizeObserver === 'undefined') return
-    const observer = new ResizeObserver(() => setName(box.scrollWidth > box.clientWidth ? regionName(box) : null))
+    // The box names itself only when it starts to overflow, not on every notification: the reader's
+    // headings and tables are fixed for its content, and regionName scans the whole reader, so with every
+    // table's observer firing on each frame of a pane drag a long filing cost O(tables x (headings +
+    // tables)) per frame.
+    let overflowing = false
+    const observer = new ResizeObserver(() => {
+      const overflows = box.scrollWidth > box.clientWidth
+      if (overflows === overflowing) return
+      overflowing = overflows
+      setName(overflows ? regionName(box) : null)
+    })
     observer.observe(box)
     if (box.firstElementChild) observer.observe(box.firstElementChild)
     return () => observer.disconnect()

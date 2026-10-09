@@ -148,6 +148,33 @@ describe('highlightExcerptInDom', () => {
       container.remove()
     })
 
+    it('centres the passage in the part of the container on screen, above the fold and the consent bar', () => {
+      // Before the desktop pane sticks, the reader starts at 400 and runs to 1240, past the 768px fold:
+      // the passage is centred in 400 to 768, not in the reader's whole 840px, which would leave it
+      // below the fold (this helper never scrolls the page to make up for it).
+      const container = document.createElement('div')
+      container.innerHTML = '<p>Revenue increased to $391.0B this year.</p>'
+      document.body.appendChild(container)
+      const passage = container.querySelector('p')!
+      place(container, { top: 400, height: 840, clientHeight: 840, scrollHeight: 3000, overflowY: 'auto' })
+      place(passage, { top: 1600, height: 80 })
+      const scrollTo = stubScrollTo(container)
+      expect(window.innerHeight).toBe(768)
+
+      highlightExcerptInDom(container, 'Revenue increased to $391.0B this year')
+      // 1600 - 400, less half the on-screen free height ((768 - 400 - 80) / 2).
+      expect(scrollTo.mock.calls).toEqual([[{ top: 1056, behavior: 'smooth' }]])
+
+      // The consent bar covers the bottom 100px while it shows: the on-screen part ends at 668.
+      document.documentElement.style.setProperty('--consent-inset', '100px')
+      scrollTo.mockClear()
+      highlightExcerptInDom(container, 'Revenue increased to $391.0B this year')
+      expect(scrollTo.mock.calls).toEqual([[{ top: 1106, behavior: 'smooth' }]])
+      document.documentElement.style.removeProperty('--consent-inset')
+
+      document.body.removeChild(container)
+    })
+
     it('a passage taller than the container is aligned to its start, not centred past it', () => {
       const container = document.createElement('div')
       container.innerHTML = '<p>Intro.</p><p>Gross margin expanded on a favourable product mix this quarter.</p>'
