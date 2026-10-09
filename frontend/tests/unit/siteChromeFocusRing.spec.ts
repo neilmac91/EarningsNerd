@@ -1,4 +1,5 @@
-import { existsSync, readdirSync, readFileSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import os from 'node:os'
 import path from 'node:path'
 import ts from 'typescript'
 import { describe, expect, it } from 'vitest'
@@ -40,10 +41,10 @@ const ROOT = path.resolve(__dirname, '../..')
 /**
  * Where the site chrome is mounted: the root layout (header, footer, verification banner and prompt,
  * consent bar, and the providers' app-wide widgets, on every route), the auth routes' shell, and the
- * page header pages render. The scanned files are discovered from these: every .tsx module they import,
- * transitively, through `@/` or relative paths. The DS primitives in components/ui are not followed:
- * they own the recipe, and `buttonVariants` is pinned below. A new banner, menu or widget the chrome
- * imports is scanned without anyone listing it.
+ * page header pages render. The scanned files are discovered from these: every .tsx module they reach,
+ * transitively, through `@/` or relative imports and re-exports, .ts barrels included. The DS
+ * primitives in components/ui are not followed: they own the recipe, and `buttonVariants` is pinned
+ * below. A new banner, menu or widget the chrome imports is scanned without anyone listing it.
  */
 const CHROME_ROOTS = ['app/layout.tsx', 'features/auth/components/AuthShell.tsx', 'components/SecondaryHeader.tsx']
 
@@ -93,32 +94,39 @@ function thirdPartyTags(source: string, fileName: string): string[] {
   return [...tags]
 }
 
-/** The chrome's .tsx modules, discovered from CHROME_ROOTS through their imports. */
-function chromeFiles(): string[] {
+/**
+ * The chrome's .tsx modules, discovered from `roots` through the module graph: every import and
+ * `export … from` that is not type-only, through `@/` or relative paths, including .ts modules such as
+ * a barrel's index.ts. Only the .tsx modules are returned; a .ts module renders nothing itself.
+ */
+function chromeFiles(roots: string[] = CHROME_ROOTS, root: string = ROOT): string[] {
   const resolveImport = (from: string, spec: string): string | null => {
     let base: string
-    if (spec.startsWith('@/')) base = path.join(ROOT, spec.slice(2))
-    else if (spec.startsWith('.')) base = path.resolve(path.dirname(path.join(ROOT, from)), spec)
+    if (spec.startsWith('@/')) base = path.join(root, spec.slice(2))
+    else if (spec.startsWith('.')) base = path.resolve(path.dirname(path.join(root, from)), spec)
     else return null
-    for (const candidate of [`${base}.tsx`, path.join(base, 'index.tsx')]) {
-      if (existsSync(candidate)) return path.relative(ROOT, candidate)
+    for (const candidate of [`${base}.tsx`, `${base}.ts`, path.join(base, 'index.tsx'), path.join(base, 'index.ts')]) {
+      if (existsSync(candidate)) return path.relative(root, candidate)
     }
     return null
   }
   const seen = new Set<string>()
-  const queue = [...CHROME_ROOTS]
+  const queue = [...roots]
   while (queue.length) {
     const file = queue.shift()!
     if (seen.has(file)) continue
     seen.add(file)
-    const sf = parse(readFileSync(path.join(ROOT, file), 'utf8'), file)
+    const sf = parse(readFileSync(path.join(root, file), 'utf8'), file)
     for (const stmt of sf.statements) {
-      if (!ts.isImportDeclaration(stmt) || stmt.importClause?.isTypeOnly || !ts.isStringLiteral(stmt.moduleSpecifier)) continue
-      const target = resolveImport(file, stmt.moduleSpecifier.text)
+      const spec = ts.isImportDeclaration(stmt) && !stmt.importClause?.isTypeOnly ? stmt.moduleSpecifier
+        : ts.isExportDeclaration(stmt) && !stmt.isTypeOnly ? stmt.moduleSpecifier
+          : undefined
+      if (!spec || !ts.isStringLiteral(spec)) continue
+      const target = resolveImport(file, spec.text)
       if (target && !target.startsWith(`components${path.sep}ui${path.sep}`)) queue.push(target)
     }
   }
-  return [...seen].sort()
+  return [...seen].filter((file) => file.endsWith('.tsx')).sort()
 }
 
 const RINGS = [
@@ -289,6 +297,26 @@ describe('every Tab stop in the site chrome carries the brand focus ring (EN-05c
       expect(discovered, file).toContain(file)
     }
     for (const file of Object.keys(NOT_SCANNED)) expect(discovered, `${file} is no longer chrome: drop its exemption`).toContain(file)
+  })
+
+  it('the discovery follows barrels and re-exports, and skips type-only imports', () => {
+    const dir = mkdtempSync(path.join(os.tmpdir(), 'chrome-graph-'))
+    const files: Record<string, string> = {
+      'app/layout.tsx': "import { Banner, Menu } from '@/components/chrome'\nimport type { Props } from '@/components/types'",
+      'components/chrome/index.ts': "export { Banner } from './Banner'\nexport * from './Menu'",
+      'components/chrome/Banner.tsx': 'export const Banner = () => null',
+      'components/chrome/Menu.tsx': 'export const Menu = () => null',
+      'components/types.tsx': 'export type Props = object',
+    }
+    try {
+      for (const [file, source] of Object.entries(files)) {
+        mkdirSync(path.dirname(path.join(dir, file)), { recursive: true })
+        writeFileSync(path.join(dir, file), source)
+      }
+      expect(chromeFiles(['app/layout.tsx'], dir)).toEqual(['app/layout.tsx', 'components/chrome/Banner.tsx', 'components/chrome/Menu.tsx'])
+    } finally {
+      rmSync(dir, { recursive: true, force: true })
+    }
   })
 
   it('every third-party component the chrome renders is classified', () => {
