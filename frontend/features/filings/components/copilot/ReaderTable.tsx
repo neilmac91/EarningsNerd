@@ -4,13 +4,27 @@ import { useEffect, useRef, useState, type ComponentProps } from 'react'
 
 type MdExtra = { node?: unknown }
 
-/** A scrolling table's region name: the filing section it sits under, when one precedes it. */
-function regionName(box: HTMLElement): string {
-  for (let el = box.previousElementSibling; el; el = el.previousElementSibling) {
-    const heading = /^H[1-6]$/.test(el.tagName) ? el.textContent?.trim() : ''
-    if (heading) return `Scrollable table: ${heading}`
+const headingText = (el: Element) => (/^H[1-6]$/.test(el.tagName) ? (el.textContent?.trim() ?? '') : '')
+const isTableBox = (el: Element) => el.classList.contains('filing-table-scroll')
+
+/**
+ * A scrolling table's region name: the filing section it sits under, when a heading precedes it. A
+ * section with more than one table numbers them ("table 2 of 3"): statements often share one heading,
+ * and two regions with one name cannot be told apart in a landmark list.
+ */
+export function regionName(box: HTMLElement): string {
+  let heading = ''
+  let index = 1
+  for (let el = box.previousElementSibling; el && !heading; el = el.previousElementSibling) {
+    heading = headingText(el)
+    if (!heading && isTableBox(el)) index++
   }
-  return 'Scrollable table'
+  let count = index
+  for (let el = box.nextElementSibling; el && !headingText(el); el = el.nextElementSibling) {
+    if (isTableBox(el)) count++
+  }
+  const name = heading ? `Scrollable table: ${heading}` : 'Scrollable table'
+  return count > 1 ? `${name}, table ${index} of ${count}` : name
 }
 
 /**
