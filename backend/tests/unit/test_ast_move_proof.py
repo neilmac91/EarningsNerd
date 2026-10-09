@@ -3,7 +3,8 @@
 The hot-module refactor (``tasks/refactor-plan-2026-10.md``) proves every "pure move" with this tool,
 so each verdict it can return is pinned here on small synthetic modules: an honest move passes, and a
 changed token, a dropped symbol, a duplicated definition, a changed class member, a changed arm of a
-rebound name and an added import-time side effect each fail; a disclosed delta passes with its diff shown.
+rebound name, a changed guard, a statement moved out of its guard and an added import-time side effect
+(including an assignment whose value calls) each fail; a disclosed delta passes with its diff shown.
 """
 from tests.support.ast_move_proof import compare, render
 
@@ -107,8 +108,41 @@ def test_every_definition_of_a_rebound_name_is_compared():
     assert compare(FALLBACK, {"app/x/repair.py": FALLBACK}).ok
     flipped = FALLBACK.replace("_HAS_JSON_REPAIR = True", "_HAS_JSON_REPAIR = False")
     report = compare(FALLBACK, {"app/x/repair.py": flipped})
-    assert list(report.changed) == ["_HAS_JSON_REPAIR"]
+    assert set(report.changed) == {"_HAS_JSON_REPAIR", "guard:try except ImportError"}
     assert "+_HAS_JSON_REPAIR = False" in report.changed["_HAS_JSON_REPAIR"]
+
+
+def test_a_changed_guard_fails_even_when_its_body_is_identical():
+    """Widening ``except ImportError`` to ``except Exception`` keeps every assignment byte-identical."""
+    widened = FALLBACK.replace("except ImportError:", "except Exception:")
+    report = compare(FALLBACK, {"app/x/repair.py": widened})
+    assert not report.ok
+    assert report.missing == ["guard:try except ImportError"]
+    assert report.side_effects == {"guard:try except Exception": "app/x/repair.py"}
+    negated = "if FLAG:\n    A = 1\n"
+    assert compare(negated, {"app/x/a.py": negated}).ok
+    assert compare(negated, {"app/x/a.py": negated.replace("if FLAG:", "if not FLAG:")}).missing == ["guard:if FLAG"]
+
+
+def test_a_statement_moved_out_of_its_guard_fails():
+    old = "if FLAG:\n    A = 1\n    B = 2\n"
+    report = compare(old, {"app/x/a.py": "if FLAG:\n    A = 1\nB = 2\n"})
+    assert list(report.changed) == ["guard:if FLAG"]
+    assert report.moved == 2  # A and B themselves are unchanged
+
+
+def test_an_import_only_block_is_not_a_symbol():
+    old = "from typing import TYPE_CHECKING\n\nif TYPE_CHECKING:\n    from x import Y\n\nA = 1\n"
+    report = compare(old, {"app/x/a.py": "A = 1\n"})
+    assert report.ok, render(report)
+    assert report.moved == 1
+
+
+def test_a_new_assignment_that_calls_runs_at_import():
+    files = _move(**{"app/x/helpers.py": HELPERS + "\nREGISTERED = register(clip)\nKEY = lambda row: row.get('k')\n"})
+    report = compare(OLD, files)
+    assert report.side_effects == {"REGISTERED": "app/x/helpers.py"}
+    assert report.added == {"__all__": "app/x.py", "KEY": "app/x/helpers.py"}  # a lambda's call runs later
 
 
 def test_an_added_import_time_side_effect_fails_until_disclosed():

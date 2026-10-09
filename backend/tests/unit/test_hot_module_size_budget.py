@@ -17,9 +17,9 @@ module edits only its own budget file. The gate enforces:
   lines or 20 function lines above the actual size, or a function row at or under 80 (the default
   already covers it);
 * the façade contract: every name a base file defined at W0.G (module-level names, and the members of
-  its module-level classes) still resolves on the base module. A module-level name with no mapping must
-  still be defined in the base file itself; once a move maps it to the module that now defines it, the
-  façade's binding must be that module's object;
+  its module-level classes, annotation-only dataclass fields included) still resolves on the base
+  module. A module-level name with no mapping must still be defined in the base file itself; once a
+  move maps it to the module that now defines it, the façade's binding must be that module's object;
 * ``forbidden_imports`` rows ``[file glob, module]`` or ``[file glob, module, "exact"]``: no import
   statement in a matching file, lazy imports inside functions included and relative imports resolved
   against the file's package, may import that module (or, without ``"exact"``, anything under it).
@@ -169,6 +169,13 @@ def defined_names(source: str) -> set[str]:
 
     visit(ast.parse(source))
     return names
+
+
+def _has_member(owner: object, member: str) -> bool:
+    """An attribute, or a field that only an annotation declares (a dataclass field without a default
+    is not a class attribute, so ``hasattr`` alone would miss it)."""
+    return (hasattr(owner, member) or member in getattr(owner, "__dataclass_fields__", {})
+            or member in getattr(owner, "__annotations__", {}))
 
 
 def raise_line(path: str, ceiling: int) -> re.Pattern[str]:
@@ -381,7 +388,7 @@ def test_facade_names_still_resolve(budgets, stem):
             broken.append(f"{name}: no longer resolves on {facade.__name__}; re-export it from the façade, or, "
                           "if it was deleted on purpose, remove it from names and say why in note")
             continue
-        if member and not hasattr(target, member):
+        if member and not _has_member(target, member):
             broken.append(f"{name}: {owner} lost its member {member!r}")
             continue
         if home is not None:

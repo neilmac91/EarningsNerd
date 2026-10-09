@@ -15,16 +15,19 @@ decorators, bases and keywords), class member (method or class attribute, keyed 
 assignment (keyed by its target names; one that sets an attribute or item, such as
 ``settings.FLAG = False``, keys as ``effect:<target>``) or other module-level expression statement
 (``expr:<text>``). Statements inside module-level ``if``/``try``/``with``/``for``/``while`` blocks are
-read as module-level. A name bound more than once in one file (a ``try``/``except`` fallback, an
-``if``/``else`` pair, a property and its setter) keeps every definition in source order, so a change to
-any one of them is CHANGED. Import statements and module docstrings are not symbols: a move rewrites
-them by design.
+read as module-level, and each such block that holds more than imports is a symbol of its own as well:
+keyed by the condition it runs under (``guard:<test, iterable, context or handled exceptions>``), its text
+is the whole block with its imports dropped, so changing a condition or an exception type, or moving a
+statement into or out of the block, is MISSING or CHANGED. A name bound more than once in one file (a
+``try``/``except`` fallback, an ``if``/``else`` pair, a property and its setter) keeps every definition
+in source order, so a change to any one of them is CHANGED. Import statements and module docstrings are
+not symbols: a move rewrites them by design.
 
 Verdicts: MISSING (defined before, nowhere after), CHANGED (the normalised text differs), DUPLICATE
 (defined in more than one new file, e.g. a ``logger`` per sub-module, whose logger NAME changes with
-the module), SIDE EFFECT (a NEW ``effect:`` or ``expr:`` statement: code that runs at import, which a
-move never adds) and ADDED (other new symbols, such as the helpers a split introduces, or a façade's
-``__all__``). The exit status is 0 only when nothing is MISSING, CHANGED, DUPLICATE or SIDE EFFECT
+the module), SIDE EFFECT (a NEW statement that runs code at import, which a move never adds: an
+``effect:``, ``expr:`` or ``guard:`` statement, or an assignment whose value makes a call) and ADDED
+(other new symbols, such as the helpers a split introduces, or a façade's ``__all__``). The exit status is 0 only when nothing is MISSING, CHANGED, DUPLICATE or SIDE EFFECT
 beyond the symbols passed with ``--allow``; each allowed symbol is a disclosed delta the PR body must
 list, and its diff is printed with it.
 """
@@ -32,6 +35,7 @@ from __future__ import annotations
 
 import argparse
 import ast
+import copy
 import difflib
 import subprocess
 import sys
@@ -81,8 +85,70 @@ def _assignment_key(targets: list[ast.expr]) -> str:
     return key if all(n.isidentifier() for n in names) else "effect:" + key
 
 
-def _is_side_effect(name: str) -> bool:
-    return name.startswith(("effect:", "expr:"))
+def _calls(node: ast.AST) -> bool:
+    """Whether evaluating the expression makes a call (a lambda's body runs later, so it is skipped)."""
+    if isinstance(node, ast.Lambda):
+        return False
+    if isinstance(node, (ast.Call, ast.Await)):
+        return True
+    return any(_calls(child) for child in ast.iter_child_nodes(node))
+
+
+def _runs_at_import(name: str, text: str) -> bool:
+    """A NEW module-level statement that executes code when the module is imported."""
+    if name.startswith(("effect:", "expr:", "guard:")):
+        return True
+    if "." in name:  # a class member: it runs with the class body, which the class's own symbol covers
+        return False
+    return any(isinstance(stmt, (ast.Assign, ast.AnnAssign, ast.AugAssign)) and stmt.value is not None
+               and _calls(stmt.value) for stmt in ast.parse(text).body)
+
+
+def _guards(body: list[ast.stmt]) -> list[ast.stmt]:
+    """Every compound block at this level and inside one (never inside a def or class)."""
+    out: list[ast.stmt] = []
+    for node in body:
+        if isinstance(node, _COMPOUND):
+            out.append(node)
+            for name in ("body", "orelse", "finalbody"):
+                out.extend(_guards(getattr(node, name, []) or []))
+            for handler in getattr(node, "handlers", []) or []:
+                out.extend(_guards(handler.body))
+    return out
+
+
+def _holds_code(node: ast.stmt) -> bool:
+    """Whether a block holds a statement other than an import or ``pass``, at any depth."""
+    return any(isinstance(inner, ast.stmt) and not isinstance(inner, (*_COMPOUND, ast.Import, ast.ImportFrom, ast.Pass))
+               for inner in ast.walk(node) if inner is not node)
+
+
+def _guard_header(node: ast.stmt) -> str:
+    """The condition a block runs under: its test, iterable, context or handled exceptions."""
+    if isinstance(node, (ast.If, ast.While)):
+        return f"{'if' if isinstance(node, ast.If) else 'while'} {ast.unparse(node.test)}"
+    if isinstance(node, (ast.For, ast.AsyncFor)):
+        word = "async for" if isinstance(node, ast.AsyncFor) else "for"
+        return f"{word} {ast.unparse(node.target)} in {ast.unparse(node.iter)}"
+    if isinstance(node, (ast.With, ast.AsyncWith)):
+        word = "async with" if isinstance(node, ast.AsyncWith) else "with"
+        return f"{word} {', '.join(ast.unparse(item) for item in node.items)}"
+    handled = ", ".join((ast.unparse(h.type) if h.type is not None else "everything") + (f" as {h.name}" if h.name else "")
+                        for h in node.handlers)
+    word = "try" if isinstance(node, ast.Try) else "try*"
+    return f"{word} except {handled}" + (" else" if node.orelse else "") + (" finally" if node.finalbody else "")
+
+
+def _without_imports(node: ast.stmt) -> ast.stmt:
+    """A copy of the block with its import statements dropped: a move rewrites imports by design."""
+    node = copy.deepcopy(node)
+    for inner in ast.walk(node):
+        for name in ("body", "orelse", "finalbody"):
+            stmts = getattr(inner, name, None)
+            if isinstance(stmts, list) and stmts and isinstance(stmts[0], ast.stmt):
+                kept = [stmt for stmt in stmts if not isinstance(stmt, (ast.Import, ast.ImportFrom))]
+                setattr(inner, name, kept or ([ast.Pass()] if name == "body" else []))
+    return node
 
 
 def symbols(source: str) -> dict[str, str]:
@@ -96,6 +162,9 @@ def symbols(source: str) -> dict[str, str]:
     body = list(tree.body)
     if body and _is_docstring(body[0]):
         body = body[1:]  # the module docstring is rewritten by a move by design
+    for guard in _guards(body):
+        if _holds_code(guard):
+            put("guard:" + _guard_header(guard), ast.unparse(_without_imports(guard)))
     for node in _flatten(body):
         if isinstance(node, (ast.Import, ast.ImportFrom)):
             continue
@@ -109,6 +178,9 @@ def symbols(source: str) -> dict[str, str]:
                 **({"type_params": node.type_params} if hasattr(node, "type_params") else {}),
             )
             put(node.name, ast.unparse(ast.fix_missing_locations(header)))
+            for guard in _guards(node.body):
+                if _holds_code(guard):
+                    put(f"{node.name}.guard:{_guard_header(guard)}", ast.unparse(_without_imports(guard)))
             for member in members:
                 if isinstance(member, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
                     key = member.name
@@ -195,7 +267,7 @@ def compare(old_source: str, new_sources: dict[str, str], allow: frozenset[str] 
             report.allowed[name] = _delta(name, None, homes, new_by_file)
         elif len(homes) > 1:
             report.duplicate[name] = homes
-        elif _is_side_effect(name):
+        elif _runs_at_import(name, new_by_file[homes[0]][name]):
             report.side_effects[name] = homes[0]
         else:
             report.added[name] = homes[0]
