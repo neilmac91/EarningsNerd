@@ -272,7 +272,7 @@ describe('deriveRiskHeadline', () => {
     ).toBe('WE MAY NOT BE ABLE TO COMPETE SUCCESSFULLY AGAINST CURRENT AND FUTURE COMPETITORS IN THE MARKETS…')
   })
 
-  it('does not leave a parenthesis or a quotation open', () => {
+  it('does not leave a bracket or a quotation open', () => {
     expect(
       deriveRiskHeadline(
         'The Company relies on a single contract manufacturer for its flagship devices (the “Manufacturer”, which assembles substantially all units) and on a small number of suppliers.',
@@ -287,6 +287,20 @@ describe('deriveRiskHeadline', () => {
         0,
       ),
     ).toBe('Filing excerpt 1')
+    // Square brackets and curly single quotes count too; an apostrophe between letters ("customer’s")
+    // is not a closing quote.
+    expect(
+      deriveRiskHeadline(
+        'The Company [including all of its subsidiaries in North America, South America, Africa, Europe and Asia] faces significant competition in every market it serves.',
+        0,
+      ),
+    ).toBe('Filing excerpt 1')
+    expect(
+      deriveRiskHeadline(
+        'Our largest customer has described its supply arrangements with us as ‘subject to annual renegotiation at the customer’s sole discretion’ in each of the last three years.',
+        0,
+      ),
+    ).toBe('Our largest customer has described its supply arrangements with us…')
   })
 
   it('keeps the excerpt’s own whitespace and casing (verbatim, not normalised)', () => {

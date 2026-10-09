@@ -28,7 +28,7 @@
  *   5. Otherwise the headline is the longest prefix within the cap that ends on a whole content
  *      word, never on a function word, never splitting a figure from its unit ("$2.7 | billion"),
  *      a date ("December | 31", "27 | September"), a capitalised name ("New | York") or an open
- *      parenthesis or quotation, and keeping at least MIN_CLAUSE_WORDS words. When no prefix avoids
+ *      bracket or quotation, and keeping at least MIN_CLAUSE_WORDS words. When no prefix avoids
  *      every split (an all-caps run reads as one long name) it ends on the last content word that
  *      leaves nothing open; when there is none, or fewer than MIN_CLAUSE_WORDS whole words fit (one
  *      long token or URL), the card keeps the fallback.
@@ -113,9 +113,16 @@ const count = (text: string, ch: string): number => text.split(ch).length - 1
 
 const isFunctionWord = (word: string): boolean => FUNCTION_WORDS.has(bare(word).toLowerCase())
 
-/** Whether the text leaves a parenthesis or a quotation open. */
+// A right single quotation mark between letters is an apostrophe ("Company’s", "don’t"), not a close.
+const APOSTROPHE = /(?<=\p{L})’(?=\p{L})/gu
+
+/** Whether the text leaves a bracket or a quotation open: ( [ “ ‘ or a straight double quote. */
 const leavesOpen = (text: string): boolean =>
-  count(text, '(') > count(text, ')') || count(text, '“') > count(text, '”') || count(text, '"') % 2 === 1
+  count(text, '(') > count(text, ')') ||
+  count(text, '[') > count(text, ']') ||
+  count(text, '“') > count(text, '”') ||
+  count(text, '‘') > count(text.replace(APOSTROPHE, ''), '’') ||
+  count(text, '"') % 2 === 1
 
 /** Whether ending a headline after tokens[i] would split something the reader needs whole. */
 const isWeakEnd = (tokens: Token[], i: number, prefix: string): boolean => {
