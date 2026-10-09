@@ -21,10 +21,9 @@ so every attempt is charged to an owner:
     in whichever phase made it (setup and teardown included; a skip or an xfail does not hide it);
   * anything else (a thread or task that outlived the test that started it, collection-time
     imports, an attempt made after a test's last report) -> a *stray*: listed in the terminal
-    summary with its owner
-    and the test running at the time, and the session exits non-zero. A long-lived worker thread
-    stays charged to the test that started it, so for a stray the running test is often the
-    better lead.
+    summary with its owner and the test running at the time, and the session exits non-zero. A
+    long-lived worker thread stays charged to the test that started it, so for a stray the running
+    test is often the better lead.
 
 Unaffected: loopback/unspecified addresses (127.0.0.0/8, ::1, 0.0.0.0, ::), AF_UNIX sockets, the
 in-process ASGI/TestClient transport (opens no socket) and libpq/psycopg2 (connects in C, below
