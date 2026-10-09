@@ -352,38 +352,22 @@ export default function CompanyPageClient({ initialCompany, initialFilings }: Co
     setExpandedYears(newExpanded)
   }
 
-  // Get styling for filing type. Annual reports (10-K + the foreign 20-F/40-F) share the brand
-  // accent; interim reports (10-Q + the foreign 6-K) share the info accent — so an FPI page reads
-  // consistently with a domestic one (annual = brand, interim = info).
+  // The filing type is named by its Badge and the icon's colour; the row itself is the same card
+  // for every type. Annual reports (10-K + the foreign 20-F/40-F) share the brand accent; interim
+  // reports (10-Q + the foreign 6-K) share the info accent — so an FPI page reads consistently with
+  // a domestic one (annual = brand, interim = info). No type stripe or type tint on the row: a
+  // status-blue wash made every 10-Q read like an alert (DESIGN_SYSTEM §6 and §9).
   const getFilingTypeStyles = (filingType: string) => {
     switch (filingType.replace(/\/A$/, '')) {
       case '10-K':
       case '20-F':
       case '40-F':
-        return {
-          borderColor: 'border-l-brand-strong dark:border-l-brand-strong-dark',
-          bgColor: 'bg-brand-weak dark:bg-white/5',
-          hoverBg: 'hover:bg-brand-weak dark:hover:bg-white/10',
-          iconColor: 'text-brand-strong dark:text-brand-strong-dark',
-          badgeVariant: 'brand',
-        } as const
+        return { iconColor: 'text-brand-strong dark:text-brand-strong-dark', badgeVariant: 'brand' } as const
       case '10-Q':
       case '6-K':
-        return {
-          borderColor: 'border-l-info-light dark:border-l-info-dark',
-          bgColor: 'bg-info-light/10 dark:bg-info-dark/10',
-          hoverBg: 'hover:bg-info-light/15 dark:hover:bg-info-dark/15',
-          iconColor: 'text-info-light dark:text-info-dark',
-          badgeVariant: 'info',
-        } as const
+        return { iconColor: 'text-info-light dark:text-info-dark', badgeVariant: 'info' } as const
       default:
-        return {
-          borderColor: 'border-l-border-light dark:border-l-border-dark',
-          bgColor: 'bg-background-light dark:bg-background-dark',
-          hoverBg: 'hover:bg-background-light dark:hover:bg-background-dark',
-          iconColor: 'text-text-tertiary-light dark:text-text-secondary-dark',
-          badgeVariant: 'neutral',
-        } as const
+        return { iconColor: 'text-text-tertiary-light dark:text-text-secondary-dark', badgeVariant: 'neutral' } as const
     }
   }
 
@@ -585,16 +569,20 @@ export default function CompanyPageClient({ initialCompany, initialFilings }: Co
 
                 return (
                   <div key={year} className="border border-border-light dark:border-border-dark rounded-xl overflow-hidden">
-                    {/* Year Header */}
+                    {/* Year Header — a disclosure button: aria-expanded follows the panel, and while
+                        the panel is rendered (only when open) aria-controls names it. */}
                     <button
+                      type="button"
                       onClick={() => toggleYear(year)}
+                      aria-expanded={isExpanded}
+                      aria-controls={isExpanded ? `filings-year-${year}` : undefined}
                       className="w-full flex items-center justify-between px-4 py-3 bg-background-light dark:bg-white/5 hover:bg-brand-weak dark:hover:bg-white/10 transition-colors text-left"
                     >
                       <div className="flex items-center space-x-3">
                         {isExpanded ? (
-                          <CaretDownIcon className="h-5 w-5 text-text-tertiary-light dark:text-text-secondary-dark" />
+                          <CaretDownIcon aria-hidden="true" className="h-5 w-5 text-text-tertiary-light dark:text-text-secondary-dark" />
                         ) : (
-                          <CaretDownIcon className="h-5 w-5 text-text-tertiary-light dark:text-text-secondary-dark -rotate-90" />
+                          <CaretDownIcon aria-hidden="true" className="h-5 w-5 text-text-tertiary-light dark:text-text-secondary-dark -rotate-90" />
                         )}
                         <span className="font-semibold text-text-primary-light dark:text-text-primary-dark text-lg">Report year {year}</span>
                         <span className="text-sm text-text-tertiary-light dark:text-text-secondary-dark">({filingCount} {filingCount === 1 ? 'filing' : 'filings'})</span>
@@ -603,13 +591,13 @@ export default function CompanyPageClient({ initialCompany, initialFilings }: Co
 
                     {/* Year Filings */}
                     {isExpanded && yearFilings && (
-                      <div className="p-4 space-y-3 bg-panel-light dark:bg-panel-dark">
+                      <div id={`filings-year-${year}`} className="p-4 space-y-3 bg-panel-light dark:bg-panel-dark">
                         {yearFilings.map((filing) => {
                           const styles = getFilingTypeStyles(filing.filing_type)
                           return (
                             <div
                               key={filing.id}
-                              className={`border-l-4 ${styles.borderColor} border-r border-t border-b border-border-light dark:border-border-dark rounded-xl p-4 ${styles.bgColor} ${styles.hoverBg} transition-colors`}
+                              className="rounded-xl border border-border-light bg-panel-light p-4 transition-colors hover:bg-white dark:border-white/10 dark:bg-white/5 dark:hover:bg-white/10"
                             >
                               <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                                 <div className="flex-1">
@@ -620,8 +608,8 @@ export default function CompanyPageClient({ initialCompany, initialFilings }: Co
                                         <Badge variant={styles.badgeVariant}>{filing.filing_type}</Badge>
                                         <SupersededFilingNotice filing={filing} filings={filings} />
                                         {ENABLE_RECOMMENDED_FILING && recommendedFiling?.id === filing.id && (
-                                          /* Solid emphasis chip — sits on the row's brand-weak tint,
-                                             where the tint Badge would vanish (see banner note). */
+                                          /* Solid emphasis chip: the same chip the Recommended banner
+                                             above carries, so the two read as one recommendation. */
                                           <Badge variant="solid" icon={<SparkleIcon className="h-3 w-3" />}>
                                             Recommended
                                           </Badge>
