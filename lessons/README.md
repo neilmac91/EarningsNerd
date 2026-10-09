@@ -87,6 +87,7 @@ what applies to your task. Filenames are greppable: `arch-*`, `sec-*`, `test-*`,
 - [`test-leave-the-tree-alone-during-a-background-suite.md`](./test-leave-the-tree-alone-during-a-background-suite.md) — Leave the working tree untouched while a background full-suite run reads it
 - [`test-tracked-file-gates-run-after-staging.md`](./test-tracked-file-gates-run-after-staging.md) — Run a `git ls-files` gate after staging its own module, and select targets by name pattern
 - [`test-smoke-model-runs-before-sweeps.md`](./test-smoke-model-runs-before-sweeps.md) — Smoke one or two items and inspect raw output before any long or expensive model run
+- [`test-sqlite-savepoint-release-hides-a-dropped-commit.md`](./test-sqlite-savepoint-release-hides-a-dropped-commit.md) — Pin a commit that follows a SAVEPOINT with a commit spy; under SQLite the RELEASE already committed the row
 - [`test-verify-orphaned-tests-before-adopting.md`](./test-verify-orphaned-tests-before-adopting.md) — Verify orphaned or uncollected tests before adopting them
 - [`test-vitest-for-copy-changes.md`](./test-vitest-for-copy-changes.md) — Run vitest before pushing any change to rendered text, numbers, or copy
 - [`test-vitest4-mock-error-tracking.md`](./test-vitest4-mock-error-tracking.md) — Plain-function error mocks avoid handled-error failures; reproduced on Vitest 4 and rechecked on Vitest 5
