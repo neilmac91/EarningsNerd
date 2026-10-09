@@ -1,6 +1,7 @@
 # Decision record 19 — the record-18 PR merged (PR #1149; twelfth deploy-skip proof); D3 stage 2 merged and deployed (PR #1151): every production process now runs both SEC limiters at 1, the insider endpoint is switched off and the dead fuzzy-search fallback is gone; the founder moved `backfill-facts-weekly`; ledger events 39–44; chief defect 8 (a search printed one line of an excluded directory); closure 170 (chief, 2026-10-09)
 
-Recorded 2026-10-09T11:54:08Z by the chief (`https://claude.ai/code/session_01GWYV7WXWstgVGQG43YcSM8`). Context: record 18 merged to main as
+Recorded 2026-10-09T11:54:08Z, amended 2026-10-09T12:16:25Z after the record-19 review, by the chief
+(`https://claude.ai/code/session_01GWYV7WXWstgVGQG43YcSM8`). Context: record 18 merged to main as
 `76d45732027f43dfb7cb81dc0f6d4a97903b90b5` (PR #1149, 2026-10-09T09:02:04Z); D3 stage 2 merged as
 `ae5b0f1c606346e2e1e6902145f03e729cb80a21` (PR #1151, 2026-10-09T11:32:19Z) and deployed; this branch was restarted from
 `ae5b0f1c`. Records only: no code, workflow, migration, cloud, IAM or production change in this PR; no provider call; no
@@ -75,8 +76,9 @@ success): 100% of traffic on `earningsnerd-backend-00451-26p`, the latest ready 
 `SENTRY_RELEASE = 'ae5b0f1c…'`; `SEC_RATE_LIMIT_PER_SECOND = '1'`, `EDGAR_RATE_LIMIT_PER_SEC = '1'`, `ENABLE_INSIDER_ACTIVITY =
 'false'`, `DURABLE_TASKS_ENABLED = 'true'`; the pregenerate job runs image `backend:ae5b0f1` with both pins at `'1'`; service and
 revision `maxScale` 2. **Every production process now runs both per-process SEC limiters at 1**: the API service (at most two
-instances), the task worker and the eight scheduled jobs. The public insider endpoint answers 404 and its company-page panel
-stays dark.
+instances), the task worker and the eight scheduled jobs. The service and the pregenerate job were read back; the worker and the
+seven other jobs rest on the deploy's echoed commands and their success (below). With the switch read back as `'false'`, the
+public insider endpoint answers 404 by the code at `ae5b0f1c` (not probed) and its company-page panel stays dark.
 
 **Independent check.** A read-only verification workflow (`wf_5b0ebda7-c4f`, 11:42–11:51Z, run under the stage-2 label and
 registered in closure 170) had one agent read the deploy log against the workflow at `ae5b0f1c`, one read the `describe-service`
@@ -92,8 +94,9 @@ print them is queued as a small chief follow-up.
 
 ## Chief defect 8 — a search printed one line of an excluded directory
 
-At 09:24Z, looking for callers of `/internal/jobs/precompute` while applying Codex's P2, the chief ran `grep -rn` over the
-repository without excluding `tasks/review-evidence/`. One output line came from
+At 09:23:27Z, looking for callers of `/internal/jobs/precompute` while applying Codex's P2, the chief ran `grep -rn` over the
+repository without excluding either directory, so it traversed both. It printed one line from the review-evidence directory and
+none from acceptance:
 `tasks/review-evidence/returns-current-period-guard-2026-10-02/README.md` (a route-table row naming the route). No file there was
 opened or read further, and the line informed nothing in the change. Rule (unchanged): repository-wide searches by executive
 contexts use `git grep` with `':!tasks/readiness-2026-09-21/acceptance/' ':!tasks/review-evidence/'`. No machine gate: the
@@ -110,22 +113,37 @@ read-only deploy verification (`wf_5b0ebda7-c4f`, registered here). It pre-regis
 Side effects, from the transcripts:
 - `record-18-reviewer-01`: 28 read-only `gh api --method GET` requests, each logged in its scratchpad (seven job-log downloads
   following GitHub's redirect to log storage: one `copilot-eval`, two `deploy-backend`, four `eval-baseline`), and 2 read-only
-  GitHub MCP calls (review threads of PR #1132 and PR #1145); the runtime-records gate under the network guard in scratchpad
-  archives (four runs, no attempt), the archives excluding the two directories; a read-only listing of pytest's temporary
-  directory; writes only to its scratchpad; no repository write, no SEC or provider request.
+  GitHub MCP calls (review threads of PR #1132 and PR #1145); the runtime-records gate under the network guard (four runs, no
+  attempt): the first in the chief's detached review worktree (a full checkout), the others in scratchpad archives, of which
+  the full ones excluded the two directories; one `git archive` of `fc22bd04`'s whole `tasks/` tree (08:48:36Z) put both
+  directories in its scratchpad (only a top-level listing printed; removed at 08:48:47Z); its two raw `deploy-backend` logs
+  contain the private worker URL (kept in its scratchpad, never printed); a read-only listing of pytest's temporary directory;
+  writes only to its scratchpad; no repository write, no SEC or provider request.
 - `d3-stage-2-delta-reviewer-01`, rounds two to four (08:30–08:38Z, 09:25–09:30Z, 09:31Z): scratch extracts of `d8508571`,
-  `4b7b3523` and `daab3df1`, each with a throwaway `git init`, and mutation harnesses in its scratchpad; targeted tests under the
-  network gate (no attempt), ruff and bandit there; read-only git commands in the repository, its searches excluding the two
-  directories; a read of the installed edgartools source; 0 network commands; no repository write.
+  `4b7b3523` and `daab3df1`, each with a throwaway `git init`, and mutation harnesses in its scratchpad; the extracts were
+  plain `git archive` copies, so they held both excluded directories, and `git add -A` hashed their files (round one's extract
+  of `7465926f` did the same, which closure 169 did not disclose); its searches there were limited to `backend/tests` and
+  `tests/unit` and nothing under the two directories was opened; targeted tests under the network gate (no attempt), ruff and
+  bandit there; read-only git commands in the repository, its repository searches excluding the two directories; a read of the
+  installed edgartools source; 0 network commands; no repository write.
 - Deploy verification (`wf_5b0ebda7-c4f`): `verify:deploy-log` made 3 read-only GitHub MCP calls and 1 GET of a signed job-log
   URL; `verify:describe-service` 5 and 2; `refute:deploy-claim` 7 and 2. All three ran read-only git commands in the repository
-  and wrote only to the chief's scratchpad, where two of them left raw job logs that contain the private service URLs (kept there,
-  never quoted). One ran a local `pip show` and read the installed edgartools source; the refuter ran a comparison script with
-  `python3 -I`. No request to SEC, Google Cloud or any production host; no repository write.
+  and wrote only to the chief's scratchpad, where all three left raw job logs that contain the private service URLs (kept there,
+  never quoted). `verify:deploy-log` also ran a local `pip show`, a filesystem-wide `find` for the installed edgartools
+  `httpclient.py` (paths only) and a read of that file, and its own comparison script with `python3 -I`; the refuter ran a
+  comparison script with `python3 -I`. No request to SEC, Google Cloud or any production host; no repository write.
+
+**Scratch copies of the excluded directories.** The review above showed that scratch copies of the repository hold both
+excluded directories, just as the checkout does. At 12:14–12:15Z the chief removed ten stale scratch worktrees (saving two
+worktrees' uncommitted diffs first) and deleted the 65 copies of the two directories left in other scratch extracts, listing
+paths only and reading nothing. Only this PR's review worktree keeps them, as a checkout. Rule (from this record): an agent's
+repository copy excludes the two directories (`git archive <sha> -- . ':!tasks/readiness-2026-09-21/acceptance'
+':!tasks/review-evidence'`), which the chief's review prompts now state for every copy. No machine gate: scratch copies
+are outside the repository.
 
 ## Spend
 
-Ledger events 39–44 (PR #1151), each publish preceded and followed by a readback:
+Ledger events 39–44 (PR #1151's four paid runs under three reservations), each publish preceded and followed by a readback:
 
 | Event | Written | Kind | Figures |
 |---|---|---|---|
@@ -139,6 +157,11 @@ Ledger events 39–44 (PR #1151), each publish preceded and followed by a readba
 209 calls, USD 0.743983, no excess over any reservation. Recorded use against the authority 0.769061 → 1.513044 (944 → 1,153
 calls); headroom 22.349226 → 21.605243; cumulative 3,212 calls / USD 5.297293; holds unchanged. No `@codex review` comment and no
 merge to main fired a paid run. This record's PR fires none.
+
+**Observation for the CPO (no action by the chief).** Both `eval-baseline` runs on PR #1151 passed with the regression gate's
+advisory warning on `mean_citation_fidelity`: 0.8296 and 0.8527 against a baseline of 0.9648. The four runs on other writers'
+PRs earlier that morning, before stage 2 (record 18), read 0.832, 0.8566, 0.859 and 0.8361, so the shortfall predates stage 2,
+which changed no prompt, model or summary path.
 
 ## Founder actions this record needs
 

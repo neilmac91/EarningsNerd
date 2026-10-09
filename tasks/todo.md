@@ -6459,7 +6459,9 @@ Full local and hosted verification plus independent exact-head review precede re
 - 2026-10-09 (record 19, `runtime/control/DECISIONS-19.md`): PR #1149 (record 18) merged `76d45732` (twelfth deploy-skip
   proof). D3 stage 2 merged (PR #1151 → `ae5b0f1c`) after the founder moved backfill-facts to Monday 07:30, and deployed:
   every production process runs both SEC limiters at 1 and the insider endpoint is off (deploy log, `describe-service`
-  and an independent read-only check). Ledger events 39–44 (USD 0.743983). Chief defect 8. Closure 170.
+  and an independent read-only check). Ledger events 39–44 (USD 0.743983). Chief defect 8. Closure 170. For the CPO:
+  `eval-baseline`'s `mean_citation_fidelity` reads 0.83–0.86 against a baseline of 0.9648 on all six runs measured
+  that day, before and after stage 2 (an advisory warning).
 - [ ] Founder (optional): set the repository's squash default to "Default to pull request title and description", so a
       squash merge without an explicit message carries the reviewed PR text (record 18, chief defect 7).
 - [x] Founder: relay the record-14 custody clarification — replaced by record 16's step A (the founder delegated the custody
@@ -6478,7 +6480,8 @@ Full local and hosted verification plus independent exact-head review precede re
       updated, and the deploy job printing its variable-driven switches with a test (chief defect 6's rule 12 enforcement).
       Implemented, reviewed (three-lens and delta: no blocker) and held on a local branch until record 18 merges; every push
       that fires `eval-baseline` reserved at USD 0.730000 first (record 18). Merged `ae5b0f1c` (PR #1151) and deployed;
-      the pins verified with `describe-service` (record 19).
+      the service's and pregenerate's pins read back with `describe-service`, the worker's and the seven other jobs' from
+      the deploy's echoed commands (record 19).
 - [ ] Chief: after Monday 2026-10-12, read the 06:00–08:00 UTC window (the first with the whole fleet pinned and
       backfill-facts at 07:30) with the read-only `capacity-readout`: SEC errors, breaker opens, job outcomes (record 19).
 - [ ] Chief (small): `ops.yml` `describe-jobs` and `describe-service` print the two SEC pin values for every job and the
