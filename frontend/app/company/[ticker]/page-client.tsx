@@ -609,6 +609,7 @@ export default function CompanyPageClient({ initialCompany, initialFilings }: Co
                           return (
                             <div
                               key={filing.id}
+                              // eslint-disable-next-line earningsnerd/no-side-stripe -- the filings index (company-page PR, critique 1b) replaces this row; remove with it
                               className={`border-l-4 ${styles.borderColor} border-r border-t border-b border-border-light dark:border-border-dark rounded-xl p-4 ${styles.bgColor} ${styles.hoverBg} transition-colors`}
                             >
                               <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -617,6 +618,7 @@ export default function CompanyPageClient({ initialCompany, initialFilings }: Co
                                     <FileTextIcon className={`h-5 w-5 ${styles.iconColor}`} />
                                     <div>
                                       <div className="flex flex-wrap items-center gap-2">
+                                        {/* eslint-disable-next-line earningsnerd/no-form-code-badge -- the filings index (company-page PR, critique 1b) replaces this row; remove with it */}
                                         <Badge variant={styles.badgeVariant}>{filing.filing_type}</Badge>
                                         <SupersededFilingNotice filing={filing} filings={filings} />
                                         {ENABLE_RECOMMENDED_FILING && recommendedFiling?.id === filing.id && (

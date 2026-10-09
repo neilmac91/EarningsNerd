@@ -97,7 +97,7 @@ export function chartTheme(dark: boolean): ChartTheme {
     : {
         grid: 'rgba(229,231,235,0.6)',
         axis: '#E5E7EB',
-        label: '#6B7280', // text.tertiary — 4.6:1 on the card charts sit on
+        label: '#6B7280', // the flat ink (text.tertiary was this value until #636A77) — 4.6:1 on the card charts sit on
         crosshair: 'rgba(107,114,128,0.45)',
         cursorFill: 'rgba(62,142,132,0.08)',
         ref: '#6B7280',

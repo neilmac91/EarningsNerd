@@ -75,3 +75,33 @@ export function deriveRiskTitle(risk: RiskTitleSource, index: number): string {
 
   return sentenceCase(truncateOnWord(clause, MAX_TITLE_CHARS))
 }
+
+// Quote marks that open or close a verbatim span; a heading cut from the span must not keep one half
+// of a pair ("“Supply chain constraints…"). Brackets and the ASCII apostrophe stay: "(FX)" and
+// "investors'" end words.
+const OPEN_MARKS = /^[\s"“‘]+/
+const CLOSE_MARKS = /[\s"”’]+$/
+
+/**
+ * Headings for the source-first risk rows (2026-10 critique P-03). The server withholds model-written
+ * titles: every projected risk is labelled "Filing excerpt" (backend provenance_service), so each row
+ * is headed by the opening clause of its own verbatim excerpt, cut by deriveRiskTitle's clause and
+ * length rules. The heading is the filing's own words, casing included ("iPhone" stays "iPhone"),
+ * never model text. Unique: a heading an earlier row already took gets the first free occurrence
+ * number ("… (2)", then "… (3)" if a clause itself ended in "(2)"), so the accessibility tree never
+ * lists two identical headings.
+ */
+export function excerptHeadings(excerpts: string[]): string[] {
+  const taken = new Set<string>()
+  return excerpts.map((excerpt, index) => {
+    const span = excerpt.replace(OPEN_MARKS, '').replace(CLOSE_MARKS, '').replace(/\s+/g, ' ')
+    const clause = firstClause(span)
+    const title = /[A-Za-z0-9]/.test(clause)
+      ? truncateOnWord(clause, MAX_TITLE_CHARS).replace(CLOSE_MARKS, '')
+      : `Risk ${index + 1}`
+    let heading = title
+    for (let n = 2; taken.has(heading.toLowerCase()); n += 1) heading = `${title} (${n})`
+    taken.add(heading.toLowerCase())
+    return heading
+  })
+}

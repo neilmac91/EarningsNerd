@@ -33,7 +33,7 @@ const ANSWER = {
   ],
   followups: ['Which segment declined in 2025?', 'What drove the lower effective tax rate?'],
 }
-const LAUNCHER = 'button[aria-haspopup="dialog"][aria-label="Ask this Filing"]'
+const LAUNCHER = 'button[aria-label="Source"]'
 const SUMMARY_CHIP = 'Source: Verified in filing'
 const CARD = '[role="group"][aria-label^="Citation 1:"]'
 
@@ -138,7 +138,7 @@ for (const vp of [
       // Back on the answer, the rail focuses its composer, as it does whenever the Answer view becomes
       // active (AskCopilotRail); the hand-off above never competes with it.
       await page.keyboard.press('ArrowLeft')
-      await expect(page.locator(PANE).getByRole('tab', { name: 'Answer' })).toHaveAttribute('aria-selected', 'true')
+      await expect(page.locator(PANE).getByRole('tab', { name: 'Ask' })).toHaveAttribute('aria-selected', 'true')
       await expect(page.locator(PANE).getByPlaceholder('Ask about this filing…')).toBeFocused()
       await expect(page.locator(PANE).getByRole('button', { name: /^Citation 1:/ })).toBeVisible()
     })
@@ -151,7 +151,7 @@ for (const vp of [
       await page.keyboard.press('Enter')
       await expect(page.locator(PANE).getByRole('tab', { name: 'Filing' })).toHaveAttribute('aria-selected', 'true')
 
-      await page.locator(PANE).getByRole('tab', { name: 'Answer' }).click()
+      await page.locator(PANE).getByRole('tab', { name: 'Ask' }).click()
       const chip = await ask(page)
       await chip.focus()
       await page.keyboard.press('Enter')
