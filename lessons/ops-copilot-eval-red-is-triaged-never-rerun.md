@@ -21,11 +21,13 @@ RUNBOOK triage rule. Since 2026-10-09 it covers any named publication withhold, 
 and the other four conditions. Record the outcome in a PR comment either way. Never re-run the job,
 and never toggle a PR from draft to ready on an unchanged head to draw again, outside a predeclared
 protocol. When the rule's conditions do not hold, the PR waits for a green run from a new push, or for
-the founder. The workflow now fails a re-run attempt before it spends, so the re-run path is closed
-mechanically. The toggle path still rests on this rule.
+the founder. The workflow now draws once per head commit: a re-run attempt, a toggle or a reopen on a
+head that already drew reports that draw's verdict and spends nothing. A predeclared protocol draws
+again only by naming its committed preregistration in the PR body (`Copilot-eval protocol: <path>`).
 
 **Evidence**: runs 37935449192 and 37958886664 (attempt 1 red, attempt 2 green, each re-run by the
 agent); #1148 merged as `1a31b29`; the attribution and rates in
 `tasks/decisions-2026-10-09-design-followups.md` (decision D) and the replays in
 `tasks/review-evidence/copilot-eval-triage-2026-10-09/`; the gate in
-`.github/workflows/copilot-eval.yml` and `backend/tests/unit/test_copilot_eval_rerun_refusal.py`.
+`.github/workflows/copilot-eval.yml`, `backend/scripts/copilot_eval_draw_gate.py` and
+`backend/tests/unit/test_copilot_eval_rerun_refusal.py`.

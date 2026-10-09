@@ -913,10 +913,13 @@ blocks;
 (4) every other row passes;
 (5) the PR records the red run, the attribution and this rule in a comment.
 Any other failure blocks as before. A PR that changes this rule does not apply it to its own run. The
-run is never re-run to obtain a green result outside a predeclared protocol: `copilot-eval.yml`
-fails a re-run attempt before it spends (`tests/unit/test_copilot_eval_rerun_refusal.py`), and a
-draft-to-ready toggle on an unchanged head is a re-run too, used only inside a predeclared protocol.
-A new run comes from a new push. This does not change accepted, error counting, thresholds or exit
+run is never drawn again to obtain a green result outside a predeclared protocol. `copilot-eval.yml`
+draws once per head commit. A re-run attempt, a draft-to-ready toggle or a reopen on a head that
+already drew reports that draw's verdict before it spends, and draws nothing
+(`backend/scripts/copilot_eval_draw_gate.py`, `tests/unit/test_copilot_eval_rerun_refusal.py`). A
+predeclared protocol that needs several draws on one head names its committed preregistration in the
+PR body, on a line of its own: `Copilot-eval protocol: tasks/review-evidence/<folder>/PREREGISTRATION.md`.
+A new draw comes from a new push. This does not change accepted, error counting, thresholds or exit
 codes.
 Condition (1) is read off each errored row in the per-row verdict column of `copilot-eval.md` (the
 `Failures:` line lists each label only once); the replay tool for (3) is

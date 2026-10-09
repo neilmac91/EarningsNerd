@@ -9,6 +9,8 @@ on:
 
 permissions:
   contents: read
+  # The draw gate reads this workflow's earlier runs and jobs for the head commit.
+  actions: read
 
 concurrency:
   group: copilot-fidelity-${{ github.event.pull_request.number }}
@@ -32,27 +34,36 @@ jobs:
       AI_FALLBACK_BASE_URL: ''
     steps:
       - uses: actions/checkout@v7
-      - name: Refuse a re-run (backend/evals/RUNBOOK.md, triage rule for a red copilot-eval run)
-        # A red run is triaged and recorded, never re-run to obtain a green result. A re-run attempt
-        # fails here, before any spend; a new run comes from a new push.
-        if: github.run_attempt != '1'
-        run: |
-          echo "::error::copilot-eval is never re-run to obtain a green result (backend/evals/RUNBOOK.md, triage rule for a red copilot-eval run). Triage and record the red run; a new run comes from a new push."
-          exit 1
+      - name: Draw once per head (backend/evals/RUNBOOK.md, triage rule for a red copilot-eval run)
+        # A red run is triaged and recorded, never drawn again to obtain a green result. A re-run
+        # attempt, a draft-to-ready toggle or a reopen on a head that already drew reports that draw's
+        # verdict here, before any install or credential, and every step that installs or spends is
+        # skipped (the evidence steps find nothing); a new draw comes from a new push. Logic and tests:
+        # backend/scripts/copilot_eval_draw_gate.py,
+        # backend/tests/unit/test_copilot_eval_rerun_refusal.py.
+        id: draw
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: python3 backend/scripts/copilot_eval_draw_gate.py
       - name: Load AI model configuration
+        if: steps.draw.outputs.draw == 'true'
         run: grep -v '^#' .github/ai-model.env >> "$GITHUB_ENV"
       - uses: actions/setup-python@v7
+        if: steps.draw.outputs.draw == 'true'
         with:
           python-version: '3.11'
       - name: Install exact runtime and development requirements
+        if: steps.draw.outputs.draw == 'true'
         run: pip install -r backend/requirements.txt -r backend/requirements-dev.txt
       - name: Prepare actual SEC sources in a new scratch database
+        if: steps.draw.outputs.draw == 'true'
         working-directory: backend
         shell: bash
         run: |
           mkdir -p evals/reports/copilot
           python -m evals.copilot_bootstrap --database "$RUNNER_TEMP/copilot-fidelity.db" --output evals/reports/copilot 2>&1 | tee evals/reports/copilot/preparation.log
       - name: Run every verified question three times
+        if: steps.draw.outputs.draw == 'true'
         working-directory: backend
         shell: bash
         env:

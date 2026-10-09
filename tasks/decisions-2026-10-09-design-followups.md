@@ -192,11 +192,26 @@ do not touch the Copilot, a red run leaves the PR with no sanctioned way forward
    stronger instruction is not obviously the fix, and density-forcing prompts have a negative result on
    record. Recorded below as the follow-up for the Copilot workstream.
 
-**Rule 12.** The prose rule against re-runs failed three times in a week. `copilot-eval.yml` now fails a
-re-run attempt before it installs anything or touches the provider credential, and
-`tests/unit/test_copilot_eval_rerun_refusal.py` holds that step in place. A draft-to-ready toggle on an
-unchanged head is also a re-draw. It rests on the RUNBOOK text and the lesson; gating it would also block
-the predeclared protocols that use toggles.
+**Rule 12.** The prose rule against re-runs failed three times in a week. `copilot-eval.yml` now draws
+once per head commit. Its first step after checkout, `backend/scripts/copilot_eval_draw_gate.py`, looks
+for an earlier draw on the head in any run or attempt: an attempt whose runner step started. When one
+exists, the run reports that draw's verdict and skips every later step, before it installs anything or
+touches the provider credential. So a re-run attempt, a draft-to-ready toggle and a reopen all replay
+the first draw.
+- A draw that was cancelled or is still running counts as a draw, and not as a green one. Cancelling a
+  draw that looks red buys no fresh one.
+- A head where nothing drew still draws, including a re-run of an attempt that failed before its
+  runner step.
+- A failed read of the earlier runs fails closed.
+
+The first version gated only re-run attempts and left toggles to the RUNBOOK text, because gating them
+would also block predeclared protocols that toggle on a frozen head (the prompt candidate's Q1 to Q3).
+Codex's review on #1166 showed the toggle and reopen paths bypassed that gate. A protocol now declares
+itself instead: a line `Copilot-eval protocol: tasks/review-evidence/<folder>/PREREGISTRATION.md` in the
+PR body, naming a committed preregistration, lets the run draw. A line naming anything else grants
+nothing. `tests/unit/test_copilot_eval_rerun_refusal.py` pins the decision against a fake of GitHub's two
+reads, matched to real payloads. It also pins the workflow: the gate runs first on every attempt, and
+no later step runs without its draw.
 
 **Shipped.** The RUNBOOK triage paragraph (widened, with the self-application and toggle clauses, and
 the successor replay tool named for condition (3)); the successor tool with its self-test and its
