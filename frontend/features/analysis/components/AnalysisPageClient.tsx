@@ -54,7 +54,9 @@ export default function AnalysisPageClient() {
   // The linked ticker is read after hydration, as the filing page reads its URL flags: this page
   // renders statically, and useSearchParams() outside Suspense would drop it from the server HTML.
   // A malformed value is never sent; a ticker-shaped one is resolved through the company API before
-  // the page trusts it, so an unknown ticker leaves the empty picker.
+  // the page trusts it, so an unknown ticker leaves the empty picker. The read is once per mount: the
+  // App Router keeps this page mounted across a search-param-only navigation, so a link from this page
+  // to another `?ticker=` would need the page keyed on its search string (no such link exists today).
   const [linkedTicker, setLinkedTicker] = useState<string | null>(null)
   useEffect(() => {
     const linked = tickerShaped(new URLSearchParams(window.location.search).get('ticker'))
