@@ -85,7 +85,7 @@ interface SummaryPayload {
   raw_summary?: {
     quality?: { tier?: string }
     risk_source_context_version?: number
-    sections?: { risks?: unknown } | null
+    sections?: { risks?: unknown; risk_factors?: unknown } | null
   } | null
 }
 
@@ -127,12 +127,15 @@ const pickMetrics = (summary: SummaryPayload): ExampleMetric[] => {
 
 /**
  * The first risk excerpt the server projected from the filing and located in its text: the source
- * owner (risk_source_context_version 1) marks it source_verified. The payload is external, so the
- * shape is checked here; a URL that is not https is dropped rather than linked.
+ * owner (risk_source_context_version 1) marks it source_verified. A v2 summary keeps its risks under
+ * `sections.risks`, a v1 or unstamped one under `sections.risk_factors` (provenance_service), and
+ * both are read, as SummaryBlocks reads them. The payload is external, so the shape is checked here;
+ * a URL that is not https is dropped rather than linked.
  */
 export const pickEvidence = (summary: SummaryPayload): ExampleEvidence | null => {
   const raw = summary.raw_summary
-  const risks = raw?.risk_source_context_version === 1 ? raw.sections?.risks : null
+  const sections = raw?.risk_source_context_version === 1 ? raw.sections : null
+  const risks = sections?.risks ?? sections?.risk_factors
   if (!Array.isArray(risks)) return null
   for (const risk of risks) {
     if (!risk || typeof risk !== 'object') continue

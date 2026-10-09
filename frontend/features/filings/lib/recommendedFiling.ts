@@ -1,8 +1,11 @@
 import type { Filing } from '@/features/filings/api/filings-api'
 import { baseForm, isAmendment, periodKind } from '@/features/filings/lib/filingPeriod'
 
+// Newest filed first. A same-day tie (several 6-Ks, a same-day amendment) goes to the higher id, the
+// rule the company search's latest filing uses (latest_filing_service), so a search result names the
+// filing this page leads with whatever order the list arrives in.
 const byFilingDateDesc = (a: Filing, b: Filing) =>
-  new Date(b.filing_date).getTime() - new Date(a.filing_date).getTime()
+  new Date(b.filing_date).getTime() - new Date(a.filing_date).getTime() || b.id - a.id
 
 /**
  * The filing the company page leads with ("Latest filing" in its identity lead, the target of its

@@ -152,6 +152,14 @@ def test_skips_superseded_filings_and_forms_the_list_does_not_serve(client, db):
     assert latest["summary_ready"] is False
 
 
+def test_a_same_day_tie_names_the_higher_id_as_the_company_page_does(client, db):
+    # Two standing filings on one day (several 6-Ks, or a same-day amendment): the search and the
+    # company page's selectRecommendedFiling both take the higher row id.
+    ids = _seed(db, [("10-Q", "2026-01-30", "2025-12-27", None), ("10-Q/A", "2026-01-30", "2025-12-27", None)])
+    assert ids[1] > ids[0]
+    assert _search(client)["latest_filing"]["id"] == ids[1]
+
+
 def test_absent_when_no_filing_is_stored(client, db):
     assert _search(client)["latest_filing"] is None
 

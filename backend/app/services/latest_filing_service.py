@@ -48,7 +48,8 @@ def latest_filings(db: Session, company_ids: list[int]) -> dict[int, LatestFilin
     """Each company's newest standing filing of the list's forms, keyed by company id.
 
     Companies with no such stored filing are absent. Ties on the filed date resolve to the highest
-    row id, so the answer is stable. Three queries for the whole result set, never one per company.
+    row id, the rule the company page's selectRecommendedFiling applies too, so a result names the
+    filing the page leads with. Three queries for the whole result set, never one per company.
     """
     if not company_ids:
         return {}
