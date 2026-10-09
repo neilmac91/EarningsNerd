@@ -15,7 +15,7 @@
    (backend/app/services/summary_pipeline.py), not here.
 ============================================================================= */
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import Link from 'next/link'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
@@ -141,6 +141,7 @@ export default function StreamingSummaryDisplay({
   onRetry,
   elapsedSeconds = 0,
   trialEligible = false,
+  afterFailure,
 }: {
   streamingText: string
   stage: string
@@ -154,6 +155,9 @@ export default function StreamingSummaryDisplay({
    * user is charged immediately, so promising them "you won't be charged" is a false billing
    * claim (staff review, PR #619). Defaults false: under-promising is the safe direction. */
   trialEligible?: boolean
+  /** Shown under the failure surface once the run has ended without a summary (an error, or the
+   * monthly limit): the filing page passes its change report, which needs no summary. */
+  afterFailure?: ReactNode
 }) {
   const [isClient, setIsClient] = useState(false)
   const [whimsyMessage, setWhimsyMessage] = useState('')
@@ -422,6 +426,7 @@ export default function StreamingSummaryDisplay({
           }
         />
       ) : null}
+      {isError && afterFailure}
 
       {/* Streamed summary — the payoff, canonical .markdown-body render */}
       {displayText && (

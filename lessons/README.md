@@ -124,7 +124,7 @@ what applies to your task. Filenames are greppable: `arch-*`, `sec-*`, `test-*`,
 - [`frontend-sitemap-cache-ownership.md`](./frontend-sitemap-cache-ownership.md) — Cache the rendered sitemap hourly while bypassing Next's fetch Data Cache
 - [`frontend-jsdom-sdk-browser-entry.md`](./frontend-jsdom-sdk-browser-entry.md) — Resolve browser SDK imports as browser code in jsdom tests while preserving real capture behavior
 - [`frontend-check-luminance-vs-background.md`](./frontend-check-luminance-vs-background.md) — Verify surface luminance against the actual background, not token validity
-- [`frontend-client-exports-need-next-build.md`](./frontend-client-exports-need-next-build.md) — Run next build before moving design-system client exports across page files
+- [`frontend-client-exports-need-next-build.md`](./frontend-client-exports-need-next-build.md) — Never call a 'use client' module's export from server code; the gate checks what next build may not render
 - [`frontend-route-redesign-needs-a-mount-gate.md`](./frontend-route-redesign-needs-a-mount-gate.md) — A self-omitting section needs a source-level mount gate — render tests cannot see it go missing
 - [`frontend-guard-submit-on-loading-buttons.md`](./frontend-guard-submit-on-loading-buttons.md) — Guard submit handlers with an early return when the button uses loading, not disabled
 - [`frontend-busy-controls-stay-focusable.md`](./frontend-busy-controls-stay-focusable.md) — A control busy with its own request stays focusable: aria-disabled plus an early return, never native disabled

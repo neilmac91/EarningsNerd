@@ -3,10 +3,8 @@
 import { useId, useState } from 'react'
 import { Card, CardTitle } from '@/components/ui/Card'
 import { QuotesIcon } from '@/lib/icons'
-import {
-  SourceTracePanelBody,
-  sourceTraceChipClass,
-} from '@/features/filings/components/SourceTrace'
+import { SourceTracePanelBody } from '@/features/filings/components/SourceTrace'
+import { sourceTraceChipClass } from '@/features/filings/lib/sourceTraceChip'
 
 /**
  * Landing-page demo of the product's Trace-to-Source chip with its provenance panel open, so a
