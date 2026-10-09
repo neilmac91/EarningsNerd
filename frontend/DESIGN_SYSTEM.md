@@ -404,7 +404,9 @@ Section ledger   <SummaryBlocks>  (P-05/P-07) — sections sit on the page groun
                  (aria-hidden), "Read as" = the tone in words (Favorable / Unfavorable / Neutral); below sm a
                  stacked row per metric (name + change, then prior → current + Read as), switched by CSS.
                  A fragment the page was OPENED with (/filing/{id}#what-changed, from Compare periods) is
-                 honoured once its section renders (useSectionArrival); later renders never move the reader.
+                 honoured once its section renders (features/summaries/hooks/useSectionArrival); later
+                 renders never move the reader. A legacy markdown summary's change-report card carries the
+                 same id (WHAT_CHANGED_ID, exported beside WhatChanged) and lands the same way.
 
 Company identity <CompanyIdentity company latest summaryReady actions>  (features/companies, critique 1b) — the
                  Filing identity vocabulary reused on the company lead (IDENTITY_* classes, Sep, TickerPill
