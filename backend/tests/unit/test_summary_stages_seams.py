@@ -19,8 +19,10 @@ Three things must stay true for that split to be invisible to callers and to the
    and bind only module objects at import time, so importing a stage module FIRST must succeed.
 3. **The terminal-event protocol.** The orchestrator stops after forwarding a ``complete``,
    ``partial`` or ``error`` event. That mirrors the inline body only while every terminal yield in a
-   stage is followed by ``return`` or is in tail position; a stage that did work after a terminal
-   yield would silently lose it.
+   stage is followed by ``return`` or is in tail position (a stage that did work after a terminal
+   yield would silently lose it), and while every ``return`` in a stage follows a terminal yield (in
+   the inline body a bare ``return`` ended the whole pipeline; in a stage it ends only that stage,
+   and the orchestrator would run the next one).
 
 Plus two shape pins from the brief that made this split: the orchestrator stays short, and the
 stage loggers are the pipeline's logger (log records keep their logger name).
@@ -50,24 +52,37 @@ ALLOWED_APP_IMPORTS = ("app.database", "app.models", PIPELINE_MODULE, "app.servi
 # The only patched name the stages may use bare (see the module docstring, point 1).
 BARE_ALLOWED = {"asyncio"}
 
-_PATCH_PATTERNS = (
-    re.compile(r"patch\.object\(\s*(?:summary_pipeline|pipeline)\s*,\s*[\"']([A-Za-z_][A-Za-z0-9_]*)[\"']"),
-    re.compile(r"setattr\(\s*(?:summary_pipeline|pipeline)\s*,\s*[\"']([A-Za-z_][A-Za-z0-9_]*)[\"']"),
-    re.compile(r"patch\(\s*[\"']app\.services\.summary_pipeline\.([A-Za-z_][A-Za-z0-9_]*)[\"']"),
+_STRING_TARGET = re.compile(r"patch\(\s*[\"']app\.services\.summary_pipeline\.([A-Za-z_][A-Za-z0-9_]*)[\"']")
+# Every name the pipeline module is bound to in a file: ``from app.services import summary_pipeline
+# [as X]`` and ``import app.services.summary_pipeline as X``; ``pipeline`` and ``summary_pipeline``
+# are always included (fixtures receive the module under those names).
+_MODULE_ALIASES = (
+    re.compile(r"from\s+app\.services\s+import\s+summary_pipeline(?:\s+as\s+([A-Za-z_][A-Za-z0-9_]*))?"),
+    re.compile(r"import\s+app\.services\.summary_pipeline\s+as\s+([A-Za-z_][A-Za-z0-9_]*)"),
 )
 
 
 def patched_pipeline_names() -> set[str]:
-    """Every name some test patches ON the pipeline module (object attributes such as
-    ``summary_pipeline.settings.X`` are patched on the shared object and are not seams here)."""
+    """Every name some test patches ON the pipeline module, through any alias of the module and any
+    helper that takes it: ``patch.object(sp, "X", …)``, ``monkeypatch.setattr(pipeline, "X", …)``,
+    the stream harness's ``_patch(summary_pipeline, "X", …)``, and ``patch("app.services.summary_pipeline.X")``.
+    Object attributes such as ``summary_pipeline.settings.X`` are patched on the shared object and
+    are not seams here."""
     names: set[str] = set()
     for root in PATCHING_ROOTS:
         for py in root.rglob("*.py"):
             if py == Path(__file__):
                 continue
             text = py.read_text(encoding="utf-8")
-            for pattern in _PATCH_PATTERNS:
-                names.update(pattern.findall(text))
+            names.update(_STRING_TARGET.findall(text))
+            aliases = {"pipeline", "summary_pipeline"}
+            for pattern in _MODULE_ALIASES:
+                aliases.update(a for a in pattern.findall(text) if a)
+            module_then_name = re.compile(
+                r"[A-Za-z_][A-Za-z0-9_.]*\(\s*(?:" + "|".join(sorted(map(re.escape, aliases)))
+                + r")\s*,\s*[\"']([A-Za-z_][A-Za-z0-9_]*)[\"']"
+            )
+            names.update(module_then_name.findall(text))
     return names
 
 
@@ -292,6 +307,42 @@ def test_every_terminal_yield_in_a_stage_ends_the_stage():
     )
 
 
+def _bare_returns(stmts: list[ast.stmt], where: str) -> list[str]:
+    """A ``return`` in a stage's own scope that does not directly follow a terminal yield."""
+    out: list[str] = []
+    for i, stmt in enumerate(stmts):
+        if isinstance(stmt, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+            continue  # a nested helper's return returns from the helper
+        if isinstance(stmt, ast.Return) and not (i and _terminal_yield(stmts[i - 1])):
+            out.append(f"{where}:{stmt.lineno}")
+        for field in ("body", "orelse", "finalbody"):
+            block = getattr(stmt, field, None)
+            if isinstance(block, list) and block and isinstance(block[0], ast.stmt):
+                out.extend(_bare_returns(block, where))
+        for handler in getattr(stmt, "handlers", []) or []:
+            out.extend(_bare_returns(handler.body, where))
+        for case in getattr(stmt, "cases", []) or []:
+            out.extend(_bare_returns(case.body, where))
+    return out
+
+
+def test_a_stage_returns_only_right_after_a_terminal_yield():
+    """In the inline body a bare ``return`` ended the whole pipeline; in a stage it ends only that
+    stage and the orchestrator runs the next one. So a stage may return only to stop after the
+    terminal event it just yielded (the converse of the gate above)."""
+    stages = {(stage.__module__.rsplit(".", 1)[-1], stage.__name__) for stage in summary_pipeline._stage_sequence()}
+    offenders: list[str] = []
+    for path in STAGE_MODULES:
+        for node in _module_tree(path).body:
+            if isinstance(node, ast.AsyncFunctionDef) and (path.stem, node.name) in stages:
+                offenders.extend(_bare_returns(node.body, where=f"{path.name}::{node.name}"))
+    assert len(stages) == 7, f"expected the seven stages of _stage_sequence(), got {sorted(stages)}"
+    assert not offenders, (
+        "a stage ends early only by yielding its terminal event and returning; a bare return would "
+        "let the orchestrator run the next stage:\n  " + "\n  ".join(offenders)
+    )
+
+
 def _own_scope(func: ast.AST) -> list[ast.AST]:
     """Nodes in ``func``'s own scope (nested defs, lambdas and classes are their own scope)."""
     out: list[ast.AST] = []
@@ -316,17 +367,15 @@ def _store_names(node: ast.AST) -> list[str]:
 
 
 def _run_fields() -> tuple[set[str], set[str]]:
-    """(all GenerationRun field names, the constructor-parameter subset)."""
+    """(all GenerationRun field names, the constructor-parameter subset).
+
+    The parameters are the orchestrator's own arguments (``filing_id``, ``current_user``, …), which
+    nothing rebinds. Every other field is pipeline state that stages and methods write, so a bare
+    alias of one (``summary_payload = run.summary_payload``) would be a snapshot that goes stale."""
     tree = _module_tree(STAGES_DIR / "generation_run.py")
     cls = next(n for n in tree.body if isinstance(n, ast.ClassDef) and n.name == "GenerationRun")
     fields = {n.target.id for n in cls.body if isinstance(n, ast.AnnAssign)}
-    params = {
-        n.target.id for n in cls.body
-        if isinstance(n, ast.AnnAssign) and not (
-            isinstance(n.value, ast.Call) and getattr(n.value.func, "id", None) == "field"
-            and any(kw.arg == "init" and kw.value.value is False for kw in n.value.keywords)
-        )
-    }
+    params = fields & set(inspect.signature(summary_pipeline.stream_filing_summary).parameters)
     return fields, params
 
 
@@ -334,7 +383,7 @@ def test_no_stage_binds_a_run_field_as_a_bare_local():
     """``summary_task = create_task(...)`` instead of ``run.summary_task = …`` would hide the task
     from ``release()``; the same for every field the metering helpers or a later stage reads.
     Only an exact alias of an immutable constructor parameter (``filing_id = run.filing_id``) may
-    reuse a field name."""
+    reuse a field name; the parameters are ``stream_filing_summary``'s own arguments."""
     fields, params = _run_fields()
     offenders: list[str] = []
     for path in STAGE_MODULES:

@@ -316,20 +316,17 @@ def _store_names(node: ast.AST) -> list[str]:
     return []
 
 
-def binding_violations(stage_trees: dict[str, ast.Module]) -> list[str]:
+def binding_violations(pipeline_tree: ast.Module, stage_trees: dict[str, ast.Module]) -> list[str]:
     """A GenerationRun field bound as a bare local in a stage (or method) would be invisible to
     ``release()``, the metering helpers and later stages — the one bug class the prefix-stripping
     diff cannot see. Allowed: an exact alias of an immutable constructor parameter
-    (``filing_id = run.filing_id``)."""
+    (``filing_id = run.filing_id``). The parameters are the orchestrator's own arguments, never
+    the run's mutable state: a ``summary_payload = run.summary_payload`` snapshot would normalize
+    to the old local and pass the diff, then go stale when a later statement rebinds the field."""
     run_cls = find_def(stage_trees["generation_run"], RUN_CLASS)
     fields = {n.target.id for n in run_cls.body if isinstance(n, ast.AnnAssign)}
-    params = {
-        n.target.id for n in run_cls.body
-        if isinstance(n, ast.AnnAssign) and not (
-            isinstance(n.value, ast.Call) and getattr(n.value.func, "id", None) == "field"
-            and any(kw.arg == "init" and kw.value.value is False for kw in n.value.keywords)
-        )
-    }
+    orchestrator = find_def(pipeline_tree, GENERATOR)
+    params = fields & {a.arg for a in orchestrator.args.kwonlyargs + orchestrator.args.args}
     out: list[str] = []
     for mod, tree in stage_trees.items():
         funcs: list = []
@@ -408,7 +405,7 @@ def main() -> int:
 
     # 2. binding check (run before the prefix strip, which cannot see this bug class)
     print("\n== 2. binding check: no GenerationRun field bound as a bare local in a stage ==")
-    violations = binding_violations(stage_trees)
+    violations = binding_violations(new_tree, stage_trees)
     for line in violations:
         print("BOUND    " + line)
     print("bindings:", "OK" if not violations else "FAILED")
