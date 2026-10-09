@@ -120,14 +120,14 @@ describe('deriveRiskHeadline', () => {
   })
 
   it('falls back to the positional title when the excerpt is missing or too short', () => {
-    expect(deriveRiskHeadline(undefined, 0)).toBe('Filing excerpt 1')
-    expect(deriveRiskHeadline(null, 1)).toBe('Filing excerpt 2')
-    expect(deriveRiskHeadline('', 2)).toBe('Filing excerpt 3')
-    expect(deriveRiskHeadline('   \n ', 3)).toBe('Filing excerpt 4')
-    expect(deriveRiskHeadline('Tariffs.', 4)).toBe('Filing excerpt 5')
-    expect(deriveRiskHeadline('Supply risk', 5)).toBe('Filing excerpt 6')
-    expect(deriveRiskHeadline('… — ;', 6)).toBe('Filing excerpt 7')
-    expect(riskHeadlineFallback(7)).toBe('Filing excerpt 8')
+    expect(deriveRiskHeadline(undefined, 0)).toBe('Risk 1')
+    expect(deriveRiskHeadline(null, 1)).toBe('Risk 2')
+    expect(deriveRiskHeadline('', 2)).toBe('Risk 3')
+    expect(deriveRiskHeadline('   \n ', 3)).toBe('Risk 4')
+    expect(deriveRiskHeadline('Tariffs.', 4)).toBe('Risk 5')
+    expect(deriveRiskHeadline('Supply risk', 5)).toBe('Risk 6')
+    expect(deriveRiskHeadline('… — ;', 6)).toBe('Risk 7')
+    expect(riskHeadlineFallback(7)).toBe('Risk 8')
   })
 
   it('keeps a short excerpt whole, with or without punctuation', () => {
@@ -345,7 +345,7 @@ describe('deriveRiskHeadline', () => {
         'The Company (including all of its subsidiaries in North America, South America, Africa, Europe and Asia) faces significant competition in every market it serves.',
         0,
       ),
-    ).toBe('Filing excerpt 1')
+    ).toBe('Risk 1')
     // Square brackets and curly single quotes count too; an apostrophe between letters ("customer’s")
     // is not a closing quote.
     expect(
@@ -353,7 +353,7 @@ describe('deriveRiskHeadline', () => {
         'The Company [including all of its subsidiaries in North America, South America, Africa, Europe and Asia] faces significant competition in every market it serves.',
         0,
       ),
-    ).toBe('Filing excerpt 1')
+    ).toBe('Risk 1')
     expect(
       deriveRiskHeadline(
         'Our largest customer has described its supply arrangements with us as ‘subject to annual renegotiation at the customer’s sole discretion’ in each of the last three years.',
@@ -395,12 +395,12 @@ describe('deriveRiskHeadline', () => {
   })
 
   it('keeps the positional title when fewer than four whole words fit under the cap', () => {
-    expect(deriveRiskHeadline(`${'A'.repeat(150)} b c`, 2)).toBe('Filing excerpt 3')
+    expect(deriveRiskHeadline(`${'A'.repeat(150)} b c`, 2)).toBe('Risk 3')
     expect(
       deriveRiskHeadline(
         'See https://www.example.com/investor-relations/annual-reports/2025/form-10-k-risk-factors-supplement-and-exhibits for more detail on these risks.',
         0,
       ),
-    ).toBe('Filing excerpt 1')
+    ).toBe('Risk 1')
   })
 })

@@ -10,7 +10,7 @@
  *
  * The rule, designed against the production filing-3 spans and the eval-baseline risk spans:
  *   1. An excerpt of fewer than MIN_EXCERPT_WORDS words (or none) gets the positional fallback
- *      "Filing excerpt n".
+ *      "Risk n".
  *   2. Take the first sentence: up to the first ".", "!" or "?" that leaves at least
  *      MIN_EXCERPT_WORDS words, is followed by a capitalised word (or the end) and is not inside a
  *      bracket or quotation. A one-letter word ("U.S.", initials) or a title, label or month
@@ -47,7 +47,7 @@ const MIN_EXCERPT_WORDS = 3
 const MIN_CLAUSE_WORDS = 4
 
 /** The positional title a card keeps when its excerpt cannot give a meaningful headline. */
-export const riskHeadlineFallback = (index: number): string => `Filing excerpt ${index + 1}`
+export const riskHeadlineFallback = (index: number): string => `Risk ${index + 1}`
 
 // Abbreviations whose trailing period never ends a sentence: a title, label or month always has
 // more to come ("ASU No. 2023-07", "Q1 vs. Q2", "Sept. 2025", "Dr. Smith"). Lowercase here; matched
