@@ -18,18 +18,29 @@ router as well as after the move, so it proves the refactor preserved behaviour:
     new-account insert loses a concurrent create for the same email, with the router's warning
   - logout and logout-all commit their own revocations (with no audit row committing after them),
     and unlinking a provider commits the delete itself before its oauth_unlinked audit row
+  - a password login: a success resets the failed-login count, and that reset and last_login_at are
+    committed before the session mint, so a failed mint keeps both; a password change whose mint
+    fails changes nothing (one commit); a registration that loses a concurrent create stays opaque
+  - an OAuth callback commits its own sign-in (a new account, the link, last_login_at, the refresh
+    token) with no audit row committing after it; the connections list; Apple's name fill-in on an
+    existing link and its first sign-in without an email
+  - the failure paths that roll back (a failed reverse trial, the OAuth races) do so before they log
 
 Real endpoints against the app's SQLite database, like the rest of the auth suite. Mail is captured
 by patching app.services.email_service (the router imports the senders at call time). SQLite hands
 back ``DateTime(timezone=True)`` columns naive while PostgreSQL hands them back aware; the
 ``_postgres_shaped_expiries`` fixture gives the two token-expiry columns the production shape, so
-the expiry comparisons run as they do on PostgreSQL.
+the expiry comparisons run as they do on PostgreSQL. The session-mint failures and the races are
+injected at the session's flush (SQLAlchemy events), so they hit the same write before and after
+the move, whichever module issues it.
 """
+import json
 import logging
 import re
 import uuid
 from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
+from typing import Optional
 from unittest.mock import AsyncMock
 from urllib.parse import parse_qs, urlparse
 
@@ -42,8 +53,9 @@ from sqlalchemy.orm.attributes import set_committed_value
 from main import app
 from app.config import settings
 from app.database import SessionLocal
-from app.models import AuditLog, OAuthAccount, RefreshToken, Subscription, User
+from app.models import AuditLog, LoginAttempt, OAuthAccount, RefreshToken, Subscription, User
 from app.routers import auth as auth_module
+from app.services import login_lockout
 from app.services.posthog_client import EVENT_TRIAL_STARTED
 from tests.support.summary_stream_harness import reset_rate_limiters
 
@@ -83,11 +95,56 @@ def client():
 @pytest.fixture(autouse=True)
 def _fresh(client, monkeypatch):
     reset_rate_limiters()
+    auth_module.OAUTH_START_LIMITER._hits.clear()  # 20/min/IP; this file starts many OAuth flows
     client.cookies.clear()
     monkeypatch.setattr(settings, "REGISTRATION_MODE", "public")
     monkeypatch.setattr(settings, "REVERSE_TRIAL_ENABLED", False)
     yield
     client.cookies.clear()
+
+
+@pytest.fixture
+def server_errors(client):
+    """A client that gets the app's 500 for an unhandled exception instead of re-raising it.
+
+    No ``with``: the module client already ran the app's startup, and a second lifespan's shutdown
+    would tear down state that client still uses.
+    """
+    errors_client = TestClient(app, base_url="https://testserver", raise_server_exceptions=False)
+    yield errors_client
+    errors_client.close()
+
+
+@pytest.fixture
+def fail_the_refresh_token_insert():
+    """Arm with ``armed["on"] = True``: the next flush that inserts a RefreshToken raises instead, as
+    a failed session mint would, after the endpoint's earlier writes."""
+    armed = {"on": False, "fired": False}
+
+    def _before_flush(session, _flush_context, _instances):
+        if armed["on"] and any(isinstance(obj, RefreshToken) for obj in session.new):
+            armed.update(on=False, fired=True)
+            raise RuntimeError("refresh-token store down")
+
+    event.listen(Session, "before_flush", _before_flush)
+    yield armed
+    event.remove(Session, "before_flush", _before_flush)
+
+
+@pytest.fixture
+def root_rollbacks(caplog):
+    """Each rollback of a Session's own transaction, recorded as the number of log records
+    ``caplog`` held at that moment, so a test can pin "rolled back, then logged". A failed flush
+    also rolls back its sub-transaction; that one is not recorded."""
+    marks: list[int] = []
+
+    def _after_soft_rollback(_session, previous_transaction):
+        if previous_transaction.parent is None:
+            marks.append(len(caplog.records))
+
+    event.listen(Session, "after_soft_rollback", _after_soft_rollback)
+    yield marks
+    event.remove(Session, "after_soft_rollback", _after_soft_rollback)
 
 
 @pytest.fixture(autouse=True)
@@ -336,7 +393,7 @@ def test_verification_grants_the_reverse_trial_when_enabled(client, mail, events
 
 
 @pytest.mark.requires_db
-def test_a_failed_reverse_trial_still_verifies(client, mail, events, monkeypatch, caplog):
+def test_a_failed_reverse_trial_still_verifies(client, mail, events, monkeypatch, caplog, root_rollbacks):
     monkeypatch.setattr(settings, "REVERSE_TRIAL_ENABLED", True)
 
     def _boom(db, user, days):
@@ -362,6 +419,8 @@ def test_a_failed_reverse_trial_still_verifies(client, mail, events, monkeypatch
     ]
     # The warning carries the original failure, not a wrapper, as its exception.
     assert warning.exc_info[0] is RuntimeError and str(warning.exc_info[1]) == "billing store down"
+    # The half-applied grant is rolled back before the warning is logged, and nothing else rolls back.
+    assert len(root_rollbacks) == 1 and root_rollbacks[0] <= caplog.records.index(warning)
 
 
 @pytest.mark.requires_db
@@ -441,6 +500,95 @@ def test_refresh_replay_revokes_the_live_chain(client, mail):
         assert db.query(RefreshToken).filter(
             RefreshToken.user_id == user_id, RefreshToken.revoked_at.is_(None)
         ).count() == 0
+
+
+# ── password login and change: what commits, and when ─────────────────────────
+
+WRONG_PASSWORD = "not-the-password"  # gitleaks:allow
+
+
+def _lockout_rows(email: str) -> int:
+    with SessionLocal() as db:
+        return db.query(LoginAttempt).filter(LoginAttempt.email_hash == login_lockout._email_hash(email)).count()
+
+
+def _refresh_tokens(user_id: int) -> int:
+    with SessionLocal() as db:
+        return db.query(RefreshToken).filter(RefreshToken.user_id == user_id).count()
+
+
+@pytest.mark.requires_db
+def test_a_successful_login_resets_the_failed_login_count(client, mail):
+    """THRESHOLD-1 failures, a success, THRESHOLD-1 more failures: without the reset the second run
+    would reach the threshold and lock the account (429)."""
+    email, _ = _register(client, mail)
+
+    def _attempt(password: str) -> int:
+        auth_module.LOGIN_LIMITER._hits.clear()  # isolate the per-account lockout from the per-IP limiter
+        resp = _login(client, email, password)
+        client.cookies.clear()
+        return resp.status_code
+
+    misses = login_lockout.LOCKOUT_THRESHOLD - 1
+    for _ in range(2):
+        assert [_attempt(WRONG_PASSWORD) for _ in range(misses)] == [401] * misses
+        assert _lockout_rows(email) == 1
+        assert _attempt(PASSWORD) == 200
+        assert _lockout_rows(email) == 0
+
+
+@pytest.mark.requires_db
+def test_a_login_whose_session_mint_fails_keeps_its_lockout_reset_and_login_stamp(
+    client, mail, server_errors, fail_the_refresh_token_insert
+):
+    """The lockout reset and last_login_at commit on their own, before the session mint: a failed
+    mint answers 500 with no session and no login audit row, but keeps both."""
+    email, _ = _register(client, mail)
+    user_id = _user(email).id
+    assert _login(client, email, WRONG_PASSWORD).status_code == 401
+    assert _lockout_rows(email) == 1 and _user(email).last_login_at is None
+
+    fail_the_refresh_token_insert["on"] = True
+    resp = server_errors.post("/api/auth/login", json={"email": email, "password": PASSWORD})
+    assert fail_the_refresh_token_insert["fired"], "the mint failure was never injected"
+    assert resp.status_code == 500 and _cookies(resp) == []
+    assert _lockout_rows(email) == 0
+    assert _user(email).last_login_at is not None
+    assert _refresh_tokens(user_id) == 0
+    assert _audit_actions(user_id, "login_success") == []
+
+
+@pytest.mark.requires_db
+def test_a_password_change_whose_session_mint_fails_changes_nothing(
+    client, mail, server_errors, fail_the_refresh_token_insert
+):
+    """The new hash, the revocation of every session and this device's new refresh token commit
+    together: when the mint fails, the old password and the existing session still work."""
+    email, _ = _register(client, mail)
+    user_id = _user(email).id
+    login = _login(client, email)
+    assert login.status_code == 200
+    access_token = login.json()["access_token"]
+    existing_refresh = client.cookies.get("earningsnerd_refresh_token")
+    client.cookies.clear()
+    stored_hash = _user(email).hashed_password
+
+    fail_the_refresh_token_insert["on"] = True
+    resp = server_errors.post(
+        "/api/auth/change-password",
+        json={"current_password": PASSWORD, "new_password": NEW_PASSWORD},
+        headers={"Authorization": f"Bearer {access_token}"},
+    )
+    assert fail_the_refresh_token_insert["fired"], "the mint failure was never injected"
+    assert resp.status_code == 500 and _cookies(resp) == []
+    assert _user(email).hashed_password == stored_hash
+    assert _live_refresh_tokens(user_id) == 1
+
+    assert client.post("/api/auth/refresh", json={"refresh_token": existing_refresh}).status_code == 200
+    client.cookies.clear()
+    assert _login(client, email).status_code == 200
+    client.cookies.clear()
+    assert _login(client, email, NEW_PASSWORD).status_code == 401
 
 
 # ── logout: each endpoint commits its own revocation ──────────────────────────
@@ -554,15 +702,31 @@ class _FakeAsyncClient:
         return _FakeTokenResponse()
 
 
-def _seed_verified(email: str) -> int:
+def _seed_verified(email: str, full_name: Optional[str] = None) -> int:
     with SessionLocal() as db:
-        user = User(email=email, hashed_password="x", email_verified=True)
+        user = User(email=email, hashed_password="x", email_verified=True, full_name=full_name)
         db.add(user)
         db.commit()
         return user.id
 
 
-def _oauth_callback(client: TestClient, monkeypatch, provider: str, sub: str, email: str):
+def _seed_link(user_id: int, provider: str, sub: str, email: str) -> None:
+    with SessionLocal() as db:
+        db.add(OAuthAccount(user_id=user_id, provider=provider, provider_account_id=sub, provider_email=email))
+        db.commit()
+
+
+def _oauth_callback(
+    client: TestClient,
+    monkeypatch,
+    provider: str,
+    sub: str,
+    email: Optional[str],
+    *,
+    apple_user: Optional[str] = None,
+):
+    """Run a provider flow end to end; ``apple_user`` is the JSON ``user`` field Apple posts on a
+    first authorization."""
     monkeypatch.setattr(settings, "GOOGLE_CLIENT_ID", "test-google-client")
     monkeypatch.setattr(settings, "APPLE_CLIENT_ID", "io.earningsnerd.test")
     start = client.get(f"/api/auth/{provider}", follow_redirects=False)
@@ -581,19 +745,26 @@ def _oauth_callback(client: TestClient, monkeypatch, provider: str, sub: str, em
         auth_module, "_verify_apple_id_token",
         AsyncMock(return_value={"sub": sub, "email": email, "email_verified": "true"}),
     )
-    return client.post(
-        "/api/auth/apple/callback", data={"state": state, "id_token": "stub"}, follow_redirects=False
-    )
+    form = {"state": state, "id_token": "stub"}
+    if apple_user is not None:
+        form["user"] = apple_user
+    return client.post("/api/auth/apple/callback", data=form, follow_redirects=False)
 
 
 _STATE_CLEARED = {"google": GOOGLE_STATE_CLEARED, "apple": APPLE_STATE_CLEARED}
 
 
 @pytest.mark.requires_db
+@pytest.mark.parametrize("audited", [True, False], ids=["audited", "audit-write-skipped"])
 @pytest.mark.parametrize("provider", ["google", "apple"])
-def test_oauth_link_issues_the_session_cookies_in_order(client, monkeypatch, provider):
+def test_oauth_link_issues_the_session_cookies_in_order(client, monkeypatch, request, provider, audited):
+    """Linking a verified account signs it in. The callback commits the sign-in itself (the link,
+    last_login_at and the refresh token) before its audit rows: with the audit writes made no-ops
+    all of it must still persist."""
     email = _email()
     user_id = _seed_verified(email)
+    if not audited:
+        request.getfixturevalue("no_audit_rows")
     resp = _oauth_callback(client, monkeypatch, provider, f"{provider}_{uuid.uuid4().hex}", email)
     assert resp.status_code == 302 and resp.headers["location"] == settings.FRONTEND_URL
     assert _cookies(resp) == [_STATE_CLEARED[provider], *SESSION_ISSUED]
@@ -602,6 +773,76 @@ def test_oauth_link_issues_the_session_cookies_in_order(client, monkeypatch, pro
     with SessionLocal() as db:
         assert db.query(OAuthAccount).filter_by(user_id=user_id, provider=provider).count() == 1
         assert db.query(RefreshToken).filter_by(user_id=user_id).count() == 1
+    audit_rows = [("user", {"provider": provider})] if audited else []
+    assert _audit_actions(user_id, "oauth_login") == audit_rows
+    assert _audit_actions(user_id, "oauth_linked") == audit_rows
+
+    # The session it issued lists the new link among the account's sign-in methods.
+    connections = client.get("/api/auth/connections")
+    assert connections.status_code == 200, connections.text
+    body = connections.json()
+    (linked,) = body["providers"]
+    assert datetime.fromisoformat(linked.pop("linked_at"))
+    assert body == {"has_password": True, "providers": [{"provider": provider, "provider_email": email}]}
+
+
+@pytest.mark.requires_db
+@pytest.mark.parametrize("provider", ["google", "apple"])
+def test_oauth_first_sign_in_commits_the_new_account_itself(client, monkeypatch, no_audit_rows, provider):
+    """A first social sign-in's new account, its link, last_login_at and the refresh token are
+    committed by the sign-in, not by the audit row written after it (made a no-op here)."""
+    email = _email()
+    sub = f"{provider}_{uuid.uuid4().hex}"
+    resp = _oauth_callback(client, monkeypatch, provider, sub, email)
+    assert resp.status_code == 302 and resp.headers["location"] == settings.FRONTEND_URL
+    assert _cookies(resp) == [_STATE_CLEARED[provider], *SESSION_ISSUED]
+    user = _user(email)
+    assert user.hashed_password is None and user.email_verified is True
+    assert user.last_login_at is not None
+    with SessionLocal() as db:
+        assert db.query(OAuthAccount).filter_by(provider=provider, provider_account_id=sub).one().user_id == user.id
+    assert _refresh_tokens(user.id) == 1
+
+
+_APPLE_FIRST_AUTH_USER = json.dumps({"name": {"firstName": "Ada", "lastName": "Lovelace"}})
+
+
+@pytest.mark.requires_db
+@pytest.mark.parametrize(
+    "stored_name, expected", [(None, "Ada Lovelace"), ("Grace Hopper", "Grace Hopper")], ids=["empty", "kept"]
+)
+def test_apple_sign_in_on_an_existing_link_fills_in_only_a_missing_name(client, monkeypatch, stored_name, expected):
+    email = _email()
+    user_id = _seed_verified(email, full_name=stored_name)
+    sub = f"apple_{uuid.uuid4().hex}"
+    _seed_link(user_id, "apple", sub, email)
+
+    resp = _oauth_callback(client, monkeypatch, "apple", sub, email, apple_user=_APPLE_FIRST_AUTH_USER)
+    assert resp.status_code == 302 and resp.headers["location"] == settings.FRONTEND_URL
+    assert _cookies(resp) == [APPLE_STATE_CLEARED, *SESSION_ISSUED]
+    assert _user(email).full_name == expected
+
+
+@pytest.mark.requires_db
+@pytest.mark.parametrize("linked", [False, True], ids=["first-sign-in", "existing-link"])
+def test_apple_sign_in_without_an_email_needs_an_existing_link(client, monkeypatch, linked):
+    """No email claim: a first sign-in is refused with apple_missing_claims and persists nothing; an
+    existing link (looked up first) still signs in."""
+    sub = f"apple_{uuid.uuid4().hex}"
+    if linked:
+        email = _email()
+        _seed_link(_seed_verified(email), "apple", sub, email)
+
+    resp = _oauth_callback(client, monkeypatch, "apple", sub, None)
+    assert resp.status_code == 302
+    if linked:
+        assert resp.headers["location"] == settings.FRONTEND_URL
+        assert _cookies(resp) == [APPLE_STATE_CLEARED, *SESSION_ISSUED]
+        return
+    assert resp.headers["location"] == f"{settings.FRONTEND_URL}/login?error=apple_missing_claims"
+    assert _cookies(resp) == [APPLE_STATE_CLEARED]
+    with SessionLocal() as db:
+        assert db.query(OAuthAccount).filter_by(provider_account_id=sub).count() == 0
 
 
 @pytest.fixture
@@ -632,7 +873,7 @@ def lose_the_link_race():
 @pytest.mark.requires_db
 @pytest.mark.parametrize("provider", ["google", "apple"])
 def test_oauth_link_that_loses_the_race_redirects_with_a_conflict(
-    client, monkeypatch, caplog, lose_the_link_race, provider
+    client, monkeypatch, caplog, root_rollbacks, lose_the_link_race, provider
 ):
     email = _email()
     user_id = _seed_verified(email)
@@ -650,10 +891,13 @@ def test_oauth_link_that_loses_the_race_redirects_with_a_conflict(
         assert db.query(RefreshToken).filter_by(user_id=user_id).count() == 0
         assert db.query(OAuthAccount).filter_by(provider_account_id=sub).count() == 1  # the winner's
     label = "Google" if provider == "google" else "Apple"
-    assert any(
-        r.name == "app.routers.auth" and r.getMessage() == f"{label} OAuth IntegrityError for sub={sub}"
-        for r in caplog.records
-    )
+    (warning,) = [
+        r for r in caplog.records
+        if r.name == "app.routers.auth" and r.getMessage() == f"{label} OAuth IntegrityError for sub={sub}"
+    ]
+    assert warning.levelno == logging.WARNING
+    # Rolled back (once) before the warning is logged.
+    assert len(root_rollbacks) == 1 and root_rollbacks[0] <= caplog.records.index(warning)
 
 
 @pytest.fixture
@@ -678,7 +922,7 @@ def lose_the_create_race():
 @pytest.mark.requires_db
 @pytest.mark.parametrize("provider", ["google", "apple"])
 def test_oauth_first_sign_in_that_loses_the_create_race_redirects_with_a_conflict(
-    client, monkeypatch, caplog, lose_the_create_race, provider
+    client, monkeypatch, caplog, root_rollbacks, lose_the_create_race, provider
 ):
     email = _email()
     sub = f"{provider}_{uuid.uuid4().hex}"
@@ -694,7 +938,36 @@ def test_oauth_first_sign_in_that_loses_the_create_race_redirects_with_a_conflic
         assert [u.id for u in db.query(User).filter(User.email == email)] == [lose_the_create_race["winner_id"]]
         assert db.query(OAuthAccount).filter_by(provider_account_id=sub).count() == 0
         assert db.query(RefreshToken).filter_by(user_id=lose_the_create_race["winner_id"]).count() == 0
-    assert [
-        (r.name, r.levelno, r.getMessage()) for r in caplog.records
-        if r.getMessage().endswith("OAuth IntegrityError creating account")
-    ] == [("app.routers.auth", logging.WARNING, f"{provider} OAuth IntegrityError creating account")]
+    warnings = [r for r in caplog.records if r.getMessage().endswith("OAuth IntegrityError creating account")]
+    assert [(r.name, r.levelno, r.getMessage()) for r in warnings] == [
+        ("app.routers.auth", logging.WARNING, f"{provider} OAuth IntegrityError creating account")
+    ]
+    # Rolled back (once) before the warning is logged.
+    assert len(root_rollbacks) == 1 and root_rollbacks[0] <= caplog.records.index(warnings[0])
+
+
+# ── registration that loses a concurrent create ───────────────────────────────
+
+@pytest.mark.requires_db
+def test_a_registration_that_loses_the_create_race_stays_opaque(client, mail, monkeypatch, lose_the_create_race):
+    """The insert loses a concurrent create for the same email (IntegrityError at the flush): the
+    answer is byte-identical to any other registration (anti-enumeration), only the winner's account
+    exists, and neither a verification nor an account-exists mail goes out."""
+    account_exists = AsyncMock()
+    monkeypatch.setattr("app.services.email_service.send_account_exists_email", account_exists)
+    normal = client.post("/api/auth/register", json={"email": _email(), "password": PASSWORD})
+    assert normal.status_code == 200, normal.text
+    mail.verification.reset_mock()
+
+    email = _email()
+    lose_the_create_race["email"] = email
+    raced = client.post("/api/auth/register", json={"email": email, "password": PASSWORD})
+    assert lose_the_create_race["email"] is None, "the race was never injected"
+    assert raced.status_code == normal.status_code
+    assert raced.content == normal.content
+    assert raced.headers["content-type"] == normal.headers["content-type"]
+    assert raced.headers.get_list("set-cookie") == normal.headers.get_list("set-cookie") == []
+    with SessionLocal() as db:
+        assert [u.id for u in db.query(User).filter(User.email == email)] == [lose_the_create_race["winner_id"]]
+        assert db.query(AuditLog).filter(AuditLog.user_email == email).count() == 0
+    assert mail.verification.call_count == 0 and account_exists.call_count == 0

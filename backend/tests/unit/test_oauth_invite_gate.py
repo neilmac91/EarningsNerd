@@ -249,16 +249,21 @@ def test_linking_an_existing_verified_account_still_works_in_invite_only_mode(
 
 
 @pytest.mark.requires_db
+@pytest.mark.parametrize("audited", [True, False], ids=["audited", "audit-write-skipped"])
 @pytest.mark.parametrize("provider", PROVIDERS)
 def test_invited_social_sign_up_creates_a_beta_account_and_consumes_the_invite(
-    client, monkeypatch, invite_only, provider
+    client, monkeypatch, invite_only, provider, audited
 ):
+    """The sign-in commits the account, its link and the redeemed invite itself: with the audit
+    write that follows it made a no-op (its commit would otherwise carry them), all still persist."""
     invite_id, raw = _mint_invite()
     email = _email()
     state = _start(client, provider, invite=raw)
     (row,) = _state_rows(state)
     assert row.invite_code_hash == invite_service.hash_invite_token(raw)  # never the raw token
 
+    if not audited:
+        monkeypatch.setattr("app.services.audit_service.create_audit_log", lambda *args, **kwargs: None)
     resp = _callback(client, monkeypatch, provider, _claims(provider, email), state=state)
     _assert_signed_in(resp, email)
     user = _user(email)
