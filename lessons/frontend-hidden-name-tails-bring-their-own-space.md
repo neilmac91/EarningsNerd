@@ -17,7 +17,9 @@ bracket, never with punctuation that must touch the visible label (`(10-K, filed
 not `: 10-K …`); (c) keep the visible label at the start of the name (label in name), and assert the
 whole name in the browser with `toHaveAccessibleName` rather than reading `textContent`.
 
-**Evidence**: `frontend/app/company/[ticker]/page-client.tsx` (the row and Recommended card links);
-`frontend/tests/e2e/company-filing-rows.spec.ts` ("every filing link reads "Open filing" and names its
-filing"), whose first run against the colon tail found no link named "Open filing: 10-K filed Oct
-31, 2025" and whose aria snapshot showed `link "Open filing : 10-K filed Oct 31, 2025"`.
+**Evidence**: found on this branch's CLEAN-R2 links (`e97f70ff`, in
+`frontend/app/company/[ticker]/page-client.tsx`, since replaced by #1147's filings index): the first
+run of `tests/e2e/company-filing-rows.spec.ts` against the colon tail found no link named "Open
+filing: 10-K filed Oct 31, 2025", and its aria snapshot showed `link "Open filing : 10-K filed Oct
+31, 2025"`. The rule holds in today's `frontend/features/filings/components/FilingIndex.tsx`, whose
+"Report year" and "Filed" hidden spans keep the space outside the span.
