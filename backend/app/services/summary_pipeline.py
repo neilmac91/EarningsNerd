@@ -83,6 +83,7 @@ from app.services.summary_generation_service import (  # noqa: F401
     quality_tier_rank,
     record_progress,
 )
+from app.services.summary_placeholders import is_summary_ready  # noqa: F401
 from app.services.summary_versioning import SUMMARY_PROMPT_VERSION  # noqa: F401
 # Module objects only (never ``from … import <name>``): the stage modules import this module for the
 # seams above, so either import order must work — see the package docstring.
@@ -394,6 +395,7 @@ async def stream_filing_summary(
     telemetry_ctx: dict,
     emit_funnel_telemetry: bool = True,
     force_regenerate: bool = False,
+    replace_unready_only: bool = False,
     request_evidence: SummaryRequestEvidence | None = None,
 ) -> AsyncIterator[dict]:
     """Run the summary pipeline for ``filing_id``, yielding event dicts.
@@ -407,6 +409,14 @@ async def stream_filing_summary(
     The body is the stage map in ``_stage_sequence`` (``app/services/summary_stages``), driven over
     one shared ``GenerationRun``; a stage's terminal event ends the pipeline. The timeout, the two
     failure handlers and the cleanup in ``finally`` are unchanged in order and ownership.
+
+    ``replace_unready_only`` marks a run the caller admitted only because no stored row was one the
+    filing page shows (``is_summary_ready``): an unready row, or none at all under ``force``, with the
+    Pro gate waived for that reason. The run treats such a row as a missing summary and re-reads it at
+    each step, since another run may make it ready in between. A row that is ready by admission, or
+    after a joined leader finishes, is served, not regenerated. A row that becomes ready during
+    generation is kept, not replaced. A row still unready after a joined leader fails is not served:
+    this run claims the generation, as a follower of a failed first generation does.
     """
     run = generation_run.GenerationRun(
         filing_id=filing_id,
@@ -417,6 +427,7 @@ async def stream_filing_summary(
         telemetry_ctx=telemetry_ctx,
         emit_funnel_telemetry=emit_funnel_telemetry,
         force_regenerate=force_regenerate,
+        replace_unready_only=replace_unready_only,
         request_evidence=request_evidence,
     )
     run.emit_funnel(

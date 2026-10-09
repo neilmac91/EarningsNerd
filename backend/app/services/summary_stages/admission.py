@@ -54,9 +54,14 @@ async def load_filing(run: GenerationRun) -> AsyncIterator[dict]:
                 "cache_updated_at": cache.updated_at if cache else None,
                 "cache_created_at": cache.created_at if cache else None,
             } if filing else None
-            summary_fields = {
-                "business_overview": pipeline.source_safe_business_overview(summary, filing), "id": summary.id,
-            } if summary else None
+            summary_fields = None
+            if summary:
+                overview = pipeline.source_safe_business_overview(summary, filing)
+                raw = summary.raw_summary if isinstance(summary.raw_summary, dict) else {}
+                summary_fields = {
+                    "business_overview": overview, "id": summary.id,
+                    "ready": pipeline.is_summary_ready(overview, raw.get("writer_error")),
+                }
             return filing_fields, summary_fields
 
     run.filing_fields, summary_fields = await run.run_sync_db(get_filing_and_summary_sync)
@@ -68,7 +73,8 @@ async def load_filing(run: GenerationRun) -> AsyncIterator[dict]:
         yield {'type': 'error', 'message': 'Filing not found'}
         return
 
-    if summary_fields and not run.force_regenerate:
+    # A run admitted to replace an unready row serves the row once another run has made it ready.
+    if summary_fields and (not run.force_regenerate or (run.replace_unready_only and summary_fields["ready"])):
         if request_evidence is not None:
             request_evidence.delivery_path = "pipeline_cache"
         logger.info(f"[stream:{filing_id}] Existing summary found. Returning it.")
@@ -84,6 +90,7 @@ async def join_or_lead(run: GenerationRun) -> AsyncIterator[dict]:
     """A3 in-flight dedup: join the leader generating this filing and serve its result, or lead."""
     filing_id = run.filing_id
     request_evidence = run.request_evidence
+    replace_unready_only = run.replace_unready_only
 
     # A3: a follower must recheck ownership after every join/read. Failed leaders
     # can wake several followers; only one may atomically claim the empty slot.
@@ -93,10 +100,15 @@ async def join_or_lead(run: GenerationRun) -> AsyncIterator[dict]:
             persisted_filing = s.query(Filing).options(
                 joinedload(Filing.content_cache)
             ).filter(Filing.id == filing_id).first()
-            return {
-                "business_overview": pipeline.source_safe_business_overview(summ, persisted_filing),
-                "id": summ.id,
-            } if summ else None
+            if not summ:
+                return None
+            overview = pipeline.source_safe_business_overview(summ, persisted_filing)
+            raw = summ.raw_summary if isinstance(summ.raw_summary, dict) else {}
+            # A run admitted to replace an unready row counts that row as absent: a leader that
+            # failed left it in place, so this run claims the generation instead of serving it.
+            if replace_unready_only and not pipeline.is_summary_ready(overview, raw.get("writer_error")):
+                return None
+            return {"business_overview": overview, "id": summ.id}
 
     waited = 0.0
     joined_generation = False

@@ -86,7 +86,7 @@ export default function Header({
           {/* Design sizes: 36px mark, 20px wordmark. Below `sm` the bar also carries the theme
               toggle, the short account CTA and the menu button at 44px each, so the wordmark
               yields to the mark alone (the footer's rendition) rather than overflow the viewport. */}
-          <Link href="/" className="flex items-center gap-2.5" aria-label="EarningsNerd home">
+          <Link href="/" className="flex items-center gap-2.5 rounded-lg focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark" aria-label="EarningsNerd home">
             <EarningsNerdLogo variant="icon-only" iconClassName="h-9 w-9" mode="auto" />
             <EarningsNerdLogo variant="wordmark" wordmarkClassName="hidden text-xl sm:inline" mode="auto" />
           </Link>
@@ -149,7 +149,7 @@ export default function Header({
           <button
             type="button"
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg p-2 text-text-secondary-light hover:text-text-primary-light dark:text-text-secondary-dark dark:hover:text-text-primary-dark"
+            className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg p-2 text-text-secondary-light hover:text-text-primary-light dark:text-text-secondary-dark dark:hover:text-text-primary-dark focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark"
             aria-label={mobileMenuOpen ? 'Close menu' : 'Open menu'}
             aria-expanded={mobileMenuOpen}
           >
@@ -167,7 +167,7 @@ export default function Header({
                 key={link.href}
                 href={link.href}
                 onClick={() => setMobileMenuOpen(false)}
-                className="block rounded-lg px-3 py-2.5 text-sm font-medium text-text-secondary-light transition-colors hover:bg-brand-weak hover:text-text-primary-light dark:text-text-secondary-dark dark:hover:bg-white/5 dark:hover:text-text-primary-dark"
+                className="block rounded-lg px-3 py-2.5 text-sm font-medium text-text-secondary-light transition-colors hover:bg-brand-weak hover:text-text-primary-light dark:text-text-secondary-dark dark:hover:bg-white/5 dark:hover:text-text-primary-dark focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark"
               >
                 {link.label}
               </Link>
@@ -185,7 +185,7 @@ export default function Header({
                     <Link
                       href={`/check-email?email=${encodeURIComponent(user.email)}`}
                       onClick={() => setMobileMenuOpen(false)}
-                      className="block rounded-lg bg-warning-light/10 px-3 py-2.5 text-sm font-medium text-warning-light transition-colors hover:bg-warning-light/20 dark:bg-warning-dark/10 dark:text-warning-dark dark:hover:bg-warning-dark/20"
+                      className="block rounded-lg bg-warning-light/10 px-3 py-2.5 text-sm font-medium text-warning-light transition-colors hover:bg-warning-light/20 dark:bg-warning-dark/10 dark:text-warning-dark dark:hover:bg-warning-dark/20 focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark"
                     >
                       Verify your email
                     </Link>
@@ -195,7 +195,7 @@ export default function Header({
                       key={link.href}
                       href={link.href}
                       onClick={() => setMobileMenuOpen(false)}
-                      className="block rounded-lg px-3 py-2.5 text-sm font-medium text-text-secondary-light transition-colors hover:bg-brand-weak hover:text-text-primary-light dark:text-text-secondary-dark dark:hover:bg-white/5 dark:hover:text-text-primary-dark"
+                      className="block rounded-lg px-3 py-2.5 text-sm font-medium text-text-secondary-light transition-colors hover:bg-brand-weak hover:text-text-primary-light dark:text-text-secondary-dark dark:hover:bg-white/5 dark:hover:text-text-primary-dark focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark"
                     >
                       {link.label}
                     </Link>
@@ -203,7 +203,7 @@ export default function Header({
                   <button
                     type="button"
                     onClick={handleMobileLogout}
-                    className="flex items-center gap-2 rounded-lg px-3 py-2.5 text-left text-sm font-medium text-text-secondary-light transition-colors hover:bg-brand-weak hover:text-text-primary-light dark:text-text-secondary-dark dark:hover:bg-white/5 dark:hover:text-text-primary-dark"
+                    className="flex items-center gap-2 rounded-lg px-3 py-2.5 text-left text-sm font-medium text-text-secondary-light transition-colors hover:bg-brand-weak hover:text-text-primary-light dark:text-text-secondary-dark dark:hover:bg-white/5 dark:hover:text-text-primary-dark focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark"
                   >
                     <SignOutIcon className="h-4 w-4 text-text-tertiary-light dark:text-text-secondary-dark" />
                     Log out
@@ -214,7 +214,7 @@ export default function Header({
                   <Link
                     href="/login"
                     onClick={() => setMobileMenuOpen(false)}
-                    className="block rounded-lg px-3 py-2.5 text-center text-sm font-medium text-text-secondary-light transition-colors hover:bg-brand-weak hover:text-text-primary-light dark:text-text-secondary-dark dark:hover:bg-white/5 dark:hover:text-text-primary-dark"
+                    className="block rounded-lg px-3 py-2.5 text-center text-sm font-medium text-text-secondary-light transition-colors hover:bg-brand-weak hover:text-text-primary-light dark:text-text-secondary-dark dark:hover:bg-white/5 dark:hover:text-text-primary-dark focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark"
                   >
                     Log in
                   </Link>

@@ -171,8 +171,29 @@ Link as button   buttonVariants({ variant, size })  — the class-string factory
                  each density has its own EXPLICIT padding sides (never an override on top).
 
 Accent text/link text-brand-strong dark:text-brand-strong-dark   (never brand.DEFAULT as text on cream)
-Focus ring       focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark;
-                 destructive + invalid fields use shadow-ring-error
+Focus ring       focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark;
+                 destructive + invalid fields use shadow-ring-error. There is no global :focus-visible rule, so
+                 a control without the recipe draws the browser's own outline (`auto`), unlike its neighbours.
+                 A control that is a block of its own (a logo link, an icon button, a menu row) takes a radius
+                 (`rounded-lg`) so the ring follows its shape. A field the forms plugin styles (a text
+                 input, textarea, select, checkbox or radio) also takes `focus:ring-0
+                 focus:ring-offset-0`: @tailwindcss/forms rings it blue on any focus, and the
+                 shadow utilities draw the brand ring inside that ring rather than instead of it. Every Tab stop
+                 in the site chrome carries it (the skip link the same triple on `focus:`): gate
+                 tests/unit/siteChromeFocusRing.spec.ts reads the AST of every chrome file, discovered from
+                 app/layout.tsx, every route layout, template or error boundary under app/ (the admin
+                 nav, global-error's fallback), AuthShell and SecondaryHeader through their imports and
+                 re-exports (components/ui aside), so a new banner, menu or widget is scanned unlisted,
+                 plus every control a page passes into SecondaryHeader's `actions` slot (the dashboard's
+                 "Log out"; write them inline, as a variable or
+                 a component of their own the scan cannot read them); `buttonVariants(…)` composes it; a
+                 className it cannot read fails, and so does a props spread on a host element or a Link. A
+                 third-party component the chrome renders must be classified in the gate (a provider renders
+                 no control); Sonner's Toaster takes the ring
+                 through `toastOptions.classNames` with `!` on the shadow, since Sonner's own injected
+                 :focus-visible shadow matches or outranks a utility class, and the gate pins every slot. It is
+                 the rule's one gate; a page's other controls (the filing identity strip's breadcrumb) carry the
+                 recipe but sit outside it.
 
 Card / panel     bg-panel-light dark:bg-panel-dark + border + shadow-e2 dark:shadow-none
                  (e1 chips · e2 cards · e3 hero/featured · e4/e5 menus & overlays)
@@ -425,7 +446,8 @@ Company identity <CompanyIdentity company latest summaryReady actions>  (feature
                  ready" (only when the summary probe found one the filing page will show: isSummaryReady, not
                  a placeholder or a stored failure). Its actions: the ONE primary action, opening the latest
                  filing ("Open latest summary" when ready, "Open latest filing" over a stored row that is
-                 not, "Summarize latest filing" when the filing has none), with the watchlist toggle beside
+                 not and while the summary read is pending or has failed, "Summarize latest filing" only
+                 once the read finds none), with the watchlist toggle beside
                  it as a secondary Button (visible label, star, aria-
                  pressed, `loading` while it saves). Sector and fiscal-year convention wait for the payload.
 
@@ -496,6 +518,53 @@ Source pane      <FilingWorkspace>  (P-06) — the research pane is named for th
                  below lg only. The floating launcher is "Source ⌘K", a secondary control (panel fill,
                  hairline, e3; aria-keyshortcuts) whose kbd hint is secondary ink on a cream key. A chip opens
                  the pane on Filing; the initial tab stays Ask until in-app filing text is reliably available.
+                 Focus: at lg+ (a side pane, nothing trapped) a chip keeps focus as it opens the pane on Filing,
+                 where the rail focuses nothing. Any other opener (an in-page Ask button or starter, the control
+                 Ctrl/⌘+K or "/" was pressed on) keeps focus too, except that the rail moves it to its composer a
+                 frame later when the visitor can ask and the Ask tab is shown (AskCopilotRail). The launcher and
+                 the coachmark's Try leave with the open, so a keyboard press on either hands focus to the
+                 selected tab (useFocusHandoff, keyboardOnly): a visitor who cannot ask still lands in the pane.
+                 Below lg the sheet's trap (useSheetFocusTrap) focuses its first stop, Close, which precedes the
+                 tabs, as the sheet opens, whatever opened it; the launcher's or Try's hand-off then finds focus
+                 placed and leaves it. For a visitor who can ask, focus moves twice (the tab, or Close below lg,
+                 then the composer a frame later, or once a free visitor's usage loads); that is accepted, since
+                 the composer renders locked or not and the hand-off cannot tell the two apart. Closing (Escape,
+                 ×) moves only focus that fell (on <body>, or still in the hidden pane), to the first that can
+                 take it: the provenance chip that opened the pane, the control focused as it opened, the
+                 launcher (it remounts on close). Focus the user moved elsewhere stays. Below lg the sheet's trap
+                 restores to the chip or the launcher. Gates: tests/e2e/pane-close-focus.spec.ts holds the route
+                 matrix on the real page (every open route x Escape and × at 1440, the sheet at 390);
+                 tests/unit/FilingWorkspace.spec.tsx pins only the close path's own rules (an opener gone or
+                 hidden since the open, a chip that opened it later, a pointer press, focus moved elsewhere).
+
+Filing reader    <FilingViewer> (`.filing-reader`) fills its pane and never exceeds it: the reader-only
+                 rule sets `width: 100%`, up to the 88ch rail (a column-flex child with auto inline
+                 margins is not stretched, so without it the reader took its widest table's width;
+                 `min-w-0` does not bound that). Each table sits in its own horizontal scroll box
+                 (`ReaderTable`, `.filing-table-scroll`, which takes the table's 2rem rhythm wherever it
+                 sits and, at the reader's top level, its escape from the 68ch measure); never make the
+                 reader or the sheet scroll sideways for a table, and never `overflow-x-hidden` it away.
+                 While, and only while, a table is wider than its box, the box is a scroll region:
+                 `role="region"`, `tabIndex={0}`, `aria-label="Scrollable table: <the heading above it>"`
+                 (the last heading before it whose own container, the reader or a blockquote or list item,
+                 also holds it; ", table 2 of 3" when tables sit under headings that read the same, in one
+                 section or several, so no two regions share a name), the brand focus ring; a table that
+                 fits stays out of the tab order. The reader itself is a tab stop too (`role="region"`,
+                 named "<filing> · filing text", `tabIndex={0}`, the ring inset as in MonthView), so the
+                 arrow keys scroll it from the top: Chromium made the scroller one on its own only while
+                 nothing in it was focusable. In the Source pane's Filing tab, Tab goes Filing tab →
+                 reader → each scrolling table's region (and any link in the text) → "Original on SEC
+                 EDGAR"; when the cited passage cannot be found, the notice's "Open original" link comes
+                 before the reader. A citation jump (highlightInDom) scrolls the reader and the table's
+                 box only, never the page (no scrollIntoView), and centres the passage in the reader's
+                 on-screen part (above the fold and the consent bar, before the desktop pane sticks):
+                 smoothly, or in one jump under prefers-reduced-motion. A box names itself only when it
+                 starts to overflow, never on every resize (the name scans the whole reader). The AI
+                 summary's `.markdown-body` is untouched. Gates: tests/unit/highlightInDom.spec.ts,
+                 tests/unit/readerTableRegionName.spec.ts, tests/e2e/filing-reader-wide-tables.spec.ts
+                 (synthetic fixture text, 1440x900 and a 390x844 touch sheet) and
+                 tests/e2e/copilot-highlight-css.spec.ts (a far-right table cell revealed in its own box
+                 in real layout, the page unmoved).
 
 Ask answer       <AskFilingAnswer>  — the SHIPPED copilot contract: status reading|done|error (this reference
                  also draws a `streaming` caret state; the production renderer has none);

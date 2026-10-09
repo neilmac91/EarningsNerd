@@ -141,9 +141,10 @@ Infra: `docker-compose up -d postgres redis` (local only — prod has no Redis).
     `frontend/eslint.config.mjs` (raw hex/palette, `z-[N]`, off-ramp tracking, sub-scale type, `alert`,
     a responsive grid's base track, a side-tab stripe on a rounded container, a form code inside a `Badge`)
     `tests/unit/dialogAllowlist.spec.ts`, `tests/unit/bottomChromeLadder.spec.ts` (no fixed bottom chrome
-    outranks the workspace layers; the consent bar's inset) and `tests/e2e/text-floors.spec.ts` (muted text clears
-    4.5:1 on what is behind it; no checked route skips a heading level); the 700-level and surface clauses are
-    review-checked.
+    outranks the workspace layers; the consent bar's inset), `tests/e2e/text-floors.spec.ts` (muted text clears
+    4.5:1 on what is behind it; no checked route skips a heading level) and
+    `tests/unit/siteChromeFocusRing.spec.ts` (every site-chrome Tab stop carries the brand ring); the 700-level
+    and surface clauses are review-checked.
 12. **Rules become gates.** When a review or plan produces a "never do X again" rule, land the
     machine enforcement in the same PR (ESLint rule, allowlist spec, AST test, CI grep). Prose-only
     rules rot — see `lessons/arch-structural-gates-over-prose-rules.md`.
