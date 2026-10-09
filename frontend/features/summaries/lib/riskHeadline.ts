@@ -94,13 +94,15 @@ const FUNCTION_WORDS = new Set(
     'that which who whom whose where when while if because such including is are was were be been ' +
     'being can could may might will would shall should must has have had do does did its it their ' +
     'our his her your my this these those any each other not no also both either all certain per ' +
-    'via upon among between about against through during within before after since until whether so up'
+    'via upon among between about against through during within before after since until whether so up even'
   ).split(' '),
 )
 const SCALE_WORD = /^(?:million|billion|trillion|thousand|percent|percentage|basis|square|cubic|metric)\b/i
 // The first word of a two-word unit ("basis points", "percentage points", "square feet"): a headline
 // never ends on it, and never on the figure or scale word just before it ("12.5 million | square feet").
 const COMPOUND_UNIT_HEAD = /^(?:basis|percentage|square|cubic|metric)$/i
+// A comparative waiting for its complement ("more | than 3,200", "even more | so").
+const COMPARATIVE = /^(?:more|less|fewer|greater|larger|smaller|higher|lower|rather|other)$/i
 // A currency code or symbol standing before its amount ("EUR 2.5 billion", "$ 4.1").
 const CURRENCY = /^(?:USD|EUR|GBP|JPY|CHF|CNY|RMB|US\$|\$|€|£|¥)$/
 const STARTS_WITH_FIGURE = /^[(\[]?[$€£¥]?\d/
@@ -178,6 +180,7 @@ const isWeakEnd = (tokens: Token[], i: number, prefix: string): boolean => {
   // ("16% of", "2023 and").
   if (next !== undefined && FIGURE.test(word) && /^\p{Ll}/u.test(next) && !isFunctionWord(next)) return true
   if (next !== undefined && COMPOUND_UNIT_HEAD.test(bare(word))) return true
+  if (next !== undefined && COMPARATIVE.test(bare(word)) && /^(?:than|so)$/i.test(bare(next))) return true
   if (next !== undefined && SCALE_WORD.test(bare(word)) && COMPOUND_UNIT_HEAD.test(bare(next))) return true
   if (next !== undefined && /\d/.test(word) && bare(next).toLowerCase() === 'per') return true
   // A qualifier before its figure: "approximately | 3,200", "at least | 10%".

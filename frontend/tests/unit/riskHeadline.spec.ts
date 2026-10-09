@@ -273,6 +273,11 @@ describe('deriveRiskHeadline', () => {
         'Our borrowing costs could increase and reduce our consolidated gross margin by approximately 2 percentage points next year.',
         'Our borrowing costs could increase and reduce our consolidated gross margin…',
       ],
+      // A comparative waiting for "than" or "so", and the "even" before it: never "more…".
+      [
+        'Our union contracts cover a large part of the workforce, and a single union now represents more than 3,200 employees at our largest sites.',
+        'Our union contracts cover a large part of the workforce, and a single union now represents…',
+      ],
       // A figure before the noun it counts: never "3,200…" before "employees".
       [
         'Our operations depend on a unionised workforce, and a single union now represents a total of 3,200 employees at our largest manufacturing sites.',
