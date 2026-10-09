@@ -23,12 +23,12 @@ import app.models  # noqa: F401 — register models on Base.metadata
 from app.config import settings
 from app.database import Base, get_db
 from app.models import Company, Filing
-from app.routers import filings as filings_mod
+from app.services import filing_list_service
 from app.services.edgar.compat import sec_edgar_service
 from app.services.edgar.exceptions import EdgarError
 
 ROUTER_LOGGER = "app.routers.filings"
-PERSIST_LOGGER = "app.routers.filings"
+PERSIST_LOGGER = "app.services.filing_list_service"  # the live-persistence skip warnings moved
 DEFAULT_TYPES = ["10-K", "10-Q", "10-K/A", "10-Q/A"]
 UNAVAILABLE = "SEC EDGAR is temporarily unavailable. Please retry shortly."
 SLOW = "SEC EDGAR is slow to respond and no cached data is available. Please retry in a moment."
@@ -81,7 +81,7 @@ def sessions(monkeypatch):
     monkeypatch.setattr(settings, "ENABLE_HISTORY_BACKFILL_ON_VISIT", False)
     monkeypatch.setattr(settings, "DURABLE_TASKS_ENABLED", False)
     monkeypatch.setattr(settings, "ENABLE_FPI_FILINGS", False)
-    monkeypatch.setattr(filings_mod, "_filings_synced_at", {})
+    monkeypatch.setattr(filing_list_service, "_filings_synced_at", {})
     monkeypatch.setitem(main.app.dependency_overrides, get_db, override_get_db)
     yield testing_session
     engine.dispose()
@@ -187,7 +187,7 @@ def test_company_miss_persists_the_sec_company_and_serves_its_live_list(client, 
 
 def _timeout_fetch(monkeypatch, before=None):
     """A real ``asyncio.wait_for`` timeout: the fake outlives a tiny route timeout."""
-    monkeypatch.setattr(filings_mod, "SEC_REQUEST_TIMEOUT_SECONDS", 0.01)
+    monkeypatch.setattr(filing_list_service, "SEC_REQUEST_TIMEOUT_SECONDS", 0.01)
 
     async def get_filings(cik, types):
         if before:
@@ -230,7 +230,7 @@ def test_cold_fetch_failure_without_cached_rows(client, sessions, monkeypatch, c
     assert resp.status_code == status
     assert resp.json() == {"detail": detail}
     assert _router_records(caplog) == logs
-    assert filings_mod._filings_synced_at == {}
+    assert filing_list_service._filings_synced_at == {}
 
 
 @pytest.mark.parametrize("kind", sorted(_COLD_FAILURES))
@@ -286,7 +286,7 @@ def test_live_persistence_failure_rolls_back_and_maps_to_500(client, sessions, m
     assert resp.json() == {"detail": "Error fetching filings: Invalid isoformat string: 'not-a-date'"}
     with sessions() as s:
         assert s.query(Filing).count() == 0
-    assert filings_mod._filings_synced_at == {}
+    assert filing_list_service._filings_synced_at == {}
 
 
 def test_live_persistence_skips_incomplete_rows_and_rewrites_viewer_urls(client, sessions, monkeypatch, caplog):
@@ -337,7 +337,7 @@ def test_live_persistence_skips_incomplete_rows_and_rewrites_viewer_urls(client,
         assert s.query(Filing).count() == 2
         assert s.get(Filing, rewritten_id).sec_url == new_url  # committed, not just flushed
         assert s.get(Filing, kept_id).sec_url == viewer + "2"
-    assert ("COLD", tuple(DEFAULT_TYPES)) in filings_mod._filings_synced_at
+    assert ("COLD", tuple(DEFAULT_TYPES)) in filing_list_service._filings_synced_at
 
 
 @pytest.mark.parametrize("params, fpi, expected", [
@@ -399,9 +399,9 @@ def test_durable_handoff_payloads_and_pool_release(tmp_path, monkeypatch):
     monkeypatch.setattr(settings, "DURABLE_TASKS_ENABLED", True)
     monkeypatch.setattr(settings, "ENABLE_HISTORY_BACKFILL_ON_VISIT", True)
     monkeypatch.setattr(settings, "ENABLE_FPI_FILINGS", False)
-    monkeypatch.setattr(filings_mod, "enqueue_task", enqueue)
-    monkeypatch.setattr(filings_mod, "_visit_task_handoffs", {})
-    monkeypatch.setattr(filings_mod, "_filings_synced_at", {})
+    monkeypatch.setattr(filing_list_service, "enqueue_task", enqueue)
+    monkeypatch.setattr(filing_list_service, "_visit_task_handoffs", {})
+    monkeypatch.setattr(filing_list_service, "_filings_synced_at", {})
     monkeypatch.setattr(sec_edgar_service, "get_filings", get_filings)
     monkeypatch.setitem(main.app.dependency_overrides, get_db, override_get_db)
     try:

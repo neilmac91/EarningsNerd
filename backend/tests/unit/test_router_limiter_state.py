@@ -9,7 +9,7 @@ emits ``Retry-After`` through ``enforce_rate_limit``.
 Allow-list gate, like the other structural specs: EVERY module-level assignment in
 ``app/routers/*.py`` whose value is a dict display, ``dict(...)``, ``defaultdict(...)`` or
 ``OrderedDict(...)``, or whose annotation is a mapping type, is an offender unless it is named in
-``ALLOWED`` (the two module caches that map to a scalar/tuple and are not limiter state). An
+``ALLOWED`` (the module caches that map to a scalar/tuple and are not limiter state). An
 unannotated ``_store = {}`` or a fixed-window ``dict[str, int]`` counter trips it just like the
 removed sliding-window shape; a non-empty literal (request headers, an opaque response body) is
 a constant and is not a store. A new legitimate cache is added to ``ALLOWED`` in the same PR,
@@ -23,8 +23,6 @@ ROUTERS_DIR = Path(__file__).resolve().parents[2] / "app" / "routers"
 # file::name -> why it is not limiter state
 ALLOWED = {
     "companies.py::_quote_cache": "per-process quote cache keyed by ticker, values are (quote, stamp)",
-    "filings.py::_filings_synced_at": "per-process sync stamp per company, values are datetimes",
-    "filings.py::_visit_task_handoffs": "bounded cache of accepted queue handoffs, values are bucket expiry timestamps",
 }
 
 _MAPPING_NAMES = {"dict", "Dict", "defaultdict", "DefaultDict", "OrderedDict", "MutableMapping", "Mapping"}

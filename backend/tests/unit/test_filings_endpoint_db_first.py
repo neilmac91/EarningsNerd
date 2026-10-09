@@ -19,7 +19,7 @@ from app.database import Base, get_db
 import app.models  # noqa: F401 — register models on Base.metadata
 from app.models import Company, Filing
 from app.routers import filings as filings_mod
-from app.services import filing_history_service
+from app.services import filing_history_service, filing_list_service
 
 
 @pytest.fixture
@@ -46,19 +46,19 @@ def client(db_engine, monkeypatch):
             db.close()
 
     # The background refresh opens its OWN SessionLocal — point it at the same in-memory engine.
-    monkeypatch.setattr(filings_mod, "SessionLocal", TestingSession)
-    filings_mod._filings_synced_at.clear()
-    filings_mod._refreshing_keys.clear()
-    filings_mod._history_backfilling_ids.clear()
+    monkeypatch.setattr(filing_list_service, "SessionLocal", TestingSession)
+    filing_list_service._filings_synced_at.clear()
+    filing_list_service._refreshing_keys.clear()
+    filing_list_service._history_backfilling_ids.clear()
 
     main.app.dependency_overrides[get_db] = override_get_db
     try:
         yield TestClient(main.app), TestingSession
     finally:
         main.app.dependency_overrides.pop(get_db, None)
-        filings_mod._filings_synced_at.clear()
-        filings_mod._refreshing_keys.clear()
-        filings_mod._history_backfilling_ids.clear()
+        filing_list_service._filings_synced_at.clear()
+        filing_list_service._refreshing_keys.clear()
+        filing_list_service._history_backfilling_ids.clear()
 
 
 def _seed_company(session, ticker="TESTCO", cik="0000895421"):
@@ -200,16 +200,16 @@ def test_sec_network_phases_do_not_retain_queuepool_connections(tmp_path, monkey
         assert_released(f"primary:{cik}")
         return "MISSING"
 
-    monkeypatch.setattr(filings_mod, "SessionLocal", TestingSession)
+    monkeypatch.setattr(filing_list_service, "SessionLocal", TestingSession)
     monkeypatch.setattr(filing_history_service, "_fetch_history_rows", fake_history_fetch)
     monkeypatch.setattr(filings_mod.sec_edgar_service, "get_filings", fake_get_filings)
     monkeypatch.setattr(filings_mod.sec_edgar_service, "search_company", fake_search_company)
     monkeypatch.setattr(
         filings_mod.sec_edgar_service, "primary_ticker_for_cik", fake_primary_ticker
     )
-    filings_mod._filings_synced_at.clear()
-    filings_mod._refreshing_keys.clear()
-    filings_mod._history_backfilling_ids.clear()
+    filing_list_service._filings_synced_at.clear()
+    filing_list_service._refreshing_keys.clear()
+    filing_list_service._history_backfilling_ids.clear()
 
     with TestingSession() as db:
         warm = _seed_company(db, ticker="WARM", cik="0000000001")
@@ -226,9 +226,9 @@ def test_sec_network_phases_do_not_retain_queuepool_connections(tmp_path, monkey
         assert tc.get("/api/filings/company/MISSING").status_code == 200
     finally:
         main.app.dependency_overrides.pop(get_db, None)
-        filings_mod._filings_synced_at.clear()
-        filings_mod._refreshing_keys.clear()
-        filings_mod._history_backfilling_ids.clear()
+        filing_list_service._filings_synced_at.clear()
+        filing_list_service._refreshing_keys.clear()
+        filing_list_service._history_backfilling_ids.clear()
         engine.dispose()
 
     assert phases == [
@@ -253,7 +253,7 @@ def test_db_first_skips_refresh_when_freshly_synced(client, monkeypatch, synced_
         _seed_filing(s, company, "0000895421-25-000010", "10-K", 2025)
 
     # Only a stamp covering every requested form can suppress the background refresh.
-    filings_mod._mark_filings_synced("TESTCO", synced_forms)
+    filing_list_service._mark_filings_synced("TESTCO", synced_forms)
     sec_mock = AsyncMock(return_value=[])
     monkeypatch.setattr(filings_mod.sec_edgar_service, "get_filings", sec_mock)
 
@@ -285,13 +285,13 @@ def test_filings_limit_param_default_unchanged(client, monkeypatch):
         s.commit()
         _seed_history(s, company, 25)
     # Freshly-synced → DB-first serves without any SEC round-trip.
-    filings_mod._mark_filings_synced("TESTCO", ["10-K", "10-Q", "10-K/A", "10-Q/A"])
+    filing_list_service._mark_filings_synced("TESTCO", ["10-K", "10-Q", "10-K/A", "10-Q/A"])
     monkeypatch.setattr(filings_mod.sec_edgar_service, "get_filings", AsyncMock(return_value=[]))
 
     # Default: capped at CACHED_FILINGS_LIMIT (behaviour unchanged).
     default_resp = tc.get("/api/filings/company/TESTCO")
     assert default_resp.status_code == 200
-    assert len(default_resp.json()) == filings_mod.CACHED_FILINGS_LIMIT
+    assert len(default_resp.json()) == filing_list_service.CACHED_FILINGS_LIMIT
 
     # Explicit limit raises the ceiling to surface the full backfilled history.
     full_resp = tc.get("/api/filings/company/TESTCO?limit=100")

@@ -67,7 +67,7 @@ ROUTER_ORM_CEILINGS: dict[str, int] = {
 
     "app/routers/feedback.py": 5,
 
-    "app/routers/filings.py": 28,
+    "app/routers/filings.py": 0,
 
     "app/routers/internal.py": 18,
 
