@@ -137,7 +137,7 @@ Infra: `docker-compose up -d postgres redis` (local only — prod has no Redis).
     Dialogs only via `ui/Modal`; z from the ladder; eyebrows = `tracking-eyebrow`; chip/delta text = the
     700-level tokens; page bg = `background`, cards = `panel`, on every route. Gates: the design rules in
     `frontend/eslint.config.mjs` (raw hex/palette, `z-[N]`, off-ramp tracking, sub-scale type, `alert`,
-    a responsive grid's base track)
+    a responsive grid's base track, a side-tab stripe on a rounded container, a form code inside a `Badge`)
     `tests/unit/dialogAllowlist.spec.ts`, `tests/unit/bottomChromeLadder.spec.ts` (no fixed bottom chrome
     outranks the workspace layers; the consent bar's inset), `tests/unit/pulseMotionReduce.spec.ts` (every pulse
     or ping loop carries its reduced-motion variant) and `tests/e2e/text-floors.spec.ts` (muted text clears 4.5:1 on
@@ -161,7 +161,9 @@ Infra: `docker-compose up -d postgres redis` (local only — prod has no Redis).
   Next ISR/server fetches. Blob downloads via `lib/downloadBlob.ts`.
 - **Tests:** `backend/tests/{unit,integration,smoke,performance}` (config + markers in
   `backend/pytest.ini`; conftest auto-sets hermetic mock env incl. `SKIP_REDIS_INIT=true` — patch
-  `settings`, not env vars) and `frontend/tests/{unit,e2e}`. NO other test roots — a test outside
+  `settings`, not env vars — and registers `tests/support/network_gate.py`: an in-process attempt to reach a
+  non-loopback host is blocked and fails the test that made it, or the session for a stray;
+  subprocesses and C-level clients are outside it, so fake the boundary (SEC, Yahoo, Resend)) and `frontend/tests/{unit,e2e}`. NO other test roots — a test outside
   these does not run in CI. Gate: `frontend/tests/unit/testHomesAllowlist.spec.ts`; its one
   exemption is a hash-sealed judging fixture pinned by a `code-sha256.json` in its package
   (offline proof run by the operator, not by CI).

@@ -610,6 +610,7 @@ export default function CompanyPageClient({ initialCompany, initialFilings }: Co
                                     <FileTextIcon className={`h-5 w-5 ${styles.iconColor}`} />
                                     <div>
                                       <div className="flex flex-wrap items-center gap-2">
+                                        {/* eslint-disable-next-line earningsnerd/no-form-code-badge -- the filings index (company-page PR, critique 1b) replaces this row; remove with it */}
                                         <Badge variant={styles.badgeVariant}>{filing.filing_type}</Badge>
                                         <SupersededFilingNotice filing={filing} filings={filings} />
                                         {ENABLE_RECOMMENDED_FILING && recommendedFiling?.id === filing.id && (

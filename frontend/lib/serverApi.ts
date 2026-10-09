@@ -2,7 +2,7 @@ import { stripInternalNotices } from '@/lib/stripInternalNotices'
 import { EXAMPLE_FILING_ID } from '@/lib/featureFlags'
 import type { Company } from '@/features/companies/api/companies-api'
 import type { Filing } from '@/features/filings/api/filings-api'
-import type { Summary } from '@/features/summaries/api/summaries-api'
+import type { ChangeReport, Summary } from '@/features/summaries/api/summaries-api'
 
 /**
  * Server-side data for the public pages (ISR). The homepage helpers return null on any
@@ -251,6 +251,14 @@ export const fetchFilingSummaryServer = async (
   if (result.status === 'ok' && !result.data?.business_overview) return { status: 'ok', data: null }
   return result
 }
+
+/**
+ * The filing's change report (DB-only, no AI), read on the server so the summary's What changed
+ * section is in the first HTML: inserted after a client fetch, it pushed every later section down
+ * and renumbered the table of contents. Revalidates with the summary.
+ */
+export const fetchWhatChangedServer = (filingId: number): Promise<ServerFetchResult<ChangeReport>> =>
+  fetchJsonResult<ChangeReport>(`/api/summaries/filing/${filingId}/what-changed`, 3600)
 
 /**
  * Whether a summary carries real, displayable content (vs the legacy "Generating summary"
