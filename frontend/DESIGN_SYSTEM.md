@@ -421,8 +421,9 @@ Company identity <CompanyIdentity company latest summaryReady actions>  (feature
                  digits · "Company on SEC EDGAR ↗"), then "Latest filing" form · period · filed date · "summary
                  ready" (only when the summary probe found one the filing page will show: isSummaryReady, not
                  a placeholder or a stored failure). Its actions: the ONE primary action, opening the latest
-                 filing ("Open latest summary", or "Summarize latest filing" until a summary is ready), with
-                 the watchlist toggle beside it as a secondary Button (visible label, star, aria-
+                 filing ("Open latest summary" when ready, "Open latest filing" over a stored row that is
+                 not, "Summarize latest filing" when the filing has none), with the watchlist toggle beside
+                 it as a secondary Button (visible label, star, aria-
                  pressed, `loading` while it saves). Sector and fiscal-year convention wait for the payload.
 
 Compare periods  <ComparePeriodsCard filing>  (features/filings, critique 1b + P-07) — the entry to a change

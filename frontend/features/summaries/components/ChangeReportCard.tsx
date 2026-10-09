@@ -10,9 +10,10 @@ import { queryKeys } from '@/lib/queryKeys'
  * The change report as a card of its own, wherever the filing page has no structured summary to hold
  * it as a section: under a legacy markdown summary, under a stored summary that failed, under the
  * signup gate, and under a run that ended without a summary (an error, the monthly limit). The report
- * is computed from stored XBRL, so it needs no summary. The card carries the section's id and lands a link that names it (the company
- * page's "Open change report"), as the section would. It shares the section's GET and query key, so a
- * seeded or cached report shows at once. Renders nothing unless the report has something to say.
+ * is computed from stored XBRL, so it needs no summary. The card carries the section's id and lands a
+ * link that names it (the company page's "Open change report"), as the section would. It shares the
+ * section's GET and query key, so a seeded or cached report shows at once. Renders nothing unless the
+ * report has something to say.
  */
 export function ChangeReportCard({ filingId, initialReport }: { filingId: number; initialReport?: ChangeReport }) {
   const { data: report } = useQuery({

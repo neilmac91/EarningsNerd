@@ -103,9 +103,10 @@ export function SummaryDisplay({
 
   const fallbackMessage = SUMMARY_FALLBACK_MESSAGE
   const writerFallback = rawSummary?.writer?.fallback_used === true
-  // A stored summary that failed (a writer error, the fallback body, nothing left once the notices
-  // are stripped) shows the error card, not its body. The company page's "summary ready" reads the
-  // same rule (isSummaryReady), so its lead never offers a summary this page will not show.
+  // A stored summary that failed (placeholder filler, a writer error, the fallback body, nothing left
+  // once the notices are stripped) shows the error card, not its body. The company page's "summary
+  // ready" reads the same rule (isSummaryReady), so its lead never offers a summary this page will not
+  // show, and its "Summarize latest filing" lands on this card's Retry.
   const isError = isSummaryFailure(summary)
   const hasPolishedMarkdown = !isError
 
