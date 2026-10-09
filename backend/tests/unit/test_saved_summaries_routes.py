@@ -1,8 +1,9 @@
 """Saved-summary library routes: save, update notes, delete and list, end to end over HTTP.
 
 Characterizes the response bodies, the 404 details and the per-user scoping, and reads the stored
-rows back through a separate session so a write that never committed cannot pass. Nothing is
-patched: the routes run against a real SQLite schema. The status route has its own spec
+rows back through a separate session so a write that never committed cannot pass. The routes
+run against a real SQLite schema; only the last test patches a service function, to reach a 404
+mapping that real rows cannot trigger. The status route has its own spec
 (``test_saved_summary_status.py``).
 """
 from datetime import datetime, timedelta, timezone
@@ -18,6 +19,8 @@ from app.database import Base, get_db
 from app.models import Company, Filing, SavedSummary, Summary, User
 from app.routers.auth import get_current_user
 from app.routers.saved_summaries import router
+from app.services import saved_summary_service
+from app.services.saved_summary_service import SavedSummaryRelatedRowMissing
 
 FILED = datetime(2026, 1, 2, tzinfo=timezone.utc)
 
@@ -162,3 +165,19 @@ def test_list_returns_only_the_callers_rows_newest_first(library):
     assert rows[0]["filing"]["id"] == library.filing_ids[2]
     assert rows[0]["summary"]["business_overview"] == "Overview 2"
     assert rows[0]["created_at"].startswith("2026-01-04T00:00:00")
+
+
+@pytest.mark.parametrize(("method", "path", "kwargs", "service_function"), [
+    ("post", "/api/saved-summaries/", {"json": {"summary_id": 1}}, "save_summary"),
+    ("get", "/api/saved-summaries/", {}, "list_saved_summaries"),
+    ("put", "/api/saved-summaries/1", {"params": {"notes": "x"}}, "update_saved_summary_notes"),
+])
+def test_a_missing_related_row_maps_to_404_with_its_detail(library, monkeypatch, method, path, kwargs,
+                                                           service_function):
+    # Real rows come from inner joins, so the formatter's fallback 404 needs a patched service.
+    def missing(*_args, **_kwargs):
+        raise SavedSummaryRelatedRowMissing("Filing not found")
+
+    monkeypatch.setattr(saved_summary_service, service_function, missing)
+    response = getattr(library.client, method)(path, **kwargs)
+    assert response.status_code == 404 and response.json() == {"detail": "Filing not found"}
