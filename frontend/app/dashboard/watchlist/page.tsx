@@ -131,6 +131,7 @@ export default function WatchlistDashboardPage() {
           <GuidanceCard
             variant="error"
             title="Unable to load watchlist insights"
+            headingLevel="h2"
             description="Please retry in a moment, or confirm you are signed in with an active session."
             className={enterClass}
           />
@@ -140,6 +141,7 @@ export default function WatchlistDashboardPage() {
           <GuidanceCard
             variant="empty"
             title="No watchlist companies yet"
+            headingLevel="h2"
             description="Use the search above to track your first company. You'll get an alert here and by email whenever it files with the SEC."
             className={enterClass}
           />
