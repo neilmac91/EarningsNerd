@@ -8,7 +8,7 @@ import { Card, Notice, Skeleton, cx } from '@/components/ui'
 import { RetryButton, useRetainedFailure } from '@/hooks/useRetainedFailure'
 import type { Filing } from '@/features/filings/api/filings-api'
 import { getWhatChanged } from '@/features/summaries/api/summaries-api'
-import { Change, READ_AS } from '@/features/filings/components/WhatChanged'
+import { Change, READ_AS, WHAT_CHANGED_ID } from '@/features/filings/components/WhatChanged'
 import { formatLocalDate } from '@/lib/format'
 import { queryKeys } from '@/lib/queryKeys'
 
@@ -107,7 +107,7 @@ export function ComparePeriodsCard({ filing }: { filing: Filing }) {
             </p>
           )}
           <Link
-            href={`/filing/${filing.id}#what-changed`}
+            href={`/filing/${filing.id}#${WHAT_CHANGED_ID}`}
             className={cx(
               '-ml-2 mt-3 inline-flex h-9 items-center gap-1.5 rounded-lg px-2 text-sm font-semibold',
               'text-brand-strong transition-colors duration-fast hover:bg-brand-weak',
