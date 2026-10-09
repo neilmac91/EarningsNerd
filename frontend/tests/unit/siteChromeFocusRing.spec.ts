@@ -23,7 +23,8 @@ import { describe, expect, it } from 'vitest'
  * parts of a template are ignored, so the triple must sit in the template's static text. The DS
  * components (<Button>, <Input>) are not scanned here: they own the recipe.
  *
- * A checkbox or radio also takes off @tailwindcss/forms' own focus ring (`focus:ring-0 focus:ring-offset-0`):
+ * A field the forms plugin styles (a text input, textarea, select, checkbox or radio) also takes off
+ * @tailwindcss/forms' own focus ring (`focus:ring-0 focus:ring-offset-0`):
  * the plugin's base style draws a blue (#2563eb) ring with a white offset on any focus, and the shadow
  * utilities compose with it, so the triple alone shows the brand ring inside a blue one. A control that
  * is statically `disabled` is not a Tab stop.
@@ -155,8 +156,10 @@ const RINGS = [
   ['focus-visible:outline-none', 'focus-visible:shadow-ring-brand', 'dark:focus-visible:shadow-ring-brand-dark'],
   ['focus:outline-none', 'focus:shadow-ring-brand', 'dark:focus:shadow-ring-brand-dark'],
 ]
-/** @tailwindcss/forms rings a focused checkbox or radio itself; these take that ring off. */
+/** @tailwindcss/forms rings a focused field (text input, textarea, select, checkbox, radio) itself; these take that ring off. */
 const FORMS_RING_OFF = ['focus:ring-0', 'focus:ring-offset-0']
+/** Input types the forms plugin leaves unstyled, so they draw no ring of their own. */
+const NOT_FORMS_STYLED = ['submit', 'button', 'reset', 'hidden', 'image', 'file', 'range', 'color']
 const INTRINSIC = new Set(['a', 'button', 'input', 'select', 'textarea', 'summary'])
 
 interface Finding {
@@ -280,7 +283,12 @@ function scan(root: ts.Node, sf: ts.SourceFile): { stops: number; findings: Find
       const tabbable =
         spread || ((INTRINSIC.has(tag) || linkNames.has(tag) || indexed || editableStop) && !removed && !staticallyDisabled)
       const typeAttr = attr('type')?.initializer
-      const toggle = tag === 'input' && !!typeAttr && ts.isStringLiteral(typeAttr) && ['checkbox', 'radio'].includes(typeAttr.text)
+      // Every field @tailwindcss/forms styles: a textarea, a select, and an input that is not a button or
+      // a hidden, file, range or colour control (a missing or dynamic type counts as a field).
+      const field =
+        tag === 'textarea' ||
+        tag === 'select' ||
+        (tag === 'input' && !(typeAttr && ts.isStringLiteral(typeAttr) && NOT_FORMS_STYLED.includes(typeAttr.text)))
       if (tabbable) {
         stops += 1
         const line = sf.getLineAndCharacterOfPosition(node.getStart(sf)).line + 1
@@ -291,7 +299,7 @@ function scan(root: ts.Node, sf: ts.SourceFile): { stops: number; findings: Find
         else if (tokens === null) findings.push({ line, tag, problem: 'a className the scan cannot read' })
         else if (tokens !== 'factory' && !RINGS.some((ring) => ring.every((t) => tokens.includes(t)))) {
           findings.push({ line, tag, problem: `missing ${RINGS[0].filter((t) => !tokens.includes(t)).join(' ')}` })
-        } else if (toggle && tokens !== 'factory' && !FORMS_RING_OFF.every((t) => tokens.includes(t))) {
+        } else if (field && tokens !== 'factory' && !FORMS_RING_OFF.every((t) => tokens.includes(t))) {
           findings.push({ line, tag, problem: `missing ${FORMS_RING_OFF.filter((t) => !tokens.includes(t)).join(' ')} (the forms plugin's ring)` })
         }
       }
@@ -501,6 +509,8 @@ describe('every Tab stop in the site chrome carries the brand focus ring (EN-05c
             <div contentEditable className="p-1">notes</div>
             <div contentEditable={selected} className="p-1">maybe</div>
             <div contentEditable={false} className="p-1">static</div>
+            <textarea className="${ring}" />
+            <input type="submit" className="${ring}" />
             <div {...getButtonProps()}>headless</div>
             <NextLink {...linkProps} href="/r" className="${ring}">spread link</NextLink>
             <Menu {...menuProps} />
@@ -508,7 +518,7 @@ describe('every Tab stop in the site chrome carries the brand focus ring (EN-05c
         )
       }`
     const { stops, findings } = missingRings(src)
-    expect(stops).toBe(17)
+    expect(stops).toBe(19)
     expect(findings.map((f) => `${f.tag}: ${f.problem}`)).toEqual([
       'NextLink: missing focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark',
       'button: missing dark:focus-visible:shadow-ring-brand-dark',
@@ -520,6 +530,7 @@ describe('every Tab stop in the site chrome carries the brand focus ring (EN-05c
       'li: missing focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark',
       'div: missing focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark',
       'div: missing focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark',
+      "textarea: missing focus:ring-0 focus:ring-offset-0 (the forms plugin's ring)",
       'div: a props spread the scan cannot read',
       'NextLink: a props spread the scan cannot read',
     ])

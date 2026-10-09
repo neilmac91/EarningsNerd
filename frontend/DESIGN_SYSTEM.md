@@ -175,8 +175,9 @@ Focus ring       focus-visible:outline-none focus-visible:shadow-ring-brand dark
                  destructive + invalid fields use shadow-ring-error. There is no global :focus-visible rule, so
                  a control without the recipe draws the browser's own outline (`auto`), unlike its neighbours.
                  A control that is a block of its own (a logo link, an icon button, a menu row) takes a radius
-                 (`rounded-lg`) so the ring follows its shape. A checkbox or radio also takes
-                 `focus:ring-0 focus:ring-offset-0`: @tailwindcss/forms rings it blue on any focus, and the
+                 (`rounded-lg`) so the ring follows its shape. A field the forms plugin styles (a text
+                 input, textarea, select, checkbox or radio) also takes `focus:ring-0
+                 focus:ring-offset-0`: @tailwindcss/forms rings it blue on any focus, and the
                  shadow utilities draw the brand ring inside that ring rather than instead of it. Every Tab stop
                  in the site chrome carries it (the skip link the same triple on `focus:`): gate
                  tests/unit/siteChromeFocusRing.spec.ts reads the AST of every chrome file, discovered from

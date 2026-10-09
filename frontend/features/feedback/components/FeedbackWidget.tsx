@@ -113,7 +113,7 @@ export default function FeedbackWidget() {
               rows={4}
               maxLength={4000}
               placeholder="What's working, what's broken, or what you'd love to see…"
-              className="w-full resize-none rounded-lg border border-black/10 bg-white/70 px-3 py-2 text-sm text-text-primary-light placeholder:text-text-tertiary-light focus:border-brand focus:shadow-ring-brand focus:outline-none dark:border-white/15 dark:bg-white/5 dark:text-text-primary-dark dark:placeholder:text-text-secondary-dark dark:focus:border-brand-dark dark:focus:shadow-ring-brand-dark"
+              className="w-full resize-none rounded-lg border border-black/10 bg-white/70 px-3 py-2 text-sm text-text-primary-light placeholder:text-text-tertiary-light focus:border-brand focus:shadow-ring-brand focus:outline-none focus:ring-0 focus:ring-offset-0 dark:border-white/15 dark:bg-white/5 dark:text-text-primary-dark dark:placeholder:text-text-secondary-dark dark:focus:border-brand-dark dark:focus:shadow-ring-brand-dark"
             />
 
             {/* `loading`, never native `disabled`, while sending: Chromium blurs a focused button
