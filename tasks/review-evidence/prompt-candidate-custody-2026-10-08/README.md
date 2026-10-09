@@ -11,7 +11,7 @@ The measurement's evidence, pre-registration and review history are in [`../prom
 ## Status
 
 - **Verified: 4 of 4.** Fresh downloads equal the Actions digests and the session's scratch copies byte for byte. Every posted hash, run telemetry figure, cost and check outcome reproduces from the raw files (the DeepSeek balance readings excepted: no archive records them). The critic confirmed 33 of 35 handback claims. One per-run balance statement was wrong and is corrected; the balance readings themselves cannot be verified from any archive. See [verification.md](verification.md).
-- **Not yet preserved.** The copy into founder-controlled storage needs a founder machine with an authenticated `gh` CLI.
+- **Preserved (reported 2026-10-09).** The founder ran the kit at `1928d057` on their Mac, into a folder outside iCloud, about a week before the first expiry. All four kit files matched their hashes. `preserve_artifacts.py` reported `12/12 verified`, and a re-run found all twelve present and verified them again. `recompute_archives.py` reported `12/12 present archives match; 0 not present`. The receipt, quoted from the founder's terminal log, is #1029 comment 6088504990. It does not cover the second private copy (step 1 under Founder action).
 - **Anchor branch kept.** On 2026-10-08 the founder decided to keep `claude/copilot-prompt-candidate`. It pins `437e245c`, one of the two parents that reproduce the measurement's merge ref (see [verification.md](verification.md#merge-ref-reproducibility)).
 
 ## Deadline
@@ -28,7 +28,7 @@ The manifest lists twelve archives in two sets. Three eval reports from the clos
 | three `copilot-fidelity-*` (Q1, Q2, Q3) | prompt candidate | 2027-01-01 |
 
 - **`prompt_candidate_2026_10_03`:** the four archives Codex named.
-- **`close_out_2026_10_02_cited`:** the eight archives the 2026-10-02 close-out cites (ledger rows D28–D32 in `tasks/pr-disposition-2026-09-30.md`, D33–D34 in #1029 comment 5961781714, and the post-#1066 control in `run_validity_post1066.txt`). No manifest on main preserved them. They fall outside Codex's four-archive request and are listed so that one run before 2026-10-16 keeps every archive the close-out and the candidate cite. Each was checked against its Actions digest.
+- **`close_out_2026_10_02_cited`:** the eight archives the 2026-10-02 close-out cites (ledger rows D28–D32 in `tasks/pr-disposition-2026-09-30.md`, D33–D34 in #1029 comment 5961781714, and the post-#1066 control in `run_validity_post1066.txt`). No manifest on main preserved them. They fall outside Codex's four-archive request and are listed so that one run before 2026-10-16 keeps them too. Fifteen older `copilot-fidelity-*` runs that the candidate's README and pre-registration cite as context are in neither this manifest nor item A's; they expire on 2026-12-30 or 2026-12-31. Each was checked against its Actions digest.
 
 ## Founder action
 

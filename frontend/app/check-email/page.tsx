@@ -91,7 +91,7 @@ function CheckEmailContent() {
           aria-busy={resendLoading || undefined}
           className="inline-flex items-center gap-1 font-medium text-brand-strong hover:underline disabled:cursor-not-allowed disabled:opacity-50 disabled:no-underline aria-disabled:cursor-not-allowed aria-disabled:opacity-50 aria-disabled:no-underline dark:text-brand-strong-dark"
         >
-          {resendLoading && <CircleNotchIcon className="h-3 w-3 animate-spin" />}
+          {resendLoading && <CircleNotchIcon className="h-3 w-3 animate-spin motion-reduce:animate-none" />}
           {cooldown > 0 ? `Resend in ${cooldown}s` : 'Resend email'}
         </button>
       </p>

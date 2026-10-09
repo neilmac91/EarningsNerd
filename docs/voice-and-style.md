@@ -46,6 +46,9 @@ Before → after, to calibrate:
 - Compact label separators use the middot: `AAPL · 10-K`, `Free for beta members · no card
   required`. Never an em-dash.
 - Card and section titles are sentence case (also a DESIGN_SYSTEM.md rule).
+  One exception: a risk row's heading is quoted filing text (a verbatim prefix of its excerpt,
+  `excerptHeadings` in `features/summaries/lib/riskTitle.ts`, cut by `riskHeadline.ts`), so it
+  keeps the filing's own casing and is never recased in a copy pass.
 - "AI-powered", lowercase p, except at the start of a sentence or in title-case page titles.
 - Ellipsis character `…` on loading states ("Signing in…") is fine.
 - Buzzwords to avoid: unlock, seamless(ly), empower, effortless(ly), supercharge, transform,
