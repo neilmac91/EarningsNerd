@@ -142,6 +142,7 @@ what applies to your task. Filenames are greppable: `arch-*`, `sec-*`, `test-*`,
 - [`frontend-theme-migration-app-wide.md`](./frontend-theme-migration-app-wide.md) — Treat a design-token/theme migration as app-wide by default
 - [`frontend-verify-chart-annotations-on-dense-data.md`](./frontend-verify-chart-annotations-on-dense-data.md) — Acceptance-test chart annotations on a dense real-world series, never only fixtures
 - [`frontend-variable-text-must-not-size-a-wrapping-row.md`](./frontend-variable-text-must-not-size-a-wrapping-row.md) — Keep variable-length text from sizing a wrapping row or an implicit grid track
+- [`frontend-hidden-name-tails-bring-their-own-space.md`](./frontend-hidden-name-tails-bring-their-own-space.md) — A visually hidden tail on a control's name brings its own space and starts with a word or bracket
 
 ## Operations & workflow
 
