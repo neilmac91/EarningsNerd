@@ -62,7 +62,7 @@ export default function AnalysisPageClient() {
     if (linked) setLinkedTicker(linked)
   }, [])
   const { data: linkedCompany } = useQuery({
-    queryKey: queryKeys.company(linkedTicker ?? ''),
+    queryKey: queryKeys.analysisCompany(linkedTicker ?? ''),
     queryFn: () => getCompany(linkedTicker as string),
     enabled: !!linkedTicker,
     retry: false,
