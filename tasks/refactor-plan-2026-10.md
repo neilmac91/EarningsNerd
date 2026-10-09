@@ -18,6 +18,11 @@ Six backend modules carry most of the change pressure and most of the size. On `
 line, nested functions counted inside their parent; commit counts are `git log origin/main
 --since=2026-08-01 -- <file>` on the full history.)
 
+Main moved by three commits after the plan was written (`1868ddf8`, `4c0563ad`, `76d45732`: two Code
+Red records and the hermetic test gate). The plan was re-checked against `76d45732` on 2026-10-09; no
+module, test file or document it cites changed except as item 9 under [What changed](#what-changed-from-the-inherited-premises-verified-corrections-folded-in)
+records, and the three statements those commits affect are corrected in place.
+
 The plan follows the format and discipline of [the 2026-07 architecture refactor plan](./architecture-refactor-plan.md):
 anchor first, move second (pure moves proven by an AST per-symbol diff), split third, and every
 "never again" rule becomes a machine gate in the same PR ([CLAUDE.md](../CLAUDE.md) rule 12). It
@@ -100,6 +105,18 @@ Each was checked against `main` at `da636f6`:
    USD 0.30" is [AGENTS.md](../AGENTS.md) §3 (line 54); the RUNBOOK gives only the call count for
    the comparison harness (`backend/evals/RUNBOOK.md:162`). The `copilot-eval` reservation figure,
    USD 0.06, is the Code Red ledger's (`tasks/code-red-20261004/runtime/control/DECISIONS-16.md:152-153`).
+   Record 18 has since measured four `eval-baseline` runs at USD 0.35–0.36 each and reserves every
+   push that fires it at the dearest run × 2, rounded up, USD 0.73
+   (`tasks/code-red-20261004/runtime/control/DECISIONS-18.md:119-127`); the spend figures below use the
+   measured cost.
+9. **Main moved after the plan was written** (three commits on 2026-10-09: `1868ddf8` record 17,
+   `4c0563ad` the hermetic test gate (#1145), `76d45732` record 18). Re-checked against `76d45732`:
+   no module, test file or document this plan cites changed, except that CLAUDE.md gained the gate's
+   description at :162-164 (below the lines cited), the Code Red checkpoint's reservation rule now
+   sits at `tasks/code-red-20261004/runtime/CHECKPOINT.md:373`, and `tasks/todo.md`'s hermetic item
+   is ticked at :6486. Folded in: founder item 2 is resolved; the Wave 0 exit text drops the
+   SEC-reaching caveat; D3 stage 2 is implemented and held, not "not drafted yet"; the
+   `eval-baseline` cost and reservation above.
 
 ---
 
@@ -110,9 +127,9 @@ Each was checked against `main` at `da636f6`:
 | Trigger | Fires when | Cost or effect | Source |
 |---|---|---|---|
 | Cloud Run deploy | a merge to `main` changes any `backend/` path outside `backend/tests/` | deploys the API service and refreshes the jobs; one unverified deploy at a time, so code-bearing merges are serial | `.github/workflows/ci.yml:533-546` (detector), `backend/tests/unit/test_backend_deploy_scope.py`, [AGENTS.md](../AGENTS.md) §6 |
-| `eval-baseline` (summary eval, paid) | every `pull_request` event, draft or not, whose diff touches `backend/app/*`, `backend/evals/*` or `backend/prompts/*`; also manual dispatch | about USD 0.30 and ~6 min per run; advisory (`continue-on-error`), but the report must be read before an AI-relevant merge | `.github/workflows/ci.yml:282-336`, `backend/evals/RUNBOOK.md:339-345`, [AGENTS.md](../AGENTS.md) §3 |
+| `eval-baseline` (summary eval, paid) | every `pull_request` event, draft or not, whose diff touches `backend/app/*`, `backend/evals/*` or `backend/prompts/*`; also manual dispatch | measured at USD 0.35–0.36 per run (four runs, record 18; AGENTS.md says 0.30) and ~6 min; Code Red reserves USD 0.73 per push that fires it; advisory (`continue-on-error`), but the report must be read before an AI-relevant merge | `.github/workflows/ci.yml:282-336`, `backend/evals/RUNBOOK.md:339-345`, [AGENTS.md](../AGENTS.md) §3, `tasks/code-red-20261004/runtime/control/DECISIONS-18.md:119-127` |
 | `copilot-eval` (paid) | a non-draft PR whose diff touches `backend/**`; re-runs on each push while ready | about USD 0.06 per run | `.github/workflows/copilot-eval.yml:3-8,20`; `tasks/code-red-20261004/runtime/control/DECISIONS-16.md:152-159` |
-| Code Red ledger reservation | before any paid trigger fires | "no paid trigger without a reservation written first" (CHECKPOINT); for `eval-baseline`, "before its first push of such a change and before each later one", draft or not (record 16) | `tasks/code-red-20261004/runtime/CHECKPOINT.md:346`; `tasks/code-red-20261004/runtime/control/DECISIONS-16.md:155-159` |
+| Code Red ledger reservation | before any paid trigger fires | "every paid action still needs a reservation written first" (CHECKPOINT: `copilot-eval` USD 0.06 per run, `eval-baseline` USD 0.73 per push); for `eval-baseline`, "before its first push of such a change and before each later one", draft or not (record 16) | `tasks/code-red-20261004/runtime/CHECKPOINT.md:373`; `tasks/code-red-20261004/runtime/control/DECISIONS-16.md:155-159` |
 
 Open draft PR #1123 narrows `copilot-eval` to the eval's import closure (`backend/app/services/**`,
 `models/**`, `schemas/**`, `utils/**`, `backend/app/*`, prompts, golden set, requirements). Every
@@ -144,11 +161,23 @@ touch the six modules, measured as `git diff origin/main...origin/<branch>`:
 ### Code Red D3 stage 2 is file-disjoint
 
 Stage 2 makes the insider endpoint fit the 1 req/s edgartools budget and pins the API service
-(`tasks/code-red-20261004/runtime/control/DECISIONS-16.md:135-150`). Stage 2 is not drafted yet;
-its expected files, inferred from the record, are `backend/app/services/insider_service.py` (imports
-only `ownership_extractor` :30, edgartools' `Company` :104, the edgar exceptions :106 and
-`run_with_circuit_breaker` :169), `backend/app/routers/insiders.py` and `.github/workflows/ci.yml`.
-None of the six modules is touched, and no PR in this plan edits `ci.yml`. The couplings are runtime and
+(`tasks/code-red-20261004/runtime/control/DECISIONS-16.md:135-150`). The founder chose option A, "guard, then
+pin" (`tasks/code-red-20261004/runtime/control/DECISIONS-17.md:149-157,255-263`): one code PR with the
+insider endpoint behind a server-side switch (off unless set), the always-failing fuzzy-search fallback
+deleted, both SEC pins on the API service, a deploy step that prints the variable-driven switches, the
+budget gate rewritten for the pinned fleet, and docs. It is implemented, three-lens- and delta-reviewed
+with no blocker, and held on an unpushed local branch (`1fac8e09`, `7465926f`, `d8508571` on
+`4c0563ad`); it goes up after record 18 and merges only after the founder moves `backfill-facts-weekly`
+to Monday 07:30 (`tasks/code-red-20261004/runtime/control/DECISIONS-18.md:77-118,173-176`). Its files,
+inferred from the records (the branch is unpushed, so the list is not verifiable from the repo), are
+`backend/app/services/insider_service.py` (imports only `ownership_extractor` :30, edgartools' `Company`
+:104, the edgar exceptions :106 and `run_with_circuit_breaker` :169), `backend/app/routers/insiders.py`,
+`backend/app/routers/internal.py`, `.github/workflows/ci.yml`,
+`backend/tests/unit/test_sec_process_budgets.py` and `docs/OPERATIONS.md`. None of the six modules is
+among them; of this plan's files only `docs/OPERATIONS.md` overlaps (X1 edits :230, the cache section;
+stage 2's edit is the 6-K text timeout, per the record), and no PR in this plan edits `ci.yml`, the
+budget gate, `internal.py` or the insider files. Check the stage-2 PR's file list when it goes up: it
+is the one Code Red PR that lands between Wave 0 and Wave 1. The couplings are runtime and
 procedural only: the same 4-thread edgar pool and breaker, the one-deploy-at-a-time rule, and the
 reservation rule above, which this plan adopts for every code-bearing PR.
 
@@ -1038,8 +1067,11 @@ anchor that must patch a name on one of the six modules is listed as a re-point 
 its reader: T1 re-points T0's detector anchor (`trend_analysis.detectors._DETECTORS`), F4 re-points
 F0's default-fetcher and remediate anchors (`facts.jobs`). Exit gate: all seven merged; each anchor shown to FAIL under a spot mutation of its guarded behaviour
 (table in the PR body, as the 2026-07 plan did); baseline recorded {backend test count, wall time,
-green SHA}. Until the hermetic-suite gate lands (founder item 2), every full local run and CI run of
-the backend suite sends live requests to SEC (`tasks/todo.md:6458`); Wave 0 adds no such test.
+green SHA}. The hermetic gate landed on main on 2026-10-09 (#1145, `4c0563ad`):
+`backend/tests/support/network_gate.py`, registered by `backend/tests/conftest.py:34`, fails any test
+that reaches a non-loopback host, or the session for a stray (CLAUDE.md:162-164); subprocesses and
+C-level clients are outside it, so every Wave 0 anchor fakes its boundary in-process. Wave 0 adds no
+network-reaching test.
 
 ### Wave 1 — leaf moves (code-bearing; develop in parallel, merge serially)
 
@@ -1077,26 +1109,32 @@ serial.
 | Ratchet | final ceilings: façades and new modules at their end-state sizes | after the last split |
 
 Spend estimate for the whole plan (founder item 1): 20–22 code-bearing PRs (Wave 1 six, Wave 2 ten
-plus the optional X5, Wave 3 four); at two pushes each, ~40 `eval-baseline` runs ≈ USD 12.00 and
-20–30 `copilot-eval` runs ≈ USD 1.20–1.80, plus USD 0.42 for Wave 0's un-drafts if #1123 has not
-landed; about USD 13.6–14.2 in all, each run reserved first under the Code Red ledger, and less in
-practice because a second push cancels an in-progress `eval-baseline` run. 20–22 serialized deploys.
+plus the optional X5, Wave 3 four); at two pushes each, ~40 `eval-baseline` runs ≈ USD 14.40 at the
+measured USD 0.36 (record 18; USD 12.00 at AGENTS.md's 0.30) and 20–30 `copilot-eval` runs ≈ USD
+1.20–1.80, plus USD 0.42 for Wave 0's un-drafts if #1123 has not landed; about USD 16.0–16.6 in all,
+each run reserved first under the Code Red ledger (at record 18's convention, USD 0.73 per
+`eval-baseline` push and 0.06 per `copilot-eval` run, settled at actual cost), and less in practice
+because a second push cancels an in-progress `eval-baseline` run. 20–22 serialized deploys.
 
 ---
 
 ## Founder decision points (sign off before the gated PRs)
 
-1. **Spend and reservation protocol for the refactor.** A ceiling of about USD 15 for the paid evals
-   this plan triggers, under the Code Red rule that every paid trigger is reserved first. Without a
-   stated ceiling, AGENTS.md §3 treats this as "a new paid evaluation programme". Decide the
-   reservation form too: one programme-level hold (USD 20) written once as a records-only PR and drawn
-   down per run, or the per-push line record 16 requires for D3 stage 2 (which would mean one
-   records-only PR per push, kept out of the refactor PRs either way). Recommendation: one hold, USD
-   20, and one push per PR per round.
-2. **Hermetic suite before Wave 1.** Eleven backend tests reach SEC and Yahoo on every full run
-   (`tasks/todo.md:6458`, chief's open item). Wave 1 means ~20 CI runs plus local gates.
-   Recommendation: land the outbound-network block first; otherwise say explicitly that the
-   SEC-reaching runs are accepted and will be disclosed as the Code Red records do.
+1. **Spend and reservation protocol for the refactor.** A ceiling of about USD 18 for the paid evals
+   this plan triggers (estimate USD 16.0–16.6 at the measured `eval-baseline` cost), under the Code
+   Red rule that every paid trigger is reserved first. Without a stated ceiling, AGENTS.md §3 treats
+   this as "a new paid evaluation programme". Decide the reservation form too: one programme-level
+   hold (USD 20) written once as a records-only PR and drawn down per run at actual cost, or the
+   per-push line record 18 now uses for D3 stage 2 (USD 0.73 per `eval-baseline` push, 0.06 per
+   `copilot-eval` run; one records-only PR per push, kept out of the refactor PRs either way).
+   Recommendation: one hold, USD 20, and one push per PR per round; with serial pushes at most one
+   USD 0.79 reservation is outstanding at a time, so the hold covers it.
+2. **Hermetic suite before Wave 1 — resolved on main.** Landed as #1145 (`4c0563ad`, 2026-10-09)
+   after this plan was written: the outbound-network gate (`backend/tests/support/network_gate.py`;
+   `lessons/test-conftest-hermetic-env.md`) fails any test that reaches a non-loopback host, and the
+   full suite ran 5,829 passed with 0 attempts (`tasks/todo.md:6486`, ticked;
+   `tasks/code-red-20261004/runtime/control/DECISIONS-18.md:38-76`). No decision needed; the item
+   stays so the numbering of items 3–9 holds.
 3. **Dispose of the stale branches** (table under Ground truth): close the two "DO NOT MERGE" copilot
    experiments and the two measurement-only openai branches; decide `claude/copilot-prompt-candidate`
    (kept on 2026-10-08) and `codex/wave3-copilot-typed-evidence` before C3; cherry-pick the one
