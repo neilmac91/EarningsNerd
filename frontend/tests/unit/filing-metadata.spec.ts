@@ -35,10 +35,13 @@ afterEach(() => {
 })
 
 describe('filing page metadata', () => {
-  it('indexes a summary the page shows, and describes the page with its opening', async () => {
-    const meta = await metadataFor({ business_overview: 'Apple designs devices and services.' })
+  it.each([
+    ['a summary the page shows', 'Apple designs devices and services.'],
+    ['prose that mentions generating summaries', 'Apple reworked its revenue-generating summary reports.'],
+  ])('indexes %s, and describes the page with its opening', async (_, body) => {
+    const meta = await metadataFor({ business_overview: body })
     expect(meta.robots).toBeUndefined()
-    expect(meta.description).toContain('Apple designs devices and services.')
+    expect(meta.description).toContain(body)
   })
 
   it.each([

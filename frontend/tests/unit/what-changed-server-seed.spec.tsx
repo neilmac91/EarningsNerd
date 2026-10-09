@@ -191,6 +191,13 @@ describe('as a card, where the summary has no sections to hold it', () => {
     expect(scrolledTo()).toEqual(['what-changed'])
   })
 
+  it('shows a real summary that mentions generating summaries as the summary, not the error card', () => {
+    api.getWhatChanged.mockReturnValue(new Promise(() => {}))
+    display(REPORT, { ...LEGACY, business_overview: 'Apple reworked its revenue-generating summary reports.' } as Summary)
+    expect(screen.queryByRole('heading', { name: 'Summary temporarily unavailable' })).toBeNull()
+    expect(screen.getByText('Apple reworked its revenue-generating summary reports.')).toBeInTheDocument()
+  })
+
   it.each([
     ['its fallback body', { ...LEGACY, business_overview: 'Summary temporarily unavailable. Please retry.' }],
     ['a writer error over its sections', { ...SUMMARY, raw_summary: { writer_error: 'timeout' } }],
