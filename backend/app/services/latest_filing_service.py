@@ -78,12 +78,18 @@ def latest_filings(db: Session, company_ids: list[int]) -> dict[int, LatestFilin
     if not picked:
         return {}
 
+    # Ready means the filing page will show the summary, the company page's isSummaryReady rule: a
+    # body that is not placeholder filler, and no stored failure (raw_summary.writer_error, which that
+    # page shows as "Summary temporarily unavailable" whatever the body says). The flag is read in the
+    # database, so the search never loads a raw_summary. (The page also fails a body left empty once
+    # the legacy writer's notices are stripped; no renderer writes one.)
+    writer_error = Summary.raw_summary["writer_error"].as_string()
     ready_ids = {
         filing_id
-        for filing_id, overview in db.query(Summary.filing_id, Summary.business_overview)
+        for filing_id, overview, failed in db.query(Summary.filing_id, Summary.business_overview, writer_error)
         .filter(Summary.filing_id.in_([filing.id for filing in picked.values()]))
         .all()
-        if overview and overview.strip() and not is_summary_placeholder(overview)
+        if overview and overview.strip() and not is_summary_placeholder(overview) and not failed
     }
     return {
         company_id: LatestFilingRef(

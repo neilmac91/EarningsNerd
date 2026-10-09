@@ -79,8 +79,13 @@ def fixture_tickers(monkeypatch):
     monkeypatch.setattr(companies_router, "get_stock_quote", fake_quote)
 
 
-def _seed(db, rows: list[tuple[str, str, str | None, str | None]], summaries: dict[int, str] | None = None) -> dict[int, int]:
-    """Filings as (form, filed, period end, superseded_by); summaries by row index."""
+def _seed(
+    db,
+    rows: list[tuple[str, str, str | None, str | None]],
+    summaries: dict[int, str] | None = None,
+    raw_summaries: dict[int, dict] | None = None,
+) -> dict[int, int]:
+    """Filings as (form, filed, period end, superseded_by); summaries and their raw_summary by row index."""
     company = Company(cik=CIK, ticker="AAPL", name="Apple Inc.", exchange="Nasdaq")
     db.add(company)
     db.flush()
@@ -100,7 +105,7 @@ def _seed(db, rows: list[tuple[str, str, str | None, str | None]], summaries: di
         db.flush()
         ids[i] = filing.id
     for i, body in (summaries or {}).items():
-        db.add(Summary(filing_id=ids[i], business_overview=body))
+        db.add(Summary(filing_id=ids[i], business_overview=body, raw_summary=(raw_summaries or {}).get(i)))
     db.commit()
     return ids
 
@@ -135,6 +140,19 @@ def test_names_the_newest_standing_filing_and_its_summary_readiness(client, db):
 def test_a_placeholder_summary_is_not_ready(client, db):
     _seed(db, [("10-Q", "2026-01-30", "2025-12-27", None)], summaries={0: "Generating summary..."})
     assert _search(client)["latest_filing"]["summary_ready"] is False
+
+
+@pytest.mark.parametrize(("raw_summary", "ready"), [({"writer_error": "timeout"}, False), ({"status": "complete"}, True)])
+def test_a_stored_failure_is_not_ready(client, db, raw_summary, ready):
+    """A writer error is the filing page's "Summary temporarily unavailable" card whatever the body says,
+    so the search does not call it ready, as the company page's isSummaryReady does not."""
+    _seed(
+        db,
+        [("10-Q", "2026-01-30", "2025-12-27", None)],
+        summaries={0: "Apple designs devices."},
+        raw_summaries={0: raw_summary},
+    )
+    assert _search(client)["latest_filing"]["summary_ready"] is ready
 
 
 def test_skips_superseded_filings_and_forms_the_list_does_not_serve(client, db):
