@@ -105,7 +105,8 @@ for (const vp of [
 
       await page.keyboard.press('Escape')
       await expect.poll(() => paneOpen(page)).toBe(false)
-      // The sheet returns focus to the launcher; the desktop close path is EN-05's (deferred).
+      // The sheet returns focus to the launcher. The desktop close path (EN-05a) is held, with every
+      // other open route, by tests/e2e/pane-close-focus.spec.ts; this spec pins only the sheet's.
       if (vp.sheet) await expect(page.locator(LAUNCHER)).toBeFocused()
     })
 

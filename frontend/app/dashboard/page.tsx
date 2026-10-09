@@ -172,8 +172,9 @@ export default function DashboardPage() {
       backLabel="Back to home"
       actions={
         <button
+          type="button"
           onClick={() => logoutMutation.mutate()}
-          className="text-sm font-medium text-text-secondary-light hover:text-text-primary-light dark:text-text-secondary-dark dark:hover:text-text-primary-dark"
+          className="rounded-lg text-sm font-medium text-text-secondary-light hover:text-text-primary-light focus-visible:outline-none focus-visible:shadow-ring-brand dark:text-text-secondary-dark dark:hover:text-text-primary-dark dark:focus-visible:shadow-ring-brand-dark"
         >
           Log out
         </button>
