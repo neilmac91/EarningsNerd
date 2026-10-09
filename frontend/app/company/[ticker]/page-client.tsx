@@ -585,7 +585,7 @@ export default function CompanyPageClient({ initialCompany, initialFilings }: Co
                           <CaretDownIcon aria-hidden="true" className="h-5 w-5 text-text-tertiary-light dark:text-text-secondary-dark -rotate-90" />
                         )}
                         <span className="font-semibold text-text-primary-light dark:text-text-primary-dark text-lg">Report year {year}</span>
-                        <span className="text-sm text-text-tertiary-light dark:text-text-secondary-dark">({filingCount} {filingCount === 1 ? 'filing' : 'filings'})</span>
+                        <span className="text-sm text-text-secondary-light dark:text-text-secondary-dark">({filingCount} {filingCount === 1 ? 'filing' : 'filings'})</span>
                       </div>
                     </button>
 

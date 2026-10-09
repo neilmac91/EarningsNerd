@@ -109,7 +109,7 @@ export function SummaryBlocks({ sections, summary }: SummaryBlocksProps) {
           never crowds the reading column on narrow/reflowed layouts). */}
       <aside className="hidden lg:block">
         <nav aria-label="Summary sections" className="sticky top-24 self-start">
-          <p className="mb-3 text-xs font-semibold uppercase tracking-eyebrow text-text-tertiary-light dark:text-text-secondary-dark">
+          <p className="mb-3 text-xs font-semibold uppercase tracking-eyebrow text-text-secondary-light dark:text-text-secondary-dark">
             On this page
           </p>
           <ul className="space-y-1 border-l border-border-light dark:border-border-dark">

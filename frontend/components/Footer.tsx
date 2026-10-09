@@ -43,7 +43,7 @@ export default function Footer() {
           {/* Link columns */}
           {Object.entries(FOOTER_LINKS).map(([category, links]) => (
             <div key={category}>
-              <h3 className="text-xs font-semibold uppercase tracking-eyebrow text-text-tertiary-light dark:text-text-secondary-dark">
+              <h3 className="text-xs font-semibold uppercase tracking-eyebrow text-text-secondary-light dark:text-text-secondary-dark">
                 {category}
               </h3>
               <ul className="mt-4 space-y-3">
@@ -64,22 +64,22 @@ export default function Footer() {
 
         {/* Bottom bar */}
         <div className="mt-12 flex flex-col items-center justify-between gap-4 border-t border-border-light pt-8 dark:border-white/[0.06] sm:flex-row">
-          <p className="text-xs text-text-tertiary-light dark:text-text-secondary-dark">
+          <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark">
             &copy; {CURRENT_YEAR} EarningsNerd. All rights reserved.
           </p>
-          <p className="text-xs text-text-tertiary-light dark:text-text-secondary-dark">
+          <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark">
             Data sourced from SEC EDGAR. AI-generated content, for informational purposes only.
             Not investment advice. Not affiliated with the SEC.
           </p>
         </div>
 
-        <p className="mt-4 text-center text-xs text-text-tertiary-light dark:text-text-secondary-dark">
+        <p className="mt-4 text-center text-xs text-text-secondary-light dark:text-text-secondary-dark">
           Company logos by{' '}
           <a
             href="https://logo.dev"
             target="_blank"
             rel="noopener noreferrer"
-            className="underline underline-offset-2 hover:text-text-secondary-light dark:hover:text-text-primary-dark"
+            className="underline underline-offset-2 hover:text-text-primary-light dark:hover:text-text-primary-dark"
           >
             Logo.dev
           </a>

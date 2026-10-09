@@ -46,7 +46,9 @@ Every color on a surface that renders in **both** themes must be a light/dark **
 shared surface (it caused white-on-cream and dark-on-cream bugs across the app).
 
 - **Muted text on dark = `secondary`, never `tertiary-dark`** (`text-text-tertiary-dark` fails WCAG AA
-  on dark panels). Pattern for muted: `text-text-tertiary-light dark:text-text-secondary-dark`.
+  on dark panels). Pattern for muted text inside a panel or white card:
+  `text-text-tertiary-light dark:text-text-secondary-dark`. On the cream page ground, on `brand-weak`
+  and on a status tint, muted text is `text-text-secondary-light dark:text-text-secondary-dark` (§7).
 - The theme-aware **effect classes** (`.glass-card`, `.mockup-frame`, `.hero-search-glow`,
   `.text-accent-strong` — a solid ink, not a gradient) switch on `.dark` in `globals.css`, each as
   a full light/dark pair — don't add `bg-*` overrides to them. The legacy `.text-gradient-mint`
@@ -394,8 +396,13 @@ search glow. The hero accent word is solid `text-brand-strong dark:text-brand-st
 the same surface at e1, per the design. `.glass-card` is retired on the landing route (its
 remaining consumer is `AuthShell`). Container rhythm on the landing: hero + header `max-w-7xl`,
 every other section `max-w-5xl`, section padding `py-20 sm:py-24` (the measured-claims band is a
-tighter hairline strip). Muted text on the cream page ground is `text-secondary`;
-`text-tertiary-light` (4.35:1 on cream) is reserved for inside-card eyebrows and the kbd hint.
+tighter hairline strip). Muted text on the cream page ground, on `brand-weak` and on a status tint
+is `text-secondary` (9.28:1 on cream): `text-tertiary-light` measures 4.35:1 on cream, 4.26:1 on
+`brand-weak` and 4.04:1 on a 10% info tint over panel, under the 4.5:1 floor. Tertiary is reserved for
+small labels on `panel` (4.63:1) or white (4.83:1), such as inside-card eyebrows; the footer, the
+point-of-use AI disclaimer, the summary's "On this page" label, the company page's year counts and
+the search box's `/` hint use secondary. Gate: `tests/e2e/text-floors.spec.ts` measures every
+tertiary-ink text on the main routes against its rendered ground.
 
 ## 8. Theme mechanics
 
