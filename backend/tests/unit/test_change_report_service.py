@@ -126,6 +126,22 @@ class TestAssembleReport:
         rmb = SimpleNamespace(**{**vars(yen), "xbrl_data": {**yen.xbrl_data, "reporting_currency": "RMB"}})
         assert svc.assemble_report(rmb, None, None, None)["reporting_currency"] == "CNY"
 
+    def test_a_prior_filing_in_another_currency_never_supplies_the_prior_amount(self):
+        # reporting_currency labels both columns with the current filing's currency, so a prior filed
+        # in another currency is not differenced. These series hold no comparative of their own, so
+        # nothing is compared at all.
+        eur = SimpleNamespace(**{**vars(self.CURRENT_FILING), "filing_type": "20-F",
+                                 "xbrl_data": {**self.CURRENT_FILING.xbrl_data, "reporting_currency": "EUR"}})
+        usd_prior = SimpleNamespace(**{**vars(self.PRIOR_FILING), "filing_type": "20-F",
+                                       "xbrl_data": {**self.PRIOR_FILING.xbrl_data, "reporting_currency": "USD"}})
+        out = svc.assemble_report(eur, usd_prior, None, None)
+        assert out["reporting_currency"] == "EUR"
+        assert out["metrics"] is None and out["has_changes"] is False
+        eur_prior = SimpleNamespace(**{**vars(usd_prior), "xbrl_data": {**usd_prior.xbrl_data, "reporting_currency": "EUR"}})
+        rev = next(i for i in svc.assemble_report(eur, eur_prior, None, None)["metrics"]["items"]
+                   if i["metric"] == "revenue")
+        assert (rev["prior"], rev["current"]) == (80.0, 100.0)
+
     def test_reporting_currency_is_none_when_unknown_or_malformed(self):
         assert svc.assemble_report(self.CURRENT_FILING, None, None, None)["reporting_currency"] is None
         for bad in ("", "US Dollars", "USD/shares", "pure", 840, None):

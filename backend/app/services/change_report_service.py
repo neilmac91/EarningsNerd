@@ -18,10 +18,9 @@ from sqlalchemy import desc
 from sqlalchemy.orm import Session
 
 from app.models import Filing, Summary
-from app.services.copilot_tools import canonical_unit
 # Reuse the tested deterministic delta engine rather than duplicating it (one home for the
-# revenue/net-income/EPS invariants and QoQ/YoY logic).
-from app.services.dashboard_feed_service import compute_what_changed
+# revenue/net-income/EPS invariants, the QoQ/YoY logic and the reporting-currency guard).
+from app.services.dashboard_feed_service import compute_what_changed, reporting_currency
 
 _TOKEN_RE = re.compile(r"[a-z0-9]+")
 # Generic words that don't help distinguish one risk factor from another.
@@ -132,18 +131,6 @@ def _comparison_basis(filing_type: Optional[str]) -> Optional[str]:
     }.get(base)
 
 
-def _reporting_currency(filing: Any) -> Optional[str]:
-    """The filing's as-filed reporting currency ("USD", "JPY"), validated to an ISO 4217 code.
-
-    The metric items carry raw XBRL amounts in that currency (foreign filers report in their own),
-    so a client must label them with it and never assume dollars. None when the stored XBRL never
-    resolved one: the client then shows the amounts without a currency.
-    """
-    data = getattr(filing, "xbrl_data", None)
-    unit = canonical_unit(data.get("reporting_currency")) if isinstance(data, dict) else None
-    return unit if unit and re.fullmatch(r"[A-Z]{3}", unit) else None
-
-
 def _filing_ref(filing: Any) -> Optional[dict]:
     if filing is None:
         return None
@@ -171,8 +158,11 @@ def assemble_report(
         "comparison_basis": _comparison_basis(getattr(current_filing, "filing_type", None)),
         "prior_filing": _filing_ref(prior_filing),
         "metrics": metrics,
-        # The currency of every metric item's current/prior amount (additive; None = unknown).
-        "reporting_currency": _reporting_currency(current_filing),
+        # The currency of every metric item's current/prior amount (additive). Items carry raw XBRL
+        # amounts in the filer's own currency, so a client labels them with it and never assumes
+        # dollars; None = never resolved, shown without a currency. compute_what_changed never takes
+        # a prior amount from a filing in another currency, so this labels both columns.
+        "reporting_currency": reporting_currency(getattr(current_filing, "xbrl_data", None)),
         "risks": risks,
         # Deprecated-in-place (T1.6 / plan §2.3): the What-changed lead is now the deterministic
         # metrics.headline, not the summary's own outlook narrative (which duplicated the Outlook
