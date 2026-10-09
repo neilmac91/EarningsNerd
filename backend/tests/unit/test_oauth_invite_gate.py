@@ -12,11 +12,11 @@ mocked, mirroring test_apple_signin.py):
   - a lost invite-redemption race rolls the account back on both the social and the email path,
     and the email path's response stays byte-identical to the success response
 
-Structural gate (CLAUDE.md rule 12): every ``User(`` construction on the account-creation paths
-(app/routers/auth.py and the services it delegates to, ``ACCOUNT_CREATION_MODULES``) sits in a
-function that calls the gate helper, or is create_password_account(), which has no gate of its own:
-its gate is the REGISTRATION_MODE check at the top of register(), so register() must be its only
-caller anywhere in app/. A fourth creation path cannot appear silently.
+Structural gate (CLAUDE.md rule 12): every ``User(`` construction anywhere in app/ sits in a
+function that calls the gate helper, or is services/auth_account_service.py::create_password_account,
+which has no gate of its own: its gate is the REGISTRATION_MODE check at the top of register(), so
+register() must be its only caller anywhere in app/. A fourth creation path cannot appear silently,
+in whichever module it lands.
 """
 import ast
 import inspect
@@ -36,14 +36,12 @@ from app.routers import auth as auth_module
 from app.services import invite_service
 
 APP_DIR = Path(__file__).resolve().parents[2] / "app"
-ACCOUNT_CREATION_MODULES = (
-    APP_DIR / "routers" / "auth.py",
-    APP_DIR / "services" / "auth_account_service.py",
-    APP_DIR / "services" / "oauth_account_service.py",
-)
 GATE_HELPER = "oauth_new_account_gate"
 # register()'s insert. Ungated by design: register() runs the invite gate before calling it.
 PASSWORD_ACCOUNT_CREATOR = "create_password_account"
+PASSWORD_ACCOUNT_SITE = ("services/auth_account_service.py", PASSWORD_ACCOUNT_CREATOR)
+# The social sign-in insert, behind the gate.
+OAUTH_ACCOUNT_SITE = ("services/oauth_account_service.py", "oauth_create_account")
 VALID_PASSWORD = "Sup3rSecretPassw0rd"  # >=12 chars, upper+lower+digit; test fixture, not a credential  # gitleaks:allow
 PROVIDERS = ("google", "apple")
 
@@ -392,12 +390,14 @@ class _UserConstructionFinder(ast.NodeVisitor):
     visit_AsyncFunctionDef = visit_FunctionDef  # type: ignore[assignment]
 
     def visit_Call(self, node: ast.Call) -> None:
-        if isinstance(node.func, ast.Name):
-            where = self._stack[-1] if self._stack else "<module>"
-            if node.func.id == "User":
-                self.constructions.append((where, node.lineno))
-            elif node.func.id == GATE_HELPER:
-                self.gate_callers.add(where)
+        # ``User(...)`` and ``models.User(...)`` alike (and the gate called bare or module-qualified).
+        func = node.func
+        called = func.id if isinstance(func, ast.Name) else func.attr if isinstance(func, ast.Attribute) else None
+        where = self._stack[-1] if self._stack else "<module>"
+        if called == "User":
+            self.constructions.append((where, node.lineno))
+        elif called == GATE_HELPER:
+            self.gate_callers.add(where)
         self.generic_visit(node)
 
 
@@ -408,11 +408,11 @@ def _function_defs(tree: ast.AST, name: str) -> list[ast.AST]:
     ]
 
 
-def test_every_user_construction_on_the_account_creation_paths_is_gated():
+def test_every_user_construction_in_app_is_gated():
     constructions: list[tuple[str, str, int]] = []
     gate_callers: set[tuple[str, str]] = set()
     gates: list[ast.AST] = []
-    for path in ACCOUNT_CREATION_MODULES:
+    for path in sorted(APP_DIR.rglob("*.py")):
         rel = path.relative_to(APP_DIR).as_posix()
         tree = ast.parse(path.read_text(encoding="utf-8"))
         finder = _UserConstructionFinder()
@@ -421,20 +421,22 @@ def test_every_user_construction_on_the_account_creation_paths_is_gated():
         gate_callers |= {(rel, where) for where in finder.gate_callers}
         gates += _function_defs(tree, GATE_HELPER)
 
-    functions = {where for _, where, _ in constructions}
-    assert PASSWORD_ACCOUNT_CREATOR in functions, (
-        f"scanner found no User( in {PASSWORD_ACCOUNT_CREATOR}() — the walk is broken"
+    sites = {(rel, where) for rel, where, _ in constructions}
+    assert PASSWORD_ACCOUNT_SITE in sites, (
+        f"scanner found no User( in {'::'.join(PASSWORD_ACCOUNT_SITE)} — the walk is broken"
     )
-    assert len(functions) >= 2, "the OAuth creation path constructs no User — the walk is broken"
+    assert OAUTH_ACCOUNT_SITE in sites, (
+        f"scanner found no User( in {'::'.join(OAUTH_ACCOUNT_SITE)} — the walk is broken"
+    )
 
     ungated = sorted(
         (rel, where, line) for rel, where, line in constructions
-        if where != PASSWORD_ACCOUNT_CREATOR and (rel, where) not in gate_callers
+        if (rel, where) != PASSWORD_ACCOUNT_SITE and (rel, where) not in gate_callers
     )
     assert not ungated, (
         f"User(...) constructed outside the gate: {ungated}. Every account creation path must call "
         f"{GATE_HELPER}() (REGISTRATION_MODE + email_verified) in the same function, or be "
-        f"{PASSWORD_ACCOUNT_CREATOR}() (reached only from register(), which gates it)."
+        f"{'::'.join(PASSWORD_ACCOUNT_SITE)} (reached only from register(), which gates it)."
     )
 
     assert len(gates) == 1, f"expected one {GATE_HELPER} definition, found {len(gates)}"

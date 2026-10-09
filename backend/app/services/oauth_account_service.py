@@ -62,7 +62,7 @@ def oauth_new_account_gate(
     REGISTRATION_MODE is invite_only and the sign-in carries no valid invite. ``invite`` is the
     validated invite the caller must redeem in the SAME transaction as the insert (None in public
     mode). Mirrors the register() gate; tests/unit/test_oauth_invite_gate.py keeps every ``User(``
-    construction on the account-creation paths behind it.
+    construction in app/ behind it (register()'s ``create_password_account`` is gated in register).
     """
     if not email_verified:
         return "email_unverified", None
