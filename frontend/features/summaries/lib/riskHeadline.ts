@@ -17,8 +17,8 @@
  *      bracket or quotation. A one-letter word ("U.S.", initials) or a title, label or month
  *      abbreviation ("No.", "Dr.", "Sept.") does not end one. A company or name suffix does ("Acme
  *      Co. | Production may stop", "John Smith Jr. | His departure"), unless the company's name
- *      goes on ("Technology Co. Limited") or "Sr." means Senior before a title or an instrument
- *      ("Sr. Vice President", "Sr. Notes").
+ *      goes on ("Technology Co. Limited"), a defined-term alias follows ("Acme Inc. (“Acme”) and"),
+ *      or "Sr." means Senior before a title or an instrument ("Sr. Vice President", "Sr. Notes").
  *   3. If it fits in RISK_HEADLINE_MAX_CHARS it is the headline, whole: a sentence that fits is
  *      never cut, so a hedge or a turn later in it ("; however, coverage may not be adequate")
  *      stays in the heading.
@@ -69,6 +69,8 @@ const ABBREVIATIONS = [
 // Vice President of Sales", "the 5.25% Sr. Notes due 2030"), which keeps the sentence going.
 const TERMINAL_ABBREVIATION = /\b(?:co|inc|corp|ltd|llc|plc|etc|jr|sr)$/i
 const NAME_GOES_ON = /^\s+(?:co|inc|incorporated|corp|corporation|ltd|limited|llc|llp|lp|plc|ag|gmbh|sa|nv|bv)\b/i
+// A defined-term alias after the name keeps the sentence going too ("Acme Inc. (“Acme”) and it may…").
+const ALIAS_GOES_ON = /^\s+\(\s*["“'‘]/
 const SENIOR = /\bsr$/i
 const SENIOR_GOES_ON =
   /^\s+(?:vice|director|manager|executive|officer|counsel|partner|analyst|advisor|associate|consultant|accountant|engineer|economist|notes?|secured|unsecured|subordinated|debt|credit|loan|term|facility)\b/i
@@ -108,7 +110,9 @@ const FUNCTION_WORDS = new Set(
     'that which who whom whose where when while if because such including is are was were be been ' +
     'being can could may might will would shall should must has have had do does did its it their ' +
     'our his her your my this these those any each other not no also both either all certain per ' +
-    'via upon among between about against through during within before after since until whether so up even'
+    'via upon among between about against through during within before after since until whether so up even ' +
+    // A subject pronoun waits for its verb ("…distributors, and she | may leave").
+    'we you he she they'
   ).split(' '),
 )
 const SCALE_WORD = /^(?:million|billion|trillion|thousand|percent|percentage|basis|square|cubic|metric)\b/i
@@ -194,13 +198,29 @@ const singleQuoteOpen = (text: string): boolean => {
   return depth > 0
 }
 
+/**
+ * Whether a straight double quotation is still open at the end of the text, read in order. A mark opens
+ * at the start of a word (at the start of the text, or after a space, a bracket or a dash) and closes
+ * one already open; any other mark is a stray closer from before the fragment and is ignored, so it
+ * cannot cancel a later opener ('Our obligations" and … "which assembles').
+ */
+const straightDoubleOpen = (text: string): boolean => {
+  let open = false
+  for (let i = 0; i < text.length; i++) {
+    if (text[i] !== '"') continue
+    if (open) open = false
+    else if (i === 0 || /[\s(\[\u2014\u2013-]/.test(text[i - 1])) open = true
+  }
+  return open
+}
+
 /** Whether the text leaves a bracket or a quotation open: ( [ “, a single quotation or a straight double quote. */
 const leavesOpen = (text: string): boolean =>
   pairOpen(text, '(', ')') ||
   pairOpen(text, '[', ']') ||
   pairOpen(text, '“', '”') ||
   singleQuoteOpen(text) ||
-  (text.split('"').length - 1) % 2 === 1
+  straightDoubleOpen(text)
 
 /** Whether ending a headline after tokens[i] would split something the reader needs whole. */
 const isWeakEnd = (tokens: Token[], i: number, prefix: string): boolean => {
@@ -243,7 +263,7 @@ const firstSentence = (text: string): string => {
     const before = text.slice(0, at)
     const after = text.slice(at + match[0].length)
     const suffix = TERMINAL_ABBREVIATION.test(before)
-    if (suffix && (NAME_GOES_ON.test(after) || (SENIOR.test(before) && SENIOR_GOES_ON.test(after)))) continue
+    if (suffix && (NAME_GOES_ON.test(after) || ALIAS_GOES_ON.test(after) || (SENIOR.test(before) && SENIOR_GOES_ON.test(after)))) continue
     // A bare terminal period is dropped; one inside a closing quotation, or one that closes a company
     // or name suffix ("Acme Inc.", "Smith Jr."), stays.
     const keepsPeriod = !match[0].startsWith('.') || suffix

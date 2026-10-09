@@ -262,6 +262,12 @@ describe('deriveRiskHeadline', () => {
       'We must repay the 5.25% Sr. Notes due 2030 at maturity or refinance them on worse terms',
     )
     // Unless the capitalised word carries on the company's name.
+    // A defined-term alias after a suffix keeps the sentence going ("Acme Inc. (“Acme”) and it may…").
+    for (const alias of ['("Acme")', '(“Acme”)']) {
+      expect(
+        deriveRiskHeadline(`Our sole supplier is Acme Inc. ${alias} and it may terminate our agreement without notice, which could disrupt our production and harm results.`, 0),
+      ).toBe(`Our sole supplier is Acme Inc. ${alias} and it may terminate our agreement without notice…`)
+    }
     expect(deriveRiskHeadline('We buy cells from Contemporary Amperex Technology Co. Limited (CATL). We have no contract.', 0)).toBe(
       'We buy cells from Contemporary Amperex Technology Co. Limited (CATL)…',
     )
@@ -289,6 +295,10 @@ describe('deriveRiskHeadline', () => {
     expect(isVerbatimPrefix(long, headline)).toBe(true)
     // The character after the cut is a space: a whole word, not a mid-word cut.
     expect(long.charAt(headline.length - 1)).toBe(' ')
+    // A subject pronoun waits for its verb, so the cap backs up past it.
+    expect(
+      deriveRiskHeadline('Our chief executive maintains relationships with suppliers, customers, distributors, and she may leave without adequate succession plans.', 0),
+    ).toBe('Our chief executive maintains relationships with suppliers, customers, distributors…')
   })
 
   it('never splits a figure from its unit or label at the cap', () => {
@@ -437,7 +447,7 @@ describe('deriveRiskHeadline', () => {
       ),
     ).toBe("The phrase 'material risks', as used in our customer agreements, permits termination without notice…")
     // Brackets are read in order: a fragment's stray closer early on does not cancel one opened later.
-    for (const [open, close] of [['(', ')'], ['[', ']'], ['“', '”']]) {
+    for (const [open, close] of [['(', ')'], ['[', ']'], ['“', '”'], ['"', '"']]) {
       expect(
         deriveRiskHeadline(
           `Our obligations${close} and our reliance on a single contract manufacturer ${open}which assembles substantially all of our flagship units in two facilities${close} expose us to supply disruption.`,
