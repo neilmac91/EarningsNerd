@@ -462,7 +462,9 @@ Provenance chip  <SourceTrace>  (P-10) — `sourceTraceChipClass(selected)`: 12p
                  pane's Filing view is answering is `selected`: brand tint + aria-current (the highlight
                  request's sourceId + the viewer context's paneOpen), whether the pane shows its passage or
                  says why it cannot (text not in-app yet, passage not pinpointed). Labels and accessible names are unchanged
-                 ("Source: Verified in filing").
+                 ("Source: Verified in filing"). The recipe lives in `features/filings/lib/sourceTraceChip.ts`, outside the
+                 'use client' SourceTrace, so a server component can call it (the homepage example does; gate:
+                 `tests/unit/serverCallsClientExport.spec.ts`).
 
 Source pane      <FilingWorkspace>  (P-06) — the research pane is named for the source: header "Source" + the
                  filing in the data face, close button; tabs Filing · Ask (file-text / chat-circle-text glyphs,

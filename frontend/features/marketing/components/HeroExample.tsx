@@ -7,7 +7,7 @@ import { ArrowRightIcon, ArrowSquareOutIcon, CheckCircleIcon, QuotesIcon } from 
 import { exampleFilingHref } from '@/lib/featureFlags'
 import { directionOf, directionText } from '@/lib/financialTone'
 import { Sep } from '@/features/filings/components/FilingIdentity'
-import { sourceTraceChipClass } from '@/features/filings/components/SourceTrace'
+import { sourceTraceChipClass } from '@/features/filings/lib/sourceTraceChip'
 import { excerptHeadings } from '@/features/summaries/lib/riskTitle'
 import { AAPL_FY22_EDGAR_URL } from '@/features/marketing/lib/landing-samples'
 import type { ExampleData, ExampleMetric } from '@/lib/serverApi'
