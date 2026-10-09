@@ -5,6 +5,7 @@
 - Not done, founder call: making "Find filings" the hero's one primary action (the canvas) would demote "See a live example", today's tracked hero CTA.
 - Verification: see the PR body.
 - Codex review (two P2s): the hero's evidence row read only `sections.risks`, but a v1 or unstamped summary keeps its projected risks under `sections.risk_factors` (provenance_service), so `pickEvidence` now reads both, as SummaryBlocks does. On same-day filings the search took the higher row id while the company page kept the list's order, so `selectRecommendedFiling` now breaks the tie the same way. Pinned by a frontend case for each, and by a backend case for the search's tie.
+- Codex review, second round (P2): the search's `summary_ready` excludes placeholder bodies (`is_summary_placeholder`), but the company page called any stored summary ready, so a result without the label could land on a lead saying "summary ready" over "Generating summary…". `features/summaries/lib/summaryPlaceholder` mirrors the backend tokens (a spec holds the two lists equal) and the lead's label and action use `isSummaryReady`.
 - [ ] Next in the stack: PR 4 loading and motion (P-09).
 
 ## 2026-10-09 — Design critique 2026-10: the company page (PR 2 of the stack; frontend)
