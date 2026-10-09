@@ -10,6 +10,7 @@
  */
 import { findExcerptMatch } from './excerptMatch'
 import { flashElement } from '@/lib/citationFlash'
+import { prefersReducedMotion } from '@/hooks/usePrefersReducedMotion'
 
 const HIGHLIGHT_NAME = 'copilot-citation'
 
@@ -98,11 +99,14 @@ const clamp = (value: number, max: number) => Math.min(Math.max(value, 0), Math.
  * edge, the reader down or up so the passage sits in its middle (or starts at its top when it is the
  * taller of the two). Each box sees the target where the boxes inside it will have moved it. Nothing
  * outside the container scrolls: scrollIntoView scrolled every scrollable ancestor, the page
- * included, and with a reader wider than its pane that slid the whole filing page sideways. jsdom
- * and old engines have no Element.scrollTo: the offsets are assigned instead.
+ * included, and with a reader wider than its pane that slid the whole filing page sideways. The
+ * scroll is smooth, except under prefers-reduced-motion, where it jumps ('auto': neither the reader
+ * nor a table's box sets a scroll-behavior). jsdom and old engines have no Element.scrollTo: the
+ * offsets are assigned instead.
  */
 function revealWithin(container: HTMLElement, target: HTMLElement): void {
   if (target === container || !container.contains(target)) return
+  const behavior: ScrollBehavior = prefersReducedMotion() ? 'auto' : 'smooth'
   let { left: tLeft, right: tRight, top: tTop, bottom: tBottom } = target.getBoundingClientRect()
   for (let box = target.parentElement; box; box = box === container ? null : box.parentElement) {
     const style = getComputedStyle(box)
@@ -127,7 +131,7 @@ function revealWithin(container: HTMLElement, target: HTMLElement): void {
     if (dx) to.left = x
     if (dy) to.top = y
     if (typeof box.scrollTo === 'function') {
-      box.scrollTo({ ...to, behavior: 'smooth' })
+      box.scrollTo({ ...to, behavior })
     } else {
       if (dx) box.scrollLeft = x
       if (dy) box.scrollTop = y

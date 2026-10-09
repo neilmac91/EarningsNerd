@@ -10,8 +10,10 @@ import { test, expect } from '@playwright/test'
 //
 // This spec exercises the REAL module in real Chromium — the Copilot UI itself needs a backend, and
 // CI runs Playwright against `next start` with none (lessons/test-e2e-runs-without-backend.md). The
-// module graph (4 files, no framework imports) is transpiled with the repo's own `typescript` and
-// loaded as data: ES modules on the shipped filing page, then driven exactly as CitationChip does.
+// module graph (5 files) is transpiled with the repo's own `typescript` and loaded as data: ES modules
+// on the shipped filing page, then driven exactly as CitationChip does. Its one framework import is
+// React's useSyncExternalStore in hooks/usePrefersReducedMotion.ts, stubbed here: the helper calls
+// only that file's framework-free prefersReducedMotion(), which runs for real.
 // Observable contract: after a highlight, `document.adoptedStyleSheets` carries a sheet whose rules
 // include `::highlight(copilot-citation)`, and `CSS.highlights.get('copilot-citation')` exists.
 
@@ -32,7 +34,10 @@ function moduleUrl(file: string, deps: Record<string, string>): string {
 const motion = moduleUrl('lib/motion.ts', {})
 const citationFlash = moduleUrl('lib/citationFlash.ts', { '@/lib/motion': motion })
 const excerptMatch = moduleUrl('features/filings/components/copilot/excerptMatch.ts', {})
+const reactStub = `data:text/javascript;base64,${Buffer.from('export function useSyncExternalStore() { throw new Error("no React in this harness") }').toString('base64')}`
+const reducedMotion = moduleUrl('hooks/usePrefersReducedMotion.ts', { react: reactStub })
 const highlightInDom = moduleUrl('features/filings/components/copilot/highlightInDom.ts', {
+  '@/hooks/usePrefersReducedMotion': reducedMotion,
   './excerptMatch': excerptMatch,
   '@/lib/citationFlash': citationFlash,
 })

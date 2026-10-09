@@ -106,6 +106,29 @@ describe('highlightExcerptInDom', () => {
       container.remove()
     })
 
+    it('under prefers-reduced-motion both boxes jump straight there: no smooth scroll', () => {
+      vi.spyOn(window, 'matchMedia').mockImplementation(
+        (query: string) => ({ matches: query === '(prefers-reduced-motion: reduce)', media: query }) as MediaQueryList,
+      )
+      const container = document.createElement('div')
+      container.innerHTML =
+        '<div class="box"><table><tbody><tr><td>Americas</td><td>Reportable since fiscal 2013 after the segment change</td></tr></tbody></table></div>'
+      document.body.appendChild(container)
+      const box = container.querySelector<HTMLElement>('.box')!
+      place(container, { left: 0, top: 0, width: 400, height: 300, clientWidth: 400, clientHeight: 300, scrollWidth: 400, scrollHeight: 1000, overflowX: 'auto', overflowY: 'auto' })
+      place(box, { left: 16, top: 400, width: 368, height: 60, clientWidth: 368, clientHeight: 60, scrollWidth: 1200, scrollHeight: 60, overflowX: 'auto', overflowY: 'auto' })
+      place(container.querySelectorAll('td')[1], { left: 900, top: 410, width: 100, height: 30 })
+      const containerScroll = stubScrollTo(container)
+      const boxScroll = stubScrollTo(box)
+
+      expect(highlightExcerptInDom(container, 'Reportable since fiscal 2013 after the segment change')).toBe(true)
+
+      // 'auto' follows the box's own scroll-behavior, which neither the reader nor a table box sets: a jump.
+      expect(boxScroll.mock.calls).toEqual([[{ left: 616, behavior: 'auto' }]])
+      expect(containerScroll.mock.calls).toEqual([[{ top: 275, behavior: 'auto' }]])
+      container.remove()
+    })
+
     it('a cell left of the box\'s view scrolls the box back to the cell\'s start', () => {
       const container = document.createElement('div')
       container.innerHTML =
