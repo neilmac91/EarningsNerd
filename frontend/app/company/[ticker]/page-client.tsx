@@ -230,6 +230,13 @@ export default function CompanyPageClient({ initialCompany, initialFilings }: Co
   // Ready means the filing page will show the summary: a placeholder ("Generating summary…") or a
   // stored failure (its "Summary temporarily unavailable" card) is a row, not a summary to open.
   const summaryReady = isSummaryReady(latestSummary)
+  // The primary action promises only what the filing page does: open a ready summary, start one where
+  // the filing has none, and over a stored row it shows as its error card, just open the filing.
+  const leadAction = summaryReady
+    ? 'Open latest summary'
+    : latestSummary
+      ? 'Open latest filing'
+      : 'Summarize latest filing'
 
   // Handle case where ticker might not be available
   if (!ticker) {
@@ -360,7 +367,7 @@ export default function CompanyPageClient({ initialCompany, initialFilings }: Co
                   )}
                   {latestFiling && (
                     <Link href={`/filing/${latestFiling.id}`} className={buttonVariants({ variant: 'primary' })}>
-                      {summaryReady ? 'Open latest summary' : 'Summarize latest filing'}
+                      {leadAction}
                       <ArrowRightIcon aria-hidden="true" className="h-4 w-4" />
                     </Link>
                   )}
