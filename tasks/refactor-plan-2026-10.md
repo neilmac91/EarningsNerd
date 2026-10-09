@@ -71,9 +71,11 @@ Each was checked against `main` at `da636f6`:
    (`backend/app/services/ai/model_flags.py:3-8`; it is imported by `provider_requests.py:19` and
    `copilot_chat.py:18`, not by the façade). There is no cycle to protect.
 5. **The four copilot branches touch only the system prompt, but the router imports three names.**
-   The hunks of `claude/copilot-prompt-candidate`, `claude/g-stage1-arm-c`, `claude/g-stage2-arm-b`
-   and `codex/wave3-copilot-typed-evidence` all fall inside `SYSTEM_PROMPT`
-   (`backend/app/services/copilot_service.py:101-174`). The router binds `answer_filing_question`,
+   The `copilot_service.py` hunks of `claude/copilot-prompt-candidate`, `claude/g-stage1-arm-c`,
+   `claude/g-stage2-arm-b` and `codex/wave3-copilot-typed-evidence` all fall inside `SYSTEM_PROMPT`
+   (`backend/app/services/copilot_service.py:101-174`); `copilot-prompt-candidate` also carries a
+   `test_copilot_live_regressions.py` change and review-evidence artefacts, and `typed-evidence` a
+   `tasks/todo.md` edit. The router binds `answer_filing_question`,
    `snapshot_filing` and `PROVIDER_STARTED_STAGE` by name (`backend/app/routers/summaries.py:45`),
    and the locked T5 anchor patches `answer_filing_question` on the ROUTER's namespace
    (`backend/tests/unit/test_expired_trial_gating.py:279,295`), so the router must keep its
@@ -174,8 +176,8 @@ Only two of the locked files reference any of the six modules:
 | M5 → M6, module level | `backend/app/services/edgar/xbrl_service.py:43-58` binds 14 names by `from .instance_extractor import` | M6 keeps a façade exporting those names; the M6 split never edits `xbrl_service.py`; tests that patch `xbrl_module.DURATION_CONCEPTS` etc. (`backend/tests/unit/test_accession_xbrl_extraction.py:602-605,715-720,796-800,880-886`) keep working only while M5 keeps name-binding imports |
 | M5 → M2, lazy, PRIVATE | `backend/app/services/edgar/xbrl_service.py:1002` imports `_classify_duration` inside the T9-pinned parser | M2's façade re-exports `_classify_duration`; the import is re-pointed only when M5 moves that code (X2) |
 | M2 → M5, lazy | `backend/app/services/facts_service.py:690,759` import `edgar.compat.xbrl_service` | no module-level edge either way; `facts/concepts.py` must never import `app.services.edgar` at module level, and `facts/__init__.py` must not eagerly import a module that does |
-| M1 → M4, import time | `backend/app/services/copilot_service.py:44-47` binds the singleton | 40 test sites patch `copilot_service.openai_service.stream_chat_with_tools` on the singleton object; safe under any move that calls the singleton's attribute at call time |
-| M3 → M4, lazy | `backend/app/services/trend_analysis_service.py:1728` | `backend/tests/unit/test_copilot_cost.py:176` swaps the module attribute and relies on this laziness |
+| M1 → M4, import time | `backend/app/services/copilot_service.py:44-47` binds the singleton | about 60 sites (61 tests, the eval runner) patch `copilot_service.openai_service.stream_chat_with_tools` on the singleton object; safe under any move that calls the singleton's attribute at call time |
+| M3 → M4, lazy | `backend/app/services/trend_analysis_service.py:1728` | `backend/tests/unit/test_copilot_cost.py:177` swaps the module attribute and relies on this laziness |
 | `peers_service.py:22` → M2 PRIVATE | imports `_unit_for` at module level | façade re-export |
 | `backend/scripts/backfill_facts.py:60,79` → M2, M5 PRIVATE | `_fetch_companyfacts_sync`, `_extract_from_filing_instance_sync` | façade re-exports or a one-line re-point in X4 |
 | `backend/evals/copilot_scorers.py:34-41` → M1 PRIVATE | four adjacency guards and two public names | façade re-exports |
@@ -207,16 +209,16 @@ waves below sequence.
 
 | Cluster | Functions (def range) | Module-level names used |
 |---|---|---|
-| A. Source and prompt assembly | `_select_source_text` C:177–182, `snapshot_filing` C:185–223, `_compact_xbrl_block` C:289–309, `_build_context_message` C:312–348, `_build_messages` C:371–392 | `SYSTEM_PROMPT` C:101–174 (f-string over the sentinels at C:69–74 and `_MIN_VERIFIABLE_LEN` C:49); `settings.COPILOT_CONTEXT_CHAR_CAP` C:321, `COPILOT_HISTORY_TURNS` C:379, `COPILOT_HISTORY_ITEM_CHAR_CAP` C:388; the 8,000-char cap C:309 |
-| B. Fact provenance and identity | `_valid_fact_provenance` C:232–266, `_fact_identity` C:269–273 | `copilot_tools.canonical_unit` C:249 |
+| A. Source and prompt assembly | `_select_source_text` C:177–182, `snapshot_filing` C:185–223, `_without_source_durations` C:276–286, `_compact_xbrl_block` C:289–309, `_build_context_message` C:312–348, `_merge_consecutive_roles` C:351–368, `_build_messages` C:371–392 | `SYSTEM_PROMPT` C:101–174 (f-string over the sentinels at C:69–74 and `_MIN_VERIFIABLE_LEN`, imported at C:50); `settings.COPILOT_CONTEXT_CHAR_CAP` C:321, `COPILOT_HISTORY_TURNS` C:379, `COPILOT_HISTORY_ITEM_CHAR_CAP` C:388; the 8,000-char cap C:309 |
+| B. Fact provenance and identity | `_reporting_currency` C:226–229, `_valid_fact_provenance` C:232–266, `_fact_identity` C:269–273 | `copilot_tools.canonical_unit` C:228, C:246 |
 | C. Envelope parsing | `_parse_citations` C:395–443, `_parse_followups` C:446–473 | `_FOLLOWUPS_RE` C:75; raises `_UnpublishableAnswer` C:93 |
 | D. Citation verification | `section_label_is_quoted` C:482–484, `_verify_citations` C:487–533 | `_QUOTE_MARK_RE` C:543 (an E constant), provenance helpers imported at C:49–55, `_RegenerableEvidenceMismatch` C:97 |
 | E. Prose quotation admission | `_markdown_parser` C:598–607 … `_withhold_unsupported_quotations` C:942–952 (C:536–952, ~417 lines with constants) | the import-time singleton `_MARKDOWN` C:610, `_MARKDOWN_BLOCKS` C:616, caps C:549–560; `normalize_for_match` C:929/936 |
-| F. Activity labels | `_safe_activity_label` C:955–967 | `copilot_tools._CONCEPT_LABELS`, `describe_tool_call` C:966 |
-| G. Fact-marker adjacency guards | `_claim_span_start` C:979, `_adjacency_window` C:986, `_fact_matches_adjacent_number` C:991–1051, `_fact_matches_adjacent_currency` C:1061–1083, `_fact_matches_adjacent_concept` C:1133–1157 | `_NUMBER_TOKEN` C:973–976, `_CURRENCY_*` C:1055–1058, `_CONCEPT_SYNONYMS` C:1090–1116, `_CONCEPT_PATTERNS` C:1121–1124 |
-| H. Server-owned uncited-claim repair | `_plan_uncited_fact_citation` C:1250–1286, `_repair_paired_annual_claim` C:1300–1344, `_fact_certifies_claim` C:1347–1389, `_repair_uncited_fact_claim` C:1392–1421 | `_ANNUAL_FIGURE_CLAIM` C:1209–1220 and `_PAIRED_ANNUAL_CLAIM` C:1291–1297 (built from its `.pattern`, must move together); `copilot_tools.run_tool` C:1322/1407 |
+| F. Activity labels | `_safe_activity_label` C:955–967 | `copilot_tools._CONCEPT_LABELS` C:964, `describe_tool_call` C:967 |
+| G. Fact-marker adjacency guards | `_claim_span_start` C:979, `_adjacency_window` C:986, `_fact_matches_adjacent_number` C:991–1051, `_fact_matches_adjacent_currency` C:1061–1083, `_fact_matches_adjacent_concept` C:1133–1157 | `_NUMBER_TOKEN` C:973–976, `_CURRENCY_*` C:1055–1058, `_CONCEPT_SYNONYMS` C:1091–1117, `_CONCEPT_PATTERNS` C:1122–1125 |
+| H. Server-owned uncited-claim repair | `_is_annual_report_form` C:1235–1236, `_iso_day` C:1239–1247, `_plan_uncited_fact_citation` C:1250–1286, `_repair_paired_annual_claim` C:1300–1344, `_fact_certifies_claim` C:1347–1389, `_repair_uncited_fact_claim` C:1392–1421 | `_ANNUAL_FIGURE_CLAIM` C:1209–1220 and `_PAIRED_ANNUAL_CLAIM` C:1291–1297 (built from its `.pattern`, must move together); `copilot_tools.run_tool` C:1320/1405 |
 | I. Coverage telemetry | `count_uncited_figures` C:1424–1472 | `_NUMBER_TOKEN`, `_claim_span_start` |
-| J. Marker resolution | `_resolve_citations` C:1475–1588 | `_COPILOT_MARKER_RE` C:76, the G matchers C:1532–1535, `copilot_tools.fact_to_citation` C:1551 |
+| J. Marker resolution | `_resolve_citations` C:1475–1588 | `_COPILOT_MARKER_RE` C:76, the G matchers C:1535–1537, `copilot_tools.fact_to_citation` C:1556 |
 | K. Orchestration | `answer_filing_question` C:1591–1635, `_answer_filing_question_attempt` C:1638–1934 | `PROVIDER_STARTED_STAGE` C:78, `_PUBLICATION_ERROR` C:77, `_STREAM_FAILURE` C:79, `_EVIDENCE_RETRY_GUIDANCE` C:84–90, `openai_service` + sentinels C:44–48, `monotonic` C:35, `chat_deadline` C:43, `settings.COPILOT_MAX_TOKENS` C:1713 |
 
 **Public surface.** The router imports `PROVIDER_STARTED_STAGE`, `answer_filing_question` and
@@ -225,17 +227,17 @@ waves below sequence.
 `answer_filing_question`, `openai_service` and `_build_messages` inside functions (:170, :194,
 :221, :313); it installs a logging filter on `copilot_service.logger` (:201–205) that recognises
 withheld attempts by `_UnpublishableAnswer`. `backend/evals/copilot_scorers.py:34-41` imports the
-four G guards plus `count_uncited_figures` and `section_label_is_quoted`. Seventeen test files import
-the module object; nine import names directly (for example `acquisition_period_cases.py:12`
-`_build_messages`; `test_copilot_prose_quotations.py:43-50` four caps and two E functions;
-`test_copilot_gate.py:451` the exception and the logger).
+four G guards plus `count_uncited_figures` and `section_label_is_quoted`. Eleven test files bind the
+module object and eight import names directly, three doing both (for example
+`acquisition_period_cases.py:12` `_build_messages`; `test_copilot_prose_quotations.py:43-50` four caps
+and two E functions; `test_copilot_gate.py:451` the exception and the logger).
 
 **Seams to cut.** K is the only cluster with edges into the others (A, B, C, D, E, F, H, I, J); H
 depends on B and G; J and I depend on G; D reads one E constant. A, C, F and G have no inbound edges
 except from K. So E, B+G, H, J+I and C+D+exceptions are each a clean leaf package module, and the
 only decision is where the loop lives. Recommendation: keep `answer_filing_question` and the loop in
 `copilot_service.py` (in-place decomposition, C2), because moving them changes the logger name the
-eval runner filters on (C:1623 warning, `copilot_runner.py:201`) and forces five more test re-points.
+eval runner filters on (C:1624 warning, `copilot_runner.py:201`) and forces five more test re-points.
 
 **Target layout** (`copilot_service.py` stays the import path for the router, evals and tests, and
 re-exports every name listed above; NOT under `app/services/ai/`, which
@@ -256,19 +258,21 @@ Phase map of `_answer_filing_question_attempt` (C:1638–1934) for C2: P0 messag
 tool binding C:1666–1691 (`used_facts`, `_register_fact`, `_run_tool`) → a ~30-line `FactRegistry`
 over cluster B; P2 progress and provider open C:1693–1717; P3 delta loop C:1718–1792 (error sentinel
 :1726–1728, provider-start :1730–1732, activity events :1736–1749, heartbeat on `monotonic()`
-:1751–1753, sentinel scan with `_SENTINEL_TAIL` hold-back :1764–1792) → a pure `SentinelScanner.feed`
-(~30 lines) with the yields staying in the generator; P4 usage and tail flush C:1794–1800; P5
+:1751–1753, sentinel scan with `_SENTINEL_TAIL` hold-back :1764–1791) → a pure `SentinelScanner.feed`
+(~30 lines) with the yields staying in the generator; P4 usage and tail flush C:1794–1798; P5
 not-disclosed admission C:1800–1833 → `_admit_not_disclosed` (~21 lines); P6–P11 join, parse, expand
-markers, verify, repair/resolve (C:1868–1893), final checks, markdown quotation gate, telemetry
-(C:1835–1914) → one async `_admit_answer` (~75 lines); P12 complete event C:1916–1926; P13 exception
+markers, verify, repair/resolve (C:1868–1894), final checks, markdown quotation gate, telemetry
+(C:1835–1914) → one async `_admit_answer` (~75 lines); P12 complete event C:1915–1926; P13 exception
 policy and `provider_stream.aclose()` C:1927–1934. Result: the loop drops from 297 to ≤80 lines.
 
-**Anchor tests to add first** (C0, tests-only; existing strong pins at
-`backend/tests/unit/test_copilot.py:505` with its case table :330–470, the retry suite
-`test_copilot_quotation_retry.py:79-329`, repair `test_copilot_citation_repair.py:90-520`):
+**Anchor tests to add first** (C0, tests-only; existing strong pins: the publication boundary at
+`backend/tests/unit/test_copilot.py:505` with its case names :486–504 and builder `_publication_case`
+:338–483, the retry suite in `test_copilot_quotation_retry.py`, repair in
+`test_copilot_citation_repair.py:90-617`):
 1. `_compact_xbrl_block` caps at 8,000 chars (C:289–309); no test pins the cap.
 2. `_safe_activity_label` fallbacks (C:955–967): unknown tool → "Reading financial information";
-   unknown concept → `concept=None`; only non-dict args are pinned today (`test_copilot.py:1415`).
+   unknown concept → `concept=None`. The function has no test; `test_copilot.py:1415` pins only
+   `copilot_tools.describe_tool_call`'s tolerance of non-dict args.
 3. `_register_fact` dedupes identical tool results (C:1672–1691) through a fake stream calling
    `run_tool` twice: same `cite`, one `used_facts` entry; different `source_facts` → new marker.
 4. `_verify_citations` classification matrix (C:487–533): excerpt-only mismatch →
@@ -280,15 +284,17 @@ policy and `provider_stream.aclose()` C:1927–1934. Result: the loop drops from
    existing stream-error pins exercise only the in-attempt path (C:1726).
 
 **Traps.**
-- Patch bindings that survive a move because they bind to shared objects: 40 sites on the
-  `openai_service` singleton (`stream_chat_with_tools`) and 17 on the `copilot_tools` module object
+- Patch bindings that survive a move because they bind to shared objects: about 60 sites on the
+  `openai_service` singleton (`stream_chat_with_tools`: 61 in tests, 1 in the eval runner) and 17 on
+  the `copilot_tools` module object
   (`run_tool`); new modules must keep calling `copilot_tools.run_tool` and `openai_service.<attr>` as
   attributes at call time.
 - Patch bindings on the `copilot_service` MODULE namespace that go blind when the reading code
-  moves: `normalize_for_match` (`test_copilot_prose_quotations.py:841`, `test_copilot_quotation_retry.py:123`),
-  `_rendered_text` (:1219), `_MARKDOWN_BLOCKS` (:1229), `_MARKDOWN`/`_markdown_parser` (:1318), the
-  `__file__` exec at :1292 (the thread-safety test re-executes the file), `_withhold_unsupported_quotations`
-  (:1134), `_resolve_citations` (`test_copilot_paired_claims.py:59`), `monotonic` (`test_copilot.py:519`),
+  moves: `normalize_for_match` (`test_copilot_quotation_retry.py:123`, `test_copilot_prose_quotations.py:841`),
+  and in `test_copilot_prose_quotations.py` also `_rendered_text` (:1219), `_MARKDOWN_BLOCKS` (:1229),
+  `_MARKDOWN`/`_markdown_parser` (:1318), the `__file__` exec at :1292 (the thread-safety test
+  re-executes the file) and `_withhold_unsupported_quotations` (:1134); `_resolve_citations`
+  (`test_copilot_paired_claims.py:59`), `monotonic` (`test_copilot.py:519`),
   the `openai_service` name (`test_copilot_cost.py:167`, `test_copilot_provenance.py:166`). C1 re-points
   the E-cluster sites (about eight lines in two files); keeping the loop in place avoids the rest.
 - The router must keep the bare-name call (`backend/app/routers/summaries.py:550`) because T5 patches
@@ -309,24 +315,25 @@ modules plus ~100 lines of imports and re-exports; ~8 test re-points; optional r
 ### M2 — `backend/app/services/facts_service.py` (2,153 lines; `F:` below)
 
 **Responsibilities today** (36 top-level functions + 6 nested closures; no classes; every import of
-`app.services.edgar`, `httpx`, `settings` and `sec_rate_limiter` is lazy at F:691, F:759,
-F:1905–1908, F:1951):
+`app.services.edgar`, `httpx`, `settings` and `sec_rate_limiter` is lazy at F:690, F:759,
+F:1905–1909, F:1952):
 
 | Cluster | Functions (def range) | State used |
 |---|---|---|
-| A. Per-filing normalization (pure) | `_parse_date` F:101, `_fiscal_period` F:112, `_duration_start` F:119, `_unit_for` F:130–141, `normalize_standardized_to_facts` F:144–211 | `_CONCEPT_UNITS` F:47–87 |
-| B. Reconciliation and authoritative cross-check | `reconcile_facts` F:214–322, `_prior_values` F:325–349, `extract_authoritative_values` F:373–424, `cross_check_facts` F:427–469 | `NON_NEGATIVE_CONCEPTS` F:89–96, `HEADLINE_GAAP_TAGS` F:358–367 |
+| A. Per-filing normalization (pure) | `_parse_date` F:101, `_fiscal_period` F:112, `_duration_start` F:119, `_unit_for` F:130–141, `normalize_standardized_to_facts` F:144–211 | `_CONCEPT_UNITS` F:47–84 |
+| B. Reconciliation and authoritative cross-check | `reconcile_facts` F:214–322, `_prior_values` F:325–349, `extract_authoritative_values` F:373–424, `cross_check_facts` F:427–469 | `NON_NEGATIVE_CONCEPTS` F:89–94, `HEADLINE_GAAP_TAGS` F:358–367 |
 | C. SEC companyfacts transport | `_fetch_companyfacts_sync` F:477–509, `_running_loop_in_this_thread` F:512, `_fetch_companyfacts_async` F:1898–1926 | `COMPANYFACTS_SYNC_TIMEOUT_SECONDS` F:474 |
-| D. Per-filing writer | `_lock_fact_companies` F:519–525, `upsert_facts` F:528–656, `process_filing_facts` F:659–718 | lazy `edgar.compat.xbrl_service` F:691 |
-| E. Jobs | `backfill_facts` F:721–864, `remediate_industry_facts` F:867–968, `backfill_company_sic` F:971–1041, `sync_companyfacts_batch` F:2100–2153 | `AFFECTED_FINANCIAL_CONCEPTS` F:38–42 |
-| F. Read model | `get_filing_fundamentals` F:1071–1105 | — |
-| G. Companyfacts normalization and period labelling | `_classify_duration` F:1205–1215, `_collect_companyfacts_values` F:1218–1290, `_label_quarters` F:1315–1355, `normalize_companyfacts` F:1358–1512 | `COMPANYFACTS_DURATION_TAGS` F:1140–1176, `COMPANYFACTS_INSTANT_TAGS` F:1178–1200, windows F:1129–1131 |
-| H. Derived facts | `derive_q4_facts` F:1545–1606, `derive_q4_eps_facts` F:1627–1723, `derive_same_period_metrics` F:1726–1809 | `_EPS_SHARES_TAGS` F:1611–1617 |
-| I. Bulk writer | `upsert_facts_bulk` F:1812–1895 | shares `_lock_fact_companies` (F:1830) |
-| J. Ingest and in-flight dedup | `ingest_companyfacts` F:1996–2037, `ingest_companyfacts_by_id` F:2040–2097 | `_inflight_syncs` F:1938 (per-process dict of `asyncio.Event`) |
+| D. Per-filing writer | `_lock_fact_companies` F:519–525, `upsert_facts` F:528–656, `process_filing_facts` F:659–718 | lazy `edgar.compat.xbrl_service` F:690 |
+| E. Jobs | `backfill_facts` F:721–864, `remediate_industry_facts` F:867–968, `backfill_company_sic` F:971–1041, `sync_companyfacts_batch` F:2100–2153 | `AFFECTED_FINANCIAL_CONCEPTS` F:38–41 |
+| F. Read model | `_fundamentals_payload` F:1044–1068, `get_filing_fundamentals` F:1071–1105 | — |
+| G. Companyfacts normalization and period labelling | `_classify_duration` F:1205–1215, `_collect_companyfacts_values` F:1218–1290, `_fiscal_year_windows` F:1293–1309, `_label_quarters` F:1315–1355, `normalize_companyfacts` F:1358–1512, `_is_financial_sic` F:1929–1932 | `COMPANYFACTS_DURATION_TAGS` F:1140–1176, `COMPANYFACTS_INSTANT_TAGS` F:1178–1198, windows F:1129–1131 |
+| H. Derived facts | `_matching_ytd9` F:1515–1542, `derive_q4_facts` F:1545–1606, `derive_q4_eps_facts` F:1627–1723, `derive_same_period_metrics` F:1726–1809 | `_EPS_SHARES_TAGS` F:1611–1617 |
+| I. Bulk writer | `upsert_facts_bulk` F:1812–1895 | shares `_lock_fact_companies` (F:1829) |
+| J. Ingest and in-flight dedup | `_companyfacts_fresh_result` F:1942–1968, `_persist_companyfacts_payload` F:1971–1993 (owns the ingest path's one commit, F:1984), `ingest_companyfacts` F:1996–2037, `ingest_companyfacts_by_id` F:2040–2097 | `_inflight_syncs` F:1938 (per-process dict of `asyncio.Event`) |
 
-**Public surface.** Twelve importers, all `from app.services import facts_service` plus attribute
-access: `ingest_companyfacts_by_id` (`backend/app/routers/analysis.py:92`,
+**Public surface.** Twelve importing files; nine bind the module object (`from app.services import
+facts_service`) and three import names directly (`peers_service.py:22`, `edgar/xbrl_service.py:1002`,
+`evals/copilot_bootstrap.py:101`): `ingest_companyfacts_by_id` (`backend/app/routers/analysis.py:92`,
 `backend/app/services/background_task_runner.py:43`), `get_filing_fundamentals`
 (`backend/app/routers/filings.py:510`), `backfill_facts` (`backend/app/routers/internal.py:175`,
 `backend/app/services/internal_task_runner.py:175`, `backend/scripts/backfill_facts.py:62`,
@@ -341,8 +348,8 @@ Three production sites import PRIVATE names: `backend/scripts/backfill_facts.py:
 `_parse_date`, `_QUARTER_PERIODS`, `_CF_QUARTER_WINDOW`, `_lock_fact_companies`), so a package split
 along the cluster lines is mechanical. The transport cut is the one that touches rule 5:
 `_fetch_companyfacts_async` is a sanctioned raw-HTTP owner (`httpx.AsyncClient` F:1917–1919 under
-`sec_rate_limiter.execute_with_backoff` F:1922, URL from `companyfacts_url` F:1913, User-Agent from
-`settings.SEC_USER_AGENT` F:1910, no breaker). It can move to `facts/transport.py` without changing
+`sec_rate_limiter.execute_with_backoff` F:1922, URL from `companyfacts_url` F:1914, User-Agent from
+`settings.SEC_USER_AGENT` F:1911, no breaker). It can move to `facts/transport.py` without changing
 the request path (same limiter singleton, same URL helper, same backoff ladder, same loop bridge
 F:491–506), and the file carries no `sec.gov` literal, so `backend/tests/unit/test_sec_gov_importers_allowlist.py`
 needs no new entry. What must change in the same PR is the prose that names the owner by file:
@@ -369,33 +376,33 @@ backend/app/services/facts/
 ```
 
 Phase maps (each step ≤80 lines):
-- `normalize_companyfacts` F:1358–1512 → root and IFRS meta F:1372–1377, duration collection
-  F:1379–1390, instant collection F:1392–1396, windows and labels with `_base_fact` lifted to top level
-  F:1398–1416, duration rows F:1418–1441, instant rows F:1443–1464, transient shares +
-  `derive_q4_eps_facts` F:1466–1486 (after `derive_q4_facts` F:1462), hard-reject before
-  `derive_same_period_metrics` F:1488–1495 (ordering pinned by `backend/tests/unit/test_companyfacts_ingest.py:216`),
-  identity dedup F:1502–1512.
-- `backfill_facts` F:721–864 → fetcher resolution and query F:757–779, counters F:781–790, extract
+- `normalize_companyfacts` F:1358–1512 → root and IFRS meta F:1374–1380, duration collection
+  F:1382–1389, instant collection F:1391–1395, windows and labels with `_base_fact` lifted to top level
+  F:1397–1415, duration rows F:1417–1438, instant rows F:1440–1460, transient shares +
+  `derive_q4_eps_facts` F:1464–1482 (after `derive_q4_facts` F:1462), hard-reject before
+  `derive_same_period_metrics` F:1484–1499 (ordering pinned by `backend/tests/unit/test_companyfacts_ingest.py:216`),
+  identity dedup F:1501–1512.
+- `backfill_facts` F:721–864 → fetcher resolution and query F:758–780, counters F:782–791, extract
   F:792–799, per-company authoritative cache and demotion guard F:800–819, process and dry-run
   rollback F:821–829, stats and audit log F:830–849, stats shape F:851–864 (pinned by
   `backend/tests/unit/test_facts_service.py:737`).
-- `upsert_facts` F:528–656 → lock, gate and cross-check F:562–577, counters and prefetch F:579–586,
-  identity hit or flag-only repair F:587–611, `flags_only` F:612–614, current-row query and
-  `newer_filing` predicate F:616–636, demote and insert F:637–641, commit and result keys F:643–656.
+- `upsert_facts` F:528–656 → lock, gate and cross-check F:564–579, counters and prefetch F:581–588,
+  identity hit or flag-only repair F:589–616, `flags_only` F:617–619, current-row query and
+  `newer_filing` predicate F:621–641, demote and insert F:642–646, commit and result keys F:648–656.
 
 **Anchor tests to add first** (F0, tests-only):
 1. `backfill_facts` default fetcher: with `companyfacts_fetcher=None, cross_check=True` it calls the
-   module's `_fetch_companyfacts_sync` once per company and caches by company (F:762, F:800–807);
+   module's `_fetch_companyfacts_sync` once per company and caches by company (F:763, F:804–809);
    every existing call injects a fetcher or disables the cross-check (`test_facts_service.py:548-885`).
 2. `_fetch_companyfacts_sync` edge branches: inside a running loop → None without touching the
-   limiter (F:491–494); `FuturesTimeoutError` → cancel and None (F:502–505). `TestCompanyfactsSyncBridge`
+   limiter (F:493–496); `FuturesTimeoutError` → cancel and None (F:502–505). `TestCompanyfactsSyncBridge`
    (`test_facts_service.py:1175-1292`) covers the other seven branches.
 3. `remediate_industry_facts` atomic rollback when `process_filing_facts` raises after the delete
    (F:947–962); `TestRemediateIndustryFacts` (:1002–1097) covers replace, dry-run and None-skip only.
 4. `sync_companyfacts_batch` per-company failure handling and cohort precedence (F:2100–2153); it is
    only ever patched today (`backend/tests/unit/test_internal_durable_tasks.py:203`).
 5. `normalize_companyfacts` in-batch identity dedup, first wins (F:1502–1512).
-6. `extract_authoritative_values` restatement tie-break (`<=` at F:412–415).
+6. `extract_authoritative_values` restatement tie-break (`<=` at F:420).
 Already covered, do not duplicate: untied-companyfacts preservation and newer-amendment protection
 (`backend/tests/unit/test_data_completeness.py:324,439`), NULL-twin demotion (:263), the ordered
 `FOR NO KEY UPDATE` lock compiled against the postgresql dialect for both writers (:420–435),
@@ -403,18 +410,22 @@ dry-run and flags-only (`test_facts_service.py:608-736`).
 
 **Traps.**
 - Monkeypatch targets that bind to module globals at call time: `backend/tests/unit/test_job_reporting.py:242`
-  patches `facts_service.process_filing_facts` and expects `backfill_facts` (F:808) to see it;
+  patches `facts_service.process_filing_facts` and expects `backfill_facts` (F:824) to see it;
   `backend/tests/unit/test_analysis_coverage_pool_lifetime.py:78` patches
-  `facts_service._fetch_companyfacts_async` and expects `ingest_companyfacts_by_id` (F:2081) to see
+  `facts_service._fetch_companyfacts_async` and expects `ingest_companyfacts_by_id` (F:2082) to see
   it; :81 and :140 call `facts_service._inflight_syncs.clear()` in place. After the split each needs a
   one-line re-point to the leaf module (`facts.upsert`, `facts.ingest`) in the same PR, and
   `ingest.py` must own the one `_inflight_syncs` object the façade re-exports.
 - `test_facts_service.py:1278-1292` reads the URL off `request_fn.__closure__` by the free-variable
   name `url`; the `_get` closure (F:1916) must keep that name.
 - Commit ownership is per function and must not move: `upsert_facts` F:648–649,
-  `process_filing_facts` F:709/716–717, `backfill_facts` F:810/829, `remediate_industry_facts`
-  F:957/959, `backfill_company_sic` F:1022–1040 (toggles `expire_on_commit`), `upsert_facts_bulk`
-  F:1893–1894, `sync_companyfacts_batch` F:2124–2152.
+  `process_filing_facts` (passes `commit=False` at F:710, commits rows and stamp together at
+  F:716–717), `backfill_facts` (delegates through `commit=not dry_run` at F:826 and rolls back dry
+  runs at F:829), `remediate_industry_facts` F:957/959, `backfill_company_sic` (toggles
+  `expire_on_commit` at F:1008–1009, batch commits at F:1035/1038, restores at F:1040),
+  `upsert_facts_bulk` F:1893–1894, `_persist_companyfacts_payload` F:1984 (the ingest path's single
+  commit); `sync_companyfacts_batch` owns no commit, only the `expire_on_commit` toggle
+  F:2130–2131/2152 and the per-company rollback F:2139.
 - Import cycle: `backend/app/services/edgar/__init__.py:35-36` eagerly loads `client` and
   `xbrl_service`; `xbrl_service.py:1002` lazily imports facts_service; facts_service imports edgar only
   lazily. `facts/concepts.py` must never import `app.services.edgar` at module level.
@@ -443,10 +454,10 @@ T:366, 946, 1247, 1255, 1667):
 | B. Dataset grid and growth math | `_growth` T:228, `_cagr` T:248, `build_dataset` T:271–530, `dataset_fingerprint` T:739–743, `marker_index` T:1322–1351 | reads `settings.ANALYSIS_MAX_ANNUAL_PERIODS` T:331, `ANALYSIS_MAX_QUARTERLY_PERIODS` T:359 |
 | C. Detectors | `detect_growth_deceleration` T:546–588 … `detect_inflections` T:726–733 | `_DETECTORS` T:717–723; `detect_inflections` swallows detector exceptions (untested) |
 | D. Formatting | `_format_value` T:746, `_pct_str` T:799, `_fmt_growth` T:803, `_ratio_threshold_value` T:844 | `compact_dataset_for_prompt` T:756–796 is NOT on the live prompt path (the stream sends `compact_observation_catalogue`, T:1810); only tests call it (`backend/tests/unit/test_trend_analysis_service.py:854,883,977,1000`) |
-| E. Observation catalogue and selection | `TrendObservation` T:830–836, `build_observation_catalogue` T:935–1237, `parse_observation_selection` T:1264–1284, `render_observation_selection` T:1287–1311 | `ANALYSIS_SECTIONS` T:816–823; order is load-bearing (first-wins dedup T:947–953, order-dependent `required` T:1061–1063 and T:1151–1153, fallback to `section_items[0]` T:1304–1306) and the catalogue text IS the prompt's user message (T:1806–1813) |
+| E. Observation catalogue and selection | `TrendObservation` T:830–836, `build_observation_catalogue` T:935–1237, `parse_observation_selection` T:1264–1284, `render_observation_selection` T:1287–1311 | `ANALYSIS_SECTIONS` T:816–823; order is load-bearing (first-wins dedup T:953–956 inside `add`, order-dependent `required` T:1064–1066 and T:1151–1153, fallback to `section_items[0]` T:1304–1306) and the catalogue text IS the prompt's user message (T:1807–1814) |
 | F. Citations | `_point_citation` T:1366–1399, `resolve_narrative_citations` T:1402–1447 | `_illegal_refs` T:1450–1460 is dead |
 | G. Numeric-fidelity scan | `scan_numeric_fidelity` T:1539–1579 | `_mismatch_details` T:1582 and `_retry_instruction` T:1593 are dead; `NOT_ENOUGH_DATA_SENTINEL` T:1356 unused |
-| H. Cache and persistence | `_load_cached_analysis` T:1616, `has_cached_analysis` T:1630–1640, `_persist_analysis` T:1643–1701 | owns its own `SessionLocal()` T:1665; commits at T:1684/1691/1694; swallows failures to `None` T:1696–1698 |
+| H. Cache and persistence | `_load_cached_analysis` T:1616, `has_cached_analysis` T:1630–1640, `_persist_analysis` T:1643–1701 | owns its own `SessionLocal()` T:1665; commits at T:1684/1692/1695; swallows failures to `None` T:1697–1699 |
 | I. Narrative streaming | `stream_trend_narrative` T:1704–1923 (async generator) | lazy imports T:1727–1729 (`SessionLocal`, `STREAM_ERROR_SENTINEL` + `openai_service`, `get_named_prompt`) |
 
 Dead code (zero callers in `app/`, `evals/`, `scripts/` by `git grep`): `_illegal_refs`,
@@ -456,13 +467,13 @@ Dead code (zero callers in `app/`, `evals/`, `scripts/` by `git grep`): `_illega
 (`from app.services import facts_service, trend_analysis_service`), which looks up `available_periods`
 (:158, :170), `build_dataset` (:207, :237), `has_cached_analysis` (:357), `stream_trend_narrative`
 (:374) and `PROMPT_VERSION` (:441) on the module object at call time. No module under `backend/evals/` imports
-it. Tests import 23 names including privates (`_growth`, `_fmt_growth`, `_pp_delta`,
-`_point_citation`, `_cagr`, `_has_minimum_analysis_data`, `NOT_MEANINGFUL`):
-`backend/tests/unit/test_trend_analysis_service.py:16`, `backend/tests/unit/test_analysis_stream.py:16`,
-`backend/tests/unit/test_data_completeness.py:21`.
+it. Three test files bind the module object (`backend/tests/unit/test_trend_analysis_service.py:16`,
+`backend/tests/unit/test_analysis_stream.py:16`, `backend/tests/unit/test_data_completeness.py:21`)
+and read 26 distinct attributes off it (23 in the first file alone), including the privates `_growth`,
+`_fmt_growth`, `_pp_delta`, `_point_citation`, `_cagr`, `_has_minimum_analysis_data` and `NOT_MEANINGFUL`.
 
-**Seams to cut.** The one tangle is B→C→E→A: detectors (C) call `_growth_operand_markers` (E, T:578),
-which calls `parse_period_key` (A, T:908). Cutting a `series.py` (`_series_map` T:536,
+**Seams to cut.** The one tangle is B→C→E→A: detectors (C) call `_growth_operand_markers` (E, T:571),
+which calls `parse_period_key` (A, T:909). Cutting a `series.py` (`_series_map` T:536,
 `_valued_points` T:540, `_growth_operand_points` T:902, `_growth_operand_markers` T:920) breaks it.
 Everything else is pure functions over dicts plus two self-contained DB units (H, and the read session
 in I at T:1733/1782). Admission, metering and the `analysis_inference_cost` event are NOT in this
@@ -497,7 +508,7 @@ Phase maps (each step ≤60 lines):
   T:1174–1202, watch next T:1204–1235.
 - `stream_trend_narrative` T:1704–1923 → `_assemble` (the DB unit T:1733–1782, returning a cached event
   or the dataset tuple), not-enough-data T:1784–1800, `_selection_messages` T:1802–1820, the provider
-  loop T:1824–1877 (keeps `openai_service.stream_chat(...)` T:1847–1850, sentinel handling T:1853–1857,
+  loop T:1824–1877 (keeps `openai_service.stream_chat(...)` T:1847–1852, sentinel handling T:1853–1857,
   `merge_chat_usage` T:1866), publication T:1879–1890, persistence + complete event T:1892–1923.
 
 **Anchor tests to add first** (T0, tests-only):
@@ -505,13 +516,14 @@ Phase maps (each step ≤60 lines):
    `build_observation_catalogue` on the `TestCodeOwnedObservations._dataset` fixture
    (`test_trend_analysis_service.py:200-238`); today's tests assert sentence membership only (:240–447).
 2. Selection prompt bytes: drive `stream_trend_narrative` through `_drain`
-   (`test_analysis_stream.py:194-204`) and pin the sha256 of both provider messages; only the retry
+   (`test_analysis_stream.py:196-206`) and pin the sha256 of both provider messages; only the retry
    substring is pinned today (:418–421). A byte change here is a `PROMPT_VERSION` event under
    `backend/evals/RUNBOOK.md:959-971`.
-3. `dataset_fingerprint` hex for a literal dataset; :933–958 pins inequality only, and a `json.dumps`
-   change at T:742 would silently invalidate every cached row (compare T:1752).
+3. `dataset_fingerprint` hex for a literal dataset; `test_trend_analysis_service.py:933-958` pins
+   determinism and inequality only, and a `json.dumps` change at T:742 would silently invalidate every
+   cached row (the fingerprint comparison is T:1753).
 4. A raising detector does not break `build_dataset` (the swallow at T:726–733 has no test).
-5. Exact key sets of the fresh (T:1906–1923) and cached (T:1763–1775) complete events.
+5. Exact key sets of the fresh (T:1906–1923) and cached (T:1761–1774) complete events.
 Already covered, no anchor needed: marker ordering, CAGR window, pp deltas, derived-Q4 badging
 (`test_trend_analysis_service.py:510-532,602,622,641-858`).
 
@@ -520,7 +532,7 @@ Already covered, no anchor needed: marker ordering, CAGR window, pp deltas, deri
   (`test_analysis_stream.py:597-612,729-731,755`; `backend/tests/unit/test_excel_export.py:323-327,354`;
   `backend/tests/unit/test_durable_request_ownership.py:29-32`).
 - Keep `openai_service` and `SessionLocal` lazily imported inside the narrative (T:1727–1729) and
-  cache (T:1662) units: `test_copilot_cost.py:176` patches `openai_service.openai_service` on the
+  cache (T:1662) units: `test_copilot_cost.py:177` patches `openai_service.openai_service` on the
   module and `test_data_completeness.py:31` patches `database.SessionLocal`; a hoisted import in
   `narrative.py` goes blind to both.
 - Do not put any of this under `app/services/ai/` (`test_llm_no_pii.py:35-49` walks that package;
