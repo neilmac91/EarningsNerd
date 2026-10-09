@@ -8,12 +8,13 @@ import { answerApi, API_ORIGIN, PANE, SUMMARY } from './fixtures/filing3Api'
  * DET-OVL-1 and DET-OVL-2). DOM and computed-style measurements only: this is not a screen-reader
  * or visual test.
  *
- * Muted ink (DESIGN_SYSTEM §2 and §7, the rule-12 gate for DC-TERTIARY): every piece of text painted
- * in the tertiary ink clears 4.5:1 against what is actually behind it. Tertiary (#6B7280) measures
- * 4.35:1 on the cream page ground, 4.26:1 on brand-weak and 4.04:1 on a 10% info tint, so muted
- * text on those grounds uses the secondary ink; tertiary stays on panel and white (4.63:1, 4.83:1).
- * The ink is read from tailwind.config.js, so a token change cannot leave the census looking at a
- * colour nothing uses; the census must also find tertiary text, or a broken probe would pass.
+ * Muted ink (DESIGN_SYSTEM §7, the rule-12 gate for DC-TERTIARY): every piece of text painted in the
+ * tertiary ink clears 4.5:1 against what is actually behind it. Tertiary (#636A77) computes to 4.9:1
+ * on the cream page ground, 4.8:1 on brand-weak, 5.2:1 on panel and 4.55:1 on a 10% info tint over
+ * panel, so captions, counts and micro-labels may use it on any of those grounds; copy the reader
+ * must read stays secondary. The ink is read from tailwind.config.js, so a token change cannot leave
+ * the census looking at a colour nothing uses; the census must also find tertiary text, or a broken
+ * probe would pass.
  * Light theme only: every dark pairing is the secondary-dark ink, which this change leaves alone.
  *
  * Heading outline (DET-OVL-1, DESIGN_SYSTEM §5): no visited route or state skips a level, in DOM
@@ -40,7 +41,7 @@ const hexToRgb = (hex: string) => {
   return `rgb(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255})`
 }
 const TERTIARY_INK = hexToRgb(TAILWIND.theme.extend.colors.text.tertiary.light)
-const LAUNCHER = 'button[aria-haspopup="dialog"][aria-label="Ask this Filing"]'
+const LAUNCHER = 'button[aria-haspopup="dialog"][aria-label="Source"]'
 
 const FOLDER = 'https://www.sec.gov/Archives/edgar/data/320193/000032019325000079/'
 const companyFiling = (id: number, filing_type: string, filing_date: string, report_date: string) => ({
@@ -199,7 +200,7 @@ test.describe('main routes at 1440x900, light theme', () => {
  * A GuidanceCard that stands in for a page's content sits directly under the page h1, so its title is
  * an h2 there (it is an h3 by default, for a card inside an h2 section). These are the states where a
  * reader lands on one: a guest, or a signed-in user whose run fails, opening a filing that has no
- * summary yet (the company page's "Open filing" leads here); a stored summary whose writer failed; an
+ * summary yet (where the company page's filing links lead); a stored summary whose writer failed; an
  * empty watchlist. Outline only: the watchlist's muted ink is a named candidate, not this gate's.
  */
 const CARD_STATES: { name: string; route: Route; card: string }[] = [
@@ -238,7 +239,9 @@ const CARD_STATES: { name: string; route: Route; card: string }[] = [
           r.fulfill({ status: 200, headers: corsFor(b), json: [] }),
         )
       },
-      ready: (p) => expect(p.getByRole('heading', { level: 1, name: 'Watchlist insights' })).toBeVisible(),
+      // The card itself, at whatever level it renders, so the outline is read once the insights have
+      // landed (a loading state may already paint the page h1).
+      ready: (p) => expect(p.getByRole('heading', { name: 'No watchlist companies yet' })).toBeVisible(),
     },
     card: 'No watchlist companies yet',
   },
