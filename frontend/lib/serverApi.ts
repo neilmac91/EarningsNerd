@@ -3,6 +3,7 @@ import { EXAMPLE_FILING_ID } from '@/lib/featureFlags'
 import type { Company } from '@/features/companies/api/companies-api'
 import type { Filing } from '@/features/filings/api/filings-api'
 import type { ChangeReport, Summary } from '@/features/summaries/api/summaries-api'
+import { isSummaryReady } from '@/features/summaries/lib/summaryPlaceholder'
 
 /**
  * Server-side data for the public pages (ISR). The homepage helpers return null on any
@@ -297,15 +298,15 @@ export const fetchWhatChangedServer = (filingId: number): Promise<ServerFetchRes
   fetchJsonResult<ChangeReport>(`/api/summaries/filing/${filingId}/what-changed`, 3600)
 
 /**
- * Whether a summary carries real, displayable content (vs the legacy "Generating summary"
- * placeholder). Keep in sync with `hasSummaryContent` in
- * features/summaries/hooks/useSummaryGeneration.ts: this server-side twin drives the
- * noindex decision on filing pages, so index/noindex must match what visitors actually see.
+ * Whether the filing page shows this summary's body: the one readiness rule (isSummaryReady), so
+ * placeholder filler and a stored failure, which the page shows as its error card, are not. It drives
+ * the filing page's noindex and description, so index/noindex and the snippet match what visitors
+ * actually see: a failure row stays out of the index and never lends its text ("requires OpenAI API
+ * key") to the description. The hero example skips such a summary too.
  */
 export const summaryHasDisplayableContent = <T extends { business_overview?: string | null }>(
   summary: T | null | undefined,
-): summary is T & { business_overview: string } =>
-  !!(summary?.business_overview && !summary.business_overview.includes('Generating summary'))
+): summary is T & { business_overview: string } => isSummaryReady(summary)
 
 // --- Signup gate (landing page access line) ---------------------------------------------------
 
