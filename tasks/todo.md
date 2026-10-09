@@ -1,3 +1,11 @@
+## 2026-10-09 — Design critique 2026-10: the homepage (PR 3 of the stack; frontend + one additive backend field)
+
+- Scope: canvas 1d (homepage search) on top of PR 2 (#1147).
+- Shipped: the company search names the filing a pick lands on: `latest_filing` on `/api/companies/search` (additive; `latest_filing_service`: the newest stored filing of the company list's forms that still stands, with summary readiness; DB-only, three queries per search, `company_list_forms` now shared with the filings list) and a second line in each option in the filing identity vocabulary; the price shows only when the search returned one (the unresolvable "Loading price..." and the pre/post-market third line are gone); a visual count + keyboard hint under the listbox. `HeroExample` as one surface (identity line, hairline figure strip, one evidence row from the live summary's first located risk excerpt, text-link CTA; no frame mockup, nested cards or sparkle chip). `TrustStrip` under the hero.
+- Not done, founder call: making "Find filings" the hero's one primary action (the canvas) would demote "See a live example", today's tracked hero CTA.
+- Verification: see the PR body.
+- [ ] Next in the stack: PR 4 loading and motion (P-09).
+
 ## 2026-10-09 — Design critique 2026-10: the company page (PR 2 of the stack; frontend)
 
 - Scope: canvas 1b (company page, dark) on top of PR 1 (#1146): the design package's unmerged `pr/filings-index` patches 0001 (SegmentedControl, compact toolbar fields, the calendar switch) and 0002 (FilingIndex, the company page rewire, busyControls gate edits), then the 1b extras. PR 1 already carries `filingPeriod` and the review doc; the 3-way merge drops the old filings card and with it PR 1's two pinned lint disables.

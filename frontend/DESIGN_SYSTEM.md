@@ -201,6 +201,14 @@ Search field     <Input icon={<Magnifier/>}>  — leading glyph with an explicit
                  a pl-11 override is Tailwind conflict-order-dependent — don't). Raw fields:
                  inputClasses({ leadingIcon: true }).
 
+Search option    <CompanySearch> results (2026-10 critique 1d) — an option is the company (name 14/600, then
+                 ticker · exchange in the data face, today's quote at the right only when the search returned
+                 one: never a "Loading price..." that cannot resolve) over the filing identity strip of the
+                 filing a pick lands on: "Latest 10-K · fiscal year ended … · filed … · summary ready" (the
+                 search's `latest_filing`, backend latest_filing_service: the company list's forms, newest
+                 that still stands). The listbox holds options only; the count and the "↑↓ to move · ↵ to
+                 open" hint sit under it, aria-hidden, the hint from sm up.
+
 Chat composer    <Textarea variant="composer">  — transparent, auto-growing, chrome-free field; the
                  app-owned shell carries inputClasses() + focus-within:border-brand +
                  focus-within:shadow-ring-brand (never double chrome).
@@ -417,6 +425,20 @@ Compare periods  <ComparePeriodsCard filing>  (features/filings, critique 1b + P
                  to /filing/{id}#what-changed. Same GET and query key as the filing page's section. States in
                  place: ledger bones, Notice + RetryButton, a plain line when nothing is comparable. No risk
                  diff until the backend serves one again.
+
+Hero example     <HeroExample example>  (features/marketing, critique 1d) — the example IS the product, on ONE
+                 surface (rounded-xl panel + hairline + e2, dark: fill + hairline): "Example summary" with the
+                 quality Badge, the identity line (company, then ticker · form · filed in the data face, Sep
+                 between), the summary's opening, the figures as ONE hairline strip (<dl> grid-cols-3, border-y
+                 + divide-x; ▲/▼ aria-hidden before the signed delta), one evidence row when the live summary
+                 has a located risk excerpt (pickEvidence: source_verified under the source owner; heading =
+                 excerptHeadings, blockquote clipped at 180 on a word with " …", a chip link "Located in the
+                 filing"), the EDGAR receipt, and a text-link CTA. No browser-frame mockup, no card in the
+                 card, no sparkle chip, no tinted CTA. The static fallback has no evidence row.
+
+Trust strip      <TrustStrip>  under the hero: a hairline-topped list of plain statements, each scoped to what
+                 the implementation establishes ("where a match is found"); "generated" stays distinct from
+                 "the filing's own words".
 
 Evidence rows    <SummaryRisks>  (P-03) — one hairline list inside the section: a row is an h3 (14/600, the
                  opening clause of the row's own verbatim excerpt, unique per row via excerptHeadings — the
