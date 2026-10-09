@@ -27,16 +27,19 @@ Verdicts: MISSING (defined before, nowhere after), CHANGED (the normalised text 
 (defined in more than one new file, e.g. a ``logger`` per sub-module, whose logger NAME changes with
 the module), SIDE EFFECT (a NEW symbol that runs code at import, which a move never adds; default
 deny, at the statement and the expression level: only a docstring or literal, an assignment of a
-literal, a name, or a display of those to plain names, and a def or class whose decorators, defaults,
-annotations and bases are inert, is inert. Defaults must be such values and annotations and bases type
-expressions; a def's or lambda's body runs later and is not read. ``property``, ``staticmethod``,
-``classmethod``, ``dataclass`` and the like are inert decorators; a class keyword such as ``metaclass=``
-is not; a call, subscript, attribute read, operator or unpacking in a value is not) and ADDED (other
-new symbols, such as the helpers a split introduces, or a façade's ``__all__``). Limit: code that a new
-class runs through a BASE (an inherited metaclass, or the base's ``__init_subclass__``) is not visible in
-the AST, so a new class with bases is ADDED; read every ADDED class's bases. The exit status is 0 only
-when nothing is MISSING, CHANGED, DUPLICATE or SIDE EFFECT beyond the symbols passed with ``--allow``;
-each allowed symbol is a disclosed delta the PR body must list, and its diff is printed with it.
+literal, a name, or a display of those to plain names, and a def or class whose decorators, defaults
+and annotations are inert, is inert. Defaults must be such values; annotations must be bare names or
+literals unless the module has ``from __future__ import annotations``; class bases must be plain names;
+a def's or lambda's body runs later and is not read. ``property``, ``staticmethod``, ``classmethod``,
+``dataclass`` and the like are inert decorators; a class keyword such as ``metaclass=`` is not; a call,
+subscript, attribute read, operator or unpacking in a value is not), REORDERED (an old symbol that now
+sits above one it followed in the same new file: module-level code runs top to bottom, so ``B = A``
+above ``A = 1`` raises at import) and ADDED (other new symbols, such as the helpers a split introduces,
+or a façade's ``__all__``). Limit: code that a new class runs through a BASE (an inherited metaclass, or
+the base's ``__init_subclass__``) is not visible in the AST, so a new class with bases is ADDED; read every
+ADDED class's bases. The exit status is 0 only when nothing is MISSING, CHANGED, DUPLICATE, SIDE EFFECT or
+REORDERED beyond the symbols passed with ``--allow``; each allowed symbol is a disclosed delta the PR body
+must list, and its diff is printed with it.
 """
 from __future__ import annotations
 
@@ -119,27 +122,18 @@ def _inert_value(node: ast.expr | None) -> bool:
     return False
 
 
-def _type_expression(node: ast.expr | None) -> bool:
-    """An annotation or base built from names, attribute reads, subscripts, literals, ``|`` unions and
-    tuples. It runs only typing machinery (``__class_getitem__``, ``__or__``), which is taken as inert."""
-    if node is None or isinstance(node, (ast.Constant, ast.Name)):
-        return True
-    if isinstance(node, ast.Attribute):
-        return _type_expression(node.value)
-    if isinstance(node, ast.Subscript):
-        return _type_expression(node.value) and _type_expression(node.slice)
-    if isinstance(node, (ast.Tuple, ast.List)):
-        return all(_type_expression(elt) for elt in node.elts)
-    if isinstance(node, ast.BinOp):
-        return isinstance(node.op, ast.BitOr) and _type_expression(node.left) and _type_expression(node.right)
-    return False
+def _annotation(node: ast.expr | None, postponed: bool) -> bool:
+    """An annotation runs nothing when the module postpones annotations (``from __future__ import
+    annotations``), or when it is a bare name or a literal. Otherwise a subscript runs ``__class_getitem__``,
+    an attribute read a module's ``__getattr__`` and a ``|`` union ``__or__``, at import."""
+    return postponed or node is None or isinstance(node, (ast.Constant, ast.Name))
 
 
-def _inert_arguments(args: ast.arguments) -> bool:
-    """A def's or lambda's defaults (evaluated at definition) are inert values, its annotations type expressions."""
+def _inert_arguments(args: ast.arguments, postponed: bool = True) -> bool:
+    """A def's or lambda's defaults (evaluated at definition) are inert values, and its annotations inert."""
     params = [*args.posonlyargs, *args.args, *args.kwonlyargs, *(a for a in (args.vararg, args.kwarg) if a)]
     defaults = [*args.defaults, *(d for d in args.kw_defaults if d is not None)]
-    return all(map(_inert_value, defaults)) and all(_type_expression(p.annotation) for p in params)
+    return all(map(_inert_value, defaults)) and all(_annotation(p.annotation, postponed) for p in params)
 
 
 def _inert_decorator(decorator: ast.expr) -> bool:
@@ -157,11 +151,12 @@ def _plain_target(target: ast.expr) -> bool:
     return isinstance(target, ast.Name)
 
 
-def _inert(stmt: ast.stmt) -> bool:
+def _inert(stmt: ast.stmt, postponed: bool) -> bool:
     """Whether a NEW statement runs no code at import beyond binding names (default deny). Inert: ``pass``,
     a docstring or bare literal, an assignment of an inert value to plain names, and a def or class whose
-    decorators, defaults, annotations and bases are inert (a def's body runs later; a class body must be
-    inert too, and a class keyword such as ``metaclass=`` runs class-creation code)."""
+    decorators, defaults and annotations are inert (a def's body runs later). A class's bases must be plain
+    names (they are always evaluated), its body inert too, and a class keyword such as ``metaclass=``
+    runs class-creation code. ``postponed``: the module has ``from __future__ import annotations``."""
     if isinstance(stmt, ast.Pass):
         return True
     if isinstance(stmt, ast.Expr):
@@ -169,17 +164,19 @@ def _inert(stmt: ast.stmt) -> bool:
     if isinstance(stmt, ast.Assign):
         return all(map(_plain_target, stmt.targets)) and _inert_value(stmt.value)
     if isinstance(stmt, ast.AnnAssign):
-        return isinstance(stmt.target, ast.Name) and _type_expression(stmt.annotation) and _inert_value(stmt.value)
+        return (isinstance(stmt.target, ast.Name) and _annotation(stmt.annotation, postponed)
+                and _inert_value(stmt.value))
     if isinstance(stmt, (ast.FunctionDef, ast.AsyncFunctionDef)):
-        return (all(map(_inert_decorator, stmt.decorator_list)) and _inert_arguments(stmt.args)
-                and _type_expression(stmt.returns))
+        return (all(map(_inert_decorator, stmt.decorator_list)) and _inert_arguments(stmt.args, postponed)
+                and _annotation(stmt.returns, postponed))
     if isinstance(stmt, ast.ClassDef):
         return (not stmt.keywords and all(map(_inert_decorator, stmt.decorator_list))
-                and all(map(_type_expression, stmt.bases)) and all(map(_inert, stmt.body)))
+                and all(isinstance(base, ast.Name) for base in stmt.bases)
+                and all(_inert(member, postponed) for member in stmt.body))
     return False
 
 
-def _runs_at_import(name: str, text: str) -> bool:
+def _runs_at_import(name: str, text: str, postponed: bool = False) -> bool:
     """A NEW symbol that executes code when its module is imported: anything that is not ``_inert``. An
     attribute or item assignment (``effect:``) and a guard block (``guard:``) always do. Class members
     (keyed ``Class.member``) follow the same rule."""
@@ -188,7 +185,13 @@ def _runs_at_import(name: str, text: str) -> bool:
         member = name
     if member.startswith(("effect:", "guard:")):
         return True
-    return not all(_inert(stmt) for stmt in ast.parse(text).body)
+    return not all(_inert(stmt, postponed) for stmt in ast.parse(text).body)
+
+
+def _postpones_annotations(source: str) -> bool:
+    """Whether the module has ``from __future__ import annotations``, so no annotation is evaluated."""
+    return any(isinstance(node, ast.ImportFrom) and node.module == "__future__"
+               and any(alias.name == "annotations" for alias in node.names) for node in ast.parse(source).body)
 
 
 def _guards(body: list[ast.stmt]) -> list[ast.stmt]:
@@ -240,23 +243,30 @@ def _without_imports(node: ast.stmt) -> ast.stmt:
 
 def symbols(source: str) -> dict[str, str]:
     """Map every symbol the source defines to its normalised (``ast.unparse``) text."""
+    return _collect(source)[0]
+
+
+def _collect(source: str) -> tuple[dict[str, str], dict[str, int]]:
+    """Every symbol's normalised text, and the line where it is first defined (its initialisation order)."""
     tree = ast.parse(source)
     found: dict[str, str] = {}
+    first_line: dict[str, int] = {}
 
-    def put(key: str, text: str) -> None:
+    def put(key: str, text: str, line: int) -> None:
         found[key] = f"{found[key]}\n{text}" if key in found else text  # every definition, in source order
+        first_line[key] = min(first_line.get(key, line), line)
 
     body = list(tree.body)
     if body and _is_docstring(body[0]):
         body = body[1:]  # the module docstring is rewritten by a move by design
     for guard in _guards(body):
         if _holds_code(guard):
-            put("guard:" + _guard_header(guard), ast.unparse(_without_imports(guard)))
+            put("guard:" + _guard_header(guard), ast.unparse(_without_imports(guard)), guard.lineno)
     for node in _flatten(body):
         if isinstance(node, (ast.Import, ast.ImportFrom)):
             continue
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
-            put(node.name, ast.unparse(node))
+            put(node.name, ast.unparse(node), node.lineno)
         elif isinstance(node, ast.ClassDef):
             members = [m for m in _flatten(node.body) if not isinstance(m, (ast.Import, ast.ImportFrom))]
             header = ast.ClassDef(
@@ -264,10 +274,11 @@ def symbols(source: str) -> dict[str, str]:
                 body=[ast.Pass()], decorator_list=node.decorator_list,
                 **({"type_params": node.type_params} if hasattr(node, "type_params") else {}),
             )
-            put(node.name, ast.unparse(ast.fix_missing_locations(header)))
+            put(node.name, ast.unparse(ast.fix_missing_locations(header)), node.lineno)
             for guard in _guards(node.body):
                 if _holds_code(guard):
-                    put(f"{node.name}.guard:{_guard_header(guard)}", ast.unparse(_without_imports(guard)))
+                    put(f"{node.name}.guard:{_guard_header(guard)}", ast.unparse(_without_imports(guard)),
+                        guard.lineno)
             for member in members:
                 if isinstance(member, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
                     key = member.name
@@ -279,17 +290,17 @@ def symbols(source: str) -> dict[str, str]:
                     continue
                 else:
                     key = "expr:" + ast.unparse(member)
-                put(f"{node.name}.{key}", ast.unparse(member))
+                put(f"{node.name}.{key}", ast.unparse(member), member.lineno)
         elif isinstance(node, ast.Assign):
-            put(_assignment_key(node.targets), ast.unparse(node))
+            put(_assignment_key(node.targets), ast.unparse(node), node.lineno)
         elif isinstance(node, (ast.AnnAssign, ast.AugAssign)):
-            put(_assignment_key([node.target]), ast.unparse(node))
+            put(_assignment_key([node.target]), ast.unparse(node), node.lineno)
         elif isinstance(node, ast.Pass):
             continue
         else:
             text = ast.unparse(node)
-            put("expr:" + text, text)
-    return found
+            put("expr:" + text, text, node.lineno)
+    return found, first_line
 
 
 @dataclass
@@ -301,10 +312,11 @@ class Report:
     side_effects: dict[str, str] = field(default_factory=dict)  # new import-time statement -> new file
     added: dict[str, str] = field(default_factory=dict)  # symbol -> new file
     allowed: dict[str, str] = field(default_factory=dict)  # disclosed symbol -> what changed
+    reordered: dict[str, str] = field(default_factory=dict)  # symbol -> where it now sits out of order
 
     @property
     def ok(self) -> bool:
-        return not (self.missing or self.changed or self.duplicate or self.side_effects)
+        return not (self.missing or self.changed or self.duplicate or self.side_effects or self.reordered)
 
 
 def _delta(name: str, text: str | None, homes: list[str], new_by_file: dict[str, dict[str, str]]) -> str:
@@ -322,9 +334,12 @@ def _delta(name: str, text: str | None, homes: list[str], new_by_file: dict[str,
 
 
 def compare(old_source: str, new_sources: dict[str, str], allow: frozenset[str] = frozenset()) -> Report:
-    """Diff the old file's symbols against the union of the new files' symbols."""
-    old = symbols(old_source)
-    new_by_file = {path: symbols(src) for path, src in new_sources.items()}
+    """Diff the old file's symbols against the union of the new files' symbols, and check that the old
+    symbols each new file holds keep their old relative order (module-level code runs top to bottom, so
+    ``B = A`` above ``A = 1`` raises at import)."""
+    old, old_lines = _collect(old_source)
+    collected = {path: _collect(src) for path, src in new_sources.items()}
+    new_by_file = {path: texts for path, (texts, _) in collected.items()}
     where: dict[str, list[str]] = {}
     for path, syms in new_by_file.items():
         for name in syms:
@@ -354,10 +369,20 @@ def compare(old_source: str, new_sources: dict[str, str], allow: frozenset[str] 
             report.allowed[name] = _delta(name, None, homes, new_by_file)
         elif len(homes) > 1:
             report.duplicate[name] = homes
-        elif _runs_at_import(name, new_by_file[homes[0]][name]):
+        elif _runs_at_import(name, new_by_file[homes[0]][name], _postpones_annotations(new_sources[homes[0]])):
             report.side_effects[name] = homes[0]
         else:
             report.added[name] = homes[0]
+    old_rank = {name: rank for rank, name in enumerate(sorted(old, key=old_lines.__getitem__))}
+    for path, (texts, lines) in collected.items():
+        placed = sorted((n for n in texts if n in old_rank and n not in allow and where[n] == [path]),
+                        key=lines.__getitem__)
+        latest = None  # the held symbol that came latest in the old file, so far
+        for name in placed:
+            if latest is not None and old_rank[name] < old_rank[latest]:
+                report.reordered[name] = f"{path}: now after {latest}, which it preceded"
+            else:
+                latest = name
     return report
 
 
@@ -382,6 +407,8 @@ def render(report: Report) -> str:
         lines.append(f"DUPLICATE  {name}: {', '.join(homes)}")
     for name, home in sorted(report.side_effects.items()):
         lines.append(f"SIDE EFFECT {name} ({home}): runs at import; a move never adds one")
+    for name, where in sorted(report.reordered.items()):
+        lines.append(f"REORDERED  {name} ({where}): module-level code runs in order")
     for name, home in sorted(report.added.items()):
         lines.append(f"ADDED      {name} ({home})")
     for name, delta in sorted(report.allowed.items()):
@@ -390,7 +417,8 @@ def render(report: Report) -> str:
     lines.append(
         f"pure move: {verdict} ({report.moved} symbols identical, {len(report.missing)} missing, "
         f"{len(report.changed)} changed, {len(report.duplicate)} duplicated, "
-        f"{len(report.side_effects)} side effects, {len(report.added)} added, {len(report.allowed)} allowed)"
+        f"{len(report.side_effects)} side effects, {len(report.reordered)} reordered, {len(report.added)} added, "
+        f"{len(report.allowed)} allowed)"
     )
     return "\n".join(lines)
 

@@ -5,8 +5,9 @@ so each verdict it can return is pinned here on small synthetic modules: an hone
 changed token, a dropped symbol, a duplicated definition, a changed class member, a changed arm of a
 rebound name, a changed guard, a statement moved out of its guard and an added import-time side effect
 (an assignment whose value calls; a call in a new class body, default, decorator or lambda default; a
-class keyword such as ``metaclass=``; ``raise``, ``assert`` or ``del``; and a value that subscripts,
-unpacks, reads an attribute or applies an operator) each fail; a disclosed delta passes with its diff shown.
+class keyword such as ``metaclass=``; ``raise``, ``assert`` or ``del``; a value that subscripts, unpacks,
+reads an attribute or applies an operator; and an evaluated annotation) and a reordered symbol each fail; a
+disclosed delta passes with its diff shown.
 """
 from tests.support.ast_move_proof import compare, render
 
@@ -183,15 +184,40 @@ def test_only_inert_definitions_are_added_and_everything_else_runs_at_import():
 
 def test_a_value_is_inert_only_when_it_is_a_literal_a_name_or_a_display_of_those():
     """A subscript, unpacking, operator or attribute read runs a user-defined method (``__getitem__``,
-    ``__iter__``, ``__add__``, ``__getattr__``) with no call node; annotations may be type expressions."""
+    ``__iter__``, ``__add__``, ``__getattr__``) with no call node."""
     added = ("\nTOKEN = REGISTRY['x']\nVALUES = [*REGISTRY]\nTOTAL = LEFT + RIGHT\nFLAG = settings.FLAG\n"
-             "\nNAMES = ['a', 'b']\nALIAS = clip\nLIMITS: dict[str, int | None] = {'a': 1, 'b': -2}\n"
-             "\ndef shaped(value: Optional[list[int]] = None, *, key: str = 'k') -> tuple[int, ...]:\n"
+             "\nNAMES = ['a', 'b']\nALIAS = clip\nLIMITS: dict = {'a': 1, 'b': -2}\n"
+             "\ndef shaped(value: int = None, *, key: str = 'k') -> tuple:\n"
              "    return value\n"
              "\ndef keyed(value=REGISTRY['x']):\n    return value\n")
     report = compare(OLD, _move(**{"app/x/helpers.py": HELPERS + added}))
     assert set(report.side_effects) == {"TOKEN", "VALUES", "TOTAL", "FLAG", "keyed"}
     assert {"NAMES", "ALIAS", "LIMITS", "shaped"} <= set(report.added)
+
+
+def test_annotations_are_evaluated_unless_the_module_postpones_them():
+    """Without ``from __future__ import annotations``, a subscripted, dotted or ``|`` annotation runs
+    ``__class_getitem__``, a module's ``__getattr__`` or ``__or__`` at import; a class base always runs."""
+    typed = ("def typed(value: Meta[int]) -> None:\n    return None\n"
+             "\nLIMIT: typing.Final = 3\n\nWIDTH: int | None = None\n\nclass Pair(Generic[T]):\n    pass\n")
+    evaluated = compare("", {"app/x/a.py": typed})
+    assert set(evaluated.side_effects) == {"typed", "LIMIT", "WIDTH", "Pair"}
+    postponed = compare("", {"app/x/a.py": "from __future__ import annotations\n\n" + typed})
+    assert set(postponed.side_effects) == {"Pair"}  # bases are evaluated whatever the module postpones
+    assert set(postponed.added) == {"typed", "LIMIT", "WIDTH"}
+
+
+def test_the_old_symbols_in_each_new_file_keep_their_old_order():
+    """Module-level code runs top to bottom: ``B = A`` above ``A = 1`` raises at import, with every symbol's
+    text unchanged. Order is checked within each new file, so a split across files is free to regroup."""
+    report = compare("A = 1\nB = A\n", {"app/x/a.py": "B = A\nA = 1\n"})
+    assert not report.ok
+    assert report.reordered == {"A": "app/x/a.py: now after B, which it preceded"}
+    assert "REORDERED  A" in render(report)
+    assert compare("A = 1\nB = A\n", {"app/x/a.py": "B = A\n", "app/x/b.py": "A = 1\n"}).ok
+    members = compare("class C:\n    A = 1\n    B = A\n", {"app/x/a.py": "class C:\n    B = A\n    A = 1\n"})
+    assert members.reordered == {"C.A": "app/x/a.py: now after C.B, which it preceded"}
+    assert compare("A = 1\nB = A\n", {"app/x/a.py": "B = A\nA = 1\n"}, frozenset({"A"})).ok
 
 def test_an_added_import_time_side_effect_fails_until_disclosed():
     files = _move(**{"app/x/helpers.py": HELPERS + "\nsettings.STRICT = False\nregister(clip)\n"})
