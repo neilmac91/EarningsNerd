@@ -31,7 +31,8 @@ import { describe, expect, it } from 'vitest'
  * Scope: the chrome a keyboard user tabs through on every route, discovered rather than listed (see
  * CHROME_ROOTS): everything app/layout.tsx mounts (the site header with its menus, the footer, the
  * verification banner and prompt, the cookie-consent bar, the providers' error boundary and feedback
- * widget), the auth routes' shell and the page header, with every module they import. The page header
+ * widget), every route layout or template under app/ (the admin section's nav), the auth routes' shell
+ * and the page header, with every module they import. The page header
  * also renders the controls a page passes into its `actions` slot (the dashboard's "Log out"), so every
  * `<SecondaryHeader actions={…}>` in the app is scanned too, and its controls must be written inline. A
  * page's other controls are not chrome: the filing identity strip's breadcrumb carries the recipe but
@@ -48,6 +49,24 @@ const ROOT = path.resolve(__dirname, '../..')
  * below. A new banner, menu or widget the chrome imports is scanned without anyone listing it.
  */
 const CHROME_ROOTS = ['app/layout.tsx', 'features/auth/components/AuthShell.tsx', 'components/SecondaryHeader.tsx']
+
+/**
+ * Every route layout and template under app/ (`app/admin/layout.tsx`'s section nav, say). Next composes
+ * them around a route's pages from the file system, never through an import, so the import graph from
+ * CHROME_ROOTS cannot reach them; they are roots of their own.
+ */
+function routeLayouts(root: string = ROOT): string[] {
+  const out: string[] = []
+  const walk = (dir: string) => {
+    for (const entry of readdirSync(path.join(root, dir), { withFileTypes: true })) {
+      const rel = path.join(dir, entry.name)
+      if (entry.isDirectory()) walk(rel)
+      else if (entry.name === 'layout.tsx' || entry.name === 'template.tsx') out.push(rel)
+    }
+  }
+  walk('app')
+  return out.sort()
+}
 
 /** Chrome files the scan skips, each with its reason. Shrink-only: fix the file and delete its line. */
 const NOT_SCANNED: Record<string, string> = {}
@@ -296,10 +315,10 @@ function appSources(): string[] {
 }
 
 describe('every Tab stop in the site chrome carries the brand focus ring (EN-05c)', () => {
-  const discovered = chromeFiles()
+  const discovered = chromeFiles([...CHROME_ROOTS, ...routeLayouts()])
 
   it('the discovery reaches the chrome it is for (a resolver that finds nothing must not pass)', () => {
-    for (const file of ['components/Header.tsx', 'components/Footer.tsx', 'components/ThemeToggle.tsx', 'features/auth/components/UserMenu.tsx', 'features/notifications/components/NotificationBell.tsx', 'features/auth/components/VerificationBanner.tsx', 'components/CookieConsent.tsx']) {
+    for (const file of ['components/Header.tsx', 'components/Footer.tsx', 'components/ThemeToggle.tsx', 'features/auth/components/UserMenu.tsx', 'features/notifications/components/NotificationBell.tsx', 'features/auth/components/VerificationBanner.tsx', 'components/CookieConsent.tsx', 'app/admin/layout.tsx']) {
       expect(discovered, file).toContain(file)
     }
     for (const file of Object.keys(NOT_SCANNED)) expect(discovered, `${file} is no longer chrome: drop its exemption`).toContain(file)
