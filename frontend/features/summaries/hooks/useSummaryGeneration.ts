@@ -152,7 +152,7 @@ export function useSummaryGeneration({
       setIsStreaming(true)
       setStreamingText('')
       setStreamingStage('initializing')
-      setStreamingMessage(options?.force ? 'Regenerating analysis...' : 'Initializing AI analysis...')
+      setStreamingMessage(options?.force ? 'Regenerating the summary…' : 'Reading the filing…')
 
       try {
         await generateSummaryStream(

@@ -95,6 +95,8 @@ export default function FilingViewer({ filingId, filingLabel, secUrl, embedded =
   // Once content is rendered and a citation is pending, locate + highlight the passage.
   const activeExcerpt = request?.citation.excerpt
   const activeNonce = request?.nonce
+  // The "Showing" line names the cited passage the reader scrolled to (2026-10 critique P-06).
+  const showingLabel = request ? request.citation.section_ref?.trim() || 'Cited passage' : null
   useEffect(() => {
     if (!active || status !== 'ready' || !activeExcerpt || !contentRef.current) return
     // Defer a frame so ReactMarkdown has painted before we walk its text nodes.
@@ -160,6 +162,11 @@ export default function FilingViewer({ filingId, filingLabel, secUrl, embedded =
 
       {status === 'ready' && (
         <div className="flex min-h-0 flex-1 flex-col">
+          {showingLabel && !passageMissing && (
+            <p className="px-4 pt-3 font-data text-xs text-brand-strong dark:text-brand-strong-dark">
+              Showing · {showingLabel}
+            </p>
+          )}
           {passageMissing && (
             <p className="border-b border-warning-light/20 dark:border-warning-dark/20 bg-warning-light/10 dark:bg-warning-dark/10 px-4 py-2 text-xs text-warning-light dark:text-warning-dark">
               Couldn’t pinpoint the exact passage, so this is the full filing.{' '}

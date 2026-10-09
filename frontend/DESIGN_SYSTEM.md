@@ -23,7 +23,7 @@ companion to `DESIGN.md`, not a replacement for the components or the checks bel
 |------|-------|------|---------|
 | **Brand** | `brand #4F7A63` (**fill only**) / `brand-strong #3C6650` (text/links) / `brand-emphasis #345C48` (active) / `brand-weak #ECF2EE` (tint) / `brand-border #CFE0D6` | `brand-dark #7FB295` (fill/accent) / `brand-strong-dark #98C5AD` (text/links) / `brand-fill-dark #569272` (active) / `brand-weak-dark` / `brand-border-dark` | Primary actions, links, accents, focus rings, active states |
 | **Surface** | `background-light #F4F3EE` (cream page) / `panel-light #FBFAF6` (card) | `background-dark #0B1120` / `panel-dark #1F2937` | Page + card backgrounds |
-| **Text** | `text-primary-light #1A1A17` (espresso — heading ink is the SAME value; walnut `#3A2E26` retired) / `secondary #374151` / `tertiary #6B7280` | `text-primary-dark #D7DADC` / `secondary #9CA3AF` | Body + headings (see §4) |
+| **Text** | `text-primary-light #1A1A17` (espresso — heading ink is the SAME value; walnut `#3A2E26` retired) / `secondary #374151` / `tertiary #636A77` (4.9:1 on cream, 5.2:1 on panel; was `#6B7280` at 4.35:1 before the 2026-10 critique's P-02) | `text-primary-dark #D7DADC` / `secondary #9CA3AF` | Body + headings (see §4) |
 | **Border** | `border-light #E5E7EB` | `border-dark` / `white/10` | Hairlines |
 | **Status** | success `#15803D` · warning `#92400E` · error `#B91C1C` (+ `error.emphasis #991B1B` destructive hover) · info `#2563EB` (in-tint label: `info.text #1D4ED8`) | success `#22C55E` · warning `#F59E0B` · error `#F87171` · info `#60A5FA` | Genuine state messages only |
 | **Financial** | `gain.text #15803D` / `loss.text #B91C1C` for delta **text**; `gain.light #16A34A` / `loss.light #DC2626` are **graphic/chip-only** (3:1 non-text floor); `flat #6B7280` (+ `-soft` tints) | `gain.dark #34D399` / `loss.dark #FB7185` (text-safe on navy) | Money/% direction only — never brand |
@@ -86,9 +86,15 @@ shared surface (it caused white-on-cream and dark-on-cream bugs across the app).
   `tracking-[…]` are off-ramp (lint-banned; the 40px pricing display figure is the one disabled site);
   headings take their tracking from the fontSize ramp.
 - 12px UI-type floor for running copy; `text-data-xs` (11px) for dense numeric annotations and in-card
-  captions / uppercase micro-labels (v3 b8 maps every former `text-[10–11px]` text site to it). UPPERCASE tracked
-  eyebrows are reserved for metric labels — never card titles (`CardTitle` is sentence case,
-  14px/600 heading ink; it shipped as an eyebrow in v2 and was fixed in v2.1).
+  captions / uppercase micro-labels (v3 b8 maps every former `text-[10–11px]` text site to it). The
+  provenance chip that carries a verification claim is never one of them: it is 12px (P-10, §4). UPPERCASE
+  tracked eyebrows are reserved for metric labels — never card titles (`CardTitle` is sentence case,
+  14px/600 heading ink; it shipped as an eyebrow in v2 and was fixed in v2.1) and never document headings.
+- **Section title** (2026-10 critique P-05): the filing summary is a document, so its section headings are
+  `h2` at **20/28** (`text-xl font-semibold`, the −0.012em ramp step) with a data-face index at 12px
+  secondary (`01`, `02` …) that its table-of-contents entry repeats; a subheading inside a section is an
+  `h3` at 14/600, sentence register. `CardTitle` stays the compact heading of a container, not of a
+  document section.
 - **Figtree and Helvetica are retired.** `--font-active` survives as a permanent alias of the body
   role so existing `font-sans` usage keeps resolving; don't reference Figtree in new code.
 
@@ -177,8 +183,10 @@ Delta text       text-gain-text dark:text-gain-dark  /  text-loss-text dark:text
 
 Solid chip       <Badge variant="solid">  — the primary colorway as a chip (brand.strong fill +
                  white label; dark: NAVY ink on brand.dark) for brand-weak TINTED grounds where the
-                 tint chips vanish ("Recommended"). <Badge variant="info"> = interim-filing tint
-                 (10-Q/6-K; light label ink = info.text); <Badge variant="warning"> = warning tint
+                 tint chips vanish ("Recommended"). <Badge variant="info"> = the info STATE tint
+                 (light label ink = info.text), never a form category: a form code (10-K, 10-Q, 6-K …)
+                 is text in the data face, never a Badge (gate: earningsnerd/no-form-code-badge,
+                 eslint.designRules.mjs); <Badge variant="warning"> = warning tint
                  (replaces raw-amber hand-rolls). beat/miss/new double as tonal recipes via icon={null}.
 
 Inline notice    <Notice variant="error|info|success">  — compact icon + title + message + action
@@ -214,7 +222,9 @@ Dialog           <Modal open onClose labelledBy="<id>" size="sm|md|lg" dismissib
                  cannot handle Tab/Escape itself. The header icon tile takes the dialog's tone: brand for a
                  neutral prompt, a status hue for a state glyph (brand never signals a state).
                  Dialog semantics ship only through Modal plus the documented bespoke layers: the copilot rail /
-                 viewer / workspace sheets and SourceTrace (role="dialog"), and the calendar's DayDetailDialog, a
+                 viewer / workspace sheets and SourceTrace (role="dialog"; the workspace shell is a dialog only
+                 below lg, where it is a sheet, and a complementary landmark on lg+), and the calendar's
+                 DayDetailDialog, a
                  sanctioned native <dialog> + showModal() that keeps the native top layer. Gate:
                  tests/unit/dialogAllowlist.spec.ts reads the TypeScript AST and pins each allowlisted file, with
                  a reason, to its count of each kind — a dialog/alertdialog role (literal, any value of a role={…}
@@ -335,6 +345,63 @@ Metric cards     <FinancialMetricsTable> below md (768px): one stacked card per 
                  row, wrapping, the 767/768 switch, the sibling-margin pin and rotation with a sheet open in a
                  real browser).
 
+Filing identity  <FilingIdentity filing>  (features/filings, 2026-10 critique P-04) — the filing stated once:
+                 a breadcrumb to the company (focus-ringed links), the company as the page h1 with its ticker
+                 in the data face (hairline pill on panel), a marker only when true (Superseded), then ONE
+                 data-face line: form (font-semibold ink) · period of report ("fiscal year ended Sep 24,
+                 2022", from report_date — fiscal-year labels wait for XBRL dei fields; an 8-K's report
+                 date is its event's, "event date Oct 27, 2022", and its crumb names the filed date) · filed date ·
+                 exchange · "Original on SEC EDGAR ↗" (sage ink, brand-hairline underline). Middots are
+                 aria-hidden with an sr-only comma. No form Badge, no "AI analysis" chip. Its `children` slot
+                 takes the verification tally (VerificationTallyLine): scoped counts only — "6 of 6
+                 checkable figures matched the company's XBRL · 3 of 4 risk excerpts located in the filing
+                 text · 1 withheld"; the check glyph only when nothing was left unmatched. Checkable = the
+                 rows the server could check (`source_checkable`: a concept it maps, of at least $1M);
+                 per-share figures, ratios, margins and segment lines are never counted as misses.
+
+Section ledger   <SummaryBlocks>  (P-05/P-07) — sections sit on the page ground with no card: index + h2 (see
+                 §3), body `space-y-4`, `space-y-11` between sections; the sticky TOC sits on the reading
+                 side (lg+), each entry `01 Title` with the index in brand-strong; below lg the jump chips
+                 carry the same index. Hairlines live inside the content (row tables: header and every row
+                 close with a hairline, outer cells flush with the text edge, no outer frame). Body ink for
+                 paragraphs and bullets. The change report is the section after the first metrics section
+                 (`<WhatChanged bare>`): Metric · Prior · Current · Change · Read as, the change the server's
+                 display string in its TONE's ink with a ▲/▼ text glyph for the arithmetic direction
+                 (aria-hidden), "Read as" = the tone in words (Favorable / Unfavorable / Neutral); below sm a
+                 stacked row per metric (name + change, then prior → current + Read as), switched by CSS.
+
+Evidence rows    <SummaryRisks>  (P-03) — one hairline list inside the section: a row is an h3 (14/600, the
+                 opening clause of the row's own verbatim excerpt, unique per row via excerptHeadings — the
+                 server withholds model titles), the excerpt in blockquote manners (border-l-2 hairline, no
+                 fill, no radius, 14px secondary) and the provenance chip; a lead line above and a data-face
+                 tally below ("3 of 4 excerpts located in the filing text · 1 withheld …"). No stripe, no
+                 trend glyph, no nested evidence box.
+
+Callout          <Callout label tone="neutral|caution">  (P-08; replaces SummaryBlock) — an inset well:
+                 `rounded border bg-panel-light px-4 py-3.5` (dark: white/10 hairline on panel-dark), no
+                 shadow. The tone lives in the label word (caution = warning ink on the label only); the body
+                 is 14px secondary. A thick left border on a rounded container — the side-tab stripe card —
+                 is banned app-wide (gate: earningsnerd/no-side-stripe, which reads whole class strings,
+                 template chunks and helper arguments included); a quotation keeps its unrounded 2px bar.
+
+Provenance chip  <SourceTrace>  (P-10) — `sourceTraceChipClass(selected)`: 12px/500 data face, 20px tall from
+                 its 16px leading + 1px padding + 1px hairline (no fixed or min height, so a long label wraps
+                 in a phone card), 16px radius (a pill on one line, a rounded box when wrapped), panel fill,
+                 secondary ink, hover brightens. Glyph = what it cites: `quotes` for a filing passage, braces
+                 (`kind="xbrl"`, MetricSourceLink) for an XBRL figure, the arrow for "Cited". The chip the open
+                 pane's Filing view is answering is `selected`: brand tint + aria-current (the highlight
+                 request's sourceId + the viewer context's paneOpen), whether the pane shows its passage or
+                 says why it cannot (text not in-app yet, passage not pinpointed). Labels and accessible names are unchanged
+                 ("Source: Verified in filing").
+
+Source pane      <FilingWorkspace>  (P-06) — the research pane is named for the source: header "Source" + the
+                 filing in the data face, close button; tabs Filing · Ask (file-text / chat-circle-text glyphs,
+                 underline tabs ≥36px, 44px in the sheet; arrows wrap from the focused tab); the Filing tab
+                 ends in "Original on SEC EDGAR". aria-label "Filing source and Ask"; role dialog + aria-modal
+                 below lg only. The floating launcher is "Source ⌘K", a secondary control (panel fill,
+                 hairline, e3; aria-keyshortcuts) whose kbd hint is secondary ink on a cream key. A chip opens
+                 the pane on Filing; the initial tab stays Ask until in-app filing text is reliably available.
+
 Filing reader    <FilingViewer> (`.filing-reader`) fills its pane and never exceeds it: the reader-only rule
                  sets `width: 100%`, up to the 88ch rail (a column-flex child with auto inline margins is not
                  stretched, so without it the reader took its widest table's width; `min-w-0` does not bound
@@ -377,7 +444,9 @@ Ask answer       <AskFilingAnswer>  — the SHIPPED copilot contract: status rea
 - **Skeleton a11y (codified v2.2):** `SkeletonText`/`SkeletonStat` carry their OWN `role="status"` +
   sr-only label — never wrap them in another `role="status"` (double announcement). Raw `<Skeleton>`
   bones are `aria-hidden` — a wrapper composed of raw bones needs `role="status"` + an sr-only label.
-- **Evidence identity:** the Ask-this-Filing header tile uses the Phosphor `quotes` glyph;
+- **Evidence identity:** the Ask-this-Filing header tile uses the Phosphor `quotes` glyph, as does a
+  provenance chip that cites a filing passage (braces for an XBRL figure); the Ask tab, the Ask callout and
+  the follow-up prompts use `chat-circle-text`, the Filing tab and the Source launcher `file-text`.
   `sparkle` appears ONLY on the "AI summary" chip.
 - Sortable table headers contain buttons with ▲/▼ and the brand focus ring; `aria-sort` belongs
   to the enclosing header cell (`th`).
@@ -414,7 +483,8 @@ the same surface at e1, per the design. `.glass-card` is retired on the landing 
 remaining consumer is `AuthShell`). Container rhythm on the landing: hero + header `max-w-7xl`,
 every other section `max-w-5xl`, section padding `py-20 sm:py-24` (the measured-claims band is a
 tighter hairline strip). Muted text on the cream page ground is `text-secondary`;
-`text-tertiary-light` (4.35:1 on cream) is reserved for inside-card eyebrows and the kbd hint.
+`text-tertiary-light` (`#636A77`, 4.9:1 on cream) carries captions, counts and micro-labels on either
+ground; copy the reader must read stays secondary.
 
 ## 8. Theme mechanics
 

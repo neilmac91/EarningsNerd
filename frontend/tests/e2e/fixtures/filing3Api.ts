@@ -28,7 +28,8 @@ export const FILING = {
 }
 /** The takeaway chip's verified excerpt (filing-3-summary.json, Total net sales). */
 export const EXCERPT = 'Americas net sales increased during 2025 compared to 2024 primarily due to higher net sales of iPhone and Services.'
-export const PANE = '[role="dialog"][aria-label="Ask this Filing"]'
+/** The research pane (2026-10 critique P-06): a dialog below lg, an aside (complementary) on lg+. */
+export const PANE = '[aria-label="Filing source and Ask"]'
 /** The synthetic filing text with wide statement tables (see the fixture's header comment); its
  * header comment is stripped, because react-markdown renders an HTML comment as literal text. */
 export const TABLES_TEXT = readFileSync(path.join(__dirname, 'filing-3-content.md'), 'utf8').replace(/^<!--[\s\S]*?-->\n\n/, '')

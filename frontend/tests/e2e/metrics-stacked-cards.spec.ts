@@ -574,7 +574,7 @@ test.describe('a hidden chip blurred before the resize (Codex review of #1108)',
 // and the pane can outlive the layout that chip was in (a window narrowed, a phone rotated, the pane
 // still open as the sheet below lg). Closing it must return focus to the same chip in the layout now
 // shown, not to the display:none copy that opened it (focus would fall to <body>).
-const PANE = '[role="dialog"][aria-label="Ask this Filing"]'
+const PANE = '[aria-label="Filing source and Ask"]' // a dialog below lg, an aside on lg+ (P-06)
 const VERIFIED = 'Source: Verified in filing'
 const ROW = 5 // the sixth metric, so a twin that lost its row would land on another chip
 

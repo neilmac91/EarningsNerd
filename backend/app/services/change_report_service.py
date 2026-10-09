@@ -19,8 +19,8 @@ from sqlalchemy.orm import Session
 
 from app.models import Filing, Summary
 # Reuse the tested deterministic delta engine rather than duplicating it (one home for the
-# revenue/net-income/EPS invariants and QoQ/YoY logic).
-from app.services.dashboard_feed_service import compute_what_changed
+# revenue/net-income/EPS invariants, the QoQ/YoY logic and the reporting-currency guard).
+from app.services.dashboard_feed_service import compute_what_changed, reporting_currency
 
 _TOKEN_RE = re.compile(r"[a-z0-9]+")
 # Generic words that don't help distinguish one risk factor from another.
@@ -158,6 +158,11 @@ def assemble_report(
         "comparison_basis": _comparison_basis(getattr(current_filing, "filing_type", None)),
         "prior_filing": _filing_ref(prior_filing),
         "metrics": metrics,
+        # The currency of every metric item's current/prior amount (additive). Items carry raw XBRL
+        # amounts in the filer's own currency, so a client labels them with it and never assumes
+        # dollars; None = never resolved, shown without a currency. compute_what_changed never takes
+        # a prior amount from a filing in another currency, so this labels both columns.
+        "reporting_currency": reporting_currency(getattr(current_filing, "xbrl_data", None)),
         "risks": risks,
         # Deprecated-in-place (T1.6 / plan §2.3): the What-changed lead is now the deterministic
         # metrics.headline, not the summary's own outlook narrative (which duplicated the Outlook

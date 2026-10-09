@@ -53,6 +53,10 @@ describe('waitlist grounded example', () => {
     expect(!!screen.queryByText('Full summary')).toBe(tier === 'full')
     expect(!!screen.queryByText('Partial')).toBe(tier === 'partial')
     expect(screen.getByRole('link', { name: /SEC EDGAR/ })).toHaveAttribute('href', filing.sec_url)
+    // Ticker and form are one data-face line; assistive tech hears a comma between them, not "ASML20-F".
+    const form = screen.getByText('20-F')
+    expect(form.parentElement).toHaveTextContent(/^ASML · , 20-F$/)
+    expect(form.className).toContain('font-semibold')
     const cta = screen.getByRole('link', { name: 'Read this filing summary' })
     expect(cta).toHaveAttribute('href', '/filing/42')
     cta.addEventListener('click', event => event.preventDefault())
