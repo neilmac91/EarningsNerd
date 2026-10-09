@@ -340,7 +340,7 @@ def test_f0_4_sync_companyfacts_batch_isolates_each_company_failure(sessions, in
     company's commit) and counted ``failed``; an unsynced result counts ``failed``; a refresh adds
     its inserts; a TTL hit counts ``fresh``; IFRS-only counts on top; ``expire_on_commit`` is off
     for the walk and restored after. Its one test today patches it out
-    (tests/unit/test_internal_durable_tasks.py:203)."""
+    (tests/unit/test_internal_durable_tasks.py:232)."""
     monkeypatch.setattr(settings, "COMPANYFACTS_SYNC_TTL_HOURS", 24)
     fy24 = {"start": "2024-01-01", "end": "2024-12-31", "accn": "K24", "form": "10-K", "filed": "2025-02-15"}
     payload = {"facts": {"us-gaap": {
