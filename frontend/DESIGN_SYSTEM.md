@@ -335,6 +335,24 @@ Metric cards     <FinancialMetricsTable> below md (768px): one stacked card per 
                  row, wrapping, the 767/768 switch, the sibling-margin pin and rotation with a sheet open in a
                  real browser).
 
+Risk cards       <SummaryRisks> renders each server-projected risk as <SummaryBlock type="excerpt">: the panel
+                 fill (rule 11; `neutral` would swap it for the page ground) and the neutral `quotes` glyph, never
+                 the bearish TrendDown arrow, which stays on flagged callouts: an excerpt is filing text, not a
+                 trend. The glyph is aria-hidden, shrink-0 and level with the title's first line. The h4 title is
+                 `deriveRiskHeadline(supporting_evidence, index)` (features/summaries/lib/riskHeadline.ts): a
+                 verbatim prefix of the card's own verified excerpt (never a model label, never recased or
+                 rewritten): the first sentence, cut at its first `;` `:` or dash when that leaves 4+ words; what
+                 is still over 100 characters is capped on a whole content word (not a function word, not inside a
+                 figure and its unit, a date, a capitalised name or an open bracket or quotation) with an ellipsis;
+                 a comma never cuts, because on real spans it ends on a leading date, a qualifier or a list item. An
+                 excerpt under 3 words keeps the positional "Filing excerpt n". The full excerpt still renders
+                 below in the cream Evidence inset at text-sm (14px); its eyebrow is the text-data-xs tracked
+                 uppercase label in secondary ink (9.28:1 on cream; tertiary measured 4.35:1). The SourceTrace
+                 header and the PDF / CSV risk rows still read "Filing excerpt" (the backend's label). Gates:
+                 tests/unit/riskHeadline.spec.ts (the production filing-3 spans and the edge cases),
+                 tests/unit/SummaryRisks.spec.tsx, tests/e2e/risk-card-headlines.spec.ts (390 and 1440, both
+                 themes: headline, glyph, 14px, eyebrow contrast, wrapping).
+
 Ask answer       <AskFilingAnswer>  — the SHIPPED copilot contract: status reading|streaming|done|error;
                  answer = GFM markdown (react-markdown + remark-gfm); markers [n] AND [F1]/[f1]/[F 1]
                  (case/whitespace tolerant) become chips showing the BRACKETED marker; unmatched markers
@@ -356,8 +374,8 @@ Ask answer       <AskFilingAnswer>  — the SHIPPED copilot contract: status rea
 - **Skeleton a11y (codified v2.2):** `SkeletonText`/`SkeletonStat` carry their OWN `role="status"` +
   sr-only label — never wrap them in another `role="status"` (double announcement). Raw `<Skeleton>`
   bones are `aria-hidden` — a wrapper composed of raw bones needs `role="status"` + an sr-only label.
-- **Evidence identity:** the Ask-this-Filing header tile uses the Phosphor `quotes` glyph;
-  `sparkle` appears ONLY on the "AI summary" chip.
+- **Evidence identity:** the Phosphor `quotes` glyph marks quoted filing text: the Ask-this-Filing
+  header tile and the summary's risk cards; `sparkle` appears ONLY on the "AI summary" chip.
 - Sortable table headers contain buttons with ▲/▼ and the brand focus ring; `aria-sort` belongs
   to the enclosing header cell (`th`).
 - **Class maps outside JSX must sit under a `content` glob.** Tailwind generates only the classes
