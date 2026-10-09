@@ -36,12 +36,19 @@ development).
    replaced by a non-Pro request. Cost stays inside each user's quota: the unit is counted when the
    provider starts and refunded when the run errors or comes back partial. Bookmarks survive, because
    the row is updated in place. One rule decides on the route and in keep-better: `is_summary_ready`,
-   applied to the body the route would serve. A run admitted for an unready row re-checks it (Codex
-   review on #1166). If another request has made the row ready before the run reaches the pipeline,
-   the run serves that summary. If the row becomes ready while the run generates, the run keeps it. So
-   the waived Pro gate never pays for a second summary or replaces one that readers already see. Con: a
-   Free user's successful Retry spends one monthly unit. Two runs can still both generate inside that
-   window, and each user is metered.
+   applied to the body the route would serve. A run admitted for an unready row treats that row as a
+   missing summary at every step (two Codex review rounds on #1166):
+   - The route clears nothing for it. A Pro Regenerate still clears the filing's XBRL and progress.
+   - If another request makes the row ready before the run reaches the pipeline, or before a leader
+     the run joined finishes, the run serves that summary.
+   - If the row becomes ready while the run generates, the run keeps it.
+   - If a leader the run joined fails, the run claims the generation, as a follower of a failed first
+     generation does.
+
+   So the waived Pro gate never pays for a second summary, never replaces one that readers already see,
+   and never wipes XBRL that another run fetched. Con: a Free user's successful Retry spends one monthly
+   unit. Two runs on different instances can still both generate inside that window, and each user is
+   metered.
 5. An operator drain of failure rows. A complement, not a substitute: users recover without it. Not run.
    No drain is authorized, and the production count of such rows is unknown.
 
@@ -49,20 +56,29 @@ development).
 not spend a user's unit silently, so filler keeps its card and an explicit Retry. The marker row keeps its
 existing auto-run, because the page already treats it as "no summary yet", as it does a missing row.
 
-**Shipped.** `routers/summaries.py`: `refresh_unready`, judged by `is_summary_ready` on
-`source_safe_business_overview` (the body the route would replay), and passed on as
-`replace_unready_only`. `summary_pipeline.py`: keep-better applies only when the stored row passes the
-same rule, and a `replace_unready_only` run serves or keeps a row that has become ready. The background path is otherwise unchanged; the
-keep-better rule also applies to admin refresh-stale. Pinned by
-`tests/unit/test_summary_unready_refresh.py` covers:
+**Shipped.**
+- `routers/summaries.py`: `refresh_unready`, judged by `is_summary_ready` on
+  `source_safe_business_overview` (the body the route would replay). It is passed on as
+  `replace_unready_only`, and the route clears nothing for such a row.
+- `summary_pipeline.py`: keep-better applies only when the stored row passes the same rule. A
+  `replace_unready_only` run serves or keeps a row that has become ready, and does not serve one that is
+  still unready after a joined leader fails.
+- The background path is otherwise unchanged; the keep-better rule also applies to admin
+  refresh-stale.
+
+`tests/unit/test_summary_unready_refresh.py` (17 cases) covers:
 - the truth table;
 - a failed refresh keeping the row;
 - keep-better on both paths;
-- a row made ready before the pipeline starts, and one made ready during generation;
+- a row made ready before the pipeline starts (served, with the other run's XBRL and progress intact);
+- a row made ready during generation;
+- a follower of a failed refresh claiming the generation;
 - the flag's control.
 
-Mutation proofs: dropping any one of the new conditions fails between 1 and 8 of its 15 cases. The company lead keeps "Open latest filing" over an unready row (#1147, tenth round): the
-page it opens now resolves for everyone.
+Mutation proofs: dropping any one of the nine conditions fails between 1 and 11 of the 17 cases.
+
+The company lead keeps "Open latest filing" over an unready row (#1147, tenth round): the page it opens
+now resolves for everyone.
 
 **Revisit** if failure rows turn out to be common in production. A drain is then cheaper than waiting for
 visits.
@@ -263,3 +279,12 @@ the merged stack had not been looked at in production.
    insights", an action only Pro users have. A structured payload with a whitespace headline leaves an
    empty Executive Summary paragraph. The page still shows the following sections, as the parity test
    pins.
+9. **Pro Regenerate clears before it owns the generation:** the route clears the filing's XBRL and
+   progress before the pipeline elects a leader. A second Regenerate of the same filing that joins the
+   first wipes the XBRL the first one fetched, and nothing rebuilds it. This predates decision A, which
+   no longer clears for an unready row. Fix: move the clearing to the leader path.
+10. **A run that loses a save race:** keep-better, the concurrent-writer `IntegrityError` path and
+    decision A's re-check all keep the stored row and return its id. The run still streams its own
+    markdown, which the page replaces on `complete` with the stored row. Its unit stays counted, unless
+    the result was partial and refunded. If a lost race should cost nothing, refund on all three paths
+    together (Codex review on #1166, third finding of the second round).
