@@ -9,8 +9,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createElement } from 'react'
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { QueryClient, QueryClientProvider, useQuery } from '@tanstack/react-query'
 import api from '@/lib/api/client'
+import { getCompany } from '@/features/companies/api/companies-api'
 import { queryKeys } from '@/lib/queryKeys'
 import AnalysisPageClient from '@/features/analysis/components/AnalysisPageClient'
 
@@ -30,7 +31,17 @@ const companyCalls = () =>
     .map(([url]) => String(url))
     .filter((url) => url.startsWith('/api/companies/'))
 
-function mount(search: string) {
+/**
+ * A second observer of the link's lookup. React Query hands a query's result to all its observers in
+ * one batch, on a timer after the fetch settles, so once this reads the resolved ticker the page has
+ * re-rendered with the link too: a positive signal for asserting what the page did with it.
+ */
+function LinkProbe({ ticker }: { ticker: string }) {
+  const { data } = useQuery({ queryKey: queryKeys.analysisCompany(ticker), queryFn: () => getCompany(ticker), enabled: false })
+  return data ? createElement('output', null, `link resolved: ${data.ticker}`) : null
+}
+
+function mount(search: string, probeTicker?: string) {
   window.history.replaceState(null, '', `/analysis${search}`)
   const client = new QueryClient({ defaultOptions: { queries: { staleTime: Infinity, retry: false } } })
   client.setQueryData(queryKeys.currentUser(), { id: 7 })
@@ -43,7 +54,14 @@ function mount(search: string) {
       limits: { annual: 10, quarterly: 12 },
     })
   }
-  return render(createElement(QueryClientProvider, { client }, createElement(AnalysisPageClient)))
+  return render(
+    createElement(
+      QueryClientProvider,
+      { client },
+      createElement(AnalysisPageClient),
+      probeTicker ? createElement(LinkProbe, { ticker: probeTicker }) : null,
+    ),
+  )
 }
 
 describe('/analysis?ticker= preselects a resolved company and never runs', () => {
@@ -105,11 +123,14 @@ describe('/analysis?ticker= preselects a resolved company and never runs', () =>
   it("keeps the user's own pick when it lands before the link resolves", async () => {
     let resolveApple!: (value: { data: (typeof COMPANIES)['AAPL'] }) => void
     vi.mocked(api.get).mockImplementationOnce(() => new Promise((resolve) => { resolveApple = resolve }) as never)
-    mount('?ticker=AAPL')
+    mount('?ticker=AAPL', 'AAPL')
     await waitFor(() => expect(companyCalls()).toEqual(['/api/companies/AAPL']))
     fireEvent.click(screen.getByRole('button', { name: 'Select Microsoft' }))
     expect(await screen.findByText('Microsoft Corp')).toBeTruthy()
     await act(async () => resolveApple({ data: COMPANIES.AAPL }))
+    // Wait until the resolved link has reached the page (asserting straight after the resolve would
+    // run before React Query delivers it, and pass whichever ticker wins).
+    expect(await screen.findByText('link resolved: AAPL')).toBeTruthy()
     expect(screen.getByText('Microsoft Corp')).toBeTruthy()
     expect(screen.queryByText('Apple Inc.')).toBeNull()
   })
