@@ -283,24 +283,6 @@ Popover          An anchored, light-dismiss surface that explains one control (t
                  (SourceTrace without a viewer, as on the landing demo) has no second stop, so Tab leaves it
                  as usual.
 
-Research pane    FilingWorkspace: a side pane at lg+ (nothing trapped), the modal copilot sheet below lg
-                 (useSheetFocusTrap). At lg+ a chip keeps focus as it opens the pane: it opens the Filing view,
-                 where the rail focuses nothing. Any other opener (an in-page Ask button or starter, the control
-                 Ctrl/⌘+K or "/" was pressed on) keeps focus too, except that the rail moves it to its composer a
-                 frame later when the visitor can ask and the Answer view is shown (AskCopilotRail). The launcher
-                 and the coachmark's Try leave with the open, so a keyboard press on either first hands focus to
-                 the pane's selected tab (useFocusHandoff, keyboardOnly): a visitor who cannot ask still lands in
-                 the pane. For one who can, focus moves twice (the tab, then the composer a frame later, or once a
-                 free visitor's usage loads); that is accepted, since the composer renders locked or not and the
-                 hand-off cannot tell the two apart.
-                 Closing (Escape, ×) moves only focus that fell (on <body>, or still in the hidden pane), to the
-                 first that can take it: the provenance chip that opened the pane, the control focused as it
-                 opened, the launcher (it remounts on close). Focus the user moved elsewhere stays. Below lg the
-                 sheet's trap restores to the chip or the launcher. Gates: tests/e2e/pane-close-focus.spec.ts
-                 holds the route matrix on the real page (every open route x Escape and × at 1440, the sheet at
-                 390); tests/unit/FilingWorkspace.spec.tsx pins only the close path's own rules (an opener gone
-                 or hidden since the open, a chip that opened it later, a pointer press, focus moved elsewhere).
-
 Stacking         z-sticky 30 (in-page sticky chrome) · z-consent 32 (the cookie-consent bar: above in-page
                  sticky chrome, BENEATH the sheet scrims and the z-40 research chrome) · z-scrim 35 (the
                  workspace / rail bottom-sheet scrims: above the bar, under the z-40 sheets they belong to) ·
@@ -435,6 +417,24 @@ Source pane      <FilingWorkspace>  (P-06) — the research pane is named for th
                  below lg only. The floating launcher is "Source ⌘K", a secondary control (panel fill,
                  hairline, e3; aria-keyshortcuts) whose kbd hint is secondary ink on a cream key. A chip opens
                  the pane on Filing; the initial tab stays Ask until in-app filing text is reliably available.
+                 Focus: at lg+ (a side pane, nothing trapped) a chip keeps focus as it opens the pane on Filing,
+                 where the rail focuses nothing. Any other opener (an in-page Ask button or starter, the control
+                 Ctrl/⌘+K or "/" was pressed on) keeps focus too, except that the rail moves it to its composer a
+                 frame later when the visitor can ask and the Ask tab is shown (AskCopilotRail). The launcher and
+                 the coachmark's Try leave with the open, so a keyboard press on either hands focus to the
+                 selected tab (useFocusHandoff, keyboardOnly): a visitor who cannot ask still lands in the pane.
+                 Below lg the sheet's trap (useSheetFocusTrap) focuses its first stop, Close, which precedes the
+                 tabs, as the sheet opens, whatever opened it; the launcher's or Try's hand-off then finds focus
+                 placed and leaves it. For a visitor who can ask, focus moves twice (the tab, or Close below lg,
+                 then the composer a frame later, or once a free visitor's usage loads); that is accepted, since
+                 the composer renders locked or not and the hand-off cannot tell the two apart. Closing (Escape,
+                 ×) moves only focus that fell (on <body>, or still in the hidden pane), to the first that can
+                 take it: the provenance chip that opened the pane, the control focused as it opened, the
+                 launcher (it remounts on close). Focus the user moved elsewhere stays. Below lg the sheet's trap
+                 restores to the chip or the launcher. Gates: tests/e2e/pane-close-focus.spec.ts holds the route
+                 matrix on the real page (every open route x Escape and × at 1440, the sheet at 390);
+                 tests/unit/FilingWorkspace.spec.tsx pins only the close path's own rules (an opener gone or
+                 hidden since the open, a chip that opened it later, a pointer press, focus moved elsewhere).
 
 Ask answer       <AskFilingAnswer>  — the SHIPPED copilot contract: status reading|streaming|done|error;
                  answer = GFM markdown (react-markdown + remark-gfm); markers [n] AND [F1]/[f1]/[F 1]

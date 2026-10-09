@@ -36,14 +36,15 @@ a Save stores the saved choice; dropping the reset in `handleOpenSettings` fails
 Its launcher floats in the corner where the open pane's composer sits, and hiding it with CSS would
 drop its focus all the same. So the pane meets the rule's purpose by other means (EN-05 part a). At
 open, a launcher or coachmark Try that leaves with the pane hands keyboard focus to the pane's
-selected tab (`useFocusHandoff`, `keyboardOnly`). The pane also records the control that held focus
-as it opened: an in-page Ask button or starter, or the control a Ctrl/⌘+K or "/" was pressed on. On
-close, focus that fell goes to the opening chip, else that control, else the remounted launcher. On
-`main` (`da636f6c`), every one of these routes left `<body>` focused after Escape or ×, and a visitor
-who cannot ask lost focus already at open. One existing unit case had pinned `<body>` after a
-launcher-driven close (rule (b)); it now expects the launcher. Rule (c)'s per-consumer spec is
+selected tab (`useFocusHandoff`, `keyboardOnly`); below lg the sheet's trap has already put it on the
+sheet's first stop, Close, and the hand-off leaves it there. The pane also records the control that
+held focus as it opened: an in-page Ask button or starter, or the control a Ctrl/⌘+K or "/" was
+pressed on. On close, focus that fell goes to the opening chip, else that control, else the remounted
+launcher. On `main` (`da636f6c`), every one of these routes left `<body>` focused after Escape or ×,
+and a visitor who cannot ask lost focus already at open. One existing unit case had pinned `<body>`
+after a launcher-driven close (rule (b)); it now expects the launcher. Rule (c)'s per-consumer spec is
 `tests/e2e/pane-close-focus.spec.ts`: every open route x (Escape, ×) at 1440x900 on the real page,
-with the next Tab checked, and the sheet at 390x844, whose trap already restored focus. On the
-pre-fix build, 20 of the 24 cases fail. `tests/unit/FilingWorkspace.spec.tsx` does not repeat that
-matrix (AGENTS.md §4); it pins only what the page cannot set up: an opener gone or hidden since the
-open, a chip that opened the pane later, a pointer press, focus moved elsewhere.
+with the next Tab checked, and the sheet at 390x844, whose trap already restored focus. On the pre-fix
+build, 20 of the 24 cases fail. `tests/unit/FilingWorkspace.spec.tsx` does not repeat that matrix
+(AGENTS.md §4); it pins only what the page cannot set up: an opener gone or hidden since the open, a
+chip that opened the pane later, a pointer press, focus moved elsewhere.

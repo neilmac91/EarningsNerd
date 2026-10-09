@@ -241,13 +241,16 @@ export default function FilingWorkspace({
   }, [paneOpen, takeOpener])
 
   // The launcher and the coachmark's Try leave the page as the pane they open appears, so a keyboard
-  // press on either drops focus to <body> at open. The rail then moves it to its composer, but only for
-  // a visitor who can ask: anyone else had nothing focused in the pane until they Tabbed from the top
-  // of the page. Each hands its focus to the pane's selected tab instead, the first stop inside it (the
-  // stop the sheet's trap moves focus to below lg), and the rail's composer takes it from there when it
-  // can. Keyboard only: a pointer's press leaves focus to the pointer, as the citation hand-off below
-  // does, so the tab never takes the arrow keys and Space from someone who clicked. A chip outside the
-  // pane stays put as it opens it (EN-01): it never unmounts, so it hands nothing off.
+  // press on either drops focus to <body> at open. The rail then moves it to its composer, but only
+  // for a visitor who can ask: anyone else had nothing focused in the pane until they Tabbed from the
+  // top of the page. On lg+ each hands its focus to the pane's selected tab instead, the stop that
+  // says which view is showing, and the rail's composer takes it from there when it can. Below lg the
+  // sheet's trap has already focused its first stop, Close (it precedes the tabs), when the hand-off
+  // runs, so the hand-off finds focus placed and leaves it: the modal sheet opens on Close, the usual
+  // first stop for a dialog. Keyboard only: a pointer's press leaves focus to the pointer, as the
+  // citation hand-off below does, so the tab never takes the arrow keys and Space from someone who
+  // clicked. A chip outside the pane stays put as it opens it (EN-01): it never unmounts, so it hands
+  // nothing off.
   const selectedTab = useMemo<RefObject<HTMLElement | null>>(
     () => ({
       get current() {
