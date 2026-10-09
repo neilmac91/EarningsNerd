@@ -121,7 +121,7 @@ describe('AnalysisDemo', () => {
 })
 
 describe('ChangeReportDemo', () => {
-  it('renders the real WhatChanged report flattened into the frame, with skeleton risk columns', () => {
+  it('renders the real WhatChanged report flattened into the frame, with no fake loading state', () => {
     const { container } = render(<ChangeReportDemo />)
     expect(screen.getByRole('heading', { name: 'What changed' })).toBeInTheDocument()
     expect(screen.getByText(SAMPLE_CHANGE_REPORT.comparison_basis as string)).toBeInTheDocument()
@@ -129,18 +129,14 @@ describe('ChangeReportDemo', () => {
     for (const item of SAMPLE_CHANGE_REPORT.metrics!.items) {
       expect(screen.getByText(item.display)).toBeInTheDocument()
     }
-
     // The chrome-neutralising wrapper targets `[&>section]`: WhatChanged's section must stay its
     // direct child, or the frame grows a second border.
     const frame = container.querySelector('[data-capture="change-report"]')
     expect(frame).not.toBeNull()
     expect(frame!.querySelector(':scope > div > section')).not.toBeNull()
-
-    // Raw skeleton bones are aria-hidden; each column's wrapper carries role + label (DS §4).
-    const groups = screen.getAllByRole('status', { name: 'Risk factor text loads from the live report' })
-    expect(groups).toHaveLength(2)
-    expect(screen.getByText('New risk factors')).toBeInTheDocument()
-    expect(screen.getByText('No longer cited')).toBeInTheDocument()
+    // The sample carries no risk lines, so nothing on the sales surface pretends to load.
+    expect(screen.queryAllByRole('status')).toHaveLength(0)
+    expect(screen.queryByText('New risk factors')).toBeNull()
   })
 })
 
