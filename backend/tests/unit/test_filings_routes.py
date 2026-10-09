@@ -149,7 +149,30 @@ def test_company_miss_maps_each_failure(client, sessions, monkeypatch, scenario,
 
 
 def test_company_miss_persists_the_sec_company_and_serves_its_live_list(client, sessions, monkeypatch):
-    """The success branch: CIK-first create under the primary ticker, then the cold live fetch."""
+    """The success branch: CIK-first create under the primary ticker, then the cold live fetch.
+
+    The persistence unit commits the new Company itself, before the live fetch. The row count cannot
+    see that commit (the resolver's SAVEPOINT RELEASE already commits under SQLite; Postgres would
+    lose the row), so the request session's own ``commit()`` calls before the fetch are counted."""
+    commits = []
+    commits_before_fetch = []
+
+    def override_get_db():
+        db = sessions()
+        real_commit = db.commit
+
+        def commit():
+            commits.append(1)
+            real_commit()
+
+        db.commit = commit
+        try:
+            yield db
+        finally:
+            db.close()
+
+    monkeypatch.setitem(main.app.dependency_overrides, get_db, override_get_db)
+
     async def search(_ticker):
         return [dict(_HIT, ticker="MISS-PA")]
 
@@ -160,6 +183,7 @@ def test_company_miss_persists_the_sec_company_and_serves_its_live_list(client, 
 
     async def get_filings(cik, types):
         assert (cik, types) == ("0000000042", DEFAULT_TYPES)
+        commits_before_fetch.append(len(commits))
         return [{
             "accession_number": accession, "filing_type": "10-K", "filing_date": "2026-02-19",
             "report_date": "2025-12-31", "sec_url": _archive(cik, accession),
@@ -173,6 +197,7 @@ def test_company_miss_persists_the_sec_company_and_serves_its_live_list(client, 
     resp = client.get("/api/filings/company/miss-pa")
 
     assert resp.status_code == 200
+    assert commits_before_fetch == [1]
     with sessions() as s:
         company = s.query(Company).one()
         assert (company.cik, company.ticker, company.name, company.exchange) == (

@@ -3,7 +3,8 @@
 Moved verbatim from the router so it stays HTTP only: the B2 freshness cache, the DB-first
 background refresh, the on-visit history backfill, the CIK-first company persistence on a miss, the
 filing-type defaults, the cached reads and the cold live fetch's persistence. The router keeps the
-SEC awaits, the ``BackgroundTasks`` scheduling, the durable-task handoff (it does no database work),
+request path's SEC awaits (the background refresh, which runs after the response, awaits its own
+fetch here), the ``BackgroundTasks`` scheduling, the durable-task handoff (it does no database work),
 the error mapping and the fallback log lines; the skip and background-failure warnings moved here
 with their code, so they now log as ``app.services.filing_list_service``.
 
