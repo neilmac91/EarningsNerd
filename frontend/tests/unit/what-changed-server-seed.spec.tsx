@@ -157,9 +157,10 @@ describe('the summary page outline', () => {
   })
 })
 
-describe('under a legacy markdown summary', () => {
+describe('as a card, where the summary has no sections to hold it', () => {
   // rendered_sections: [] takes the markdown fallback, where the change report is a card under the
-  // markdown. The company page's "Open change report" (/filing/{id}#what-changed) still lands on it.
+  // markdown, and a stored summary that failed shows its error card with the report card under it.
+  // The company page's "Open change report" (/filing/{id}#what-changed) lands on the card in both.
   const LEGACY = { ...SUMMARY, rendered_sections: [] } as Summary
   const jsdomScrollIntoView = Element.prototype.scrollIntoView
   // jsdom has no scrollIntoView; record which element each call scrolls to.
@@ -187,6 +188,18 @@ describe('under a legacy markdown summary', () => {
     display(undefined, LEGACY)
     expect(scrolledTo()).toEqual([])
     await screen.findByRole('region', { name: 'What changed' })
+    expect(scrolledTo()).toEqual(['what-changed'])
+  })
+
+  it.each([
+    ['its fallback body', { ...LEGACY, business_overview: 'Summary temporarily unavailable. Please retry.' }],
+    ['a writer error over its sections', { ...SUMMARY, raw_summary: { writer_error: 'timeout' } }],
+  ])('stays under a stored summary that failed (%s)', (_, failed) => {
+    api.getWhatChanged.mockReturnValue(new Promise(() => {}))
+    display(REPORT, failed as Summary)
+    expect(screen.getByRole('heading', { name: 'Summary temporarily unavailable' })).toBeInTheDocument()
+    expect(screen.queryByRole('navigation', { name: 'Summary sections' })).toBeNull()
+    expect(screen.getByRole('region', { name: 'What changed' })).toHaveAttribute('id', 'what-changed')
     expect(scrolledTo()).toEqual(['what-changed'])
   })
 })
