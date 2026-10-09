@@ -15,72 +15,81 @@ import asyncio
 import datetime
 import json
 import logging
-import time
 from dataclasses import dataclass, replace
-from datetime import timedelta
-from typing import AsyncIterator, List, Optional
+from typing import AsyncIterator, Optional
 
-import anyio
-# Keep the existing dispatch seam for lifecycle tests while tracking actual worker futures.
-from app.services.request_work import RequestWork, run_owned_sync as run_in_threadpool
 from sqlalchemy import inspect as sa_inspect
-from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import joinedload
 
 from app import database
 from app.config import settings
-from app.models import Filing, Summary, User, Subscription
+from app.models import User, Subscription
 from app.schemas import attach_normalized_facts
-from app.services.content_cache import upsert_content_cache
 from app.services.ai.normalize import _section_has_content
-from app.services.edgar.compat import sec_edgar_service, xbrl_service
-from app.services.edgar.sixk_extractor import get_sixk_text
-from app.services.edgar.sixk_classifier import classify_sixk_text
-from app.services.edgar.statement_context import acquire_statement_context
-from app.services.fallback_summary import generate_xbrl_summary
 from app.services.metric_delta_service import (
     EXACT_CONTEXT_KEY,
     EXACT_CONTEXT_VERSION,
     bind_exact_xbrl_deltas,
 )
-from app.services.openai_service import openai_service
 from app.services.summary_request_evidence import SummaryRequestEvidence
-from app.services.posthog_client import (
-    EVENT_GENERATION_STARTED,
-    EVENT_GENERATION_SUCCEEDED,
-    EVENT_GENERATION_FAILED,
-    EVENT_GENERATION_TIMED_OUT,
-    EVENT_PAYWALL_HIT,
-    capture_funnel_event,
-)
-from app.services.ai.provider_requests import provider_start_signal
-from app.services.subscription_service import (
-    check_usage_limit,
-    increment_user_usage,
-    convert_reservation,
-    get_current_month,
-    refund_summary_use,
-    release_reservation,
-    reserve_summary_use,
-)
+from app.services.posthog_client import EVENT_GENERATION_STARTED
+from app.services.subscription_service import check_usage_limit, reserve_summary_use
 from app.services.entitlements import get_entitlements
-from app.services.summary_generation_service import (
-    assess_quality,
-    quality_tier_rank,
-    record_progress,
-    get_or_cache_excerpt,
-)
 from app.services.provenance_service import (
     RISK_PROJECTION_KEY,
     RISK_SOURCE_CONTEXT_KEY,
     RISK_SOURCE_CONTEXT_VERSION,
     project_risk_list,
     replace_business_overview_risks,
-    source_safe_business_overview,
 )
-from app.services.summary_placeholders import is_summary_ready
-from app.services.summary_versioning import SUMMARY_PROMPT_VERSION, SUMMARY_SCHEMA_VERSION
+from app.services.summary_versioning import SUMMARY_SCHEMA_VERSION
 from app.services.summary_schema import TRACKED_SECTIONS_V2
+
+# --- Patch seams for the stage modules ---------------------------------------------------------
+# ``stream_filing_summary`` is a stage map over ``app/services/summary_stages``. Those modules reach
+# every collaborator below as ``summary_pipeline.<name>`` AT CALL TIME, so the tests' patches on THIS
+# module keep taking effect after the split (``patch.object(summary_pipeline, "record_progress", …)``,
+# ``monkeypatch.setattr(pipeline, "run_in_threadpool", …)``, the ``asyncio`` proxy, ``time`` for a
+# fake clock …). Nothing in this module calls most of them any more; they are kept here on purpose.
+# Gate: tests/unit/test_summary_stages_seams.py (every ``pipeline.<name>`` a stage uses must exist here).
+import time  # noqa: F401
+# Keep the existing dispatch seam for lifecycle tests while tracking actual worker futures.
+from app.services.request_work import RequestWork, run_owned_sync as run_in_threadpool  # noqa: F401
+from app.services.ai.provider_requests import provider_start_signal  # noqa: F401
+from app.services.content_cache import upsert_content_cache  # noqa: F401
+from app.services.edgar.compat import sec_edgar_service, xbrl_service  # noqa: F401
+from app.services.edgar.sixk_classifier import classify_sixk_text  # noqa: F401
+from app.services.edgar.sixk_extractor import get_sixk_text  # noqa: F401
+from app.services.edgar.statement_context import acquire_statement_context  # noqa: F401
+from app.services.fallback_summary import generate_xbrl_summary  # noqa: F401
+from app.services.openai_service import openai_service  # noqa: F401
+from app.services.posthog_client import (  # noqa: F401
+    EVENT_GENERATION_FAILED,
+    EVENT_GENERATION_SUCCEEDED,
+    EVENT_GENERATION_TIMED_OUT,
+    EVENT_PAYWALL_HIT,
+    capture_funnel_event,
+)
+from app.services.provenance_service import source_safe_business_overview  # noqa: F401
+from app.services.subscription_service import (  # noqa: F401
+    convert_reservation,
+    get_current_month,
+    increment_user_usage,
+    refund_summary_use,
+    release_reservation,
+)
+from app.services.summary_generation_service import (  # noqa: F401
+    assess_quality,
+    get_or_cache_excerpt,
+    quality_tier_rank,
+    record_progress,
+)
+from app.services.summary_placeholders import is_summary_ready  # noqa: F401
+from app.services.summary_versioning import SUMMARY_PROMPT_VERSION  # noqa: F401
+# Module objects only (never ``from … import <name>``): the stage modules import this module for the
+# seams above, so either import order must work — see the package docstring.
+from app.services.summary_stages import (
+    admission, enrichment, failure, fetch, finalize, generation, generation_run,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -355,6 +364,27 @@ def to_sse(event: dict) -> str:
     return f"data: {json.dumps(event)}\n\n"
 
 
+TERMINAL_EVENT_TYPES = frozenset({"complete", "partial", "error"})
+
+
+def _stage_sequence():
+    """The stage map, in pipeline order.
+
+    Built per call rather than at import: the stage modules import this module for their patch
+    seams, so their attributes are not guaranteed to exist while this module is still initializing.
+    """
+    return (
+        admission.load_filing,
+        admission.join_or_lead,
+        admission.admit,
+        fetch.fetch_document,
+        enrichment.parse_and_enrich,
+        generation.generate,
+        finalize.finalize,
+    )
+
+
+
 async def stream_filing_summary(
     *,
     filing_id: int,
@@ -376,6 +406,10 @@ async def stream_filing_summary(
     router releases its session before streaming. Each DB unit here owns its session
     inside the worker; no ORM query result survives into an admission or provider wait.
 
+    The body is the stage map in ``_stage_sequence`` (``app/services/summary_stages``), driven over
+    one shared ``GenerationRun``; a stage's terminal event ends the pipeline. The timeout, the two
+    failure handlers and the cleanup in ``finally`` are unchanged in order and ownership.
+
     ``replace_unready_only`` marks a run the caller admitted only because no stored row was one the
     filing page shows (``is_summary_ready``): an unready row, or none at all under ``force``, with the
     Pro gate waived for that reason. The run treats such a row as a missing summary and re-reads it at
@@ -384,1216 +418,46 @@ async def stream_filing_summary(
     generation is kept, not replaced. A row still unready after a joined leader fails is not served:
     this run claims the generation, as a follower of a failed first generation does.
     """
-    pipeline_started_at = time.time()
-    stage_started_at = pipeline_started_at
-    stage_timings: List[tuple[str, float]] = []
-
-    def emit_funnel(*args, **kwargs):
-        # Suppressed when the background/cron path drains this generator headless — a precompute
-        # run must emit ZERO funnel events (S1, T2 pin). The user-facing SSE path leaves it on.
-        if emit_funnel_telemetry:
-            capture_funnel_event(*args, **kwargs)
-
-    emit_funnel(
+    run = generation_run.GenerationRun(
+        filing_id=filing_id,
+        current_user=current_user,
+        user_id=user_id,
+        telemetry_distinct_id=telemetry_distinct_id,
+        telemetry_entry_point=telemetry_entry_point,
+        telemetry_ctx=telemetry_ctx,
+        emit_funnel_telemetry=emit_funnel_telemetry,
+        force_regenerate=force_regenerate,
+        replace_unready_only=replace_unready_only,
+        request_evidence=request_evidence,
+    )
+    run.emit_funnel(
         telemetry_distinct_id,
         EVENT_GENERATION_STARTED,
         entry_point=telemetry_entry_point,
         **telemetry_ctx,
     )
 
-    def elapsed_ms() -> int:
-        return int((time.time() - pipeline_started_at) * 1000)
-
-    def mark_stage(stage_name: str):
-        nonlocal stage_started_at
-        now = time.time()
-        duration = now - stage_started_at
-        stage_timings.append((stage_name, duration))
-        stage_started_at = now
-
-    # A3: set when this request becomes the generation leader; released in `finally`.
-    inflight_event: Optional[asyncio.Event] = None
-    generation_semaphore: Optional[asyncio.Semaphore] = None
-    generation_slot_held = False
-    usage_reservation_token: Optional[str] = None
-    # The month the admission lease was counted in when the provider task started; None once the
-    # unit is settled (summary persisted) or refunded, so a refund can happen at most once.
-    charged_month: Optional[str] = None
-    # The in-flight charge write. The thread-pool write cannot be cancelled: when the pipeline
-    # deadline (or a disconnect) cancels the coroutine awaiting it, the worker still finishes and
-    # commits, and the assignment after the await never runs. The write is awaited through
-    # `asyncio.shield`, so this future still resolves with the committed month, and the refund and
-    # release paths settle it before deciding what was actually counted.
-    charge_future: Optional[asyncio.Future] = None
-    summary_task: Optional[asyncio.Task] = None
-    provider_started_waiter: Optional[asyncio.Future] = None
-    xbrl_task: Optional[asyncio.Task] = None
-    sections_task: Optional[asyncio.Task] = None
-    fetch_task: Optional[asyncio.Task] = None
-    excerpt_task: Optional[asyncio.Task] = None
-    worker_owner = RequestWork(enabled=settings.DURABLE_TASKS_ENABLED)
-
-    async def run_sync_db(func, *args, **kwargs):
-        """Run a complete, session-owning DB unit in the thread pool."""
-        with worker_owner.activate():
-            return await run_in_threadpool(func, *args, **kwargs)
-
-    async def settle_charge() -> None:
-        """Wait for an in-flight charge write and adopt what it committed. Needed when the await
-        on that write was cancelled (pipeline timeout, disconnect) before it could record the month."""
-        nonlocal charged_month, usage_reservation_token
-        if charge_future is None:
-            return
-        if not charge_future.done():
-            await asyncio.wait({charge_future})
-        if charged_month is None and not charge_future.cancelled() and charge_future.exception() is None:
-            month = charge_future.result()
-            if month is not None:
-                charged_month = month
-                usage_reservation_token = None  # the convert deleted it in the same commit
-
-    async def refund_charge(reason: str) -> None:
-        """Give the unit counted at provider start back (at most once). Called only from the
-        provider-failure, timeout and partial-verdict paths — never from cancellation (client
-        disconnect)."""
-        nonlocal charged_month, charge_future
-        await settle_charge()
-        if charged_month is None:
-            return
-        month, charged_month = charged_month, None
-        charge_future = None  # refunded: a later settle must not adopt this write again
-
-        def refund_sync() -> None:
-            with database.SessionLocal() as session:
-                refund_summary_use(user_id, month, session)
-
-        try:
-            await run_sync_db(refund_sync)
-            logger.info(f"[stream:{filing_id}] Refunded the usage unit counted at provider start ({reason})")
-        except Exception as refund_error:  # the unit stays counted; never mask the outcome
-            logger.warning(f"[stream:{filing_id}] Could not refund usage unit ({reason}): {refund_error}")
-
-    def record_progress_sync(*args, **kwargs) -> None:
-        # record_progress refreshes its returned row after committing. Close that read
-        # transaction here too; the stream only needs the durable write, not the ORM row.
-        with database.SessionLocal() as progress_session:
-            record_progress(progress_session, *args, **kwargs)
-
     try:
         async with asyncio.timeout(PIPELINE_TIMEOUT_SECONDS):
             logger.info(f"[stream:{filing_id}] Stream generator started (timeout: {PIPELINE_TIMEOUT_SECONDS}s)")
             yield {'type': 'progress', 'stage': 'initializing', 'message': 'Initializing...', 'percent': 0}
 
-            # DB OP: Query filing and check for existing summary
-            def get_filing_and_summary_sync():
-                with database.SessionLocal() as session:
-                    filing = session.query(Filing).options(
-                        joinedload(Filing.content_cache),
-                        joinedload(Filing.company)
-                    ).filter(Filing.id == filing_id).first()
-                    summary = session.query(Summary).filter(Summary.filing_id == filing_id).first()
-                    company = filing.company if filing else None
-                    cache = filing.content_cache if filing else None
-                    filing_fields = {
-                        "company_name": company.name if company else "Unknown company",
-                        "company_cik": company.cik if company else None,
-                        "company_sic": company.sic if company else None,
-                        "document_url": filing.document_url,
-                        "filing_type": filing.filing_type,
-                        "accession_number": filing.accession_number,
-                        "filing_date": filing.filing_date,
-                        "report_period": filing.period_end_date,
-                        "cache_excerpt": cache.critical_excerpt if cache else None,
-                        "cache_updated_at": cache.updated_at if cache else None,
-                        "cache_created_at": cache.created_at if cache else None,
-                    } if filing else None
-                    summary_fields = None
-                    if summary:
-                        overview = source_safe_business_overview(summary, filing)
-                        raw = summary.raw_summary if isinstance(summary.raw_summary, dict) else {}
-                        summary_fields = {
-                            "business_overview": overview, "id": summary.id,
-                            "ready": is_summary_ready(overview, raw.get("writer_error")),
-                        }
-                    return filing_fields, summary_fields
-
-            filing_fields, summary_fields = await run_sync_db(get_filing_and_summary_sync)
-
-            if not filing_fields:
-                if request_evidence is not None:
-                    request_evidence.reason = "filing_not_found"
-                logger.warning(f"[stream:{filing_id}] Filing not found during stream generation.")
-                yield {'type': 'error', 'message': 'Filing not found'}
-                return
-
-            # A run admitted to replace an unready row serves the row once another run has made it ready.
-            if summary_fields and (not force_regenerate or (replace_unready_only and summary_fields["ready"])):
-                if request_evidence is not None:
-                    request_evidence.delivery_path = "pipeline_cache"
-                logger.info(f"[stream:{filing_id}] Existing summary found. Returning it.")
-                yield {
-                    'type': 'complete',
-                    'summary': summary_fields["business_overview"],
-                    'summary_id': summary_fields["id"],
-                }
-                return
-
-            # A3: a follower must recheck ownership after every join/read. Failed leaders
-            # can wake several followers; only one may atomically claim the empty slot.
-            def get_persisted_summary_fields():
-                with database.SessionLocal() as s:
-                    summ = s.query(Summary).filter(Summary.filing_id == filing_id).first()
-                    persisted_filing = s.query(Filing).options(
-                        joinedload(Filing.content_cache)
-                    ).filter(Filing.id == filing_id).first()
-                    if not summ:
-                        return None
-                    overview = source_safe_business_overview(summ, persisted_filing)
-                    raw = summ.raw_summary if isinstance(summ.raw_summary, dict) else {}
-                    # A run admitted to replace an unready row counts that row as absent: a leader that
-                    # failed left it in place, so this run claims the generation instead of serving it.
-                    if replace_unready_only and not is_summary_ready(overview, raw.get("writer_error")):
-                        return None
-                    return {"business_overview": overview, "id": summ.id}
-
-            waited = 0.0
-            joined_generation = False
-            while True:
-                existing_generation = _inflight_generations.get(filing_id)
-                if existing_generation is None:
-                    # No await between this read and claim; another coroutine cannot interleave.
-                    inflight_event = _claim_inflight(filing_id)
-                    if joined_generation:
-                        # A previous empty snapshot may return after a replacement committed
-                        # and released. Hold this new claim during a fresh read so another
-                        # replacement cannot finish between our absence check and admission.
-                        summary_fields = await run_sync_db(get_persisted_summary_fields)
-                        if summary_fields:
-                            if request_evidence is not None:
-                                request_evidence.delivery_path = "coalesced"
-                            yield {'type': 'complete', 'summary': summary_fields["business_overview"], 'summary_id': summary_fields["id"]}
+            for stage in _stage_sequence():
+                events = stage(run)
+                try:
+                    async for event in events:
+                        yield event
+                        if event["type"] in TERMINAL_EVENT_TYPES:
                             return
-                    break
-                joined_generation = True
-                if request_evidence is not None:
-                    request_evidence.delivery_path = "coalesced"
-                logger.info(f"[stream:{filing_id}] Joining in-flight generation (dedup).")
-                yield {'type': 'progress', 'stage': 'queued', 'message': 'Another request is already generating this analysis — joining it...', 'percent': 3, 'elapsed_seconds': int(time.time() - pipeline_started_at)}
-                while not existing_generation.is_set() and waited < INFLIGHT_WAIT_CAP_SECONDS:
-                    try:
-                        await asyncio.wait_for(existing_generation.wait(), timeout=settings.STREAM_HEARTBEAT_INTERVAL)
-                    except asyncio.TimeoutError:
-                        waited += settings.STREAM_HEARTBEAT_INTERVAL
-                        yield {'type': 'progress', 'stage': 'summarizing', 'message': 'Finishing the shared analysis...', 'percent': min(50 + int(waited), 90), 'elapsed_seconds': int(time.time() - pipeline_started_at)}
-
-                # Re-read on a fresh session (the leader committed on its own) and serve it.
-                summary_fields = await run_sync_db(get_persisted_summary_fields)
-                if summary_fields:
-                    logger.info(f"[stream:{filing_id}] Served result from in-flight leader (dedup hit).")
-                    yield {'type': 'complete', 'summary': summary_fields["business_overview"], 'summary_id': summary_fields["id"]}
-                    return
-                if waited >= INFLIGHT_WAIT_CAP_SECONDS:
-                    # A follower's deadline grants no ownership of a still-running leader.
-                    # Use the existing timeout handling; finally releases only our own claim.
-                    raise TimeoutError("In-flight summary wait budget exhausted")
-                # The old leader failed, or a replacement claimed during the DB read. Loop
-                # through the atomic registry check instead of overwriting that replacement.
-                logger.info(f"[stream:{filing_id}] No shared result yet; rechecking generation ownership.")
-
-            # Cache company data and filing attributes from the fetched filing
-            company_name = filing_fields["company_name"]
-            company_cik = filing_fields["company_cik"]
-            company_sic = filing_fields["company_sic"]
-            filing_document_url = filing_fields["document_url"]
-            filing_type = filing_fields["filing_type"]
-            filing_accession_number = filing_fields["accession_number"]
-
-            # Check the plain cached-content snapshot (no ORM reads after session closure).
-            cached_excerpt = filing_fields["cache_excerpt"]
-            cache_is_valid = False
-            excerpt_from_cache = None
-
-            if cached_excerpt:
-                # Check age (valid if < 24 hours)
-                last_updated = filing_fields["cache_updated_at"] or filing_fields["cache_created_at"]
-                if not last_updated:
-                    # Should not happen given database constraints, but safe fallback
-                    last_updated = datetime.datetime.now(datetime.timezone.utc)
-                elif last_updated.tzinfo is None:
-                    # SQLite (and some drivers) return naive datetimes; assume UTC so the
-                    # subtraction below doesn't raise "can't subtract offset-naive and
-                    # offset-aware datetimes" and crash the cached-content path.
-                    last_updated = last_updated.replace(tzinfo=datetime.timezone.utc)
-
-                age = datetime.datetime.now(datetime.timezone.utc) - last_updated
-                if age < timedelta(hours=24):
-                    cache_is_valid = True
-                    excerpt_from_cache = cached_excerpt
-                    logger.info(f"[stream:{filing_id}] Using cached content (age: {age})")
-
-            # Check usage limits for authenticated user
-            if current_user:
-                def check_usage_sync() -> tuple[bool, int, Optional[int], bool, Optional[str]]:
-                    with database.SessionLocal() as usage_session:
-                        return _check_usage_and_plan(current_user, usage_session)
-
-                can_generate, current_count, limit, user_is_unlimited, usage_reservation_token = await run_sync_db(check_usage_sync)
-                if not can_generate:
-                    # A Pro user is billing-unlimited, so a block here means the INVISIBLE fair-use
-                    # ceiling (PRO_SUMMARY_MONTHLY_CAP) tripped — degrade with a generic message,
-                    # never an upsell, and skip the paywall funnel event (a Pro user isn't paywalled).
-                    if request_evidence is not None:
-                        request_evidence.reason = "fair_use" if user_is_unlimited else "monthly_quota"
-                    if user_is_unlimited:
-                        logger.warning(
-                            f"[stream:{filing_id}] Pro user {user_id} hit summary fair-use ceiling ({limit})."
-                        )
-                        yield {
-                            "type": "error",
-                            "message": (
-                                "We've temporarily paused new summary generation on your account due "
-                                "to unusually high recent volume. Please try again later or contact support."
-                            ),
-                        }
-                        return
-                    logger.warning(f"[stream:{filing_id}] User {user_id} exceeded monthly summary limit ({limit}).")
-                    # Demand/pricing signal: record when a free user hits the wall.
-                    emit_funnel(
-                        telemetry_distinct_id,
-                        EVENT_PAYWALL_HIT,
-                        entry_point=telemetry_entry_point,
-                        limit=limit,
-                        summaries_used=current_count,
-                    )
-                    message = (
-                        "You've reached your monthly limit of "
-                        f"{limit} summaries. Upgrade to Pro for unlimited summaries."
-                    )
-                    yield {"type": "error", "message": message}
-                    return
-                logger.info(f"[stream:{filing_id}] Usage limit check passed for user {user_id}. Current count: {current_count}/{limit}")
-            else:
-                # current_user=None is only reachable from the internal drains now (cron
-                # pregenerate / admin refresh) — the user-facing route requires an account.
-                logger.info(f"[stream:{filing_id}] Internal caller (no user) — per-user quota not applicable.")
-
-            if request_evidence is not None:
-                request_evidence.delivery_path = "generation"
-
-            # Bound concurrent generations per process (protects the single vCPU). Acquired here —
-            # AFTER the usage/fair-use gate so rejected/abusive requests never occupy a slot, and only
-            # on the leader path (dedup waiters returned above) so it can't deadlock a leader against
-            # its waiters. Released in the `finally`. A long queue wait counts against the pipeline
-            # timeout, which is the intended back-pressure. A follower that exhausts its wait
-            # budget exits without stealing ownership; no follower holds a generation slot.
-            generation_semaphore = _get_generation_semaphore()
-            await generation_semaphore.acquire()
-            generation_slot_held = True
-
-            # Start XBRL fetching NOW, concurrently with the (slow) filing-document fetch below.
-            # XBRL only needs the accession number + CIK (already cached above), not the document
-            # text, so serializing it after the fetch wasted the entire fetch window and left it
-            # racing an 8s budget. Running it in parallel gives it the realistic time it needs.
-            # A 6-K (FPI interim/furnished report) has no Item/XBRL structure — its content lives in
-            # EX-99.x exhibits. It takes a separate grounding path below (the SixK exhibit extractor),
-            # NOT the XBRL fetch or edgartools section parse, both of which are 10-K/10-Q/20-F only.
-            is_six_k = bool(filing_type and filing_type.upper().split("/")[0] == "6-K")
-            sixk_class, sixk_class_audit = None, None
-            xbrl_task = None
-            # 20-F XBRL is now currency-aware end-to-end (the extractor captures the issuer's
-            # reporting currency, e.g. CNY, instead of the USD convenience translation), so it is
-            # safe to fetch it for foreign annual reports. See tasks/fpi-support-roadmap.md (Phase 3).
-            if filing_type and filing_type.upper().split("/")[0] in {"10-K", "10-Q", "20-F"} and company_cik:
-                async def fetch_xbrl():
-                    try:
-                        data = await xbrl_service.get_xbrl_data(filing_accession_number, company_cik)
-                        if data:
-                            metrics = xbrl_service.extract_standardized_metrics(data)
-
-                            # DB OP: Update filing xbrl_data
-                            def update_xbrl_sync():
-                                # Use a new session for this thread operation to ensure thread safety
-                                with database.SessionLocal() as xbrl_session:
-                                    filing_for_update = xbrl_session.query(Filing).filter(Filing.id == filing_id).first()
-                                    if filing_for_update:
-                                        filing_for_update.xbrl_data = data
-                                        xbrl_session.commit()
-                                        # Populate this filing's normalized facts now (roadmap B: the
-                                        # filing-scoped trend chart reads them). Best-effort and
-                                        # network-free — reuse the metrics just extracted; a failure
-                                        # must never break the summary stream. We're already off the
-                                        # event loop (run_sync_db threadpool) with our own session.
-                                        try:
-                                            from app.services import facts_service
-
-                                            facts_service.process_filing_facts(
-                                                xbrl_session, filing_for_update, standardized=metrics
-                                            )
-                                        except Exception:
-                                            logger.warning(
-                                                f"[stream:{filing_id}] facts upsert failed (non-fatal)",
-                                                exc_info=True,
-                                            )
-
-                            try:
-                                await run_sync_db(update_xbrl_sync)
-                            except Exception as persistence_error:
-                                # Fresh metrics are useful to this generation even when their
-                                # best-effort cache/facts write fails. Cancellation still propagates.
-                                logger.warning(
-                                    f"[stream:{filing_id}] XBRL persistence failed (non-fatal): {persistence_error}"
-                                )
-                            return metrics
-                    except Exception as xbrl_error:
-                        logger.warning(f"[stream:{filing_id}] Error updating XBRL data: {str(xbrl_error)}")
-                        pass
-                    return None
-                with worker_owner.activate():
-                    xbrl_task = asyncio.create_task(fetch_xbrl())
-
-            # Fetch edgartools-parsed sections in parallel with the document fetch (needs only
-            # accession + CIK). High-precision excerpt source; the regex extractor is the fallback.
-            # Skipped on a cache hit (the cached excerpt is reused, no re-extraction needed).
-            sections_task = None
-            if (
-                not cache_is_valid
-                and settings.USE_EDGARTOOLS_SECTIONS
-                and company_cik
-                and filing_type
-                # 20-F (foreign annual report) gets edgartools section extraction too. split("/")
-                # so amended forms (10-K/A, 20-F/A) are covered — the lower layers normalize_form
-                # anyway. See tasks/fpi-support-roadmap.md.
-                and filing_type.upper().split("/")[0] in {"10-K", "10-Q", "20-F"}
-            ):
-                async def fetch_sections():
-                    try:
-                        return await xbrl_service.get_filing_sections(
-                            filing_accession_number, company_cik, filing_type
-                        )
-                    except Exception as sections_error:  # noqa: BLE001
-                        logger.warning(f"[stream:{filing_id}] Section parse failed: {sections_error}")
-                        return None
-                with worker_owner.activate():
-                    sections_task = asyncio.create_task(fetch_sections())
-
-            # Step 1: File Validation
-            # DB OP: Record progress
-            await run_sync_db(record_progress_sync, filing_id, "fetching")
-
-            logger.info(f"[stream:{filing_id}] Yielding fetching stage")
-            yield {'type': 'progress', 'stage': 'fetching', 'message': 'Step 1: File Validation - Confirming document is accessible and parsable...', 'percent': 5, 'elapsed_seconds': int(time.time() - pipeline_started_at)}
-
-            filing_text = ""
-
-            if cache_is_valid:
-                # Skip SEC fetch, use cache
-                filing_text = ""  # Empty text signals usage of excerpt to downstream services if robustness is handled
-                logger.info(f"[stream:{filing_id}] Skipping main thread SEC fetch, using cache.")
-
-                # get_or_cache_excerpt returns an existing excerpt without updating its timestamp.
-                # Fetching this accession again cannot refresh the valid cache, so reuse it until
-                # the existing 24-hour TTL sends generation through the awaited document path.
-
-                # Yield immediate progress
-                yield {'type': 'progress', 'stage': 'fetching', 'message': 'Cached content found. Loading immediately...', 'percent': 15}
-            elif is_six_k and company_cik:
-                # 6-K grounding: the primary document is just the cover page, so pull the EX-99.x
-                # exhibit / press-release text via the SixK extractor (separate from the Item/XBRL
-                # pipeline). Falls back to the cover-page doc so a content-light 6-K still yields text.
-                yield {'type': 'progress', 'stage': 'fetching', 'message': 'Retrieving 6-K exhibits from EDGAR...', 'percent': 10}
-                try:
-                    with worker_owner.activate():
-                        filing_text = await get_sixk_text(filing_accession_number, company_cik) or ""
-                except Exception as sixk_error:  # noqa: BLE001 — extractor is defensive, but never break the stream
-                    logger.warning(f"[stream:{filing_id}] 6-K exhibit extraction failed: {sixk_error}")
-                    filing_text = ""
-                if not filing_text:
-                    try:
-                        filing_text = await sec_edgar_service.get_filing_document(filing_document_url, timeout=15.0) or ""
-                    except Exception:  # noqa: BLE001
-                        filing_text = ""
-                if not filing_text:
-                    yield {'type': 'error', 'message': 'Unable to retrieve this 6-K at the moment — please try again shortly.'}
-                    return
-                mark_stage("fetch_document")
-                yield {'type': 'progress', 'stage': 'fetching', 'message': '6-K exhibits fetched', 'percent': 15}
-            else:
-                # Fetch filing document with heartbeat to prevent UI stall at 10%
-                FETCH_MESSAGES = [
-                    "Connecting to SEC EDGAR...",
-                    "Downloading filing document...",
-                    "Retrieving full document text...",
-                    "Processing SEC response...",
-                ]
-
-                try:
-                    logger.info(f"[stream:{filing_id}] Starting SEC fetch for URL: {filing_document_url}")
-                    # Wrap the SEC fetch in a task with heartbeat loop
-                    fetch_task = asyncio.create_task(
-                        sec_edgar_service.get_filing_document(filing_document_url, timeout=15.0)
-                    )
-
-                    fetch_heartbeat_index = 0
-                    while not fetch_task.done():
-                        done, _ = await asyncio.wait(
-                            [fetch_task],
-                            timeout=settings.STREAM_HEARTBEAT_INTERVAL,
-                            return_when=asyncio.FIRST_COMPLETED
-                        )
-                        if fetch_task in done:
-                            break
-                        # Send heartbeat during fetch
-                        fetch_message = FETCH_MESSAGES[fetch_heartbeat_index % len(FETCH_MESSAGES)]
-                        elapsed_secs = int(time.time() - pipeline_started_at)
-                        logger.info(f"[stream:{filing_id}] SEC fetch heartbeat {fetch_heartbeat_index + 1}: {fetch_message}")
-                        # Estimate progress during fetch: start at 5%, cap at 15%
-                        current_percent = min(5 + (fetch_heartbeat_index * 1), 15)
-                        yield {'type': 'progress', 'stage': 'fetching', 'message': fetch_message, 'percent': current_percent, 'elapsed_seconds': elapsed_secs}
-                        fetch_heartbeat_index += 1
-
-                    # Get the result (or raise exception if task failed)
-                    filing_text = await fetch_task
-                    logger.info(f"[stream:{filing_id}] SEC fetch completed. Text length: {len(filing_text) if filing_text else 0}")
-
-                    if not filing_text:
-                        raise ValueError("Filing document is empty or inaccessible")
-
-                    mark_stage("fetch_document")
-                    yield {'type': 'progress', 'stage': 'fetching', 'message': 'File validated and fetched successfully', 'percent': 15}
-
-                except Exception as fetch_error:
-                    logger.error(f"[stream:{filing_id}] Error fetching SEC document: {fetch_error}", exc_info=True)
-                    error_msg = "Unable to retrieve this filing at the moment — please try again shortly."
-                    yield {'type': 'error', 'message': error_msg}
-                    return
-
-            yield {'type': 'progress', 'stage': 'parsing', 'message': 'Starting parsing...', 'percent': 15}
-
-            # Step 2: Section Parsing
-            # DB OP: Record progress
-            await run_sync_db(record_progress_sync, filing_id, "parsing")
-
-            yield {'type': 'progress', 'stage': 'parsing', 'message': 'Step 2: Section Parsing - Extracting major sections (Item 1A: Risk Factors, Item 7: MD&A)...', 'percent': 20}
-
-            # Resolve the parallel section parse (if any) before building the excerpt.
-            sections = None
-            if sections_task is not None:
-                sections = await sections_task
-
-            # Extract excerpt
-            def extract_excerpt_sync():
-                with database.SessionLocal() as thread_session:
-                    thread_filing = thread_session.query(Filing).options(joinedload(Filing.content_cache)).filter(Filing.id == filing_id).first()
-                    return get_or_cache_excerpt(thread_session, thread_filing, filing_text, sections=sections)
-
-            if cache_is_valid:
-                # Use the cached excerpt directly
-                async def return_cached_excerpt():
-                    return excerpt_from_cache
-                excerpt_task = asyncio.create_task(return_cached_excerpt())
-            else:
-                excerpt_task = asyncio.create_task(run_sync_db(extract_excerpt_sync))
-
-            # XBRL fetch was already started concurrently with the document fetch above.
-
-            # Wait for parsing to complete
-            yield {'type': 'progress', 'stage': 'parsing', 'message': 'Parsing complete...', 'percent': 25}
-
-            # Step 3: Content Analysis
-            # DB OP: Record progress
-            await run_sync_db(record_progress_sync, filing_id, "analyzing")
-
-            yield {'type': 'progress', 'stage': 'analyzing', 'message': 'Step 3: Content Analysis - Analyzing risk factors...', 'percent': 35}
-
-            # Step 4: Summary Generation
-            yield {'type': 'progress', 'stage': 'analyzing', 'message': 'Step 4: Generating financial overview...', 'percent': 45}
-
-            # DB OP: Record progress
-            await run_sync_db(record_progress_sync, filing_id, "summarizing")
-
-            yield {'type': 'progress', 'stage': 'summarizing', 'message': 'Step 5: Generating investor-focused summary...', 'percent': 50}
-
-            # Wait for excerpt and XBRL with reasonable timeout
-            # CRITICAL: 2s was too aggressive - SEC API for large companies can take 5-10s
-            excerpt = None
-            xbrl_metrics = None
-            tasks_to_wait = [excerpt_task]
-            if xbrl_task:
-                tasks_to_wait.append(xbrl_task)
-            try:
-                # Give excerpt/XBRL time to complete - critical for financial data accuracy
-                await asyncio.wait_for(
-                    asyncio.gather(*tasks_to_wait, return_exceptions=True),
-                    timeout=CONTEXT_ENRICHMENT_TIMEOUT_SECONDS
-                )
-            except asyncio.TimeoutError:
-                pass  # wait_for has cancelled/drained pending siblings; retain completed results.
-            except Exception as e:
-                logger.warning(f"[stream:{filing_id}] Error waiting for excerpt/XBRL: {str(e)}")
-
-            # A slow/failed sibling cannot erase enrichment that already completed successfully.
-            # External cancellation bypasses this block; it is never converted to partial success.
-            results = [
-                task.result() if task.done() and not task.cancelled() and task.exception() is None else None
-                for task in tasks_to_wait
-            ]
-            excerpt = results[0]
-            if len(results) > 1:
-                xbrl_metrics = results[1]
-
-            mark_stage("context_enrichment")
-
-            # A5: when STREAM_SECTION_REVEAL is on, stream the extraction and push progressive section
-            # previews onto a queue that the heartbeat loop drains below. The callback can't yield from
-            # this generator, so the queue decouples them. Off by default → behaviour unchanged.
-            preview_queue: Optional[asyncio.Queue] = (
-                asyncio.Queue() if settings.STREAM_SECTION_REVEAL else None
-            )
-            summary_stream_cb = None
-            if preview_queue is not None:
-                async def summary_stream_cb(preview_md: str) -> None:
-                    preview_queue.put_nowait(preview_md)
-
-            # Now run AI summarization (with excerpt/XBRL if available)
-            # Wrap in task to enable heartbeat loop while waiting
-            statement_source = None
-            report_period = filing_fields.get("report_period")
-            if filing_text and report_period is not None:
-                with worker_owner.activate():
-                    statement_source = await run_in_threadpool(
-                        acquire_statement_context, filing_text, accession=filing_accession_number,
-                        document_url=filing_document_url, form=filing_type,
-                        report_period=report_period.date().isoformat(),
-                    )
-            if is_six_k:
-                # W3-8b: deterministic pre-classification of the final 6-K grounding selects the prompt
-                # variant and is recorded on the stored summary for audit. Placed after every grounding
-                # branch (fresh exhibit fetch, primary-document fallback, or a valid content cache whose
-                # text arrives as the excerpt) so a cached or regenerated 6-K is classified too.
-                sixk = classify_sixk_text(filing_text or excerpt)
-                sixk_class, sixk_class_audit = sixk.sixk_class, sixk.as_audit()
-            if request_evidence is not None:
-                request_evidence.summary_service_invoked = True
-
-            # Metering point: a held admission lease becomes a counted unit when the provider request
-            # is ISSUED — the `provider_start_signal` the request dispatcher fires immediately before
-            # the first provider call — not after persistence, and not at task creation (the
-            # task parses the filing locally first). The provider bill accrues from that moment and
-            # section previews may stream before the complete event, so a client that disconnects
-            # after it has consumed the unit; the pipeline's cancellation path (CancelledError /
-            # GeneratorExit) deliberately never refunds it. A disconnect or failure BEFORE the signal
-            # leaves the lease held, and `finally` releases it. The unit is refunded only for outcomes
-            # the client cannot induce: a provider-side failure (the task raises, returns an error
-            # payload or the pipeline times out) and, under AI_QUALITY_GATE, a partial verdict — so an
-            # honest partial still costs nothing. A result that arrives without the signal (a stand-in
-            # service) is counted on completion. Callers without a lease (the background drain with
-            # current_user=None, and uncapped Pro) keep the completion-time count below.
-            provider_started = asyncio.Event()
-
-            def begin_charge() -> None:
-                """Start the lease-to-unit write (at most once). Called from the dispatcher's start
-                signal, inside the provider task, at the instant the request is issued: the write
-                exists before this generator can be cancelled, so a disconnect in the gap between the
-                signal and the heartbeat loop's next turn still finds it in `finally`."""
-                nonlocal charge_future
-                if usage_reservation_token is None or charged_month is not None or charge_future is not None:
-                    return
-                token_to_convert = usage_reservation_token
-
-                def charge_usage_sync() -> Optional[str]:
-                    with database.SessionLocal() as session:
-                        user = session.query(User).filter(User.id == user_id).first()
-                        if user is None:
-                            return None  # no account row: nothing to count (the lease is released in `finally`)
-                        # Convert the reservation: its delete rides in the increment's commit, so the
-                        # unit is counted exactly once and never both held and counted, in the month
-                        # whose quota admitted it (a lease can straddle a rollover).
-                        month = convert_reservation(token_to_convert, session) or get_current_month()
-                        increment_user_usage(user.id, month, session)
-                        return month
-
-                charge_future = asyncio.ensure_future(run_sync_db(charge_usage_sync))
-
-            async def charge_lease() -> None:
-                """Convert the held lease into one counted unit (at most once; the lease is cleared)."""
-                nonlocal charged_month, usage_reservation_token
-                if charged_month is not None:
-                    return
-                begin_charge()  # no-op when the signal already started the write
-                if charge_future is None:
-                    return  # no lease to convert
-                # Shielded: a cancellation here (deadline, disconnect) abandons this await, not the
-                # write, and `settle_charge` later reads what the write committed.
-                charged_month = await asyncio.shield(charge_future)
-                if charged_month is not None:
-                    usage_reservation_token = None
-
-            def on_provider_start() -> None:
-                begin_charge()
-                provider_started.set()
-
-            with provider_start_signal(on_provider_start), worker_owner.activate():
-                summary_task = asyncio.create_task(openai_service.summarize_filing(
-                    filing_text,
-                    company_name,
-                    filing_type,
-                    xbrl_metrics=xbrl_metrics,
-                    filing_excerpt=excerpt,
-                    stream_cb=summary_stream_cb,
-                    **({"statement_source": statement_source} if statement_source else {}),
-                    **({"sixk_class": sixk_class, "sixk_class_audit": sixk_class_audit} if sixk_class else {}),
-                ))
-            provider_started_waiter = asyncio.ensure_future(provider_started.wait())
-
-            SUMMARIZE_MESSAGES = [
-                "Analyzing financial highlights...",
-                "Cross-referencing with XBRL data...",
-                "Extracting key metrics from MD&A...",
-                "Identifying significant risk factors...",
-                "Synthesizing investment insights...",
-                "Reviewing guidance and outlook...",
-            ]
-            summarize_heartbeat_index = 0
-            summary_payload = None
-            provider_fallback = False  # the payload is the deterministic XBRL fallback, not a provider result
-
-            # Build fallback kwargs once to avoid duplication (DRY principle)
-            fallback_kwargs = {
-                "xbrl_data": xbrl_metrics,
-                "company_name": company_name,
-                "filing_date": filing_fields["filing_date"].isoformat() if filing_fields["filing_date"] else "Unknown",
-                "filing_text": filing_text,
-                "filing_type": filing_type,
-                "filing_excerpt": excerpt,
-            }
-
-            while not summary_task.done():
-                if provider_started.is_set():
-                    await charge_lease()  # the provider request is issued: count the unit now
-                awaited = [summary_task] if provider_started_waiter.done() else [summary_task, provider_started_waiter]
-                done, pending = await asyncio.wait(
-                    awaited,
-                    timeout=settings.STREAM_HEARTBEAT_INTERVAL,
-                    return_when=asyncio.FIRST_COMPLETED
-                )
-
-                if summary_task in done:
-                    break
-                if provider_started_waiter in done:
-                    continue  # charge at the top of the loop before the next heartbeat wait
-
-                # Check for AI Timeout (60s)
-                current_time = time.time()
-                time_in_stage = current_time - stage_started_at
-
-                if time_in_stage > 75.0:
-                    logger.warning(f"[stream:{filing_id}] AI summarization timed out after {time_in_stage:.1f}s. Switching to fallback.")
-                    summary_task.cancel()
-                    await asyncio.gather(summary_task, return_exceptions=True)
-                    # Use fallback with full filing context for meaningful partial results
-                    summary_payload = generate_xbrl_summary(**fallback_kwargs)
-                    provider_fallback = True
-                    # Break loop manually since task is cancelled/ignored
-                    break
-
-                heartbeat_message = SUMMARIZE_MESSAGES[summarize_heartbeat_index % len(SUMMARIZE_MESSAGES)]
-                elapsed_secs = int(time.time() - pipeline_started_at)
-                # Estimate progress during summarization: start at 50%, increase by 2% per heartbeat, cap at 90%
-                current_percent = min(50 + (summarize_heartbeat_index * 2), 90)
-                # A5: if progressive previews have arrived, emit the latest full render (coalesced) as a
-                # 'preview' event — real content the client can reveal early — instead of a generic
-                # heartbeat. Falls through to the heartbeat when no preview is pending (or feature off).
-                latest_preview = None
-                if preview_queue is not None:
-                    while not preview_queue.empty():
-                        latest_preview = preview_queue.get_nowait()
-                if latest_preview:
-                    yield {'type': 'preview', 'stage': 'summarizing', 'markdown': latest_preview, 'heartbeat_count': summarize_heartbeat_index, 'percent': current_percent, 'elapsed_seconds': elapsed_secs}
-                else:
-                    yield {'type': 'progress', 'stage': 'summarizing', 'message': heartbeat_message, 'heartbeat_count': summarize_heartbeat_index, 'percent': current_percent, 'elapsed_seconds': elapsed_secs}
-                summarize_heartbeat_index += 1
-
-            if not summary_payload:
-                try:
-                    summary_payload = await summary_task
-                except TimeoutError:
-                    # The service now owns the exact AI deadline, independent of heartbeat timing.
-                    summary_payload = generate_xbrl_summary(**fallback_kwargs)
-                    provider_fallback = True
-                except asyncio.CancelledError:
-                    if asyncio.current_task().cancelling():
-                        raise
-                    # Looked like we already handled fallback, but ensure payload is set
-                    if not summary_payload:
-                        summary_payload = generate_xbrl_summary(**fallback_kwargs)
-                        provider_fallback = True
-            mark_stage("generate_summary")
-
-            summary_status = summary_payload.get("status", "complete")
-            if provider_started.is_set() or (summary_status != "error" and not provider_fallback):
-                # The signal may have fired just before the task finished; a result without the
-                # signal (a stand-in service) still ran a provider, so it is counted on completion.
-                # A timeout fallback without the signal ran no provider at all (the deadline passed
-                # during local parsing or admission), so it is served uncounted.
-                await charge_lease()
-            if summary_status == "error":
-                error_message = summary_payload.get("message", "Error generating summary")
-                await refund_charge("provider returned an error payload")
-                # Persist the error state so the /progress endpoint reports a retryable error
-                # immediately, instead of leaving "summarizing" to age out via the stale check.
-                try:
-                    await run_sync_db(record_progress_sync, filing_id, "error", error=error_message[:200])
-                except Exception as db_err:
-                    logger.error(f"[stream:{filing_id}] Failed to record AI error progress: {db_err}", exc_info=True)
-                yield {'type': 'error', 'message': error_message}
-                return
-
-            # The application-prepared degraded source is private and will be popped by the shared
-            # finalizer. Retain it separately so the cache owner can preserve the same decoded-text
-            # view for later API/export projection when no critical excerpt exists.
-            risk_source_for_cache = summary_payload.get("_risk_source_grounding")
-            markdown, raw_summary, sections_info, normalized_financial_section = (
-                _finalize_summary_projection(
-                    summary_payload,
-                    xbrl_metrics,
-                    summary_status,
-                    source_text=excerpt or filing_text,
-                    filing_document_url=filing_document_url,
-                )
-            )
-
-            section_coverage = (
-                raw_summary.get("section_coverage")
-                if isinstance(raw_summary, dict)
-                else None
-            )
-            if section_coverage:
-                await run_sync_db(
-                    record_progress_sync,
-                    filing_id,
-                    "summarizing",
-                    section_coverage=section_coverage,
-                )
-
-            risk_section = sections_info.get("risks") or []
-            # Legacy compat columns on the Summary row (management_discussion / key_changes) still get
-            # the v2-mapped prose (earnings_quality / forward_signals, re-pointed in summarize_filing).
-            management_section = summary_payload.get("management_discussion")
-            guidance_section = summary_payload.get("key_changes")
-
-            # The legacy MD&A/guidance wrapper injection is retired under v2: the v2 taxonomy already
-            # carries earnings_quality + forward_signals, and the web reads the render_sections output
-            # (rendered_sections), not these keys. Injecting management_discussion_insights /
-            # guidance_outlook here would only decorate every v2 row with phantom v1 nodes.
-
-            # S4: deterministic quality verdict (always attached as metadata for the UI badge).
-            # sic feeds the bank-aware revenue-grounding rule (P0-2) as the flag-independent
-            # FI signal alongside component presence.
-            # ``excerpt or filing_text``: when excerpt extraction failed (cache miss + section-parse
-            # timeout), ``summarize_filing`` still generated from ``filing_text``'s parsed sample — so the
-            # gate must ground against the same text, else every filing-copied figure false-flags on
-            # exactly the degraded population. The two are complementary (filing_text is emptied only when
-            # the excerpt is in use), and ``untraceable_figures`` returns [] if BOTH are empty.
-            quality = assess_quality(
-                summary_payload, xbrl_metrics, sic=company_sic, excerpt=excerpt or "",
-                trace_excerpt=excerpt or filing_text
-            )
-            raw_summary["quality"] = quality
-            untraceable = quality.get("figures_untraceable") or []
-            if untraceable:
-                # T3.2 advisory-phase measurement channel. The gate ships flag-off, so untraceable dollar
-                # figures do NOT tier the summary "partial" — this greppable counter (count first, for a
-                # log-based metric threshold) is the only push signal for the flag-flip decision and,
-                # post-T5, the regression alarm for derived-aggregate reintroduction.
-                logger.info(
-                    "figure_trace_untraceable count=%d flag=%s filing_id=%s sic=%s figures=%s",
-                    len(untraceable),
-                    settings.AI_FIGURE_TRACE_GATE,
-                    filing_id,
-                    company_sic or "",
-                    "|".join(untraceable),
-                )
-            if quality.get("tier") == "partial":
-                # P0-2 detection: greppable counter of partial verdicts by reason + SIC. A
-                # bank-heavy spike after any prompt change is the recurrence signal for the
-                # bank-blind-grounding incident class.
-                logger.info(
-                    "summary_quality_partial filing_id=%s cik=%s sic=%s reasons=%s",
-                    filing_id,
-                    company_cik,
-                    company_sic or "",
-                    "|".join(quality.get("reasons") or []),
-                )
-            if quality.get("machine_sections_only"):
-                # T5.3 detection (#621 staff review): full-tier verdict where machine-authored
-                # XBRL sections alone crossed the 4/9 bar — zero model-authored sections covered.
-                # A spike after a prompt/model change means generation collapse is being masked
-                # by deterministic content (and, under AI_QUALITY_GATE, still charged); the
-                # verdict is honest, but the class is watched, not assumed.
-                logger.info(
-                    "summary_quality_full_machine_only filing_id=%s cik=%s sic=%s covered=%s/%s",
-                    filing_id,
-                    company_cik,
-                    company_sic or "",
-                    quality.get("covered_count"),
-                    quality.get("total_count"),
-                )
-            attribution_audit = (raw_summary or {}).get("attribution_audit") or {}
-            if attribution_audit.get("unverified"):
-                # #805 path step 4 measurement channel (count-first): causal clauses the filing does
-                # not state, emitted flag on OR off; dropped counts only when the gate is armed.
-                verification = attribution_audit.get("verification") or {}
-                logger.info(
-                    "attribution_unverified count=%d checked=%d dropped=%d decider=%s decided=%d "
-                    "verify_error=%s flag=%s filing_id=%s sic=%s slots=%s",
-                    len(attribution_audit["unverified"]),
-                    attribution_audit.get("checked", 0),
-                    len(attribution_audit.get("dropped") or []),
-                    attribution_audit.get("decider", "none"),
-                    verification.get("decided", 0),
-                    verification.get("error") or "",
-                    settings.AI_ATTRIBUTION_GATE,
-                    filing_id,
-                    company_sic or "",
-                    "|".join(str(u.get("slot") or "?") for u in attribution_audit["unverified"]),
-                )
-            unit_audit = (raw_summary or {}).get("table_cell_unit_audit") or {}
-            if unit_audit.get("restored_count") or unit_audit.get("unresolved_count"):
-                # Declared table-cell scale owner (source_units) measurement channel, count-first:
-                # bare model dollar figures whose declared scale was restored, and those left
-                # untouched with the abstention reason. Totals are exact even when the audit's
-                # detail lists are capped. Unresolved figures stay visible as written.
-                logger.info(
-                    "table_cell_units restored=%d unresolved=%d filing_id=%s sic=%s reasons=%s",
-                    int(unit_audit.get("restored_count") or 0),
-                    int(unit_audit.get("unresolved_count") or 0),
-                    filing_id,
-                    company_sic or "",
-                    "|".join(sorted({str(u.get("reason") or "?") for u in unit_audit.get("unresolved") or []})),
-                )
-            quote_audit = (raw_summary or {}).get("forward_quote_audit") or {}
-            if quote_audit.get("unverified"):
-                # T5.4 measurement channel (count-first, the figure-trace convention): §5 quotes
-                # that failed the verbatim check, emitted flag on OR off. near_miss (rapidfuzz
-                # ≥92 on normalized text) = lightly-paraphrased population → prompt tuning;
-                # the remainder = fabrication-class → the arming signal for the drop gate.
-                unverified = quote_audit["unverified"]
-                logger.info(
-                    "forward_quote_unverified count=%d near_miss=%d dropped=%d flag=%s "
-                    "filing_id=%s sic=%s speakers=%s",
-                    len(unverified),
-                    quote_audit.get("near_miss", 0),
-                    len(quote_audit.get("dropped") or []),
-                    settings.AI_FORWARD_QUOTE_GATE,
-                    filing_id,
-                    company_sic or "",
-                    "|".join(str(u.get("speaker") or "?") for u in unverified),
-                )
-            snap_audit = (raw_summary or {}).get("evidence_snap_audit") or {}
-            if snap_audit.get("checked"):
-                # Evidence auto-snap measurement channel (post-#631, count-first convention):
-                # exact = verified as emitted; would_snap = a confident counterpart exists but
-                # the flag is unarmed (the entries carry original + candidate — THE arming
-                # forensics); snapped = armed repairs (become read-time Verified badges); left =
-                # no confident counterpart, text kept (read-time enrichment suppresses it).
-                logger.info(
-                    "evidence_snap checked=%d exact=%d would_snap=%d snapped=%d left=%d "
-                    "flag=%s filing_id=%s",
-                    snap_audit.get("checked", 0),
-                    snap_audit.get("exact", 0),
-                    len(snap_audit.get("would_snap") or []),
-                    len(snap_audit.get("snapped") or []),
-                    len(snap_audit.get("left") or []),
-                    settings.AI_EVIDENCE_SNAP,
-                    filing_id,
-                )
-
-            # S4 quality gate: the summary is ALWAYS persisted, so the streamed result doesn't
-            # vanish when the client refetches and isn't regenerated from scratch on revisit. When
-            # a result is assessed "partial", the user is not charged for it (they weren't served a
-            # full result): the unit counted at provider start is refunded, and a caller without a
-            # lease skips the completion-time count. The UI surfaces it honestly via the quality
-            # badge + one-click Regenerate.
-            count_usage = not (settings.AI_QUALITY_GATE and quality["tier"] == "partial")
-            if not count_usage:
-                logger.info(
-                    f"[stream:{filing_id}] Quality gate: tier=partial, not charging usage "
-                    f"(reasons: {quality['reasons']})"
-                )
-                await refund_charge("partial verdict")
-
-            # DB OP: Persist summary
-            def save_summary_sync():
-                with database.SessionLocal() as session:
-                    filing_for_cache = session.query(Filing).options(joinedload(Filing.content_cache)).filter(Filing.id == filing_id).first()
-
-                    if force_regenerate:
-                        # Admin refresh-stale: UPDATE the existing row IN PLACE (preserve summaries.id so
-                        # the saved_summaries FK/bookmark survives and UNIQUE(filing_id) holds) instead of
-                        # delete+insert, guarded by a keep-better gate. The read takes the row lock the
-                        # UPDATE takes, so the checks below hold until this commit: another instance's save
-                        # commits first and is read here, never lands between this read and the write.
-                        # SQLite omits the clause; PostgreSQL emits FOR NO KEY UPDATE (FK key-share safe).
-                        existing = (
-                            session.query(Summary)
-                            .filter(Summary.filing_id == filing_id)
-                            .with_for_update(key_share=True)
-                            .first()
-                        )
-                        if existing is not None:
-                            stored_raw = existing.raw_summary if isinstance(existing.raw_summary, dict) else {}
-                            stored_tier = (stored_raw.get("quality") or {}).get("tier")
-                            new_tier = (quality or {}).get("tier")
-                            # Keep-better protects only a stored row the filing page shows (the body
-                            # the router would replay, by the same rule): failure filler or a stale
-                            # in-progress marker never outranks a fresh result.
-                            stored_shown = is_summary_ready(
-                                source_safe_business_overview(existing, filing_for_cache),
-                                stored_raw.get("writer_error"),
-                            )
-                            if stored_shown and replace_unready_only:
-                                # This run was admitted only to replace a row the page cannot show,
-                                # and another run made it ready meanwhile: keep that summary.
-                                logger.info(
-                                    "[stream:%s] unready refresh: the stored summary became ready meanwhile; keeping it",
-                                    filing_id,
-                                )
-                                return existing.id
-                            if stored_shown and quality_tier_rank(new_tier) < quality_tier_rank(stored_tier):
-                                # Never let a refresh downgrade a stored higher tier (a 75s AI-timeout
-                                # XBRL fallback comes back "partial"; keep the stored "full").
-                                logger.info(
-                                    "[stream:%s] refresh keep-better: keeping stored tier=%s over new tier=%s",
-                                    filing_id, stored_tier, new_tier,
-                                )
-                                return existing.id
-                            existing.business_overview = markdown
-                            existing.financial_highlights = normalized_financial_section
-                            existing.risk_factors = risk_section
-                            existing.management_discussion = management_section
-                            existing.key_changes = guidance_section
-                            # Reassign a NEW dict so SQLAlchemy marks the JSON column dirty and emits UPDATE.
-                            existing.raw_summary = raw_summary
-                            existing.schema_version = SUMMARY_SCHEMA_VERSION
-                            existing.prompt_version = SUMMARY_PROMPT_VERSION
-                            if filing_for_cache:
-                                upsert_content_cache(
-                                    session, filing_id, filing_for_cache.content_cache,
-                                    excerpt=excerpt, sections_payload=sections_info,
-                                    risk_source_text=(
-                                        risk_source_for_cache
-                                        if isinstance(risk_source_for_cache, str)
-                                        else None
-                                    ),
-                                    replace_risk_source=True,
-                                )
-                            session.commit()
-                            return existing.id
-                        # force on a filing with no stored summary yet: fall through to a normal INSERT.
-
-                    summary = Summary(
-                        filing_id=filing_id,
-                        business_overview=markdown,
-                        financial_highlights=normalized_financial_section,
-                        risk_factors=risk_section,
-                        management_discussion=management_section,
-                        key_changes=guidance_section,
-                        raw_summary=raw_summary,
-                        schema_version=SUMMARY_SCHEMA_VERSION,
-                        prompt_version=SUMMARY_PROMPT_VERSION,
-                    )
-                    session.add(summary)
-
-                    if filing_for_cache:
-                        upsert_content_cache(
-                            session,
-                            filing_id,
-                            filing_for_cache.content_cache,
-                            excerpt=excerpt,
-                            sections_payload=sections_info,
-                            risk_source_text=(
-                                risk_source_for_cache
-                                if (
-                                    isinstance(risk_source_for_cache, str)
-                                    and (force_regenerate or not excerpt)
-                                )
-                                else None
-                            ),
-                            replace_risk_source=force_regenerate,
-                        )
-
-                    try:
-                        session.commit()
-                        return summary.id
-                    except IntegrityError:
-                        # A concurrent writer (cron / another instance) persisted this filing's summary
-                        # first — filing_id is UNIQUE. Serve the winner's row instead of erroring the
-                        # user's stream (S1 decision #3).
-                        session.rollback()
-                        existing = session.query(Summary).filter(Summary.filing_id == filing_id).first()
-                        if existing is None:
-                            raise
-                        return existing.id
-
-            saved_summary_id = await run_sync_db(save_summary_sync)
-
-            mark_stage("persist_summary")
-
-            if charged_month is not None:
-                # The unit counted at provider start is settled by the persisted summary: no later
-                # failure refunds it.
-                charged_month = None
-                charge_future = None  # nothing left to settle: the unit is owed
-            elif user_id and count_usage and usage_reservation_token is None:
-                # No lease was held (background drain, uncapped Pro): the historical
-                # completion-time count, full results only. A lease still held here was left
-                # uncharged on purpose (an unsignalled timeout fallback); `finally` releases it.
-                def track_usage_sync():
-                    with database.SessionLocal() as session:
-                        user = session.query(User).filter(User.id == user_id).first()
-                        if user:
-                            increment_user_usage(user.id, get_current_month(), session)
-
-                await run_sync_db(track_usage_sync)
-                mark_stage("usage_tracking")
-
-            # DB OP: Record complete
-            await run_sync_db(record_progress_sync, filing_id, "completed")
-
-            summary_status = summary_payload.get("status", "complete")
-            summary_message = summary_payload.get("message")
-
-            # A persisted result with status "error" means only fallback content was
-            # produced — count it as a failure in the funnel, not a success.
-            emit_funnel(
-                telemetry_distinct_id,
-                EVENT_GENERATION_SUCCEEDED if summary_status != "error" else EVENT_GENERATION_FAILED,
-                duration_ms=elapsed_ms(),
-                result_type=summary_status,
-                quality_verdict=quality.get("tier"),
-                figures_untraceable_count=len(quality.get("figures_untraceable") or []),
-                entry_point=telemetry_entry_point,
-                **telemetry_ctx,
-            )
-
-            yield {'type': 'chunk', 'content': markdown}
-
-            if summary_status == "partial":
-                yield {'type': 'partial', 'message': summary_message or 'Some sections may not have loaded fully.', 'summary_id': saved_summary_id}
-            elif summary_status == "error":
-                yield {'type': 'error', 'message': summary_message or 'Error generating summary', 'summary_id': saved_summary_id}
-            else:
-                yield {'type': 'complete', 'summary_id': saved_summary_id, 'percent': 100}
+                finally:
+                    # Close the stage deterministically: a stage left suspended at a yield after a
+                    # disconnect would otherwise be finalized later by the event loop's GC hook.
+                    await events.aclose()
     except TimeoutError:
-        if request_evidence is not None:
-            request_evidence.reason = "pipeline_timeout"
-        # Pipeline hard timeout reached
-        logger.warning(f"[stream:{filing_id}] Pipeline timeout after {PIPELINE_TIMEOUT_SECONDS}s")
-        await refund_charge("pipeline timeout")
-        emit_funnel(
-            telemetry_distinct_id,
-            EVENT_GENERATION_TIMED_OUT,
-            duration_ms=elapsed_ms(),
-            result_type="timeout",
-            entry_point=telemetry_entry_point,
-            **telemetry_ctx,
-        )
-        # Each worker owns its session through cleanup, even if cancellation interrupts
-        # its caller. Error reporting uses another short worker-owned transaction.
-        def record_timeout_progress():
-            with database.SessionLocal() as err_session:
-                record_progress(err_session, filing_id, "error", error="Pipeline timeout")
-        try:
-            await run_sync_db(record_timeout_progress)
-        except Exception as e:
-            logger.error(f"[stream:{filing_id}] Failed to record pipeline timeout error: {e}", exc_info=True)
-        yield {'type': 'error', 'message': 'Summary generation timed out. Please try again.'}
+        yield await failure.timed_out(run)
     except Exception as e:
         # CancelledError/GeneratorExit (client disconnect) are BaseExceptions and skip this handler:
         # the unit counted at provider start is refunded only for a failure the client did not cause.
-        logger.error(f"[stream:{filing_id}] Error in streaming summary: {str(e)}", exc_info=True)
-        error_msg = str(e)
-        await refund_charge("pipeline failure")
-        emit_funnel(
-            telemetry_distinct_id,
-            EVENT_GENERATION_FAILED,
-            duration_ms=elapsed_ms(),
-            result_type="error",
-            entry_point=telemetry_entry_point,
-            error=error_msg[:200],
-            **telemetry_ctx,
-        )
-        # A failed worker closes its own transaction; error reporting owns another one.
-        def record_stream_error_progress():
-            with database.SessionLocal() as err_session:
-                record_progress(err_session, filing_id, "error", error=error_msg[:200])
-        try:
-            await run_sync_db(record_stream_error_progress)
-        except Exception as e:
-            logger.error(f"[stream:{filing_id}] Failed to record streaming error: {e}", exc_info=True)
-
-        if "Unable to retrieve" in error_msg or "Unable to complete" in error_msg:
-            error_message = error_msg[:200]
-        else:
-            error_message = "Unable to retrieve this filing at the moment — please try again shortly."
-
-        yield {'type': 'error', 'message': error_message}
+        yield await failure.failed(run, e)
     finally:
-        # On a client disconnect Starlette cancels this task (ASGI < 2.4, which uvicorn speaks)
-        # and re-delivers the cancellation at every await until the generator exits, so an
-        # unshielded cleanup would abort at its first await and skip every release below.
-        with anyio.CancelScope(shield=True):
-            # This generator owns the provider task: disconnect/timeout must close its stream
-            # before releasing the slot, with no background retry left running.
-            if summary_task is not None:
-                if not summary_task.done():
-                    summary_task.cancel()
-                await asyncio.gather(summary_task, return_exceptions=True)
-            if provider_started_waiter is not None and not provider_started_waiter.done():
-                provider_started_waiter.cancel()
-            # Document failures and disconnects can exit before these siblings reach their normal
-            # join points. Cancel and drain every request-owned coroutine before releasing its
-            # generation slot; none may continue as post-response enrichment.
-            owned_siblings = [
-                task for task in (xbrl_task, sections_task, fetch_task, excerpt_task, provider_started_waiter)
-                if task is not None
-            ]
-            for task in owned_siblings:
-                if not task.done():
-                    task.cancel()
-            if owned_siblings:
-                await asyncio.gather(*owned_siblings, return_exceptions=True)
-            # A reservation still held here was never converted (failure or disconnect before the
-            # provider call started, or no account row to count against): give the quota unit back
-            # now. A unit counted at provider start is NOT touched here — see the metering point.
-            await settle_charge()  # a charge committed under a cancelled await has no lease to release
-            if usage_reservation_token is not None:
-                token_to_release = usage_reservation_token
-                usage_reservation_token = None
-
-                def release_reservation_sync() -> None:
-                    with database.SessionLocal() as session:
-                        release_reservation(token_to_release, session)
-
-                try:
-                    await run_sync_db(release_reservation_sync)
-                except Exception as release_error:  # the lease expires on its own; never mask the outcome
-                    logger.warning(f"[stream:{filing_id}] Could not release usage reservation: {release_error}")
-            # Coroutine cancellation does not terminate its running SQL/Edgar worker. Join the
-            # actual concurrent futures after quota settlement, while ownership is still held.
-            await worker_owner.drain()
-        # Release the generation slot first (only if actually acquired), then in-flight leadership,
-        # so a queued generation can start as soon as this one is done.
-        if generation_slot_held and generation_semaphore is not None:
-            generation_semaphore.release()
-        # A3: release in-flight leadership so any waiters proceed and serve the persisted result.
-        # Runs on completion, error, timeout, AND GeneratorExit (client disconnect) — never leaks a slot.
-        if inflight_event is not None:
-            _release_inflight(filing_id, inflight_event)
-
-        total_elapsed = time.time() - pipeline_started_at
-        breakdown = ", ".join(f"{stage}:{duration:.2f}s" for stage, duration in stage_timings)
-        if breakdown:
-            logger.info(f"[stream:{filing_id}] pipeline finished in {total_elapsed:.2f}s ({breakdown})")
-        else:
-            logger.info(f"[stream:{filing_id}] pipeline finished in {total_elapsed:.2f}s")
+        await run.release()

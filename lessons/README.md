@@ -12,6 +12,8 @@ what applies to your task. Filenames are greppable: `arch-*`, `sec-*`, `test-*`,
 
 ## Architecture
 
+- [`arch-moved-code-resolves-seams-through-the-patched-module.md`](./arch-moved-code-resolves-seams-through-the-patched-module.md) — Code moved out of a patched module keeps resolving its collaborators through that module at call time
+
 - [`arch-qualified-income-deltas-need-source-ownership.md`](./arch-qualified-income-deltas-need-source-ownership.md) — Withhold qualified income arithmetic when attribution and entity ownership are unsupported
 
 - [`arch-acquisition-period-withholding-needs-whole-claims.md`](./arch-acquisition-period-withholding-needs-whole-claims.md) — Preserve closed authored continuations when withholding ambiguous acquisition-period claims
