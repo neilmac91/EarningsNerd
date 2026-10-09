@@ -1,3 +1,13 @@
+## 2026-10-09 — Design critique 2026-10: the filing page (PR 1 of a stack; frontend + two additive backend fields)
+
+- Scope: the Claude Design handoff "Design Critique 2026-10" (canvas 1a–1e, register P-01–P-11 in the design project's `docs/design/critique-2026-10-08/critique.md`). The founder chose the whole canvas as stacked PRs starting with the filing page, hairline sections as drawn, the floating launcher kept (restyled), and risk headings cut from each excerpt's opening clause. This PR is the filing page (1a, 1c, 1e) on `main` `da636f6`. The review round added two additive backend fields (below); no migration, no locked contract touched.
+- Shipped: the filings-index package's What-changed patch (0003, with its `filingPeriod` helper); P-02 tertiary ink `#636A77` (4.9:1 on cream); P-05 hairline sections with 20/28 indexed titles and an indexed TOC; P-07 What changed as a numbered section (▲/▼ glyph, "Read as", stacked rows below sm); P-03 evidence rows and a located/withheld tally; P-08 `Callout` replacing `SummaryBlock`; P-04 `FilingIdentity` (breadcrumb, data-face facts, EDGAR link, no form Badge or "AI analysis" chip) and the verification tally; P-06 the "Source" pane (Filing · Ask, aside on lg+, dialog below), the "Source ⌘K" launcher; P-10 12px chips with a selected state; P-11 copy. Gates: `earningsnerd/no-side-stripe` and `earningsnerd/no-form-code-badge` (eslint.designRules.mjs).
+- Verification: lint, tsc, vitest (152 files / 1358 tests), `next build`, Playwright against `next start` with no backend (100 passed, 3 skipped); screenshots at 1280 and 390 in both themes from a scratch harness on the e2e fixture. Mutation proofs for both gates on committed state.
+- Review round (one isolated reviewer over the first eight commits; fixed in one commit): the change report's Prior/Current amounts were printed as dollars for every filer, while foreign filers (FPI forms are on in production) report in their own currency, so the change report now carries `reporting_currency` (validated ISO code from the stored XBRL) and the table labels amounts with it, or leaves them unlabelled when unknown; What changed arrived after a client fetch and pushed later sections down and renumbered the TOC, so the page reads the change report on the server with the filing and summary and seeds it; an 8-K's report date (its event's) read as "period ended", now "event date" with a filed-date crumb; `no-side-stripe` missed a stripe on `Card` (which rounds itself) and `no-form-code-badge` missed `form`, template literals and `ui.Badge` while flagging descriptive props; the figures tally counted rows the server never checks (EPS, margins, segment lines), so metric provenance carries `source_checkable` and the tally reads "N of M checkable figures"; the landing demo chip wore the selected tint; the Ask callout and follow-ups were h3 under the last section; excerpt headings could repeat a "(2)" and recased "iPhone"; the hero read "AAPL10-K" to a screen reader; three stale comments.
+- Codex review (P2): `reporting_currency` labelled both columns with the current filing's currency, but the prior amount came from the prior filing, so an issuer that changed reporting currency would have read EUR against USD with a percentage across the two. `compute_what_changed` now never differences filings whose currencies are known and different: it uses the filing's own restated comparative, or withholds the metric. That also fixes the dashboard feed's headline, which shares the engine.
+- Limits: DOM, keyboard and screenshot probes in Chromium; no screen reader, Safari or device; production has no in-app filing text for most filings, so the Filing tab often shows its empty state; the fiscal-year label ("FY2022") waits for XBRL dei fields; "Latest filing" is not shown on the filing page (no cheap source of truth without a company-filings fetch that schedules SEC refreshes).
+- [ ] Next in the stack: PR 2 company page (1b: filings-index patches 0001–0002, identity on the lead, Compare periods card; removes the two pinned lint disables), PR 3 homepage (1d: search listbox identity line with backend support, single-surface example, trust strip), PR 4 loading and motion (P-09). Outside the repo: P-01 republish the design-system package in Claude Design.
+
 ## 2026-10-08 — Risk-card headlines: each card is titled from its own excerpt (frontend)
 
 - Scope: critique v3.1's deferred group "risk-headline" (RISK-HEADLINE, RISK-GLYPH, RISK-EVIDENCE-SIZE) and the DC-TERTIARY site on the same element (the risk card's "Evidence" eyebrow), on the founder's option (b): a frontend, deterministic headline taken verbatim from each card's verified excerpt. Not (a) backend sub-headings and not (c) model titles: `provenance_service.py` and its "Filing excerpt" label are unchanged, and no backend file changes. Reproduced on `main` `da636f6c` in Chromium 141 (`/filing/3` with the four production risk spans): every card read "Filing excerpt 1" to "4" under the TrendDown arrow, the evidence was 12px, and its eyebrow measured 4.35:1 on the cream inset in light (dark already passed at 7.42:1; its classes are unchanged).
@@ -6396,7 +6406,8 @@ Full local and hosted verification plus independent exact-head review precede re
 - [x] Chief defect recorded (`DECISIONS-07.md`, ledger event 3): marking PR #1098 ready triggered the paid `copilot-eval`
       workflow without a reservation (29 calls, telemetry USD 0.005575; cancel request ineffective); recorded as use,
       USD 0.010000 reserved for the one required re-trigger; rule: reserve before marking a `backend/**`-touching PR ready.
-- [ ] Founder: apply (or change the numbers in) the handed-over patch pinning `SEC_RATE_LIMIT_PER_SECOND=1`
+- [x] Founder (decided 2026-10-08: applied by the chief and staged, record 16; stage 1 merged and deployed, record 17; the
+      service follows in stage 2, option A): apply (or change the numbers in) the handed-over patch pinning `SEC_RATE_LIMIT_PER_SECOND=1`
       and `EDGAR_RATE_LIMIT_PER_SEC=1` on the service and all eight jobs with its rule-12 gate — the chief's
       commit of it was classifier-denied (Production Deploy); the exact patch, fleet assumptions and decision are presented in
       `DECISIONS-08.md` (SHA-256 `21322a05…`, applies to `c780228a`); the chief reserves from the dearest measured `copilot-eval`
@@ -6461,19 +6472,59 @@ Full local and hosted verification plus independent exact-head review precede re
   outcomes A/B/C fixed in advance, form (b) only on the founder's one written line) and the D3 patch to be applied, staged by
   the founder's choice (stage 1: the eight jobs and the task worker; stage 2: the API service after the insider panel fits the
   budget). PR #1128 review record closed (merge `a3bc888b`; deploy steps skipped — eighth proof). Closures 166–167.
+- 2026-10-08 (record 17, `runtime/control/DECISIONS-17.md`): D3 stage 1 merged (PR #1131 → `da636f6c`) and deployed — the
+  eight jobs and the task worker pinned to 1 + 1, the API service at the defaults; the deploy was also the first CI rollout of
+  durable background tasks (repository variables switched on at 00:09–00:42Z outside this session; intended, the founder
+  confirms; chief defect 6). D3 stage 2 decided by the founder: option A (guard, then pin); the founder to move backfill-facts to
+  Monday 07:30 (pending), so the 07:00 overlap will be 10 once the service is pinned. PR #1129
+  review record closed (merge `2129a803`; ninth deploy-skip proof). Ledger events 35–36. Burst figures corrected. Closure 168.
+- 2026-10-09 (record 18, `runtime/control/DECISIONS-18.md`): PR #1132 (record 17) merged `1868ddf8` (tenth deploy-skip
+  proof; chief defect 7: its squash message carries superseded branch messages). The backend suite made hermetic and gated
+  (PR #1145 → `4c0563ad`; eleventh deploy-skip proof; ledger events 37–38). D3 stage 2 implemented, reviewed (no blocker),
+  fixed and held on a local branch; `eval-baseline` measured, so each push to it is reserved at USD 0.730000. Closure 169.
+- 2026-10-09 (record 19, `runtime/control/DECISIONS-19.md`): PR #1149 (record 18) merged `76d45732` (twelfth deploy-skip
+  proof). D3 stage 2 merged (PR #1151 → `ae5b0f1c`) after the founder moved backfill-facts to Monday 07:30, and deployed:
+  every production process runs both SEC limiters at 1 and the insider endpoint is off (deploy log, `describe-service`
+  and an independent read-only check). Ledger events 39–44 (USD 0.743983). Chief defect 8. Closure 170. For the CPO:
+  `eval-baseline`'s `mean_citation_fidelity` reads 0.83–0.86 against a baseline of 0.9648 on all six runs measured
+  that day, before and after stage 2 (an advisory warning).
+- [ ] Founder (optional): set the repository's squash default to "Default to pull request title and description", so a
+      squash merge without an explicit message carries the reviewed PR text (record 18, chief defect 7).
 - [x] Founder: relay the record-14 custody clarification — replaced by record 16's step A (the founder delegated the custody
       question to the chief on 2026-10-08); D3 — applied by the founder's instruction, staged (record 16).
 - [ ] Founder (optional, no deadline): relay record 16's custody step A (five metadata fields) once; on outcome B, the one line
       "I adopt record 16's form (b) for R1".
-- [ ] Chief: D3 stage 1 PR (eight jobs + task worker pinned; reservation before ready; deploy verified), then stage 2 (insider
-      endpoint within the budget; API service pinned; `eval-baseline` reserved before its first `backend/app/` push, draft or not).
-- [ ] Founder (optional, now): the D3 staging answer rested on an overstated premise (the insider panel is off in production;
+- [x] Chief: D3 stage 1 PR (eight jobs + task worker pinned; reservation before ready; deploy verified) — merged `da636f6c`,
+      deployed 2026-10-08T20:17Z (record 17).
+- [x] Founder (decision): D3 stage 2 — chose option A, guard then pin, and to move backfill-facts (record 17).
+- [x] Founder: move `backfill-facts-weekly` to `30 7 * * 1` (`gcloud scheduler jobs update http backfill-facts-weekly
+      --location=us-west1 --schedule="30 7 * * 1"`) before the stage-2 PR merges; check it with `gcloud scheduler jobs
+      describe backfill-facts-weekly --location=us-west1 --format="value(schedule,timeZone)"` (expect `30 7 * * 1` and
+      `Etc/UTC`); tell the chief (records 17–18). Done 2026-10-09T11:30:47Z (record 19).
+- [x] Chief: D3 stage-2 PR, option A — insider endpoint behind a server-side switch (off unless set), the always-failing
+      fuzzy-search fallback deleted, the API service pinned, the gate's staged exemption removed, docs and schedule line
+      updated, and the deploy job printing its variable-driven switches with a test (chief defect 6's rule 12 enforcement).
+      Implemented, reviewed (three-lens and delta: no blocker) and held on a local branch until record 18 merges; every push
+      that fires `eval-baseline` reserved at USD 0.730000 first (record 18). Merged `ae5b0f1c` (PR #1151) and deployed;
+      the service's and pregenerate's pins read back with `describe-service`, the worker's and the seven other jobs' from
+      the deploy's echoed commands (record 19).
+- [ ] Chief: after Monday 2026-10-12, read the 06:00–08:00 UTC window (the first with the whole fleet pinned and
+      backfill-facts at 07:30) with the read-only `capacity-readout`: SEC errors, breaker opens, job outcomes (record 19).
+- [ ] Chief (small): `ops.yml` `describe-jobs` and `describe-service` print the two SEC pin values for every job and the
+      task worker (non-secret), with the visibility test extended; no operation reads them back today (record 19).
+- [ ] Workflow owner: `review-gate.yml:61` re-runs the gate on any comment containing "@codex review", including Codex's own
+      summary boilerplate, which cancelled a required run on PR #1131 (record 17); exclude the Codex connector's comments.
+- [x] Founder (optional, now; folded into record 17's option A): the D3 staging answer rested on an overstated premise (the insider panel is off in production;
       record 16) — say "pin the API service now" to pin it with stage 1, otherwise staging stands.
-- [ ] Founder (future, before durable tasks are enabled): the Monday 07:00 UTC overlap is then 12 req/s configured against SEC's
-      10 (record 16) — move a Monday job, hold the worker off in that window, or accept it.
-- [ ] Chief: make the backend suite hermetic — 11 tests send live requests to SEC (efts, data, www) and Yahoo Finance on
+- [x] Founder (future, before durable tasks are enabled): the Monday 07:00 UTC overlap is then 12 req/s configured against SEC's
+      10 (record 16) — overtaken: the stage-1 deploy was the first CI rollout of durable tasks; the choice is now part of the stage-2
+      decision (record 17).
+- [ ] Founder (durable-tasks rollout owner; rollout confirmed intended): run the post-deploy checks in `docs/DEPLOYMENT.md`
+      (authenticated task success, retries and errors, API latency, SQL connections) (record 17).
+- [x] Chief: make the backend suite hermetic — 11 tests send live requests to SEC (efts, data, www) and Yahoo Finance on
       every full run, CI included (record 16); fix them and land an outbound-network block in the test configuration as
-      the rule-12 gate (check rule 6 before touching any locked SSE contract test).
+      the rule-12 gate (check rule 6 before touching any locked SSE contract test). Pre-registered as
+      `test-hermeticity-pr-01` (closure 168). Merged `4c0563ad` (PR #1145, record 18).
 
 ## Copilot quotation rejection recovery — 2026-10-07
 

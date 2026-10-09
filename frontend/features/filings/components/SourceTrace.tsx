@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useId, useMemo, useRef, useState, type ReactNode, type Ref, type RefObject } from 'react'
 import { createPortal } from 'react-dom'
-import { ArrowSquareOutIcon, CheckCircleIcon, FileTextIcon, XIcon } from '@/lib/icons'
+import { ArrowSquareOutIcon, BracketsCurlyIcon, CheckCircleIcon, FileTextIcon, QuotesIcon, XIcon } from '@/lib/icons'
 import { Button } from '@/components/ui'
 import { useFilingViewer } from '@/features/filings/components/copilot/FilingViewerContext'
 import { useSheetFocusTrap } from '@/features/filings/components/copilot/useSheetFocusTrap'
@@ -46,6 +46,8 @@ interface SourceTraceProps {
    * anchors precisely; metrics (no verbatim excerpt) fall back to the section heading.
    */
   excerpt?: string | null
+  /** What the chip cites: a filing passage (the default, a quotes glyph) or an XBRL fact (braces). */
+  kind?: 'passage' | 'xbrl'
   /**
    * Pairs this chip with its copy in a component's other responsive layout (FinancialMetricsTable
    * renders every chip in its phone cards and again in its md+ table, and CSS shows one copy). When
@@ -65,14 +67,19 @@ const POPOVER_WIDTH = 288 // w-72
 const CLOSE_DELAY_MS = 120
 
 /**
- * The chip's full trigger className: the base recipe plus the verified/cited colourway. Exported so
- * the landing page's Trace-to-Source demo renders a chip identical to the product's.
+ * The chip's full trigger className (2026-10 critique P-10): 12px/500 in the data face, 20px tall
+ * (16px leading, 1px padding and a 1px hairline each side; no fixed or min height, so a long label
+ * still wraps inside a phone card), a hairline pill on the panel fill with secondary ink that
+ * brightens on hover. The 16px radius reads as a full pill on one line and as a rounded box when a
+ * long label wraps (a 9999px radius turned a wrapped chip into a capsule). `selected` is the brand tint, for the chip whose passage the research pane is
+ * showing. The verified/cited distinction lives in the glyph and the label, not the colour. Exported
+ * so the landing page's Trace-to-Source demo renders a chip identical to the product's.
  */
-export const sourceTraceChipClass = (isVerified: boolean): string => {
-  const tone = isVerified
-    ? 'text-brand-strong dark:text-brand-strong-dark hover:bg-brand-weak dark:hover:bg-white/5'
-    : 'text-text-tertiary-light dark:text-text-secondary-dark hover:bg-border-light/40 dark:hover:bg-white/5'
-  return `inline-flex items-center gap-1 rounded px-1 py-0.5 text-data-xs font-medium leading-none align-baseline transition-colors focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark ${tone}`
+export const sourceTraceChipClass = (selected = false): string => {
+  const tone = selected
+    ? 'border-brand-border bg-brand-weak text-brand-strong dark:border-brand-border-dark dark:bg-brand-weak-dark dark:text-brand-strong-dark'
+    : 'border-border-light bg-panel-light text-text-secondary-light hover:bg-white dark:border-white/10 dark:bg-panel-dark dark:text-text-secondary-dark dark:hover:bg-white/5'
+  return `inline-flex items-center gap-1 rounded-xl border px-2 py-px text-left align-middle font-data text-xs font-medium leading-4 transition-colors duration-fast focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark ${tone}`
 }
 
 /**
@@ -101,12 +108,12 @@ export function SourceTracePanelBody({
   linkRef?: Ref<HTMLAnchorElement>
 }) {
   const statusLine = isVerified ? (
-    <span className="mt-2 flex items-center gap-1 text-data-xs font-medium text-brand-strong dark:text-brand-strong-dark">
+    <span className="mt-2 flex items-center gap-1 text-xs font-medium text-brand-strong dark:text-brand-strong-dark">
       <CheckCircleIcon className="h-3 w-3 shrink-0" aria-hidden="true" />
       {note || 'Verified against the original SEC filing'}
     </span>
   ) : (
-    <span className="mt-2 flex items-center gap-1 text-data-xs font-medium text-text-tertiary-light dark:text-text-secondary-dark">
+    <span className="mt-2 flex items-center gap-1 text-xs font-medium text-text-secondary-light dark:text-text-secondary-dark">
       <ArrowSquareOutIcon className="h-3 w-3 shrink-0" aria-hidden="true" />
       {note || 'Cited. Open the section to confirm.'}
     </span>
@@ -115,7 +122,7 @@ export function SourceTracePanelBody({
   return (
     <>
       {header && (
-        <span className="block text-data-xs font-semibold uppercase tracking-eyebrow text-text-tertiary-light dark:text-text-secondary-dark break-words">
+        <span className="block break-words text-xs font-semibold text-text-secondary-light dark:text-text-secondary-dark">
           {header}
         </span>
       )}
@@ -128,7 +135,7 @@ export function SourceTracePanelBody({
           href={url}
           target="_blank"
           rel="noopener noreferrer"
-          className="mt-2 flex items-center gap-1 text-data-xs font-medium text-text-tertiary-light transition-colors hover:text-brand-strong dark:text-text-secondary-dark dark:hover:text-brand-strong-dark"
+          className="mt-2 flex items-center gap-1 text-xs font-medium text-text-secondary-light transition-colors hover:text-brand-strong dark:text-text-secondary-dark dark:hover:text-brand-strong-dark"
         >
           <ArrowSquareOutIcon className="h-3 w-3 shrink-0" aria-hidden="true" />
           Open in SEC EDGAR
@@ -138,7 +145,7 @@ export function SourceTracePanelBody({
   )
 }
 
-export function SourceTrace({ url, verified, sectionRef, label, note, excerpt, layoutTwin }: SourceTraceProps) {
+export function SourceTrace({ url, verified, sectionRef, label, note, excerpt, kind = 'passage', layoutTwin }: SourceTraceProps) {
   const isVerified = verified === true
   const header = sectionRef?.trim() || null
   const chipLabel = label ?? (isVerified ? 'Verified in filing' : 'Cited')
@@ -157,6 +164,7 @@ export function SourceTrace({ url, verified, sectionRef, label, note, excerpt, l
       chipLabel={chipLabel}
       panelId={panelId}
       excerpt={excerpt?.trim() || null}
+      kind={kind}
       layoutTwin={layoutTwin}
     />
   )
@@ -170,6 +178,7 @@ function SourceTraceInner({
   chipLabel,
   panelId,
   excerpt,
+  kind,
   layoutTwin,
 }: {
   url: string | null
@@ -179,6 +188,7 @@ function SourceTraceInner({
   chipLabel: string
   panelId: string
   excerpt: string | null
+  kind: 'passage' | 'xbrl'
   layoutTwin?: string
 }) {
   const viewer = useFilingViewer()
@@ -356,7 +366,14 @@ function SourceTraceInner({
     holdOpen: clearCloseTimer,
   })
 
-  const Icon = isVerified ? CheckCircleIcon : ArrowSquareOutIcon
+  const Icon = !isVerified ? ArrowSquareOutIcon : kind === 'xbrl' ? BracketsCurlyIcon : QuotesIcon
+
+  // The chip whose passage the open pane is showing wears the brand tint (P-10). Identity is the
+  // layout-twin key when the chip has a twin, so the copy a breakpoint shows is selected too.
+  const sourceId = layoutTwin ?? panelId
+  const selected = Boolean(
+    viewer?.paneOpen && viewer.activeView === 'filing' && viewer.request?.sourceId === sourceId,
+  )
 
   // The browser blurs a focused chip that a breakpoint hides (no relatedTarget, no client rects left)
   // in a task of its own, which can run before the resize effect above sees the change. That focus
@@ -388,8 +405,9 @@ function SourceTraceInner({
   const triggerCommon = {
     ref: triggerRef as React.RefObject<HTMLButtonElement> & React.RefObject<HTMLAnchorElement>,
     'aria-label': `Source: ${chipLabel}`,
+    'aria-current': selected ? ('true' as const) : undefined,
     'data-layout-twin': layoutTwin,
-    className: sourceTraceChipClass(isVerified),
+    className: sourceTraceChipClass(selected),
     onMouseEnter: isCoarse ? undefined : openPanel,
     onMouseLeave: isCoarse ? undefined : scheduleClose,
     onFocus: isCoarse ? undefined : openPanel,
@@ -418,6 +436,7 @@ function SourceTraceInner({
         fragment_url: url,
       },
       triggerRef.current,
+      sourceId,
     )
   }
 

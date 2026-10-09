@@ -95,6 +95,7 @@ what applies to your task. Filenames are greppable: `arch-*`, `sec-*`, `test-*`,
 
 ## Frontend & design system
 
+- [`frontend-xbrl-amounts-carry-their-own-currency.md`](./frontend-xbrl-amounts-carry-their-own-currency.md) — Label an XBRL amount with the filer's reporting currency, never with a default dollar sign
 - [`frontend-site-overlays-outrank-in-page-sticky-chrome.md`](./frontend-site-overlays-outrank-in-page-sticky-chrome.md) — A fixed site-level overlay ranks above in-page sticky chrome, and the ladder gate scans sticky sites too
 - [`frontend-reserve-fixed-chrome-with-scroll-padding.md`](./frontend-reserve-fixed-chrome-with-scroll-padding.md) — A focus scroll stops at the viewport edge, not at a fixed overlay: reserve the overlay with scroll-padding
 
