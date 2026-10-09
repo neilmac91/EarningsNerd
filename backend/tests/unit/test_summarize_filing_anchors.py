@@ -280,7 +280,7 @@ def _a2_measured_6k(audit):
 
 def _a2_issuer_cash():
     """The retained issuer free-cash-flow reconciliation (test_issuer_cash_disclosure.py's source)."""
-    source = (_FIXTURES / "issuer_fcf_disclosure.txt").read_text()
+    source = (_FIXTURES / "issuer_fcf_disclosure.txt").read_text(encoding="utf-8")
     return {"form": "10-K", "text": source, "excerpt": source, "sections": _model_sections()}
 
 
@@ -304,9 +304,9 @@ def _a2_acquisition_and_statement():
 def _a2_tax_and_reconciliation():
     """The retained FIGS 10-Q native source with its tax-rate note and reconciliation target, as
     test_statement_relationship_integration.py:55-176 and :242-367 drive them."""
-    tax = json.loads((_FIXTURES / "tax_rate_comparison" / "retained-output.json").read_text())
+    tax = json.loads((_FIXTURES / "tax_rate_comparison" / "retained-output.json").read_text(encoding="utf-8"))
     native = gzip.decompress((_FIXTURES / "tax_rate_comparison" / "figs-20260630.html.gz").read_bytes()).decode()
-    controls = json.loads((_FIXTURES / "reconciliation_directions" / "retained-controls.json").read_text())
+    controls = json.loads((_FIXTURES / "reconciliation_directions" / "retained-controls.json").read_text(encoding="utf-8"))
     sections = controls["raw_sections"]
     sections["earnings_quality"].pop("operating_vs_one_time", None)
     sections["earnings_quality"].update(next(c for c in controls["controls"] if c["name"] == "retained_target")["authored"])
