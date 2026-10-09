@@ -7,6 +7,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { getCompany, Company } from '@/features/companies/api/companies-api'
 import { getCompanyFilings, Filing } from '@/features/filings/api/filings-api'
 import { getSummary } from '@/features/summaries/api/summaries-api'
+import { isSummaryReady } from '@/features/summaries/lib/summaryPlaceholder'
 import { addToWatchlist, removeFromWatchlist, getWatchlist, WatchlistItem } from '@/features/watchlist/api/watchlist-api'
 import { getCurrentUserSafe } from '@/features/auth/api/auth-api'
 import { ArrowRightIcon, CircleNotchIcon, FileTextIcon, StarIcon } from '@/lib/icons'
@@ -226,6 +227,9 @@ export default function CompanyPageClient({ initialCompany, initialFilings }: Co
     staleTime: 60_000,
     retry: false,
   })
+  // Ready means the filing page will show the summary: a placeholder ("Generating summary…") or a
+  // stored failure (its "Summary temporarily unavailable" card) is a row, not a summary to open.
+  const summaryReady = isSummaryReady(latestSummary)
 
   // Handle case where ticker might not be available
   if (!ticker) {
@@ -330,7 +334,7 @@ export default function CompanyPageClient({ initialCompany, initialFilings }: Co
           <CompanyIdentity
             company={companyData}
             latest={latestFiling}
-            summaryReady={Boolean(latestSummary)}
+            summaryReady={summaryReady}
             actions={
               (currentUser || latestFiling) && (
                 <>
@@ -356,7 +360,7 @@ export default function CompanyPageClient({ initialCompany, initialFilings }: Co
                   )}
                   {latestFiling && (
                     <Link href={`/filing/${latestFiling.id}`} className={buttonVariants({ variant: 'primary' })}>
-                      {latestSummary ? 'Open latest summary' : 'Summarize latest filing'}
+                      {summaryReady ? 'Open latest summary' : 'Summarize latest filing'}
                       <ArrowRightIcon aria-hidden="true" className="h-4 w-4" />
                     </Link>
                   )}
