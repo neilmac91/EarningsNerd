@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
-  recommendedFilingNoun,
+  selectComparisonFiling,
   selectRecommendedFiling,
 } from '@/features/filings/lib/recommendedFiling'
 import type { Filing } from '@/features/filings/api/filings-api'
@@ -70,23 +70,56 @@ describe('selectRecommendedFiling', () => {
   })
 })
 
-describe('recommendedFilingNoun', () => {
-  it('names amended annual and interim reports accurately', () => {
-    for (const form of ['10-K/A', '20-F/A', '40-F/A']) {
-      expect(recommendedFilingNoun(filing(1, form, '2026-05-01'))).toBe('annual report amendment')
-    }
-    expect(recommendedFilingNoun(filing(2, '10-Q/A', '2026-05-01'))).toBe('filing amendment')
+describe('selectComparisonFiling', () => {
+  const annual = (id: number, form: string, filed: string, report: string, extra: Partial<Filing> = {}): Filing => ({
+    ...filing(id, form, filed),
+    report_date: `${report}T00:00:00+00:00`,
+    ...extra,
   })
 
-  it('labels annual reports (10-K / 20-F / 40-F) as "annual report"', () => {
-    expect(recommendedFilingNoun(filing(1, '10-K', '2025-07-30'))).toBe('annual report')
-    expect(recommendedFilingNoun(filing(2, '20-F', '2025-07-30'))).toBe('annual report')
-    expect(recommendedFilingNoun(filing(3, '40-F', '2025-07-30'))).toBe('annual report')
+  it('picks the newest annual report when an earlier annual period of the same form is listed', () => {
+    const filings = [
+      filing(1, '10-Q', '2026-05-01'),
+      annual(2, '10-K', '2025-10-31', '2025-09-27'),
+      annual(3, '10-K', '2024-11-01', '2024-09-28'),
+    ]
+    expect(selectComparisonFiling(filings)?.id).toBe(2)
   })
 
-  it('labels every other form as "filing"', () => {
-    expect(recommendedFilingNoun(filing(1, '10-Q', '2026-04-29'))).toBe('filing')
-    expect(recommendedFilingNoun(filing(2, '6-K', '2026-04-29'))).toBe('filing')
-    expect(recommendedFilingNoun(filing(3, '8-K', '2026-04-29'))).toBe('filing')
+  it('returns null without an earlier annual period to compare with', () => {
+    expect(selectComparisonFiling([annual(2, '10-K', '2025-10-31', '2025-09-27'), filing(1, '10-Q', '2026-05-01')])).toBeNull()
+    // A same-period amendment is not an earlier period.
+    expect(selectComparisonFiling([annual(2, '10-K', '2025-10-31', '2025-09-27'), annual(4, '10-K/A', '2026-01-20', '2025-09-27')])).toBeNull()
+    // Nor is another form's annual report.
+    expect(selectComparisonFiling([annual(2, '10-K', '2025-10-31', '2025-09-27'), annual(5, '20-F', '2024-04-01', '2023-12-31')])).toBeNull()
+  })
+
+  it('needs a period of report: the change report cannot find a prior period without one', () => {
+    expect(selectComparisonFiling([filing(2, '10-K', '2025-10-31'), annual(3, '10-K', '2024-11-01', '2024-09-28')])).toBeNull()
+  })
+
+  it('prefers the original over a later amendment of the same period', () => {
+    const filings = [
+      annual(4, '10-K/A', '2026-01-20', '2025-09-27'),
+      annual(2, '10-K', '2025-10-31', '2025-09-27'),
+      annual(3, '10-K', '2024-11-01', '2024-09-28'),
+    ]
+    expect(selectComparisonFiling(filings)?.id).toBe(2)
+  })
+
+  it('prefers the amendment that supersedes the original', () => {
+    const filings = [
+      annual(2, '10-K', '2025-10-31', '2025-09-27', { superseded_by_accession: 'acc-4' }),
+      annual(4, '10-K/A', '2026-01-20', '2025-09-27'),
+      annual(3, '10-K', '2024-11-01', '2024-09-28'),
+    ]
+    expect(selectComparisonFiling(filings)?.id).toBe(4)
+  })
+
+  it('covers the foreign-issuer annual forms, and tolerates empty input', () => {
+    expect(selectComparisonFiling([annual(6, '20-F', '2026-04-01', '2025-12-31'), annual(7, '20-F', '2025-04-01', '2024-12-31')])?.id).toBe(6)
+    expect(selectComparisonFiling([])).toBeNull()
+    expect(selectComparisonFiling(undefined)).toBeNull()
+    expect(selectComparisonFiling(null)).toBeNull()
   })
 })

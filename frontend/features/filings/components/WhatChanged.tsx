@@ -29,6 +29,9 @@ import { fmtCurrency, fmtScale, formatLocalDate } from '@/lib/format'
  *    so this block renders only when the payload carries them.
  */
 
+/** The report's fragment id: the company page's "Open change report" links to /filing/{id}#what-changed. */
+export const WHAT_CHANGED_ID = 'what-changed'
+
 const TONE_TEXT: Record<WhatChangedMetricItem['tone'], string> = {
   gain: directionText.up,
   loss: directionText.down,
@@ -36,7 +39,7 @@ const TONE_TEXT: Record<WhatChangedMetricItem['tone'], string> = {
 }
 
 /** The server's tone in words: what the change usually means for this metric, not its sign. */
-const READ_AS: Record<WhatChangedMetricItem['tone'], string> = {
+export const READ_AS: Record<WhatChangedMetricItem['tone'], string> = {
   gain: 'Favorable',
   loss: 'Unfavorable',
   flat: 'Neutral',
@@ -64,8 +67,9 @@ function figure(item: WhatChangedMetricItem, value: number | null, currency: str
   return perShare ? fmtScale(value, { digits: 2 }) : fmtScale(value)
 }
 
-/** The served change: its direction glyph, then the display string, both in the tone's ink. */
-function Change({ item }: { item: WhatChangedMetricItem }) {
+/** The served change: its direction glyph, then the display string, both in the tone's ink. Shared
+ *  with the company page's Compare periods card, so a change reads the same in both places. */
+export function Change({ item }: { item: WhatChangedMetricItem }) {
   const glyph = GLYPH[item.direction]
   return (
     <span className={TONE_TEXT[item.tone] ?? TONE_TEXT.flat}>
@@ -83,6 +87,7 @@ export function WhatChanged({
   report,
   headingLevel: Heading = 'h2',
   bare = false,
+  id,
 }: {
   report: ChangeReport
   /** Heading element for "What changed"; the landing page nests the report under an h3. When `bare`,
@@ -90,6 +95,8 @@ export function WhatChanged({
   headingLevel?: 'h2' | 'h3' | 'h4'
   /** Inside a summary section that supplies the heading: no Card and no heading of its own. */
   bare?: boolean
+  /** The Card's id, when a link can name it (WHAT_CHANGED_ID under a legacy markdown summary). */
+  id?: string
 }) {
   if (!report.has_changes) return null
   const { metrics, risks, comparison_basis: basis, prior_filing: prior, reporting_currency: currency } = report
@@ -223,7 +230,7 @@ export function WhatChanged({
   }
 
   return (
-    <Card as="section" aria-label="What changed" className="p-6">
+    <Card as="section" id={id} aria-label="What changed" className="scroll-mt-32 p-6 lg:scroll-mt-24">
       <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
         <div className="min-w-0">
           <Heading className={cx('text-lg font-semibold', INK)}>What changed</Heading>
