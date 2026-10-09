@@ -20,7 +20,7 @@ colors:
   text-primary-dark: "#D7DADC"
   text-secondary-light: "#374151"
   text-secondary-dark: "#9CA3AF"
-  text-tertiary-light: "#6B7280"
+  text-tertiary-light: "#636A77"
   border-light: "#E5E7EB"
   border-dark: "#374151"
   white: "#FFFFFF"
@@ -297,7 +297,7 @@ The palette combines sage, warm cream, espresso and deep navy with distinct sema
 - **Warm Paper** (`panel-light`) and **Slate Panel** (`panel-dark`): card/container surfaces.
 - **Espresso** (`text-primary-light`) and **Soft Chalk** (`text-primary-dark`): both body and heading ink. Hierarchy does not introduce another heading color.
 - **Secondary Ink** (`text-secondary-light`, `text-secondary-dark`): supporting copy. Dark-mode muted labels use the secondary token.
-- **Tertiary Ink** (`text-tertiary-light`): small labels on sufficiently bright panels; use secondary ink for muted copy on bare cream.
+- **Tertiary Ink** (`text-tertiary-light`): captions, counts and micro-labels. At 4.9:1 on cream, 5.2:1 on panel and 4.8:1 in the pale sage tint it passes AA on every light ground; secondary ink still carries anything the reader must read.
 - **Light Hairline** and **Dark Hairline** (`border-light`, `border-dark`): separators. Dark cards specifically use white at 10% opacity rather than the general dark border.
 - **White** (`white`): field fill, light primary-action label, and interactive light-card hover fill. **Modal Scrim** (`overlay`) uses translucent navy in both themes.
 

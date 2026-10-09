@@ -23,7 +23,7 @@ companion to `DESIGN.md`, not a replacement for the components or the checks bel
 |------|-------|------|---------|
 | **Brand** | `brand #4F7A63` (**fill only**) / `brand-strong #3C6650` (text/links) / `brand-emphasis #345C48` (active) / `brand-weak #ECF2EE` (tint) / `brand-border #CFE0D6` | `brand-dark #7FB295` (fill/accent) / `brand-strong-dark #98C5AD` (text/links) / `brand-fill-dark #569272` (active) / `brand-weak-dark` / `brand-border-dark` | Primary actions, links, accents, focus rings, active states |
 | **Surface** | `background-light #F4F3EE` (cream page) / `panel-light #FBFAF6` (card) | `background-dark #0B1120` / `panel-dark #1F2937` | Page + card backgrounds |
-| **Text** | `text-primary-light #1A1A17` (espresso — heading ink is the SAME value; walnut `#3A2E26` retired) / `secondary #374151` / `tertiary #6B7280` | `text-primary-dark #D7DADC` / `secondary #9CA3AF` | Body + headings (see §4) |
+| **Text** | `text-primary-light #1A1A17` (espresso — heading ink is the SAME value; walnut `#3A2E26` retired) / `secondary #374151` / `tertiary #636A77` (4.9:1 on cream, 5.2:1 on panel; was `#6B7280` at 4.35:1 before the 2026-10 critique's P-02) | `text-primary-dark #D7DADC` / `secondary #9CA3AF` | Body + headings (see §4) |
 | **Border** | `border-light #E5E7EB` | `border-dark` / `white/10` | Hairlines |
 | **Status** | success `#15803D` · warning `#92400E` · error `#B91C1C` (+ `error.emphasis #991B1B` destructive hover) · info `#2563EB` (in-tint label: `info.text #1D4ED8`) | success `#22C55E` · warning `#F59E0B` · error `#F87171` · info `#60A5FA` | Genuine state messages only |
 | **Financial** | `gain.text #15803D` / `loss.text #B91C1C` for delta **text**; `gain.light #16A34A` / `loss.light #DC2626` are **graphic/chip-only** (3:1 non-text floor); `flat #6B7280` (+ `-soft` tints) | `gain.dark #34D399` / `loss.dark #FB7185` (text-safe on navy) | Money/% direction only — never brand |
@@ -393,7 +393,8 @@ the same surface at e1, per the design. `.glass-card` is retired on the landing 
 remaining consumer is `AuthShell`). Container rhythm on the landing: hero + header `max-w-7xl`,
 every other section `max-w-5xl`, section padding `py-20 sm:py-24` (the measured-claims band is a
 tighter hairline strip). Muted text on the cream page ground is `text-secondary`;
-`text-tertiary-light` (4.35:1 on cream) is reserved for inside-card eyebrows and the kbd hint.
+`text-tertiary-light` (`#636A77`, 4.9:1 on cream) carries captions, counts and micro-labels on either
+ground; copy the reader must read stays secondary.
 
 ## 8. Theme mechanics
 
