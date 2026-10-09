@@ -250,6 +250,10 @@ SAFE_COMMANDS = (
     re.compile(r"^if \[ -f [\w./-]+ \]$"),
     re.compile(r"^then cat [\w./-]+ >> \"\$GITHUB_STEP_SUMMARY\"$"),
     re.compile(r"^fi$"),
+    # The draw gate (#1166) decides whether this run draws, not what a draw measures: stdlib only, it
+    # reads no repository file and imports no app code. Its own tests run in backend-tests
+    # (test_copilot_eval_rerun_refusal.py), so a change to it is gated there, not by a paid draw.
+    re.compile(r"^python3 backend/scripts/copilot_eval_draw_gate\.py$"),
 )
 # A bare shell with flags and the `{0}` script placeholder only; `bash scripts/x.sh {0}` is a program.
 SHELL = re.compile(r"^(bash|sh)(?: -[A-Za-z]+)*(?: \{0\})?$")
@@ -270,6 +274,7 @@ PYTHON_VERSION = re.compile(r"^\d+(?:\.\d+){1,2}$")
 WORKFLOW_ENV = {
     "SKIP_REDIS_INIT", "SECRET_KEY", "STRIPE_SECRET_KEY", "STRIPE_WEBHOOK_SECRET", "PWNED_PASSWORD_CHECK_ENABLED",
     "USE_STATEMENT_FINANCIALS", "AI_FALLBACK_MODEL", "AI_FALLBACK_BASE_URL", "OPENAI_API_KEY",
+    "GITHUB_TOKEN",  # the draw gate's read of this workflow's earlier runs (actions: read)
 }
 # The env file is appended to $GITHUB_ENV through `grep -v '^#'`, so only column-0 comments, empty
 # lines and `KEY=value` lines for these keys are allowed (an indented comment or a blank line would
