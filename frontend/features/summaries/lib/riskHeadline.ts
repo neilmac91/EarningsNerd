@@ -12,12 +12,13 @@
  * The rule, designed against the production filing-3 spans and the eval-baseline risk spans:
  *   1. An excerpt of fewer than MIN_EXCERPT_WORDS words (or none) gets the positional fallback
  *      "Risk n".
- *   2. Take the first sentence: up to the first ".", "!" or "?" that leaves at least
- *      MIN_EXCERPT_WORDS words, is followed by a capitalised word (or the end) and is not inside a
- *      bracket or quotation. A one-letter word ("U.S.", initials) or a title, label or month
- *      abbreviation ("No.", "Dr.", "Sept.") does not end one. A company or name suffix does ("Acme
- *      Co. | Production may stop", "John Smith Jr. | His departure"), unless the company's name
- *      goes on ("Technology Co. Limited"), a defined-term alias follows ("Acme Inc. (“Acme”) and"),
+ *   2. Take the first sentence: up to the first ".", "!", "?" or ASCII ellipsis ("...", ". . .",
+ *      dropped whole) that leaves at least MIN_EXCERPT_WORDS words, is followed by a capitalised
+ *      word (or the end) and is not inside a bracket or quotation. A one-letter word ("U.S.",
+ *      initials) or a title, label or month abbreviation ("No.", "Dr.", "Sept.") does not end one.
+ *      A company or name suffix does ("Acme Co. | Production may stop", "John Smith Jr. | His
+ *      departure"), unless the company's name goes on ("Technology Co. Limited"), a parenthetical
+ *      follows (an alias or a ticker: "Acme Inc. (“Acme”) and", "Acme Inc. (NASDAQ: ACME) and"),
  *      or "Sr." means Senior before a title or an instrument ("Sr. Vice President", "Sr. Notes").
  *   3. If it fits in RISK_HEADLINE_MAX_CHARS it is the headline, whole: a sentence that fits is
  *      never cut, so a hedge or a turn later in it ("; however, coverage may not be adequate")
@@ -69,20 +70,21 @@ const ABBREVIATIONS = [
 // Vice President of Sales", "the 5.25% Sr. Notes due 2030"), which keeps the sentence going.
 const TERMINAL_ABBREVIATION = /\b(?:co|inc|corp|ltd|llc|plc|etc|jr|sr)$/i
 const NAME_GOES_ON = /^\s+(?:co|inc|incorporated|corp|corporation|ltd|limited|llc|llp|lp|plc|ag|gmbh|sa|nv|bv)\b/i
-// A defined-term alias after the name keeps the sentence going too ("Acme Inc. (“Acme”) and it may…").
-const ALIAS_GOES_ON = /^\s+\(\s*["“'‘]/
+// A parenthetical after the suffix keeps the sentence going too, a defined-term alias or a ticker
+// ("Acme Inc. (“Acme”) and it may…", "Acme Inc. (NASDAQ: ACME) and it may…").
+const PARENTHETICAL_GOES_ON = /^\s+\(/
 const SENIOR = /\bsr$/i
 const SENIOR_GOES_ON =
   /^\s+(?:vice|director|manager|executive|officer|counsel|partner|analyst|advisor|associate|consultant|accountant|engineer|economist|notes?|secured|unsecured|subordinated|debt|credit|loan|term|facility)\b/i
 const caseInsensitive = (word: string): string => word.replace(/[a-z]/g, (c) => `[${c.toUpperCase()}${c}]`)
 const ABBREVIATION_ALTERNATION = ABBREVIATIONS.map(caseInsensitive).join('|')
 
-// A sentence end: ".", "!" or "?" (not closing a one-letter word or an abbreviation), any closing
-// quotes or brackets (captured, so the headline keeps a quotation it closes), then a capitalised
-// word or a figure, after any opening quotes or brackets and a currency sign ("'$5 per unit'"), or
-// the end of the text.
+// A sentence end: an ASCII ellipsis, matched whole from its first dot ("...", "....", ". . ."), or
+// ".", "!" or "?" (not closing a one-letter word or an abbreviation); any closing quotes or brackets
+// (captured, so the headline keeps a quotation it closes), then a capitalised word or a figure, after
+// any opening quotes or brackets and a currency sign ("'$5 per unit'"), or the end of the text.
 const SENTENCE_END = new RegExp(
-  `(?<!\\b[A-Za-z])(?<!\\b(?:${ABBREVIATION_ALTERNATION}))[.!?](["”’')\\]]*)(?=\\s+["“‘'(\\[]*[$€£¥]?[\\p{Lu}0-9]|\\s*$)`,
+  `(?:\\.(?:\\s?\\.){2,}|(?<!\\b[A-Za-z])(?<!\\b(?:${ABBREVIATION_ALTERNATION}))[.!?])(["”’')\\]]*)(?=\\s+["“‘'(\\[]*[$€£¥]?[\\p{Lu}0-9]|\\s*$)`,
   'gu',
 )
 
@@ -128,8 +130,9 @@ const COMPARATIVE = /^(?:more|less|fewer|greater|larger|smaller|higher|lower|rat
 // A currency code or symbol standing before its amount ("EUR 2.5 billion", "$ 4.1").
 const CURRENCY = /^(?:USD|EUR|GBP|JPY|CHF|CNY|RMB|US\$|\$|€|£|¥)$/
 const STARTS_WITH_FIGURE = /^[(\[]?[$€£¥]?\d/
-// A bare figure, not a token that merely ends in digits (a URL, "riskfactors2025", "10-K2025").
-const FIGURE = /^[$€£¥]?\d(?:[\d,.]*\d)?%?$/
+// A bare figure, not a token that merely ends in digits (a URL, "riskfactors2025", "10-K2025"). A
+// trailing "+" is part of it ("3,200+ employees").
+const FIGURE = /^[$€£¥]?\d(?:[\d,.]*\d)?%?\+?$/
 // A unit written with a capital, which the counted-noun check (a lower-case next word) misses: power and
 // energy, frequency, data and rates, and oil-and-gas volumes ("100 | MW", "2.4 | GHz", "10 | Gbps").
 const UPPERCASE_UNIT = /^(?:[kKMGT]?Wh?|[kKMGT]?Hz|[KMGT]bps|[KMGTP]B|M{0,2}cf|[BT]cf|M{0,2}Btu|M{0,2}BOE|M{0,2}bbls?)$/
@@ -263,11 +266,11 @@ const firstSentence = (text: string): string => {
     const before = text.slice(0, at)
     const after = text.slice(at + match[0].length)
     const suffix = TERMINAL_ABBREVIATION.test(before)
-    if (suffix && (NAME_GOES_ON.test(after) || ALIAS_GOES_ON.test(after) || (SENIOR.test(before) && SENIOR_GOES_ON.test(after)))) continue
-    // A bare terminal period is dropped; one inside a closing quotation, or one that closes a company
-    // or name suffix ("Acme Inc.", "Smith Jr."), stays.
+    if (suffix && (NAME_GOES_ON.test(after) || PARENTHETICAL_GOES_ON.test(after) || (SENIOR.test(before) && SENIOR_GOES_ON.test(after)))) continue
+    // A bare terminal period or ellipsis is dropped; one inside a closing quotation stays whole, and a
+    // company or name suffix ("Acme Inc.", "Smith Jr.") keeps its own period.
     const keepsPeriod = !match[0].startsWith('.') || suffix
-    const sentence = closers ? text.slice(0, at + 1 + closers.length) : text.slice(0, keepsPeriod ? at + 1 : at)
+    const sentence = closers ? text.slice(0, at + match[0].length) : text.slice(0, keepsPeriod ? at + 1 : at)
     // A break inside a quotation or bracket ends the quoted sentence, not this one ("warned that
     // “production may stop. Additional delays…”").
     if (leavesOpen(sentence)) continue
