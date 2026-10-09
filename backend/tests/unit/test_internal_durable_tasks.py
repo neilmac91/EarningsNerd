@@ -72,6 +72,35 @@ async def test_precompute_preview_keeps_synchronous_no_paid_generation_semantics
 
 
 @pytest.mark.asyncio
+async def test_precompute_preview_is_capped_to_fit_the_request_timeout(monkeypatch):
+    """A dry run is synchronous and makes at least one SEC request per job at the service's pinned 1
+    req/s (test_sec_process_budgets pins it), so the cap must leave the /internal timeout a third
+    for latency; a larger preview is rejected with 400 before any SEC call, not left to 504."""
+    from app.services import precompute_service
+    from main import get_timeout_for_path
+
+    pinned_requests_per_second = 1
+    timeout = get_timeout_for_path("/internal/jobs/precompute")
+    assert internal.DRY_RUN_MAX_JOBS / pinned_requests_per_second <= timeout * 2 / 3
+
+    preview = AsyncMock(return_value={"stats": {}, "results": []})
+    monkeypatch.setattr(precompute_service, "precompute", preview)
+    tickers = [f"T{index}" for index in range(internal.DRY_RUN_MAX_JOBS)]
+    await internal.trigger_precompute(
+        internal.PrecomputeRequest(tickers=tickers, dry_run=True), BackgroundTasks(), Response(),
+    )
+    preview.assert_awaited_once()
+    half = tickers[: internal.DRY_RUN_MAX_JOBS // 2 + 1]
+    with pytest.raises(HTTPException) as error:
+        await internal.trigger_precompute(
+            internal.PrecomputeRequest(tickers=half, forms=["10-K", "10-Q"], dry_run=True),
+            BackgroundTasks(), Response(),
+        )
+    assert error.value.status_code == 400
+    assert preview.await_count == 1
+
+
+@pytest.mark.asyncio
 async def test_selected_cohort_is_frozen_before_queue_acceptance(monkeypatch):
     resolve = Mock(return_value=["AAPL", "MSFT"])
     monkeypatch.setattr(runner, "_resolve_cohort_tickers", resolve)
