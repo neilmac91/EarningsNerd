@@ -136,6 +136,32 @@ def test_resend_mints_new_invite_and_revokes_old(client, as_admin):
         assert new.is_revoked is False
         assert new.email == "resend@example.com"
         assert new.cohort == "wave-3"
+        assert new.created_by == 1  # the acting admin (as_admin), passed through reissue_invite
+    finally:
+        db.close()
+
+
+@pytest.mark.requires_db
+def test_resend_honours_a_requested_expiry(client, as_admin):
+    """``expires_in_hours`` on a resend reaches the replacement row (it crosses the router ->
+    reissue_invite -> mint_invite boundary), instead of falling back to the 7-day default."""
+    from datetime import datetime, timedelta, timezone
+
+    from app.config import settings
+    from app.database import SessionLocal
+    from app.models import InviteCode
+
+    assert settings.INVITE_EXPIRY_HOURS > 2  # otherwise the default and the override coincide
+    old_id = client.post("/api/admin/invites", json={}).json()["id"]
+    resend = client.post(f"/api/admin/invites/{old_id}/resend", json={"expires_in_hours": 1})
+    assert resend.status_code == 200, resend.text
+
+    db = SessionLocal()
+    try:
+        new = db.query(InviteCode).filter(InviteCode.id == resend.json()["id"]).first()
+        expires_at = new.expires_at if new.expires_at.tzinfo else new.expires_at.replace(tzinfo=timezone.utc)
+        remaining = expires_at - datetime.now(timezone.utc)
+        assert timedelta(minutes=50) < remaining <= timedelta(hours=1, minutes=1)
     finally:
         db.close()
 
