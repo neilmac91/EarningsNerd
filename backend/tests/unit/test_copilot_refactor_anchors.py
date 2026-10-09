@@ -130,18 +130,21 @@ def test_c0_2_safe_activity_label_fallback_strings(info, label):
 async def test_c0_3_heartbeat_adds_one_reading_progress_after_3_seconds(monkeypatch):
     """C0.3 pins the heartbeat at backend/app/services/copilot_service.py:1751-1753.
 
-    The clock reads 0 s when the loop arms it (copilot_service.py:1700) and 1, 2, 3, 4 s as the
-    provider hands over each chunk. Only the third chunk reaches the 3 s threshold, so exactly one
-    extra ``reading`` progress follows it, and the clock re-arms, so the fourth chunk (1 s later)
-    adds none. test_copilot.py:519 patches the same clock, but no assertion there observes it.
+    The clock reads 0 s when the loop arms it (copilot_service.py:1700) and 1, 2, 2.999, 3 and
+    5.999 s as the provider hands over each chunk. The 2.999 s chunk is just under the threshold and
+    adds nothing; the 3 s chunk reaches it exactly, so exactly one extra ``reading`` progress follows
+    it; the clock re-arms there, so the last chunk (2.999 s later) adds none. A lower threshold, a
+    strict ``>`` or a missing re-arm each change the events. test_copilot.py:519 patches the same
+    clock, but no assertion there observes it.
     """
     now = [0.0]
     events, delivered_before_chunk = [], []
     chunks = [
         (1.0, "Management described demand "),
         (2.0, "as robust across its "),
-        (3.0, "cloud services [1]."),
-        (4.0, "\n===CITATIONS===\n" + json.dumps([{"n": 1, "excerpt": KNOWN, "section": "Item 2 — MD&A"}])
+        (2.999, "cloud "),
+        (3.0, "services [1]."),
+        (5.999, "\n===CITATIONS===\n" + json.dumps([{"n": 1, "excerpt": KNOWN, "section": "Item 2 — MD&A"}])
          + "\n===FOLLOWUPS===\n" + json.dumps(FOLLOWUPS)),
     ]
 
@@ -160,8 +163,8 @@ async def test_c0_3_heartbeat_adds_one_reading_progress_after_3_seconds(monkeypa
     assert [event["type"] for event in events[3:]] == ["complete"]
     assert events[3]["answer"] == "Management described demand as robust across its cloud services [1]."
     assert (events[3]["kind"], events[3]["grounded"]) == ("answer", 1)
-    # The heartbeat was published after the third chunk arrived and before the fourth was requested.
-    assert delivered_before_chunk == [1, 2, 2, 3]
+    # The heartbeat was published after the 3 s chunk arrived and before the next was requested.
+    assert delivered_before_chunk == [1, 2, 2, 2, 3]
 
 
 @pytest.mark.unit
