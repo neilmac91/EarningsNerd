@@ -16,11 +16,12 @@ import { describe, expect, it } from 'vitest'
  * The scan reads the TypeScript AST of each chrome file below and checks every element a user can Tab
  * to (a, button, input, select, textarea, summary, next/link's Link, anything with a tabIndex the scan
  * cannot prove negative: 0 or more, or a dynamic value such as a roving `tabIndex={selected ? 0 : -1}`,
- * and any contentEditable region the scan cannot prove off). Its className must carry the whole triple, or be the DS factory `buttonVariants(…)`, which
- * composes it (pinned below). A className the scan cannot read (a variable, a call to anything else)
- * fails: the ring has to be visible in the file. Dynamic `${…}` parts of a template are ignored, so the
- * triple must sit in the template's static text. The DS components (<Button>, <Input>) are not scanned
- * here: they own the recipe.
+ * and any contentEditable region the scan cannot prove off). Its className must carry the whole triple,
+ * or be the DS factory `buttonVariants(…)`, which composes it (pinned below). A className the scan cannot
+ * read (a variable, a call to anything else) fails: the ring has to be visible in the file. So does a
+ * props spread on a host element or a Link, which may supply a tabIndex or a className. Dynamic `${…}`
+ * parts of a template are ignored, so the triple must sit in the template's static text. The DS
+ * components (<Button>, <Input>) are not scanned here: they own the recipe.
  *
  * A checkbox or radio also takes off @tailwindcss/forms' own focus ring (`focus:ring-0 focus:ring-offset-0`):
  * the plugin's base style draws a blue (#2563eb) ring with a white offset on any focus, and the shadow
@@ -251,8 +252,12 @@ function scan(root: ts.Node, sf: ts.SourceFile): { stops: number; findings: Find
         disabled !== undefined &&
         (!disabled.initializer ||
           (ts.isJsxExpression(disabled.initializer) && disabled.initializer.expression?.kind === ts.SyntaxKind.TrueKeyword))
+      // A props spread on a host element or a Link (`<div {...getButtonProps()}>`) can supply a tabIndex and
+      // a ringless className the scan cannot see, so the element counts as a stop and fails unread. A spread
+      // on a component of our own is read in that component's file.
+      const spread = (/^[a-z]/.test(tag) || linkNames.has(tag)) && node.attributes.properties.some(ts.isJsxSpreadAttribute)
       const tabbable =
-        (INTRINSIC.has(tag) || linkNames.has(tag) || indexed || editableStop) && !removed && !staticallyDisabled
+        spread || ((INTRINSIC.has(tag) || linkNames.has(tag) || indexed || editableStop) && !removed && !staticallyDisabled)
       const typeAttr = attr('type')?.initializer
       const toggle = tag === 'input' && !!typeAttr && ts.isStringLiteral(typeAttr) && ['checkbox', 'radio'].includes(typeAttr.text)
       if (tabbable) {
@@ -260,7 +265,8 @@ function scan(root: ts.Node, sf: ts.SourceFile): { stops: number; findings: Find
         const line = sf.getLineAndCharacterOfPosition(node.getStart(sf)).line + 1
         const className = attr('className')
         const tokens = classTokens(className?.initializer)
-        if (!className) findings.push({ line, tag, problem: 'no className, so the browser default outline' })
+        if (spread) findings.push({ line, tag, problem: 'a props spread the scan cannot read' })
+        else if (!className) findings.push({ line, tag, problem: 'no className, so the browser default outline' })
         else if (tokens === null) findings.push({ line, tag, problem: 'a className the scan cannot read' })
         else if (tokens !== 'factory' && !RINGS.some((ring) => ring.every((t) => tokens.includes(t)))) {
           findings.push({ line, tag, problem: `missing ${RINGS[0].filter((t) => !tokens.includes(t)).join(' ')}` })
@@ -474,11 +480,14 @@ describe('every Tab stop in the site chrome carries the brand focus ring (EN-05c
             <div contentEditable className="p-1">notes</div>
             <div contentEditable={selected} className="p-1">maybe</div>
             <div contentEditable={false} className="p-1">static</div>
+            <div {...getButtonProps()}>headless</div>
+            <NextLink {...linkProps} href="/r" className="${ring}">spread link</NextLink>
+            <Menu {...menuProps} />
           </nav>
         )
       }`
     const { stops, findings } = missingRings(src)
-    expect(stops).toBe(15)
+    expect(stops).toBe(17)
     expect(findings.map((f) => `${f.tag}: ${f.problem}`)).toEqual([
       'NextLink: missing focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark',
       'button: missing dark:focus-visible:shadow-ring-brand-dark',
@@ -490,6 +499,8 @@ describe('every Tab stop in the site chrome carries the brand focus ring (EN-05c
       'li: missing focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark',
       'div: missing focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark',
       'div: missing focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark',
+      'div: a props spread the scan cannot read',
+      'NextLink: a props spread the scan cannot read',
     ])
   })
 })
