@@ -18,7 +18,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.models import InviteCode, User
-from app.services import invite_service, login_lockout, subscription_sync
+from app.services import invite_service, login_lockout
 from app.services.refresh_token_service import revoke_all_for_user
 
 EMAIL_VERIFY_EXPIRY_HOURS = 24
@@ -140,7 +140,11 @@ def grant_reverse_trial(db: Session, user: User, days: int) -> None:
     the verification committed before it. Whatever the grant or the commit raises propagates
     unchanged: the caller catches it, calls :func:`discard_reverse_trial`, and logs it as the
     original error. The caller decides eligibility (``entitlements.is_pro_user``)."""
-    subscription_sync.start_reverse_trial(db, user, days)
+    # Imported on use, as verify_email did before the move, so importing this module (and so
+    # app.routers.auth) does not load subscription_sync.
+    from app.services.subscription_sync import start_reverse_trial
+
+    start_reverse_trial(db, user, days)
     db.commit()
 
 
