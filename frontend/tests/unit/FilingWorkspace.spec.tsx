@@ -584,6 +584,33 @@ describe('FilingWorkspace returns focus on close for every route that opens it, 
     expect(document.activeElement).toBe(launcher())
   })
 
+  it('an opener still on the page that no longer takes focus (hidden since the open) is passed over for the launcher', async () => {
+    render(<AskPage />)
+    act(() => askInPage().focus())
+    fireEvent.click(askInPage())
+    await settle()
+    // jsdom focuses a display:none element; a browser does not. A no-op focus() stands in for that.
+    const refused = vi.spyOn(askInPage(), 'focus').mockImplementation(() => {})
+    act(() => answerTab().focus())
+    pressClose()
+    expect(refused).toHaveBeenCalled()
+    expect(document.activeElement).toBe(launcher())
+  })
+
+  it('a chip activated while a Ctrl+K-opened pane is open is where focus returns, ahead of the control Ctrl+K was pressed on', () => {
+    render(<AskPage />)
+    act(() => elsewhere().focus())
+    fireEvent.keyDown(elsewhere(), { key: 'k', ctrlKey: true })
+    expect(dialog()).toHaveAttribute('aria-hidden', 'false')
+    act(() => chip().focus())
+    fireEvent.click(chip())
+    expect(filingTab()).toHaveAttribute('aria-selected', 'true')
+    act(() => filingTab().focus())
+    pressEscape()
+    expect(dialog()).toHaveAttribute('aria-hidden', 'true')
+    expect(document.activeElement).toBe(chip())
+  })
+
   it('a pointer press on the launcher hands nothing off; a close with focus on <body> still lands on the launcher', async () => {
     render(<AskPage />)
     act(() => launcher().focus()) // Chromium focuses a clicked button
