@@ -61,6 +61,51 @@
 - Limits: DOM and computed-style probes in Chromium only; no screen reader (a heading ending in "…" is unchecked there), Safari, Firefox or device; the Vercel preview in both themes not yet checked from here.
 - [ ] Deferred, named: the SourceTrace popover/sheet header and the PDF / CSV risk rows still read "Filing excerpt"; the Change Report's risk diff stays off.
 
+## 2026-10-09 — Hot-module refactor: the founder's delegation, the decisions and Wave 0 (lane D)
+
+The founder delegated the open decisions of `tasks/refactor-plan-2026-10.md` on 2026-10-09: "please
+analyse the pros and cons of the decisions needed for these aspects of the plan and make an expert
+decision. I trust you on this and give you full authority to proceed based on the decision you make."
+This records it as a standing authorization (`lessons/ops-keep-moving-under-standing-authorization.md`).
+
+- **Covers:** the plan's decisions 1 and 3–9, and the work they start: Wave 0 (the size-budget gate and
+  six anchor PRs), the dead-code PR and the moves, under the plan's own gates. Paid runs come under the
+  plan's USD 18 refactor ceiling: balance read first, a reservation stated in each PR body, every run
+  logged (decision 1).
+- **Does not cover** the boundaries the founder still holds:
+  - production flags;
+  - the AI provider and its prompts (a prompt byte change is a RUNBOOK event and never rides a
+    refactor PR);
+  - locked contract tests;
+  - destructive data or history operations (branch deletion stays on the 2026-10-07 sweep's
+    approval-by-name list);
+  - anything the CODE RED chief holds.
+
+- [x] Plan and decisions: `tasks/refactor-plan-2026-10.md` (#1136), reviewed independently and corrected.
+- [x] Docs, decision 7: `docs/ARCHITECTURE.md` and dated correction notes in two audit appendices (#1154, merged as `69b59203`).
+- [ ] W0.G: the size-budget gate and the AST move proof (#1156). An adversarial review found one
+  blocker (a budget-file edit alone could bypass decision 6). It is fixed in W0.G's second commit,
+  and fourteen probes check the fix.
+- [ ] The six Wave 0 anchor PRs, each verified on current main: C0 #1157, T0 #1158, F0 #1159,
+  X0 #1160, O0 #1161 and I0 #1162. The independent review, including xdist and Lane C runs, found two
+  issues, fixed in C0 and O0.
+- [ ] Wave 1: the dead-code PR, then I1, O1, T1, X1, C1 and F1, one verified deploy at a time.
+- [ ] Rule-7 follow-up, outside the plan. The naive `datetime.now()` stamps at
+  `backend/app/services/edgar/xbrl_service.py:180,207,692,713,722`, and the `datetime.now(timezone.utc)`
+  calls at `backend/app/services/facts_service.py:715,1954,1983`, should go through
+  `app/utils/datetimes.py`. The refactor's moves leave them as they are.
+- [ ] Wave 0 found three behaviour bugs and one dead prompt branch. Each is fixed outside the
+  refactor, with the anchor that pins today's behaviour updated in the same PR (plan, Implementation
+  Notes, "Follow-ups for non-move PRs"):
+  - a missing entity id counts as the entity "nan" and drops the debt observation
+    (`instance_extractor.py:648-650`);
+  - a numeric `filing_date` from the model raises out of `summarize_filing`
+    (`openai_service.py:1051`);
+  - model-supplied top-level keys survive into the stored structured summary (rule 9);
+  - the OUTPUT REFERENCE branch is dead. The loader's markers (`prompt_loader.py:50-54`) never match,
+    so each prompt loads whole into the system message, and the model still sees the format.
+    Reviving or deleting the branch changes prompt bytes, a RUNBOOK event for the founder.
+
 ## 2026-10-07 — Google Cloud cost optimisation (independent scope)
 
 Founder authorised durable background delivery and shared Docker build caching, while retaining
