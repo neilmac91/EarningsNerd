@@ -19,7 +19,8 @@ types and paths, nothing else), and only tracked files count anywhere: the impor
 modules against `git ls-files`, so a gitignored eval report or an untracked package that shadows an
 installed import never moves the gate (a tracked top-level file under `backend/` that shadows a package
 only third-party code imports, `backend/certifi.py`, is a stated limit: the walk follows the eval's own
-imports; a closure module that changes `sys.path` fails the gate, since the walk cannot follow it). Every argument of an entry command that is not a flag or an
+imports; a closure module that changes where an import looks, `sys.path`, `sys.meta_path`, `sys.path_hooks` or `site`,
+fails the gate, since the walk cannot follow it). Every argument of an entry command that is not a flag or an
 integer is a path (quotes are removed first, as bash removes them, so a quoted `"--opt=value"` is
 split like a bare one): a tracked file or directory is an input of the run, a gitignored path or one
 under `$RUNNER_TEMP` followed by a plain path is run-local, anything else with a `$` in it is untraced
@@ -1410,129 +1411,95 @@ def step_inputs() -> list[str]:
 def _live_closure() -> frozenset[str]:
     closure = frozenset(reachable_files(entry_points()))
     changing = sorted(p for p in closure if _changes_sys_path(ast.parse((ROOT / p).read_text(encoding="utf-8"))))
-    assert not changing, f"{changing} change sys.path, which the import walk cannot follow: import through backend/ instead, or teach the walk the directory"
+    assert not changing, f"{changing} change sys.path or use site, which the import walk cannot follow: import through backend/ instead, read sys.path directly rather than through a name, or teach the walk the directory"
     return closure
 
 
+IMPORT_LISTS = frozenset({"path", "meta_path", "path_hooks"})  # the `sys` lists that decide where an import statement looks
+
+
 def _changes_sys_path(tree: ast.AST) -> bool:
-    """A change to `sys.path`, an import made local by hand. Every use of the list counts as a change (`sys.path.insert(0, ...)`
-    and any other method call, `+=`, an assignment, a slice assignment, `del sys.path[0]`, an argument to a function this
-    gate does not know, `site.addsitedir(...)`) except the reads it knows: the right side of `in`/`not in`, an argument of
-    `len`, `list`, `tuple`, `sorted`, `set`, `print`, `repr`, `str`, `enumerate`, `reversed`, `iter`, `any`, `all` or `bool`,
-    a `for` or comprehension iterable, an item or slice read, a `+` operand, a formatted value, `.index`, `.count` or `.copy`, and the alias
-    `p = sys.path` alone (`q = p` too), whose name is then read the same way and changed by `p += [...]` or any method, in the
-    function that binds it and the functions nested in it, or everywhere when bound at module level or declared `global`,
-    so another function's `p` is not the list (a nested function's parameter of the same name is not told apart, loudly);
-    the list assigned to anything but a plain name (`self.p = sys.path`, `d["p"] = sys.path`, a class-body `p = sys.path`,
-    which stores it as an attribute) is a change, since what holds it cannot be followed. `sys` spelled `import sys as s`,
-    `from os import sys as s`, `os.sys` under any name of `os`, `__import__("sys")`, under an alias too,
-    `importlib.import_module("sys")` or `import_module("sys")` imported bare or under another name (`load =
-    importlib.import_module` included), positional or `name=`, a name bound to one of those calls (`s = __import__("sys")`),
-    and the list `from sys import path as p` count, each alias bound by a plain, an annotated or a walrus assignment;
-    `getattr(sys, "path")` and `vars(sys)["path"]` are a stated limit."""
-    sys_names, site_names, addsitedir_names, loaders, dunders = {"sys"}, {"site"}, set(), set(), {"__import__"}
-    os_names, importlib_names = {"os"}, {"importlib"}
-    path_names: set[tuple[int | None, str]] = set()  # (the binding function's id, or None at module level, the name)
+    """A change to where an import looks, an import made local by hand: a use of `sys.path`, `sys.meta_path` or
+    `sys.path_hooks` other than a read this gate knows with the list itself as the operand (the right side of `in`/`not in`,
+    an argument of `len`, `list`, `tuple`, `sorted`, `set`, `print`, `repr`, `str`, `enumerate`, `reversed`, `iter`, `any`,
+    `all` or `bool`, a `for` or comprehension iterable, an item or slice read, a `+` operand, a formatted value, `.index`,
+    `.count` or `.copy`), so a method call, `+=`, an assignment, `del`, an argument to a function this gate does not know and
+    the list bound to any name (`p = sys.path`, `from sys import path`, `from sys import *`) are changes, since a name can be
+    changed where this gate cannot follow it: read the list directly instead; and any use of `site` (`from site import
+    ...`, `site.<anything>`, `__import__("site")`), whose functions add to `sys.path`. `sys` and `site` are themselves under
+    every spelling bound anywhere in the module, by an import or a plain, an annotated or a walrus assignment (`import sys
+    as s`, `from os import sys`, `os.sys` under any name of `os`, `__import__("sys")` or `import_module("sys")`, positional
+    or `name=`, the importer imported, `from importlib import *` included, or bound under another name), loudly: a name so
+    bound anywhere is that module throughout the file. This is a drift guard over the spellings code uses, not a sandbox:
+    a computed attribute or module name (`getattr(sys, "path")`, `vars(sys)["path"]`, `sys.__dict__`, `import_module("s"
+    + "ys")`), the module passed to a function or stored in a container, and code in a string handed to `exec` are stated
+    limits. `sys.modules` is not guarded: an entry put there is an object closure code built, and the walk still counts the
+    file it stands in for. A module loaded from a file by path (`spec_from_file_location`, `runpy.run_path`) is the
+    named-file rule's: a `.py` spelled in a literal is a module of the closure, and a computed path is that rule's limit."""
     parents = {id(child): parent for parent in ast.walk(tree) for child in ast.iter_child_nodes(parent)}
-
-    def scopes_of(node: ast.AST) -> list[int | None]:
-        """The functions enclosing `node`, innermost first, by id, then None for the module: a name is read through all of them."""
-        found: list[int | None] = []
-        while (node := parents.get(id(node))) is not None:
-            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda)):
-                found.append(id(node))
-        return found + [None]
-
-    declared_global = {(scopes_of(node)[0], name) for node in ast.walk(tree) if isinstance(node, ast.Global) for name in node.names}
-
-    def bound_in(node: ast.AST, name: str) -> int | None:
-        """Where a binding of `name` at `node` lives: its function, or the module when declared `global` there or bound at top level."""
-        scope = scopes_of(node)[0]
-        return None if (scope, name) in declared_global else scope
-
-    def bindings() -> list[tuple[ast.AST, str, ast.AST]]:
-        """Every binding of a plain name to a value: `x = v` (each name target), `x: T = v`, `(x := v)`."""
-        found: list[tuple[ast.AST, str, ast.AST]] = []
-        for node in ast.walk(tree):
-            if isinstance(node, ast.Assign):
-                found += [(node, target.id, node.value) for target in node.targets if isinstance(target, ast.Name)]
-            elif isinstance(node, ast.AnnAssign) and isinstance(node.target, ast.Name) and node.value is not None:
-                found.append((node, node.target.id, node.value))
-            elif isinstance(node, ast.NamedExpr) and isinstance(node.target, ast.Name):
-                found.append((node, node.target.id, node.value))
-        return found
-
+    names: dict[str, set[str]] = {"sys": {"sys"}, "site": set(), "os": {"os"}}
+    loaders: set[str] = {"__import__"}
     for node in ast.walk(tree):
         if isinstance(node, ast.Import):
-            sys_names |= {alias.asname or "sys" for alias in node.names if alias.name == "sys"}
-            site_names |= {alias.asname or "site" for alias in node.names if alias.name == "site"}
-            os_names |= {alias.asname or "os" for alias in node.names if alias.name == "os"}
-            importlib_names |= {alias.asname or "importlib" for alias in node.names if alias.name == "importlib"}
-        elif isinstance(node, ast.ImportFrom) and node.module == "sys":
-            path_names |= {(bound_in(node, alias.asname or "path"), alias.asname or "path") for alias in node.names if alias.name == "path"}
-        elif isinstance(node, ast.ImportFrom) and node.module == "os":
-            sys_names |= {alias.asname or "sys" for alias in node.names if alias.name == "sys"}
-        elif isinstance(node, ast.ImportFrom) and node.module == "site":
-            addsitedir_names |= {alias.asname or "addsitedir" for alias in node.names if alias.name == "addsitedir"}
-        elif isinstance(node, ast.ImportFrom) and node.module == "importlib":
-            loaders |= {alias.asname or "import_module" for alias in node.names if alias.name == "import_module"}
+            for alias in node.names:  # `import os.path` binds `os`; `import os.path as p` a submodule with `p.sys` too
+                module = alias.name.split(".")[0]
+                if module in names:
+                    names[module].add(alias.asname or module)
+        elif isinstance(node, ast.ImportFrom) and node.level == 0:
+            imported = {alias.name for alias in node.names}
+            if node.module == "site" or node.module == "sys" and imported & (IMPORT_LISTS | {"*"}):
+                return True  # `from sys import path` binds the list to a name; `from site import addsitedir` its changer
+            if node.module == "os":
+                names["sys"] |= {alias.asname or "sys" for alias in node.names if alias.name == "sys"}
+            elif node.module == "importlib":
+                loaders |= {alias.asname or alias.name for alias in node.names if alias.name in {"import_module", "__import__"}}
+                loaders |= {"import_module"} if "*" in imported else set()
 
-    def aliased(names: set[str], attribute: str = "") -> set[str]:
-        """`names` and every name bound to one of them, or to `importlib.<attribute>`, transitively (`imp = __import__`,
-        `load = imp`, `load = importlib.import_module`)."""
-        while True:
-            more = {name for _, name, value in bindings() if isinstance(value, ast.Name) and value.id in names
-                    or attribute and isinstance(value, ast.Attribute) and value.attr == attribute and isinstance(value.value, ast.Name) and value.value.id in importlib_names}
-            if more <= names:
-                return names
-            names = names | more
+    def is_module(expr: ast.AST, module: str) -> bool:
+        """`expr` is `module` (`sys`, `site` or `os`): a name bound to it, `os.sys`, or an importer called with its name."""
+        if isinstance(expr, ast.Name):
+            return expr.id in names[module]
+        if module == "sys" and isinstance(expr, ast.Attribute) and expr.attr == "sys":
+            return is_module(expr.value, "os")
+        if isinstance(expr, ast.Call) and (isinstance(expr.func, ast.Name) and expr.func.id in loaders
+                                           or isinstance(expr.func, ast.Attribute) and expr.func.attr in {"import_module", "__import__"}):
+            return any(isinstance(target, ast.Constant) and target.value == module
+                       for target in [*expr.args[:1], *(keyword.value for keyword in expr.keywords if keyword.arg == "name")])
+        return False
 
-    loaders, dunders = aliased(loaders, "import_module"), aliased(dunders)
-
-    def is_sys(expr: ast.AST) -> bool:
-        return (isinstance(expr, ast.Name) and expr.id in sys_names
-                or isinstance(expr, ast.Attribute) and expr.attr == "sys" and isinstance(expr.value, ast.Name) and expr.value.id in os_names
-                or isinstance(expr, ast.Call) and any(isinstance(target, ast.Constant) and target.value == "sys" for target in [*expr.args[:1], *(k.value for k in expr.keywords if k.arg == "name")])
-                and (isinstance(expr.func, ast.Name) and expr.func.id in dunders | loaders or isinstance(expr.func, ast.Attribute) and expr.func.attr == "import_module"))
-
-    while True:  # `s = __import__("sys")`, `s = os.sys`, `s: ModuleType = sys`: the module under another name
-        more = {name for _, name, value in bindings() if is_sys(value)}
-        if more <= sys_names:
+    bindings = [(target.id, node.value) for node in ast.walk(tree) if isinstance(node, ast.Assign) for target in node.targets if isinstance(target, ast.Name)]
+    bindings += [(node.target.id, node.value) for node in ast.walk(tree)
+                 if isinstance(node, (ast.AnnAssign, ast.NamedExpr)) and isinstance(node.target, ast.Name) and node.value is not None]
+    while True:  # `s = __import__("sys")`, `s: ModuleType = sys`, `load = importlib.import_module`: under another name
+        grown = False
+        for name, value in bindings:
+            for module in names:
+                if name not in names[module] and is_module(value, module):
+                    names[module].add(name)
+                    grown = True
+            if name not in loaders and (isinstance(value, ast.Name) and value.id in loaders
+                                        or isinstance(value, ast.Attribute) and value.attr in {"import_module", "__import__"}):
+                loaders.add(name)
+                grown = True
+        if not grown:
             break
-        sys_names |= more
-
-    def is_path(expr: ast.AST) -> bool:
-        return (isinstance(expr, ast.Attribute) and expr.attr == "path" and is_sys(expr.value)
-                or isinstance(expr, ast.Name) and any((scope, expr.id) in path_names for scope in scopes_of(expr)))
-
-    while True:  # `p = sys.path`, then `q = p`: the list under another name, where it is bound
-        more = {(bound_in(node, name), name) for node, name, value in bindings() if is_path(value)}
-        if more <= path_names:
-            break
-        path_names |= more
     reads = {"len", "list", "tuple", "sorted", "set", "print", "repr", "str", "enumerate", "reversed", "iter", "any", "all", "bool"}
     for node in ast.walk(tree):
-        if isinstance(node, ast.Call):
-            func = node.func
-            if (isinstance(func, ast.Attribute) and func.attr == "addsitedir" and isinstance(func.value, ast.Name) and func.value.id in site_names
-                    or isinstance(func, ast.Name) and func.id in addsitedir_names):
-                return True
+        if is_module(node, "site"):
+            return True
+        if not (isinstance(node, ast.Attribute) and node.attr in IMPORT_LISTS and is_module(node.value, "sys")):
+            continue
         parent = parents.get(id(node))
-        if not is_path(node) or isinstance(node, ast.Name) and isinstance(node.ctx, ast.Store) and not isinstance(parent, ast.AugAssign):
-            continue  # a name rebound is not the list changed; `p += [...]` on the alias is
         read = (isinstance(parent, ast.Compare) and node in parent.comparators and all(isinstance(op, (ast.In, ast.NotIn)) for op in parent.ops)
                 or isinstance(parent, ast.Call) and node in parent.args and isinstance(parent.func, ast.Name) and parent.func.id in reads
                 or isinstance(parent, (ast.For, ast.AsyncFor, ast.comprehension)) and parent.iter is node
                 or isinstance(parent, ast.Subscript) and parent.value is node and isinstance(parent.ctx, ast.Load)
-                or isinstance(parent, ast.Assign) and parent.value is node and all(isinstance(target, ast.Name) for target in parent.targets)
-                and not isinstance(parents.get(id(parent)), ast.ClassDef)  # a class-body `p = sys.path` stores the list as an attribute
                 or isinstance(parent, ast.BinOp) and isinstance(parent.op, ast.Add)
                 or isinstance(parent, ast.FormattedValue)
                 or isinstance(parent, ast.Attribute) and parent.attr in {"index", "count", "copy"})
         if not read:
             return True
     return False
-
 
 def reachable_files(roots=None) -> set[str]:
     """Repo-relative paths of every local module the entry points import, transitively. The live closure (no `roots`)
@@ -1921,12 +1888,21 @@ def test_relative_imports_anchor_on_the_owning_package():
                    "import sys\nif (p := sys.path):\n    p.insert(0, 'x')", "import importlib\nimportlib.import_module(name='sys').path.insert(0, 'x')",
                    "import sys\nclass C:\n    p = sys.path\nC.p.insert(0, 'x')", "from os import sys as s\ns.path.insert(0, 'x')"):
         assert _changes_sys_path(ast.parse(source)), source  # every use this gate does not know as a read is a change
+    # The list bound to any name is a change, wherever the name is read later, since this gate does not follow names;
+    # `from sys import *` binds it, `site` changes it, and `sys.meta_path` and `sys.path_hooks` decide imports as it does.
+    for source in ("import sys\np = sys.path", "import sys\np = sys.path\nn = len(p)", "import sys\np = sys.path\nq = p\nn = len(q)", "import sys\np = sys.path\np = ['x']",
+                   "import sys\ndef f():\n    p = sys.path\n    return len(p)\ndef g(p):\n    p.insert(0, 'x')",
+                   "import sys\ndef f():\n    p = []\n    def g():\n        nonlocal p\n        p = sys.path\n    g()\n    p.insert(0, 'x')",
+                   "from sys import *\npath.insert(0, 'x')", "from site import *\naddsitedir('x')", "import site\nprint(site.getsitepackages())", "__import__('site').addsitedir('x')",
+                   "import sys\nsys.meta_path.insert(0, object())", "import sys\nsys.path_hooks.append(len)", "from sys import meta_path\nmeta_path.append(object())",
+                   "from importlib import *\nimport_module('sys').path.insert(0, 'x')", "import os.path\nos.sys.path.insert(0, 'x')"):
+        assert _changes_sys_path(ast.parse(source)), source
     for source in ("cmd = ['python', '-c', 'import sys; print(sys.path)']", "import sys\nok = 'x' in sys.path", "n = len(sys.path)", "import os\np = os.path.join('a', 'b')",
-                   "import sys\np = sys.path", "import sys\nfirst = sys.path[0]", "import sys\nfor p in sys.path:\n    pass", "import sys\nall_paths = sys.path + ['x']",
-                   "import sys\nprint(sys.path)", "import sys\ni = sys.path.index('x')", "import sys\nmsg = f'{sys.path}'", "import sys\np = sys.path\nn = len(p)",
-                   "import sys\nps = [p for p in sys.path]", "import sys\nps = {p: 1 for p in sys.path if p}", "import sys\np = sys.path\nq = p\nn = len(q)",
-                   "import sys\np = sys.path\np = ['x']", "import sys\ndef f():\n    p = sys.path\n    return len(p)\ndef g(p):\n    p.insert(0, 'x')"):
-        assert not _changes_sys_path(ast.parse(source)), source  # an alias is the list in the function that binds it, not in another
+                   "import sys\nfirst = sys.path[0]", "import sys\nfor p in sys.path:\n    pass", "import sys\nall_paths = sys.path + ['x']",
+                   "import sys\nprint(sys.path)", "import sys\ni = sys.path.index('x')", "import sys\nmsg = f'{sys.path}'",
+                   "import sys\nps = [p for p in sys.path]", "import sys\nps = {p: 1 for p in sys.path if p}", "import sys\nargs = sys.argv[1:]", "from sys import argv, exit",
+                   "site = 'https://example.com'\nprint(site)", "import sys\nok = 'x' in sys.meta_path", "import sys\nn = len(sys.path_hooks)", "import sys as s\nn = len(s.path)"):
+        assert not _changes_sys_path(ast.parse(source)), source  # a read of the list itself passes, and `sys` used for anything else
     with mock.patch.object(sys.modules[__name__], "entry_points", lambda: ["evals.copilot_runner"]), \
             mock.patch.object(Path, "read_text", return_value="import sys\nsys.path.insert(0, 'x')\n"):
         try:
