@@ -37,10 +37,11 @@ type StoredSummary = { business_overview?: string | null; raw_summary?: unknown 
  * the card: useSummaryGeneration treats it as no summary and starts the run.
  */
 export const isSummaryFailure = (summary: StoredSummary): boolean => {
-  const raw = summary?.raw_summary && typeof summary.raw_summary === 'object' ? (summary.raw_summary as { writer_error?: unknown }) : null
+  const raw = summary?.raw_summary
+  const writerError = raw && typeof raw === 'object' ? (raw as { writer_error?: unknown }).writer_error : undefined
   return (
     isSummaryPlaceholder(summary?.business_overview) ||
-    Boolean(raw?.writer_error) ||
+    Boolean(writerError) ||
     cleanSummaryMarkdown(summary?.business_overview ?? '').trim().length === 0
   )
 }
