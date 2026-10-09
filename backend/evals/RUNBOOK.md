@@ -916,11 +916,12 @@ Any other failure blocks as before. A PR that changes this rule does not apply i
 run is never drawn again to obtain a green result outside a predeclared protocol. `copilot-eval.yml`
 draws once per head commit. A re-run attempt, a draft-to-ready toggle or a reopen on a head that
 already drew reports that draw's verdict before it spends, and draws nothing
-(`backend/scripts/copilot_eval_draw_gate.py`, `tests/unit/test_copilot_eval_rerun_refusal.py`). A
-predeclared protocol that needs several draws on one head names its committed preregistration in the
-PR body, on a line of its own: `Copilot-eval protocol: tasks/review-evidence/<folder>/PREREGISTRATION.md`.
-A new draw comes from a new push. This does not change accepted, error counting, thresholds or exit
-codes.
+(`backend/scripts/copilot_eval_draw_gate.py`, `tests/unit/test_copilot_eval_rerun_refusal.py`).
+Nothing exempts a head, since anything that can change after a draw, such as the PR body, could buy
+another draw once the result is known. A new draw comes from a new push. A predeclared protocol that
+needs several draws of the same code gives each draw its own head, a commit that changes only its
+evidence folder, and says so in its preregistration. This does not change accepted, error counting,
+thresholds or exit codes.
 Condition (1) is read off each errored row in the per-row verdict column of `copilot-eval.md` (the
 `Failures:` line lists each label only once); the replay tool for (3) is
 `tasks/review-evidence/copilot-eval-triage-2026-10-09/f_attribution.py`. It replays each generation

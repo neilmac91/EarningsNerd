@@ -11,11 +11,11 @@ any run, whose runner step started. When one exists, this run does not draw. It 
 verdict (green only when the draw succeeded) and the job's later steps are skipped. A head with no
 earlier draw draws, including a re-run of an attempt that failed before its runner step.
 
-A predeclared protocol that needs several draws on one head (as the prompt candidate's
-PREREGISTRATION.md drew Q1 to Q3 on a frozen head) names its committed preregistration in the pull
-request body, on a line of its own:
-
-    Copilot-eval protocol: tasks/review-evidence/<folder>/PREREGISTRATION.md
+Nothing exempts a head: anything mutable after a draw, such as the pull request body, could be edited
+to buy another draw once the result was known (Codex review on #1166). A new draw comes from a new
+push. A predeclared protocol that needs several draws of the same code (as the prompt candidate's
+PREREGISTRATION.md drew Q1 to Q3) gives each draw its own head, a commit that changes only its own
+evidence folder, and its preregistration says so.
 
 Environment (Actions sets all but the token): GITHUB_TOKEN (actions: read), GITHUB_REPOSITORY,
 GITHUB_RUN_ID, GITHUB_RUN_NUMBER, GITHUB_RUN_ATTEMPT, GITHUB_EVENT_PATH, GITHUB_OUTPUT, and
@@ -27,7 +27,6 @@ from __future__ import annotations
 
 import json
 import os
-import re
 import sys
 import urllib.request
 from pathlib import Path
@@ -37,8 +36,6 @@ WORKFLOW_FILE = "copilot-eval.yml"
 JOB_NAME = "copilot-eval"
 RUNNER_STEP = "Run every verified question three times"
 RUNBOOK = "backend/evals/RUNBOOK.md, triage rule for a red copilot-eval run"
-PROTOCOL = re.compile(r"^[ \t]*Copilot-eval protocol:[ \t]*(?P<path>\S+)[ \t]*$", re.IGNORECASE | re.MULTILINE)
-PROTOCOL_PATH = re.compile(r"tasks/review-evidence/[A-Za-z0-9._-]+(?:/[A-Za-z0-9._-]+)*/PREREGISTRATION\.md")
 
 Fetch = Callable[[str], Dict[str, Any]]
 
@@ -57,21 +54,6 @@ def api_fetch(api_url: str, token: str) -> Fetch:
             return json.load(response)
 
     return fetch
-
-
-def protocol_path(body: str, workspace: Path) -> Optional[str]:
-    """The committed preregistration the pull request body names, or None. A line that names anything
-    else (another file, a path outside tasks/review-evidence/, a file not in the checkout) grants
-    nothing; it is reported and the draw-once rule applies."""
-    match = PROTOCOL.search(body or "")
-    if not match:
-        return None
-    path = match.group("path")
-    if PROTOCOL_PATH.fullmatch(path) and ".." not in path.split("/") and (workspace / path).is_file():
-        return path
-    print(f"::warning::'Copilot-eval protocol: {path}' names no committed "
-          "tasks/review-evidence/<folder>/PREREGISTRATION.md; the draw-once rule applies.")
-    return None
 
 
 def attempt_draw(fetch: Fetch, repo: str, run_id: int, attempt: int) -> Optional[Dict[str, str]]:
@@ -119,16 +101,7 @@ def write_output(env: Mapping[str, str], draw: bool) -> None:
 
 def main(env: Mapping[str, str] = os.environ, fetch: Optional[Fetch] = None) -> int:
     event = json.loads(Path(env["GITHUB_EVENT_PATH"]).read_text(encoding="utf8"))
-    pull_request = event.get("pull_request") or {}
-    head_sha = pull_request["head"]["sha"]
-    workspace = Path(env.get("GITHUB_WORKSPACE") or ".")
-
-    protocol = protocol_path(pull_request.get("body") or "", workspace)
-    if protocol:
-        print(f"::notice::Predeclared protocol {protocol}: this run draws on {head_sha[:12]} "
-              "whatever drew before.")
-        write_output(env, True)
-        return 0
+    head_sha = (event.get("pull_request") or {})["head"]["sha"]
 
     fetch = fetch or api_fetch(env.get("GITHUB_API_URL") or "https://api.github.com", env["GITHUB_TOKEN"])
     try:

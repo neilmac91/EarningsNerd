@@ -206,12 +206,15 @@ the first draw.
 
 The first version gated only re-run attempts and left toggles to the RUNBOOK text, because gating them
 would also block predeclared protocols that toggle on a frozen head (the prompt candidate's Q1 to Q3).
-Codex's review on #1166 showed the toggle and reopen paths bypassed that gate. A protocol now declares
-itself instead: a line `Copilot-eval protocol: tasks/review-evidence/<folder>/PREREGISTRATION.md` in the
-PR body, naming a committed preregistration, lets the run draw. A line naming anything else grants
-nothing. `tests/unit/test_copilot_eval_rerun_refusal.py` pins the decision against a fake of GitHub's two
-reads, matched to real payloads. It also pins the workflow: the gate runs first on every attempt, and
-no later step runs without its draw.
+Codex's review on #1166 showed the toggle and reopen paths bypassed that gate. A second version let a
+PR-body line naming a committed preregistration exempt the head. Codex's next review showed that the
+body can be edited after a red draw, so that line could buy another draw once the result was known.
+Now nothing exempts a head. A protocol that needs several draws of the same code gives each draw its own
+head, a commit that changes only its evidence folder. That is the RUNBOOK's "a new draw comes from a new
+push", declared in its preregistration and visible in the PR's history.
+`tests/unit/test_copilot_eval_rerun_refusal.py` pins the decision against a fake of GitHub's two reads,
+matched to real payloads, including a body line that names a real preregistration and buys nothing. It
+also pins the workflow: the gate runs first on every attempt, and no later step runs without its draw.
 
 **Shipped.** The RUNBOOK triage paragraph (widened, with the self-application and toggle clauses, and
 the successor replay tool named for condition (3)); the successor tool with its self-test and its

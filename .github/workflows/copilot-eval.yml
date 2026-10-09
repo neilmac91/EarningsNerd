@@ -38,8 +38,8 @@ jobs:
         # A red run is triaged and recorded, never drawn again to obtain a green result. A re-run
         # attempt, a draft-to-ready toggle or a reopen on a head that already drew reports that draw's
         # verdict here, before any install or credential, and every step that installs or spends is
-        # skipped (the evidence steps find nothing); a new draw comes from a new push. Logic and tests:
-        # backend/scripts/copilot_eval_draw_gate.py,
+        # skipped (the evidence steps find nothing). Nothing exempts a head; a new draw comes from a
+        # new push. Logic and tests: backend/scripts/copilot_eval_draw_gate.py,
         # backend/tests/unit/test_copilot_eval_rerun_refusal.py.
         id: draw
         env:

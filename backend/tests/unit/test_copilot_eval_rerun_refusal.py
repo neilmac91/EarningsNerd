@@ -6,8 +6,9 @@ re-run merged the PR. A gate on the attempt number alone missed the other two wa
 unchanged head, a draft-to-ready toggle and a reopen (Codex review on #1166). So the workflow's first
 step after checkout, ``backend/scripts/copilot_eval_draw_gate.py``, looks for an earlier draw on the
 head commit in any run or attempt. When one exists, the run reports that draw's verdict and draws
-nothing. The decision is pinned here offline, against a fake of GitHub's two reads, and the workflow
-is pinned so that no later step can run without the gate's draw.
+nothing, and nothing mutable after a draw (the pull request body) exempts the head. The decision is
+pinned here offline, against a fake of GitHub's two reads, and the workflow is pinned so that no
+later step can run without the gate's draw.
 """
 import ast
 import json
@@ -24,7 +25,6 @@ ROOT = Path(__file__).resolve().parents[3]
 WORKFLOW = ROOT / ".github" / "workflows" / "copilot-eval.yml"
 SCRIPT = ROOT / "backend" / "scripts" / "copilot_eval_draw_gate.py"
 HEAD = "5f253ada86baeb84896a49aea2fb2801f18403e5"
-PROTOCOL = "tasks/review-evidence/prompt-candidate-2026-10-02/PREREGISTRATION.md"
 THIS_RUN, THIS_NUMBER = 500, 50
 
 
@@ -67,7 +67,7 @@ def call_gate(tmp_path, api, *, body="", attempt=1):
     env = {
         "GITHUB_EVENT_PATH": str(event), "GITHUB_OUTPUT": str(output), "GITHUB_REPOSITORY": "o/r",
         "GITHUB_RUN_ID": str(THIS_RUN), "GITHUB_RUN_NUMBER": str(THIS_NUMBER),
-        "GITHUB_RUN_ATTEMPT": str(attempt), "GITHUB_TOKEN": "token", "GITHUB_WORKSPACE": str(ROOT),
+        "GITHUB_RUN_ATTEMPT": str(attempt), "GITHUB_TOKEN": "token",
     }
     code = gate.main(env, api)
     lines = output.read_text().splitlines() if output.exists() else []
@@ -125,29 +125,21 @@ def test_this_run_s_earlier_attempts_count_before_the_listing_shows_the_run(tmp_
 
 
 def test_the_earliest_draw_decides_whatever_order_the_listing_uses(tmp_path):
-    # Newest first, as the API lists runs; two draws exist only after a protocol's extra draws.
+    # Newest first, as the API lists runs. Two draws on one head predate this gate (#1148's heads).
     api = FakeApi([run(THIS_RUN, THIS_NUMBER), run(400, 40), run(300, 30)],
                   {(400, 1): job("success"), (300, 1): job("failure")})
     assert call_gate(tmp_path, api) == (1, ["draw=false"])
 
 
-def test_a_predeclared_protocol_draws_on_a_head_that_drew(tmp_path):
-    api = FakeApi([run(THIS_RUN, THIS_NUMBER), run(400, 40)], {(400, 1): job("failure")})
-    body = f"Measurement under a preregistration.\n\nCopilot-eval protocol: {PROTOCOL}\n"
-    assert call_gate(tmp_path, api, body=body) == (0, ["draw=true"])
-    assert api.paths == []  # the exemption is decided from the body and the checkout alone
-
-
-@pytest.mark.parametrize("named", [
-    "tasks/review-evidence/no-such-protocol/PREREGISTRATION.md",           # not committed
-    "tasks/review-evidence/prompt-candidate-2026-10-02/README.md",         # committed, not a preregistration
-    "tasks/review-evidence/../review-evidence/prompt-candidate-2026-10-02/PREREGISTRATION.md",
-    "backend/evals/RUNBOOK.md",
+@pytest.mark.parametrize("line", [
+    # A real, committed preregistration: the line an author could add once a draw came back red.
+    "Copilot-eval protocol: tasks/review-evidence/prompt-candidate-2026-10-02/PREREGISTRATION.md",
+    "Review override: re-draw after a flaky withhold",
 ])
-def test_a_protocol_line_naming_anything_else_grants_nothing(tmp_path, capsys, named):
+def test_nothing_in_the_pull_request_body_buys_another_draw(tmp_path, line):
+    # The body can be edited after a draw (Codex review on #1166), so no line in it exempts a head.
     api = FakeApi([run(THIS_RUN, THIS_NUMBER), run(400, 40)], {(400, 1): job("failure")})
-    assert call_gate(tmp_path, api, body=f"Copilot-eval protocol: {named}") == (1, ["draw=false"])
-    assert "names no committed" in capsys.readouterr().out
+    assert call_gate(tmp_path, api, body=f"Measurement notes.\n\n{line}\n") == (1, ["draw=false"])
 
 
 def test_a_failed_read_fails_closed(tmp_path, capsys):

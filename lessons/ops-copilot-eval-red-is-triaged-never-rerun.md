@@ -22,8 +22,9 @@ and the other four conditions. Record the outcome in a PR comment either way. Ne
 and never toggle a PR from draft to ready on an unchanged head to draw again, outside a predeclared
 protocol. When the rule's conditions do not hold, the PR waits for a green run from a new push, or for
 the founder. The workflow now draws once per head commit: a re-run attempt, a toggle or a reopen on a
-head that already drew reports that draw's verdict and spends nothing. A predeclared protocol draws
-again only by naming its committed preregistration in the PR body (`Copilot-eval protocol: <path>`).
+head that already drew reports that draw's verdict and spends nothing. Nothing in the PR body
+exempts a head. A predeclared protocol that needs several draws of the same code gives each draw its
+own head (a commit that changes only its evidence folder), as its preregistration says.
 
 **Evidence**: runs 37935449192 and 37958886664 (attempt 1 red, attempt 2 green, each re-run by the
 agent); #1148 merged as `1a31b29`; the attribution and rates in
