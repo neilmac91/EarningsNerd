@@ -24,11 +24,11 @@ const day = (iso: string | null | undefined) => formatLocalDate(iso, 'MMM d, yyy
  * Compare periods (2026-10 critique, 1b and P-07): the company page's entry to the change report of
  * its newest annual report (selectComparisonFiling). The same GET and query key as the filing
  * page's "What changed" section, so following the link renders that section from cache. Each row
- * is a metric, its change in the change report's own vocabulary (the server's display string in its
- * tone's ink after a ▲/▼ glyph) and its "Read as" word, so direction and valence never share one
- * signal. The risk diff stays out until the backend serves one again (change_report_service
- * withholds it). States in place: bones while it loads, Notice + RetryButton on failure, a plain line
- * when the two periods share no comparable figures.
+ * is a metric, its change in the change report's own vocabulary (the server's display string, or
+ * the em dash when it sends none, in its tone's ink after a ▲/▼ glyph) and its "Read as" word, so
+ * direction and valence never share one signal. The risk diff stays out until the backend serves
+ * one again (change_report_service withholds it). States in place: bones while it loads, Notice +
+ * RetryButton on failure, a plain line when the two periods share no comparable figures.
  */
 export function ComparePeriodsCard({ filing }: { filing: Filing }) {
   const headingId = useId()

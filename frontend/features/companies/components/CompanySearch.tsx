@@ -7,6 +7,7 @@ import { CircleNotchIcon, MagnifyingGlassIcon } from '@/lib/icons'
 import { useQuery } from '@tanstack/react-query'
 import { searchCompanies, Company, type LatestFilingRef } from '@/features/companies/api/companies-api'
 import { Sep, periodPhrase } from '@/features/filings/components/FilingIdentity'
+import { tickerShaped } from '@/features/companies/lib/tickerShape'
 import CompanyLogo from '@/components/CompanyLogo'
 import { inputClasses } from '@/components/ui'
 import { ApiError } from '@/lib/api/client'
@@ -161,8 +162,8 @@ export default function CompanySearch({
         // navigate directly — power users shouldn't wait for autocomplete.
         // Name-like queries ("apple inc") are NOT navigated; they'd produce
         // junk /company/ URLs.
-        const typed = query.trim().toUpperCase()
-        if (/^[A-Z]{1,5}(-[A-Z])?$/.test(typed)) {
+        const typed = tickerShaped(query)
+        if (typed) {
           if (onSelect) {
             setQuery('')
             onSelect(typed)

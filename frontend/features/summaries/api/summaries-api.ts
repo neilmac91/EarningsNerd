@@ -490,7 +490,8 @@ export interface WhatChangedMetricItem {
   current: number
   prior: number | null
   // Server-computed display string (one delta policy) + design-system tone; rendered verbatim.
-  display: string
+  // null when the prior is zero: no percentage is meaningful, so only the direction is served.
+  display: string | null
   tone: 'gain' | 'loss' | 'flat'
 }
 

@@ -31,6 +31,9 @@ export default function Footer() {
   return (
     <footer className="border-t border-border-light bg-background-light dark:border-white/[0.06] dark:bg-background-dark">
       <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
+        {/* The footer opens its own outline section, so its column titles (h3) never follow a page
+            whose content ends at h1 (the 404, /analysis, /search) with a skipped level. */}
+        <h2 className="sr-only">Site links</h2>
         <div className="grid grid-cols-1 gap-10 md:grid-cols-[1.5fr_1fr_1fr_1fr]">
           {/* Brand column */}
           <div>
@@ -67,7 +70,7 @@ export default function Footer() {
           <p className="text-xs text-text-tertiary-light dark:text-text-secondary-dark">
             &copy; {CURRENT_YEAR} EarningsNerd. All rights reserved.
           </p>
-          <p className="text-xs text-text-tertiary-light dark:text-text-secondary-dark">
+          <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark">
             Data sourced from SEC EDGAR. AI-generated content, for informational purposes only.
             Not investment advice. Not affiliated with the SEC.
           </p>
