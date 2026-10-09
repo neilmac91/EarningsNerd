@@ -87,6 +87,28 @@ original proposal; these notes are authoritative for what actually shipped.
     import-time statements, and prints each allowed delta's diff.
 
   The review's NIT on X1 (rebound cache globals) is applied under M5's traps.
+- **2026-10-09, anchor review.** An independent adversarial review covered the six anchor PRs on main. It stopped at
+  a usage limit before writing its report, but its recorded runs cover the whole checklist.
+  - **Order and isolation:** the six files pass together in both orders and under random order (161 passed each).
+  - **Before and after:** each module's existing test files pass identically with and without the anchors.
+  - **xdist:** run with pytest-xdist 3.8.0 from a scratch install, the files and the W0.G gate pass at `-n 8`
+    under `load`, `loadfile` and `worksteal`, and in ten seeded iterations (216 passed each).
+  - **Lane C's conftest (#1135):** serial, `-n auto` and `-n 8` all pass (216 passed each).
+  - **Environment:** other timezones and hash seeds, CI-like and development-like settings, and peak-hour
+    pricing forced on all stay green.
+  - **Mutations:** of 22 mutations not in any PR table, 21 failed their anchor.
+
+  Two findings, both fixed:
+  - **The surviving mutation was C0.1's.** A one-key payload could not see `_compact_xbrl_block`'s item
+    separator. C0.1 now uses two keys in non-alphabetical order, so the item separator, the key separator and
+    `sort_keys` are pinned (#1157). C0.3 and C0.4 now patch the `openai_service` singleton with `patch.object`.
+    `monkeypatch` restores a class method by writing it back as an instance attribute, which shadows later
+    class-level patches.
+  - **O0's retained-fixture reads** failed under a POSIX locale with UTF-8 mode off. They now pass
+    `encoding="utf-8"` (#1161).
+
+  The rest of the suite already has the same `monkeypatch` leftover at about 40 sites. The anchors no longer
+  add to it.
 - **2026-10-09, corrections from the Wave 0 builds.** Where a later PR acts on a correction, it is
   applied inline in the module sections and waves below. The rest are recorded here.
   - **Line ranges.**

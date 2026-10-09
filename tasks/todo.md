@@ -19,12 +19,13 @@ This records it as a standing authorization (`lessons/ops-keep-moving-under-stan
   - anything the CODE RED chief holds.
 
 - [x] Plan and decisions: `tasks/refactor-plan-2026-10.md` (#1136), reviewed independently and corrected.
-- [ ] Docs, decision 7: `docs/ARCHITECTURE.md` and dated correction notes in two audit appendices (#1154).
+- [x] Docs, decision 7: `docs/ARCHITECTURE.md` and dated correction notes in two audit appendices (#1154, merged as `69b59203`).
 - [ ] W0.G: the size-budget gate and the AST move proof (#1156). An adversarial review found one
   blocker (a budget-file edit alone could bypass decision 6). It is fixed in W0.G's second commit,
   and fourteen probes check the fix.
 - [ ] The six Wave 0 anchor PRs, each verified on current main: C0 #1157, T0 #1158, F0 #1159,
-  X0 #1160, O0 #1161 and I0 #1162. An independent review, including an xdist run, comes before un-draft.
+  X0 #1160, O0 #1161 and I0 #1162. The independent review, including xdist and Lane C runs, found two
+  issues, fixed in C0 and O0.
 - [ ] Wave 1: the dead-code PR, then I1, O1, T1, X1, C1 and F1, one verified deploy at a time.
 - [ ] Rule-7 follow-up, outside the plan. The naive `datetime.now()` stamps at
   `backend/app/services/edgar/xbrl_service.py:180,207,692,713,722`, and the `datetime.now(timezone.utc)`
