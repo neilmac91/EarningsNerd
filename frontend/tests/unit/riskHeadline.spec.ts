@@ -340,6 +340,19 @@ describe('deriveRiskHeadline', () => {
         0,
       ),
     ).toBe('Our data centers depend on uninterrupted access to contracted renewable energy capacity totaling…')
+    // A count's scale word stays with its noun, in figures or in words ("3.2 million | employees",
+    // "roughly two | million"); a money amount reads whole before an adverb ("$337 million | mainly").
+    for (const tail of ['approximately 3.2 million employees and contractors worldwide.', 'roughly two million independent contractors located worldwide.']) {
+      expect(
+        deriveRiskHeadline(`Our business depends on the continued availability and productivity of ${tail}`, 0),
+      ).toBe('Our business depends on the continued availability and productivity…')
+    }
+    expect(
+      deriveRiskHeadline(
+        'For the year ended December 31, 2025, we had a consolidated loss on foreign currency of $337 million mainly related to foreign exchange losses from our Argentine subsidiaries.',
+        0,
+      ),
+    ).toBe('For the year ended December 31, 2025, we had a consolidated loss on foreign currency of $337 million…')
   })
 
   it('never splits a day-first date ("27 September 2025") at the cap', () => {

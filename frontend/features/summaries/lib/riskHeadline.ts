@@ -112,6 +112,10 @@ const FUNCTION_WORDS = new Set(
   ).split(' '),
 )
 const SCALE_WORD = /^(?:million|billion|trillion|thousand|percent|percentage|basis|square|cubic|metric)\b/i
+// The scale words that multiply a count, written bare (no punctuation after them).
+const COUNT_SCALE = /^(?:million|billion|trillion|thousand)$/i
+// A count written as a word, which the figure checks miss ("two | million", "roughly | two million").
+const NUMBER_WORD = /^(?:one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|fifteen|twenty|thirty|forty|fifty|hundreds?|several|tens|dozens)$/i
 // The first word of a two-word unit ("basis points", "percentage points", "square feet"): a headline
 // never ends on it, and never on the figure or scale word just before it ("12.5 million | square feet").
 const COMPOUND_UNIT_HEAD = /^(?:basis|percentage|square|cubic|metric)$/i
@@ -205,17 +209,22 @@ const isWeakEnd = (tokens: Token[], i: number, prefix: string): boolean => {
   const previous = tokens[i - 1]?.text
   if (isFunctionWord(word)) return true
   if (next !== undefined && /\d/.test(word) && SCALE_WORD.test(bare(next))) return true
+  if (next !== undefined && NUMBER_WORD.test(word) && COUNT_SCALE.test(bare(next))) return true
   // A figure directly before a lower-case content word is counting it ("3,200 | employees", "18 |
   // months"): not when punctuation ends the figure ("in 2027, recognized") or a function word follows
   // ("16% of", "2023 and").
   if (next !== undefined && FIGURE.test(word) && /^\p{Ll}/u.test(next) && !isFunctionWord(next)) return true
+  // So is a count's scale word ("3.2 million | employees"), unless punctuation ends it or the figure is
+  // money ("$337 million | mainly related" reads whole without the next word).
+  const money = previous !== undefined && (/^[(\[]?[$€£¥]/.test(previous) || CURRENCY.test(tokens[i - 2]?.text ?? ''))
+  if (next !== undefined && COUNT_SCALE.test(word) && !money && /^\p{Ll}/u.test(next) && !isFunctionWord(next)) return true
   if (next !== undefined && FIGURE.test(word) && UPPERCASE_UNIT.test(bare(next))) return true
   if (next !== undefined && COMPOUND_UNIT_HEAD.test(bare(word))) return true
   if (next !== undefined && COMPARATIVE.test(bare(word)) && /^(?:than|so)$/i.test(bare(next))) return true
   if (next !== undefined && SCALE_WORD.test(bare(word)) && COMPOUND_UNIT_HEAD.test(bare(next))) return true
   if (next !== undefined && /\d/.test(word) && bare(next).toLowerCase() === 'per') return true
   // A qualifier before its figure: "approximately | 3,200", "at least | 10%".
-  if (next !== undefined && STARTS_WITH_FIGURE.test(next) && QUANTITY_QUALIFIER.test(bare(word))) return true
+  if (next !== undefined && (STARTS_WITH_FIGURE.test(next) || NUMBER_WORD.test(bare(next))) && QUANTITY_QUALIFIER.test(bare(word))) return true
   // A label or currency before its figure: "Item | 1A", "Note | 12", "Topic | 842", "EUR | 2.5".
   if (next !== undefined && STARTS_WITH_FIGURE.test(next) && (CURRENCY.test(word) || UPPERCASE_START.test(bare(word)))) return true
   if (MONTH.test(bare(word))) return true
