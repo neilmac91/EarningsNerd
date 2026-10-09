@@ -170,7 +170,12 @@ def mark_welcome_email_sent(db: Session, signup: WaitlistSignup) -> None:
 
 
 def rollback_welcome_email_sent(db: Session) -> None:
-    """Discard a pending ``welcome_email_sent`` flag; the signup itself is already committed."""
+    """End the request transaction after a failed welcome send or a failed flag commit.
+
+    Discards any pending ``welcome_email_sent`` change and expires the loaded rows; the signup and
+    any referrer bump were already committed by ``create_signup``. The router still decides when
+    to roll back (its ``except Exception`` around the send); this only hosts the call.
+    """
     db.rollback()
 
 
