@@ -45,10 +45,10 @@ development).
    - If a leader the run joined fails, the run claims the generation, as a follower of a failed first
      generation does.
 
-   So the waived Pro gate never pays for a second summary, never replaces one that readers already see,
-   and never wipes XBRL that another run fetched. Con: a Free user's successful Retry spends one monthly
-   unit. Two runs on different instances can still both generate inside that window, and each user is
-   metered.
+   So the waived Pro gate never replaces a summary that readers already see and never wipes XBRL that
+   another run fetched. Within one instance it never pays for a second summary. Con: a Free user's
+   successful Retry spends one monthly unit. Two runs on different instances can still both generate
+   inside that window, and each user is metered; the first summary saved is kept (follow-up 10).
 5. An operator drain of failure rows. A complement, not a substitute: users recover without it. Not run.
    No drain is authorized, and the production count of such rows is unknown.
 
@@ -59,26 +59,29 @@ existing auto-run, because the page already treats it as "no summary yet", as it
 **Shipped.**
 - `routers/summaries.py`: `refresh_unready`, judged by `is_summary_ready` on
   `source_safe_business_overview` (the body the route would replay). It is passed on as
-  `replace_unready_only`, and the route clears nothing for such a row.
+  `replace_unready_only`, and the route clears nothing for such a row. A forced run with no stored row
+  passes the flag too (pre-merge review): it also waives no Pro gate.
 - `summary_pipeline.py`: keep-better applies only when the stored row passes the same rule. A
   `replace_unready_only` run serves or keeps a row that has become ready, and does not serve one that is
   still unready after a joined leader fails.
 - The background path is otherwise unchanged; the keep-better rule also applies to admin
   refresh-stale.
 
-`tests/unit/test_summary_unready_refresh.py` (17 cases) covers:
+`tests/unit/test_summary_unready_refresh.py` (19 cases) covers:
 - the truth table;
 - a failed refresh keeping the row;
 - keep-better on both paths;
 - a row made ready before the pipeline starts (served, with the other run's XBRL and progress intact);
 - a row made ready during generation;
 - a follower of a failed refresh claiming the generation;
+- a forced retry with no stored row, which serves a summary saved before admission and keeps one saved
+  during generation;
 - the flag's control.
 
-Mutation proofs: dropping any one of the nine conditions fails between 1 and 11 of the 17 cases.
+Mutation proofs: dropping any one of the ten conditions fails between 1 and 11 of the 19 cases.
 
 The company lead keeps "Open latest filing" over an unready row (#1147, tenth round): the page it opens
-now resolves for everyone.
+now resolves for every signed-in user, within their quota.
 
 **Revisit** if failure rows turn out to be common in production. A drain is then cheaper than waiting for
 visits.
@@ -195,9 +198,9 @@ do not touch the Copilot, a red run leaves the PR with no sanctioned way forward
 **Rule 12.** The prose rule against re-runs failed three times in a week. `copilot-eval.yml` now draws
 once per head commit. Its first step after checkout, `backend/scripts/copilot_eval_draw_gate.py`, looks
 for an earlier draw on the head in any run or attempt: an attempt whose runner step started. When one
-exists, the run reports that draw's verdict and skips every later step, before it installs anything or
-touches the provider credential. So a re-run attempt, a draft-to-ready toggle and a reopen all replay
-the first draw.
+exists, the run reports that draw's verdict and skips every step that installs anything or touches the
+provider credential; only the two evidence steps run, and they find nothing. So a re-run attempt, a
+draft-to-ready toggle and a reopen all replay the first draw.
 - A draw that was cancelled or is still running counts as a draw, and not as a green one. Cancelling a
   draw that looks red buys no fresh one.
 - A head where nothing drew still draws, including a re-run of an attempt that failed before its
@@ -214,7 +217,8 @@ head, a commit that changes only its evidence folder. That is the RUNBOOK's "a n
 push", declared in its preregistration and visible in the PR's history.
 `tests/unit/test_copilot_eval_rerun_refusal.py` pins the decision against a fake of GitHub's two reads,
 matched to real payloads, including a body line that names a real preregistration and buys nothing. It
-also pins the workflow: the gate runs first on every attempt, and no later step runs without its draw.
+also pins the workflow: the gate runs first on every attempt, and no step that installs or spends runs
+without its draw.
 
 **Shipped.** The RUNBOOK triage paragraph (widened, with the self-application and toggle clauses, and
 the successor replay tool named for condition (3)); the successor tool with its self-test and its

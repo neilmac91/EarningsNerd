@@ -918,10 +918,14 @@ draws once per head commit. A re-run attempt, a draft-to-ready toggle or a reope
 already drew reports that draw's verdict before it spends, and draws nothing
 (`backend/scripts/copilot_eval_draw_gate.py`, `tests/unit/test_copilot_eval_rerun_refusal.py`).
 Nothing exempts a head, since anything that can change after a draw, such as the PR body, could buy
-another draw once the result is known. A new draw comes from a new push. A predeclared protocol that
-needs several draws of the same code gives each draw its own head, a commit that changes only its
-evidence folder, and says so in its preregistration. This does not change accepted, error counting,
-thresholds or exit codes.
+another draw once the result is known. A draw that was cancelled (a toggle or a new run mid-draw
+cancels it) or is still running counts as the head's draw, and not as a green one. A new draw comes
+from a new push. A push made only to draw again, changing nothing under `backend/` or `.github/`, is
+a re-draw too, forbidden outside a predeclared protocol; the gate keys on the head commit and does not
+catch it (follow-up 11 in `tasks/decisions-2026-10-09-design-followups.md`, the founder's call). A
+predeclared protocol that needs several draws of the same code gives each draw its own head, a commit
+that changes only its evidence folder, and says so in its preregistration. This does not change
+accepted, error counting, thresholds or exit codes.
 Condition (1) is read off each errored row in the per-row verdict column of `copilot-eval.md` (the
 `Failures:` line lists each label only once); the replay tool for (3) is
 `tasks/review-evidence/copilot-eval-triage-2026-10-09/f_attribution.py`. It replays each generation
