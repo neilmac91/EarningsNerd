@@ -25,14 +25,16 @@ not symbols: a move rewrites them by design.
 
 Verdicts: MISSING (defined before, nowhere after), CHANGED (the normalised text differs), DUPLICATE
 (defined in more than one new file, e.g. a ``logger`` per sub-module, whose logger NAME changes with
-the module), SIDE EFFECT (a NEW symbol that runs code at import, which a move never adds: an
-``effect:`` assignment, a ``guard:`` block, or any symbol that makes a call at import, counting a class
-body, a def's decorators, defaults and annotations and a lambda's defaults, but not a def's or a
-lambda's body; ``property``, ``staticmethod``, ``classmethod``, ``dataclass`` and the like are inert
-decorators) and ADDED (other new symbols, such as the helpers a split introduces, or a façade's
-``__all__``). The exit status is 0 only when nothing is MISSING, CHANGED, DUPLICATE or SIDE EFFECT
-beyond the symbols passed with ``--allow``; each allowed symbol is a disclosed delta the PR body must
-list, and its diff is printed with it.
+the module), SIDE EFFECT (a NEW symbol that runs code at import, which a move never adds; default
+deny: only a docstring or literal, or a def, class or plain-name assignment that makes no call at import,
+is inert. A call counts in a class body, a class keyword such as ``metaclass=``, a def's decorators,
+defaults and annotations and a lambda's defaults, but not in a def's or a lambda's body; ``property``,
+``staticmethod``, ``classmethod``, ``dataclass`` and the like are inert decorators) and ADDED (other
+new symbols, such as the helpers a split introduces, or a façade's ``__all__``). Limit: code that a new
+class runs through a BASE (an inherited metaclass, or the base's ``__init_subclass__``) is not visible in
+the AST, so a new class with bases is ADDED; read every ADDED class's bases. The exit status is 0 only
+when nothing is MISSING, CHANGED, DUPLICATE or SIDE EFFECT beyond the symbols passed with ``--allow``;
+each allowed symbol is a disclosed delta the PR body must list, and its diff is printed with it.
 """
 from __future__ import annotations
 
@@ -110,8 +112,8 @@ def _calls(node: ast.AST) -> bool:
     if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
         if any(_decorator_runs(decorator) for decorator in node.decorator_list):
             return True
-        if isinstance(node, ast.ClassDef):
-            return any(_calls(part) for part in (*node.bases, *node.keywords, *node.body))
+        if isinstance(node, ast.ClassDef):  # a metaclass or __init_subclass__ keyword runs class-creation code
+            return bool(node.keywords) or any(_calls(part) for part in (*node.bases, *node.body))
         return _calls(node.args) or (node.returns is not None and _calls(node.returns))
     if isinstance(node, ast.Lambda):
         return _calls(node.args)
@@ -120,16 +122,26 @@ def _calls(node: ast.AST) -> bool:
     return any(_calls(child) for child in ast.iter_child_nodes(node))
 
 
+_INERT_KINDS = (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef, ast.Assign, ast.AnnAssign)
+
+
 def _runs_at_import(name: str, text: str) -> bool:
-    """A NEW symbol that executes code when its module is imported. An attribute or item assignment and a
-    guard block always do. Anything else, a class member included (keyed ``Class.member``), does when it
-    makes a call at import (``_calls``): a docstring or a plain constant does not."""
+    """A NEW symbol that executes code when its module is imported. Default deny: only a docstring or bare
+    literal, or a def, class or assignment to plain names that makes no call at import (``_calls``), is
+    inert; anything else (an attribute or item assignment, a guard block, an augmented assignment, a
+    bare expression, ``raise``, ``assert``, ``del``) runs code. Class members (keyed ``Class.member``)
+    follow the same rule."""
     owner, _, member = name.partition(".")
     if not (member and owner.isidentifier()):
         member = name
     if member.startswith(("effect:", "guard:")):
         return True
-    return any(_calls(stmt) for stmt in ast.parse(text).body)
+    for stmt in ast.parse(text).body:
+        if isinstance(stmt, ast.Expr) and isinstance(stmt.value, ast.Constant):
+            continue
+        if not isinstance(stmt, _INERT_KINDS) or _calls(stmt):
+            return True
+    return False
 
 
 def _guards(body: list[ast.stmt]) -> list[ast.stmt]:

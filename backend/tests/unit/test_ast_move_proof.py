@@ -4,8 +4,9 @@ The hot-module refactor (``tasks/refactor-plan-2026-10.md``) proves every "pure 
 so each verdict it can return is pinned here on small synthetic modules: an honest move passes, and a
 changed token, a dropped symbol, a duplicated definition, a changed class member, a changed arm of a
 rebound name, a changed guard, a statement moved out of its guard and an added import-time side effect
-(an assignment whose value calls, and a call in a new class body, default, decorator or lambda default)
-each fail; a disclosed delta passes with its diff shown.
+(an assignment whose value calls; a call in a new class body, default, decorator or lambda default; a
+class keyword such as ``metaclass=``; and ``raise``, ``assert`` or ``del``) each fail; a disclosed delta
+passes with its diff shown.
 """
 from tests.support.ast_move_proof import compare, render
 
@@ -163,6 +164,21 @@ def test_definition_time_calls_in_new_classes_defs_and_lambdas_run_at_import():
     assert not report.ok
     assert report.side_effects == dict.fromkeys(("Registry.token", "helper", "hook", "HANDLER"), "app/x/helpers.py")
     assert {"Registry", "Registry.expr:'Docstring.'", "Registry.size", "Row", "Row.key", "later"} <= set(report.added)
+
+
+def test_only_inert_definitions_are_added_and_everything_else_runs_at_import():
+    """Default deny: a new statement is ADDED only when it is a docstring or literal, or a def, class or
+    plain-name assignment that makes no call at import. ``raise``, ``assert``, ``del`` and an augmented
+    assignment run code without a call node, and a class keyword runs a metaclass or ``__init_subclass__``."""
+    assert not compare("", {"app/x/a.py": "raise RuntimeError\n"}).ok
+    added = ("\nassert READY\n\ndel REGISTRY['x']\n\nCOUNT += 1\n"
+             "\nclass Plugin(metaclass=RegisteringMeta):\n    pass\n"
+             "\nclass Configured(Base, flag=True):\n    pass\n"
+             "\nclass Plain(Base):\n    'Docstring.'\n    LIMIT = 3\n")
+    report = compare(OLD, _move(**{"app/x/helpers.py": HELPERS + added}))
+    assert set(report.side_effects) == {"expr:assert READY", "expr:del REGISTRY['x']", "COUNT", "Plugin", "Configured"}
+    # A base's own metaclass or __init_subclass__ is not visible in the AST: the stated limit.
+    assert {"Plain", "Plain.LIMIT", "Plain.expr:'Docstring.'"} <= set(report.added)
 
 def test_an_added_import_time_side_effect_fails_until_disclosed():
     files = _move(**{"app/x/helpers.py": HELPERS + "\nsettings.STRICT = False\nregister(clip)\n"})
