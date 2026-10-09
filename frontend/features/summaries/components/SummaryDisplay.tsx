@@ -147,18 +147,22 @@ export function SummaryDisplay({
       />
 
       {isError ? (
-        <GuidanceCard
-          variant="error"
-          title="Summary temporarily unavailable"
-          description={fallbackMessage}
-          action={
-            onRetry ? (
-              <Button variant="secondary" onClick={onRetry}>
-                Retry
-              </Button>
-            ) : undefined
-          }
-        />
+        <>
+          <GuidanceCard
+            variant="error"
+            title="Summary temporarily unavailable"
+            description={fallbackMessage}
+            action={
+              onRetry ? (
+                <Button variant="secondary" onClick={onRetry}>
+                  Retry
+                </Button>
+              ) : undefined
+            }
+          />
+          {/* A stored summary that failed holds no sections, but the change report needs none. */}
+          <ChangeReportCard filingId={filing.id} initialReport={initialChangeReport} />
+        </>
       ) : (
         <>
           {/* Honest quality badge + Pro Regenerate affordance, when either applies. No "Summary"
@@ -193,7 +197,7 @@ export function SummaryDisplay({
               derived markdown (belt-and-suspenders for the corpus-refresh cutover). */}
           {/* A5 "What changed" vs the prior comparable filing rides inside the structured page as a
               numbered section (2026-10 critique P-07); a legacy markdown summary keeps it as a card
-              under the markdown, the one the page shows where it has no summary at all. */}
+              under the markdown, the card the page shows wherever no section holds it. */}
           {hasSections ? (
             <SummaryBlocks sections={renderedSections} summary={summary} whatChanged={changeReport} />
           ) : hasPolishedMarkdown ? (
