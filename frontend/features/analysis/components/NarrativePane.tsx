@@ -196,7 +196,7 @@ export default function NarrativePane({
           </h2>
           {state.status === 'streaming' && (
             <span className="flex items-center gap-1.5 text-xs text-text-tertiary-light dark:text-text-secondary-dark">
-              <CircleNotchIcon className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
+              <CircleNotchIcon className="h-3.5 w-3.5 animate-spin motion-reduce:animate-none" aria-hidden="true" />
               {state.stage === 'assembling' ? 'Assembling the numbers…' : 'Writing…'}
             </span>
           )}
