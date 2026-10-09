@@ -166,11 +166,15 @@ Focus ring       focus-visible:outline-none focus-visible:shadow-ring-brand dark
                  destructive + invalid fields use shadow-ring-error. There is no global :focus-visible rule, so
                  a control without the recipe draws the browser's own outline (`auto`), unlike its neighbours.
                  A control that is a block of its own (a logo link, an icon button, a menu row) takes a radius
-                 (`rounded-lg`) so the ring follows its shape. Every Tab stop in the site chrome carries it (the
-                 skip link the same triple on `focus:`): gate tests/unit/siteChromeFocusRing.spec.ts reads the
-                 AST of the chrome files (SiteChrome, Header, ThemeToggle, UserMenu, NotificationBell,
-                 SecondaryHeader, Footer, AuthShell); `buttonVariants(…)` composes it; a className it cannot
-                 read fails. tests/e2e/chrome-focus-ring.spec.ts walks the chrome with Tab in both themes.
+                 (`rounded-lg`) so the ring follows its shape. A checkbox or radio also takes
+                 `focus:ring-0 focus:ring-offset-0`: @tailwindcss/forms rings it blue on any focus, and the
+                 shadow utilities draw the brand ring inside that ring rather than instead of it. Every Tab stop
+                 in the site chrome carries it (the skip link the same triple on `focus:`): gate
+                 tests/unit/siteChromeFocusRing.spec.ts reads the AST of the chrome files (SiteChrome, Header,
+                 ThemeToggle, UserMenu, NotificationBell, VerificationBanner, SecondaryHeader, Footer,
+                 CookieConsent with its settings dialog, AuthShell); `buttonVariants(…)` composes it; a className
+                 it cannot read fails. tests/e2e/chrome-focus-ring.spec.ts walks the chrome with Tab in both
+                 themes and checks the computed ring, with no other visible shadow and no outline.
 
 Card / panel     bg-panel-light dark:bg-panel-dark + border + shadow-e2 dark:shadow-none
                  (e1 chips · e2 cards · e3 hero/featured · e4/e5 menus & overlays)
@@ -265,10 +269,15 @@ Popover          An anchored, light-dismiss surface that explains one control (t
                  as usual.
 
 Research pane    FilingWorkspace: a side pane at lg+ (nothing trapped), the modal copilot sheet below lg
-                 (useSheetFocusTrap). Opening moves focus only away from a control that leaves with the open: a
-                 keyboard press on the launcher or the coachmark's Try hands it to the pane's selected tab
-                 (useFocusHandoff, keyboardOnly), where the rail's composer takes it when the visitor can ask; a
-                 chip, an in-page Ask button or starter, and the control Ctrl/⌘+K or "/" was pressed on keep it.
+                 (useSheetFocusTrap). At lg+ a chip keeps focus as it opens the pane: it opens the Filing view,
+                 where the rail focuses nothing. Any other opener (an in-page Ask button or starter, the control
+                 Ctrl/⌘+K or "/" was pressed on) keeps focus too, except that the rail moves it to its composer a
+                 frame later when the visitor can ask and the Answer view is shown (AskCopilotRail). The launcher
+                 and the coachmark's Try leave with the open, so a keyboard press on either first hands focus to
+                 the pane's selected tab (useFocusHandoff, keyboardOnly): a visitor who cannot ask still lands in
+                 the pane. For one who can, focus moves twice (the tab, then the composer a frame later, or once a
+                 free visitor's usage loads); that is accepted, since the composer renders locked or not and the
+                 hand-off cannot tell the two apart.
                  Closing (Escape, ×) moves only focus that fell (on <body>, or still in the hidden pane), to the
                  first that can take it: the provenance chip that opened the pane, the control focused as it
                  opened, the launcher (it remounts on close). Focus the user moved elsewhere stays. Below lg the
