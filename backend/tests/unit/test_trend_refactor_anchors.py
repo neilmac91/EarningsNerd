@@ -310,13 +310,30 @@ def test_t0_3_dataset_fingerprint_hex_of_a_literal_dataset():
     ), _FINGERPRINT_CHANGED
 
 
+def _reference_cagr(series):
+    """CAGR as ``_cagr`` (app/services/trend_analysis_service.py:248-252) computes it at W0.G, over
+    the series' first and last valued annual points."""
+    valued = [(int(point["period"].removeprefix("FY")), point["value"])
+              for point in series["points"] if point.get("value") is not None]
+    (first_fy, first), (last_fy, last) = valued[0], valued[-1]
+    return (last / first) ** (1.0 / (last_fy - first_fy)) - 1.0
+
+
 def test_t0_3_dataset_fingerprint_of_the_seeded_history(session_factory, company_id):
     """T0.3 over a real ``build_dataset`` (app/services/trend_analysis_service.py:271-530) result:
     the fingerprint is what the cache compares (:1745, :1753), so it pins the whole assembled
     dataset (periods, every point field, growth, window figures, markers, inflections) through
-    the ``build_dataset`` split. CAGR (:248-252) is libm ``pow`` output, whose last bit may differ
-    by platform, so it is compared to 12 significant digits and left out of the digest."""
+    the ``build_dataset`` split.
+
+    CAGR (:248-252) is libm ``pow`` output, whose last bit may differ by platform, so the digest
+    leaves it out and pins it another way: each CAGR must equal, bit for bit, the W0.G formula
+    computed here over the series' valued endpoints. Both sides call the same ``pow`` on the same
+    machine, so the check is exact on every platform, and a refactor that changes the arithmetic
+    (which would change every cached fingerprint) fails here, not only a change past 12 digits."""
     dataset = _seeded_dataset(session_factory, company_id)
+    for series in dataset["series"]:
+        if series["cagr"] is not None:
+            assert series["cagr"] == _reference_cagr(series), (series["concept"], _FINGERPRINT_CHANGED)
     cagr = {series["concept"]: series.pop("cagr") for series in dataset["series"]}
     assert cagr == pytest.approx({
         "revenue": 0.19721576725837586, "gross_margin": None, "operating_margin": None,
