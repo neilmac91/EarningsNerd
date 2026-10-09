@@ -46,7 +46,6 @@ function Harness({ initiallyOpen = ['2026', '2025'], ...props }: Partial<FilingI
     })
   return (
     <FilingIndex
-      companyName="NVIDIA Corp"
       filings={FILINGS}
       status="ready"
       failure={IDLE}
@@ -87,17 +86,16 @@ describe('FilingIndex', () => {
     expect(container.querySelectorAll('a a')).toHaveLength(0)
   })
 
-  it('marks the latest filing once, and leads with it as the one primary action', () => {
-    render(<Harness />)
+  it('marks the latest filing once, and leaves the primary action to the page lead', () => {
+    const { container } = render(<Harness />)
     expect(screen.getAllByText('Latest')).toHaveLength(1)
-    expect(screen.getByText('Latest filing')).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: /^Summarize this filing/ })).toHaveAttribute('href', '/filing/1')
-    expect(screen.getByText(/NVIDIA Corp’s most recent filing\. Start with its AI summary\./)).toBeInTheDocument()
+    // The company page's lead opens the latest filing (2026-10 critique, 1b): here only its row does.
+    expect(container.querySelectorAll('a[href="/filing/1"]')).toHaveLength(1)
+    expect(screen.queryByText('Latest filing')).toBeNull()
   })
 
-  it('drops the lead when there is no latest filing (the flag is off)', () => {
+  it('drops the marker when there is no latest filing (the flag is off)', () => {
     render(<Harness latest={null} />)
-    expect(screen.queryByText('Latest filing')).toBeNull()
     expect(screen.queryByText('Latest')).toBeNull()
   })
 

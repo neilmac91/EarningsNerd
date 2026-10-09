@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, type ReactNode } from 'react'
+import { useEffect, useMemo, useRef, type ReactNode } from 'react'
 import { Badge } from '@/components/ui'
 import FinancialMetricsTable from '@/features/summaries/components/FinancialMetricsTable'
 import { Callout } from '@/features/summaries/components/Callout'
@@ -48,6 +48,24 @@ const WHAT_CHANGED_ID = 'what-changed'
 const INK = 'text-text-primary-light dark:text-text-primary-dark'
 const MUTED = 'text-text-secondary-light dark:text-text-secondary-dark'
 const HAIRLINE = 'border-border-light dark:border-white/10'
+
+/**
+ * A link that names a section lands on it once that section exists: the company page's "Open change
+ * report" opens /filing/{id}#what-changed, and the browser's own jump to the fragment runs before
+ * the summary and its change report have rendered. `ids` is the page's section ids, space-joined.
+ * Only the fragment the page was opened with counts, once: a section that appears later never moves
+ * a reader who has scrolled on or followed a table-of-contents link.
+ */
+function useSectionArrival(ids: string) {
+  const target = useRef<string | null>(null)
+  useEffect(() => {
+    if (target.current === null) target.current = window.location.hash.slice(1)
+    const id = target.current
+    if (!id || !ids.split(' ').includes(id)) return
+    target.current = ''
+    document.getElementById(id)?.scrollIntoView({ block: 'start' })
+  }, [ids])
+}
 
 /** "01", "02", … — the data-face index a section shares with its table-of-contents entry. */
 const sectionIndex = (i: number) => String(i + 1).padStart(2, '0')
@@ -100,6 +118,8 @@ export function SummaryBlocks({ sections, summary, whatChanged }: SummaryBlocksP
       }
     } | undefined
   )?._risk_source_projection : undefined
+  const withChanges = Boolean(whatChanged?.has_changes) && !(sections ?? []).some((section) => section.id === WHAT_CHANGED_ID)
+  useSectionArrival([...(sections ?? []).map((section) => section.id), ...(withChanges ? [WHAT_CHANGED_ID] : [])].join(' '))
 
   if (!sections?.length) {
     return <SectionEmpty label="summary" />
@@ -115,7 +135,7 @@ export function SummaryBlocks({ sections, summary, whatChanged }: SummaryBlocksP
       section.blocks.map((block, i) => <BlockView key={i} block={block} />)
     ),
   }))
-  if (whatChanged?.has_changes && !sections.some((section) => section.id === WHAT_CHANGED_ID)) {
+  if (whatChanged && withChanges) {
     const metricsAt = sections.findIndex((section) => section.blocks.some((block) => block.kind === 'metrics'))
     pageSections.splice(metricsAt === -1 ? 1 : metricsAt + 1, 0, {
       id: WHAT_CHANGED_ID,

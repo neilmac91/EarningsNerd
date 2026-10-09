@@ -10,9 +10,10 @@
      - Type carries identity: form codes in the data face, the PERIOD OF REPORT
        as each row's name, the filed date in a data column. Form types are not
        colour-coded (blue is a status colour, sage is the action colour).
-     - One primary action per screen: the latest-filing lead. Every row is ONE
-       link to its filing; EDGAR is a SIBLING link placed in the actions track —
-       never nested inside the row link.
+     - One primary action per screen, and it is not here: the company page's
+       lead opens the latest filing (2026-10 critique, 1b); the list marks that
+       row "Latest". Every row is ONE link to its filing; EDGAR is a SIBLING
+       link placed in the actions track — never nested inside the row link.
      - States in place: a ledger-shaped skeleton, Notice + RetryButton, a
        filter-empty line that names the filters, an honest no-filings line.
    The page keeps the queries, the SSR seed + A4 year expansion, the prefetch and
@@ -22,21 +23,18 @@
 
 import Link from 'next/link'
 import { useId, useMemo, useState, type ReactNode, type RefObject } from 'react'
-import { ArrowRightIcon, ArrowSquareOutIcon, CaretDownIcon, CaretRightIcon } from '@/lib/icons'
-import { Badge, Button, buttonVariants, Card, Notice, SegmentedControl, Select, Skeleton, cx } from '@/components/ui'
+import { ArrowSquareOutIcon, CaretDownIcon, CaretRightIcon } from '@/lib/icons'
+import { Badge, Button, Card, Notice, SegmentedControl, Select, Skeleton, cx } from '@/components/ui'
 import { RetryButton, type RetainedFailure } from '@/hooks/useRetainedFailure'
 import type { Filing } from '@/features/filings/api/filings-api'
 import { fiscalYear, groupByFiscalYear } from '@/features/filings/lib/fiscalYear'
 import { periodLabel, sortForms } from '@/features/filings/lib/filingPeriod'
-import { recommendedFilingNoun } from '@/features/filings/lib/recommendedFiling'
 import FilingsHistoryNote from '@/features/filings/components/FilingsHistoryNote'
 import { formatLocalDate } from '@/lib/format'
 
 export type FilingIndexStatus = 'loading' | 'error' | 'ready'
 
 export interface FilingIndexProps {
-  /** Display name ("NVIDIA Corp"), for the lead's copy. */
-  companyName: string
   /** The FULL loaded list, never pre-filtered: filters, years, Latest and the history note derive from it. */
   filings: Filing[] | undefined
   status: FilingIndexStatus
@@ -44,7 +42,7 @@ export interface FilingIndexProps {
   failure: RetainedFailure
   /** The section heading (tabIndex -1): RetryButton's and "Show full history"'s focus target. */
   headingRef: RefObject<HTMLHeadingElement>
-  /** The newest non-superseded filing (selectRecommendedFiling over the FULL list); null hides the lead. */
+  /** The newest non-superseded filing (selectRecommendedFiling over the FULL list), marked "Latest". */
   latest: Filing | null
   /** Open years (the page owns them: the SSR seed and the A4 top-three rule). */
   expandedYears: ReadonlySet<string>
@@ -69,7 +67,6 @@ const ALL = 'all'
 const fmt = (iso: string | null | undefined) => formatLocalDate(iso, 'MMM d, yyyy')
 
 export function FilingIndex({
-  companyName,
   filings,
   status,
   failure,
@@ -154,8 +151,6 @@ export function FilingIndex({
           </div>
         )}
       </div>
-
-      {status === 'ready' && latest && <LatestFilingLead filing={latest} companyName={companyName} />}
 
       {status === 'loading' && <FilingIndexSkeleton />}
 
@@ -263,32 +258,6 @@ function emptyTitle(form: string, year: string): string {
   if (form !== ALL && year) return `No ${form} filings in ${year}.`
   if (form !== ALL) return `No ${form} filings.`
   return `No filings in ${year}.`
-}
-
-/** The one primary action on the page: an inset well (the card's darker neighbour), no tint, no icon. */
-function LatestFilingLead({ filing, companyName }: { filing: Filing; companyName: string }) {
-  const filed = fmt(filing.filing_date)
-  return (
-    <div className="mx-4 mt-4 flex flex-col gap-4 rounded-lg bg-background-light p-4 dark:bg-background-dark sm:mx-6 sm:mt-5 sm:flex-row sm:items-center sm:justify-between sm:gap-6 sm:p-5">
-      <div className="min-w-0">
-        <p className={cx('text-xs font-semibold', MUTED)}>Latest filing</p>
-        <p className="mt-1.5 flex flex-wrap items-baseline gap-x-2.5 gap-y-0.5">
-          <span className={cx('font-data text-sm font-semibold', INK)}>{filing.filing_type}</span>
-          <span className={cx('font-heading text-lg font-semibold', INK)}>{periodLabel(filing) ?? `Filed ${filed}`}</span>
-        </p>
-        <p className={cx('mt-1 text-sm', MUTED)}>
-          Filed <span className="tnum">{filed}</span>. {companyName}’s most recent {recommendedFilingNoun(filing)}. Start with its AI summary.
-        </p>
-      </div>
-      <Link
-        href={`/filing/${filing.id}`}
-        className={buttonVariants({ variant: 'primary', className: 'w-full shrink-0 sm:w-auto' })}
-      >
-        Summarize this filing
-        <ArrowRightIcon aria-hidden="true" className="h-4 w-4" />
-      </Link>
-    </div>
-  )
 }
 
 /**

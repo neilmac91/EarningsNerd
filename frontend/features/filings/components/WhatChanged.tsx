@@ -36,7 +36,7 @@ const TONE_TEXT: Record<WhatChangedMetricItem['tone'], string> = {
 }
 
 /** The server's tone in words: what the change usually means for this metric, not its sign. */
-const READ_AS: Record<WhatChangedMetricItem['tone'], string> = {
+export const READ_AS: Record<WhatChangedMetricItem['tone'], string> = {
   gain: 'Favorable',
   loss: 'Unfavorable',
   flat: 'Neutral',
@@ -64,8 +64,9 @@ function figure(item: WhatChangedMetricItem, value: number | null, currency: str
   return perShare ? fmtScale(value, { digits: 2 }) : fmtScale(value)
 }
 
-/** The served change: its direction glyph, then the display string, both in the tone's ink. */
-function Change({ item }: { item: WhatChangedMetricItem }) {
+/** The served change: its direction glyph, then the display string, both in the tone's ink. Shared
+ *  with the company page's Compare periods card, so a change reads the same in both places. */
+export function Change({ item }: { item: WhatChangedMetricItem }) {
   const glyph = GLYPH[item.direction]
   return (
     <span className={TONE_TEXT[item.tone] ?? TONE_TEXT.flat}>

@@ -9,25 +9,24 @@ import { getCompanyFilings, Filing } from '@/features/filings/api/filings-api'
 import { getSummary } from '@/features/summaries/api/summaries-api'
 import { addToWatchlist, removeFromWatchlist, getWatchlist, WatchlistItem } from '@/features/watchlist/api/watchlist-api'
 import { getCurrentUserSafe } from '@/features/auth/api/auth-api'
-import { CircleNotchIcon, FileTextIcon, StarIcon } from '@/lib/icons'
-import { Button, buttonVariants, GuidanceCard } from '@/components/ui'
+import { ArrowRightIcon, CircleNotchIcon, FileTextIcon, StarIcon } from '@/lib/icons'
+import { Button, buttonVariants, cx, GuidanceCard } from '@/components/ui'
 import { toast } from 'sonner'
 import Link from 'next/link'
-import { fmtCurrency, fmtPercent } from '@/lib/format'
-import { directionText, directionOf } from '@/lib/financialTone'
 import analytics from '@/lib/analytics'
 import { getEntryPoint } from '@/lib/entryPoint'
 import { ENABLE_RECOMMENDED_FILING, ENABLE_FINANCIAL_CHARTS, ENABLE_INSIDER_ACTIVITY } from '@/lib/featureFlags'
 import PeerComparisonPanel from '@/features/peers/components/PeerComparisonPanel'
-import CompanyLogo from '@/components/CompanyLogo'
+import { CompanyIdentity } from '@/features/companies/components/CompanyIdentity'
 import InsiderActivityPanel from '@/features/insiders/components/InsiderActivityPanel'
 import { queryKeys } from '@/lib/queryKeys'
-import { selectRecommendedFiling } from '@/features/filings/lib/recommendedFiling'
+import { selectComparisonFiling, selectRecommendedFiling } from '@/features/filings/lib/recommendedFiling'
 import { groupByFiscalYear } from '@/features/filings/lib/fiscalYear'
 // The filings list: one surface, hairline rows, one link per filing (design review 2026-10-08).
 // It owns the form/year filters and renders dates through formatLocalDate (filing dates are
 // UTC-midnight instants; local-TZ rendering would shift the day west of UTC and mismatch hydration).
 import { FilingIndex } from '@/features/filings/components/FilingIndex'
+import { ComparePeriodsCard } from '@/features/filings/components/ComparePeriodsCard'
 import { useRetainedFailure } from '@/hooks/useRetainedFailure'
 
 // How many filings to request once the visitor asks for the full backfilled history (vs the
@@ -185,7 +184,7 @@ export default function CompanyPageClient({ initialCompany, initialFilings }: Co
 
   // Derived from the FULL list (the filters live in FilingIndex), declared before the early returns
   // below so hook order stays stable across renders.
-  const { sortedYears, recommendedFiling, isFpi } = useMemo(() => {
+  const { sortedYears, recommendedFiling, comparisonFiling, isFpi } = useMemo(() => {
     // Report years present, newest first (calendar year of report end, filing-date fallback).
     const years = Object.keys(groupByFiscalYear(filings ?? [])).sort((a, b) => parseInt(b) - parseInt(a))
     return {
@@ -193,6 +192,8 @@ export default function CompanyPageClient({ initialCompany, initialFilings }: Co
       // Recommended ("Latest") filing: the company's single MOST RECENT non-superseded filing of any
       // type, from the FULL list so it stays stable as the user filters.
       recommendedFiling: selectRecommendedFiling(filings),
+      // The newest annual report with an earlier annual period listed: the Compare periods card.
+      comparisonFiling: selectComparisonFiling(filings),
       isFpi: (filings ?? []).some((f) => FPI_FILING_TYPES.includes(f.filing_type)),
     }
   }, [filings])
@@ -212,21 +213,19 @@ export default function CompanyPageClient({ initialCompany, initialFilings }: Co
     setExpandedYears(new Set(sortedYears.slice(0, 3)))
   }, [sortedYears, normalizedTicker])
 
-  // A4: prefetch the recommended filing's summary (the company's most recent filing) the moment the
+  // A4: fetch the recommended filing's summary (the company's most recent filing) the moment the
   // company opens, so the most-likely next click renders the cached analysis instantly. Read-only
-  // GET — never triggers generation. Dovetails with the A1 precompute that warms summaries server-side.
-  const prefetchedFilingIdRef = useRef<number | null>(null)
-  useEffect(() => {
-    // Keyed on the filing id so a soft-nav to a different company prefetches that company's most
-    // recent filing, and we never re-prefetch the same one.
-    if (!recommendedFiling?.id || prefetchedFilingIdRef.current === recommendedFiling.id) return
-    prefetchedFilingIdRef.current = recommendedFiling.id
-    queryClient.prefetchQuery({
-      queryKey: queryKeys.summary(recommendedFiling.id),
-      queryFn: () => getSummary(recommendedFiling.id),
-      staleTime: 60_000,
-    })
-  }, [recommendedFiling, queryClient])
+  // GET — never triggers generation (getSummary answers null for a filing without one). Dovetails
+  // with the A1 precompute that warms summaries server-side. Observed rather than only prefetched:
+  // the lead says "summary ready" when it comes back with one. Keyed on the filing id, so a soft-nav
+  // to another company fetches that company's filing; a failure only leaves the marker off.
+  const { data: latestSummary } = useQuery({
+    queryKey: queryKeys.summary(recommendedFiling?.id ?? 0),
+    queryFn: () => getSummary(recommendedFiling!.id),
+    enabled: Boolean(recommendedFiling?.id),
+    staleTime: 60_000,
+    retry: false,
+  })
 
   // Handle case where ticker might not be available
   if (!ticker) {
@@ -309,8 +308,8 @@ export default function CompanyPageClient({ initialCompany, initialFilings }: Co
   // TypeScript type guard: company is definitely defined at this point (checked above)
   // Use non-null assertion since we've already verified company exists
   const companyData = company!
-  // Display casing only: analytics/cache payloads above keep the raw EDGAR name as the data value.
-  const companyDisplayName = formatCompanyName(companyData.name)
+  // The lead's latest filing and its one primary action (the flag drops both, and the "Latest" row).
+  const latestFiling = ENABLE_RECOMMENDED_FILING ? recommendedFiling : null
 
   const toggleYear = (year: string) => {
     const newExpanded = new Set(expandedYears)
@@ -324,67 +323,47 @@ export default function CompanyPageClient({ initialCompany, initialFilings }: Co
 
   return (
     <div className="min-h-screen bg-background-light dark:bg-background-dark">
-      {/* Header */}
-      <header className="bg-panel-light dark:bg-panel-dark border-b border-border-light dark:border-border-dark shadow-e1 dark:shadow-none">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-5">
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:space-x-4">
-              <Link href="/" className="text-text-secondary-light dark:text-text-secondary-dark hover:text-text-primary-light dark:hover:text-text-primary-dark font-medium transition-colors">
-                ← Back
-              </Link>
-              <div className="border-l-0 sm:border-l border-border-light dark:border-border-dark sm:pl-4 flex-1">
-                <div className="flex items-center space-x-3">
-                  <CompanyLogo decorative ticker={companyData.ticker} name={companyDisplayName} size={40} priority />
-                  <h1 className="text-2xl font-semibold text-text-primary-light dark:text-text-primary-dark">{companyDisplayName}</h1>
+      {/* The lead (2026-10 critique, 1b): the company in the identity vocabulary of the filing page,
+          its latest filing, and the page's one primary action, opening that filing. */}
+      <header className="border-b border-border-light dark:border-border-dark">
+        <div className="mx-auto max-w-7xl px-4 pb-6 pt-5 sm:px-6 lg:px-8">
+          <CompanyIdentity
+            company={companyData}
+            latest={latestFiling}
+            summaryReady={Boolean(latestSummary)}
+            actions={
+              (currentUser || latestFiling) && (
+                <>
                   {currentUser && (
-                    // aria-disabled + aria-busy + an early return while the toggle is in flight, not
-                    // native `disabled`: Chromium blurs a focused button that turns disabled, so a
-                    // keyboard toggle would drop the user to <body>.
-                    <button
-                      onClick={() => {
-                        if (watchlistMutation.isPending) return
-                        watchlistMutation.mutate({ ticker: normalizedTicker, shouldAdd: !isInWatchlist })
-                      }}
-                      aria-disabled={watchlistMutation.isPending || undefined}
-                      aria-busy={watchlistMutation.isPending || undefined}
-                      aria-label={isInWatchlist ? 'Remove from watchlist' : 'Add to watchlist'}
+                    // `loading` (aria-busy + aria-disabled + a refused press), never native `disabled`:
+                    // Chromium blurs a focused button that turns disabled, so a keyboard toggle would
+                    // drop the user to <body>.
+                    <Button
+                      variant="secondary"
+                      loading={watchlistMutation.isPending}
                       aria-pressed={Boolean(isInWatchlist)}
-                      className={`p-2 rounded-lg transition-colors ${
-                        isInWatchlist
-                          ? 'bg-warning-light/10 dark:bg-warning-dark/10 text-warning-light dark:text-warning-dark hover:bg-warning-light/20 dark:hover:bg-warning-dark/20'
-                          : 'border border-border-light dark:border-white/10 bg-background-light dark:bg-white/5 text-text-secondary-light dark:text-text-secondary-dark hover:bg-brand-weak dark:hover:bg-white/10'
-                      }`}
-                      title={isInWatchlist ? 'Remove from watchlist' : 'Add to watchlist'}
+                      onClick={() => watchlistMutation.mutate({ ticker: normalizedTicker, shouldAdd: !isInWatchlist })}
+                      leftIcon={
+                        <StarIcon
+                          aria-hidden="true"
+                          weight={isInWatchlist ? 'fill' : 'regular'}
+                          className={cx('h-4 w-4', isInWatchlist && 'text-warning-light dark:text-warning-dark')}
+                        />
+                      }
                     >
-                      {isInWatchlist ? (
-                        <StarIcon className="h-5 w-5 fill-current" />
-                      ) : (
-                        <StarIcon className="h-5 w-5" />
-                      )}
-                    </button>
+                      {isInWatchlist ? 'Remove from watchlist' : 'Add to watchlist'}
+                    </Button>
                   )}
-                </div>
-                <div className="mt-1 flex items-center space-x-4 text-sm text-text-tertiary-light dark:text-text-secondary-dark">
-                  <span className="font-medium">{companyData.ticker}</span>
-                  {companyData.exchange && <span>{companyData.exchange}</span>}
-                  {companyData.stock_quote?.price !== undefined && companyData.stock_quote?.price !== null && (
-                    <div className="flex items-center space-x-2">
-                      <span className="font-semibold text-text-primary-light dark:text-text-primary-dark">
-                        {fmtCurrency(companyData.stock_quote.price, { digits: 2, compact: false })}
-                      </span>
-                      {companyData.stock_quote.change_percent !== undefined && companyData.stock_quote.change_percent !== null && (
-                        <span
-                          className={`font-medium ${directionText[directionOf(companyData.stock_quote.change_percent)]}`}
-                        >
-                          {fmtPercent(companyData.stock_quote.change_percent, { digits: 2, signed: true })}
-                        </span>
-                      )}
-                    </div>
+                  {latestFiling && (
+                    <Link href={`/filing/${latestFiling.id}`} className={buttonVariants({ variant: 'primary' })}>
+                      {latestSummary ? 'Open latest summary' : 'Summarize latest filing'}
+                      <ArrowRightIcon aria-hidden="true" className="h-4 w-4" />
+                    </Link>
                   )}
-                </div>
-              </div>
-            </div>
-          </div>
+                </>
+              )
+            }
+          />
         </div>
       </header>
 
@@ -397,42 +376,46 @@ export default function CompanyPageClient({ initialCompany, initialFilings }: Co
           <InsiderActivityPanel ticker={normalizedTicker} isFpi={filingsLoading ? undefined : isFpi} />
         )}
 
-        {/* SEC filings. Keyed on the ticker so its filters reset on a soft navigation to another company. */}
-        <FilingIndex
-          key={normalizedTicker}
-          companyName={companyDisplayName}
-          filings={filings}
-          status={filingsLoading ? 'loading' : filingsFailure.failed ? 'error' : 'ready'}
-          failure={filingsFailure}
-          headingRef={filingsHeadingRef}
-          latest={ENABLE_RECOMMENDED_FILING ? recommendedFiling : null}
-          expandedYears={expandedYears}
-          onToggleYear={toggleYear}
-          cik={company?.cik}
-          footerAction={
-            showFullHistory ? undefined : (
-              // P1-6: the default view serves the recent cap; load the full backfilled 10-K/10-Q
-              // history (since 2001) on demand. `loading`, not `disabled`: a background refetch
-              // (reconnect, invalidation) can start while this button holds focus, and a focused
-              // button that turns disabled is blurred to <body> in Chromium. Activating it unmounts
-              // it (the unseeded full-history key swaps the list for the skeleton), so focus moves
-              // to the section heading first, not to <body>.
-              <Button
-                variant="secondary"
-                className="w-full sm:w-auto"
-                onClick={(e) => {
-                  // Only a keyboard (or AT) user holding this button loses focus when it unmounts.
-                  if (document.activeElement === e.currentTarget) filingsHeadingRef.current?.focus({ preventScroll: true })
-                  setShowFullHistory(true)
-                }}
-                loading={filingsRefetching}
-                loadingText="Loading full history…"
-              >
-                Show full history
-              </Button>
-            )
-          }
-        />
+        {/* SEC filings, and beside them on lg+ the Compare periods card when there is a pair of annual
+            periods to compare (2026-10 critique, 1b). Keyed on the ticker so the filters reset on a
+            soft navigation to another company. */}
+        <div className={cx('grid grid-cols-1 gap-6', comparisonFiling && 'lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start')}>
+          <FilingIndex
+            key={normalizedTicker}
+            filings={filings}
+            status={filingsLoading ? 'loading' : filingsFailure.failed ? 'error' : 'ready'}
+            failure={filingsFailure}
+            headingRef={filingsHeadingRef}
+            latest={latestFiling}
+            expandedYears={expandedYears}
+            onToggleYear={toggleYear}
+            cik={company?.cik}
+            footerAction={
+              showFullHistory ? undefined : (
+                // P1-6: the default view serves the recent cap; load the full backfilled 10-K/10-Q
+                // history (since 2001) on demand. `loading`, not `disabled`: a background refetch
+                // (reconnect, invalidation) can start while this button holds focus, and a focused
+                // button that turns disabled is blurred to <body> in Chromium. Activating it unmounts
+                // it (the unseeded full-history key swaps the list for the skeleton), so focus moves
+                // to the section heading first, not to <body>.
+                <Button
+                  variant="secondary"
+                  className="w-full sm:w-auto"
+                  onClick={(e) => {
+                    // Only a keyboard (or AT) user holding this button loses focus when it unmounts.
+                    if (document.activeElement === e.currentTarget) filingsHeadingRef.current?.focus({ preventScroll: true })
+                    setShowFullHistory(true)
+                  }}
+                  loading={filingsRefetching}
+                  loadingText="Loading full history…"
+                >
+                  Show full history
+                </Button>
+              )
+            }
+          />
+          {comparisonFiling && <ComparePeriodsCard key={comparisonFiling.id} filing={comparisonFiling} />}
+        </div>
       </main>
     </div>
   )

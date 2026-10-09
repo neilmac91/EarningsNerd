@@ -223,8 +223,9 @@ Index list       <FilingIndex> (features/filings/components) — the recipe for 
                  content (no aria-label); a secondary target (EDGAR) is a SIBLING anchor absolutely placed in
                  the actions track — never an <a> inside the row link. 48px rows from md, 64px two-line rows
                  on phones with a 44px EDGAR square. Group headers are <h3><button aria-expanded
-                 aria-controls>; collapsed lists stay in the DOM with `hidden`. One primary action per screen
-                 (the latest-filing lead); rows never carry a primary button. Choosing a year filter opens
+                 aria-controls>; collapsed lists stay in the DOM with `hidden`. One primary action per screen,
+                 and on the company page it is the lead's (Company identity, below): the list only marks the
+                 latest row "Latest", and rows never carry a primary button. Choosing a year filter opens
                  its group. Skeleton = the ledger's own tracks; errors = Notice + RetryButton in place.
                  Gate: a `border-l|s-(2|4|8)` side stripe on a rounded box is lint-banned
                  (earningsnerd/no-side-stripe, eslint.designRules.mjs).
@@ -394,6 +395,28 @@ Section ledger   <SummaryBlocks>  (P-05/P-07) — sections sit on the page groun
                  display string in its TONE's ink with a ▲/▼ text glyph for the arithmetic direction
                  (aria-hidden), "Read as" = the tone in words (Favorable / Unfavorable / Neutral); below sm a
                  stacked row per metric (name + change, then prior → current + Read as), switched by CSS.
+                 A fragment the page was OPENED with (/filing/{id}#what-changed, from Compare periods) is
+                 honoured once its section renders (useSectionArrival); later renders never move the reader.
+
+Company identity <CompanyIdentity company latest summaryReady actions>  (features/companies, critique 1b) — the
+                 Filing identity vocabulary reused on the company lead (IDENTITY_* classes, Sep, TickerPill
+                 exported from FilingIdentity): breadcrumb Home / company, the h1 with logo and ticker pill,
+                 one data-face line of facts the API returns (exchange · quote · CIK as EDGAR prints it, ten
+                 digits · "Company on SEC EDGAR ↗"), then "Latest filing" form · period · filed date · "summary
+                 ready" (only when the summary probe found one). Its actions: the ONE primary action, opening
+                 the latest filing ("Open latest summary", or "Summarize latest filing" until a summary is
+                 known), with the watchlist toggle beside it as a secondary Button (visible label, star, aria-
+                 pressed, `loading` while it saves). Sector and fiscal-year convention wait for the payload.
+
+Compare periods  <ComparePeriodsCard filing>  (features/filings, critique 1b + P-07) — the entry to a change
+                 report: an <aside> Card (p-5, h2 18/600) beside the filings index on lg+ (grid-cols-1 base,
+                 lg 1fr + 20rem), shown only for selectComparisonFiling (the newest annual report with an
+                 earlier annual period listed). Up to three hairline rows: metric · the change in WhatChanged's
+                 own vocabulary (exported Change: ▲/▼ glyph + the server's display string in its tone's ink)
+                 · the Read-as word; "N more in the change report."; a sage text link "Open change report →"
+                 to /filing/{id}#what-changed. Same GET and query key as the filing page's section. States in
+                 place: ledger bones, Notice + RetryButton, a plain line when nothing is comparable. No risk
+                 diff until the backend serves one again.
 
 Evidence rows    <SummaryRisks>  (P-03) — one hairline list inside the section: a row is an h3 (14/600, the
                  opening clause of the row's own verbatim excerpt, unique per row via excerptHeadings — the
