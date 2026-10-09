@@ -431,16 +431,14 @@ export default function CopilotMessage({
         </p>
       ) : (
         <>
-          <div className="flex items-start">
-            <div className="min-w-0 flex-1">
-              {showChips ? (
-                <MarkdownProseWithCitations citations={citations!}>
-                  {message.content}
-                </MarkdownProseWithCitations>
-              ) : (
-                <MarkdownProse>{message.content}</MarkdownProse>
-              )}
-            </div>
+          <div>
+            {showChips ? (
+              <MarkdownProseWithCitations citations={citations!}>
+                {message.content}
+              </MarkdownProseWithCitations>
+            ) : (
+              <MarkdownProse>{message.content}</MarkdownProse>
+            )}
           </div>
 
           {message.status === 'done' && (
