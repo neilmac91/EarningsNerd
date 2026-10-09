@@ -4,25 +4,33 @@
  * The backend projects every risk to a source-first span (provenance_service.project_risk_list):
  * the model's own label is discarded and `summary` / `source_section_ref` both read "Filing
  * excerpt", so the only text a card may title itself with is that excerpt. The headline is always
- * a PREFIX of the excerpt: never rewritten, recased or reordered. A trailing ellipsis marks a cut
- * inside a clause; the full excerpt still renders under the heading as the evidence.
+ * a PREFIX of the excerpt: never rewritten, recased or reordered. A trailing ellipsis means the
+ * excerpt goes on past the headline (a cut, or a later sentence); the full excerpt still renders
+ * under the heading as the evidence.
  *
  * The rule, designed against the production filing-3 spans and the eval-baseline risk spans:
  *   1. An excerpt of fewer than MIN_EXCERPT_WORDS words (or none) gets the positional fallback
  *      "Filing excerpt n".
  *   2. Take the first sentence: up to the first ".", "!" or "?" that leaves at least
  *      MIN_EXCERPT_WORDS words and is followed by a capitalised word (or the end). A one-letter
- *      word ("U.S.", initials) or a known abbreviation ("Inc.", "No.") does not end a sentence.
- *   3. Within it, cut at the first strong clause boundary (";" or ":" before a space, a spaced
- *      dash, an em dash) when it leaves at least MIN_CLAUSE_WORDS words. A comma never cuts: on real
- *      spans it ends on a leading date ("As of September 27"), a leading qualifier ("Regardless of
- *      the merit of particular claims") or a list item ("... located primarily in China mainland").
- *   4. If that fits in RISK_HEADLINE_MAX_CHARS it is the headline, without a bare final period. A
- *      clause that ends on a lead-in word (the "in" of "could result in:") takes an ellipsis.
+ *      word ("U.S.", initials) or a known abbreviation ("Inc.", "No.", "Sept.") does not end one.
+ *   3. If it fits in RISK_HEADLINE_MAX_CHARS it is the headline, whole: a sentence that fits is
+ *      never cut, so a hedge or a turn later in it ("; however, coverage may not be adequate")
+ *      stays in the heading.
+ *   4. A longer sentence is cut at its first ";" or ":" when the clause before it can stand as a
+ *      heading: at least MIN_CLAUSE_WORDS words, not opening on a leading date or qualifier ("As of
+ *      December 31, 2025:", "In the third quarter:"), not turned by what follows ("; however"), no
+ *      bracket or quotation left open, and ending on a content word (a colon lead-in may end on its
+ *      function word: "could also result in:"). A comma never cuts: on real spans it ends on a
+ *      leading date ("As of September 27"), a qualifier ("Regardless of the merit of particular
+ *      claims") or a list item ("... in China mainland"). Nor does a dash: filings use it for ranges
+ *      ("2019 – 2022") and asides ("authorities—particularly China—could").
  *   5. Otherwise the headline is the longest prefix within the cap that ends on a whole content
  *      word, never on a function word, never splitting a figure from its unit ("$2.7 | billion"),
  *      a date ("December | 31"), a capitalised name ("New | York") or an open parenthesis or
- *      quotation, and keeping at least MIN_CLAUSE_WORDS words; then an ellipsis.
+ *      quotation, and keeping at least MIN_CLAUSE_WORDS words. When no prefix avoids every split
+ *      (an all-caps run reads as one long name) it ends on the last content word; when fewer than
+ *      MIN_CLAUSE_WORDS whole words fit (one long token or URL), the card keeps the fallback.
  *
  * Pure and dependency-free so it can be unit-tested directly (tests/unit/riskHeadline.spec.ts).
  */
@@ -37,11 +45,12 @@ const MIN_CLAUSE_WORDS = 4
 export const riskHeadlineFallback = (index: number): string => `Filing excerpt ${index + 1}`
 
 // Abbreviations whose trailing period is not a sentence end ("Apple Inc. faces", "ASU No. 2023-07",
-// "Q1 vs. Q2"). Lowercase here; matched case-insensitively letter by letter so the surrounding
-// character classes can stay case-sensitive.
+// "Q1 vs. Q2", "Sept. 2025"). Lowercase here; matched case-insensitively letter by letter so the
+// surrounding character classes can stay case-sensitive.
 const ABBREVIATIONS = [
   'inc', 'co', 'corp', 'ltd', 'llc', 'plc', 'vs', 'approx', 'no', 'nos', 'mr', 'mrs', 'ms', 'dr',
   'jr', 'sr', 'st', 'incl', 'est', 'etc', 'dept', 'govt', 'fig', 'mfg', 'intl', 'assn', 'bros', 'univ',
+  'jan', 'feb', 'mar', 'apr', 'jun', 'jul', 'aug', 'sep', 'sept', 'oct', 'nov', 'dec',
 ]
 const caseInsensitive = (word: string): string => word.replace(/[a-z]/g, (c) => `[${c.toUpperCase()}${c}]`)
 const ABBREVIATION_ALTERNATION = ABBREVIATIONS.map(caseInsensitive).join('|')
@@ -54,9 +63,20 @@ const SENTENCE_END = new RegExp(
   'g',
 )
 
-// ";" or ":" before a space (so "10:30" survives), a spaced em/en dash or hyphen, or an em dash.
-// A regex literal, not a string, so the copy-voice em-dash gate never sees the character.
-const STRONG_BOUNDARY = /[;:](?=\s|$)|\s[—–-]\s|—/
+// ";" or ":" before a space (so "10:30" survives). Never a dash (see step 4 above).
+const CLAUSE_BOUNDARY = /[;:](?=\s)/
+
+// A clause opening on one of these is a leading date, qualifier or condition ("As of December 31,
+// 2025:", "In the third quarter:"), not a statement a card can stand on.
+const LEADING_QUALIFIERS = new Set(
+  (
+    'as in on at by for from with without during following after before since until upon under ' +
+    'regardless despite notwithstanding although though while if because when whereas unless'
+  ).split(' '),
+)
+
+// What follows the boundary turns or hedges the clause ("; however, such coverage may not be adequate").
+const TURN = /^(?:however|but|although|though|yet|except|nevertheless|nonetheless|notwithstanding|unless|while|whereas|provided|still)$/i
 
 // Words a headline must not end on: articles, prepositions, conjunctions, auxiliaries, relative
 // pronouns and determiners leave the reader mid-phrase ("... manufactured by outsourcing partners
@@ -71,7 +91,7 @@ const FUNCTION_WORDS = new Set(
   ).split(' '),
 )
 const SCALE_WORD = /^(?:million|billion|trillion|thousand|percent|basis)\b/i
-const MONTH = /^(?:January|February|March|April|May|June|July|August|September|October|November|December)$/
+const MONTH = /^(?:January|February|March|April|May|June|July|August|September|October|November|December|Jan|Feb|Mar|Apr|Jun|Jul|Aug|Sept?|Oct|Nov|Dec)$/
 const UPPERCASE_START = /^\p{Lu}/u
 const TRAILING_SEPARATORS = /[\s,;:—–-]+$/
 
@@ -92,6 +112,10 @@ const count = (text: string, ch: string): number => text.split(ch).length - 1
 
 const isFunctionWord = (word: string): boolean => FUNCTION_WORDS.has(bare(word).toLowerCase())
 
+/** Whether the text leaves a parenthesis or a quotation open. */
+const leavesOpen = (text: string): boolean =>
+  count(text, '(') > count(text, ')') || count(text, '“') > count(text, '”') || count(text, '"') % 2 === 1
+
 /** Whether ending a headline after tokens[i] would split something the reader needs whole. */
 const isWeakEnd = (tokens: Token[], i: number, prefix: string): boolean => {
   const word = tokens[i].text
@@ -102,10 +126,7 @@ const isWeakEnd = (tokens: Token[], i: number, prefix: string): boolean => {
   if (MONTH.test(bare(word))) return true
   if (previous !== undefined && /^\d{1,2},?$/.test(word) && MONTH.test(bare(previous))) return true
   if (i > 0 && next !== undefined && UPPERCASE_START.test(bare(word)) && UPPERCASE_START.test(next)) return true
-  if (count(prefix, '(') > count(prefix, ')') || count(prefix, '“') > count(prefix, '”') || count(prefix, '"') % 2 === 1) {
-    return true
-  }
-  return false
+  return leavesOpen(prefix)
 }
 
 /** The first sentence, or the whole text when no break leaves enough words before it. */
@@ -120,33 +141,37 @@ const firstSentence = (text: string): string => {
   return text
 }
 
-/**
- * The sentence up to its first strong clause boundary, when that leaves MIN_CLAUSE_WORDS words.
- * Only the first boundary counts: a later one can close a parenthetical pair of dashes.
- */
-const firstClause = (sentence: string): string => {
-  const at = sentence.search(STRONG_BOUNDARY)
-  if (at === -1) return sentence
-  const clause = sentence.slice(0, at)
-  return wordCount(clause) >= MIN_CLAUSE_WORDS ? clause : sentence
+/** The sentence up to its first ";" or ":" when that clause can stand as a heading (step 4), else null. */
+const clauseOf = (sentence: string): string | null => {
+  const match = CLAUSE_BOUNDARY.exec(sentence)
+  if (!match) return null
+  const clause = sentence.slice(0, match.index).replace(TRAILING_SEPARATORS, '')
+  const tokens = tokensOf(clause)
+  if (wordCount(clause) < MIN_CLAUSE_WORDS || clause.length > RISK_HEADLINE_MAX_CHARS) return null
+  if (LEADING_QUALIFIERS.has(bare(tokens[0].text).toLowerCase())) return null
+  if (TURN.test(bare(sentence.slice(match.index + 1).trimStart().split(/\s/)[0] ?? ''))) return null
+  if (leavesOpen(clause)) return null
+  // Only a colon introduces what follows, so only a colon lead-in may end on a function word.
+  if (match[0] !== ':' && isFunctionWord(tokens[tokens.length - 1].text)) return null
+  return clause
 }
 
-/** The longest prefix within the cap that ends on a whole content word, plus an ellipsis. */
-const capped = (clause: string): string => {
-  const tokens = tokensOf(clause)
+/**
+ * The longest prefix within the cap that ends on a whole content word (step 5); when every candidate
+ * splits something, the longest that ends on a content word. Null when fewer than MIN_CLAUSE_WORDS
+ * whole words fit.
+ */
+const capped = (text: string): string | null => {
+  const tokens = tokensOf(text)
   const within = tokens.filter((t) => t.end <= RISK_HEADLINE_MAX_CHARS)
-  // A single token longer than the cap (no space in reach) is cut where the cap falls.
-  if (within.length === 0) return `${clause.slice(0, RISK_HEADLINE_MAX_CHARS)}${RISK_HEADLINE_ELLIPSIS}`
-  let end = within[within.length - 1].end
+  let lastContentWord: number | null = null
   for (let i = within.length - 1; i >= 0; i--) {
-    const prefix = clause.slice(0, within[i].end)
+    const prefix = text.slice(0, within[i].end)
     if (wordCount(prefix) < MIN_CLAUSE_WORDS) break
-    if (!isWeakEnd(tokens, i, prefix)) {
-      end = within[i].end
-      break
-    }
+    if (!isWeakEnd(tokens, i, prefix)) return prefix
+    if (lastContentWord === null && !isFunctionWord(within[i].text)) lastContentWord = within[i].end
   }
-  return `${clause.slice(0, end).replace(TRAILING_SEPARATORS, '')}${RISK_HEADLINE_ELLIPSIS}`
+  return lastContentWord === null ? null : text.slice(0, lastContentWord)
 }
 
 /** Returns the card heading for the risk at `index` (0-based) from its verified excerpt. */
@@ -154,12 +179,10 @@ export function deriveRiskHeadline(excerpt: string | null | undefined, index: nu
   const text = (excerpt ?? '').trim()
   if (wordCount(text) < MIN_EXCERPT_WORDS) return riskHeadlineFallback(index)
 
-  const sentence = firstSentence(text)
-  const clause = firstClause(sentence).replace(TRAILING_SEPARATORS, '')
-  if (clause.length > RISK_HEADLINE_MAX_CHARS) return capped(clause)
-
-  // A clause cut at a strong boundary that ends on a lead-in word introduces what follows it.
-  const tokens = tokensOf(clause)
-  const leadIn = clause.length < sentence.trimEnd().replace(TRAILING_SEPARATORS, '').length && isFunctionWord(tokens[tokens.length - 1].text)
-  return leadIn ? `${clause}${RISK_HEADLINE_ELLIPSIS}` : clause
+  const sentence = firstSentence(text).replace(TRAILING_SEPARATORS, '')
+  const prefix =
+    sentence.length <= RISK_HEADLINE_MAX_CHARS ? sentence : (clauseOf(sentence) ?? capped(sentence)?.replace(TRAILING_SEPARATORS, ''))
+  if (!prefix) return riskHeadlineFallback(index)
+  // Anything left of the excerpt beyond whitespace or its final period means it continues below.
+  return /[^\s.]/.test(text.slice(prefix.length)) ? `${prefix}${RISK_HEADLINE_ELLIPSIS}` : prefix
 }
