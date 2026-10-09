@@ -195,7 +195,7 @@ test.describe('desktop 1440x900: the reader stays in its pane', () => {
   for (const theme of ['light', 'dark'] as const) {
     test(`${theme}: the Filing tab with wide tables leaves the page without a sideways scroll`, async ({ page, baseURL }) => {
       await openPage(page, baseURL!, theme)
-      await page.locator('button[aria-label="Ask this Filing"]').click()
+      await page.locator('button[aria-label="Source"]').click()
       await page.locator(PANE).getByRole('tab', { name: 'Filing' }).click()
       await readerReady(page)
 
@@ -238,7 +238,7 @@ test.describe('desktop 1440x900: the reader stays in its pane', () => {
 
     test(`${theme}: a table that scrolls is a named region the keyboard reaches and scrolls; one that fits is not`, async ({ page, baseURL }) => {
       await openPage(page, baseURL!, theme)
-      await page.locator('button[aria-label="Ask this Filing"]').click()
+      await page.locator('button[aria-label="Source"]').click()
       const filingTab = page.locator(PANE).getByRole('tab', { name: 'Filing' })
       await filingTab.click()
       await readerReady(page)
@@ -260,20 +260,21 @@ test.describe('desktop 1440x900: the reader stays in its pane', () => {
         expect(tables.some((t) => t.box && t.box.scrollWidth <= t.box.clientWidth)).toBe(true)
       }
       await expect(check).toPass({ timeout: 5_000 })
-      // Hidden behind the Answer tab and shown again, the boxes re-measure.
-      await page.locator(PANE).getByRole('tab', { name: 'Answer' }).click()
+      // Hidden behind the Ask tab and shown again, the boxes re-measure.
+      await page.locator(PANE).getByRole('tab', { name: 'Ask' }).click()
       await filingTab.click()
       await readerReady(page)
       await expect(check).toPass({ timeout: 5_000 })
 
-      // After the pane's Close, Tab reaches the reader itself, still at its top (Chromium made the scroller
-      // a tab stop on its own only while nothing in it was focusable; a table's region is), then the first
-      // scrolling table's region. Both show the brand ring (the reader's inset), in both themes.
+      // The pane's order is Close, then the selected Filing tab, then its panel. From that tab, Tab reaches
+      // the reader itself, still at its top (Chromium made the scroller a tab stop on its own only while
+      // nothing in it was focusable; a table's region is), then the first scrolling table's region. Both
+      // show the brand ring (the reader's inset), in both themes.
       const brand = theme === 'light' ? 'rgba(79, 122, 99' : 'rgba(127, 178, 149'
       const reader = page.locator(PANE).getByRole('region', { name: 'AAPL 10-K · filing text' })
       const region = page.locator(PANE).getByRole('region', { name: 'Scrollable table: Segment Operating Performance' })
       await expect(region).toHaveCount(1)
-      await page.locator(PANE).getByRole('button', { name: 'Close' }).focus()
+      await filingTab.focus()
       await page.keyboard.press('Tab')
       await expect(reader).toBeFocused()
       expect(await reader.evaluate((el) => el.scrollTop)).toBe(0)
