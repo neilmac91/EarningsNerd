@@ -26,7 +26,7 @@ const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one :
  *
  * Every item reaching this component is an original filing span projected by the server; unmatched
  * and model-only risks are withheld there, and the server labels every projected risk "Filing
- * excerpt" rather than pass a model-written title through. So a row's heading is the opening clause
+ * excerpt" rather than pass a model-written title through. So a row's heading is the opening words
  * of its own excerpt (excerptHeadings): the filing's words, unique per row. The tally under the list
  * counts what the server located and withheld; it never claims more than that scope.
  */
@@ -54,7 +54,7 @@ export function SummaryRisks({ risks, projection }: SummaryRisksProps) {
   return (
     <div className="space-y-3">
       <p className={`text-sm ${MUTED}`}>
-        Excerpts are the filing’s own words; each heading is its excerpt’s opening clause. Selected excerpts are not a
+        Excerpts are the filing’s own words; each heading is the start of its excerpt. Selected excerpts are not a
         complete risk inventory.
       </p>
       {shown.length > 0 && (

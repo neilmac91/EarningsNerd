@@ -1,12 +1,13 @@
 /**
- * Heading text for one risk card, taken verbatim from the card's own verified filing excerpt.
+ * Heading text for one risk row, taken verbatim from the row's own verified filing excerpt. The rows
+ * call it through excerptHeadings (riskTitle.ts), which keeps the headings unique.
  *
  * The backend projects every risk to a source-first span (provenance_service.project_risk_list):
  * the model's own label is discarded and `summary` / `source_section_ref` both read "Filing
- * excerpt", so the only text a card may title itself with is that excerpt. The headline is always
+ * excerpt", so the only text a row may head itself with is that excerpt. The headline is always
  * a PREFIX of the excerpt: never rewritten, recased or reordered. A trailing ellipsis means the
  * excerpt goes on past the headline (a cut, or a later sentence); the full excerpt still renders
- * under the heading as the evidence.
+ * under the heading, in the blockquote.
  *
  * The rule, designed against the production filing-3 spans and the eval-baseline risk spans:
  *   1. An excerpt of fewer than MIN_EXCERPT_WORDS words (or none) gets the positional fallback
@@ -36,7 +37,7 @@
  *      September"), a capitalised name ("New | York") or an open bracket or quotation, and keeping
  *      at least MIN_CLAUSE_WORDS words. When no prefix avoids every split (an all-caps run reads
  *      as one long name) it ends on the last content word that leaves nothing open; when there is
- *      none, or fewer than MIN_CLAUSE_WORDS whole words fit (one long token or URL), the card
+ *      none, or fewer than MIN_CLAUSE_WORDS whole words fit (one long token or URL), the row
  *      keeps the fallback.
  *
  * Pure and dependency-free so it can be unit-tested directly (tests/unit/riskHeadline.spec.ts).
@@ -48,7 +49,7 @@ export const RISK_HEADLINE_ELLIPSIS = '…'
 const MIN_EXCERPT_WORDS = 3
 const MIN_CLAUSE_WORDS = 4
 
-/** The positional title a card keeps when its excerpt cannot give a meaningful headline. */
+/** The positional heading a row keeps when its excerpt cannot give a meaningful headline. */
 export const riskHeadlineFallback = (index: number): string => `Risk ${index + 1}`
 
 // Abbreviations whose trailing period never ends a sentence: a title, label or month always has
@@ -86,7 +87,7 @@ const SENTENCE_END = new RegExp(
 const CLAUSE_BOUNDARY = /[;:](?=\s)/
 
 // A clause opening on one of these is a leading date, qualifier or condition ("As of December 31,
-// 2025:", "In the third quarter:"), not a statement a card can stand on.
+// 2025:", "In the third quarter:"), not a statement a heading can stand on.
 const LEADING_QUALIFIERS = new Set(
   (
     'as in on at by for from with without during following after before since until upon under ' +
@@ -256,14 +257,14 @@ const capped = (text: string): string | null => {
     const prefix = text.slice(0, within[i].end)
     if (wordCount(prefix) < MIN_CLAUSE_WORDS) break
     if (!isWeakEnd(tokens, i, prefix)) return prefix
-    // The relaxed end still never leaves a bracket or quotation open: with nothing else, the card
-    // keeps its positional title rather than a heading that stops inside a parenthetical.
+    // The relaxed end still never leaves a bracket or quotation open: with nothing else, the row
+    // keeps its positional heading rather than one that stops inside a parenthetical.
     if (lastContentWord === null && !isFunctionWord(within[i].text) && !leavesOpen(prefix)) lastContentWord = within[i].end
   }
   return lastContentWord === null ? null : text.slice(0, lastContentWord)
 }
 
-/** Returns the card heading for the risk at `index` (0-based) from its verified excerpt. */
+/** Returns the row heading for the risk at `index` (0-based) from its verified excerpt. */
 export function deriveRiskHeadline(excerpt: string | null | undefined, index: number): string {
   const text = (excerpt ?? '').trim()
   if (wordCount(text) < MIN_EXCERPT_WORDS) return riskHeadlineFallback(index)

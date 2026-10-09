@@ -7,10 +7,11 @@ import {
 } from '@/features/summaries/lib/riskHeadline'
 import filing3Risks from '../e2e/fixtures/filing-3-risks.json'
 
-// A risk card's heading is a verbatim prefix of its own verified filing excerpt (founder option b):
+// A risk row's heading is a verbatim prefix of its own verified filing excerpt (founder option b):
 // never the model's label, never rewritten. These pin the rule on the real spans it was designed
 // against and on the edge cases a naive first-clause cut gets wrong. This file is the one place the
-// exact headlines are pinned; the render and e2e specs check them against deriveRiskHeadline.
+// exact headlines are pinned; riskTitle.spec pins what excerptHeadings adds (quote pair, uniqueness)
+// and the render spec checks the rows against excerptHeadings.
 
 /**
  * The four source-verified risk spans of the production filing-3 summary (Apple FY2025 10-K), read
@@ -136,7 +137,7 @@ describe('deriveRiskHeadline', () => {
     expect(deriveRiskHeadline('We face credit risks.', 0)).toBe('We face credit risks')
   })
 
-  it('skips a first sentence too short to title the card rather than ending on it', () => {
+  it('skips a first sentence too short to head the row rather than ending on it', () => {
     expect(deriveRiskHeadline('Risks. Tariffs could hurt margins this year.', 0)).toBe('Risks. Tariffs could hurt margins this year')
     expect(deriveRiskHeadline('Demand softened! Management cut guidance.', 0)).toBe('Demand softened! Management cut guidance')
     expect(deriveRiskHeadline('Could tariffs rise again? Management expects so.', 0)).toBe('Could tariffs rise again?…')
@@ -350,7 +351,7 @@ describe('deriveRiskHeadline', () => {
       ),
     ).toBe('The Company relies on a single contract manufacturer for its flagship devices…')
     // A parenthetical that opens in the first words and closes past the cap leaves no prefix that
-    // closes it: the card keeps its positional title rather than stopping inside the bracket.
+    // closes it: the row keeps its positional heading rather than stopping inside the bracket.
     expect(
       deriveRiskHeadline(
         'The Company (including all of its subsidiaries in North America, South America, Africa, Europe and Asia) faces significant competition in every market it serves.',
