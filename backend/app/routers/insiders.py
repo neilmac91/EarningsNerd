@@ -23,8 +23,9 @@ _insiders_rate_limiter = RateLimiter(limit=30, window_seconds=60)
 
 
 def _require_insider_activity() -> None:
-    # A route dependency runs before query validation, so while off the route answers exactly like
-    # an unknown path (FastAPI's own 404 body), whatever the query string.
+    # A route dependency runs before query validation, so while off a GET answers exactly like an
+    # unknown path (FastAPI's own 404 body), whatever the query string. Other methods still get 405,
+    # and the route stays in the OpenAPI schema; neither reaches SEC.
     if not settings.ENABLE_INSIDER_ACTIVITY:
         raise HTTPException(status_code=404, detail="Not Found")
 

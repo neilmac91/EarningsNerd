@@ -117,10 +117,11 @@ to companyfacts and its section parsing to the regex excerpt; a mega-filer's fil
 recent submissions window needs about 43 history requests, past every enrichment budget; and a
 company's first filings list, coverage and full-text search each wait for their request. Breaker-wrapped
 edgartools calls queued behind that work (a company's first filings list, 6-K text, and visit refreshes
-run in-process when durable tasks are off) can time out after 15 s, and five timeouts in a row open the
-shared SEC circuit breaker for 30 s, which fails summary document fetches on that instance meanwhile
-(Circuit Breaker Management below). A synchronous precompute dry run on `/internal` makes at least one
-request per job, so above about 20 jobs it outlasts the 30 s request timeout.
+run in-process when durable tasks are off) can time out after 15 s (30 s for 6-K text), and five
+timeouts in a row open the shared SEC circuit breaker for 30 s, which fails summary document fetches on
+that instance meanwhile (Circuit Breaker Management below). A synchronous precompute dry run on
+`/internal` makes at least one request per job, so above about 20 jobs it outlasts the 30 s request
+timeout.
 
 The configured sustained sums are: 4 req/s sustained with no job running (two service instances), 6
 in the hourly filing-scan window, and at most 8 req/s in any scheduled overlap — Monday 06:00 and

@@ -149,7 +149,8 @@ def test_no_deploy_step_updates_a_process_without_both_pins():
     deploy action, a local composite action, a script a deploy step calls (it must resolve against the
     repository root, backend/ or the step's working directory) that updates Cloud Run, and any line
     shaped like a Cloud Run update that UPDATE cannot read. Not covered: an update assembled without a
-    literal gcloud line, such as a subprocess argument list in a script."""
+    literal gcloud line, such as a subprocess argument list in a script, and a script called without a
+    .sh or .py extension."""
     loop_jobs = _loop_jobs(_run(LOOP_STEP))
     targets = []
     for step in _deploy_job()["steps"]:
@@ -163,10 +164,13 @@ def test_no_deploy_step_updates_a_process_without_both_pins():
         for script in re.findall(r"[\w./-]+\.(?:sh|py)\b", run):
             paths = [base / script for base in bases if (base / script).is_file()]
             assert paths, f"{step.get('name')}: {script} does not resolve, so this gate cannot read it"
-            text = paths[0].read_text()
-            assert not UPDATE_SHAPED.search(text.replace("\\\n", " ")), f"{script} updates Cloud Run outside this gate"
+            for path in paths:  # every candidate: a same-named script elsewhere must not hide the one that runs
+                text = path.read_text().replace("\\\n", " ")
+                assert not UPDATE_SHAPED.search(text), f"{path.relative_to(ROOT)} updates Cloud Run outside this gate"
         for line in run.replace("\\\n", " ").splitlines():
-            if UPDATE_SHAPED.search(line) and "update-traffic" not in line:
+            # A traffic switch is not a process update; strip only that token, so a create or update sharing
+            # its line is still read.
+            if UPDATE_SHAPED.search(re.sub(r"\bupdate-traffic\b", "", line)):
                 assert UPDATE.search(line), f"{step.get('name')}: a Cloud Run update this gate cannot read: {line.strip()[:100]}"
         updates = UPDATE.findall(run)
         maps = re.findall(r"--update-env-vars=(\S+)", run)
