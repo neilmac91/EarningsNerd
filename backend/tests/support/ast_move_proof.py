@@ -26,10 +26,12 @@ not symbols: a move rewrites them by design.
 Verdicts: MISSING (defined before, nowhere after), CHANGED (the normalised text differs), DUPLICATE
 (defined in more than one new file, e.g. a ``logger`` per sub-module, whose logger NAME changes with
 the module), SIDE EFFECT (a NEW symbol that runs code at import, which a move never adds; default
-deny: only a docstring or literal, or a def, class or plain-name assignment that makes no call at import,
-is inert. A call counts in a class body, a class keyword such as ``metaclass=``, a def's decorators,
-defaults and annotations and a lambda's defaults, but not in a def's or a lambda's body; ``property``,
-``staticmethod``, ``classmethod``, ``dataclass`` and the like are inert decorators) and ADDED (other
+deny, at the statement and the expression level: only a docstring or literal, an assignment of a
+literal, a name, or a display of those to plain names, and a def or class whose decorators, defaults,
+annotations and bases are inert, is inert. Defaults must be such values and annotations and bases type
+expressions; a def's or lambda's body runs later and is not read. ``property``, ``staticmethod``,
+``classmethod``, ``dataclass`` and the like are inert decorators; a class keyword such as ``metaclass=``
+is not; a call, subscript, attribute read, operator or unpacking in a value is not) and ADDED (other
 new symbols, such as the helpers a split introduces, or a façade's ``__all__``). Limit: code that a new
 class runs through a BASE (an inherited metaclass, or the base's ``__init_subclass__``) is not visible in
 the AST, so a new class with bases is ADDED; read every ADDED class's bases. The exit status is 0 only
@@ -97,51 +99,96 @@ _INERT_DECORATORS = frozenset({"property", "staticmethod", "classmethod", "cache
                                "dataclasses.dataclass"})
 
 
-def _decorator_runs(decorator: ast.expr) -> bool:
-    """Applying a decorator calls it at import, unless it is an inert one whose own arguments make no call."""
+def _inert_value(node: ast.expr | None) -> bool:
+    """A value whose evaluation runs no code of its own: a literal, a name, a signed number, a tuple or list
+    of those, a set or dict keyed by literals, or a lambda (its body runs later) with inert defaults. A
+    call, subscript, attribute read, operator, comprehension, f-string or unpacking can run a
+    user-defined method (``__getitem__``, ``__iter__``, ``__add__``, ``__getattr__``) at import."""
+    if node is None or isinstance(node, (ast.Constant, ast.Name)):
+        return True
+    if isinstance(node, ast.UnaryOp):
+        return isinstance(node.op, (ast.USub, ast.UAdd)) and isinstance(node.operand, ast.Constant)
+    if isinstance(node, (ast.Tuple, ast.List)):
+        return all(_inert_value(elt) for elt in node.elts)
+    if isinstance(node, ast.Set):
+        return all(isinstance(elt, ast.Constant) for elt in node.elts)
+    if isinstance(node, ast.Dict):  # a None key is a ** unpacking
+        return all(isinstance(key, ast.Constant) for key in node.keys) and all(map(_inert_value, node.values))
+    if isinstance(node, ast.Lambda):
+        return _inert_arguments(node.args)
+    return False
+
+
+def _type_expression(node: ast.expr | None) -> bool:
+    """An annotation or base built from names, attribute reads, subscripts, literals, ``|`` unions and
+    tuples. It runs only typing machinery (``__class_getitem__``, ``__or__``), which is taken as inert."""
+    if node is None or isinstance(node, (ast.Constant, ast.Name)):
+        return True
+    if isinstance(node, ast.Attribute):
+        return _type_expression(node.value)
+    if isinstance(node, ast.Subscript):
+        return _type_expression(node.value) and _type_expression(node.slice)
+    if isinstance(node, (ast.Tuple, ast.List)):
+        return all(_type_expression(elt) for elt in node.elts)
+    if isinstance(node, ast.BinOp):
+        return isinstance(node.op, ast.BitOr) and _type_expression(node.left) and _type_expression(node.right)
+    return False
+
+
+def _inert_arguments(args: ast.arguments) -> bool:
+    """A def's or lambda's defaults (evaluated at definition) are inert values, its annotations type expressions."""
+    params = [*args.posonlyargs, *args.args, *args.kwonlyargs, *(a for a in (args.vararg, args.kwarg) if a)]
+    defaults = [*args.defaults, *(d for d in args.kw_defaults if d is not None)]
+    return all(map(_inert_value, defaults)) and all(_type_expression(p.annotation) for p in params)
+
+
+def _inert_decorator(decorator: ast.expr) -> bool:
+    """Applying a decorator calls it at import; only the descriptor-making ones, with inert arguments, are inert."""
     call = decorator if isinstance(decorator, ast.Call) else None
     name = ast.unparse(call.func if call else decorator)
-    if name in _INERT_DECORATORS or name.endswith((".setter", ".getter", ".deleter")):
-        return call is not None and any(_calls(arg) for arg in (*call.args, *call.keywords))
-    return True
+    if not (name in _INERT_DECORATORS or name.endswith((".setter", ".getter", ".deleter"))):
+        return False
+    return call is None or all(_inert_value(arg) for arg in (*call.args, *(kw.value for kw in call.keywords)))
 
 
-def _calls(node: ast.AST) -> bool:
-    """Whether running this code at import makes a call. The body of a def or a lambda runs later, but
-    its decorators, defaults and annotations run now, and so does a class body."""
-    if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
-        if any(_decorator_runs(decorator) for decorator in node.decorator_list):
-            return True
-        if isinstance(node, ast.ClassDef):  # a metaclass or __init_subclass__ keyword runs class-creation code
-            return bool(node.keywords) or any(_calls(part) for part in (*node.bases, *node.body))
-        return _calls(node.args) or (node.returns is not None and _calls(node.returns))
-    if isinstance(node, ast.Lambda):
-        return _calls(node.args)
-    if isinstance(node, (ast.Call, ast.Await)):
+def _plain_target(target: ast.expr) -> bool:
+    if isinstance(target, (ast.Tuple, ast.List)):
+        return all(_plain_target(elt) for elt in target.elts)
+    return isinstance(target, ast.Name)
+
+
+def _inert(stmt: ast.stmt) -> bool:
+    """Whether a NEW statement runs no code at import beyond binding names (default deny). Inert: ``pass``,
+    a docstring or bare literal, an assignment of an inert value to plain names, and a def or class whose
+    decorators, defaults, annotations and bases are inert (a def's body runs later; a class body must be
+    inert too, and a class keyword such as ``metaclass=`` runs class-creation code)."""
+    if isinstance(stmt, ast.Pass):
         return True
-    return any(_calls(child) for child in ast.iter_child_nodes(node))
-
-
-_INERT_KINDS = (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef, ast.Assign, ast.AnnAssign)
+    if isinstance(stmt, ast.Expr):
+        return isinstance(stmt.value, ast.Constant)
+    if isinstance(stmt, ast.Assign):
+        return all(map(_plain_target, stmt.targets)) and _inert_value(stmt.value)
+    if isinstance(stmt, ast.AnnAssign):
+        return isinstance(stmt.target, ast.Name) and _type_expression(stmt.annotation) and _inert_value(stmt.value)
+    if isinstance(stmt, (ast.FunctionDef, ast.AsyncFunctionDef)):
+        return (all(map(_inert_decorator, stmt.decorator_list)) and _inert_arguments(stmt.args)
+                and _type_expression(stmt.returns))
+    if isinstance(stmt, ast.ClassDef):
+        return (not stmt.keywords and all(map(_inert_decorator, stmt.decorator_list))
+                and all(map(_type_expression, stmt.bases)) and all(map(_inert, stmt.body)))
+    return False
 
 
 def _runs_at_import(name: str, text: str) -> bool:
-    """A NEW symbol that executes code when its module is imported. Default deny: only a docstring or bare
-    literal, or a def, class or assignment to plain names that makes no call at import (``_calls``), is
-    inert; anything else (an attribute or item assignment, a guard block, an augmented assignment, a
-    bare expression, ``raise``, ``assert``, ``del``) runs code. Class members (keyed ``Class.member``)
-    follow the same rule."""
+    """A NEW symbol that executes code when its module is imported: anything that is not ``_inert``. An
+    attribute or item assignment (``effect:``) and a guard block (``guard:``) always do. Class members
+    (keyed ``Class.member``) follow the same rule."""
     owner, _, member = name.partition(".")
     if not (member and owner.isidentifier()):
         member = name
     if member.startswith(("effect:", "guard:")):
         return True
-    for stmt in ast.parse(text).body:
-        if isinstance(stmt, ast.Expr) and isinstance(stmt.value, ast.Constant):
-            continue
-        if not isinstance(stmt, _INERT_KINDS) or _calls(stmt):
-            return True
-    return False
+    return not all(_inert(stmt) for stmt in ast.parse(text).body)
 
 
 def _guards(body: list[ast.stmt]) -> list[ast.stmt]:
@@ -173,8 +220,8 @@ def _guard_header(node: ast.stmt) -> str:
     if isinstance(node, (ast.With, ast.AsyncWith)):
         word = "async with" if isinstance(node, ast.AsyncWith) else "with"
         return f"{word} {', '.join(ast.unparse(item) for item in node.items)}"
-    handled = ", ".join((ast.unparse(h.type) if h.type is not None else "everything") + (f" as {h.name}" if h.name else "")
-                        for h in node.handlers)
+    handled = ", ".join((ast.unparse(h.type) if h.type is not None else "everything")
+                        + (f" as {h.name}" if h.name else "") for h in node.handlers)
     word = "try" if isinstance(node, ast.Try) else "try*"
     return f"{word} except {handled}" + (" else" if node.orelse else "") + (" finally" if node.finalbody else "")
 

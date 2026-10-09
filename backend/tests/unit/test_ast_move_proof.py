@@ -5,8 +5,8 @@ so each verdict it can return is pinned here on small synthetic modules: an hone
 changed token, a dropped symbol, a duplicated definition, a changed class member, a changed arm of a
 rebound name, a changed guard, a statement moved out of its guard and an added import-time side effect
 (an assignment whose value calls; a call in a new class body, default, decorator or lambda default; a
-class keyword such as ``metaclass=``; and ``raise``, ``assert`` or ``del``) each fail; a disclosed delta
-passes with its diff shown.
+class keyword such as ``metaclass=``; ``raise``, ``assert`` or ``del``; and a value that subscripts,
+unpacks, reads an attribute or applies an operator) each fail; a disclosed delta passes with its diff shown.
 """
 from tests.support.ast_move_proof import compare, render
 
@@ -179,6 +179,19 @@ def test_only_inert_definitions_are_added_and_everything_else_runs_at_import():
     assert set(report.side_effects) == {"expr:assert READY", "expr:del REGISTRY['x']", "COUNT", "Plugin", "Configured"}
     # A base's own metaclass or __init_subclass__ is not visible in the AST: the stated limit.
     assert {"Plain", "Plain.LIMIT", "Plain.expr:'Docstring.'"} <= set(report.added)
+
+
+def test_a_value_is_inert_only_when_it_is_a_literal_a_name_or_a_display_of_those():
+    """A subscript, unpacking, operator or attribute read runs a user-defined method (``__getitem__``,
+    ``__iter__``, ``__add__``, ``__getattr__``) with no call node; annotations may be type expressions."""
+    added = ("\nTOKEN = REGISTRY['x']\nVALUES = [*REGISTRY]\nTOTAL = LEFT + RIGHT\nFLAG = settings.FLAG\n"
+             "\nNAMES = ['a', 'b']\nALIAS = clip\nLIMITS: dict[str, int | None] = {'a': 1, 'b': -2}\n"
+             "\ndef shaped(value: Optional[list[int]] = None, *, key: str = 'k') -> tuple[int, ...]:\n"
+             "    return value\n"
+             "\ndef keyed(value=REGISTRY['x']):\n    return value\n")
+    report = compare(OLD, _move(**{"app/x/helpers.py": HELPERS + added}))
+    assert set(report.side_effects) == {"TOKEN", "VALUES", "TOTAL", "FLAG", "keyed"}
+    assert {"NAMES", "ALIAS", "LIMITS", "shaped"} <= set(report.added)
 
 def test_an_added_import_time_side_effect_fails_until_disclosed():
     files = _move(**{"app/x/helpers.py": HELPERS + "\nsettings.STRICT = False\nregister(clip)\n"})
