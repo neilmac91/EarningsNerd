@@ -149,7 +149,7 @@ describe('SummaryBlocks', () => {
 
   it('renders the risks section with its evidence + trace-to-source provenance', () => {
     render(<SummaryBlocks sections={sections} summary={summary} />)
-    // An evidence row (critique P-03): the excerpt's opening clause heads it, one level under the
+    // An evidence row (critique P-03): the start of the excerpt heads it, one level under the
     // section's h2, and the excerpt itself sits in a blockquote.
     expect(
       screen.getByRole('heading', { level: 3, name: 'We are substantially dependent on TSMC for wafer supply' }),
@@ -262,8 +262,9 @@ describe('SummaryBlocks', () => {
               title: 'Customer concentration',
               supporting_evidence: 'Our suppliers are concentrated in Asia; a disruption would delay shipments.',
             },
-            { summary: 'Filing excerpt', supporting_evidence: 'Currency movements reduce reported revenue.' },
-            { summary: 'Filing excerpt', supporting_evidence: 'Currency movements reduce reported revenue: the euro fell.' },
+            // Two spans that open with the same sentence: the second heading takes an occurrence number.
+            { summary: 'Filing excerpt', supporting_evidence: 'Currency movements reduce reported revenue. The euro fell.' },
+            { summary: 'Filing excerpt', supporting_evidence: 'Currency movements reduce reported revenue. The yen fell.' },
           ],
           _risk_source_projection: { version: 1, verified_count: 3, withheld_count: 0 },
         },
@@ -273,9 +274,9 @@ describe('SummaryBlocks', () => {
     const section = screen.getByRole('region', { name: 'Investment Risks & Concerns' })
     const headings = within(section).getAllByRole('heading', { level: 3 }).map((h) => h.textContent)
     expect(headings).toEqual([
-      'Our suppliers are concentrated in Asia',
-      'Currency movements reduce reported revenue',
-      'Currency movements reduce reported revenue (2)',
+      'Our suppliers are concentrated in Asia; a disruption would delay shipments',
+      'Currency movements reduce reported revenue…',
+      'Currency movements reduce reported revenue… (2)',
     ])
     expect(screen.queryByText(/Customer concentration|FX headwinds|Filing excerpt \d/)).not.toBeInTheDocument()
     // No stripe card and no trend glyph: the rows are one hairline list.
