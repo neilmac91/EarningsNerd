@@ -246,6 +246,17 @@ describe('SummaryBlocks', () => {
     expect(mobileNav.querySelectorAll('a')).toHaveLength(sections.length)
   })
 
+  it('keeps the phone nav out of the sections\' spaced stack, so section 01 lines up with the TOC', () => {
+    // Tailwind 3's space-y margins every child after a sibling without the hidden attribute, and the
+    // nav is only display:none at lg, so inside the stack it pushed section 01 down by the gap.
+    render(<SummaryBlocks sections={sections} summary={summary} />)
+    const first = document.getElementById(sections[0].id) as HTMLElement
+    const stack = first.parentElement as HTMLElement
+    expect(stack.className).toMatch(/(^|\s)space-y-11(\s|$)/)
+    expect(stack.firstElementChild).toBe(first)
+    expect(stack.contains(screen.getByRole('navigation', { name: 'Jump to section' }))).toBe(false)
+  })
+
   it('heads each risk with its own excerpt, never a model-authored label', () => {
     const riskSections: RenderedSection[] = [
       { id: 'investment-risks-concerns', role: 'risks', title: 'Investment Risks & Concerns', blocks: [] },
