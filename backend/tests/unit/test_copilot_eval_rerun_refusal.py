@@ -25,6 +25,7 @@ ROOT = Path(__file__).resolve().parents[3]
 WORKFLOW = ROOT / ".github" / "workflows" / "copilot-eval.yml"
 SCRIPT = ROOT / "backend" / "scripts" / "copilot_eval_draw_gate.py"
 HEAD = "5f253ada86baeb84896a49aea2fb2801f18403e5"
+JOB = "copilot-eval"
 THIS_RUN, THIS_NUMBER = 500, 50
 
 
@@ -57,12 +58,12 @@ def run(run_id, number, attempts=1):
     return {"id": run_id, "run_number": number, "run_attempt": attempts}
 
 
-def job(conclusion="success", status="completed", runner=True):
+def job(conclusion="success", status="completed", runner=True, name=JOB):
     """The copilot-eval job of one attempt. ``runner=False``: it ended before the runner step."""
     steps = [{"name": "Draw once per head", "status": "completed", "conclusion": "success"}]
     steps.append({"name": gate.RUNNER_STEP, "status": status if runner else "completed",
                   "conclusion": conclusion if runner else "skipped"})
-    return [{"name": gate.JOB_NAME, "html_url": "https://github.com/o/r/actions/runs/400/job/1", "steps": steps}]
+    return [{"name": name, "html_url": "https://github.com/o/r/actions/runs/400/job/1", "steps": steps}]
 
 
 def call_gate(tmp_path, api, *, body="", attempt=1):
@@ -88,7 +89,7 @@ def test_a_head_that_never_drew_draws(tmp_path):
 
 def test_an_earlier_run_skipped_as_a_draft_drew_nothing(tmp_path):
     # GitHub's payload for a job skipped by its `if` carries no steps (run 37972259009 on this PR).
-    skipped = [{"name": gate.JOB_NAME, "status": "completed", "conclusion": "skipped"}]
+    skipped = [{"name": JOB, "status": "completed", "conclusion": "skipped"}]
     api = FakeApi([run(THIS_RUN, THIS_NUMBER), run(400, 40)], {(400, 1): skipped})
     assert call_gate(tmp_path, api) == (0, ["draw=true"])
 
@@ -104,6 +105,14 @@ def test_a_toggle_or_reopen_after_a_red_draw_replays_red_without_drawing(tmp_pat
 def test_a_toggle_after_a_green_draw_stays_green_without_drawing(tmp_path):
     api = FakeApi([run(THIS_RUN, THIS_NUMBER), run(400, 40)], {(400, 1): job("success")})
     assert call_gate(tmp_path, api) == (0, ["draw=false"])
+
+
+@pytest.mark.parametrize("display_name", ["Copilot filing fidelity", "copilot-eval (deepseek)"])
+def test_a_draw_counts_whatever_the_job_is_called(tmp_path, display_name):
+    # The API reports a job's display name: its `name:`, or the id plus matrix values. A cosmetic
+    # workflow edit must not hide a draw (tests-and-gates review on #1166).
+    api = FakeApi([run(THIS_RUN, THIS_NUMBER), run(400, 40)], {(400, 1): job("failure", name=display_name)})
+    assert call_gate(tmp_path, api) == (1, ["draw=false"])
 
 
 @pytest.mark.parametrize(("status", "conclusion"), [("completed", "cancelled"), ("in_progress", None)])
@@ -200,9 +209,9 @@ def _workflow():
 def test_the_gate_runs_first_on_every_attempt_and_nothing_installs_or_spends_without_its_draw():
     data = _workflow()
     assert WORKFLOW.name == gate.WORKFLOW_FILE
-    assert list(data["jobs"]) == [gate.JOB_NAME]
+    assert list(data["jobs"]) == [JOB]
     assert data["permissions"] == {"contents": "read", "actions": "read"}
-    steps = data["jobs"][gate.JOB_NAME]["steps"]
+    steps = data["jobs"][JOB]["steps"]
     assert steps[0]["uses"].startswith("actions/checkout@")
     draw = steps[1]
     assert draw["id"] == "draw"
@@ -222,7 +231,7 @@ def test_the_gate_runs_first_on_every_attempt_and_nothing_installs_or_spends_wit
 
 
 def test_only_the_runner_step_holds_the_provider_key_and_the_gate_knows_its_name():
-    steps = _workflow()["jobs"][gate.JOB_NAME]["steps"]
+    steps = _workflow()["jobs"][JOB]["steps"]
     holders = [step for step in steps if "OPENAI_API_KEY" in str(step)]
     assert [step["name"] for step in holders] == [gate.RUNNER_STEP]
     assert "evals.copilot_runner" in holders[0]["run"]

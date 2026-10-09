@@ -33,7 +33,6 @@ from pathlib import Path
 from typing import Any, Callable, Dict, Mapping, Optional
 
 WORKFLOW_FILE = "copilot-eval.yml"
-JOB_NAME = "copilot-eval"
 RUNNER_STEP = "Run every verified question three times"
 RUNBOOK = "backend/evals/RUNBOOK.md, triage rule for a red copilot-eval run"
 PER_PAGE = 100
@@ -61,11 +60,11 @@ def api_fetch(api_url: str, token: str) -> Fetch:
 def attempt_draw(fetch: Fetch, repo: str, run_id: int, attempt: int) -> Optional[Dict[str, str]]:
     """This attempt's draw, if its runner step started (finished, failed, cancelled or still running):
     {"conclusion": ..., "url": ...}. An attempt skipped as a draft, or one that failed before the runner
-    step, drew nothing."""
+    step, drew nothing. Jobs are matched by the runner step, not by name: the API reports a job's
+    display name, which a `name:` or a matrix in the workflow would change (tests-and-gates review on
+    #1166)."""
     jobs = fetch(f"/repos/{repo}/actions/runs/{run_id}/attempts/{attempt}/jobs?per_page=100").get("jobs") or []
     for job in jobs:
-        if job.get("name") != JOB_NAME:
-            continue
         for step in job.get("steps") or []:
             if step.get("name") != RUNNER_STEP:
                 continue
