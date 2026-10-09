@@ -40,6 +40,8 @@ export const isSummaryFailure = (summary: StoredSummary): boolean => {
 }
 
 /** A summary a reader can open now: the filing page shows its body, and the body is not placeholder
- *  filler, so the company page's "summary ready" never promises a summary that page will not show. */
+ *  filler, so the company page's "summary ready" never promises a summary that page will not show.
+ *  The company search's `latest_filing.summary_ready` (latest_filing_service) applies the same rule
+ *  server-side, so a result and the lead it opens agree. */
 export const isSummaryReady = (summary: StoredSummary): boolean =>
   !isSummaryPlaceholder(summary?.business_overview) && !isSummaryFailure(summary)
