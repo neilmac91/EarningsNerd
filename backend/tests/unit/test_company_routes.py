@@ -470,11 +470,18 @@ def test_miss_with_unpersistable_sec_hit_is_the_wrapped_500(client, monkeypatch)
     assert resp.json() == {"detail": "Error fetching company: 'name'"}
 
 
-def test_miss_persists_the_sec_hit_under_its_primary_ticker(client, monkeypatch, resolver_paths):
+def test_miss_persists_the_sec_hit_under_its_primary_ticker(client, monkeypatch, override_db, caplog, resolver_paths):
+    """The persistence unit commits the new row itself. The row count alone cannot see that commit
+    (the resolver's SAVEPOINT RELEASE already commits under SQLite; Postgres would lose the row), so
+    the commit spy pins it."""
+    db = SessionLocal()
+    commits = _spy_commits(monkeypatch, db, caplog)
+    override_db(db)
     monkeypatch.setattr(sec_edgar_service, "search_company", _sec(_hit(NEW_CIK, "ZZ2-PA", "Zeta Two")))
     monkeypatch.setattr(sec_edgar_service, "primary_ticker_for_cik", _primary_from_cik)
     resp = client.get("/api/companies/ZZ2-PA")
     assert resp.status_code == 200
+    assert commits == [0]
     assert resolver_paths == ["companies.get_company"]
     body = resp.json()
     assert (body["cik"], body["ticker"], body["name"], body["exchange"]) == (NEW_CIK, "ZZ2", "Zeta Two", "NASDAQ")
