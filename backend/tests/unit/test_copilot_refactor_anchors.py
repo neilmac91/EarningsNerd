@@ -13,12 +13,14 @@ Already pinned, so not repeated here: ``_register_fact`` dedupe (test_copilot_pr
 the ``_verify_citations`` matrix (test_copilot_quotation_retry.py).
 
 Every boundary is faked in-process: the provider on the shared ``openai_service`` singleton's
-``stream_chat_with_tools``, the filing as a duck-typed object. The one patch on
+``stream_chat_with_tools`` (through ``patch.object``, which leaves no instance attribute behind),
+the filing as a duck-typed object. The one patch on
 ``copilot_service``'s own namespace is ``monotonic`` (C0.3). Its only readers are in the attempt
 loop, which stays in this module, so the binding survives C1 and C2; do not re-point it.
 """
 import json
 from types import SimpleNamespace
+from unittest.mock import patch
 
 import pytest
 
@@ -65,17 +67,20 @@ def test_c0_1_compact_xbrl_block_caps_at_8000_chars(length):
     A compact rendering of up to 8,000 chars comes back whole; a longer one is cut to its first
     8,000 chars: a bare prefix, neither "" (which the function's docstring promises for an
     oversized payload) nor a re-serialized smaller payload. ``_build_context_message`` hands the
-    model exactly that block (copilot_service.py:322, :342-348).
+    model exactly that block (copilot_service.py:322, :342-348). The payload has two keys in
+    non-alphabetical order, so the pinned bytes also cover both compact separators (",", ":") and
+    the insertion order (no sort_keys) at every length, the cut ones included.
     """
-    note = "x" * (length - len('{"note":""}'))
-    rendering = '{"note":"' + note + '"}'  # the compact form: separators=(",", ":")
+    head = '{"period":"FY2025","note":"'
+    xbrl = {"period": "FY2025", "note": "x" * (length - len(head) - len('"}'))}
+    rendering = head + xbrl["note"] + '"}'
     assert len(rendering) == length
 
-    block = copilot_service._compact_xbrl_block({"note": note})
+    block = copilot_service._compact_xbrl_block(xbrl)
 
     assert block == rendering[:8_000]
     assert len(block) == min(length, 8_000)
-    context = copilot_service._build_context_message(SimpleNamespace(xbrl_data={"note": note}), "Excerpt.")
+    context = copilot_service._build_context_message(SimpleNamespace(xbrl_data=xbrl), "Excerpt.")
     assert context.endswith("\nSTRUCTURED FINANCIAL DATA (XBRL, for reference):\n" + rendering[:8_000])
 
 
@@ -147,8 +152,8 @@ async def test_c0_3_heartbeat_adds_one_reading_progress_after_3_seconds(monkeypa
             yield chunk
 
     monkeypatch.setattr(copilot_service, "monotonic", lambda: now[0])
-    monkeypatch.setattr(copilot_service.openai_service, "stream_chat_with_tools", provider)
-    await _collect(_filing(), events)
+    with patch.object(copilot_service.openai_service, "stream_chat_with_tools", provider):
+        await _collect(_filing(), events)
 
     generating = {"type": "progress", "stage": copilot_service.PROVIDER_STARTED_STAGE}
     assert events[:3] == [READING, generating, READING]
@@ -161,7 +166,7 @@ async def test_c0_3_heartbeat_adds_one_reading_progress_after_3_seconds(monkeypa
 
 @pytest.mark.unit
 @pytest.mark.asyncio
-async def test_c0_4_failure_before_the_attempt_yields_one_stream_failure(monkeypatch):
+async def test_c0_4_failure_before_the_attempt_yields_one_stream_failure():
     """C0.4 pins backend/app/services/copilot_service.py:1633-1635 for a failure in :1603-1606.
 
     ``_select_source_text`` raising before the first attempt starts reaches the question owner's
@@ -176,8 +181,8 @@ async def test_c0_4_failure_before_the_attempt_yields_one_stream_failure(monkeyp
         streamed.append(True)
         yield "unreachable"
 
-    monkeypatch.setattr(copilot_service.openai_service, "stream_chat_with_tools", provider)
-    events = await _collect(_ExpiredFiling(), [])
+    with patch.object(copilot_service.openai_service, "stream_chat_with_tools", provider):
+        events = await _collect(_ExpiredFiling(), [])
 
     assert events == [{"type": "error", "message": copilot_service._STREAM_FAILURE}]
     assert streamed == []
