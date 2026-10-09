@@ -54,4 +54,5 @@ parallel `python -m pytest`, so every PR exercises a different test-to-worker sp
 
 **Evidence.** W3-9 gate on `457933fd` (1 failed / 2703 passed) versus the verbose re-run on
 `70fca647` (2705 passed) with the worktree left alone; `tasks/todo.md` W3-9 section. The
-2026-10-09 parallel switch, its random-order runs and wall-clock figures are in the Lane C PR body.
+2026-10-09 parallel switch, its random-order runs and wall-clock figures are in the PR body of
+https://github.com/neilmac91/EarningsNerd/pull/1135.
