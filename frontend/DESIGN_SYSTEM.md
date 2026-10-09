@@ -218,6 +218,14 @@ Search field     <Input icon={<Magnifier/>}>  — leading glyph with an explicit
                  a pl-11 override is Tailwind conflict-order-dependent — don't). Raw fields:
                  inputClasses({ leadingIcon: true }).
 
+Search option    <CompanySearch> results (2026-10 critique 1d) — an option is the company (name 14/600, then
+                 ticker · exchange in the data face, today's quote at the right only when the search returned
+                 one: never a "Loading price..." that cannot resolve) over the filing identity strip of the
+                 filing a pick lands on: "Latest 10-K · fiscal year ended … · filed … · summary ready" (the
+                 search's `latest_filing`, backend latest_filing_service: the company list's forms, newest
+                 that still stands). The listbox holds options only; the count and the "↑↓ to move · ↵ to
+                 open" hint sit under it, aria-hidden, the hint from sm up.
+
 Chat composer    <Textarea variant="composer">  — transparent, auto-growing, chrome-free field; the
                  app-owned shell carries inputClasses() + focus-within:border-brand +
                  focus-within:shadow-ring-brand (never double chrome).
@@ -445,6 +453,20 @@ Compare periods  <ComparePeriodsCard filing>  (features/filings, critique 1b + P
                  place: ledger bones, Notice + RetryButton, a plain line when nothing is comparable. No risk
                  diff until the backend serves one again.
 
+Hero example     <HeroExample example>  (features/marketing, critique 1d) — the example IS the product, on ONE
+                 surface (rounded-xl panel + hairline + e2, dark: fill + hairline): "Example summary" with the
+                 quality Badge, the identity line (company, then ticker · form · filed in the data face, Sep
+                 between), the summary's opening, the figures as ONE hairline strip (<dl> grid-cols-3, border-y
+                 + divide-x; ▲/▼ aria-hidden before the signed delta), one evidence row when the live summary
+                 has a located risk excerpt (pickEvidence: source_verified under the source owner; heading =
+                 excerptHeadings, blockquote clipped at 180 on a word with " …", a chip link "Located in the
+                 filing"), the EDGAR receipt, and a text-link CTA. No browser-frame mockup, no card in the
+                 card, no sparkle chip, no tinted CTA. The static fallback has no evidence row.
+
+Trust strip      <TrustStrip>  under the hero: a hairline-topped list of plain statements, each scoped to what
+                 the implementation establishes ("where a match is found"); "generated" stays distinct from
+                 "the filing's own words".
+
 Evidence rows    <SummaryRisks>  (P-03) — one hairline list inside the section: a row is an h3 (14/600, the
                  opening clause of the row's own verbatim excerpt, unique per row via excerptHeadings — the
                  server withholds model titles), the excerpt in blockquote manners (border-l-2 hairline, no
@@ -467,7 +489,9 @@ Provenance chip  <SourceTrace>  (P-10) — `sourceTraceChipClass(selected)`: 12p
                  pane's Filing view is answering is `selected`: brand tint + aria-current (the highlight
                  request's sourceId + the viewer context's paneOpen), whether the pane shows its passage or
                  says why it cannot (text not in-app yet, passage not pinpointed). Labels and accessible names are unchanged
-                 ("Source: Verified in filing").
+                 ("Source: Verified in filing"). The recipe lives in `features/filings/lib/sourceTraceChip.ts`, outside the
+                 'use client' SourceTrace, so a server component can call it (the homepage example does; gate:
+                 `tests/unit/serverCallsClientExport.spec.ts`).
 
 Source pane      <FilingWorkspace>  (P-06) — the research pane is named for the source: header "Source" + the
                  filing in the data face, close button; tabs Filing · Ask (file-text / chat-circle-text glyphs,
@@ -623,16 +647,31 @@ Recharts/rAF, which need numbers). **No raw ms or bezier strings anywhere else.*
 
 - **Count-up is `hooks/useCountUp`** (rAF, slow/standard, `format` per content fundamentals —
   `"$391.0B"` — render in `tnum font-data`) — the `animate-count-up` keyframe is retired; it was a fade.
-- **Skeleton→content**: `animate-content-in` fires on the loading→loaded flip (wired in DataTable +
-  AskFilingAnswer) — never on first paint of never-loading views.
+- **Skeleton→content**: `hooks/useContentIn(loading)` returns `animate-content-in motion-reduce:animate-none`
+  from the render where `loading` turns false (DataTable, AskFilingAnswer, the account settings and
+  watchlist pages) — never on first paint of never-loading views. It catches the flip during render, so
+  the class lands on the same commit as the content it reveals.
+- **Loading**: a page never swaps itself for a full-page spinner. It renders its own frame and header, and
+  any control that needs no data (the watchlist's add field), over bones in the shapes of the cards that
+  will replace them (`/dashboard/settings`: Profile's fields and Save, Billing's rows; `/dashboard/watchlist`:
+  the insight card's name, actions and tiles; `app/dashboard/page.tsx` keeps its plainer card bones). The
+  header never moves and the first card lands where its bones stood. Raw bones are `aria-hidden`, so the
+  group carries one `role="status"` with a named wait ("Loading your settings"). Gate:
+  `tests/unit/fullPageSpinnerGate.spec.ts` (a `min-h-screen` element holding only spinners and sr-only
+  text), with a shrink-only allowlist of three server-seeded or legacy routes.
 - **Stagger**: `animate-fade-up-stagger` + `--stagger-index` (0-based; step = fast; capped at 4;
   first paint only). `fade-up-delay-1/2/3` are retired.
-- **Reduced motion**: one source — `hooks/usePrefersReducedMotion`. Every animation needs a fallback:
-  `animation: none` for transform entrances, static bone (shimmer), static tint (citation-flash),
-  instant final value (count-up, Recharts `lineProps(reduced)`), `scroll-behavior: auto`. Known
-  gaps include the `animate-fade-up` entrances in `app/login/page.tsx`, `RegisterForm` and `AuthShell`,
-  the streaming `animate-pulse` indicators in `CopilotMessage`, and standalone `animate-spin` loaders;
-  none has a `motion-reduce:` guard yet.
+- **Reduced motion**: one source for JS — `hooks/usePrefersReducedMotion`. Every animation stops. A
+  Tailwind `animate-*` utility has `motion-reduce:animate-none` beside it in the class text that always
+  renders with it, with the same variants in the same order (stacked `group-*`/`peer-*`/`after:` variants
+  compose the selector in sequence) and `!` when the animation has it, or is written `motion-safe:`: a
+  spinner becomes its static glyph,
+  a skeleton a static bone, an entrance shows at once. A `globals.css` animation class stops itself in a
+  `prefers-reduced-motion: reduce` block (citation-flash keeps a static tint). Count-up shows its final
+  value, Recharts takes `lineProps(reduced)`, `scroll-behavior` is `auto`. Gates: the
+  `earningsnerd/no-unguarded-animation` ESLint rule for the utilities; `tests/unit/designRules.spec.ts`
+  for the globals.css classes; `tests/e2e/loading-and-motion.spec.ts` finds no animation under reduced
+  motion on the home, sign-in and sign-up pages or in the dashboard loading states.
 - **Nothing decorative** — `animate-float` is retired. Signature set: count-up, citation-flash,
   skeleton→content, sparkline draw-in, check-pop.
 

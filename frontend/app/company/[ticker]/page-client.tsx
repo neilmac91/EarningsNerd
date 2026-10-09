@@ -228,7 +228,8 @@ export default function CompanyPageClient({ initialCompany, initialFilings }: Co
     retry: false,
   })
   // Ready means the filing page will show the summary: a placeholder ("Generating summary…") or a
-  // stored failure (its "Summary temporarily unavailable" card) is a row, not a summary to open.
+  // stored failure (its "Summary temporarily unavailable" card) is a row, not a summary to open. The
+  // company search's `summary_ready` applies the same rule, so a result and this lead agree.
   const summaryReady = isSummaryReady(latestSummary)
   // The primary action promises only what the filing page does: open a ready summary, start one where
   // the filing has none, and over a stored row it shows as its error card, just open the filing.
@@ -260,7 +261,7 @@ export default function CompanyPageClient({ initialCompany, initialFilings }: Co
   if (companyLoading) {
     return (
       <div role="status" aria-label="Loading company" className="min-h-screen flex items-center justify-center">
-        <CircleNotchIcon className="h-8 w-8 animate-spin text-brand-strong dark:text-brand-strong-dark" />
+        <CircleNotchIcon className="h-8 w-8 animate-spin motion-reduce:animate-none text-brand-strong dark:text-brand-strong-dark" />
         <span className="sr-only">Loading company…</span>
       </div>
     )

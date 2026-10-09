@@ -31,15 +31,7 @@
    preserved).
 ============================================================================= */
 
-import {
-  Fragment,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  type ComponentProps,
-  type ReactNode,
-} from 'react'
+import { Fragment, useMemo, type ComponentProps, type ReactNode } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { cx } from '@/components/ui/cx'
@@ -47,6 +39,7 @@ import { SEC_EDGAR_NOT_ADVICE } from '@/components/AiDisclaimer'
 import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
 import { SkeletonText } from '@/components/ui/Skeleton'
+import { useContentIn } from '@/hooks/useContentIn'
 
 export type CopilotStatus = 'reading' | 'streaming' | 'done' | 'error'
 
@@ -315,19 +308,9 @@ export function AskFilingAnswer({
 }: AskFilingAnswerProps) {
   const busy = status === 'reading' || status === 'streaming'
 
-  // Skeleton→content handoff (same pattern as DataTable): when status leaves
-  // 'reading', the replacing body — answer or error card — crossfades in at
-  // duration-base / ease-standard; instant under reduced motion.
-  const wasReading = useRef(status === 'reading')
-  const [entered, setEntered] = useState(false)
-  useEffect(() => {
-    const isReading = status === 'reading'
-    if (wasReading.current && !isReading) setEntered(true)
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- one-shot skeleton→content crossfade armed on the reading flip; intentional sync
-    if (isReading) setEntered(false)
-    wasReading.current = isReading
-  }, [status])
-  const enterClass = entered ? 'animate-content-in motion-reduce:animate-none' : undefined
+  // Skeleton→content handoff (hooks/useContentIn, as DataTable): when status leaves
+  // 'reading', the replacing body — answer or error card — crossfades in.
+  const enterClass = useContentIn(status === 'reading')
 
   const index = useMemo(() => buildIndex(citations), [citations])
   const mdComponents = useMemo(() => buildMdComponents(index, onCitationClick), [index, onCitationClick])
