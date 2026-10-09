@@ -126,6 +126,31 @@ describe('WhatChanged (A5)', () => {
     expect(table.getByText('▼')).toHaveAttribute('aria-hidden', 'true')
   })
 
+  it('shows the figure dash and speaks the direction when a zero prior leaves no display string', () => {
+    const fromZero: ChangeReport = {
+      ...baseReport,
+      metrics: {
+        ...baseReport.metrics!,
+        items: [
+          // No percentage is meaningful from zero: the server sends the direction and display null.
+          { metric: 'net_income', label: 'Net income', direction: 'up', pct: null, current: 5e6, prior: 0, display: null, tone: 'gain' },
+          { metric: 'operating_income', label: 'Operating income', direction: 'flat', pct: null, current: 0, prior: 0, display: null, tone: 'flat' },
+        ],
+      },
+    }
+    const { container } = render(<WhatChanged report={fromZero} />)
+    const table = within(container.querySelector<HTMLElement>('[data-change-layout="table"]')!)
+    const change = within(table.getByRole('row', { name: /Net income/ })).getAllByRole('cell')[2]
+    expect(change).toHaveTextContent(/^▲—Up$/)
+    expect(within(change).getByText('—')).toHaveAttribute('aria-hidden', 'true')
+    expect(within(change).getByText('Up')).toHaveClass('sr-only')
+    expect(within(table.getByRole('row', { name: /Operating income/ })).getAllByRole('cell')[2]).toHaveTextContent(/^—Unchanged$/)
+    // The stacked phone rows render the same Change.
+    const rows = within(container.querySelector<HTMLElement>('[data-change-layout="rows"]')!).getAllByRole('listitem')
+    expect(rows[0]).toHaveTextContent(/^Net income▲—Up/)
+    expect(rows[1]).toHaveTextContent(/^Operating income—Unchanged/)
+  })
+
   it('stacks each metric below sm with prior → current and "Read as" kept', () => {
     const { container } = render(<WhatChanged report={baseReport} />)
     const rows = container.querySelector<HTMLElement>('[data-change-layout="rows"]')!

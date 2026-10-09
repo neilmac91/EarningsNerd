@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { QueryClient, QueryClientProvider, onlineManager, useQuery } from '@tanstack/react-query'
 import type { ReactNode } from 'react'
 import type { Company } from '@/features/companies/api/companies-api'
@@ -431,6 +431,36 @@ describe('Company page', () => {
 
     await waitFor(() => expect(button).not.toBeInTheDocument())
     expect(document.activeElement).not.toBe(elsewhere)
+  })
+
+  it('keeps the filings error Notice and its focused Retry through the retry, then hands focus to the "SEC filings" heading', async () => {
+    api.getWatchlist.mockResolvedValue([])
+    api.getCompany.mockResolvedValue(company)
+    api.getSummary.mockResolvedValue(null)
+    api.getCurrentUserSafe.mockResolvedValue({ id: 1, email: 'a@example.test' })
+    // No seed, and the filings query retries once before it reports the failure.
+    api.getCompanyFilings.mockRejectedValueOnce(new Error('down')).mockRejectedValueOnce(new Error('down'))
+    renderWithClient(<CompanyPageClient initialCompany={company} />)
+
+    const alert = await screen.findByRole('alert', {}, { timeout: 5000 })
+    expect(alert).toHaveTextContent('Couldn’t load filings')
+    const retry = within(alert).getByRole('button', { name: 'Retry' })
+    const refetch = deferred<Filing[]>()
+    api.getCompanyFilings.mockReturnValue(refetch.promise)
+    retry.focus()
+    fireEvent.click(retry)
+
+    // An errored list has no data, so its retry goes back to pending: the Notice stays, not the
+    // skeleton, with the pressed Retry busy and focused.
+    await waitFor(() => expect(retry).toHaveAttribute('aria-busy', 'true'))
+    expectBusyAndFocused(retry)
+    expect(screen.getByRole('alert')).toBe(alert)
+    expect(screen.queryByRole('status', { name: 'Loading filings' })).not.toBeInTheDocument()
+
+    await act(async () => refetch.resolve(filings))
+    await waitFor(() => expect(screen.queryByRole('alert')).not.toBeInTheDocument())
+    expect(screen.getByRole('link', { name: /^10-K\s+Fiscal year ended Sep 27, 2025/ })).toBeInTheDocument()
+    expect(document.activeElement).toBe(screen.getByRole('heading', { name: 'SEC filings' }))
   })
 })
 
