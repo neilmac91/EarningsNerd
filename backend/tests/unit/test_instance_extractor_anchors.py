@@ -47,8 +47,10 @@ class _FactQuery:
         self._frames = frames
         self._rows = None
 
-    def by_concept(self, concept, exact=True):
-        assert exact is True
+    def by_concept(self, concept, exact=False):
+        # The default mirrors edgartools, which matches by regex unless exact=True is passed, so a
+        # call that drops the flag fails here instead of passing on the fake's default.
+        assert exact is True, f"by_concept({concept!r}) without exact=True matches by regex in edgartools"
         self._rows = self._frames.get(concept)
         return self
 
