@@ -135,6 +135,23 @@ def test_duplicate_email_returns_already_registered(client, emails):
     assert len(emails["welcome"]) == 1  # no second welcome email
 
 
+def test_existing_email_is_checked_before_the_referral_code(client, session_factory, emails):
+    """A rejoin with a bad referral code is still answered as already_registered (200), not as
+    invalid_referral (400): the existing-email check runs before the referral lookup."""
+    email = _email()
+    first = _join(client, email=email)
+    assert first.status_code == 200 and first.json()["success"] is True
+
+    rejoin = _join(client, email=email, referral_code="nosuch01")
+    assert rejoin.status_code == 200, rejoin.text
+    body = rejoin.json()
+    assert body["success"] is False and body["error"] == "already_registered"
+    assert body["referral_code"] == first.json()["referral_code"]
+    with session_factory() as s:
+        assert s.query(WaitlistSignup).filter_by(email=email).count() == 1
+    assert len(emails["welcome"]) == 1
+
+
 def test_valid_referral_bumps_referrer_priority_and_sends_referral_email(client, session_factory, emails):
     referrer_email = _seed_referrer(session_factory, code="ref00001")
     resp = _join(client, email=_email(), referral_code="REF00001")  # normalised to lower-case
