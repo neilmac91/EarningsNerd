@@ -2,12 +2,12 @@
 
 One page, newest first, one line per open item with its owner and next step. Holds are pointers,
 never restated here. This file replaced the ledger on 2026-10-07; the ledger is
-`archive/todo-ledger-through-2026-10-07.md` (6,485 lines, June 2026 → closure 167 of 8 October 2026;
+`archive/todo-ledger-through-2026-10-07.md` (6,514 lines, June 2026 → closure 169 of 9 October 2026;
 ledger-format entries merged to `main` after the ledger closed were moved there unchanged) and its
 unchecked rows are history unless an item below carries them. Format: `AGENTS.md` §7. Close an item by
 deleting its line in the PR that closes it; a handover is a refresh of "Where things stand".
 
-## Where things stand — 2026-10-08
+## Where things stand — 2026-10-09
 
 - Production: the last recorded state is the ledger's "2026-10-04 — CODE RED chief takeover"
   section and its records under `code-red-20261004/runtime/`; verify the latest `deploy-backend`
@@ -21,7 +21,9 @@ deleting its line in the PR that closes it; a handover is a refresh of "Where th
   behaviour) and #1126 (process gates, stacked on #1118) drafts. #1108 (EN-03), #1110 (CODE RED
   records gate), #1112 (PR disposition sweep), #1113 (EN-01 follow-up), #1120 (EN-05 part b), #1128,
   #1129 and #1130 (CODE RED record 16 and the prompt-candidate custody kit) merged on 2026-10-08;
-  record 16 (`code-red-20261004/runtime/control/DECISIONS-16.md`) is the latest CODE RED record.
+  #1131 (D3 stage 1, deployed), #1132 (record 17), #1145 (the backend suite made hermetic, with
+  `tests/support/network_gate.py` as its gate) and #1149 (record 18) merged on 2026-10-08/09;
+  record 18 (`code-red-20261004/runtime/control/DECISIONS-18.md`) is the latest CODE RED record.
 - Review and models: PRs are reviewed by risk tier (`AGENTS.md` §5); `review-gate.yml` needs a Codex
   review or a `Review override:` line; Codex reviews again since 2026-10-07, so the override
   exception rests while it does (CODE RED record 15). Marking a PR ready for review triggers the
@@ -32,8 +34,9 @@ deleting its line in the PR that closes it; a handover is a refresh of "Where th
 
 Founder:
 - [ ] Optional, no deadline: relay record 16's custody step A (five metadata fields) once; on outcome B, the one line "I adopt record 16's form (b) for R1" (`code-red-20261004/runtime/control/DECISIONS-16.md`; the record-14 relay is replaced by it, and the D3 patch of `DECISIONS-08.md` is applied by your instruction, staged).
-- [ ] Optional, now: the D3 staging answer rested on an overstated premise (the insider panel is off in production; `DECISIONS-16.md`) — say "pin the API service now" to pin it with stage 1, otherwise staging stands.
-- [ ] Before durable tasks are enabled: the Monday 07:00 UTC overlap is then 12 req/s configured against SEC's 10 (`DECISIONS-16.md`) — move a Monday job, hold the worker off in that window, or accept it.
+- [ ] Move `backfill-facts-weekly` to `30 7 * * 1` before the D3 stage-2 PR merges (`gcloud scheduler jobs update http backfill-facts-weekly --location=us-west1 --schedule="30 7 * * 1"`; check with `gcloud scheduler jobs describe backfill-facts-weekly --location=us-west1 --format="value(schedule,timeZone)"`, expect `30 7 * * 1` and `Etc/UTC`); tell the chief (`DECISIONS-17.md`, `DECISIONS-18.md`).
+- [ ] Durable-tasks rollout owner (the rollout with D3 stage 1 confirmed intended): run the post-deploy checks in `docs/DEPLOYMENT.md` (authenticated task success, retries and errors, API latency, SQL connections) (`DECISIONS-17.md`).
+- [ ] Optional: set the repository's squash default to "Default to pull request title and description", so a squash merge without an explicit message carries the reviewed PR text (`DECISIONS-18.md`, chief defect 7).
 - [ ] With Astra: the H20-only packing/closure refinement by the registered source-only planner (`DECISIONS-04.md`, `DECISIONS-05.md`; ledger, CODE RED section, which records the implementation hold).
 - [ ] Console actions from the private security remediation plan: credential rotation and push protection, removing the old revision tags, scoping the WIF trust to `main` (PR #1069 follow-up; not code).
 - [ ] Decide the founder decisions listed in the agent-workflow-cost PR (review tiers, repository visibility, the review-gate override, `tasks/` retention).
@@ -42,8 +45,8 @@ Founder:
 - [ ] Publish an archive repository or release asset for the removed `frontend/design/landing-redesign` export (a public-account action); until then its 34 files are preserved at commit `02628e5`.
 
 Engineering:
-- [ ] D3 stage 1 PR (the eight jobs and the task worker pinned; reservation before ready; deploy verified), then stage 2 (the insider endpoint within the budget; the API service pinned; `eval-baseline` reserved before its first `backend/app/` push, draft or not) (`DECISIONS-16.md`).
-- [ ] Make the backend suite hermetic: 11 tests send live requests to SEC (efts, data, www) and Yahoo Finance on every full run, CI included (`DECISIONS-16.md`); fix them and land an outbound-network block in the test configuration as the rule-12 gate (check rule 6 before touching any locked SSE contract test).
+- [ ] D3 stage-2 PR, option A (the insider endpoint behind a server-side switch, off unless set; the always-failing fuzzy-search fallback deleted; the API service pinned; the gate's staged exemption removed; docs and the schedule line updated; the deploy job printing its variable-driven switches, with a test): implemented, reviewed and held on a local branch until record 18 merged, which it has (`76d45732`); every push that fires `eval-baseline` is reserved at USD 0.730000 first (`DECISIONS-17.md`, `DECISIONS-18.md`).
+- [ ] Workflow owner: `review-gate.yml:61` re-runs the gate on any comment containing "@codex review", Codex's own summary boilerplate included, which cancelled a required run on PR #1131 (`DECISIONS-17.md`); exclude the Codex connector's comments.
 - [ ] Docs-vs-config: `docs/OPERATIONS.md` alert threshold `database.checked_out > 8` is unreachable with the deployed pool 4 / overflow 0 (handback B33); fix the doc.
 - [ ] Security review packages WP-07 onward, each in its own PR (PR #1069 series).
 - [ ] Frontend deferred, named: EN-04, EN-05 (a) the desktop close path for a launcher-, ⌘K-, "/"-, CTA- or coachmark-opened pane and (c) the logo, theme toggle and "← Back" focus rings (part (b), a failed generation's focus, merged in #1120), focus after a generation that succeeds, the desktop pane's unscrolled overhang for a chip-opened Filing tab, risk-card headlines, detector and doc cleanups, the harness `verify_probe.mjs` / `verify_trace.mjs` consent seed (ledger, "2026-10-06 — EN-02"); from the EN-01 follow-up and EN-03 sections (merged 2026-10-08): memoizing CopilotMessage's
@@ -56,5 +59,5 @@ Engineering:
 
 ## What to doubt first
 
-- An item above may already be closed by a PR merged after 2026-10-08: check `git log` before starting it.
+- An item above may already be closed by a PR merged after 2026-10-09: check `git log` before starting it.
 - The ledger's older unchecked rows and the dated handovers are not a queue (`AGENTS.md` §1).

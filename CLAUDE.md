@@ -136,7 +136,10 @@ Infra: `docker-compose up -d postgres redis` (local only — prod has no Redis).
   through `lib/api/client.ts` (raw `fetch` only for SSE readers and Next ISR/server fetches);
   blob downloads via `lib/downloadBlob.ts`.
 - **Tests:** `backend/tests/{unit,integration,smoke,performance}` (conftest sets a hermetic mock
-  env incl. `SKIP_REDIS_INIT=true` — patch `settings`, not env vars) and `frontend/tests/{unit,e2e}`.
+  env incl. `SKIP_REDIS_INIT=true` — patch `settings`, not env vars — and registers
+  `tests/support/network_gate.py`: an in-process attempt to reach a non-loopback host is blocked
+  and fails the test that made it, or the session for a stray; subprocesses and C-level clients
+  are outside it, so fake the boundary (SEC, Yahoo, Resend)) and `frontend/tests/{unit,e2e}`.
   NO other test roots — a test outside these does not run in CI (gate:
   `frontend/tests/unit/testHomesAllowlist.spec.ts`; its one exemption is the hash-sealed judging
   fixture pinned by a `code-sha256.json` in its package; offline proof run by the operator, not CI).
