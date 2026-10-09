@@ -209,7 +209,8 @@ def test_annotations_are_evaluated_unless_the_module_postpones_them():
 
 def test_the_old_symbols_in_each_new_file_keep_their_old_order():
     """Module-level code runs top to bottom: ``B = A`` above ``A = 1`` raises at import, with every symbol's
-    text unchanged. Order is checked within each new file, so a split across files is free to regroup."""
+    text unchanged, and moving a rebinding changes a value silently. Order is checked per binding within
+    each new file, so a split across files is free to regroup."""
     report = compare("A = 1\nB = A\n", {"app/x/a.py": "B = A\nA = 1\n"})
     assert not report.ok
     assert report.reordered == {"A": "app/x/a.py: now after B, which it preceded"}
@@ -218,6 +219,10 @@ def test_the_old_symbols_in_each_new_file_keep_their_old_order():
     members = compare("class C:\n    A = 1\n    B = A\n", {"app/x/a.py": "class C:\n    B = A\n    A = 1\n"})
     assert members.reordered == {"C.A": "app/x/a.py: now after C.B, which it preceded"}
     assert compare("A = 1\nB = A\n", {"app/x/a.py": "B = A\nA = 1\n"}, frozenset({"A"})).ok
+    # Every binding of a rebound name keeps its place: B silently becomes 2, with every text unchanged.
+    rebound = compare("A = 1\nB = A\nA = 2\n", {"app/x/a.py": "A = 1\nA = 2\nB = A\n"})
+    assert rebound.reordered == {"B": "app/x/a.py: now after A, which it preceded"}
+    assert compare("A = 1\nB = A\nA = 2\n", {"app/x/a.py": "A = 1\nB = A\nA = 2\n"}).ok
 
 def test_an_added_import_time_side_effect_fails_until_disclosed():
     files = _move(**{"app/x/helpers.py": HELPERS + "\nsettings.STRICT = False\nregister(clip)\n"})

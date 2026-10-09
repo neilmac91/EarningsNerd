@@ -24,22 +24,25 @@ in source order, so a change to any one of them is CHANGED. Import statements an
 not symbols: a move rewrites them by design.
 
 Verdicts: MISSING (defined before, nowhere after), CHANGED (the normalised text differs), DUPLICATE
-(defined in more than one new file, e.g. a ``logger`` per sub-module, whose logger NAME changes with
-the module), SIDE EFFECT (a NEW symbol that runs code at import, which a move never adds; default
-deny, at the statement and the expression level: only a docstring or literal, an assignment of a
-literal, a name, or a display of those to plain names, and a def or class whose decorators, defaults
-and annotations are inert, is inert. Defaults must be such values; annotations must be bare names or
-literals unless the module has ``from __future__ import annotations``; class bases must be plain names;
-a def's or lambda's body runs later and is not read. ``property``, ``staticmethod``, ``classmethod``,
-``dataclass`` and the like are inert decorators; a class keyword such as ``metaclass=`` is not; a call,
-subscript, attribute read, operator or unpacking in a value is not), REORDERED (an old symbol that now
-sits above one it followed in the same new file: module-level code runs top to bottom, so ``B = A``
-above ``A = 1`` raises at import) and ADDED (other new symbols, such as the helpers a split introduces,
-or a façade's ``__all__``). Limit: code that a new class runs through a BASE (an inherited metaclass, or
-the base's ``__init_subclass__``) is not visible in the AST, so a new class with bases is ADDED; read every
-ADDED class's bases. The exit status is 0 only when nothing is MISSING, CHANGED, DUPLICATE, SIDE EFFECT or
-REORDERED beyond the symbols passed with ``--allow``; each allowed symbol is a disclosed delta the PR body
-must list, and its diff is printed with it.
+(defined in more than one new file, e.g. a ``logger`` per sub-module, whose logger NAME changes with the
+module), SIDE EFFECT (a NEW symbol that runs code at import, which a move never adds; default deny, at the
+statement and the expression level: only a docstring or literal, an assignment of a literal, a name, or a
+display of those to plain names, and a def or class whose decorators, defaults and annotations are inert,
+is inert. Defaults must be such values; annotations must be bare names or literals unless the module has
+``from __future__ import annotations``; class bases must be plain names; a def's or lambda's body runs
+later and is not read. ``property``, ``staticmethod``, ``classmethod``, ``dataclass`` and the like are
+inert decorators; a class keyword such as ``metaclass=`` is not; a call, subscript, attribute read,
+operator or unpacking in a value is not), REORDERED (an old binding that now sits above one it followed in
+the same new file, every binding of a rebound name counted: module-level code runs top to bottom, so
+``B = A`` above ``A = 1`` raises at import, and ``A = 1; A = 2; B = A`` binds ``B`` to 2 where
+``A = 1; B = A; A = 2`` bound it to 1) and ADDED (other new symbols, such as the helpers a split
+introduces, or a façade's ``__all__``). Limit: code that a new class runs through a BASE (an inherited
+metaclass, or the base's ``__init_subclass__``) is not visible in the AST, so a new class with bases is
+ADDED; read every ADDED class's bases. Names are not resolved: a new symbol that loads an unbound name
+raises NameError at import, which every test that imports the module, and the app's own startup, fails on
+loudly. The exit status is 0 only when nothing is MISSING, CHANGED, DUPLICATE, SIDE EFFECT or REORDERED
+beyond the symbols passed with ``--allow``; each allowed symbol is a disclosed delta the PR body must
+list, and its diff is printed with it.
 """
 from __future__ import annotations
 
@@ -246,27 +249,28 @@ def symbols(source: str) -> dict[str, str]:
     return _collect(source)[0]
 
 
-def _collect(source: str) -> tuple[dict[str, str], dict[str, int]]:
-    """Every symbol's normalised text, and the line where it is first defined (its initialisation order)."""
+def _collect(source: str) -> tuple[dict[str, str], list[str]]:
+    """Every symbol's normalised text, and every binding occurrence's key in source order (its
+    initialisation order: a name bound twice appears twice)."""
     tree = ast.parse(source)
     found: dict[str, str] = {}
-    first_line: dict[str, int] = {}
+    occurrences: list[tuple[int, int, int, str]] = []
 
-    def put(key: str, text: str, line: int) -> None:
+    def put(key: str, text: str, node: ast.AST) -> None:
         found[key] = f"{found[key]}\n{text}" if key in found else text  # every definition, in source order
-        first_line[key] = min(first_line.get(key, line), line)
+        occurrences.append((node.lineno, node.col_offset, len(occurrences), key))
 
     body = list(tree.body)
     if body and _is_docstring(body[0]):
         body = body[1:]  # the module docstring is rewritten by a move by design
     for guard in _guards(body):
         if _holds_code(guard):
-            put("guard:" + _guard_header(guard), ast.unparse(_without_imports(guard)), guard.lineno)
+            put("guard:" + _guard_header(guard), ast.unparse(_without_imports(guard)), guard)
     for node in _flatten(body):
         if isinstance(node, (ast.Import, ast.ImportFrom)):
             continue
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
-            put(node.name, ast.unparse(node), node.lineno)
+            put(node.name, ast.unparse(node), node)
         elif isinstance(node, ast.ClassDef):
             members = [m for m in _flatten(node.body) if not isinstance(m, (ast.Import, ast.ImportFrom))]
             header = ast.ClassDef(
@@ -274,11 +278,10 @@ def _collect(source: str) -> tuple[dict[str, str], dict[str, int]]:
                 body=[ast.Pass()], decorator_list=node.decorator_list,
                 **({"type_params": node.type_params} if hasattr(node, "type_params") else {}),
             )
-            put(node.name, ast.unparse(ast.fix_missing_locations(header)), node.lineno)
+            put(node.name, ast.unparse(ast.fix_missing_locations(header)), node)
             for guard in _guards(node.body):
                 if _holds_code(guard):
-                    put(f"{node.name}.guard:{_guard_header(guard)}", ast.unparse(_without_imports(guard)),
-                        guard.lineno)
+                    put(f"{node.name}.guard:{_guard_header(guard)}", ast.unparse(_without_imports(guard)), guard)
             for member in members:
                 if isinstance(member, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
                     key = member.name
@@ -290,17 +293,17 @@ def _collect(source: str) -> tuple[dict[str, str], dict[str, int]]:
                     continue
                 else:
                     key = "expr:" + ast.unparse(member)
-                put(f"{node.name}.{key}", ast.unparse(member), member.lineno)
+                put(f"{node.name}.{key}", ast.unparse(member), member)
         elif isinstance(node, ast.Assign):
-            put(_assignment_key(node.targets), ast.unparse(node), node.lineno)
+            put(_assignment_key(node.targets), ast.unparse(node), node)
         elif isinstance(node, (ast.AnnAssign, ast.AugAssign)):
-            put(_assignment_key([node.target]), ast.unparse(node), node.lineno)
+            put(_assignment_key([node.target]), ast.unparse(node), node)
         elif isinstance(node, ast.Pass):
             continue
         else:
             text = ast.unparse(node)
-            put("expr:" + text, text, node.lineno)
-    return found, first_line
+            put("expr:" + text, text, node)
+    return found, [key for *_, key in sorted(occurrences)]
 
 
 @dataclass
@@ -337,7 +340,7 @@ def compare(old_source: str, new_sources: dict[str, str], allow: frozenset[str] 
     """Diff the old file's symbols against the union of the new files' symbols, and check that the old
     symbols each new file holds keep their old relative order (module-level code runs top to bottom, so
     ``B = A`` above ``A = 1`` raises at import)."""
-    old, old_lines = _collect(old_source)
+    old, old_order = _collect(old_source)
     collected = {path: _collect(src) for path, src in new_sources.items()}
     new_by_file = {path: texts for path, (texts, _) in collected.items()}
     where: dict[str, list[str]] = {}
@@ -373,17 +376,28 @@ def compare(old_source: str, new_sources: dict[str, str], allow: frozenset[str] 
             report.side_effects[name] = homes[0]
         else:
             report.added[name] = homes[0]
-    old_rank = {name: rank for rank, name in enumerate(sorted(old, key=old_lines.__getitem__))}
-    for path, (texts, lines) in collected.items():
-        placed = sorted((n for n in texts if n in old_rank and n not in allow and where[n] == [path]),
-                        key=lines.__getitem__)
-        latest = None  # the held symbol that came latest in the old file, so far
-        for name in placed:
-            if latest is not None and old_rank[name] < old_rank[latest]:
-                report.reordered[name] = f"{path}: now after {latest}, which it preceded"
+    old_rank = _occurrence_ranks(old_order)
+    for path, (_, order) in collected.items():
+        latest: tuple[str, int] | None = None  # the held occurrence that came latest in the old file, so far
+        for occurrence in _occurrence_ranks(order):
+            name = occurrence[0]
+            if occurrence not in old_rank or name in allow or where[name] != [path]:
+                continue
+            if latest is not None and old_rank[occurrence] < old_rank[latest]:
+                report.reordered.setdefault(name, f"{path}: now after {latest[0]}, which it preceded")
             else:
-                latest = name
+                latest = occurrence
     return report
+
+
+def _occurrence_ranks(order: list[str]) -> dict[tuple[str, int], int]:
+    """(key, its n-th binding) -> position, so a rebound name keeps every binding's place in the order."""
+    seen: dict[str, int] = {}
+    ranks: dict[tuple[str, int], int] = {}
+    for position, key in enumerate(order):
+        ranks[(key, seen.get(key, 0))] = position
+        seen[key] = seen.get(key, 0) + 1
+    return ranks
 
 
 def _git_show(ref: str, rel_path: str) -> str:
