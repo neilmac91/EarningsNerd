@@ -113,15 +113,34 @@ const count = (text: string, ch: string): number => text.split(ch).length - 1
 
 const isFunctionWord = (word: string): boolean => FUNCTION_WORDS.has(bare(word).toLowerCase())
 
-// A right single quotation mark between letters is an apostrophe ("Company’s", "don’t"), not a close.
-const APOSTROPHE = /(?<=\p{L})’(?=\p{L})/gu
+const LETTER = /\p{L}/u
+
+/**
+ * Whether a curly single quotation is still open at the end of the text. "’" is also the apostrophe,
+ * so it is read in order: it closes only a quotation already open, and never when it reads as an
+ * apostrophe, between letters ("Company’s") or after an s ("customers’ agreements"). That last case
+ * is ambiguous ("‘annual reviews’" closes there), so it errs open: the headline stops before the
+ * quotation rather than risk leaving it unclosed.
+ */
+const singleQuoteOpen = (text: string): boolean => {
+  let depth = 0
+  for (let i = 0; i < text.length; i++) {
+    if (text[i] === '‘') depth++
+    else if (text[i] === '’' && depth > 0) {
+      const before = text[i - 1] ?? ''
+      const apostrophe = LETTER.test(before) && (LETTER.test(text[i + 1] ?? '') || /[sS]/.test(before))
+      if (!apostrophe) depth--
+    }
+  }
+  return depth > 0
+}
 
 /** Whether the text leaves a bracket or a quotation open: ( [ “ ‘ or a straight double quote. */
 const leavesOpen = (text: string): boolean =>
   count(text, '(') > count(text, ')') ||
   count(text, '[') > count(text, ']') ||
   count(text, '“') > count(text, '”') ||
-  count(text, '‘') > count(text.replace(APOSTROPHE, ''), '’') ||
+  singleQuoteOpen(text) ||
   count(text, '"') % 2 === 1
 
 /** Whether ending a headline after tokens[i] would split something the reader needs whole. */

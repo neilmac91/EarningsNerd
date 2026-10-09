@@ -301,6 +301,13 @@ describe('deriveRiskHeadline', () => {
         0,
       ),
     ).toBe('Our largest customer has described its supply arrangements with us…')
+    // A plural possessive before the quotation ("customers’") does not close it either.
+    expect(
+      deriveRiskHeadline(
+        'Our customers’ agreements describe these supply arrangements as ‘subject to annual renegotiation at the customer’s sole discretion’ in each of the last three years.',
+        0,
+      ),
+    ).toBe('Our customers’ agreements describe these supply arrangements…')
   })
 
   it('keeps the excerpt’s own whitespace and casing (verbatim, not normalised)', () => {
