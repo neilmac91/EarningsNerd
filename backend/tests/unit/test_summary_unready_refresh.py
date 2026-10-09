@@ -16,7 +16,7 @@ Keep-better protects only a row the page shows: a refresh that comes back below 
 stored tier still replaces it. A refresh that fails saves nothing, so the stored row survives for
 the next retry. An unready row counts as a missing summary throughout: the route clears nothing for
 it (no XBRL, no progress), and the pipeline re-reads it at admission, after a joined leader
-finishes, and at save. The locked anchors (test_summary_request_evidence, the background
+finishes, and at save, under the row lock its write takes. The locked anchors (test_summary_request_evidence, the background
 characterization) are untouched; their stored bodies are ready.
 """
 import asyncio
@@ -277,6 +277,36 @@ def test_a_row_made_ready_during_generation_is_kept_not_replaced():
     assert response.status_code == 200
     summarize.assert_awaited_once()
     assert _stored(filing_id)[:2] == (stored_id, OTHER_READY)
+
+
+def test_the_save_reads_the_row_under_the_lock_its_write_takes():
+    # Codex review on #1166 (P1): two instances refreshing one unready row could both read it as unready
+    # at save, and the later commit overwrote the first ready summary. The save's read takes the row lock
+    # its UPDATE takes, so on PostgreSQL the later save waits for that commit and reads the ready row
+    # (the case above keeps it). SQLite omits the clause, so this pins the read as PostgreSQL runs it.
+    from sqlalchemy import event
+    from sqlalchemy.dialects import postgresql
+    from sqlalchemy.orm import Session
+
+    filing_id = seed_company_filing()
+    _seed_summary(filing_id, FAILURE_FILLER)
+    reads = []
+
+    def record(state):
+        if state.is_select and any(mapper.class_ is Summary for mapper in state.all_mappers):
+            reads.append(str(state.statement.compile(dialect=postgresql.dialect())))
+
+    event.listen(Session, "do_orm_execute", record)
+    try:
+        with stream_boundaries():
+            response = _post(filing_id)
+    finally:
+        event.remove(Session, "do_orm_execute", record)
+
+    assert response.status_code == 200
+    assert _stored(filing_id)[1] != FAILURE_FILLER
+    locked = [sql for sql in reads if "FOR NO KEY UPDATE" in sql]
+    assert len(locked) == 1, reads  # the save's read; admission and join reads take no lock
 
 
 def test_a_forced_retry_with_no_row_serves_a_summary_saved_in_between(monkeypatch):

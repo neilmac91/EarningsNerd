@@ -1330,8 +1330,16 @@ async def stream_filing_summary(
                     if force_regenerate:
                         # Admin refresh-stale: UPDATE the existing row IN PLACE (preserve summaries.id so
                         # the saved_summaries FK/bookmark survives and UNIQUE(filing_id) holds) instead of
-                        # delete+insert, guarded by a keep-better gate.
-                        existing = session.query(Summary).filter(Summary.filing_id == filing_id).first()
+                        # delete+insert, guarded by a keep-better gate. The read takes the row lock the
+                        # UPDATE takes, so the checks below hold until this commit: another instance's save
+                        # commits first and is read here, never lands between this read and the write.
+                        # SQLite omits the clause; PostgreSQL emits FOR NO KEY UPDATE (FK key-share safe).
+                        existing = (
+                            session.query(Summary)
+                            .filter(Summary.filing_id == filing_id)
+                            .with_for_update(key_share=True)
+                            .first()
+                        )
                         if existing is not None:
                             stored_raw = existing.raw_summary if isinstance(existing.raw_summary, dict) else {}
                             stored_tier = (stored_raw.get("quality") or {}).get("tier")
