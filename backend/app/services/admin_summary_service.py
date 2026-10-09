@@ -8,6 +8,7 @@ never generates on its own.
 from __future__ import annotations
 
 import logging
+from collections.abc import Iterator, Sequence
 from dataclasses import dataclass
 from typing import Optional
 
@@ -22,7 +23,7 @@ from app.services.summary_versioning import is_stale
 logger = logging.getLogger(__name__)
 
 
-def _chunked(seq, size=900):
+def _chunked(seq: Sequence[int], size: int = 900) -> Iterator[Sequence[int]]:
     """Yield successive `size`-length slices so a bulk IN(...) can't exceed a DB parameter cap
     (SQLite's 999, PostgreSQL's bind-parameter ceiling)."""
     for i in range(0, len(seq), size):
