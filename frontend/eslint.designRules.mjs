@@ -16,12 +16,24 @@
 //                       that reads a filing-type field, or holds a literal form code (string,
 //                       template or text), in its children or in a prop that styles it. Descriptive
 //                       props (title, alt, aria-*) may name the form: they describe, not display.
+//   no-unguarded-animation (P-09) Every Tailwind animation utility stops under reduced motion
+//                       (WCAG 2.3.3): `motion-safe:animate-x`, or `animate-x` beside a
+//                       `motion-reduce:animate-none` with the same variants in the class text that
+//                       always renders with it. Same variants, because a variant can raise the
+//                       animation's specificity (`dark:`, `group-hover:`) or move it later in the
+//                       stylesheet (`md:`), and then a bare guard loses: `[&>:last-child]:after:
+//                       animate-pulse` needs `motion-reduce:[&>:last-child]:after:animate-none`. A
+//                       spinner becomes its static glyph, a skeleton a static bone, an entrance
+//                       shows at once. The globals.css classes that stop themselves in a
+//                       reduced-motion block (SELF_GUARDED_ANIMATIONS) need no guard; the spec holds
+//                       each of them, and every other animation globals.css declares, to that block.
 //
 // Out of scope, as for every class-string rule here: a class name assembled from fragments at
-// runtime, a form code reaching a Badge through a renamed variable (data-flow, not syntax), and a
-// Badge imported under another name.
+// runtime, a form code reaching a Badge through a renamed variable (data-flow, not syntax), a
+// Badge imported under another name, and an animation set outside a class utility (an arbitrary
+// `[animation:…]` property, an inline style).
 
-import { branchTexts, classUnitVisitors, parseClassToken } from './eslint.gridBaseTrack.mjs'
+import { branchTexts, classUnitVisitors, parseClassToken, splitClassToken } from './eslint.gridBaseTrack.mjs'
 
 const STRIPE_WIDTH = /^border-[ls]-(2|4|8|\[[^\]]+\])$/
 const ROUNDED = /^rounded(-|$)/
@@ -123,5 +135,65 @@ export const noFormCodeBadge = {
   },
 }
 
-const plugin = { rules: { 'no-side-stripe': noSideStripe, 'no-form-code-badge': noFormCodeBadge } }
+/** globals.css classes that stop themselves in a `prefers-reduced-motion: reduce` block, so a use
+ *  site needs no guard. tests/unit/designRules.spec.ts reads globals.css to hold each one to it. */
+export const SELF_GUARDED_ANIMATIONS = new Set(['animate-fadeIn', 'animate-check-pop', 'animate-on-scroll'])
+
+const MOTION_REDUCE = 'motion-reduce'
+const isAnimation = (utility) =>
+  utility.startsWith('animate-') && utility !== 'animate-none' && !SELF_GUARDED_ANIMATIONS.has(utility)
+const sameVariants = (a, b) => a.length === b.length && a.every((v) => b.includes(v))
+
+/** The first animation in `classText` that keeps moving under reduced motion, with the guard that
+ *  stops it and its motion-safe spelling (`{ token, guard, safe }`), else null. */
+export function unguardedAnimation(classText) {
+  const tokens = classText.split(/\s+/).filter(Boolean).map((raw) => ({ raw, ...splitClassToken(raw) }))
+  const guards = tokens
+    .filter((t) => t.utility === 'animate-none' && t.variants.includes(MOTION_REDUCE))
+    .map((t) => t.variants.filter((v) => v !== MOTION_REDUCE))
+  for (const t of tokens) {
+    if (!isAnimation(t.utility) || t.variants.includes('motion-safe')) continue
+    if (guards.some((variants) => sameVariants(variants, t.variants))) continue
+    const variants = t.variants.filter((v) => v !== MOTION_REDUCE)
+    return {
+      token: t.raw,
+      guard: [MOTION_REDUCE, ...variants, 'animate-none'].join(':'),
+      safe: ['motion-safe', ...variants, t.utility].join(':'),
+    }
+  }
+  return null
+}
+
+export const noUnguardedAnimation = {
+  meta: {
+    type: 'problem',
+    docs: { description: 'Every animation utility stops under reduced motion.' },
+    schema: [],
+    messages: {
+      unguarded:
+        '{{token}} keeps moving under reduced motion (WCAG 2.3.3). Add {{guard}} in the class text that ' +
+        'always renders with it, or write {{safe}}: a spinner becomes its static glyph, a skeleton a ' +
+        'static bone, an entrance shows at once.',
+    },
+  },
+  create(context) {
+    return classUnitVisitors((node, pieces) => {
+      for (const text of branchTexts(pieces)) {
+        const found = unguardedAnimation(text)
+        if (found) {
+          context.report({ node, messageId: 'unguarded', data: found })
+          return
+        }
+      }
+    })
+  },
+}
+
+const plugin = {
+  rules: {
+    'no-side-stripe': noSideStripe,
+    'no-form-code-badge': noFormCodeBadge,
+    'no-unguarded-animation': noUnguardedAnimation,
+  },
+}
 export default plugin

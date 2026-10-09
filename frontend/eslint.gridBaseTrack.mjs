@@ -45,9 +45,9 @@ const CLASS_HELPERS = new Set(['cx', 'clsx', 'cn', 'classNames', 'classnames', '
 
 /** Split a class token into variants and utility: `md:hover:!grid-cols-3` →
  *  { variants: ['md', 'hover'], utility: 'grid-cols-3' }. Colons inside `[…]`/`(…)` (arbitrary
- *  variants and values) do not split. Returns null for a token whose variant styles other elements
- *  (`*:`, `[&>div]:`, `[&_p]:`), because those classes do not size this element's tracks. */
-export function parseClassToken(token) {
+ *  variants and values) do not split. Every variant is kept, including those that style other
+ *  elements. */
+export function splitClassToken(token) {
   const parts = []
   let depth = 0
   let start = 0
@@ -65,6 +65,13 @@ export function parseClassToken(token) {
   // whole token.
   const utility = parts.pop().replace(/^!|!$/g, '')
   const variants = parts.map((v, i) => (i === 0 ? v.replace(/^!/, '') : v))
+  return { variants, utility }
+}
+
+/** `splitClassToken`, or null for a token whose variant styles other elements (`*:`, `[&>div]:`,
+ *  `[&_p]:`), because those classes do not size this element's tracks. */
+export function parseClassToken(token) {
+  const { variants, utility } = splitClassToken(token)
   // A combinator inside parentheses (`[&:has(>img)]`) still selects this element; only one outside
   // them styles another element. Parentheses that contain the `&` itself keep their content
   // (`[:where(&_.foo)]`, `[:where(&)>div]`), so a combinator next to it still counts.

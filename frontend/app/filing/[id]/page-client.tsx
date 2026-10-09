@@ -229,7 +229,7 @@ function FilingDetailView({ filingId, initialFiling, initialSummary, initialChan
   if (filingLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background-light dark:bg-background-dark">
-        <CircleNotchIcon className="h-8 w-8 animate-spin text-brand-strong dark:text-brand-strong-dark" />
+        <CircleNotchIcon className="h-8 w-8 animate-spin motion-reduce:animate-none text-brand-strong dark:text-brand-strong-dark" />
       </div>
     )
   }
@@ -354,7 +354,7 @@ function FilingDetailView({ filingId, initialFiling, initialSummary, initialChan
             // card. A signed-out visitor headed for the gate must never flash live AI-progress for
             // a generation that will never run (and it spun up a 200ms optimistic-progress timer).
             <div className="flex items-center justify-center py-24" role="status" aria-label="Loading">
-              <CircleNotchIcon className="h-8 w-8 animate-spin text-brand-strong dark:text-brand-strong-dark" />
+              <CircleNotchIcon className="h-8 w-8 animate-spin motion-reduce:animate-none text-brand-strong dark:text-brand-strong-dark" />
             </div>
           ) : (
             <StreamingSummaryDisplay
