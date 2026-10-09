@@ -16,9 +16,13 @@ import { textContrast } from './fixtures/contrast'
  * nothing to name). DOM measurements only: this is not a screen-reader test.
  *
  * CLEAN-R2: every row's link to its filing page, and the Recommended card's, read "Open filing",
- * which is true whether or not the filing already has a summary (they used to say "Generate Filing
- * Summary" and "Summarize this filing" for every filing). Each link's accessible name goes on to
- * name its filing's type and date, so the rows' links are told apart in a links list.
+ * which says where the link goes whether or not the filing already has a summary (they used to say
+ * "Generate Filing Summary" and "Summarize this filing" for every filing). The label promises no
+ * summary and hides no cost: the filing page shows a stored summary, and when there is none a
+ * signed-in reader's visit starts one at once, counted toward the Free monthly limit (pinned in
+ * tests/unit/summaryAuthGate.spec.tsx); a guest gets the signup gate. Each link's accessible name
+ * goes on to name its filing's type and date, so rows of a different type or date are told apart in
+ * a links list (two same-type filings on one day, such as same-day 6-Ks, would share a name).
  *
  * CI runs e2e with no backend (lessons/test-e2e-runs-without-backend.md): the server-side fetch
  * fails, the page falls back to its client shell, and the browser's API calls are answered here.
@@ -155,7 +159,7 @@ test('every filing link reads "Open filing" and names its filing', async ({ page
     expect(await visibleLabel(link), `${f.filing_type} ${date} row`).toBe('Open filing')
     names.push(name)
   }
-  expect(new Set(names).size, 'one accessible name per row').toBe(FILINGS.length)
+  expect(new Set(names).size, 'distinct names for rows of a different type or date').toBe(FILINGS.length)
 
   // The Recommended card opens the same page under the same label and the same name as its row.
   const card = page.getByText('Not sure where to start?').locator('xpath=ancestor::div[contains(concat(" ", @class, " "), " rounded-xl ")][1]')

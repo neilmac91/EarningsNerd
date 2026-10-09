@@ -531,8 +531,8 @@ export default function CompanyPageClient({ initialCompany, initialFilings }: Co
                     </p>
                   </div>
                 </div>
-                {/* "Open filing" is true whether or not a summary exists yet; the hidden tail names the
-                    filing, as each row's link does. */}
+                {/* "Open filing" says where the link goes, as each row's link does (see there for what the
+                    filing page then does); the hidden tail names the filing. */}
                 <Link href={`/filing/${recommendedFiling.id}`} className={buttonVariants({ variant: 'primary' })}>
                   Open filing{' '}
                   <span className="sr-only">
@@ -639,9 +639,13 @@ export default function CompanyPageClient({ initialCompany, initialFilings }: Co
                                       <span>View on SEC EDGAR</span>
                                     </a>
                                   )}
-                                  {/* The filing page shows the summary when there is one and offers to
-                                      generate it when there is not, so the label promises neither. The
-                                      hidden tail tells the rows' links apart in a links list. */}
+                                  {/* The label says where the link goes, not what is there. The filing
+                                      page shows the stored summary when there is one; when there is none,
+                                      a signed-in reader's visit starts generating one at once, which
+                                      counts toward the Free monthly limit (useSummaryGeneration's
+                                      auto-generate), and a guest gets the signup gate. The hidden tail
+                                      (type and filing date) tells rows of a different type or date apart
+                                      in a links list; two same-type filings on one day share a name. */}
                                   <Link href={`/filing/${filing.id}`} className={buttonVariants({ variant: 'primary' })}>
                                     Open filing{' '}
                                     <span className="sr-only">
