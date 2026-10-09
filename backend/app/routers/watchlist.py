@@ -29,7 +29,7 @@ from app.services.waitlist_service import (
     find_signup_by_email,
     mark_email_verified,
     mark_welcome_email_sent,
-    rollback_welcome_email_sent,
+    rollback_after_welcome_failure,
 )
 from app.services.email_service import (
     send_referral_success_email,
@@ -413,7 +413,7 @@ async def join_waitlist(
         mark_welcome_email_sent(db, signup)
         email_sent = True
     except Exception:
-        rollback_welcome_email_sent(db)
+        rollback_after_welcome_failure(db)
         logger.exception("Waitlist welcome email failed for signup %s", signup.id)
 
     if referrer:

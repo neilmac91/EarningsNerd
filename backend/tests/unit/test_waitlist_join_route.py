@@ -5,6 +5,7 @@ module (they are imported by name there). Every test uses uuid emails so no two 
 even if the engine were ever shared. ``TestCommitTimeConflicts`` swaps in a per-test SQLite file
 so a rival session can commit on its own connection between the join's checks and its insert.
 """
+import logging
 import uuid
 
 import pytest
@@ -166,6 +167,40 @@ def test_welcome_email_sent_flag_tracks_the_send(client, session_factory, emails
     assert rows[ok_email] is True
     assert rows[failed_email] is False  # row persists, flag stays False
     assert len(emails["welcome"]) == 2
+
+
+def test_failed_welcome_flag_commit_is_rolled_back_logged_and_still_200(
+    client, session_factory, emails, caplog
+):
+    """The flag commit shares the welcome try: a failed flush is rolled back, logged and swallowed.
+
+    The failed flush leaves the session needing a rollback and expires the loaded rows, so the
+    ``signup.id`` log read and the referrer read only work because the router rolls back first.
+    """
+    referrer_email = _seed_referrer(session_factory, code="ref00001")
+    email = _email()
+
+    def _fail_the_flag_flush(session, _flush_context):
+        if any(isinstance(obj, WaitlistSignup) and obj.welcome_email_sent for obj in session.dirty):
+            raise RuntimeError("flag commit failed")
+
+    event.listen(session_factory, "after_flush", _fail_the_flag_flush)
+    caplog.set_level(logging.ERROR, logger="app.routers.watchlist")
+    resp = _join(client, email=email, referral_code="ref00001")
+
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    assert body["success"] is True and body["email_sent"] is False
+    with session_factory() as s:
+        row = s.query(WaitlistSignup).filter_by(email=email).one()
+        signup_id, flag, code = row.id, row.welcome_email_sent, row.referral_code
+        assert s.query(WaitlistSignup).filter_by(email=referrer_email).one().priority_score == 1
+    assert flag is False and code == body["referral_code"]  # the row persists; the flag does not
+    assert [w["to_email"] for w in emails["welcome"]] == [email]
+    assert [r["to_email"] for r in emails["referral"]] == [referrer_email]
+    assert [r.getMessage() for r in caplog.records if r.name == "app.routers.watchlist"] == [
+        f"Waitlist welcome email failed for signup {signup_id}"
+    ]
 
 
 def test_join_total_signups_position_and_stats_count_existing_rows(client):

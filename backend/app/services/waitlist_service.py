@@ -169,12 +169,18 @@ def mark_welcome_email_sent(db: Session, signup: WaitlistSignup) -> None:
     db.commit()
 
 
-def rollback_welcome_email_sent(db: Session) -> None:
-    """End the request transaction after a failed welcome send or a failed flag commit.
+def rollback_after_welcome_failure(db: Session) -> None:
+    """Roll back the session after the join's welcome step fails (the send or the flag commit).
 
-    Discards any pending ``welcome_email_sent`` change and expires the loaded rows; the signup and
-    any referrer bump were already committed by ``create_signup``. The router still decides when
-    to roll back (its ``except Exception`` around the send); this only hosts the call.
+    This ends the whole session transaction, not just the flag: it discards anything pending and
+    expires every loaded row, so the router's later ``signup.id`` and referrer reads re-select (the
+    signup and any referrer bump were already committed by ``create_signup``). After a failed flag
+    commit the rollback is required; without it those reads raise ``PendingRollbackError``.
+
+    Transaction ownership did not move here: the router's ``except Exception`` around the awaited
+    send still decides when to roll back, and this wrapper only keeps the session call out of the
+    router module. Moving the send, flag commit and rollback into one service function would change
+    where the failure is caught and logged, so that is left for a later PR.
     """
     db.rollback()
 
