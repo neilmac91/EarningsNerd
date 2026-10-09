@@ -4,10 +4,13 @@ Pytest configuration for EarningsNerd backend tests.
 Provides shared fixtures and markers for all test suites.
 """
 
+import atexit
 import os
 import shutil
+import sys
 import tempfile
 from copy import deepcopy
+from unittest.mock import NonCallableMock
 
 # Every pytest process owns a private SQLite database in a fresh temp directory: one per session,
 # and under pytest-xdist one per worker (each worker is its own process and imports this file).
@@ -15,8 +18,10 @@ from copy import deepcopy
 # touches backend/earningsnerd.db (the dev server's default), two runs in one worktree never share
 # a file, and every run starts from the current schema (create_all never ALTERs a stale file).
 # Unconditional like the keys below: a developer's own DATABASE_URL must never reach the suite.
-# Removed in pytest_unconfigure. Gate: tests/unit/test_suite_isolation.py.
+# Removed in pytest_unconfigure, or at exit when pytest stops before configuring (a usage error).
+# Gate: tests/unit/test_suite_isolation.py.
 _TEST_DB_DIR = tempfile.mkdtemp(prefix=f"earningsnerd-tests-{os.environ.get('PYTEST_XDIST_WORKER', 'main')}-")
+atexit.register(shutil.rmtree, _TEST_DB_DIR, ignore_errors=True)
 os.environ["DATABASE_URL"] = "sqlite:///" + os.path.join(_TEST_DB_DIR, "earningsnerd.db")
 
 # Set mock environment variables for all tests at module level to avoid Pydantic validation errors at import time
@@ -52,10 +57,14 @@ def _sqlite_never_reuses_ids(table, connection, **kw):
     Without it SQLite hands out max(rowid)+1, so deleting a test's newest parent frees its id for the
     next test. SQLite here enforces no foreign keys, so a child row the first test left behind (a
     ``filing_content_cache`` row for its filing, say) then belongs to the next test's new filing and
-    silently reroutes that test. Covers the shared engine and every engine a test creates; a no-op
-    for composite and non-integer keys.
+    silently reroutes that test. Covers the shared engine and every engine a test creates. Only a
+    single-column key SQLite renders as INTEGER qualifies (SQLite rejects AUTOINCREMENT on BIGINT
+    or SMALLINT keys); composite and other keys keep SQLite's default.
     """
-    if connection.dialect.name == "sqlite":
+    if connection.dialect.name != "sqlite":
+        return
+    key = list(table.primary_key.columns)
+    if len(key) == 1 and key[0].type.compile(dialect=connection.dialect) == "INTEGER":
         table.dialect_options["sqlite"]["autoincrement"] = True
 
 
@@ -82,10 +91,10 @@ def _suite_schema():
 def _reset_delivery_ownership():
     """Durable delivery ownership rows (E11b-1) must not leak between tests.
 
-    SQLite enforces no foreign keys here and reuses deleted integer ids, while several existing
-    scenarios bulk-delete their users and filings in teardown; an orphaned
-    ``earningsnerd_delivery_items`` row would then claim ownership of the next test's (reused)
-    user/filing pair. PostgreSQL cascades these rows, so this is a test-isolation concern only.
+    SQLite enforces no foreign keys here, while several existing scenarios bulk-delete their users
+    and filings in teardown; before ``_sqlite_never_reuses_ids`` SQLite also re-issued their ids, so
+    an orphaned ``earningsnerd_delivery_items`` row claimed ownership of the next test's user/filing
+    pair. PostgreSQL cascades these rows, so this is a test-isolation concern only.
     """
     from sqlalchemy import inspect, text
 
@@ -146,3 +155,39 @@ def _restore_in_place(live, pristine):
             _restore_in_place(live[key], value)
         else:
             live[key] = deepcopy(value)
+
+
+@pytest.fixture(autouse=True)
+def _no_mock_left_on_generation_singletons():
+    """A test must not leave a mock on the generation pipeline's shared singletons.
+
+    ``stream_boundaries`` patches seams on ``summary_pipeline``'s service singletons. Overriding one
+    again with the function-scoped ``monkeypatch`` inside the block makes monkeypatch's teardown put
+    the harness mock back after the harness restored production, for the rest of the process
+    (``test_sec_rate_limiter`` then read the mock's canned text). Undo such overrides first, with
+    ``monkeypatch.context()`` inside the block. A leak fails the leaking test's teardown and is
+    restored; ``tests/unit/test_suite_isolation.py`` runs a leaking probe to prove it.
+    """
+    before = [(target, dict(vars(target))) for target in _generation_singletons()]
+    seen = {id(target) for target, _ in before}
+    yield
+    # A module first imported during this test had no mocks before it.
+    before += [(target, {}) for target in _generation_singletons() if id(target) not in seen]
+    leaked = []
+    for target, snapshot in before:
+        for name, value in list(vars(target).items()):
+            if isinstance(value, NonCallableMock) and snapshot.get(name) is not value:
+                leaked.append(f"{getattr(target, '__name__', type(target).__name__)}.{name}")
+                if name in snapshot:
+                    setattr(target, name, snapshot[name])
+                else:
+                    delattr(target, name)
+    if leaked:
+        pytest.fail(f"mock left on a shared generation singleton after the test: {', '.join(leaked)}", pytrace=False)
+
+
+def _generation_singletons():
+    pipeline = sys.modules.get("app.services.summary_pipeline")
+    if pipeline is None:
+        return []
+    return [pipeline, pipeline.sec_edgar_service, pipeline.xbrl_service, pipeline.openai_service]

@@ -1,4 +1,4 @@
-# Each test process owns its database; a test must never depend on another test's leftovers
+# Give each test process its own database, and never let a test depend on another test's order or leftovers
 
 Date: 2026-09-08 (rule revised 2026-10-09) · Area: ops / verification
 
@@ -22,7 +22,7 @@ same seam the other backfill tests use.
 private SQLite file in a fresh temp directory, created before any app import and removed at exit.
 No test opens `backend/earningsnerd.db`, and two pytest runs in one worktree no longer share a file.
 The random-order runs before the switch (pytest-randomly, serial and `-n 4`, several seeds) found
-five cross-test dependencies, each fixed at the root:
+six cross-test dependencies, each fixed at the root:
 - Files that wrote through `SessionLocal` without creating tables relied on an earlier test (or an
   earlier `TestClient` lifespan) having run `create_all`; conftest now creates the schema per process.
 - SQLite re-issued a deleted test's id, and the next test's new filing inherited an orphaned
@@ -34,10 +34,12 @@ five cross-test dependencies, each fixed at the root:
   generations started from an earlier test's output; conftest now restores it after each test.
 - A 40 ms real provider budget raced the first heartbeat under parallel load; the test now arms the
   budget after the stream opens, as its sibling case already did.
+- `test_admin_feedback.py` inserted reporter users 501/502 only when the id was free, so a user
+  another test had auto-created with that id became the reporter; reporters now get assigned ids.
 
 **Rule.** A worktree may run more than one pytest process; each owns its database. Within a
 process, tests still share that database and every module-level global, in whatever order xdist
-and pytest-randomly produce. So a test must not depend on another test's order or leftovers: scope
+produces (and pytest-randomly, when installed locally for a hunt). So a test must not depend on another test's order or leftovers: scope
 its assertions to its own rows, undo every override it makes before the context it overrides
 exits (`monkeypatch.context()` inside `stream_boundaries`), and reset process-wide state in a
 conftest autouse fixture. A "passes alone, fails in the suite" result is reproduced first by

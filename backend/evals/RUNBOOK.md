@@ -2,7 +2,8 @@
 
 How to run `backend/evals/` for adoption decisions and ongoing regression measurement.
 Live runs need SEC EDGAR network access and provider API keys; CI uses its existing Actions
-secret. Offline scorer/parity tests need neither: `pytest tests/unit/test_eval_*`.
+secret. Offline scorer/parity tests need neither: `pytest tests/unit/test_eval_*` (after
+`pip install -r requirements-dev.txt`, which provides the pytest-xdist that `pytest.ini` uses).
 
 The original adoption steps below remain a procedure for future comparisons. Current code
 defaults and deployment overrides are documented in `docs/CONFIGURATION.md`: the quality gate

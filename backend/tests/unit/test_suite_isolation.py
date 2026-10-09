@@ -15,9 +15,10 @@ the first test left behind (SQLite here enforces no foreign keys) silently joins
 
 Conftest's autouse resets are pinned by probe pairs: one test leaves the state dirty, the next asserts
 the clean default. Under ``-n auto`` and random order a pair can land on two workers or run reversed,
-which proves nothing, so ``test_isolation_probes_hold_in_a_fresh_serial_process`` runs every probe in
+which proves nothing, so ``test_ordered_probes_hold_in_a_fresh_serial_process`` runs every probe in
 a fixed order in one fresh process.
 """
+import ast
 import os
 import stat
 import subprocess  # nosec B404 - runs this repo's own pytest on fixed nodes of the suite
@@ -80,16 +81,52 @@ def test_probe_next_test_sees_the_pristine_canonical_payload():
     assert "quality" not in CANONICAL_PAYLOAD["raw_summary"]
 
 
-def test_isolation_probes_hold_in_a_fresh_serial_process():
+def _fresh_pytest(*args):
     env = {k: v for k, v in os.environ.items() if not k.startswith(("PYTEST_", "DATABASE_URL"))}
-    result = subprocess.run(  # nosec B603 - fixed argv: this interpreter running pytest on fixed nodes
-        [sys.executable, "-m", "pytest", "-q", "-n", "0", "-p", "no:cacheprovider", "-p", "no:randomly",
-         *_ORDERED_PROBES],
+    return subprocess.run(  # nosec B603 - fixed argv: this interpreter running pytest on fixed nodes
+        [sys.executable, "-m", "pytest", "-q", "-n", "0", "-p", "no:cacheprovider", "-p", "no:randomly", *args],
         cwd=BACKEND_DIR, env=env, capture_output=True, text=True, timeout=120,
     )
+
+
+def test_ordered_probes_hold_in_a_fresh_serial_process():
+    result = _fresh_pytest(*_ORDERED_PROBES)
     assert result.returncode == 0 and f"{len(_ORDERED_PROBES)} passed" in result.stdout, (
         result.stdout[-3000:] + result.stderr[-2000:]
     )
+
+
+def test_every_isolation_probe_runs_in_the_ordered_process():
+    # Under -n auto a probe pair outside _ORDERED_PROBES holds only when xdist keeps it together.
+    probes = set()
+    for path in sorted((BACKEND_DIR / "tests").rglob("test_*.py")):
+        source = path.read_text(encoding="utf-8")
+        if "probe" in source:
+            probes |= {
+                f"{path.relative_to(BACKEND_DIR).as_posix()}::{node.name}"
+                for node in ast.parse(source).body
+                if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+                and node.name.startswith(("test_probe_", "test_isolation_probe"))
+            }
+    assert probes and probes <= set(_ORDERED_PROBES), sorted(probes - set(_ORDERED_PROBES))
+
+
+def test_a_mock_left_on_a_generation_singleton_fails_the_leaking_test(tmp_path):
+    # The leak this guards: the function-scoped monkeypatch re-installing a stream_boundaries mock
+    # after the harness exited. conftest loads as a plugin because the probe lives outside tests/.
+    probe = tmp_path / "test_leak_probe.py"
+    probe.write_text(
+        "from unittest.mock import AsyncMock\n"
+        "from app.services import summary_pipeline\n\n"
+        "def test_leaves_a_mock_behind():\n"
+        "    summary_pipeline.sec_edgar_service.get_filing_document = AsyncMock()\n",
+        encoding="utf-8",
+    )
+    result = _fresh_pytest("-c", "pytest.ini", "-p", "tests.conftest", str(probe))
+    summary = result.stdout.strip().splitlines()[-1]
+    assert result.returncode == 1 and "1 passed" in summary and "1 error" in summary, result.stdout[-3000:]
+    assert "mock left on a shared generation singleton after the test: " in result.stdout
+    assert "get_filing_document" in result.stdout
 
 
 def test_sqlite_never_reissues_a_deleted_id():

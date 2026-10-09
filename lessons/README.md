@@ -155,7 +155,7 @@ what applies to your task. Filenames are greppable: `arch-*`, `sec-*`, `test-*`,
 - [`ops-continue-approved-engineering.md`](./ops-continue-approved-engineering.md) — Continue the approved queue after verified releases and preserve specific founder holds
 
 - [`ops-keep-moving-under-standing-authorization.md`](./ops-keep-moving-under-standing-authorization.md) — Keep moving under a standing founder authorization; stop only at the boundaries still held
-- `ops-one-test-process-per-worktree.md` — each test process owns its database; a test must never depend on another test's leftovers.
+- `ops-one-test-process-per-worktree.md` — give each test process its own database, and never let a test depend on another test's order or leftovers.
 - `ops-mutate-only-committed-state.md` — mutation proofs run on committed state only; `git checkout --` restores HEAD, not your edit.
 
 - [`ops-job-success-needs-outcome-evidence.md`](./ops-job-success-needs-outcome-evidence.md) — Persist actual job outcomes; swallowed failures and dry runs never advance last success
