@@ -497,7 +497,10 @@ const MAX_HAND_BUILT_FAILURE_SITES = 1
 const ALLOW_RETRY: Record<string, { sites: string[]; reason: string }> = {
   'app/company/[ticker]/page-client.tsx': {
     sites: ['filingsRefetching'],
-    reason: "Show full history: its loading is the page's own history fetch, not a Retry. Open in rule (h), the company page's own follow-up.",
+    reason:
+      "Show full history: its loading is the filings query's fetching flag (a background refetch of the default " +
+      'list; activating the button unmounts it), and it is not a Retry. Its focus through that refetch and its ' +
+      'hand-off to the "SEC filings" heading are pinned in busyControls.watchlist.spec.tsx.',
   },
   'features/calendar/components/EarningsCalendarPage.tsx': {
     sites: ['() => query.refetch()'],

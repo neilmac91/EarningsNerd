@@ -2,7 +2,7 @@
 
 One page, newest first, one line per open item with its owner and next step. Holds are pointers,
 never restated here. This file replaced the ledger on 2026-10-07; the ledger is
-`archive/todo-ledger-through-2026-10-07.md` (6,622 lines, June 2026 → closure 170 of 9 October 2026;
+`archive/todo-ledger-through-2026-10-07.md` (6,628 lines, June 2026 → closure 170 of 9 October 2026;
 ledger-format entries merged to `main` after the ledger closed were moved there unchanged) and its
 unchecked rows are history unless an item below carries them. Format: `AGENTS.md` §7. Close an item by
 deleting its line in the PR that closes it; a handover is a refresh of "Where things stand".
@@ -26,10 +26,10 @@ deleting its line in the PR that closes it; a handover is a refresh of "Where th
   #1151 (D3 stage 2, option A: the API service pinned, the insider endpoint off behind a
   server-side switch, the fuzzy-search fallback deleted) merged and deployed on 2026-10-09, after
   the founder moved `backfill-facts-weekly` to `30 7 * * 1`; #1146, #1147, #1148 and #1150 (design
-  critique 2026-10, parts 1–4: the filing page, the company page, the homepage, loading and motion),
-  #1154 (architecture docs), #1155 (record 19), #1136 (the hot-module refactor plan, lane D: the
-  founder delegated its decisions 1 and 3–9 as a standing authorization) and #1158–#1162 (its Wave 0
-  test anchors T0, F0, X0, O0 and I0) merged on 2026-10-09; record 19
+  critique 2026-10, parts 1–4: the filing page, the company page, the homepage, loading and motion)
+  and #1165 (their follow-ups), #1154 (architecture docs), #1155 (record 19), #1136 (the hot-module
+  refactor plan, lane D: the founder delegated its decisions 1 and 3–9 as a standing authorization)
+  and #1157–#1162 (its Wave 0 test anchors) merged on 2026-10-09; record 19
   (`code-red-20261004/runtime/control/DECISIONS-19.md`) is the latest CODE RED record, and it notes
   for the CPO that `eval-baseline`'s `mean_citation_fidelity` read 0.83–0.86 against its 0.9648
   baseline on all six runs of 2026-10-09 (advisory).
