@@ -19,7 +19,8 @@ types and paths, nothing else), and only tracked files count anywhere: the impor
 modules against `git ls-files`, so a gitignored eval report or an untracked package that shadows an
 installed import never moves the gate (a tracked top-level file under `backend/` that shadows a package
 only third-party code imports, `backend/certifi.py`, is a stated limit: the walk follows the eval's own
-imports; a closure module that changes where an import looks, `sys.path`, `sys.meta_path`, `sys.path_hooks` or `site`,
+imports; a closure module that changes where an import looks, `sys.path` and the rest of the `sys` import state, a
+package's `__path__` or `site`,
 fails the gate, since the walk cannot follow it). Every argument of an entry command that is not a flag or an
 integer is a path (quotes are removed first, as bash removes them, so a quoted `"--opt=value"` is
 split like a bare one): a tracked file or directory is an input of the run, a gitignored path or one
@@ -65,7 +66,8 @@ read as the climb and then every `p` below it, more than pathlib's `**/../p` rea
 is loud, never silent), so
 `REPORTS_DIR.glob("*.json")` on the run's report directory is not seen; a folder name held in a variable first (`NAME = "questions"; with_name(NAME)`) is a bare
 word to this gate and is not seen, the same limit as a path spelled one segment per literal on another receiver and as a
-directory with an unknown segment bound to a name first (`d = HERE / sub; d.glob("*.json")`); a path of
+directory with an unknown segment bound to a name first (`d = HERE / sub; d.glob("*.json")`) and as a glob or listing
+function imported under another name (`from glob import glob as g`, `from os import listdir as ls`); a path of
 two or more segments names files and
 directories, prefers `backend/` and otherwise reaches the whole repository
 (`Path(__file__).resolve().parents[2]` is the repository root); a path with a leading `..` reaches
@@ -78,7 +80,8 @@ constructor is read where Python reads it (`dir / "README.md"` is the file besid
 is `../app/config.py` from it), a segment it knows in part reads with `*` for the parts it cannot know
 (`join(dir, prefix + "*.json")`, `"%s*.json" % prefix` and `f"{dir}/{prefix}*.json"` read `*.json` there), and a
 segment it cannot know at all (`join(dir, sub, "*.json")`) is the limit of a variable, where the reading stops,
-unless the path is a `glob.glob`/`iglob` operand or the receiver or `root_dir` of a glob or a listing, where it is `*`
+unless the path is a `glob.glob`/`iglob` operand (`from glob import glob` too) or the receiver or `root_dir` of a glob or a
+listing, where it is `*`
 too (`glob.glob(join(dir, sub, "*.json"))`, `(dir / sub).glob("*.json")` and `glob.glob("*.json", root_dir=join(dir, sub))`
 read one level down, loudly, `(dir / "baselines" / sub).glob("*.json")` reads `baselines/*/*.json`, and such a glob's
 pattern is read as spelled too, since the anchored reading alone can resolve to nothing (`(dir / sub).glob("tests/fixtures/*.json")`
@@ -177,7 +180,9 @@ TRACKED = _tracked()
 TRACKED_PY = frozenset(p[len("backend/"):] for p in TRACKED if p.startswith("backend/") and p.endswith(".py"))
 # Every top-level importable name under backend/: modules, packages and namespace packages (any
 # non-hidden directory holding Python at any depth), so no local import is ever dropped as "not local". A closure
-# module that changes `sys.path` could import from anywhere; the walk refuses it (`_changes_sys_path`) rather than guess.
+# module that changes where an import looks (`sys.path` and the rest of the `sys` import state, a package's `__path__`,
+# or through `site`) could
+# import from anywhere; the walk refuses it (`_changes_sys_path`) rather than guess.
 LOCAL_TOP_LEVEL = frozenset(
     {p[: -len(".py")] for p in TRACKED_PY if "/" not in p}
     | {p.split("/", 1)[0] for p in TRACKED_PY if "/" in p and not p.startswith(".")}
@@ -217,10 +222,12 @@ INTEGER = re.compile(r"^\d+$")
 # `__name__` and `__package__` in the head or the package are the module's own names (`f"{__package__}.{name}"`), a
 # plain module's `__name__` anchoring `..x` on its parent package as importlib does; an importer imported or assigned
 # under another name counts (`load = importlib.import_module`), and so does the keyword spelling (`import_module(name=...)`,
-# `patch(target=...)`); `runpy.run_module` and `pydoc.locate` are importers too; `__spec__.parent` and `__spec__.name`
+# `patch(target=...)`); `runpy.run_module`, `pydoc.locate`, `importlib.util.find_spec` (the importlib recipe: `find_spec`,
+# `module_from_spec`, `exec_module`) and the deprecated `find_loader` and `get_loader` are importers too, the functions
+# this rule covers (a variable tail in any other call is no import: a logger name is not); `__spec__.parent` and `__spec__.name`
 # are `__package__` and `__name__`; `__import__` with a `level` is a relative import; a target this gate knows in full,
 # whatever its shape (`"app" + ".integrations"`), is one import.
-IMPORTERS = frozenset({"import_module", "resolve_name", "patch", "__import__", "import_string", "run_module", "locate"})
+IMPORTERS = frozenset({"import_module", "resolve_name", "patch", "__import__", "import_string", "run_module", "locate", "find_spec", "find_loader", "get_loader"})
 IMPORTER_ARGS = frozenset({"name", "target", "dotted_path", "import_name"})  # the keyword each importer takes its target in
 DOTTED = re.compile(r"^[A-Za-z_]\w*(?:\.[A-Za-z_]\w*)*(?::[A-Za-z_]\w*(?:\.[A-Za-z_]\w*)*)?$")
 # A flag of an entry command: `--name`, or `--name=value` with the value checked as a path.
@@ -783,7 +790,7 @@ def _sibling_literals(tree: ast.AST, module: str = "backend/evals/") -> tuple[se
     segment by segment: a segment this gate knows in part reads with `*` for the parts it cannot know (`join(dir,
     prefix + "*.json")`, `"%s*.json" % prefix`, `f"{dir}/{prefix}*.json"` read `*.json`), a segment it cannot know at all
     (a name, a call: `join(dir, sub, "*.json")`) is the limit of a variable, where the reading stops, in a plain path and
-    `*` inside a `glob.glob`/`iglob` call (`glob.glob(join(dir, PATTERN))` lists the directory; `glob.glob(join(dir, sub,
+    `*` inside a `glob.glob`/`iglob` call, imported bare too (`glob.glob(join(dir, PATTERN))` lists the directory; `glob.glob(join(dir, sub,
     "*.json"))` reads one level down, loudly), see `anchored_read`: the string must begin with a slash (`join(dir, "x")`, `dir + "/x"`,
     `f"{dir}{os.sep}*.json"`, `"%s/*.json" % dir`, `os.sep.join([dir, "x"])`, `HERE + "x"` with `HERE = dir + "/"`),
     since `dir + "_backup"` is another directory; its leading slashes dropped, it is returned in `joined` under the
@@ -902,8 +909,8 @@ def _sibling_literals(tree: ast.AST, module: str = "backend/evals/") -> tuple[se
                 continue
             for operand in [*node.args, *(keyword.value for keyword in node.keywords if keyword.arg != "root_dir")]:
                 read |= deeper(pattern(operand), under)
-        elif (name in {"glob", "iglob"} and isinstance(node.func, ast.Attribute) and not _is_module_dir(node.func.value, aliases, files, slashed, seps)
-              and _below_segments(fold(node.func.value)) is None):  # the `glob` module, not a receiver such as `dir / sub`
+        elif name in {"glob", "iglob"} and (isinstance(node.func, ast.Name) or (  # `glob` imported bare has no receiver to confuse
+                not _is_module_dir(node.func.value, aliases, files, slashed, seps) and _below_segments(fold(node.func.value)) is None)):  # the `glob` module, not `dir / sub`
             operands = [*node.args, *(keyword.value for keyword in node.keywords if keyword.arg not in {"recursive", "include_hidden"})]
             anchored_operands = [operand for operand in operands if anchored(fold(operand))]
             if not anchored_operands:  # `glob.glob(join(dir, PATTERN))`: a path built on the directory, every unknown part a `*`
@@ -1411,56 +1418,58 @@ def step_inputs() -> list[str]:
 def _live_closure() -> frozenset[str]:
     closure = frozenset(reachable_files(entry_points()))
     changing = sorted(p for p in closure if _changes_sys_path(ast.parse((ROOT / p).read_text(encoding="utf-8"))))
-    assert not changing, f"{changing} change sys.path or use site, which the import walk cannot follow: import through backend/ instead, read sys.path directly rather than through a name, or teach the walk the directory"
+    assert not changing, f"{changing} change where an import looks (sys.path, sys.meta_path, sys.path_hooks, sys.path_importer_cache or a package's __path__) or use site, which the import walk cannot follow: import through backend/ instead, read the list directly rather than through a name, or teach the walk the directory"
     return closure
 
 
-IMPORT_LISTS = frozenset({"path", "meta_path", "path_hooks"})  # the `sys` lists that decide where an import statement looks
+IMPORT_LISTS = frozenset({"path", "meta_path", "path_hooks", "path_importer_cache"})  # the `sys` state that decides where an import statement looks
 
 
 def _changes_sys_path(tree: ast.AST) -> bool:
-    """A change to where an import looks, an import made local by hand: a use of `sys.path`, `sys.meta_path` or
-    `sys.path_hooks` other than a read this gate knows with the list itself as the operand (the right side of `in`/`not in`,
-    an argument of `len`, `list`, `tuple`, `sorted`, `set`, `print`, `repr`, `str`, `enumerate`, `reversed`, `iter`, `any`,
-    `all` or `bool`, a `for` or comprehension iterable, an item or slice read, a `+` operand, a formatted value, `.index`,
-    `.count` or `.copy`), so a method call, `+=`, an assignment, `del`, an argument to a function this gate does not know and
-    the list bound to any name (`p = sys.path`, `from sys import path`, `from sys import *`) are changes, since a name can be
-    changed where this gate cannot follow it: read the list directly instead; and any use of `site` (`from site import
-    ...`, `site.<anything>`, `__import__("site")`), whose functions add to `sys.path`. `sys` and `site` are themselves under
-    every spelling bound anywhere in the module, by an import or a plain, an annotated or a walrus assignment (`import sys
-    as s`, `from os import sys`, `os.sys` under any name of `os`, `__import__("sys")` or `import_module("sys")`, positional
-    or `name=`, the importer imported, `from importlib import *` included, or bound under another name), loudly: a name so
-    bound anywhere is that module throughout the file. This is a drift guard over the spellings code uses, not a sandbox:
-    a computed attribute or module name (`getattr(sys, "path")`, `vars(sys)["path"]`, `sys.__dict__`, `import_module("s"
-    + "ys")`), the module passed to a function or stored in a container, and code in a string handed to `exec` are stated
-    limits. `sys.modules` is not guarded: an entry put there is an object closure code built, and the walk still counts the
-    file it stands in for. A module loaded from a file by path (`spec_from_file_location`, `runpy.run_path`) is the
-    named-file rule's: a `.py` spelled in a literal is a module of the closure, and a computed path is that rule's limit."""
+    """A change to where an import looks, an import made local by hand: a use of `sys.path`, `sys.meta_path`,
+    `sys.path_hooks`, `sys.path_importer_cache` or a package's `__path__` (bare in its `__init__.py`, or `pkg.__path__`;
+    `pkgutil.extend_path` returns a new one) other than a read this gate knows with the list itself as the operand (the
+    right side of `in`/`not in`, an argument of `len`, `list`, `tuple`, `sorted`, `set`, `print`, `repr`, `str`,
+    `enumerate`, `reversed`, `iter`, `any`, `all`, `bool` or `pkgutil.iter_modules`, a `for` or comprehension iterable,
+    an item or slice read, a `+` operand, a formatted value, `.index`, `.count` or `.copy`), so a method call, `+=`, an
+    assignment, `del`, an argument to a function this gate does not know and the list bound to any name (`p = sys.path`,
+    `from sys import path`, `from sys import *`) are changes, since a name can be changed where this gate cannot follow
+    it: read the list directly instead; and any use of `site` (`from site import ...`, `site.<anything>`,
+    `__import__("site")`), whose functions add to `sys.path`. `sys` is also any module's `sys` attribute (`os.sys`,
+    `importlib.sys`, `os.path.sys`, `from os import sys`, `from logging import sys as s`), since every module that
+    imports `sys` exposes it, and `sys` and `site` are under every spelling bound anywhere in the module, by an import or
+    a plain, an annotated or a walrus assignment (`import sys as s`, `__import__("sys")` or `import_module("sys")`,
+    positional or `name=`, the importer imported, `from importlib import *` included, or bound under another name),
+    loudly: a name so bound anywhere is that module throughout the file. This is a drift guard over the spellings code
+    uses, not a sandbox: a computed attribute or module name (`getattr(sys, "path")`, `vars(sys)["path"]`,
+    `sys.__dict__`, `import_module("s" + "ys")`), the module passed to a function or stored in a container, and code in
+    a string handed to `exec` are stated limits. `sys.modules` is not guarded: an entry put there is an object closure
+    code built, and the walk still counts the file it stands in for. A module loaded from a file by path
+    (`spec_from_file_location`, `runpy.run_path`) is the named-file rule's: a `.py` spelled in a literal is a module of
+    the closure, and a computed path is that rule's limit."""
     parents = {id(child): parent for parent in ast.walk(tree) for child in ast.iter_child_nodes(parent)}
-    names: dict[str, set[str]] = {"sys": {"sys"}, "site": set(), "os": {"os"}}
+    names: dict[str, set[str]] = {"sys": {"sys"}, "site": set()}
     loaders: set[str] = {"__import__"}
     for node in ast.walk(tree):
         if isinstance(node, ast.Import):
-            for alias in node.names:  # `import os.path` binds `os`; `import os.path as p` a submodule with `p.sys` too
-                module = alias.name.split(".")[0]
-                if module in names:
-                    names[module].add(alias.asname or module)
+            for alias in node.names:  # `import sys as s`, `import site`
+                if alias.name in names:
+                    names[alias.name].add(alias.asname or alias.name)
         elif isinstance(node, ast.ImportFrom) and node.level == 0:
             imported = {alias.name for alias in node.names}
             if node.module == "site" or node.module == "sys" and imported & (IMPORT_LISTS | {"*"}):
                 return True  # `from sys import path` binds the list to a name; `from site import addsitedir` its changer
-            if node.module == "os":
-                names["sys"] |= {alias.asname or "sys" for alias in node.names if alias.name == "sys"}
-            elif node.module == "importlib":
+            names["sys"] |= {alias.asname or "sys" for alias in node.names if alias.name == "sys"}  # `from os import sys`, from any module
+            if node.module == "importlib":
                 loaders |= {alias.asname or alias.name for alias in node.names if alias.name in {"import_module", "__import__"}}
                 loaders |= {"import_module"} if "*" in imported else set()
 
     def is_module(expr: ast.AST, module: str) -> bool:
-        """`expr` is `module` (`sys`, `site` or `os`): a name bound to it, `os.sys`, or an importer called with its name."""
+        """`expr` is `module` (`sys` or `site`): a name bound to it, any module's `sys` attribute, or an importer called with its name."""
         if isinstance(expr, ast.Name):
             return expr.id in names[module]
         if module == "sys" and isinstance(expr, ast.Attribute) and expr.attr == "sys":
-            return is_module(expr.value, "os")
+            return True  # `os.sys`, `importlib.sys`, `os.path.sys`: whatever module it hangs off
         if isinstance(expr, ast.Call) and (isinstance(expr.func, ast.Name) and expr.func.id in loaders
                                            or isinstance(expr.func, ast.Attribute) and expr.func.attr in {"import_module", "__import__"}):
             return any(isinstance(target, ast.Constant) and target.value == module
@@ -1483,15 +1492,18 @@ def _changes_sys_path(tree: ast.AST) -> bool:
                 grown = True
         if not grown:
             break
-    reads = {"len", "list", "tuple", "sorted", "set", "print", "repr", "str", "enumerate", "reversed", "iter", "any", "all", "bool"}
+    reads = {"len", "list", "tuple", "sorted", "set", "print", "repr", "str", "enumerate", "reversed", "iter", "any", "all", "bool", "iter_modules"}
     for node in ast.walk(tree):
         if is_module(node, "site"):
             return True
-        if not (isinstance(node, ast.Attribute) and node.attr in IMPORT_LISTS and is_module(node.value, "sys")):
+        if not (isinstance(node, ast.Attribute) and (node.attr in IMPORT_LISTS and is_module(node.value, "sys") or node.attr == "__path__")
+                or isinstance(node, ast.Name) and node.id == "__path__"):  # a package's `__path__` is where `from pkg import x` looks
             continue
         parent = parents.get(id(node))
+        func = parent.func if isinstance(parent, ast.Call) else None
         read = (isinstance(parent, ast.Compare) and node in parent.comparators and all(isinstance(op, (ast.In, ast.NotIn)) for op in parent.ops)
-                or isinstance(parent, ast.Call) and node in parent.args and isinstance(parent.func, ast.Name) and parent.func.id in reads
+                or func is not None and node in parent.args and (isinstance(func, ast.Name) and func.id in reads
+                                                                 or isinstance(func, ast.Attribute) and func.attr == "iter_modules")  # `pkgutil.iter_modules(__path__)` lists
                 or isinstance(parent, (ast.For, ast.AsyncFor, ast.comprehension)) and parent.iter is node
                 or isinstance(parent, ast.Subscript) and parent.value is node and isinstance(parent.ctx, ast.Load)
                 or isinstance(parent, ast.BinOp) and isinstance(parent.op, ast.Add)
@@ -1830,7 +1842,8 @@ def test_relative_imports_anchor_on_the_owning_package():
     # head and, for a package, every module under it; a logger name built the same way is not an import.
     integrations = {_module_name(p) for p in TRACKED if p.startswith("backend/app/integrations/") and p.endswith(".py")}
     assert len(integrations) >= 2
-    for spelling in ('importlib.import_module(f"app.integrations.{name}")', 'import_module("app.integrations." + name)', 'pkgutil.resolve_name(f"app.integrations.{name}:Client")'):
+    for spelling in ('importlib.import_module(f"app.integrations.{name}")', 'import_module("app.integrations." + name)', 'pkgutil.resolve_name(f"app.integrations.{name}:Client")',
+                     'importlib.util.find_spec(f"app.integrations.{name}")', 'pkgutil.get_loader("app.integrations." + name)', 'importlib.find_loader(f"app.integrations.{name}")'):
         assert set(_local_imports("evals.copilot_runner", False, ast.parse(f"m = {spelling}"))) == {"app.integrations"} | integrations, spelling
     assert set(_local_imports("evals.copilot_runner", False, ast.parse('p = patch(f"app.services.copilot_service.{attr}")'))) == {"app.services.copilot_service"}
     assert set(_local_imports("evals.copilot_runner", False, ast.parse('log = logging.getLogger(f"app.integrations.{name}"); q = importlib.import_module(f"{pkg}.x"); r = importlib.import_module(f"os.{name}")'))) == set()
@@ -1895,20 +1908,27 @@ def test_relative_imports_anchor_on_the_owning_package():
                    "import sys\ndef f():\n    p = []\n    def g():\n        nonlocal p\n        p = sys.path\n    g()\n    p.insert(0, 'x')",
                    "from sys import *\npath.insert(0, 'x')", "from site import *\naddsitedir('x')", "import site\nprint(site.getsitepackages())", "__import__('site').addsitedir('x')",
                    "import sys\nsys.meta_path.insert(0, object())", "import sys\nsys.path_hooks.append(len)", "from sys import meta_path\nmeta_path.append(object())",
-                   "from importlib import *\nimport_module('sys').path.insert(0, 'x')", "import os.path\nos.sys.path.insert(0, 'x')"):
+                   "from importlib import *\nimport_module('sys').path.insert(0, 'x')", "import os.path\nos.sys.path.insert(0, 'x')",
+                   "import os.path as p\np.sys.path.insert(0, 'x')", "import os\no = os\no.sys.path.insert(0, 'x')",
+                   "import importlib\nimportlib.sys.path.insert(0, 'x')", "import os\nos.path.sys.path.insert(0, 'x')", "from logging import sys as s\ns.path.append('x')",
+                   "from importlib import __import__ as f\nf('sys').path.insert(0, 'x')", "import builtins\nbuiltins.__import__('sys').path.insert(0, 'x')",
+                   "__path__.append('x')", "__path__ = __import__('pkgutil').extend_path(__path__, __name__)", "import app.services\napp.services.__path__.insert(0, 'x')",
+                   "import sys\nsys.path_importer_cache['x'] = None"):
         assert _changes_sys_path(ast.parse(source)), source
     for source in ("cmd = ['python', '-c', 'import sys; print(sys.path)']", "import sys\nok = 'x' in sys.path", "n = len(sys.path)", "import os\np = os.path.join('a', 'b')",
                    "import sys\nfirst = sys.path[0]", "import sys\nfor p in sys.path:\n    pass", "import sys\nall_paths = sys.path + ['x']",
                    "import sys\nprint(sys.path)", "import sys\ni = sys.path.index('x')", "import sys\nmsg = f'{sys.path}'",
                    "import sys\nps = [p for p in sys.path]", "import sys\nps = {p: 1 for p in sys.path if p}", "import sys\nargs = sys.argv[1:]", "from sys import argv, exit",
-                   "site = 'https://example.com'\nprint(site)", "import sys\nok = 'x' in sys.meta_path", "import sys\nn = len(sys.path_hooks)", "import sys as s\nn = len(s.path)"):
+                   "site = 'https://example.com'\nprint(site)", "import sys\nok = 'x' in sys.meta_path", "import sys\nn = len(sys.path_hooks)", "import sys as s\nn = len(s.path)",
+                   "import pkgutil\nmods = list(pkgutil.iter_modules(__path__))", "from pkgutil import iter_modules\nmods = list(iter_modules(__path__))",
+                   "n = len(__path__)", "import sys\nok = 'x' in sys.path_importer_cache"):
         assert not _changes_sys_path(ast.parse(source)), source  # a read of the list itself passes, and `sys` used for anything else
     with mock.patch.object(sys.modules[__name__], "entry_points", lambda: ["evals.copilot_runner"]), \
             mock.patch.object(Path, "read_text", return_value="import sys\nsys.path.insert(0, 'x')\n"):
         try:
             _live_closure.__wrapped__()  # the uncached computation; the live closure itself is read before any patching
         except AssertionError as error:
-            assert "change sys.path" in str(error)
+            assert "change where an import looks (sys.path, sys.meta_path, sys.path_hooks, sys.path_importer_cache or a package's __path__)" in str(error)
         else:
             raise AssertionError("a closure module changing sys.path must fail the gate")
     assert set(_local_imports("app.services.copilot_service", False, ast.parse('m = __import__("integrations.sec_api", globals(), locals(), ["X"], 2); n = __import__("entitlements", globals(), locals(), [], level=1)'))) == {"app.integrations.sec_api", "app.services.entitlements"}
@@ -2156,6 +2176,9 @@ def test_data_directories_and_named_files_are_inputs():
         one_down_json = {p for p in evals_all if p.count("/") == 3 and p.endswith(".json")}
         assert baselines_json <= one_down_json
         assert _named_in(ast.parse('fs = glob.glob(os.path.join(os.path.dirname(__file__), sub, "*.json"))'), "backend/evals/copilot_runner.py") == one_down_json
+        for spelling in ('from glob import glob\nfs = glob(os.path.join(os.path.dirname(__file__), sub, "*.json"))',
+                         'from glob import iglob\nfs = iglob(f"{os.path.dirname(__file__)}/{sub}/*.json")'):
+            assert _named_in(ast.parse(spelling), "backend/evals/copilot_runner.py") == one_down_json, spelling  # `glob` imported bare is the same call
         assert _named_in(ast.parse('HERE = os.path.dirname(__file__)\nfs = glob.glob(os.path.join(HERE, PATTERN))\n'), "backend/evals/copilot_runner.py") == {p for p in evals_all if p.count("/") == 2}
         # Every unknown segment is a `*`: a tail of two unknown segments reads two levels down, whatever the spelling.
         two_down = {p for p in evals_all if p.count("/") == 3}
