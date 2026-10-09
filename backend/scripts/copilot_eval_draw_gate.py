@@ -36,6 +36,8 @@ WORKFLOW_FILE = "copilot-eval.yml"
 JOB_NAME = "copilot-eval"
 RUNNER_STEP = "Run every verified question three times"
 RUNBOOK = "backend/evals/RUNBOOK.md, triage rule for a red copilot-eval run"
+PER_PAGE = 100
+MAX_PAGES = 50  # 5,000 runs on one head: past this the listing is not trusted, and the gate fails closed
 
 Fetch = Callable[[str], Dict[str, Any]]
 
@@ -75,12 +77,24 @@ def attempt_draw(fetch: Fetch, repo: str, run_id: int, attempt: int) -> Optional
     return None
 
 
+def head_runs(fetch: Fetch, repo: str, head_sha: str) -> list:
+    """Every run of this workflow on ``head_sha``, all pages. The API lists newest first, so a draw that
+    many replayed runs have pushed past the first page must still be found (Codex review on #1166)."""
+    runs: list = []
+    for page in range(1, MAX_PAGES + 1):
+        data = fetch(f"/repos/{repo}/actions/workflows/{WORKFLOW_FILE}/runs"
+                     f"?head_sha={head_sha}&per_page={PER_PAGE}&page={page}")
+        batch = data.get("workflow_runs") or []
+        runs.extend(batch)
+        if len(batch) < PER_PAGE or len(runs) >= int(data.get("total_count") or len(runs) + 1):
+            return runs
+    raise RuntimeError(f"more than {MAX_PAGES} pages of runs on one head")
+
+
 def first_draw(fetch: Fetch, repo: str, head_sha: str, run_id: int, run_number: int,
                run_attempt: int) -> Optional[Dict[str, str]]:
     """The earliest draw on ``head_sha`` before this attempt, across this workflow's runs, or None."""
-    listed = fetch(
-        f"/repos/{repo}/actions/workflows/{WORKFLOW_FILE}/runs?head_sha={head_sha}&per_page=100"
-    ).get("workflow_runs") or []
+    listed = head_runs(fetch, repo, head_sha)
     attempts: Dict[int, tuple] = {}
     for run in listed:
         attempts[int(run["id"])] = (int(run.get("run_number") or 0), int(run.get("run_attempt") or 1))

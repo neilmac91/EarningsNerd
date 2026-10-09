@@ -43,7 +43,12 @@ class FakeApi:
             raise OSError("API unavailable")
         if "/actions/workflows/" in path:
             assert f"/actions/workflows/{gate.WORKFLOW_FILE}/runs?head_sha={HEAD}&" in path
-            return {"workflow_runs": self.runs}
+            # Like the API: newest first, pages of per_page, with the total count.
+            per_page = int(re.search(r"per_page=(\d+)", path).group(1))
+            page = int(re.search(r"[?&]page=(\d+)", path).group(1))
+            newest_first = sorted(self.runs, key=lambda r: r["run_number"], reverse=True)
+            return {"total_count": len(self.runs),
+                    "workflow_runs": newest_first[(page - 1) * per_page:page * per_page]}
         run_id, attempt = map(int, re.search(r"/actions/runs/(\d+)/attempts/(\d+)/jobs", path).groups())
         return {"jobs": self.jobs.get((run_id, attempt), [])}
 
@@ -128,6 +133,21 @@ def test_the_earliest_draw_decides_whatever_order_the_listing_uses(tmp_path):
     # Newest first, as the API lists runs. Two draws on one head predate this gate (#1148's heads).
     api = FakeApi([run(THIS_RUN, THIS_NUMBER), run(400, 40), run(300, 30)],
                   {(400, 1): job("success"), (300, 1): job("failure")})
+    assert call_gate(tmp_path, api) == (1, ["draw=false"])
+
+
+def test_a_draw_past_the_first_page_of_runs_still_counts(tmp_path):
+    # A hundred and fifty replayed toggles push the head's one draw off the API's first page, which
+    # lists newest first (Codex review on #1166).
+    replays = [run(1000 + n, 100 + n) for n in range(150)]
+    api = FakeApi([run(THIS_RUN, 300), *replays, run(400, 40)], {(400, 1): job("failure")})
+    assert call_gate(tmp_path, api) == (1, ["draw=false"])
+    assert sum("/actions/workflows/" in path for path in api.paths) == 2
+
+
+def test_a_listing_longer_than_the_page_cap_fails_closed(tmp_path, monkeypatch):
+    monkeypatch.setattr(gate, "MAX_PAGES", 1)
+    api = FakeApi([run(THIS_RUN, 300), *[run(1000 + n, 100 + n) for n in range(150)]])
     assert call_gate(tmp_path, api) == (1, ["draw=false"])
 
 
