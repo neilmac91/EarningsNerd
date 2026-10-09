@@ -3,6 +3,7 @@ import HeroExample from '@/features/marketing/components/HeroExample'
 import HeroHeadline from '@/features/marketing/components/HeroHeadline'
 import MarketingCta from '@/features/marketing/components/MarketingCta'
 import QuickAccessBar from '@/features/marketing/components/QuickAccessBar'
+import TrustStrip from '@/features/marketing/components/TrustStrip'
 import { ArrowRightIcon } from '@/lib/icons'
 import { exampleFilingHref } from '@/lib/featureFlags'
 import { ACCESS_COPY, type AccessMode } from '@/features/marketing/lib/access'
@@ -61,6 +62,7 @@ export default function LandingHero({
             <HeroExample example={example} />
           </div>
         </div>
+        <TrustStrip />
       </div>
     </section>
   )

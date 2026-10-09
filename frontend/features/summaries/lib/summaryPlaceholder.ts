@@ -4,7 +4,8 @@ import { stripLeadingExecutiveHeading } from '@/lib/stripLeadingExecutiveHeading
 /**
  * Whether the filing page shows a stored summary's body: one rule for the page's display, its
  * metadata, the hero example and the company lead, mirroring the backend's single home for it
- * (backend/app/services/summary_placeholders.py: is_summary_ready, which the sitemap applies).
+ * (backend/app/services/summary_placeholders.py: is_summary_ready, which the sitemap and the company
+ * search apply).
  * tests/unit/summaryPlaceholder.spec.ts holds the tokens and the marker equal to the backend's.
  */
 export const SUMMARY_PLACEHOLDER_TOKENS = [
@@ -55,6 +56,8 @@ export const isSummaryFailure = (summary: StoredSummary): boolean => {
 }
 
 /** A summary a reader can open now: the filing page shows its body (no failure, no in-progress marker),
- *  so the company page's "summary ready" never promises a summary that page will not show. */
+ *  so the company page's "summary ready" never promises a summary that page will not show. The company
+ *  search's `latest_filing.summary_ready` (latest_filing_service) applies the backend's is_summary_ready,
+ *  so a result and the lead it opens agree. */
 export const isSummaryReady = (summary: StoredSummary): boolean =>
   !isSummaryFailure(summary) && !(summary?.business_overview ?? '').includes(IN_PROGRESS_MARKER)
