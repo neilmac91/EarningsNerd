@@ -6456,6 +6456,8 @@ Full local and hosted verification plus independent exact-head review precede re
   proof; chief defect 7: its squash message carries superseded branch messages). The backend suite made hermetic and gated
   (PR #1145 → `4c0563ad`; eleventh deploy-skip proof; ledger events 37–38). D3 stage 2 implemented, reviewed (no blocker),
   fixed and held on a local branch; `eval-baseline` measured, so each push to it is reserved at USD 0.730000. Closure 169.
+- [ ] Founder (optional): set the repository's squash default to "Default to pull request title and description", so a
+      squash merge without an explicit message carries the reviewed PR text (record 18, chief defect 7).
 - [x] Founder: relay the record-14 custody clarification — replaced by record 16's step A (the founder delegated the custody
       question to the chief on 2026-10-08); D3 — applied by the founder's instruction, staged (record 16).
 - [ ] Founder (optional, no deadline): relay record 16's custody step A (five metadata fields) once; on outcome B, the one line
