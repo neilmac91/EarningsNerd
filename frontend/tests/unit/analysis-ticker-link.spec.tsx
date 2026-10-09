@@ -20,6 +20,9 @@ vi.mock('@/features/companies/components/CompanySearch', () => ({
     createElement('button', { onClick: () => onSelect('MSFT') }, 'Select Microsoft'),
 }))
 vi.mock('@/lib/analytics', () => ({ default: { analysisRun: vi.fn() } }))
+// The App Router's search params, read from the jsdom URL on each render (a navigation that keeps the
+// page mounted is a URL change plus a re-render).
+vi.mock('next/navigation', () => ({ useSearchParams: () => new URLSearchParams(window.location.search) }))
 
 const COMPANIES: Record<string, { id: number; cik: string; ticker: string; name: string }> = {
   AAPL: { id: 1, cik: '320193', ticker: 'AAPL', name: 'Apple Inc.' },
@@ -54,14 +57,21 @@ function mount(search: string, probeTicker?: string) {
       limits: { annual: 10, quarterly: 12 },
     })
   }
-  return render(
+  const tree = () =>
     createElement(
       QueryClientProvider,
       { client },
       createElement(AnalysisPageClient),
       probeTicker ? createElement(LinkProbe, { ticker: probeTicker }) : null,
-    ),
-  )
+    )
+  const view = render(tree())
+  /** A search-param-only navigation: the URL changes and the page re-renders without remounting. */
+  const navigate = (next: string) =>
+    act(async () => {
+      window.history.pushState(null, '', `/analysis${next}`)
+      view.rerender(tree())
+    })
+  return { ...view, navigate }
 }
 
 describe('/analysis?ticker= preselects a resolved company and never runs', () => {
@@ -133,6 +143,23 @@ describe('/analysis?ticker= preselects a resolved company and never runs', () =>
     expect(await screen.findByText('link resolved: AAPL')).toBeTruthy()
     expect(screen.getByText('Microsoft Corp')).toBeTruthy()
     expect(screen.queryByText('Apple Inc.')).toBeNull()
+  })
+
+  it('follows a navigation that keeps the page mounted: a link without a ticker starts the page over', async () => {
+    const { navigate } = mount('?ticker=AAPL')
+    expect(await screen.findByText('Apple Inc.')).toBeTruthy()
+    // The Header's and Footer's /analysis links keep this page mounted.
+    await navigate('')
+    await waitFor(() => expect(screen.queryByText('Apple Inc.')).toBeNull())
+    expect(screen.queryByRole('button', { name: 'Run analysis' })).toBeNull()
+    // A link to another ticker preselects it, and a user's earlier pick gives way to it.
+    fireEvent.click(screen.getByRole('button', { name: 'Select Microsoft' }))
+    expect(await screen.findByText('Microsoft Corp')).toBeTruthy()
+    await navigate('?ticker=AAPL')
+    expect(await screen.findByText('Apple Inc.')).toBeTruthy()
+    expect(screen.queryByText('Microsoft Corp')).toBeNull()
+    expect(post).not.toHaveBeenCalled()
+    expect(global.fetch).not.toHaveBeenCalled()
   })
 
   it('renders inside one <main> landmark', () => {
