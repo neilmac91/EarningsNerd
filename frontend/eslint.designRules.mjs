@@ -142,23 +142,28 @@ export const SELF_GUARDED_ANIMATIONS = new Set(['animate-fadeIn', 'animate-check
 const MOTION_REDUCE = 'motion-reduce'
 const isAnimation = (utility) =>
   utility.startsWith('animate-') && utility !== 'animate-none' && !SELF_GUARDED_ANIMATIONS.has(utility)
-const sameVariants = (a, b) => a.length === b.length && a.every((v) => b.includes(v))
+// In order: stacked selector variants compose the selector in sequence (`group-hover:peer-focus:`
+// and `peer-focus:group-hover:` select different elements), so only the same sequence is the same.
+const sameVariants = (a, b) => a.length === b.length && a.every((v, i) => v === b[i])
 
 /** The first animation in `classText` that keeps moving under reduced motion, with the guard that
- *  stops it and its motion-safe spelling (`{ token, guard, safe }`), else null. */
+ *  stops it and its motion-safe spelling (`{ token, guard, safe }`), else null. A guard stops an
+ *  animation when it carries the same variants in the same order (`motion-reduce` anywhere among
+ *  them) and is at least as important: an `!important` animation beats a plain guard. */
 export function unguardedAnimation(classText) {
   const tokens = classText.split(/\s+/).filter(Boolean).map((raw) => ({ raw, ...splitClassToken(raw) }))
   const guards = tokens
     .filter((t) => t.utility === 'animate-none' && t.variants.includes(MOTION_REDUCE))
-    .map((t) => t.variants.filter((v) => v !== MOTION_REDUCE))
+    .map((t) => ({ variants: t.variants.filter((v) => v !== MOTION_REDUCE), important: t.important }))
   for (const t of tokens) {
     if (!isAnimation(t.utility) || t.variants.includes('motion-safe')) continue
-    if (guards.some((variants) => sameVariants(variants, t.variants))) continue
+    if (guards.some((g) => sameVariants(g.variants, t.variants) && (g.important || !t.important))) continue
     const variants = t.variants.filter((v) => v !== MOTION_REDUCE)
+    const bang = t.important ? '!' : ''
     return {
       token: t.raw,
-      guard: [MOTION_REDUCE, ...variants, 'animate-none'].join(':'),
-      safe: ['motion-safe', ...variants, t.utility].join(':'),
+      guard: [MOTION_REDUCE, ...variants, `${bang}animate-none`].join(':'),
+      safe: ['motion-safe', ...variants, `${bang}${t.utility}`].join(':'),
     }
   }
   return null

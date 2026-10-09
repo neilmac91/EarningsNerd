@@ -110,8 +110,11 @@ describe('unguardedAnimation', () => {
     expect(
       unguardedAnimation('[&>:last-child]:after:animate-pulse motion-reduce:[&>:last-child]:after:animate-none'),
     ).toBeNull()
-    // Variant order does not matter; the set does.
-    expect(unguardedAnimation('md:hover:animate-spin hover:motion-reduce:md:animate-none')).toBeNull()
+    // motion-reduce may sit anywhere among the guard's variants; the others keep the animation's order.
+    expect(unguardedAnimation('md:hover:animate-spin md:motion-reduce:hover:animate-none')).toBeNull()
+    // An important guard covers a plain animation and an important one.
+    expect(unguardedAnimation('animate-spin motion-reduce:!animate-none')).toBeNull()
+    expect(unguardedAnimation('!animate-spin motion-reduce:!animate-none')).toBeNull()
     expect(unguardedAnimation('animate-fadeIn animate-check-pop animate-on-scroll animate-none')).toBeNull()
   })
 
@@ -127,9 +130,26 @@ describe('unguardedAnimation', () => {
       '[&>:last-child]:after:animate-pulse',
     )
     expect(unguardedAnimation('animate-fade-up motion-safe:animate-none')?.token).toBe('animate-fade-up')
-    expect(unguardedAnimation('!animate-shimmer')?.safe).toBe('motion-safe:animate-shimmer')
+    expect(unguardedAnimation('!animate-shimmer')?.safe).toBe('motion-safe:!animate-shimmer')
     // An animation that runs only under reduced motion.
     expect(unguardedAnimation('motion-reduce:animate-bounce motion-reduce:animate-none')?.token).toBe('motion-reduce:animate-bounce')
+  })
+
+  it('flags a guard whose variants come in another order, or that is less important than the animation', () => {
+    // Stacked selector variants compose in order, so this guard selects other elements.
+    expect(
+      unguardedAnimation('group-hover:peer-focus:animate-spin peer-focus:group-hover:motion-reduce:animate-none')?.guard,
+    ).toBe('motion-reduce:group-hover:peer-focus:animate-none')
+    expect(unguardedAnimation('hover:after:animate-pulse motion-reduce:after:hover:animate-none')?.token).toBe(
+      'hover:after:animate-pulse',
+    )
+    // An !important animation wins the cascade over a plain guard.
+    expect(unguardedAnimation('!animate-spin motion-reduce:animate-none')).toEqual({
+      token: '!animate-spin',
+      guard: 'motion-reduce:!animate-none',
+      safe: 'motion-safe:!animate-spin',
+    })
+    expect(unguardedAnimation('md:!animate-spin motion-reduce:md:animate-none')?.guard).toBe('motion-reduce:md:!animate-none')
   })
 })
 

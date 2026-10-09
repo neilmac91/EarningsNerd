@@ -617,8 +617,10 @@ Recharts/rAF, which need numbers). **No raw ms or bezier strings anywhere else.*
 - **Stagger**: `animate-fade-up-stagger` + `--stagger-index` (0-based; step = fast; capped at 4;
   first paint only). `fade-up-delay-1/2/3` are retired.
 - **Reduced motion**: one source for JS — `hooks/usePrefersReducedMotion`. Every animation stops. A
-  Tailwind `animate-*` utility has `motion-reduce:animate-none` with the same variants beside it in the
-  class text that always renders with it, or is written `motion-safe:`: a spinner becomes its static glyph,
+  Tailwind `animate-*` utility has `motion-reduce:animate-none` beside it in the class text that always
+  renders with it, with the same variants in the same order (stacked `group-*`/`peer-*`/`after:` variants
+  compose the selector in sequence) and `!` when the animation has it, or is written `motion-safe:`: a
+  spinner becomes its static glyph,
   a skeleton a static bone, an entrance shows at once. A `globals.css` animation class stops itself in a
   `prefers-reduced-motion: reduce` block (citation-flash keeps a static tint). Count-up shows its final
   value, Recharts takes `lineProps(reduced)`, `scroll-behavior` is `auto`. Gates: the

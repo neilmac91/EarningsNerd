@@ -44,9 +44,9 @@ const CLASS_ATTRIBUTE = /^(class|className|\w+ClassName)$/
 const CLASS_HELPERS = new Set(['cx', 'clsx', 'cn', 'classNames', 'classnames', 'twMerge', 'twJoin'])
 
 /** Split a class token into variants and utility: `md:hover:!grid-cols-3` →
- *  { variants: ['md', 'hover'], utility: 'grid-cols-3' }. Colons inside `[…]`/`(…)` (arbitrary
- *  variants and values) do not split. Every variant is kept, including those that style other
- *  elements. */
+ *  { variants: ['md', 'hover'], utility: 'grid-cols-3', important: true }. Colons inside `[…]`/`(…)`
+ *  (arbitrary variants and values) do not split. Every variant is kept, in order, including those
+ *  that style other elements. */
 export function splitClassToken(token) {
   const parts = []
   let depth = 0
@@ -63,9 +63,11 @@ export function splitClassToken(token) {
   parts.push(token.slice(start))
   // Important modifier: `!utility` (Tailwind 3), `utility!` (Tailwind 4), or a leading `!` on the
   // whole token.
-  const utility = parts.pop().replace(/^!|!$/g, '')
+  const last = parts.pop()
+  const important = /^!|!$/.test(last) || Boolean(parts[0]?.startsWith('!'))
+  const utility = last.replace(/^!|!$/g, '')
   const variants = parts.map((v, i) => (i === 0 ? v.replace(/^!/, '') : v))
-  return { variants, utility }
+  return { variants, utility, important }
 }
 
 /** `splitClassToken`, or null for a token whose variant styles other elements (`*:`, `[&>div]:`,
