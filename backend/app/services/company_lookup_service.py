@@ -5,6 +5,10 @@ one synchronous unit on the request's session and runs where the router used to 
 event loop, between the router's SEC and Yahoo awaits). The units that end a request's database
 work snapshot the response identities and close the session in the same unit, so no pooled
 connection is held through a slow upstream (``tests/unit/test_company_routes_pool_lifetime.py``).
+The snapshot must precede the close inside one unit: after a commit the rows are expired, so
+reading them lazily re-SELECTs, and a read after the close would check a connection out again
+(``lessons/ops-release-cached-filing-reads-before-yield.md``). The Session object stays reusable
+after a close, which the get-by-ticker miss path relies on.
 Outcomes the router turns into a log line or an HTTP error are signalled with
 ``SearchUpsertConflict`` or a ``None`` return.
 """
