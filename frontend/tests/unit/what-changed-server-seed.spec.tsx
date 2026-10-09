@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, render, screen, within } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { SummaryDisplay } from '@/features/summaries/components/SummaryDisplay'
@@ -83,12 +83,12 @@ const REPORT: ChangeReport = {
   has_changes: true,
 }
 
-function display(initialChangeReport?: ChangeReport) {
+function display(initialChangeReport?: ChangeReport, summary: Summary = SUMMARY) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   const wrapper = ({ children }: { children: ReactNode }) => <QueryClientProvider client={client}>{children}</QueryClientProvider>
   return render(
     <SummaryDisplay
-      summary={SUMMARY}
+      summary={summary}
       filing={FILING}
       isPro={false}
       isSaved={false}
@@ -154,5 +154,62 @@ describe('the summary page outline', () => {
     display(REPORT)
     const outline = screen.getAllByRole('heading', { level: 2 }).map((h) => h.textContent)
     expect(outline).toEqual(['Executive assessment', 'Financial highlights', 'What changed', 'Risks', 'Ask AAPL’s 10-K anything'])
+  })
+})
+
+describe('as a card, where the summary has no sections to hold it', () => {
+  // rendered_sections: [] takes the markdown fallback, where the change report is a card under the
+  // markdown, and a stored summary that failed shows its error card with the report card under it.
+  // The company page's "Open change report" (/filing/{id}#what-changed) lands on the card in both.
+  const LEGACY = { ...SUMMARY, rendered_sections: [] } as Summary
+  const jsdomScrollIntoView = Element.prototype.scrollIntoView
+  // jsdom has no scrollIntoView; record which element each call scrolls to.
+  const scrolledTo = () => vi.mocked(Element.prototype.scrollIntoView).mock.contexts.map((el) => (el as Element).id)
+
+  beforeEach(() => {
+    window.history.replaceState(null, '', '#what-changed')
+    Element.prototype.scrollIntoView = vi.fn()
+  })
+  afterEach(() => {
+    window.history.replaceState(null, '', window.location.pathname)
+    Element.prototype.scrollIntoView = jsdomScrollIntoView
+  })
+
+  it('gives the card the id the link names, and lands on it', () => {
+    api.getWhatChanged.mockReturnValue(new Promise(() => {}))
+    display(REPORT, LEGACY)
+    expect(screen.queryByRole('navigation', { name: 'Summary sections' })).toBeNull()
+    expect(screen.getByRole('region', { name: 'What changed' })).toHaveAttribute('id', 'what-changed')
+    expect(scrolledTo()).toEqual(['what-changed'])
+  })
+
+  it('lands on it when the report arrives after the summary', async () => {
+    api.getWhatChanged.mockResolvedValue(REPORT)
+    display(undefined, LEGACY)
+    expect(scrolledTo()).toEqual([])
+    await screen.findByRole('region', { name: 'What changed' })
+    expect(scrolledTo()).toEqual(['what-changed'])
+  })
+
+  it('shows a real summary that mentions generating summaries as the summary, not the error card', () => {
+    api.getWhatChanged.mockReturnValue(new Promise(() => {}))
+    display(REPORT, { ...LEGACY, business_overview: 'Apple reworked its revenue-generating summary reports.' } as Summary)
+    expect(screen.queryByRole('heading', { name: 'Summary temporarily unavailable' })).toBeNull()
+    expect(screen.getByText('Apple reworked its revenue-generating summary reports.')).toBeInTheDocument()
+  })
+
+  it.each([
+    ['its fallback body', { ...LEGACY, business_overview: 'Summary temporarily unavailable. Please retry.' }],
+    ['a writer error over its sections', { ...SUMMARY, raw_summary: { writer_error: 'timeout' } }],
+    ['placeholder filler', { ...LEGACY, business_overview: 'Summary generation requires OpenAI API key. Please configure OPENAI_API_KEY in your .env file.' }],
+  ])('stays under a stored summary that failed (%s)', (_, failed) => {
+    api.getWhatChanged.mockReturnValue(new Promise(() => {}))
+    display(REPORT, failed as Summary)
+    expect(screen.getByRole('heading', { name: 'Summary temporarily unavailable' })).toBeInTheDocument()
+    // The error card, never the stored text: "requires OpenAI API key" is operator configuration.
+    expect(screen.queryByText(/OPENAI_API_KEY/)).toBeNull()
+    expect(screen.queryByRole('navigation', { name: 'Summary sections' })).toBeNull()
+    expect(screen.getByRole('region', { name: 'What changed' })).toHaveAttribute('id', 'what-changed')
+    expect(scrolledTo()).toEqual(['what-changed'])
   })
 })
