@@ -80,7 +80,7 @@ async function openFiling(page: Page, baseURL: string, { theme = 'light', consen
 
 const bar = (page: Page) => page.getByRole('region', { name: 'Cookie consent' })
 // exact: the summary's "Ask this filing" CTA (AskFilingCallout) and the feedback form's submit share these words.
-const launcher = (page: Page) => page.getByRole('button', { name: 'Ask this Filing', exact: true })
+const launcher = (page: Page) => page.getByRole('button', { name: 'Source', exact: true })
 const feedbackLauncher = (page: Page) => page.getByRole('button', { name: 'Send feedback', exact: true })
 const composer = (page: Page) => page.locator(PANE).getByRole('textbox')
 const coachmark = (page: Page) => page.getByText(COACH_TEXT)

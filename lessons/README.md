@@ -153,6 +153,7 @@ machine" only for that work; skip "Enforced by a machine gate" (CI fails those o
 - frontend-validate-design-sidecars-in-their-consumer.md — Validate design-sidecar specimens in their consumer, and check what its engine reads
 - frontend-variable-text-must-not-size-a-wrapping-row.md — Every responsive grid sets its base track (gated: ESLint `earningsnerd/responsive-grid-base-track`); variable-length text must not size a wrapping row (`[contain:inline-size]`, `min-w-0`, `truncate`; review-checked)
 - frontend-verify-chart-annotations-on-dense-data.md — Acceptance-test chart annotations on a dense real-world series, never only fixtures
+- frontend-xbrl-amounts-carry-their-own-currency.md — Label an XBRL amount with the filer's reporting currency, never with a default dollar sign
 
 ## Enforced by a machine gate — not session reading
 
