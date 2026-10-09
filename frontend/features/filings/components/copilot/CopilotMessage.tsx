@@ -17,11 +17,16 @@ import CitationChip, { isHttpUrl } from './CitationChip'
    card chrome, mono answer register (.copilot-answer — DS type roles put
    Ask-this-Filing output in the data face), brand-tint bracket markers,
    footnote evidence rows with scoped source-check labels, and the
-   citation and source-check counts. The MACHINERY here (streaming fast
-   path, citation-chip injection, viewer deep-links, follow-ups) is
-   the shipped contract pinned by the copilot test suites — restyle only.
-   The assistant's background tool activity is deliberately never surfaced:
-   the reading state shows a single calm indicator, then the clean answer. */
+   citation and source-check counts. The MACHINERY here (citation-chip
+   injection, viewer deep-links, follow-ups) is the shipped contract pinned
+   by the copilot test suites — restyle only.
+   Answers arrive whole: the API publishes an answer only once its citations
+   are admitted, and AskCopilotRail moves a message from 'reading' straight to
+   'done' or 'error' (its token callback is a no-op). So the reading state's
+   single calm indicator stays until the complete answer replaces it, and the
+   assistant's background tool activity is never surfaced. The 'streaming'
+   branch below (raw text plus a caret) is unused by the rail; whether to
+   delete it is a pending decision, so it stays, guarded for reduced motion. */
 
 export interface CopilotMessageData {
   id: string
@@ -30,7 +35,8 @@ export interface CopilotMessageData {
   citations?: CopilotCitation[]
   grounded?: number
   kind?: 'answer' | 'not_disclosed'
-  // 'reading' (pre-token), 'streaming' (tokens arriving), 'done', 'error'
+  // 'reading' (waiting for the admitted answer), 'done', 'error'. 'streaming' (raw text while tokens
+  // arrive) is accepted but never set by AskCopilotRail: answers arrive whole.
   status?: 'reading' | 'streaming' | 'done' | 'error'
   error?: string
   // 2-3 suggested next questions, shown as tappable chips under the latest answer.
@@ -187,11 +193,9 @@ function MarkdownProse({ children }: { children: string }) {
   )
 }
 
-// While tokens are still arriving we render the raw text (whitespace-preserving) instead of
-// re-parsing the growing markdown on every frame — markdown (with citation chips) is rendered once
-// the `complete` event lands. Re-parsing a markdown string that grows by a token each frame is the
-// O(n²) cost the streaming view used to pay; a plain text node is a near-free update. `pre-wrap`
-// keeps paragraph breaks readable mid-stream; the formatted answer snaps in when the stream ends.
+// The 'streaming' status's raw-text view (whitespace-preserving, no per-frame markdown re-parse).
+// Unreachable from the rail today: Ask answers arrive whole (see the header note), so no message is
+// ever 'streaming'. Kept until the pending decision on removing the streaming path.
 function StreamingText({ children }: { children: string }) {
   return <div className={`whitespace-pre-wrap ${ANSWER_REGISTER}`}>{children}</div>
 }
@@ -420,8 +424,8 @@ export default function CopilotMessage({
   const isReading = message.status === 'reading' && message.content.length === 0
   const isStreaming = message.status === 'streaming'
   const isDone = message.status === 'done'
-  // Inject interactive citation chips only once citations are known (a completed `answer`). While
-  // streaming, `[n]` markers stay plain text via MarkdownProse until the `complete` event lands.
+  // Inject interactive citation chips only once citations are known (a completed `answer`). A
+  // 'streaming' message (never set by the rail) would keep `[n]` markers as plain text.
   // (The not_disclosed branch already returned above, so this is always an `answer`.)
   const citations = message.citations
   const showChips = isDone && !!citations && citations.length > 0
@@ -433,7 +437,7 @@ export default function CopilotMessage({
         // A single calm indicator while the answer is grounded — the assistant's
         // background tool activity is deliberately not surfaced to the user.
         <p className="flex items-center gap-2 text-text-secondary-light dark:text-text-secondary-dark">
-          <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-brand-strong dark:bg-brand-strong-dark" />
+          <span aria-hidden="true" className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-brand-strong motion-reduce:animate-none dark:bg-brand-strong-dark" />
           Reading the filing…
         </p>
       ) : (
@@ -451,7 +455,7 @@ export default function CopilotMessage({
               )}
             </div>
             {isStreaming && (
-              <span className="ml-0.5 inline-block animate-pulse text-brand-strong dark:text-brand-strong-dark" aria-hidden="true">
+              <span className="ml-0.5 inline-block animate-pulse text-brand-strong motion-reduce:animate-none dark:text-brand-strong-dark" aria-hidden="true">
                 ▍
               </span>
             )}
