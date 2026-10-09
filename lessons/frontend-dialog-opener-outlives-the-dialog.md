@@ -41,7 +41,9 @@ as it opened: an in-page Ask button or starter, or the control a Ctrl/⌘+K or "
 close, focus that fell goes to the opening chip, else that control, else the remounted launcher. On
 `main` (`da636f6c`), every one of these routes left `<body>` focused after Escape or ×, and a visitor
 who cannot ask lost focus already at open. One existing unit case had pinned `<body>` after a
-launcher-driven close (rule (b)); it now expects the launcher. Rule (c)'s per-consumer specs are
-`tests/unit/FilingWorkspace.spec.tsx` and `tests/e2e/pane-close-focus.spec.ts`: every open route x
-(Escape, ×) at 1440x900, with the next Tab checked, and the sheet at 390x844, whose trap already
-restored focus. On the pre-fix build, 20 of the 24 e2e cases fail.
+launcher-driven close (rule (b)); it now expects the launcher. Rule (c)'s per-consumer spec is
+`tests/e2e/pane-close-focus.spec.ts`: every open route x (Escape, ×) at 1440x900 on the real page,
+with the next Tab checked, and the sheet at 390x844, whose trap already restored focus. On the
+pre-fix build, 20 of the 24 cases fail. `tests/unit/FilingWorkspace.spec.tsx` does not repeat that
+matrix (AGENTS.md §4); it pins only what the page cannot set up: an opener gone or hidden since the
+open, a chip that opened the pane later, a pointer press, focus moved elsewhere.

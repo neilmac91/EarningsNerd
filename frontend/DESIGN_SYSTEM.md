@@ -173,8 +173,8 @@ Focus ring       focus-visible:outline-none focus-visible:shadow-ring-brand dark
                  tests/unit/siteChromeFocusRing.spec.ts reads the AST of the chrome files (SiteChrome, Header,
                  ThemeToggle, UserMenu, NotificationBell, VerificationBanner, SecondaryHeader, Footer,
                  CookieConsent with its settings dialog, AuthShell); `buttonVariants(…)` composes it; a className
-                 it cannot read fails. tests/e2e/chrome-focus-ring.spec.ts walks the chrome with Tab in both
-                 themes and checks the computed ring, with no other visible shadow and no outline.
+                 it cannot read fails. It is the rule's one gate; a page's own controls (the filing page's
+                 "← Back") carry the recipe but sit outside it.
 
 Card / panel     bg-panel-light dark:bg-panel-dark + border + shadow-e2 dark:shadow-none
                  (e1 chips · e2 cards · e3 hero/featured · e4/e5 menus & overlays)
@@ -281,8 +281,10 @@ Research pane    FilingWorkspace: a side pane at lg+ (nothing trapped), the moda
                  Closing (Escape, ×) moves only focus that fell (on <body>, or still in the hidden pane), to the
                  first that can take it: the provenance chip that opened the pane, the control focused as it
                  opened, the launcher (it remounts on close). Focus the user moved elsewhere stays. Below lg the
-                 sheet's trap restores to the chip or the launcher. Gates: tests/unit/FilingWorkspace.spec.tsx,
-                 tests/e2e/pane-close-focus.spec.ts (every open route x Escape and × at 1440, the sheet at 390).
+                 sheet's trap restores to the chip or the launcher. Gates: tests/e2e/pane-close-focus.spec.ts
+                 holds the route matrix on the real page (every open route x Escape and × at 1440, the sheet at
+                 390); tests/unit/FilingWorkspace.spec.tsx pins only the close path's own rules (an opener gone
+                 or hidden since the open, a chip that opened it later, a pointer press, focus moved elsewhere).
 
 Stacking         z-sticky 30 (in-page sticky chrome) · z-consent 32 (the cookie-consent bar: above in-page
                  sticky chrome, BENEATH the sheet scrims and the z-40 research chrome) · z-scrim 35 (the

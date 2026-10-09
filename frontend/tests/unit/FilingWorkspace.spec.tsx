@@ -506,72 +506,12 @@ const pressClose = () => {
   fireEvent.click(close)
 }
 
-describe('FilingWorkspace returns focus on close for every route that opens it, lg+ (EN-05a)', () => {
+// The route matrix (each way of opening the pane, closed by Escape and by ×, and the bottom sheet) is
+// tests/e2e/pane-close-focus.spec.ts, on the real page in a real browser. These cases pin the close
+// path's own rules, which that page cannot set up: an opener gone or hidden since the open, a chip
+// that opened the pane later, a pointer press, focus moved elsewhere, the Filing tab as the target.
+describe('FilingWorkspace close path on lg+ (EN-05a)', () => {
   beforeEach(() => window.localStorage.clear())
-
-  for (const [path, close] of [
-    ['Escape', pressEscape],
-    ['×', pressClose],
-  ] as const) {
-    it(`a keyboard press on the launcher hands focus into the pane; ${path} returns it to the launcher`, async () => {
-      render(<AskPage />)
-      act(() => launcher().focus())
-      fireEvent.click(launcher()) // Enter or Space: a click with detail 0
-      await settle()
-      expect(dialog()).toHaveAttribute('aria-hidden', 'false')
-      // The launcher left with the open; a visitor who cannot ask has no composer to take focus, so
-      // the hand-off is all there is: the selected tab, the pane's first stop.
-      expect(document.activeElement).toBe(answerTab())
-      close()
-      expect(dialog()).toHaveAttribute('aria-hidden', 'true')
-      expect(document.activeElement).toBe(launcher())
-    })
-
-    it(`an Ask button outside the pane keeps focus as it opens and gets it back on ${path}`, async () => {
-      render(<AskPage />)
-      act(() => askInPage().focus())
-      fireEvent.click(askInPage())
-      await settle()
-      expect(dialog()).toHaveAttribute('aria-hidden', 'false')
-      expect(document.activeElement).toBe(askInPage())
-      // The rail focuses its composer on open; the user works in the pane, then closes it.
-      act(() => answerTab().focus())
-      close()
-      expect(dialog()).toHaveAttribute('aria-hidden', 'true')
-      expect(document.activeElement).toBe(askInPage())
-    })
-
-    it(`Ctrl+K pressed on a control outside the pane returns focus to it on ${path}`, () => {
-      render(<AskPage />)
-      act(() => elsewhere().focus())
-      fireEvent.keyDown(elsewhere(), { key: 'k', ctrlKey: true })
-      expect(dialog()).toHaveAttribute('aria-hidden', 'false')
-      act(() => answerTab().focus())
-      close()
-      expect(document.activeElement).toBe(elsewhere())
-    })
-
-    it(`the coachmark's Try by keyboard hands focus into the pane; ${path} returns it to the launcher`, async () => {
-      render(<AskPage />)
-      const tryIt = screen.getByRole('button', { name: /try it/i })
-      act(() => tryIt.focus())
-      fireEvent.click(tryIt)
-      await settle()
-      expect(screen.queryByRole('button', { name: /try it/i })).toBeNull()
-      expect(document.activeElement).toBe(answerTab())
-      close()
-      expect(document.activeElement).toBe(launcher())
-    })
-  }
-
-  it('Ctrl+K pressed with nothing focused returns focus to the launcher', () => {
-    render(<AskPage />)
-    expect(document.activeElement).toBe(document.body)
-    fireEvent.keyDown(document.body, { key: 'k', ctrlKey: true })
-    act(() => answerTab().focus())
-    pressEscape()
-    expect(document.activeElement).toBe(launcher())
-  })
 
   it('an opener that left the page while the pane was open falls back to the launcher', () => {
     render(<AskPage />)
@@ -739,25 +679,6 @@ describe('FilingWorkspace sheet below lg, opened by a provenance chip (EN-01)', 
       expect(document.activeElement).toBe(c)
     } finally {
       vi.useRealTimers()
-    }
-  })
-
-  // EN-05a leaves the sheet as it was: its trap moves focus in on open and returns it to the chip or
-  // the launcher on close; the desktop opener and the launcher's hand-off add nothing below lg.
-  it('the sheet path is unchanged: an Ask button or a keyboard press on the launcher, closed by Escape or ×, returns to the launcher', async () => {
-    render(<AskPage />)
-    for (const open of [() => askInPage(), () => launcher()]) {
-      for (const close of [pressEscape, pressClose]) {
-        act(() => open().focus())
-        fireEvent.click(open())
-        await settle()
-        expect(dialog()).toHaveAttribute('aria-hidden', 'false')
-        // The trap's first focusable, before any hand-off could run.
-        expect(document.activeElement).toBe(answerTab())
-        close()
-        expect(dialog()).toHaveAttribute('aria-hidden', 'true')
-        expect(document.activeElement).toBe(launcher())
-      }
     }
   })
 })

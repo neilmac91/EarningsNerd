@@ -29,8 +29,8 @@ import { describe, expect, it } from 'vitest'
  * widths, its account and notification menus), the theme toggle, the verification banner under it, the
  * page header with its back link, the footer, the cookie-consent bar and its settings dialog, and the
  * auth routes' header (app/layout.tsx mounts the banner and the consent bar beside the header and
- * footer). A page's own controls are not chrome; the filing page's "← Back" is checked in a real
- * browser (tests/e2e/chrome-focus-ring.spec.ts).
+ * footer). A page's own controls are not chrome: the filing page's "← Back" carries the recipe but is
+ * outside this gate. This is the rule's one gate (AGENTS.md §4): no e2e walk repeats it.
  */
 const ROOT = path.resolve(__dirname, '../..')
 
