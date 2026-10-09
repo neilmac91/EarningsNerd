@@ -326,7 +326,7 @@
       },
       "card-title": {
         "displayName": "Card Title",
-        "purpose": "Compact container headings: 14/20px semibold, sentence case."
+        "purpose": "Compact container headings: 14/20px semibold, sentence case. The element follows the page outline (h2 or h3), never skipping a level."
       },
       "body": {
         "displayName": "Body",
