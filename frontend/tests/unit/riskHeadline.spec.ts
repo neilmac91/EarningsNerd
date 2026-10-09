@@ -259,14 +259,20 @@ describe('deriveRiskHeadline', () => {
 
   it('never splits a figure from its unit or label at the cap', () => {
     const cases: Array<[string, string]> = [
-      // A two-word unit: never "200 basis…" or a bare "2…" before "percentage points".
+      // A two-word unit: never "200 basis…" or a bare "2…" before "percentage points"; nor the
+      // "approximately" that qualifies the figure.
       [
         'Our borrowing costs could increase and reduce consolidated earnings by approximately 200 basis points next year.',
-        'Our borrowing costs could increase and reduce consolidated earnings by approximately…',
+        'Our borrowing costs could increase and reduce consolidated earnings…',
       ],
       [
         'Our borrowing costs could increase and reduce our consolidated gross margin by approximately 2 percentage points next year.',
-        'Our borrowing costs could increase and reduce our consolidated gross margin by approximately…',
+        'Our borrowing costs could increase and reduce our consolidated gross margin…',
+      ],
+      // A figure before the noun it counts: never "3,200…" before "employees".
+      [
+        'Our operations depend on a unionised workforce, and a single union now represents a total of 3,200 employees at our largest manufacturing sites.',
+        'Our operations depend on a unionised workforce, and a single union now represents a total…',
       ],
       // A figure before "per", and the "up to" before it: never "$5…" nor "prices up…".
       [

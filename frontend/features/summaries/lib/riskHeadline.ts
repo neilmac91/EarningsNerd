@@ -26,13 +26,14 @@
  *      claims") or a list item ("... in China mainland"). Nor does a dash: filings use it for ranges
  *      ("2019 – 2022") and asides ("authorities—particularly China—could").
  *   5. Otherwise the headline is the longest prefix within the cap that ends on a whole content
- *      word, never on a function word, never splitting a figure from its unit or label ("$2.7 |
- *      billion", "200 basis | points", "$5 | per share", "EUR | 2.5", "Item | 1A"), a date ("December |
- *      31", "27 | September"), a capitalised name ("New | York") or an open bracket or quotation, and
- *      keeping at least MIN_CLAUSE_WORDS words. When no prefix avoids
- *      every split (an all-caps run reads as one long name) it ends on the last content word that
- *      leaves nothing open; when there is none, or fewer than MIN_CLAUSE_WORDS whole words fit (one
- *      long token or URL), the card keeps the fallback.
+ *      word, never on a function word, never splitting a figure from its unit, noun, qualifier or
+ *      label ("$2.7 | billion", "200 basis | points", "3,200 | employees", "approximately |
+ *      3,200", "$5 | per share", "EUR | 2.5", "Item | 1A"), a date ("December | 31", "27 |
+ *      September"), a capitalised name ("New | York") or an open bracket or quotation, and keeping
+ *      at least MIN_CLAUSE_WORDS words. When no prefix avoids every split (an all-caps run reads
+ *      as one long name) it ends on the last content word that leaves nothing open; when there is
+ *      none, or fewer than MIN_CLAUSE_WORDS whole words fit (one long token or URL), the card
+ *      keeps the fallback.
  *
  * Pure and dependency-free so it can be unit-tested directly (tests/unit/riskHeadline.spec.ts).
  */
@@ -99,6 +100,7 @@ const COMPOUND_UNIT_HEAD = /^(?:basis|percentage|square|cubic|metric)$/i
 // A currency code or symbol standing before its amount ("EUR 2.5 billion", "$ 4.1").
 const CURRENCY = /^(?:USD|EUR|GBP|JPY|CHF|CNY|RMB|US\$|\$|€|£|¥)$/
 const STARTS_WITH_FIGURE = /^[(\[]?[$€£¥]?\d/
+const QUANTITY_QUALIFIER = /^(?:approximately|approx|nearly|almost|roughly|around|some|least|most|only|just|exactly)$/i
 const MONTH = /^(?:January|February|March|April|May|June|July|August|September|October|November|December|Jan|Feb|Mar|Apr|Jun|Jul|Aug|Sept?|Oct|Nov|Dec)$/
 const UPPERCASE_START = /^\p{Lu}/u
 const TRAILING_SEPARATORS = /[\s,;:—–-]+$/
@@ -165,9 +167,15 @@ const isWeakEnd = (tokens: Token[], i: number, prefix: string): boolean => {
   const previous = tokens[i - 1]?.text
   if (isFunctionWord(word)) return true
   if (next !== undefined && /\d/.test(word) && SCALE_WORD.test(bare(next))) return true
+  // A figure directly before a lower-case content word is counting it ("3,200 | employees", "18 |
+  // months"): not when punctuation ends the figure ("in 2027, recognized") or a function word follows
+  // ("16% of", "2023 and").
+  if (next !== undefined && /\d[\d%]*$/.test(word) && /^\p{Ll}/u.test(next) && !isFunctionWord(next)) return true
   if (next !== undefined && COMPOUND_UNIT_HEAD.test(bare(word))) return true
   if (next !== undefined && SCALE_WORD.test(bare(word)) && COMPOUND_UNIT_HEAD.test(bare(next))) return true
   if (next !== undefined && /\d/.test(word) && bare(next).toLowerCase() === 'per') return true
+  // A qualifier before its figure: "approximately | 3,200", "at least | 10%".
+  if (next !== undefined && STARTS_WITH_FIGURE.test(next) && QUANTITY_QUALIFIER.test(bare(word))) return true
   // A label or currency before its figure: "Item | 1A", "Note | 12", "Topic | 842", "EUR | 2.5".
   if (next !== undefined && STARTS_WITH_FIGURE.test(next) && (CURRENCY.test(word) || UPPERCASE_START.test(bare(word)))) return true
   if (MONTH.test(bare(word))) return true
