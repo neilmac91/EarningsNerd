@@ -641,7 +641,7 @@ jobs:
             --min=0 --min-instances=0 --max=1 --max-instances=1 --concurrency=1 --timeout=600 \
             --command=uvicorn \
             --args='task_worker_main:app,--host,0.0.0.0,--port,8080,--proxy-headers,--forwarded-allow-ips=*' \
-            --update-env-vars=ENVIRONMENT=production,SKIP_REDIS_INIT=true,DURABLE_TASKS_ENABLED=true,TASKS_WORKER_PROCESS=true,TASKS_PROJECT_ID=earnings-nerd,TASKS_LOCATION=us-west1,TASKS_QUEUE=earningsnerd-background,TASKS_WORKER_URL=${TASKS_WORKER_URL},TASKS_INVOKER_EMAIL=earningsnerd-tasks@earnings-nerd.iam.gserviceaccount.com,DB_POOL_SIZE=3,DB_MAX_OVERFLOW=0,OPENAI_BASE_URL=${OPENAI_BASE_URL},AI_DEFAULT_MODEL=${AI_DEFAULT_MODEL},SENTRY_RELEASE=${GITHUB_SHA},ENABLE_FPI_FILINGS=true,NOTABLE_FILINGS_ENABLED=true,AI_EVIDENCE_SNAP=true,AI_FIGURE_TRACE_GATE=false,AI_FORWARD_QUOTE_GATE=false,AI_ATTRIBUTION_GATE=false,AI_ATTRIBUTION_VERIFY=false,USE_STRUCTURED_OUTPUT=false,CALENDAR_INDEX_FILTER_ENABLED=true,USE_STATEMENT_FINANCIALS=true \
+            --update-env-vars=ENVIRONMENT=production,SKIP_REDIS_INIT=true,DURABLE_TASKS_ENABLED=true,TASKS_WORKER_PROCESS=true,TASKS_PROJECT_ID=earnings-nerd,TASKS_LOCATION=us-west1,TASKS_QUEUE=earningsnerd-background,TASKS_WORKER_URL=${TASKS_WORKER_URL},TASKS_INVOKER_EMAIL=earningsnerd-tasks@earnings-nerd.iam.gserviceaccount.com,DB_POOL_SIZE=3,DB_MAX_OVERFLOW=0,OPENAI_BASE_URL=${OPENAI_BASE_URL},AI_DEFAULT_MODEL=${AI_DEFAULT_MODEL},SENTRY_RELEASE=${GITHUB_SHA},ENABLE_FPI_FILINGS=true,NOTABLE_FILINGS_ENABLED=true,AI_EVIDENCE_SNAP=true,AI_FIGURE_TRACE_GATE=false,AI_FORWARD_QUOTE_GATE=false,AI_ATTRIBUTION_GATE=false,AI_ATTRIBUTION_VERIFY=false,USE_STRUCTURED_OUTPUT=false,CALENDAR_INDEX_FILTER_ENABLED=true,USE_STATEMENT_FINANCIALS=true,SEC_RATE_LIMIT_PER_SECOND=1,EDGAR_RATE_LIMIT_PER_SEC=1 \
             --quiet
           gcloud run services update-traffic earningsnerd-task-worker --region=us-west1 --to-latest --clear-tags --quiet
       - name: Deploy Cloud Run service
@@ -658,7 +658,13 @@ jobs:
           # --max=2 pins the service-level limit across
           # traffic-serving revisions while --max-instances=2 pins each new revision. Cloud Run can
           # briefly exceed a configured maximum, and jobs remain outside this service limit; measure
-          # them before expanding traffic or schedules.
+          # them before expanding traffic or schedules. SEC allows 10 requests/second per user across
+          # every machine, and each process carries two independent SEC buckets (the app's
+          # SEC_RATE_LIMIT_PER_SECOND and edgartools' EDGAR_RATE_LIMIT_PER_SEC, defaults 10 and 9).
+          # The task worker above and every job update below pin both to 1. This service is pinned in
+          # a second stage, once the insider endpoint's cold fetch fits a 1 req/s edgartools budget; until
+          # then it runs at the defaults (tests/unit/test_sec_process_budgets.py and docs/OPERATIONS.md
+          # state the arithmetic and what it does not guarantee).
           cpu_billing=--no-cpu-throttling
           if [ "$DURABLE_TASKS_ENABLED" = "true" ]; then
             cpu_billing=--cpu-throttling
@@ -686,12 +692,13 @@ jobs:
           gcloud run jobs update earningsnerd-pregenerate --region=us-west1 \
             --image="$IMAGE:${GITHUB_SHA::7}" \
             --update-secrets=OPENAI_API_KEY=DEEPSEEK_API_KEY:latest \
-            --update-env-vars=OPENAI_BASE_URL=${OPENAI_BASE_URL},AI_DEFAULT_MODEL=${AI_DEFAULT_MODEL},DB_POOL_SIZE=3,DB_MAX_OVERFLOW=0,ENABLE_FPI_FILINGS=true,NOTABLE_FILINGS_ENABLED=true,AI_EVIDENCE_SNAP=true,AI_FIGURE_TRACE_GATE=false,AI_FORWARD_QUOTE_GATE=false,AI_ATTRIBUTION_GATE=false,AI_ATTRIBUTION_VERIFY=false,USE_STRUCTURED_OUTPUT=false,CALENDAR_INDEX_FILTER_ENABLED=false,USE_STATEMENT_FINANCIALS=true \
+            --update-env-vars=OPENAI_BASE_URL=${OPENAI_BASE_URL},AI_DEFAULT_MODEL=${AI_DEFAULT_MODEL},DB_POOL_SIZE=3,DB_MAX_OVERFLOW=0,ENABLE_FPI_FILINGS=true,NOTABLE_FILINGS_ENABLED=true,AI_EVIDENCE_SNAP=true,AI_FIGURE_TRACE_GATE=false,AI_FORWARD_QUOTE_GATE=false,AI_ATTRIBUTION_GATE=false,AI_ATTRIBUTION_VERIFY=false,USE_STRUCTURED_OUTPUT=false,CALENDAR_INDEX_FILTER_ENABLED=false,USE_STATEMENT_FINANCIALS=true,SEC_RATE_LIMIT_PER_SECOND=1,EDGAR_RATE_LIMIT_PER_SEC=1 \
             --quiet
       - name: Update filing-scan + digest + calendar + alert + notable + retention job images
         if: steps.changes.outputs.backend == 'true'
         # The jobs + their Cloud Scheduler triggers are created once out-of-band (see DEPLOYMENT.md);
-        # CI only bumps the image. Skip each gracefully if it hasn't been created yet so CD never fails.
+        # CI bumps the image and sets the DB pool and SEC budget keys. Skip each gracefully if it hasn't been
+        # created yet so CD never fails.
         run: |
           for job in earningsnerd-filing-scan earningsnerd-filing-digest earningsnerd-earnings-calendar-refresh earningsnerd-earnings-day-alerts earningsnerd-notable-filings earningsnerd-retention-purge; do
             if gcloud run jobs describe "$job" --region=us-west1 >/dev/null 2>&1; then
@@ -700,7 +707,7 @@ jobs:
               # for these serial jobs (operator --args overrides are outside this source audit).
               gcloud run jobs update "$job" --region=us-west1 \
                 --image="$IMAGE:${GITHUB_SHA::7}" \
-                --update-env-vars=DB_POOL_SIZE=1,DB_MAX_OVERFLOW=0 \
+                --update-env-vars=DB_POOL_SIZE=1,DB_MAX_OVERFLOW=0,SEC_RATE_LIMIT_PER_SECOND=1,EDGAR_RATE_LIMIT_PER_SEC=1 \
                 --quiet
             else
               echo "$job not found — create it once per DEPLOYMENT.md. Skipping."
@@ -714,7 +721,7 @@ jobs:
           if gcloud run jobs describe earningsnerd-backfill-facts --region=us-west1 >/dev/null 2>&1; then
             gcloud run jobs update earningsnerd-backfill-facts --region=us-west1 \
               --image="$IMAGE:${GITHUB_SHA::7}" \
-              --update-env-vars=DB_POOL_SIZE=1,DB_MAX_OVERFLOW=0 \
+              --update-env-vars=DB_POOL_SIZE=1,DB_MAX_OVERFLOW=0,SEC_RATE_LIMIT_PER_SECOND=1,EDGAR_RATE_LIMIT_PER_SEC=1 \
               --command=python \
               --args=scripts/backfill_facts.py,--only-new \
               --quiet

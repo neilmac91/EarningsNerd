@@ -88,13 +88,66 @@ process: `in_flight`, `admitted`, `peak_in_flight`; and the chat-only slot gate
 counted but bounded by its own semaphores and never waits here) and
 `sec_rate_limiter` (the process-local SEC token bucket: `total_requests`, `rate_limit_hits`,
 `current_tokens`, `requests_per_second`). Both are per process: the load on the shared provider
-key or the SEC IP is the sum over the API instances and every job that ran in the window
-(pregenerate, filing-scan and backfill-facts each carry their own bucket, and their Monday
-06:00–07:00 UTC schedules overlap each other and the service). A rising `rejected` count means
-chat callers are timing out in the queue rather than at the provider; `rate_limit_hits` climbing on
-the service while a job runs is the aggregate SEC budget being exceeded, which only lower
-per-process budgets on the service and jobs can fix. This addition changes no capacity or
-startup/probe deadlines.
+key or on SEC is the sum over the API instances and every job that ran in the window (every
+SEC-calling job carries its own buckets: pregenerate, the hourly filing-scan, backfill-facts and the
+EFTS jobs notable-filings and earnings-calendar-refresh; pregenerate at Monday 06:00 UTC, the hourly
+scan and backfill-facts at Monday 07:00 UTC overlap each other and the service in the 06:00–08:00
+window). A rising `rejected` count means chat callers are timing out in the queue rather than at the
+provider; `rate_limit_hits` climbing on the service while a job runs is the aggregate SEC budget
+being exceeded, which only lower per-process budgets on the service and jobs can fix. This addition
+changes no capacity or startup/probe deadlines.
+
+#### SEC budgets per process (deploy-pinned, staged)
+
+Each process holds two independent SEC limiters: the app's token bucket, `SEC_RATE_LIMIT_PER_SECOND`
+(code default 10; it starts full, with capacity equal to rate), and edgartools' sliding window,
+`EDGAR_RATE_LIMIT_PER_SEC` (library default 9, read once at import). The app wraps edgartools
+traffic in its own bucket only in the SIC lookup (`app/services/edgar/company_sic.py`), which
+therefore draws from both, so a process's configured SEC ceiling is at most the sum of the two. SEC
+allows 10 requests per second per user regardless of machines, so the deploy pins both to `1` on
+every Cloud Run job and on the private task worker (`ci.yml`; gate
+`tests/unit/test_sec_process_budgets.py`). The API service is pinned in a second stage, once the
+insider endpoint fits a 1 req/s edgartools budget: a cold load fetches one submissions document and
+up to 60 Form 4 filings through edgartools, at least ~63 s at 1 req/s, past its 60 s server and 30 s
+client timeouts (its company-page panel is off in production; the endpoint is public). Until then
+the two service instances run at the defaults, 38 req/s configured, and no window is bounded by
+configuration.
+
+Once the service is pinned, the configured sustained sums are: 4 req/s sustained with no job running
+(two instances), 6 in the hourly filing-scan window, 8 at Monday 06:00 UTC, 10 req/s in the Monday
+07:00 UTC overlap (pregenerate still running, scan, backfill-facts) — at the cap with no headroom —
+and 20 req/s if every job ran at once, which configuration does not prevent. A full bucket at rate R
+admits up to 2R−1 requests in its first second (19 at the default 10), but at the pinned rate of 1
+the bucket never holds more than one token, so admissions are at least 1 s apart, and edgartools'
+window never exceeds its rate per rolling second: under the pin a process's ceiling is 2 req/s in
+every second, the first included, and the Monday 07:00 UTC overlap's ceiling in any second is 10
+req/s. The private task worker (`earningsnerd-task-worker`, one instance running one isolated child
+per delivery) is deployed only with `GCP_DURABLE_TASKS_ENABLED=true`; enabled, it adds 2 req/s to
+every window, giving 6 req/s sustained with no job running and 12 req/s in the Monday 07:00 UTC
+overlap, over the cap. Each task runs in a fresh child with fresh limiters, so a handover between
+two children inside one second can briefly admit up to 4 req/s from the worker. A filing-scan run
+through the worker (`/internal/jobs/filing-scan`) is bounded by its 480 s work timeout
+(`TASKS_WORK_TIMEOUT_SECONDS`), about 450 watched companies at 1 req/s; the scheduled scan belongs
+on the Cloud Run job (1,800 s).
+
+Not bounded by this pin: rollout-overlap instances, manual job executions and operator one-shots, a
+job or worker created by hand without the pins (the runbook commands in `docs/DEPLOYMENT.md` set
+them, and CI sets them on the next deployable merge), and any request outside both limiters. Neither
+the jobs nor the worker (it serves only `/health` and its task endpoint) expose limiter state: the
+pin shows as longer execution times and, when SEC pushes back, as app-bucket 429 backoff warnings in
+their logs. Lowering the budget shows up as longer SEC waits inside a process (the limiter waits, it
+does not reject, and waits are not counted): `rate_limit_hits` increments only when a backoff-path
+request receives a recognised SEC 429, so a flat counter is not evidence of safe aggregate traffic,
+while a rising one is SEC pushing back. SEC 403 responses are not counted there; they show in logs.
+
+To change or undo the pins, set new values in the `ci.yml` maps, or add
+`--remove-env-vars=SEC_RATE_LIMIT_PER_SECOND,EDGAR_RATE_LIMIT_PER_SEC` to each update, in a change
+that also touches a deployable `backend/` path and updates the gate
+(`tests/unit/test_sec_process_budgets.py`, and the backfill-facts map in
+`tests/unit/test_data_completeness.py`); when adding `--remove-env-vars`, drop the keys from that
+update's map. `--update-env-vars` only sets keys, so deleting them from `ci.yml`, or reverting the
+change that added them, leaves the pins live; a change confined to `ci.yml` does not deploy at all.
+Ops `describe-jobs` (`docs/DEPLOYMENT.md`) lists the env names present on each job after a deploy.
 
 ### AI call telemetry (`ai_call` / `ai_summary` log lines)
 
@@ -310,7 +363,7 @@ the job retries it with backoff, re-keying it if the replay window closed. Histo
 | `cache.xbrl_l1.utilization_percent` | > 80% | > 95% |
 | `cache.redis.healthy` | - | `false` |
 | `circuit_breaker.sec_edgar.state` | `half_open` | `open` |
-| `database.checked_out` | > 8 | = pool_size |
+| `database.checked_out` | ≥ pool_size − 1 (3 on the deployed service pool 4 / overflow 0) | = pool_size |
 
 ## Request Timeout Configuration
 
