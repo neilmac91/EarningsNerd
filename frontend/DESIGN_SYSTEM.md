@@ -170,10 +170,11 @@ Focus ring       focus-visible:outline-none focus-visible:shadow-ring-brand dark
                  `focus:ring-0 focus:ring-offset-0`: @tailwindcss/forms rings it blue on any focus, and the
                  shadow utilities draw the brand ring inside that ring rather than instead of it. Every Tab stop
                  in the site chrome carries it (the skip link the same triple on `focus:`): gate
-                 tests/unit/siteChromeFocusRing.spec.ts reads the AST of the chrome files (SiteChrome, Header,
-                 ThemeToggle, UserMenu, NotificationBell, VerificationBanner, SecondaryHeader, Footer,
-                 CookieConsent with its settings dialog, AuthShell), plus every control a page passes into
-                 SecondaryHeader's `actions` slot (the dashboard's "Log out"); `buttonVariants(…)` composes it; a
+                 tests/unit/siteChromeFocusRing.spec.ts reads the AST of every chrome file, discovered from
+                 app/layout.tsx, AuthShell and SecondaryHeader through their imports (components/ui aside), so a
+                 new banner, menu or widget is scanned unlisted, plus every control a page passes into
+                 SecondaryHeader's `actions` slot (the dashboard's "Log out"; write them inline, as a variable or
+                 a component of their own the scan cannot read them); `buttonVariants(…)` composes it; a
                  className it cannot read fails. It is the rule's one gate; a page's other controls (the filing
                  page's "← Back") carry the recipe but sit outside it.
 

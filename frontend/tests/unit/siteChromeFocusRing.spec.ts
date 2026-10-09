@@ -1,4 +1,4 @@
-import { readdirSync, readFileSync } from 'node:fs'
+import { existsSync, readdirSync, readFileSync } from 'node:fs'
 import path from 'node:path'
 import ts from 'typescript'
 import { describe, expect, it } from 'vitest'
@@ -25,29 +25,57 @@ import { describe, expect, it } from 'vitest'
  * utilities compose with it, so the triple alone shows the brand ring inside a blue one. A control that
  * is statically `disabled` is not a Tab stop.
  *
- * Scope: the chrome a keyboard user tabs through on every route — the skip link, the site header (both
- * widths, its account and notification menus), the theme toggle, the verification banner under it, the
- * page header with its back link, the footer, the cookie-consent bar and its settings dialog, and the
- * auth routes' header (app/layout.tsx mounts the banner and the consent bar beside the header and
- * footer). The page header also renders the controls a page passes into its `actions` slot (the
- * dashboard's "Log out"), so every `<SecondaryHeader actions={…}>` in the app is scanned too. A page's
- * other controls are not chrome: the filing page's "← Back" carries the recipe but is outside this gate.
- * This is the rule's one gate (AGENTS.md §4): no e2e walk repeats it.
+ * Scope: the chrome a keyboard user tabs through on every route, discovered rather than listed (see
+ * CHROME_ROOTS): everything app/layout.tsx mounts (the site header with its menus, the footer, the
+ * verification banner and prompt, the cookie-consent bar, the providers' error boundary and feedback
+ * widget), the auth routes' shell and the page header, with every module they import. The page header
+ * also renders the controls a page passes into its `actions` slot (the dashboard's "Log out"), so every
+ * `<SecondaryHeader actions={…}>` in the app is scanned too, and its controls must be written inline. A
+ * page's other controls are not chrome: the filing page's "← Back" carries the recipe but is outside
+ * this gate. This is the rule's one gate (AGENTS.md §4): no e2e walk repeats it.
  */
 const ROOT = path.resolve(__dirname, '../..')
 
-const CHROME_FILES = [
-  'components/SiteChrome.tsx',
-  'components/Header.tsx',
-  'components/ThemeToggle.tsx',
-  'features/auth/components/UserMenu.tsx',
-  'features/notifications/components/NotificationBell.tsx',
-  'features/auth/components/VerificationBanner.tsx',
-  'components/SecondaryHeader.tsx',
-  'components/Footer.tsx',
-  'components/CookieConsent.tsx',
-  'features/auth/components/AuthShell.tsx',
-]
+/**
+ * Where the site chrome is mounted: the root layout (header, footer, verification banner and prompt,
+ * consent bar, and the providers' app-wide widgets, on every route), the auth routes' shell, and the
+ * page header pages render. The scanned files are discovered from these: every .tsx module they import,
+ * transitively, through `@/` or relative paths. The DS primitives in components/ui are not followed:
+ * they own the recipe, and `buttonVariants` is pinned below. A new banner, menu or widget the chrome
+ * imports is scanned without anyone listing it.
+ */
+const CHROME_ROOTS = ['app/layout.tsx', 'features/auth/components/AuthShell.tsx', 'components/SecondaryHeader.tsx']
+
+/** Chrome files the scan skips, each with its reason. Shrink-only: fix the file and delete its line. */
+const NOT_SCANNED: Record<string, string> = {}
+
+/** The chrome's .tsx modules, discovered from CHROME_ROOTS through their imports. */
+function chromeFiles(): string[] {
+  const resolveImport = (from: string, spec: string): string | null => {
+    let base: string
+    if (spec.startsWith('@/')) base = path.join(ROOT, spec.slice(2))
+    else if (spec.startsWith('.')) base = path.resolve(path.dirname(path.join(ROOT, from)), spec)
+    else return null
+    for (const candidate of [`${base}.tsx`, path.join(base, 'index.tsx')]) {
+      if (existsSync(candidate)) return path.relative(ROOT, candidate)
+    }
+    return null
+  }
+  const seen = new Set<string>()
+  const queue = [...CHROME_ROOTS]
+  while (queue.length) {
+    const file = queue.shift()!
+    if (seen.has(file)) continue
+    seen.add(file)
+    const sf = parse(readFileSync(path.join(ROOT, file), 'utf8'), file)
+    for (const stmt of sf.statements) {
+      if (!ts.isImportDeclaration(stmt) || stmt.importClause?.isTypeOnly || !ts.isStringLiteral(stmt.moduleSpecifier)) continue
+      const target = resolveImport(file, stmt.moduleSpecifier.text)
+      if (target && !target.startsWith(`components${path.sep}ui${path.sep}`)) queue.push(target)
+    }
+  }
+  return [...seen].sort()
+}
 
 const RINGS = [
   ['focus-visible:outline-none', 'focus-visible:shadow-ring-brand', 'dark:focus-visible:shadow-ring-brand-dark'],
@@ -104,9 +132,16 @@ function missingRingsInHeaderActions(source: string, fileName = 'page.tsx'): { s
   const result = { stops: 0, findings: [] as Finding[] }
   const visit = (node: ts.Node): void => {
     if ((ts.isJsxOpeningElement(node) || ts.isJsxSelfClosingElement(node)) && headers.has(node.tagName.getText(sf))) {
+      const line = sf.getLineAndCharacterOfPosition(node.getStart(sf)).line + 1
+      const tag = node.tagName.getText(sf)
+      // A spread can carry `actions` the scan cannot see.
+      if (node.attributes.properties.some(ts.isJsxSpreadAttribute)) result.findings.push({ line, tag, problem: 'a props spread the scan cannot read' })
       const actions = node.attributes.properties.find((p) => ts.isJsxAttribute(p) && p.name.getText(sf) === 'actions')
       if (actions && ts.isJsxAttribute(actions) && actions.initializer) {
         const { stops, findings } = scan(actions.initializer, sf)
+        // The slot's controls must be written inline: a variable or a component of its own
+        // (`actions={headerActions}`, `actions={<HeaderActions />}`) hides them from the scan.
+        if (stops === 0) result.findings.push({ line, tag, problem: 'an actions slot with no control the scan can read (write its controls inline)' })
         result.stops += stops
         result.findings.push(...findings)
       }
@@ -178,11 +213,18 @@ function appSources(): string[] {
 }
 
 describe('every Tab stop in the site chrome carries the brand focus ring (EN-05c)', () => {
-  for (const file of CHROME_FILES) {
+  const discovered = chromeFiles()
+
+  it('the discovery reaches the chrome it is for (a resolver that finds nothing must not pass)', () => {
+    for (const file of ['components/Header.tsx', 'components/Footer.tsx', 'components/ThemeToggle.tsx', 'features/auth/components/UserMenu.tsx', 'features/notifications/components/NotificationBell.tsx', 'features/auth/components/VerificationBanner.tsx', 'components/CookieConsent.tsx']) {
+      expect(discovered, file).toContain(file)
+    }
+    for (const file of Object.keys(NOT_SCANNED)) expect(discovered, `${file} is no longer chrome: drop its exemption`).toContain(file)
+  })
+
+  for (const file of discovered.filter((f) => !(f in NOT_SCANNED))) {
     it(file, () => {
-      const { stops, findings } = missingRings(readFileSync(path.join(ROOT, file), 'utf8'), file)
-      // A file that no longer has a Tab stop has moved or changed role: update the list, don't let it pass empty.
-      expect(stops, `${file} has no Tab stop left to check`).toBeGreaterThan(0)
+      const { findings } = missingRings(readFileSync(path.join(ROOT, file), 'utf8'), file)
       expect(findings.map((f) => `${file}:${f.line} <${f.tag}> ${f.problem}`)).toEqual([])
     })
   }
@@ -216,6 +258,26 @@ describe('every Tab stop in the site chrome carries the brand focus ring (EN-05c
     expect(stops).toBe(2)
     expect(findings.map((f) => `${f.tag}: ${f.problem}`)).toEqual([
       'button: missing focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark',
+    ])
+    // Indirection the scan cannot follow fails rather than passing empty.
+    const hidden = `
+      import SecondaryHeader from '@/components/SecondaryHeader'
+      function HeaderActions() { return <button className="text-sm">Log out</button> }
+      export function P(props: object) {
+        const headerActions = <button className="text-sm">Log out</button>
+        return (
+          <>
+            <SecondaryHeader title="A" actions={headerActions} />
+            <SecondaryHeader title="B" actions={<HeaderActions />} />
+            <SecondaryHeader title="C" {...props} />
+            <SecondaryHeader title="D" />
+          </>
+        )
+      }`
+    expect(missingRingsInHeaderActions(hidden).findings.map((f) => `${f.line}: ${f.problem}`)).toEqual([
+      '8: an actions slot with no control the scan can read (write its controls inline)',
+      '9: an actions slot with no control the scan can read (write its controls inline)',
+      '10: a props spread the scan cannot read',
     ])
   })
 

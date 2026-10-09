@@ -93,12 +93,11 @@ export default function FeedbackWidget() {
                   type="button"
                   onClick={() => setType(t.value)}
                   aria-pressed={type === t.value}
-                  className={
-                    'flex-1 rounded-lg border px-2 py-1.5 text-xs font-medium transition-colors ' +
-                    (type === t.value
+                  className={`flex-1 rounded-lg border px-2 py-1.5 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark ${
+                    type === t.value
                       ? 'border-brand-strong/40 bg-brand-strong/10 text-brand-strong dark:border-brand-strong-dark/40 dark:bg-brand-strong-dark/15 dark:text-brand-strong-dark'
-                      : 'border-black/10 text-text-secondary-light hover:bg-black/[0.03] dark:border-white/15 dark:text-text-secondary-dark dark:hover:bg-white/[0.04]')
-                  }
+                      : 'border-black/10 text-text-secondary-light hover:bg-black/[0.03] dark:border-white/15 dark:text-text-secondary-dark dark:hover:bg-white/[0.04]'
+                  }`}
                 >
                   {t.label}
                 </button>
@@ -114,7 +113,7 @@ export default function FeedbackWidget() {
               rows={4}
               maxLength={4000}
               placeholder="What's working, what's broken, or what you'd love to see…"
-              className="w-full resize-none rounded-lg border border-black/10 bg-white/70 px-3 py-2 text-sm text-text-primary-light placeholder:text-text-tertiary-light focus:border-brand-strong focus:outline-none focus:ring-2 focus:ring-brand-strong/30 dark:border-white/15 dark:bg-white/5 dark:text-text-primary-dark dark:placeholder:text-text-secondary-dark"
+              className="w-full resize-none rounded-lg border border-black/10 bg-white/70 px-3 py-2 text-sm text-text-primary-light placeholder:text-text-tertiary-light focus:border-brand focus:shadow-ring-brand focus:outline-none dark:border-white/15 dark:bg-white/5 dark:text-text-primary-dark dark:placeholder:text-text-secondary-dark dark:focus:border-brand-dark dark:focus:shadow-ring-brand-dark"
             />
 
             {/* `loading`, never native `disabled`, while sending: Chromium blurs a focused button
