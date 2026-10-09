@@ -25,7 +25,7 @@ export default function AskFilingCallout({ filingType, subjectLabel, onAsk }: As
   return (
     <section
       aria-labelledby="ask-filing-callout-heading"
-      className="rounded-xl border border-brand-border bg-brand-weak dark:bg-white/5 p-6"
+      className="rounded-xl border border-brand-border bg-brand-weak dark:border-white/10 dark:bg-white/5 p-6"
     >
       <div className="flex items-start gap-3">
         <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-brand-strong text-white dark:bg-brand-dark dark:text-background-dark">

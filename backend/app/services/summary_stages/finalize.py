@@ -27,6 +27,7 @@ logger = logging.getLogger(pipeline.__name__)
 async def finalize(run: GenerationRun) -> AsyncIterator[dict]:
     """Project, assess, persist, count usage and emit the chunk and terminal events."""
     filing_id, user_id, force_regenerate = run.filing_id, run.user_id, run.force_regenerate
+    replace_unready_only = run.replace_unready_only
 
     # The application-prepared degraded source is private and will be popped by the shared
     # finalizer. Retain it separately so the cache owner can preserve the same decoded-text
@@ -210,12 +211,36 @@ async def finalize(run: GenerationRun) -> AsyncIterator[dict]:
             if force_regenerate:
                 # Admin refresh-stale: UPDATE the existing row IN PLACE (preserve summaries.id so
                 # the saved_summaries FK/bookmark survives and UNIQUE(filing_id) holds) instead of
-                # delete+insert, guarded by a keep-better gate.
-                existing = session.query(Summary).filter(Summary.filing_id == filing_id).first()
+                # delete+insert, guarded by a keep-better gate. The read takes the row lock the
+                # UPDATE takes, so the checks below hold until this commit: another instance's save
+                # commits first and is read here, never lands between this read and the write.
+                # SQLite omits the clause; PostgreSQL emits FOR NO KEY UPDATE (FK key-share safe).
+                existing = (
+                    session.query(Summary)
+                    .filter(Summary.filing_id == filing_id)
+                    .with_for_update(key_share=True)
+                    .first()
+                )
                 if existing is not None:
-                    stored_tier = ((existing.raw_summary or {}).get("quality") or {}).get("tier")
+                    stored_raw = existing.raw_summary if isinstance(existing.raw_summary, dict) else {}
+                    stored_tier = (stored_raw.get("quality") or {}).get("tier")
                     new_tier = (quality or {}).get("tier")
-                    if pipeline.quality_tier_rank(new_tier) < pipeline.quality_tier_rank(stored_tier):
+                    # Keep-better protects only a stored row the filing page shows (the body
+                    # the router would replay, by the same rule): failure filler or a stale
+                    # in-progress marker never outranks a fresh result.
+                    stored_shown = pipeline.is_summary_ready(
+                        pipeline.source_safe_business_overview(existing, filing_for_cache),
+                        stored_raw.get("writer_error"),
+                    )
+                    if stored_shown and replace_unready_only:
+                        # This run was admitted only to replace a row the page cannot show,
+                        # and another run made it ready meanwhile: keep that summary.
+                        logger.info(
+                            "[stream:%s] unready refresh: the stored summary became ready meanwhile; keeping it",
+                            filing_id,
+                        )
+                        return existing.id
+                    if stored_shown and pipeline.quality_tier_rank(new_tier) < pipeline.quality_tier_rank(stored_tier):
                         # Never let a refresh downgrade a stored higher tier (a 75s AI-timeout
                         # XBRL fallback comes back "partial"; keep the stored "full").
                         logger.info(

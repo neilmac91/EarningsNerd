@@ -446,7 +446,8 @@ Company identity <CompanyIdentity company latest summaryReady actions>  (feature
                  ready" (only when the summary probe found one the filing page will show: isSummaryReady, not
                  a placeholder or a stored failure). Its actions: the ONE primary action, opening the latest
                  filing ("Open latest summary" when ready, "Open latest filing" over a stored row that is
-                 not, "Summarize latest filing" when the filing has none), with the watchlist toggle beside
+                 not and while the summary read is pending or has failed, "Summarize latest filing" only
+                 once the read finds none), with the watchlist toggle beside
                  it as a secondary Button (visible label, star, aria-
                  pressed, `loading` while it saves). Sector and fiscal-year convention wait for the payload.
 

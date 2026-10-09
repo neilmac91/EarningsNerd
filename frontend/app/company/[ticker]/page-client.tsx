@@ -232,12 +232,14 @@ export default function CompanyPageClient({ initialCompany, initialFilings }: Co
   // company search's `summary_ready` applies the same rule, so a result and this lead agree.
   const summaryReady = isSummaryReady(latestSummary)
   // The primary action promises only what the filing page does: open a ready summary, start one where
-  // the filing has none, and over a stored row it shows as its error card, just open the filing.
+  // the filing has none (getSummary answers null), and otherwise just open the filing: over a stored
+  // row it shows as its error card, and while the summary is loading or could not be read, when
+  // "Summarize" would flash ahead of "Open latest summary".
   const leadAction = summaryReady
     ? 'Open latest summary'
-    : latestSummary
-      ? 'Open latest filing'
-      : 'Summarize latest filing'
+    : latestSummary === null
+      ? 'Summarize latest filing'
+      : 'Open latest filing'
 
   // Handle case where ticker might not be available
   if (!ticker) {

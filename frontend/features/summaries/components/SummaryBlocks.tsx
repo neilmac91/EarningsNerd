@@ -149,34 +149,39 @@ export function SummaryBlocks({ sections, summary, whatChanged }: SummaryBlocksP
         </nav>
       </aside>
 
-      <div className="min-w-0 space-y-11">
+      <div className="min-w-0">
+        {/* Outside the spaced stack: Tailwind 3's space-y margins every child after a sibling without
+            the hidden attribute, so this display:none-at-lg nav pushed section 01 44px below the TOC
+            on wide screens. Its own bottom margin keeps the phone gap. */}
         <MobileSectionNav sections={pageSections} />
-        {pageSections.map((section, i) => {
-          const toneVariant = section.tone ? TONE_VARIANT[section.tone.toLowerCase()] : undefined
-          return (
-            <section
-              key={section.id}
-              id={section.id}
-              aria-labelledby={`${section.id}-heading`}
-              className="scroll-mt-32 lg:scroll-mt-24"
-            >
-              <div className="flex items-baseline gap-3">
-                <span aria-hidden="true" className={`font-data text-xs tabular-nums ${MUTED}`}>
-                  {sectionIndex(i)}
-                </span>
-                <h2 id={`${section.id}-heading`} className="min-w-0 text-xl font-semibold">
-                  {section.title}
-                </h2>
-                {toneVariant && (
-                  <Badge variant={toneVariant} className="shrink-0 self-center capitalize">
-                    {section.tone}
-                  </Badge>
-                )}
-              </div>
-              <div className="mt-4 space-y-4">{section.body}</div>
-            </section>
-          )
-        })}
+        <div className="space-y-11">
+          {pageSections.map((section, i) => {
+            const toneVariant = section.tone ? TONE_VARIANT[section.tone.toLowerCase()] : undefined
+            return (
+              <section
+                key={section.id}
+                id={section.id}
+                aria-labelledby={`${section.id}-heading`}
+                className="scroll-mt-32 lg:scroll-mt-24"
+              >
+                <div className="flex items-baseline gap-3">
+                  <span aria-hidden="true" className={`font-data text-xs tabular-nums ${MUTED}`}>
+                    {sectionIndex(i)}
+                  </span>
+                  <h2 id={`${section.id}-heading`} className="min-w-0 text-xl font-semibold">
+                    {section.title}
+                  </h2>
+                  {toneVariant && (
+                    <Badge variant={toneVariant} className="shrink-0 self-center capitalize">
+                      {section.tone}
+                    </Badge>
+                  )}
+                </div>
+                <div className="mt-4 space-y-4">{section.body}</div>
+              </section>
+            )
+          })}
+        </div>
       </div>
     </div>
   )
@@ -193,7 +198,7 @@ function MobileSectionNav({ sections }: { sections: PageSection[] }) {
   return (
     <nav
       aria-label="Jump to section"
-      className="sticky top-16 z-sticky -mx-4 border-b border-border-light bg-background-light/95 px-4 backdrop-blur-xl sm:-mx-6 sm:px-6 lg:hidden dark:border-border-dark dark:bg-background-dark/95"
+      className="sticky top-16 z-sticky -mx-4 mb-11 border-b border-border-light bg-background-light/95 px-4 backdrop-blur-xl sm:-mx-6 sm:px-6 lg:hidden dark:border-border-dark dark:bg-background-dark/95"
     >
       <ul className="flex gap-2 overflow-x-auto py-2 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         {sections.map((section, i) => (

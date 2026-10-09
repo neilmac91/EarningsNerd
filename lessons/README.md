@@ -167,6 +167,7 @@ what applies to your task. Filenames are greppable: `arch-*`, `sec-*`, `test-*`,
 - [`ops-job-success-needs-outcome-evidence.md`](./ops-job-success-needs-outcome-evidence.md) — Persist actual job outcomes; swallowed failures and dry runs never advance last success
 
 - [`ops-eval-gate-for-ai-changes.md`](./ops-eval-gate-for-ai-changes.md) — Gate every AI/prompt/model change on the eval regression gate — and re-pin the baseline in the same PR
+- [`ops-copilot-eval-red-is-triaged-never-rerun.md`](./ops-copilot-eval-red-is-triaged-never-rerun.md) — Triage a red copilot-eval run by the RUNBOOK rule; never re-run it to get a green one
 - [`ops-a-review-you-triggered-is-a-review-you-wait-for.md`](./ops-a-review-you-triggered-is-a-review-you-wait-for.md) — A review you triggered is a review you wait for; merging inside it discards what you asked for
 - [`ops-bound-drain-batches-to-job-memory.md`](./ops-bound-drain-batches-to-job-memory.md) — Bound a regeneration batch by the job container's memory, not by its time budget alone
 - [`ops-founder-runs-claude-in-the-mac-app.md`](./ops-founder-runs-claude-in-the-mac-app.md) — Address founder instructions to the Claude desktop app, and give `claude -p` its own login
