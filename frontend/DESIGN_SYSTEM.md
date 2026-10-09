@@ -101,7 +101,7 @@ shared surface (it caused white-on-cream and dark-on-cream bugs across the app).
 ## 4. Canonical component patterns
 
 **Compose the component layer, don't hand-roll** — `components/ui/*` (Button, Badge, Input, Card,
-DataTable, Skeleton, GuidanceCard, Notice, Modal) + `features/filings/components/AskFilingAnswer.tsx` (v2.2: reworked to
+DataTable, Skeleton, GuidanceCard, Notice, Modal, SegmentedControl) + `features/filings/components/AskFilingAnswer.tsx` (v2.2: reworked to
 the SHIPPED copilot data model — see below). Controls expose their applicable interaction and
 availability states; data surfaces supply loading, empty and error treatments as supported by
 their APIs. Passive Card and Badge primitives do not implement the full control-state set.
@@ -165,7 +165,10 @@ Ghost button     <Button variant="ghost">  — brand.strong text on transparent,
 
 Link as button   buttonVariants({ variant, size })  — the class-string factory for <Link>/<a>
                  styled as buttons; <Button> composes the same factory. Raw fields that the
-                 <Input> component can't wrap use inputClasses({ invalid }).
+                 <Input> component can't wrap use inputClasses({ invalid, density }).
+                 Toolbar fields (v3.1): density="compact" on <Select>/inputClasses = 36px from sm
+                 up, phones keep the 44px touch height. `density`, not `size` (a native attribute);
+                 each density has its own EXPLICIT padding sides (never an override on top).
 
 Accent text/link text-brand-strong dark:text-brand-strong-dark   (never brand.DEFAULT as text on cream)
 Focus ring       focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark;
@@ -183,11 +186,11 @@ Delta text       text-gain-text dark:text-gain-dark  /  text-loss-text dark:text
 
 Solid chip       <Badge variant="solid">  — the primary colorway as a chip (brand.strong fill +
                  white label; dark: NAVY ink on brand.dark) for brand-weak TINTED grounds where the
-                 tint chips vanish ("Recommended"). <Badge variant="info"> = the info STATE tint
+                 tint chips vanish. <Badge variant="info"> = the info STATE tint
                  (light label ink = info.text), never a form category: a form code (10-K, 10-Q, 6-K …)
                  is text in the data face, never a Badge (gate: earningsnerd/no-form-code-badge,
                  eslint.designRules.mjs); <Badge variant="warning"> = warning tint
-                 (replaces raw-amber hand-rolls). beat/miss/new double as tonal recipes via icon={null}.
+                 (replaces raw-amber hand-rolls; "Superseded"). beat/miss/new double as tonal recipes via icon={null}.
 
 Inline notice    <Notice variant="error|info|success">  — compact icon + title + message + action
                  for form/auth flows and in-card states (role="alert" on error; action slot takes a
@@ -198,11 +201,45 @@ Search field     <Input icon={<Magnifier/>}>  — leading glyph with an explicit
                  a pl-11 override is Tailwind conflict-order-dependent — don't). Raw fields:
                  inputClasses({ leadingIcon: true }).
 
+Search option    <CompanySearch> results (2026-10 critique 1d) — an option is the company (name 14/600, then
+                 ticker · exchange in the data face, today's quote at the right only when the search returned
+                 one: never a "Loading price..." that cannot resolve) over the filing identity strip of the
+                 filing a pick lands on: "Latest 10-K · fiscal year ended … · filed … · summary ready" (the
+                 search's `latest_filing`, backend latest_filing_service: the company list's forms, newest
+                 that still stands). The listbox holds options only; the count and the "↑↓ to move · ↵ to
+                 open" hint sit under it, aria-hidden, the hint from sm up.
+
 Chat composer    <Textarea variant="composer">  — transparent, auto-growing, chrome-free field; the
                  app-owned shell carries inputClasses() + focus-within:border-brand +
                  focus-within:shadow-ring-brand (never double chrome).
 
 Semantic card    <Card as="section">  — same recipe on a semantic element.
+
+Segmented ctrl   <SegmentedControl label options value onChange size="sm|md|adaptive" fullWidth>  — v3.1, the
+                 ONE single-choice toggle group (lifted from the calendar's Week/Month switch; the calendar
+                 and the filings form filter both use it). role="group" of <button aria-pressed> — every option
+                 is visible, so not a radiogroup/tablist. Shell = panel + hairline + e1, rounded-lg, p-1;
+                 segment rounded (8) 12/600; selected = the primary colorway (bg-brand + white; dark NAVY ink on
+                 brand-dark). sm 26px · md 36px · adaptive 36px below sm, 26px from sm up. `mono` options set
+                 codes (10-K) in the data face. One selected colour per group — never an ink fill for "All".
+                 `fullWidth` stretches the segments across a phone row and wraps them onto another row when
+                 they do not fit (a form filter with amendments), so every option stays visible; from sm up
+                 it is one auto-width row.
+
+Index list       <FilingIndex> (features/filings/components) — the recipe for a list of primary documents:
+                 ONE surface (the section Card), hairline rows and year groups (DataTable manners: hover
+                 bg-white / dark:bg-white/[0.03], never darker), no stripes, no row tints, no per-type colour,
+                 no per-row icon. One grid template for the column header and every row (form · period ·
+                 filed · actions) so values align across groups. The row is ONE <Link>, named by its own
+                 content (no aria-label); a secondary target (EDGAR) is a SIBLING anchor absolutely placed in
+                 the actions track — never an <a> inside the row link. 48px rows from md, 64px two-line rows
+                 on phones with a 44px EDGAR square. Group headers are <h3><button aria-expanded
+                 aria-controls>; collapsed lists stay in the DOM with `hidden`. One primary action per screen,
+                 and on the company page it is the lead's (Company identity, below): the list only marks the
+                 latest row "Latest", and rows never carry a primary button. Choosing a year filter opens
+                 its group. Skeleton = the ledger's own tracks; errors = Notice + RetryButton in place.
+                 Gate: a `border-l|s-(2|4|8)` side stripe on a rounded box is lint-banned
+                 (earningsnerd/no-side-stripe, eslint.designRules.mjs).
 
 Dialog           <Modal open onClose labelledBy="<id>" size="sm|md|lg" dismissible initialFocusRef>
                    <ModalHeader id="<id>" onClose icon={…?} tone="brand|success|warning|error">Title</ModalHeader>
@@ -369,6 +406,49 @@ Section ledger   <SummaryBlocks>  (P-05/P-07) — sections sit on the page groun
                  display string in its TONE's ink with a ▲/▼ text glyph for the arithmetic direction
                  (aria-hidden), "Read as" = the tone in words (Favorable / Unfavorable / Neutral); below sm a
                  stacked row per metric (name + change, then prior → current + Read as), switched by CSS.
+                 A fragment the page was OPENED with (/filing/{id}#what-changed, from Compare periods) is
+                 honoured once its section renders (features/summaries/hooks/useSectionArrival); later
+                 renders never move the reader. Where the page has no structured summary to hold it, the
+                 report is a card of its own (features/summaries ChangeReportCard): under a legacy markdown
+                 summary, under a stored summary that failed, under the signup gate, and under a run that
+                 ended in an error or at the monthly limit. It needs no summary, carries the same id
+                 (WHAT_CHANGED_ID, exported beside WhatChanged) and lands the same way.
+
+Company identity <CompanyIdentity company latest summaryReady actions>  (features/companies, critique 1b) — the
+                 Filing identity vocabulary reused on the company lead (IDENTITY_* classes, Sep, TickerPill
+                 exported from FilingIdentity): breadcrumb Home / company, the h1 with logo and ticker pill,
+                 one data-face line of facts the API returns (exchange · quote · CIK as EDGAR prints it, ten
+                 digits · "Company on SEC EDGAR ↗"), then "Latest filing" form · period · filed date · "summary
+                 ready" (only when the summary probe found one the filing page will show: isSummaryReady, not
+                 a placeholder or a stored failure). Its actions: the ONE primary action, opening the latest
+                 filing ("Open latest summary" when ready, "Open latest filing" over a stored row that is
+                 not, "Summarize latest filing" when the filing has none), with the watchlist toggle beside
+                 it as a secondary Button (visible label, star, aria-
+                 pressed, `loading` while it saves). Sector and fiscal-year convention wait for the payload.
+
+Compare periods  <ComparePeriodsCard filing>  (features/filings, critique 1b + P-07) — the entry to a change
+                 report: an <aside> Card (p-5, h2 18/600) beside the filings index on lg+ (grid-cols-1 base,
+                 lg 1fr + 20rem), shown only for selectComparisonFiling (the newest annual report with an
+                 earlier annual period listed). Up to three hairline rows: metric · the change in WhatChanged's
+                 own vocabulary (exported Change: ▲/▼ glyph + the server's display string in its tone's ink)
+                 · the Read-as word; "N more in the change report."; a sage text link "Open change report →"
+                 to /filing/{id}#what-changed. Same GET and query key as the filing page's section. States in
+                 place: ledger bones, Notice + RetryButton, a plain line when nothing is comparable. No risk
+                 diff until the backend serves one again.
+
+Hero example     <HeroExample example>  (features/marketing, critique 1d) — the example IS the product, on ONE
+                 surface (rounded-xl panel + hairline + e2, dark: fill + hairline): "Example summary" with the
+                 quality Badge, the identity line (company, then ticker · form · filed in the data face, Sep
+                 between), the summary's opening, the figures as ONE hairline strip (<dl> grid-cols-3, border-y
+                 + divide-x; ▲/▼ aria-hidden before the signed delta), one evidence row when the live summary
+                 has a located risk excerpt (pickEvidence: source_verified under the source owner; heading =
+                 excerptHeadings, blockquote clipped at 180 on a word with " …", a chip link "Located in the
+                 filing"), the EDGAR receipt, and a text-link CTA. No browser-frame mockup, no card in the
+                 card, no sparkle chip, no tinted CTA. The static fallback has no evidence row.
+
+Trust strip      <TrustStrip>  under the hero: a hairline-topped list of plain statements, each scoped to what
+                 the implementation establishes ("where a match is found"); "generated" stays distinct from
+                 "the filing's own words".
 
 Evidence rows    <SummaryRisks>  (P-03) — one hairline list inside the section: a row is an h3 (14/600, the
                  opening clause of the row's own verbatim excerpt, unique per row via excerptHeadings — the
@@ -392,7 +472,9 @@ Provenance chip  <SourceTrace>  (P-10) — `sourceTraceChipClass(selected)`: 12p
                  pane's Filing view is answering is `selected`: brand tint + aria-current (the highlight
                  request's sourceId + the viewer context's paneOpen), whether the pane shows its passage or
                  says why it cannot (text not in-app yet, passage not pinpointed). Labels and accessible names are unchanged
-                 ("Source: Verified in filing").
+                 ("Source: Verified in filing"). The recipe lives in `features/filings/lib/sourceTraceChip.ts`, outside the
+                 'use client' SourceTrace, so a server component can call it (the homepage example does; gate:
+                 `tests/unit/serverCallsClientExport.spec.ts`).
 
 Source pane      <FilingWorkspace>  (P-06) — the research pane is named for the source: header "Source" + the
                  filing in the data face, close button; tabs Filing · Ask (file-text / chat-circle-text glyphs,
@@ -530,16 +612,31 @@ Recharts/rAF, which need numbers). **No raw ms or bezier strings anywhere else.*
 
 - **Count-up is `hooks/useCountUp`** (rAF, slow/standard, `format` per content fundamentals —
   `"$391.0B"` — render in `tnum font-data`) — the `animate-count-up` keyframe is retired; it was a fade.
-- **Skeleton→content**: `animate-content-in` fires on the loading→loaded flip (wired in DataTable +
-  AskFilingAnswer) — never on first paint of never-loading views.
+- **Skeleton→content**: `hooks/useContentIn(loading)` returns `animate-content-in motion-reduce:animate-none`
+  from the render where `loading` turns false (DataTable, AskFilingAnswer, the account settings and
+  watchlist pages) — never on first paint of never-loading views. It catches the flip during render, so
+  the class lands on the same commit as the content it reveals.
+- **Loading**: a page never swaps itself for a full-page spinner. It renders its own frame and header, and
+  any control that needs no data (the watchlist's add field), over bones in the shapes of the cards that
+  will replace them (`/dashboard/settings`: Profile's fields and Save, Billing's rows; `/dashboard/watchlist`:
+  the insight card's name, actions and tiles; `app/dashboard/page.tsx` keeps its plainer card bones). The
+  header never moves and the first card lands where its bones stood. Raw bones are `aria-hidden`, so the
+  group carries one `role="status"` with a named wait ("Loading your settings"). Gate:
+  `tests/unit/fullPageSpinnerGate.spec.ts` (a `min-h-screen` element holding only spinners and sr-only
+  text), with a shrink-only allowlist of three server-seeded or legacy routes.
 - **Stagger**: `animate-fade-up-stagger` + `--stagger-index` (0-based; step = fast; capped at 4;
   first paint only). `fade-up-delay-1/2/3` are retired.
-- **Reduced motion**: one source — `hooks/usePrefersReducedMotion`. Every animation needs a fallback:
-  `animation: none` for transform entrances, static bone (shimmer), static tint (citation-flash),
-  instant final value (count-up, Recharts `lineProps(reduced)`), `scroll-behavior: auto`. Known
-  gaps include the `animate-fade-up` entrances in `app/login/page.tsx`, `RegisterForm` and `AuthShell`,
-  the streaming `animate-pulse` indicators in `CopilotMessage`, and standalone `animate-spin` loaders;
-  none has a `motion-reduce:` guard yet.
+- **Reduced motion**: one source for JS — `hooks/usePrefersReducedMotion`. Every animation stops. A
+  Tailwind `animate-*` utility has `motion-reduce:animate-none` beside it in the class text that always
+  renders with it, with the same variants in the same order (stacked `group-*`/`peer-*`/`after:` variants
+  compose the selector in sequence) and `!` when the animation has it, or is written `motion-safe:`: a
+  spinner becomes its static glyph,
+  a skeleton a static bone, an entrance shows at once. A `globals.css` animation class stops itself in a
+  `prefers-reduced-motion: reduce` block (citation-flash keeps a static tint). Count-up shows its final
+  value, Recharts takes `lineProps(reduced)`, `scroll-behavior` is `auto`. Gates: the
+  `earningsnerd/no-unguarded-animation` ESLint rule for the utilities; `tests/unit/designRules.spec.ts`
+  for the globals.css classes; `tests/e2e/loading-and-motion.spec.ts` finds no animation under reduced
+  motion on the home, sign-in and sign-up pages or in the dashboard loading states.
 - **Nothing decorative** — `animate-float` is retired. Signature set: count-up, citation-flash,
   skeleton→content, sparkline draw-in, check-pop.
 

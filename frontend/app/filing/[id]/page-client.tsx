@@ -31,6 +31,7 @@ import { VerificationTallyLine } from '@/features/summaries/components/Verificat
 import { verificationTally } from '@/features/summaries/lib/verificationTally'
 import { SummaryDisplay } from '@/features/summaries/components/SummaryDisplay'
 import { GenerateSignupGate } from '@/features/summaries/components/GenerateSignupGate'
+import { ChangeReportCard } from '@/features/summaries/components/ChangeReportCard'
 import { useSummaryGeneration } from '@/features/summaries/hooks/useSummaryGeneration'
 
 // StreamingSummaryDisplay + its stage constants live in ./StreamingSummaryDisplay.
@@ -229,7 +230,7 @@ function FilingDetailView({ filingId, initialFiling, initialSummary, initialChan
   if (filingLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background-light dark:bg-background-dark">
-        <CircleNotchIcon className="h-8 w-8 animate-spin text-brand-strong dark:text-brand-strong-dark" />
+        <CircleNotchIcon className="h-8 w-8 animate-spin motion-reduce:animate-none text-brand-strong dark:text-brand-strong-dark" />
       </div>
     )
   }
@@ -257,6 +258,10 @@ function FilingDetailView({ filingId, initialFiling, initialSummary, initialChan
     .join(' · ')
   // What the server matched, once a summary is on the page (never during generation).
   const tally = summary && hasSummaryContent ? verificationTally(summary) : null
+  // The change report needs no summary (stored XBRL, free to read): where the page settles without one,
+  // under the signup gate and under a run that ended in an error or at the monthly limit, it is a card
+  // of its own, and the company page's "Open change report" lands on it there.
+  const changeReportCard = <ChangeReportCard filingId={filing.id} initialReport={initialChangeReport} />
 
   return (
     <FilingViewerProvider
@@ -323,6 +328,7 @@ function FilingDetailView({ filingId, initialFiling, initialSummary, initialChan
               onRetry={handleRegenerateSummary}
               elapsedSeconds={elapsedSeconds}
               trialEligible={trialEligible}
+              afterFailure={changeReportCard}
             />
           ) : summary && hasSummaryContent && filing ? (
             <SummaryDisplay
@@ -347,14 +353,17 @@ function FilingDetailView({ filingId, initialFiling, initialSummary, initialChan
             // transient getSummary error must keep the working gate for a guest, not fall through
             // to the error card whose "Retry generation" dead-ends at "please sign in" for them
             // (it self-heals on reload if a cached summary did exist).
-            <GenerateSignupGate filing={filing} entryPoint={entryPoint} />
+            <div className="space-y-6">
+              <GenerateSignupGate filing={filing} entryPoint={entryPoint} />
+              {changeReportCard}
+            </div>
           ) : !activeErrorMessage && (summaryLoading || !isAuthResolved) ? (
             // Still settling (summary query loading, or /me not yet resolved) and not actively
             // generating: show a neutral spinner, NOT the fake "Reading the filing" progress
             // card. A signed-out visitor headed for the gate must never flash live AI-progress for
             // a generation that will never run (and it spun up a 200ms optimistic-progress timer).
             <div className="flex items-center justify-center py-24" role="status" aria-label="Loading">
-              <CircleNotchIcon className="h-8 w-8 animate-spin text-brand-strong dark:text-brand-strong-dark" />
+              <CircleNotchIcon className="h-8 w-8 animate-spin motion-reduce:animate-none text-brand-strong dark:text-brand-strong-dark" />
             </div>
           ) : (
             <StreamingSummaryDisplay
@@ -366,6 +375,7 @@ function FilingDetailView({ filingId, initialFiling, initialSummary, initialChan
               onRetry={handleRegenerateSummary}
               elapsedSeconds={0}
               trialEligible={trialEligible}
+              afterFailure={changeReportCard}
             />
           )}
         </main>

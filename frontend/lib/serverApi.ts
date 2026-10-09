@@ -3,6 +3,7 @@ import { EXAMPLE_FILING_ID } from '@/lib/featureFlags'
 import type { Company } from '@/features/companies/api/companies-api'
 import type { Filing } from '@/features/filings/api/filings-api'
 import type { ChangeReport, Summary } from '@/features/summaries/api/summaries-api'
+import { isSummaryReady } from '@/features/summaries/lib/summaryPlaceholder'
 
 /**
  * Server-side data for the public pages (ISR). The homepage helpers return null on any
@@ -43,6 +44,12 @@ export interface ExampleMetric {
   deltaPercent?: number | null
 }
 
+/** A risk excerpt the server located in the filing text, with its link into the document. */
+export interface ExampleEvidence {
+  excerpt: string
+  url: string | null
+}
+
 export interface ExampleData {
   filingId: number
   ticker: string
@@ -53,6 +60,8 @@ export interface ExampleData {
   excerpt: string
   qualityTier: string | null
   metrics: ExampleMetric[]
+  /** The hero's one evidence row; null when the summary has no located excerpt. */
+  evidence?: ExampleEvidence | null
 }
 
 interface FilingPayload {
@@ -74,7 +83,11 @@ interface SummaryPayload {
       }> | null
     } | null
   } | null
-  raw_summary?: { quality?: { tier?: string } } | null
+  raw_summary?: {
+    quality?: { tier?: string }
+    risk_source_context_version?: number
+    sections?: { risks?: unknown; risk_factors?: unknown } | null
+  } | null
 }
 
 /** First ~2 sentences of the summary, markdown stripped, for the hero excerpt. */
@@ -114,6 +127,29 @@ const pickMetrics = (summary: SummaryPayload): ExampleMetric[] => {
 }
 
 /**
+ * The first risk excerpt the server projected from the filing and located in its text: the source
+ * owner (risk_source_context_version 1) marks it source_verified. A v2 summary keeps its risks under
+ * `sections.risks`, a v1 or unstamped one under `sections.risk_factors` (provenance_service), and
+ * both are read, as SummaryBlocks reads them. The payload is external, so the shape is checked here;
+ * a URL that is not https is dropped rather than linked.
+ */
+export const pickEvidence = (summary: SummaryPayload): ExampleEvidence | null => {
+  const raw = summary.raw_summary
+  const sections = raw?.risk_source_context_version === 1 ? raw.sections : null
+  const risks = sections?.risks ?? sections?.risk_factors
+  if (!Array.isArray(risks)) return null
+  for (const risk of risks) {
+    if (!risk || typeof risk !== 'object') continue
+    const { source_verified: verified, supporting_evidence: text, source_url: url } = risk as Record<string, unknown>
+    const excerpt = typeof text === 'string' ? text.trim() : ''
+    if (verified === true && excerpt) {
+      return { excerpt, url: typeof url === 'string' && /^https:\/\//.test(url) ? url : null }
+    }
+  }
+  return null
+}
+
+/**
  * The real pre-generated example summary, rendered live in the hero so the
  * preview can never drift from what a click delivers. Revalidates hourly.
  */
@@ -139,6 +175,7 @@ export const fetchExampleData = async (): Promise<ExampleData | null> => {
     excerpt,
     qualityTier: summary.raw_summary?.quality?.tier ?? null,
     metrics: pickMetrics(summary),
+    evidence: pickEvidence(summary),
   }
 }
 
@@ -261,15 +298,15 @@ export const fetchWhatChangedServer = (filingId: number): Promise<ServerFetchRes
   fetchJsonResult<ChangeReport>(`/api/summaries/filing/${filingId}/what-changed`, 3600)
 
 /**
- * Whether a summary carries real, displayable content (vs the legacy "Generating summary"
- * placeholder). Keep in sync with `hasSummaryContent` in
- * features/summaries/hooks/useSummaryGeneration.ts: this server-side twin drives the
- * noindex decision on filing pages, so index/noindex must match what visitors actually see.
+ * Whether the filing page shows this summary's body: the one readiness rule (isSummaryReady), so
+ * placeholder filler and a stored failure, which the page shows as its error card, are not. It drives
+ * the filing page's noindex and description, so index/noindex and the snippet match what visitors
+ * actually see: a failure row stays out of the index and never lends its text ("requires OpenAI API
+ * key") to the description. The hero example skips such a summary too.
  */
 export const summaryHasDisplayableContent = <T extends { business_overview?: string | null }>(
   summary: T | null | undefined,
-): summary is T & { business_overview: string } =>
-  !!(summary?.business_overview && !summary.business_overview.includes('Generating summary'))
+): summary is T & { business_overview: string } => isSummaryReady(summary)
 
 // --- Signup gate (landing page access line) ---------------------------------------------------
 

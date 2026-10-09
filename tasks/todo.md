@@ -2,7 +2,7 @@
 
 One page, newest first, one line per open item with its owner and next step. Holds are pointers,
 never restated here. This file replaced the ledger on 2026-10-07; the ledger is
-`archive/todo-ledger-through-2026-10-07.md` (6,536 lines, June 2026 → closure 170 of 9 October 2026;
+`archive/todo-ledger-through-2026-10-07.md` (6,577 lines, June 2026 → closure 170 of 9 October 2026;
 ledger-format entries merged to `main` after the ledger closed were moved there unchanged) and its
 unchecked rows are history unless an item below carries them. Format: `AGENTS.md` §7. Close an item by
 deleting its line in the PR that closes it; a handover is a refresh of "Where things stand".
@@ -25,8 +25,10 @@ deleting its line in the PR that closes it; a handover is a refresh of "Where th
   `tests/support/network_gate.py` as its gate) and #1149 (record 18) merged on 2026-10-08/09;
   #1151 (D3 stage 2, option A: the API service pinned, the insider endpoint off behind a
   server-side switch, the fuzzy-search fallback deleted) merged and deployed on 2026-10-09, after
-  the founder moved `backfill-facts-weekly` to `30 7 * * 1`; #1146 (design critique 2026-10, part 1:
-  the filing page), #1154 (architecture docs) and #1155 (record 19) merged on 2026-10-09; record 19
+  the founder moved `backfill-facts-weekly` to `30 7 * * 1`; #1146, #1147, #1148 and #1150 (design
+  critique 2026-10, parts 1–4: the filing page, the company page, the homepage, loading and motion),
+  #1154 (architecture docs), #1155 (record 19) and #1159 (Wave 0 test anchors for the facts
+  refactor) merged on 2026-10-09; record 19
   (`code-red-20261004/runtime/control/DECISIONS-19.md`) is the latest CODE RED record, and it notes
   for the CPO that `eval-baseline`'s `mean_citation_fidelity` read 0.83–0.86 against its 0.9648
   baseline on all six runs of 2026-10-09 (advisory).
@@ -39,6 +41,7 @@ deleting its line in the PR that closes it; a handover is a refresh of "Where th
 ## Open items
 
 Founder:
+- [ ] Design critique 2026-10, your calls (ledger, its homepage and company-page sections): whether "Find filings" becomes the hero's one primary action, demoting "See a live example", today's tracked hero CTA; and whether any signed-in user may replace a stored failure row within their quota, a backend policy change to the Pro-gated regeneration.
 - [ ] Optional, no deadline: relay record 16's custody step A (five metadata fields) once; on outcome B, the one line "I adopt record 16's form (b) for R1" (`code-red-20261004/runtime/control/DECISIONS-16.md`; the record-14 relay is replaced by it, and the D3 patch of `DECISIONS-08.md` is applied by your instruction, staged).
 - [ ] Durable-tasks rollout owner (PR #1122's Cloud Tasks rollout, live with request-based CPU since D3 stage 1's deploy and confirmed intended): run the post-deploy checks in `docs/DEPLOYMENT.md` (authenticated task success, retries and errors, API latency, SQL connections) (`DECISIONS-17.md`).
 - [ ] Optional: set the repository's squash default to "Default to pull request title and description", so a squash merge without an explicit message carries the reviewed PR text (`DECISIONS-18.md`, chief defect 7).
@@ -51,7 +54,7 @@ Founder:
 Engineering:
 - [ ] CODE RED chief: after Monday 2026-10-12, read the 06:00–08:00 UTC window, the first with the whole fleet pinned and `backfill-facts` at 07:30, with the read-only `capacity-readout`: SEC errors, breaker opens, job outcomes (`DECISIONS-19.md`).
 - [ ] CODE RED chief (small): `ops.yml` `describe-jobs` and `describe-service` print the two SEC pin values for every job and the task worker, with the visibility test extended; no operation reads them back today (`DECISIONS-19.md`).
-- [ ] Design critique 2026-10, the rest of the stack (#1146 was part 1, the filing page): PR 2 company page (1b: filings-index patches 0001–0002, identity on the lead, Compare periods card; removes the two pinned lint disables), PR 3 homepage (1d: search listbox identity line with backend support, single-surface example, trust strip), PR 4 loading and motion (P-09); outside the repo, P-01 republish the design-system package in Claude Design (ledger, "2026-10-09 — Design critique 2026-10").
+- [ ] Design critique 2026-10, what remains after its four PRs (#1146, #1147, #1148, #1150): outside the repo, P-01 republish the design-system package in Claude Design; in it, the three allowlisted full-page spinner screens wait for their pages' next rework (ledger, "2026-10-09 — Design critique 2026-10" sections).
 - [ ] Workflow owner: `review-gate.yml:61` re-runs the gate on any comment containing "@codex review", Codex's own summary boilerplate included, which cancelled a required run on PR #1131 (`DECISIONS-17.md`); exclude the Codex connector's comments.
 - [ ] Once #1123 merges: `backend/evals/RUNBOOK.md`'s live-acceptance paragraph says `ready_for_review` and later non-draft pushes start the `copilot-eval` run; add that this holds only for a PR inside the workflow's `paths:` filter. A docs PR: the file is under `backend/`, so it deploys (#1123 review rounds 34–35).
 - [ ] Security review packages WP-07 onward, each in its own PR (PR #1069 series).

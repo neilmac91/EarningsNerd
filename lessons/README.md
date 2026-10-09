@@ -128,7 +128,7 @@ machine" only for that work; skip "Enforced by a machine gate" (CI fails those o
 - frontend-busy-controls-stay-focusable.md — A control busy with its own request stays focusable: aria-disabled plus an early return, never native disabled (partly gated by `frontend/tests/unit/busyControlsStayFocusable.spec.ts` (AST scan of every .tsx); the keyboard and focus hand-off rules are not)
 - frontend-check-luminance-vs-background.md — Verify surface luminance against the actual background, not token validity
 - frontend-citation-offset-boundaries.md — Resolve citation starts to the first matched character's text node and pin the actual flash target
-- frontend-client-exports-need-next-build.md — Run next build before moving design-system client exports across page files
+- frontend-client-exports-need-next-build.md — Never call a 'use client' module's export from server code; the gate checks what next build may not render
 - frontend-design-docs-need-agent-entrypoints.md — Connect new design references to agent entrypoints, authority and maintenance
 - frontend-dialog-opener-outlives-the-dialog.md — Keep a dialog's opener mounted while the dialog is open, so focus has somewhere to return
 - frontend-dialog-openers-stay-focusable.md — Keep a dialog's opener focusable through its pending and cooldown states — aria-disabled, not native disabled

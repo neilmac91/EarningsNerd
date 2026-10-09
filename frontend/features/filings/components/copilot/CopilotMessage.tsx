@@ -433,7 +433,7 @@ export default function CopilotMessage({
         // A single calm indicator while the answer is grounded — the assistant's
         // background tool activity is deliberately not surfaced to the user.
         <p className="flex items-center gap-2 text-text-secondary-light dark:text-text-secondary-dark">
-          <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-brand-strong dark:bg-brand-strong-dark" />
+          <span className="inline-block h-1.5 w-1.5 animate-pulse motion-reduce:animate-none rounded-full bg-brand-strong dark:bg-brand-strong-dark" />
           Reading the filing…
         </p>
       ) : (
@@ -451,7 +451,7 @@ export default function CopilotMessage({
               )}
             </div>
             {isStreaming && (
-              <span className="ml-0.5 inline-block animate-pulse text-brand-strong dark:text-brand-strong-dark" aria-hidden="true">
+              <span className="ml-0.5 inline-block animate-pulse motion-reduce:animate-none text-brand-strong dark:text-brand-strong-dark" aria-hidden="true">
                 ▍
               </span>
             )}
