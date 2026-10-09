@@ -20,6 +20,17 @@
 - Codex review, fourth round (P2): the search's `latest_filing` timestamps went out through `isoformat()` (`+00:00` from PostgreSQL, no zone from SQLite), where CLAUDE.md rule 7 asks for `iso_z()`. They now take `iso_z(ensure_utc(…))`, one form from both databases. The client reads only the date part, so nothing it shows changes; the filings list's older `isoformat()` stays as it is.
 - [x] Next in the stack: PR 4 loading and motion (P-09).
 
+## 2026-10-08, rebuilt 2026-10-09 — critique v3.1 cleanups: /analysis link, 404, heading outline, muted-text floors, spacing, the unused Ask streaming path (frontend)
+
+- Scope: critique v3.1's cleanups that needed no founder decision plus the founder-decided follow-ups of 2026-10-08, each reproduced on `main` `da636f6c` first. Rebuilt after the design-critique stack (#1146 to #1150) merged: what it superseded is dropped (below), the rest is kept and re-verified on the new main.
+- Shipped: CLEAN-R1, `/analysis?ticker=` preselects the linked company (read once after hydration, ticker-shaped only, resolved through `getCompany` under `queryKeys.analysisCompany`) and never runs a comparison; the page's root is its `<main>`. CLEAN-R5, a branded 404 (`app/not-found.tsx`: the page ground, a panel card, h1 "Page not found", the homepage and dashboard links). DRIFT-5, the unused Ask streaming path is deleted (`StreamingText`, the caret, the `streaming` status and AskCopilotRail's read of it); answers arrive whole, and `AskFilingAnswer`'s header and DESIGN_SYSTEM §4 say so. DC-PULSE, the Copilot "Reading the filing…" dot is `aria-hidden` (its motion guard now satisfies #1150's rule). DET-OVL-1, no skipped heading level: the footer opens with a visually hidden h2 "Site links", the pricing plan names and the analysis chart panels are h2, and `GuidanceCard` takes `headingLevel` (h3 by default; h2 where the card stands in for the page's content: the filing page's signup gate, failure, monthly-limit and writer-error cards, the watchlist's empty and error cards, the waitlist example's fallbacks); DESIGN_SYSTEM §5 "Outline: never skip a level". DET-OVL-2, ProDepth's descriptions drop `leading-[18px]` and CopilotComposer takes `px-4 py-3`. DC-TERTIARY (founder decision 1, default option b, below): secondary ink on the copy a reader must read, `AiDisclaimer` and the footer's "Data sourced from SEC EDGAR … Not investment advice" line; DESIGN_SYSTEM §7 names both. Lesson `frontend-hidden-name-tails-bring-their-own-space.md`. Impeccable detector scan records under `tasks/critique-env-2026-10-04/scans/`.
+- Gate (rule 12): `tests/e2e/text-floors.spec.ts`, named in CLAUDE.md rule 11. Every visible text painted in the tertiary ink clears 4.5:1 against its rendered ground on home, /pricing, /company/AAPL, /filing/3, a signed-in /dashboard and a 404 (light theme; the ink is read from `tailwind.config.js`, and the census must find tertiary text); no visited route or page-level card state skips a heading level, in DOM order and in the accessibility tree. With `tests/e2e/not-found-page.spec.ts` and `tests/unit/analysis-ticker-link.spec.tsx`.
+- Dropped as superseded by the stack: DC-KBD and `launcher-kbd-contrast.spec.ts` (#1146's Source launcher and its keycap); CLEAN-R2, R3 and R4 and `company-filing-rows.spec.ts` (#1147's filings index: one surface with no stripe or tint, rows named by their content, disclosure-button year headers, and a summary-aware lead action); DRIFT-1 (#1146 rewrote the WhatChanged comment); the SummaryBlocks "On this page" and company year-count ink swaps (#1146 and #1147); `pulseMotionReduce.spec.ts` (#1150's `no-unguarded-animation` covers every animation utility); the PR-list revision sentence in DESIGN.md; and, under decision 1, the footer column titles, the ©, the logo credit and CompanySearch's "/" hint, which return to tertiary (#636A77 clears 4.5:1 on their grounds).
+- Gates on the rebuilt branch (merged with main through #1150 and #1159): lint 0 warnings (including #1150's animation rule), tsc clean, vitest 166 files / 1505 tests, `next build` OK, `text-floors.spec.ts` + `not-found-page.spec.ts` with `--repeat-each=3` 48/48 (the homepage anti-vacuity floor holds after #1148), full e2e 124 passed / 3 skipped (env-gated).
+- Decisions for the founder (defaults applied, each reversible): (1) DC-TERTIARY. You chose option A on 2026-10-08 (secondary ink per site, token unchanged); #1146 then changed the token itself to #636A77 and wrote §7's rule (tertiary for captions, counts and micro-labels; must-read copy secondary). Options: (a) drop every per-site swap; (b) secondary only on must-read copy, the AI disclaimer and the footer's legal line (applied); (c) keep all of option A as exceptions to §7. (2) CLEAN-R2. You chose a neutral "Open filing" on 2026-10-08; #1147 replaced the per-row actions with rows named by their content and a lead action that reads "Open latest summary" or "Summarize latest filing", which also signals when a click starts a counted run. Default: #1147's label stands and CLEAN-R2 is dropped. Earlier calls kept: the link preselects and never runs; the 404 offers the homepage and the dashboard; the footer's hidden h2 reads "Site links"; the pricing and analysis panel headings are h2.
+- Limits: DOM, computed-colour and accessibility-tree probes in Chromium only; no screen reader, Safari, Firefox or device; both themes not yet checked on the Vercel preview from here.
+- [ ] Deferred, named: DC-TERTIARY's dark-theme pairings are unchanged and unmeasured by the gate (light only); the /waitlist example, when it loads, has no heading of its own, so its h1 is followed by h3 problem cards (recorded in §5 as the known exception).
+
 ## 2026-10-09 — Design critique 2026-10: the company page (PR 2 of the stack; frontend)
 
 - Scope: canvas 1b (company page, dark) on top of PR 1 (#1146): the design package's unmerged `pr/filings-index` patches 0001 (SegmentedControl, compact toolbar fields, the calendar switch) and 0002 (FilingIndex, the company page rewire, busyControls gate edits), then the 1b extras. PR 1 already carries `filingPeriod` and the review doc; the 3-way merge drops the old filings card and with it PR 1's two pinned lint disables.
@@ -49,16 +60,50 @@
 - Limits: DOM, keyboard and screenshot probes in Chromium; no screen reader, Safari or device; production has no in-app filing text for most filings, so the Filing tab often shows its empty state; the fiscal-year label ("FY2022") waits for XBRL dei fields; "Latest filing" is not shown on the filing page (no cheap source of truth without a company-filings fetch that schedules SEC refreshes).
 - [ ] Next in the stack: PR 2 company page (1b: filings-index patches 0001–0002, identity on the lead, Compare periods card; removes the two pinned lint disables), PR 3 homepage (1d: search listbox identity line with backend support, single-surface example, trust strip), PR 4 loading and motion (P-09). Outside the repo: P-01 republish the design-system package in Claude Design.
 
-## 2026-10-08, rebuilt 2026-10-09 — critique v3.1 cleanups: /analysis link, 404, heading outline, muted-text floors, spacing, the unused Ask streaming path (frontend)
+## 2026-10-09 — Hot-module refactor: the founder's delegation, the decisions and Wave 0 (lane D)
 
-- Scope: critique v3.1's cleanups that needed no founder decision plus the founder-decided follow-ups of 2026-10-08, each reproduced on `main` `da636f6c` first. Rebuilt after the design-critique stack (#1146 to #1150) merged: what it superseded is dropped (below), the rest is kept and re-verified on the new main.
-- Shipped: CLEAN-R1, `/analysis?ticker=` preselects the linked company (read once after hydration, ticker-shaped only, resolved through `getCompany` under `queryKeys.analysisCompany`) and never runs a comparison; the page's root is its `<main>`. CLEAN-R5, a branded 404 (`app/not-found.tsx`: the page ground, a panel card, h1 "Page not found", the homepage and dashboard links). DRIFT-5, the unused Ask streaming path is deleted (`StreamingText`, the caret, the `streaming` status and AskCopilotRail's read of it); answers arrive whole, and `AskFilingAnswer`'s header and DESIGN_SYSTEM §4 say so. DC-PULSE, the Copilot "Reading the filing…" dot is `aria-hidden` (its motion guard now satisfies #1150's rule). DET-OVL-1, no skipped heading level: the footer opens with a visually hidden h2 "Site links", the pricing plan names and the analysis chart panels are h2, and `GuidanceCard` takes `headingLevel` (h3 by default; h2 where the card stands in for the page's content: the filing page's signup gate, failure, monthly-limit and writer-error cards, the watchlist's empty and error cards, the waitlist example's fallbacks); DESIGN_SYSTEM §5 "Outline: never skip a level". DET-OVL-2, ProDepth's descriptions drop `leading-[18px]` and CopilotComposer takes `px-4 py-3`. DC-TERTIARY (founder decision 1, default option b, below): secondary ink on the copy a reader must read, `AiDisclaimer` and the footer's "Data sourced from SEC EDGAR … Not investment advice" line; DESIGN_SYSTEM §7 names both. Lesson `frontend-hidden-name-tails-bring-their-own-space.md`. Impeccable detector scan records under `tasks/critique-env-2026-10-04/scans/`.
-- Gate (rule 12): `tests/e2e/text-floors.spec.ts`, named in CLAUDE.md rule 11. Every visible text painted in the tertiary ink clears 4.5:1 against its rendered ground on home, /pricing, /company/AAPL, /filing/3, a signed-in /dashboard and a 404 (light theme; the ink is read from `tailwind.config.js`, and the census must find tertiary text); no visited route or page-level card state skips a heading level, in DOM order and in the accessibility tree. With `tests/e2e/not-found-page.spec.ts` and `tests/unit/analysis-ticker-link.spec.tsx`.
-- Dropped as superseded by the stack: DC-KBD and `launcher-kbd-contrast.spec.ts` (#1146's Source launcher and its keycap); CLEAN-R2, R3 and R4 and `company-filing-rows.spec.ts` (#1147's filings index: one surface with no stripe or tint, rows named by their content, disclosure-button year headers, and a summary-aware lead action); DRIFT-1 (#1146 rewrote the WhatChanged comment); the SummaryBlocks "On this page" and company year-count ink swaps (#1146 and #1147); `pulseMotionReduce.spec.ts` (#1150's `no-unguarded-animation` covers every animation utility); the PR-list revision sentence in DESIGN.md; and, under decision 1, the footer column titles, the ©, the logo credit and CompanySearch's "/" hint, which return to tertiary (#636A77 clears 4.5:1 on their grounds).
-- Gates on the rebuilt branch (merged with main through #1150 and #1159): lint 0 warnings (including #1150's animation rule), tsc clean, vitest 166 files / 1505 tests, `next build` OK, `text-floors.spec.ts` + `not-found-page.spec.ts` with `--repeat-each=3` 48/48 (the homepage anti-vacuity floor holds after #1148), full e2e 124 passed / 3 skipped (env-gated).
-- Decisions for the founder (defaults applied, each reversible): (1) DC-TERTIARY. You chose option A on 2026-10-08 (secondary ink per site, token unchanged); #1146 then changed the token itself to #636A77 and wrote §7's rule (tertiary for captions, counts and micro-labels; must-read copy secondary). Options: (a) drop every per-site swap; (b) secondary only on must-read copy, the AI disclaimer and the footer's legal line (applied); (c) keep all of option A as exceptions to §7. (2) CLEAN-R2. You chose a neutral "Open filing" on 2026-10-08; #1147 replaced the per-row actions with rows named by their content and a lead action that reads "Open latest summary" or "Summarize latest filing", which also signals when a click starts a counted run. Default: #1147's label stands and CLEAN-R2 is dropped. Earlier calls kept: the link preselects and never runs; the 404 offers the homepage and the dashboard; the footer's hidden h2 reads "Site links"; the pricing and analysis panel headings are h2.
-- Limits: DOM, computed-colour and accessibility-tree probes in Chromium only; no screen reader, Safari, Firefox or device; both themes not yet checked on the Vercel preview from here.
-- [ ] Deferred, named: DC-TERTIARY's dark-theme pairings are unchanged and unmeasured by the gate (light only); the /waitlist example, when it loads, has no heading of its own, so its h1 is followed by h3 problem cards (recorded in §5 as the known exception).
+The founder delegated the open decisions of `tasks/refactor-plan-2026-10.md` on 2026-10-09: "please
+analyse the pros and cons of the decisions needed for these aspects of the plan and make an expert
+decision. I trust you on this and give you full authority to proceed based on the decision you make."
+This records it as a standing authorization (`lessons/ops-keep-moving-under-standing-authorization.md`).
+
+- **Covers:** the plan's decisions 1 and 3–9, and the work they start: Wave 0 (the size-budget gate and
+  six anchor PRs), the dead-code PR and the moves, under the plan's own gates. Paid runs come under the
+  plan's USD 18 refactor ceiling: balance read first, a reservation stated in each PR body, every run
+  logged (decision 1).
+- **Does not cover** the boundaries the founder still holds:
+  - production flags;
+  - the AI provider and its prompts (a prompt byte change is a RUNBOOK event and never rides a
+    refactor PR);
+  - locked contract tests;
+  - destructive data or history operations (branch deletion stays on the 2026-10-07 sweep's
+    approval-by-name list);
+  - anything the CODE RED chief holds.
+
+- [x] Plan and decisions: `tasks/refactor-plan-2026-10.md` (#1136), reviewed independently and corrected.
+- [x] Docs, decision 7: `docs/ARCHITECTURE.md` and dated correction notes in two audit appendices (#1154, merged as `69b59203`).
+- [ ] W0.G: the size-budget gate and the AST move proof (#1156). An adversarial review found one
+  blocker (a budget-file edit alone could bypass decision 6). It is fixed in W0.G's second commit,
+  and fourteen probes check the fix.
+- [ ] The six Wave 0 anchor PRs, each verified on current main: C0 #1157, T0 #1158, F0 #1159,
+  X0 #1160, O0 #1161 and I0 #1162. The independent review, including xdist and Lane C runs, found two
+  issues, fixed in C0 and O0.
+- [ ] Wave 1: the dead-code PR, then I1, O1, T1, X1, C1 and F1, one verified deploy at a time.
+- [ ] Rule-7 follow-up, outside the plan. The naive `datetime.now()` stamps at
+  `backend/app/services/edgar/xbrl_service.py:180,207,692,713,722`, and the `datetime.now(timezone.utc)`
+  calls at `backend/app/services/facts_service.py:715,1954,1983`, should go through
+  `app/utils/datetimes.py`. The refactor's moves leave them as they are.
+- [ ] Wave 0 found three behaviour bugs and one dead prompt branch. Each is fixed outside the
+  refactor, with the anchor that pins today's behaviour updated in the same PR (plan, Implementation
+  Notes, "Follow-ups for non-move PRs"):
+  - a missing entity id counts as the entity "nan" and drops the debt observation
+    (`instance_extractor.py:648-650`);
+  - a numeric `filing_date` from the model raises out of `summarize_filing`
+    (`openai_service.py:1051`);
+  - model-supplied top-level keys survive into the stored structured summary (rule 9);
+  - the OUTPUT REFERENCE branch is dead. The loader's markers (`prompt_loader.py:50-54`) never match,
+    so each prompt loads whole into the system message, and the model still sees the format.
+    Reviving or deleting the branch changes prompt bytes, a RUNBOOK event for the founder.
 
 ## 2026-10-07 — Google Cloud cost optimisation (independent scope)
 
