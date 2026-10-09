@@ -20,7 +20,8 @@ so every attempt is charged to an owner:
     ``ThreadPoolExecutor``, asyncio's default executor included) -> that test's report is FAILED,
     in whichever phase made it (setup and teardown included; a skip or an xfail does not hide it);
   * anything else (a thread or task that outlived the test that started it, collection-time
-    imports, session-scoped fixtures) -> a *stray*: listed in the terminal summary with its owner
+    imports, an attempt made after a test's last report) -> a *stray*: listed in the terminal
+    summary with its owner
     and the test running at the time, and the session exits non-zero. A long-lived worker thread
     stays charged to the test that started it, so for a stray the running test is often the
     better lead.
@@ -103,7 +104,9 @@ _strays: dict[tuple, Attempt] = {}
 
 def _owner() -> str | None:
     # A carried context wins: an asyncio task scheduled by this test on a loop another test started
-    # (whose thread carries that test's executor tag) still belongs to this test.
+    # (whose thread carries that test's executor tag) still belongs to this test. This assumes new
+    # threads start with an empty context (CPython 3.11, which CI and production run); where threads
+    # inherit their starter's context, pool work would be charged to the test that warmed the pool.
     owner = _OWNER.get()  # main thread, asyncio tasks, anyio/to_thread workers
     if owner is None:
         owner = getattr(_TLS, "owner", None)  # executor work: the test that submitted it
