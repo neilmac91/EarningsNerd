@@ -699,16 +699,17 @@ def _below_segments(pieces: list[_Piece]) -> list[str] | None:
     in part with `*` for the parts it cannot know (`*_x`), one it cannot know at all `*`; separators collapsed and a
     trailing one ignored (`HERE = dir + "/"` then `join(HERE, sub)`, `join(dir, sub, "")`); a `.` dropped and a `..`
     taking the segment before it or, with none left, kept in front as a climb above the module's directory
-    (`join(dir, "..", sub)` is `["..", "*"]`; `join(dir, sub, "..")` is the directory itself, an empty list). None when the
-    tail does not begin with a slash (`dir + sub`) or holds no unknown part: `dir / "baselines"` is a spelled directory,
-    read as one."""
+    (`join(dir, "..", sub)` is `["..", "*"]`; `join(dir, sub, "..")` is the directory itself, an empty list; `dir / ".."`
+    is `[".."]`, the parent, and `dir / "."` the directory itself). None when the tail does not begin with a slash
+    (`dir + sub`) or holds neither an unknown part nor a `.` or `..`: `dir / "baselines"` is a spelled directory, read as
+    one."""
     texts = [piece for piece in pieces if piece.text != ""]
     tail = texts[1:]
     if not texts or texts[0].text != DIR or not tail or tail[0].text is None or tail[0].text in (DIR, FILE) or not tail[0].text.startswith("/"):
         return None
-    if not any(piece.text is None or piece.text in (DIR, FILE) for piece in tail):
-        return None
     built = "".join("\0" if piece.text is None or piece.text in (DIR, FILE) else piece.text for piece in tail)
+    if "\0" not in built and not any(segment in (".", "..") for segment in built.split("/")):
+        return None
     segments: list[str] = []
     for segment in built.split("/"):
         if segment == ".." and segments and segments[-1] != "..":
@@ -1420,65 +1421,92 @@ def _changes_sys_path(tree: ast.AST) -> bool:
     `len`, `list`, `tuple`, `sorted`, `set`, `print`, `repr`, `str`, `enumerate`, `reversed`, `iter`, `any`, `all` or `bool`,
     a `for` or comprehension iterable, an item or slice read, a `+` operand, a formatted value, `.index`, `.count` or `.copy`, and the alias
     `p = sys.path` alone (`q = p` too), whose name is then read the same way and changed by `p += [...]` or any method, in the
-    function that binds it, or everywhere when bound at module level, so another function's `p` is not the list; the list
-    assigned to anything but a plain name (`self.p = sys.path`, `d["p"] = sys.path`) is a change, since what holds it cannot be
-    followed. `sys` spelled `import sys as s`, `os.sys` under any name of `os`, `__import__("sys")`, under an alias too,
-    `importlib.import_module("sys")` or `import_module("sys")` imported bare or under another name, a name bound to one of
-    those calls (`s = __import__("sys")`), and the list `from sys import path as p` count; `getattr(sys, "path")` and
-    `vars(sys)["path"]` are a stated limit."""
+    function that binds it and the functions nested in it, or everywhere when bound at module level or declared `global`,
+    so another function's `p` is not the list (a nested function's parameter of the same name is not told apart, loudly);
+    the list assigned to anything but a plain name (`self.p = sys.path`, `d["p"] = sys.path`, a class-body `p = sys.path`,
+    which stores it as an attribute) is a change, since what holds it cannot be followed. `sys` spelled `import sys as s`,
+    `from os import sys as s`, `os.sys` under any name of `os`, `__import__("sys")`, under an alias too,
+    `importlib.import_module("sys")` or `import_module("sys")` imported bare or under another name (`load =
+    importlib.import_module` included), positional or `name=`, a name bound to one of those calls (`s = __import__("sys")`),
+    and the list `from sys import path as p` count, each alias bound by a plain, an annotated or a walrus assignment;
+    `getattr(sys, "path")` and `vars(sys)["path"]` are a stated limit."""
     sys_names, site_names, addsitedir_names, loaders, dunders = {"sys"}, {"site"}, set(), set(), {"__import__"}
-    os_names: set[str] = {"os"}
+    os_names, importlib_names = {"os"}, {"importlib"}
     path_names: set[tuple[int | None, str]] = set()  # (the binding function's id, or None at module level, the name)
     parents = {id(child): parent for parent in ast.walk(tree) for child in ast.iter_child_nodes(parent)}
 
-    def scope_of(node: ast.AST) -> int | None:
-        """The innermost function enclosing `node`, by id, or None at module level."""
+    def scopes_of(node: ast.AST) -> list[int | None]:
+        """The functions enclosing `node`, innermost first, by id, then None for the module: a name is read through all of them."""
+        found: list[int | None] = []
         while (node := parents.get(id(node))) is not None:
             if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda)):
-                return id(node)
-        return None
+                found.append(id(node))
+        return found + [None]
+
+    declared_global = {(scopes_of(node)[0], name) for node in ast.walk(tree) if isinstance(node, ast.Global) for name in node.names}
+
+    def bound_in(node: ast.AST, name: str) -> int | None:
+        """Where a binding of `name` at `node` lives: its function, or the module when declared `global` there or bound at top level."""
+        scope = scopes_of(node)[0]
+        return None if (scope, name) in declared_global else scope
+
+    def bindings() -> list[tuple[ast.AST, str, ast.AST]]:
+        """Every binding of a plain name to a value: `x = v` (each name target), `x: T = v`, `(x := v)`."""
+        found: list[tuple[ast.AST, str, ast.AST]] = []
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Assign):
+                found += [(node, target.id, node.value) for target in node.targets if isinstance(target, ast.Name)]
+            elif isinstance(node, ast.AnnAssign) and isinstance(node.target, ast.Name) and node.value is not None:
+                found.append((node, node.target.id, node.value))
+            elif isinstance(node, ast.NamedExpr) and isinstance(node.target, ast.Name):
+                found.append((node, node.target.id, node.value))
+        return found
 
     for node in ast.walk(tree):
         if isinstance(node, ast.Import):
             sys_names |= {alias.asname or "sys" for alias in node.names if alias.name == "sys"}
             site_names |= {alias.asname or "site" for alias in node.names if alias.name == "site"}
             os_names |= {alias.asname or "os" for alias in node.names if alias.name == "os"}
+            importlib_names |= {alias.asname or "importlib" for alias in node.names if alias.name == "importlib"}
         elif isinstance(node, ast.ImportFrom) and node.module == "sys":
-            path_names |= {(scope_of(node), alias.asname or "path") for alias in node.names if alias.name == "path"}
+            path_names |= {(bound_in(node, alias.asname or "path"), alias.asname or "path") for alias in node.names if alias.name == "path"}
+        elif isinstance(node, ast.ImportFrom) and node.module == "os":
+            sys_names |= {alias.asname or "sys" for alias in node.names if alias.name == "sys"}
         elif isinstance(node, ast.ImportFrom) and node.module == "site":
             addsitedir_names |= {alias.asname or "addsitedir" for alias in node.names if alias.name == "addsitedir"}
         elif isinstance(node, ast.ImportFrom) and node.module == "importlib":
             loaders |= {alias.asname or "import_module" for alias in node.names if alias.name == "import_module"}
 
-    def aliased(names: set[str]) -> set[str]:
-        """`names` and every name bound to one of them by a plain assignment, transitively (`imp = __import__`, `load = imp`)."""
+    def aliased(names: set[str], attribute: str = "") -> set[str]:
+        """`names` and every name bound to one of them, or to `importlib.<attribute>`, transitively (`imp = __import__`,
+        `load = imp`, `load = importlib.import_module`)."""
         while True:
-            more = {target.id for node in ast.walk(tree) if isinstance(node, ast.Assign) and isinstance(node.value, ast.Name) and node.value.id in names
-                    for target in node.targets if isinstance(target, ast.Name)}
+            more = {name for _, name, value in bindings() if isinstance(value, ast.Name) and value.id in names
+                    or attribute and isinstance(value, ast.Attribute) and value.attr == attribute and isinstance(value.value, ast.Name) and value.value.id in importlib_names}
             if more <= names:
                 return names
             names = names | more
 
-    loaders, dunders = aliased(loaders), aliased(dunders)
+    loaders, dunders = aliased(loaders, "import_module"), aliased(dunders)
 
     def is_sys(expr: ast.AST) -> bool:
         return (isinstance(expr, ast.Name) and expr.id in sys_names
                 or isinstance(expr, ast.Attribute) and expr.attr == "sys" and isinstance(expr.value, ast.Name) and expr.value.id in os_names
-                or isinstance(expr, ast.Call) and bool(expr.args) and isinstance(expr.args[0], ast.Constant) and expr.args[0].value == "sys"
+                or isinstance(expr, ast.Call) and any(isinstance(target, ast.Constant) and target.value == "sys" for target in [*expr.args[:1], *(k.value for k in expr.keywords if k.arg == "name")])
                 and (isinstance(expr.func, ast.Name) and expr.func.id in dunders | loaders or isinstance(expr.func, ast.Attribute) and expr.func.attr == "import_module"))
 
-    while True:  # `s = __import__("sys")`, `s = os.sys`: the module under another name
-        more = {target.id for node in ast.walk(tree) if isinstance(node, ast.Assign) and is_sys(node.value) for target in node.targets if isinstance(target, ast.Name)}
+    while True:  # `s = __import__("sys")`, `s = os.sys`, `s: ModuleType = sys`: the module under another name
+        more = {name for _, name, value in bindings() if is_sys(value)}
         if more <= sys_names:
             break
         sys_names |= more
 
     def is_path(expr: ast.AST) -> bool:
         return (isinstance(expr, ast.Attribute) and expr.attr == "path" and is_sys(expr.value)
-                or isinstance(expr, ast.Name) and ((scope_of(expr), expr.id) in path_names or (None, expr.id) in path_names))
+                or isinstance(expr, ast.Name) and any((scope, expr.id) in path_names for scope in scopes_of(expr)))
 
-    while True:  # `p = sys.path`, then `q = p`: the list under another name, in the function that binds it
-        more = {(scope_of(node), target.id) for node in ast.walk(tree) if isinstance(node, ast.Assign) and is_path(node.value) for target in node.targets if isinstance(target, ast.Name)}
+    while True:  # `p = sys.path`, then `q = p`: the list under another name, where it is bound
+        more = {(bound_in(node, name), name) for node, name, value in bindings() if is_path(value)}
         if more <= path_names:
             break
         path_names |= more
@@ -1497,6 +1525,7 @@ def _changes_sys_path(tree: ast.AST) -> bool:
                 or isinstance(parent, (ast.For, ast.AsyncFor, ast.comprehension)) and parent.iter is node
                 or isinstance(parent, ast.Subscript) and parent.value is node and isinstance(parent.ctx, ast.Load)
                 or isinstance(parent, ast.Assign) and parent.value is node and all(isinstance(target, ast.Name) for target in parent.targets)
+                and not isinstance(parents.get(id(parent)), ast.ClassDef)  # a class-body `p = sys.path` stores the list as an attribute
                 or isinstance(parent, ast.BinOp) and isinstance(parent.op, ast.Add)
                 or isinstance(parent, ast.FormattedValue)
                 or isinstance(parent, ast.Attribute) and parent.attr in {"index", "count", "copy"})
@@ -1884,7 +1913,13 @@ def test_relative_imports_anchor_on_the_owning_package():
                    "import sys\nd['p'] = sys.path", "import sys\np = sys.path\nq = p\nq.insert(0, 'x')", "from importlib import import_module\nimport_module('sys').path.insert(0, 'x')",
                    "from importlib import import_module as im\nim('sys').path.append('x')", "imp = __import__\nimp('sys').path.insert(0, 'x')", "imp = __import__\nload = imp\nload('sys').path.pop()",
                    "import os as o\no.sys.path.insert(0, 'x')", "s = __import__('sys')\ns.path.insert(0, 'x')", "import os\ns = os.sys\ns.path.append('x')",
-                   "import sys\ndef f():\n    p = sys.path\n    p.insert(0, 'x')", "import sys\np = sys.path\ndef g():\n    p.insert(0, 'x')"):
+                   "import sys\ndef f():\n    p = sys.path\n    p.insert(0, 'x')", "import sys\np = sys.path\ndef g():\n    p.insert(0, 'x')",
+                   "import sys\ndef f():\n    p = sys.path\n    def g():\n        p.insert(0, 'x')", "import sys\ndef f():\n    p = sys.path\n    h = lambda: p.insert(0, 'x')",
+                   "def f():\n    from sys import path\n    def g():\n        path.append('x')", "import sys\ndef setup():\n    global p\n    p = sys.path\ndef other():\n    p.insert(0, 'x')",
+                   "import sys\nasync def f():\n    p = sys.path\n    async def g():\n        p.append('x')", "import importlib\nload = importlib.import_module\nload('sys').path.insert(0, 'x')",
+                   "imp: Any = __import__\nimp('sys').path.insert(0, 'x')", "import sys\ns: types.ModuleType = sys\ns.path.insert(0, 'x')", "import sys\nif (s := sys):\n    s.path.insert(0, 'x')",
+                   "import sys\nif (p := sys.path):\n    p.insert(0, 'x')", "import importlib\nimportlib.import_module(name='sys').path.insert(0, 'x')",
+                   "import sys\nclass C:\n    p = sys.path\nC.p.insert(0, 'x')", "from os import sys as s\ns.path.insert(0, 'x')"):
         assert _changes_sys_path(ast.parse(source)), source  # every use this gate does not know as a read is a change
     for source in ("cmd = ['python', '-c', 'import sys; print(sys.path)']", "import sys\nok = 'x' in sys.path", "n = len(sys.path)", "import os\np = os.path.join('a', 'b')",
                    "import sys\np = sys.path", "import sys\nfirst = sys.path[0]", "import sys\nfor p in sys.path:\n    pass", "import sys\nall_paths = sys.path + ['x']",
@@ -2191,6 +2226,16 @@ def test_data_directories_and_named_files_are_inputs():
             assert _named_in(ast.parse('fs = os.listdir(os.path.join(os.path.dirname(__file__), "..", sub))'), "backend/evals/copilot_runner.py") == up_all
             assert _named_in(ast.parse('fs = (Path(__file__).parent / ".." / sub).glob(PATTERN)'), "backend/evals/copilot_runner.py") == up_all
             assert _named_in(ast.parse('fs = (Path(__file__).parent / sub / "..").glob("*.json")'), "backend/evals/copilot_runner.py") == {p for p in evals_all if p.count("/") == 2 and p.endswith(".json")}
+            # A `..` or `.` with no unknown segment climbs or resolves the same way: `(dir / "..").glob("*.ini")` is what
+            # `dir.glob("../*.ini")` reads, `listdir(join(dir, ".."))` the parent's files, `(dir / ".").glob("*.json")` the directory's.
+            parent_ini = _named_in(ast.parse('fs = Path(__file__).parent.glob("../*.ini")'), "backend/evals/copilot_runner.py")
+            assert parent_ini
+            for spelling in ('(Path(__file__).parent / "..").glob("*.ini")', 'Path(__file__).parent.joinpath("..").glob("*.ini")', 'glob.glob("*.ini", root_dir=os.path.join(os.path.dirname(__file__), ".."))'):
+                assert _named_in(ast.parse(f"fs = {spelling}"), "backend/evals/copilot_runner.py") == parent_ini, spelling
+            parent_json = _named_in(ast.parse('fs = Path(__file__).parent.rglob("../*.json")'), "backend/evals/copilot_runner.py")
+            assert parent_json and _named_in(ast.parse('fs = (Path(__file__).parent / "..").rglob("*.json")'), "backend/evals/copilot_runner.py") == parent_json
+            assert _named_in(ast.parse('fs = os.listdir(os.path.join(os.path.dirname(__file__), ".."))'), "backend/evals/copilot_runner.py") == {p for p in TRACKED | planted if p.startswith("backend/") and p.count("/") == 1 and not p.endswith("/.gitignore")}
+            assert _named_in(ast.parse('fs = (Path(__file__).parent / ".").glob("*.json")'), "backend/evals/copilot_runner.py") == {p for p in evals_all if p.count("/") == 2 and p.endswith(".json")}
         # A name bound to such a directory first (`d = HERE / sub`) is not followed: the stated limit of a folder name held in a variable.
         assert _named_in(ast.parse('d = Path(__file__).parent / sub\nfs = d.glob("*.json")'), "backend/evals/copilot_runner.py") == set()
         # Separators collapse and a trailing one is ignored, so a slash-terminated alias reads the same depth as the plain directory.
