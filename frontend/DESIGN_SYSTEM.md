@@ -360,7 +360,8 @@ Risk cards       <SummaryRisks> renders each server-projected risk as <SummaryBl
                  backend's label). Gates: tests/unit/riskHeadline.spec.ts (the one place exact headlines are
                  pinned: the production filing-3 spans read from the e2e fixture, and the edge cases),
                  tests/unit/SummaryRisks.spec.tsx, tests/e2e/risk-card-headlines.spec.ts (390 and 1440, both
-                 themes: headline, glyph, 14px, eyebrow contrast, wrapping, a long unbreakable token at 390).
+                 themes, layout only: the glyph level with the first line, 14px, eyebrow contrast, panel fill,
+                 wrapping, a long unbreakable token at 390).
 
 Ask answer       <AskFilingAnswer>  — the SHIPPED copilot contract: status reading|streaming|done|error;
                  answer = GFM markdown (react-markdown + remark-gfm); markers [n] AND [F1]/[f1]/[F 1]

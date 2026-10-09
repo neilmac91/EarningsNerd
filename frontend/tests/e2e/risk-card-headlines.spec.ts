@@ -1,21 +1,18 @@
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
-import { createElement, type ComponentType } from 'react'
-import { renderToStaticMarkup } from 'react-dom/server'
 import { test, expect, type Page } from '@playwright/test'
 import { API_ORIGIN, SUMMARY, answerApi, type Theme } from './fixtures/filing3Api'
 
 /**
- * Risk cards on the filing page (founder option b), in a real Chromium at 390 and 1440 in both themes:
+ * Risk cards on the filing page (founder option b): what only a real layout shows, in Chromium at 390
+ * and 1440 in both themes. Which headline, glyph and evidence a card renders is pinned once, in
+ * jsdom (tests/unit/riskHeadline.spec.ts and SummaryRisks.spec.tsx; one test per rule, AGENTS.md §4).
+ * Here:
  *
- *   - each card is titled with a verbatim prefix of its own verified excerpt (an h4, as before), not
- *     "Filing excerpt n", within the cap and ellipsed when the excerpt goes on, and the full excerpt
- *     still renders below it as the evidence (the exact headlines are pinned in
- *     tests/unit/riskHeadline.spec.ts, not here);
- *   - the glyph beside the title is the neutral quotation mark, not the bearish trend arrow, level with
- *     the first line of a headline that wraps;
+ *   - the glyph beside the title sits level with the first line of a headline that wraps;
  *   - the evidence text computes to 14px, and its "Evidence" eyebrow reaches 4.5:1 against the box
  *     it sits on (computed colours, WCAG relative luminance);
+ *   - the cards keep the panel fill (rule 11);
  *   - headings and evidence wrap inside their card, a long unbreakable token (a URL) included:
  *     nothing scrolls sideways.
  *
@@ -30,24 +27,6 @@ import { API_ORIGIN, SUMMARY, answerApi, type Theme } from './fixtures/filing3Ap
 type Risk = { supporting_evidence: string } & Record<string, unknown>
 const RISKS = JSON.parse(readFileSync(path.join(__dirname, 'fixtures/filing-3-risks.json'), 'utf8')) as Risk[]
 const SECTION = '#risks'
-/** RISK_HEADLINE_MAX_CHARS plus the ellipsis. */
-const MAX_HEADLINE = 101
-
-/** The path geometry of a Phosphor glyph, as the installed package renders it. */
-const pathsOf = (icon: ComponentType): string[] =>
-  Array.from(renderToStaticMarkup(createElement(icon)).matchAll(/\sd="([^"]+)"/g), (m) => m[1])
-let QUOTES: string[] = []
-let TREND_DOWN: string[] = []
-
-// The package is ESM-only in practice (its CJS entry sits under "type": "module"), so it is loaded
-// with a dynamic import rather than the spec's transpiled require.
-test.beforeAll(async () => {
-  const icons = await import('@phosphor-icons/react')
-  QUOTES = pathsOf(icons.QuotesIcon)
-  TREND_DOWN = pathsOf(icons.TrendDownIcon)
-  expect(QUOTES.length).toBeGreaterThan(0)
-  expect(QUOTES).not.toEqual(TREND_DOWN)
-})
 
 async function openRisks(page: Page, baseURL: string, theme: Theme, risks: Risk[] = RISKS) {
   await answerApi(page, baseURL)
@@ -115,11 +94,7 @@ const measure = (page: Page) =>
           return r.left >= cardRect.left - 0.5 && r.right <= cardRect.right + 0.5
         }
         return {
-          level: h4.tagName,
           headline: h4.textContent ?? '',
-          glyph: Array.from(h4.parentElement!.querySelectorAll('svg path'), (p) => p.getAttribute('d') ?? ''),
-          glyphHidden: h4.parentElement!.querySelector('svg')?.getAttribute('aria-hidden') ?? null,
-          evidence: box ? Array.from(box.childNodes).filter((n) => n.nodeType === Node.TEXT_NODE).map((n) => n.textContent).join('').trim() : '',
           evidencePx: box ? getComputedStyle(box).fontSize : '',
           eyebrowContrast: eyebrow ? contrast(getComputedStyle(eyebrow).color, groundOf(eyebrow)) : 0,
           cardFill: getComputedStyle(card).backgroundColor,
@@ -148,24 +123,12 @@ for (const viewport of VIEWPORTS) {
     test.use({ viewport })
 
     for (const theme of ['light', 'dark'] as const) {
-      test(`${theme}: excerpt headlines, neutral glyph, 14px evidence, AA eyebrow, no sideways scroll`, async ({ page, baseURL }) => {
+      test(`${theme}: glyph level with the first line, 14px evidence, AA eyebrow, panel fill, no sideways scroll`, async ({ page, baseURL }) => {
         await openRisks(page, baseURL!, theme)
         const m = await measure(page)
         expect(m.dark).toBe(theme === 'dark')
         expect(m.cards).toHaveLength(RISKS.length)
-        for (const [i, card] of m.cards.entries()) {
-          const excerpt = RISKS[i].supporting_evidence
-          expect.soft(card.level).toBe('H4')
-          // Verbatim: the headline (without its ellipsis) opens the excerpt; the excerpt renders whole.
-          // All four production spans run past the cap, so each headline is cut and ellipsed.
-          expect.soft(card.headline, 'not the positional fallback').not.toMatch(/^Filing excerpt \d+$/)
-          expect.soft(excerpt.startsWith(card.headline.replace(/…$/, '')), card.headline).toBe(true)
-          expect.soft(card.headline.endsWith('…'), card.headline).toBe(true)
-          expect.soft(card.headline.length, card.headline).toBeLessThanOrEqual(MAX_HEADLINE)
-          expect.soft(card.evidence).toBe(excerpt)
-          expect.soft(card.glyph, 'quotation glyph').toEqual(QUOTES)
-          expect.soft(card.glyph, 'not the bearish arrow').not.toEqual(TREND_DOWN)
-          expect.soft(card.glyphHidden).toBe('true')
+        for (const card of m.cards) {
           expect.soft(Math.abs(card.glyphOffset), 'glyph level with the first line of a wrapped headline').toBeLessThanOrEqual(2)
           expect.soft(card.evidencePx).toBe('14px')
           expect.soft(card.eyebrowContrast, `eyebrow contrast ${card.eyebrowContrast}:1`).toBeGreaterThanOrEqual(4.5)
