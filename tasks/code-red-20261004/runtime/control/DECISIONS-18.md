@@ -110,11 +110,11 @@ answering 405 to POST and staying in the OpenAPI schema; the dry-run cap's wordi
 chief applied them in `d8508571` (four bypasses closed, each mutation-checked; extension-less scripts named as not covered; the
 6-K figure, the insider comment and the dry-run text corrected; behind the gate the full suite again gave 5,833 passed, 39 skipped
 and 2 deselected, 0 gate reports). The same context re-checked it: **no blocker, bound to `d8508571`** (179 targeted tests passed
-with no network attempt; every fix and the earlier mutants mutation-checked), with notes on the draft PR description only, applied
-to it. The change is held on a local branch, unpushed: the session has one designated branch, so a stage-2 PR opened now would
-block this record until the founder's scheduler change, and the branch could not then be restarted for records without a force
-push (classifier denial 8). It goes up after this record merges; it merges only after the founder confirms the
-`backfill-facts-weekly` move.
+with no network attempt; every fix and the earlier mutants mutation-checked), with one should-fix and two nits on the draft PR
+description only, applied to the draft. The change is held on a local branch, unpushed: the session has one designated branch, so
+a stage-2 PR opened now would block this record until the founder's scheduler change, and the branch could not then be restarted
+for records without a force push (classifier denial 8). It goes up after this record merges; it merges only after the founder
+confirms the `backfill-facts-weekly` move.
 
 ## `eval-baseline`'s cost measured
 
