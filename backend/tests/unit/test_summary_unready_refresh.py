@@ -273,6 +273,46 @@ def test_a_row_made_ready_during_generation_is_kept_not_replaced():
     assert _stored(filing_id)[:2] == (stored_id, OTHER_READY)
 
 
+def test_a_forced_retry_with_no_row_serves_a_summary_saved_in_between(monkeypatch):
+    # Force with no stored row waives nothing, so any user may send it (a Retry after a failed first
+    # generation). Another request may save a summary between the route's read and the pipeline's first
+    # read; this run serves it rather than paying for another (correctness review on #1166).
+    from app.routers import summaries
+
+    filing_id = seed_company_filing()
+    original = summaries.load_generation_user
+
+    def saved_in_between(snapshot):
+        _seed_summary(filing_id, OTHER_READY, {"quality": {"tier": "full"}})
+        return original(snapshot)
+
+    monkeypatch.setattr(summaries, "load_generation_user", saved_in_between)
+    with stream_boundaries() as summarize:
+        response = _post(filing_id, "?force=true")
+
+    assert response.status_code == 200
+    assert "A summary another request finished first." in response.text
+    summarize.assert_not_called()
+    assert _stored(filing_id)[1] == OTHER_READY
+
+
+def test_a_forced_retry_with_no_row_keeps_a_summary_saved_during_generation():
+    filing_id = seed_company_filing()
+
+    async def saved_elsewhere(*_args, **_kwargs):
+        # No quality tier: keep-better alone would let this run replace a summary readers now see.
+        _seed_summary(filing_id, OTHER_READY)
+        return CANONICAL_PAYLOAD
+
+    with stream_boundaries() as summarize:
+        summarize.side_effect = saved_elsewhere
+        response = _post(filing_id, "?force=true")
+
+    assert response.status_code == 200
+    summarize.assert_awaited_once()
+    assert _stored(filing_id)[1] == OTHER_READY
+
+
 @pytest.mark.asyncio
 async def test_a_follower_of_a_failed_unready_refresh_generates_instead_of_serving_the_row():
     # Two visitors on one process refresh the same unready row, and the second joins the first. The

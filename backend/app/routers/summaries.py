@@ -257,8 +257,9 @@ async def generate_summary_stream(
                 # "wipe a popular filing for everyone" vector. Resolved via the entitlements SSoT (not
                 # the is_pro mirror) so a lagging mirror can't wrongly grant/deny it. NB this gate sits
                 # inside `if summary`, past a row the page cannot show: when no summary the page shows
-                # exists yet, force is a harmless no-op, so a failed-generation retry stays open to Free
-                # users.
+                # exists yet, force waives nothing, so a failed-generation retry stays open to Free users.
+                # The pipeline then serves or keeps any summary another request saves meanwhile
+                # (replace_unready_only below).
                 if not is_pro_user(current_user):
                     raise HTTPException(
                         status_code=status.HTTP_403_FORBIDDEN,
@@ -336,9 +337,10 @@ async def generate_summary_stream(
                 telemetry_ctx=telemetry_ctx,
                 emit_funnel_telemetry=analytics_consent,
                 force_regenerate=force or refresh_unready,
-                # Admitted for an unready row: the pipeline re-checks it, so a row another request has
-                # since made ready is served, not regenerated or replaced under the waived Pro gate.
-                replace_unready_only=refresh_unready,
+                # Admitted with no row the page shows (an unready row, or force with no row at all): the
+                # pipeline re-checks the row, so one another request has since saved and made ready is
+                # served or kept, never regenerated or replaced under the waived Pro gate.
+                replace_unready_only=refresh_unready or (force and summary is None),
                 request_evidence=evidence,
             )) as events:
                 async for event in events:

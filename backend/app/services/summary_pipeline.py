@@ -376,13 +376,13 @@ async def stream_filing_summary(
     router releases its session before streaming. Each DB unit here owns its session
     inside the worker; no ORM query result survives into an admission or provider wait.
 
-    ``replace_unready_only`` marks a run the caller admitted only because the stored row was one the
-    filing page cannot show (``is_summary_ready``), with the Pro gate waived for that reason. The run
-    treats such a row as a missing summary and re-reads it at each step, since another run may make it
-    ready in between. A row that is ready by admission, or after a joined leader finishes, is served,
-    not regenerated. A row that becomes ready during generation is kept, not replaced. A row still
-    unready after a joined leader fails is not served: this run claims the generation, as a follower
-    of a failed first generation does.
+    ``replace_unready_only`` marks a run the caller admitted only because no stored row was one the
+    filing page shows (``is_summary_ready``): an unready row, or none at all under ``force``, with the
+    Pro gate waived for that reason. The run treats such a row as a missing summary and re-reads it at
+    each step, since another run may make it ready in between. A row that is ready by admission, or
+    after a joined leader finishes, is served, not regenerated. A row that becomes ready during
+    generation is kept, not replaced. A row still unready after a joined leader fails is not served:
+    this run claims the generation, as a follower of a failed first generation does.
     """
     pipeline_started_at = time.time()
     stage_started_at = pipeline_started_at
