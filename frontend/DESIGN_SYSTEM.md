@@ -175,7 +175,10 @@ Focus ring       focus-visible:outline-none focus-visible:shadow-ring-brand dark
                  new banner, menu or widget is scanned unlisted, plus every control a page passes into
                  SecondaryHeader's `actions` slot (the dashboard's "Log out"; write them inline, as a variable or
                  a component of their own the scan cannot read them); `buttonVariants(…)` composes it; a
-                 className it cannot read fails. It is the rule's one gate; a page's other controls (the filing
+                 className it cannot read fails. A third-party component the chrome renders must be
+                 classified in the gate (a provider renders no control); Sonner's Toaster takes the ring
+                 through `toastOptions.classNames` with `!` on the shadow, since Sonner's own injected
+                 :focus-visible shadow matches or outranks a utility class, and the gate pins every slot. It is the rule's one gate; a page's other controls (the filing
                  page's "← Back") carry the recipe but sit outside it.
 
 Card / panel     bg-panel-light dark:bg-panel-dark + border + shadow-e2 dark:shadow-none

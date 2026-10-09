@@ -49,6 +49,47 @@ const CHROME_ROOTS = ['app/layout.tsx', 'features/auth/components/AuthShell.tsx'
 /** Chrome files the scan skips, each with its reason. Shrink-only: fix the file and delete its line. */
 const NOT_SCANNED: Record<string, string> = {}
 
+/**
+ * Third-party components the chrome renders (`module Tag`), and how their Tab stops meet the rule. The
+ * scan cannot read inside a package, so a new one fails until it is classified here.
+ */
+const THIRD_PARTY: Record<string, string> = {
+  'next/link Link': 'renders an <a>: scanned as a Tab stop like any other',
+  'react Suspense': 'renders no control',
+  '@vercel/analytics/next Analytics': 'renders no control',
+  'posthog-js/react PHProvider': 'a provider: renders no control',
+  '@phosphor-icons/react IconContext.Provider': 'a provider: renders no control',
+  '@tanstack/react-query QueryClientProvider': 'a provider: renders no control',
+  'sonner Toaster': 'its focusable toasts and their buttons take the ring through toastOptions.classNames (pinned below)',
+}
+
+/** The third-party components `source` renders, as `module Tag`. */
+function thirdPartyTags(source: string, fileName: string): string[] {
+  const sf = parse(source, fileName)
+  const modules = new Map<string, string>()
+  for (const stmt of sf.statements) {
+    if (!ts.isImportDeclaration(stmt) || !ts.isStringLiteral(stmt.moduleSpecifier)) continue
+    const pkg = stmt.moduleSpecifier.text
+    if (pkg.startsWith('@/') || pkg.startsWith('.')) continue
+    const clause = stmt.importClause
+    if (clause?.name) modules.set(clause.name.text, pkg)
+    if (clause?.namedBindings && ts.isNamedImports(clause.namedBindings)) {
+      for (const el of clause.namedBindings.elements) modules.set(el.name.text, pkg)
+    }
+  }
+  const tags = new Set<string>()
+  const visit = (node: ts.Node): void => {
+    if (ts.isJsxOpeningElement(node) || ts.isJsxSelfClosingElement(node)) {
+      const tag = node.tagName.getText(sf)
+      const pkg = modules.get(tag.split('.')[0])
+      if (pkg) tags.add(`${pkg} ${tag}`)
+    }
+    ts.forEachChild(node, visit)
+  }
+  visit(sf)
+  return [...tags]
+}
+
 /** The chrome's .tsx modules, discovered from CHROME_ROOTS through their imports. */
 function chromeFiles(): string[] {
   const resolveImport = (from: string, spec: string): string | null => {
@@ -220,6 +261,47 @@ describe('every Tab stop in the site chrome carries the brand focus ring (EN-05c
       expect(discovered, file).toContain(file)
     }
     for (const file of Object.keys(NOT_SCANNED)) expect(discovered, `${file} is no longer chrome: drop its exemption`).toContain(file)
+  })
+
+  it('every third-party component the chrome renders is classified', () => {
+    const used = new Set(discovered.flatMap((file) => thirdPartyTags(readFileSync(path.join(ROOT, file), 'utf8'), file)))
+    expect([...used].filter((tag) => !(tag in THIRD_PARTY)), 'classify each in THIRD_PARTY').toEqual([])
+    expect(Object.keys(THIRD_PARTY).filter((tag) => !used.has(tag)), 'no longer rendered: drop it').toEqual([])
+  })
+
+  // Sonner injects its own grey :focus-visible shadow at runtime with equal or higher specificity than
+  // a Tailwind utility, so the ring on its toasts and buttons needs the `!` modifier.
+  it('the Toaster passes the ring to every class slot Sonner focuses', () => {
+    const file = 'app/providers.tsx'
+    const sf = parse(readFileSync(path.join(ROOT, file), 'utf8'), file)
+    const consts = new Map<string, ts.Expression>()
+    for (const stmt of sf.statements) {
+      if (!ts.isVariableStatement(stmt)) continue
+      for (const decl of stmt.declarationList.declarations) {
+        if (ts.isIdentifier(decl.name) && decl.initializer) consts.set(decl.name.text, decl.initializer)
+      }
+    }
+    const resolve = (expr: ts.Expression | undefined): ts.Expression | undefined =>
+      expr && ts.isIdentifier(expr) ? resolve(consts.get(expr.text)) : expr
+    let options: ts.Expression | undefined
+    const visit = (node: ts.Node): void => {
+      if ((ts.isJsxOpeningElement(node) || ts.isJsxSelfClosingElement(node)) && node.tagName.getText(sf) === 'Toaster') {
+        const attr = node.attributes.properties.find((p) => ts.isJsxAttribute(p) && p.name.getText(sf) === 'toastOptions')
+        if (attr && ts.isJsxAttribute(attr) && attr.initializer && ts.isJsxExpression(attr.initializer)) options = resolve(attr.initializer.expression)
+      }
+      ts.forEachChild(node, visit)
+    }
+    visit(sf)
+    expect(options && ts.isObjectLiteralExpression(options), '<Toaster toastOptions={…}> as an object the scan can read').toBe(true)
+    const prop = (obj: ts.ObjectLiteralExpression, name: string) =>
+      resolve(obj.properties.find((p): p is ts.PropertyAssignment => ts.isPropertyAssignment(p) && p.name.getText(sf) === name)?.initializer)
+    const classNames = prop(options as ts.ObjectLiteralExpression, 'classNames')
+    expect(classNames && ts.isObjectLiteralExpression(classNames), 'toastOptions.classNames').toBe(true)
+    for (const slot of ['toast', 'closeButton', 'actionButton', 'cancelButton']) {
+      const value = prop(classNames as ts.ObjectLiteralExpression, slot)
+      const tokens = value && ts.isStringLiteralLike(value) ? value.text.split(/\s+/) : []
+      expect(tokens, slot).toEqual(expect.arrayContaining(['focus-visible:outline-none', 'focus-visible:!shadow-ring-brand', 'dark:focus-visible:!shadow-ring-brand-dark']))
+    }
   })
 
   for (const file of discovered.filter((f) => !(f in NOT_SCANNED))) {
