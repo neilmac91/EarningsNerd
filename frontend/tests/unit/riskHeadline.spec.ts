@@ -253,6 +253,16 @@ describe('deriveRiskHeadline', () => {
     expect(long.charAt(headline.length - 1)).toBe(' ')
   })
 
+  it('never splits a day-first date ("27 September 2025") at the cap', () => {
+    // "27" ends at character 100 and "September" runs past it: the cut moves back to a whole phrase.
+    expect(
+      deriveRiskHeadline(
+        'Our income tax returns in several foreign jurisdictions remain open and subject to review through 27 September 2025 by the local tax authorities.',
+        0,
+      ),
+    ).toBe('Our income tax returns in several foreign jurisdictions remain open and subject to review…')
+  })
+
   it('ends on the last content word when every cut would split a name (an all-caps run)', () => {
     expect(
       deriveRiskHeadline(
@@ -269,6 +279,14 @@ describe('deriveRiskHeadline', () => {
         0,
       ),
     ).toBe('The Company relies on a single contract manufacturer for its flagship devices…')
+    // A parenthetical that opens in the first words and closes past the cap leaves no prefix that
+    // closes it: the card keeps its positional title rather than stopping inside the bracket.
+    expect(
+      deriveRiskHeadline(
+        'The Company (including all of its subsidiaries in North America, South America, Africa, Europe and Asia) faces significant competition in every market it serves.',
+        0,
+      ),
+    ).toBe('Filing excerpt 1')
   })
 
   it('keeps the excerpt’s own whitespace and casing (verbatim, not normalised)', () => {

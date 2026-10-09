@@ -27,10 +27,11 @@
  *      ("2019 – 2022") and asides ("authorities—particularly China—could").
  *   5. Otherwise the headline is the longest prefix within the cap that ends on a whole content
  *      word, never on a function word, never splitting a figure from its unit ("$2.7 | billion"),
- *      a date ("December | 31"), a capitalised name ("New | York") or an open parenthesis or
- *      quotation, and keeping at least MIN_CLAUSE_WORDS words. When no prefix avoids every split
- *      (an all-caps run reads as one long name) it ends on the last content word; when fewer than
- *      MIN_CLAUSE_WORDS whole words fit (one long token or URL), the card keeps the fallback.
+ *      a date ("December | 31", "27 | September"), a capitalised name ("New | York") or an open
+ *      parenthesis or quotation, and keeping at least MIN_CLAUSE_WORDS words. When no prefix avoids
+ *      every split (an all-caps run reads as one long name) it ends on the last content word that
+ *      leaves nothing open; when there is none, or fewer than MIN_CLAUSE_WORDS whole words fit (one
+ *      long token or URL), the card keeps the fallback.
  *
  * Pure and dependency-free so it can be unit-tested directly (tests/unit/riskHeadline.spec.ts).
  */
@@ -125,6 +126,8 @@ const isWeakEnd = (tokens: Token[], i: number, prefix: string): boolean => {
   if (next !== undefined && /\d/.test(word) && SCALE_WORD.test(bare(next))) return true
   if (MONTH.test(bare(word))) return true
   if (previous !== undefined && /^\d{1,2},?$/.test(word) && MONTH.test(bare(previous))) return true
+  // A day before its month ("27 | September 2025", the day-first order international filers use).
+  if (next !== undefined && /^\d{1,2}$/.test(bare(word)) && MONTH.test(bare(next))) return true
   if (i > 0 && next !== undefined && UPPERCASE_START.test(bare(word)) && UPPERCASE_START.test(next)) return true
   return leavesOpen(prefix)
 }
@@ -158,8 +161,8 @@ const clauseOf = (sentence: string): string | null => {
 
 /**
  * The longest prefix within the cap that ends on a whole content word (step 5); when every candidate
- * splits something, the longest that ends on a content word. Null when fewer than MIN_CLAUSE_WORDS
- * whole words fit.
+ * splits something, the longest that ends on a content word and leaves no bracket or quotation open.
+ * Null when fewer than MIN_CLAUSE_WORDS whole words fit, or when every such prefix is inside one.
  */
 const capped = (text: string): string | null => {
   const tokens = tokensOf(text)
@@ -169,7 +172,9 @@ const capped = (text: string): string | null => {
     const prefix = text.slice(0, within[i].end)
     if (wordCount(prefix) < MIN_CLAUSE_WORDS) break
     if (!isWeakEnd(tokens, i, prefix)) return prefix
-    if (lastContentWord === null && !isFunctionWord(within[i].text)) lastContentWord = within[i].end
+    // The relaxed end still never leaves a bracket or quotation open: with nothing else, the card
+    // keeps its positional title rather than a heading that stops inside a parenthetical.
+    if (lastContentWord === null && !isFunctionWord(within[i].text) && !leavesOpen(prefix)) lastContentWord = within[i].end
   }
   return lastContentWord === null ? null : text.slice(0, lastContentWord)
 }
