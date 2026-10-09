@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { deriveRiskTitle, MAX_TITLE_CHARS } from '@/features/summaries/lib/riskTitle'
+import { deriveRiskTitle, excerptHeadings, MAX_TITLE_CHARS } from '@/features/summaries/lib/riskTitle'
 
 // Risk cards need distinct headings (five "Risk Factor" <h4>s is a heading list nobody can scan).
 describe('deriveRiskTitle', () => {
@@ -83,3 +83,53 @@ describe('deriveRiskTitle', () => {
     )
   })
 })
+
+// Source-first risk rows (2026-10 critique P-03): the server labels every projected risk "Filing
+// excerpt", so each row is headed by its own verbatim excerpt's opening clause.
+describe('excerptHeadings', () => {
+  it('heads each excerpt with its opening clause', () => {
+    expect(
+      excerptHeadings([
+        'Substantially all of the Company’s manufacturing is performed by outsourcing partners. More text.',
+        'Currency movements reduce reported revenue; the euro weakened.',
+      ]),
+    ).toEqual([
+      // Capped at MAX_TITLE_CHARS on a word boundary, like any derived title.
+      'Substantially all of the Company’s manufacturing is performed by outsourcing…',
+      'Currency movements reduce reported revenue',
+    ])
+  })
+
+  it('drops the quote marks a verbatim span opens or closes with, never brackets', () => {
+    expect(excerptHeadings(['“Supply chain constraints persisted through Q3.”'])).toEqual([
+      'Supply chain constraints persisted through Q3',
+    ])
+    expect(excerptHeadings(['"Exposure to foreign exchange (FX)"'])).toEqual(['Exposure to foreign exchange (FX)'])
+  })
+
+  it('keeps every heading unique so the accessibility tree never repeats one', () => {
+    expect(
+      excerptHeadings(['Item 1A: first quote.', 'Item 1A: second quote.', 'Item 1A: third quote.']),
+    ).toEqual(['Item 1A', 'Item 1A (2)', 'Item 1A (3)'])
+  })
+
+  it('stays unique when a clause itself ends in an occurrence number', () => {
+    expect(excerptHeadings(['Foo bar (2). One.', 'Foo bar. Two.', 'Foo bar. Three.'])).toEqual([
+      'Foo bar (2)',
+      'Foo bar',
+      'Foo bar (3)',
+    ])
+  })
+
+  it('keeps the filing’s own casing: the heading is its words, not a recased copy', () => {
+    expect(excerptHeadings(['iPhone net sales depend on new models. More.', 'eBay-style marketplaces compete.'])).toEqual([
+      'iPhone net sales depend on new models',
+      'eBay-style marketplaces compete',
+    ])
+  })
+
+  it('falls back to the positional label for an excerpt with nothing to read', () => {
+    expect(excerptHeadings(['…', 'Real text.'])).toEqual(['Risk 1', 'Real text'])
+  })
+})
+
