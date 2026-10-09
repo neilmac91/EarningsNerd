@@ -238,6 +238,17 @@ describe('deriveRiskHeadline', () => {
     expect(deriveRiskHeadline('Our sole supplier is Acme Co. Production may stop if the supplier fails.', 0)).toBe(
       'Our sole supplier is Acme Co.…',
     )
+    // A name suffix ends a sentence the same way and keeps its period.
+    expect(deriveRiskHeadline('Our chief executive officer is John Smith Jr. His departure could disrupt our operations.', 0)).toBe(
+      'Our chief executive officer is John Smith Jr.…',
+    )
+    // Unless "Sr." means Senior, before a title or an instrument.
+    expect(deriveRiskHeadline('The departure of our Sr. Vice President of Sales could disrupt key customer relationships.', 0)).toBe(
+      'The departure of our Sr. Vice President of Sales could disrupt key customer relationships',
+    )
+    expect(deriveRiskHeadline('We must repay the 5.25% Sr. Notes due 2030 at maturity or refinance them on worse terms.', 0)).toBe(
+      'We must repay the 5.25% Sr. Notes due 2030 at maturity or refinance them on worse terms',
+    )
     // Unless the capitalised word carries on the company's name.
     expect(deriveRiskHeadline('We buy cells from Contemporary Amperex Technology Co. Limited (CATL). We have no contract.', 0)).toBe(
       'We buy cells from Contemporary Amperex Technology Co. Limited (CATL)…',

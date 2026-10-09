@@ -14,8 +14,10 @@
  *   2. Take the first sentence: up to the first ".", "!" or "?" that leaves at least
  *      MIN_EXCERPT_WORDS words, is followed by a capitalised word (or the end) and is not inside a
  *      bracket or quotation. A one-letter word ("U.S.", initials) or a title, label or month
- *      abbreviation ("No.", "Dr.", "Sept.") does not end one; a company suffix does, unless the
- *      company's name goes on ("Acme Co. | Production may stop", "Technology Co. Limited").
+ *      abbreviation ("No.", "Dr.", "Sept.") does not end one. A company or name suffix does ("Acme
+ *      Co. | Production may stop", "John Smith Jr. | His departure"), unless the company's name
+ *      goes on ("Technology Co. Limited") or "Sr." means Senior before a title or an instrument
+ *      ("Sr. Vice President", "Sr. Notes").
  *   3. If it fits in RISK_HEADLINE_MAX_CHARS it is the headline, whole: a sentence that fits is
  *      never cut, so a hedge or a turn later in it ("; however, coverage may not be adequate")
  *      stays in the heading.
@@ -53,7 +55,7 @@ export const riskHeadlineFallback = (index: number): string => `Risk ${index + 1
 // more to come ("ASU No. 2023-07", "Q1 vs. Q2", "Sept. 2025", "Dr. Smith"). Lowercase here; matched
 // case-insensitively letter by letter so the surrounding character classes can stay case-sensitive.
 const ABBREVIATIONS = [
-  'vs', 'approx', 'no', 'nos', 'mr', 'mrs', 'ms', 'dr', 'jr', 'sr', 'st', 'incl', 'est', 'dept',
+  'vs', 'approx', 'no', 'nos', 'mr', 'mrs', 'ms', 'dr', 'st', 'incl', 'est', 'dept',
   'govt', 'fig', 'mfg', 'intl', 'assn', 'bros', 'univ',
   'jan', 'feb', 'mar', 'apr', 'jun', 'jul', 'aug', 'sep', 'sept', 'oct', 'nov', 'dec',
 ]
@@ -61,9 +63,14 @@ const ABBREVIATIONS = [
 // stop"): its period ends one when a capitalised word follows, as any period does, unless that word
 // carries on the company's name ("Contemporary Amperex Technology Co. Limited", "Goldman Sachs &
 // Co. LLC"); a lower-case one keeps it mid-sentence ("Apple Inc. faces"). Its period stays with the
-// word in the headline.
-const TERMINAL_ABBREVIATION = /\b(?:co|inc|corp|ltd|llc|plc|etc)$/i
+// word in the headline. A name suffix ends one the same way ("Our chief executive officer is John
+// Smith Jr. His departure…"), except "Sr." meaning Senior before a title or an instrument ("our Sr.
+// Vice President of Sales", "the 5.25% Sr. Notes due 2030"), which keeps the sentence going.
+const TERMINAL_ABBREVIATION = /\b(?:co|inc|corp|ltd|llc|plc|etc|jr|sr)$/i
 const NAME_GOES_ON = /^\s+(?:co|inc|incorporated|corp|corporation|ltd|limited|llc|llp|lp|plc|ag|gmbh|sa|nv|bv)\b/i
+const SENIOR = /\bsr$/i
+const SENIOR_GOES_ON =
+  /^\s+(?:vice|director|manager|executive|officer|counsel|partner|analyst|advisor|associate|consultant|accountant|engineer|economist|notes?|secured|unsecured|subordinated|debt|credit|loan|term|facility)\b/i
 const caseInsensitive = (word: string): string => word.replace(/[a-z]/g, (c) => `[${c.toUpperCase()}${c}]`)
 const ABBREVIATION_ALTERNATION = ABBREVIATIONS.map(caseInsensitive).join('|')
 
@@ -205,10 +212,12 @@ const firstSentence = (text: string): string => {
   for (const match of text.matchAll(SENTENCE_END)) {
     const at = match.index ?? 0
     const closers = match[1] ?? ''
-    const suffix = TERMINAL_ABBREVIATION.test(text.slice(0, at))
-    if (suffix && NAME_GOES_ON.test(text.slice(at + match[0].length))) continue
+    const before = text.slice(0, at)
+    const after = text.slice(at + match[0].length)
+    const suffix = TERMINAL_ABBREVIATION.test(before)
+    if (suffix && (NAME_GOES_ON.test(after) || (SENIOR.test(before) && SENIOR_GOES_ON.test(after)))) continue
     // A bare terminal period is dropped; one inside a closing quotation, or one that closes a company
-    // suffix ("Acme Inc."), stays.
+    // or name suffix ("Acme Inc.", "Smith Jr."), stays.
     const keepsPeriod = !match[0].startsWith('.') || suffix
     const sentence = closers ? text.slice(0, at + 1 + closers.length) : text.slice(0, keepsPeriod ? at + 1 : at)
     // A break inside a quotation or bracket ends the quoted sentence, not this one ("warned that
