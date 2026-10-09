@@ -172,9 +172,10 @@ Focus ring       focus-visible:outline-none focus-visible:shadow-ring-brand dark
                  in the site chrome carries it (the skip link the same triple on `focus:`): gate
                  tests/unit/siteChromeFocusRing.spec.ts reads the AST of the chrome files (SiteChrome, Header,
                  ThemeToggle, UserMenu, NotificationBell, VerificationBanner, SecondaryHeader, Footer,
-                 CookieConsent with its settings dialog, AuthShell); `buttonVariants(…)` composes it; a className
-                 it cannot read fails. It is the rule's one gate; a page's own controls (the filing page's
-                 "← Back") carry the recipe but sit outside it.
+                 CookieConsent with its settings dialog, AuthShell), plus every control a page passes into
+                 SecondaryHeader's `actions` slot (the dashboard's "Log out"); `buttonVariants(…)` composes it; a
+                 className it cannot read fails. It is the rule's one gate; a page's other controls (the filing
+                 page's "← Back") carry the recipe but sit outside it.
 
 Card / panel     bg-panel-light dark:bg-panel-dark + border + shadow-e2 dark:shadow-none
                  (e1 chips · e2 cards · e3 hero/featured · e4/e5 menus & overlays)
