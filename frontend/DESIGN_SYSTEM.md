@@ -46,9 +46,7 @@ Every color on a surface that renders in **both** themes must be a light/dark **
 shared surface (it caused white-on-cream and dark-on-cream bugs across the app).
 
 - **Muted text on dark = `secondary`, never `tertiary-dark`** (`text-text-tertiary-dark` fails WCAG AA
-  on dark panels). Pattern for muted text inside a panel or white card:
-  `text-text-tertiary-light dark:text-text-secondary-dark`. On the cream page ground, on `brand-weak`
-  and on a status tint, muted text is `text-text-secondary-light dark:text-text-secondary-dark` (§7).
+  on dark panels). Pattern for muted: `text-text-tertiary-light dark:text-text-secondary-dark`.
 - The theme-aware **effect classes** (`.glass-card`, `.mockup-frame`, `.hero-search-glow`,
   `.text-accent-strong` — a solid ink, not a gradient) switch on `.dark` in `globals.css`, each as
   a full light/dark pair — don't add `bg-*` overrides to them. The legacy `.text-gradient-mint`
@@ -483,7 +481,10 @@ remaining consumer is `AuthShell`). Container rhythm on the landing: hero + head
 every other section `max-w-5xl`, section padding `py-20 sm:py-24` (the measured-claims band is a
 tighter hairline strip). Muted text on the cream page ground is `text-secondary`;
 `text-tertiary-light` (`#636A77`, 4.9:1 on cream) carries captions, counts and micro-labels on either
-ground; copy the reader must read stays secondary.
+ground; copy the reader must read stays secondary, including the point-of-use AI disclaimer
+(`AiDisclaimer`) and the footer's "Data sourced from SEC EDGAR … Not investment advice" line. Gate:
+`tests/e2e/text-floors.spec.ts` measures every tertiary-ink text on the main routes against its
+rendered ground.
 
 ## 8. Theme mechanics
 
