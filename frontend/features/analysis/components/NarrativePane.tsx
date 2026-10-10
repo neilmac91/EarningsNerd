@@ -15,7 +15,7 @@ import { groupQualityNotes, type QualityNotesModel } from '@/features/analysis/l
 import { useReportDataNotes } from './DataNotesContext'
 import DataNoteMark, { dataNoteDescription } from './DataNoteMark'
 import DataNotesLink from './DataNotesLink'
-import { DataNotesList } from './SourcesMethods'
+import { DataNotesList } from './DataNotes'
 
 const SOURCE_ROW_ID = (n: number | string) => `analysis-source-${n}`
 

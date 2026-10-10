@@ -4,7 +4,7 @@ import { render, screen, fireEvent } from '@testing-library/react'
 import NarrativePane, { type NarrativeState } from '@/features/analysis/components/NarrativePane'
 import type { AnalysisCitation, AnalysisCompletion, AnalysisDataset } from '@/features/analysis/api/analysis-api'
 import { DataNotesProvider } from '@/features/analysis/components/DataNotesContext'
-import SourcesMethods from '@/features/analysis/components/SourcesMethods'
+import DataNotes from '@/features/analysis/components/DataNotes'
 
 const citation: AnalysisCitation = {
   n: 1,
@@ -67,7 +67,7 @@ describe('NarrativePane citation chips', () => {
       }] }], inflections: [],
     }
     const state = doneState({ completion: doneCompletion({ citations: [{ ...citation, reconciled: false }] }) })
-    const { rerender } = render(<DataNotesProvider dataset={dataset}><SourcesMethods dataset={dataset} /><NarrativePane state={state} /></DataNotesProvider>)
+    const { rerender } = render(<DataNotesProvider dataset={dataset}><DataNotes dataset={dataset} /><NarrativePane state={state} /></DataNotesProvider>)
     expect(screen.getByText(/1 figure needs review/)).toBeInTheDocument()
     expect(screen.queryByText(/2 figures need review/)).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: /Citation 1:.*data note b/ })).toBeInTheDocument()
@@ -82,7 +82,7 @@ describe('NarrativePane citation chips', () => {
     const passed = structuredClone(dataset)
     passed.series[0].points[0].provenance!.validation = 'passed'
     passed.series[0].points[0].provenance!.reasons = []
-    rerender(<DataNotesProvider dataset={passed}><SourcesMethods dataset={passed} /><NarrativePane state={state} /></DataNotesProvider>)
+    rerender(<DataNotesProvider dataset={passed}><DataNotes dataset={passed} /><NarrativePane state={state} /></DataNotesProvider>)
     expect(screen.getByText(/1 figure passed automated checks/)).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /Citation 1:.*data note a/ }).querySelector('[data-note-kind="review"]')).toHaveTextContent('a')
     expect(document.getElementById('analysis-data-note-a')).toHaveTextContent('A source check remains unresolved')

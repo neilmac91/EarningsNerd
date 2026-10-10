@@ -37,7 +37,7 @@ import MetricsTable from './MetricsTable'
 import NarrativePane, { type NarrativeState } from './NarrativePane'
 import PeriodPicker, { defaultRange, type PeriodRange } from './PeriodPicker'
 import TrendCharts from './TrendCharts'
-import SourcesMethods from './SourcesMethods'
+import DataNotes from './DataNotes'
 import { DataNotesProvider } from './DataNotesContext'
 import { ANALYSIS_DISCLOSURE } from '@/features/analysis/lib/provenance'
 
@@ -436,7 +436,7 @@ export default function AnalysisPageClient() {
         <DataNotesProvider dataset={dataset}>
           <div className="flex flex-col gap-4">
             <KpiStrip dataset={dataset} />
-            <SourcesMethods dataset={dataset} />
+            <DataNotes dataset={dataset} />
             <TrendCharts dataset={dataset} exportEnabled />
             <NarrativePane
               state={narrative}
