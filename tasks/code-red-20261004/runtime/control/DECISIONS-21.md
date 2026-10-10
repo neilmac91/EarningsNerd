@@ -6,11 +6,11 @@ read back, including two deploys by other writers), 05:03Z (chief defect 11), 05
 interval of chief defect 11 corrected), 05:21Z (the wrapper's `backend` scope carries the full backend gate; chief
 defect 12), 05:50Z (`auto` also reads the commits since `origin/main`), 06:03Z (`auto` refuses a self-comparison with the local `main`), 06:19Z (untracked files read regardless of
 configuration), 09:26Z (`origin/main` the only base for `auto`; the second usage-limit interruption), 09:47Z (`origin/main` named in
-every description; the records scope runs the agent-workflow rules gate) and 09:57Z (git inspection errors fail closed), by the
-successor chief (`https://claude.ai/code/session_011jZyZqfNWZRqiFNWfTc3u8`).
+every description; the records scope runs the agent-workflow rules gate), 09:57Z (git inspection errors fail closed) and 10:04Z (the reviewer's interim findings on `78e90d2`;
+disclosure 11), by the successor chief (`https://claude.ai/code/session_011jZyZqfNWZRqiFNWfTc3u8`).
 Context: record 20 merged to main as `da8dc998` (PR #1167, 2026-10-09T22:14:52Z); this is the first PR from the successor's
 branch `claude/stoic-wright-6jeujo`, started at `a572876c`. Records, two lessons, the lessons index, one records-tree tool
-(`tools/records-gate.sh`) and its test under `backend/tests/unit/`: no application code, workflow, migration, cloud, IAM or
+(`tools/records-gate.sh`) and its test under `backend/tests/unit/`, and the archive ledger's record-21 entry (`tasks/archive/todo-ledger-through-2026-10-07.md`): no application code, workflow, migration, cloud, IAM or
 production change in this PR (nothing under `backend/` outside `tests/`, so the merge deploys nothing); no provider call; no reservation; nothing opened under `tasks/readiness-2026-09-21/acceptance/` or
 `tasks/review-evidence/`. (The successor's branch started at `a572876c`, main's tip at 22:38Z; main's later merges, by other
 writers, are classified below up to this record's last amendment.)
@@ -240,7 +240,8 @@ paid trigger can still fire (Plan, below); the predecessor's attempt to add it t
    explicitly (`|| status=$?`, never `set -e`, which the tool shell suppresses), one line per step is printed, and the exit status is
    0 only when every step passed. `backend/tests/unit/test_records_gate_wrapper.py` pins that form and proves it by mutation in
    temporary repositories: a failing pytest step, a failing non-pytest step (an unformatted file) and a failing full-gate step (a
-   planted Bandit finding) each fail the wrapper; clean trees pass it in both scopes; `auto` picks `backend` in a repository with a
+   planted Bandit finding) each fail the wrapper; clean trees pass it in both scopes (outside a git repository the agent-workflow rules step fails loudly, because main's gate needs
+   `git ls-files`; a plain export of the tree is not a place to prove the gate); `auto` picks `backend` in a repository with a
    change under `backend/` in the working tree or in the commits since `origin/main`, `records` otherwise, and fails closed unless `origin/main` exists
    to compare the commits with: a local `main` is never a base, because its publication state is unknown (Codex's P1 on `8f64ee6`:
    the first `auto` read the working tree only, so a clean tree after a commit chose `records`; Codex's P2 on `f97a02f` and P2 on
@@ -281,13 +282,19 @@ paid trigger can still fire (Plan, below); the predecessor's attempt to add it t
     nothing red reached CI or main; the gap is procedural. Found by Codex (P1 on `8a3fd35`). From this head the wrapper's `backend`
     scope runs the full gate automatically whenever the working tree or the commits since `origin/main` change anything under `backend/` (its test proves a planted
     Bandit finding fails it), and this head was pushed only after that scope passed on it under a Python 3.11 environment matching CI's
-    (`RECORDS_GATE_PYTHON`): a first run under this container's default Python 3.13 failed 11 tests in two files this PR does not
+    (`RECORDS_GATE_PYTHON`, with `backend/requirements-dev.txt` installed): a first run under this container's default Python 3.13 failed 11 tests in two files this PR does not
     touch (`test_copilot_prose_quotations.py`, whose unassigned-character cases use U+2FFC and U+31EF, assigned in the Unicode 15.1
     data Python 3.13 carries; and one `test_capacity_readout.py` case, a JSON error-detail difference), identically on main's
     `a572876c` with the same interpreter, so those failures are environmental and pre-existing, not this PR's. The full gate is run
-    with CI's interpreter version from now on (the lesson says so). Rule: a records commit that changes
+    with CI's interpreter version and `backend/requirements-dev.txt` installed from now on (the lesson says so). Rule: a records commit that changes
     anything under `backend/` runs the full backend gate before the push, through the wrapper. `APPOINTMENTS.json`'s
     `chief_defects` has the entry.
+
+11. **The reviewer context's listing (same class as chief defect 9; disclosed by the reviewer in its interim report on `78e90d2`):**
+    `record-21-reviewer-02`'s first command on `15b5711` ran an unfiltered `git diff --name-status 4f55e93 15b5711`; because the merge
+    brought main's changes into that range, the output printed two path names under one excluded directory (main's side, not this
+    PR's content). Nothing there was opened, quoted or copied, and this record names no such path. The reviewer's rule from then on,
+    and the chief's: every name-status listing across a merge carries the two exclusion pathspecs.
 
 ## Plan
 

@@ -19,8 +19,10 @@
 #            backend/, or when the commits since the merge-base with origin/main change backend/;
 #            fails closed (exit 2) when origin/main does not exist (a local main is never a base: its
 #            publication state is unknown); records otherwise. HEAD at origin/main means nothing beyond
-#            the remote, so records stands. Outside a repository: records (nothing is being committed or
-#            pushed there). A git inspection error (a failed status, diff or rev-parse that is not "not a git
+#            the remote, so records stands. Outside a repository: records scope (nothing is being committed
+#            or pushed there), but main's agent-workflow rules gate needs `git ls-files`, so that step fails
+#            there and the wrapper reports it; a plain export of the tree is not a place to prove the gate.
+#            A git inspection error (a failed status, diff or rev-parse that is not "not a git
 #            repository") fails closed (exit 2): an error is never read as "no backend change".
 #
 # Usage: tools/records-gate.sh [repo-root]

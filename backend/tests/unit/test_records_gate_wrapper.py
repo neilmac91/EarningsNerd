@@ -11,7 +11,9 @@ or the commits since ``origin/main`` change anything under ``backend/`` (failing
 local ``main`` is never a base), and the wrapper exits 0 only when every step passed. This test pins that form and proves
 it by mutation in temporary repositories shaped like this one: a failing pytest step, a failing non-pytest step (an unformatted
 file) and a failing full-gate step (a planted Bandit finding) each fail the wrapper; clean trees pass it in both scopes. Each
-proof runs the wrapper in a subprocess with the running interpreter; nothing in the real tree is touched.
+proof runs the wrapper in a subprocess with the running interpreter; nothing in the real tree is touched. Outside a git
+repository main's rules gate cannot run (it needs ``git ls-files``), which is why every proof points ``RECORDS_GATE_RULES_TEST``
+at the probe.
 """
 
 from __future__ import annotations
@@ -242,7 +244,7 @@ def test_auto_scope_is_backend_when_the_working_tree_changes_backend(tmp_path: P
     assert _ok_steps(result.stdout) == BACKEND_STEPS, result.stdout
 
 
-def test_auto_scope_is_backend_when_a_commit_since_main_changes_backend(tmp_path: Path) -> None:
+def test_auto_scope_is_backend_when_a_commit_since_origin_main_changes_backend(tmp_path: Path) -> None:
     """After the commit the working tree is clean; the commits since origin/main still change backend/, so auto picks the full gate."""
     result = _run_wrapper(tmp_path, CLEAN_PROBE, scope=None, app_body="", git="committed-change")
     assert result.returncode == 0, f"stdout={result.stdout!r} stderr={result.stderr!r}"

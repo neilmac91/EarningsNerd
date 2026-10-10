@@ -20,7 +20,8 @@ the `&&` that commits. For the CODE RED records, run every verification step of 
 full backend gate (`ruff check .`, `bandit -r app -ll`, `python -m pytest`; chief defect 12), captures each exit
 status explicitly and exits 0 only when every step passed; `backend/tests/unit/test_records_gate_wrapper.py` pins that form and proves by mutation that a
 failing pytest step and a failing non-pytest step each fail the wrapper (rule 12: the gate behind
-this rule). Run it with CI's interpreter version (`RECORDS_GATE_PYTHON`): under this container's default Python 3.13 eleven
+this rule). Run it with CI's interpreter version (`RECORDS_GATE_PYTHON`) and `backend/requirements-dev.txt` installed (pytest-xdist, for
+`pytest.ini`'s `-n auto`): under this container's default Python 3.13 eleven
 pre-existing tests fail that pass on CI's 3.11, and in the gate's output an environment-only failure looks like a real one
 (chief defect 12's first run). `set -e` is not that check in the Claude Code tool shell: a probe `(set -e; false; echo survived)` prints there, so
 errexit is suppressed (chief defect 11, 2026-10-10T05:00Z: a failed `ruff format --check` did not stop a chain from committing and
