@@ -816,12 +816,11 @@ def _collect(source: str) -> tuple[dict[str, str], list[str], set[str], dict[str
     # A call by name reaches a builtin unless the module binds that name for certain (an import included) above
     # the symbol that calls it: code that runs at import above the binding still reaches the builtin. A name
     # the module itself binds to a builtin, or an attribute of the ``builtins`` module, is one too.
-    # A def or class that deletes a module name through ``global`` may run before any call: no binding of it is
-    # certain.
+    # A def or class that deletes a module name through ``global`` (``_deletions``: a ``del``, an ``except ... as``)
+    # may run before any call: no binding of it is certain.
     undone = {name for each in ast.walk(tree) if isinstance(each, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef))
               for name in {name for inner in ast.walk(each) if isinstance(inner, ast.Global) for name in inner.names}
-              & {name for inner in ast.walk(each) if isinstance(inner, ast.Delete)
-                 for target in inner.targets for name in _target_names(target)}}
+              & set(_deletions(each.body))}
     shadowing = {name: spans for name, spans in _certain_bindings(tree.body).items() if name not in undone}
     aliases, modules = _builtin_names(_scope_nodes(tree.body),
                                       lambda name, at: not _bound_at(shadowing, name, at.lineno))

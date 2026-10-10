@@ -989,7 +989,7 @@ def test_a_builtin_is_reached_by_a_call_above_any_module_binding_of_its_name():
     after the next binding. A binding that may not happen (in a block or a ``match``, a bare annotation, a
     walrus) leaves the builtin, and so does a deletion that may happen: a ``del`` in a block or a ``match`` case,
     an ``except ... as eval`` (which deletes its name), a ``del`` in a loop (which runs again what stands above
-    it), or one through ``global`` in a def; ``from builtins import eval`` is the builtin, and a call in the
+    it), or either one through ``global`` in a def or a class body; ``from builtins import eval`` is the builtin, and a call in the
     statement that binds ``eval`` is still made to the builtin. A def's body runs when called, and a generator
     expression's past its first iterable when consumed, both after import, past any ``del`` below them. A class
     body looks the name up
@@ -1015,7 +1015,9 @@ def test_a_builtin_is_reached_by_a_call_above_any_module_binding_of_its_name():
                     "eval = fake\nmatch FLAG:\n    case True:\n        del eval",
                     "eval = fake\ntry:\n    raise LookupError\nexcept LookupError as eval:\n    pass",
                     "eval = fake\n\n\ndef reset():\n    global eval\n    del eval\n\n\nreset()",
-                    "eval = fake\n\n\nclass Reset:\n    global eval\n    del eval\n"):
+                    "eval = fake\n\n\nclass Reset:\n    global eval\n    del eval\n",
+                    "eval = fake\n\n\ndef caught():\n    global eval\n    try:\n        raise LookupError\n"
+                    "    except LookupError as eval:\n        pass\n\n\ncaught()"):
         uncertain = f'def fake(src):\n    return "fake"\n\n\n{binding}\nRESULT = eval("__name__")\n'
         moved = compare(uncertain, {"app/x.py": uncertain.replace('RESULT = eval("__name__")\n', ""),
                                     "app/y.py": 'RESULT = eval("__name__")\n'}, old_path="app/x.py")
