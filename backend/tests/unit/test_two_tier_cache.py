@@ -11,9 +11,9 @@ from datetime import datetime, timedelta
 from unittest.mock import AsyncMock, patch
 
 # Import cache components
+from app.services.edgar import xbrl_cache
 from app.services.edgar.xbrl_service import (
     _xbrl_cache,
-    _cache_max_size,
     _cache_set_sync,
     _get_cache_lock,
     get_xbrl_cache_stats,
@@ -55,10 +55,10 @@ class TestLRUCacheEviction:
     def test_lru_eviction_when_over_max_size(self):
         """Cache should evict oldest entries when exceeding max size."""
         # Temporarily reduce max size for testing
-        original_max = _cache_max_size
+        original_max = xbrl_cache._cache_max_size
 
         # We need to patch the module-level constant
-        import app.services.edgar.xbrl_service as xbrl_module
+        import app.services.edgar.xbrl_cache as xbrl_module
         xbrl_module._cache_max_size = 5
 
         try:
@@ -145,7 +145,7 @@ class TestCacheStats:
 
     def test_cache_utilization_percent(self):
         """Cache stats should calculate utilization percentage."""
-        import app.services.edgar.xbrl_service as xbrl_module
+        import app.services.edgar.xbrl_cache as xbrl_module
         original_max = xbrl_module._cache_max_size
         xbrl_module._cache_max_size = 100
 
@@ -333,12 +333,12 @@ class TestStressConditions:
 
         # Should have entries (limited by max size)
         assert len(_xbrl_cache) > 0
-        assert len(_xbrl_cache) <= _cache_max_size
+        assert len(_xbrl_cache) <= xbrl_cache._cache_max_size
 
     @pytest.mark.asyncio
     async def test_cache_under_memory_pressure(self):
         """Cache should correctly evict under memory pressure."""
-        import app.services.edgar.xbrl_service as xbrl_module
+        import app.services.edgar.xbrl_cache as xbrl_module
         original_max = xbrl_module._cache_max_size
         xbrl_module._cache_max_size = 50
 

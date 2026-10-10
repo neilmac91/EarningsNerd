@@ -1,12 +1,12 @@
 {
   "files": {
-    "app/services/edgar/xbrl_service.py": 1316
+    "app/services/edgar/xbrl_service.py": 1177
   },
   "functions": {
     "app/services/edgar/xbrl_service.py::EdgarXBRLService.extract_standardized_metrics": 259,
     "app/services/edgar/xbrl_service.py::_extract_from_filing_instance_sync": 239,
     "app/services/edgar/xbrl_service.py::EdgarXBRLService._parse_company_facts": 162,
-    "app/services/edgar/xbrl_service.py::EdgarXBRLService.get_xbrl_data": 83
+    "app/services/edgar/xbrl_service.py::EdgarXBRLService.get_xbrl_data": 81
   },
   "names": {
     "CASH_TAG_CANDIDATES": null,
@@ -22,26 +22,26 @@
     "EdgarXBRLService.get_filing_sections": null,
     "EdgarXBRLService.get_xbrl_data": null,
     "_SECTION_MIN_CHARS": null,
-    "_XBRL_CACHE_VERSION": null,
-    "_cache_evictions": null,
-    "_cache_hits": null,
-    "_cache_lock": null,
-    "_cache_max_size": null,
-    "_cache_misses": null,
-    "_cache_set_sync": null,
-    "_cache_ttl": null,
+    "_XBRL_CACHE_VERSION": "app.services.edgar.xbrl_cache",
+    "_cache_max_size": "app.services.edgar.xbrl_cache",
+    "_cache_set_sync": "app.services.edgar.xbrl_cache",
+    "_cache_ttl": "app.services.edgar.xbrl_cache",
     "_extract_from_filing_instance_sync": null,
     "_extract_sections_sync": null,
     "_extract_segments": null,
-    "_get_cache_lock": null,
+    "_get_cache_lock": "app.services.edgar.xbrl_cache",
     "_source_duration": null,
-    "_xbrl_cache": null,
-    "async_clear_xbrl_cache": null,
-    "clear_xbrl_cache": null,
+    "async_clear_xbrl_cache": "app.services.edgar.xbrl_cache",
+    "clear_xbrl_cache": "app.services.edgar.xbrl_cache",
     "edgar_xbrl_service": null,
-    "get_xbrl_cache_stats": null,
-    "logger": null
+    "get_xbrl_cache_stats": "app.services.edgar.xbrl_cache",
+    "logger": "app.services.edgar.xbrl_cache"
   },
-  "forbidden_imports": [],
-  "note": "W0.G baseline (tasks/refactor-plan-2026-10.md, 'The size-budget gate' and decision 6): ceilings are the sizes measured on main ae5b0f1c on 2026-10-09, identical to the plan's da636f6 values. Lower a ceiling in the commit that shrinks the code (a move re-keys a function row to its new path at the same number). Raise a FILE ceiling only with a dated raise line appended here, 'YYYY-MM-DD PR #N: <path> <old> -> <new> (<why extraction was not possible>)', and a 'Ceiling raise' paragraph in the PR body. Only the twenty long functions frozen in the gate have function rows, and none may go above its W0.G size; every other function is held to 80 lines. names: every name this file defined at W0.G (module level, and members of its module-level classes); a move maps a module-level name to the module that now defines it; a deliberate deletion removes the name and records why here."
+  "forbidden_imports": [
+    [
+      "app/services/edgar/xbrl_*.py",
+      "app.services.edgar.xbrl_service"
+    ]
+  ],
+  "note": "W0.G baseline (tasks/refactor-plan-2026-10.md, 'The size-budget gate' and decision 6): ceilings are the sizes measured on main ae5b0f1c on 2026-10-09, identical to the plan's da636f6 values. Lower a ceiling in the commit that shrinks the code (a move re-keys a function row to its new path at the same number). Raise a FILE ceiling only with a dated raise line appended here, 'YYYY-MM-DD PR #N: <path> <old> -> <new> (<why extraction was not possible>)', and a 'Ceiling raise' paragraph in the PR body. Only the twenty long functions frozen in the gate have function rows, and none may go above its W0.G size; every other function is held to 80 lines. names: every name this file defined at W0.G (module level, and members of its module-level classes); a move maps a module-level name to the module that now defines it; a deliberate deletion removes the name and records why here. 2026-10-10 X1: extract the cache state and five existing helpers into xbrl_cache; preserve the facade aliases, v6 keys and logger name. Lower the facade file ceiling from 1316 to 1177 and get_xbrl_data from 83 to 81. Remove the five global-state rows (_cache_lock, _xbrl_cache, _cache_evictions, _cache_hits, _cache_misses) as planned: the cache module owns their state and get_xbrl_cache_stats exposes current counters. The existing _xbrl_cache object remains re-exported for callers that mutate it in place; the integer counters and lazy lock are not copied onto the facade. Retarget the three test size-limit patches to the owning module. Forbid each of the five planned xbrl leaf modules from importing xbrl_service. Use one xbrl_*.py import rule so the four future leaves are covered without stale unmatched rows; it also harmlessly prohibits the facade from importing itself. This glob is only for imports, not file-size ceilings."
 }
