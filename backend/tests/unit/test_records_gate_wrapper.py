@@ -6,8 +6,8 @@ status decided; chief defect 10) and one relied on ``set -e``, which the chief's
 pushes that changed ``backend/tests/`` were not preceded by the repository's full backend gate. The wrapper is the supported way
 to verify a records commit: every step runs unpiped with its exit status captured explicitly, the ``backend`` scope adds the full
 backend gate (``ruff check .``, ``bandit -r app -ll``, ``python -m pytest``) and is chosen automatically when the working tree
-or the commits since main change anything under ``backend/`` (failing closed when no base exists to compare with), and the
-wrapper exits 0 only when every step passed. This test pins that form and proves
+or the commits since ``origin/main`` change anything under ``backend/`` (failing closed when ``origin/main`` is absent: a
+local ``main`` is never a base), and the wrapper exits 0 only when every step passed. This test pins that form and proves
 it by mutation in temporary repositories shaped like this one: a failing pytest step, a failing non-pytest step (an unformatted
 file) and a failing full-gate step (a planted Bandit finding) each fail the wrapper; clean trees pass it in both scopes. Each
 proof runs the wrapper in a subprocess with the running interpreter; nothing in the real tree is touched.
@@ -99,9 +99,11 @@ def _run_wrapper(
     """Run the wrapper on a temporary repository.
 
     ``git`` lays the repository out for the auto-scope proofs: ``"untracked-change"`` (initialised, nothing committed, so the
-    backend files are untracked, with ``status.showUntrackedFiles=no`` set to prove the read does not depend on it), ``"committed-change"`` (a ``main`` with the test only, then a branch whose commit
-    adds ``backend/app``; the working tree is clean), ``"no-base"`` (one branch named ``work`` holding everything; no ``main``),
-    ``"on-local-main"`` (``main`` itself holds everything, no ``origin/main``; the working tree is clean).
+    backend files are untracked, with ``status.showUntrackedFiles=no`` set to prove the read does not depend on it),
+    ``"committed-change"`` (``origin/main`` holds the test only; a feature branch commits ``backend/app``; clean tree),
+    ``"unpushed-main"`` (``origin/main`` holds the test only; the local ``main`` adds an unpushed backend commit; a feature
+    branch adds a records-only commit on top; clean tree), ``"at-origin-main"`` (HEAD is ``origin/main``; clean tree),
+    ``"no-base"`` (a local ``main`` holds everything and there is no ``origin/main``; clean tree).
     """
     repo = tmp_path / "repo"
     tests = repo / "backend" / "tests" / "unit"
@@ -123,19 +125,34 @@ def _run_wrapper(
         _git(repo, "symbolic-ref", "HEAD", "refs/heads/main")
         _git(repo, "add", "backend/tests", "backend/ruff.toml")
         _git(repo, "commit", "-q", "-m", "base")
+        _git(repo, "update-ref", "refs/remotes/origin/main", "HEAD")
         _git(repo, "checkout", "-q", "-b", "feature")
         _git(repo, "add", "-A")
         _git(repo, "commit", "-q", "-m", "a backend change")
-    elif git == "no-base":
+    elif git == "unpushed-main":
         _git(repo, "init", "-q")
-        _git(repo, "symbolic-ref", "HEAD", "refs/heads/work")
+        _git(repo, "symbolic-ref", "HEAD", "refs/heads/main")
+        _git(repo, "add", "backend/tests", "backend/ruff.toml")
+        _git(repo, "commit", "-q", "-m", "base")
+        _git(repo, "update-ref", "refs/remotes/origin/main", "HEAD")
         _git(repo, "add", "-A")
-        _git(repo, "commit", "-q", "-m", "everything")
-    elif git == "on-local-main":
+        _git(repo, "commit", "-q", "-m", "a backend change on main, not pushed")
+        _git(repo, "checkout", "-q", "-b", "feature")
+        (repo / "tasks").mkdir()
+        (repo / "tasks" / "note.md").write_text("records only\n", encoding="utf-8")
+        _git(repo, "add", "tasks")
+        _git(repo, "commit", "-q", "-m", "a records-only commit")
+    elif git == "at-origin-main":
         _git(repo, "init", "-q")
         _git(repo, "symbolic-ref", "HEAD", "refs/heads/main")
         _git(repo, "add", "-A")
-        _git(repo, "commit", "-q", "-m", "a backend change committed on main")
+        _git(repo, "commit", "-q", "-m", "everything, already on the remote")
+        _git(repo, "update-ref", "refs/remotes/origin/main", "HEAD")
+    elif git == "no-base":
+        _git(repo, "init", "-q")
+        _git(repo, "symbolic-ref", "HEAD", "refs/heads/main")
+        _git(repo, "add", "-A")
+        _git(repo, "commit", "-q", "-m", "everything, publication state unknown")
     else:
         assert git is None, git
     env = {
@@ -221,19 +238,27 @@ def test_auto_scope_is_backend_when_a_commit_since_main_changes_backend(tmp_path
     assert _ok_steps(result.stdout) == BACKEND_STEPS, result.stdout
 
 
-def test_auto_scope_fails_closed_without_a_base_to_compare_with(tmp_path: Path) -> None:
-    """A clean tree in a repository with neither origin/main nor main: auto cannot tell and refuses to guess."""
+def test_auto_scope_is_backend_when_local_main_carries_an_unpushed_backend_commit(tmp_path: Path) -> None:
+    """The branch adds only a records commit, but pushing it also pushes main's unpushed backend commit: compare with origin/main."""
+    result = _run_wrapper(tmp_path, CLEAN_PROBE, scope=None, app_body="", git="unpushed-main")
+    assert result.returncode == 0, f"stdout={result.stdout!r} stderr={result.stderr!r}"
+    assert result.stdout.startswith("records-gate: scope backend\n"), result.stdout
+    assert _ok_steps(result.stdout) == BACKEND_STEPS, result.stdout
+
+
+def test_auto_scope_is_records_when_head_is_already_on_origin_main(tmp_path: Path) -> None:
+    """Nothing beyond the remote: there is nothing to push, so the records steps suffice."""
+    result = _run_wrapper(tmp_path, CLEAN_PROBE, scope=None, app_body="", git="at-origin-main")
+    assert result.returncode == 0, f"stdout={result.stdout!r} stderr={result.stderr!r}"
+    assert result.stdout.startswith("records-gate: scope records\n"), result.stdout
+    assert _ok_steps(result.stdout) == RECORDS_STEPS, result.stdout
+
+
+def test_auto_scope_fails_closed_without_origin_main(tmp_path: Path) -> None:
+    """A local main is never a base (its publication state is unknown): with no origin/main, auto refuses to guess."""
     result = _run_wrapper(tmp_path, CLEAN_PROBE, scope=None, app_body="", git="no-base")
     assert result.returncode == 2, f"stdout={result.stdout!r} stderr={result.stderr!r}"
-    assert "cannot determine the scope" in result.stderr, result.stderr
-    assert "records-gate: ok" not in result.stdout, result.stdout
-
-
-def test_auto_scope_fails_closed_when_head_sits_on_the_local_main(tmp_path: Path) -> None:
-    """No origin/main and HEAD is the local main: comparing HEAD with itself would hide the committed backend change."""
-    result = _run_wrapper(tmp_path, CLEAN_PROBE, scope=None, app_body="", git="on-local-main")
-    assert result.returncode == 2, f"stdout={result.stdout!r} stderr={result.stderr!r}"
-    assert "HEAD is on the local main itself" in result.stderr, result.stderr
+    assert "no origin/main to compare the commits with" in result.stderr, result.stderr
     assert "records-gate: ok" not in result.stdout, result.stdout
 
 

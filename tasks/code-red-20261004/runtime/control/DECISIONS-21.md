@@ -4,8 +4,8 @@ Recorded 2026-10-09T23:02Z, amended 2026-10-09T23:12Z (the relayed confirmation)
 interruption; the fresh reviewer context), 04:09Z (chief defect 10), 04:30Z (after the record-21 review: the later main runs
 read back, including two deploys by other writers), 05:03Z (chief defect 11), 05:11Z (the records gate extended to every verification step; the title; the
 interval of chief defect 11 corrected), 05:21Z (the wrapper's `backend` scope carries the full backend gate; chief
-defect 12), 05:50Z (`auto` also reads the commits since main), 06:03Z (`auto` refuses a self-comparison with the local `main`) and 06:19Z (untracked files read regardless of
-configuration), by the successor chief (`https://claude.ai/code/session_011jZyZqfNWZRqiFNWfTc3u8`).
+defect 12), 05:50Z (`auto` also reads the commits since main), 06:03Z (`auto` refuses a self-comparison with the local `main`), 06:19Z (untracked files read regardless of
+configuration) and 09:26Z (`origin/main` the only base for `auto`; the second usage-limit interruption), by the successor chief (`https://claude.ai/code/session_011jZyZqfNWZRqiFNWfTc3u8`).
 Context: record 20 merged to main as `da8dc998` (PR #1167, 2026-10-09T22:14:52Z); this is the first PR from the successor's
 branch `claude/stoic-wright-6jeujo`, started at `a572876c`. Records, two lessons, the lessons index, one records-tree tool
 (`tools/records-gate.sh`) and its test under `backend/tests/unit/`: no application code, workflow, migration, cloud, IAM or
@@ -217,6 +217,9 @@ paid trigger can still fire (Plan, below); the predecessor's attempt to add it t
    Nothing in the repository or the ledger was changed by this session during the interruption; other writers kept merging to
    main, and one of their merges (#1123) redeployed production at 23:31–23:33Z (read back below); PR #1172's CI completed green
    on `72f01ed` at 23:27Z.
+   A second five-hour limit, at about 06:30Z on 2026-10-10, ended the reviewer context's final delta check of `e4a9910` before any
+   verdict (its last line: the check had started) and stopped this session until the limit reset at 09:00Z; work resumed at 09:24Z
+   and the reviewer context was resumed from its transcript for the final head.
 7. **Chief defect 10 (the successor's):** at 04:05Z on 2026-10-10 a commit chain ran the runtime-records gate through a pipe
    (`pytest … | tail -1`) without `pipefail`, so the gate's failure did not stop the chain and head `7d65c89` was committed and
    pushed to this PR with the gate red. The failure: closure 172 resolved `record-21-reviewer-01` inside the closure that registered
@@ -235,11 +238,12 @@ paid trigger can still fire (Plan, below); the predecessor's attempt to add it t
    0 only when every step passed. `backend/tests/unit/test_records_gate_wrapper.py` pins that form and proves it by mutation in
    temporary repositories: a failing pytest step, a failing non-pytest step (an unformatted file) and a failing full-gate step (a
    planted Bandit finding) each fail the wrapper; clean trees pass it in both scopes; `auto` picks `backend` in a repository with a
-   change under `backend/` in the working tree or in the commits since main, `records` otherwise, and fails closed without a base or
-   when the only base is the local `main` that HEAD itself sits on (Codex's P1 on `8f64ee6`: the first `auto` read the working tree
-   only, so a clean tree after a commit chose `records`; Codex's P2 on `f97a02f`: a self-comparison with the local `main` would have
-   hidden a change committed on it; Codex's P2 on `4f55e93`: the working tree is read with `--untracked-files=all`, so a
-   `status.showUntrackedFiles=no` configuration cannot hide a new file). The repository still cannot see the chief's shell, so the gate is the wrapper plus
+   change under `backend/` in the working tree or in the commits since main, `records` otherwise, and fails closed unless `origin/main` exists
+   to compare the commits with: a local `main` is never a base, because its publication state is unknown (Codex's P1 on `8f64ee6`:
+   the first `auto` read the working tree only, so a clean tree after a commit chose `records`; Codex's P2 on `f97a02f` and P2 on
+   `e4a9910`: comparing with a local `main` hid a change committed on it, or an unpushed backend commit on it under a records-only
+   branch commit; Codex's P2 on `4f55e93`: the working tree is read with `--untracked-files=all`, so a `status.showUntrackedFiles=no`
+   configuration cannot hide a new file). The repository still cannot see the chief's shell, so the gate is the wrapper plus
    CI's own run of the records gate, which is what caught `7d65c89`.
 8. **The successor's side effects to this record:** read-only GitHub requests (runs, jobs, one PR, the open PR list, the balance
    job's log); two pages of the predecessor's session event log through the platform's session API (its own transcript events,
