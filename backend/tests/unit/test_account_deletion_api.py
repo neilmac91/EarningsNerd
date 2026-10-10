@@ -10,8 +10,10 @@ failure is injected inside the request's own session (a ``before_flush`` listene
 patching a function, so the test holds wherever the delete code lives.
 
 The Stripe step is pinned on the wire for the same reason. A fake ``requests`` session inside the
-real ``stripe.RequestsClient`` plays Stripe's subscription list and cancel endpoints, so the status
-filter, the page walk and the cancel calls asserted here are the ones the SDK actually sends.
+real ``stripe.RequestsClient`` plays Stripe's subscription list and cancel endpoints, so the list
+query, the page walk and the cancel calls asserted here are the ones the SDK actually sends. The fake
+account also holds another customer's live subscription, which a list without the customer filter
+reaches, as it would on Stripe.
 """
 import json
 import re
@@ -37,6 +39,8 @@ STRIPE_CUSTOMER = "cus_deleted_account"
 # Every subscription status Stripe documents. The two ended ones can never bill again.
 LIVE_STATUSES = ["active", "trialing", "past_due", "unpaid", "incomplete", "paused"]
 ENDED_STATUSES = ["canceled", "incomplete_expired"]
+# The SDK types the status as an open string: one Stripe adds later is live until it is known ended.
+FUTURE_STATUS = "a_status_stripe_adds_later"
 
 
 @pytest.fixture(scope="module")
@@ -115,11 +119,13 @@ class _FakeStripe:
     session the SDK talks through. Rows are newest first, as Stripe lists them; pages are
     cursor-based and hold at most 100 rows; a ``status`` filter behaves as Stripe documents it."""
 
-    def __init__(self, statuses):
+    def __init__(self, statuses, refuse_later_pages=False):
         self.subscriptions = [
             {"id": f"sub_{position}_{status}", "object": "subscription", "customer": STRIPE_CUSTOMER, "status": status}
             for position, status in enumerate(statuses)
-        ]
+        ] + [{"id": "sub_another_customer", "object": "subscription", "customer": "cus_another", "status": "active"}]
+        self.refuse_later_pages = refuse_later_pages
+        self.list_queries: list[dict[str, str]] = []
         self.cancelled: list[str] = []
         self.other_requests: list[tuple[str, str]] = []
 
@@ -133,13 +139,17 @@ class _FakeStripe:
         return self._refuse(404, f"{method} {target.path} is not faked")
 
     def _list(self, query):
+        self.list_queries.append(query)
         limit = int(query.get("limit", 10))
         if not 1 <= limit <= 100:
             return self._refuse(400, "Invalid integer: limit")
+        if self.refuse_later_pages and "starting_after" in query:
+            return self._refuse(400, "injected failure on a later page")
         rows = self.subscriptions
         if "starting_after" in query:
             rows = rows[[row["id"] for row in rows].index(query["starting_after"]) + 1:]
-        rows = [row for row in rows if row["customer"] == query.get("customer")]
+        if "customer" in query:
+            rows = [row for row in rows if row["customer"] == query["customer"]]
         status = query.get("status")
         if status is None:
             rows = [row for row in rows if row["status"] != "canceled"]
@@ -163,16 +173,21 @@ class _FakeStripe:
         return SimpleNamespace(content=json.dumps(payload).encode(), status_code=status_code, headers={})
 
 
-def _delete_account_of_customer(client, monkeypatch, statuses) -> _FakeStripe:
+def _delete_account_of_customer(client, monkeypatch, statuses, stripe_result="subscriptions_cancelled",
+                                **fake_options) -> _FakeStripe:
     """Delete an account whose Stripe customer holds one subscription per given status."""
-    stripe_api = _FakeStripe(statuses)
+    stripe_api = _FakeStripe(statuses, **fake_options)
     monkeypatch.setattr(stripe, "default_http_client", stripe.RequestsClient(session=stripe_api))
     with _seeded_user(stripe_customer_id=STRIPE_CUSTOMER) as (uid, _email):
         resp = client.delete("/api/users/me")
         assert resp.status_code == 200
-        # The handler swallows a Stripe failure and reports it here; any other value is that failure.
-        assert resp.json()["third_party_deletions"]["stripe"] == "subscriptions_cancelled"
+        # The handler swallows a Stripe failure and reports it here (``error: …``).
+        assert re.fullmatch(stripe_result, resp.json()["third_party_deletions"]["stripe"])
         assert not _user_exists(uid)
+    # Every list query is this customer's, over every status, in pages of 100.
+    assert stripe_api.list_queries
+    assert all({key: query[key] for key in ("customer", "status", "limit") if key in query}
+               == {"customer": STRIPE_CUSTOMER, "status": "all", "limit": "100"} for query in stripe_api.list_queries)
     return stripe_api
 
 
@@ -229,7 +244,7 @@ def test_failed_delete_rolls_back_keeps_account_and_sets_no_cookie(client):
 
 
 @pytest.mark.requires_db
-@pytest.mark.parametrize("status", LIVE_STATUSES)
+@pytest.mark.parametrize("status", LIVE_STATUSES + [FUTURE_STATUS])
 def test_delete_account_cancels_a_subscription_in_any_live_status(client, monkeypatch, status):
     stripe_api = _delete_account_of_customer(client, monkeypatch, [status])
 
@@ -254,3 +269,13 @@ def test_delete_account_walks_every_page_of_subscriptions(client, monkeypatch):
     stripe_api = _delete_account_of_customer(client, monkeypatch, statuses)
 
     assert stripe_api.cancelled == ["sub_100_trialing", "sub_201_past_due"]
+
+
+@pytest.mark.requires_db
+def test_a_stripe_failure_is_reported_and_the_deletion_still_proceeds(client, monkeypatch):
+    # Pre-existing behaviour, pinned as-is (the founder's decision to make): the account is deleted, the
+    # failure is reported, and the walk stops where it failed, here on the second page.
+    statuses = ["trialing"] + ["canceled"] * 100 + ["past_due"]
+    stripe_api = _delete_account_of_customer(client, monkeypatch, statuses, r"error: .+", refuse_later_pages=True)
+
+    assert stripe_api.cancelled == ["sub_0_trialing"]
