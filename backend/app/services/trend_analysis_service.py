@@ -753,49 +753,6 @@ def _format_value(value: float, unit: str, percent: bool) -> str:
     return f"{value:,.0f}"
 
 
-def compact_dataset_for_prompt(dataset: dict[str, Any]) -> str:
-    """Line-based rendering of the dataset for the model: every value prefixed with its [F#]
-    marker, growth pre-computed, signals appended. ~5-8k tokens for 26 series × 12 periods."""
-    lines: list[str] = [
-        f"Company: {dataset['company_name']} ({dataset['ticker']})",
-        f"Mode: {dataset['mode']} | Periods: {dataset['period_key']}",
-        "",
-    ]
-    for series in dataset["series"]:
-        unit_note = "%" if series["percent"] else series["unit"]
-        header = f"## {series['label']} ({unit_note})"
-        if series.get("cagr") is not None:
-            cagr_marker = f"[{series['cagr_marker']}] " if series.get("cagr_marker") else ""
-            window = f" ({series['cagr_window']})" if series.get("cagr_window") else ""
-            header += f" — {cagr_marker}CAGR {_pct_str(series['cagr'])}{window}"
-        lines.append(header)
-        for point in series["points"]:
-            if point["value"] is None:
-                lines.append(f"  {point['period']}: not reported")
-                continue
-            rendered = _format_value(point["value"], series["unit"], series["percent"])
-            growth_bits = []
-            if point.get("yoy") is not None:
-                growth_bits.append(f"YoY {_fmt_growth(point['yoy'], series['percent'])}")
-            if point.get("qoq") is not None:
-                growth_bits.append(f"QoQ {_fmt_growth(point['qoq'], series['percent'])}")
-            suffix = f" ({', '.join(growth_bits)})" if growth_bits else ""
-            derived = " [derived]" if point.get("derived") else ""
-            lines.append(f"  [{point['marker']}] {point['period']}: {rendered}{suffix}{derived}")
-        lines.append("")
-
-    if dataset.get("inflections"):
-        lines.append("## Signals detected (deterministic, pre-computed)")
-        for flag in dataset["inflections"]:
-            # One marker per bracket pair. The old comma-joined form ("[F58, F59, F60]") taught
-            # the model the exact multi-reference notation the resolver cannot parse — the prompt
-            # must only ever model the legal form.
-            markers = " ".join(f"[{m}]" for m in (flag.get("markers") or []))
-            lines.append(f"- {flag['kind']}: {flag['detail']}" + (f" {markers}" if markers else ""))
-        lines.append("")
-    return "\n".join(lines)
-
-
 def _pct_str(value: float) -> str:
     return f"{value * 100:+.1f}%"
 
@@ -1353,8 +1310,6 @@ def marker_index(dataset: dict[str, Any]) -> dict[str, dict[str, Any]]:
 
 # --- AI narrative pipeline (M3) ----------------------------------------------------------------
 
-NOT_ENOUGH_DATA_SENTINEL = "===NOT_ENOUGH_DATA==="
-
 # Citation-group classification (what makes a bracket group a citation vs prose, and the
 # linear-regex discipline behind it) lives in the shared citation_markers module — the copilot
 # resolver's multi-ref pre-pass consumes the same knowledge.
@@ -1445,19 +1400,6 @@ def resolve_narrative_citations(
         cursor = match.end()
     pieces.append(text[cursor:])
     return "".join(pieces), citations, len(citations), unverified
-
-
-def _illegal_refs(text: str, index: dict[str, dict[str, Any]]) -> list[str]:
-    """F-references in a draft that the dataset never issued — the defect list fed back to the
-    model on the regenerate-on-strip retry (audit D2). Over-approximate on purpose (any F-token
-    inside brackets counts, prose or citation): a retry hint, not a resolution pass."""
-    illegal: list[str] = []
-    for match in _MARKER_GROUP_RE.finditer(text):
-        for ref in _MARKER_REF_RE.findall(match.group(1)):
-            key = f"F{int(ref)}"
-            if key not in index and key not in illegal:
-                illegal.append(key)
-    return illegal
 
 
 # --- numeric-fidelity scan (audit D2: the deterministic backstop behind "every cited figure") --
@@ -1577,40 +1519,6 @@ def scan_numeric_fidelity(
         if not clean:
             mismatched.append(int(n))
     return mismatched
-
-
-def _mismatch_details(mismatched: list[int], citations: list[dict[str, Any]]) -> list[str]:
-    """Human-readable defect lines for the retry instruction. Named by concept/period, NOT by
-    the renumbered [n] — the retry model sees its own raw [F#] draft, where [n] means nothing."""
-    by_n = {c.get("n"): c for c in citations}
-    details: list[str] = []
-    for n in mismatched:
-        c = by_n.get(n) or {}
-        details.append(f"{c.get('concept')} {c.get('period')} (dataset value: {c.get('value')})")
-    return details
-
-
-def _retry_instruction(illegal: list[str], mismatched_details: list[str]) -> str:
-    """The corrective turn for the one-shot regenerate-on-strip retry."""
-    problems: list[str] = []
-    if illegal:
-        problems.append(
-            "- These references do not exist in the dataset and must not appear: "
-            + " ".join(f"[{ref}]" for ref in illegal)
-            + ". Use ONLY marker IDs printed in the dataset."
-        )
-    if mismatched_details:
-        problems.append(
-            "- The figure you printed next to your citation of these dataset lines does not "
-            "match the value they carry: " + "; ".join(mismatched_details) + ". Every number "
-            "must be copied EXACTLY as printed on the dataset line whose marker you cite — "
-            "never computed or approximated."
-        )
-    return (
-        "Your draft was rejected for citation defects:\n"
-        + "\n".join(problems)
-        + "\nRewrite the FULL analysis now, following the Output Format exactly."
-    )
 
 
 def _load_cached_analysis(db: Session, company_id: int, mode: str, key: str):

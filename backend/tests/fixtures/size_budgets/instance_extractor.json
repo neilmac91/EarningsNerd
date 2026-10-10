@@ -1,6 +1,6 @@
 {
   "files": {
-    "app/services/edgar/instance_extractor.py": 1229
+    "app/services/edgar/instance_extractor.py": 1223
   },
   "functions": {},
   "names": {
@@ -18,7 +18,6 @@
     "_SEGMENT_MEMBER_SKIP": null,
     "_concept_local": null,
     "_currency": null,
-    "_fact_records": null,
     "_fact_records_with_concept": null,
     "_is_reportable_segment": null,
     "_iso_date": null,
@@ -59,5 +58,5 @@
     "segment_series_by_member": null
   },
   "forbidden_imports": [],
-  "note": "W0.G baseline (tasks/refactor-plan-2026-10.md, 'The size-budget gate' and decision 6): ceilings are the sizes measured on main ae5b0f1c on 2026-10-09, identical to the plan's da636f6 values. Lower a ceiling in the commit that shrinks the code (a move re-keys a function row to its new path at the same number). Raise a FILE ceiling only with a dated raise line appended here, 'YYYY-MM-DD PR #N: <path> <old> -> <new> (<why extraction was not possible>)', and a 'Ceiling raise' paragraph in the PR body. Only the twenty long functions frozen in the gate have function rows, and none may go above its W0.G size; every other function is held to 80 lines. names: every name this file defined at W0.G (module level, and members of its module-level classes); a move maps a module-level name to the module that now defines it; a deliberate deletion removes the name and records why here."
+  "note": "W0.G baseline (tasks/refactor-plan-2026-10.md, 'The size-budget gate' and decision 6): ceilings are the sizes measured on main ae5b0f1c on 2026-10-09, identical to the plan's da636f6 values. Lower a ceiling in the commit that shrinks the code (a move re-keys a function row to its new path at the same number). Raise a FILE ceiling only with a dated raise line appended here, 'YYYY-MM-DD PR #N: <path> <old> -> <new> (<why extraction was not possible>)', and a 'Ceiling raise' paragraph in the PR body. Only the twenty long functions frozen in the gate have function rows, and none may go above its W0.G size; every other function is held to 80 lines. names: every name this file defined at W0.G (module level, and members of its module-level classes); a move maps a module-level name to the module that now defines it; a deliberate deletion removes the name and records why here. 2026-10-10 Dead cleanup (tasks/refactor-plan-2026-10.md decision 4): deliberately delete the unused records wrapper, with no live callers; remove the corresponding names and lower the file ceiling from 1229 to 1223."
 }
