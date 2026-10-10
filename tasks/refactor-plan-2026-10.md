@@ -647,6 +647,15 @@ plus an empty `__init__.py`; the three named splits bring their functions to ≤
 84 and `derive_same_period_metrics` 84 keep ratchet rows re-keyed to their new modules unless a Wave 3
 S-PR splits them.
 
+**F1 implementation correction (2026-10-10).** Main already has `facts/{calendar,quarterly,lineage}.py`
+and has removed synthetic EPS derivation. F1 preserves those modules and current duration windows,
+including `_CF_YTD6_WINDOW`, rather than recreating the older inventory above. The package initializer
+stays non-eager. Constants and six small helpers move to `concepts.py`; the three transport functions
+move to `transport.py`. The transport logger names `app.services.facts_service` explicitly and the
+façade aliases that same logger, preserving its runtime name. `_inflight_syncs` and the readers of
+existing façade test patches stay in `facts_service.py` until F4. The six rule-5 descriptions and
+AGENTS.md's high-risk path list follow the transport owner; no SEC policy changes.
+
 ### M3 — `backend/app/services/trend_analysis_service.py` (1,923 lines; `T:` below)
 
 **Responsibilities today** (52 top-level functions + 1 class; the "57" counts 5 nested defs at
