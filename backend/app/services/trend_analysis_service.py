@@ -15,18 +15,18 @@ from __future__ import annotations
 
 import hashlib
 import json
-import logging
+import logging  # noqa: F401 - retained facade import
 import re
 from dataclasses import dataclass
 from datetime import date
-from decimal import Decimal
+from decimal import Decimal  # noqa: F401 - retained facade import
 from typing import Any, Optional
 
 from sqlalchemy.orm import Session
 
 from app.config import settings
 from app.models import Company, FinancialFact
-from app.services import citation_markers
+from app.services import citation_markers  # noqa: F401 - retained facade import
 from app.services.ai.copilot_chat import merge_chat_usage
 from app.services.fact_provenance import (
     CALCULATION_VERSION, calculated_provenance,
@@ -36,20 +36,67 @@ from app.services.trend_analysis.dataset_quality import add_comparisons, dataset
 from app.services.trend_analysis.stream_events import analysis_completion
 from app.utils.datetimes import ensure_utc, iso_z
 
-logger = logging.getLogger(__name__)
-
-# Bump on changes to the live selector prompt or observation rendering. Dataset changes also
-# invalidate caches through dataset_fingerprint. The active model selects code-owned observations;
-# financial values and comparisons are rendered deterministically.
-# v2: derived flag narrowed to true computed-Q4 points, CAGR markers, per-marker signal brackets,
-# multi-reference resolver, pp-vs-relative guardrail.
-# v3: percent-unit series (margins) report YoY/QoQ as percentage-point deltas (not relative %);
-# sign-flip growth renders "n/m" instead of a nonsensical percentage.
-# v4: a/an-with-numerals voice guard; rule 5 reworded for the YTD9/shares-based Q4 derivations.
-PROMPT_VERSION = "trends-v7-observations"
-
-MODES = ("annual", "quarterly")
-_QUARTERS = ("Q1", "Q2", "Q3", "Q4")
+# Compatibility facade: keep every original definition available at this module path.
+from app.services.trend_analysis.periods import (
+    MODES,
+    _QUARTERS,
+    DATASET_CONCEPT_ORDER,
+    _CONCEPT_LABELS,
+    concept_label,
+    _ANNUAL_KEY_RE,
+    _QUARTER_KEY_RE,
+    parse_period_key,
+    _period_sort_key,
+    _CORE_REVENUE_CONCEPTS,
+    available_periods,
+)
+from app.services.trend_analysis.formatting import (
+    NOT_MEANINGFUL,
+    _format_value,
+    _pct_str,
+    _fmt_growth,
+    _ratio_threshold_value,
+    _ordered_percentage_values,
+)
+from app.services.trend_analysis.series import (
+    _series_map,
+    _valued_points,
+    _growth_operand_points,
+    _growth_operand_markers,
+)
+from app.services.trend_analysis.detectors import (
+    detect_growth_deceleration,
+    detect_margin_compression,
+    detect_fcf_ni_divergence,
+    detect_debt_build,
+    detect_liquidity_squeeze,
+    _DETECTORS,
+    detect_inflections,
+)
+from app.services.trend_analysis.citations import (
+    _MARKER_GROUP_RE,
+    _MARKER_REF_RE,
+    _is_citation_group,
+    _point_citation,
+    resolve_narrative_citations,
+)
+from app.services.trend_analysis.fidelity import (
+    _FIDELITY_NUM_RE,
+    _FIDELITY_SCALES,
+    _FIDELITY_WINDOW_CHARS,
+    _FIDELITY_MARKER_RE,
+    _window_number_tokens,
+    _fidelity_candidates,
+    _token_matches_any,
+    scan_numeric_fidelity,
+)
+from app.services.trend_analysis.cache import (
+    logger,
+    PROMPT_VERSION,
+    _load_cached_analysis,
+    has_cached_analysis,
+    _persist_analysis,
+)
 
 # Balance-sheet (point-in-time) concepts + their derived metrics: matched by period_end in
 # quarterly mode; everything else is a flow/duration concept matched by (fiscal_year, fiscal_period).
@@ -75,162 +122,6 @@ _SERIES_TONE: dict[str, str] = {
     "investing_cash_flow": "neutral",
     "financing_cash_flow": "neutral",
 }
-
-# Display order for the dataset grid (missing concepts are simply omitted).
-DATASET_CONCEPT_ORDER: tuple[str, ...] = (
-    "revenue",
-    "net_interest_income", "noninterest_income", "premiums_earned", "net_investment_income",
-    "gross_profit", "gross_margin",
-    "operating_income", "operating_margin",
-    "net_income", "net_margin",
-    "earnings_per_share", "eps_diluted",
-    "operating_cash_flow", "capital_expenditures", "free_cash_flow",
-    "investing_cash_flow", "financing_cash_flow",
-    "total_assets", "cash_and_equivalents",
-    "current_assets", "current_liabilities", "working_capital", "current_ratio",
-    "long_term_debt", "shareholders_equity",
-)
-
-_CONCEPT_LABELS: dict[str, str] = {
-    "revenue": "Revenue",
-    "net_interest_income": "Net interest income",
-    "noninterest_income": "Noninterest income",
-    "premiums_earned": "Premiums earned",
-    "net_investment_income": "Net investment income",
-    "gross_profit": "Gross profit",
-    "gross_margin": "Gross margin",
-    "operating_income": "Operating income",
-    "operating_margin": "Operating margin",
-    "net_income": "Net income",
-    "net_margin": "Net margin",
-    "earnings_per_share": "EPS (basic)",
-    "eps_diluted": "EPS (diluted)",
-    "operating_cash_flow": "Operating cash flow",
-    "capital_expenditures": "Capital expenditures",
-    "free_cash_flow": "Free cash flow",
-    "investing_cash_flow": "Investing cash flow",
-    "financing_cash_flow": "Financing cash flow",
-    "total_assets": "Total assets",
-    "cash_and_equivalents": "Cash & equivalents",
-    "current_assets": "Current assets",
-    "current_liabilities": "Current liabilities",
-    "working_capital": "Working capital",
-    "current_ratio": "Current ratio",
-    "long_term_debt": "Long-term debt",
-    "shareholders_equity": "Shareholders' equity",
-}
-
-
-def concept_label(concept: str) -> str:
-    return _CONCEPT_LABELS.get(concept, concept.replace("_", " ").title())
-
-
-# --- period keys -------------------------------------------------------------------------------
-
-_ANNUAL_KEY_RE = re.compile(r"^FY(\d{4})$")
-_QUARTER_KEY_RE = re.compile(r"^(\d{4})(Q[1-4])$")
-
-
-def parse_period_key(mode: str, key: str) -> tuple[int, Optional[str]]:
-    """"FY2024" -> (2024, None); "2024Q2" -> (2024, "Q2"). Raises ValueError on a bad key."""
-    if mode == "annual":
-        match = _ANNUAL_KEY_RE.match(key or "")
-        if not match:
-            raise ValueError(f"Invalid annual period key: {key!r} (expected e.g. 'FY2024')")
-        return int(match.group(1)), None
-    match = _QUARTER_KEY_RE.match(key or "")
-    if not match:
-        raise ValueError(f"Invalid quarterly period key: {key!r} (expected e.g. '2024Q2')")
-    return int(match.group(1)), match.group(2)
-
-
-def _period_sort_key(bucket: dict[str, Any]) -> tuple:
-    return (bucket["period_end"], bucket["fiscal_period"] or "")
-
-
-# --- coverage ----------------------------------------------------------------------------------
-
-_CORE_REVENUE_CONCEPTS = ("revenue", "net_interest_income")  # generic top line OR the FI one
-
-
-def available_periods(db: Session, company_id: int) -> dict[str, Any]:
-    """Selectable periods per mode, oldest → newest (one indexed read on the series index)."""
-    rows = (
-        db.query(
-            FinancialFact.concept,
-            FinancialFact.fiscal_year,
-            FinancialFact.fiscal_period,
-            FinancialFact.period_end,
-            FinancialFact.source,
-        )
-        .filter(
-            FinancialFact.company_id == company_id,
-            FinancialFact.is_latest.is_(True),
-            FinancialFact.fiscal_period.isnot(None),
-        )
-        .all()
-    )
-
-    annual: dict[int, dict[str, Any]] = {}
-    quarterly: dict[tuple[int, str], dict[str, Any]] = {}
-    for concept, fiscal_year, fiscal_period, period_end, source in rows:
-        if fiscal_year is None or period_end is None:
-            continue
-        if fiscal_period == "FY":
-            entry = annual.setdefault(
-                fiscal_year,
-                {"fiscal_year": fiscal_year, "period_end": period_end, "concepts": set()},
-            )
-            entry["period_end"] = max(entry["period_end"], period_end)
-            entry["concepts"].add(concept)
-        elif fiscal_period in _QUARTERS:
-            entry = quarterly.setdefault(
-                (fiscal_year, fiscal_period),
-                {
-                    "fiscal_year": fiscal_year,
-                    "fiscal_period": fiscal_period,
-                    "period_end": period_end,
-                    "derived": True,
-                },
-            )
-            entry["period_end"] = max(entry["period_end"], period_end)
-            # A quarter column is "derived" only if EVERY row in it came from the Q4 derivation.
-            if source != "derived":
-                entry["derived"] = False
-
-    annual_out = [
-        {
-            "key": f"FY{entry['fiscal_year']}",
-            "fiscal_year": entry["fiscal_year"],
-            "period_end": entry["period_end"].isoformat(),
-            "has_core": (
-                any(c in entry["concepts"] for c in _CORE_REVENUE_CONCEPTS)
-                and "net_income" in entry["concepts"]
-            ),
-        }
-        for entry in sorted(annual.values(), key=lambda e: e["period_end"])
-    ]
-    quarterly_out = [
-        {
-            "key": f"{entry['fiscal_year']}{entry['fiscal_period']}",
-            "fiscal_year": entry["fiscal_year"],
-            "fiscal_period": entry["fiscal_period"],
-            "period_end": entry["period_end"].isoformat(),
-            "derived": entry["derived"],
-        }
-        for entry in sorted(quarterly.values(), key=lambda e: e["period_end"])
-    ]
-    return {"annual": annual_out, "quarterly": quarterly_out}
-
-
-# --- dataset assembly --------------------------------------------------------------------------
-
-
-# Sentinel for `_growth`: a comparison was attempted but crossing zero makes a percentage
-# meaningless (finance convention "n/m" — not meaningful), e.g. investing cash flow swinging from
-# +$503M to -$71.9B renders "-14,399.2%" under plain division. Distinct from None (no prior at
-# all), so the UI/prompt can say "n/m" instead of rendering nothing.
-NOT_MEANINGFUL = "nm"
 
 
 def _growth(current: Optional[float], prior: Optional[float]) -> Optional[float] | str:
@@ -494,209 +385,6 @@ def build_dataset(
     return dataset
 
 
-# --- deterministic inflection signals ----------------------------------------------------------
-
-
-def _series_map(dataset: dict[str, Any]) -> dict[str, dict[str, Any]]:
-    return {series["concept"]: series for series in dataset["series"]}
-
-
-def _valued_points(series: Optional[dict[str, Any]]) -> list[dict[str, Any]]:
-    if not series:
-        return []
-    return [p for p in series["points"] if p["value"] is not None]
-
-
-def detect_growth_deceleration(dataset: dict[str, Any]) -> list[dict[str, Any]]:
-    """Top-line YoY growth strictly declining across the three most recent measurable periods."""
-    flags = []
-    series_by = _series_map(dataset)
-    for concept in ("revenue", "net_interest_income"):
-        # Exclude NOT_MEANINGFUL ("nm") explicitly — it's a string sentinel, not a float, and
-        # `yoys[0] > yoys[1]` below would raise TypeError if one slipped through.
-        points = [
-            p for p in _valued_points(series_by.get(concept)) if isinstance(p.get("yoy"), float)
-        ]
-        if len(points) < 3:
-            continue
-        last3 = points[-3:]
-        yoys = [p["yoy"] for p in last3]
-        if yoys[0] > yoys[1] > yoys[2]:
-            displays, display_is_distinct = _ordered_percentage_values(yoys)
-            sequence = (" → " if display_is_distinct else ", ").join(displays)
-            display_qualifier = (
-                ""
-                if display_is_distinct
-                else " (effectively equal where values match at four-decimal precision)"
-            )
-            markers = [
-                marker
-                for point in last3
-                for marker in _growth_operand_markers(dataset, series_by[concept], point)
-            ]
-            flags.append(
-                {
-                    "kind": "growth_deceleration",
-                    "concepts": [concept],
-                    "periods": [p["period"] for p in last3],
-                    "detail": (
-                        f"{concept_label(concept)} YoY growth decelerated across its three most "
-                        f"recent measurable observations: {sequence}{display_qualifier}."
-                    ),
-                    "markers": list(dict.fromkeys(markers)),
-                }
-            )
-        # Only flag the primary top line the company actually has.
-        if points:
-            break
-    return flags
-
-
-def detect_margin_compression(dataset: dict[str, Any]) -> list[dict[str, Any]]:
-    """A margin strictly declining over the three most recent periods by ≥2 percentage points."""
-    flags = []
-    series_by = _series_map(dataset)
-    for concept in ("operating_margin", "net_margin"):
-        points = _valued_points(series_by.get(concept))
-        if len(points) < 3:
-            continue
-        last3 = points[-3:]
-        values = [p["value"] for p in last3]  # stored ×100 (percent)
-        if values[0] > values[1] > values[2] and (values[0] - values[2]) >= 2.0:
-            displays, display_is_distinct = _ordered_percentage_values(
-                values, already_percent=True, signed=False
-            )
-            sequence = (" → " if display_is_distinct else ", ").join(displays)
-            display_qualifier = (
-                ""
-                if display_is_distinct
-                else " (effectively equal where values match at four-decimal precision)"
-            )
-            flags.append(
-                {
-                    "kind": "margin_compression",
-                    "concepts": [concept],
-                    "periods": [p["period"] for p in last3],
-                    "detail": (
-                        f"{concept_label(concept)} compressed {values[0] - values[2]:.1f}pp over "
-                        f"three periods: {sequence}{display_qualifier}."
-                    ),
-                    "markers": [p["marker"] for p in last3],
-                }
-            )
-    return flags
-
-
-def detect_fcf_ni_divergence(dataset: dict[str, Any]) -> list[dict[str, Any]]:
-    """Free cash flow conversion collapsing vs its own history (earnings-quality signal)."""
-    series_by = _series_map(dataset)
-    fcf_by_period = {p["period"]: p for p in _valued_points(series_by.get("free_cash_flow"))}
-    ratios: list[tuple[dict[str, Any], dict[str, Any], float]] = []
-    for ni_point in _valued_points(series_by.get("net_income")):
-        fcf_point = fcf_by_period.get(ni_point["period"])
-        if fcf_point is not None and ni_point["value"] > 0:
-            ratios.append((fcf_point, ni_point, fcf_point["value"] / ni_point["value"]))
-    if len(ratios) < 3:
-        return []
-    *prior, (last_fcf, last_ni, last_ratio) = ratios
-    prior_avg = sum(r for _, _, r in prior) / len(prior)
-    if last_ratio < 0.6 and prior_avg >= 0.9:
-        # The historical-average claim depends on every prior FCF/NI pair, so its observation
-        # must carry those operands as well as the latest pair.  A marker for only the latest
-        # period would make the displayed average look source-bound when its constituents were
-        # invisible.
-        operand_markers = [
-            marker
-            for fcf_point, ni_point, _ in ratios
-            for marker in (fcf_point["marker"], ni_point["marker"])
-        ]
-        return [
-            {
-                "kind": "fcf_ni_divergence",
-                "concepts": ["free_cash_flow", "net_income"],
-                "periods": [last_fcf["period"]],
-                "detail": (
-                    f"Free-cash-flow conversion fell to {last_ratio:.2f}× net income in "
-                    f"{last_fcf['period']} vs a {prior_avg:.2f}× historical average — earnings and "
-                    f"cash are diverging."
-                ),
-                "markers": list(dict.fromkeys(operand_markers)),
-            }
-        ]
-    return []
-
-
-def detect_debt_build(dataset: dict[str, Any]) -> list[dict[str, Any]]:
-    """Long-term debt grew ≥50% across the selected window."""
-    points = _valued_points(_series_map(dataset).get("long_term_debt"))
-    if len(points) < 2:
-        return []
-    first, last = points[0], points[-1]
-    if first["value"] > 0 and last["value"] >= 1.5 * first["value"]:
-        growth = (last["value"] - first["value"]) / first["value"]
-        return [
-            {
-                "kind": "debt_build",
-                "concepts": ["long_term_debt"],
-                "periods": [first["period"], last["period"]],
-                "detail": (
-                    f"Long-term debt grew {_pct_str(growth)} from {first['period']} to "
-                    f"{last['period']}."
-                ),
-                "markers": [first["marker"], last["marker"]],
-            }
-        ]
-    return []
-
-
-def detect_liquidity_squeeze(dataset: dict[str, Any]) -> list[dict[str, Any]]:
-    """Current ratio below 1.0, or down ≥0.5 across the window to below 1.5."""
-    points = _valued_points(_series_map(dataset).get("current_ratio"))
-    if not points:
-        return []
-    first, last = points[0], points[-1]
-    if last["value"] < 1.0:
-        detail = (
-            f"Current ratio is below 1.0 "
-            f"({_ratio_threshold_value(last['value'])} in {last['period']})."
-        )
-    elif len(points) >= 2 and (first["value"] - last["value"]) >= 0.5 and last["value"] < 1.5:
-        detail = (
-            f"Current ratio declined from {first['value']:.2f}× ({first['period']}) to "
-            f"{last['value']:.2f}× ({last['period']})."
-        )
-    else:
-        return []
-    return [
-        {
-            "kind": "liquidity_squeeze",
-            "concepts": ["current_ratio"],
-            "periods": [first["period"], last["period"]],
-            "detail": detail,
-            "markers": sorted({first["marker"], last["marker"]}),
-        }
-    ]
-
-
-_DETECTORS = (
-    detect_growth_deceleration,
-    detect_margin_compression,
-    detect_fcf_ni_divergence,
-    detect_debt_build,
-    detect_liquidity_squeeze,
-)
-
-
-def detect_inflections(dataset: dict[str, Any]) -> list[dict[str, Any]]:
-    flags: list[dict[str, Any]] = []
-    for detector in _DETECTORS:
-        try:
-            flags.extend(detector(dataset))
-        except Exception:  # noqa: BLE001 - a detector bug must never break dataset assembly
-            logger.exception("inflection detector %s failed", detector.__name__)
-    return flags
-
-
 # --- fingerprint + prompt rendering ------------------------------------------------------------
 
 
@@ -708,31 +396,6 @@ def dataset_fingerprint(dataset: dict[str, Any]) -> str:
     content = {key: value for key, value in dataset.items() if key not in {"snapshot_id", "data_as_of"}}
     canonical = json.dumps(content, sort_keys=True, separators=(",", ":"), default=str)
     return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
-
-
-def _format_value(value: float, unit: str, percent: bool) -> str:
-    if percent:
-        return f"{value:.1f}%"
-    if unit == "pure":
-        return f"{value:.2f}x"
-    if unit.endswith("/shares"):
-        return f"{value:,.2f}"
-    return f"{value:,.0f}"
-
-
-def _pct_str(value: float) -> str:
-    return f"{value * 100:+.1f}%"
-
-
-def _fmt_growth(value: float | str, is_percent: bool) -> str:
-    """Render a YoY/QoQ delta for the prompt: NOT_MEANINGFUL as "n/m"; a percent-unit series'
-    delta (already a percentage-POINT number, no ×100) as "+X.Xpp"; everything else as the usual
-    signed relative percentage."""
-    if value == NOT_MEANINGFUL:
-        return "n/m"
-    if is_percent:
-        return f"{value:+.1f}pp"
-    return _pct_str(value)
 
 
 # --- code-owned narrative observations ---------------------------------------------------------
@@ -765,14 +428,6 @@ def _observation_id(section: str, kind: str, *parts: str) -> str:
     return ".".join((section, kind, *filter(None, clean)))
 
 
-def _ratio_threshold_value(value: float) -> str:
-    """Expose enough ratio precision to preserve its exact relation to 1.00x."""
-    decimals = 4
-    while value != 1.0 and decimals < 16 and f"{value:.{decimals}f}" == f"{1.0:.{decimals}f}":
-        decimals += 1
-    return f"{value:.{decimals}f}x"
-
-
 def _point_value(series: dict[str, Any], point: dict[str, Any], *, ratio_precision: bool = False) -> str:
     value = point["value"]
     if ratio_precision:
@@ -794,21 +449,6 @@ def _same_dimension(first: dict[str, Any], second: dict[str, Any]) -> bool:
     )
 
 
-def _ordered_percentage_values(
-    values: list[float], *, already_percent: bool = False, signed: bool = True
-) -> tuple[list[str], bool]:
-    """Render an ordered percentage sequence without hiding strict changes through rounding."""
-    scale = Decimal(1) if already_percent else Decimal(100)
-    scaled = [Decimal(str(value)) * scale for value in values]
-    sign = "+" if signed else ""
-    for decimals in range(1, 5):
-        rendered = [f"{value:{sign}.{decimals}f}%" for value in scaled]
-        if all(first != second for first, second in zip(rendered, rendered[1:])):
-            return rendered, True
-    rendered = [f"{value:{sign}.4f}%" for value in scaled]
-    return rendered, False
-
-
 def _growth_comparison_values(first: float, second: float) -> tuple[str, str, str]:
     """Return the raw-value ordering with displays that make a non-equal ordering visible."""
     if first == second:
@@ -821,30 +461,6 @@ def _growth_comparison_values(first: float, second: float) -> tuple[str, str, st
     # Beyond four percentage decimals the values are immaterially different for this product
     # surface. Avoid asserting a direction that the intentionally bounded display cannot show.
     return "effectively equal to", _pct_str(first), _pct_str(second)
-
-
-def _growth_operand_points(
-    dataset: dict[str, Any], series: dict[str, Any], point: dict[str, Any]
-) -> list[dict[str, Any]]:
-    """Current/prior points that own a displayed YoY/pp change, in that order."""
-    period = point["period"]
-    try:
-        mode = dataset.get("mode") or ("annual" if period.startswith("FY") else "quarterly")
-        year, quarter = parse_period_key(mode, period)
-    except ValueError:
-        return [point]
-    prior_period = f"FY{year - 1}" if quarter is None else f"{year - 1}{quarter}"
-    prior = next((candidate for candidate in series["points"] if candidate["period"] == prior_period), None)
-    points = [point]
-    if prior and prior.get("marker"):
-        points.append(prior)
-    return points
-
-
-def _growth_operand_markers(
-    dataset: dict[str, Any], series: dict[str, Any], point: dict[str, Any]
-) -> list[str]:
-    return [operand["marker"] for operand in _growth_operand_points(dataset, series, point)]
 
 
 def _marker_chain(markers: list[str]) -> str:
@@ -1276,315 +892,6 @@ def marker_index(dataset: dict[str, Any]) -> dict[str, dict[str, Any]]:
     return index
 
 
-# --- AI narrative pipeline (M3) ----------------------------------------------------------------
-
-# Citation-group classification (what makes a bracket group a citation vs prose, and the
-# linear-regex discipline behind it) lives in the shared citation_markers module — the copilot
-# resolver's multi-ref pre-pass consumes the same knowledge.
-_MARKER_GROUP_RE = citation_markers.MARKER_GROUP_RE
-_MARKER_REF_RE = citation_markers.MARKER_REF_RE
-_is_citation_group = citation_markers.is_citation_group
-
-
-def _point_citation(n: int, point: dict[str, Any]) -> dict[str, Any]:
-    """Render a dataset point as a citation dict in the Copilot citation shape ({n, excerpt,
-    section_ref, verified, fragment_url}) so the existing frontend citation UI renders it as-is.
-
-    ``kind == "cagr"`` entries are series-level CAGR markers: the value is a growth fraction over
-    the selected window, not an XBRL level, so only their excerpt/attribution differ — the dict
-    shape is ONE literal so the citation contract with the frontend can't fork per kind."""
-    provenance = point.get("provenance") or {}
-    if point.get("kind") == "cagr":
-        excerpt = f"{point['label']} CAGR = {_pct_str(point['value'])} ({point['period']})"
-        section_ref = "Computed · CAGR"
-    else:
-        value_str = (
-            _ratio_threshold_value(point["value"])
-            if point.get("concept") == "current_ratio" and point.get("unit") == "pure"
-            else _format_value(
-                point["value"], point.get("unit") or "USD", bool(point.get("percent"))
-            )
-        )
-        excerpt = f"{point['label']} = {value_str} ({point['period']})"
-        if point.get("derived"):
-            excerpt += " — derived Q4"
-        section_ref = (
-            "Calculated · " + str(provenance.get("formula") or point["concept"])
-            if provenance.get("method") == "calculated"
-            else f"XBRL · {point['raw_tag']}" if point.get("raw_tag")
-            else f"Reported filing · {point['concept']}"
-        )
-    return {
-        "n": n,
-        "excerpt": excerpt,
-        "section_ref": section_ref,
-        "verified": True,
-        "fragment_url": None,
-        "concept": point["concept"],
-        "value": point["value"],
-        "period": point["period"],
-        "derived": bool(point.get("derived")),
-        "reconciled": point.get("reconciled"),
-        "provenance": point.get("provenance"),
-        "source_url": point.get("source_url") or provenance.get("source_url"),
-    }
-
-
-def resolve_narrative_citations(
-    text: str, index: dict[str, dict[str, Any]]
-) -> tuple[str, list[dict[str, Any]], int, int]:
-    """One left-to-right pass over the narrative: every ``[F#]`` reference resolves against the
-    dataset's marker index and is renumbered ``[1]``, ``[2]``, ... in first-appearance order
-    (repeat mentions reuse their number). Multi-reference groups a model may emit despite the
-    prompt contract — ``[F1, F2]``, ``[F1..F10]``, ``[F1 vs F2]`` — resolve as a chain
-    (``[1][2]``; ranges resolve their written endpoints). A reference the dataset never issued
-    can ONLY be a model artifact — it is dropped (a group that loses every reference is stripped,
-    swallowing the space before it, the ``_resolve_citations`` contract from Copilot) and counted
-    in ``unverified`` so callers can surface how many references could not be verified.
-    Returns (final_text, citations, grounded, unverified).
-    """
-    citations: list[dict[str, Any]] = []
-    assigned: dict[str, int] = {}
-    unverified = 0
-    pieces: list[str] = []
-    cursor = 0
-    for match in _MARKER_GROUP_RE.finditer(text):
-        content = match.group(1)
-        if not _MARKER_REF_RE.search(content):
-            continue  # no F-reference at all — ordinary prose brackets / markdown link labels
-        if not _is_citation_group(content):
-            continue  # prose that happens to contain an F-token — not a citation group
-        numbers: list[int] = []
-        for ref in _MARKER_REF_RE.findall(content):
-            key = f"F{int(ref)}"
-            point = index.get(key)
-            if point is None:
-                unverified += 1
-                continue
-            n = assigned.get(key)
-            if n is None:
-                n = len(citations) + 1
-                assigned[key] = n
-                citations.append(_point_citation(n, point))
-            if n not in numbers:
-                numbers.append(n)
-        if numbers:
-            pieces.append(text[cursor:match.start()])
-            pieces.append("".join(f"[{n}]" for n in numbers))
-        else:
-            pieces.append(text[cursor:match.start()].rstrip(" "))
-        cursor = match.end()
-    pieces.append(text[cursor:])
-    return "".join(pieces), citations, len(citations), unverified
-
-
-# --- numeric-fidelity scan (audit D2: the deterministic backstop behind "every cited figure") --
-
-# A printed figure near a citation: optional $, digits with thousands commas, optional decimals,
-# optional %/pp/compact-scale suffix (incl. the "bn"/"mn"/"tn" style). Linear (single
-# character-class core, no nesting) — this scans model output on the event loop.
-_FIDELITY_NUM_RE = re.compile(
-    r"(\$)?(\d[\d,]*(?:\.\d+)?)\s*(%|pp|[bmt]n\b|[BTMK]\b|billion|million|trillion|thousand)?",
-    re.IGNORECASE,
-)
-_FIDELITY_SCALES = {
-    "k": 1e3, "thousand": 1e3,
-    "m": 1e6, "mn": 1e6, "million": 1e6,
-    "b": 1e9, "bn": 1e9, "billion": 1e9,
-    "t": 1e12, "tn": 1e12, "trillion": 1e12,
-}
-# How far back from "[n]" the claimed figure may sit — the copilot adjacency window's sibling.
-_FIDELITY_WINDOW_CHARS = 48
-# A resolved citation marker inside the window ("[1]"): both a scrub target (its digits are NOT
-# figures) and the window's hard left bound — the claim before an earlier marker belongs to THAT
-# marker, not this one (the copilot _claim_span_start rule). Bounded digit run keeps it linear.
-_FIDELITY_MARKER_RE = re.compile(r"\[\d{1,4}\]")
-
-
-def _window_number_tokens(window: str) -> list[tuple[float, int, float]]:
-    """Every printed figure in a window as (number, decimals, scale). Skips tokens that are not
-    financial figures: period identifiers (FY2024, 2026Q3), bare years, and small bare counts
-    ("over the past 5 years", "3rd consecutive quarter" — no $, no suffix, no decimals)."""
-    tokens: list[tuple[float, int, float]] = []
-    for match in _FIDELITY_NUM_RE.finditer(window):
-        dollar, raw, suffix = match.group(1), match.group(2), match.group(3)
-        start, end = match.start(2), match.end(2)
-        if start > 0 and window[start - 1].isalpha():
-            continue  # FY2024 / Q3-style token — part of an identifier
-        if end < len(window) and window[end] == "Q":
-            continue  # 2026Q3
-        number = float(raw.replace(",", ""))
-        decimals = len(raw.split(".")[1]) if "." in raw else 0
-        if not dollar and suffix is None and decimals == 0:
-            if 1900 <= number <= 2100:
-                continue  # a bare year in prose
-            if number < 1000:
-                continue  # a small bare count, not a financial figure (the copilot rule)
-        scale = _FIDELITY_SCALES.get(suffix.lower(), 1.0) if suffix else 1.0
-        tokens.append((number, decimals, scale))
-    return tokens
-
-
-def _fidelity_candidates(citation: dict[str, Any], point: dict[str, Any]) -> list[float]:
-    """Every dataset figure the prompt licenses against this marker: the point's value (plus its
-    ×100 form for CAGR markers ONLY — growth fractions print as percentages, but licensing ×100
-    for monetary values would wave through exactly the scale-slip errors the scan exists to
-    catch) and the point's YoY/QoQ deltas (pp form for percent series, ×100 relative form
-    otherwise)."""
-    candidates: list[float] = []
-    value = citation.get("value")
-    if isinstance(value, (int, float)):
-        candidates.append(float(value))
-        if point.get("kind") == "cagr":
-            candidates.append(float(value) * 100.0)
-    for key in ("yoy", "qoq"):
-        growth = point.get(key)
-        if isinstance(growth, (int, float)):
-            candidates.extend([float(growth), float(growth) * 100.0])
-    return candidates
-
-
-def _token_matches_any(token: tuple[float, int, float], candidates: list[float]) -> bool:
-    """Half-ULP-of-the-printed-precision comparison: '391.0B' (1 decimal at 1e9 scale) accepts
-    anything the display formatter would round to 391.0B. Signs compare absolutely — prose sign
-    conventions vary ('outflow of $71.9B' cites a negative value)."""
-    number, decimals, scale = token
-    target = abs(number) * scale
-    tolerance = max(0.55 * scale * 10.0 ** (-decimals), 1e-9)
-    return any(abs(target - abs(c)) <= tolerance for c in candidates)
-
-
-def scan_numeric_fidelity(
-    text: str, citations: list[dict[str, Any]], index: dict[str, dict[str, Any]]
-) -> list[int]:
-    """Citation numbers whose adjacent claim contains figures and NONE of them matches the cited
-    point's dataset figures. Deterministic, no model involved. The window is bounded at the
-    previous citation marker (an earlier claim's figure belongs to ITS marker) — so in a chain
-    "[1][2]" the second marker's window is empty and it passes as qualitative, the same rule the
-    copilot adjacency guard applies. Qualitative references (no figure in the window) always
-    pass; a claim citing several figures passes if ANY of them matches ("from $X to $Y [a][b]").
-    """
-    by_concept_period = {
-        (entry.get("concept"), entry.get("period")): entry for entry in index.values()
-    }
-    mismatched: list[int] = []
-    for citation in citations:
-        n = citation.get("n")
-        point = by_concept_period.get((citation.get("concept"), citation.get("period")), {})
-        candidates = _fidelity_candidates(citation, point)
-        if not candidates:
-            continue
-        marker = f"[{n}]"
-        cursor = 0
-        clean = True
-        while clean:
-            position = text.find(marker, cursor)
-            if position == -1:
-                break
-            cursor = position + len(marker)
-            window = text[max(0, position - _FIDELITY_WINDOW_CHARS):position]
-            # Bound at the previous resolved marker — everything before it was that marker's claim.
-            previous_marker = None
-            for marker_match in _FIDELITY_MARKER_RE.finditer(window):
-                previous_marker = marker_match
-            if previous_marker is not None:
-                window = window[previous_marker.end():]
-            tokens = _window_number_tokens(window)
-            if tokens and not any(_token_matches_any(t, candidates) for t in tokens):
-                clean = False
-        if not clean:
-            mismatched.append(int(n))
-    return mismatched
-
-
-def _load_cached_analysis(db: Session, company_id: int, mode: str, key: str):
-    from app.models import TrendAnalysis
-
-    return (
-        db.query(TrendAnalysis)
-        .filter(
-            TrendAnalysis.company_id == company_id,
-            TrendAnalysis.mode == mode,
-            TrendAnalysis.period_key == key,
-        )
-        .first()
-    )
-
-
-def has_cached_analysis(
-    db: Session, company_id: int, mode: str, start_period: str, end_period: str
-) -> bool:
-    """Whether a cached row exists for the naive ``start..end`` key — the router's cheap
-    pre-flight probe: over-cap requests with a cached row can only resolve FREE (a cache
-    re-serve or a system-invalidated regeneration), so they may proceed past the 429 gate.
-
-    Conservative on purpose: ``build_dataset`` canonicalizes the period key from the actual data
-    buckets, which can differ from the raw request range (e.g. the requested start year has no
-    data) — a miss here just means the gate stays closed, never that quota leaks."""
-    return _load_cached_analysis(db, company_id, mode, f"{start_period}..{end_period}") is not None
-
-
-def _persist_analysis(
-    *,
-    company_id: int,
-    mode: str,
-    key: str,
-    fingerprint: str,
-    dataset: dict[str, Any],
-    narrative: str,
-    citations: list[dict[str, Any]],
-    model: Optional[str],
-    grounded: int,
-    unverified: int,
-    user_id: Optional[int],
-) -> Optional[int]:
-    """Upsert the cached analysis row on (company, mode, period_key) in a fresh session (the SSE
-    generator outlives the request session). Best-effort: a persistence failure must never break
-    the stream the user already received — it only costs the next request a regeneration."""
-    from sqlalchemy.exc import IntegrityError
-
-    from app.database import SessionLocal
-    from app.models import TrendAnalysis
-
-    db = SessionLocal()
-    try:
-        def _apply(row: "TrendAnalysis") -> None:
-            row.prompt_version = PROMPT_VERSION
-            row.dataset_fingerprint = fingerprint
-            row.dataset_json = dataset
-            row.narrative_md = narrative
-            row.citations_json = citations
-            row.model = model
-            row.grounded = grounded
-            row.unverified = unverified
-            row.created_by_user_id = user_id
-
-        row = _load_cached_analysis(db, company_id, mode, key)
-        if row is None:
-            row = TrendAnalysis(company_id=company_id, mode=mode, period_key=key)
-            _apply(row)
-            db.add(row)
-            try:
-                db.commit()
-            except IntegrityError:
-                # A concurrent generation won the unique key — update its row instead.
-                db.rollback()
-                row = _load_cached_analysis(db, company_id, mode, key)
-                if row is None:
-                    return None
-                _apply(row)
-                db.commit()
-        else:
-            _apply(row)
-            db.commit()
-        return row.id
-    except Exception:  # noqa: BLE001 - cache write is best-effort
-        logger.exception("failed to persist trend analysis for company %s", company_id)
-        return None
-    finally:
-        db.close()
-
-
 async def stream_trend_narrative(
     *,
     company_id: int,
@@ -1783,3 +1090,81 @@ async def stream_trend_narrative(
         grounded=grounded, unverified=unverified, mismatched=len(mismatched),
         cached=False, invalidated=invalidated, usage=total_usage,
     )
+
+
+__all__ = [
+    "logger",
+    "PROMPT_VERSION",
+    "MODES",
+    "_QUARTERS",
+    "INSTANT_CONCEPTS",
+    "_PERCENT_CONCEPTS",
+    "_SERIES_TONE",
+    "DATASET_CONCEPT_ORDER",
+    "_CONCEPT_LABELS",
+    "concept_label",
+    "_ANNUAL_KEY_RE",
+    "_QUARTER_KEY_RE",
+    "parse_period_key",
+    "_period_sort_key",
+    "_CORE_REVENUE_CONCEPTS",
+    "available_periods",
+    "NOT_MEANINGFUL",
+    "_growth",
+    "_pp_delta",
+    "_cagr",
+    "_valued_endpoints",
+    "build_dataset",
+    "_series_map",
+    "_valued_points",
+    "detect_growth_deceleration",
+    "detect_margin_compression",
+    "detect_fcf_ni_divergence",
+    "detect_debt_build",
+    "detect_liquidity_squeeze",
+    "_DETECTORS",
+    "detect_inflections",
+    "dataset_fingerprint",
+    "_format_value",
+    "_pct_str",
+    "_fmt_growth",
+    "ANALYSIS_SECTIONS",
+    "_SECTION_KEYS",
+    "_OPTIONAL_PER_SECTION",
+    "_SELECTION_TOTAL_LIMIT",
+    "TrendObservation",
+    "_observation_id",
+    "_ratio_threshold_value",
+    "_point_value",
+    "_same_dimension",
+    "_ordered_percentage_values",
+    "_growth_comparison_values",
+    "_growth_operand_points",
+    "_growth_operand_markers",
+    "_marker_chain",
+    "_derived_qualifier",
+    "build_observation_catalogue",
+    "compact_observation_catalogue",
+    "_strict_json",
+    "parse_observation_selection",
+    "render_observation_selection",
+    "_has_minimum_analysis_data",
+    "marker_index",
+    "_MARKER_GROUP_RE",
+    "_MARKER_REF_RE",
+    "_is_citation_group",
+    "_point_citation",
+    "resolve_narrative_citations",
+    "_FIDELITY_NUM_RE",
+    "_FIDELITY_SCALES",
+    "_FIDELITY_WINDOW_CHARS",
+    "_FIDELITY_MARKER_RE",
+    "_window_number_tokens",
+    "_fidelity_candidates",
+    "_token_matches_any",
+    "scan_numeric_fidelity",
+    "_load_cached_analysis",
+    "has_cached_analysis",
+    "_persist_analysis",
+    "stream_trend_narrative",
+]
