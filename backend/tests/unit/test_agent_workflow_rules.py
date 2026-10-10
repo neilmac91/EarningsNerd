@@ -368,13 +368,29 @@ def _first_argument(code: str, start: int) -> str:
     return code[start:i].strip()
 
 
+def _bound_to(code: str, path_literal: str) -> set[str]:
+    """Names one `const` binds, on one line, to an expression holding the path literal, when the
+    spec declares the name nowhere else and never assigns it again (so no shadowing or rebinding
+    can make a read of the name load another file). Arrow and function parameters are not
+    tracked: a spec that shadows the name with one is not a case this gate claims to catch."""
+    names = set(re.findall(rf"\bconst\s+([A-Za-z_$][\w$]*)\s*=[^\n;]*{path_literal}", code))
+    bound = set()
+    for name in names:
+        n = re.escape(name)
+        declarations = re.findall(rf"\b(?:const|let|var|function|class)\s+{n}(?![\w$])", code)
+        assignments = re.findall(rf"(?<![\w$.]){n}\s*(?:\*\*|<<|>>>?|\?\?|&&|\|\||[-+*/%&|^])?=(?![=>])", code)
+        if len(declarations) == 1 and len(assignments) == 1:
+            bound.add(name)
+    return bound
+
+
 def _spec_reads(spec_source: str, script_name: str) -> bool:
     """True when the spec reads the script itself: a readFile/readFileSync call whose first argument
-    holds the script's path literal, or is a name a one-line const/let/var binds to an expression
-    holding it. Comments are stripped first, so a path in prose does not count."""
+    holds the script's path literal, or is a name `_bound_to` accepts. Comments are stripped first,
+    so a path in prose does not count."""
     code = _strip_comments(spec_source)
     path_literal = rf"['\"`][^'\"`\n]*\.claude/workflows/{re.escape(script_name)}['\"`]"
-    bound = set(re.findall(rf"\b(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*=[^\n;]*{path_literal}", code))
+    bound = _bound_to(code, path_literal)
     for call in READ_CALL.finditer(code):
         argument = _first_argument(code, call.end())
         if re.search(path_literal, argument) or argument in bound:
@@ -394,7 +410,15 @@ def test_every_workflow_script_has_a_behavioural_spec():
     assert not _spec_reads("const S = 'a.js'; const T = '.claude/workflows/premerge-review.js'\nreadFileSync(S)", name)
     assert _spec_reads("const S = path.join(root, '.claude/workflows/premerge-review.js')\nreadFileSync(S)", name)
     assert _spec_reads("readFileSync(path.join(root, '.claude/workflows/premerge-review.js'), 'utf8')", name)
-    assert _spec_reads("let S = `${root}/.claude/workflows/premerge-review.js`\nawait readFile(S, 'utf8')", name)
+    assert _spec_reads("const S = `${root}/.claude/workflows/premerge-review.js`\nawait readFile(S, 'utf8')", name)
+    # Only a single, never-reassigned const binds: a let that is reassigned, a compound assignment,
+    # or a second declaration that shadows the name can make the read load another file.
+    assert not _spec_reads("let S = '.claude/workflows/premerge-review.js'; S = 'other.js'; readFileSync(S)", name)
+    assert not _spec_reads("let S = '.claude/workflows/premerge-review.js'\nreadFileSync(S)", name)
+    assert not _spec_reads("const S = '.claude/workflows/premerge-review.js'\nS += '.bak'\nreadFileSync(S)", name)
+    assert not _spec_reads(
+        "const S = '.claude/workflows/premerge-review.js'\nfunction f() { const S = 'other.js'; return readFileSync(S) }", name
+    )
     missing = [s.name for s in sorted(WORKFLOWS.glob("*.js")) if not any(_spec_reads(text, s.name) for text in specs)]
     assert not missing, (
         "every workflow script needs a spec under frontend/tests/unit/ that loads it and runs it with "
