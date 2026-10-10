@@ -18,6 +18,8 @@ from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
 SERVICE = "earningsnerd-backend"
+WORKER = "earningsnerd-task-worker"
+QUEUE = "earningsnerd-background"
 INSTANCE = "earningsnerd-db"
 REGION = "us-west1"
 JOBS = ("pregenerate", "filing-scan", "filing-digest", "backfill-facts",
@@ -27,6 +29,9 @@ MAX_RESPONSE = 8 * 1024 * 1024
 MAX_ERROR_BODY = 8 * 1024
 MAX_ERROR_MESSAGE = 240
 MAX_ERROR_FIELD = 64  # error.status and ErrorInfo reason/domain (Google bounds reason to 63 characters)
+FRESHNESS_FLOOR_SECONDS = 300  # metric points appear up to 180 s after sampling; flag a window ending nearer than this
+QUEUE_NOTE = "Cloud Tasks points become visible up to 180 s after sampling; a window ending within that lag under-reports the tail."
+COUNTS_BASIS = "retained items only; a partial or unavailable state makes these counts a floor"
 
 
 def timestamp(value):
@@ -160,7 +165,7 @@ def metric(record):
         record.get("metric", {}).get("labels", {}), ("database", "response_code", "response_code_class"))}
     result["resource"] = {"type": record.get("resource", {}).get("type"), "labels": pick(
         record.get("resource", {}).get("labels", {}),
-        ("database_id", "region", "location", "service_name", "revision_name", "configuration_name"))}
+        ("database_id", "region", "location", "service_name", "revision_name", "configuration_name", "queue_id"))}
     result["points"] = []
     for point in record.get("points", []):
         value = pick(point.get("value", {}), ("int64Value", "doubleValue"))
@@ -177,11 +182,61 @@ def metric(record):
 def log_entry(record):
     result = pick(record, ("timestamp", "severity"))
     result["resource"] = pick(record.get("resource", {}).get("labels", {}),
-                              ("revision_name", "job_name", "location"))
+                              ("service_name", "revision_name", "job_name", "location"))
     # Classify locally without retaining the message, payload, URL or request/user identity.
     raw = json.dumps({key: record.get(key) for key in ("textPayload", "jsonPayload")}).lower()
     result["pool_timeout_signature"] = "queuepool limit" in raw or "connection pool exhausted" in raw
     return result
+
+
+def project_items(channel, projector):
+    """Project every item, or mark the channel unavailable: an unobserved API shape is recorded, never raised."""
+    try:
+        channel["items"] = [projector(item) for item in channel["items"]]
+    except Exception:  # a shape surprise in one channel must never abort the receipt
+        channel.update({"state": "unavailable", "error": "projection_error", "items": []})
+    return channel
+
+
+def rescope(channel, in_scope):
+    """Keep only items the committed scope admits; count the rest, never keep them."""
+    kept = []
+    channel["outside_scope_count"] = 0
+    for item in channel["items"]:
+        if in_scope(item):
+            kept.append(item)
+        else:
+            channel["outside_scope_count"] += 1
+    channel["items"] = kept
+    return channel
+
+
+def error_log_channel(api, project, region, start, end, resource_filter, in_scope):
+    """Error-level entries for one resource scope: counts and log_entry() projections, never text."""
+    logs = api.pages("https://logging.googleapis.com/v2/entries:list", {
+        "resourceNames": [f"projects/{project}"], "pageSize": 100,
+        "orderBy": "timestamp asc", "filter": (
+            f'timestamp>="{start}" AND timestamp<"{end}" AND '
+            f'resource.labels.location="{region}" AND ({resource_filter}) AND '
+            '(severity>=ERROR OR "QueuePool limit" OR "connection pool exhausted")')}, "entries", post=True)
+    try:
+        raw = logs["items"]
+        kept = [item for item in raw
+                if item.get("resource", {}).get("labels", {}).get("location") == region
+                and in_scope(item.get("resource", {}).get("type"), item.get("resource", {}).get("labels", {}))]
+        logs["outside_scope_count"] = len(raw) - len(kept)
+        logs["items"] = [log_entry(item) for item in kept]
+    except Exception:  # a shape surprise in one channel must never abort the receipt
+        logs.update({"state": "unavailable", "error": "projection_error", "items": [], "outside_scope_count": 0})
+    logs["counts_by_severity"] = {}
+    logs["pool_timeout_signature_count"] = 0
+    for entry in logs["items"]:
+        severity = entry.get("severity")
+        key = severity if isinstance(severity, str) and re.fullmatch(r"[A-Z]{1,9}", severity) else "UNRECOGNISED"
+        logs["counts_by_severity"][key] = logs["counts_by_severity"].get(key, 0) + 1
+        logs["pool_timeout_signature_count"] += int(entry["pool_timeout_signature"])
+    logs["counts_basis"] = COUNTS_BASIS
+    return logs
 
 
 def collect(api, project, region, start, end):
@@ -190,11 +245,16 @@ def collect(api, project, region, start, end):
         raise ValueError("Invalid project identifier")
     if region != REGION:
         raise ValueError("Only the production region is supported")
-    result = {"schema_version": 1, "observed_at": datetime.now(timezone.utc).isoformat(),
-              "project": project, "region": region, "window": {"start": start, "end": end},
+    observed = datetime.now(timezone.utc)
+    end_age = int((observed - last).total_seconds())
+    result = {"schema_version": 1, "observed_at": observed.isoformat(),
+              "project": project, "region": region,
+              "window": {"start": start, "end": end, "end_age_seconds": end_age},
               "limits": {"max_pages_per_query": MAX_PAGES, "max_response_bytes": MAX_RESPONSE,
                          "max_error_body_bytes": MAX_ERROR_BODY, "max_error_message_chars": MAX_ERROR_MESSAGE},
-              "interpretation": "Samples are not instantaneous peaks. Empty/partial/unavailable data cannot prove headroom. Execution success is not a business outcome. Current SQL snapshots are not historical samples."}
+              "interpretation": "Samples are not instantaneous peaks. Empty/partial/unavailable data cannot prove headroom. Execution success is not a business outcome. Current SQL snapshots are not historical samples. Metric points can appear up to 180 s after sampling, so a window ending within that lag under-reports its tail."}
+    if end_age < FRESHNESS_FLOOR_SECONDS:
+        result["window"]["freshness"] = "tail_within_visibility_lag"
     result["executions"] = {}
     for name in JOBS:
         job = "earningsnerd-" + name
@@ -206,60 +266,67 @@ def collect(api, project, region, start, end):
         runs["unplaced_count"] = 0
         runs["outside_scope_count"] = 0
         for record in raw_runs:
-            if not re.fullmatch(r"projects/[^/]+/locations/" + region + r"/jobs/" + job + r"/executions/[^/]+",
-                                record.get("name", "")):
-                runs["outside_scope_count"] += 1
-                continue
             try:
+                if not re.fullmatch(r"projects/[^/]+/locations/" + region + r"/jobs/" + job + r"/executions/[^/]+",
+                                    record.get("name", "")):
+                    runs["outside_scope_count"] += 1
+                    continue
                 begins = timestamp(record.get("startTime") or record["createTime"])
                 ends = timestamp(record["completionTime"]) if record.get("completionTime") else None
                 if begins < last and (ends is None or ends >= first):
                     item = execution(record)
                     item["interval_start_basis"] = "startTime" if record.get("startTime") else "createTime; actual start unknown"
                     runs["items"].append(item)
-            except (KeyError, ValueError, TypeError):
+            except (KeyError, ValueError, TypeError, AttributeError):
+                # A record-level shape surprise (a non-dict item, a non-string name or timestamp) counts here
+                # instead of aborting the receipt, like a shape surprise in a Monitoring or Logging channel.
                 runs["unplaced_count"] += 1
         # Complete pagination is not proof of lifetime completeness or known execution intervals.
         runs["coverage"] = "retained API resources only; expired/deleted history may be absent"
         result["executions"][job] = runs
-    queries = {
-        "database_connections": ('cloudsql.googleapis.com/database/postgresql/num_backends',
-                                 f'resource.type="cloudsql_database" AND resource.labels.database_id="{project}:{INSTANCE}"'),
-        "request_count": ('run.googleapis.com/request_count',
-                          f'resource.type="cloud_run_revision" AND resource.labels.service_name="{SERVICE}" AND resource.labels.location="{region}"'),
-        "request_latencies": ('run.googleapis.com/request_latencies',
-                              f'resource.type="cloud_run_revision" AND resource.labels.service_name="{SERVICE}" AND resource.labels.location="{region}"'),
-    }
-    for name, (kind, scope) in queries.items():
+    revision_scope = 'resource.type="cloud_run_revision" AND resource.labels.service_name="{}" AND resource.labels.location="{}"'
+    # The queue is filtered server-side by type and location only and re-scoped locally, because the
+    # documented queue_id label may carry the short id or the full projects/.../queues/<id> path.
+    queue_scope = f'resource.type="cloud_tasks_queue" AND resource.labels.location="{region}"'
+    queue_ids = {QUEUE, f"projects/{project}/locations/{region}/queues/{QUEUE}"}
+    def queue_in_scope(item):
+        labels = item["resource"]["labels"]
+        return labels.get("queue_id") in queue_ids and labels.get("location") == region
+    # name, metric type, server-side scope, local re-scope predicate (None: none), note (None: none).
+    # Cloud Tasks publishes attempts by canonical response_code only (no class label); depth is a gauge.
+    queries = (
+        ("database_connections", 'cloudsql.googleapis.com/database/postgresql/num_backends',
+         f'resource.type="cloudsql_database" AND resource.labels.database_id="{project}:{INSTANCE}"', None, None),
+        ("request_count", 'run.googleapis.com/request_count', revision_scope.format(SERVICE, region), None, None),
+        ("request_latencies", 'run.googleapis.com/request_latencies', revision_scope.format(SERVICE, region), None, None),
+        ("worker_request_count", 'run.googleapis.com/request_count', revision_scope.format(WORKER, region), None, None),
+        ("worker_request_latencies", 'run.googleapis.com/request_latencies', revision_scope.format(WORKER, region), None, None),
+        ("queue_depth", 'cloudtasks.googleapis.com/queue/depth', queue_scope, queue_in_scope, QUEUE_NOTE),
+        ("queue_task_attempts", 'cloudtasks.googleapis.com/queue/task_attempt_count', queue_scope, queue_in_scope, QUEUE_NOTE),
+    )
+    for name, kind, scope, in_scope, note in queries:
         data = api.pages(f"https://monitoring.googleapis.com/v3/projects/{project}/timeSeries", {
             "filter": f'metric.type="{kind}" AND {scope}', "interval.startTime": start,
             "interval.endTime": end, "view": "FULL", "pageSize": 1000}, "timeSeries")
-        data["items"] = [metric(item) for item in data["items"]]
+        project_items(data, metric)
+        if in_scope is not None:
+            rescope(data, in_scope)
         data["aggregation"] = "none; original series and sample intervals retained"
+        if note is not None:
+            data["note"] = note
         result[name] = data
     job_filter = " OR ".join(f'resource.labels.job_name="earningsnerd-{name}"' for name in JOBS)
-    logs = api.pages("https://logging.googleapis.com/v2/entries:list", {
-        "resourceNames": [f"projects/{project}"], "pageSize": 100,
-        "orderBy": "timestamp asc", "filter": (
-            f'timestamp>="{start}" AND timestamp<"{end}" AND '
-            f'resource.labels.location="{region}" AND '
-            f'((resource.type="cloud_run_revision" AND resource.labels.service_name="{SERVICE}") OR '
-            f'(resource.type="cloud_run_job" AND ({job_filter}))) AND '
-            '(severity>=ERROR OR "QueuePool limit" OR "connection pool exhausted")')}, "entries", post=True)
-    scoped_logs = []
-    logs["outside_scope_count"] = 0
-    for item in logs["items"]:
-        resource = item.get("resource", {})
-        labels = resource.get("labels", {})
-        if labels.get("location") == region and (
-            resource.get("type") == "cloud_run_revision" and labels.get("service_name") == SERVICE
-            or resource.get("type") == "cloud_run_job" and labels.get("job_name") in {"earningsnerd-" + name for name in JOBS}
-        ):
-            scoped_logs.append(log_entry(item))
-        else:
-            logs["outside_scope_count"] += 1
-    logs["items"] = scoped_logs
-    result["error_logs"] = logs
+    job_names = {"earningsnerd-" + name for name in JOBS}
+    result["error_logs"] = error_log_channel(
+        api, project, region, start, end,
+        f'(resource.type="cloud_run_revision" AND resource.labels.service_name="{SERVICE}") OR '
+        f'(resource.type="cloud_run_job" AND ({job_filter}))',
+        lambda kind, labels: (kind == "cloud_run_revision" and labels.get("service_name") == SERVICE
+                              or kind == "cloud_run_job" and labels.get("job_name") in job_names))
+    result["worker_error_logs"] = error_log_channel(
+        api, project, region, start, end,
+        f'resource.type="cloud_run_revision" AND resource.labels.service_name="{WORKER}"',
+        lambda kind, labels: kind == "cloud_run_revision" and labels.get("service_name") == WORKER)
     return result
 
 

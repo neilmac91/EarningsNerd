@@ -93,18 +93,33 @@ worker-origin and identity settings on the worker, plus `SEC_RATE_LIMIT_PER_SECO
 `EDGAR_RATE_LIMIT_PER_SEC=1` (`docs/OPERATIONS.md`, "SEC budgets per process").
 
 First enqueue an authenticated `probe` with an empty payload. It verifies delivery without SQL
-business work, SEC calls, email or AI generation. Confirm worker completion logs and task removal.
-Then set nonsecret repository variables `GCP_TASKS_WORKER_URL` and
-`GCP_DURABLE_TASKS_ENABLED=true`. CI requires the existing worker and updates its pinned image
-before deploying the API, routing worker traffic to the latest revision and clearing tags; it
-also pins queue handoff and request-based CPU together. Verify the
-current-head CI run, API detailed health, service minimum one/memory 1 GiB, worker command and
-revision, and authenticated task success. Watch task retry/errors, API latency and SQL connections
-before expanding workload. Cold worker starts affect queued work, not the warm API.
+business work, SEC calls, email or AI generation. Confirm worker completion logs and task removal
+(`capacity-readout`: completion is inferred from `2xx` worker requests and `ok` queue attempts and
+from the queue depth returning to zero; the worker logs completion at INFO, which the readout does
+not collect). Then set nonsecret repository variables `GCP_TASKS_WORKER_URL` and
+`GCP_DURABLE_TASKS_ENABLED=true` (every main push prints the `Variable-driven rollout switches:`
+line). CI requires the existing worker and updates its pinned image before deploying the API,
+routing worker traffic to the latest revision and clearing tags; it also pins queue handoff and
+request-based CPU together (`describe-service`: `Worker serving traffic`, `DURABLE_TASKS_ENABLED`,
+`Revision CPU allocation … MATCH`, `TASKS_WORKER_PROCESS` `'true'` on the worker and `'false'` on
+the service). Verify the current-head CI run (the merge's `deploy-backend` job), API detailed health
+(the deploy's own health step), service minimum one/memory 1 GiB (`describe-service`:
+`Revision minScale`, `Revision memory`), worker command and revision (`describe-service`:
+`Worker command/args`, `Worker revision`), and authenticated task success (`capacity-readout`:
+`queue_task_attempts` by response code, `worker_request_count` by response class). The worker's
+invoker-policy item is complete only when `describe-service` prints
+`Worker invoker policy: PRIVATE`; `UNVERIFIED` leaves it open. Watch task retry/errors, API latency
+and SQL connections before expanding workload (`capacity-readout`: `queue_task_attempts`,
+`worker_error_logs`, `request_latencies`, `database_connections`). Cold worker starts affect queued
+work, not the warm API.
 
 For rollback, set `GCP_DURABLE_TASKS_ENABLED=false` and restore API `DURABLE_TASKS_ENABLED=false`
 with `--no-cpu-throttling`; keep the worker available to finish queued work. Do not pause the queue
-or delete it with unfinished tasks. Future CI pins the flag-off API back to always allocated CPU.
+or delete it with unfinished tasks. CI pins the flag-off API back to always allocated CPU
+(`--no-cpu-throttling` unless the variable is `true`); confirm a rollback took with
+`describe-service`'s `Revision CPU allocation` line. A hand-rolled worker rollback by
+`--to-revisions` must be followed by `update-traffic --to-latest --clear-tags` before
+`describe-service` passes.
 
 Cloud Tasks can duplicate a delivery. Existing cache/upsert/delivery ownership remains the
 idempotency authority; force-generating a paid summary is deliberately excluded. Ordinary API
@@ -115,16 +130,75 @@ and latency during the billing-mode change rather than claiming all thread opera
 ### Read-only release configuration audit
 
 Dispatch the `Ops` workflow with `describe-service`, then `describe-jobs`, when an operator needs
-independent release evidence through the repository's existing keyless WIF identity. The first
-operation reports the serving revision image, `SENTRY_RELEASE`, service pool values, the allow-listed
-flag and SEC-pin values (`SEC_RATE_LIMIT_PER_SECOND`, `EDGAR_RATE_LIMIT_PER_SEC`,
-`DURABLE_TASKS_ENABLED`, `ENABLE_INSIDER_ACTIVITY`) for the serving revision and the pregenerate job, and
-both service and revision `maxScale` for operator comparison. The second reports image, task count, and
-pool values for all eight expected jobs, and fails when their release or connection budget
-invariants drift. `describe-jobs` also fails if any expected job, including
-`earningsnerd-retention-purge`, is missing or unreadable.
-They only call Cloud Run describe APIs and do not access the database, application HTTP endpoints,
-or model providers.
+independent release evidence through the repository's existing keyless WIF identity. Dispatch one
+Ops operation at a time and wait for it to finish: GitHub keeps one pending run per concurrency
+group, so a second pending dispatch in the `ops` group replaces the first. Dispatch after the
+merge's `deploy-backend` job has concluded: a describe during a deploy can fail transiently
+(`latest created revision … is not ready`) or show the worker and the API on different images. Both
+describe operations carry a ten-minute step timeout.
+
+`describe-service` reports, for the API service, traffic (100 % on the latest ready revision, no
+tags, revision names and percentages only), the serving revision image, `SENTRY_RELEASE`, pool
+values, the allow-listed flag and SEC-pin values (`SEC_RATE_LIMIT_PER_SECOND`,
+`EDGAR_RATE_LIMIT_PER_SEC`, `DURABLE_TASKS_ENABLED`, `ENABLE_INSIDER_ACTIVITY`,
+`TASKS_WORKER_PROCESS`) for the serving revision and the pregenerate job, and the service's minimum
+and maximum instances at service and revision level (the API deploy sets `--min-instances` and a
+service-level `--max=2` but no service-level `--min`, so `Service minScale` is expected to read
+`absent` and `Service maxScale` `2`; `Revision minScale` answers the checklist), CPU,
+memory, CPU allocation (`request-based` or `always-allocated` from the revision's `cpu-throttling`
+annotation, an absent annotation meaning request-based, compared with the expectation `ci.yml`
+derives from `DURABLE_TASKS_ENABLED`), startup CPU boost, `containerConcurrency` and
+`timeoutSeconds`. For the private task worker `earningsnerd-task-worker` it reports the serving
+revision and traffic, the same allow-listed env values (`TASKS_WORKER_URL`, `TASKS_INVOKER_EMAIL`
+and `TASKS_QUEUE` stay name-only), the same sizing lines, the ingress annotation, whether the
+configured command and args match the committed `uvicorn` `task_worker_main:app` entrypoint in
+`ci.yml` (values are never printed), whether the invoker IAM check is enforced, and whether the
+invoker policy admits the public. It fails (`Unresolved production configuration: …`, non-zero)
+immediately, before any later read and without a verdict line, on tagged, split or non-latest
+traffic on the service or the worker and on an undescribable or multi-container resource; and,
+after printing every block, one `::error::` line per defect and a `describe-service: FAIL (N
+invariant failure(s))` verdict, on a worker policy granting `allUsers` or `allAuthenticatedUsers`
+any role, on a disabled invoker IAM check, on a duplicate or nameless env entry, and on either SEC
+pin that is missing, a secret reference or any value other than `1` on the service's or the
+worker's serving revision. An immediate exit still names every defect collected before it. A
+denied or failed `get-iam-policy` read prints `Worker invoker policy: UNVERIFIED
+(<class>)` with a workflow warning and does not fail the step: it is absence of evidence, not
+evidence of exposure, and the grant that resolves `permission_denied` (`run.services.getIamPolicy`,
+carried by `roles/run.viewer`) is an IAM change the founder approves; any other class is a
+transient or misdirected read to re-dispatch before concluding. A run that prints `UNVERIFIED` has
+not verified the invoker policy; the invoker-policy item of the durable-tasks checklist is complete
+only when a run prints `Worker invoker policy: PRIVATE`. A `PRIVATE` line with
+`0 roles/run.invoker member(s)` means Cloud Tasks cannot invoke the worker; the task identity's
+binding is a founder IAM item. When every block printed, the final line is `describe-service: PASS`,
+`describe-service: PASS; UNVERIFIED: worker invoker policy (<class>)`, or
+`describe-service: FAIL (N invariant failure(s))`; an immediate exit prints no verdict line.
+
+`describe-jobs` reports image, task count, pool values and both SEC pin values for all eight
+expected jobs, states whether `earningsnerd-backfill-facts` carries the committed
+`python scripts/backfill_facts.py --only-new` entrypoint (other jobs: override present or image
+default; values are never printed), prints every block before exiting when a value defect (pool,
+pin, task count, image parity) is found (a malformed job description exits at that job; a missing
+or unreadable job stops the shell loop before any block prints), and fails when the release
+or connection-budget invariants drift, when either SEC pin is missing or not `1` on any job, or when
+any expected job, including `earningsnerd-retention-purge`, is missing or unreadable. These two
+operations call only Cloud Run describe APIs and one IAM policy read
+(`gcloud run services get-iam-policy` on the worker); they do not access the database, application
+HTTP endpoints, or model providers.
+
+`capacity-readout` reads a bounded past window (`capacity_start`/`capacity_end`, UTC, at most two
+hours, ending in the past; end it at least five minutes before dispatch, because Cloud Tasks and
+Cloud Run metric points become visible up to 180 s after sampling and a window ending inside that
+lag under-reports its tail — the receipt records `window.end_age_seconds` and flags `freshness`) of
+aggregates only: job executions, Cloud SQL backends, request counts by response class and latency
+distributions for the API service and the task worker, the `earningsnerd-background` queue's depth
+and task attempts by canonical response code (Cloud Tasks publishes no class label), and
+error-level log entries for the service, the jobs and the worker as counts by severity and
+pool-timeout signature plus timestamp/severity/resource/signature records (never message text or
+URLs), together with a read-only database snapshot. Each source carries its own `state`
+(`complete`, `partial`, `unavailable`): a missing permission, an empty series or an unrecognised
+response shape is recorded as such, never as zero (a job execution that cannot be placed counts in
+that channel's `unplaced_count`), and counts on a `partial` channel are a floor.
+The receipt is retained as the `capacity-readout-<run id>` Actions artifact for 14 days.
 
 ### Rollback (when a bad revision is live)
 

@@ -76,6 +76,9 @@ def test_backend_test_only_changes_do_not_deploy(tmp_path):
         (["docs/DEPLOYMENT.md", ".github/workflows/ci.yml"], False),
         (tracked_tests, False),
         (["backend/tests/new.fixture", "backend/tests/future/deep/unknown.ext"], False),
+        # An Ops read-back change: workflow, repository-root ops/ script, docs and a backend unit test.
+        (["ops/capacity/readout.py", ".github/workflows/ops.yml", "docs/OPERATIONS.md",
+          "backend/tests/unit/test_ops_describe_jobs.py"], False),
         (["backend/app/config.py"], True),
         (["backend/migrations/new.sql", "backend/scripts/apply_migrations.sh"], True),
         (["backend/Dockerfile", "backend/.dockerignore", "backend/requirements.txt"], True),

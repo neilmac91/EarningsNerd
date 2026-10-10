@@ -175,9 +175,12 @@ change that added them, leaves the pins live; a change confined to `ci.yml` does
 restores the public insider endpoint and the edgartools search fallback while the service stays
 pinned, so in the same change remove the service pins or keep the insider switch and local-only search.
 After a deploy, Ops `describe-service` (`docs/DEPLOYMENT.md`) prints `SEC_RATE_LIMIT_PER_SECOND`,
-`EDGAR_RATE_LIMIT_PER_SEC` and `ENABLE_INSIDER_ACTIVITY` for the serving revision and the pregenerate
-job, admin `/metrics` shows `sec_rate_limiter.requests_per_second` for the instance that answers, and
-Ops `describe-jobs` lists the env names present on each job.
+`EDGAR_RATE_LIMIT_PER_SEC` and `ENABLE_INSIDER_ACTIVITY` for the serving revision, the pregenerate
+job and the task worker's serving revision, and fails when either pin is not `1` on the service or
+the worker; admin `/metrics` shows `sec_rate_limiter.requests_per_second` for the instance that
+answers; Ops `describe-jobs` prints both pin values for each of the eight jobs and fails when either
+is missing or not `1`. Ops `capacity-readout` carries the worker's request classes and latencies and
+its error-level log counts, the only aggregate evidence of the pin's effect on the worker.
 
 ### AI call telemetry (`ai_call` / `ai_summary` log lines)
 
