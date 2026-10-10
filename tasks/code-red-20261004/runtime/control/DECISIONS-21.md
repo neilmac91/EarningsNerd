@@ -228,7 +228,8 @@ saying so) registers as actual: this session; the second successor session (read
 resolved to its launch-time identity (`launched-2026-10-09T1958Z`; five checks, the last bound to `86334d59`; the final head not
 re-bound); the predecessor's read-back design workflow `wf_11203ef3-3cf` at workflow level (its agent identities are not recoverable
 here; nothing from it enters the repository); and the first record-21 reviewer context (`launched-2026-10-09T2305Z`, ended by the
-usage limit before a verdict, resolving the provisional `record-21-reviewer-01`). It pre-registers, before any launch by the
+usage limit before a verdict; the provisional `record-21-reviewer-01` is annotated as exercised and is formally resolved in a later closure,
+since the chain rule resolves a label only in a later closure). It pre-registers, before any launch by the
 successor, `record-21-reviewer-02` (the fresh reviewer) and `record-22-reviewer-01`, and annotates `ops-readback-pr-01`, `durable-tasks-check-01` and
 `monday-readout-20261012-01` as covering the contexts this session launches under them, each resolved to launch-time identities in a
 later closure. The side effects of `record-20-reviewer-01` beyond its five reported checks are not independently disclosed: the
