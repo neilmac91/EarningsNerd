@@ -286,7 +286,7 @@ describe('streamAnalysis', () => {
       await waitFor(() => expect(post).toHaveBeenCalledTimes(1))
       if (change === 'company') fireEvent.click(screen.getByRole('button', { name: 'Select Microsoft' }))
       if (change === 'mode') fireEvent.click(screen.getByRole('button', { name: 'Quarterly' }))
-      if (change === 'range') fireEvent.click(screen.getByRole('button', { name: 'FY2022' }))
+      if (change === 'range') fireEvent.change(screen.getByRole('combobox', { name: 'From' }), { target: { value: 'FY2022' } })
       if (change === 'unmount') view.unmount()
       // Deliberately resolve despite cancellation: stale-result ownership must not depend
       // on a transport honoring AbortSignal before it settles.

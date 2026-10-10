@@ -62,10 +62,10 @@ describe('MetricsTable', () => {
     flagged.series[0].points[0].reconciled = false
     flagged.series[0].points[1].reconciled = true
     const { rerender } = render(<MetricsTable dataset={flagged} />)
-    const flaggedValue = screen.getByRole('button', { name: /Revenue, 2024Q3:.*data note a/ })
+    const flaggedValue = screen.getByRole('button', { name: /Revenue, Q3 2024:.*data note a/ })
     expect(flaggedValue).toHaveTextContent('$310.0M')
     expect(flaggedValue.querySelector('[data-note-kind="review"]')).toHaveTextContent('a')
-    expect(screen.getByRole('button', { name: /Revenue, 2024Q4:.*calculated/ })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Revenue, Q4 2024:.*calculated/ })).toBeInTheDocument()
     rerender(<MetricsTable dataset={dataset} />)
     expect(screen.queryByText('Source check needed')).not.toBeInTheDocument()
   })
@@ -76,7 +76,7 @@ describe('MetricsTable', () => {
     expect(screen.getByText('Revenue')).toBeInTheDocument()
     expect(screen.getByText('EPS (diluted)')).toBeInTheDocument()
     // Derived Q4 revenue carries the computed dagger; the badge explains it.
-    expect(screen.getByRole('button', { name: /Revenue, 2024Q4:.*calculated/ })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Revenue, Q4 2024:.*calculated/ })).toBeInTheDocument()
     expect(screen.getByText('† calculated')).toBeInTheDocument()
     // The never-derived EPS Q4 renders an em-dash placeholder.
     expect(screen.getAllByRole('button', { name: /unavailable.*data note/ }).length).toBeGreaterThan(0)
@@ -101,14 +101,14 @@ describe('MetricsTable', () => {
     const large = structuredClone(dataset)
     large.series[1].points[0] = { period: '2024Q3', value: -15154, reconciled: false, qoq: 1234.567, qoq_reconciled: false }
     render(<MetricsTable dataset={large} />)
-    const figure = screen.getByRole('button', { name: /EPS \(diluted\), 2024Q3: -15154/ })
+    const figure = screen.getByRole('button', { name: /EPS \(diluted\), Q3 2024:/ })
     expect(figure).toHaveTextContent('-$15.2K')
     expect(figure.closest('td')).toHaveTextContent('+123.5K%')
     expect(screen.getByText('Figures are rounded for display. Select a value for full precision.')).toBeVisible()
     await userEvent.click(figure)
     const detail = screen.getByRole('dialog')
-    expect(within(detail).getByText('-15,154 USD/shares')).toBeVisible()
-    expect(within(detail).getByText('+123,456.7%')).toBeVisible()
+    expect(within(detail).getByText('Exact -15,154 USD per share')).toBeVisible()
+    expect(within(detail).getAllByText('+123,456.7%')[0]).toBeVisible()
     expect(large.series[1].points[0].value).toBe(-15154)
   })
 
@@ -118,11 +118,11 @@ describe('MetricsTable', () => {
     canadian.series[1].points[0].value = -15154
     render(<MetricsTable dataset={canadian} />)
     expect(screen.getByRole('rowheader', { name: 'EPS (diluted) CAD per share' })).toBeVisible()
-    const figure = screen.getByRole('button', { name: /EPS \(diluted\) \(CAD per share\), 2024Q3: -15154/ })
+    const figure = screen.getByRole('button', { name: /EPS \(diluted\) \(CAD per share\), Q3 2024:/ })
     expect(figure).toHaveTextContent('-15.2K')
     expect(figure).not.toHaveTextContent('$')
     await userEvent.click(figure)
-    expect(within(screen.getByRole('dialog')).getByText('-15,154 CAD/shares')).toBeVisible()
+    expect(within(screen.getByRole('dialog')).getByText('Exact -15,154 CAD per share')).toBeVisible()
   })
 
   it('shows the Export Excel button only when the handler is passed, and fires it', async () => {
@@ -222,12 +222,12 @@ describe('MetricsTable — annual mode: CAGR column, pp deltas, tone policy', ()
     large.series[1].cagr = 1234.567
     large.series[1].cagr_reconciled = false
     render(<MetricsTable dataset={large} />)
-    const window = screen.getByRole('button', { name: /Long-term debt CAGR, FY2023\.\.FY2024: 1234.567/ })
+    const window = screen.getByRole('button', { name: /Long-term debt CAGR, FY2023\.\.FY2024:/ })
     expect(window).toHaveTextContent('+123.5K%')
     await userEvent.click(window)
     const detail = screen.getByRole('dialog')
-    expect(within(detail).getByText('1,234.567 growth fraction')).toBeVisible()
-    expect(within(detail).getByText('+123,456.7%')).toBeVisible()
+    expect(within(detail).getByText('Exact 1,234.567 (growth fraction)')).toBeVisible()
+    expect(within(detail).getAllByText('+123,456.7%')[0]).toBeVisible()
   })
 
   it('renders "n/m" for a sign-flip growth value instead of a nonsensical percentage', () => {
@@ -274,11 +274,11 @@ describe('MetricsTable period windows', () => {
     expect(within(region).getAllByRole('columnheader')).toHaveLength(13)
     await userEvent.click(screen.getByRole('button', { name: 'Newest 6' }))
     expect(screen.getByText('Showing 6 of 12 quarters')).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: /Revenue, 2023Q1:/ })).not.toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /Revenue, 2025Q4:/ })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Revenue, Q1 2023:/ })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Revenue, Q4 2025:/ })).toBeInTheDocument()
     await userEvent.click(screen.getByRole('button', { name: 'Earliest 6' }))
-    expect(screen.getByRole('button', { name: /Revenue, 2023Q1:/ })).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: /Revenue, 2025Q4:/ })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Revenue, Q1 2023:/ })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Revenue, Q4 2025:/ })).not.toBeInTheDocument()
     expect(input).toEqual(twelve)
     rerender(<MetricsTable dataset={{ ...input, ticker: 'OTHER' }} />)
     expect(screen.getByRole('button', { name: 'All 12' })).toHaveAttribute('aria-pressed', 'true')

@@ -273,6 +273,27 @@ Analysis table   <MetricsTable> — equal rem period columns with a semantic sti
                  DataTable's layout, colWidths, compact cellPadding, named scrollRegion, snapColumns
                  and Column.rowHeader options are opt-in; other consumers retain their geometry.
 
+Analysis evidence <SourceValue> — the shared Modal presents financial display form, exact supplied
+                 value and human-readable units, then Method, Checks, and recorded source lineage.
+                 Formula substitution uses operand identity, not list position; it only asserts an
+                 equality for a passed calculation. Missing lineage is stated explicitly, never
+                 represented as recorded inputs or a scheduled repair. Original SEC links and
+                 nested inputs remain accessible; raw tags sit in technical disclosures. Annual
+                 growth fractions and percentage-point changes retain their distinct units.
+
+Analysis reading <NarrativePane> — compact monetary amounts and quarter labels in prose, without
+                 changing link destinations, code or source excerpts. Preserve enough precision
+                 to keep a stated comparison meaningful. Recognized code-owned operand lists
+                 become evidence disclosures with their original citations; unrecognized content
+                 remains visible. Source entries retain the exact supplied value beside compact
+                 display. A quiet source count and Notes control replace repeated status labels.
+
+Analysis periods <PeriodPicker> — shared SegmentedControl for Annual/Quarterly, recent-period
+                 presets, compact From/To Select fields, and one availability/range summary.
+                 Moving an endpoint keeps the range ordered and within the server-provided cap.
+                 Unavailable annual years remain visible but disabled; Quarterly is disabled when
+                 there are no quarterly options. Table windows never alter this report selection.
+
 Analysis KPI     <KpiStrip> — a definition list, two cards across at phone widths and four from lg.
                  Each Card groups a metric-only dt and two dd rows: the 24px data-face value/source
                  button, then the actual reporting period and delta. Cards span three subgrid rows,
@@ -339,7 +360,8 @@ Segmented ctrl   <SegmentedControl label options value onChange size="sm|md|adap
                  codes (10-K) in the data face. One selected colour per group — never an ink fill for "All".
                  `fullWidth` stretches the segments across a phone row and wraps them onto another row when
                  they do not fit (a form filter with amendments), so every option stays visible; from sm up
-                 it is one auto-width row.
+                 it is one auto-width row. Optional disabled options remain visible and use native
+                 disabled semantics when unavailable before selection; this is not a busy-state API.
 
 Index list       <FilingIndex> (features/filings/components) — the recipe for a list of primary documents:
                  ONE surface (the section Card), hairline rows and year groups (DataTable manners: hover
@@ -774,8 +796,9 @@ source-check presentation. Warning ink identifies an unresolved concern, never r
 Legacy concerns remain until their stored validation changes; missing metadata makes no passed-check
 claim. Do not remove inherited concerns from growth. Unavailable table values use — with a note
 letter and read “Unavailable” in the evidence view, never zero or a claim that the company did not
-report them. The subsequent chart-mark release adds hollow points and outlined bars with note letters;
-PNG notes then use the same grouped reason sentences beneath the plot. Time-series lines do not join missing points. PNG notes wrap beneath the plot and retain
+report them. Affected chart points use hollow series-colour markers with a 2px stroke and 11px note letters;
+affected bars have dashed outlines. Value and YoY concerns are independent. PNG notes use the
+same grouped reason sentences beneath the plot, with explicit SVG ink/fonts preserving the marks. Time-series lines do not join missing points. PNG notes wrap beneath the plot and retain
 source dates, material gaps and a concise disclosure. Use keyboard/touch source controls, not
 native hover titles as the only way to inspect provenance. Dense quarterly charts retain every
 period label inside a keyboard-accessible horizontal viewport; minimum plot width follows the
