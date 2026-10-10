@@ -12,7 +12,10 @@
  *     or left unverified makes the PR not mergeable, a refuted blocker frees it, no findings is mergeable;
  *   - a PR's own tier beats the batch tier;
  *   - a lens that returns nothing makes the result `incomplete` and not mergeable;
- *   - a refuter that returns nothing leaves the finding unverified, never refuted.
+ *   - a refuter that returns nothing leaves the finding unverified, never refuted, and makes the result
+ *     `incomplete`, so a should-fix whose required refutation never ran is not clearance;
+ *   - a verification that throws keeps its finding (unverified) instead of dropping it;
+ *   - an inherited property name (`constructor`, `toString`, `__proto__`) is an unknown tier.
  * `pipeline` and `parallel` follow the documented runtime semantics: a throwing stage drops its item
  * to null, and a throwing thunk resolves to null.
  */
@@ -147,7 +150,8 @@ describe('premerge-review.js behaves as AGENTS.md §5 promises', () => {
   })
 
   it('fails before any agent on an unknown tier or a batch-wide records tier, instead of dropping the PR', async () => {
-    for (const args of [{ prs: [pr('High')] }, { prs: [pr()], tier: 'records' }]) {
+    const inherited = ['constructor', 'toString', '__proto__', 'hasOwnProperty'].map((tier) => ({ prs: [pr(tier)] }))
+    for (const args of [{ prs: [pr('High')] }, { prs: [pr()], tier: 'records' }, ...inherited]) {
       const { agent, calls } = stub()
       await expect(load()(args, agent)).rejects.toThrow()
       expect(calls.length, JSON.stringify(args)).toBe(0)
@@ -176,6 +180,34 @@ describe('premerge-review.js behaves as AGENTS.md §5 promises', () => {
     const [result] = (await load()({ prs: [pr('routine')] }, agent)) as Array<{ refuted: unknown[]; unverified: Array<{ severity: string }>; mergeable: boolean }>
     expect(result.refuted).toHaveLength(0)
     expect(result.unverified.some((f) => f.severity === 'blocker')).toBe(true)
+    expect(result.mergeable).toBe(false)
+  })
+
+  it('makes the result incomplete, never clearance, when a required refuter returns nothing for a should-fix', async () => {
+    const shouldOnly: Findings = { findings: [{ file: 'b.py', title: 'should', detail: 'd', severity: 'should-fix', evidence: 'e' }], summary: 's' }
+    const { agent } = stub((label) => label.startsWith('verify:') && label.endsWith('#2'), { findings: shouldOnly })
+    const [result] = (await load()({ prs: [pr('high')] }, agent)) as Result[]
+    expect(titles(result.unverified)).toEqual(['should', 'should', 'should'])
+    expect(result.confirmed).toHaveLength(0)
+    expect(result.incomplete).toBe(true)
+    expect(result.mergeable).toBe(false)
+  })
+
+  it('keeps a finding whose verification throws, as unverified, and marks the result incomplete', async () => {
+    const blockerOnly: Findings = { findings: [{ file: 'a.py', title: 'blocker', detail: 'd', severity: 'blocker', evidence: 'e' }], summary: 's' }
+    const calls: Call[] = []
+    const agent = async (_prompt: string, o: { label: string; model?: unknown; effort?: unknown }) => {
+      calls.push({ label: o.label, model: o.model, effort: o.effort })
+      if (o.label.startsWith('review:')) return blockerOnly
+      // A vote whose fields throw when read: the verification stage throws after its agents returned.
+      return { get refuted(): boolean { throw new Error('unreadable vote') }, reason: 'r' }
+    }
+    const [result] = (await load()({ prs: [pr('routine')] }, agent)) as Result[]
+    expect(calls.filter((c) => c.label.startsWith('verify:'))).toHaveLength(1)
+    expect(titles(result.unverified)).toEqual(['blocker'])
+    expect(result.confirmed).toHaveLength(0)
+    expect(result.refuted).toHaveLength(0)
+    expect(result.incomplete).toBe(true)
     expect(result.mergeable).toBe(false)
   })
 })

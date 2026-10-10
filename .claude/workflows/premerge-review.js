@@ -22,8 +22,11 @@ const TIERS = {
   high: { lenses: ['correctness', 'rules-and-brief', 'tests-and-gates'], lensModel: 'opus', refuters: 2, refuterModel: 'opus', verify: ['blocker', 'should-fix'] },
 }
 const tierOf = (pr) => pr.tier || BATCH_TIER || 'high'
+// Own keys only: an inherited name (`constructor`, `toString`, `__proto__`) is not a tier, and would
+// otherwise pass here and then throw inside pipeline(), silently dropping the PR.
+const isTier = (name) => Object.prototype.hasOwnProperty.call(TIERS, name)
 for (const pr of PRS) {
-  if (!TIERS[tierOf(pr)]) throw new Error(`unknown tier "${pr.tier}" for PR #${pr.number}; use records | routine | high`)
+  if (!isTier(tierOf(pr))) throw new Error(`unknown tier "${pr.tier}" for PR #${pr.number}; use records | routine | high`)
 }
 
 const FINDINGS_SCHEMA = {
@@ -129,10 +132,14 @@ const results = await pipeline(
         return { ...f, complete, stands, severity: stands ? sev : f.severity, votes: v.map((x) => ({ refuted: x.refuted, reason: x.reason })) }
       })
     ))
-    const confirmed = verified.filter(Boolean).filter((x) => x.complete && x.stands)
-    const refuted = verified.filter(Boolean).filter((x) => x.complete && !x.stands)
-    const unverifiedAll = unverified.concat(verified.filter(Boolean).filter((x) => !x.complete))
-    const incomplete = missingLenses.length > 0
+    // A verification that threw resolves to null: keep its finding, unverified, rather than drop it.
+    const checked = verified.map((x, i) => x || { ...toVerify[i], complete: false, stands: false, votes: [] })
+    const confirmed = checked.filter((x) => x.complete && x.stands)
+    const refuted = checked.filter((x) => x.complete && !x.stands)
+    const unverifiedAll = unverified.concat(checked.filter((x) => !x.complete))
+    // A lens or a required refuter that returned nothing is missing review output, never clearance
+    // (AGENTS.md §5), whatever the severity of the finding it left unverified.
+    const incomplete = missingLenses.length > 0 || checked.some((x) => !x.complete)
     return {
       pr: pr.number,
       branch: pr.branch,
