@@ -5,7 +5,7 @@ import KpiStrip from './KpiStrip'
 import MetricsTable from './MetricsTable'
 import NarrativePane from './NarrativePane'
 import TrendCharts from './TrendCharts'
-import SourcesMethods from './SourcesMethods'
+import DataNotes from './DataNotes'
 import { DataNotesProvider } from './DataNotesContext'
 import demo from '../demo/demo-analysis.json'
 import type { AnalysisCompletion, AnalysisDataset } from '@/features/analysis/api/analysis-api'
@@ -29,7 +29,7 @@ export default function AnalysisTeaser({ forTicker }: { forTicker?: string }) {
         <DataNotesProvider dataset={demoDataset}>
           <div className="flex flex-col gap-4">
             <KpiStrip dataset={demoDataset} />
-            <SourcesMethods dataset={demoDataset} sample />
+            <DataNotes dataset={demoDataset} sample />
             <TrendCharts dataset={demoDataset} />
             <NarrativePane
               state={{ status: 'done', text: demoCompletion.narrative, completion: demoCompletion }}

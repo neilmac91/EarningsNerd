@@ -252,6 +252,25 @@ Data note mark   <DataNoteMark> (analysis) — neutral † for a calculated orig
                  that makes the entire scroll range a multiple of the column width. A table window
                  changes the table only. This geometry follows the note-model release separately.
 
+Analysis KPI     <KpiStrip> — a definition list, two cards across at phone widths and four from lg.
+                 Each Card groups a metric-only dt and two dd rows: the 24px data-face value/source
+                 button, then the actual reporting period and delta. Cards span three subgrid rows,
+                 so wrapped labels do not move neighbouring values. The period and delta wrap as
+                 independent inline items; an older populated point says "latest available" beside
+                 its actual period. Missing comparisons leave the period visible. Cards use 12px
+                 padding below sm and 16px above, preserving the two-up 320px treatment.
+
+Data notes strip <DataNotes> — hairlines above and below a native details disclosure on the page
+                 ground, below the KPIs. The title uses primary ink; counts use the data face, with
+                 review counts in warning ink and an all-passed count in sage. Unknown validation,
+                 unavailable and calculated counts remain separate. Expanded notes use two columns:
+                 the letter, then its reason, affected metric/periods and distinct comparison counts.
+                 Existing Sources & methods prose, source date and snapshot reference stay inside.
+                 Note chips reveal and focus the same stable note ID. Citation-only supplemental
+                 notes remain in the narrative and do not increase the report's figure counts.
+                 formatAnalysisPeriod formats quarters as Q2 2026 (Q2 ’26 in compact contexts);
+                 FY2026 and all API/snapshot/selection keys retain their original identity.
+
 Solid chip       <Badge variant="solid">  — the primary colorway as a chip (brand.strong fill +
                  white label; dark: NAVY ink on brand.dark) for brand-weak TINTED grounds where the
                  tint chips vanish. <Badge variant="info"> = the info STATE tint

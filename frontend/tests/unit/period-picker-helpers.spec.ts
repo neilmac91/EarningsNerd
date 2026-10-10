@@ -2,6 +2,18 @@
 import { describe, expect, it } from 'vitest'
 import { chipsFor, defaultRange, nextRange } from '@/features/analysis/components/PeriodPicker'
 import type { AnalysisCoverage } from '@/features/analysis/api/analysis-api'
+import { formatAnalysisPeriod } from '@/features/analysis/lib/periodLabels'
+
+describe('analysis period labels', () => {
+  it('formats fiscal-quarter keys for full and compact display without recasting annual or unknown labels', () => {
+    expect(formatAnalysisPeriod('2026Q2')).toBe('Q2 2026')
+    expect(formatAnalysisPeriod('2026Q2', 'short')).toBe('Q2 ’26')
+    expect(formatAnalysisPeriod('FY2026')).toBe('FY2026')
+    expect(formatAnalysisPeriod('FY2026', 'short')).toBe('FY2026')
+    expect(formatAnalysisPeriod('2026Q5')).toBe('2026Q5')
+    expect(formatAnalysisPeriod('Trailing 12 months')).toBe('Trailing 12 months')
+  })
+})
 
 const coverage: AnalysisCoverage = {
   ticker: 'TST',

@@ -105,10 +105,12 @@ describe('AnalysisDemo', () => {
     const last = SAMPLE_ANALYSIS_DATASET.periods[SAMPLE_ANALYSIS_DATASET.periods.length - 1].key
     expect(screen.getByText(`Apple Inc. · Annual · ${first}–${last}`)).toBeInTheDocument()
 
-    // KpiStrip labels the latest point of each sample series.
-    expect(screen.getByText(`Revenue (${last})`)).toBeInTheDocument()
-    expect(screen.getByText(`Net income (${last})`)).toBeInTheDocument()
-    expect(screen.getByText(`Net margin (${last})`)).toBeInTheDocument()
+    // The definitions name each metric; its actual reporting period accompanies the value.
+    for (const label of ['Revenue', 'Net income', 'Net margin']) {
+      const card = screen.getAllByRole('term').find((term) => term.textContent === label)!.parentElement!
+      expect(within(card).getByText(last)).toBeInTheDocument()
+      expect(within(card).getByRole('button', { name: new RegExp(`^${label}, ${last}:`) })).toBeInTheDocument()
+    }
 
     expect(screen.getByRole('img', { name: new RegExp(`^Revenue by fiscal year, ${first} to ${last}:`) })).toBeInTheDocument()
 

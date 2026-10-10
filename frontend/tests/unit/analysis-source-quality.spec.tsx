@@ -2,11 +2,13 @@ import { describe, expect, it } from 'vitest'
 import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import MetricsTable from '@/features/analysis/components/MetricsTable'
-import SourcesMethods from '@/features/analysis/components/SourcesMethods'
+import DataNotes from '@/features/analysis/components/DataNotes'
 import SourceValue from '@/features/analysis/components/SourceValue'
 import type { AnalysisDataset } from '@/features/analysis/api/analysis-api'
 import type { FactProvenance } from '@/features/analysis/lib/provenance'
 import { DataNotesProvider } from '@/features/analysis/components/DataNotesContext'
+import DataNotesLink from '@/features/analysis/components/DataNotesLink'
+import { groupDataNotes } from '@/features/analysis/lib/dataNotes'
 
 const calculated: FactProvenance = {
   version: 1, method: 'calculated', validation: 'passed', reasons: [],
@@ -26,7 +28,7 @@ const dataset: AnalysisDataset = {
 describe('Financial origin and source checks', () => {
   it('presents a validated Q4 calculation and its growth without false warnings, with inspectable operands', async () => {
     const user = userEvent.setup()
-    render(<><SourcesMethods dataset={dataset} /><MetricsTable dataset={dataset} /></>)
+    render(<><DataNotes dataset={dataset} /><MetricsTable dataset={dataset} /></>)
     expect(screen.queryByText(/Source check needed|Growth source check needed|Unverified/)).not.toBeInTheDocument()
     expect(screen.getByText('† calculated')).not.toHaveClass('bg-warning-light/10')
     const value = screen.getByRole('button', { name: /Revenue, 2023Q4.*View source/ })
@@ -46,10 +48,10 @@ describe('Financial origin and source checks', () => {
     const flagged = structuredClone(dataset)
     flagged.series[0].points[0].provenance!.validation = 'needs_review'
     flagged.series[0].points[0].provenance!.reasons = ['unit_mismatch']
-    render(<><SourcesMethods dataset={flagged} /><MetricsTable dataset={flagged} /></>)
+    render(<><DataNotes dataset={flagged} /><MetricsTable dataset={flagged} /></>)
     expect(screen.getByRole('button', { name: /Revenue, 2023Q3:.*data note a/ }).querySelector('[data-note-kind="review"]')).toHaveTextContent('a')
     const note = screen.getByText(/The source inputs use different units or currencies/).closest('li')
-    expect(note).toHaveTextContent('Revenue (2023Q3)')
+    expect(note).toHaveTextContent('Revenue (Q3 2023)')
     expect(screen.queryByText('Source check needed')).not.toBeInTheDocument()
   })
 
@@ -72,9 +74,9 @@ describe('Financial origin and source checks', () => {
   it('keeps a comparison-only concern inspectable without marking the current value as needing review', async () => {
     const flagged = structuredClone(dataset)
     flagged.series[0].points[1].qoq_provenance = { ...calculated, validation: 'needs_review', reasons: ['unit_mismatch'] }
-    render(<DataNotesProvider dataset={flagged}><SourcesMethods dataset={flagged} /><MetricsTable dataset={flagged} /></DataNotesProvider>)
+    render(<DataNotesProvider dataset={flagged}><DataNotes dataset={flagged} /><MetricsTable dataset={flagged} /></DataNotesProvider>)
     expect(screen.getByText(/1 comparison needs review/)).toBeInTheDocument()
-    expect(screen.getByText(/Comparisons: Revenue QoQ \(2023Q4\)/)).toBeInTheDocument()
+    expect(screen.getByText(/Comparisons: Revenue QoQ \(Q4 2023\)/)).toBeInTheDocument()
     const figure = screen.getByRole('button', { name: /Revenue, 2023Q4:.*comparison carries data note a/ })
     expect(figure.querySelector('[data-note-kind="review"]')).not.toBeInTheDocument()
     await userEvent.click(figure)
@@ -87,7 +89,7 @@ describe('Financial origin and source checks', () => {
   it('explains an absent metric-period slot with the same unavailable note counted in the report', async () => {
     const missing = structuredClone(dataset)
     missing.series[0].points.pop()
-    render(<DataNotesProvider dataset={missing}><SourcesMethods dataset={missing} /><MetricsTable dataset={missing} /></DataNotesProvider>)
+    render(<DataNotesProvider dataset={missing}><DataNotes dataset={missing} /><MetricsTable dataset={missing} /></DataNotesProvider>)
     expect(screen.getByText(/1 unavailable/)).toBeInTheDocument()
     const value = screen.getByRole('button', { name: /Revenue, 2023Q4: unavailable, data note a/ })
     expect(value.querySelector('[data-note-kind="unavailable"]')).toHaveTextContent('a')
@@ -95,5 +97,21 @@ describe('Financial origin and source checks', () => {
     const dialog = screen.getByRole('dialog', { name: 'Revenue · 2023Q4' })
     expect(within(dialog).getByText(/Not available in this dataset/)).toBeInTheDocument()
     expect(within(dialog).queryByText(/Automated checks passed/)).not.toBeInTheDocument()
+  })
+
+  it('opens and focuses the report note from its keyboard-activated note control', async () => {
+    const flagged = structuredClone(dataset)
+    flagged.series[0].points[1].qoq_provenance = { ...calculated, validation: 'needs_review', reasons: ['unit_mismatch'] }
+    render(<DataNotesProvider dataset={flagged}><DataNotes dataset={flagged} /><DataNotesLink notes={groupDataNotes(flagged).notes} /></DataNotesProvider>)
+    const note = document.getElementById('analysis-data-note-a')!
+    const disclosure = note.closest('details')!
+    expect(disclosure).not.toHaveAttribute('open')
+    screen.getByRole('button', { name: 'Review data notes a' }).focus()
+    await userEvent.keyboard('{Enter}')
+    expect(disclosure).toHaveAttribute('open')
+    expect(note).toHaveFocus()
+    expect(note).toHaveTextContent('1 QoQ comparison')
+    expect(note).toHaveTextContent('Comparisons: Revenue QoQ (Q4 2023)')
+    expect(note).toHaveTextContent('The source inputs use different units or currencies')
   })
 })

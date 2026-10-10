@@ -1,6 +1,6 @@
 import KpiStrip from '@/features/analysis/components/KpiStrip'
 import MetricsTable from '@/features/analysis/components/MetricsTable'
-import SourcesMethods from '@/features/analysis/components/SourcesMethods'
+import DataNotes from '@/features/analysis/components/DataNotes'
 import { DataNotesProvider } from '@/features/analysis/components/DataNotesContext'
 import RevenueBars, { type RevenuePoint } from '@/features/marketing/components/RevenueBars'
 import { SAMPLE_ANALYSIS_DATASET } from '@/features/marketing/lib/landing-samples'
@@ -37,10 +37,10 @@ export default function AnalysisDemo() {
       <DataNotesProvider dataset={SAMPLE_ANALYSIS_DATASET}>
         <div className="flex flex-col gap-3 p-4">
           {/* KpiStrip lays out four columns at lg; three tiles inside a half-width frame need three. */}
-          <div className="lg:[&>div]:grid-cols-3">
+          <div className="lg:[&>dl]:grid-cols-3">
             <KpiStrip dataset={SAMPLE_ANALYSIS_DATASET} />
           </div>
-          <SourcesMethods dataset={SAMPLE_ANALYSIS_DATASET} sample />
+          <DataNotes dataset={SAMPLE_ANALYSIS_DATASET} sample />
           <RevenueBars points={REVENUE_POINTS} />
           <MetricsTable dataset={SAMPLE_ANALYSIS_DATASET} headingLevel="h4" />
         </div>
