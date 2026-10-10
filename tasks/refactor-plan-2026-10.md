@@ -1219,8 +1219,8 @@ order. Delete such a row with a note line instead.
 ## Waves (file-disjoint PRs, dependencies, triggers)
 
 Rules that shape the order: (1) tests-only PRs never deploy and never arm `eval-baseline`, so they
-run fully in parallel; until #1123 lands each still arms `copilot-eval` once when marked ready
-(measured USD 0.006–0.026, logged under decision 1); (2) every code-bearing PR deploys on merge and arms `eval-baseline` on
+run fully in parallel; since #1123 merged (2026-10-09) they arm no `copilot-eval` either, though Wave 0's
+ran before it did (below); (2) every code-bearing PR deploys on merge and arms `eval-baseline` on
 every push, draft or not, so merges are serial (one verified deploy at a time, AGENTS.md §6) and
 pushes are batched (push once when the local gate is green; stay draft until review so `copilot-eval`
 fires once; a second push within a run cancels the first, `.github/workflows/ci.yml:290-292`); (3) paid
@@ -1237,7 +1237,8 @@ edit at `docs/ARCHITECTURE.md:158` is same-file only and merges cleanly.
 
 Legend: D = deploys on merge; E = arms `eval-baseline` on every push (balance read, run logged); CE = arms
 `copilot-eval` when marked ready and on each push while ready; CE* = the same, but only until #1123
-lands (its filter drops `backend/tests/**`); AST = pure-move proof required.
+landed on 2026-10-09 (its filter drops `backend/tests/**`), so only Wave 0 bore it; AST = pure-move proof
+required.
 
 ### Wave 0 — the gate and the anchors (tests-only, all parallel; no deploy, no `eval-baseline`)
 
@@ -1251,9 +1252,9 @@ lands (its filter drops `backend/tests/**`); AST = pure-move proof required.
 | X0 xbrl anchors (6) | new `backend/tests/unit/test_xbrl_service_anchors.py` | CE* | — |
 | I0 instance anchors (5) | new `backend/tests/unit/test_instance_extractor_anchors.py` | CE* | — |
 
-Wave 0 does not wait for #1123 (decision 8): if it lands first, all seven un-drafts are free;
-otherwise each fires one `copilot-eval` run at un-draft, about USD 0.10 in all at measured rates,
-logged under decision 1.
+Wave 0 did not wait for #1123 (decision 8). All its `copilot-eval` runs came before #1123 merged: 20
+with calls, USD 0.133491 in estimated inference cost, against the seven runs (about USD 0.10) priced
+here. Each is listed in the [Wave 0 spend table](refactor-wave0-closeout-2026-10.md#wave-0-spend).
 Anchors patch shared objects (singletons, `settings`, third-party modules) wherever possible; an
 anchor that must patch a name on one of the six modules is listed as a re-point in the PR that moves
 its reader: T1 re-points T0's detector anchor (`trend_analysis.detectors._DETECTORS`). As built, F0
@@ -1309,10 +1310,11 @@ Wave 2 eleven plus the optional X5, Wave 3 one.
 - `eval-baseline`: at two pushes each, plus up to two rebase pushes (X3 and X4 over #1121), 38–42 runs
   ≈ USD 13.68–15.12 at the measured USD 0.36 (record 18; AGENTS.md says 0.30).
 - `copilot-eval`: 19–40 runs ≈ USD 0.11–1.04 at the measured USD 0.006–0.026.
-- Tests-only un-drafts (Wave 0 and the Ratchet PR), if #1123 has not landed: up to USD 0.21.
+- Tests-only un-drafts: Wave 0's spent USD 0.133491 in 20 runs (its closeout's spend table); the
+  Ratchet PR arms nothing, since #1123 has merged.
 
-That is about USD 13.8–16.4 in all, 57–90 paid runs. It is under the USD 18 ceiling with about USD 1.6
-of headroom, roughly four `eval-baseline` runs. A cancelled run still bills for the calls it made
+That is about USD 13.9–16.3 in all, 77–102 paid runs, Wave 0's 20 already run. It is under the USD 18
+ceiling with about USD 1.7 of headroom, roughly four `eval-baseline` runs. A cancelled run still bills for the calls it made
 (`tasks/code-red-20261004/runtime/control/SPEND-POLICY-STATEMENT.md:11`), so a second push saves
 nothing; pushing once per review round is what keeps the count down. 19–20 serialized deploys.
 

@@ -747,18 +747,21 @@ def test_a_binding_settles_a_name_only_when_it_sets_it_outright_above_the_read()
 
 def test_a_class_body_read_is_settled_by_an_earlier_member_that_sets_the_name_outright():
     """A class body looks a name up in the class first, so a member that reads ``__module__`` or ``__doc__``
-    after a member set it outright reads that value wherever the class moves. A read above it, a binding in
-    a block, one derived from the module's value, and a lambda's read (a nested scope reads the module's) still
-    take what the new module derives."""
+    after a member set it outright reads that value wherever the class moves, until a ``del`` of it and again
+    after the next. A read above it, a binding in a block, one derived from the module's value, a read after a
+    ``del``, and a lambda's read (a nested scope reads the module's) still take what the new module derives."""
     old = ('"""Old."""\n\n\nclass C:\n    __module__ = "stable"\n    origin = __module__\n\n\n'
            'class D:\n    origin = __module__\n    __module__ = "stable"\n\n\n'
            'class E:\n    if READY:\n        __module__ = "stable"\n    origin = __module__\n\n\n'
            'class F:\n    __doc__ = "Fixed."\n    usage = __doc__\n    both = (__doc__, (lambda: __doc__)())\n\n\n'
-           'class K:\n    __doc__ = __doc__ + "!"\n    usage = __doc__\n')
+           'class K:\n    __doc__ = __doc__ + "!"\n    usage = __doc__\n\n\n'
+           'class G:\n    __doc__ = "Fixed."\n    del __doc__\n    usage = __doc__\n\n\n'
+           'class H:\n    __doc__ = "Fixed."\n    del __doc__\n    __doc__ = "Again."\n    usage = __doc__\n\n\n'
+           'class J:\n    __doc__ = "Fixed."\n    del __doc__\n    __doc__, spare = "Again.", 1\n    usage = __doc__\n')
     assert _relocated(old, "app/y.py", "app/x.py", old.replace("Old.", "New.")) == {
         "D.origin": "reads __module__ (app.y, was app.x)", "E.origin": "reads __module__ (app.y, was app.x)",
         "F.both": "reads __doc__ (the module docstring differs)", "K.__doc__": "reads __doc__ (the module docstring differs)",
-        "K.usage": "reads __doc__ (the module docstring differs)"}
+        "K.usage": "reads __doc__ (the module docstring differs)", "G.usage": "reads __doc__ (the module docstring differs)"}
 
 
 def test_a_name_one_module_sets_outright_and_the_other_does_not_is_relocated():
@@ -913,13 +916,14 @@ def test_a_builtin_is_reached_by_a_call_above_any_module_binding_of_its_name():
 
 def test_a_builtin_is_followed_through_any_name_or_import_that_binds_it():
     """A builtin is the builtin whatever name holds it: imported from ``builtins`` under another name or its
-    own, at module level (in a block too), in the def or in a class body; assigned from it by a name that is
-    the builtin there (an import from ``builtins`` aside) or from the ``builtins`` module; and an attribute of
-    that module, however imported. The reason names the builtin. Such a name is the builtin where its binding
-    is seen: the module's where the code reads the module's name, a class body's in that body (not in its
-    methods), a def's in its own code. A parameter that holds it is not, nor a parameter named like a module
-    alias or ``builtins``, an alias of an ``eval`` the module or the class binds, an attribute of another
-    module, or a name assigned from an import that shadows the builtin."""
+    own, at module level (in a block too), in the def or in a class body; bound from it (an assignment, ``:=``,
+    in a comprehension too, or a parameter's default) by a name that is the builtin there (an import from
+    ``builtins`` aside) or from the ``builtins`` module; and an attribute of that module, however imported. The
+    reason names the builtin. Such a name is the builtin where its binding is seen: the module's where the code
+    reads the module's name, a class body's in that body (not in its methods), a def's in its own code. A
+    parameter that holds it is not, nor a parameter named like a module alias or ``builtins``, an alias or a
+    default of an ``eval`` the module or the class binds, an attribute of another module, a name assigned from
+    an import that shadows the builtin, or one builtin imported under another's name (``len as eval``)."""
     old = ("import builtins\nfrom builtins import eval as run, globals as scope, compile as build\n\nrebound = eval\n"
            "attribute: object = builtins.exec\n\n\ndef aliased(src):\n    return run(src)\n\n\n"
            "def lookup(name):\n    return scope()[name]\n\n\ndef local(src):\n    from builtins import eval as go\n"
@@ -934,11 +938,15 @@ def test_a_builtin_is_followed_through_any_name_or_import_that_binds_it():
            "        return run_here(src)\n\n\ndef passed(builtins, src):\n    return builtins.eval(src)\n\n\n"
            "class Shadowed:\n    eval = staticmethod(len)\n    run_here = eval\n    result = run_here('__name__')\n\n\n"
            "try:\n    from builtins import exec as tried\nexcept ImportError:\n    tried = None\n\n\n"
-           "def attempt(src):\n    tried(src)\n")
+           "def attempt(src):\n    tried(src)\n\n\nif (walrus := eval):\n    pass\n\n\ndef caught(src):\n    return walrus(src)\n\n\n"
+           "[(listed := eval) for _ in range(1)]\n\n\ndef from_list(src):\n    return listed(src)\n\n\n"
+           "def defaulted(src, chosen=eval):\n    return chosen(src)\n\n\ndef keyword(src, *, chosen=exec):\n    chosen(src)\n")
     namespace = "reads its module's namespace through {} (app.y, was app.x)"
     assert _relocated(old, "app/y.py", "app/x.py") == {
-        **dict.fromkeys(("aliased", "local", "own", "dotted", "assigned", "mine", "Holder.result"), namespace.format("eval()")),
-        **dict.fromkeys(("renamed", "annotated", "attempt"), namespace.format("exec()")), "lookup": namespace.format("globals()")}
+        **dict.fromkeys(("aliased", "local", "own", "dotted", "assigned", "mine", "Holder.result", "caught", "from_list",
+                         "defaulted"), namespace.format("eval()")),
+        **dict.fromkeys(("renamed", "annotated", "attempt", "keyword"), namespace.format("exec()")),
+        "lookup": namespace.format("globals()")}
     flufl = _relocated(old, "app/y.py", "app/x.py", "from __future__ import barry_as_FLUFL\n\n" + old)
     compiled = "the code it compiles with compile() inherits from __future__ barry_as_FLUFL now, nothing before"
     assert flufl["compiled"] == flufl["made"] == compiled
@@ -950,9 +958,13 @@ def test_a_builtin_is_followed_through_any_name_or_import_that_binds_it():
               "def call(src):\n    return run(src)\n\n\ndef method(engine, src):\n    return engine.eval(src)\n\n\n"
               "def kept(src):\n    held = eval\n    return held(src)\n\n\n"
               "class Kept:\n    run_here = eval\n    result = run_here('__name__')\n\n\n"
-              "class Imports:\n    import builtins\n    result = builtins.eval('__name__')\n")
+              "class Imports:\n    import builtins\n    result = builtins.eval('__name__')\n\n\n"
+              "def fallback(src, chosen=eval):\n    return chosen(src)\n")
     assert _relocated(others, "app/y.py", "app/x.py", "from __future__ import barry_as_FLUFL\n\n" + others) == {
         "Imports.result": namespace.format("eval()") + "; " + compiled.replace("compile()", "eval()")}
+    renaming = ("from builtins import len as eval\nRESULT = eval('abc')\n\n\n"
+                "class Sized:\n    from builtins import len as exec\n    result = exec('abc')\n")
+    assert _relocated(renaming, "app/y.py", "app/x.py") == {}
 
 
 def test_module_is_a_class_bodys_only():
