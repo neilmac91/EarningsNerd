@@ -13,10 +13,12 @@ attribute bound to a bare name, whose ``__set_name__`` runs; and an unpacking of
 iterates it), a new symbol that binds a name the moved code of its file reads or binds (at module level, or
 in the class body for a new class member) or a dunder that Python reads itself where moved code lives (a
 module's ``__all__`` aside), a symbol of the target file that moved code reads at import above it or
-rebinds, a class docstring that no longer opens its body, and a reordered symbol each fail; a disclosed
-delta passes with its diff shown.
+rebinds, a class docstring that no longer opens its body, a reordered symbol, and a moved symbol that reads
+what its new module changes (its name, package, file or docstring, a relative import's target, its
+namespace, whether its annotations are postponed, or a module dunder it binds) each fail; a disclosed delta
+passes with its diff shown.
 """
-from tests.support.ast_move_proof import compare, render
+from tests.support.ast_move_proof import Report, compare, render
 
 OLD = '''"""Old module docstring."""
 import logging
@@ -71,8 +73,14 @@ def _move(**overrides: str) -> dict[str, str]:
     return files
 
 
+def _facade(new: dict[str, str], allow: frozenset[str] = frozenset()) -> Report:
+    """``compare`` for OLD, which lived where the façade now does: its ``logger`` stays in ``app/x.py``, so
+    the logger keeps its name, and a moved symbol that read where its module lives would be RELOCATED."""
+    return compare(OLD, new, allow, old_path="app/x.py")
+
+
 def test_an_honest_move_passes_and_ignores_formatting_comments_and_imports():
-    report = compare(OLD, _move())
+    report = _facade(_move())
     assert report.ok, render(report)
     # logger, LIMIT, clip, Service (its header), and its docstring, retries and run members
     assert report.moved == 7
@@ -80,28 +88,28 @@ def test_an_honest_move_passes_and_ignores_formatting_comments_and_imports():
 
 
 def test_one_changed_token_fails_as_changed():
-    report = compare(OLD, _move(**{"app/x/helpers.py": HELPERS.replace("text[:LIMIT]", "text[:LIMIT - 1]")}))
+    report = _facade(_move(**{"app/x/helpers.py": HELPERS.replace("text[:LIMIT]", "text[:LIMIT - 1]")}))
     assert not report.ok
     assert list(report.changed) == ["clip"]
     assert "text[:LIMIT - 1]" in report.changed["clip"]
 
 
 def test_a_dropped_symbol_fails_as_missing():
-    report = compare(OLD, _move(**{"app/x/helpers.py": "LIMIT = 8_000\n"}))
+    report = _facade(_move(**{"app/x/helpers.py": "LIMIT = 8_000\n"}))
     assert not report.ok
     assert report.missing == ["clip"]
 
 
 def test_a_symbol_defined_twice_fails_until_disclosed():
     files = _move(**{"app/x/service.py": SERVICE + "\nimport logging\nlogger = logging.getLogger(__name__)\n"})
-    report = compare(OLD, files)
+    report = _facade(files)
     assert not report.ok
     assert report.duplicate == {"logger": ["app/x.py", "app/x/service.py"]}
-    assert compare(OLD, files, frozenset({"logger"})).ok
+    assert _facade(files, frozenset({"logger"})).ok
 
 
 def test_a_changed_class_member_is_named_by_its_qualified_key():
-    report = compare(OLD, _move(**{"app/x/service.py": SERVICE.replace("retries = 3", "retries = 4")}))
+    report = _facade(_move(**{"app/x/service.py": SERVICE.replace("retries = 3", "retries = 4")}))
     assert list(report.changed) == ["Service.retries"]
 
 
@@ -158,7 +166,7 @@ def test_a_block_runs_at_import_whatever_its_body_holds():
              "\nfor _ in hook():\n    import plugin\n"
              "\nwith patch_env():\n    import plugin\n"
              "\nclass Plugin:\n    if register():\n        import plugin\n")
-    report = compare(OLD, _move(**{"app/x/helpers.py": HELPERS + added}))
+    report = _facade(_move(**{"app/x/helpers.py": HELPERS + added}))
     assert not report.ok
     assert set(report.side_effects) == {"guard:if register()", "guard:while True", "guard:for _ in hook()",
                                         "guard:with patch_env()", "Plugin.guard:if register()"}
@@ -181,7 +189,7 @@ def test_only_an_import_only_type_checking_block_is_not_a_symbol():
 
 def test_a_new_assignment_that_calls_runs_at_import():
     files = _move(**{"app/x/helpers.py": HELPERS + "\nREGISTERED = register(clip)\nKEY = lambda row: row.get('k')\n"})
-    report = compare(OLD, files)
+    report = _facade(files)
     assert report.side_effects == {"REGISTERED": "app/x/helpers.py"}
     assert report.added == {"__all__": "app/x.py", "KEY": "app/x/helpers.py"}  # a lambda's call runs later
 
@@ -199,7 +207,7 @@ def test_definition_time_calls_in_new_classes_defs_and_lambdas_run_at_import():
         "\n@dataclass(frozen=True)\nclass Row:\n    key: str\n"
         "\ndef later():\n    return register()\n"
     )
-    report = compare(OLD, _move(**{"app/x/helpers.py": HELPERS + added}))
+    report = _facade(_move(**{"app/x/helpers.py": HELPERS + added}))
     assert not report.ok
     assert report.side_effects == dict.fromkeys(("Registry.token", "helper", "hook", "HANDLER"), "app/x/helpers.py")
     assert {"Registry", "Registry.expr:'Docstring.'", "Registry.size", "Row", "Row.key", "later"} <= set(report.added)
@@ -221,7 +229,7 @@ def test_a_property_accessor_is_inert_only_on_a_property_bound_above_it_in_its_c
              "    width = 0\n\n"
              "    @width.setter\n    def width(self, value):\n        pass\n"
              "\n@registry.setter\ndef handler(value):\n    pass\n")
-    report = compare(OLD, _move(**{"app/x/helpers.py": HELPERS + added}))
+    report = _facade(_move(**{"app/x/helpers.py": HELPERS + added}))
     assert set(report.side_effects) == {"Box.hook", "Box.width", "handler"}
     assert {"Box", "Box.size", "Box.other"} <= set(report.added)  # an inert method or annotation between is fine
 
@@ -244,7 +252,7 @@ def test_a_class_attribute_bound_to_a_name_runs_its_set_name_at_import():
     bare name at module level."""
     added = ("\nclass Box:\n    LIMIT = 3\n    hook = registry\n    label: str = DEFAULT\n"
              "    left, right = registry, 1\n    low, high = 0, 9\n\nALIAS = registry\n")
-    report = compare(OLD, _move(**{"app/x/helpers.py": HELPERS + added}))
+    report = _facade(_move(**{"app/x/helpers.py": HELPERS + added}))
     assert set(report.side_effects) == {"Box.hook", "Box.label", "Box.left,right"}
     assert {"Box", "Box.LIMIT", "Box.low,high", "ALIAS"} <= set(report.added)
 
@@ -253,7 +261,7 @@ def test_unpacking_anything_but_a_display_of_as_many_values_runs_at_import():
     """``LEFT, RIGHT = PAIR`` iterates ``PAIR``, whose ``__iter__`` runs at import. A display of as many
     values is paired with the names, nested displays included, and iterates nothing."""
     added = "\nLEFT, RIGHT = PAIR\n\n(FIRST, SECOND), THIRD = (1, 2), clip\n"
-    report = compare(OLD, _move(**{"app/x/helpers.py": HELPERS + added}))
+    report = _facade(_move(**{"app/x/helpers.py": HELPERS + added}))
     assert set(report.side_effects) == {"LEFT,RIGHT"}
     assert "FIRST,SECOND,THIRD" in report.added
 
@@ -267,7 +275,7 @@ def test_only_inert_definitions_are_added_and_everything_else_runs_at_import():
              "\nclass Plugin(metaclass=RegisteringMeta):\n    pass\n"
              "\nclass Configured(Base, flag=True):\n    pass\n"
              "\nclass Plain(Base):\n    'Docstring.'\n    LIMIT = 3\n")
-    report = compare(OLD, _move(**{"app/x/helpers.py": HELPERS + added}))
+    report = _facade(_move(**{"app/x/helpers.py": HELPERS + added}))
     assert set(report.side_effects) == {"expr:assert READY", "expr:del REGISTRY['x']", "COUNT", "Plugin", "Configured"}
     # A base's own metaclass or __init_subclass__ is not visible in the AST: the stated limit.
     assert {"Plain", "Plain.LIMIT", "Plain.expr:'Docstring.'"} <= set(report.added)
@@ -281,7 +289,7 @@ def test_a_value_is_inert_only_when_it_is_a_literal_a_name_or_a_display_of_those
              "\ndef shaped(value: int = None, *, key: str = 'k') -> tuple:\n"
              "    return value\n"
              "\ndef keyed(value=REGISTRY['x']):\n    return value\n")
-    report = compare(OLD, _move(**{"app/x/helpers.py": HELPERS + added}))
+    report = _facade(_move(**{"app/x/helpers.py": HELPERS + added}))
     assert set(report.side_effects) == {"TOKEN", "VALUES", "TOTAL", "FLAG", "keyed"}
     assert {"NAMES", "ALIAS", "LIMITS", "shaped"} <= set(report.added)
 
@@ -366,7 +374,7 @@ def test_an_honest_split_adds_names_without_shadowing_any():
     assert report.ok, render(report)
     assert report.added == dict.fromkeys(("make", "_trim", "_clean", "Box.rows"), "app/x/a.py")
     helpers = HELPERS.replace("return text[:LIMIT]", "return _trim(text)[:LIMIT]") + "\ndef _trim(value):\n    return value\n"
-    calling = compare(OLD, _move(**{"app/x/helpers.py": helpers}), frozenset({"clip"}))
+    calling = _facade(_move(**{"app/x/helpers.py": helpers}), frozenset({"clip"}))
     assert calling.ok, render(calling)  # clip's printed diff is the disclosure
     assert calling.added == {"__all__": "app/x.py", "_trim": "app/x/helpers.py"}
 
@@ -564,7 +572,7 @@ def test_a_facades_all_and_a_new_classs_own_dunders_and_docstring_are_added():
     cache = ('\nclass _Cache:\n    """Docstring."""\n\n    __slots__ = ("rows",)\n\n'
              "    def __init__(self):\n        self.rows = {}\n\n"
              "    def __eq__(self, other):\n        return self is other\n")
-    report = compare(OLD, _move(**{"app/x/helpers.py": HELPERS + cache}))
+    report = _facade(_move(**{"app/x/helpers.py": HELPERS + cache}))
     assert report.ok, render(report)
     members = ("_Cache", "_Cache.expr:'Docstring.'", "_Cache.__slots__", "_Cache.__init__", "_Cache.__eq__")
     assert report.added == {"__all__": "app/x.py", **dict.fromkeys(members, "app/x/helpers.py")}
@@ -607,20 +615,163 @@ def test_every_dunder_counts_where_moved_code_lives_and_only_there():
     assert plain.ok and set(plain.added) == {"__cache", "cache__", "_cache__", "__cache_", "__"}
 
 
+INDEX = ('import logging\nfrom pathlib import Path\n\nlogger = logging.getLogger(__name__)\n'
+         'DATA_PATH = Path(__file__).resolve().parents[1] / "data" / "index.json"\n\n\n'
+         'def load_helper():\n    from . import helpers\n    return helpers.KIND\n')
+INDEX_FACADE = ("from app.services.index.loader import DATA_PATH, load_helper, logger\n\n"
+                "__all__ = ['DATA_PATH', 'load_helper', 'logger']\n")
+
+
+def test_moved_code_that_reads_where_its_module_lives_is_relocated():
+    """``index_service.py`` moved whole into ``index/loader.py`` behind a façade keeps every text, yet
+    ``DATA_PATH`` now points one directory deeper, ``logger`` is renamed and ``load_helper`` imports another
+    module. Each printed ``pure move: OK`` before the rule; on its own path the module stays OK."""
+    files = {"app/services/index_service.py": INDEX_FACADE, "app/services/index/loader.py": INDEX}
+    report = compare(INDEX, files, old_path="app/services/index_service.py")
+    assert not report.ok
+    where = "app/services/index/loader.py, was app/services/index_service.py"
+    assert report.relocated == {
+        "DATA_PATH": f"{where}: reads __file__ (another file)",
+        "load_helper": f"{where}: imports helpers from . (app.services.index, was app.services)",
+        "logger": f"{where}: reads __name__ (app.services.index.loader, was app.services.index_service)"}
+    assert report.moved == 3 and report.added == {"__all__": "app/services/index_service.py"}
+    rendered = render(report)
+    assert f"RELOCATED  logger ({where}): reads __name__ (app.services.index.loader, " in rendered
+    assert ", 0 reordered, 3 relocated, 1 added, " in rendered
+    disclosed = compare(INDEX, files, frozenset({"DATA_PATH", "load_helper", "logger"}),
+                        old_path="app/services/index_service.py")
+    assert disclosed.ok
+    assert disclosed.allowed["logger"] == (
+        "unchanged\nrelocated: reads __name__ (app.services.index.loader, was app.services.index_service)")
+    assert compare(INDEX, {"app/services/index_service.py": INDEX}, old_path="app/services/index_service.py").ok
+
+
+def _relocated(old: str, new_path: str, old_path: str = "app/services/x.py", new: str | None = None) -> dict[str, str]:
+    """What RELOCATED says of each old symbol of ``old`` moved whole to ``new_path``, without the location."""
+    report = compare(old, {new_path: old if new is None else new}, old_path=old_path)
+    return {key: where.split(": ", 1)[1] for key, where in report.relocated.items()}
+
+
+def test_each_name_is_relocated_only_when_its_value_differs():
+    """One case per name. A sibling file keeps the package, so ``__package__`` and a relative import keep
+    their values while the name and the file change; ``x.py`` to ``x/__init__.py`` keeps the name but makes
+    it a package, which moves the package, the file and the relative imports; a class body's ``__module__``
+    is the module's name; ``__path__`` exists only in a package; and a relative import that went beyond the
+    top-level package is its own target."""
+    reads = ("A = __name__\nB = __package__\nC = __file__\nD = __spec__\nE = __path__\n\n\n"
+             "def load():\n    from .h import x\n    return x\n\n\nclass Box:\n    origin = __module__\n")
+    assert _relocated(reads, "app/services/y.py") == {
+        "A": "reads __name__ (app.services.y, was app.services.x)",
+        "C": "reads __file__ (another file in the same directory)",
+        "D": "reads __spec__ (another file in the same directory)",
+        "Box.origin": "reads __module__ (app.services.y, was app.services.x)"}
+    assert _relocated(reads, "app/services/x/__init__.py") == {
+        "A": "reads __name__ (app.services.x, now a package)",
+        "B": "reads __package__ ('app.services.x', was 'app.services')",
+        "C": "reads __file__ (another file)", "D": "reads __spec__ (another file)", "E": "reads __path__ (another file)",
+        "load": "imports x from .h (app.services.x.h, was app.services.h)"}
+    beyond = "def load():\n    from ... import x\n    return x\n"
+    assert _relocated(beyond, "app/services/sub/y.py") == {"load": "imports x from ... (app, was an ImportError)"}
+    assert _relocated(reads, "app/services/x.py") == {}
+
+
+def test_a_symbol_is_relocated_only_for_what_it_reads_before_the_move_and_after_it():
+    """A CHANGED symbol that still reads ``__name__`` is RELOCATED too; a disclosed change that starts or stops
+    reading it is CHANGED only, its diff the disclosure; a parameter named ``__file__`` is not the module's."""
+    old = "LOG = getLogger(__name__ + '.x')\nNEW = getLogger('fixed')\nOLD = getLogger(__name__)\n\n\ndef f(__file__):\n    return __file__\n"
+    new = old.replace("'.x'", "'.y'").replace("getLogger('fixed')", "getLogger(__name__)").replace(
+        "OLD = getLogger(__name__)", "OLD = getLogger('fixed')")
+    report = compare(old, {"app/y.py": new}, old_path="app/x.py")
+    assert set(report.changed) == {"LOG", "NEW", "OLD"}
+    assert report.relocated == {"LOG": "app/y.py, was app/x.py: reads __name__ (app.y, was app.x)"}
+
+
+def test_moved_code_that_reads_the_module_docstring_is_relocated_when_it_differs():
+    """A façade rewrites the module docstring on the old path, so code that stays there and reads ``__doc__``
+    (``argparse``'s description) is RELOCATED; the same docstring is OK. In a class body a documented class
+    reads its own ``__doc__``; a method reads the module's."""
+    old = '"""Old."""\nDESCRIPTION = __doc__\n\n\nclass Cli:\n    """Cli."""\n    usage = __doc__\n\n    def help(self):\n        return __doc__\n'
+    assert _relocated(old, "app/x.py", "app/x.py", old.replace("Old.", "New.")) == {
+        "DESCRIPTION": "reads __doc__ (the module docstring differs)",
+        "Cli.help": "reads __doc__ (the module docstring differs)"}
+    assert _relocated(old, "app/x.py", "app/x.py") == {}
+
+
+def test_a_block_reads_its_header_and_a_class_its_body_imports():
+    """A block reads where its module lives through its header only (a ``__main__`` guard moved away no longer
+    runs under ``python -m``); its statements are symbols of their own, a def in it included. A relative
+    import directly in a class body is in no member's text, so the class reports it."""
+    old = ("if __name__ == '__main__':\n    main()\n\nif READY:\n    PATH = __file__\n\n    def load():\n"
+           "        from . import h\n        return h\n\n\nclass Loader:\n    from . import h\n")
+    assert _relocated(old, "app/services/sub/y.py") == {
+        "guard:if __name__ == '__main__'": "reads __name__ (app.services.sub.y, was app.services.x)",
+        "PATH": "reads __file__ (another file)",
+        "load": "imports h from . (app.services.sub, was app.services)",
+        "Loader": "imports h from . (app.services.sub, was app.services)"}
+
+
+def test_namespace_reads_postponed_annotations_and_moved_module_dunders_are_relocated():
+    """``globals()``, and ``eval`` without a namespace, read another module's namespace from a new file;
+    ``from __future__ import annotations`` in one module only changes how annotated code compiles (once on a
+    class, for its members); and a module-level dunder, moved, is read from the new module. A file that keeps
+    its module keeps all three, and so does ``x.py`` to ``x/__init__.py`` for a module dunder."""
+    old = ("def lookup(name):\n    return globals()[name]\n\n\ndef run(src):\n    return eval(src)\n\n\n"
+           "def scoped(src, ns):\n    return eval(src, ns)\n\n\ndef total(rows: list) -> int:\n    return len(rows)\n\n\n"
+           "def plain(rows):\n    return rows\n\n\nclass Row:\n    key: str\n\n    def size(self) -> int:\n        return 0\n\n\n"
+           "def __getattr__(name):\n    return name\n")
+    moved = _relocated(old, "app/x/impl.py", "app/x.py", "from __future__ import annotations\n\n" + old)
+    assert moved == {
+        "lookup": "reads its module's namespace through globals() (app.x.impl, was app.x)",
+        "run": "reads its module's namespace through eval() (app.x.impl, was app.x)",
+        "total": "its annotations are postponed now (from __future__ import annotations), evaluated before",
+        "Row": "its annotations are postponed now (from __future__ import annotations), evaluated before",
+        "__getattr__": "binds __getattr__, which Python reads from app.x.impl, was app.x"}
+    assert _relocated(old, "app/x.py", "app/x.py") == {}
+    assert _relocated(old, "app/x/__init__.py", "app/x.py") == {}
+
+
+def test_without_the_old_path_every_read_but_the_docstrings_fails_closed():
+    """``old_path`` places the old module; the CLI always passes ``--old``. Without it, a read of where the
+    module lives cannot be cleared, so it is reported; the module docstring can still be compared."""
+    report = compare('"""Doc."""\n' + INDEX + "DESCRIPTION = __doc__\n",
+                     {"app/services/index_service.py": '"""Doc."""\n' + INDEX + "DESCRIPTION = __doc__\n"})
+    assert {key: where.split(": ", 1)[1] for key, where in report.relocated.items()} == {
+        "DATA_PATH": "reads __file__ (the old path is unknown)",
+        "load_helper": "imports helpers from . (app.services, was an unknown module)",
+        "logger": "reads __name__ (the old path is unknown)"}
+    assert all(where.startswith("app/services/index_service.py, was an unknown path: ")
+               for where in report.relocated.values())
+
+
+def test_an_honest_split_that_keeps_what_reads_its_module_in_place_is_not_relocated():
+    """The control. The logger stays on the old path, the moved helpers read ordinary names and import a
+    sibling relatively within the same package, and the moved module compiles as before: nothing changes."""
+    old = ("from __future__ import annotations\nimport logging\n\nlogger = logging.getLogger(__name__)\n\n\n"
+           "def clean(text: str) -> str:\n    from .text import strip\n    return strip(text)\n\n\n"
+           "def run(text: str) -> str:\n    logger.info('run')\n    return clean(text)\n")
+    facade = ("from __future__ import annotations\nimport logging\n\nfrom app.services.helpers import clean\n\n"
+              "logger = logging.getLogger(__name__)\n\n\ndef run(text: str) -> str:\n    logger.info('run')\n"
+              "    return clean(text)\n")
+    helpers = "from __future__ import annotations\n\n\ndef clean(text: str) -> str:\n    from .text import strip\n    return strip(text)\n"
+    report = compare(old, {"app/services/x.py": facade, "app/services/helpers.py": helpers}, old_path="app/services/x.py")
+    assert report.ok, render(report)
+    assert report.relocated == {} and report.moved == 3
+
+
 def test_an_added_import_time_side_effect_fails_until_disclosed():
     files = _move(**{"app/x/helpers.py": HELPERS + "\nsettings.STRICT = False\nregister(clip)\n"})
-    report = compare(OLD, files)
+    report = _facade(files)
     assert not report.ok
     assert report.side_effects == {"effect:settings.STRICT": "app/x/helpers.py",
                                    "expr:register(clip)": "app/x/helpers.py"}
-    disclosed = compare(OLD, files, frozenset({"effect:settings.STRICT", "expr:register(clip)"}))
+    disclosed = _facade(files, frozenset({"effect:settings.STRICT", "expr:register(clip)"}))
     assert disclosed.ok
     assert disclosed.allowed == {"effect:settings.STRICT": "added in app/x/helpers.py",
                                  "expr:register(clip)": "added in app/x/helpers.py"}
 
 
 def test_an_allowed_change_still_prints_its_diff():
-    report = compare(OLD, _move(**{"app/x/helpers.py": HELPERS.replace("LIMIT = 8_000", "LIMIT = 9_000")}),
+    report = _facade(_move(**{"app/x/helpers.py": HELPERS.replace("LIMIT = 8_000", "LIMIT = 9_000")}),
                      frozenset({"LIMIT"}))
     assert report.ok
     rendered = render(report)

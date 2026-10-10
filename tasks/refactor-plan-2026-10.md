@@ -1175,7 +1175,10 @@ pure-move PR and its reviewers run. `backend/tests/unit/test_ast_move_proof.py` 
 The proof reports MISSING, CHANGED and DUPLICATE. It also reports SIDE EFFECT: a new
 attribute or item assignment, or a new module-level call, which a move never adds; SHADOWS: a new
 symbol that binds a name the moved code uses, or a dunder that Python reads itself where moved code
-lives; and REORDERED: an old binding that now sits above one it followed. The proof's module
+lives; REORDERED: an old binding that now sits above one it followed; and RELOCATED: an old symbol
+that reads what its module gets from where it lives (`__name__`, so a moved `getLogger(__name__)`,
+`__file__`, `__package__`, the module docstring, a relative import's target, its namespace,
+postponed annotations, or a module dunder it binds), which its new module changes. The proof's module
 docstring holds the full list. A name bound
 twice in one file, such as a `try`/`except` fallback, keeps every definition. Each `--allow`ed delta
 prints its diff for the PR body. Mutation proof for the PR body (one, per AGENTS.md §4): pad one
