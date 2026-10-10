@@ -16,14 +16,18 @@ after the status has been checked. Prefer `set -euo pipefail` at the top of any 
 commit or push, and never follow a test run with `| tail`, `| grep` or `| head` on the same line as
 the `&&` that commits. For the CODE RED records, run every verification step of a records commit only through
 `tasks/code-red-20261004/runtime/tools/records-gate.sh`, which runs the records gate, `ruff check` and
-`ruff format --check` unpiped, captures each exit status explicitly and exits 0 only when every step
-passed; `backend/tests/unit/test_records_gate_wrapper.py` pins that form and proves by mutation that a
+`ruff format --check` unpiped and, when the working tree changes anything under `backend/`, the repository's
+full backend gate (`ruff check .`, `bandit -r app -ll`, `python -m pytest`; chief defect 12), captures each exit
+status explicitly and exits 0 only when every step passed; `backend/tests/unit/test_records_gate_wrapper.py` pins that form and proves by mutation that a
 failing pytest step and a failing non-pytest step each fail the wrapper (rule 12: the gate behind
-this rule). `set -e` is not that check in the Claude Code tool shell: a probe `(set -e; false; echo survived)` prints there, so
+this rule). Run it with CI's interpreter version (`RECORDS_GATE_PYTHON`): under this container's default Python 3.13 eleven
+pre-existing tests fail that pass on CI's 3.11, and in the gate's output an environment-only failure looks like a real one
+(chief defect 12's first run). `set -e` is not that check in the Claude Code tool shell: a probe `(set -e; false; echo survived)` prints there, so
 errexit is suppressed (chief defect 11, 2026-10-10T05:00Z: a failed `ruff format --check` did not stop a chain from committing and
 pushing `577edeb`). Give every verification step of a chain that commits or pushes its own explicit exit, `cmd || exit 1`; the
 wrapper is a separate script, where `set -e` does work.
 
 **Evidence.** `tasks/code-red-20261004/runtime/control/DECISIONS-21.md` (disclosure 7);
 `tasks/code-red-20261004/runtime/control/APPOINTMENTS.json` (`chief_defects`, 2026-10-10T04:05Z);
-PR neilmac91/EarningsNerd#1172 heads `7d65c89` (gate red) and `351319f` (gate green); `577edeb` (unformatted) and `2dc7a3b` (formatted).
+PR neilmac91/EarningsNerd#1172 heads `7d65c89` (gate red) and `351319f` (gate green); `577edeb` (unformatted) and `2dc7a3b` (formatted); chief defect 12: heads `0fc248f`, `577edeb`, `2dc7a3b` and `10df20f`
+pushed without the full backend gate run locally (CI ran it green).
