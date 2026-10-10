@@ -50,10 +50,10 @@ const ROOT = path.resolve(__dirname, '../..')
  * Where the site chrome is mounted: the root layout (header, footer, verification banner and prompt,
  * consent bar, and the providers' app-wide widgets, on every route), the auth routes' shell, and the
  * page header pages render. The scanned files are discovered from these: every .tsx module they reach,
- * transitively, through `@/` or relative imports and re-exports, .ts barrels included, by the names the
- * chrome takes, so the components/ui barrel brings in the DS primitives the chrome renders (Modal with its
- * close ✕, Button, Skeleton, …) and not the others. A new banner, menu, widget or primitive the chrome
- * imports is scanned without anyone listing it.
+ * transitively, through `@/` or relative imports (lazy `import('…')` included) and re-exports, .ts barrels
+ * included, by the names the chrome takes, so the components/ui barrel brings in the DS primitives the
+ * chrome renders (Modal with its close ✕, Button, Skeleton, …) and not the others. A new banner, menu,
+ * widget or primitive the chrome imports is scanned without anyone listing it.
  */
 const CHROME_ROOTS = ['app/layout.tsx', 'features/auth/components/AuthShell.tsx', 'components/SecondaryHeader.tsx']
 
@@ -93,6 +93,14 @@ const THIRD_PARTY: Record<string, string> = {
   'sonner Toaster': 'its focusable toasts and their buttons take the ring through toastOptions.classNames (pinned below)',
 }
 
+/** The specifier of an `import('…')` call, the lazy form of an import (`dynamic(() => import('…'))`). */
+const lazyImport = (node: ts.Node): string | undefined =>
+  ts.isCallExpression(node) && node.expression.kind === ts.SyntaxKind.ImportKeyword && node.arguments[0] && ts.isStringLiteralLike(node.arguments[0])
+    ? node.arguments[0].text
+    : undefined
+
+const isLocal = (spec: string) => spec.startsWith('@/') || spec.startsWith('.')
+
 /** The third-party components `source` renders, as `module Tag`. */
 function thirdPartyTags(source: string, fileName: string): string[] {
   const sf = parse(source, fileName)
@@ -100,7 +108,7 @@ function thirdPartyTags(source: string, fileName: string): string[] {
   for (const stmt of sf.statements) {
     if (!ts.isImportDeclaration(stmt) || !ts.isStringLiteral(stmt.moduleSpecifier)) continue
     const pkg = stmt.moduleSpecifier.text
-    if (pkg.startsWith('@/') || pkg.startsWith('.')) continue
+    if (isLocal(pkg)) continue
     const clause = stmt.importClause
     if (clause?.name) modules.set(clause.name.text, pkg)
     if (clause?.namedBindings && ts.isNamedImports(clause.namedBindings)) {
@@ -109,6 +117,20 @@ function thirdPartyTags(source: string, fileName: string): string[] {
     // A namespace import (`import * as Menu from '…'`) renders as <Menu.Root>.
     if (clause?.namedBindings && ts.isNamespaceImport(clause.namedBindings)) modules.set(clause.namedBindings.name.text, pkg)
   }
+  // A component loaded lazily from a package renders under the name it is bound to
+  // (`const Devtools = dynamic(() => import('pkg'))`).
+  const lazyPackage = (node: ts.Node): string | undefined => {
+    const spec = lazyImport(node)
+    return spec !== undefined && !isLocal(spec) ? spec : ts.forEachChild(node, lazyPackage)
+  }
+  const bind = (node: ts.Node): void => {
+    if (ts.isVariableDeclaration(node) && ts.isIdentifier(node.name) && node.initializer) {
+      const pkg = lazyPackage(node.initializer)
+      if (pkg) modules.set(node.name.text, pkg)
+    }
+    ts.forEachChild(node, bind)
+  }
+  bind(sf)
   const tags = new Set<string>()
   const visit = (node: ts.Node): void => {
     if (ts.isJsxOpeningElement(node) || ts.isJsxSelfClosingElement(node)) {
@@ -124,10 +146,10 @@ function thirdPartyTags(source: string, fileName: string): string[] {
 
 /**
  * The chrome's .tsx modules, discovered from `roots` through the module graph: every import and
- * `export … from` that is not type-only, through `@/` or relative paths, including .ts modules such as
- * a barrel's index.ts. A module reached at all is read whole, but a named re-export (`export { Modal }
- * from './Modal'`) leads on only when the chrome takes that name; an `export *` passes the names on.
- * Only the .tsx modules are returned; a .ts module renders nothing itself.
+ * `export … from` that is not type-only, and every lazy `import('…')`, through `@/` or relative paths,
+ * including .ts modules such as a barrel's index.ts. A module reached at all is read whole, but a named
+ * re-export (`export { Modal } from './Modal'`) leads on only when the chrome takes that name; an
+ * `export *` passes the names on. Only the .tsx modules are returned; a .ts module renders nothing itself.
  */
 function chromeFiles(roots: string[] = CHROME_ROOTS, root: string = ROOT): string[] {
   const resolveImport = (from: string, spec: string): string | null => {
@@ -170,6 +192,13 @@ function chromeFiles(roots: string[] = CHROME_ROOTS, root: string = ROOT): strin
         }
       }
     }
+    // A module loaded lazily, wherever in the file its import() sits, is rendered all the same: taken whole.
+    const lazy = (node: ts.Node): void => {
+      const spec = lazyImport(node)
+      if (spec !== undefined) take(resolveImport(file, spec), '*')
+      ts.forEachChild(node, lazy)
+    }
+    lazy(sf)
   }
   return [...taken.keys()].filter((file) => file.endsWith('.tsx')).sort()
 }
@@ -195,6 +224,8 @@ const FORMS_RING_OFF = ['focus:ring-0', 'focus:ring-offset-0']
 const NOT_FORMS_STYLED = ['submit', 'button', 'reset', 'hidden', 'image', 'file', 'range', 'color']
 /** Elements in the Tab order by themselves whose own className styles their focus (Chromium 141). */
 const INTRINSIC = new Set(['a', 'area', 'button', 'embed', 'input', 'object', 'select', 'summary', 'textarea'])
+/** Elements the browser may focus where no class on them reaches (see unstylableStop). */
+const UNSTYLABLE = new Set(['audio', 'details', 'iframe', 'video'])
 
 interface Finding {
   line: number
@@ -237,11 +268,15 @@ function expressionTokens(expr: ts.Expression): string[] | 'factory' | null {
  * {...rest} /> }`. The pattern takes className out of `rest`, and everything else in it, a tabIndex
  * included, is written at the component's call sites, where the scan reads it with the className that
  * reaches this element. A function not named as a component is called (`renderRow({ tabIndex: 0 })`),
- * not rendered, so nothing reads what it is given: its spread stays unread.
+ * not rendered, so nothing reads what it is given: its spread stays unread. So does one onto an element
+ * whose focus a prop no call site is read for decides: media (`controls`), an <iframe> or a <details>
+ * (see unstylableStop), and an element the caller chooses (`{ as: Tag = 'div' }` rendered `as="a"`).
  */
 function ownRestProps(spread: ts.JsxSpreadAttribute, element: ts.JsxOpeningElement | ts.JsxSelfClosingElement, sf: ts.SourceFile): boolean {
   if (!ts.isIdentifier(spread.expression)) return false
   const restName = spread.expression.text
+  const tag = element.tagName.getText(sf)
+  if (UNSTYLABLE.has(tag)) return false
   for (let node: ts.Node | undefined = element.parent; node; node = node.parent) {
     if (!ts.isFunctionDeclaration(node) && !ts.isFunctionExpression(node) && !ts.isArrowFunction(node)) continue
     const pattern = node.parameters[0]?.name
@@ -249,6 +284,7 @@ function ownRestProps(spread: ts.JsxSpreadAttribute, element: ts.JsxOpeningEleme
     if (!pattern.elements.some((el) => el.dotDotDotToken && ts.isIdentifier(el.name) && el.name.text === restName)) continue
     // The nearest function that destructures the spread owns it.
     if (!/^[A-Z]/.test(functionName(node) ?? '')) return false
+    if (pattern.elements.some((el) => !el.dotDotDotToken && ts.isIdentifier(el.name) && el.name.text === tag)) return false
     const className = pattern.elements.find((el) => !el.dotDotDotToken && (el.propertyName ?? el.name).getText(sf) === 'className')
     const attr = element.attributes.properties.find((p): p is ts.JsxAttribute => ts.isJsxAttribute(p) && p.name.getText(sf) === 'className')
     return !!className && ts.isIdentifier(className.name) && !!attr?.initializer && mentions(attr.initializer, className.name.text)
@@ -367,7 +403,10 @@ function scan(root: ts.Node, sf: ts.SourceFile): { stops: number; findings: Find
       // leave a control enabled. `tabIndex={ref ? -1 : undefined}` on a focus target is neither.
       const tabIndex = attr('tabIndex')?.initializer
       const branches = tabIndex && ts.isJsxExpression(tabIndex) && tabIndex.expression ? tabIndexBranches(tabIndex.expression) : []
-      const removed = branches.length > 0 && branches.every((b) => b === 'negative')
+      // An attribute written before a props spread is the spread's to override (`<button disabled {...rest}>`
+      // rendered with `disabled={false}`), so only one no spread follows takes a control out of the order.
+      const settled = (a: ts.JsxAttribute | undefined) => !!a && !node.attributes.properties.some((p) => ts.isJsxSpreadAttribute(p) && p.pos > a.pos)
+      const removed = branches.length > 0 && branches.every((b) => b === 'negative') && settled(attr('tabIndex'))
       const indexed = branches.some((b) => b === 'stop')
       // An editable region is a Tab stop of its own, unless provably off (`false`, "false", "inherit");
       // a bare or dynamic contentEditable may be on.
@@ -381,6 +420,7 @@ function scan(root: ts.Node, sf: ts.SourceFile): { stops: number; findings: Find
       const disabled = attr('disabled')
       const staticallyDisabled =
         disabled !== undefined &&
+        settled(disabled) &&
         (!disabled.initializer ||
           (ts.isJsxExpression(disabled.initializer) && disabled.initializer.expression?.kind === ts.SyntaxKind.TrueKeyword))
       // A props spread (`<div {...getButtonProps()}>`, `<Menu {...menuProps} />`) can supply a tabIndex and a
@@ -451,6 +491,7 @@ describe('every Tab stop in the site chrome carries the brand focus ring (EN-05c
     const files: Record<string, string> = {
       'app/layout.tsx': "import { Banner, Menu } from '@/components/chrome'\nimport type { Props } from '@/components/types'\nimport { Modal as Dialog } from '@/components/ui'",
       'app/admin/layout.tsx': "import * as UI from '@/components/ui'",
+      'app/lazy/layout.tsx': "import dynamic from 'next/dynamic'\nconst Menu = dynamic(() => import('@/components/chrome/Menu').then((m) => m.Menu))",
       'components/chrome/index.ts': "export { Banner } from './Banner'\nexport * from './Menu'",
       'components/chrome/Banner.tsx': 'export const Banner = () => null',
       'components/chrome/Menu.tsx': 'export const Menu = () => null',
@@ -469,24 +510,30 @@ describe('every Tab stop in the site chrome carries the brand focus ring (EN-05c
       expect(chromeFiles(['app/layout.tsx'], dir)).toEqual(['app/layout.tsx', 'components/chrome/Banner.tsx', 'components/chrome/Menu.tsx', 'components/ui/Modal.tsx'])
       // A namespace import takes the whole barrel, its type-only re-export aside.
       expect(chromeFiles(['app/admin/layout.tsx'], dir)).toEqual(['app/admin/layout.tsx', 'components/ui/Input.tsx', 'components/ui/Modal.tsx'])
+      // A module loaded lazily is chrome too.
+      expect(chromeFiles(['app/lazy/layout.tsx'], dir)).toEqual(['app/lazy/layout.tsx', 'components/chrome/Menu.tsx'])
     } finally {
       rmSync(dir, { recursive: true, force: true })
     }
   })
 
   it('every third-party component the chrome renders is classified', () => {
-    // The reader itself, on a fixed source: default, named and namespace imports all count; a local
-    // module does not.
+    // The reader itself, on a fixed source: default, named and namespace imports all count, and so does
+    // a component loaded lazily from a package; a local module does not, lazy or not.
     const fixture = [
       "import Link from 'next/link'",
+      "import dynamic from 'next/dynamic'",
       "import { Toaster } from 'sonner'",
       "import * as Menu from '@radix-ui/react-menu'",
       "import { Local } from '@/components/Local'",
-      'export const A = () => (<><Link href="/" /><Toaster /><Menu.Root><Menu.Item /></Menu.Root><Local /></>)',
+      "const Devtools = dynamic(() => import('@tanstack/react-query-devtools').then((m) => m.ReactQueryDevtools))",
+      "const LazyLocal = dynamic(() => import('@/components/LazyLocal'))",
+      'export const A = () => (<><Link href="/" /><Toaster /><Menu.Root><Menu.Item /></Menu.Root><Local /><Devtools /><LazyLocal /></>)',
     ].join('\n')
     expect(thirdPartyTags(fixture, 'fixture.tsx').sort()).toEqual([
       '@radix-ui/react-menu Menu.Item',
       '@radix-ui/react-menu Menu.Root',
+      '@tanstack/react-query-devtools Devtools',
       'next/link Link',
       'sonner Toaster',
     ])
@@ -680,11 +727,15 @@ describe('every Tab stop in the site chrome carries the brand focus ring (EN-05c
       export function Body({ ...rest }: Props) { return <div className="p-4" {...rest} /> }
       export function Footer({ className, ...rest }: Props) { return <div className="p-4" {...rest} /> }
       function row({ className, ...rest }: Props) { return <div className={cx('p-1', className)} {...rest} /> }
+      export function Player({ className, ...rest }: Props) { return <video className={cx('w-full', className)} {...rest} /> }
+      export function Card({ as: Tag = 'div', className, ...rest }: Props) { return <Tag className={cx('border', className)} {...rest} /> }
+      export function Toggle({ className, ...rest }: Props) { return <button disabled className={cx('p-1', className)} {...rest} /> }
+      export function Scrim({ className, ...rest }: Props) { return <button {...rest} tabIndex={-1} className={cx('inset-0', className)} /> }
       export function Page() {
         return <><ModalHeader {...headerProps} /><Body tabIndex={0} className="p-2" /></>
       }`
     const { stops, findings } = missingRings(src)
-    expect(stops).toBe(9)
+    expect(stops).toBe(12)
     expect(findings.map((f) => `${f.line} <${f.tag}> ${f.problem}`)).toEqual([
       '8 <button> missing focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark',
       '9 <button> missing focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark',
@@ -693,9 +744,15 @@ describe('every Tab stop in the site chrome carries the brand focus ring (EN-05c
       '16 <div> a props spread the scan cannot read',
       '17 <div> a props spread the scan cannot read',
       '18 <div> a props spread the scan cannot read',
+      // Nor are the props that decide these elements' focus: a caller's `controls`, a caller's `as="a"`.
+      '19 <video> a props spread the scan cannot read',
+      '20 <Tag> a props spread the scan cannot read',
+      // A `disabled` the rest props can override takes nothing out of the order; a tabIndex written after
+      // them does (Scrim, line 22, is no stop).
+      '21 <button> missing focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark',
       // What a call site gives a component is read at the call site.
-      '20 <ModalHeader> a props spread the scan cannot read',
-      '20 <Body> missing focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark',
+      '24 <ModalHeader> a props spread the scan cannot read',
+      '24 <Body> missing focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark',
     ])
   })
 
