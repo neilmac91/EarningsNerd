@@ -95,36 +95,36 @@ disclosed change shows when it starts to (a new base on a moved class).
 
 RELOCATED: a moved symbol keeps its text, but not its module, and the import system gives every module names
 derived from where it lives. An OLD symbol with one home fails when it reads one of them, before the move and
-after it, and its new module changes the value: ``__name__`` (and a class body's ``__module__``, until the
-body deletes it) when the dotted name differs, ``logging.getLogger(__name__)`` among them, or when
-``__name__`` names a module that became or stopped being a package (``x.py`` and ``x/__init__.py``, an anchor
-for a relative ``import_module``); ``__package__`` when the package differs; ``__file__``, ``__spec__``,
-``__loader__``, ``__cached__`` or a package's ``__path__`` when the file differs, in the same directory too
-(fail closed: ``Path(__file__).parent`` stays, ``.stem`` does not); ``__doc__`` when the module docstring
-differs, on the same path too, since a façade rewrites it (a documented class, a nested one too, binds its own
-before its body runs, until its body deletes it; a nested one that deletes it anywhere binds none). So does a
-relative import in its code (a def's body, the class body for a class, a block's own body for a block) that
-resolves to another module, against ``__package__``: a module that pins it, with a string bound outright above
-the import and never undone (no class's: Python reads the module's own; None, a ``del`` or a reset through
-``global`` derive it from the path again), is settled as below; a call of the builtin ``globals()``, or of
-``eval`` or ``exec`` with no globals of their own (none, or ``None``), which now reads another module's
-namespace, or another file's (``x.py`` and ``x/__init__.py`` differ in ``__file__`` and ``__path__``; a
-builtin is a name the module binds nothing under for certain above the calling symbol, an import included,
-nor, for a call in a class body itself, its class: a binding in a block or a ``match`` case, by a bare
-annotation or ``:=``, or deleted before the call (by a ``del``, in a block or a ``match`` case too, by an
-``except ... as`` handler, by one in a loop from the loop's first line, or through ``global`` in a def or
-class at any time; and for a def's body, or a generator expression's past its first iterable, which run once
-import is done, by one anywhere below) and not made again, may leave the builtin, as does an import of another
-builtin under its name (``len as eval``); and a name bound to a builtin, by an import from ``builtins`` under
-any name or a binding (an assignment, a display unpacked pairwise, ``:=`` or a parameter's default) from a
-name that is the builtin where that binding stands, is that builtin where the binding is seen (the module's
-where the code reads the module's name, a class body's in that body, a method's defaults included, a def's in
-its own code), as is an attribute of the ``builtins`` module, and a call through ``:=`` calls what it binds;
-code whose text the move keeps calls what either module's bindings make of its names, so a builtin found on
-one side counts, an alias the other side imports included, and a changed symbol what both do); annotations
-postponed by ``from __future__ import annotations`` in one module and evaluated in the other (a def's
-parameters and return, and an annotated assignment at module level or in a class body, not one in a def's
-body, which Python never evaluates; reported once, on the class, for a class's members), and the code it
+after it, and its new module changes the value: ``__name__`` (and a class body's ``__module__``, until a
+``del`` directly in the body) when the dotted name differs, ``logging.getLogger(__name__)`` among them, or
+when ``__name__`` names a module that became or stopped being a package (``x.py`` and ``x/__init__.py``, an
+anchor for a relative ``import_module``); ``__package__`` when the package differs; ``__file__``,
+``__spec__``, ``__loader__``, ``__cached__`` or a package's ``__path__`` when the file differs, in the same
+directory too (fail closed: ``Path(__file__).parent`` stays, ``.stem`` does not); ``__doc__`` when the module
+docstring differs, on the same path too, since a façade rewrites it (a documented class, a nested one too,
+binds its own before its body runs, until its body deletes it; a nested one that deletes it anywhere binds
+none). So does a relative import in its code (a def's body, the class body for a class, a block's own body for
+a block) that resolves to another module, against ``__package__``: a module that pins it, with a string bound
+outright above the import and never undone (no class's: Python reads the module's own; None, a ``del`` or a
+reset through ``global`` derive it from the path again), is settled as below; a call of the builtin
+``globals()``, or of ``eval`` or ``exec`` with no globals of their own (none, or ``None``), which now reads
+another module's namespace, or another file's (``x.py`` and ``x/__init__.py`` differ in ``__file__`` and
+``__path__``; a builtin is a name the module binds nothing under for certain above the calling symbol, an
+import included, nor, for a call in a class body itself, its class: a binding in a block or a ``match`` case,
+by a bare annotation or ``:=``, or deleted before the call (by a ``del``, in a block or a ``match`` case too,
+by an ``except ... as`` handler, by one in a loop from the loop's first line, or through ``global`` in a def
+or class at any time; and for a def's body, or a generator expression's past its first iterable, which run
+once import is done, by one anywhere below) and not made again, may leave the builtin, as does an import of
+another builtin under its name (``len as eval``); and a name bound to a builtin, by an import from
+``builtins`` under any name or a binding (an assignment, a display unpacked pairwise, ``:=`` or a parameter's
+default) from a name that is the builtin where that binding stands, is that builtin where the binding is seen
+(the module's where the code reads the module's name, a class body's in that body, a method's defaults
+included, a def's in its own code), as is an attribute of the ``builtins`` module, and a call through ``:=``
+calls what it binds; code whose text the move keeps calls what either module's bindings make of its names, so
+a builtin found on one side counts, an alias the other side imports included, and a changed symbol what both
+do); annotations postponed by ``from __future__ import annotations`` in one module and evaluated in the other
+(a def's parameters and return, and an annotated assignment at module level or in a class body, not one in a
+def's body, which Python never evaluates; reported once, on the class, for a class's members), and the code it
 compiles with the builtin ``eval``, ``exec`` or ``compile``, which inherits the ``from __future__`` imports of
 its module that change how Python 3 compiles (``annotations`` and ``barry_as_FLUFL``; the others are no-ops),
 whatever globals it runs in, unless ``compile`` is told ``dont_inherit``, when those differ (``eval`` too:
@@ -954,12 +954,16 @@ def _collect(source: str) -> tuple[dict[str, str], list[str], set[str], dict[str
             if imports:
                 names[node.name].read_at.setdefault("__package__", []).append(node.lineno)
             # A class body binds ``__module__``, and a documented one its docstring as ``__doc__``, before it runs;
-            # each holds until the body deletes it, and below that the body reads the module's.
+            # below a deletion the body reads the module's. Fail closed both ways: ``__doc__`` ends at any deletion
+            # that may run, ``__module__`` (unbound at module level) only at a ``del`` directly in the body.
             deletions = _deletions(node.body)
+            ends = {"__doc__": deletions.get("__doc__", []), "__module__": [
+                each.lineno for each in node.body if isinstance(each, ast.Delete)
+                and "__module__" in {name for target in each.targets for name in _target_names(target)}]}
             given = {"__module__"} | ({"__doc__"} if _is_docstring(node.body[0]) else set())
 
             def implicit(at: ast.stmt) -> set[str]:
-                return {name for name in given if all(at.lineno < line for line in deletions.get(name, ()))}
+                return {name for name in given if all(at.lineno < line for line in ends[name])}
             local = _certain_bindings(node.body)
             # What the class body binds to a builtin: a name it assigns one from is the class's above, else the module's.
             in_body = _builtin_names(_scope_nodes(node.body), lambda name, at: not _bound_at(local, name, at.lineno)
