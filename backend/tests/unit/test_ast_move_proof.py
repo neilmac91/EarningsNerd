@@ -909,6 +909,36 @@ def test_a_builtin_is_reached_by_a_call_above_any_module_binding_of_its_name():
     assert _relocated(deleted_after, "app/y.py", "app/x.py") == {}
 
 
+def test_a_builtin_is_followed_through_any_name_or_import_that_binds_it():
+    """A builtin is the builtin whatever name holds it: imported from ``builtins`` under another name or its
+    own, at module level or in the def; assigned from it by name (where the module has not bound that name,
+    an import from ``builtins`` aside) or from the ``builtins`` module; and an attribute of that module,
+    however imported. The reason names the builtin. An attribute of another module, or a name assigned from
+    one that shadows the builtin, is not."""
+    old = ("import builtins\nfrom builtins import eval as run, globals as scope, compile as build\n\nrebound = eval\n"
+           "attribute: object = builtins.exec\n\n\ndef aliased(src):\n    return run(src)\n\n\n"
+           "def lookup(name):\n    return scope()[name]\n\n\ndef local(src):\n    from builtins import eval as go\n"
+           "    return go(src)\n\n\ndef own(src):\n    from builtins import eval\n    return eval(src)\n\n\n"
+           "def dotted(src):\n    return builtins.eval(src)\n\n\ndef renamed(src):\n    import builtins as b\n"
+           "    b.exec(src)\n\n\ndef assigned(src):\n    return rebound(src)\n\n\n"
+           "def annotated(src):\n    attribute(src)\n\n\ndef compiled(src):\n    return build(src, '<generated>', 'exec')\n\n\n"
+           "maker = compile\n\n\ndef made(src):\n    return maker(src, '<generated>', 'exec')\n")
+    namespace = "reads its module's namespace through {} (app.y, was app.x)"
+    assert _relocated(old, "app/y.py", "app/x.py") == {
+        **dict.fromkeys(("aliased", "local", "own", "dotted", "assigned"), namespace.format("eval()")),
+        **dict.fromkeys(("renamed", "annotated"), namespace.format("exec()")), "lookup": namespace.format("globals()")}
+    flufl = _relocated(old, "app/y.py", "app/x.py", "from __future__ import barry_as_FLUFL\n\n" + old)
+    compiled = "the code it compiles with compile() inherits from __future__ barry_as_FLUFL now, nothing before"
+    assert flufl["compiled"] == flufl["made"] == compiled
+    imported = "from builtins import eval\n\nrun = eval\n\n\ndef call(src):\n    return run(src)\n"
+    assert _relocated(imported, "app/y.py", "app/x.py") == {"call": namespace.format("eval()")}
+    others = ("import json\nimport re\nfrom re import compile\n\npattern = compile\nsearch = re.compile\n\n\n"
+              "def fake(src):\n    return src\n\n\neval = fake\nrun = eval\n\n\ndef parse(src):\n    return json.loads(src)\n\n\n"
+              "def match(src):\n    return pattern(src)\n\n\ndef find(src):\n    return search(src)\n\n\n"
+              "def call(src):\n    return run(src)\n\n\ndef method(engine, src):\n    return engine.eval(src)\n")
+    assert _relocated(others, "app/y.py", "app/x.py", "from __future__ import barry_as_FLUFL\n\n" + others) == {}
+
+
 def test_module_is_a_class_bodys_only():
     """A class body binds ``__module__`` before it runs, a nested one in a def too; anywhere else the name is
     unbound before the move and after it (NameError), a method's body included."""
@@ -921,10 +951,12 @@ def test_module_is_a_class_bodys_only():
 def test_only_annotations_python_evaluates_and_code_compiled_under_the_future_import_count():
     """Each form alone, moved into a module that postpones annotations: a parameter (``*args`` and ``**kwargs``
     too), a return, an async def's, a class field, a class built in a def and a nested def's parameter. Code
-    handed to the builtin ``exec`` or ``compile`` inherits every ``from __future__`` import of the caller (a
-    ``barry_as_FLUFL`` too) unless told ``dont_inherit``, with a reason of its own, both ways; an imported
-    ``compile`` is not the builtin. An
-    annotation in a def's body, ``self.calls: list[str] = []`` included, is never evaluated."""
+    handed to the builtin ``eval``, ``exec`` or ``compile`` inherits every ``from __future__`` import of the
+    caller (a ``barry_as_FLUFL`` too), whatever globals it runs in, unless ``compile`` is told
+    ``dont_inherit``, with a reason of its own that names the builtins, both ways; an imported ``compile`` is
+    not the builtin. An expression, all ``eval`` compiles, holds no annotation, so for ``eval`` alone only the
+    other imports count. An annotation in a def's body, ``self.calls: list[str] = []`` included, is never
+    evaluated."""
     old = ("def param(rows: list):\n    return rows\n\n\ndef ret(rows) -> list:\n    return rows\n\n\n"
            "class Field:\n    key: str\n\n\ndef local(rows):\n    count: Undefined = len(rows)\n    return count\n\n\n"
            "class Fake:\n    def __init__(self):\n        self.calls: list[str] = []\n\n\n"
@@ -934,19 +966,28 @@ def test_only_annotations_python_evaluates_and_code_compiled_under_the_future_im
            "def isolated(src):\n    return compile(src, '<generated>', 'exec', dont_inherit=True)\n\n\n"
            "def apart(src):\n    return compile(src, '<generated>', 'exec', 0, True)\n\n\n"
            "async def fetch(row: Row) -> Row:\n    return row\n\n\ndef merge(*rows: Row):\n    return rows\n\n\n"
-           "def extra(**rows: Row):\n    return rows\n")
+           "def extra(**rows: Row):\n    return rows\n\n\ndef value(src):\n    return eval(src, {})\n\n\n"
+           "def both(src):\n    exec(src, {})\n    return eval(src, {})\n")
     future = "from __future__ import annotations\n\n"
     postponed = "its annotations are postponed now (from __future__ import annotations), evaluated before"
-    compiled = "the code it compiles (exec, compile) inherits from __future__ annotations now, nothing before"
+    compiled = "the code it compiles with {} inherits from __future__ {} now, {} before"
     assert _relocated(old, "app/x/impl.py", "app/x.py", future + old) == {
         **dict.fromkeys(("param", "ret", "Field", "factory", "nested", "fetch", "merge", "extra"), postponed),
-        **dict.fromkeys(("make", "build"), compiled)}
+        "make": compiled.format("exec()", "annotations", "nothing"),
+        "build": compiled.format("compile()", "annotations", "nothing"),
+        "both": compiled.format("eval(), exec()", "annotations", "nothing")}
     back = _relocated(future + old, "app/x/impl.py", "app/x.py", old)
     assert back["param"] == "its annotations are evaluated now, postponed before"
-    assert back["make"] == "the code it compiles (exec, compile) inherits from __future__ nothing now, annotations before"
+    assert back["make"] == compiled.format("exec()", "nothing", "annotations")
     flufl = _relocated(old, "app/x/impl.py", "app/x.py", "from __future__ import barry_as_FLUFL\n\n" + old)
-    assert flufl == dict.fromkeys(
-        ("make", "build"), "the code it compiles (exec, compile) inherits from __future__ barry_as_FLUFL now, nothing before")
+    assert flufl == {"make": compiled.format("exec()", "barry_as_FLUFL", "nothing"),
+                     "build": compiled.format("compile()", "barry_as_FLUFL", "nothing"),
+                     "value": compiled.format("eval()", "barry_as_FLUFL", "nothing"),
+                     "both": compiled.format("eval(), exec()", "barry_as_FLUFL", "nothing")}
+    either = _relocated(future + old, "app/x/impl.py", "app/x.py",
+                        "from __future__ import annotations, barry_as_FLUFL\n\n" + old)
+    assert either["value"] == compiled.format("eval()", "barry_as_FLUFL", "nothing")
+    assert either["make"] == compiled.format("exec()", "annotations, barry_as_FLUFL", "annotations")
     imported = 'from re import compile\n\n\ndef pattern():\n    return compile(r"\\d+")\n'
     assert _relocated(imported, "app/x/impl.py", "app/x.py", future + imported) == {}
 
