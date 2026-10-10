@@ -111,10 +111,26 @@ A control that is busy, or unavailable as a result of its own activation, never 
 `<body>`. Busy is `<Button loading>`. Unavailable is `aria-disabled` plus an early return in the
 handler, styled with `primaryUnavailableClass` (primary Button), `secondaryUnavailableClass` (secondary
 Button; it fades the label and hairline, not the element, so the focus ring keeps its strength) or
-`fieldUnavailableClass` (field).
+`fieldUnavailableClass` (field; it fades the text ink and leaves the hairline to the focus and invalid states).
 A form that locks its text fields while it submits uses `readOnly`, never native `disabled` (`ContactForm` does;
 the login and register forms leave their fields editable). Gate: `tests/unit/busyControlsStayFocusable.spec.ts`;
 rules in `lessons/frontend-busy-controls-stay-focusable.md`.
+
+An aria-disabled control never takes an element `opacity`. It is still focusable, and the opacity fades its
+focus indicator with everything else it paints: under `opacity-50` the brand ring on panel fell from 1.97:1 to
+1.37:1 in light and from 2.87:1 to 1.68:1 in dark, and the browser's own outline on an unringed control from
+5.73:1 to 2.26:1 and from 2.45:1 to 1.51:1 (Chromium 141, computed and painted). A hand-rolled busy or
+unavailable look fades what the control draws in, at the fraction the opacity had, on the tokens it already
+uses and as a light/dark pair: the label's ink (`aria-disabled:text-error-light/50
+dark:aria-disabled:text-error-dark/50`; a glyph or spinner in `currentColor` follows it), the hairline
+(`aria-disabled:border-border-light/50`; dark's `white/10` halves to `white/5`, because `/50` on an rgba token
+replaces its alpha), a switch track's fill. Content with an ink of its own fades through `group`, in ink
+(`group-aria-disabled:text-brand-strong/50`) or, for an image or a row of several inks, by its own opacity
+(`group-aria-disabled:opacity-50` on the child): a child's opacity never reaches the control's ring. A natively
+disabled state keeps `disabled:opacity-*`, since it cannot hold focus. Hover feedback is left as the control
+has it, as on `<Button loading>`. Gate: `tests/unit/ariaDisabledKeepsItsRing.spec.ts` (no `opacity-*` class
+behind the element's own `aria-disabled:` variant anywhere in the app's source, and no other `opacity-*` class
+on an element that carries `aria-disabled`, except behind `disabled:`).
 
 A Retry of a failed query is
 `<RetryButton failures={[useRetainedFailure(query, queryKey)]} focusTarget={headingRef}>`, never a hand-rolled

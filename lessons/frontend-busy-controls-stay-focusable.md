@@ -77,7 +77,19 @@ takes `primaryUnavailableClass`, a secondary one `secondaryUnavailableClass`, an
 `fieldUnavailableClass` (all in `components/ui`), for the disabled look without native `disabled`.
 Never `loading`'s look: that stays the resting fill. `secondaryUnavailableClass` fades the label and
 the hairline, not the element: the variant's native `opacity-50` would fade the focus ring the
-focusable state still shows (EmailVerificationModal's Resend, measured in Chromium).
+focusable state still shows (EmailVerificationModal's Resend, measured in Chromium). The same holds for
+every hand-rolled look, busy or unavailable: no element `opacity` on an aria-disabled control. Fade
+what it draws in (its label's ink, its hairline, a switch track's fill) on the tokens it already uses,
+in both themes, or a child (`group-aria-disabled:opacity-50`); only a natively disabled state, which
+cannot hold focus, keeps `disabled:opacity-*`. The eleven sites that faded the element (ten on
+`aria-disabled:opacity-*`, AlertBell on a class its busy flag picked) were converted on 2026-10-10: the
+brand ring on panel went from 1.37:1 back to 1.97:1 in light and from 1.68:1 to 2.87:1 in dark, and
+the browser's own outline on the five controls with no ring recipe faded the same way. Gated (rule 12):
+`tests/unit/ariaDisabledKeepsItsRing.spec.ts` reads the AST of every .ts and .tsx under app/,
+components/, features/, hooks/ and lib/ and fails on an `opacity-*` class behind the element's own
+`aria-disabled:` variant, wherever the class list is written, and on any other `opacity-*` class on an
+element that carries `aria-disabled` (through same-file consts and functions), except behind
+`disabled:`. No allowlist.
 
 (f) Keeping focus makes a second activation reachable, so the guard must cover the whole
 operation. A mutation whose success refetches the data the control depends on returns that

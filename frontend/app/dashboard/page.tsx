@@ -337,7 +337,9 @@ export default function DashboardPage() {
                           )}
                         </div>
                         {/* aria-disabled + aria-busy + an early return while a delete is in flight, not
-                            native `disabled`: Chromium blurs a focused button that turns disabled. */}
+                            native `disabled`: Chromium blurs a focused button that turns disabled. Busy fades
+                            the glyph's ink, not the element: an element opacity would fade the focus ring too
+                            (DESIGN_SYSTEM §4). */}
                         <button
                           onClick={() => {
                             if (deleteSummaryMutation.isPending) return
@@ -345,7 +347,7 @@ export default function DashboardPage() {
                           }}
                           aria-disabled={deleteSummaryMutation.isPending || undefined}
                           aria-busy={pendingDeleteId === item.id || undefined}
-                          className="text-error-light hover:bg-error-light/10 inline-flex min-h-11 min-w-11 items-center justify-center p-2.5 rounded-lg focus-visible:outline-none focus-visible:shadow-ring-error aria-disabled:opacity-50 dark:text-error-dark dark:hover:bg-error-dark/15"
+                          className="text-error-light hover:bg-error-light/10 inline-flex min-h-11 min-w-11 items-center justify-center p-2.5 rounded-lg focus-visible:outline-none focus-visible:shadow-ring-error aria-disabled:text-error-light/50 dark:text-error-dark dark:hover:bg-error-dark/15 dark:aria-disabled:text-error-dark/50"
                           title="Delete"
                           aria-label={`Delete summary for ${formatCompanyName(item.company.name)}`}
                         >

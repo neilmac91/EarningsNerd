@@ -55,25 +55,29 @@ function Toggle({
       </div>
       {/* While a save is in flight the switch is aria-disabled, never natively disabled: the switch
           the user just flipped holds focus, and a focused button that turns disabled is blurred to
-          <body> in Chromium. */}
+          <body> in Chromium. Busy fades the track's fill and the knob, not the element, so the focus
+          indicator keeps its strength. A locked switch is natively disabled already and is not marked
+          busy as well, or it would fade twice. */}
       <button
         type="button"
         role="switch"
         aria-checked={checked}
         aria-label={label}
         disabled={disabled}
-        aria-disabled={busy || undefined}
+        aria-disabled={(busy && !disabled) || undefined}
         aria-busy={busy || undefined}
         onClick={() => {
           if (busy) return
           onChange(!checked)
         }}
-        className={`relative mt-1 inline-flex h-6 w-11 flex-shrink-0 items-center rounded-full transition-colors disabled:opacity-50 disabled:cursor-not-allowed aria-disabled:opacity-50 aria-disabled:cursor-not-allowed ${
-          checked ? 'bg-brand-strong dark:bg-brand-dark' : 'bg-border-light dark:bg-border-dark'
+        className={`group relative mt-1 inline-flex h-6 w-11 flex-shrink-0 items-center rounded-full transition-colors disabled:opacity-50 disabled:cursor-not-allowed aria-disabled:cursor-not-allowed ${
+          checked
+            ? 'bg-brand-strong aria-disabled:bg-brand-strong/50 dark:bg-brand-dark dark:aria-disabled:bg-brand-dark/50'
+            : 'bg-border-light aria-disabled:bg-border-light/50 dark:bg-border-dark dark:aria-disabled:bg-border-dark/50'
         }`}
       >
         <span
-          className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+          className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform group-aria-disabled:opacity-50 ${
             checked ? 'translate-x-6' : 'translate-x-1'
           }`}
         />
