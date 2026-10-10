@@ -25,8 +25,9 @@ every hit). Two AST checks over every ``@<router>.get`` handler in ``app/routers
    class or module-level instance it names: ``x_service = XService()``, ``Svc().run(db)``),
    transitively, so moving a write into ``app/services/`` keeps it in view. A session there is also
    any ``Session``-annotated parameter (nested defs included) and any name bound from
-   ``SessionLocal()``/``next(get_db())``; a write handed uncalled (``run_in_threadpool(db.commit)``)
-   counts. ``api_route(methods=["GET"])`` handlers are GET handlers too. Limitation: the walk
+   ``SessionLocal()``/``next(get_db())``; a write or spawn counts wherever it is named, called or
+   not (``run_in_threadpool(db.commit)``, ``commit = db.commit``).
+   ``api_route(methods=["GET"])`` handlers are GET handlers too. Limitation: the walk
    resolves names, not types, so a method on an object it cannot name (a parameter, an attribute
    of ``self``, a function's return value) is not followed, nor is a function called through an
    unaliased ``import app.x``, and a Query is traced only inside the function that builds it (not
@@ -301,7 +302,9 @@ def _query_names_in(fn: ast.AST, sessions: set[str]) -> set[str]:
 
 def _side_effect_markers(fn: ast.AST) -> list[tuple[str, str]]:
     """(kind, ``label@line``) for every side-effect construct in ``fn``. The kind (``commit``,
-    ``query.delete``, ``add_task``, ``BackgroundTasks`` …) is what a write-site pin counts."""
+    ``query.delete``, ``add_task``, ``BackgroundTasks`` …) is what a write-site pin counts. A write
+    or spawn counts wherever it is named, called or not: ``db.commit()``,
+    ``run_in_threadpool(db.commit)`` and ``commit = db.commit`` are one marker each."""
     markers: list[tuple[str, str]] = []
     sessions = _session_names_in(fn)
     queries = _query_names_in(fn, sessions)
@@ -309,24 +312,20 @@ def _side_effect_markers(fn: ast.AST) -> list[tuple[str, str]]:
     for arg in [*args.posonlyargs, *args.args, *args.kwonlyargs]:
         if arg.annotation is not None and "BackgroundTasks" in ast.unparse(arg.annotation):
             markers.append(("BackgroundTasks", f"param {arg.arg}: BackgroundTasks"))
+    called = {id(node.func) for node in ast.walk(fn) if isinstance(node, ast.Call)}
     for node in ast.walk(fn):
-        if not isinstance(node, ast.Call):
+        if not (isinstance(node, ast.Attribute) and isinstance(node.ctx, ast.Load)):
             continue
-        for arg in [*node.args, *(kw.value for kw in node.keywords)]:  # run_in_threadpool(db.commit)
-            if isinstance(arg, ast.Attribute) and isinstance(arg.value, ast.Name) \
-                    and arg.value.id in sessions and arg.attr in _SESSION_WRITES:
-                markers.append((arg.attr, f"{arg.value.id}.{arg.attr} (passed)@{node.lineno}"))
-        func = node.func
-        if not isinstance(func, ast.Attribute):
-            continue
-        if isinstance(func.value, ast.Name) and func.value.id in sessions and func.attr in _SESSION_WRITES:
-            markers.append((func.attr, f"{func.value.id}.{func.attr}()@{node.lineno}"))
-        elif func.attr in _QUERY_WRITES and (root := _query_root(func.value, sessions, queries)):
-            markers.append((f"query.{func.attr}", f"{root}.{func.attr}()@{node.lineno}"))
-        elif func.attr == "add_task":
-            markers.append(("add_task", f".add_task()@{node.lineno}"))
-        elif func.attr == "create_task" and isinstance(func.value, ast.Name) and func.value.id == "asyncio":
-            markers.append(("create_task", f"asyncio.create_task()@{node.lineno}"))
+        how = "()" if id(node) in called else " (uncalled)"
+        receiver = node.value
+        if isinstance(receiver, ast.Name) and receiver.id in sessions and node.attr in _SESSION_WRITES:
+            markers.append((node.attr, f"{receiver.id}.{node.attr}{how}@{node.lineno}"))
+        elif node.attr in _QUERY_WRITES and (root := _query_root(receiver, sessions, queries)):
+            markers.append((f"query.{node.attr}", f"{root}.{node.attr}{how}@{node.lineno}"))
+        elif node.attr == "add_task":
+            markers.append(("add_task", f".add_task{how}@{node.lineno}"))
+        elif node.attr == "create_task" and isinstance(receiver, ast.Name) and receiver.id == "asyncio":
+            markers.append(("create_task", f"asyncio.create_task{how}@{node.lineno}"))
     return markers
 
 
@@ -760,9 +759,12 @@ def test_walk_follows_every_documented_form(tmp_path, monkeypatch):
 
 
 _WRITE_KINDS_ROUTER = """\
+import asyncio
+
 from fastapi import APIRouter
 from sqlalchemy import delete, select, update
 from sqlalchemy.orm import Query, Session
+from starlette.concurrency import run_in_threadpool
 
 from app.database import SessionLocal
 
@@ -833,6 +835,7 @@ def reads_rows_and_merges_dicts(db):
     db.query(T).filter(T.x < 1).all()
     row = db.query(T).filter(T.x < 1).first()
     row.update({})
+    row.add_task = None
     {}.update({})
 
 
@@ -858,15 +861,32 @@ def annotated_session_commits():
 def walrus_session_commits():
     if s := SessionLocal():
         s.commit()
+
+
+@router.get("/q")
+async def passes_query_write_uncalled(db):
+    stale = db.query(T).filter(T.x < 1)
+    await run_in_threadpool(stale.delete)
+
+
+@router.get("/r")
+def aliases_session_write(db):
+    commit = db.commit
+    commit()
+
+
+@router.get("/s")
+def passes_spawn_uncalled(loop, job):
+    loop.call_soon_threadsafe(asyncio.create_task, job())
 """
 
 
 def test_every_session_write_kind_is_flagged(tmp_path, monkeypatch):
     """Self-check for the session writes the gate used to miss: ``execute``, ``begin``, ``bulk_*``
     and ``.update()``/``.delete()`` on a ``db.query(...)`` chain or a local bound to one. A local
-    is bound by ``=``, an annotated ``=`` or ``:=``, for a Query and a session alike. Every
-    ``execute`` counts unless its function is pinned read-only with exactly its count; with any of
-    these dropped, this fails."""
+    is bound by ``=``, an annotated ``=`` or ``:=``, for a Query and a session alike, and a write or
+    spawn counts where it is named, called or not. Every ``execute`` counts unless its function is
+    pinned read-only with exactly its count; with any of these dropped, this fails."""
     _use_tree(tmp_path, monkeypatch, {
         "app/__init__.py": "", "app/routers/__init__.py": "", "app/routers/w.py": _WRITE_KINDS_ROUTER,
     })
@@ -879,7 +899,8 @@ def test_every_session_write_kind_is_flagged(tmp_path, monkeypatch):
     expected = {
         "executes", "begins", "bulk_saves", "bulk_inserts", "bulk_updates", "query_deletes",
         "query_updates", "assigned_query_updates", "annotated_query_deletes", "walrus_query_deletes",
-        "annotated_session_commits", "walrus_session_commits", "unpinned_read", "pinned_read_and_a_write",
+        "annotated_session_commits", "walrus_session_commits", "passes_query_write_uncalled",
+        "aliases_session_write", "passes_spawn_uncalled", "unpinned_read", "pinned_read_and_a_write",
     }
     assert flagged == expected, f"missed: {sorted(expected - flagged)}; unexpected: {sorted(flagged - expected)}"
 
