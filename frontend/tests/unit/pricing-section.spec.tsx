@@ -33,20 +33,18 @@ describe('PricingSection', () => {
     flags.ENABLE_PRO_TRIAL = false
   })
 
-  it('defaults to monthly and shows the full annual charge and saving when selected', () => {
+  it('opens on annual at the $20 per month headline with its full charge, and shows $25 on monthly', () => {
     renderSection()
 
-    expect(screen.getByText('$19')).toBeInTheDocument()
+    expect(screen.getByText('$20')).toBeInTheDocument()
     expect(screen.getByText('per month')).toBeInTheDocument()
-    expect(screen.getByText('Billed monthly. Or $190 a year, with two months free.')).toBeInTheDocument()
+    expect(screen.getByText('Billed annually at $240, saving $60 a year.')).toBeInTheDocument()
+    expect(screen.getByText('· save 20%')).toBeInTheDocument()
 
-    fireEvent.click(screen.getByRole('radio', { name: /annual/i }))
-    expect(screen.getByText('$190')).toBeInTheDocument()
-    expect(screen.getByText('per year')).toBeInTheDocument()
-    expect(screen.queryByText('$19')).not.toBeInTheDocument()
-    expect(
-      screen.getByText('Billed annually. Two months free, saving $38 a year (17%).'),
-    ).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('radio', { name: /monthly/i }))
+    expect(screen.getByText('$25')).toBeInTheDocument()
+    expect(screen.queryByText('$20')).not.toBeInTheDocument()
+    expect(screen.getByText('Billed monthly. Or $20 a month, billed annually at $240.')).toBeInTheDocument()
   })
 
   it('is a two-option radio group whose checked state and roving focus follow clicks and arrow keys', () => {
@@ -56,23 +54,23 @@ describe('PricingSection', () => {
     expect(radios).toHaveLength(2)
     const [monthly, annual] = radios
 
-    expect(monthly).toHaveAttribute('aria-checked', 'true')
-    expect(annual).toHaveAttribute('aria-checked', 'false')
-    expect(monthly).toHaveAttribute('tabindex', '0')
-    expect(annual).toHaveAttribute('tabindex', '-1')
-
-    fireEvent.click(annual)
-    expect(monthly).toHaveAttribute('aria-checked', 'false')
     expect(annual).toHaveAttribute('aria-checked', 'true')
-    expect(annual).toHaveFocus()
+    expect(monthly).toHaveAttribute('aria-checked', 'false')
+    expect(annual).toHaveAttribute('tabindex', '0')
+    expect(monthly).toHaveAttribute('tabindex', '-1')
 
-    fireEvent.keyDown(group, { key: 'ArrowLeft' })
+    fireEvent.click(monthly)
+    expect(annual).toHaveAttribute('aria-checked', 'false')
     expect(monthly).toHaveAttribute('aria-checked', 'true')
     expect(monthly).toHaveFocus()
 
-    fireEvent.keyDown(group, { key: 'End' })
+    fireEvent.keyDown(group, { key: 'ArrowRight' })
     expect(annual).toHaveAttribute('aria-checked', 'true')
     expect(annual).toHaveFocus()
+
+    fireEvent.keyDown(group, { key: 'Home' })
+    expect(monthly).toHaveAttribute('aria-checked', 'true')
+    expect(monthly).toHaveFocus()
   })
 
   it('shows the beta line only when showBeta is set', () => {
@@ -97,6 +95,8 @@ describe('PricingSection', () => {
 
   it('preserves the selected cycle and advertises a trial only on monthly when enabled', () => {
     const { unmount } = renderSection()
+    expect(screen.getByRole('link', { name: 'Upgrade to Pro' })).toHaveAttribute('href', '/pricing?billing=yearly')
+    fireEvent.click(screen.getByRole('radio', { name: /monthly/i }))
     expect(screen.getByRole('link', { name: 'Upgrade to Pro' })).toHaveAttribute('href', '/pricing?billing=monthly')
     expect(screen.queryByRole('link', { name: 'Start 7-day free trial' })).not.toBeInTheDocument()
     expect(screen.queryByText(TRIAL_LINE)).not.toBeInTheDocument()
@@ -104,19 +104,22 @@ describe('PricingSection', () => {
 
     flags.ENABLE_PRO_TRIAL = true
     renderSection()
-    expect(screen.getByRole('link', { name: 'Start 7-day free trial' })).toHaveAttribute('href', '/pricing?billing=monthly')
-    expect(screen.queryByRole('link', { name: 'Upgrade to Pro' })).not.toBeInTheDocument()
-    expect(screen.getByText(TRIAL_LINE)).toBeInTheDocument()
-
-    fireEvent.click(screen.getByRole('radio', { name: /annual/i }))
+    // Annual, the default, carries no trial.
     expect(screen.getByRole('link', { name: 'Upgrade to Pro' })).toHaveAttribute('href', '/pricing?billing=yearly')
     expect(screen.queryByRole('link', { name: 'Start 7-day free trial' })).not.toBeInTheDocument()
     expect(screen.queryByText(TRIAL_LINE)).not.toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('radio', { name: /monthly/i }))
+    expect(screen.getByRole('link', { name: 'Start 7-day free trial' })).toHaveAttribute('href', '/pricing?billing=monthly')
+    expect(screen.queryByRole('link', { name: 'Upgrade to Pro' })).not.toBeInTheDocument()
+    expect(screen.getByText(TRIAL_LINE)).toBeInTheDocument()
   })
 
   it('does not pair the free beta offer with a card-required trial promise', () => {
     flags.ENABLE_PRO_TRIAL = true
     renderSection({ showBeta: true })
+    // Monthly is the cycle that would otherwise carry the trial.
+    fireEvent.click(screen.getByRole('radio', { name: /monthly/i }))
     expect(screen.getByText('Free for beta members')).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Upgrade to Pro' })).toHaveAttribute('href', '/pricing')
     expect(screen.queryByRole('link', { name: 'Start 7-day free trial' })).not.toBeInTheDocument()

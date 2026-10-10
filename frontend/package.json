@@ -21,7 +21,7 @@
     "dev:clean": "npm run clean && npm run dev",
     "deploy": "npx vercel --prod",
     "brand:assets": "node scripts/generate-brand-assets.mjs",
-    "check:pricing": "node --experimental-strip-types scripts/check-pricing-agreement.mjs"
+    "check:pricing": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/check-pricing-agreement.mjs"
   },
   "dependencies": {
     "@phosphor-icons/react": "^2.1.10",

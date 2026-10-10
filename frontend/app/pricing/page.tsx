@@ -202,12 +202,11 @@ function PricingContent({ billingCycle, setBillingCycle, billingResolved }: {
     !isTrialing &&
     (isGuest || Boolean(subscription && !subscription.status))
 
-  // Each cycle shows what it charges: $19 per month, or $190 per year with the annual saving.
-  const proPriceDisplay = billingCycle === 'monthly' ? PRO_PRICING.monthlyDisplay : PRO_PRICING.yearlyDisplay
-  const proPeriod = billingCycle === 'monthly' ? 'month' : 'year'
+  // The headline is the per-month price; annual states its full charge and saving beneath it.
+  const proPriceDisplay = billingCycle === 'monthly' ? PRO_PRICING.monthlyDisplay : PRO_PRICING.yearlyPerMonthDisplay
   const billingNote = billingCycle === 'monthly'
     ? 'Billed monthly'
-    : `Billed annually. Two months free, saving ${PRO_PRICING.annualSavingsDisplay} a year (${PRO_PRICING.annualSavingsPercent}%).`
+    : `Billed annually at ${PRO_PRICING.yearlyDisplay}, saving ${PRO_PRICING.annualSavingsDisplay} a year.`
 
   // Shared label while account data is absent; neither card may claim a current plan or a
   // purchase decision until the account resolves (or the visitor is a confirmed guest).
@@ -223,7 +222,7 @@ function PricingContent({ billingCycle, setBillingCycle, billingResolved }: {
     {
       name: 'Free',
       price: '$0',
-      period: null,
+      period: 'forever',
       description: 'For trying out EarningsNerd',
       features: [
         `${FREE_SUMMARY_LIMIT} summaries per month`,
@@ -248,7 +247,7 @@ function PricingContent({ billingCycle, setBillingCycle, billingResolved }: {
     {
       name: 'Pro',
       price: showBetaOffer ? '$0' : proPriceDisplay,
-      period: proPeriod,
+      period: 'per month',
       betaOriginal: showBetaOffer ? proPriceDisplay : null,
       billingNote: showBetaOffer ? null : billingNote,
       description: 'For deeper filing research',
@@ -365,7 +364,7 @@ function PricingContent({ billingCycle, setBillingCycle, billingResolved }: {
                 }}
               />
               <span className={`text-sm font-medium ${billingCycle === 'yearly' ? 'text-text-primary-light dark:text-text-primary-dark' : 'text-text-secondary-light dark:text-text-secondary-dark'}`}>
-                Yearly <span className="text-brand-strong dark:text-brand-strong-dark">(2 months free)</span>
+                Yearly <span className="text-brand-strong dark:text-brand-strong-dark">(save {PRO_PRICING.annualSavingsPercent}%)</span>
               </span>
             </div>
           )}
@@ -443,10 +442,10 @@ function PricingContent({ billingCycle, setBillingCycle, billingResolved }: {
                 <div className="flex items-baseline justify-center gap-2">
                   <span className="tabular text-5xl font-semibold text-text-primary-light dark:text-text-primary-dark">{plan.price}</span>
                   {plan.betaOriginal ? (
-                    <span className="tabular text-2xl font-medium text-text-secondary-light line-through dark:text-text-secondary-dark">{plan.betaOriginal}/{plan.period}</span>
+                    <span className="tabular text-2xl font-medium text-text-secondary-light line-through dark:text-text-secondary-dark">{plan.betaOriginal}/mo</span>
                   ) : (
-                    plan.period && (
-                      <span className="text-text-secondary-light dark:text-text-secondary-dark">/{plan.period}</span>
+                    plan.period !== 'forever' && (
+                      <span className="text-text-secondary-light dark:text-text-secondary-dark">/month</span>
                     )
                   )}
                 </div>

@@ -86,19 +86,19 @@ export default function PricingSection({
   accessMode: AccessMode
   showBeta: boolean
 }) {
-  // Monthly first, as designed (the pricing page defaults to annual; the landing leads with the
-  // headline number and lets the toggle reveal the annual saving).
-  const [billing, setBilling] = useState<Billing>('monthly')
+  // Annual first, like the pricing page: the landing leads with the headline per-month price and
+  // lets the toggle reveal the monthly plan (and, when enabled, its trial).
+  const [billing, setBilling] = useState<Billing>('annual')
   const radioRefs = useRef<Record<Billing, HTMLButtonElement | null>>({ monthly: null, annual: null })
 
   const access = ACCESS_COPY[accessMode]
 
   const monthly = billing === 'monthly'
   const showTrial = ENABLE_PRO_TRIAL && monthly && !showBeta
-  const proPrice = monthly ? PRO_PRICING.monthlyDisplay : PRO_PRICING.yearlyDisplay
+  const proPrice = monthly ? PRO_PRICING.monthlyDisplay : PRO_PRICING.yearlyPerMonthDisplay
   const billingNote = monthly
-    ? `Billed monthly. Or ${PRO_PRICING.yearlyDisplay} a year, with two months free.`
-    : `Billed annually. Two months free, saving ${PRO_PRICING.annualSavingsDisplay} a year (${PRO_PRICING.annualSavingsPercent}%).`
+    ? `Billed monthly. Or ${PRO_PRICING.yearlyPerMonthDisplay} a month, billed annually at ${PRO_PRICING.yearlyDisplay}.`
+    : `Billed annually at ${PRO_PRICING.yearlyDisplay}, saving ${PRO_PRICING.annualSavingsDisplay} a year.`
 
   // The pricing page's Switch speaks 'monthly' | 'yearly'; keep the funnel event's vocabulary.
   const cycleName = (option: Billing) => (option === 'monthly' ? 'monthly' : 'yearly')
@@ -182,7 +182,7 @@ export default function PricingSection({
                 className={radioClass('annual')}
               >
                 Annual{' '}
-                <span className="font-medium text-brand-strong dark:text-brand-strong-dark">· 2 months free</span>
+                <span className="font-medium text-brand-strong dark:text-brand-strong-dark">· save {PRO_PRICING.annualSavingsPercent}%</span>
               </button>
             </div>
           </div>
@@ -217,7 +217,7 @@ export default function PricingSection({
               </div>
               <div className="mt-3 flex items-baseline gap-1.5">
                 <span className={PRICE_CLASS}>{proPrice}</span>
-                <span className={`text-sm ${MUTED_CLASS}`}>{monthly ? 'per month' : 'per year'}</span>
+                <span className={`text-sm ${MUTED_CLASS}`}>per month</span>
               </div>
               <p className={`mt-1.5 text-sm ${MUTED_CLASS}`}>{billingNote}</p>
               {showBeta && (
