@@ -260,7 +260,7 @@ Spend from CI eval runs bills to the same DeepSeek key until a CI-only key exist
 
 **L1 Cache Size:**
 ```python
-# In xbrl_service.py
+# In app/services/edgar/xbrl_cache.py
 _cache_max_size = 1000  # Increase for more memory, fewer evictions
 ```
 
