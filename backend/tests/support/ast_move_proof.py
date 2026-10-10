@@ -23,7 +23,8 @@ condition or an exception type, or moving a statement into or out of the block, 
 The one exemption is an ``if TYPE_CHECKING:`` that holds only imports and has no ``else``: its body never
 runs. A name bound more than once in one file (a ``try``/``except`` fallback, an ``if``/``else`` pair, a
 property and its setter) keeps every definition in source order, so a change to any one of them is
-CHANGED. Import statements and module docstrings are not symbols: a move rewrites them by design.
+CHANGED. Import statements and module docstrings are not symbols: a move rewrites them by design. A block
+around imports still is one, so a split that copies an import fallback into two files discloses a DUPLICATE.
 
 Verdicts: MISSING (defined before, nowhere after), CHANGED (the normalised text differs), DUPLICATE
 (defined in more than one new file, e.g. a ``logger`` per sub-module, whose logger NAME changes with the
@@ -31,23 +32,26 @@ module), SIDE EFFECT (a NEW symbol that runs code at import, which a move never 
 statement and the expression level: only a docstring or literal, an assignment of a literal, a name, or a
 display of those to plain names, and a def or class whose decorators, defaults and annotations are inert,
 is inert. Defaults must be such values; annotations must be bare names or literals unless the module has
-``from __future__ import annotations``; class bases must be plain names; a def's or lambda's body runs
+``from __future__ import annotations``; class bases must be plain names; in a class body a value must not
+be a bare name either, because creating the class calls its ``__set_name__``; a def's or lambda's body runs
 later and is not read. ``property``, ``staticmethod``, ``classmethod``, ``dataclass`` and the like are
-inert decorators, and so are ``.setter``, ``.getter`` and ``.deleter`` on a name bound to a property
-earlier in the same class; a class keyword such as ``metaclass=`` is not; a call, subscript, attribute read,
-operator or unpacking in a value is not), REORDERED (an old binding that now sits above one it followed in
-the same new file, every binding of a rebound name counted: module-level code runs top to bottom, so
-``B = A`` above ``A = 1`` raises at import, and ``A = 1; A = 2; B = A`` binds ``B`` to 2 where
-``A = 1; B = A; A = 2`` bound it to 1) and ADDED (other new symbols, such as the helpers a split
-introduces, or a façade's ``__all__``). Limit: code that a new class runs through a BASE (an inherited
-metaclass, or the base's ``__init_subclass__``) is not visible in the AST, so a new class with bases is
-ADDED; read every ADDED class's bases. Names are not resolved: a new symbol that loads an unbound name
-raises NameError at import, which every test that imports the module, and the app's own startup, fails on
-loudly. Nor are the names these rules trust (``property``, ``dataclass``, ``TYPE_CHECKING`` and the like):
-a move that rebinds one, such as an ADDED ``TYPE_CHECKING = True``, is outside the proof. The exit status
-is 0 only when nothing is MISSING, CHANGED, DUPLICATE, SIDE EFFECT or REORDERED beyond the symbols passed
-with ``--allow``; each allowed symbol is a disclosed delta the PR body must list, and its diff is printed
-with it.
+inert decorators, and so are ``.setter``, ``.getter`` and ``.deleter`` on a name that an inert property
+def above them in the same class body binds, with no statement that runs code in between; a class keyword
+such as ``metaclass=`` is not; a call, subscript, attribute read, operator or unpacking in a value is not),
+REORDERED (an old binding that now sits above one it followed in the same new file, every binding of a
+rebound name counted: module-level code runs top to bottom, so ``B = A`` above ``A = 1`` raises at
+import, and ``A = 1; A = 2; B = A`` binds ``B`` to 2 where ``A = 1; B = A; A = 2`` bound it to 1) and
+ADDED (other new symbols, such as the helpers a split introduces, or a façade's ``__all__``). Limit: code
+that a new class runs through a BASE (an inherited metaclass, or the base's ``__init_subclass__``) is not
+visible in the AST, so a new class with bases is ADDED; read every ADDED class's bases. Names are not
+resolved: a new symbol that loads an unbound name raises NameError at import, which every test that
+imports the module, and the app's own startup, fails on loudly; an ADDED symbol that shadows a name the
+moved code reads (an import, a builtin) changes what that code calls, so read every ADDED name; and the
+names these rules trust (``property``, ``dataclass``, ``TYPE_CHECKING`` and the like) are taken at their
+word, so a move that rebinds one, such as an ADDED ``TYPE_CHECKING = True``, is outside the proof. The
+exit status is 0 only when nothing is MISSING, CHANGED, DUPLICATE, SIDE EFFECT or REORDERED beyond the
+symbols passed with ``--allow``; each allowed symbol is a disclosed delta the PR body must list, and its
+diff is printed with it.
 """
 from __future__ import annotations
 
@@ -105,7 +109,7 @@ def _assignment_key(targets: list[ast.expr]) -> str:
 
 # Decorators that only wrap the function in a descriptor or generate methods: applying one has no effect
 # outside the class or module, so a new method or class may carry them. A property's own ``.setter``,
-# ``.getter`` and ``.deleter`` are inert too, but only on a property of the same class (``_property_accessor``).
+# ``.getter`` and ``.deleter`` are inert too, but only on a property of the same class (``_class_body``).
 _INERT_DECORATORS = frozenset({"property", "staticmethod", "classmethod", "cached_property", "abstractmethod",
                                "functools.cached_property", "abc.abstractmethod", "dataclass",
                                "dataclasses.dataclass"})
@@ -146,51 +150,56 @@ def _inert_arguments(args: ast.arguments, postponed: bool = True) -> bool:
     return all(map(_inert_value, defaults)) and all(_annotation(p.annotation, postponed) for p in params)
 
 
-def _inert_decorator(decorator: ast.expr, earlier: list[ast.stmt] | None = None) -> bool:
+def _accessor_receiver(decorator: ast.expr) -> str | None:
+    """``name`` for a ``@name.setter``, ``@name.getter`` or ``@name.deleter`` decorator, else None."""
+    if isinstance(decorator, ast.Attribute) and decorator.attr in _ACCESSORS and isinstance(decorator.value, ast.Name):
+        return decorator.value.id
+    return None
+
+
+def _inert_decorator(decorator: ast.expr, properties: frozenset[str] | None = None) -> bool:
     """Applying a decorator calls it at import; only the descriptor-making ones, with inert arguments, are
-    inert, and a property's own accessors. ``earlier``: the statements above the decorated one in its class
-    body (None outside a class body's own statements)."""
-    if _property_accessor(decorator, earlier):
-        return True
+    inert, and a property's own accessor, which copies the property: ``@name.setter`` on a name in
+    ``properties`` (``_class_body``). ``@registry.setter`` calls whatever ``registry`` is."""
+    receiver = _accessor_receiver(decorator)
+    if receiver is not None:
+        return receiver in (properties or ())
     call = decorator if isinstance(decorator, ast.Call) else None
     if ast.unparse(call.func if call else decorator) not in _INERT_DECORATORS:
         return False
     return call is None or all(_inert_value(arg) for arg in (*call.args, *(kw.value for kw in call.keywords)))
 
 
-def _property_accessor(decorator: ast.expr, earlier: list[ast.stmt] | None) -> bool:
-    """``@name.setter`` (or ``.getter``, ``.deleter``) calls a method of whatever ``name`` is: a property's
-    returns a copy of the property, but ``@registry.setter`` calls the registry. So it is inert only on a
-    name bound to a property earlier in the same class body: scanning up from the decorated statement, the
-    first one that may bind ``name`` is a def of it whose outermost decorator is ``property`` or, in turn,
-    such an accessor. Never at module level, or inside a block (whose header is a symbol of its own)."""
-    if earlier is None or not (isinstance(decorator, ast.Attribute) and decorator.attr in _ACCESSORS
-                               and isinstance(decorator.value, ast.Name)):
-        return False
-    name = decorator.value.id
-    for position in range(len(earlier) - 1, -1, -1):
-        stmt = earlier[position]
-        if isinstance(stmt, (ast.FunctionDef, ast.AsyncFunctionDef)) and stmt.name == name:
-            outermost = stmt.decorator_list[0] if stmt.decorator_list else None
-            return outermost is not None and (ast.unparse(outermost) == "property"
-                                              or _property_accessor(outermost, earlier[:position]))
-        if _may_bind(stmt, name):
-            return False
-    return False
+def _class_body(body: list[ast.stmt], postponed: bool) -> list[tuple[ast.stmt, bool]]:
+    """Each statement of a class body, and whether it is ``_inert`` where it stands, which an accessor needs:
+    the names bound to a property above it. A def binds its name to one when its outermost decorator is
+    ``property`` or such an accessor and every decorator is inert (``property.setter`` reads the getter's
+    ``__doc__`` again). Any other inert statement unbinds the names it binds, and one that runs code may
+    rebind any name (``locals()``, ``exec``, a frame), so it unbinds them all."""
+    judged: list[tuple[ast.stmt, bool]] = []
+    properties: frozenset[str] = frozenset()
+    for stmt in body:
+        inert = _inert(stmt, postponed, properties)
+        judged.append((stmt, inert))
+        decorators = stmt.decorator_list if isinstance(stmt, (ast.FunctionDef, ast.AsyncFunctionDef)) else []
+        makes_property = bool(decorators) and (
+            (ast.unparse(decorators[0]) == "property" or _accessor_receiver(decorators[0]) is not None)
+            and all(_inert_decorator(decorator, properties) for decorator in decorators))
+        properties = properties - _bound_names(stmt) if inert else frozenset()
+        if makes_property:
+            properties |= {stmt.name}
+    return judged
 
 
-def _may_bind(stmt: ast.stmt, name: str) -> bool:
-    """Whether a statement in a class body may bind ``name`` there (default deny): a def, class, assignment,
-    expression or ``pass`` shows every name it binds, unless it holds an assignment expression (``:=``)."""
-    if any(isinstance(node, ast.NamedExpr) for node in ast.walk(stmt)):
-        return True
+def _bound_names(stmt: ast.stmt) -> frozenset[str]:
+    """The names an inert statement binds: a def's or class's name, or an assignment's targets."""
     if isinstance(stmt, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
-        return stmt.name == name
+        return frozenset({stmt.name})
     if isinstance(stmt, ast.Assign):
-        return any(name in _target_names(target) for target in stmt.targets)
-    if isinstance(stmt, (ast.AnnAssign, ast.AugAssign)):
-        return name in _target_names(stmt.target)
-    return not isinstance(stmt, (ast.Expr, ast.Pass))
+        return frozenset(name for target in stmt.targets for name in _target_names(target))
+    if isinstance(stmt, ast.AnnAssign):
+        return frozenset(_target_names(stmt.target))
+    return frozenset()
 
 
 def _plain_target(target: ast.expr) -> bool:
@@ -199,29 +208,31 @@ def _plain_target(target: ast.expr) -> bool:
     return isinstance(target, ast.Name)
 
 
-def _inert(stmt: ast.stmt, postponed: bool, earlier: list[ast.stmt] | None = None) -> bool:
+def _inert(stmt: ast.stmt, postponed: bool, properties: frozenset[str] | None = None) -> bool:
     """Whether a NEW statement runs no code at import beyond binding names (default deny). Inert: ``pass``,
     a docstring or bare literal, an assignment of an inert value to plain names, and a def or class whose
     decorators, defaults and annotations are inert (a def's body runs later). A class's bases must be plain
     names (they are always evaluated), its body inert too, and a class keyword such as ``metaclass=``
     runs class-creation code. ``postponed``: the module has ``from __future__ import annotations``.
-    ``earlier``: the statements above this one in its class body, which a property accessor reads."""
+    ``properties``: in a class body, the names bound to a property above ``stmt``; None at module level."""
     if isinstance(stmt, ast.Pass):
         return True
     if isinstance(stmt, ast.Expr):
         return isinstance(stmt.value, ast.Constant)
+    if properties is not None and isinstance(stmt, (ast.Assign, ast.AnnAssign)) and isinstance(stmt.value, ast.Name):
+        return False  # creating the class calls the value's __set_name__, when its type has one
     if isinstance(stmt, ast.Assign):
         return all(map(_plain_target, stmt.targets)) and _inert_value(stmt.value)
     if isinstance(stmt, ast.AnnAssign):
         return (isinstance(stmt.target, ast.Name) and _annotation(stmt.annotation, postponed)
                 and _inert_value(stmt.value))
     if isinstance(stmt, (ast.FunctionDef, ast.AsyncFunctionDef)):
-        return (all(_inert_decorator(decorator, earlier) for decorator in stmt.decorator_list)
+        return (all(_inert_decorator(decorator, properties) for decorator in stmt.decorator_list)
                 and _inert_arguments(stmt.args, postponed) and _annotation(stmt.returns, postponed))
     if isinstance(stmt, ast.ClassDef):
-        return (not stmt.keywords and all(_inert_decorator(decorator, earlier) for decorator in stmt.decorator_list)
+        return (not stmt.keywords and all(_inert_decorator(decorator, properties) for decorator in stmt.decorator_list)
                 and all(isinstance(base, ast.Name) for base in stmt.bases)
-                and all(_inert(member, postponed, stmt.body[:i]) for i, member in enumerate(stmt.body)))
+                and all(inert for _, inert in _class_body(stmt.body, postponed)))
     return False
 
 
@@ -324,8 +335,8 @@ def _collect(source: str) -> tuple[dict[str, str], list[str], set[str]]:
                 if not _type_checking_imports(guard):
                     put(f"{node.name}.guard:{_guard_header(guard)}", ast.unparse(_without_imports(guard)), guard,
                         inert=False)
-            # The statements above each of the class body's own; a member inside a block has none.
-            above = {id(stmt): node.body[:position] for position, stmt in enumerate(node.body)}
+            # Each member is judged where it stands in the class body; inside a block, no property above it counts.
+            judged = {id(stmt): inert for stmt, inert in _class_body(node.body, postponed)}
             for member in members:
                 if isinstance(member, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
                     key = member.name
@@ -337,7 +348,8 @@ def _collect(source: str) -> tuple[dict[str, str], list[str], set[str]]:
                     continue
                 else:
                     key = "expr:" + ast.unparse(member)
-                put(f"{node.name}.{key}", ast.unparse(member), member, _inert(member, postponed, above.get(id(member))))
+                inert = judged[id(member)] if id(member) in judged else _inert(member, postponed, frozenset())
+                put(f"{node.name}.{key}", ast.unparse(member), member, inert)
         elif isinstance(node, ast.Assign):
             put(_assignment_key(node.targets), ast.unparse(node), node, _inert(node, postponed))
         elif isinstance(node, (ast.AnnAssign, ast.AugAssign)):

@@ -7,8 +7,9 @@ rebound name, a changed guard (one around imports alone included), a statement m
 an added import-time side effect (an assignment whose value calls; a call in a new class body, default,
 decorator or lambda default; a class keyword such as ``metaclass=``; ``raise``, ``assert`` or ``del``; a
 value that subscripts, unpacks, reads an attribute or applies an operator; an evaluated annotation; a block
-whose body holds only imports or ``pass``, outside the ``if TYPE_CHECKING:`` exemption; and a ``.setter``
-on a name that is not a property bound earlier in its class) and a reordered symbol each fail; a disclosed
+whose body holds only imports or ``pass``, outside the ``if TYPE_CHECKING:`` exemption; a ``.setter`` on a
+name that no inert property def above it in its class binds, or with code that runs in between; and a class
+attribute bound to a bare name, whose ``__set_name__`` runs) and a reordered symbol each fail; a disclosed
 delta passes with its diff shown.
 """
 from tests.support.ast_move_proof import compare, render
@@ -200,22 +201,44 @@ def test_definition_time_calls_in_new_classes_defs_and_lambdas_run_at_import():
     assert {"Registry", "Registry.expr:'Docstring.'", "Registry.size", "Row", "Row.key", "later"} <= set(report.added)
 
 
-def test_a_property_accessor_is_inert_only_on_a_property_bound_earlier_in_its_class():
+def test_a_property_accessor_is_inert_only_on_a_property_bound_above_it_in_its_class():
     """``@size.setter`` calls ``size.setter`` at class creation, which copies the property when ``size`` is
     one of the class's own. ``@registry.setter`` calls whatever ``registry`` is, on a method or at module
-    level, and so does ``@width.setter`` once ``width`` is rebound between the property and its setter."""
+    level, and ``@width.setter`` reads whatever ``width`` was rebound to between the property and it."""
     added = ("\nclass Box:\n"
              "    @property\n    def size(self):\n        return 1\n\n"
-             "    @registry.setter\n    def hook(self, value):\n        pass\n\n"
+             "    def other(self):\n        return 2\n\n"
              "    @size.setter\n    def size(self, value):\n        pass\n\n"
              "    @size.deleter\n    def size(self):\n        pass\n\n"
+             "    @registry.setter\n    def hook(self, value):\n        pass\n\n"
              "    @property\n    def width(self):\n        return 1\n\n"
-             "    width = registry\n\n"
+             "    width = 0\n\n"
              "    @width.setter\n    def width(self, value):\n        pass\n"
              "\n@registry.setter\ndef handler(value):\n    pass\n")
     report = compare(OLD, _move(**{"app/x/helpers.py": HELPERS + added}))
     assert set(report.side_effects) == {"Box.hook", "Box.width", "handler"}
-    assert {"Box", "Box.size"} <= set(report.added)  # a method between a property and its setter is fine
+    assert {"Box", "Box.size", "Box.other"} <= set(report.added)  # an inert method in between is fine
+
+
+def test_a_property_accessor_needs_an_inert_getter_and_nothing_that_runs_code_in_between():
+    """Old code that runs between a property and a new accessor can rebind the name (``locals()``,
+    ``exec``, a frame), and ``property.setter`` reads the getter's ``__doc__`` again, which a getter
+    wrapped by a decorator that is not inert can make run code."""
+    rebound = ("class Rebound:\n    @property\n    def size(self):\n        return 1\n\n"
+               "    locals().update(size=registry)\n")
+    described = "\nclass Described:\n    @property\n    @describe\n    def size(self):\n        return 1\n"
+    setter = "\n    @size.setter\n    def resize(self, value):\n        pass\n"
+    report = compare(rebound + described, {"app/x/a.py": rebound + setter + described + setter})
+    assert set(report.side_effects) == {"Rebound.resize", "Described.resize"}
+
+
+def test_a_class_attribute_bound_to_a_name_runs_its_set_name_at_import():
+    """Creating a class calls ``__set_name__`` on each attribute value whose type has one, so in a class body
+    a bare name is not an inert value; a literal still is, and so is a bare name at module level."""
+    added = "\nclass Box:\n    LIMIT = 3\n    hook = registry\n    label: str = DEFAULT\n\nALIAS = registry\n"
+    report = compare(OLD, _move(**{"app/x/helpers.py": HELPERS + added}))
+    assert set(report.side_effects) == {"Box.hook", "Box.label"}
+    assert {"Box", "Box.LIMIT", "ALIAS"} <= set(report.added)
 
 
 def test_only_inert_definitions_are_added_and_everything_else_runs_at_import():
