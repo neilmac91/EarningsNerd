@@ -580,11 +580,11 @@ describe('NotificationPreferencesForm', () => {
     expectBusyAndFocused(tenK)
     fireEvent.click(tenK)
     fireEvent.click(screen.getByRole('switch', { name: 'Quarterly reports (10-Q)' }))
-    fireEvent.change(screen.getByRole('combobox'), { target: { value: 'weekly' } })
+    fireEvent.change(screen.getByRole('combobox', { name: 'Digest frequency' }), { target: { value: 'weekly' } })
     await settle()
     expect(api.updateNotificationPreferences).toHaveBeenCalledTimes(1)
     expect(api.updateNotificationPreferences.mock.calls[0][0]).toEqual({ notify_10k: true })
-    expect(screen.getByRole('combobox')).toHaveValue('daily')
+    expect(screen.getByRole('combobox', { name: 'Digest frequency' })).toHaveValue('daily')
 
     await act(async () => put.resolve({ ...prefs, notify_10k: true }))
     await waitFor(() => expect(tenK).toHaveAttribute('aria-checked', 'true'))
@@ -599,7 +599,7 @@ describe('NotificationPreferencesForm', () => {
     api.updateNotificationPreferences.mockReturnValue(put.promise)
     renderWithClient(<NotificationPreferencesForm />)
 
-    const digest = await screen.findByRole('combobox')
+    const digest = await screen.findByRole('combobox', { name: 'Digest frequency' })
     digest.focus()
     fireEvent.change(digest, { target: { value: 'weekly' } })
     await waitFor(() => expect(digest).toHaveAttribute('aria-busy', 'true'))

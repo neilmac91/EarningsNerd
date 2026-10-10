@@ -202,8 +202,10 @@ function PreferenceRows({
           </p>
         </div>
         {/* aria-disabled while saving, not `disabled`: the select that just changed holds focus. A
-            controlled select whose handler returns early keeps its value. */}
+            controlled select whose handler returns early keeps its value. Named like the switches
+            above, by aria-label: the row's text is a span, not a <label>. */}
         <select
+          aria-label="Digest frequency"
           value={prefs.digest}
           aria-disabled={busy || undefined}
           aria-busy={busy || undefined}
