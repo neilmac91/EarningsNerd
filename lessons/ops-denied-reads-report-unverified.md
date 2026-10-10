@@ -22,15 +22,17 @@ and make the operator's checklist item complete only when a run prints the posit
 (`Worker invoker policy: PRIVATE`). Fail closed only on readable evidence: a public principal on any
 binding, a disabled IAM check, a pin that reads other than `1`, traffic that reads tagged or split.
 Never let UNVERIFIED mask a collected failure. A required read that cannot read never passes: it stops
-the step with the same closed class and no verdict.
+the step with no verdict, and a read the Python code makes stops it with the same closed class. The
+describe-service step's first read is a shell `gcloud` call that still prints gcloud's own stderr when
+it fails (an open follow-up in `tasks/todo.md`).
 
 **Gate.** In `backend/tests/unit/test_prod_flag_visibility.py`,
 `test_ops_renderer_reports_denied_invoker_policy_as_unverified` pins the denied classes, the single
 warning, the qualified verdict and that a denied read never prints `PRIVATE`;
 `test_ops_renderer_treats_malformed_policy_as_unverified` pins `unreadable_response`;
 `test_ops_renderer_unverified_never_masks_a_fail` pins that UNVERIFIED never masks a collected failure;
-and `test_ops_renderer_fails_closed_on_failed_describe` pins that a failed required read stops the step
-with its class; no test yet pins `error (gcloud not executable)` (an open item in `tasks/todo.md`); `docs/DEPLOYMENT.md` states the rule beside the checklist. The
-first live run (ops run 38053869837, 2026-10-10T12:57Z) read the policy and printed `PRIVATE`, so the
-UNVERIFIED path stayed unexercised in production; the rule stands for the next read that a permission
-withholds.
+and `test_ops_renderer_fails_closed_on_failed_describe` pins that a failed required read the Python code
+makes stops the step with its class; no test yet pins `error (gcloud not executable)` (an open item in
+`tasks/todo.md`); `docs/DEPLOYMENT.md` states the rule beside the checklist. The first live run (ops run
+38053869837, 2026-10-10T12:57Z) read the policy and printed `PRIVATE`, so the UNVERIFIED path stayed
+unexercised in production; the rule stands for the next read that a permission withholds.
