@@ -39,21 +39,52 @@ or lambda's body runs later and is not read. ``property``, ``staticmethod``, ``c
 ``dataclass`` and the like are inert decorators, and so are ``.setter``, ``.getter`` and ``.deleter`` on a
 name that an inert property def above them in the same class body binds, with no statement that runs code
 in between; a class keyword such as ``metaclass=`` is not; a call, subscript, attribute read, operator or
-unpacking in a value is not), REORDERED (an old binding that now sits above one it followed in the same
+unpacking in a value is not), SHADOWS (a NEW symbol that binds a name the OLD symbols of its own new file
+use; the next paragraph), REORDERED (an old binding that now sits above one it followed in the same
 new file, every binding of a rebound name counted: module-level code runs top to bottom, so ``B = A``
 above ``A = 1`` raises at import, and ``A = 1; A = 2; B = A`` binds ``B`` to 2 where
 ``A = 1; B = A; A = 2`` bound it to 1) and
-ADDED (other new symbols, such as the helpers a split introduces, or a façade's ``__all__``). Limit: code
-that a new class runs through a BASE (an inherited metaclass, or the base's ``__init_subclass__``) is not
-visible in the AST, so a new class with bases is ADDED; read every ADDED class's bases. Names are not
-resolved: a new symbol that loads an unbound name raises NameError at import, which every test that
-imports the module, and the app's own startup, fails on loudly; an ADDED symbol that shadows a name the
-moved code reads (an import, a builtin) changes what that code calls, so read every ADDED name; and the
-names these rules trust (``property``, ``dataclass``, ``TYPE_CHECKING`` and the like) are taken at their
-word, so a move that rebinds one, such as an ADDED ``TYPE_CHECKING = True``, is outside the proof. The
-exit status is 0 only when nothing is MISSING, CHANGED, DUPLICATE, SIDE EFFECT or REORDERED beyond the
-symbols passed with ``--allow``; each allowed symbol is a disclosed delta the PR body must list, and its
-diff is printed with it.
+ADDED (other new symbols, which no moved code uses, such as the helpers a split introduces, or a façade's
+``__all__``).
+
+SHADOWS: the old file had no symbol of that key, so the moved code took the name from an import, a builtin
+or another binding, and after the move it gets the new one, although the new symbol is inert by itself
+(``make = registry`` beside an old ``X = make()``). Names are resolved per namespace, the way the compiler
+scopes them. A new module-level symbol shadows a name that old symbols of the same file load from the
+module: at module level, in a class body (the lookup falls through to the module until the class has
+bound the name) and in the body of a def, lambda or comprehension, which resolves the name when it runs,
+unless a parameter or local of that def or of an enclosing one holds it. A new ``Class.member`` shadows a
+name that old members of the same class load in the class body itself (a value, a decorator, a default, an
+annotation, a block header, a comprehension's first iterable); the body of a method, or of anything else
+nested there, never sees the class namespace. Either one also shadows a name that an old symbol of the
+same namespace binds, since it rebinds that name for every importer; an old block binds every name
+bound in it, its header's targets and its imports included, and a bare annotation (``size: int``) binds
+its name here, as it does for the compiler. Order is not read: a def may run after any binding, so a new
+binding below the last read at import is reported as well. The old symbol must use the name both before
+the move and after it, so a disclosed change that starts calling a new helper is not a shadow, and each
+new file is its own namespace: the same binding in a file that holds no user of the name is ADDED, as a
+façade's ``__all__`` and a split's helpers are. A new block is not reported here: it is a SIDE EFFECT
+already, each statement in it is a symbol of its own, and its key shows what its header binds.
+
+Limits. Code that a new class runs through a BASE (an inherited metaclass, or the base's
+``__init_subclass__``) is not visible in the AST, so a new class with bases is ADDED; read every ADDED
+class's bases. Names are followed only as written. A new symbol that loads an unbound name raises
+NameError at import, which every test that imports the module, and the app's own startup, fails on loudly.
+A name reached through an attribute is not followed: an ADDED ``Class.member`` of a moved class overrides
+whatever the class inherited under that name, for ``self.name`` and for the names Python looks up itself
+(``__init__``, ``__eq__``, ``__slots__``), so read every one; Python reads a module's ``__builtins__``,
+``__package__`` and ``__getattr__`` itself as well, so read every ADDED dunder (a façade's ``__all__`` is
+the expected one). Neither is a name reached through a string (a quoted annotation,
+``globals()['name']``), a class-private ``__name`` (compared as written, not mangled), or an import:
+imports are not symbols, so one that binds a name the moved code reads to something else, a new symbol
+of another new file included, is outside the proof; read the import diff. And the names these
+rules trust (``property``, ``dataclass``, ``TYPE_CHECKING`` and the like) are taken at their word, so a
+move that rebinds one where no moved symbol reads it, such as an ADDED ``TYPE_CHECKING = True`` above an
+exempt block, is outside the proof.
+
+The exit status is 0 only when nothing is MISSING, CHANGED, DUPLICATE, SIDE EFFECT, SHADOWS or REORDERED
+beyond the symbols passed with ``--allow`` (for SHADOWS, the new symbol's key); each allowed symbol is a
+disclosed delta the PR body must list, and its diff is printed with it, with the names it shadows.
 """
 from __future__ import annotations
 
@@ -298,27 +329,139 @@ def _without_imports(node: ast.stmt) -> ast.stmt:
     return node
 
 
+_COMPREHENSIONS = (ast.ListComp, ast.SetComp, ast.DictComp, ast.GeneratorExp)
+
+
+class _Scope:
+    """One scope of a symbol's code, read the way the compiler scopes names: the names it binds, loads and
+    declares ``global`` or ``nonlocal``, and the scopes nested in it. A def's decorators, defaults and
+    annotations, a class's bases and keywords and a comprehension's first iterable are evaluated in the
+    scope around them, and ``:=`` inside a comprehension binds in the scope around it."""
+
+    def __init__(self, in_class: bool = False, walrus: _Scope | None = None) -> None:
+        self.in_class = in_class
+        self.bound: set[str] = set()
+        self.loaded: set[str] = set()
+        self.declared: dict[type, set[str]] = {ast.Global: set(), ast.Nonlocal: set()}
+        self.nested: list[_Scope] = []
+        self.walrus = walrus or self
+
+    def _open(self, in_class: bool = False, walrus: _Scope | None = None) -> _Scope:
+        self.nested.append(_Scope(in_class, walrus))
+        return self.nested[-1]
+
+    def read(self, *nodes: ast.AST | None) -> _Scope:
+        for node in nodes:
+            if isinstance(node, ast.Name):
+                (self.loaded if isinstance(node.ctx, ast.Load) else self.bound).add(node.id)
+            elif isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda)):
+                args = node.args
+                params = [*args.posonlyargs, *args.args, *args.kwonlyargs, *filter(None, (args.vararg, args.kwarg))]
+                self.read(*args.defaults, *args.kw_defaults, *(param.annotation for param in params))
+                body = self._open()
+                body.bound.update(param.arg for param in params)
+                if isinstance(node, ast.Lambda):
+                    body.read(node.body)
+                else:
+                    self.bound.add(node.name)
+                    self.read(*node.decorator_list, node.returns)
+                    body.read(*node.body)
+            elif isinstance(node, ast.ClassDef):
+                self.bound.add(node.name)
+                self.read(*node.decorator_list, *node.bases, *(keyword.value for keyword in node.keywords))
+                self._open(in_class=True).read(*node.body)
+            elif isinstance(node, _COMPREHENSIONS):
+                first, *rest = node.generators
+                self.read(first.iter)
+                results = (getattr(node, part, None) for part in ("elt", "key", "value"))
+                self._open(walrus=self.walrus).read(first.target, *first.ifs, *rest, *results)
+            elif isinstance(node, ast.NamedExpr):
+                self.walrus.bound.add(node.target.id)
+                self.read(node.value)
+            elif isinstance(node, (ast.Global, ast.Nonlocal)):
+                self.declared[type(node)].update(node.names)
+            elif node is not None:
+                if isinstance(node, ast.alias):
+                    self.bound.add((node.asname or node.name).split(".")[0])
+                elif isinstance(node, (ast.ExceptHandler, ast.MatchAs, ast.MatchStar)) and node.name:
+                    self.bound.add(node.name)
+                elif isinstance(node, ast.MatchMapping) and node.rest:
+                    self.bound.add(node.rest)
+                elif isinstance(node, ast.AugAssign) and isinstance(node.target, ast.Name):
+                    self.loaded.add(node.target.id)  # ``x += 1`` reads x before it binds it
+                self.read(*ast.iter_child_nodes(node))
+        return self
+
+    def taken(self, enclosing: frozenset[str] = frozenset()) -> set[str]:
+        """The names this scope and the scopes nested in it take from the module. A def, lambda or
+        comprehension takes each name it loads that neither it nor an enclosing def binds, and each name it
+        declares ``global``. A class body also takes the loaded names it binds itself: the lookup falls
+        through to the module until the class has bound the name, and never stops at an enclosing def."""
+        module = self.declared[ast.Global]
+        if self.in_class:
+            taken = {name for name in self.loaded if name in self.bound or name not in enclosing}
+        else:
+            local = self.bound - module - self.declared[ast.Nonlocal]
+            taken = {name for name in self.loaded if name not in local | enclosing}
+            enclosing = enclosing | local
+        return taken.union(module, *(scope.taken(enclosing - module) for scope in self.nested))
+
+
+@dataclass
+class _Names:
+    """What one symbol does with names. ``owner`` is the class whose body holds it (None at module level);
+    ``binds`` and ``here`` are the names it binds and loads in that scope; ``later`` are the names its nested
+    scopes (the body of a def, lambda, comprehension or nested class) take from the module. A ``block`` (a
+    guard) binds whatever is bound in it: its header's targets, its imports and its statements' names."""
+    owner: str | None
+    block: bool = False
+    binds: set[str] = field(default_factory=set)
+    here: set[str] = field(default_factory=set)
+    later: set[str] = field(default_factory=set)
+
+    def reads(self, owner: str | None) -> set[str]:
+        """The names of one namespace (a class body, or the module for None) that this symbol reads. What
+        a class member loads in its class body is looked up there and then in the module (it falls
+        through until the class has bound it); its nested scopes never see the class namespace."""
+        if owner is None:
+            return self.here | self.later
+        return self.here if owner == self.owner else set()
+
+    def bound(self, owner: str | None) -> set[str]:
+        """The names of that namespace this symbol binds."""
+        return self.binds if owner == self.owner else set()
+
+
 def symbols(source: str) -> dict[str, str]:
     """Map every symbol the source defines to its normalised (``ast.unparse``) text."""
     return _collect(source)[0]
 
 
-def _collect(source: str) -> tuple[dict[str, str], list[str], set[str]]:
+def _collect(source: str) -> tuple[dict[str, str], list[str], set[str], dict[str, _Names]]:
     """Every symbol's normalised text, every binding occurrence's key in source order (its
-    initialisation order: a name bound twice appears twice), and the symbols that run code at import:
-    every guard, and any symbol with a definition that is not ``_inert`` where it stands (a class member
-    is judged in its class body, where a property accessor finds its property)."""
+    initialisation order: a name bound twice appears twice), the symbols that run code at import (every
+    guard, and any symbol with a definition that is not ``_inert`` where it stands: a class member is
+    judged in its class body, where a property accessor finds its property), and what each symbol does
+    with names (``_Names``)."""
     tree = ast.parse(source)
     postponed = _postpones_annotations(tree)
     found: dict[str, str] = {}
     occurrences: list[tuple[int, int, int, str]] = []
     runs: set[str] = set()
+    names: dict[str, _Names] = {}
 
-    def put(key: str, text: str, node: ast.AST, inert: bool) -> None:
+    def put(key: str, text: str, node: ast.AST, inert: bool, owner: str | None = None,
+            code: ast.AST | None = None) -> None:
         found[key] = f"{found[key]}\n{text}" if key in found else text  # every definition, in source order
         occurrences.append((node.lineno, node.col_offset, len(occurrences), key))
         if not inert:
             runs.add(key)
+        scope = _Scope().read(code or node)
+        used = names.setdefault(key, _Names(owner, block=isinstance(node, _COMPOUND)))
+        used.binds |= scope.bound
+        # ``global x`` in a class body makes x the module's there, so the statement counts as a user of x.
+        used.here |= scope.loaded | scope.declared[ast.Global]
+        used.later |= set().union(*(nested.taken() for nested in scope.nested))
 
     body = list(tree.body)
     if body and _is_docstring(body[0]):
@@ -338,11 +481,12 @@ def _collect(source: str) -> tuple[dict[str, str], list[str], set[str]]:
                 body=[ast.Pass()], decorator_list=node.decorator_list,
                 **({"type_params": node.type_params} if hasattr(node, "type_params") else {}),
             )
-            put(node.name, ast.unparse(ast.fix_missing_locations(header)), node, _inert(header, postponed))
+            put(node.name, ast.unparse(ast.fix_missing_locations(header)), node, _inert(header, postponed),
+                code=header)
             for guard in _guards(node.body):
                 if not _type_checking_imports(guard):
                     put(f"{node.name}.guard:{_guard_header(guard)}", ast.unparse(_without_imports(guard)), guard,
-                        inert=False)
+                        inert=False, owner=node.name)
             # Each member is judged where it stands in the class body; inside a block, no property above it counts.
             judged = {id(stmt): inert for stmt, inert in _class_body(node.body, postponed)}
             for member in members:
@@ -357,7 +501,7 @@ def _collect(source: str) -> tuple[dict[str, str], list[str], set[str]]:
                 else:
                     key = "expr:" + ast.unparse(member)
                 inert = judged[id(member)] if id(member) in judged else _inert(member, postponed, frozenset())
-                put(f"{node.name}.{key}", ast.unparse(member), member, inert)
+                put(f"{node.name}.{key}", ast.unparse(member), member, inert, owner=node.name)
         elif isinstance(node, ast.Assign):
             put(_assignment_key(node.targets), ast.unparse(node), node, _inert(node, postponed))
         elif isinstance(node, (ast.AnnAssign, ast.AugAssign)):
@@ -367,7 +511,7 @@ def _collect(source: str) -> tuple[dict[str, str], list[str], set[str]]:
         else:
             text = ast.unparse(node)
             put("expr:" + text, text, node, _inert(node, postponed))
-    return found, [key for *_, key in sorted(occurrences)], runs
+    return found, [key for *_, key in sorted(occurrences)], runs, names
 
 
 @dataclass
@@ -377,13 +521,15 @@ class Report:
     changed: dict[str, str] = field(default_factory=dict)  # symbol -> unified diff
     duplicate: dict[str, list[str]] = field(default_factory=dict)  # symbol -> new files
     side_effects: dict[str, str] = field(default_factory=dict)  # new import-time statement -> new file
+    shadows: dict[str, str] = field(default_factory=dict)  # new symbol -> the old names it rebinds, and their users
     added: dict[str, str] = field(default_factory=dict)  # symbol -> new file
     allowed: dict[str, str] = field(default_factory=dict)  # disclosed symbol -> what changed
     reordered: dict[str, str] = field(default_factory=dict)  # symbol -> where it now sits out of order
 
     @property
     def ok(self) -> bool:
-        return not (self.missing or self.changed or self.duplicate or self.side_effects or self.reordered)
+        return not (self.missing or self.changed or self.duplicate or self.side_effects or self.shadows
+                    or self.reordered)
 
 
 def _delta(name: str, text: str | None, homes: list[str], new_by_file: dict[str, dict[str, str]]) -> str:
@@ -400,14 +546,33 @@ def _delta(name: str, text: str | None, homes: list[str], new_by_file: dict[str,
     return "\n".join(difflib.unified_diff(text.splitlines(), new_text.splitlines(), "old", homes[0], lineterm="", n=1))
 
 
+def _shadows(key: str, names: dict[str, _Names], old_names: dict[str, _Names]) -> str:
+    """The names the NEW symbol ``key`` binds that OLD symbols of its file read or bind in the same
+    namespace, before the move and after it, as ``binds make, read by X, build``. Empty when there are none,
+    and for a new block: it is a SIDE EFFECT already, and each statement in it is a symbol of its own."""
+    new, found = names[key], []
+    for name in sorted(() if new.block else new.binds):
+        uses = []
+        for verb, used in (("read", _Names.reads), ("bound", _Names.bound)):
+            users = [other for other in sorted(names) if other in old_names
+                     and name in used(names[other], new.owner) & used(old_names[other], new.owner)]
+            if users:
+                more = f" and {len(users) - 3} more" if len(users) > 3 else ""
+                uses.append(f"{verb} by {', '.join(users[:3])}{more}")
+        if uses:
+            found.append(f"binds {name}, {' and '.join(uses)}")
+    return "; ".join(found)
+
+
 def compare(old_source: str, new_sources: dict[str, str], allow: frozenset[str] = frozenset()) -> Report:
-    """Diff the old file's symbols against the union of the new files' symbols, and check that the old
-    symbols each new file holds keep their old relative order (module-level code runs top to bottom, so
-    ``B = A`` above ``A = 1`` raises at import)."""
-    old, old_order, _ = _collect(old_source)
+    """Diff the old file's symbols against the union of the new files' symbols, check that no new symbol
+    rebinds a name the old symbols of its file use, and check that the old symbols each new file holds
+    keep their old relative order (module-level code runs top to bottom, so ``B = A`` above ``A = 1``
+    raises at import)."""
+    old, old_order, _, old_names = _collect(old_source)
     collected = {path: _collect(src) for path, src in new_sources.items()}
-    new_by_file = {path: texts for path, (texts, _, _) in collected.items()}
-    runs_by_file = {path: runs for path, (_, _, runs) in collected.items()}
+    new_by_file = {path: texts for path, (texts, *_) in collected.items()}
+    runs_by_file = {path: runs for path, (_, _, runs, _) in collected.items()}
     where: dict[str, list[str]] = {}
     for path, syms in new_by_file.items():
         for name in syms:
@@ -433,16 +598,22 @@ def compare(old_source: str, new_sources: dict[str, str], allow: frozenset[str] 
     for name, homes in where.items():
         if name in old:
             continue
+        shadowed = "; ".join(f"{path}: {what}" for path in homes
+                             if (what := _shadows(name, collected[path][3], old_names)))
         if name in allow:
-            report.allowed[name] = _delta(name, None, homes, new_by_file)
-        elif len(homes) > 1:
+            delta = _delta(name, None, homes, new_by_file)
+            report.allowed[name] = f"{delta}\nshadows {shadowed}" if shadowed else delta
+            continue
+        if shadowed:
+            report.shadows[name] = shadowed
+        if len(homes) > 1:
             report.duplicate[name] = homes
         elif name in runs_by_file[homes[0]]:
             report.side_effects[name] = homes[0]
-        else:
+        elif not shadowed:
             report.added[name] = homes[0]
     old_rank = _occurrence_ranks(old_order)
-    for path, (_, order, _) in collected.items():
+    for path, (_, order, *_) in collected.items():
         latest: tuple[str, int] | None = None  # the held occurrence that came latest in the old file, so far
         for occurrence in _occurrence_ranks(order):
             name = occurrence[0]
@@ -486,6 +657,8 @@ def render(report: Report) -> str:
         lines.append(f"DUPLICATE  {name}: {', '.join(homes)}")
     for name, home in sorted(report.side_effects.items()):
         lines.append(f"SIDE EFFECT {name} ({home}): runs at import; a move never adds one")
+    for name, where in sorted(report.shadows.items()):
+        lines.append(f"SHADOWS    {name} ({where}): the moved code now gets the new binding")
     for name, where in sorted(report.reordered.items()):
         lines.append(f"REORDERED  {name} ({where}): module-level code runs in order")
     for name, home in sorted(report.added.items()):
@@ -496,8 +669,8 @@ def render(report: Report) -> str:
     lines.append(
         f"pure move: {verdict} ({report.moved} symbols identical, {len(report.missing)} missing, "
         f"{len(report.changed)} changed, {len(report.duplicate)} duplicated, "
-        f"{len(report.side_effects)} side effects, {len(report.reordered)} reordered, {len(report.added)} added, "
-        f"{len(report.allowed)} allowed)"
+        f"{len(report.side_effects)} side effects, {len(report.shadows)} shadowing, {len(report.reordered)} reordered, "
+        f"{len(report.added)} added, {len(report.allowed)} allowed)"
     )
     return "\n".join(lines)
 

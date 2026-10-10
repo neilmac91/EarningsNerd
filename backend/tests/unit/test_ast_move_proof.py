@@ -10,7 +10,9 @@ value that subscripts, unpacks, reads an attribute or applies an operator; an ev
 whose body holds only imports or ``pass``, outside the ``if TYPE_CHECKING:`` exemption; a ``.setter`` on a
 name that no inert property def above it in its class binds, or with code that runs in between; a class
 attribute bound to a bare name, whose ``__set_name__`` runs; and an unpacking of anything but a display, which
-iterates it) and a reordered symbol each fail; a disclosed delta passes with its diff shown.
+iterates it), a new symbol that binds a name the moved code of its file reads or binds (at module level, or
+in the class body for a new class member) and a reordered symbol each fail; a disclosed delta passes with
+its diff shown.
 """
 from tests.support.ast_move_proof import compare, render
 
@@ -310,6 +312,62 @@ def test_the_old_symbols_in_each_new_file_keep_their_old_order():
     rebound = compare("A = 1\nB = A\nA = 2\n", {"app/x/a.py": "A = 1\nA = 2\nB = A\n"})
     assert rebound.reordered == {"B": "app/x/a.py: now after A, which it preceded"}
     assert compare("A = 1\nB = A\nA = 2\n", {"app/x/a.py": "A = 1\nB = A\nA = 2\n"}).ok
+
+def test_a_new_symbol_that_binds_a_name_the_moved_code_reads_shadows_it():
+    """``make = registry`` is inert, yet the old ``X = make()`` beside it now calls ``registry()``: the old
+    file had no ``make`` symbol, so the moved code took the name from an import or a builtin. A def's body
+    resolves the module's names when it is called, so it counts as much as a line that runs at import."""
+    old = "from helpers import make\n\nX = make()\n\n\ndef build():\n    return make()\n"
+    new = old.replace("\nX = ", "\nmake = registry\n\nX = ")
+    report = compare(old, {"app/x.py": new})
+    assert not report.ok
+    assert report.shadows == {"make": "app/x.py: binds make, read by X, build"}
+    assert report.added == {}
+    assert "SHADOWS    make (app/x.py: binds make, read by X, build)" in render(report)
+    disclosed = compare(old, {"app/x.py": new}, frozenset({"make"}))
+    assert disclosed.ok
+    assert disclosed.allowed == {"make": "added in app/x.py\nshadows app/x.py: binds make, read by X, build"}
+    # A new symbol that rebinds a name an old symbol BINDS changes it for every importer, read here or not.
+    twice = "def make():\n    return 1\n"
+    rebound = compare(twice, {"app/x.py": twice + "\nmake, spare = registry, 0\n"})
+    assert rebound.shadows == {"make,spare": "app/x.py: binds make, bound by make"}
+
+
+def test_a_new_class_member_shadows_a_name_its_class_body_reads():
+    """A class body looks a name up in the class first: a new ``Box.make`` above the old ``x = make()`` makes
+    creating the class run ``register()``. A method's body never sees the class namespace, so ``Box.run``
+    is no reader of it; a new module-level ``make`` reaches both, and the class header's base as well."""
+    old = "class Box(Base):\n    x = make()\n\n    def run(self):\n        return make()\n"
+    member = old.replace("    x = ", "    def make():\n        return register()\n\n    x = ")
+    report = compare(old, {"app/x.py": member})
+    assert not report.ok
+    assert report.shadows == {"Box.make": "app/x.py: binds make, read by Box.x"}
+    module = compare(old, {"app/x.py": "make = Base = registry\n\n" + old})
+    assert module.shadows == {"make,Base": "app/x.py: binds Base, read by Box; binds make, read by Box.run, Box.x"}
+
+
+def test_an_honest_split_adds_names_without_shadowing_any():
+    """The control. A new name shadows only what the OLD symbols of its own file take from its own
+    namespace: a parameter, a local or a comprehension variable is not the module's name, an attribute is
+    not a name, a method body does not see a class member, and another file has its own namespace. New
+    code may read new names, and a disclosed change that starts calling a new helper never read it before."""
+    box = "class Box:\n    def run(self):\n        return self.make() + rows\n"
+    scoped = ("def local(make):\n    return make()\n\n\n"
+              "def bound():\n    make = rows[0]\n    return [make for make in rows]\n\n\n")
+    reader = "X = make()\n"
+    added = ("\nmake = registry\n"
+             "\ndef _trim(value):\n    return value.strip()\n"
+             "\ndef _clean(value):\n    return _trim(value)\n")
+    report = compare("from helpers import make, rows\n\n\n" + scoped + box + reader,
+                     {"app/x/a.py": "from helpers import rows\n\n\n" + scoped + box + "    rows = ()\n" + added,
+                      "app/x/b.py": "from helpers import make\n\n" + reader})
+    assert report.ok, render(report)
+    assert report.added == dict.fromkeys(("make", "_trim", "_clean", "Box.rows"), "app/x/a.py")
+    helpers = HELPERS.replace("return text[:LIMIT]", "return _trim(text)[:LIMIT]") + "\ndef _trim(value):\n    return value\n"
+    calling = compare(OLD, _move(**{"app/x/helpers.py": helpers}), frozenset({"clip"}))
+    assert calling.ok, render(calling)  # clip's printed diff is the disclosure
+    assert calling.added == {"__all__": "app/x.py", "_trim": "app/x/helpers.py"}
+
 
 def test_an_added_import_time_side_effect_fails_until_disclosed():
     files = _move(**{"app/x/helpers.py": HELPERS + "\nsettings.STRICT = False\nregister(clip)\n"})
