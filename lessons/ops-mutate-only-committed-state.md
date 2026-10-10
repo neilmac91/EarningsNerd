@@ -15,4 +15,4 @@ mutation is needed mid-edit, commit first or restore from a copied backup of the
 A suite run that fails after a restore is read before the next commit, not after.
 
 **Evidence.** #766 (W3-9b): the `--accessions` filter was re-applied and the commit amended before
-push; `tasks/todo.md` W3-9b section.
+push; `tasks/archive/todo-ledger-through-2026-10-07.md` W3-9b section.
