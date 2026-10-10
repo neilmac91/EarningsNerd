@@ -1,8 +1,9 @@
-# Decision record 21 — chief succession: the predecessor session blocked by a Claude Code safety check from about 21:40Z and the successor appointed by the founder's handover brief at 22:38Z; PR #1167 (record 20) merged, fourteenth deploy-skip proof; #1169's deploy read back from its log (every process carries both SEC pins, the insider switch is off, the health check passed) and twelve later main runs classified, four of them deploys by other writers (#1166, #1123, #1135, #1140), each read back from its log; the founder's USD 5 balance floor recorded as a stop condition; a duplicate second successor session holds every write; the Monday check-in re-armed; disclosures (chief defects 9 and 10, classifier denials 11 and 12, a record-20 wording correction, the account's usage-limit interruption); closure 172 (chief, 2026-10-09)
+# Decision record 21 — chief succession: the predecessor session blocked by a Claude Code safety check from about 21:40Z and the successor appointed by the founder's handover brief at 22:38Z; PR #1167 (record 20) merged, fourteenth deploy-skip proof; #1169's deploy read back from its log (every process carries both SEC pins, the insider switch is off, the health check passed) and twelve later main runs classified, four of them deploys by other writers (#1166, #1123, #1135, #1140), each read back from its log; the founder's USD 5 balance floor recorded as a stop condition; a duplicate second successor session holds every write; the Monday check-in re-armed; disclosures (chief defects 9, 10 and 11, classifier denials 11 and 12, a record-20 wording correction, the account's usage-limit interruption); closure 172 (chief, 2026-10-09)
 
 Recorded 2026-10-09T23:02Z, amended 2026-10-09T23:12Z (the relayed confirmation), 2026-10-10T04:05Z (the usage-limit
-interruption; the fresh reviewer context), 04:09Z (chief defect 10) 04:30Z (after the record-21 review: the later main runs
-read back, including two deploys by other writers) and 05:03Z (chief defect 11), by the successor chief (`https://claude.ai/code/session_011jZyZqfNWZRqiFNWfTc3u8`).
+interruption; the fresh reviewer context), 04:09Z (chief defect 10), 04:30Z (after the record-21 review: the later main runs
+read back, including two deploys by other writers) and 05:03Z (chief defect 11) and 05:11Z (the records gate extended to every verification step; the title; the
+interval of chief defect 11 corrected), by the successor chief (`https://claude.ai/code/session_011jZyZqfNWZRqiFNWfTc3u8`).
 Context: record 20 merged to main as `da8dc998` (PR #1167, 2026-10-09T22:14:52Z); this is the first PR from the successor's
 branch `claude/stoic-wright-6jeujo`, started at `a572876c`. Records, two lessons, the lessons index, one records-tree tool
 (`tools/records-gate.sh`) and its test under `backend/tests/unit/`: no application code, workflow, migration, cloud, IAM or
@@ -222,10 +223,12 @@ paid trigger can still fire (Plan, below); the predecessor's attempt to add it t
    its launch-time identity registered, the formal resolution left to a later closure; 9 passed). No merge and no production effect; PR #1172's CI on `7d65c89` is expected
    red on `backend-tests` for the same reason. Rule: a verification command in a chain is never piped away; its exit status gates
    the commit. Added to `APPOINTMENTS.json`'s `chief_defects`; lesson `lessons/ops-a-piped-gate-does-not-gate.md`. **Machine gate**
-   (rule 12; Codex's P1 on this PR): `tools/records-gate.sh` is the supported way to run the runtime-records gate before a records
-   commit (strict mode, the pytest invocation unpiped, the summary printed afterwards, pytest's status the wrapper's exit status),
-   and `backend/tests/unit/test_records_gate_wrapper.py` pins its form and proves by mutation that a failing test makes the wrapper
-   exit non-zero while a passing one exits zero. The repository still cannot see the chief's shell, so the gate is the wrapper plus
+   (rule 12; Codex's P1 on this PR, extended after chief defect 11 by Codex's P1 on `61ed80e`): `tools/records-gate.sh` is the
+   supported way to verify a records commit. It runs every verification step (the runtime-records gate, `ruff check` and
+   `ruff format --check` on the backend test files the records tree owns) unpiped, captures each exit status explicitly (`|| status=$?`,
+   never `set -e`, which the tool shell suppresses), prints one line per step and exits 0 only when every step passed.
+   `backend/tests/unit/test_records_gate_wrapper.py` pins that form and proves it by mutation in a temporary repository: a failing
+   pytest step and a failing non-pytest step (an unformatted file) each fail the wrapper; a clean tree passes it. The repository still cannot see the chief's shell, so the gate is the wrapper plus
    CI's own run of the records gate, which is what caught `7d65c89`.
 8. **The successor's side effects to this record:** read-only GitHub requests (runs, jobs, one PR, the open PR list, the balance
    job's log); two pages of the predecessor's session event log through the platform's session API (its own transcript events,
@@ -241,9 +244,13 @@ paid trigger can still fire (Plan, below); the predecessor's attempt to add it t
    suppressed there (the shell's rule for commands run inside a conditional context); `set -e` at the top of a chain gates nothing in
    this session's shell. The records gate (through `tools/records-gate.sh`, a separate script in which `set -e` does work), the
    wrapper test and `ruff check` all passed on that head, and CI runs `ruff check` only, so nothing red reached CI; the file was
-   formatted in `2dc7a3b` two minutes later. The same rule as chief defect 10, failed by a second mechanism: in a chain that commits
+   formatted in `2dc7a3b` under a minute later (committed 05:00:50Z, pushed by 05:00:56Z). The same rule as chief defect 10, failed by a second mechanism: in a chain that commits
    or pushes, every verification step carries its own explicit exit (`cmd || exit 1`); `set -e` is not that check here. The lesson
-   gains the paragraph; `APPOINTMENTS.json`'s `chief_defects` has the entry.
+   gains the paragraph; `APPOINTMENTS.json`'s `chief_defects` has the entry. **Machine gate** (rule 12; Codex's P1 on `61ed80e`):
+   `tools/records-gate.sh` now runs every verification step of a records commit (the runtime-records gate, `ruff check` and
+   `ruff format --check` on the two backend test files the records tree owns), each with its exit status captured explicitly, and
+   exits 0 only when every step passed; its test proves by mutation that a failing non-pytest step (an unformatted file) fails the
+   gate as a failing pytest step does (disclosure 7).
 
 ## Plan
 

@@ -14,10 +14,11 @@ reaches CI red costs a cycle and the reviewers' trust.
 the thing that decides: run it unpiped, or set `pipefail` for the chain, and grep the summary only
 after the status has been checked. Prefer `set -euo pipefail` at the top of any chain that ends in a
 commit or push, and never follow a test run with `| tail`, `| grep` or `| head` on the same line as
-the `&&` that commits. For the CODE RED records, run the gate only through
-`tasks/code-red-20261004/runtime/tools/records-gate.sh`, which runs pytest unpiped, prints the
-summary afterwards and exits with pytest's status; `backend/tests/unit/test_records_gate_wrapper.py`
-pins that form and proves by mutation that a failing test fails the wrapper (rule 12: the gate behind
+the `&&` that commits. For the CODE RED records, run every verification step of a records commit only through
+`tasks/code-red-20261004/runtime/tools/records-gate.sh`, which runs the records gate, `ruff check` and
+`ruff format --check` unpiped, captures each exit status explicitly and exits 0 only when every step
+passed; `backend/tests/unit/test_records_gate_wrapper.py` pins that form and proves by mutation that a
+failing pytest step and a failing non-pytest step each fail the wrapper (rule 12: the gate behind
 this rule). `set -e` is not that check in the Claude Code tool shell: a probe `(set -e; false; echo survived)` prints there, so
 errexit is suppressed (chief defect 11, 2026-10-10T05:00Z: a failed `ruff format --check` did not stop a chain from committing and
 pushing `577edeb`). Give every verification step of a chain that commits or pushes its own explicit exit, `cmd || exit 1`; the
