@@ -10,7 +10,11 @@ value that subscripts, unpacks, reads an attribute or applies an operator; an ev
 whose body holds only imports or ``pass``, outside the ``if TYPE_CHECKING:`` exemption; a ``.setter`` on a
 name that no inert property def above it in its class binds, or with code that runs in between; a class
 attribute bound to a bare name, whose ``__set_name__`` runs; and an unpacking of anything but a display, which
-iterates it) and a reordered symbol each fail; a disclosed delta passes with its diff shown.
+iterates it), a new symbol that binds a name the moved code of its file reads or binds (at module level, or
+in the class body for a new class member) or a dunder that Python reads itself where moved code lives (a
+module's ``__all__`` aside), a symbol of the target file that moved code reads at import above it or
+rebinds, a class docstring that no longer opens its body, and a reordered symbol each fail; a disclosed
+delta passes with its diff shown.
 """
 from tests.support.ast_move_proof import compare, render
 
@@ -310,6 +314,298 @@ def test_the_old_symbols_in_each_new_file_keep_their_old_order():
     rebound = compare("A = 1\nB = A\nA = 2\n", {"app/x/a.py": "A = 1\nA = 2\nB = A\n"})
     assert rebound.reordered == {"B": "app/x/a.py: now after A, which it preceded"}
     assert compare("A = 1\nB = A\nA = 2\n", {"app/x/a.py": "A = 1\nB = A\nA = 2\n"}).ok
+
+def test_a_new_symbol_that_binds_a_name_the_moved_code_reads_shadows_it():
+    """``make = registry`` is inert, yet the old ``X = make()`` beside it now calls ``registry()``: the old
+    file had no ``make`` symbol, so the moved code took the name from an import or a builtin. A def's body
+    resolves the module's names when it is called, so it counts as much as a line that runs at import."""
+    old = "from helpers import make\n\nX = make()\n\n\ndef build():\n    return make()\n"
+    new = old.replace("\nX = ", "\nmake = registry\n\nX = ")
+    report = compare(old, {"app/x.py": new})
+    assert not report.ok
+    assert report.shadows == {"make": "app/x.py: binds make, read by X, build"}
+    assert report.added == {}
+    assert "SHADOWS    make (app/x.py: binds make, read by X, build)" in render(report)
+    disclosed = compare(old, {"app/x.py": new}, frozenset({"make"}))
+    assert disclosed.ok
+    assert disclosed.allowed == {"make": "added in app/x.py\nshadows app/x.py: binds make, read by X, build"}
+    # A new symbol that rebinds a name an old symbol BINDS changes it for every importer, read here or not.
+    twice = "def make():\n    return 1\n"
+    rebound = compare(twice, {"app/x.py": twice + "\nmake, spare = registry, 0\n"})
+    assert rebound.shadows == {"make,spare": "app/x.py: binds make, bound by make"}
+
+
+def test_a_new_class_member_shadows_a_name_its_class_body_reads():
+    """A class body looks a name up in the class first: a new ``Box.make`` above the old ``x = make()`` makes
+    creating the class run ``register()``. A method's body never sees the class namespace, so ``Box.run``
+    is no reader of it; a new module-level ``make`` reaches both, and the class header's base as well."""
+    old = "class Box(Base):\n    x = make()\n\n    def run(self):\n        return make()\n"
+    member = old.replace("    x = ", "    def make():\n        return register()\n\n    x = ")
+    report = compare(old, {"app/x.py": member})
+    assert not report.ok
+    assert report.shadows == {"Box.make": "app/x.py: binds make, read by Box.x"}
+    module = compare(old, {"app/x.py": "make = Base = registry\n\n" + old})
+    assert module.shadows == {"make,Base": "app/x.py: binds Base, read by Box; binds make, read by Box.run, Box.x"}
+
+
+def test_an_honest_split_adds_names_without_shadowing_any():
+    """The control. A new name shadows only what the OLD symbols of its own file take from its own
+    namespace: a parameter, a local or a comprehension variable is not the module's name, an attribute is
+    not a name, a method body does not see a class member, and another file has its own namespace. New
+    code may read new names, and a disclosed change that starts calling a new helper never read it before."""
+    box = "class Box:\n    def run(self):\n        return self.make() + rows\n"
+    scoped = ("def local(make):\n    return make()\n\n\n"
+              "def bound():\n    make = rows[0]\n    return [make for make in rows]\n\n\n")
+    reader = "X = make()\n"
+    added = ("\nmake = registry\n"
+             "\ndef _trim(value):\n    return value.strip()\n"
+             "\ndef _clean(value):\n    return _trim(value)\n")
+    report = compare("from helpers import make, rows\n\n\n" + scoped + box + reader,
+                     {"app/x/a.py": "from helpers import rows\n\n\n" + scoped + box + "    rows = ()\n" + added,
+                      "app/x/b.py": "from helpers import make\n\n" + reader})
+    assert report.ok, render(report)
+    assert report.added == dict.fromkeys(("make", "_trim", "_clean", "Box.rows"), "app/x/a.py")
+    helpers = HELPERS.replace("return text[:LIMIT]", "return _trim(text)[:LIMIT]") + "\ndef _trim(value):\n    return value\n"
+    calling = compare(OLD, _move(**{"app/x/helpers.py": helpers}), frozenset({"clip"}))
+    assert calling.ok, render(calling)  # clip's printed diff is the disclosure
+    assert calling.added == {"__all__": "app/x.py", "_trim": "app/x/helpers.py"}
+
+
+def _added_at_module_level(old: str) -> str:
+    """What the proof says of ``make = registry`` added above ``old``: its SHADOWS reason, or "" when ADDED."""
+    report = compare(old, {"app/x.py": "make = registry\n\n" + old})
+    assert report.ok == (report.added == {"make": "app/x.py"}), render(report)
+    return report.shadows.get("make", "").removeprefix("app/x.py: binds make, ")
+
+
+def _added_to_box(old: str, *names: str) -> str:
+    """What the proof says of a new first member of ``class Box`` that binds ``names``: its SHADOWS reason."""
+    assert old.startswith("class Box:\n")
+    member = " = ".join(names) + " = 0"
+    report = compare(old, {"app/x.py": old.replace("class Box:\n", f"class Box:\n    {member}\n", 1)})
+    return report.shadows.get("Box." + ",".join(names), "").removeprefix("app/x.py: ")
+
+
+def test_every_place_the_moved_code_takes_a_module_name_from_is_a_reader():
+    """One case per scoping rule that makes a name the module's: a load in a class body falls through to the
+    module even when the class binds the name (inside a def too), ``global`` sends a def's name there, an
+    augmented assignment reads before it binds, a parenthesised annotation binds nothing, and a block reads
+    through its header and binds its header's targets and its imports."""
+    assert _added_at_module_level("def build():\n    class K:\n        x = make\n        make = 0\n    return K\n") == "read by build"
+    assert _added_at_module_level("def init():\n    global make\n    make = build()\n") == "read by init"
+    assert _added_at_module_level("class Box:\n    make += 1\n") == "read by Box.make"
+    assert _added_at_module_level("def build():\n    (make): int\n    return make()\n") == "read by build"
+    assert _added_at_module_level("if make():\n    pass\n") == "read by guard:if make()"
+    assert _added_at_module_level("for make in ROWS:\n    pass\n") == "bound by guard:for make in ROWS"
+    fallback = "try:\n    from fast import make\nexcept ImportError:\n    pass\n"
+    assert _added_at_module_level(fallback) == "bound by guard:try except ImportError"
+    # A NEW block is a SIDE EFFECT; it is not reported again for the old names bound in it.
+    widened = compare(FALLBACK, {"app/x.py": FALLBACK.replace("except ImportError:", "except Exception:")})
+    assert set(widened.side_effects) == {"guard:try except Exception"} and widened.shadows == {}
+
+
+def test_a_name_bound_in_a_nearer_scope_is_not_the_modules():
+    """One case per scoping rule that keeps a name out of the module: a parameter, a def's local, an
+    enclosing def's local, a comprehension's target, ``:=`` inside a comprehension (it binds in the def
+    around it), a lambda's parameter, and the names an import, an ``except ... as`` and a ``match`` bind."""
+    for old in ("def local(make):\n    return make()\n",
+                "def build():\n    make = 1\n    return make\n",
+                "def outer():\n    make = 1\n\n    def inner():\n        return make\n    return inner\n",
+                "ROWS = [make for make in rows]\n",
+                "def find(rows):\n    found = [(make := row) for row in rows]\n    return make, found\n",
+                "KEY = lambda make: make\n",
+                "def load():\n    import make\n    return make\n",
+                "def load():\n    try:\n        return 1\n    except OSError as make:\n        return make\n",
+                "def load(value):\n    match value:\n        case [make, *rest]:\n            return make, rest\n"):
+        assert _added_at_module_level(old) == "", old
+
+
+def test_a_class_member_is_read_only_by_what_runs_in_the_class_body():
+    """A def's decorator, default and annotations, a nested class's bases, a block's header and a
+    comprehension's first iterable run in the class body and see a new member; the comprehension's own
+    element and a nested class's body do not. A class body that declares a name ``global`` binds the
+    module's name, so a new member of that name is reported too."""
+    method = "class Box:\n    @deco\n    def run(self, limit=LIMIT) -> Out:\n        return limit\n"
+    assert _added_to_box(method, "deco", "LIMIT", "Out") == (
+        "binds LIMIT, read by Box.run; binds Out, read by Box.run; binds deco, read by Box.run")
+    assert _added_to_box("class Box:\n    class Inner(Base):\n        pass\n", "Base") == "binds Base, read by Box.Inner"
+    assert _added_to_box("class Box:\n    if make:\n        x = 1\n", "make") == "binds make, read by Box.guard:if make"
+    assert _added_to_box("class Box:\n    xs = [r for r in rows]\n", "rows") == "binds rows, read by Box.xs"
+    assert _added_to_box("class Box:\n    xs = [make(r) for r in ()]\n", "make") == ""
+    assert _added_to_box("class Box:\n    class Inner:\n        y = make\n", "make") == ""
+    assert _added_to_box("class Box:\n    global make\n    x = 1\n", "make") == "binds make, read by Box.expr:global make"
+
+
+def test_a_symbol_of_the_target_file_is_no_shadow_when_the_old_file_imported_it_from_there():
+    """``run`` moves into the module it imported ``normalize`` from: it keeps the binding it always had. The
+    same move when the old file took ``normalize`` from anywhere else is the shadow a move into an existing
+    module risks, and so is any import the proof cannot place: an alias, or no path for the old file."""
+    old = "from app.b import normalize\n\n\ndef run(value):\n    return normalize(value)\n"
+    files = {"app/a.py": "from app.b import run\n\n__all__ = ['run']\n",
+             "app/b.py": "def normalize(value):\n    return value.strip()\n\n\ndef run(value):\n    return normalize(value)\n"}
+    for source in (old, old.replace("from app.b import", "from .b import")):
+        report = compare(source, files, old_path="app/a.py")
+        assert report.ok, render(report)
+        assert report.added == {"__all__": "app/a.py", "normalize": "app/b.py"}
+    shadowed = {"normalize": "app/b.py: binds normalize, read by run"}
+    for unplaced in (old.replace("app.b", "app.c"),  # another module
+                     old.replace("import normalize", "import clean as normalize"),  # an alias
+                     old + "\ntry:\n    from fast import normalize\nexcept ImportError:\n    pass\n",  # rebound in a block
+                     "if FAST:\n    " + old):  # imported only when FAST
+        assert compare(unplaced, files, old_path="app/a.py").shadows == shadowed, unplaced
+    assert compare(old, files).shadows == shadowed  # no path for the old file
+
+
+
+def test_a_symbol_of_the_target_file_shadows_moved_code_that_reads_it_at_import_above_it():
+    """The old file's import ran before ``X = normalize``; in the target file the binding must still run
+    first. Placed above it, a read at import raises NameError, or takes an earlier binding of the name, so it
+    is reported: in a statement, a class body, a decorator or a comprehension, which runs where it stands. A
+    def's or lambda's body reads the name when it runs, so its place does not matter."""
+    target = "def normalize(value):\n    return value.strip()\n"
+
+    def placed(reader: str, above: bool, head: str = "") -> dict[str, str]:
+        body = reader + "\n\n" + target if above else target + "\n\n" + reader
+        return {"app/a.py": "", "app/b.py": head + body}
+
+    for reader, key in (("X = normalize\n", "X"),
+                        ("XS = [normalize(row) for row in ROWS]\n", "XS"),
+                        ("class Box:\n    clean = normalize\n", "Box.clean"),
+                        ("@normalize\ndef run(value):\n    return value\n", "run")):
+        old = "from app.b import normalize\n\n" + reader
+        report = compare(old, placed(reader, above=True), old_path="app/a.py")
+        assert report.shadows == {"normalize": f"app/b.py: binds normalize, read above it at import by {key}"}, reader
+        assert compare(old, placed(reader, above=False), old_path="app/a.py").ok, reader
+    for reader in ("def run(value):\n    return normalize(value)\n", "RUN = lambda value: normalize(value)\n"):
+        old = "from app.b import normalize\n\n" + reader
+        report = compare(old, placed(reader, above=True), old_path="app/a.py")
+        assert report.ok, render(report)
+    # An earlier binding of the name above the reader is not the one the old file imported.
+    early = compare("from app.b import normalize\n\nX = normalize\n",
+                    placed("X = normalize\n", above=True, head="normalize = None\n\n"), old_path="app/a.py")
+    assert early.shadows == {"normalize": "app/b.py: binds normalize, read above it at import by X"}
+
+
+def test_moved_code_that_rebinds_a_name_imported_from_the_target_file_shadows_it():
+    """The exemption covers reads only. Before the move ``reset`` rebound the old file's own copy of
+    ``cache``; in the target file it rebinds the target's binding, for every importer. A module-level loop
+    or ``except ... as`` target rebinds it as well, and so does a ``global`` declared in a method or a class
+    body."""
+    target = "cache = {}\n"
+    for reader, key in (("def reset():\n    global cache\n    cache = {}\n", "reset"),
+                        ("for cache in ROWS:\n    pass\n", "guard:for cache in ROWS"),
+                        ("class Box:\n    def reset(self):\n        global cache\n        cache = {}\n", "Box.reset"),
+                        # A class body's ``global`` and its store are two members: the declaration counts.
+                        ("class Box:\n    global cache\n    cache = {}\n", "Box.expr:global cache")):
+        old = "from app.b import cache\n\n" + reader
+        report = compare(old, {"app/a.py": "", "app/b.py": target + "\n\n" + reader}, old_path="app/a.py")
+        assert report.shadows == {"cache": f"app/b.py: binds cache, bound by {key}"}, reader
+    # A read below the binding stays exempt, a ``global`` that is only read included: it binds nothing.
+    for reads in ("def size():\n    return len(cache)\n", "def size():\n    global cache\n    return len(cache)\n"):
+        report = compare("from app.b import cache\n\n" + reads, {"app/a.py": "", "app/b.py": target + "\n\n" + reads},
+                         old_path="app/a.py")
+        assert report.ok, render(report)
+
+def test_a_new_module_dunder_beside_moved_code_is_read_by_python_itself():
+    """No moved code loads ``__builtins__``, yet ``size`` below it resolves ``len`` through it. It runs
+    nothing at import, and it printed ``pure move: OK`` before the rule."""
+    size = "def size(rows):\n    return len(rows)\n"
+    builtins = {"app/x.py": "__builtins__ = {'len': 0}\n\n" + size}
+    report = compare(size, builtins)
+    assert not report.ok
+    assert report.shadows == {"__builtins__": "app/x.py: binds __builtins__, read by Python itself"}
+    assert report.added == {}
+    assert "SHADOWS    __builtins__ (app/x.py: binds __builtins__, read by Python itself)" in render(report)
+    disclosed = compare(size, builtins, frozenset({"__builtins__"}))
+    assert disclosed.ok
+    assert disclosed.allowed == {
+        "__builtins__": "added in app/x.py\nshadows app/x.py: binds __builtins__, read by Python itself"}
+
+
+def test_a_new_dunder_member_of_a_moved_class_is_read_by_python_itself():
+    """No moved code loads ``__slots__``, yet creating the class reads it: the moved class's instances lose
+    their ``__dict__``. It runs nothing at import, and it printed ``pure move: OK`` before the rule."""
+    moved = "class Moved:\n    x = 1\n"
+    slots = compare(moved, {"app/x.py": moved.replace("    x = 1", "    __slots__ = ()\n    x = 1")})
+    assert not slots.ok
+    assert slots.shadows == {"Moved.__slots__": "app/x.py: binds __slots__, read by Python itself"}
+
+
+def test_a_class_docstring_counts_only_as_the_first_statement_of_its_body():
+    """Python takes a class's ``__doc__`` from the first statement of its body only, and FastAPI and pydantic
+    read it: a new member placed above an old class's docstring takes it out of ``__doc__``, with every
+    member's text unchanged. The header carries the docstring, so whatever now precedes it (a new member, an
+    import, an old member, a block around it) changes the header, in a class that holds nothing else too, and
+    so does a docstring added to a class that had none. A first statement that is no string is no docstring."""
+    old = 'class Moved:\n    """Doc."""\n    x = 1\n'
+    report = compare(old, {"app/x.py": old.replace('    """Doc."""', '    y = 0\n    """Doc."""')})
+    assert not report.ok
+    assert list(report.changed) == ["Moved"]
+    assert '-    """Doc."""\n+    pass' in report.changed["Moved"]
+    assert report.moved == 2 and report.added == {"Moved.y": "app/x.py"}  # the docstring and x, unchanged
+    for above in ("    import os\n", "    x = 1\n"):
+        displaced = old.replace("    x = 1\n", "").replace('    """Doc."""', above + '    """Doc."""')
+        assert "Moved" in compare(old, {"app/x.py": displaced}).changed, above
+    assert "Moved" in compare(old, {"app/x.py": old.replace('    """Doc."""', '    if FLAG:\n        """Doc."""')}).changed
+    only = 'class NotFound(Exception):\n    """Raised."""\n'
+    assert list(compare(only, {"app/x.py": only.replace("    ", "    status = 404\n    ", 1)}).changed) == ["NotFound"]
+    ellipsis = "class Proto:\n    ...\n    x = 1\n"
+    assert compare(ellipsis, {"app/x.py": ellipsis.replace("    ...", "    y = 0\n    ...")}).ok
+    bare = "class Moved:\n    x = 1\n"
+    documented = compare(bare, {"app/x.py": old})
+    assert list(documented.changed) == ["Moved"]
+    assert documented.added == {"Moved.expr:'Doc.'": "app/x.py"}
+
+
+def test_a_facades_all_and_a_new_classs_own_dunders_and_docstring_are_added():
+    """The control. A façade declares ``__all__`` beside the old ``logger`` it keeps, and a split adds a class
+    of its own, with a docstring and dunders, beside moved code: no moved code reaches them except through
+    the class's name, so every one is ADDED."""
+    cache = ('\nclass _Cache:\n    """Docstring."""\n\n    __slots__ = ("rows",)\n\n'
+             "    def __init__(self):\n        self.rows = {}\n\n"
+             "    def __eq__(self, other):\n        return self is other\n")
+    report = compare(OLD, _move(**{"app/x/helpers.py": HELPERS + cache}))
+    assert report.ok, render(report)
+    members = ("_Cache", "_Cache.expr:'Docstring.'", "_Cache.__slots__", "_Cache.__init__", "_Cache.__eq__")
+    assert report.added == {"__all__": "app/x.py", **dict.fromkeys(members, "app/x/helpers.py")}
+
+
+def test_every_dunder_counts_where_moved_code_lives_and_only_there():
+    """One case per rule. Every dunder counts, a def or one that a library reads, at module level and in an
+    old class, ``__all__`` and ``__doc__`` included in a class, and in a class or a file whose only old
+    symbol is its header or a block; a dunder the moved code also names lists both readers. A module's
+    ``__all__`` is exempt from Python's read only, a file with no old symbol holds no moved code, and a
+    class-private ``__name``, a name with underscores on one side only and the throwaway ``__`` are no
+    dunders."""
+    size = "def size(rows):\n    return len(rows)\n"
+    for new, key in (("def __getattr__(name):\n    return name\n", "__getattr__"),
+                     ("__package__ = 'app'\n", "__package__")):
+        assert compare(size, {"app/x.py": size + new}).shadows == {
+            key: f"app/x.py: binds {key}, read by Python itself"}, new
+    fallback = "try:\n    import fast\nexcept ImportError:\n    pass\n"
+    assert compare(fallback, {"app/x.py": fallback + "\n__package__ = 'app'\n"}).shadows == {
+        "__package__": "app/x.py: binds __package__, read by Python itself"}
+    moved = "class Moved:\n    x = 1\n"
+    for new, name in (("def __init__(self):\n        pass", "__init__"), ("__tablename__ = 'rows'", "__tablename__"),
+                      ("def __init_subclass__(cls):\n        pass", "__init_subclass__"), ("__all__ = ()", "__all__"),
+                      ("def __eq__(self, other):\n        return True", "__eq__"), ("__doc__ = 'Other.'", "__doc__")):
+        report = compare(moved, {"app/x.py": moved + f"\n    {new}\n"})
+        assert report.shadows == {f"Moved.{name}": f"app/x.py: binds {name}, read by Python itself"}, new
+    empty = "class NotFound(Exception):\n    pass\n"
+    assert compare(empty, {"app/x.py": empty + "\n    def __str__(self):\n        return 'x'\n"}).shadows == {
+        "NotFound.__str__": "app/x.py: binds __str__, read by Python itself"}
+    readers = "A = __name__\nB = __name__\nC = __name__\nD = __name__\n"
+    named = compare(readers, {"app/x.py": "__name__ = 'app'\n" + readers})
+    assert named.shadows == {"__name__": "app/x.py: binds __name__, read by Python itself, A, B, C and 1 more"}
+    assert compare(size, {"app/x.py": "__all__ = ['size']\n\n" + size}).added == {"__all__": "app/x.py"}
+    listed = "def names():\n    return __all__\n"
+    assert compare(listed, {"app/x.py": "__all__ = []\n\n" + listed}).shadows == {
+        "__all__": "app/x.py: binds __all__, read by names"}
+    lazy = compare(size, {"app/x.py": size, "app/x/lazy.py": "def __getattr__(name):\n    return name\n"})
+    assert lazy.ok and lazy.added == {"__getattr__": "app/x/lazy.py"}
+    plain = compare(size, {"app/x.py": size + "\n__cache = {}\ncache__ = {}\n_cache__ = {}\n__cache_ = {}\n__ = 0\n"})
+    assert plain.ok and set(plain.added) == {"__cache", "cache__", "_cache__", "__cache_", "__"}
+
 
 def test_an_added_import_time_side_effect_fails_until_disclosed():
     files = _move(**{"app/x/helpers.py": HELPERS + "\nsettings.STRICT = False\nregister(clip)\n"})
