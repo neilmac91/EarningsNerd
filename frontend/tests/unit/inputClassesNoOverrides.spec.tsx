@@ -35,30 +35,36 @@ import { bindingResolver } from './astBindings'
  * each option as written (a non-literal flag is checked both ways) and computes the field's own classes by
  * calling the real inputClasses() with them. Tailwind itself (this config, globals.css as input) says what each
  * bare utility declares. An added class COMPETES with a field class when both style the same element (or
- * pseudo-element) and declare one property with different values, `--tw-*` properties included; a declaration
- * that reads a `var(--tw-…)` its own rule does not set is Tailwind's composite plumbing (box-shadow behind
- * `shadow-*` and `ring-*`) and is skipped, so `focus:ring-0` does not compete with the field's ring shadow. It
- * fails:
+ * pseudo-element) and declare one property with different values, `--tw-*` properties included, and a shorthand
+ * against its longhands (`p-2` against `px-3.5`, `rounded-r-none` against `rounded-lg`). Two declarations that are
+ * both Tailwind's composite plumbing (a value reading a `var(--tw-…)` its own rule does not set: the box-shadow
+ * behind `shadow-*` and `ring-*`) never compete, so `focus:ring-0` passes against the field's ring shadow while
+ * `focus:[box-shadow:none]` fails. It fails:
  *
  *  (a) same chain: the two carry the same variants (as a set). Stylesheet order decides: `w-auto` vs `w-full`.
  *  (b) no twin: the field sets the property under `dark:` or a screen (`sm:`) the added class lacks, plus only
  *      variants the added class carries, and no added class covers that chain. The field's rule outranks it
  *      there: the delete-account field's `focus:border-error-light` shows the brand border in dark.
- *  (c) `!important`, or an arbitrary variant (`[&>option]:`) the gate cannot place.
- *  (d) `autoWidth` on a <select> without `select` (the forms plugin's chevron then sits over its text), or
- *      `select` on anything but a <select>.
+ *  (c) `!important`, an arbitrary variant (`[&>option]:`) the gate cannot place, or a token Tailwind does not
+ *      generate. A marker (`group`, `peer`) or a utility that styles only other elements (`space-x-2`) passes.
+ *  (d) a <select> without `select` (PAD's 14px right inset leaves the forms plugin's chevron no room, and a
+ *      select that sizes to its content puts its text under it; a list box, `multiple` or `size`, draws no
+ *      chevron and is exempt), or `select` on anything but a <select>.
  *
  * A state layer passes: `aria-disabled:bg-background-light` over the field's `bg-white` (with its
  * `dark:aria-disabled:` twin), `focus-within:border-brand` on the composer shell. A position the scan cannot
  * follow (the result held in a variable, returned, joined with `+`, passed to another function, a className
- * from a parameter, an option spread) fails rather than passing unread.
+ * from a parameter, an option spread, a class glued to a template's text or to the next expression) fails rather
+ * than passing unread.
  *
- * PINS holds the known sites by path and exact finding, with a reason, capped and shrink-only: a new finding
- * fails, and so does a pin that no longer matches.
+ * PINS holds the known findings by path and exact text, one entry per site, with a reason, capped and
+ * shrink-only: a new finding fails, a second site with a pinned finding fails, and so does a pin that no longer
+ * matches.
  *
  * What it cannot see: two different state chains of one specificity that Tailwind's variant order decides (the
  * composer shell's `focus-within:` border loses to the field's `hover:` border while both hold); a class reaching
- * the field through a props spread or another component; a namespace import; a utility outside this config.
+ * the field through a props spread or another component; a namespace import, a dynamic import, or a re-export
+ * other than the components/ui barrel; a member-tag select (`<motion.select>`) reads as not a select.
  */
 
 const FRONTEND_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
@@ -87,7 +93,25 @@ const PINS: Record<string, { findings: string[]; reason: string }> = {
       'so it waits on the dark ring-error token decision (rule 11) recorded by #1178.',
   },
 }
-const MAX_PINNED_SITES = 2
+/** Shrink-only: files, and findings (one entry per site, so a second site with the same override fails). */
+const MAX_PINNED = { files: 2, findings: 6 }
+
+/** The findings PINS does not cover, counting each pinned entry once, and the pins no finding matched. */
+function againstPins(found: { file: string; line: number; finding: string }[], pins: typeof PINS) {
+  const left = new Map<string, number>()
+  for (const [file, pin] of Object.entries(pins)) for (const f of pin.findings) left.set(`${file}: ${f}`, (left.get(`${file}: ${f}`) ?? 0) + 1)
+  const unpinned = found.flatMap((f) => {
+    const key = `${f.file}: ${f.finding}`
+    const n = left.get(key) ?? 0
+    if (n > 0) {
+      left.set(key, n - 1)
+      return []
+    }
+    return [`${f.file}:${f.line} ${f.finding}`]
+  })
+  const stale = [...left].filter(([, n]) => n > 0).map(([key]) => key)
+  return { unpinned, stale }
+}
 
 // ------------------------------------------------------------------------------------------------- scanner
 
@@ -96,7 +120,7 @@ const DEFAULTS: Options = { invalid: false, leadingIcon: false, select: false, d
 const BOOLEAN_OPTIONS = ['invalid', 'leadingIcon', 'select', 'autoWidth'] as const
 const DENSITIES: FieldDensity[] = ['comfortable', 'compact']
 
-interface Site { file: string; line: number; tag: string; combos: Options[]; added: string[] }
+interface Site { file: string; line: number; tag: string; attrs: string[]; combos: Options[]; added: string[] }
 interface Scan { calls: number; sites: Site[]; unreadable: string[] }
 
 class Unreadable extends Error {}
@@ -192,12 +216,14 @@ function scanSource(file: string, text: string): Scan {
   const templateClasses = (tpl: ts.TemplateExpression, except: ts.TemplateSpan | undefined, depth: number): string[] => {
     const out = split(tpl.head.text)
     let before = tpl.head.text
-    for (const span of tpl.templateSpans) {
-      if (/\S$/.test(before) || /^\S/.test(span.literal.text)) throw new Unreadable('a class built from pieces of a template')
+    tpl.templateSpans.forEach((span, i) => {
+      // `${a}${b}` glues a's last class to b's first, as `px-${n}` and `${a}mt-2` glue to text.
+      const glued = (i > 0 && before === '') || /\S$/.test(before) || /^\S/.test(span.literal.text)
+      if (glued) throw new Unreadable('a class built from pieces of a template')
       if (span !== except) out.push(...classSource(span.expression, depth + 1))
       out.push(...split(span.literal.text))
       before = span.literal.text
-    }
+    })
     return out
   }
 
@@ -252,7 +278,8 @@ function scanSource(file: string, text: string): Scan {
         node = p
       } else if (ts.isJsxExpression(p) && ts.isJsxAttribute(p.parent) && p.parent.name.getText(sf) === 'className') {
         const element = p.parent.parent.parent
-        return { file, line: lineOf(call), tag: element.tagName.getText(sf), combos, added }
+        const attrs = element.attributes.properties.flatMap((a) => (ts.isJsxAttribute(a) ? [a.name.getText(sf)] : []))
+        return { file, line: lineOf(call), tag: element.tagName.getText(sf), attrs, combos, added }
       } else throw new Unreadable(`inputClasses() inside a ${ts.SyntaxKind[p.kind]}, which the gate cannot follow to a className`)
     }
   }
@@ -311,14 +338,50 @@ function parseClass(token: string) {
   }
 }
 
-type Decl = { prop: string; value: string }
-const declCache = new Map<string, Decl[] | null>()
+/** A declaration, and whether it is Tailwind's composite plumbing: a value reading a `--tw-*` its own rule does
+    not set (the box-shadow behind `shadow-*` and `ring-*`). Two plumbing declarations never compete. */
+type Decl = { prop: string; value: string; plumbing: boolean }
+/** What a utility declares, per element it styles: '' is the element itself, `placeholder` its ::placeholder. */
+type Entry = { target: string; decls: Decl[] }
+const declCache = new Map<string, Entry[] | null>()
+/** Utilities Tailwind generates that style no element of the field itself (`space-x-2` styles its children). */
+const stylesOthers = new Set<string>()
+/** Classes that generate no CSS and only mark an element for a variant (`group-focus-within:`, `peer-invalid:`). */
+const MARKER = /^(group|peer)(\/[\w-]+)?$/
+
+const SIDES = ['top', 'right', 'bottom', 'left']
+/** A shorthand competes with its longhands: `p-2` (padding) with `px-3.5` (padding-left, padding-right). */
+const LONGHANDS: Record<string, string[]> = {
+  padding: SIDES.map((s) => `padding-${s}`),
+  margin: SIDES.map((s) => `margin-${s}`),
+  inset: SIDES,
+  'border-width': SIDES.map((s) => `border-${s}-width`),
+  'border-style': SIDES.map((s) => `border-${s}-style`),
+  'border-color': SIDES.map((s) => `border-${s}-color`),
+  'border-radius': ['top-left', 'top-right', 'bottom-right', 'bottom-left'].map((c) => `border-${c}-radius`),
+  outline: ['outline-color', 'outline-style', 'outline-width'],
+  overflow: ['overflow-x', 'overflow-y'],
+  gap: ['row-gap', 'column-gap'],
+}
+
+/** A rule's declarations as longhands. A multi-value shorthand keeps its whole value, so it differs from a longhand. */
+function longhands(decls: { prop: string; value: string }[]): Decl[] {
+  const own = new Set(decls.map((d) => d.prop))
+  return decls.flatMap(({ prop, value }) => {
+    const plumbing = !prop.startsWith('--') && [...value.matchAll(/var\((--tw-[\w-]+)/g)].some((m) => !own.has(m[1]))
+    const parts = LONGHANDS[prop]
+    if (!parts) return [{ prop, value, plumbing }]
+    const each = /\s/.test(value) ? `${prop}(${value})` : value
+    return parts.map((p) => ({ prop: p, value: each, plumbing }))
+  })
+}
 
 /** Unescapes a CSS identifier: `px-3\.5` → `px-3.5`, `\2c ` → `,`. */
 const unescapeCss = (s: string) =>
   s.replace(/\\([0-9a-fA-F]{1,6}) ?|\\(.)/g, (_, hex: string | undefined, ch: string | undefined) => (hex ? String.fromCodePoint(parseInt(hex, 16)) : ch!))
 
-/** What Tailwind declares for each bare utility, read off the rules whose selector is that one class. */
+/** What Tailwind declares for each bare utility, read off the rules whose selector is that one class, alone or with
+    a pseudo-element (`.placeholder-x::placeholder`). A utility whose rules style anything else is noted in stylesOthers. */
 async function loadDeclarations(utilities: string[]): Promise<void> {
   const missing = [...new Set(utilities)].filter((u) => !declCache.has(u))
   if (!missing.length) return
@@ -328,24 +391,35 @@ async function loadDeclarations(utilities: string[]): Promise<void> {
     { from },
   )
   for (const u of missing) declCache.set(u, null)
+  const CLASS = /\.((?:\\[0-9a-fA-F]{1,6} ?|\\.|[\w-])+)/g
   css.root.walkRules((rule) => {
-    if (rule.parent?.type !== 'root') return
-    const m = rule.selector.match(/^\.((?:\\[0-9a-fA-F]{1,6} ?|\\.|[\w-])+)$/)
-    if (!m) return
-    const name = unescapeCss(m[1])
-    if (!missing.includes(name)) return
-    const decls: Decl[] = []
-    rule.walkDecls((d) => {
-      decls.push({ prop: d.prop, value: d.value.trim() })
-    })
-    declCache.set(name, [...(declCache.get(name) ?? []), ...decls])
+    const own = rule.parent?.type === 'root' && rule.selector.match(/^\.((?:\\[0-9a-fA-F]{1,6} ?|\\.|[\w-])+)(?:::(-(?:moz|webkit|ms)-(?:input-)?)?([\w-]+))?$/)
+    if (own) {
+      const name = unescapeCss(own[1])
+      if (!missing.includes(name)) return
+      const decls: { prop: string; value: string }[] = []
+      rule.walkDecls((d) => {
+        decls.push({ prop: d.prop, value: d.value.trim() })
+      })
+      declCache.set(name, [...(declCache.get(name) ?? []), { target: own[3] ?? '', decls: longhands(decls) }])
+      return
+    }
+    for (const m of rule.selector.matchAll(CLASS)) {
+      const name = unescapeCss(m[1])
+      if (missing.includes(name)) stylesOthers.add(name)
+    }
   })
 }
 
-/** The declarations that carry a value: a declaration reading a `--tw-*` its own rule does not set is plumbing. */
-function valued(decls: Decl[]): Decl[] {
-  const own = new Set(decls.map((d) => d.prop))
-  return decls.filter((d) => d.prop.startsWith('--') || ![...d.value.matchAll(/var\((--tw-[\w-]+)/g)].some((m) => !own.has(m[1])))
+const joinTarget = (a: string, b: string) => [a, b].filter(Boolean).sort().join(':')
+
+/** `[padding-top,padding-bottom]`, with a full set of longhands named by its shorthand: `[border-color]`. */
+function propList(props: string[]): string {
+  let out = [...new Set(props)]
+  for (const [short, parts] of Object.entries(LONGHANDS)) {
+    if (parts.every((p) => out.includes(p))) out = [...out.filter((p) => !parts.includes(p)), short]
+  }
+  return `[${out.join(',')}]`
 }
 
 const sameSet = (a: Set<string>, b: Set<string>) => a.size === b.size && [...a].every((x) => b.has(x))
@@ -359,30 +433,36 @@ function competing(field: string[], added: string[]): string[] {
       out.add(`${a.token} (arbitrary variant)`)
       continue
     }
-    const aDecls = declCache.get(a.utility)
-    if (!aDecls) {
-      out.add(`${a.token} (not a utility this config generates)`)
+    const aEntries = declCache.get(a.utility)
+    if (!aEntries) {
+      if (!MARKER.test(a.utility) && !stylesOthers.has(a.utility)) out.add(`${a.token} (not a class Tailwind generates)`)
       continue
     }
-    for (const f of field.map(parseClass)) {
-      if (f.target !== a.target) continue
-      const fDecls = valued(declCache.get(f.utility) ?? [])
-      const ad = valued(aDecls)
-      const props = fDecls.filter((d) => ad.some((x) => x.prop === d.prop && x.value !== d.value)).map((d) => d.prop)
-      if (!props.length) continue
-      const list = `[${[...new Set(props)].join(',')}]`
-      if (sameSet(a.chain, f.chain)) {
-        out.add(`${a.token} vs ${f.token} ${list} (same chain)`)
-        continue
+    for (const ae of aEntries) {
+      const aTarget = joinTarget(a.target, ae.target)
+      for (const f of field.map(parseClass)) {
+        for (const fe of declCache.get(f.utility) ?? []) {
+          if (joinTarget(f.target, fe.target) !== aTarget) continue
+          const props = fe.decls
+            .filter((d) => ae.decls.some((x) => x.prop === d.prop && x.value !== d.value && !(x.plumbing && d.plumbing)))
+            .map((d) => d.prop)
+          if (!props.length) continue
+          const list = propList(props)
+          if (sameSet(a.chain, f.chain)) {
+            out.add(`${a.token} vs ${f.token} ${list} (same chain)`)
+            continue
+          }
+          const lacking = [...f.chain].filter((v) => OUTRANKING.has(v) && !a.chain.has(v))
+          const rest = [...f.chain].filter((v) => !OUTRANKING.has(v))
+          if (!lacking.length || !rest.every((v) => a.chain.has(v))) continue
+          const want = new Set([...a.chain, ...lacking])
+          const twin = parsedAdded.some((t) =>
+            sameSet(t.chain, want) &&
+            (declCache.get(t.utility) ?? []).some((te) => joinTarget(t.target, te.target) === aTarget && te.decls.some((d) => props.includes(d.prop))),
+          )
+          if (!twin) out.add(`${a.token} vs ${f.token} ${list} (no ${lacking.join('+')} twin)`)
+        }
       }
-      const lacking = [...f.chain].filter((v) => OUTRANKING.has(v) && !a.chain.has(v))
-      const rest = [...f.chain].filter((v) => !OUTRANKING.has(v))
-      if (!lacking.length || !rest.every((v) => a.chain.has(v))) continue
-      const want = new Set([...a.chain, ...lacking])
-      const twin = parsedAdded.some(
-        (t) => t.target === a.target && sameSet(t.chain, want) && (declCache.get(t.utility) ?? []).some((d) => props.includes(d.prop)),
-      )
-      if (!twin) out.add(`${a.token} vs ${f.token} ${list} (no ${lacking.join('+')} twin)`)
     }
   }
   return [...out]
@@ -398,8 +478,10 @@ async function check(scan: Scan): Promise<{ file: string; line: number; finding:
     const found = new Set<string>()
     for (const combo of site.combos) {
       for (const f of competing(fieldOf(combo), site.added)) found.add(f)
-      if (site.tag === 'select' && combo.autoWidth && !combo.select) {
-        found.add('autoWidth on a <select> without select: true (the chevron sits over its text)')
+      // The forms plugin draws no chevron on a list box (`multiple`, or `size` over 1), so neither rule holds there.
+      const listBox = site.attrs.includes('multiple') || site.attrs.includes('size')
+      if (site.tag === 'select' && !listBox && !combo.select) {
+        found.add("a <select> without select: true (PAD's 14px right inset leaves the chevron no room)")
       }
       if (site.tag !== 'select' && combo.select) found.add(`select: true on a <${site.tag}>`)
     }
@@ -447,19 +529,16 @@ describe('a raw field takes inputClasses() options, never a competing class on t
   it('no class combined with inputClasses() competes with the field’s own', async () => {
     const scan = scanApp()
     expect(scan.unreadable, 'inputClasses() where the gate cannot read what it is combined with').toEqual([])
-    const found = await check(scan)
-    const unpinned = found.filter((f) => !PINS[f.file]?.findings.includes(f.finding)).map((f) => `${f.file}:${f.line} ${f.finding}`)
+    const { unpinned, stale } = againstPins(await check(scan), PINS)
     expect(
       unpinned,
       'A class on top of inputClasses() that sets what the field sets resolves by stylesheet order, not class ' +
         'order (cx and clsx do no tailwind-merge). Use an option (select, autoWidth, density, leadingIcon, invalid) ' +
         'or add one to components/ui/Input.tsx with explicit sides.',
     ).toEqual([])
-    const stale = Object.entries(PINS).flatMap(([file, pin]) =>
-      pin.findings.filter((finding) => !found.some((f) => f.file === file && f.finding === finding)).map((finding) => `${file}: ${finding}`),
-    )
     expect(stale, 'pins that no longer match a finding: remove them').toEqual([])
-    expect(Object.keys(PINS).length).toBeLessThanOrEqual(MAX_PINNED_SITES)
+    expect(Object.keys(PINS).length).toBeLessThanOrEqual(MAX_PINNED.files)
+    expect(Object.values(PINS).flatMap((p) => p.findings).length).toBeLessThanOrEqual(MAX_PINNED.findings)
   })
 
   it('reads the app (a rename cannot leave it scanning nothing)', () => {
@@ -472,20 +551,24 @@ describe('a raw field takes inputClasses() options, never a competing class on t
 // ------------------------------------------------------------------------------------------------- the scanner
 
 const IMPORTS = `import { clsx } from 'clsx'\nimport { fieldUnavailableClass, inputClasses } from '@/components/ui/Input'\n`
+const NO_CHEVRON_ROOM = "a <select> without select: true (PAD's 14px right inset leaves the chevron no room)"
 
 describe('the scanner', () => {
   it('fails each override main abda78ce shipped, verbatim', async () => {
     expect(await findingsOf(`${IMPORTS}export const D = () => <select className={clsx(inputClasses(), 'w-auto py-1.5 text-sm', fieldUnavailableClass)} />`)).toEqual([
+      NO_CHEVRON_ROOM,
       'py-1.5 vs py-2.5 [padding-top,padding-bottom] (same chain)',
       'w-auto vs w-full [width] (same chain)',
     ])
     expect(await findingsOf(`${IMPORTS}export const F = () => <select className={\`\${inputClasses()} w-auto py-1.5 pr-8 text-xs \${fieldUnavailableClass}\`} />`)).toEqual([
+      NO_CHEVRON_ROOM,
       'pr-8 vs px-3.5 [padding-right] (same chain)',
       'py-1.5 vs py-2.5 [padding-top,padding-bottom] (same chain)',
       'text-xs vs text-sm [font-size,line-height] (same chain)',
       'w-auto vs w-full [width] (same chain)',
     ])
     expect(await findingsOf(`${IMPORTS}export const A = () => <select className={\`\${inputClasses()} w-auto\`} />`)).toEqual([
+      NO_CHEVRON_ROOM,
       'w-auto vs w-full [width] (same chain)',
     ])
   })
@@ -561,17 +644,53 @@ export const S = () => <div className={cx(inputClasses({ className: 'flex items-
     expect(await at('', 'focus:ring-0 focus:ring-offset-0')).toEqual([])
   })
 
-  it('holds a <select> that sizes to its content to the chevron padding, and `select` to a <select>', async () => {
-    expect(await findingsOf(`${IMPORTS}export const S = () => <select className={inputClasses({ autoWidth: true })} />`)).toEqual([
-      'autoWidth on a <select> without select: true (the chevron sits over its text)',
-    ])
+  it('holds every <select> to the chevron padding, and `select` to a <select>', async () => {
+    expect(await findingsOf(`${IMPORTS}export const S = () => <select className={inputClasses()} />`)).toEqual([NO_CHEVRON_ROOM])
+    expect(await findingsOf(`${IMPORTS}export const S = () => <select className={inputClasses({ autoWidth: true })} />`)).toEqual([NO_CHEVRON_ROOM])
+    expect(await findingsOf(`${IMPORTS}export const S = () => <select className={inputClasses({ select: true })} />`)).toEqual([])
+    // A list box draws no chevron, so it is held to neither rule.
+    expect(await findingsOf(`${IMPORTS}export const M = () => <select multiple className={inputClasses()} />`)).toEqual([])
     expect(await findingsOf(`${IMPORTS}export const I = () => <input className={inputClasses({ select: true })} />`)).toEqual([
       'select: true on a <input>',
     ])
     // A flag it cannot read is checked both ways.
-    expect(await findingsOf(`${IMPORTS}export const S = ({ wide }: { wide: boolean }) => <select className={inputClasses({ autoWidth: wide })} />`)).toEqual([
-      'autoWidth on a <select> without select: true (the chevron sits over its text)',
+    expect(await findingsOf(`${IMPORTS}export const S = ({ on }: { on: boolean }) => <select className={inputClasses({ select: on })} />`)).toEqual([
+      NO_CHEVRON_ROOM,
     ])
+  })
+
+  it('compares a shorthand with its longhands, and a raw box-shadow with the ring', async () => {
+    const at = (classes: string) => findingsOf(`${IMPORTS}export const T = () => <input className={inputClasses({ className: '${classes}' })} />`)
+    expect(await at('p-2')).toEqual([
+      'p-2 vs px-3.5 [padding-left,padding-right] (same chain)',
+      'p-2 vs py-2.5 [padding-top,padding-bottom] (same chain)',
+    ])
+    expect(await at('rounded-r-none')).toEqual(['rounded-r-none vs rounded-lg [border-top-right-radius,border-bottom-right-radius] (same chain)'])
+    expect(await at('border-b-0')).toEqual(['border-b-0 vs border [border-bottom-width] (same chain)'])
+    expect(await at('focus:[box-shadow:none] dark:focus:[box-shadow:none]')).toEqual([
+      'dark:focus:[box-shadow:none] vs dark:focus:shadow-ring-brand-dark [box-shadow] (same chain)',
+      'focus:[box-shadow:none] vs focus:shadow-ring-brand [box-shadow] (same chain)',
+    ])
+    // A placeholder colour utility styles the ::placeholder the field's `placeholder:` class styles.
+    expect(await at('placeholder-text-secondary-light')).toEqual([
+      'placeholder-text-secondary-light vs dark:placeholder:text-text-secondary-dark [color] (no dark twin)',
+      'placeholder-text-secondary-light vs placeholder:text-text-tertiary-light [color] (same chain)',
+    ])
+  })
+
+  it('passes a marker or a utility that styles only other elements, and fails a token Tailwind does not know', async () => {
+    const at = (classes: string) => findingsOf(`${IMPORTS}export const T = () => <div className={inputClasses({ className: '${classes}' })} />`)
+    expect(await at('group peer group/field space-x-2 divide-x')).toEqual([])
+    expect(await at('w-autoo')).toEqual(['w-autoo (not a class Tailwind generates)'])
+  })
+
+  it('pins one site per entry: a second site with a pinned finding fails, and an unmatched pin is stale', () => {
+    const pins = { 'a.tsx': { findings: ['x'], reason: '' } }
+    expect(againstPins([{ file: 'a.tsx', line: 3, finding: 'x' }], pins)).toEqual({ unpinned: [], stale: [] })
+    expect(
+      againstPins([{ file: 'a.tsx', line: 3, finding: 'x' }, { file: 'a.tsx', line: 9, finding: 'x' }], pins),
+    ).toEqual({ unpinned: ['a.tsx:9 x'], stale: [] })
+    expect(againstPins([], pins)).toEqual({ unpinned: [], stale: ['a.tsx: x'] })
   })
 
   it('fails closed on every position it cannot follow to a className', async () => {
@@ -590,6 +709,10 @@ export const S = () => <div className={cx(inputClasses({ className: 'flex items-
       'an inputClasses() option the gate cannot read',
     ])
     expect(await unreadable('declare const tone: string\nexport const G = () => <input className={`${inputClasses()} text-${tone}`} />')).toEqual([
+      'a class built from pieces of a template',
+    ])
+    // No space between two expressions glues the field's last class to the next one's first.
+    expect(await unreadable('export const H = () => <input className={`${inputClasses()}${fieldUnavailableClass}`} />')).toEqual([
       'a class built from pieces of a template',
     ])
     expect(await unreadable('export const f = inputClasses')).toEqual(['inputClasses used as a value'])

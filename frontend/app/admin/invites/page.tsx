@@ -230,7 +230,7 @@ export default function AdminInvitesPage() {
                 value={expiryHours}
                 onChange={(e) => setExpiryHours(Number(e.target.value))}
                 disabled={sending}
-                className={inputClasses()}
+                className={inputClasses({ select: true })}
               >
                 {EXPIRY_OPTIONS.map((opt) => (
                   <option key={opt.value} value={opt.value}>
