@@ -117,23 +117,30 @@ function NoteDot({ cx, cy, value, color, dark, note, position }: NoteDotProps & 
   )
 }
 
-interface LineNoteDatum { key: string; period: string; value: number; letter: string | null; axis: 'left' | 'right' }
+interface ChartNoteDatum { key: string; period: string; value: number; letter: string | null; axis: 'left' | 'right' | 'value' | 'growth' }
 
-function PositionedLineNoteDot({ anchors, anchorKey, ...props }: NoteDotProps & {
-  color: string; dark: boolean; note: DataNote; anchors: LineNoteDatum[]; anchorKey: string
-}) {
+function useChartNotePosition(anchors: ChartNoteDatum[], anchorKey: string) {
   const plot = usePlotArea()
   const xScale = useXAxisScale()
   const leftScale = useYAxisScale('left')
   const rightScale = useYAxisScale('right')
-  // Each line keeps its own axis; only projected pixels share the collision calculation.
-  // This includes cross-axis obstacles without comparing dollars on incompatible scales.
-  const position = plot && xScale ? layoutChartNotes(anchors.map((anchor) => {
-    const yScale = anchor.axis === 'right' ? rightScale : leftScale
+  const valueScale = useYAxisScale('value')
+  const growthScale = useYAxisScale('growth')
+  const scales = { left: leftScale, right: rightScale, value: valueScale, growth: growthScale }
+  // Values and comparisons keep their actual axes. Only projected pixels share this pass,
+  // so a bar endpoint and its growth point cannot independently choose overlapping letters.
+  return plot && xScale ? layoutChartNotes(anchors.map((anchor) => {
+    const yScale = scales[anchor.axis]
     return {
       key: anchor.key, letter: anchor.letter, x: xScale(anchor.period, { position: 'middle' }) ?? Number.NaN, y: yScale?.(anchor.value) ?? Number.NaN,
     }
   }), plot).get(anchorKey) : undefined
+}
+
+function PositionedNoteDot({ anchors, anchorKey, ...props }: NoteDotProps & {
+  color: string; dark: boolean; note: DataNote; anchors: ChartNoteDatum[]; anchorKey: string
+}) {
+  const position = useChartNotePosition(anchors, anchorKey)
   return <NoteDot {...props} position={position} />
 }
 
@@ -145,16 +152,24 @@ interface NoteBarProps {
   payload?: { period?: string }
 }
 
-function NoteBar({ x, y, width, height, color, dark, note }: NoteBarProps & { color: string; dark: boolean; note: DataNote | null }) {
+function NoteBar({ x, y, width, height, color, dark, note, position }: NoteBarProps & { color: string; dark: boolean; note: DataNote | null; position?: ChartNotePosition }) {
   if (x == null || y == null || width == null || height == null) return <g />
   return (
     <g aria-label={note ? `Data note ${note.letter}` : undefined}>
       <Rectangle x={x} y={y} width={width} height={height} radius={[4, 4, 0, 0]}
         fill={note ? chartTheme(dark).tipBg : color} stroke={note ? color : undefined}
         strokeWidth={note ? 2 : undefined} strokeDasharray={note ? '4 3' : undefined} />
-      {note && <text x={x + width / 2} y={Math.min(y, y + height) - 7} textAnchor="middle" fill={chartTheme(dark).label} fontFamily={CHART_FONT} fontSize={11}>{note.letter}</text>}
+      {/* Recharts supplies y at the value endpoint and signed height back to the baseline. */}
+      {note && <text x={position?.x ?? x + width / 2} y={position?.y ?? y + (height < 0 ? 18 : -10)} textAnchor="middle" fill={chartTheme(dark).label} fontFamily={CHART_FONT} fontSize={11}>{note.letter}</text>}
     </g>
   )
+}
+
+function PositionedNoteBar({ anchors, anchorKey, ...props }: NoteBarProps & {
+  color: string; dark: boolean; note: DataNote; anchors: ChartNoteDatum[]; anchorKey: string
+}) {
+  const position = useChartNotePosition(anchors, anchorKey)
+  return <NoteBar {...props} position={position} />
 }
 
 interface PanelSpec {
@@ -250,8 +265,8 @@ function PanelCard({
   const renderDot = (concept: string, color: string, growth = false) => function ChartNoteDot(props: NoteDotProps) {
     const period = props.payload?.period ?? ''
     const note = noteAt(concept, period, growth)
-    return note && !barSeries
-      ? <PositionedLineNoteDot {...props} color={color} dark={dark} note={note} anchors={lineNotes} anchorKey={`${concept}:${period}`} />
+    return note
+      ? <PositionedNoteDot {...props} color={color} dark={dark} note={note} anchors={chartNotes} anchorKey={`${concept}:${period}:${growth ? 'growth' : 'value'}`} />
       : <NoteDot {...props} color={color} dark={dark} note={note} />
   }
 
@@ -272,11 +287,20 @@ function PanelCard({
     }
     return row
   })
-  const lineNotes: LineNoteDatum[] = data.flatMap((row) => lineEntries.flatMap(({ concept, right }) => {
-    const value = row[concept]
+  const chartNotes: ChartNoteDatum[] = data.flatMap((row): ChartNoteDatum[] => {
     const period = String(row.period)
-    return typeof value === 'number' ? [{ key: `${concept}:${period}`, period, value, letter: noteAt(concept, period)?.letter ?? null, axis: dualAxis && right ? 'right' : 'left' }] : []
-  }))
+    if (barSeries) {
+      const value = row[barSeries.concept]
+      return [
+        ...(typeof value === 'number' ? [{ key: `${barSeries.concept}:${period}:value`, period, value, letter: noteAt(barSeries.concept, period)?.letter ?? null, axis: 'value' as const }] : []),
+        ...(typeof row.growth === 'number' ? [{ key: `${barSeries.concept}:${period}:growth`, period, value: row.growth, letter: noteAt(barSeries.concept, period, true)?.letter ?? null, axis: 'growth' as const }] : []),
+      ]
+    }
+    return lineEntries.flatMap(({ concept, right }) => {
+      const value = row[concept]
+      return typeof value === 'number' ? [{ key: `${concept}:${period}:value`, period, value, letter: noteAt(concept, period)?.letter ?? null, axis: dualAxis && right ? 'right' : 'left' }] : []
+    })
+  })
 
   // Route by SERIES, not by value magnitude: the growth line always formats as a percent and
   // everything else with the panel's formatter — a micro-cap's $850 bar or a +1,400% growth
@@ -429,7 +453,11 @@ function PanelCard({
                 animationDuration={lineProps(reduced).animationDuration}
                 shape={(props: unknown) => {
                   const bar = props as NoteBarProps
-                  return <NoteBar {...bar} color={BAR_COLOR} dark={dark} note={noteAt(barSeries.concept, bar.payload?.period ?? '')} />
+                  const period = bar.payload?.period ?? ''
+                  const note = noteAt(barSeries.concept, period)
+                  return note
+                    ? <PositionedNoteBar {...bar} color={BAR_COLOR} dark={dark} note={note} anchors={chartNotes} anchorKey={`${barSeries.concept}:${period}:value`} />
+                    : <NoteBar {...bar} color={BAR_COLOR} dark={dark} note={null} />
                 }}
               />
               {panel.growthLine && (
