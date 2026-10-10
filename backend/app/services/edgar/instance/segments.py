@@ -15,7 +15,7 @@ from .core import (
 )
 
 # ---------------------------------------------------------------------------
-# Reportable-SEGMENT disaggregation (roadmap T5.2). The consolidated paths above deliberately DROP
+# Reportable-SEGMENT disaggregation (roadmap T5.2). The consolidated series paths deliberately DROP
 # every dimensional fact (`if row.get("is_dimensioned"): continue`); segment revenue/operating-income
 # live ONLY on those dimensional facts, under the ASC-280 operating-segments axis. These helpers keep
 # them — filtered to that axis, to the filing's own reporting period, and to real reportable segments
