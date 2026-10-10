@@ -369,6 +369,91 @@ def test_an_honest_split_adds_names_without_shadowing_any():
     assert calling.added == {"__all__": "app/x.py", "_trim": "app/x/helpers.py"}
 
 
+def _added_at_module_level(old: str) -> str:
+    """What the proof says of ``make = registry`` added above ``old``: its SHADOWS reason, or "" when ADDED."""
+    report = compare(old, {"app/x.py": "make = registry\n\n" + old})
+    assert report.ok == (report.added == {"make": "app/x.py"}), render(report)
+    return report.shadows.get("make", "").removeprefix("app/x.py: binds make, ")
+
+
+def _added_to_box(old: str, *names: str) -> str:
+    """What the proof says of a new first member of ``class Box`` that binds ``names``: its SHADOWS reason."""
+    assert old.startswith("class Box:\n")
+    member = " = ".join(names) + " = 0"
+    report = compare(old, {"app/x.py": old.replace("class Box:\n", f"class Box:\n    {member}\n", 1)})
+    return report.shadows.get("Box." + ",".join(names), "").removeprefix("app/x.py: ")
+
+
+def test_every_place_the_moved_code_takes_a_module_name_from_is_a_reader():
+    """One case per scoping rule that makes a name the module's: a load in a class body falls through to the
+    module even when the class binds the name (inside a def too), ``global`` sends a def's name there, an
+    augmented assignment reads before it binds, a parenthesised annotation binds nothing, and a block reads
+    through its header and binds its header's targets and its imports."""
+    assert _added_at_module_level("def build():\n    class K:\n        x = make\n        make = 0\n    return K\n") == "read by build"
+    assert _added_at_module_level("def init():\n    global make\n    make = build()\n") == "read by init"
+    assert _added_at_module_level("class Box:\n    make += 1\n") == "read by Box.make"
+    assert _added_at_module_level("def build():\n    (make): int\n    return make()\n") == "read by build"
+    assert _added_at_module_level("if make():\n    pass\n") == "read by guard:if make()"
+    assert _added_at_module_level("for make in ROWS:\n    pass\n") == "bound by guard:for make in ROWS"
+    fallback = "try:\n    from fast import make\nexcept ImportError:\n    pass\n"
+    assert _added_at_module_level(fallback) == "bound by guard:try except ImportError"
+    # A NEW block is a SIDE EFFECT; it is not reported again for the old names bound in it.
+    widened = compare(FALLBACK, {"app/x.py": FALLBACK.replace("except ImportError:", "except Exception:")})
+    assert set(widened.side_effects) == {"guard:try except Exception"} and widened.shadows == {}
+
+
+def test_a_name_bound_in_a_nearer_scope_is_not_the_modules():
+    """One case per scoping rule that keeps a name out of the module: a parameter, a def's local, an
+    enclosing def's local, a comprehension's target, ``:=`` inside a comprehension (it binds in the def
+    around it), a lambda's parameter, and the names an import, an ``except ... as`` and a ``match`` bind."""
+    for old in ("def local(make):\n    return make()\n",
+                "def build():\n    make = 1\n    return make\n",
+                "def outer():\n    make = 1\n\n    def inner():\n        return make\n    return inner\n",
+                "ROWS = [make for make in rows]\n",
+                "def find(rows):\n    found = [(make := row) for row in rows]\n    return make, found\n",
+                "KEY = lambda make: make\n",
+                "def load():\n    import make\n    return make\n",
+                "def load():\n    try:\n        return 1\n    except OSError as make:\n        return make\n",
+                "def load(value):\n    match value:\n        case [make, *rest]:\n            return make, rest\n"):
+        assert _added_at_module_level(old) == "", old
+
+
+def test_a_class_member_is_read_only_by_what_runs_in_the_class_body():
+    """A def's decorator, default and annotations, a nested class's bases, a block's header and a
+    comprehension's first iterable run in the class body and see a new member; the comprehension's own
+    element and a nested class's body do not. A class body that declares a name ``global`` binds the
+    module's name, so a new member of that name is reported too."""
+    method = "class Box:\n    @deco\n    def run(self, limit=LIMIT) -> Out:\n        return limit\n"
+    assert _added_to_box(method, "deco", "LIMIT", "Out") == (
+        "binds LIMIT, read by Box.run; binds Out, read by Box.run; binds deco, read by Box.run")
+    assert _added_to_box("class Box:\n    class Inner(Base):\n        pass\n", "Base") == "binds Base, read by Box.Inner"
+    assert _added_to_box("class Box:\n    if make:\n        x = 1\n", "make") == "binds make, read by Box.guard:if make"
+    assert _added_to_box("class Box:\n    xs = [r for r in rows]\n", "rows") == "binds rows, read by Box.xs"
+    assert _added_to_box("class Box:\n    xs = [make(r) for r in ()]\n", "make") == ""
+    assert _added_to_box("class Box:\n    class Inner:\n        y = make\n", "make") == ""
+    assert _added_to_box("class Box:\n    global make\n    x = 1\n", "make") == "binds make, read by Box.expr:global make"
+
+
+def test_a_symbol_of_the_target_file_is_no_shadow_when_the_old_file_imported_it_from_there():
+    """``run`` moves into the module it imported ``normalize`` from: it keeps the binding it always had. The
+    same move when the old file took ``normalize`` from anywhere else is the shadow a move into an existing
+    module risks, and so is any import the proof cannot place: an alias, or no path for the old file."""
+    old = "from app.b import normalize\n\n\ndef run(value):\n    return normalize(value)\n"
+    files = {"app/a.py": "from app.b import run\n\n__all__ = ['run']\n",
+             "app/b.py": "def normalize(value):\n    return value.strip()\n\n\ndef run(value):\n    return normalize(value)\n"}
+    for source in (old, old.replace("from app.b import", "from .b import")):
+        report = compare(source, files, old_path="app/a.py")
+        assert report.ok, render(report)
+        assert report.added == {"__all__": "app/a.py", "normalize": "app/b.py"}
+    shadowed = {"normalize": "app/b.py: binds normalize, read by run"}
+    for unplaced in (old.replace("app.b", "app.c"),  # another module
+                     old.replace("import normalize", "import clean as normalize"),  # an alias
+                     old + "\ntry:\n    from fast import normalize\nexcept ImportError:\n    pass\n",  # rebound in a block
+                     "if FAST:\n    " + old):  # imported only when FAST
+        assert compare(unplaced, files, old_path="app/a.py").shadows == shadowed, unplaced
+    assert compare(old, files).shadows == shadowed  # no path for the old file
+
+
 def test_an_added_import_time_side_effect_fails_until_disclosed():
     files = _move(**{"app/x/helpers.py": HELPERS + "\nsettings.STRICT = False\nregister(clip)\n"})
     report = compare(OLD, files)

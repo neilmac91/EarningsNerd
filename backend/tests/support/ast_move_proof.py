@@ -64,7 +64,12 @@ binding below the last read at import is reported as well. The old symbol must u
 the move and after it, so a disclosed change that starts calling a new helper is not a shadow, and each
 new file is its own namespace: the same binding in a file that holds no user of the name is ADDED, as a
 façade's ``__all__`` and a split's helpers are. A new block is not reported here: it is a SIDE EFFECT
-already, each statement in it is a symbol of its own, and its key shows what its header binds.
+already, each statement in it is a symbol of its own, and its key shows what its header binds. The proof
+does not know what a new file held before the move, so a symbol the target file already had is new to it,
+and one the moved code reads is reported: a same-named helper of the target module is what a move into an
+existing module risks. One case is settled from the old file's own imports: when it took the name with a
+single plain module-level ``from M import name`` and the new file is M itself, the moved code keeps the
+binding it always had, and nothing is reported.
 
 Limits. Code that a new class runs through a BASE (an inherited metaclass, or the base's
 ``__init_subclass__``) is not visible in the AST, so a new class with bases is ADDED; read every ADDED
@@ -95,7 +100,7 @@ import difflib
 import subprocess
 import sys
 from dataclasses import dataclass, field
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 
 BACKEND_DIR = Path(__file__).resolve().parents[2]
 REPO_ROOT = BACKEND_DIR.parent
@@ -334,15 +339,16 @@ _COMPREHENSIONS = (ast.ListComp, ast.SetComp, ast.DictComp, ast.GeneratorExp)
 
 class _Scope:
     """One scope of a symbol's code, read the way the compiler scopes names: the names it binds, loads and
-    declares ``global`` or ``nonlocal``, and the scopes nested in it. A def's decorators, defaults and
-    annotations, a class's bases and keywords and a comprehension's first iterable are evaluated in the
-    scope around them, and ``:=`` inside a comprehension binds in the scope around it."""
+    declares ``global``, and the scopes nested in it. A def's decorators, defaults and annotations, a
+    class's bases and keywords and a comprehension's first iterable are evaluated in the scope around
+    them, and ``:=`` inside a comprehension binds in the scope around it. (``nonlocal`` needs no rule: the
+    name belongs to an enclosing def whether or not this scope rebinds it.)"""
 
     def __init__(self, in_class: bool = False, walrus: _Scope | None = None) -> None:
         self.in_class = in_class
         self.bound: set[str] = set()
         self.loaded: set[str] = set()
-        self.declared: dict[type, set[str]] = {ast.Global: set(), ast.Nonlocal: set()}
+        self.module: set[str] = set()  # declared ``global``
         self.nested: list[_Scope] = []
         self.walrus = walrus or self
 
@@ -364,11 +370,12 @@ class _Scope:
                     body.read(node.body)
                 else:
                     self.bound.add(node.name)
-                    self.read(*node.decorator_list, node.returns)
+                    self.read(*node.decorator_list, node.returns, *getattr(node, "type_params", ()))
                     body.read(*node.body)
             elif isinstance(node, ast.ClassDef):
                 self.bound.add(node.name)
-                self.read(*node.decorator_list, *node.bases, *(keyword.value for keyword in node.keywords))
+                self.read(*node.decorator_list, *node.bases, *(keyword.value for keyword in node.keywords),
+                          *getattr(node, "type_params", ()))
                 self._open(in_class=True).read(*node.body)
             elif isinstance(node, _COMPREHENSIONS):
                 first, *rest = node.generators
@@ -378,8 +385,11 @@ class _Scope:
             elif isinstance(node, ast.NamedExpr):
                 self.walrus.bound.add(node.target.id)
                 self.read(node.value)
-            elif isinstance(node, (ast.Global, ast.Nonlocal)):
-                self.declared[type(node)].update(node.names)
+            elif isinstance(node, ast.Global):
+                self.module.update(node.names)
+            elif (isinstance(node, ast.AnnAssign) and isinstance(node.target, ast.Name) and not node.simple
+                  and node.value is None):
+                self.read(node.annotation)  # ``(x): int`` neither binds x nor reads it
             elif node is not None:
                 if isinstance(node, ast.alias):
                     self.bound.add((node.asname or node.name).split(".")[0])
@@ -397,14 +407,12 @@ class _Scope:
         comprehension takes each name it loads that neither it nor an enclosing def binds, and each name it
         declares ``global``. A class body also takes the loaded names it binds itself: the lookup falls
         through to the module until the class has bound the name, and never stops at an enclosing def."""
-        module = self.declared[ast.Global]
         if self.in_class:
             taken = {name for name in self.loaded if name in self.bound or name not in enclosing}
         else:
-            local = self.bound - module - self.declared[ast.Nonlocal]
-            taken = {name for name in self.loaded if name not in local | enclosing}
-            enclosing = enclosing | local
-        return taken.union(module, *(scope.taken(enclosing - module) for scope in self.nested))
+            taken = self.loaded - self.bound - enclosing
+            enclosing = enclosing | self.bound
+        return taken.union(self.module, *(scope.taken(enclosing) for scope in self.nested))
 
 
 @dataclass
@@ -460,7 +468,7 @@ def _collect(source: str) -> tuple[dict[str, str], list[str], set[str], dict[str
         used = names.setdefault(key, _Names(owner, block=isinstance(node, _COMPOUND)))
         used.binds |= scope.bound
         # ``global x`` in a class body makes x the module's there, so the statement counts as a user of x.
-        used.here |= scope.loaded | scope.declared[ast.Global]
+        used.here |= scope.loaded | scope.module
         used.later |= set().union(*(nested.taken() for nested in scope.nested))
 
     body = list(tree.body)
@@ -546,12 +554,37 @@ def _delta(name: str, text: str | None, homes: list[str], new_by_file: dict[str,
     return "\n".join(difflib.unified_diff(text.splitlines(), new_text.splitlines(), "old", homes[0], lineterm="", n=1))
 
 
-def _shadows(key: str, names: dict[str, _Names], old_names: dict[str, _Names]) -> str:
+def _imported_from(old_source: str, old_path: str) -> dict[str, frozenset[str]]:
+    """The names the old file took with one plain module-level ``from M import name``, each with the files M
+    may be (``M.py`` or ``M/__init__.py``, relative to backend/ like ``old_path``). When moved code lands in
+    that very file, the symbol of that name there is the binding it always had. A name imported more than
+    once, under an alias or inside a block is left out, and so is every name once the file has a star
+    import: where such a name came from is not known."""
+    tree = ast.parse(old_source)
+    packages = PurePosixPath(old_path).parents  # a relative import's dots count up from here: one is the package
+    plain = {id(node) for node in tree.body if isinstance(node, ast.ImportFrom)}
+    origins: dict[str, frozenset[str]] = {}
+    imported: list[str] = []
+    for node in _flatten(tree.body):
+        for alias in node.names if isinstance(node, (ast.Import, ast.ImportFrom)) else ():
+            imported.append((alias.asname or alias.name).split(".")[0])
+            if id(node) in plain and alias.asname is None and node.level <= len(packages):
+                base = packages[node.level - 1] if node.level else PurePosixPath()
+                module = base.joinpath(*(node.module or "").split("."))
+                origins[alias.name] = frozenset({f"{module}.py", f"{module}/__init__.py"})
+    if "*" in imported:
+        return {}
+    return {name: files for name, files in origins.items() if imported.count(name) == 1}
+
+
+def _shadows(key: str, names: dict[str, _Names], old_names: dict[str, _Names],
+             own: frozenset[str] = frozenset()) -> str:
     """The names the NEW symbol ``key`` binds that OLD symbols of its file read or bind in the same
     namespace, before the move and after it, as ``binds make, read by X, build``. Empty when there are none,
-    and for a new block: it is a SIDE EFFECT already, and each statement in it is a symbol of its own."""
+    and for a new block: it is a SIDE EFFECT already, and each statement in it is a symbol of its own.
+    ``own``: the module-level names the old file imported from this very file (``_imported_from``)."""
     new, found = names[key], []
-    for name in sorted(() if new.block else new.binds):
+    for name in sorted(() if new.block else new.binds if new.owner else new.binds - own):
         uses = []
         for verb, used in (("read", _Names.reads), ("bound", _Names.bound)):
             users = [other for other in sorted(names) if other in old_names
@@ -564,12 +597,15 @@ def _shadows(key: str, names: dict[str, _Names], old_names: dict[str, _Names]) -
     return "; ".join(found)
 
 
-def compare(old_source: str, new_sources: dict[str, str], allow: frozenset[str] = frozenset()) -> Report:
+def compare(old_source: str, new_sources: dict[str, str], allow: frozenset[str] = frozenset(),
+            old_path: str | None = None) -> Report:
     """Diff the old file's symbols against the union of the new files' symbols, check that no new symbol
     rebinds a name the old symbols of its file use, and check that the old symbols each new file holds
     keep their old relative order (module-level code runs top to bottom, so ``B = A`` above ``A = 1``
-    raises at import)."""
+    raises at import). ``old_path`` (relative to backend/, like the new files' paths) lets the old file's
+    own imports show which symbols of a target file the moved code already used."""
     old, old_order, _, old_names = _collect(old_source)
+    origins = _imported_from(old_source, old_path) if old_path else {}
     collected = {path: _collect(src) for path, src in new_sources.items()}
     new_by_file = {path: texts for path, (texts, *_) in collected.items()}
     runs_by_file = {path: runs for path, (_, _, runs, _) in collected.items()}
@@ -598,8 +634,10 @@ def compare(old_source: str, new_sources: dict[str, str], allow: frozenset[str] 
     for name, homes in where.items():
         if name in old:
             continue
-        shadowed = "; ".join(f"{path}: {what}" for path in homes
-                             if (what := _shadows(name, collected[path][3], old_names)))
+        shadowed = "; ".join(
+            f"{path}: {what}" for path in homes
+            if (what := _shadows(name, collected[path][3], old_names, frozenset(
+                known for known, files in origins.items() if PurePosixPath(path).as_posix() in files))))
         if name in allow:
             delta = _delta(name, None, homes, new_by_file)
             report.allowed[name] = f"{delta}\nshadows {shadowed}" if shadowed else delta
@@ -689,7 +727,7 @@ def main(argv: list[str] | None = None) -> int:
         path: (BACKEND_DIR / path).read_text() if args.worktree else _git_show(args.head, path)
         for path in args.new
     }
-    report = compare(old_source, new_sources, frozenset(args.allow))
+    report = compare(old_source, new_sources, frozenset(args.allow), args.old)
     print(render(report))
     return 0 if report.ok else 1
 
