@@ -12,8 +12,9 @@ name that no inert property def above it in its class binds, or with code that r
 attribute bound to a bare name, whose ``__set_name__`` runs; and an unpacking of anything but a display, which
 iterates it), a new symbol that binds a name the moved code of its file reads or binds (at module level, or
 in the class body for a new class member) or a dunder that Python reads itself where moved code lives (a
-module's ``__all__`` aside), a class docstring that no longer opens its body, and a reordered symbol each
-fail; a disclosed delta passes with its diff shown.
+module's ``__all__`` aside), a symbol of the target file that moved code reads at import above it, a class
+docstring that no longer opens its body, and a reordered symbol each fail; a disclosed delta passes with its
+diff shown.
 """
 from tests.support.ast_move_proof import compare, render
 
@@ -454,6 +455,35 @@ def test_a_symbol_of_the_target_file_is_no_shadow_when_the_old_file_imported_it_
         assert compare(unplaced, files, old_path="app/a.py").shadows == shadowed, unplaced
     assert compare(old, files).shadows == shadowed  # no path for the old file
 
+
+
+def test_a_symbol_of_the_target_file_shadows_moved_code_that_reads_it_at_import_above_it():
+    """The old file's import ran before ``X = normalize``; in the target file the binding must still run
+    first. Placed above it, a read at import raises NameError, or takes an earlier binding of the name, so it
+    is reported: in a statement, a class body, a decorator or a comprehension, which runs where it stands. A
+    def's or lambda's body reads the name when it runs, so its place does not matter."""
+    target = "def normalize(value):\n    return value.strip()\n"
+
+    def placed(reader: str, above: bool, head: str = "") -> dict[str, str]:
+        body = reader + "\n\n" + target if above else target + "\n\n" + reader
+        return {"app/a.py": "", "app/b.py": head + body}
+
+    for reader, key in (("X = normalize\n", "X"),
+                        ("XS = [normalize(row) for row in ROWS]\n", "XS"),
+                        ("class Box:\n    clean = normalize\n", "Box.clean"),
+                        ("@normalize\ndef run(value):\n    return value\n", "run")):
+        old = "from app.b import normalize\n\n" + reader
+        report = compare(old, placed(reader, above=True), old_path="app/a.py")
+        assert report.shadows == {"normalize": f"app/b.py: binds normalize, read above it at import by {key}"}, reader
+        assert compare(old, placed(reader, above=False), old_path="app/a.py").ok, reader
+    for reader in ("def run(value):\n    return normalize(value)\n", "RUN = lambda value: normalize(value)\n"):
+        old = "from app.b import normalize\n\n" + reader
+        report = compare(old, placed(reader, above=True), old_path="app/a.py")
+        assert report.ok, render(report)
+    # An earlier binding of the name above the reader is not the one the old file imported.
+    early = compare("from app.b import normalize\n\nX = normalize\n",
+                    placed("X = normalize\n", above=True, head="normalize = None\n\n"), old_path="app/a.py")
+    assert early.shadows == {"normalize": "app/b.py: binds normalize, read above it at import by X"}
 
 def test_a_new_module_dunder_beside_moved_code_is_read_by_python_itself():
     """No moved code loads ``__builtins__``, yet ``size`` below it resolves ``len`` through it. It runs

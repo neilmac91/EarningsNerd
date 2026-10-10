@@ -69,7 +69,11 @@ does not know what a new file held before the move, so a symbol the target file 
 and one the moved code reads is reported: a same-named helper of the target module is what a move into an
 existing module risks. One case is settled from the old file's own imports: when it took the name with a
 single plain module-level ``from M import name`` and the new file is M itself, the moved code keeps the
-binding it always had, and nothing is reported.
+binding it always had, and nothing is reported unless moved code reads the name at import above that
+binding (in a statement, a class body, a decorator or a comprehension, which runs where it stands; a
+generator expression counts too, though it may run later): the import ran before the read, and now the
+binding runs after it, so the read raises NameError or takes an earlier binding of the name, ``read above
+it at import``. A def's or lambda's body reads it when it runs.
 
 Python itself reads a dunder name (``__x__``) of a namespace, with no load of it in the code there: a def
 or class body created below a module's ``__builtins__`` resolves every builtin through it, a relative
@@ -358,16 +362,17 @@ class _Scope:
     them, and ``:=`` inside a comprehension binds in the scope around it. (``nonlocal`` needs no rule: the
     name belongs to an enclosing def whether or not this scope rebinds it.)"""
 
-    def __init__(self, in_class: bool = False, walrus: _Scope | None = None) -> None:
+    def __init__(self, in_class: bool = False, walrus: _Scope | None = None, deferred: bool = False) -> None:
         self.in_class = in_class
+        self.deferred = deferred  # a def's or lambda's body, which runs when it is called
         self.bound: set[str] = set()
         self.loaded: set[str] = set()
         self.module: set[str] = set()  # declared ``global``
         self.nested: list[_Scope] = []
         self.walrus = walrus or self
 
-    def _open(self, in_class: bool = False, walrus: _Scope | None = None) -> _Scope:
-        self.nested.append(_Scope(in_class, walrus))
+    def _open(self, in_class: bool = False, walrus: _Scope | None = None, deferred: bool = False) -> _Scope:
+        self.nested.append(_Scope(in_class, walrus, deferred))
         return self.nested[-1]
 
     def read(self, *nodes: ast.AST | None) -> _Scope:
@@ -378,7 +383,7 @@ class _Scope:
                 args = node.args
                 params = [*args.posonlyargs, *args.args, *args.kwonlyargs, *filter(None, (args.vararg, args.kwarg))]
                 self.read(*args.defaults, *args.kw_defaults, *(param.annotation for param in params))
-                body = self._open()
+                body = self._open(deferred=True)
                 body.bound.update(param.arg for param in params)
                 if isinstance(node, ast.Lambda):
                     body.read(node.body)
@@ -416,30 +421,37 @@ class _Scope:
                 self.read(*ast.iter_child_nodes(node))
         return self
 
-    def taken(self, enclosing: frozenset[str] = frozenset()) -> set[str]:
+    def taken(self, enclosing: frozenset[str] = frozenset(), now: bool = False) -> set[str]:
         """The names this scope and the scopes nested in it take from the module. A def, lambda or
         comprehension takes each name it loads that neither it nor an enclosing def binds, and each name it
         declares ``global``. A class body also takes the loaded names it binds itself: the lookup falls
-        through to the module until the class has bound the name, and never stops at an enclosing def."""
+        through to the module until the class has bound the name, and never stops at an enclosing def.
+        ``now``: only the scopes that run where they stand, a comprehension's or a class's body, not a def's."""
+        if now and self.deferred:
+            return set()
         if self.in_class:
             taken = {name for name in self.loaded if name in self.bound or name not in enclosing}
         else:
             taken = self.loaded - self.bound - enclosing
             enclosing = enclosing | self.bound
-        return taken.union(self.module, *(scope.taken(enclosing) for scope in self.nested))
+        return taken.union(self.module, *(scope.taken(enclosing, now) for scope in self.nested))
 
 
 @dataclass
 class _Names:
     """What one symbol does with names. ``owner`` is the class whose body holds it (None at module level);
     ``binds`` and ``here`` are the names it binds and loads in that scope; ``later`` are the names its nested
-    scopes (the body of a def, lambda, comprehension or nested class) take from the module. A ``block`` (a
-    guard) binds whatever is bound in it: its header's targets, its imports and its statements' names."""
+    scopes (the body of a def, lambda, comprehension or nested class) take from the module, and ``soon`` the
+    ones of those that a comprehension or class body takes where it stands, at import. A ``block`` (a guard)
+    binds whatever is bound in it: its header's targets, its imports and its statements' names. ``lines``:
+    where each of its definitions starts."""
     owner: str | None
     block: bool = False
     binds: set[str] = field(default_factory=set)
     here: set[str] = field(default_factory=set)
     later: set[str] = field(default_factory=set)
+    soon: set[str] = field(default_factory=set)
+    lines: list[int] = field(default_factory=list)
 
     def reads(self, owner: str | None) -> set[str]:
         """The names of one namespace (a class body, or the module for None) that this symbol reads. What
@@ -452,6 +464,10 @@ class _Names:
     def bound(self, owner: str | None) -> set[str]:
         """The names of that namespace this symbol binds."""
         return self.binds if owner == self.owner else set()
+
+    def at_import(self) -> set[str]:
+        """The names it reads from the module while the module runs, not later from a def's body."""
+        return self.here | self.soon
 
 
 def symbols(source: str) -> dict[str, str]:
@@ -484,6 +500,8 @@ def _collect(source: str) -> tuple[dict[str, str], list[str], set[str], dict[str
         # ``global x`` in a class body makes x the module's there, so the statement counts as a user of x.
         used.here |= scope.loaded | scope.module
         used.later |= set().union(*(nested.taken() for nested in scope.nested))
+        used.soon |= set().union(*(nested.taken(now=True) for nested in scope.nested))
+        used.lines.append(node.lineno)
 
     body = list(tree.body)
     if body and _is_docstring(body[0]):
@@ -612,19 +630,29 @@ def _shadows(key: str, names: dict[str, _Names], old_names: dict[str, _Names],
     that holds moved code (a module with an old symbol, or a class that is one) is read by Python itself,
     named in the moved code or not, except a module's ``__all__``. Empty when there are none, and for a new
     block: it is a SIDE EFFECT already, and each statement in it is a symbol of its own.
-    ``own``: the module-level names the old file imported from this very file (``_imported_from``)."""
+    ``own``: the module-level names the old file imported from this very file (``_imported_from``). Such a
+    binding is the one the moved code always had, so it shadows only the moved code that reads it at import
+    above it (``read above it at import by X``): there the import ran first, and now the read does."""
     new, found = names[key], []
     moved_here = new.owner in old_names if new.owner else any(other in old_names for other in names)
-    for name in sorted(() if new.block else new.binds if new.owner else new.binds - own):
+    for name in sorted(() if new.block else new.binds):
         uses = []
-        itself = moved_here and _dunder(name) and not (new.owner is None and name in _DECLARED_DUNDERS)
-        for verb, used in (("read", _Names.reads), ("bound", _Names.bound)):
-            users = [other for other in sorted(names) if other in old_names
-                     and name in used(names[other], new.owner) & used(old_names[other], new.owner)]
-            python = ["Python itself"] if verb == "read" and itself else []
-            if python or users:
-                more = f" and {len(users) - 3} more" if len(users) > 3 else ""
-                uses.append(f"{verb} by {', '.join(python + users[:3])}{more}")
+        if new.owner is None and name in own:
+            early = [other for other in sorted(names) if other in old_names
+                     and name in names[other].at_import() & old_names[other].at_import()
+                     and min(names[other].lines) < max(new.lines)]
+            if early:
+                more = f" and {len(early) - 3} more" if len(early) > 3 else ""
+                uses.append(f"read above it at import by {', '.join(early[:3])}{more}")
+        else:
+            itself = moved_here and _dunder(name) and not (new.owner is None and name in _DECLARED_DUNDERS)
+            for verb, used in (("read", _Names.reads), ("bound", _Names.bound)):
+                users = [other for other in sorted(names) if other in old_names
+                         and name in used(names[other], new.owner) & used(old_names[other], new.owner)]
+                python = ["Python itself"] if verb == "read" and itself else []
+                if python or users:
+                    more = f" and {len(users) - 3} more" if len(users) > 3 else ""
+                    uses.append(f"{verb} by {', '.join(python + users[:3])}{more}")
         if uses:
             found.append(f"binds {name}, {' and '.join(uses)}")
     return "; ".join(found)
