@@ -2,6 +2,7 @@
 import importlib.util
 import io
 import json
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from urllib.error import HTTPError, URLError
 
@@ -61,42 +62,8 @@ def test_capacity_readout_keeps_coverage_and_sanitizes_evidence(monkeypatch):
 
     requests = []
     secret = "PRIVATE-MESSAGE-TOKEN-EMAIL"
-    run = {"name": "projects/test-project/locations/us-west1/jobs/earningsnerd-pregenerate/executions/a",
-           "createTime": "2026-09-28T05:50:00Z", "startTime": "2026-09-28T06:00:00Z",
-           "completionTime": "2026-09-28T06:20:00Z", "taskCount": 1,
-           "template": {"maxRetries": 0, "containers": [{"image": "image@sha256:abc",
-                         "args": [secret], "env": [{"value": secret}]}]},
-           "conditions": [{"type": "Completed", "state": "CONDITION_SUCCEEDED", "message": secret}]}
-    series = {"metricKind": "GAUGE", "valueType": "INT64",
-              "metric": {"type": "connections", "labels": {"database": "earningsnerd", "private": secret}},
-              "resource": {"labels": {"database_id": "test-project:earningsnerd-db", "private": secret}},
-              "points": [{"interval": {"endTime": "2026-09-28T06:01:00Z"},
-                          "value": {"int64Value": "12"}}]}
-
-    def request(url, params, post=False):
-        requests.append((url, dict(params), post))
-        if "run.googleapis.com" in url:
-            if "/jobs/" in url and "/jobs/earningsnerd-pregenerate/" not in url:
-                return {"executions": []}, None
-            if params.get("pageToken"):
-                return {"executions": [{"name": run["name"] + "-old", "createTime": "2026-09-28T04:00:00Z",
-                         "completionTime": "2026-09-28T05:00:00Z"}]}, None
-            return {"executions": [run, {"name": run["name"] + "-unplaced"}, {"name": run["name"].replace("earningsnerd-pregenerate", "unrelated-private-job")}], "nextPageToken": "second"}, None
-        if "monitoring.googleapis.com" in url:
-            if "request_count" in params["filter"]:
-                return None, "http_403"
-            if "request_latencies" in params["filter"]:
-                return {"timeSeries": []}, None
-            return {"timeSeries": [series], "nextPageToken": "repeated"}, None
-        assert url == "https://logging.googleapis.com/v2/entries:list" and post
-        return {"entries": [{"timestamp": start, "severity": "ERROR",
-                             "textPayload": "QueuePool limit " + secret,
-                             "httpRequest": {"requestUrl": secret},
-                             "resource": {"type": "cloud_run_revision", "labels": {"location": "us-west1", "service_name": "earningsnerd-backend", "revision_name": "r1", "private": secret}}},
-                            {"resource": {"type": "cloud_run_job", "labels": {"location": "europe-west1", "job_name": "unrelated-private-job"}}}]}, None
-
     api = module.Api("unused-private-token")
-    monkeypatch.setattr(api, "request", request)
+    monkeypatch.setattr(api, "request", _fake_request(module, requests, start, secret))
     result = module.collect(api, "test-project", "us-west1", start, end)
     executions = result["executions"]["earningsnerd-pregenerate"]
     assert executions["outside_scope_count"] == 1
@@ -117,6 +84,46 @@ def test_capacity_readout_keeps_coverage_and_sanitizes_evidence(monkeypatch):
     assert result["error_logs"]["items"][0]["pool_timeout_signature"] is True
     assert secret not in json.dumps(result)
     assert all(not post or url.endswith("/entries:list") for url, _, post in requests)
+    # Additive receipt keys at schema_version 1; a window ending well past the metric visibility lag is unflagged.
+    assert result["schema_version"] == 1
+    assert set(result) == {"schema_version", "observed_at", "project", "region", "window", "limits", "interpretation",
+                           "executions", "database_connections", "request_count", "request_latencies",
+                           "worker_request_count", "worker_request_latencies", "queue_depth", "queue_task_attempts",
+                           "error_logs", "worker_error_logs"}
+    assert set(result["window"]) == {"start", "end", "end_age_seconds"} and result["window"]["end_age_seconds"] > 300
+    logs = result["error_logs"]
+    assert logs["counts_by_severity"] == {"ERROR": 1} and logs["pool_timeout_signature_count"] == 1
+    assert logs["counts_basis"] == module.COUNTS_BASIS
+    assert logs["items"][0]["resource"] == {"service_name": "earningsnerd-backend", "revision_name": "r1", "location": "us-west1"}
+    # Worker series keep only the response labels and the revision identity; no scoping keys are added.
+    worker_count = result["worker_request_count"]
+    assert worker_count["state"] == "complete" and "outside_scope_count" not in worker_count and "note" not in worker_count
+    assert worker_count["items"][0]["metric"]["labels"] == {"response_code": "503", "response_code_class": "5xx"}
+    assert worker_count["items"][0]["resource"] == {"type": "cloud_run_revision", "labels": {
+        "service_name": module.WORKER, "revision_name": "w1", "location": "us-west1"}}
+    latency = result["worker_request_latencies"]["items"][0]["points"][0]["value"]["distributionValue"]
+    assert latency["bucketCounts"] == ["1", "1", "0", "0"] and "bucketOptions" in latency and "exemplars" not in latency
+    # Queue channels are filtered server-side by type and location only and re-scoped locally on either queue_id form.
+    assert result["queue_depth"] == {"state": "complete", "pages": 1, "items": [], "outside_scope_count": 0,
+                                     "aggregation": "none; original series and sample intervals retained",
+                                     "note": module.QUEUE_NOTE}
+    attempts = result["queue_task_attempts"]
+    assert attempts["state"] == "complete" and len(attempts["items"]) == 2 and attempts["outside_scope_count"] == 1
+    assert {item["resource"]["labels"]["queue_id"] for item in attempts["items"]} == {
+        "earningsnerd-background", "projects/test-project/locations/us-west1/queues/earningsnerd-background"}
+    assert attempts["items"][0]["metric"] == {"type": "cloudtasks.googleapis.com/queue/task_attempt_count",
+                                              "labels": {"response_code": "ok"}}
+    assert attempts["items"][0]["resource"]["labels"] == {"location": "us-west1", "queue_id": "earningsnerd-background"}
+    worker_logs = result["worker_error_logs"]
+    assert worker_logs["state"] == "complete" and worker_logs["outside_scope_count"] == 1
+    assert worker_logs["counts_by_severity"] == {"ERROR": 1} and worker_logs["pool_timeout_signature_count"] == 0
+    assert worker_logs["items"] == [{"timestamp": start, "severity": "ERROR", "pool_timeout_signature": False,
+                                     "resource": {"service_name": module.WORKER, "revision_name": "w1", "location": "us-west1"}}]
+    assert "example.invalid" not in json.dumps(result) and "requestUrl" not in json.dumps(result)
+    filters = [params["filter"] for _, params, _ in requests if "filter" in params]
+    assert sum(module.WORKER in query for query in filters) == 3
+    assert sum('resource.type="cloud_tasks_queue" AND resource.labels.location="us-west1"' in query for query in filters) == 2
+    assert sum(url.endswith("/entries:list") for url, _, _ in requests) == 2
     # A finite page cap is a partial result even if every received page parsed successfully.
     monkeypatch.setattr(module, "MAX_PAGES", 1)
     limited = api.pages("https://run.googleapis.com/executions", {}, "executions")
@@ -126,6 +133,90 @@ def test_capacity_readout_keeps_coverage_and_sanitizes_evidence(monkeypatch):
         "exemplars": [{"attachments": [secret]}]}}}]})
     assert secret not in json.dumps(histogram)
     assert histogram["points"][0]["value"]["distributionValue"]["count"] == "2"
+
+
+def _fake_request(module, requests, start, secret, *, break_queue=False, break_worker_logs=False):
+    """An Api.request fake serving every channel collect() reads; `secret` rides in every field a projection
+    must drop (labels, payloads, request URLs, exemplars, a foreign queue). The break flags append a non-dict
+    item to one Monitoring and one Logging channel: a shape surprise must never abort the receipt."""
+    run = {"name": "projects/test-project/locations/us-west1/jobs/earningsnerd-pregenerate/executions/a",
+           "createTime": "2026-09-28T05:50:00Z", "startTime": "2026-09-28T06:00:00Z",
+           "completionTime": "2026-09-28T06:20:00Z", "taskCount": 1,
+           "template": {"maxRetries": 0, "containers": [{"image": "image@sha256:abc",
+                         "args": [secret], "env": [{"value": secret}]}]},
+           "conditions": [{"type": "Completed", "state": "CONDITION_SUCCEEDED", "message": secret}]}
+    series = {"metricKind": "GAUGE", "valueType": "INT64",
+              "metric": {"type": "connections", "labels": {"database": "earningsnerd", "private": secret}},
+              "resource": {"labels": {"database_id": "test-project:earningsnerd-db", "private": secret}},
+              "points": [{"interval": {"endTime": "2026-09-28T06:01:00Z"},
+                          "value": {"int64Value": "12"}}]}
+    worker_series = {"metricKind": "DELTA", "valueType": "INT64",
+                     "metric": {"type": "run.googleapis.com/request_count",
+                                "labels": {"response_code": "503", "response_code_class": "5xx", "route": secret}},
+                     "resource": {"type": "cloud_run_revision", "labels": {
+                         "service_name": module.WORKER, "revision_name": "w1", "location": "us-west1",
+                         "project_id": "test-project", "private": secret}},
+                     "points": [{"interval": {"startTime": start, "endTime": "2026-09-28T06:01:00Z"},
+                                 "value": {"int64Value": "3"}}]}
+    worker_latency = {"metricKind": "DELTA", "valueType": "DISTRIBUTION", "unit": "ms",
+                      "metric": {"type": "run.googleapis.com/request_latencies", "labels": {"response_code_class": "2xx"}},
+                      "resource": {"type": "cloud_run_revision", "labels": {"service_name": module.WORKER, "location": "us-west1"}},
+                      "points": [{"interval": {"endTime": "2026-09-28T06:01:00Z"}, "value": {"distributionValue": {
+                          "count": "2", "mean": 30,
+                          "bucketOptions": {"exponentialBuckets": {"numFiniteBuckets": 2, "growthFactor": 2, "scale": 1}},
+                          "bucketCounts": ["1", "1", "0", "0"], "exemplars": [{"attachments": [secret]}]}}}]}
+
+    def attempts(queue_id):
+        return {"metricKind": "DELTA", "valueType": "INT64",
+                "metric": {"type": "cloudtasks.googleapis.com/queue/task_attempt_count", "labels": {"response_code": "ok"}},
+                "resource": {"type": "cloud_tasks_queue", "labels": {"queue_id": queue_id, "location": "us-west1",
+                                                                      "project_id": "test-project", "target_type": "HTTP"}},
+                "points": [{"interval": {"startTime": start, "endTime": "2026-09-28T06:01:00Z"},
+                            "value": {"int64Value": "4"}}]}
+
+    def request(url, params, post=False):
+        requests.append((url, dict(params), post))
+        if "run.googleapis.com" in url:
+            if "/jobs/" in url and "/jobs/earningsnerd-pregenerate/" not in url:
+                return {"executions": []}, None
+            if params.get("pageToken"):
+                return {"executions": [{"name": run["name"] + "-old", "createTime": "2026-09-28T04:00:00Z",
+                         "completionTime": "2026-09-28T05:00:00Z"}]}, None
+            return {"executions": [run, {"name": run["name"] + "-unplaced"}, {"name": run["name"].replace("earningsnerd-pregenerate", "unrelated-private-job")}], "nextPageToken": "second"}, None
+        if "monitoring.googleapis.com" in url:
+            query = params["filter"]
+            if module.WORKER in query:
+                return {"timeSeries": [worker_series if "request_count" in query else worker_latency]}, None
+            if "cloud_tasks_queue" in query:
+                assert "queue_id" not in query, "queue identity is re-scoped locally, not filtered server-side"
+                if "task_attempt_count" in query:
+                    items = [attempts("earningsnerd-background"),
+                             attempts("projects/test-project/locations/us-west1/queues/earningsnerd-background"),
+                             attempts("other-queue-" + secret)]
+                    return {"timeSeries": items + (["not-a-dict"] if break_queue else [])}, None
+                return {"timeSeries": []}, None
+            if "request_count" in query:
+                return None, "http_403"
+            if "request_latencies" in query:
+                return {"timeSeries": []}, None
+            return {"timeSeries": [series], "nextPageToken": "repeated"}, None
+        assert url == "https://logging.googleapis.com/v2/entries:list" and post
+        service_entry = {"timestamp": start, "severity": "ERROR",
+                         "textPayload": "QueuePool limit " + secret,
+                         "httpRequest": {"requestUrl": secret},
+                         "resource": {"type": "cloud_run_revision", "labels": {"location": "us-west1", "service_name": "earningsnerd-backend", "revision_name": "r1", "private": secret}}}
+        if module.WORKER in params["filter"]:
+            worker_entry = {"timestamp": start, "severity": "ERROR",
+                            "textPayload": "Durable task failed " + secret, "jsonPayload": {"message": secret},
+                            "httpRequest": {"requestUrl": "https://" + secret + ".example.invalid/internal/tasks/execute",
+                                            "status": 503},
+                            "resource": {"type": "cloud_run_revision", "labels": {
+                                "location": "us-west1", "service_name": module.WORKER, "revision_name": "w1", "private": secret}}}
+            return {"entries": [worker_entry, service_entry] + (["not-a-dict"] if break_worker_logs else [])}, None
+        return {"entries": [service_entry,
+                            {"resource": {"type": "cloud_run_job", "labels": {"location": "europe-west1", "job_name": "unrelated-private-job"}}}]}, None
+
+    return request
 
 
 def test_capacity_readout_records_structured_http_error_detail_without_body(monkeypatch):
@@ -159,6 +250,12 @@ def test_capacity_readout_records_structured_http_error_detail_without_body(monk
     assert result["request_count"]["error"] == "http_403"
     assert result["request_count"]["error_detail"]["reason"] == "IAM_PERMISSION_DENIED"
     assert result["error_logs"]["error_detail"]["status"] == "PERMISSION_DENIED"
+    for name in ("worker_request_count", "worker_request_latencies", "queue_depth", "queue_task_attempts",
+                 "worker_error_logs"):
+        assert result[name]["state"] == "unavailable" and result[name]["error"] == "http_403", name
+        assert result[name]["error_detail"]["status"] == "PERMISSION_DENIED", name
+    assert result["worker_error_logs"]["items"] == [] and result["worker_error_logs"]["counts_by_severity"] == {}
+    assert result["queue_depth"]["outside_scope_count"] == 0
     assert secret not in json.dumps(result)
 
     # A transport failure carries no detail: no key is written and the previous detail is cleared.
@@ -169,6 +266,32 @@ def test_capacity_readout_records_structured_http_error_detail_without_body(monk
     page = api.pages(URL, {"pageSize": 1}, "timeSeries")
     assert page["error"] == "transport_or_decode_error" and "error_detail" not in page
     assert api.last_error_detail is None
+
+
+def test_capacity_readout_marks_projection_errors_unavailable_and_flags_fresh_windows(monkeypatch):
+    """An item that does not project marks its own channel unavailable (never the receipt); a window ending
+    inside the metric visibility lag is flagged, not rejected."""
+    module = load_readout()
+    start, end = "2026-09-28T05:55:00Z", "2026-09-28T07:10:00Z"
+    secret = "PRIVATE-MESSAGE-TOKEN-EMAIL"
+    api = module.Api("unused-private-token")
+    monkeypatch.setattr(api, "request", _fake_request(module, [], start, secret, break_queue=True, break_worker_logs=True))
+    result = module.collect(api, "test-project", "us-west1", start, end)
+    attempts = result["queue_task_attempts"]
+    assert (attempts["state"], attempts["error"], attempts["items"]) == ("unavailable", "projection_error", [])
+    worker_logs = result["worker_error_logs"]
+    assert (worker_logs["state"], worker_logs["error"], worker_logs["items"]) == ("unavailable", "projection_error", [])
+    assert worker_logs["counts_by_severity"] == {} and worker_logs["pool_timeout_signature_count"] == 0
+    assert result["queue_depth"]["state"] == "complete" and result["worker_request_count"]["state"] == "complete"
+    assert secret not in json.dumps(result)
+
+    now = datetime.now(timezone.utc)
+    fresh_end = (now - timedelta(seconds=30)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    fresh_start = (now - timedelta(seconds=1830)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    monkeypatch.setattr(api, "request", _fake_request(module, [], fresh_start, secret))
+    fresh = module.collect(api, "test-project", "us-west1", fresh_start, fresh_end)
+    assert fresh["window"]["freshness"] == "tail_within_visibility_lag" and fresh["window"]["end_age_seconds"] < 300
+    assert secret not in json.dumps(fresh)
 
 
 def test_capacity_readout_records_non_json_error_body_as_sentinel(monkeypatch):
