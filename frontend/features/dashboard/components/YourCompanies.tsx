@@ -140,7 +140,9 @@ export default function YourCompanies({ insights, isLoading, failure }: YourComp
                       />
                     )}
                     {/* aria-disabled + aria-busy + an early return while a removal is in flight, not
-                        native `disabled`: Chromium blurs a focused button that turns disabled. */}
+                        native `disabled`: Chromium blurs a focused button that turns disabled. Busy fades
+                        the glyph's ink, not the element: an element opacity would fade the focus ring too
+                        (DESIGN_SYSTEM §4). */}
                     <button
                       onClick={() => {
                         if (removeMutation.isPending) return
@@ -148,7 +150,7 @@ export default function YourCompanies({ insights, isLoading, failure }: YourComp
                       }}
                       aria-disabled={removeMutation.isPending || undefined}
                       aria-busy={pendingTicker === insight.company.ticker || undefined}
-                      className="rounded-lg p-2 text-error-light hover:bg-error-light/10 focus-visible:outline-none focus-visible:shadow-ring-error aria-disabled:opacity-50 dark:text-error-dark dark:hover:bg-error-dark/15"
+                      className="rounded-lg p-2 text-error-light hover:bg-error-light/10 focus-visible:outline-none focus-visible:shadow-ring-error aria-disabled:text-error-light/50 dark:text-error-dark dark:hover:bg-error-dark/15 dark:aria-disabled:text-error-dark/50"
                       title="Remove from watchlist"
                       aria-label={`Remove ${formatCompanyName(insight.company.name)} from watchlist`}
                     >

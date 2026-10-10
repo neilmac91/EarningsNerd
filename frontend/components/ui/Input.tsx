@@ -128,10 +128,12 @@ export function inputClasses({
 /** The field's `disabled:` look keyed to `aria-disabled`, for a field (a <select> here) that is
     unavailable while its own save runs but must keep keyboard focus: aria-disabled plus a guarded
     change handler, never native `disabled` (Chromium blurs a focused control that turns disabled).
-    lessons/frontend-busy-controls-stay-focusable.md */
+    It fades the text ink, not the element: the native look's `opacity-60` would fade the focus ring
+    this focusable state still shows. The hairline keeps its strength, since it carries the field's
+    focus and invalid states. lessons/frontend-busy-controls-stay-focusable.md (e) */
 export const fieldUnavailableClass = cx(
-  'aria-disabled:cursor-not-allowed aria-disabled:bg-background-light aria-disabled:opacity-60 aria-disabled:hover:border-border-light',
-  'dark:aria-disabled:bg-white/5 dark:aria-disabled:hover:border-border-dark',
+  'aria-disabled:cursor-not-allowed aria-disabled:bg-background-light aria-disabled:text-text-primary-light/60 aria-disabled:hover:border-border-light',
+  'dark:aria-disabled:bg-white/5 dark:aria-disabled:text-text-primary-dark/60 dark:aria-disabled:hover:border-border-dark',
 )
 
 interface FieldExtras {
