@@ -79,9 +79,10 @@ import inside a def goes through ``__package__``, an attribute missing from the 
 shadows it, ``read by Python itself``: at module level when its file holds an old symbol, and in a class
 body when the class is an old symbol. Every dunder counts, the ones libraries read included (pydantic's
 ``__get_validators__``, SQLAlchemy's ``__tablename__``), with one exemption: a module's ``__all__``, which
-every façade declares and Python reads only for ``from module import *``. A new class's own dunders are
-ADDED: moved code reaches them only through the class's name, which SHADOWS reports when the moved code
-reads it, or a disclosed change shows when it starts to (a new base on a moved class).
+every façade declares and Python reads only for ``from module import *``. (A name the old file imported
+from the target file itself is settled as above, a dunder too.) A new class's own dunders are ADDED: moved
+code reaches them only through the class's name, which SHADOWS reports when the moved code reads it, or a
+disclosed change shows when it starts to (a new base on a moved class).
 
 Limits. Code that a new class runs through a BASE (an inherited metaclass, or the base's
 ``__init_subclass__``) is not visible in the AST, so a new class with bases is ADDED; read every ADDED
@@ -94,10 +95,11 @@ pydantic model, so read every one. Neither is a name reached through a string (a
 ``globals()['name']``), a class-private ``__name`` (compared as written, not mangled), or an import:
 imports are not symbols, so one that binds a name the moved code reads, or a dunder, to something else, a
 new symbol of another new file included, is outside the proof, and so is a new ``from __future__``
-import, which changes how the moved code compiles; read the import diff. And the names these
-rules trust (``property``, ``dataclass``, ``TYPE_CHECKING`` and the like) are taken at their word, so a
-move that rebinds one where no moved symbol reads it, such as an ADDED ``TYPE_CHECKING = True`` above an
-exempt block, is outside the proof.
+import, which changes how the moved code compiles; read the import diff. A new annotated assignment
+writes its namespace's ``__annotations__`` without binding that name, so moved code that reads the dict,
+at module level too, sees one more key. And the names these rules trust (``property``, ``dataclass``,
+``TYPE_CHECKING`` and the like) are taken at their word, so a move that rebinds one where no moved symbol
+reads it, such as an ADDED ``TYPE_CHECKING = True`` above an exempt block, is outside the proof.
 
 The exit status is 0 only when nothing is MISSING, CHANGED, DUPLICATE, SIDE EFFECT, SHADOWS or REORDERED
 beyond the symbols passed with ``--allow`` (for SHADOWS, the new symbol's key); each allowed symbol is a
@@ -497,7 +499,7 @@ def _collect(source: str) -> tuple[dict[str, str], list[str], set[str], dict[str
         elif isinstance(node, ast.ClassDef):
             members = [m for m in _flatten(node.body) if not isinstance(m, (ast.Import, ast.ImportFrom))]
             # Python takes a class's ``__doc__`` from the first statement of its body only, so the header
-            # carries it: a docstring that anything now precedes is gone from the header (None at runtime).
+            # carries it: a docstring that anything now precedes is gone from the header, as from ``__doc__``.
             header = ast.ClassDef(
                 name=node.name, bases=node.bases, keywords=node.keywords,
                 body=node.body[:1] if _is_docstring(node.body[0]) else [ast.Pass()],
@@ -593,8 +595,9 @@ def _imported_from(old_source: str, old_path: str) -> dict[str, frozenset[str]]:
 
 
 def _dunder(name: str) -> bool:
-    """``__name__``: a name Python looks up itself. A bare ``__`` is a throwaway name, as ``_`` is."""
-    return len(name) > 4 and name.startswith("__") and name.endswith("__")
+    """``__name__``: a name between two pairs of underscores, which Python looks up itself. A name of
+    underscores alone, such as ``__``, is a throwaway name, as ``_`` is."""
+    return name.startswith("__") and name.endswith("__") and bool(name.strip("_"))
 
 
 # Every façade declares ``__all__`` (``tasks/refactor-plan-2026-10.md``), which Python reads only for a
