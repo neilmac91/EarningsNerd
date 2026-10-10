@@ -684,6 +684,24 @@ def test_a_symbol_is_relocated_only_for_what_it_reads_before_the_move_and_after_
     report = compare(old, {"app/y.py": new}, old_path="app/x.py")
     assert set(report.changed) == {"LOG", "NEW", "OLD"}
     assert report.relocated == {"LOG": "app/y.py, was app/x.py: reads __name__ (app.y, was app.x)"}
+    # A relative import rewritten for its new package keeps its target: CHANGED, its diff the disclosure.
+    load = "def load():\n    from .h import x\n    return x\n"
+    rewritten = compare(load, {"app/services/sub/y.py": load.replace("from .h", "from ..h")}, old_path="app/services/x.py")
+    assert list(rewritten.changed) == ["load"] and rewritten.relocated == {}
+
+
+def test_a_name_a_module_binds_itself_is_compared_as_that_binding():
+    """A name that a symbol of each module binds is compared as those symbols, so ``NAME`` moved with its
+    ``__name__`` binding reads what it read; with the binding left behind it reads the new module's
+    derived name. Each copy of a DUPLICATE away from the old path is DUPLICATE only."""
+    old = "__name__ = 'legacy'\nNAME = __name__\n"
+    both = compare(old, {"app/x.py": "", "app/y.py": old}, old_path="app/x.py")
+    assert both.relocated == {"__name__": "app/y.py, was app/x.py: binds __name__, which Python reads from app.y, was app.x"}
+    left = compare(old, {"app/x.py": "__name__ = 'legacy'\n", "app/y.py": "NAME = __name__\n"}, old_path="app/x.py")
+    assert left.relocated == {"NAME": "app/y.py, was app/x.py: reads __name__ (the old module bound it)"}
+    twice = compare("NAME = __name__\n", {"app/x.py": "", "app/y.py": "NAME = __name__\n", "app/z.py": "NAME = __name__\n"},
+                    old_path="app/x.py")
+    assert twice.duplicate == {"NAME": ["app/y.py", "app/z.py"]} and twice.relocated == {}
 
 
 def test_moved_code_that_reads_the_module_docstring_is_relocated_when_it_differs():

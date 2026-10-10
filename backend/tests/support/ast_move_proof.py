@@ -93,25 +93,25 @@ from the target file itself is settled as above, a dunder too.) A new class's ow
 code reaches them only through the class's name, which SHADOWS reports when the moved code reads it, or a
 disclosed change shows when it starts to (a new base on a moved class).
 
-RELOCATED: a moved symbol keeps its text, but not its module, and the import system gives every module
-names derived from where it lives. An OLD symbol with one home fails when it reads one of them, before the
-move and after it, and its new module changes the value: ``__name__`` (and a class body's ``__module__``)
-when the dotted name differs, ``logging.getLogger(__name__)`` among them, or when ``__name__`` names a
-module that became or stopped being a package (``x.py`` and ``x/__init__.py``, an anchor for a relative
+RELOCATED: a moved symbol keeps its text, but not its module, and the import system gives every module names
+derived from where it lives. An OLD symbol with one home fails when it reads one of them, before the move
+and after it, and its new module changes the value: ``__name__`` (and a class body's ``__module__``) when
+the dotted name differs, ``logging.getLogger(__name__)`` among them, or when ``__name__`` names a module
+that became or stopped being a package (``x.py`` and ``x/__init__.py``, an anchor for a relative
 ``import_module``); ``__package__`` when the package differs; ``__file__``, ``__spec__``, ``__loader__``,
 ``__cached__`` or a package's ``__path__`` when the file differs, in the same directory too (fail closed:
 ``Path(__file__).parent`` stays, ``.stem`` does not); ``__doc__`` when the module docstring differs, on the
 same path too, since a façade rewrites it (in a class body a documented class binds its own). So does a
-relative import in its code (a def's body, or the class body for a class) that resolves to another module;
-a call of ``globals()``, or of ``eval`` or ``exec`` without a namespace, which now reads another module's
-namespace; annotations postponed by ``from __future__ import annotations`` in one module
-and evaluated in the other (reported once, on the class, for a class's members); and a module-level
-dunder it binds, which Python reads from the new module (a moved ``__getattr__`` no longer serves the
-façade). A block reads its header here; its statements are symbols of their own. A name that symbols of
-both modules bind is compared as those symbols. Names are derived from the path relative to ``backend/``,
-every directory a package, and without the old path (``compare()``'s ``old_path``, which the CLI always
-passes) every read but the docstring's is reported, ``the old path is unknown``. A RELOCATED symbol still
-counts as identical, as a REORDERED one does, and ``--allow`` takes its key.
+relative import in its code (a def's body, or the class body for a class) that resolves to another module; a
+call of ``globals()``, or of ``eval`` or ``exec`` without a namespace, which now reads another module's
+namespace; annotations postponed by ``from __future__ import annotations`` in one module and evaluated in
+the other (reported once, on the class, for a class's members); and a module-level dunder it binds, which
+Python reads from the new module (a moved ``__getattr__`` no longer serves the façade). A block reads its
+header here; its statements are symbols of their own. A name that symbols of both modules bind is compared
+as those symbols, and one that only one of them binds is reported. Names are derived from the path relative
+to ``backend/``, every directory a package, and without the old path (``compare()``'s ``old_path``, which
+the CLI always passes) every read but the docstring's is reported, ``the old path is unknown``. A RELOCATED
+symbol still counts as identical, as a REORDERED one does, and ``--allow`` takes its key.
 
 Limits. Code that a new class runs through a BASE (an inherited metaclass, or the base's
 ``__init_subclass__``) is not visible in the AST, so a new class with bases is ADDED; read every ADDED
@@ -833,7 +833,13 @@ def _relocated(old: _Names, new: _Names, before: _Module, after: _Module) -> str
     Python reads it from. "" when nothing changes."""
     reasons = []
     for name in sorted(old.identity & new.identity):
-        if not (name in before.binds and name in after.binds) and (why := _identity_change(name, before, after)):
+        if name in before.binds and name in after.binds:
+            continue  # both modules bind it: their symbols are compared as such
+        if name in before.binds or name in after.binds:  # one module binds its own; the other's is derived
+            why = "the old module bound it" if name in before.binds else "the new module binds it"
+        else:
+            why = _identity_change(name, before, after)
+        if why:
             reasons.append(f"reads {name} ({why})")
     for level, module, alias in sorted(old.relative & new.relative):
         now = _resolve(level, module, after.package)
