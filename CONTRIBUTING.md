@@ -24,6 +24,7 @@ cd backend
 python3 -m venv venv
 source venv/bin/activate            # Windows: venv\Scripts\activate
 pip install -r requirements.txt
+pip install -r requirements-dev.txt # lint tools + pytest-xdist (the test commands below need it)
 cp .env.example .env                # then edit: SECRET_KEY and OPENAI_API_KEY are required
 uvicorn main:app --reload --host 0.0.0.0 --port 8000
 ```
@@ -49,9 +50,10 @@ npm run dev
 
 **Backend** (from `backend/`):
 ```bash
-pytest tests/              # all tests
+pytest tests/              # all tests, in parallel (pytest.ini adds `-n auto`)
 pytest tests/unit/         # unit only
 pytest tests/smoke/ -v     # critical-path smoke tests
+pytest -n 0 tests/unit/test_x.py  # one file, serially (debuggers, quick loops)
 ruff check app             # lint
 ```
 

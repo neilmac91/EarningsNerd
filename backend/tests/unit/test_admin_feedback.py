@@ -5,6 +5,7 @@ Mirrors the admin-invites harness: TestClient against the app's SQLite DB, overr
 `get_current_user` (the real `get_db` is kept so feedback rows actually persist).
 """
 
+import uuid
 from types import SimpleNamespace
 
 import pytest
@@ -38,19 +39,27 @@ def as_non_admin():
     app.dependency_overrides.clear()
 
 
-def _seed_feedback(user_id=None, user_email=None, type="general", status="new", message="Test feedback message"):
-    """Insert a feedback row (and optionally a user to join against) and return its id."""
+def _seed_user(prefix):
+    """Insert a user to join against; return (id, email). The database assigns the id: a fixed id
+    could already belong to a user another test created earlier in the same process."""
     from app.database import SessionLocal
     from app.models import User
+
+    email = f"{prefix}-{uuid.uuid4().hex[:8]}@example.com"
+    with SessionLocal() as db:
+        user = User(email=email, hashed_password="x")
+        db.add(user)
+        db.commit()
+        return user.id, email
+
+
+def _seed_feedback(user_id=None, type="general", status="new", message="Test feedback message"):
+    """Insert a feedback row and return its id."""
+    from app.database import SessionLocal
     from app.models.feedback import Feedback
 
     db = SessionLocal()
     try:
-        if user_id is not None and user_email is not None:
-            existing = db.query(User).filter(User.id == user_id).first()
-            if existing is None:
-                db.add(User(id=user_id, email=user_email, hashed_password="x"))
-                db.commit()
         fb = Feedback(
             user_id=user_id,
             type=type,
@@ -68,13 +77,14 @@ def _seed_feedback(user_id=None, user_email=None, type="general", status="new", 
 
 @pytest.mark.requires_db
 def test_list_returns_rows_with_user_email(client, as_admin):
-    fb_id = _seed_feedback(user_id=501, user_email="reporter@example.com", type="bug")
+    user_id, email = _seed_user("reporter")
+    fb_id = _seed_feedback(user_id=user_id, type="bug")
     resp = client.get("/api/admin/feedback")
     assert resp.status_code == 200, resp.text
     rows = resp.json()["feedback"]
     row = next(r for r in rows if r["id"] == fb_id)
-    assert row["user_id"] == 501
-    assert row["user_email"] == "reporter@example.com"
+    assert row["user_id"] == user_id
+    assert row["user_email"] == email
     assert row["type"] == "bug"
     assert row["status"] == "new"
     assert row["message"] == "Test feedback message"
@@ -85,7 +95,7 @@ def test_list_returns_rows_with_user_email(client, as_admin):
 @pytest.mark.requires_db
 def test_list_handles_null_user_email(client, as_admin):
     # user_id null (anonymized / deleted submitter) — the left join keeps the row, email is null.
-    fb_id = _seed_feedback(user_id=None, user_email=None, type="general")
+    fb_id = _seed_feedback(user_id=None, type="general")
     resp = client.get("/api/admin/feedback")
     assert resp.status_code == 200, resp.text
     row = next(r for r in resp.json()["feedback"] if r["id"] == fb_id)
@@ -120,15 +130,16 @@ def test_patch_transitions_status_and_persists(client, as_admin):
     from app.database import SessionLocal
     from app.models.feedback import Feedback
 
-    fb_id = _seed_feedback(user_id=502, user_email="patchme@example.com", status="new")
+    user_id, email = _seed_user("patchme")
+    fb_id = _seed_feedback(user_id=user_id, status="new")
     resp = client.patch(f"/api/admin/feedback/{fb_id}", json={"status": "triaged"})
     assert resp.status_code == 200, resp.text
     body = resp.json()
     assert body["id"] == fb_id
     assert body["status"] == "triaged"
     # Same shape as a list item, with user_email re-resolved.
-    assert body["user_email"] == "patchme@example.com"
-    assert body["user_id"] == 502
+    assert body["user_email"] == email
+    assert body["user_id"] == user_id
 
     db = SessionLocal()
     try:

@@ -4,11 +4,45 @@ on:
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
     paths:
-      - 'backend/**'
+      # Only files that can change what the paid Copilot fidelity run measures: the directories the
+      # transitive import closure of evals.copilot_bootstrap and evals.copilot_runner lives in, the
+      # data directories under app/ (kept whether or not the eval reads them today; one merge a
+      # month touches them), the data the eval loads at runtime (prompts, the golden set and sources,
+      # the requirements and model env files it installs and loads) and this workflow. Gate:
+      # backend/tests/unit/test_copilot_eval_paths.py recomputes the closure from the run steps
+      # below and fails when a reachable module or runtime input falls outside this list (a file the
+      # eval names counts, Markdown and files outside backend/ included), when a file the eval
+      # cannot feel would trigger the run (backend/tests/**, scripts, migrations, routers,
+      # integrations, a top-level backend file that is tooling by shape, the summary eval's modules
+      # and data, and documentation Markdown directly under backend/docs/, evals/ or evals/baselines/
+      # or a file outside backend/ that the eval does not name; Markdown inside a filter directory,
+      # a README under app/ or prompts/, triggers by design), when a tracked file under backend/ is
+      # neither a trigger, a closure module nor a non-trigger of a stated category (Markdown in a new
+      # directory and a top-level file that is not tooling included), or when a pattern matches
+      # nothing the eval uses; it also reads every run step below as an allowlist, so an untraced
+      # program fails it.
+      # `backend/app/*` is every file directly under app/ (not its subdirectories).
+      - 'backend/app/*'
+      - 'backend/app/models/**'
+      - 'backend/app/schemas/**'
+      - 'backend/app/services/**'
+      - 'backend/app/utils/**'
+      - 'backend/app/data/**'
+      - 'backend/app/assets/**'
+      - 'backend/prompts/**'
+      - 'backend/evals/__init__.py'
+      - 'backend/evals/copilot_*'
+      - 'backend/evals/schema.py'
+      - 'backend/evals/scorers.py'
+      - 'backend/requirements.txt'
+      - 'backend/requirements-dev.txt'
+      - '.github/ai-model.env'
       - '.github/workflows/copilot-eval.yml'
 
 permissions:
   contents: read
+  # The draw gate reads this workflow's earlier runs and jobs for the head commit.
+  actions: read
 
 concurrency:
   group: copilot-fidelity-${{ github.event.pull_request.number }}
@@ -27,25 +61,41 @@ jobs:
       STRIPE_WEBHOOK_SECRET: whsec_ci_copilot_eval
       PWNED_PASSWORD_CHECK_ENABLED: 'false'
       USE_STATEMENT_FINANCIALS: 'true'
-      # OPENAI_BASE_URL / AI_DEFAULT_MODEL come from .github/ai-model.env (loaded in the first step).
+      # OPENAI_BASE_URL / AI_DEFAULT_MODEL come from .github/ai-model.env (the "Load AI model configuration" step).
       AI_FALLBACK_MODEL: ''
       AI_FALLBACK_BASE_URL: ''
     steps:
       - uses: actions/checkout@v7
+      - name: Draw once per head (backend/evals/RUNBOOK.md, triage rule for a red copilot-eval run)
+        # A red run is triaged and recorded, never drawn again to obtain a green result. A re-run
+        # attempt, a draft-to-ready toggle or a reopen on a head that already drew reports that draw's
+        # verdict here, before any install or credential, and every step that installs or spends is
+        # skipped (the evidence steps find nothing). Nothing exempts a head; a new draw comes from a
+        # new push. Logic and tests: backend/scripts/copilot_eval_draw_gate.py,
+        # backend/tests/unit/test_copilot_eval_rerun_refusal.py.
+        id: draw
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: python3 backend/scripts/copilot_eval_draw_gate.py
       - name: Load AI model configuration
+        if: steps.draw.outputs.draw == 'true'
         run: grep -v '^#' .github/ai-model.env >> "$GITHUB_ENV"
       - uses: actions/setup-python@v7
+        if: steps.draw.outputs.draw == 'true'
         with:
           python-version: '3.11'
       - name: Install exact runtime and development requirements
+        if: steps.draw.outputs.draw == 'true'
         run: pip install -r backend/requirements.txt -r backend/requirements-dev.txt
       - name: Prepare actual SEC sources in a new scratch database
+        if: steps.draw.outputs.draw == 'true'
         working-directory: backend
         shell: bash
         run: |
           mkdir -p evals/reports/copilot
           python -m evals.copilot_bootstrap --database "$RUNNER_TEMP/copilot-fidelity.db" --output evals/reports/copilot 2>&1 | tee evals/reports/copilot/preparation.log
       - name: Run every verified question three times
+        if: steps.draw.outputs.draw == 'true'
         working-directory: backend
         shell: bash
         env:

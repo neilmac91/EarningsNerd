@@ -2,66 +2,65 @@
 
 One page, newest first, one line per open item with its owner and next step. Holds are pointers,
 never restated here. This file replaced the ledger on 2026-10-07; the ledger is
-`archive/todo-ledger-through-2026-10-07.md` (6,628 lines, June 2026 → closure 170 of 9 October 2026;
+`archive/todo-ledger-through-2026-10-07.md` (6,693 lines, June 2026 → closure 171 of 9 October 2026;
 ledger-format entries merged to `main` after the ledger closed were moved there unchanged) and its
 unchecked rows are history unless an item below carries them. Format: `AGENTS.md` §7. Close an item by
 deleting its line in the PR that closes it; a handover is a refresh of "Where things stand".
 
-## Where things stand — 2026-10-09
+## Where things stand — 2026-10-10
 
 - Production: the last recorded state is the ledger's "2026-10-04 — CODE RED chief takeover"
-  section and its records under `code-red-20261004/runtime/`; verify the latest `deploy-backend`
-  run on `main` and `/health/detailed` before relying on it.
+  section and its records under `code-red-20261004/runtime/` (record 20, `DECISIONS-20.md`, is the
+  latest merged; record 21 is open as #1172); verify the latest `deploy-backend` run on `main` and
+  `/health/detailed` before relying on it. Record 19 notes for the CPO that `eval-baseline`'s
+  `mean_citation_fidelity` read 0.83–0.86 against its 0.9648 baseline on all six runs of
+  2026-10-09 (advisory).
 - Holds: everything under "Held until the founder says otherwise" in
   `handover-astra-2026-09-19.md` §5 and the September 28 checkpoint in
   `continuation-plan-2026-09-26.md` stays held. The E7/R1/H20 acceptance programme and the CODE RED
   records are a separate task; nothing here redesigns, lifts or restates them.
-- Open PRs on 2026-10-08: #1121 (founder role contacts), #1035 (native delivery), #1009 (Pro
-  pricing, held) drafts; from the agent-workflow-cost task: #1123 (copilot-eval paths, changes CI
-  behaviour) and #1126 (process gates, stacked on #1118) drafts. #1108 (EN-03), #1110 (CODE RED
-  records gate), #1112 (PR disposition sweep), #1113 (EN-01 follow-up), #1120 (EN-05 part b), #1128,
-  #1129 and #1130 (CODE RED record 16 and the prompt-candidate custody kit) merged on 2026-10-08;
-  #1131 (D3 stage 1, deployed), #1132 (record 17), #1145 (the backend suite made hermetic, with
-  `tests/support/network_gate.py` as its gate) and #1149 (record 18) merged on 2026-10-08/09;
-  #1151 (D3 stage 2, option A: the API service pinned, the insider endpoint off behind a
-  server-side switch, the fuzzy-search fallback deleted) merged and deployed on 2026-10-09, after
-  the founder moved `backfill-facts-weekly` to `30 7 * * 1`; #1146, #1147, #1148 and #1150 (design
-  critique 2026-10, parts 1–4: the filing page, the company page, the homepage, loading and motion)
-  and #1165 (their follow-ups), #1154 (architecture docs), #1155 (record 19), #1136 (the hot-module
-  refactor plan, lane D: the founder delegated its decisions 1 and 3–9 as a standing authorization)
-  and #1157–#1162 (its Wave 0 test anchors) merged on 2026-10-09; record 19
-  (`code-red-20261004/runtime/control/DECISIONS-19.md`) is the latest CODE RED record, and it notes
-  for the CPO that `eval-baseline`'s `mean_citation_fidelity` read 0.83–0.86 against its 0.9648
-  baseline on all six runs of 2026-10-09 (advisory).
+- Open PRs on 2026-10-10: #1121 (founder role contacts, held), #1035 (native delivery) and #1009
+  (Pro pricing, held) drafts, and #1172 (CODE RED record 21, the CODE RED chief's). The
+  chief-engineer merge train of 2026-10-09/10 landed them one verified backend deploy at a time:
+  #1142 and #1143 (EN-05 parts a and c, EN-04), #1166 (the design-critique decisions A–E), #1170,
+  #1134 (the Lane B gates), #1171, #1123 (copilot-eval paths), #1135 (the parallel backend suite),
+  Lane B's seven router PRs (#1137–#1141, #1163, #1164: each router at ORM ceiling 0) and this
+  page's PR (#1118, with #1126 folded in). Earlier on 2026-10-09: #1144 (the summary pipeline's
+  named stages), #1153 (risk headings), #1156 (W0.G), #1167 (record 20), #1168 and #1169 (CI
+  images through `mirror.gcr.io`).
 - Review and models: PRs are reviewed by risk tier (`AGENTS.md` §5); `review-gate.yml` needs a Codex
   review or a `Review override:` line; Codex reviews again since 2026-10-07, so the override
   exception rests while it does (CODE RED record 15). Marking a PR ready for review triggers the
-  paid `copilot-eval` run when it touches that workflow's `paths:` filter (`backend/**` before
-  #1123, the eval's own inputs after it): reserve first (`DECISIONS-09.md`; `AGENTS.md` §6).
+  paid `copilot-eval` run only when it touches that workflow's `paths:` filter (the eval's own
+  inputs since #1123), once per head commit (#1166's draw gate): reserve first (`DECISIONS-09.md`;
+  `AGENTS.md` §6). `python -m pytest` runs under pytest-xdist (`-n auto`) since #1135, so every
+  venv needs `pip install -r backend/requirements-dev.txt`.
 
 ## Open items
 
 Founder:
 - [ ] The dead OUTPUT REFERENCE prompt branch Wave 0 found (`prompt_loader.py:50-54`'s markers never match, so each prompt loads whole): reviving or deleting it changes prompt bytes, a RUNBOOK event that is yours (ledger, "2026-10-09 — Hot-module refactor").
-- [ ] Design critique 2026-10, your calls (ledger, its homepage and company-page sections): whether "Find filings" becomes the hero's one primary action, demoting "See a live example", today's tracked hero CTA; and whether any signed-in user may replace a stored failure row within their quota, a backend policy change to the Pro-gated regeneration.
-- [ ] Optional, no deadline: relay record 16's custody step A (five metadata fields) once; on outcome B, the one line "I adopt record 16's form (b) for R1" (`code-red-20261004/runtime/control/DECISIONS-16.md`; the record-14 relay is replaced by it, and the D3 patch of `DECISIONS-08.md` is applied by your instruction, staged).
-- [ ] Durable-tasks rollout owner (PR #1122's Cloud Tasks rollout, live with request-based CPU since D3 stage 1's deploy and confirmed intended): run the post-deploy checks in `docs/DEPLOYMENT.md` (authenticated task success, retries and errors, API latency, SQL connections) (`DECISIONS-17.md`).
-- [ ] Optional: set the repository's squash default to "Default to pull request title and description", so a squash merge without an explicit message carries the reviewed PR text (`DECISIONS-18.md`, chief defect 7).
+- [ ] Optional; recommended now (record 20): relay record 16's custody step A (five metadata fields) once — the text is in `DECISIONS-20.md`'s appendix — and, if you agree, tell the chief in your own words "If the answer is outcome B, I adopt record 16's form (b) for R1" (`code-red-20261004/runtime/control/DECISIONS-16.md`).
+- [ ] Optional; recommended (record 20): set the repository's squash default to "Pull request title and description" (Settings → General → Pull Requests → "Allow squash merging" → "Default commit message"), so a squash merge without an explicit message carries the reviewed PR text; the chief's attempt was refused by the auto-mode classifier (`DECISIONS-18.md`, chief defect 7; `DECISIONS-20.md`).
+- [ ] CI image pulls (#1169's Codex P2, answered on the PR): `mirror.gcr.io` serves only Docker Hub images it has cached, so a cache miss fails the pull; choose an Artifact Registry remote repository for Docker Hub (durable) or a Docker Hub token in CI.
 - [ ] With Astra: the H20-only packing/closure refinement by the registered source-only planner (`DECISIONS-04.md`, `DECISIONS-05.md`; ledger, CODE RED section, which records the implementation hold).
 - [ ] Console actions from the private security remediation plan: credential rotation and push protection, removing the old revision tags, scoping the WIF trust to `main` (PR #1069 follow-up; not code).
-- [ ] Decide the founder decisions listed in the agent-workflow-cost PR (review tiers, repository visibility, the review-gate override, `tasks/` retention).
+- [ ] #1118's open founder decisions: 3 (repository visibility and public records), 4 (`tasks/` retention) and the optional 8 (register the engineering briefs as subagents); its other decisions were approved with the PR on 2026-10-09.
 - [ ] Upstream DS-source sync (DS-01, P0), external work in the DS source project: apply the upstream-sync notes §1–15 (the ledger cites `tasks/upstream-sync.md`, which is not in the repository), regenerate `_ds_bundle.js`, republish and link the package rather than re-vendoring (ledger, "2026-10-02 — design-v3 remediation series").
 - [ ] Publish an archive repository or release asset for the removed `frontend/design/landing-redesign` export (a public-account action); until then its 34 files are preserved at commit `02628e5`.
 
 Engineering:
-- [ ] Hot-module refactor, lane D, under the founder's standing authorization (`refactor-plan-2026-10.md`; ledger, "2026-10-09 — Hot-module refactor", which states what it does not cover and lists Wave 0's PRs): the rest of Wave 0 (the size-budget gate W0.G and the anchor PRs not yet merged), then Wave 1 one verified deploy at a time; outside the plan, the Rule-7 follow-up and Wave 0's three behaviour bugs, each with its anchor updated in the same PR.
+- [ ] Billing (pre-existing, found in the Lane B review of #1141): account deletion cancels only `status='active'` Stripe subscriptions (`app/routers/users.py`), so a trialing or past-due subscription survives the deletion and can still bill; cancel every non-terminal subscription, with tests (suggested as its own task on 2026-10-10).
+- [ ] Hot-module refactor, lane D, under the founder's standing authorization (`refactor-plan-2026-10.md`; ledger, "2026-10-09 — Hot-module refactor", which states what it does not cover and lists Wave 0's PRs): the rest of Wave 0 (any anchor PR not yet merged; W0.G merged as #1156), then Wave 1 one verified deploy at a time; outside the plan, the Rule-7 follow-up and Wave 0's three behaviour bugs, each with its anchor updated in the same PR.
 - [ ] CODE RED chief: after Monday 2026-10-12, read the 06:00–08:00 UTC window, the first with the whole fleet pinned and `backfill-facts` at 07:30, with the read-only `capacity-readout`: SEC errors, breaker opens, job outcomes (`DECISIONS-19.md`).
-- [ ] CODE RED chief (small): `ops.yml` `describe-jobs` and `describe-service` print the two SEC pin values for every job and the task worker, with the visibility test extended; no operation reads them back today (`DECISIONS-19.md`).
+- [ ] CODE RED chief: the read-back PR (`ops-readback-pr-01`): `describe-service` reads back the task worker (revision, traffic, command, sizing, ingress, invoker policy, SEC pins) and the service's minimum instances, CPU and memory; `describe-jobs` prints and checks both SEC pins per job; `capacity-readout` adds the worker's requests and errors and the Cloud Tasks queue; no deploy (`DECISIONS-19.md`, `DECISIONS-20.md`).
+- [ ] CODE RED chief: complete the durable-tasks post-deploy checklist (`docs/DEPLOYMENT.md`) from the read-backs and a readout, with an independent check (`durable-tasks-check-01`); the baseline is already read (`DECISIONS-20.md`).
 - [ ] Design critique 2026-10, what remains after its four PRs (#1146, #1147, #1148, #1150): outside the repo, P-01 republish the design-system package in Claude Design; in it, the three allowlisted full-page spinner screens wait for their pages' next rework (ledger, "2026-10-09 — Design critique 2026-10" sections).
 - [ ] Workflow owner: `review-gate.yml:61` re-runs the gate on any comment containing "@codex review", Codex's own summary boilerplate included, which cancelled a required run on PR #1131 (`DECISIONS-17.md`); exclude the Codex connector's comments.
-- [ ] Once #1123 merges: `backend/evals/RUNBOOK.md`'s live-acceptance paragraph says `ready_for_review` and later non-draft pushes start the `copilot-eval` run; add that this holds only for a PR inside the workflow's `paths:` filter. A docs PR: the file is under `backend/`, so it deploys (#1123 review rounds 34–35).
+- [ ] Lane B follow-ups: `docs/ARCHITECTURE.md`'s service catalog rows for the new services, in one PR; prune the ceilings table's zero rows once no branch edits it; the routers still above 0 (analysis, contact, feedback, internal, sitemap, subscriptions, summaries, webhooks); #1134's named gate gaps (per-site write counts in pinned functions, `execute`/`begin`/`bulk_*` writes, unaliased `import app.x`), tests only; #1140's pre-existing pair (async handlers doing sync DB work, and duplicate saves without a UNIQUE key, which needs a migration).
+- [ ] Test-isolation leaks #1135 lists under "Not in this PR" (items 1–6 and 8): module state reset only on setup, a probe route left on `main.app`, root logging reconfigured by an import, a bound temporary `SessionLocal`, the shared `SUMMARY_LIMITER`, unscoped backfill passes, and the temp DB left behind on Windows; none fails today; tests only.
 - [ ] Security review packages WP-07 onward, each in its own PR (PR #1069 series).
-- [ ] Frontend deferred, named: EN-04, EN-05 (a) the desktop close path for a launcher-, ⌘K-, "/"-, CTA- or coachmark-opened pane and (c) the logo, theme toggle and "← Back" focus rings (part (b), a failed generation's focus, merged in #1120), focus after a generation that succeeds, the desktop pane's unscrolled overhang for a chip-opened Filing tab, risk-card headlines, detector and doc cleanups, the harness `verify_probe.mjs` / `verify_trace.mjs` consent seed (ledger, "2026-10-06 — EN-02"); from the EN-01 follow-up and EN-03 sections (merged 2026-10-08): memoizing CopilotMessage's
+- [ ] Frontend deferred, named (EN-04, EN-05 parts a–c and the risk headings are done: #1143, #1142, #1120, #1153 and #1171): focus after a generation that succeeds, the desktop pane's unscrolled overhang for a chip-opened Filing tab, detector and doc cleanups, #1142's deferred gate work (traversing `components/ui` primitives, the remaining natively tabbable elements, the pending Resend link's dimmed ring), the harness `verify_probe.mjs` / `verify_trace.mjs` consent seed (ledger, "2026-10-06 — EN-02"); from the EN-01 follow-up and EN-03 sections (merged 2026-10-08): memoizing CopilotMessage's
   `ReactMarkdown` components (safe with `isReturnTarget`), `GenericTable` at phone width and a server-side
   "—" for a missing prior value; #1120's founder confirmations (`RetryButton` with the stream's failure, focus moves only when nobody holds it and lands on the card's heading, the monthly-limit card follows the same rule) are recorded in its ledger section.
 - [ ] UI and a11y follow-ups recorded in the ledger's 2026-10-03/04 sections (lines 76, 104–110, 168–172): dark-mode hover tint on natively disabled secondary/ghost Buttons, opacity fading the focus ring on aria-disabled controls, DS focus-ring tokens under 3:1, EmailVerificationModal's double user invalidation, the "Free" badge when the subscription call fails, the saved-summaries error card without Retry, Modal Escape `preventDefault`, the stale popover rectangle, sr-only ticker context; and the optional zero-spend class-7 snapshot check (line 140).
@@ -71,5 +70,5 @@ Engineering:
 
 ## What to doubt first
 
-- An item above may already be closed by a PR merged after 2026-10-09: check `git log` before starting it.
+- An item above may already be closed by a PR merged after 2026-10-10: check `git log` before starting it.
 - The ledger's older unchecked rows and the dated handovers are not a queue (`AGENTS.md` §1).

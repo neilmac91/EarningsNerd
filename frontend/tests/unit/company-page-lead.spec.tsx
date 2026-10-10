@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { render, screen, waitFor, within } from '@testing-library/react'
+import { act, render, screen, waitFor, within } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import type { ReactNode } from 'react'
 import type { Company } from '@/features/companies/api/companies-api'
@@ -50,6 +50,16 @@ vi.mock('next/link', () => ({
     <a href={href} {...props}>{children}</a>
   ),
 }))
+
+// A case about the summary read's result lets the read land before it asserts: the lead says "Open
+// latest filing" while the read is pending too, so an assertion made before then proves nothing.
+async function settleSummaryRead() {
+  await waitFor(() => expect(api.getSummary).toHaveBeenCalledWith(12))
+  await act(async () => {
+    await api.getSummary.mock.results[0].value
+    await new Promise((resolve) => setTimeout(resolve, 0))
+  })
+}
 
 const COMPANY: Company = { id: 1, cik: '320193', ticker: 'AAPL', name: 'Apple Inc.', exchange: 'NASDAQ' }
 const filing = (id: number, filing_type: string, filed: string, report: string): Filing => ({
@@ -108,9 +118,9 @@ describe('Company page lead', () => {
     const header = screen.getByRole('banner')
     expect(within(header).getByRole('heading', { level: 1, name: 'Apple Inc.' })).toBeInTheDocument()
     expect(within(header).getByText(/^Latest filing/).closest('p')).toHaveTextContent(/Latest filing 10-Q\s*·\s*,\s*quarter ended Dec 27, 2025/)
-    const open = within(header).getByRole('link', { name: 'Summarize latest filing' })
+    const open = await within(header).findByRole('link', { name: 'Summarize latest filing' })
     expect(open).toHaveAttribute('href', '/filing/12')
-    await waitFor(() => expect(api.getSummary).toHaveBeenCalledWith(12))
+    expect(api.getSummary).toHaveBeenCalledWith(12)
     expect(primaryActions(container)).toEqual([open])
     // The old "← Back" link and the in-list lead are gone; the breadcrumb leads home.
     expect(screen.queryByText('← Back')).toBeNull()
@@ -125,8 +135,32 @@ describe('Company page lead', () => {
     expect(within(header).getByText('summary ready')).toBeInTheDocument()
   })
 
-  // A row the filing page will not show as a summary is not one, and the lead promises no run over it
-  // (replacing a stored row is gated server-side): it opens the filing, where the page shows its state.
+  // "Summarize" promises a run, so it waits for the summary read to say there is none (null). Until then,
+  // or when the read fails, the lead opens the filing, which never flashes ahead of "Open latest summary".
+  it('opens the filing while the summary read is pending, then says what it found', async () => {
+    let answer: (value: unknown) => void = () => {}
+    api.getSummary.mockReturnValue(new Promise((resolve) => { answer = resolve }))
+    renderPage([QUARTER, ANNUAL, PRIOR_ANNUAL])
+    const header = screen.getByRole('banner')
+    await waitFor(() => expect(api.getSummary).toHaveBeenCalledWith(12))
+    expect(within(header).getByRole('link', { name: 'Open latest filing' })).toHaveAttribute('href', '/filing/12')
+    expect(within(header).queryByRole('link', { name: /Summarize|Open latest summary/ })).toBeNull()
+    answer({ id: 5, filing_id: 12, business_overview: 'Apple designs devices.' })
+    expect(await within(header).findByRole('link', { name: 'Open latest summary' })).toHaveAttribute('href', '/filing/12')
+  })
+
+  it('opens the filing when the summary read fails', async () => {
+    api.getSummary.mockRejectedValue(new Error('offline'))
+    renderPage([QUARTER, ANNUAL, PRIOR_ANNUAL])
+    const header = screen.getByRole('banner')
+    await waitFor(() => expect(api.getSummary).toHaveBeenCalledWith(12))
+    expect(await within(header).findByRole('link', { name: 'Open latest filing' })).toHaveAttribute('href', '/filing/12')
+    expect(within(header).queryByRole('link', { name: /Summarize|Open latest summary/ })).toBeNull()
+  })
+
+  // A row the filing page will not show as a summary is not one, and the lead promises no run over it:
+  // it opens the filing, where the page shows its state (its Retry replaces the row for any signed-in
+  // user, decision A of tasks/decisions-2026-10-09-design-followups.md).
   it.each([
     ['a placeholder', { business_overview: 'Generating summary...' }],
     ['a writer error', { business_overview: 'Apple designs devices.', raw_summary: { writer_error: 'timeout' } }],
@@ -136,7 +170,9 @@ describe('Company page lead', () => {
     api.getSummary.mockResolvedValue({ id: 5, filing_id: 12, ...stored })
     renderPage([QUARTER, ANNUAL, PRIOR_ANNUAL])
     const header = screen.getByRole('banner')
-    expect(await within(header).findByRole('link', { name: 'Open latest filing' })).toHaveAttribute('href', '/filing/12')
+    // The lead also says "Open latest filing" while the read is pending, so the read must land first.
+    await settleSummaryRead()
+    expect(within(header).getByRole('link', { name: 'Open latest filing' })).toHaveAttribute('href', '/filing/12')
     expect(within(header).queryByText('summary ready')).toBeNull()
     expect(within(header).queryByRole('link', { name: /Summarize|Open latest summary/ })).toBeNull()
   })
@@ -148,7 +184,7 @@ describe('Company page lead', () => {
     expect(star).toHaveAttribute('aria-pressed', 'false')
     expect(star).not.toHaveAttribute('aria-label')
     expect(star.className).not.toMatch(/(^|\s)bg-brand(\s|$)/)
-    expect(primaryActions(container)).toEqual([screen.getByRole('link', { name: 'Summarize latest filing' })])
+    expect(primaryActions(container)).toEqual([await screen.findByRole('link', { name: 'Summarize latest filing' })])
   })
 
   it('puts the Compare periods card beside the filings for the newest annual report', async () => {

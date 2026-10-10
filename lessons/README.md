@@ -16,6 +16,7 @@ machine" only for that work; skip "Enforced by a machine gate" (CI fails those o
 
 - ops-auth-lookups-must-let-request-cleanup-progress.md — Keep authentication pool waits off the event loop while preserving request-owned sessions
 - ops-bound-drain-batches-to-job-memory.md — Bound a regeneration batch by the job container's memory, not by its time budget alone
+- ops-ci-images-avoid-docker-hub.md — Pull CI and deploy images through a mirror, never anonymously from Docker Hub
 - ops-continue-approved-engineering.md — Continue the approved queue after verified releases and preserve specific founder holds
 - ops-demote-a-lesson-only-when-its-whole-rule-is-gated.md — Demote a lesson from session reading only when every clause of its rule is machine-gated and proven on the bad case
 - ops-deploy-owned-state-needs-a-distinctive-name.md — Give deploy-owned tables a name nothing else could have created; CREATE TABLE IF NOT EXISTS adopts strangers
@@ -27,7 +28,7 @@ machine" only for that work; skip "Enforced by a machine gate" (CI fails those o
 - ops-keep-moving-under-standing-authorization.md — Keep moving under a standing founder authorization; stop only at the boundaries still held
 - ops-mutate-only-committed-state.md — mutation proofs run on committed state only; `git checkout --` restores HEAD, not your edit
 - ops-no-ddl-in-startup-path.md — Never run schema-altering DDL in the serving container's startup path
-- ops-one-test-process-per-worktree.md — one test process per worktree; never run pytest beside a running gate
+- ops-one-test-process-per-worktree.md — give each test process its own database, and never let a test depend on another test's order or leftovers
 - ops-release-cached-filing-reads-before-yield.md — Close completed filing reads before async dependency cleanup can be blocked by a competing checkout
 - ops-serial-merge-adjacent-line-prs.md — Serialize merges of PRs that edit the same file within a few lines
 - ops-true-config-descriptions-grep-file-moves.md — Make canonized config descriptions literally true and grep the whole repo when moving files
@@ -43,6 +44,7 @@ machine" only for that work; skip "Enforced by a machine gate" (CI fails those o
 - evals-test-the-row-shape-the-producer-writes.md — a consumer of another module's records is tested on that producer's real row shape, and its identity rule against the committed data
 - ops-ai-evidence-is-not-human-acceptance.md — Use explicit model/source evidence when the founder cannot supply a human panel
 - ops-capacity-projection-withholds-command-values.md — Withhold command values and execute the real readback projection in a privacy gate
+- ops-copilot-eval-red-is-triaged-never-rerun.md — Triage a red copilot-eval run by the RUNBOOK rule; never re-run it to get a green one
 - ops-eval-gate-for-ai-changes.md — Gate every AI/prompt/model change on the eval regression gate — and re-pin the baseline in the same PR
 - ops-evidence-exports-verify-themselves-and-survive-git.md — An evidence export copies everything, verifies its copy, states its own eligibility, and is gated against ignore rules that silently drop inventoried files; a verdict that depends on another tool reruns that tool on the current inputs, and a receipt on disk is evidence only
 - ops-founder-runs-claude-in-the-mac-app.md — Address founder instructions to the Claude desktop app, and give `claude -p` its own login
@@ -69,6 +71,7 @@ machine" only for that work; skip "Enforced by a machine gate" (CI fails those o
 - arch-gate-reference-values-are-themselves-gated.md — A gate that compares against a token or an exemption set must pin those too
 - arch-guard-every-model-facing-surface.md — Suppress a value on EVERY model-facing surface, or the model parrots what the render dropped
 - arch-migrations-no-alembic.md — No Alembic: fresh schema via create_all, changes via idempotent SQL applied once through the migration_ledger table
+- arch-moved-code-resolves-seams-through-the-patched-module.md — Code moved out of a patched module keeps resolving its collaborators through that module at call time
 - arch-no-precomputed-deltas-in-grounding.md — Don't pre-chew derived deltas into the grounding without a groundedness guardrail
 - arch-one-summary-orchestrator.md — There is ONE summary orchestrator — never add a second generation path
 - arch-operand-matches-do-not-authorize-financial-assertions.md — Use tagged operands for bounded withholding without promoting them to assertion authority
@@ -112,12 +115,13 @@ machine" only for that work; skip "Enforced by a machine gate" (CI fails those o
 - test-judge-context-parity.md — Give an LLM judge the same (or a superset of the) grounding the generator used
 - test-leave-the-tree-alone-during-a-background-suite.md — Leave the working tree untouched while a background full-suite run reads it
 - test-parser-callback-positions.md — Match whole-input callbacks to exact raw-source positions before accepting event capacity
-- test-persistent-sqlite-db-goes-stale.md — The test SQLite DB (earningsnerd.db, CWD-relative — usually backend/) is a persistent file — rm it after a schema change or rebase
+- test-persistent-sqlite-db-goes-stale.md — The dev SQLite DB (backend/earningsnerd.db) is persistent — rm it after a schema change; the test suite never uses it
 - test-proofs-run-on-committed-state.md — Mechanical proofs must run against committed state — a proof that cannot fail proves nothing
 - test-pure-move-ast-proof.md — Verify "pure move" refactors with an AST-normalized per-symbol diff, not by eyeballing the diff
 - test-smoke-model-runs-before-sweeps.md — Smoke one or two items and inspect raw output before any long or expensive model run
 - test-smoke-targets-feature-semantics.md — Distinguish the actual smoke target from similarly named calls to action
 - test-tracked-file-gates-run-after-staging.md — Run a `git ls-files` gate after staging its own module, and select targets by name pattern
+- test-verbatim-fixtures-keep-the-source-bytes.md — Copy verbatim fixtures from the source payload and assert them on textContent
 - test-verify-orphaned-tests-before-adopting.md — Verify orphaned or uncollected tests before adopting them
 - test-vitest-for-copy-changes.md — Run vitest before pushing any change to rendered text, numbers, or copy
 - test-vitest4-mock-error-tracking.md — Plain-function error mocks avoid handled-error failures; reproduced on Vitest 4 and rechecked on Vitest 5
@@ -136,6 +140,7 @@ machine" only for that work; skip "Enforced by a machine gate" (CI fails those o
 - frontend-focus-opened-popovers-survive-the-focusing-scroll.md — A popover that opens on focus re-anchors on the scroll that focusing caused; only a hover popover closes on scroll
 - frontend-guard-a-loader-two-effects-can-start-in-one-commit.md — Guard a loader with a synchronous in-flight ref when two effects can start it in one commit
 - frontend-guard-submit-on-loading-buttons.md — Guard submit handlers with an early return when the button uses loading, not disabled
+- frontend-hidden-name-tails-bring-their-own-space.md — A visually hidden tail on a control's name brings its own space and starts with a word or bracket
 - frontend-jsdom-sdk-browser-entry.md — Resolve browser SDK imports as browser code in jsdom tests while preserving real capture behavior
 - frontend-locked-page-dialog-scrolls-itself.md — A dialog that locks the page must bound itself to the viewport and scroll inside
 - frontend-native-modal-dialog-makes-body-portals-inert.md — Under a native showModal() dialog, portal into the dialog and preventDefault the keys you own (partly gated by `frontend/tests/unit/dialogAllowlist.spec.ts`; the keyboard and focus hand-off rules are not)

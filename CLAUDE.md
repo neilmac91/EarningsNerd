@@ -43,9 +43,12 @@ affects documented tokens, typography, reusable component states or visual conve
 Backend (from `/backend`):
 ```bash
 uvicorn main:app --reload --host 0.0.0.0 --port 8000   # Dev server
-pip install -r requirements-dev.txt                    # Pinned lint toolchain (same as CI)
+pip install -r requirements-dev.txt                    # Pinned lint toolchain + pytest-xdist (same versions as CI)
 ruff check . && bandit -r app -ll && python -m pytest  # FULL local gate — run before every push
-python -m pytest -m ""                                 # Also the performance suite (real sleeps)
+python -m pytest              # Fast lane, parallel (`-n auto`); deselects performance (real sleeps)
+python -m pytest -n 0 tests/unit/test_x.py             # Serial: one file, a debugger, or a leaker-then-victim repro
+python -m pytest -m ""        # Everything, including the performance suite
+python -m pytest -o addopts= -m performance tests/performance  # Performance suite alone, serial (CI's step)
 python3 scripts/deploy_check.py                        # Pre-deploy validation
 ```
 
@@ -119,27 +122,37 @@ Infra: `docker-compose up -d postgres redis` (local only — prod has no Redis).
     700-level tokens; page bg = `background`, cards = `panel`, on every route. Gates: the design rules in
     `frontend/eslint.config.mjs` (raw hex/palette, `z-[N]`, off-ramp tracking, sub-scale type, `alert`,
     a responsive grid's base track, a side-tab stripe on a rounded container, a form code inside a `Badge`)
-    `tests/unit/dialogAllowlist.spec.ts` and `tests/unit/bottomChromeLadder.spec.ts` (no fixed bottom chrome
-    outranks the workspace layers; the consent bar's inset); the 700-level and surface clauses are review-checked.
+    `tests/unit/dialogAllowlist.spec.ts`, `tests/unit/bottomChromeLadder.spec.ts` (no fixed bottom chrome
+    outranks the workspace layers; the consent bar's inset), `tests/e2e/text-floors.spec.ts` (muted text clears
+    4.5:1 on what is behind it; no checked route skips a heading level) and
+    `tests/unit/siteChromeFocusRing.spec.ts` (every site-chrome Tab stop carries the brand ring); the 700-level
+    and surface clauses are review-checked.
 12. **Rules become gates.** When a review or plan produces a "never do X again" rule, land the
     machine enforcement in the same PR (ESLint rule, allowlist spec, AST test, CI grep). Prose-only
     rules rot — see `lessons/arch-structural-gates-over-prose-rules.md`.
 
 ## Where things live
 
-- **Backend:** `app/routers/` = HTTP only; `app/services/` = business logic; `services/ai/` = AI
-  internals behind the `openai_service.py` façade; `services/edgar/` = SEC service layer (rule 5);
-  `app/integrations/` = third-party APIs (finnhub/fmp/stocktwits were torn down in #657;
-  `test_dead_integrations_allowlist.py` keeps them gone). Map: `docs/ARCHITECTURE.md`.
+- **Backend:** `app/routers/` = HTTP only (per-router ORM ceilings, lowered by each thinning PR:
+  `tests/unit/test_router_orm_ceilings_allowlist.py`); `app/services/` = business logic, free of
+  fastapi/starlette outside a 3-file allow-list (`tests/unit/test_services_http_free_allowlist.py`);
+  `services/ai/` = AI internals behind the `openai_service.py` façade; `services/summary_stages/` =
+  the stages of the ONE orchestrator, each reaching its collaborators as `summary_pipeline.<name>`
+  so test patches on the pipeline module keep working (`tests/unit/test_summary_stages_seams.py`);
+  `services/edgar/` = SEC service layer (rule 5); `app/integrations/` = third-party APIs
+  (finnhub/fmp/stocktwits were torn down in #657; `test_dead_integrations_allowlist.py` keeps them
+  gone). Map: `docs/ARCHITECTURE.md`.
 - **Frontend:** `features/<domain>/` = domain code; `components/` = `ui/` + app chrome ONLY
   (`componentsAllowlist.spec.ts`); query keys from `lib/queryKeys.ts` (ESLint-enforced); all HTTP
   through `lib/api/client.ts` (raw `fetch` only for SSE readers and Next ISR/server fetches);
   blob downloads via `lib/downloadBlob.ts`.
 - **Tests:** `backend/tests/{unit,integration,smoke,performance}` (conftest sets a hermetic mock
-  env incl. `SKIP_REDIS_INIT=true` — patch `settings`, not env vars — and registers
+  env incl. `SKIP_REDIS_INIT=true` — patch `settings`, not env vars — registers
   `tests/support/network_gate.py`: an in-process attempt to reach a non-loopback host is blocked
   and fails the test that made it, or the session for a stray; subprocesses and C-level clients
-  are outside it, so fake the boundary (SEC, Yahoo, Resend)) and `frontend/tests/{unit,e2e}`.
+  are outside it, so fake the boundary (SEC, Yahoo, Resend) — and gives each process or xdist
+  worker a private temp SQLite DB, so a test must not depend on order or on another test's
+  leftovers: `lessons/ops-one-test-process-per-worktree.md`) and `frontend/tests/{unit,e2e}`.
   NO other test roots — a test outside these does not run in CI (gate:
   `frontend/tests/unit/testHomesAllowlist.spec.ts`; its one exemption is the hash-sealed judging
   fixture pinned by a `code-sha256.json` in its package; offline proof run by the operator, not CI).

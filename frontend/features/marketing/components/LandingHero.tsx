@@ -14,6 +14,12 @@ import type { ExampleData } from '@/lib/serverApi'
  * with the access line beneath it, the company search as the secondary action, and the live
  * example summary card. The example card renders at EVERY width (its content is a superset of the
  * retired compact mobile card), so mobile sees the same evidence as desktop.
+ *
+ * The design critique (2026-10, artboard 1d) asks for "Find filings" as the one primary action. It
+ * stays secondary while access is invite-only: a search can end at a filing whose summary needs an
+ * account most visitors cannot create, while the live example is a path every visitor can finish
+ * (decision B in tasks/decisions-2026-10-09-design-followups.md). Revisit when access opens to the
+ * public.
  */
 export default function LandingHero({
   example,

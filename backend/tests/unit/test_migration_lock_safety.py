@@ -453,7 +453,9 @@ def test_ci_gates_the_deploy_on_a_real_postgres_triple_apply():
         f"{MIGRATIONS_JOB} needs `timeout-minutes` (<= 30): three passes against a fresh service container "
         "take ~5 min; a hung psql must not hold the PR gate for GitHub's 6 h default."
     )
-    assert str(job["services"]["postgres"]["image"]).startswith("postgres:15"), "prod is Cloud SQL PostgreSQL 15"
+    # The registry is test_ci_images_avoid_docker_hub.py's concern; the major version is this one's.
+    image_name = str(job["services"]["postgres"]["image"]).rsplit("/", 1)[-1]
+    assert image_name.startswith("postgres:15"), "prod is Cloud SQL PostgreSQL 15"
     runs = [str(step.get("run", "")) for step in job["steps"]]
     passes = [run for run in runs if "backend/scripts/apply_migrations.sh" in run]
     assert len(passes) >= 3, (

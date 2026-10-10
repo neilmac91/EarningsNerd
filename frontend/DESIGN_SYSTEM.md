@@ -171,8 +171,29 @@ Link as button   buttonVariants({ variant, size })  — the class-string factory
                  each density has its own EXPLICIT padding sides (never an override on top).
 
 Accent text/link text-brand-strong dark:text-brand-strong-dark   (never brand.DEFAULT as text on cream)
-Focus ring       focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark;
-                 destructive + invalid fields use shadow-ring-error
+Focus ring       focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark;
+                 destructive + invalid fields use shadow-ring-error. There is no global :focus-visible rule, so
+                 a control without the recipe draws the browser's own outline (`auto`), unlike its neighbours.
+                 A control that is a block of its own (a logo link, an icon button, a menu row) takes a radius
+                 (`rounded-lg`) so the ring follows its shape. A field the forms plugin styles (a text
+                 input, textarea, select, checkbox or radio) also takes `focus:ring-0
+                 focus:ring-offset-0`: @tailwindcss/forms rings it blue on any focus, and the
+                 shadow utilities draw the brand ring inside that ring rather than instead of it. Every Tab stop
+                 in the site chrome carries it (the skip link the same triple on `focus:`): gate
+                 tests/unit/siteChromeFocusRing.spec.ts reads the AST of every chrome file, discovered from
+                 app/layout.tsx, every route layout, template or error boundary under app/ (the admin
+                 nav, global-error's fallback), AuthShell and SecondaryHeader through their imports and
+                 re-exports (components/ui aside), so a new banner, menu or widget is scanned unlisted,
+                 plus every control a page passes into SecondaryHeader's `actions` slot (the dashboard's
+                 "Log out"; write them inline, as a variable or
+                 a component of their own the scan cannot read them); `buttonVariants(…)` composes it; a
+                 className it cannot read fails, and so does a props spread on a host element or a Link. A
+                 third-party component the chrome renders must be classified in the gate (a provider renders
+                 no control); Sonner's Toaster takes the ring
+                 through `toastOptions.classNames` with `!` on the shadow, since Sonner's own injected
+                 :focus-visible shadow matches or outranks a utility class, and the gate pins every slot. It is
+                 the rule's one gate; a page's other controls (the filing identity strip's breadcrumb) carry the
+                 recipe but sit outside it.
 
 Card / panel     bg-panel-light dark:bg-panel-dark + border + shadow-e2 dark:shadow-none
                  (e1 chips · e2 cards · e3 hero/featured · e4/e5 menus & overlays)
@@ -425,7 +446,8 @@ Company identity <CompanyIdentity company latest summaryReady actions>  (feature
                  ready" (only when the summary probe found one the filing page will show: isSummaryReady, not
                  a placeholder or a stored failure). Its actions: the ONE primary action, opening the latest
                  filing ("Open latest summary" when ready, "Open latest filing" over a stored row that is
-                 not, "Summarize latest filing" when the filing has none), with the watchlist toggle beside
+                 not and while the summary read is pending or has failed, "Summarize latest filing" only
+                 once the read finds none), with the watchlist toggle beside
                  it as a secondary Button (visible label, star, aria-
                  pressed, `loading` while it saves). Sector and fiscal-year convention wait for the payload.
 
@@ -454,11 +476,21 @@ Trust strip      <TrustStrip>  under the hero: a hairline-topped list of plain s
                  "the filing's own words".
 
 Evidence rows    <SummaryRisks>  (P-03) — one hairline list inside the section: a row is an h3 (14/600, the
-                 opening clause of the row's own verbatim excerpt, unique per row via excerptHeadings — the
+                 opening words of the row's own verbatim excerpt, unique per row via excerptHeadings — the
                  server withholds model titles), the excerpt in blockquote manners (border-l-2 hairline, no
                  fill, no radius, 14px secondary) and the provenance chip; a lead line above and a data-face
                  tally below ("3 of 4 excerpts located in the filing text · 1 withheld …"). No stripe, no
-                 trend glyph, no nested evidence box.
+                 trend glyph, no nested evidence box. The row wraps a long unbreakable token
+                 ([overflow-wrap:anywhere]).
+                 Heading rule (riskHeadline.ts, inside excerptHeadings): a verbatim prefix of the excerpt, never
+                 recased and never whitespace-normalised (one enclosing quote pair is dropped first, only when
+                 it wraps the whole span). The first sentence stays whole when it fits in 100 characters; a
+                 longer one is cut at its first ";" or ":" only where the clause can stand as a heading,
+                 otherwise capped on a whole content word that splits no figure from its unit or label, no
+                 date, name, bracket or quotation. Never at a comma or a dash. "…" whenever the excerpt goes
+                 on; "Risk n" when no heading fits. Gates: riskHeadline.spec.ts (the rule, on the production,
+                 backend-fixture and eval spans), riskTitle.spec.ts (what excerptHeadings adds around it),
+                 SummaryRisks.spec.tsx (the wiring), tests/e2e/risk-evidence-rows.spec.ts (layout).
 
 Callout          <Callout label tone="neutral|caution">  (P-08; replaces SummaryBlock) — an inset well:
                  `rounded border bg-panel-light px-4 py-3.5` (dark: white/10 hairline on panel-dark), no
@@ -486,8 +518,56 @@ Source pane      <FilingWorkspace>  (P-06) — the research pane is named for th
                  below lg only. The floating launcher is "Source ⌘K", a secondary control (panel fill,
                  hairline, e3; aria-keyshortcuts) whose kbd hint is secondary ink on a cream key. A chip opens
                  the pane on Filing; the initial tab stays Ask until in-app filing text is reliably available.
+                 Focus: at lg+ (a side pane, nothing trapped) a chip keeps focus as it opens the pane on Filing,
+                 where the rail focuses nothing. Any other opener (an in-page Ask button or starter, the control
+                 Ctrl/⌘+K or "/" was pressed on) keeps focus too, except that the rail moves it to its composer a
+                 frame later when the visitor can ask and the Ask tab is shown (AskCopilotRail). The launcher and
+                 the coachmark's Try leave with the open, so a keyboard press on either hands focus to the
+                 selected tab (useFocusHandoff, keyboardOnly): a visitor who cannot ask still lands in the pane.
+                 Below lg the sheet's trap (useSheetFocusTrap) focuses its first stop, Close, which precedes the
+                 tabs, as the sheet opens, whatever opened it; the launcher's or Try's hand-off then finds focus
+                 placed and leaves it. For a visitor who can ask, focus moves twice (the tab, or Close below lg,
+                 then the composer a frame later, or once a free visitor's usage loads); that is accepted, since
+                 the composer renders locked or not and the hand-off cannot tell the two apart. Closing (Escape,
+                 ×) moves only focus that fell (on <body>, or still in the hidden pane), to the first that can
+                 take it: the provenance chip that opened the pane, the control focused as it opened, the
+                 launcher (it remounts on close). Focus the user moved elsewhere stays. Below lg the sheet's trap
+                 restores to the chip or the launcher. Gates: tests/e2e/pane-close-focus.spec.ts holds the route
+                 matrix on the real page (every open route x Escape and × at 1440, the sheet at 390);
+                 tests/unit/FilingWorkspace.spec.tsx pins only the close path's own rules (an opener gone or
+                 hidden since the open, a chip that opened it later, a pointer press, focus moved elsewhere).
 
-Ask answer       <AskFilingAnswer>  — the SHIPPED copilot contract: status reading|streaming|done|error;
+Filing reader    <FilingViewer> (`.filing-reader`) fills its pane and never exceeds it: the reader-only
+                 rule sets `width: 100%`, up to the 88ch rail (a column-flex child with auto inline
+                 margins is not stretched, so without it the reader took its widest table's width;
+                 `min-w-0` does not bound that). Each table sits in its own horizontal scroll box
+                 (`ReaderTable`, `.filing-table-scroll`, which takes the table's 2rem rhythm wherever it
+                 sits and, at the reader's top level, its escape from the 68ch measure); never make the
+                 reader or the sheet scroll sideways for a table, and never `overflow-x-hidden` it away.
+                 While, and only while, a table is wider than its box, the box is a scroll region:
+                 `role="region"`, `tabIndex={0}`, `aria-label="Scrollable table: <the heading above it>"`
+                 (the last heading before it whose own container, the reader or a blockquote or list item,
+                 also holds it; ", table 2 of 3" when tables sit under headings that read the same, in one
+                 section or several, so no two regions share a name), the brand focus ring; a table that
+                 fits stays out of the tab order. The reader itself is a tab stop too (`role="region"`,
+                 named "<filing> · filing text", `tabIndex={0}`, the ring inset as in MonthView), so the
+                 arrow keys scroll it from the top: Chromium made the scroller one on its own only while
+                 nothing in it was focusable. In the Source pane's Filing tab, Tab goes Filing tab →
+                 reader → each scrolling table's region (and any link in the text) → "Original on SEC
+                 EDGAR"; when the cited passage cannot be found, the notice's "Open original" link comes
+                 before the reader. A citation jump (highlightInDom) scrolls the reader and the table's
+                 box only, never the page (no scrollIntoView), and centres the passage in the reader's
+                 on-screen part (above the fold and the consent bar, before the desktop pane sticks):
+                 smoothly, or in one jump under prefers-reduced-motion. A box names itself only when it
+                 starts to overflow, never on every resize (the name scans the whole reader). The AI
+                 summary's `.markdown-body` is untouched. Gates: tests/unit/highlightInDom.spec.ts,
+                 tests/unit/readerTableRegionName.spec.ts, tests/e2e/filing-reader-wide-tables.spec.ts
+                 (synthetic fixture text, 1440x900 and a 390x844 touch sheet) and
+                 tests/e2e/copilot-highlight-css.spec.ts (a far-right table cell revealed in its own box
+                 in real layout, the page unmoved).
+
+Ask answer       <AskFilingAnswer>  — the SHIPPED copilot contract: status reading|done|error (this reference
+                 also draws a `streaming` caret state; the production renderer has none);
                  answer = GFM markdown (react-markdown + remark-gfm); markers [n] AND [F1]/[f1]/[F 1]
                  (case/whitespace tolerant) become chips showing the BRACKETED marker; unmatched markers
                  stay literal text — never a dead button. CopilotCitation = { n, excerpt, section_ref,
@@ -499,8 +579,10 @@ Ask answer       <AskFilingAnswer>  — the SHIPPED copilot contract: status rea
                  attestation. Never conflate source matching with support for every answer claim.
                  REPO REALITY: this file is the design-system REFERENCE implementation (0 importers).
                  The wired production renderer is features/filings/components/copilot/CopilotMessage.tsx,
-                 which implements the same contract plus viewer deep-linking, popovers, streaming-perf
-                 rendering and follow-ups — change copilot rendering THERE, styled to this design.
+                 which implements the same contract plus viewer deep-linking, popovers and follow-ups —
+                 change copilot rendering THERE, styled to this design. Its answers arrive whole: the
+                 rail takes a message from reading (one pulse dot, "Reading the filing…") straight to
+                 done or error; there is no streaming status, token text or caret.
 ```
 
 - **Radius scale is 4 / 8 / 12 / 16 / 24** — buttons + inputs 12 (`rounded-lg`), chips full,
@@ -529,6 +611,21 @@ Type v2 supersedes the old "no global heading color" rule: the global `h1–h6` 
 dark-hero bug that motivated the old rule can't recur. Don't add per-heading color overrides
 unless the heading sits on a surface that inverts against its theme.
 
+**Outline: never skip a level.** Pick the element for its place in the page outline and set the
+size with classes: a section directly under the page h1 is an h2 whatever its type size (the pricing
+plans, the analysis chart panels). `GuidanceCard` titles itself h3 by default, for a card inside an
+h2 section; where the card stands in for the page's content directly under the h1, pass
+`headingLevel="h2"` (the filing page's signup gate, failure and monthly-limit cards and a stored
+summary's writer error; the watchlist's empty and error cards; the waitlist example's fallbacks).
+The footer opens its own section with a visually hidden h2 ("Site links") before its h3 column
+titles, so a page whose content ends at h1 (the 404, /analysis, /search) does not jump from h1 to h3.
+`tests/e2e/text-floors.spec.ts` checks the routes and states it visits, in DOM order and in the
+accessibility tree: home, /pricing, /company/AAPL, /filing/3 with a summary, a signed-in /dashboard,
+the 404, and four page-level card states (a filing without a summary for a guest and for a
+signed-in reader whose run fails, a writer error, an empty watchlist). Known exception, not
+visited: /waitlist when its example loads (the example has no heading, so the h1 is followed by the
+problem cards' h3).
+
 ## 6. Cards must *lift*, not tint
 
 `brand-weak` (#ECF2EE) is **darker** than the cream page (#F4F3EE) — as a card *fill* it's
@@ -548,7 +645,10 @@ remaining consumer is `AuthShell`). Container rhythm on the landing: hero + head
 every other section `max-w-5xl`, section padding `py-20 sm:py-24` (the measured-claims band is a
 tighter hairline strip). Muted text on the cream page ground is `text-secondary`;
 `text-tertiary-light` (`#636A77`, 4.9:1 on cream) carries captions, counts and micro-labels on either
-ground; copy the reader must read stays secondary.
+ground; copy the reader must read stays secondary, including the point-of-use AI disclaimer
+(`AiDisclaimer`) and the footer's "Data sourced from SEC EDGAR … Not investment advice" line. Gate:
+`tests/e2e/text-floors.spec.ts` measures every tertiary-ink text on the main routes against its
+rendered ground.
 
 ## 8. Theme mechanics
 

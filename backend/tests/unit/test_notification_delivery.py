@@ -93,8 +93,8 @@ def _reset_delivery_state(db: Session) -> None:
     watch = db.query(Watchlist).one()
     watch.last_alerted_at, watch.last_alerted_accession = None, None
     db.commit()
-    # SQLite reuses deleted row IDs in the next scenario. Clear expired ORM states
-    # so a recycled ID cannot collide with the preceding scenario's identity map.
+    # Clear expired ORM states so the next scenario cannot collide with this one's identity
+    # map (the suite's SQLite tables no longer re-issue deleted ids; see tests/conftest.py).
     db.expunge_all()
 
 

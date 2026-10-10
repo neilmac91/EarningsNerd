@@ -295,6 +295,21 @@ def test_attempt_from_a_thread_that_outlived_its_test_fails_the_session(pytester
     assert result.ret == pytest.ExitCode.TESTS_FAILED  # ... but the session fails
 
 
+def test_a_stray_on_an_xdist_worker_fails_the_controller_session(pytester: pytest.Pytester) -> None:
+    """pytest.ini runs the suite under xdist (-n auto), whose controller ignores a worker's exit status
+    and never prints its terminal summary: the gate hands a worker's strays to the controller."""
+    pytester.makeconftest(GATE_SOURCE)
+    pytester.makepyfile(test_stray=STRAY_TESTS)
+    result = pytester.runpytest_subprocess(*CHILD_ARGS, "-n", "1")
+    result.assert_outcomes(passed=3)
+    result.stdout.fnmatch_lines_random([
+        "*network gate: 1 outbound attempt(s) outside their test -- session FAILED*",
+        "*dns gate-selftest-stray.invalid:443 x1 [[]thread gw0:late-worker]*",
+        "*owner: test_stray.py::test_starts_a_thread_that_outlives_it; running: test_stray.py::test_runs_while_the_stray_fires*",
+    ])
+    assert result.ret == pytest.ExitCode.TESTS_FAILED
+
+
 def test_offline_enrichment_allowlist_stays_off_the_locked_anchors() -> None:
     """tests/conftest.py's allowlist changes a file's runtime seams without touching its bytes, so a
     locked rule-6 anchor must never join it (that would change the anchor behind a byte-identity check)."""

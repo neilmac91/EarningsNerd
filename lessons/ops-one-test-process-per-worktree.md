@@ -1,6 +1,6 @@
-# One test process per worktree: never run pytest beside a running gate
+# Give each test process its own database, and never let a test depend on another test's order or leftovers
 
-Date: 2026-09-08 · Area: ops / verification
+Date: 2026-09-08 (rule revised 2026-10-09) · Area: ops / verification
 
 **Context.** The full local gate on a worktree reported one failure in a pre-existing facts
 test (`facts_inserted` 4 instead of 2) that never reproduced alone, doubled, or in a verbose
@@ -9,21 +9,61 @@ run was started in the same worktree, which deletes and rewrites the shared SQLi
 (`backend/earningsnerd.db`) the gate's process was still using. The gate counted the parallel
 run's unstamped filings.
 
-**Rule.** A worktree has one test process at a time. While its gate runs, do not start
-pytest, mutation proofs, or a lens that runs tests in that worktree; use another worktree or
-wait. A gate failure that a clean re-run cannot reproduce is first checked against this rule
-before any test is called flaky or "fixed" by scoping.
-
-**Evidence.** W3-9 gate on `457933fd` (1 failed / 2703 passed) versus the verbose re-run on
-`70fca647` (2705 passed) with the worktree left alone; `tasks/archive/todo-ledger-through-2026-10-07.md` W3-9 section.
-
 **Correction (2026-09-08, later the same day).** The parallel run was the trigger, not the whole
 cause. The SQLite file outlives the test process, and `test_tickers_filter_scopes_the_pass`
 (added in #763) deliberately leaves an unstamped marked filing behind; the unscoped idempotency
 test then counts it on ANY later run in the same worktree — deterministic on the second run of
 `test_facts_service.py`, fresh file or not. CI never saw it because CI runs one process on a
 fresh file. Fixed by scoping the idempotency test to its own company (`tickers=[ticker]`), the
-same seam the other backfill tests use. The rule above stands; the added rule: a test that
-leaves state behind on purpose must not share an unscoped assertion with another test, and a
-"passes alone, fails on re-run" result is checked by running the file twice on a fresh file
-before any parallel-run explanation is accepted.
+same seam the other backfill tests use.
+
+**Revision (2026-10-09).** The gate now runs in parallel (`-n auto` in `backend/pytest.ini`), and
+`backend/tests/conftest.py` gives every pytest process (the session, or each pytest-xdist worker) a
+private SQLite file in a fresh temp directory, created before any app import and removed at exit.
+No test opens `backend/earningsnerd.db`, and two pytest runs in one worktree no longer share a file.
+The random-order runs before the switch (pytest-randomly, serial and `-n 4`, several seeds) found
+eight cross-test dependencies, each fixed at the root:
+- Files that wrote through `SessionLocal` without creating tables relied on an earlier test (or an
+  earlier `TestClient` lifespan) having run `create_all`; conftest now creates the schema per process.
+- SQLite re-issued a deleted test's id, and the next test's new filing inherited an orphaned
+  `filing_content_cache` row (SQLite here enforces no foreign keys); conftest now gives SQLite tables
+  AUTOINCREMENT ids, as PostgreSQL sequences behave.
+- A test re-patched a `stream_boundaries` seam with the function-scoped `monkeypatch`, whose teardown
+  re-installed the harness mock on a shared singleton for the rest of the process.
+- The pipeline finalizes the harness's module-level `CANONICAL_PAYLOAD` in place, so later
+  generations started from an earlier test's output; conftest now restores it after each test.
+- A 40 ms real provider budget raced the first heartbeat under parallel load; the test now arms the
+  budget after the stream opens, as its sibling case already did.
+- `test_admin_feedback.py` inserted reporter users 501/502 only when the id was free, so a user
+  another test had auto-created with that id became the reporter; reporters now get assigned ids.
+- A process's first OpenAI SDK request costs ~60 ms (later ones ~2 ms), so whichever test made it
+  paid that inside its own real-time budget (an 80 ms copilot caller deadline failed 7 of 8 cold
+  runs under load); conftest now makes one offline request per process before any test.
+- A shared-deadline test's 40 ms budget left 15 ms of slack and failed under load even when warm;
+  it now expires the shared deadline while the recovery request is in flight.
+
+**Rule.** A worktree may run more than one pytest process; each owns its database. Within a process,
+tests still share that database and every module-level global, in whatever order xdist produces (and
+pytest-randomly, when installed locally for a hunt). So a test must not depend on another test's
+order or leftovers: scope its assertions to its own rows, undo every override it makes before the
+context it overrides exits (`monkeypatch.context()` inside `stream_boundaries`), and reset
+process-wide state in a conftest autouse fixture. A real-time budget in a test must not race a
+wall-clock margin: arm or expire the deadline once the operation under test is under way, by
+rescheduling the real `asyncio.timeout` it entered, as the provider-lifecycle and shared-deadline
+tests do. A "passes alone, fails in the suite" result is reproduced first by running the suspect
+leaker and the victim in that order in one process (`python -m pytest -n 0 -p no:randomly <leaker>
+<victim>`), never accepted as a flake. Do not edit a checkout while a run reads it
+(`test-leave-the-tree-alone-during-a-background-suite.md`).
+
+**Enforcement.** `backend/tests/unit/test_suite_isolation.py` fails if the suite database is not a
+private per-process temp file, if a fresh process lacks the schema before its first test, if SQLite
+re-issues a deleted id, if the SDK is cold before a fresh process's first test, if a mock is left on
+the generation singletons, or if a conftest reset (the canonical payload, the `ai_metrics` trigger)
+stops holding; it runs those probe pairs in a fixed order in a fresh serial process, because `-n
+auto` and random order can split or reverse a definition-order pair. CI's backend step runs the same
+parallel `python -m pytest`, so every PR exercises a different test-to-worker split.
+
+**Evidence.** W3-9 gate on `457933fd` (1 failed / 2703 passed) versus the verbose re-run on
+`70fca647` (2705 passed) with the worktree left alone; `tasks/archive/todo-ledger-through-2026-10-07.md` W3-9 section. The
+2026-10-09 parallel switch, its random-order runs and wall-clock figures are in the PR body of
+https://github.com/neilmac91/EarningsNerd/pull/1135.
