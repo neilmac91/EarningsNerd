@@ -27,6 +27,7 @@ from sqlalchemy import desc
 
 from app.database import SessionLocal
 from app.models.financial_fact import FinancialFact
+from app.services.fact_provenance import calculated_provenance, provenance_for_fact, published_value
 
 logger = logging.getLogger(__name__)
 
@@ -207,6 +208,7 @@ def _fact_provenance(fact: FinancialFact) -> dict[str, Any]:
         "fiscal_period": fact.fiscal_period,
         "raw_tag": fact.raw_tag,
         "accession": fact.accession,
+        "provenance": provenance_for_fact(fact),
     }
 
 
@@ -244,6 +246,15 @@ def _bounded_rows(query: Any) -> list[FinancialFact]:
     return rows
 
 
+def _inputs_within_filing(provenance: dict, accession: str) -> bool:
+    """Multi-period arithmetic cannot become evidence belonging to one viewed filing."""
+    return all(
+        operand.get("accession") == accession
+        and _inputs_within_filing(operand.get("provenance") or {}, accession)
+        for operand in provenance.get("inputs", [])
+    )
+
+
 def _select_fact(rows: list[FinancialFact], reporting_currency: str | None) -> FinancialFact | None:
     currency = canonical_unit(reporting_currency)
     if currency and "/" not in currency and currency not in {"pure", "shares"}:
@@ -258,6 +269,10 @@ def _select_fact(rows: list[FinancialFact], reporting_currency: str | None) -> F
     fact = rows[0]
     if canonical_unit(fact.unit) is None or not math.isfinite(float(fact.value)):
         raise _Unavailable("invalid_fact")
+    if published_value(fact) is None:
+        raise _Unavailable("unsupported_calculation")
+    if not _inputs_within_filing(provenance_for_fact(fact), fact.accession):
+        raise _Unavailable("cross_filing_calculation")
     return fact
 
 
@@ -311,7 +326,7 @@ def _has_duration(fact: FinancialFact) -> bool:
 # `instance_extractor.DURATION_WINDOWS` already own; `tests/unit/test_copilot_tools.py` asserts
 # they stay equal, so widening one cannot silently widen what a derived metric will compute.
 _SCOPE_DURATION_DAYS: dict[str, tuple[int, int]] = {
-    "FY": (320, 390), "Q1": (75, 105), "Q2": (75, 105), "Q3": (75, 105), "Q4": (75, 105),
+    "FY": (320, 390), "Q1": (75, 105), "Q2": (75, 105), "Q3": (75, 105), "Q4": (75, 120),
 }
 
 
@@ -382,6 +397,7 @@ def _run_compute_metric(
             "unit": "pure", "current_value": float(current.value), "prior_value": float(prior.value),
             "prior_period_end": prior.period_end.isoformat(), "prior_fiscal_year": prior.fiscal_year,
             "source_facts": [_fact_provenance(current), _fact_provenance(prior)],
+            "provenance": calculated_provenance("year_over_year_growth", [current, prior]),
         })
         return result
     denominator_concept = args.get("denominator_concept") or _DEFAULT_MARGIN_DENOMINATORS.get(concept, "revenue")
@@ -402,6 +418,7 @@ def _run_compute_metric(
         "numerator_value": float(current.value), "denominator_concept": denominator_concept,
         "denominator_value": float(denominator.value),
         "source_facts": [_fact_provenance(current), _fact_provenance(denominator)],
+        "provenance": calculated_provenance("margin", [current, denominator]),
     })
     return result
 

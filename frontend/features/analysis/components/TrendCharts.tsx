@@ -41,6 +41,7 @@ import {
 } from '@/features/analysis/lib/periodAxis'
 import type { AnalysisDataset, AnalysisSeries } from '@/features/analysis/api/analysis-api'
 import ReconciliationBadge from './ReconciliationBadge'
+import { needsSourceCheck, qualityReasons, FCF_DEFINITION } from '@/features/analysis/lib/provenance'
 
 const bySeries = (dataset: AnalysisDataset): Record<string, AnalysisSeries> =>
   Object.fromEntries(dataset.series.map((s) => [s.concept, s]))
@@ -173,8 +174,8 @@ function PanelCard({
   const plottedSeries = barSeries ? [barSeries] : lineEntries.map(({ concept }) => series[concept])
   const hasUnverified = plottedSeries.some((item) => item.points.some(
     (point) => visiblePeriods.has(point.period) && point.value != null && (
-      point.reconciled === false ||
-      (panel.growthLine && typeof point.yoy === 'number' && point.yoy_reconciled === false)
+      needsSourceCheck(point) ||
+      (panel.growthLine && typeof point.yoy === 'number' && needsSourceCheck({ reconciled: point.yoy_reconciled, provenance: point.yoy_provenance }))
     ),
   ))
 
@@ -221,14 +222,25 @@ function PanelCard({
 
   // P1-8: which line series stop before the dataset's final period (a trailing null Recharts can't
   // bridge with connectNulls). Derived from the plotted rows so it matches exactly what's drawn.
-  const finalIdx = data.length - 1
-  const notReported = lineEntries
-    .map(({ concept, label }) => {
-      let lastIdx = -1
-      for (let i = 0; i < data.length; i++) if (data[i][concept] != null) lastIdx = i
-      return lastIdx >= 0 && lastIdx < finalIdx ? { label, period: String(data[lastIdx].period) } : null
-    })
-    .filter((n): n is { label: string; period: string } => n !== null)
+  const unavailableNotes = plottedSeries.flatMap((item) => {
+    const missing = dataset.periods.filter((period) => item.points.find((point) => point.period === period.key)?.value == null)
+    return missing.length ? [`${item.label}: unavailable for ${missing.map((period) => period.key).join(', ')}.`] : []
+  })
+  const hasCalculated = plottedSeries.some((item) => item.points.some((point) => visiblePeriods.has(point.period) && point.provenance?.method === 'calculated'))
+  const reviewNotes = plottedSeries.flatMap((item) => item.points.flatMap((point) => {
+    if (!visiblePeriods.has(point.period) || point.value == null) return []
+    const growth = { reconciled: point.yoy_reconciled, provenance: point.yoy_provenance }
+    return [
+      ...(needsSourceCheck(point) ? [`${item.label}, ${point.period}: source check needed. ${qualityReasons(point).join(' ')}`] : []),
+      ...(panel.growthLine && typeof point.yoy === 'number' && needsSourceCheck(growth) ? [`${item.label} YoY growth, ${point.period}: source check needed. ${qualityReasons(growth).join(' ')}`] : []),
+    ]
+  }))
+  const exportNotes = [
+    ...reviewNotes,
+    ...(hasCalculated ? ['Includes figures calculated by EarningsNerd from reported inputs.'] : []),
+    ...unavailableNotes,
+    ...(plottedSeries.some((item) => item.concept === 'free_cash_flow') ? [FCF_DEFINITION] : []),
+  ]
 
   const exportPng = async () => {
     if (!plotRef.current) return
@@ -244,8 +256,11 @@ function PanelCard({
         header: {
           company: dataset.company_name,
           ticker: dataset.ticker,
-          title: hasUnverified ? `${panel.title} (includes unverified figures)` : panel.title,
+          title: panel.title,
           legend: legendItems.length >= 2 ? legendItems : [],
+          sourceNote: `Source: SEC filings via EarningsNerd · ${dataset.data_as_of ? `data as of ${dataset.data_as_of}` : 'source refresh time unavailable'}`,
+          disclosure: 'Research only. Not investment advice. Data may contain errors or omissions. earningsnerd.io/terms',
+          notes: exportNotes,
         },
       }
     )
@@ -292,8 +307,12 @@ function PanelCard({
           </PanelControl>
         </div>
       </div>
+      <div className="overflow-x-auto rounded focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark" tabIndex={0} role="region" aria-label={`${panel.title} chart. Scroll horizontally to view all periods.`}>
       <div
         ref={plotRef}
+        // Keep every quarterly tick readable on touch screens. The minimum follows the number
+        // of periods plus the two axes; only the chart viewport scrolls, never the page.
+        style={dataset.mode === 'quarterly' ? { minWidth: dataset.periods.length * 28 + 144 } : undefined}
         className={cx(
           'w-full transition-[height] duration-base ease-standard motion-reduce:transition-none',
           expanded ? 'h-96' : 'h-56'
@@ -341,7 +360,7 @@ function PanelCard({
                   name={GROWTH_LINE_LABEL}
                   stroke={GROWTH_LINE_COLOR}
                   {...lineProps(reduced)}
-                  connectNulls
+                  connectNulls={false}
                 />
               )}
             </ComposedChart>
@@ -393,18 +412,17 @@ function PanelCard({
                   name={label}
                   stroke={color}
                   {...lineProps(reduced)}
-                  connectNulls
+                  connectNulls={false}
                 />
               ))}
             </LineChart>
           )}
         </ResponsiveContainer>
       </div>
-      {notReported.length > 0 && (
-        // P1-8: a line that stops before the final period (a trailing null connectNulls can't
-        // bridge) reads as missing data — name the last period each series was reported.
+      </div>
+      {unavailableNotes.length > 0 && (
         <p className="mt-2 text-xs text-text-tertiary-light dark:text-text-secondary-dark">
-          {notReported.map((n) => `${n.label}: not reported after ${n.period}`).join(' · ')}
+          {unavailableNotes.join(' ')}
         </p>
       )}
     </Card>

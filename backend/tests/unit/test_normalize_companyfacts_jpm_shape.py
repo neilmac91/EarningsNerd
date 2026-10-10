@@ -84,7 +84,8 @@ def _jpm_payload() -> dict:
 
 def test_fy16_18_keep_legacy_tag_and_fy19_plus_fill_from_restricted():
     facts, meta = normalize_companyfacts(1, _jpm_payload())
-    assert meta == {"unsupported_ifrs": False}
+    assert meta["unsupported_ifrs"] is False
+    assert meta["quarterly_excluded_count"] == len(meta["quarterly_exclusions"])
 
     cash = {
         f["fiscal_year"]: f

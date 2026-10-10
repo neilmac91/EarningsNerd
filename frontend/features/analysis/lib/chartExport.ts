@@ -163,6 +163,9 @@ export interface ChartExportHeader {
   /** The panel/metric title (e.g. "Cash generation"). */
   title: string
   legend: ChartLegendItem[]
+  sourceNote?: string
+  disclosure?: string
+  notes?: string[]
 }
 
 /** Header geometry — exported for tests. Three tiers mirroring a captioned financial chart:
@@ -233,6 +236,29 @@ export function headerHeight(numRows: number): number {
     h += HEADER_STAMP.legendGap + numRows * LEGEND_ROW_H + (numRows - 1) * HEADER_STAMP.rowGap
   }
   return h + HEADER_STAMP.padBottom
+}
+
+/** Wrap export qualifications without dropping words, even on a narrow mobile chart. */
+export function layoutExportNotes(measure: (text: string) => number, paragraphs: string[], maxWidth: number): string[] {
+  const lines: string[] = []
+  for (const paragraph of paragraphs) {
+    let line = ''
+    for (const word of paragraph.trim().split(/\s+/)) {
+      if (line && measure(`${line} ${word}`) > maxWidth) { lines.push(line); line = '' }
+      // Long source dates/identifiers must not run off the edge either.
+      let part = word
+      while (measure(part) > maxWidth && part.length > 1) {
+        let length = 1
+        while (length < part.length && measure(part.slice(0, length + 1)) <= maxWidth) length += 1
+        if (line) { lines.push(line); line = '' }
+        lines.push(part.slice(0, length))
+        part = part.slice(length)
+      }
+      line = line ? `${line} ${part}` : part
+    }
+    if (line) lines.push(line)
+  }
+  return lines
 }
 
 /** Fill a rounded swatch (falls back to a square where roundRect is unavailable — a 2px radius on
@@ -360,15 +386,24 @@ export async function exportPanelPng(
     )
     headH = headerHeight(legendRows.length)
   }
+  ctx.font = font(400, HEADER_STAMP.subtitleSize)
+  const notes = header ? [header.sourceNote, ...(header.notes ?? []), header.disclosure].filter((note): note is string => !!note) : []
+  const noteLines = layoutExportNotes((label) => ctx.measureText(label).width, notes, Math.max(1, width - 2 * HEADER_STAMP.padX))
+  const noteLineHeight = 18
+  const noteHeight = noteLines.length ? 16 + noteLines.length * noteLineHeight : 0
 
   canvas.width = width * scale
-  canvas.height = (headH + height + MARK_STAMP.stripHeight) * scale
+  canvas.height = (headH + height + noteHeight + MARK_STAMP.stripHeight) * scale
   ctx.fillStyle = resolveBackground(container)
   ctx.fillRect(0, 0, canvas.width, canvas.height)
   ctx.scale(scale, scale)
   if (header) drawHeader(ctx, header, legendRows, width, dark)
   ctx.drawImage(image, 0, headH, width, height)
-  await drawBrandFooter(ctx, width, headH + height, dark)
+  ctx.font = font(400, HEADER_STAMP.subtitleSize)
+  ctx.fillStyle = dark ? EXPORT_TEXT.secondary.dark : EXPORT_TEXT.secondary.light
+  ctx.textBaseline = 'top'
+  noteLines.forEach((line, index) => ctx.fillText(line, HEADER_STAMP.padX, headH + height + 8 + index * noteLineHeight))
+  await drawBrandFooter(ctx, width, headH + height + noteHeight, dark)
 
   const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/png'))
   if (!blob) return false

@@ -570,6 +570,11 @@
         "name": "The Lifted Paper Rule",
         "body": "On cream, default cards use the brighter panel fill, a hairline and restrained shadow. Pale sage is an accent tint, not the default card fill. Dark cards separate with fill and hairline.",
         "section": "elevation"
+      },
+      {
+        "name": "The Calculation Provenance Rule",
+        "body": "A calculation describes a figure’s origin, not a failed check. Multi-period analysis uses a neutral † for calculated figures and a Sources & methods disclosure; selecting a table value opens its source and operands in the shared Modal. Amber “Source check needed” is reserved for unresolved source concerns. Missing values read “Unavailable”, chart lines break at gaps, and missing validation makes no verification claim. Source dates, definitions and material gaps travel with exports.",
+        "section": "components"
       }
     ],
     "dos": [

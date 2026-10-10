@@ -41,12 +41,12 @@ describe('NarrativePane citation chips', () => {
     const state = doneState({ completion: doneCompletion({ citations: [{ ...citation, reconciled: false }] }) })
     const { rerender } = render(<NarrativePane state={state} />)
     expect(screen.getByText('1 source entry')).toBeInTheDocument()
-    expect(screen.getByText('Includes unverified figures')).toBeInTheDocument()
-    expect(screen.getByText('Unverified').closest('li')).toHaveTextContent(citation.excerpt)
+    expect(screen.getByText('Source checks needed')).toBeInTheDocument()
+    expect(screen.getByText('Source check needed').closest('li')).toHaveTextContent(citation.excerpt)
     expect(screen.getByText('Sources · SEC XBRL values and computed figures')).toBeInTheDocument()
     rerender(<NarrativePane state={doneState()} />)
-    expect(screen.queryByText('Includes unverified figures')).not.toBeInTheDocument()
-    expect(screen.queryByText('Unverified')).not.toBeInTheDocument()
+    expect(screen.queryByText('Source checks needed')).not.toBeInTheDocument()
+    expect(screen.queryByText('Source check needed')).not.toBeInTheDocument()
   })
 
   beforeEach(() => {

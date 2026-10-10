@@ -108,6 +108,7 @@ class TestWorkbookStructure:
         assert workbook.sheetnames == [
             "Overview",
             "Metrics",
+            "Sources & Methods",
             "Revenue & growth",
             "Margins",
             "Cash generation",
@@ -139,7 +140,7 @@ class TestWorkbookStructure:
         wb = load_workbook(io.BytesIO(build_analysis_workbook(nii_only, exported_at=EXPORTED_AT)))
         # No margins / balance-sheet concepts → those panels collapse, like the frontend's.
         assert wb.sheetnames == [
-            "Overview", "Metrics", "Net interest income & growth", "Cash generation",
+            "Overview", "Metrics", "Sources & Methods", "Net interest income & growth", "Cash generation",
         ]
 
 
@@ -244,6 +245,10 @@ class TestPanelSheets:
         hostile["company_name"] = '=HYPERLINK("http://evil.example","x")'
         hostile["ticker"] = "=T"
         hostile["series"][2]["unit"] = "=cmd/shares"  # eps_diluted row
+        hostile["series"][0]["points"][0]["provenance"] = {
+            "method": "calculated", "validation": "passed", "formula": "=1+1",
+            "inputs": [{"concept": "=operand", "value": 123, "raw_tag": "=tag", "unit": "USD"}],
+        }
         data = build_analysis_workbook(hostile, exported_at=EXPORTED_AT)
         wb = load_workbook(io.BytesIO(data))
 
@@ -272,6 +277,43 @@ class TestPanelSheets:
         assert "3E8E84" in chart_xml  # series 1 (teal) — bar + first lines
         assert "B8812F" in chart_xml  # series 2 (honey)
         assert "5B7CC0" in chart_xml  # series 3 (cornflower)
+
+    def test_lineage_preserves_typed_operands_and_visible_missing_reasons(self):
+        dataset = _dataset()
+        dataset.update(dataset_version="quarterly-v2", snapshot_id="a" * 64, data_as_of="2026-07-01T09:00:00Z")
+        point = dataset["series"][0]["points"][2]
+        point.update(reconciled=False, provenance={
+            "method": "calculated", "validation": "passed", "reasons": [],
+            "formula": "annual_minus_ytd", "inputs": [{
+                "concept": "revenue", "value": 2500.0, "unit": "USD",
+                "period_start": "2024-01-01", "period_end": "2024-12-31",
+                "accession": "0000123456-25-000001", "raw_tag": "us-gaap:Revenue",
+                "source_url": "https://example.com/filing",
+                "provenance": {"method": "reported", "validation": "passed"},
+            }],
+        })
+        missing = dataset["series"][2]["points"][1]
+        missing.update(value=None, provenance={
+            "method": "unknown", "validation": "unavailable",
+            "reasons": ["unsupported_eps_calculation"], "inputs": [],
+        })
+        workbook = load_workbook(io.BytesIO(build_analysis_workbook(dataset, exported_at=EXPORTED_AT)))
+        assert "Unreconciled" not in workbook["Metrics"]["F2"].comment.text
+        assert "annual_minus_ytd" in workbook["Metrics"]["F2"].comment.text
+        assert workbook["Metrics"]["F4"].value is None
+        assert "reported figure has not been located" in workbook["Metrics"]["F4"].comment.text
+        source_sheet = workbook["Sources & Methods"]
+        input_row = next(row for row in source_sheet.iter_rows() if row[2].value == "Input 1")
+        assert input_row[4].value == 2500 and input_row[4].data_type == "n"
+        assert input_row[10].value == "2024-01-01"
+        assert input_row[12].value == "0000123456-25-000001"
+        assert input_row[15].hyperlink.target == "https://example.com/filing"
+        texts = [str(cell.value) for row in source_sheet for cell in row if cell.value is not None]
+        assert any("reported figure has not been located" in text for text in texts)
+        overview = [cell.value for row in workbook["Overview"] for cell in row]
+        assert "a" * 64 in overview and "quarterly-v2" in overview
+        assert "2026-07-01T09:00:00Z" in overview
+        assert any("finance-lease principal" in str(value) for value in overview)
 
 
 @pytest.mark.requires_db
@@ -357,3 +399,22 @@ class TestXlsxRoute:
             json={"mode": "annual", "start_period": "FY1900", "end_period": "FY1901"},
         )
         assert response.status_code == 400
+
+    @pytest.mark.parametrize("matches", [False, True])
+    def test_export_is_bound_to_the_displayed_snapshot(self, client, monkeypatch, matches):
+        import app.routers.analysis as analysis_router
+
+        self._as_user(is_pro=True)
+        monkeypatch.setattr(analysis_router, "_get_company", lambda db, ticker: SimpleNamespace(ticker="TST"))
+        dataset = _dataset()
+        dataset["dataset_version"] = "quarterly-v2"
+        snapshot_id = analysis_router.trend_analysis_service.dataset_fingerprint(dataset)
+        dataset["snapshot_id"] = snapshot_id
+        monkeypatch.setattr(analysis_router.trend_analysis_service, "build_dataset", lambda *args: dataset)
+        response = client.post("/api/analysis/TST/export/xlsx", json={
+            "mode": "annual", "start_period": "FY2022", "end_period": "FY2024",
+            "snapshot_id": snapshot_id if matches else "0" * 64,
+        })
+        assert response.status_code == (200 if matches else 409)
+        if not matches:
+            assert "Refresh the analysis" in response.json()["detail"]

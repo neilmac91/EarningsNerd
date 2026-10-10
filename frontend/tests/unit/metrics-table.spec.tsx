@@ -52,9 +52,9 @@ describe('MetricsTable', () => {
     flagged.series[0].points[0].yoy_reconciled = false
     flagged.series[0].points[1].qoq_reconciled = false
     render(<MetricsTable dataset={flagged} />)
-    expect(screen.getAllByText('Unverified growth')).toHaveLength(2)
-    expect(screen.getAllByText('Unverified growth')[0].parentElement).toHaveTextContent('YoY +5.0%')
-    expect(screen.queryByText('Unverified')).not.toBeInTheDocument()
+    expect(screen.getAllByText('Growth source check needed')).toHaveLength(2)
+    expect(screen.getAllByText('Growth source check needed')[0].parentElement).toHaveTextContent('YoY +5.0%')
+    expect(screen.queryByText('Source check needed')).not.toBeInTheDocument()
   })
 
   it('labels flagged figures independently of derived Q4 and leaves other values unlabelled', () => {
@@ -62,11 +62,11 @@ describe('MetricsTable', () => {
     flagged.series[0].points[0].reconciled = false
     flagged.series[0].points[1].reconciled = true
     const { rerender } = render(<MetricsTable dataset={flagged} />)
-    expect(screen.getAllByText('Unverified')).toHaveLength(1)
-    expect(screen.getByText('Unverified').parentElement).toHaveTextContent('$310.0M')
-    expect(screen.getByLabelText('Derived value')).toBeInTheDocument()
+    expect(screen.getAllByText('Source check needed')).toHaveLength(1)
+    expect(screen.getByText('Source check needed').parentElement).toHaveTextContent('$310.0M')
+    expect(screen.getByLabelText('Calculated value')).toBeInTheDocument()
     rerender(<MetricsTable dataset={dataset} />)
-    expect(screen.queryByText('Unverified')).not.toBeInTheDocument()
+    expect(screen.queryByText('Source check needed')).not.toBeInTheDocument()
   })
 
   it('renders values, deltas, the derived dagger, and — for missing points', () => {
@@ -75,10 +75,10 @@ describe('MetricsTable', () => {
     expect(screen.getByText('Revenue')).toBeInTheDocument()
     expect(screen.getByText('EPS (diluted)')).toBeInTheDocument()
     // Derived Q4 revenue carries the computed dagger; the badge explains it.
-    expect(screen.getByLabelText('Derived value')).toBeInTheDocument()
-    expect(screen.getByText('† computed Q4')).toBeInTheDocument()
+    expect(screen.getByLabelText('Calculated value')).toBeInTheDocument()
+    expect(screen.getByText('† calculated')).toBeInTheDocument()
     // The never-derived EPS Q4 renders an em-dash placeholder.
-    expect(screen.getAllByText('—').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Unavailable').length).toBeGreaterThan(0)
     // Quarterly mode shows QoQ deltas.
     expect(screen.getByText(/QoQ \+2\.0%/)).toBeInTheDocument()
   })
@@ -181,9 +181,9 @@ describe('MetricsTable — annual mode: CAGR column, pp deltas, tone policy', ()
     flagged.series[0].window_pp_reconciled = false
     flagged.series[1].cagr_reconciled = false
     render(<MetricsTable dataset={flagged} />)
-    expect(screen.getAllByText('Unverified growth')).toHaveLength(2)
-    expect(screen.getAllByText('Unverified growth')[0].parentElement).toHaveTextContent('-9.0pp')
-    expect(screen.queryByText('Unverified')).not.toBeInTheDocument()
+    expect(screen.getAllByText('Growth source check needed')).toHaveLength(2)
+    expect(screen.getAllByText('Growth source check needed')[0].parentElement).toHaveTextContent('-9.0pp')
+    expect(screen.queryByText('Source check needed')).not.toBeInTheDocument()
   })
 
   it('renders "n/m" for a sign-flip growth value instead of a nonsensical percentage', () => {

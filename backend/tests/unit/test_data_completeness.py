@@ -212,9 +212,9 @@ def test_growth_citations_and_excel_keep_input_reconciliation(sessions):
     citations = analysis.resolve_narrative_citations("Revenue [F1]. Growth [F3].", index)[1]
     assert all(c["reconciled"] is False and c["verified"] for c in citations)
     wb = load_workbook(BytesIO(build_analysis_workbook(dataset)))
-    assert "Unreconciled" in wb["Metrics"]["D2"].comment.text
-    assert "unreconciled" in wb["Metrics"]["F2"].comment.text
-    assert "unreconciled" in wb["Revenue & growth"]["C3"].comment.text
+    assert "has not passed the required checks" in wb["Metrics"]["D2"].comment.text
+    assert "has not passed the required checks" in wb["Metrics"]["F2"].comment.text
+    assert "has not passed the required checks" in wb["Revenue & growth"]["C3"].comment.text
 
 
 def test_universe_seed_previews_then_is_idempotent_without_generation(sessions, monkeypatch):

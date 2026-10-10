@@ -20,6 +20,7 @@ from sqlalchemy.orm import Session
 from app.models import Company
 from app.models.financial_fact import FinancialFact
 from app.services.facts_service import _unit_for
+from app.services.fact_provenance import provenance_for_fact, published_value
 
 DEFAULT_CONCEPT = "revenue"
 
@@ -28,13 +29,14 @@ def _entry(company: Company, fact: FinancialFact, *, is_subject: bool) -> dict[s
     return {
         "ticker": company.ticker,
         "company_name": company.name,
-        "value": float(fact.value) if fact.value is not None else None,
+        "value": published_value(fact),
         "period_end": fact.period_end.isoformat() if fact.period_end else None,
         "fiscal_year": fact.fiscal_year,
         "is_subject": is_subject,
         "rank": None,
         "percentile": None,
-        "reconciled": bool(fact.reconciled),
+        "reconciled": provenance_for_fact(fact)["validation"] == "passed",
+        "provenance": provenance_for_fact(fact, getattr(company, "cik", None)),
     }
 
 

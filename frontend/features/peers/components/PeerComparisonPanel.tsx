@@ -8,9 +8,11 @@ import { BarChart, Bar, Cell, XAxis, YAxis, Tooltip, ResponsiveContainer } from 
 import { getPeers, PeerComparisonResponse } from '@/features/peers/api/peers-api'
 import { ApiError } from '@/lib/api/client'
 import { fmtCurrency, fmtPercent } from '@/lib/format'
-import { WarningIcon } from '@/lib/icons'
 import { ThemeContext } from '@/components/ThemeProvider'
-import { Badge, Card, seriesColor, chartTheme, xAxisProps, yAxisProps, barCursorProps, ChartTooltip, Skeleton } from '@/components/ui'
+import { Card, seriesColor, chartTheme, xAxisProps, yAxisProps, barCursorProps, ChartTooltip, Skeleton } from '@/components/ui'
+import { needsSourceCheck } from '@/features/analysis/lib/provenance'
+import ReconciliationBadge from '@/features/analysis/components/ReconciliationBadge'
+import SourceChecks from '@/features/analysis/components/SourceChecks'
 
 type FmtKind = 'usd' | 'eps' | 'pct'
 
@@ -96,11 +98,13 @@ export default function PeerComparisonPanel({ ticker }: { ticker: string }) {
       value: p.value as number,
       isSubject: p.is_subject,
       reconciled: p.reconciled,
+      provenance: p.provenance,
+      source_url: p.source_url,
     }))
   }, [data])
 
   // Any flagged value among the shown bars → surface the honesty badge.
-  const hasUnverified = chartData.some((d) => d.reconciled === false)
+  const hasUnverified = chartData.some(needsSourceCheck)
 
   // Hide entirely until we know there are peers for at least one metric. Once the
   // panel has shown peers, keep it mounted and surface errors/sparsity inline.
@@ -118,13 +122,7 @@ export default function PeerComparisonPanel({ ticker }: { ticker: string }) {
           <div className="flex items-center gap-2">
             <h2 className="text-xl font-semibold text-text-primary-light dark:text-text-primary-dark">Sector Peers</h2>
             {hasUnverified && (
-              <Badge
-                variant="warning"
-                icon={<WarningIcon className="h-3 w-3" aria-hidden="true" />}
-                title="Some figures here are machine-extracted from XBRL and failed an automated sanity check (e.g. an unusual period-over-period swing). Treat them with caution and verify against the filing."
-              >
-                Unverified
-              </Badge>
+              <ReconciliationBadge reconciled={false} />
             )}
           </div>
           {meaningful && subject?.rank != null && (
@@ -199,6 +197,7 @@ export default function PeerComparisonPanel({ ticker }: { ticker: string }) {
       <p className="mt-3 text-xs text-text-tertiary-light dark:text-text-secondary-dark">
         Same-SIC peers, most recent annual {label} from SEC filings. Coverage grows over time.
       </p>
+      <SourceChecks values={(data?.peers ?? []).filter((point) => point.is_subject || chartData.some((shown) => shown.ticker === point.ticker) || point.provenance?.validation === 'unavailable').map((point) => ({ ...point, label: point.ticker }))} />
     </Card>
   )
 }

@@ -343,7 +343,9 @@ def test_t0_3_dataset_fingerprint_of_the_seeded_history(session_factory, company
         "long_term_debt": 0.2599210498948732,
     }, rel=1e-12)
     assert svc.dataset_fingerprint(dataset) == (
-        "c92c1279b06cb3d3d2b763ee436dbef9f3b311595c48afc8606332ec99dd5fa5"
+        # Quarterly-v2 deliberately changes this contract: lineage participates in the
+        # snapshot, invalidating narratives whose figures or source checks changed.
+        "3821b0a1d0ef8a5104f096a72a975aaa99fea03e0839c2c68e6e71584c882e15"
     ), _FINGERPRINT_CHANGED
 
 
@@ -396,11 +398,11 @@ async def test_t0_5_complete_event_key_sets(company_id):
     ]
     analysis_keys = {
         "type", "kind", "analysis_id", "narrative", "citations", "grounded", "unverified",
-        "mismatched", "cached", "invalidated", "n_periods", "usage",
+        "mismatched", "cached", "invalidated", "n_periods", "usage", "snapshot_id",
     }
     assert set(fresh) == analysis_keys
     assert set(cached) == analysis_keys
-    assert set(sparse) == analysis_keys - {"mismatched"}
+    assert set(sparse) == analysis_keys - {"mismatched", "snapshot_id"}
 
 
 # --- T0.6 ------------------------------------------------------------------------------------

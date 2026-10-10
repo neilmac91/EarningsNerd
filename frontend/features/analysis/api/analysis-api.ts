@@ -1,5 +1,6 @@
 import api, { getApiUrl } from '@/lib/api/client'
 import { postStreamWithRefresh } from '@/lib/api/streamRefresh'
+import type { FactProvenance } from '@/features/analysis/lib/provenance'
 
 // Idle timeout for the SSE stream — mirrors copilot-api.ts: any activity resets the clock.
 const STREAM_TIMEOUT_MS = 120000
@@ -20,7 +21,7 @@ export interface QuarterlyCoveragePeriod {
   fiscal_year: number
   fiscal_period: string
   period_end: string
-  /** True when every value in the column is Q4-derived (from the annual report: FY − YTD9 or FY − ΣQ1–3; EPS shares-based) — badged in the picker. */
+  /** Period coverage includes calculated Q4 values; individual figures carry their own provenance. */
   derived: boolean
 }
 
@@ -57,6 +58,10 @@ export interface AnalysisPoint {
   raw_tag?: string | null
   derived?: boolean
   reconciled?: boolean
+  provenance?: FactProvenance | null
+  source_url?: string | null
+  yoy_provenance?: FactProvenance | null
+  qoq_provenance?: FactProvenance | null
   yoy_reconciled?: boolean | null
   qoq_reconciled?: boolean | null
   /** For a `percent`-unit series (margins), already a percentage-POINT delta — do not ×100 and
@@ -80,6 +85,8 @@ export interface AnalysisSeries {
   cagr: number | null
   cagr_reconciled?: boolean | null
   window_pp_reconciled?: boolean | null
+  cagr_provenance?: FactProvenance | null
+  window_pp_provenance?: FactProvenance | null
   /** The basis window the CAGR was computed over ("FY2016..FY2025") — can be narrower than the
    *  selected range when a concept was first reported mid-window. */
   cagr_window?: string | null
@@ -99,6 +106,9 @@ export interface AnalysisInflection {
 }
 
 export interface AnalysisDataset {
+  dataset_version?: string
+  snapshot_id?: string
+  data_as_of?: string | null
   ticker: string
   company_name: string
   mode: AnalysisMode
@@ -120,9 +130,12 @@ export interface AnalysisCitation {
   period?: string
   derived?: boolean
   reconciled?: boolean | null
+  provenance?: FactProvenance | null
+  source_url?: string | null
 }
 
 export interface AnalysisCompletion {
+  snapshot_id?: string | null
   kind: 'analysis' | 'not_enough_data'
   analysis_id: number | null
   narrative: string
@@ -178,9 +191,10 @@ export const getAnalysisDataset = async (
  *  auth-refresh + `withCredentials` (the F4 export pattern — same as `exportSummaryPdf`); a raw
  *  `fetch` here would fail for a Pro user whose access token just expired instead of silently
  *  refreshing and retrying. */
-export const exportAnalysisPdf = async (analysisId: number): Promise<Blob> => {
+export const exportAnalysisPdf = async (analysisId: number, snapshotId?: string | null): Promise<Blob> => {
   const response = await api.get(`/api/analysis/export/${analysisId}/pdf`, {
     responseType: 'blob',
+    ...(snapshotId ? { params: { snapshot_id: snapshotId } } : {}),
   })
   return response.data
 }
@@ -188,7 +202,7 @@ export const exportAnalysisPdf = async (analysisId: number): Promise<Blob> => {
 /** Pro Excel-workbook export. Same request body as `/dataset`, rebuilt server-side — so it works
  *  pre-narrative, exactly like the CSV download it replaces (no analysis_id involved). Shared
  *  axios client for the same auth-refresh reasons as `exportAnalysisPdf`. */
-export const exportAnalysisXlsx = async (ticker: string, range: AnalysisRange): Promise<Blob> => {
+export const exportAnalysisXlsx = async (ticker: string, range: AnalysisRange & { snapshot_id?: string }): Promise<Blob> => {
   const response = await api.post(
     `/api/analysis/${encodeURIComponent(ticker)}/export/xlsx`,
     range,
@@ -382,6 +396,7 @@ export const streamAnalysis = async (
             discardBufferedTokens()
             terminal = true
             handlers.onComplete({
+              ...(typeof data.snapshot_id === 'string' ? { snapshot_id: data.snapshot_id } : {}),
               kind: data.kind === 'not_enough_data' ? 'not_enough_data' : 'analysis',
               analysis_id: typeof data.analysis_id === 'number' ? data.analysis_id : null,
               narrative: typeof data.narrative === 'string' ? data.narrative : '',

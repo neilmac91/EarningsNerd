@@ -703,6 +703,20 @@ rendered ground.
 
 ## 10. Charts (recharts)
 
+**Financial source states (October 2026).** Consume the server’s separate `provenance.method`
+and `provenance.validation`; a calculated figure is not an error. Multi-period tables use the
+neutral `† calculated` legend and `SourceValue` buttons opening the shared Modal with source
+links, formulas and operands. `SourcesMethods` provides one report-level explanation; filing
+fundamentals and peers use `SourceChecks`. Amber “Source check needed” means an unresolved
+source concern, never routine arithmetic. Legacy false flags remain concerns until repaired;
+missing metadata makes no passed-check claim. Do not remove inherited concerns from growth.
+Missing values are “Unavailable”, never zero or an assertion that the company did not report
+them. Time-series lines do not join missing points. PNG notes wrap beneath the plot and retain
+source dates, material gaps and a concise disclosure. Use keyboard/touch source controls, not
+native hover titles as the only way to inspect provenance. Dense quarterly charts retain every
+period label inside a keyboard-accessible horizontal viewport; minimum plot width follows the
+period count and axis space, so a narrow screen never overlaps labels or widens the page.
+
 Series colors come from **`chart-1..6`** — a CVD-validated **sequence** (blue↔yellow axis
 alternates early), taken 1→N in order, never skipped or re-sorted. At ≥5 series add direct
 labels/markers — color no longer carries alone. **Gain/loss never appear as series colors**

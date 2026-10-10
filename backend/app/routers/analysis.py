@@ -19,7 +19,7 @@ import logging
 
 import anyio
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from fastapi import Response as FastAPIResponse
 from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import StreamingResponse
@@ -34,6 +34,7 @@ from app.schemas.analysis import (
     CoverageLimits,
     CoverageResponse,
     DatasetRequest,
+    ExportDatasetRequest,
     StreamRequest,
 )
 from app.services import facts_service, trend_analysis_service
@@ -215,15 +216,15 @@ async def get_dataset(
 @router.post("/{ticker}/export/xlsx")
 async def export_analysis_xlsx(
     ticker: str,
-    body: DatasetRequest,
+    body: ExportDatasetRequest,
     request: Request,
     current_user: User = Depends(require_entitlement("can_export", "Excel export")),
     db: Session = Depends(get_db),
 ):
     """Branded Excel workbook over the deterministic dataset (Pro ``can_export``).
 
-    Takes the same ``DatasetRequest`` as ``/dataset`` and rebuilds server-side — so it works
-    pre-narrative, exactly like the CSV download it replaces (no analysis_id involved).
+    Rebuilds the selected range server-side and checks the optional client snapshot ID before
+    rendering. Works before narrative generation; no analysis_id is required.
     """
     enforce_rate_limit(
         request,
@@ -239,6 +240,12 @@ async def export_analysis_xlsx(
         )
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
+
+    if body.snapshot_id is not None and body.snapshot_id != trend_analysis_service.dataset_fingerprint(dataset):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="The financial data changed. Refresh the analysis before exporting.",
+        )
 
     # Local import: openpyxl is heavy and only this route needs it (the export_analysis_pdf
     # pattern below). Building + zipping the workbook is CPU-bound — off the event loop.
@@ -422,6 +429,7 @@ async def stream_analysis(
 @router.get("/export/{analysis_id}/pdf")
 async def export_analysis_pdf(
     analysis_id: int,
+    snapshot_id: str | None = Query(default=None, pattern=r"^[a-f0-9]{64}$"),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -449,6 +457,33 @@ async def export_analysis_pdf(
     company = db.get(Company, analysis.company_id)
     if company is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Company not found")
+
+    # Saved narratives and current facts must describe the same snapshot. A data correction
+    # invalidates the PDF as well as the on-page narrative, even without a prompt-version bump.
+    saved_dataset = analysis.dataset_json or {}
+    try:
+        start_period, end_period = analysis.period_key.split("..")
+        current_dataset = trend_analysis_service.build_dataset(
+            db, company, analysis.mode, start_period, end_period
+        )
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="This analysis no longer matches available data. Re-run it before exporting.",
+        )
+    saved_fingerprint = trend_analysis_service.dataset_fingerprint(saved_dataset)
+    if (
+        not saved_dataset.get("dataset_version")
+        or saved_dataset.get("dataset_version") != current_dataset.get("dataset_version")
+        or saved_dataset.get("snapshot_id") != saved_fingerprint
+        or saved_fingerprint != trend_analysis_service.dataset_fingerprint(current_dataset)
+        or analysis.dataset_fingerprint != saved_fingerprint
+        or (snapshot_id is not None and snapshot_id != saved_fingerprint)
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="The financial data changed. Re-run the analysis before exporting.",
+        )
 
     try:
         pdf_bytes = await export_service.export_analysis_pdf(analysis, company)

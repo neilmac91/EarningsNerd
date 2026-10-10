@@ -185,13 +185,15 @@ def test_a_direct_lookup_of_a_mislabelled_fact_is_unchanged():
 
 
 def test_scope_windows_match_the_modules_that_own_them():
-    """One annual and one quarter window repo-wide; drift in either owner must fail here."""
+    """Ordinary quarters and the explicitly labeled 16/17-week Q4 share their source windows."""
     from app.services.edgar.instance_extractor import DURATION_WINDOWS
     from app.services.facts_service import _CF_ANNUAL_WINDOW, _CF_QUARTER_WINDOW
+    from app.services.facts.quarterly import FINAL_QUARTER_WINDOW
 
     assert copilot_tools._SCOPE_DURATION_DAYS["FY"] == _CF_ANNUAL_WINDOW
     assert all(copilot_tools._SCOPE_DURATION_DAYS[q] == _CF_QUARTER_WINDOW
-               for q in ("Q1", "Q2", "Q3", "Q4"))
+               for q in ("Q1", "Q2", "Q3"))
+    assert copilot_tools._SCOPE_DURATION_DAYS["Q4"] == FINAL_QUARTER_WINDOW
     assert DURATION_WINDOWS["10-K"] == _CF_ANNUAL_WINDOW
     assert DURATION_WINDOWS["10-Q"] == _CF_QUARTER_WINDOW
 

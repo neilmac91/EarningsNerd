@@ -7,7 +7,7 @@ vi.mock('recharts', () => ({
   ComposedChart: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
   LineChart: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
   Bar: () => null,
-  Line: () => null,
+  Line: (props: { connectNulls?: boolean }) => <span data-testid="line-gap-policy" data-connect-nulls={String(props.connectNulls)} />,
   XAxis: () => null,
   YAxis: () => null,
   CartesianGrid: () => null,
@@ -56,17 +56,18 @@ const dataset: AnalysisDataset = {
 }
 
 describe('TrendCharts missing-data annotation (P1-8)', () => {
-  it('names the last period a series that stops early was reported', () => {
+  it('names unavailable periods without claiming the company did not report them', () => {
     render(<TrendCharts dataset={dataset} />)
     // Cash is reported only through FY2022; connectNulls can't bridge the trailing gap, so the
     // line just stops — the footnote explains why.
-    expect(screen.getByText(/Cash: not reported after FY2022/)).toBeInTheDocument()
+    expect(screen.getByText(/Cash: unavailable for FY2023, FY2024/)).toBeInTheDocument()
+    expect(screen.getAllByTestId('line-gap-policy').every((line) => line.getAttribute('data-connect-nulls') === 'false')).toBe(true)
   })
 
   it('does not annotate a series that spans the full window', () => {
     render(<TrendCharts dataset={dataset} />)
-    expect(screen.queryByText(/Operating CF: not reported after/)).not.toBeInTheDocument()
-    expect(screen.queryByText(/Equity: not reported after/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/Operating CF: unavailable/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/Equity: unavailable/)).not.toBeInTheDocument()
   })
 })
 

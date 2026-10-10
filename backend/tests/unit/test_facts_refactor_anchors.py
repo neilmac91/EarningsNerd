@@ -466,14 +466,19 @@ def test_f0_5_normalize_companyfacts_identity_dedup_keeps_the_first_emitted(monk
 
     facts, meta = facts_service.normalize_companyfacts(7, payload)
 
-    assert meta == {"unsupported_ifrs": False}
+    assert meta == {"unsupported_ifrs": False, "quarterly_exclusions": [], "quarterly_excluded_count": 0}
+    provenance = {"version": 1, "method": "reported", "validation": "passed", "reasons": [],
+                  "formula": None, "inputs": [], "calculation_version": "quarterly-v2"}
     assert facts == [
         {**base, "period_start": date(2024, 1, 1), "period_end": date(2024, 12, 31), "value": 500.0,
-         "accession": "K24", "fiscal_year": 2024, "fiscal_period": "FY"},
+         "accession": "K24", "fiscal_year": 2024, "fiscal_period": "FY",
+         "provenance": {**provenance, "filed_at": "2025-02-15"}},
         {**base, "period_start": date(2024, 10, 1), "period_end": date(2024, 12, 31), "value": 130.0,
-         "accession": "K24", "fiscal_year": 2024, "fiscal_period": "Q4"},
+         "accession": "K24", "fiscal_year": 2024, "fiscal_period": "Q4",
+         "provenance": {**provenance, "filed_at": "2025-02-15"}},
         {**base, "period_start": None, "period_end": date(2023, 12, 31), "value": 410.0,
-         "accession": "K23", "fiscal_year": 2023, "fiscal_period": "FY"},
+         "accession": "K23", "fiscal_year": 2023, "fiscal_period": "FY",
+         "provenance": {**provenance, "filed_at": "2024-02-15"}},
     ]
 
 

@@ -4,8 +4,8 @@
   },
   "functions": {
     "app/services/trend_analysis_service.py::build_observation_catalogue": 303,
-    "app/services/trend_analysis_service.py::build_dataset": 260,
-    "app/services/trend_analysis_service.py::stream_trend_narrative": 220
+    "app/services/trend_analysis_service.py::build_dataset": 216,
+    "app/services/trend_analysis_service.py::stream_trend_narrative": 198
   },
   "names": {
     "ANALYSIS_SECTIONS": null,

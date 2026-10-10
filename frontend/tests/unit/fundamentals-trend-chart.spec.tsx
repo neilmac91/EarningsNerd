@@ -68,7 +68,7 @@ describe('FundamentalsTrendChart', () => {
     expect(screen.queryByText('some_unfeatured_concept')).not.toBeInTheDocument()
     expect(screen.getByTestId('fundamentals-chart')).toBeInTheDocument()
     // Clean data → no honesty badge.
-    expect(screen.queryByText('Unverified')).not.toBeInTheDocument()
+    expect(screen.queryByText('Source check needed')).not.toBeInTheDocument()
     expect(getFilingFundamentals).toHaveBeenCalledWith(285)
   })
 
@@ -82,7 +82,7 @@ describe('FundamentalsTrendChart', () => {
     })
     renderChart()
 
-    expect(await screen.findByText('Unverified')).toBeInTheDocument()
+    expect(await screen.findByText('Source check needed')).toBeInTheDocument()
   })
 
   it('switches the active metric on click', async () => {
