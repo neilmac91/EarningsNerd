@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test'
-import { EXPECTED_KPI_LETTERS, EXPECTED_KPI_VALUES, EXPECTED_NOTES, EXPECTED_TABLE_COMPARISON_REVIEWS, EXPECTED_TABLE_REVIEWS, EXPECTED_TABLE_VALUE_DAGGERS, METRICS, PERIODS, UNAVAILABLE_CELLS, openAnalysis, type AnalysisState, type AnalysisTheme } from './fixtures/analysisLayoutApi'
+import { EXPECTED_KPI_LETTERS, EXPECTED_KPI_VALUES, EXPECTED_NOTES, EXPECTED_TABLE_CELL_NOTES, EXPECTED_TABLE_COMPARISON_REVIEWS, EXPECTED_TABLE_REVIEWS, EXPECTED_TABLE_VALUE_DAGGERS, METRICS, PERIODS, UNAVAILABLE_CELLS, openAnalysis, type AnalysisState, type AnalysisTheme } from './fixtures/analysisLayoutApi'
 
 /**
  * The one browser geometry gate for the analysis redesign (proposal Phase 1, item 10).
@@ -111,29 +111,47 @@ async function assertPageAndCards(page: Page, width: number, textScale: number, 
   }
 }
 
-/** A DOM note count is insufficient: each mark must actually paint its text. */
+/** Pair text geometry with computed ink alpha; this is not a full pixel-paint oracle. */
 async function assertPaintedMarks(page: Page, selector: string) {
-  const marks = await page.locator(selector).evaluateAll(containers => containers.flatMap(container =>
-    [...container.querySelectorAll('[data-note-letter], span')]
-      .filter(mark => mark.hasAttribute('data-note-letter') || mark.textContent?.trim() === '†')
-      .map(mark => {
-        const visible = mark.checkVisibility({ visibilityProperty: true, opacityProperty: true }) && !mark.closest('.sr-only,[hidden]')
-        const glyphs: Array<{ width: number; height: number }> = []
-        const walker = document.createTreeWalker(mark, NodeFilter.SHOW_TEXT)
-        for (let node = walker.nextNode(); node; node = walker.nextNode()) {
-          const parent = node.parentElement
-          if (!node.textContent?.trim() || !parent?.checkVisibility({ visibilityProperty: true, opacityProperty: true }) || parent.closest('.sr-only,[hidden]')) continue
-          const range = document.createRange(); range.selectNodeContents(node)
-          for (const rect of range.getClientRects()) if (rect.width > 0 && rect.height > 0) glyphs.push({ width: rect.width, height: rect.height })
-        }
-        return { text: mark.textContent?.trim(), kind: mark.getAttribute('data-note-kind'), visible, glyphs }
-      })
-  ))
+  const marks = await page.locator(selector).evaluateAll(containers => {
+    const canvas = document.createElement('canvas')
+    canvas.width = canvas.height = 1
+    const context = canvas.getContext('2d')!
+    const inkAlpha = (parent: Element) => {
+      const style = getComputedStyle(parent)
+      // Chromium's text-fill can override color, including making opaque color invisible.
+      const fill = style.getPropertyValue('-webkit-text-fill-color')
+      const color = fill && fill !== 'currentcolor' ? fill : style.color
+      context.clearRect(0, 0, 1, 1)
+      context.fillStyle = 'transparent'
+      context.fillStyle = color
+      context.fillRect(0, 0, 1, 1)
+      return context.getImageData(0, 0, 1, 1).data[3]
+    }
+    return containers.flatMap(container =>
+      [...container.querySelectorAll('[data-note-letter], span')]
+        .filter(mark => mark.hasAttribute('data-note-letter') || mark.textContent?.trim() === '†')
+        .map(mark => {
+          const visible = mark.checkVisibility({ visibilityProperty: true, opacityProperty: true }) && !mark.closest('.sr-only,[hidden]')
+          const glyphs: Array<{ width: number; height: number; inkAlpha: number }> = []
+          const walker = document.createTreeWalker(mark, NodeFilter.SHOW_TEXT)
+          for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+            const parent = node.parentElement
+            if (!node.textContent?.trim() || !parent?.checkVisibility({ visibilityProperty: true, opacityProperty: true }) || parent.closest('.sr-only,[hidden]')) continue
+            const alpha = inkAlpha(parent)
+            const range = document.createRange(); range.selectNodeContents(node)
+            for (const rect of range.getClientRects()) if (rect.width > 0 && rect.height > 0) glyphs.push({ width: rect.width, height: rect.height, inkAlpha: alpha })
+          }
+          return { text: mark.textContent?.trim(), kind: mark.getAttribute('data-note-kind'), visible, glyphs }
+        })
+    )
+  })
   for (const mark of marks) {
-    expect(mark.visible, `${mark.kind ?? 'calculated'} mark ${mark.text}: text is visible and opaque`).toBe(true)
+    expect(mark.visible, `${mark.kind ?? 'calculated'} mark ${mark.text}: element is not hidden or zero-opacity`).toBe(true)
     // A legitimate superscript has line-height: 0. Its element box can have zero height;
-    // use painted text ranges, never element height or Playwright's toBeVisible().
-    expect(mark.glyphs.length, `${mark.kind ?? 'calculated'} mark ${mark.text}: nonzero painted text range`).toBeGreaterThan(0)
+    // use text ranges, never element height or Playwright's toBeVisible().
+    expect(mark.glyphs.length, `${mark.kind ?? 'calculated'} mark ${mark.text}: nonzero text range`).toBeGreaterThan(0)
+    for (const glyph of mark.glyphs) expect(glyph.inkAlpha, `${mark.kind ?? 'calculated'} mark ${mark.text}: computed text ink is not transparent`).toBeGreaterThan(0)
   }
 }
 
@@ -278,6 +296,26 @@ async function assertTable(page: Page, expectedPeriods: string[], state: Analysi
   // Q4 header daggers cannot satisfy value-mark presence; count inside source buttons.
   await expect(sourceControls.locator('span').filter({ hasText: /^†$/ })).toHaveCount(EXPECTED_TABLE_VALUE_DAGGERS[window])
   await expect(table.locator('tbody [data-note-kind="review"]:not(button *)')).toHaveCount(EXPECTED_TABLE_COMPARISON_REVIEWS[state][window])
+  const expectedNotes = EXPECTED_TABLE_CELL_NOTES[state]
+  const expectedCells = Array.from({ length: METRICS }, (_, row) => expectedPeriods.map(period => {
+    const notes = (slots: typeof expectedNotes.value) => slots
+      .filter(slot => slot.rows.includes(row) && slot.periods.includes(period))
+      .map(({ letter, kind }) => ({ text: letter, letter, kind }))
+    const unavailable = UNAVAILABLE_CELLS.some(slot => slot.row === row && slot.periods.some(key => key === period))
+    return {
+      value: unavailable ? [{ text: expectedNotes.unavailableLetter, letter: expectedNotes.unavailableLetter, kind: 'unavailable' }] : notes(expectedNotes.value),
+      comparison: notes(expectedNotes.comparison),
+    }
+  }))
+  const actualCells = await table.locator('tbody tr').evaluateAll(rows => rows.map(row =>
+    [...row.querySelectorAll('td')].map(cell => {
+      const marks = [...cell.querySelectorAll<HTMLElement>('[data-note-letter], [data-note-kind]')]
+      const source = (mark: Element) => !!mark.closest('button[aria-label$="View source and calculation"]')
+      const read = (mark: HTMLElement) => ({ text: mark.innerText.trim(), letter: mark.getAttribute('data-note-letter'), kind: mark.getAttribute('data-note-kind') })
+      return { value: marks.filter(source).map(read), comparison: marks.filter(mark => !source(mark)).map(read) }
+    })
+  ))
+  expect(actualCells, 'each financial cell retains its exact value/comparison note, including cells with no note').toEqual(expectedCells)
   await assertPaintedMarks(page, TABLE)
   const geometry = await tableGeometry(page)
   await assertSourceControls(page, `${TABLE} tbody`, METRICS * expectedPeriods.length)

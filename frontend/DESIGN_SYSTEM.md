@@ -250,6 +250,11 @@ Data note mark   <DataNoteMark> (analysis) — neutral † for a calculated orig
                  MetricsTable opts into compact mark spacing so an amount and its affixes stay
                  together in a fixed period column; the other surfaces retain standard spacing.
 
+Data table hover <DataTable> — ordinary rows use hover:bg-white dark:hover:bg-white/[0.03].
+                 With stickyFirstColumn, first-column body cells stay opaque: light hover uses
+                 group-hover:bg-white; dark hover retains dark:group-hover:bg-panel-dark. The
+                 ordinary row tint must not replace that opaque fill and reveal scrolled values.
+
 Analysis table   <MetricsTable> — equal rem period columns with a semantic sticky row-header column.
                  The named scroll region supports Left/Right by one measured column, Home/End,
                  and mandatory snapping. Inline-end padding makes the entire scroll range a whole

@@ -55,6 +55,31 @@ export const EXPECTED_TABLE_REVIEWS = {
   discrepancy: { all: 3, newest: 3, earliest: 0 },
 } as const
 
+type TableNoteSlots = { rows: number[]; periods: string[]; letter: string; kind: 'review' }
+// Literal cell associations from the archived visual fixture, independently of noteFor
+// and noteForComparison. Unlisted cells have no mark; gaps use UNAVAILABLE_CELLS above.
+export const EXPECTED_TABLE_CELL_NOTES: Record<AnalysisState, {
+  value: TableNoteSlots[]; comparison: TableNoteSlots[]; unavailableLetter: string
+}> = {
+  clean: { value: [], comparison: [], unavailableLetter: 'a' },
+  legacy: {
+    value: [
+      { rows: [2, 4], periods: ['2025Q2', '2026Q2'], letter: 'a', kind: 'review' },
+      { rows: [16, 17], periods: ['2023Q4', '2024Q1', '2026Q2'], letter: 'a', kind: 'review' },
+    ],
+    comparison: [
+      { rows: [2, 4], periods: ['2025Q2', '2025Q3', '2026Q2'], letter: 'a', kind: 'review' },
+      { rows: [16, 17], periods: ['2023Q4', '2024Q1', '2024Q2', '2026Q2'], letter: 'a', kind: 'review' },
+    ],
+    unavailableLetter: 'b',
+  },
+  discrepancy: {
+    value: [{ rows: [0, 2, 4], periods: ['2026Q2'], letter: 'a', kind: 'review' }],
+    comparison: [{ rows: [0, 2, 4], periods: ['2026Q2'], letter: 'a', kind: 'review' }],
+    unavailableLetter: 'b',
+  },
+}
+
 // Independently counted from the archived fixture, not the production grouping code.
 // KPI order is Revenue, Net income, Free cash flow, Net margin. Only the last two
 // values are calculated; a reviewed latest value and its YoY each need their own mark.
