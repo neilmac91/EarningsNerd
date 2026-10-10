@@ -22,6 +22,7 @@ sys.path.insert(0, str(BACKEND))
 
 _DB_DIR = tempfile.mkdtemp(prefix="earningsnerd-design-review-")
 os.environ["DATABASE_URL"] = "sqlite:///" + os.path.join(_DB_DIR, "earningsnerd.db")
+# Placeholders only: Settings refuses to load without these keys; nothing here calls a provider.
 os.environ["SECRET_KEY"] = "design-review-secret-key-must-be-long-enough-123"
 os.environ["OPENAI_API_KEY"] = "sk-unused"
 os.environ["STRIPE_SECRET_KEY"] = "sk_test_unused"

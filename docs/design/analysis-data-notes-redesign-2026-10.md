@@ -500,7 +500,8 @@ operational action and is not part of this brief.
 11. **Docs** (records, same PR as item 2): `DESIGN.md` Calculation Provenance Rule ("Amber 'Source check
     needed'" → the lettered note, "Unavailable" → "— with its note letter; 'Unavailable' in the evidence
     view and exports"), `frontend/DESIGN_SYSTEM.md` §4 (a "Data note mark" entry; the table scroll-range
-    rule) and §10 (chart marks, PNG notes), sidecar through the `design-docs-maintenance` skill.
+    rule) and `frontend/DESIGN_SYSTEM.md` §10 (chart marks, PNG notes), sidecar through the
+    `design-docs-maintenance` skill.
 
 ### Phase 2 — backend, one verified deploy
 
