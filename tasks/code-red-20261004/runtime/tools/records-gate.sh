@@ -22,8 +22,9 @@
 #            the remote, so records stands. Outside a repository: records scope (nothing is being committed
 #            or pushed there), but main's agent-workflow rules gate needs `git ls-files`, so that step fails
 #            there and the wrapper reports it; a plain export of the tree is not a place to prove the gate.
-#            A git inspection error (a failed status, diff or rev-parse that is not "not a git
-#            repository") fails closed (exit 2): an error is never read as "no backend change".
+#            A git inspection error (a failed status, diff, merge-base or rev-parse) fails closed (exit 2):
+#            an error is never read as "no backend change". "not a git repository" counts as a genuine
+#            non-repository only when no .git entry exists at the root; a damaged .git is an inspection error.
 #
 # Usage: tools/records-gate.sh [repo-root]
 # Environment overrides for the test: RECORDS_GATE_PYTHON, RECORDS_GATE_TEST, RECORDS_GATE_RULES_TEST, RECORDS_GATE_LINT_PATHS,
@@ -40,14 +41,15 @@ log="$(mktemp)"
 trap 'rm -f "$log"' EXIT
 
 inspection_failed() {
-  echo "records-gate: cannot determine the scope: git failed to inspect $repo ($1: $(tail -n 1 "$log")); set RECORDS_GATE_SCOPE=records or backend" >&2
+  echo "records-gate: cannot determine the scope: git failed to inspect the repository ($1: $(tail -n 1 "$log")); set RECORDS_GATE_SCOPE=records or backend" >&2
   exit 2
 }
 
 if [ "$scope" = "auto" ]; then
   inside=""
-  if ! inside="$(git -C "$repo" rev-parse --is-inside-work-tree 2>"$log")"; then
+  if ! inside="$(LC_ALL=C git -C "$repo" rev-parse --is-inside-work-tree 2>"$log")"; then
     grep -q "not a git repository" "$log" || inspection_failed "rev-parse"
+    [ ! -e "$repo/.git" ] || inspection_failed "rev-parse"
     inside="false"
   fi
   if [ "$inside" = "true" ]; then
@@ -55,10 +57,12 @@ if [ "$scope" = "auto" ]; then
     changed="$(git -C "$repo" status --porcelain --untracked-files=all -- backend 2>"$log")" || inspection_failed "status"
     if [ -z "$changed" ]; then
       base=""
-      if ! base="$(git -C "$repo" merge-base HEAD origin/main 2>/dev/null)" || [ -z "$base" ]; then
+      if ! git -C "$repo" rev-parse --verify --quiet origin/main >/dev/null 2>&1; then
         echo "records-gate: cannot determine the scope: no working-tree change under backend/ and no origin/main to compare the commits with (a local main is not a base; fetch origin or set RECORDS_GATE_SCOPE=records or backend)" >&2
         exit 2
       fi
+      base="$(git -C "$repo" merge-base HEAD origin/main 2>"$log")" || inspection_failed "merge-base"
+      [ -n "$base" ] || inspection_failed "merge-base"
       changed="$(git -C "$repo" diff --name-only "$base" HEAD -- backend 2>"$log")" || inspection_failed "diff"
     fi
     if [ -n "$changed" ]; then scope=backend; else scope=records; fi

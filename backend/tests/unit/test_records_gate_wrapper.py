@@ -108,7 +108,9 @@ def _run_wrapper(
     ``"unpushed-main"`` (``origin/main`` holds the test only; the local ``main`` adds an unpushed backend commit; a feature
     branch adds a records-only commit on top; clean tree), ``"at-origin-main"`` (HEAD is ``origin/main``; clean tree),
     ``"no-base"`` (a local ``main`` holds everything and there is no ``origin/main``; clean tree), ``"corrupt-index"`` (a
-    committed repository whose ``.git/index`` is overwritten with garbage, so ``git status`` fails although it is a repository).
+    committed repository whose ``.git/index`` is overwritten with garbage, so ``git status`` fails although it is a repository),
+    ``"corrupt-head"`` (a committed repository whose ``.git/HEAD`` is emptied, so git says "not a git repository" although
+    ``.git`` is present).
     """
     repo = tmp_path / "repo"
     tests = repo / "backend" / "tests" / "unit"
@@ -165,6 +167,13 @@ def _run_wrapper(
         _git(repo, "commit", "-q", "-m", "everything")
         _git(repo, "update-ref", "refs/remotes/origin/main", "HEAD")
         (repo / ".git" / "index").write_bytes(b"not an index\n")
+    elif git == "corrupt-head":
+        _git(repo, "init", "-q")
+        _git(repo, "symbolic-ref", "HEAD", "refs/heads/main")
+        _git(repo, "add", "-A")
+        _git(repo, "commit", "-q", "-m", "everything")
+        _git(repo, "update-ref", "refs/remotes/origin/main", "HEAD")
+        (repo / ".git" / "HEAD").write_bytes(b"")
     else:
         assert git is None, git
     env = {
@@ -281,6 +290,14 @@ def test_auto_scope_fails_closed_on_a_git_inspection_error(tmp_path: Path) -> No
     result = _run_wrapper(tmp_path, CLEAN_PROBE, scope=None, app_body="", git="corrupt-index")
     assert result.returncode == 2, f"stdout={result.stdout!r} stderr={result.stderr!r}"
     assert "git failed to inspect" in result.stderr and "(status:" in result.stderr, result.stderr
+    assert "records-gate: ok" not in result.stdout, result.stdout
+
+
+def test_auto_scope_fails_closed_when_the_repository_metadata_is_damaged(tmp_path: Path) -> None:
+    """An emptied .git/HEAD makes git say "not a git repository"; with .git present that is an inspection error, not a non-repository."""
+    result = _run_wrapper(tmp_path, CLEAN_PROBE, scope=None, app_body="", git="corrupt-head")
+    assert result.returncode == 2, f"stdout={result.stdout!r} stderr={result.stderr!r}"
+    assert "git failed to inspect" in result.stderr and "(rev-parse:" in result.stderr, result.stderr
     assert "records-gate: ok" not in result.stdout, result.stdout
 
 
