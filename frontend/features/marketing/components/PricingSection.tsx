@@ -95,10 +95,10 @@ export default function PricingSection({
 
   const monthly = billing === 'monthly'
   const showTrial = ENABLE_PRO_TRIAL && monthly && !showBeta
-  const proPrice = monthly ? PRO_PRICING.monthlyDisplay : PRO_PRICING.yearlyMonthlyDisplay
+  const proPrice = monthly ? PRO_PRICING.monthlyDisplay : PRO_PRICING.yearlyDisplay
   const billingNote = monthly
     ? `Billed monthly. Or ${PRO_PRICING.yearlyDisplay} a year, with two months free.`
-    : `Billed annually at ${PRO_PRICING.yearlyDisplay}. Two months free, saving ${PRO_PRICING.annualSavingsDisplay} a year (${PRO_PRICING.annualSavingsPercent}%).`
+    : `Billed annually. Two months free, saving ${PRO_PRICING.annualSavingsDisplay} a year (${PRO_PRICING.annualSavingsPercent}%).`
 
   // The pricing page's Switch speaks 'monthly' | 'yearly'; keep the funnel event's vocabulary.
   const cycleName = (option: Billing) => (option === 'monthly' ? 'monthly' : 'yearly')
@@ -217,7 +217,7 @@ export default function PricingSection({
               </div>
               <div className="mt-3 flex items-baseline gap-1.5">
                 <span className={PRICE_CLASS}>{proPrice}</span>
-                <span className={`text-sm ${MUTED_CLASS}`}>per month</span>
+                <span className={`text-sm ${MUTED_CLASS}`}>{monthly ? 'per month' : 'per year'}</span>
               </div>
               <p className={`mt-1.5 text-sm ${MUTED_CLASS}`}>{billingNote}</p>
               {showBeta && (

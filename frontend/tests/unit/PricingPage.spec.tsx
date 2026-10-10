@@ -200,11 +200,13 @@ describe('PricingPage', () => {
     const layout = render(<PricingLayout><div /></PricingLayout>)
     const structuredData = JSON.parse(layout.container.querySelector('script[type="application/ld+json"]')!.textContent!)
 
-    // Annual is charged once at $190; $15.83 is the rounded monthly equivalent, not a charge.
-    expect(page.getByText('$15.83')).toBeInTheDocument()
-    expect(page.getByText('Billed annually at $190. Two months free, saving $38 a year (17%).')).toBeInTheDocument()
+    // Each cycle shows the amount it charges: $190 once a year, or $19 each month.
+    expect(page.getByText('$190')).toBeInTheDocument()
+    expect(page.getByText('/year')).toBeInTheDocument()
+    expect(page.getByText('Billed annually. Two months free, saving $38 a year (17%).')).toBeInTheDocument()
     expect(page.getByText('(2 months free)')).toBeInTheDocument()
     expect(home.getByText('$19')).toBeInTheDocument()
+    expect(home.getByText('per month')).toBeInTheDocument()
     expect(home.getByText('Billed monthly. Or $190 a year, with two months free.')).toBeInTheDocument()
     expect(structuredData.offers).toEqual([
       expect.objectContaining({ name: 'Pro (monthly)', price: 19, priceCurrency: 'USD' }),
@@ -212,10 +214,12 @@ describe('PricingPage', () => {
     ])
 
     fireEvent.click(home.getByRole('radio', { name: /annual/i }))
-    expect(home.getByText('$15.83')).toBeInTheDocument()
-    expect(home.getByText('Billed annually at $190. Two months free, saving $38 a year (17%).')).toBeInTheDocument()
+    expect(home.getByText('$190')).toBeInTheDocument()
+    expect(home.getByText('per year')).toBeInTheDocument()
+    expect(home.getByText('Billed annually. Two months free, saving $38 a year (17%).')).toBeInTheDocument()
     fireEvent.click(page.getByRole('switch', { name: /billing cycle/i }))
     expect(page.getByText('$19')).toBeInTheDocument()
+    expect(page.getByText('/month')).toBeInTheDocument()
     expect(page.getByText('Billed monthly')).toBeInTheDocument()
     expect(mockUseFeatureFlagVariantKey).not.toHaveBeenCalled()
 
@@ -393,7 +397,7 @@ describe('PricingPage', () => {
     await screen.findByRole('button', { name: 'Start 7-day free trial' })
     fireEvent.click(screen.getByRole('switch', { name: /billing cycle/i }))
     const checkout = await screen.findByRole('button', { name: 'Upgrade to Pro' })
-    expect(screen.getByText('$15.83')).toBeInTheDocument()
+    expect(screen.getByText('$190')).toBeInTheDocument()
     fireEvent.click(checkout)
     await waitFor(() => expect(mockCreateCheckoutSession).toHaveBeenCalledWith('price_pro_yearly'))
     expect(mockCheckoutStarted).toHaveBeenCalledWith('pro', 190, 'yearly')

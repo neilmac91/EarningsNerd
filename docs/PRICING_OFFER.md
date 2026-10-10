@@ -8,11 +8,11 @@ The amount decision is complete; implementation and catalog preparation do not e
 | Cycle | USD charge | Display |
 | --- | --- | --- |
 | Monthly | $19 each month (1,900 cents) | $19/month |
-| Annual | $190 once per year (19,000 cents) | $15.83/month equivalent, billed $190 annually |
+| Annual | $190 once per year (19,000 cents) | $190/year, two months free, saving $38 |
 
 Twelve monthly payments total $228. Annual saves **$38**, or **17%** rounded from 16.667%.
-Annual costs exactly ten monthly payments: **two months free**. The rounded monthly equivalent
-is not a monthly installment. This supersedes the unpublished $23/month candidate; its earlier
+Annual costs exactly ten monthly payments: **two months free**. Each cycle displays the amount
+it charges; no rounded monthly equivalent is shown for annual billing. This supersedes the unpublished $23/month candidate; its earlier
 verification and inactive-catalog receipts remain historical.
 
 The plain [price module](../frontend/app/pricing/prices.ts) is shared by the pricing page,
@@ -97,7 +97,7 @@ recorded. The approved price does not waive those gates or authorize customer re
    effective serving bindings and verification that new checkouts select the approved amounts.
    **Complete and verify this step before publishing the lower frontend prices.**
 4. Publish the reviewed frontend and verify the exact deployment: homepage, pricing page,
-   JSON-LD, both cycle selections, annual total/equivalent/savings and checkout agreement.
+   JSON-LD, both cycle selections, the annual charge and saving, and checkout agreement.
    The backend-first transition is not atomic: an old page may briefly advertise the higher
    price while checkout offers the lower one. Complete both readbacks before admitting a paid cohort.
 5. Retain deployment/configuration receipts and subsequent natural payment evidence separately.

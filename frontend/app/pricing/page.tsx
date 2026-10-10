@@ -202,11 +202,12 @@ function PricingContent({ billingCycle, setBillingCycle, billingResolved }: {
     !isTrialing &&
     (isGuest || Boolean(subscription && !subscription.status))
 
-  // Compare per-month costs while making the full annual charge and saving explicit.
-  const proPriceDisplay = billingCycle === 'monthly' ? PRO_PRICING.monthlyDisplay : PRO_PRICING.yearlyMonthlyDisplay
+  // Each cycle shows what it charges: $19 per month, or $190 per year with the annual saving.
+  const proPriceDisplay = billingCycle === 'monthly' ? PRO_PRICING.monthlyDisplay : PRO_PRICING.yearlyDisplay
+  const proPeriod = billingCycle === 'monthly' ? 'month' : 'year'
   const billingNote = billingCycle === 'monthly'
     ? 'Billed monthly'
-    : `Billed annually at ${PRO_PRICING.yearlyDisplay}. Two months free, saving ${PRO_PRICING.annualSavingsDisplay} a year (${PRO_PRICING.annualSavingsPercent}%).`
+    : `Billed annually. Two months free, saving ${PRO_PRICING.annualSavingsDisplay} a year (${PRO_PRICING.annualSavingsPercent}%).`
 
   // Shared label while account data is absent; neither card may claim a current plan or a
   // purchase decision until the account resolves (or the visitor is a confirmed guest).
@@ -222,7 +223,7 @@ function PricingContent({ billingCycle, setBillingCycle, billingResolved }: {
     {
       name: 'Free',
       price: '$0',
-      period: 'forever',
+      period: null,
       description: 'For trying out EarningsNerd',
       features: [
         `${FREE_SUMMARY_LIMIT} summaries per month`,
@@ -247,7 +248,7 @@ function PricingContent({ billingCycle, setBillingCycle, billingResolved }: {
     {
       name: 'Pro',
       price: showBetaOffer ? '$0' : proPriceDisplay,
-      period: 'per month',
+      period: proPeriod,
       betaOriginal: showBetaOffer ? proPriceDisplay : null,
       billingNote: showBetaOffer ? null : billingNote,
       description: 'For deeper filing research',
@@ -442,10 +443,10 @@ function PricingContent({ billingCycle, setBillingCycle, billingResolved }: {
                 <div className="flex items-baseline justify-center gap-2">
                   <span className="tabular text-5xl font-semibold text-text-primary-light dark:text-text-primary-dark">{plan.price}</span>
                   {plan.betaOriginal ? (
-                    <span className="tabular text-2xl font-medium text-text-secondary-light line-through dark:text-text-secondary-dark">{plan.betaOriginal}/mo</span>
+                    <span className="tabular text-2xl font-medium text-text-secondary-light line-through dark:text-text-secondary-dark">{plan.betaOriginal}/{plan.period}</span>
                   ) : (
-                    plan.period !== 'forever' && (
-                      <span className="text-text-secondary-light dark:text-text-secondary-dark">/month</span>
+                    plan.period && (
+                      <span className="text-text-secondary-light dark:text-text-secondary-dark">/{plan.period}</span>
                     )
                   )}
                 </div>

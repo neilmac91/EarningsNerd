@@ -37,13 +37,15 @@ describe('PricingSection', () => {
     renderSection()
 
     expect(screen.getByText('$19')).toBeInTheDocument()
+    expect(screen.getByText('per month')).toBeInTheDocument()
     expect(screen.getByText('Billed monthly. Or $190 a year, with two months free.')).toBeInTheDocument()
 
     fireEvent.click(screen.getByRole('radio', { name: /annual/i }))
-    expect(screen.getByText('$15.83')).toBeInTheDocument()
+    expect(screen.getByText('$190')).toBeInTheDocument()
+    expect(screen.getByText('per year')).toBeInTheDocument()
     expect(screen.queryByText('$19')).not.toBeInTheDocument()
     expect(
-      screen.getByText('Billed annually at $190. Two months free, saving $38 a year (17%).'),
+      screen.getByText('Billed annually. Two months free, saving $38 a year (17%).'),
     ).toBeInTheDocument()
   })
 
