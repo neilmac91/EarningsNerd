@@ -73,7 +73,9 @@ binding it always had, and nothing is reported unless moved code reads the name 
 binding (in a statement, a class body, a decorator or a comprehension, which runs where it stands; a
 generator expression counts too, though it may run later): the import ran before the read, and now the
 binding runs after it, so the read raises NameError or takes an earlier binding of the name, ``read above
-it at import``. A def's or lambda's body reads it when it runs.
+it at import``. A def's or lambda's body reads it when it runs. The settlement covers reads only: moved
+code that rebinds the name, at module level or through ``global``, rebound the old file's copy and now
+rebinds the target's, for every importer, and is reported.
 
 Python itself reads a dunder name (``__x__``) of a namespace, with no load of it in the code there: a def
 or class body created below a module's ``__builtins__`` resolves every builtin through it, a relative
@@ -436,21 +438,26 @@ class _Scope:
             enclosing = enclosing | self.bound
         return taken.union(self.module, *(scope.taken(enclosing, now) for scope in self.nested))
 
+    def declared(self) -> set[str]:
+        """The names this scope and the scopes nested in it declare ``global``, which they bind in the module."""
+        return self.module.union(*(scope.declared() for scope in self.nested))
+
 
 @dataclass
 class _Names:
     """What one symbol does with names. ``owner`` is the class whose body holds it (None at module level);
     ``binds`` and ``here`` are the names it binds and loads in that scope; ``later`` are the names its nested
     scopes (the body of a def, lambda, comprehension or nested class) take from the module, and ``soon`` the
-    ones of those that a comprehension or class body takes where it stands, at import. A ``block`` (a guard)
-    binds whatever is bound in it: its header's targets, its imports and its statements' names. ``lines``:
-    where each of its definitions starts."""
+    ones of those that a comprehension or class body takes where it stands, at import; ``declared`` the
+    names it or a nested scope declares ``global``. A ``block`` (a guard) binds whatever is bound in it: its
+    header's targets, its imports and its statements' names. ``lines``: where each of its definitions starts."""
     owner: str | None
     block: bool = False
     binds: set[str] = field(default_factory=set)
     here: set[str] = field(default_factory=set)
     later: set[str] = field(default_factory=set)
     soon: set[str] = field(default_factory=set)
+    declared: set[str] = field(default_factory=set)
     lines: list[int] = field(default_factory=list)
 
     def reads(self, owner: str | None) -> set[str]:
@@ -468,6 +475,10 @@ class _Names:
     def at_import(self) -> set[str]:
         """The names it reads from the module while the module runs, not later from a def's body."""
         return self.here | self.soon
+
+    def rebinds(self) -> set[str]:
+        """The module's names it binds: at module level, or anywhere through ``global``."""
+        return (self.binds if self.owner is None else set()) | self.declared
 
 
 def symbols(source: str) -> dict[str, str]:
@@ -501,6 +512,7 @@ def _collect(source: str) -> tuple[dict[str, str], list[str], set[str], dict[str
         used.here |= scope.loaded | scope.module
         used.later |= set().union(*(nested.taken() for nested in scope.nested))
         used.soon |= set().union(*(nested.taken(now=True) for nested in scope.nested))
+        used.declared |= scope.declared()
         used.lines.append(node.lineno)
 
     body = list(tree.body)
@@ -632,7 +644,9 @@ def _shadows(key: str, names: dict[str, _Names], old_names: dict[str, _Names],
     block: it is a SIDE EFFECT already, and each statement in it is a symbol of its own.
     ``own``: the module-level names the old file imported from this very file (``_imported_from``). Such a
     binding is the one the moved code always had, so it shadows only the moved code that reads it at import
-    above it (``read above it at import by X``): there the import ran first, and now the read does."""
+    above it (``read above it at import by X``): there the import ran first, and now the read does. Code that
+    rebinds the name, at module level or through ``global``, rebound the old file's copy and now rebinds this
+    file's, for every importer, so it is ``bound by`` as for any other name."""
     new, found = names[key], []
     moved_here = new.owner in old_names if new.owner else any(other in old_names for other in names)
     for name in sorted(() if new.block else new.binds):
@@ -641,9 +655,12 @@ def _shadows(key: str, names: dict[str, _Names], old_names: dict[str, _Names],
             early = [other for other in sorted(names) if other in old_names
                      and name in names[other].at_import() & old_names[other].at_import()
                      and min(names[other].lines) < max(new.lines)]
-            if early:
-                more = f" and {len(early) - 3} more" if len(early) > 3 else ""
-                uses.append(f"read above it at import by {', '.join(early[:3])}{more}")
+            rebinding = [other for other in sorted(names) if other in old_names
+                         and name in names[other].rebinds() & old_names[other].rebinds()]
+            for verb, users in (("read above it at import", early), ("bound", rebinding)):
+                if users:
+                    more = f" and {len(users) - 3} more" if len(users) > 3 else ""
+                    uses.append(f"{verb} by {', '.join(users[:3])}{more}")
         else:
             itself = moved_here and _dunder(name) and not (new.owner is None and name in _DECLARED_DUNDERS)
             for verb, used in (("read", _Names.reads), ("bound", _Names.bound)):

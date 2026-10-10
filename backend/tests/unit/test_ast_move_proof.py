@@ -12,9 +12,9 @@ name that no inert property def above it in its class binds, or with code that r
 attribute bound to a bare name, whose ``__set_name__`` runs; and an unpacking of anything but a display, which
 iterates it), a new symbol that binds a name the moved code of its file reads or binds (at module level, or
 in the class body for a new class member) or a dunder that Python reads itself where moved code lives (a
-module's ``__all__`` aside), a symbol of the target file that moved code reads at import above it, a class
-docstring that no longer opens its body, and a reordered symbol each fail; a disclosed delta passes with its
-diff shown.
+module's ``__all__`` aside), a symbol of the target file that moved code reads at import above it or
+rebinds, a class docstring that no longer opens its body, and a reordered symbol each fail; a disclosed
+delta passes with its diff shown.
 """
 from tests.support.ast_move_proof import compare, render
 
@@ -484,6 +484,23 @@ def test_a_symbol_of_the_target_file_shadows_moved_code_that_reads_it_at_import_
     early = compare("from app.b import normalize\n\nX = normalize\n",
                     placed("X = normalize\n", above=True, head="normalize = None\n\n"), old_path="app/a.py")
     assert early.shadows == {"normalize": "app/b.py: binds normalize, read above it at import by X"}
+
+
+def test_moved_code_that_rebinds_a_name_imported_from_the_target_file_shadows_it():
+    """The exemption covers reads only. Before the move ``reset`` rebound the old file's own copy of
+    ``cache``; in the target file it rebinds the target's binding, for every importer. A module-level loop
+    or ``except ... as`` target rebinds it as well, and so does a ``global`` declared in a method."""
+    target = "cache = {}\n"
+    for reader, key in (("def reset():\n    global cache\n    cache = {}\n", "reset"),
+                        ("for cache in ROWS:\n    pass\n", "guard:for cache in ROWS"),
+                        ("class Box:\n    def reset(self):\n        global cache\n        cache = {}\n", "Box.reset")):
+        old = "from app.b import cache\n\n" + reader
+        report = compare(old, {"app/a.py": "", "app/b.py": target + "\n\n" + reader}, old_path="app/a.py")
+        assert report.shadows == {"cache": f"app/b.py: binds cache, bound by {key}"}, reader
+    # A read below the binding stays exempt, and a def that only reads the name needs no global.
+    reads = "def size():\n    return len(cache)\n"
+    assert compare("from app.b import cache\n\n" + reads, {"app/a.py": "", "app/b.py": target + "\n\n" + reads},
+                   old_path="app/a.py").ok
 
 def test_a_new_module_dunder_beside_moved_code_is_read_by_python_itself():
     """No moved code loads ``__builtins__``, yet ``size`` below it resolves ``len`` through it. It runs
