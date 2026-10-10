@@ -129,8 +129,9 @@ replaces its alpha), a switch track's fill. Content with an ink of its own fades
 (`group-aria-disabled:opacity-50` on the child): a child's opacity never reaches the control's ring. A natively
 disabled state keeps `disabled:opacity-*`, since it cannot hold focus. Hover feedback is left as the control
 has it, as on `<Button loading>`. Gate: `tests/unit/ariaDisabledKeepsItsRing.spec.ts` (no `opacity-*` class
-behind the element's own `aria-disabled:` variant anywhere in the app's source, and no other `opacity-*` class
-on an element that carries `aria-disabled`, except behind `disabled:`).
+behind the element's own `aria-disabled:` variant anywhere in the app's source, and no other `opacity-*` class,
+except behind `disabled:`, on an element that carries `aria-disabled` or on a use of a shared control that
+renders one with the caller's className: `<Button loading>`, RetryButton, AlertBell).
 
 A Retry of a failed query is
 `<RetryButton failures={[useRetainedFailure(query, queryKey)]} focusTarget={headingRef}>`, never a hand-rolled

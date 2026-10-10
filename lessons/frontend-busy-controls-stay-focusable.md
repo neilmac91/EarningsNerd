@@ -87,10 +87,12 @@ brand ring on panel went from 1.37:1 back to 1.97:1 in light and from 1.68:1 to 
 the browser's own outline on the five controls with no ring recipe faded the same way. Gated (rule 12):
 `tests/unit/ariaDisabledKeepsItsRing.spec.ts` reads the AST of every .ts and .tsx under app/,
 components/, features/, hooks/ and lib/ and fails on an `opacity-*` class behind the element's own
-`aria-disabled:` variant, wherever the class list is written, and on any other `opacity-*` class on an
-element that carries `aria-disabled`, except behind `disabled:`. It reads what the className's names
-hold (a const, a function's body) across imports and a barrel's re-exports, so a shared class list is
-held to the rule at each control that takes it. No allowlist.
+`aria-disabled:` variant, wherever the class list is written, and on any other `opacity-*` class on a
+control, except behind `disabled:`. A control is an element that carries `aria-disabled`, or a use of
+a shared control: a component that renders one with the caller's className, given a prop that makes it
+aria-disabled (`<Button loading>`; every use of RetryButton and AlertBell). It reads what the
+className's names hold (a const, a function's body) across imports and a barrel's re-exports, so a
+shared class list is held to the rule at each control that takes it. No allowlist.
 
 (f) Keeping focus makes a second activation reachable, so the guard must cover the whole
 operation. A mutation whose success refetches the data the control depends on returns that

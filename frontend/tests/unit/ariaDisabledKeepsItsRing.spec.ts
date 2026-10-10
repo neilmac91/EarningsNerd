@@ -24,20 +24,29 @@ import { bindingResolver, type Binding } from './astBindings'
  *     arbitrary variant naming `aria-disabled`, under any other variants (`dark:aria-disabled:hover:`).
  *     `group-aria-disabled:` and `peer-aria-disabled:` style another element, whose opacity does not
  *     reach the control's ring, so they pass.
- *  2. A JSX element that carries an `aria-disabled` attribute holds no `opacity-*` class at all, except
- *     behind `disabled:` (a natively disabled control cannot hold focus, so it shows no ring). This is
- *     the pending-opacity shape, a fade a busy flag picks in JS: AlertBell's
- *     `pending || checking ? 'cursor-progress opacity-60' : ''`. It reads every string and template chunk
- *     of the element's className and of what its identifiers name: a const's initializer or a function
- *     declaration's body, resolved in lexical scope, followed transitively and across modules, through
- *     an import (`@/…` or relative, named or default) and a barrel's re-exports (`export { a as b } from`,
- *     `export * from`). So a shared class list such as `fieldUnavailableClass` is read at each control
- *     that takes it, whatever variant it is written behind.
+ *  2. An aria-disabled control holds no `opacity-*` class at all, except behind `disabled:` (a natively
+ *     disabled control cannot hold focus, so it shows no ring). This is the pending-opacity shape, a fade
+ *     a busy flag picks in JS: AlertBell's `pending || checking ? 'cursor-progress opacity-60' : ''`.
+ *     A control is a JSX element that carries an `aria-disabled` attribute, or a use of a shared control:
+ *     a component that renders such an element and hands it the caller's className (its `className`
+ *     prop, or its rest props). The DS Button renders `loading` as aria-disabled, so
+ *     `<Button loading={busy} className={busy ? 'opacity-50' : ''}>` fails; a Button that is never given
+ *     `loading` is no control. Which props make a shared control aria-disabled is read from its own
+ *     expression: the props it is built from alone (Button's `loading`), or every use when it reads
+ *     anything else (RetryButton, busy from its failures). A wrapper that forwards to a shared control is
+ *     one too.
+ *     The scan reads every string and template chunk of the control's className and of what its
+ *     identifiers name: a const's initializer or a function declaration's body, resolved in lexical
+ *     scope, followed transitively and across modules, through an import (`@/…` or relative, named or
+ *     default) and a barrel's re-exports (`export { a as b } from`, `export * from`). So a shared class
+ *     list such as `fieldUnavailableClass` is read at each control that takes it, whatever variant it is
+ *     written behind.
  *
- * What it cannot see: a className or an `aria-disabled` that arrives through a prop or a props spread
- * (a parameter holds what the caller passes); a class list reached through a namespace import
- * (`import * as`; the app has none) or held in a package; an `opacity` set by a `style` prop or by a
- * rule in globals.css (it has none keyed to aria-disabled); an ancestor's opacity.
+ * What it cannot see: a component that takes its props undestructured (`props.className`) or is used
+ * under a member tag (`ui.Button`); a trigger prop or a className that reaches a use through a props
+ * spread; a class list reached through a namespace import (`import * as`; the app has none) or held in
+ * a package; an `opacity` set by a `style` prop or by a rule in globals.css (it has none keyed to
+ * aria-disabled); an ancestor's opacity.
  */
 
 const frontendRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
@@ -104,14 +113,22 @@ interface Held {
   mod: Module
 }
 
+type Component = ts.FunctionDeclaration | ts.FunctionExpression | ts.ArrowFunction
+const isFunction = (n: ts.Node): n is Component => ts.isFunctionDeclaration(n) || ts.isFunctionExpression(n) || ts.isArrowFunction(n)
+/** The props that make a shared control aria-disabled, or 'always' when any use can be. */
+type Triggers = Set<string> | 'always'
+type JsxTag = ts.JsxOpeningElement | ts.JsxSelfClosingElement
+const isJsxTag = (n: ts.Node): n is JsxTag => ts.isJsxOpeningElement(n) || ts.isJsxSelfClosingElement(n)
+
 const hasModifier = (n: ts.Node, kind: ts.SyntaxKind) =>
   ts.canHaveModifiers(n) && (ts.getModifiers(n)?.some((m) => m.kind === kind) ?? false)
 
 /**
  * The scan over one set of files (`read`), with `@/` resolved against `root`. Returns, for a file, every
- * offending class token in it and how many aria-disabled elements it holds.
+ * offending class token in it, how many elements in it carry `aria-disabled` (`controls`) and how many are
+ * controls as uses of a shared control (`uses`).
  */
-function fadeScanner(read: Read, root: string): (file: string) => { offenders: Offender[]; controls: number } {
+function fadeScanner(read: Read, root: string): (file: string) => { offenders: Offender[]; controls: number; uses: number } {
   const modules = new Map<string, Module | undefined>()
 
   /** The app file an import specifier names; undefined for a package. */
@@ -221,11 +238,118 @@ function fadeScanner(read: Read, root: string): (file: string) => { offenders: O
     return out
   }
 
+  /** The component a held value is: the function itself, a declaration held by its body, or one a wrapper is given. */
+  const componentOf = (node: ts.Node): Component | undefined => {
+    if (isFunction(node)) return node
+    if (ts.isBlock(node) && isFunction(node.parent)) return node.parent
+    if (ts.isParenthesizedExpression(node) || ts.isAsExpression(node) || ts.isSatisfiesExpression(node)) return componentOf(node.expression)
+    // forwardRef(function Button(…) { … }), memo(…)
+    if (ts.isCallExpression(node)) for (const arg of node.arguments) if (componentOf(arg)) return componentOf(arg)
+    return undefined
+  }
+
+  const attributeOf = (tag: JsxTag, name: string) =>
+    tag.attributes.properties.find((a): a is ts.JsxAttribute => ts.isJsxAttribute(a) && a.name.getText() === name)
+
+  /** The prop of `fn` a name stands for: its name, '...' for its rest props, undefined when it is no prop of `fn`. */
+  const propNamed = (ref: ts.Identifier, fn: Component, mod: Module): string | undefined => {
+    const decl = mod.visible(ref)?.decl
+    if (!decl || !ts.isBindingElement(decl) || decl.parent !== fn.parameters[0]?.name) return undefined
+    if (decl.dotDotDotToken) return '...'
+    const name = decl.propertyName ?? decl.name
+    return ts.isIdentifier(name) || ts.isStringLiteral(name) ? name.text : undefined
+  }
+
+  /** Every identifier an expression reads, through the same-file consts it names; never a member's name. */
+  const reads = (expr: ts.Node, mod: Module, each: (ref: ts.Identifier) => void, seen = new Set<Binding>()): void => {
+    const visit = (n: ts.Node): void => {
+      if (ts.isIdentifier(n)) {
+        if (ts.isPropertyAccessExpression(n.parent) && n.parent.name === n) return
+        each(n)
+        const binding = mod.visible(n)
+        if (binding?.init && !seen.has(binding)) {
+          seen.add(binding)
+          reads(binding.init, mod, each, seen)
+        }
+      }
+      ts.forEachChild(n, visit)
+    }
+    visit(expr)
+  }
+
+  /** The props of `fn` an expression is built from alone; 'always' when it reads anything else, or nothing. */
+  const builtFrom = (expr: ts.Node | undefined, fn: Component, mod: Module): Triggers => {
+    const props = new Set<string>()
+    let other = false
+    if (expr) {
+      reads(expr, mod, (ref) => {
+        const prop = propNamed(ref, fn, mod)
+        if (prop && prop !== '...') props.add(prop)
+        else if (ref.text !== 'undefined' && !mod.visible(ref)?.init) other = true
+      })
+    }
+    return other || props.size === 0 ? 'always' : props
+  }
+
+  /**
+   * What makes this element aria-disabled: its own `aria-disabled`, or the trigger props it passes to a shared
+   * control (null where the control needs none). Undefined when the element is no control.
+   */
+  const fedBy = (tag: JsxTag, mod: Module): (ts.Node | undefined)[] | null | undefined => {
+    const own = attributeOf(tag, 'aria-disabled')
+    if (own) return [own.initializer]
+    if (!ts.isIdentifier(tag.tagName) || !/^[A-Z]/.test(tag.tagName.text)) return undefined
+    const target = held(tag.tagName, mod)
+    const fn = target && componentOf(target.node)
+    const triggers = fn && sharedControl(fn, target.mod)
+    if (!triggers) return undefined
+    if (triggers === 'always') return null
+    const passed = [...triggers].map((prop) => attributeOf(tag, prop)).filter((a) => a !== undefined)
+    return passed.length ? passed.map((a) => a.initializer) : undefined
+  }
+
+  const shared = new Map<Component, Triggers | undefined>()
+  /** The triggers of a component that renders a control and hands it the caller's className; undefined for any other. */
+  const sharedControl = (fn: Component, mod: Module): Triggers | undefined => {
+    if (shared.has(fn)) return shared.get(fn)
+    shared.set(fn, undefined) // components that render each other in a cycle are not followed round it
+    const pattern = fn.parameters[0]?.name
+    let triggers: Triggers | undefined
+    const takesCallersClassName = (tag: JsxTag): boolean => {
+      let takes = false
+      const className = attributeOf(tag, 'className')?.initializer
+      if (className) reads(className, mod, (ref) => (takes ||= propNamed(ref, fn, mod) === 'className'))
+      // Rest props carry className unless the component took it out of them.
+      const keepsClassName = pattern && ts.isObjectBindingPattern(pattern) && pattern.elements.some((e) => (e.propertyName ?? e.name).getText() === 'className')
+      for (const a of tag.attributes.properties) {
+        if (ts.isJsxSpreadAttribute(a) && ts.isIdentifier(a.expression) && propNamed(a.expression, fn, mod) === '...' && !keepsClassName) takes = true
+      }
+      return takes
+    }
+    const visit = (n: ts.Node): void => {
+      if (isJsxTag(n) && triggers !== 'always') {
+        const feeding = fedBy(n, mod)
+        if (feeding !== undefined && takesCallersClassName(n)) {
+          for (const expr of feeding ?? [undefined]) {
+            const from = feeding === null ? 'always' : builtFrom(expr && ts.isJsxExpression(expr) ? expr.expression : undefined, fn, mod)
+            if (from === 'always') triggers = 'always'
+            else if (triggers !== 'always') triggers = new Set([...(triggers ?? []), ...from])
+          }
+        }
+      }
+      ts.forEachChild(n, visit)
+    }
+    if (pattern && ts.isObjectBindingPattern(pattern) && fn.body) visit(fn.body)
+    shared.set(fn, triggers)
+    return triggers
+  }
+
   return (file) => {
     const mod = load(file)
     const offenders: Offender[] = []
     let controls = 0
-    if (!mod) return { offenders, controls }
+    let uses = 0
+    if (!mod) return { offenders, controls, uses }
     const { sf } = mod
     const lineOf = (n: ts.Node) => sf.getLineAndCharacterOfPosition(n.getStart(sf)).line + 1
 
@@ -236,24 +360,21 @@ function fadeScanner(read: Read, root: string): (file: string) => { offenders: O
           if (fadesElement(utility) && variants.some(ownAriaDisabled)) offenders.push({ line: lineOf(n), token, clause: 'variant' })
         }
       }
-      if (ts.isJsxOpeningElement(n) || ts.isJsxSelfClosingElement(n)) {
-        const attribute = (name: string) =>
-          n.attributes.properties.find((a): a is ts.JsxAttribute => ts.isJsxAttribute(a) && a.name.getText(sf) === name)
-        const className = attribute('className')?.initializer
-        if (attribute('aria-disabled')) {
-          controls += 1
-          for (const token of className ? classChunks(className, mod, new Set(), []).flatMap(tokensOf) : []) {
-            const { variants, utility } = parseToken(token)
-            // Clause 1 already reports a fade behind the element's own aria-disabled variant, where it is written.
-            if (!fadesElement(utility) || variants.includes('disabled') || variants.some(ownAriaDisabled)) continue
-            offenders.push({ line: lineOf(n), token, clause: 'element' })
-          }
+      if (isJsxTag(n) && fedBy(n, mod) !== undefined) {
+        if (attributeOf(n, 'aria-disabled')) controls += 1
+        else uses += 1
+        const className = attributeOf(n, 'className')?.initializer
+        for (const token of className ? classChunks(className, mod, new Set(), []).flatMap(tokensOf) : []) {
+          const { variants, utility } = parseToken(token)
+          // Clause 1 already reports a fade behind the element's own aria-disabled variant, where it is written.
+          if (!fadesElement(utility) || variants.includes('disabled') || variants.some(ownAriaDisabled)) continue
+          offenders.push({ line: lineOf(n), token, clause: 'element' })
         }
       }
       ts.forEachChild(n, visit)
     }
     visit(sf)
-    return { offenders, controls }
+    return { offenders, controls, uses }
   }
 }
 
@@ -388,17 +509,84 @@ describe('no element opacity on an aria-disabled control (rule-12 gate)', () => 
     expect(tokensAmong(files, '/app/features/Quiet.tsx')).toEqual([])
   })
 
+  it('holds a use of a shared control to the rule: by the props that make it aria-disabled, through a wrapper, and nothing else', () => {
+    const files = {
+      '/app/components/ui/Button.tsx': `
+        export const Button = forwardRef(function Button({ loading = false, className, children, ...rest }, ref) {
+          return (
+            <button ref={ref} aria-disabled={loading || undefined} className={cx('rounded-lg disabled:opacity-50', className)} {...rest}>
+              {children}
+            </button>
+          )
+        })
+        export function Chip({ className, children }) {
+          return <span className={className}>{children}</span>
+        }
+        export function Fixed({ loading, label }) {
+          return <button aria-disabled={loading || undefined} className="rounded-lg">{label}</button>
+        }
+      `,
+      '/app/hooks/Retry.tsx': `
+        import { Button } from '@/components/ui/Button'
+        export function RetryButton({ failures, ...rest }) {
+          const busy = failures.some((f) => f.busy)
+          return <Button {...rest} loading={busy}>Retry</Button>
+        }
+      `,
+      '/app/features/Bell.tsx': `
+        export function Bell({ alerts, ticker, className }) {
+          const pending = alerts.isPending(ticker)
+          const look = cx('h-7 w-7', className)
+          return <button aria-disabled={pending || undefined} className={look} />
+        }
+      `,
+      '/app/features/Page.tsx': `
+        import { Button as DsButton, Chip, Fixed } from '@/components/ui/Button'
+        import { RetryButton } from '@/hooks/Retry'
+        import { Bell } from './Bell'
+        import Link from 'next/link'
+        const FADED = 'hover:opacity-80'
+        export const Page = ({ busy, alerts }) => (
+          <>
+            <DsButton loading={busy} className={busy ? 'opacity-50' : ''}>Save</DsButton>
+            <RetryButton failures={[]} className={FADED} />
+            <Bell alerts={alerts} ticker="AAPL" className="opacity-40" />
+            <DsButton loading className="opacity-30">Sending</DsButton>
+            <DsButton className="opacity-0 group-hover:opacity-100">Copy</DsButton>
+            <DsButton loading={busy} className="w-full disabled:opacity-60">Send</DsButton>
+            <Chip className="opacity-70">New</Chip>
+            <Fixed loading={busy} label="Go" className="opacity-70" />
+            <Link href="/" className="opacity-70">Home</Link>
+            <img loading="lazy" className="opacity-0" />
+          </>
+        )
+      `,
+    }
+    expect(tokensAmong(files, '/app/features/Page.tsx')).toEqual([
+      'element opacity-50',
+      'element hover:opacity-80',
+      'element opacity-40',
+      'element opacity-30',
+    ])
+    for (const file of ['/app/components/ui/Button.tsx', '/app/hooks/Retry.tsx', '/app/features/Bell.tsx']) {
+      expect(tokensAmong(files, file)).toEqual([])
+    }
+  })
+
   it('no class fades an aria-disabled control as a whole', () => {
     const offenders: string[] = []
     let controls = 0
+    let uses = 0
     const scan = fadeScanner((file) => (existsSync(file) && statSync(file).isFile() ? readFileSync(file, 'utf8') : undefined), frontendRoot)
     for (const file of ROOTS.flatMap((root) => walk(path.join(frontendRoot, root), []))) {
       const found = scan(file)
       controls += found.controls
+      uses += found.uses
       for (const o of found.offenders) offenders.push(`${path.relative(frontendRoot, file)}:${o.line} ${o.token}`)
     }
-    // The scan reached the app: its aria-disabled controls are in what it read.
+    // The scan reached the app: its aria-disabled elements and its `<Button loading>` uses are in what it read.
     expect(controls).toBeGreaterThan(0)
+    expect(uses).toBeGreaterThan(0)
     expect(
       offenders,
       'An element opacity on an aria-disabled control fades its focus ring: the control stays focusable. Fade what ' +
