@@ -157,114 +157,60 @@ from app.services.copilot.exceptions import (
 )
 
 __all__ = [
-    'PROVIDER_STARTED_STAGE',
-    'SYSTEM_PROMPT',
-    '_ADJACENCY_WINDOW_CHARS',
-    '_ANNUAL_DURATION_DAYS',
-    '_ANNUAL_FIGURE_CLAIM',
-    '_ANNUAL_REPORT_FORMS',
-    '_CITATIONS_SENTINEL',
-    '_CLAIM_PHRASE_CONCEPT',
-    '_CLAIM_SCALES',
-    '_CLAUSE_BOUNDARY',
-    '_CLOSING_QUOTE_MARK',
-    '_CONCEPT_PATTERNS',
-    '_CONCEPT_SYNONYMS',
-    '_COPILOT_MARKER_RE',
-    '_CURRENCY_AFTER',
-    '_CURRENCY_ALIASES',
-    '_CURRENCY_BEFORE',
-    '_CURRENCY_TOKEN',
-    '_DEFAULT_IGNORABLE_RE',
-    '_EVIDENCE_RETRY_GUIDANCE',
-    '_FAIL_CLOSED_CHARS_RE',
-    '_FOLLOWUPS_RE',
-    '_FOLLOWUPS_SENTINEL',
-    '_HAS_JSON_REPAIR',
-    '_LINE_EDGE_SPACE_RE',
-    '_LINK_RE',
-    '_MARKDOWN',
-    '_MARKDOWN_BLOCKS',
-    '_MARKDOWN_BLOCK_ENDS',
-    '_MARKDOWN_BREAKS',
-    '_MARKDOWN_CONTAINERS',
-    '_MARKDOWN_EMPHASIS',
-    '_MARKDOWN_INLINE',
-    '_MAX_BRACKETS',
-    '_MAX_MARKDOWN_NESTING',
-    '_MAX_QUOTED_ANSWER_CHARS',
-    '_MAX_QUOTED_CHARS',
-    '_MAX_QUOTE_MARKS',
-    '_MAYBE_HIDDEN',
-    '_MIN_QUOTED_LEN',
-    '_MONTH_NAMES',
-    '_NOT_DISCLOSED_SENTINEL',
-    '_NUMBER_TOKEN',
-    '_OUTSIDE_SUBSET_RE',
-    '_PAIRED_ANNUAL_CLAIM',
-    '_PUBLICATION_ERROR',
-    '_QUOTED_MARKER_RE',
-    '_QUOTE_EDGE_CHARS',
-    '_QUOTE_ELLIPSIS_RE',
-    '_QUOTE_HINT_RE',
-    '_QUOTE_MARK_RE',
-    '_RAW_HTML_RE',
-    '_REPAIRABLE_CLAIM_PHRASES',
-    '_RETRYABLE_QUOTATION_FAILURES',
-    '_RegenerableEvidenceMismatch',
-    '_SENTINEL_TAIL',
-    '_SERVER_LOOKUP_ORIGIN',
-    '_STRAIGHT_QUOTE_MARKS',
-    '_STREAM_FAILURE',
-    '_TABLE_DELIMITER_LIKE_RE',
-    '_TASK_CHECKBOX_RE',
-    '_TOP_LEVEL_BLOCKS',
-    '_UNICODE_SPACES',
-    '_UnpublishableAnswer',
-    '_adjacency_window',
-    '_answer_filing_question_attempt',
-    '_beside',
-    '_build_context_message',
-    '_build_messages',
-    '_claim_span_start',
-    '_compact_xbrl_block',
-    '_display_may_differ',
-    '_displayed_quotation_reasons',
-    '_fact_certifies_claim',
-    '_fact_identity',
-    '_fact_matches_adjacent_concept',
-    '_fact_matches_adjacent_currency',
-    '_fact_matches_adjacent_number',
-    '_is_annual_report_form',
-    '_is_punctuation',
-    '_iso_day',
-    '_markdown_parser',
-    '_may_delimit',
-    '_merge_consecutive_roles',
-    '_parse_citations',
-    '_parse_followups',
-    '_plan_uncited_fact_citation',
-    '_quotation_reading',
-    '_rendered_inline',
-    '_rendered_text',
-    '_repair_json',
-    '_repair_paired_annual_claim',
-    '_repair_uncited_fact_claim',
-    '_reporting_currency',
-    '_resolve_citations',
-    '_safe_activity_label',
-    '_select_source_text',
-    '_straight_reading',
-    '_valid_fact_provenance',
-    '_verify_citations',
-    '_withhold_unsupported_quotations',
-    '_without_source_durations',
-    'answer_filing_question',
-    'count_uncited_figures',
-    'logger',
-    'section_label_is_quoted',
-    'snapshot_filing',
-    'unsupported_plain_quotations',
+    'PROVIDER_STARTED_STAGE', 'SYSTEM_PROMPT',
+    '_ADJACENCY_WINDOW_CHARS', '_ANNUAL_DURATION_DAYS',
+    '_ANNUAL_FIGURE_CLAIM', '_ANNUAL_REPORT_FORMS',
+    '_CITATIONS_SENTINEL', '_CLAIM_PHRASE_CONCEPT',
+    '_CLAIM_SCALES', '_CLAUSE_BOUNDARY',
+    '_CLOSING_QUOTE_MARK', '_CONCEPT_PATTERNS',
+    '_CONCEPT_SYNONYMS', '_COPILOT_MARKER_RE',
+    '_CURRENCY_AFTER', '_CURRENCY_ALIASES',
+    '_CURRENCY_BEFORE', '_CURRENCY_TOKEN',
+    '_DEFAULT_IGNORABLE_RE', '_EVIDENCE_RETRY_GUIDANCE',
+    '_FAIL_CLOSED_CHARS_RE', '_FOLLOWUPS_RE',
+    '_FOLLOWUPS_SENTINEL', '_HAS_JSON_REPAIR',
+    '_LINE_EDGE_SPACE_RE', '_LINK_RE',
+    '_MARKDOWN', '_MARKDOWN_BLOCKS',
+    '_MARKDOWN_BLOCK_ENDS', '_MARKDOWN_BREAKS',
+    '_MARKDOWN_CONTAINERS', '_MARKDOWN_EMPHASIS',
+    '_MARKDOWN_INLINE', '_MAX_BRACKETS',
+    '_MAX_MARKDOWN_NESTING', '_MAX_QUOTED_ANSWER_CHARS',
+    '_MAX_QUOTED_CHARS', '_MAX_QUOTE_MARKS',
+    '_MAYBE_HIDDEN', '_MIN_QUOTED_LEN',
+    '_MONTH_NAMES', '_NOT_DISCLOSED_SENTINEL',
+    '_NUMBER_TOKEN', '_OUTSIDE_SUBSET_RE',
+    '_PAIRED_ANNUAL_CLAIM', '_PUBLICATION_ERROR',
+    '_QUOTED_MARKER_RE', '_QUOTE_EDGE_CHARS',
+    '_QUOTE_ELLIPSIS_RE', '_QUOTE_HINT_RE',
+    '_QUOTE_MARK_RE', '_RAW_HTML_RE',
+    '_REPAIRABLE_CLAIM_PHRASES', '_RETRYABLE_QUOTATION_FAILURES',
+    '_RegenerableEvidenceMismatch', '_SENTINEL_TAIL',
+    '_SERVER_LOOKUP_ORIGIN', '_STRAIGHT_QUOTE_MARKS',
+    '_STREAM_FAILURE', '_TABLE_DELIMITER_LIKE_RE',
+    '_TASK_CHECKBOX_RE', '_TOP_LEVEL_BLOCKS',
+    '_UNICODE_SPACES', '_UnpublishableAnswer',
+    '_adjacency_window', '_answer_filing_question_attempt',
+    '_beside', '_build_context_message',
+    '_build_messages', '_claim_span_start',
+    '_compact_xbrl_block', '_display_may_differ',
+    '_displayed_quotation_reasons', '_fact_certifies_claim',
+    '_fact_identity', '_fact_matches_adjacent_concept',
+    '_fact_matches_adjacent_currency', '_fact_matches_adjacent_number',
+    '_is_annual_report_form', '_is_punctuation',
+    '_iso_day', '_markdown_parser',
+    '_may_delimit', '_merge_consecutive_roles',
+    '_parse_citations', '_parse_followups',
+    '_plan_uncited_fact_citation', '_quotation_reading',
+    '_rendered_inline', '_rendered_text',
+    '_repair_json', '_repair_paired_annual_claim',
+    '_repair_uncited_fact_claim', '_reporting_currency',
+    '_resolve_citations', '_safe_activity_label',
+    '_select_source_text', '_straight_reading',
+    '_valid_fact_provenance', '_verify_citations',
+    '_withhold_unsupported_quotations', '_without_source_durations',
+    'answer_filing_question', 'count_uncited_figures',
+    'logger', 'section_label_is_quoted',
+    'snapshot_filing', 'unsupported_plain_quotations',
     'unsupported_prose_quotations',
 ]
 
@@ -601,29 +547,10 @@ async def answer_filing_question(
         yield {"type": "error", "message": _STREAM_FAILURE}
 
 
-async def _answer_filing_question_attempt(
-    *, filing: Any, question: str, history: Optional[list[dict]], source_text: str,
-    normalized_source: str, usage_sink: dict[str, Any], deadline: float, evidence_retry: bool,
-) -> AsyncGenerator[dict, None]:
-    """Stream a grounded answer to ``question`` about ``filing`` as event dicts.
+class _FactRegistry:
+    """Keep the attempt's original tool closures and shared fact list together."""
 
-    Yields (in order):
-    * ``{"type": "progress", "stage": "reading"}`` before the model call.
-    * ``{"type": "activity", "label", "phase", "ok"}`` as numeric tools run (live "show the work").
-    * Fixed reading progress while candidate prose is buffered privately.
-    * ``{"type": "not_disclosed", "answer": ...}`` if the model emits the not-disclosed sentinel.
-    * ``{"type": "complete", "answer", "citations", "grounded", "kind", "followups"}`` at the end.
-    * ``{"type": "error", "message": ...}`` on any failure.
-
-    Ordinary failures become safe ``error`` events; cancellation still propagates. The question
-    owner supplies the source normalized once and reused for every excerpt and generation.
-    """
-    provider_stream = None
-    try:
-        messages = _build_messages(filing, source_text, question, history)
-        if evidence_retry:
-            messages[0]["content"] += "\n\n" + _EVIDENCE_RETRY_GUIDANCE
-
+    def __init__(self, filing: Any) -> None:
         # P5/P6b numeric tool-use: bind tools to this filing's company, accession and native currency. ``run_tool`` opens its own
         # DB session per call (the request session is gone by now). Each distinct successful fact is
         # assigned a stable ``F#`` citation marker (deduped by exact provenance and expression operands) that
@@ -656,240 +583,287 @@ async def _answer_filing_question_attempt(
                 return {**result, "cite": _register_fact(result)}
             return result
 
+        self.accession = accession
+        self.currency = currency
+        self.used_facts = used_facts
+        self.register = _register_fact
+        self.run_tool = _run_tool
+
+
+class _SentinelScanner:
+    """Buffer candidate prose and split envelopes without owning stream events."""
+
+    def __init__(self) -> None:
+        self.answer_parts: list[str] = []          # private candidate prose (before any sentinel)
+        self.citation_buffer: list[str] = []       # text after ===CITATIONS===
+        self.not_disclosed_parts: list[str] = []   # text after ===NOT_DISCLOSED===
+        self.pending = ""                          # carry-over tail for cross-chunk sentinel detection
+        self.mode = "answer"                        # answer | citations | not_disclosed
+
+    def feed(self, delta: str) -> None:
+        if self.mode == "citations":
+            self.citation_buffer.append(delta)
+            return
+        if self.mode == "not_disclosed":
+            self.not_disclosed_parts.append(delta)
+            return
+
+        # mode == "answer": scan the accumulated buffer for a sentinel, holding prose privately and
+        # holding back a tail so a sentinel split across chunks is still caught.
+        self.pending += delta
+        while True:
+            cit_at = self.pending.find(_CITATIONS_SENTINEL)
+            nd_at = self.pending.find(_NOT_DISCLOSED_SENTINEL)
+            # Earliest sentinel wins (filter out the -1 "not found" sentinels).
+            hits = [pos for pos in (cit_at, nd_at) if pos != -1]
+            if hits:
+                cut = min(hits)
+                prose = self.pending[:cut]
+                if prose:
+                    self.answer_parts.append(prose)
+                if cut == cit_at:
+                    self.mode = "citations"
+                    self.citation_buffer.append(self.pending[cut + len(_CITATIONS_SENTINEL):])
+                else:
+                    self.mode = "not_disclosed"
+                    self.not_disclosed_parts.append(self.pending[cut + len(_NOT_DISCLOSED_SENTINEL):])
+                self.pending = ""
+                break
+
+            # No complete sentinel: buffer everything except a held-back tail that could be the
+            # start of a sentinel spanning into the next chunk.
+            if len(self.pending) > _SENTINEL_TAIL:
+                emit = self.pending[:-_SENTINEL_TAIL]
+                self.pending = self.pending[-_SENTINEL_TAIL:]
+                if emit:
+                    self.answer_parts.append(emit)
+            break
+
+    def flush(self) -> None:
+        # Flush any held-back tail that turned out to be plain prose.
+        if self.mode == "answer" and self.pending:
+            self.answer_parts.append(self.pending)
+
+
+def _activity_event(delta: str) -> dict:
+    try:
+        info = json.loads(delta[len(STREAM_ACTIVITY_SENTINEL):])
+        if not isinstance(info, dict):
+            info = {}
+    except (ValueError, TypeError):
+        info = {}
+    return {
+        "type": "activity",
+        "label": _safe_activity_label(info),
+        "phase": "done" if info.get("phase") == "done" else "start",
+        "ok": bool(info.get("ok", True)),
+    }
+
+
+async def _admit_not_disclosed(
+    scanner: _SentinelScanner, normalized_source: str,
+) -> tuple[str, list[str]]:
+    if "".join(scanner.answer_parts).strip():
+        raise _UnpublishableAnswer("Answer prose precedes not-disclosed verdict")
+    # A complete not-disclosed verdict needs its reason and the whole required
+    # followups envelope. Provider EOF or repaired JSON cannot establish completion.
+    nd_raw = "".join(scanner.not_disclosed_parts)
+    nd_match = _FOLLOWUPS_RE.search(nd_raw)
+    if not nd_match:
+        raise _UnpublishableAnswer("Missing not-disclosed followups envelope")
+    answer = nd_raw[:nd_match.start()].strip()
+    if not answer:
+        raise _UnpublishableAnswer("Empty not-disclosed reason")
+    if _CITATIONS_SENTINEL in answer or _NOT_DISCLOSED_SENTINEL in answer:
+        raise _UnpublishableAnswer("Contradictory not-disclosed envelope")
+    try:
+        nd_followups = json.loads(nd_raw[nd_match.end():].strip())
+    except (ValueError, TypeError) as exc:
+        raise _UnpublishableAnswer("Incomplete not-disclosed followups array") from exc
+    if (not isinstance(nd_followups, list) or not 2 <= len(nd_followups) <= 3
+            or any(not isinstance(item, str) or not item.strip() for item in nd_followups)):
+        raise _UnpublishableAnswer("Invalid not-disclosed followups array")
+    nd_followups = [item.strip()[:140] for item in nd_followups]
+    await asyncio.to_thread(_withhold_unsupported_quotations, normalized_source, "", [answer, *nd_followups])
+    return answer, nd_followups
+
+
+def _resolve_answer(
+    full_answer: str, filing: Any, text_citations_by_marker: dict,
+    accession: Any, currency: Any, used_facts: list[dict],
+    _register_fact: Callable[[dict], str],
+) -> tuple[str, list[dict], int, int]:
+    # Supported uncited annual claims need positive certification, beyond marker removal.
+    # Look up each claimed figure in the viewed filing and attach separate markers only
+    # after every operand certifies; preserve every other byte of the answer.
+    full_answer = _repair_uncited_fact_claim(
+        full_answer, filing=filing, accession=accession, currency=currency,
+        register=_register_fact,
+    )
+    # Single server-owned numbering pass: resolves every marker actually present in the answer
+    # (text-excerpt or tool-figure alike) against its real source, assigns one continuous
+    # sequential number in first-appearance order, and rewrites the answer's inline markers to
+    # match — so the answer text and the returned citations list can never disagree, and a
+    # declared-but-never-cited source can never leak into the Sources panel.
+    filing_url = getattr(filing, "document_url", None) or getattr(filing, "sec_url", None) or None
+    before_resolution = full_answer
+    full_answer, verified_citations, grounded, misplaced = _resolve_citations(
+        full_answer, text_citations_by_marker, used_facts, filing_url
+    )
+    # Unresolvable model F-markers can have hidden an otherwise eligible claim from
+    # the first repair. Certify only the final visible, wholly uncited prose; never
+    # reinterpret surviving citations or reuse a rejected marker as evidence.
+    if not verified_citations and full_answer != before_resolution:
+        repaired = _repair_uncited_fact_claim(
+            full_answer, filing=filing, accession=accession, currency=currency,
+            register=_register_fact,
+        )
+        if repaired != full_answer:
+            full_answer, verified_citations, grounded, additional_misplaced = _resolve_citations(
+                repaired, {}, used_facts, filing_url,
+            )
+            misplaced += additional_misplaced
+    return full_answer, verified_citations, grounded, misplaced
+
+
+async def _admit_answer(
+    scanner: _SentinelScanner, filing: Any, normalized_source: str,
+    facts: _FactRegistry, usage_payload: Optional[dict],
+) -> dict:
+    full_answer = "".join(scanner.answer_parts).strip()
+    if scanner.mode != "citations":
+        raise _UnpublishableAnswer("Missing citation envelope")
+    citations, followups = _parse_citations("".join(scanner.citation_buffer))
+
+    # Multi-reference bracket groups the model emits despite the one-marker-per-bracket
+    # contract — "[F1, F2]", "[F1, 2]", "[F1 vs F2]" — previously stayed LITERAL in the
+    # answer (the resolver's regex only matches single markers). Normalize them to adjacent
+    # single brackets first (shared citation-group classification with the trend resolver),
+    # so each reference resolves through the normal path. Guard semantics after the split:
+    # the FIRST member carries the claim's adjacency window; later members' windows are the
+    # single space between brackets, so they get the qualitative-placement treatment (same
+    # as a chain the model writes itself) — split members are resolved, not value-checked.
+    full_answer = citation_markers.expand_citation_marker_groups(
+        full_answer,
+        ref_re=citation_markers.COPILOT_GROUP_MEMBER_RE,
+        normalize=citation_markers.copilot_normalize_ref,
+        # Only groups with at least one F-ref expand: an ALL-plain-number group never does
+        # (pinned resolver behavior, and "[1,234]" could be a bracketed thousands figure).
+        require_re=citation_markers.MARKER_REF_RE,
+    )
+    referenced = {
+        re.sub(r"\s+", "", match.group(1)).upper()
+        for match in _COPILOT_MARKER_RE.finditer(full_answer)
+    }
+    text_citations_by_marker = _verify_citations(citations, filing, normalized_source, referenced)
+    # Keep literal identities before repair/numbering; a later citation must not capture
+    # an unrelated original [1]. Leading-zero markers keep their original identity.
+    unresolved_literals = {key for key in referenced if not key.startswith("F")
+                           and key not in text_citations_by_marker}
+    full_answer, verified_citations, grounded, misplaced = _resolve_answer(
+        full_answer, filing, text_citations_by_marker, facts.accession, facts.currency,
+        facts.used_facts, facts.register,
+    )
+    if not full_answer:
+        raise _UnpublishableAnswer("Empty resolved answer")
+    if any(str(cite["n"]) in unresolved_literals or cite["verified"] is not True
+           for cite in verified_citations):
+        raise _UnpublishableAnswer("Unverified or colliding final citation")
+    await asyncio.to_thread(_withhold_unsupported_quotations, normalized_source, full_answer, followups)
+    if misplaced:
+        # Trust telemetry: a nonzero rate here means the model is attaching fact markers to
+        # figures they don't support — watch this after any prompt/model change.
+        logger.warning("copilot: stripped %d misplaced fact marker(s) from answer", misplaced)
+    # COVERAGE telemetry, the counterpart signal: stripping misplaced markers (and model
+    # laziness) leaves figures with no citation at all. Counted on the FINAL answer — what
+    # the user actually sees.
+    figure_count, uncited_figures = count_uncited_figures(full_answer, len(verified_citations))
+    if uncited_figures:
+        logger.warning(
+            "copilot: answer shipped %d uncited figure(s) of %d total",
+            uncited_figures, figure_count,
+        )
+
+    return {
+        "type": "complete",
+        "answer": full_answer,
+        "citations": verified_citations,
+        "grounded": grounded,
+        "kind": "answer",
+        "followups": followups,
+        "misplaced_fact_markers": misplaced,
+        "figure_count": figure_count,
+        "uncited_figures": uncited_figures,
+        "usage": usage_payload,
+    }
+
+
+async def _answer_filing_question_attempt(
+    *, filing: Any, question: str, history: Optional[list[dict]], source_text: str,
+    normalized_source: str, usage_sink: dict[str, Any], deadline: float, evidence_retry: bool,
+) -> AsyncGenerator[dict, None]:
+    """Stream a grounded answer to ``question`` about ``filing`` as event dicts.
+
+    Yields (in order):
+    * ``{"type": "progress", "stage": "reading"}`` before the model call.
+    * ``{"type": "activity", "label", "phase", "ok"}`` as numeric tools run (live "show the work").
+    * Fixed reading progress while candidate prose is buffered privately.
+    * ``{"type": "not_disclosed", "answer": ...}`` if the model emits the not-disclosed sentinel.
+    * ``{"type": "complete", "answer", "citations", "grounded", "kind", "followups"}`` at the end.
+    * ``{"type": "error", "message": ...}`` on any failure.
+
+    Ordinary failures become safe ``error`` events; cancellation still propagates. The question
+    owner supplies the source normalized once and reused for every excerpt and generation.
+    """
+    provider_stream = None
+    try:
+        messages = _build_messages(filing, source_text, question, history)
+        if evidence_retry:
+            messages[0]["content"] += "\n\n" + _EVIDENCE_RETRY_GUIDANCE
+        facts = _FactRegistry(filing)
+
+        # This generator owns every stream suspension and the provider close.
         yield {"type": "progress", "stage": "reading"}
-
-        answer_parts: list[str] = []          # private candidate prose (before any sentinel)
-        citation_buffer: list[str] = []       # text after ===CITATIONS===
-        not_disclosed_parts: list[str] = []   # text after ===NOT_DISCLOSED===
-        pending = ""                          # carry-over tail for cross-chunk sentinel detection
-        mode = "answer"                        # answer | citations | not_disclosed
+        scanner = _SentinelScanner()
         last_progress = monotonic()
-
-        # The wrapper accumulates actual model, usage and recorded call costs across tool rounds.
         model_name = openai_service.model
-        # Emitted once, on the provider stream's first non-error chunk: the proof the model call
-        # started, which the ask-stream router meters on (not the `reading` progress above, which
-        # precedes the call). A failure or disconnect before this point costs the user nothing.
         provider_started = False
+        # Resolve the singleton and its stream method here, after the first reading yield.
         provider_stream = openai_service.stream_chat_with_tools(
-            messages,
-            copilot_tools.TOOLS,
-            _run_tool,
-            model=model_name,
-            max_tokens=settings.COPILOT_MAX_TOKENS,
-            temperature=0.2,
-            usage_sink=usage_sink,
-            deadline=deadline,
+            messages, copilot_tools.TOOLS, facts.run_tool, model=model_name,
+            max_tokens=settings.COPILOT_MAX_TOKENS, temperature=0.2,
+            usage_sink=usage_sink, deadline=deadline,
         )
         async for delta in provider_stream:
             if not delta:
                 continue
-
-            # The model stream wrapper signals an upstream/model failure with a sentinel-prefixed
-            # chunk (rather than raising). Surface it as a real error event instead of letting the
-            # bracketed text stream out as the answer body — a model outage must not look like a
-            # confident, zero-grounded answer.
             if delta.startswith(STREAM_ERROR_SENTINEL):
                 yield {"type": "error", "message": _STREAM_FAILURE}
                 return
-
             if not provider_started:
                 provider_started = True
                 yield {"type": "progress", "stage": PROVIDER_STARTED_STAGE}
-
-            # Tool-activity signal from the wrapper → a live "show the work" event. Translate the raw
-            # tool name/args into a human label here (the wrapper stays provider-generic).
             if delta.startswith(STREAM_ACTIVITY_SENTINEL):
-                try:
-                    info = json.loads(delta[len(STREAM_ACTIVITY_SENTINEL):])
-                    if not isinstance(info, dict):
-                        info = {}
-                except (ValueError, TypeError):
-                    info = {}
-                yield {
-                    "type": "activity",
-                    "label": _safe_activity_label(info),
-                    "phase": "done" if info.get("phase") == "done" else "start",
-                    "ok": bool(info.get("ok", True)),
-                }
+                yield _activity_event(delta)
                 continue
-
             if monotonic() - last_progress >= 3:
                 yield {"type": "progress", "stage": "reading"}
                 last_progress = monotonic()
+            scanner.feed(delta)
 
-            if mode == "citations":
-                citation_buffer.append(delta)
-                continue
-            if mode == "not_disclosed":
-                not_disclosed_parts.append(delta)
-                continue
-
-            # mode == "answer": scan the accumulated buffer for a sentinel, holding prose privately and
-            # holding back a tail so a sentinel split across chunks is still caught.
-            pending += delta
-            while True:
-                cit_at = pending.find(_CITATIONS_SENTINEL)
-                nd_at = pending.find(_NOT_DISCLOSED_SENTINEL)
-                # Earliest sentinel wins (filter out the -1 "not found" sentinels).
-                hits = [pos for pos in (cit_at, nd_at) if pos != -1]
-                if hits:
-                    cut = min(hits)
-                    prose = pending[:cut]
-                    if prose:
-                        answer_parts.append(prose)
-                    if cut == cit_at:
-                        mode = "citations"
-                        citation_buffer.append(pending[cut + len(_CITATIONS_SENTINEL):])
-                    else:
-                        mode = "not_disclosed"
-                        not_disclosed_parts.append(pending[cut + len(_NOT_DISCLOSED_SENTINEL):])
-                    pending = ""
-                    break
-
-                # No complete sentinel: buffer everything except a held-back tail that could be the
-                # start of a sentinel spanning into the next chunk.
-                if len(pending) > _SENTINEL_TAIL:
-                    emit = pending[:-_SENTINEL_TAIL]
-                    pending = pending[-_SENTINEL_TAIL:]
-                    if emit:
-                        answer_parts.append(emit)
-                break
-
-        # Preserve the per-call accounting, including unknown values and mixed-model totals.
+        # Preserve unknown usage and mixed-model totals before flushing the private tail.
         usage_payload = usage_sink or None
-
-        # Flush any held-back tail that turned out to be plain prose.
-        if mode == "answer" and pending:
-            answer_parts.append(pending)
-
-        if mode == "not_disclosed":
-            if "".join(answer_parts).strip():
-                raise _UnpublishableAnswer("Answer prose precedes not-disclosed verdict")
-            # A complete not-disclosed verdict needs its reason and the whole required
-            # followups envelope. Provider EOF or repaired JSON cannot establish completion.
-            nd_raw = "".join(not_disclosed_parts)
-            nd_match = _FOLLOWUPS_RE.search(nd_raw)
-            if not nd_match:
-                raise _UnpublishableAnswer("Missing not-disclosed followups envelope")
-            answer = nd_raw[:nd_match.start()].strip()
-            if not answer:
-                raise _UnpublishableAnswer("Empty not-disclosed reason")
-            if _CITATIONS_SENTINEL in answer or _NOT_DISCLOSED_SENTINEL in answer:
-                raise _UnpublishableAnswer("Contradictory not-disclosed envelope")
-            try:
-                nd_followups = json.loads(nd_raw[nd_match.end():].strip())
-            except (ValueError, TypeError) as exc:
-                raise _UnpublishableAnswer("Incomplete not-disclosed followups array") from exc
-            if (not isinstance(nd_followups, list) or not 2 <= len(nd_followups) <= 3
-                    or any(not isinstance(item, str) or not item.strip() for item in nd_followups)):
-                raise _UnpublishableAnswer("Invalid not-disclosed followups array")
-            nd_followups = [item.strip()[:140] for item in nd_followups]
-            await asyncio.to_thread(_withhold_unsupported_quotations, normalized_source, "", [answer, *nd_followups])
+        scanner.flush()
+        if scanner.mode == "not_disclosed":
+            answer, nd_followups = await _admit_not_disclosed(scanner, normalized_source)
             yield {"type": "not_disclosed", "answer": answer}
             yield {
-                "type": "complete",
-                "answer": answer,
-                "citations": [],
-                "grounded": 0,
-                "kind": "not_disclosed",
-                "followups": nd_followups,
-                "usage": usage_payload,
+                "type": "complete", "answer": answer, "citations": [], "grounded": 0,
+                "kind": "not_disclosed", "followups": nd_followups, "usage": usage_payload,
             }
             return
 
-        full_answer = "".join(answer_parts).strip()
-        if mode != "citations":
-            raise _UnpublishableAnswer("Missing citation envelope")
-        citations, followups = _parse_citations("".join(citation_buffer))
-
-        # Multi-reference bracket groups the model emits despite the one-marker-per-bracket
-        # contract — "[F1, F2]", "[F1, 2]", "[F1 vs F2]" — previously stayed LITERAL in the
-        # answer (the resolver's regex only matches single markers). Normalize them to adjacent
-        # single brackets first (shared citation-group classification with the trend resolver),
-        # so each reference resolves through the normal path. Guard semantics after the split:
-        # the FIRST member carries the claim's adjacency window; later members' windows are the
-        # single space between brackets, so they get the qualitative-placement treatment (same
-        # as a chain the model writes itself) — split members are resolved, not value-checked.
-        full_answer = citation_markers.expand_citation_marker_groups(
-            full_answer,
-            ref_re=citation_markers.COPILOT_GROUP_MEMBER_RE,
-            normalize=citation_markers.copilot_normalize_ref,
-            # Only groups with at least one F-ref expand: an ALL-plain-number group never does
-            # (pinned resolver behavior, and "[1,234]" could be a bracketed thousands figure).
-            require_re=citation_markers.MARKER_REF_RE,
-        )
-        referenced = {
-            re.sub(r"\s+", "", match.group(1)).upper()
-            for match in _COPILOT_MARKER_RE.finditer(full_answer)
-        }
-        text_citations_by_marker = _verify_citations(citations, filing, normalized_source, referenced)
-        # Keep literal identities before repair/numbering; a later citation must not capture
-        # an unrelated original [1]. Leading-zero markers keep their original identity.
-        unresolved_literals = {key for key in referenced if not key.startswith("F")
-                               and key not in text_citations_by_marker}
-        # Supported uncited annual claims need positive certification, beyond marker removal.
-        # Look up each claimed figure in the viewed filing and attach separate markers only
-        # after every operand certifies; preserve every other byte of the answer.
-        full_answer = _repair_uncited_fact_claim(
-            full_answer, filing=filing, accession=accession, currency=currency,
-            register=_register_fact,
-        )
-        # Single server-owned numbering pass: resolves every marker actually present in the answer
-        # (text-excerpt or tool-figure alike) against its real source, assigns one continuous
-        # sequential number in first-appearance order, and rewrites the answer's inline markers to
-        # match — so the answer text and the returned citations list can never disagree, and a
-        # declared-but-never-cited source can never leak into the Sources panel.
-        filing_url = getattr(filing, "document_url", None) or getattr(filing, "sec_url", None) or None
-        before_resolution = full_answer
-        full_answer, verified_citations, grounded, misplaced = _resolve_citations(
-            full_answer, text_citations_by_marker, used_facts, filing_url
-        )
-        # Unresolvable model F-markers can have hidden an otherwise eligible claim from
-        # the first repair. Certify only the final visible, wholly uncited prose; never
-        # reinterpret surviving citations or reuse a rejected marker as evidence.
-        if not verified_citations and full_answer != before_resolution:
-            repaired = _repair_uncited_fact_claim(
-                full_answer, filing=filing, accession=accession, currency=currency,
-                register=_register_fact,
-            )
-            if repaired != full_answer:
-                full_answer, verified_citations, grounded, additional_misplaced = _resolve_citations(
-                    repaired, {}, used_facts, filing_url,
-                )
-                misplaced += additional_misplaced
-        if not full_answer:
-            raise _UnpublishableAnswer("Empty resolved answer")
-        if any(str(cite["n"]) in unresolved_literals or cite["verified"] is not True
-               for cite in verified_citations):
-            raise _UnpublishableAnswer("Unverified or colliding final citation")
-        await asyncio.to_thread(_withhold_unsupported_quotations, normalized_source, full_answer, followups)
-        if misplaced:
-            # Trust telemetry: a nonzero rate here means the model is attaching fact markers to
-            # figures they don't support — watch this after any prompt/model change.
-            logger.warning("copilot: stripped %d misplaced fact marker(s) from answer", misplaced)
-        # COVERAGE telemetry, the counterpart signal: stripping misplaced markers (and model
-        # laziness) leaves figures with no citation at all. Counted on the FINAL answer — what
-        # the user actually sees.
-        figure_count, uncited_figures = count_uncited_figures(full_answer, len(verified_citations))
-        if uncited_figures:
-            logger.warning(
-                "copilot: answer shipped %d uncited figure(s) of %d total",
-                uncited_figures, figure_count,
-            )
-
-        yield {
-            "type": "complete",
-            "answer": full_answer,
-            "citations": verified_citations,
-            "grounded": grounded,
-            "kind": "answer",
-            "followups": followups,
-            "misplaced_fact_markers": misplaced,
-            "figure_count": figure_count,
-            "uncited_figures": uncited_figures,
-            "usage": usage_payload,
-        }
+        yield await _admit_answer(scanner, filing, normalized_source, facts, usage_payload)
     except _UnpublishableAnswer:
         raise  # The question owner decides whether one fresh generation is possible.
     except Exception:  # noqa: BLE001 — never raise ordinary failures out of the SSE generator
