@@ -31,10 +31,13 @@ import { bindingResolver, type Binding } from './astBindings'
  *     a component that renders such an element and hands it the caller's className (its `className`
  *     prop, or its rest props). The DS Button renders `loading` as aria-disabled, so
  *     `<Button loading={busy} className={busy ? 'opacity-50' : ''}>` fails; a Button that is never given
- *     `loading` is no control. Which props make a shared control aria-disabled is read from its own
- *     expression: the props it is built from alone (Button's `loading`), or every use when it reads
- *     anything else (RetryButton, busy from its failures). A wrapper that forwards to a shared control is
- *     one too, and a use under an alias (`const BusyButton = Button`, `memo(Button)`) is a use of it.
+ *     `loading` is no control. Which uses count is read from the component's own `aria-disabled`
+ *     expression. When it is falsy unless a prop is passed (props with no default or a falsy one, joined
+ *     by `||`, `&&` or `??`: Button's `loading || undefined`), a use is a control when it passes one of
+ *     those props. Any other expression can be truthy at a use that passes nothing (a negation, a truthy
+ *     default, a call, state), so every use is a control (RetryButton, AlertBell). A wrapper that
+ *     forwards to a shared control is one too, and a use under an alias (`const BusyButton = Button`,
+ *     `memo(Button)`) is a use of it.
  *     The scan reads every string and template chunk of the control's className and of what its
  *     identifiers name: a const's initializer or a function declaration's body, resolved in lexical
  *     scope, followed transitively and across modules, through an import (`@/…` or relative, named or
@@ -291,18 +294,44 @@ function fadeScanner(read: Read, root: string): (file: string) => { offenders: O
     visit(expr)
   }
 
-  /** The props of `fn` an expression is built from alone; 'always' when it reads anything else, or nothing. */
-  const builtFrom = (expr: ts.Node | undefined, fn: Component, mod: Module): Triggers => {
-    const props = new Set<string>()
-    let other = false
-    if (expr) {
-      reads(expr, mod, (ref) => {
-        const prop = propNamed(ref, fn, mod)
-        if (prop && prop !== '...') props.add(prop)
-        else if (ref.text !== 'undefined' && !mod.visible(ref)?.init) other = true
-      })
+  /** `false`, `null`, `undefined`, `0` or `''`: a value that never makes a control aria-disabled. */
+  const isFalsy = (n: ts.Node): boolean =>
+    n.kind === ts.SyntaxKind.FalseKeyword ||
+    n.kind === ts.SyntaxKind.NullKeyword ||
+    (ts.isIdentifier(n) && n.text === 'undefined') ||
+    (ts.isNumericLiteral(n) && Number(n.text) === 0) ||
+    (ts.isStringLiteralLike(n) && n.text === '')
+
+  /**
+   * The props of `fn` one of which a use must pass for `expr` to be truthy: an expression built from its props
+   * (each with no default, or a falsy one), falsy literals, `||`, `&&` and `??` is falsy when none is passed
+   * (`loading || undefined`). Any other shape can be truthy at a use that passes nothing (a negation, a truthy
+   * default, a call, state), so it is 'always'.
+   */
+  const builtFrom = (expr: ts.Node | undefined, fn: Component, mod: Module, seen = new Set<Binding>()): Triggers => {
+    if (!expr) return 'always'
+    if (ts.isParenthesizedExpression(expr)) return builtFrom(expr.expression, fn, mod, seen)
+    if (isFalsy(expr)) return new Set()
+    if (ts.isBinaryExpression(expr)) {
+      const op = expr.operatorToken.kind
+      if (op !== ts.SyntaxKind.BarBarToken && op !== ts.SyntaxKind.AmpersandAmpersandToken && op !== ts.SyntaxKind.QuestionQuestionToken) return 'always'
+      const left = builtFrom(expr.left, fn, mod, seen)
+      const right = builtFrom(expr.right, fn, mod, seen)
+      return left === 'always' || right === 'always' ? 'always' : new Set([...left, ...right])
     }
-    return other || props.size === 0 ? 'always' : props
+    if (ts.isIdentifier(expr)) {
+      const binding = mod.visible(expr)
+      const prop = propNamed(expr, fn, mod)
+      if (binding && prop && prop !== '...' && ts.isBindingElement(binding.decl)) {
+        const fallback = binding.decl.initializer
+        return !fallback || isFalsy(fallback) ? new Set([prop]) : 'always'
+      }
+      if (binding?.init && !seen.has(binding)) {
+        seen.add(binding)
+        return builtFrom(binding.init, fn, mod, seen)
+      }
+    }
+    return 'always'
   }
 
   /**
@@ -522,7 +551,7 @@ describe('no element opacity on an aria-disabled control (rule-12 gate)', () => 
     expect(tokensAmong(files, '/app/features/Quiet.tsx')).toEqual([])
   })
 
-  it('holds a use of a shared control to the rule: by the props that make it aria-disabled, through a wrapper or an alias, and nothing else', () => {
+  it('holds a use of a shared control to the rule: by the props that can make it aria-disabled, through a wrapper or an alias, and nothing else', () => {
     const files = {
       '/app/components/ui/Button.tsx': `
         export const Button = forwardRef(function Button({ loading = false, className, children, ...rest }, ref) {
@@ -537,6 +566,15 @@ describe('no element opacity on an aria-disabled control (rule-12 gate)', () => 
         }
         export function Fixed({ loading, label }) {
           return <button aria-disabled={loading || undefined} className="rounded-lg">{label}</button>
+        }
+        export function DefaultBusy({ busy = true, className }) {
+          return <button aria-disabled={busy || undefined} className={className} />
+        }
+        export function Ready({ ready, className }) {
+          return <button aria-disabled={!ready} className={className} />
+        }
+        export function Never({ className }) {
+          return <button aria-disabled={false} className={className} />
         }
       `,
       '/app/hooks/Retry.tsx': `
@@ -554,7 +592,7 @@ describe('no element opacity on an aria-disabled control (rule-12 gate)', () => 
         }
       `,
       '/app/features/Page.tsx': `
-        import { Button as DsButton, Chip, Fixed } from '@/components/ui/Button'
+        import { Button as DsButton, Chip, DefaultBusy, Fixed, Never, Ready } from '@/components/ui/Button'
         import { RetryButton } from '@/hooks/Retry'
         import { Bell } from './Bell'
         import Link from 'next/link'
@@ -570,6 +608,9 @@ describe('no element opacity on an aria-disabled control (rule-12 gate)', () => 
             <BusyButton loading={busy} className="opacity-20">Aliased</BusyButton>
             <MemoButton loading={busy} className="opacity-10">Wrapped</MemoButton>
             <MemoButton className="opacity-10">Never loading</MemoButton>
+            <DefaultBusy className="opacity-25" />
+            <Ready className="opacity-15" />
+            <Never className="opacity-70" />
             <DsButton className="opacity-0 group-hover:opacity-100">Copy</DsButton>
             <DsButton loading={busy} className="w-full disabled:opacity-60">Send</DsButton>
             <Chip className="opacity-70">New</Chip>
@@ -587,6 +628,8 @@ describe('no element opacity on an aria-disabled control (rule-12 gate)', () => 
       'element opacity-30',
       'element opacity-20',
       'element opacity-10',
+      'element opacity-25',
+      'element opacity-15',
     ])
     for (const file of ['/app/components/ui/Button.tsx', '/app/hooks/Retry.tsx', '/app/features/Bell.tsx']) {
       expect(tokensAmong(files, file)).toEqual([])
