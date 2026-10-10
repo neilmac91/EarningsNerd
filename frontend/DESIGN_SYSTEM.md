@@ -207,12 +207,19 @@ Focus ring       focus-visible:outline-none focus-visible:shadow-ring-brand dark
                  in the site chrome carries it (the skip link the same triple on `focus:`): gate
                  tests/unit/siteChromeFocusRing.spec.ts reads the AST of every chrome file, discovered from
                  app/layout.tsx, every route layout, template or error boundary under app/ (the admin
-                 nav, global-error's fallback), AuthShell and SecondaryHeader through their imports and
-                 re-exports (components/ui aside), so a new banner, menu or widget is scanned unlisted,
+                 nav, global-error's fallback), AuthShell and SecondaryHeader through their imports (a lazy
+                 `import()` included) and re-exports, into the DS primitives they render (a barrel's
+                 named re-export by the names imported: Modal with its close ✕, Button, Skeleton), so a
+                 new banner, menu, widget or primitive is scanned unlisted,
                  plus every control a page passes into SecondaryHeader's `actions` slot (the dashboard's
                  "Log out"; write them inline, as a variable or
                  a component of their own the scan cannot read them); `buttonVariants(…)` composes it; a
-                 className it cannot read fails, and so does a props spread on a host element or a Link. A
+                 className it cannot read fails (it reads `cx(…)` by its static arguments), and so does a
+                 props spread, except a component's own rest props passed to the element that takes its
+                 className. An <iframe> in the Tab order (`tabIndex={-1}` takes it out), <audio> or
+                 <video> with `controls` and a <details> with no <summary> of its own fail outright: the
+                 browser focuses the frame's document, its own media controls or its own "Details"
+                 summary, which no class reaches (Chromium 141). A
                  third-party component the chrome renders must be classified in the gate (a provider renders
                  no control); Sonner's Toaster takes the ring
                  through `toastOptions.classNames` with `!` on the shadow, since Sonner's own injected
