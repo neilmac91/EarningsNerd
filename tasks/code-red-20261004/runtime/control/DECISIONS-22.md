@@ -108,7 +108,7 @@ the six-job loop and backfill-facts carry both pins (`DB_POOL_SIZE=1`, `DB_MAX_O
 health body `status healthy` (database healthy, Redis disabled by design); "Deployed <sha> and verified healthy." The worker's, the
 service's and pregenerate's pins and the service's `ENABLE_INSIDER_ACTIVITY=false` sit past the filter's 400-character line cut, so
 they are read from `ci.yml` at the seven deployed commits (those lines are unchanged across them), each step succeeding, and the live
-`describe-service` and `describe-jobs` below read them back from the running revisions. So from 11:15:45Z production ran #1176's
+`describe-service` and `describe-jobs` below read them back from the running revisions and the pregenerate job's configuration. So from 11:15:45Z production ran #1176's
 images: the API service `earningsnerd-backend-00466-8d8` and the worker `earningsnerd-task-worker-00019-97g`, which the live
 `describe-service` below confirms from the services themselves at 12:57Z. Main runs after `aa9cf45b` are classified in record 23.
 
@@ -172,7 +172,7 @@ item completes only on a positive read.
 
 1. **The authenticated `probe` with an empty payload, enqueued first:** not readable, so **unverified**. No operation records a task's kind or payload,
    and Ops has no probe operation; the step belongs to the first enablement, before the repository variables were set, and they were
-   already set at #1176's deploy (11:13:17Z) while the receipt's first sample is 10:56Z. The authenticated deliveries in item 9 answer
+   already set at #1176's deploy (11:13:17Z) while the receipt's first sample is 10:56Z. The deliveries in item 9, through the enforced invoker check, answer
    the question the probe asks.
 2. **Worker completion and task removal,** by the rollout text's own inference rule: 17 worker requests, every one `200`, all on the
    serving revision `00019-97g` (none on `00018-ckg`, the revision before the deploy); 17 attempts, every one `ok`; queue depth 0 at
@@ -241,7 +241,8 @@ fired (none could).
    filter at first dropped the `Worker invoker IAM check: enforced` line (its keep list did not name it), so the line was read from a
    second filtered download, the keep list was widened, and the independent check, told so, filtered its own copy again. No value was
    lost or misread. And four of #1172's eighteen ready heads were superseded within minutes, before an `@codex review` request was
-   posted (above); each successor was reviewed, and the merged head had no findings.
+   posted (above); each was covered by the next reviewed head (`61ed80e` for `577edeb` and `2dc7a3b`, `8a3fd35` for `10df20f`,
+   `8fb9802` for `d0ce70a`), and the merged head had no findings.
    **A wording correction** (the same class as record 21's correction of record 20): `b32003f8`'s squash message says Codex raised
    "P1 four times and P2 nine times across the heads"; the count is four P1 and eleven P2 (above). The PR body's own figure,
    "P1 four times and P2 eight times on the gate itself", is right. Main's history is left as merged.
