@@ -23,6 +23,11 @@ REPO_ROOT = Path(__file__).resolve().parents[3]
 WRAPPER = REPO_ROOT / "tasks" / "code-red-20261004" / "runtime" / "tools" / "records-gate.sh"
 
 
+def _is_unpiped_with_status_captured(line: str) -> bool:
+    """The rule the wrapper's pytest line must satisfy: no pipe (``||`` captures the status and is not one), and ``|| status=$?``."""
+    return "|" not in line.replace("||", "") and re.search(r"\|\| status=\$\?", line) is not None
+
+
 def test_wrapper_is_strict_and_runs_pytest_unpiped() -> None:
     text = WRAPPER.read_text(encoding="utf-8")
     assert WRAPPER.stat().st_mode & stat.S_IXUSR, "records-gate.sh must be executable"
@@ -30,9 +35,7 @@ def test_wrapper_is_strict_and_runs_pytest_unpiped() -> None:
     assert "set -euo pipefail" in text, "the wrapper must run in strict mode with pipefail"
     pytest_lines = [line for line in text.splitlines() if "-m pytest" in line]
     assert len(pytest_lines) == 1, f"exactly one pytest invocation expected, found {pytest_lines}"
-    # `||` captures the status; a lone `|` would hand the status to the right-hand command (the incident shape).
-    assert "|" not in pytest_lines[0].replace("||", ""), f"the pytest invocation must not be piped: {pytest_lines[0]!r}"
-    assert re.search(r"\|\| status=\$\?", pytest_lines[0]), "the invocation must capture pytest's exit status"
+    assert _is_unpiped_with_status_captured(pytest_lines[0]), f"the pytest invocation must not be piped: {pytest_lines[0]!r}"
     assert re.search(r'^exit "\$status"\s*$', text, re.MULTILINE), "the wrapper must exit with pytest's status"
 
 
@@ -70,7 +73,19 @@ def test_wrapper_passes_when_the_gate_passes(tmp_path: Path) -> None:
     assert result.stderr == "", result.stderr
 
 
-@pytest.mark.parametrize("line", ["pytest tests/unit/test_code_red_runtime_records.py -q | tail -1"])
-def test_the_incident_shape_is_what_the_wrapper_forbids(line: str) -> None:
-    """Documents the shape of chief defect 10 so the static check above reads as the rule it enforces."""
-    assert "|" in line and "pytest" in line
+@pytest.mark.parametrize(
+    ("line", "accepted"),
+    [
+        # chief defect 10: the pipe hands the status to tail
+        ("python -m pytest tests/unit/test_code_red_runtime_records.py -q | tail -1", False),
+        # piped and then captured: still rejected, the capture sees tail's status
+        ("python -m pytest tests/unit/test_code_red_runtime_records.py -q | tail -1 || status=$?", False),
+        # unpiped but the status is not captured: `set -e` would abort before the summary and the exit line
+        ("python -m pytest tests/unit/test_code_red_runtime_records.py -q >\"$log\" 2>&1", False),
+        # the wrapper's shape
+        ("(cd \"$repo/backend\" && \"$python_bin\" -m pytest \"$test_path\" -q) >\"$log\" 2>&1 || status=$?", True),
+    ],
+)
+def test_the_predicate_rejects_the_incident_shape(line: str, accepted: bool) -> None:
+    """The static rule above, exercised on the shape of chief defect 10 and on the wrapper's own shape."""
+    assert _is_unpiped_with_status_captured(line) is accepted
