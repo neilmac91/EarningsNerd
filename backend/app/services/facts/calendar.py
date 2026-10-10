@@ -38,14 +38,27 @@ def fiscal_year_labels(duration_values: dict, windows: list[tuple[date, date]]) 
             if kind == "FY" and (year := reported_fiscal_year(record, end)) is not None:
                 evidence.setdefault(end, set()).add(year)
     labels = {end: next(iter(years)) for end, years in evidence.items() if len(years) == 1}
-    ends = [end for _start, end in windows]
-    # Old comparative-only history may lack its original filing. Contiguous year windows
-    # can inherit an established adjacent issuer label, without trusting a later filer's fy.
-    for ordered in (ends, list(reversed(ends))):
-        for prior, current in zip(ordered, ordered[1:]):
-            if current not in labels and prior in labels and 335 <= abs((current - prior).days) <= 395:
-                labels[current] = labels[prior] + (1 if current > prior else -1)
-    return {end: labels.get(end, end.year) for end in ends}
+    chains: list[list[date]] = []
+    for _start, end in windows:
+        if not chains or not 335 <= (end - chains[-1][-1]).days <= 395:
+            chains.append([])
+        chains[-1].append(end)
+    return {end: year for chain in chains for end, year in _consistent_year_chain(chain, labels).items()}
+
+
+def _consistent_year_chain(ends: list[date], labels: dict[date, int]) -> dict[date, int]:
+    """An annual cycle advances one FY; contradictory SEC hints cannot merge cycles."""
+    offsets: dict[int, int] = {}
+    for index, end in enumerate(ends):
+        if end in labels:
+            offset = labels[end] - index
+            offsets[offset] = offsets.get(offset, 0) + 1
+    if not offsets:
+        return {end: end.year for end in ends}
+    # Most independent original annual labels establish the sequence. Equal support
+    # preserves the earliest established label; a later repeated fy cannot overwrite it.
+    base_year = max(offsets, key=offsets.get)
+    return {end: base_year + index for index, end in enumerate(ends)}
 
 
 def _fiscal_year_windows(duration_values: dict) -> list[tuple[date, date]]:

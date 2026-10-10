@@ -39,8 +39,8 @@ from app.utils.datetimes import ensure_utc, iso_z
 logger = logging.getLogger(__name__)
 
 # Bump on changes to the live selector prompt or observation rendering. Dataset changes also
-# invalidate caches through dataset_fingerprint. compact_dataset_for_prompt is a legacy diagnostic
-# renderer; v7 sends the code-owned observation catalogue to the selector instead.
+# invalidate caches through dataset_fingerprint. The active model selects code-owned observations;
+# financial values and comparisons are rendered deterministically.
 # v2: derived flag narrowed to true computed-Q4 points, CAGR markers, per-marker signal brackets,
 # multi-reference resolver, pp-vs-relative guardrail.
 # v3: percent-unit series (margins) report YoY/QoQ as percentage-point deltas (not relative %);

@@ -147,3 +147,21 @@ def test_johnson_johnson_style_january_first_year_end_keeps_issuer_fiscal_year()
         (2022, "Q1", 10), (2022, "FY", 100), (2023, "Q1", 20), (2023, "FY", 200),
     }
     assert len(rows) == 4
+
+
+def test_salesforce_style_conflicting_annual_hint_cannot_merge_consecutive_years():
+    observations = [
+        _observation(90, "2023-02-01", "2024-01-31", "FY", 2024, "2024-03-06", form="10-K"),
+        _observation(10, "2024-02-01", "2024-04-30", "Q1", 2025, "2024-05-30"),
+        _observation(100, "2024-02-01", "2025-01-31", "FY", 2025, "2025-03-05", form="10-K"),
+        _observation(20, "2025-02-01", "2025-04-30", "Q1", 2026, "2025-05-30"),
+        # A timely original filing still carries a contradictory SEC fy hint.
+        _observation(200, "2025-02-01", "2026-01-31", "FY", 2025, "2026-03-02", form="10-K"),
+    ]
+    facts, _ = normalize_companyfacts(1, _payload(**{REVENUE: observations}))
+    rows = _concept(facts, "revenue")
+    assert {(fact["fiscal_year"], fact["fiscal_period"], fact["value"]) for fact in rows} == {
+        (2024, "FY", 90), (2025, "Q1", 10), (2025, "FY", 100),
+        (2026, "Q1", 20), (2026, "FY", 200),
+    }
+    assert len(rows) == 5
