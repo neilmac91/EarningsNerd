@@ -14,7 +14,11 @@ reaches CI red costs a cycle and the reviewers' trust.
 the thing that decides: run it unpiped, or set `pipefail` for the chain, and grep the summary only
 after the status has been checked. Prefer `set -euo pipefail` at the top of any chain that ends in a
 commit or push, and never follow a test run with `| tail`, `| grep` or `| head` on the same line as
-the `&&` that commits.
+the `&&` that commits. For the CODE RED records, run the gate only through
+`tasks/code-red-20261004/runtime/tools/records-gate.sh`, which runs pytest unpiped, prints the
+summary afterwards and exits with pytest's status; `backend/tests/unit/test_records_gate_wrapper.py`
+pins that form and proves by mutation that a failing test fails the wrapper (rule 12: the gate behind
+this rule).
 
 **Evidence.** `tasks/code-red-20261004/runtime/control/DECISIONS-21.md` (disclosure 7);
 `tasks/code-red-20261004/runtime/control/APPOINTMENTS.json` (`chief_defects`, 2026-10-10T04:05Z);

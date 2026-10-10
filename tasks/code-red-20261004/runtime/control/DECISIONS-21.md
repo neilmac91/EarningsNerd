@@ -4,8 +4,9 @@ Recorded 2026-10-09T23:02Z, amended 2026-10-09T23:12Z (the relayed confirmation)
 interruption; the fresh reviewer context), 04:09Z (chief defect 10) and 04:30Z (after the record-21 review: the later main runs
 read back, including two deploys by other writers), by the successor chief (`https://claude.ai/code/session_011jZyZqfNWZRqiFNWfTc3u8`).
 Context: record 20 merged to main as `da8dc998` (PR #1167, 2026-10-09T22:14:52Z); this is the first PR from the successor's
-branch `claude/stoic-wright-6jeujo`, started at `a572876c`. Records, two lessons and the lessons index only: no code, workflow, migration, cloud, IAM or production change in
-this PR; no provider call; no reservation; nothing opened under `tasks/readiness-2026-09-21/acceptance/` or
+branch `claude/stoic-wright-6jeujo`, started at `a572876c`. Records, two lessons, the lessons index, one records-tree tool
+(`tools/records-gate.sh`) and its test under `backend/tests/unit/`: no application code, workflow, migration, cloud, IAM or
+production change in this PR (nothing under `backend/` outside `tests/`, so the merge deploys nothing); no provider call; no reservation; nothing opened under `tasks/readiness-2026-09-21/acceptance/` or
 `tasks/review-evidence/`. (The successor's branch started at `a572876c`, main's tip at 22:38Z; main's later merges, by other
 writers, are classified below up to this record's last amendment.)
 
@@ -220,7 +221,12 @@ paid trigger can still fire (Plan, below); the predecessor's attempt to add it t
    output; corrected in `351319f` one minute later (committed 04:07:02Z, pushed by 04:07:08Z; the label annotated as exercised,
    its launch-time identity registered, the formal resolution left to a later closure; 9 passed). No merge and no production effect; PR #1172's CI on `7d65c89` is expected
    red on `backend-tests` for the same reason. Rule: a verification command in a chain is never piped away; its exit status gates
-   the commit. Added to `APPOINTMENTS.json`'s `chief_defects`; lesson `lessons/ops-a-piped-gate-does-not-gate.md`.
+   the commit. Added to `APPOINTMENTS.json`'s `chief_defects`; lesson `lessons/ops-a-piped-gate-does-not-gate.md`. **Machine gate**
+   (rule 12; Codex's P1 on this PR): `tools/records-gate.sh` is the supported way to run the runtime-records gate before a records
+   commit (strict mode, the pytest invocation unpiped, the summary printed afterwards, pytest's status the wrapper's exit status),
+   and `backend/tests/unit/test_records_gate_wrapper.py` pins its form and proves by mutation that a failing test makes the wrapper
+   exit non-zero while a passing one exits zero. The repository still cannot see the chief's shell, so the gate is the wrapper plus
+   CI's own run of the records gate, which is what caught `7d65c89`.
 8. **The successor's side effects to this record:** read-only GitHub requests (runs, jobs, one PR, the open PR list, the balance
    job's log); two pages of the predecessor's session event log through the platform's session API (its own transcript events,
    summarised through a redacting script; one path fragment of the predecessor's scratchpad seen in its tool calls, written nowhere);
@@ -278,7 +284,9 @@ source, reconciliation or judging eligibility; every earlier identity and advers
 
 No paid run since ledger event 44; no ledger event in this record. Recorded use against the authority 1.513044 (1,153 calls);
 retained holds 1.881713; headroom 21.605243; cumulative 3,212 calls / USD 5.297293; 0 active reservations. The read-back PR's
-`copilot-eval` run is reserved by event 45, which also records the founder's USD 5 floor and the fresh balance reading taken for it.
+leaving draft is covered by event 45, which records the founder's USD 5 floor and the fresh balance reading taken for it and
+writes a reservation only if a paid trigger can still fire for the PR's files (none can under `copilot-eval.yml`'s paths since PR
+#1123 and `eval-baseline`'s filter, so no reservation is expected and nothing is encumbered today).
 
 ## Founder actions this record needs
 
