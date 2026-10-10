@@ -26,6 +26,7 @@ async def test_running_native_work_is_killed_and_reaped_before_request_ends(monk
     )
     monkeypatch.setattr(service, "_command", lambda: (sys.executable, "-c", script, str(ready)))
     children = []
+    registered_and_ready = asyncio.Event()
     create = asyncio.create_subprocess_exec
 
     async def record(*args, **kwargs):
@@ -42,13 +43,14 @@ async def test_running_native_work_is_killed_and_reaped_before_request_ends(monk
                 process.kill()
             await process.wait()
             raise
+        registered_and_ready.set()
         return process
 
     monkeypatch.setattr(service.asyncio, "create_subprocess_exec", record)
     task = asyncio.create_task(service.run_task_process(TaskEnvelope(kind="companyfacts", payload={"company_id": 7})))
     async with asyncio.timeout(2):
-        while not ready.exists():
-            await asyncio.sleep(0.005)
+        # The child's ready file can precede the parent recording its process handle.
+        await registered_and_ready.wait()
     assert children[0].returncode is None
     with pytest.raises(RuntimeError, match="busy; retry delivery"):
         await service.run_task_process(TaskEnvelope(kind="companyfacts", payload={"company_id": 8}))
