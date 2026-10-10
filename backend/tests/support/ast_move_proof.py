@@ -111,20 +111,21 @@ class: a binding in a block, by a bare annotation or ``:=``, or deleted before t
 builtin, and an import from ``builtins`` is the builtin); annotations postponed by ``from __future__ import
 annotations`` in one module and evaluated in the other (a def's parameters and return, and an annotated
 assignment at module level or in a class body, not one in a def's body, which Python never evaluates;
-reported once, on the class, for a class's members), and so the code it compiles with the builtin ``exec``
-or ``compile``, which inherits the import unless ``compile`` is told ``dont_inherit`` (fail closed: a code
-object compiled elsewhere does not); and a module dunder it binds, at module level or through ``global``,
-which Python reads from the new module (a moved ``__getattr__`` no longer serves the façade). A block reads
-its header here, a ``globals()`` there too; its statements are symbols of their own. A name that both
-modules set outright above the reading symbol (outside a block, not by a bare annotation or ``:=``, from a
-value that does not read the name as ``__doc__ +=`` does; a def above the binding may be called at import
-before it), or that an earlier member of its class sets so for a read in the class body itself, is compared
-as those symbols; one that only one module sets outright, or binds at all, is reported; otherwise the values
-the import system derives are compared. Names are derived from the path relative to ``backend/`` (the CLI
-normalises how ``--old`` and ``--new`` are spelled), every directory a package, and without the old path
-(``compare()``'s ``old_path``, which the CLI always passes) every read but the docstring's and the
-annotations' is reported, as ``the old path is unknown`` or ``was an unknown module``. A RELOCATED symbol
-still counts as identical, as a REORDERED one does, and ``--allow`` takes its key.
+reported once, on the class, for a class's members), and the code it compiles with the builtin ``exec`` or
+``compile``, which inherits every ``from __future__`` import of its module unless ``compile`` is told
+``dont_inherit``, when those differ (fail closed: a code object compiled elsewhere does not); and a module
+dunder it binds, at module level or through ``global``, which Python reads from the new module (a moved
+``__getattr__`` no longer serves the façade). A block reads its header here, a ``globals()`` there too; its
+statements are symbols of their own. A name that both modules set outright above the reading symbol (outside
+a block, not by a bare annotation or ``:=``, from a value that does not read the name as ``__doc__ +=``
+does; a def above the binding may be called at import before it), or that an earlier member of its class
+sets so for a read in the class body itself, is compared as those symbols; one that only one module sets
+outright, or binds at all, is reported; otherwise the values the import system derives are compared. Names
+are derived from the path relative to ``backend/`` (the CLI normalises how ``--old`` and ``--new`` are
+spelled), every directory a package, and without the old path (``compare()``'s ``old_path``, which the CLI
+always passes) every read but the docstring's and the annotations' is reported, as ``the old path is
+unknown`` or ``was an unknown module``. A RELOCATED symbol still counts as identical, as a REORDERED one
+does, and ``--allow`` takes its key.
 
 Limits. Code that a new class runs through a BASE (an inherited metaclass, or the base's
 ``__init_subclass__``) is not visible in the AST, so a new class with bases is ADDED; read every ADDED
@@ -895,6 +896,7 @@ class _Module:
     path: PurePosixPath | None
     docstring: str | None
     postponed: bool
+    futures: frozenset[str]  # its ``from __future__`` imports, which code it compiles inherits
     binds: frozenset[str]
     outright: dict[str | None, dict[str, int]] = field(hash=False)
 
@@ -938,7 +940,10 @@ def _module(path: str | None, source: str, names: dict[str, _Names]) -> _Module:
                 lines = first.setdefault(used.owner, {})
                 lines[name] = min(lines.get(name, used.lines[0]), *used.lines)
     return _Module(PurePosixPath(path) if path else None, ast.get_docstring(tree, clean=False),
-                   _postpones_annotations(tree), frozenset(name for used in names.values() for name in used.rebinds()),
+                   _postpones_annotations(tree),
+                   frozenset(alias.name for node in tree.body if isinstance(node, ast.ImportFrom)
+                             and node.module == "__future__" for alias in node.names),
+                   frozenset(name for used in names.values() for name in used.rebinds()),
                    first)
 
 
@@ -974,8 +979,8 @@ def _relocated(old: _Names, new: _Names, before: _Module, after: _Module) -> str
     """What the new module changes for one OLD symbol that reads where its module lives, read both before
     the move and after it: the names its module gets from its path (not one that both modules set outright
     above the read, which the proof compares as symbols), the targets of its relative imports, its module's
-    namespace, whether its annotations, or the code it compiles, are postponed, and, for a module dunder it
-    binds, the module Python reads it from. "" when nothing changes."""
+    namespace, whether its annotations are postponed, the ``__future__`` imports the code it compiles
+    inherits, and, for a module dunder it binds, the module Python reads it from. "" when nothing changes."""
     reasons = []
     for name in sorted(old.identity & new.identity):
         settled = before.settles(name, old), after.settles(name, new)
@@ -1001,10 +1006,9 @@ def _relocated(old: _Names, new: _Names, before: _Module, after: _Module) -> str
     if old.annotated and new.annotated and before.postponed != after.postponed:
         reasons.append("its annotations are " + ("postponed now (from __future__ import annotations), evaluated"
                                                  if after.postponed else "evaluated now, postponed") + " before")
-    if old.compiles and new.compiles and before.postponed != after.postponed:
-        reasons.append("the code it compiles (exec, compile) " + (
-            "inherits from __future__ import annotations now, not before" if after.postponed
-            else "no longer inherits from __future__ import annotations"))
+    if old.compiles and new.compiles and before.futures != after.futures:
+        now, was = (", ".join(sorted(module.futures)) or "nothing" for module in (after, before))
+        reasons.append(f"the code it compiles (exec, compile) inherits from __future__ {now} now, {was} before")
     if not old.block and moved:  # a block's statements are symbols of their own
         for name in sorted(name for name in old.rebinds() & new.rebinds() if _dunder(name)):
             reasons.append(f"binds {name}, which Python reads from {after.name}, was {before.name}")

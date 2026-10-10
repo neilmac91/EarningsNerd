@@ -921,8 +921,9 @@ def test_module_is_a_class_bodys_only():
 def test_only_annotations_python_evaluates_and_code_compiled_under_the_future_import_count():
     """Each form alone, moved into a module that postpones annotations: a parameter (``*args`` and ``**kwargs``
     too), a return, an async def's, a class field, a class built in a def and a nested def's parameter. Code
-    handed to the builtin ``exec`` or ``compile`` inherits the caller's ``from __future__`` imports unless told
-    ``dont_inherit``, with a reason of its own, both ways; an imported ``compile`` is not the builtin. An
+    handed to the builtin ``exec`` or ``compile`` inherits every ``from __future__`` import of the caller (a
+    ``barry_as_FLUFL`` too) unless told ``dont_inherit``, with a reason of its own, both ways; an imported
+    ``compile`` is not the builtin. An
     annotation in a def's body, ``self.calls: list[str] = []`` included, is never evaluated."""
     old = ("def param(rows: list):\n    return rows\n\n\ndef ret(rows) -> list:\n    return rows\n\n\n"
            "class Field:\n    key: str\n\n\ndef local(rows):\n    count: Undefined = len(rows)\n    return count\n\n\n"
@@ -936,13 +937,16 @@ def test_only_annotations_python_evaluates_and_code_compiled_under_the_future_im
            "def extra(**rows: Row):\n    return rows\n")
     future = "from __future__ import annotations\n\n"
     postponed = "its annotations are postponed now (from __future__ import annotations), evaluated before"
-    compiled = "the code it compiles (exec, compile) inherits from __future__ import annotations now, not before"
+    compiled = "the code it compiles (exec, compile) inherits from __future__ annotations now, nothing before"
     assert _relocated(old, "app/x/impl.py", "app/x.py", future + old) == {
         **dict.fromkeys(("param", "ret", "Field", "factory", "nested", "fetch", "merge", "extra"), postponed),
         **dict.fromkeys(("make", "build"), compiled)}
     back = _relocated(future + old, "app/x/impl.py", "app/x.py", old)
     assert back["param"] == "its annotations are evaluated now, postponed before"
-    assert back["make"] == "the code it compiles (exec, compile) no longer inherits from __future__ import annotations"
+    assert back["make"] == "the code it compiles (exec, compile) inherits from __future__ nothing now, annotations before"
+    flufl = _relocated(old, "app/x/impl.py", "app/x.py", "from __future__ import barry_as_FLUFL\n\n" + old)
+    assert flufl == dict.fromkeys(
+        ("make", "build"), "the code it compiles (exec, compile) inherits from __future__ barry_as_FLUFL now, nothing before")
     imported = 'from re import compile\n\n\ndef pattern():\n    return compile(r"\\d+")\n'
     assert _relocated(imported, "app/x/impl.py", "app/x.py", future + imported) == {}
 
