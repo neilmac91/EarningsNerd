@@ -368,12 +368,27 @@ def _first_argument(code: str, start: int) -> str:
     return code[start:i].strip()
 
 
+def _is_path_expression(expression: str, path_literal: str) -> bool:
+    """True when the expression's value is the workflow path: the path literal itself, or a
+    join/resolve call (bare or on `path.`) whose last argument is the path literal. A conditional,
+    a concatenation or a later path segment that only mentions the path does not count."""
+    expression = expression.strip()
+    if re.fullmatch(path_literal, expression):
+        return True
+    call = re.fullmatch(r"(?:path\s*\.\s*)?(?:join|resolve)\s*\((.*)\)", expression, re.S)
+    return bool(call) and re.search(rf"(?:^|,)\s*{path_literal}\s*$", call.group(1)) is not None
+
+
 def _bound_to(code: str, path_literal: str) -> set[str]:
-    """Names one `const` binds, on one line, to an expression holding the path literal, when the
-    spec declares the name nowhere else and never assigns it again (so no shadowing or rebinding
-    can make a read of the name load another file). Arrow and function parameters are not
-    tracked: a spec that shadows the name with one is not a case this gate claims to catch."""
-    names = set(re.findall(rf"\bconst\s+([A-Za-z_$][\w$]*)\s*=[^\n;]*{path_literal}", code))
+    """Names one `const` binds, on one line, to a path expression (`_is_path_expression`), when
+    the spec declares the name nowhere else and never assigns it again (so no shadowing or
+    rebinding can make a read of the name load another file). Arrow and function parameters are
+    not tracked: a spec that shadows the name with one is not a case this gate claims to catch."""
+    names = {
+        name
+        for name, value in re.findall(r"\bconst\s+([A-Za-z_$][\w$]*)\s*=\s*([^\n;]*)", code)
+        if _is_path_expression(value, path_literal)
+    }
     bound = set()
     for name in names:
         n = re.escape(name)
@@ -386,14 +401,14 @@ def _bound_to(code: str, path_literal: str) -> set[str]:
 
 def _spec_reads(spec_source: str, script_name: str) -> bool:
     """True when the spec reads the script itself: a readFile/readFileSync call whose first argument
-    holds the script's path literal, or is a name `_bound_to` accepts. Comments are stripped first,
-    so a path in prose does not count."""
+    is a path expression for the script (`_is_path_expression`), or a name `_bound_to` accepts.
+    Comments are stripped first, so a path in prose does not count."""
     code = _strip_comments(spec_source)
     path_literal = rf"['\"`][^'\"`\n]*\.claude/workflows/{re.escape(script_name)}['\"`]"
     bound = _bound_to(code, path_literal)
     for call in READ_CALL.finditer(code):
         argument = _first_argument(code, call.end())
-        if re.search(path_literal, argument) or argument in bound:
+        if _is_path_expression(argument, path_literal) or argument in bound:
             return True
     return False
 
@@ -419,6 +434,14 @@ def test_every_workflow_script_has_a_behavioural_spec():
     assert not _spec_reads(
         "const S = '.claude/workflows/premerge-review.js'\nfunction f() { const S = 'other.js'; return readFileSync(S) }", name
     )
+    # The argument's value must be the path: a conditional, a concatenation or a later path segment
+    # that merely mentions it reads another file.
+    assert not _spec_reads("readFileSync(true ? 'other.js' : '.claude/workflows/premerge-review.js')", name)
+    assert not _spec_reads("readFileSync('x/' + '.claude/workflows/premerge-review.js')", name)
+    assert not _spec_reads("const S = c ? 'other.js' : '.claude/workflows/premerge-review.js'\nreadFileSync(S)", name)
+    assert not _spec_reads("readFileSync(path.join(root, '.claude/workflows/premerge-review.js', '..', 'other.js'))", name)
+    assert _spec_reads("readFileSync('.claude/workflows/premerge-review.js', 'utf8')", name)
+    assert _spec_reads("readFileSync(resolve(__dirname, '../../.claude/workflows/premerge-review.js'))", name)
     missing = [s.name for s in sorted(WORKFLOWS.glob("*.js")) if not any(_spec_reads(text, s.name) for text in specs)]
     assert not missing, (
         "every workflow script needs a spec under frontend/tests/unit/ that loads it and runs it with "
