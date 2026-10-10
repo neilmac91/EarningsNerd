@@ -10,7 +10,7 @@ Hermetic and order-independent: a test that needs a database gets a private SQLi
 where the module's lazy imports read it (``app.database.SessionLocal``, as
 ``test_data_completeness.py:25-33`` does), and the provider is faked on the shared
 ``openai_service`` singleton with ``patch.object``, which deletes the instance attribute again on
-exit. The only patch on the module's own namespace is ``_DETECTORS`` in T0.4; T1 re-points it to
+exit. The only moved-namespace patch is ``_DETECTORS`` in T0.4; T1 points it to
 ``app.services.trend_analysis.detectors``.
 """
 import copy
@@ -27,6 +27,7 @@ from app import database
 from app.config import settings
 from app.models import Base, Company, FinancialFact, TrendAnalysis, User
 from app.services import trend_analysis_service as svc
+from app.services.trend_analysis import detectors
 from app.services.openai_service import openai_service
 
 _PROMPT_EVENT = (
@@ -366,9 +367,9 @@ def test_t0_4_raising_detector_does_not_break_build_dataset(session_factory, com
         calls.append(dataset["period_key"])
         raise RuntimeError("detector bug")
 
-    # The one patch on the module's own namespace (registry at :717-723). T1 re-points it to
-    # app.services.trend_analysis.detectors; a stale target fails the `calls` check below.
-    monkeypatch.setattr(svc, "_DETECTORS", (_raising_detector, *svc._DETECTORS))
+    # The registry now lives in trend_analysis.detectors; the facade retains its import surface.
+    # A stale patch on the facade fails the `calls` check below.
+    monkeypatch.setattr(detectors, "_DETECTORS", (_raising_detector, *detectors._DETECTORS))
     dataset = _seeded_dataset(session_factory, company_id)
 
     assert calls == ["FY2020..FY2023"]
