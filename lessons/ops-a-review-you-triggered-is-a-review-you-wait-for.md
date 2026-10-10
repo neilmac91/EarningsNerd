@@ -21,6 +21,6 @@ required status check needs no approver, so it cannot lock a solo-administrator 
 required pull-request review would (authors cannot approve their own pull requests and there is one
 collaborator).
 
-**Evidence**: #856 timeline and #857; the 2026-09-16 merge audit in `tasks/todo.md`;
+**Evidence**: #856 timeline and #857; the 2026-09-16 merge audit in `tasks/archive/todo-ledger-through-2026-10-07.md`;
 `backend/tests/unit/test_review_gate.py` (a completed review of another head is `wait`, never
 `pass`); GitHub docs on required status checks versus required reviews and administrator bypass.
