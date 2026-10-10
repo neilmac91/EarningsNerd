@@ -6619,6 +6619,19 @@ Full local and hosted verification plus independent exact-head review precede re
   deploy-skip proof); three later deploys by other writers kept every pin. The founder's instruction on the open items:
   the durable-tasks post-deploy checks taken on by the chief; the squash default attempted by the chief and refused by
   the classifier (denials 9 and 10); custody step A recommended and prepared for the founder. Capacity baseline (no 5xx, mean 60 ms, 5–6 of 25 connections). Closure 171.
+- 2026-10-09 (record 21, `runtime/control/DECISIONS-21.md`): chief succession — the predecessor session blocked from about
+  21:40Z by a Claude Code safety check reacting to its conversation (shell, agent messages, workflows), two container restarts
+  wiped the read-back design workflow, the founder's handover brief appointed the successor session at 22:38Z (closure 172).
+  PR #1167 (record 20) merged `da8dc998` (fourteenth deploy-skip proof; the final head not re-bound). #1169's deploy read
+  back from its log, and so were #1166's, #1123's, #1135's and #1140's: every process carries both SEC pins, the insider switch off,
+  healthy; eight later main runs skipped every deploy step. The founder's USD 5 DeepSeek-balance floor recorded as a stop
+  condition beside the reservation rule. A duplicate second successor session holds every write; the founder's confirmation
+  received as relayed. The account's usage limit interrupted the first launches (23:25Z to 04:04Z) and again from about 06:30Z
+  to 09:00Z. Chief defects 9, 10, 11 and 12; classifier denials 11–12. Lessons
+  `lessons/ops-hand-over-when-the-harness-refuses-the-conversation.md` and `lessons/ops-a-piped-gate-does-not-gate.md`; the
+  records-gate wrapper `runtime/tools/records-gate.sh` and its test.
+- [x] Founder (record 21): confirm the single writer — confirmed in the second session at about 23:00Z ("the earlier session
+      is the chief"), as that session relayed; the second session stood down to read-only; overrule only if wanted.
 - [ ] Founder (optional; recommended, record 20): set the repository's squash default to "Pull request title and
       description" (Settings → General → Pull Requests → "Allow squash merging" → "Default commit message"), so a
       squash merge without an explicit message carries the reviewed PR text (record 18, chief defect 7). Within the chief's

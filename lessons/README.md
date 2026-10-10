@@ -14,6 +14,7 @@ machine" only for that work; skip "Enforced by a machine gate" (CI fails those o
 
 ## Operations & workflow (every task)
 
+- ops-a-piped-gate-does-not-gate.md — Run every verification step of a committing chain unpiped with its exit status checked explicitly; the records-gate wrapper carries the rule
 - ops-auth-lookups-must-let-request-cleanup-progress.md — Keep authentication pool waits off the event loop while preserving request-owned sessions
 - ops-bound-drain-batches-to-job-memory.md — Bound a regeneration batch by the job container's memory, not by its time budget alone
 - ops-ci-images-avoid-docker-hub.md — Pull CI and deploy images through a mirror, never anonymously from Docker Hub
@@ -24,6 +25,7 @@ machine" only for that work; skip "Enforced by a machine gate" (CI fails those o
 - ops-fix-the-exact-cited-site.md — Fix and test the plan's exact cited site, not an adjacent manifestation
 - ops-git-add-atomic-empty-status-gate.md — Require an empty git status after every completing commit; never chain add-path recovery
 - ops-grep-verify-negative-claims.md — Grep-verify every "no X exists" claim from a workstream report before it enters a synthesis
+- ops-hand-over-when-the-harness-refuses-the-conversation.md — Hand over to a fresh session when the harness refuses the conversation, not the action
 - ops-job-success-needs-outcome-evidence.md — Persist actual job outcomes; swallowed failures and dry runs never advance last success
 - ops-keep-moving-under-standing-authorization.md — Keep moving under a standing founder authorization; stop only at the boundaries still held
 - ops-mutate-only-committed-state.md — mutation proofs run on committed state only; `git checkout --` restores HEAD, not your edit
