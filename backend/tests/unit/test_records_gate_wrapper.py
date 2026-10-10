@@ -35,7 +35,9 @@ def test_wrapper_is_strict_and_runs_pytest_unpiped() -> None:
     assert "set -euo pipefail" in text, "the wrapper must run in strict mode with pipefail"
     pytest_lines = [line for line in text.splitlines() if "-m pytest" in line]
     assert len(pytest_lines) == 1, f"exactly one pytest invocation expected, found {pytest_lines}"
-    assert _is_unpiped_with_status_captured(pytest_lines[0]), f"the pytest invocation must not be piped: {pytest_lines[0]!r}"
+    assert _is_unpiped_with_status_captured(pytest_lines[0]), (
+        f"the pytest invocation must not be piped: {pytest_lines[0]!r}"
+    )
     assert re.search(r'^exit "\$status"\s*$', text, re.MULTILINE), "the wrapper must exit with pytest's status"
 
 
@@ -81,9 +83,9 @@ def test_wrapper_passes_when_the_gate_passes(tmp_path: Path) -> None:
         # piped and then captured: still rejected, the capture sees tail's status
         ("python -m pytest tests/unit/test_code_red_runtime_records.py -q | tail -1 || status=$?", False),
         # unpiped but the status is not captured: `set -e` would abort before the summary and the exit line
-        ("python -m pytest tests/unit/test_code_red_runtime_records.py -q >\"$log\" 2>&1", False),
+        ('python -m pytest tests/unit/test_code_red_runtime_records.py -q >"$log" 2>&1', False),
         # the wrapper's shape
-        ("(cd \"$repo/backend\" && \"$python_bin\" -m pytest \"$test_path\" -q) >\"$log\" 2>&1 || status=$?", True),
+        ('(cd "$repo/backend" && "$python_bin" -m pytest "$test_path" -q) >"$log" 2>&1 || status=$?', True),
     ],
 )
 def test_the_predicate_rejects_the_incident_shape(line: str, accepted: bool) -> None:
