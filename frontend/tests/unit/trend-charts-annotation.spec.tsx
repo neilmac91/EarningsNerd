@@ -12,13 +12,19 @@ vi.mock('recharts', async () => {
     ComposedChart: Chart,
     LineChart: Chart,
     Rectangle: (props: React.SVGProps<SVGRectElement>) => <rect {...props} />,
+    usePlotArea: () => ({ x: 0, y: 0, width: 300, height: 160 }),
+    useXAxisScale: () => {
+      const rows = useContext(Data)
+      return (period: string) => rows.findIndex((row) => row.period === period) * 20
+    },
+    useYAxisScale: () => (value: number) => 100 - value,
     Bar: ({ dataKey, shape }: { dataKey: string; shape: (props: unknown) => React.ReactNode }) => {
       const rows = useContext(Data)
       return <g>{rows.map((row, index) => <g key={index}>{row[dataKey] == null ? null : shape({ x: index * 20, y: 50, width: 15, height: 60, payload: row })}</g>)}</g>
     },
     Line: ({ dataKey, connectNulls, dot }: { dataKey: string; connectNulls?: boolean; dot: (props: unknown) => React.ReactNode }) => {
       const rows = useContext(Data)
-      return <g data-testid="line-gap-policy" data-connect-nulls={String(connectNulls)}>{rows.map((row, index) => <g key={index}>{dot({ cx: index * 20, cy: 50, value: row[dataKey], payload: row })}</g>)}</g>
+      return <g data-testid="line-gap-policy" data-connect-nulls={String(connectNulls)}>{rows.map((row, index) => <g key={index}>{dot({ cx: index * 20, cy: 100 - Number(row[dataKey]), value: row[dataKey], payload: row })}</g>)}</g>
     },
     XAxis: () => null,
     YAxis: () => null,
@@ -119,5 +125,21 @@ describe('TrendCharts source note marks', () => {
     expect(container.querySelectorAll('circle, rect, text')).toHaveLength(0)
     expect(screen.getByText('Operating CF: unavailable for FY2023.')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Review data notes a' })).toBeInTheDocument()
+  })
+
+  it('moves close margin letters apart while retaining their true plotted circle positions', () => {
+    const operating = series('operating_margin', 'Operating margin', [43, 43, 43])
+    const net = series('net_margin', 'Net margin', [38.6, 38.6, 38.6])
+    for (const item of [operating, net]) for (const point of item.points) point.provenance = { ...passed, validation: 'needs_review', reasons: ['legacy_calculation'] }
+    const { container } = render(<TrendCharts dataset={{ ...dataset, series: [operating, net] }} />)
+    const marks = [...container.querySelectorAll('g[aria-label="Data note a"]')]
+    expect(marks).toHaveLength(6)
+    const upper = marks[1]
+    const lower = marks[4]
+    expect(upper.querySelector('circle')).toHaveAttribute('cy', '57')
+    expect(lower.querySelector('circle')).toHaveAttribute('cy', '61.4')
+    expect(Number(upper.querySelector('text')!.getAttribute('y'))).toBeLessThan(57)
+    expect(Number(lower.querySelector('text')!.getAttribute('y'))).toBeGreaterThan(61.4)
+    expect(marks.every((mark) => mark.querySelector('text')!.getAttribute('font-size') === '11')).toBe(true)
   })
 })

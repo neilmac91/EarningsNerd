@@ -384,8 +384,9 @@ function drawHeader(
  * omit it and the export degrades to the bare plot + footer.
  *
  * Known limitation (documented in the audit): the SVG plot is rasterized in an isolated image
- * document, where webfonts (Geist Mono) don't load — axis labels fall back to the system
- * monospace in CHART_FONT's stack. The header/footer text is drawn directly on the canvas (main
+ * document, where webfonts (Geist Mono) don't load. Resolve each text node's font stack before
+ * serialization so its system monospace fallback survives without the page's CSS variables.
+ * The header/footer text is drawn directly on the canvas (main
  * document), so it uses the system sans immediately — no webfont wait. Metrics are close;
  * embedding the font as a data URI is the upgrade path if pixel-identical axis text ever matters.
  */
@@ -404,6 +405,15 @@ export async function exportPanelPng(
   clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg')
   clone.setAttribute('width', String(width))
   clone.setAttribute('height', String(height))
+  const sourceText = svg.querySelectorAll('text, tspan')
+  clone.querySelectorAll<SVGTextContentElement>('text, tspan').forEach((text, index) => {
+    const computedFamily = getComputedStyle(sourceText[index]).fontFamily
+    const family = computedFamily && !computedFamily.includes('var(') ? computedFamily : 'monospace'
+    // Inline styles override existing presentation attributes. Replace both so the isolated
+    // SVG, including nested tspans, contains no unresolved font variable or inherited page CSS.
+    text.style.fontFamily = family
+    text.setAttribute('font-family', family)
+  })
 
   const image = await loadSvgImage(new XMLSerializer().serializeToString(clone))
   if (!image) return false

@@ -30,10 +30,34 @@ describe('PeriodPicker controls', () => {
     expect(onRangeChange).toHaveBeenLastCalledWith({ start: '2025Q1', end: '2025Q4' })
   })
 
+  it.each([
+    { available: 3, labels: ['Last 3'] },
+    { available: 6, labels: ['Last 4', 'Last 6'] },
+  ])('labels presets with their actual windows when only $available quarters are available', ({ available, labels }) => {
+    const quarterly = coverage.quarterly.slice(0, available)
+    const range = { start: quarterly[0].key, end: quarterly.at(-1)!.key }
+    const onRangeChange = vi.fn()
+    render(<PeriodPicker coverage={{ ...coverage, quarterly }} mode="quarterly" range={range} onModeChange={vi.fn()} onRangeChange={onRangeChange} />)
+    const presets = screen.getByRole('group', { name: 'Recent period presets' })
+    expect(within(presets).getAllByRole('button').map((button) => button.textContent)).toEqual(labels)
+    const completeWindow = within(presets).getByRole('button', { name: `Last ${available}` })
+    expect(completeWindow).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByText(new RegExp(`^${available} quarters ·`))).toBeInTheDocument()
+    fireEvent.click(completeWindow)
+    expect(onRangeChange).toHaveBeenCalledWith(range)
+  })
+
   it('keeps unavailable annual options visible and refuses a mode with no quarters', () => {
     const onModeChange = vi.fn()
-    render(<PeriodPicker coverage={{ ...coverage, quarterly: [] }} mode="annual" range={{ start: 'FY2021', end: 'FY2021' }} onModeChange={onModeChange} onRangeChange={vi.fn()} />)
+    const onRangeChange = vi.fn()
+    render(<PeriodPicker coverage={{ ...coverage, quarterly: [] }} mode="annual" range={{ start: 'FY2021', end: 'FY2021' }} onModeChange={onModeChange} onRangeChange={onRangeChange} />)
     expect(within(screen.getByLabelText('From')).getByRole('option', { name: 'FY2020 (insufficient data)' })).toBeDisabled()
+    const presets = screen.getByRole('group', { name: 'Recent period presets' })
+    expect(within(presets).getAllByRole('button')).toHaveLength(1)
+    expect(within(presets).getByRole('button', { name: 'Last 1' })).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByText(/^1 year · FY2021 – FY2021/)).toBeInTheDocument()
+    fireEvent.click(within(presets).getByRole('button', { name: 'Last 1' }))
+    expect(onRangeChange).toHaveBeenCalledWith({ start: 'FY2021', end: 'FY2021' })
     expect(screen.getByRole('button', { name: 'Quarterly' })).toBeDisabled()
     fireEvent.click(screen.getByRole('button', { name: 'Quarterly' }))
     expect(onModeChange).not.toHaveBeenCalled()
