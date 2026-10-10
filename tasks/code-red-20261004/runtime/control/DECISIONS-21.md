@@ -5,8 +5,9 @@ interruption; the fresh reviewer context), 04:09Z (chief defect 10), 04:30Z (aft
 read back, including two deploys by other writers), 05:03Z (chief defect 11), 05:11Z (the records gate extended to every verification step; the title; the
 interval of chief defect 11 corrected), 05:21Z (the wrapper's `backend` scope carries the full backend gate; chief
 defect 12), 05:50Z (`auto` also reads the commits since `origin/main`), 06:03Z (`auto` refuses a self-comparison with the local `main`), 06:19Z (untracked files read regardless of
-configuration), 09:26Z (`origin/main` the only base for `auto`; the second usage-limit interruption) and 09:47Z (`origin/main` named in
-every description; the records scope runs the agent-workflow rules gate), by the successor chief (`https://claude.ai/code/session_011jZyZqfNWZRqiFNWfTc3u8`).
+configuration), 09:26Z (`origin/main` the only base for `auto`; the second usage-limit interruption), 09:47Z (`origin/main` named in
+every description; the records scope runs the agent-workflow rules gate) and 09:57Z (git inspection errors fail closed), by the
+successor chief (`https://claude.ai/code/session_011jZyZqfNWZRqiFNWfTc3u8`).
 Context: record 20 merged to main as `da8dc998` (PR #1167, 2026-10-09T22:14:52Z); this is the first PR from the successor's
 branch `claude/stoic-wright-6jeujo`, started at `a572876c`. Records, two lessons, the lessons index, one records-tree tool
 (`tools/records-gate.sh`) and its test under `backend/tests/unit/`: no application code, workflow, migration, cloud, IAM or
@@ -246,7 +247,8 @@ paid trigger can still fire (Plan, below); the predecessor's attempt to add it t
    `e4a9910`: comparing with a local `main` hid a change committed on it, or an unpushed backend commit on it under a records-only
    branch commit; Codex's P2 on `4f55e93`: the working tree is read with `--untracked-files=all`, so a `status.showUntrackedFiles=no`
    configuration cannot hide a new file). Codex's P2s on `15b5711`: every durable description names `origin/main`, and the
-   `records` scope runs the agent-workflow rules gate. The repository still cannot see the chief's shell, so the gate is the wrapper plus
+   `records` scope runs the agent-workflow rules gate. Codex's P2 on `78e90d2`: a git inspection error (a failed `status`, `diff`
+   or `rev-parse` other than "not a git repository") fails closed instead of reading as "no backend change". The repository still cannot see the chief's shell, so the gate is the wrapper plus
    CI's own run of the records gate, which is what caught `7d65c89`.
 8. **The successor's side effects to this record:** read-only GitHub requests (runs, jobs, one PR, the open PR list, the balance
    job's log); two pages of the predecessor's session event log through the platform's session API (its own transcript events,

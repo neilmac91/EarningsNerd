@@ -105,7 +105,8 @@ def _run_wrapper(
     ``"committed-change"`` (``origin/main`` holds the test only; a feature branch commits ``backend/app``; clean tree),
     ``"unpushed-main"`` (``origin/main`` holds the test only; the local ``main`` adds an unpushed backend commit; a feature
     branch adds a records-only commit on top; clean tree), ``"at-origin-main"`` (HEAD is ``origin/main``; clean tree),
-    ``"no-base"`` (a local ``main`` holds everything and there is no ``origin/main``; clean tree).
+    ``"no-base"`` (a local ``main`` holds everything and there is no ``origin/main``; clean tree), ``"corrupt-index"`` (a
+    committed repository whose ``.git/index`` is overwritten with garbage, so ``git status`` fails although it is a repository).
     """
     repo = tmp_path / "repo"
     tests = repo / "backend" / "tests" / "unit"
@@ -155,6 +156,13 @@ def _run_wrapper(
         _git(repo, "symbolic-ref", "HEAD", "refs/heads/main")
         _git(repo, "add", "-A")
         _git(repo, "commit", "-q", "-m", "everything, publication state unknown")
+    elif git == "corrupt-index":
+        _git(repo, "init", "-q")
+        _git(repo, "symbolic-ref", "HEAD", "refs/heads/main")
+        _git(repo, "add", "-A")
+        _git(repo, "commit", "-q", "-m", "everything")
+        _git(repo, "update-ref", "refs/remotes/origin/main", "HEAD")
+        (repo / ".git" / "index").write_bytes(b"not an index\n")
     else:
         assert git is None, git
     env = {
@@ -263,6 +271,14 @@ def test_auto_scope_fails_closed_without_origin_main(tmp_path: Path) -> None:
     result = _run_wrapper(tmp_path, CLEAN_PROBE, scope=None, app_body="", git="no-base")
     assert result.returncode == 2, f"stdout={result.stdout!r} stderr={result.stderr!r}"
     assert "no origin/main to compare the commits with" in result.stderr, result.stderr
+    assert "records-gate: ok" not in result.stdout, result.stdout
+
+
+def test_auto_scope_fails_closed_on_a_git_inspection_error(tmp_path: Path) -> None:
+    """A corrupt index makes `git status` fail inside a real repository: an error is never read as "no backend change"."""
+    result = _run_wrapper(tmp_path, CLEAN_PROBE, scope=None, app_body="", git="corrupt-index")
+    assert result.returncode == 2, f"stdout={result.stdout!r} stderr={result.stderr!r}"
+    assert "git failed to inspect" in result.stderr and "(status:" in result.stderr, result.stderr
     assert "records-gate: ok" not in result.stdout, result.stdout
 
 
