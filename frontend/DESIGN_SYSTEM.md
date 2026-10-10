@@ -254,6 +254,12 @@ Search field     <Input icon={<Magnifier/>}>  — leading glyph with an explicit
                  a pl-11 override is Tailwind conflict-order-dependent — don't). Raw fields:
                  inputClasses({ leadingIcon: true }).
 
+Password field   PasswordField  — raw input + inputClasses({ trailingIcon: true }) (v3.3): an explicit pr-10
+                 (40px) trailing inset for the reveal toggle at both densities (pr-10 on top of the field's
+                 px-3.5 is conflict-order-dependent too). Sized for a control of at most 16px whose outer edge
+                 sits 12px in (right-3, or right-0 with pr-3): it spans 12–28px from the edge, 13px before the
+                 text. Combines with leadingIcon; a select takes neither inset (its chevron holds that side).
+
 Search option    <CompanySearch> results (2026-10 critique 1d) — an option is the company (name 14/600, then
                  ticker · exchange in the data face, today's quote at the right only when the search returned
                  one: never a "Loading price..." that cannot resolve) over the filing identity strip of the

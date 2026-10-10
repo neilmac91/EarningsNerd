@@ -18,6 +18,9 @@
    class on top that sets what the field already sets: cx does no tailwind-merge,
    so stylesheet order, not class order, decides (gate:
    tests/unit/inputClassesNoOverrides.spec.tsx).
+   v3.3: inputClasses() grows `trailingIcon` (the 40px trailing inset for a control
+   drawn at the field's right edge, the password reveal toggle), explicit sides
+   per density like `select`.
    Assumes @tailwindcss/forms (already in the config plugins).
 ============================================================================= */
 
@@ -74,6 +77,18 @@ export type FieldDensity = 'comfortable' | 'compact'
 const PAD_COMPACT = 'px-3.5 py-2.5 sm:h-9 sm:px-3 sm:py-1.5'
 const PAD_ICON_COMPACT = 'py-2.5 pl-11 pr-3.5 sm:h-9 sm:py-1.5 sm:pl-10 sm:pr-3'
 const SELECT_PAD = { comfortable: 'py-2.5 pl-3.5 pr-9', compact: 'py-2.5 pl-3.5 pr-9 sm:h-9 sm:py-1.5 sm:pl-3' } as const
+/** v3.3 — trailing inset: pr-10 (40px) in both densities, as SELECT_PAD keeps pr-9, because the control does
+    not move with density. EXPLICIT sides, never pr-10 on top of PAD: that pair resolves by stylesheet order
+    (the padding plugin emits sides after axes), the conflict the leading inset already avoids. */
+const PAD_TRAILING = 'py-2.5 pl-3.5 pr-10'
+const PAD_ICON_TRAILING = 'py-2.5 pl-11 pr-10'
+const PAD_TRAILING_COMPACT = 'py-2.5 pl-3.5 pr-10 sm:h-9 sm:py-1.5 sm:pl-3'
+const PAD_ICON_TRAILING_COMPACT = 'py-2.5 pl-11 pr-10 sm:h-9 sm:py-1.5 sm:pl-10'
+/** A field's padding by density and inset: one explicit literal each. */
+const FIELD_PAD = {
+  comfortable: { plain: PAD, leading: PAD_ICON, trailing: PAD_TRAILING, both: PAD_ICON_TRAILING },
+  compact: { plain: PAD_COMPACT, leading: PAD_ICON_COMPACT, trailing: PAD_TRAILING_COMPACT, both: PAD_ICON_TRAILING_COMPACT },
+} as const
 
 interface InputClassesBase {
   /** Renders the error-ring treatment (mirrors what the `error` prop wires). */
@@ -88,13 +103,19 @@ interface InputClassesBase {
   className?: string
 }
 
-/** `leadingIcon` and `select` each set the field's padding, so a field takes one or neither. */
+/** `select` sets the whole padding (its chevron holds the trailing side), so a select takes neither
+    inset; `leadingIcon` and `trailingIcon` combine. */
 export type InputClassesOptions = InputClassesBase &
   (
     | {
         /** Reserve the pl-11 leading-icon inset (you render the icon — absolute,
             left-3.5, centered, pointer-events-none, muted tone). */
         leadingIcon?: boolean
+        /** v3.3: reserve the pr-10 (40px) trailing inset for a control you render at the field's right
+            edge (the password reveal toggle). Sized for a glyph of at most 16px whose outer edge sits 12px
+            in (`right-3`, or `right-0` with `pr-3`): it spans 12–28px from the edge and leaves 13px before
+            the text. A larger glyph, or one set further in, runs into the text. */
+        trailingIcon?: boolean
         select?: false
       }
     | {
@@ -103,6 +124,7 @@ export type InputClassesOptions = InputClassesBase &
             content-width select's text run under it. */
         select: true
         leadingIcon?: never
+        trailingIcon?: never
       }
   )
 
@@ -114,14 +136,14 @@ export type InputClassesOptions = InputClassesBase &
 export function inputClasses({
   invalid = false,
   leadingIcon = false,
+  trailingIcon = false,
   select = false,
   density = 'comfortable',
   autoWidth = false,
   className,
 }: InputClassesOptions = {}): string {
-  const pad = select
-    ? SELECT_PAD[density]
-    : density === 'compact' ? (leadingIcon ? PAD_ICON_COMPACT : PAD_COMPACT) : leadingIcon ? PAD_ICON : PAD
+  const inset = leadingIcon ? (trailingIcon ? 'both' : 'leading') : trailingIcon ? 'trailing' : 'plain'
+  const pad = select ? SELECT_PAD[density] : FIELD_PAD[density][inset]
   return cx(autoWidth ? cx('max-w-full', FIELD_BASE) : FIELD, pad, invalid && INVALID, className)
 }
 
