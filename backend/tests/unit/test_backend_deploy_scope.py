@@ -79,7 +79,7 @@ def test_backend_test_only_changes_do_not_deploy(tmp_path):
         # An Ops read-back change: workflow, repository-root ops/ script, docs and a backend unit test.
         (["ops/capacity/readout.py", ".github/workflows/ops.yml", "docs/OPERATIONS.md",
           "backend/tests/unit/test_ops_describe_jobs.py"], False),
-        # The read-back follow-ups: new ops/describe/ modules, the workflow, docs, a lesson, todo and backend tests.
+        # The read-back follow-ups: new ops/describe/ modules, the workflow, docs, two lessons, todo and backend tests.
         ([".github/workflows/ops.yml", "backend/tests/unit/test_backend_deploy_scope.py",
           "backend/tests/unit/test_capacity_projection_privacy.py", "backend/tests/unit/test_capacity_readout.py",
           "backend/tests/unit/test_job_reporting.py", "backend/tests/unit/test_ops_describe_jobs.py",

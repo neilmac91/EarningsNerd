@@ -215,11 +215,16 @@ URLs), together with a read-only database snapshot. Each source carries its own 
 (`complete`, `partial`, `unavailable`): a missing permission, an empty series or an unrecognised
 response shape is recorded as such, never as zero (a job execution that cannot be placed counts in
 that channel's `unplaced_count`), and counts on a `partial` channel are a floor.
-A channel whose API call failed with an HTTP error also carries `error_detail`: the error's status,
-code, reason and domain and at most 240 characters of its message, in which every URL, email address
-or principal, host name and IP address has first been replaced by `<url>`, `<email>` or `<host>` (a
-dotted name is withheld whenever its last label could end a host name, except an IAM permission name
-ending in `.get`, `.list` or `.use`); the response body itself is never kept.
+A channel whose API call failed with an HTTP error also carries `error_detail` when the body has
+something to record: from a Google error envelope, the error's status, code, reason and domain and at
+most 240 characters of its message, in which URLs, email addresses or principals, dotted host names
+and IP addresses have first been replaced by `<url>`, `<email>` or `<host>`; from a body that cannot
+be read or parsed, only `body` (`non_json_or_unreadable` or `truncated_or_non_json`); other JSON
+leaves none. The redaction is shape-based: a dotted name is withheld whenever its last label could
+end a host name, except an IAM permission name ending in `.get`, `.list` or `.use`; a single-label
+host name, an IPv4 address glued to a letter, digit, `_` or `-` and an IPv6 address after a `label:`
+prefix are kept, and a host name in a script written with combining marks (Indic) is not covered.
+The response body itself is never kept.
 The receipt is retained as the `capacity-readout-<run id>` Actions artifact for 14 days.
 
 `logs-probe` reports whether the Ops identity can read the API service's logs:

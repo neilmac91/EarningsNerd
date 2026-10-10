@@ -1,18 +1,24 @@
-"""gcloud's error text never reaches an Ops read's job log, inherited or echoed (rule 12).
+"""No gcloud call in the describe-service, describe-jobs or logs-probe steps lets its error text reach the job log,
+inherited or echoed, and no other ops.yml gcloud call may start letting it through (rule 12).
 
 gcloud's stderr can name the acting principal, a host or a URL, and the Actions log of this public
 repository is public. Two leaks were found after #1181: describe-service's shell read inherited
 gcloud's stderr, and logs-probe printed the stderr it had captured. Both now print a closed class.
-These gates keep it that way: every gcloud call in ops.yml discards or captures its stderr unless it
-is one of the listed actions, a file that captures stderr is only ever tested with `grep -q`, the
-logs-probe classifier names the class describe-service's gcloud_json() names, and an ops/ module never
-lets a child process inherit stderr nor reads a captured stderr outside gcloud_json(). Python an ops.yml
-step runs is a committed ops/ module (no inline heredoc program), standard-library only (ops.yml runs it
-on the runner's bare python3) and linted with the backend rule set, which CI's `ruff check` (run inside
-backend/) does not reach.
+These gates keep it that way: every gcloud call in ops.yml discards or captures its stderr unless INHERITED
+lists it (the jobs-channel and rollback actions, and the Cloud SQL proxy step's secret read that
+capacity-readout, detection-sql and the repair-ticker operations run, a recorded follow-up), a file that
+captures stderr is only ever tested with `grep -q`, the logs-probe classifier names the class
+describe-service's gcloud_json() names, and an ops/ module never lets a child process inherit stderr and
+captures or reads one only in gcloud_json(). Python a step runs is a file run by path from ops/ or scripts/,
+or a one-line `python3 -c` helper (three today); never a program fed through a heredoc or stdin, nor a step
+shell other than bash. The ops/ modules are standard-library only (ops.yml runs them on the runner's bare
+python3, 3.12 today, while CI tests on 3.11) and linted with the backend rule set, which CI's `ruff check`
+(run inside backend/) does not reach.
 
-Not covered (review concerns): gcloud reached through a variable, a function or a script a step calls,
-and a dynamic call (getattr, importlib) in an ops/ module.
+Not covered (review concerns): gcloud run through a variable, a function, its full path, a script a step calls
+or pipes into a shell, or a `python3 -c` helper; `|&` after a gcloud call; a capture file named without its
+literal path (a relative path, a brace or variable expansion); a step in a job other than `ops` (only its steps
+are read); and a dynamic import or lookup (importlib, __import__, sys.modules) in an ops/ module.
 """
 import ast
 import importlib.util
@@ -26,7 +32,7 @@ from pathlib import Path
 import pytest
 import yaml
 
-from tests.unit.test_ops_describe_jobs import WITHHELD_TOKENS, _job
+from tests.unit.test_ops_describe_jobs import WITHHELD_TOKENS, _job, _literals
 
 ROOT = Path(__file__).resolve().parents[3]
 BASH = shutil.which("bash")
@@ -87,6 +93,21 @@ INHERITED = {
 }
 SPAWNERS = {"run", "call", "check_call", "check_output", "Popen", "getoutput", "getstatusoutput"}
 OS_SPAWNERS = re.compile(r"system|popen|spawn\w*|exec\w*|posix_spawn\w*|fork\w*")
+# The one place an ops/ module may capture a child's stderr and read it: the seam that reduces it to a closed class.
+SEAM = ("ops/describe/service.py", "gcloud_json")
+# Modules that start child processes outside the subprocess/os calls this gate inspects.
+CHILD_MODULES = {"pty", "asyncio", "multiprocessing"}
+# Public modules in 3.11's sys.stdlib_module_names that 3.12 or 3.13 removed: CI's interpreter still lists them,
+# the runner's python3 has none of them.
+REMOVED_AFTER_311 = {
+    "asynchat", "asyncore", "distutils", "imp", "smtpd",  # removed in 3.12
+    "aifc", "audioop", "cgi", "cgitb", "chunk", "crypt", "imghdr", "lib2to3", "mailcap", "msilib", "nis", "nntplib",
+    "ossaudiodev", "pipes", "sndhdr", "spwd", "sunau", "telnetlib", "uu", "xdrlib",  # removed in 3.13
+}
+# A python command (behind an assignment or env/exec-style prefix, by any path or version), and the forms a step may
+# run: a file by path from ops/ or scripts/, or a one-line -c program quoted whole with nothing to expand.
+PYTHON = re.compile(r"(?:(?:\w+=\S*|env|exec|command|nohup|sudo|time|\{)\s+)*(?:\S*/)?python[0-9.]*(?=\s|$)")
+ALLOWED_PYTHON = re.compile(r"""python3?\s+(?:(?:ops|scripts)/\S+\.py|-c\s+(?:'[^']*'|"(?:[^"\\$`]|\\.)*"))(?=\s|$)""")
 FAKE_GCLOUD = '''import json, os, sys
 argv = sys.argv[1:]
 with open(os.environ["FAKE_GCLOUD_CALLS"], "a") as calls:
@@ -205,8 +226,7 @@ def test_describe_jobs_step_never_prints_gcloud_stderr(tmp_path, failing):
     workflow, steps = _steps()
     run = steps[JOBS_STEP]["run"]
     jobs = re.search(r"jobs=\(\n((?:\s+earningsnerd-[a-z-]+\n)+)\s*\)", run).group(1).split()
-    pools = {node.targets[0].id: ast.literal_eval(node.value) for node in ast.parse(JOBS_MODULE.read_text()).body
-             if isinstance(node, ast.Assign) and isinstance(node.targets[0], ast.Name)}["expected_pools"]
+    pools = _literals(JOBS_MODULE.read_text())["expected_pools"]
     assert jobs == list(pools)
     reads = [["run", "jobs", "describe", job, f"--region={workflow['env']['REGION']}", "--format=json"] for job in jobs]
     answers = {json.dumps(argv): {"stdout": json.dumps(_job(argv[3], pools[argv[3]])), "stderr": "WARNING: " + SENTINEL}
@@ -352,9 +372,14 @@ def test_ops_workflow_gcloud_stderr_is_discarded_or_captured_except_listed_actio
     words = sum(len(re.findall(r"(?:^|[\s;|&!]|\$\()gcloud\s+[a-z]", "\n".join(_executable_lines(step.get("run") or "")),
                                re.M)) for step in steps.values())
     assert len(calls) == words >= 14, "the scanner must see every gcloud call in ops.yml"
+    # Neither the scanner nor the count sees into backticks, an eval or a shell started with options (sh -c,
+    # bash -e -c, bash -o pipefail -c), nor which file a /tmp/ glob reads: ops.yml uses none, so each fails here.
+    opaque = [(name, line) for name, step in steps.items() for line in _executable_lines(step.get("run") or "")
+              if re.search(r"`|\beval\b|\b(?:ba|da|k|z)?sh\s+-|/tmp/\S*[*?\[]", line)]
+    assert not opaque, f"the scanner cannot see into backticks, eval, sh -c or a /tmp/ glob: {opaque}"
     for name, group, command in calls:
         # The last stderr redirect of the command wins (`2>/dev/null 2>&1` inherits).
-        targets = re.findall(r"(?<![0-9&>])2>\s*([^\s;|&)]+)", command)
+        targets = re.findall(r"(?<![0-9&>])2>\s*(&?[^\s;|&)]+)", command)
         if not targets or targets[-1].startswith("&"):
             inherited[(name, group)] = inherited.get((name, group), 0) + 1
         elif targets[-1] != "/dev/null":
@@ -369,11 +394,54 @@ def test_ops_workflow_gcloud_stderr_is_discarded_or_captured_except_listed_actio
         assert readers and all(re.match(r"grep\s+-q[A-Za-z]*\s", reader) for reader in readers), readers
 
 
+def _inline_python(run, shell=None):
+    """Whether a step's script runs a Python program no committed file holds: any heredoc (ops.yml has none), a
+    step shell other than bash, or a python command other than a file run by path from ops/ or scripts/ or a
+    one-line `-c` program (so `python3 <<'PY'`, `python3 -I - <<`, `cat <<'PY' | python3 -`, `printf ... | python3`)."""
+    if "<<" in run or shell not in (None, "bash"):
+        return True
+    return any(PYTHON.match(command) and not ALLOWED_PYTHON.match(command)
+               for line in _executable_lines(run) for command in _commands(line))
+
+
+@pytest.mark.parametrize("run,shell,inline", [
+    ("python3 - <<'PY'\nprint(1)\nPY\n", None, True),
+    ("python3 <<'PY'\nprint(1)\nPY\n", None, True),
+    ("python3 -I - <<'PY'\nprint(1)\nPY\n", None, True),
+    ("python3 -u - <<PY\nprint(1)\nPY\n", None, True),
+    ("python3.12 - <<'PY'\nprint(1)\nPY\n", None, True),
+    ("cat <<'PY' | python3 -\nprint(1)\nPY\n", None, True),
+    ("python3 ops/describe/jobs.py <<EOF\nx\nEOF\n", None, True),  # no heredoc at all, even into a committed file
+    ("printf 'print(1)\\n' | python3\n", None, True),
+    ("printf 'print(1)\\n' | /usr/bin/python3 -\n", None, True),
+    ("printf 'print(1)\\n' | env python3 /dev/stdin\n", None, True),
+    ("python3 -c '\nprint(1)\n'\n", None, True),  # a -c program over several lines
+    ('python3 -c "$PROGRAM"\n', None, True),
+    ("print(1)\n", "python", True),
+    ("python3 ops/describe/service.py", None, False),
+    ("python3 ops/describe/service.py", "bash", False),
+    ('python3 ops/capacity/readout.py --start "$S" --end "$E" \\\n  --region "$REGION" --output receipt/cloud.json\n',
+     None, False),
+    ("set -euo pipefail\nexport JOB_DIR\npython3 ops/describe/jobs.py\n", None, False),
+    ("python scripts/repair_ticker_by_cik.py --apply\n", None, False),
+    ("python3 -c 'print(1)'\n", None, False),
+    ('PAYLOAD=$(python3 -c "import json,sys; print(json.dumps(sys.argv[1:]))" "$TICKERS")\n', None, False),
+    ("""echo "n: $(python3 -c 'import json;print(len(json.load(open("/tmp/x.json"))))' 2>/dev/null || echo 0)"\n""",
+     None, False),
+])
+def test_inline_python_predicate(run, shell, inline):
+    assert _inline_python(run, shell) is inline
+
+
 def test_no_ops_step_runs_an_inline_python_program():
-    """Python a step runs is a committed ops/ module, so this suite loads, lints and gates it."""
-    _, steps = _steps()
+    """Python a step feeds through a heredoc or stdin is a committed ops/ module run by path instead, so this suite
+    loads, lints and gates it; the one-line `python3 -c` helpers stay inline."""
+    workflow, steps = _steps()
+    # A job- or workflow-level default shell applies to every run step that names none.
+    default = next((scope["defaults"]["run"]["shell"] for scope in (workflow["jobs"]["ops"], workflow)
+                    if "shell" in ((scope.get("defaults") or {}).get("run") or {})), None)
     inline = [name for name, step in steps.items()
-              if re.search(r"\bpython3?\s+-\s*<<", step.get("run") or "")]
+              if "run" in step and _inline_python(step["run"], step.get("shell", default))]
     assert not inline, f"commit the program under ops/ and run it by path: {inline}"
 
 
@@ -402,14 +470,26 @@ def test_ops_modules_never_let_a_child_process_inherit_stderr():
     for path in _ops_modules():
         tree = ast.parse(path.read_text())
         owner = _functions(tree)
+        parents = {child: node for node in ast.walk(tree) for child in ast.iter_child_nodes(node)}
+        module = path.relative_to(ROOT).as_posix()
         for node in ast.walk(tree):
+            if isinstance(node, (ast.Import, ast.ImportFrom)):
+                names = [a.name for a in node.names] if isinstance(node, ast.Import) else [node.module or ""]
+                assert not {name.split(".")[0] for name in names} & CHILD_MODULES, (
+                    f"{path}:{node.lineno}: {names} starts child processes this gate does not inspect")
             if isinstance(node, ast.ImportFrom) and node.module in ("subprocess", "os", "pty"):
                 assert node.module == "os" and not any(OS_SPAWNERS.fullmatch(a.name) for a in node.names), path
             if isinstance(node, ast.Import):  # an alias would hide a call from this gate
                 assert all(a.asname is None for a in node.names if a.name in ("os", "subprocess")), path
+            # So would the module bound to another name (`sp = subprocess`) or handed to a call (getattr(os, ...)).
+            if isinstance(node, ast.Name) and node.id in ("os", "subprocess"):
+                assert isinstance(parents.get(node), ast.Attribute), f"{path}:{node.lineno}: bare {node.id}"
             if (isinstance(node, ast.Attribute) and node.attr == "stderr"
                     and not (isinstance(node.value, ast.Name) and node.value.id in ("sys", "subprocess"))):
-                stderr_reads.append((path.relative_to(ROOT).as_posix(), owner.get(node)))
+                stderr_reads.append((module, owner.get(node)))
+            # communicate() returns the captured stderr too.
+            if isinstance(node, ast.Attribute) and node.attr == "communicate" and (module, owner.get(node)) != SEAM:
+                stderr_reads.append((module, owner.get(node)))
             if not (isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)
                     and isinstance(node.func.value, ast.Name)):
                 continue
@@ -420,9 +500,12 @@ def test_ops_modules_never_let_a_child_process_inherit_stderr():
                 stderr = [k.value for k in node.keywords if k.arg == "stderr"]
                 assert len(stderr) == 1 and isinstance(stderr[0], ast.Attribute) and stderr[0].attr in (
                     "PIPE", "DEVNULL"), f"{path}:{node.lineno}: subprocess.{function} must set stderr=PIPE or DEVNULL"
+                # A captured stderr can still print (a CompletedProcess repr carries it), so only the seam captures.
+                assert stderr[0].attr == "DEVNULL" or (module, owner.get(node)) == SEAM, (
+                    f"{path}:{node.lineno}: only gcloud_json() may capture a child's stderr")
     assert spawns >= 2  # describe-service's gcloud seam and the readout's identity reads
     # A captured stderr is read in one place only, the seam that reduces it to a closed class.
-    assert stderr_reads == [("ops/describe/service.py", "gcloud_json")], stderr_reads
+    assert stderr_reads == [SEAM], stderr_reads
 
 
 def test_ops_modules_import_only_the_standard_library():
@@ -439,6 +522,7 @@ def test_ops_modules_import_only_the_standard_library():
                 continue
             for name in names:
                 assert name.split(".")[0] in sys.stdlib_module_names, f"{path}: {name} is not in the standard library"
+                assert name.split(".")[0] not in REMOVED_AFTER_311, f"{path}: {name} is gone from the runner's python3"
 
 
 def test_ops_python_passes_the_backend_lint_rule_set():

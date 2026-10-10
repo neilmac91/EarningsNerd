@@ -33,12 +33,15 @@ FRESHNESS_FLOOR_SECONDS = 300  # metric points appear up to 180 s after sampling
 QUEUE_NOTE = "Cloud Tasks points become visible up to 180 s after sampling; a window ending within that lag under-reports the tail."
 COUNTS_BASIS = "retained items only; a partial or unavailable state makes these counts a floor"
 # error.message is the one free-text field the receipt keeps, and it can name a URL, an email address or IAM
-# principal, a host or an IP address; each is replaced by a placeholder before the message is cut. A URL (any
-# scheme, principal:// included) and an email address or principal (any "@", or its encoding "%40") are withheld
-# as the whole whitespace-delimited token. A dotted name is a host when its last label is letters (any script) or
-# an IDN "xn--" label, so the rule fails closed on a suffix it does not know; the one exemption is an IAM
-# permission name of three ASCII letter labels ending in a PERMISSION_VERBS verb (monitoring.timeSeries.list),
-# which names no address. Four numeric labels are an IPv4 address.
+# principal, a host or an IP address; each is replaced by a placeholder before the message is cut. The rule is
+# shape-based. A URL (any scheme, principal:// included) and an email address or principal (any "@", or its
+# encoding "%40") are withheld as the whole whitespace-delimited token. A dotted name is a host when its last label
+# is two or more letters or an IDN "xn--" label, so the rule fails closed on a suffix it does not know; the one
+# exemption is an IAM permission name of three ASCII letter labels ending in a PERMISSION_VERBS verb
+# (monitoring.timeSeries.list), which names no address. Four numeric labels are an IPv4 address. Kept by shape: a
+# single-label host name (localhost), an IPv4 address glued to a letter, digit, "_" or "-" (ip-192.0.2.7) and an
+# IPv6 address after a "label:" prefix (ip:2001:db8::7). Not covered: a host name in a script written with
+# combining marks (Indic), whose marks \w does not match.
 _URL = re.compile(r"(?<!\S)\S*://\S*")
 _EMAIL = re.compile(r"(?<!\S)\S*(?:@|%40)\S*")
 _DOTTED = re.compile(r"(?<![\w-])[\w-]+(?:\.[\w-]+)+")
@@ -121,7 +124,9 @@ def _dotted(match):
 
 
 def redact_addresses(text):
-    """Replace every URL, email address or principal, host name and IP address in `text` with a placeholder."""
+    """Replace URLs, email addresses or principals, dotted host names and IP addresses in `text` with placeholders.
+
+    Shape-based: the comment above _URL lists what it keeps and does not cover."""
     text = _URL.sub("<url>", text)
     text = _EMAIL.sub("<email>", text)
     text = _DOTTED.sub(_dotted, text)

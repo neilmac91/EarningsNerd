@@ -36,8 +36,9 @@ and `test_ops_renderer_fails_closed_on_failed_describe` pins that a failed requi
 describe-service code (the revision, pregenerate-job, worker and worker-revision describes) stops the
 step with its class, and `test_ops_renderer_fails_closed_on_failed_service_describe` pins the same for
 the API service's own describe, `error (gcloud not executable)` included;
-`backend/tests/unit/test_ops_stderr_withheld.py` runs the real steps against a fake gcloud and pins that
-no gcloud stderr reaches the log; describe-jobs' shell reads stop the step without a class
+`backend/tests/unit/test_ops_stderr_withheld.py` runs the describe-service, describe-jobs and logs-probe
+steps against a fake gcloud and pins that no gcloud stderr reaches their log (its `INHERITED` map lists the
+ops.yml calls that still let it through); describe-jobs' shell reads stop the step without a class
 (`test_describe_jobs_shell_reads_each_job_into_job_dir` pins the message); `docs/DEPLOYMENT.md` states the
 rule beside the checklist. The first live run (ops run 38053869837,
 2026-10-10T12:57Z) read the policy and printed `PRIVATE`, so the UNVERIFIED path stayed unexercised in

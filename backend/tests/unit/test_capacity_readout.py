@@ -393,11 +393,13 @@ REDACTION_VECTORS = [
      "(v2.14.0 at 06:00:00Z, 1.5 s, field resource.labels.service_name).",
      "Grant a role with the serviceusage.services.use permission to consumer 'project_number:123456' "
      "(v2.14.0 at 06:00:00Z, 1.5 s, field resource.labels.service_name)."),
-    # A URL, the whole token, whatever its scheme (principal:// included).
+    # A URL, the whole token, whatever its scheme (principal://, principalSet:// and an upper-case one included).
     ("Enable it by visiting https://PRIVATE_URL_SENTINEL.example.invalid/apis?project=1 then retry.",
      "Enable it by visiting <url> then retry."),
     ("Subject principal://PRIVATE_POOL_SENTINEL.example.invalid/projects/1/locations/global/workloadIdentityPools/"
      "PRIVATE_POOL_SENTINEL/subject/PRIVATE_SUBJECT_SENTINEL is unknown.", "Subject <url> is unknown."),
+    ("Set principalSet://PRIVATE_SET_SENTINEL.example.invalid/x and "
+     "HTTPS://PRIVATE_UPPER_SENTINEL.example.invalid/y.", "Set <url> and <url>"),
     # An email address or principal, the whole token, also percent-encoded.
     ("Permission denied for all log views. This command is authenticated as PRIVATE_USER_SENTINEL@example.invalid.",
      "Permission denied for all log views. This command is authenticated as <email>"),
@@ -407,6 +409,7 @@ REDACTION_VECTORS = [
     ("Upstream PRIVATE_HOST_SENTINEL.example.invalid refused; retry PRIVATE_HOST_SENTINEL.example.invalid:8443/internal.",
      "Upstream <host> refused; retry <host>:8443/internal."),
     ("Member domain:PRIVATE_DOMAIN_SENTINEL.EXAMPLE.INVALID is not allowed.", "Member domain:<host> is not allowed."),
+    ("Upstream PRIVATE_HYPHEN-SENTINEL.example.invalid refused.", "Upstream <host> refused."),  # a label with a "-"
     # An IP address, with any port.
     ("Request from 192.0.2.7, 198.51.100.4:443, [2001:db8::7]:443 and 2001:db8:0:0:0:0:0:7 refused.",
      "Request from <host>, <host>:443, [<host>]:443 and <host> refused."),
@@ -437,10 +440,11 @@ def test_capacity_readout_redacts_addresses_from_error_messages(monkeypatch, mes
 
 
 def test_capacity_readout_host_rule_fails_closed_on_any_suffix():
-    """There is no suffix list: any letters-only last label (any script) or IDN label ends a host name, so a suffix
-    the rule has never seen is still withheld; a digit, an underscore or a single letter ends none."""
+    """There is no suffix list: any last label of two or more letters (two-letter country codes included) or an IDN
+    label ends a host name, so a suffix the rule has never seen is still withheld; a digit, an underscore or a single
+    letter ends none."""
     module = load_readout()
-    for label in ("invalid", "INVALID", "run", "online", "xn--p1ai", "XN--P1AI", "пример"):
+    for label in ("invalid", "INVALID", "run", "online", "io", "DE", "xn--p1ai", "XN--P1AI", "пример"):
         assert module._HOST_LABEL.fullmatch(label), label
     for label in ("0", "14", "1a", "service_name", "x", "type1"):
         assert not module._HOST_LABEL.fullmatch(label), label
