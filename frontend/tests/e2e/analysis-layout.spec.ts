@@ -270,6 +270,20 @@ async function assertTable(page: Page, expectedPeriods: string[], state: Analysi
   expect(geometry.role).toBe('region')
   expect(geometry.tabIndex).toBe(0)
   expect(geometry.label).toContain('Metrics by period')
+
+  // A correctly positioned sticky label can still leak scrolled text through a
+  // translucent hover background. Measure its actual painted background, not a class.
+  const rowHeader = page.locator(`${TABLE} tbody th[scope="row"]`).first()
+  await rowHeader.hover()
+  await page.evaluate(() => new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))))
+  await expect.poll(async () => rowHeader.evaluate(cell => {
+    const canvas = document.createElement('canvas')
+    canvas.width = canvas.height = 1
+    const context = canvas.getContext('2d')!
+    context.fillStyle = getComputedStyle(cell).backgroundColor
+    context.fillRect(0, 0, 1, 1)
+    return context.getImageData(0, 0, 1, 1).data[3]
+  }), { message: 'hovered sticky row labels stay opaque over scrolled financial values' }).toBe(255)
 }
 
 async function stableAnalysisOutsideTable(page: Page) {
