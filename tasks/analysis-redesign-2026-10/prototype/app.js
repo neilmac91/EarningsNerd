@@ -93,9 +93,13 @@
     return p[basis + '_reconciled'] === false ? 'review' : 'unknown'
   }
   const UNKNOWN_KEY = 'unknown:legacy_unknown'
+  // Calculated status survives a missing provenance record: older snapshots carry `derived` instead.
+  const isCalculated = (p) => !!p && (p.provenance ? p.provenance.method === 'calculated' : !!p.derived)
   function buildNotes(dataset) {
     const groups = new Map()
-    const key = (reasons) => (reasons && reasons.length ? reasons.join('+') : 'source_check_needed')
+    // A note is a distinct SET of reason codes: canonicalise before keying, whatever order the operands supplied.
+    const canon = (reasons) => [...new Set(reasons || [])].sort()
+    const key = (reasons) => { const r = canon(reasons); return r.length ? r.join('+') : 'source_check_needed' }
     const get = (k, kind) => { if (!groups.has(k)) groups.set(k, { key: k, kind, reasons: k.split('+'), values: [], comparisons: [], series: new Map() }); return groups.get(k) }
     const latest = dataset.periods[dataset.periods.length - 1].key
     for (const s of dataset.series) {
@@ -114,8 +118,8 @@
       for (const p of s.points) {
         if (p.value != null) continue
         const reasons = (p.provenance && p.provenance.reasons && p.provenance.reasons.length) ? p.provenance.reasons : ['not_in_dataset']
-        const g = get('unavailable:' + reasons.join('+'), 'unavailable')
-        g.reasons = reasons
+        const g = get('unavailable:' + canon(reasons).join('+'), 'unavailable')
+        g.reasons = canon(reasons)
         g.values.push({ series: s, point: p })
         if (!g.series.has(s.concept)) g.series.set(s.concept, { label: s.label, periods: [] })
         g.series.get(s.concept).periods.push(p.period)
@@ -138,7 +142,7 @@
     const list = [...groups.values()].sort((a, b) => ORDER[a.kind] - ORDER[b.kind])
     list.forEach((g, i) => { g.letter = LETTERS[i] || `n${i + 1}` })
     const byKey = Object.fromEntries(list.map((g) => [g.key, g]))
-    const noteFor = (p) => { if (!p) return null; if (p.value == null) { const r = (p.provenance && p.provenance.reasons && p.provenance.reasons.length) ? p.provenance.reasons : ['not_in_dataset']; return byKey['unavailable:' + r.join('+')] || null } const k = kindOf(p); return k === 'review' ? byKey[key(p.provenance && p.provenance.reasons)] || null : k === 'unknown' ? byKey[UNKNOWN_KEY] || null : null }
+    const noteFor = (p) => { if (!p) return null; if (p.value == null) { const r = (p.provenance && p.provenance.reasons && p.provenance.reasons.length) ? p.provenance.reasons : ['not_in_dataset']; return byKey['unavailable:' + canon(r).join('+')] || null } const k = kindOf(p); return k === 'review' ? byKey[key(p.provenance && p.provenance.reasons)] || null : k === 'unknown' ? byKey[UNKNOWN_KEY] || null : null }
     const noteForComparison = (p, basis) => { const k = comparisonKindOf(p, basis); if (!k) return null; if (k === 'unknown') return byKey[UNKNOWN_KEY] || null; const prov = p[basis + '_provenance']; return byKey[key(prov && prov.reasons)] || null }
     const reviewValues = list.filter((g) => g.kind === 'review').reduce((n, g) => n + g.values.length, 0)
     const reviewComparisons = list.filter((g) => g.kind === 'review').reduce((n, g) => n + g.comparisons.length, 0)
@@ -146,7 +150,7 @@
     const unknownComparisons = list.filter((g) => g.kind === 'unknown').reduce((n, g) => n + g.comparisons.length, 0)
     const unavailable = list.filter((g) => g.kind === 'unavailable').reduce((n, g) => n + g.values.length, 0)
     const total = dataset.series.reduce((n, s) => n + s.points.filter((p) => p.value != null).length, 0)
-    const calculated = dataset.series.reduce((n, s) => n + s.points.filter((p) => p.value != null && p.provenance && p.provenance.method === 'calculated').length, 0)
+    const calculated = dataset.series.reduce((n, s) => n + s.points.filter((p) => p.value != null && isCalculated(p)).length, 0)
     const passed = total - reviewValues - unknownValues
     return { list, noteFor, noteForComparison, reviewValues, reviewComparisons, unknownValues, unknownComparisons, unavailable, total, passed, calculated, latest }
   }
@@ -157,7 +161,7 @@
 
   // ---------- affix: † for calculated, a note letter for a concern ----------
   function affix(point, note, opts) {
-    const calc = point && point.provenance && point.provenance.method === 'calculated'
+    const calc = isCalculated(point)
     const parts = []
     if (calc && !(opts && opts.noDagger)) parts.push(el('span', { class: 'dag', 'aria-hidden': 'true' }, '†'))
     if (note) parts.push(el('sup', { class: 'note' + (note.kind === 'review' ? '' : ' ' + note.kind), 'aria-hidden': 'true' }, note.letter))
@@ -166,7 +170,7 @@
   }
   function nameFor(series, point, note, cmpNote) {
     const bits = [`${series.label}, ${periodLong(point.period)}: ${point.value == null ? 'unavailable' : fmtValue(point.value, series)}`]
-    if (point.provenance && point.provenance.method === 'calculated') bits.push('calculated')
+    if (isCalculated(point)) bits.push('calculated')
     if (note) bits.push(`data note ${note.letter}`)
     if (cmpNote) bits.push(`comparison carries data note ${cmpNote.letter}`)
     return bits.join(', ') + '. View source and calculation'
@@ -217,7 +221,7 @@
         el('dd', { class: 'value' }, btn),
         el('dd', { class: 'sub' },
           el('span', { class: 'period' }, periodLong(p.period), p.period !== notes.latest ? el('span', { class: 'late' }, ' · latest available') : null),
-          d.text ? el('span', { class: 'delta ' + t }, el('span', { class: 'sr-only' }, 'year over year '), 'YoY ', d.text, cmpNote ? el('sup', { class: 'affix' }, el('span', { class: 'note' }, cmpNote.letter)) : null) : el('span', { class: 'delta flat' }, 'YoY —'),
+          d.text ? el('span', { class: 'delta ' + t }, el('span', { class: 'sr-only' }, 'year over year '), 'YoY ', d.text, cmpNote ? el('sup', { class: 'affix', 'aria-hidden': 'true' }, el('span', { class: 'note' + (cmpNote.kind === 'review' ? '' : ' ' + cmpNote.kind) }, cmpNote.letter)) : null) : el('span', { class: 'delta flat' }, 'YoY —'),
         ),
       ))
     }
@@ -420,7 +424,7 @@
     const ol = el('ol')
     for (const c of cites) {
       const s = dataset.series.find((x) => x.concept === c.concept); const p = s && s.points.find((x) => x.period === c.period); const nt = p && notes.noteFor(p)
-      const li = el('li', { id: `src-${c.n}` }, el('span', { class: 'n' }, c.n), el('span', { class: 't' }, `${s ? s.label : c.concept} · ${periodLong(c.period)} · ${s && p ? fmtValue(p.value, s) : ''} (${fmtExact(c.value)}) `, p && p.provenance && p.provenance.method === 'calculated' ? el('span', { class: 'affix' }, el('span', { class: 'dag' }, '†')) : null, nt ? el('sup', { class: 'affix' }, el('span', { class: 'note' }, nt.letter)) : null, ' ', c.source_url ? el('a', { href: c.source_url, target: '_blank', rel: 'noopener noreferrer' }, 'Original filing') : el('span', { class: 'kind' }, 'calculated from filing figures')))
+      const li = el('li', { id: `src-${c.n}` }, el('span', { class: 'n' }, c.n), el('span', { class: 't' }, `${s ? s.label : c.concept} · ${periodLong(c.period)} · ${s && p ? fmtValue(p.value, s) : ''} (${fmtExact(c.value)}) `, p && isCalculated(p) ? el('span', { class: 'affix', 'aria-hidden': 'true' }, el('span', { class: 'dag' }, '†')) : null, nt ? el('sup', { class: 'affix', 'aria-hidden': 'true' }, el('span', { class: 'note' + (nt.kind === 'review' ? '' : ' ' + nt.kind) }, nt.letter)) : null, p && isCalculated(p) ? el('span', { class: 'sr-only' }, ', calculated') : null, nt ? el('span', { class: 'sr-only' }, `, data note ${nt.letter}`) : null, ' ', c.source_url ? el('a', { href: c.source_url, target: '_blank', rel: 'noopener noreferrer' }, 'Original filing') : el('span', { class: 'kind' }, 'calculated from filing figures')))
       ol.append(li)
     }
     sources.append(ol)
@@ -436,7 +440,7 @@
   }
   function renderMetrics(dataset, notes) {
     const periods = windowPeriods(dataset)
-    const hasDerived = dataset.series.some((s) => s.points.some((p) => p.provenance && p.provenance.method === 'calculated'))
+    const hasDerived = dataset.series.some((s) => s.points.some((p) => isCalculated(p)))
     const table = el('table', { class: 'metrics', style: `width: max(100%, calc(var(--metric-col) + ${periods.length} * var(--period-col)))` })
     table.append(el('caption', { class: 'sr-only' }, `Metrics by period, ${periods.length} of ${dataset.periods.length} quarters: value and quarter-over-quarter change per metric`))
     const cg = el('colgroup', null, el('col', { class: 'metric' }), ...periods.map(() => el('col', { class: 'period' })))
@@ -461,7 +465,7 @@
         const t = tone(s.tone, d.dir)
         const cell = el('div', { class: 'cell' },
           el('span', { class: 'v' }, el('button', { type: 'button', 'aria-label': nameFor(s, p, note, cmpNote), onclick: () => openEvidence(s, p, notes) }, fmtValue(p.value, s), affix(p, note))),
-          d.text ? el('span', { class: 'd ' + t }, el('span', { class: 'sr-only' }, 'change vs prior quarter ' ), d.text, cmpNote ? el('sup', { class: 'affix' }, el('span', { class: 'note' }, cmpNote.letter)) : null) : el('span', { class: 'd empty', 'aria-hidden': 'true' }, '\u00a0'),
+          d.text ? el('span', { class: 'd ' + t }, el('span', { class: 'sr-only' }, 'change vs prior quarter ' ), d.text, cmpNote ? el('sup', { class: 'affix', 'aria-hidden': 'true' }, el('span', { class: 'note' + (cmpNote.kind === 'review' ? '' : ' ' + cmpNote.kind) }, cmpNote.letter)) : null) : el('span', { class: 'd empty', 'aria-hidden': 'true' }, '\u00a0'),
         )
         td.append(cell)
         tr.append(td)
@@ -517,7 +521,7 @@
     lastOpener = document.activeElement
     const note = notes.noteFor(point)
     const prov = point.provenance || {}
-    const calc = prov.method === 'calculated'
+    const calc = isCalculated(point)
     $('#evidence-title').textContent = `${series.label} · ${periodLong(point.period)}`
     const body = $('#evidence-body')
     body.replaceChildren()
@@ -542,7 +546,7 @@
     if (prov.validation === 'passed') checks.append(el('div', { class: 'status passed' }, el('span', { class: 'mark' }, '✓'), 'Automated source checks passed'), el('p', { class: 'fine', style: 'margin:.25rem 0 0' }, 'The figure matches the company’s XBRL as filed. This is not an audit of the company’s accounts.'))
     else if (prov.validation === 'needs_review') checks.append(el('div', { class: 'status review' }, el('span', { class: 'mark' }, `Note ${note ? note.letter : ''}`), 'Needs review'), el('p', { style: 'margin:.25rem 0 0' }, (prov.reasons || []).map(reasonText).join(' ')))
     else if (prov.validation === 'unavailable') checks.append(el('div', { class: 'status review' }, el('span', { class: 'mark' }, `Note ${note ? note.letter : ''}`), 'Withheld'), el('p', { style: 'margin:.25rem 0 0' }, (prov.reasons || []).map(reasonText).join(' ')))
-    else checks.append(el('div', { class: 'status' }, 'No validation record'), el('p', { class: 'fine', style: 'margin:.25rem 0 0' }, 'No verification claim is made for this figure.'))
+    else checks.append(el('div', { class: 'status' }, note ? el('span', { class: 'mark' }, `Note ${note.letter}`) : null, 'No validation record'), el('p', { class: 'fine', style: 'margin:.25rem 0 0' }, 'No verification claim is made for this figure.'))
     body.append(checks)
     const sources = el('div', { class: 'block' }, el('h3', null, calc ? 'Inputs and source filings' : 'Source filing'))
     if (calc) {
