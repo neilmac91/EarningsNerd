@@ -1050,7 +1050,8 @@ def test_a_builtin_is_followed_through_any_name_or_import_that_binds_it():
     included) by a name that is the builtin where the binding stands (above ``eval = fake`` too; an import from
     ``builtins`` aside) or from the ``builtins`` module; and an attribute of that module, however imported. The
     reason names the builtin. Such a name is the builtin where its binding is seen: the module's where the code
-    reads the module's name, a class body's in that body (not in its methods), a def's in its own code. A
+    reads the module's name, a class body's in that body (a method's defaults included, not its body), a def's
+    in its own code. A
     parameter that holds it is not, nor a parameter named like a module alias or ``builtins``, an alias or a
     default of an ``eval`` the module or the class binds, an attribute of another module, a name assigned from
     an import that shadows the builtin, or one builtin imported under another's name (``len as eval``)."""
@@ -1073,11 +1074,13 @@ def test_a_builtin_is_followed_through_any_name_or_import_that_binds_it():
            "def defaulted(src, chosen=eval):\n    return chosen(src)\n\n\ndef keyword(src, *, chosen=exec):\n    chosen(src)\n\n\n"
            "first, second = eval, globals\n\n\ndef pair(name):\n    return second()[name]\n\n\n"
            "def unpack(src):\n    run_it, look = eval, globals\n    return run_it(src)\n\n\n"
-           "def called(src):\n    return (go := eval)(src)\n\n\nclass Inline:\n    result = (go := eval)('__name__')\n")
+           "def called(src):\n    return (go := eval)(src)\n\n\nclass Inline:\n    result = (go := eval)('__name__')\n\n\n"
+           "class Captured:\n    eval = eval\n\n    def run(self, src, chosen=eval):\n        return chosen(src)\n\n\n"
+           "class Swapped:\n    eval = staticmethod(len)\n\n    def run(self, src, chosen=eval):\n        return chosen(src)\n")
     namespace = "reads its module's namespace through {} (app.y, was app.x)"
     assert _relocated(old, "app/y.py", "app/x.py") == {
         **dict.fromkeys(("aliased", "local", "own", "dotted", "assigned", "mine", "Holder.result", "caught", "from_list",
-                         "defaulted", "unpack", "called", "Inline.result"), namespace.format("eval()")),
+                         "defaulted", "unpack", "called", "Inline.result", "Captured.run"), namespace.format("eval()")),
         **dict.fromkeys(("renamed", "annotated", "attempt", "keyword"), namespace.format("exec()")),
         **dict.fromkeys(("lookup", "pair"), namespace.format("globals()"))}
     flufl = _relocated(old, "app/y.py", "app/x.py", "from __future__ import barry_as_FLUFL\n\n" + old)
@@ -1094,9 +1097,11 @@ def test_a_builtin_is_followed_through_any_name_or_import_that_binds_it():
               "def kept(src):\n    held = eval\n    return held(src)\n\n\n"
               "class Kept:\n    run_here = eval\n    result = run_here('__name__')\n\n\n"
               "class Imports:\n    import builtins\n    result = builtins.eval('__name__')\n\n\n"
-              "def fallback(src, chosen=eval):\n    return chosen(src)\n")
-    assert _relocated(others, "app/y.py", "app/x.py", "from __future__ import barry_as_FLUFL\n\n" + others) == {
-        "Imports.result": namespace.format("eval()") + "; " + compiled.replace("compile()", "eval()")}
+              "def fallback(src, chosen=eval):\n    return chosen(src)\n\n\n"
+              "class Reimported:\n    from builtins import eval\n\n    def run(self, src, chosen=eval):\n        return chosen(src)\n\n"
+              "    def body(self, src):\n        held = eval\n        return held(src)\n")
+    assert _relocated(others, "app/y.py", "app/x.py", "from __future__ import barry_as_FLUFL\n\n" + others) == dict.fromkeys(
+        ("Imports.result", "Reimported.run"), namespace.format("eval()") + "; " + compiled.replace("compile()", "eval()"))
     renaming = ("from builtins import len as eval\nRESULT = eval('abc')\n\n\n"
                 "class Sized:\n    from builtins import len as exec\n    result = exec('abc')\n")
     assert _relocated(renaming, "app/y.py", "app/x.py") == {}

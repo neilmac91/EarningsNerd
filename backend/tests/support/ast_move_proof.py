@@ -118,32 +118,32 @@ below) and not made again, may leave the builtin, as does an import of another b
 (``len as eval``); and a name bound to a builtin, by an import from ``builtins`` under any name or a binding
 (an assignment, a display unpacked pairwise, ``:=`` or a parameter's default) from a name that is the builtin
 where that binding stands, is that builtin where the binding is seen (the module's where the code reads the
-module's name, a class body's in that body, a def's in its own code), as is an attribute of the ``builtins``
-module, and a call through ``:=`` calls what it binds; code whose text the move keeps calls what either
-module's bindings make of its names, so a builtin found on one side counts, an alias the other side imports
-included, and a changed symbol what both do); annotations postponed by ``from __future__ import annotations``
-in one module and evaluated in the other (a def's parameters and return, and an annotated assignment at module
-level or in a class body, not one in a def's body, which Python never evaluates; reported once, on the class,
-for a class's members), and the code it compiles with the builtin ``eval``, ``exec`` or ``compile``, which
-inherits the ``from __future__`` imports of its module that change how Python 3 compiles (``annotations`` and
-``barry_as_FLUFL``; the others are no-ops), whatever globals it runs in, unless ``compile`` is told
-``dont_inherit``, when those differ (``eval`` too: what it compiles holds no annotation, but passes
-``annotations`` on to the code it compiles and the lambdas it makes; fail closed: a code object compiled
-elsewhere, an AST, inherits nothing); and a module dunder it binds, at module level or through ``global``,
-which Python reads from the new module (a moved ``__getattr__`` no longer serves the façade). A block reads
-its header here, a ``globals()`` there too, and its own relative imports; its statements are symbols of their
-own. A name that both modules set outright above the reading symbol, at each of its definitions that reads it,
-and not deleted since (outside a block or a ``match`` case, not by a bare annotation or ``:=``, from a value
-that does not read the name as ``__doc__ +=`` does; a def above the binding may be called at import before
-it), or that an earlier member of its class sets so for a read in the class body itself (not a class defined
-twice, whose bodies each run in a namespace of their own), is compared as those symbols; one that only one
-module sets outright, or binds at all, is reported; otherwise the values the import system derives are
-compared. Names are derived from the path relative to ``backend/`` (the CLI normalises how ``--old`` and
-``--new`` are spelled), every directory a package, and without the old path (``compare()``'s ``old_path``,
-which the CLI always passes) every read but the docstring's, the annotations' and the ``__future__`` imports
-compiled code inherits (all three read from the source) is reported, as ``the old path is unknown`` or
-``was an unknown module``. A RELOCATED symbol still counts as identical, as a REORDERED one does, and
-``--allow`` takes its key.
+module's name, a class body's in that body, a method's defaults included, a def's in its own code), as is an
+attribute of the ``builtins`` module, and a call through ``:=`` calls what it binds; code whose text the move
+keeps calls what either module's bindings make of its names, so a builtin found on one side counts, an alias
+the other side imports included, and a changed symbol what both do); annotations postponed by
+``from __future__ import annotations`` in one module and evaluated in the other (a def's parameters and
+return, and an annotated assignment at module level or in a class body, not one in a def's body, which Python
+never evaluates; reported once, on the class, for a class's members), and the code it compiles with the
+builtin ``eval``, ``exec`` or ``compile``, which inherits the ``from __future__`` imports of its module that
+change how Python 3 compiles (``annotations`` and ``barry_as_FLUFL``; the others are no-ops), whatever globals
+it runs in, unless ``compile`` is told ``dont_inherit``, when those differ (``eval`` too: what it compiles
+holds no annotation, but passes ``annotations`` on to the code it compiles and the lambdas it makes; fail
+closed: a code object compiled elsewhere, an AST, inherits nothing); and a module dunder it binds, at module
+level or through ``global``, which Python reads from the new module (a moved ``__getattr__`` no longer serves
+the façade). A block reads its header here, a ``globals()`` there too, and its own relative imports; its
+statements are symbols of their own. A name that both modules set outright above the reading symbol, at each
+of its definitions that reads it, and not deleted since (outside a block or a ``match`` case, not by a bare
+annotation or ``:=``, from a value that does not read the name as ``__doc__ +=`` does; a def above the binding
+may be called at import before it), or that an earlier member of its class sets so for a read in the class
+body itself (not a class defined twice, whose bodies each run in a namespace of their own), is compared as
+those symbols; one that only one module sets outright, or binds at all, is reported; otherwise the values the
+import system derives are compared. Names are derived from the path relative to ``backend/`` (the CLI
+normalises how ``--old`` and ``--new`` are spelled), every directory a package, and without the old path
+(``compare()``'s ``old_path``, which the CLI always passes) every read but the docstring's, the annotations'
+and the ``__future__`` imports compiled code inherits (all three read from the source) is reported, as
+``the old path is unknown`` or ``was an unknown module``. A RELOCATED symbol still counts as identical, as a
+REORDERED one does, and ``--allow`` takes its key.
 
 Limits. Code that a new class runs through a BASE (an inherited metaclass, or the base's
 ``__init_subclass__``) is not visible in the AST, so a new class with bases is ADDED; read every ADDED class's
@@ -884,8 +884,11 @@ def _collect(source: str) -> tuple[dict[str, str], list[str], set[str], dict[str
                 return any(start < node.lineno and end is None for start, end in shadowing.get(name, ()))
             return _bound_at(shadowing, name, node.lineno)
 
+        # A binding the class body itself evaluates (a method's default, ``run=eval``) from a name the class binds
+        # to a builtin takes that builtin, as a call there does.
         own, own_modules = _builtin_names(
-            code_nodes, lambda name, at: name in reads - class_bound and not shadowed(name, at),
+            code_nodes, lambda name, at: (name in direct and name in class_aliases.get(name, set()))
+            or (name in reads - class_bound and not shadowed(name, at)),
             (modules & reads) | (class_modules & direct))
 
         def reached(call: ast.Call) -> set[str]:  # the builtins a call may be
