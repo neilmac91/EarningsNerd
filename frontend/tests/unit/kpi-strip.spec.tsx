@@ -152,11 +152,11 @@ describe('KpiStrip', () => {
     const cash = screen.getAllByRole('term').find((term) => term.textContent === 'Free cash flow')!.parentElement!
     expect(within(cash).getByText('Q1 2026', { exact: false })).toHaveTextContent('Q1 2026 · latest available')
     expect(within(cash).getByText(/YoY \+20\.0%/)).toBeInTheDocument()
-    expect(within(cash).getByRole('button', { name: /Free cash flow, 2026Q1:/ })).toBeInTheDocument()
+    expect(within(cash).getByRole('button', { name: /Free cash flow, Q1 2026:/ })).toBeInTheDocument()
     const revenue = screen.getAllByRole('term').find((term) => term.textContent === 'Revenue')!.parentElement!
     expect(within(revenue).getByText('Q2 2026')).toBeInTheDocument()
     expect(within(revenue).queryByText(/latest available/)).not.toBeInTheDocument()
-    expect(within(revenue).getByRole('button', { name: /Revenue, 2026Q2: 0,/ })).toBeInTheDocument()
+    expect(within(revenue).getByRole('button', { name: /Revenue, Q2 2026: \$0\.00,/ })).toBeInTheDocument()
     expect(screen.queryByText('Q3 2026')).not.toBeInTheDocument()
   })
 })

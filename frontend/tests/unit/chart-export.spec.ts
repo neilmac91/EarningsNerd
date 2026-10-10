@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import {
+  chartDataNotes,
   EXPORT_TEXT,
   HEADER_STAMP,
   exportFilename,
@@ -10,6 +11,8 @@ import {
   layoutExportNotes,
 } from '@/features/analysis/lib/chartExport'
 import type { AnalysisDataset } from '@/features/analysis/api/analysis-api'
+import { groupDataNotes } from '@/features/analysis/lib/dataNotes'
+import { FCF_DEFINITION } from '@/features/analysis/lib/provenance'
 import tailwindConfig from '../../tailwind.config.js'
 
 vi.mock('@/lib/downloadBlob', () => ({ downloadBlob: vi.fn() }))
@@ -56,6 +59,39 @@ describe('exportFilename', () => {
     expect(exportFilename(quarterly, `${quarterly.mode}-metrics`, 'xlsx')).toBe(
       'TST_2024Q3-2024Q4_quarterly-metrics.xlsx'
     )
+  })
+})
+
+describe('chartDataNotes', () => {
+  it('keeps report letters and reason sentences while limiting references to plotted values and YoY', () => {
+    const dataset = structuredClone(quarterly)
+    const series = dataset.series[0]
+    const passed = { version: 1 as const, method: 'reported' as const, validation: 'passed' as const, reasons: [], formula: null, inputs: [] }
+    series.points[0].provenance = passed
+    series.points[1].provenance = { ...passed, validation: 'needs_review', reasons: ['source_conflict'] }
+    series.points[1].yoy = 0.2
+    series.points[1].yoy_provenance = { ...passed, method: 'calculated', validation: 'needs_review', reasons: ['legacy_calculation'] }
+    series.points.push({ period: 'FY1999', value: 1, reconciled: false })
+    const grouped = groupDataNotes(dataset)
+    const panel = chartDataNotes(dataset, [series], grouped, true)
+    expect(panel.panelNotes.map((note) => note.letter)).toEqual(['a', 'b'])
+    expect(panel.exportNotes).toContain(`Note a: ${grouped.notes[0].message} Revenue, net (Q4 2024).`)
+    expect(panel.exportNotes).toContain(`Note b: ${grouped.notes[1].message} Revenue, net YoY (Q4 2024).`)
+    expect(panel.exportNotes.join(' ')).not.toContain('1999')
+    expect(chartDataNotes(dataset, [series], grouped, false).panelNotes.map((note) => note.letter)).toEqual(['a'])
+  })
+
+  it('preserves gaps, legacy calculation labels and the cash-flow definition in standalone exports', () => {
+    const dataset = structuredClone(quarterly)
+    const series = dataset.series[0]
+    series.concept = 'free_cash_flow'
+    series.label = 'Free cash flow'
+    series.points = [{ period: '2024Q4', value: 1_700_000_000, derived: true }]
+    const panel = chartDataNotes(dataset, [series], groupDataNotes(dataset), false)
+    expect(panel.unavailable).toEqual(['Free cash flow: unavailable for Q3 2024.'])
+    expect(panel.exportNotes).toContain('Includes figures calculated by EarningsNerd.')
+    expect(panel.exportNotes).toContain(FCF_DEFINITION)
+    expect(panel.exportNotes.some((note) => note.includes('Not available in this dataset.'))).toBe(true)
   })
 })
 

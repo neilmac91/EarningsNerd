@@ -8,9 +8,11 @@ import {
   Line,
   LineChart,
   ResponsiveContainer,
+  Rectangle,
   Tooltip,
   XAxis,
   YAxis,
+  type TooltipContentProps,
 } from 'recharts'
 
 import { ThemeContext } from '@/components/ThemeProvider'
@@ -20,6 +22,8 @@ import {
   Button,
   Card,
   ChartTooltip,
+  CHART_FONT,
+  chartTheme,
   barCursorProps,
   cx,
   gridProps,
@@ -32,7 +36,7 @@ import { ArrowsInSimpleIcon, ArrowsOutSimpleIcon, ImageSquareIcon } from '@/lib/
 import { usePrefersReducedMotion } from '@/hooks/usePrefersReducedMotion'
 import analytics from '@/lib/analytics'
 import { fmtCurrency, fmtPercent } from '@/lib/format'
-import { exportFilename, exportPanelPng } from '@/features/analysis/lib/chartExport'
+import { chartDataNotes, exportFilename, exportPanelPng } from '@/features/analysis/lib/chartExport'
 import {
   ANNUAL_AXIS_HEIGHT,
   PeriodAxisTick,
@@ -42,8 +46,8 @@ import {
 import type { AnalysisDataset, AnalysisSeries } from '@/features/analysis/api/analysis-api'
 import DataNotesLink from './DataNotesLink'
 import { useDataNotes } from './DataNotesContext'
-import type { DataNotesModel } from '@/features/analysis/lib/dataNotes'
-import { FCF_DEFINITION } from '@/features/analysis/lib/provenance'
+import type { DataNote, DataNotesModel } from '@/features/analysis/lib/dataNotes'
+import { formatAnalysisPeriod } from '@/features/analysis/lib/periodLabels'
 
 const bySeries = (dataset: AnalysisDataset): Record<string, AnalysisSeries> =>
   Object.fromEntries(dataset.series.map((s) => [s.concept, s]))
@@ -69,11 +73,11 @@ const ZERO_ANCHORED_DOMAIN: [(min: number) => number, (max: number) => number] =
 /** A panel's series legend: swatch + label per line, mirroring ChartTooltip's own swatch recipe
  *  (8×8 square, 2px radius) so a multi-line panel's series are identifiable without hovering.
  *  A single-series panel needs no legend — the title already names the one line. */
-function PanelLegend({ items }: { items: { label: string; color: string }[] }) {
-  if (items.length < 2) return null
+function PanelLegend({ items, notes }: { items: { label: string; color: string }[]; notes: DataNote[] }) {
+  if (items.length < 2 && notes.length === 0) return null
   return (
     <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1">
-      {items.map((item) => (
+      {(items.length >= 2 ? items : []).map((item) => (
         <span
           key={item.label}
           className="inline-flex items-center gap-1.5 text-xs text-text-secondary-light dark:text-text-secondary-dark"
@@ -86,7 +90,46 @@ function PanelLegend({ items }: { items: { label: string; color: string }[] }) {
           {item.label}
         </span>
       ))}
+      <DataNotesLink notes={notes} />
     </div>
+  )
+}
+
+interface NoteDotProps {
+  cx?: number
+  cy?: number
+  value?: number | null
+  payload?: { period?: string }
+}
+
+/** A concern is visible at its own plotted point; the legend link opens its full note. */
+function NoteDot({ cx, cy, value, color, dark, note }: NoteDotProps & { color: string; dark: boolean; note: DataNote | null }) {
+  if (!note || value == null || !Number.isFinite(cx) || !Number.isFinite(cy)) return <g />
+  return (
+    <g aria-label={`Data note ${note.letter}`}>
+      <circle cx={cx} cy={cy} r={4} fill={chartTheme(dark).tipBg} stroke={color} strokeWidth={2} />
+      <text x={cx} y={cy! - 9} textAnchor="middle" fill={chartTheme(dark).label} fontFamily={CHART_FONT} fontSize={11}>{note.letter}</text>
+    </g>
+  )
+}
+
+interface NoteBarProps {
+  x?: number
+  y?: number
+  width?: number
+  height?: number
+  payload?: { period?: string }
+}
+
+function NoteBar({ x, y, width, height, color, dark, note }: NoteBarProps & { color: string; dark: boolean; note: DataNote | null }) {
+  if (x == null || y == null || width == null || height == null) return <g />
+  return (
+    <g aria-label={note ? `Data note ${note.letter}` : undefined}>
+      <Rectangle x={x} y={y} width={width} height={height} radius={[4, 4, 0, 0]}
+        fill={note ? chartTheme(dark).tipBg : color} stroke={note ? color : undefined}
+        strokeWidth={note ? 2 : undefined} strokeDasharray={note ? '4 3' : undefined} />
+      {note && <text x={x + width / 2} y={Math.min(y, y + height) - 7} textAnchor="middle" fill={chartTheme(dark).label} fontFamily={CHART_FONT} fontSize={11}>{note.letter}</text>}
+    </g>
   )
 }
 
@@ -174,19 +217,15 @@ function PanelCard({
   const barSeries = panel.bar && series[panel.bar[0]] ? series[panel.bar[0]] : null
   if (!barSeries && lineEntries.length === 0) return null
 
-  const visiblePeriods = new Set(dataset.periods.map((period) => period.key))
   const plottedSeries = barSeries ? [barSeries] : lineEntries.map(({ concept }) => series[concept])
-  const noteReferences = new Map<string, string[]>()
-  for (const item of plottedSeries) {
-    for (const period of dataset.periods) {
-      const point = item.points.find((entry) => entry.period === period.key) ?? { period: period.key, value: null }
-      const valueNote = notes.noteFor(point)
-      if (valueNote) noteReferences.set(valueNote.key, [...(noteReferences.get(valueNote.key) ?? []), `${item.label}, ${point.period}`])
-      const growthNote = panel.growthLine && typeof point.yoy === 'number' ? notes.noteForComparison(point, 'yoy') : null
-      if (growthNote) noteReferences.set(growthNote.key, [...(noteReferences.get(growthNote.key) ?? []), `${item.label} YoY, ${point.period}`])
-    }
+  const { panelNotes, unavailable: unavailableNotes, exportNotes } = chartDataNotes(dataset, plottedSeries, notes, !!panel.growthLine)
+  const noteAt = (concept: string, period: string, growth = false) => {
+    const point = series[concept]?.points.find((entry) => entry.period === period)
+    return point ? growth ? notes.noteForComparison(point, 'yoy') : notes.noteFor(point) : null
   }
-  const panelNotes = notes.notes.filter((note) => noteReferences.has(note.key))
+  const renderDot = (concept: string, color: string, growth = false) => function ChartNoteDot(props: NoteDotProps) {
+    return <NoteDot {...props} color={color} dark={dark} note={noteAt(concept, props.payload?.period ?? '', growth)} />
+  }
 
   // One row per period; keys are concept names (+ `growth` for the yoy line).
   const data = dataset.periods.map((period) => {
@@ -216,6 +255,20 @@ function PanelCard({
     return panel.format(num)
   }
 
+  const renderTooltip = ({ active, label, payload }: TooltipContentProps) => (
+    <ChartTooltip
+      dark={dark}
+      active={active}
+      label={formatAnalysisPeriod(String(label ?? ''))}
+      payload={payload?.map((entry) => ({
+        name: String(entry.name ?? ''),
+        value: typeof entry.value === 'number' ? entry.value : String(entry.value ?? ''),
+        color: entry.color,
+      }))}
+      formatValue={formatTooltip}
+    />
+  )
+
   const legendItems = barSeries
     ? [
         { label: barSeries.label, color: BAR_COLOR },
@@ -228,21 +281,6 @@ function PanelCard({
         label: dualAxis ? `${label} (${right ? 'right' : 'left'})` : label,
         color,
       }))
-
-  // P1-8: which line series stop before the dataset's final period (a trailing null Recharts can't
-  // bridge with connectNulls). Derived from the plotted rows so it matches exactly what's drawn.
-  const unavailableNotes = plottedSeries.flatMap((item) => {
-    const missing = dataset.periods.filter((period) => item.points.find((point) => point.period === period.key)?.value == null)
-    return missing.length ? [`${item.label}: unavailable for ${missing.map((period) => period.key).join(', ')}.`] : []
-  })
-  const hasCalculated = plottedSeries.some((item) => item.points.some((point) => visiblePeriods.has(point.period) && point.provenance?.method === 'calculated'))
-  const reviewNotes = panelNotes.map((note) => `Note ${note.letter}: ${note.message} ${noteReferences.get(note.key)!.join('; ')}.`)
-  const exportNotes = [
-    ...reviewNotes,
-    ...(hasCalculated ? ['Includes figures calculated by EarningsNerd from reported inputs.'] : []),
-    ...unavailableNotes,
-    ...(plottedSeries.some((item) => item.concept === 'free_cash_flow') ? [FCF_DEFINITION] : []),
-  ]
 
   const exportPng = async () => {
     if (!plotRef.current) return
@@ -279,7 +317,7 @@ function PanelCard({
   }
 
   return (
-    <Card as="section" className={cx('p-5', expanded && 'md:col-span-2')}>
+    <Card as="section" className={cx('min-w-0 p-5', expanded && 'md:col-span-2')}>
       <div className="mb-3 flex items-start justify-between gap-2">
         <div className="min-w-0">
           {/* h2: the chart panels sit beside the narrative's and the metrics table's h2 sections
@@ -287,8 +325,7 @@ function PanelCard({
           <h2 className="text-sm font-semibold text-text-primary-light dark:text-text-primary-dark">
             {panel.title}
           </h2>
-          <PanelLegend items={legendItems} />
-          <DataNotesLink notes={panelNotes} />
+          <PanelLegend items={legendItems} notes={panelNotes} />
         </div>
         <div className="flex shrink-0 items-center gap-1.5">
           {exportEnabled && (
@@ -312,6 +349,7 @@ function PanelCard({
       <div className="overflow-x-auto rounded focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark" tabIndex={0} role="region" aria-label={`${panel.title} chart. Scroll horizontally to view all periods.`}>
       <div
         ref={plotRef}
+        data-analysis-chart={panel.title}
         // Keep every quarterly tick readable on touch screens. The minimum follows the number
         // of periods plus the two axes; only the chart viewport scrolls, never the page.
         style={dataset.mode === 'quarterly' ? { minWidth: dataset.periods.length * 28 + 144 } : undefined}
@@ -322,7 +360,7 @@ function PanelCard({
       >
         <ResponsiveContainer width="100%" height="100%">
           {barSeries ? (
-            <ComposedChart data={data} margin={{ top: 8, right: 16, left: 8, bottom: 0 }}>
+            <ComposedChart data={data} margin={{ top: 24, right: 16, left: 8, bottom: 0 }}>
               <CartesianGrid {...gridProps(dark)} />
               <XAxis
                 dataKey="period"
@@ -345,7 +383,7 @@ function PanelCard({
               />
               <Tooltip
                 cursor={barCursorProps(dark)}
-                content={<ChartTooltip dark={dark} formatValue={formatTooltip} />}
+                content={renderTooltip}
               />
               <Bar
                 yAxisId="value"
@@ -354,6 +392,12 @@ function PanelCard({
                 fill={BAR_COLOR}
                 radius={[4, 4, 0, 0]}
                 maxBarSize={44}
+                isAnimationActive={!reduced}
+                animationDuration={lineProps(reduced).animationDuration}
+                shape={(props: unknown) => {
+                  const bar = props as NoteBarProps
+                  return <NoteBar {...bar} color={BAR_COLOR} dark={dark} note={noteAt(barSeries.concept, bar.payload?.period ?? '')} />
+                }}
               />
               {panel.growthLine && (
                 <Line
@@ -362,13 +406,14 @@ function PanelCard({
                   name={GROWTH_LINE_LABEL}
                   stroke={GROWTH_LINE_COLOR}
                   {...lineProps(reduced)}
+                  dot={renderDot(barSeries.concept, GROWTH_LINE_COLOR, true)}
                   connectNulls={false}
                 />
               )}
             </ComposedChart>
           ) : (
             // Dual-axis panels reserve top room for the right axis's head-tag (the named scale).
-            <LineChart data={data} margin={{ top: dualAxis ? 24 : 8, right: 16, left: 8, bottom: 0 }}>
+            <LineChart data={data} margin={{ top: 24, right: 16, left: 8, bottom: 0 }}>
               <CartesianGrid {...gridProps(dark)} />
               <XAxis
                 dataKey="period"
@@ -405,7 +450,7 @@ function PanelCard({
                   label={<AxisSeriesTag color={rightEntry.color} label={rightEntry.label} dark={dark} />}
                 />
               )}
-              <Tooltip content={<ChartTooltip dark={dark} formatValue={formatTooltip} />} />
+              <Tooltip content={renderTooltip} />
               {lineEntries.map(({ concept, label, color, right }) => (
                 <Line
                   key={concept}
@@ -414,6 +459,7 @@ function PanelCard({
                   name={label}
                   stroke={color}
                   {...lineProps(reduced)}
+                  dot={renderDot(concept, color)}
                   connectNulls={false}
                 />
               ))}

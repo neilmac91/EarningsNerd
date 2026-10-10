@@ -1,5 +1,46 @@
-import type { AnalysisDataset } from '@/features/analysis/api/analysis-api'
+import type { AnalysisDataset, AnalysisSeries } from '@/features/analysis/api/analysis-api'
 import { downloadBlob } from '@/lib/downloadBlob'
+import type { DataNotesModel } from './dataNotes'
+import { formatAnalysisPeriod } from './periodLabels'
+import { FCF_DEFINITION } from './provenance'
+
+/** Notes for the plotted series only, with the report's stable letters and reason sentences. */
+export function chartDataNotes(dataset: AnalysisDataset, plottedSeries: AnalysisSeries[], notes: DataNotesModel, includeYoY: boolean) {
+  const references = new Map<string, Map<string, string[]>>()
+  const addReference = (key: string, label: string, period: string) => {
+    const metrics = references.get(key) ?? new Map<string, string[]>()
+    metrics.set(label, [...(metrics.get(label) ?? []), formatAnalysisPeriod(period)])
+    references.set(key, metrics)
+  }
+  const unavailable: string[] = []
+  let hasCalculated = false
+  for (const series of plottedSeries) {
+    const missing: string[] = []
+    for (const period of dataset.periods) {
+      const point = series.points.find((entry) => entry.period === period.key) ?? { period: period.key, value: null }
+      const note = notes.noteFor(point)
+      if (note) addReference(note.key, series.label, period.key)
+      if (point.value == null) missing.push(formatAnalysisPeriod(period.key))
+      else if (point.provenance ? point.provenance.method === 'calculated' : point.derived) hasCalculated = true
+      if (includeYoY && typeof point.yoy === 'number') {
+        const comparison = notes.noteForComparison(point, 'yoy')
+        if (comparison) addReference(comparison.key, `${series.label} YoY`, period.key)
+      }
+    }
+    if (missing.length) unavailable.push(`${series.label}: unavailable for ${missing.join(', ')}.`)
+  }
+  const panelNotes = notes.notes.filter((note) => references.has(note.key))
+  return {
+    panelNotes,
+    unavailable,
+    exportNotes: [
+      ...panelNotes.map((note) => `Note ${note.letter}: ${note.message} ${[...references.get(note.key)!].map(([label, periods]) => `${label} (${periods.join(', ')})`).join('; ')}.`),
+      ...unavailable,
+      ...(hasCalculated ? ['Includes figures calculated by EarningsNerd.'] : []),
+      ...(plottedSeries.some((series) => series.concept === 'free_cash_flow') ? [FCF_DEFINITION] : []),
+    ],
+  }
+}
 
 /**
  * Dependency-free chart PNG export (audit enhancement 2): SVG serialization → canvas
